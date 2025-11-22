@@ -37,7 +37,10 @@ bot.on("message", async (msg) => {
   try {
     // Если OpenAI не настроен — fallback
     if (!process.env.OPENAI_API_KEY) {
-      bot.sendMessage(chatId, "Привет! 🐉 Бот Королевства GARYA работает на Render!");
+      await bot.sendMessage(
+        chatId,
+        "Привет! 🐉 Бот Королевства GARYA работает на Render!"
+      );
       return;
     }
 
@@ -58,10 +61,13 @@ bot.on("message", async (msg) => {
 
     const reply = completion.choices[0].message.content;
 
-    bot.sendMessage(chatId, reply);
+    await bot.sendMessage(chatId, reply);
   } catch (err) {
     console.error("OpenAI error:", err);
-    bot.sendMessage(chatId, "🐉 Бот GARYA онлайн, но ИИ сейчас недоступен.");
+    await bot.sendMessage(
+      chatId,
+      "🐉 Бот GARYA онлайн, но ИИ сейчас недоступен."
+    );
   }
 });
 

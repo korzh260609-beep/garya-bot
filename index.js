@@ -1,12 +1,13 @@
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
+import OpenAI from "openai";
 
 // === Express сервер для Render ===
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get("/", (req, res) => {
-  res.send("GARYA Bot is alive! ⚡");
+  res.send("GARYA AI Bot is alive! ⚡");
 });
 
 app.listen(PORT, () => {
@@ -23,9 +24,45 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 
-bot.on("message", (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, "Привет! 🐉 Бот Королевства GARYA работает на Render!");
+// === OpenAI ===
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-console.log("🤖 Telegram Bot is running...");
+// === Обработка сообщений ===
+bot.on("message", async (msg) => {
+  const chatId = msg.chat.id;
+  const userText = msg.text || "";
+
+  try {
+    // Если OpenAI не настроен — fallback
+    if (!process.env.OPENAI_API_KEY) {
+      bot.sendMessage(chatId, "Привет! 🐉 Бот Королевства GARYA работает на Render!");
+      return;
+    }
+
+    // Отправляем запрос в OpenAI
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Ты — Советник Королевства GARYA. Говори дружелюбно и коротко.",
+        },
+        {
+          role: "user",
+          content: userText,
+        },
+      ],
+    });
+
+    const reply = completion.choices[0].message.content;
+
+    bot.sendMessage(chatId, reply);
+  } catch (err) {
+    console.error("OpenAI error:", err);
+    bot.sendMessage(chatId, "🐉 Бот GARYA онлайн, но ИИ сейчас недоступен.");
+  }
+});
+
+console.log("🤖 AI Bot is running...");

@@ -99,8 +99,16 @@ bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const userText = msg.text.trim();
 
+  // Логируем всё, что приходит (для отладки)
+  console.log("💬 New message:", {
+    chatId,
+    raw: msg.text,
+    trimmed: userText,
+  });
+
   // Отладочная команда: показать память
-  if (userText === "/memory") {
+  // Ловим НЕ только точное "/memory", но и "/memory@bot", "/memory " и т.п.
+  if (userText.toLowerCase().startsWith("/memory")) {
     try {
       const history = await loadRecentMessages(chatId, 20);
       if (history.length === 0) {

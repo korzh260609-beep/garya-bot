@@ -31,8 +31,17 @@ app.get("/", (req, res) => {
 
 // маршрут, на который Telegram будет присылать апдейты
 app.post(`/webhook/${token}`, (req, res) => {
-  bot.processUpdate(req.body);
+  // Сразу говорим Telegram: "всё ок"
   res.sendStatus(200);
+
+  // Логируем, что вообще пришло
+  console.log("📩 Incoming webhook update:", JSON.stringify(req.body));
+
+  try {
+    bot.processUpdate(req.body);
+  } catch (err) {
+    console.error("❌ Error in bot.processUpdate:", err);
+  }
 });
 
 app.listen(PORT, () => {

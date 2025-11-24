@@ -1,6 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
 import OpenAI from "openai";
+import pool from "./db.js";
 
 // === Express сервер для Render ===
 const app = express();

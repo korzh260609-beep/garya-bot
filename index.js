@@ -9,7 +9,7 @@ const { Pool } = pkg;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false, // нужно для Render PostgreSQL
+    rejectUnauthorized: false, // для Render PostgreSQL
   },
 });
 
@@ -33,7 +33,7 @@ async function initDb() {
 
 initDb();
 
-// Сохранение одного сообщения в память
+// === Функции работы с памятью ===
 async function saveMessage(chatId, role, content) {
   try {
     await pool.query(
@@ -45,8 +45,7 @@ async function saveMessage(chatId, role, content) {
   }
 }
 
-// Загрузка последних N сообщений из памяти
-async function loadRecentMessages(chatId, limit = 10) {
+async function loadRecentMessages(chatId, limit = 20) {
   try {
     const res = await pool.query(
       `
@@ -59,7 +58,7 @@ async function loadRecentMessages(chatId, limit = 10) {
       [chatId, limit]
     );
 
-    return res.rows; // [{role, content}, ...]
+    return res.rows; // [{ role, content }, ...]
   } catch (err) {
     console.error("❌ DB load error:", err);
     return [];
@@ -95,11 +94,37 @@ const client = new OpenAI({
 
 // === Обработка сообщений ===
 bot.on("message", async (msg) => {
-  // Игнорируем всё, что не текст
-  if (!msg.text) return;
+  if (!msg.text) return; // работаем только с текстом
 
   const chatId = msg.chat.id;
-  const userText = msg.text;
+  const userText = msg.text.trim();
+
+  // Отладочная команда: показать память
+  if (userText === "/memory") {
+    try {
+      const history = await loadRecentMessages(chatId, 20);
+      if (history.length === 0) {
+        await bot.sendMessage(chatId, "Память пуста для этого чата.");
+        return;
+      }
+
+      const formatted = history
+        .map(
+          (row, idx) =>
+            `${idx + 1}. [${row.role}] ${row.content.slice(0, 120)}`
+        )
+        .join("\n\n");
+
+      await bot.sendMessage(
+        chatId,
+        "🧠 Последние записи памяти:\n\n" + formatted
+      );
+    } catch (err) {
+      console.error("❌ /memory error:", err);
+      await bot.sendMessage(chatId, "Ошибка при чтении памяти.");
+    }
+    return;
+  }
 
   try {
     // Если OpenAI не настроен — простой ответ без ИИ
@@ -114,24 +139,23 @@ bot.on("message", async (msg) => {
     // Сохраняем сообщение пользователя
     await saveMessage(chatId, "user", userText);
 
-    // Загружаем последние сообщения из памяти (контекст)
-    const history = await loadRecentMessages(chatId, 10);
+    // Загружаем историю (уже включая свежий текст)
+    const history = await loadRecentMessages(chatId, 20);
 
     // Формируем контекст для модели
     const messages = [
       {
         role: "system",
         content:
-          "Ты — Советник Королевства GARYA. Отвечай дружелюбно, по делу, критично, помни, что разговариваешь с Монархом Гариком.",
+          "Ты — Советник Королевства GARYA. Разговариваешь с монархом по имени Гарик (GARY). " +
+          "Если собеседник говорит 'запомни' или сообщает факты о себе (имя, роль, интересы), " +
+          "ты обязан использовать эти факты в следующих ответах и считать их актуальными, " +
+          "пока он явно не скажет, что они изменились. Отвечай дружелюбно, по делу и критично.",
       },
       ...history.map((row) => ({
         role: row.role,
         content: row.content,
       })),
-      {
-        role: "user",
-        content: userText,
-      },
     ];
 
     // Запрос в OpenAI

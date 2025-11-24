@@ -1,7 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
 import OpenAI from "openai";
-import pkg from "pg"; // <-- PostgreSQL
+import pkg from "pg"; // PostgreSQL
 
 const { Pool } = pkg;
 
@@ -9,7 +9,7 @@ const { Pool } = pkg;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false, // для Render PostgreSQL
+    rejectUnauthorized: false, // нужно для Render PostgreSQL
   },
 });
 
@@ -32,6 +32,39 @@ async function initDb() {
 }
 
 initDb();
+
+// Сохранение одного сообщения в память
+async function saveMessage(chatId, role, content) {
+  try {
+    await pool.query(
+      "INSERT INTO chat_memory (chat_id, role, content) VALUES ($1, $2, $3)",
+      [chatId, role, content]
+    );
+  } catch (err) {
+    console.error("❌ DB save error:", err);
+  }
+}
+
+// Загрузка последних N сообщений из памяти
+async function loadRecentMessages(chatId, limit = 10) {
+  try {
+    const res = await pool.query(
+      `
+      SELECT role, content
+      FROM chat_memory
+      WHERE chat_id = $1
+      ORDER BY created_at ASC
+      LIMIT $2
+    `,
+      [chatId, limit]
+    );
+
+    return res.rows; // [{role, content}, ...]
+  } catch (err) {
+    console.error("❌ DB load error:", err);
+    return [];
+  }
+}
 
 // === Express сервер для Render ===
 const app = express();
@@ -62,46 +95,63 @@ const client = new OpenAI({
 
 // === Обработка сообщений ===
 bot.on("message", async (msg) => {
+  // Игнорируем всё, что не текст
+  if (!msg.text) return;
+
   const chatId = msg.chat.id;
-  const userText = msg.text || "";
+  const userText = msg.text;
 
   try {
-    // Если OpenAI не настроен — fallback
+    // Если OpenAI не настроен — простой ответ без ИИ
     if (!process.env.OPENAI_API_KEY) {
       await bot.sendMessage(
         chatId,
-        "Привет! 🐉 Бот Королевства GARYA работает на Render!"
+        "Привет! 🐉 Бот Королевства GARYA работает на Render, но ИИ сейчас не подключён."
       );
       return;
     }
 
-    // Пока память НЕ используем — только проверяем, что всё работает.
-    // Позже добавим чтение/запись в chat_memory.
+    // Сохраняем сообщение пользователя
+    await saveMessage(chatId, "user", userText);
 
-    // Отправляем запрос в OpenAI
+    // Загружаем последние сообщения из памяти (контекст)
+    const history = await loadRecentMessages(chatId, 10);
+
+    // Формируем контекст для модели
+    const messages = [
+      {
+        role: "system",
+        content:
+          "Ты — Советник Королевства GARYA. Отвечай дружелюбно, по делу, критично, помни, что разговариваешь с Монархом Гариком.",
+      },
+      ...history.map((row) => ({
+        role: row.role,
+        content: row.content,
+      })),
+      {
+        role: "user",
+        content: userText,
+      },
+    ];
+
+    // Запрос в OpenAI
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "Ты — Советник Королевства GARYA. Говори дружелюбно и коротко.",
-        },
-        {
-          role: "user",
-          content: userText,
-        },
-      ],
+      messages,
     });
 
     const reply = completion.choices[0].message.content;
 
+    // Сохраняем ответ ассистента в память
+    await saveMessage(chatId, "assistant", reply);
+
+    // Отправляем ответ в Telegram
     await bot.sendMessage(chatId, reply);
   } catch (err) {
     console.error("OpenAI error:", err);
     await bot.sendMessage(
       chatId,
-      "🐉 Бот GARYA онлайн, но ИИ сейчас недоступен."
+      "🐉 Бот GARYA онлайн, но ИИ сейчас временно недоступен."
     );
   }
 });

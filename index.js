@@ -23,7 +23,7 @@ if (!token) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
+const bot = new TelegramBot(token);
 
 // === OpenAI ===
 const client = new OpenAI({

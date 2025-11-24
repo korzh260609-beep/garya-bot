@@ -69,15 +69,13 @@ async function loadRecentMessages(chatId, limit = 20) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json()); // нужно для приёма JSON от Telegram
+
 app.get("/", (req, res) => {
   res.send("GARYA AI Bot is alive! ⚡");
 });
 
-app.listen(PORT, () => {
-  console.log("🌐 Web server started on port: " + PORT);
-});
-
-// === Telegram Bot ===
+// === Telegram Bot (webhook, без polling) ===
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
 if (!token) {
@@ -85,7 +83,14 @@ if (!token) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(token, { polling: true });
+// ВАЖНО: создаём бота БЕЗ polling
+const bot = new TelegramBot(token);
+
+// Маршрут для вебхука: https://garya-bot.onrender.com/webhook/<TOKEN>
+app.post(`/webhook/${token}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
 
 // === OpenAI ===
 const client = new OpenAI({
@@ -188,4 +193,7 @@ bot.on("message", async (msg) => {
   }
 });
 
-console.log("🤖 AI Bot is running...");
+app.listen(PORT, () => {
+  console.log("🌐 Web server started on port: " + PORT);
+  console.log("🤖 AI Bot is running (webhook mode)...");
+});

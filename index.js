@@ -1,19 +1,14 @@
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
 import OpenAI from "openai";
-import pool from "./db.js";
+import pool from "./db.js"; // пока не используем, но подключен для памяти
 
 // === Express сервер для Render ===
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.get("/", (req, res) => {
-  res.send("GARYA AI Bot is alive! ⚡");
-});
-
-app.listen(PORT, () => {
-  console.log("🌐 Web server started on port: " + PORT);
-});
+// чтобы Express умел читать JSON из вебхука Telegram
+app.use(express.json());
 
 // === Telegram Bot ===
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -24,6 +19,25 @@ if (!token) {
 }
 
 const bot = new TelegramBot(token);
+
+// === Telegram Webhook ===
+const WEBHOOK_URL = `https://garya-bot.onrender.com/webhook/${token}`;
+bot.setWebHook(WEBHOOK_URL);
+
+// простой маршрут для проверки Render
+app.get("/", (req, res) => {
+  res.send("GARYA AI Bot is alive! ⚡");
+});
+
+// маршрут, на который Telegram будет присылать апдейты
+app.post(`/webhook/${token}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+app.listen(PORT, () => {
+  console.log("🌐 Web server started on port: " + PORT);
+});
 
 // === OpenAI ===
 const client = new OpenAI({
@@ -36,7 +50,7 @@ bot.on("message", async (msg) => {
   const userText = msg.text || "";
 
   try {
-    // Если OpenAI не настроен — fallback
+    // Если OpenAI не настроен — простой ответ
     if (!process.env.OPENAI_API_KEY) {
       await bot.sendMessage(
         chatId,
@@ -45,13 +59,13 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // Отправляем запрос в OpenAI
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "Ты — Советник Королевства GARYA. Говори дружелюбно и коротко.",
+          content:
+            "Ты — Советник Королевства GARYA. Говори дружелюбно и коротко.",
         },
         {
           role: "user",

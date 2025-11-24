@@ -1,6 +1,37 @@
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
 import OpenAI from "openai";
+import pkg from "pg"; // <-- PostgreSQL
+
+const { Pool } = pkg;
+
+// === PostgreSQL: подключение и инициализация ===
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false, // для Render PostgreSQL
+  },
+});
+
+async function initDb() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_memory (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT NOT NULL,
+        role TEXT NOT NULL,          -- 'user' или 'assistant'
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    console.log("🗄️  Database ready: chat_memory table is OK");
+  } catch (err) {
+    console.error("❌ DB init error:", err);
+  }
+}
+
+initDb();
 
 // === Express сервер для Render ===
 const app = express();
@@ -44,13 +75,17 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    // Пока память НЕ используем — только проверяем, что всё работает.
+    // Позже добавим чтение/запись в chat_memory.
+
     // Отправляем запрос в OpenAI
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "Ты — Советник Королевства GARYA. Говори дружелюбно и коротко.",
+          content:
+            "Ты — Советник Королевства GARYA. Говори дружелюбно и коротко.",
         },
         {
           role: "user",

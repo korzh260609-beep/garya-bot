@@ -552,7 +552,7 @@ bot.on("message", async (msg) => {
     }
 
     // 5) история + системный промпт
-    const history = await getChatHistory(chatIdStr, 20);
+    const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
 
     const messages = [
       {

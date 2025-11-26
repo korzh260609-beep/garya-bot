@@ -304,17 +304,18 @@ bot.on("message", async (msg) => {
     // 1) профиль
     await ensureUserProfile(msg);
 
-    // 2) Определяем, есть ли команда
+    // 2) Определяем, есть ли команда (простая схема)
     let command = null;
     let commandArgs = "";
+
     if (Array.isArray(msg.entities)) {
       const cmdEntity = msg.entities.find(
         (e) => e.type === "bot_command" && e.offset === 0
       );
       if (cmdEntity) {
-        const rawCmd = userText.slice(0, cmdEntity.length); // например "/btc_test_task@Bot"
-        command = rawCmd.split("@")[0]; // убираем @имябота
-        commandArgs = userText.slice(cmdEntity.length).trim();
+        const [firstPart, ...restParts] = userText.split(" ");
+        command = firstPart.split("@")[0]; // /btc_test_task или /newtask
+        commandArgs = restParts.join(" ").trim(); // всё после пробела
       }
     }
 

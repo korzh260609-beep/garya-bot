@@ -304,214 +304,228 @@ bot.on("message", async (msg) => {
     // 1) профиль
     await ensureUserProfile(msg);
 
-    // 2) КОМАНДЫ
-    // 2.1) /profile, /whoami, /me
-    if (
-      userText === "/profile" ||
-      userText === "/whoami" ||
-      userText === "/me"
-    ) {
-      try {
-        const res = await pool.query(
-          "SELECT chat_id, name, role, language, created_at FROM users WHERE chat_id = $1",
-          [chatIdStr]
-        );
-
-        if (res.rows.length === 0) {
-          await bot.sendMessage(
-            chatId,
-            "Пока что у меня нет данных о вашем профиле в системе."
-          );
-        } else {
-          const u = res.rows[0];
-          const text =
-            `🧾 Профиль пользователя\n` +
-            `ID чата: \`${u.chat_id}\`\n` +
-            `Имя: ${u.name || "—"}\n` +
-            `Роль: ${u.role || "—"}\n` +
-            `Язык: ${u.language || "—"}\n` +
-            `Создан: ${u.created_at?.toISOString?.() || "—"}`;
-
-          await bot.sendMessage(chatId, text, { parse_mode: "Markdown" });
-        }
-      } catch (e) {
-        console.error("❌ Error in /profile:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось получить профиль из базы данных."
-        );
+    // 2) Определяем, есть ли команда
+    let command = null;
+    let commandArgs = "";
+    if (Array.isArray(msg.entities)) {
+      const cmdEntity = msg.entities.find(
+        (e) => e.type === "bot_command" && e.offset === 0
+      );
+      if (cmdEntity) {
+        const rawCmd = userText.slice(0, cmdEntity.length); // например "/btc_test_task@Bot"
+        command = rawCmd.split("@")[0]; // убираем @имябота
+        commandArgs = userText.slice(cmdEntity.length).trim();
       }
-      return;
     }
 
-    // 2.2) /addtask_test — создаём демо-задачу
-    if (userText === "/addtask_test") {
-      try {
-        const taskId = await createDemoTask(chatIdStr);
-        await bot.sendMessage(
-          chatId,
-          `✅ Демо-задача создана в Task Engine.\nID задачи: ${taskId}`
-        );
-      } catch (e) {
-        console.error("❌ Error in /addtask_test:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось создать демо-задачу в Task Engine."
-        );
-      }
-      return;
-    }
+    // 3) Если это команда — обрабатываем и не идём в OpenAI
+    if (command) {
+      switch (command) {
+        case "/profile":
+        case "/whoami":
+        case "/me": {
+          try {
+            const res = await pool.query(
+              "SELECT chat_id, name, role, language, created_at FROM users WHERE chat_id = $1",
+              [chatIdStr]
+            );
 
-    // 2.3) /btc_test_task — создаём тестовую задачу price_monitor для BTC
-    if (userText.startsWith("/btc_test_task")) {
-      try {
-        const task = await createTestPriceMonitorTask(chatIdStr);
-        await bot.sendMessage(
-          chatId,
-          `🆕 Тестовая задача мониторинга BTC создана!\n\n` +
-            `#${task.id} — price_monitor\n` +
-            `Статус: active\n` +
-            `Описание: BTC monitor test (раз в час)\n` +
-            `Расписание (cron): 0 * * * *\n` +
-            `Создана: ${task.created_at?.toISOString?.() || "—"}`
-        );
-      } catch (e) {
-        console.error("❌ Error in /btc_test_task:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось создать тестовую задачу мониторинга BTC."
-        );
-      }
-      return;
-    }
+            if (res.rows.length === 0) {
+              await bot.sendMessage(
+                chatId,
+                "Пока что у меня нет данных о вашем профиле в системе."
+              );
+            } else {
+              const u = res.rows[0];
+              const text =
+                `🧾 Профиль пользователя\n` +
+                `ID чата: \`${u.chat_id}\`\n` +
+                `Имя: ${u.name || "—"}\n` +
+                `Роль: ${u.role || "—"}\n` +
+                `Язык: ${u.language || "—"}\n` +
+                `Создан: ${u.created_at?.toISOString?.() || "—"}`;
 
-    // 2.4) /newtask <текст> — создаём обычную задачу
-    if (userText.startsWith("/newtask")) {
-      const match = userText.match(/^\/newtask\s+(.+)/);
-
-      if (!match) {
-        await bot.sendMessage(
-          chatId,
-          "Использование:\n`/newtask описание задачи`\n\nНапример:\n`/newtask следи за ценой BTC раз в час`",
-          { parse_mode: "Markdown" }
-        );
-        return;
-      }
-
-      const taskText = match[1].trim();
-
-      try {
-        const task = await createManualTask(chatIdStr, taskText);
-
-        await bot.sendMessage(
-          chatId,
-          `🆕 Задача создана!\n\n` +
-            `#${task.id} — manual\n` +
-            `Статус: active\n` +
-            `Описание: ${taskText}\n` +
-            `Создана: ${task.created_at?.toISOString?.() || "—"}`
-        );
-      } catch (e) {
-        console.error("❌ Error in /newtask:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось создать задачу в Task Engine."
-        );
-      }
-      return;
-    }
-
-    // 2.5) /run <id> — запустить задачу через ИИ-исполнителя
-    if (userText.startsWith("/run")) {
-      const match = userText.match(/^\/run\s+(\d+)/);
-
-      if (!match) {
-        await bot.sendMessage(
-          chatId,
-          "Использование:\n`/run ID_задачи`\n\nНапример:\n`/run 2`",
-          { parse_mode: "Markdown" }
-        );
-        return;
-      }
-
-      const taskId = parseInt(match[1], 10);
-
-      try {
-        const task = await getTaskById(chatIdStr, taskId);
-        if (!task) {
-          await bot.sendMessage(
-            chatId,
-            `Я не нашёл задачу #${taskId} среди ваших задач.`
-          );
+              await bot.sendMessage(chatId, text, { parse_mode: "Markdown" });
+            }
+          } catch (e) {
+            console.error("❌ Error in /profile:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось получить профиль из базы данных."
+            );
+          }
           return;
         }
 
-        await bot.sendMessage(
-          chatId,
-          `🚀 Запускаю задачу #${task.id}: "${task.title}"`
-        );
-        await runTaskWithAI(task, chatId);
-      } catch (e) {
-        console.error("❌ Error in /run:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось запустить задачу через Task Engine."
-        );
-      }
-      return;
-    }
+        case "/addtask_test": {
+          try {
+            const taskId = await createDemoTask(chatIdStr);
+            await bot.sendMessage(
+              chatId,
+              `✅ Демо-задача создана в Task Engine.\nID задачи: ${taskId}`
+            );
+          } catch (e) {
+            console.error("❌ Error in /addtask_test:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось создать демо-задачу в Task Engine."
+            );
+          }
+          return;
+        }
 
-    // 2.6) /tasks — список задач
-    if (userText === "/tasks") {
-      try {
-        const tasks = await getUserTasks(chatIdStr, 10);
+        case "/btc_test_task": {
+          try {
+            const task = await createTestPriceMonitorTask(chatIdStr);
+            await bot.sendMessage(
+              chatId,
+              `🆕 Тестовая задача мониторинга BTC создана!\n\n` +
+                `#${task.id} — price_monitor\n` +
+                `Статус: active\n` +
+                `Описание: BTC monitor test (раз в час)\n` +
+                `Расписание (cron): 0 * * * *\n` +
+                `Создана: ${task.created_at?.toISOString?.() || "—"}`
+            );
+          } catch (e) {
+            console.error("❌ Error in /btc_test_task:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось создать тестовую задачу мониторинга BTC."
+            );
+          }
+          return;
+        }
 
-        if (tasks.length === 0) {
+        case "/newtask": {
+          const taskText = commandArgs;
+          if (!taskText) {
+            await bot.sendMessage(
+              chatId,
+              "Использование:\n`/newtask описание задачи`\n\nНапример:\n`/newtask следи за ценой BTC раз в час`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          try {
+            const task = await createManualTask(chatIdStr, taskText);
+
+            await bot.sendMessage(
+              chatId,
+              `🆕 Задача создана!\n\n` +
+                `#${task.id} — manual\n` +
+                `Статус: active\n` +
+                `Описание: ${taskText}\n` +
+                `Создана: ${task.created_at?.toISOString?.() || "—"}`
+            );
+          } catch (e) {
+            console.error("❌ Error in /newtask:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось создать задачу в Task Engine."
+            );
+          }
+          return;
+        }
+
+        case "/run": {
+          if (!commandArgs) {
+            await bot.sendMessage(
+              chatId,
+              "Использование:\n`/run ID_задачи`\n\nНапример:\n`/run 2`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          const taskId = parseInt(commandArgs.split(/\s+/)[0], 10);
+
+          if (Number.isNaN(taskId)) {
+            await bot.sendMessage(
+              chatId,
+              "ID задачи должен быть числом. Пример: `/run 2`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          try {
+            const task = await getTaskById(chatIdStr, taskId);
+            if (!task) {
+              await bot.sendMessage(
+                chatId,
+                `Я не нашёл задачу #${taskId} среди ваших задач.`
+              );
+              return;
+            }
+
+            await bot.sendMessage(
+              chatId,
+              `🚀 Запускаю задачу #${task.id}: "${task.title}"`
+            );
+            await runTaskWithAI(task, chatId);
+          } catch (e) {
+            console.error("❌ Error in /run:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось запустить задачу через Task Engine."
+            );
+          }
+          return;
+        }
+
+        case "/tasks": {
+          try {
+            const tasks = await getUserTasks(chatIdStr, 10);
+
+            if (tasks.length === 0) {
+              await bot.sendMessage(
+                chatId,
+                "У вас пока нет задач в Task Engine."
+              );
+            } else {
+              let text = "📋 Ваши последние задачи:\n\n";
+              for (const t of tasks) {
+                text +=
+                  `#${t.id} — ${t.title}\n` +
+                  `Тип: ${t.type}, статус: ${t.status}\n` +
+                  `Создана: ${t.created_at?.toISOString?.() || "—"}\n` +
+                  (t.schedule ? `Расписание: ${t.schedule}\n` : "") +
+                  (t.last_run
+                    ? `Последний запуск: ${t.last_run.toISOString()}\n`
+                    : "") +
+                  `\n`;
+              }
+              await bot.sendMessage(chatId, text);
+            }
+          } catch (e) {
+            console.error("❌ Error in /tasks:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось получить список задач из Task Engine."
+            );
+          }
+          return;
+        }
+
+        default: {
+          // неизвестная команда
           await bot.sendMessage(
             chatId,
-            "У вас пока нет задач в Task Engine."
+            "Кажется, я не знаю такую команду.\nДоступные сейчас команды:\n" +
+              "/profile, /whoami, /me\n" +
+              "/addtask_test\n" +
+              "/btc_test_task\n" +
+              "/newtask <описание>\n" +
+              "/run <id>\n" +
+              "/tasks"
           );
-        } else {
-          let text = "📋 Ваши последние задачи:\n\n";
-          for (const t of tasks) {
-            text +=
-              `#${t.id} — ${t.title}\n` +
-              `Тип: ${t.type}, статус: ${t.status}\n` +
-              `Создана: ${t.created_at?.toISOString?.() || "—"}\n` +
-              (t.schedule ? `Расписание: ${t.schedule}\n` : "") +
-              (t.last_run
-                ? `Последний запуск: ${t.last_run.toISOString()}\n`
-                : "") +
-              `\n`;
-          }
-          await bot.sendMessage(chatId, text);
+          return;
         }
-      } catch (e) {
-        console.error("❌ Error in /tasks:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось получить список задач из Task Engine."
-        );
       }
-      return;
     }
 
-    // 2.7) Неизвестная команда (начинается с "/")
-    if (userText.startsWith("/")) {
-      await bot.sendMessage(
-        chatId,
-        "Кажется, я не знаю такую команду.\nДоступные сейчас команды:\n" +
-          "/profile, /whoami, /me\n" +
-          "/addtask_test\n" +
-          "/btc_test_task\n" +
-          "/newtask <описание>\n" +
-          "/run <id>\n" +
-          "/tasks"
-      );
-      return;
-    }
-
-    // 3) если нет ключа OpenAI — простой ответ
+    // 4) если нет ключа OpenAI — простой ответ
     if (!process.env.OPENAI_API_KEY) {
       await bot.sendMessage(
         chatId,
@@ -520,7 +534,7 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 4) история + системный промпт
+    // 5) история + системный промпт
     const history = await getChatHistory(chatIdStr, 20);
 
     const messages = [
@@ -579,7 +593,7 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(chatId, reply);
 
-    // 5) сохраняем пару вопрос-ответ
+    // 6) сохраняем пару вопрос-ответ
     await saveChatPair(chatIdStr, userText, reply);
   } catch (err) {
     console.error("OpenAI error:", err);

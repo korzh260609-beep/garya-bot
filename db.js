@@ -1,3 +1,22 @@
+// db.js
+import pkg from "pg";
+const { Pool } = pkg;
+
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error("❌ DATABASE_URL is missing!");
+  process.exit(1);
+}
+
+const pool = new Pool({
+  connectionString,
+  ssl: {
+    rejectUnauthorized: false, // обязательно для Render Postgres
+  },
+});
+
+// === ИНИЦИАЛИЗАЦИЯ БАЗЫ ===
 async function initDb() {
   try {
     // Таблица для памяти диалога
@@ -28,3 +47,7 @@ async function initDb() {
     console.error("❌ Error initializing database:", err);
   }
 }
+
+initDb();
+
+export default pool;

@@ -1,7 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
 import OpenAI from "openai";
-import pool from "./db.js"; // память + профили
+import pool from "./db.js"; // память + профили + tasks
 
 // === Express сервер для Render ===
 const app = express();
@@ -86,14 +86,13 @@ async function ensureUserProfile(msg) {
   const chatId = msg.chat.id.toString();
   const nameFromTelegram = msg.from?.first_name || null;
 
-  // роль и имя по умолчанию
   let role = "guest";
   let finalName = nameFromTelegram;
 
-  // === МОНАРХ (ты) ===
+  // монарх
   if (chatId === "677128443") {
     role = "monarch";
-    finalName = "GARY"; // <-- фиксируем имя
+    finalName = "GARY";
   }
 
   try {
@@ -108,12 +107,7 @@ async function ensureUserProfile(msg) {
           INSERT INTO users (chat_id, name, role, language)
           VALUES ($1, $2, $3, $4)
         `,
-        [
-          chatId,
-          finalName,
-          role,
-          msg.from?.language_code || null,
-        ]
+        [chatId, finalName, role, msg.from?.language_code || null]
       );
 
       console.log(`👤 Новый пользователь: ${finalName} (${role})`);
@@ -131,6 +125,48 @@ async function ensureUserProfile(msg) {
   }
 }
 
+// === ФУНКЦИИ ДЛЯ TASK ENGINE ===
+
+// создаём простую демо-задачу для текущего пользователя
+async function createDemoTask(userChatId) {
+  const payload = {
+    note: "Это демо-задача. В будущем здесь будут параметры отчёта/мониторинга.",
+  };
+
+  const result = await pool.query(
+    `
+      INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id
+    `,
+    [
+      userChatId,
+      "Demo task: hello from Task Engine",
+      "demo",
+      payload,
+      null,
+      "active",
+    ]
+  );
+
+  return result.rows[0].id;
+}
+
+// получаем последние задачи пользователя
+async function getUserTasks(userChatId, limit = 10) {
+  const result = await pool.query(
+    `
+      SELECT id, title, type, status, schedule, last_run, created_at
+      FROM tasks
+      WHERE user_chat_id = $1
+      ORDER BY id DESC
+      LIMIT $2
+    `,
+    [userChatId, limit]
+  );
+  return result.rows;
+}
+
 // === ОБРАБОТКА СООБЩЕНИЙ ===
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
@@ -140,10 +176,10 @@ bot.on("message", async (msg) => {
   if (!userText.trim()) return;
 
   try {
-    // 1) создаём/обновляем профиль
+    // 1) профиль
     await ensureUserProfile(msg);
 
-    // 2) служебная команда профиля (НЕ идёт в OpenAI, НЕ пишется в память)
+    // 2) /profile, /whoami, /me
     if (
       userText === "/profile" ||
       userText === "/whoami" ||
@@ -179,10 +215,63 @@ bot.on("message", async (msg) => {
           "Не удалось получить профиль из базы данных."
         );
       }
-      return; // важно: выходим, дальше OpenAI не вызываем
+      return;
     }
 
-    // 3) если нет ключа OpenAI — простой ответ
+    // 3) /addtask_test — создаём демо-задачу
+    if (userText === "/addtask_test") {
+      try {
+        const taskId = await createDemoTask(chatIdStr);
+        await bot.sendMessage(
+          chatId,
+          `✅ Демо-задача создана в Task Engine.\nID задачи: ${taskId}`
+        );
+      } catch (e) {
+        console.error("❌ Error in /addtask_test:", e);
+        await bot.sendMessage(
+          chatId,
+          "Не удалось создать демо-задачу в Task Engine."
+        );
+      }
+      return;
+    }
+
+    // 4) /tasks — список задач
+    if (userText === "/tasks") {
+      try {
+        const tasks = await getUserTasks(chatIdStr, 10);
+
+        if (tasks.length === 0) {
+          await bot.sendMessage(
+            chatId,
+            "У вас пока нет задач в Task Engine."
+          );
+        } else {
+          let text = "📋 Ваши последние задачи:\n\n";
+          for (const t of tasks) {
+            text +=
+              `#${t.id} — ${t.title}\n` +
+              `Тип: ${t.type}, статус: ${t.status}\n` +
+              `Создана: ${t.created_at?.toISOString?.() || "—"}\n` +
+              (t.schedule ? `Расписание: ${t.schedule}\n` : "") +
+              (t.last_run
+                ? `Последний запуск: ${t.last_run.toISOString()}\n`
+                : "") +
+              `\n`;
+          }
+          await bot.sendMessage(chatId, text);
+        }
+      } catch (e) {
+        console.error("❌ Error in /tasks:", e);
+        await bot.sendMessage(
+          chatId,
+          "Не удалось получить список задач из Task Engine."
+        );
+      }
+      return;
+    }
+
+    // 5) если нет ключа OpenAI — простой ответ
     if (!process.env.OPENAI_API_KEY) {
       await bot.sendMessage(
         chatId,
@@ -191,7 +280,7 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 4) тянем историю из памяти
+    // 6) история + системный промпт
     const history = await getChatHistory(chatIdStr, 20);
 
     const messages = [
@@ -237,10 +326,7 @@ bot.on("message", async (msg) => {
         `,
       },
       ...history,
-      {
-        role: "user",
-        content: userText,
-      },
+      { role: "user", content: userText },
     ];
 
     const completion = await client.chat.completions.create({
@@ -253,7 +339,7 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(chatId, reply);
 
-    // 5) сохраняем пару вопрос-ответ в память
+    // 7) сохраняем пару вопрос-ответ
     await saveChatPair(chatIdStr, userText, reply);
   } catch (err) {
     console.error("OpenAI error:", err);

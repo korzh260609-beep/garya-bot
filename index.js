@@ -154,7 +154,6 @@ async function createDemoTask(userChatId) {
 
 // обычная ручная задача из /newtask
 async function createManualTask(userChatId, promptText) {
-  // заголовок — первые 60 символов текста
   let title = promptText.trim();
   if (title.length > 60) {
     title = title.slice(0, 57) + "...";
@@ -189,6 +188,81 @@ async function getUserTasks(userChatId, limit = 10) {
     [userChatId, limit]
   );
   return result.rows;
+}
+
+// получаем задачу по id для конкретного пользователя
+async function getTaskById(userChatId, taskId) {
+  const result = await pool.query(
+    `
+      SELECT id, user_chat_id, title, type, status, payload, schedule, last_run, created_at
+      FROM tasks
+      WHERE user_chat_id = $1 AND id = $2
+      LIMIT 1
+    `,
+    [userChatId, taskId]
+  );
+  if (result.rows.length === 0) return null;
+  return result.rows[0];
+}
+
+// запуск задачи через ИИ-исполнителя
+async function runTaskWithAI(task, chatId) {
+  if (!process.env.OPENAI_API_KEY) {
+    await bot.sendMessage(
+      chatId,
+      "Задача есть, но ИИ сейчас недоступен (нет API ключа)."
+    );
+    return;
+  }
+
+  const promptText =
+    (task.payload && (task.payload.prompt || task.payload.note)) ||
+    task.title ||
+    "";
+
+  const messages = [
+    {
+      role: "system",
+      content: `
+Ты — модуль Task Engine Королевства GARYA.
+Тебе дают ЗАДАЧУ, сформулированную обычными словами.
+Твоя цель — максимально буквально и полезно ВЫПОЛНИТЬ её в пределах своих возможностей:
+— думать, анализировать, считать, планировать;
+— давать чёткий результат, пошаговый план или расчёты;
+— писать всё по-русски, кратко и по делу.
+
+Если задача требует реальных действий во внешнем мире (доступ к бирже, TradingView, интернету, API),
+которых у тебя нет, НЕ ПРИТВОРЯЙСЯ, что у тебя есть эти данные.
+Вместо этого:
+— объясни, что ты можешь сделать только аналитически;
+— выдай максимальный полезный план: как бы ты выполнял эту задачу, какие шаги, формулы, правила.
+      `,
+    },
+    {
+      role: "user",
+      content: `Задача #${task.id} (${task.type}, статус: ${task.status}).
+Текст задачи (payload.prompt/title):
+"${promptText}"`,
+    },
+  ];
+
+  const completion = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages,
+  });
+
+  let reply = completion.choices[0]?.message?.content ?? "";
+  if (typeof reply !== "string") reply = JSON.stringify(reply);
+
+  // отмечаем время запуска
+  await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
+    task.id,
+  ]);
+
+  await bot.sendMessage(
+    chatId,
+    `🚀 Задача #${task.id} выполнена ИИ-движком.\n\n${reply}`
+  );
 }
 
 // === ОБРАБОТКА СООБЩЕНИЙ ===
@@ -291,6 +365,46 @@ bot.on("message", async (msg) => {
         await bot.sendMessage(
           chatId,
           "Не удалось создать задачу в Task Engine."
+        );
+      }
+      return;
+    }
+
+    // 3.2) /run <id> — запустить задачу через ИИ-исполнителя
+    if (userText.startsWith("/run")) {
+      const match = userText.match(/^\/run\s+(\d+)/);
+
+      if (!match) {
+        await bot.sendMessage(
+          chatId,
+          "Использование:\n`/run ID_задачи`\n\nНапример:\n`/run 2`",
+          { parse_mode: "Markdown" }
+        );
+        return;
+      }
+
+      const taskId = parseInt(match[1], 10);
+
+      try {
+        const task = await getTaskById(chatIdStr, taskId);
+        if (!task) {
+          await bot.sendMessage(
+            chatId,
+            `Я не нашёл задачу #${taskId} среди ваших задач.`
+          );
+          return;
+        }
+
+        await bot.sendMessage(
+          chatId,
+          `🚀 Запускаю задачу #${task.id}: "${task.title}"`
+        );
+        await runTaskWithAI(task, chatId);
+      } catch (e) {
+        console.error("❌ Error in /run:", e);
+        await bot.sendMessage(
+          chatId,
+          "Не удалось запустить задачу через Task Engine."
         );
       }
       return;

@@ -3,6 +3,9 @@ import express from "express";
 import OpenAI from "openai";
 import pool from "./db.js"; // память + профили + tasks
 
+// === Константы ===
+const MAX_HISTORY_MESSAGES = 20;
+
 // === Express сервер для Render ===
 const app = express();
 const PORT = process.env.PORT || 3000;

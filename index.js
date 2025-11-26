@@ -72,6 +72,36 @@ async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES) {
   }));
 }
 
+// авто-очистка: оставляем только последние MAX_HISTORY_MESSAGES записей
+async function cleanupChatHistory(chatId, maxMessages = MAX_HISTORY_MESSAGES) {
+  const res = await pool.query(
+    `
+      SELECT id
+      FROM chat_memory
+      WHERE chat_id = $1
+      ORDER BY id DESC
+      OFFSET $2
+    `,
+    [chatId, maxMessages]
+  );
+
+  if (res.rows.length === 0) return;
+
+  const idsToDelete = res.rows.map((r) => r.id);
+
+  await pool.query(
+    `
+      DELETE FROM chat_memory
+      WHERE id = ANY($1::int[])
+    `,
+    [idsToDelete]
+  );
+
+  console.log(
+    `🧹 cleanupChatHistory: удалено ${idsToDelete.length} старых записей для чата ${chatId}`
+  );
+}
+
 async function saveChatPair(chatId, userText, assistantText) {
   await pool.query(
     `
@@ -82,6 +112,9 @@ async function saveChatPair(chatId, userText, assistantText) {
     `,
     [chatId, userText, assistantText]
   );
+
+  // после сохранения — чистим старые сообщения
+  await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
 }
 
 // === USER PROFILE HANDLING ===

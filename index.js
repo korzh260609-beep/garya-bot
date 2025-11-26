@@ -20,7 +20,7 @@ if (!token) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(token); // БЕЗ polling
+const bot = new TelegramBot(token);
 
 // === Telegram Webhook ===
 const WEBHOOK_URL = `https://garya-bot.onrender.com/webhook/${token}`;
@@ -55,7 +55,7 @@ const client = new OpenAI({
 });
 
 // === ФУНКЦИИ ДЛЯ ПАМЯТИ ===
-async function getChatHistory(chatId, limit = 20) {
+async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES) {
   const result = await pool.query(
     `
       SELECT role, content
@@ -178,7 +178,7 @@ async function createManualTask(userChatId, promptText) {
   return result.rows[0];
 }
 
-// 🔹 создаём тестовую задачу price_monitor для BTC (для проверки ROBOT-слоя)
+// создаём тестовую задачу price_monitor для BTC (для проверки ROBOT-слоя)
 async function createTestPriceMonitorTask(userChatId) {
   const payload = {
     symbol: "BTCUSDT",
@@ -298,21 +298,16 @@ async function runTaskWithAI(task, chatId) {
 // === ОБРАБОТКА СООБЩЕНИЙ ===
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
-  const chatIdStr = msg.chat.id.toString();
+  const chatIdStr = chatId.toString();
   const userText = msg.text || "";
 
   if (!userText.trim()) return;
-
-  console.log(
-    "💬 Incoming message:",
-    JSON.stringify({ text: userText, entities: msg.entities }, null, 2)
-  );
 
   try {
     // 1) профиль
     await ensureUserProfile(msg);
 
-    // 2) Определяем, есть ли команда через entities
+    // 2) Определяем, есть ли команда
     let command = null;
     let commandArgs = "";
 
@@ -320,22 +315,10 @@ bot.on("message", async (msg) => {
       const cmdEntity = msg.entities.find(
         (e) => e.type === "bot_command" && e.offset === 0
       );
-
       if (cmdEntity) {
-        const rawCmd = userText.substring(
-          cmdEntity.offset,
-          cmdEntity.offset + cmdEntity.length
-        ); // например "/btc_test_task@MyBot"
-
-        command = rawCmd.split("@")[0]; // "/btc_test_task"
-        commandArgs = userText
-          .substring(cmdEntity.offset + cmdEntity.length)
-          .trim(); // всё, что после команды
-
-        console.log(
-          "🔎 Parsed command:",
-          JSON.stringify({ rawCmd, command, commandArgs }, null, 2)
-        );
+        const rawCmd = userText.slice(0, cmdEntity.length); // например "/btc_test_task@Bot"
+        command = rawCmd.split("@")[0]; // убираем @имябота
+        commandArgs = userText.slice(cmdEntity.length).trim();
       }
     }
 
@@ -526,42 +509,47 @@ bot.on("message", async (msg) => {
               "Не удалось получить список задач из Task Engine."
             );
           }
-
-              case "/meminfo": {
-      try {
-        const res = await pool.query(
-          `
-          SELECT id, role, content
-          FROM chat_memory
-          WHERE chat_id = $1
-          ORDER BY id DESC
-          LIMIT 5
-          `,
-          [chatIdStr]
-        );
-
-        const countRes = await pool.query(
-          "SELECT COUNT(*) FROM chat_memory WHERE chat_id = $1",
-          [chatIdStr]
-        );
-
-        const count = countRes.rows[0].count;
-
-        let text = `🧠 Память чата\nВсего сообщений: ${count}\n\nПоследние 5 записей:\n`;
-
-        for (const row of res.rows.reverse()) {
-          text += `\n• [${row.role}] ${row.content.slice(0, 50)}${
-            row.content.length > 50 ? "..." : ""
-          }`;
+          return;
         }
 
-        await bot.sendMessage(chatId, text);
-      } catch (e) {
-        console.error("❌ /meminfo error:", e);
-        await bot.sendMessage(chatId, "Не удалось получить данные памяти.");
-      }
-      return;
-    }
+        case "/meminfo": {
+          try {
+            const res = await pool.query(
+              `
+              SELECT id, role, content
+              FROM chat_memory
+              WHERE chat_id = $1
+              ORDER BY id DESC
+              LIMIT 5
+              `,
+              [chatIdStr]
+            );
+
+            const countRes = await pool.query(
+              "SELECT COUNT(*) FROM chat_memory WHERE chat_id = $1",
+              [chatIdStr]
+            );
+
+            const count = countRes.rows[0].count;
+
+            let text = `🧠 Память чата\nВсего сообщений: ${count}\n\nПоследние 5 записей:\n`;
+
+            for (const row of res.rows.reverse()) {
+              text += `\n• [${row.role}] ${row.content.slice(0, 50)}${
+                row.content.length > 50 ? "..." : ""
+              }`;
+            }
+
+            await bot.sendMessage(chatId, text);
+          } catch (e) {
+            console.error("❌ /meminfo error:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось получить данные памяти."
+            );
+          }
+          return;
+        }
 
         default: {
           await bot.sendMessage(
@@ -572,7 +560,8 @@ bot.on("message", async (msg) => {
               "/btc_test_task\n" +
               "/newtask <описание>\n" +
               "/run <id>\n" +
-              "/tasks"
+              "/tasks\n" +
+              "/meminfo"
           );
           return;
         }
@@ -597,6 +586,40 @@ bot.on("message", async (msg) => {
         content: `
 Ты — ИИ-Советник Королевства GARYA, твое имя «Советник».
 Ты всегда знаешь, что монарх этого королевства — GARY.
+
+У тебя есть ТРИ уровня обращения к монарху:
+
+1) ОФИЦИАЛЬНО:
+   Формула: «Ваше Величество Монарх GARY».
+   Используй, если:
+   — речь о власти, решениях по королевству, токеномике, дипломатии, важных документах;
+   — монарх спрашивает «кто я», «как ко мне обращаться», просит «официально»;
+   — формальные отчёты и стратегические обсуждения.
+
+2) ОБЫЧНО (повседневно):
+   Формула: «GARY».
+   Используй, если:
+   — обычный дружеский диалог;
+   — вопросы про жизнь, советы, бытовые вещи, лёгкое общение;
+   — нет явного запроса на официальность.
+
+3) ПРИВИЛЕГИРОВАННО / ДОВЕРИТЕЛЬНО:
+   Возможные формулы:
+   — «Мой Монарх»;
+   — «Государь GARY»;
+   — реже, как усиление: «Владыка GARY».
+   Используй, если:
+   — монарх пишет в тёплом тоне, с хорошим настроением (например, много «)» или «))»);
+   — просит личный совет, делится эмоциями;
+   — явно просит говорить по-простому, но с уважением.
+   Не злоупотребляй этим стилем, используй его как особый знак уважения и близости.
+
+Дополнительные правила:
+— Никогда не используй имя монарха из Telegram-профиля, монарх для тебя всегда GARY.
+— Если видишь «((» и грустный тон — будь мягким, но можешь использовать обычный стиль «GARY» или «Мой Монарх» без лишнего пафоса.
+— Ко всем остальным пользователям обращайся нейтрально, без монарших титулов.
+— Всегда помни контекст диалога (историю сообщений), будь кратким, дружелюбным и полезным.
+— Если монарх явно просит: «обратись ко мне официально» или «просто» — строго следуй его указанию.
         `,
       },
       ...history,

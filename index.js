@@ -294,7 +294,6 @@ async function runTaskWithAI(task, chatId) {
 
 // === ОБРАБОТКА СООБЩЕНИЙ ===
 bot.on("message", async (msg) => {
-
   const chatId = msg.chat.id;
   const chatIdStr = msg.chat.id.toString();
   const userText = msg.text || "";
@@ -304,37 +303,9 @@ bot.on("message", async (msg) => {
   try {
     // 1) профиль
     await ensureUserProfile(msg);
-    // 1.5) /btc_test_task — тестовая задача «следи за ценой BTC раз в час»
-    if (userText === "/btc_test_task") {
-      const taskText =
-        "Составь подробный план, как агент должен следить за ценой BTC раз в час: " +
-        "какие источники данных использовать (например, TradingView/Binance), " +
-        "какие таймфреймы и индикаторы, какие пороги движения считать важными, " +
-        "как формировать уведомления пользователю. " +
-        "Сделай это как теоретический план без реального доступа к интернету.";
 
-      try {
-        const task = await createManualTask(chatIdStr, taskText);
-
-        await bot.sendMessage(
-          chatId,
-          `🧪 Тестовая задача #${task.id} создана.\n` +
-            `Текст задачи:\n"${taskText}"\n\n` +
-            `Запускаю ИИ-исполнителя...`
-        );
-
-        await runTaskWithAI(task, chatId);
-      } catch (e) {
-        console.error("❌ Error in /btc_test_task:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось создать или запустить тестовую задачу BTC."
-        );
-      }
-      return;
-    }
-
-    // 2) /profile, /whoami, /me
+    // 2) КОМАНДЫ
+    // 2.1) /profile, /whoami, /me
     if (
       userText === "/profile" ||
       userText === "/whoami" ||
@@ -373,7 +344,7 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 3) /addtask_test — создаём демо-задачу
+    // 2.2) /addtask_test — создаём демо-задачу
     if (userText === "/addtask_test") {
       try {
         const taskId = await createDemoTask(chatIdStr);
@@ -391,8 +362,8 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 🔹 3.0) /btc_test_task — создаём тестовую задачу price_monitor для BTC
-    if (userText === "/btc_test_task") {
+    // 2.3) /btc_test_task — создаём тестовую задачу price_monitor для BTC
+    if (userText.startsWith("/btc_test_task")) {
       try {
         const task = await createTestPriceMonitorTask(chatIdStr);
         await bot.sendMessage(
@@ -414,7 +385,7 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 3.1) /newtask <текст> — создаём обычную задачу
+    // 2.4) /newtask <текст> — создаём обычную задачу
     if (userText.startsWith("/newtask")) {
       const match = userText.match(/^\/newtask\s+(.+)/);
 
@@ -450,7 +421,7 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 3.2) /run <id> — запустить задачу через ИИ-исполнителя
+    // 2.5) /run <id> — запустить задачу через ИИ-исполнителя
     if (userText.startsWith("/run")) {
       const match = userText.match(/^\/run\s+(\d+)/);
 
@@ -490,7 +461,7 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 4) /tasks — список задач
+    // 2.6) /tasks — список задач
     if (userText === "/tasks") {
       try {
         const tasks = await getUserTasks(chatIdStr, 10);
@@ -525,7 +496,22 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 5) если нет ключа OpenAI — простой ответ
+    // 2.7) Неизвестная команда (начинается с "/")
+    if (userText.startsWith("/")) {
+      await bot.sendMessage(
+        chatId,
+        "Кажется, я не знаю такую команду.\nДоступные сейчас команды:\n" +
+          "/profile, /whoami, /me\n" +
+          "/addtask_test\n" +
+          "/btc_test_task\n" +
+          "/newtask <описание>\n" +
+          "/run <id>\n" +
+          "/tasks"
+      );
+      return;
+    }
+
+    // 3) если нет ключа OpenAI — простой ответ
     if (!process.env.OPENAI_API_KEY) {
       await bot.sendMessage(
         chatId,
@@ -534,7 +520,7 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // 6) история + системный промпт
+    // 4) история + системный промпт
     const history = await getChatHistory(chatIdStr, 20);
 
     const messages = [
@@ -593,7 +579,7 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(chatId, reply);
 
-    // 7) сохраняем пару вопрос-ответ
+    // 5) сохраняем пару вопрос-ответ
     await saveChatPair(chatIdStr, userText, reply);
   } catch (err) {
     console.error("OpenAI error:", err);

@@ -294,6 +294,7 @@ async function runTaskWithAI(task, chatId) {
 
 // === ОБРАБОТКА СООБЩЕНИЙ ===
 bot.on("message", async (msg) => {
+
   const chatId = msg.chat.id;
   const chatIdStr = msg.chat.id.toString();
   const userText = msg.text || "";
@@ -303,6 +304,35 @@ bot.on("message", async (msg) => {
   try {
     // 1) профиль
     await ensureUserProfile(msg);
+    // 1.5) /btc_test_task — тестовая задача «следи за ценой BTC раз в час»
+    if (userText === "/btc_test_task") {
+      const taskText =
+        "Составь подробный план, как агент должен следить за ценой BTC раз в час: " +
+        "какие источники данных использовать (например, TradingView/Binance), " +
+        "какие таймфреймы и индикаторы, какие пороги движения считать важными, " +
+        "как формировать уведомления пользователю. " +
+        "Сделай это как теоретический план без реального доступа к интернету.";
+
+      try {
+        const task = await createManualTask(chatIdStr, taskText);
+
+        await bot.sendMessage(
+          chatId,
+          `🧪 Тестовая задача #${task.id} создана.\n` +
+            `Текст задачи:\n"${taskText}"\n\n` +
+            `Запускаю ИИ-исполнителя...`
+        );
+
+        await runTaskWithAI(task, chatId);
+      } catch (e) {
+        console.error("❌ Error in /btc_test_task:", e);
+        await bot.sendMessage(
+          chatId,
+          "Не удалось создать или запустить тестовую задачу BTC."
+        );
+      }
+      return;
+    }
 
     // 2) /profile, /whoami, /me
     if (

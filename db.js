@@ -1,25 +1,17 @@
-// db.js
+// db.js — подключение к PostgreSQL + инициализация таблиц
 import pkg from "pg";
 const { Pool } = pkg;
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  console.error("❌ DATABASE_URL is missing!");
-  process.exit(1);
-}
-
 const pool = new Pool({
-  connectionString,
+  connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false, // обязательно для Render Postgres
+    rejectUnauthorized: false,
   },
 });
 
-// === ИНИЦИАЛИЗАЦИЯ БАЗЫ ===
 async function initDb() {
   try {
-    // Таблица для памяти диалога
+    // === Таблица для памяти диалога ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS chat_memory (
         id SERIAL PRIMARY KEY,
@@ -30,7 +22,7 @@ async function initDb() {
       );
     `);
 
-    // Таблица профилей пользователей
+    // === Таблица профилей пользователей ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -42,12 +34,28 @@ async function initDb() {
       );
     `);
 
-    console.log("✅ chat_memory & users tables are ready");
+    // === УНИВЕРСАЛЬНАЯ ТАБЛИЦА ЗАДАЧ (Task Engine) ===
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tasks (
+        id SERIAL PRIMARY KEY,
+        user_chat_id TEXT NOT NULL,         -- для кого задача (любой пользователь)
+        title TEXT NOT NULL,                -- короткое имя задачи
+        type TEXT NOT NULL,                 -- тип: report / monitor / reminder / fetch / custom
+        payload JSONB NOT NULL,             -- параметры задачи (универсально, под любой проект)
+        schedule TEXT,                      -- строка расписания (cron/описание)
+        status TEXT DEFAULT 'active',       -- active / paused / done / error
+        last_run TIMESTAMPTZ,               -- когда последний раз выполнялась
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    console.log("✅ chat_memory, users & tasks tables are ready");
   } catch (err) {
     console.error("❌ Error initializing database:", err);
   }
 }
 
+// Инициализируем таблицы один раз при старте сервиса
 initDb();
 
 export default pool;

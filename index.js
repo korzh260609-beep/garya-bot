@@ -175,6 +175,33 @@ async function createManualTask(userChatId, promptText) {
   return result.rows[0];
 }
 
+// 🔹 создаём тестовую задачу price_monitor для BTC (для проверки ROBOT-слоя)
+async function createTestPriceMonitorTask(userChatId) {
+  const payload = {
+    symbol: "BTCUSDT",
+    interval_minutes: 60, // раз в час — на будущее
+    threshold_percent: 2, // порог изменения цены, на будущее
+  };
+
+  const result = await pool.query(
+    `
+      INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, created_at
+    `,
+    [
+      userChatId,
+      "BTC monitor test (раз в час)",
+      "price_monitor",
+      payload,
+      "0 * * * *", // cron: каждый час, в 00 минут
+      "active",
+    ]
+  );
+
+  return result.rows[0];
+}
+
 // получаем последние задачи пользователя
 async function getUserTasks(userChatId, limit = 10) {
   const result = await pool.query(
@@ -329,6 +356,29 @@ bot.on("message", async (msg) => {
         await bot.sendMessage(
           chatId,
           "Не удалось создать демо-задачу в Task Engine."
+        );
+      }
+      return;
+    }
+
+    // 🔹 3.0) /btc_test_task — создаём тестовую задачу price_monitor для BTC
+    if (userText === "/btc_test_task") {
+      try {
+        const task = await createTestPriceMonitorTask(chatIdStr);
+        await bot.sendMessage(
+          chatId,
+          `🆕 Тестовая задача мониторинга BTC создана!\n\n` +
+            `#${task.id} — price_monitor\n` +
+            `Статус: active\n` +
+            `Описание: BTC monitor test (раз в час)\n` +
+            `Расписание (cron): 0 * * * *\n` +
+            `Создана: ${task.created_at?.toISOString?.() || "—"}`
+        );
+      } catch (e) {
+        console.error("❌ Error in /btc_test_task:", e);
+        await bot.sendMessage(
+          chatId,
+          "Не удалось создать тестовую задачу мониторинга BTC."
         );
       }
       return;

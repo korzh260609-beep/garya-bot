@@ -526,8 +526,42 @@ bot.on("message", async (msg) => {
               "Не удалось получить список задач из Task Engine."
             );
           }
-          return;
+
+              case "/meminfo": {
+      try {
+        const res = await pool.query(
+          `
+          SELECT id, role, content
+          FROM chat_memory
+          WHERE chat_id = $1
+          ORDER BY id DESC
+          LIMIT 5
+          `,
+          [chatIdStr]
+        );
+
+        const countRes = await pool.query(
+          "SELECT COUNT(*) FROM chat_memory WHERE chat_id = $1",
+          [chatIdStr]
+        );
+
+        const count = countRes.rows[0].count;
+
+        let text = `🧠 Память чата\nВсего сообщений: ${count}\n\nПоследние 5 записей:\n`;
+
+        for (const row of res.rows.reverse()) {
+          text += `\n• [${row.role}] ${row.content.slice(0, 50)}${
+            row.content.length > 50 ? "..." : ""
+          }`;
         }
+
+        await bot.sendMessage(chatId, text);
+      } catch (e) {
+        console.error("❌ /meminfo error:", e);
+        await bot.sendMessage(chatId, "Не удалось получить данные памяти.");
+      }
+      return;
+    }
 
         default: {
           await bot.sendMessage(

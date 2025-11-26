@@ -1,7 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
 import OpenAI from "openai";
-import pool from "./db.js"; // пока не используем, но подключено для памяти
+import pool from "./db.js"; // используем для памяти
 
 // === Express сервер для Render ===
 const app = express();
@@ -59,10 +59,50 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// === Вспомогательные функции памяти ===
+
+// Достать последние сообщения чата из БД
+async function getChatHistory(chatId, limit = 20) {
+  const result = await pool.query(
+    `
+      SELECT role, content
+      FROM chat_memory
+      WHERE chat_id = $1
+      ORDER BY id DESC
+      LIMIT $2
+    `,
+    [chatId, limit]
+  );
+
+  // Разворачиваем порядок: от старых к новым
+  return result.rows.reverse().map((row) => ({
+    role: row.role,
+    content: row.content,
+  }));
+}
+
+// Сохранить пару "пользователь → ассистент" в БД
+async function saveChatPair(chatId, userText, assistantText) {
+  await pool.query(
+    `
+      INSERT INTO chat_memory (chat_id, role, content)
+      VALUES
+        ($1, 'user', $2),
+        ($1, 'assistant', $3)
+    `,
+    [chatId, userText, assistantText]
+  );
+}
+
 // === Обработка сообщений Telegram ===
 bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
+  const chatId = msg.chat.id.toString();
   const userText = msg.text || "";
+
+  // Пустые сообщения не обрабатываем
+  if (!userText.trim()) {
+    return;
+  }
 
   try {
     // Если ключ OpenAI не задан — простой ответ
@@ -74,23 +114,40 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    // 1. Забираем историю чата из БД
+    const history = await getChatHistory(chatId, 20);
+
+    // 2. Формируем сообщения для модели: system + история + новый вопрос
+    const messages = [
+      {
+        role: "system",
+        content:
+          "Ты — Советник Королевства GARYA. Говори дружелюбно и коротко.",
+      },
+      ...history,
+      {
+        role: "user",
+        content: userText,
+      },
+    ];
+
+    // 3. Запрос к OpenAI с учётом истории
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "Ты — Советник Королевства GARYA. Говори дружелюбно и коротко.",
-        },
-        {
-          role: "user",
-          content: userText,
-        },
-      ],
+      messages,
     });
 
-    const reply = completion.choices[0].message.content;
+    let reply = completion.choices[0]?.message?.content ?? "";
+
+    if (typeof reply !== "string") {
+      reply = JSON.stringify(reply);
+    }
+
+    // 4. Отправляем ответ пользователю
     await bot.sendMessage(chatId, reply);
+
+    // 5. Сохраняем в память и вопрос, и ответ
+    await saveChatPair(chatId, userText, reply);
   } catch (err) {
     console.error("OpenAI error:", err);
     await bot.sendMessage(

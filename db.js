@@ -1,38 +1,40 @@
 // db.js
-import pg from "pg";
-
-const { Pool } = pg;
+import pkg from "pg";
+const { Pool } = pkg;
 
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.warn("⚠ DATABASE_URL is not set");
+  console.error("❌ DATABASE_URL is missing!");
+  process.exit(1);
 }
 
 const pool = new Pool({
   connectionString,
   ssl: {
-    // Для Render Postgres обычно нужно SSL
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, // важно для Render Postgres
   },
 });
 
-pool.on("connect", () => {
-  console.log("✅ Connected to PostgreSQL");
-});
-
-pool.on("error", (err) => {
-  console.error("❌ PostgreSQL error:", err);
-});
-
-// Простая проверка соединения при старте
-(async () => {
+// === СКЕЛЕТ ПАМЯТИ: создаём таблицу chat_memory, если её ещё нет ===
+async function initDb() {
   try {
-    await pool.query("SELECT 1");
-    console.log("✅ Test query to PostgreSQL succeeded");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_memory (
+        id SERIAL PRIMARY KEY,
+        chat_id TEXT NOT NULL,
+        role TEXT NOT NULL,       -- 'user' или 'assistant'
+        content TEXT NOT NULL,    -- текст сообщения
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    console.log("✅ chat_memory table is ready");
   } catch (err) {
-    console.error("❌ Test query to PostgreSQL failed:", err.message);
+    console.error("❌ Error initializing database:", err);
   }
-})();
+}
+
+initDb();
 
 export default pool;

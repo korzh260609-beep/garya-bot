@@ -127,7 +127,7 @@ async function ensureUserProfile(msg) {
 
 // === ФУНКЦИИ ДЛЯ TASK ENGINE ===
 
-// создаём простую демо-задачу для текущего пользователя
+// демо-задача
 async function createDemoTask(userChatId) {
   const payload = {
     note: "Это демо-задача. В будущем здесь будут параметры отчёта/мониторинга.",
@@ -150,6 +150,30 @@ async function createDemoTask(userChatId) {
   );
 
   return result.rows[0].id;
+}
+
+// обычная ручная задача из /newtask
+async function createManualTask(userChatId, promptText) {
+  // заголовок — первые 60 символов текста
+  let title = promptText.trim();
+  if (title.length > 60) {
+    title = title.slice(0, 57) + "...";
+  }
+
+  const payload = {
+    prompt: promptText.trim(),
+  };
+
+  const result = await pool.query(
+    `
+      INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, created_at
+    `,
+    [userChatId, title, "manual", payload, null, "active"]
+  );
+
+  return result.rows[0];
 }
 
 // получаем последние задачи пользователя
@@ -231,6 +255,42 @@ bot.on("message", async (msg) => {
         await bot.sendMessage(
           chatId,
           "Не удалось создать демо-задачу в Task Engine."
+        );
+      }
+      return;
+    }
+
+    // 3.1) /newtask <текст> — создаём обычную задачу
+    if (userText.startsWith("/newtask")) {
+      const match = userText.match(/^\/newtask\s+(.+)/);
+
+      if (!match) {
+        await bot.sendMessage(
+          chatId,
+          "Использование:\n`/newtask описание задачи`\n\nНапример:\n`/newtask следи за ценой BTC раз в час`",
+          { parse_mode: "Markdown" }
+        );
+        return;
+      }
+
+      const taskText = match[1].trim();
+
+      try {
+        const task = await createManualTask(chatIdStr, taskText);
+
+        await bot.sendMessage(
+          chatId,
+          `🆕 Задача создана!\n\n` +
+            `#${task.id} — manual\n` +
+            `Статус: active\n` +
+            `Описание: ${taskText}\n` +
+            `Создана: ${task.created_at?.toISOString?.() || "—"}`
+        );
+      } catch (e) {
+        console.error("❌ Error in /newtask:", e);
+        await bot.sendMessage(
+          chatId,
+          "Не удалось создать задачу в Task Engine."
         );
       }
       return;

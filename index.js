@@ -524,4 +524,43 @@ bot.on("message", async (msg) => {
   }
 });
 
+// === ROBOT-LAYER (скелет) ===
+
+// Получает активные задачи с расписанием
+async function getActiveRobotTasks() {
+  const res = await pool.query(`
+    SELECT *
+    FROM tasks
+    WHERE status = 'active'
+      AND schedule IS NOT NULL
+      AND (type = 'price_monitor' OR type = 'news_monitor')
+  `);
+  return res.rows;
+}
+
+// Главный "тик" робота
+async function robotTick() {
+  try {
+    const tasks = await getActiveRobotTasks();
+
+    for (const t of tasks) {
+      console.log(
+        "🤖 ROBOT: нашёл задачу:",
+        t.id,
+        t.type,
+        "schedule:",
+        t.schedule
+      );
+      // Пока только лог. Логику добавим позже.
+    }
+  } catch (err) {
+    console.error("❌ ROBOT ERROR:", err);
+  }
+}
+
+// Запускаем робота раз в 30 секунд
+setInterval(() => {
+  robotTick();
+}, 30_000);
+
 console.log("🤖 AI Bot is running...");

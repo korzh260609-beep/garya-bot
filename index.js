@@ -308,14 +308,23 @@ bot.on("message", async (msg) => {
     let command = null;
     let commandArgs = "";
 
+        let command = null;
+    let commandArgs = "";
     if (Array.isArray(msg.entities)) {
       const cmdEntity = msg.entities.find(
         (e) => e.type === "bot_command" && e.offset === 0
       );
       if (cmdEntity) {
-        const [firstPart, ...restParts] = userText.split(" ");
-        command = firstPart.split("@")[0]; // /btc_test_task или /newtask
-        commandArgs = restParts.join(" ").trim(); // всё после пробела
+        // Берём команду точно по границам entity
+        const rawCmd = userText.substring(
+          cmdEntity.offset,
+          cmdEntity.offset + cmdEntity.length
+        ); // например "/btc_test_task@Bot"
+
+        command = rawCmd.split("@")[0]; // "/btc_test_task"
+        commandArgs = userText
+          .substring(cmdEntity.offset + cmdEntity.length)
+          .trim(); // всё, что после команды
       }
     }
 

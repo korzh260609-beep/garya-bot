@@ -2,10 +2,19 @@
 import pkg from "pg";
 const { Pool } = pkg;
 
+// Проверяем, что задали DATABASE_URL
+if (!process.env.DATABASE_URL) {
+  console.error("❌ DATABASE_URL is missing!");
+  console.error(
+    "Убедись, что переменная окружения DATABASE_URL задана в Render (Settings → Environment)."
+  );
+  process.exit(1);
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, // для Render
   },
 });
 
@@ -40,25 +49,25 @@ async function initDb() {
         id SERIAL PRIMARY KEY,
         user_chat_id TEXT NOT NULL,         -- для кого задача (любой пользователь)
         title TEXT NOT NULL,                -- короткое имя задачи
-        type TEXT NOT NULL,                 -- тип: report / monitor / reminder / fetch / custom
+        type TEXT NOT NULL,                 -- тип: manual / price_monitor / news_monitor / ...
         payload JSONB NOT NULL,             -- параметры задачи (универсально, под любой проект)
         schedule TEXT,                      -- строка расписания (cron/описание)
-        status TEXT DEFAULT 'active',       -- active / paused / done / error
+        status TEXT DEFAULT 'active',       -- active / paused / done / error / deleted
         last_run TIMESTAMPTZ,               -- когда последний раз выполнялась
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // === Таблица источников данных (Sources Layer) ===
+    // === Таблица источников данных (Sources Layer) — скелет, без привязки к крипте ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS sources (
         id SERIAL PRIMARY KEY,
-        key TEXT NOT NULL UNIQUE,              -- короткий код источника: 'news_fed', 'btc_etf', 'binance_btcusdt'
+        key TEXT NOT NULL UNIQUE,              -- короткий код источника: 'news_global', 'weather_api', 'crypto_price'
         name TEXT NOT NULL,                    -- человекочитаемое имя
-        type TEXT NOT NULL,                    -- 'rss', 'http_json', 'html', 'custom'
+        type TEXT NOT NULL,                    -- 'rss', 'http_json', 'html', 'custom', ...
         url TEXT,                              -- основной URL (если есть)
-        is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        config JSONB,                          -- параметры, API-ключи, фильтры и т.п.
+        enabled BOOLEAN NOT NULL DEFAULT TRUE, -- включён / выключен
+        config JSONB DEFAULT '{}'::jsonb,      -- параметры, фильтры и т.п.
         last_success_at TIMESTAMPTZ,
         last_error_at TIMESTAMPTZ,
         last_error_message TEXT,
@@ -78,7 +87,9 @@ async function initDb() {
       );
     `);
 
-    console.log("✅ chat_memory, users, tasks, sources & interaction_logs tables are ready");
+    console.log(
+      "✅ Tables ready: chat_memory, users, tasks, sources, interaction_logs"
+    );
   } catch (err) {
     console.error("❌ Error initializing database:", err);
   }

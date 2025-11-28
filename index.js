@@ -74,7 +74,6 @@ async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES) {
     }));
   } catch (err) {
     console.error("❌ getChatHistory DB error:", err);
-    // если база недоступна или таблица другая — не ломаем бота, просто без истории
     return [];
   }
 }
@@ -125,11 +124,9 @@ async function saveChatPair(chatId, userText, assistantText) {
       [chatId, userText, assistantText]
     );
 
-    // после сохранения — чистим старые сообщения
     await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
   } catch (err) {
     console.error("❌ saveChatPair DB error:", err);
-    // не спамим пользователя ошибками, просто лог
   }
 }
 
@@ -231,8 +228,8 @@ async function createManualTask(userChatId, promptText) {
 async function createTestPriceMonitorTask(userChatId) {
   const payload = {
     symbol: "BTCUSDT",
-    interval_minutes: 60, // раз в час — на будущее
-    threshold_percent: 2, // порог изменения цены, на будущее
+    interval_minutes: 60,
+    threshold_percent: 2,
   };
 
   const result = await pool.query(
@@ -246,7 +243,7 @@ async function createTestPriceMonitorTask(userChatId) {
       "BTC monitor test (раз в час)",
       "price_monitor",
       payload,
-      "0 * * * *", // cron: каждый час, в 00 минут
+      "0 * * * *", // каждый час
       "active",
     ]
   );
@@ -333,7 +330,6 @@ async function runTaskWithAI(task, chatId) {
   let reply = completion.choices[0]?.message?.content ?? "";
   if (typeof reply !== "string") reply = JSON.stringify(reply);
 
-  // отмечаем время запуска
   await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
     task.id,
   ]);
@@ -347,7 +343,6 @@ async function runTaskWithAI(task, chatId) {
 // === SOURCES LAYER HELPERS (debug) ===
 async function getAllSourcesSafe() {
   try {
-    // важно: здесь используем listActiveSources из sources.js
     const sources = await Sources.listActiveSources();
     return sources;
   } catch (err) {
@@ -397,8 +392,8 @@ bot.on("message", async (msg) => {
         (e) => e.type === "bot_command" && e.offset === 0
       );
       if (cmdEntity) {
-        const rawCmd = userText.slice(0, cmdEntity.length); // например "/btc_test_task@Bot"
-        command = rawCmd.split("@")[0]; // убираем @имябота
+        const rawCmd = userText.slice(0, cmdEntity.length);
+        command = rawCmd.split("@")[0];
         commandArgs = userText.slice(cmdEntity.length).trim();
       }
     }
@@ -733,7 +728,6 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(chatId, reply);
 
-    // 6) сохраняем пару вопрос–ответ, НО только если это не команда
     if (!userText.startsWith("/")) {
       await saveChatPair(chatIdStr, userText, reply);
     }
@@ -773,7 +767,7 @@ async function robotTick() {
         "schedule:",
         t.schedule
       );
-      // Пока только лог. Логику добавим позже.
+      // Логику мониторинга добавим позже.
     }
   } catch (err) {
     console.error("❌ ROBOT ERROR:", err);

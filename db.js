@@ -49,7 +49,25 @@ async function initDb() {
       );
     `);
 
-    console.log("✅ chat_memory, users & tasks tables are ready");
+    // === Таблица источников данных (Sources Layer) ===
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS sources (
+        id SERIAL PRIMARY KEY,
+        key TEXT NOT NULL UNIQUE,              -- короткий код источника: 'news_fed', 'btc_etf', 'binance_btcusdt'
+        name TEXT NOT NULL,                    -- человекочитаемое имя
+        type TEXT NOT NULL,                    -- 'rss', 'http_json', 'html', 'custom'
+        url TEXT,                              -- основной URL (если есть)
+        is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        config JSONB,                          -- параметры, API-ключи, фильтры и т.п.
+        last_success_at TIMESTAMPTZ,
+        last_error_at TIMESTAMPTZ,
+        last_error_message TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    console.log("✅ chat_memory, users, tasks & sources tables are ready");
   } catch (err) {
     console.error("❌ Error initializing database:", err);
   }

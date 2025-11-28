@@ -385,6 +385,24 @@ function formatSourcesList(sources) {
   return text;
 }
 
+// === ЛОГИРОВАНИЕ КЛАССИФИКАЦИИ ЗАПРОСОВ ===
+async function logInteraction(chatIdStr, classification) {
+  try {
+    const { taskType, aiCostLevel } = classification || {};
+    if (!taskType || !aiCostLevel) return;
+
+    await pool.query(
+      `
+        INSERT INTO interaction_logs (chat_id, task_type, ai_cost_level)
+        VALUES ($1, $2, $3)
+      `,
+      [chatIdStr, taskType, aiCostLevel]
+    );
+  } catch (err) {
+    console.error("❌ logInteraction DB error:", err);
+  }
+}
+
 // === ОБРАБОТКА СООБЩЕНИЙ ===
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
@@ -714,9 +732,10 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // 3.5) Классификация запроса (скелет модуля)
+    // 3.5) Классификация запроса (скелет модуля) + лог в БД
     const classification = classifyInteraction({ userText });
     console.log("🧮 classifyInteraction:", classification);
+    await logInteraction(chatIdStr, classification);
 
     // 4) если нет ключа OpenAI — простой ответ
     if (!process.env.OPENAI_API_KEY) {

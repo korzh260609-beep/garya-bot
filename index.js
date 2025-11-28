@@ -347,6 +347,7 @@ async function runTaskWithAI(task, chatId) {
 // === SOURCES LAYER HELPERS (debug) ===
 async function getAllSourcesSafe() {
   try {
+    // важно: здесь используем listActiveSources из sources.js
     const sources = await Sources.listActiveSources();
     return sources;
   } catch (err) {
@@ -368,7 +369,9 @@ function formatSourcesList(sources) {
   for (const s of sources) {
     text +=
       `#${s.id} — ${s.name || "Без названия"}\n` +
-      `Тип: ${s.type || "—"}, статус: ${s.enabled ? "ON" : "OFF"}\n\n`;
+      `Тип: ${s.type || "—"}, статус: ${s.enabled ? "ON" : "OFF"}\n` +
+      (s.created_at ? `Создан: ${s.created_at.toISOString?.()}\n` : "") +
+      `\n`;
   }
   return text;
 }

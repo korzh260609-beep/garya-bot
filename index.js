@@ -685,8 +685,10 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(chatId, reply);
 
-    // 6) сохраняем пару вопрос-ответ
-    await saveChatPair(chatIdStr, userText, reply);
+   // 6) сохраняем пару вопрос–ответ, НО только если это не команда
+if (!userText.startsWith("/")) {
+  await saveChatPair(chatIdStr, userText, reply);
+}
   } catch (err) {
     console.error("OpenAI error:", err);
     await bot.sendMessage(

@@ -18,7 +18,7 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 
 if (!token) {
   console.error("❌ TELEGRAM_BOT_TOKEN is missing!");
-  console.exit(1);
+  process.exit(1);
 }
 
 const bot = new TelegramBot(token);
@@ -326,7 +326,7 @@ async function runTaskWithAI(task, chatId) {
   ];
 
   const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     messages,
   });
 
@@ -676,7 +676,7 @@ bot.on("message", async (msg) => {
     ];
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages,
     });
 
@@ -685,10 +685,10 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(chatId, reply);
 
-   // 6) сохраняем пару вопрос–ответ, НО только если это не команда
-if (!userText.startsWith("/")) {
-  await saveChatPair(chatIdStr, userText, reply);
-}
+    // 6) сохраняем пару вопрос–ответ, НО только если это не команда
+    if (!userText.startsWith("/")) {
+      await saveChatPair(chatIdStr, userText, reply);
+    }
   } catch (err) {
     console.error("OpenAI error:", err);
     await bot.sendMessage(

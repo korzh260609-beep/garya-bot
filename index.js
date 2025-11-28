@@ -32,6 +32,7 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 
 if (!token) {
   console.error("❌ TELEGRAM_BOT_TOKEN is missing!");
+  console.error("Убедись, что переменная окружения TELEGRAM_BOT_TOKEN задана на Render.");
   process.exit(1);
 }
 
@@ -1068,14 +1069,29 @@ async function robotTick() {
     const tasks = await getActiveRobotTasks();
 
     for (const t of tasks) {
+      // читаем payload для отладки (symbol / interval / threshold и т.п.)
+      let payloadInfo = "";
+      try {
+        const p = t.payload || {};
+        if (t.type === "price_monitor") {
+          payloadInfo = `symbol=${p.symbol || "?"}, interval=${p.interval_minutes || "?"}m, threshold=${p.threshold_percent || "?"}%`;
+        } else if (t.type === "news_monitor") {
+          payloadInfo = `source=${p.source || "?"}, topic=${p.topic || "?"}`;
+        }
+      } catch (e) {
+        console.error("❌ ROBOT: error reading payload for task", t.id, e);
+      }
+
       console.log(
         "🤖 ROBOT: нашёл задачу:",
         t.id,
         t.type,
         "schedule:",
-        t.schedule
+        t.schedule,
+        payloadInfo ? `| payload: ${payloadInfo}` : ""
       );
-      // Логику мониторинга добавим позже.
+
+      // Логику мониторинга (запрос цены/новостей) добавим на следующем микрошаге.
     }
   } catch (err) {
     console.error("❌ ROBOT ERROR:", err);

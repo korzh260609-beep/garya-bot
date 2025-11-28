@@ -295,6 +295,18 @@ async function getTaskById(userChatId, taskId) {
   return result.rows[0];
 }
 
+// ОБНОВЛЯЕМ СТАТУС ЗАДАЧИ (pause/resume/delete)
+async function updateTaskStatus(userChatId, taskId, newStatus) {
+  await pool.query(
+    `
+      UPDATE tasks
+      SET status = $1
+      WHERE user_chat_id = $2 AND id = $3
+    `,
+    [newStatus, userChatId, taskId]
+  );
+}
+
 // запуск задачи через ИИ-исполнителя
 async function runTaskWithAI(task, chatId) {
   if (!process.env.OPENAI_API_KEY) {
@@ -614,11 +626,17 @@ bot.on("message", async (msg) => {
                 "Варианты использования:\n" +
                 "• `/task list` — показать список ваших задач\n" +
                 "• `/task new <описание>` — создать новую задачу\n" +
-                "• `/task <id>` — показать подробности задачи по ID\n\n" +
+                "• `/task <id>` — показать подробности задачи по ID\n" +
+                "• `/task pause <id>` — поставить задачу на паузу\n" +
+                "• `/task resume <id>` — возобновить задачу\n" +
+                "• `/task delete <id>` — пометить задачу как удалённую\n\n" +
                 "Примеры:\n" +
                 "• `/task list`\n" +
                 "• `/task new следи за ценой BTC раз в час`\n" +
-                "• `/task 10`",
+                "• `/task 10`\n" +
+                "• `/task pause 10`\n" +
+                "• `/task resume 10`\n" +
+                "• `/task delete 10`",
               { parse_mode: "Markdown" }
             );
             return;
@@ -697,6 +715,72 @@ bot.on("message", async (msg) => {
             return;
           }
 
+          // /task pause|resume|delete <id>
+          if (
+            firstLower === "pause" ||
+            firstLower === "resume" ||
+            firstLower === "delete"
+          ) {
+            if (!restText) {
+              await bot.sendMessage(
+                chatId,
+                "Нужно указать ID задачи.\n\nПримеры:\n" +
+                  "`/task pause 10`\n" +
+                  "`/task resume 10`\n" +
+                  "`/task delete 10`",
+                { parse_mode: "Markdown" }
+              );
+              return;
+            }
+
+            const idStr = restText.split(/\s+/)[0];
+            const taskId = parseInt(idStr, 10);
+
+            if (Number.isNaN(taskId)) {
+              await bot.sendMessage(
+                chatId,
+                "ID задачи должен быть числом.\nПример: `/task pause 10`",
+                { parse_mode: "Markdown" }
+              );
+              return;
+            }
+
+            try {
+              const existing = await getTaskById(chatIdStr, taskId);
+              if (!existing) {
+                await bot.sendMessage(
+                  chatId,
+                  `Я не нашёл задачу #${taskId} среди ваших задач.`
+                );
+                return;
+              }
+
+              let newStatus = existing.status;
+              let msg = "";
+
+              if (firstLower === "pause") {
+                newStatus = "paused";
+                msg = `⏸ Задача #${taskId} поставлена на паузу.`;
+              } else if (firstLower === "resume") {
+                newStatus = "active";
+                msg = `▶️ Задача #${taskId} возобновлена.`;
+              } else if (firstLower === "delete") {
+                newStatus = "deleted";
+                msg = `🗑 Задача #${taskId} помечена как удалённая.`;
+              }
+
+              await updateTaskStatus(chatIdStr, taskId, newStatus);
+              await bot.sendMessage(chatId, msg);
+            } catch (e) {
+              console.error("❌ Error in /task pause|resume|delete:", e);
+              await bot.sendMessage(
+                chatId,
+                "Не удалось изменить статус задачи."
+              );
+            }
+            return;
+          }
+
           // /task <id> — показать одну задачу
           const taskId = parseInt(first, 10);
           if (Number.isNaN(taskId)) {
@@ -706,7 +790,10 @@ bot.on("message", async (msg) => {
                 "Использование:\n" +
                 "• `/task list`\n" +
                 "• `/task new <описание>`\n" +
-                "• `/task <id>` (id — число)",
+                "• `/task <id>` (id — число)\n" +
+                "• `/task pause <id>`\n" +
+                "• `/task resume <id>`\n" +
+                "• `/task delete <id>`",
               { parse_mode: "Markdown" }
             );
             return;
@@ -849,7 +936,7 @@ bot.on("message", async (msg) => {
               "/newtask <описание>\n" +
               "/run <id>\n" +
               "/tasks\n" +
-              "/task <list|new|id>\n" +
+              "/task <list|new|pause|resume|delete|id>\n" +
               "/meminfo\n" +
               "/sources\n" +
               "/mode <short|normal|long>"

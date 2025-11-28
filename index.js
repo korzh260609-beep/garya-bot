@@ -310,22 +310,6 @@ async function updateTaskStatus(userChatId, taskId, newStatus) {
   );
 }
 
-// ОБНОВЛЕНИЕ payload задачи (для state робота и т.п.)
-async function updateTaskPayloadById(taskId, newPayload) {
-  try {
-    await pool.query(
-      `
-        UPDATE tasks
-        SET payload = $1
-        WHERE id = $2
-      `,
-      [newPayload, taskId]
-    );
-  } catch (err) {
-    console.error("❌ updateTaskPayloadById DB error:", err);
-  }
-}
-
 // запуск задачи через ИИ-исполнителя
 async function runTaskWithAI(task, chatId) {
   if (!process.env.OPENAI_API_KEY) {
@@ -563,9 +547,9 @@ bot.on("message", async (msg) => {
             return;
           }
 
-          const taskId = parseInt(commandArgs.split(/\s+/)[0], 10);
+          const taskIdRun = parseInt(commandArgs.split(/\s+/)[0], 10);
 
-          if (Number.isNaN(taskId)) {
+          if (Number.isNaN(taskIdRun)) {
             await bot.sendMessage(
               chatId,
               "ID задачи должен быть числом. Пример: `/run 2`",
@@ -575,11 +559,11 @@ bot.on("message", async (msg) => {
           }
 
           try {
-            const task = await getTaskById(chatIdStr, taskId);
+            const task = await getTaskById(chatIdStr, taskIdRun);
             if (!task) {
               await bot.sendMessage(
                 chatId,
-                `Я не нашёл задачу #${taskId} среди ваших задач.`
+                `Я не нашёл задачу #${taskIdRun} среди ваших задач.`
               );
               return;
             }
@@ -801,8 +785,8 @@ bot.on("message", async (msg) => {
           }
 
           // /task <id> — показать одну задачу
-          const taskId = parseInt(first, 10);
-          if (Number.isNaN(taskId)) {
+          const taskIdInfo = parseInt(first, 10);
+          if (Number.isNaN(taskIdInfo)) {
             await bot.sendMessage(
               chatId,
               "Не понимаю аргумент после `/task`.\n\n" +
@@ -819,11 +803,11 @@ bot.on("message", async (msg) => {
           }
 
           try {
-            const task = await getTaskById(chatIdStr, taskId);
+            const task = await getTaskById(chatIdStr, taskIdInfo);
             if (!task) {
               await bot.sendMessage(
                 chatId,
-                `Я не нашёл задачу #${taskId} среди ваших задач.`
+                `Я не нашёл задачу #${taskIdInfo} среди ваших задач.`
               );
               return;
             }
@@ -1067,7 +1051,7 @@ ${modeInstruction}
   }
 });
 
-// === ROBOT-LAYER (скелет) ===
+// === ROBOT-LAYER (скелет + симуляция цены BTC) ===
 
 // Получает активные задачи с расписанием
 async function getActiveRobotTasks() {
@@ -1081,58 +1065,129 @@ async function getActiveRobotTasks() {
   return res.rows;
 }
 
+// Симуляция цены BTC без реального API
+function simulateNextPrice(lastPrice) {
+  // базовая цена, если ещё ничего не было
+  const base = typeof lastPrice === "number" ? lastPrice : 60000;
+  // случайное колебание в диапазоне [-0.5%, +0.5%]
+  const maxDeltaPercent = 0.5;
+  const deltaPercent =
+    ((Math.random() * 2 - 1) * maxDeltaPercent) / 100; // от -0.005 до +0.005
+  const newPrice = base * (1 + deltaPercent);
+  // округляем до 2 знаков
+  return Math.round(newPrice * 100) / 100;
+}
+
+// Обработка одной задачи типа price_monitor (симуляция)
+async function handlePriceMonitorTask(task) {
+  const payload = task.payload || {};
+  const symbol = payload.symbol || "BTCUSDT";
+  const intervalMinutes = payload.interval_minutes || 60;
+  const thresholdPercent = payload.threshold_percent || 2;
+
+  const now = new Date();
+
+  // проверяем, пора ли запускать по интервалу
+  const lastCheckStr = payload.last_check;
+  if (lastCheckStr) {
+    const lastCheck = new Date(lastCheckStr);
+    const diffMs = now.getTime() - lastCheck.getTime();
+    const neededMs = intervalMinutes * 60 * 1000;
+    if (diffMs < neededMs) {
+      // ещё рано, выходим
+      return;
+    }
+  }
+
+  const prevPrice =
+    typeof payload.last_price === "number" ? payload.last_price : undefined;
+
+  const newPrice = simulateNextPrice(prevPrice ?? 60000);
+
+  let changePercent = 0;
+  let alertNeeded = false;
+
+  if (prevPrice != null && prevPrice > 0) {
+    changePercent = ((newPrice - prevPrice) / prevPrice) * 100;
+    if (Math.abs(changePercent) >= thresholdPercent) {
+      alertNeeded = true;
+    }
+  }
+
+  // лог в консоль для контроля
+  console.log(
+    "🤖 ROBOT simulate:",
+    `task #${task.id}`,
+    symbol,
+    "| prev:",
+    prevPrice,
+    "| new:",
+    newPrice,
+    "| change:",
+    changePercent.toFixed(3),
+    "%"
+  );
+
+  // обновляем payload и last_run в БД
+  const newPayload = {
+    ...payload,
+    last_price: newPrice,
+    last_check: now.toISOString(),
+  };
+
+  await pool.query(
+    "UPDATE tasks SET payload = $1, last_run = NOW() WHERE id = $2",
+    [newPayload, task.id]
+  );
+
+  // если порог превышён — шлём уведомление пользователю
+  if (alertNeeded) {
+    const sign = changePercent > 0 ? "📈" : "📉";
+    const direction = changePercent > 0 ? "выросла" : "упала";
+    const msg =
+      `${sign} Мониторинг цены (ТЕСТ, симуляция)\n\n` +
+      `Задача #${task.id} — ${symbol}\n` +
+      `Интервал: ${intervalMinutes} мин\n` +
+      `Порог срабатывания: ${thresholdPercent}%\n\n` +
+      `Цена ${direction} примерно на ${changePercent.toFixed(2)}%.\n` +
+      `Было: ${prevPrice ?? "—"}\n` +
+      `Стало: ${newPrice}\n\n` +
+      `Это тестовый режим без реального API, нужен для проверки логики робота.`;
+
+    try {
+      await bot.sendMessage(task.user_chat_id, msg);
+    } catch (e) {
+      console.error("❌ ROBOT: не удалось отправить сообщение в чат", e);
+    }
+  }
+}
+
+// Заглушка для будущего news_monitor
+async function handleNewsMonitorTask(task) {
+  const payload = task.payload || {};
+  console.log(
+    "🤖 ROBOT news_monitor (пока заглушка):",
+    task.id,
+    payload.source,
+    payload.topic
+  );
+}
+
 // Главный "тик" робота
 async function robotTick() {
   try {
     const tasks = await getActiveRobotTasks();
-    const nowIso = new Date().toISOString();
 
     for (const t of tasks) {
-      // Берём payload из задачи (jsonb в БД)
-      let payload = t.payload || {};
-      let state = payload.state || {};
-
-      // Обновляем состояние: фиксируем время последней проверки
-      state.last_check = nowIso;
-      payload.state = state;
-
-      // Сохраняем новое состояние обратно в БД
-      await updateTaskPayloadById(t.id, payload);
-
-      // Формируем человекочитаемый лог
-      let payloadInfo = "";
       try {
-        const p = payload;
         if (t.type === "price_monitor") {
-          payloadInfo =
-            `symbol=${p.symbol || "?"}, ` +
-            `interval=${p.interval_minutes || "?"}m, ` +
-            `threshold=${p.threshold_percent || "?"}%, ` +
-            `last_check=${state.last_check || "—"}`;
+          await handlePriceMonitorTask(t);
         } else if (t.type === "news_monitor") {
-          payloadInfo =
-            `source=${p.source || "?"}, ` +
-            `topic=${p.topic || "?"}, ` +
-            `last_check=${state.last_check || "—"}`;
+          await handleNewsMonitorTask(t);
         }
       } catch (e) {
-        console.error(
-          "❌ ROBOT: error reading payload/state for task",
-          t.id,
-          e
-        );
+        console.error("❌ ROBOT: ошибка при обработке задачи", t.id, e);
       }
-
-      console.log(
-        "🤖 ROBOT: нашёл задачу:",
-        t.id,
-        t.type,
-        "schedule:",
-        t.schedule,
-        payloadInfo ? `| payload: ${payloadInfo}` : ""
-      );
-
-      // Реальную логику мониторинга (цены/новости) добавим на следующем микрошаге.
     }
   } catch (err) {
     console.error("❌ ROBOT ERROR:", err);

@@ -254,29 +254,13 @@ async function createTestPriceMonitorTask(userChatId) {
   return result.rows[0];
 }
 
-// пометить задачу как удалённую (soft delete)
-async function deleteTask(userChatId, taskId) {
-  const res = await pool.query(
-    `
-      UPDATE tasks
-      SET status = 'deleted'
-      WHERE user_chat_id = $1 AND id = $2
-      RETURNING id
-    `,
-    [userChatId, taskId]
-  );
-
-  return res.rowCount > 0; // true, если задача найдена и обновлена
-}
-
-// получаем последние задачи пользователя (без deleted)
+// получаем последние задачи пользователя
 async function getUserTasks(userChatId, limit = 10) {
   const result = await pool.query(
     `
       SELECT id, title, type, status, schedule, last_run, created_at
       FROM tasks
       WHERE user_chat_id = $1
-        AND status != 'deleted'
       ORDER BY id DESC
       LIMIT $2
     `,
@@ -358,6 +342,35 @@ async function runTaskWithAI(task, chatId) {
     chatId,
     `🚀 Задача #${task.id} выполнена ИИ-движком.\n\n${reply}`
   );
+}
+
+// === SOURCES LAYER HELPERS (debug) ===
+async function getAllSourcesSafe() {
+  try {
+    const sources = await Sources.listActiveSources();
+    return sources;
+  } catch (err) {
+    console.error("❌ Error in getAllSourcesSafe:", err);
+    return [];
+  }
+}
+
+function formatSourcesList(sources) {
+  if (!sources || sources.length === 0) {
+    return (
+      "📡 Источники данных (Sources Layer)\n\n" +
+      "Пока в реестре нет ни одного источника.\n" +
+      "Позже мы добавим сюда TradingView, новостные RSS и другие API."
+    );
+  }
+
+  let text = "📡 Источники данных (Sources Layer):\n\n";
+  for (const s of sources) {
+    text +=
+      `#${s.id} — ${s.name || "Без названия"}\n` +
+      `Тип: ${s.type || "—"}, статус: ${s.enabled ? "ON" : "OFF"}\n\n`;
+  }
+  return text;
 }
 
 // === ОБРАБОТКА СООБЩЕНИЙ ===
@@ -543,52 +556,6 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        case "/deltask": {
-          if (!commandArgs) {
-            await bot.sendMessage(
-              chatId,
-              "Использование:\n`/deltask ID_задачи`\n\nНапример:\n`/deltask 7`",
-              { parse_mode: "Markdown" }
-            );
-            return;
-          }
-
-          const taskId = parseInt(commandArgs.split(/\s+/)[0], 10);
-
-          if (Number.isNaN(taskId)) {
-            await bot.sendMessage(
-              chatId,
-              "ID задачи должен быть числом. Пример: `/deltask 7`",
-              { parse_mode: "Markdown" }
-            );
-            return;
-          }
-
-          try {
-            const ok = await deleteTask(chatIdStr, taskId);
-
-            if (!ok) {
-              await bot.sendMessage(
-                chatId,
-                `Я не нашёл задачу #${taskId} среди ваших задач.`
-              );
-              return;
-            }
-
-            await bot.sendMessage(
-              chatId,
-              `🗑 Задача #${taskId} помечена как удалённая (status = deleted) и больше не будет выполняться.`
-            );
-          } catch (e) {
-            console.error("❌ Error in /deltask:", e);
-            await bot.sendMessage(
-              chatId,
-              "Не удалось удалить задачу в Task Engine."
-            );
-          }
-          return;
-        }
-
         case "/tasks": {
           try {
             const tasks = await getUserTasks(chatIdStr, 10);
@@ -662,6 +629,21 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        case "/sources": {
+          try {
+            const sources = await getAllSourcesSafe();
+            const text = formatSourcesList(sources);
+            await bot.sendMessage(chatId, text);
+          } catch (e) {
+            console.error("❌ Error in /sources:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось получить список источников."
+            );
+          }
+          return;
+        }
+
         default: {
           await bot.sendMessage(
             chatId,
@@ -671,9 +653,9 @@ bot.on("message", async (msg) => {
               "/btc_test_task\n" +
               "/newtask <описание>\n" +
               "/run <id>\n" +
-              "/deltask <id>\n" +
               "/tasks\n" +
-              "/meminfo"
+              "/meminfo\n" +
+              "/sources"
           );
           return;
         }

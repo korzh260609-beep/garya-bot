@@ -1,5 +1,5 @@
 // classifier.js
-// Скелет классификатора задач и стоимости ИИ
+// Скелет классификатора задач и пример оценки "дороговизны" ИИ
 
 export const TASK_TYPES = {
   CHAT: "chat",
@@ -16,43 +16,55 @@ export const AI_COST_LEVELS = {
 };
 
 /**
- * Скелет: по тексту запроса возвращает тип задачи и уровень "дороговизны" ИИ.
- * Пока логика минимальная, потом будем расширять.
+ * Классифицирует запрос пользователя:
+ *  - taskType   — тип задачи (chat / report / signal / news / unknown)
+ *  - requiresAI — нужен ли вообще ИИ (для логов и будущих оптимизаций)
+ *  - aiCostLevel — условная «стоимость» ответа (low / medium / high)
+ *
+ * Пока это лёгкий скелет с простыми эвристиками. Позже можно расширять
+ * и/или вынести правила в БД/конфиг.
  */
-export function classifyInteraction({ userText }) {
-  const text = (userText || "").toLowerCase();
+export function classifyInteraction({ userText } = {}) {
+  const rawText = typeof userText === "string" ? userText : "";
+  const text = rawText.toLowerCase().trim();
 
+  // По умолчанию — обычный чат, дешёвый ответ
   let taskType = TASK_TYPES.CHAT;
   let aiCostLevel = AI_COST_LEVELS.LOW;
+  let requiresAI = true;
 
-  // Простейшие эвристики (их легко расширять)
+  // Если это команда вида "/something" — считаем служебным, без ИИ
+  if (text.startsWith("/")) {
+    return {
+      taskType: TASK_TYPES.CHAT,
+      requiresAI: false,
+      aiCostLevel: AI_COST_LEVELS.LOW,
+    };
+  }
+
+  // --- Простейшие эвристики по ключевым словам ---
+
+  // Отчёты / аналитика
   if (
     text.includes("отчёт") ||
     text.includes("отчет") ||
-    text.includes("report")
+    text.includes("report") ||
+    text.includes("аналитик") ||
+    text.includes("analysis")
   ) {
     taskType = TASK_TYPES.REPORT;
     aiCostLevel = AI_COST_LEVELS.MEDIUM;
   }
 
-  if (text.includes("сигнал") || text.includes("signal") || text.includes("trade")) {
+  // Сигналы / трейдинг
+  if (
+    text.includes("сигнал") ||
+    text.includes("signal") ||
+    text.includes("trade") ||
+    text.includes("трейд")
+  ) {
     taskType = TASK_TYPES.SIGNAL;
     aiCostLevel = AI_COST_LEVELS.MEDIUM;
   }
 
-  if (text.includes("мониторинг") || text.includes("новости") || text.includes("news")) {
-    taskType = TASK_TYPES.NEWS;
-    aiCostLevel = AI_COST_LEVELS.MEDIUM;
-  }
-
-  // Очень длинные тексты — потенциально дорогие
-  if (text.length > 1500) {
-    aiCostLevel = AI_COST_LEVELS.HIGH;
-  }
-
-  return {
-    taskType,
-    requiresAI: true,
-    aiCostLevel,
-  };
-}
+  // Новости / мониторинг

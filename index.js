@@ -56,65 +56,80 @@ const client = new OpenAI({
 
 // === ФУНКЦИИ ДЛЯ ПАМЯТИ ===
 async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES) {
-  const result = await pool.query(
-    `
-      SELECT role, content
-      FROM chat_memory
-      WHERE chat_id = $1
-      ORDER BY id DESC
-      LIMIT $2
-    `,
-    [chatId, limit]
-  );
-  return result.rows.reverse().map((row) => ({
-    role: row.role,
-    content: row.content,
-  }));
+  try {
+    const result = await pool.query(
+      `
+        SELECT role, content
+        FROM chat_memory
+        WHERE chat_id = $1
+        ORDER BY id DESC
+        LIMIT $2
+      `,
+      [chatId, limit]
+    );
+    return result.rows.reverse().map((row) => ({
+      role: row.role,
+      content: row.content,
+    }));
+  } catch (err) {
+    console.error("❌ getChatHistory DB error:", err);
+    // если база недоступна или таблица другая — не ломаем бота, просто без истории
+    return [];
+  }
 }
 
 // авто-очистка: оставляем только последние MAX_HISTORY_MESSAGES записей
 async function cleanupChatHistory(chatId, maxMessages = MAX_HISTORY_MESSAGES) {
-  const res = await pool.query(
-    `
-      SELECT id
-      FROM chat_memory
-      WHERE chat_id = $1
-      ORDER BY id DESC
-      OFFSET $2
-    `,
-    [chatId, maxMessages]
-  );
+  try {
+    const res = await pool.query(
+      `
+        SELECT id
+        FROM chat_memory
+        WHERE chat_id = $1
+        ORDER BY id DESC
+        OFFSET $2
+      `,
+      [chatId, maxMessages]
+    );
 
-  if (res.rows.length === 0) return;
+    if (res.rows.length === 0) return;
 
-  const idsToDelete = res.rows.map((r) => r.id);
+    const idsToDelete = res.rows.map((r) => r.id);
 
-  await pool.query(
-    `
-      DELETE FROM chat_memory
-      WHERE id = ANY($1::int[])
-    `,
-    [idsToDelete]
-  );
+    await pool.query(
+      `
+        DELETE FROM chat_memory
+        WHERE id = ANY($1::int[])
+      `,
+      [idsToDelete]
+    );
 
-  console.log(
-    `🧹 cleanupChatHistory: удалено ${idsToDelete.length} старых записей для чата ${chatId}`
-  );
+    console.log(
+      `🧹 cleanupChatHistory: удалено ${idsToDelete.length} старых записей для чата ${chatId}`
+    );
+  } catch (err) {
+    console.error("❌ cleanupChatHistory DB error:", err);
+  }
 }
 
 async function saveChatPair(chatId, userText, assistantText) {
-  await pool.query(
-    `
-      INSERT INTO chat_memory (chat_id, role, content)
-      VALUES
-        ($1, 'user', $2),
-        ($1, 'assistant', $3)
-    `,
-    [chatId, userText, assistantText]
-  );
+  try {
+    await pool.query(
+      `
+        INSERT INTO chat_memory (chat_id, role, content)
+        VALUES
+          ($1, 'user', $2),
+          ($1, 'assistant', $3)
+      `,
+      [chatId, userText, assistantText]
+    );
 
-  // после сохранения — чистим старые сообщения
-  await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
+    // после сохранения — чистим старые сообщения
+    await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
+  } catch (err) {
+    console.error("❌ saveChatPair DB error:", err);
+    // не спамим пользователя ошибками, просто лог
+  }
 }
 
 // === USER PROFILE HANDLING ===

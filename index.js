@@ -74,7 +74,6 @@ async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES) {
     }));
   } catch (err) {
     console.error("❌ getChatHistory DB error:", err);
-    // если база недоступна или таблица другая — не ломаем бота, просто без истории
     return [];
   }
 }
@@ -125,11 +124,9 @@ async function saveChatPair(chatId, userText, assistantText) {
       [chatId, userText, assistantText]
     );
 
-    // после сохранения — чистим старые сообщения
     await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
   } catch (err) {
     console.error("❌ saveChatPair DB error:", err);
-    // не спамим пользователя ошибками, просто лог
   }
 }
 
@@ -231,8 +228,8 @@ async function createManualTask(userChatId, promptText) {
 async function createTestPriceMonitorTask(userChatId) {
   const payload = {
     symbol: "BTCUSDT",
-    interval_minutes: 60, // раз в час — на будущее
-    threshold_percent: 2, // порог изменения цены, на будущее
+    interval_minutes: 60,
+    threshold_percent: 2,
   };
 
   const result = await pool.query(
@@ -246,7 +243,7 @@ async function createTestPriceMonitorTask(userChatId) {
       "BTC monitor test (раз в час)",
       "price_monitor",
       payload,
-      "0 * * * *", // cron: каждый час, в 00 минут
+      "0 * * * *", // каждый час
       "active",
     ]
   );
@@ -254,29 +251,13 @@ async function createTestPriceMonitorTask(userChatId) {
   return result.rows[0];
 }
 
-// пометить задачу как удалённую (soft delete)
-async function deleteTask(userChatId, taskId) {
-  const res = await pool.query(
-    `
-      UPDATE tasks
-      SET status = 'deleted'
-      WHERE user_chat_id = $1 AND id = $2
-      RETURNING id
-    `,
-    [userChatId, taskId]
-  );
-
-  return res.rowCount > 0; // true, если задача найдена и обновлена
-}
-
-// получаем последние задачи пользователя (без deleted)
+// получаем последние задачи пользователя
 async function getUserTasks(userChatId, limit = 10) {
   const result = await pool.query(
     `
       SELECT id, title, type, status, schedule, last_run, created_at
       FROM tasks
       WHERE user_chat_id = $1
-        AND status != 'deleted'
       ORDER BY id DESC
       LIMIT $2
     `,
@@ -349,7 +330,6 @@ async function runTaskWithAI(task, chatId) {
   let reply = completion.choices[0]?.message?.content ?? "";
   if (typeof reply !== "string") reply = JSON.stringify(reply);
 
-  // отмечаем время запуска
   await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
     task.id,
   ]);
@@ -358,6 +338,37 @@ async function runTaskWithAI(task, chatId) {
     chatId,
     `🚀 Задача #${task.id} выполнена ИИ-движком.\n\n${reply}`
   );
+}
+
+// === SOURCES LAYER HELPERS (debug) ===
+async function getAllSourcesSafe() {
+  try {
+    const sources = await Sources.listActiveSources();
+    return sources;
+  } catch (err) {
+    console.error("❌ Error in getAllSourcesSafe:", err);
+    return [];
+  }
+}
+
+function formatSourcesList(sources) {
+  if (!sources || sources.length === 0) {
+    return (
+      "📡 Источники данных (Sources Layer)\n\n" +
+      "Пока в реестре нет ни одного источника.\n" +
+      "Позже мы добавим сюда TradingView, новостные RSS и другие API."
+    );
+  }
+
+  let text = "📡 Источники данных (Sources Layer):\n\n";
+  for (const s of sources) {
+    text +=
+      `#${s.id} — ${s.name || "Без названия"}\n` +
+      `Тип: ${s.type || "—"}, статус: ${s.enabled ? "ON" : "OFF"}\n` +
+      (s.created_at ? `Создан: ${s.created_at.toISOString?.()}\n` : "") +
+      `\n`;
+  }
+  return text;
 }
 
 // === ОБРАБОТКА СООБЩЕНИЙ ===
@@ -381,8 +392,8 @@ bot.on("message", async (msg) => {
         (e) => e.type === "bot_command" && e.offset === 0
       );
       if (cmdEntity) {
-        const rawCmd = userText.slice(0, cmdEntity.length); // например "/btc_test_task@Bot"
-        command = rawCmd.split("@")[0]; // убираем @имябота
+        const rawCmd = userText.slice(0, cmdEntity.length);
+        command = rawCmd.split("@")[0];
         commandArgs = userText.slice(cmdEntity.length).trim();
       }
     }
@@ -543,52 +554,6 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        case "/deltask": {
-          if (!commandArgs) {
-            await bot.sendMessage(
-              chatId,
-              "Использование:\n`/deltask ID_задачи`\n\nНапример:\n`/deltask 7`",
-              { parse_mode: "Markdown" }
-            );
-            return;
-          }
-
-          const taskId = parseInt(commandArgs.split(/\s+/)[0], 10);
-
-          if (Number.isNaN(taskId)) {
-            await bot.sendMessage(
-              chatId,
-              "ID задачи должен быть числом. Пример: `/deltask 7`",
-              { parse_mode: "Markdown" }
-            );
-            return;
-          }
-
-          try {
-            const ok = await deleteTask(chatIdStr, taskId);
-
-            if (!ok) {
-              await bot.sendMessage(
-                chatId,
-                `Я не нашёл задачу #${taskId} среди ваших задач.`
-              );
-              return;
-            }
-
-            await bot.sendMessage(
-              chatId,
-              `🗑 Задача #${taskId} помечена как удалённая (status = deleted) и больше не будет выполняться.`
-            );
-          } catch (e) {
-            console.error("❌ Error in /deltask:", e);
-            await bot.sendMessage(
-              chatId,
-              "Не удалось удалить задачу в Task Engine."
-            );
-          }
-          return;
-        }
-
         case "/tasks": {
           try {
             const tasks = await getUserTasks(chatIdStr, 10);
@@ -662,6 +627,21 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        case "/sources": {
+          try {
+            const sources = await getAllSourcesSafe();
+            const text = formatSourcesList(sources);
+            await bot.sendMessage(chatId, text);
+          } catch (e) {
+            console.error("❌ Error in /sources:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось получить список источников."
+            );
+          }
+          return;
+        }
+
         default: {
           await bot.sendMessage(
             chatId,
@@ -671,9 +651,9 @@ bot.on("message", async (msg) => {
               "/btc_test_task\n" +
               "/newtask <описание>\n" +
               "/run <id>\n" +
-              "/deltask <id>\n" +
               "/tasks\n" +
-              "/meminfo"
+              "/meminfo\n" +
+              "/sources"
           );
           return;
         }
@@ -748,7 +728,6 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(chatId, reply);
 
-    // 6) сохраняем пару вопрос–ответ, НО только если это не команда
     if (!userText.startsWith("/")) {
       await saveChatPair(chatIdStr, userText, reply);
     }
@@ -788,7 +767,7 @@ async function robotTick() {
         "schedule:",
         t.schedule
       );
-      // Пока только лог. Логику добавим позже.
+      // Логику мониторинга добавим позже.
     }
   } catch (err) {
     console.error("❌ ROBOT ERROR:", err);

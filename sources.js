@@ -1,42 +1,35 @@
-// sources.js — базовый слой для работы с источниками данных
+// sources.js
+// Скелет реестра источников данных (Sources Layer)
+// ESM-вариант: используем export, а не module.exports
 
-import pool from "./db.js";
+// Пока просто хранение в памяти. Потом заменим на таблицу в БД.
+const registry = [];
 
-// Получить список источников
-export async function getAllSources() {
-  const res = await pool.query(`SELECT * FROM sources ORDER BY id ASC`);
-  return res.rows;
+/**
+ * Вернуть список активных источников.
+ * Сейчас вернёт пустой массив, но уже БЕЗ ошибок в логах.
+ */
+export async function listActiveSources() {
+  // фильтр на будущее: только включённые источники
+  return registry.filter((s) => s.enabled !== false);
 }
 
-// Добавить новый источник
-export async function addSource(key, name, type, url, config = {}) {
-  const res = await pool.query(
-    `
-      INSERT INTO sources (key, name, type, url, config)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *;
-    `,
-    [key, name, type, url, config]
-  );
-  return res.rows[0];
-}
+/**
+ * Вспомогательная функция — регистрация источника (на будущее).
+ * Сейчас она нам не обязательна, но пусть будет.
+ */
+export async function addSource({ name, type, config = {} }) {
+  const id = registry.length + 1;
 
-// Обновить источник
-export async function updateSource(id, fields) {
-  const keys = Object.keys(fields);
-  const values = Object.values(fields);
+  const src = {
+    id,
+    name,
+    type,
+    config,
+    enabled: true,
+    created_at: new Date(),
+  };
 
-  const setString = keys.map((k, i) => `${k} = $${i + 2}`).join(", ");
-
-  const res = await pool.query(
-    `
-      UPDATE sources
-      SET ${setString}, updated_at = NOW()
-      WHERE id = $1
-      RETURNING *;
-    `,
-    [id, ...values]
-  );
-
-  return res.rows[0];
+  registry.push(src);
+  return src;
 }

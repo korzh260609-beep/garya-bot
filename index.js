@@ -65,6 +65,15 @@ app.get(`/webhook/${token}`, (req, res) => {
 
 app.listen(PORT, () => {
   console.log("🌐 Web server started on port:", PORT);
+
+  // === Инициализация реестра источников (Sources Layer) ===
+  Sources.ensureDefaultSources()
+    .then(() => {
+      console.log("📡 Sources: default templates are ready.");
+    })
+    .catch((err) => {
+      console.error("❌ Error initializing sources registry:", err);
+    });
 });
 
 // === OpenAI ===
@@ -393,7 +402,9 @@ function formatSourcesList(sources) {
   for (const s of sources) {
     text +=
       `#${s.id} — ${s.name || "Без названия"}\n` +
-      `Тип: ${s.type || "—"}, статус: ${s.enabled ? "ON" : "OFF"}\n` +
+      `Тип: ${s.type || "—"}, статус: ${
+        s.is_enabled ? "ON" : "OFF"
+      }\n` +
       (s.created_at ? `Создан: ${s.created_at.toISOString?.()}\n` : "") +
       `\n`;
   }

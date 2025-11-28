@@ -32,7 +32,9 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 
 if (!token) {
   console.error("❌ TELEGRAM_BOT_TOKEN is missing!");
-  console.error("Убедись, что переменная окружения TELEGRAM_BOT_TOKEN задана на Render.");
+  console.error(
+    "Убедись, что переменная окружения TELEGRAM_BOT_TOKEN задана на Render."
+  );
   process.exit(1);
 }
 
@@ -306,6 +308,22 @@ async function updateTaskStatus(userChatId, taskId, newStatus) {
     `,
     [newStatus, userChatId, taskId]
   );
+}
+
+// ОБНОВЛЕНИЕ payload задачи (для state робота и т.п.)
+async function updateTaskPayloadById(taskId, newPayload) {
+  try {
+    await pool.query(
+      `
+        UPDATE tasks
+        SET payload = $1
+        WHERE id = $2
+      `,
+      [newPayload, taskId]
+    );
+  } catch (err) {
+    console.error("❌ updateTaskPayloadById DB error:", err);
+  }
 }
 
 // запуск задачи через ИИ-исполнителя
@@ -1067,19 +1085,42 @@ async function getActiveRobotTasks() {
 async function robotTick() {
   try {
     const tasks = await getActiveRobotTasks();
+    const nowIso = new Date().toISOString();
 
     for (const t of tasks) {
-      // читаем payload для отладки (symbol / interval / threshold и т.п.)
+      // Берём payload из задачи (jsonb в БД)
+      let payload = t.payload || {};
+      let state = payload.state || {};
+
+      // Обновляем состояние: фиксируем время последней проверки
+      state.last_check = nowIso;
+      payload.state = state;
+
+      // Сохраняем новое состояние обратно в БД
+      await updateTaskPayloadById(t.id, payload);
+
+      // Формируем человекочитаемый лог
       let payloadInfo = "";
       try {
-        const p = t.payload || {};
+        const p = payload;
         if (t.type === "price_monitor") {
-          payloadInfo = `symbol=${p.symbol || "?"}, interval=${p.interval_minutes || "?"}m, threshold=${p.threshold_percent || "?"}%`;
+          payloadInfo =
+            `symbol=${p.symbol || "?"}, ` +
+            `interval=${p.interval_minutes || "?"}m, ` +
+            `threshold=${p.threshold_percent || "?"}%, ` +
+            `last_check=${state.last_check || "—"}`;
         } else if (t.type === "news_monitor") {
-          payloadInfo = `source=${p.source || "?"}, topic=${p.topic || "?"}`;
+          payloadInfo =
+            `source=${p.source || "?"}, ` +
+            `topic=${p.topic || "?"}, ` +
+            `last_check=${state.last_check || "—"}`;
         }
       } catch (e) {
-        console.error("❌ ROBOT: error reading payload for task", t.id, e);
+        console.error(
+          "❌ ROBOT: error reading payload/state for task",
+          t.id,
+          e
+        );
       }
 
       console.log(
@@ -1091,7 +1132,7 @@ async function robotTick() {
         payloadInfo ? `| payload: ${payloadInfo}` : ""
       );
 
-      // Логику мониторинга (запрос цены/новостей) добавим на следующем микрошаге.
+      // Реальную логику мониторинга (цены/новости) добавим на следующем микрошаге.
     }
   } catch (err) {
     console.error("❌ ROBOT ERROR:", err);

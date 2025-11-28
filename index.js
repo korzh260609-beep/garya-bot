@@ -62,7 +62,7 @@ app.get(`/webhook/${token}`, (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log("🌐 Web server started on port: " + PORT);
+  console.log("🌐 Web server started on port:", PORT);
 });
 
 // === OpenAI ===
@@ -1049,7 +1049,7 @@ ${modeInstruction}
   }
 });
 
-// === ROBOT-LAYER (скелет + MOCK) ===
+// === ROBOT-LAYER (mock режим без реального API) ===
 
 // Получает активные задачи с расписанием
 async function getActiveRobotTasks() {
@@ -1063,24 +1063,8 @@ async function getActiveRobotTasks() {
   return res.rows;
 }
 
-// Внутренняя mock-цена (без реального API)
-function getMockPrice(symbolRaw) {
-  const symbol = (symbolRaw || "BTCUSDT").toUpperCase();
-
-  let base = 60000;
-  if (symbol.includes("ETH")) base = 3000;
-  if (symbol.includes("SOL")) base = 150;
-  if (symbol.includes("XRP")) base = 0.6;
-
-  // случайное отклонение ±2%
-  const noise = (Math.random() - 0.5) * 0.04;
-  const price = base * (1 + noise);
-  return Number(price.toFixed(2));
-}
-
-// Память робота внутри процесса
-const lastMockPriceByTask = new Map(); // taskId -> number
-const lastAlertTimeByTask = new Map(); // taskId -> timestamp ms
+// Память mock-цен: taskId -> { price, lastCheck }
+const mockPriceState = new Map();
 
 // Главный "тик" робота
 async function robotTick() {
@@ -1088,9 +1072,8 @@ async function robotTick() {
     const tasks = await getActiveRobotTasks();
 
     for (const t of tasks) {
-      // читаем payload для отладки (symbol / interval / threshold и т.п.)
-      let payloadInfo = "";
       let p = {};
+      let payloadInfo = "";
       try {
         p = t.payload || {};
         if (t.type === "price_monitor") {
@@ -1111,67 +1094,114 @@ async function robotTick() {
         payloadInfo ? `| payload: ${payloadInfo}` : ""
       );
 
-      // ===== MOCK-логика для price_monitor =====
-      if (t.type === "price_monitor") {
-        const symbol = p.symbol || "BTCUSDT";
-        const thresholdPercent =
-          typeof p.threshold_percent === "number"
-            ? p.threshold_percent
-            : 2; // по умолчанию 2%
+      // Пока реализуем только price_monitor
+      if (t.type !== "price_monitor") continue;
 
-        const currentPrice = getMockPrice(symbol);
-        const prevPrice = lastMockPriceByTask.get(t.id);
-        lastMockPriceByTask.set(t.id, currentPrice);
+      const symbol = p.symbol || "BTCUSDT";
+      const intervalMinutes =
+        typeof p.interval_minutes === "number" ? p.interval_minutes : 60;
+      const thresholdPercent =
+        typeof p.threshold_percent === "number" ? p.threshold_percent : 2;
 
-        if (typeof prevPrice === "number" && prevPrice > 0) {
-          const diffPct = Math.abs(
-            ((currentPrice - prevPrice) / prevPrice) * 100
-          );
+      const now = Date.now();
+      let state = mockPriceState.get(t.id);
 
-          if (diffPct >= thresholdPercent) {
-            const now = Date.now();
-            const lastAlert = lastAlertTimeByTask.get(t.id) || 0;
+      // Первая инициализация mock-цены
+      if (!state) {
+        const initialPrice = getInitialMockPrice(symbol);
+        state = { price: initialPrice, lastCheck: now };
+        mockPriceState.set(t.id, state);
 
-            // чтобы не спамить — не чаще раза в 10 минут
-            if (now - lastAlert > 10 * 60 * 1000) {
-              lastAlertTimeByTask.set(t.id, now);
+        console.log(
+          "🤖 ROBOT: init mock-price for task",
+          t.id,
+          "symbol:",
+          symbol,
+          "price:",
+          state.price
+        );
+        continue;
+      }
 
-              const userChatId =
-                Number(t.user_chat_id) || t.user_chat_id || undefined;
+      // Проверяем, прошёл ли нужный интервал
+      const msSinceLast = now - state.lastCheck;
+      if (msSinceLast < intervalMinutes * 60_000) {
+        // Рано, ждём следующего тика
+        continue;
+      }
 
-              const msg =
-                `⚠️ Mock-сигнал по задаче #${t.id} (${symbol}).\n` +
-                `Изменение mock-цены между двумя проверками: ${diffPct.toFixed(
-                  2
-                )}%.\n` +
-                `Текущая mock-цена: ${currentPrice}\n` +
-                `Это ТЕСТОВЫЙ режим без реального биржевого API.`;
+      // Делаем случайное изменение mock-цены (±4%)
+      const randomDelta = (Math.random() - 0.5) * 0.08; // -4%..+4%
+      const newPrice = Math.max(1, state.price * (1 + randomDelta));
+      const changePercent = ((newPrice - state.price) / state.price) * 100;
 
-              if (userChatId) {
-                try {
-                  await bot.sendMessage(userChatId, msg);
-                } catch (e) {
-                  console.error(
-                    "❌ ROBOT: не удалось отправить mock-уведомление по задаче",
-                    t.id,
-                    e
-                  );
-                }
-              } else {
-                console.log(
-                  "🤖 ROBOT: mock-триггер, но нет user_chat_id у задачи",
-                  t.id
-                );
-              }
-            }
+      console.log(
+        "📈 ROBOT mock-price:",
+        "task",
+        t.id,
+        "symbol",
+        symbol,
+        "old=" + state.price.toFixed(2),
+        "new=" + newPrice.toFixed(2),
+        "Δ=" + changePercent.toFixed(2) + "%",
+        "interval=" + intervalMinutes + "m"
+      );
+
+      // обновляем состояние
+      state.price = newPrice;
+      state.lastCheck = now;
+
+      // если изменение больше порога — шлём mock-сигнал
+      if (Math.abs(changePercent) >= thresholdPercent) {
+        console.log(
+          "🔥 MOCK alert for task",
+          t.id,
+          "symbol",
+          symbol,
+          "change=" + changePercent.toFixed(2) + "%",
+          "threshold=" + thresholdPercent + "%"
+        );
+
+        const direction = changePercent > 0 ? "вверх" : "вниз";
+        const userChatId = Number(t.user_chat_id) || t.user_chat_id;
+
+        const text =
+          `⚠️ Mock-сигнал по задаче #${t.id} (${symbol}).\n` +
+          `Изменение mock-цены между двумя проверками: ${changePercent.toFixed(
+            2
+          )}%.\n` +
+          `Текущая mock-цена: ${newPrice.toFixed(2)}\n` +
+          `Направление: ${direction}.\n` +
+          `Это ТЕСТОВЫЙ режим без реального биржевого API.`;
+
+        if (userChatId) {
+          try {
+            await bot.sendMessage(userChatId, text);
+          } catch (e) {
+            console.error(
+              "❌ ROBOT: не удалось отправить mock-сигнал по задаче",
+              t.id,
+              e
+            );
           }
         }
       }
-      // ===== конец mock-логики =====
     }
   } catch (err) {
     console.error("❌ ROBOT ERROR:", err);
   }
+}
+
+// начальная mock-цена по символу
+function getInitialMockPrice(symbolRaw) {
+  const symbol = (symbolRaw || "BTCUSDT").toUpperCase();
+  let base = 60000;
+
+  if (symbol.includes("ETH")) base = 3000;
+  else if (symbol.includes("SOL")) base = 150;
+  else if (symbol.includes("XRP")) base = 0.6;
+
+  return base;
 }
 
 // Запускаем робота раз в 30 секунд

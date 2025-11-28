@@ -68,3 +68,36 @@ export function classifyInteraction({ userText } = {}) {
   }
 
   // Новости / мониторинг
+  if (
+    text.includes("мониторинг") ||
+    text.includes("новости") ||
+    text.includes("news")
+  ) {
+    taskType = TASK_TYPES.NEWS;
+    aiCostLevel = AI_COST_LEVELS.MEDIUM;
+  }
+
+  // Явный запрос на большой объём текста — сразу HIGH
+  if (
+    text.includes("полный отч") || // "полный отчёт/отчет"
+    text.includes("большой текст") ||
+    text.includes("статью") ||
+    text.includes("статья") ||
+    text.includes("long report") ||
+    text.includes("big article")
+  ) {
+    taskType = taskType === TASK_TYPES.CHAT ? TASK_TYPES.REPORT : taskType;
+    aiCostLevel = AI_COST_LEVELS.HIGH;
+  }
+
+  // Очень длинные сообщения по длине — потенциально дорогие
+  if (text.length > 1500) {
+    aiCostLevel = AI_COST_LEVELS.HIGH;
+  }
+
+  return {
+    taskType,
+    requiresAI,
+    aiCostLevel,
+  };
+}

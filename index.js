@@ -7,6 +7,19 @@ import * as Sources from "./sources.js"; // скелет слоя источни
 // === Константы ===
 const MAX_HISTORY_MESSAGES = 20;
 
+// === РЕЖИМЫ ОТВЕТОВ (answer_mode) ===
+const DEFAULT_ANSWER_MODE = "short"; // по ТЗ экономим токены по умолчанию
+// В будущем это уйдёт в БД, сейчас — простая карта в памяти процесса
+const answerModeByChat = new Map(); // chatId (строка) -> "short" | "normal" | "long"
+
+function getAnswerMode(chatIdStr) {
+  return answerModeByChat.get(chatIdStr) || DEFAULT_ANSWER_MODE;
+}
+
+function setAnswerMode(chatIdStr, mode) {
+  answerModeByChat.set(chatIdStr, mode);
+}
+
 // === Express сервер для Render ===
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -642,6 +655,45 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        case "/mode": {
+          const arg = commandArgs.toLowerCase();
+          const valid = ["short", "normal", "long"];
+
+          if (!valid.includes(arg)) {
+            await bot.sendMessage(
+              chatId,
+              "Режимы ответа:\n" +
+                "- short  — очень кратко (до 1–2 предложений)\n" +
+                "- normal — средне, 3–7 предложений\n" +
+                "- long   — развернуто, с пунктами и объяснениями\n\n" +
+                "Использование:\n`/mode short`\n`/mode normal`\n`/mode long`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          setAnswerMode(chatIdStr, arg);
+
+          let desc = "";
+          if (arg === "short") {
+            desc =
+              "короткие ответы (1–2 предложения, без лишних деталей, с приоритетом экономии токенов).";
+          } else if (arg === "normal") {
+            desc =
+              "средние ответы (3–7 предложений, немного деталей, умеренная экономия токенов).";
+          } else if (arg === "long") {
+            desc =
+              "развернутые ответы с пунктами и объяснениями (больше токенов, максимум пользы).";
+          }
+
+          await bot.sendMessage(
+            chatId,
+            `✅ Режим ответов установлен: *${arg}* — ${desc}`,
+            { parse_mode: "Markdown" }
+          );
+          return;
+        }
+
         default: {
           await bot.sendMessage(
             chatId,
@@ -653,7 +705,8 @@ bot.on("message", async (msg) => {
               "/run <id>\n" +
               "/tasks\n" +
               "/meminfo\n" +
-              "/sources"
+              "/sources\n" +
+              "/mode <short|normal|long>"
           );
           return;
         }
@@ -671,11 +724,21 @@ bot.on("message", async (msg) => {
 
     // 5) история + системный промпт
     const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
+    const answerMode = getAnswerMode(chatIdStr);
 
-    const messages = [
-      {
-        role: "system",
-        content: `
+    let modeInstruction = "";
+    if (answerMode === "short") {
+      modeInstruction =
+        "Отвечай максимально кратко: 1–2 предложения, без списков и лишних деталей. Если такой краткости недостаточно и ответ станет опасным или непонятным — расширь ответ до минимально достаточного объёма.";
+    } else if (answerMode === "normal") {
+      modeInstruction =
+        "Отвечай средне по объёму: примерно 3–7 предложений. Можно использовать 2–3 коротких пункта, если это делает ответ яснее.";
+    } else if (answerMode === "long") {
+      modeInstruction =
+        "Отвечай развернуто: используй структурированные списки, пояснения и примеры, но избегай пустой воды.";
+    }
+
+    const systemPrompt = `
 Ты — ИИ-Советник Королевства GARYA, твое имя «Советник».
 Ты всегда знаешь, что монарх этого королевства — GARY.
 
@@ -710,9 +773,16 @@ bot.on("message", async (msg) => {
 — Никогда не используй имя монарха из Telegram-профиля, монарх для тебя всегда GARY.
 — Если видишь «((» и грустный тон — будь мягким, но можешь использовать обычный стиль «GARY» или «Мой Монарх» без лишнего пафоса.
 — Ко всем остальным пользователям обращайся нейтрально, без монарших титулов.
-— Всегда помни контекст диалога (историю сообщений), будь кратким, дружелюбным и полезным.
-— Если монарх явно просит: «обратись ко мне официально» или «просто» — строго следуй его указанию.
-        `,
+— Всегда помни контекст диалога (историю сообщений), будь дружелюбным и полезным.
+
+Текущий режим длины ответов: "${answerMode}".
+${modeInstruction}
+    `;
+
+    const messages = [
+      {
+        role: "system",
+        content: systemPrompt,
       },
       ...history,
       { role: "user", content: userText },

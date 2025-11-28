@@ -32,7 +32,9 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 
 if (!token) {
   console.error("❌ TELEGRAM_BOT_TOKEN is missing!");
-  console.error("Убедись, что переменная окружения TELEGRAM_BOT_TOKEN задана на Render.");
+  console.error(
+    "Убедись, что переменная окружения TELEGRAM_BOT_TOKEN задана на Render."
+  );
   process.exit(1);
 }
 
@@ -396,6 +398,24 @@ function formatSourcesList(sources) {
       `\n`;
   }
   return text;
+}
+
+// === ЛОГИРОВАНИЕ ВЗАИМОДЕЙСТВИЙ (interaction_logs) ===
+async function logInteraction(chatIdStr, classification) {
+  try {
+    const taskType = classification?.taskType || "chat";
+    const aiCostLevel = classification?.aiCostLevel || "low";
+
+    await pool.query(
+      `
+        INSERT INTO interaction_logs (chat_id, task_type, ai_cost_level)
+        VALUES ($1, $2, $3)
+      `,
+      [chatIdStr, taskType, aiCostLevel]
+    );
+  } catch (err) {
+    console.error("❌ Error in logInteraction:", err);
+  }
 }
 
 // === ОБРАБОТКА СООБЩЕНИЙ ===
@@ -950,7 +970,7 @@ bot.on("message", async (msg) => {
     // 3.5) Классификация запроса (скелет модуля)
     const classification = classifyInteraction({ userText });
     console.log("🧮 classifyInteraction:", classification);
-    // Пока только лог в консоль, без записи в БД (таблица появится позже)
+    await logInteraction(chatIdStr, classification);
 
     // 4) если нет ключа OpenAI — простой ответ
     if (!process.env.OPENAI_API_KEY) {
@@ -980,6 +1000,13 @@ bot.on("message", async (msg) => {
     const systemPrompt = `
 Ты — ИИ-Советник Королевства GARYA, твое имя «Советник».
 Ты всегда знаешь, что монарх этого королевства — GARY.
+
+⚙️ ВАЖНО: сейчас внутри агента НЕТ прямых подключений к реальным внешним источникам (биржи, сайты, RSS, API).
+Все факты и цифры, которые ты даёшь, основаны на общих знаниях модели и могут быть неточными или устаревшими.
+Если пользователь спрашивает про цены, рынок, новости, события, конкретные котировки или графики —
+ОБЯЗАТЕЛЬНО честно предупреждай фразами вроде:
+«это оценка по общим знаниям, без доступа к живым данным»,
+«данные примерные, так как реальных источников сейчас не подключено».
 
 У тебя есть ТРИ уровня обращения к монарху:
 
@@ -1077,7 +1104,9 @@ async function robotTick() {
       try {
         p = t.payload || {};
         if (t.type === "price_monitor") {
-          payloadInfo = `symbol=${p.symbol || "?"}, interval=${p.interval_minutes || "?"}m, threshold=${p.threshold_percent || "?"}%`;
+          payloadInfo = `symbol=${p.symbol || "?"}, interval=${
+            p.interval_minutes || "?"
+          }m, threshold=${p.threshold_percent || "?"}%`;
         } else if (t.type === "news_monitor") {
           payloadInfo = `source=${p.source || "?"}, topic=${p.topic || "?"}`;
         }

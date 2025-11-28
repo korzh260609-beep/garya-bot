@@ -32,9 +32,7 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 
 if (!token) {
   console.error("❌ TELEGRAM_BOT_TOKEN is missing!");
-  console.error(
-    "Убедись, что переменная окружения TELEGRAM_BOT_TOKEN задана на Render."
-  );
+  console.error("Убедись, что переменная окружения TELEGRAM_BOT_TOKEN задана на Render.");
   process.exit(1);
 }
 
@@ -308,22 +306,6 @@ async function updateTaskStatus(userChatId, taskId, newStatus) {
     `,
     [newStatus, userChatId, taskId]
   );
-}
-
-// ОБНОВЛЕНИЕ payload задачи (для state робота и т.п.)
-async function updateTaskPayloadById(taskId, newPayload) {
-  try {
-    await pool.query(
-      `
-        UPDATE tasks
-        SET payload = $1
-        WHERE id = $2
-      `,
-      [newPayload, taskId]
-    );
-  } catch (err) {
-    console.error("❌ updateTaskPayloadById DB error:", err);
-  }
 }
 
 // запуск задачи через ИИ-исполнителя
@@ -1067,7 +1049,7 @@ ${modeInstruction}
   }
 });
 
-// === ROBOT-LAYER (скелет) ===
+// === ROBOT-LAYER (скелет + MOCK) ===
 
 // Получает активные задачи с расписанием
 async function getActiveRobotTasks() {
@@ -1081,46 +1063,43 @@ async function getActiveRobotTasks() {
   return res.rows;
 }
 
+// Внутренняя mock-цена (без реального API)
+function getMockPrice(symbolRaw) {
+  const symbol = (symbolRaw || "BTCUSDT").toUpperCase();
+
+  let base = 60000;
+  if (symbol.includes("ETH")) base = 3000;
+  if (symbol.includes("SOL")) base = 150;
+  if (symbol.includes("XRP")) base = 0.6;
+
+  // случайное отклонение ±2%
+  const noise = (Math.random() - 0.5) * 0.04;
+  const price = base * (1 + noise);
+  return Number(price.toFixed(2));
+}
+
+// Память робота внутри процесса
+const lastMockPriceByTask = new Map(); // taskId -> number
+const lastAlertTimeByTask = new Map(); // taskId -> timestamp ms
+
 // Главный "тик" робота
 async function robotTick() {
   try {
     const tasks = await getActiveRobotTasks();
-    const nowIso = new Date().toISOString();
 
     for (const t of tasks) {
-      // Берём payload из задачи (jsonb в БД)
-      let payload = t.payload || {};
-      let state = payload.state || {};
-
-      // Обновляем состояние: фиксируем время последней проверки
-      state.last_check = nowIso;
-      payload.state = state;
-
-      // Сохраняем новое состояние обратно в БД
-      await updateTaskPayloadById(t.id, payload);
-
-      // Формируем человекочитаемый лог
+      // читаем payload для отладки (symbol / interval / threshold и т.п.)
       let payloadInfo = "";
+      let p = {};
       try {
-        const p = payload;
+        p = t.payload || {};
         if (t.type === "price_monitor") {
-          payloadInfo =
-            `symbol=${p.symbol || "?"}, ` +
-            `interval=${p.interval_minutes || "?"}m, ` +
-            `threshold=${p.threshold_percent || "?"}%, ` +
-            `last_check=${state.last_check || "—"}`;
+          payloadInfo = `symbol=${p.symbol || "?"}, interval=${p.interval_minutes || "?"}m, threshold=${p.threshold_percent || "?"}%`;
         } else if (t.type === "news_monitor") {
-          payloadInfo =
-            `source=${p.source || "?"}, ` +
-            `topic=${p.topic || "?"}, ` +
-            `last_check=${state.last_check || "—"}`;
+          payloadInfo = `source=${p.source || "?"}, topic=${p.topic || "?"}`;
         }
       } catch (e) {
-        console.error(
-          "❌ ROBOT: error reading payload/state for task",
-          t.id,
-          e
-        );
+        console.error("❌ ROBOT: error reading payload for task", t.id, e);
       }
 
       console.log(
@@ -1132,7 +1111,63 @@ async function robotTick() {
         payloadInfo ? `| payload: ${payloadInfo}` : ""
       );
 
-      // Реальную логику мониторинга (цены/новости) добавим на следующем микрошаге.
+      // ===== MOCK-логика для price_monitor =====
+      if (t.type === "price_monitor") {
+        const symbol = p.symbol || "BTCUSDT";
+        const thresholdPercent =
+          typeof p.threshold_percent === "number"
+            ? p.threshold_percent
+            : 2; // по умолчанию 2%
+
+        const currentPrice = getMockPrice(symbol);
+        const prevPrice = lastMockPriceByTask.get(t.id);
+        lastMockPriceByTask.set(t.id, currentPrice);
+
+        if (typeof prevPrice === "number" && prevPrice > 0) {
+          const diffPct = Math.abs(
+            ((currentPrice - prevPrice) / prevPrice) * 100
+          );
+
+          if (diffPct >= thresholdPercent) {
+            const now = Date.now();
+            const lastAlert = lastAlertTimeByTask.get(t.id) || 0;
+
+            // чтобы не спамить — не чаще раза в 10 минут
+            if (now - lastAlert > 10 * 60 * 1000) {
+              lastAlertTimeByTask.set(t.id, now);
+
+              const userChatId =
+                Number(t.user_chat_id) || t.user_chat_id || undefined;
+
+              const msg =
+                `⚠️ Mock-сигнал по задаче #${t.id} (${symbol}).\n` +
+                `Изменение mock-цены между двумя проверками: ${diffPct.toFixed(
+                  2
+                )}%.\n` +
+                `Текущая mock-цена: ${currentPrice}\n` +
+                `Это ТЕСТОВЫЙ режим без реального биржевого API.`;
+
+              if (userChatId) {
+                try {
+                  await bot.sendMessage(userChatId, msg);
+                } catch (e) {
+                  console.error(
+                    "❌ ROBOT: не удалось отправить mock-уведомление по задаче",
+                    t.id,
+                    e
+                  );
+                }
+              } else {
+                console.log(
+                  "🤖 ROBOT: mock-триггер, но нет user_chat_id у задачи",
+                  t.id
+                );
+              }
+            }
+          }
+        }
+      }
+      // ===== конец mock-логики =====
     }
   } catch (err) {
     console.error("❌ ROBOT ERROR:", err);

@@ -385,24 +385,6 @@ function formatSourcesList(sources) {
   return text;
 }
 
-// === ЛОГИРОВАНИЕ КЛАССИФИКАЦИИ ЗАПРОСОВ ===
-async function logInteraction(chatIdStr, classification) {
-  try {
-    const { taskType, aiCostLevel } = classification || {};
-    if (!taskType || !aiCostLevel) return;
-
-    await pool.query(
-      `
-        INSERT INTO interaction_logs (chat_id, task_type, ai_cost_level)
-        VALUES ($1, $2, $3)
-      `,
-      [chatIdStr, taskType, aiCostLevel]
-    );
-  } catch (err) {
-    console.error("❌ logInteraction DB error:", err);
-  }
-}
-
 // === ОБРАБОТКА СООБЩЕНИЙ ===
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
@@ -620,6 +602,150 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        // Универсальная команда /task
+        case "/task": {
+          const raw = commandArgs.trim();
+
+          // без аргументов — помощь
+          if (!raw) {
+            await bot.sendMessage(
+              chatId,
+              "Команда `/task` — работа с задачами Task Engine.\n\n" +
+                "Варианты использования:\n" +
+                "• `/task list` — показать список ваших задач\n" +
+                "• `/task new <описание>` — создать новую задачу\n" +
+                "• `/task <id>` — показать подробности задачи по ID\n\n" +
+                "Примеры:\n" +
+                "• `/task list`\n" +
+                "• `/task new следи за ценой BTC раз в час`\n" +
+                "• `/task 10`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          const parts = raw.split(/\s+/);
+          const first = parts[0];
+          const firstLower = first.toLowerCase();
+          const restText = parts.slice(1).join(" ").trim();
+
+          // /task list
+          if (firstLower === "list") {
+            try {
+              const tasks = await getUserTasks(chatIdStr, 10);
+
+              if (tasks.length === 0) {
+                await bot.sendMessage(
+                  chatId,
+                  "У вас пока нет задач в Task Engine."
+                );
+              } else {
+                let text = "📋 Ваши задачи:\n\n";
+                for (const t of tasks) {
+                  text +=
+                    `#${t.id} — ${t.title}\n` +
+                    `Тип: ${t.type}, статус: ${t.status}\n` +
+                    `Создана: ${t.created_at?.toISOString?.() || "—"}\n` +
+                    (t.schedule ? `Расписание: ${t.schedule}\n` : "") +
+                    (t.last_run
+                      ? `Последний запуск: ${t.last_run.toISOString()}\n`
+                      : "") +
+                    `\n`;
+                }
+                await bot.sendMessage(chatId, text);
+              }
+            } catch (e) {
+              console.error("❌ Error in /task list:", e);
+              await bot.sendMessage(
+                chatId,
+                "Не удалось получить список задач из Task Engine."
+              );
+            }
+            return;
+          }
+
+          // /task new <описание>
+          if (firstLower === "new") {
+            if (!restText) {
+              await bot.sendMessage(
+                chatId,
+                "Использование:\n`/task new <описание задачи>`\n\n" +
+                  "Пример:\n`/task new следи за ценой BTC раз в час`",
+                { parse_mode: "Markdown" }
+              );
+              return;
+            }
+
+            try {
+              const task = await createManualTask(chatIdStr, restText);
+
+              await bot.sendMessage(
+                chatId,
+                `🆕 Задача создана!\n\n` +
+                  `#${task.id} — manual\n` +
+                  `Статус: active\n` +
+                  `Описание: ${restText}\n` +
+                  `Создана: ${task.created_at?.toISOString?.() || "—"}`
+              );
+            } catch (e) {
+              console.error("❌ Error in /task new:", e);
+              await bot.sendMessage(
+                chatId,
+                "Не удалось создать задачу в Task Engine."
+              );
+            }
+            return;
+          }
+
+          // /task <id> — показать одну задачу
+          const taskId = parseInt(first, 10);
+          if (Number.isNaN(taskId)) {
+            await bot.sendMessage(
+              chatId,
+              "Не понимаю аргумент после `/task`.\n\n" +
+                "Использование:\n" +
+                "• `/task list`\n" +
+                "• `/task new <описание>`\n" +
+                "• `/task <id>` (id — число)",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          try {
+            const task = await getTaskById(chatIdStr, taskId);
+            if (!task) {
+              await bot.sendMessage(
+                chatId,
+                `Я не нашёл задачу #${taskId} среди ваших задач.`
+              );
+              return;
+            }
+
+            let text =
+              `🔍 Задача #${task.id}\n\n` +
+              `Название: ${task.title}\n` +
+              `Тип: ${task.type}\n` +
+              `Статус: ${task.status}\n` +
+              `Создана: ${task.created_at?.toISOString?.() || "—"}\n` +
+              (task.schedule ? `Расписание: ${task.schedule}\n` : "") +
+              (task.last_run
+                ? `Последний запуск: ${task.last_run.toISOString()}\n`
+                : "") +
+              `\n` +
+              `Задачу можно запустить командой: \`/run ${task.id}\``;
+
+            await bot.sendMessage(chatId, text, { parse_mode: "Markdown" });
+          } catch (e) {
+            console.error("❌ Error in /task <id>:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось получить данные задачи из Task Engine."
+            );
+          }
+          return;
+        }
+
         case "/meminfo": {
           try {
             const res = await pool.query(
@@ -723,6 +849,7 @@ bot.on("message", async (msg) => {
               "/newtask <описание>\n" +
               "/run <id>\n" +
               "/tasks\n" +
+              "/task <list|new|id>\n" +
               "/meminfo\n" +
               "/sources\n" +
               "/mode <short|normal|long>"
@@ -732,10 +859,10 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // 3.5) Классификация запроса (скелет модуля) + лог в БД
+    // 3.5) Классификация запроса (скелет модуля)
     const classification = classifyInteraction({ userText });
     console.log("🧮 classifyInteraction:", classification);
-    await logInteraction(chatIdStr, classification);
+    // Пока только лог в консоль, без записи в БД (таблица появится позже)
 
     // 4) если нет ключа OpenAI — простой ответ
     if (!process.env.OPENAI_API_KEY) {

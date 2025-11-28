@@ -3,6 +3,7 @@ import express from "express";
 import OpenAI from "openai";
 import pool from "./db.js"; // память + профили + tasks
 import * as Sources from "./sources.js"; // скелет слоя источников
+import { classifyInteraction } from "./classifier.js"; // скелет классификатора
 
 // === Константы ===
 const MAX_HISTORY_MESSAGES = 20;
@@ -176,10 +177,10 @@ async function ensureUserProfile(msg) {
     } else {
       const user = existing.rows[0];
       if (user.name !== finalName) {
-        await pool.query(
-          "UPDATE users SET name = $1 WHERE chat_id = $2",
-          [finalName, chatId]
-        );
+        await pool.query("UPDATE users SET name = $1 WHERE chat_id = $2", [
+          finalName,
+          chatId,
+        ]);
       }
     }
   } catch (err) {
@@ -712,6 +713,10 @@ bot.on("message", async (msg) => {
         }
       }
     }
+
+    // 3.5) Классификация запроса (скелет модуля)
+    const classification = classifyInteraction({ userText });
+    console.log("🧮 classifyInteraction:", classification);
 
     // 4) если нет ключа OpenAI — простой ответ
     if (!process.env.OPENAI_API_KEY) {

@@ -67,7 +67,18 @@ async function initDb() {
       );
     `);
 
-    console.log("✅ chat_memory, users, tasks & sources tables are ready");
+    // === Лог обращений к ИИ (taskType + aiCostLevel) ===
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS interaction_logs (
+        id SERIAL PRIMARY KEY,
+        chat_id TEXT NOT NULL,                 -- чей запрос (ID чата)
+        task_type TEXT NOT NULL,               -- chat / report / signal / news / ...
+        ai_cost_level TEXT NOT NULL,           -- low / medium / high
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    console.log("✅ chat_memory, users, tasks, sources & interaction_logs tables are ready");
   } catch (err) {
     console.error("❌ Error initializing database:", err);
   }

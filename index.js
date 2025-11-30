@@ -363,22 +363,30 @@ async function runTaskWithAI(task, chatId) {
     },
   ];
 
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o",
-    messages,
-  });
+  try {
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o",
+      messages,
+    });
 
-  let reply = completion.choices[0]?.message?.content ?? "";
-  if (typeof reply !== "string") reply = JSON.stringify(reply);
+    let reply = completion.choices[0]?.message?.content ?? "";
+    if (typeof reply !== "string") reply = JSON.stringify(reply);
 
-  await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
-    task.id,
-  ]);
+    await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
+      task.id,
+    ]);
 
-  await bot.sendMessage(
-    chatId,
-    `🚀 Задача #${task.id} выполнена ИИ-движком.\n\n${reply}`
-  );
+    await bot.sendMessage(
+      chatId,
+      `🚀 Задача #${task.id} выполнена ИИ-движком.\n\n${reply}`
+    );
+  } catch (err) {
+    console.error("❌ Error in runTaskWithAI:", err);
+    await bot.sendMessage(
+      chatId,
+      "Не удалось выполнить задачу через ИИ-движок."
+    );
+  }
 }
 
 // === SOURCES LAYER HELPERS (debug) ===
@@ -1030,9 +1038,14 @@ bot.on("message", async (msg) => {
     }
 
     // 3.5) Классификация запроса (скелет модуля)
-    const classification = classifyInteraction({ userText });
-    console.log("🧮 classifyInteraction:", classification);
-    await logInteraction(chatIdStr, classification);
+    let classification = null;
+    try {
+      classification = classifyInteraction({ userText });
+      console.log("🧮 classifyInteraction:", classification);
+      await logInteraction(chatIdStr, classification);
+    } catch (e) {
+      console.error("❌ Error in classifyInteraction/logInteraction:", e);
+    }
 
     // 4) если нет ключа OpenAI — простой ответ
     if (!process.env.OPENAI_API_KEY) {
@@ -1114,11 +1127,11 @@ bot.on("message", async (msg) => {
 — Ко всем остальным пользователям обращайся нейтрально, без монарших титулов.
 — Всегда помни контекст диалога (историю сообщений), будь дружелюбным и полезным.
 
-📘 ЗНАНИЕ О ПРОЕКТЕ (уровень V6):
+📘 ЗНАНИЕ О ПРОЕКТЕ (уровень V1):
 
 — Ты работаешь внутри проекта «GARYA AI Agent».
 — Архитектура и прогресс проекта описаны в файле WORKFLOW.md (ветка dev).
-— У проекта есть этапы разработки (Этап 1, 2, 3, 4, 5 и далее); сейчас активен ЭТАП 5 «Эволюция интеллекта».
+— У проекта есть этапы разработки (Этап 1, 2, 3, 4, 5 и далее); сейчас активен ЭТАП 4 «Память и режимы ответов».
 — Есть две ветки GitHub: main (боевая, стабильная, деплой на Render) и dev (песочница разработки, эксперименты, новые уровни интеллекта).
 — Основные слои архитектуры:
    • Transport Layer — Telegram Webhook + Express сервер;
@@ -1326,16 +1339,4 @@ function getInitialMockPrice(symbolRaw) {
   const symbol = (symbolRaw || "BTCUSDT").toUpperCase();
   let base = 60000;
 
-  if (symbol.includes("ETH")) base = 3000;
-  else if (symbol.includes("SOL")) base = 150;
-  else if (symbol.includes("XRP")) base = 0.6;
-
-  return base;
-}
-
-// Запускаем робота раз в 30 секунд
-setInterval(() => {
-  robotTick();
-}, 30_000);
-
-console.log("🤖 AI Bot is running...");
+  if (symbol.includes("ETH")) base =

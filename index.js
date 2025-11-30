@@ -90,6 +90,7 @@ async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES) {
       `,
       [chatId, limit]
     );
+    // в БД новые сверху, в ИИ — от старых к новым
     return result.rows.reverse().map((row) => ({
       role: row.role,
       content: row.content,
@@ -136,17 +137,46 @@ async function cleanupChatHistory(chatId, maxMessages = MAX_HISTORY_MESSAGES) {
   }
 }
 
-async function saveChatPair(chatId, userText, assistantText) {
+// Сохраняем одно сообщение в память с защитой от дублей подряд (ЭТАП 3.6)
+async function saveMessageToMemory(chatId, role, content) {
+  if (!content || !content.trim()) return;
+
   try {
+    // Берём последнее сообщение в этом чате
+    const lastRes = await pool.query(
+      `
+        SELECT role, content
+        FROM chat_memory
+        WHERE chat_id = $1
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      [chatId]
+    );
+
+    const last = lastRes.rows[0];
+    if (last && last.role === role && last.content === content) {
+      // Точно такой же текст уже последним — дубль не записываем
+      return;
+    }
+
     await pool.query(
       `
         INSERT INTO chat_memory (chat_id, role, content)
-        VALUES
-          ($1, 'user', $2),
-          ($1, 'assistant', $3)
+        VALUES ($1, $2, $3)
       `,
-      [chatId, userText, assistantText]
+      [chatId, role, content]
     );
+  } catch (err) {
+    console.error("❌ saveMessageToMemory DB error:", err);
+  }
+}
+
+async function saveChatPair(chatId, userText, assistantText) {
+  try {
+    // Сначала пользователь, потом ассистент — аккуратная история диалога
+    await saveMessageToMemory(chatId, "user", userText);
+    await saveMessageToMemory(chatId, "assistant", assistantText);
 
     // ВАЖНО: больше не чистим историю. Долговременная память накапливается.
     // await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
@@ -377,6 +407,7 @@ async function runTaskWithAI(task, chatId) {
     `🚀 Задача #${task.id} выполнена ИИ-движком.\n\n${reply}`
   );
 }
+
 // === SOURCES LAYER HELPERS (debug) ===
 async function getAllSourcesSafe() {
   try {
@@ -1053,7 +1084,7 @@ bot.on("message", async (msg) => {
         "Отвечай развернуто: используй структурированные списки, пояснения и примеры, но избегай пустой воды.";
     }
 
-const systemPrompt = buildSystemPrompt(answerMode, modeInstruction);
+    const systemPrompt = buildSystemPrompt(answerMode, modeInstruction);
 
     const messages = [
       {
@@ -1087,6 +1118,7 @@ const systemPrompt = buildSystemPrompt(answerMode, modeInstruction);
     );
   }
 });
+
 // === ROBOT-LAYER (mock режим без реального API) ===
 
 // Получает активные задачи с расписанием

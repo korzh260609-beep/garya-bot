@@ -1,4 +1,4 @@
-// sources.js — скелет слоя источников (Sources Layer)
+// sources.js — слой источников (Sources Layer)
 import pool from "./db.js";
 
 /**
@@ -23,13 +23,39 @@ export async function listActiveSources() {
 }
 
 /**
+ * Находит один источник по key.
+ */
+export async function getSourceByKey(sourceKey) {
+  try {
+    const res = await pool.query(
+      `
+      SELECT id, key, name, type, url, config, is_enabled, created_at
+      FROM sources
+      WHERE key = $1
+      LIMIT 1
+      `,
+      [sourceKey]
+    );
+
+    if (res.rows.length === 0) return null;
+    return res.rows[0];
+  } catch (err) {
+    console.error("❌ Sources.getSourceByKey DB error:", err);
+    return null;
+  }
+}
+
+/**
  * Гарантирует, что в таблице sources есть несколько базовых
  * «шаблон-источников». Это не реальные подключения, а только
  * ЗАПИСИ в реестре, чтобы:
  *  - было что показать в /sources;
  *  - Task Engine мог потом ссылаться на них.
  *
- * ВАЖНО: здесь НЕТ приватных API-ключей и НЕТ реальных запросов.
+ * ЧАСТИЧНО ЭТАП 5.2:
+ *  - добавлен первый реальный источник coingecko_ping (публичный API).
+ *
+ * ВАЖНО: здесь НЕТ приватных API-ключей.
  */
 export async function ensureDefaultSources() {
   const defaults = [
@@ -66,6 +92,18 @@ export async function ensureDefaultSources() {
           "Будут подключены позже, когда понадобится.",
       },
     },
+    // 🔵 ЭТАП 5.2 — первый реальный источник
+    {
+      key: "coingecko_ping",
+      name: "CoinGecko API — ping",
+      type: "http_json",
+      url: "https://api.coingecko.com/api/v3/ping",
+      config: {
+        note:
+          "Публичный эндпоинт CoinGecko без авторизации. " +
+          "Используется как тестовый источник для проверки HTTP-запросов.",
+      },
+    },
   ];
 
   try {
@@ -93,17 +131,87 @@ export async function ensureDefaultSources() {
 }
 
 /**
- * Заглушка для будущего реального запроса к источнику.
- * Сейчас НИЧЕГО не ходит в интернет, только честно говорит:
- * «здесь будет реальный запрос позже».
+ * ЭТАП 5.2 — первая реальная реализация fetchFromSource.
+ *
+ * Сейчас поддерживается:
+ *  - type = 'http_json' — простой HTTP GET, ожидаем JSON.
+ *
+ * Остальные типы пока возвращают честную заглушку.
  */
 export async function fetchFromSource(sourceKey, params = {}) {
-  return {
-    ok: false,
-    sourceKey,
-    params,
-    warning:
-      "Скелет Sources Layer: реальный запрос к источнику ещё не реализован. " +
-      "На ЭТАПЕ 5 здесь появится HTTP-GET/POST к общедоступным ресурсам.",
-  };
+  try {
+    const src = await getSourceByKey(sourceKey);
+
+    if (!src) {
+      return {
+        ok: false,
+        sourceKey,
+        params,
+        error: "Источник не найден в реестре sources.",
+      };
+    }
+
+    if (!src.is_enabled) {
+      return {
+        ok: false,
+        sourceKey,
+        params,
+        error: "Источник найден, но выключен (is_enabled = false).",
+      };
+    }
+
+    // Виртуальные источники без URL — это только шаблоны
+    if (!src.url) {
+      return {
+        ok: false,
+        sourceKey,
+        params,
+        warning:
+          "Этот источник является только шаблоном (type='virtual', url=null). " +
+          "Реальный запрос к нему не выполняется.",
+      };
+    }
+
+    // Простой кейс: HTTP JSON без авторизации
+    if (src.type === "http_json") {
+      const res = await fetch(src.url); // Node 18+ имеет глобальный fetch
+      const text = await res.text();
+
+      let json = null;
+      try {
+        json = JSON.parse(text);
+      } catch (_) {
+        // если не JSON — оставляем json = null
+      }
+
+      return {
+        ok: res.ok,
+        status: res.status,
+        sourceKey,
+        url: src.url,
+        type: src.type,
+        json,
+        rawText: json ? undefined : text, // текст только если не распарсили JSON
+      };
+    }
+
+    // Остальные типы пока не реализованы — честная заглушка
+    return {
+      ok: false,
+      sourceKey,
+      params,
+      type: src.type,
+      warning:
+        "Тип источника пока не поддержан в fetchFromSource (ЭТАП 5.2). " +
+        "Поддержан только type='http_json'.",
+    };
+  } catch (err) {
+    console.error("❌ fetchFromSource error:", err);
+    return {
+      ok: false,
+      sourceKey,
+      params,
+      error: "Внутренняя ошибка при выполнении fetchFromSource.",
+    };
+  }
 }

@@ -445,19 +445,7 @@ async function logInteraction(chatIdStr, classification) {
     const taskType = classification?.taskType || "chat";
     const aiCostLevel = classification?.aiCostLevel || "low";
 
-    await pool.query(
-      `
-        INSERT INTO interaction_logs (chat_id, task_type, ai_cost_level)
-        VALUES ($1, $2, $3)
-      `,
-      [chatIdStr, taskType, aiCostLevel]
-    );
-  } catch (err) {
-    console.error("❌ Error in logInteraction:", err);
-  }
-}
-
-// === ОБРАБОТКА СООБЩЕНИЙ ===
+ // === ОБРАБОТКА СООБЩЕНИЙ ===
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const chatIdStr = chatId.toString();
@@ -979,6 +967,45 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        // Тестовый пинг Sources Layer (пока без реального интернета — скелет)
+        case "/source_ping": {
+          try {
+            const result = await Sources.fetchFromSource("coingecko_ping", {
+              test: true,
+            });
+
+            let text = "🔎 Тест скелета Sources Layer: `coingecko_ping`\n\n";
+
+            if (!result) {
+              text += "❌ fetchFromSource не вернул результат.";
+            } else {
+              if (result.warning) {
+                text += `⚠️ Предупреждение: ${result.warning}\n`;
+              }
+              if (result.error) {
+                text += `❌ Ошибка: ${result.error}\n`;
+              }
+              if (result.ok) {
+                text += `✅ ok = true\n`;
+              } else {
+                text += `ok = ${String(result.ok)}\n`;
+              }
+              if (result.status) {
+                text += `HTTP статус (если был): ${result.status}\n`;
+              }
+            }
+
+            await bot.sendMessage(chatId, text, { parse_mode: "Markdown" });
+          } catch (e) {
+            console.error("❌ Error in /source_ping:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось выполнить тестовый вызов Sources Layer."
+            );
+          }
+          return;
+        }
+
         case "/sources": {
           try {
             const sources = await getAllSourcesSafe();
@@ -1046,6 +1073,7 @@ bot.on("message", async (msg) => {
               "/task <list|new|pause|resume|delete|id>\n" +
               "/meminfo\n" +
               "/memstats\n" +
+              "/source_ping\n" +
               "/sources\n" +
               "/mode <short|normal|long>"
           );
@@ -1118,7 +1146,6 @@ bot.on("message", async (msg) => {
     );
   }
 });
-
 // === ROBOT-LAYER (mock режим без реального API) ===
 
 // Получает активные задачи с расписанием

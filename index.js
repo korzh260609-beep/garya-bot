@@ -5,6 +5,7 @@ import pool from "./db.js"; // память + профили + tasks
 import * as Sources from "./sources.js"; // скелет слоя источников
 import { classifyInteraction } from "./classifier.js"; // скелет классификатора
 import { callAI } from "./ai.js"; // универсальный вызов ИИ
+import { buildSystemPrompt } from "./systemPrompt.js";
 
 // === Константы ===
 const MAX_HISTORY_MESSAGES = 20;

@@ -1,6 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
-import OpenAI from "openai";
 import pool from "./db.js"; // память + профили + tasks
 import * as Sources from "./sources.js"; // скелет слоя источников
 import { classifyInteraction } from "./classifier.js"; // скелет классификатора
@@ -76,11 +75,6 @@ app.listen(PORT, () => {
     .catch((err) => {
       console.error("❌ Error initializing sources registry:", err);
     });
-});
-
-// === OpenAI ===
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
 });
 
 // === ФУНКЦИИ ДЛЯ ПАМЯТИ ===

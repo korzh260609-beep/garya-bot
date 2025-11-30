@@ -26,7 +26,7 @@ export async function listActiveSources() {
 
 /**
  * Гарантирует, что в таблице sources есть несколько базовых
- * «шаблон-источников» + реальные примеры HTML и RSS.
+ * «шаблон-источников» + реальные примеры HTML, RSS и CoinGecko.
  */
 export async function ensureDefaultSources() {
   const defaults = [
@@ -85,7 +85,20 @@ export async function ensureDefaultSources() {
       config: {
         note:
           "Пример RSS-источника. Берём RSS Hacker News frontpage и вытаскиваем несколько последних новостей.",
-        max_items: 5
+        max_items: 5,
+      },
+    },
+    // === REAL COINGECKO API-ИСТОЧНИК ===
+    {
+      key: "coingecko_simple_price",
+      name: "CoinGecko: simple price (BTC/ETH/SOL)",
+      type: "coingecko",
+      url: "https://api.coingecko.com/api/v3/simple/price",
+      config: {
+        note:
+          "Пример источника CoinGecko без API-ключа. Возвращает цены нескольких монет в USD.",
+        default_ids: ["bitcoin", "ethereum", "solana"],
+        default_vs_currency: "usd",
       },
     },
   ];
@@ -133,8 +146,9 @@ export async function fetchFromSource(sourceKey, params = {}) {
  *
  * Сейчас умеет:
  *  - virtual: просто отдаёт note из config
- *  - html: реальный HTTP GET + парсинг <title> и первого <h1>
- *  - rss: реальный HTTP GET + парсинг RSS-ленты, список новостей
+ *  - html: HTTP GET + парсинг <title> и первого <h1>
+ *  - rss: HTTP GET + парсинг RSS-ленты
+ *  - coingecko: HTTP GET к CoinGecko simple/price (цены монет)
  */
 export async function fetchFromSourceKey(key, params = {}) {
   const trimmedKey = (key || "").trim();
@@ -178,14 +192,79 @@ export async function fetchFromSourceKey(key, params = {}) {
       config.note ||
       "Скелет Sources Layer: для этого источника ещё нет детальной логики.";
 
+    // === ВЕТКА COINGECKO (простые цены) ===
+    if (src.type === "coingecko" && src.url) {
+      try {
+        // ids и vs_currency можно передавать через params, иначе берём из config
+        let ids = params.ids || config.default_ids || ["bitcoin"];
+        if (Array.isArray(ids)) {
+          ids = ids.join(",");
+        }
+        const vsCurrency =
+          params.vs_currency || config.default_vs_currency || "usd";
+
+        const url =
+          `${src.url}?ids=${encodeURIComponent(ids)}&vs_currencies=${encodeURIComponent(
+            vsCurrency
+          )}`;
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "User-Agent":
+              "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
+            Accept: "application/json",
+          },
+        });
+
+        const status = response.status;
+        const text = await response.text();
+
+        let json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (parseErr) {
+          console.error("❌ CoinGecko JSON parse error:", parseErr);
+        }
+
+        return {
+          ok: status === 200 && !!json,
+          meta: {
+            id: src.id,
+            key: src.key,
+            name: src.name,
+            type: src.type,
+            url: src.url,
+          },
+          params: {
+            ids,
+            vs_currency: vsCurrency,
+          },
+          data: {
+            note,
+            httpStatus: status,
+            raw: json,
+          },
+        };
+      } catch (cgErr) {
+        console.error("❌ Sources.fetchFromSourceKey CoinGecko error:", cgErr);
+        return {
+          ok: false,
+          error: "Ошибка при запросе CoinGecko API.",
+        };
+      }
+    }
+
     // === ВЕТКА RSS-ИСТОЧНИКА ===
     if (src.type === "rss" && src.url) {
       try {
         const response = await fetch(src.url, {
           method: "GET",
           headers: {
-            "User-Agent": "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
-            Accept: "application/rss+xml, application/xml, text/xml;q=0.9,*/*;q=0.8",
+            "User-Agent":
+              "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
+            Accept:
+              "application/rss+xml, application/xml, text/xml;q=0.9,*/*;q=0.8",
           },
         });
 
@@ -198,15 +277,17 @@ export async function fetchFromSourceKey(key, params = {}) {
           typeof config.max_items === "number" ? config.max_items : 5;
 
         const items = [];
-        $("item").slice(0, maxItems).each((i, el) => {
-          const title = $(el).find("title").first().text().trim();
-          const link = $(el).find("link").first().text().trim();
-          const pubDate = $(el).find("pubDate").first().text().trim();
+        $("item")
+          .slice(0, maxItems)
+          .each((i, el) => {
+            const title = $(el).find("title").first().text().trim();
+            const link = $(el).find("link").first().text().trim();
+            const pubDate = $(el).find("pubDate").first().text().trim();
 
-          if (title || link) {
-            items.push({ title, link, pubDate });
-          }
-        });
+            if (title || link) {
+              items.push({ title, link, pubDate });
+            }
+          });
 
         return {
           ok: true,
@@ -239,7 +320,8 @@ export async function fetchFromSourceKey(key, params = {}) {
         const response = await fetch(src.url, {
           method: "GET",
           headers: {
-            "User-Agent": "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
+            "User-Agent":
+              "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
             Accept: "text/html,application/xhtml+xml",
           },
         });

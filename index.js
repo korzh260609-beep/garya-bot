@@ -439,6 +439,35 @@ function formatSourcesList(sources) {
   return text;
 }
 
+// === КОМАНДА /test_source (для проверки Sources Layer) ===
+bot.onText(/\/test_source (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const key = match[1].trim();
+
+  await bot.sendMessage(chatId, `⏳ Тестирую источник "${key}"...`);
+
+  try {
+    const result = await Sources.fetchFromSourceKey(key);
+
+    if (!result.ok) {
+      return bot.sendMessage(
+        chatId,
+        `❌ Ошибка: ${result.error || "неизвестная ошибка"}`
+      );
+    }
+
+    const preview = JSON.stringify(result, null, 2).slice(0, 400);
+
+    await bot.sendMessage(
+      chatId,
+      `✅ Источник работает!\n\nТип: ${result.meta?.type}\nURL: ${result.meta?.url}\n\n📄 Данные (обрезано):\n\`\`\`${preview}\`\`\``,
+      { parse_mode: "Markdown" }
+    );
+  } catch (err) {
+    await bot.sendMessage(chatId, `❌ Ошибка выполнения: ${err.message}`);
+  }
+});
+
 // === ЛОГИРОВАНИЕ ВЗАИМОДЕЙСТВИЙ (interaction_logs) ===
 async function logInteraction(chatIdStr, classification) {
   try {
@@ -1047,6 +1076,7 @@ bot.on("message", async (msg) => {
               "/meminfo\n" +
               "/memstats\n" +
               "/sources\n" +
+              "/test_source <key>\n" +
               "/mode <short|normal|long>"
           );
           return;
@@ -1118,7 +1148,6 @@ bot.on("message", async (msg) => {
     );
   }
 });
-
 // === ROBOT-LAYER (mock режим без реального API) ===
 
 // Получает активные задачи с расписанием

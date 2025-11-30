@@ -365,13 +365,13 @@ async function runTaskWithAI(task, chatId) {
   ];
 
   // === Вызов ИИ через единый слой ai.js ===
-let reply = "";
-try {
-  reply = await callAI(messages, "high");  
-} catch (e) {
-  console.error("❌ AI error:", e);
-  reply = "⚠️ ИИ временно недоступен — произошла ошибка при вызове модели.";
-}
+  let reply = "";
+  try {
+    reply = await callAI(messages, "high");
+  } catch (e) {
+    console.error("❌ AI error:", e);
+    reply = "⚠️ ИИ временно недоступен — произошла ошибка при вызове модели.";
+  }
 
   await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
     task.id,
@@ -382,7 +382,6 @@ try {
     `🚀 Задача #${task.id} выполнена ИИ-движком.\n\n${reply}`
   );
 }
-
 // === SOURCES LAYER HELPERS (debug) ===
 async function getAllSourcesSafe() {
   try {
@@ -407,9 +406,7 @@ function formatSourcesList(sources) {
   for (const s of sources) {
     text +=
       `#${s.id} — ${s.name || "Без названия"}\n` +
-      `Тип: ${s.type || "—"}, статус: ${
-        s.is_enabled ? "ON" : "OFF"
-      }\n` +
+      `Тип: ${s.type || "—"}, статус: ${s.is_enabled ? "ON" : "OFF"}\n` +
       (s.created_at ? `Создан: ${s.created_at.toISOString?.()}\n` : "") +
       `\n`;
   }
@@ -1158,13 +1155,14 @@ ${minimalAnswerInstruction}
     ];
 
     // === Вызов ИИ через единый слой ai.js ===
-let reply = "";
-try {
-  reply = await callAI(messages, "high");
-} catch (e) {
-  console.error("❌ AI error:", e);
-  reply = "⚠️ ИИ временно недоступен — произошла ошибка при вызове модели.";
-}
+    let reply = "";
+    try {
+      reply = await callAI(messages, "high");
+    } catch (e) {
+      console.error("❌ AI error:", e);
+      reply =
+        "⚠️ ИИ временно недоступен — произошла ошибка при вызове модели.";
+    }
 
     await bot.sendMessage(chatId, reply);
 
@@ -1179,7 +1177,6 @@ try {
     );
   }
 });
-
 // === ROBOT-LAYER (mock режим без реального API) ===
 
 // Получает активные задачи с расписанием

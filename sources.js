@@ -1,7 +1,7 @@
-// sources.js — скелет слоя источников (Sources Layer)
+// sources.js — слой источников (Sources Layer)
 import pool from "./db.js";
-import fetch from "node-fetch";      // для HTTP-запросов
-import * as cheerio from "cheerio";  // для парсинга HTML
+import fetch from "node-fetch";      // HTTP-запросы
+import * as cheerio from "cheerio";  // парсинг HTML и XML (RSS)
 
 /**
  * Возвращает все ВКЛЮЧЁННЫЕ источники из таблицы sources.
@@ -26,12 +26,7 @@ export async function listActiveSources() {
 
 /**
  * Гарантирует, что в таблице sources есть несколько базовых
- * «шаблон-источников». Это не реальные подключения, а только
- * ЗАПИСИ в реестре, чтобы:
- *  - было что показать в /sources;
- *  - Task Engine мог потом ссылаться на них.
- *
- * ВАЖНО: здесь НЕТ приватных API-ключей и НЕТ реальных запросов.
+ * «шаблон-источников» + реальные примеры HTML и RSS.
  */
 export async function ensureDefaultSources() {
   const defaults = [
@@ -68,7 +63,7 @@ export async function ensureDefaultSources() {
           "Будут подключены позже, когда понадобится.",
       },
     },
-    // === НОВЫЙ REAL-HTML ИСТОЧНИК ===
+    // === REAL HTML-ИСТОЧНИК ===
     {
       key: "html_example_page",
       name: "HTML-пример: example.com",
@@ -79,6 +74,18 @@ export async function ensureDefaultSources() {
           "Пример HTML-источника. Берём страницу example.com и вытаскиваем <title> и первый <h1>.",
         selector_title: "title",
         selector_main: "h1",
+      },
+    },
+    // === REAL RSS-ИСТОЧНИК ===
+    {
+      key: "rss_example_news",
+      name: "RSS-пример: новости (Hacker News)",
+      type: "rss",
+      url: "https://hnrss.org/frontpage",
+      config: {
+        note:
+          "Пример RSS-источника. Берём RSS Hacker News frontpage и вытаскиваем несколько последних новостей.",
+        max_items: 5
       },
     },
   ];
@@ -108,7 +115,7 @@ export async function ensureDefaultSources() {
 }
 
 /**
- * Общая заглушка (пока не используем, но оставляем для совместимости).
+ * Старый скелет, оставляем для совместимости.
  */
 export async function fetchFromSource(sourceKey, params = {}) {
   return {
@@ -122,12 +129,12 @@ export async function fetchFromSource(sourceKey, params = {}) {
 }
 
 /**
- * Основная функция для бота и Task Engine:
- * найти источник по key в БД и вернуть структурированный результат.
+ * Главная функция для работы с источниками.
  *
- * Сейчас:
- *  - для type = "virtual" — просто отдаём note из config;
- *  - для type = "html" + url — реально делаем HTTP GET и парсим HTML через cheerio.
+ * Сейчас умеет:
+ *  - virtual: просто отдаёт note из config
+ *  - html: реальный HTTP GET + парсинг <title> и первого <h1>
+ *  - rss: реальный HTTP GET + парсинг RSS-ленты, список новостей
  */
 export async function fetchFromSourceKey(key, params = {}) {
   const trimmedKey = (key || "").trim();
@@ -171,7 +178,62 @@ export async function fetchFromSourceKey(key, params = {}) {
       config.note ||
       "Скелет Sources Layer: для этого источника ещё нет детальной логики.";
 
-    // === ВЕТКА 1: HTML-ИСТОЧНИК С РЕАЛЬНЫМ HTTP ===
+    // === ВЕТКА RSS-ИСТОЧНИКА ===
+    if (src.type === "rss" && src.url) {
+      try {
+        const response = await fetch(src.url, {
+          method: "GET",
+          headers: {
+            "User-Agent": "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
+            Accept: "application/rss+xml, application/xml, text/xml;q=0.9,*/*;q=0.8",
+          },
+        });
+
+        const status = response.status;
+        const xml = await response.text();
+
+        const $ = cheerio.load(xml, { xmlMode: true });
+
+        const maxItems =
+          typeof config.max_items === "number" ? config.max_items : 5;
+
+        const items = [];
+        $("item").slice(0, maxItems).each((i, el) => {
+          const title = $(el).find("title").first().text().trim();
+          const link = $(el).find("link").first().text().trim();
+          const pubDate = $(el).find("pubDate").first().text().trim();
+
+          if (title || link) {
+            items.push({ title, link, pubDate });
+          }
+        });
+
+        return {
+          ok: true,
+          meta: {
+            id: src.id,
+            key: src.key,
+            name: src.name,
+            type: src.type,
+            url: src.url,
+          },
+          params,
+          data: {
+            note,
+            httpStatus: status,
+            items,
+          },
+        };
+      } catch (rssErr) {
+        console.error("❌ Sources.fetchFromSourceKey RSS error:", rssErr);
+        return {
+          ok: false,
+          error: "Ошибка при запросе или парсинге RSS-ленты.",
+        };
+      }
+    }
+
+    // === ВЕТКА HTML-ИСТОЧНИКА ===
     if (src.type === "html" && src.url) {
       try {
         const response = await fetch(src.url, {
@@ -215,7 +277,7 @@ export async function fetchFromSourceKey(key, params = {}) {
             httpStatus: status,
             contentType,
             parsed,
-            htmlPreview: html.slice(0, 500), // только первые 500 символов
+            htmlPreview: html.slice(0, 500),
           },
         };
       } catch (httpErr) {
@@ -227,7 +289,7 @@ export async function fetchFromSourceKey(key, params = {}) {
       }
     }
 
-    // === ВЕТКА 2: VIRTUAL / ПРОЧИЕ ТИПЫ — только мета + note ===
+    // === VIRTUAL / ПРОЧИЕ ТИПЫ — только мета + note ===
     return {
       ok: true,
       meta: {

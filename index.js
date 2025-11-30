@@ -442,8 +442,21 @@ function formatSourcesList(sources) {
 // === ЛОГИРОВАНИЕ ВЗАИМОДЕЙСТВИЙ (interaction_logs) ===
 async function logInteraction(chatIdStr, classification) {
   try {
-    const taskType = classification?.taskType || "chat";
+    const taskType   = classification?.taskType   || "chat";
     const aiCostLevel = classification?.aiCostLevel || "low";
+
+    await pool.query(
+  `
+    INSERT INTO interaction_logs (chat_id, task_type, ai_cost_level)
+    VALUES ($1, $2, $3)
+  `,
+  [chatIdStr, taskType, aiCostLevel]
+);
+
+  } catch (err) {
+    console.error("❌ Error in logInteraction:", err);
+  }
+}
 
  // === ОБРАБОТКА СООБЩЕНИЙ ===
 bot.on("message", async (msg) => {

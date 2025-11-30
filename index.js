@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import pool from "./db.js"; // память + профили + tasks
 import * as Sources from "./sources.js"; // скелет слоя источников
 import { classifyInteraction } from "./classifier.js"; // скелет классификатора
+import { callAI } from "./ai.js"; // универсальный вызов ИИ
 
 // === Константы ===
 const MAX_HISTORY_MESSAGES = 20;
@@ -363,13 +364,14 @@ async function runTaskWithAI(task, chatId) {
     },
   ];
 
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o",
-    messages,
-  });
-
-  let reply = completion.choices[0]?.message?.content ?? "";
-  if (typeof reply !== "string") reply = JSON.stringify(reply);
+  // === Вызов ИИ через единый слой ai.js ===
+let reply = "";
+try {
+  reply = await callAI(messages, "high");  
+} catch (e) {
+  console.error("❌ AI error:", e);
+  reply = "⚠️ ИИ временно недоступен — произошла ошибка при вызове модели.";
+}
 
   await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
     task.id,
@@ -1155,13 +1157,14 @@ ${minimalAnswerInstruction}
       { role: "user", content: userText },
     ];
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages,
-    });
-
-    let reply = completion.choices[0]?.message?.content ?? "";
-    if (typeof reply !== "string") reply = JSON.stringify(reply);
+    // === Вызов ИИ через единый слой ai.js ===
+let reply = "";
+try {
+  reply = await callAI(messages, "high");
+} catch (e) {
+  console.error("❌ AI error:", e);
+  reply = "⚠️ ИИ временно недоступен — произошла ошибка при вызове модели.";
+}
 
     await bot.sendMessage(chatId, reply);
 

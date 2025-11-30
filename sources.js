@@ -9,7 +9,7 @@ export async function listActiveSources() {
   try {
     const res = await pool.query(
       `
-      SELECT id, key, name, type, url, is_enabled, created_at
+      SELECT id, key, name, type, url, is_enabled, created_at, config
       FROM sources
       WHERE is_enabled = TRUE
       ORDER BY id ASC
@@ -93,7 +93,7 @@ export async function ensureDefaultSources() {
 }
 
 /**
- * Заглушка для будущего реального запроса к источнику.
+ * Общая заглушка для будущего реального запроса к источнику.
  * Сейчас НИЧЕГО не ходит в интернет, только честно говорит:
  * «здесь будет реальный запрос позже».
  */
@@ -106,4 +106,82 @@ export async function fetchFromSource(sourceKey, params = {}) {
       "Скелет Sources Layer: реальный запрос к источнику ещё не реализован. " +
       "На ЭТАПЕ 5 здесь появится HTTP-GET/POST к общедоступным ресурсам.",
   };
+}
+
+/**
+ * Основная функция для бота и Task Engine:
+ * найти источник по key в БД и вернуть структурированный результат.
+ *
+ * Сейчас:
+ *  - НИЧЕГО не запрашивает из интернета;
+ *  - просто достаёт запись из таблицы sources и отдаёт meta+note;
+ *  - если ключ неизвестен или источник выключен — ok: false + error.
+ *
+ * Позже сюда добавим реальный HTTP-код для разных типов источников.
+ */
+export async function fetchFromSourceKey(key, params = {}) {
+  const trimmedKey = (key || "").trim();
+
+  if (!trimmedKey) {
+    return {
+      ok: false,
+      error: "Ключ источника пустой.",
+    };
+  }
+
+  try {
+    const res = await pool.query(
+      `
+      SELECT id, key, name, type, url, is_enabled, config
+      FROM sources
+      WHERE key = $1
+      LIMIT 1
+      `,
+      [trimmedKey]
+    );
+
+    if (res.rows.length === 0) {
+      return {
+        ok: false,
+        error: `Источник с ключом "${trimmedKey}" не найден в реестре.`,
+      };
+    }
+
+    const src = res.rows[0];
+
+    if (!src.is_enabled) {
+      return {
+        ok: false,
+        error: `Источник "${trimmedKey}" существует, но сейчас выключен (is_enabled = false).`,
+      };
+    }
+
+    // Пока что возвращаем только метаданные и заметку из config.
+    // Тут НЕ должно быть приватных ключей.
+    const config = src.config || {};
+    const note =
+      config.note ||
+      "Скелет Sources Layer: для этого источника ещё нет реального HTTP-запроса.";
+
+    return {
+      ok: true,
+      meta: {
+        id: src.id,
+        key: src.key,
+        name: src.name,
+        type: src.type,
+        url: src.url,
+      },
+      params,
+      data: {
+        note,
+      },
+    };
+  } catch (err) {
+    console.error("❌ Sources.fetchFromSourceKey DB error:", err);
+    return {
+      ok: false,
+      error: "DB error при попытке получить источник по ключу.",
+    };
+  }
 }

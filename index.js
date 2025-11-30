@@ -150,7 +150,10 @@ async function saveChatPair(chatId, userText, assistantText) {
       [chatId, userText, assistantText]
     );
 
-    await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
+    // 3.6 — долговременная память V1:
+    // Больше НЕ удаляем старые сообщения, чтобы в БД хранилась полная история.
+    // Функцию cleanupChatHistory оставляем на будущее (например, для архивации).
+    // await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
   } catch (err) {
     console.error("❌ saveChatPair DB error:", err);
   }
@@ -895,7 +898,7 @@ bot.on("message", async (msg) => {
 
             await bot.sendMessage(chatId, text);
           } catch (e) {
-            console.error("❌ /meminfo error:", e);
+            console.error("/meminfo error:", e);
             await bot.sendMessage(
               chatId,
               "Не удалось получить данные памяти."

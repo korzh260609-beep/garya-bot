@@ -105,6 +105,8 @@ async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES) {
 }
 
 // авто-очистка: оставляем только последние MAX_HISTORY_MESSAGES записей
+// ⚠️ ВНИМАНИЕ: в ЭТАПЕ 3.6 мы её больше НЕ вызываем, чтобы накапливать долговременную память.
+// Функцию оставляем на будущее (для резюмирования/архивирования).
 async function cleanupChatHistory(chatId, maxMessages = MAX_HISTORY_MESSAGES) {
   try {
     const res = await pool.query(
@@ -150,7 +152,8 @@ async function saveChatPair(chatId, userText, assistantText) {
       [chatId, userText, assistantText]
     );
 
-    await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
+    // ВАЖНО: больше не чистим историю. Долговременная память накапливается.
+    // await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
   } catch (err) {
     console.error("❌ saveChatPair DB error:", err);
   }
@@ -656,19 +659,19 @@ bot.on("message", async (msg) => {
               chatId,
               "Команда `/task` — работа с задачами Task Engine.\n\n" +
                 "Варианты использования:\n" +
-                "• `/task list` — показать список ваших задач\n" +
-                "• `/task new <описание>` — создать новую задачу\n" +
-                "• `/task <id>` — показать подробности задачи по ID\n" +
-                "• `/task pause <id>` — поставить задачу на паузу\n" +
-                "• `/task resume <id>` — возобновить задачу\n" +
-                "• `/task delete <id>` — пометить задачу как удалённую\n\n" +
-                "Примеры:\n" +
-                "• `/task list`\n" +
-                "• `/task new следи за ценой BTC раз в час`\n" +
-                "• `/task 10`\n" +
-                "• `/task pause 10`\n" +
-                "• `/task resume 10`\n" +
-                "• `/task delete 10`",
+                  "• `/task list` — показать список ваших задач\n" +
+                  "• `/task new <описание>` — создать новую задачу\n" +
+                  "• `/task <id>` — показать подробности задачи по ID\n" +
+                  "• `/task pause <id>` — поставить задачу на паузу\n" +
+                  "• `/task resume <id>` — возобновить задачу\n" +
+                  "• `/task delete <id>` — пометить задачу как удалённую\n\n" +
+                  "Примеры:\n" +
+                  "• `/task list`\n" +
+                  "• `/task new следи за ценой BTC раз в час`\n" +
+                  "• `/task 10`\n" +
+                  "• `/task pause 10`\n" +
+                  "• `/task resume 10`\n" +
+                  "• `/task delete 10`",
               { parse_mode: "Markdown" }
             );
             return;
@@ -904,6 +907,53 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        case "/memstats": {
+          try {
+            const totalRes = await pool.query(
+              "SELECT COUNT(*) FROM chat_memory WHERE chat_id = $1",
+              [chatIdStr]
+            );
+
+            const latestRes = await pool.query(
+              `
+              SELECT role, content, created_at
+              FROM chat_memory
+              WHERE chat_id = $1
+              ORDER BY id DESC
+              LIMIT 1
+              `,
+              [chatIdStr]
+            );
+
+            const total = totalRes.rows[0].count;
+            let latestBlock = "Последняя запись: отсутствует.";
+
+            if (latestRes.rows.length > 0) {
+              const row = latestRes.rows[0];
+              const snippet =
+                row.content.length > 120
+                  ? row.content.substring(0, 117) + "..."
+                  : row.content;
+              latestBlock =
+                `Последняя запись:\n` +
+                `🕒 ${row.created_at}\n` +
+                `🎭 Роль: ${row.role}\n` +
+                `💬 Текст: ${snippet}`;
+            }
+
+            const text =
+              `📊 Статус долговременной памяти\n` +
+              `Всего сообщений в памяти: ${total}\n\n` +
+              `${latestBlock}`;
+
+            await bot.sendMessage(chatId, text);
+          } catch (e) {
+            console.error("❌ /memstats error:", e);
+            await bot.sendMessage(chatId, "Ошибка чтения памяти.");
+          }
+          return;
+        }
+
         case "/sources": {
           try {
             const sources = await getAllSourcesSafe();
@@ -970,6 +1020,7 @@ bot.on("message", async (msg) => {
               "/tasks\n" +
               "/task <list|new|pause|resume|delete|id>\n" +
               "/meminfo\n" +
+              "/memstats\n" +
               "/sources\n" +
               "/mode <short|normal|long>"
           );

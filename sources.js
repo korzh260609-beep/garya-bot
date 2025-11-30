@@ -1,5 +1,7 @@
 // sources.js — скелет слоя источников (Sources Layer)
 import pool from "./db.js";
+import fetch from "node-fetch";      // для HTTP-запросов
+import * as cheerio from "cheerio";  // для парсинга HTML
 
 /**
  * Возвращает все ВКЛЮЧЁННЫЕ источники из таблицы sources.
@@ -66,6 +68,19 @@ export async function ensureDefaultSources() {
           "Будут подключены позже, когда понадобится.",
       },
     },
+    // === НОВЫЙ REAL-HTML ИСТОЧНИК ===
+    {
+      key: "html_example_page",
+      name: "HTML-пример: example.com",
+      type: "html",
+      url: "https://example.com/",
+      config: {
+        note:
+          "Пример HTML-источника. Берём страницу example.com и вытаскиваем <title> и первый <h1>.",
+        selector_title: "title",
+        selector_main: "h1",
+      },
+    },
   ];
 
   try {
@@ -93,9 +108,7 @@ export async function ensureDefaultSources() {
 }
 
 /**
- * Общая заглушка для будущего реального запроса к источнику.
- * Сейчас НИЧЕГО не ходит в интернет, только честно говорит:
- * «здесь будет реальный запрос позже».
+ * Общая заглушка (пока не используем, но оставляем для совместимости).
  */
 export async function fetchFromSource(sourceKey, params = {}) {
   return {
@@ -103,8 +116,8 @@ export async function fetchFromSource(sourceKey, params = {}) {
     sourceKey,
     params,
     warning:
-      "Скелет Sources Layer: реальный запрос к источнику ещё не реализован. " +
-      "На ЭТАПЕ 5 здесь появится HTTP-GET/POST к общедоступным ресурсам.",
+      "Скелет Sources Layer: используйте fetchFromSourceKey(). " +
+      "Реальный запрос к источнику реализован в fetchFromSourceKey.",
   };
 }
 
@@ -113,11 +126,8 @@ export async function fetchFromSource(sourceKey, params = {}) {
  * найти источник по key в БД и вернуть структурированный результат.
  *
  * Сейчас:
- *  - НИЧЕГО не запрашивает из интернета;
- *  - просто достаёт запись из таблицы sources и отдаёт meta+note;
- *  - если ключ неизвестен или источник выключен — ok: false + error.
- *
- * Позже сюда добавим реальный HTTP-код для разных типов источников.
+ *  - для type = "virtual" — просто отдаём note из config;
+ *  - для type = "html" + url — реально делаем HTTP GET и парсим HTML через cheerio.
  */
 export async function fetchFromSourceKey(key, params = {}) {
   const trimmedKey = (key || "").trim();
@@ -156,13 +166,68 @@ export async function fetchFromSourceKey(key, params = {}) {
       };
     }
 
-    // Пока что возвращаем только метаданные и заметку из config.
-    // Тут НЕ должно быть приватных ключей.
     const config = src.config || {};
     const note =
       config.note ||
-      "Скелет Sources Layer: для этого источника ещё нет реального HTTP-запроса.";
+      "Скелет Sources Layer: для этого источника ещё нет детальной логики.";
 
+    // === ВЕТКА 1: HTML-ИСТОЧНИК С РЕАЛЬНЫМ HTTP ===
+    if (src.type === "html" && src.url) {
+      try {
+        const response = await fetch(src.url, {
+          method: "GET",
+          headers: {
+            "User-Agent": "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
+            Accept: "text/html,application/xhtml+xml",
+          },
+        });
+
+        const status = response.status;
+        const contentType = response.headers.get("content-type") || "";
+        const html = await response.text();
+
+        let parsed = {};
+        try {
+          const $ = cheerio.load(html);
+          const titleSel = config.selector_title || "title";
+          const mainSel = config.selector_main || "h1";
+
+          const title = $(titleSel).first().text().trim();
+          const main = $(mainSel).first().text().trim();
+
+          parsed = { title, main };
+        } catch (parseErr) {
+          console.error("❌ Sources.fetchFromSourceKey parse error:", parseErr);
+        }
+
+        return {
+          ok: true,
+          meta: {
+            id: src.id,
+            key: src.key,
+            name: src.name,
+            type: src.type,
+            url: src.url,
+          },
+          params,
+          data: {
+            note,
+            httpStatus: status,
+            contentType,
+            parsed,
+            htmlPreview: html.slice(0, 500), // только первые 500 символов
+          },
+        };
+      } catch (httpErr) {
+        console.error("❌ Sources.fetchFromSourceKey HTTP error:", httpErr);
+        return {
+          ok: false,
+          error: "HTTP error при запросе HTML-страницы.",
+        };
+      }
+    }
+
+    // === ВЕТКА 2: VIRTUAL / ПРОЧИЕ ТИПЫ — только мета + note ===
     return {
       ok: true,
       meta: {

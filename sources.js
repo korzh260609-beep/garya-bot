@@ -2,6 +2,7 @@
 import pool from "./db.js";
 
 // === DEFAULT SOURCES (registry templates) ===
+// Это шаблоны, которые синхронизируются с таблицей sources при запуске бота.
 const DEFAULT_SOURCES = [
   {
     key: "generic_web_search",
@@ -81,6 +82,8 @@ const DEFAULT_SOURCES = [
 ];
 
 // === INIT: ensureDefaultSources ===
+// Синхронизирует DEFAULT_SOURCES с таблицей sources.
+// Колонка is_enabled используется в БД, поэтому здесь маппим enabled -> is_enabled.
 export async function ensureDefaultSources() {
   for (const src of DEFAULT_SOURCES) {
     try {
@@ -101,7 +104,7 @@ export async function ensureDefaultSources() {
           src.name,
           src.type,
           src.url,
-          src.enabled,      // маппим на is_enabled
+          src.enabled, // маппим на is_enabled
           src.config || {},
         ]
       );
@@ -115,6 +118,7 @@ export async function ensureDefaultSources() {
 
 // === BASIC HELPERS ===
 
+// Активные источники (используется в /sources)
 export async function listActiveSources() {
   const res = await pool.query(
     `
@@ -127,6 +131,7 @@ export async function listActiveSources() {
   return res.rows;
 }
 
+// Все источники (если нужно будет где-то ещё)
 export async function getAllSources() {
   const res = await pool.query(
     `
@@ -138,6 +143,7 @@ export async function getAllSources() {
   return res.rows;
 }
 
+// Один источник по ключу (только активный)
 async function getSourceByKey(key) {
   const res = await pool.query(
     `
@@ -153,7 +159,7 @@ async function getSourceByKey(key) {
 }
 
 // === LOGGING (Этап 5.10 — source_logs) ===
-
+// Универсальное логирование всех обращений к источникам.
 async function logSourceRequest({
   sourceKey,
   type,
@@ -184,11 +190,10 @@ async function logSourceRequest({
 }
 
 // === CORE: fetchFromSourceKey ===
-
+// Главная точка входа для ROBOT-слоя и команд (/test_source и т.д.)
 export async function fetchFromSourceKey(key, options = {}) {
   const startedAt = Date.now();
   let httpStatus = null;
-  let ok = false;
   let type = null;
 
   try {
@@ -211,13 +216,12 @@ export async function fetchFromSourceKey(key, options = {}) {
     }
 
     type = src.type;
-
     let resultData = null;
 
     // --- VIRTUAL ---
     if (type === "virtual") {
       resultData = await handleVirtualSource(key, src, options);
-      ok = true;
+
       await logSourceRequest({
         sourceKey: key,
         type,
@@ -226,6 +230,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         durationMs: Date.now() - startedAt,
         extra: { note: "virtual source" },
       });
+
       return {
         ok: true,
         sourceKey: key,
@@ -238,8 +243,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 
     // --- HTML ---
     if (type === "html") {
-      const url =
-        options.params?.url || src.url || "https://example.com/";
+      const url = options.params?.url || src.url || "https://example.com/";
       const res = await fetch(url);
       httpStatus = res.status;
 
@@ -268,7 +272,6 @@ export async function fetchFromSourceKey(key, options = {}) {
         snippet: text.slice(0, 2000),
       };
 
-      ok = true;
       await logSourceRequest({
         sourceKey: key,
         type,
@@ -320,7 +323,6 @@ export async function fetchFromSourceKey(key, options = {}) {
         snippet: xml.slice(0, 2000),
       };
 
-      ok = true;
       await logSourceRequest({
         sourceKey: key,
         type,
@@ -346,9 +348,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         src.url || "https://api.coingecko.com/api/v3/simple/price";
       const cfg = src.config || {};
       const ids =
-        options.params?.ids ||
-        cfg.ids ||
-        ["bitcoin", "ethereum", "solana"];
+        options.params?.ids || cfg.ids || ["bitcoin", "ethereum", "solana"];
       const vsCurrency =
         options.params?.vs_currency || cfg.vs_currency || "usd";
 
@@ -388,7 +388,6 @@ export async function fetchFromSourceKey(key, options = {}) {
         prices: json,
       };
 
-      ok = true;
       await logSourceRequest({
         sourceKey: key,
         type,
@@ -449,7 +448,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 }
 
 // === VIRTUAL SOURCES IMPLEMENTATION ===
-
+// Здесь заглушки/виртуальные ответы без реальных HTTP-запросов.
 async function handleVirtualSource(key, src, options) {
   switch (key) {
     case "virtual_hello":

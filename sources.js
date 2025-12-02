@@ -1,313 +1,468 @@
-// sources.js — Sources Layer: реестр источников + fetch + логирование
+// sources.js — Sources Layer v1 (virtual/html/rss/coingecko)
 import pool from "./db.js";
 
-// === ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ЛОГИРОВАНИЯ ===
-async function logSourceEvent({
-  sourceKey,
-  sourceType,
-  httpStatus = null,
-  ok = false,
-  durationMs = null,
-  params = null,
-  extra = null,
-}) {
-  try {
-    await pool.query(
-      `
-      INSERT INTO source_logs (
-        source_key,
-        source_type,
-        http_status,
-        ok,
-        duration_ms,
-        params,
-        extra
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7);
-    `,
-      [
-        sourceKey,
-        sourceType,
-        httpStatus,
-        ok,
-        durationMs,
-        params ? JSON.stringify(params) : null,
-        extra ? JSON.stringify(extra) : null,
-      ]
-    );
-  } catch (err) {
-    console.error("❌ Error writing to source_logs:", err);
-  }
-}
+// === DEFAULT SOURCES (registry templates) ===
+const DEFAULT_SOURCES = [
+  {
+    key: "generic_web_search",
+    name: "Общедоступный веб-поиск",
+    type: "virtual",
+    url: null,
+    enabled: true,
+    config: {},
+  },
+  {
+    key: "generic_news_feed",
+    name: "Общедоступные новостные ленты",
+    type: "virtual",
+    url: null,
+    enabled: true,
+    config: {},
+  },
+  {
+    key: "generic_public_markets",
+    name: "Публичные рыночные данные (без ключей)",
+    type: "virtual",
+    url: null,
+    enabled: true,
+    config: {},
+  },
+  {
+    key: "html_example_page",
+    name: "HTML-пример: example.com (старый ключ)",
+    type: "html",
+    url: "https://example.com/",
+    enabled: true,
+    config: {},
+  },
+  {
+    key: "rss_example_news",
+    name: "RSS-пример: новости (старый ключ)",
+    type: "rss",
+    url: "https://hnrss.org/frontpage",
+    enabled: true,
+    config: {},
+  },
+  {
+    key: "coingecko_simple_price",
+    name: "CoinGecko: simple price (BTC/ETH/SOL)",
+    type: "coingecko",
+    url: "https://api.coingecko.com/api/v3/simple/price",
+    enabled: true,
+    config: {
+      ids: ["bitcoin", "ethereum", "solana"],
+      vs_currency: "usd",
+    },
+  },
+  {
+    key: "virtual_hello",
+    name: "Virtual hello source",
+    type: "virtual",
+    url: null,
+    enabled: true,
+    config: {},
+  },
+  {
+    key: "html_example",
+    name: "Example.com (HTML)",
+    type: "html",
+    url: "https://example.com/",
+    enabled: true,
+    config: {},
+  },
+  {
+    key: "rss_hackernews",
+    name: "Hacker News (RSS)",
+    type: "rss",
+    url: "https://news.ycombinator.com/rss",
+    enabled: true,
+    config: {},
+  },
+];
 
-// === ensureDefaultSources: создаём базовые источники, если их нет ===
+// === INIT: ensureDefaultSources ===
 export async function ensureDefaultSources() {
-  const defaults = [
-    {
-      key: "virtual_hello",
-      name: "Virtual hello source",
-      type: "virtual",
-      url: null,
-      config: {},
-    },
-    {
-      key: "html_example",
-      name: "Example.com (HTML)",
-      type: "html",
-      url: "https://example.com",
-      config: {},
-    },
-    {
-      key: "rss_hackernews",
-      name: "Hacker News (RSS)",
-      type: "rss",
-      url: "https://news.ycombinator.com/rss",
-      config: {},
-    },
-    {
-      key: "coingecko_simple_price",
-      name: "CoinGecko Simple Price (BTC/ETH → USD)",
-      type: "coingecko",
-      url: "https://api.coingecko.com/api/v3/simple/price",
-      config: {
-        ids: ["bitcoin", "ethereum"],
-        vs_currencies: ["usd"],
-      },
-    },
-  ];
-
-  for (const src of defaults) {
+  for (const src of DEFAULT_SOURCES) {
     try {
       await pool.query(
         `
-        INSERT INTO sources (key, name, type, url, config)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (key) DO NOTHING;
+        INSERT INTO sources (key, name, type, url, enabled, config)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (key) DO UPDATE SET
+          name = EXCLUDED.name,
+          type = EXCLUDED.type,
+          url = EXCLUDED.url,
+          enabled = EXCLUDED.enabled,
+          config = EXCLUDED.config,
+          updated_at = NOW()
       `,
-        [src.key, src.name, src.type, src.url, src.config]
+        [
+          src.key,
+          src.name,
+          src.type,
+          src.url,
+          src.enabled,
+          src.config || {},
+        ]
       );
     } catch (err) {
-      console.error(`❌ Error inserting default source ${src.key}:`, err);
+      console.error("❌ ensureDefaultSources error for", src.key, err);
     }
   }
 
-  console.log("✅ ensureDefaultSources: базовые источники проверены/созданы");
+  console.log("📡 ensureDefaultSources: registry synced");
 }
 
-// === Получить все источники (для /sources) ===
+// === BASIC HELPERS ===
+
 export async function getAllSources() {
   const res = await pool.query(
-    `SELECT * FROM sources ORDER BY id ASC;`
+    `
+    SELECT *
+    FROM sources
+    ORDER BY id ASC
+  `
   );
   return res.rows;
 }
 
-// === Основная функция: вызов источника по ключу ===
-export async function fetchFromSourceKey(sourceKey, options = {}) {
+async function getSourceByKey(key) {
+  const res = await pool.query(
+    `
+    SELECT *
+    FROM sources
+    WHERE key = $1
+      AND enabled = TRUE
+    LIMIT 1
+  `,
+    [key]
+  );
+  return res.rows[0] || null;
+}
+
+// === LOGGING (Этап 5.10 — source_logs) ===
+
+async function logSourceRequest({
+  sourceKey,
+  type,
+  httpStatus,
+  ok,
+  durationMs,
+  extra,
+}) {
+  try {
+    // если таблицы нет — тихо пропускаем (но у нас она уже есть)
+    await pool.query(
+      `
+      INSERT INTO source_logs
+        (source_key, type, http_status, ok, duration_ms, extra, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    `,
+      [
+        sourceKey,
+        type || null,
+        httpStatus ?? null,
+        ok === true,
+        durationMs ?? null,
+        extra || {},
+      ]
+    );
+  } catch (err) {
+    console.error("❌ logSourceRequest error:", err);
+  }
+}
+
+// === CORE: fetchFromSourceKey ===
+
+export async function fetchFromSourceKey(key, options = {}) {
   const startedAt = Date.now();
   let httpStatus = null;
   let ok = false;
-  let sourceType = null;
-  const params = options.params || {};
+  let type = null;
 
   try {
-    // 1. Находим источник в БД
-    const res = await pool.query(
-      `SELECT * FROM sources WHERE key = $1 AND enabled = TRUE;`,
-      [sourceKey]
-    );
-
-    if (res.rowCount === 0) {
-      const durationMs = Date.now() - startedAt;
-      await logSourceEvent({
-        sourceKey,
-        sourceType: null,
+    const src = await getSourceByKey(key);
+    if (!src) {
+      const error = `Источник с ключом "${key}" не найден или выключен.`;
+      await logSourceRequest({
+        sourceKey: key,
+        type: null,
         httpStatus: null,
         ok: false,
-        durationMs,
-        params,
-        extra: { error: "SOURCE_NOT_FOUND" },
+        durationMs: Date.now() - startedAt,
+        extra: { error },
       });
-
       return {
         ok: false,
-        sourceKey,
-        error: "Источник не найден или выключен",
+        sourceKey: key,
+        error,
       };
     }
 
-    const source = res.rows[0];
-    sourceType = source.type;
+    type = src.type;
 
-    // 2. Ветвим логику по типу источника
-    if (source.type === "virtual") {
-      // Простой виртуальный источник — без HTTP
-      const durationMs = Date.now() - startedAt;
+    let resultData = null;
+
+    if (type === "virtual") {
+      resultData = await handleVirtualSource(key, src, options);
       ok = true;
-
-      await logSourceEvent({
-        sourceKey,
-        sourceType: source.type,
+      await logSourceRequest({
+        sourceKey: key,
+        type,
         httpStatus: null,
-        ok,
-        durationMs,
-        params,
-        extra: { note: "virtual source, no HTTP request" },
+        ok: true,
+        durationMs: Date.now() - startedAt,
+        extra: { note: "virtual source" },
+      });
+      return {
+        ok: true,
+        sourceKey: key,
+        type,
+        httpStatus: null,
+        data: resultData,
+        raw: resultData,
+      };
+    }
+
+    if (type === "html") {
+      const url =
+        options.params?.url || src.url || "https://example.com/";
+      const res = await fetch(url);
+      httpStatus = res.status;
+
+      if (!res.ok) {
+        const error = `HTTP ${res.status} при запросе HTML-источника.`;
+        await logSourceRequest({
+          sourceKey: key,
+          type,
+          httpStatus,
+          ok: false,
+          durationMs: Date.now() - startedAt,
+          extra: { url, error },
+        });
+        return {
+          ok: false,
+          sourceKey: key,
+          type,
+          httpStatus,
+          error,
+        };
+      }
+
+      const text = await res.text();
+      resultData = {
+        url,
+        snippet: text.slice(0, 2000),
+      };
+
+      ok = true;
+      await logSourceRequest({
+        sourceKey: key,
+        type,
+        httpStatus,
+        ok: true,
+        durationMs: Date.now() - startedAt,
+        extra: { url, length: text.length },
       });
 
       return {
         ok: true,
-        sourceKey,
-        type: "virtual",
-        data: {
-          message: "Hello from virtual source",
-          time: new Date().toISOString(),
-        },
+        sourceKey: key,
+        type,
+        httpStatus,
+        data: resultData,
+        raw: text,
       };
     }
 
-    if (source.type === "html") {
-      const finalUrl = params.url || source.url;
-      const response = await fetch(finalUrl);
-      httpStatus = response.status;
-      const text = await response.text();
+    if (type === "rss") {
+      const url =
+        options.params?.url || src.url || "https://hnrss.org/frontpage";
+      const res = await fetch(url);
+      httpStatus = res.status;
 
-      ok = response.ok;
-      const durationMs = Date.now() - startedAt;
+      if (!res.ok) {
+        const error = `HTTP ${res.status} при запросе RSS-источника.`;
+        await logSourceRequest({
+          sourceKey: key,
+          type,
+          httpStatus,
+          ok: false,
+          durationMs: Date.now() - startedAt,
+          extra: { url, error },
+        });
+        return {
+          ok: false,
+          sourceKey: key,
+          type,
+          httpStatus,
+          error,
+        };
+      }
 
-      await logSourceEvent({
-        sourceKey,
-        sourceType: source.type,
+      const xml = await res.text();
+      resultData = {
+        url,
+        snippet: xml.slice(0, 2000),
+      };
+
+      ok = true;
+      await logSourceRequest({
+        sourceKey: key,
+        type,
         httpStatus,
-        ok,
-        durationMs,
-        params: { ...params, finalUrl },
-        extra: ok
-          ? { length: text.length }
-          : { error: "HTML fetch not ok", bodyStart: text.slice(0, 200) },
+        ok: true,
+        durationMs: Date.now() - startedAt,
+        extra: { url, length: xml.length },
       });
 
       return {
-        ok,
-        sourceKey,
-        type: "html",
+        ok: true,
+        sourceKey: key,
+        type,
         httpStatus,
-        htmlSnippet: text.slice(0, 500),
+        data: resultData,
+        raw: xml,
       };
     }
 
-    if (source.type === "rss") {
-      const finalUrl = params.url || source.url;
-      const response = await fetch(finalUrl);
-      httpStatus = response.status;
-      const xml = await response.text();
-
-      ok = response.ok;
-      const durationMs = Date.now() - startedAt;
-
-      await logSourceEvent({
-        sourceKey,
-        sourceType: source.type,
-        httpStatus,
-        ok,
-        durationMs,
-        params: { ...params, finalUrl },
-        extra: ok
-          ? { length: xml.length }
-          : { error: "RSS fetch not ok", bodyStart: xml.slice(0, 200) },
-      });
-
-      // Пока без полноценного парсинга RSS — только кусок XML
-      return {
-        ok,
-        sourceKey,
-        type: "rss",
-        httpStatus,
-        xmlSnippet: xml.slice(0, 500),
-      };
-    }
-
-    if (source.type === "coingecko") {
-      const baseUrl = source.url || "https://api.coingecko.com/api/v3/simple/price";
-
-      // ids и vs_currencies можем получать из config или params
-      const config = source.config || {};
+    if (type === "coingecko") {
+      const urlBase =
+        src.url || "https://api.coingecko.com/api/v3/simple/price";
+      const cfg = src.config || {};
       const ids =
-        (params.ids && params.ids.join(",")) ||
-        (config.ids && config.ids.join(",")) ||
-        "bitcoin,ethereum";
-      const vs =
-        (params.vs_currencies && params.vs_currencies.join(",")) ||
-        (config.vs_currencies && config.vs_currencies.join(",")) ||
-        "usd";
+        options.params?.ids ||
+        cfg.ids ||
+        ["bitcoin", "ethereum", "solana"];
+      const vsCurrency =
+        options.params?.vs_currency || cfg.vs_currency || "usd";
 
-      const url = `${baseUrl}?ids=${encodeURIComponent(
-        ids
-      )}&vs_currencies=${encodeURIComponent(vs)}`;
+      const url =
+        urlBase +
+        `?ids=${encodeURIComponent(ids.join(","))}` +
+        `&vs_currencies=${encodeURIComponent(vsCurrency)}`;
 
-      const response = await fetch(url);
-      httpStatus = response.status;
-      const json = await response.json();
-      ok = response.ok;
+      const res = await fetch(url);
+      httpStatus = res.status;
 
-      const durationMs = Date.now() - startedAt;
+      if (!res.ok) {
+        const error = `HTTP ${res.status} от CoinGecko.`;
+        await logSourceRequest({
+          sourceKey: key,
+          type,
+          httpStatus,
+          ok: false,
+          durationMs: Date.now() - startedAt,
+          extra: { url, error },
+        });
+        return {
+          ok: false,
+          sourceKey: key,
+          type,
+          httpStatus,
+          error,
+        };
+      }
 
-      await logSourceEvent({
-        sourceKey,
-        sourceType: source.type,
+      const json = await res.json();
+
+      resultData = {
+        url,
+        ids,
+        vs_currency: vsCurrency,
+        prices: json,
+      };
+
+      ok = true;
+      await logSourceRequest({
+        sourceKey: key,
+        type,
         httpStatus,
-        ok,
-        durationMs,
-        params: { ...params, finalUrl: url, ids, vs_currencies: vs },
-        extra: ok ? { keys: Object.keys(json || {}) } : { errorBody: json },
+        ok: true,
+        durationMs: Date.now() - startedAt,
+        extra: { url, ids, vsCurrency, keys: Object.keys(json || {}) },
       });
 
       return {
-        ok,
-        sourceKey,
-        type: "coingecko",
+        ok: true,
+        sourceKey: key,
+        type,
         httpStatus,
-        data: json,
+        data: resultData,
+        raw: json,
       };
     }
 
-    // Если тип неизвестен
-    const durationMs = Date.now() - startedAt;
-    await logSourceEvent({
-      sourceKey,
-      sourceType: source.type,
+    const error = `Тип источника "${type}" пока не поддерживается.`;
+    await logSourceRequest({
+      sourceKey: key,
+      type,
       httpStatus: null,
       ok: false,
-      durationMs,
-      params,
-      extra: { error: "UNKNOWN_SOURCE_TYPE" },
+      durationMs: Date.now() - startedAt,
+      extra: { error },
     });
 
     return {
       ok: false,
-      sourceKey,
-      error: `Неизвестный тип источника: ${source.type}`,
+      sourceKey: key,
+      type,
+      error,
     };
   } catch (err) {
     const durationMs = Date.now() - startedAt;
+    console.error("❌ fetchFromSourceKey error:", err);
 
-    await logSourceEvent({
-      sourceKey,
-      sourceType,
+    await logSourceRequest({
+      sourceKey: key,
+      type,
       httpStatus,
       ok: false,
       durationMs,
-      params,
       extra: { error: err.message || String(err) },
     });
 
-    console.error(`❌ Error in fetchFromSourceKey(${sourceKey}):`, err);
-
     return {
       ok: false,
-      sourceKey,
-      error: "Ошибка при обращении к источнику",
-      details: err.message || String(err),
+      sourceKey: key,
+      type,
+      httpStatus,
+      error: `Ошибка при обращении к источнику: ${err.message || err}`,
     };
+  }
+}
+
+// === VIRTUAL SOURCES IMPLEMENTATION ===
+
+async function handleVirtualSource(key, src, options) {
+  switch (key) {
+    case "virtual_hello":
+      return {
+        message: "Hello from virtual source!",
+        timestamp: new Date().toISOString(),
+      };
+
+    case "generic_web_search":
+      return {
+        description:
+          "Заглушка для веб-поиска. Реальный поиск будет добавлен позже.",
+      };
+
+    case "generic_news_feed":
+      return {
+        description:
+          "Заглушка для новостных лент. Позже сюда добавим реальные RSS/API.",
+      };
+
+    case "generic_public_markets":
+      return {
+        description:
+          "Заглушка для общих рыночных данных. Будет расширена позже.",
+      };
+
+    default:
+      return {
+        description: `Virtual source "${key}" (пока без спец-логики).`,
+      };
   }
 }

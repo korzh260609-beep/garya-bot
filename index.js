@@ -378,7 +378,7 @@ async function runTaskWithAI(task, chatId) {
 которых у тебя нет, НЕ ПРИТВОРЯЙСЯ, что у тебя есть эти данные.
 Вместо этого:
 — объясни, что ты можешь сделать только аналитически;
-— выдай максимальный полезный план: как бы ты выполнял эту задачу, какие шагы, формулы, правила.
+— выдай максимальный полезный план: как бы ты выполнял эту задачу, какие шаги, формулы, правила.
       `,
     },
     {
@@ -411,8 +411,17 @@ async function runTaskWithAI(task, chatId) {
 // === SOURCES LAYER HELPERS (debug) ===
 async function getAllSourcesSafe() {
   try {
-    const sources = await Sources.listActiveSources();
-    return sources;
+    // Новый sources.js экспортирует getAllSources
+    if (typeof Sources.getAllSources === "function") {
+      const sources = await Sources.getAllSources();
+      return sources;
+    }
+
+    // Резервный вариант — прямой запрос в БД
+    const res = await pool.query(
+      `SELECT * FROM sources ORDER BY id ASC;`
+    );
+    return res.rows;
   } catch (err) {
     console.error("❌ Error in getAllSourcesSafe:", err);
     return [];
@@ -430,11 +439,16 @@ function formatSourcesList(sources) {
 
   let text = "📡 Источники данных (Sources Layer):\n\n";
   for (const s of sources) {
+    const status = s.enabled === false ? "OFF" : "ON";
+    const created =
+      s.created_at ? new Date(s.created_at).toISOString() : "—";
+
     text +=
       `#${s.id} — ${s.name || "Без названия"}\n` +
-      `Тип: ${s.type || "—"}, статус: ${s.is_enabled ? "ON" : "OFF"}\n` +
-      (s.created_at ? `Создан: ${s.created_at.toISOString?.()}\n` : "") +
-      `\n`;
+      `Ключ: ${s.key || "—"}\n` +
+      `Тип: ${s.type || "—"}, статус: ${status}\n` +
+      (s.url ? `URL: ${s.url}\n` : "") +
+      `Создан: ${created}\n\n`;
   }
   return text;
 }
@@ -456,14 +470,46 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
       );
     }
 
-    const preview = JSON.stringify(result, null, 2).slice(0, 400);
+    const type =
+      result.type ||
+      result.sourceType ||
+      result.meta?.type ||
+      "—";
+
+    const httpStatus =
+      typeof result.httpStatus === "number"
+        ? result.httpStatus
+        : result.meta?.httpStatus;
+
+    const previewObj = {
+      ok: result.ok,
+      sourceKey: result.sourceKey || key,
+      type,
+      httpStatus,
+      data:
+        result.data ||
+        result.htmlSnippet ||
+        result.xmlSnippet ||
+        result.items ||
+        null,
+    };
+
+    const preview = JSON.stringify(previewObj, null, 2).slice(0, 400);
 
     await bot.sendMessage(
       chatId,
-      `✅ Источник работает!\n\nТип: ${result.meta?.type}\nURL: ${result.meta?.url}\n\n📄 Данные (обрезано):\n\`\`\`${preview}\`\`\``,
+      `✅ Источник работает!\n\n` +
+        `Ключ: ${result.sourceKey || key}\n` +
+        `Тип: ${type}\n` +
+        `HTTP статус: ${httpStatus ?? "—"}\n\n` +
+        `📄 Данные (обрезано):\n` +
+        "```json\n" +
+        preview +
+        "\n```",
       { parse_mode: "Markdown" }
     );
   } catch (err) {
+    console.error("❌ /test_source error:", err);
     await bot.sendMessage(chatId, `❌ Ошибка выполнения: ${err.message}`);
   }
 });
@@ -1020,6 +1066,12 @@ bot.on("message", async (msg) => {
               "Не удалось получить список источников."
             );
           }
+          return;
+        }
+
+        case "/test_source": {
+          // Обработчик уже реализован через bot.onText выше,
+          // здесь просто выходим, чтобы не срабатывать "неизвестная команда".
           return;
         }
 

@@ -76,6 +76,21 @@ async function initDb() {
       );
     `);
 
+    // === Логи запросов к источникам (Sources Layer) ===
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS source_logs (
+        id SERIAL PRIMARY KEY,
+        source_key TEXT NOT NULL,          -- ключ источника из таблицы sources
+        source_type TEXT,                  -- тип источника (html/rss/coingecko/virtual)
+        http_status INTEGER,               -- HTTP статус (если есть)
+        ok BOOLEAN DEFAULT false,          -- успешно или нет
+        duration_ms INTEGER,               -- длительность запроса в миллисекундах
+        params JSONB,                      -- параметры запроса (tickers, url и т.п.)
+        extra JSONB,                       -- сырые ошибки, ответы, служебные данные
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
     // === Лог обращений к ИИ (taskType + aiCostLevel) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS interaction_logs (
@@ -88,7 +103,7 @@ async function initDb() {
     `);
 
     console.log(
-      "✅ Tables ready: chat_memory, users, tasks, sources, interaction_logs"
+      "✅ Tables ready: chat_memory, users, tasks, sources, source_logs, interaction_logs"
     );
   } catch (err) {
     console.error("❌ Error initializing database:", err);

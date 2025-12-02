@@ -470,10 +470,7 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
     }
 
     const type =
-      result.type ||
-      result.sourceType ||
-      result.meta?.type ||
-      "—";
+      result.type || result.sourceType || result.meta?.type || "—";
 
     const httpStatus =
       typeof result.httpStatus === "number"
@@ -746,7 +743,7 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        // Универсальная команда /task
+              // Универсальная команда /task
         case "/task": {
           const raw = commandArgs.trim();
 
@@ -1066,25 +1063,26 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        // Новая команда: /source <key> — реальный запрос к источнику
+        // Новая команда: /source <key> — реальный запрос к источнику (без Markdown)
         case "/source": {
           const key = commandArgs.split(/\s+/)[0];
 
           if (!key) {
             await bot.sendMessage(
               chatId,
-              "Использование:\n`/source <key>`\n\nПримеры:\n" +
-                "`/source html_test`\n" +
-                "`/source rss_test`\n" +
-                "`/source coingecko_simple_btc`",
-              { parse_mode: "Markdown" }
+              "Использование:\n" +
+                "/source <key>\n\nПримеры:\n" +
+                "/source html_example_page\n" +
+                "/source rss_example_news\n" +
+                "/source generic_public_markets"
             );
             return;
           }
 
-          await bot.sendMessage(chatId, `⏳ Запрашиваю источник \`${key}\`...`, {
-            parse_mode: "Markdown",
-          });
+          await bot.sendMessage(
+            chatId,
+            `⏳ Запрашиваю источник "${key}"...`
+          );
 
           try {
             const result = await Sources.fetchFromSourceKey(key);
@@ -1092,8 +1090,9 @@ bot.on("message", async (msg) => {
             if (!result.ok) {
               await bot.sendMessage(
                 chatId,
-                `❌ Ошибка при обращении к источнику \`${key}\`:\n${result.error || "неизвестная ошибка"}`,
-                { parse_mode: "Markdown" }
+                `❌ Ошибка при обращении к источнику "${key}":\n${
+                  result.error || "неизвестная ошибка"
+                }`
               );
               return;
             }
@@ -1127,7 +1126,7 @@ bot.on("message", async (msg) => {
             const preview = JSON.stringify(previewObj, null, 2).slice(0, 900);
 
             const text =
-              `✅ Ответ от источника \`${previewObj.sourceKey}\`.\n\n` +
+              `✅ Ответ от источника "${previewObj.sourceKey}".\n\n` +
               `Тип: ${type}\n` +
               `HTTP статус: ${httpStatus}\n\n` +
               `📄 Предпросмотр данных (обрезано):\n` +
@@ -1138,7 +1137,7 @@ bot.on("message", async (msg) => {
             console.error("❌ Error in /source:", e);
             await bot.sendMessage(
               chatId,
-              `❌ Внутренняя ошибка при обращении к источнику: ${e.message}`
+              `❌ Внутренняя ошибка при обращении к источнику "${key}": ${e.message}`
             );
           }
           return;

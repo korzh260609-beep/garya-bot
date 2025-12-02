@@ -847,7 +847,7 @@ bot.on("message", async (msg) => {
             return;
           }
 
-                    // /task pause|resume|delete <id>
+          // /task pause|resume|delete <id>
           if (
             firstLower === "pause" ||
             firstLower === "resume" ||
@@ -1066,6 +1066,84 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        // Новая команда: /source <key> — реальный запрос к источнику
+        case "/source": {
+          const key = commandArgs.split(/\s+/)[0];
+
+          if (!key) {
+            await bot.sendMessage(
+              chatId,
+              "Использование:\n`/source <key>`\n\nПримеры:\n" +
+                "`/source html_test`\n" +
+                "`/source rss_test`\n" +
+                "`/source coingecko_simple_btc`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          await bot.sendMessage(chatId, `⏳ Запрашиваю источник \`${key}\`...`, {
+            parse_mode: "Markdown",
+          });
+
+          try {
+            const result = await Sources.fetchFromSourceKey(key);
+
+            if (!result.ok) {
+              await bot.sendMessage(
+                chatId,
+                `❌ Ошибка при обращении к источнику \`${key}\`:\n${result.error || "неизвестная ошибка"}`,
+                { parse_mode: "Markdown" }
+              );
+              return;
+            }
+
+            const type =
+              result.type ||
+              result.sourceType ||
+              result.meta?.type ||
+              "—";
+
+            const httpStatus =
+              typeof result.httpStatus === "number"
+                ? result.httpStatus
+                : result.meta?.httpStatus ?? "—";
+
+            const payload =
+              result.data ||
+              result.htmlSnippet ||
+              result.xmlSnippet ||
+              result.items ||
+              null;
+
+            const previewObj = {
+              ok: result.ok,
+              sourceKey: result.sourceKey || key,
+              type,
+              httpStatus,
+              payload,
+            };
+
+            const preview = JSON.stringify(previewObj, null, 2).slice(0, 900);
+
+            const text =
+              `✅ Ответ от источника \`${previewObj.sourceKey}\`.\n\n` +
+              `Тип: ${type}\n` +
+              `HTTP статус: ${httpStatus}\n\n` +
+              `📄 Предпросмотр данных (обрезано):\n` +
+              preview;
+
+            await bot.sendMessage(chatId, text);
+          } catch (e) {
+            console.error("❌ Error in /source:", e);
+            await bot.sendMessage(
+              chatId,
+              `❌ Внутренняя ошибка при обращении к источнику: ${e.message}`
+            );
+          }
+          return;
+        }
+
         case "/test_source": {
           // Обработчик уже реализован через bot.onText выше,
           // здесь просто выходим, чтобы не срабатывать "неизвестная команда".
@@ -1125,6 +1203,7 @@ bot.on("message", async (msg) => {
               "/meminfo\n" +
               "/memstats\n" +
               "/sources\n" +
+              "/source <key>\n" +
               "/test_source <key>\n" +
               "/mode <short|normal|long>"
           );

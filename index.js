@@ -418,9 +418,7 @@ async function getAllSourcesSafe() {
     }
 
     // Резервный вариант — прямой запрос в БД
-    const res = await pool.query(
-      `SELECT * FROM sources ORDER BY id ASC;`
-    );
+    const res = await pool.query(`SELECT * FROM sources ORDER BY id ASC;`);
     return res.rows;
   } catch (err) {
     console.error("❌ Error in getAllSourcesSafe:", err);
@@ -439,7 +437,7 @@ function formatSourcesList(sources) {
 
   let text = "📡 Источники данных (Sources Layer):\n\n";
   for (const s of sources) {
-    const status = s.enabled === false ? "OFF" : "ON";
+    const status = s.is_enabled === false ? "OFF" : "ON";
     const created =
       s.created_at ? new Date(s.created_at).toISOString() : "—";
 
@@ -464,10 +462,11 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
     const result = await Sources.fetchFromSourceKey(key);
 
     if (!result.ok) {
-      return bot.sendMessage(
+      await bot.sendMessage(
         chatId,
         `❌ Ошибка: ${result.error || "неизвестная ошибка"}`
       );
+      return;
     }
 
     const type =
@@ -479,7 +478,7 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
     const httpStatus =
       typeof result.httpStatus === "number"
         ? result.httpStatus
-        : result.meta?.httpStatus;
+        : result.meta?.httpStatus ?? "—";
 
     const previewObj = {
       ok: result.ok,
@@ -494,20 +493,18 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
         null,
     };
 
-    const preview = JSON.stringify(previewObj, null, 2).slice(0, 400);
+    const preview = JSON.stringify(previewObj, null, 2).slice(0, 800);
 
-    await bot.sendMessage(
-      chatId,
+    const text =
       `✅ Источник работает!\n\n` +
-        `Ключ: ${result.sourceKey || key}\n` +
-        `Тип: ${type}\n` +
-        `HTTP статус: ${httpStatus ?? "—"}\n\n` +
-        `📄 Данные (обрезано):\n` +
-        "```json\n" +
-        preview +
-        "\n```",
-      { parse_mode: "Markdown" }
-    );
+      `Ключ: ${previewObj.sourceKey}\n` +
+      `Тип: ${type}\n` +
+      `HTTP статус: ${httpStatus}\n\n` +
+      `📄 Данные (обрезано):\n` +
+      preview;
+
+    // Без parse_mode, чтобы не ловить 400 Bad Request от Telegram
+    await bot.sendMessage(chatId, text);
   } catch (err) {
     console.error("❌ /test_source error:", err);
     await bot.sendMessage(chatId, `❌ Ошибка выполнения: ${err.message}`);
@@ -850,7 +847,7 @@ bot.on("message", async (msg) => {
             return;
           }
 
-          // /task pause|resume|delete <id>
+                    // /task pause|resume|delete <id>
           if (
             firstLower === "pause" ||
             firstLower === "resume" ||
@@ -891,21 +888,21 @@ bot.on("message", async (msg) => {
               }
 
               let newStatus = existing.status;
-              let msg = "";
+              let msgText = "";
 
               if (firstLower === "pause") {
                 newStatus = "paused";
-                msg = `⏸ Задача #${taskId} поставлена на паузу.`;
+                msgText = `⏸ Задача #${taskId} поставлена на паузу.`;
               } else if (firstLower === "resume") {
                 newStatus = "active";
-                msg = `▶️ Задача #${taskId} возобновлена.`;
+                msgText = `▶️ Задача #${taskId} возобновлена.`;
               } else if (firstLower === "delete") {
                 newStatus = "deleted";
-                msg = `🗑 Задача #${taskId} помечена как удалённая.`;
+                msgText = `🗑 Задача #${taskId} помечена как удалённая.`;
               }
 
               await updateTaskStatus(chatIdStr, taskId, newStatus);
-              await bot.sendMessage(chatId, msg);
+              await bot.sendMessage(chatId, msgText);
             } catch (e) {
               console.error("❌ Error in /task pause|resume|delete:", e);
               await bot.sendMessage(

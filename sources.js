@@ -86,13 +86,13 @@ export async function ensureDefaultSources() {
     try {
       await pool.query(
         `
-        INSERT INTO sources (key, name, type, url, enabled, config)
+        INSERT INTO sources (key, name, type, url, is_enabled, config)
         VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (key) DO UPDATE SET
           name = EXCLUDED.name,
           type = EXCLUDED.type,
           url = EXCLUDED.url,
-          enabled = EXCLUDED.enabled,
+          is_enabled = EXCLUDED.is_enabled,
           config = EXCLUDED.config,
           updated_at = NOW()
       `,
@@ -101,7 +101,7 @@ export async function ensureDefaultSources() {
           src.name,
           src.type,
           src.url,
-          src.enabled,
+          src.enabled,      // маппим на is_enabled
           src.config || {},
         ]
       );
@@ -114,6 +114,18 @@ export async function ensureDefaultSources() {
 }
 
 // === BASIC HELPERS ===
+
+export async function listActiveSources() {
+  const res = await pool.query(
+    `
+    SELECT *
+    FROM sources
+    WHERE is_enabled = TRUE
+    ORDER BY id ASC
+  `
+  );
+  return res.rows;
+}
 
 export async function getAllSources() {
   const res = await pool.query(
@@ -132,7 +144,7 @@ async function getSourceByKey(key) {
     SELECT *
     FROM sources
     WHERE key = $1
-      AND enabled = TRUE
+      AND is_enabled = TRUE
     LIMIT 1
   `,
     [key]
@@ -151,7 +163,6 @@ async function logSourceRequest({
   extra,
 }) {
   try {
-    // если таблицы нет — тихо пропускаем (но у нас она уже есть)
     await pool.query(
       `
       INSERT INTO source_logs
@@ -203,6 +214,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 
     let resultData = null;
 
+    // --- VIRTUAL ---
     if (type === "virtual") {
       resultData = await handleVirtualSource(key, src, options);
       ok = true;
@@ -224,6 +236,7 @@ export async function fetchFromSourceKey(key, options = {}) {
       };
     }
 
+    // --- HTML ---
     if (type === "html") {
       const url =
         options.params?.url || src.url || "https://example.com/";
@@ -275,6 +288,7 @@ export async function fetchFromSourceKey(key, options = {}) {
       };
     }
 
+    // --- RSS ---
     if (type === "rss") {
       const url =
         options.params?.url || src.url || "https://hnrss.org/frontpage";
@@ -326,6 +340,7 @@ export async function fetchFromSourceKey(key, options = {}) {
       };
     }
 
+    // --- COINGECKO ---
     if (type === "coingecko") {
       const urlBase =
         src.url || "https://api.coingecko.com/api/v3/simple/price";
@@ -393,6 +408,7 @@ export async function fetchFromSourceKey(key, options = {}) {
       };
     }
 
+    // --- UNSUPPORTED ---
     const error = `Тип источника "${type}" пока не поддерживается.`;
     await logSourceRequest({
       sourceKey: key,

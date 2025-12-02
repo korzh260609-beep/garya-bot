@@ -1,396 +1,313 @@
-// sources.js — слой источников (Sources Layer)
+// sources.js — Sources Layer: реестр источников + fetch + логирование
 import pool from "./db.js";
-import fetch from "node-fetch";      // HTTP-запросы
-import * as cheerio from "cheerio";  // парсинг HTML и XML (RSS)
 
-/**
- * Возвращает все ВКЛЮЧЁННЫЕ источники из таблицы sources.
- * Используется командой /sources и в будущем — Task Engine.
- */
-export async function listActiveSources() {
+// === ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ЛОГИРОВАНИЯ ===
+async function logSourceEvent({
+  sourceKey,
+  sourceType,
+  httpStatus = null,
+  ok = false,
+  durationMs = null,
+  params = null,
+  extra = null,
+}) {
   try {
-    const res = await pool.query(
+    await pool.query(
       `
-      SELECT id, key, name, type, url, is_enabled, created_at, config
-      FROM sources
-      WHERE is_enabled = TRUE
-      ORDER BY id ASC
-      `
+      INSERT INTO source_logs (
+        source_key,
+        source_type,
+        http_status,
+        ok,
+        duration_ms,
+        params,
+        extra
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7);
+    `,
+      [
+        sourceKey,
+        sourceType,
+        httpStatus,
+        ok,
+        durationMs,
+        params ? JSON.stringify(params) : null,
+        extra ? JSON.stringify(extra) : null,
+      ]
     );
-    return res.rows;
   } catch (err) {
-    console.error("❌ Sources.listActiveSources DB error:", err);
-    return [];
+    console.error("❌ Error writing to source_logs:", err);
   }
 }
 
-/**
- * Гарантирует, что в таблице sources есть несколько базовых
- * «шаблон-источников» + реальные примеры HTML, RSS и CoinGecko.
- */
+// === ensureDefaultSources: создаём базовые источники, если их нет ===
 export async function ensureDefaultSources() {
   const defaults = [
     {
-      key: "generic_web_search",
-      name: "Общедоступный веб-поиск",
+      key: "virtual_hello",
+      name: "Virtual hello source",
       type: "virtual",
       url: null,
-      config: {
-        note:
-          "Шаблон источника: общедоступные сайты и статьи. " +
-          "Реальные HTTP-запросы появятся на ЭТАПЕ 5.",
-      },
+      config: {},
     },
     {
-      key: "generic_news_feed",
-      name: "Общедоступные новостные ленты",
-      type: "virtual",
-      url: null,
-      config: {
-        note:
-          "Шаблон для новостных RSS/ленточек без приватных ключей. " +
-          "Будет реализован на ЭТАПЕ 5.",
-      },
-    },
-    {
-      key: "generic_public_markets",
-      name: "Публичные рыночные данные (без ключей)",
-      type: "virtual",
-      url: null,
-      config: {
-        note:
-          "CoinGecko и другие открытые API без авторизации. " +
-          "Будут подключены позже, когда понадобится.",
-      },
-    },
-    // === REAL HTML-ИСТОЧНИК ===
-    {
-      key: "html_example_page",
-      name: "HTML-пример: example.com",
+      key: "html_example",
+      name: "Example.com (HTML)",
       type: "html",
-      url: "https://example.com/",
-      config: {
-        note:
-          "Пример HTML-источника. Берём страницу example.com и вытаскиваем <title> и первый <h1>.",
-        selector_title: "title",
-        selector_main: "h1",
-      },
+      url: "https://example.com",
+      config: {},
     },
-    // === REAL RSS-ИСТОЧНИК ===
     {
-      key: "rss_example_news",
-      name: "RSS-пример: новости (Hacker News)",
+      key: "rss_hackernews",
+      name: "Hacker News (RSS)",
       type: "rss",
-      url: "https://hnrss.org/frontpage",
-      config: {
-        note:
-          "Пример RSS-источника. Берём RSS Hacker News frontpage и вытаскиваем несколько последних новостей.",
-        max_items: 5,
-      },
+      url: "https://news.ycombinator.com/rss",
+      config: {},
     },
-    // === REAL COINGECKO API-ИСТОЧНИК ===
     {
       key: "coingecko_simple_price",
-      name: "CoinGecko: simple price (BTC/ETH/SOL)",
+      name: "CoinGecko Simple Price (BTC/ETH → USD)",
       type: "coingecko",
       url: "https://api.coingecko.com/api/v3/simple/price",
       config: {
-        note:
-          "Пример источника CoinGecko без API-ключа. Возвращает цены нескольких монет в USD.",
-        default_ids: ["bitcoin", "ethereum", "solana"],
-        default_vs_currency: "usd",
+        ids: ["bitcoin", "ethereum"],
+        vs_currencies: ["usd"],
       },
     },
   ];
 
-  try {
-    for (const s of defaults) {
+  for (const src of defaults) {
+    try {
       await pool.query(
         `
         INSERT INTO sources (key, name, type, url, config)
-        VALUES ($1,       $2,   $3,  $4,  $5)
-        ON CONFLICT (key) DO UPDATE
-        SET
-          name       = EXCLUDED.name,
-          type       = EXCLUDED.type,
-          url        = EXCLUDED.url,
-          config     = EXCLUDED.config,
-          updated_at = NOW()
-        `,
-        [s.key, s.name, s.type, s.url, s.config]
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (key) DO NOTHING;
+      `,
+        [src.key, src.name, src.type, src.url, src.config]
       );
+    } catch (err) {
+      console.error(`❌ Error inserting default source ${src.key}:`, err);
     }
-
-    console.log("📡 Sources: default templates are ready.");
-  } catch (err) {
-    console.error("❌ Sources.ensureDefaultSources error:", err);
   }
+
+  console.log("✅ ensureDefaultSources: базовые источники проверены/созданы");
 }
 
-/**
- * Старый скелет, оставляем для совместимости.
- */
-export async function fetchFromSource(sourceKey, params = {}) {
-  return {
-    ok: false,
-    sourceKey,
-    params,
-    warning:
-      "Скелет Sources Layer: используйте fetchFromSourceKey(). " +
-      "Реальный запрос к источнику реализован в fetchFromSourceKey.",
-  };
+// === Получить все источники (для /sources) ===
+export async function getAllSources() {
+  const res = await pool.query(
+    `SELECT * FROM sources ORDER BY id ASC;`
+  );
+  return res.rows;
 }
 
-/**
- * Главная функция для работы с источниками.
- *
- * Сейчас умеет:
- *  - virtual: просто отдаёт note из config
- *  - html: HTTP GET + парсинг <title> и первого <h1>
- *  - rss: HTTP GET + парсинг RSS-ленты
- *  - coingecko: HTTP GET к CoinGecko simple/price (цены монет)
- */
-export async function fetchFromSourceKey(key, params = {}) {
-  const trimmedKey = (key || "").trim();
-
-  if (!trimmedKey) {
-    return {
-      ok: false,
-      error: "Ключ источника пустой.",
-    };
-  }
+// === Основная функция: вызов источника по ключу ===
+export async function fetchFromSourceKey(sourceKey, options = {}) {
+  const startedAt = Date.now();
+  let httpStatus = null;
+  let ok = false;
+  let sourceType = null;
+  const params = options.params || {};
 
   try {
+    // 1. Находим источник в БД
     const res = await pool.query(
-      `
-      SELECT id, key, name, type, url, is_enabled, config
-      FROM sources
-      WHERE key = $1
-      LIMIT 1
-      `,
-      [trimmedKey]
+      `SELECT * FROM sources WHERE key = $1 AND enabled = TRUE;`,
+      [sourceKey]
     );
 
-    if (res.rows.length === 0) {
+    if (res.rowCount === 0) {
+      const durationMs = Date.now() - startedAt;
+      await logSourceEvent({
+        sourceKey,
+        sourceType: null,
+        httpStatus: null,
+        ok: false,
+        durationMs,
+        params,
+        extra: { error: "SOURCE_NOT_FOUND" },
+      });
+
       return {
         ok: false,
-        error: `Источник с ключом "${trimmedKey}" не найден в реестре.`,
+        sourceKey,
+        error: "Источник не найден или выключен",
       };
     }
 
-    const src = res.rows[0];
+    const source = res.rows[0];
+    sourceType = source.type;
 
-    if (!src.is_enabled) {
+    // 2. Ветвим логику по типу источника
+    if (source.type === "virtual") {
+      // Простой виртуальный источник — без HTTP
+      const durationMs = Date.now() - startedAt;
+      ok = true;
+
+      await logSourceEvent({
+        sourceKey,
+        sourceType: source.type,
+        httpStatus: null,
+        ok,
+        durationMs,
+        params,
+        extra: { note: "virtual source, no HTTP request" },
+      });
+
       return {
-        ok: false,
-        error: `Источник "${trimmedKey}" существует, но сейчас выключен (is_enabled = false).`,
+        ok: true,
+        sourceKey,
+        type: "virtual",
+        data: {
+          message: "Hello from virtual source",
+          time: new Date().toISOString(),
+        },
       };
     }
 
-    const config = src.config || {};
-    const note =
-      config.note ||
-      "Скелет Sources Layer: для этого источника ещё нет детальной логики.";
+    if (source.type === "html") {
+      const finalUrl = params.url || source.url;
+      const response = await fetch(finalUrl);
+      httpStatus = response.status;
+      const text = await response.text();
 
-    // === ВЕТКА COINGECKO (простые цены) ===
-    if (src.type === "coingecko" && src.url) {
-      try {
-        // ids и vs_currency можно передавать через params, иначе берём из config
-        let ids = params.ids || config.default_ids || ["bitcoin"];
-        if (Array.isArray(ids)) {
-          ids = ids.join(",");
-        }
-        const vsCurrency =
-          params.vs_currency || config.default_vs_currency || "usd";
+      ok = response.ok;
+      const durationMs = Date.now() - startedAt;
 
-        const url =
-          `${src.url}?ids=${encodeURIComponent(ids)}&vs_currencies=${encodeURIComponent(
-            vsCurrency
-          )}`;
+      await logSourceEvent({
+        sourceKey,
+        sourceType: source.type,
+        httpStatus,
+        ok,
+        durationMs,
+        params: { ...params, finalUrl },
+        extra: ok
+          ? { length: text.length }
+          : { error: "HTML fetch not ok", bodyStart: text.slice(0, 200) },
+      });
 
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "User-Agent":
-              "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
-            Accept: "application/json",
-          },
-        });
-
-        const status = response.status;
-        const text = await response.text();
-
-        let json = null;
-        try {
-          json = JSON.parse(text);
-        } catch (parseErr) {
-          console.error("❌ CoinGecko JSON parse error:", parseErr);
-        }
-
-        return {
-          ok: status === 200 && !!json,
-          meta: {
-            id: src.id,
-            key: src.key,
-            name: src.name,
-            type: src.type,
-            url: src.url,
-          },
-          params: {
-            ids,
-            vs_currency: vsCurrency,
-          },
-          data: {
-            note,
-            httpStatus: status,
-            raw: json,
-          },
-        };
-      } catch (cgErr) {
-        console.error("❌ Sources.fetchFromSourceKey CoinGecko error:", cgErr);
-        return {
-          ok: false,
-          error: "Ошибка при запросе CoinGecko API.",
-        };
-      }
+      return {
+        ok,
+        sourceKey,
+        type: "html",
+        httpStatus,
+        htmlSnippet: text.slice(0, 500),
+      };
     }
 
-    // === ВЕТКА RSS-ИСТОЧНИКА ===
-    if (src.type === "rss" && src.url) {
-      try {
-        const response = await fetch(src.url, {
-          method: "GET",
-          headers: {
-            "User-Agent":
-              "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
-            Accept:
-              "application/rss+xml, application/xml, text/xml;q=0.9,*/*;q=0.8",
-          },
-        });
+    if (source.type === "rss") {
+      const finalUrl = params.url || source.url;
+      const response = await fetch(finalUrl);
+      httpStatus = response.status;
+      const xml = await response.text();
 
-        const status = response.status;
-        const xml = await response.text();
+      ok = response.ok;
+      const durationMs = Date.now() - startedAt;
 
-        const $ = cheerio.load(xml, { xmlMode: true });
+      await logSourceEvent({
+        sourceKey,
+        sourceType: source.type,
+        httpStatus,
+        ok,
+        durationMs,
+        params: { ...params, finalUrl },
+        extra: ok
+          ? { length: xml.length }
+          : { error: "RSS fetch not ok", bodyStart: xml.slice(0, 200) },
+      });
 
-        const maxItems =
-          typeof config.max_items === "number" ? config.max_items : 5;
-
-        const items = [];
-        $("item")
-          .slice(0, maxItems)
-          .each((i, el) => {
-            const title = $(el).find("title").first().text().trim();
-            const link = $(el).find("link").first().text().trim();
-            const pubDate = $(el).find("pubDate").first().text().trim();
-
-            if (title || link) {
-              items.push({ title, link, pubDate });
-            }
-          });
-
-        return {
-          ok: true,
-          meta: {
-            id: src.id,
-            key: src.key,
-            name: src.name,
-            type: src.type,
-            url: src.url,
-          },
-          params,
-          data: {
-            note,
-            httpStatus: status,
-            items,
-          },
-        };
-      } catch (rssErr) {
-        console.error("❌ Sources.fetchFromSourceKey RSS error:", rssErr);
-        return {
-          ok: false,
-          error: "Ошибка при запросе или парсинге RSS-ленты.",
-        };
-      }
+      // Пока без полноценного парсинга RSS — только кусок XML
+      return {
+        ok,
+        sourceKey,
+        type: "rss",
+        httpStatus,
+        xmlSnippet: xml.slice(0, 500),
+      };
     }
 
-    // === ВЕТКА HTML-ИСТОЧНИКА ===
-    if (src.type === "html" && src.url) {
-      try {
-        const response = await fetch(src.url, {
-          method: "GET",
-          headers: {
-            "User-Agent":
-              "GARYA-AI-Agent/1.0 (+https://garya-bot.onrender.com)",
-            Accept: "text/html,application/xhtml+xml",
-          },
-        });
+    if (source.type === "coingecko") {
+      const baseUrl = source.url || "https://api.coingecko.com/api/v3/simple/price";
 
-        const status = response.status;
-        const contentType = response.headers.get("content-type") || "";
-        const html = await response.text();
+      // ids и vs_currencies можем получать из config или params
+      const config = source.config || {};
+      const ids =
+        (params.ids && params.ids.join(",")) ||
+        (config.ids && config.ids.join(",")) ||
+        "bitcoin,ethereum";
+      const vs =
+        (params.vs_currencies && params.vs_currencies.join(",")) ||
+        (config.vs_currencies && config.vs_currencies.join(",")) ||
+        "usd";
 
-        let parsed = {};
-        try {
-          const $ = cheerio.load(html);
-          const titleSel = config.selector_title || "title";
-          const mainSel = config.selector_main || "h1";
+      const url = `${baseUrl}?ids=${encodeURIComponent(
+        ids
+      )}&vs_currencies=${encodeURIComponent(vs)}`;
 
-          const title = $(titleSel).first().text().trim();
-          const main = $(mainSel).first().text().trim();
+      const response = await fetch(url);
+      httpStatus = response.status;
+      const json = await response.json();
+      ok = response.ok;
 
-          parsed = { title, main };
-        } catch (parseErr) {
-          console.error("❌ Sources.fetchFromSourceKey parse error:", parseErr);
-        }
+      const durationMs = Date.now() - startedAt;
 
-        return {
-          ok: true,
-          meta: {
-            id: src.id,
-            key: src.key,
-            name: src.name,
-            type: src.type,
-            url: src.url,
-          },
-          params,
-          data: {
-            note,
-            httpStatus: status,
-            contentType,
-            parsed,
-            htmlPreview: html.slice(0, 500),
-          },
-        };
-      } catch (httpErr) {
-        console.error("❌ Sources.fetchFromSourceKey HTTP error:", httpErr);
-        return {
-          ok: false,
-          error: "HTTP error при запросе HTML-страницы.",
-        };
-      }
+      await logSourceEvent({
+        sourceKey,
+        sourceType: source.type,
+        httpStatus,
+        ok,
+        durationMs,
+        params: { ...params, finalUrl: url, ids, vs_currencies: vs },
+        extra: ok ? { keys: Object.keys(json || {}) } : { errorBody: json },
+      });
+
+      return {
+        ok,
+        sourceKey,
+        type: "coingecko",
+        httpStatus,
+        data: json,
+      };
     }
 
-    // === VIRTUAL / ПРОЧИЕ ТИПЫ — только мета + note ===
-    return {
-      ok: true,
-      meta: {
-        id: src.id,
-        key: src.key,
-        name: src.name,
-        type: src.type,
-        url: src.url,
-      },
+    // Если тип неизвестен
+    const durationMs = Date.now() - startedAt;
+    await logSourceEvent({
+      sourceKey,
+      sourceType: source.type,
+      httpStatus: null,
+      ok: false,
+      durationMs,
       params,
-      data: {
-        note,
-      },
-    };
-  } catch (err) {
-    console.error("❌ Sources.fetchFromSourceKey DB error:", err);
+      extra: { error: "UNKNOWN_SOURCE_TYPE" },
+    });
+
     return {
       ok: false,
-      error: "DB error при попытке получить источник по ключу.",
+      sourceKey,
+      error: `Неизвестный тип источника: ${source.type}`,
+    };
+  } catch (err) {
+    const durationMs = Date.now() - startedAt;
+
+    await logSourceEvent({
+      sourceKey,
+      sourceType,
+      httpStatus,
+      ok: false,
+      durationMs,
+      params,
+      extra: { error: err.message || String(err) },
+    });
+
+    console.error(`❌ Error in fetchFromSourceKey(${sourceKey}):`, err);
+
+    return {
+      ok: false,
+      sourceKey,
+      error: "Ошибка при обращении к источнику",
+      details: err.message || String(err),
     };
   }
 }

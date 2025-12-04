@@ -83,20 +83,20 @@ const DEFAULT_SOURCES = [
 
 // === INIT: ensureDefaultSources ===
 // Синхронизирует DEFAULT_SOURCES с таблицей sources.
-// В БД колонка называется enabled, мы маппим src.enabled -> enabled.
+// В БД колонка называется is_enabled, мы маппим src.enabled -> is_enabled.
 export async function ensureDefaultSources() {
   for (const src of DEFAULT_SOURCES) {
     try {
       await pool.query(
         `
-        INSERT INTO sources (key, name, type, url, enabled, config)
+        INSERT INTO sources (key, name, type, url, is_enabled, config)
         VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (key) DO UPDATE SET
-          name    = EXCLUDED.name,
-          type    = EXCLUDED.type,
-          url     = EXCLUDED.url,
-          enabled = EXCLUDED.enabled,
-          config  = EXCLUDED.config,
+          name       = EXCLUDED.name,
+          type       = EXCLUDED.type,
+          url        = EXCLUDED.url,
+          is_enabled = EXCLUDED.is_enabled,
+          config     = EXCLUDED.config,
           updated_at = NOW()
       `,
         [
@@ -104,7 +104,7 @@ export async function ensureDefaultSources() {
           src.name,
           src.type,
           src.url,
-          src.enabled, // маппим на enabled
+          src.enabled, // маппим на is_enabled
           src.config || {},
         ]
       );
@@ -124,7 +124,7 @@ export async function listActiveSources() {
     `
     SELECT *
     FROM sources
-    WHERE enabled = TRUE
+    WHERE is_enabled = TRUE
     ORDER BY id ASC
   `
   );
@@ -150,7 +150,7 @@ async function getSourceByKey(key) {
     SELECT *
     FROM sources
     WHERE key = $1
-      AND enabled = TRUE
+      AND is_enabled = TRUE
     LIMIT 1
   `,
     [key]

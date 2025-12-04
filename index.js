@@ -23,6 +23,35 @@ function setAnswerMode(chatIdStr, mode) {
   answerModeByChat.set(chatIdStr, mode);
 }
 
+// === PROJECT MEMORY HELPERS (3A) ===
+async function loadProjectContext() {
+  try {
+    const roadmap = await getProjectSection(undefined, "roadmap");
+    const workflow = await getProjectSection(undefined, "workflow");
+
+    const parts = [];
+
+    if (roadmap?.content) {
+      parts.push(`ROADMAP:\n${roadmap.content}`);
+    }
+
+    if (workflow?.content) {
+      parts.push(`WORKFLOW:\n${workflow.content}`);
+    }
+
+    if (parts.length === 0) {
+      return "";
+    }
+
+    const fullText = parts.join("\n\n");
+    // ограничиваем длину, чтобы не раздуть системный промпт
+    return fullText.slice(0, 4000);
+  } catch (err) {
+    console.error("❌ loadProjectContext error:", err);
+    return "";
+  }
+}
+
 // === Express сервер для Render ===
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -744,7 +773,7 @@ bot.on("message", async (msg) => {
           return;
         }
 
-              // Универсальная команда /task
+        // Универсальная команда /task
         case "/task": {
           const raw = commandArgs.trim();
 
@@ -772,7 +801,7 @@ bot.on("message", async (msg) => {
             return;
           }
 
-          const parts = raw.split(/\s+/);
+                    const parts = raw.split(/\s+/);
           const first = parts[0];
           const firstLower = first.toLowerCase();
           const restText = parts.slice(1).join(" ").trim();
@@ -1150,6 +1179,144 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        // === ПРОЕКТНАЯ ПАМЯТЬ: /pm_set и /pm_show ===
+        case "/pm_set": {
+          const userIsMonarch = chatIdStr === "677128443";
+
+          if (!userIsMonarch) {
+            await bot.sendMessage(
+              chatId,
+              "У вас нет прав изменять проектную память. Только монарх может это делать."
+            );
+            return;
+          }
+
+          const raw = commandArgs.trim();
+
+          if (!raw) {
+            await bot.sendMessage(
+              chatId,
+              "Использование:\n" +
+                "`/pm_set <section> <текст>`\n\nПримеры:\n" +
+                "`/pm_set roadmap ...текст roadmap...`\n" +
+                "`/pm_set workflow ...текст workflow...`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          const firstSpace = raw.indexOf(" ");
+          const section =
+            firstSpace === -1 ? raw : raw.slice(0, firstSpace).trim();
+          const content =
+            firstSpace === -1 ? "" : raw.slice(firstSpace + 1).trim();
+
+          if (!section) {
+            await bot.sendMessage(
+              chatId,
+              "Нужно указать секцию. Пример:\n`/pm_set roadmap ...текст...`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          if (!content) {
+            await bot.sendMessage(
+              chatId,
+              "Нужно указать текст для записи в проектную память.\n" +
+                "Пример:\n`/pm_set roadmap ROADMAP V1.5 ...`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          try {
+            const title = `Section: ${section}`;
+            const meta = {
+              updated_by: "monarch",
+              source: "telegram_command",
+            };
+
+            const record = await upsertProjectSection({
+              section,
+              title,
+              content,
+              tags: [section],
+              meta,
+              schemaVersion: 1,
+            });
+
+            await bot.sendMessage(
+              chatId,
+              `✅ Проектная память обновлена.\n` +
+                `Секция: *${record.section}*\n` +
+                `ID записи: ${record.id}\n` +
+                `Длина текста: ${record.content.length} символов.`,
+              { parse_mode: "Markdown" }
+            );
+          } catch (e) {
+            console.error("❌ /pm_set error:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось записать проектную память. См. логи сервера."
+            );
+          }
+
+          return;
+        }
+
+        case "/pm_show": {
+          const raw = commandArgs.trim();
+
+          if (!raw) {
+            await bot.sendMessage(
+              chatId,
+              "Использование:\n`/pm_show <section>`\n\nПримеры:\n" +
+                "`/pm_show roadmap`\n" +
+                "`/pm_show workflow`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          const section = raw.split(/\s+/)[0];
+
+          try {
+            const record = await getProjectSection(undefined, section);
+
+            if (!record) {
+              await bot.sendMessage(
+                chatId,
+                `В проектной памяти пока нет секции "${section}".`
+              );
+              return;
+            }
+
+            const maxLen = 3500;
+            const textSnippet =
+              record.content.length > maxLen
+                ? record.content.slice(0, maxLen) +
+                  "\n\n...(обрезано, текст слишком длинный)..."
+                : record.content;
+
+            const msg =
+              `🧠 Project Memory: ${record.section}\n` +
+              `ID: ${record.id}\n` +
+              `Обновлено: ${record.updated_at}\n\n` +
+              textSnippet;
+
+            await bot.sendMessage(chatId, msg);
+          } catch (e) {
+            console.error("❌ /pm_show error:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось прочитать проектную память. См. логи сервера."
+            );
+          }
+
+          return;
+        }
+
         case "/mode": {
           const arg = commandArgs.toLowerCase();
           const valid = ["short", "normal", "long"];
@@ -1205,6 +1372,8 @@ bot.on("message", async (msg) => {
               "/sources\n" +
               "/source <key>\n" +
               "/test_source <key>\n" +
+              "/pm_set <section> <text>\n" +
+              "/pm_show <section>\n" +
               "/mode <short|normal|long>"
           );
           return;
@@ -1242,7 +1411,14 @@ bot.on("message", async (msg) => {
         "Отвечай развернуто: используй структурированные списки, пояснения и примеры, но избегай пустой воды.";
     }
 
-    const systemPrompt = buildSystemPrompt(answerMode, modeInstruction);
+    // проектный контекст из project_memory
+    const projectContext = await loadProjectContext();
+
+    const systemPrompt = buildSystemPrompt(
+      answerMode,
+      modeInstruction,
+      projectContext
+    );
 
     const messages = [
       {

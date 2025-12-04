@@ -76,6 +76,19 @@ async function initDb() {
       );
     `);
 
+    // === Таблица проверок источников (Source Diagnostics) ===
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS source_checks (
+        id SERIAL PRIMARY KEY,
+        source_key TEXT NOT NULL,         -- ключ источника (sources.key)
+        ok BOOLEAN NOT NULL,              -- результат проверки: true/false
+        http_status INT,                  -- HTTP-код, если есть (200/404/500...)
+        message TEXT,                     -- краткое описание результата/ошибки
+        meta JSONB,                       -- дополнительные данные (время ответа, длина, и т.п.)
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
     // === Логи запросов к источникам (Sources Layer) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_logs (
@@ -125,7 +138,7 @@ async function initDb() {
     `);
 
     console.log(
-      "✅ Tables ready: chat_memory, users, tasks, sources, source_logs, interaction_logs, project_memory"
+      "✅ Tables ready: chat_memory, users, tasks, sources, source_checks, source_logs, interaction_logs, project_memory"
     );
   } catch (err) {
     console.error("❌ Error initializing database:", err);

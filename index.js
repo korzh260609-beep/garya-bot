@@ -808,7 +808,7 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        case "/tasks": {
+              case "/tasks": {
           try {
             const tasks = await getUserTasks(chatIdStr, 10);
 

@@ -102,8 +102,30 @@ async function initDb() {
       );
     `);
 
+    // === Таблица Project Memory (долговременная память проекта GARYA AI) ===
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS project_memory (
+        id SERIAL PRIMARY KEY,
+        project_key TEXT NOT NULL,         -- например: 'garya_ai'
+        section TEXT NOT NULL,             -- 'roadmap' | 'workflow' | 'tz' | 'notes' ...
+        title TEXT,                        -- короткий заголовок записи
+        content TEXT NOT NULL,             -- основной текст (markdown/обычный текст)
+        tags TEXT[] DEFAULT '{}',          -- теги для фильтрации
+        meta JSONB DEFAULT '{}'::jsonb,    -- произвольные доп. данные
+        schema_version INTEGER DEFAULT 1,  -- версия схемы project memory
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    // Индекс для быстрых запросов по проекту и секции
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_project_memory_project_section
+      ON project_memory (project_key, section);
+    `);
+
     console.log(
-      "✅ Tables ready: chat_memory, users, tasks, sources, source_logs, interaction_logs"
+      "✅ Tables ready: chat_memory, users, tasks, sources, source_logs, interaction_logs, project_memory"
     );
   } catch (err) {
     console.error("❌ Error initializing database:", err);

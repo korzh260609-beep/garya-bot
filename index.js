@@ -556,12 +556,81 @@ async function logInteraction(chatIdStr, classification) {
   }
 }
 
+// === ОБРАБОТКА ФОТО / ФАЙЛОВ / ГОЛОСОВЫХ ===
+
+// Фото (скриншоты, картинки)
+bot.on("photo", async (msg) => {
+  const chatId = msg.chat.id;
+  const chatIdStr = chatId.toString();
+
+  console.log(
+    "📸 PHOTO from chat",
+    chatIdStr,
+    msg.photo?.map((p) => ({
+      file_id: p.file_id,
+      width: p.width,
+      height: p.height,
+    }))
+  );
+
+  await ensureUserProfile(msg);
+
+  await bot.sendMessage(
+    chatId,
+    "📸 Я вижу, что ты прислал фото/скрин. Пока я не умею его анализировать, но факт получения зафиксирован."
+  );
+});
+
+// Документы (файлы: .js, .txt, .pdf, картинки как file и т.п.)
+bot.on("document", async (msg) => {
+  const chatId = msg.chat.id;
+  const chatIdStr = chatId.toString();
+  const doc = msg.document;
+
+  console.log("📄 DOCUMENT from chat", chatIdStr, {
+    file_id: doc?.file_id,
+    file_name: doc?.file_name,
+    mime_type: doc?.mime_type,
+    file_size: doc?.file_size,
+  });
+
+  await ensureUserProfile(msg);
+
+  await bot.sendMessage(
+    chatId,
+    `📄 Я получил файл: ${doc?.file_name || "без имени"}.\n` +
+      "Пока я не умею читать содержимое файлов напрямую, но вижу, что ты его прислал.\n" +
+      "Если нужно, можешь скопировать важный текст из файла и прислать его сообщением."
+  );
+});
+
+// Голосовые сообщения
+bot.on("voice", async (msg) => {
+  const chatId = msg.chat.id;
+  const chatIdStr = chatId.toString();
+  const voice = msg.voice;
+
+  console.log("🎤 VOICE from chat", chatIdStr, {
+    file_id: voice?.file_id,
+    duration: voice?.duration,
+    mime_type: voice?.mime_type,
+  });
+
+  await ensureUserProfile(msg);
+
+  await bot.sendMessage(
+    chatId,
+    "🎤 Я получил голосовое сообщение. Сейчас я ещё не умею расшифровывать речь, но в будущем добавим голосовой модуль."
+  );
+});
+
 // === ОБРАБОТКА СООБЩЕНИЙ ===
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const chatIdStr = chatId.toString();
   const userText = msg.text || "";
 
+  // для фото/файлов без подписи здесь просто выходим — их обрабатывают хендлеры выше
   if (!userText.trim()) return;
 
   try {

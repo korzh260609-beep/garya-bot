@@ -468,7 +468,7 @@ function formatSourcesList(sources) {
 
   let text = "📡 Источники данных (Sources Layer):\n\n";
   for (const s of sources) {
-    const status = s.is_enabled === false ? "OFF" : "ON";
+    const status = s.enabled === false ? "OFF" : "ON";
     const created = s.created_at ? new Date(s.created_at).toISOString() : "—";
 
     text +=
@@ -1164,13 +1164,64 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        case "/diag_source": {
+          const key = commandArgs.split(/\s+/)[0];
+
+          if (!key) {
+            await bot.sendMessage(
+              chatId,
+              "Использование:\n" +
+                "/diag_source <key>\n\nПримеры:\n" +
+                "/diag_source html_example\n" +
+                "/diag_source rss_hackernews\n" +
+                "/diag_source coingecko_simple_price"
+            );
+            return;
+          }
+
+          await bot.sendMessage(chatId, `🩺 Диагностирую источник "${key}"...`);
+
+          try {
+            const result = await Sources.diagnoseSource(key);
+
+            const ok = result.ok === true;
+            const type = result.type || "—";
+            const httpStatus =
+              typeof result.httpStatus === "number"
+                ? result.httpStatus
+                : "—";
+
+            const msgLines = [
+              `🧪 Результат диагностики источника "${result.sourceKey || key}":`,
+              "",
+              `Статус: ${ok ? "✅ OK" : "❌ ПРОБЛЕМА"}`,
+              `Тип: ${type}`,
+              `HTTP статус: ${httpStatus}`,
+            ];
+
+            if (!ok && result.error) {
+              msgLines.push("", `Ошибка: ${result.error}`);
+            }
+
+            await bot.sendMessage(chatId, msgLines.join("\n"));
+          } catch (e) {
+            console.error("❌ Error in /diag_source:", e);
+            await bot.sendMessage(
+              chatId,
+              `❌ Внутренняя ошибка при диагностике источника "${key}": ${e.message}`
+            );
+          }
+
+          return;
+        }
+
         case "/test_source": {
           // Обработчик уже реализован через bot.onText выше,
           // здесь просто выходим, чтобы не срабатывать "неизвестная команда".
           return;
         }
 
-              // === ПРОЕКТНАЯ ПАМЯТЬ: /pm_set и /pm_show ===
+        // === ПРОЕКТНАЯ ПАМЯТЬ: /pm_set и /pm_show ===
         case "/pm_set": {
           const userIsMonarch = chatIdStr === "677128443";
 
@@ -1362,6 +1413,7 @@ bot.on("message", async (msg) => {
               "/memstats\n" +
               "/sources\n" +
               "/source <key>\n" +
+              "/diag_source <key>\n" +
               "/test_source <key>\n" +
               "/pm_set <section> <text>\n" +
               "/pm_show <section>\n" +
@@ -1372,7 +1424,7 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // 3.5) Классификация запроса (скелет модуля)
+      // 3.5) Классификация запроса (скелет модуля)
     const classification = classifyInteraction({ userText });
     console.log("🧮 classifyInteraction:", classification);
     await logInteraction(chatIdStr, classification);

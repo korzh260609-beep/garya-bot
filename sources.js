@@ -167,13 +167,14 @@ async function logSourceRequest({
   ok,
   durationMs,
   extra,
+  params,
 }) {
   try {
     await pool.query(
       `
       INSERT INTO source_logs
-        (source_key, type, http_status, ok, duration_ms, extra, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        (source_key, source_type, http_status, ok, duration_ms, params, extra)
+      VALUES ($1,        $2,          $3,          $4, $5,         $6,    $7)
     `,
       [
         sourceKey,
@@ -181,12 +182,60 @@ async function logSourceRequest({
         httpStatus ?? null,
         ok === true,
         durationMs ?? null,
+        params || null,
         extra || {},
       ]
     );
   } catch (err) {
     console.error("❌ logSourceRequest error:", err);
   }
+}
+
+// === DIAGNOSTICS (Этап 5.7 — source_checks) ===
+
+// Лог одной проверки источника (успешной или с ошибкой)
+async function logSourceCheck({ sourceKey, ok, httpStatus, message, meta }) {
+  try {
+    await pool.query(
+      `
+      INSERT INTO source_checks
+        (source_key, ok, http_status, message, meta)
+      VALUES ($1,        $2, $3,          $4,      $5)
+    `,
+      [
+        sourceKey,
+        ok === true,
+        httpStatus ?? null,
+        message || null,
+        meta || {},
+      ]
+    );
+  } catch (err) {
+    console.error("❌ logSourceCheck error:", err);
+  }
+}
+
+// Диагностика одного источника по ключу.
+// Внутри использует fetchFromSourceKey и пишет результат в source_checks.
+export async function diagnoseSource(key, options = {}) {
+  const res = await fetchFromSourceKey(key, options);
+
+  const httpStatus =
+    typeof res.httpStatus === "number" ? res.httpStatus : null;
+  const message = res.ok ? "OK" : res.error || "Unknown error";
+
+  await logSourceCheck({
+    sourceKey: res.sourceKey || key,
+    ok: !!res.ok,
+    httpStatus,
+    message,
+    meta: {
+      type: res.type || null,
+      timestamp: new Date().toISOString(),
+    },
+  });
+
+  return res;
 }
 
 // === CORE: fetchFromSourceKey ===

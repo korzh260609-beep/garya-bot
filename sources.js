@@ -83,20 +83,20 @@ const DEFAULT_SOURCES = [
 
 // === INIT: ensureDefaultSources ===
 // Синхронизирует DEFAULT_SOURCES с таблицей sources.
-// Колонка is_enabled используется в БД, поэтому здесь маппим enabled -> is_enabled.
+// В БД колонка называется enabled, мы маппим src.enabled -> enabled.
 export async function ensureDefaultSources() {
   for (const src of DEFAULT_SOURCES) {
     try {
       await pool.query(
         `
-        INSERT INTO sources (key, name, type, url, is_enabled, config)
+        INSERT INTO sources (key, name, type, url, enabled, config)
         VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (key) DO UPDATE SET
-          name = EXCLUDED.name,
-          type = EXCLUDED.type,
-          url = EXCLUDED.url,
-          is_enabled = EXCLUDED.is_enabled,
-          config = EXCLUDED.config,
+          name    = EXCLUDED.name,
+          type    = EXCLUDED.type,
+          url     = EXCLUDED.url,
+          enabled = EXCLUDED.enabled,
+          config  = EXCLUDED.config,
           updated_at = NOW()
       `,
         [
@@ -104,7 +104,7 @@ export async function ensureDefaultSources() {
           src.name,
           src.type,
           src.url,
-          src.enabled, // маппим на is_enabled
+          src.enabled, // маппим на enabled
           src.config || {},
         ]
       );
@@ -124,7 +124,7 @@ export async function listActiveSources() {
     `
     SELECT *
     FROM sources
-    WHERE is_enabled = TRUE
+    WHERE enabled = TRUE
     ORDER BY id ASC
   `
   );
@@ -150,7 +150,7 @@ async function getSourceByKey(key) {
     SELECT *
     FROM sources
     WHERE key = $1
-      AND is_enabled = TRUE
+      AND enabled = TRUE
     LIMIT 1
   `,
     [key]
@@ -255,6 +255,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus: null,
         ok: false,
         durationMs: Date.now() - startedAt,
+        params: options.params || null,
         extra: { error },
       });
       return {
@@ -277,6 +278,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus: null,
         ok: true,
         durationMs: Date.now() - startedAt,
+        params: options.params || null,
         extra: { note: "virtual source" },
       });
 
@@ -304,6 +306,7 @@ export async function fetchFromSourceKey(key, options = {}) {
           httpStatus,
           ok: false,
           durationMs: Date.now() - startedAt,
+          params: { ...(options.params || {}), url },
           extra: { url, error },
         });
         return {
@@ -327,6 +330,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus,
         ok: true,
         durationMs: Date.now() - startedAt,
+        params: { ...(options.params || {}), url },
         extra: { url, length: text.length },
       });
 
@@ -355,6 +359,7 @@ export async function fetchFromSourceKey(key, options = {}) {
           httpStatus,
           ok: false,
           durationMs: Date.now() - startedAt,
+          params: { ...(options.params || {}), url },
           extra: { url, error },
         });
         return {
@@ -378,6 +383,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus,
         ok: true,
         durationMs: Date.now() - startedAt,
+        params: { ...(options.params || {}), url },
         extra: { url, length: xml.length },
       });
 
@@ -417,6 +423,7 @@ export async function fetchFromSourceKey(key, options = {}) {
           httpStatus,
           ok: false,
           durationMs: Date.now() - startedAt,
+          params: { ...(options.params || {}), url, ids, vsCurrency },
           extra: { url, error },
         });
         return {
@@ -443,6 +450,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus,
         ok: true,
         durationMs: Date.now() - startedAt,
+        params: { ...(options.params || {}), url, ids, vsCurrency },
         extra: { url, ids, vsCurrency, keys: Object.keys(json || {}) },
       });
 
@@ -464,6 +472,7 @@ export async function fetchFromSourceKey(key, options = {}) {
       httpStatus: null,
       ok: false,
       durationMs: Date.now() - startedAt,
+      params: options.params || null,
       extra: { error },
     });
 
@@ -483,6 +492,7 @@ export async function fetchFromSourceKey(key, options = {}) {
       httpStatus,
       ok: false,
       durationMs,
+      params: options.params || null,
       extra: { error: err.message || String(err) },
     });
 

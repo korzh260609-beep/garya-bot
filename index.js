@@ -1090,6 +1090,41 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        // Новая команда: диагностика всех источников
+        case "/sources_diag": {
+          try {
+            const summary = await Sources.runSourceDiagnosticsOnce();
+
+            const lines = [];
+            lines.push("🩺 Диагностика всех активных источников:");
+            lines.push(`Всего: ${summary.total}`);
+            lines.push(`OK: ${summary.okCount}`);
+            lines.push(`С ошибками: ${summary.failCount}`);
+
+            if (summary.failCount > 0) {
+              lines.push("");
+              lines.push("Проблемные источники:");
+              for (const item of summary.items) {
+                if (item.ok) continue;
+                lines.push(
+                  `- ${item.key} (${item.type || "?"}): HTTP ${
+                    item.httpStatus ?? "—"
+                  } — ${item.error || "ошибка"}`
+                );
+              }
+            }
+
+            await bot.sendMessage(chatId, lines.join("\n"));
+          } catch (e) {
+            console.error("❌ Error in /sources_diag:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось выполнить диагностику всех источников."
+            );
+          }
+          return;
+        }
+
         // Новая команда: /source <key> — реальный запрос к источнику (без Markdown)
         case "/source": {
           const key = commandArgs.split(/\s+/)[0];
@@ -1412,6 +1447,7 @@ bot.on("message", async (msg) => {
               "/meminfo\n" +
               "/memstats\n" +
               "/sources\n" +
+              "/sources_diag\n" +
               "/source <key>\n" +
               "/diag_source <key>\n" +
               "/test_source <key>\n" +
@@ -1424,7 +1460,7 @@ bot.on("message", async (msg) => {
       }
     }
 
-      // 3.5) Классификация запроса (скелет модуля)
+    // 3.5) Классификация запроса (скелет модуля)
     const classification = classifyInteraction({ userText });
     console.log("🧮 classifyInteraction:", classification);
     await logInteraction(chatIdStr, classification);

@@ -6,7 +6,7 @@ const { Pool } = pkg;
 if (!process.env.DATABASE_URL) {
   console.error("❌ DATABASE_URL is missing!");
   console.error(
-    "Убедись, что переменная окружения DATABASE_URL задана в настройках сервера (Render / Railway / локально)."
+    "Убедись, что переменная окружения DATABASE_URL задана в Render (Settings → Environment) или в локальном .env."
   );
   process.exit(1);
 }
@@ -14,7 +14,7 @@ if (!process.env.DATABASE_URL) {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false, // для Render / хостингов с SSL
+    rejectUnauthorized: false, // для Render/хостингов с SSL
   },
 });
 
@@ -66,7 +66,7 @@ async function initDb() {
         name TEXT NOT NULL,                    -- человекочитаемое имя
         type TEXT NOT NULL,                    -- 'rss', 'http_json', 'html', 'custom', ...
         url TEXT,                              -- основной URL (если есть)
-        enabled BOOLEAN NOT NULL DEFAULT TRUE, -- включён / выключен
+        is_enabled BOOLEAN NOT NULL DEFAULT TRUE, -- включён / выключен (важно: ИМЕННО is_enabled)
         config JSONB DEFAULT '{}'::jsonb,      -- параметры, фильтры и т.п.
         last_success_at TIMESTAMPTZ,
         last_error_at TIMESTAMPTZ,
@@ -80,11 +80,11 @@ async function initDb() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_checks (
         id SERIAL PRIMARY KEY,
-        source_key TEXT NOT NULL,                   -- ключ источника (sources.key)
-        ok BOOLEAN NOT NULL DEFAULT FALSE,          -- результат проверки: true/false
-        http_status INT,                            -- HTTP-код, если есть (200/404/500...)
-        message TEXT,                               -- краткое описание результата/ошибки
-        meta JSONB DEFAULT '{}'::jsonb,             -- дополнительные данные (время ответа, длина и т.п.)
+        source_key TEXT NOT NULL,         -- ключ источника (sources.key)
+        ok BOOLEAN NOT NULL,              -- результат проверки: true/false
+        http_status INT,                  -- HTTP-код, если есть (200/404/500...)
+        message TEXT,                     -- краткое описание результата/ошибки
+        meta JSONB,                       -- дополнительные данные (время ответа, длина, и т.п.)
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);

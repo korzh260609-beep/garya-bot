@@ -6,7 +6,7 @@ const { Pool } = pkg;
 if (!process.env.DATABASE_URL) {
   console.error("❌ DATABASE_URL is missing!");
   console.error(
-    "Убедись, что переменная окружения DATABASE_URL задана в Render (Settings → Environment) или в локальном .env."
+    "Убедись, что переменная окружения DATABASE_URL задана (Render / .env)."
   );
   process.exit(1);
 }
@@ -14,7 +14,7 @@ if (!process.env.DATABASE_URL) {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false, // для Render/хостингов с SSL
+    rejectUnauthorized: false, // для Render и других хостингов с SSL
   },
 });
 
@@ -58,15 +58,15 @@ async function initDb() {
       );
     `);
 
-    // === Таблица источников данных (Sources Layer) — скелет, без привязки к крипте ===
+    // === Таблица источников данных (Sources Layer) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS sources (
         id SERIAL PRIMARY KEY,
-        key TEXT NOT NULL UNIQUE,              -- короткий код источника: 'news_global', 'weather_api', 'crypto_price'
+        key TEXT NOT NULL UNIQUE,              -- короткий код источника
         name TEXT NOT NULL,                    -- человекочитаемое имя
         type TEXT NOT NULL,                    -- 'rss', 'http_json', 'html', 'custom', ...
         url TEXT,                              -- основной URL (если есть)
-        is_enabled BOOLEAN NOT NULL DEFAULT TRUE, -- включён / выключен (важно: ИМЕННО is_enabled)
+        is_enabled BOOLEAN NOT NULL DEFAULT TRUE, -- включён / выключен (НОРМАЛЬНОЕ НАЗВАНИЕ КОЛОНКИ)
         config JSONB DEFAULT '{}'::jsonb,      -- параметры, фильтры и т.п.
         last_success_at TIMESTAMPTZ,
         last_error_at TIMESTAMPTZ,
@@ -76,15 +76,28 @@ async function initDb() {
       );
     `);
 
+    // === Мягкая миграция: переименовать старую колонку enabled → is_enabled ===
+    // Если старый столбец есть — этот ALTER сработает.
+    // Если его нет — просто поймаем ошибку и игнорируем.
+    try {
+      await pool.query(`
+        ALTER TABLE sources
+        RENAME COLUMN enabled TO is_enabled;
+      `);
+      console.log("🔧 Migrate: переименовал sources.enabled -> sources.is_enabled");
+    } catch (e) {
+      // Нормально, если такой колонки нет — значит уже новая схема.
+    }
+
     // === Таблица проверок источников (Source Diagnostics) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_checks (
         id SERIAL PRIMARY KEY,
         source_key TEXT NOT NULL,         -- ключ источника (sources.key)
         ok BOOLEAN NOT NULL,              -- результат проверки: true/false
-        http_status INT,                  -- HTTP-код, если есть (200/404/500...)
+        http_status INT,                  -- HTTP-код, если есть
         message TEXT,                     -- краткое описание результата/ошибки
-        meta JSONB,                       -- дополнительные данные (время ответа, длина, и т.п.)
+        meta JSONB,                       -- дополнительные данные
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);

@@ -762,7 +762,7 @@ bot.on("message", async (msg) => {
           return;
         }
 
-              case "/run": {
+        case "/run": {
           if (!commandArgs) {
             await bot.sendMessage(
               chatId,
@@ -808,7 +808,7 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        case "/tasks": {
+              case "/tasks": {
           try {
             const tasks = await getUserTasks(chatIdStr, 10);
 

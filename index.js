@@ -762,7 +762,7 @@ bot.on("message", async (msg) => {
           return;
         }
 
-              case "/run": {
+        case "/run": {
           if (!commandArgs) {
             await bot.sendMessage(
               chatId,

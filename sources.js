@@ -238,6 +238,37 @@ export async function diagnoseSource(key, options = {}) {
   return res;
 }
 
+// Диагностика всех активных источников одним заходом.
+// Используется для команды /sources_diag (Этап 5.7.2–5.7.3).
+export async function runSourceDiagnosticsOnce(options = {}) {
+  const sources = await listActiveSources();
+  const items = [];
+
+  for (const src of sources) {
+    const res = await diagnoseSource(src.key, options);
+
+    items.push({
+      key: src.key,
+      type: src.type,
+      ok: !!res.ok,
+      httpStatus:
+        typeof res.httpStatus === "number" ? res.httpStatus : null,
+      error: res.ok ? null : res.error || null,
+    });
+  }
+
+  const total = items.length;
+  const okCount = items.filter((i) => i.ok).length;
+  const failCount = total - okCount;
+
+  return {
+    total,
+    okCount,
+    failCount,
+    items,
+  };
+}
+
 // === CORE: fetchFromSourceKey ===
 // Главная точка входа для ROBOT-слоя и команд (/test_source и т.д.)
 export async function fetchFromSourceKey(key, options = {}) {

@@ -1,3 +1,4 @@
+// === Импорты ===
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
 import pool from "./db.js"; // память + профили + tasks
@@ -52,7 +53,7 @@ async function loadProjectContext() {
   }
 }
 
-// === Express сервер для Render ===
+// === Express сервер ===
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -64,7 +65,7 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
   console.error("❌ TELEGRAM_BOT_TOKEN is missing!");
   console.error(
-    "Убедись, что переменная окружения TELEGRAM_BOT_TOKEN задана на Render."
+    "Убедись, что переменная окружения TELEGRAM_BOT_TOKEN задана в окружении сервера."
   );
   process.exit(1);
 }
@@ -913,533 +914,533 @@ bot.on("message", async (msg) => {
                 return;
               }
 
-            let newStatus = existing.status;
-            let msgText = "";
+              let newStatus = existing.status;
+              let msgText = "";
 
-            if (firstLower === "pause") {
-              newStatus = "paused";
-              msgText = `⏸ Задача #${taskId} поставлена на паузу.`;
-            } else if (firstLower === "resume") {
-              newStatus = "active";
-              msgText = `▶️ Задача #${taskId} возобновлена.`;
-            } else if (firstLower === "delete") {
-              newStatus = "deleted";
-              msgText = `🗑 Задача #${taskId} помечена как удалённая.`;
+              if (firstLower === "pause") {
+                newStatus = "paused";
+                msgText = `⏸ Задача #${taskId} поставлена на паузу.`;
+              } else if (firstLower === "resume") {
+                newStatus = "active";
+                msgText = `▶️ Задача #${taskId} возобновлена.`;
+              } else if (firstLower === "delete") {
+                newStatus = "deleted";
+                msgText = `🗑 Задача #${taskId} помечена как удалённая.`;
+              }
+
+              await updateTaskStatus(chatIdStr, taskId, newStatus);
+              await bot.sendMessage(chatId, msgText);
+            } catch (e) {
+              console.error("❌ Error in /task pause|resume|delete:", e);
+              await bot.sendMessage(
+                chatId,
+                "Не удалось изменить статус задачи."
+              );
             }
-
-            await updateTaskStatus(chatIdStr, taskId, newStatus);
-            await bot.sendMessage(chatId, msgText);
-          } catch (e) {
-            console.error("❌ Error in /task pause|resume|delete:", e);
-            await bot.sendMessage(
-              chatId,
-              "Не удалось изменить статус задачи."
-            );
+            return;
           }
-          return;
-        }
 
-        // /task <id> — показать одну задачу
-        const taskId = parseInt(first, 10);
-        if (Number.isNaN(taskId)) {
-          await bot.sendMessage(
-            chatId,
-            "Не понимаю аргумент после `/task`.\n\n" +
-              "Использование:\n" +
-              "• `/task list`\n" +
-              "• `/task new <описание>`\n" +
-              "• `/task <id>` (id — число)\n" +
-              "• `/task pause <id>`\n" +
-              "• `/task resume <id>`\n" +
-              "• `/task delete <id>`",
-            { parse_mode: "Markdown" }
-          );
-          return;
-        }
-
-        try {
-          const task = await getTaskById(chatIdStr, taskId);
-          if (!task) {
+          // /task <id> — показать одну задачу
+          const taskId = parseInt(first, 10);
+          if (Number.isNaN(taskId)) {
             await bot.sendMessage(
               chatId,
-              `Я не нашёл задачу #${taskId} среди ваших задач.`
+              "Не понимаю аргумент после `/task`.\n\n" +
+                "Использование:\n" +
+                "• `/task list`\n" +
+                "• `/task new <описание>`\n" +
+                "• `/task <id>` (id — число)\n" +
+                "• `/task pause <id>`\n" +
+                "• `/task resume <id>`\n" +
+                "• `/task delete <id>`",
+              { parse_mode: "Markdown" }
             );
             return;
           }
 
-          let text =
-            `🔍 Задача #${task.id}\n\n` +
-            `Название: ${task.title}\n` +
-            `Тип: ${task.type}\n` +
-            `Статус: ${task.status}\n` +
-            `Создана: ${task.created_at?.toISOString?.() || "—"}\n` +
-            (task.schedule ? `Расписание: ${task.schedule}\n` : "") +
-            (task.last_run
-              ? `Последний запуск: ${task.last_run.toISOString()}\n`
-              : "") +
-            `\n` +
-            `Задачу можно запустить командой: \`/run ${task.id}\``;
+          try {
+            const task = await getTaskById(chatIdStr, taskId);
+            if (!task) {
+              await bot.sendMessage(
+                chatId,
+                `Я не нашёл задачу #${taskId} среди ваших задач.`
+              );
+              return;
+            }
 
-          await bot.sendMessage(chatId, text, { parse_mode: "Markdown" });
-        } catch (e) {
-          console.error("❌ Error in /task <id>:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось получить данные задачи из Task Engine."
-          );
+            const text =
+              `🔍 Задача #${task.id}\n\n` +
+              `Название: ${task.title}\n` +
+              `Тип: ${task.type}\n` +
+              `Статус: ${task.status}\n` +
+              `Создана: ${task.created_at?.toISOString?.() || "—"}\n` +
+              (task.schedule ? `Расписание: ${task.schedule}\n` : "") +
+              (task.last_run
+                ? `Последний запуск: ${task.last_run.toISOString()}\n`
+                : "") +
+              `\n` +
+              `Задачу можно запустить командой: \`/run ${task.id}\``;
+
+            await bot.sendMessage(chatId, text, { parse_mode: "Markdown" });
+          } catch (e) {
+            console.error("❌ Error in /task <id>:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось получить данные задачи из Task Engine."
+            );
+          }
+          return;
         }
-        return;
-      }
 
-      case "/meminfo": {
-        try {
-          const res = await pool.query(
-            `
+        case "/meminfo": {
+          try {
+            const res = await pool.query(
+              `
             SELECT id, role, content
             FROM chat_memory
             WHERE chat_id = $1
             ORDER BY id DESC
             LIMIT 5
             `,
-            [chatIdStr]
-          );
+              [chatIdStr]
+            );
 
-          const countRes = await pool.query(
-            "SELECT COUNT(*) FROM chat_memory WHERE chat_id = $1",
-            [chatIdStr]
-          );
+            const countRes = await pool.query(
+              "SELECT COUNT(*) FROM chat_memory WHERE chat_id = $1",
+              [chatIdStr]
+            );
 
-          const count = countRes.rows[0].count;
+            const count = countRes.rows[0].count;
 
-          let text = `🧠 Память чата\nВсего сообщений: ${count}\n\nПоследние 5 записей:\n`;
+            let text = `🧠 Память чата\nВсего сообщений: ${count}\n\nПоследние 5 записей:\n`;
 
-          for (const row of res.rows.reverse()) {
-            text += `\n• [${row.role}] ${row.content.slice(0, 50)}${
-              row.content.length > 50 ? "..." : ""
-            }`;
+            for (const row of res.rows.reverse()) {
+              text += `\n• [${row.role}] ${row.content.slice(0, 50)}${
+                row.content.length > 50 ? "..." : ""
+              }`;
+            }
+
+            await bot.sendMessage(chatId, text);
+          } catch (e) {
+            console.error("❌ /meminfo error:", e);
+            await bot.sendMessage(chatId, "Не удалось получить данные памяти.");
           }
-
-          await bot.sendMessage(chatId, text);
-        } catch (e) {
-          console.error("❌ /meminfo error:", e);
-          await bot.sendMessage(chatId, "Не удалось получить данные памяти.");
+          return;
         }
-        return;
-      }
 
-      case "/memstats": {
-        try {
-          const totalRes = await pool.query(
-            "SELECT COUNT(*) FROM chat_memory WHERE chat_id = $1",
-            [chatIdStr]
-          );
+        case "/memstats": {
+          try {
+            const totalRes = await pool.query(
+              "SELECT COUNT(*) FROM chat_memory WHERE chat_id = $1",
+              [chatIdStr]
+            );
 
-          const latestRes = await pool.query(
-            `
+            const latestRes = await pool.query(
+              `
             SELECT role, content, created_at
             FROM chat_memory
             WHERE chat_id = $1
             ORDER BY id DESC
             LIMIT 1
             `,
-            [chatIdStr]
-          );
+              [chatIdStr]
+            );
 
-          const total = totalRes.rows[0].count;
-          let latestBlock = "Последняя запись: отсутствует.";
+            const total = totalRes.rows[0].count;
+            let latestBlock = "Последняя запись: отсутствует.";
 
-          if (latestRes.rows.length > 0) {
-            const row = latestRes.rows[0];
-            const snippet =
-              row.content.length > 120
-                ? row.content.substring(0, 117) + "..."
-                : row.content;
-            latestBlock =
-              `Последняя запись:\n` +
-              `🕒 ${row.created_at}\n` +
-              `🎭 Роль: ${row.role}\n` +
-              `💬 Текст: ${snippet}`;
+            if (latestRes.rows.length > 0) {
+              const row = latestRes.rows[0];
+              const snippet =
+                row.content.length > 120
+                  ? row.content.substring(0, 117) + "..."
+                  : row.content;
+              latestBlock =
+                `Последняя запись:\n` +
+                `🕒 ${row.created_at}\n` +
+                `🎭 Роль: ${row.role}\n` +
+                `💬 Текст: ${snippet}`;
+            }
+
+            const text =
+              `📊 Статус долговременной памяти\n` +
+              `Всего сообщений в памяти: ${total}\n\n` +
+              `${latestBlock}`;
+
+            await bot.sendMessage(chatId, text);
+          } catch (e) {
+            console.error("❌ /memstats error:", e);
+            await bot.sendMessage(chatId, "Ошибка чтения памяти.");
           }
-
-          const text =
-            `📊 Статус долговременной памяти\n` +
-            `Всего сообщений в памяти: ${total}\n\n` +
-            `${latestBlock}`;
-
-          await bot.sendMessage(chatId, text);
-        } catch (e) {
-          console.error("❌ /memstats error:", e);
-          await bot.sendMessage(chatId, "Ошибка чтения памяти.");
-        }
-        return;
-      }
-
-      case "/sources": {
-        try {
-          const sources = await getAllSourcesSafe();
-          const text = formatSourcesList(sources);
-          await bot.sendMessage(chatId, text);
-        } catch (e) {
-          console.error("❌ Error in /sources:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось получить список источников."
-          );
-        }
-        return;
-      }
-
-            // Новая команда: /source <key> — реальный запрос к источнику (без Markdown)
-      case "/source": {
-        const key = commandArgs.split(/\s+/)[0];
-
-        if (!key) {
-          await bot.sendMessage(
-            chatId,
-            "Использование:\n" +
-              "/source <key>\n\nПримеры:\n" +
-              "/source html_example_page\n" +
-              "/source rss_example_news\n" +
-              "/source generic_public_markets"
-          );
           return;
         }
 
-        await bot.sendMessage(chatId, `⏳ Запрашиваю источник "${key}"...`);
-
-        try {
-          const result = await Sources.fetchFromSourceKey(key);
-
-          if (!result.ok) {
+        case "/sources": {
+          try {
+            const sources = await getAllSourcesSafe();
+            const text = formatSourcesList(sources);
+            await bot.sendMessage(chatId, text);
+          } catch (e) {
+            console.error("❌ Error in /sources:", e);
             await bot.sendMessage(
               chatId,
-              `❌ Ошибка при обращении к источнику "${key}":\n${
-                result.error || "неизвестная ошибка"
-              }`
+              "Не удалось получить список источников."
+            );
+          }
+          return;
+        }
+
+        // Новая команда: /source <key> — реальный запрос к источнику (без Markdown)
+        case "/source": {
+          const key = commandArgs.split(/\s+/)[0];
+
+          if (!key) {
+            await bot.sendMessage(
+              chatId,
+              "Использование:\n" +
+                "/source <key>\n\nПримеры:\n" +
+                "/source html_example_page\n" +
+                "/source rss_example_news\n" +
+                "/source generic_public_markets"
             );
             return;
           }
 
-          const type =
-            result.type || result.sourceType || result.meta?.type || "—";
+          await bot.sendMessage(chatId, `⏳ Запрашиваю источник "${key}"...`);
 
-          const httpStatus =
-            typeof result.httpStatus === "number"
-              ? result.httpStatus
-              : result.meta?.httpStatus ?? "—";
+          try {
+            const result = await Sources.fetchFromSourceKey(key);
 
-          const payload =
-            result.data ||
-            result.htmlSnippet ||
-            result.xmlSnippet ||
-            result.items ||
-            null;
+            if (!result.ok) {
+              await bot.sendMessage(
+                chatId,
+                `❌ Ошибка при обращении к источнику "${key}":\n${
+                  result.error || "неизвестная ошибка"
+                }`
+              );
+              return;
+            }
 
-          const previewObj = {
-            ok: result.ok,
-            sourceKey: result.sourceKey || key,
-            type,
-            httpStatus,
-            payload,
-          };
+            const type =
+              result.type || result.sourceType || result.meta?.type || "—";
 
-          const preview = JSON.stringify(previewObj, null, 2).slice(0, 900);
+            const httpStatus =
+              typeof result.httpStatus === "number"
+                ? result.httpStatus
+                : result.meta?.httpStatus ?? "—";
 
-          const text =
-            `✅ Ответ от источника "${previewObj.sourceKey}".\n\n` +
-            `Тип: ${type}\n` +
-            `HTTP статус: ${httpStatus}\n\n` +
-            `📄 Предпросмотр данных (обрезано):\n` +
-            preview;
+            const payload =
+              result.data ||
+              result.htmlSnippet ||
+              result.xmlSnippet ||
+              result.items ||
+              null;
 
-          await bot.sendMessage(chatId, text);
-        } catch (e) {
-          console.error("❌ Error in /source:", e);
-          await bot.sendMessage(
-            chatId,
-            `❌ Внутренняя ошибка при обращении к источнику "${key}": ${e.message}`
-          );
-        }
-        return;
-      }
+            const previewObj = {
+              ok: result.ok,
+              sourceKey: result.sourceKey || key,
+              type,
+              httpStatus,
+              payload,
+            };
 
-      case "/test_source": {
-        // Обработчик уже реализован через bot.onText выше,
-        // здесь просто выходим, чтобы не срабатывать "неизвестная команда".
-        return;
-      }
+            const preview = JSON.stringify(previewObj, null, 2).slice(0, 900);
 
-      // === ПРОЕКТНАЯ ПАМЯТЬ: /pm_set и /pm_show ===
-      case "/pm_set": {
-        const userIsMonarch = chatIdStr === "677128443";
+            const text =
+              `✅ Ответ от источника "${previewObj.sourceKey}".\n\n` +
+              `Тип: ${type}\n` +
+              `HTTP статус: ${httpStatus}\n\n` +
+              `📄 Предпросмотр данных (обрезано):\n` +
+              preview;
 
-        if (!userIsMonarch) {
-          await bot.sendMessage(
-            chatId,
-            "У вас нет прав изменять проектную память. Только монарх может это делать."
-          );
-          return;
-        }
-
-        const raw = commandArgs.trim();
-
-        if (!raw) {
-          await bot.sendMessage(
-            chatId,
-            "Использование:\n" +
-              "`/pm_set <section> <текст>`\n\nПримеры:\n" +
-              "`/pm_set roadmap ...текст roadmap...`\n" +
-              "`/pm_set workflow ...текст workflow...`",
-            { parse_mode: "Markdown" }
-          );
-          return;
-        }
-
-        const firstSpace = raw.indexOf(" ");
-        const section =
-          firstSpace === -1 ? raw : raw.slice(0, firstSpace).trim();
-        const content =
-          firstSpace === -1 ? "" : raw.slice(firstSpace + 1).trim();
-
-        if (!section) {
-          await bot.sendMessage(
-            chatId,
-            "Нужно указать секцию. Пример:\n`/pm_set roadmap ...текст...`",
-            { parse_mode: "Markdown" }
-          );
-          return;
-        }
-
-        if (!content) {
-          await bot.sendMessage(
-            chatId,
-            "Нужно указать текст для записи в проектную память.\n" +
-              "Пример:\n`/pm_set roadmap ROADMAP V1.5 ...`",
-            { parse_mode: "Markdown" }
-          );
-          return;
-        }
-
-        try {
-          const title = `Section: ${section}`;
-          const meta = {
-            updated_by: "monarch",
-            source: "telegram_command",
-          };
-
-          const record = await upsertProjectSection({
-            section,
-            title,
-            content,
-            tags: [section],
-            meta,
-            schemaVersion: 1,
-          });
-
-          await bot.sendMessage(
-            chatId,
-            `✅ Проектная память обновлена.\n` +
-              `Секция: *${record.section}*\n` +
-              `ID записи: ${record.id}\n` +
-              `Длина текста: ${record.content.length} символов.`,
-            { parse_mode: "Markdown" }
-          );
-        } catch (e) {
-          console.error("❌ /pm_set error:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось записать проектную память. См. логи сервера."
-          );
-        }
-
-        return;
-      }
-
-      case "/pm_show": {
-        const raw = commandArgs.trim();
-
-        if (!raw) {
-          await bot.sendMessage(
-            chatId,
-            "Использование:\n`/pm_show <section>`\n\nПримеры:\n" +
-              "`/pm_show roadmap`\n" +
-              "`/pm_show workflow`",
-            { parse_mode: "Markdown" }
-          );
-          return;
-        }
-
-        const section = raw.split(/\s+/)[0];
-
-        try {
-          const record = await getProjectSection(undefined, section);
-
-          if (!record) {
+            await bot.sendMessage(chatId, text);
+          } catch (e) {
+            console.error("❌ Error in /source:", e);
             await bot.sendMessage(
               chatId,
-              `В проектной памяти пока нет секции "${section}".`
+              `❌ Внутренняя ошибка при обращении к источнику "${key}": ${e.message}`
+            );
+          }
+          return;
+        }
+
+        case "/test_source": {
+          // Обработчик уже реализован через bot.onText выше,
+          // здесь просто выходим, чтобы не срабатывать "неизвестная команда".
+          return;
+        }
+
+              // === ПРОЕКТНАЯ ПАМЯТЬ: /pm_set и /pm_show ===
+        case "/pm_set": {
+          const userIsMonarch = chatIdStr === "677128443";
+
+          if (!userIsMonarch) {
+            await bot.sendMessage(
+              chatId,
+              "У вас нет прав изменять проектную память. Только монарх может это делать."
             );
             return;
           }
 
-          const maxLen = 3500;
-          const textSnippet =
-            record.content.length > maxLen
-              ? record.content.slice(0, maxLen) +
-                "\n\n...(обрезано, текст слишком длинный)..."
-              : record.content;
+          const raw = commandArgs.trim();
 
-          const msg =
-            `🧠 Project Memory: ${record.section}\n` +
-            `ID: ${record.id}\n` +
-            `Обновлено: ${record.updated_at}\n\n` +
-            textSnippet;
+          if (!raw) {
+            await bot.sendMessage(
+              chatId,
+              "Использование:\n" +
+                "`/pm_set <section> <текст>`\n\nПримеры:\n" +
+                "`/pm_set roadmap ...текст roadmap...`\n" +
+                "`/pm_set workflow ...текст workflow...`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
 
-          await bot.sendMessage(chatId, msg);
-        } catch (e) {
-          console.error("❌ /pm_show error:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось прочитать проектную память. См. логи сервера."
-          );
+          const firstSpace = raw.indexOf(" ");
+          const section =
+            firstSpace === -1 ? raw : raw.slice(0, firstSpace).trim();
+          const content =
+            firstSpace === -1 ? "" : raw.slice(firstSpace + 1).trim();
+
+          if (!section) {
+            await bot.sendMessage(
+              chatId,
+              "Нужно указать секцию. Пример:\n`/pm_set roadmap ...текст...`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          if (!content) {
+            await bot.sendMessage(
+              chatId,
+              "Нужно указать текст для записи в проектную память.\n" +
+                "Пример:\n`/pm_set roadmap ROADMAP V1.5 ...`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          try {
+            const title = `Section: ${section}`;
+            const meta = {
+              updated_by: "monarch",
+              source: "telegram_command",
+            };
+
+            const record = await upsertProjectSection({
+              section,
+              title,
+              content,
+              tags: [section],
+              meta,
+              schemaVersion: 1,
+            });
+
+            await bot.sendMessage(
+              chatId,
+              `✅ Проектная память обновлена.\n` +
+                `Секция: *${record.section}*\n` +
+                `ID записи: ${record.id}\n` +
+                `Длина текста: ${record.content.length} символов.`,
+              { parse_mode: "Markdown" }
+            );
+          } catch (e) {
+            console.error("❌ /pm_set error:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось записать проектную память. См. логи сервера."
+            );
+          }
+
+          return;
         }
 
-        return;
-      }
+        case "/pm_show": {
+          const raw = commandArgs.trim();
 
-      case "/mode": {
-        const arg = commandArgs.toLowerCase();
-        const valid = ["short", "normal", "long"];
+          if (!raw) {
+            await bot.sendMessage(
+              chatId,
+              "Использование:\n`/pm_show <section>`\n\nПримеры:\n" +
+                "`/pm_show roadmap`\n" +
+                "`/pm_show workflow`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
 
-        if (!valid.includes(arg)) {
+          const section = raw.split(/\s+/)[0];
+
+          try {
+            const record = await getProjectSection(undefined, section);
+
+            if (!record) {
+              await bot.sendMessage(
+                chatId,
+                `В проектной памяти пока нет секции "${section}".`
+              );
+              return;
+            }
+
+            const maxLen = 3500;
+            const textSnippet =
+              record.content.length > maxLen
+                ? record.content.slice(0, maxLen) +
+                  "\n\n...(обрезано, текст слишком длинный)..."
+                : record.content;
+
+            const msg =
+              `🧠 Project Memory: ${record.section}\n` +
+              `ID: ${record.id}\n` +
+              `Обновлено: ${record.updated_at}\n\n` +
+              textSnippet;
+
+            await bot.sendMessage(chatId, msg);
+          } catch (e) {
+            console.error("❌ /pm_show error:", e);
+            await bot.sendMessage(
+              chatId,
+              "Не удалось прочитать проектную память. См. логи сервера."
+            );
+          }
+
+          return;
+        }
+
+        case "/mode": {
+          const arg = commandArgs.toLowerCase();
+          const valid = ["short", "normal", "long"];
+
+          if (!valid.includes(arg)) {
+            await bot.sendMessage(
+              chatId,
+              "Режимы ответа:\n" +
+                "- short  — очень кратко (до 1–2 предложений)\n" +
+                "- normal — средне, 3–7 предложений\n" +
+                "- long   — развернуто, с пунктами и объяснениями\n\n" +
+                "Использование:\n`/mode short`\n`/mode normal`\n`/mode long`",
+              { parse_mode: "Markdown" }
+            );
+            return;
+          }
+
+          setAnswerMode(chatIdStr, arg);
+
+          let desc = "";
+          if (arg === "short") {
+            desc =
+              "короткие ответы (1–2 предложения, без лишних деталей, с приоритетом экономии токенов).";
+          } else if (arg === "normal") {
+            desc =
+              "средние ответы (3–7 предложений, немного деталей, умеренная экономия токенов).";
+          } else if (arg === "long") {
+            desc =
+              "развернутые ответы с пунктами и объяснениями (больше токенов, максимум пользы).";
+          }
+
           await bot.sendMessage(
             chatId,
-            "Режимы ответа:\n" +
-              "- short  — очень кратко (до 1–2 предложений)\n" +
-              "- normal — средне, 3–7 предложений\n" +
-              "- long   — развернуто, с пунктами и объяснениями\n\n" +
-              "Использование:\n`/mode short`\n`/mode normal`\n`/mode long`",
+            `✅ Режим ответов установлен: *${arg}* — ${desc}`,
             { parse_mode: "Markdown" }
           );
           return;
         }
 
-        setAnswerMode(chatIdStr, arg);
-
-        let desc = "";
-        if (arg === "short") {
-          desc =
-            "короткие ответы (1–2 предложения, без лишних деталей, с приоритетом экономии токенов).";
-        } else if (arg === "normal") {
-          desc =
-            "средние ответы (3–7 предложений, немного деталей, умеренная экономия токенов).";
-        } else if (arg === "long") {
-          desc =
-            "развернутые ответы с пунктами и объяснениями (больше токенов, максимум пользы).";
+        default: {
+          await bot.sendMessage(
+            chatId,
+            "Кажется, я не знаю такую команду.\nДоступные сейчас команды:\n" +
+              "/profile, /whoami, /me\n" +
+              "/addtask_test\n" +
+              "/btc_test_task\n" +
+              "/newtask <описание>\n" +
+              "/run <id>\n" +
+              "/tasks\n" +
+              "/task <list|new|pause|resume|delete|id>\n" +
+              "/meminfo\n" +
+              "/memstats\n" +
+              "/sources\n" +
+              "/source <key>\n" +
+              "/test_source <key>\n" +
+              "/pm_set <section> <text>\n" +
+              "/pm_show <section>\n" +
+              "/mode <short|normal|long>"
+          );
+          return;
         }
-
-        await bot.sendMessage(
-          chatId,
-          `✅ Режим ответов установлен: *${arg}* — ${desc}`,
-          { parse_mode: "Markdown" }
-        );
-        return;
-      }
-
-      default: {
-        await bot.sendMessage(
-          chatId,
-          "Кажется, я не знаю такую команду.\nДоступные сейчас команды:\n" +
-            "/profile, /whoami, /me\n" +
-            "/addtask_test\n" +
-            "/btc_test_task\n" +
-            "/newtask <описание>\n" +
-            "/run <id>\n" +
-            "/tasks\n" +
-            "/task <list|new|pause|resume|delete|id>\n" +
-            "/meminfo\n" +
-            "/memstats\n" +
-            "/sources\n" +
-            "/source <key>\n" +
-            "/test_source <key>\n" +
-            "/pm_set <section> <text>\n" +
-            "/pm_show <section>\n" +
-            "/mode <short|normal|long>"
-        );
-        return;
       }
     }
-  }
 
-  // 3.5) Классификация запроса (скелет модуля)
-  const classification = classifyInteraction({ userText });
-  console.log("🧮 classifyInteraction:", classification);
-  await logInteraction(chatIdStr, classification);
+    // 3.5) Классификация запроса (скелет модуля)
+    const classification = classifyInteraction({ userText });
+    console.log("🧮 classifyInteraction:", classification);
+    await logInteraction(chatIdStr, classification);
 
-  // 4) если нет ключа OpenAI — простой ответ
-  if (!process.env.OPENAI_API_KEY) {
+    // 4) если нет ключа OpenAI — простой ответ
+    if (!process.env.OPENAI_API_KEY) {
+      await bot.sendMessage(
+        chatId,
+        "Привет! 🐉 Бот Королевства GARYA работает на сервере, но ИИ сейчас выключен (нет ключа)."
+      );
+      return;
+    }
+
+    // 5) история + системный промпт
+    const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
+    const answerMode = getAnswerMode(chatIdStr);
+
+    let modeInstruction = "";
+    if (answerMode === "short") {
+      modeInstruction =
+        "Отвечай максимально кратко: 1–2 предложения, без списков и лишних деталей. Если такой краткости недостаточно и ответ станет опасным, непонятным или может ввести в заблуждение — игнорируй ограничение short и расширь ответ до минимально достаточного объёма (примерно как normal).";
+    } else if (answerMode === "normal") {
+      modeInstruction =
+        "Отвечай средне по объёму: примерно 3–7 предложений. Можно использовать 2–3 коротких пункта, если это делает ответ яснее.";
+    } else if (answerMode === "long") {
+      modeInstruction =
+        "Отвечай развернуто: используй структурированные списки, пояснения и примеры, но избегай пустой воды.";
+    }
+
+    // проектный контекст из project_memory
+    const projectContext = await loadProjectContext();
+
+    const systemPrompt = buildSystemPrompt(
+      answerMode,
+      modeInstruction,
+      projectContext
+    );
+
+    const messages = [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      ...history,
+      { role: "user", content: userText },
+    ];
+
+    // === Вызов ИИ через единый слой ai.js ===
+    let reply = "";
+    try {
+      reply = await callAI(messages, "high");
+    } catch (e) {
+      console.error("❌ AI error:", e);
+      reply = "⚠️ ИИ временно недоступен — произошла ошибка при вызове модели.";
+    }
+
+    await bot.sendMessage(chatId, reply);
+
+    if (!userText.startsWith("/")) {
+      await saveChatPair(chatIdStr, userText, reply);
+    }
+  } catch (err) {
+    console.error("OpenAI error:", err);
     await bot.sendMessage(
       chatId,
-      "Привет! 🐉 Бот Королевства GARYA работает на Render!"
+      "🐉 Бот GARYA онлайн, но ИИ сейчас недоступен."
     );
-    return;
   }
-
-  // 5) история + системный промпт
-  const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
-  const answerMode = getAnswerMode(chatIdStr);
-
-  let modeInstruction = "";
-  if (answerMode === "short") {
-    modeInstruction =
-      "Отвечай максимально кратко: 1–2 предложения, без списков и лишних деталей. Если такой краткости недостаточно и ответ станет опасным, непонятным или может ввести в заблуждение — игнорируй ограничение short и расширь ответ до минимально достаточного объёма (примерно как normal).";
-  } else if (answerMode === "normal") {
-    modeInstruction =
-      "Отвечай средне по объёму: примерно 3–7 предложений. Можно использовать 2–3 коротких пункта, если это делает ответ яснее.";
-  } else if (answerMode === "long") {
-    modeInstruction =
-      "Отвечай развернуто: используй структурированные списки, пояснения и примеры, но избегай пустой воды.";
-  }
-
-  // проектный контекст из project_memory
-  const projectContext = await loadProjectContext();
-
-  const systemPrompt = buildSystemPrompt(
-    answerMode,
-    modeInstruction,
-    projectContext
-  );
-
-  const messages = [
-    {
-      role: "system",
-      content: systemPrompt,
-    },
-    ...history,
-    { role: "user", content: userText },
-  ];
-
-  // === Вызов ИИ через единый слой ai.js ===
-  let reply = "";
-  try {
-    reply = await callAI(messages, "high");
-  } catch (e) {
-    console.error("❌ AI error:", e);
-    reply = "⚠️ ИИ временно недоступен — произошла ошибка при вызове модели.";
-  }
-
-  await bot.sendMessage(chatId, reply);
-
-  if (!userText.startsWith("/")) {
-    await saveChatPair(chatIdStr, userText, reply);
-  }
-} catch (err) {
-  console.error("OpenAI error:", err);
-  await bot.sendMessage(
-    chatId,
-    "🐉 Бот GARYA онлайн, но ИИ сейчас недоступен."
-  );
-}
 });
 
 // === ROBOT-LAYER (mock режим без реального API) ===

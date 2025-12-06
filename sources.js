@@ -201,11 +201,13 @@ async function logSourceCheck({ sourceKey, ok, httpStatus, message, meta }) {
   }
 }
 
+// ==================================================
+// 5.9 — DIAGNOSE ONE SOURCE
+// ==================================================
 export async function diagnoseSource(key, options = {}) {
   const res = await fetchFromSourceKey(key, options);
 
-  const httpStatus =
-    typeof res.httpStatus === "number" ? res.httpStatus : null;
+  const httpStatus = typeof res.httpStatus === "number" ? res.httpStatus : null;
 
   await logSourceCheck({
     sourceKey: res.sourceKey || key,
@@ -221,6 +223,9 @@ export async function diagnoseSource(key, options = {}) {
   return res;
 }
 
+// ==================================================
+// 5.9 — RUN DIAGNOSTICS FOR ALL SOURCES
+// ==================================================
 export async function runSourceDiagnosticsOnce(options = {}) {
   const sources = await listActiveSources();
   const items = [];
@@ -246,6 +251,20 @@ export async function runSourceDiagnosticsOnce(options = {}) {
   };
 }
 
+// ==================================================
+// 5.9 — GET LATEST SOURCE STATUS
+// ==================================================
+export async function getLatestSourceChecks() {
+  const { rows } = await pool.query(`
+    SELECT DISTINCT ON (source_key)
+      source_key, ok, http_status, message, meta, created_at
+    FROM source_checks
+    ORDER BY source_key, created_at DESC;
+  `);
+
+  return rows;
+}
+
 // === CORE: fetchFromSourceKey ===
 export async function fetchFromSourceKey(key, options = {}) {
   const startedAt = Date.now();
@@ -258,12 +277,12 @@ export async function fetchFromSourceKey(key, options = {}) {
       const error = `Источник "${key}" не найден или выключен.`;
       await logSourceRequest({
         sourceKey: key,
-        ok: false,
-        extra: { error },
         type: null,
         httpStatus: null,
+        ok: false,
         durationMs: Date.now() - startedAt,
         params: options.params || null,
+        extra: { error },
       });
       return { ok: false, sourceKey: key, error };
     }

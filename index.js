@@ -76,8 +76,8 @@ async function requireMonarch(chatIdStr, commandName) {
   return true;
 }
 
-// === RATE LIMITS ДЛЯ КОМАНД И SOURCES ===
-const rateLimitState = new Map(); // key -> lastTs (ms)
+// === RATE LIMITS ===
+const rateLimitState = new Map();
 
 function checkRateLimit(key, minIntervalMs) {
   const now = Date.now();
@@ -92,49 +92,28 @@ function checkRateLimit(key, minIntervalMs) {
   return { limited: false, retryInMs: 0 };
 }
 
-// ===============================
-// 🔥 ВСТАВКА ВАРИАНТА C — ФИЛЬТР ДУБЛИКАТОВ И СТАРЫХ АПДЕЙТОВ
-// ===============================
-let lastUpdateId = 0;
-
-function isDuplicateOrOldUpdate(update) {
-  if (!update || typeof update.update_id !== "number") return false;
-
-  if (update.update_id <= lastUpdateId) return true;
-
-  lastUpdateId = update.update_id;
-  return false;
-}
-
 // === Telegram Webhook ===
 const WEBHOOK_URL = `https://garya-bot.onrender.com/webhook/${token}`;
 bot.setWebHook(WEBHOOK_URL);
 
-// === Express route for webhook ===
+app.get("/", (req, res) => {
+  res.send("GARYA AI Bot is alive! ⚡");
+});
+
 app.post(`/webhook/${token}`, (req, res) => {
   res.sendStatus(200);
-
   try {
-    const update = req.body;
-
-    // Новый фикс: игнорируем старые / повторные апдейты
-    if (isDuplicateOrOldUpdate(update)) {
-      console.log("⏭️ Старый или дублирующий update_id — пропуск:", update.update_id);
-      return;
-    }
-
-    bot.processUpdate(update);
+    bot.processUpdate(req.body);
   } catch (err) {
     console.error("❌ Error in bot.processUpdate:", err);
   }
 });
 
-// health-check
 app.get(`/webhook/${token}`, (req, res) => {
   res.send("OK");
 });
 
-// === Web server start ===
+// === Запуск сервера ===
 app.listen(PORT, () => {
   console.log("🌐 Web server started on port:", PORT);
 
@@ -158,7 +137,6 @@ async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES) {
       `,
       [chatId, limit]
     );
-
     return result.rows.reverse().map((row) => ({
       role: row.role,
       content: row.content,
@@ -235,11 +213,9 @@ async function ensureUserProfile(msg) {
         `,
         [chatId, finalName, role, msg.from?.language_code || null]
       );
-
       console.log(`👤 Новый пользователь: ${finalName} (${role})`);
     } else {
       const u = existing.rows[0];
-
       if (u.name !== finalName) {
         await pool.query("UPDATE users SET name = $1 WHERE chat_id = $2", [
           finalName,
@@ -262,7 +238,14 @@ async function createDemoTask(userChatId) {
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `,
-    [userChatId, "Demo task", "demo", payload, null, "active"]
+    [
+      userChatId,
+      "Demo task",
+      "demo",
+      payload,
+      null,
+      "active",
+    ]
   );
 
   return result.rows[0].id;
@@ -326,7 +309,6 @@ async function getUserTasks(userChatId, limit = 10) {
     `,
     [userChatId, limit]
   );
-
   return result.rows;
 }
 
@@ -341,7 +323,6 @@ async function getTaskById(userChatId, taskId) {
     `,
     [userChatId, taskId]
   );
-
   return result.rows[0] || null;
 }
 
@@ -418,7 +399,6 @@ async function getAllSourcesSafe() {
     if (typeof Sources.getAllSources === "function") {
       return await Sources.getAllSources();
     }
-
     const res = await pool.query(`SELECT * FROM sources ORDER BY id ASC;`);
     return res.rows;
   } catch (err) {
@@ -436,10 +416,8 @@ function formatSourcesList(sources) {
   }
 
   let text = "📡 Источники данных (Sources Layer):\n\n";
-
   for (const s of sources) {
     const created = s.created_at ? new Date(s.created_at).toISOString() : "—";
-
     text +=
       `#${s.id} — ${s.name}\n` +
       `Ключ: ${s.key}\n` +
@@ -447,7 +425,6 @@ function formatSourcesList(sources) {
       (s.url ? `URL: ${s.url}\n` : "") +
       `Создан: ${created}\n\n`;
   }
-
   return text;
 }
 
@@ -455,28 +432,21 @@ function formatSourcesList(sources) {
 function describeMediaAttachments(msg) {
   const parts = [];
 
-  if (Array.isArray(msg.photo) && msg.photo.length > 0)
-    parts.push("фото/скриншот");
-
+  if (Array.isArray(msg.photo) && msg.photo.length > 0) parts.push("фото/скриншот");
   if (msg.document) {
     const doc = msg.document;
     const name = doc.file_name || "документ";
     const mime = doc.mime_type ? ` (${doc.mime_type})` : "";
     parts.push(`документ "${name}"${mime}`);
   }
-
   if (msg.voice) parts.push("голосовое сообщение");
-
   if (msg.audio) {
     const a = msg.audio;
     const title = a.title || "аудио";
     parts.push(`аудио "${title}"`);
   }
-
   if (msg.video) parts.push("видео");
-
   if (msg.sticker) parts.push("стикер");
-
   if (msg.animation) parts.push("GIF/анимация");
 
   if (parts.length === 0) return null;
@@ -491,19 +461,15 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
   // 🔒 Только монарх
   if (!(await requireMonarch(chatId, "/test_source"))) return;
 
-  // ⏱ Rate-limit: не чаще 1 раза в 10 секунд на chatId+key
+  // ⏱ Rate-limit: 1 раз в 10 сек
   const rateKey = `test_source:${chatId}:${key}`;
   const rl = checkRateLimit(rateKey, 10_000);
-
   if (rl.limited) {
     const sec = Math.ceil(rl.retryInMs / 1000);
-
     await bot.sendMessage(
       chatId,
-      `⏱ Команду /test_source для "${key}" можно вызывать не чаще, чем раз в 10 секунд.\n` +
-        `Попробуй ещё раз через ~${sec} сек.`
+      `⏱ /test_source для "${key}" можно вызывать раз в 10 сек. Подожди ${sec} сек.`
     );
-
     return;
   }
 
@@ -520,9 +486,7 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
       return;
     }
 
-    const type =
-      result.type || result.sourceType || result.meta?.type || "—";
-
+    const type = result.type || result.sourceType || "—";
     const httpStatus =
       typeof result.httpStatus === "number"
         ? result.httpStatus
@@ -530,7 +494,7 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
 
     const previewObj = {
       ok: result.ok,
-      sourceKey: result.sourceKey || key,
+      sourceKey: key,
       type,
       httpStatus,
       data:
@@ -543,168 +507,31 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
 
     const preview = JSON.stringify(previewObj, null, 2).slice(0, 800);
 
-    const text =
-      `✅ Источник работает!\n\n` +
-      `Ключ: ${previewObj.sourceKey}\n` +
-      `Тип: ${type}\n` +
-      `HTTP статус: ${httpStatus}\n\n` +
-      `📄 Данные (обрезано):\n` +
-      preview;
-
-    await bot.sendMessage(chatId, text);
-  } catch (err) {
-    console.error("❌ /test_source error:", err);
-    await bot.sendMessage(chatId, `❌ Ошибка выполнения: ${err.message}`);
-  }
-});
-
-// === ЛОГИРОВАНИЕ ВЗАИМОДЕЙСТВИЙ (interaction_logs) ===
-async function logInteraction(chatIdStr, classification) {
-  try {
-    const taskType = classification?.taskType || "chat";
-    const aiCostLevel = classification?.aiCostLevel || "low";
-
-    await pool.query(
-      `
-        INSERT INTO interaction_logs (chat_id, task_type, ai_cost_level)
-        VALUES ($1, $2, $3)
-      `,
-      [chatIdStr, taskType, aiCostLevel]
-    );
-  } catch (err) {
-    console.error("❌ Error in logInteraction:", err);
-  }
-}
-
-// === КОМАНДЫ БОТА ===
-
-// /start
-bot.onText(/\/start/, async (msg) => {
-  const chatId = msg.chat.id.toString();
-  await ensureUserProfile(msg);
-
-  await bot.sendMessage(
-    chatId,
-    "👋 Привет! Я — Советник GARYA (СГ).\n" +
-      "Я помогу с задачами, информацией, анализом, планированием.\n\n" +
-      "Доступные команды:\n" +
-      "/tasks — посмотреть задачи\n" +
-      "/newtask TEXT — создать задачу\n" +
-      "/run ID — выполнить задачу\n" +
-      "/sources — список источников\n" +
-      "/test_source KEY — тест одного источника\n" +
-      "/diag_source KEY — диагностика одного источника\n" +
-      "/sources_diag — диагностика всех источников\n" +
-      "/mode short|normal|long — режим длины ответа\n"
-  );
-});
-
-// /tasks
-bot.onText(/\/tasks/, async (msg) => {
-  const chatId = msg.chat.id.toString();
-  const tasks = await getUserTasks(chatId, 20);
-
-  if (tasks.length === 0) {
-    await bot.sendMessage(chatId, "У вас пока нет задач.");
-    return;
-  }
-
-  let text = "🧾 Ваши задачи:\n\n";
-
-  for (const t of tasks) {
-    text +=
-      `#${t.id} — ${t.title}\n` +
-      `Тип: ${t.type}\n` +
-      `Статус: ${t.status}\n\n`;
-  }
-
-  await bot.sendMessage(chatId, text);
-});
-
-// /newtask TEXT
-bot.onText(/\/newtask (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id.toString();
-  const promptText = match[1];
-
-  const { id } = await createManualTask(chatId, promptText);
-
-  await bot.sendMessage(chatId, `Задача создана! ID = ${id}`);
-});
-
-// /run ID
-bot.onText(/\/run (\d+)/, async (msg, match) => {
-  const chatId = msg.chat.id.toString();
-  const taskId = parseInt(match[1], 10);
-
-  const task = await getTaskById(chatId, taskId);
-
-  if (!task) {
-    await bot.sendMessage(chatId, "❌ Такой задачи нет.");
-    return;
-  }
-
-  await bot.sendMessage(
-    chatId,
-    `🚀 Выполняю задачу #${task.id} (${task.type})...`
-  );
-
-  await runTaskWithAI(task, chatId);
-});
-
-// /sources — список источников
-bot.onText(/\/sources/, async (msg) => {
-  const chatId = msg.chat.id.toString();
-
-  // 🔒 Только монарх
-  if (!(await requireMonarch(chatId, "/sources"))) return;
-
-  // ⏱ Rate-limit: не чаще 1 раза в 5 секунд
-  const rateKey = `sources:${chatId}`;
-  const rl = checkRateLimit(rateKey, 5_000);
-
-  if (rl.limited) {
-    const sec = Math.ceil(rl.retryInMs / 1000);
-
     await bot.sendMessage(
       chatId,
-      `⏱ Команду /sources можно вызывать не чаще, чем раз в 5 секунд.\n` +
-        `Подожди ещё ~${sec} сек.`
+      `✅ Источник работает!\n\nКлюч: ${key}\nТип: ${type}\nHTTP: ${httpStatus}\n\n📄 Данные (обрезано):\n${preview}`
     );
-
-    return;
-  }
-
-  try {
-    const sources = await getAllSourcesSafe();
-    const formatted = formatSourcesList(sources);
-    await bot.sendMessage(chatId, formatted);
   } catch (err) {
-    console.error("❌ /sources error:", err);
-    await bot.sendMessage(chatId, "❌ Ошибка получения списка источников.");
+    console.error("❌ /test_source error:", err);
+    await bot.sendMessage(chatId, `❌ Ошибка: ${err.message}`);
   }
 });
 
-// /diag_source KEY — диагностика одного источника
+// === /diag_source
 bot.onText(/\/diag_source (.+)/, async (msg, match) => {
   const chatId = msg.chat.id.toString();
   const key = match[1].trim();
 
-  // 🔒 Только монарх
   if (!(await requireMonarch(chatId, "/diag_source"))) return;
 
-  // ⏱ Rate-limit
   const rateKey = `diag_source:${chatId}:${key}`;
   const rl = checkRateLimit(rateKey, 10_000);
-
   if (rl.limited) {
     const sec = Math.ceil(rl.retryInMs / 1000);
-
     await bot.sendMessage(
       chatId,
-      `⏱ Команду /diag_source для "${key}" можно вызывать не чаще, чем раз в 10 секунд.\n` +
-        `Попробуй ещё раз через ~${sec} сек.`
+      `⏱ /diag_source можно раз в 10 сек. Жди ${sec} сек.`
     );
-
     return;
   }
 
@@ -712,17 +539,13 @@ bot.onText(/\/diag_source (.+)/, async (msg, match) => {
 
   try {
     const result = await Sources.diagnoseSource(key);
-    const httpStatus =
-      typeof result.httpStatus === "number" ? result.httpStatus : "—";
 
     if (!result.ok) {
       await bot.sendMessage(
         chatId,
-        `❌ Источник НЕ работает.\n\n` +
-          `Ключ: ${key}\n` +
-          `Тип: ${result.type || "—"}\n` +
-          `HTTP статус: ${httpStatus}\n` +
-          `Ошибка: ${result.error || "unknown"}`
+        `❌ НЕ работает.\nКлюч: ${key}\nТип: ${result.type}\nКод: ${
+          result.httpStatus ?? "—"
+        }\nОшибка: ${result.error || "unknown"}`
       );
       return;
     }
@@ -731,38 +554,30 @@ bot.onText(/\/diag_source (.+)/, async (msg, match) => {
 
     await bot.sendMessage(
       chatId,
-      `✅ Источник работает.\n\n` +
-        `Ключ: ${key}\n` +
-        `Тип: ${result.type}\n` +
-        `HTTP статус: ${httpStatus}\n\n` +
-        `📄 Данные (обрезано):\n${dataPreview}`
+      `✅ Источник работает.\nКлюч: ${key}\nТип: ${result.type}\nСтатус: ${
+        result.httpStatus ?? "—"
+      }\n\n📄 Данные:\n${dataPreview}`
     );
   } catch (err) {
     console.error("❌ /diag_source error:", err);
-    await bot.sendMessage(chatId, `❌ Ошибка диагностики: ${err.message}`);
+    await bot.sendMessage(chatId, `❌ Ошибка: ${err.message}`);
   }
 });
 
-// === /sources_diag (полная диагностика) ===
+// === /sources_diag
 bot.onText(/\/sources_diag/, async (msg) => {
   const chatId = msg.chat.id.toString();
 
-  // 🔒 Только монарх
   if (!(await requireMonarch(chatId, "/sources_diag"))) return;
 
-  // Rate-limit
   const rateKey = `sources_diag:${chatId}`;
   const rl = checkRateLimit(rateKey, 60_000);
-
   if (rl.limited) {
     const sec = Math.ceil(rl.retryInMs / 1000);
-
     await bot.sendMessage(
       chatId,
-      `⏱ Команду /sources_diag можно вызывать не чаще, чем раз в минуту.\n` +
-        `Попробуй ещё раз через ~${sec} сек.`
+      `⏱ /sources_diag можно вызывать раз в 60 сек. Жди ${sec} сек.`
     );
-
     return;
   }
 
@@ -772,26 +587,24 @@ bot.onText(/\/sources_diag/, async (msg) => {
     const results = await Sources.runSourceDiagnosticsOnce();
 
     let text =
-      `🧪 Диагностика всех источников завершена.\n\n` +
-      `Всего: ${results.total}\n` +
-      `Успешно: ${results.okCount}\n` +
-      `Проблемы: ${results.failCount}\n\n`;
+      `🧪 Диагностика завершена.\nВсего: ${results.total}\n` +
+      `OK: ${results.okCount}\n` +
+      `Ошибки: ${results.failCount}\n\n`;
 
     for (const item of results.items) {
-      text +=
-        `• ${item.key} (${item.type}) — ` +
-        (item.ok ? "✅ OK" : `❌ Ошибка (${item.error || "unknown"})`) +
-        "\n";
+      text += `• ${item.key} (${item.type}) — ${
+        item.ok ? "✅ OK" : `❌ ${item.error}`
+      }\n`;
     }
 
     await bot.sendMessage(chatId, text);
   } catch (err) {
     console.error("❌ /sources_diag error:", err);
-    await bot.sendMessage(chatId, "❌ Ошибка диагностики всех источников.");
+    await bot.sendMessage(chatId, "❌ Ошибка диагностики.");
   }
 });
 
-// === РЕЖИМЫ ОТВЕТА ===
+// === /mode
 bot.onText(/\/mode (short|normal|long)/, async (msg, match) => {
   const chatIdStr = msg.chat.id.toString();
   const mode = match[1];
@@ -804,55 +617,29 @@ bot.onText(/\/mode (short|normal|long)/, async (msg, match) => {
   );
 });
 
-// === ОБРАБОТКА ВСЕХ ПРОЧИХ СООБЩЕНИЙ ===
+// ========================================================
+// === ГЛАВНЫЙ ХЭНДЛЕР СООБЩЕНИЙ ===
+// ========================================================
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id.toString();
 
-  // Пропускаем системные события
   if (!msg.text && !msg.caption) return;
 
-  // =====================================================================
-  // 🛡 VARIANT C — анти-дубликат + анти-ретраи Telegram
-  // =====================================================================
-  // Защита от повторных доставок одного и того же апдейта
-  // Telegram иногда присылает update два раза при сетевых задержках.
-  // Теперь СГ игнорирует такие повторные сообщения.
-  // =====================================================================
-
-  const uniqueKey = `msg:${chatId}:${msg.message_id}`;
-
-  if (rateLimitState.has(uniqueKey)) {
-    // Сообщение уже обрабатывалось → игнорируем
-    return;
-  }
-
-  rateLimitState.set(uniqueKey, Date.now());
-
-  // Удаляем ключ через 20 секунд, чтобы map не разрастался
-  setTimeout(() => rateLimitState.delete(uniqueKey), 20_000);
-
-  // =====================================================================
-  // ПРОФИЛЬ
-  // =====================================================================
   await ensureUserProfile(msg);
 
   const userText = msg.text || msg.caption || "";
 
-  // =====================================================================
-  // Вложения (фото, файл, голос, видео) — будущий File-Intake
-  // =====================================================================
+  // --- FILE-INTAKE (пока только объявление)
   const attachments = describeMediaAttachments(msg);
   if (attachments) {
     await bot.sendMessage(
       chatId,
-      `📎 Я получил вложение: ${attachments}\n` +
-        `Пока я не читаю файлы, но модуль File-Intake уже заложен.`
+      `📎 Получено вложение: ${attachments}\n` +
+        `Модуль File-Intake включится на Этапе 7.`
     );
   }
 
-  // =====================================================================
-  // КЛАССИФИКАЦИЯ (robot / ai)
-  // =====================================================================
+  // --- КЛАССИФИКАЦИЯ
   let classification = null;
   try {
     classification = await classifyInteraction({ userText });
@@ -860,55 +647,36 @@ bot.on("message", async (msg) => {
     console.error("❌ classifyInteraction error:", err);
   }
 
-  // =====================================================================
-  // ЛОГИРОВАНИЕ ВЗАИМОДЕЙСТВИЯ
-  // =====================================================================
+  // --- ЛОГИРОВАНИЕ
   try {
     await logInteraction(chatId, classification);
   } catch (err) {
     console.error("❌ logInteraction error:", err);
   }
 
-  // =====================================================================
-  // РЕЖИМ ОТВЕТА
-  // =====================================================================
+  // --- Режим токенов
   const answerMode = getAnswerMode(chatId);
 
-  // =====================================================================
-  // 🚫 VARIANT C — БЛОКИРУЕМ robot-слой на документах / больших текстах
-  // =====================================================================
-  // Если classifyInteraction определил тип DOCUMENT — только ИИ!
-  // robotReply отключён, источники / RSS / HTML не вызываются.
-  // =====================================================================
-  if (classification?.taskType === "document") {
-    // Всегда отвечаем через ИИ
-  } else if (classification?.responseType === "robot") {
-    // Ответ robot-слоя (если это не документ)
+  // --- Если robot-слой вернул ответ
+  if (classification?.responseType === "robot") {
     const reply = classification.robotReply || "🤖 Готово.";
     await saveChatPair(chatId, userText, reply);
     await bot.sendMessage(chatId, reply);
     return;
   }
 
-  // =====================================================================
-  // Проверка ключа ИИ
-  // =====================================================================
+  // --- Если нет OpenAI
   if (!process.env.OPENAI_API_KEY) {
-    const text = "⚠️ ИИ недоступен — нет ключа. Не могу ответить.";
+    const text = "⚠️ ИИ недоступен — нет ключа.";
     await saveChatPair(chatId, userText, text);
     await bot.sendMessage(chatId, text);
     return;
   }
 
-  // =====================================================================
-  // КОНТЕКСТ ПАМЯТИ (20 сообщ.) + ПРОЕКТНАЯ ПАМЯТЬ (ROADMAP + WORKFLOW)
-  // =====================================================================
+  // --- Грузим память + Project Memory
   const history = await getChatHistory(chatId, MAX_HISTORY_MESSAGES);
   const projectMemoryContext = await loadProjectContext();
 
-  // =====================================================================
-  // PROMPT
-  // =====================================================================
   const messages = [
     {
       role: "system",
@@ -921,27 +689,20 @@ bot.on("message", async (msg) => {
     { role: "user", content: userText },
   ];
 
-  // =====================================================================
-  // ВЫЗОВ ИИ
-  // =====================================================================
+  // --- Вызов ИИ
   let reply = "";
   try {
     reply = await callAI(messages, classification?.aiCostLevel || "high");
   } catch (err) {
     console.error("❌ AI error:", err);
-    reply = "⚠️ Ошибка вызова ИИ. Попробуй повторить запрос позже.";
+    reply = "⚠️ Ошибка вызова ИИ.";
   }
 
-  // =====================================================================
-  // СОХРАНЕНИЕ ПАРЫ
-  // =====================================================================
+  // --- Сохранение в память
   await saveChatPair(chatId, userText, reply);
 
-  // =====================================================================
-  // ОТВЕТ ПОЛЬЗОВАТЕЛЮ
-  // =====================================================================
   await bot.sendMessage(chatId, reply);
 });
 
-// === ЛОГ ===
+// === LOG ===
 console.log("🤖 AI Bot is running...");

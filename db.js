@@ -2,7 +2,7 @@
 import pkg from "pg";
 const { Pool } = pkg;
 
-// Проверяем, что задали DATABASE_URL
+// Проверяем, что задан DATABASE_URL
 if (!process.env.DATABASE_URL) {
   console.error("❌ DATABASE_URL is missing!");
   console.error(
@@ -88,7 +88,7 @@ async function initDb() {
     // === Таблица проверок источников (Diagnostics) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_checks (
-        id SERIAL PRIMARY KEY,
+        id SERIAL PRIMARY PRIMARY KEY,
         source_key TEXT NOT NULL,
         ok BOOLEAN NOT NULL,
         http_status INT,
@@ -124,7 +124,7 @@ async function initDb() {
       );
     `);
 
-    // === Таблица Project Memory (память проекта GARYA AI) ===
+    // === Таблица Project Memory ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS project_memory (
         id SERIAL PRIMARY KEY,

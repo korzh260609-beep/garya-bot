@@ -409,7 +409,6 @@ async function runTaskWithAI(task, chatId) {
 // ============================================================================
 // === SOURCES HELPERS ===
 // ============================================================================
-
 async function getAllSourcesSafe() {
   try {
     if (typeof Sources.getAllSources === "function") {
@@ -450,7 +449,8 @@ function formatSourcesList(sources) {
 function describeMediaAttachments(msg) {
   const parts = [];
 
-  if (Array.isArray(msg.photo) && msg.photo.length > 0) parts.push("фото/скриншот");
+  if (Array.isArray(msg.photo) && msg.photo.length > 0)
+    parts.push("фото/скриншот");
 
   if (msg.document) {
     const doc = msg.document;
@@ -473,6 +473,26 @@ function describeMediaAttachments(msg) {
 
   if (parts.length === 0) return null;
   return parts.join(", ");
+}
+
+// ============================================================================
+// === ЛОГИРОВАНИЕ ВЗАИМОДЕЙСТВИЙ (interaction_logs) ===
+// ============================================================================
+async function logInteraction(chatIdStr, classification) {
+  try {
+    const taskType = classification?.taskType || "chat";
+    const aiCostLevel = classification?.aiCostLevel || "low";
+
+    await pool.query(
+      `
+      INSERT INTO interaction_logs (chat_id, task_type, ai_cost_level)
+      VALUES ($1, $2, $3)
+      `,
+      [chatIdStr, taskType, aiCostLevel]
+    );
+  } catch (err) {
+    console.error("❌ logInteraction error:", err);
+  }
 }
 
 // ============================================================================
@@ -569,7 +589,7 @@ bot.onText(/\/diag_source (.+)/, async (msg, match) => {
         chatId,
         `❌ НЕ работает.\nКлюч: ${key}\nТип: ${result.type}\nКод: ${
           result.httpStatus ?? "—"
-        }\nОшибка: ${result.error || "unknown"}``
+        }\nОшибка: ${result.error || "unknown"}`
       );
       return;
     }
@@ -578,7 +598,9 @@ bot.onText(/\/diag_source (.+)/, async (msg, match) => {
 
     await bot.sendMessage(
       chatId,
-      `✅ Источник OK.\nКлюч: ${key}\nТип: ${result.type}\nСтатус: ${result.httpStatus}\n\n📄 Данные:\n${preview}`
+      `✅ Источник OK.\nКлюч: ${key}\nТип: ${result.type}\nСтатус: ${
+        result.httpStatus ?? "—"
+      }\n\n📄 Данные:\n${preview}`
     );
   } catch (err) {
     console.error("❌ /diag_source error:", err);
@@ -681,7 +703,7 @@ bot.on("message", async (msg) => {
   try {
     await logInteraction(chatId, classification);
   } catch (err) {
-    console.error("❌ logInteraction error:", err);
+    console.error("❌ logInteraction wrapper error:", err);
   }
 
   // Текущий режим длины ответа
@@ -690,19 +712,6 @@ bot.on("message", async (msg) => {
   // ======================================================================
   // === ГЛАВНЫЙ FIX (V3): документ = НИКОГДА НЕ ЗАПУСКАТЬ SOURCES ===
   // ======================================================================
-  //
-  // Если classifyInteraction определил:
-  //    taskType === DOCUMENT
-  //
-  // → это текстовый документ (роадмап, файл, список, большая структура).
-  // → СГ должен:
-  //      • НЕ выполнять команды sources
-  //      • НЕ реагировать как робот-слой
-  //      • НЕ запускать диагностику и тесты
-  //      • Обработать документ только через ИИ (или как текст)
-  //
-  // ======================================================================
-
   if (classification.taskType === "document") {
     const history = await getChatHistory(chatId, MAX_HISTORY_MESSAGES);
     const projectMemoryContext = await loadProjectContext();
@@ -721,7 +730,8 @@ bot.on("message", async (msg) => {
 
     let reply = "";
     try {
-      reply = await callAI(messages, "low"); // документы = дешёвая обработка
+      // документы = дешёвая обработка
+      reply = await callAI(messages, "low");
     } catch (err) {
       console.error("❌ AI error:", err);
       reply = "⚠️ Ошибка обработки документа.";

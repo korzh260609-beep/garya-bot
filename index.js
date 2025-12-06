@@ -1,20 +1,25 @@
+// ============================================================================
 // === Импорты ===
+// ============================================================================
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
-import pool from "./db.js"; // память + профили + tasks
-import * as Sources from "./sources.js"; // слой источников
-import { classifyInteraction } from "./classifier.js"; // классификатор
-import { callAI } from "./ai.js"; // универсальный вызов ИИ
+import pool from "./db.js";
+import * as Sources from "./sources.js";
+import { classifyInteraction } from "./classifier.js";
+import { callAI } from "./ai.js";
 import { buildSystemPrompt } from "./systemPrompt.js";
-import { getProjectSection, upsertProjectSection } from "./projectMemory.js";
+import { getProjectSection } from "./projectMemory.js";
 
+// ============================================================================
 // === Константы ===
+// ============================================================================
 const MAX_HISTORY_MESSAGES = 20;
-
-// === РЕЖИМЫ ОТВЕТОВ (answer_mode) ===
 const DEFAULT_ANSWER_MODE = "short";
-const answerModeByChat = new Map(); // chatId -> режим
+const answerModeByChat = new Map(); // chat_id -> режим
 
+// ============================================================================
+// === Answer Mode ===
+// ============================================================================
 function getAnswerMode(chatIdStr) {
   return answerModeByChat.get(chatIdStr) || DEFAULT_ANSWER_MODE;
 }
@@ -23,34 +28,39 @@ function setAnswerMode(chatIdStr, mode) {
   answerModeByChat.set(chatIdStr, mode);
 }
 
-// === PROJECT MEMORY HELPERS (3A) ===
+// ============================================================================
+// === PROJECT MEMORY HELPERS ===
+// ============================================================================
 async function loadProjectContext() {
   try {
     const roadmap = await getProjectSection(undefined, "roadmap");
     const workflow = await getProjectSection(undefined, "workflow");
 
     const parts = [];
-
     if (roadmap?.content) parts.push(`ROADMAP:\n${roadmap.content}`);
     if (workflow?.content) parts.push(`WORKFLOW:\n${workflow.content}`);
 
     if (parts.length === 0) return "";
 
-    const fullText = parts.join("\n\n");
-    return fullText.slice(0, 4000); // ограничение для промпта
+    const full = parts.join("\n\n");
+    return full.slice(0, 4000);
   } catch (err) {
     console.error("❌ loadProjectContext error:", err);
     return "";
   }
 }
 
+// ============================================================================
 // === Express сервер ===
+// ============================================================================
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// ============================================================================
 // === Telegram Bot ===
+// ============================================================================
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
 if (!token) {
@@ -60,7 +70,9 @@ if (!token) {
 
 const bot = new TelegramBot(token);
 
+// ============================================================================
 // === РОЛИ / ПРАВА ===
+// ============================================================================
 function isMonarch(chatIdStr) {
   return chatIdStr === "677128443";
 }
@@ -69,30 +81,32 @@ async function requireMonarch(chatIdStr, commandName) {
   if (!isMonarch(chatIdStr)) {
     await bot.sendMessage(
       chatIdStr,
-      `⛔ Команда ${commandName} доступна только монарху Королевства GARYA.`
+      `⛔ Команда ${commandName} доступна только монарху.`
     );
     return false;
   }
   return true;
 }
 
+// ============================================================================
 // === RATE LIMITS ===
+// ============================================================================
 const rateLimitState = new Map();
 
 function checkRateLimit(key, minIntervalMs) {
   const now = Date.now();
   const last = rateLimitState.get(key) || 0;
   const diff = now - last;
-
   if (diff < minIntervalMs) {
     return { limited: true, retryInMs: minIntervalMs - diff };
   }
-
   rateLimitState.set(key, now);
   return { limited: false, retryInMs: 0 };
 }
 
-// === Telegram Webhook ===
+// ============================================================================
+// === Webhook ===
+// ============================================================================
 const WEBHOOK_URL = `https://garya-bot.onrender.com/webhook/${token}`;
 bot.setWebHook(WEBHOOK_URL);
 
@@ -109,13 +123,11 @@ app.post(`/webhook/${token}`, (req, res) => {
   }
 });
 
-app.get(`/webhook/${token}`, (req, res) => {
-  res.send("OK");
-});
-
+// ============================================================================
 // === Запуск сервера ===
+// ============================================================================
 app.listen(PORT, () => {
-  console.log("🌐 Web server started on port:", PORT);
+  console.log("🌐 Server started:", PORT);
 
   Sources.ensureDefaultSources()
     .then(() => console.log("📡 Sources registry synced."))
@@ -124,25 +136,28 @@ app.listen(PORT, () => {
     );
 });
 
+// ============================================================================
 // === Память диалога ===
+// ============================================================================
 async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES) {
   try {
     const result = await pool.query(
       `
-        SELECT role, content
-        FROM chat_memory
-        WHERE chat_id = $1
-        ORDER BY id DESC
-        LIMIT $2
+      SELECT role, content
+      FROM chat_memory
+      WHERE chat_id = $1
+      ORDER BY id DESC
+      LIMIT $2
       `,
       [chatId, limit]
     );
+
     return result.rows.reverse().map((row) => ({
       role: row.role,
       content: row.content,
     }));
   } catch (err) {
-    console.error("❌ getChatHistory DB error:", err);
+    console.error("❌ getChatHistory error:", err);
     return [];
   }
 }
@@ -153,11 +168,11 @@ async function saveMessageToMemory(chatId, role, content) {
   try {
     const lastRes = await pool.query(
       `
-        SELECT role, content
-        FROM chat_memory
-        WHERE chat_id = $1
-        ORDER BY id DESC
-        LIMIT 1
+      SELECT role, content
+      FROM chat_memory
+      WHERE chat_id = $1
+      ORDER BY id DESC
+      LIMIT 1
       `,
       [chatId]
     );
@@ -167,13 +182,13 @@ async function saveMessageToMemory(chatId, role, content) {
 
     await pool.query(
       `
-        INSERT INTO chat_memory (chat_id, role, content)
-        VALUES ($1, $2, $3)
+      INSERT INTO chat_memory (chat_id, role, content)
+      VALUES ($1, $2, $3)
       `,
       [chatId, role, content]
     );
   } catch (err) {
-    console.error("❌ saveMessageToMemory DB error:", err);
+    console.error("❌ saveMessageToMemory error:", err);
   }
 }
 
@@ -182,11 +197,13 @@ async function saveChatPair(chatId, userText, assistantText) {
     await saveMessageToMemory(chatId, "user", userText);
     await saveMessageToMemory(chatId, "assistant", assistantText);
   } catch (err) {
-    console.error("❌ saveChatPair DB error:", err);
+    console.error("❌ saveChatPair error:", err);
   }
 }
 
+// ============================================================================
 // === Профиль пользователя ===
+// ============================================================================
 async function ensureUserProfile(msg) {
   const chatId = msg.chat.id.toString();
   const nameFromTelegram = msg.from?.first_name || null;
@@ -208,8 +225,8 @@ async function ensureUserProfile(msg) {
     if (existing.rows.length === 0) {
       await pool.query(
         `
-          INSERT INTO users (chat_id, name, role, language)
-          VALUES ($1, $2, $3, $4)
+        INSERT INTO users (chat_id, name, role, language)
+        VALUES ($1, $2, $3, $4)
         `,
         [chatId, finalName, role, msg.from?.language_code || null]
       );
@@ -228,24 +245,19 @@ async function ensureUserProfile(msg) {
   }
 }
 
-// === TASK ENGINE ===
+// ============================================================================
+// === TASK ENGINE: CREATE TASKS ===
+// ============================================================================
 async function createDemoTask(userChatId) {
   const payload = { note: "Это демо-задача." };
 
   const result = await pool.query(
     `
-      INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id
+    INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING id
     `,
-    [
-      userChatId,
-      "Demo task",
-      "demo",
-      payload,
-      null,
-      "active",
-    ]
+    [userChatId, "Demo task", "demo", payload, null, "active"]
   );
 
   return result.rows[0].id;
@@ -259,9 +271,9 @@ async function createManualTask(userChatId, promptText) {
 
   const result = await pool.query(
     `
-      INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, created_at
+    INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING id, created_at
     `,
     [userChatId, title, "manual", payload, null, "active"]
   );
@@ -278,9 +290,9 @@ async function createTestPriceMonitorTask(userChatId) {
 
   const result = await pool.query(
     `
-      INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, created_at
+    INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING id, created_at
     `,
     [
       userChatId,
@@ -295,17 +307,19 @@ async function createTestPriceMonitorTask(userChatId) {
   return result.rows[0];
 }
 
-// === TASK ENGINE (продолжение) ===
+// ============================================================================
+// === TASK ENGINE — чтение и выполнение задач ===
+// ============================================================================
 
 // Получить последние задачи пользователя
 async function getUserTasks(userChatId, limit = 10) {
   const result = await pool.query(
     `
-      SELECT id, title, type, status, schedule, last_run, created_at
-      FROM tasks
-      WHERE user_chat_id = $1
-      ORDER BY id DESC
-      LIMIT $2
+    SELECT id, title, type, status, schedule, last_run, created_at
+    FROM tasks
+    WHERE user_chat_id = $1
+    ORDER BY id DESC
+    LIMIT $2
     `,
     [userChatId, limit]
   );
@@ -316,34 +330,34 @@ async function getUserTasks(userChatId, limit = 10) {
 async function getTaskById(userChatId, taskId) {
   const result = await pool.query(
     `
-      SELECT id, user_chat_id, title, type, status, payload, schedule, last_run, created_at
-      FROM tasks
-      WHERE user_chat_id = $1 AND id = $2
-      LIMIT 1
+    SELECT id, user_chat_id, title, type, status, payload, schedule, last_run, created_at
+    FROM tasks
+    WHERE user_chat_id = $1 AND id = $2
+    LIMIT 1
     `,
     [userChatId, taskId]
   );
   return result.rows[0] || null;
 }
 
-// Изменить статус задачи
+// Обновить статус задачи
 async function updateTaskStatus(userChatId, taskId, newStatus) {
   await pool.query(
     `
-      UPDATE tasks
-      SET status = $1
-      WHERE user_chat_id = $2 AND id = $3
+    UPDATE tasks
+    SET status = $1
+    WHERE user_chat_id = $2 AND id = $3
     `,
     [newStatus, userChatId, taskId]
   );
 }
 
-// Запустить задачу через ИИ
+// Выполнить задачу через ИИ
 async function runTaskWithAI(task, chatId) {
   if (!process.env.OPENAI_API_KEY) {
     await bot.sendMessage(
       chatId,
-      "⚠️ ИИ недоступен (нет OPENAI_API_KEY). Задача не может быть выполнена."
+      "⚠️ ИИ недоступен (нет OPENAI_API_KEY)."
     );
     return;
   }
@@ -365,21 +379,21 @@ async function runTaskWithAI(task, chatId) {
 — структурированный ответ
 
 Если задача требует внешних API или недоступных данных — НЕ выдумывай.
-Опиши, что можно сделать аналитически, и дай полезный план действий.
+Дай аналитический вариант решения и план действий.
       `,
     },
     {
       role: "user",
-      content: `Задача #${task.id} (${task.type}):\n"${promptText}"`,
+      content: `Задача #${task.id} (${task.type}): "${promptText}"`,
     },
   ];
 
   let reply = "";
   try {
     reply = await callAI(messages, "high");
-  } catch (e) {
-    console.error("❌ AI error:", e);
-    reply = "⚠️ Ошибка вызова ИИ — задача не выполнена.";
+  } catch (err) {
+    console.error("❌ AI error:", err);
+    reply = "⚠️ Ошибка вызова ИИ.";
   }
 
   await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
@@ -392,7 +406,9 @@ async function runTaskWithAI(task, chatId) {
   );
 }
 
+// ============================================================================
 // === SOURCES HELPERS ===
+// ============================================================================
 
 async function getAllSourcesSafe() {
   try {
@@ -402,22 +418,21 @@ async function getAllSourcesSafe() {
     const res = await pool.query(`SELECT * FROM sources ORDER BY id ASC;`);
     return res.rows;
   } catch (err) {
-    console.error("❌ Error in getAllSourcesSafe:", err);
+    console.error("❌ getAllSourcesSafe error:", err);
     return [];
   }
 }
 
 function formatSourcesList(sources) {
   if (!sources || sources.length === 0) {
-    return (
-      "📡 Источники данных (Sources Layer)\n\n" +
-      "Пока в реестре нет ни одного источника."
-    );
+    return "📡 Источники данных: пока пусто.";
   }
 
   let text = "📡 Источники данных (Sources Layer):\n\n";
+
   for (const s of sources) {
     const created = s.created_at ? new Date(s.created_at).toISOString() : "—";
+
     text +=
       `#${s.id} — ${s.name}\n` +
       `Ключ: ${s.key}\n` +
@@ -425,26 +440,33 @@ function formatSourcesList(sources) {
       (s.url ? `URL: ${s.url}\n` : "") +
       `Создан: ${created}\n\n`;
   }
+
   return text;
 }
 
-// === File & Media Intake (скелет) ===
+// ============================================================================
+// === File & Media Intake (пока только фиксация факта загрузки) ===
+// ============================================================================
 function describeMediaAttachments(msg) {
   const parts = [];
 
   if (Array.isArray(msg.photo) && msg.photo.length > 0) parts.push("фото/скриншот");
+
   if (msg.document) {
     const doc = msg.document;
     const name = doc.file_name || "документ";
     const mime = doc.mime_type ? ` (${doc.mime_type})` : "";
     parts.push(`документ "${name}"${mime}`);
   }
+
   if (msg.voice) parts.push("голосовое сообщение");
+
   if (msg.audio) {
     const a = msg.audio;
     const title = a.title || "аудио";
     parts.push(`аудио "${title}"`);
   }
+
   if (msg.video) parts.push("видео");
   if (msg.sticker) parts.push("стикер");
   if (msg.animation) parts.push("GIF/анимация");
@@ -453,23 +475,21 @@ function describeMediaAttachments(msg) {
   return parts.join(", ");
 }
 
+// ============================================================================
 // === Команда /test_source ===
+// ============================================================================
 bot.onText(/\/test_source (.+)/, async (msg, match) => {
   const chatId = msg.chat.id.toString();
   const key = match[1].trim();
 
-  // 🔒 Только монарх
   if (!(await requireMonarch(chatId, "/test_source"))) return;
 
-  // ⏱ Rate-limit: 1 раз в 10 сек
   const rateKey = `test_source:${chatId}:${key}`;
   const rl = checkRateLimit(rateKey, 10_000);
+
   if (rl.limited) {
     const sec = Math.ceil(rl.retryInMs / 1000);
-    await bot.sendMessage(
-      chatId,
-      `⏱ /test_source для "${key}" можно вызывать раз в 10 сек. Подожди ${sec} сек.`
-    );
+    await bot.sendMessage(chatId, `⏱ Подожди ${sec} сек перед повтором.`);
     return;
   }
 
@@ -481,7 +501,7 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
     if (!result.ok) {
       await bot.sendMessage(
         chatId,
-        `❌ Ошибка: ${result.error || "неизвестная ошибка"}`
+        `❌ Ошибка: ${result.error || "unknown"}`
       );
       return;
     }
@@ -492,24 +512,28 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
         ? result.httpStatus
         : result.meta?.httpStatus ?? "—";
 
-    const previewObj = {
-      ok: result.ok,
-      sourceKey: key,
-      type,
-      httpStatus,
-      data:
-        result.data ||
-        result.htmlSnippet ||
-        result.xmlSnippet ||
-        result.items ||
-        null,
-    };
-
-    const preview = JSON.stringify(previewObj, null, 2).slice(0, 800);
+    const preview = JSON.stringify(
+      {
+        ok: result.ok,
+        sourceKey: key,
+        type,
+        httpStatus,
+        data:
+          result.data ||
+          result.items ||
+          result.htmlSnippet ||
+          result.xmlSnippet ||
+          null,
+      },
+      null,
+      2
+    ).slice(0, 800);
 
     await bot.sendMessage(
       chatId,
-      `✅ Источник работает!\n\nКлюч: ${key}\nТип: ${type}\nHTTP: ${httpStatus}\n\n📄 Данные (обрезано):\n${preview}`
+      `✅ Источник работает!\n\n` +
+        `Ключ: ${key}\nТип: ${type}\nHTTP: ${httpStatus}\n\n` +
+        `📄 Данные (обрезано):\n${preview}`
     );
   } catch (err) {
     console.error("❌ /test_source error:", err);
@@ -517,7 +541,9 @@ bot.onText(/\/test_source (.+)/, async (msg, match) => {
   }
 });
 
-// === /diag_source
+// ============================================================================
+// === Команда /diag_source ===
+// ============================================================================
 bot.onText(/\/diag_source (.+)/, async (msg, match) => {
   const chatId = msg.chat.id.toString();
   const key = match[1].trim();
@@ -526,16 +552,14 @@ bot.onText(/\/diag_source (.+)/, async (msg, match) => {
 
   const rateKey = `diag_source:${chatId}:${key}`;
   const rl = checkRateLimit(rateKey, 10_000);
+
   if (rl.limited) {
     const sec = Math.ceil(rl.retryInMs / 1000);
-    await bot.sendMessage(
-      chatId,
-      `⏱ /diag_source можно раз в 10 сек. Жди ${sec} сек.`
-    );
+    await bot.sendMessage(chatId, `⏱ Жди ${sec} сек.`);
     return;
   }
 
-  await bot.sendMessage(chatId, `🩺 Диагностика источника "${key}"...`);
+  await bot.sendMessage(chatId, `🩺 Диагностика "${key}"...`);
 
   try {
     const result = await Sources.diagnoseSource(key);
@@ -545,18 +569,16 @@ bot.onText(/\/diag_source (.+)/, async (msg, match) => {
         chatId,
         `❌ НЕ работает.\nКлюч: ${key}\nТип: ${result.type}\nКод: ${
           result.httpStatus ?? "—"
-        }\nОшибка: ${result.error || "unknown"}`
+        }\nОшибка: ${result.error || "unknown"}``
       );
       return;
     }
 
-    const dataPreview = JSON.stringify(result.data, null, 2).slice(0, 800);
+    const preview = JSON.stringify(result.data, null, 2).slice(0, 800);
 
     await bot.sendMessage(
       chatId,
-      `✅ Источник работает.\nКлюч: ${key}\nТип: ${result.type}\nСтатус: ${
-        result.httpStatus ?? "—"
-      }\n\n📄 Данные:\n${dataPreview}`
+      `✅ Источник OK.\nКлюч: ${key}\nТип: ${result.type}\nСтатус: ${result.httpStatus}\n\n📄 Данные:\n${preview}`
     );
   } catch (err) {
     console.error("❌ /diag_source error:", err);
@@ -564,7 +586,9 @@ bot.onText(/\/diag_source (.+)/, async (msg, match) => {
   }
 });
 
-// === /sources_diag
+// ============================================================================
+// === Команда /sources_diag ===
+// ============================================================================
 bot.onText(/\/sources_diag/, async (msg) => {
   const chatId = msg.chat.id.toString();
 
@@ -572,29 +596,23 @@ bot.onText(/\/sources_diag/, async (msg) => {
 
   const rateKey = `sources_diag:${chatId}`;
   const rl = checkRateLimit(rateKey, 60_000);
+
   if (rl.limited) {
     const sec = Math.ceil(rl.retryInMs / 1000);
-    await bot.sendMessage(
-      chatId,
-      `⏱ /sources_diag можно вызывать раз в 60 сек. Жди ${sec} сек.`
-    );
+    await bot.sendMessage(chatId, `⏱ Жди ${sec} сек.`);
     return;
   }
 
-  await bot.sendMessage(chatId, "🩺 Запускаю диагностику всех источников...");
+  await bot.sendMessage(chatId, "🩺 Проверяю все источники...");
 
   try {
     const results = await Sources.runSourceDiagnosticsOnce();
 
     let text =
-      `🧪 Диагностика завершена.\nВсего: ${results.total}\n` +
-      `OK: ${results.okCount}\n` +
-      `Ошибки: ${results.failCount}\n\n`;
+      `🧪 Диагностика завершена.\nВсего: ${results.total}\nOK: ${results.okCount}\nПроблемы: ${results.failCount}\n\n`;
 
     for (const item of results.items) {
-      text += `• ${item.key} (${item.type}) — ${
-        item.ok ? "✅ OK" : `❌ ${item.error}`
-      }\n`;
+      text += `• ${item.key} — ${item.ok ? "✅ OK" : `❌ ${item.error}`}\n`;
     }
 
     await bot.sendMessage(chatId, text);
@@ -604,7 +622,9 @@ bot.onText(/\/sources_diag/, async (msg) => {
   }
 });
 
-// === /mode
+// ============================================================================
+// === Команда /mode — смена длины ответа модели ===
+// ============================================================================
 bot.onText(/\/mode (short|normal|long)/, async (msg, match) => {
   const chatIdStr = msg.chat.id.toString();
   const mode = match[1];
@@ -617,19 +637,24 @@ bot.onText(/\/mode (short|normal|long)/, async (msg, match) => {
   );
 });
 
-// ========================================================
-// === ГЛАВНЫЙ ХЭНДЛЕР СООБЩЕНИЙ ===
-// ========================================================
+// ============================================================================
+// === ГЛАВНЫЙ ОБРАБОТЧИК СООБЩЕНИЙ ===
+// ============================================================================
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id.toString();
 
+  // Пропускаем системные события Telegram
   if (!msg.text && !msg.caption) return;
 
+  // Обновление профиля
   await ensureUserProfile(msg);
 
+  // Основной текст сообщения
   const userText = msg.text || msg.caption || "";
 
-  // --- FILE-INTAKE (пока только объявление)
+  // ======================================================================
+  // === FILE INTAKE (фото/документы/аудио/видео) — пока только фиксация ===
+  // ======================================================================
   const attachments = describeMediaAttachments(msg);
   if (attachments) {
     await bot.sendMessage(
@@ -637,27 +662,79 @@ bot.on("message", async (msg) => {
       `📎 Получено вложение: ${attachments}\n` +
         `Модуль File-Intake включится на Этапе 7.`
     );
+    // Вложение мы не классифицируем сейчас
   }
 
-  // --- КЛАССИФИКАЦИЯ
+  // ======================================================================
+  // === КЛАССИФИКАЦИЯ (robot / ai / DOCUMENT FIX) ===
+  // ======================================================================
   let classification = null;
+
   try {
     classification = await classifyInteraction({ userText });
   } catch (err) {
     console.error("❌ classifyInteraction error:", err);
+    classification = { taskType: "chat", requiresAI: true, aiCostLevel: "low" };
   }
 
-  // --- ЛОГИРОВАНИЕ
+  // Логирование (для тарифа, статистики)
   try {
     await logInteraction(chatId, classification);
   } catch (err) {
     console.error("❌ logInteraction error:", err);
   }
 
-  // --- Режим токенов
+  // Текущий режим длины ответа
   const answerMode = getAnswerMode(chatId);
 
-  // --- Если robot-слой вернул ответ
+  // ======================================================================
+  // === ГЛАВНЫЙ FIX (V3): документ = НИКОГДА НЕ ЗАПУСКАТЬ SOURCES ===
+  // ======================================================================
+  //
+  // Если classifyInteraction определил:
+  //    taskType === DOCUMENT
+  //
+  // → это текстовый документ (роадмап, файл, список, большая структура).
+  // → СГ должен:
+  //      • НЕ выполнять команды sources
+  //      • НЕ реагировать как робот-слой
+  //      • НЕ запускать диагностику и тесты
+  //      • Обработать документ только через ИИ (или как текст)
+  //
+  // ======================================================================
+
+  if (classification.taskType === "document") {
+    const history = await getChatHistory(chatId, MAX_HISTORY_MESSAGES);
+    const projectMemoryContext = await loadProjectContext();
+
+    const messages = [
+      {
+        role: "system",
+        content: buildSystemPrompt({
+          answerMode,
+          projectMemoryContext,
+        }),
+      },
+      ...history.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user", content: userText },
+    ];
+
+    let reply = "";
+    try {
+      reply = await callAI(messages, "low"); // документы = дешёвая обработка
+    } catch (err) {
+      console.error("❌ AI error:", err);
+      reply = "⚠️ Ошибка обработки документа.";
+    }
+
+    await saveChatPair(chatId, userText, reply);
+    await bot.sendMessage(chatId, reply);
+    return;
+  }
+
+  // ======================================================================
+  // === Если robot-слой вернул ответ (responseType === "robot") ===
+  // ======================================================================
   if (classification?.responseType === "robot") {
     const reply = classification.robotReply || "🤖 Готово.";
     await saveChatPair(chatId, userText, reply);
@@ -665,7 +742,9 @@ bot.on("message", async (msg) => {
     return;
   }
 
-  // --- Если нет OpenAI
+  // ======================================================================
+  // === Нет OpenAI → ответ без ИИ ===
+  // ======================================================================
   if (!process.env.OPENAI_API_KEY) {
     const text = "⚠️ ИИ недоступен — нет ключа.";
     await saveChatPair(chatId, userText, text);
@@ -673,7 +752,9 @@ bot.on("message", async (msg) => {
     return;
   }
 
-  // --- Грузим память + Project Memory
+  // ======================================================================
+  // === Подготовка контекста (history + project memory) ===
+  // ======================================================================
   const history = await getChatHistory(chatId, MAX_HISTORY_MESSAGES);
   const projectMemoryContext = await loadProjectContext();
 
@@ -689,7 +770,9 @@ bot.on("message", async (msg) => {
     { role: "user", content: userText },
   ];
 
-  // --- Вызов ИИ
+  // ======================================================================
+  // === Вызов ИИ ===
+  // ======================================================================
   let reply = "";
   try {
     reply = await callAI(messages, classification?.aiCostLevel || "high");
@@ -698,11 +781,14 @@ bot.on("message", async (msg) => {
     reply = "⚠️ Ошибка вызова ИИ.";
   }
 
-  // --- Сохранение в память
+  // Сохранение в память
   await saveChatPair(chatId, userText, reply);
 
+  // Ответ пользователю
   await bot.sendMessage(chatId, reply);
 });
 
+// ============================================================================
 // === LOG ===
+// ============================================================================
 console.log("🤖 AI Bot is running...");

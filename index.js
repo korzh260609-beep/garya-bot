@@ -60,6 +60,45 @@ if (!token) {
 
 const bot = new TelegramBot(token);
 
+// === РОЛИ / ПРАВА ===
+function isMonarch(chatIdStr) {
+  // chat_id монарха
+  return chatIdStr === "677128443";
+}
+
+async function requireMonarch(chatIdStr, commandName) {
+  if (!isMonarch(chatIdStr)) {
+    await bot.sendMessage(
+      chatIdStr,
+      `⛔ Команда ${commandName} доступна только монарху Королевства GARYA.`
+    );
+    return false;
+  }
+  return true;
+}
+
+// === RATE LIMITS ДЛЯ КОМАНД И SOURCES ===
+const rateLimitState = new Map(); // key -> lastTs (ms)
+
+/**
+ * Проверка лимита.
+ * @param {string} key - уникальный ключ (например "test_source:chatId:coingecko_btc")
+ * @param {number} minIntervalMs - минимальный интервал между вызовами
+ * @returns {{limited: boolean, retryInMs: number}}
+ */
+function checkRateLimit(key, minIntervalMs) {
+  const now = Date.now();
+  const last = rateLimitState.get(key) || 0;
+  const diff = now - last;
+
+  if (diff < minIntervalMs) {
+    return { limited: true, retryInMs: minIntervalMs - diff };
+  }
+
+  rateLimitState.set(key, now);
+  return { limited: false, retryInMs: 0 };
+}
+
 // === Telegram Webhook ===
 const WEBHOOK_URL = `https://garya-bot.onrender.com/webhook/${token}`;
 bot.setWebHook(WEBHOOK_URL);
@@ -424,8 +463,25 @@ function describeMediaAttachments(msg) {
 
 // === Команда /test_source ===
 bot.onText(/\/test_source (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
+  const chatId = msg.chat.id.toString();
   const key = match[1].trim();
+
+  // 🔒 Только монарх
+  if (!(await requireMonarch(chatId, "/test_source"))) return;
+
+  // ⏱ Rate-limit: не чаще 1 раза в 10 секунд на chatId+key
+  const rateKey = `test_source:${chatId}:${key}`;
+  const rl = checkRateLimit(rateKey, 10_000);
+
+  if (rl.limited) {
+    const sec = Math.ceil(rl.retryInMs / 1000);
+    await bot.sendMessage(
+      chatId,
+      `⏱ Команду /test_source для "${key}" можно вызывать не чаще, чем раз в 10 секунд.\n` +
+      `Попробуй ещё раз через ~${sec} сек.`
+    );
+    return;
+  }
 
   await bot.sendMessage(chatId, `⏳ Тестирую источник "${key}"...`);
 
@@ -573,6 +629,23 @@ bot.onText(/\/run (\d+)/, async (msg, match) => {
 bot.onText(/\/sources/, async (msg) => {
   const chatId = msg.chat.id.toString();
 
+  // 🔒 Только монарх
+  if (!(await requireMonarch(chatId, "/sources"))) return;
+
+  // ⏱ Rate-limit: не чаще 1 раза в 5 секунд на chatId
+  const rateKey = `sources:${chatId}`;
+  const rl = checkRateLimit(rateKey, 5_000);
+
+  if (rl.limited) {
+    const sec = Math.ceil(rl.retryInMs / 1000);
+    await bot.sendMessage(
+      chatId,
+      `⏱ Команду /sources можно вызывать не чаще, чем раз в 5 секунд.\n` +
+      `Подожди ещё ~${sec} сек.`
+    );
+    return;
+  }
+
   try {
     const sources = await getAllSourcesSafe();
     const formatted = formatSourcesList(sources);
@@ -588,6 +661,23 @@ bot.onText(/\/sources/, async (msg) => {
 bot.onText(/\/diag_source (.+)/, async (msg, match) => {
   const chatId = msg.chat.id.toString();
   const key = match[1].trim();
+
+  // 🔒 Только монарх
+  if (!(await requireMonarch(chatId, "/diag_source"))) return;
+
+  // ⏱ Rate-limit: не чаще 1 раза в 10 секунд на chatId+key
+  const rateKey = `diag_source:${chatId}:${key}`;
+  const rl = checkRateLimit(rateKey, 10_000);
+
+  if (rl.limited) {
+    const sec = Math.ceil(rl.retryInMs / 1000);
+    await bot.sendMessage(
+      chatId,
+      `⏱ Команду /diag_source для "${key}" можно вызывать не чаще, чем раз в 10 секунд.\n` +
+      `Попробуй ещё раз через ~${sec} сек.`
+    );
+    return;
+  }
 
   await bot.sendMessage(chatId, `🩺 Диагностика источника "${key}"...`);
 
@@ -628,6 +718,23 @@ bot.onText(/\/diag_source (.+)/, async (msg, match) => {
 // === НОВАЯ КОМАНДА /sources_diag (ШАГ 5.11) ===
 bot.onText(/\/sources_diag/, async (msg) => {
   const chatId = msg.chat.id.toString();
+
+  // 🔒 Только монарх
+  if (!(await requireMonarch(chatId, "/sources_diag"))) return;
+
+  // ⏱ Rate-limit: глобальная диагностика не чаще 1 раза в 60 секунд на chatId
+  const rateKey = `sources_diag:${chatId}`;
+  const rl = checkRateLimit(rateKey, 60_000);
+
+  if (rl.limited) {
+    const sec = Math.ceil(rl.retryInMs / 1000);
+    await bot.sendMessage(
+      chatId,
+      `⏱ Команду /sources_diag можно вызывать не чаще, чем раз в минуту.\n` +
+      `Попробуй ещё раз через ~${sec} сек.`
+    );
+    return;
+  }
 
   await bot.sendMessage(chatId, "🩺 Запускаю диагностику всех источников...");
 

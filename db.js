@@ -88,7 +88,7 @@ async function initDb() {
     // === Таблица проверок источников (Diagnostics) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_checks (
-        id SERIAL PRIMARY PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         source_key TEXT NOT NULL,
         ok BOOLEAN NOT NULL,
         http_status INT,

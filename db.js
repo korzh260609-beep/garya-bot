@@ -20,7 +20,7 @@ const pool = new Pool({
 
 async function initDb() {
   try {
-    // === Таблица для памяти диалога ===
+    // === Таблица памяти диалога ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS chat_memory (
         id SERIAL PRIMARY KEY,
@@ -43,31 +43,31 @@ async function initDb() {
       );
     `);
 
-    // === УНИВЕРСАЛЬНАЯ ТАБЛИЦА ЗАДАЧ (Task Engine) ===
+    // === Таблица задач (Task Engine) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tasks (
         id SERIAL PRIMARY KEY,
-        user_chat_id TEXT NOT NULL,         -- для кого задача (любой пользователь)
-        title TEXT NOT NULL,                -- короткое имя задачи
-        type TEXT NOT NULL,                 -- тип: manual / price_monitor / news_monitor / ...
-        payload JSONB NOT NULL,             -- параметры задачи (универсально, под любой проект)
-        schedule TEXT,                      -- строка расписания (cron/описание)
-        status TEXT DEFAULT 'active',       -- active / paused / done / error / deleted
-        last_run TIMESTAMPTZ,               -- когда последний раз выполнялась
+        user_chat_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        type TEXT NOT NULL,
+        payload JSONB NOT NULL,
+        schedule TEXT,
+        status TEXT DEFAULT 'active',
+        last_run TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // === Таблица источников данных (Sources Layer) ===
+    // === Таблица источников данных ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS sources (
         id SERIAL PRIMARY KEY,
-        key TEXT NOT NULL UNIQUE,              -- короткий код источника
-        name TEXT NOT NULL,                    -- человекочитаемое имя
-        type TEXT NOT NULL,                    -- 'rss', 'http_json', 'html', 'custom', ...
-        url TEXT,                              -- основной URL (если есть)
-        is_enabled BOOLEAN NOT NULL DEFAULT TRUE, -- включён / выключен (НОРМАЛЬНОЕ НАЗВАНИЕ КОЛОНКИ)
-        config JSONB DEFAULT '{}'::jsonb,      -- параметры, фильтры и т.п.
+        key TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        url TEXT,
+        is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        config JSONB DEFAULT '{}'::jsonb,
         last_success_at TIMESTAMPTZ,
         last_error_at TIMESTAMPTZ,
         last_error_message TEXT,
@@ -76,75 +76,70 @@ async function initDb() {
       );
     `);
 
-    // === Мягкая миграция: переименовать старую колонку enabled → is_enabled ===
-    // Если старый столбец есть — этот ALTER сработает.
-    // Если его нет — просто поймаем ошибку и игнорируем.
+    // === Мягкая миграция enabled → is_enabled ===
     try {
       await pool.query(`
         ALTER TABLE sources
         RENAME COLUMN enabled TO is_enabled;
       `);
-      console.log("🔧 Migrate: переименовал sources.enabled -> sources.is_enabled");
-    } catch (e) {
-      // Нормально, если такой колонки нет — значит уже новая схема.
-    }
+      console.log("🔧 Migrate: sources.enabled -> sources.is_enabled");
+    } catch (e) {}
 
-    // === Таблица проверок источников (Source Diagnostics) ===
+    // === Таблица проверок источников (Diagnostics) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_checks (
         id SERIAL PRIMARY KEY,
-        source_key TEXT NOT NULL,         -- ключ источника (sources.key)
-        ok BOOLEAN NOT NULL,              -- результат проверки: true/false
-        http_status INT,                  -- HTTP-код, если есть
-        message TEXT,                     -- краткое описание результата/ошибки
-        meta JSONB,                       -- дополнительные данные
+        source_key TEXT NOT NULL,
+        ok BOOLEAN NOT NULL,
+        http_status INT,
+        message TEXT,
+        meta JSONB,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // === Логи запросов к источникам (Sources Layer) ===
+    // === Логи запросов к источникам ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_logs (
         id SERIAL PRIMARY KEY,
-        source_key TEXT NOT NULL,          -- ключ источника из таблицы sources
-        source_type TEXT,                  -- тип источника (html/rss/coingecko/virtual)
-        http_status INTEGER,               -- HTTP статус (если есть)
-        ok BOOLEAN DEFAULT false,          -- успешно или нет
-        duration_ms INTEGER,               -- длительность запроса в миллисекундах
-        params JSONB,                      -- параметры запроса (tickers, url и т.п.)
-        extra JSONB,                       -- сырые ошибки, ответы, служебные данные
+        source_key TEXT NOT NULL,
+        source_type TEXT,
+        http_status INTEGER,
+        ok BOOLEAN DEFAULT false,
+        duration_ms INTEGER,
+        params JSONB,
+        extra JSONB,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // === Лог обращений к ИИ (taskType + aiCostLevel) ===
+    // === Логи взаимодействий с ИИ ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS interaction_logs (
         id SERIAL PRIMARY KEY,
-        chat_id TEXT NOT NULL,                 -- чей запрос (ID чата)
-        task_type TEXT NOT NULL,               -- chat / report / signal / news / ...
-        ai_cost_level TEXT NOT NULL,           -- low / medium / high
+        chat_id TEXT NOT NULL,
+        task_type TEXT NOT NULL,
+        ai_cost_level TEXT NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // === Таблица Project Memory (долговременная память проекта GARYA AI) ===
+    // === Таблица Project Memory (память проекта GARYA AI) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS project_memory (
         id SERIAL PRIMARY KEY,
-        project_key TEXT NOT NULL,         -- например: 'garya_ai'
-        section TEXT NOT NULL,             -- 'roadmap' | 'workflow' | 'tz' | 'notes' ...
-        title TEXT,                        -- короткий заголовок записи
-        content TEXT NOT NULL,             -- основной текст (markdown/обычный текст)
-        tags TEXT[] DEFAULT '{}',          -- теги для фильтрации
-        meta JSONB DEFAULT '{}'::jsonb,    -- произвольные доп. данные
-        schema_version INTEGER DEFAULT 1,  -- версия схемы project memory
+        project_key TEXT NOT NULL,
+        section TEXT NOT NULL,
+        title TEXT,
+        content TEXT NOT NULL,
+        tags TEXT[] DEFAULT '{}',
+        meta JSONB DEFAULT '{}'::jsonb,
+        schema_version INTEGER DEFAULT 1,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // Индекс для быстрых запросов по проекту и секции
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_project_memory_project_section
       ON project_memory (project_key, section);
@@ -158,7 +153,7 @@ async function initDb() {
   }
 }
 
-// Инициализируем таблицы один раз при старте сервиса
+// Инициализация таблиц при старте
 initDb();
 
 export default pool;

@@ -1,11 +1,12 @@
 // classifier.js
-// Скелет классификатора задач и пример оценки "дороговизны" ИИ
+// Расширенный классификатор (фикс robot-слоя и документов)
 
 export const TASK_TYPES = {
   CHAT: "chat",
   REPORT: "report",
   SIGNAL: "signal",
   NEWS: "news",
+  DOCUMENT: "document",
   UNKNOWN: "unknown",
 };
 
@@ -16,24 +17,43 @@ export const AI_COST_LEVELS = {
 };
 
 /**
- * Классифицирует запрос пользователя:
- *  - taskType   — тип задачи (chat / report / signal / news / unknown)
- *  - requiresAI — нужен ли вообще ИИ (для логов и будущих оптимизаций)
- *  - aiCostLevel — условная «стоимость» ответа (low / medium / high)
- *
- * Пока это лёгкий скелет с простыми эвристиками. Позже можно расширять
- * и/или вынести правила в БД/конфиг.
+ * Классифицирует запрос пользователя.
+ * Исправляет проблему, когда длинный текст (роадмап, документ)
+ * ошибочно активировал robot-слой (sources, diagnostics).
  */
 export function classifyInteraction({ userText } = {}) {
   const rawText = typeof userText === "string" ? userText : "";
   const text = rawText.toLowerCase().trim();
 
-  // По умолчанию — обычный чат, дешёвый ответ
   let taskType = TASK_TYPES.CHAT;
   let aiCostLevel = AI_COST_LEVELS.LOW;
   let requiresAI = true;
 
-  // Если это команда вида "/something" — считаем служебным, без ИИ
+  // ====================================================
+  // 1) ОБРАБОТКА ДОКУМЕНТОВ / БОЛЬШИХ ТЕКСТОВ
+  // ====================================================
+
+  const lineCount = rawText.split("\n").length;
+
+  const looksLikeDocument =
+    rawText.length > 300 ||              // длинный текст
+    lineCount > 5 ||                     // много строк
+    rawText.includes("этап ") ||         // структура роадмапа
+    rawText.includes("roadmap") ||       // англ варианты
+    /^[\s\S]*?\d+\./m.test(rawText);     // многоуровневые списки
+
+  if (looksLikeDocument) {
+    return {
+      taskType: TASK_TYPES.DOCUMENT,
+      requiresAI: true,
+      aiCostLevel: AI_COST_LEVELS.LOW,
+    };
+  }
+
+  // ====================================================
+  // 2) КОМАНДЫ УЧИТЫВАЮТСЯ ТОЛЬКО ЕСЛИ ВНАЧАЛЕ СООБЩЕНИЯ
+  // ====================================================
+
   if (text.startsWith("/")) {
     return {
       taskType: TASK_TYPES.CHAT,
@@ -42,7 +62,9 @@ export function classifyInteraction({ userText } = {}) {
     };
   }
 
-  // --- Простейшие эвристики по ключевым словам ---
+  // ====================================================
+  // 3) ОСНОВНЫЕ ТИПЫ ЗАДАЧ
+  // ====================================================
 
   // Отчёты / аналитика
   if (
@@ -77,23 +99,31 @@ export function classifyInteraction({ userText } = {}) {
     aiCostLevel = AI_COST_LEVELS.MEDIUM;
   }
 
-  // Явный запрос на большой объём текста — сразу HIGH
+  // ====================================================
+  // 4) ЗАПРОСЫ НА БОЛЬШИЕ ОТЧЁТЫ = HIGH COST
+  // ====================================================
+
   if (
-    text.includes("полный отч") || // "полный отчёт/отчет"
+    text.includes("полный отч") ||
     text.includes("большой текст") ||
     text.includes("статью") ||
     text.includes("статья") ||
     text.includes("long report") ||
     text.includes("big article")
   ) {
-    taskType = taskType === TASK_TYPES.CHAT ? TASK_TYPES.REPORT : taskType;
+    taskType =
+      taskType === TASK_TYPES.CHAT ? TASK_TYPES.REPORT : taskType;
     aiCostLevel = AI_COST_LEVELS.HIGH;
   }
 
-  // Очень длинные сообщения по длине — потенциально дорогие
+  // Очень длинный текст → high cost
   if (text.length > 1500) {
     aiCostLevel = AI_COST_LEVELS.HIGH;
   }
+
+  // ====================================================
+  // 5) ВСЁ ОСТАЛЬНОЕ = AI чат
+  // ====================================================
 
   return {
     taskType,

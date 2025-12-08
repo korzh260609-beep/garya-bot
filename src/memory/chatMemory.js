@@ -1,7 +1,8 @@
 // memory/chatMemory.js
 // Работа с таблицей chat_memory: чтение истории, очистка, сохранение диалога.
 
-import pool from "../db.js";
+// Важно: db.js лежит в корне, поэтому путь "../../db.js"
+import pool from "../../db.js";
 
 const MAX_HISTORY_MESSAGES = 20;
 

@@ -1,7 +1,7 @@
 // users/userProfile.js
 // Профиль пользователя: создание/обновление записи в таблице users.
 
-import pool from "../db.js";
+import pool from "../../db.js";
 
 export async function ensureUserProfile(msg) {
   const chatId = msg.chat.id.toString();

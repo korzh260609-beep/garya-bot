@@ -7,18 +7,18 @@ import express from "express";
 import TelegramBot from "node-telegram-bot-api";
 
 // === CORE ===
-import { getAnswerMode, setAnswerMode } from "./core/answerMode.js";
-import { loadProjectContext } from "./core/projectContext.js";
+import { getAnswerMode, setAnswerMode } from "./src/core/answerMode.js";
+import { loadProjectContext } from "./src/core/projectContext.js";
 
 // === MEMORY ===
 import {
   getChatHistory,
   saveMessageToMemory,
   saveChatPair,
-} from "./memory/chatMemory.js";
+} from "./src/memory/chatMemory.js";
 
 // === USERS ===
-import { ensureUserProfile } from "./users/userProfile.js";
+import { ensureUserProfile } from "./src/users/userProfile.js";
 
 // === TASK ENGINE ===
 import {
@@ -29,7 +29,7 @@ import {
   getTaskById,
   // updateTaskStatus, // пока не используем
   runTaskWithAI,
-} from "./tasks/taskEngine.js";
+} from "./src/tasks/taskEngine.js";
 
 // === SOURCES LAYER ===
 import {
@@ -38,16 +38,16 @@ import {
   getAllSourcesSafe,
   fetchFromSourceKey,
   formatSourcesList,
-} from "./sources/sourcesDebug.js";
+} from "./src/sources/sourcesDebug.js";
 
 // === FILE-INTAKE / MEDIA ===
-import { summarizeMediaAttachment } from "./media/fileIntake.js";
+import { summarizeMediaAttachment } from "./src/media/fileIntake.js";
 
 // === LOGGING ===
-import { logInteraction } from "./logging/interactionLogs.js";
+import { logInteraction } from "./src/logging/interactionLogs.js";
 
 // === ROBOT MOCK-LAYER ===
-import { startRobotLoop } from "./robot/robotMock.js";
+import { startRobotLoop } from "./src/robot/robotMock.js";
 
 // === AI ===
 import { callAI } from "./ai.js";
@@ -469,4 +469,3 @@ bot.on("message", async (msg) => {
 
 // ============================================================================
 console.log("🤖 GARYA AI Bot (modular index.js) работает…");
-

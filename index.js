@@ -7,8 +7,8 @@ import express from "express";
 import TelegramBot from "node-telegram-bot-api";
 
 // === CORE ===
-import { getAnswerMode, setAnswerMode } from "./src/core/answerMode.js";
-import { loadProjectContext } from "./src/core/projectContext.js";
+import { getAnswerMode, setAnswerMode } from "./core/answerMode.js";
+import { loadProjectContext } from "./core/projectContext.js";
 
 // === MEMORY ===
 import {

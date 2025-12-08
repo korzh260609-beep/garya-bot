@@ -80,5 +80,48 @@ export async function saveMessageToMemory(chatId, role, content) {
   if (!content || !content.trim()) return;
 
   try {
-    // Берём последнее сообщен
+    // Берём последнее сообщение в этом чате
+    const lastRes = await pool.query(
+      `
+        SELECT role, content
+        FROM chat_memory
+        WHERE chat_id = $1
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      [chatId]
+    );
 
+    const last = lastRes.rows[0];
+    if (last && last.role === role && last.content === content) {
+      // Точно такой же текст уже последним — дубль не записываем
+      return;
+    }
+
+    await pool.query(
+      `
+        INSERT INTO chat_memory (chat_id, role, content)
+        VALUES ($1, $2, $3)
+      `,
+      [chatId, role, content]
+    );
+  } catch (err) {
+    console.error("❌ saveMessageToMemory DB error:", err);
+  }
+}
+
+/**
+ * Сохраняем связку пользователь + ассистент как пару сообщений.
+ */
+export async function saveChatPair(chatId, userText, assistantText) {
+  try {
+    // Сначала пользователь, потом ассистент — аккуратная история диалога
+    await saveMessageToMemory(chatId, "user", userText);
+    await saveMessageToMemory(chatId, "assistant", assistantText);
+
+    // ВАЖНО: больше не чистим историю. Долговременная память накапливается.
+    // await cleanupChatHistory(chatId, MAX_HISTORY_MESSAGES);
+  } catch (err) {
+    console.error("❌ saveChatPair DB error:", err);
+  }
+}

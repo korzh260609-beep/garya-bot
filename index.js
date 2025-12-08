@@ -1,5 +1,5 @@
 // ============================================================================
-// === INDEX: ЧАСТЬ 1 / 3 — ОСНОВНАЯ ИНИЦИАЛИЗАЦИЯ, СЕРВЕР, ВЕБХУКИ ===
+// === INDEX — ОСНОВНАЯ ИНИЦИАЛИЗАЦИЯ, СЕРВЕР, ВЕБХУК, КОМАНДЫ, AI ===
 // ============================================================================
 
 // === БАЗОВЫЕ ИМПОРТЫ ===
@@ -27,7 +27,7 @@ import {
   createTestPriceMonitorTask,
   getUserTasks,
   getTaskById,
-  updateTaskStatus,
+  // updateTaskStatus, // пока не используем
   runTaskWithAI,
 } from "./tasks/taskEngine.js";
 
@@ -48,6 +48,9 @@ import { logInteraction } from "./logging/interactionLogs.js";
 
 // === ROBOT MOCK-LAYER ===
 import { startRobotLoop } from "./robot/robotMock.js";
+
+// === AI ===
+import { callAI } from "./ai.js";
 
 // === DB ===
 import pool from "./db.js";
@@ -101,16 +104,14 @@ app.listen(PORT, async () => {
     // 2) Robot Layer
     startRobotLoop(bot);
     console.log("🤖 ROBOT mock-layer запущен.");
-
   } catch (e) {
     console.error("❌ ERROR при инициализации:", e);
   }
 });
 
 // ============================================================================
-// === INDEX: ЧАСТЬ 2 / 3 — ОБРАБОТКА КОМАНД (/profile, /tasks, /sources, ...) ===
+// === ОБРАБОТКА ВСЕХ СООБЩЕНИЙ: КОМАНДЫ + ЧАТ + AI ===
 // ============================================================================
-
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const chatIdStr = chatId.toString();
@@ -122,7 +123,7 @@ bot.on("message", async (msg) => {
   const trimmed = text.trim();
 
   // --- FILE-INTAKE: определяем вложения ---
-  const mediaSummary = summarizeMediaAttachment(msg);
+  const media = summarizeMediaAttachment(msg);
 
   // ========================================================================
   // === ОБРАБОТКА КОМАНД (все, что начинается с "/") ===
@@ -150,6 +151,54 @@ bot.on("message", async (msg) => {
           chatId,
           `🧾 Профиль\nID: ${u.chat_id}\nИмя: ${u.name}\nРоль: ${u.role}\nСоздан: ${u.created_at}`
         );
+        return;
+      }
+
+      // --------------------------- Статистика пользователей --------------
+      case "/users_stats": {
+        const isMonarch = chatIdStr === "677128443";
+        if (!isMonarch) {
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
+          return;
+        }
+
+        try {
+          const totalRes = await pool.query(
+            "SELECT COUNT(*)::int AS total FROM users"
+          );
+          const total = totalRes.rows[0]?.total ?? 0;
+
+          const byRoleRes = await pool.query(
+            `
+              SELECT COALESCE(role, 'unknown') AS role,
+                     COUNT(*)::int AS count
+              FROM users
+              GROUP BY COALESCE(role, 'unknown')
+              ORDER BY role
+            `
+          );
+
+          let out = "👥 Статистика пользователей СГ\n\n";
+          out += `Всего пользователей: ${total}\n\n`;
+
+          if (byRoleRes.rows.length) {
+            out += "По ролям:\n";
+            for (const r of byRoleRes.rows) {
+              out += `• ${r.role}: ${r.count}\n`;
+            }
+          }
+
+          await bot.sendMessage(chatId, out);
+        } catch (e) {
+          console.error("❌ Error in /users_stats:", e);
+          await bot.sendMessage(
+            chatId,
+            "Не удалось получить статистику пользователей."
+          );
+        }
         return;
       }
 
@@ -213,12 +262,12 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        let text = "📋 Ваши задачи:\n\n";
+        let out = "📋 Ваши задачи:\n\n";
         for (const t of tasks) {
-          text += `#${t.id} — ${t.title}\nТип: ${t.type}\nСтатус: ${t.status}\n\n`;
+          out += `#${t.id} — ${t.title}\nТип: ${t.type}\nСтатус: ${t.status}\n\n`;
         }
 
-        await bot.sendMessage(chatId, text);
+        await bot.sendMessage(chatId, out);
         return;
       }
 
@@ -233,9 +282,13 @@ bot.on("message", async (msg) => {
       case "/sources_diag": {
         const summary = await runSourceDiagnosticsOnce();
 
-        const text =
-          `🩺 Диагностика\nВсего: ${summary.total}\nOK: ${summary.okCount}\nОшибок: ${summary.failCount}`;
-        await bot.sendMessage(chatId, text);
+        const textDiag =
+          `🩺 Диагностика источников\n` +
+          `Всего: ${summary.total}\n` +
+          `OK: ${summary.okCount}\n` +
+          `Ошибок: ${summary.failCount}`;
+
+        await bot.sendMessage(chatId, textDiag);
         return;
       }
 
@@ -247,14 +300,20 @@ bot.on("message", async (msg) => {
         }
 
         const result = await fetchFromSourceKey(key);
-        await bot.sendMessage(chatId, JSON.stringify(result, null, 2).slice(0, 900));
+        await bot.sendMessage(
+          chatId,
+          JSON.stringify(result, null, 2).slice(0, 900)
+        );
         return;
       }
 
       // --------------------------- PROJECT MEMORY -------------------------
       case "/pm_show": {
         const section = args.trim();
-        if (!section) return bot.sendMessage(chatId, "Использование: /pm_show <section>");
+        if (!section) {
+          await bot.sendMessage(chatId, "Использование: /pm_show <section>");
+          return;
+        }
 
         const rec = await pool.query(
           "SELECT section, content, updated_at FROM project_memory WHERE section = $1 LIMIT 1",
@@ -262,7 +321,8 @@ bot.on("message", async (msg) => {
         );
 
         if (!rec.rows.length) {
-          return bot.sendMessage(chatId, `Секция "${section}" отсутствует.`);
+          await bot.sendMessage(chatId, `Секция "${section}" отсутствует.`);
+          return;
         }
 
         const r = rec.rows[0];
@@ -275,13 +335,19 @@ bot.on("message", async (msg) => {
 
       case "/pm_set": {
         if (chatIdStr !== "677128443") {
-          await bot.sendMessage(chatId, "Только монарх может менять Project Memory.");
+          await bot.sendMessage(
+            chatId,
+            "Только монарх может менять Project Memory."
+          );
           return;
         }
 
         const firstSpace = args.indexOf(" ");
         if (firstSpace === -1) {
-          await bot.sendMessage(chatId, "Использование: /pm_set <section> <text>");
+          await bot.sendMessage(
+            chatId,
+            "Использование: /pm_set <section> <text>"
+          );
           return;
         }
 
@@ -319,32 +385,19 @@ bot.on("message", async (msg) => {
 
       // --------------------------------------------------------------------
       default:
-        // неизвестная команда — передаём дальше как обычный текст
+        // неизвестная команда — пойдёт дальше как обычный текст к ИИ
         break;
     }
   }
 
-// ============================================================================
-// === INDEX: ЧАСТЬ 3 / 3 — НЕ-КОМАНДНЫЕ СООБЩЕНИЯ, MEMORY, AI ===
-// ============================================================================
+  // ========================================================================
+  // === НЕ КОМАНДЫ: ПАМЯТЬ + PROJECT CONTEXT + ВЫЗОВ ИИ ===
+  // ========================================================================
 
-bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
-  const chatIdStr = chatId.toString();
-
-  // Повторная проверка профиля (безопасность)
-  await ensureUserProfile(msg);
-
-  const text = msg.text || "";
-  const trimmed = text.trim();
-
-  const media = summarizeMediaAttachment(msg);
-
-  // Формируем итоговый текст
-  let effective = trimmed;
-  if (media) {
-    if (!effective) effective = `Вложение: ${media}`;
-    else effective += `\n\n(Также: ${media})`;
+  const mediaText = media ? `Вложение: ${media}` : "";
+  let effective = trimmed || mediaText;
+  if (trimmed && mediaText) {
+    effective = `${trimmed}\n\n(${mediaText})`;
   }
 
   // 1) сохраняем сообщение в память
@@ -353,7 +406,7 @@ bot.on("message", async (msg) => {
   // 2) читаем историю
   const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
 
-  // 3) классификация (простая)
+  // 3) классификация (пока простая заглушка)
   const classification = {
     taskType: "chat",
     aiCostLevel: "low",
@@ -373,11 +426,10 @@ bot.on("message", async (msg) => {
     (projectCtx ? projectCtx + "\n\n" : "") +
     `Будь краток, точен, следуй ТЗ.`;
 
-
   const messages = [
     { role: "system", content: systemPrompt },
     ...history,
-    { role: "user", content: effective }
+    { role: "user", content: effective },
   ];
 
   // 6) настройки вывода по режиму
@@ -397,7 +449,7 @@ bot.on("message", async (msg) => {
   try {
     aiReply = await callAI(messages, classification.aiCostLevel, {
       max_output_tokens: maxTokens,
-      temperature
+      temperature,
     });
   } catch (e) {
     console.error("❌ AI error:", e);

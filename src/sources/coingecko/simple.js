@@ -1,7 +1,24 @@
 // src/sources/coingecko/simple.js
-// CoinGecko Simple Price — V1
+// CoinGecko Simple Price — V1 (адаптирован под data.prices)
 
 import { fetchFromSourceKey } from "../sources.js";
+
+function extractPricesContainer(data) {
+  if (!data || typeof data !== "object") return null;
+
+  // наш формат: { ids: [...], prices: { bitcoin: { usd: ... }, ... }, vs_currency: "usd" }
+  if (data.prices && typeof data.prices === "object") {
+    return data.prices;
+  }
+
+  // запасной вариант: если вдруг цены лежат в raw.prices
+  if (data.raw && typeof data.raw === "object" && data.raw.prices) {
+    return data.raw.prices;
+  }
+
+  // последний fallback — вдруг уже плоский объект
+  return data;
+}
 
 export async function getCoinGeckoSimplePriceById(
   coinId,
@@ -21,12 +38,12 @@ export async function getCoinGeckoSimplePriceById(
     return { ok: false, error: res?.error || "CoinGecko source fetch failed" };
   }
 
-  const data = res.data;
-  if (!data || typeof data !== "object") {
+  const pricesContainer = extractPricesContainer(res.data);
+  if (!pricesContainer) {
     return { ok: false, error: "Invalid CoinGecko data format" };
   }
 
-  const entry = data[cleanId];
+  const entry = pricesContainer[cleanId];
   if (!entry) {
     return {
       ok: false,
@@ -64,15 +81,15 @@ export async function getCoinGeckoSimplePriceMulti(
     return { ok: false, error: res?.error || "CoinGecko source fetch failed" };
   }
 
-  const data = res.data;
-  if (!data || typeof data !== "object") {
+  const pricesContainer = extractPricesContainer(res.data);
+  if (!pricesContainer) {
     return { ok: false, error: "Invalid CoinGecko data format" };
   }
 
   const result = {};
   for (const id of coinIds) {
     const cleanId = String(id).trim().toLowerCase();
-    const entry = data[cleanId];
+    const entry = pricesContainer[cleanId];
     if (!entry) continue;
 
     const price = entry[cleanVs];
@@ -87,4 +104,3 @@ export async function getCoinGeckoSimplePriceMulti(
 
   return { ok: true, vsCurrency: cleanVs, items: result };
 }
-

@@ -1,4 +1,4 @@
-// src/sources/sources.js — Sources Layer v1 (virtual/html/rss/coingecko + permissions)
+// src/sources/sources.js — Sources Layer v1 (virtual/html/rss/coingecko + perms + rate-limit + cache)
 import pool from "../../db.js";
 
 // === DEFAULT SOURCES (registry templates) ===
@@ -145,7 +145,8 @@ export async function getAllSourcesSafe() {
         url,
         config,
         allowed_roles,
-        allowed_plans
+        allowed_plans,
+        rate_limit_seconds
       FROM sources
       ORDER BY key
     `);
@@ -171,42 +172,45 @@ async function getSourceByKey(key) {
 }
 
 // === PERMISSIONS (5.12) ===
-function normalizeTextArray(fieldValue, fallbackArray) {
-  if (!fieldValue || !Array.isArray(fieldValue) || fieldValue.length === 0) {
-    return fallbackArray;
-  }
-  return fieldValue.map((v) => String(v).toLowerCase());
+function isSourceAllowedForUser(src, userRole, userPlan) {
+  const roles = src.allowed_roles || ["guest", "citizen", "monarch"];
+  const plans = src.allowed_plans || ["free", "pro", "vip"];
+
+  const roleOk = !userRole || roles.includes(userRole);
+  const planOk = !userPlan || plans.includes(userPlan);
+
+  return roleOk && planOk;
 }
 
-function checkSourcePermissions({ source, userRole, userPlan }) {
-  // значения по умолчанию
-  const role = (userRole || "guest").toLowerCase();
-  const plan = (userPlan || "free").toLowerCase();
+// === CACHE (5.13) ===
+async function getSourceCache(sourceKey) {
+  const res = await pool.query(
+    `
+      SELECT cached_json, cached_at
+      FROM source_cache
+      WHERE source_key = $1
+      LIMIT 1
+    `,
+    [sourceKey]
+  );
+  return res.rows[0] || null;
+}
 
-  const allowedRoles = normalizeTextArray(source.allowed_roles, [
-    "guest",
-    "citizen",
-    "monarch",
-  ]);
-  const allowedPlans = normalizeTextArray(source.allowed_plans, [
-    "free",
-    "pro",
-    "vip",
-  ]);
-
-  const roleOk = allowedRoles.includes(role);
-  const planOk = allowedPlans.includes(plan);
-
-  if (!roleOk || !planOk) {
-    return {
-      ok: false,
-      reason: !roleOk
-        ? `Роль "${role}" не имеет доступа к этому источнику.`
-        : `Тариф "${plan}" не имеет доступа к этому источнику.`,
-    };
+async function upsertSourceCache(sourceKey, payload) {
+  try {
+    await pool.query(
+      `
+        INSERT INTO source_cache (source_key, cached_json, cached_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (source_key) DO UPDATE SET
+          cached_json = EXCLUDED.cached_json,
+          cached_at   = NOW()
+      `,
+      [sourceKey, payload]
+    );
+  } catch (err) {
+    console.error("❌ upsertSourceCache error:", err);
   }
-
-  return { ok: true };
 }
 
 // === LOGGING: source_logs ===
@@ -263,14 +267,48 @@ async function logSourceCheck({ sourceKey, ok, httpStatus, message, meta }) {
   }
 }
 
+// === helpers: success/error marks ===
+async function markSourceSuccess(key) {
+  try {
+    await pool.query(
+      `
+        UPDATE sources
+        SET last_success_at = NOW(),
+            last_error_at = NULL,
+            last_error_message = NULL
+        WHERE key = $1
+      `,
+      [key]
+    );
+  } catch (err) {
+    console.error("❌ markSourceSuccess error:", err);
+  }
+}
+
+async function markSourceError(key, message) {
+  try {
+    await pool.query(
+      `
+        UPDATE sources
+        SET last_error_at = NOW(),
+            last_error_message = $2
+        WHERE key = $1
+      `,
+      [key, message?.toString().slice(0, 500) || null]
+    );
+  } catch (err) {
+    console.error("❌ markSourceError error:", err);
+  }
+}
+
 // ==================================================
 // 5.9 — DIAGNOSE ONE SOURCE
 // ==================================================
 export async function diagnoseSource(key, options = {}) {
-  // диагностика — системный режим, можем пробрасывать bypassPermissions при необходимости
   const res = await fetchFromSourceKey(key, {
     ...options,
-    // bypassPermissions: true  // можно включить позже при необходимости
+    // для диагностики можно явно пробивать rate-limit, если захочешь
+    ignoreRateLimit: options.ignoreRateLimit === true,
   });
 
   const httpStatus = typeof res.httpStatus === "number" ? res.httpStatus : null;
@@ -282,6 +320,7 @@ export async function diagnoseSource(key, options = {}) {
     message: res.ok ? "OK" : res.error || "Unknown error",
     meta: {
       type: res.type || null,
+      fromCache: !!res.fromCache,
       timestamp: new Date().toISOString(),
     },
   });
@@ -331,15 +370,16 @@ export async function getLatestSourceChecks() {
   return rows;
 }
 
-// === CORE: fetchFromSourceKey ===
+// === CORE: fetchFromSourceKey (с разрешениями, rate-limit и кэшем) ===
 export async function fetchFromSourceKey(key, options = {}) {
   const startedAt = Date.now();
   let httpStatus = null;
   let type = null;
 
-  const userRole = options.userRole || "guest";
-  const userPlan = options.userPlan || "free";
+  const userRole = options.userRole || null;
+  const userPlan = options.userPlan || null;
   const bypassPermissions = options.bypassPermissions === true;
+  const ignoreRateLimit = options.ignoreRateLimit === true;
 
   try {
     const src = await getSourceByKey(key);
@@ -357,46 +397,70 @@ export async function fetchFromSourceKey(key, options = {}) {
       return { ok: false, sourceKey: key, error };
     }
 
-    // === PERMISSIONS CHECK (если не bypass) ===
-    if (!bypassPermissions) {
-      const perm = checkSourcePermissions({
-        source: src,
-        userRole,
-        userPlan,
+    type = src.type;
+
+    // === Permissions check (5.12) ===
+    if (!bypassPermissions && !isSourceAllowedForUser(src, userRole, userPlan)) {
+      const error = "Доступ к этому источнику запрещён для вашей роли/тарифа.";
+      await logSourceRequest({
+        sourceKey: key,
+        type,
+        httpStatus: null,
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        params: options.params || null,
+        extra: { error, userRole, userPlan },
       });
+      return { ok: false, sourceKey: key, type, error };
+    }
 
-      if (!perm.ok) {
-        const error = perm.reason || "Доступ к источнику запрещён.";
-        await logSourceRequest({
-          sourceKey: key,
-          type: src.type,
-          httpStatus: null,
-          ok: false,
-          durationMs: Date.now() - startedAt,
-          params: options.params || null,
-          extra: {
-            error,
-            userRole,
-            userPlan,
-          },
-        });
+    // === Rate-limit + cache (5.13) ===
+    const rateLimitSeconds =
+      typeof src.rate_limit_seconds === "number" ? src.rate_limit_seconds : 0;
 
-        return {
-          ok: false,
-          sourceKey: key,
-          type: src.type,
-          httpStatus: null,
-          error,
-        };
+    if (!ignoreRateLimit && rateLimitSeconds > 0 && src.last_success_at) {
+      const lastSuccessTs = new Date(src.last_success_at).getTime();
+      const diffSec = (Date.now() - lastSuccessTs) / 1000;
+
+      if (diffSec < rateLimitSeconds) {
+        const cache = await getSourceCache(key);
+        if (cache) {
+          const durationMs = Date.now() - startedAt;
+          await logSourceRequest({
+            sourceKey: key,
+            type,
+            httpStatus: null,
+            ok: true,
+            durationMs,
+            params: options.params || null,
+            extra: {
+              note: "cache-hit",
+              rateLimitSeconds,
+              diffSec,
+            },
+          });
+
+          return {
+            ok: true,
+            sourceKey: key,
+            type,
+            httpStatus: null,
+            data: cache.cached_json,
+            raw: cache.cached_json,
+            fromCache: true,
+          };
+        }
       }
     }
 
-    type = src.type;
     let resultData = null;
 
     // === VIRTUAL ===
     if (type === "virtual") {
       resultData = await handleVirtualSource(key, src, options);
+
+      await upsertSourceCache(key, resultData);
+      await markSourceSuccess(key);
 
       await logSourceRequest({
         sourceKey: key,
@@ -405,11 +469,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus: null,
         durationMs: Date.now() - startedAt,
         params: options.params || null,
-        extra: {
-          note: "virtual source",
-          userRole,
-          userPlan,
-        },
+        extra: { note: "virtual source" },
       });
 
       return {
@@ -430,6 +490,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 
       if (!res.ok) {
         const error = `HTTP ${res.status} при запросе HTML.`;
+        await markSourceError(key, error);
         await logSourceRequest({
           sourceKey: key,
           type,
@@ -437,13 +498,16 @@ export async function fetchFromSourceKey(key, options = {}) {
           httpStatus,
           durationMs: Date.now() - startedAt,
           params: { ...(options.params || {}), url },
-          extra: { url, error, userRole, userPlan },
+          extra: { url, error },
         });
         return { ok: false, sourceKey: key, type, httpStatus, error };
       }
 
       const text = await res.text();
       resultData = { url, snippet: text.slice(0, 2000) };
+
+      await upsertSourceCache(key, resultData);
+      await markSourceSuccess(key);
 
       await logSourceRequest({
         sourceKey: key,
@@ -452,7 +516,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus,
         durationMs: Date.now() - startedAt,
         params: { ...(options.params || {}), url },
-        extra: { url, length: text.length, userRole, userPlan },
+        extra: { url, length: text.length },
       });
 
       return {
@@ -474,6 +538,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 
       if (!res.ok) {
         const error = `HTTP ${res.status} при запросе RSS.`;
+        await markSourceError(key, error);
         await logSourceRequest({
           sourceKey: key,
           type,
@@ -481,13 +546,16 @@ export async function fetchFromSourceKey(key, options = {}) {
           httpStatus,
           durationMs: Date.now() - startedAt,
           params: { ...(options.params || {}), url },
-          extra: { url, error, userRole, userPlan },
+          extra: { url, error },
         });
         return { ok: false, sourceKey: key, type, httpStatus, error };
       }
 
       const xml = await res.text();
       resultData = { url, snippet: xml.slice(0, 2000) };
+
+      await upsertSourceCache(key, resultData);
+      await markSourceSuccess(key);
 
       await logSourceRequest({
         sourceKey: key,
@@ -496,7 +564,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus,
         durationMs: Date.now() - startedAt,
         params: { ...(options.params || {}), url },
-        extra: { url, length: xml.length, userRole, userPlan },
+        extra: { url, length: xml.length },
       });
 
       return {
@@ -529,6 +597,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 
       if (!res.ok) {
         const error = `HTTP ${res.status} от CoinGecko.`;
+        await markSourceError(key, error);
         await logSourceRequest({
           sourceKey: key,
           type,
@@ -536,13 +605,16 @@ export async function fetchFromSourceKey(key, options = {}) {
           httpStatus,
           durationMs: Date.now() - startedAt,
           params: { ...(options.params || {}), url, ids, vsCurrency },
-          extra: { url, error, ids, vsCurrency, userRole, userPlan },
+          extra: { url, error },
         });
         return { ok: false, sourceKey: key, type, httpStatus, error };
       }
 
       const json = await res.json();
       resultData = { url, ids, vs_currency: vsCurrency, prices: json };
+
+      await upsertSourceCache(key, resultData);
+      await markSourceSuccess(key);
 
       await logSourceRequest({
         sourceKey: key,
@@ -551,14 +623,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus,
         durationMs: Date.now() - startedAt,
         params: { ...(options.params || {}), url, ids, vsCurrency },
-        extra: {
-          url,
-          ids,
-          vsCurrency,
-          keys: Object.keys(json || {}),
-          userRole,
-          userPlan,
-        },
+        extra: { url, ids, vsCurrency, keys: Object.keys(json || {}) },
       });
 
       return {
@@ -573,6 +638,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 
     // === UNSUPPORTED TYPE ===
     const error = `Тип источника "${type}" не поддерживается.`;
+    await markSourceError(key, error);
     await logSourceRequest({
       sourceKey: key,
       type,
@@ -580,13 +646,15 @@ export async function fetchFromSourceKey(key, options = {}) {
       httpStatus: null,
       durationMs: Date.now() - startedAt,
       params: options.params || null,
-      extra: { error, userRole, userPlan },
+      extra: { error },
     });
 
     return { ok: false, sourceKey: key, type, error };
   } catch (err) {
     const durationMs = Date.now() - startedAt;
     console.error("❌ fetchFromSourceKey error:", err);
+
+    await markSourceError(key, err.message || String(err));
 
     await logSourceRequest({
       sourceKey: key,
@@ -595,7 +663,7 @@ export async function fetchFromSourceKey(key, options = {}) {
       httpStatus,
       durationMs,
       params: options.params || null,
-      extra: { error: err.message || String(err), userRole, userPlan },
+      extra: { error: err.message || String(err) },
     });
 
     return {
@@ -651,21 +719,22 @@ export function formatSourcesList(sources) {
   return sources
     .map((src) => {
       const roles =
-        src.allowed_roles && src.allowed_roles.length
-          ? src.allowed_roles.join(", ")
-          : "all";
+        (src.allowed_roles && src.allowed_roles.join(", ")) || "—";
       const plans =
-        src.allowed_plans && src.allowed_plans.length
-          ? src.allowed_plans.join(", ")
-          : "all";
+        (src.allowed_plans && src.allowed_plans.join(", ")) || "—";
+      const rl =
+        typeof src.rate_limit_seconds === "number"
+          ? `${src.rate_limit_seconds}s`
+          : "n/a";
 
       return `
 🔹 <b>${src.name}</b>
 key: <code>${src.key}</code>
 type: <code>${src.type}</code>
 enabled: ${src.enabled ? "🟢" : "🔴"}
-roles: <code>${roles}</code>
-plans: <code>${plans}</code>
+roles: ${roles}
+plans: ${plans}
+rate-limit: ${rl}
       `.trim();
     })
     .join("\n\n");

@@ -3,6 +3,18 @@
 
 import { fetchFromSourceKey } from "../sources.js";
 
+const ID_ALIASES = {
+  btc: "bitcoin",
+  xbt: "bitcoin",
+  eth: "ethereum",
+  sol: "solana",
+};
+
+function normalizeId(id) {
+  const raw = String(id || "").trim().toLowerCase();
+  return ID_ALIASES[raw] || raw;
+}
+
 function extractPricesContainer(data) {
   if (!data || typeof data !== "object") return null;
 
@@ -27,7 +39,7 @@ export async function getCoinGeckoSimplePriceById(
 ) {
   if (!coinId) return { ok: false, error: "coinId is required" };
 
-  const cleanId = String(coinId).trim().toLowerCase();
+  const cleanId = normalizeId(coinId);
   const cleanVs = String(vsCurrency).trim().toLowerCase();
 
   const res = await fetchFromSourceKey("coingecko_simple_price", {
@@ -88,14 +100,21 @@ export async function getCoinGeckoSimplePriceMulti(
 
   const result = {};
   for (const id of coinIds) {
-    const cleanId = String(id).trim().toLowerCase();
-    const entry = pricesContainer[cleanId];
+    const requested = String(id).trim().toLowerCase();
+    const canonical = normalizeId(requested);
+
+    const entry = pricesContainer[canonical];
     if (!entry) continue;
 
     const price = entry[cleanVs];
     if (typeof price !== "number") continue;
 
-    result[cleanId] = { id: cleanId, vsCurrency: cleanVs, price, raw: entry };
+    result[requested] = {
+      id: canonical,
+      vsCurrency: cleanVs,
+      price,
+      raw: entry,
+    };
   }
 
   if (!Object.keys(result).length) {

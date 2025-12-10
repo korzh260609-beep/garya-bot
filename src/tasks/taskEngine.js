@@ -1,5 +1,5 @@
-import pool from "../db.js";
-import { callAI } from "../ai.js";
+import pool from "../../db.js";
+import { callAI } from "../../ai.js";
 
 // === ФУНКЦИИ ДЛЯ TASK ENGINE ===
 

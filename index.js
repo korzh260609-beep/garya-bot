@@ -40,6 +40,7 @@ import {
   diagnoseSource,
 } from "./src/sources/sources.js";
 
+// === COINGECKO (V1 SIMPLE PRICE) ===
 import {
   getCoinGeckoSimplePriceById,
 } from "./src/sources/coingecko/index.js";
@@ -401,7 +402,7 @@ bot.on("message", async (msg) => {
             `⛔ Остановлены все активные задачи типа "${taskType}".\nИзменено записей: ${res.rowCount}.`
           );
         } catch (err) {
-          console.error("❌ Error in /stop_tasks_type:", err);
+          console.error("❌ Error при остановке задач по типу:", err);
           await bot.sendMessage(
             chatId,
             "⚠️ Ошибка при остановке задач по типу."
@@ -419,12 +420,11 @@ bot.on("message", async (msg) => {
       }
 
       case "/sources_diag": {
-        // диагностика всех источников с учётом ролей/планов
         const isMonarch = chatIdStr === "677128443";
         const summary = await runSourceDiagnosticsOnce({
           userRole,
           userPlan,
-          bypassPermissions: isMonarch, // монарх может диагностировать всё
+          bypassPermissions: isMonarch,
         });
 
         const textDiag =
@@ -450,7 +450,6 @@ bot.on("message", async (msg) => {
         });
 
         if (!result.ok) {
-          // Чёткое сообщение об ошибке доступа или другой проблеме
           await bot.sendMessage(
             chatId,
             `❌ Ошибка при обращении к источнику <code>${key}</code>:\n<code>${result.error || "Unknown error"}</code>`,
@@ -484,7 +483,7 @@ bot.on("message", async (msg) => {
           const res = await diagnoseSource(key, {
             userRole,
             userPlan,
-            bypassPermissions: isMonarch, // монарх диагностирует любые источники
+            bypassPermissions: isMonarch,
           });
 
           if (!res.ok) {
@@ -522,6 +521,34 @@ bot.on("message", async (msg) => {
             { parse_mode: "HTML" }
           );
         }
+        return;
+      }
+
+      // --------------------------- /price (CoinGecko) --------------------
+      case "/price": {
+        const coinId = args.trim().toLowerCase();
+        if (!coinId) {
+          await bot.sendMessage(
+            chatId,
+            "Использование: /price <coinId>\nПример: /price bitcoin"
+          );
+          return;
+        }
+
+        const result = await getCoinGeckoSimplePriceById(coinId, "usd", {
+          userRole,
+          userPlan,
+        });
+
+        if (!result.ok) {
+          await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
+          return;
+        }
+
+        await bot.sendMessage(
+          chatId,
+          `💰 ${result.id.toUpperCase()}: $${result.price}`
+        );
         return;
       }
 

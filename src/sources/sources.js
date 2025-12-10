@@ -53,7 +53,7 @@ const DEFAULT_SOURCES = [
       ids: ["bitcoin", "ethereum", "solana"],
       vs_currency: "usd",
     },
-    // 👇 важное новое поле — ограничение запросов к CoinGecko
+    // 👇 важное поле — ограничение запросов к CoinGecko
     rate_limit_seconds: 60,
   },
   {
@@ -91,13 +91,13 @@ export async function ensureDefaultSources() {
         INSERT INTO sources (key, name, type, url, is_enabled, config, rate_limit_seconds)
         VALUES ($1,   $2,   $3,  $4,  $5,         $6,    $7)
         ON CONFLICT (key) DO UPDATE SET
-          name              = EXCLUDED.name,
-          type              = EXCLUDED.type,
-          url               = EXCLUDED.url,
-          is_enabled        = EXCLUDED.is_enabled,
-          config            = EXCLUDED.config,
+          name               = EXCLUDED.name,
+          type               = EXCLUDED.type,
+          url                = EXCLUDED.url,
+          is_enabled         = EXCLUDED.is_enabled,
+          config             = EXCLUDED.config,
           rate_limit_seconds = EXCLUDED.rate_limit_seconds,
-          updated_at        = NOW()
+          updated_at         = NOW()
       `,
         [
           src.key,
@@ -106,7 +106,6 @@ export async function ensureDefaultSources() {
           src.url,
           src.enabled,
           src.config || {},
-          // если в шаблоне не задано — пишем NULL
           typeof src.rate_limit_seconds === "number"
             ? src.rate_limit_seconds
             : null,
@@ -126,7 +125,7 @@ export async function listActiveSources() {
     SELECT *
     FROM sources
     WHERE is_enabled = TRUE
-    ORDER BY id ASC
+    ORDER BY key ASC
   `);
   return res.rows;
 }
@@ -135,7 +134,7 @@ export async function getAllSources() {
   const res = await pool.query(`
     SELECT *
     FROM sources
-    ORDER BY id ASC
+    ORDER BY key ASC
   `);
   return res.rows;
 }
@@ -336,7 +335,7 @@ export async function diagnoseSource(key, options = {}) {
 }
 
 // ==================================================
-// 5.9 — RUN DIAGNOSTICS FOR ALL SOURCES
+// 5.11 — RUN DIAGNOSTICS FOR ALL SOURCES (ONE-SHOT)
 // ==================================================
 export async function runSourceDiagnosticsOnce(options = {}) {
   const sources = await listActiveSources();
@@ -364,7 +363,7 @@ export async function runSourceDiagnosticsOnce(options = {}) {
 }
 
 // ==================================================
-// 5.9 — GET LATEST SOURCE STATUS
+// 5.10 — GET LATEST SOURCE STATUS (FROM source_checks)
 // ==================================================
 export async function getLatestSourceChecks() {
   const { rows } = await pool.query(`

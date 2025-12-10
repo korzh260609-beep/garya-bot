@@ -38,7 +38,7 @@ import {
   getAllSourcesSafe,
   fetchFromSourceKey,
   formatSourcesList,
-} from "./src/sources/sourcesDebug.js";
+} from "./src/sources/sources.js";
 
 // === FILE-INTAKE / MEDIA ===
 import { summarizeMediaAttachment } from "./src/media/fileIntake.js";

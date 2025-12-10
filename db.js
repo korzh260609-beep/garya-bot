@@ -71,6 +71,9 @@ async function initDb() {
         last_success_at TIMESTAMPTZ,
         last_error_at TIMESTAMPTZ,
         last_error_message TEXT,
+        -- Permissions (5.12)
+        allowed_roles TEXT[] DEFAULT '{ "guest", "citizen", "monarch" }',
+        allowed_plans TEXT[] DEFAULT '{ "free", "pro", "vip" }',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
@@ -85,6 +88,27 @@ async function initDb() {
       console.log("🔧 Migrate: sources.enabled -> sources.is_enabled");
     } catch (e) {
       // колонка enabled может уже не существовать — это нормально
+    }
+
+    // === Миграция 5.12 — Source-Permissions (на случай старой схемы без колонок) ===
+    try {
+      await pool.query(`
+        ALTER TABLE sources
+        ADD COLUMN allowed_roles TEXT[] DEFAULT '{ "guest", "citizen", "monarch" }';
+      `);
+      console.log("🔧 Added: sources.allowed_roles");
+    } catch (e) {
+      // колонка уже существует — пропускаем
+    }
+
+    try {
+      await pool.query(`
+        ALTER TABLE sources
+        ADD COLUMN allowed_plans TEXT[] DEFAULT '{ "free", "pro", "vip" }';
+      `);
+      console.log("🔧 Added: sources.allowed_plans");
+    } catch (e) {
+      // колонка уже существует — пропускаем
     }
 
     // === Таблица проверок источников (Diagnostics: source_checks) ===
@@ -170,7 +194,7 @@ async function initDb() {
     `);
 
     console.log(
-      "✅ Tables ready: chat_memory, users, tasks, sources, source_checks, source_logs, interaction_logs, project_memory"
+      "✅ Tables ready: chat_memory, users, tasks, sources (+permissions), source_checks, source_logs, interaction_logs, project_memory"
     );
   } catch (err) {
     console.error("❌ Error initializing database:", err);

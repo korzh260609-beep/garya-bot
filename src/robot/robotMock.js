@@ -159,10 +159,23 @@ export function getInitialMockPrice(symbolRaw) {
   return base;
 }
 
-// ⚠️ ВАЖНО:
-// Здесь мы НЕ запускаем setInterval, чтобы модуль можно было переиспользовать.
-// В index.js пока остаётся оригинальный setInterval(robotTick, 30_000).
-// Позже, когда будем реально переносить, можно будет сделать:
-// import { robotTick } from "./robot/robotMock.js";
-// setInterval(() => robotTick(bot), 30_000);
+// Старт цикла робота (обёртка для index.js)
+export function startRobotLoop(bot) {
+  console.log("🤖 ROBOT: старт mock-цикла (tick каждые 30 секунд)");
+  // можно сразу сделать первый тик
+  robotTick(bot).catch((err) =>
+    console.error("❌ ROBOT: ошибка первого mock-tick:", err)
+  );
 
+  setInterval(() => {
+    robotTick(bot).catch((err) =>
+      console.error("❌ ROBOT: ошибка в mock-tick:", err)
+    );
+  }, 30_000);
+}
+
+// ⚠️ ВАЖНО:
+// Теперь index.js может делать:
+// import { startRobotLoop } from "./src/robot/robotMock.js";
+// ...
+// startRobotLoop(bot);

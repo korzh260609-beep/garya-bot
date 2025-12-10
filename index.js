@@ -27,7 +27,6 @@ import {
   createTestPriceMonitorTask,
   getUserTasks,
   getTaskById,
-  // updateTaskStatus, // пока не используем
   runTaskWithAI,
 } from "./src/tasks/taskEngine.js";
 
@@ -38,6 +37,7 @@ import {
   getAllSourcesSafe,
   fetchFromSourceKey,
   formatSourcesList,
+  diagnoseSource
 } from "./src/sources/sources.js";
 
 // === FILE-INTAKE / MEDIA ===
@@ -122,17 +122,18 @@ bot.on("message", async (msg) => {
   const text = msg.text || "";
   const trimmed = text.trim();
 
-  // --- FILE-INTAKE: определяем вложения ---
+  // --- FILE-INTAKE ---
   const media = summarizeMediaAttachment(msg);
 
   // ========================================================================
-  // === ОБРАБОТКА КОМАНД (все, что начинается с "/") ===
+  // === ОБРАБОТКА КОМАНД ===
   // ========================================================================
   if (trimmed.startsWith("/")) {
     const args = trimmed.split(" ").slice(1).join(" ");
     const cmd = trimmed.split(" ")[0];
 
     switch (cmd) {
+
       // --------------------------- Профиль -------------------------------
       case "/profile":
       case "/me":
@@ -154,14 +155,11 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- Статистика пользователей --------------
+      // -------------------- Статистика пользователей ---------------------
       case "/users_stats": {
         const isMonarch = chatIdStr === "677128443";
         if (!isMonarch) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
@@ -171,15 +169,13 @@ bot.on("message", async (msg) => {
           );
           const total = totalRes.rows[0]?.total ?? 0;
 
-          const byRoleRes = await pool.query(
-            `
-              SELECT COALESCE(role, 'unknown') AS role,
-                     COUNT(*)::int AS count
-              FROM users
-              GROUP BY COALESCE(role, 'unknown')
-              ORDER BY role
-            `
-          );
+          const byRoleRes = await pool.query(`
+            SELECT COALESCE(role, 'unknown') AS role,
+                   COUNT(*)::int AS count
+            FROM users
+            GROUP BY COALESCE(role, 'unknown')
+            ORDER BY role
+          `);
 
           let out = "👥 Статистика пользователей СГ\n\n";
           out += `Всего пользователей: ${total}\n\n`;
@@ -194,22 +190,19 @@ bot.on("message", async (msg) => {
           await bot.sendMessage(chatId, out);
         } catch (e) {
           console.error("❌ Error in /users_stats:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось получить статистику пользователей."
-          );
+          await bot.sendMessage(chatId, "Не удалось получить статистику пользователей.");
         }
         return;
       }
 
-      // --------------------------- ДЕМО-ЗАДАЧА ---------------------------
+      // --------------------------- demo_task -----------------------------
       case "/demo_task": {
         const id = await createDemoTask(chatIdStr);
         await bot.sendMessage(chatId, `✅ Демо-задача создана!\nID: ${id}`);
         return;
       }
 
-      // ----------------------- ТЕСТОВЫЙ BTC-МОНТОРИНГ ---------------------
+      // --------------------------- btc test ------------------------------
       case "/btc_test_task": {
         const task = await createTestPriceMonitorTask(chatIdStr);
         await bot.sendMessage(
@@ -219,7 +212,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- СОЗДАТЬ НОВУЮ ЗАДАЧУ -------------------
+      // --------------------------- newtask -------------------------------
       case "/newtask": {
         if (!args.trim()) {
           await bot.sendMessage(chatId, "Использование: /newtask <описание>");
@@ -231,7 +224,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- ЗАПУСК ЗАДАЧИ -------------------------
+      // --------------------------- run task ------------------------------
       case "/run": {
         const id = Number(args.trim());
         if (!id) {
@@ -250,7 +243,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- СПИСОК ЗАДАЧ --------------------------
+      // --------------------------- tasks list ----------------------------
       case "/tasks": {
         const tasks = await getUserTasks(chatIdStr, 30);
 
@@ -268,16 +261,14 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- СТОП-КОМАНДЫ ДЛЯ ЗАДАЧ -----------------
+      // ---------------------- stop_all_tasks -----------------------------
       case "/stop_all_tasks": {
         try {
-          const res = await pool.query(
-            `
-              UPDATE tasks
-              SET status = 'stopped'
-              WHERE status = 'active';
-            `
-          );
+          const res = await pool.query(`
+            UPDATE tasks
+            SET status = 'stopped'
+            WHERE status = 'active';
+          `);
 
           await bot.sendMessage(
             chatId,
@@ -285,18 +276,16 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error in /stop_all_tasks:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при попытке остановить задачи."
-          );
+          await bot.sendMessage(chatId,"⚠️ Ошибка при попытке остановить задачи.");
         }
         return;
       }
 
+      // --------------------------- stop_task -----------------------------
       case "/stop_task": {
         const id = Number(args.trim());
         if (!id) {
-          await bot.sendMessage(chatId, "Использование: /stop_task <id>");
+          await bot.sendMessage(chatId,"Использование: /stop_task <id>");
           return;
         }
 
@@ -307,27 +296,22 @@ bot.on("message", async (msg) => {
           );
 
           if (res.rowCount === 0) {
-            await bot.sendMessage(
-              chatId,
-              `⚠️ Задача с ID ${id} не найдена.`
-            );
+            await bot.sendMessage(chatId,`⚠️ Задача с ID ${id} не найдена.`);
           } else {
             await bot.sendMessage(chatId, `⛔ Задача ${id} остановлена.`);
           }
         } catch (err) {
           console.error("❌ Error in /stop_task:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при остановке задачи."
-          );
+          await bot.sendMessage(chatId,"⚠️ Ошибка при остановке задачи.");
         }
         return;
       }
 
+      // --------------------------- start_task ----------------------------
       case "/start_task": {
         const id = Number(args.trim());
         if (!id) {
-          await bot.sendMessage(chatId, "Использование: /start_task <id>");
+          await bot.sendMessage(chatId,"Использование: /start_task <id>");
           return;
         }
 
@@ -338,23 +322,18 @@ bot.on("message", async (msg) => {
           );
 
           if (res.rowCount === 0) {
-            await bot.sendMessage(
-              chatId,
-              `⚠️ Задача с ID ${id} не найдена.`
-            );
+            await bot.sendMessage(chatId,`⚠️ Задача с ID ${id} не найдена.`);
           } else {
             await bot.sendMessage(chatId, `✅ Задача ${id} снова активна.`);
           }
         } catch (err) {
           console.error("❌ Error in /start_task:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при запуске задачи."
-          );
+          await bot.sendMessage(chatId,"⚠️ Ошибка при запуске задачи.");
         }
         return;
       }
 
+      // --------------------------- stop_tasks_type ------------------------
       case "/stop_tasks_type": {
         const taskType = args.trim();
         if (!taskType) {
@@ -367,11 +346,7 @@ bot.on("message", async (msg) => {
 
         try {
           const res = await pool.query(
-            `
-              UPDATE tasks
-              SET status = 'stopped'
-              WHERE type = $1 AND status = 'active';
-            `,
+            `UPDATE tasks SET status = 'stopped' WHERE type = $1 AND status = 'active';`,
             [taskType]
           );
 
@@ -381,19 +356,16 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error in /stop_tasks_type:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при остановке задач по типу."
-          );
+          await bot.sendMessage(chatId,"⚠️ Ошибка при остановке задач по типу.");
         }
         return;
       }
 
-      // --------------------------- РАБОТА С ИСТОЧНИКАМИ -------------------
+      // --------------------------- SOURCES -------------------------------
       case "/sources": {
         const sources = await getAllSourcesSafe();
         const out = formatSourcesList(sources);
-        await bot.sendMessage(chatId, out, { parse_mode: "HTML" });
+        await bot.sendMessage(chatId,out,{ parse_mode: "HTML" });
         return;
       }
 
@@ -425,7 +397,58 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- PROJECT MEMORY -------------------------
+      // ---------------------- NEW COMMAND: /diag_source -------------------
+      case "/diag_source": {
+        const key = args.trim();
+        if (!key) {
+          await bot.sendMessage(
+            chatId,
+            "Использование: /diag_source <key>\nПример: /diag_source coingecko_simple_price",
+            { parse_mode: "HTML" }
+          );
+          return;
+        }
+
+        try {
+          const res = await diagnoseSource(key);
+
+          if (!res.ok) {
+            await bot.sendMessage(
+              chatId,
+              [
+                `Диагностика <code>${key}</code>: ❌`,
+                res.error ? `Ошибка: <code>${res.error}</code>` : "Неизвестная ошибка",
+              ].join("\n"),
+              { parse_mode: "HTML" }
+            );
+            return;
+          }
+
+          await bot.sendMessage(
+            chatId,
+            [
+              `Диагностика <code>${key}</code>: ✅ OK`,
+              res.httpStatus
+                ? `HTTP статус: <code>${res.httpStatus}</code>`
+                : "HTTP статус: n/a",
+              res.type ? `type: <code>${res.type}</code>` : "",
+            ]
+              .filter(Boolean)
+              .join("\n"),
+            { parse_mode: "HTML" }
+          );
+        } catch (err) {
+          console.error("❌ /diag_source error:", err);
+          await bot.sendMessage(
+            chatId,
+            `Ошибка при диагностике: <code>${err.message || err}</code>`,
+            { parse_mode: "HTML" }
+          );
+        }
+        return;
+      }
+
+      // --------------------------- PROJECT MEMORY ------------------------
       case "/pm_show": {
         const section = args.trim();
         if (!section) {
@@ -462,10 +485,7 @@ bot.on("message", async (msg) => {
 
         const firstSpace = args.indexOf(" ");
         if (firstSpace === -1) {
-          await bot.sendMessage(
-            chatId,
-            "Использование: /pm_set <section> <text>"
-          );
+          await bot.sendMessage(chatId,"Использование: /pm_set <section> <text>");
           return;
         }
 
@@ -486,7 +506,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- РЕЖИМЫ ОТВЕТОВ -------------------------
+      // --------------------------- РЕЖИМЫ ОТВЕТОВ ------------------------
       case "/mode": {
         const mode = args.trim().toLowerCase();
         const valid = ["short", "normal", "long"];
@@ -501,15 +521,14 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------------------------------------------------
+      // -------------------------------------------------------------------
       default:
-        // неизвестная команда — пойдёт дальше как обычный текст к ИИ
         break;
     }
   }
 
   // ========================================================================
-  // === НЕ КОМАНДЫ: ПАМЯТЬ + PROJECT CONTEXT + ВЫЗОВ ИИ ===
+  // === НЕ КОМАНДЫ: ПАМЯТЬ + PROJECT CONTEXT + AI ===
   // ========================================================================
 
   const mediaText = media ? `Вложение: ${media}` : "";
@@ -518,13 +537,13 @@ bot.on("message", async (msg) => {
     effective = `${trimmed}\n\n(${mediaText})`;
   }
 
-  // 1) сохраняем сообщение в память
+  // 1) сохраняем сообщение
   await saveMessageToMemory(chatIdStr, "user", effective);
 
   // 2) читаем историю
   const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
 
-  // 3) классификация (пока простая заглушка)
+  // 3) классификация
   const classification = {
     taskType: "chat",
     aiCostLevel: "low",
@@ -532,7 +551,7 @@ bot.on("message", async (msg) => {
 
   await logInteraction(chatIdStr, classification);
 
-  // 4) Project Context (ROADMAP + WORKFLOW)
+  // 4) Project Context
   const projectCtx = await loadProjectContext();
 
   // 5) System Prompt
@@ -550,7 +569,7 @@ bot.on("message", async (msg) => {
     { role: "user", content: effective },
   ];
 
-  // 6) настройки вывода по режиму
+  // 6) настройка вывода
   let maxTokens = 350;
   let temperature = 0.6;
 
@@ -562,7 +581,7 @@ bot.on("message", async (msg) => {
     temperature = 0.8;
   }
 
-  // 7) Вызов ИИ
+  // 7) вызов ИИ
   let aiReply = "";
   try {
     aiReply = await callAI(messages, classification.aiCostLevel, {
@@ -577,7 +596,7 @@ bot.on("message", async (msg) => {
   // 8) сохраняем pair
   await saveChatPair(chatIdStr, effective, aiReply);
 
-  // 9) отправляем ответ пользователю
+  // 9) отправляем ответ
   try {
     await bot.sendMessage(chatId, aiReply);
   } catch (e) {

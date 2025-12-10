@@ -74,6 +74,8 @@ async function initDb() {
         -- Permissions (5.12)
         allowed_roles TEXT[] DEFAULT '{ "guest", "citizen", "monarch" }',
         allowed_plans TEXT[] DEFAULT '{ "free", "pro", "vip" }',
+        -- Rate limits (5.13) — минимальный интервал между реальными запросами
+        rate_limit_seconds INTEGER DEFAULT 10,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
@@ -110,6 +112,32 @@ async function initDb() {
     } catch (e) {
       // колонка уже существует — пропускаем
     }
+
+    // === Миграция 5.13 — rate_limit_seconds (если таблица была без неё) ===
+    try {
+      await pool.query(`
+        ALTER TABLE sources
+        ADD COLUMN rate_limit_seconds INTEGER DEFAULT 10;
+      `);
+      console.log("🔧 Added: sources.rate_limit_seconds");
+    } catch (e) {
+      // колонка уже существует — ок
+    }
+
+    // === Таблица кэша ответов источников (5.13 Source-cache) ===
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS source_cache (
+        id SERIAL PRIMARY KEY,
+        source_key TEXT NOT NULL UNIQUE,
+        cached_json JSONB NOT NULL,
+        cached_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_source_cache_source_key
+      ON source_cache (source_key);
+    `);
 
     // === Таблица проверок источников (Diagnostics: source_checks) ===
     await pool.query(`
@@ -194,7 +222,7 @@ async function initDb() {
     `);
 
     console.log(
-      "✅ Tables ready: chat_memory, users, tasks, sources (+permissions), source_checks, source_logs, interaction_logs, project_memory"
+      "✅ Tables ready: chat_memory, users, tasks, sources (+permissions +rate_limit), source_cache, source_checks, source_logs, interaction_logs, project_memory"
     );
   } catch (err) {
     console.error("❌ Error initializing database:", err);

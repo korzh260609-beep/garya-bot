@@ -3,17 +3,40 @@
 
 import { fetchFromSourceKey } from "../sources.js";
 
-const ID_ALIASES = {
+// ============================================================================
+// === AUTO-MAP: популярные тикеры -> CoinGecko IDs ===========================
+// ============================================================================
+
+const ID_MAP = {
   btc: "bitcoin",
   xbt: "bitcoin",
   eth: "ethereum",
   sol: "solana",
+  bnb: "binancecoin",
+  xrp: "ripple",
+  ada: "cardano",
+  matic: "polygon",
+  doge: "dogecoin",
+  dot: "polkadot",
+  trx: "tron",
+  avax: "avalanche-2",
+  atom: "cosmos",
+  link: "chainlink",
+  ltc: "litecoin",
+  shib: "shiba-inu",
+  sui: "sui",
+  apt: "aptos",
 };
 
+// нормализация ID
 function normalizeId(id) {
-  const raw = String(id || "").trim().toLowerCase();
-  return ID_ALIASES[raw] || raw;
+  const clean = String(id).trim().toLowerCase();
+  return ID_MAP[clean] || clean;
 }
+
+// ============================================================================
+// === Вспомогательная функция: получить контейнер с ценами ====================
+// ============================================================================
 
 function extractPricesContainer(data) {
   if (!data || typeof data !== "object") return null;
@@ -23,14 +46,18 @@ function extractPricesContainer(data) {
     return data.prices;
   }
 
-  // запасной вариант: если вдруг цены лежат в raw.prices
+  // fallback — raw.prices
   if (data.raw && typeof data.raw === "object" && data.raw.prices) {
     return data.raw.prices;
   }
 
-  // последний fallback — вдруг уже плоский объект
+  // fallback — вдруг уже плоский объект
   return data;
 }
+
+// ============================================================================
+// === ОДНА МОНЕТА =============================================================
+// ============================================================================
 
 export async function getCoinGeckoSimplePriceById(
   coinId,
@@ -74,6 +101,10 @@ export async function getCoinGeckoSimplePriceById(
   return { ok: true, id: cleanId, vsCurrency: cleanVs, price, raw: entry };
 }
 
+// ============================================================================
+// === НЕСКОЛЬКО МОНЕТ ========================================================
+// ============================================================================
+
 export async function getCoinGeckoSimplePriceMulti(
   coinIds,
   vsCurrency = "usd",
@@ -100,21 +131,14 @@ export async function getCoinGeckoSimplePriceMulti(
 
   const result = {};
   for (const id of coinIds) {
-    const requested = String(id).trim().toLowerCase();
-    const canonical = normalizeId(requested);
-
-    const entry = pricesContainer[canonical];
+    const cleanId = normalizeId(id);
+    const entry = pricesContainer[cleanId];
     if (!entry) continue;
 
     const price = entry[cleanVs];
     if (typeof price !== "number") continue;
 
-    result[requested] = {
-      id: canonical,
-      vsCurrency: cleanVs,
-      price,
-      raw: entry,
-    };
+    result[cleanId] = { id: cleanId, vsCurrency: cleanVs, price, raw: entry };
   }
 
   if (!Object.keys(result).length) {

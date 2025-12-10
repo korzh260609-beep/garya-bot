@@ -1,5 +1,5 @@
-// sources.js — Sources Layer v1 (virtual/html/rss/coingecko)
-import pool from "./db.js";
+// src/sources/sources.js — Sources Layer v1 (virtual/html/rss/coingecko)
+import pool from "../../db.js";
 
 // === DEFAULT SOURCES (registry templates) ===
 const DEFAULT_SOURCES = [
@@ -133,6 +133,27 @@ export async function getAllSources() {
   return res.rows;
 }
 
+// Вариант "safe" — то, что нужно для /sources
+export async function getAllSourcesSafe() {
+  try {
+    const res = await pool.query(`
+      SELECT
+        key,
+        name,
+        type,
+        is_enabled AS enabled,
+        url,
+        config
+      FROM sources
+      ORDER BY key
+    `);
+    return res.rows;
+  } catch (err) {
+    console.error("❌ getAllSourcesSafe error:", err);
+    return [];
+  }
+}
+
 async function getSourceByKey(key) {
   const res = await pool.query(
     `
@@ -147,7 +168,7 @@ async function getSourceByKey(key) {
   return res.rows[0] || null;
 }
 
-// === LOGGING: source_logs (5.10) ===
+// === LOGGING: source_logs ===
 async function logSourceRequest({
   sourceKey,
   type,
@@ -179,7 +200,7 @@ async function logSourceRequest({
   }
 }
 
-// === DIAGNOSTICS: source_checks (5.7–5.12) ===
+// === DIAGNOSTICS: source_checks ===
 async function logSourceCheck({ sourceKey, ok, httpStatus, message, meta }) {
   try {
     await pool.query(
@@ -525,4 +546,22 @@ async function handleVirtualSource(key, src, options) {
         description: `Virtual source "${key}" (пока без спец-логики).`,
       };
   }
+}
+
+// === ПРЕДСТАВЛЕНИЕ ДЛЯ /sources ===
+export function formatSourcesList(sources) {
+  if (!sources || sources.length === 0) {
+    return "Источники не найдены.";
+  }
+
+  return sources
+    .map((src) => {
+      return `
+🔹 <b>${src.name}</b>
+key: <code>${src.key}</code>
+type: <code>${src.type}</code>
+enabled: ${src.enabled ? "🟢" : "🔴"}
+      `.trim();
+    })
+    .join("\n\n");
 }

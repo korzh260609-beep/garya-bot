@@ -37,7 +37,7 @@ import {
   getAllSourcesSafe,
   fetchFromSourceKey,
   formatSourcesList,
-  diagnoseSource
+  diagnoseSource,
 } from "./src/sources/sources.js";
 
 // === FILE-INTAKE / MEDIA ===
@@ -119,6 +119,22 @@ bot.on("message", async (msg) => {
   // 1) Профиль пользователя
   await ensureUserProfile(msg);
 
+  // 1.1) Роль и план (для Source-Permissions 5.12)
+  let userRole = "guest";
+  let userPlan = "free"; // планы пока не реализованы, по умолчанию free
+
+  try {
+    const uRes = await pool.query(
+      "SELECT role FROM users WHERE chat_id = $1",
+      [chatIdStr]
+    );
+    if (uRes.rows.length) {
+      userRole = uRes.rows[0].role || "guest";
+    }
+  } catch (e) {
+    console.error("❌ Error fetching user role:", e);
+  }
+
   const text = msg.text || "";
   const trimmed = text.trim();
 
@@ -133,7 +149,6 @@ bot.on("message", async (msg) => {
     const cmd = trimmed.split(" ")[0];
 
     switch (cmd) {
-
       // --------------------------- Профиль -------------------------------
       case "/profile":
       case "/me":
@@ -159,7 +174,10 @@ bot.on("message", async (msg) => {
       case "/users_stats": {
         const isMonarch = chatIdStr === "677128443";
         if (!isMonarch) {
-          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
           return;
         }
 
@@ -190,7 +208,10 @@ bot.on("message", async (msg) => {
           await bot.sendMessage(chatId, out);
         } catch (e) {
           console.error("❌ Error in /users_stats:", e);
-          await bot.sendMessage(chatId, "Не удалось получить статистику пользователей.");
+          await bot.sendMessage(
+            chatId,
+            "Не удалось получить статистику пользователей."
+          );
         }
         return;
       }
@@ -276,7 +297,10 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error in /stop_all_tasks:", err);
-          await bot.sendMessage(chatId,"⚠️ Ошибка при попытке остановить задачи.");
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при попытке остановить задачи."
+          );
         }
         return;
       }
@@ -285,7 +309,10 @@ bot.on("message", async (msg) => {
       case "/stop_task": {
         const id = Number(args.trim());
         if (!id) {
-          await bot.sendMessage(chatId,"Использование: /stop_task <id>");
+          await bot.sendMessage(
+            chatId,
+            "Использование: /stop_task <id>"
+          );
           return;
         }
 
@@ -296,13 +323,19 @@ bot.on("message", async (msg) => {
           );
 
           if (res.rowCount === 0) {
-            await bot.sendMessage(chatId,`⚠️ Задача с ID ${id} не найдена.`);
+            await bot.sendMessage(
+              chatId,
+              `⚠️ Задача с ID ${id} не найдена.`
+            );
           } else {
             await bot.sendMessage(chatId, `⛔ Задача ${id} остановлена.`);
           }
         } catch (err) {
           console.error("❌ Error in /stop_task:", err);
-          await bot.sendMessage(chatId,"⚠️ Ошибка при остановке задачи.");
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при остановке задачи."
+          );
         }
         return;
       }
@@ -311,7 +344,10 @@ bot.on("message", async (msg) => {
       case "/start_task": {
         const id = Number(args.trim());
         if (!id) {
-          await bot.sendMessage(chatId,"Использование: /start_task <id>");
+          await bot.sendMessage(
+            chatId,
+            "Использование: /start_task <id>"
+          );
           return;
         }
 
@@ -322,13 +358,19 @@ bot.on("message", async (msg) => {
           );
 
           if (res.rowCount === 0) {
-            await bot.sendMessage(chatId,`⚠️ Задача с ID ${id} не найдена.`);
+            await bot.sendMessage(
+              chatId,
+              `⚠️ Задача с ID ${id} не найдена.`
+            );
           } else {
             await bot.sendMessage(chatId, `✅ Задача ${id} снова активна.`);
           }
         } catch (err) {
           console.error("❌ Error in /start_task:", err);
-          await bot.sendMessage(chatId,"⚠️ Ошибка при запуске задачи.");
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при запуске задачи."
+          );
         }
         return;
       }
@@ -356,7 +398,10 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error in /stop_tasks_type:", err);
-          await bot.sendMessage(chatId,"⚠️ Ошибка при остановке задач по типу.");
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при остановке задач по типу."
+          );
         }
         return;
       }
@@ -365,12 +410,18 @@ bot.on("message", async (msg) => {
       case "/sources": {
         const sources = await getAllSourcesSafe();
         const out = formatSourcesList(sources);
-        await bot.sendMessage(chatId,out,{ parse_mode: "HTML" });
+        await bot.sendMessage(chatId, out, { parse_mode: "HTML" });
         return;
       }
 
       case "/sources_diag": {
-        const summary = await runSourceDiagnosticsOnce();
+        // диагностика всех источников с учётом ролей/планов
+        const isMonarch = chatIdStr === "677128443";
+        const summary = await runSourceDiagnosticsOnce({
+          userRole,
+          userPlan,
+          bypassPermissions: isMonarch, // монарх может диагностировать всё
+        });
 
         const textDiag =
           `🩺 Диагностика источников\n` +
@@ -389,7 +440,21 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        const result = await fetchFromSourceKey(key);
+        const result = await fetchFromSourceKey(key, {
+          userRole,
+          userPlan,
+        });
+
+        if (!result.ok) {
+          // Чёткое сообщение об ошибке доступа или другой проблеме
+          await bot.sendMessage(
+            chatId,
+            `❌ Ошибка при обращении к источнику <code>${key}</code>:\n<code>${result.error || "Unknown error"}</code>`,
+            { parse_mode: "HTML" }
+          );
+          return;
+        }
+
         await bot.sendMessage(
           chatId,
           JSON.stringify(result, null, 2).slice(0, 900)
@@ -409,15 +474,23 @@ bot.on("message", async (msg) => {
           return;
         }
 
+        const isMonarch = chatIdStr === "677128443";
+
         try {
-          const res = await diagnoseSource(key);
+          const res = await diagnoseSource(key, {
+            userRole,
+            userPlan,
+            bypassPermissions: isMonarch, // монарх диагностирует любые источники
+          });
 
           if (!res.ok) {
             await bot.sendMessage(
               chatId,
               [
                 `Диагностика <code>${key}</code>: ❌`,
-                res.error ? `Ошибка: <code>${res.error}</code>` : "Неизвестная ошибка",
+                res.error
+                  ? `Ошибка: <code>${res.error}</code>`
+                  : "Неизвестная ошибка",
               ].join("\n"),
               { parse_mode: "HTML" }
             );
@@ -462,7 +535,10 @@ bot.on("message", async (msg) => {
         );
 
         if (!rec.rows.length) {
-          await bot.sendMessage(chatId, `Секция "${section}" отсутствует.`);
+          await bot.sendMessage(
+            chatId,
+            `Секция "${section}" отсутствует.`
+          );
           return;
         }
 
@@ -485,7 +561,10 @@ bot.on("message", async (msg) => {
 
         const firstSpace = args.indexOf(" ");
         if (firstSpace === -1) {
-          await bot.sendMessage(chatId,"Использование: /pm_set <section> <text>");
+          await bot.sendMessage(
+            chatId,
+            "Использование: /pm_set <section> <text>"
+          );
           return;
         }
 

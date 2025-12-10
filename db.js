@@ -76,26 +76,40 @@ async function initDb() {
       );
     `);
 
-    // === Мягкая миграция enabled → is_enabled ===
+    // === Мягкая миграция enabled → is_enabled (на случай старой схемы) ===
     try {
       await pool.query(`
         ALTER TABLE sources
         RENAME COLUMN enabled TO is_enabled;
       `);
       console.log("🔧 Migrate: sources.enabled -> sources.is_enabled");
-    } catch (e) {}
+    } catch (e) {
+      // колонка enabled может уже не существовать — это нормально
+    }
 
-    // === Таблица проверок источников (Diagnostics) ===
+    // === Таблица проверок источников (Diagnostics: source_checks) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_checks (
         id SERIAL PRIMARY KEY,
         source_key TEXT NOT NULL,
+        status TEXT,
         ok BOOLEAN NOT NULL,
         http_status INT,
         message TEXT,
-        meta JSONB,
+        meta JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+    `);
+
+    // Индексы для быстрых выборок по source_checks
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_source_checks_source_key_created_at
+      ON source_checks (source_key, created_at DESC);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_source_checks_created_at
+      ON source_checks (created_at DESC);
     `);
 
     // === Логи запросов к источникам ===
@@ -113,6 +127,11 @@ async function initDb() {
       );
     `);
 
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_source_logs_source_key_created_at
+      ON source_logs (source_key, created_at DESC);
+    `);
+
     // === Логи взаимодействий с ИИ ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS interaction_logs (
@@ -122,6 +141,11 @@ async function initDb() {
         ai_cost_level TEXT NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_interaction_logs_chat_created_at
+      ON interaction_logs (chat_id, created_at DESC);
     `);
 
     // === Таблица Project Memory ===

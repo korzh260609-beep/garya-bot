@@ -40,6 +40,10 @@ import {
   diagnoseSource,
 } from "./src/sources/sources.js";
 
+import {
+  getCoinGeckoSimplePriceById,
+} from "./src/sources/coingecko/index.js";
+
 // === FILE-INTAKE / MEDIA ===
 import { summarizeMediaAttachment } from "./src/media/fileIntake.js";
 

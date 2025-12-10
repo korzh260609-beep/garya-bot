@@ -1,7 +1,7 @@
 // robot/robotMock.js
 // === ROBOT-LAYER (mock режим без реального API) ===
 
-import pool from "../db.js";
+import pool from "../../db.js";
 
 // Получает активные задачи с расписанием
 export async function getActiveRobotTasks() {

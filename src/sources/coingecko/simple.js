@@ -1,5 +1,5 @@
 // src/sources/coingecko/simple.js
-// CoinGecko Simple Price — V1 (адаптирован под data.prices)
+// CoinGecko Simple Price — V1 (адаптирован под data.prices + кэш 15 секунд)
 
 import { fetchFromSourceKey } from "../sources.js";
 
@@ -32,6 +32,36 @@ const ID_MAP = {
 function normalizeId(id) {
   const clean = String(id).trim().toLowerCase();
   return ID_MAP[clean] || clean;
+}
+
+// ============================================================================
+// === КЭШ ДЛЯ SIMPLE PRICE ====================================================
+// ============================================================================
+
+const CACHE_TTL_MS = 15_000; // 15 секунд
+
+let lastData = null;
+let lastTs = 0;
+
+async function fetchCoinGeckoCached(opts = {}) {
+  const now = Date.now();
+
+  // 1) если кэш свежий — возвращаем его
+  if (lastData && now - lastTs < CACHE_TTL_MS) {
+    return { ok: true, data: lastData };
+  }
+
+  // 2) иначе реальный запрос к Source Layer
+  const res = await fetchFromSourceKey("coingecko_simple_price", {
+    ...(opts || {}),
+  });
+
+  if (res && res.ok) {
+    lastData = res.data;
+    lastTs = now;
+  }
+
+  return res;
 }
 
 // ============================================================================
@@ -69,9 +99,7 @@ export async function getCoinGeckoSimplePriceById(
   const cleanId = normalizeId(coinId);
   const cleanVs = String(vsCurrency).trim().toLowerCase();
 
-  const res = await fetchFromSourceKey("coingecko_simple_price", {
-    ...(opts || {}),
-  });
+  const res = await fetchCoinGeckoCached(opts);
 
   if (!res || !res.ok) {
     return { ok: false, error: res?.error || "CoinGecko source fetch failed" };
@@ -116,9 +144,7 @@ export async function getCoinGeckoSimplePriceMulti(
 
   const cleanVs = String(vsCurrency).trim().toLowerCase();
 
-  const res = await fetchFromSourceKey("coingecko_simple_price", {
-    ...(opts || {}),
-  });
+  const res = await fetchCoinGeckoCached(opts);
 
   if (!res || !res.ok) {
     return { ok: false, error: res?.error || "CoinGecko source fetch failed" };

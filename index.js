@@ -315,7 +315,10 @@ bot.on("message", async (msg) => {
       case "/stop_task": {
         const id = Number(args.trim());
         if (!id) {
-          await bot.sendMessage(chatId, "Использование: /stop_task <id>");
+          await bot.sendMessage(
+            chatId,
+            "Использование: /stop_task <id>"
+          );
           return;
         }
 
@@ -347,7 +350,10 @@ bot.on("message", async (msg) => {
       case "/start_task": {
         const id = Number(args.trim());
         if (!id) {
-          await bot.sendMessage(chatId, "Использование: /start_task <id>");
+          await bot.sendMessage(
+            chatId,
+            "Использование: /start_task <id>"
+          );
           return;
         }
 
@@ -536,7 +542,15 @@ bot.on("message", async (msg) => {
         });
 
         if (!result.ok) {
-          await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
+          const errText = String(result.error || "");
+          if (result.httpStatus === 429 || errText.includes("429")) {
+            await bot.sendMessage(
+              chatId,
+              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
+            );
+          } else {
+            await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
+          }
           return;
         }
 
@@ -568,7 +582,15 @@ bot.on("message", async (msg) => {
         });
 
         if (!result.ok) {
-          await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
+          const errText = String(result.error || "");
+          if (result.httpStatus === 429 || errText.includes("429")) {
+            await bot.sendMessage(
+              chatId,
+              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
+            );
+          } else {
+            await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
+          }
           return;
         }
 

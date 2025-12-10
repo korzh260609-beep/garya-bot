@@ -595,6 +595,55 @@ export async function fetchFromSourceKey(key, options = {}) {
       const res = await fetch(url);
       httpStatus = res.status;
 
+      // Специальный хендлер для 429: пробуем взять данные из кэша
+      if (res.status === 429) {
+        const cache = await getSourceCache(key);
+
+        if (cache) {
+          const durationMs = Date.now() - startedAt;
+
+          await logSourceRequest({
+            sourceKey: key,
+            type,
+            httpStatus,
+            ok: true, // запрос к пользователю считаем успешным (дали данные)
+            durationMs,
+            params: { ...(options.params || {}), url, ids, vsCurrency },
+            extra: {
+              url,
+              note: "coingecko-429-cache-hit",
+            },
+          });
+
+          // Не трогаем last_success_at, чтобы rate-limit продолжал работать по реальным запросам
+          return {
+            ok: true,
+            sourceKey: key,
+            type,
+            httpStatus,
+            data: cache.cached_json,
+            raw: cache.cached_json,
+            fromCache: true,
+            error: "CoinGecko вернул 429, использован кеш последних данных.",
+          };
+        }
+
+        // Кэша нет — нормальная ошибка 429
+        const error = "HTTP 429 от CoinGecko (лимит запросов).";
+        await markSourceError(key, error);
+        await logSourceRequest({
+          sourceKey: key,
+          type,
+          ok: false,
+          httpStatus,
+          durationMs: Date.now() - startedAt,
+          params: { ...(options.params || {}), url, ids, vsCurrency },
+          extra: { url, error },
+        });
+
+        return { ok: false, sourceKey: key, type, httpStatus, error };
+      }
+
       if (!res.ok) {
         const error = `HTTP ${res.status} от CoinGecko.`;
         await markSourceError(key, error);

@@ -76,14 +76,16 @@ async function initDb() {
       );
     `);
 
-    // === Мягкая миграция enabled → is_enabled ===
+    // === Мягкая миграция enabled → is_enabled (на случай старой схемы) ===
     try {
       await pool.query(`
         ALTER TABLE sources
         RENAME COLUMN enabled TO is_enabled;
       `);
       console.log("🔧 Migrate: sources.enabled -> sources.is_enabled");
-    } catch (e) {}
+    } catch (e) {
+      // колонка enabled уже отсутствует — значит, миграция не нужна
+    }
 
     // === Таблица проверок источников (Diagnostics) ===
     await pool.query(`
@@ -132,7 +134,7 @@ async function initDb() {
         section TEXT NOT NULL,
         title TEXT,
         content TEXT NOT NULL,
-        tags TEXT[] DEFAULT '{}',
+        tags TEXT[] DEFAULT '{}'::text[],
         meta JSONB DEFAULT '{}'::jsonb,
         schema_version INTEGER DEFAULT 1,
         created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -140,6 +142,7 @@ async function initDb() {
       );
     `);
 
+    // Индекс для быстрых выборок по project_key + section
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_project_memory_project_section
       ON project_memory (project_key, section);

@@ -1,7 +1,7 @@
 // logging/interactionLogs.js
 // Логирование взаимодействий в таблицу interaction_logs.
 
-import pool from "../db.js";
+import pool from "../../db.js";
 
 /**
  * Логируем факт взаимодействия с пользователем:

@@ -205,10 +205,7 @@ bot.on("message", async (msg) => {
       // --------------------------- ДЕМО-ЗАДАЧА ---------------------------
       case "/demo_task": {
         const id = await createDemoTask(chatIdStr);
-        await bot.sendMessage(
-          chatId,
-          `✅ Демо-задача создана!\nID: ${id}`
-        );
+        await bot.sendMessage(chatId, `✅ Демо-задача создана!\nID: ${id}`);
         return;
       }
 
@@ -268,6 +265,127 @@ bot.on("message", async (msg) => {
         }
 
         await bot.sendMessage(chatId, out);
+        return;
+      }
+
+      // --------------------------- СТОП-КОМАНДЫ ДЛЯ ЗАДАЧ -----------------
+      case "/stop_all_tasks": {
+        try {
+          const res = await pool.query(
+            `
+              UPDATE tasks
+              SET status = 'stopped'
+              WHERE status = 'active';
+            `
+          );
+
+          await bot.sendMessage(
+            chatId,
+            `⛔ Остановлены все активные задачи.\nИзменено записей: ${res.rowCount}.`
+          );
+        } catch (err) {
+          console.error("❌ Error in /stop_all_tasks:", err);
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при попытке остановить задачи."
+          );
+        }
+        return;
+      }
+
+      case "/stop_task": {
+        const id = Number(args.trim());
+        if (!id) {
+          await bot.sendMessage(chatId, "Использование: /stop_task <id>");
+          return;
+        }
+
+        try {
+          const res = await pool.query(
+            `UPDATE tasks SET status = 'stopped' WHERE id = $1;`,
+            [id]
+          );
+
+          if (res.rowCount === 0) {
+            await bot.sendMessage(
+              chatId,
+              `⚠️ Задача с ID ${id} не найдена.`
+            );
+          } else {
+            await bot.sendMessage(chatId, `⛔ Задача ${id} остановлена.`);
+          }
+        } catch (err) {
+          console.error("❌ Error in /stop_task:", err);
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при остановке задачи."
+          );
+        }
+        return;
+      }
+
+      case "/start_task": {
+        const id = Number(args.trim());
+        if (!id) {
+          await bot.sendMessage(chatId, "Использование: /start_task <id>");
+          return;
+        }
+
+        try {
+          const res = await pool.query(
+            `UPDATE tasks SET status = 'active' WHERE id = $1;`,
+            [id]
+          );
+
+          if (res.rowCount === 0) {
+            await bot.sendMessage(
+              chatId,
+              `⚠️ Задача с ID ${id} не найдена.`
+            );
+          } else {
+            await bot.sendMessage(chatId, `✅ Задача ${id} снова активна.`);
+          }
+        } catch (err) {
+          console.error("❌ Error in /start_task:", err);
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при запуске задачи."
+          );
+        }
+        return;
+      }
+
+      case "/stop_tasks_type": {
+        const taskType = args.trim();
+        if (!taskType) {
+          await bot.sendMessage(
+            chatId,
+            "Использование: /stop_tasks_type <type>\nНапример: /stop_tasks_type price_monitor"
+          );
+          return;
+        }
+
+        try {
+          const res = await pool.query(
+            `
+              UPDATE tasks
+              SET status = 'stopped'
+              WHERE type = $1 AND status = 'active';
+            `,
+            [taskType]
+          );
+
+          await bot.sendMessage(
+            chatId,
+            `⛔ Остановлены все активные задачи типа "${taskType}".\nИзменено записей: ${res.rowCount}.`
+          );
+        } catch (err) {
+          console.error("❌ Error in /stop_tasks_type:", err);
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при остановке задач по типу."
+          );
+        }
         return;
       }
 
@@ -469,4 +587,3 @@ bot.on("message", async (msg) => {
 
 // ============================================================================
 console.log("🤖 GARYA AI Bot (modular index.js) работает…");
-

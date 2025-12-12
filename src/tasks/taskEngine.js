@@ -1,7 +1,38 @@
+// src/tasks/taskEngine.js — Task Engine + Access Rules (7.10)
 import pool from "../../db.js";
 import { callAI } from "../../ai.js";
 
-// === ФУНКЦИИ ДЛЯ TASK ENGINE ===
+// ==================================================
+// === ACCESS RULES (7.10)
+// ==================================================
+function canAccessTask({
+  userRole,
+  userPlan,
+  taskType,
+  action,
+  isOwner,
+  bypassPermissions,
+}) {
+  if (bypassPermissions) return true;
+
+  // Базовые правила
+  if (!isOwner) return false;
+
+  // Гости — только простые задачи
+  if (userRole === "guest") {
+    if (taskType === "price_monitor") return false;
+    if (action === "run") return true;
+    if (action === "create") return true;
+    if (action === "stop") return true;
+  }
+
+  // citizen / vip — позже расширим
+  return true;
+}
+
+// ==================================================
+// === CREATE TASKS
+// ==================================================
 
 // демо-задача
 export async function createDemoTask(userChatId) {
@@ -15,24 +46,33 @@ export async function createDemoTask(userChatId) {
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `,
-    [
-      userChatId,
-      "Демо-задача",
-      "demo",
-      payload,
-      null,
-      "active", // или "pending"
-    ]
+    [userChatId, "Демо-задача", "demo", payload, null, "active"]
   );
 
   return result.rows[0].id;
 }
 
-// создаём manual-задачу по тексту пользователя
-export async function createManualTask(userChatId, title, note) {
-  const payload = {
-    note,
-  };
+// manual-задача
+export async function createManualTask(
+  userChatId,
+  title,
+  note,
+  access = {}
+) {
+  const allowed = canAccessTask({
+    userRole: access.userRole || "guest",
+    userPlan: access.userPlan || "free",
+    taskType: "manual",
+    action: "create",
+    isOwner: true,
+    bypassPermissions: access.bypassPermissions === true,
+  });
+
+  if (!allowed) {
+    throw new Error("Доступ к созданию задачи запрещён");
+  }
+
+  const payload = { note };
 
   const result = await pool.query(
     `
@@ -46,8 +86,24 @@ export async function createManualTask(userChatId, title, note) {
   return result.rows[0];
 }
 
-// создаём тестовую задачу price_monitor для BTC (для проверки ROBOT-слоя)
-export async function createTestPriceMonitorTask(userChatId) {
+// тестовый price_monitor
+export async function createTestPriceMonitorTask(
+  userChatId,
+  access = {}
+) {
+  const allowed = canAccessTask({
+    userRole: access.userRole || "guest",
+    userPlan: access.userPlan || "free",
+    taskType: "price_monitor",
+    action: "create",
+    isOwner: true,
+    bypassPermissions: access.bypassPermissions === true,
+  });
+
+  if (!allowed) {
+    throw new Error("Доступ к созданию price_monitor запрещён");
+  }
+
   const payload = {
     symbol: "BTCUSDT",
     interval_minutes: 60,
@@ -60,13 +116,22 @@ export async function createTestPriceMonitorTask(userChatId) {
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `,
-    [userChatId, "Тестовый price_monitor для BTC", "price_monitor", payload, null, "active"]
+    [
+      userChatId,
+      "Тестовый price_monitor для BTC",
+      "price_monitor",
+      payload,
+      null,
+      "active",
+    ]
   );
 
   return result.rows[0].id;
 }
 
-// получаем задачи пользователя
+// ==================================================
+// === READ TASKS
+// ==================================================
 export async function getUserTasks(userChatId, limit = 20) {
   const result = await pool.query(
     `
@@ -81,7 +146,6 @@ export async function getUserTasks(userChatId, limit = 20) {
   return result.rows;
 }
 
-// получаем задачу по id для конкретного пользователя
 export async function getTaskById(userChatId, taskId) {
   const result = await pool.query(
     `
@@ -96,7 +160,9 @@ export async function getTaskById(userChatId, taskId) {
   return result.rows[0] || null;
 }
 
-// обновляем статус задачи
+// ==================================================
+// === UPDATE STATUS
+// ==================================================
 export async function updateTaskStatus(taskId, newStatus) {
   await pool.query(
     `
@@ -108,8 +174,29 @@ export async function updateTaskStatus(taskId, newStatus) {
   );
 }
 
-// ИИ-исполнение задачи (внутренний helper для будущего воркера/команды)
-export async function runTaskWithAI(task, chatId, bot) {
+// ==================================================
+// === RUN TASK WITH AI (ACCESS-AWARE)
+// ==================================================
+export async function runTaskWithAI(
+  task,
+  chatId,
+  bot,
+  access = {}
+) {
+  const allowed = canAccessTask({
+    userRole: access.userRole || "guest",
+    userPlan: access.userPlan || "free",
+    taskType: task.type,
+    action: "run",
+    isOwner: task.user_chat_id === chatId,
+    bypassPermissions: access.bypassPermissions === true,
+  });
+
+  if (!allowed) {
+    await bot.sendMessage(chatId, "⛔ Доступ к выполнению задачи запрещён");
+    return;
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     await bot.sendMessage(
       chatId,
@@ -130,21 +217,7 @@ export async function runTaskWithAI(task, chatId, bot) {
 Ты — ИИ-исполнитель задач Советника GARYA.
 
 Тебе приходит задача из внутреннего Task Engine.
-У задачи есть:
-- title (краткое имя),
-- type (тип задачи),
-- payload (JSON с деталями),
-- note/prompt (текст с описанием),
-
-Твоя цель — максимально буквально и полезно ВЫПОЛНИТЬ её в пределах текста.
-
-Если задача про отчёт — делай отчёт по формату.
-Если задача про анализ — делай анализ.
-Если задача про подготовку черновика — готовь черновик.
-
-Если задача требует реальных действий во внешнем мире (доступ к API, блокчейнам и т.д.), ты:
-1) Прописываешь, КАК это нужно сделать шаг за шагом.
-2) Формируешь текст результата "как если бы" всё уже было сделано.
+Твоя цель — буквально и полезно ВЫПОЛНИТЬ её в пределах текста.
       `.trim(),
     },
     {
@@ -158,7 +231,7 @@ export async function runTaskWithAI(task, chatId, bot) {
 payload (JSON):
 ${JSON.stringify(task.payload, null, 2)}
 
-Описание / note:
+Описание:
 ${promptText}
       `.trim(),
     },
@@ -173,8 +246,7 @@ ${promptText}
     });
   } catch (e) {
     console.error("❌ AI error:", e);
-    reply =
-      "⚠️ ИИ временно недоступен — произошла ошибка при вызове модели.";
+    reply = "⚠️ ИИ временно недоступен.";
   }
 
   await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
@@ -186,4 +258,3 @@ ${promptText}
     `🚀 Задача #${task.id} выполнена ИИ-движком.\n\n${reply}`
   );
 }
-

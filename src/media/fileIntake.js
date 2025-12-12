@@ -1,12 +1,13 @@
 // src/media/fileIntake.js
 // ==================================================
-// FILE-INTAKE V1 / 7F.1–7F.4 — Skeleton + Image Stub
+// FILE-INTAKE V1 / 7F.1–7F.10 — Skeleton + Logs + Routing Stub
 // ==================================================
 //
 // Сейчас:
 // 1) Определяет вложение из Telegram msg (summary)
 // 2) Умеет скачать файл по file_id (download)
-// 3) Даёт "STUB" обработку: фото/документ/аудио — понятный текст
+// 3) Умеет сделать базовый routing/stub (processIncomingFile)
+// 4) Даёт расширенные логи внутри intake.meta.logs[] + console.log
 //
 // OCR / STT / parsing — будет позже (7F.4+ и 8F.*)
 
@@ -28,6 +29,32 @@ function ensureTmpDir() {
 function safeStr(v) {
   if (v === null || v === undefined) return "";
   return String(v);
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function makeMeta() {
+  return {
+    startedAt: nowIso(),
+    logs: [], // { t, level, step, msg, data? }
+  };
+}
+
+function pushLog(meta, level, step, msg, data = null) {
+  const entry = { t: nowIso(), level, step, msg };
+  if (data !== null && data !== undefined) entry.data = data;
+  if (meta?.logs) meta.logs.push(entry);
+
+  // Дублируем в Render logs (коротко, без мусора)
+  try {
+    const prefix = `[FileIntake:${level}] ${step}:`;
+    if (data) console.log(prefix, msg, data);
+    else console.log(prefix, msg);
+  } catch (_) {
+    // ignore
+  }
 }
 
 // ==================================================
@@ -169,23 +196,42 @@ export async function downloadTelegramFile(botToken, fileId) {
 }
 
 // ==================================================
-// === STEP 3: COMBINED HELPER (optional)
+// === STEP 3: COMBINED HELPER (7F.1–7F.3)
 // ==================================================
 export async function intakeAndDownloadIfNeeded(msg, botToken) {
+  const meta = makeMeta();
+
   const summary = summarizeMediaAttachment(msg);
-  if (!summary) return null;
+  if (!summary) {
+    pushLog(meta, "info", "summary", "No attachment in message.");
+    return null;
+  }
+
+  pushLog(meta, "info", "summary", "Attachment summarized.", {
+    kind: summary.kind,
+    fileId: summary.fileId,
+    fileName: summary.fileName || null,
+    mimeType: summary.mimeType || null,
+    fileSize: summary.fileSize || null,
+  });
 
   // На текущем этапе скачиваем всё (упрощённо)
   const downloaded = await downloadTelegramFile(botToken, summary.fileId);
+  pushLog(meta, "info", "download", "Attachment downloaded.", {
+    fileName: downloaded.fileName,
+    size: downloaded.size,
+    localPath: downloaded.localPath,
+  });
 
   return {
     ...summary,
     downloaded,
+    meta,
   };
 }
 
 // ==================================================
-// === STEP 4: STUB PROCESSORS (7F.4)
+// === STEP 4: STUB MESSAGE (7F.3)
 // ==================================================
 function buildStubMessage(summary) {
   if (!summary) return null;
@@ -233,6 +279,42 @@ function buildStubMessage(summary) {
   return `📎 Вложение получено.`;
 }
 
+// ==================================================
+// === STEP 5: PROCESS INCOMING FILE (routing + stub) (7F.3)
+// ==================================================
+export async function processIncomingFile(intake) {
+  const meta = intake?.meta || makeMeta();
+  pushLog(meta, "info", "process", "Start processing intake.", {
+    kind: intake?.kind,
+    fileName: intake?.downloaded?.fileName || intake?.fileName || null,
+  });
+
+  // Пока только stub routing (без OCR/STT)
+  const stub = buildStubMessage(intake);
+
+  const processedText = (() => {
+    if (!intake) return "";
+    const kind = intake.kind || "unknown";
+    const fileName = intake?.downloaded?.fileName || intake?.fileName || "";
+    const mime = intake?.mimeType || "";
+    return `File-Intake stub: kind=${kind}; file=${fileName}; mime=${mime || "n/a"}.`;
+  })();
+
+  pushLog(meta, "info", "process", "Stub processing complete.", {
+    processedText,
+  });
+
+  return {
+    ok: true,
+    processedText,
+    directUserHint: stub, // что можно показать пользователю сразу (если нужно)
+    meta,
+  };
+}
+
+// ==================================================
+// === STEP 6: EFFECTIVE TEXT + DECISION (7F.9)
+// ==================================================
 /**
  * Главный хелпер для index.js:
  * - если у пользователя НЕТ текста, но есть медиа → возвращаем "stub-ответ" и запрещаем AI
@@ -247,6 +329,12 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
       effectiveUserText: trimmed,
       shouldCallAI: hasText, // если пусто — нечего делать
       directReplyText: hasText ? null : "Напиши текстом, что нужно сделать.",
+      decisionMeta: {
+        hasText,
+        hasMedia: false,
+        shouldCallAI: hasText,
+        reason: hasText ? "text_only" : "empty",
+      },
     };
   }
 
@@ -258,6 +346,13 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
       effectiveUserText: "",
       shouldCallAI: false,
       directReplyText: stub,
+      decisionMeta: {
+        hasText,
+        hasMedia: true,
+        shouldCallAI: false,
+        reason: "media_only_no_text",
+        kind: mediaSummary.kind,
+      },
     };
   }
 
@@ -276,5 +371,32 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
     effectiveUserText: `${trimmed}\n\n(${mediaNote})`,
     shouldCallAI: true,
     directReplyText: null,
+    decisionMeta: {
+      hasText,
+      hasMedia: true,
+      shouldCallAI: true,
+      reason: "text_plus_media",
+      kind: mediaSummary.kind,
+    },
   };
+}
+
+// ==================================================
+// === OPTIONAL: DEBUG FORMATTER (7F.10)
+// ==================================================
+export function formatFileIntakeLogs(meta, limit = 20) {
+  const logs = meta?.logs || [];
+  if (!logs.length) return "File-Intake logs: empty.";
+  const slice = logs.slice(-toIntOr(limit, 20));
+  let out = "🧾 File-Intake logs\n\n";
+  for (const l of slice) {
+    out += `• ${l.t} [${l.level}] ${l.step}: ${l.msg}\n`;
+    if (l.data) out += `  data: ${safeStr(JSON.stringify(l.data)).slice(0, 600)}\n`;
+  }
+  return out.trim();
+}
+
+function toIntOr(v, fallback) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }

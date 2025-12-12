@@ -1,7 +1,9 @@
 // src/sources/sources.js — Sources Layer v1 (virtual/html/rss/coingecko)
 import pool from "../../db.js";
 
-// === DEFAULT SOURCES (registry templates) ===
+// ==================================================
+// === DEFAULT SOURCES (registry templates)
+// ==================================================
 const DEFAULT_SOURCES = [
   {
     key: "generic_web_search",
@@ -29,7 +31,7 @@ const DEFAULT_SOURCES = [
   },
   {
     key: "html_example_page",
-    name: "HTML-пример: example.com (старый ключ)",
+    name: "HTML-пример: example.com",
     type: "html",
     url: "https://example.com/",
     enabled: true,
@@ -37,7 +39,7 @@ const DEFAULT_SOURCES = [
   },
   {
     key: "rss_example_news",
-    name: "RSS-пример: новости (старый ключ)",
+    name: "RSS-пример: новости",
     type: "rss",
     url: "https://hnrss.org/frontpage",
     enabled: true,
@@ -45,7 +47,7 @@ const DEFAULT_SOURCES = [
   },
   {
     key: "coingecko_simple_price",
-    name: "CoinGecko: simple price (BTC/ETH/SOL)",
+    name: "CoinGecko: simple price",
     type: "coingecko",
     url: "https://api.coingecko.com/api/v3/simple/price",
     enabled: true,
@@ -62,38 +64,24 @@ const DEFAULT_SOURCES = [
     enabled: true,
     config: {},
   },
-  {
-    key: "html_example",
-    name: "Example.com (HTML)",
-    type: "html",
-    url: "https://example.com/",
-    enabled: true,
-    config: {},
-  },
-  {
-    key: "rss_hackernews",
-    name: "Hacker News (RSS)",
-    type: "rss",
-    url: "https://news.ycombinator.com/rss",
-    enabled: true,
-    config: {},
-  },
 ];
 
-// === INIT: ensureDefaultSources ===
+// ==================================================
+// === INIT: ensureDefaultSources
+// ==================================================
 export async function ensureDefaultSources() {
   for (const src of DEFAULT_SOURCES) {
     try {
       await pool.query(
         `
         INSERT INTO sources (key, name, type, url, is_enabled, config)
-        VALUES ($1,   $2,   $3,  $4,  $5,         $6)
+        VALUES ($1,$2,$3,$4,$5,$6)
         ON CONFLICT (key) DO UPDATE SET
-          name       = EXCLUDED.name,
-          type       = EXCLUDED.type,
-          url        = EXCLUDED.url,
+          name = EXCLUDED.name,
+          type = EXCLUDED.type,
+          url = EXCLUDED.url,
           is_enabled = EXCLUDED.is_enabled,
-          config     = EXCLUDED.config,
+          config = EXCLUDED.config,
           updated_at = NOW()
       `,
         [
@@ -113,7 +101,24 @@ export async function ensureDefaultSources() {
   console.log("📡 ensureDefaultSources: registry synced");
 }
 
-// === BASIC HELPERS ===
+// ==================================================
+// === ACCESS RULES (7.9)
+// ==================================================
+function canAccessSource(source, { userRole, userPlan, bypassPermissions }) {
+  if (bypassPermissions) return true;
+
+  const allowedRoles = source.allowed_roles || [];
+  const allowedPlans = source.allowed_plans || [];
+
+  if (allowedRoles.length && !allowedRoles.includes(userRole)) return false;
+  if (allowedPlans.length && !allowedPlans.includes(userPlan)) return false;
+
+  return true;
+}
+
+// ==================================================
+// === BASIC HELPERS
+// ==================================================
 export async function listActiveSources() {
   const res = await pool.query(`
     SELECT *
@@ -133,7 +138,7 @@ export async function getAllSources() {
   return res.rows;
 }
 
-// Вариант "safe" — то, что нужно для /sources
+// safe-variant for /sources
 export async function getAllSourcesSafe() {
   try {
     const res = await pool.query(`
@@ -168,7 +173,9 @@ async function getSourceByKey(key) {
   return res.rows[0] || null;
 }
 
-// === LOGGING: source_logs ===
+// ==================================================
+// === LOGGING: source_logs
+// ==================================================
 async function logSourceRequest({
   sourceKey,
   type,
@@ -183,7 +190,7 @@ async function logSourceRequest({
       `
       INSERT INTO source_logs
         (source_key, source_type, http_status, ok, duration_ms, params, extra)
-      VALUES ($1,        $2,          $3,         $4, $5,         $6,    $7)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
     `,
       [
         sourceKey,
@@ -200,14 +207,16 @@ async function logSourceRequest({
   }
 }
 
-// === DIAGNOSTICS: source_checks ===
+// ==================================================
+// === DIAGNOSTICS: source_checks
+// ==================================================
 async function logSourceCheck({ sourceKey, ok, httpStatus, message, meta }) {
   try {
     await pool.query(
       `
       INSERT INTO source_checks
         (source_key, ok, http_status, message, meta)
-      VALUES ($1,        $2, $3,          $4,      $5)
+      VALUES ($1,$2,$3,$4,$5)
     `,
       [
         sourceKey,
@@ -286,7 +295,9 @@ export async function getLatestSourceChecks() {
   return rows;
 }
 
-// === CORE: fetchFromSourceKey ===
+// ==================================================
+// === CORE: fetchFromSourceKey (with access rules)
+// ==================================================
 export async function fetchFromSourceKey(key, options = {}) {
   const startedAt = Date.now();
   let httpStatus = null;
@@ -306,6 +317,22 @@ export async function fetchFromSourceKey(key, options = {}) {
         extra: { error },
       });
       return { ok: false, sourceKey: key, error };
+    }
+
+    // 🔐 ACCESS CHECK
+    const allowed = canAccessSource(src, {
+      userRole: options.userRole || "guest",
+      userPlan: options.userPlan || "free",
+      bypassPermissions: options.bypassPermissions === true,
+    });
+
+    if (!allowed) {
+      return {
+        ok: false,
+        sourceKey: key,
+        type: src.type,
+        error: "Доступ к источнику запрещён",
+      };
     }
 
     type = src.type;
@@ -337,7 +364,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 
     // === HTML ===
     if (type === "html") {
-      const url = options.params?.url || src.url || "https://example.com/";
+      const url = options.params?.url || src.url;
       const res = await fetch(url);
       httpStatus = res.status;
 
@@ -380,8 +407,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 
     // === RSS ===
     if (type === "rss") {
-      const url =
-        options.params?.url || src.url || "https://hnrss.org/frontpage";
+      const url = options.params?.url || src.url;
       const res = await fetch(url);
       httpStatus = res.status;
 
@@ -424,8 +450,7 @@ export async function fetchFromSourceKey(key, options = {}) {
 
     // === COINGECKO ===
     if (type === "coingecko") {
-      const urlBase =
-        src.url || "https://api.coingecko.com/api/v3/simple/price";
+      const urlBase = src.url;
       const cfg = src.config || {};
       const ids =
         options.params?.ids || cfg.ids || ["bitcoin", "ethereum", "solana"];
@@ -455,7 +480,7 @@ export async function fetchFromSourceKey(key, options = {}) {
       }
 
       const json = await res.json();
-      resultData = { url, ids, vs_currency: vsCurrency, prices: json };
+      resultData = { ids, vsCurrency, prices: json };
 
       await logSourceRequest({
         sourceKey: key,
@@ -464,7 +489,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         httpStatus,
         durationMs: Date.now() - startedAt,
         params: { ...(options.params || {}), url, ids, vsCurrency },
-        extra: { url, ids, vsCurrency, keys: Object.keys(json || {}) },
+        extra: { keys: Object.keys(json || {}) },
       });
 
       return {
@@ -492,7 +517,6 @@ export async function fetchFromSourceKey(key, options = {}) {
     return { ok: false, sourceKey: key, type, error };
   } catch (err) {
     const durationMs = Date.now() - startedAt;
-    console.error("❌ fetchFromSourceKey error:", err);
 
     await logSourceRequest({
       sourceKey: key,
@@ -514,54 +538,38 @@ export async function fetchFromSourceKey(key, options = {}) {
   }
 }
 
-// === VIRTUAL SOURCES ===
-async function handleVirtualSource(key, src, options) {
+// ==================================================
+// === VIRTUAL SOURCES
+// ==================================================
+async function handleVirtualSource(key) {
   switch (key) {
     case "virtual_hello":
-      return {
-        message: "Hello from virtual source!",
-        timestamp: new Date().toISOString(),
-      };
-
+      return { message: "Hello from virtual source!" };
     case "generic_web_search":
-      return {
-        description:
-          "Заглушка для веб-поиска. Реальный поиск будет добавлен позже.",
-      };
-
+      return { description: "Заглушка веб-поиска" };
     case "generic_news_feed":
-      return {
-        description:
-          "Заглушка для новостных лент. Позже сюда добавим реальные RSS/API.",
-      };
-
+      return { description: "Заглушка новостей" };
     case "generic_public_markets":
-      return {
-        description:
-          "Заглушка для общих рыночных данных. Будет расширена позже.",
-      };
-
+      return { description: "Заглушка рынков" };
     default:
-      return {
-        description: `Virtual source "${key}" (пока без спец-логики).`,
-      };
+      return { description: `Virtual source "${key}"` };
   }
 }
 
-// === ПРЕДСТАВЛЕНИЕ ДЛЯ /sources ===
+// ==================================================
+// === PRESENTATION
+// ==================================================
 export function formatSourcesList(sources) {
-  if (!sources || sources.length === 0) {
-    return "Источники не найдены.";
-  }
+  if (!sources || sources.length === 0) return "Источники не найдены.";
 
   return sources
-    .map((src) => {
-      return `
+    .map(
+      (src) => `
 🔹 <b>${src.name}</b>
 key: <code>${src.key}</code>
 type: <code>${src.type}</code>
 enabled: ${src.enabled ? "🟢" : "🔴"}
-      `.trim();
-    })
+    `.trim()
+    )
     .join("\n\n");
 }

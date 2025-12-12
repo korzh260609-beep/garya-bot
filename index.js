@@ -52,6 +52,7 @@ import {
 import {
   summarizeMediaAttachment,
   intakeAndDownloadIfNeeded,
+  processIncomingFile,
 } from "./src/media/fileIntake.js";
 
 // === LOGGING ===
@@ -320,7 +321,6 @@ bot.on("message", async (msg) => {
         }
 
         try {
-          // title = rest, note = rest (минимально)
           const task = await createManualTask(chatIdStr, rest, rest, access);
           await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task.id}`);
         } catch (e) {
@@ -718,23 +718,38 @@ bot.on("message", async (msg) => {
   // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
   // ========================================================================
 
-  // Если есть вложение — скачиваем и подтверждаем (коротко)
+  // Если есть вложение — скачиваем + process (7F.3)
   let intake = null;
+  let processed = null;
+
   if (mediaSummary) {
     try {
       intake = await intakeAndDownloadIfNeeded(msg, token);
       const fileName = intake?.downloaded?.fileName || "file";
       await bot.sendMessage(chatId, `✅ Файл принят: ${intake.kind} (${fileName})`);
+
+      // 7F.3 — process file (routing stubs)
+      processed = await processIncomingFile(intake);
+
+      // Можно отправить короткую "честную" подсказку пользователю (без “не могу”)
+      const hint = processed?.processedText ? String(processed.processedText) : "";
+      if (hint) {
+        await bot.sendMessage(chatId, hint.slice(0, 900));
+      }
     } catch (e) {
-      console.error("❌ File-Intake download error:", e);
-      await bot.sendMessage(chatId, "⚠️ Не удалось скачать файл (File-Intake).");
+      console.error("❌ File-Intake error:", e);
+      await bot.sendMessage(chatId, "⚠️ Не удалось обработать файл (File-Intake).");
     }
   }
 
-  // Формируем текст для памяти/ИИ
-  const mediaText = intake
-    ? `Attachment: kind=${intake.kind}; fileName=${intake.downloaded?.fileName || ""}; localPath=${intake.downloaded?.localPath || ""}`
-    : (mediaSummary ? `Attachment: kind=${mediaSummary.kind}` : "");
+  // Формируем текст для памяти/ИИ:
+  // - НИКОГДА не отправляем localPath в ИИ (лишнее + риск/шум)
+  // - Используем processedText, иначе summary-kind
+  const mediaText = processed?.processedText
+    ? `Attachment: ${processed.processedText}`
+    : intake
+      ? `Attachment received: kind=${intake.kind}; file=${intake.downloaded?.fileName || ""}`
+      : (mediaSummary ? `Attachment received: kind=${mediaSummary.kind}` : "");
 
   let effective = trimmed || mediaText;
   if (trimmed && mediaText) effective = `${trimmed}\n\n(${mediaText})`;
@@ -757,11 +772,14 @@ bot.on("message", async (msg) => {
 
   let modeInstruction = "";
   if (answerMode === "short") {
-    modeInstruction = "Режим short: отвечай очень кратко (1–2 предложения), только по существу, без лишних деталей.";
+    modeInstruction =
+      "Режим short: отвечай очень кратко (1–2 предложения), только по существу, без лишних деталей.";
   } else if (answerMode === "normal") {
-    modeInstruction = "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
+    modeInstruction =
+      "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
   } else if (answerMode === "long") {
-    modeInstruction = "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
+    modeInstruction =
+      "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
   }
 
   const systemPrompt = buildSystemPrompt(answerMode, modeInstruction, projectCtx || "");

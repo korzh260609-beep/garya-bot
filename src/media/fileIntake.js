@@ -9,33 +9,27 @@
 // 7F.3 process file (routing)
 // 7F.4 OCR img — SKELETON (заглушка, без Vision)
 //
+// Важно:
+// - Этот модуль НЕ вызывает ИИ и НЕ делает реальный OCR.
+// - localPath никогда не показываем пользователю.
+// - Добавлен backward-compat export: intakeAndDownloadIfNeeded
 //
-// ВАЖНО: этот файл НЕ вызывает ИИ и НЕ делает OCR реально.
-// Он возвращает "userFacingText" (одну строку/сообщение для пользователя)
-// и "effectiveUserText" (текст, который можно передавать в ИИ-чат, если нужно).
-//
-// Цель: чтобы бот НЕ писал "не могу просмотреть", а честно говорил:
-// - Фото принято, OCR будет позже
-// - PDF принят, парсинг будет позже
-//
-// + Не светим localPath в ответах пользователю.
+// ==================================================
 
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
 
 // ==================================================
-// === CONFIG
+// CONFIG
 // ==================================================
 const TMP_DIR = path.resolve(process.cwd(), "tmp", "media");
-
-// Ограничение на скачивание (защита от мусора/спама)
-const MAX_DOWNLOAD_BYTES = Number(process.env.FILE_INTAKE_MAX_BYTES || 15 * 1024 * 1024); // 15MB
+const MAX_DOWNLOAD_BYTES = Number(
+  process.env.FILE_INTAKE_MAX_BYTES || 15 * 1024 * 1024
+); // 15MB
 
 function ensureTmpDir() {
-  if (!fs.existsSync(TMP_DIR)) {
-    fs.mkdirSync(TMP_DIR, { recursive: true });
-  }
+  if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 }
 
 function safeStr(v) {
@@ -49,7 +43,7 @@ function truncate(s, n = 800) {
 }
 
 // ==================================================
-// === STEP A: SUMMARY / DETECT TYPE
+// STEP 1: SUMMARY (detect type)
 // ==================================================
 export function summarizeMediaAttachment(msg) {
   if (!msg || typeof msg !== "object") return null;
@@ -140,7 +134,7 @@ export function summarizeMediaAttachment(msg) {
 }
 
 // ==================================================
-// === STEP 7F.1: DOWNLOAD FILE (OPTIONAL)
+// STEP 7F.1: DOWNLOAD FILE (optional)
 // ==================================================
 export async function downloadTelegramFile(botToken, fileId) {
   if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN is missing");
@@ -148,12 +142,11 @@ export async function downloadTelegramFile(botToken, fileId) {
 
   ensureTmpDir();
 
-  // 1) getFile
+  // 1) getFile metadata
   const metaRes = await fetch(
     `https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`
   );
   const metaJson = await metaRes.json();
-
   if (!metaJson.ok) {
     throw new Error(`Telegram getFile failed: ${JSON.stringify(metaJson)}`);
   }
@@ -161,14 +154,12 @@ export async function downloadTelegramFile(botToken, fileId) {
   const telegramPath = metaJson.result.file_path;
   const fileUrl = `https://api.telegram.org/file/bot${botToken}/${telegramPath}`;
 
-  // 2) download
+  // 2) download file
   const fileName = path.basename(telegramPath);
   const localPath = path.join(TMP_DIR, fileName);
 
   const fileRes = await fetch(fileUrl);
-  if (!fileRes.ok) {
-    throw new Error(`File download failed: HTTP ${fileRes.status}`);
-  }
+  if (!fileRes.ok) throw new Error(`File download failed: HTTP ${fileRes.status}`);
 
   const ab = await fileRes.arrayBuffer();
   const size = ab.byteLength;
@@ -180,8 +171,7 @@ export async function downloadTelegramFile(botToken, fileId) {
   fs.writeFileSync(localPath, Buffer.from(ab));
 
   return {
-    // ВАЖНО: localPath НЕ показываем пользователю (только для внутренних модулей)
-    localPath,
+    localPath, // ВАЖНО: не показывать пользователю
     fileName,
     size,
     telegramPath,
@@ -189,19 +179,19 @@ export async function downloadTelegramFile(botToken, fileId) {
 }
 
 // ==================================================
-// === STEP 7F.3: PROCESS FILE (ROUTING)
+// STEP 7F.3–7F.4: PROCESS (routing + skeleton responses)
 // ==================================================
 function buildUserFacingAck(summary) {
   if (!summary) return null;
 
-  if (summary.kind === "photo") {
-    return `✅ Файл принят: photo (${summary.fileId || "?"})`;
-  }
+  if (summary.kind === "photo") return `✅ Файл принят: photo (${summary.fileId || "?"})`;
+
   if (summary.kind === "document") {
     const name = summary.fileName ? `file=${summary.fileName}` : "file=document";
     const mime = summary.mimeType ? `, mime=${summary.mimeType}` : "";
     return `✅ Файл принят: document (${name}${mime})`;
   }
+
   if (summary.kind === "audio") return `✅ Файл принят: audio (${summary.fileId || "?"})`;
   if (summary.kind === "voice") return `✅ Файл принят: voice (${summary.fileId || "?"})`;
   if (summary.kind === "video") return `✅ Файл принят: video (${summary.fileId || "?"})`;
@@ -209,8 +199,8 @@ function buildUserFacingAck(summary) {
   return `✅ Файл принят: ${summary.kind || "unknown"}`;
 }
 
+// 7F.4 OCR img (skeleton)
 function processPhotoSkeleton(summary) {
-  // 7F.4 OCR img — пока заглушка, без Vision
   const w = summary.width ? ` ${summary.width}x${summary.height}` : "";
   return `📸 Фото получено${w}. OCR/визуальный анализ будет добавлен на следующем этапе.`;
 }
@@ -232,15 +222,13 @@ function processVideoSkeleton() {
   return `🎞 Видео получено. Извлечение аудио/кадров будет добавлено на следующем этапе.`;
 }
 
-// Главный процессор: возвращает тексты, НЕ вызывает ИИ
+// Главный процессор: НЕ вызывает ИИ, просто возвращает информацию
 export async function processIncomingFile(msg, botToken, opts = {}) {
   const summary = summarizeMediaAttachment(msg);
   if (!summary) return null;
 
   const ack = buildUserFacingAck(summary);
 
-  // По умолчанию: НЕ скачиваем автоматически всё подряд.
-  // Скачивание включаем точечно (например, для будущего OCR/PDF).
   const shouldDownload = Boolean(opts.download === true);
 
   let downloaded = null;
@@ -262,17 +250,11 @@ export async function processIncomingFile(msg, botToken, opts = {}) {
   else if (summary.kind === "video") userFacingText = processVideoSkeleton(summary);
   else userFacingText = `Файл получен. Обработка будет добавлена позже.`;
 
-  // ВАЖНО: ошибки скачивания показываем очень мягко (без путей)
   if (downloadError) {
     userFacingText += `\n⚠️ Не удалось скачать файл (внутренняя ошибка).`;
   }
 
-  // effectiveUserText — краткая строка, которую можно вложить в AI-контекст
-  // (но если пользователь ничего не написал, лучше НЕ вызывать ИИ вовсе — это уже правка index.js)
-  const effectiveUserText = truncate(
-    `Attachment: ${summary.kind}. ${userFacingText}`,
-    700
-  );
+  const effectiveUserText = truncate(`Attachment: ${summary.kind}. ${userFacingText}`, 700);
 
   return {
     ok: true,
@@ -280,12 +262,12 @@ export async function processIncomingFile(msg, botToken, opts = {}) {
     ack,
     userFacingText,
     effectiveUserText,
-    downloaded, // использовать в будущем, НЕ показывать пользователю
+    downloaded, // не показывать пользователю
   };
 }
 
 // ==================================================
-// === Helper: build effective user text (text + file)
+// Helper: combine user text + attachment info
 // ==================================================
 export async function buildEffectiveUserText(msg, botToken, opts = {}) {
   const rawText = safeStr(msg?.text || "").trim();
@@ -293,21 +275,35 @@ export async function buildEffectiveUserText(msg, botToken, opts = {}) {
   const fileResult = await processIncomingFile(msg, botToken, opts);
   const hasFile = Boolean(fileResult);
 
-  // Важно: userFacingText отдельно — это то, что мы можем отправить пользователю сразу.
-  // effectiveUserText — то, что добавляем в AI messages (если вообще вызываем ИИ).
-
-  let effective = rawText;
+  let effectiveText = rawText;
 
   if (!rawText && hasFile) {
-    effective = ""; // специально пусто: если нет текста — лучше НЕ звать ИИ (исправим в index.js)
+    effectiveText = ""; // если текста нет — лучше НЕ вызывать ИИ (решается в index.js)
   } else if (rawText && hasFile) {
-    effective = `${rawText}\n\n(${fileResult.effectiveUserText})`;
+    effectiveText = `${rawText}\n\n(${fileResult.effectiveUserText})`;
   }
 
   return {
     rawText,
     hasFile,
     fileResult,
-    effectiveText: effective,
+    effectiveText,
+  };
+}
+
+// ==================================================
+// BACKWARD COMPAT (для текущего index.js)
+// index.js импортирует intakeAndDownloadIfNeeded — возвращаем его обратно.
+// ==================================================
+export async function intakeAndDownloadIfNeeded(msg, botToken) {
+  const summary = summarizeMediaAttachment(msg);
+  if (!summary) return null;
+
+  // Старое поведение: скачать файл всегда
+  const downloaded = await downloadTelegramFile(botToken, summary.fileId);
+
+  return {
+    ...summary,
+    downloaded,
   };
 }

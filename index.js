@@ -21,6 +21,7 @@ import {
 
 // === USERS ===
 import { ensureUserProfile } from "./src/users/userProfile.js";
+import { can } from "./src/users/permissions.js"; // ✅ 7.8 Permissions-layer
 
 // === TASK ENGINE ===
 import {
@@ -346,6 +347,38 @@ bot.on("message", async (msg) => {
     bypassPermissions: bypass,
   };
 
+  // ✅ единый user-объект для permissions-layer
+  const user = { role: userRole, plan: userPlan, bypassPermissions: bypass };
+
+  // ✅ mapping команд → action keys (единый контроль)
+  const CMD_ACTION = {
+    "/profile": "cmd.profile",
+    "/me": "cmd.profile",
+    "/whoami": "cmd.profile",
+
+    "/mode": "cmd.mode",
+
+    "/tasks": "cmd.tasks.list",
+    "/run": "cmd.task.run",
+    "/newtask": "cmd.task.create",
+
+    "/price": "cmd.price",
+    "/prices": "cmd.prices",
+
+    "/sources": "cmd.sources.list",
+    "/source": "cmd.source.fetch",
+    "/diag_source": "cmd.source.diagnose",
+  };
+
+  // ✅ V1 guard: если команда есть в карте — проверяем can()
+  async function requirePermOrReply(cmd) {
+    const action = CMD_ACTION[cmd];
+    if (!action) return true; // команды вне карты (в т.ч. монаршие) — старые проверки остаются
+    if (can(user, action)) return true;
+    await bot.sendMessage(chatId, "⛔ Недостаточно прав.");
+    return false;
+  }
+
   // ========================================================================
   // === COMMANDS ===
   // ========================================================================
@@ -353,6 +386,9 @@ bot.on("message", async (msg) => {
     const parsed = parseCommand(trimmed);
     const cmd = parsed?.cmd || trimmed.split(" ")[0];
     const rest = parsed?.rest || "";
+
+    // ✅ Permissions-layer check (only if mapped)
+    if (!(await requirePermOrReply(cmd))) return;
 
     switch (cmd) {
       case "/profile":

@@ -1,5 +1,6 @@
 // src/sources/sources.js — Sources Layer v1 (virtual/html/rss/coingecko + perms + rate-limit + cache)
 import pool from "../../db.js";
+import { can } from "../users/permissions.js"; // ✅ 7.9: source-level permissions via can()
 
 // === DEFAULT SOURCES (registry templates) ===
 const DEFAULT_SOURCES = [
@@ -178,6 +179,8 @@ async function getSourceByKey(key) {
 }
 
 // === PERMISSIONS (5.12) ===
+// ОСТАВЛЕНО ДЛЯ СОВМЕСТИМОСТИ/ОТКАТА.
+// Фактическая проверка теперь делается через can(user, `source:${key}`, {source})
 function isSourceAllowedForUser(src, userRole, userPlan) {
   const roles = src.allowed_roles || ["guest", "citizen", "monarch"];
   const plans = src.allowed_plans || ["free", "pro", "vip"];
@@ -348,8 +351,7 @@ export async function runSourceDiagnosticsOnce(options = {}) {
       key: src.key,
       type: src.type,
       ok: !!res.ok,
-      httpStatus:
-        typeof res.httpStatus === "number" ? res.httpStatus : null,
+      httpStatus: typeof res.httpStatus === "number" ? res.httpStatus : null,
       error: res.ok ? null : res.error || null,
     });
   }
@@ -387,6 +389,13 @@ export async function fetchFromSourceKey(key, options = {}) {
   const bypassPermissions = options.bypassPermissions === true;
   const ignoreRateLimit = options.ignoreRateLimit === true;
 
+  // ✅ user object for permissions-layer
+  const user = {
+    role: userRole,
+    plan: userPlan,
+    bypassPermissions,
+  };
+
   try {
     const src = await getSourceByKey(key);
     if (!src) {
@@ -405,8 +414,14 @@ export async function fetchFromSourceKey(key, options = {}) {
 
     type = src.type;
 
-    // === Permissions check (5.12) ===
-    if (!bypassPermissions && !isSourceAllowedForUser(src, userRole, userPlan)) {
+    // === Permissions check (7.9 via can()) ===
+    // IMPORTANT: передаём source в ctx, чтобы can() мог использовать enabled/roles/plans
+    const allowedByCan = can(user, `source:${key}`, { source: src });
+
+    // Для совместимости оставим старую логику как fallback (на случай, если где-то планы/роли ещё не заполнены)
+    const allowedByLegacy = isSourceAllowedForUser(src, userRole, userPlan);
+
+    if (!bypassPermissions && !(allowedByCan || allowedByLegacy)) {
       const error = "Доступ к этому источнику запрещён для вашей роли/тарифа.";
       await logSourceRequest({
         sourceKey: key,
@@ -415,7 +430,13 @@ export async function fetchFromSourceKey(key, options = {}) {
         ok: false,
         durationMs: Date.now() - startedAt,
         params: options.params || null,
-        extra: { error, userRole, userPlan },
+        extra: {
+          error,
+          userRole,
+          userPlan,
+          allowedByCan,
+          allowedByLegacy,
+        },
       });
       return { ok: false, sourceKey: key, type, error };
     }

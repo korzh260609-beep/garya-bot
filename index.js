@@ -67,6 +67,28 @@ import pool from "./db.js";
 const MAX_HISTORY_MESSAGES = 20;
 
 // ============================================================================
+// === MINI-ACCESS V0 (начало Этапа 7, без новых таблиц) ===
+// ============================================================================
+const MONARCH_CHAT_ID = "677128443";
+
+function isMonarch(chatIdStr) {
+  return chatIdStr === MONARCH_CHAT_ID;
+}
+
+async function guardMonarch(
+  bot,
+  chatId,
+  chatIdStr,
+  actionText = "Эта команда"
+) {
+  if (!isMonarch(chatIdStr)) {
+    await bot.sendMessage(chatId, `${actionText} доступна только монарху GARYA.`);
+    return false;
+  }
+  return true;
+}
+
+// ============================================================================
 // === EXPRESS SERVER ===
 // ============================================================================
 const app = express();
@@ -180,14 +202,15 @@ bot.on("message", async (msg) => {
 
       // -------------------- Статистика пользователей ---------------------
       case "/users_stats": {
-        const isMonarch = chatIdStr === "677128443";
-        if (!isMonarch) {
-          await bot.sendMessage(
+        if (
+          !(await guardMonarch(
+            bot,
             chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+            chatIdStr,
+            "Команда /users_stats"
+          ))
+        )
           return;
-        }
 
         try {
           const totalRes = await pool.query(
@@ -337,10 +360,7 @@ bot.on("message", async (msg) => {
           }
         } catch (err) {
           console.error("❌ Error in /stop_task:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при остановке задачи."
-          );
+          await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задачи.");
         }
         return;
       }
@@ -349,10 +369,7 @@ bot.on("message", async (msg) => {
       case "/start_task": {
         const id = Number(args.trim());
         if (!id) {
-          await bot.sendMessage(
-            chatId,
-            "Использование: /start_task <id>"
-          );
+          await bot.sendMessage(chatId, "Использование: /start_task <id>");
           return;
         }
 
@@ -372,10 +389,7 @@ bot.on("message", async (msg) => {
           }
         } catch (err) {
           console.error("❌ Error in /start_task:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при запуске задачи."
-          );
+          await bot.sendMessage(chatId, "⚠️ Ошибка при запуске задачи.");
         }
         return;
       }
@@ -403,10 +417,7 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error при остановке задач по типу:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при остановке задач по типу."
-          );
+          await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задач по типу.");
         }
         return;
       }
@@ -420,11 +431,10 @@ bot.on("message", async (msg) => {
       }
 
       case "/sources_diag": {
-        const isMonarch = chatIdStr === "677128443";
         const summary = await runSourceDiagnosticsOnce({
           userRole,
           userPlan,
-          bypassPermissions: isMonarch,
+          bypassPermissions: isMonarch(chatIdStr),
         });
 
         const textDiag =
@@ -477,13 +487,11 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        const isMonarch = chatIdStr === "677128443";
-
         try {
           const res = await diagnoseSource(key, {
             userRole,
             userPlan,
-            bypassPermissions: isMonarch,
+            bypassPermissions: isMonarch(chatIdStr),
           });
 
           if (!res.ok) {
@@ -622,10 +630,7 @@ bot.on("message", async (msg) => {
         );
 
         if (!rec.rows.length) {
-          await bot.sendMessage(
-            chatId,
-            `Секция "${section}" отсутствует.`
-          );
+          await bot.sendMessage(chatId, `Секция "${section}" отсутствует.`);
           return;
         }
 
@@ -638,13 +643,10 @@ bot.on("message", async (msg) => {
       }
 
       case "/pm_set": {
-        if (chatIdStr !== "677128443") {
-          await bot.sendMessage(
-            chatId,
-            "Только монарх может менять Project Memory."
-          );
+        if (
+          !(await guardMonarch(bot, chatId, chatIdStr, "Команда /pm_set"))
+        )
           return;
-        }
 
         const firstSpace = args.indexOf(" ");
         if (firstSpace === -1) {

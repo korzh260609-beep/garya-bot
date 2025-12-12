@@ -1,33 +1,83 @@
 // src/tasks/taskEngine.js — Task Engine + Access Rules (7.10)
 import pool from "../../db.js";
 import { callAI } from "../../ai.js";
+import { can } from "../users/permissions.js";
 
 // ==================================================
-// === ACCESS RULES (7.10)
+// === TASK ACCESS (7.10) via Permissions-layer ===
 // ==================================================
-function canAccessTask({
-  userRole,
-  userPlan,
-  taskType,
-  action,
-  isOwner,
-  bypassPermissions,
-}) {
-  if (bypassPermissions) return true;
+function buildUser(access = {}) {
+  return {
+    role: (access.userRole || "guest").toLowerCase(),
+    plan: (access.userPlan || "free").toLowerCase(),
+    bypassPermissions: access.bypassPermissions === true,
+  };
+}
 
-  // Базовые правила
+function isOwnerOfTask(task, chatId) {
+  // task.user_chat_id хранится строкой, chatId приходит числом (Telegram)
+  const taskOwner = (task?.user_chat_id ?? "").toString();
+  const current = (chatId ?? "").toString();
+  return taskOwner === current;
+}
+
+function canTask(user, action, ctx = {}) {
+  // 1) monarch bypass — внутри can()
+  // 2) базовая проверка can() (для будущего расширения)
+  // 3) текущие правила V1 (сохранены)
+  if (can(user, action, ctx)) return true;
+
+  // Если can() в будущем станет строгим — ниже останутся V1-правила как страховка.
+  // Сейчас can() для roles != guest возвращает true, а guest-правила на команды уже в permissions.js.
+  return false;
+}
+
+// ВАЖНО: task:* правила пока держим здесь (7.10), не в permissions.js,
+// чтобы не смешивать command-level и task-level в одном месте на раннем этапе.
+function applyTaskV1Rules({ user, taskType, action, isOwner }) {
+  if (user.bypassPermissions) return true;
+
+  // Базовое правило: только владелец
   if (!isOwner) return false;
 
-  // Гости — только простые задачи
-  if (userRole === "guest") {
+  // Гость: запрет на price_monitor
+  if (user.role === "guest") {
     if (taskType === "price_monitor") return false;
-    if (action === "run") return true;
-    if (action === "create") return true;
-    if (action === "stop") return true;
+
+    // Разрешённые действия гостя для простых задач
+    if (action === "task:create") return true;
+    if (action === "task:run") return true;
+    if (action === "task:stop") return true;
+    if (action === "task:list") return true;
+    return false;
   }
 
-  // citizen / vip — позже расширим
+  // citizen/vip — позже ужесточим/расширим
   return true;
+}
+
+function assertTaskAccess({ access, taskType, action, isOwner }) {
+  const user = buildUser(access);
+
+  // 1) V1 правила (как сейчас задумано)
+  const allowedV1 = applyTaskV1Rules({
+    user,
+    taskType,
+    action,
+    isOwner,
+  });
+
+  if (!allowedV1) return { ok: false, user };
+
+  // 2) Permissions-layer hook (на будущее): если потребуется, можно будет включить строгие правила
+  // Сейчас can() гостя по task:* не разрешает/не запрещает — потому мы опираемся на V1-правила.
+  // Но для монарха bypass уже обработан.
+  const allowedCan = canTask(user, action, { taskType });
+
+  // Сейчас allowedCan для guest обычно false (в permissions.js этого нет),
+  // поэтому НЕ блокируем, чтобы не сломать текущую логику.
+  // Когда перенесём task:* в permissions.js — переключим на строгий режим.
+  return { ok: true, user, allowedCan };
 }
 
 // ==================================================
@@ -53,22 +103,15 @@ export async function createDemoTask(userChatId) {
 }
 
 // manual-задача
-export async function createManualTask(
-  userChatId,
-  title,
-  note,
-  access = {}
-) {
-  const allowed = canAccessTask({
-    userRole: access.userRole || "guest",
-    userPlan: access.userPlan || "free",
+export async function createManualTask(userChatId, title, note, access = {}) {
+  const check = assertTaskAccess({
+    access,
     taskType: "manual",
-    action: "create",
+    action: "task:create",
     isOwner: true,
-    bypassPermissions: access.bypassPermissions === true,
   });
 
-  if (!allowed) {
+  if (!check.ok) {
     throw new Error("Доступ к созданию задачи запрещён");
   }
 
@@ -87,20 +130,15 @@ export async function createManualTask(
 }
 
 // тестовый price_monitor
-export async function createTestPriceMonitorTask(
-  userChatId,
-  access = {}
-) {
-  const allowed = canAccessTask({
-    userRole: access.userRole || "guest",
-    userPlan: access.userPlan || "free",
+export async function createTestPriceMonitorTask(userChatId, access = {}) {
+  const check = assertTaskAccess({
+    access,
     taskType: "price_monitor",
-    action: "create",
+    action: "task:create",
     isOwner: true,
-    bypassPermissions: access.bypassPermissions === true,
   });
 
-  if (!allowed) {
+  if (!check.ok) {
     throw new Error("Доступ к созданию price_monitor запрещён");
   }
 
@@ -132,7 +170,20 @@ export async function createTestPriceMonitorTask(
 // ==================================================
 // === READ TASKS
 // ==================================================
-export async function getUserTasks(userChatId, limit = 20) {
+export async function getUserTasks(userChatId, limit = 20, access = {}) {
+  // list — тоже действие (на будущее, сейчас не ломаем)
+  const check = assertTaskAccess({
+    access,
+    taskType: "any",
+    action: "task:list",
+    isOwner: true,
+  });
+
+  if (!check.ok) {
+    // безопасный дефолт — пустой список
+    return [];
+  }
+
   const result = await pool.query(
     `
       SELECT id, title, type, status, created_at, last_run
@@ -177,22 +228,15 @@ export async function updateTaskStatus(taskId, newStatus) {
 // ==================================================
 // === RUN TASK WITH AI (ACCESS-AWARE)
 // ==================================================
-export async function runTaskWithAI(
-  task,
-  chatId,
-  bot,
-  access = {}
-) {
-  const allowed = canAccessTask({
-    userRole: access.userRole || "guest",
-    userPlan: access.userPlan || "free",
+export async function runTaskWithAI(task, chatId, bot, access = {}) {
+  const check = assertTaskAccess({
+    access,
     taskType: task.type,
-    action: "run",
-    isOwner: task.user_chat_id === chatId,
-    bypassPermissions: access.bypassPermissions === true,
+    action: "task:run",
+    isOwner: isOwnerOfTask(task, chatId),
   });
 
-  if (!allowed) {
+  if (!check.ok) {
     await bot.sendMessage(chatId, "⛔ Доступ к выполнению задачи запрещён");
     return;
   }
@@ -240,6 +284,8 @@ ${promptText}
   let reply = "";
 
   try {
+    // ВНИМАНИЕ: твой callAI в проекте уже обёрнут; оставляю текущий вызов как был,
+    // чтобы ничего не сломать по сигнатуре.
     reply = await callAI(messages, {
       max_output_tokens: 900,
       temperature: 0.3,
@@ -249,9 +295,7 @@ ${promptText}
     reply = "⚠️ ИИ временно недоступен.";
   }
 
-  await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [
-    task.id,
-  ]);
+  await pool.query("UPDATE tasks SET last_run = NOW() WHERE id = $1", [task.id]);
 
   await bot.sendMessage(
     chatId,

@@ -1,16 +1,24 @@
 // src/media/fileIntake.js
 // ==================================================
-// FILE-INTAKE V1 / 7F.1 — download file (Skeleton)
-// + 7F.3 — process file (routing + stubs)
+// FILE-INTAKE V1 / 7F.1–7F.4 — Skeleton
 // ==================================================
 //
-// Что делает файл сейчас:
-// 1) Определяет вложение из Telegram msg
-// 2) Скачивает файл по file_id
-// 3) Роутит обработку по kind (photo/document/audio/voice/video) — пока заглушки
-// 4) Возвращает processedText для памяти/ИИ (без Vision/OCR/STT пока)
+// Что есть сейчас:
+// 7F.1 download file (по необходимости)
+// 7F.2 detect type
+// 7F.3 process file (routing)
+// 7F.4 OCR img — SKELETON (заглушка, без Vision)
 //
-// OCR / STT / parsing — БУДЕТ ПОЗЖЕ (7F.4+)
+//
+// ВАЖНО: этот файл НЕ вызывает ИИ и НЕ делает OCR реально.
+// Он возвращает "userFacingText" (одну строку/сообщение для пользователя)
+// и "effectiveUserText" (текст, который можно передавать в ИИ-чат, если нужно).
+//
+// Цель: чтобы бот НЕ писал "не могу просмотреть", а честно говорил:
+// - Фото принято, OCR будет позже
+// - PDF принят, парсинг будет позже
+//
+// + Не светим localPath в ответах пользователю.
 
 import fs from "fs";
 import path from "path";
@@ -21,14 +29,27 @@ import fetch from "node-fetch";
 // ==================================================
 const TMP_DIR = path.resolve(process.cwd(), "tmp", "media");
 
+// Ограничение на скачивание (защита от мусора/спама)
+const MAX_DOWNLOAD_BYTES = Number(process.env.FILE_INTAKE_MAX_BYTES || 15 * 1024 * 1024); // 15MB
+
 function ensureTmpDir() {
   if (!fs.existsSync(TMP_DIR)) {
     fs.mkdirSync(TMP_DIR, { recursive: true });
   }
 }
 
+function safeStr(v) {
+  return typeof v === "string" ? v : "";
+}
+
+function truncate(s, n = 800) {
+  const str = safeStr(s);
+  if (str.length <= n) return str;
+  return str.slice(0, n) + "…";
+}
+
 // ==================================================
-// === STEP 1: SUMMARY
+// === STEP A: SUMMARY / DETECT TYPE
 // ==================================================
 export function summarizeMediaAttachment(msg) {
   if (!msg || typeof msg !== "object") return null;
@@ -119,12 +140,11 @@ export function summarizeMediaAttachment(msg) {
 }
 
 // ==================================================
-// === STEP 2: DOWNLOAD FILE (7F.1)
+// === STEP 7F.1: DOWNLOAD FILE (OPTIONAL)
 // ==================================================
 export async function downloadTelegramFile(botToken, fileId) {
-  if (!botToken) {
-    throw new Error("TELEGRAM_BOT_TOKEN is missing");
-  }
+  if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN is missing");
+  if (!fileId) throw new Error("fileId is missing");
 
   ensureTmpDir();
 
@@ -135,159 +155,159 @@ export async function downloadTelegramFile(botToken, fileId) {
   const metaJson = await metaRes.json();
 
   if (!metaJson.ok) {
-    throw new Error("Telegram getFile failed");
+    throw new Error(`Telegram getFile failed: ${JSON.stringify(metaJson)}`);
   }
 
-  const filePath = metaJson.result.file_path;
+  const telegramPath = metaJson.result.file_path;
+  const fileUrl = `https://api.telegram.org/file/bot${botToken}/${telegramPath}`;
 
   // 2) download
-  const fileUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
-  const fileName = path.basename(filePath);
+  const fileName = path.basename(telegramPath);
   const localPath = path.join(TMP_DIR, fileName);
 
   const fileRes = await fetch(fileUrl);
   if (!fileRes.ok) {
-    throw new Error("File download failed");
+    throw new Error(`File download failed: HTTP ${fileRes.status}`);
   }
 
-  const buffer = await fileRes.arrayBuffer();
-  fs.writeFileSync(localPath, Buffer.from(buffer));
+  const ab = await fileRes.arrayBuffer();
+  const size = ab.byteLength;
+
+  if (size > MAX_DOWNLOAD_BYTES) {
+    throw new Error(`File too large: ${size} bytes (limit ${MAX_DOWNLOAD_BYTES})`);
+  }
+
+  fs.writeFileSync(localPath, Buffer.from(ab));
 
   return {
+    // ВАЖНО: localPath НЕ показываем пользователю (только для внутренних модулей)
     localPath,
     fileName,
-    size: buffer.byteLength,
-    telegramPath: filePath,
+    size,
+    telegramPath,
   };
 }
 
 // ==================================================
-// === STEP 3: COMBINED HELPER
+// === STEP 7F.3: PROCESS FILE (ROUTING)
 // ==================================================
-export async function intakeAndDownloadIfNeeded(msg, botToken) {
+function buildUserFacingAck(summary) {
+  if (!summary) return null;
+
+  if (summary.kind === "photo") {
+    return `✅ Файл принят: photo (${summary.fileId || "?"})`;
+  }
+  if (summary.kind === "document") {
+    const name = summary.fileName ? `file=${summary.fileName}` : "file=document";
+    const mime = summary.mimeType ? `, mime=${summary.mimeType}` : "";
+    return `✅ Файл принят: document (${name}${mime})`;
+  }
+  if (summary.kind === "audio") return `✅ Файл принят: audio (${summary.fileId || "?"})`;
+  if (summary.kind === "voice") return `✅ Файл принят: voice (${summary.fileId || "?"})`;
+  if (summary.kind === "video") return `✅ Файл принят: video (${summary.fileId || "?"})`;
+
+  return `✅ Файл принят: ${summary.kind || "unknown"}`;
+}
+
+function processPhotoSkeleton(summary) {
+  // 7F.4 OCR img — пока заглушка, без Vision
+  const w = summary.width ? ` ${summary.width}x${summary.height}` : "";
+  return `📸 Фото получено${w}. OCR/визуальный анализ будет добавлен на следующем этапе.`;
+}
+
+function processDocumentSkeleton(summary) {
+  const name = summary.fileName ? ` (${summary.fileName})` : "";
+  return `📄 Документ получен${name}. Парсинг PDF/DOCX будет добавлен на следующем этапе.`;
+}
+
+function processAudioSkeleton() {
+  return `🎧 Аудио получено. Расшифровка (STT) будет добавлена на следующем этапе.`;
+}
+
+function processVoiceSkeleton() {
+  return `🎤 Голосовое получено. Расшифровка (STT) будет добавлена на следующем этапе.`;
+}
+
+function processVideoSkeleton() {
+  return `🎞 Видео получено. Извлечение аудио/кадров будет добавлено на следующем этапе.`;
+}
+
+// Главный процессор: возвращает тексты, НЕ вызывает ИИ
+export async function processIncomingFile(msg, botToken, opts = {}) {
   const summary = summarizeMediaAttachment(msg);
   if (!summary) return null;
 
-  const downloaded = await downloadTelegramFile(botToken, summary.fileId);
+  const ack = buildUserFacingAck(summary);
+
+  // По умолчанию: НЕ скачиваем автоматически всё подряд.
+  // Скачивание включаем точечно (например, для будущего OCR/PDF).
+  const shouldDownload = Boolean(opts.download === true);
+
+  let downloaded = null;
+  let downloadError = null;
+
+  if (shouldDownload) {
+    try {
+      downloaded = await downloadTelegramFile(botToken, summary.fileId);
+    } catch (e) {
+      downloadError = e?.message || String(e);
+    }
+  }
+
+  let userFacingText = "";
+  if (summary.kind === "photo") userFacingText = processPhotoSkeleton(summary);
+  else if (summary.kind === "document") userFacingText = processDocumentSkeleton(summary);
+  else if (summary.kind === "audio") userFacingText = processAudioSkeleton(summary);
+  else if (summary.kind === "voice") userFacingText = processVoiceSkeleton(summary);
+  else if (summary.kind === "video") userFacingText = processVideoSkeleton(summary);
+  else userFacingText = `Файл получен. Обработка будет добавлена позже.`;
+
+  // ВАЖНО: ошибки скачивания показываем очень мягко (без путей)
+  if (downloadError) {
+    userFacingText += `\n⚠️ Не удалось скачать файл (внутренняя ошибка).`;
+  }
+
+  // effectiveUserText — краткая строка, которую можно вложить в AI-контекст
+  // (но если пользователь ничего не написал, лучше НЕ вызывать ИИ вовсе — это уже правка index.js)
+  const effectiveUserText = truncate(
+    `Attachment: ${summary.kind}. ${userFacingText}`,
+    700
+  );
 
   return {
-    ...summary,
-    downloaded,
+    ok: true,
+    summary,
+    ack,
+    userFacingText,
+    effectiveUserText,
+    downloaded, // использовать в будущем, НЕ показывать пользователю
   };
 }
 
 // ==================================================
-// === 7F.3 PROCESS FILE (routing + stubs)
+// === Helper: build effective user text (text + file)
 // ==================================================
+export async function buildEffectiveUserText(msg, botToken, opts = {}) {
+  const rawText = safeStr(msg?.text || "").trim();
 
-function safeBasename(p) {
-  if (!p) return "";
-  try {
-    return path.basename(String(p));
-  } catch {
-    return "";
+  const fileResult = await processIncomingFile(msg, botToken, opts);
+  const hasFile = Boolean(fileResult);
+
+  // Важно: userFacingText отдельно — это то, что мы можем отправить пользователю сразу.
+  // effectiveUserText — то, что добавляем в AI messages (если вообще вызываем ИИ).
+
+  let effective = rawText;
+
+  if (!rawText && hasFile) {
+    effective = ""; // специально пусто: если нет текста — лучше НЕ звать ИИ (исправим в index.js)
+  } else if (rawText && hasFile) {
+    effective = `${rawText}\n\n(${fileResult.effectiveUserText})`;
   }
-}
-
-async function processPhoto(intake) {
-  const fileName = intake?.downloaded?.fileName || safeBasename(intake?.downloaded?.localPath);
-  const w = intake?.width ?? null;
-  const h = intake?.height ?? null;
 
   return {
-    ok: true,
-    kind: "photo",
-    processedText: `Фото получено (file=${fileName}${w && h ? `, ${w}x${h}` : ""}). Анализ изображения будет добавлен на следующем этапе (Vision/OCR).`,
-    meta: { fileName, width: w, height: h },
+    rawText,
+    hasFile,
+    fileResult,
+    effectiveText: effective,
   };
-}
-
-async function processDocument(intake) {
-  const fileName =
-    intake?.fileName ||
-    intake?.downloaded?.fileName ||
-    safeBasename(intake?.downloaded?.localPath);
-
-  const mimeType = intake?.mimeType || null;
-
-  return {
-    ok: true,
-    kind: "document",
-    processedText: `Документ получен (file=${fileName}${mimeType ? `, mime=${mimeType}` : ""}). Парсинг PDF/DOCX будет добавлен на следующем этапе.`,
-    meta: { fileName, mimeType },
-  };
-}
-
-async function processAudio(intake) {
-  const fileName =
-    intake?.downloaded?.fileName || safeBasename(intake?.downloaded?.localPath);
-  const duration = intake?.duration ?? null;
-
-  return {
-    ok: true,
-    kind: "audio",
-    processedText: `Аудио получено (file=${fileName}${duration ? `, ${duration}s` : ""}). Расшифровка (STT/Whisper) будет добавлена на следующем этапе.`,
-    meta: { fileName, duration },
-  };
-}
-
-async function processVoice(intake) {
-  const fileName =
-    intake?.downloaded?.fileName || safeBasename(intake?.downloaded?.localPath);
-  const duration = intake?.duration ?? null;
-
-  return {
-    ok: true,
-    kind: "voice",
-    processedText: `Голосовое получено (file=${fileName}${duration ? `, ${duration}s` : ""}). Расшифровка (STT/Whisper) будет добавлена на следующем этапе.`,
-    meta: { fileName, duration },
-  };
-}
-
-async function processVideo(intake) {
-  const fileName =
-    intake?.downloaded?.fileName || safeBasename(intake?.downloaded?.localPath);
-  const duration = intake?.duration ?? null;
-  const w = intake?.width ?? null;
-  const h = intake?.height ?? null;
-
-  return {
-    ok: true,
-    kind: "video",
-    processedText: `Видео получено (file=${fileName}${duration ? `, ${duration}s` : ""}${w && h ? `, ${w}x${h}` : ""}). Извлечение аудио/кадров будет добавлено позже.`,
-    meta: { fileName, duration, width: w, height: h },
-  };
-}
-
-/**
- * Единая точка 7F.3:
- * Принимает intake-объект (уже скачанный файл) и возвращает processedText.
- */
-export async function processIncomingFile(intake) {
-  if (!intake) return null;
-
-  const kind = intake.kind;
-
-  try {
-    if (kind === "photo") return await processPhoto(intake);
-    if (kind === "document") return await processDocument(intake);
-    if (kind === "audio") return await processAudio(intake);
-    if (kind === "voice") return await processVoice(intake);
-    if (kind === "video") return await processVideo(intake);
-
-    return {
-      ok: true,
-      kind: kind || "unknown",
-      processedText: `Вложение получено (kind=${kind || "unknown"}). Обработка будет добавлена позже.`,
-      meta: {},
-    };
-  } catch (e) {
-    return {
-      ok: false,
-      kind: kind || "unknown",
-      processedText: `Вложение получено, но обработка не удалась (kind=${kind || "unknown"}).`,
-      error: e?.message || String(e),
-      meta: {},
-    };
-  }
 }

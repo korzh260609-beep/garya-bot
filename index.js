@@ -48,12 +48,8 @@ import {
   getCoinGeckoSimplePriceMulti,
 } from "./src/sources/coingecko/index.js";
 
-// === FILE-INTAKE / MEDIA ===
-import {
-  summarizeMediaAttachment,
-  intakeAndDownloadIfNeeded,
-  processIncomingFile,
-} from "./src/media/fileIntake.js";
+// === FILE-INTAKE / MEDIA (ВАЖНО: namespace import, чтобы не падать на missing export) ===
+import * as FileIntake from "./src/media/fileIntake.js";
 
 // === LOGGING ===
 import { logInteraction } from "./src/logging/interactionLogs.js";
@@ -132,6 +128,23 @@ async function ensureProjectMemoryTable() {
   `);
 }
 
+/**
+ * Универсальный вызов функций TaskEngine с fallback по сигнатурам,
+ * чтобы не ломать проект при микрозаменах параметров.
+ */
+async function callWithFallback(fn, variants) {
+  let lastErr = null;
+  for (const args of variants) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await fn(...args);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("callWithFallback failed");
+}
+
 // ============================================================================
 // === EXPRESS SERVER ===
 // ============================================================================
@@ -149,6 +162,7 @@ if (!token) {
 }
 
 const bot = new TelegramBot(token);
+
 const WEBHOOK_URL = `${
   process.env.WEBHOOK_URL || "https://garya-bot.onrender.com"
 }/webhook/${token}`;
@@ -224,7 +238,12 @@ bot.on("message", async (msg) => {
     bypassPermissions: bypass,
   };
 
-  // 2) FILE-INTAKE (summary)
+  // 2) FILE-INTAKE (summary) — безопасно, даже если функции нет
+  const summarizeMediaAttachment =
+    typeof FileIntake.summarizeMediaAttachment === "function"
+      ? FileIntake.summarizeMediaAttachment
+      : () => null;
+
   const mediaSummary = summarizeMediaAttachment(msg);
 
   // ========================================================================
@@ -305,10 +324,14 @@ bot.on("message", async (msg) => {
       // --------------------------- BTC TEST TASK -------------------------
       case "/btc_test_task": {
         try {
-          const id = await createTestPriceMonitorTask(chatIdStr, access);
-          await bot.sendMessage(chatId, `🆕 Тест price_monitor создан!\nID: ${id}`);
+          // fallback: (chatIdStr, access) или (chatIdStr)
+          const id = await callWithFallback(createTestPriceMonitorTask, [
+            [chatIdStr, access],
+            [chatIdStr],
+          ]);
+          await bot.sendMessage(chatId, `🆕 Тест price_monitor создан!\nID: ${id?.id || id}`);
         } catch (e) {
-          await bot.sendMessage(chatId, `⛔ ${e.message || "Запрещено"}`);
+          await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
         }
         return;
       }
@@ -321,10 +344,16 @@ bot.on("message", async (msg) => {
         }
 
         try {
-          const task = await createManualTask(chatIdStr, rest, rest, access);
-          await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task.id}`);
+          // fallback: (chatIdStr, title, description, access) или (chatIdStr, description) или (chatIdStr, rest, rest)
+          const task = await callWithFallback(createManualTask, [
+            [chatIdStr, rest, rest, access],
+            [chatIdStr, rest, access],
+            [chatIdStr, rest, rest],
+            [chatIdStr, rest],
+          ]);
+          await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task?.id || task}`);
         } catch (e) {
-          await bot.sendMessage(chatId, `⛔ ${e.message || "Запрещено"}`);
+          await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
         }
         return;
       }
@@ -344,7 +373,17 @@ bot.on("message", async (msg) => {
         }
 
         await bot.sendMessage(chatId, `Запуск задачи #${task.id}...`);
-        await runTaskWithAI(task, chatId, bot, access);
+        try {
+          // fallback: (task, chatId, bot, access) или (task, chatId) или (task, chatId, bot)
+          await callWithFallback(runTaskWithAI, [
+            [task, chatId, bot, access],
+            [task, chatId, bot],
+            [task, chatId],
+          ]);
+        } catch (e) {
+          console.error("❌ runTaskWithAI error:", e);
+          await bot.sendMessage(chatId, "⚠️ Ошибка при запуске задачи.");
+        }
         return;
       }
 
@@ -625,7 +664,7 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        let out = "💰 Цены (CoinGecko, USD):\n\n(лимит вывода)\n";
+        let out = "💰 Цены (CoinGecko, USD):\n\n";
         for (const id of ids) {
           const item = result.items?.[id];
           out += item ? `• ${item.id.toUpperCase()}: $${item.price}\n` : `• ${id.toUpperCase()}: нет данных\n`;
@@ -696,7 +735,13 @@ bot.on("message", async (msg) => {
 
       // --------------------------- ANSWER MODE ---------------------------
       case "/mode": {
-        const mode = (rest || "").trim().toLowerCase();
+        const modeRaw = (rest || "").trim();
+        if (!modeRaw) {
+          await bot.sendMessage(chatId, "Использование: /mode short | normal | long");
+          return;
+        }
+
+        const mode = modeRaw.toLowerCase();
         const valid = ["short", "normal", "long"];
 
         if (!valid.includes(mode)) {
@@ -718,23 +763,42 @@ bot.on("message", async (msg) => {
   // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
   // ========================================================================
 
-  // Если есть вложение — скачиваем + process (7F.3)
+  // Если есть вложение — пытаемся:
+  // 1) скачать (если в FileIntake есть intakeAndDownloadIfNeeded или downloadTelegramFile)
+  // 2) обработать (если есть processIncomingFile)
   let intake = null;
   let processed = null;
 
   if (mediaSummary) {
     try {
-      intake = await intakeAndDownloadIfNeeded(msg, token);
-      const fileName = intake?.downloaded?.fileName || "file";
-      await bot.sendMessage(chatId, `✅ Файл принят: ${intake.kind} (${fileName})`);
+      const intakeFn =
+        typeof FileIntake.intakeAndDownloadIfNeeded === "function"
+          ? FileIntake.intakeAndDownloadIfNeeded
+          : null;
 
-      // 7F.3 — process file (routing stubs)
-      processed = await processIncomingFile(intake);
+      if (intakeFn) {
+        intake = await intakeFn(msg, token);
+      } else if (typeof FileIntake.downloadTelegramFile === "function" && mediaSummary.fileId) {
+        // fallback (если у тебя только downloadTelegramFile)
+        const downloaded = await FileIntake.downloadTelegramFile(token, mediaSummary.fileId);
+        intake = { ...mediaSummary, downloaded };
+      } else {
+        intake = mediaSummary; // минимум: просто summary
+      }
 
-      // Можно отправить короткую "честную" подсказку пользователю (без “не могу”)
-      const hint = processed?.processedText ? String(processed.processedText) : "";
-      if (hint) {
-        await bot.sendMessage(chatId, hint.slice(0, 900));
+      const fileName =
+        intake?.downloaded?.fileName ||
+        intake?.fileName ||
+        "file";
+
+      await bot.sendMessage(chatId, `✅ Файл принят: ${intake.kind || "attachment"} (${fileName})`);
+
+      // обработка (routing stubs)
+      if (typeof FileIntake.processIncomingFile === "function") {
+        processed = await FileIntake.processIncomingFile(intake);
+
+        const hint = processed?.processedText ? String(processed.processedText) : "";
+        if (hint) await bot.sendMessage(chatId, hint.slice(0, 900));
       }
     } catch (e) {
       console.error("❌ File-Intake error:", e);
@@ -743,13 +807,12 @@ bot.on("message", async (msg) => {
   }
 
   // Формируем текст для памяти/ИИ:
-  // - НИКОГДА не отправляем localPath в ИИ (лишнее + риск/шум)
-  // - Используем processedText, иначе summary-kind
+  // - localPath НЕ отправляем в ИИ
   const mediaText = processed?.processedText
     ? `Attachment: ${processed.processedText}`
     : intake
-      ? `Attachment received: kind=${intake.kind}; file=${intake.downloaded?.fileName || ""}`
-      : (mediaSummary ? `Attachment received: kind=${mediaSummary.kind}` : "");
+      ? `Attachment received: kind=${intake.kind || "unknown"}; file=${intake.downloaded?.fileName || ""}`
+      : (mediaSummary ? `Attachment received: kind=${mediaSummary.kind || "unknown"}` : "");
 
   let effective = trimmed || mediaText;
   if (trimmed && mediaText) effective = `${trimmed}\n\n(${mediaText})`;

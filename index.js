@@ -48,7 +48,7 @@ import {
   getCoinGeckoSimplePriceMulti,
 } from "./src/sources/coingecko/index.js";
 
-// === FILE-INTAKE / MEDIA (namespace import, чтобы не падать на missing export) ===
+// === FILE-INTAKE / MEDIA ===
 import * as FileIntake from "./src/media/fileIntake.js";
 
 // === LOGGING ===
@@ -56,6 +56,7 @@ import {
   logInteraction,
   ensureFileIntakeLogsTable,
   logFileIntakeEvent,
+  getRecentFileIntakeLogs,
 } from "./src/logging/interactionLogs.js";
 
 // === ROBOT MOCK-LAYER ===
@@ -64,7 +65,7 @@ import { startRobotLoop } from "./src/robot/robotMock.js";
 // === AI ===
 import { callAI } from "./ai.js";
 
-// === PROJECT MEMORY (DB-backed, но управляем через команды) ===
+// === PROJECT MEMORY ===
 import { getProjectSection, upsertProjectSection } from "./projectMemory.js";
 
 // === DB ===
@@ -75,11 +76,10 @@ import pool from "./db.js";
 // ============================================================================
 const MAX_HISTORY_MESSAGES = 20;
 
-// ВАЖНО: монарх определяется ТОЛЬКО по chat_id (Telegram user id).
-// Можно переопределить в Render Environment: MONARCH_CHAT_ID
+// MONARCH by chat_id (Telegram user id)
 const MONARCH_CHAT_ID = (process.env.MONARCH_CHAT_ID || "677128443").toString();
 
-// Планы пока не включены, но поле оставляем для permissions
+// Plans placeholder
 const DEFAULT_PLAN = "free";
 
 // ============================================================================
@@ -89,11 +89,6 @@ function isMonarch(chatIdStr) {
   return chatIdStr === MONARCH_CHAT_ID;
 }
 
-/**
- * Парсер команд Telegram:
- * - cmd: "/pm_set"
- * - rest: "roadmap\n...." (сохраняем переносы строк)
- */
 function parseCommand(text) {
   if (!text) return null;
   const m = text.match(/^\/(\S+)(?:\s+([\s\S]+))?$/);
@@ -107,9 +102,6 @@ function firstWordAndRest(rest) {
   return { first: (m?.[1] || "").trim(), tail: (m?.[2] || "").trim() };
 }
 
-/**
- * Само-миграция Project Memory: создаём таблицу, если она отсутствует.
- */
 async function ensureProjectMemoryTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS project_memory (
@@ -132,10 +124,6 @@ async function ensureProjectMemoryTable() {
   `);
 }
 
-/**
- * Универсальный вызов функций TaskEngine с fallback по сигнатурам,
- * чтобы не ломать проект при микрозаменах параметров.
- */
 async function callWithFallback(fn, variants) {
   let lastErr = null;
   for (const args of variants) {
@@ -191,19 +179,16 @@ app.listen(PORT, async () => {
   console.log("🌐 HTTP-сервер запущен на порту:", PORT);
 
   try {
-    // 0) Project Memory table (auto)
     await ensureProjectMemoryTable();
     console.log("🧠 Project Memory table OK.");
 
-    // 0.1) File-Intake logs table (7F.10)
+    // 7F.10 logs
     await ensureFileIntakeLogsTable();
     console.log("🧾 File-Intake logs table OK.");
 
-    // 1) Sources registry
     await ensureDefaultSources();
     console.log("📡 Sources registry готов.");
 
-    // 2) Robot Layer
     startRobotLoop(bot);
     console.log("🤖 ROBOT mock-layer запущен.");
   } catch (e) {
@@ -239,7 +224,6 @@ bot.on("message", async (msg) => {
 
   const bypass = isMonarch(chatIdStr);
 
-  // access object (единый)
   const access = {
     userRole,
     userPlan,
@@ -255,7 +239,6 @@ bot.on("message", async (msg) => {
     const rest = parsed?.rest || "";
 
     switch (cmd) {
-      // --------------------------- PROFILE -------------------------------
       case "/profile":
       case "/me":
       case "/whoami": {
@@ -274,6 +257,36 @@ bot.on("message", async (msg) => {
           chatId,
           `🧾 Профиль\nID: ${u.chat_id}\nИмя: ${u.name}\nРоль: ${u.role}\nСоздан: ${u.created_at}`
         );
+        return;
+      }
+
+      // ===== 7F.10 — VIEW FILE INTAKE LOGS (MONARCH) =====
+      case "/file_logs": {
+        if (!bypass) {
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+          return;
+        }
+
+        const n = Number((rest || "").trim()) || 10;
+        const rows = await getRecentFileIntakeLogs(n);
+
+        if (!rows.length) {
+          await bot.sendMessage(chatId, "file_intake_logs пусто (пока нет записей).");
+          return;
+        }
+
+        let out = `🧾 File-Intake logs (last ${Math.min(n, 30)})\n\n`;
+        for (const r of rows) {
+          out += `#${r.id} | ${new Date(r.created_at).toISOString()}\n`;
+          out += `kind=${r.kind || "?"} hasText=${r.has_text} shouldAI=${r.should_call_ai} direct=${r.direct_reply}\n`;
+          out += `aiCalled=${r.ai_called} aiError=${r.ai_error} textChars=${r.processed_text_chars}\n`;
+          if (r.file_name || r.mime_type || r.file_size) {
+            out += `file=${r.file_name || "-"} mime=${r.mime_type || "-"} size=${r.file_size || "-"}\n`;
+          }
+          out += `\n`;
+        }
+
+        await bot.sendMessage(chatId, out.slice(0, 3800));
         return;
       }
 
@@ -314,14 +327,12 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- DEMO TASK -----------------------------
       case "/demo_task": {
         const id = await createDemoTask(chatIdStr);
         await bot.sendMessage(chatId, `✅ Демо-задача создана!\nID: ${id}`);
         return;
       }
 
-      // --------------------------- BTC TEST TASK -------------------------
       case "/btc_test_task": {
         try {
           const id = await callWithFallback(createTestPriceMonitorTask, [
@@ -335,7 +346,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- NEW TASK ------------------------------
       case "/newtask": {
         if (!rest) {
           await bot.sendMessage(chatId, "Использование: /newtask <описание>");
@@ -356,7 +366,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- RUN TASK ------------------------------
       case "/run": {
         const id = Number((rest || "").trim());
         if (!id) {
@@ -384,7 +393,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- TASKS LIST ----------------------------
       case "/tasks": {
         const tasks = await getUserTasks(chatIdStr, 30);
 
@@ -402,7 +410,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // ---------------------- STOP ALL TASKS -----------------------------
       case "/stop_all_tasks": {
         try {
           const res = await pool.query(`
@@ -422,7 +429,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- STOP TASK -----------------------------
       case "/stop_task": {
         const id = Number((rest || "").trim());
         if (!id) {
@@ -448,7 +454,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- START TASK ----------------------------
       case "/start_task": {
         const id = Number((rest || "").trim());
         if (!id) {
@@ -474,7 +479,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // ------------------------ STOP TASKS BY TYPE -----------------------
       case "/stop_tasks_type": {
         const taskType = (rest || "").trim();
         if (!taskType) {
@@ -502,7 +506,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- SOURCES -------------------------------
       case "/sources": {
         const sources = await getAllSourcesSafe();
         const out = formatSourcesList(sources);
@@ -607,7 +610,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- /price (CoinGecko) --------------------
       case "/price": {
         const coinId = (rest || "").trim().toLowerCase();
         if (!coinId) {
@@ -635,7 +637,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- /prices (multi) -----------------------
       case "/prices": {
         const idsArg = (rest || "").trim().toLowerCase();
         const ids = idsArg
@@ -671,7 +672,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- PROJECT MEMORY ------------------------
       case "/pm_show": {
         const section = (rest || "").trim();
         if (!section) {
@@ -730,7 +730,6 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- ANSWER MODE ---------------------------
       case "/mode": {
         const modeRaw = (rest || "").trim();
         if (!modeRaw) {
@@ -762,7 +761,7 @@ bot.on("message", async (msg) => {
 
   const messageId = msg.message_id ?? null;
 
-  // 1) SUMMARY
+  // summary
   const summarizeMediaAttachment =
     typeof FileIntake.summarizeMediaAttachment === "function"
       ? FileIntake.summarizeMediaAttachment
@@ -770,7 +769,7 @@ bot.on("message", async (msg) => {
 
   const mediaSummary = summarizeMediaAttachment(msg);
 
-  // 2) DECISION (главная точка, чтобы не ломать текущую логику)
+  // decision
   const decisionFn =
     typeof FileIntake.buildEffectiveUserTextAndDecision === "function"
       ? FileIntake.buildEffectiveUserTextAndDecision
@@ -788,7 +787,7 @@ bot.on("message", async (msg) => {
   const shouldCallAI = Boolean(decision?.shouldCallAI);
   const directReplyText = decision?.directReplyText || null;
 
-  // 3) LOG FILE-INTAKE (7F.10)
+  // log intake (before any reply/ai)
   if (mediaSummary) {
     await logFileIntakeEvent(chatIdStr, {
       messageId,
@@ -804,45 +803,31 @@ bot.on("message", async (msg) => {
       processedTextChars: effective ? effective.length : 0,
       aiCalled: false,
       aiError: false,
-      meta: {
-        caption: mediaSummary.caption || null,
-      },
+      meta: { caption: mediaSummary.caption || null },
     });
   }
 
-  // 4) Если есть direct reply (stub) — отвечаем и выходим
+  // direct reply (stub) -> exit
   if (directReplyText) {
-    if (mediaSummary?.kind === "photo") {
-      const fileName = mediaSummary?.fileName || "file.jpg";
-      await bot.sendMessage(chatId, `✅ Файл принят: photo(${fileName})`);
-    } else if (mediaSummary?.kind) {
-      await bot.sendMessage(chatId, `✅ Файл принят: ${mediaSummary.kind}`);
-    }
-
     await bot.sendMessage(chatId, directReplyText);
     return;
   }
 
-  // 5) если нечего делать — выходим
   if (!shouldCallAI) {
     await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");
     return;
   }
 
-  // 6) save user message
+  // memory
   await saveMessageToMemory(chatIdStr, "user", effective);
-
-  // 7) history
   const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
 
-  // 8) classification (пока V0)
+  // classification V0
   const classification = { taskType: "chat", aiCostLevel: "low" };
   await logInteraction(chatIdStr, classification);
 
-  // 9) project context
+  // context + prompt
   const projectCtx = await loadProjectContext();
-
-  // 10) system prompt
   const answerMode = getAnswerMode(chatIdStr);
 
   let modeInstruction = "";
@@ -858,14 +843,12 @@ bot.on("message", async (msg) => {
   }
 
   const systemPrompt = buildSystemPrompt(answerMode, modeInstruction, projectCtx || "");
-
   const messages = [
     { role: "system", content: systemPrompt },
     ...history,
     { role: "user", content: effective },
   ];
 
-  // 11) output params
   let maxTokens = 350;
   let temperature = 0.6;
   if (answerMode === "short") {
@@ -876,7 +859,7 @@ bot.on("message", async (msg) => {
     temperature = 0.8;
   }
 
-  // 12) AI call
+  // AI call
   let aiReply = "";
   let aiError = false;
   try {
@@ -890,7 +873,7 @@ bot.on("message", async (msg) => {
     aiError = true;
   }
 
-  // 13) LOG AI RESULT for intake (7F.10) — только если было вложение
+  // log intake after AI
   if (mediaSummary) {
     await logFileIntakeEvent(chatIdStr, {
       messageId,
@@ -906,16 +889,12 @@ bot.on("message", async (msg) => {
       processedTextChars: effective ? effective.length : 0,
       aiCalled: true,
       aiError,
-      meta: {
-        phase: "after_ai",
-      },
+      meta: { phase: "after_ai" },
     });
   }
 
-  // 14) save pair
   await saveChatPair(chatIdStr, effective, aiReply);
 
-  // 15) send
   try {
     await bot.sendMessage(chatId, aiReply);
   } catch (e) {

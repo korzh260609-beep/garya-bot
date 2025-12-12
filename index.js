@@ -51,13 +51,8 @@ import {
 // === FILE-INTAKE / MEDIA ===
 import * as FileIntake from "./src/media/fileIntake.js";
 
-// === LOGGING ===
-import {
-  logInteraction,
-  ensureFileIntakeLogsTable,
-  logFileIntakeEvent,
-  getRecentFileIntakeLogs,
-} from "./src/logging/interactionLogs.js";
+// === LOGGING (interaction_logs) ===
+import { logInteraction } from "./src/logging/interactionLogs.js";
 
 // === ROBOT MOCK-LAYER ===
 import { startRobotLoop } from "./src/robot/robotMock.js";
@@ -89,6 +84,11 @@ function isMonarch(chatIdStr) {
   return chatIdStr === MONARCH_CHAT_ID;
 }
 
+/**
+ * Парсер команд Telegram:
+ * - cmd: "/pm_set"
+ * - rest: "roadmap\n...." (сохраняем переносы строк)
+ */
 function parseCommand(text) {
   if (!text) return null;
   const m = text.match(/^\/(\S+)(?:\s+([\s\S]+))?$/);
@@ -122,6 +122,122 @@ async function ensureProjectMemoryTable() {
     CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
     ON project_memory (project_key, section, created_at);
   `);
+}
+
+/**
+ * 7F.10 — FILE-INTAKE LOGS (самодостаточно в index.js)
+ * Таблица:
+ * - фиксируем решения: hasText / shouldCallAI / direct / aiCalled / aiError
+ * - мета: jsonb (не ломает скелет, можно расширять без миграций)
+ */
+async function ensureFileIntakeLogsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS file_intake_logs (
+      id BIGSERIAL PRIMARY KEY,
+      chat_id TEXT NOT NULL,
+      message_id BIGINT,
+      kind TEXT,
+      file_id TEXT,
+      file_unique_id TEXT,
+      file_name TEXT,
+      mime_type TEXT,
+      file_size BIGINT,
+
+      has_text BOOLEAN NOT NULL DEFAULT FALSE,
+      should_call_ai BOOLEAN NOT NULL DEFAULT FALSE,
+      direct_reply BOOLEAN NOT NULL DEFAULT FALSE,
+
+      processed_text_chars INT NOT NULL DEFAULT 0,
+
+      ai_called BOOLEAN NOT NULL DEFAULT FALSE,
+      ai_error BOOLEAN NOT NULL DEFAULT FALSE,
+
+      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_file_intake_logs_chat_created
+    ON file_intake_logs (chat_id, created_at DESC);
+  `);
+}
+
+async function logFileIntakeEvent(chatIdStr, payload) {
+  try {
+    const {
+      messageId = null,
+      kind = null,
+      fileId = null,
+      fileUniqueId = null,
+      fileName = null,
+      mimeType = null,
+      fileSize = null,
+
+      hasText = false,
+      shouldCallAI = false,
+      directReply = false,
+
+      processedTextChars = 0,
+
+      aiCalled = false,
+      aiError = false,
+
+      meta = {},
+    } = payload || {};
+
+    await pool.query(
+      `
+      INSERT INTO file_intake_logs (
+        chat_id, message_id, kind, file_id, file_unique_id, file_name, mime_type, file_size,
+        has_text, should_call_ai, direct_reply, processed_text_chars,
+        ai_called, ai_error, meta
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8,
+        $9, $10, $11, $12,
+        $13, $14, $15
+      )
+      `,
+      [
+        chatIdStr,
+        messageId,
+        kind,
+        fileId,
+        fileUniqueId,
+        fileName,
+        mimeType,
+        fileSize,
+
+        Boolean(hasText),
+        Boolean(shouldCallAI),
+        Boolean(directReply),
+        Number(processedTextChars) || 0,
+
+        Boolean(aiCalled),
+        Boolean(aiError),
+        meta || {},
+      ]
+    );
+  } catch (err) {
+    console.error("❌ Error in logFileIntakeEvent:", err);
+  }
+}
+
+async function getRecentFileIntakeLogs(chatIdStr, limit = 10) {
+  const n = Math.max(1, Math.min(Number(limit) || 10, 30));
+  const res = await pool.query(
+    `
+    SELECT *
+    FROM file_intake_logs
+    WHERE chat_id = $1
+    ORDER BY created_at DESC
+    LIMIT $2
+    `,
+    [chatIdStr, n]
+  );
+  return res.rows || [];
 }
 
 async function callWithFallback(fn, variants) {
@@ -268,14 +384,14 @@ bot.on("message", async (msg) => {
         }
 
         const n = Number((rest || "").trim()) || 10;
-        const rows = await getRecentFileIntakeLogs(n);
+        const rows = await getRecentFileIntakeLogs(chatIdStr, n);
 
         if (!rows.length) {
           await bot.sendMessage(chatId, "file_intake_logs пусто (пока нет записей).");
           return;
         }
 
-        let out = `🧾 File-Intake logs (last ${Math.min(n, 30)})\n\n`;
+        let out = `🧾 File-Intake logs (last ${Math.min(Number(n) || 10, 30)})\n\n`;
         for (const r of rows) {
           out += `#${r.id} | ${new Date(r.created_at).toISOString()}\n`;
           out += `kind=${r.kind || "?"} hasText=${r.has_text} shouldAI=${r.should_call_ai} direct=${r.direct_reply}\n`;
@@ -327,12 +443,14 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- DEMO TASK -----------------------------
       case "/demo_task": {
         const id = await createDemoTask(chatIdStr);
         await bot.sendMessage(chatId, `✅ Демо-задача создана!\nID: ${id}`);
         return;
       }
 
+      // --------------------------- BTC TEST TASK -------------------------
       case "/btc_test_task": {
         try {
           const id = await callWithFallback(createTestPriceMonitorTask, [
@@ -346,6 +464,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- NEW TASK ------------------------------
       case "/newtask": {
         if (!rest) {
           await bot.sendMessage(chatId, "Использование: /newtask <описание>");
@@ -366,6 +485,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- RUN TASK ------------------------------
       case "/run": {
         const id = Number((rest || "").trim());
         if (!id) {
@@ -393,6 +513,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- TASKS LIST ----------------------------
       case "/tasks": {
         const tasks = await getUserTasks(chatIdStr, 30);
 
@@ -410,6 +531,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // ---------------------- STOP ALL TASKS -----------------------------
       case "/stop_all_tasks": {
         try {
           const res = await pool.query(`
@@ -429,6 +551,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- STOP TASK -----------------------------
       case "/stop_task": {
         const id = Number((rest || "").trim());
         if (!id) {
@@ -454,6 +577,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- START TASK ----------------------------
       case "/start_task": {
         const id = Number((rest || "").trim());
         if (!id) {
@@ -479,6 +603,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // ------------------------ STOP TASKS BY TYPE -----------------------
       case "/stop_tasks_type": {
         const taskType = (rest || "").trim();
         if (!taskType) {
@@ -506,6 +631,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- SOURCES -------------------------------
       case "/sources": {
         const sources = await getAllSourcesSafe();
         const out = formatSourcesList(sources);
@@ -610,6 +736,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- /price (CoinGecko) --------------------
       case "/price": {
         const coinId = (rest || "").trim().toLowerCase();
         if (!coinId) {
@@ -637,6 +764,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- /prices (multi) -----------------------
       case "/prices": {
         const idsArg = (rest || "").trim().toLowerCase();
         const ids = idsArg
@@ -672,6 +800,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- PROJECT MEMORY ------------------------
       case "/pm_show": {
         const section = (rest || "").trim();
         if (!section) {
@@ -730,6 +859,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // --------------------------- ANSWER MODE ---------------------------
       case "/mode": {
         const modeRaw = (rest || "").trim();
         if (!modeRaw) {
@@ -803,7 +933,7 @@ bot.on("message", async (msg) => {
       processedTextChars: effective ? effective.length : 0,
       aiCalled: false,
       aiError: false,
-      meta: { caption: mediaSummary.caption || null },
+      meta: { caption: mediaSummary.caption || null, phase: "before_reply_or_ai" },
     });
   }
 

@@ -9,6 +9,8 @@ import TelegramBot from "node-telegram-bot-api";
 // === CORE ===
 import { getAnswerMode, setAnswerMode } from "./core/answerMode.js";
 import { loadProjectContext } from "./core/projectContext.js";
+// === SYSTEM PROMPT ===
+import { buildSystemPrompt } from "./systemPrompt.js";
 
 // === MEMORY ===
 import {
@@ -315,10 +317,7 @@ bot.on("message", async (msg) => {
       case "/stop_task": {
         const id = Number(args.trim());
         if (!id) {
-          await bot.sendMessage(
-            chatId,
-            "Использование: /stop_task <id>"
-          );
+          await bot.sendMessage(chatId, "Использование: /stop_task <id>");
           return;
         }
 
@@ -721,14 +720,27 @@ bot.on("message", async (msg) => {
   // 4) Project Context
   const projectCtx = await loadProjectContext();
 
-  // 5) System Prompt
+  // 5) System Prompt (V2 через systemPrompt.js)
   const answerMode = getAnswerMode(chatIdStr);
 
-  const systemPrompt =
-    `Ты — Советник GARYA.\n` +
-    `Режим ответа: ${answerMode}.\n\n` +
-    (projectCtx ? projectCtx + "\n\n" : "") +
-    `Будь краток, точен, следуй ТЗ.`;
+  // Краткое текстовое описание режима (подставляется в systemPrompt)
+  let modeInstruction = "";
+  if (answerMode === "short") {
+    modeInstruction =
+      "Режим short: отвечай очень кратко (1–2 предложения), только по существу, без лишних деталей.";
+  } else if (answerMode === "normal") {
+    modeInstruction =
+      "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
+  } else if (answerMode === "long") {
+    modeInstruction =
+      "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
+  }
+
+  const systemPrompt = buildSystemPrompt(
+    answerMode,
+    modeInstruction,
+    projectCtx || ""
+  );
 
   const messages = [
     { role: "system", content: systemPrompt },

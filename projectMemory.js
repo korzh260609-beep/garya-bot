@@ -7,7 +7,10 @@ const DEFAULT_PROJECT_KEY = "garya_ai";
  * Получить одну актуальную запись проектной памяти по project_key + section.
  * Например: section = 'roadmap', 'workflow', 'tz', 'notes'
  */
-export async function getProjectSection(projectKey = DEFAULT_PROJECT_KEY, section) {
+export async function getProjectSection(
+  projectKey = DEFAULT_PROJECT_KEY,
+  section
+) {
   if (!section) {
     throw new Error("getProjectSection: section is required");
   }
@@ -17,7 +20,7 @@ export async function getProjectSection(projectKey = DEFAULT_PROJECT_KEY, sectio
       SELECT id, project_key, section, title, content, tags, meta, schema_version, created_at, updated_at
       FROM project_memory
       WHERE project_key = $1 AND section = $2
-      ORDER BY created_at DESC
+      ORDER BY updated_at DESC NULLS LAST, id DESC
       LIMIT 1
     `,
     [projectKey, section]
@@ -31,7 +34,10 @@ export async function getProjectSection(projectKey = DEFAULT_PROJECT_KEY, sectio
  * Получить все записи для проекта (опционально отфильтровав по section).
  * Это пригодится позже для отладки и dashboard'а.
  */
-export async function getProjectMemoryList(projectKey = DEFAULT_PROJECT_KEY, section = null) {
+export async function getProjectMemoryList(
+  projectKey = DEFAULT_PROJECT_KEY,
+  section = null
+) {
   const params = [projectKey];
   let where = "project_key = $1";
 
@@ -76,13 +82,13 @@ export async function upsertProjectSection({
     throw new Error("upsertProjectSection: content is required");
   }
 
-  // Ищем последнюю запись по этой секции
+  // Ищем последнюю запись по этой секции (по updated_at, чтобы обновлялась реально актуальная)
   const existingRes = await pool.query(
     `
       SELECT id
       FROM project_memory
       WHERE project_key = $1 AND section = $2
-      ORDER BY created_at DESC
+      ORDER BY updated_at DESC NULLS LAST, id DESC
       LIMIT 1
     `,
     [projectKey, section]

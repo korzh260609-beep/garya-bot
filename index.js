@@ -1,8 +1,7 @@
 // ============================================================================
-// === INDEX — ОСНОВНАЯ ИНИЦИАЛИЗАЦИЯ, СЕРВЕР, ВЕБХУК, КОМАНДЫ, AI ===
+// === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
 
-// === БАЗОВЫЕ ИМПОРТЫ ===
 import express from "express";
 import TelegramBot from "node-telegram-bot-api";
 
@@ -61,32 +60,73 @@ import { startRobotLoop } from "./src/robot/robotMock.js";
 // === AI ===
 import { callAI } from "./ai.js";
 
+// === PROJECT MEMORY (DB-backed, но управляем через команды) ===
+import { getProjectSection, upsertProjectSection } from "./projectMemory.js";
+
 // === DB ===
 import pool from "./db.js";
 
-// === CONSTANTS ===
+// ============================================================================
+// === CONSTANTS / CONFIG ===
+// ============================================================================
 const MAX_HISTORY_MESSAGES = 20;
 
-// ============================================================================
-// === MINI-ACCESS V0 (начало Этапа 7, без новых таблиц) ===
-// ============================================================================
-const MONARCH_CHAT_ID = "677128443";
+// ВАЖНО: монарх определяется ТОЛЬКО по chat_id (Telegram user id).
+// Можно переопределить в Render Environment: MONARCH_CHAT_ID
+const MONARCH_CHAT_ID = (process.env.MONARCH_CHAT_ID || "677128443").toString();
 
+// Планы пока не включены, но поле оставляем для Source-Permissions
+const DEFAULT_PLAN = "free";
+
+// ============================================================================
+// === HELPERS ===
+// ============================================================================
 function isMonarch(chatIdStr) {
   return chatIdStr === MONARCH_CHAT_ID;
 }
 
-async function guardMonarch(
-  bot,
-  chatId,
-  chatIdStr,
-  actionText = "Эта команда"
-) {
-  if (!isMonarch(chatIdStr)) {
-    await bot.sendMessage(chatId, `${actionText} доступна только монарху GARYA.`);
-    return false;
-  }
-  return true;
+/**
+ * Парсер команд Telegram:
+ * - cmd: "/pm_set"
+ * - rest: "roadmap\n...." (сохраняем переносы строк)
+ */
+function parseCommand(text) {
+  if (!text) return null;
+  const m = text.match(/^\/(\S+)(?:\s+([\s\S]+))?$/);
+  if (!m) return null;
+  return { cmd: `/${m[1]}`, rest: (m[2] || "").trim() };
+}
+
+function firstWordAndRest(rest) {
+  if (!rest) return { first: "", tail: "" };
+  const m = rest.match(/^(\S+)(?:\s+([\s\S]+))?$/);
+  return { first: (m?.[1] || "").trim(), tail: (m?.[2] || "").trim() };
+}
+
+/**
+ * Само-миграция Project Memory: создаём таблицу, если она отсутствует.
+ * Это позволяет работать "только через GitHub" — без ручных SQL.
+ */
+async function ensureProjectMemoryTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS project_memory (
+      id BIGSERIAL PRIMARY KEY,
+      project_key TEXT NOT NULL,
+      section TEXT NOT NULL,
+      title TEXT,
+      content TEXT NOT NULL,
+      tags TEXT[] NOT NULL DEFAULT '{}',
+      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+      schema_version INT NOT NULL DEFAULT 1,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
+    ON project_memory (project_key, section, created_at);
+  `);
 }
 
 // ============================================================================
@@ -94,11 +134,10 @@ async function guardMonarch(
 // ============================================================================
 const app = express();
 const PORT = process.env.PORT || 3000;
-
 app.use(express.json());
 
 // ============================================================================
-// === TELEGRAM BOT И ВЕБХУК ===
+// === TELEGRAM BOT + WEBHOOK ===
 // ============================================================================
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -107,10 +146,13 @@ if (!token) {
 }
 
 const bot = new TelegramBot(token);
-const WEBHOOK_URL = `https://garya-bot.onrender.com/webhook/${token}`;
+const WEBHOOK_URL = `${
+  process.env.WEBHOOK_URL || "https://garya-bot.onrender.com"
+}/webhook/${token}`;
+
 bot.setWebHook(WEBHOOK_URL);
 
-app.get("/", (req, res) => res.send("GARYA AI Bot работает ⚡"));
+app.get("/", (req, res) => res.send("SG (GARYA AI Bot) работает ⚡"));
 
 app.post(`/webhook/${token}`, (req, res) => {
   res.sendStatus(200);
@@ -122,12 +164,16 @@ app.post(`/webhook/${token}`, (req, res) => {
 });
 
 // ============================================================================
-// === ЗАПУСК СЕРВЕРА И ИНИЦИАЛИЗАЦИЯ СИСТЕМЫ ===
+// === START SERVER + INIT SYSTEM ===
 // ============================================================================
 app.listen(PORT, async () => {
   console.log("🌐 HTTP-сервер запущен на порту:", PORT);
 
   try {
+    // 0) Project Memory table (auto)
+    await ensureProjectMemoryTable();
+    console.log("🧠 Project Memory table OK.");
+
     // 1) Sources registry
     await ensureDefaultSources();
     console.log("📡 Sources registry готов.");
@@ -141,45 +187,44 @@ app.listen(PORT, async () => {
 });
 
 // ============================================================================
-// === ОБРАБОТКА ВСЕХ СООБЩЕНИЙ: КОМАНДЫ + ЧАТ + AI ===
+// === MAIN HANDLER: COMMANDS + CHAT + AI ===
 // ============================================================================
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const chatIdStr = chatId.toString();
 
-  // 1) Профиль пользователя
+  const text = msg.text || "";
+  const trimmed = text.trim();
+
+  // 0) User profile (создаём/обновляем)
   await ensureUserProfile(msg);
 
-  // 1.1) Роль и план (для Source-Permissions 5.12)
+  // 1) role + plan (для permissions слоя источников)
   let userRole = "guest";
-  let userPlan = "free"; // планы пока не реализованы, по умолчанию free
+  let userPlan = DEFAULT_PLAN;
 
   try {
     const uRes = await pool.query("SELECT role FROM users WHERE chat_id = $1", [
       chatIdStr,
     ]);
-    if (uRes.rows.length) {
-      userRole = uRes.rows[0].role || "guest";
-    }
+    if (uRes.rows.length) userRole = uRes.rows[0].role || "guest";
   } catch (e) {
     console.error("❌ Error fetching user role:", e);
   }
 
-  const text = msg.text || "";
-  const trimmed = text.trim();
-
-  // --- FILE-INTAKE ---
+  // 2) FILE-INTAKE (пока summary, без OCR)
   const media = summarizeMediaAttachment(msg);
 
   // ========================================================================
-  // === ОБРАБОТКА КОМАНД ===
+  // === COMMANDS ===
   // ========================================================================
   if (trimmed.startsWith("/")) {
-    const args = trimmed.split(" ").slice(1).join(" ");
-    const cmd = trimmed.split(" ")[0];
+    const parsed = parseCommand(trimmed);
+    const cmd = parsed?.cmd || trimmed.split(" ")[0];
+    const rest = parsed?.rest || "";
 
     switch (cmd) {
-      // --------------------------- Профиль -------------------------------
+      // --------------------------- PROFILE -------------------------------
       case "/profile":
       case "/me":
       case "/whoami": {
@@ -187,7 +232,8 @@ bot.on("message", async (msg) => {
           "SELECT chat_id, name, role, language, created_at FROM users WHERE chat_id = $1",
           [chatIdStr]
         );
-        if (res.rows.length === 0) {
+
+        if (!res.rows.length) {
           await bot.sendMessage(chatId, "Профиль не найден.");
           return;
         }
@@ -200,17 +246,15 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // -------------------- Статистика пользователей ---------------------
+      // -------------------- USERS STATS (MONARCH) ------------------------
       case "/users_stats": {
-        if (
-          !(await guardMonarch(
-            bot,
+        if (!isMonarch(chatIdStr)) {
+          await bot.sendMessage(
             chatId,
-            chatIdStr,
-            "Команда /users_stats"
-          ))
-        )
+            "Эта команда доступна только монарху GARYA."
+          );
           return;
+        }
 
         try {
           const totalRes = await pool.query(
@@ -231,9 +275,7 @@ bot.on("message", async (msg) => {
 
           if (byRoleRes.rows.length) {
             out += "По ролям:\n";
-            for (const r of byRoleRes.rows) {
-              out += `• ${r.role}: ${r.count}\n`;
-            }
+            for (const r of byRoleRes.rows) out += `• ${r.role}: ${r.count}\n`;
           }
 
           await bot.sendMessage(chatId, out);
@@ -247,14 +289,14 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- demo_task -----------------------------
+      // --------------------------- DEMO TASK -----------------------------
       case "/demo_task": {
         const id = await createDemoTask(chatIdStr);
         await bot.sendMessage(chatId, `✅ Демо-задача создана!\nID: ${id}`);
         return;
       }
 
-      // --------------------------- btc test ------------------------------
+      // --------------------------- BTC TEST TASK -------------------------
       case "/btc_test_task": {
         const task = await createTestPriceMonitorTask(chatIdStr);
         await bot.sendMessage(
@@ -264,21 +306,21 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- newtask -------------------------------
+      // --------------------------- NEW TASK ------------------------------
       case "/newtask": {
-        if (!args.trim()) {
+        if (!rest) {
           await bot.sendMessage(chatId, "Использование: /newtask <описание>");
           return;
         }
 
-        const task = await createManualTask(chatIdStr, args.trim());
+        const task = await createManualTask(chatIdStr, rest);
         await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task.id}`);
         return;
       }
 
-      // --------------------------- run task ------------------------------
+      // --------------------------- RUN TASK ------------------------------
       case "/run": {
-        const id = Number(args.trim());
+        const id = Number((rest || "").trim());
         if (!id) {
           await bot.sendMessage(chatId, "Использование: /run <id>");
           return;
@@ -295,7 +337,7 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- tasks list ----------------------------
+      // --------------------------- TASKS LIST ----------------------------
       case "/tasks": {
         const tasks = await getUserTasks(chatIdStr, 30);
 
@@ -313,18 +355,8 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // ---------------------- stop_all_tasks (MONARCH) -------------------
+      // ---------------------- STOP ALL TASKS -----------------------------
       case "/stop_all_tasks": {
-        if (
-          !(await guardMonarch(
-            bot,
-            chatId,
-            chatIdStr,
-            "Команда /stop_all_tasks"
-          ))
-        )
-          return;
-
         try {
           const res = await pool.query(`
             UPDATE tasks
@@ -346,19 +378,9 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- stop_task (MONARCH) -------------------
+      // --------------------------- STOP TASK -----------------------------
       case "/stop_task": {
-        if (
-          !(await guardMonarch(
-            bot,
-            chatId,
-            chatIdStr,
-            "Команда /stop_task"
-          ))
-        )
-          return;
-
-        const id = Number(args.trim());
+        const id = Number((rest || "").trim());
         if (!id) {
           await bot.sendMessage(chatId, "Использование: /stop_task <id>");
           return;
@@ -371,10 +393,7 @@ bot.on("message", async (msg) => {
           );
 
           if (res.rowCount === 0) {
-            await bot.sendMessage(
-              chatId,
-              `⚠️ Задача с ID ${id} не найдена.`
-            );
+            await bot.sendMessage(chatId, `⚠️ Задача с ID ${id} не найдена.`);
           } else {
             await bot.sendMessage(chatId, `⛔ Задача ${id} остановлена.`);
           }
@@ -385,19 +404,9 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- start_task (MONARCH) ------------------
+      // --------------------------- START TASK ----------------------------
       case "/start_task": {
-        if (
-          !(await guardMonarch(
-            bot,
-            chatId,
-            chatIdStr,
-            "Команда /start_task"
-          ))
-        )
-          return;
-
-        const id = Number(args.trim());
+        const id = Number((rest || "").trim());
         if (!id) {
           await bot.sendMessage(chatId, "Использование: /start_task <id>");
           return;
@@ -410,10 +419,7 @@ bot.on("message", async (msg) => {
           );
 
           if (res.rowCount === 0) {
-            await bot.sendMessage(
-              chatId,
-              `⚠️ Задача с ID ${id} не найдена.`
-            );
+            await bot.sendMessage(chatId, `⚠️ Задача с ID ${id} не найдена.`);
           } else {
             await bot.sendMessage(chatId, `✅ Задача ${id} снова активна.`);
           }
@@ -424,19 +430,9 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- stop_tasks_type (MONARCH) -------------
+      // ------------------------ STOP TASKS BY TYPE -----------------------
       case "/stop_tasks_type": {
-        if (
-          !(await guardMonarch(
-            bot,
-            chatId,
-            chatIdStr,
-            "Команда /stop_tasks_type"
-          ))
-        )
-          return;
-
-        const taskType = args.trim();
+        const taskType = (rest || "").trim();
         if (!taskType) {
           await bot.sendMessage(
             chatId,
@@ -456,8 +452,11 @@ bot.on("message", async (msg) => {
             `⛔ Остановлены все активные задачи типа "${taskType}".\nИзменено записей: ${res.rowCount}.`
           );
         } catch (err) {
-          console.error("❌ Error при остановке задач по типу:", err);
-          await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задач по типу.");
+          console.error("❌ Error /stop_tasks_type:", err);
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при остановке задач по типу."
+          );
         }
         return;
       }
@@ -488,16 +487,13 @@ bot.on("message", async (msg) => {
       }
 
       case "/source": {
-        const key = args.trim();
+        const key = (rest || "").trim();
         if (!key) {
           await bot.sendMessage(chatId, "Использование: /source <key>");
           return;
         }
 
-        const result = await fetchFromSourceKey(key, {
-          userRole,
-          userPlan,
-        });
+        const result = await fetchFromSourceKey(key, { userRole, userPlan });
 
         if (!result.ok) {
           await bot.sendMessage(
@@ -512,14 +508,13 @@ bot.on("message", async (msg) => {
 
         await bot.sendMessage(
           chatId,
-          JSON.stringify(result, null, 2).slice(0, 900)
+          JSON.stringify(result, null, 2).slice(0, 3500)
         );
         return;
       }
 
-      // ---------------------- NEW COMMAND: /diag_source -------------------
       case "/diag_source": {
-        const key = args.trim();
+        const key = (rest || "").trim();
         if (!key) {
           await bot.sendMessage(
             chatId,
@@ -576,7 +571,7 @@ bot.on("message", async (msg) => {
 
       // --------------------------- /price (CoinGecko) --------------------
       case "/price": {
-        const coinId = args.trim().toLowerCase();
+        const coinId = (rest || "").trim().toLowerCase();
         if (!coinId) {
           await bot.sendMessage(
             chatId,
@@ -603,24 +598,22 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        await bot.sendMessage(chatId, `💰 ${result.id.toUpperCase()}: $${result.price}`);
+        await bot.sendMessage(
+          chatId,
+          `💰 ${result.id.toUpperCase()}: $${result.price}`
+        );
         return;
       }
 
       // --------------------------- /prices (multi) -----------------------
       case "/prices": {
-        let idsArg = args.trim().toLowerCase();
-        let ids;
-
-        // по умолчанию — BTC/ETH/SOL
-        if (!idsArg) {
-          ids = ["bitcoin", "ethereum", "solana"];
-        } else {
-          ids = idsArg
-            .split(/[,\s]+/)
-            .map((s) => s.trim())
-            .filter(Boolean);
-        }
+        const idsArg = (rest || "").trim().toLowerCase();
+        const ids = idsArg
+          ? idsArg
+              .split(/[,\s]+/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : ["bitcoin", "ethereum", "solana"];
 
         const result = await getCoinGeckoSimplePriceMulti(ids, "usd", {
           userRole,
@@ -643,8 +636,9 @@ bot.on("message", async (msg) => {
         let out = "💰 Цены (CoinGecko, USD):\n\n";
         for (const id of ids) {
           const item = result.items[id];
-          if (!item) out += `• ${id.toUpperCase()}: нет данных\n`;
-          else out += `• ${item.id.toUpperCase()}: $${item.price}\n`;
+          out += item
+            ? `• ${item.id.toUpperCase()}: $${item.price}\n`
+            : `• ${id.toUpperCase()}: нет данных\n`;
         }
 
         await bot.sendMessage(chatId, out);
@@ -653,91 +647,70 @@ bot.on("message", async (msg) => {
 
       // --------------------------- PROJECT MEMORY ------------------------
       case "/pm_show": {
-        const section = args.trim();
+        const section = (rest || "").trim();
         if (!section) {
           await bot.sendMessage(chatId, "Использование: /pm_show <section>");
           return;
         }
 
         try {
-          const rec = await pool.query(
-            `
-              SELECT section, content, updated_at
-              FROM project_memory
-              WHERE section = $1
-              ORDER BY updated_at DESC NULLS LAST, id DESC
-              LIMIT 1
-            `,
-            [section]
-          );
-
-          if (!rec.rows.length) {
+          const rec = await getProjectSection(undefined, section);
+          if (!rec) {
             await bot.sendMessage(chatId, `Секция "${section}" отсутствует.`);
             return;
           }
-
-          const r = rec.rows[0];
           await bot.sendMessage(
             chatId,
-            `🧠 Project Memory: ${r.section}\n\n${String(r.content || "").slice(
+            `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(
               0,
               3500
             )}`
           );
-        } catch (err) {
-          console.error("❌ /pm_show error:", err);
+        } catch (e) {
+          console.error("❌ /pm_show error:", e);
           await bot.sendMessage(chatId, "⚠️ Ошибка чтения Project Memory.");
         }
-
         return;
       }
 
       case "/pm_set": {
-        if (!(await guardMonarch(bot, chatId, chatIdStr, "Команда /pm_set")))
-          return;
-
-        const firstSpace = args.indexOf(" ");
-        if (firstSpace === -1) {
-          await bot.sendMessage(chatId, "Использование: /pm_set <section> <text>");
+        if (!isMonarch(chatIdStr)) {
+          await bot.sendMessage(chatId, "Только монарх может менять Project Memory.");
           return;
         }
 
-        const section = args.slice(0, firstSpace).trim();
-        const content = args.slice(firstSpace + 1).trim();
+        // Поддерживаем формат: /pm_set roadmap\nтекст...
+        const { first: section, tail: content } = firstWordAndRest(rest);
 
-        if (!section) {
-          await bot.sendMessage(chatId, "⚠️ section пустой.");
-          return;
-        }
-        if (!content) {
-          await bot.sendMessage(chatId, "⚠️ text пустой. Формат: /pm_set <section> <text>");
+        if (!section || !content) {
+          await bot.sendMessage(
+            chatId,
+            "Использование: /pm_set <section> <text>\n(Можно с переносами строк)"
+          );
           return;
         }
 
         try {
-          // Git-only fix: не полагаемся на UNIQUE/ON CONFLICT.
-          await pool.query(`DELETE FROM project_memory WHERE section = $1`, [section]);
+          await upsertProjectSection({
+            section,
+            title: null,
+            content,
+            tags: [],
+            meta: { setBy: chatIdStr },
+            schemaVersion: 1,
+          });
 
-          await pool.query(
-            `
-              INSERT INTO project_memory (section, content, updated_at)
-              VALUES ($1, $2, NOW())
-            `,
-            [section, content]
-          );
-
-          await bot.sendMessage(chatId, `Обновлено: ${section}`);
-        } catch (err) {
-          console.error("❌ /pm_set error:", err);
+          await bot.sendMessage(chatId, `✅ Обновлено: ${section}`);
+        } catch (e) {
+          console.error("❌ /pm_set error:", e);
           await bot.sendMessage(chatId, "⚠️ Ошибка записи Project Memory.");
         }
-
         return;
       }
 
-      // --------------------------- РЕЖИМЫ ОТВЕТОВ ------------------------
+      // --------------------------- ANSWER MODE ---------------------------
       case "/mode": {
-        const mode = args.trim().toLowerCase();
+        const mode = (rest || "").trim().toLowerCase();
         const valid = ["short", "normal", "long"];
 
         if (!valid.includes(mode)) {
@@ -750,40 +723,34 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // -------------------------------------------------------------------
       default:
-        break;
+        // неизвестная команда — игнор (не засоряем)
+        return;
     }
   }
 
   // ========================================================================
-  // === НЕ КОМАНДЫ: ПАМЯТЬ + PROJECT CONTEXT + AI ===
+  // === NOT COMMANDS: MEMORY + CONTEXT + AI ===
   // ========================================================================
-
   const mediaText = media ? `Вложение: ${media}` : "";
   let effective = trimmed || mediaText;
-  if (trimmed && mediaText) {
-    effective = `${trimmed}\n\n(${mediaText})`;
-  }
 
-  // 1) сохраняем сообщение
+  if (trimmed && mediaText) effective = `${trimmed}\n\n(${mediaText})`;
+
+  // 1) save user message
   await saveMessageToMemory(chatIdStr, "user", effective);
 
-  // 2) читаем историю
+  // 2) history
   const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
 
-  // 3) классификация
-  const classification = {
-    taskType: "chat",
-    aiCostLevel: "low",
-  };
-
+  // 3) classification (пока V0)
+  const classification = { taskType: "chat", aiCostLevel: "low" };
   await logInteraction(chatIdStr, classification);
 
-  // 4) Project Context
+  // 4) project context
   const projectCtx = await loadProjectContext();
 
-  // 5) System Prompt (V2 через systemPrompt.js)
+  // 5) system prompt
   const answerMode = getAnswerMode(chatIdStr);
 
   let modeInstruction = "";
@@ -810,10 +777,9 @@ bot.on("message", async (msg) => {
     { role: "user", content: effective },
   ];
 
-  // 6) настройка вывода
+  // 6) output params
   let maxTokens = 350;
   let temperature = 0.6;
-
   if (answerMode === "short") {
     maxTokens = 150;
     temperature = 0.3;
@@ -822,7 +788,7 @@ bot.on("message", async (msg) => {
     temperature = 0.8;
   }
 
-  // 7) вызов ИИ
+  // 7) AI call
   let aiReply = "";
   try {
     aiReply = await callAI(messages, classification.aiCostLevel, {
@@ -834,10 +800,10 @@ bot.on("message", async (msg) => {
     aiReply = "⚠️ Ошибка вызова ИИ.";
   }
 
-  // 8) сохраняем pair
+  // 8) save pair
   await saveChatPair(chatIdStr, effective, aiReply);
 
-  // 9) отправляем ответ
+  // 9) send
   try {
     await bot.sendMessage(chatId, aiReply);
   } catch (e) {
@@ -845,5 +811,4 @@ bot.on("message", async (msg) => {
   }
 });
 
-// ============================================================================
-console.log("🤖 GARYA AI Bot (modular index.js) работает…");
+console.log("🤖 SG (GARYA AI Bot) работает…");

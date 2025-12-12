@@ -329,7 +329,10 @@ bot.on("message", async (msg) => {
             [chatIdStr, access],
             [chatIdStr],
           ]);
-          await bot.sendMessage(chatId, `🆕 Тест price_monitor создан!\nID: ${id?.id || id}`);
+          await bot.sendMessage(
+            chatId,
+            `🆕 Тест price_monitor создан!\nID: ${id?.id || id}`
+          );
         } catch (e) {
           await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
         }
@@ -351,7 +354,10 @@ bot.on("message", async (msg) => {
             [chatIdStr, rest, rest],
             [chatIdStr, rest],
           ]);
-          await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task?.id || task}`);
+          await bot.sendMessage(
+            chatId,
+            `🆕 Задача создана!\n#${task?.id || task}`
+          );
         } catch (e) {
           await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
         }
@@ -554,7 +560,10 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        await bot.sendMessage(chatId, JSON.stringify(result, null, 2).slice(0, 3500));
+        await bot.sendMessage(
+          chatId,
+          JSON.stringify(result, null, 2).slice(0, 3500)
+        );
         return;
       }
 
@@ -581,7 +590,9 @@ bot.on("message", async (msg) => {
               chatId,
               [
                 `Диагностика <code>${key}</code>: ❌`,
-                res.error ? `Ошибка: <code>${res.error}</code>` : "Неизвестная ошибка",
+                res.error
+                  ? `Ошибка: <code>${res.error}</code>`
+                  : "Неизвестная ошибка",
               ].join("\n"),
               { parse_mode: "HTML" }
             );
@@ -592,7 +603,9 @@ bot.on("message", async (msg) => {
             chatId,
             [
               `Диагностика <code>${key}</code>: ✅ OK`,
-              res.httpStatus ? `HTTP статус: <code>${res.httpStatus}</code>` : "HTTP статус: n/a",
+              res.httpStatus
+                ? `HTTP статус: <code>${res.httpStatus}</code>`
+                : "HTTP статус: n/a",
               res.type ? `type: <code>${res.type}</code>` : "",
             ]
               .filter(Boolean)
@@ -614,7 +627,10 @@ bot.on("message", async (msg) => {
       case "/price": {
         const coinId = (rest || "").trim().toLowerCase();
         if (!coinId) {
-          await bot.sendMessage(chatId, "Использование: /price <coinId>\nПример: /price bitcoin");
+          await bot.sendMessage(
+            chatId,
+            "Использование: /price <coinId>\nПример: /price bitcoin"
+          );
           return;
         }
 
@@ -627,14 +643,20 @@ bot.on("message", async (msg) => {
         if (!result.ok) {
           const errText = String(result.error || "");
           if (result.httpStatus === 429 || errText.includes("429")) {
-            await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
+            await bot.sendMessage(
+              chatId,
+              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
+            );
           } else {
             await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
           }
           return;
         }
 
-        await bot.sendMessage(chatId, `💰 ${result.id.toUpperCase()}: $${result.price}`);
+        await bot.sendMessage(
+          chatId,
+          `💰 ${result.id.toUpperCase()}: $${result.price}`
+        );
         return;
       }
 
@@ -657,7 +679,10 @@ bot.on("message", async (msg) => {
         if (!result.ok) {
           const errText = String(result.error || "");
           if (result.httpStatus === 429 || errText.includes("429")) {
-            await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
+            await bot.sendMessage(
+              chatId,
+              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
+            );
           } else {
             await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
           }
@@ -667,7 +692,9 @@ bot.on("message", async (msg) => {
         let out = "💰 Цены (CoinGecko, USD):\n\n";
         for (const id of ids) {
           const item = result.items?.[id];
-          out += item ? `• ${item.id.toUpperCase()}: $${item.price}\n` : `• ${id.toUpperCase()}: нет данных\n`;
+          out += item
+            ? `• ${item.id.toUpperCase()}: $${item.price}\n`
+            : `• ${id.toUpperCase()}: нет данных\n`;
         }
 
         await bot.sendMessage(chatId, out);
@@ -690,7 +717,10 @@ bot.on("message", async (msg) => {
           }
           await bot.sendMessage(
             chatId,
-            `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(0, 3500)}`
+            `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(
+              0,
+              3500
+            )}`
           );
         } catch (e) {
           console.error("❌ /pm_show error:", e);
@@ -770,6 +800,13 @@ bot.on("message", async (msg) => {
   let processed = null;
 
   if (mediaSummary) {
+    // 7F.10 logs (минимально): отметим факт file-intake в interaction_logs
+    try {
+      await logInteraction(chatIdStr, { taskType: "file_intake", aiCostLevel: "low" });
+    } catch (e) {
+      // не критично
+    }
+
     try {
       const intakeFn =
         typeof FileIntake.intakeAndDownloadIfNeeded === "function"
@@ -778,20 +815,22 @@ bot.on("message", async (msg) => {
 
       if (intakeFn) {
         intake = await intakeFn(msg, token);
-      } else if (typeof FileIntake.downloadTelegramFile === "function" && mediaSummary.fileId) {
-        // fallback (если у тебя только downloadTelegramFile)
+      } else if (
+        typeof FileIntake.downloadTelegramFile === "function" &&
+        mediaSummary.fileId
+      ) {
         const downloaded = await FileIntake.downloadTelegramFile(token, mediaSummary.fileId);
         intake = { ...mediaSummary, downloaded };
       } else {
         intake = mediaSummary; // минимум: просто summary
       }
 
-      const fileName =
-        intake?.downloaded?.fileName ||
-        intake?.fileName ||
-        "file";
+      const fileName = intake?.downloaded?.fileName || intake?.fileName || "file";
 
-      await bot.sendMessage(chatId, `✅ Файл принят: ${intake.kind || "attachment"} (${fileName})`);
+      await bot.sendMessage(
+        chatId,
+        `✅ Файл принят: ${intake.kind || "attachment"} (${fileName})`
+      );
 
       // обработка (routing stubs)
       if (typeof FileIntake.processIncomingFile === "function") {
@@ -806,7 +845,7 @@ bot.on("message", async (msg) => {
     }
   }
 
-  // Формируем текст для памяти/ИИ:
+  // Формируем fallback-текст для памяти:
   // - localPath НЕ отправляем в ИИ
   const mediaText = processed?.processedText
     ? `Attachment: ${processed.processedText}`
@@ -814,8 +853,49 @@ bot.on("message", async (msg) => {
       ? `Attachment received: kind=${intake.kind || "unknown"}; file=${intake.downloaded?.fileName || ""}`
       : (mediaSummary ? `Attachment received: kind=${mediaSummary.kind || "unknown"}` : "");
 
-  let effective = trimmed || mediaText;
-  if (trimmed && mediaText) effective = `${trimmed}\n\n(${mediaText})`;
+  // === 7F.9 effectiveUserText: используем decision из fileIntake.js, если он есть
+  const buildDecisionFn =
+    typeof FileIntake.buildEffectiveUserTextAndDecision === "function"
+      ? FileIntake.buildEffectiveUserTextAndDecision
+      : null;
+
+  let decision = null;
+  if (buildDecisionFn) {
+    try {
+      decision = buildDecisionFn(trimmed, mediaSummary);
+    } catch (e) {
+      decision = null;
+    }
+  }
+
+  // userContentForMemory: всегда сохраняем хоть что-то осмысленное
+  const userContentForMemory = (decision?.effectiveUserText && decision.effectiveUserText.trim())
+    ? decision.effectiveUserText
+    : (trimmed || mediaText || "");
+
+  // Если decision говорит "не звать ИИ" — отвечаем напрямую и выходим
+  if (decision && decision.shouldCallAI === false) {
+    const direct = decision.directReplyText || "Напиши текстом, что нужно сделать.";
+
+    // сохраняем в память: user + assistant
+    try {
+      await saveMessageToMemory(chatIdStr, "user", userContentForMemory || "(attachment)");
+      await saveChatPair(chatIdStr, userContentForMemory || "(attachment)", direct);
+    } catch (e) {
+      console.error("❌ Memory save (direct) error:", e);
+    }
+
+    try {
+      await bot.sendMessage(chatId, direct);
+    } catch (e) {
+      console.error("❌ Telegram send (direct) error:", e);
+    }
+    return;
+  }
+
+  // Если decision отсутствует — старое поведение
+  let effective = decision?.effectiveUserText ?? (trimmed || mediaText);
+  if (!decision && trimmed && mediaText) effective = `${trimmed}\n\n(${mediaText})`;
 
   // 1) save user message
   await saveMessageToMemory(chatIdStr, "user", effective);

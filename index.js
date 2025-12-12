@@ -49,7 +49,10 @@ import {
 } from "./src/sources/coingecko/index.js";
 
 // === FILE-INTAKE / MEDIA ===
-import { summarizeMediaAttachment } from "./src/media/fileIntake.js";
+import {
+  summarizeMediaAttachment,
+  intakeAndDownloadIfNeeded,
+} from "./src/media/fileIntake.js";
 
 // === LOGGING ===
 import { logInteraction } from "./src/logging/interactionLogs.js";
@@ -75,7 +78,7 @@ const MAX_HISTORY_MESSAGES = 20;
 // Можно переопределить в Render Environment: MONARCH_CHAT_ID
 const MONARCH_CHAT_ID = (process.env.MONARCH_CHAT_ID || "677128443").toString();
 
-// Планы пока не включены, но поле оставляем для Source-Permissions
+// Планы пока не включены, но поле оставляем для permissions
 const DEFAULT_PLAN = "free";
 
 // ============================================================================
@@ -105,7 +108,6 @@ function firstWordAndRest(rest) {
 
 /**
  * Само-миграция Project Memory: создаём таблицу, если она отсутствует.
- * Это позволяет работать "только через GitHub" — без ручных SQL.
  */
 async function ensureProjectMemoryTable() {
   await pool.query(`
@@ -196,10 +198,10 @@ bot.on("message", async (msg) => {
   const text = msg.text || "";
   const trimmed = text.trim();
 
-  // 0) User profile (создаём/обновляем)
+  // 0) User profile
   await ensureUserProfile(msg);
 
-  // 1) role + plan (для permissions слоя источников)
+  // 1) role + plan
   let userRole = "guest";
   let userPlan = DEFAULT_PLAN;
 
@@ -212,8 +214,17 @@ bot.on("message", async (msg) => {
     console.error("❌ Error fetching user role:", e);
   }
 
-  // 2) FILE-INTAKE (пока summary, без OCR)
-  const media = summarizeMediaAttachment(msg);
+  const bypass = isMonarch(chatIdStr);
+
+  // access object (единый)
+  const access = {
+    userRole,
+    userPlan,
+    bypassPermissions: bypass,
+  };
+
+  // 2) FILE-INTAKE (summary)
+  const mediaSummary = summarizeMediaAttachment(msg);
 
   // ========================================================================
   // === COMMANDS ===
@@ -248,11 +259,8 @@ bot.on("message", async (msg) => {
 
       // -------------------- USERS STATS (MONARCH) ------------------------
       case "/users_stats": {
-        if (!isMonarch(chatIdStr)) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+        if (!bypass) {
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
@@ -281,10 +289,7 @@ bot.on("message", async (msg) => {
           await bot.sendMessage(chatId, out);
         } catch (e) {
           console.error("❌ Error in /users_stats:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось получить статистику пользователей."
-          );
+          await bot.sendMessage(chatId, "Не удалось получить статистику пользователей.");
         }
         return;
       }
@@ -298,11 +303,12 @@ bot.on("message", async (msg) => {
 
       // --------------------------- BTC TEST TASK -------------------------
       case "/btc_test_task": {
-        const task = await createTestPriceMonitorTask(chatIdStr);
-        await bot.sendMessage(
-          chatId,
-          `🆕 Тест price_monitor создан!\nID: ${task.id}\nРасписание: ${task.schedule}`
-        );
+        try {
+          const id = await createTestPriceMonitorTask(chatIdStr, access);
+          await bot.sendMessage(chatId, `🆕 Тест price_monitor создан!\nID: ${id}`);
+        } catch (e) {
+          await bot.sendMessage(chatId, `⛔ ${e.message || "Запрещено"}`);
+        }
         return;
       }
 
@@ -313,8 +319,13 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        const task = await createManualTask(chatIdStr, rest);
-        await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task.id}`);
+        try {
+          // title = rest, note = rest (минимально)
+          const task = await createManualTask(chatIdStr, rest, rest, access);
+          await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task.id}`);
+        } catch (e) {
+          await bot.sendMessage(chatId, `⛔ ${e.message || "Запрещено"}`);
+        }
         return;
       }
 
@@ -333,7 +344,7 @@ bot.on("message", async (msg) => {
         }
 
         await bot.sendMessage(chatId, `Запуск задачи #${task.id}...`);
-        await runTaskWithAI(task, chatId);
+        await runTaskWithAI(task, chatId, bot, access);
         return;
       }
 
@@ -370,10 +381,7 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error in /stop_all_tasks:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при попытке остановить задачи."
-          );
+          await bot.sendMessage(chatId, "⚠️ Ошибка при попытке остановить задачи.");
         }
         return;
       }
@@ -453,10 +461,7 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error /stop_tasks_type:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при остановке задач по типу."
-          );
+          await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задач по типу.");
         }
         return;
       }
@@ -473,7 +478,7 @@ bot.on("message", async (msg) => {
         const summary = await runSourceDiagnosticsOnce({
           userRole,
           userPlan,
-          bypassPermissions: isMonarch(chatIdStr),
+          bypassPermissions: bypass,
         });
 
         const textDiag =
@@ -493,7 +498,11 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        const result = await fetchFromSourceKey(key, { userRole, userPlan });
+        const result = await fetchFromSourceKey(key, {
+          userRole,
+          userPlan,
+          bypassPermissions: bypass,
+        });
 
         if (!result.ok) {
           await bot.sendMessage(
@@ -506,10 +515,7 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        await bot.sendMessage(
-          chatId,
-          JSON.stringify(result, null, 2).slice(0, 3500)
-        );
+        await bot.sendMessage(chatId, JSON.stringify(result, null, 2).slice(0, 3500));
         return;
       }
 
@@ -528,7 +534,7 @@ bot.on("message", async (msg) => {
           const res = await diagnoseSource(key, {
             userRole,
             userPlan,
-            bypassPermissions: isMonarch(chatIdStr),
+            bypassPermissions: bypass,
           });
 
           if (!res.ok) {
@@ -536,9 +542,7 @@ bot.on("message", async (msg) => {
               chatId,
               [
                 `Диагностика <code>${key}</code>: ❌`,
-                res.error
-                  ? `Ошибка: <code>${res.error}</code>`
-                  : "Неизвестная ошибка",
+                res.error ? `Ошибка: <code>${res.error}</code>` : "Неизвестная ошибка",
               ].join("\n"),
               { parse_mode: "HTML" }
             );
@@ -549,9 +553,7 @@ bot.on("message", async (msg) => {
             chatId,
             [
               `Диагностика <code>${key}</code>: ✅ OK`,
-              res.httpStatus
-                ? `HTTP статус: <code>${res.httpStatus}</code>`
-                : "HTTP статус: n/a",
+              res.httpStatus ? `HTTP статус: <code>${res.httpStatus}</code>` : "HTTP статус: n/a",
               res.type ? `type: <code>${res.type}</code>` : "",
             ]
               .filter(Boolean)
@@ -573,35 +575,27 @@ bot.on("message", async (msg) => {
       case "/price": {
         const coinId = (rest || "").trim().toLowerCase();
         if (!coinId) {
-          await bot.sendMessage(
-            chatId,
-            "Использование: /price <coinId>\nПример: /price bitcoin"
-          );
+          await bot.sendMessage(chatId, "Использование: /price <coinId>\nПример: /price bitcoin");
           return;
         }
 
         const result = await getCoinGeckoSimplePriceById(coinId, "usd", {
           userRole,
           userPlan,
+          bypassPermissions: bypass,
         });
 
         if (!result.ok) {
           const errText = String(result.error || "");
           if (result.httpStatus === 429 || errText.includes("429")) {
-            await bot.sendMessage(
-              chatId,
-              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
-            );
+            await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
           } else {
             await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
           }
           return;
         }
 
-        await bot.sendMessage(
-          chatId,
-          `💰 ${result.id.toUpperCase()}: $${result.price}`
-        );
+        await bot.sendMessage(chatId, `💰 ${result.id.toUpperCase()}: $${result.price}`);
         return;
       }
 
@@ -618,27 +612,23 @@ bot.on("message", async (msg) => {
         const result = await getCoinGeckoSimplePriceMulti(ids, "usd", {
           userRole,
           userPlan,
+          bypassPermissions: bypass,
         });
 
         if (!result.ok) {
           const errText = String(result.error || "");
           if (result.httpStatus === 429 || errText.includes("429")) {
-            await bot.sendMessage(
-              chatId,
-              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
-            );
+            await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
           } else {
             await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
           }
           return;
         }
 
-        let out = "💰 Цены (CoinGecko, USD):\n\n";
+        let out = "💰 Цены (CoinGecko, USD):\n\n(лимит вывода)\n";
         for (const id of ids) {
-          const item = result.items[id];
-          out += item
-            ? `• ${item.id.toUpperCase()}: $${item.price}\n`
-            : `• ${id.toUpperCase()}: нет данных\n`;
+          const item = result.items?.[id];
+          out += item ? `• ${item.id.toUpperCase()}: $${item.price}\n` : `• ${id.toUpperCase()}: нет данных\n`;
         }
 
         await bot.sendMessage(chatId, out);
@@ -661,10 +651,7 @@ bot.on("message", async (msg) => {
           }
           await bot.sendMessage(
             chatId,
-            `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(
-              0,
-              3500
-            )}`
+            `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(0, 3500)}`
           );
         } catch (e) {
           console.error("❌ /pm_show error:", e);
@@ -674,12 +661,11 @@ bot.on("message", async (msg) => {
       }
 
       case "/pm_set": {
-        if (!isMonarch(chatIdStr)) {
+        if (!bypass) {
           await bot.sendMessage(chatId, "Только монарх может менять Project Memory.");
           return;
         }
 
-        // Поддерживаем формат: /pm_set roadmap\nтекст...
         const { first: section, tail: content } = firstWordAndRest(rest);
 
         if (!section || !content) {
@@ -724,17 +710,33 @@ bot.on("message", async (msg) => {
       }
 
       default:
-        // неизвестная команда — игнор (не засоряем)
         return;
     }
   }
 
   // ========================================================================
-  // === NOT COMMANDS: MEMORY + CONTEXT + AI ===
+  // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
   // ========================================================================
-  const mediaText = media ? `Вложение: ${media}` : "";
-  let effective = trimmed || mediaText;
 
+  // Если есть вложение — скачиваем и подтверждаем (коротко)
+  let intake = null;
+  if (mediaSummary) {
+    try {
+      intake = await intakeAndDownloadIfNeeded(msg, token);
+      const fileName = intake?.downloaded?.fileName || "file";
+      await bot.sendMessage(chatId, `✅ Файл принят: ${intake.kind} (${fileName})`);
+    } catch (e) {
+      console.error("❌ File-Intake download error:", e);
+      await bot.sendMessage(chatId, "⚠️ Не удалось скачать файл (File-Intake).");
+    }
+  }
+
+  // Формируем текст для памяти/ИИ
+  const mediaText = intake
+    ? `Attachment: kind=${intake.kind}; fileName=${intake.downloaded?.fileName || ""}; localPath=${intake.downloaded?.localPath || ""}`
+    : (mediaSummary ? `Attachment: kind=${mediaSummary.kind}` : "");
+
+  let effective = trimmed || mediaText;
   if (trimmed && mediaText) effective = `${trimmed}\n\n(${mediaText})`;
 
   // 1) save user message
@@ -755,21 +757,14 @@ bot.on("message", async (msg) => {
 
   let modeInstruction = "";
   if (answerMode === "short") {
-    modeInstruction =
-      "Режим short: отвечай очень кратко (1–2 предложения), только по существу, без лишних деталей.";
+    modeInstruction = "Режим short: отвечай очень кратко (1–2 предложения), только по существу, без лишних деталей.";
   } else if (answerMode === "normal") {
-    modeInstruction =
-      "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
+    modeInstruction = "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
   } else if (answerMode === "long") {
-    modeInstruction =
-      "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
+    modeInstruction = "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
   }
 
-  const systemPrompt = buildSystemPrompt(
-    answerMode,
-    modeInstruction,
-    projectCtx || ""
-  );
+  const systemPrompt = buildSystemPrompt(answerMode, modeInstruction, projectCtx || "");
 
   const messages = [
     { role: "system", content: systemPrompt },

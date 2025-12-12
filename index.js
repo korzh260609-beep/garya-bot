@@ -9,6 +9,7 @@ import TelegramBot from "node-telegram-bot-api";
 // === CORE ===
 import { getAnswerMode, setAnswerMode } from "./core/answerMode.js";
 import { loadProjectContext } from "./core/projectContext.js";
+
 // === SYSTEM PROMPT ===
 import { buildSystemPrompt } from "./systemPrompt.js";
 
@@ -154,10 +155,9 @@ bot.on("message", async (msg) => {
   let userPlan = "free"; // планы пока не реализованы, по умолчанию free
 
   try {
-    const uRes = await pool.query(
-      "SELECT role FROM users WHERE chat_id = $1",
-      [chatIdStr]
-    );
+    const uRes = await pool.query("SELECT role FROM users WHERE chat_id = $1", [
+      chatIdStr,
+    ]);
     if (uRes.rows.length) {
       userRole = uRes.rows[0].role || "guest";
     }
@@ -502,7 +502,9 @@ bot.on("message", async (msg) => {
         if (!result.ok) {
           await bot.sendMessage(
             chatId,
-            `❌ Ошибка при обращении к источнику <code>${key}</code>:\n<code>${result.error || "Unknown error"}</code>`,
+            `❌ Ошибка при обращении к источнику <code>${key}</code>:\n<code>${
+              result.error || "Unknown error"
+            }</code>`,
             { parse_mode: "HTML" }
           );
           return;
@@ -601,10 +603,7 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        await bot.sendMessage(
-          chatId,
-          `💰 ${result.id.toUpperCase()}: $${result.price}`
-        );
+        await bot.sendMessage(chatId, `💰 ${result.id.toUpperCase()}: $${result.price}`);
         return;
       }
 
@@ -641,15 +640,11 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        // выводим в порядке запрошенных id
         let out = "💰 Цены (CoinGecko, USD):\n\n";
         for (const id of ids) {
           const item = result.items[id];
-          if (!item) {
-            out += `• ${id.toUpperCase()}: нет данных\n`;
-          } else {
-            out += `• ${item.id.toUpperCase()}: $${item.price}\n`;
-          }
+          if (!item) out += `• ${id.toUpperCase()}: нет данных\n`;
+          else out += `• ${item.id.toUpperCase()}: $${item.price}\n`;
         }
 
         await bot.sendMessage(chatId, out);
@@ -664,53 +659,79 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        const rec = await pool.query(
-          "SELECT section, content, updated_at FROM project_memory WHERE section = $1 LIMIT 1",
-          [section]
-        );
+        try {
+          const rec = await pool.query(
+            `
+              SELECT section, content, updated_at
+              FROM project_memory
+              WHERE section = $1
+              ORDER BY updated_at DESC NULLS LAST, id DESC
+              LIMIT 1
+            `,
+            [section]
+          );
 
-        if (!rec.rows.length) {
-          await bot.sendMessage(chatId, `Секция "${section}" отсутствует.`);
-          return;
+          if (!rec.rows.length) {
+            await bot.sendMessage(chatId, `Секция "${section}" отсутствует.`);
+            return;
+          }
+
+          const r = rec.rows[0];
+          await bot.sendMessage(
+            chatId,
+            `🧠 Project Memory: ${r.section}\n\n${String(r.content || "").slice(
+              0,
+              3500
+            )}`
+          );
+        } catch (err) {
+          console.error("❌ /pm_show error:", err);
+          await bot.sendMessage(chatId, "⚠️ Ошибка чтения Project Memory.");
         }
 
-        const r = rec.rows[0];
-        await bot.sendMessage(
-          chatId,
-          `🧠 Project Memory: ${r.section}\n\n${r.content.slice(0, 3500)}`
-        );
         return;
       }
 
       case "/pm_set": {
-        if (
-          !(await guardMonarch(bot, chatId, chatIdStr, "Команда /pm_set"))
-        )
+        if (!(await guardMonarch(bot, chatId, chatIdStr, "Команда /pm_set")))
           return;
 
         const firstSpace = args.indexOf(" ");
         if (firstSpace === -1) {
-          await bot.sendMessage(
-            chatId,
-            "Использование: /pm_set <section> <text>"
-          );
+          await bot.sendMessage(chatId, "Использование: /pm_set <section> <text>");
           return;
         }
 
         const section = args.slice(0, firstSpace).trim();
         const content = args.slice(firstSpace + 1).trim();
 
-        await pool.query(
-          `
-            INSERT INTO project_memory (section, content)
-            VALUES ($1, $2)
-            ON CONFLICT (section)
-            DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
-          `,
-          [section, content]
-        );
+        if (!section) {
+          await bot.sendMessage(chatId, "⚠️ section пустой.");
+          return;
+        }
+        if (!content) {
+          await bot.sendMessage(chatId, "⚠️ text пустой. Формат: /pm_set <section> <text>");
+          return;
+        }
 
-        await bot.sendMessage(chatId, `Обновлено: ${section}`);
+        try {
+          // Git-only fix: не полагаемся на UNIQUE/ON CONFLICT.
+          await pool.query(`DELETE FROM project_memory WHERE section = $1`, [section]);
+
+          await pool.query(
+            `
+              INSERT INTO project_memory (section, content, updated_at)
+              VALUES ($1, $2, NOW())
+            `,
+            [section, content]
+          );
+
+          await bot.sendMessage(chatId, `Обновлено: ${section}`);
+        } catch (err) {
+          console.error("❌ /pm_set error:", err);
+          await bot.sendMessage(chatId, "⚠️ Ошибка записи Project Memory.");
+        }
+
         return;
       }
 
@@ -765,7 +786,6 @@ bot.on("message", async (msg) => {
   // 5) System Prompt (V2 через systemPrompt.js)
   const answerMode = getAnswerMode(chatIdStr);
 
-  // Краткое текстовое описание режима (подставляется в systemPrompt)
   let modeInstruction = "";
   if (answerMode === "short") {
     modeInstruction =

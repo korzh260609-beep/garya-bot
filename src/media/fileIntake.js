@@ -1,13 +1,14 @@
 // src/media/fileIntake.js
 // ==================================================
 // FILE-INTAKE V1 / 7F.1 — download file (Skeleton)
+// + 7F.3 — process file (routing + stubs)
 // ==================================================
 //
 // Что делает файл сейчас:
 // 1) Определяет вложение из Telegram msg
-// 2) Возвращает summary (как раньше)
-// 3) МОЖЕТ скачать файл по file_id (по запросу)
-// 4) Сохраняет файл во временную папку ./tmp/media
+// 2) Скачивает файл по file_id
+// 3) Роутит обработку по kind (photo/document/audio/voice/video) — пока заглушки
+// 4) Возвращает processedText для памяти/ИИ (без Vision/OCR/STT пока)
 //
 // OCR / STT / parsing — БУДЕТ ПОЗЖЕ (7F.4+)
 
@@ -27,7 +28,7 @@ function ensureTmpDir() {
 }
 
 // ==================================================
-// === STEP 1: SUMMARY (без изменений)
+// === STEP 1: SUMMARY
 // ==================================================
 export function summarizeMediaAttachment(msg) {
   if (!msg || typeof msg !== "object") return null;
@@ -161,20 +162,132 @@ export async function downloadTelegramFile(botToken, fileId) {
 }
 
 // ==================================================
-// === STEP 3: COMBINED HELPER (optional)
+// === STEP 3: COMBINED HELPER
 // ==================================================
 export async function intakeAndDownloadIfNeeded(msg, botToken) {
   const summary = summarizeMediaAttachment(msg);
   if (!summary) return null;
 
-  // пока скачиваем ВСЁ (упростили скелет)
-  const downloaded = await downloadTelegramFile(
-    botToken,
-    summary.fileId
-  );
+  const downloaded = await downloadTelegramFile(botToken, summary.fileId);
 
   return {
     ...summary,
     downloaded,
   };
+}
+
+// ==================================================
+// === 7F.3 PROCESS FILE (routing + stubs)
+// ==================================================
+
+function safeBasename(p) {
+  if (!p) return "";
+  try {
+    return path.basename(String(p));
+  } catch {
+    return "";
+  }
+}
+
+async function processPhoto(intake) {
+  const fileName = intake?.downloaded?.fileName || safeBasename(intake?.downloaded?.localPath);
+  const w = intake?.width ?? null;
+  const h = intake?.height ?? null;
+
+  return {
+    ok: true,
+    kind: "photo",
+    processedText: `Фото получено (file=${fileName}${w && h ? `, ${w}x${h}` : ""}). Анализ изображения будет добавлен на следующем этапе (Vision/OCR).`,
+    meta: { fileName, width: w, height: h },
+  };
+}
+
+async function processDocument(intake) {
+  const fileName =
+    intake?.fileName ||
+    intake?.downloaded?.fileName ||
+    safeBasename(intake?.downloaded?.localPath);
+
+  const mimeType = intake?.mimeType || null;
+
+  return {
+    ok: true,
+    kind: "document",
+    processedText: `Документ получен (file=${fileName}${mimeType ? `, mime=${mimeType}` : ""}). Парсинг PDF/DOCX будет добавлен на следующем этапе.`,
+    meta: { fileName, mimeType },
+  };
+}
+
+async function processAudio(intake) {
+  const fileName =
+    intake?.downloaded?.fileName || safeBasename(intake?.downloaded?.localPath);
+  const duration = intake?.duration ?? null;
+
+  return {
+    ok: true,
+    kind: "audio",
+    processedText: `Аудио получено (file=${fileName}${duration ? `, ${duration}s` : ""}). Расшифровка (STT/Whisper) будет добавлена на следующем этапе.`,
+    meta: { fileName, duration },
+  };
+}
+
+async function processVoice(intake) {
+  const fileName =
+    intake?.downloaded?.fileName || safeBasename(intake?.downloaded?.localPath);
+  const duration = intake?.duration ?? null;
+
+  return {
+    ok: true,
+    kind: "voice",
+    processedText: `Голосовое получено (file=${fileName}${duration ? `, ${duration}s` : ""}). Расшифровка (STT/Whisper) будет добавлена на следующем этапе.`,
+    meta: { fileName, duration },
+  };
+}
+
+async function processVideo(intake) {
+  const fileName =
+    intake?.downloaded?.fileName || safeBasename(intake?.downloaded?.localPath);
+  const duration = intake?.duration ?? null;
+  const w = intake?.width ?? null;
+  const h = intake?.height ?? null;
+
+  return {
+    ok: true,
+    kind: "video",
+    processedText: `Видео получено (file=${fileName}${duration ? `, ${duration}s` : ""}${w && h ? `, ${w}x${h}` : ""}). Извлечение аудио/кадров будет добавлено позже.`,
+    meta: { fileName, duration, width: w, height: h },
+  };
+}
+
+/**
+ * Единая точка 7F.3:
+ * Принимает intake-объект (уже скачанный файл) и возвращает processedText.
+ */
+export async function processIncomingFile(intake) {
+  if (!intake) return null;
+
+  const kind = intake.kind;
+
+  try {
+    if (kind === "photo") return await processPhoto(intake);
+    if (kind === "document") return await processDocument(intake);
+    if (kind === "audio") return await processAudio(intake);
+    if (kind === "voice") return await processVoice(intake);
+    if (kind === "video") return await processVideo(intake);
+
+    return {
+      ok: true,
+      kind: kind || "unknown",
+      processedText: `Вложение получено (kind=${kind || "unknown"}). Обработка будет добавлена позже.`,
+      meta: {},
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      kind: kind || "unknown",
+      processedText: `Вложение получено, но обработка не удалась (kind=${kind || "unknown"}).`,
+      error: e?.message || String(e),
+      meta: {},
+    };
+  }
 }

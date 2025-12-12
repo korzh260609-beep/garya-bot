@@ -1,41 +1,42 @@
 // src/media/fileIntake.js
-// === FILE-INTAKE V1 — краткое описание вложений из Telegram-сообщения ===
+// ==================================================
+// FILE-INTAKE V1 / 7F.1 — download file (Skeleton)
+// ==================================================
 //
-// Задача: по объекту msg из Telegram определить,
-// есть ли вложение (фото/документ/аудио/видео/voice) и вернуть
-// краткую структуру, с которой дальше сможет работать ИИ-слой.
+// Что делает файл сейчас:
+// 1) Определяет вложение из Telegram msg
+// 2) Возвращает summary (как раньше)
+// 3) МОЖЕТ скачать файл по file_id (по запросу)
+// 4) Сохраняет файл во временную папку ./tmp/media
 //
-// Этап 7: без скачивания файлов, только метаданные.
+// OCR / STT / parsing — БУДЕТ ПОЗЖЕ (7F.4+)
 
-/**
- * Определяет главное вложение в сообщении и возвращает краткое описание.
- *
- * @param {Object} msg - объект Telegram Message
- * @returns {Object|null} summary
- *
- * Пример ответа:
- *   {
- *     kind: "photo" | "document" | "audio" | "voice" | "video",
- *     chatId: number,
- *     messageId: number,
- *     fileId: string,
- *     fileUniqueId: string | undefined,
- *     fileName?: string,
- *     mimeType?: string,
- *     fileSize?: number,
- *     width?: number,
- *     height?: number,
- *   }
- */
+import fs from "fs";
+import path from "path";
+import fetch from "node-fetch";
+
+// ==================================================
+// === CONFIG
+// ==================================================
+const TMP_DIR = path.resolve(process.cwd(), "tmp", "media");
+
+function ensureTmpDir() {
+  if (!fs.existsSync(TMP_DIR)) {
+    fs.mkdirSync(TMP_DIR, { recursive: true });
+  }
+}
+
+// ==================================================
+// === STEP 1: SUMMARY (без изменений)
+// ==================================================
 export function summarizeMediaAttachment(msg) {
   if (!msg || typeof msg !== "object") return null;
 
   const chatId = msg.chat?.id ?? null;
   const messageId = msg.message_id ?? null;
 
-  // 1) PHOTO
+  // PHOTO
   if (Array.isArray(msg.photo) && msg.photo.length > 0) {
-    // Берём самое большое фото (последний элемент массива)
     const photo = msg.photo[msg.photo.length - 1];
     return {
       kind: "photo",
@@ -49,7 +50,7 @@ export function summarizeMediaAttachment(msg) {
     };
   }
 
-  // 2) DOCUMENT
+  // DOCUMENT
   if (msg.document) {
     const d = msg.document;
     return {
@@ -64,7 +65,7 @@ export function summarizeMediaAttachment(msg) {
     };
   }
 
-  // 3) AUDIO
+  // AUDIO
   if (msg.audio) {
     const a = msg.audio;
     return {
@@ -81,7 +82,7 @@ export function summarizeMediaAttachment(msg) {
     };
   }
 
-  // 4) VOICE (голосовые)
+  // VOICE
   if (msg.voice) {
     const v = msg.voice;
     return {
@@ -96,7 +97,7 @@ export function summarizeMediaAttachment(msg) {
     };
   }
 
-  // 5) VIDEO
+  // VIDEO
   if (msg.video) {
     const v = msg.video;
     return {
@@ -113,8 +114,67 @@ export function summarizeMediaAttachment(msg) {
     };
   }
 
-  // Можно расширять дальше (sticker, video_note, animation, etc.)
-
-  // Если вложений нет — возвращаем null
   return null;
+}
+
+// ==================================================
+// === STEP 2: DOWNLOAD FILE (7F.1)
+// ==================================================
+export async function downloadTelegramFile(botToken, fileId) {
+  if (!botToken) {
+    throw new Error("TELEGRAM_BOT_TOKEN is missing");
+  }
+
+  ensureTmpDir();
+
+  // 1) getFile
+  const metaRes = await fetch(
+    `https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`
+  );
+  const metaJson = await metaRes.json();
+
+  if (!metaJson.ok) {
+    throw new Error("Telegram getFile failed");
+  }
+
+  const filePath = metaJson.result.file_path;
+
+  // 2) download
+  const fileUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+  const fileName = path.basename(filePath);
+  const localPath = path.join(TMP_DIR, fileName);
+
+  const fileRes = await fetch(fileUrl);
+  if (!fileRes.ok) {
+    throw new Error("File download failed");
+  }
+
+  const buffer = await fileRes.arrayBuffer();
+  fs.writeFileSync(localPath, Buffer.from(buffer));
+
+  return {
+    localPath,
+    fileName,
+    size: buffer.byteLength,
+    telegramPath: filePath,
+  };
+}
+
+// ==================================================
+// === STEP 3: COMBINED HELPER (optional)
+// ==================================================
+export async function intakeAndDownloadIfNeeded(msg, botToken) {
+  const summary = summarizeMediaAttachment(msg);
+  if (!summary) return null;
+
+  // пока скачиваем ВСЁ (упростили скелет)
+  const downloaded = await downloadTelegramFile(
+    botToken,
+    summary.fileId
+  );
+
+  return {
+    ...summary,
+    downloaded,
+  };
 }

@@ -4,12 +4,7 @@
 import pool from "../../db.js";
 
 /**
- * (Старая) логика — оставляем без изменений:
- * Логируем факт взаимодействия с пользователем:
- * - taskType (chat, task, report и т.п.)
- * - aiCostLevel (low / high / robot и т.д.)
- *
- * classification берётся из classifyInteraction.
+ * Логируем факт взаимодействия с пользователем (старый лог — НЕ ломаем).
  */
 export async function logInteraction(chatIdStr, classification) {
   try {
@@ -29,9 +24,7 @@ export async function logInteraction(chatIdStr, classification) {
 }
 
 /**
- * 7F.10 — отдельная таблица для логов File-Intake, чтобы:
- * - не зависеть от схемы interaction_logs
- * - не ломать прод при изменениях
+ * 7F.10 — отдельная таблица для логов File-Intake
  */
 export async function ensureFileIntakeLogsTable() {
   try {
@@ -67,7 +60,7 @@ export async function ensureFileIntakeLogsTable() {
 }
 
 /**
- * Запись события File-Intake (одна строка на входящее сообщение)
+ * Запись события File-Intake
  */
 export async function logFileIntakeEvent(chatIdStr, payload = {}) {
   try {
@@ -114,5 +107,30 @@ export async function logFileIntakeEvent(chatIdStr, payload = {}) {
     );
   } catch (err) {
     console.error("❌ Error in logFileIntakeEvent:", err);
+  }
+}
+
+/**
+ * Чтение последних логов File-Intake (для команды /file_logs)
+ */
+export async function getRecentFileIntakeLogs(limit = 10) {
+  try {
+    const n = Math.max(1, Math.min(Number(limit) || 10, 30));
+    const res = await pool.query(
+      `
+      SELECT id, created_at, chat_id, message_id, kind,
+             has_text, should_call_ai, direct_reply,
+             processed_text_chars, ai_called, ai_error,
+             file_name, mime_type, file_size
+      FROM file_intake_logs
+      ORDER BY id DESC
+      LIMIT $1
+      `,
+      [n]
+    );
+    return res.rows || [];
+  } catch (err) {
+    console.error("❌ Error in getRecentFileIntakeLogs:", err);
+    return [];
   }
 }

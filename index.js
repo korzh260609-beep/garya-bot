@@ -31,6 +31,7 @@ import {
   getUserTasks,
   getTaskById,
   runTaskWithAI,
+  updateTaskStatus, // ✅ used for stop/start via taskEngine
 } from "./src/tasks/taskEngine.js";
 
 // === SOURCES LAYER ===
@@ -254,6 +255,38 @@ async function callWithFallback(fn, variants) {
   throw lastErr || new Error("callWithFallback failed");
 }
 
+// === 7.10 helpers: task ownership + stop permissions (V1) ===
+function isOwnerTaskRow(taskRow, chatIdStr) {
+  const owner = (taskRow?.user_chat_id ?? "").toString();
+  return owner === chatIdStr.toString();
+}
+
+function canStopTaskV1({ userRole, bypass, taskType, isOwner }) {
+  if (bypass) return true;
+  if (!isOwner) return false;
+
+  if ((userRole || "guest").toLowerCase() === "guest") {
+    // V1 правило: гость не может останавливать price_monitor
+    if (taskType === "price_monitor") return false;
+    return true;
+  }
+
+  return true;
+}
+
+async function getTaskRowById(taskId) {
+  const res = await pool.query(
+    `
+    SELECT id, user_chat_id, title, type, status, payload, schedule, last_run, created_at
+    FROM tasks
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [taskId]
+  );
+  return res.rows[0] || null;
+}
+
 // ============================================================================
 // === EXPRESS SERVER ===
 // ============================================================================
@@ -415,7 +448,10 @@ bot.on("message", async (msg) => {
       // ===== 7F.10 — VIEW FILE INTAKE LOGS (MONARCH) =====
       case "/file_logs": {
         if (!bypass) {
-          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
           return;
         }
 
@@ -423,17 +459,29 @@ bot.on("message", async (msg) => {
         const rows = await getRecentFileIntakeLogs(chatIdStr, n);
 
         if (!rows.length) {
-          await bot.sendMessage(chatId, "file_intake_logs пусто (пока нет записей).");
+          await bot.sendMessage(
+            chatId,
+            "file_intake_logs пусто (пока нет записей)."
+          );
           return;
         }
 
-        let out = `🧾 File-Intake logs (last ${Math.min(Number(n) || 10, 30)})\n\n`;
+        let out = `🧾 File-Intake logs (last ${Math.min(
+          Number(n) || 10,
+          30
+        )})\n\n`;
         for (const r of rows) {
           out += `#${r.id} | ${new Date(r.created_at).toISOString()}\n`;
-          out += `kind=${r.kind || "?"} hasText=${r.has_text} shouldAI=${r.should_call_ai} direct=${r.direct_reply}\n`;
-          out += `aiCalled=${r.ai_called} aiError=${r.ai_error} textChars=${r.processed_text_chars}\n`;
+          out += `kind=${r.kind || "?"} hasText=${r.has_text} shouldAI=${
+            r.should_call_ai
+          } direct=${r.direct_reply}\n`;
+          out += `aiCalled=${r.ai_called} aiError=${r.ai_error} textChars=${
+            r.processed_text_chars
+          }\n`;
           if (r.file_name || r.mime_type || r.file_size) {
-            out += `file=${r.file_name || "-"} mime=${r.mime_type || "-"} size=${r.file_size || "-"}\n`;
+            out += `file=${r.file_name || "-"} mime=${r.mime_type || "-"} size=${
+              r.file_size || "-"
+            }\n`;
           }
           out += `\n`;
         }
@@ -445,7 +493,10 @@ bot.on("message", async (msg) => {
       // -------------------- USERS STATS (MONARCH) ------------------------
       case "/users_stats": {
         if (!bypass) {
-          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
           return;
         }
 
@@ -474,7 +525,10 @@ bot.on("message", async (msg) => {
           await bot.sendMessage(chatId, out);
         } catch (e) {
           console.error("❌ Error in /users_stats:", e);
-          await bot.sendMessage(chatId, "Не удалось получить статистику пользователей.");
+          await bot.sendMessage(
+            chatId,
+            "Не удалось получить статистику пользователей."
+          );
         }
         return;
       }
@@ -493,7 +547,10 @@ bot.on("message", async (msg) => {
             [chatIdStr, access],
             [chatIdStr],
           ]);
-          await bot.sendMessage(chatId, `🆕 Тест price_monitor создан!\nID: ${id?.id || id}`);
+          await bot.sendMessage(
+            chatId,
+            `🆕 Тест price_monitor создан!\nID: ${id?.id || id}`
+          );
         } catch (e) {
           await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
         }
@@ -514,7 +571,10 @@ bot.on("message", async (msg) => {
             [chatIdStr, rest, rest],
             [chatIdStr, rest],
           ]);
-          await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task?.id || task}`);
+          await bot.sendMessage(
+            chatId,
+            `🆕 Задача создана!\n#${task?.id || task}`
+          );
         } catch (e) {
           await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
         }
@@ -551,7 +611,8 @@ bot.on("message", async (msg) => {
 
       // --------------------------- TASKS LIST ----------------------------
       case "/tasks": {
-        const tasks = await getUserTasks(chatIdStr, 30);
+        // ✅ 7.10: access-aware list
+        const tasks = await getUserTasks(chatIdStr, 30, access);
 
         if (!tasks.length) {
           await bot.sendMessage(chatId, "У вас нет задач.");
@@ -569,6 +630,15 @@ bot.on("message", async (msg) => {
 
       // ---------------------- STOP ALL TASKS -----------------------------
       case "/stop_all_tasks": {
+        // ✅ критическая команда — только монарх
+        if (!bypass) {
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
+          return;
+        }
+
         try {
           const res = await pool.query(`
             UPDATE tasks
@@ -582,7 +652,10 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error in /stop_all_tasks:", err);
-          await bot.sendMessage(chatId, "⚠️ Ошибка при попытке остановить задачи.");
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при попытке остановить задачи."
+          );
         }
         return;
       }
@@ -596,16 +669,29 @@ bot.on("message", async (msg) => {
         }
 
         try {
-          const res = await pool.query(
-            `UPDATE tasks SET status = 'stopped' WHERE id = $1;`,
-            [id]
-          );
-
-          if (res.rowCount === 0) {
+          const taskRow = await getTaskRowById(id);
+          if (!taskRow) {
             await bot.sendMessage(chatId, `⚠️ Задача с ID ${id} не найдена.`);
-          } else {
-            await bot.sendMessage(chatId, `⛔ Задача ${id} остановлена.`);
+            return;
           }
+
+          const owner = isOwnerTaskRow(taskRow, chatIdStr);
+
+          // ✅ 7.10 task:stop
+          const allowed = canStopTaskV1({
+            userRole,
+            bypass,
+            taskType: taskRow.type,
+            isOwner: owner,
+          });
+
+          if (!allowed) {
+            await bot.sendMessage(chatId, "⛔ Недостаточно прав для остановки задачи.");
+            return;
+          }
+
+          await updateTaskStatus(id, "stopped");
+          await bot.sendMessage(chatId, `⛔ Задача ${id} остановлена.`);
         } catch (err) {
           console.error("❌ Error in /stop_task:", err);
           await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задачи.");
@@ -615,6 +701,15 @@ bot.on("message", async (msg) => {
 
       // --------------------------- START TASK ----------------------------
       case "/start_task": {
+        // ✅ критическая команда — только монарх (иначе можно активировать чужие)
+        if (!bypass) {
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
+          return;
+        }
+
         const id = Number((rest || "").trim());
         if (!id) {
           await bot.sendMessage(chatId, "Использование: /start_task <id>");
@@ -622,16 +717,8 @@ bot.on("message", async (msg) => {
         }
 
         try {
-          const res = await pool.query(
-            `UPDATE tasks SET status = 'active' WHERE id = $1;`,
-            [id]
-          );
-
-          if (res.rowCount === 0) {
-            await bot.sendMessage(chatId, `⚠️ Задача с ID ${id} не найдена.`);
-          } else {
-            await bot.sendMessage(chatId, `✅ Задача ${id} снова активна.`);
-          }
+          await updateTaskStatus(id, "active");
+          await bot.sendMessage(chatId, `✅ Задача ${id} снова активна.`);
         } catch (err) {
           console.error("❌ Error in /start_task:", err);
           await bot.sendMessage(chatId, "⚠️ Ошибка при запуске задачи.");
@@ -641,11 +728,20 @@ bot.on("message", async (msg) => {
 
       // ------------------------ STOP TASKS BY TYPE -----------------------
       case "/stop_tasks_type": {
+        // ✅ критическая команда — только монарх
+        if (!bypass) {
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
+          return;
+        }
+
         const taskType = (rest || "").trim();
         if (!taskType) {
           await bot.sendMessage(
             chatId,
-            "Использование: /stop_tasks_type <type>\nНапример: /stop_tasks_type price_monitor"
+            'Использование: /stop_tasks_type <type>\nНапример: /stop_tasks_type price_monitor'
           );
           return;
         }
@@ -662,7 +758,10 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error /stop_tasks_type:", err);
-          await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задач по типу.");
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Ошибка при остановке задач по типу."
+          );
         }
         return;
       }
@@ -716,7 +815,10 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        await bot.sendMessage(chatId, JSON.stringify(result, null, 2).slice(0, 3500));
+        await bot.sendMessage(
+          chatId,
+          JSON.stringify(result, null, 2).slice(0, 3500)
+        );
         return;
       }
 
@@ -743,7 +845,9 @@ bot.on("message", async (msg) => {
               chatId,
               [
                 `Диагностика <code>${key}</code>: ❌`,
-                res.error ? `Ошибка: <code>${res.error}</code>` : "Неизвестная ошибка",
+                res.error
+                  ? `Ошибка: <code>${res.error}</code>`
+                  : "Неизвестная ошибка",
               ].join("\n"),
               { parse_mode: "HTML" }
             );
@@ -754,7 +858,9 @@ bot.on("message", async (msg) => {
             chatId,
             [
               `Диагностика <code>${key}</code>: ✅ OK`,
-              res.httpStatus ? `HTTP статус: <code>${res.httpStatus}</code>` : "HTTP статус: n/a",
+              res.httpStatus
+                ? `HTTP статус: <code>${res.httpStatus}</code>`
+                : "HTTP статус: n/a",
               res.type ? `type: <code>${res.type}</code>` : "",
             ]
               .filter(Boolean)
@@ -776,7 +882,10 @@ bot.on("message", async (msg) => {
       case "/price": {
         const coinId = (rest || "").trim().toLowerCase();
         if (!coinId) {
-          await bot.sendMessage(chatId, "Использование: /price <coinId>\nПример: /price bitcoin");
+          await bot.sendMessage(
+            chatId,
+            "Использование: /price <coinId>\nПример: /price bitcoin"
+          );
           return;
         }
 
@@ -789,7 +898,10 @@ bot.on("message", async (msg) => {
         if (!result.ok) {
           const errText = String(result.error || "");
           if (result.httpStatus === 429 || errText.includes("429")) {
-            await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
+            await bot.sendMessage(
+              chatId,
+              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
+            );
           } else {
             await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
           }
@@ -819,7 +931,10 @@ bot.on("message", async (msg) => {
         if (!result.ok) {
           const errText = String(result.error || "");
           if (result.httpStatus === 429 || errText.includes("429")) {
-            await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
+            await bot.sendMessage(
+              chatId,
+              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
+            );
           } else {
             await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
           }
@@ -829,7 +944,9 @@ bot.on("message", async (msg) => {
         let out = "💰 Цены (CoinGecko, USD):\n\n";
         for (const id of ids) {
           const item = result.items?.[id];
-          out += item ? `• ${item.id.toUpperCase()}: $${item.price}\n` : `• ${id.toUpperCase()}: нет данных\n`;
+          out += item
+            ? `• ${item.id.toUpperCase()}: $${item.price}\n`
+            : `• ${id.toUpperCase()}: нет данных\n`;
         }
 
         await bot.sendMessage(chatId, out);
@@ -852,7 +969,10 @@ bot.on("message", async (msg) => {
           }
           await bot.sendMessage(
             chatId,
-            `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(0, 3500)}`
+            `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(
+              0,
+              3500
+            )}`
           );
         } catch (e) {
           console.error("❌ /pm_show error:", e);
@@ -899,7 +1019,10 @@ bot.on("message", async (msg) => {
       case "/mode": {
         const modeRaw = (rest || "").trim();
         if (!modeRaw) {
-          await bot.sendMessage(chatId, "Использование: /mode short | normal | long");
+          await bot.sendMessage(
+            chatId,
+            "Использование: /mode short | normal | long"
+          );
           return;
         }
 
@@ -946,7 +1069,9 @@ bot.on("message", async (msg) => {
     : {
         effectiveUserText: trimmed,
         shouldCallAI: Boolean(trimmed),
-        directReplyText: Boolean(trimmed) ? null : "Напиши текстом, что нужно сделать.",
+        directReplyText: Boolean(trimmed)
+          ? null
+          : "Напиши текстом, что нужно сделать.",
       };
 
   const effective = (decision?.effectiveUserText || "").trim();
@@ -969,7 +1094,10 @@ bot.on("message", async (msg) => {
       processedTextChars: effective ? effective.length : 0,
       aiCalled: false,
       aiError: false,
-      meta: { caption: mediaSummary.caption || null, phase: "before_reply_or_ai" },
+      meta: {
+        caption: mediaSummary.caption || null,
+        phase: "before_reply_or_ai",
+      },
     });
   }
 
@@ -1008,7 +1136,11 @@ bot.on("message", async (msg) => {
       "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
   }
 
-  const systemPrompt = buildSystemPrompt(answerMode, modeInstruction, projectCtx || "");
+  const systemPrompt = buildSystemPrompt(
+    answerMode,
+    modeInstruction,
+    projectCtx || ""
+  );
   const messages = [
     { role: "system", content: systemPrompt },
     ...history,

@@ -313,8 +313,18 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // ---------------------- stop_all_tasks -----------------------------
+      // ---------------------- stop_all_tasks (MONARCH) -------------------
       case "/stop_all_tasks": {
+        if (
+          !(await guardMonarch(
+            bot,
+            chatId,
+            chatIdStr,
+            "Команда /stop_all_tasks"
+          ))
+        )
+          return;
+
         try {
           const res = await pool.query(`
             UPDATE tasks
@@ -336,8 +346,18 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- stop_task -----------------------------
+      // --------------------------- stop_task (MONARCH) -------------------
       case "/stop_task": {
+        if (
+          !(await guardMonarch(
+            bot,
+            chatId,
+            chatIdStr,
+            "Команда /stop_task"
+          ))
+        )
+          return;
+
         const id = Number(args.trim());
         if (!id) {
           await bot.sendMessage(chatId, "Использование: /stop_task <id>");
@@ -365,8 +385,18 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- start_task ----------------------------
+      // --------------------------- start_task (MONARCH) ------------------
       case "/start_task": {
+        if (
+          !(await guardMonarch(
+            bot,
+            chatId,
+            chatIdStr,
+            "Команда /start_task"
+          ))
+        )
+          return;
+
         const id = Number(args.trim());
         if (!id) {
           await bot.sendMessage(chatId, "Использование: /start_task <id>");
@@ -394,8 +424,18 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      // --------------------------- stop_tasks_type ------------------------
+      // --------------------------- stop_tasks_type (MONARCH) -------------
       case "/stop_tasks_type": {
+        if (
+          !(await guardMonarch(
+            bot,
+            chatId,
+            chatIdStr,
+            "Команда /stop_tasks_type"
+          ))
+        )
+          return;
+
         const taskType = args.trim();
         if (!taskType) {
           await bot.sendMessage(

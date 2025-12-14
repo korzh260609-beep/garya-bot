@@ -42,6 +42,7 @@ import {
   fetchFromSourceKey,
   formatSourcesList,
   diagnoseSource,
+  testSource,
 } from "./src/sources/sources.js";
 
 // === COINGECKO (V1 SIMPLE PRICE) ===
@@ -893,20 +894,22 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        // V1: пока используем diagnoseSource (без ломки Sources Layer)
         try {
-          const res = await diagnoseSource(key, {
+          const res = await testSource(key, {
             userRole,
             userPlan,
             bypassPermissions: bypass,
+            ignoreRateLimit: false,
           });
 
-          // ✅ FIX: 429 — это rate-limit, не "✅"
-          const errText = String(res.error || "");
-          if (res.httpStatus === 429 || errText.includes("429")) {
+          if (!res.ok && (res.reason === "rate_limited" || res.httpStatus === 429)) {
             await bot.sendMessage(
               chatId,
-              `TEST <code>${key}</code>: ⚠️ RATE LIMIT\nHTTP: <code>429</code>\nПопробуй через 60–120 секунд.`,
+              [
+                `TEST <code>${key}</code>: ⚠️ <b>RATE LIMIT</b>`,
+                "HTTP: <code>429</code>",
+                "Попробуй через 60–120 секунд.",
+              ].join("\n"),
               { parse_mode: "HTML" }
             );
             return;
@@ -915,7 +918,15 @@ bot.on("message", async (msg) => {
           if (!res.ok) {
             await bot.sendMessage(
               chatId,
-              `TEST <code>${key}</code>: ❌\nОшибка: <code>${res.error || "Unknown"}</code>`,
+              [
+                `TEST <code>${key}</code>: ❌`,
+                res.httpStatus ? `HTTP: <code>${res.httpStatus}</code>` : "HTTP: n/a",
+                res.type ? `type: <code>${res.type}</code>` : "",
+                res.reason ? `reason: <code>${res.reason}</code>` : "",
+                res.error ? `Ошибка: <code>${res.error}</code>` : "Ошибка: <code>Unknown</code>",
+              ]
+                .filter(Boolean)
+                .join("\n"),
               { parse_mode: "HTML" }
             );
             return;
@@ -924,9 +935,12 @@ bot.on("message", async (msg) => {
           await bot.sendMessage(
             chatId,
             [
-              `TEST <code>${key}</code>: ✅`,
+              `TEST <code>${key}</code>: ✅ OK`,
               res.httpStatus ? `HTTP: <code>${res.httpStatus}</code>` : "HTTP: n/a",
               res.type ? `type: <code>${res.type}</code>` : "",
+              typeof res.latencyMs === "number" ? `latency: <code>${res.latencyMs}ms</code>` : "",
+              typeof res.bytes === "number" ? `bytes: <code>${res.bytes}</code>` : "",
+              `cache: <code>${res.fromCache ? "yes" : "no"}</code>`,
             ]
               .filter(Boolean)
               .join("\n"),

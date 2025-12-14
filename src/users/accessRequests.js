@@ -151,7 +151,7 @@ export async function notifyMonarch(bot, monarchChatId, reqRow) {
 
 /**
  * Удобная обёртка: создать заявку + уведомить монарха + вернуть тексты.
- * Это то, что будем вызывать вместо простого "⛔ Недостаточно прав." :contentReference[oaicite:1]{index=1}
+ * Это то, что будем вызывать вместо простого "⛔ Недостаточно прав."
  */
 export async function createAccessRequestAndNotify({
   bot,
@@ -183,3 +183,95 @@ export async function createAccessRequestAndNotify({
   };
 }
 
+// ============================================================================
+// ✅ ADDED: approve/deny helpers for 7.11 V1
+// ============================================================================
+
+export async function getAccessRequestById(requestId) {
+  const res = await pool.query(
+    `
+    SELECT *
+    FROM access_requests
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [Number(requestId)]
+  );
+  return res.rows?.[0] || null;
+}
+
+/**
+ * Approve: pending -> approved
+ * ВАЖНО: это НЕ выдаёт реальные GRANTS (7.12), а лишь закрывает очередь заявок (7.11).
+ */
+export async function approveAccessRequest({
+  requestId,
+  resolvedBy,
+  note = null,
+}) {
+  const id = Number(requestId);
+  if (!id) return { ok: false, error: "invalid_request_id" };
+
+  // обновляем только pending (чтобы не перезатирать решение)
+  const res = await pool.query(
+    `
+    UPDATE access_requests
+    SET status = 'approved',
+        decided_by_chat_id = $2,
+        decision_note = $3,
+        updated_at = NOW()
+    WHERE id = $1
+      AND status = 'pending'
+    RETURNING *
+    `,
+    [id, String(resolvedBy || ""), note]
+  );
+
+  if (!res.rows?.length) {
+    // либо не найдено, либо уже решено
+    const existing = await getAccessRequestById(id);
+    if (!existing) return { ok: false, error: "not_found" };
+    return {
+      ok: false,
+      error: "not_pending",
+      request: existing,
+    };
+  }
+
+  return { ok: true, request: res.rows[0] };
+}
+
+/**
+ * Deny: pending -> denied
+ * ВАЖНО: это НЕ выдаёт реальные GRANTS (7.12), а лишь закрывает очередь заявок (7.11).
+ */
+export async function denyAccessRequest({ requestId, resolvedBy, note = null }) {
+  const id = Number(requestId);
+  if (!id) return { ok: false, error: "invalid_request_id" };
+
+  const res = await pool.query(
+    `
+    UPDATE access_requests
+    SET status = 'denied',
+        decided_by_chat_id = $2,
+        decision_note = $3,
+        updated_at = NOW()
+    WHERE id = $1
+      AND status = 'pending'
+    RETURNING *
+    `,
+    [id, String(resolvedBy || ""), note]
+  );
+
+  if (!res.rows?.length) {
+    const existing = await getAccessRequestById(id);
+    if (!existing) return { ok: false, error: "not_found" };
+    return {
+      ok: false,
+      error: "not_pending",
+      request: existing,
+    };
+  }
+
+  return { ok: true, request: res.rows[0] };
+}

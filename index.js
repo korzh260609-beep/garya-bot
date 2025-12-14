@@ -424,6 +424,10 @@ bot.on("message", async (msg) => {
     "/users_stats": "cmd.admin.users_stats",
     "/file_logs": "cmd.admin.file_logs",
     "/pm_set": "cmd.admin.pm_set",
+
+    // ✅ 7.11 V1 helpers (monarch self-test)
+    "/ar_create_test": "cmd.admin.ar_create_test",
+    "/ar_list": "cmd.admin.ar_list",
   };
 
   // ✅ V1 guard: если команда есть в карте — проверяем can()
@@ -701,6 +705,119 @@ bot.on("message", async (msg) => {
         } catch (e) {
           console.error("❌ /deny error:", e);
           await bot.sendMessage(chatId, "⚠️ Ошибка при deny.");
+        }
+
+        return;
+      }
+
+      // ====================================================================
+      // ✅ 7.11 V1 — Self-test (MONARCH ONLY): create test access_request
+      // ====================================================================
+      case "/ar_create_test": {
+        if (!bypass) {
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
+          return;
+        }
+
+        try {
+          if (typeof AccessRequests.createAccessRequest !== "function") {
+            await bot.sendMessage(
+              chatId,
+              "createAccessRequest() не найден в src/users/accessRequests.js"
+            );
+            return;
+          }
+
+          const nowIso = new Date().toISOString();
+
+          const reqRow = await AccessRequests.createAccessRequest({
+            requesterChatId: chatIdStr, // self-test: requester = monarch
+            requesterName: "MONARCH_SELF_TEST",
+            requesterRole: userRole,
+            requestedAction: "cmd.admin.stop_all_tasks",
+            requestedCmd: "/stop_all_tasks",
+            meta: {
+              test: true,
+              createdBy: chatIdStr,
+              at: nowIso,
+              note: "Self-test request (7.11 V1).",
+            },
+          });
+
+          const reqId = reqRow?.id;
+
+          await bot.sendMessage(
+            chatId,
+            reqId
+              ? `🧪 Создана тестовая заявка #${reqId}\nКоманды: /approve ${reqId} | /deny ${reqId}`
+              : "⚠️ Не удалось создать тестовую заявку (id отсутствует)."
+          );
+        } catch (e) {
+          console.error("❌ /ar_create_test error:", e);
+          await bot.sendMessage(chatId, "⚠️ Ошибка при создании тестовой заявки.");
+        }
+
+        return;
+      }
+
+      // ====================================================================
+      // ✅ 7.11 V1 — List access_requests (MONARCH ONLY)
+      // ====================================================================
+      case "/ar_list": {
+        if (!bypass) {
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
+          return;
+        }
+
+        const n = Math.max(1, Math.min(Number((rest || "").trim()) || 10, 30));
+
+        try {
+          const res = await pool.query(
+            `
+            SELECT
+              id,
+              COALESCE(status, 'pending') AS status,
+              COALESCE(requester_chat_id, chat_id, user_chat_id) AS requester_chat_id,
+              COALESCE(requester_name, '') AS requester_name,
+              COALESCE(requester_role, '') AS requester_role,
+              COALESCE(requested_action, requestedAction, '') AS requested_action,
+              COALESCE(requested_cmd, requestedCmd, '') AS requested_cmd,
+              created_at
+            FROM access_requests
+            ORDER BY created_at DESC
+            LIMIT $1
+            `,
+            [n]
+          );
+
+          if (!res.rows?.length) {
+            await bot.sendMessage(chatId, "🛡️ access_requests пусто.");
+            return;
+          }
+
+          let out = `🛡️ Access Requests (last ${res.rows.length})\n\n`;
+          for (const r of res.rows) {
+            out += `#${r.id} | ${r.status} | ${new Date(r.created_at).toISOString()}\n`;
+            out += `who=${r.requester_chat_id}${r.requester_name ? ` (${r.requester_name})` : ""}\n`;
+            if (r.requester_role) out += `role=${r.requester_role}\n`;
+            if (r.requested_action) out += `action=${r.requested_action}\n`;
+            if (r.requested_cmd) out += `cmd=${r.requested_cmd}\n`;
+            out += `\n`;
+          }
+
+          await bot.sendMessage(chatId, out.slice(0, 3800));
+        } catch (e) {
+          console.error("❌ /ar_list error:", e);
+          await bot.sendMessage(
+            chatId,
+            "⚠️ Не удалось прочитать access_requests (проверь таблицу/колонки)."
+          );
         }
 
         return;

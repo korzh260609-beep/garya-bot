@@ -316,18 +316,22 @@ export async function processIncomingFile(intake) {
 // === STEP 6: EFFECTIVE TEXT + DECISION (7F.9)
 // ==================================================
 /**
- * Главный хелпер для index.js:
- * - если у пользователя НЕТ текста, но есть медиа → возвращаем "stub-ответ" и запрещаем AI
- * - если текст ЕСТЬ → разрешаем AI (пока без парсинга), добавляем приписку к тексту
+ * Главный хелпер:
+ * - если у пользователя НЕТ текста и НЕТ caption, но есть медиа → возвращаем stub и НЕ зовём AI
+ * - если текст есть (включая caption у фото/доков) → зовём AI, но честно сообщаем что парсинга пока нет
  */
 export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
-  const trimmed = safeStr(userText).trim();
-  const hasText = Boolean(trimmed);
+  // ✅ Telegram нюанс: caption — это "текст" для фото/документа
+  const trimmedText = safeStr(userText).trim();
+  const captionText = safeStr(mediaSummary?.caption).trim();
+  const effectiveText = trimmedText || captionText;
+
+  const hasText = Boolean(effectiveText);
 
   if (!mediaSummary) {
     return {
-      effectiveUserText: trimmed,
-      shouldCallAI: hasText, // если пусто — нечего делать
+      effectiveUserText: trimmedText,
+      shouldCallAI: hasText,
       directReplyText: hasText ? null : "Напиши текстом, что нужно сделать.",
       decisionMeta: {
         hasText,
@@ -340,7 +344,7 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
 
   const stub = buildStubMessage(mediaSummary);
 
-  // 1) Нет текста → отвечаем stub-ом и НЕ зовём ИИ
+  // 1) Нет текста (и caption) → stub и НЕ зовём ИИ
   if (!hasText) {
     return {
       effectiveUserText: "",
@@ -368,14 +372,14 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
   })();
 
   return {
-    effectiveUserText: `${trimmed}\n\n(${mediaNote})`,
+    effectiveUserText: `${effectiveText}\n\n(${mediaNote})`,
     shouldCallAI: true,
     directReplyText: null,
     decisionMeta: {
       hasText,
       hasMedia: true,
       shouldCallAI: true,
-      reason: "text_plus_media",
+      reason: trimmedText ? "text_plus_media" : "caption_plus_media",
       kind: mediaSummary.kind,
     },
   };

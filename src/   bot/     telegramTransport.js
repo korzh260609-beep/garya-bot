@@ -20,18 +20,17 @@ export function initTelegramTransport(app) {
     process.exit(1);
   }
 
-  const webhookUrl = `${BASE_URL}/webhook`;
+  // ✅ закрываем endpoint токеном
+  const webhookPath = `/webhook/${token}`;
+  const webhookUrl = `${BASE_URL}${webhookPath}`;
 
-  // Устанавливаем вебхук
   bot
     .setWebHook(webhookUrl)
     .then(() => console.log(`🚀 Webhook установлен: ${webhookUrl}`))
-    .catch((err) =>
-      console.error("❌ Ошибка установки webhook Telegram:", err)
-    );
+    .catch((err) => console.error("❌ Ошибка установки webhook Telegram:", err));
 
-  // Маршрут для приёма webhook
-  app.post("/webhook", async (req, res) => {
+  // ✅ маршрут с токеном
+  app.post(webhookPath, async (req, res) => {
     try {
       await bot.processUpdate(req.body);
       res.sendStatus(200);
@@ -52,4 +51,3 @@ export function initTelegramTransport(app) {
 
   return bot;
 }
-

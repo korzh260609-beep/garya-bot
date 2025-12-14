@@ -23,8 +23,8 @@ import {
 import { ensureUserProfile } from "./src/users/userProfile.js";
 import { can } from "./src/users/permissions.js"; // ✅ 7.8 Permissions-layer
 
-// ✅ 7.11.5 — access_requests init (auto-create table)
-import { ensureAccessRequestsTable } from "./src/users/accessRequests.js";
+// ✅ 7.11.x — access_requests (auto-create + create request)
+import * as AccessRequests from "./src/users/accessRequests.js";
 
 // === TASK ENGINE ===
 import {
@@ -341,8 +341,12 @@ app.listen(PORT, async () => {
     console.log("🧾 File-Intake logs table OK.");
 
     // ✅ 7.11.5 — access_requests (auto-create)
-    await ensureAccessRequestsTable();
-    console.log("🛡️ Access Requests table OK.");
+    if (typeof AccessRequests.ensureAccessRequestsTable === "function") {
+      await AccessRequests.ensureAccessRequestsTable();
+      console.log("🛡️ Access Requests table OK.");
+    } else {
+      console.log("⚠️ AccessRequests.ensureAccessRequestsTable() not found (skip).");
+    }
 
     await ensureDefaultSources();
     console.log("📡 Sources registry готов.");
@@ -415,11 +419,59 @@ bot.on("message", async (msg) => {
   };
 
   // ✅ V1 guard: если команда есть в карте — проверяем can()
-  async function requirePermOrReply(cmd) {
+  // ✅ 7.11 — если нельзя: создаём заявку монарху + уведомление
+  async function requirePermOrReply(cmd, context = {}) {
     const action = CMD_ACTION[cmd];
     if (!action) return true; // команды вне карты (в т.ч. монаршие) — старые проверки остаются
     if (can(user, action)) return true;
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав.");
+
+    // create access request (best-effort)
+    try {
+      if (typeof AccessRequests.createAccessRequest === "function") {
+        const reqId = await AccessRequests.createAccessRequest({
+          chatId: chatIdStr,
+          action,
+          context: {
+            cmd,
+            action,
+            role: userRole,
+            plan: userPlan,
+            text: trimmed?.slice(0, 800) || "",
+            rest: (context?.rest || "").slice(0, 1200),
+            at: new Date().toISOString(),
+          },
+        });
+
+        await bot.sendMessage(
+          chatId,
+          `⛔ Недостаточно прав.\n✅ Заявка #${reqId} отправлена монарху.`
+        );
+
+        // notify monarch
+        await bot.sendMessage(
+          Number(MONARCH_CHAT_ID),
+          [
+            `🛡️ ACCESS REQUEST #${reqId}`,
+            `chat_id: ${chatIdStr}`,
+            `role: ${userRole}`,
+            `plan: ${userPlan}`,
+            `action: ${action}`,
+            `cmd: ${cmd}`,
+            trimmed ? `text: ${trimmed.slice(0, 500)}` : "",
+            ``,
+            `Команды: /approve ${reqId}  |  /deny ${reqId}`,
+          ]
+            .filter(Boolean)
+            .join("\n")
+        );
+      } else {
+        // fallback if helper not present
+        await bot.sendMessage(chatId, "⛔ Недостаточно прав.");
+      }
+    } catch (e) {
+      await bot.sendMessage(chatId, "⛔ Недостаточно прав.");
+    }
+
     return false;
   }
 
@@ -432,7 +484,7 @@ bot.on("message", async (msg) => {
     const rest = parsed?.rest || "";
 
     // ✅ Permissions-layer check (only if mapped)
-    if (!(await requirePermOrReply(cmd))) return;
+    if (!(await requirePermOrReply(cmd, { rest }))) return;
 
     switch (cmd) {
       case "/profile":
@@ -697,7 +749,10 @@ bot.on("message", async (msg) => {
           });
 
           if (!allowed) {
-            await bot.sendMessage(chatId, "⛔ Недостаточно прав для остановки задачи.");
+            await bot.sendMessage(
+              chatId,
+              "⛔ Недостаточно прав для остановки задачи."
+            );
             return;
           }
 
@@ -909,7 +964,10 @@ bot.on("message", async (msg) => {
             ignoreRateLimit: false,
           });
 
-          if (!res.ok && (res.reason === "rate_limited" || res.httpStatus === 429)) {
+          if (
+            !res.ok &&
+            (res.reason === "rate_limited" || res.httpStatus === 429)
+          ) {
             await bot.sendMessage(
               chatId,
               [
@@ -927,10 +985,14 @@ bot.on("message", async (msg) => {
               chatId,
               [
                 `TEST <code>${key}</code>: ❌`,
-                res.httpStatus ? `HTTP: <code>${res.httpStatus}</code>` : "HTTP: n/a",
+                res.httpStatus
+                  ? `HTTP: <code>${res.httpStatus}</code>`
+                  : "HTTP: n/a",
                 res.type ? `type: <code>${res.type}</code>` : "",
                 res.reason ? `reason: <code>${res.reason}</code>` : "",
-                res.error ? `Ошибка: <code>${res.error}</code>` : "Ошибка: <code>Unknown</code>",
+                res.error
+                  ? `Ошибка: <code>${res.error}</code>`
+                  : "Ошибка: <code>Unknown</code>",
               ]
                 .filter(Boolean)
                 .join("\n"),
@@ -943,10 +1005,16 @@ bot.on("message", async (msg) => {
             chatId,
             [
               `TEST <code>${key}</code>: ✅ OK`,
-              res.httpStatus ? `HTTP: <code>${res.httpStatus}</code>` : "HTTP: n/a",
+              res.httpStatus
+                ? `HTTP: <code>${res.httpStatus}</code>`
+                : "HTTP: n/a",
               res.type ? `type: <code>${res.type}</code>` : "",
-              typeof res.latencyMs === "number" ? `latency: <code>${res.latencyMs}ms</code>` : "",
-              typeof res.bytes === "number" ? `bytes: <code>${res.bytes}</code>` : "",
+              typeof res.latencyMs === "number"
+                ? `latency: <code>${res.latencyMs}ms</code>`
+                : "",
+              typeof res.bytes === "number"
+                ? `bytes: <code>${res.bytes}</code>`
+                : "",
               `cache: <code>${res.fromCache ? "yes" : "no"}</code>`,
             ]
               .filter(Boolean)
@@ -995,7 +1063,10 @@ bot.on("message", async (msg) => {
           return;
         }
 
-        await bot.sendMessage(chatId, `💰 ${result.id.toUpperCase()}: $${result.price}`);
+        await bot.sendMessage(
+          chatId,
+          `💰 ${result.id.toUpperCase()}: $${result.price}`
+        );
         return;
       }
 

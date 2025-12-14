@@ -44,6 +44,7 @@ function isMediaStubText(s) {
   return (
     t.includes("OCR/Vision анализ будет добавлен") ||
     t.includes("OCR/Vision ещё нет") ||
+    t.includes("ещё не включ")
     t.includes("Фото получено.") ||
     t.includes("📸 Фото получено.")
   );

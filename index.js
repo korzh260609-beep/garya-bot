@@ -416,6 +416,14 @@ bot.on("message", async (msg) => {
 
     // ✅ 5.7.3
     "/test_source": "cmd.source.test",
+
+    // ✅ admin / critical — чтобы у гостя срабатывал Access Request (7.11)
+    "/stop_all_tasks": "cmd.admin.stop_all_tasks",
+    "/start_task": "cmd.admin.start_task",
+    "/stop_tasks_type": "cmd.admin.stop_tasks_type",
+    "/users_stats": "cmd.admin.users_stats",
+    "/file_logs": "cmd.admin.file_logs",
+    "/pm_set": "cmd.admin.pm_set",
   };
 
   // ✅ V1 guard: если команда есть в карте — проверяем can()
@@ -425,13 +433,25 @@ bot.on("message", async (msg) => {
     if (!action) return true; // команды вне карты (в т.ч. монаршие) — старые проверки остаются
     if (can(user, action)) return true;
 
-    // create access request (best-effort)
+    // requester name (best effort)
+    const requesterName =
+      msg?.from?.username
+        ? `@${msg.from.username}`
+        : [msg?.from?.first_name, msg?.from?.last_name].filter(Boolean).join(" ").trim() ||
+          null;
+
+    // ✅ Correct integration with AccessRequests schema + helper
     try {
-      if (typeof AccessRequests.createAccessRequest === "function") {
-        const reqId = await AccessRequests.createAccessRequest({
-          chatId: chatIdStr,
-          action,
-          context: {
+      if (typeof AccessRequests.createAccessRequestAndNotify === "function") {
+        const pack = await AccessRequests.createAccessRequestAndNotify({
+          bot,
+          monarchChatId: MONARCH_CHAT_ID,
+          requesterChatId: chatIdStr,
+          requesterName,
+          requesterRole: userRole,
+          requestedAction: action,
+          requestedCmd: cmd,
+          meta: {
             cmd,
             action,
             role: userRole,
@@ -442,30 +462,59 @@ bot.on("message", async (msg) => {
           },
         });
 
+        await bot.sendMessage(chatId, pack?.guestText || "⛔ Недостаточно прав.");
+      } else if (typeof AccessRequests.createAccessRequest === "function") {
+        // fallback: create only (no notify helper)
+        const reqRow = await AccessRequests.createAccessRequest({
+          requesterChatId: chatIdStr,
+          requesterName,
+          requesterRole: userRole,
+          requestedAction: action,
+          requestedCmd: cmd,
+          meta: {
+            cmd,
+            action,
+            role: userRole,
+            plan: userPlan,
+            text: trimmed?.slice(0, 800) || "",
+            rest: (context?.rest || "").slice(0, 1200),
+            at: new Date().toISOString(),
+          },
+        });
+
+        const reqId = reqRow?.id;
         await bot.sendMessage(
           chatId,
-          `⛔ Недостаточно прав.\n✅ Заявка #${reqId} отправлена монарху.`
+          reqId
+            ? `⛔ Недостаточно прав.\n✅ Заявка #${reqId} отправлена монарху.`
+            : "⛔ Недостаточно прав."
         );
 
-        // notify monarch
-        await bot.sendMessage(
-          Number(MONARCH_CHAT_ID),
-          [
-            `🛡️ ACCESS REQUEST #${reqId}`,
-            `chat_id: ${chatIdStr}`,
-            `role: ${userRole}`,
-            `plan: ${userPlan}`,
-            `action: ${action}`,
-            `cmd: ${cmd}`,
-            trimmed ? `text: ${trimmed.slice(0, 500)}` : "",
-            ``,
-            `Команды: /approve ${reqId}  |  /deny ${reqId}`,
-          ]
-            .filter(Boolean)
-            .join("\n")
-        );
+        // notify monarch (best-effort)
+        if (reqId) {
+          try {
+            await bot.sendMessage(
+              Number(MONARCH_CHAT_ID),
+              [
+                `🛡️ ACCESS REQUEST #${reqId}`,
+                `requester_chat_id: ${chatIdStr}`,
+                requesterName ? `name: ${requesterName}` : "",
+                `role: ${userRole}`,
+                `plan: ${userPlan}`,
+                `requested_action: ${action}`,
+                `requested_cmd: ${cmd}`,
+                trimmed ? `text: ${trimmed.slice(0, 500)}` : "",
+                ``,
+                `Команды: /approve ${reqId}  |  /deny ${reqId}`,
+              ]
+                .filter(Boolean)
+                .join("\n")
+            );
+          } catch (e) {
+            // ignore
+          }
+        }
       } else {
-        // fallback if helper not present
         await bot.sendMessage(chatId, "⛔ Недостаточно прав.");
       }
     } catch (e) {
@@ -555,8 +604,14 @@ bot.on("message", async (msg) => {
             result.accessRequest ||
             null;
 
+          // ✅ correct field for requester
           const requesterChatId =
-            req?.chat_id || req?.chatId || req?.user_chat_id || null;
+            req?.requester_chat_id ||
+            req?.requesterChatId ||
+            req?.chat_id ||
+            req?.chatId ||
+            req?.user_chat_id ||
+            null;
 
           if (requesterChatId) {
             try {
@@ -622,8 +677,14 @@ bot.on("message", async (msg) => {
             result.accessRequest ||
             null;
 
+          // ✅ correct field for requester
           const requesterChatId =
-            req?.chat_id || req?.chatId || req?.user_chat_id || null;
+            req?.requester_chat_id ||
+            req?.requesterChatId ||
+            req?.chat_id ||
+            req?.chatId ||
+            req?.user_chat_id ||
+            null;
 
           if (requesterChatId) {
             try {

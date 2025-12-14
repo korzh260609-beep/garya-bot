@@ -23,6 +23,9 @@ import {
 import { ensureUserProfile } from "./src/users/userProfile.js";
 import { can } from "./src/users/permissions.js"; // ✅ 7.8 Permissions-layer
 
+// ✅ 7.11.5 — access_requests init (auto-create table)
+import { ensureAccessRequestsTable } from "./src/users/accessRequests.js";
+
 // === TASK ENGINE ===
 import {
   createDemoTask,
@@ -336,6 +339,10 @@ app.listen(PORT, async () => {
     // 7F.10 logs
     await ensureFileIntakeLogsTable();
     console.log("🧾 File-Intake logs table OK.");
+
+    // ✅ 7.11.5 — access_requests (auto-create)
+    await ensureAccessRequestsTable();
+    console.log("🛡️ Access Requests table OK.");
 
     await ensureDefaultSources();
     console.log("📡 Sources registry готов.");

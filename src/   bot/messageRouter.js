@@ -44,9 +44,35 @@ function isMediaStubText(s) {
   return (
     t.includes("OCR/Vision анализ будет добавлен") ||
     t.includes("OCR/Vision ещё нет") ||
-    t.includes("ещё не включ")
+    t.includes("ещё не включ") ||
     t.includes("Фото получено.") ||
     t.includes("📸 Фото получено.")
+  );
+}
+
+// ✅ общий вопрос "про картинку" (без деталей) → дадим soft-ответ
+function isGeneralPhotoQuestion(text) {
+  const t = String(text || "").toLowerCase();
+  if (!t) return false;
+
+  // короткие и частые формулировки
+  if (t.includes("что на фото")) return true;
+  if (t.includes("кто на фото")) return true;
+  if (t.includes("на фото человек")) return true;
+  if (t.includes("это человек")) return true;
+  if (t.includes("что он держит")) return true;
+  if (t.includes("что держит")) return true;
+  if (t.includes("что изображено")) return true;
+  if (t === "что?" || t === "кто?" || t === "что это?") return true;
+
+  return false;
+}
+
+function buildSoftNoVisionReply() {
+  return (
+    "Я не вижу изображение напрямую (Vision/OCR ещё не активен). " +
+    "Могу помочь, если ты опишешь, что на фото, или скажешь, что именно нужно определить: " +
+    "человек/предметы/что держит/надписи/эмблемы/детали экипировки."
   );
 }
 
@@ -106,19 +132,19 @@ export async function handleIncomingMessage(bot, msg) {
   let shouldCallAI = Boolean(decision?.shouldCallAI);
   let directReplyText = decision?.directReplyText || null;
 
-  // ✅ FIX: если это текст сразу после media-stub (в пределах окна) → форсим AI
-  // Это покрывает кейс: фото → (stub) → "что на фото?"
+  // Флаг: недавно было медиа (даже если текущий msg без вложения)
+  let hasRecentMediaContext = Boolean(mediaSummary);
+
+  // ✅ FIX: если это текст сразу после media-stub (в пределах окна) → форсим контекст "после фото"
   if (!mediaSummary && trimmed) {
     try {
       const recent = await getChatHistory(chatIdStr, 6);
-      // Ищем в последних сообщениях: assistant stub + свежий timestamp
-      // (структура history: [{role, content, created_at?}] — в зависимости от реализации)
+
       const lastAssistantStub = recent
         .slice()
         .reverse()
         .find((m) => (m?.role === "assistant") && isMediaStubText(m?.content));
 
-      // Попытаемся найти created_at если есть
       const createdAt =
         lastAssistantStub?.created_at ||
         lastAssistantStub?.createdAt ||
@@ -128,25 +154,36 @@ export async function handleIncomingMessage(bot, msg) {
       const okByTime = createdAt ? withinWindow(createdAt, MEDIA_FOLLOWUP_WINDOW_MS) : true;
 
       if (lastAssistantStub && okByTime) {
+        hasRecentMediaContext = true;
+
+        // ВАЖНО: не обязаны звать AI — для общего вопроса дадим soft-ответ ниже
         directReplyText = null;
         shouldCallAI = true;
-        // добавим заметку, чтобы ИИ понимал контекст
-        effective = `${trimmed}\n\n(Контекст: предыдущее сообщение было с фото; OCR/Vision пока не активен.)`;
+
+        effective = `${trimmed}\n\n(Контекст: предыдущее сообщение было с фото; Vision/OCR пока не активен.)`;
       }
     } catch (e) {
-      // если что-то пошло не так — не ломаем поток
       console.error("❌ continuation check error:", e);
     }
   }
 
+  // ✅ SOFT: если вопрос общий и контекст фото есть — отвечаем полезно, без повтора OCR-отказа
+  // (дешево: без callAI)
+  if (hasRecentMediaContext && trimmed && isGeneralPhotoQuestion(trimmed)) {
+    directReplyText = buildSoftNoVisionReply();
+    shouldCallAI = false; // чтобы не дергать ИИ зря
+    effective = ""; // не нужно
+  }
+
+  // Если File-Intake вернул stub — показываем его (как раньше)
   if (directReplyText) {
-  await bot.sendMessage(chatId, directReplyText);
+    await bot.sendMessage(chatId, directReplyText);
 
-  // ✅ важно: сохраняем stub в память как assistant
-  await saveMessageToMemory(chatIdStr, "assistant", directReplyText);
+    // ✅ важно: сохраняем stub/soft в память как assistant
+    await saveMessageToMemory(chatIdStr, "assistant", directReplyText);
 
-  return;
-}
+    return;
+  }
 
   if (!shouldCallAI || !effective) {
     await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");
@@ -188,7 +225,7 @@ export async function handleIncomingMessage(bot, msg) {
 
   const messages = [
     { role: "system", content: systemPrompt },
-    ...history, // ожидается [{role, content}]
+    ...history,
     { role: "user", content: effective },
   ];
 

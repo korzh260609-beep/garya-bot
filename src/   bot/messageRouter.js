@@ -139,9 +139,13 @@ export async function handleIncomingMessage(bot, msg) {
   }
 
   if (directReplyText) {
-    await bot.sendMessage(chatId, directReplyText);
-    return;
-  }
+  await bot.sendMessage(chatId, directReplyText);
+
+  // ✅ важно: сохраняем stub в память как assistant
+  await saveMessageToMemory(chatIdStr, "assistant", directReplyText);
+
+  return;
+}
 
   if (!shouldCallAI || !effective) {
     await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");

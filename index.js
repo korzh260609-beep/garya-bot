@@ -508,6 +508,143 @@ bot.on("message", async (msg) => {
         return;
       }
 
+      // ====================================================================
+      // ✅ 7.11.3 /approve + ✅ 7.11.4 /deny (MONARCH ONLY)
+      // ====================================================================
+      case "/approve": {
+        if (!bypass) {
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
+          return;
+        }
+
+        const id = Number((rest || "").trim());
+        if (!id) {
+          await bot.sendMessage(chatId, "Использование: /approve <request_id>");
+          return;
+        }
+
+        try {
+          if (typeof AccessRequests.approveAccessRequest !== "function") {
+            await bot.sendMessage(
+              chatId,
+              "approveAccessRequest() не найден в src/users/accessRequests.js"
+            );
+            return;
+          }
+
+          const result = await AccessRequests.approveAccessRequest({
+            requestId: id,
+            resolvedBy: chatIdStr,
+          });
+
+          if (!result?.ok) {
+            await bot.sendMessage(
+              chatId,
+              `⚠️ Не удалось approve: ${result?.error || "unknown"}`
+            );
+            return;
+          }
+
+          const req =
+            result.request ||
+            result.row ||
+            result.data ||
+            result.accessRequest ||
+            null;
+
+          const requesterChatId =
+            req?.chat_id || req?.chatId || req?.user_chat_id || null;
+
+          if (requesterChatId) {
+            try {
+              await bot.sendMessage(
+                Number(requesterChatId),
+                `✅ Монарх одобрил вашу заявку #${id}.`
+              );
+            } catch (e) {
+              // ignore notify error
+            }
+          }
+
+          await bot.sendMessage(chatId, `✅ Заявка #${id} одобрена.`);
+        } catch (e) {
+          console.error("❌ /approve error:", e);
+          await bot.sendMessage(chatId, "⚠️ Ошибка при approve.");
+        }
+
+        return;
+      }
+
+      case "/deny": {
+        if (!bypass) {
+          await bot.sendMessage(
+            chatId,
+            "Эта команда доступна только монарху GARYA."
+          );
+          return;
+        }
+
+        const id = Number((rest || "").trim());
+        if (!id) {
+          await bot.sendMessage(chatId, "Использование: /deny <request_id>");
+          return;
+        }
+
+        try {
+          if (typeof AccessRequests.denyAccessRequest !== "function") {
+            await bot.sendMessage(
+              chatId,
+              "denyAccessRequest() не найден в src/users/accessRequests.js"
+            );
+            return;
+          }
+
+          const result = await AccessRequests.denyAccessRequest({
+            requestId: id,
+            resolvedBy: chatIdStr,
+          });
+
+          if (!result?.ok) {
+            await bot.sendMessage(
+              chatId,
+              `⚠️ Не удалось deny: ${result?.error || "unknown"}`
+            );
+            return;
+          }
+
+          const req =
+            result.request ||
+            result.row ||
+            result.data ||
+            result.accessRequest ||
+            null;
+
+          const requesterChatId =
+            req?.chat_id || req?.chatId || req?.user_chat_id || null;
+
+          if (requesterChatId) {
+            try {
+              await bot.sendMessage(
+                Number(requesterChatId),
+                `⛔ Монарх отклонил вашу заявку #${id}.`
+              );
+            } catch (e) {
+              // ignore notify error
+            }
+          }
+
+          await bot.sendMessage(chatId, `⛔ Заявка #${id} отклонена.`);
+        } catch (e) {
+          console.error("❌ /deny error:", e);
+          await bot.sendMessage(chatId, "⚠️ Ошибка при deny.");
+        }
+
+        return;
+      }
+
       // ===== 7F.10 — VIEW FILE INTAKE LOGS (MONARCH) =====
       case "/file_logs": {
         if (!bypass) {

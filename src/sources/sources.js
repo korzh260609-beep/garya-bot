@@ -338,6 +338,86 @@ export async function diagnoseSource(key, options = {}) {
 }
 
 // ==================================================
+// 5.7.3 — TEST ONE SOURCE (REAL TEST, FOR /test_source)
+// ==================================================
+export async function testSource(key, options = {}) {
+  const t0 = Date.now();
+
+  try {
+    const res = await fetchFromSourceKey(key, {
+      ...options,
+      // тест по умолчанию НЕ должен пробивать rate-limit
+      ignoreRateLimit: options.ignoreRateLimit === true,
+    });
+
+    const latencyMs = Date.now() - t0;
+    const httpStatus = typeof res.httpStatus === "number" ? res.httpStatus : null;
+
+    // bytes only for data (safe)
+    let bytes = 0;
+    try {
+      if (res?.data != null) bytes = Buffer.byteLength(JSON.stringify(res.data), "utf8");
+    } catch (_) {
+      bytes = 0;
+    }
+
+    // 429 — всегда считаем проблемой теста (даже если отдали кеш)
+    const errText = String(res?.error || "");
+    if (httpStatus === 429 || errText.includes("429")) {
+      return {
+        ok: false,
+        reason: "rate_limited",
+        sourceKey: res.sourceKey || key,
+        type: res.type || null,
+        httpStatus: 429,
+        latencyMs,
+        bytes,
+        fromCache: !!res.fromCache,
+        error: res.error || "HTTP 429",
+      };
+    }
+
+    if (!res?.ok) {
+      return {
+        ok: false,
+        reason: "http_error",
+        sourceKey: res.sourceKey || key,
+        type: res.type || null,
+        httpStatus,
+        latencyMs,
+        bytes,
+        fromCache: !!res.fromCache,
+        error: res.error || "Request failed",
+      };
+    }
+
+    return {
+      ok: true,
+      reason: "ok",
+      sourceKey: res.sourceKey || key,
+      type: res.type || null,
+      httpStatus,
+      latencyMs,
+      bytes,
+      fromCache: !!res.fromCache,
+    };
+  } catch (err) {
+    const latencyMs = Date.now() - t0;
+    return {
+      ok: false,
+      reason: "exception",
+      sourceKey: key,
+      type: null,
+      httpStatus: null,
+      latencyMs,
+      bytes: 0,
+      fromCache: false,
+      error: err?.message || String(err),
+    };
+  }
+}
+
+// ==================================================
 // 5.11 — RUN DIAGNOSTICS FOR ALL SOURCES (ONE-SHOT)
 // ==================================================
 export async function runSourceDiagnosticsOnce(options = {}) {

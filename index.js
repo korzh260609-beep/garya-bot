@@ -401,6 +401,9 @@ bot.on("message", async (msg) => {
     "/sources": "cmd.sources.list",
     "/source": "cmd.source.fetch",
     "/diag_source": "cmd.source.diagnose",
+
+    // ✅ 5.7.3
+    "/test_source": "cmd.source.test",
   };
 
   // ✅ V1 guard: если команда есть в карте — проверяем can()
@@ -875,6 +878,58 @@ bot.on("message", async (msg) => {
             { parse_mode: "HTML" }
           );
         }
+        return;
+      }
+
+      // --------------------------- 5.7.3 /test_source ---------------------
+      case "/test_source": {
+        const key = (rest || "").trim();
+        if (!key) {
+          await bot.sendMessage(
+            chatId,
+            "Использование: /test_source <key>\nПример: /test_source coingecko_simple_price",
+            { parse_mode: "HTML" }
+          );
+          return;
+        }
+
+        // V1: пока используем diagnoseSource (без ломки Sources Layer)
+        try {
+          const res = await diagnoseSource(key, {
+            userRole,
+            userPlan,
+            bypassPermissions: bypass,
+          });
+
+          if (!res.ok) {
+            await bot.sendMessage(
+              chatId,
+              `TEST <code>${key}</code>: ❌\nОшибка: <code>${res.error || "Unknown"}</code>`,
+              { parse_mode: "HTML" }
+            );
+            return;
+          }
+
+          await bot.sendMessage(
+            chatId,
+            [
+              `TEST <code>${key}</code>: ✅`,
+              res.httpStatus ? `HTTP: <code>${res.httpStatus}</code>` : "HTTP: n/a",
+              res.type ? `type: <code>${res.type}</code>` : "",
+            ]
+              .filter(Boolean)
+              .join("\n"),
+            { parse_mode: "HTML" }
+          );
+        } catch (err) {
+          console.error("❌ /test_source error:", err);
+          await bot.sendMessage(
+            chatId,
+            `TEST ошибка: <code>${err?.message || err}</code>`,
+            { parse_mode: "HTML" }
+          );
+        }
+
         return;
       }
 

@@ -901,6 +901,17 @@ bot.on("message", async (msg) => {
             bypassPermissions: bypass,
           });
 
+          // ✅ FIX: 429 — это rate-limit, не "✅"
+          const errText = String(res.error || "");
+          if (res.httpStatus === 429 || errText.includes("429")) {
+            await bot.sendMessage(
+              chatId,
+              `TEST <code>${key}</code>: ⚠️ RATE LIMIT\nHTTP: <code>429</code>\nПопробуй через 60–120 секунд.`,
+              { parse_mode: "HTML" }
+            );
+            return;
+          }
+
           if (!res.ok) {
             await bot.sendMessage(
               chatId,

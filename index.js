@@ -535,12 +535,7 @@ bot.on("message", async (msg) => {
   // ========================================================================
   // === COMMANDS ===
   // ========================================================================
-  if (text && text.startsWith("/myid")) {
-    await bot.sendMessage(chatId, `Your ID: ${msg.from.id}`);
-    return;
-  }
-
- if (trimmed.startsWith("/")) {
+  if (trimmed.startsWith("/")) {
     if (text && text.startsWith("/health")) {
       if (message.from.id !== 677128443) {
         return;
@@ -552,7 +547,6 @@ bot.on("message", async (msg) => {
       );
       return;
     }
-
     const parsed = parseCommand(trimmed);
     const cmd = parsed?.cmd || trimmed.split(" ")[0];
     const rest = parsed?.rest || "";

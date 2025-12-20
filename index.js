@@ -540,15 +540,18 @@ bot.on("message", async (msg) => {
     return;
   }
 
-  if (trimmed.startsWith("/")) {
+ if (trimmed.startsWith("/")) {
     if (text && text.startsWith("/health")) {
-  const h = getSystemHealth();
-  await bot.sendMessage(
-    chatId,
-    `Status: ${h.status}\nUptime: ${h.uptime}\nMemory: ${h.memory.heapUsed}/${h.memory.heapTotal}`
-  );
-  return;
-}
+      if (message.from.id !== 677128443) {
+        return;
+      }
+      const h = getSystemHealth();
+      await bot.sendMessage(
+        chatId,
+        `Status: ${h.status}\nUptime: ${h.uptime}\nMemory: ${h.memory.heapUsed}/${h.memory.heapTotal}`
+      );
+      return;
+    }
 
     const parsed = parseCommand(trimmed);
     const cmd = parsed?.cmd || trimmed.split(" ")[0];

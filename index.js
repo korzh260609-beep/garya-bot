@@ -535,6 +535,11 @@ bot.on("message", async (msg) => {
   // ========================================================================
   // === COMMANDS ===
   // ========================================================================
+  if (text && text.startsWith("/myid")) {
+    await bot.sendMessage(chatId, `Your ID: ${msg.from.id}`);
+    return;
+  }
+
   if (trimmed.startsWith("/")) {
     if (text && text.startsWith("/health")) {
   const h = getSystemHealth();
@@ -542,11 +547,6 @@ bot.on("message", async (msg) => {
     chatId,
     `Status: ${h.status}\nUptime: ${h.uptime}\nMemory: ${h.memory.heapUsed}/${h.memory.heapTotal}`
   );
-  return;
-}
-
-if (text && text.startsWith("/myid")) {
-  await bot.sendMessage(chatId, `Your ID: ${message.from.id}`);
   return;
 }
 

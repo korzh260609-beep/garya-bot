@@ -537,7 +537,7 @@ bot.on("message", async (msg) => {
   // ========================================================================
   if (trimmed.startsWith("/")) {
     if (text && text.startsWith("/health")) {
-      if (message.from.id !== 677128443) {
+      if (msg.from.id !== 677128443) {
         return;
       }
       const h = getSystemHealth();

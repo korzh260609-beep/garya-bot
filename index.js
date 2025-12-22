@@ -1,77 +1,3 @@
-// ДИАГНОСТИКА - НАЧАЛО
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { existsSync } from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-console.log("=".repeat(60));
-console.log("🔍 ДИАГНОСТИКА ПУТЕЙ");
-console.log("=".repeat(60));
-console.log("📍 index.js находится в:", __dirname);
-console.log("📍 Текущая рабочая папка (cwd):", process.cwd());
-
-// Пути для проверки
-const pathsToCheck = [
-  {
-    name: "Относительно index.js",
-    path: join(__dirname, 'src', 'bot', 'telegramTransport.js')
-  },
-  {
-    name: "Относительно корня проекта",
-    path: join(process.cwd(), 'src', 'bot', 'telegramTransport.js')
-  },
-  {
-    name: "Абсолютный путь Render",
-    path: '/opt/render/project/src/bot/telegramTransport.js'
-  },
-  {
-    name: "Относительно index.js (без src)",
-    path: join(__dirname, 'bot', 'telegramTransport.js')
-  },
-  {
-    name: "Абсолютный путь с двойным src (из ошибки)",
-    path: '/opt/render/project/src/src/bot/telegramTransport.js'
-  }
-];
-
-console.log("\n📂 Проверка существования файлов:");
-pathsToCheck.forEach((item, i) => {
-  const exists = existsSync(item.path);
-  console.log(`${i + 1}. ${item.name}:`);
-  console.log(`   Путь: ${item.path}`);
-  console.log(`   Существует? ${exists ? '✅ ДА' : '❌ НЕТ'}`);
-  console.log("");
-});
-
-// Проверим также папки
-console.log("\n📁 Содержимое папок:");
-const dirsToCheck = [
-  __dirname,
-  join(__dirname, 'src'),
-  join(__dirname, 'src', 'bot'),
-  '/opt/render/project',
-  '/opt/render/project/src'
-];
-
-dirsToCheck.forEach(dir => {
-  try {
-    if (existsSync(dir)) {
-      console.log(`📁 ${dir}: существует`);
-    } else {
-      console.log(`📁 ${dir}: ❌ не существует`);
-    }
-  } catch (e) {
-    console.log(`📁 ${dir}: ⚠️ ошибка проверки`);
-  }
-});
-
-console.log("=".repeat(60));
-console.log("🔚 КОНЕЦ ДИАГНОСТИКИ");
-console.log("=".repeat(60));
-// ДИАГНОСТИКА - КОНЕЦ
-
 // ============================================================================
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
@@ -79,7 +5,7 @@ console.log("=".repeat(60));
 import express from "express";
 
 // === TRANSPORT ===
-import { initTelegramTransport } from "./src/bot/telegramTransport.js";
+import { initTelegramTransport } from "/opt/render/project/src/src/bot/telegramTransport.js";
 
 // === BOOTSTRAP INIT ===
 import { initSystem } from "./src/bootstrap/initSystem.js";

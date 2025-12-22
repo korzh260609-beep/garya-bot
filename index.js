@@ -5,16 +5,6 @@
 import express from "express";
 
 // === TRANSPORT ===
-import { initTelegramTransport } from "./src/bot/telegramTransport. js";
-
-// ...  ЗДЕСЬ ПРОДОЛЖАЕТСЯ ВЕСЬ ОСТАЛЬНОЙ КОД ИЗ ТВОЕГО index.js ...
-// ============================================================================
-// === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
-// ============================================================================
-
-import express from "express";
-
-// === TRANSPORT ===
 import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 
 // === BOOTSTRAP INIT ===

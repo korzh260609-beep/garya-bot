@@ -3,7 +3,12 @@
 // ============================================================================
 
 import express from "express";
-import TelegramBot from "node-telegram-bot-api";
+
+// === TRANSPORT ===
+import { initTelegramTransport } from "./src/bot/telegramTransport.js";
+
+// === BOOTSTRAP INIT ===
+import { initSystem } from "./src/bootstrap/initSystem.js";
 
 // === CORE ===
 import { getAnswerMode, setAnswerMode } from "./core/answerMode.js";
@@ -39,7 +44,6 @@ import {
 
 // === SOURCES LAYER ===
 import {
-  ensureDefaultSources,
   runSourceDiagnosticsOnce,
   getAllSourcesSafe,
   fetchFromSourceKey,
@@ -59,9 +63,6 @@ import * as FileIntake from "./src/media/fileIntake.js";
 
 // === LOGGING (interaction_logs) ===
 import { logInteraction } from "./src/logging/interactionLogs.js";
-
-// === ROBOT MOCK-LAYER ===
-import { startRobotLoop } from "./src/robot/robotMock.js";
 
 // === AI ===
 import { callAI } from "./ai.js";
@@ -106,68 +107,6 @@ function firstWordAndRest(rest) {
   if (!rest) return { first: "", tail: "" };
   const m = rest.match(/^(\S+)(?:\s+([\s\S]+))?$/);
   return { first: (m?.[1] || "").trim(), tail: (m?.[2] || "").trim() };
-}
-
-async function ensureProjectMemoryTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS project_memory (
-      id BIGSERIAL PRIMARY KEY,
-      project_key TEXT NOT NULL,
-      section TEXT NOT NULL,
-      title TEXT,
-      content TEXT NOT NULL,
-      tags TEXT[] NOT NULL DEFAULT '{}',
-      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
-      schema_version INT NOT NULL DEFAULT 1,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
-    ON project_memory (project_key, section, created_at);
-  `);
-}
-
-/**
- * 7F.10 — FILE-INTAKE LOGS (самодостаточно в index.js)
- * Таблица:
- * - фиксируем решения: hasText / shouldCallAI / direct / aiCalled / aiError
- * - мета: jsonb (не ломает скелет, можно расширять без миграций)
- */
-async function ensureFileIntakeLogsTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS file_intake_logs (
-      id BIGSERIAL PRIMARY KEY,
-      chat_id TEXT NOT NULL,
-      message_id BIGINT,
-      kind TEXT,
-      file_id TEXT,
-      file_unique_id TEXT,
-      file_name TEXT,
-      mime_type TEXT,
-      file_size BIGINT,
-
-      has_text BOOLEAN NOT NULL DEFAULT FALSE,
-      should_call_ai BOOLEAN NOT NULL DEFAULT FALSE,
-      direct_reply BOOLEAN NOT NULL DEFAULT FALSE,
-
-      processed_text_chars INT NOT NULL DEFAULT 0,
-
-      ai_called BOOLEAN NOT NULL DEFAULT FALSE,
-      ai_error BOOLEAN NOT NULL DEFAULT FALSE,
-
-      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
-
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_file_intake_logs_chat_created
-    ON file_intake_logs (chat_id, created_at DESC);
-  `);
 }
 
 async function logFileIntakeEvent(chatIdStr, payload) {
@@ -302,33 +241,12 @@ app.get("/health", (req, res) => {
   res.status(200).json(getSystemHealth());
 });
 
-// ============================================================================
-// === TELEGRAM BOT + WEBHOOK ===
-// ============================================================================
-const token = process.env.TELEGRAM_BOT_TOKEN;
-if (!token) {
-  console.error("❌ TELEGRAM_BOT_TOKEN отсутствует!");
-  process.exit(1);
-}
-
-const bot = new TelegramBot(token);
-
-const WEBHOOK_URL = `${
-  process.env.WEBHOOK_URL || "https://garya-bot.onrender.com"
-}/webhook/${token}`;
-
-bot.setWebHook(WEBHOOK_URL);
-
 app.get("/", (req, res) => res.send("SG (GARYA AI Bot) работает ⚡"));
 
-app.post(`/webhook/${token}`, (req, res) => {
-  res.sendStatus(200);
-  try {
-    bot.processUpdate(req.body);
-  } catch (err) {
-    console.error("❌ bot.processUpdate error:", err);
-  }
-});
+// ============================================================================
+// === TELEGRAM TRANSPORT (webhook + message pump) ===
+// ============================================================================
+const bot = initTelegramTransport(app);
 
 // ============================================================================
 // === START SERVER + INIT SYSTEM ===
@@ -337,26 +255,8 @@ app.listen(PORT, async () => {
   console.log("🌐 HTTP-сервер запущен на порту:", PORT);
 
   try {
-    await ensureProjectMemoryTable();
-    console.log("🧠 Project Memory table OK.");
-
-    // 7F.10 logs
-    await ensureFileIntakeLogsTable();
-    console.log("🧾 File-Intake logs table OK.");
-
-    // ✅ 7.11.5 — access_requests (auto-create)
-    if (typeof AccessRequests.ensureAccessRequestsTable === "function") {
-      await AccessRequests.ensureAccessRequestsTable();
-      console.log("🛡️ Access Requests table OK.");
-    } else {
-      console.log("⚠️ AccessRequests.ensureAccessRequestsTable() not found (skip).");
-    }
-
-    await ensureDefaultSources();
-    console.log("📡 Sources registry готов.");
-
-    startRobotLoop(bot);
-    console.log("🤖 ROBOT mock-layer запущен.");
+    await initSystem({ bot });
+    console.log("✅ System init OK.");
   } catch (e) {
     console.error("❌ ERROR при инициализации:", e);
   }
@@ -438,7 +338,7 @@ bot.on("message", async (msg) => {
   // ✅ 7.11 — если нельзя: создаём заявку монарху + уведомление
   async function requirePermOrReply(cmd, context = {}) {
     const action = CMD_ACTION[cmd];
-    if (!action) return true; // команды вне карты (в т.ч. монаршие) — старые проверки остаются
+    if (!action) return true; // команды вне карты — старые проверки остаются
     if (can(user, action)) return true;
 
     // requester name (best effort)
@@ -448,7 +348,6 @@ bot.on("message", async (msg) => {
         : [msg?.from?.first_name, msg?.from?.last_name].filter(Boolean).join(" ").trim() ||
           null;
 
-    // ✅ Correct integration with AccessRequests schema + helper
     try {
       if (typeof AccessRequests.createAccessRequestAndNotify === "function") {
         const pack = await AccessRequests.createAccessRequestAndNotify({
@@ -472,7 +371,6 @@ bot.on("message", async (msg) => {
 
         await bot.sendMessage(chatId, pack?.guestText || "⛔ Недостаточно прав.");
       } else if (typeof AccessRequests.createAccessRequest === "function") {
-        // fallback: create only (no notify helper)
         const reqRow = await AccessRequests.createAccessRequest({
           requesterChatId: chatIdStr,
           requesterName,
@@ -498,7 +396,6 @@ bot.on("message", async (msg) => {
             : "⛔ Недостаточно прав."
         );
 
-        // notify monarch (best-effort)
         if (reqId) {
           try {
             await bot.sendMessage(
@@ -536,10 +433,10 @@ bot.on("message", async (msg) => {
   // === COMMANDS ===
   // ========================================================================
   if (trimmed.startsWith("/")) {
+    // FIX: тут был баг message.from.id — такого нет
     if (text && text.startsWith("/health")) {
-      if (message.from.id !== 677128443) {
-        return;
-      }
+      if (msg.from?.id !== 677128443) return;
+
       const h = getSystemHealth();
       await bot.sendMessage(
         chatId,
@@ -547,6 +444,7 @@ bot.on("message", async (msg) => {
       );
       return;
     }
+
     const parsed = parseCommand(trimmed);
     const cmd = parsed?.cmd || trimmed.split(" ")[0];
     const rest = parsed?.rest || "";
@@ -575,16 +473,12 @@ bot.on("message", async (msg) => {
         );
         return;
       }
-
       // ====================================================================
       // ✅ 7.11.3 /approve + ✅ 7.11.4 /deny (MONARCH ONLY)
       // ====================================================================
       case "/approve": {
         if (!bypass) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
@@ -609,21 +503,12 @@ bot.on("message", async (msg) => {
           });
 
           if (!result?.ok) {
-            await bot.sendMessage(
-              chatId,
-              `⚠️ Не удалось approve: ${result?.error || "unknown"}`
-            );
+            await bot.sendMessage(chatId, `⚠️ Не удалось approve: ${result?.error || "unknown"}`);
             return;
           }
 
-          const req =
-            result.request ||
-            result.row ||
-            result.data ||
-            result.accessRequest ||
-            null;
+          const req = result.request || result.row || result.data || result.accessRequest || null;
 
-          // ✅ correct field for requester
           const requesterChatId =
             req?.requester_chat_id ||
             req?.requesterChatId ||
@@ -634,13 +519,8 @@ bot.on("message", async (msg) => {
 
           if (requesterChatId) {
             try {
-              await bot.sendMessage(
-                Number(requesterChatId),
-                `✅ Монарх одобрил вашу заявку #${id}.`
-              );
-            } catch (e) {
-              // ignore notify error
-            }
+              await bot.sendMessage(Number(requesterChatId), `✅ Монарх одобрил вашу заявку #${id}.`);
+            } catch (e) {}
           }
 
           await bot.sendMessage(chatId, `✅ Заявка #${id} одобрена.`);
@@ -654,10 +534,7 @@ bot.on("message", async (msg) => {
 
       case "/deny": {
         if (!bypass) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
@@ -669,10 +546,7 @@ bot.on("message", async (msg) => {
 
         try {
           if (typeof AccessRequests.denyAccessRequest !== "function") {
-            await bot.sendMessage(
-              chatId,
-              "denyAccessRequest() не найден в src/users/accessRequests.js"
-            );
+            await bot.sendMessage(chatId, "denyAccessRequest() не найден в src/users/accessRequests.js");
             return;
           }
 
@@ -682,21 +556,12 @@ bot.on("message", async (msg) => {
           });
 
           if (!result?.ok) {
-            await bot.sendMessage(
-              chatId,
-              `⚠️ Не удалось deny: ${result?.error || "unknown"}`
-            );
+            await bot.sendMessage(chatId, `⚠️ Не удалось deny: ${result?.error || "unknown"}`);
             return;
           }
 
-          const req =
-            result.request ||
-            result.row ||
-            result.data ||
-            result.accessRequest ||
-            null;
+          const req = result.request || result.row || result.data || result.accessRequest || null;
 
-          // ✅ correct field for requester
           const requesterChatId =
             req?.requester_chat_id ||
             req?.requesterChatId ||
@@ -707,13 +572,8 @@ bot.on("message", async (msg) => {
 
           if (requesterChatId) {
             try {
-              await bot.sendMessage(
-                Number(requesterChatId),
-                `⛔ Монарх отклонил вашу заявку #${id}.`
-              );
-            } catch (e) {
-              // ignore notify error
-            }
+              await bot.sendMessage(Number(requesterChatId), `⛔ Монарх отклонил вашу заявку #${id}.`);
+            } catch (e) {}
           }
 
           await bot.sendMessage(chatId, `⛔ Заявка #${id} отклонена.`);
@@ -730,26 +590,20 @@ bot.on("message", async (msg) => {
       // ====================================================================
       case "/ar_create_test": {
         if (!bypass) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
         try {
           if (typeof AccessRequests.createAccessRequest !== "function") {
-            await bot.sendMessage(
-              chatId,
-              "createAccessRequest() не найден в src/users/accessRequests.js"
-            );
+            await bot.sendMessage(chatId, "createAccessRequest() не найден в src/users/accessRequests.js");
             return;
           }
 
           const nowIso = new Date().toISOString();
 
           const reqRow = await AccessRequests.createAccessRequest({
-            requesterChatId: chatIdStr, // self-test: requester = monarch
+            requesterChatId: chatIdStr,
             requesterName: "MONARCH_SELF_TEST",
             requesterRole: userRole,
             requestedAction: "cmd.admin.stop_all_tasks",
@@ -783,10 +637,7 @@ bot.on("message", async (msg) => {
       // ====================================================================
       case "/ar_list": {
         if (!bypass) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
@@ -829,10 +680,7 @@ bot.on("message", async (msg) => {
           await bot.sendMessage(chatId, out.slice(0, 3800));
         } catch (e) {
           console.error("❌ /ar_list error:", e);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Не удалось прочитать access_requests (проверь таблицу/колонки)."
-          );
+          await bot.sendMessage(chatId, "⚠️ Не удалось прочитать access_requests (проверь таблицу/колонки).");
         }
 
         return;
@@ -841,10 +689,7 @@ bot.on("message", async (msg) => {
       // ===== 7F.10 — VIEW FILE INTAKE LOGS (MONARCH) =====
       case "/file_logs": {
         if (!bypass) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
@@ -852,29 +697,17 @@ bot.on("message", async (msg) => {
         const rows = await getRecentFileIntakeLogs(chatIdStr, n);
 
         if (!rows.length) {
-          await bot.sendMessage(
-            chatId,
-            "file_intake_logs пусто (пока нет записей)."
-          );
+          await bot.sendMessage(chatId, "file_intake_logs пусто (пока нет записей).");
           return;
         }
 
-        let out = `🧾 File-Intake logs (last ${Math.min(
-          Number(n) || 10,
-          30
-        )})\n\n`;
+        let out = `🧾 File-Intake logs (last ${Math.min(Number(n) || 10, 30)})\n\n`;
         for (const r of rows) {
           out += `#${r.id} | ${new Date(r.created_at).toISOString()}\n`;
-          out += `kind=${r.kind || "?"} hasText=${r.has_text} shouldAI=${
-            r.should_call_ai
-          } direct=${r.direct_reply}\n`;
-          out += `aiCalled=${r.ai_called} aiError=${r.ai_error} textChars=${
-            r.processed_text_chars
-          }\n`;
+          out += `kind=${r.kind || "?"} hasText=${r.has_text} shouldAI=${r.should_call_ai} direct=${r.direct_reply}\n`;
+          out += `aiCalled=${r.ai_called} aiError=${r.ai_error} textChars=${r.processed_text_chars}\n`;
           if (r.file_name || r.mime_type || r.file_size) {
-            out += `file=${r.file_name || "-"} mime=${r.mime_type || "-"} size=${
-              r.file_size || "-"
-            }\n`;
+            out += `file=${r.file_name || "-"} mime=${r.mime_type || "-"} size=${r.file_size || "-"}\n`;
           }
           out += `\n`;
         }
@@ -886,17 +719,12 @@ bot.on("message", async (msg) => {
       // -------------------- USERS STATS (MONARCH) ------------------------
       case "/users_stats": {
         if (!bypass) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
         try {
-          const totalRes = await pool.query(
-            "SELECT COUNT(*)::int AS total FROM users"
-          );
+          const totalRes = await pool.query("SELECT COUNT(*)::int AS total FROM users");
           const total = totalRes.rows[0]?.total ?? 0;
 
           const byRoleRes = await pool.query(`
@@ -918,10 +746,7 @@ bot.on("message", async (msg) => {
           await bot.sendMessage(chatId, out);
         } catch (e) {
           console.error("❌ Error in /users_stats:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось получить статистику пользователей."
-          );
+          await bot.sendMessage(chatId, "Не удалось получить статистику пользователей.");
         }
         return;
       }
@@ -940,10 +765,7 @@ bot.on("message", async (msg) => {
             [chatIdStr, access],
             [chatIdStr],
           ]);
-          await bot.sendMessage(
-            chatId,
-            `🆕 Тест price_monitor создан!\nID: ${id?.id || id}`
-          );
+          await bot.sendMessage(chatId, `🆕 Тест price_monitor создан!\nID: ${id?.id || id}`);
         } catch (e) {
           await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
         }
@@ -964,10 +786,7 @@ bot.on("message", async (msg) => {
             [chatIdStr, rest, rest],
             [chatIdStr, rest],
           ]);
-          await bot.sendMessage(
-            chatId,
-            `🆕 Задача создана!\n#${task?.id || task}`
-          );
+          await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task?.id || task}`);
         } catch (e) {
           await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
         }
@@ -1004,7 +823,6 @@ bot.on("message", async (msg) => {
 
       // --------------------------- TASKS LIST ----------------------------
       case "/tasks": {
-        // ✅ 7.10: access-aware list
         const tasks = await getUserTasks(chatIdStr, 30, access);
 
         if (!tasks.length) {
@@ -1023,12 +841,8 @@ bot.on("message", async (msg) => {
 
       // ---------------------- STOP ALL TASKS -----------------------------
       case "/stop_all_tasks": {
-        // ✅ критическая команда — только монарх
         if (!bypass) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
@@ -1039,16 +853,10 @@ bot.on("message", async (msg) => {
             WHERE status = 'active';
           `);
 
-          await bot.sendMessage(
-            chatId,
-            `⛔ Остановлены все активные задачи.\nИзменено записей: ${res.rowCount}.`
-          );
+          await bot.sendMessage(chatId, `⛔ Остановлены все активные задачи.\nИзменено записей: ${res.rowCount}.`);
         } catch (err) {
           console.error("❌ Error in /stop_all_tasks:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при попытке остановить задачи."
-          );
+          await bot.sendMessage(chatId, "⚠️ Ошибка при попытке остановить задачи.");
         }
         return;
       }
@@ -1070,7 +878,6 @@ bot.on("message", async (msg) => {
 
           const owner = isOwnerTaskRow(taskRow, chatIdStr);
 
-          // ✅ 7.10 task:stop
           const allowed = canStopTaskV1({
             userRole,
             bypass,
@@ -1079,10 +886,7 @@ bot.on("message", async (msg) => {
           });
 
           if (!allowed) {
-            await bot.sendMessage(
-              chatId,
-              "⛔ Недостаточно прав для остановки задачи."
-            );
+            await bot.sendMessage(chatId, "⛔ Недостаточно прав для остановки задачи.");
             return;
           }
 
@@ -1097,12 +901,8 @@ bot.on("message", async (msg) => {
 
       // --------------------------- START TASK ----------------------------
       case "/start_task": {
-        // ✅ критическая команда — только монарх (иначе можно активировать чужие)
         if (!bypass) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
@@ -1124,12 +924,8 @@ bot.on("message", async (msg) => {
 
       // ------------------------ STOP TASKS BY TYPE -----------------------
       case "/stop_tasks_type": {
-        // ✅ критическая команда — только монарх
         if (!bypass) {
-          await bot.sendMessage(
-            chatId,
-            "Эта команда доступна только монарху GARYA."
-          );
+          await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
           return;
         }
 
@@ -1154,10 +950,7 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ Error /stop_tasks_type:", err);
-          await bot.sendMessage(
-            chatId,
-            "⚠️ Ошибка при остановке задач по типу."
-          );
+          await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задач по типу.");
         }
         return;
       }
@@ -1203,18 +996,13 @@ bot.on("message", async (msg) => {
         if (!result.ok) {
           await bot.sendMessage(
             chatId,
-            `❌ Ошибка при обращении к источнику <code>${key}</code>:\n<code>${
-              result.error || "Unknown error"
-            }</code>`,
+            `❌ Ошибка при обращении к источнику <code>${key}</code>:\n<code>${result.error || "Unknown error"}</code>`,
             { parse_mode: "HTML" }
           );
           return;
         }
 
-        await bot.sendMessage(
-          chatId,
-          JSON.stringify(result, null, 2).slice(0, 3500)
-        );
+        await bot.sendMessage(chatId, JSON.stringify(result, null, 2).slice(0, 3500));
         return;
       }
 
@@ -1241,9 +1029,7 @@ bot.on("message", async (msg) => {
               chatId,
               [
                 `Диагностика <code>${key}</code>: ❌`,
-                res.error
-                  ? `Ошибка: <code>${res.error}</code>`
-                  : "Неизвестная ошибка",
+                res.error ? `Ошибка: <code>${res.error}</code>` : "Неизвестная ошибка",
               ].join("\n"),
               { parse_mode: "HTML" }
             );
@@ -1254,9 +1040,7 @@ bot.on("message", async (msg) => {
             chatId,
             [
               `Диагностика <code>${key}</code>: ✅ OK`,
-              res.httpStatus
-                ? `HTTP статус: <code>${res.httpStatus}</code>`
-                : "HTTP статус: n/a",
+              res.httpStatus ? `HTTP статус: <code>${res.httpStatus}</code>` : "HTTP статус: n/a",
               res.type ? `type: <code>${res.type}</code>` : "",
             ]
               .filter(Boolean)
@@ -1265,15 +1049,12 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ /diag_source error:", err);
-          await bot.sendMessage(
-            chatId,
-            `Ошибка при диагностике: <code>${err.message || err}</code>`,
-            { parse_mode: "HTML" }
-          );
+          await bot.sendMessage(chatId, `Ошибка при диагностике: <code>${err.message || err}</code>`, {
+            parse_mode: "HTML",
+          });
         }
         return;
       }
-
       // --------------------------- 5.7.3 /test_source ---------------------
       case "/test_source": {
         const key = (rest || "").trim();
@@ -1294,10 +1075,7 @@ bot.on("message", async (msg) => {
             ignoreRateLimit: false,
           });
 
-          if (
-            !res.ok &&
-            (res.reason === "rate_limited" || res.httpStatus === 429)
-          ) {
+          if (!res.ok && (res.reason === "rate_limited" || res.httpStatus === 429)) {
             await bot.sendMessage(
               chatId,
               [
@@ -1315,14 +1093,10 @@ bot.on("message", async (msg) => {
               chatId,
               [
                 `TEST <code>${key}</code>: ❌`,
-                res.httpStatus
-                  ? `HTTP: <code>${res.httpStatus}</code>`
-                  : "HTTP: n/a",
+                res.httpStatus ? `HTTP: <code>${res.httpStatus}</code>` : "HTTP: n/a",
                 res.type ? `type: <code>${res.type}</code>` : "",
                 res.reason ? `reason: <code>${res.reason}</code>` : "",
-                res.error
-                  ? `Ошибка: <code>${res.error}</code>`
-                  : "Ошибка: <code>Unknown</code>",
+                res.error ? `Ошибка: <code>${res.error}</code>` : "Ошибка: <code>Unknown</code>",
               ]
                 .filter(Boolean)
                 .join("\n"),
@@ -1335,16 +1109,10 @@ bot.on("message", async (msg) => {
             chatId,
             [
               `TEST <code>${key}</code>: ✅ OK`,
-              res.httpStatus
-                ? `HTTP: <code>${res.httpStatus}</code>`
-                : "HTTP: n/a",
+              res.httpStatus ? `HTTP: <code>${res.httpStatus}</code>` : "HTTP: n/a",
               res.type ? `type: <code>${res.type}</code>` : "",
-              typeof res.latencyMs === "number"
-                ? `latency: <code>${res.latencyMs}ms</code>`
-                : "",
-              typeof res.bytes === "number"
-                ? `bytes: <code>${res.bytes}</code>`
-                : "",
+              typeof res.latencyMs === "number" ? `latency: <code>${res.latencyMs}ms</code>` : "",
+              typeof res.bytes === "number" ? `bytes: <code>${res.bytes}</code>` : "",
               `cache: <code>${res.fromCache ? "yes" : "no"}</code>`,
             ]
               .filter(Boolean)
@@ -1353,11 +1121,9 @@ bot.on("message", async (msg) => {
           );
         } catch (err) {
           console.error("❌ /test_source error:", err);
-          await bot.sendMessage(
-            chatId,
-            `TEST ошибка: <code>${err?.message || err}</code>`,
-            { parse_mode: "HTML" }
-          );
+          await bot.sendMessage(chatId, `TEST ошибка: <code>${err?.message || err}</code>`, {
+            parse_mode: "HTML",
+          });
         }
 
         return;
@@ -1367,10 +1133,7 @@ bot.on("message", async (msg) => {
       case "/price": {
         const coinId = (rest || "").trim().toLowerCase();
         if (!coinId) {
-          await bot.sendMessage(
-            chatId,
-            "Использование: /price <coinId>\nПример: /price bitcoin"
-          );
+          await bot.sendMessage(chatId, "Использование: /price <coinId>\nПример: /price bitcoin");
           return;
         }
 
@@ -1383,20 +1146,14 @@ bot.on("message", async (msg) => {
         if (!result.ok) {
           const errText = String(result.error || "");
           if (result.httpStatus === 429 || errText.includes("429")) {
-            await bot.sendMessage(
-              chatId,
-              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
-            );
+            await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
           } else {
             await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
           }
           return;
         }
 
-        await bot.sendMessage(
-          chatId,
-          `💰 ${result.id.toUpperCase()}: $${result.price}`
-        );
+        await bot.sendMessage(chatId, `💰 ${result.id.toUpperCase()}: $${result.price}`);
         return;
       }
 
@@ -1419,10 +1176,7 @@ bot.on("message", async (msg) => {
         if (!result.ok) {
           const errText = String(result.error || "");
           if (result.httpStatus === 429 || errText.includes("429")) {
-            await bot.sendMessage(
-              chatId,
-              "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты."
-            );
+            await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
           } else {
             await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
           }
@@ -1432,9 +1186,7 @@ bot.on("message", async (msg) => {
         let out = "💰 Цены (CoinGecko, USD):\n\n";
         for (const id of ids) {
           const item = result.items?.[id];
-          out += item
-            ? `• ${item.id.toUpperCase()}: $${item.price}\n`
-            : `• ${id.toUpperCase()}: нет данных\n`;
+          out += item ? `• ${item.id.toUpperCase()}: $${item.price}\n` : `• ${id.toUpperCase()}: нет данных\n`;
         }
 
         await bot.sendMessage(chatId, out);
@@ -1457,10 +1209,7 @@ bot.on("message", async (msg) => {
           }
           await bot.sendMessage(
             chatId,
-            `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(
-              0,
-              3500
-            )}`
+            `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(0, 3500)}`
           );
         } catch (e) {
           console.error("❌ /pm_show error:", e);
@@ -1478,10 +1227,7 @@ bot.on("message", async (msg) => {
         const { first: section, tail: content } = firstWordAndRest(rest);
 
         if (!section || !content) {
-          await bot.sendMessage(
-            chatId,
-            "Использование: /pm_set <section> <text>\n(Можно с переносами строк)"
-          );
+          await bot.sendMessage(chatId, "Использование: /pm_set <section> <text>\n(Можно с переносами строк)");
           return;
         }
 
@@ -1507,10 +1253,7 @@ bot.on("message", async (msg) => {
       case "/mode": {
         const modeRaw = (rest || "").trim();
         if (!modeRaw) {
-          await bot.sendMessage(
-            chatId,
-            "Использование: /mode short | normal | long"
-          );
+          await bot.sendMessage(chatId, "Использование: /mode short | normal | long");
           return;
         }
 
@@ -1538,15 +1281,11 @@ bot.on("message", async (msg) => {
 
   const messageId = msg.message_id ?? null;
 
-  // summary
   const summarizeMediaAttachment =
-    typeof FileIntake.summarizeMediaAttachment === "function"
-      ? FileIntake.summarizeMediaAttachment
-      : () => null;
+    typeof FileIntake.summarizeMediaAttachment === "function" ? FileIntake.summarizeMediaAttachment : () => null;
 
   const mediaSummary = summarizeMediaAttachment(msg);
 
-  // decision
   const decisionFn =
     typeof FileIntake.buildEffectiveUserTextAndDecision === "function"
       ? FileIntake.buildEffectiveUserTextAndDecision
@@ -1557,16 +1296,13 @@ bot.on("message", async (msg) => {
     : {
         effectiveUserText: trimmed,
         shouldCallAI: Boolean(trimmed),
-        directReplyText: Boolean(trimmed)
-          ? null
-          : "Напиши текстом, что нужно сделать.",
+        directReplyText: Boolean(trimmed) ? null : "Напиши текстом, что нужно сделать.",
       };
 
   const effective = (decision?.effectiveUserText || "").trim();
   const shouldCallAI = Boolean(decision?.shouldCallAI);
   const directReplyText = decision?.directReplyText || null;
 
-  // log intake (before any reply/ai)
   if (mediaSummary) {
     await logFileIntakeEvent(chatIdStr, {
       messageId,
@@ -1582,14 +1318,10 @@ bot.on("message", async (msg) => {
       processedTextChars: effective ? effective.length : 0,
       aiCalled: false,
       aiError: false,
-      meta: {
-        caption: mediaSummary.caption || null,
-        phase: "before_reply_or_ai",
-      },
+      meta: { caption: mediaSummary.caption || null, phase: "before_reply_or_ai" },
     });
   }
 
-  // direct reply (stub) -> exit
   if (directReplyText) {
     await bot.sendMessage(chatId, directReplyText);
     return;
@@ -1600,35 +1332,25 @@ bot.on("message", async (msg) => {
     return;
   }
 
-  // memory
   await saveMessageToMemory(chatIdStr, "user", effective);
   const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
 
-  // classification V0
   const classification = { taskType: "chat", aiCostLevel: "low" };
   await logInteraction(chatIdStr, classification);
 
-  // context + prompt
   const projectCtx = await loadProjectContext();
   const answerMode = getAnswerMode(chatIdStr);
 
   let modeInstruction = "";
   if (answerMode === "short") {
-    modeInstruction =
-      "Режим short: отвечай очень кратко (1–2 предложения), только по существу, без лишних деталей.";
+    modeInstruction = "Режим short: отвечай очень кратко (1–2 предложения), только по существу, без лишних деталей.";
   } else if (answerMode === "normal") {
-    modeInstruction =
-      "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
+    modeInstruction = "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
   } else if (answerMode === "long") {
-    modeInstruction =
-      "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
+    modeInstruction = "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
   }
 
-  const systemPrompt = buildSystemPrompt(
-    answerMode,
-    modeInstruction,
-    projectCtx || ""
-  );
+  const systemPrompt = buildSystemPrompt(answerMode, modeInstruction, projectCtx || "");
   const messages = [
     { role: "system", content: systemPrompt },
     ...history,
@@ -1645,7 +1367,6 @@ bot.on("message", async (msg) => {
     temperature = 0.8;
   }
 
-  // AI call
   let aiReply = "";
   let aiError = false;
   try {
@@ -1659,7 +1380,6 @@ bot.on("message", async (msg) => {
     aiError = true;
   }
 
-  // log intake after AI
   if (mediaSummary) {
     await logFileIntakeEvent(chatIdStr, {
       messageId,
@@ -1697,12 +1417,12 @@ console.log("🤖 SG (GARYA AI Bot) работает…");
 function getSystemHealth() {
   const uptime = process.uptime();
   const memoryUsage = process.memoryUsage();
-  
+
   const uptimeMinutes = Math.floor(uptime / 60);
   const uptimeSeconds = Math.floor(uptime % 60);
   const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
   const heapTotalMB = Math.round(memoryUsage.heapTotal / 1024 / 1024);
-  
+
   return {
     status: "operational",
     uptime: `${uptimeMinutes}m ${uptimeSeconds}s`,
@@ -1713,4 +1433,3 @@ function getSystemHealth() {
     timestamp: new Date().toISOString(),
   };
 }
-

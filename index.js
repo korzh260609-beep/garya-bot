@@ -5,7 +5,7 @@
 import express from "express";
 
 // === TRANSPORT ===
-import { initTelegramTransport } from "/opt/render/project/src/src/bot/telegramTransport.js";
+import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 
 // === BOOTSTRAP INIT ===
 import { initSystem } from "./src/bootstrap/initSystem.js";

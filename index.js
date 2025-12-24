@@ -313,24 +313,14 @@ if (!token) {
 
 const bot = new TelegramBot(token);
 
-// базовый URL сервиса (Render)
-const BASE_URL = process.env.BASE_URL || "https://garya-bot.onrender.com";
-
-// если WEBHOOK_URL не задан — формируем его автоматически
-if (!process.env.WEBHOOK_URL) {
-  process.env.WEBHOOK_URL = `${BASE_URL}/webhook/${token}`;
-}
-
-const WEBHOOK_URL = process.env.WEBHOOK_URL;
+const WEBHOOK_URL = `${
+  process.env.WEBHOOK_URL || "https://garya-bot.onrender.com"
+}/webhook/${token}`;
 
 bot.setWebHook(WEBHOOK_URL);
 
-// health / root
-app.get("/", (req, res) => {
-  res.send("SG (GARYA AI Bot) работает ⚡");
-});
+app.get("/", (req, res) => res.send("SG (GARYA AI Bot) работает ⚡"));
 
-// webhook endpoint
 app.post(`/webhook/${token}`, (req, res) => {
   res.sendStatus(200);
   try {

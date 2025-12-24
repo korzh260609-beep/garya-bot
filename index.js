@@ -3,7 +3,10 @@
 // ============================================================================
 
 import express from "express";
-import TelegramBot from "node-telegram-bot-api";
+
+// === TRANSPORT + BOOTSTRAP ===
+import { initTelegramTransport } from "./src/bot/telegramTransport.js";
+import { initSystem } from "./src/bootstrap/initSystem.js";
 
 // === CORE ===
 import { getAnswerMode, setAnswerMode } from "./core/answerMode.js";
@@ -21,9 +24,9 @@ import {
 
 // === USERS ===
 import { ensureUserProfile } from "./src/users/userProfile.js";
-import { can } from "./src/users/permissions.js"; // ✅ 7.8 Permissions-layer
+import { can } from "./src/users/permissions.js";
 
-// ✅ 7.11.x — access_requests (auto-create + create request)
+// === ACCESS REQUESTS ===
 import * as AccessRequests from "./src/users/accessRequests.js";
 
 // === TASK ENGINE ===
@@ -34,19 +37,8 @@ import {
   getUserTasks,
   getTaskById,
   runTaskWithAI,
-  updateTaskStatus, // ✅ used for stop/start via taskEngine
+  updateTaskStatus,
 } from "./src/tasks/taskEngine.js";
-
-// === SOURCES LAYER ===
-import {
-  ensureDefaultSources,
-  runSourceDiagnosticsOnce,
-  getAllSourcesSafe,
-  fetchFromSourceKey,
-  formatSourcesList,
-  diagnoseSource,
-  testSource,
-} from "./src/sources/sources.js";
 
 // === COINGECKO (V1 SIMPLE PRICE) ===
 import {
@@ -57,11 +49,8 @@ import {
 // === FILE-INTAKE / MEDIA ===
 import * as FileIntake from "./src/media/fileIntake.js";
 
-// === LOGGING (interaction_logs) ===
+// === LOGGING ===
 import { logInteraction } from "./src/logging/interactionLogs.js";
-
-// === ROBOT MOCK-LAYER ===
-import { startRobotLoop } from "./src/robot/robotMock.js";
 
 // === AI ===
 import { callAI } from "./ai.js";
@@ -336,30 +325,8 @@ app.post(`/webhook/${token}`, (req, res) => {
 app.listen(PORT, async () => {
   console.log("🌐 HTTP-сервер запущен на порту:", PORT);
 
-  try {
-    await ensureProjectMemoryTable();
-    console.log("🧠 Project Memory table OK.");
-
-    // 7F.10 logs
-    await ensureFileIntakeLogsTable();
-    console.log("🧾 File-Intake logs table OK.");
-
-    // ✅ 7.11.5 — access_requests (auto-create)
-    if (typeof AccessRequests.ensureAccessRequestsTable === "function") {
-      await AccessRequests.ensureAccessRequestsTable();
-      console.log("🛡️ Access Requests table OK.");
-    } else {
-      console.log("⚠️ AccessRequests.ensureAccessRequestsTable() not found (skip).");
-    }
-
-    await ensureDefaultSources();
-    console.log("📡 Sources registry готов.");
-
-    startRobotLoop(bot);
-    console.log("🤖 ROBOT mock-layer запущен.");
-  } catch (e) {
-    console.error("❌ ERROR при инициализации:", e);
-  }
+  const bot = initTelegramTransport(app);
+  await initSystem({ bot });
 });
 
 // ============================================================================

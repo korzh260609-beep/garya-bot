@@ -537,6 +537,9 @@ bot.on("message", async (msg) => {
   // ========================================================================
   if (trimmed.startsWith("/")) {
     if (text && text.startsWith("/health")) {
+      if (String(msg?.from?.id) !== "677128443") {
+  return;
+}
       const h = getSystemHealth();
       await bot.sendMessage(
         chatId,

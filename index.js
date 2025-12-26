@@ -132,7 +132,6 @@ function isMonarch(chatIdStr) {
     CREATE INDEX IF NOT EXISTS idx_file_intake_logs_chat_created
     ON file_intake_logs (chat_id, created_at DESC);
   `);
-}
 
     await pool.query(
       `

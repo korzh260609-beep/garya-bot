@@ -344,7 +344,11 @@ app.post(`/webhook/${token}`, (req, res) => {
 // ============================================================================
 app.listen(PORT, async () => {
 
-  runDiagnostics({ rootDir: process.cwd() });
+  runDiagnostics({
+  rootDir: process.cwd(),
+  pool,
+  monarchChatId: MONARCH_CHAT_ID,
+});
 
   console.log("🌐 HTTP-сервер запущен на порту:", PORT);
 

@@ -132,19 +132,6 @@ function isMonarch(chatIdStr) {
     CREATE INDEX IF NOT EXISTS idx_file_intake_logs_chat_created
     ON file_intake_logs (chat_id, created_at DESC);
   `);
-
-    await pool.query(
-      `
-      INSERT INTO file_intake_logs (
-        chat_id, message_id, kind, file_id, file_unique_id, file_name, mime_type, file_size,
-        has_text, should_call_ai, direct_reply, processed_text_chars,
-        ai_called, ai_error, meta
-      )
-      VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12,
-        $13, $14, $15
-      )
       
 // ============================================================================
 // === EXPRESS SERVER ===

@@ -313,6 +313,10 @@ if (!token) {
 
 const bot = new TelegramBot(token);
 
+bot.onText(/\/health/, (msg) => {
+  bot.sendMessage(msg.chat.id, "OK: telegram health");
+});
+
 const WEBHOOK_URL = `${
   process.env.WEBHOOK_URL || "https://garya-bot.onrender.com"
 }/webhook/${token}`;

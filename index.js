@@ -391,14 +391,14 @@ bot.on("message", async (msg) => {
 
   try {
     const uRes = await pool.query("SELECT role FROM users WHERE chat_id = $1", [
-      chatIdStr,
+      senderIdStr,
     ]);
     if (uRes.rows.length) userRole = uRes.rows[0].role || "guest";
   } catch (e) {
     console.error("❌ Error fetching user role:", e);
   }
 
-  const bypass = isMonarch(chatIdStr);
+  const bypass = isMonarch(senderIdStr);
 
   const access = {
     userRole,
@@ -464,7 +464,7 @@ bot.on("message", async (msg) => {
         const pack = await AccessRequests.createAccessRequestAndNotify({
           bot,
           monarchChatId: MONARCH_CHAT_ID,
-          requesterChatId: chatIdStr,
+          requesterChatId: senderIdStr,
           requesterName,
           requesterRole: userRole,
           requestedAction: action,
@@ -484,7 +484,7 @@ bot.on("message", async (msg) => {
       } else if (typeof AccessRequests.createAccessRequest === "function") {
         // fallback: create only (no notify helper)
         const reqRow = await AccessRequests.createAccessRequest({
-          requesterChatId: chatIdStr,
+          requesterChatId: senderIdStr,
           requesterName,
           requesterRole: userRole,
           requestedAction: action,
@@ -515,7 +515,7 @@ bot.on("message", async (msg) => {
               Number(MONARCH_CHAT_ID),
               [
                 `🛡️ ACCESS REQUEST #${reqId}`,
-                `requester_chat_id: ${chatIdStr}`,
+                `requester_chat_id: ${senderIdStr}`,
                 requesterName ? `name: ${requesterName}` : "",
                 `role: ${userRole}`,
                 `plan: ${userPlan}`,

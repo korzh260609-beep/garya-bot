@@ -1756,6 +1756,7 @@ const messages = [
   await saveChatPair(chatIdStr, effective, aiReply);
 
   try {
+    if (!bypass) aiReply = sanitizeNonMonarchReply(aiReply);
     await bot.sendMessage(chatId, aiReply);
   } catch (e) {
     console.error("❌ Telegram send error:", e);

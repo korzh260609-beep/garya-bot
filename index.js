@@ -1691,10 +1691,15 @@ const bypass = isMonarch(senderIdStr);
       "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
   }
 
- const systemPrompt = buildSystemPrompt(
+ const currentUserName =
+  [msg?.from?.first_name, msg?.from?.last_name].filter(Boolean).join(" ").trim() ||
+  (msg?.from?.username ? `@${msg.from.username}` : "пользователь");
+
+const systemPrompt = buildSystemPrompt(
   answerMode,
   modeInstruction,
-  projectCtx || ""
+  projectCtx || "",
+  { isMonarch: isMonarch(senderIdStr), currentUserName }
 );
 
 // ✅ ROLE GUARD (очень важно): запрещаем обращаться к гостям как к монарху

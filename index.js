@@ -547,10 +547,14 @@ bot.on("message", async (msg) => {
     return false;
   }
 
-  // ========================================================================
+// ========================================================================
   // === COMMANDS ===
   // ========================================================================
   if (trimmed.startsWith("/")) {
+    // ⚠️ /health handled by bot.onText(/\/health/, ...) выше.
+    // Этот дубль был опасен (message is not defined) и мог ломать обработку команд.
+    // Оставляем заглушку, чтобы случайно не вернуть баг.
+    /*
     if (text && text.startsWith("/health")) {
       if (message.from.id !== 677128443) {
         return;
@@ -562,6 +566,8 @@ bot.on("message", async (msg) => {
       );
       return;
     }
+    */
+
     const parsed = parseCommand(trimmed);
     const cmd = parsed?.cmd || trimmed.split(" ")[0];
     const rest = parsed?.rest || "";

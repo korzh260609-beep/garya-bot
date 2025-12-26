@@ -314,6 +314,7 @@ if (!token) {
 const bot = new TelegramBot(token);
 
 bot.onText(/\/health/, (msg) => {
+  if (msg.from?.id !== MONARCH_CHAT_ID) return; // или твой точный MONARCH_ID
   bot.sendMessage(msg.chat.id, "OK: telegram health");
 });
 

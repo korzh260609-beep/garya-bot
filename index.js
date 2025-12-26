@@ -120,7 +120,6 @@ function isMonarch(chatIdStr) {
     CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
     ON project_memory (project_key, section, created_at);
   `);
-}
 
 /**
  * 7F.10 — FILE-INTAKE LOGS (самодостаточно в index.js)

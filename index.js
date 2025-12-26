@@ -311,6 +311,8 @@ if (!token) {
   process.exit(1);
 }
 
+const bot = new TelegramBot(token);
+
 const MONARCH_ID = 677128443;
 
 bot.onText(/\/health/, (msg) => {

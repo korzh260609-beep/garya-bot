@@ -1703,27 +1703,3 @@ const messages = [
 });
 
 console.log("🤖 SG (GARYA AI Bot) работает…");
-
-/**
- * Health check and diagnostic function
- * @returns {object} System status information
- */
-function getSystemHealth() {
-  const uptime = process.uptime();
-  const memoryUsage = process.memoryUsage();
-  
-  const uptimeMinutes = Math.floor(uptime / 60);
-  const uptimeSeconds = Math.floor(uptime % 60);
-  const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
-  const heapTotalMB = Math.round(memoryUsage.heapTotal / 1024 / 1024);
-  
-  return {
-    status: "operational",
-    uptime: `${uptimeMinutes}m ${uptimeSeconds}s`,
-    memory: {
-      heapUsed: `${heapUsedMB}MB`,
-      heapTotal: `${heapTotalMB}MB`,
-    },
-    timestamp: new Date().toISOString(),
-  };
-}

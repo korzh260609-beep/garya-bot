@@ -293,6 +293,42 @@ async function getTaskRowById(taskId) {
   return res.rows[0] || null;
 }
 
+// === role-safety helper: sanitize AI reply for non-monarch users ===
+function sanitizeNonMonarchReply(text) {
+  const t = String(text || "");
+  if (!t) return t;
+
+  let out = t;
+
+  // точечные удаления монарших обращений
+  out = out.replace(/Мой\s+Монарх[!)]*/gi, "");
+  out = out.replace(/Ваше\s+Величество[!)]*/gi, "");
+  out = out.replace(/Государ[ь-я]*\s+GARY[!)]*/gi, "");
+  out = out.replace(/Монарх\s+GARY[!)]*/gi, "");
+  out = out.replace(/Ваше\s+Величество\s+Монарх\s+GARY[!)]*/gi, "");
+
+  // выкидываем строки с утверждениями про монарха
+  const lines = out.split("\n");
+  const filtered = lines.filter((line) => {
+    const s = String(line || "").toLowerCase();
+    if (!s.trim()) return true;
+    if (s.includes("только один монарх")) return false;
+    if (s.includes("вы — монарх")) return false;
+    if (s.includes("вы - монарх")) return false;
+    if (s.includes("мой монарх")) return false;
+    if (s.includes("ваше величество")) return false;
+    if (s.includes("государь gary")) return false;
+    if (s.includes("монарх gary")) return false;
+    return true;
+  });
+
+  out = filtered.join("\n").trim();
+
+  // если после чистки пусто — нейтральный ответ
+  if (!out) return "Вы гость в этом чате. Чем помочь?";
+  return out;
+}
+
 // ============================================================================
 // === EXPRESS SERVER ===
 // ============================================================================

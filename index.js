@@ -343,6 +343,9 @@ app.post(`/webhook/${token}`, (req, res) => {
 // === START SERVER + INIT SYSTEM ===
 // ============================================================================
 app.listen(PORT, async () => {
+
+  runDiagnostics({ rootDir: process.cwd() });
+
   console.log("🌐 HTTP-сервер запущен на порту:", PORT);
 
   try {

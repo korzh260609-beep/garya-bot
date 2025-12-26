@@ -72,6 +72,8 @@ import { getProjectSection, upsertProjectSection } from "./projectMemory.js";
 // === DB ===
 import pool from "./db.js";
 
+import { runDiagnostics } from "./diagnostics/diagnostics.js";
+
 // ============================================================================
 // === CONSTANTS / CONFIG ===
 // ============================================================================

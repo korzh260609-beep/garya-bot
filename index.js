@@ -311,13 +311,11 @@ if (!token) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(token);
+const MONARCH_ID = 677128443;
 
 bot.onText(/\/health/, (msg) => {
-  bot.sendMessage(
-    msg.chat.id,
-    `health check | from.id=${msg.from?.id}`
-  );
+  if (msg.from?.id !== MONARCH_ID) return;
+  bot.sendMessage(msg.chat.id, "OK: telegram health");
 });
 
 const WEBHOOK_URL = `${

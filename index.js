@@ -1655,16 +1655,23 @@ const bypass = isMonarch(senderIdStr);
       "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
   }
 
-  const systemPrompt = buildSystemPrompt(
-    answerMode,
-    modeInstruction,
-    projectCtx || ""
-  );
-  const messages = [
-    { role: "system", content: systemPrompt },
-    ...history,
-    { role: "user", content: effective },
-  ];
+ const systemPrompt = buildSystemPrompt(
+  answerMode,
+  modeInstruction,
+  projectCtx || ""
+);
+
+// ✅ ROLE GUARD (очень важно): запрещаем обращаться к гостям как к монарху
+const roleGuardPrompt = bypass
+  ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."
+  : "SYSTEM ROLE: текущий пользователь НЕ монарх. Запрещено обращаться 'Монарх', 'Ваше Величество', 'Государь'. Называй: 'гость' или нейтрально (вы/ты).";
+
+const messages = [
+  { role: "system", content: systemPrompt },
+  { role: "system", content: roleGuardPrompt },
+  ...history,
+  { role: "user", content: effective },
+];
 
   let maxTokens = 350;
   let temperature = 0.6;

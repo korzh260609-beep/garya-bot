@@ -400,10 +400,16 @@ bot.on("message", async (msg) => {
     ]);
     if (uRes.rows.length) userRole = uRes.rows[0].role || "guest";
   } catch (e) {
-    console.error("❌ Error fetching user role:", e);
-  }
+  console.error("❌ Error fetching user role:", e);
+}
 
-  const bypass = isMonarch(senderIdStr);
+// ✅ SAFETY: только реальный MONARCH_CHAT_ID может иметь роль monarch
+if ((userRole || "").toLowerCase() === "monarch" && !isMonarch(senderIdStr)) {
+  console.warn("⚠️ ROLE GUARD: non-monarch had role=monarch in DB:", senderIdStr);
+  userRole = "guest";
+}
+
+const bypass = isMonarch(senderIdStr);
 
   const access = {
     userRole,

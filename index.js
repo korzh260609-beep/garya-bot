@@ -166,9 +166,7 @@ function isMonarch(chatIdStr) {
         meta || {},
       ]
     );
-  } catch (err) {
-    console.error("❌ Error in logFileIntakeEvent:", err);
-  }
+
 }
 
 // ============================================================================

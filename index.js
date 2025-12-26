@@ -1,7 +1,6 @@
 // ============================================================================
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
-console.log("BOOT ROOT INDEX OK");
 
 import express from "express";
 import TelegramBot from "node-telegram-bot-api";

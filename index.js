@@ -373,6 +373,9 @@ bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const chatIdStr = chatId.toString();
 
+  const senderId = msg.from?.id;
+  const senderIdStr = senderId?.toString() || "";
+
   const text = msg.text || "";
   const trimmed = text.trim();
 

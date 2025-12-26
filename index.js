@@ -146,27 +146,7 @@ function isMonarch(chatIdStr) {
         $13, $14, $15
       )
       `,
-      [
-        chatIdStr,
-        messageId,
-        kind,
-        fileId,
-        fileUniqueId,
-        fileName,
-        mimeType,
-        fileSize,
-
-        Boolean(hasText),
-        Boolean(shouldCallAI),
-        Boolean(directReply),
-        Number(processedTextChars) || 0,
-
-        Boolean(aiCalled),
-        Boolean(aiError),
-        meta || {},
-      ]
-    );
-
+      
 // ============================================================================
 // === EXPRESS SERVER ===
 // ============================================================================

@@ -8,7 +8,7 @@
 // НИКАКОЙ бизнес-логики
 
 import TelegramBot from "node-telegram-bot-api";
-import { handleIncomingMessage } from "./messageRouter.js";
+// import { handleIncomingMessage } from "./messageRouter.js";
 
 export function initTelegramTransport(app) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -52,13 +52,13 @@ export function initTelegramTransport(app) {
   });
 
   // Все входящие сообщения → router
-  bot.on("message", async (msg) => {
-    try {
-      await handleIncomingMessage(bot, msg);
-    } catch (err) {
-      console.error("❌ handleIncomingMessage error:", err);
-    }
-  });
+  // bot.on("message", async (msg) => {
+  //   try {
+  //     await handleIncomingMessage(bot, msg);
+  //   } catch (err) {
+  //     console.error("❌ handleIncomingMessage error:", err);
+  //   }
+  // });
 
   return bot;
 }

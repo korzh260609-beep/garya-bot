@@ -1,3 +1,5 @@
+// === BOOT ===
+
 // ============================================================================
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
@@ -115,6 +117,8 @@ function isMonarch(chatIdStr) {
  * - cmd: "/pm_set"
  * - rest: "roadmap\n...." (сохраняем переносы строк)
  */
+
+// === DB INIT ===
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created

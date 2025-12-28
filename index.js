@@ -239,13 +239,9 @@ startHttpServer(app, PORT);
     startRobotLoop(bot);
     console.log("🤖 ROBOT mock-layer запущен.");
   } catch (e) {
-    console.error("❌ ERROR при инициализации:",
-
-  console.log("🌐 HTTP-сервер запущен на порту:", PORT);
-
-  try {
-    await ensureProjectMemoryTable();
-    console.log("🧠 Project Memory table OK.");
+    console.error("❌ ERROR при инициализации:", e);
+  }
+})();
 
     // 7F.10 logs
     await ensureFileIntakeLogsTable();

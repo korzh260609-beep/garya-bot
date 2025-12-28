@@ -2,8 +2,11 @@
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
 
-import express from "express";
+// import express from "express";
 import TelegramBot from "node-telegram-bot-api";
+
+// === HTTP SERVER (extracted) ===
+import { createApp, startHttpServer } from "./src/http/server.js";
 
 // === CORE ===
 import { getAnswerMode, setAnswerMode } from "./core/answerMode.js";

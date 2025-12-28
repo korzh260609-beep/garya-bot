@@ -231,47 +231,6 @@ startHttpServer(app, PORT);
     if (typeof AccessRequests.ensureAccessRequestsTable === "function") {
       await AccessRequests.ensureAccessRequestsTable();
       console.log("🛡️ Access Requests table OK.");
-    }
-
-    await ensureDefaultSources();
-    console.log("📡 Sources registry готов.");
-
-    startRobotLoop(bot);
-    console.log("🤖 ROBOT mock-layer запущен.");
-  } catch (e) {
-    console.error("❌ ERROR при инициализации:", e);
-  }
-})();
-
-    // 7F.10 logs
-    await ensureFileIntakeLogsTable();
-    console.log("🧾 File-Intake logs table OK.");
-
-    // ✅ SAFETY: создаём индексы ТОЛЬКО после ensure таблиц (никаких top-level await)
-    try {
-      await pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
-        ON project_memory (project_key, section, created_at);
-      `);
-      console.log("🧠 Project Memory index OK.");
-    } catch (e) {
-      console.error("❌ ERROR creating project_memory index:", e);
-    }
-
-    try {
-      await pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_file_intake_logs_chat_created
-        ON file_intake_logs (chat_id, created_at DESC);
-      `);
-      console.log("🧾 File-Intake logs index OK.");
-    } catch (e) {
-      console.error("❌ ERROR creating file_intake_logs index:", e);
-    }
-
-    // ✅ 7.11.5 — access_requests (auto-create)
-    if (typeof AccessRequests.ensureAccessRequestsTable === "function") {
-      await AccessRequests.ensureAccessRequestsTable();
-      console.log("🛡️ Access Requests table OK.");
     } else {
       console.log("⚠️ AccessRequests.ensureAccessRequestsTable() not found (skip).");
     }
@@ -284,7 +243,7 @@ startHttpServer(app, PORT);
   } catch (e) {
     console.error("❌ ERROR при инициализации:", e);
   }
-});
+})();
 
 // ============================================================================
 // === MAIN HANDLER: COMMANDS + CHAT + AI ===

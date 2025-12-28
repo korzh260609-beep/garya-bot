@@ -172,22 +172,22 @@ bot.onText(/\/health/, (msg) => {
   bot.sendMessage(msg.chat.id, "OK: telegram health");
 });
 
-const WEBHOOK_URL = `${
-  process.env.WEBHOOK_URL || "https://garya-bot.onrender.com"
-}/webhook/${token}`;
+// const WEBHOOK_URL = `${
+//   process.env.WEBHOOK_URL || "https://garya-bot.onrender.com"
+// }/webhook/${token}`;
 
-bot.setWebHook(WEBHOOK_URL);
+// bot.setWebHook(WEBHOOK_URL);
 
-app.get("/", (req, res) => res.send("SG (GARYA AI Bot) работает ⚡"));
+// app.get("/", (req, res) => res.send("SG (GARYA AI Bot) работает ⚡"));
 
-app.post(`/webhook/${token}`, (req, res) => {
-  res.sendStatus(200);
-  try {
-    bot.processUpdate(req.body);
-  } catch (err) {
-    console.error("❌ bot.processUpdate error:", err);
-  }
-});
+// app.post(`/webhook/${token}`, (req, res) => {
+//   res.sendStatus(200);
+//   try {
+//     bot.processUpdate(req.body);
+//   } catch (err) {
+//     console.error("❌ bot.processUpdate error:", err);
+//   }
+// });
 
 // ============================================================================
 // === START SERVER + INIT SYSTEM ===

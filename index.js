@@ -1,5 +1,3 @@
-// === BOOT ===
-
 // ============================================================================
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
@@ -118,12 +116,14 @@ function isMonarch(chatIdStr) {
  * - rest: "roadmap\n...." (сохраняем переносы строк)
  */
 
-// === DB INIT ===
-
+// ⚠️ SAFETY: top-level await опасен (может валить старт до ensure*Table)
+// Индексы создаём внутри init в app.listen() после ensure таблиц.
+/*
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
     ON project_memory (project_key, section, created_at);
   `);
+*/
 
 /**
  * 7F.10 — FILE-INTAKE LOGS (самодостаточно в index.js)
@@ -132,10 +132,14 @@ function isMonarch(chatIdStr) {
  * - мета: jsonb (не ломает скелет, можно расширять без миграций)
  */
 
+// ⚠️ SAFETY: top-level await опасен (может валить старт до ensure*Table)
+// Индексы создаём внутри init в app.listen() после ensure таблиц.
+/*
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_file_intake_logs_chat_created
     ON file_intake_logs (chat_id, created_at DESC);
   `);
+*/
       
 // ============================================================================
 // === EXPRESS SERVER ===
@@ -203,6 +207,27 @@ app.listen(PORT, async () => {
     // 7F.10 logs
     await ensureFileIntakeLogsTable();
     console.log("🧾 File-Intake logs table OK.");
+
+    // ✅ SAFETY: создаём индексы ТОЛЬКО после ensure таблиц (никаких top-level await)
+    try {
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
+        ON project_memory (project_key, section, created_at);
+      `);
+      console.log("🧠 Project Memory index OK.");
+    } catch (e) {
+      console.error("❌ ERROR creating project_memory index:", e);
+    }
+
+    try {
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_file_intake_logs_chat_created
+        ON file_intake_logs (chat_id, created_at DESC);
+      `);
+      console.log("🧾 File-Intake logs index OK.");
+    } catch (e) {
+      console.error("❌ ERROR creating file_intake_logs index:", e);
+    }
 
     // ✅ 7.11.5 — access_requests (auto-create)
     if (typeof AccessRequests.ensureAccessRequestsTable === "function") {

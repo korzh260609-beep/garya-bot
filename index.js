@@ -192,13 +192,54 @@ app.post(`/webhook/${token}`, (req, res) => {
 // ============================================================================
 // === START SERVER + INIT SYSTEM ===
 // ============================================================================
-app.listen(PORT, async () => {
+startHttpServer(app, PORT);
 
+(async () => {
   runDiagnostics({
-  rootDir: process.cwd(),
-  pool,
-  monarchChatId: MONARCH_CHAT_ID,
-});
+    rootDir: process.cwd(),
+    pool,
+    monarchChatId: MONARCH_CHAT_ID,
+  });
+
+  try {
+    await ensureProjectMemoryTable();
+    console.log("🧠 Project Memory table OK.");
+
+    await ensureFileIntakeLogsTable();
+    console.log("🧾 File-Intake logs table OK.");
+
+    try {
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
+        ON project_memory (project_key, section, created_at);
+      `);
+      console.log("🧠 Project Memory index OK.");
+    } catch (e) {
+      console.error("❌ ERROR creating project_memory index:", e);
+    }
+
+    try {
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_file_intake_logs_chat_created
+        ON file_intake_logs (chat_id, created_at DESC);
+      `);
+      console.log("🧾 File-Intake logs index OK.");
+    } catch (e) {
+      console.error("❌ ERROR creating file_intake_logs index:", e);
+    }
+
+    if (typeof AccessRequests.ensureAccessRequestsTable === "function") {
+      await AccessRequests.ensureAccessRequestsTable();
+      console.log("🛡️ Access Requests table OK.");
+    }
+
+    await ensureDefaultSources();
+    console.log("📡 Sources registry готов.");
+
+    startRobotLoop(bot);
+    console.log("🤖 ROBOT mock-layer запущен.");
+  } catch (e) {
+    console.error("❌ ERROR при инициализации:",
 
   console.log("🌐 HTTP-сервер запущен на порту:", PORT);
 

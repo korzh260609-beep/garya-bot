@@ -163,7 +163,7 @@ if (!token) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(token);
+const bot = initTelegramTransport(app);
 
 const MONARCH_ID = 677128443;
 

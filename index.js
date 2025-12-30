@@ -2,12 +2,20 @@
 import fs from "node:fs";
 import path from "node:path";
 
-function safeList(dir) {
+function safeListDirents(dir) {
   try {
     return fs.readdirSync(dir, { withFileTypes: true }).map((d) => ({
       name: d.name,
       type: d.isDirectory() ? "dir" : "file",
     }));
+  } catch (e) {
+    return { error: String(e?.message || e) };
+  }
+}
+
+function safeListNames(dir) {
+  try {
+    return fs.readdirSync(dir);
   } catch (e) {
     return { error: String(e?.message || e) };
   }
@@ -24,33 +32,33 @@ function safeExists(p) {
 const CWD = process.cwd();
 const FILE = new URL(import.meta.url).pathname;
 
-// Render cwd обычно: /opt/render/project/src
-// Реальный проект-root = CWD
-// Наша папка проекта "src" лежит внутри CWD -> /opt/render/project/src/src
 const repoRoot = CWD; // /opt/render/project/src
 const p_src_dir = path.join(repoRoot, "src"); // /opt/render/project/src/src
 const p_bot = path.join(p_src_dir, "bot"); // /opt/render/project/src/src/bot
-const p_tt = path.join(p_bot, "telegramTransport.js"); // /opt/render/project/src/src/bot/telegramTransport.js
+const p_tt = path.join(p_bot, "telegramTransport.js");
 
 console.log("=== BOOT DIAG START ===");
 console.log("BOOT cwd =", CWD);
 console.log("BOOT file =", FILE);
 
+console.log("repoRoot =", JSON.stringify(repoRoot), "len=", repoRoot.length);
+console.log("p_src_dir =", JSON.stringify(p_src_dir), "len=", p_src_dir.length);
+console.log("p_bot =", JSON.stringify(p_bot), "len=", p_bot.length);
+console.log("p_tt =", JSON.stringify(p_tt), "len=", p_tt.length);
+
 console.log("EXISTS repoRoot =", safeExists(repoRoot), "->", repoRoot);
 console.log("EXISTS ./src (dir) =", safeExists(p_src_dir), "->", p_src_dir);
 console.log("EXISTS ./src/bot =", safeExists(p_bot), "->", p_bot);
-console.log(
-  "EXISTS ./src/bot/telegramTransport.js =",
-  safeExists(p_tt),
-  "->",
-  p_tt
-);
+console.log("EXISTS ./src/bot/telegramTransport.js =", safeExists(p_tt), "->", p_tt);
 
-console.log("LIST ./ =", safeList(repoRoot));
-console.log("LIST ./src =", safeList(p_src_dir));
-console.log("LIST ./src/bot =", safeList(p_bot));
+console.log("LIST ./ (dirents) =", safeListDirents(repoRoot));
+console.log("LIST ./src (dirents) =", safeListDirents(p_src_dir));
 
-// также проверим варианты регистра (на случай telegramtransport.js / TelegramTransport.js)
+console.log("LIST ./src (names) =", safeListNames(p_src_dir));
+console.log("LIST ./src/bot (dirents) =", safeListDirents(p_bot));
+console.log("LIST ./src/bot (names) =", safeListNames(p_bot));
+
+// variants by case
 const variants = [
   "telegramTransport.js",
   "telegramtransport.js",
@@ -65,8 +73,6 @@ for (const v of variants) {
 console.log("FOUND filename variants in ./src/bot =", foundVariants);
 
 console.log("=== BOOT DIAG END ===");
-
-// ВАЖНО: чтобы код ниже не выполнялся (когда project-imports отключены)
 process.exit(0);
 // === /BOOT DIAGNOSTICS (TEMP) ===
 

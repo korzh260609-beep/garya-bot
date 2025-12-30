@@ -1,3 +1,63 @@
+// === BOOT DIAGNOSTICS (TEMP) ===
+import fs from "node:fs";
+import path from "node:path";
+
+function safeList(dir) {
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true }).map((d) => ({
+      name: d.name,
+      type: d.isDirectory() ? "dir" : "file",
+    }));
+  } catch (e) {
+    return { error: String(e?.message || e) };
+  }
+}
+
+function safeExists(p) {
+  try {
+    return fs.existsSync(p);
+  } catch {
+    return false;
+  }
+}
+
+const CWD = process.cwd();
+const FILE = new URL(import.meta.url).pathname;
+
+const repoRoot = CWD; // на Render обычно это /opt/render/project/src
+const p_src = path.join(repoRoot, "src");
+const p_bot = path.join(p_src, "bot");
+const p_tt = path.join(p_bot, "telegramTransport.js");
+
+console.log("=== BOOT DIAG START ===");
+console.log("BOOT cwd =", CWD);
+console.log("BOOT file =", FILE);
+
+console.log("EXISTS ./src =", safeExists(p_src), "->", p_src);
+console.log("EXISTS ./src/bot =", safeExists(p_bot), "->", p_bot);
+console.log("EXISTS ./src/bot/telegramTransport.js =", safeExists(p_tt), "->", p_tt);
+
+console.log("LIST ./ =", safeList(repoRoot));
+console.log("LIST ./src =", safeList(p_src));
+console.log("LIST ./src/bot =", safeList(p_bot));
+
+// также проверим варианты регистра (на случай telegramtransport.js / TelegramTransport.js)
+const variants = [
+  "telegramTransport.js",
+  "telegramtransport.js",
+  "TelegramTransport.js",
+  "TELEGRAMTRANSPORT.JS",
+];
+const foundVariants = [];
+for (const v of variants) {
+  const pv = path.join(p_bot, v);
+  if (safeExists(pv)) foundVariants.push(pv);
+}
+console.log("FOUND filename variants in ./src/bot =", foundVariants);
+
+console.log("=== BOOT DIAG END ===");
+// === /BOOT DIAGNOSTICS (TEMP) ===
+
 // ============================================================================
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================

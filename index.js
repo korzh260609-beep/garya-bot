@@ -62,10 +62,6 @@ console.log("=== BOOT DIAG END ===");
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
 
-// === DIAG MODE: keep ONLY built-in node imports so BOOT DIAG can run ===
-import fs from "node:fs";
-import path from "node:path";
-
 // --- TEMP: all project imports disabled for diagnostics ---
 // import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 

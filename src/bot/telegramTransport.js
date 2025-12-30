@@ -26,14 +26,15 @@ export function initTelegramTransport(app) {
   // Инициализация бота (без polling)
   const bot = new TelegramBot(token, { polling: false });
 
-  // Webhook URL закрыт токеном
+  // Webhook URL закрыт токеном (НЕ ЛОГИРОВАТЬ URL, ИНАЧЕ ТОКЕН УТЕЧЁТ В ЛОГИ)
   const webhookPath = `/webhook/${token}`;
   const webhookUrl = `${BASE_URL}${webhookPath}`;
 
   bot
     .setWebHook(webhookUrl)
     .then(() => {
-      console.log(`🚀 Telegram webhook установлен: ${webhookUrl}`);
+      // ВАЖНО: не выводим webhookUrl, чтобы не светить токен
+      console.log("🚀 Telegram webhook установлен");
     })
     .catch((err) => {
       console.error("❌ Ошибка установки webhook:", err);
@@ -62,4 +63,3 @@ export function initTelegramTransport(app) {
 
   return bot;
 }
-

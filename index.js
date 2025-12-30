@@ -187,7 +187,7 @@ if (!token) {
 
 const bot = initTelegramTransport(app);
 
-const MONARCH_ID = 677128443;
+const MONARCH_ID = Number(MONARCH_CHAT_ID); // sync with MONARCH_CHAT_ID
 
 bot.onText(/\/health/, (msg) => {
   if (msg.from?.id !== MONARCH_ID) return;

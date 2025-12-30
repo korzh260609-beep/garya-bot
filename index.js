@@ -2,8 +2,7 @@
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
 
-// import express from "express";
-import TelegramBot from "node-telegram-bot-api";
+import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 
 // === HTTP SERVER (extracted) ===
 import { createApp, startHttpServer } from "./src/http/server.js";
@@ -148,6 +147,8 @@ function isMonarch(chatIdStr) {
 // === EXPRESS SERVER ===
 // ============================================================================
 const app = createApp();
+const bot = initTelegramTransport(app);
+
 const PORT = process.env.PORT || 3000;
 
 app.get("/health", (req, res) => {

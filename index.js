@@ -24,21 +24,30 @@ function safeExists(p) {
 const CWD = process.cwd();
 const FILE = new URL(import.meta.url).pathname;
 
-const repoRoot = CWD; // на Render обычно это /opt/render/project/src
-const p_src = path.join(repoRoot, "src");
-const p_bot = path.join(p_src, "bot");
-const p_tt = path.join(p_bot, "telegramTransport.js");
+// Render cwd обычно: /opt/render/project/src
+// Реальный проект-root = CWD
+// Наша папка проекта "src" лежит внутри CWD -> /opt/render/project/src/src
+const repoRoot = CWD; // /opt/render/project/src
+const p_src_dir = path.join(repoRoot, "src"); // /opt/render/project/src/src
+const p_bot = path.join(p_src_dir, "bot"); // /opt/render/project/src/src/bot
+const p_tt = path.join(p_bot, "telegramTransport.js"); // /opt/render/project/src/src/bot/telegramTransport.js
 
 console.log("=== BOOT DIAG START ===");
 console.log("BOOT cwd =", CWD);
 console.log("BOOT file =", FILE);
 
-console.log("EXISTS ./src =", safeExists(p_src), "->", p_src);
+console.log("EXISTS repoRoot =", safeExists(repoRoot), "->", repoRoot);
+console.log("EXISTS ./src (dir) =", safeExists(p_src_dir), "->", p_src_dir);
 console.log("EXISTS ./src/bot =", safeExists(p_bot), "->", p_bot);
-console.log("EXISTS ./src/bot/telegramTransport.js =", safeExists(p_tt), "->", p_tt);
+console.log(
+  "EXISTS ./src/bot/telegramTransport.js =",
+  safeExists(p_tt),
+  "->",
+  p_tt
+);
 
 console.log("LIST ./ =", safeList(repoRoot));
-console.log("LIST ./src =", safeList(p_src));
+console.log("LIST ./src =", safeList(p_src_dir));
 console.log("LIST ./src/bot =", safeList(p_bot));
 
 // также проверим варианты регистра (на случай telegramtransport.js / TelegramTransport.js)
@@ -56,6 +65,9 @@ for (const v of variants) {
 console.log("FOUND filename variants in ./src/bot =", foundVariants);
 
 console.log("=== BOOT DIAG END ===");
+
+// ВАЖНО: чтобы код ниже не выполнялся (когда project-imports отключены)
+process.exit(0);
 // === /BOOT DIAGNOSTICS (TEMP) ===
 
 // ============================================================================

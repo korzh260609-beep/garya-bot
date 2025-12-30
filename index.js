@@ -94,6 +94,18 @@ import {
   getSystemHealth,
 } from "./core/helpers.js";
 
+import fs from "fs";
+import path from "path";
+
+console.log("=== DIAG START ===");
+console.log("CWD:", process.cwd());
+console.log("__FILE:", new URL(import.meta.url).pathname);
+console.log("LIST ROOT:", fs.readdirSync(process.cwd()));
+console.log("LIST ./src:", fs.existsSync("src") ? fs.readdirSync("src") : "NO src");
+console.log("LIST ./src/bot:", fs.existsSync("src/bot") ? fs.readdirSync("src/bot") : "NO src/bot");
+console.log("EXISTS ./src/bot/telegramTransport.js:", fs.existsSync("src/bot/telegramTransport.js"));
+console.log("=== DIAG END ===");
+
 // ============================================================================
 // === CONSTANTS / CONFIG ===
 // ============================================================================

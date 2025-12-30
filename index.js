@@ -2,10 +2,9 @@
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
 
-// === TELEGRAM TRANSPORT ===
 import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 
-// === HTTP SERVER ===
+// === HTTP SERVER (extracted) ===
 import { createApp, startHttpServer } from "./src/http/server.js";
 
 // === CORE ===
@@ -26,7 +25,7 @@ import {
 import { ensureUserProfile } from "./src/users/userProfile.js";
 import { can } from "./src/users/permissions.js";
 
-// === ACCESS REQUESTS ===
+// === access_requests ===
 import * as AccessRequests from "./src/users/accessRequests.js";
 
 // === TASK ENGINE ===
@@ -51,19 +50,19 @@ import {
   testSource,
 } from "./src/sources/sources.js";
 
-// === COINGECKO ===
+// === COINGECKO (V1 SIMPLE PRICE) ===
 import {
   getCoinGeckoSimplePriceById,
   getCoinGeckoSimplePriceMulti,
 } from "./src/sources/coingecko/index.js";
 
-// === FILE INTAKE ===
+// === FILE-INTAKE / MEDIA ===
 import * as FileIntake from "./src/media/fileIntake.js";
 
-// === LOGGING ===
+// === LOGGING (interaction_logs) ===
 import { logInteraction } from "./src/logging/interactionLogs.js";
 
-// === ROBOT MOCK ===
+// === ROBOT MOCK-LAYER ===
 import { startRobotLoop } from "./src/robot/robotMock.js";
 
 // === AI ===
@@ -83,10 +82,8 @@ import {
   getTaskRowById,
 } from "./core/dbInit.js";
 
-// === DIAGNOSTICS (runtime, НЕ boot fs) ===
 import { runDiagnostics } from "./diagnostics/diagnostics.js";
 
-// === HELPERS ===
 import {
   parseCommand,
   firstWordAndRest,

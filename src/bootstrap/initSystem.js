@@ -6,6 +6,9 @@ import { ensureDefaultSources } from "../sources/sources.js";
 import { startRobotLoop } from "../robot/robotMock.js";
 import * as AccessRequests from "../users/accessRequests.js";
 
+// ✅ BOOT DIAGNOSTICS (runs once on deploy/start)
+import { runDiagnostics } from "../../diagnostics/diagnostics.js";
+
 async function ensureProjectMemoryTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS project_memory (
@@ -63,6 +66,17 @@ async function ensureFileIntakeLogsTable() {
 }
 
 export async function initSystem({ bot }) {
+  // ✅ Run diagnostics once on boot/deploy (do not loop)
+  try {
+    await runDiagnostics({
+      rootDir: process.cwd(),
+      pool,
+      monarchChatId: (process.env.MONARCH_CHAT_ID || "677128443").toString(),
+    });
+  } catch (e) {
+    console.error("❌ BOOT DIAGNOSTICS FAILED:", e);
+  }
+
   await ensureProjectMemoryTable();
   console.log("🧠 Project Memory table OK.");
 

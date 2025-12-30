@@ -2,7 +2,7 @@
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
 
-import { initTelegramTransport } from "./bot/telegramTransport.js";
+import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 
 // === HTTP SERVER (extracted) ===
 import { createApp, startHttpServer } from "./src/http/server.js";

@@ -2,28 +2,6 @@
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
 
-// === NODE CORE (MUST BE FIRST) ===
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-// === PROJECT ROOT ANCHOR (MUST BE BEFORE ANY LOGIC) ===
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// index.js в корне проекта:
-const PROJECT_ROOT = __dirname;
-
-// Если вдруг index.js окажется внутри /src, тогда:
-// const PROJECT_ROOT = path.resolve(__dirname, "..");
-
-console.log("BOOT projectRoot =", PROJECT_ROOT);
-console.log("BOOT cwd =", process.cwd());
-
-// ============================================================================
-// === IMPORTS ===
-// ============================================================================
-import { initTelegramTransport } from "./src/bot/telegramTransport.js";
-
 // import express from "express";
 import TelegramBot from "node-telegram-bot-api";
 
@@ -185,31 +163,31 @@ if (!token) {
   process.exit(1);
 }
 
-const bot = initTelegramTransport(app);
+const bot = new TelegramBot(token);
 
-const MONARCH_ID = Number(MONARCH_CHAT_ID); // sync with MONARCH_CHAT_ID
+const MONARCH_ID = 677128443;
 
 bot.onText(/\/health/, (msg) => {
   if (msg.from?.id !== MONARCH_ID) return;
   bot.sendMessage(msg.chat.id, "OK: telegram health");
 });
 
-// const WEBHOOK_URL = `${
-//   process.env.WEBHOOK_URL || "https://garya-bot.onrender.com"
-// }/webhook/${token}`;
+const WEBHOOK_URL = `${
+  process.env.WEBHOOK_URL || "https://garya-bot.onrender.com"
+}/webhook/${token}`;
 
-// bot.setWebHook(WEBHOOK_URL);
+bot.setWebHook(WEBHOOK_URL);
 
-// app.get("/", (req, res) => res.send("SG (GARYA AI Bot) работает ⚡"));
+app.get("/", (req, res) => res.send("SG (GARYA AI Bot) работает ⚡"));
 
-// app.post(`/webhook/${token}`, (req, res) => {
-//   res.sendStatus(200);
-//   try {
-//     bot.processUpdate(req.body);
-//   } catch (err) {
-//     console.error("❌ bot.processUpdate error:", err);
-//   }
-// });
+app.post(`/webhook/${token}`, (req, res) => {
+  res.sendStatus(200);
+  try {
+    bot.processUpdate(req.body);
+  } catch (err) {
+    console.error("❌ bot.processUpdate error:", err);
+  }
+});
 
 // ============================================================================
 // === START SERVER + INIT SYSTEM ===
@@ -217,22 +195,19 @@ bot.onText(/\/health/, (msg) => {
 startHttpServer(app, PORT);
 
 (async () => {
-  try {
-    // 0) Diagnostics (root anchored)
-    await runDiagnostics({
-      rootDir: PROJECT_ROOT,
-      pool,
-      monarchChatId: MONARCH_CHAT_ID,
-    });
+  runDiagnostics({
+    rootDir: process.cwd(),
+    pool,
+    monarchChatId: MONARCH_CHAT_ID,
+  });
 
-    // 1) Tables
+  try {
     await ensureProjectMemoryTable();
     console.log("🧠 Project Memory table OK.");
 
     await ensureFileIntakeLogsTable();
     console.log("🧾 File-Intake logs table OK.");
 
-    // 2) Indexes (best-effort)
     try {
       await pool.query(`
         CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
@@ -253,7 +228,6 @@ startHttpServer(app, PORT);
       console.error("❌ ERROR creating file_intake_logs index:", e);
     }
 
-    // 3) Access requests (optional)
     if (typeof AccessRequests.ensureAccessRequestsTable === "function") {
       await AccessRequests.ensureAccessRequestsTable();
       console.log("🛡️ Access Requests table OK.");
@@ -261,21 +235,13 @@ startHttpServer(app, PORT);
       console.log("⚠️ AccessRequests.ensureAccessRequestsTable() not found (skip).");
     }
 
-    // 4) Sources registry
     await ensureDefaultSources();
     console.log("📡 Sources registry готов.");
 
-    // 5) Robot mock-layer (only if bot exists)
-    if (typeof bot !== "undefined" && bot) {
-      startRobotLoop(bot);
-      console.log("🤖 ROBOT mock-layer запущен.");
-    } else {
-      console.log("⚠️ bot is not initialized yet — ROBOT mock-layer skipped.");
-    }
-
-    console.log("✅ INIT DONE");
+    startRobotLoop(bot);
+    console.log("🤖 ROBOT mock-layer запущен.");
   } catch (e) {
-    console.error("❌ INIT FATAL ERROR:", e);
+    console.error("❌ ERROR при инициализации:", e);
   }
 })();
 

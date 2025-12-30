@@ -2,98 +2,100 @@
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Commands ===
 // ============================================================================
 
-// --- TEMP: all project imports disabled for diagnostics ---
-// import { initTelegramTransport } from "./src/bot/telegramTransport.js";
+// === TELEGRAM TRANSPORT ===
+import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 
-// // === HTTP SERVER (extracted) ===
-// import { createApp, startHttpServer } from "./src/http/server.js";
+// === HTTP SERVER ===
+import { createApp, startHttpServer } from "./src/http/server.js";
 
-// // === CORE ===
-// import { getAnswerMode, setAnswerMode } from "./core/answerMode.js";
-// import { loadProjectContext } from "./core/projectContext.js";
+// === CORE ===
+import { getAnswerMode, setAnswerMode } from "./core/answerMode.js";
+import { loadProjectContext } from "./core/projectContext.js";
 
-// // === SYSTEM PROMPT ===
-// import { buildSystemPrompt } from "./systemPrompt.js";
+// === SYSTEM PROMPT ===
+import { buildSystemPrompt } from "./systemPrompt.js";
 
-// // === MEMORY ===
-// import {
-//   getChatHistory,
-//   saveMessageToMemory,
-//   saveChatPair,
-// } from "./src/memory/chatMemory.js";
+// === MEMORY ===
+import {
+  getChatHistory,
+  saveMessageToMemory,
+  saveChatPair,
+} from "./src/memory/chatMemory.js";
 
-// // === USERS ===
-// import { ensureUserProfile } from "./src/users/userProfile.js";
-// import { can } from "./src/users/permissions.js"; // ✅ 7.8 Permissions-layer
+// === USERS ===
+import { ensureUserProfile } from "./src/users/userProfile.js";
+import { can } from "./src/users/permissions.js";
 
-// // ✅ 7.11.x — access_requests (auto-create + create request)
-// import * as AccessRequests from "./src/users/accessRequests.js";
+// === ACCESS REQUESTS ===
+import * as AccessRequests from "./src/users/accessRequests.js";
 
-// // === TASK ENGINE ===
-// import {
-//   createDemoTask,
-//   createManualTask,
-//   createTestPriceMonitorTask,
-//   getUserTasks,
-//   getTaskById,
-//   runTaskWithAI,
-//   updateTaskStatus, // ✅ used for stop/start via taskEngine
-// } from "./src/tasks/taskEngine.js";
+// === TASK ENGINE ===
+import {
+  createDemoTask,
+  createManualTask,
+  createTestPriceMonitorTask,
+  getUserTasks,
+  getTaskById,
+  runTaskWithAI,
+  updateTaskStatus,
+} from "./src/tasks/taskEngine.js";
 
-// // === SOURCES LAYER ===
-// import {
-//   ensureDefaultSources,
-//   runSourceDiagnosticsOnce,
-//   getAllSourcesSafe,
-//   fetchFromSourceKey,
-//   formatSourcesList,
-//   diagnoseSource,
-//   testSource,
-// } from "./src/sources/sources.js";
+// === SOURCES LAYER ===
+import {
+  ensureDefaultSources,
+  runSourceDiagnosticsOnce,
+  getAllSourcesSafe,
+  fetchFromSourceKey,
+  formatSourcesList,
+  diagnoseSource,
+  testSource,
+} from "./src/sources/sources.js";
 
-// // === COINGECKO (V1 SIMPLE PRICE) ===
-// import {
-//   getCoinGeckoSimplePriceById,
-//   getCoinGeckoSimplePriceMulti,
-// } from "./src/sources/coingecko/index.js";
+// === COINGECKO ===
+import {
+  getCoinGeckoSimplePriceById,
+  getCoinGeckoSimplePriceMulti,
+} from "./src/sources/coingecko/index.js";
 
-// // === FILE-INTAKE / MEDIA ===
-// import * as FileIntake from "./src/media/fileIntake.js";
+// === FILE INTAKE ===
+import * as FileIntake from "./src/media/fileIntake.js";
 
-// // === LOGGING (interaction_logs) ===
-// import { logInteraction } from "./src/logging/interactionLogs.js";
+// === LOGGING ===
+import { logInteraction } from "./src/logging/interactionLogs.js";
 
-// // === ROBOT MOCK-LAYER ===
-// import { startRobotLoop } from "./src/robot/robotMock.js";
+// === ROBOT MOCK ===
+import { startRobotLoop } from "./src/robot/robotMock.js";
 
-// // === AI ===
-// import { callAI } from "./ai.js";
+// === AI ===
+import { callAI } from "./ai.js";
 
-// // === PROJECT MEMORY ===
-// import { getProjectSection, upsertProjectSection } from "./projectMemory.js";
+// === PROJECT MEMORY ===
+import { getProjectSection, upsertProjectSection } from "./projectMemory.js";
 
-// // === DB ===
-// import pool from "./db.js";
+// === DB ===
+import pool from "./db.js";
 
-// import {
-//   ensureProjectMemoryTable,
-//   ensureFileIntakeLogsTable,
-//   logFileIntakeEvent,
-//   getRecentFileIntakeLogs,
-//   getTaskRowById,
-// } from "./core/dbInit.js";
+import {
+  ensureProjectMemoryTable,
+  ensureFileIntakeLogsTable,
+  logFileIntakeEvent,
+  getRecentFileIntakeLogs,
+  getTaskRowById,
+} from "./core/dbInit.js";
 
-// import { runDiagnostics } from "./diagnostics/diagnostics.js";
+// === DIAGNOSTICS (runtime, НЕ boot fs) ===
+import { runDiagnostics } from "./diagnostics/diagnostics.js";
 
-// import {
-//   parseCommand,
-//   firstWordAndRest,
-//   callWithFallback,
-//   isOwnerTaskRow,
-//   canStopTaskV1,
-//   sanitizeNonMonarchReply,
-//   getSystemHealth,
-// } from "./core/helpers.js";
+// === HELPERS ===
+import {
+  parseCommand,
+  firstWordAndRest,
+  callWithFallback,
+  isOwnerTaskRow,
+  canStopTaskV1,
+  sanitizeNonMonarchReply,
+  getSystemHealth,
+} from "./core/helpers.js";
 
 // ============================================================================
 // === CONSTANTS / CONFIG ===

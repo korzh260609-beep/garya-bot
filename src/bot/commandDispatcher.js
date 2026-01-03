@@ -98,6 +98,15 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
+    case "/help": {
+      // SAFETY: do not invent help text here.
+      // If router provides legacy help handler, call it; otherwise fallback to old switch(cmd).
+      if (typeof ctx.handleHelpLegacy !== "function") return { handled: false };
+
+      await ctx.handleHelpLegacy();
+      return { handled: true };
+    }
+
     default:
       return { handled: false };
   }

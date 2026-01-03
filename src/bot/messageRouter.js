@@ -508,42 +508,6 @@ if (dispatchResult?.handled) {
           return;
         }
 
-        case "/users_stats": {
-          if (!bypass) {
-            await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-            return;
-          }
-
-          try {
-            const totalRes = await pool.query(
-              "SELECT COUNT(*)::int AS total FROM users"
-            );
-            const total = totalRes.rows[0]?.total ?? 0;
-
-            const byRoleRes = await pool.query(`
-              SELECT COALESCE(role, 'unknown') AS role,
-                     COUNT(*)::int AS count
-              FROM users
-              GROUP BY COALESCE(role, 'unknown')
-              ORDER BY role
-            `);
-
-            let out = "👥 Статистика пользователей СГ\n\n";
-            out += `Всего пользователей: ${total}\n\n`;
-
-            if (byRoleRes.rows.length) {
-              out += "По ролям:\n";
-              for (const r of byRoleRes.rows) out += `• ${r.role}: ${r.count}\n`;
-            }
-
-            await bot.sendMessage(chatId, out);
-          } catch (e) {
-            console.error("❌ Error in /users_stats:", e);
-            await bot.sendMessage(chatId, "Не удалось получить статистику пользователей.");
-          }
-          return;
-        }
-
         case "/demo_task": {
           const id = await createDemoTask(chatIdStr);
           await bot.sendMessage(chatId, `✅ Демо-задача создана!\nID: ${id}`);

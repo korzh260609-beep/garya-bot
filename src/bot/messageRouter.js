@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleFileLogs } from "./handlers/fileLogs.js";
+
 import { handleArList } from "./handlers/arList.js";
 
 import { handleDeny } from "./handlers/deny.js";
@@ -292,6 +294,17 @@ if (dispatchResult?.handled) {
   });
   return;
 }
+
+                  case "/file_logs": {
+          await handleFileLogs({
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            bypass,
+          });
+          return;
+        }
 
         case "/demo_task": {
           const id = await createDemoTask(chatIdStr);

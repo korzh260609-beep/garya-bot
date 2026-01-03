@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleSourcesDiag } from "./handlers/sourcesDiag.js";
+
 import { handleSource } from "./handlers/source.js";
 
 import { handleRunTask } from "./handlers/runTask.js";

@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleStopAllTasks } from "./handlers/stopAllTasks.js";
+
 import { handleFileLogs } from "./handlers/fileLogs.js";
 
 import { handleArList } from "./handlers/arList.js";
@@ -393,26 +395,11 @@ if (dispatchResult?.handled) {
         }
 
         case "/stop_all_tasks": {
-          if (!bypass) {
-            await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-            return;
-          }
-
-          try {
-            const res = await pool.query(`
-              UPDATE tasks
-              SET status = 'stopped'
-              WHERE status = 'active';
-            `);
-
-            await bot.sendMessage(
-              chatId,
-              `⛔ Остановлены все активные задачи.\nИзменено записей: ${res.rowCount}.`
-            );
-          } catch (err) {
-            console.error("❌ Error in /stop_all_tasks:", err);
-            await bot.sendMessage(chatId, "⚠️ Ошибка при попытке остановить задачи.");
-          }
+          await handleStopAllTasks({
+            bot,
+            chatId,
+            bypass,
+          });
           return;
         }
 

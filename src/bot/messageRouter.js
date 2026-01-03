@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleDemoTask } from "./handlers/demoTask.js";
+
 import { handleStopAllTasks } from "./handlers/stopAllTasks.js";
 
 import { handleFileLogs } from "./handlers/fileLogs.js";
@@ -309,8 +311,12 @@ if (dispatchResult?.handled) {
         }
 
         case "/demo_task": {
-          const id = await createDemoTask(chatIdStr);
-          await bot.sendMessage(chatId, `✅ Демо-задача создана!\nID: ${id}`);
+          await handleDemoTask({
+            bot,
+            chatId,
+            chatIdStr,
+            createDemoTask,
+          });
           return;
         }
 

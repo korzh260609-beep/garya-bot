@@ -1,16 +1,35 @@
 // src/bot/commandDispatcher.js
-// SKELETON ONLY: central command dispatcher.
-// IMPORTANT: no business logic here (yet). We will move switch/cases here 1:1 later.
+// Central command dispatcher.
+// IMPORTANT: keep behavior identical; we only move cases 1:1.
+
+import pool from "../../db.js";
 
 export async function dispatchCommand(cmd, ctx) {
-  // ctx must contain everything messageRouter currently has in scope:
-  // { bot, msg, chatId, chatIdStr, senderIdStr, userRole, userPlan, bypass, access, user, requirePermOrReply, ... }
-  // For now we keep it as a placeholder to avoid accidental logic changes.
+  const { bot, chatId, chatIdStr } = ctx;
 
   switch (cmd) {
+    case "/profile":
+    case "/me":
+    case "/whoami": {
+      const res = await pool.query(
+        "SELECT chat_id, name, role, language, created_at FROM users WHERE chat_id = $1",
+        [chatIdStr]
+      );
+
+      if (!res.rows.length) {
+        await bot.sendMessage(chatId, "Профиль не найден.");
+        return { handled: true };
+      }
+
+      const u = res.rows[0];
+      await bot.sendMessage(
+        chatId,
+        `🧾 Профиль\nID: ${u.chat_id}\nИмя: ${u.name}\nРоль: ${u.role}\nСоздан: ${u.created_at}`
+      );
+      return { handled: true };
+    }
+
     default:
-      // Not handled here yet. Caller decides what to do (e.g., "unknown command" message).
       return { handled: false };
   }
 }
-

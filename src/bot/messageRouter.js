@@ -207,6 +207,27 @@ export function attachMessageRouter({
 
       if (!(await requirePermOrReply(cmd, { rest }))) return;
 
+      // === COMMAND DISPATCHER (SKELETON) ===
+const dispatchResult = await dispatchCommand(cmd, {
+  bot,
+  msg,
+  chatId,
+  chatIdStr,
+  senderIdStr,
+  userRole,
+  userPlan,
+  bypass,
+  access,
+  user,
+  requirePermOrReply,
+  DEFAULT_PLAN,
+  MONARCH_CHAT_ID,
+});
+
+if (dispatchResult?.handled) {
+  return;
+}
+
       switch (cmd) {
         case "/profile":
         case "/me":

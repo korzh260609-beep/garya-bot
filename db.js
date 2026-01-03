@@ -36,6 +36,7 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         chat_id TEXT UNIQUE NOT NULL,
+        tg_user_id TEXT,
         name TEXT,
         role TEXT DEFAULT 'guest',
         language TEXT,

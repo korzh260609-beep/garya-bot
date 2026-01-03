@@ -3,7 +3,6 @@
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
 import pool from "../../db.js";
-import { getCoinGeckoSimplePriceMulti } from "../sources/coingecko/index.js";
 
 export async function dispatchCommand(cmd, ctx) {
   const { bot, chatId, chatIdStr } = ctx;
@@ -31,8 +30,6 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     case "/mode": {
-      // SAFETY: if messageRouter didn't pass these yet, do NOT handle here.
-      // That keeps legacy switch(cmd) behavior unchanged.
       if (typeof ctx.getAnswerMode !== "function") return { handled: false };
       if (typeof ctx.setAnswerMode !== "function") return { handled: false };
       if (typeof ctx.rest !== "string") return { handled: false };
@@ -59,10 +56,8 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     case "/price": {
-      // SAFETY: if deps not passed — fallback to legacy switch in messageRouter
       if (typeof ctx.rest !== "string") return { handled: false };
-      if (typeof ctx.getCoinGeckoSimplePriceById !== "function")
-        return { handled: false };
+      if (typeof ctx.getCoinGeckoSimplePriceById !== "function") return { handled: false };
 
       const coinId = ctx.rest.trim().toLowerCase();
 
@@ -98,44 +93,14 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     case "/prices": {
-      if (typeof ctx.rest !== "string") return { handled: false };
+      // SAFETY: do NOT implement here until we confirm the exact legacy logic + deps.
+      // Fallback to legacy switch(cmd) in messageRouter to avoid breaking behavior.
+      return { handled: false };
+    }
 
-      const idsArg = (ctx.rest || "").trim().toLowerCase();
-      const ids = idsArg
-        ? idsArg
-            .split(/[,\s]+/)
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : ["bitcoin", "ethereum", "solana"];
-
-      const result = await getCoinGeckoSimplePriceMulti(ids, "usd", {
-        userRole: ctx.userRole,
-        userPlan: ctx.userPlan,
-        bypassPermissions: ctx.bypass,
-      });
-
-      if (!result.ok) {
-        const err = String(result.error || "");
-        if (result.httpStatus === 429 || err.includes("429")) {
-          await bot.sendMessage(
-            chatId,
-            "⚠️ CoinGecko вернул лимит (429). Попробуй через 1–2 минуты."
-          );
-        } else {
-          await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
-        }
-        return { handled: true };
-      }
-
-      let out = "💰 Цены (CoinGecko, USD):\n\n";
-      for (const id of ids) {
-        const item = result.items?.[id];
-        out += item
-          ? `• ${item.id.toUpperCase()}: $${item.price}\n`
-          : `• ${id.toUpperCase()}: нет данных\n`;
-      }
-
-      await bot.sendMessage(chatId, out);
+    case "/help": {
+      if (typeof ctx.handleHelpLegacy !== "function") return { handled: false };
+      await ctx.handleHelpLegacy();
       return { handled: true };
     }
 

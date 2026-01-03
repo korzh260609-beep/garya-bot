@@ -22,6 +22,239 @@ import {
 import { getProjectSection, upsertProjectSection } from "../projectMemory.js";
 import { setAnswerMode } from "../core/answerMode.js";
 
+// ============================================================================
+// === Access Requests helpers/commands (extracted pattern from messageRouter.js)
+// ============================================================================
+
+const MONARCH_CHAT_ID = "677128443";
+
+function isMonarch(chatIdStr) {
+  return String(chatIdStr) === String(MONARCH_CHAT_ID);
+}
+
+async function getUserRoleByChatId(chatIdStr) {
+  try {
+    const res = await pool.query("SELECT role FROM users WHERE chat_id = $1", [
+      chatIdStr,
+    ]);
+    return res.rows?.[0]?.role || "guest";
+  } catch (e) {
+    console.error("❌ Error fetching user role:", e);
+    return "guest";
+  }
+}
+
+async function cmdApprove({ bot, chatId, chatIdStr, rest }) {
+  if (!isMonarch(chatIdStr)) {
+    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+    return;
+  }
+
+  const id = Number((rest || "").trim());
+  if (!id) {
+    await bot.sendMessage(chatId, "Использование: /approve <request_id>");
+    return;
+  }
+
+  try {
+    const AccessRequests = await import("../users/accessRequests.js");
+    const result = await AccessRequests.approveAccessRequest({
+      requestId: id,
+      resolvedBy: chatIdStr,
+    });
+
+    if (!result?.ok) {
+      await bot.sendMessage(
+        chatId,
+        `⚠️ Не удалось approve: ${result?.error || "unknown"}`
+      );
+      return;
+    }
+
+    const req =
+      result.request ||
+      result.row ||
+      result.data ||
+      result.accessRequest ||
+      null;
+
+    const requesterChatId =
+      req?.requester_chat_id ||
+      req?.requesterChatId ||
+      req?.chat_id ||
+      req?.chatId ||
+      req?.user_chat_id ||
+      null;
+
+    if (requesterChatId) {
+      try {
+        await bot.sendMessage(
+          Number(requesterChatId),
+          `✅ Монарх одобрил вашу заявку #${id}.`
+        );
+      } catch {
+        // ignore
+      }
+    }
+
+    await bot.sendMessage(chatId, `✅ Заявка #${id} одобрена.`);
+  } catch (e) {
+    console.error("❌ /approve error:", e);
+    await bot.sendMessage(chatId, "⚠️ Ошибка при approve.");
+  }
+}
+
+async function cmdDeny({ bot, chatId, chatIdStr, rest }) {
+  if (!isMonarch(chatIdStr)) {
+    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+    return;
+  }
+
+  const id = Number((rest || "").trim());
+  if (!id) {
+    await bot.sendMessage(chatId, "Использование: /deny <request_id>");
+    return;
+  }
+
+  try {
+    const AccessRequests = await import("../users/accessRequests.js");
+    const result = await AccessRequests.denyAccessRequest({
+      requestId: id,
+      resolvedBy: chatIdStr,
+    });
+
+    if (!result?.ok) {
+      await bot.sendMessage(
+        chatId,
+        `⚠️ Не удалось deny: ${result?.error || "unknown"}`
+      );
+      return;
+    }
+
+    const req =
+      result.request ||
+      result.row ||
+      result.data ||
+      result.accessRequest ||
+      null;
+
+    const requesterChatId =
+      req?.requester_chat_id ||
+      req?.requesterChatId ||
+      req?.chat_id ||
+      req?.chatId ||
+      req?.user_chat_id ||
+      null;
+
+    if (requesterChatId) {
+      try {
+        await bot.sendMessage(
+          Number(requesterChatId),
+          `⛔ Монарх отклонил вашу заявку #${id}.`
+        );
+      } catch {
+        // ignore
+      }
+    }
+
+    await bot.sendMessage(chatId, `⛔ Заявка #${id} отклонена.`);
+  } catch (e) {
+    console.error("❌ /deny error:", e);
+    await bot.sendMessage(chatId, "⚠️ Ошибка при deny.");
+  }
+}
+
+async function cmdArCreateTest({ bot, chatId, chatIdStr }) {
+  if (!isMonarch(chatIdStr)) {
+    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+    return;
+  }
+
+  try {
+    const AccessRequests = await import("../users/accessRequests.js");
+    const nowIso = new Date().toISOString();
+    const userRole = await getUserRoleByChatId(chatIdStr);
+
+    const reqRow = await AccessRequests.createAccessRequest({
+      requesterChatId: chatIdStr,
+      requesterName: "MONARCH_SELF_TEST",
+      requesterRole: userRole,
+      requestedAction: "cmd.admin.stop_all_tasks",
+      requestedCmd: "/stop_all_tasks",
+      meta: {
+        test: true,
+        createdBy: chatIdStr,
+        at: nowIso,
+        note: "Self-test request (7.11 V1).",
+      },
+    });
+
+    const reqId = reqRow?.id;
+
+    await bot.sendMessage(
+      chatId,
+      reqId
+        ? `🧪 Создана тестовая заявка #${reqId}\nКоманды: /approve ${reqId} | /deny ${reqId}`
+        : "⚠️ Не удалось создать тестовую заявку (id отсутствует)."
+    );
+  } catch (e) {
+    console.error("❌ /ar_create_test error:", e);
+    await bot.sendMessage(chatId, "⚠️ Ошибка при создании тестовой заявки.");
+  }
+}
+
+async function cmdArList({ bot, chatId, chatIdStr, rest }) {
+  if (!isMonarch(chatIdStr)) {
+    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+    return;
+  }
+
+  const n = Math.max(1, Math.min(Number((rest || "").trim()) || 10, 30));
+
+  try {
+    const res = await pool.query(
+      `
+      SELECT
+        id,
+        COALESCE(status, 'pending') AS status,
+        COALESCE(requester_chat_id, chat_id, user_chat_id) AS requester_chat_id,
+        COALESCE(requester_name, '') AS requester_name,
+        COALESCE(requester_role, '') AS requester_role,
+        COALESCE(requested_action, requestedAction, '') AS requested_action,
+        COALESCE(requested_cmd, requestedCmd, '') AS requested_cmd,
+        created_at
+      FROM access_requests
+      ORDER BY created_at DESC
+      LIMIT $1
+      `,
+      [n]
+    );
+
+    if (!res.rows?.length) {
+      await bot.sendMessage(chatId, "🛡️ access_requests пусто.");
+      return;
+    }
+
+    let out = `🛡️ Access Requests (last ${res.rows.length})\n\n`;
+    for (const r of res.rows) {
+      out += `#${r.id} | ${r.status} | ${new Date(r.created_at).toISOString()}\n`;
+      out += `who=${r.requester_chat_id}${r.requester_name ? ` (${r.requester_name})` : ""}\n`;
+      if (r.requester_role) out += `role=${r.requester_role}\n`;
+      if (r.requested_action) out += `action=${r.requested_action}\n`;
+      if (r.requested_cmd) out += `cmd=${r.requested_cmd}\n`;
+      out += `\n`;
+    }
+
+    await bot.sendMessage(chatId, out.slice(0, 3800));
+  } catch (e) {
+    console.error("❌ /ar_list error:", e);
+    await bot.sendMessage(
+      chatId,
+      "⚠️ Не удалось прочитать access_requests (проверь таблицу/колонки)."
+    );
+  }
+}
+
 // Главный обработчик текстовых команд.
 // Это та же логика, что была в index.js внутри switch(command).
 export async function handleCommand(bot, msg, command, commandArgs) {
@@ -57,11 +290,31 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         }
       } catch (e) {
         console.error("❌ Error in /profile:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось прочитать профиль пользователя."
-        );
+        await bot.sendMessage(chatId, "Не удалось прочитать профиль пользователя.");
       }
+      return;
+    }
+
+    // ======================================================================
+    // === Access Requests (monarch-only)
+    // ======================================================================
+    case "/approve": {
+      await cmdApprove({ bot, chatId, chatIdStr, rest: commandArgs });
+      return;
+    }
+
+    case "/deny": {
+      await cmdDeny({ bot, chatId, chatIdStr, rest: commandArgs });
+      return;
+    }
+
+    case "/ar_create_test": {
+      await cmdArCreateTest({ bot, chatId, chatIdStr });
+      return;
+    }
+
+    case "/ar_list": {
+      await cmdArList({ bot, chatId, chatIdStr, rest: commandArgs });
       return;
     }
 
@@ -86,11 +339,9 @@ export async function handleCommand(bot, msg, command, commandArgs) {
     case "/run": {
       const idStr = commandArgs.trim();
       if (!idStr) {
-        await bot.sendMessage(
-          chatId,
-          "Нужно указать ID задачи. Пример: `/run 1`",
-          { parse_mode: "Markdown" }
-        );
+        await bot.sendMessage(chatId, "Нужно указать ID задачи. Пример: `/run 1`", {
+          parse_mode: "Markdown",
+        });
         return;
       }
 
@@ -103,24 +354,15 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       try {
         const task = await getTaskById(chatIdStr, taskId);
         if (!task) {
-          await bot.sendMessage(
-            chatId,
-            `Я не нашёл задачу #${taskId} среди ваших задач.`
-          );
+          await bot.sendMessage(chatId, `Я не нашёл задачу #${taskId} среди ваших задач.`);
           return;
         }
 
-        await bot.sendMessage(
-          chatId,
-          `🚀 Запускаю задачу #${task.id} через ИИ-движок...`
-        );
+        await bot.sendMessage(chatId, `🚀 Запускаю задачу #${task.id} через ИИ-движок...`);
         await runTaskWithAI(task, chatId, bot);
       } catch (e) {
         console.error("❌ Error in /run:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось запустить задачу. См. логи сервера."
-        );
+        await bot.sendMessage(chatId, "Не удалось запустить задачу. См. логи сервера.");
       }
       return;
     }
@@ -138,10 +380,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         );
       } catch (e) {
         console.error("❌ Error in /btc_test_task:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось создать тестовую задачу мониторинга BTC."
-        );
+        await bot.sendMessage(chatId, "Не удалось создать тестовую задачу мониторинга BTC.");
       }
       return;
     }
@@ -170,10 +409,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         );
       } catch (e) {
         console.error("❌ Error in /newtask:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось создать задачу в Task Engine."
-        );
+        await bot.sendMessage(chatId, "Не удалось создать задачу в Task Engine.");
       }
       return;
     }
@@ -196,19 +432,14 @@ export async function handleCommand(bot, msg, command, commandArgs) {
               `Статус: ${t.status}\n` +
               `Создана: ${t.created_at?.toISOString?.() || "—"}\n` +
               (t.schedule ? `Расписание: ${t.schedule}\n` : "") +
-              (t.last_run
-                ? `Последний запуск: ${t.last_run.toISOString()}\n`
-                : "") +
+              (t.last_run ? `Последний запуск: ${t.last_run.toISOString()}\n` : "") +
               `\n`;
           }
           await bot.sendMessage(chatId, text);
         }
       } catch (e) {
         console.error("❌ Error in /tasks:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось получить список задач из Task Engine."
-        );
+        await bot.sendMessage(chatId, "Не удалось получить список задач из Task Engine.");
       }
       return;
     }
@@ -243,10 +474,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         try {
           const tasks = await getUserTasks(chatIdStr, 50);
           if (!tasks || tasks.length === 0) {
-            await bot.sendMessage(
-              chatId,
-              "У вас пока нет задач в Task Engine."
-            );
+            await bot.sendMessage(chatId, "У вас пока нет задач в Task Engine.");
           } else {
             let text = "📋 Ваши задачи:\n\n";
             for (const t of tasks) {
@@ -256,19 +484,14 @@ export async function handleCommand(bot, msg, command, commandArgs) {
                 `Статус: ${t.status}\n` +
                 `Создана: ${t.created_at?.toISOString?.() || "—"}\n` +
                 (t.schedule ? `Расписание: ${t.schedule}\n` : "") +
-                (t.last_run
-                  ? `Последний запуск: ${t.last_run.toISOString()}\n`
-                  : "") +
+                (t.last_run ? `Последний запуск: ${t.last_run.toISOString()}\n` : "") +
                 `\n`;
             }
             await bot.sendMessage(chatId, text);
           }
         } catch (e) {
           console.error("❌ Error in /task list:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось получить список задач из Task Engine."
-          );
+          await bot.sendMessage(chatId, "Не удалось получить список задач из Task Engine.");
         }
         return;
       }
@@ -298,20 +521,13 @@ export async function handleCommand(bot, msg, command, commandArgs) {
           );
         } catch (e) {
           console.error("❌ Error in /task new:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось создать задачу в Task Engine."
-          );
+          await bot.sendMessage(chatId, "Не удалось создать задачу в Task Engine.");
         }
         return;
       }
 
       // /task pause|resume|delete <id>
-      if (
-        firstLower === "pause" ||
-        firstLower === "resume" ||
-        firstLower === "delete"
-      ) {
+      if (firstLower === "pause" || firstLower === "resume" || firstLower === "delete") {
         if (!restText) {
           await bot.sendMessage(
             chatId,
@@ -326,21 +542,16 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
         const taskId = Number(restText);
         if (Number.isNaN(taskId)) {
-          await bot.sendMessage(
-            chatId,
-            "ID задачи должен быть числом.\nПример: `/task pause 10`",
-            { parse_mode: "Markdown" }
-          );
+          await bot.sendMessage(chatId, "ID задачи должен быть числом.\nПример: `/task pause 10`", {
+            parse_mode: "Markdown",
+          });
           return;
         }
 
         try {
           const existing = await getTaskById(chatIdStr, taskId);
           if (!existing) {
-            await bot.sendMessage(
-              chatId,
-              `Я не нашёл задачу #${taskId} среди ваших задач.`
-            );
+            await bot.sendMessage(chatId, `Я не нашёл задачу #${taskId} среди ваших задач.`);
             return;
           }
 
@@ -362,10 +573,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
           await bot.sendMessage(chatId, msgText);
         } catch (e) {
           console.error("❌ Error in /task pause/resume/delete:", e);
-          await bot.sendMessage(
-            chatId,
-            "Не удалось обновить статус задачи. См. логи сервера."
-          );
+          await bot.sendMessage(chatId, "Не удалось обновить статус задачи. См. логи сервера.");
         }
         return;
       }
@@ -384,10 +592,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       try {
         const task = await getTaskById(chatIdStr, taskId);
         if (!task) {
-          await bot.sendMessage(
-            chatId,
-            `Я не нашёл задачу #${taskId} среди ваших задач.`
-          );
+          await bot.sendMessage(chatId, `Я не нашёл задачу #${taskId} среди ваших задач.`);
           return;
         }
 
@@ -398,19 +603,14 @@ export async function handleCommand(bot, msg, command, commandArgs) {
           `Статус: ${task.status}\n` +
           `Создана: ${task.created_at?.toISOString?.() || "—"}\n` +
           (task.schedule ? `Расписание: ${task.schedule}\n` : "") +
-          (task.last_run
-            ? `Последний запуск: ${task.last_run.toISOString()}\n`
-            : "") +
+          (task.last_run ? `Последний запуск: ${task.last_run.toISOString()}\n` : "") +
           `\n` +
           `Задачу можно запустить командой: \`/run ${task.id}\``;
 
         await bot.sendMessage(chatId, text, { parse_mode: "Markdown" });
       } catch (e) {
         console.error("❌ Error in /task <id>:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось прочитать задачу. См. логи сервера."
-        );
+        await bot.sendMessage(chatId, "Не удалось прочитать задачу. См. логи сервера.");
       }
       return;
     }
@@ -428,10 +628,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
         const total = res.rows[0]?.total ?? 0;
 
-        await bot.sendMessage(
-          chatId,
-          `📊 Память по этому чату: ${total} сообщений.`
-        );
+        await bot.sendMessage(chatId, `📊 Память по этому чату: ${total} сообщений.`);
       } catch (e) {
         console.error("❌ /meminfo error:", e);
         await bot.sendMessage(chatId, "Ошибка чтения памяти.");
@@ -468,9 +665,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
           const row = last.rows[0];
           if (row) {
             const snippet =
-              row.content.length > 400
-                ? row.content.slice(0, 400) + "..."
-                : row.content;
+              row.content.length > 400 ? row.content.slice(0, 400) + "..." : row.content;
             latestBlock =
               `Последняя запись:\n` +
               `🕒 ${row.created_at}\n` +
@@ -499,10 +694,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         await bot.sendMessage(chatId, text);
       } catch (e) {
         console.error("❌ Error in /sources:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось получить список источников."
-        );
+        await bot.sendMessage(chatId, "Не удалось получить список источников.");
       }
       return;
     }
@@ -523,19 +715,14 @@ export async function handleCommand(bot, msg, command, commandArgs) {
           lines.push("Проблемные источники:");
           for (const item of summary.items) {
             if (item.ok) continue;
-            lines.push(
-              `- ${item.key}: ${item.error || "неизвестная ошибка"}`
-            );
+            lines.push(`- ${item.key}: ${item.error || "неизвестная ошибка"}`);
           }
         }
 
         await bot.sendMessage(chatId, lines.join("\n"));
       } catch (e) {
         console.error("❌ Error in /sources_diag:", e);
-        await bot.sendMessage(
-          chatId,
-          "❌ Ошибка при диагностике источников. См. логи сервера."
-        );
+        await bot.sendMessage(chatId, "❌ Ошибка при диагностике источников. См. логи сервера.");
       }
       return;
     }
@@ -592,10 +779,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         await bot.sendMessage(chatId, text);
       } catch (e) {
         console.error("❌ Error in /source:", e);
-        await bot.sendMessage(
-          chatId,
-          `❌ Внутренняя ошибка при работе с источником "${key}": ${e.message}`
-        );
+        await bot.sendMessage(chatId, `❌ Внутренняя ошибка при работе с источником "${key}": ${e.message}`);
       }
       return;
     }
@@ -649,10 +833,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         await bot.sendMessage(chatId, text);
       } catch (e) {
         console.error("❌ Error in /diag_source:", e);
-        await bot.sendMessage(
-          chatId,
-          `❌ Внутренняя ошибка при диагностике источника "${key}": ${e.message}`
-        );
+        await bot.sendMessage(chatId, `❌ Внутренняя ошибка при диагностике источника "${key}": ${e.message}`);
       }
 
       return;
@@ -688,17 +869,13 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       }
 
       const firstSpace = raw.indexOf(" ");
-      const section =
-        firstSpace === -1 ? raw : raw.slice(0, firstSpace).trim();
-      const content =
-        firstSpace === -1 ? "" : raw.slice(firstSpace + 1).trim();
+      const section = firstSpace === -1 ? raw : raw.slice(0, firstSpace).trim();
+      const content = firstSpace === -1 ? "" : raw.slice(firstSpace + 1).trim();
 
       if (!section) {
-        await bot.sendMessage(
-          chatId,
-          "Нужно указать секцию. Пример:\n`/pm_set roadmap ...текст...`",
-          { parse_mode: "Markdown" }
-        );
+        await bot.sendMessage(chatId, "Нужно указать секцию. Пример:\n`/pm_set roadmap ...текст...`", {
+          parse_mode: "Markdown",
+        });
         return;
       }
 
@@ -714,23 +891,17 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
       try {
         const title = `Section: ${section}`;
-        const meta = {
-          section,
-        };
+        const meta = { section };
 
         await upsertProjectSection(undefined, section, title, content, meta);
 
         await bot.sendMessage(
           chatId,
-          `✅ Проектная память обновлена для секции "${section}".\n\n` +
-            `Длина текста: ${content.length} символов.`
+          `✅ Проектная память обновлена для секции "${section}".\n\n` + `Длина текста: ${content.length} символов.`
         );
       } catch (e) {
         console.error("❌ /pm_set error:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось обновить проектную память. См. логи сервера."
-        );
+        await bot.sendMessage(chatId, "Не удалось обновить проектную память. См. логи сервера.");
       }
 
       return;
@@ -739,11 +910,9 @@ export async function handleCommand(bot, msg, command, commandArgs) {
     case "/pm_show": {
       const raw = commandArgs.trim();
       if (!raw) {
-        await bot.sendMessage(
-          chatId,
-          "Нужно указать секцию. Пример:\n`/pm_show roadmap`",
-          { parse_mode: "Markdown" }
-        );
+        await bot.sendMessage(chatId, "Нужно указать секцию. Пример:\n`/pm_show roadmap`", {
+          parse_mode: "Markdown",
+        });
         return;
       }
 
@@ -753,18 +922,14 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         const record = await getProjectSection(undefined, section);
 
         if (!record) {
-          await bot.sendMessage(
-            chatId,
-            `В проектной памяти пока нет секции "${section}".`
-          );
+          await bot.sendMessage(chatId, `В проектной памяти пока нет секции "${section}".`);
           return;
         }
 
         const maxLen = 3500;
         const textSnippet =
           record.content.length > maxLen
-            ? record.content.slice(0, maxLen) +
-              "\n\n...(обрезано, текст слишком длинный)..."
+            ? record.content.slice(0, maxLen) + "\n\n...(обрезано, текст слишком длинный)..."
             : record.content;
 
         const msg =
@@ -776,10 +941,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         await bot.sendMessage(chatId, msg);
       } catch (e) {
         console.error("❌ /pm_show error:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось прочитать проектную память. См. логи сервера."
-        );
+        await bot.sendMessage(chatId, "Не удалось прочитать проектную память. См. логи сервера.");
       }
 
       return;
@@ -833,10 +995,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
           "развернутые ответы с пунктами и объяснениями (больше токенов, максимум пользы).";
       }
 
-      await bot.sendMessage(
-        chatId,
-        `✅ Режим ответа установлен: ${arg}.\n\nОписание: ${desc}`
-      );
+      await bot.sendMessage(chatId, `✅ Режим ответа установлен: ${arg}.\n\nОписание: ${desc}`);
       return;
     }
 
@@ -845,4 +1004,3 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
   }
 }
-

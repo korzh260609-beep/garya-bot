@@ -126,9 +126,11 @@ export function attachMessageRouter({
     let userPlan = DEFAULT_PLAN;
 
     try {
-      const uRes = await pool.query("SELECT role FROM users WHERE chat_id = $1", [
-        senderIdStr,
-      ]);
+     const uRes = await pool.query(
+  "SELECT role FROM users WHERE chat_id = $1",
+  [chatIdStr]
+);
+      
       if (uRes.rows.length) userRole = uRes.rows[0].role || "guest";
     } catch (e) {
       console.error("❌ Error fetching user role:", e);

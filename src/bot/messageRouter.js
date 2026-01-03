@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleDeny } from "./handlers/deny.js";
+
 import { handleApprove } from "./handlers/approve.js";
 
 import { approveAndNotify, denyAndNotify, listAccessRequests } from "../users/accessRequests.js";

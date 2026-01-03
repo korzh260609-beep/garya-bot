@@ -1,14 +1,13 @@
 // src/bot/handlers/sourcesDiag.js
 // extracted from case "/sources_diag" — no logic changes
 
-import { runSourceDiagnosticsOnce } from "../../sources/diagnostics.js";
-
 export async function handleSourcesDiag({
   bot,
   chatId,
   userRole,
   userPlan,
   bypass,
+  runSourceDiagnosticsOnce,
 }) {
   const summary = await runSourceDiagnosticsOnce({
     userRole,
@@ -25,4 +24,3 @@ export async function handleSourcesDiag({
   await bot.sendMessage(chatId, textDiag);
   return;
 }
-

@@ -1,33 +1,41 @@
-        case "/approve": {
-          if (!bypass) {
-            await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-            return;
-          }
+// src/bot/handlers/approve.js
 
-          const id = Number((rest || "").trim());
-          if (!id) {
-            await bot.sendMessage(chatId, "Использование: /approve <request_id>");
-            return;
-          }
+import { approveAndNotify } from "../services/approveAndNotify.js";
 
-          try {
-            const res = await approveAndNotify({
-              bot,
-              chatId,
-              chatIdStr,
-              requestId: id,
-            });
+export async function handleApprove({
+  bot,
+  chatId,
+  chatIdStr,
+  rest,
+  bypass,
+}) {
+  if (!bypass) {
+    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+    return;
+  }
 
-            if (!res?.ok) {
-              await bot.sendMessage(
-                chatId,
-                `⚠️ Не удалось approve: ${res?.error || "unknown"}`
-              );
-            }
-          } catch (e) {
-            console.error("❌ /approve error:", e);
-            await bot.sendMessage(chatId, "⚠️ Ошибка при approve.");
-          }
+  const id = Number((rest || "").trim());
+  if (!id) {
+    await bot.sendMessage(chatId, "Использование: /approve <request_id>");
+    return;
+  }
 
-          return;
-        }
+  try {
+    const res = await approveAndNotify({
+      bot,
+      chatId,
+      chatIdStr,
+      requestId: id,
+    });
+
+    if (!res?.ok) {
+      await bot.sendMessage(
+        chatId,
+        `⚠️ Не удалось approve: ${res?.error || "unknown"}`
+      );
+    }
+  } catch (e) {
+    console.error("❌ /approve error:", e);
+    await bot.sendMessage(chatId, "⚠️ Ошибка при approve.");
+  }
+}

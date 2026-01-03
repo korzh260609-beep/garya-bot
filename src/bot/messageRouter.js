@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleArList } from "./handlers/arList.js";
+
 import { handleDeny } from "./handlers/deny.js";
 
 import { handleApprove } from "./handlers/approve.js";
@@ -280,7 +282,17 @@ if (dispatchResult?.handled) {
 
           return;
         }
-  
+
+          case "/ar_list": {
+  await handleArList({
+    bot,
+    chatId,
+    rest,
+    bypass,
+  });
+  return;
+}
+
         case "/file_logs": {
           if (!bypass) {
             await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");

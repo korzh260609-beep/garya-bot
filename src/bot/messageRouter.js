@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { approveAndNotify, denyAndNotify } from "../users/accessRequests.js";
+
 import { resolveUserAccess } from "../users/userAccess.js";
 
 import pool from "../../db.js";
@@ -218,6 +220,7 @@ if (dispatchResult?.handled) {
             await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
             return;
           }
+
           const id = Number((rest || "").trim());
           if (!id) {
             await bot.sendMessage(chatId, "Использование: /approve <request_id>");
@@ -225,48 +228,19 @@ if (dispatchResult?.handled) {
           }
 
           try {
-            // AccessRequests.* остаётся в своём модуле; здесь не меняем поведение
-            const AccessRequests = await import("../users/accessRequests.js");
-            const result = await AccessRequests.approveAccessRequest({
+            const res = await approveAndNotify({
+              bot,
+              chatId,
+              chatIdStr,
               requestId: id,
-              resolvedBy: chatIdStr,
             });
 
-            if (!result?.ok) {
+            if (!res?.ok) {
               await bot.sendMessage(
                 chatId,
-                `⚠️ Не удалось approve: ${result?.error || "unknown"}`
+                `⚠️ Не удалось approve: ${res?.error || "unknown"}`
               );
-              return;
             }
-
-            const req =
-              result.request ||
-              result.row ||
-              result.data ||
-              result.accessRequest ||
-              null;
-
-            const requesterChatId =
-              req?.requester_chat_id ||
-              req?.requesterChatId ||
-              req?.chat_id ||
-              req?.chatId ||
-              req?.user_chat_id ||
-              null;
-
-            if (requesterChatId) {
-              try {
-                await bot.sendMessage(
-                  Number(requesterChatId),
-                  `✅ Монарх одобрил вашу заявку #${id}.`
-                );
-              } catch {
-                // ignore
-              }
-            }
-
-            await bot.sendMessage(chatId, `✅ Заявка #${id} одобрена.`);
           } catch (e) {
             console.error("❌ /approve error:", e);
             await bot.sendMessage(chatId, "⚠️ Ошибка при approve.");
@@ -280,6 +254,7 @@ if (dispatchResult?.handled) {
             await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
             return;
           }
+
           const id = Number((rest || "").trim());
           if (!id) {
             await bot.sendMessage(chatId, "Использование: /deny <request_id>");
@@ -287,47 +262,19 @@ if (dispatchResult?.handled) {
           }
 
           try {
-            const AccessRequests = await import("../users/accessRequests.js");
-            const result = await AccessRequests.denyAccessRequest({
+            const res = await denyAndNotify({
+              bot,
+              chatId,
+              chatIdStr,
               requestId: id,
-              resolvedBy: chatIdStr,
             });
 
-            if (!result?.ok) {
+            if (!res?.ok) {
               await bot.sendMessage(
                 chatId,
-                `⚠️ Не удалось deny: ${result?.error || "unknown"}`
+                `⚠️ Не удалось deny: ${res?.error || "unknown"}`
               );
-              return;
             }
-
-            const req =
-              result.request ||
-              result.row ||
-              result.data ||
-              result.accessRequest ||
-              null;
-
-            const requesterChatId =
-              req?.requester_chat_id ||
-              req?.requesterChatId ||
-              req?.chat_id ||
-              req?.chatId ||
-              req?.user_chat_id ||
-              null;
-
-            if (requesterChatId) {
-              try {
-                await bot.sendMessage(
-                  Number(requesterChatId),
-                  `⛔ Монарх отклонил вашу заявку #${id}.`
-                );
-              } catch {
-                // ignore
-              }
-            }
-
-            await bot.sendMessage(chatId, `⛔ Заявка #${id} отклонена.`);
           } catch (e) {
             console.error("❌ /deny error:", e);
             await bot.sendMessage(chatId, "⚠️ Ошибка при deny.");

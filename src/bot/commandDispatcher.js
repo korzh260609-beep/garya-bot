@@ -30,6 +30,7 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     case "/mode": {
+      // Current behavior kept as you have it now (no changes).
       if (typeof ctx.getAnswerMode !== "function") return { handled: false };
       if (typeof ctx.setAnswerMode !== "function") return { handled: false };
       if (typeof ctx.rest !== "string") return { handled: false };
@@ -44,10 +45,7 @@ export async function dispatchCommand(cmd, ctx) {
 
       const ok = await ctx.setAnswerMode(chatIdStr, rest);
       if (!ok) {
-        await bot.sendMessage(
-          chatId,
-          "Недопустимый режим. Используй: short | normal | long"
-        );
+        await bot.sendMessage(chatId, "Недопустимый режим. Используй: short | normal | long");
         return { handled: true };
       }
 
@@ -62,10 +60,7 @@ export async function dispatchCommand(cmd, ctx) {
       const coinId = ctx.rest.trim().toLowerCase();
 
       if (!coinId) {
-        await bot.sendMessage(
-          chatId,
-          "Использование: /price <coinId>\nПример: /price bitcoin"
-        );
+        await bot.sendMessage(chatId, "Использование: /price <coinId>\nПример: /price bitcoin");
         return { handled: true };
       }
 
@@ -78,10 +73,7 @@ export async function dispatchCommand(cmd, ctx) {
       if (!result.ok) {
         const err = String(result.error || "");
         if (result.httpStatus === 429 || err.includes("429")) {
-          await bot.sendMessage(
-            chatId,
-            "⚠️ CoinGecko вернул лимит (429). Попробуй через 1–2 минуты."
-          );
+          await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (429). Попробуй через 1–2 минуты.");
         } else {
           await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
         }
@@ -93,9 +85,41 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     case "/prices": {
-      // SAFETY: do NOT implement here until we confirm the exact legacy logic + deps.
-      // Fallback to legacy switch(cmd) in messageRouter to avoid breaking behavior.
-      return { handled: false };
+      if (typeof ctx.rest !== "string") return { handled: false };
+      if (typeof ctx.getCoinGeckoSimplePriceMulti !== "function") return { handled: false };
+
+      const idsArg = (ctx.rest || "").trim().toLowerCase();
+      const ids = idsArg
+        ? idsArg
+            .split(/[,\s]+/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : ["bitcoin", "ethereum", "solana"];
+
+      const result = await ctx.getCoinGeckoSimplePriceMulti(ids, "usd", {
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        bypassPermissions: ctx.bypass,
+      });
+
+      if (!result.ok) {
+        const errText = String(result.error || "");
+        if (result.httpStatus === 429 || errText.includes("429")) {
+          await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
+        } else {
+          await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
+        }
+        return { handled: true };
+      }
+
+      let out = "💰 Цены (CoinGecko, USD):\n\n";
+      for (const id of ids) {
+        const item = result.items?.[id];
+        out += item ? `• ${item.id.toUpperCase()}: $${item.price}\n` : `• ${id.toUpperCase()}: нет данных\n`;
+      }
+
+      await bot.sendMessage(chatId, out);
+      return { handled: true };
     }
 
     case "/help": {

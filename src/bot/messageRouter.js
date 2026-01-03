@@ -2,7 +2,7 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
-import { handleSourcesDiag } from "./handlers/sourcesDiag.js";
+import { runSourceDiagnosticsOnce } from "../sources/sources.js";
 
 import { handleSource } from "./handlers/source.js";
 

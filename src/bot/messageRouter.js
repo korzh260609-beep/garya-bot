@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleBtcTestTask } from "./handlers/btcTestTask.js";
+
 import { handleDemoTask } from "./handlers/demoTask.js";
 
 import { handleStopAllTasks } from "./handlers/stopAllTasks.js";
@@ -321,18 +323,14 @@ if (dispatchResult?.handled) {
         }
 
         case "/btc_test_task": {
-          try {
-            const id = await callWithFallback(createTestPriceMonitorTask, [
-              [chatIdStr, access],
-              [chatIdStr],
-            ]);
-            await bot.sendMessage(
-              chatId,
-              `🆕 Тест price_monitor создан!\nID: ${id?.id || id}`
-            );
-          } catch (e) {
-            await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
-          }
+          await handleBtcTestTask({
+            bot,
+            chatId,
+            chatIdStr,
+            access,
+            callWithFallback,
+            createTestPriceMonitorTask,
+          });
           return;
         }
 

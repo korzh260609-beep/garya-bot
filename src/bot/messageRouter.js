@@ -223,6 +223,9 @@ const dispatchResult = await dispatchCommand(cmd, {
   getCoinGeckoSimplePriceById,
   getAnswerMode,
   setAnswerMode,
+  handleHelpLegacy: async () => {
+    await bot.sendMessage(chatId, "Используй /help (legacy).");
+  },
   requirePermOrReply,
   DEFAULT_PLAN,
   MONARCH_CHAT_ID,

@@ -4,6 +4,8 @@
 
 import pool from "../../db.js";
 
+import { dispatchCommand } from "./commandDispatcher.js";
+
 // === CORE ===
 import { getAnswerMode, setAnswerMode } from "../../core/answerMode.js";
 import { loadProjectContext } from "../../core/projectContext.js";

@@ -2,7 +2,7 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
-import { approveAndNotify, denyAndNotify } from "../users/accessRequests.js";
+import { approveAndNotify, denyAndNotify, listAccessRequests } from "../users/accessRequests.js";
 
 import { resolveUserAccess } from "../users/userAccess.js";
 
@@ -328,17 +328,20 @@ if (dispatchResult?.handled) {
             return;
           }
 
-          const n = Math.max(1, Math.min(Number((rest || "").trim()) || 10, 30));
+          const limitRaw = Number((rest || "").trim());
+          const n = Number.isFinite(limitRaw)
+            ? Math.max(1, Math.min(limitRaw, 30))
+            : 10;
 
           try {
             const res = await pool.query(
               `
               SELECT
                 id,
-                COALESCE(status, 'pending') AS status,
+                COALESCE(status, 'pending')                AS status,
                 COALESCE(requester_chat_id, chat_id, user_chat_id) AS requester_chat_id,
-                COALESCE(requester_name, '') AS requester_name,
-                COALESCE(requester_role, '') AS requester_role,
+                COALESCE(requester_name, '')              AS requester_name,
+                COALESCE(requester_role, '')              AS requester_role,
                 COALESCE(requested_action, requestedAction, '') AS requested_action,
                 COALESCE(requested_cmd, requestedCmd, '') AS requested_cmd,
                 created_at
@@ -349,20 +352,23 @@ if (dispatchResult?.handled) {
               [n]
             );
 
-            if (!res.rows?.length) {
+            if (!res.rows || res.rows.length === 0) {
               await bot.sendMessage(chatId, "🛡️ access_requests пусто.");
               return;
             }
 
             let out = `🛡️ Access Requests (last ${res.rows.length})\n\n`;
+
             for (const r of res.rows) {
               out += `#${r.id} | ${r.status} | ${new Date(r.created_at).toISOString()}\n`;
-              out += `who=${r.requester_chat_id}${
-                r.requester_name ? ` (${r.requester_name})` : ""
-              }\n`;
+              out += `who=${r.requester_chat_id || "unknown"}`;
+              if (r.requester_name) out += ` (${r.requester_name})`;
+              out += `\n`;
+
               if (r.requester_role) out += `role=${r.requester_role}\n`;
               if (r.requested_action) out += `action=${r.requested_action}\n`;
               if (r.requested_cmd) out += `cmd=${r.requested_cmd}\n`;
+
               out += `\n`;
             }
 

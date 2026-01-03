@@ -1,4 +1,4 @@
-import { runSourceDiagnosticsOnce } from "../../sources/diagnostics/runSourceDiagnosticsOnce.js";
+import { runSourceDiagnosticsOnce } from "../../sources/sources.js";
 
 export async function handleSourcesDiag(ctx) {
   const { bot, chatId, userRole, userPlan, bypass } = ctx;

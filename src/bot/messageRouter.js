@@ -218,6 +218,17 @@ if (dispatchResult?.handled) {
 
       switch (cmd) {
 
+          case "/approve": {
+  await handleApprove({
+    bot,
+    chatId,
+    chatIdStr,
+    rest,
+    bypass,
+  });
+  return;
+}
+
         case "/deny": {
           if (!bypass) {
             await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");

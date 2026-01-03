@@ -321,38 +321,6 @@ if (dispatchResult?.handled) {
 
           return;
         }
-
-               case "/ar_cols": {
-          if (!bypass) {
-            await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-            return;
-          }
-
-          try {
-            const res = await pool.query(
-              `
-              SELECT column_name
-              FROM information_schema.columns
-              WHERE table_name = 'access_requests'
-              ORDER BY ordinal_position
-              `
-            );
-
-            const cols = (res.rows || []).map((r) => r.column_name).filter(Boolean);
-
-            if (!cols.length) {
-              await bot.sendMessage(chatId, "Не нашёл колонки (таблица отсутствует?).");
-              return;
-            }
-
-            await bot.sendMessage(chatId, `access_requests columns:\n\n${cols.join("\n")}`.slice(0, 3800));
-          } catch (e) {
-            console.error("❌ /ar_cols error:", e);
-            await bot.sendMessage(chatId, "⚠️ Ошибка чтения information_schema.");
-          }
-
-          return;
-        }
    
         case "/ar_list": {
           if (!bypass) {
@@ -370,12 +338,12 @@ if (dispatchResult?.handled) {
               `
               SELECT
                 id,
-                COALESCE(status, 'pending')                AS status,
-                COALESCE(requester_chat_id, chat_id, user_chat_id) AS requester_chat_id,
-                COALESCE(requester_name, '')              AS requester_name,
-                COALESCE(requester_role, '')              AS requester_role,
-                COALESCE(requested_action, requestedAction, '') AS requested_action,
-                COALESCE(requested_cmd, requestedCmd, '') AS requested_cmd,
+                COALESCE(status, 'pending') AS status,
+                requester_chat_id,
+                COALESCE(requester_name, '') AS requester_name,
+                COALESCE(requester_role, '') AS requester_role,
+                COALESCE(requested_action, '') AS requested_action,
+                COALESCE(requested_cmd, '') AS requested_cmd,
                 created_at
               FROM access_requests
               ORDER BY created_at DESC
@@ -393,24 +361,19 @@ if (dispatchResult?.handled) {
 
             for (const r of res.rows) {
               out += `#${r.id} | ${r.status} | ${new Date(r.created_at).toISOString()}\n`;
-              out += `who=${r.requester_chat_id || "unknown"}`;
+              out += `who=${r.requester_chat_id}`;
               if (r.requester_name) out += ` (${r.requester_name})`;
               out += `\n`;
-
               if (r.requester_role) out += `role=${r.requester_role}\n`;
               if (r.requested_action) out += `action=${r.requested_action}\n`;
               if (r.requested_cmd) out += `cmd=${r.requested_cmd}\n`;
-
               out += `\n`;
             }
 
             await bot.sendMessage(chatId, out.slice(0, 3800));
           } catch (e) {
             console.error("❌ /ar_list error:", e);
-            await bot.sendMessage(
-              chatId,
-              "⚠️ Не удалось прочитать access_requests (проверь таблицу/колонки)."
-            );
+            await bot.sendMessage(chatId, "⚠️ Ошибка чтения access_requests.");
           }
 
           return;

@@ -490,22 +490,16 @@ if (dispatchResult?.handled) {
           return;
         }
 
-        case "/sources_diag": {
-          const summary = await runSourceDiagnosticsOnce({
-            userRole,
-            userPlan,
-            bypassPermissions: bypass,
-          });
-
-          const textDiag =
-            `🩺 Диагностика источников\n` +
-            `Всего: ${summary.total}\n` +
-            `OK: ${summary.okCount}\n` +
-            `Ошибок: ${summary.failCount}`;
-
-          await bot.sendMessage(chatId, textDiag);
-          return;
-        }
+case "/sources_diag": {
+  await handleSourcesDiag({
+    bot,
+    chatId,
+    userRole,
+    userPlan,
+    bypass,
+  });
+  return;
+}
 
 case "/source": {
   await handleSource({

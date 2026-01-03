@@ -31,7 +31,6 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/mode": {
       // SAFETY: if messageRouter didn't pass these yet, do NOT handle here.
-      // That keeps legacy switch(cmd) behavior unchanged.
       if (typeof ctx.getAnswerMode !== "function") return { handled: false };
       if (typeof ctx.setAnswerMode !== "function") return { handled: false };
       if (typeof ctx.rest !== "string") return { handled: false };
@@ -46,11 +45,56 @@ export async function dispatchCommand(cmd, ctx) {
 
       const ok = await ctx.setAnswerMode(chatIdStr, rest);
       if (!ok) {
-        await bot.sendMessage(chatId, "Недопустимый режим. Используй: short | normal | long");
+        await bot.sendMessage(
+          chatId,
+          "Недопустимый режим. Используй: short | normal | long"
+        );
         return { handled: true };
       }
 
       await bot.sendMessage(chatId, `Режим ответов установлен: ${rest}`);
+      return { handled: true };
+    }
+
+    case "/price": {
+      // SAFETY: if deps not passed — fallback to legacy switch in messageRouter
+      if (typeof ctx.rest !== "string") return { handled: false };
+      if (typeof ctx.getCoinGeckoSimplePriceById !== "function")
+        return { handled: false };
+
+      const coinId = ctx.rest.trim().toLowerCase();
+
+      if (!coinId) {
+        await bot.sendMessage(
+          chatId,
+          "Использование: /price <coinId>\nПример: /price bitcoin"
+        );
+        return { handled: true };
+      }
+
+      const result = await ctx.getCoinGeckoSimplePriceById(coinId, "usd", {
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        bypassPermissions: ctx.bypass,
+      });
+
+      if (!result.ok) {
+        const err = String(result.error || "");
+        if (result.httpStatus === 429 || err.includes("429")) {
+          await bot.sendMessage(
+            chatId,
+            "⚠️ CoinGecko вернул лимит (429). Попробуй через 1–2 минуты."
+          );
+        } else {
+          await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
+        }
+        return { handled: true };
+      }
+
+      await bot.sendMessage(
+        chatId,
+        `💰 ${result.id.toUpperCase()}: $${result.price}`
+      );
       return { handled: true };
     }
 

@@ -5,6 +5,7 @@ import pool from "../../db.js";
 
 export async function ensureUserProfile(msg) {
   const chatId = msg.chat.id.toString();
+  const tgUserId = msg.from?.id?.toString() || null;
   const nameFromTelegram = msg.from?.first_name || null;
 
   let role = "guest";

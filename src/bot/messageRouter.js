@@ -220,6 +220,7 @@ const dispatchResult = await dispatchCommand(cmd, {
   access,
   user,
   rest,
+  getCoinGeckoSimplePriceById,
   getAnswerMode,
   setAnswerMode,
   requirePermOrReply,

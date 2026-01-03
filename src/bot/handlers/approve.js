@@ -1,6 +1,6 @@
 // src/bot/handlers/approve.js
 
-import { approveAndNotify } from "../users/accessRequests.js";
+import { approveAndNotify } from "../../users/accessRequests.js";
 
 export async function handleApprove({
   bot,

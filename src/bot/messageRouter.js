@@ -223,6 +223,7 @@ const dispatchResult = await dispatchCommand(cmd, {
   user,
   rest,
   getCoinGeckoSimplePriceById,
+  getCoinGeckoSimplePriceMulti,
   getAnswerMode,
   setAnswerMode,
   handleHelpLegacy: async () => {

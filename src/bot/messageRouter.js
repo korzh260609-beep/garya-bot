@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { resolveUserAccess } from "../users/userAccess.js";
+
 import pool from "../../db.js";
 
 import { dispatchCommand } from "./commandDispatcher.js";
@@ -121,40 +123,12 @@ export function attachMessageRouter({
     // 0) User profile
     await ensureUserProfile(msg);
 
-    // 1) role + plan
-    let userRole = "guest";
-    let userPlan = DEFAULT_PLAN;
-
-    try {
-     const uRes = await pool.query(
-  "SELECT role FROM users WHERE chat_id = $1",
-  [chatIdStr]
-);
-      
-      if (uRes.rows.length) userRole = uRes.rows[0].role || "guest";
-    } catch (e) {
-      console.error("❌ Error fetching user role:", e);
-    }
-
-    // ✅ SAFETY: только реальный MONARCH_CHAT_ID может иметь роль monarch
-    if ((userRole || "").toLowerCase() === "monarch" && !isMonarch(senderIdStr)) {
-      console.warn(
-        "⚠️ ROLE GUARD: non-monarch had role=monarch in DB:",
-        senderIdStr
-      );
-      userRole = "guest";
-    }
-
-    const bypass = isMonarch(senderIdStr);
-
-    const access = {
-      userRole,
-      userPlan,
-      bypassPermissions: bypass,
-    };
-
-    // ✅ единый user-объект для permissions-layer
-    const user = { role: userRole, plan: userPlan, bypassPermissions: bypass };
+    const { userRole, userPlan, bypass, access, user } = await resolveUserAccess({
+      chatIdStr,
+      senderIdStr,
+      DEFAULT_PLAN,
+      isMonarch,
+    });
 
     // ✅ mapping команд → action keys (единый контроль)
     const CMD_ACTION = {

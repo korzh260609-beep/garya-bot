@@ -290,7 +290,6 @@ if (dispatchResult?.handled) {
           }
 
           try {
-            const AccessRequests = await import("../users/accessRequests.js");
             const nowIso = new Date().toISOString();
 
             const reqRow = await AccessRequests.createAccessRequest({

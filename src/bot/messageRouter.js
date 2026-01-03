@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleSource } from "./handlers/source.js";
+
 import { handleRunTask } from "./handlers/runTask.js";
 
 import { handleNewTask } from "./handlers/newTask.js";
@@ -505,33 +507,20 @@ if (dispatchResult?.handled) {
           return;
         }
 
-        case "/source": {
-          const key = (rest || "").trim();
-          if (!key) {
-            await bot.sendMessage(chatId, "Использование: /source <key>");
-            return;
-          }
-
-          const result = await fetchFromSourceKey(key, {
-            userRole,
-            userPlan,
-            bypassPermissions: bypass,
-          });
-
-          if (!result.ok) {
-            await bot.sendMessage(
-              chatId,
-              `❌ Ошибка при обращении к источнику <code>${key}</code>:\n<code>${
-                result.error || "Unknown error"
-              }</code>`,
-              { parse_mode: "HTML" }
-            );
-            return;
-          }
-
-          await bot.sendMessage(chatId, JSON.stringify(result, null, 2).slice(0, 3500));
-          return;
-        }
+case "/source": {
+  await handleSource({
+    bot,
+    msg,
+    chatId,
+    chatIdStr,
+    rest,
+    access,
+    userRole,
+    userPlan,
+    bypass,
+  });
+  return;
+}
 
         case "/diag_source": {
           const key = (rest || "").trim();

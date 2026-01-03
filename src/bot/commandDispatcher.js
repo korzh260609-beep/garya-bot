@@ -133,6 +133,20 @@ export async function dispatchCommand(cmd, ctx) {
         const totalRes = await pool.query("SELECT COUNT(*)::int AS total FROM users");
         const total = totalRes.rows[0]?.total ?? 0;
 
+        // Count unique Telegram users (by tg_user_id) if the column exists.
+        // Must NOT break /users_stats on older DB schema.
+        let users = 0;
+        try {
+          const usersRes = await pool.query(`
+            SELECT COUNT(DISTINCT tg_user_id)::int AS users
+            FROM users
+            WHERE tg_user_id IS NOT NULL
+          `);
+          users = usersRes.rows[0]?.users ?? 0;
+        } catch (_) {
+          users = 0;
+        }
+
         const byRoleRes = await pool.query(`
           SELECT COALESCE(role, 'unknown') AS role,
                  COUNT(*)::int AS count
@@ -142,7 +156,8 @@ export async function dispatchCommand(cmd, ctx) {
         `);
 
         let out = "👥 Статистика пользователей СГ\n\n";
-        out += `Всего пользователей: ${total}\n\n`;
+        out += `Всего записей (чаты): ${total}\n`;
+        out += `👤 Людей (уникальных): ${users}\n\n`;
 
         if (byRoleRes.rows.length) {
           out += "По ролям:\n";

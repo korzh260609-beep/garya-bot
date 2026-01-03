@@ -1,28 +1,54 @@
-        case "/file_logs": {
-          if (!bypass) {
-            await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-            return;
-          }
+// src/bot/handlers/fileLogs.js
+// Handler for /file_logs — shows recent file_intake_logs rows.
+// Extracted from messageRouter.js with NO behavior changes.
 
-          const n = Number((rest || "").trim()) || 10;
-          const rows = await getRecentFileIntakeLogs(chatIdStr, n);
+import pool from "../../../db.js";
 
-          if (!rows.length) {
-            await bot.sendMessage(chatId, "file_intake_logs пусто (пока нет записей).");
-            return;
-          }
+async function getRecentFileIntakeLogs(chatIdStr, n = 10) {
+  const limit = Math.max(1, Math.min(Number(n) || 10, 30));
+  const res = await pool.query(
+    `
+    SELECT *
+    FROM file_intake_logs
+    WHERE chat_id = $1
+    ORDER BY created_at DESC
+    LIMIT $2
+    `,
+    [chatIdStr, limit]
+  );
+  return res.rows || [];
+}
 
-          let out = `🧾 File-Intake logs (last ${Math.min(Number(n) || 10, 30)})\n\n`;
-          for (const r of rows) {
-            out += `#${r.id} | ${new Date(r.created_at).toISOString()}\n`;
-            out += `kind=${r.kind || "?"} hasText=${r.has_text} shouldAI=${r.should_call_ai} direct=${r.direct_reply}\n`;
-            out += `aiCalled=${r.ai_called} aiError=${r.ai_error} textChars=${r.processed_text_chars}\n`;
-            if (r.file_name || r.mime_type || r.file_size) {
-              out += `file=${r.file_name || "-"} mime=${r.mime_type || "-"} size=${r.file_size || "-"}\n`;
-            }
-            out += `\n`;
-          }
+export async function handleFileLogs({
+  bot,
+  chatId,
+  chatIdStr,
+  rest,
+  bypass,
+}) {
+  if (!bypass) {
+    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+    return;
+  }
 
-          await bot.sendMessage(chatId, out.slice(0, 3800));
-          return;
-        }
+  const n = Number((rest || "").trim()) || 10;
+  const rows = await getRecentFileIntakeLogs(chatIdStr, n);
+
+  if (!rows.length) {
+    await bot.sendMessage(chatId, "file_intake_logs пусто (пока нет записей).");
+    return;
+  }
+
+  let out = `🧾 File-Intake logs (last ${Math.min(Number(n) || 10, 30)})\n\n`;
+  for (const r of rows) {
+    out += `#${r.id} | ${new Date(r.created_at).toISOString()}\n`;
+    out += `kind=${r.kind || "?"} hasText=${r.has_text} shouldAI=${r.should_call_ai} direct=${r.direct_reply}\n`;
+    out += `aiCalled=${r.ai_called} aiError=${r.ai_error} textChars=${r.processed_text_chars}\n`;
+    if (r.file_name || r.mime_type || r.file_size) {
+      out += `file=${r.file_name || "-"} mime=${r.mime_type || "-"} size=${r.file_size || "-"}\n`;
+    }
+    out += `\n`;
+  }
+
+  await bot.sendMessage(chatId, out.slice(0, 3800));
+}

@@ -275,3 +275,85 @@ export async function denyAccessRequest({ requestId, resolvedBy, note = null }) 
 
   return { ok: true, request: res.rows[0] };
 }
+
+// === Router helpers (DB-only + notify) — extracted from messageRouter.js (no behavior changes) ===
+
+export async function approveAndNotify({ bot, chatId, chatIdStr, requestId }) {
+  const result = await approveAccessRequest({
+    requestId,
+    resolvedBy: chatIdStr,
+  });
+
+  if (!result?.ok) {
+    return { ok: false, error: result?.error || "unknown" };
+  }
+
+  const req =
+    result.request ||
+    result.row ||
+    result.data ||
+    result.accessRequest ||
+    null;
+
+  const requesterChatId =
+    req?.requester_chat_id ||
+    req?.requesterChatId ||
+    req?.chat_id ||
+    req?.chatId ||
+    req?.user_chat_id ||
+    null;
+
+  if (requesterChatId) {
+    try {
+      await bot.sendMessage(
+        Number(requesterChatId),
+        `✅ Монарх одобрил вашу заявку #${requestId}.`
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  await bot.sendMessage(chatId, `✅ Заявка #${requestId} одобрена.`);
+  return { ok: true };
+}
+
+export async function denyAndNotify({ bot, chatId, chatIdStr, requestId }) {
+  const result = await denyAccessRequest({
+    requestId,
+    resolvedBy: chatIdStr,
+  });
+
+  if (!result?.ok) {
+    return { ok: false, error: result?.error || "unknown" };
+  }
+
+  const req =
+    result.request ||
+    result.row ||
+    result.data ||
+    result.accessRequest ||
+    null;
+
+  const requesterChatId =
+    req?.requester_chat_id ||
+    req?.requesterChatId ||
+    req?.chat_id ||
+    req?.chatId ||
+    req?.user_chat_id ||
+    null;
+
+  if (requesterChatId) {
+    try {
+      await bot.sendMessage(
+        Number(requesterChatId),
+        `⛔ Монарх отклонил вашу заявку #${requestId}.`
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  await bot.sendMessage(chatId, `⛔ Заявка #${requestId} отклонена.`);
+  return { ok: true };
+}

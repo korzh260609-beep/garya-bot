@@ -229,6 +229,17 @@ if (dispatchResult?.handled) {
   return;
 }
 
+          case "/deny": {
+  await handleDeny({
+    bot,
+    chatId,
+    chatIdStr,
+    rest,
+    bypass,
+  });
+  return;
+}
+
         case "/ar_create_test": {
           if (!bypass) {
             await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");

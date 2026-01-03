@@ -3,6 +3,7 @@
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
 import pool from "../../db.js";
+import { getCoinGeckoSimplePriceMulti } from "../sources/coingecko/index.js";
 
 export async function dispatchCommand(cmd, ctx) {
   const { bot, chatId, chatIdStr } = ctx;
@@ -31,6 +32,7 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/mode": {
       // SAFETY: if messageRouter didn't pass these yet, do NOT handle here.
+      // That keeps legacy switch(cmd) behavior unchanged.
       if (typeof ctx.getAnswerMode !== "function") return { handled: false };
       if (typeof ctx.setAnswerMode !== "function") return { handled: false };
       if (typeof ctx.rest !== "string") return { handled: false };
@@ -91,19 +93,49 @@ export async function dispatchCommand(cmd, ctx) {
         return { handled: true };
       }
 
-      await bot.sendMessage(
-        chatId,
-        `💰 ${result.id.toUpperCase()}: $${result.price}`
-      );
+      await bot.sendMessage(chatId, `💰 ${result.id.toUpperCase()}: $${result.price}`);
       return { handled: true };
     }
 
-    case "/help": {
-      // SAFETY: do not invent help text here.
-      // If router provides legacy help handler, call it; otherwise fallback to old switch(cmd).
-      if (typeof ctx.handleHelpLegacy !== "function") return { handled: false };
+    case "/prices": {
+      if (typeof ctx.rest !== "string") return { handled: false };
 
-      await ctx.handleHelpLegacy();
+      const idsArg = (ctx.rest || "").trim().toLowerCase();
+      const ids = idsArg
+        ? idsArg
+            .split(/[,\s]+/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : ["bitcoin", "ethereum", "solana"];
+
+      const result = await getCoinGeckoSimplePriceMulti(ids, "usd", {
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        bypassPermissions: ctx.bypass,
+      });
+
+      if (!result.ok) {
+        const err = String(result.error || "");
+        if (result.httpStatus === 429 || err.includes("429")) {
+          await bot.sendMessage(
+            chatId,
+            "⚠️ CoinGecko вернул лимит (429). Попробуй через 1–2 минуты."
+          );
+        } else {
+          await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
+        }
+        return { handled: true };
+      }
+
+      let out = "💰 Цены (CoinGecko, USD):\n\n";
+      for (const id of ids) {
+        const item = result.items?.[id];
+        out += item
+          ? `• ${item.id.toUpperCase()}: $${item.price}\n`
+          : `• ${id.toUpperCase()}: нет данных\n`;
+      }
+
+      await bot.sendMessage(chatId, out);
       return { handled: true };
     }
 

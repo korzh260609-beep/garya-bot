@@ -1,6 +1,6 @@
 // src/bot/handlers/arList.js
 
-import pool from "../../db.js";
+import pool from "../db.js";
 
 export async function handleArList({
   bot,

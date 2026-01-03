@@ -322,6 +322,38 @@ if (dispatchResult?.handled) {
           return;
         }
 
+               case "/ar_cols": {
+          if (!bypass) {
+            await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+            return;
+          }
+
+          try {
+            const res = await pool.query(
+              `
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_name = 'access_requests'
+              ORDER BY ordinal_position
+              `
+            );
+
+            const cols = (res.rows || []).map((r) => r.column_name).filter(Boolean);
+
+            if (!cols.length) {
+              await bot.sendMessage(chatId, "Не нашёл колонки (таблица отсутствует?).");
+              return;
+            }
+
+            await bot.sendMessage(chatId, `access_requests columns:\n\n${cols.join("\n")}`.slice(0, 3800));
+          } catch (e) {
+            console.error("❌ /ar_cols error:", e);
+            await bot.sendMessage(chatId, "⚠️ Ошибка чтения information_schema.");
+          }
+
+          return;
+        }
+   
         case "/ar_list": {
           if (!bypass) {
             await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");

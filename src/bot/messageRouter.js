@@ -499,6 +499,7 @@ case "/sources_diag": {
     userRole,
     userPlan,
     bypass,
+    runSourceDiagnosticsOnce,
   });
   return;
 }

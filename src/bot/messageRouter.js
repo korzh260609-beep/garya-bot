@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleNewTask } from "./handlers/newTask.js";
+
 import { handleBtcTestTask } from "./handlers/btcTestTask.js";
 
 import { handleDemoTask } from "./handlers/demoTask.js";
@@ -335,22 +337,15 @@ if (dispatchResult?.handled) {
         }
 
         case "/newtask": {
-          if (!rest) {
-            await bot.sendMessage(chatId, "Использование: /newtask <описание>");
-            return;
-          }
-
-          try {
-            const task = await callWithFallback(createManualTask, [
-              [chatIdStr, rest, rest, access],
-              [chatIdStr, rest, access],
-              [chatIdStr, rest, rest],
-              [chatIdStr, rest],
-            ]);
-            await bot.sendMessage(chatId, `🆕 Задача создана!\n#${task?.id || task}`);
-          } catch (e) {
-            await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
-          }
+          await handleNewTask({
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            access,
+            callWithFallback,
+            createManualTask,
+          });
           return;
         }
 

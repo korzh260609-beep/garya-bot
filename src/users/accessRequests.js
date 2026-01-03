@@ -357,3 +357,27 @@ export async function denyAndNotify({ bot, chatId, chatIdStr, requestId }) {
   await bot.sendMessage(chatId, `⛔ Заявка #${requestId} отклонена.`);
   return { ok: true };
 }
+
+export async function listAccessRequests(n = 10) {
+  const limit = Math.max(1, Math.min(Number(n) || 10, 30));
+
+  const res = await pool.query(
+    `
+    SELECT
+      id,
+      COALESCE(status, 'pending') AS status,
+      COALESCE(requester_chat_id, chat_id, user_chat_id) AS requester_chat_id,
+      COALESCE(requester_name, '') AS requester_name,
+      COALESCE(requester_role, '') AS requester_role,
+      COALESCE(requested_action, requestedAction, '') AS requested_action,
+      COALESCE(requested_cmd, requestedCmd, '') AS requested_cmd,
+      created_at
+    FROM access_requests
+    ORDER BY created_at DESC
+    LIMIT $1
+    `,
+    [limit]
+  );
+
+  return { ok: true, rows: res.rows || [], limit };
+}

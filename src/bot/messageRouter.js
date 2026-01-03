@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleRunTask } from "./handlers/runTask.js";
+
 import { handleNewTask } from "./handlers/newTask.js";
 
 import { handleBtcTestTask } from "./handlers/btcTestTask.js";
@@ -350,29 +352,15 @@ if (dispatchResult?.handled) {
         }
 
         case "/run": {
-          const id = Number((rest || "").trim());
-          if (!id) {
-            await bot.sendMessage(chatId, "Использование: /run <id>");
-            return;
-          }
-
-          const task = await getTaskById(chatIdStr, id);
-          if (!task) {
-            await bot.sendMessage(chatId, "Задача не найдена.");
-            return;
-          }
-
-          await bot.sendMessage(chatId, `Запуск задачи #${task.id}...`);
-          try {
-            await callWithFallback(runTaskWithAI, [
-              [task, chatId, bot, access],
-              [task, chatId, bot],
-              [task, chatId],
-            ]);
-          } catch (e) {
-            console.error("❌ runTaskWithAI error:", e);
-            await bot.sendMessage(chatId, "⚠️ Ошибка при запуске задачи.");
-          }
+          await handleRunTask({
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            access,
+            callWithFallback,
+            runTask,
+          });
           return;
         }
 

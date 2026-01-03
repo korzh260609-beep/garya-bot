@@ -5,6 +5,7 @@ import pool from "../../db.js";
 
 export async function ensureUserProfile(msg) {
   const chatId = msg.chat.id.toString();
+  const tgUserId = msg.from?.id?.toString() || null;
   const nameFromTelegram = msg.from?.first_name || null;
 
   let role = "guest";
@@ -22,15 +23,21 @@ export async function ensureUserProfile(msg) {
       [chatId]
     );
 
-    if (existing.rows.length === 0) {
-      await pool.query(
-        `
-          INSERT INTO users (chat_id, name, role, language)
-          VALUES ($1, $2, $3, $4)
-        `,
-        [chatId, finalName, role, msg.from?.language_code || null]
-      );
-
+if (existing.rows.length === 0) {
+  await pool.query(
+    `
+      INSERT INTO users (chat_id, tg_user_id, name, role, language)
+      VALUES ($1, $2, $3, $4, $5)
+    `,
+    [
+      chatId,
+      tgUserId,
+      finalName,
+      role,
+      msg.from?.language_code || null,
+    ]
+  );
+}
       console.log(`👤 Новый пользователь: ${finalName} (${role})`);
     } else {
       const user = existing.rows[0];

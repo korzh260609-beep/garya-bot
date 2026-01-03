@@ -36,6 +36,7 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         chat_id TEXT UNIQUE NOT NULL,
+        tg_user_id TEXT,
         name TEXT,
         role TEXT DEFAULT 'guest',
         language TEXT,
@@ -43,6 +44,12 @@ async function initDb() {
       );
     `);
 
+    // --- Safe migration: add tg_user_id if missing ---
+await pool.query(`
+  ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS tg_user_id TEXT
+`);
+    
     // === Таблица задач (Task Engine) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tasks (

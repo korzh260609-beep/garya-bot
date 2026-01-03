@@ -212,28 +212,6 @@ if (dispatchResult?.handled) {
   return;
 }
 
-      switch (cmd) {
-        case "/profile":
-        case "/me":
-        case "/whoami": {
-          const res = await pool.query(
-            "SELECT chat_id, name, role, language, created_at FROM users WHERE chat_id = $1",
-            [chatIdStr]
-          );
-
-          if (!res.rows.length) {
-            await bot.sendMessage(chatId, "Профиль не найден.");
-            return;
-          }
-
-          const u = res.rows[0];
-          await bot.sendMessage(
-            chatId,
-            `🧾 Профиль\nID: ${u.chat_id}\nИмя: ${u.name}\nРоль: ${u.role}\nСоздан: ${u.created_at}`
-          );
-          return;
-        }
-
         case "/approve": {
           if (!bypass) {
             await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");

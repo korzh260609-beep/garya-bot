@@ -372,18 +372,18 @@ export function attachMessageRouter({
           return;
         }
 
-        case "/run": {
-          await handleRunTask({
-            bot,
-            chatId,
-            chatIdStr,
-            rest,
-            access,
-            callWithFallback,
-            runTask,
-          });
-          return;
-        }
+case "/run": {
+  await handleRunTask({
+    bot,
+    chatId,
+    chatIdStr,
+    rest,
+    access,
+    callWithFallback,
+    runTaskWithAI,
+  });
+  return;
+}
 
         case "/tasks": {
           await handleTasksList({

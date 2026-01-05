@@ -398,6 +398,15 @@ case "/run": {
   return;
 }
 
+        case "/stop_all_tasks": {
+  await handleStopAllTasks({
+    bot,
+    chatId,
+    bypass,
+  });
+  return;
+}
+
         case "/tasks": {
           await handleTasksList({
             bot,

@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleStartTask } from "./handlers/startTask.js";
+
 import { handleStopTask } from "./handlers/stopTask.js";
 
 import { handleSourcesDiag } from "./handlers/sources_diag.js";
@@ -412,59 +414,16 @@ case "/stop_task": {
   return;
 }
 
-        case "/start_task": {
-          if (!bypass) {
-            await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-            return;
-          }
-
-          const id = Number((rest || "").trim());
-          if (!id) {
-            await bot.sendMessage(chatId, "Использование: /start_task <id>");
-            return;
-          }
-
-          try {
-            await updateTaskStatus(id, "active");
-            await bot.sendMessage(chatId, `✅ Задача ${id} снова активна.`);
-          } catch (err) {
-            console.error("❌ Error in /start_task:", err);
-            await bot.sendMessage(chatId, "⚠️ Ошибка при запуске задачи.");
-          }
-          return;
-        }
-
-        case "/stop_tasks_type": {
-          if (!bypass) {
-            await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-            return;
-          }
-
-          const taskType = (rest || "").trim();
-          if (!taskType) {
-            await bot.sendMessage(
-              chatId,
-              'Использование: /stop_tasks_type <type>\nНапример: /stop_tasks_type price_monitor'
-            );
-            return;
-          }
-
-          try {
-            const res = await pool.query(
-              `UPDATE tasks SET status = 'stopped' WHERE type = $1 AND status = 'active';`,
-              [taskType]
-            );
-
-            await bot.sendMessage(
-              chatId,
-              `⛔ Остановлены все активные задачи типа "${taskType}".\nИзменено записей: ${res.rowCount}.`
-            );
-          } catch (err) {
-            console.error("❌ Error /stop_tasks_type:", err);
-            await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задач по типу.");
-          }
-          return;
-        }
+case "/start_task": {
+  await handleStartTask({
+    bot,
+    chatId,
+    rest,
+    bypass,
+    updateTaskStatus,
+  });
+  return;
+}
 
         case "/sources": {
           const sources = await getAllSourcesSafe();

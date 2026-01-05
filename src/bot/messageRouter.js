@@ -380,7 +380,7 @@ case "/run": {
     rest,
     access,
     callWithFallback,
-    runTaskWithAI,
+    runTask: runTaskWithAI,
   });
   return;
 }

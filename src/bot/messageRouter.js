@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handlePmSet } from "./handlers/pmSet.js";
+
 import { handlePmShow } from "./handlers/pmShow.js";
 
 import { handleTestSource } from "./handlers/testSource.js";
@@ -495,39 +497,17 @@ case "/pm_show": {
   return;
 }
 
-        case "/pm_set": {
-          if (!bypass) {
-            await bot.sendMessage(chatId, "Только монарх может менять Project Memory.");
-            return;
-          }
-
-          const { first: section, tail: content } = firstWordAndRest(rest);
-
-          if (!section || !content) {
-            await bot.sendMessage(
-              chatId,
-              "Использование: /pm_set <section> <text>\n(Можно с переносами строк)"
-            );
-            return;
-          }
-
-          try {
-            await upsertProjectSection({
-              section,
-              title: null,
-              content,
-              tags: [],
-              meta: { setBy: chatIdStr },
-              schemaVersion: 1,
-            });
-
-            await bot.sendMessage(chatId, `✅ Обновлено: ${section}`);
-          } catch (e) {
-            console.error("❌ /pm_set error:", e);
-            await bot.sendMessage(chatId, "⚠️ Ошибка записи Project Memory.");
-          }
-          return;
-        }
+case "/pm_set": {
+  await handlePmSet({
+    bot,
+    chatId,
+    chatIdStr,
+    rest,
+    bypass,
+    upsertProjectSection,
+  });
+  return;
+}
 
         case "/mode": {
           const modeRaw = (rest || "").trim();

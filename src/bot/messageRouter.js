@@ -432,9 +432,17 @@ case "/start_task": {
           return;
         }
 
-case "/sources_diag":
-  await handleSourcesDiag(ctx);
+case "/sources_diag": {
+  await handleSourcesDiag({
+    bot,
+    chatId,
+    userRole,
+    userPlan,
+    bypass,
+    runSourceDiagnosticsOnce,
+  });
   return;
+}
 
 case "/source": {
   await handleSource({

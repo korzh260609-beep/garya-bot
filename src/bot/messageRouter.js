@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleStopTask } from "./handlers/stopTask.js";
+
 import { handleSourcesDiag } from "./handlers/sources_diag.js";
 
 import { handleSource } from "./handlers/source.js";
@@ -394,42 +396,21 @@ if (dispatchResult?.handled) {
           return;
         }
 
-        case "/stop_task": {
-          const id = Number((rest || "").trim());
-          if (!id) {
-            await bot.sendMessage(chatId, "Использование: /stop_task <id>");
-            return;
-          }
-
-          try {
-            const taskRow = await getTaskRowById(id);
-            if (!taskRow) {
-              await bot.sendMessage(chatId, `⚠️ Задача с ID ${id} не найдена.`);
-              return;
-            }
-
-            const owner = isOwnerTaskRow(taskRow, chatIdStr);
-
-            const allowed = canStopTaskV1({
-              userRole,
-              bypass,
-              taskType: taskRow.type,
-              isOwner: owner,
-            });
-
-            if (!allowed) {
-              await bot.sendMessage(chatId, "⛔ Недостаточно прав для остановки задачи.");
-              return;
-            }
-
-            await updateTaskStatus(id, "stopped");
-            await bot.sendMessage(chatId, `⛔ Задача ${id} остановлена.`);
-          } catch (err) {
-            console.error("❌ Error in /stop_task:", err);
-            await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задачи.");
-          }
-          return;
-        }
+case "/stop_task": {
+  await handleStopTask({
+    bot,
+    chatId,
+    chatIdStr,
+    rest,
+    userRole,
+    bypass,
+    getTaskRowById,
+    isOwnerTaskRow,
+    canStopTaskV1,
+    updateTaskStatus,
+  });
+  return;
+}
 
         case "/start_task": {
           if (!bypass) {

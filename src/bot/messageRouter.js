@@ -42,7 +42,7 @@ import { handleDeny } from "./handlers/deny.js";
 
 import { handleApprove } from "./handlers/approve.js";
 
-import { approveAndNotify, denyAndNotify, listAccessRequests } from "../users/accessRequests.js";
+import { approveAndNotify, denyAndNotify, listAccessRequests, createAccessRequest } from "../users/accessRequests.js";
 
 import { resolveUserAccess } from "../users/userAccess.js";
 
@@ -286,7 +286,7 @@ export function attachMessageRouter({
           try {
             const nowIso = new Date().toISOString();
 
-            const reqRow = await AccessRequests.createAccessRequest({
+            const reqRow = await createAccessRequest({
               requesterChatId: chatIdStr,
               requesterName: "MONARCH_SELF_TEST",
               requesterRole: userRole,

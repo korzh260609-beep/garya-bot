@@ -374,31 +374,16 @@ if (dispatchResult?.handled) {
           return;
         }
 
-        case "/tasks": {
-          const tasks = await getUserTasks(chatIdStr, 30, access);
-
-          if (!tasks.length) {
-            await bot.sendMessage(chatId, "У вас нет задач.");
-            return;
-          }
-
-          let out = "📋 Ваши задачи:\n\n";
-          for (const t of tasks) {
-            out += `#${t.id} — ${t.title}\nТип: ${t.type}\nСтатус: ${t.status}\n\n`;
-          }
-
-          await bot.sendMessage(chatId, out);
-          return;
-        }
-
-        case "/stop_all_tasks": {
-          await handleStopAllTasks({
-            bot,
-            chatId,
-            bypass,
-          });
-          return;
-        }
+case "/tasks": {
+  await handleTasksList({
+    bot,
+    chatId,
+    chatIdStr,
+    getUserTasks,
+    access,
+  });
+  return;
+}
 
 case "/stop_task": {
   await handleStopTask({

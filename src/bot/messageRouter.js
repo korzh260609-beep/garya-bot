@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleTestSource } from "./handlers/testSource.js";
+
 import { handleDiagSource } from "./handlers/diagSource.js";
 
 import { handleSourcesList } from "./handlers/sourcesList.js";
@@ -468,80 +470,18 @@ case "/diag_source": {
   return;
 }
 
-        case "/test_source": {
-          const key = (rest || "").trim();
-          if (!key) {
-            await bot.sendMessage(
-              chatId,
-              "Использование: /test_source <key>\nПример: /test_source coingecko_simple_price",
-              { parse_mode: "HTML" }
-            );
-            return;
-          }
-
-          try {
-            const res = await testSource(key, {
-              userRole,
-              userPlan,
-              bypassPermissions: bypass,
-              ignoreRateLimit: false,
-            });
-
-            if (!res.ok && (res.reason === "rate_limited" || res.httpStatus === 429)) {
-              await bot.sendMessage(
-                chatId,
-                [
-                  `TEST <code>${key}</code>: ⚠️ <b>RATE LIMIT</b>`,
-                  "HTTP: <code>429</code>",
-                  "Попробуй через 60–120 секунд.",
-                ].join("\n"),
-                { parse_mode: "HTML" }
-              );
-              return;
-            }
-
-            if (!res.ok) {
-              await bot.sendMessage(
-                chatId,
-                [
-                  `TEST <code>${key}</code>: ❌`,
-                  res.httpStatus ? `HTTP: <code>${res.httpStatus}</code>` : "HTTP: n/a",
-                  res.type ? `type: <code>${res.type}</code>` : "",
-                  res.reason ? `reason: <code>${res.reason}</code>` : "",
-                  res.error ? `Ошибка: <code>${res.error}</code>` : "Ошибка: <code>Unknown</code>",
-                ]
-                  .filter(Boolean)
-                  .join("\n"),
-                { parse_mode: "HTML" }
-              );
-              return;
-            }
-
-            await bot.sendMessage(
-              chatId,
-              [
-                `TEST <code>${key}</code>: ✅ OK`,
-                res.httpStatus ? `HTTP: <code>${res.httpStatus}</code>` : "HTTP: n/a",
-                res.type ? `type: <code>${res.type}</code>` : "",
-                typeof res.latencyMs === "number" ? `latency: <code>${res.latencyMs}ms</code>` : "",
-                typeof res.bytes === "number" ? `bytes: <code>${res.bytes}</code>` : "",
-                `cache: <code>${res.fromCache ? "yes" : "no"}</code>`,
-              ]
-                .filter(Boolean)
-                .join("\n"),
-              { parse_mode: "HTML" }
-            );
-          } catch (err) {
-            console.error("❌ /test_source error:", err);
-            await bot.sendMessage(
-              chatId,
-              `TEST ошибка: <code>${err?.message || err}</code>`,
-              { parse_mode: "HTML" }
-            );
-          }
-
-          return;
-        }
+case "/test_source": {
+  await handleTestSource({
+    bot,
+    chatId,
+    rest,
+    fetchFromSourceKey,
+    userRole,
+    userPlan,
+    bypass,
+  });
+  return;
+}
 
         case "/pm_show": {
           const section = (rest || "").trim();

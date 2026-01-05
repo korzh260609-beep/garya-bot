@@ -423,18 +423,17 @@ export function attachMessageRouter({
           return;
         }
 
-        case "/sources": {
-await handleSourcesList({
-  bot,
-  chatId,
-  userRole,
-  userPlan,
-  bypass,
-  getAllSourcesSafe,
-});
-          });
-          return;
-        }
+case "/sources": {
+  await handleSourcesList({
+    bot,
+    chatId,
+    userRole,
+    userPlan,
+    bypass,
+    getAllSourcesSafe,
+  });
+  return;
+}
 
         case "/sources_diag": {
           await handleSourcesDiag({

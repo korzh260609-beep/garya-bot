@@ -12,6 +12,8 @@ export async function handleRunTask({
 }) {
   try {
     const result = await callWithFallback(runTask, [
+      [bot, chatId, chatIdStr, rest, access],
+      [bot, chatId, chatIdStr, rest],
       [chatIdStr, rest, access],
       [chatIdStr, rest],
     ]);
@@ -26,4 +28,3 @@ export async function handleRunTask({
     await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
   }
 }
-

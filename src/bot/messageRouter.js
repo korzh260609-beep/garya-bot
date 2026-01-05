@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleDiagSource } from "./handlers/diagSource.js";
+
 import { handleSourcesList } from "./handlers/sourcesList.js";
 
 import { handleTasksList } from "./handlers/tasksList.js";
@@ -453,57 +455,18 @@ case "/source": {
   return;
 }
 
-        case "/diag_source": {
-          const key = (rest || "").trim();
-          if (!key) {
-            await bot.sendMessage(
-              chatId,
-              "Использование: /diag_source <key>\nПример: /diag_source coingecko_simple_price",
-              { parse_mode: "HTML" }
-            );
-            return;
-          }
-
-          try {
-            const res = await diagnoseSource(key, {
-              userRole,
-              userPlan,
-              bypassPermissions: bypass,
-            });
-
-            if (!res.ok) {
-              await bot.sendMessage(
-                chatId,
-                [
-                  `Диагностика <code>${key}</code>: ❌`,
-                  res.error ? `Ошибка: <code>${res.error}</code>` : "Неизвестная ошибка",
-                ].join("\n"),
-                { parse_mode: "HTML" }
-              );
-              return;
-            }
-
-            await bot.sendMessage(
-              chatId,
-              [
-                `Диагностика <code>${key}</code>: ✅ OK`,
-                res.httpStatus ? `HTTP статус: <code>${res.httpStatus}</code>` : "HTTP статус: n/a",
-                res.type ? `type: <code>${res.type}</code>` : "",
-              ]
-                .filter(Boolean)
-                .join("\n"),
-              { parse_mode: "HTML" }
-            );
-          } catch (err) {
-            console.error("❌ /diag_source error:", err);
-            await bot.sendMessage(
-              chatId,
-              `Ошибка при диагностике: <code>${err.message || err}</code>`,
-              { parse_mode: "HTML" }
-            );
-          }
-          return;
-        }
+case "/diag_source": {
+  await handleDiagSource({
+    bot,
+    chatId,
+    rest,
+    userRole,
+    userPlan,
+    bypass,
+    runSourceDiagnosticsOnce,
+  });
+  return;
+}
 
         case "/test_source": {
           const key = (rest || "").trim();

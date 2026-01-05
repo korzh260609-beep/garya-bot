@@ -522,34 +522,35 @@ export function attachMessageRouter({
     // ======================================================================
     // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
     // ======================================================================
-await handleChatMessage({
-  bot,
-  msg,
-  chatId,
-  chatIdStr,
-  senderIdStr,
-  trimmed,
-  bypass,
-  MAX_HISTORY_MESSAGES,
 
-  FileIntake,
+    await handleChatMessage({
+      bot,
+      msg,
+      chatId,
+      chatIdStr,
+      senderIdStr,
+      trimmed,
+      bypass,
+      MAX_HISTORY_MESSAGES,
 
-  saveMessageToMemory,
-  getChatHistory,
-  saveChatPair,
+      FileIntake,
 
-  logInteraction,
+      saveMessageToMemory,
+      getChatHistory,
+      saveChatPair,
 
-  loadProjectContext,
-  getAnswerMode,
-  buildSystemPrompt,
-  isMonarch,
+      logInteraction,
 
-  callAI,
-  sanitizeNonMonarchReply,
-});
-return;
-    }
+      loadProjectContext,
+      getAnswerMode,
+      buildSystemPrompt,
+      isMonarch,
+
+      callAI,
+      sanitizeNonMonarchReply,
+    });
+
+    return;
   }); // ✅ end bot.on("message", ...)
 
 } // ✅ end attachMessageRouter(...)

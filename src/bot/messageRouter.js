@@ -622,5 +622,4 @@ case "/pm_set": {
     } catch (e) {
       console.error("❌ Telegram send error:", e);
     }
-  });
 }

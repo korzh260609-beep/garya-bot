@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleChatMessage } from "./handlers/chat.js";
+
 import { handlePmSet } from "./handlers/pmSet.js";
 
 import { handlePmShow } from "./handlers/pmShow.js";

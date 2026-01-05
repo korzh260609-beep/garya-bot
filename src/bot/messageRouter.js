@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleSourcesList } from "./handlers/sourcesList.js";
+
 import { handleTasksList } from "./handlers/tasksList.js";
 
 import { handleStartTask } from "./handlers/startTask.js";
@@ -412,12 +414,17 @@ case "/start_task": {
   return;
 }
 
-        case "/sources": {
-          const sources = await getAllSourcesSafe();
-          const out = formatSourcesList(sources);
-          await bot.sendMessage(chatId, out, { parse_mode: "HTML" });
-          return;
-        }
+case "/sources": {
+  await handleSourcesList({
+    bot,
+    chatId,
+    userRole,
+    userPlan,
+    bypass,
+    listSources,
+  });
+  return;
+}
 
 case "/sources_diag": {
   await handleSourcesDiag({

@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handlePmShow } from "./handlers/pmShow.js";
+
 import { handleTestSource } from "./handlers/testSource.js";
 
 import { handleDiagSource } from "./handlers/diagSource.js";
@@ -483,29 +485,15 @@ case "/test_source": {
   return;
 }
 
-        case "/pm_show": {
-          const section = (rest || "").trim();
-          if (!section) {
-            await bot.sendMessage(chatId, "Использование: /pm_show <section>");
-            return;
-          }
-
-          try {
-            const rec = await getProjectSection(undefined, section);
-            if (!rec) {
-              await bot.sendMessage(chatId, `Секция "${section}" отсутствует.`);
-              return;
-            }
-            await bot.sendMessage(
-              chatId,
-              `🧠 Project Memory: ${rec.section}\n\n${String(rec.content || "").slice(0, 3500)}`
-            );
-          } catch (e) {
-            console.error("❌ /pm_show error:", e);
-            await bot.sendMessage(chatId, "⚠️ Ошибка чтения Project Memory.");
-          }
-          return;
-        }
+case "/pm_show": {
+  await handlePmShow({
+    bot,
+    chatId,
+    rest,
+    getProjectSection,
+  });
+  return;
+}
 
         case "/pm_set": {
           if (!bypass) {

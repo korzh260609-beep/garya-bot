@@ -373,6 +373,13 @@ export function attachMessageRouter({
         }
 
 case "/run": {
+  console.error("DBG /run case hit", {
+    hasBot: Boolean(bot),
+    chatId,
+    chatIdStr,
+    rest,
+  });
+
   if (!bot) {
     console.error("❌ /run: bot is undefined");
     return;
@@ -387,6 +394,7 @@ case "/run": {
     callWithFallback,
     runTask: runTaskWithAI,
   });
+
   return;
 }
 

@@ -373,6 +373,11 @@ export function attachMessageRouter({
         }
 
 case "/run": {
+  if (!bot) {
+    console.error("❌ /run: bot is undefined");
+    return;
+  }
+
   await handleRunTask({
     bot,
     chatId,

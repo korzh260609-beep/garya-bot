@@ -133,6 +133,17 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
+      case "/stop_tasks_type": {
+  await handleStopTasksType({
+    bot,
+    chatId,
+    rest: ctx.rest,
+    bypass: ctx.bypass,
+    pool,
+  });
+  return { handled: true };
+}
+
     case "/help": {
       if (typeof ctx.handleHelpLegacy !== "function") return { handled: false };
       await ctx.handleHelpLegacy();

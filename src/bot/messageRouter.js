@@ -578,68 +578,6 @@ case "/source": {
           return;
         }
 
-        case "/price": {
-          const coinId = (rest || "").trim().toLowerCase();
-          if (!coinId) {
-            await bot.sendMessage(chatId, "Использование: /price <coinId>\nПример: /price bitcoin");
-            return;
-          }
-
-          const result = await getCoinGeckoSimplePriceById(coinId, "usd", {
-            userRole,
-            userPlan,
-            bypassPermissions: bypass,
-          });
-
-          if (!result.ok) {
-            const errText = String(result.error || "");
-            if (result.httpStatus === 429 || errText.includes("429")) {
-              await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
-            } else {
-              await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
-            }
-            return;
-          }
-
-          await bot.sendMessage(chatId, `💰 ${result.id.toUpperCase()}: $${result.price}`);
-          return;
-        }
-
-        case "/prices": {
-          const idsArg = (rest || "").trim().toLowerCase();
-          const ids = idsArg
-            ? idsArg
-                .split(/[,\s]+/)
-                .map((s) => s.trim())
-                .filter(Boolean)
-            : ["bitcoin", "ethereum", "solana"];
-
-          const result = await getCoinGeckoSimplePriceMulti(ids, "usd", {
-            userRole,
-            userPlan,
-            bypassPermissions: bypass,
-          });
-
-          if (!result.ok) {
-            const errText = String(result.error || "");
-            if (result.httpStatus === 429 || errText.includes("429")) {
-              await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (HTTP 429). Попробуй ещё раз через 1–2 минуты.");
-            } else {
-              await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
-            }
-            return;
-          }
-
-          let out = "💰 Цены (CoinGecko, USD):\n\n";
-          for (const id of ids) {
-            const item = result.items?.[id];
-            out += item ? `• ${item.id.toUpperCase()}: $${item.price}\n` : `• ${id.toUpperCase()}: нет данных\n`;
-          }
-
-          await bot.sendMessage(chatId, out);
-          return;
-        }
-
         case "/pm_show": {
           const section = (rest || "").trim();
           if (!section) {

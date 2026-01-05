@@ -224,57 +224,56 @@ export function attachMessageRouter({
       if (!(await requirePermOrReply(cmd, { rest }))) return;
 
       // === COMMAND DISPATCHER (SKELETON) ===
-const dispatchResult = await dispatchCommand(cmd, {
-  bot,
-  msg,
-  chatId,
-  chatIdStr,
-  senderIdStr,
-  userRole,
-  userPlan,
-  bypass,
-  access,
-  user,
-  rest,
-  getCoinGeckoSimplePriceById,
-  getCoinGeckoSimplePriceMulti,
-  getAnswerMode,
-  setAnswerMode,
-  handleHelpLegacy: async () => {
-    await bot.sendMessage(chatId, "Используй /help (legacy).");
-  },
-  requirePermOrReply,
-  DEFAULT_PLAN,
-  MONARCH_CHAT_ID,
-});
+      const dispatchResult = await dispatchCommand(cmd, {
+        bot,
+        msg,
+        chatId,
+        chatIdStr,
+        senderIdStr,
+        userRole,
+        userPlan,
+        bypass,
+        access,
+        user,
+        rest,
+        getCoinGeckoSimplePriceById,
+        getCoinGeckoSimplePriceMulti,
+        getAnswerMode,
+        setAnswerMode,
+        handleHelpLegacy: async () => {
+          await bot.sendMessage(chatId, "Используй /help (legacy).");
+        },
+        requirePermOrReply,
+        DEFAULT_PLAN,
+        MONARCH_CHAT_ID,
+      });
 
-if (dispatchResult?.handled) {
-  return;
-}
+      if (dispatchResult?.handled) {
+        return;
+      }
 
       switch (cmd) {
+        case "/approve": {
+          await handleApprove({
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            bypass,
+          });
+          return;
+        }
 
-          case "/approve": {
-  await handleApprove({
-    bot,
-    chatId,
-    chatIdStr,
-    rest,
-    bypass,
-  });
-  return;
-}
-
-          case "/deny": {
-  await handleDeny({
-    bot,
-    chatId,
-    chatIdStr,
-    rest,
-    bypass,
-  });
-  return;
-}
+        case "/deny": {
+          await handleDeny({
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            bypass,
+          });
+          return;
+        }
 
         case "/ar_create_test": {
           if (!bypass) {
@@ -315,17 +314,17 @@ if (dispatchResult?.handled) {
           return;
         }
 
-          case "/ar_list": {
-  await handleArList({
-    bot,
-    chatId,
-    rest,
-    bypass,
-  });
-  return;
-}
+        case "/ar_list": {
+          await handleArList({
+            bot,
+            chatId,
+            rest,
+            bypass,
+          });
+          return;
+        }
 
-                  case "/file_logs": {
+        case "/file_logs": {
           await handleFileLogs({
             bot,
             chatId,
@@ -384,253 +383,256 @@ if (dispatchResult?.handled) {
           return;
         }
 
-case "/tasks": {
-  await handleTasksList({
-    bot,
-    chatId,
-    chatIdStr,
-    getUserTasks,
-    access,
-  });
-  return;
-}
+        case "/tasks": {
+          await handleTasksList({
+            bot,
+            chatId,
+            chatIdStr,
+            getUserTasks,
+            access,
+          });
+          return;
+        }
 
-case "/stop_task": {
-  await handleStopTask({
-    bot,
-    chatId,
-    chatIdStr,
-    rest,
-    userRole,
-    bypass,
-    getTaskRowById,
-    isOwnerTaskRow,
-    canStopTaskV1,
-    updateTaskStatus,
-  });
-  return;
-}
+        case "/stop_task": {
+          await handleStopTask({
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            userRole,
+            bypass,
+            getTaskRowById,
+            isOwnerTaskRow,
+            canStopTaskV1,
+            updateTaskStatus,
+          });
+          return;
+        }
 
-case "/start_task": {
-  await handleStartTask({
-    bot,
-    chatId,
-    rest,
-    bypass,
-    updateTaskStatus,
-  });
-  return;
-}
+        case "/start_task": {
+          await handleStartTask({
+            bot,
+            chatId,
+            rest,
+            bypass,
+            updateTaskStatus,
+          });
+          return;
+        }
 
-case "/sources": {
-  await handleSourcesList({
-    bot,
-    chatId,
-    userRole,
-    userPlan,
-    bypass,
-    listSources,
-  });
-  return;
-}
+        case "/sources": {
+          await handleSourcesList({
+            bot,
+            chatId,
+            userRole,
+            userPlan,
+            bypass,
+            listSources,
+          });
+          return;
+        }
 
-case "/sources_diag": {
-  await handleSourcesDiag({
-    bot,
-    chatId,
-    userRole,
-    userPlan,
-    bypass,
-    runSourceDiagnosticsOnce,
-  });
-  return;
-}
+        case "/sources_diag": {
+          await handleSourcesDiag({
+            bot,
+            chatId,
+            userRole,
+            userPlan,
+            bypass,
+            runSourceDiagnosticsOnce,
+          });
+          return;
+        }
 
-case "/source": {
-  await handleSource({
-    bot,
-    msg,
-    chatId,
-    chatIdStr,
-    rest,
-    access,
-    userRole,
-    userPlan,
-    bypass,
-  });
-  return;
-}
+        case "/source": {
+          await handleSource({
+            bot,
+            msg,
+            chatId,
+            chatIdStr,
+            rest,
+            access,
+            userRole,
+            userPlan,
+            bypass,
+          });
+          return;
+        }
 
-case "/diag_source": {
-  await handleDiagSource({
-    bot,
-    chatId,
-    rest,
-    userRole,
-    userPlan,
-    bypass,
-    runSourceDiagnosticsOnce,
-  });
-  return;
-}
+        case "/diag_source": {
+          await handleDiagSource({
+            bot,
+            chatId,
+            rest,
+            userRole,
+            userPlan,
+            bypass,
+            runSourceDiagnosticsOnce,
+          });
+          return;
+        }
 
-case "/test_source": {
-  await handleTestSource({
-    bot,
-    chatId,
-    rest,
-    fetchFromSourceKey,
-    userRole,
-    userPlan,
-    bypass,
-  });
-  return;
-}
+        case "/test_source": {
+          await handleTestSource({
+            bot,
+            chatId,
+            rest,
+            fetchFromSourceKey,
+            userRole,
+            userPlan,
+            bypass,
+          });
+          return;
+        }
 
-case "/pm_show": {
-  await handlePmShow({
-    bot,
-    chatId,
-    rest,
-    getProjectSection,
-  });
-  return;
-}
+        case "/pm_show": {
+          await handlePmShow({
+            bot,
+            chatId,
+            rest,
+            getProjectSection,
+          });
+          return;
+        }
 
-case "/pm_set": {
-  await handlePmSet({
-    bot,
-    chatId,
-    chatIdStr,
-    rest,
-    bypass,
-    upsertProjectSection,
-  });
-  return;
-}
+        case "/pm_set": {
+          await handlePmSet({
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            bypass,
+            upsertProjectSection,
+          });
+          return;
+        }
 
-default: {
-  // неизвестная команда — игнор (поведение без изменений)
-  break;
-}
-} // end switch (cmd)
+        default: {
+          // неизвестная команда — игнор (поведение без изменений)
+          break;
+        }
+      } // end switch (cmd)
 
-return;
-} // end if (trimmed.startsWith("/"))
+      return;
+    } // end if (trimmed.startsWith("/"))
 
-// ======================================================================
-// === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
-// ======================================================================
-const messageId = msg.message_id ?? null;
+    // ======================================================================
+    // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
+    // ======================================================================
+    const messageId = msg.message_id ?? null;
 
-const summarizeMediaAttachment =
-  typeof FileIntake.summarizeMediaAttachment === "function"
-    ? FileIntake.summarizeMediaAttachment
-    : () => null;
+    const summarizeMediaAttachment =
+      typeof FileIntake.summarizeMediaAttachment === "function"
+        ? FileIntake.summarizeMediaAttachment
+        : () => null;
 
-const mediaSummary = summarizeMediaAttachment(msg);
+    const mediaSummary = summarizeMediaAttachment(msg);
 
-const decisionFn =
-  typeof FileIntake.buildEffectiveUserTextAndDecision === "function"
-    ? FileIntake.buildEffectiveUserTextAndDecision
-    : null;
+    const decisionFn =
+      typeof FileIntake.buildEffectiveUserTextAndDecision === "function"
+        ? FileIntake.buildEffectiveUserTextAndDecision
+        : null;
 
-const decision = decisionFn
-  ? decisionFn(trimmed, mediaSummary)
-  : {
-      effectiveUserText: trimmed,
-      shouldCallAI: Boolean(trimmed),
-      directReplyText: Boolean(trimmed)
-        ? null
-        : "Напиши текстом, что нужно сделать.",
-    };
+    const decision = decisionFn
+      ? decisionFn(trimmed, mediaSummary)
+      : {
+          effectiveUserText: trimmed,
+          shouldCallAI: Boolean(trimmed),
+          directReplyText: Boolean(trimmed)
+            ? null
+            : "Напиши текстом, что нужно сделать.",
+        };
 
-const effective = (decision?.effectiveUserText || "").trim();
-const shouldCallAI = Boolean(decision?.shouldCallAI);
-const directReplyText = decision?.directReplyText || null;
+    const effective = (decision?.effectiveUserText || "").trim();
+    const shouldCallAI = Boolean(decision?.shouldCallAI);
+    const directReplyText = decision?.directReplyText || null;
 
-if (directReplyText) {
-  await bot.sendMessage(chatId, directReplyText);
-  return;
-}
+    if (directReplyText) {
+      await bot.sendMessage(chatId, directReplyText);
+      return;
+    }
 
-if (!shouldCallAI) {
-  await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");
-  return;
-}
+    if (!shouldCallAI) {
+      await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");
+      return;
+    }
 
-await saveMessageToMemory(chatIdStr, "user", effective);
-const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
+    await saveMessageToMemory(chatIdStr, "user", effective);
+    const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
 
-const classification = { taskType: "chat", aiCostLevel: "low" };
-await logInteraction(chatIdStr, classification);
+    const classification = { taskType: "chat", aiCostLevel: "low" };
+    await logInteraction(chatIdStr, classification);
 
-const projectCtx = await loadProjectContext();
-const answerMode = getAnswerMode(chatIdStr);
+    const projectCtx = await loadProjectContext();
+    const answerMode = getAnswerMode(chatIdStr);
 
-let modeInstruction = "";
-if (answerMode === "short") {
-  modeInstruction =
-    "Режим short: отвечай очень кратко (1–2 предложения), только по существу, без лишних деталей.";
-} else if (answerMode === "normal") {
-  modeInstruction =
-    "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
-} else if (answerMode === "long") {
-  modeInstruction =
-    "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
-}
+    let modeInstruction = "";
+    if (answerMode === "short") {
+      modeInstruction =
+        "Режим short: отвечай очень кратко (1–2 предложения), только по существу, без лишних деталей.";
+    } else if (answerMode === "normal") {
+      modeInstruction =
+        "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
+    } else if (answerMode === "long") {
+      modeInstruction =
+        "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
+    }
 
-const currentUserName =
-  [msg?.from?.first_name, msg?.from?.last_name]
-    .filter(Boolean)
-    .join(" ")
-    .trim() ||
-  (msg?.from?.username ? `@${msg.from.username}` : "пользователь");
+    const currentUserName =
+      [msg?.from?.first_name, msg?.from?.last_name]
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      (msg?.from?.username ? `@${msg.from.username}` : "пользователь");
 
-const systemPrompt = buildSystemPrompt(
-  answerMode,
-  modeInstruction,
-  projectCtx || "",
-  { isMonarch: isMonarch(senderIdStr), currentUserName }
-);
+    const systemPrompt = buildSystemPrompt(
+      answerMode,
+      modeInstruction,
+      projectCtx || "",
+      { isMonarch: isMonarch(senderIdStr), currentUserName }
+    );
 
-const roleGuardPrompt = bypass
-  ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."
-  : "SYSTEM ROLE: текущий пользователь НЕ монарх. Запрещено обращаться 'Монарх', 'Ваше Величество', 'Государь'. Называй: 'гость' или нейтрально (вы/ты).";
+    const roleGuardPrompt = bypass
+      ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."
+      : "SYSTEM ROLE: текущий пользователь НЕ монарх. Запрещено обращаться 'Монарх', 'Ваше Величество', 'Государь'. Называй: 'гость' или нейтрально (вы/ты).";
 
-const messages = [
-  { role: "system", content: systemPrompt },
-  { role: "system", content: roleGuardPrompt },
-  ...history,
-  { role: "user", content: effective },
-];
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "system", content: roleGuardPrompt },
+      ...history,
+      { role: "user", content: effective },
+    ];
 
-let maxTokens = 350;
-let temperature = 0.6;
-if (answerMode === "short") {
-  maxTokens = 150;
-  temperature = 0.3;
-} else if (answerMode === "long") {
-  maxTokens = 900;
-  temperature = 0.8;
-}
+    let maxTokens = 350;
+    let temperature = 0.6;
+    if (answerMode === "short") {
+      maxTokens = 150;
+      temperature = 0.3;
+    } else if (answerMode === "long") {
+      maxTokens = 900;
+      temperature = 0.8;
+    }
 
-let aiReply = "";
-try {
-  aiReply = await callAI(messages, classification.aiCostLevel, {
-    max_output_tokens: maxTokens,
-    temperature,
-  });
-} catch (e) {
-  console.error("❌ AI error:", e);
-  aiReply = "⚠️ Ошибка вызова ИИ.";
-}
+    let aiReply = "";
+    try {
+      aiReply = await callAI(messages, classification.aiCostLevel, {
+        max_output_tokens: maxTokens,
+        temperature,
+      });
+    } catch (e) {
+      console.error("❌ AI error:", e);
+      aiReply = "⚠️ Ошибка вызова ИИ.";
+    }
 
-await saveChatPair(chatIdStr, effective, aiReply);
+    await saveChatPair(chatIdStr, effective, aiReply);
 
-try {
-  if (!bypass) aiReply = sanitizeNonMonarchReply(aiReply);
-  await bot.sendMessage(chatId, aiReply);
-} catch (e) {
-  console.error("❌ Telegram send error:", e);
-}
+    try {
+      if (!bypass) aiReply = sanitizeNonMonarchReply(aiReply);
+      await bot.sendMessage(chatId, aiReply);
+    } catch (e) {
+      console.error("❌ Telegram send error:", e);
+    }
+  }); // ✅ end bot.on("message", ...)
+
+} // ✅ end attachMessageRouter(...)

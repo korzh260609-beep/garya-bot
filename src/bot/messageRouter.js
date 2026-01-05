@@ -619,7 +619,8 @@ case "/pm_set": {
     try {
       if (!bypass) aiReply = sanitizeNonMonarchReply(aiReply);
       await bot.sendMessage(chatId, aiReply);
-    } catch (e) {
-      console.error("❌ Telegram send error:", e);
-    }
+      } catch (e) {
+    console.error("❌ Telegram send error:", e);
+  }
+}
 }

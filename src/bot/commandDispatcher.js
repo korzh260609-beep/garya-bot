@@ -2,6 +2,8 @@
 // Central command dispatcher.
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
+import { handleStopTasksType } from "./handlers/stopTasksType.js";
+
 import { handleUsersStats } from "./handlers/usersStats.js";
 
 export async function dispatchCommand(cmd, ctx) {

@@ -2,8 +2,6 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
-import { handleStopTasksType } from "./handlers/stopTasksType.js";
-
 import { handleStartTask } from "./handlers/startTask.js";
 
 import { handleStopTask } from "./handlers/stopTask.js";

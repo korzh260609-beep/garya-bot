@@ -35,29 +35,17 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    case "/mode": {
-      // Current behavior kept as you have it now (no changes).
-      if (typeof ctx.getAnswerMode !== "function") return { handled: false };
-      if (typeof ctx.setAnswerMode !== "function") return { handled: false };
-      if (typeof ctx.rest !== "string") return { handled: false };
-
-      const { rest } = ctx;
-
-      if (!rest) {
-        const mode = await ctx.getAnswerMode(chatIdStr);
-        await bot.sendMessage(chatId, `Текущий режим ответов: ${mode}`);
-        return { handled: true };
-      }
-
-      const ok = await ctx.setAnswerMode(chatIdStr, rest);
-      if (!ok) {
-        await bot.sendMessage(chatId, "Недопустимый режим. Используй: short | normal | long");
-        return { handled: true };
-      }
-
-      await bot.sendMessage(chatId, `Режим ответов установлен: ${rest}`);
-      return { handled: true };
-    }
+case "/mode": {
+  await handleMode({
+    bot,
+    chatId,
+    chatIdStr,
+    rest: ctx.rest,
+    getAnswerMode: ctx.getAnswerMode,
+    setAnswerMode: ctx.setAnswerMode,
+  });
+  return { handled: true };
+}
 
     case "/price": {
       if (typeof ctx.rest !== "string") return { handled: false };

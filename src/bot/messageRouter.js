@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleRunTaskCmd } from "./handlers/runTaskCmd.js";
+
 import { handleChatMessage } from "./handlers/chat.js";
 
 import { handlePmSet } from "./handlers/pmSet.js";
@@ -344,31 +346,18 @@ export function attachMessageRouter({
           return;
         }
 
-case "/run": {
-  console.error("DBG /run case hit", {
-    hasBot: Boolean(bot),
-    chatId,
-    chatIdStr,
-    rest,
-  });
-
-  if (!bot) {
-    console.error("❌ /run: bot is undefined");
-    return;
-  }
-
-  await handleRunTask({
-    bot,
-    chatId,
-    chatIdStr,
-    rest,
-    access,
-    callWithFallback,
-    runTask: runTaskWithAI,
-  });
-
-  return;
-}
+        case "/run": {
+          await handleRunTaskCmd({
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            access,
+            callWithFallback,
+            runTask: runTaskWithAI,
+          });
+          return;
+        }
 
         case "/stop_all_tasks": {
   await handleStopAllTasks({

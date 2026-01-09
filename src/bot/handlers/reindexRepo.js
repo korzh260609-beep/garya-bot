@@ -1,5 +1,5 @@
 // ============================================================================
-// === src/bot/handlers/reindexRepo.js — SKELETON (Repo Index trigger)
+// === src/bot/handlers/reindexRepo.js — DRY-RUN trigger
 // ============================================================================
 
 import { RepoIndexService } from "../../repo/RepoIndexService.js";
@@ -15,6 +15,11 @@ export async function handleReindexRepo({ bot, chatId }) {
 
   await bot.sendMessage(
     chatId,
-    `RepoIndex: ${result.status}. Files indexed: ${result.filesIndexed}`
+    [
+      `RepoIndex: ${result.status}`,
+      `filesListed: ${result.filesListed}`,
+      `filesFetched: ${result.filesFetched}`,
+      `filesSkipped: ${result.filesSkipped}`,
+    ].join("\n")
   );
 }

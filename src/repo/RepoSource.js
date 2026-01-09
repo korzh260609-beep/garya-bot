@@ -1,6 +1,8 @@
 // ============================================================================
-// === src/repo/RepoSource.js — GitHub Repo Source (SKELETON)
+// === src/repo/RepoSource.js — GitHub Repo Source (SKELETON v2)
 // ============================================================================
+
+import { githubGetJson } from "./githubApi.js";
 
 export class RepoSource {
   constructor({ repo, branch, token }) {
@@ -10,13 +12,16 @@ export class RepoSource {
   }
 
   async listFiles() {
-    // SKELETON: будет GitHub API list tree
+    // SKELETON: проверка доступа к репозиторию
+    const url = `https://api.github.com/repos/${this.repo}`;
+    await githubGetJson(url, { token: this.token });
+
+    // пока не возвращаем файлы
     return [];
   }
 
   async fetchTextFile(path) {
-    // SKELETON: будет GitHub API get content / blob
+    // SKELETON
     return null;
   }
 }
-

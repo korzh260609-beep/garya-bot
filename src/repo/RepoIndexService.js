@@ -1,8 +1,9 @@
 // ============================================================================
-// === src/repo/RepoIndexService.js — DRY-RUN (fetch content, no DB)
+// === src/repo/RepoIndexService.js — DRY-RUN with RepoIndexSnapshot
 // ============================================================================
 
 import { RepoSource } from "./RepoSource.js";
+import { RepoIndexSnapshot } from "./RepoIndexSnapshot.js";
 
 export class RepoIndexService {
   constructor({ repo, branch, token }) {
@@ -20,7 +21,11 @@ export class RepoIndexService {
   async runIndex() {
     const files = await this.source.listFiles();
 
-    // SAFETY CAP: чтобы не упереться в таймауты Render
+    const snapshot = new RepoIndexSnapshot({
+      repo: this.repo,
+      branch: this.branch,
+    });
+
     const MAX_FILES_PER_RUN = 20;
     const batch = Array.isArray(files) ? files.slice(0, MAX_FILES_PER_RUN) : [];
 
@@ -29,15 +34,20 @@ export class RepoIndexService {
 
     for (const path of batch) {
       const item = await this.source.fetchTextFile(path);
-      if (item && typeof item.content === "string") fetched += 1;
-      else skipped += 1;
+      if (item && typeof item.content === "string") {
+        snapshot.addFile({ path, content: item.content });
+        fetched += 1;
+      } else {
+        skipped += 1;
+      }
     }
 
-    return {
-      status: "dry-run",
+    snapshot.finalize({
       filesListed: Array.isArray(files) ? files.length : 0,
       filesFetched: fetched,
       filesSkipped: skipped,
-    };
+    });
+
+    return snapshot;
   }
 }

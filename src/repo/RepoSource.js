@@ -1,5 +1,5 @@
 // ============================================================================
-// === src/repo/RepoSource.js — GitHub Repo Source (SKELETON v4: list tree + filters)
+// === src/repo/RepoSource.js — GitHub Repo Source (SKELETON v5: list tree + filters + fetchTextFile)
 // ============================================================================
 
 import { githubGetJson } from "./githubApi.js";
@@ -39,7 +39,12 @@ export class RepoSource {
 
     // 5) Filters (denylist + allowlist + path length)
     const denyPrefixes = ["node_modules/", ".git/", "dist/", "build/"];
-    const denyExact = [".env", ".env.local", ".env.production", ".env.development"];
+    const denyExact = [
+      ".env",
+      ".env.local",
+      ".env.production",
+      ".env.development",
+    ];
     const allowExt = [".js", ".ts", ".json", ".md", ".sql", ".yml", ".yaml"];
     const MAX_PATH_LEN = 300;
 
@@ -67,7 +72,28 @@ export class RepoSource {
   }
 
   async fetchTextFile(path) {
-    // SKELETON
-    return null;
+    // 1) Загружаем raw-контент файла
+    const rawUrl = `https://raw.githubusercontent.com/${this.repo}/${this.branch}/${path}`;
+
+    const headers = {};
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+
+    const res = await fetch(rawUrl, { headers });
+    if (!res.ok) return null;
+
+    // 2) Проверяем размер по Content-Length (если есть)
+    const len = res.headers.get("content-length");
+    if (len && Number(len) > 200 * 1024) return null;
+
+    // 3) Читаем текст
+    const text = await res.text();
+
+    // 4) Доп. защита: реальный размер
+    if (text.length > 200 * 1024) return null;
+
+    return {
+      path,
+      content: text,
+    };
   }
 }

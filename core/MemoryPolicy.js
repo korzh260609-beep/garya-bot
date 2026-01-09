@@ -3,8 +3,13 @@
 // No side effects. No DB access. Policy-only.
 
 export const MemoryPolicy = {
+  // Backward compatible alias (old name)
   canPersist(entry) {
     return false;
   },
-};
 
+  // Current API used by RepoIndexSnapshot.js
+  isAllowed(entry) {
+    return false;
+  },
+};

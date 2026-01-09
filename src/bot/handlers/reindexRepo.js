@@ -1,5 +1,5 @@
 // ============================================================================
-// === src/bot/handlers/reindexRepo.js — DRY-RUN trigger
+// === src/bot/handlers/reindexRepo.js — DRY-RUN trigger (Snapshot output)
 // ============================================================================
 
 import { RepoIndexService } from "../../repo/RepoIndexService.js";
@@ -11,15 +11,22 @@ export async function handleReindexRepo({ bot, chatId }) {
     token: process.env.GITHUB_TOKEN,
   });
 
-  const result = await service.runIndex();
+  const snapshot = await service.runIndex();
+
+  const stats = snapshot?.stats || {};
+  const filesCount = Array.isArray(snapshot?.files) ? snapshot.files.length : 0;
 
   await bot.sendMessage(
     chatId,
     [
-      `RepoIndex: ${result.status}`,
-      `filesListed: ${result.filesListed}`,
-      `filesFetched: ${result.filesFetched}`,
-      `filesSkipped: ${result.filesSkipped}`,
+      `RepoIndex: dry-run`,
+      `repo: ${snapshot?.repo || "?"}`,
+      `branch: ${snapshot?.branch || "?"}`,
+      `createdAt: ${snapshot?.createdAt || "?"}`,
+      `filesListed: ${stats.filesListed ?? "?"}`,
+      `filesFetched: ${stats.filesFetched ?? "?"}`,
+      `filesSkipped: ${stats.filesSkipped ?? "?"}`,
+      `snapshotFiles: ${filesCount}`,
     ].join("\n")
   );
 }

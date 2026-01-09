@@ -2,6 +2,8 @@
 // === src/repo/RepoIndexSnapshot.js — NORMALIZED INDEX SNAPSHOT (SKELETON)
 // ============================================================================
 
+import { MemoryPolicy } from "../core/MemoryPolicy.js";
+
 export class RepoIndexSnapshot {
   constructor({ repo, branch }) {
     this.repo = repo;

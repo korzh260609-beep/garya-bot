@@ -46,8 +46,6 @@ import { handleDeny } from "./handlers/deny.js";
 
 import { handleApprove } from "./handlers/approve.js";
 
-import { approveAndNotify, denyAndNotify, listAccessRequests, createAccessRequest } from "../users/accessRequests.js";
-
 import { resolveUserAccess } from "../users/userAccess.js";
 
 import pool from "../../db.js";
@@ -76,7 +74,6 @@ import {
 } from "../memory/chatMemory.js";
 
 // === USERS ===
-import { ensureUserProfile } from "../users/userProfile.js";
 import { buildRequirePermOrReply } from "./permGuard.js";
 
 // === TASK ENGINE ===
@@ -167,7 +164,6 @@ export function attachMessageRouter({
     const trimmed = text.trim();
 
     // 0) User profile
-    await ensureUserProfile(msg);
 
     const { userRole, userPlan, bypass, access, user } = await resolveUserAccess({
       chatIdStr,

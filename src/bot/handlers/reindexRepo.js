@@ -1,5 +1,5 @@
 // ============================================================================
-// === src/bot/handlers/reindexRepo.js — DRY-RUN trigger (Snapshot output)
+// === src/bot/handlers/reindexRepo.js — DRY-RUN trigger (Snapshot diagnostics)
 // ============================================================================
 
 import { RepoIndexService } from "../../repo/RepoIndexService.js";
@@ -14,19 +14,20 @@ export async function handleReindexRepo({ bot, chatId }) {
   const snapshot = await service.runIndex();
 
   const stats = snapshot?.stats || {};
-  const filesCount = Array.isArray(snapshot?.files) ? snapshot.files.length : 0;
+  const files = Array.isArray(snapshot?.files) ? snapshot.files : [];
+  const pillarsCount = files.filter((f) => f?.path?.startsWith("pillars/")).length;
+  const firstPaths = files.slice(0, 10).map((f) => f.path).join("\n");
 
   await bot.sendMessage(
     chatId,
     [
       `RepoIndex: dry-run`,
-      `repo: ${snapshot?.repo || "?"}`,
-      `branch: ${snapshot?.branch || "?"}`,
-      `createdAt: ${snapshot?.createdAt || "?"}`,
       `filesListed: ${stats.filesListed ?? "?"}`,
       `filesFetched: ${stats.filesFetched ?? "?"}`,
       `filesSkipped: ${stats.filesSkipped ?? "?"}`,
-      `snapshotFiles: ${filesCount}`,
+      `snapshotFiles: ${files.length}`,
+      `pillarsInSnapshot: ${pillarsCount}`,
+      `first10:\n${firstPaths}`,
     ].join("\n")
   );
 }

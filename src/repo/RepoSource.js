@@ -1,14 +1,14 @@
 // ============================================================================
-// === src/repo/RepoSource.js — GitHub Repo Source (SKELETON v3: list tree)
+// === src/repo/RepoSource.js — GitHub Repo Source (SKELETON v4: list tree + filters)
 // ============================================================================
 
 import { githubGetJson } from "./githubApi.js";
 
 export class RepoSource {
   constructor({ repo, branch, token }) {
-    this.repo = repo;     // "owner/name"
+    this.repo = repo; // "owner/name"
     this.branch = branch; // "main"
-    this.token = token;   // fine-grained PAT
+    this.token = token; // fine-grained PAT
   }
 
   async listFiles() {
@@ -31,11 +31,37 @@ export class RepoSource {
     const tree = await githubGetJson(treeUrl, { token: this.token });
 
     // 4) Возвращаем только файлы (blob)
-    const files = Array.isArray(tree?.tree)
+    const rawFiles = Array.isArray(tree?.tree)
       ? tree.tree
           .filter((n) => n && n.type === "blob" && typeof n.path === "string")
           .map((n) => n.path)
       : [];
+
+    // 5) Filters (denylist + allowlist + path length)
+    const denyPrefixes = ["node_modules/", ".git/", "dist/", "build/"];
+    const denyExact = [".env", ".env.local", ".env.production", ".env.development"];
+    const allowExt = [".js", ".ts", ".json", ".md", ".sql", ".yml", ".yaml"];
+    const MAX_PATH_LEN = 300;
+
+    const files = rawFiles.filter((p) => {
+      if (!p || typeof p !== "string") return false;
+      if (p.length > MAX_PATH_LEN) return false;
+
+      // exact deny
+      if (denyExact.includes(p)) return false;
+
+      // prefix deny
+      for (const pref of denyPrefixes) {
+        if (p.startsWith(pref)) return false;
+      }
+
+      // extension allowlist
+      const lower = p.toLowerCase();
+      const okExt = allowExt.some((ext) => lower.endsWith(ext));
+      if (!okExt) return false;
+
+      return true;
+    });
 
     return files;
   }

@@ -1,5 +1,5 @@
 // ============================================================================
-// === src/bot/handlers/reindexRepo.js — DRY-RUN trigger (normal output)
+// === src/bot/handlers/reindexRepo.js — DRY-RUN trigger (summary output)
 // ============================================================================
 
 import { RepoIndexService } from "../../repo/RepoIndexService.js";
@@ -13,17 +13,29 @@ export async function handleReindexRepo({ bot, chatId }) {
 
   const snapshot = await service.runIndex();
 
-  const stats = snapshot?.stats || {};
-  const filesCount = Array.isArray(snapshot?.files) ? snapshot.files.length : 0;
+  const summary = snapshot.getSummary
+    ? snapshot.getSummary()
+    : {
+        repo: snapshot?.repo,
+        branch: snapshot?.branch,
+        createdAt: snapshot?.createdAt,
+        stats: snapshot?.stats,
+        snapshotFiles: Array.isArray(snapshot?.files) ? snapshot.files.length : 0,
+        memoryCandidates: 0,
+      };
 
   await bot.sendMessage(
     chatId,
     [
       `RepoIndex: dry-run`,
-      `filesListed: ${stats.filesListed ?? "?"}`,
-      `filesFetched: ${stats.filesFetched ?? "?"}`,
-      `filesSkipped: ${stats.filesSkipped ?? "?"}`,
-      `snapshotFiles: ${filesCount}`,
+      `repo: ${summary.repo || "?"}`,
+      `branch: ${summary.branch || "?"}`,
+      `createdAt: ${summary.createdAt || "?"}`,
+      `filesListed: ${summary.stats?.filesListed ?? "?"}`,
+      `filesFetched: ${summary.stats?.filesFetched ?? "?"}`,
+      `filesSkipped: ${summary.stats?.filesSkipped ?? "?"}`,
+      `snapshotFiles: ${summary.snapshotFiles ?? "?"}`,
+      `memoryCandidates: ${summary.memoryCandidates ?? "?"}`,
     ].join("\n")
   );
 }

@@ -35,7 +35,7 @@ export class RepoIndexService {
     // 1) СНАЧАЛА читаем PILLARS (приоритет)
     for (const path of PILLARS) {
       const item = await this.source.fetchTextFile(path);
-      if (item && item.content) {
+      if (item && typeof item.content === "string") {
         snapshot.addFile({ path, content: item.content });
         fetched += 1;
       } else {

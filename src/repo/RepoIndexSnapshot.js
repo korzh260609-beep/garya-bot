@@ -2,7 +2,7 @@
 // === src/repo/RepoIndexSnapshot.js — NORMALIZED INDEX SNAPSHOT
 // ============================================================================
 
-import { MemoryPolicy } from "../core/MemoryPolicy.js";
+import { MemoryPolicy } from "../../core/MemoryPolicy.js";
 
 export class RepoIndexSnapshot {
   constructor({ repo, branch }) {

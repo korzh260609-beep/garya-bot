@@ -2,6 +2,8 @@
 // Central command dispatcher.
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
+import { handlePrice } from "./handlers/price.js";
+
 import { handleProfile } from "./handlers/profile.js";
 
 import { handleMode } from "./handlers/mode.js";
@@ -36,34 +38,15 @@ case "/mode": {
 }
 
     case "/price": {
-      if (typeof ctx.rest !== "string") return { handled: false };
-      if (typeof ctx.getCoinGeckoSimplePriceById !== "function") return { handled: false };
-
-      const coinId = ctx.rest.trim().toLowerCase();
-
-      if (!coinId) {
-        await bot.sendMessage(chatId, "Использование: /price <coinId>\nПример: /price bitcoin");
-        return { handled: true };
-      }
-
-      const result = await ctx.getCoinGeckoSimplePriceById(coinId, "usd", {
-        userRole: ctx.userRole,
-        userPlan: ctx.userPlan,
-        bypassPermissions: ctx.bypass,
+      return await handlePrice({
+        bot,
+        chatId,
+        rest,
+        getCoinGeckoSimplePriceById,
+        userRole,
+        userPlan,
+        bypass,
       });
-
-      if (!result.ok) {
-        const err = String(result.error || "");
-        if (result.httpStatus === 429 || err.includes("429")) {
-          await bot.sendMessage(chatId, "⚠️ CoinGecko вернул лимит (429). Попробуй через 1–2 минуты.");
-        } else {
-          await bot.sendMessage(chatId, `❌ Ошибка: ${result.error}`);
-        }
-        return { handled: true };
-      }
-
-      await bot.sendMessage(chatId, `💰 ${result.id.toUpperCase()}: $${result.price}`);
-      return { handled: true };
     }
 
     case "/prices": {

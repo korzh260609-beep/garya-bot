@@ -233,8 +233,11 @@ if (!/\breturn\b/.test(cur)) continue;
 function checkDecisionsViolations(code) {
   const issues = [];
 
-  // Simple rule example: forbid console logging in production code
-  if (/\bconsole\.log\b/.test(code)) {
+  // V1: ignore single-line comments to reduce false positives
+  const codeNoLineComments = String(code || "").replace(/\/\/.*$/gm, "");
+
+  // Simple rule example: no console.log in production code
+  if (/\bconsole\.log\b/.test(codeNoLineComments)) {
     issues.push({
       code: "DECISION_VIOLATION",
       severity: "medium",

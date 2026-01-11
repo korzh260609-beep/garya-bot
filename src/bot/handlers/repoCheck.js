@@ -155,29 +155,29 @@ function findUnreachableCode(code) {
   const lines = code.split("\n");
 
   for (let i = 0; i < lines.length - 1; i++) {
-const cur = lines[i] || "";
-const curTrim = cur.trim();
+    const cur = lines[i] || "";
+    const curTrim = cur.trim();
 
-// Skip comments (V2 heuristic, avoids false positives)
-if (
-  curTrim.startsWith("//") ||
-  curTrim.startsWith("/*") ||
-  curTrim.startsWith("*") ||
-  curTrim.startsWith("*/")
-) {
-  continue;
-}
+    // Skip comments (V2 heuristic, avoids false positives)
+    if (
+      curTrim.startsWith("//") ||
+      curTrim.startsWith("/*") ||
+      curTrim.startsWith("*") ||
+      curTrim.startsWith("*/")
+    ) {
+      continue;
+    }
 
     // Skip obvious string literals to reduce false positives ("return" inside text)
-if (
-  (curTrim.startsWith('"') && curTrim.endsWith('"')) ||
-  (curTrim.startsWith("'") && curTrim.endsWith("'")) ||
-  (curTrim.startsWith("`") && curTrim.endsWith("`"))
-) {
-  continue;
-}
+    if (
+      (curTrim.startsWith('"') && curTrim.endsWith('"')) ||
+      (curTrim.startsWith("'") && curTrim.endsWith("'")) ||
+      (curTrim.startsWith("`") && curTrim.endsWith("`"))
+    ) {
+      continue;
+    }
 
-if (!/\breturn\b/.test(cur)) continue;
+    if (!/\breturn\b/.test(cur)) continue;
 
     // If "return" is inside a switch/case style flow, skip.
     // Heuristic: look back a few lines for "case" or "switch"
@@ -185,7 +185,10 @@ if (!/\breturn\b/.test(cur)) continue;
     const back2 = lines[i - 2] || "";
     const back3 = lines[i - 3] || "";
     const backWindow = `${back1}\n${back2}\n${back3}`;
-    if (/\bcase\s+["']\/[^"']+["']\s*:/.test(backWindow) || /\bswitch\s*\(/.test(backWindow)) {
+    if (
+      /\bcase\s+["']\/[^"']+["']\s*:/.test(backWindow) ||
+      /\bswitch\s*\(/.test(backWindow)
+    ) {
       continue;
     }
 
@@ -233,11 +236,22 @@ if (!/\breturn\b/.test(cur)) continue;
 function checkDecisionsViolations(code) {
   const issues = [];
 
-  // V1: ignore single-line comments to reduce false positives
-  const codeNoLineComments = String(code || "").replace(/\/\/.*$/gm, "");
+  // V1: sanitize comments + string literals to reduce false positives
+  let sanitized = String(code || "");
+
+  // remove // line comments
+  sanitized = sanitized.replace(/\/\/.*$/gm, "");
+
+  // remove /* block comments */
+  sanitized = sanitized.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  // remove string literals (rough, V1 heuristic)
+  sanitized = sanitized.replace(/`[\s\S]*?`/g, "");
+  sanitized = sanitized.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, "");
+  sanitized = sanitized.replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, "");
 
   // Simple rule example: no console.log in production code
-  if (/\bconsole\.log\b/.test(codeNoLineComments)) {
+  if (/\bconsole\.log\b/.test(sanitized)) {
     issues.push({
       code: "DECISION_VIOLATION",
       severity: "medium",
@@ -291,7 +305,9 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
     ).test(code);
 
     // Allow "ctx.handleX" style usage (already excluded by regex, but keep safe)
-    const asProperty = new RegExp(`\\b[A-Za-z_$][A-Za-z0-9_$]*\\.${h}\\b`).test(code);
+    const asProperty = new RegExp(`\\b[A-Za-z_$][A-Za-z0-9_$]*\\.${h}\\b`).test(
+      code
+    );
 
     if (!selfDefined && !imported.has(h) && !asProperty) {
       issues.push({
@@ -311,20 +327,19 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
   issues.push(...checkDecisionsViolations(code));
 
   // Output
-// Output
-const out = [];
-out.push(`repo_check: ${path}`);
+  const out = [];
+  out.push(`repo_check: ${path}`);
 
-out.push("");
-out.push("Suggestions (READ-ONLY):");
-out.push("- (none)");
-
-if (issues.length === 0) {
   out.push("");
-  out.push("OK: no issues detected by V2 checks.");
-  await bot.sendMessage(chatId, out.join("\n"));
-  return;
-}
+  out.push("Suggestions (READ-ONLY):");
+  out.push("- (none)");
+
+  if (issues.length === 0) {
+    out.push("");
+    out.push("OK: no issues detected by V2 checks.");
+    await bot.sendMessage(chatId, out.join("\n"));
+    return;
+  }
 
   const bySev = issues.reduce(
     (acc, it) => {
@@ -335,7 +350,9 @@ if (issues.length === 0) {
   );
 
   out.push(
-    `issues: ${issues.length} (high=${bySev.high || 0}, medium=${bySev.medium || 0}, low=${bySev.low || 0})`
+    `issues: ${issues.length} (high=${bySev.high || 0}, medium=${
+      bySev.medium || 0
+    }, low=${bySev.low || 0})`
   );
 
   issues.slice(0, 15).forEach((it, i) => {

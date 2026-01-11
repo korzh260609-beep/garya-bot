@@ -233,7 +233,7 @@ if (!/\breturn\b/.test(cur)) continue;
 function checkDecisionsViolations(code) {
   const issues = [];
 
-  // Simple rule example: no console.log in production code
+  // Simple rule example: forbid console logging in production code
   if (/\bconsole\.log\b/.test(code)) {
     issues.push({
       code: "DECISION_VIOLATION",

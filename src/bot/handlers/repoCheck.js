@@ -263,6 +263,85 @@ function checkDecisionsViolations(code) {
 }
 
 /* =========================
+   SUGGESTIONS (READ-ONLY) — V1
+   Rules:
+   - Suggestions are derived ONLY from detected issues + rules
+   - No code patches, no "insert this"
+   - Max 7 items
+   - Format: severity + category + reason
+   ========================= */
+
+function buildSuggestionsFromIssues(issues) {
+  const map = {
+    MISSING_IMPORT: {
+      category: "correctness",
+      reason:
+        "Check missing imports/exports for referenced identifiers; may break runtime execution.",
+    },
+    POSSIBLE_UNDEFINED_REST: {
+      category: "correctness",
+      reason:
+        "Verify ctx destructuring and usage of rest; undefined variables can cause runtime crashes.",
+    },
+    DUPLICATE_COMMAND_CASE: {
+      category: "maintainability",
+      reason:
+        "Duplicate command cases can cause unreachable branches or inconsistent routing; ensure uniqueness.",
+    },
+    UNUSED_IMPORT: {
+      category: "cleanliness",
+      reason:
+        "Unused imports increase noise and may hide real problems; consider removing if truly unused.",
+    },
+    UNREACHABLE_CODE: {
+      category: "maintainability",
+      reason:
+        "Review control flow around return/guard clauses; note this check is heuristic without AST.",
+    },
+    DECISION_VIOLATION: {
+      category: "compliance",
+      reason:
+        "Potential project rule violation detected; confirm against DECISIONS.md and adjust accordingly.",
+    },
+  };
+
+  const rankSev = (s) => (s === "high" ? 3 : s === "medium" ? 2 : 1);
+
+  // Deduplicate by issue.code to avoid spamming; keep highest severity occurrence.
+  const byCode = new Map();
+  for (const it of issues || []) {
+    if (!it?.code) continue;
+    const prev = byCode.get(it.code);
+    if (!prev || rankSev(it.severity) > rankSev(prev.severity)) {
+      byCode.set(it.code, it);
+    }
+  }
+
+  const unique = Array.from(byCode.values());
+
+  // Sort by severity desc, then stable by code
+  unique.sort((a, b) => {
+    const d = rankSev(b.severity) - rankSev(a.severity);
+    if (d !== 0) return d;
+    return String(a.code).localeCompare(String(b.code));
+  });
+
+  const suggestions = [];
+  for (const it of unique) {
+    const meta = map[it.code];
+    if (!meta) continue;
+    suggestions.push({
+      severity: it.severity || "low",
+      category: meta.category,
+      reason: meta.reason,
+    });
+    if (suggestions.length >= 7) break;
+  }
+
+  return suggestions;
+}
+
+/* =========================
    MAIN HANDLER
    ========================= */
 
@@ -332,7 +411,16 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
 
   out.push("");
   out.push("Suggestions (READ-ONLY):");
-  out.push("- (none)");
+
+  const suggestions = buildSuggestionsFromIssues(issues);
+
+  if (!suggestions || suggestions.length === 0) {
+    out.push("- (none)");
+  } else {
+    suggestions.forEach((s, i) => {
+      out.push(`${i + 1}) [${s.severity}][${s.category}] ${s.reason}`);
+    });
+  }
 
   if (issues.length === 0) {
     out.push("");

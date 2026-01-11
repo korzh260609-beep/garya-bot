@@ -1,5 +1,5 @@
 // ============================================================================
-// === src/bot/handlers/repoCheck.js — READ-ONLY static checks (no fixes)
+// === src/bot/handlers/repoCheck.js — READ-ONLY static checks (V2)
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -14,6 +14,10 @@ function denySensitivePath(path) {
   );
 }
 
+/* =========================
+   IMPORT / USAGE ANALYSIS
+   ========================= */
+
 function extractImportedNames(code) {
   const imported = new Set();
 
@@ -27,7 +31,6 @@ function extractImportedNames(code) {
       .map((s) => s.trim())
       .filter(Boolean)
       .forEach((part) => {
-        // "b as c" => take c
         const asMatch = part.match(/\bas\b\s+([A-Za-z0-9_$]+)/);
         if (asMatch?.[1]) imported.add(asMatch[1]);
         else imported.add(part.replace(/\s+/g, ""));
@@ -49,9 +52,19 @@ function extractImportedNames(code) {
   return imported;
 }
 
+function extractUsedIdentifiers(code) {
+  const used = new Set();
+  const re = /\b([A-Za-z_$][A-Za-z0-9_$]*)\b/g;
+  let m;
+  while ((m = re.exec(code))) {
+    if (m[1]) used.add(m[1]);
+  }
+  return used;
+}
+
 function findUsedHandles(code) {
   const used = new Set();
-  // ignore property access like "ctx.handleX" or "obj.handleX"
+  // ignore property access like "ctx.handleX"
   const re = /(?<!\.)\b(handle[A-Z][A-Za-z0-9_$]*)\b/g;
   let m;
   while ((m = re.exec(code))) {
@@ -60,16 +73,17 @@ function findUsedHandles(code) {
   return used;
 }
 
+/* =========================
+   BUG PATTERNS
+   ========================= */
+
 function findUndefinedRestBug(code) {
-  // Detect "const { bot, chatId } = ctx;" + later uses "rest" (without ctx.rest)
-  // and handler call includes "rest," but "rest" not defined in scope.
   const issues = [];
   const hasCtxDestructureNoRest =
     /const\s*\{\s*bot\s*,\s*chatId[^}]*\}\s*=\s*ctx\s*;/.test(code) &&
     !/const\s*\{[^}]*\brest\b[^}]*\}\s*=\s*ctx\s*;/.test(code);
 
   if (hasCtxDestructureNoRest) {
-    // If somewhere "rest," appears as an argument, flag it
     if (/\brest\s*,/.test(code) && !/\bconst\s+rest\s*=/.test(code)) {
       issues.push({
         code: "POSSIBLE_UNDEFINED_REST",
@@ -90,8 +104,7 @@ function findDuplicateCases(code) {
   while ((m = re.exec(code))) {
     const cmd = m[1];
     if (!cmd) continue;
-    const count = (seen.get(cmd) || 0) + 1;
-    seen.set(cmd, count);
+    seen.set(cmd, (seen.get(cmd) || 0) + 1);
   }
   for (const [cmd, count] of seen.entries()) {
     if (count > 1) {
@@ -104,6 +117,62 @@ function findDuplicateCases(code) {
   }
   return issues;
 }
+
+function findUnusedImports(code) {
+  const issues = [];
+  const imported = extractImportedNames(code);
+  const used = extractUsedIdentifiers(code);
+
+  for (const name of imported) {
+    if (!used.has(name)) {
+      issues.push({
+        code: "UNUSED_IMPORT",
+        severity: "low",
+        message: `Imported '${name}' is never used.`,
+      });
+    }
+  }
+  return issues;
+}
+
+function findUnreachableCode(code) {
+  const issues = [];
+  const lines = code.split("\n");
+
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (/\breturn\b/.test(lines[i]) && lines[i + 1].trim()) {
+      issues.push({
+        code: "UNREACHABLE_CODE",
+        severity: "medium",
+        message: `Possible unreachable code after 'return' at line ${i + 2}.`,
+      });
+    }
+  }
+  return issues;
+}
+
+/* =========================
+   DECISIONS.md RULES (V1)
+   ========================= */
+
+function checkDecisionsViolations(code) {
+  const issues = [];
+
+  // Rule example: no console.log in production code
+  if (/\bconsole\.log\b/.test(code)) {
+    issues.push({
+      code: "DECISION_VIOLATION",
+      severity: "medium",
+      message: "Usage of console.log violates DECISIONS.md rules.",
+    });
+  }
+
+  return issues;
+}
+
+/* =========================
+   MAIN HANDLER
+   ========================= */
 
 export async function handleRepoCheck({ bot, chatId, rest }) {
   const path = (rest || "").trim();
@@ -132,18 +201,17 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
   }
 
   const code = file.content;
-
   const issues = [];
 
-  // 1) Missing imports for handleX usages (common refactor regression)
+  // V1
   const imported = extractImportedNames(code);
   const usedHandles = findUsedHandles(code);
 
   for (const h of usedHandles) {
-    // Allow self definition: "export async function handleX"
-    const selfDefined = new RegExp(`\\bfunction\\s+${h}\\b|\\bconst\\s+${h}\\b|\\bexport\\s+function\\s+${h}\\b|\\bexport\\s+async\\s+function\\s+${h}\\b`).test(
-      code
-    );
+    const selfDefined = new RegExp(
+      `\\bfunction\\s+${h}\\b|\\bconst\\s+${h}\\b|\\bexport\\s+(async\\s+)?function\\s+${h}\\b`
+    ).test(code);
+
     if (!selfDefined && !imported.has(h)) {
       issues.push({
         code: "MISSING_IMPORT",
@@ -153,17 +221,20 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
     }
   }
 
-  // 2) Undefined 'rest' pattern (your repo already had a similar risk)
   issues.push(...findUndefinedRestBug(code));
-
-  // 3) Duplicate command cases (switch)
   issues.push(...findDuplicateCases(code));
 
-  // Output (compact)
+  // V2
+  issues.push(...findUnusedImports(code));
+  issues.push(...findUnreachableCode(code));
+  issues.push(...checkDecisionsViolations(code));
+
+  // Output
   const lines = [];
   lines.push(`repo_check: ${path}`);
+
   if (issues.length === 0) {
-    lines.push(`OK: no issues detected by V1 checks.`);
+    lines.push("OK: no issues detected by V2 checks.");
     await bot.sendMessage(chatId, lines.join("\n"));
     return;
   }
@@ -173,21 +244,20 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
       acc[it.severity] = (acc[it.severity] || 0) + 1;
       return acc;
     },
-    { high: 0, medium: 0, low: 0 }
+    {}
   );
 
-  lines.push(`issues: ${issues.length} (high=${bySev.high || 0}, medium=${bySev.medium || 0}, low=${bySev.low || 0})`);
+  lines.push(
+    `issues: ${issues.length} (high=${bySev.high || 0}, medium=${bySev.medium || 0}, low=${bySev.low || 0})`
+  );
 
-  const top = issues.slice(0, 15);
-  for (let i = 0; i < top.length; i += 1) {
-    const it = top[i];
+  issues.slice(0, 15).forEach((it, i) => {
     lines.push(`${i + 1}) [${it.severity}] ${it.code}: ${it.message}`);
-  }
+  });
 
-  if (issues.length > top.length) {
-    lines.push(`...and ${issues.length - top.length} more`);
+  if (issues.length > 15) {
+    lines.push(`...and ${issues.length - 15} more`);
   }
 
   await bot.sendMessage(chatId, lines.join("\n"));
 }
-

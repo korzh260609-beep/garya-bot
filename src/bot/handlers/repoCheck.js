@@ -148,11 +148,19 @@ function findUnreachableCode(code) {
     if (
       next === "" ||
       next === "}" ||
+      next === "};" ||
+      next === ")" ||
+      next === ");" ||
       next.startsWith("case ") ||
       next === "default:" ||
       next === "break;" ||
       next === "break"
     ) {
+      continue;
+    }
+
+    // Also allow closing block lines like "}" with indentation
+    if (/^\s*\}\s*$/.test(lines[i + 1])) {
       continue;
     }
 

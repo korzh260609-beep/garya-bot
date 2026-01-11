@@ -51,8 +51,8 @@ function extractImportedNames(code) {
 
 function findUsedHandles(code) {
   const used = new Set();
-  // naive: any identifier starting with handle + Capital
-  const re = /\b(handle[A-Z][A-Za-z0-9_$]*)\b/g;
+  // ignore property access like "ctx.handleX" or "obj.handleX"
+  const re = /(?<!\.)\b(handle[A-Z][A-Za-z0-9_$]*)\b/g;
   let m;
   while ((m = re.exec(code))) {
     if (m[1]) used.add(m[1]);

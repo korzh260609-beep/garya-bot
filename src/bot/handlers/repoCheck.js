@@ -168,6 +168,15 @@ if (
   continue;
 }
 
+    // Skip obvious string literals to reduce false positives ("return" inside text)
+if (
+  (curTrim.startsWith('"') && curTrim.endsWith('"')) ||
+  (curTrim.startsWith("'") && curTrim.endsWith("'")) ||
+  (curTrim.startsWith("`") && curTrim.endsWith("`"))
+) {
+  continue;
+}
+
 if (!/\breturn\b/.test(cur)) continue;
 
     // If "return" is inside a switch/case style flow, skip.

@@ -1,5 +1,5 @@
 // ============================================================================
-// === src/bot/handlers/repoCheck.js — READ-ONLY static checks (V2)
+// === src/bot/handlers/repoCheck.js — READ-ONLY static checks (V2, stable)
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -64,7 +64,8 @@ function extractUsedIdentifiers(code) {
 
 function findUsedHandles(code) {
   const used = new Set();
-  // ignore property access like "ctx.handleX"
+  // ignore property access like "ctx.handleX" or "obj.handleX"
+  // NOTE: negative lookbehind requires Node 16+ (Render should be OK)
   const re = /(?<!\.)\b(handle[A-Z][A-Za-z0-9_$]*)\b/g;
   let m;
   while ((m = re.exec(code))) {
@@ -79,12 +80,14 @@ function findUsedHandles(code) {
 
 function findUndefinedRestBug(code) {
   const issues = [];
+
   const hasCtxDestructureNoRest =
     /const\s*\{\s*bot\s*,\s*chatId[^}]*\}\s*=\s*ctx\s*;/.test(code) &&
     !/const\s*\{[^}]*\brest\b[^}]*\}\s*=\s*ctx\s*;/.test(code);
 
   if (hasCtxDestructureNoRest) {
-    if (/\brest\s*,/.test(code) && !/\bconst\s+rest\s*=/.test(code)) {
+    // If file uses "rest" token-like, but doesn't define it as local const
+    if (/\brest\b/.test(code) && !/\bconst\s+rest\s*=/.test(code)) {
       issues.push({
         code: "POSSIBLE_UNDEFINED_REST",
         severity: "high",
@@ -93,6 +96,7 @@ function findUndefinedRestBug(code) {
       });
     }
   }
+
   return issues;
 }
 
@@ -135,31 +139,62 @@ function findUnusedImports(code) {
   return issues;
 }
 
+/**
+ * UNREACHABLE_CODE (V2, conservative)
+ * We only flag a "return" if there's obvious same-block code after it.
+ *
+ * IMPORTANT: We avoid false positives for:
+ * - switch/case blocks
+ * - early returns in guard clauses
+ * - "return ... }" followed by "case ..."
+ *
+ * This is NOT an AST parser by design (keep V2 simple).
+ */
 function findUnreachableCode(code) {
   const issues = [];
   const lines = code.split("\n");
 
   for (let i = 0; i < lines.length - 1; i++) {
-    if (!/\breturn\b/.test(lines[i])) continue;
+    const cur = lines[i] || "";
+    if (!/\breturn\b/.test(cur)) continue;
 
-    // Look ahead up to 3 lines
+    // If "return" is inside a switch/case style flow, skip.
+    // Heuristic: look back a few lines for "case" or "switch"
+    const back1 = lines[i - 1] || "";
+    const back2 = lines[i - 2] || "";
+    const back3 = lines[i - 3] || "";
+    const backWindow = `${back1}\n${back2}\n${back3}`;
+    if (/\bcase\s+["']\/[^"']+["']\s*:/.test(backWindow) || /\bswitch\s*\(/.test(backWindow)) {
+      continue;
+    }
+
+    // Look ahead up to 3 lines (to allow: return -> } -> case)
     const next1 = lines[i + 1] || "";
     const next2 = lines[i + 2] || "";
     const next3 = lines[i + 3] || "";
 
-    const allowed = (line) =>
-      line.trim() === "" ||
-      /^\s*\}\s*;?\s*$/.test(line) ||
-      /^\s*case\s+/.test(line) ||
-      /^\s*default\s*:/.test(line) ||
-      /^\s*break\s*;?\s*$/.test(line);
+    const isBoundary = (line) => {
+      const t = (line || "").trim();
+      if (t === "") return true;
+      if (/^\}\s*;?$/.test(t)) return true;
+      if (/^\)\s*;?$/.test(t)) return true;
+      if (/^case\s+/.test(t)) return true;
+      if (/^default\s*:/.test(t)) return true;
+      if (/^break\s*;?$/.test(t)) return true;
+      return false;
+    };
 
-    if (allowed(next1)) {
-      // allow patterns like: return -> } -> case
-      if (allowed(next2) || allowed(next3)) continue;
+    // If immediate next is boundary, we assume no unreachable.
+    // Also allow: boundary -> boundary (like: "}" then "case").
+    if (isBoundary(next1)) {
+      if (isBoundary(next2) || isBoundary(next3)) {
+        continue;
+      }
       continue;
     }
 
+    // If next line starts a new block/case, it's boundary anyway.
+    // Otherwise it's suspicious.
     issues.push({
       code: "UNREACHABLE_CODE",
       severity: "medium",
@@ -177,7 +212,7 @@ function findUnreachableCode(code) {
 function checkDecisionsViolations(code) {
   const issues = [];
 
-  // Rule example: no console.log in production code
+  // Simple rule example: no console.log in production code
   if (/\bconsole\.log\b/.test(code)) {
     issues.push({
       code: "DECISION_VIOLATION",
@@ -222,16 +257,19 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
   const code = file.content;
   const issues = [];
 
-  // V1
+  // V1: missing handler imports (only for bare identifiers, not ctx.handleX)
   const imported = extractImportedNames(code);
   const usedHandles = findUsedHandles(code);
 
   for (const h of usedHandles) {
     const selfDefined = new RegExp(
-      `\\bfunction\\s+${h}\\b|\\bconst\\s+${h}\\b|\\bexport\\s+(async\\s+)?function\\s+${h}\\b`
+      `\\bfunction\\s+${h}\\b|\\bconst\\s+${h}\\b|\\blet\\s+${h}\\b|\\bvar\\s+${h}\\b|\\bexport\\s+(async\\s+)?function\\s+${h}\\b`
     ).test(code);
 
-    if (!selfDefined && !imported.has(h)) {
+    // Allow "ctx.handleX" style usage (already excluded by regex, but keep safe)
+    const asProperty = new RegExp(`\\b[A-Za-z_$][A-Za-z0-9_$]*\\.${h}\\b`).test(code);
+
+    if (!selfDefined && !imported.has(h) && !asProperty) {
       issues.push({
         code: "MISSING_IMPORT",
         severity: "high",
@@ -249,12 +287,12 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
   issues.push(...checkDecisionsViolations(code));
 
   // Output
-  const lines = [];
-  lines.push(`repo_check: ${path}`);
+  const out = [];
+  out.push(`repo_check: ${path}`);
 
   if (issues.length === 0) {
-    lines.push("OK: no issues detected by V2 checks.");
-    await bot.sendMessage(chatId, lines.join("\n"));
+    out.push("OK: no issues detected by V2 checks.");
+    await bot.sendMessage(chatId, out.join("\n"));
     return;
   }
 
@@ -266,17 +304,17 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
     {}
   );
 
-  lines.push(
+  out.push(
     `issues: ${issues.length} (high=${bySev.high || 0}, medium=${bySev.medium || 0}, low=${bySev.low || 0})`
   );
 
   issues.slice(0, 15).forEach((it, i) => {
-    lines.push(`${i + 1}) [${it.severity}] ${it.code}: ${it.message}`);
+    out.push(`${i + 1}) [${it.severity}] ${it.code}: ${it.message}`);
   });
 
   if (issues.length > 15) {
-    lines.push(`...and ${issues.length - 15} more`);
+    out.push(`...and ${issues.length - 15} more`);
   }
 
-  await bot.sendMessage(chatId, lines.join("\n"));
+  await bot.sendMessage(chatId, out.join("\n"));
 }

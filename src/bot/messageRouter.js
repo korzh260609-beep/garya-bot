@@ -2,6 +2,8 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleRepoGet } from "./handlers/repoGet.js";
+
 import { handleReindexRepo } from "./handlers/reindexRepo.js";
 
 import { CMD_ACTION } from "./cmdActionMap.js";
@@ -263,6 +265,15 @@ export function attachMessageRouter({
   await handleReindexRepo({
     bot,
     chatId,
+  });
+  return;
+}
+
+          case "/repo_get": {
+  await handleRepoGet({
+    bot,
+    chatId,
+    rest,
   });
   return;
 }

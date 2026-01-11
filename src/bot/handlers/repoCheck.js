@@ -142,25 +142,21 @@ function findUnreachableCode(code) {
   for (let i = 0; i < lines.length - 1; i++) {
     if (!/\breturn\b/.test(lines[i])) continue;
 
-    const next = (lines[i + 1] || "").trim();
+    // Look ahead up to 3 lines
+    const next1 = lines[i + 1] || "";
+    const next2 = lines[i + 2] || "";
+    const next3 = lines[i + 3] || "";
 
-    // Allowed control-flow boundaries
-    if (
-      next === "" ||
-      next === "}" ||
-      next === "};" ||
-      next === ")" ||
-      next === ");" ||
-      next.startsWith("case ") ||
-      next === "default:" ||
-      next === "break;" ||
-      next === "break"
-    ) {
-      continue;
-    }
+    const allowed = (line) =>
+      line.trim() === "" ||
+      /^\s*\}\s*;?\s*$/.test(line) ||
+      /^\s*case\s+/.test(line) ||
+      /^\s*default\s*:/.test(line) ||
+      /^\s*break\s*;?\s*$/.test(line);
 
-    // Also allow closing block lines like "}" with indentation
-    if (/^\s*\}\s*$/.test(lines[i + 1])) {
+    if (allowed(next1)) {
+      // allow patterns like: return -> } -> case
+      if (allowed(next2) || allowed(next3)) continue;
       continue;
     }
 

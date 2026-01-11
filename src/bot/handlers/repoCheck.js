@@ -155,8 +155,20 @@ function findUnreachableCode(code) {
   const lines = code.split("\n");
 
   for (let i = 0; i < lines.length - 1; i++) {
-    const cur = lines[i] || "";
-    if (!/\breturn\b/.test(cur)) continue;
+const cur = lines[i] || "";
+const curTrim = cur.trim();
+
+// Skip comments (V2 heuristic, avoids false positives)
+if (
+  curTrim.startsWith("//") ||
+  curTrim.startsWith("/*") ||
+  curTrim.startsWith("*") ||
+  curTrim.startsWith("*/")
+) {
+  continue;
+}
+
+if (!/\breturn\b/.test(cur)) continue;
 
     // If "return" is inside a switch/case style flow, skip.
     // Heuristic: look back a few lines for "case" or "switch"

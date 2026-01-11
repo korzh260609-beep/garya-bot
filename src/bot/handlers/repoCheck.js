@@ -287,14 +287,20 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
   issues.push(...checkDecisionsViolations(code));
 
   // Output
-  const out = [];
-  out.push(`repo_check: ${path}`);
+// Output
+const out = [];
+out.push(`repo_check: ${path}`);
 
-  if (issues.length === 0) {
-    out.push("OK: no issues detected by V2 checks.");
-    await bot.sendMessage(chatId, out.join("\n"));
-    return;
-  }
+out.push("");
+out.push("Suggestions (READ-ONLY):");
+out.push("- (none)");
+
+if (issues.length === 0) {
+  out.push("");
+  out.push("OK: no issues detected by V2 checks.");
+  await bot.sendMessage(chatId, out.join("\n"));
+  return;
+}
 
   const bySev = issues.reduce(
     (acc, it) => {

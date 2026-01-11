@@ -317,28 +317,38 @@ function buildSuggestionsFromIssues(issues) {
     }
   }
 
-  const unique = Array.from(byCode.values());
+const unique = Array.from(byCode.values());
 
-  // Sort by severity desc, then stable by code
-  unique.sort((a, b) => {
-    const d = rankSev(b.severity) - rankSev(a.severity);
-    if (d !== 0) return d;
-    return String(a.code).localeCompare(String(b.code));
+// B3.3.2 — do not suggest heuristic-only unreachable code
+// if it is the only issue type or not high severity
+const hasNonHeuristic = unique.some((i) => i.code !== "UNREACHABLE_CODE");
+
+const filtered = unique.filter((i) => {
+  if (i.code !== "UNREACHABLE_CODE") return true;
+  if (i.severity === "high") return true;
+  return hasNonHeuristic;
+});
+
+// Sort by severity desc, then stable by code
+filtered.sort((a, b) => {
+  const d = rankSev(b.severity) - rankSev(a.severity);
+  if (d !== 0) return d;
+  return String(a.code).localeCompare(String(b.code));
+});
+
+const suggestions = [];
+for (const it of filtered) {
+  const meta = map[it.code];
+  if (!meta) continue;
+  suggestions.push({
+    severity: it.severity || "low",
+    category: meta.category,
+    reason: meta.reason,
   });
+  if (suggestions.length >= 7) break;
+}
 
-  const suggestions = [];
-  for (const it of unique) {
-    const meta = map[it.code];
-    if (!meta) continue;
-    suggestions.push({
-      severity: it.severity || "low",
-      category: meta.category,
-      reason: meta.reason,
-    });
-    if (suggestions.length >= 7) break;
-  }
-
-  return suggestions;
+return suggestions;
 }
 
 /* =========================

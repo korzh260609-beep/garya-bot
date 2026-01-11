@@ -4,6 +4,13 @@
 // === Purpose: compare two files from GitHub repo (no writes, no patches yet)
 // ============================================================================
 
+// READ-ONLY CONTRACT
+// repo_diff is a comparison-only tool.
+// - No writes
+// - No execution
+// - No auto-apply
+// Output: unified diff preview only
+
 import { RepoSource } from "../../repo/RepoSource.js";
 
 function denySensitivePath(path) {

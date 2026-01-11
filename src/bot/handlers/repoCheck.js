@@ -140,14 +140,29 @@ function findUnreachableCode(code) {
   const lines = code.split("\n");
 
   for (let i = 0; i < lines.length - 1; i++) {
-    if (/\breturn\b/.test(lines[i]) && lines[i + 1].trim()) {
-      issues.push({
-        code: "UNREACHABLE_CODE",
-        severity: "medium",
-        message: `Possible unreachable code after 'return' at line ${i + 2}.`,
-      });
+    if (!/\breturn\b/.test(lines[i])) continue;
+
+    const next = (lines[i + 1] || "").trim();
+
+    // Allowed control-flow boundaries
+    if (
+      next === "" ||
+      next === "}" ||
+      next.startsWith("case ") ||
+      next === "default:" ||
+      next === "break;" ||
+      next === "break"
+    ) {
+      continue;
     }
+
+    issues.push({
+      code: "UNREACHABLE_CODE",
+      severity: "medium",
+      message: `Possible unreachable code after 'return' at line ${i + 2}.`,
+    });
   }
+
   return issues;
 }
 

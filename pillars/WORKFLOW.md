@@ -451,6 +451,25 @@ For each roadmap item:
 ❌ 12A.4 Automation/Webhook capability  
 ❌ 12A.5 Capability registry
 
+## (SKELETON) 12A.0 REPOSITORY INDEXING (READ-ONLY FOUNDATION)
+
+✅ 12A.0.1 GitHub access (fine-grained, read-only)
+✅ 12A.0.2 RepoSource (list + fetch files)
+✅ 12A.0.3 RepoIndexService (orchestration)
+✅ 12A.0.4 textFilters (deny secrets / noise)
+✅ 12A.0.5 RepoIndexSnapshot (normalized snapshot)
+✅ 12A.0.6 Pillars indexing (pillars/*.md)
+✅ 12A.0.7 MemoryPolicy (policy-only, no writes)
+✅ 12A.0.8 /reindex dry-run diagnostics
+✅ 12A.0.9 memoryCandidates preview (NO persistence)
+
+Notes:
+- Read-only only
+- No memory writes
+- No AI reasoning
+- No code modification
+- Used as foundation for future Code/Repo Analysis capability
+
 ---
 
 # ❌ STAGE 12 — FILE-INTAKE V2 (SPECIALIZED AI REALIZATION)

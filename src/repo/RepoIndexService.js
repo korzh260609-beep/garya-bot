@@ -53,7 +53,7 @@ export class RepoIndexService {
       if (path.startsWith("pillars/")) continue;
 
       const item = await this.source.fetchTextFile(path);
-      if (item && item.content) {
+      if (item && typeof item.content === "string") {
         snapshot.addFile({ path, content: item.content });
         fetched += 1;
       } else {
@@ -67,6 +67,7 @@ export class RepoIndexService {
       filesSkipped: skipped,
     });
 
+    // Важно: RepoIndexService НЕ пишет в память. Возвращаем snapshot как есть.
     return snapshot;
   }
 }

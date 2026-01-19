@@ -276,32 +276,32 @@ function buildSuggestionsFromIssues(issues) {
     MISSING_IMPORT: {
       category: "correctness",
       reason:
-        "Check missing imports/exports for referenced identifiers; may break runtime execution.",
+        "Review referenced identifiers that appear without an import/export — because: missing imports can cause runtime failures.",
     },
     POSSIBLE_UNDEFINED_REST: {
-      category: "correctness",
+      category: "bug",
       reason:
-        "Verify ctx destructuring and usage of rest; undefined variables can cause runtime crashes.",
+        "Check usage of 'rest' with ctx destructuring — because: an undefined variable can crash at runtime.",
     },
     DUPLICATE_COMMAND_CASE: {
       category: "maintainability",
       reason:
-        "Duplicate command cases can cause unreachable branches or inconsistent routing; ensure uniqueness.",
+        "Ensure command cases are unique — because: duplicates can create inconsistent routing and dead branches.",
     },
     UNUSED_IMPORT: {
-      category: "cleanliness",
+      category: "readability",
       reason:
-        "Unused imports increase noise and may hide real problems; consider removing if truly unused.",
+        "Remove or justify unused imports — because: unused names add noise and hide real problems.",
     },
     UNREACHABLE_CODE: {
       category: "maintainability",
       reason:
-        "Review control flow around return/guard clauses; note this check is heuristic without AST.",
+        "Review early-return sections for readability — because: the unreachable-code check is heuristic and may produce noisy warnings.",
     },
     DECISION_VIOLATION: {
-      category: "compliance",
+      category: "workflow",
       reason:
-        "Potential project rule violation detected; confirm against DECISIONS.md and adjust accordingly.",
+        "Align code with DECISIONS.md rules — because: violating accepted decisions breaks governance and predictability.",
     },
   };
 
@@ -319,36 +319,85 @@ function buildSuggestionsFromIssues(issues) {
 
   const unique = Array.from(byCode.values());
 
-  // B3.3.2 — do not suggest heuristic-only unreachable code
-  // if it is the only issue type or not high severity
-  const hasNonHeuristic = unique.some((i) => i.code !== "UNREACHABLE_CODE");
-
-  const filtered = unique.filter((i) => {
-    if (i.code !== "UNREACHABLE_CODE") return true;
-    if (i.severity === "high") return true;
-    return hasNonHeuristic;
-  });
-
   // Sort by severity desc, then stable by code
-  filtered.sort((a, b) => {
+  unique.sort((a, b) => {
     const d = rankSev(b.severity) - rankSev(a.severity);
     if (d !== 0) return d;
     return String(a.code).localeCompare(String(b.code));
   });
 
   const suggestions = [];
-  for (const it of filtered) {
+  for (const it of unique) {
     const meta = map[it.code];
     if (!meta) continue;
     suggestions.push({
       severity: it.severity || "low",
       category: meta.category,
       reason: meta.reason,
+      issueCode: it.code,
     });
     if (suggestions.length >= 7) break;
   }
 
   return suggestions;
+}
+
+/* =========================
+   B3.5 HOOK — apply DECISIONS D-021 rules (noise filtering + aggregation)
+   ========================= */
+
+function applySuggestionRules({ issues, suggestions }) {
+  const list = Array.isArray(suggestions) ? suggestions : [];
+  const issueList = Array.isArray(issues) ? issues : [];
+
+  // D-021: One suggestion per issue type is already handled by dedup in buildSuggestionsFromIssues,
+  // but we enforce safety here too.
+  const seen = new Set();
+  let unique = [];
+  for (const s of list) {
+    const key = String(s?.issueCode || s?.category || "").trim();
+    if (!key) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(s);
+  }
+
+  // D-021: Max 7
+  if (unique.length > 7) unique = unique.slice(0, 7);
+
+  // D-021: Heuristic-only noise rule for UNREACHABLE_CODE
+  const onlyUnreachable =
+    issueList.length > 0 &&
+    issueList.every((it) => String(it?.code) === "UNREACHABLE_CODE");
+
+  if (onlyUnreachable) {
+    // Lower severity + only one item
+    const base =
+      unique.find((s) => String(s?.issueCode) === "UNREACHABLE_CODE") ||
+      unique[0] || {
+        severity: "low",
+        category: "maintainability",
+        reason:
+          "Review early-return sections for readability — because: the unreachable-code check is heuristic and may produce noisy warnings.",
+        issueCode: "UNREACHABLE_CODE",
+      };
+
+    return [
+      {
+        severity: "low",
+        category: "maintainability",
+        reason: base.reason,
+      },
+    ];
+  }
+
+  // D-021: If there are no high-severity issues, do not alarm.
+  // (We keep severity values but do not escalate; output text remains calm by design in reasons.)
+  return unique.map((s) => ({
+    severity: s.severity || "low",
+    category: s.category || "maintainability",
+    reason: s.reason,
+  }));
 }
 
 /* =========================
@@ -422,18 +471,17 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
   out.push("");
   out.push("Suggestions (READ-ONLY):");
 
-  // B3.2 — FORMAT ONLY (no analysis, no logic)
-  out.push("- (none)");
+  // B3.5 — Suggestions enabled with D-021 filtering
+  const rawSuggestions = buildSuggestionsFromIssues(issues);
+  const suggestions = applySuggestionRules({ issues, suggestions: rawSuggestions });
 
-  // B3.3+ (disabled for B3.2)
-  // const suggestions = buildSuggestionsFromIssues(issues);
-  // if (!suggestions || suggestions.length === 0) {
-  //   out.push("- (none)");
-  // } else {
-  //   suggestions.forEach((s, i) => {
-  //     out.push(`${i + 1}) [${s.severity}][${s.category}] ${s.reason}`);
-  //   });
-  // }
+  if (!suggestions || suggestions.length === 0) {
+    out.push("- (none)");
+  } else {
+    suggestions.forEach((s) => {
+      out.push(`- [${s.severity}] [${s.category}] ${s.reason}`);
+    });
+  }
 
   if (issues.length === 0) {
     out.push("");

@@ -317,38 +317,38 @@ function buildSuggestionsFromIssues(issues) {
     }
   }
 
-const unique = Array.from(byCode.values());
+  const unique = Array.from(byCode.values());
 
-// B3.3.2 — do not suggest heuristic-only unreachable code
-// if it is the only issue type or not high severity
-const hasNonHeuristic = unique.some((i) => i.code !== "UNREACHABLE_CODE");
+  // B3.3.2 — do not suggest heuristic-only unreachable code
+  // if it is the only issue type or not high severity
+  const hasNonHeuristic = unique.some((i) => i.code !== "UNREACHABLE_CODE");
 
-const filtered = unique.filter((i) => {
-  if (i.code !== "UNREACHABLE_CODE") return true;
-  if (i.severity === "high") return true;
-  return hasNonHeuristic;
-});
-
-// Sort by severity desc, then stable by code
-filtered.sort((a, b) => {
-  const d = rankSev(b.severity) - rankSev(a.severity);
-  if (d !== 0) return d;
-  return String(a.code).localeCompare(String(b.code));
-});
-
-const suggestions = [];
-for (const it of filtered) {
-  const meta = map[it.code];
-  if (!meta) continue;
-  suggestions.push({
-    severity: it.severity || "low",
-    category: meta.category,
-    reason: meta.reason,
+  const filtered = unique.filter((i) => {
+    if (i.code !== "UNREACHABLE_CODE") return true;
+    if (i.severity === "high") return true;
+    return hasNonHeuristic;
   });
-  if (suggestions.length >= 7) break;
-}
 
-return suggestions;
+  // Sort by severity desc, then stable by code
+  filtered.sort((a, b) => {
+    const d = rankSev(b.severity) - rankSev(a.severity);
+    if (d !== 0) return d;
+    return String(a.code).localeCompare(String(b.code));
+  });
+
+  const suggestions = [];
+  for (const it of filtered) {
+    const meta = map[it.code];
+    if (!meta) continue;
+    suggestions.push({
+      severity: it.severity || "low",
+      category: meta.category,
+      reason: meta.reason,
+    });
+    if (suggestions.length >= 7) break;
+  }
+
+  return suggestions;
 }
 
 /* =========================
@@ -422,15 +422,18 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
   out.push("");
   out.push("Suggestions (READ-ONLY):");
 
-  const suggestions = buildSuggestionsFromIssues(issues);
+  // B3.2 — FORMAT ONLY (no analysis, no logic)
+  out.push("- (none)");
 
-  if (!suggestions || suggestions.length === 0) {
-    out.push("- (none)");
-  } else {
-    suggestions.forEach((s, i) => {
-      out.push(`${i + 1}) [${s.severity}][${s.category}] ${s.reason}`);
-    });
-  }
+  // B3.3+ (disabled for B3.2)
+  // const suggestions = buildSuggestionsFromIssues(issues);
+  // if (!suggestions || suggestions.length === 0) {
+  //   out.push("- (none)");
+  // } else {
+  //   suggestions.forEach((s, i) => {
+  //     out.push(`${i + 1}) [${s.severity}][${s.category}] ${s.reason}`);
+  //   });
+  // }
 
   if (issues.length === 0) {
     out.push("");

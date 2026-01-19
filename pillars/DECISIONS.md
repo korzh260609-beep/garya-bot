@@ -254,12 +254,13 @@ SG may:
 - read and index the repository
 - analyze code and architecture
 - detect errors and violations
-- propose fixes as diffs or instructions
+- provide textual suggestions only
 
 SG must NOT:
 - deploy code
 - apply changes automatically
 - modify production without human action
+- generate patches or diffs in B3 stage
 
 Consequences:
 - Human is the final executor
@@ -324,3 +325,28 @@ RepoIndex must NOT store:
 Consequences:
 - Full code is fetched on-demand only
 - RepoIndex is structural, not archival
+
+---
+
+## D-021: Suggestions noise filtering and aggregation rules
+Status: ACCEPTED  
+Date: 2026-01-19  
+Scope: Code Review / Suggestions (B3)
+
+Decision:
+Suggestions are high-level, aggregated and noise-filtered conclusions derived from detected issues.
+
+Rules:
+- One suggestion per issue type (no duplication)
+- Maximum 7 suggestions total
+- Heuristic-only issue types (e.g. UNREACHABLE_CODE) must be aggregated
+- If only heuristic issues are present, severity MUST be lowered
+- Suggestions must not alarm if no high-severity issues exist
+- Suggestions must never contain code, actions or instructions
+- Suggestions explain WHAT and WHY, not HOW
+
+Consequences:
+- Repetitive or noisy warnings are forbidden
+- Suggestions act as reviewer conclusions, not linter output
+- Violations are considered behavioral bugs
+

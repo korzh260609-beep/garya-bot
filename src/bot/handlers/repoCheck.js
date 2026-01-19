@@ -554,7 +554,21 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
 
   // B3.5 — Suggestions enabled with D-021 filtering
   const rawSuggestions = buildSuggestionsFromIssues(issues);
-  const suggestions = applySuggestionRules({ issues, suggestions: rawSuggestions });
+  const suggestionsPreGate = applySuggestionRules({
+    issues,
+    suggestions: rawSuggestions,
+  });
+
+  // B3.9 — STRICT GATE:
+  // Show Suggestions ONLY if:
+  // - has at least one HIGH issue, OR
+  // - has 2+ different issue types (codes)
+  const hasHigh = (issues || []).some((it) => String(it?.severity) === "high");
+  const typeSet = new Set((issues || []).map((it) => String(it?.code || "")));
+  const hasMultipleTypes = typeSet.size >= 2;
+
+  const suggestions =
+    hasHigh || hasMultipleTypes ? suggestionsPreGate : [];
 
   if (!suggestions || suggestions.length === 0) {
     out.push("- (none)");

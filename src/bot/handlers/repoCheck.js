@@ -414,6 +414,9 @@ function aggregateIssuesForDisplay(issues) {
   const map = new Map();
   const order = [];
 
+  const VIS_HIDE_DETAILS_N = 10; // B3.7
+  const VIS_HIDE_EXAMPLES_N = 50; // B3.7
+
   const pickLine = (msg) => {
     const m = String(msg || "").match(/\bline\s+(\d+)\b/i);
     return m?.[1] ? String(m[1]) : null;
@@ -448,10 +451,24 @@ function aggregateIssuesForDisplay(issues) {
 
   const display = order.map((key) => {
     const e = map.get(key);
+
     const suffixLines =
       e.lines && e.lines.length > 0 ? ` (e.g. lines ${e.lines.join(", ")})` : "";
     const suffixCount = e.count > 1 ? ` (x${e.count})` : "";
-    const msg = `${e.message}${suffixCount}${suffixLines}`;
+
+    // B3.7 visibility thresholds
+    let msg;
+    if (e.count >= VIS_HIDE_EXAMPLES_N) {
+      // only summary
+      msg = `${e.code} detected${suffixCount}`;
+    } else if (e.count >= VIS_HIDE_DETAILS_N) {
+      // short summary + examples
+      msg = `${e.code} detected${suffixCount}${suffixLines}`;
+    } else {
+      // normal (detailed) message
+      msg = `${e.message}${suffixCount}${suffixLines}`;
+    }
+
     return { code: e.code, severity: e.severity, message: msg };
   });
 
@@ -524,7 +541,7 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
   issues.push(...findUnreachableCode(code));
   issues.push(...checkDecisionsViolations(code));
 
-  // B3.6: collapse issues for display only (keep raw issues for Suggestions logic)
+  // B3.6/B3.7: collapse issues for display only (keep raw issues for Suggestions logic)
   const displayAgg = aggregateIssuesForDisplay(issues);
   const displayIssues = displayAgg.display;
 

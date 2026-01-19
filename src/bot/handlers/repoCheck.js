@@ -401,6 +401,66 @@ function applySuggestionRules({ issues, suggestions }) {
 }
 
 /* =========================
+   B3.6 — aggregate issues for display (collapse noise)
+   - keep raw issues for Suggestions logic
+   - collapse display list by (code + severity)
+   - add xN to message
+   ========================= */
+
+function aggregateIssuesForDisplay(issues) {
+  const list = Array.isArray(issues) ? issues : [];
+  const total = list.length;
+
+  const map = new Map();
+  const order = [];
+
+  const pickLine = (msg) => {
+    const m = String(msg || "").match(/\bline\s+(\d+)\b/i);
+    return m?.[1] ? String(m[1]) : null;
+  };
+
+  for (const it of list) {
+    const code = String(it?.code || "");
+    const severity = String(it?.severity || "low");
+    const key = `${code}__${severity}`;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        code,
+        severity,
+        message: String(it?.message || ""),
+        count: 1,
+        lines: [],
+      });
+      order.push(key);
+    } else {
+      map.get(key).count += 1;
+    }
+
+    const ln = pickLine(it?.message);
+    if (ln) {
+      const entry = map.get(key);
+      if (entry.lines.length < 3 && !entry.lines.includes(ln)) {
+        entry.lines.push(ln);
+      }
+    }
+  }
+
+  const display = order.map((key) => {
+    const e = map.get(key);
+    const suffixLines =
+      e.lines && e.lines.length > 0 ? ` (e.g. lines ${e.lines.join(", ")})` : "";
+    const suffixCount = e.count > 1 ? ` (x${e.count})` : "";
+    const msg = `${e.message}${suffixCount}${suffixLines}`;
+    return { code: e.code, severity: e.severity, message: msg };
+  });
+
+  const collapsed = total - display.length;
+
+  return { total, collapsed, display };
+}
+
+/* =========================
    MAIN HANDLER
    ========================= */
 
@@ -464,6 +524,10 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
   issues.push(...findUnreachableCode(code));
   issues.push(...checkDecisionsViolations(code));
 
+  // B3.6: collapse issues for display only (keep raw issues for Suggestions logic)
+  const displayAgg = aggregateIssuesForDisplay(issues);
+  const displayIssues = displayAgg.display;
+
   // Output
   const out = [];
   out.push(`repo_check: ${path}`);
@@ -490,7 +554,7 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
     return;
   }
 
-  const bySev = issues.reduce(
+  const bySevDisplay = displayIssues.reduce(
     (acc, it) => {
       acc[it.severity] = (acc[it.severity] || 0) + 1;
       return acc;
@@ -498,18 +562,23 @@ export async function handleRepoCheck({ bot, chatId, rest }) {
     {}
   );
 
+  const collapsedNote =
+    displayAgg.collapsed > 0
+      ? ` [collapsed from ${displayAgg.total}]`
+      : "";
+
   out.push(
-    `issues: ${issues.length} (high=${bySev.high || 0}, medium=${
-      bySev.medium || 0
-    }, low=${bySev.low || 0})`
+    `issues: ${displayIssues.length} (high=${bySevDisplay.high || 0}, medium=${
+      bySevDisplay.medium || 0
+    }, low=${bySevDisplay.low || 0})${collapsedNote}`
   );
 
-  issues.slice(0, 15).forEach((it, i) => {
+  displayIssues.slice(0, 15).forEach((it, i) => {
     out.push(`${i + 1}) [${it.severity}] ${it.code}: ${it.message}`);
   });
 
-  if (issues.length > 15) {
-    out.push(`...and ${issues.length - 15} more`);
+  if (displayIssues.length > 15) {
+    out.push(`...and ${displayIssues.length - 15} more`);
   }
 
   await bot.sendMessage(chatId, out.join("\n"));

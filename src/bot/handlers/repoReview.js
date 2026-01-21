@@ -1,5 +1,5 @@
 // ============================================================================
-// === src/bot/handlers/repoReview.js — Repo-level review (READ-ONLY, B4)
+// === src/bot/handlers/repoReview.js — Repo-level review (READ-ONLY, B4/B5)
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -50,12 +50,12 @@ function applyHeuristicPolicy(issue, filePath) {
 
 // =========================
 // B5.0 (Skeleton): zone-aware architecture review (DISABLED by default)
-// Enable later via env: SG_REPO_REVIEW_B5=1
+// Enable via env: SG_REPO_REVIEW_B5=1
 // =========================
 const B5_ENABLED = String(process.env.SG_REPO_REVIEW_B5 || "") === "1";
 
 // =========================
-// B5.1 (Config): token / regex matchers (NO LOGIC YET)
+// B5.1 (Config): token / regex matchers
 // =========================
 
 // Direct AI calls must go via router
@@ -94,11 +94,7 @@ const B5_BOUNDARY_RISK_PATTERNS = {
     /\binsert\s+into\b/i,
     /\bupdate\s+\w+\b/i,
   ],
-  http: [
-    /\bfetch\(/i,
-    /\baxios\b/i,
-    /\brequest\(/i,
-  ],
+  http: [/\bfetch\(/i, /\baxios\b/i, /\brequest\(/i],
   ai: B5_DIRECT_AI_PATTERNS,
 };
 
@@ -111,12 +107,10 @@ const B5_LOGGING_TOKENS = [
   "reason",
 ];
 
-// Helper (used later in B5.2)
+// Helper
 function b5ContainsAny(code, tokens) {
   const s = String(code || "");
-  return tokens.some((t) =>
-    typeof t === "string" ? s.includes(t) : t.test(s)
-  );
+  return tokens.some((t) => (typeof t === "string" ? s.includes(t) : t.test(s)));
 }
 
 function classifyZone(filePath) {
@@ -131,17 +125,170 @@ function classifyZone(filePath) {
   return "other";
 }
 
-// B5 issue codes (logic will be added in B5.2)
-function detectDirectAiCallRisk(_code, _path) { return []; }
-function detectPermissionBypassRisk(_code, _path) { return []; }
-function detectMemoryPolicyRisk(_code, _path) { return []; }
-function detectCoreBoundaryViolations(_code, _path) { return []; }
-function detectObservabilityGap(_code, _path) { return []; }
+// =========================
+// B5.2 (Logic): detections (READ-ONLY)
+// =========================
+
+// Remove strings and comments to reduce false positives
+function b5Sanitize(code) {
+  let s = String(code || "");
+  s = s.replace(/\/\*[\s\S]*?\*\//g, " "); // block comments
+  s = s.replace(/\/\/.*$/gm, " "); // line comments
+  s = s.replace(/`[\s\S]*?`/g, " "); // template strings
+  s = s.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, " "); // double strings
+  s = s.replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, " "); // single strings
+  return s;
+}
+
+// B5: DIRECT_AI_CALL (high) — heuristic
+// We flag when code mentions OpenAI SDK style tokens AND does not use callAI/router wrapper.
+function detectDirectAiCallRisk(code, path) {
+  const issues = [];
+  const zone = classifyZone(path);
+  const s = b5Sanitize(code);
+
+  const mentionsDirectAi = b5ContainsAny(s, B5_DIRECT_AI_PATTERNS);
+  if (!mentionsDirectAi) return issues;
+
+  // allowlist heuristic: if file uses wrapper callAI, treat as not direct call
+  const usesWrapper =
+    /\bcallAI\s*\(/.test(s) ||
+    /\baiRouter\b/i.test(s) ||
+    /\bAIRouter\b/.test(s);
+
+  if (!usesWrapper) {
+    issues.push({
+      code: "DIRECT_AI_CALL",
+      severity: zone === "transport_core" ? "high" : "high",
+      message: "Possible direct AI/SDK call detected (must go via router/wrapper).",
+    });
+  }
+
+  return issues;
+}
+
+// B5: PERMISSION_BYPASS_RISK (high) — heuristic on privileged commands/handlers
+function detectPermissionBypassRisk(code, path) {
+  const issues = [];
+  const p = String(path || "");
+  const s = b5Sanitize(code);
+
+  const privilegedByName =
+    /admin/i.test(p) ||
+    /stop_/i.test(p) ||
+    /start_/i.test(p) ||
+    /pm_set/i.test(p) ||
+    /reindex/i.test(p) ||
+    /repo_/i.test(p);
+
+  if (!privilegedByName) return issues;
+
+  const hasPermissionCheck = b5ContainsAny(s, B5_PERMISSION_TOKENS);
+
+  if (!hasPermissionCheck) {
+    issues.push({
+      code: "PERMISSION_BYPASS_RISK",
+      severity: "high",
+      message: "Privileged handler/command may lack an explicit permission check.",
+    });
+  }
+
+  return issues;
+}
+
+// B5: MEMORY_POLICY_RISK (high/medium) — writing memory outside memory_core zone
+function detectMemoryPolicyRisk(code, path) {
+  const issues = [];
+  const zone = classifyZone(path);
+  const s = b5Sanitize(code);
+
+  const mentionsMemoryWrite = b5ContainsAny(s, B5_MEMORY_WRITE_PATTERNS);
+  if (!mentionsMemoryWrite) return issues;
+
+  if (zone !== "memory_core") {
+    issues.push({
+      code: "MEMORY_POLICY_RISK",
+      severity: zone === "transport_core" ? "high" : "medium",
+      message: "Memory write/reference detected outside memory_core (verify MemoryPolicy boundaries).",
+    });
+  }
+
+  return issues;
+}
+
+// B5: CORE_BOUNDARY_VIOLATION (medium/high) — heavy responsibilities in thin zones
+function detectCoreBoundaryViolations(code, path) {
+  const issues = [];
+  const zone = classifyZone(path);
+  const s = b5Sanitize(code);
+
+  const dbRisk = b5ContainsAny(s, B5_BOUNDARY_RISK_PATTERNS.db);
+  const httpRisk = b5ContainsAny(s, B5_BOUNDARY_RISK_PATTERNS.http);
+  const aiRisk = b5ContainsAny(s, B5_BOUNDARY_RISK_PATTERNS.ai);
+
+  if (zone === "transport_core") {
+    if (dbRisk || aiRisk) {
+      issues.push({
+        code: "CORE_BOUNDARY_VIOLATION",
+        severity: "high",
+        message: "Transport core should be thin; DB/AI responsibility detected.",
+      });
+    }
+    return issues;
+  }
+
+  if (zone === "handlers") {
+    if (dbRisk || aiRisk) {
+      issues.push({
+        code: "CORE_BOUNDARY_VIOLATION",
+        severity: "medium",
+        message: "Handlers should be thin; DB/AI responsibility detected (consider delegating to services).",
+      });
+    }
+    return issues;
+  }
+
+  if (zone === "sources") {
+    // sources often do HTTP; DB/AI inside sources is suspicious
+    if (dbRisk || aiRisk) {
+      issues.push({
+        code: "CORE_BOUNDARY_VIOLATION",
+        severity: "medium",
+        message: "Sources should not contain DB/AI responsibility (verify Sources layer boundaries).",
+      });
+    }
+    // httpRisk is not flagged in sources (normal)
+    return issues;
+  }
+
+  // other zones: no boundary verdicts (avoid noise)
+  void httpRisk;
+  return issues;
+}
+
+// B5: OBSERVABILITY_GAP (medium) — AI usage without obvious logging tokens nearby (heuristic)
+function detectObservabilityGap(code, path) {
+  const issues = [];
+  const zone = classifyZone(path);
+  const s = b5Sanitize(code);
+
+  // If wrapper is used, expect some logging token around.
+  const usesAiWrapper = /\bcallAI\s*\(/.test(s);
+  if (!usesAiWrapper) return issues;
+
+  const hasLogging = b5ContainsAny(s, B5_LOGGING_TOKENS);
+  if (!hasLogging) {
+    issues.push({
+      code: "OBSERVABILITY_GAP",
+      severity: zone === "transport_core" ? "high" : "medium",
+      message: "AI call wrapper detected without obvious cost/reason logging tokens nearby.",
+    });
+  }
+
+  return issues;
+}
 
 function collectB5Issues(code, path) {
-  const zone = classifyZone(path);
-  void zone; // reserved for B5.2 logic
-
   return [
     ...detectDirectAiCallRisk(code, path),
     ...detectPermissionBypassRisk(code, path),
@@ -306,6 +453,28 @@ function buildSuggestionsFromAggregated(agg) {
       category: "workflow",
       reason: "Align code with DECISIONS.md rules.",
     },
+
+    // B5 (architecture/security) suggestions
+    DIRECT_AI_CALL: {
+      category: "security",
+      reason: "Remove direct AI/SDK calls — route all AI usage via the approved router/wrapper.",
+    },
+    PERMISSION_BYPASS_RISK: {
+      category: "security",
+      reason: "Add explicit permission checks for privileged handlers/commands.",
+    },
+    MEMORY_POLICY_RISK: {
+      category: "security",
+      reason: "Verify MemoryPolicy boundaries — avoid memory writes outside memory_core.",
+    },
+    CORE_BOUNDARY_VIOLATION: {
+      category: "architecture",
+      reason: "Respect module boundaries — keep transport/handlers thin and delegate responsibilities.",
+    },
+    OBSERVABILITY_GAP: {
+      category: "observability",
+      reason: "Ensure AI calls are logged with cost+reason per DECISIONS.md.",
+    },
   };
 
   const list = Object.values(agg || {}).sort((a, b) => {
@@ -389,24 +558,41 @@ export async function handleRepoReview({ bot, chatId, rest }) {
   }
 
   const suggestions =
-    bySev.high > 0 || typeSet.size >= 2
-      ? buildSuggestionsFromAggregated(agg)
-      : [];
+    bySev.high > 0 || typeSet.size >= 2 ? buildSuggestionsFromAggregated(agg) : [];
 
   const out = [];
   out.push("repo_review: repo-level (READ-ONLY)");
   out.push(`scanned: ${filesScanned}/${batch.length} (limit=${limit})`);
+  out.push(`B5: ${B5_ENABLED ? "ENABLED" : "disabled"}`);
   out.push("");
 
   out.push("Suggestions:");
   suggestions.length
-    ? suggestions.forEach((s) =>
-        out.push(`- [${s.severity}] [${s.category}] ${s.reason}`)
-      )
+    ? suggestions.forEach((s) => out.push(`- [${s.severity}] [${s.category}] ${s.reason}`))
     : out.push("- (none)");
 
   out.push("");
   out.push(`issues: high=${bySev.high}, medium=${bySev.medium}, low=${bySev.low}`);
+
+  // Top issue buckets (helpful when B5 is enabled)
+  const buckets = Object.values(agg)
+    .sort((a, b) => {
+      const d = severityRank(b.severity) - severityRank(a.severity);
+      if (d !== 0) return d;
+      return (b.count || 0) - (a.count || 0);
+    })
+    .slice(0, 10);
+
+  out.push("");
+  if (!buckets.length) {
+    out.push("top: (none)");
+  } else {
+    out.push("top:");
+    buckets.forEach((b, i) => {
+      const ex = b.examples?.length ? ` | e.g. ${b.examples.join(", ")}` : "";
+      out.push(`${i + 1}) [${b.severity}] ${b.code} (x${b.count})${ex}`);
+    });
+  }
 
   await bot.sendMessage(chatId, out.join("\n"));
 }

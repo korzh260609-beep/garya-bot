@@ -350,3 +350,26 @@ Consequences:
 - Suggestions act as reviewer conclusions, not linter output
 - Violations are considered behavioral bugs
 
+---
+
+## D-022: Repo Review — UNREACHABLE_CODE heuristic policy
+Status: ACCEPTED  
+Date: 2026-01-21  
+Scope: Repo Review / Heuristics (B4)
+
+Decision:
+- UNREACHABLE_CODE is a heuristic, non-blocking issue type.
+- In allowed zones, UNREACHABLE_CODE MUST be downgraded to low and treated as aggregate-only:
+  - src/bot/handlers/*
+  - src/sources/*
+  - classifier.js
+- In all other files, UNREACHABLE_CODE MUST remain medium and be treated as a signal.
+
+Rationale:
+- Guard clauses and early-return patterns are normal and intentional in handlers, sources and classifiers.
+- Outside these zones, unreachable code is more likely to indicate maintainability or structural issues.
+
+Consequences:
+- Repo-level review must apply zone-aware severity classification.
+- Heuristic noise must not dominate review output.
+- Violations of this policy are considered repo-review bugs.

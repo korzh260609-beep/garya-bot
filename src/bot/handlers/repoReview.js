@@ -126,6 +126,32 @@ function classifyZone(filePath) {
 }
 
 // =========================
+// B5.3 (Config): allowlist / suppressions (config-only)
+// =========================
+
+// UNREACHABLE_CODE — suppress paths where it is expected noise
+const B5_UNREACHABLE_SUPPRESS_PATHS = [
+  /^classifier\.js$/i,
+  /^src\/bot\/handlers\/.+\.js$/i,
+  // If you later want sources too, add:
+  // /^src\/sources\/.+\.js$/i,
+];
+
+// DECISION_VIOLATION — suppress only for specific files (keep it narrow)
+const B5_DECISION_SUPPRESS_PATHS = [
+  /^src\/bootstrap\/initSystem\.js$/i,
+];
+
+const B5_DECISION_SUPPRESS_TOKENS = [
+  /\bconsole\.log\b/i,
+];
+
+function b5PathMatches(path, rules) {
+  const p = String(path || "");
+  return rules.some((r) => r.test(p));
+}
+
+// =========================
 // B5.2 (Logic): detections (READ-ONLY)
 // =========================
 
@@ -543,6 +569,26 @@ export async function handleRepoReview({ bot, chatId, rest }) {
 
     for (const it of issues) {
       applyHeuristicPolicy(it, path);
+
+      // =========================
+      // B5.3 suppressions (config-only)
+      // =========================
+      if (it.code === "UNREACHABLE_CODE") {
+        // suppress only where it is expected noise
+        if (b5PathMatches(path, B5_UNREACHABLE_SUPPRESS_PATHS)) {
+          continue;
+        }
+      }
+
+      if (it.code === "DECISION_VIOLATION") {
+        // keep it narrow: only suppress in explicitly allowed files
+        if (b5PathMatches(path, B5_DECISION_SUPPRESS_PATHS)) {
+          const raw = String(code || "");
+          if (B5_DECISION_SUPPRESS_TOKENS.some((rx) => rx.test(raw))) {
+            continue;
+          }
+        }
+      }
 
       const key = `${it.code}__${it.severity}`;
       typeSet.add(it.code);

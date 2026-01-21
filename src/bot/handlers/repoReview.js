@@ -290,9 +290,9 @@ export async function handleRepoReview({ bot, chatId, rest }) {
     issues.push(...checkDecisionsViolations(code));
 
     for (const it of issues) {
-  applyHeuristicPolicy(it, path);
+      applyHeuristicPolicy(it, path);
 
-  const codeKey = String(it.code || "");
+      const codeKey = String(it.code || "");
       const sev = String(it.severity || "low");
       const key = `${codeKey}__${sev}`;
       typeSet.add(codeKey);
@@ -319,9 +319,8 @@ export async function handleRepoReview({ bot, chatId, rest }) {
   const hasMultipleTypes = typeSet.size >= 2;
 
   // B3.9 strict gate (repo-level)
-  const suggestions = hasHigh || hasMultipleTypes
-    ? buildSuggestionsFromAggregated(agg)
-    : [];
+  const suggestions =
+    hasHigh || hasMultipleTypes ? buildSuggestionsFromAggregated(agg) : [];
 
   const out = [];
   out.push(`repo_review: repo-level (READ-ONLY)`);
@@ -366,4 +365,3 @@ export async function handleRepoReview({ bot, chatId, rest }) {
 
   await bot.sendMessage(chatId, out.join("\n"));
 }
-

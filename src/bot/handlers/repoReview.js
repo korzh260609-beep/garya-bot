@@ -54,6 +54,71 @@ function applyHeuristicPolicy(issue, filePath) {
 // =========================
 const B5_ENABLED = String(process.env.SG_REPO_REVIEW_B5 || "") === "1";
 
+// =========================
+// B5.1 (Config): token / regex matchers (NO LOGIC YET)
+// =========================
+
+// Direct AI calls must go via router
+const B5_DIRECT_AI_PATTERNS = [
+  /\bopenai\b/i,
+  /\bchat\.completions\b/i,
+  /\bresponses\.create\b/i,
+  /\bclient\.responses\.create\b/i,
+  /\bcreateChatCompletion\b/i,
+];
+
+// Privileged actions must have permission checks
+const B5_PERMISSION_TOKENS = [
+  "can(",
+  "requireMonarch",
+  "requirePermission",
+  "assertAccess",
+  "ensureAccess",
+];
+
+// Memory policy risks: raw or direct writes
+const B5_MEMORY_WRITE_PATTERNS = [
+  /\bchat_memory\b/i,
+  /\bproject_memory\b/i,
+  /\bMemoryService\b/i,
+  /\bstoreMemory\b/i,
+  /\bwriteMemory\b/i,
+  /\binsert\s+into\s+chat_memory\b/i,
+];
+
+// Boundary heuristics (handlers / transport must stay thin)
+const B5_BOUNDARY_RISK_PATTERNS = {
+  db: [
+    /\bpool\.query\b/i,
+    /\bdb\.query\b/i,
+    /\binsert\s+into\b/i,
+    /\bupdate\s+\w+\b/i,
+  ],
+  http: [
+    /\bfetch\(/i,
+    /\baxios\b/i,
+    /\brequest\(/i,
+  ],
+  ai: B5_DIRECT_AI_PATTERNS,
+};
+
+// Observability expectations (AI cost + reason)
+const B5_LOGGING_TOKENS = [
+  "logAi",
+  "ai_usage",
+  "usage_log",
+  "cost",
+  "reason",
+];
+
+// Helper (used later in B5.2)
+function b5ContainsAny(code, tokens) {
+  const s = String(code || "");
+  return tokens.some((t) =>
+    typeof t === "string" ? s.includes(t) : t.test(s)
+  );
+}
+
 function classifyZone(filePath) {
   const p = String(filePath || "");
   if (p.startsWith("src/http/") || p.startsWith("src/bootstrap/")) return "transport_core";
@@ -66,27 +131,16 @@ function classifyZone(filePath) {
   return "other";
 }
 
-// B5 issue codes (to be implemented in B5.2 logic)
-function detectDirectAiCallRisk(_code, _path) {
-  return []; // DIRECT_AI_CALL
-}
-function detectPermissionBypassRisk(_code, _path) {
-  return []; // PERMISSION_BYPASS_RISK
-}
-function detectMemoryPolicyRisk(_code, _path) {
-  return []; // MEMORY_POLICY_RISK
-}
-function detectCoreBoundaryViolations(_code, _path) {
-  return []; // CORE_BOUNDARY_VIOLATION
-}
-function detectObservabilityGap(_code, _path) {
-  return []; // OBSERVABILITY_GAP
-}
+// B5 issue codes (logic will be added in B5.2)
+function detectDirectAiCallRisk(_code, _path) { return []; }
+function detectPermissionBypassRisk(_code, _path) { return []; }
+function detectMemoryPolicyRisk(_code, _path) { return []; }
+function detectCoreBoundaryViolations(_code, _path) { return []; }
+function detectObservabilityGap(_code, _path) { return []; }
 
 function collectB5Issues(code, path) {
-  // skeleton only: no detections yet
   const zone = classifyZone(path);
-  void zone; // reserved for B5 logic
+  void zone; // reserved for B5.2 logic
 
   return [
     ...detectDirectAiCallRisk(code, path),
@@ -153,9 +207,7 @@ function findMissingImportsForHandles(code) {
       `\\bfunction\\s+${h}\\b|\\bconst\\s+${h}\\b|\\blet\\s+${h}\\b|\\bvar\\s+${h}\\b|\\bexport\\s+(async\\s+)?function\\s+${h}\\b`
     ).test(code);
 
-    const asProperty = new RegExp(`\\b[A-Za-z_$][A-Za-z0-9_$]*\\.${h}\\b`).test(
-      code
-    );
+    const asProperty = new RegExp(`\\b[A-Za-z_$][A-Za-z0-9_$]*\\.${h}\\b`).test(code);
 
     if (!selfDefined && !imported.has(h) && !asProperty) {
       issues.push({
@@ -188,17 +240,6 @@ function findUnreachableCode(code) {
 
     if (!/\breturn\b/.test(cur)) continue;
 
-    const back1 = lines[i - 1] || "";
-    const back2 = lines[i - 2] || "";
-    const back3 = lines[i - 3] || "";
-    const backWindow = `${back1}\n${back2}\n${back3}`;
-    if (
-      /\bcase\s+["']\/[^"']+["']\s*:/.test(backWindow) ||
-      /\bswitch\s*\(/.test(backWindow)
-    ) {
-      continue;
-    }
-
     const next1 = lines[i + 1] || "";
     const next2 = lines[i + 2] || "";
     const next3 = lines[i + 3] || "";
@@ -214,10 +255,7 @@ function findUnreachableCode(code) {
       return false;
     };
 
-    if (isBoundary(next1)) {
-      if (isBoundary(next2) || isBoundary(next3)) continue;
-      continue;
-    }
+    if (isBoundary(next1) && (isBoundary(next2) || isBoundary(next3))) continue;
 
     issues.push({
       code: "UNREACHABLE_CODE",
@@ -231,8 +269,8 @@ function findUnreachableCode(code) {
 
 function checkDecisionsViolations(code) {
   const issues = [];
-
   let sanitized = String(code || "");
+
   sanitized = sanitized.replace(/\/\/.*$/gm, "");
   sanitized = sanitized.replace(/\/\*[\s\S]*?\*\//g, "");
   sanitized = sanitized.replace(/`[\s\S]*?`/g, "");
@@ -258,29 +296,23 @@ function buildSuggestionsFromAggregated(agg) {
   const map = {
     MISSING_IMPORT: {
       category: "bug",
-      reason:
-        "Verify missing imports for used handlers — because: missing imports can cause runtime failures.",
+      reason: "Verify missing imports — missing imports cause runtime failures.",
     },
     UNREACHABLE_CODE: {
       category: "maintainability",
-      reason:
-        "Review early-return blocks for clarity — because: unreachable-code checks are heuristic and may be noisy.",
+      reason: "Review early-return blocks — unreachable-code is heuristic.",
     },
     DECISION_VIOLATION: {
       category: "workflow",
-      reason:
-        "Align code with DECISIONS.md rules — because: violating accepted decisions breaks predictability.",
+      reason: "Align code with DECISIONS.md rules.",
     },
   };
 
-  const list = Object.keys(agg || {})
-    .map((k) => agg[k])
-    .filter(Boolean)
-    .sort((a, b) => {
-      const d = severityRank(b.severity) - severityRank(a.severity);
-      if (d !== 0) return d;
-      return (b.count || 0) - (a.count || 0);
-    });
+  const list = Object.values(agg || {}).sort((a, b) => {
+    const d = severityRank(b.severity) - severityRank(a.severity);
+    if (d !== 0) return d;
+    return (b.count || 0) - (a.count || 0);
+  });
 
   const suggestions = [];
   for (const it of list) {
@@ -306,22 +338,20 @@ export async function handleRepoReview({ bot, chatId, rest }) {
     token: process.env.GITHUB_TOKEN,
   });
 
-  const allFiles = await source.listFiles();
-  const files = Array.isArray(allFiles) ? allFiles : [];
+  const files = (await source.listFiles()) || [];
 
-  // Scope: only JS in src/ and root *.js (safe default)
   const candidates = files.filter((p) => {
     if (!p) return false;
     if (p.startsWith("pillars/")) return false;
     if (!p.endsWith(".js")) return false;
     if (p.startsWith("src/")) return true;
-    if (!p.includes("/")) return true; // root js
+    if (!p.includes("/")) return true;
     return false;
   });
 
   const batch = candidates.slice(0, limit);
 
-  const agg = {}; // key = code__severity
+  const agg = {};
   const bySev = { high: 0, medium: 0, low: 0 };
   const typeSet = new Set();
   let filesScanned = 0;
@@ -345,76 +375,38 @@ export async function handleRepoReview({ bot, chatId, rest }) {
     for (const it of issues) {
       applyHeuristicPolicy(it, path);
 
-      const codeKey = String(it.code || "");
-      const sev = String(it.severity || "low");
-      const key = `${codeKey}__${sev}`;
-      typeSet.add(codeKey);
+      const key = `${it.code}__${it.severity}`;
+      typeSet.add(it.code);
 
       if (!agg[key]) {
-        agg[key] = {
-          code: codeKey,
-          severity: sev,
-          count: 0,
-          examples: [],
-        };
+        agg[key] = { code: it.code, severity: it.severity, count: 0, examples: [] };
       }
+
       agg[key].count += 1;
-
-      if (agg[key].examples.length < 3 && !agg[key].examples.includes(path)) {
-        agg[key].examples.push(path);
-      }
-
-      if (bySev[sev] !== undefined) bySev[sev] += 1;
+      if (agg[key].examples.length < 3) agg[key].examples.push(path);
+      if (bySev[it.severity] !== undefined) bySev[it.severity] += 1;
     }
   }
 
-  const hasHigh = bySev.high > 0;
-  const hasMultipleTypes = typeSet.size >= 2;
-
-  // B3.9 strict gate (repo-level)
   const suggestions =
-    hasHigh || hasMultipleTypes ? buildSuggestionsFromAggregated(agg) : [];
+    bySev.high > 0 || typeSet.size >= 2
+      ? buildSuggestionsFromAggregated(agg)
+      : [];
 
   const out = [];
-  out.push(`repo_review: repo-level (READ-ONLY)`);
-  out.push(`scope: src/**/*.js + root *.js`);
-  out.push(`filesListed: ${files.length}`);
-  out.push(`candidates: ${candidates.length}`);
+  out.push("repo_review: repo-level (READ-ONLY)");
   out.push(`scanned: ${filesScanned}/${batch.length} (limit=${limit})`);
   out.push("");
 
-  out.push("Suggestions (READ-ONLY):");
-  if (!suggestions.length) {
-    out.push("- (none)");
-  } else {
-    for (const s of suggestions) {
-      out.push(`- [${s.severity}] [${s.category}] ${s.reason}`);
-    }
-  }
+  out.push("Suggestions:");
+  suggestions.length
+    ? suggestions.forEach((s) =>
+        out.push(`- [${s.severity}] [${s.category}] ${s.reason}`)
+      )
+    : out.push("- (none)");
 
   out.push("");
-  out.push(
-    `issues: (high=${bySev.high}, medium=${bySev.medium}, low=${bySev.low})`
-  );
-
-  // Top issue buckets
-  const buckets = Object.values(agg)
-    .sort((a, b) => {
-      const d = severityRank(b.severity) - severityRank(a.severity);
-      if (d !== 0) return d;
-      return (b.count || 0) - (a.count || 0);
-    })
-    .slice(0, 10);
-
-  if (!buckets.length) {
-    out.push("top: (none)");
-  } else {
-    out.push("top:");
-    buckets.forEach((b, i) => {
-      const ex = b.examples?.length ? ` | e.g. ${b.examples.join(", ")}` : "";
-      out.push(`${i + 1}) [${b.severity}] ${b.code} (x${b.count})${ex}`);
-    });
-  }
+  out.push(`issues: high=${bySev.high}, medium=${bySev.medium}, low=${bySev.low}`);
 
   await bot.sendMessage(chatId, out.join("\n"));
 }

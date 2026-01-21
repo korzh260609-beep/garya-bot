@@ -48,6 +48,55 @@ function applyHeuristicPolicy(issue, filePath) {
   }
 }
 
+// =========================
+// B5.0 (Skeleton): zone-aware architecture review (DISABLED by default)
+// Enable later via env: SG_REPO_REVIEW_B5=1
+// =========================
+const B5_ENABLED = String(process.env.SG_REPO_REVIEW_B5 || "") === "1";
+
+function classifyZone(filePath) {
+  const p = String(filePath || "");
+  if (p.startsWith("src/http/") || p.startsWith("src/bootstrap/")) return "transport_core";
+  if (p.startsWith("src/bot/handlers/")) return "handlers";
+  if (p.startsWith("src/bot/")) return "bot";
+  if (p.startsWith("src/sources/")) return "sources";
+  if (p.startsWith("src/repo/")) return "repo";
+  if (p.startsWith("src/memory/") || p.startsWith("core/")) return "memory_core";
+  if (!p.includes("/") && p.endsWith(".js")) return "root";
+  return "other";
+}
+
+// B5 issue codes (to be implemented in B5.2 logic)
+function detectDirectAiCallRisk(_code, _path) {
+  return []; // DIRECT_AI_CALL
+}
+function detectPermissionBypassRisk(_code, _path) {
+  return []; // PERMISSION_BYPASS_RISK
+}
+function detectMemoryPolicyRisk(_code, _path) {
+  return []; // MEMORY_POLICY_RISK
+}
+function detectCoreBoundaryViolations(_code, _path) {
+  return []; // CORE_BOUNDARY_VIOLATION
+}
+function detectObservabilityGap(_code, _path) {
+  return []; // OBSERVABILITY_GAP
+}
+
+function collectB5Issues(code, path) {
+  // skeleton only: no detections yet
+  const zone = classifyZone(path);
+  void zone; // reserved for B5 logic
+
+  return [
+    ...detectDirectAiCallRisk(code, path),
+    ...detectPermissionBypassRisk(code, path),
+    ...detectMemoryPolicyRisk(code, path),
+    ...detectCoreBoundaryViolations(code, path),
+    ...detectObservabilityGap(code, path),
+  ];
+}
+
 /* =========================
    Minimal checks (copied logic style from repoCheck.js)
    Keep READ-ONLY. No AST.
@@ -288,6 +337,10 @@ export async function handleRepoReview({ bot, chatId, rest }) {
     issues.push(...findMissingImportsForHandles(code));
     issues.push(...findUnreachableCode(code));
     issues.push(...checkDecisionsViolations(code));
+
+    if (B5_ENABLED) {
+      issues.push(...collectB5Issues(code, path));
+    }
 
     for (const it of issues) {
       applyHeuristicPolicy(it, path);

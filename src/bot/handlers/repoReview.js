@@ -31,6 +31,23 @@ function severityRank(s) {
   return s === "high" ? 3 : s === "medium" ? 2 : 1;
 }
 
+function applyHeuristicPolicy(issue, filePath) {
+  const code = String(issue?.code || "");
+  if (code !== "UNREACHABLE_CODE") return;
+
+  const p = String(filePath || "");
+
+  const allowed =
+    p.startsWith("src/bot/handlers/") ||
+    p.startsWith("src/sources/") ||
+    p === "classifier.js";
+
+  if (allowed) {
+    // User decision: heuristic / non-blocking / aggregate-only
+    issue.severity = "low";
+  }
+}
+
 /* =========================
    Minimal checks (copied logic style from repoCheck.js)
    Keep READ-ONLY. No AST.
@@ -273,7 +290,9 @@ export async function handleRepoReview({ bot, chatId, rest }) {
     issues.push(...checkDecisionsViolations(code));
 
     for (const it of issues) {
-      const codeKey = String(it.code || "");
+  applyHeuristicPolicy(it, path);
+
+  const codeKey = String(it.code || "");
       const sev = String(it.severity || "low");
       const key = `${codeKey}__${sev}`;
       typeSet.add(codeKey);

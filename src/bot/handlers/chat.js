@@ -129,7 +129,15 @@ export async function handleChatMessage({
     });
   } catch (e) {
     console.error("❌ AI error:", e);
-    aiReply = "⚠️ Ошибка вызова ИИ.";
+
+    // ВАЖНО: монарху показываем краткую реальную причину (для дебага),
+    // всем остальным — как раньше общая ошибка.
+    const monarch = typeof isMonarch === "function" ? isMonarch(senderIdStr) : false;
+    const msgText = e?.message ? String(e.message) : "unknown";
+
+    aiReply = monarch
+      ? `⚠️ Ошибка вызова ИИ: ${msgText}`
+      : "⚠️ Ошибка вызова ИИ.";
   }
 
   await saveChatPair(chatIdStr, effective, aiReply);
@@ -141,4 +149,3 @@ export async function handleChatMessage({
     console.error("❌ Telegram send error:", e);
   }
 }
-

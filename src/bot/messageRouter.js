@@ -8,6 +8,8 @@ import { handleRepoDiff } from "./handlers/repoDiff.js";
 
 import { handleRepoCheck } from "./handlers/repoCheck.js";
 
+import { handleRepoAnalyze } from "./handlers/repoAnalyze.js";
+
 import { handleRepoGet } from "./handlers/repoGet.js";
 
 import { handleReindexRepo } from "./handlers/reindexRepo.js";
@@ -143,418 +145,389 @@ async function getRecentFileIntakeLogs(chatIdStr, n = 10) {
   return res.rows || [];
 }
 
-async function getTaskRowById(id) {
-  const res = await pool.query(`SELECT * FROM tasks WHERE id = $1 LIMIT 1`, [
-    Number(id),
-  ]);
-  return res.rows?.[0] || null;
-}
-
-// ----------------------------------------------------------------------------
-// Public API
-// ----------------------------------------------------------------------------
-export function attachMessageRouter({
-  bot,
-  MONARCH_CHAT_ID,
-  DEFAULT_PLAN = "free",
-  MAX_HISTORY_MESSAGES = 20,
-}) {
-  function isMonarch(chatIdStr) {
-    return String(chatIdStr) === String(MONARCH_CHAT_ID);
-  }
-
-  bot.on("message", async (msg) => {
-    const chatId = msg.chat.id;
-    const chatIdStr = chatId.toString();
-
-    const senderId = msg.from?.id;
-    const senderIdStr = senderId?.toString() || "";
-
-    const text = msg.text || "";
-    const trimmed = text.trim();
-
-    // 0) User profile
-
-    const { userRole, userPlan, bypass, access, user } = await resolveUserAccess({
+async function getOrCreateUserRow(chatIdStr) {
+  try {
+    const res = await pool.query("SELECT * FROM users WHERE chat_id = $1", [
       chatIdStr,
-      senderIdStr,
-      DEFAULT_PLAN,
-      isMonarch,
-    });
+    ]);
+    if (res.rows?.[0]) return res.rows[0];
 
-    // ✅ Вынесено в src/bot/permGuard.js без изменения логики
-    const requirePermOrReply = buildRequirePermOrReply({
-      bot,
-      msg,
-      MONARCH_CHAT_ID,
-      user,
-      userRole,
-      userPlan,
-      trimmed,
-      CMD_ACTION,
-    });
-
-    // ======================================================================
-    // === COMMANDS ===
-    // ======================================================================
-    if (trimmed.startsWith("/")) {
-      const parsed = parseCommand(trimmed);
-      const cmd = parsed?.cmd || trimmed.split(" ")[0];
-      const rest = parsed?.rest || "";
-
-      if (!(await requirePermOrReply(cmd, { rest }))) return;
-
-      // === COMMAND DISPATCHER (SKELETON) ===
-      const dispatchResult = await dispatchCommand(cmd, {
-        bot,
-        msg,
-        chatId,
-        chatIdStr,
-        senderIdStr,
-        userRole,
-        userPlan,
-        bypass,
-        access,
-        user,
-        rest,
-        getCoinGeckoSimplePriceById,
-        getCoinGeckoSimplePriceMulti,
-        getAnswerMode,
-        setAnswerMode,
-        handleHelpLegacy: async () => {
-          await bot.sendMessage(chatId, "Используй /help (legacy).");
-        },
-        requirePermOrReply,
-        DEFAULT_PLAN,
-        MONARCH_CHAT_ID,
-      });
-
-      if (dispatchResult?.handled) {
-        return;
-      }
-
-      switch (cmd) {
-        case "/approve": {
-          await handleApprove({
-            bot,
-            chatId,
-            chatIdStr,
-            rest,
-            bypass,
-          });
-          return;
-        }
-
-        case "/deny": {
-          await handleDeny({
-            bot,
-            chatId,
-            chatIdStr,
-            rest,
-            bypass,
-          });
-          return;
-        }
-
-        case "/ar_create_test": {
-          await handleArCreateTest({
-            bot,
-            chatId,
-            chatIdStr,
-            userRole,
-            bypass,
-          });
-          return;
-        }
-
-        case "/reindex": {
-  await handleReindexRepo({
-    bot,
-    chatId,
-  });
-  return;
+    await pool.query(
+      "INSERT INTO users (chat_id, role, plan) VALUES ($1, $2, $3)",
+      [chatIdStr, "guest", "free"]
+    );
+    const res2 = await pool.query("SELECT * FROM users WHERE chat_id = $1", [
+      chatIdStr,
+    ]);
+    return res2.rows?.[0] || null;
+  } catch (e) {
+    console.error("❌ getOrCreateUserRow error:", e);
+    return null;
+  }
 }
 
-          case "/repo_get": {
-  await handleRepoGet({
+// ============================================================================
+// MAIN ROUTER
+// ============================================================================
+export async function handleMessage(bot, msg) {
+  const chatId = msg.chat?.id;
+  const chatIdStr = String(chatId);
+  const senderIdStr = String(msg.from?.id || "");
+
+  const text = String(msg.text || "").trim();
+  if (!text) return;
+
+  const { firstWord, rest } = firstWordAndRest(text);
+  const cmd = parseCommand(firstWord);
+
+  // --- Access / roles ---
+  const access = await resolveUserAccess({ pool, chatIdStr, senderIdStr });
+  const userRole = access?.role || "guest";
+  const userPlan = access?.plan || "free";
+  const bypass = Boolean(access?.bypass);
+
+  // --- Permissions helper ---
+  const requirePermOrReply = buildRequirePermOrReply({
+    pool,
     bot,
     chatId,
-    rest,
-  });
-  return;
-}
-
-          case "/repo_check": {
-  await handleRepoCheck({
-    bot,
-    chatId,
-    rest,
-  });
-  return;
-}
-
-                    case "/repo_review": {
-  await handleRepoReview({
-    bot,
-    chatId,
-    rest,
-  });
-  return;
-}
-
-          case "/repo_diff": {
-  await handleRepoDiff({
-    bot,
-    chatId,
-    rest,
-  });
-  return;
-}
-
-        case "/ar_list": {
-          await handleArList({
-            bot,
-            chatId,
-            rest,
-            bypass,
-          });
-          return;
-        }
-
-        case "/file_logs": {
-          await handleFileLogs({
-            bot,
-            chatId,
-            chatIdStr,
-            rest,
-            bypass,
-          });
-          return;
-        }
-
-        case "/demo_task": {
-          await handleDemoTask({
-            bot,
-            chatId,
-            chatIdStr,
-            createDemoTask,
-          });
-          return;
-        }
-
-        case "/btc_test_task": {
-          await handleBtcTestTask({
-            bot,
-            chatId,
-            chatIdStr,
-            access,
-            callWithFallback,
-            createTestPriceMonitorTask,
-          });
-          return;
-        }
-
-        case "/newtask": {
-          await handleNewTask({
-            bot,
-            chatId,
-            chatIdStr,
-            rest,
-            access,
-            callWithFallback,
-            createManualTask,
-          });
-          return;
-        }
-
-        case "/run": {
-          await handleRunTaskCmd({
-            bot,
-            chatId,
-            chatIdStr,
-            rest,
-            access,
-            callWithFallback,
-            runTask: runTaskWithAI,
-          });
-          return;
-        }
-
-        case "/stop_all_tasks": {
-  await handleStopAllTasks({
-    bot,
-    chatId,
+    chatIdStr,
+    userRole,
     bypass,
   });
-  return;
-}
 
-        case "/tasks": {
-          await handleTasksList({
-            bot,
-            chatId,
-            chatIdStr,
-            getUserTasks,
-            access,
-          });
-          return;
-        }
+  // --- Project context (pillars + system prompt) ---
+  const projectContext = await loadProjectContext({
+    getProjectSection,
+    projectKey: "sg",
+  });
 
-        case "/stop_task": {
-          await handleStopTask({
-            bot,
-            chatId,
-            chatIdStr,
-            rest,
-            userRole,
-            bypass,
-            getTaskRowById,
-            isOwnerTaskRow,
-            canStopTaskV1,
-            updateTaskStatus,
-          });
-          return;
-        }
+  const systemPrompt = buildSystemPrompt({
+    projectContext,
+    answerMode: await getAnswerMode({ pool, chatIdStr }),
+  });
 
-        case "/start_task": {
-          await handleStartTask({
-            bot,
-            chatId,
-            rest,
-            bypass,
-            updateTaskStatus,
-          });
-          return;
-        }
-
-case "/sources": {
-  await handleSourcesList({
+  // --- Dispatch legacy + generic ---
+  const dispatchResult = await dispatchCommand(cmd, {
     bot,
     chatId,
+    chatIdStr,
+    senderIdStr,
     userRole,
     userPlan,
     bypass,
-    getAllSourcesSafe,
+    access,
+    user: await getOrCreateUserRow(chatIdStr),
+    rest,
+    getCoinGeckoSimplePriceById,
+    getCoinGeckoSimplePriceMulti,
+    getAnswerMode: async () => getAnswerMode({ pool, chatIdStr }),
+    setAnswerMode: async (mode) => setAnswerMode({ pool, chatIdStr, mode }),
+    handleHelpLegacy: async () => {
+      await bot.sendMessage(chatId, "Используй /help (legacy).");
+    },
+    requirePermOrReply,
+    DEFAULT_PLAN,
+    MONARCH_CHAT_ID,
   });
-  return;
+
+  if (dispatchResult?.handled) {
+    return;
+  }
+
+  switch (cmd) {
+    case "/approve": {
+      await handleApprove({
+        bot,
+        chatId,
+        chatIdStr,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/deny": {
+      await handleDeny({
+        bot,
+        chatId,
+        chatIdStr,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/pm_set": {
+      await handlePmSet({
+        bot,
+        chatId,
+        chatIdStr,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/pm_show": {
+      await handlePmShow({
+        bot,
+        chatId,
+        chatIdStr,
+        bypass,
+      });
+      return;
+    }
+
+    case "/test_source": {
+      await handleTestSource({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/diag_source": {
+      await handleDiagSource({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/sources_list": {
+      await handleSourcesList({
+        bot,
+        chatId,
+        bypass,
+      });
+      return;
+    }
+
+    case "/sources_diag": {
+      await handleSourcesDiag({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/source": {
+      await handleSource({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/tasks_list": {
+      await handleTasksList({
+        bot,
+        chatId,
+        chatIdStr,
+        bypass,
+      });
+      return;
+    }
+
+    case "/start_task": {
+      await handleStartTask({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/stop_task": {
+      await handleStopTask({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/stop_all_tasks": {
+      await handleStopAllTasks({
+        bot,
+        chatId,
+        bypass,
+      });
+      return;
+    }
+
+    case "/run_task": {
+      await handleRunTask({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/new_task": {
+      await handleNewTask({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/btc_test_task": {
+      await handleBtcTestTask({
+        bot,
+        chatId,
+        bypass,
+      });
+      return;
+    }
+
+    case "/demo_task": {
+      await handleDemoTask({
+        bot,
+        chatId,
+        bypass,
+      });
+      return;
+    }
+
+    case "/run_task_cmd": {
+      await handleRunTaskCmd({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/reindex": {
+      await handleReindexRepo({
+        bot,
+        chatId,
+      });
+      return;
+    }
+
+    case "/repo_get": {
+      await handleRepoGet({
+        bot,
+        chatId,
+        rest,
+      });
+      return;
+    }
+
+    case "/repo_check": {
+      await handleRepoCheck({
+        bot,
+        chatId,
+        rest,
+      });
+      return;
+    }
+
+    case "/repo_analyze": {
+      await handleRepoAnalyze({
+        bot,
+        chatId,
+        rest,
+      });
+      return;
+    }
+
+    case "/repo_review": {
+      await handleRepoReview({
+        bot,
+        chatId,
+        rest,
+      });
+      return;
+    }
+
+    case "/repo_diff": {
+      await handleRepoDiff({
+        bot,
+        chatId,
+        rest,
+      });
+      return;
+    }
+
+    case "/ar_list": {
+      await handleArList({
+        bot,
+        chatId,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    case "/file_logs": {
+      await handleFileLogs({
+        bot,
+        chatId,
+        chatIdStr,
+        rest,
+        bypass,
+      });
+      return;
+    }
+
+    default:
+      break;
+  }
+
+  // Fallback: normal chat message
+  await handleChatMessage({
+    bot,
+    msg,
+    chatId,
+    chatIdStr,
+    userRole,
+    userPlan,
+    bypass,
+    systemPrompt,
+    callAI,
+    getChatHistory,
+    saveMessageToMemory,
+    saveChatPair,
+    logInteraction,
+    sanitizeNonMonarchReply,
+    FileIntake,
+    getRecentFileIntakeLogs,
+    runSourceDiagnosticsOnce,
+    getAllSourcesSafe,
+    fetchFromSourceKey,
+    formatSourcesList,
+    diagnoseSource,
+    testSource,
+    createDemoTask,
+    createManualTask,
+    createTestPriceMonitorTask,
+    getUserTasks,
+    getTaskById,
+    runTaskWithAI,
+    updateTaskStatus,
+    pool,
+  });
 }
 
-        case "/sources_diag": {
-          await handleSourcesDiag({
-            bot,
-            chatId,
-            userRole,
-            userPlan,
-            bypass,
-            runSourceDiagnosticsOnce,
-          });
-          return;
-        }
-
-        case "/source": {
-          await handleSource({
-            bot,
-            msg,
-            chatId,
-            chatIdStr,
-            rest,
-            access,
-            userRole,
-            userPlan,
-            bypass,
-          });
-          return;
-        }
-
-        case "/diag_source": {
-          await handleDiagSource({
-            bot,
-            chatId,
-            rest,
-            userRole,
-            userPlan,
-            bypass,
-            runSourceDiagnosticsOnce,
-          });
-          return;
-        }
-
-        case "/test_source": {
-          await handleTestSource({
-            bot,
-            chatId,
-            rest,
-            fetchFromSourceKey,
-            userRole,
-            userPlan,
-            bypass,
-          });
-          return;
-        }
-
-        case "/pm_show": {
-          await handlePmShow({
-            bot,
-            chatId,
-            rest,
-            getProjectSection,
-          });
-          return;
-        }
-
-        case "/pm_set": {
-          await handlePmSet({
-            bot,
-            chatId,
-            chatIdStr,
-            rest,
-            bypass,
-            upsertProjectSection,
-          });
-          return;
-        }
-
-        default: {
-          // неизвестная команда — игнор (поведение без изменений)
-          break;
-        }
-      } // end switch (cmd)
-
-      return;
-    } // end if (trimmed.startsWith("/"))
-
-    // ======================================================================
-    // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
-    // ======================================================================
-
-    await handleChatMessage({
-      bot,
-      msg,
-      chatId,
-      chatIdStr,
-      senderIdStr,
-      trimmed,
-      bypass,
-      MAX_HISTORY_MESSAGES,
-
-      FileIntake,
-
-      saveMessageToMemory,
-      getChatHistory,
-      saveChatPair,
-
-      logInteraction,
-
-      loadProjectContext,
-      getAnswerMode,
-      buildSystemPrompt,
-      isMonarch,
-
-      callAI,
-      sanitizeNonMonarchReply,
-    });
-
-    return;
-  }); // ✅ end bot.on("message", ...)
-
-} // ✅ end attachMessageRouter(...)
+// NOTE: keep these constants in this file (legacy compatibility)
+const DEFAULT_PLAN = "free";
+const MONARCH_CHAT_ID = "677128443";

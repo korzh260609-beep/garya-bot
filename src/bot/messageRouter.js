@@ -119,6 +119,45 @@ export function attachMessageRouter({
 
       const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
 
+      // ======================================================================
+      // === HARD DEV-GATE (ONLY MONARCH IN PRIVATE CHAT)
+      // ======================================================================
+      const chatType = msg.chat?.type || "unknown";
+      const isPrivate = chatType === "private";
+      const isMonarchUser = isMonarchFn(senderIdStr);
+
+      // Dev/Project commands that can affect SG development / repo work.
+      // Rule: ONLY monarch in private chat can use them.
+      const isDevCommand =
+        trimmed.startsWith("/repo_") ||
+        trimmed.startsWith("/reindex") ||
+        trimmed.startsWith("/pm_") ||
+        trimmed.startsWith("/tasks") ||
+        trimmed.startsWith("/sources") ||
+        trimmed.startsWith("/source") ||
+        trimmed.startsWith("/diag_source") ||
+        trimmed.startsWith("/test_source") ||
+        trimmed.startsWith("/approve") ||
+        trimmed.startsWith("/deny") ||
+        trimmed.startsWith("/file_logs") ||
+        trimmed.startsWith("/ar_list") ||
+        trimmed.startsWith("/run_task") ||
+        trimmed.startsWith("/run_task_cmd") ||
+        trimmed.startsWith("/new_task") ||
+        trimmed.startsWith("/start_task") ||
+        trimmed.startsWith("/stop_task") ||
+        trimmed.startsWith("/stop_all") ||
+        trimmed.startsWith("/demo_task") ||
+        trimmed.startsWith("/btc_test_task");
+
+      if (trimmed.startsWith("/") && isDevCommand) {
+        if (!isMonarchUser || !isPrivate) {
+          // Silent block (per monarch rule): no replies, no leakage.
+          return;
+        }
+      }
+      // ======================================================================
+
       const accessPack = await resolveUserAccess({
         chatIdStr,
         senderIdStr,

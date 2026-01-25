@@ -29,15 +29,31 @@ export async function handleChatMessage({
 }) {
   const messageId = msg.message_id ?? null;
 
+  // ---- GUARDS (critical): never crash on wrong wiring ----
+  const isMonarchFn = typeof isMonarch === "function" ? isMonarch : () => false;
+  const monarchNow = isMonarchFn(senderIdStr);
+
+  if (typeof callAI !== "function") {
+    // Fail-fast: bot must still reply (especially to monarch) instead of throwing.
+    const details = "callAI is not a function (router wiring error: pass { callAI } into handleChatMessage).";
+    const text = monarchNow ? `⚠️ Ошибка конфигурации: ${details}` : "⚠️ Ошибка вызова ИИ.";
+    try {
+      await bot.sendMessage(chatId, text);
+    } catch (e) {
+      console.error("❌ Telegram send error (callAI guard):", e);
+    }
+    return;
+  }
+
   const summarizeMediaAttachment =
-    typeof FileIntake.summarizeMediaAttachment === "function"
+    typeof FileIntake?.summarizeMediaAttachment === "function"
       ? FileIntake.summarizeMediaAttachment
       : () => null;
 
   const mediaSummary = summarizeMediaAttachment(msg);
 
   const decisionFn =
-    typeof FileIntake.buildEffectiveUserTextAndDecision === "function"
+    typeof FileIntake?.buildEffectiveUserTextAndDecision === "function"
       ? FileIntake.buildEffectiveUserTextAndDecision
       : null;
 
@@ -97,7 +113,7 @@ export async function handleChatMessage({
     answerMode,
     modeInstruction,
     projectCtx || "",
-    { isMonarch: isMonarch(senderIdStr), currentUserName }
+    { isMonarch: isMonarchFn(senderIdStr), currentUserName }
   );
 
   const roleGuardPrompt = bypass
@@ -132,7 +148,7 @@ export async function handleChatMessage({
 
     // ВАЖНО: монарху показываем краткую реальную причину (для дебага),
     // всем остальным — как раньше общая ошибка.
-    const monarch = typeof isMonarch === "function" ? isMonarch(senderIdStr) : false;
+    const monarch = isMonarchFn(senderIdStr);
     const msgText = e?.message ? String(e.message) : "unknown";
 
     aiReply = monarch

@@ -2,6 +2,7 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleCodeFullfile } from "./handlers/codeFullfile.js";
 import { handleRepoReview } from "./handlers/repoReview.js";
 import { handleRepoDiff } from "./handlers/repoDiff.js";
 import { handleRepoCheck } from "./handlers/repoCheck.js";
@@ -267,15 +268,20 @@ export function attachMessageRouter({
             return;
           }
 
-          case "/repo_review": {
-            await handleRepoReview({ bot, chatId, rest });
-            return;
-          }
+case "/repo_review": {
+  await handleRepoReview({ bot, chatId, rest });
+  return;
+}
 
-          case "/repo_diff": {
-            await handleRepoDiff({ bot, chatId, rest });
-            return;
-          }
+case "/code_fullfile": {
+  await handleCodeFullfile({ bot, chatId, rest });
+  return;
+}
+
+case "/repo_diff": {
+  await handleRepoDiff({ bot, chatId, rest });
+  return;
+}
 
           case "/ar_list": {
             await handleArList({ bot, chatId, rest, bypass });

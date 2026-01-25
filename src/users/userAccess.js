@@ -11,6 +11,9 @@ export async function resolveUserAccess({
   DEFAULT_PLAN = "free",
   isMonarch, // function(chatIdOrSenderIdStr) -> boolean (legacy behavior is preserved by caller)
 }) {
+  // ✅ SAFETY: never crash if caller forgot to pass isMonarch(fn)
+  const isMonarchFn = typeof isMonarch === "function" ? isMonarch : () => false;
+
   // 1) role + plan
   let userRole = "guest";
   let userPlan = DEFAULT_PLAN;
@@ -25,17 +28,23 @@ export async function resolveUserAccess({
   }
 
   // ✅ SAFETY: только реальный MONARCH_CHAT_ID может иметь роль monarch
-  if ((userRole || "").toLowerCase() === "monarch" && !isMonarch(senderIdStr)) {
+  if ((userRole || "").toLowerCase() === "monarch" && !isMonarchFn(senderIdStr)) {
     console.warn("⚠️ ROLE GUARD: non-monarch had role=monarch in DB:", senderIdStr);
     userRole = "guest";
   }
 
-  const bypass = isMonarch(senderIdStr);
+  const bypass = isMonarchFn(senderIdStr);
 
+  // ✅ Backward-compatible access object
   const access = {
     userRole,
     userPlan,
     bypassPermissions: bypass,
+
+    // Aliases (do not change meaning; helps callers that expect role/plan keys)
+    role: userRole,
+    plan: userPlan,
+    bypass,
   };
 
   // ✅ единый user-объект для permissions-layer
@@ -43,4 +52,3 @@ export async function resolveUserAccess({
 
   return { userRole, userPlan, bypass, access, user };
 }
-

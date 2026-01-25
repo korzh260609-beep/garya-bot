@@ -339,16 +339,9 @@ Suggestions are high-level, aggregated and noise-filtered conclusions derived fr
 Rules:
 - One suggestion per issue type (no duplication)
 - Maximum 7 suggestions total
-- Heuristic-only issue types (e.g. UNREACHABLE_CODE) must be aggregated
+- Heuristic-only issue types must be aggregated
 - If only heuristic issues are present, severity MUST be lowered
-- Suggestions must not alarm if no high-severity issues exist
-- Suggestions must never contain code, actions or instructions
-- Suggestions explain WHAT and WHY, not HOW
-
-Consequences:
-- Repetitive or noisy warnings are forbidden
-- Suggestions act as reviewer conclusions, not linter output
-- Violations are considered behavioral bugs
+- Suggestions must never contain code or instructions
 
 ---
 
@@ -358,18 +351,43 @@ Date: 2026-01-21
 Scope: Repo Review / Heuristics (B4)
 
 Decision:
-- UNREACHABLE_CODE is a heuristic, non-blocking issue type.
-- In allowed zones, UNREACHABLE_CODE MUST be downgraded to low and treated as aggregate-only:
-  - src/bot/handlers/*
-  - src/sources/*
-  - classifier.js
-- In all other files, UNREACHABLE_CODE MUST remain medium and be treated as a signal.
+UNREACHABLE_CODE is heuristic and non-blocking.
+Allowed zones downgrade severity:
+- src/bot/handlers/*
+- src/sources/*
+- classifier.js
 
-Rationale:
-- Guard clauses and early-return patterns are normal and intentional in handlers, sources and classifiers.
-- Outside these zones, unreachable code is more likely to indicate maintainability or structural issues.
+---
+
+## D-023: Controlled Code Writing (B6)
+Status: ACCEPTED  
+Date: 2026-01-25  
+Scope: Code Generation / Governance
+
+Decision:
+From stage B6, SG is allowed to WRITE CODE OUTPUT,
+but ONLY under strict human-applied control.
+
+Rules:
+- SG writes code only by explicit command.
+- SG NEVER inserts, commits, deploys or modifies files itself.
+- All code is copied and applied by the human.
+
+Mandatory output format:
+1) FILE
+2) ACTION (ADD_NEW_FILE | REPLACE | INSERT)
+3) ANCHOR
+4) CODE
+5) WHY
+6) RISKS
+7) CHECK
+
+Restrictions:
+- No refactor without command
+- No architectural changes without DECISIONS update
+- No secret handling
+- No silent behavior changes
 
 Consequences:
-- Repo-level review must apply zone-aware severity classification.
-- Heuristic noise must not dominate review output.
-- Violations of this policy are considered repo-review bugs.
+- Any deviation is a critical governance violation
+- Human remains the sole executor

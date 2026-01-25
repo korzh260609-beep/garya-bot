@@ -1,18 +1,42 @@
 // ============================================================================
 // === src/bot/handlers/repoAnalyze.js — READ-ONLY file analysis (NO CODE OUTPUT)
-// === B6.3: /repo_analyze <path>
+// === B6: /repo_analyze <path> [question...]
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
 
 function denySensitivePath(path) {
   const lower = String(path || "").toLowerCase();
-  return (
-    lower.includes(".env") ||
-    lower.includes("secret") ||
-    lower.includes("token") ||
-    lower.includes("key")
-  );
+
+  // блокируем очевидно чувствительное
+  const bannedParts = [
+    ".env",
+    "secret",
+    "token",
+    "apikey",
+    "api_key",
+    "private",
+    "credential",
+    "passwd",
+    "password",
+    "keys",
+    "cert",
+    "pem",
+    "id_rsa",
+  ];
+
+  // блокируем конфиги окружений/деплоя (чтобы никто не “анализировал” их содержимое)
+  const bannedExact = [
+    "render.yaml",
+    "dockerfile",
+    "docker-compose.yml",
+    ".github/workflows",
+  ];
+
+  if (bannedExact.some((p) => lower === p || lower.startsWith(p + "/"))) return true;
+  if (bannedParts.some((p) => lower.includes(p))) return true;
+
+  return false;
 }
 
 function countLines(s) {
@@ -27,73 +51,153 @@ function reTest(pattern, text) {
   }
 }
 
-function buildFindings({ path, code, lines }) {
+function countMatches(pattern, text) {
+  try {
+    const re = new RegExp(pattern, "gm");
+    const m = String(text || "").match(re);
+    return m ? m.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function parsePathAndQuestion(rest) {
+  const raw = String(rest || "").trim();
+  if (!raw) return { path: "", question: "" };
+
+  // формат: /repo_analyze path/to/file.js [question...]
+  const firstSpace = raw.indexOf(" ");
+  if (firstSpace === -1) return { path: raw, question: "" };
+
+  const path = raw.slice(0, firstSpace).trim();
+  const question = raw.slice(firstSpace + 1).trim();
+  return { path, question };
+}
+
+function buildMetrics({ path, code, lines }) {
+  // Без вывода кода: только метрики/флаги
+  const imports = countMatches("^\\s*import\\s+", code) + countMatches("^\\s*const\\s+\\w+\\s*=\\s*require\\(", code);
+  const exportsCount =
+    countMatches("^\\s*export\\s+", code) +
+    countMatches("module\\.exports\\s*=", code) +
+    countMatches("exports\\.", code);
+
+  const funcs = countMatches("\\bfunction\\s+\\w+\\s*\\(", code) + countMatches("\\basync\\s+function\\s+\\w+\\s*\\(", code);
+  const arrowFns = countMatches("\\bconst\\s+\\w+\\s*=\\s*\\(.*?\\)\\s*=>", code);
+  const classes = countMatches("\\bclass\\s+\\w+\\b", code);
+
+  const hasEnv = reTest("\\bprocess\\.env\\.", code);
+  const hasNet = reTest("\\bfetch\\(", code) || reTest("\\baxios\\b", code) || reTest("\\brequest\\b", code);
+  const hasFsWrite =
+    reTest("\\bfs\\.", code) &&
+    (reTest("\\bwriteFile\\(", code) || reTest("\\bappendFile\\(", code) || reTest("\\bcreateWriteStream\\(", code));
+  const hasChildProc = reTest("\\bchild_process\\b", code) || reTest("\\bexec\\(", code) || reTest("\\bspawn\\(", code);
+
+  const isBootstrap = String(path || "").includes("src/bootstrap/");
+  const isHandler = String(path || "").includes("src/bot/handlers/");
+  const touchesDb = reTest("\\bpool\\.query\\(", code) || reTest("\\bCREATE\\s+TABLE\\b", code);
+
+  return {
+    lines,
+    imports,
+    exportsCount,
+    funcs,
+    arrowFns,
+    classes,
+    flags: {
+      hasEnv,
+      hasNet,
+      hasFsWrite,
+      hasChildProc,
+      touchesDb,
+      isBootstrap,
+      isHandler,
+    },
+  };
+}
+
+function buildFindings({ metrics, code }) {
   const notes = [];
   const risks = [];
   const suggestions = [];
 
+  const lines = metrics.lines;
+
+  // размер
   if (lines >= 300) {
     notes.push(`Большой файл (${lines} строк): повышен риск ошибок и сложность поддержки.`);
-    suggestions.push(
-      "Разбей файл на модули (правило проекта: 200–300 строк = пора выносить ответственность)."
-    );
+    suggestions.push("Разбей файл на модули (правило проекта: 200–300 строк = пора выносить ответственность).");
   }
 
-  if (reTest("\\bprocess\\.env\\.", code)) {
+  // env
+  if (metrics.flags.hasEnv) {
     notes.push("Используются переменные окружения (process.env): убедись, что секреты не логируются.");
     suggestions.push("Не выводи значения process.env в чат/логи; логируй только факт наличия/отсутствия.");
   }
 
-  if (reTest("\\bchild_process\\b", code) || reTest("\\bexec\\(", code) || reTest("\\bspawn\\(", code)) {
+  // child_process
+  if (metrics.flags.hasChildProc) {
     risks.push("Используется child_process/exec/spawn: риск RCE/инъекций при неверной фильтрации ввода.");
-    suggestions.push("Если нужно — только allowlist команд, запрет пользовательских строк без жёсткой валидации.");
+    suggestions.push("Только allowlist команд и жёсткая валидация; запрет пользовательских строк без фильтра.");
   }
 
-  if (
-    reTest("\\bfs\\.", code) &&
-    (reTest("\\bwriteFile\\(", code) || reTest("\\bappendFile\\(", code) || reTest("\\bcreateWriteStream\\(", code))
-  ) {
+  // fs write
+  if (metrics.flags.hasFsWrite) {
     risks.push("Есть запись в файловую систему: риск побочных эффектов/утечек/нестабильности на Render.");
-    suggestions.push("Данные и логи — предпочтительно в БД/безопасное хранилище; запись на диск только осознанно и ограниченно.");
+    suggestions.push("Данные/логи — предпочтительно в БД/безопасное хранилище; запись на диск только осознанно.");
   }
 
-  if (reTest("\\bfetch\\(", code) || reTest("\\baxios\\b", code) || reTest("\\brequest\\b", code)) {
+  // network
+  if (metrics.flags.hasNet) {
     notes.push("Есть сетевые запросы: проверь timeout/retry/rate-limit и обработку ошибок.");
-    suggestions.push("Добавь таймауты и явную обработку ошибок/429, чтобы не зависать и не спамить источники.");
+    suggestions.push("Добавь таймауты и обработку 429/5xx, чтобы не зависать и не спамить источники.");
   }
 
-  const isBootstrap = String(path || "").includes("src/bootstrap/");
-  const isHandler = String(path || "").includes("src/bot/handlers/");
-  if ((isBootstrap || isHandler) && (reTest("\\bpool\\.query\\(", code) || reTest("\\bCREATE\\s+TABLE\\b", code))) {
-    risks.push("DB/DDL/SQL в bootstrap/handlers: вероятное нарушение границ ответственности (CORE_BOUNDARY_VIOLATION).");
-    suggestions.push("Вынеси DB/DDL в db/service слой; handlers/bootstrap должны оставаться тонкими.");
+  // boundary checks
+  if ((metrics.flags.isBootstrap || metrics.flags.isHandler) && metrics.flags.touchesDb) {
+    risks.push("DB/SQL в bootstrap/handlers: вероятное нарушение границ ответственности (CORE_BOUNDARY_VIOLATION).");
+    suggestions.push("Вынеси DB-операции в service слой; handlers/bootstrap держи тонкими.");
   }
 
-  if (isHandler && (reTest("\\/reindex\\b", code) || reTest("\\/repo_review\\b", code) || reTest("\\/repo_diff\\b", code))) {
-    if (!reTest("MONARCH_CHAT_ID", code) && !reTest("requirePerm", code) && !reTest("perm", code)) {
-      risks.push("Похоже на привилегированную команду без явного permission-guard (PERMISSION_BYPASS_RISK).");
+  // privileged commands inside handler check (heuristic)
+  if (
+    metrics.flags.isHandler &&
+    (reTest("\\/reindex\\b", code) || reTest("\\/repo_review\\b", code) || reTest("\\/repo_diff\\b", code) || reTest("\\/repo_", code))
+  ) {
+    if (!reTest("MONARCH_USER_ID", code) && !reTest("MONARCH_CHAT_ID", code) && !reTest("requirePerm", code) && !reTest("perm", code)) {
+      risks.push("Похоже на привилегированную команду без явного permission-guard в handler (PERMISSION_BYPASS_RISK).");
       suggestions.push("Добавь явный guard внутри handler (даже если guard есть на уровне router).");
     }
   }
 
+  // unreachable heuristic (non-blocking)
   if (reTest("\\breturn\\b[\\s\\S]{0,400}\\breturn\\b", code)) {
-    notes.push("Есть паттерны с ранними return: возможно UNREACHABLE_CODE (эвристика, non-blocking).");
+    notes.push("Есть паттерны с ранними return: возможен UNREACHABLE_CODE (эвристика, non-blocking).");
   }
 
   return { notes, risks, suggestions };
 }
 
+function buildQuestionFocus(question) {
+  const q = String(question || "").trim();
+  if (!q) return null;
+
+  // очень простой “фокус”, чтобы ответ был точечным без ИИ
+  return `Фокус-вопрос: ${q}`;
+}
+
 export async function handleRepoAnalyze(ctx) {
   const { bot, chatId, rest } = ctx || {};
-  const path = String(rest || "").trim();
+
+  const { path, question } = parsePathAndQuestion(rest);
 
   if (!path) {
-    await bot.sendMessage(chatId, "Usage: /repo_analyze <path/to/file.js>");
+    await bot.sendMessage(chatId, "Usage: /repo_analyze <path/to/file.js> [question...]");
     return;
   }
 
   if (denySensitivePath(path)) {
-    await bot.sendMessage(chatId, "Access denied: sensitive file.");
+    await bot.sendMessage(chatId, "Access denied: sensitive path.");
     return;
   }
 
@@ -111,28 +215,57 @@ export async function handleRepoAnalyze(ctx) {
 
   const code = file.content;
   const lines = countLines(code);
-  const { notes, risks, suggestions } = buildFindings({ path, code, lines });
+
+  // Метрики + эвристики (без вывода кода)
+  const metrics = buildMetrics({ path, code, lines });
+  const { notes, risks, suggestions } = buildFindings({ metrics, code });
 
   const out = [];
   out.push(`repo_analyze: ${path}`);
-  out.push(`lines: ${lines}`);
+  out.push(`lines: ${metrics.lines}`);
+  out.push(
+    `metrics: imports=${metrics.imports}, exports=${metrics.exportsCount}, functions=${metrics.funcs + metrics.arrowFns}, classes=${metrics.classes}`
+  );
   out.push("");
+
   out.push("IMPORTANT: file content is NOT printed by this command.");
+  const focus = buildQuestionFocus(question);
+  if (focus) out.push(focus);
   out.push("");
 
   out.push("Notes:");
   if (!notes.length) out.push("- (none)");
-  else notes.slice(0, 10).forEach((n) => out.push(`- ${n}`));
+  else notes.slice(0, 12).forEach((n) => out.push(`- ${n}`));
 
   out.push("");
   out.push("Risks:");
   if (!risks.length) out.push("- (none)");
-  else risks.slice(0, 10).forEach((r) => out.push(`- ${r}`));
+  else risks.slice(0, 12).forEach((r) => out.push(`- ${r}`));
 
   out.push("");
   out.push("Suggestions (READ-ONLY):");
   if (!suggestions.length) out.push("- (none)");
-  else suggestions.slice(0, 10).forEach((s) => out.push(`- ${s}`));
+  else suggestions.slice(0, 12).forEach((s) => out.push(`- ${s}`));
+
+  // Если задан вопрос — добавим “минимально достаточные” подсказки по фокусу (без ИИ)
+  if (question) {
+    out.push("");
+    out.push("Focus hints:");
+    const q = question.toLowerCase();
+
+    if (q.includes("security") || q.includes("guard") || q.includes("access") || q.includes("роль")) {
+      out.push("- Проверь, что команды/действия в этом файле не обходят dev-gate и requirePerm.");
+      out.push("- Убедись, что монарх определяется только через MONARCH_USER_ID (env), без доверия к роли из БД.");
+    } else if (q.includes("boundary") || q.includes("архит") || q.includes("слой") || q.includes("module")) {
+      out.push("- Проверь, что handler не тянет DB/Repo/AI напрямую, а делегирует в сервисы.");
+      out.push("- Проверь, что импорты не создают циклы между слоями.");
+    } else if (q.includes("bug") || q.includes("ошиб") || q.includes("падает") || q.includes("crash")) {
+      out.push("- Ищи места, где функции ожидаются как функции (не boolean), особенно isMonarch/callAI.");
+      out.push("- Проверь try/catch вокруг внешних вызовов (GitHub/AI/DB) и наличие return после reply.");
+    } else {
+      out.push("- Уточни вопрос (1–2 фразы), если нужен более точный анализ по конкретному сценарию.");
+    }
+  }
 
   await bot.sendMessage(chatId, out.join("\n"));
 }

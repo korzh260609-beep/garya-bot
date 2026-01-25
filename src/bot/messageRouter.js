@@ -274,7 +274,7 @@ case "/repo_review": {
 }
 
 case "/code_fullfile": {
-  await handleCodeFullfile({ bot, chatId, rest });
+  await handleCodeFullfile({ bot, chatId, rest, callAI });
   return;
 }
 

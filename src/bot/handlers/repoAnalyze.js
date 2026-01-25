@@ -1,5 +1,6 @@
 // ============================================================================
-// === src/bot/handlers/repoAnalyze.js — File analysis (NO CODE OUTPUT), B6.3
+// === src/bot/handlers/repoAnalyze.js — READ-ONLY file analysis (NO CODE OUTPUT)
+// === B6.3: /repo_analyze <path>
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -18,112 +19,73 @@ function countLines(s) {
   return String(s || "").split(/\r?\n/).length;
 }
 
-function has(pattern, code) {
+function reTest(pattern, text) {
   try {
-    return new RegExp(pattern, "m").test(code);
+    return new RegExp(pattern, "m").test(text);
   } catch {
     return false;
   }
 }
 
 function buildFindings({ path, code, lines }) {
-  const risks = [];
   const notes = [];
+  const risks = [];
   const suggestions = [];
 
-  // Size / maintainability
   if (lines >= 300) {
-    notes.push(`Большой файл (${lines} строк): повышен риск ошибок вставки/рефакторинга.`);
+    notes.push(`Большой файл (${lines} строк): повышен риск ошибок и сложность поддержки.`);
     suggestions.push(
-      `Разбей файл на модули (правило: 200–300 строк = пора выносить ответственность).`
+      "Разбей файл на модули (правило проекта: 200–300 строк = пора выносить ответственность)."
     );
   }
 
-  // Dangerous APIs
+  if (reTest("\\bprocess\\.env\\.", code)) {
+    notes.push("Используются переменные окружения (process.env): убедись, что секреты не логируются.");
+    suggestions.push("Не выводи значения process.env в чат/логи; логируй только факт наличия/отсутствия.");
+  }
+
+  if (reTest("\\bchild_process\\b", code) || reTest("\\bexec\\(", code) || reTest("\\bspawn\\(", code)) {
+    risks.push("Используется child_process/exec/spawn: риск RCE/инъекций при неверной фильтрации ввода.");
+    suggestions.push("Если нужно — только allowlist команд, запрет пользовательских строк без жёсткой валидации.");
+  }
+
   if (
-    has("\\bchild_process\\b", code) ||
-    has("\\bexec\\(", code) ||
-    has("\\bspawn\\(", code)
+    reTest("\\bfs\\.", code) &&
+    (reTest("\\bwriteFile\\(", code) || reTest("\\bappendFile\\(", code) || reTest("\\bcreateWriteStream\\(", code))
   ) {
-    risks.push(
-      "Используется child_process/exec/spawn: риск RCE/инъекций и безопасности окружения."
-    );
-    suggestions.push(
-      "Если это нужно — добавь строгий allowlist команд и запрети пользовательский ввод без фильтрации."
-    );
+    risks.push("Есть запись в файловую систему: риск побочных эффектов/утечек/нестабильности на Render.");
+    suggestions.push("Данные и логи — предпочтительно в БД/безопасное хранилище; запись на диск только осознанно и ограниченно.");
   }
 
-  // FS writes
-  if (
-    has("\\bfs\\.", code) &&
-    (has("\\bwriteFile\\(", code) ||
-      has("\\bappendFile\\(", code) ||
-      has("\\bcreateWriteStream\\(", code))
-  ) {
-    risks.push(
-      "Есть запись в файловую систему: риск утечек/перезаписи/побочных эффектов на Render."
-    );
-    suggestions.push(
-      "Логи/артефакты — только в DB или безопасное хранилище; запись на диск делай осознанно и ограниченно."
-    );
+  if (reTest("\\bfetch\\(", code) || reTest("\\baxios\\b", code) || reTest("\\brequest\\b", code)) {
+    notes.push("Есть сетевые запросы: проверь timeout/retry/rate-limit и обработку ошибок.");
+    suggestions.push("Добавь таймауты и явную обработку ошибок/429, чтобы не зависать и не спамить источники.");
   }
 
-  // Network calls
-  if (has("\\bfetch\\(", code) || has("\\baxios\\b", code) || has("\\brequest\\b", code)) {
-    notes.push(
-      "Есть сетевые запросы: проверь timeouts, retries, rate-limit и обработку ошибок."
-    );
-    suggestions.push(
-      "Добавь таймауты и явную обработку ошибок/429, чтобы не зависать и не спамить источники."
-    );
-  }
-
-  // Secrets handling
-  if (has("process\\.env\\.", code)) {
-    notes.push("Используются переменные окружения (process.env): проверь, что не логируешь секреты.");
-    suggestions.push(
-      "Никогда не выводи значения process.env в чат/логи; логируй только факт наличия/отсутствия."
-    );
-  }
-
-  // SQL / DB usage in wrong zones (heuristic)
   const isBootstrap = String(path || "").includes("src/bootstrap/");
   const isHandler = String(path || "").includes("src/bot/handlers/");
-  if (
-    (isBootstrap || isHandler) &&
-    (has("\\bpool\\.query\\(", code) || has("\\bCREATE\\s+TABLE\\b", code))
-  ) {
-    risks.push("DB/DDL/SQL в bootstrap/handlers: нарушение границ (CORE_BOUNDARY_VIOLATION).");
-    suggestions.push(
-      "Вынеси DDL/DB-логику в db/service слой; в handlers/bootstrap оставь только вызовы."
-    );
+  if ((isBootstrap || isHandler) && (reTest("\\bpool\\.query\\(", code) || reTest("\\bCREATE\\s+TABLE\\b", code))) {
+    risks.push("DB/DDL/SQL в bootstrap/handlers: вероятное нарушение границ ответственности (CORE_BOUNDARY_VIOLATION).");
+    suggestions.push("Вынеси DB/DDL в db/service слой; handlers/bootstrap должны оставаться тонкими.");
   }
 
-  // Privileged commands guard (heuristic)
-  if (
-    isHandler &&
-    (has("\\/reindex\\b", code) || has("\\/repo_review\\b", code) || has("\\/repo_diff\\b", code))
-  ) {
-    if (!has("MONARCH_CHAT_ID", code) && !has("requirePerm", code) && !has("permission", code)) {
-      risks.push(
-        "Похоже на привилегированную команду без явного permission-guard (PERMISSION_BYPASS_RISK)."
-      );
-      suggestions.push(
-        "Добавь явный monarch/admin guard внутри handler, даже если guard уже есть на уровне router."
-      );
+  if (isHandler && (reTest("\\/reindex\\b", code) || reTest("\\/repo_review\\b", code) || reTest("\\/repo_diff\\b", code))) {
+    if (!reTest("MONARCH_CHAT_ID", code) && !reTest("requirePerm", code) && !reTest("perm", code)) {
+      risks.push("Похоже на привилегированную команду без явного permission-guard (PERMISSION_BYPASS_RISK).");
+      suggestions.push("Добавь явный guard внутри handler (даже если guard есть на уровне router).");
     }
   }
 
-  // Unreachable code heuristic (very rough)
-  if (has("\\breturn\\s*;[\\s\\S]{0,400}\\breturn\\b", code)) {
-    notes.push("Есть паттерны с ранними return: возможно UNREACHABLE_CODE (эвристика).");
+  if (reTest("\\breturn\\b[\\s\\S]{0,400}\\breturn\\b", code)) {
+    notes.push("Есть паттерны с ранними return: возможно UNREACHABLE_CODE (эвристика, non-blocking).");
   }
 
-  return { risks, notes, suggestions };
+  return { notes, risks, suggestions };
 }
 
-export async function handleRepoAnalyze({ bot, chatId, rest }) {
-  const path = (rest || "").trim();
+export async function handleRepoAnalyze(ctx) {
+  const { bot, chatId, rest } = ctx || {};
+  const path = String(rest || "").trim();
 
   if (!path) {
     await bot.sendMessage(chatId, "Usage: /repo_analyze <path/to/file.js>");
@@ -142,7 +104,6 @@ export async function handleRepoAnalyze({ bot, chatId, rest }) {
   });
 
   const file = await source.fetchTextFile(path);
-
   if (!file || typeof file.content !== "string") {
     await bot.sendMessage(chatId, `File not found or cannot be read: ${path}`);
     return;
@@ -150,8 +111,7 @@ export async function handleRepoAnalyze({ bot, chatId, rest }) {
 
   const code = file.content;
   const lines = countLines(code);
-
-  const { risks, notes, suggestions } = buildFindings({ path, code, lines });
+  const { notes, risks, suggestions } = buildFindings({ path, code, lines });
 
   const out = [];
   out.push(`repo_analyze: ${path}`);
@@ -176,4 +136,3 @@ export async function handleRepoAnalyze({ bot, chatId, rest }) {
 
   await bot.sendMessage(chatId, out.join("\n"));
 }
-

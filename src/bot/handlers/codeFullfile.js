@@ -9,7 +9,6 @@ import { RepoSource } from "../../repo/RepoSource.js";
 function denySensitivePath(path) {
   const lower = String(path || "").toLowerCase();
 
-  // блокируем очевидно чувствительное
   const bannedParts = [
     ".env",
     "secret",
@@ -26,7 +25,6 @@ function denySensitivePath(path) {
     "id_rsa",
   ];
 
-  // блокируем деплой/воркфлоу-секретные места
   const bannedExact = [
     "render.yaml",
     "dockerfile",
@@ -72,6 +70,57 @@ function guessLang(path) {
   return "";
 }
 
+// Telegram hard limit is ~4096 chars; keep safe margin.
+// We also account for header + code fences overhead.
+const TG_MAX_SAFE = 3500;
+const TG_MAX_PARTS = 8;
+
+function chunkString(s, size) {
+  const str = String(s || "");
+  const out = [];
+  for (let i = 0; i < str.length; i += size) out.push(str.slice(i, i + size));
+  return out;
+}
+
+async function sendInParts(bot, chatId, header, lang, content) {
+  const codeBlockLang = lang ? lang : "";
+
+  // If small enough, send once.
+  const single = `${header}\n\n\`\`\`${codeBlockLang}\n${content}\n\`\`\``;
+  if (single.length <= 4096) {
+    await bot.sendMessage(chatId, single);
+    return;
+  }
+
+  // If too big, split inside code content. Keep each message under TG_MAX_SAFE.
+  const fenceOpen = `\`\`\`${codeBlockLang}\n`;
+  const fenceClose = `\n\`\`\``;
+
+  // Reserve space for: header + part label + fences
+  // Part label example: "FULLFILE: path (Part 1/3)"
+  const reserve = header.length + 40 + fenceOpen.length + fenceClose.length + 4;
+  const chunkSize = Math.max(800, TG_MAX_SAFE - reserve);
+
+  const parts = chunkString(content, chunkSize);
+  if (parts.length > TG_MAX_PARTS) {
+    await bot.sendMessage(
+      chatId,
+      [
+        "code_fullfile: OUTPUT TOO LARGE",
+        `Reason: too many parts for Telegram (${parts.length} > ${TG_MAX_PARTS}).`,
+        "Action: use /code_patch for targeted changes, or ask for smaller file/module split.",
+      ].join("\n")
+    );
+    return;
+  }
+
+  for (let i = 0; i < parts.length; i++) {
+    const partHeader = `${header} (Part ${i + 1}/${parts.length})`;
+    const msg = `${partHeader}\n\n${fenceOpen}${parts[i]}${fenceClose}`;
+    await bot.sendMessage(chatId, msg);
+  }
+}
+
 export async function handleCodeFullfile(ctx) {
   const { bot, chatId, rest, callAI } = ctx || {};
 
@@ -87,7 +136,6 @@ export async function handleCodeFullfile(ctx) {
     return;
   }
 
-  // Без callAI — не работаем (чтобы не было “тихих” поломок)
   if (typeof callAI !== "function") {
     await bot.sendMessage(
       chatId,
@@ -102,14 +150,12 @@ export async function handleCodeFullfile(ctx) {
     token: process.env.GITHUB_TOKEN,
   });
 
-  // Тянем файл (как в repoGet), но НЕ печатаем его в чат — только в AI
   const currentFile = await safeFetchText(source, path);
   if (!currentFile) {
     await bot.sendMessage(chatId, `File not found or cannot be read: ${path}`);
     return;
   }
 
-  // Контекст правил (если есть — используем; если нет — продолжаем)
   const decisions = await safeFetchText(source, "pillars/DECISIONS.md");
   const workflow = await safeFetchText(source, "pillars/WORKFLOW.md");
   const behavior = await safeFetchText(source, "pillars/SG_BEHAVIOR.md");
@@ -117,7 +163,6 @@ export async function handleCodeFullfile(ctx) {
 
   const lang = guessLang(path);
 
-  // Жёсткий контракт вывода: только полный файл, без объяснений
   const system = [
     "You are SG (Советник GARYA) operating in READ-ONLY mode.",
     "Task: generate a FULL replacement for a single repository file.",
@@ -132,7 +177,9 @@ export async function handleCodeFullfile(ctx) {
 
   const user = [
     `TARGET_FILE: ${path}`,
-    requirement ? `REQUIREMENT: ${requirement}` : "REQUIREMENT: (not provided) — keep behavior, only safe improvements if needed.",
+    requirement
+      ? `REQUIREMENT: ${requirement}`
+      : "REQUIREMENT: (not provided) — keep behavior, only safe improvements if needed.",
     "",
     "PROJECT_RULES (if provided):",
     decisions ? `DECISIONS.md:\n${decisions}` : "DECISIONS.md: (missing)",
@@ -160,15 +207,27 @@ export async function handleCodeFullfile(ctx) {
     return;
   }
 
-  // Финальный guard: не отправляем пустоту
   const finalText = String(out || "").trim();
   if (!finalText) {
     await bot.sendMessage(chatId, "code_fullfile: empty output (refuse).");
     return;
   }
 
-  // Отдаём как полный файл (для копипаста)
+  // If still too large for Telegram, split into parts.
+  // (We do not truncate silently.)
   const header = `FULLFILE: ${path}`;
-  const codeBlockLang = lang ? lang : "";
-  await bot.sendMessage(chatId, `${header}\n\n\`\`\`${codeBlockLang}\n${finalText}\n\`\`\``);
+
+  // quick early warning: very large file content
+  if (finalText.length > 20000) {
+    await bot.sendMessage(
+      chatId,
+      [
+        "code_fullfile: WARNING",
+        `Generated output is very large (${finalText.length} chars).`,
+        "Telegram may require splitting; prefer /code_patch for minimal edits.",
+      ].join("\n")
+    );
+  }
+
+  await sendInParts(bot, chatId, header, lang, finalText);
 }

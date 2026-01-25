@@ -146,7 +146,8 @@ export function attachMessageRouter({
 // =========================
 // === ACCESS / ROLE
 // =========================
-const MONARCH_CHAT_ID = String(process.env.MONARCH_CHAT_ID || "");
+const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
+const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
 
 // isMonarch(fn) — ОБЯЗАТЕЛЬНО как функция, иначе userAccess не сможет проверить роль
 const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_CHAT_ID;

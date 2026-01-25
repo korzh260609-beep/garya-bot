@@ -143,25 +143,36 @@ export function attachMessageRouter({
       const text = String(msg.text || "");
       const trimmed = text.trim();
 
-      // =========================
-      // === ACCESS / ROLE
-      // =========================
-      const access = await resolveUserAccess({
-        pool,
-        chatIdStr,
-        senderIdStr,
-      });
+// =========================
+// === ACCESS / ROLE
+// =========================
+const MONARCH_CHAT_ID = String(process.env.MONARCH_CHAT_ID || "");
 
-      const userRole = access?.role || "guest";
-      const isMonarch = userRole === "monarch";
-      const bypass = Boolean(isMonarch);
+// isMonarch(fn) — ОБЯЗАТЕЛЬНО как функция, иначе userAccess не сможет проверить роль
+const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_CHAT_ID;
 
-      // permission helper (reply-safe)
-      const requirePermOrReply = buildRequirePermOrReply({
-        bot,
-        chatId,
-        isMonarch,
-      });
+const accessPack = await resolveUserAccess({
+  chatIdStr,
+  senderIdStr,
+  isMonarch: isMonarchFn,
+});
+
+const userRole = accessPack?.userRole || "guest";
+const userPlan = accessPack?.userPlan || "free";
+const user = accessPack?.user || { role: userRole, plan: userPlan, bypassPermissions: false };
+const isMonarch = userRole === "monarch";
+
+// permission helper (reply-safe) — permGuard ТРЕБУЕТ msg
+const requirePermOrReply = buildRequirePermOrReply({
+  bot,
+  msg, // ✅ критично
+  MONARCH_CHAT_ID,
+  user,
+  userRole,
+  userPlan,
+  trimmed,
+  CMD_ACTION,
+});
 
       // =========================
       // === COMMANDS

@@ -398,7 +398,9 @@ export function attachMessageRouter({
         loadProjectContext,
         getAnswerMode,
         buildSystemPrompt,
-        isMonarch,
+
+        // FIX: handleChatMessage ожидает функцию isMonarch(id), а не boolean
+        isMonarch: isMonarchFn,
 
         callAI,
         sanitizeNonMonarchReply,

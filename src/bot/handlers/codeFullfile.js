@@ -121,6 +121,28 @@ async function sendInParts(bot, chatId, header, lang, content) {
   }
 }
 
+// ---- NEW: hard extractor to enforce "ONLY FILE" output ----
+function extractOnlyFileText(raw) {
+  const s = String(raw || "");
+
+  // 1) Preferred: explicit markers
+  const m = s.match(/<<<FILE_START>>>\s*([\s\S]*?)\s*<<<FILE_END>>>/);
+  if (m && m[1]) return m[1].trim();
+
+  // 2) Next: code fence
+  const fence = s.match(/```[a-zA-Z0-9_-]*\s*\n([\s\S]*?)\n```/);
+  if (fence && fence[1]) return fence[1].trim();
+
+  // 3) Fallback: cut off prose before typical code tokens
+  const idx = s.search(
+    /\b(export\s+async\s+function|export\s+function|module\.exports|import\s+|const\s+|function\s+|class\s+)\b/
+  );
+  if (idx >= 0) return s.slice(idx).trim();
+
+  // 4) Last resort: return trimmed raw (better than empty)
+  return s.trim();
+}
+
 export async function handleCodeFullfile(ctx) {
   const { bot, chatId, rest, callAI } = ctx || {};
 
@@ -163,23 +185,32 @@ export async function handleCodeFullfile(ctx) {
 
   const lang = guessLang(path);
 
+  // ---- UPDATED: absolute output contract + markers ----
   const system = [
     "You are SG (Советник GARYA) operating in READ-ONLY mode.",
     "Task: generate a FULL replacement for a single repository file.",
-    "CRITICAL OUTPUT RULES:",
-    `- Output MUST be ONLY the full file content for: ${path}`,
-    "- Do NOT include explanations, headings, commentary, or markdown fences.",
-    "- Do NOT include diff/patch format.",
-    "- Preserve intended architecture and boundaries from DECISIONS/WORKFLOW/SG_BEHAVIOR.",
-    "- Do NOT invent non-existent modules/paths unless they are already present in current file.",
-    "- If you are unsure, choose the safest minimal change that satisfies requirement.",
+    "",
+    "ABSOLUTE OUTPUT CONTRACT:",
+    `1) You MUST output ONLY the full file content for: ${path}`,
+    "2) NO explanations, NO notes, NO headings, NO preface text.",
+    "3) Wrap the file content ONLY between markers exactly like this:",
+    "<<<FILE_START>>>",
+    "<FULL FILE CONTENT HERE>",
+    "<<<FILE_END>>>",
+    "4) Do NOT include markdown fences. Do NOT include any other text outside markers.",
+    "5) Do NOT output diff/patch format.",
+    "6) Preserve intended architecture and boundaries from DECISIONS/WORKFLOW/SG_BEHAVIOR.",
+    "7) Do NOT invent non-existent modules/paths unless they are already present in current file.",
+    "8) If unsure, choose the safest minimal change that satisfies requirement.",
+    "",
+    "If you violate the contract, the output will be discarded as invalid.",
   ].join("\n");
 
   const user = [
     `TARGET_FILE: ${path}`,
     requirement
       ? `REQUIREMENT: ${requirement}`
-      : "REQUIREMENT: (not provided) — keep behavior, only safe improvements if needed.",
+      : "REQUIREMENT: (not provided) — keep behavior, only safe minimal changes if needed.",
     "",
     "PROJECT_RULES (if provided):",
     decisions ? `DECISIONS.md:\n${decisions}` : "DECISIONS.md: (missing)",
@@ -189,6 +220,8 @@ export async function handleCodeFullfile(ctx) {
     "",
     "CURRENT_FILE_CONTENT (for context; do not repeat this label in output):",
     currentFile,
+    "",
+    "REMINDER: output ONLY file content between <<<FILE_START>>> and <<<FILE_END>>>.",
   ].join("\n");
 
   let out = "";
@@ -207,9 +240,11 @@ export async function handleCodeFullfile(ctx) {
     return;
   }
 
-  const finalText = String(out || "").trim();
+  // ---- UPDATED: hard extraction to kill prose ----
+  const finalText = extractOnlyFileText(out);
+
   if (!finalText) {
-    await bot.sendMessage(chatId, "code_fullfile: empty output (refuse).");
+    await bot.sendMessage(chatId, "code_fullfile: empty/invalid output (refuse).");
     return;
   }
 

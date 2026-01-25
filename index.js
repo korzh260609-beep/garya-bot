@@ -10,6 +10,9 @@ import { initSystem } from "./src/bootstrap/initSystem.js";
 
 import { getSystemHealth } from "./core/helpers.js";
 
+// ✅ FIX: подключаем callAI и передаём в messageRouter
+import { callAI } from "./ai.js";
+
 // ============================================================================
 // === CONSTANTS / CONFIG ===
 // ============================================================================
@@ -51,8 +54,7 @@ startHttpServer(app, PORT);
 // ============================================================================
 attachMessageRouter({
   bot,
-  MONARCH_CHAT_ID,
-  DEFAULT_PLAN,
+  callAI, // ✅ FIX
   MAX_HISTORY_MESSAGES,
 });
 

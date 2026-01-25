@@ -3,63 +3,35 @@
 // ============================================================================
 
 import { handleRepoReview } from "./handlers/repoReview.js";
-
 import { handleRepoDiff } from "./handlers/repoDiff.js";
-
 import { handleRepoCheck } from "./handlers/repoCheck.js";
-
 import { handleRepoAnalyze } from "./handlers/repoAnalyze.js";
-
 import { handleRepoGet } from "./handlers/repoGet.js";
-
 import { handleReindexRepo } from "./handlers/reindexRepo.js";
-
 import { CMD_ACTION } from "./cmdActionMap.js";
-
 import { handleRunTaskCmd } from "./handlers/runTaskCmd.js";
-
 import { handleChatMessage } from "./handlers/chat.js";
-
 import { handlePmSet } from "./handlers/pmSet.js";
-
 import { handlePmShow } from "./handlers/pmShow.js";
-
 import { handleTestSource } from "./handlers/testSource.js";
-
 import { handleDiagSource } from "./handlers/diagSource.js";
-
 import { handleSourcesList } from "./handlers/sourcesList.js";
-
 import { handleTasksList } from "./handlers/tasksList.js";
-
 import { handleStartTask } from "./handlers/startTask.js";
-
 import { handleStopTask } from "./handlers/stopTask.js";
-
 import { handleSourcesDiag } from "./handlers/sources_diag.js";
-
 import { handleSource } from "./handlers/source.js";
-
 import { handleRunTask } from "./handlers/runTask.js";
-
 import { handleNewTask } from "./handlers/newTask.js";
-
 import { handleBtcTestTask } from "./handlers/btcTestTask.js";
-
 import { handleDemoTask } from "./handlers/demoTask.js";
-
 import { handleStopAllTasks } from "./handlers/stopAllTasks.js";
-
 import { handleFileLogs } from "./handlers/fileLogs.js";
-
 import { handleArList } from "./handlers/arList.js";
-
 import { handleDeny } from "./handlers/deny.js";
-
 import { handleApprove } from "./handlers/approve.js";
 
 import { resolveUserAccess } from "../users/userAccess.js";
-
 import pool from "../../db.js";
 
 import { dispatchCommand } from "./commandDispatcher.js";
@@ -71,7 +43,6 @@ import { buildSystemPrompt } from "../../systemPrompt.js";
 
 import {
   parseCommand,
-  firstWordAndRest,
   callWithFallback,
   isOwnerTaskRow,
   canStopTaskV1,
@@ -79,11 +50,7 @@ import {
 } from "../../core/helpers.js";
 
 // === MEMORY ===
-import {
-  getChatHistory,
-  saveMessageToMemory,
-  saveChatPair,
-} from "../memory/chatMemory.js";
+import { getChatHistory, saveMessageToMemory, saveChatPair } from "../memory/chatMemory.js";
 
 // === USERS ===
 import { buildRequirePermOrReply } from "./permGuard.js";
@@ -110,10 +77,7 @@ import {
 } from "../sources/sources.js";
 
 // === COINGECKO (V1 SIMPLE PRICE) ===
-import {
-  getCoinGeckoSimplePriceById,
-  getCoinGeckoSimplePriceMulti,
-} from "../sources/coingecko/index.js";
+import { getCoinGeckoSimplePriceById, getCoinGeckoSimplePriceMulti } from "../sources/coingecko/index.js";
 
 // === FILE-INTAKE / MEDIA ===
 import * as FileIntake from "../media/fileIntake.js";
@@ -143,37 +107,45 @@ export function attachMessageRouter({
       const text = String(msg.text || "");
       const trimmed = text.trim();
 
-// =========================
-// === ACCESS / ROLE
-// =========================
-const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
-const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
+      // =========================
+      // === ACCESS / ROLE
+      // =========================
 
-// isMonarch(fn) — ОБЯЗАТЕЛЬНО как функция, иначе userAccess не сможет проверить роль
-const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_CHAT_ID;
+      // ВАЖНО: монарх определяется по USER_ID (msg.from.id), а не по chat_id
+      const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
 
-const accessPack = await resolveUserAccess({
-  chatIdStr,
-  senderIdStr,
-  isMonarch: isMonarchFn,
-});
+      // Backward-compat для permGuard (там ожидается имя MONARCH_CHAT_ID)
+      const MONARCH_CHAT_ID = MONARCH_USER_ID;
 
-const userRole = accessPack?.userRole || "guest";
-const userPlan = accessPack?.userPlan || "free";
-const user = accessPack?.user || { role: userRole, plan: userPlan, bypassPermissions: false };
-const isMonarch = userRole === "monarch";
+      const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
 
-// permission helper (reply-safe) — permGuard ТРЕБУЕТ msg
-const requirePermOrReply = buildRequirePermOrReply({
-  bot,
-  msg, // ✅ критично
-  MONARCH_CHAT_ID,
-  user,
-  userRole,
-  userPlan,
-  trimmed,
-  CMD_ACTION,
-});
+      const accessPack = await resolveUserAccess({
+        chatIdStr,
+        senderIdStr,
+        isMonarch: isMonarchFn,
+      });
+
+      const userRole = accessPack?.userRole || "guest";
+      const userPlan = accessPack?.userPlan || "free";
+      const user =
+        accessPack?.user || { role: userRole, plan: userPlan, bypassPermissions: false };
+
+      // bypass обязателен, т.к. ниже он используется в dispatch/handlers
+      const bypass = Boolean(user?.bypassPermissions);
+
+      const isMonarch = userRole === "monarch";
+
+      // permission helper (reply-safe) — permGuard ТРЕБУЕТ msg
+      const requirePermOrReply = buildRequirePermOrReply({
+        bot,
+        msg,
+        MONARCH_CHAT_ID,
+        user,
+        userRole,
+        userPlan,
+        trimmed,
+        CMD_ACTION,
+      });
 
       // =========================
       // === COMMANDS
@@ -227,129 +199,67 @@ const requirePermOrReply = buildRequirePermOrReply({
         // inline switch (kept for backward compatibility)
         switch (cmd) {
           case "/approve": {
-            await handleApprove({
-              bot,
-              chatId,
-              rest,
-              bypass,
-            });
+            await handleApprove({ bot, chatId, rest, bypass });
             return;
           }
 
           case "/deny": {
-            await handleDeny({
-              bot,
-              chatId,
-              rest,
-              bypass,
-            });
+            await handleDeny({ bot, chatId, rest, bypass });
             return;
           }
 
           case "/reindex": {
-            await handleReindexRepo({
-              bot,
-              chatId,
-            });
+            await handleReindexRepo({ bot, chatId });
             return;
           }
 
           case "/repo_get": {
-            await handleRepoGet({
-              bot,
-              chatId,
-              rest,
-            });
+            await handleRepoGet({ bot, chatId, rest });
             return;
           }
 
           case "/repo_check": {
-            await handleRepoCheck({
-              bot,
-              chatId,
-              rest,
-            });
+            await handleRepoCheck({ bot, chatId, rest });
             return;
           }
 
           case "/repo_analyze": {
-            await handleRepoAnalyze({
-              bot,
-              chatId,
-              rest,
-            });
+            await handleRepoAnalyze({ bot, chatId, rest });
             return;
           }
 
           case "/repo_review": {
-            await handleRepoReview({
-              bot,
-              chatId,
-              rest,
-            });
+            await handleRepoReview({ bot, chatId, rest });
             return;
           }
 
           case "/repo_diff": {
-            await handleRepoDiff({
-              bot,
-              chatId,
-              rest,
-            });
+            await handleRepoDiff({ bot, chatId, rest });
             return;
           }
 
           case "/ar_list": {
-            await handleArList({
-              bot,
-              chatId,
-              rest,
-              bypass,
-            });
+            await handleArList({ bot, chatId, rest, bypass });
             return;
           }
 
           case "/file_logs": {
-            await handleFileLogs({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              bypass,
-            });
+            await handleFileLogs({ bot, chatId, chatIdStr, rest, bypass });
             return;
           }
 
           case "/demo_task": {
-            await handleDemoTask({
-              bot,
-              chatId,
-              chatIdStr,
-              createDemoTask,
-            });
+            await handleDemoTask({ bot, chatId, chatIdStr, createDemoTask });
             return;
           }
 
           case "/stop_all": {
-            await handleStopAllTasks({
-              bot,
-              chatId,
-              chatIdStr,
-              bypass,
-              canStopTaskV1,
-            });
+            await handleStopAllTasks({ bot, chatId, chatIdStr, bypass, canStopTaskV1 });
             return;
           }
 
           case "/run_task_cmd": {
-            await handleRunTaskCmd({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              bypass,
-              isOwnerTaskRow,
-            });
+            await handleRunTaskCmd({ bot, chatId, chatIdStr, rest, bypass, isOwnerTaskRow });
             return;
           }
 
@@ -378,61 +288,27 @@ const requirePermOrReply = buildRequirePermOrReply({
           }
 
           case "/source": {
-            await handleSource({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              bypass,
-              fetchFromSourceKey,
-            });
+            await handleSource({ bot, chatId, chatIdStr, rest, bypass, fetchFromSourceKey });
             return;
           }
 
           case "/diag_source": {
-            await handleDiagSource({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              bypass,
-              diagnoseSource,
-            });
+            await handleDiagSource({ bot, chatId, chatIdStr, rest, bypass, diagnoseSource });
             return;
           }
 
           case "/test_source": {
-            await handleTestSource({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              bypass,
-              testSource,
-            });
+            await handleTestSource({ bot, chatId, chatIdStr, rest, bypass, testSource });
             return;
           }
 
           case "/tasks": {
-            await handleTasksList({
-              bot,
-              chatId,
-              chatIdStr,
-              bypass,
-              getUserTasks,
-            });
+            await handleTasksList({ bot, chatId, chatIdStr, bypass, getUserTasks });
             return;
           }
 
           case "/start_task": {
-            await handleStartTask({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              bypass,
-              updateTaskStatus,
-            });
+            await handleStartTask({ bot, chatId, chatIdStr, rest, bypass, updateTaskStatus });
             return;
           }
 
@@ -450,26 +326,12 @@ const requirePermOrReply = buildRequirePermOrReply({
           }
 
           case "/run_task": {
-            await handleRunTask({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              bypass,
-              runTaskWithAI,
-            });
+            await handleRunTask({ bot, chatId, chatIdStr, rest, bypass, runTaskWithAI });
             return;
           }
 
           case "/new_task": {
-            await handleNewTask({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              bypass,
-              createManualTask,
-            });
+            await handleNewTask({ bot, chatId, chatIdStr, rest, bypass, createManualTask });
             return;
           }
 
@@ -486,13 +348,7 @@ const requirePermOrReply = buildRequirePermOrReply({
           }
 
           case "/pm_show": {
-            await handlePmShow({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              bypass,
-            });
+            await handlePmShow({ bot, chatId, chatIdStr, rest, bypass });
             return;
           }
 

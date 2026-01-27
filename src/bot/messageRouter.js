@@ -44,7 +44,6 @@ import { buildSystemPrompt } from "../../systemPrompt.js";
 
 import {
   parseCommand,
-  callWithFallback,
   isOwnerTaskRow,
   canStopTaskV1,
   sanitizeNonMonarchReply,
@@ -120,45 +119,13 @@ export function attachMessageRouter({
 
       const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
 
-      // ======================================================================
-      // === HARD DEV-GATE (ONLY MONARCH IN PRIVATE CHAT)
-      // ======================================================================
       const chatType = msg.chat?.type || "unknown";
       const isPrivate = chatType === "private";
       const isMonarchUser = isMonarchFn(senderIdStr);
 
-      // Dev/Project commands that can affect SG development / repo work.
-      // Rule: ONLY monarch in private chat can use them.
-      const isDevCommand =
-        trimmed.startsWith("/repo_") ||
-        trimmed.startsWith("/reindex") ||
-        trimmed.startsWith("/pm_") ||
-        trimmed.startsWith("/tasks") ||
-        trimmed.startsWith("/sources") ||
-        trimmed.startsWith("/source") ||
-        trimmed.startsWith("/diag_source") ||
-        trimmed.startsWith("/test_source") ||
-        trimmed.startsWith("/approve") ||
-        trimmed.startsWith("/deny") ||
-        trimmed.startsWith("/file_logs") ||
-        trimmed.startsWith("/ar_list") ||
-        trimmed.startsWith("/run_task") ||
-        trimmed.startsWith("/run_task_cmd") ||
-        trimmed.startsWith("/new_task") ||
-        trimmed.startsWith("/start_task") ||
-        trimmed.startsWith("/stop_task") ||
-        trimmed.startsWith("/stop_all") ||
-        trimmed.startsWith("/demo_task") ||
-        trimmed.startsWith("/btc_test_task");
-
-      if (trimmed.startsWith("/") && isDevCommand) {
-        if (!isMonarchUser || !isPrivate) {
-          // Silent block (per monarch rule): no replies, no leakage.
-          return;
-        }
-      }
-      // ======================================================================
-
+      // =========================
+      // === ACCESS PACK (DB)
+      // =========================
       const accessPack = await resolveUserAccess({
         chatIdStr,
         senderIdStr,
@@ -172,8 +139,6 @@ export function attachMessageRouter({
 
       // bypass обязателен, т.к. ниже он используется в dispatch/handlers
       const bypass = Boolean(user?.bypassPermissions);
-
-      const isMonarch = userRole === "monarch";
 
       // permission helper (reply-safe) — permGuard ТРЕБУЕТ msg
       const requirePermOrReply = buildRequirePermOrReply({
@@ -191,7 +156,55 @@ export function attachMessageRouter({
       // === COMMANDS
       // =========================
       if (trimmed.startsWith("/")) {
+        // --- PARSE CMD FIRST (cheap, safe) ---
         const { cmd, rest } = parseCommand(trimmed);
+
+        // ======================================================================
+        // === HARD DEV-GATE (ONLY MONARCH IN PRIVATE CHAT)
+        // ======================================================================
+        // Rule: ANY project/dev/system command is forbidden outside monarch DM.
+        // In groups: silent block (per monarch rule).
+        const DEV_COMMANDS = new Set([
+          "/reindex",
+          "/repo_get",
+          "/repo_check",
+          "/repo_review",
+          "/repo_analyze",
+          "/repo_diff",
+          "/code_fullfile",
+
+          "/pm_set",
+          "/pm_show",
+
+          "/tasks",
+          "/start_task",
+          "/stop_task",
+          "/stop_all",
+          "/run_task",
+          "/run_task_cmd",
+          "/new_task",
+          "/demo_task",
+          "/btc_test_task",
+
+          "/sources",
+          "/sources_diag",
+          "/source",
+          "/diag_source",
+          "/test_source",
+
+          "/approve",
+          "/deny",
+          "/file_logs",
+          "/ar_list",
+        ]);
+
+        const isDev = DEV_COMMANDS.has(cmd);
+
+        if (isDev && (!isMonarchUser || !isPrivate)) {
+          // Silent block (no replies, no leakage)
+          return;
+        }
+        // ======================================================================
 
         // command router (some legacy commands are mapped)
         const action = CMD_ACTION[cmd];
@@ -268,20 +281,21 @@ export function attachMessageRouter({
             return;
           }
 
-case "/repo_review": {
-  await handleRepoReview({ bot, chatId, rest });
-  return;
-}
+          case "/repo_review": {
+            await handleRepoReview({ bot, chatId, rest });
+            return;
+          }
 
-case "/code_fullfile": {
-  await handleCodeFullfile({ bot, chatId, rest, callAI });
-  return;
-}
+          case "/code_fullfile": {
+            // IMPORTANT: handler needs callAI
+            await handleCodeFullfile({ bot, chatId, rest, callAI });
+            return;
+          }
 
-case "/repo_diff": {
-  await handleRepoDiff({ bot, chatId, rest });
-  return;
-}
+          case "/repo_diff": {
+            await handleRepoDiff({ bot, chatId, rest });
+            return;
+          }
 
           case "/ar_list": {
             await handleArList({ bot, chatId, rest, bypass });

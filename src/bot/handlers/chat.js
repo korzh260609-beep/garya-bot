@@ -1,5 +1,5 @@
 // src/bot/handlers/chat.js
-// extracted from messageRouter.js — no logic changes (only safety-guards + token param fix)
+// extracted from messageRouter.js — no logic changes (only safety-guards + token param fix + observability logs)
 
 export async function handleChatMessage({
   bot,
@@ -166,9 +166,38 @@ export async function handleChatMessage({
     temperature = 0.8;
   }
 
+  // ---- OBSERVABILITY (minimal): log AI call with reason + cost level ----
+  const aiReason = "chat.reply";
+  const aiMetaBase = {
+    handler: "chat",
+    reason: aiReason,
+    aiCostLevel: classification.aiCostLevel,
+    answerMode,
+    max_completion_tokens: maxTokens,
+    temperature,
+    chatId: chatIdStr,
+    senderId: senderIdStr,
+    messageId,
+  };
+
+  // Log to console (Render logs)
+  try {
+    console.info("🧾 AI_CALL_START", aiMetaBase);
+  } catch (_) {}
+
+  // Best-effort: also log via logInteraction (if it supports richer objects)
+  try {
+    await logInteraction(chatIdStr, { ...classification, event: "AI_CALL_START", ...aiMetaBase });
+  } catch (e) {
+    // do not fail chat flow due to logging
+    console.error("❌ logInteraction (AI_CALL_START) error:", e);
+  }
+
+  const t0 = Date.now();
+  // --------------------------------------------
+
   let aiReply = "";
   try {
-    // FIX: для gpt-5.1 нельзя max_tokens → используем max_completion_tokens
     aiReply = await callAI(messages, classification.aiCostLevel, {
       max_completion_tokens: maxTokens,
       temperature,
@@ -179,6 +208,26 @@ export async function handleChatMessage({
     const msgText = e?.message ? String(e.message) : "unknown";
     aiReply = monarchNow ? `⚠️ Ошибка вызова ИИ: ${msgText}` : "⚠️ Ошибка вызова ИИ.";
   }
+
+  // ---- OBSERVABILITY (minimal): log AI result ----
+  const dtMs = Date.now() - t0;
+  const aiMetaEnd = {
+    ...aiMetaBase,
+    dtMs,
+    replyChars: typeof aiReply === "string" ? aiReply.length : 0,
+    ok: !(typeof aiReply === "string" && aiReply.startsWith("⚠️ Ошибка вызова ИИ")),
+  };
+
+  try {
+    console.info("🧾 AI_CALL_END", aiMetaEnd);
+  } catch (_) {}
+
+  try {
+    await logInteraction(chatIdStr, { ...classification, event: "AI_CALL_END", ...aiMetaEnd });
+  } catch (e) {
+    console.error("❌ logInteraction (AI_CALL_END) error:", e);
+  }
+  // --------------------------------------------
 
   try {
     await saveChatPair(chatIdStr, effective, aiReply);

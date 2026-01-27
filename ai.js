@@ -9,20 +9,12 @@ const apiKey = process.env.OPENAI_API_KEY;
 const client = apiKey ? new OpenAI({ apiKey }) : null;
 
 /**
- * Определяем правильный параметр лимита токенов по модели.
- * gpt-5.* требует max_completion_tokens (и не принимает max_tokens).
- * Более старые chat.completions модели обычно используют max_tokens.
- */
-function getTokenLimitParamName(model) {
-  const m = String(model || "");
-  if (m.startsWith("gpt-5")) return "max_completion_tokens";
-  return "max_tokens";
-}
-
-/**
  * Универсальный вызов ИИ.
  * Поддерживает opts: { max_completion_tokens, max_output_tokens, temperature }.
- * Делает fallback на MODEL_CONFIG.low, если выбранная модель недоступна.
+ *
+ * ВАЖНО:
+ * - Для gpt-5.* используем Responses API + max_output_tokens.
+ * - НЕ используем max_tokens (он вызывает 400 "Unsupported parameter").
  */
 export async function callAI(messages, costLevel = "high", opts = {}) {
   if (!client) {
@@ -47,18 +39,48 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
   const temperature =
     typeof opts.temperature === "number" ? opts.temperature : undefined;
 
-  const tokenParamName = getTokenLimitParamName(primaryModel);
+  // Responses API принимает input как string или как массив items вида { role, content }.
+  // Чтобы не ломать контракт callAI(messages), конвертируем messages -> input items.
+  // system -> developer (аналог "инструкций" для модели).
+  const input = Array.isArray(messages)
+    ? messages.map((m) => ({
+        role: m?.role === "system" ? "developer" : m?.role || "user",
+        content: m?.content ?? "",
+      }))
+    : [];
 
   const payload = {
     model: primaryModel,
-    messages,
-    ...(typeof maxTok === "number" ? { [tokenParamName]: maxTok } : {}),
+    input,
+    ...(typeof maxTok === "number" ? { max_output_tokens: maxTok } : {}),
     ...(typeof temperature === "number" ? { temperature } : {}),
   };
 
   try {
-    const completion = await client.chat.completions.create(payload);
-    return completion.choices[0]?.message?.content || "";
+    const response = await client.responses.create(payload);
+
+    // В большинстве случаев текст лежит в response.output_text.
+    if (typeof response?.output_text === "string" && response.output_text.length) {
+      return response.output_text;
+    }
+
+    // Fallback: если output_text пуст, попробуем собрать текст из output сообщений.
+    const out = response?.output;
+    if (Array.isArray(out)) {
+      const texts = [];
+      for (const item of out) {
+        if (item?.type === "message" && Array.isArray(item?.content)) {
+          for (const c of item.content) {
+            if (c?.type === "output_text" && typeof c?.text === "string") {
+              texts.push(c.text);
+            }
+          }
+        }
+      }
+      if (texts.length) return texts.join("\n");
+    }
+
+    return "";
   } catch (e) {
     const status = e?.status || e?.statusCode || null;
     const msg = e?.message || String(e);
@@ -67,15 +89,34 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
     // Если уже low — больше некуда фолбечиться
     if (primaryModel === fallbackModel) throw e;
 
-    const fallbackTokenParamName = getTokenLimitParamName(fallbackModel);
-
-    const completion = await client.chat.completions.create({
+    const fallbackPayload = {
       model: fallbackModel,
-      messages,
-      ...(typeof maxTok === "number" ? { [fallbackTokenParamName]: maxTok } : {}),
+      input,
+      ...(typeof maxTok === "number" ? { max_output_tokens: maxTok } : {}),
       ...(typeof temperature === "number" ? { temperature } : {}),
-    });
+    };
 
-    return completion.choices[0]?.message?.content || "";
+    const response = await client.responses.create(fallbackPayload);
+
+    if (typeof response?.output_text === "string" && response.output_text.length) {
+      return response.output_text;
+    }
+
+    const out = response?.output;
+    if (Array.isArray(out)) {
+      const texts = [];
+      for (const item of out) {
+        if (item?.type === "message" && Array.isArray(item?.content)) {
+          for (const c of item.content) {
+            if (c?.type === "output_text" && typeof c?.text === "string") {
+              texts.push(c.text);
+            }
+          }
+        }
+      }
+      if (texts.length) return texts.join("\n");
+    }
+
+    return "";
   }
 }

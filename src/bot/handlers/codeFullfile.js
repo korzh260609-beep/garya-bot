@@ -224,6 +224,26 @@ export async function handleCodeFullfile(ctx) {
     "REMINDER: output ONLY file content between <<<FILE_START>>> and <<<FILE_END>>>.",
   ].join("\n");
 
+  // ---- OBSERVABILITY (minimal): log AI call with reason + params ----
+  const aiReason = "code_fullfile.generate_fullfile";
+  const aiMetaBase = {
+    handler: "codeFullfile",
+    reason: aiReason,
+    aiCostLevel: "high",
+    max_output_tokens: 1800,
+    temperature: 0.2,
+    chatId: String(chatId),
+    path,
+    hasRequirement: Boolean(requirement),
+  };
+
+  try {
+    console.info("🧾 AI_CALL_START", aiMetaBase);
+  } catch (_) {}
+
+  const t0 = Date.now();
+  // --------------------------------------------
+
   let out = "";
   try {
     out = await callAI(
@@ -236,9 +256,32 @@ export async function handleCodeFullfile(ctx) {
     );
   } catch (e) {
     const msg = e?.message ? String(e.message) : "unknown";
+
+    const dtMs = Date.now() - t0;
+    try {
+      console.info("🧾 AI_CALL_END", {
+        ...aiMetaBase,
+        dtMs,
+        replyChars: 0,
+        ok: false,
+        error: msg,
+      });
+    } catch (_) {}
+
     await bot.sendMessage(chatId, `code_fullfile: AI error: ${msg}`);
     return;
   }
+
+  const dtMs = Date.now() - t0;
+  try {
+    console.info("🧾 AI_CALL_END", {
+      ...aiMetaBase,
+      dtMs,
+      replyChars: typeof out === "string" ? out.length : 0,
+      ok: true,
+    });
+  } catch (_) {}
+  // --------------------------------------------
 
   // ---- UPDATED: hard extraction to kill prose ----
   const finalText = extractOnlyFileText(out);

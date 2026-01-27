@@ -1,10 +1,18 @@
 // ============================================================================
 // === src/bot/handlers/codeFullfile.js
-// === B7.A: /code_fullfile <path/to/file.js> [requirement...]
+// === /code_fullfile <path/to/file.js> [requirement...]
+// === B8: fullfile size limit
+// === B9: unified REFUSE format
 // === READ-ONLY: returns FULL FILE, no auto-write
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
+
+const MAX_FULLFILE_CHARS = 60000; // ✅ B8 approved
+
+function refuseText(reason, action) {
+  return `REFUSE\n- Причина: ${reason}\n- Что сделать: ${action}`;
+}
 
 function denySensitivePath(path) {
   const lower = String(path || "").toLowerCase();
@@ -70,8 +78,6 @@ function guessLang(path) {
   return "";
 }
 
-// Telegram hard limit is ~4096 chars; keep safe margin.
-// We also account for header + code fences overhead.
 const TG_MAX_SAFE = 3500;
 const TG_MAX_PARTS = 8;
 
@@ -85,19 +91,15 @@ function chunkString(s, size) {
 async function sendInParts(bot, chatId, header, lang, content) {
   const codeBlockLang = lang ? lang : "";
 
-  // If small enough, send once.
   const single = `${header}\n\n\`\`\`${codeBlockLang}\n${content}\n\`\`\``;
   if (single.length <= 4096) {
     await bot.sendMessage(chatId, single);
     return;
   }
 
-  // If too big, split inside code content. Keep each message under TG_MAX_SAFE.
   const fenceOpen = `\`\`\`${codeBlockLang}\n`;
   const fenceClose = `\n\`\`\``;
 
-  // Reserve space for: header + part label + fences
-  // Part label example: "FULLFILE: path (Part 1/3)"
   const reserve = header.length + 40 + fenceOpen.length + fenceClose.length + 4;
   const chunkSize = Math.max(800, TG_MAX_SAFE - reserve);
 
@@ -106,9 +108,10 @@ async function sendInParts(bot, chatId, header, lang, content) {
     await bot.sendMessage(
       chatId,
       [
-        "code_fullfile: OUTPUT TOO LARGE",
-        `Reason: too many parts for Telegram (${parts.length} > ${TG_MAX_PARTS}).`,
-        "Action: use /code_patch for targeted changes, or ask for smaller file/module split.",
+        refuseText(
+          "FULLFILE_TOO_LARGE",
+          `Слишком много частей для Telegram (${parts.length} > ${TG_MAX_PARTS}). Используй /code_insert или уменьши запрос.`
+        ),
       ].join("\n")
     );
     return;
@@ -121,48 +124,58 @@ async function sendInParts(bot, chatId, header, lang, content) {
   }
 }
 
-// ---- NEW: hard extractor to enforce "ONLY FILE" output ----
 function extractOnlyFileText(raw) {
   const s = String(raw || "");
 
-  // 1) Preferred: explicit markers
   const m = s.match(/<<<FILE_START>>>\s*([\s\S]*?)\s*<<<FILE_END>>>/);
   if (m && m[1]) return m[1].trim();
 
-  // 2) Next: code fence
   const fence = s.match(/```[a-zA-Z0-9_-]*\s*\n([\s\S]*?)\n```/);
   if (fence && fence[1]) return fence[1].trim();
 
-  // 3) Fallback: cut off prose before typical code tokens
   const idx = s.search(
     /\b(export\s+async\s+function|export\s+function|module\.exports|import\s+|const\s+|function\s+|class\s+)\b/
   );
   if (idx >= 0) return s.slice(idx).trim();
 
-  // 4) Last resort: return trimmed raw (better than empty)
   return s.trim();
 }
 
 export async function handleCodeFullfile(ctx) {
   const { bot, chatId, rest, callAI } = ctx || {};
-
   const { path, requirement } = parsePathAndRequirement(rest);
 
+  const baseMeta = {
+    handler: "codeFullfile",
+    chatId: String(chatId),
+    path,
+    hasRequirement: Boolean(requirement),
+  };
+
   if (!path) {
-    await bot.sendMessage(chatId, "Usage: /code_fullfile <path/to/file.js> [requirement]");
+    await bot.sendMessage(chatId, refuseText("BAD_ARGS", "Usage: /code_fullfile <path/to/file.js> [requirement]"));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "BAD_ARGS" });
+    } catch (_) {}
     return;
   }
 
   if (denySensitivePath(path)) {
-    await bot.sendMessage(chatId, "Access denied: sensitive path.");
+    await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот путь запрещён. Выбери обычный файл кода."));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "SENSITIVE_PATH" });
+    } catch (_) {}
     return;
   }
 
   if (typeof callAI !== "function") {
     await bot.sendMessage(
       chatId,
-      "code_fullfile: ERROR\ncallAI not wired. Fix router: pass { callAI } into handleCodeFullfile."
+      refuseText("INTERNAL_ERROR", "callAI не подключён в router. Проверь передачу { callAI } в handler.")
     );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "INTERNAL_ERROR" });
+    } catch (_) {}
     return;
   }
 
@@ -174,7 +187,10 @@ export async function handleCodeFullfile(ctx) {
 
   const currentFile = await safeFetchText(source, path);
   if (!currentFile) {
-    await bot.sendMessage(chatId, `File not found or cannot be read: ${path}`);
+    await bot.sendMessage(chatId, refuseText("FILE_NOT_FOUND", `Файл не найден или не читается: ${path}`));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "FILE_NOT_FOUND" });
+    } catch (_) {}
     return;
   }
 
@@ -185,7 +201,6 @@ export async function handleCodeFullfile(ctx) {
 
   const lang = guessLang(path);
 
-  // ---- UPDATED: absolute output contract + markers ----
   const system = [
     "You are SG (Советник GARYA) operating in READ-ONLY mode.",
     "Task: generate a FULL replacement for a single repository file.",
@@ -202,15 +217,13 @@ export async function handleCodeFullfile(ctx) {
     "6) Preserve intended architecture and boundaries from DECISIONS/WORKFLOW/SG_BEHAVIOR.",
     "7) Do NOT invent non-existent modules/paths unless they are already present in current file.",
     "8) If unsure, choose the safest minimal change that satisfies requirement.",
-    "",
+    `9) Output must be <= ${MAX_FULLFILE_CHARS} characters.`,
     "If you violate the contract, the output will be discarded as invalid.",
   ].join("\n");
 
   const user = [
     `TARGET_FILE: ${path}`,
-    requirement
-      ? `REQUIREMENT: ${requirement}`
-      : "REQUIREMENT: (not provided) — keep behavior, only safe minimal changes if needed.",
+    requirement ? `REQUIREMENT: ${requirement}` : "REQUIREMENT: (not provided) — keep behavior, only minimal safe changes if needed.",
     "",
     "PROJECT_RULES (if provided):",
     decisions ? `DECISIONS.md:\n${decisions}` : "DECISIONS.md: (missing)",
@@ -224,17 +237,12 @@ export async function handleCodeFullfile(ctx) {
     "REMINDER: output ONLY file content between <<<FILE_START>>> and <<<FILE_END>>>.",
   ].join("\n");
 
-  // ---- OBSERVABILITY (minimal): log AI call with reason + params ----
-  const aiReason = "code_fullfile.generate_fullfile";
   const aiMetaBase = {
-    handler: "codeFullfile",
-    reason: aiReason,
+    ...baseMeta,
+    reason: "code_fullfile.generate_fullfile",
     aiCostLevel: "high",
     max_output_tokens: 1800,
     temperature: 0.2,
-    chatId: String(chatId),
-    path,
-    hasRequirement: Boolean(requirement),
   };
 
   try {
@@ -242,7 +250,6 @@ export async function handleCodeFullfile(ctx) {
   } catch (_) {}
 
   const t0 = Date.now();
-  // --------------------------------------------
 
   let out = "";
   try {
@@ -256,56 +263,43 @@ export async function handleCodeFullfile(ctx) {
     );
   } catch (e) {
     const msg = e?.message ? String(e.message) : "unknown";
-
     const dtMs = Date.now() - t0;
+
     try {
-      console.info("🧾 AI_CALL_END", {
-        ...aiMetaBase,
-        dtMs,
-        replyChars: 0,
-        ok: false,
-        error: msg,
-      });
+      console.info("🧾 AI_CALL_END", { ...aiMetaBase, dtMs, replyChars: 0, ok: false, error: msg });
     } catch (_) {}
 
-    await bot.sendMessage(chatId, `code_fullfile: AI error: ${msg}`);
+    await bot.sendMessage(chatId, refuseText("INTERNAL_ERROR", `AI error: ${msg}`));
     return;
   }
 
   const dtMs = Date.now() - t0;
   try {
-    console.info("🧾 AI_CALL_END", {
-      ...aiMetaBase,
-      dtMs,
-      replyChars: typeof out === "string" ? out.length : 0,
-      ok: true,
-    });
+    console.info("🧾 AI_CALL_END", { ...aiMetaBase, dtMs, replyChars: typeof out === "string" ? out.length : 0, ok: true });
   } catch (_) {}
-  // --------------------------------------------
 
-  // ---- UPDATED: hard extraction to kill prose ----
   const finalText = extractOnlyFileText(out);
 
   if (!finalText) {
-    await bot.sendMessage(chatId, "code_fullfile: empty/invalid output (refuse).");
+    await bot.sendMessage(chatId, refuseText("AI_CONTRACT_VIOLATION", "Пустой/невалидный вывод. Упрости requirement и повтори."));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "AI_CONTRACT_VIOLATION", detail: "empty" });
+    } catch (_) {}
     return;
   }
 
-  // If still too large for Telegram, split into parts.
-  // (We do not truncate silently.)
-  const header = `FULLFILE: ${path}`;
-
-  // quick early warning: very large file content
-  if (finalText.length > 20000) {
+  // ---- B8: enforce fullfile size cap ----
+  if (finalText.length > MAX_FULLFILE_CHARS) {
     await bot.sendMessage(
       chatId,
-      [
-        "code_fullfile: WARNING",
-        `Generated output is very large (${finalText.length} chars).`,
-        "Telegram may require splitting; prefer /code_patch for minimal edits.",
-      ].join("\n")
+      refuseText("FULLFILE_TOO_LARGE", `Слишком большой файл (> ${MAX_FULLFILE_CHARS}). Используй /code_insert или уменьшай изменения.`)
     );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "FULLFILE_TOO_LARGE", fullfileChars: finalText.length });
+    } catch (_) {}
+    return;
   }
 
+  const header = `FULLFILE: ${path}`;
   await sendInParts(bot, chatId, header, lang, finalText);
 }

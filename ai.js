@@ -9,8 +9,19 @@ const apiKey = process.env.OPENAI_API_KEY;
 const client = apiKey ? new OpenAI({ apiKey }) : null;
 
 /**
+ * Определяем правильный параметр лимита токенов по модели.
+ * gpt-5.* требует max_completion_tokens (и не принимает max_tokens).
+ * Более старые chat.completions модели обычно используют max_tokens.
+ */
+function getTokenLimitParamName(model) {
+  const m = String(model || "");
+  if (m.startsWith("gpt-5")) return "max_completion_tokens";
+  return "max_tokens";
+}
+
+/**
  * Универсальный вызов ИИ.
- * Поддерживает opts: { max_output_tokens, temperature }.
+ * Поддерживает opts: { max_completion_tokens, max_output_tokens, temperature }.
  * Делает fallback на MODEL_CONFIG.low, если выбранная модель недоступна.
  */
 export async function callAI(messages, costLevel = "high", opts = {}) {
@@ -23,17 +34,25 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
 
   const fallbackModel = MODEL_CONFIG.low;
 
-  // chat.completions использует max_tokens (а не max_output_tokens).
-  const maxTokens =
-    typeof opts.max_output_tokens === "number" ? opts.max_output_tokens : undefined;
+  // Поддержка двух имён (чтобы не ломать старые вызовы):
+  // - max_completion_tokens (новое)
+  // - max_output_tokens (старое в проекте)
+  const maxTok =
+    typeof opts.max_completion_tokens === "number"
+      ? opts.max_completion_tokens
+      : typeof opts.max_output_tokens === "number"
+      ? opts.max_output_tokens
+      : undefined;
 
   const temperature =
     typeof opts.temperature === "number" ? opts.temperature : undefined;
 
+  const tokenParamName = getTokenLimitParamName(primaryModel);
+
   const payload = {
     model: primaryModel,
     messages,
-    ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
+    ...(typeof maxTok === "number" ? { [tokenParamName]: maxTok } : {}),
     ...(typeof temperature === "number" ? { temperature } : {}),
   };
 
@@ -41,7 +60,6 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
     const completion = await client.chat.completions.create(payload);
     return completion.choices[0]?.message?.content || "";
   } catch (e) {
-    // Логируем причину для Render Logs
     const status = e?.status || e?.statusCode || null;
     const msg = e?.message || String(e);
     console.error("❌ callAI primary failed:", { model: primaryModel, status, msg });
@@ -49,10 +67,12 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
     // Если уже low — больше некуда фолбечиться
     if (primaryModel === fallbackModel) throw e;
 
+    const fallbackTokenParamName = getTokenLimitParamName(fallbackModel);
+
     const completion = await client.chat.completions.create({
       model: fallbackModel,
       messages,
-      ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
+      ...(typeof maxTok === "number" ? { [fallbackTokenParamName]: maxTok } : {}),
       ...(typeof temperature === "number" ? { temperature } : {}),
     });
 

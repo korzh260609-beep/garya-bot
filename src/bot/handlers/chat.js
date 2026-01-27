@@ -1,5 +1,5 @@
 // src/bot/handlers/chat.js
-// extracted from messageRouter.js — no logic changes
+// extracted from messageRouter.js — no logic changes (only safety-guards + token param fix)
 
 export async function handleChatMessage({
   bot,
@@ -34,9 +34,12 @@ export async function handleChatMessage({
   const monarchNow = isMonarchFn(senderIdStr);
 
   if (typeof callAI !== "function") {
-    // Fail-fast: bot must still reply (especially to monarch) instead of throwing.
-    const details = "callAI is not a function (router wiring error: pass { callAI } into handleChatMessage).";
-    const text = monarchNow ? `⚠️ Ошибка конфигурации: ${details}` : "⚠️ Ошибка вызова ИИ.";
+    const details =
+      "callAI is not a function (router wiring error: pass { callAI } into handleChatMessage).";
+    const text = monarchNow
+      ? `⚠️ Ошибка конфигурации: ${details}`
+      : "⚠️ Ошибка вызова ИИ.";
+
     try {
       await bot.sendMessage(chatId, text);
     } catch (e) {
@@ -44,6 +47,7 @@ export async function handleChatMessage({
     }
     return;
   }
+  // --------------------------------------------
 
   const summarizeMediaAttachment =
     typeof FileIntake?.summarizeMediaAttachment === "function"
@@ -72,22 +76,50 @@ export async function handleChatMessage({
   const directReplyText = decision?.directReplyText || null;
 
   if (directReplyText) {
-    await bot.sendMessage(chatId, directReplyText);
+    try {
+      await bot.sendMessage(chatId, directReplyText);
+    } catch (e) {
+      console.error("❌ Telegram send error (directReplyText):", e);
+    }
     return;
   }
 
   if (!shouldCallAI) {
-    await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");
+    try {
+      await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");
+    } catch (e) {
+      console.error("❌ Telegram send error (shouldCallAI):", e);
+    }
     return;
   }
 
-  await saveMessageToMemory(chatIdStr, "user", effective);
-  const history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
+  try {
+    await saveMessageToMemory(chatIdStr, "user", effective);
+  } catch (e) {
+    console.error("❌ saveMessageToMemory error:", e);
+  }
+
+  let history = [];
+  try {
+    history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
+  } catch (e) {
+    console.error("❌ getChatHistory error:", e);
+  }
 
   const classification = { taskType: "chat", aiCostLevel: "low" };
-  await logInteraction(chatIdStr, classification);
+  try {
+    await logInteraction(chatIdStr, classification);
+  } catch (e) {
+    console.error("❌ logInteraction error:", e);
+  }
 
-  const projectCtx = await loadProjectContext();
+  let projectCtx = "";
+  try {
+    projectCtx = await loadProjectContext();
+  } catch (e) {
+    console.error("❌ loadProjectContext error:", e);
+  }
+
   const answerMode = getAnswerMode(chatIdStr);
 
   let modeInstruction = "";
@@ -103,17 +135,14 @@ export async function handleChatMessage({
   }
 
   const currentUserName =
-    [msg?.from?.first_name, msg?.from?.last_name]
-      .filter(Boolean)
-      .join(" ")
-      .trim() ||
+    [msg?.from?.first_name, msg?.from?.last_name].filter(Boolean).join(" ").trim() ||
     (msg?.from?.username ? `@${msg.from.username}` : "пользователь");
 
   const systemPrompt = buildSystemPrompt(
     answerMode,
     modeInstruction,
     projectCtx || "",
-    { isMonarch: isMonarchFn(senderIdStr), currentUserName }
+    { isMonarch: monarchNow, currentUserName }
   );
 
   const roleGuardPrompt = bypass
@@ -139,27 +168,31 @@ export async function handleChatMessage({
 
   let aiReply = "";
   try {
+    // FIX: для gpt-5.1 нельзя max_tokens → используем max_completion_tokens
     aiReply = await callAI(messages, classification.aiCostLevel, {
-      max_output_tokens: maxTokens,
+      max_completion_tokens: maxTokens,
       temperature,
     });
   } catch (e) {
     console.error("❌ AI error:", e);
 
-    // ВАЖНО: монарху показываем краткую реальную причину (для дебага),
-    // всем остальным — как раньше общая ошибка.
-    const monarch = isMonarchFn(senderIdStr);
     const msgText = e?.message ? String(e.message) : "unknown";
-
-    aiReply = monarch
-      ? `⚠️ Ошибка вызова ИИ: ${msgText}`
-      : "⚠️ Ошибка вызова ИИ.";
+    aiReply = monarchNow ? `⚠️ Ошибка вызова ИИ: ${msgText}` : "⚠️ Ошибка вызова ИИ.";
   }
 
-  await saveChatPair(chatIdStr, effective, aiReply);
+  try {
+    await saveChatPair(chatIdStr, effective, aiReply);
+  } catch (e) {
+    console.error("❌ saveChatPair error:", e);
+  }
 
   try {
     if (!bypass) aiReply = sanitizeNonMonarchReply(aiReply);
+  } catch (e) {
+    console.error("❌ sanitizeNonMonarchReply error:", e);
+  }
+
+  try {
     await bot.sendMessage(chatId, aiReply);
   } catch (e) {
     console.error("❌ Telegram send error:", e);

@@ -1,5 +1,8 @@
 // src/bot/handlers/chat.js
-// extracted from messageRouter.js — no logic changes (only safety-guards + token param fix)
+// extracted from messageRouter.js — minimal changes:
+// - safety-guards (callAI / isMonarch / FileIntake)
+// - never crash on DB/memory failures
+// - monarch gets brief real error text
 
 export async function handleChatMessage({
   bot,
@@ -27,7 +30,13 @@ export async function handleChatMessage({
   callAI,
   sanitizeNonMonarchReply,
 }) {
-  const messageId = msg.message_id ?? null;
+  const safeSend = async (text) => {
+    try {
+      await bot.sendMessage(chatId, text);
+    } catch (e) {
+      console.error("❌ Telegram send error:", e);
+    }
+  };
 
   // ---- GUARDS (critical): never crash on wrong wiring ----
   const isMonarchFn = typeof isMonarch === "function" ? isMonarch : () => false;
@@ -36,18 +45,18 @@ export async function handleChatMessage({
   if (typeof callAI !== "function") {
     const details =
       "callAI is not a function (router wiring error: pass { callAI } into handleChatMessage).";
-    const text = monarchNow
-      ? `⚠️ Ошибка конфигурации: ${details}`
-      : "⚠️ Ошибка вызова ИИ.";
-
-    try {
-      await bot.sendMessage(chatId, text);
-    } catch (e) {
-      console.error("❌ Telegram send error (callAI guard):", e);
-    }
+    await safeSend(
+      monarchNow ? `⚠️ Ошибка конфигурации: ${details}` : "⚠️ Ошибка вызова ИИ."
+    );
     return;
   }
-  // --------------------------------------------
+
+  const sanitizeFn =
+    typeof sanitizeNonMonarchReply === "function"
+      ? sanitizeNonMonarchReply
+      : (x) => x;
+
+  const messageId = msg?.message_id ?? null;
 
   const summarizeMediaAttachment =
     typeof FileIntake?.summarizeMediaAttachment === "function"
@@ -76,23 +85,16 @@ export async function handleChatMessage({
   const directReplyText = decision?.directReplyText || null;
 
   if (directReplyText) {
-    try {
-      await bot.sendMessage(chatId, directReplyText);
-    } catch (e) {
-      console.error("❌ Telegram send error (directReplyText):", e);
-    }
+    await safeSend(directReplyText);
     return;
   }
 
   if (!shouldCallAI) {
-    try {
-      await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");
-    } catch (e) {
-      console.error("❌ Telegram send error (shouldCallAI):", e);
-    }
+    await safeSend("Напиши текстом, что нужно сделать.");
     return;
   }
 
+  // --- memory (must not block reply) ---
   try {
     await saveMessageToMemory(chatIdStr, "user", effective);
   } catch (e) {
@@ -115,12 +117,17 @@ export async function handleChatMessage({
 
   let projectCtx = "";
   try {
-    projectCtx = await loadProjectContext();
+    projectCtx = (await loadProjectContext()) || "";
   } catch (e) {
     console.error("❌ loadProjectContext error:", e);
   }
 
-  const answerMode = getAnswerMode(chatIdStr);
+  let answerMode = "normal";
+  try {
+    answerMode = getAnswerMode(chatIdStr) || "normal";
+  } catch (e) {
+    console.error("❌ getAnswerMode error:", e);
+  }
 
   let modeInstruction = "";
   if (answerMode === "short") {
@@ -135,13 +142,16 @@ export async function handleChatMessage({
   }
 
   const currentUserName =
-    [msg?.from?.first_name, msg?.from?.last_name].filter(Boolean).join(" ").trim() ||
+    [msg?.from?.first_name, msg?.from?.last_name]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
     (msg?.from?.username ? `@${msg.from.username}` : "пользователь");
 
   const systemPrompt = buildSystemPrompt(
     answerMode,
     modeInstruction,
-    projectCtx || "",
+    projectCtx,
     { isMonarch: monarchNow, currentUserName }
   );
 
@@ -152,30 +162,29 @@ export async function handleChatMessage({
   const messages = [
     { role: "system", content: systemPrompt },
     { role: "system", content: roleGuardPrompt },
-    ...history,
+    ...(Array.isArray(history) ? history : []),
     { role: "user", content: effective },
   ];
 
-  let maxTokens = 350;
+  let maxOut = 350;
   let temperature = 0.6;
   if (answerMode === "short") {
-    maxTokens = 150;
+    maxOut = 150;
     temperature = 0.3;
   } else if (answerMode === "long") {
-    maxTokens = 900;
+    maxOut = 900;
     temperature = 0.8;
   }
 
   let aiReply = "";
   try {
-    // FIX: для gpt-5.1 нельзя max_tokens → используем max_completion_tokens
+    // IMPORTANT: use max_output_tokens (not max_tokens) for gpt-5.1
     aiReply = await callAI(messages, classification.aiCostLevel, {
-      max_completion_tokens: maxTokens,
+      max_output_tokens: maxOut,
       temperature,
     });
   } catch (e) {
     console.error("❌ AI error:", e);
-
     const msgText = e?.message ? String(e.message) : "unknown";
     aiReply = monarchNow ? `⚠️ Ошибка вызова ИИ: ${msgText}` : "⚠️ Ошибка вызова ИИ.";
   }
@@ -187,14 +196,10 @@ export async function handleChatMessage({
   }
 
   try {
-    if (!bypass) aiReply = sanitizeNonMonarchReply(aiReply);
+    if (!bypass) aiReply = sanitizeFn(aiReply);
   } catch (e) {
     console.error("❌ sanitizeNonMonarchReply error:", e);
   }
 
-  try {
-    await bot.sendMessage(chatId, aiReply);
-  } catch (e) {
-    console.error("❌ Telegram send error:", e);
-  }
+  await safeSend(aiReply);
 }

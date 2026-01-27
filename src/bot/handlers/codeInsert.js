@@ -1,10 +1,18 @@
 // ============================================================================
 // === src/bot/handlers/codeInsert.js
 // === B7: /code_insert <path> | <anchor> | <mode> | <requirement>
+// === B8: safety limits + dangerous zones
+// === B9: unified REFUSE format + refuse logging (no AI)
 // === READ-ONLY: returns INSERT block only; user applies manually
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
+
+const MAX_INSERT_CHARS = 2000; // ✅ B8 approved
+
+function refuseText(reason, action) {
+  return `REFUSE\n- Причина: ${reason}\n- Что сделать: ${action}`;
+}
 
 function denySensitivePath(path) {
   const lower = String(path || "").toLowerCase();
@@ -31,6 +39,30 @@ function denySensitivePath(path) {
   if (bannedParts.some((p) => lower.includes(p))) return true;
 
   return false;
+}
+
+function isDangerousAnchorOrContent(s) {
+  const t = String(s || "").toLowerCase();
+  const patterns = [
+    "process.env",
+    "openai_api_key",
+    "github_token",
+    "monarch_user_id",
+    "api_key",
+    "apikey",
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "eval(",
+    "function(",
+    "child_process",
+    "exec(",
+    "spawn(",
+    "id_rsa",
+    "pem",
+  ];
+  return patterns.some((p) => t.includes(p));
 }
 
 function parseInsertArgs(rest) {
@@ -62,6 +94,19 @@ function isValidMode(mode) {
   return mode === "before" || mode === "after" || mode === "replace";
 }
 
+function countOccurrences(haystack, needle) {
+  if (!needle) return 0;
+  let count = 0;
+  let idx = 0;
+  while (true) {
+    const found = haystack.indexOf(needle, idx);
+    if (found === -1) break;
+    count++;
+    idx = found + needle.length;
+  }
+  return count;
+}
+
 // Hard contract parser: accept ONLY marked block.
 function extractInsertBlock(raw) {
   const s = String(raw || "");
@@ -70,7 +115,6 @@ function extractInsertBlock(raw) {
 
   const body = m[1].trim();
 
-  // Minimal, strict-ish parsing
   const pathMatch = body.match(/(?:^|\n)path:\s*(.+)\s*(?:\n|$)/i);
   const anchorMatch = body.match(/(?:^|\n)anchor:\s*(.+)\s*(?:\n|$)/i);
   const modeMatch = body.match(/(?:^|\n)mode:\s*(before|after|replace)\s*(?:\n|$)/i);
@@ -84,6 +128,9 @@ function extractInsertBlock(raw) {
   if (!path || !anchor || !mode || !content) return null;
   if (!isValidMode(mode)) return null;
 
+  // B8: prevent nested markers
+  if (content.includes("<<<") || content.includes(">>>")) return null;
+
   return { path, anchor, mode, content };
 }
 
@@ -91,35 +138,62 @@ export async function handleCodeInsert(ctx) {
   const { bot, chatId, rest, callAI } = ctx || {};
   const { path, anchor, mode, requirement } = parseInsertArgs(rest);
 
+  const aiMetaBase = {
+    handler: "codeInsert",
+    event: "CODE_INSERT",
+    chatId: String(chatId),
+    path,
+    mode,
+    anchorLen: String(anchor || "").length,
+    hasRequirement: Boolean(requirement),
+  };
+
+  // ---- B9: BAD_ARGS ----
   if (!path || !anchor || !mode) {
     await bot.sendMessage(
       chatId,
       [
-        "Usage:",
-        "/code_insert <path> | <anchor> | <mode> | <requirement>",
-        "mode = before|after|replace",
+        refuseText(
+          "BAD_ARGS",
+          "Формат: /code_insert path | anchor | mode | requirement (mode=before|after|replace)."
+        ),
         "Example:",
-        "/code_insert src/x.js | export function foo | after | add a new helper function",
+        "/code_insert src/x.js | export function foo | after | add helper",
       ].join("\n")
     );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "BAD_ARGS" });
+    } catch (_) {}
     return;
   }
 
+  // ---- B9: MODE_INVALID ----
   if (!isValidMode(mode)) {
-    await bot.sendMessage(chatId, "code_insert: invalid mode. Use before|after|replace.");
+    await bot.sendMessage(chatId, refuseText("MODE_INVALID", "Используй mode: before | after | replace."));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "MODE_INVALID" });
+    } catch (_) {}
     return;
   }
 
+  // ---- B9: SENSITIVE_PATH ----
   if (denySensitivePath(path)) {
-    await bot.sendMessage(chatId, "Access denied: sensitive path.");
+    await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот путь запрещён. Выбери обычный файл кода."));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "SENSITIVE_PATH" });
+    } catch (_) {}
     return;
   }
 
+  // ---- B9: INTERNAL_ERROR (callAI wiring) ----
   if (typeof callAI !== "function") {
     await bot.sendMessage(
       chatId,
-      "code_insert: ERROR\ncallAI not wired. Fix router: pass { callAI } into handleCodeInsert."
+      refuseText("INTERNAL_ERROR", "callAI не подключён в router. Проверь передачу { callAI } в handler.")
     );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "INTERNAL_ERROR" });
+    } catch (_) {}
     return;
   }
 
@@ -130,23 +204,53 @@ export async function handleCodeInsert(ctx) {
   });
 
   const currentFile = await safeFetchText(source, path);
+
+  // ---- B9: FILE NOT FOUND ----
   if (!currentFile) {
-    await bot.sendMessage(chatId, `File not found or cannot be read: ${path}`);
+    await bot.sendMessage(chatId, refuseText("FILE_NOT_FOUND", "Файл не найден. Проверь path (как в репозитории)."));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "FILE_NOT_FOUND" });
+    } catch (_) {}
     return;
   }
 
-  // Anchor must exist in file (hard guard)
+  // ---- B9: ANCHOR_NOT_FOUND ----
   if (!currentFile.includes(anchor)) {
     await bot.sendMessage(
       chatId,
-      [
-        "code_insert: anchor not found in file.",
-        `path: ${path}`,
-        `anchor: ${anchor}`,
-        "Tip: use an exact line/fragment that exists in the file.",
-      ].join("\n")
+      refuseText("ANCHOR_NOT_FOUND", "Якорь не найден. Возьми точную строку/фрагмент из файла.")
     );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "ANCHOR_NOT_FOUND" });
+    } catch (_) {}
     return;
+  }
+
+  // ---- B8: dangerous anchor zones ----
+  if (isDangerousAnchorOrContent(anchor)) {
+    await bot.sendMessage(
+      chatId,
+      refuseText("DANGEROUS_ANCHOR", "Нельзя вставлять/заменять рядом с env/secrets/exec/eval. Выбери безопасный anchor.")
+    );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "DANGEROUS_ANCHOR" });
+    } catch (_) {}
+    return;
+  }
+
+  // ---- B8/B9: replace only if anchor unique ----
+  if (mode === "replace") {
+    const occ = countOccurrences(currentFile, anchor);
+    if (occ !== 1) {
+      await bot.sendMessage(
+        chatId,
+        refuseText("ANCHOR_NOT_UNIQUE", "Для replace anchor должен встречаться 1 раз. Сделай anchor точнее.")
+      );
+      try {
+        console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "ANCHOR_NOT_UNIQUE", occurrences: occ });
+      } catch (_) {}
+      return;
+    }
   }
 
   const decisions = await safeFetchText(source, "pillars/DECISIONS.md");
@@ -168,8 +272,9 @@ export async function handleCodeInsert(ctx) {
     "<<<INSERT_END>>>",
     "2) NO explanations. NO markdown fences. NO extra text outside the block.",
     "3) content must be the exact insertion text the user will paste.",
-    "4) content must preserve project architecture and boundaries.",
-    "5) If unsure, generate the minimal safe insertion that satisfies requirement.",
+    "4) content MUST be <= 2000 characters.",
+    "5) Do NOT touch secrets/env/keys. Do NOT call exec/eval/spawn/child_process.",
+    "6) If unsure, generate the minimal safe insertion that satisfies requirement.",
   ].join("\n");
 
   const user = [
@@ -186,27 +291,21 @@ export async function handleCodeInsert(ctx) {
     currentFile,
   ].join("\n");
 
-  // ---- OBSERVABILITY (minimal) ----
+  // ---- AI CALL (with existing observability pattern) ----
   const aiReason = "code_insert.apply_patch_suggestion";
-  const aiMetaBase = {
-    handler: "codeInsert",
+  const aiMeta = {
+    ...aiMetaBase,
     reason: aiReason,
     aiCostLevel: "high",
     max_output_tokens: 1400,
     temperature: 0.2,
-    chatId: String(chatId),
-    path,
-    mode,
-    anchorLen: String(anchor).length,
-    hasRequirement: Boolean(requirement),
   };
 
   try {
-    console.info("🧾 AI_CALL_START", aiMetaBase);
+    console.info("🧾 AI_CALL_START", aiMeta);
   } catch (_) {}
 
   const t0 = Date.now();
-  // -------------------------------
 
   let out = "";
   try {
@@ -223,58 +322,80 @@ export async function handleCodeInsert(ctx) {
     const dtMs = Date.now() - t0;
 
     try {
-      console.info("🧾 AI_CALL_END", {
-        ...aiMetaBase,
-        dtMs,
-        replyChars: 0,
-        ok: false,
-        error: msg,
-      });
+      console.info("🧾 AI_CALL_END", { ...aiMeta, dtMs, replyChars: 0, ok: false, error: msg });
     } catch (_) {}
 
-    await bot.sendMessage(chatId, `code_insert: AI error: ${msg}`);
+    await bot.sendMessage(chatId, refuseText("INTERNAL_ERROR", `AI error: ${msg}`));
     return;
   }
 
   const dtMs = Date.now() - t0;
   try {
-    console.info("🧾 AI_CALL_END", {
-      ...aiMetaBase,
-      dtMs,
-      replyChars: typeof out === "string" ? out.length : 0,
-      ok: true,
-    });
+    console.info("🧾 AI_CALL_END", { ...aiMeta, dtMs, replyChars: typeof out === "string" ? out.length : 0, ok: true });
   } catch (_) {}
-  // -------------------------------
 
+  // ---- B9: enforce contract ----
   const block = extractInsertBlock(out);
   if (!block) {
     await bot.sendMessage(
       chatId,
-      [
-        "code_insert: invalid output (refuse).",
-        "Reason: model did not follow the INSERT contract.",
-        "Action: retry with a simpler requirement, or provide a more specific anchor.",
-      ].join("\n")
+      refuseText("AI_CONTRACT_VIOLATION", "ИИ нарушил формат. Упрости requirement или выбери другой anchor.")
     );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "AI_CONTRACT_VIOLATION" });
+    } catch (_) {}
     return;
   }
 
-  // Safety: ensure returned path matches requested path
+  // Safety: returned path must match requested path
   if (String(block.path).trim() !== String(path).trim()) {
     await bot.sendMessage(
       chatId,
-      [
-        "code_insert: invalid output (refuse).",
-        "Reason: returned path does not match requested path.",
-        `requested: ${path}`,
-        `returned: ${block.path}`,
-      ].join("\n")
+      refuseText("AI_CONTRACT_VIOLATION", "ИИ вернул другой path. Повтори запрос, не меняя path.")
     );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "AI_CONTRACT_VIOLATION", returnedPath: block.path });
+    } catch (_) {}
     return;
   }
 
-  // Return the exact block (no fences)
+  // Safety: anchor must match requested anchor (1:1)
+  if (String(block.anchor).trim() !== String(anchor).trim()) {
+    await bot.sendMessage(
+      chatId,
+      refuseText("AI_CONTRACT_VIOLATION", "ИИ изменил anchor. Повтори запрос с тем же anchor.")
+    );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "AI_CONTRACT_VIOLATION", returnedAnchor: block.anchor });
+    } catch (_) {}
+    return;
+  }
+
+  // ---- B8: enforce insert size ----
+  if (String(block.content).length > MAX_INSERT_CHARS) {
+    await bot.sendMessage(
+      chatId,
+      refuseText("INSERT_TOO_LARGE", `Вставка слишком большая (> ${MAX_INSERT_CHARS}). Разбей на 2–3 вставки.`)
+    );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "INSERT_TOO_LARGE", insertChars: block.content.length });
+    } catch (_) {}
+    return;
+  }
+
+  // ---- B8: dangerous content check ----
+  if (isDangerousAnchorOrContent(block.content)) {
+    await bot.sendMessage(
+      chatId,
+      refuseText("DANGEROUS_ANCHOR", "Вставка содержит опасные конструкции (env/exec/eval). Переформулируй задачу безопасно.")
+    );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "DANGEROUS_ANCHOR" });
+    } catch (_) {}
+    return;
+  }
+
+  // Return the exact block + tiny preview (safe, non-AI)
   const reply = [
     "<<<INSERT_START>>>",
     `path: ${block.path}`,
@@ -283,8 +404,10 @@ export async function handleCodeInsert(ctx) {
     "content:",
     block.content,
     "<<<INSERT_END>>>",
+    "",
+    `Preview: mode=${block.mode}, insertChars=${block.content.length} (max=${MAX_INSERT_CHARS}).`,
+    "Reminder: ты вставляешь вручную в репозиторий.",
   ].join("\n");
 
   await bot.sendMessage(chatId, reply);
 }
-

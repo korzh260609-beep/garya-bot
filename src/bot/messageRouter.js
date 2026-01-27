@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { handleCodeFullfile } from "./handlers/codeFullfile.js";
+import { handleCodeInsert } from "./handlers/codeInsert.js";
 import { handleRepoReview } from "./handlers/repoReview.js";
 import { handleRepoDiff } from "./handlers/repoDiff.js";
 import { handleRepoCheck } from "./handlers/repoCheck.js";
@@ -172,6 +173,7 @@ export function attachMessageRouter({
           "/repo_analyze",
           "/repo_diff",
           "/code_fullfile",
+          "/code_insert",
 
           "/pm_set",
           "/pm_show",
@@ -289,6 +291,12 @@ export function attachMessageRouter({
           case "/code_fullfile": {
             // IMPORTANT: handler needs callAI
             await handleCodeFullfile({ bot, chatId, rest, callAI });
+            return;
+          }
+
+          case "/code_insert": {
+            // IMPORTANT: handler needs callAI
+            await handleCodeInsert({ bot, chatId, rest, callAI });
             return;
           }
 

@@ -28,6 +28,7 @@ export async function handleChatMessage({
   sanitizeNonMonarchReply,
 }) {
   const messageId = msg.message_id ?? null;
+if (!trimmed) return;
 
   // ---- GUARDS (critical): never crash on wrong wiring ----
   const isMonarchFn = typeof isMonarch === "function" ? isMonarch : () => false;

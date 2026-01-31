@@ -164,8 +164,13 @@ export function attachMessageRouter({
       // === COMMANDS
       // =========================
       if (trimmed.startsWith("/")) {
-        // --- PARSE CMD FIRST (cheap, safe) ---
-        const { cmd, rest } = parseCommand(trimmed);
+  const { cmd, rest } = parseCommand(trimmed);
+
+  // FORCE /reindex to bypass CMD_ACTION routing
+  if (cmd === "/reindex") {
+    await handleReindexRepo({ bot, chatId });
+    return;
+  }
 
         // ======================================================================
         // === HARD DEV-GATE (ONLY MONARCH IN PRIVATE CHAT)

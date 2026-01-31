@@ -2,7 +2,7 @@
 // === src/bot/handlers/reindexRepo.js — DRY-RUN + Postgres snapshot persist
 // ============================================================================
 
-import pool from "../../db.js";
+import pool from "../../../db.js";
 import { RepoIndexService } from "../../repo/RepoIndexService.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 

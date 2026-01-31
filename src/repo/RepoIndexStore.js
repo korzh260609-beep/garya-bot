@@ -1,13 +1,19 @@
-repo_index_snapshots
-- id
-- repo
-- branch
-- commit_sha
-- created_at
+export class RepoIndexStore {
+  constructor({ db }) {
+    this.db = db;
+  }
 
-repo_index_files
-- snapshot_id
-- path
-- blob_sha
-- size
+  async saveSnapshot({ repo, branch, commitSha, stats, files }) {
+    // TODO: insert into repo_index_snapshots
+    // TODO: insert into repo_index_files
+    // return snapshot_id
+  }
 
+  async getLatestSnapshot({ repo, branch }) {
+    // TODO
+  }
+
+  async getTree({ snapshotId, prefix = "" }) {
+    // TODO
+  }
+}

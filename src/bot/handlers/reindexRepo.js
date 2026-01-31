@@ -1,8 +1,10 @@
 // ============================================================================
-// === src/bot/handlers/reindexRepo.js — DRY-RUN trigger (summary + preview)
+// === src/bot/handlers/reindexRepo.js — DRY-RUN + Postgres snapshot persist
 // ============================================================================
 
+import pool from "../../db.js";
 import { RepoIndexService } from "../../repo/RepoIndexService.js";
+import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 
 function formatCandidatesPreview(preview, limit = 10) {
   if (!preview || !Array.isArray(preview.items) || preview.items.length === 0) {
@@ -42,35 +44,36 @@ function formatCandidatesPreview(preview, limit = 10) {
 }
 
 // ---------------------------------------------------------------------------
-// Permission guard (B5.4A): privileged handler must be monarch-only
-// IMPORTANT: keep logic simple and explicit (READ-ONLY action, but still privileged)
+// Permission guard (monarch-only)
 // ---------------------------------------------------------------------------
 async function requireMonarch(bot, chatId) {
   const MONARCH_CHAT_ID = String(process.env.MONARCH_CHAT_ID || "").trim();
-
-  // If not configured, do not hard-block (dev-safe). But in prod MONARCH_CHAT_ID must be set.
   if (!MONARCH_CHAT_ID) return true;
 
   if (String(chatId) !== MONARCH_CHAT_ID) {
     await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
     return false;
   }
-
   return true;
 }
 
 export async function handleReindexRepo({ bot, chatId }) {
-  // B5.4A guard
   const ok = await requireMonarch(bot, chatId);
   if (!ok) return;
 
+  // === Store (PostgreSQL) ===
+  const store = new RepoIndexStore({ pool });
+
+  // === Service ===
   const service = new RepoIndexService({
     repo: process.env.GITHUB_REPO,
     branch: process.env.GITHUB_BRANCH,
     token: process.env.GITHUB_TOKEN,
+    store,
   });
 
-  const snapshot = await service.runIndex();
+  // === Run index ===
+  const { snapshot, persisted } = await service.runIndex();
 
   const summary = snapshot.getSummary
     ? snapshot.getSummary()
@@ -84,12 +87,18 @@ export async function handleReindexRepo({ bot, chatId }) {
         memoryCandidatesPreview: null,
       };
 
-  const previewBlock = formatCandidatesPreview(summary.memoryCandidatesPreview, 10);
+  const previewBlock = formatCandidatesPreview(
+    summary.memoryCandidatesPreview,
+    10
+  );
 
   await bot.sendMessage(
     chatId,
     [
-      `RepoIndex: dry-run`,
+      `RepoIndex: ${persisted?.snapshotId ? "persisted" : "dry-run"}`,
+      persisted?.snapshotId
+        ? `snapshotId: ${persisted.snapshotId}`
+        : `snapshotId: none`,
       `repo: ${summary.repo || "?"}`,
       `branch: ${summary.branch || "?"}`,
       `createdAt: ${summary.createdAt || "?"}`,

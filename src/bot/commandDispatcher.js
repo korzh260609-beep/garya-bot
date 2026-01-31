@@ -12,8 +12,61 @@ import pool from "../../db.js";
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
 import { handleUsersStats } from "./handlers/usersStats.js";
 
+/**
+ * Backward-compatible dispatcher.
+ *
+ * Supports BOTH call styles:
+ * 1) dispatchCommand(cmd, ctx)  // expected
+ * 2) dispatchCommand(ctx)       // legacy / accidental call (prevents crash)
+ */
 export async function dispatchCommand(cmd, ctx) {
+  // ---- Normalize arguments (prevent "ctx is undefined" crash) ----
+  // If called as dispatchCommand(ctxObj), then `cmd` is actually ctxObj and ctx is undefined.
+  if (ctx === undefined && cmd && typeof cmd === "object") {
+    const ctxObj = cmd;
+
+    // Try to derive command string:
+    // 1) ctx.cmd / ctx.command
+    // 2) first token of msg.text
+    let derivedCmd = ctxObj.cmd || ctxObj.command;
+
+    const rawText =
+      typeof ctxObj?.msg?.text === "string"
+        ? ctxObj.msg.text
+        : typeof ctxObj?.message?.text === "string"
+        ? ctxObj.message.text
+        : null;
+
+    if (!derivedCmd && rawText) {
+      derivedCmd = rawText.trim().split(/\s+/)[0];
+    }
+
+    // Ensure "rest" exists if we had raw text
+    if (ctxObj && (ctxObj.rest === undefined || ctxObj.rest === null) && rawText) {
+      const parts = rawText.trim().split(/\s+/);
+      ctxObj.rest = parts.slice(1).join(" ");
+    }
+
+    ctx = ctxObj;
+    cmd = derivedCmd;
+  }
+
+  // Guard: still no ctx -> nothing to do (but do NOT crash)
+  if (!ctx || typeof ctx !== "object") {
+    return { handled: false, error: "CTX_MISSING" };
+  }
+
+  // Guard: command must be a string
+  if (typeof cmd !== "string" || !cmd.startsWith("/")) {
+    return { handled: false };
+  }
+
   const { bot, chatId, chatIdStr, rest } = ctx;
+
+  // If critical fields missing, don't crash
+  if (!bot || !chatId) {
+    return { handled: false, error: "CTX_INVALID" };
+  }
 
   switch (cmd) {
     case "/profile":

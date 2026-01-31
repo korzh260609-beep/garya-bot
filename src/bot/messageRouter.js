@@ -51,7 +51,11 @@ import {
 } from "../../core/helpers.js";
 
 // === MEMORY ===
-import { getChatHistory, saveMessageToMemory, saveChatPair } from "../memory/chatMemory.js";
+import {
+  getChatHistory,
+  saveMessageToMemory,
+  saveChatPair,
+} from "../memory/chatMemory.js";
 
 // === USERS ===
 import { buildRequirePermOrReply } from "./permGuard.js";
@@ -78,7 +82,10 @@ import {
 } from "../sources/sources.js";
 
 // === COINGECKO (V1 SIMPLE PRICE) ===
-import { getCoinGeckoSimplePriceById, getCoinGeckoSimplePriceMulti } from "../sources/coingecko/index.js";
+import {
+  getCoinGeckoSimplePriceById,
+  getCoinGeckoSimplePriceMulti,
+} from "../sources/coingecko/index.js";
 
 // === FILE-INTAKE / MEDIA ===
 import * as FileIntake from "../media/fileIntake.js";
@@ -211,7 +218,9 @@ export function attachMessageRouter({
         // command router (some legacy commands are mapped)
         const action = CMD_ACTION[cmd];
         if (action) {
-          await dispatchCommand({
+          // ✅ FIX: dispatchCommand must receive (cmd, ctx)
+          // Previously it was called with a single object, which made ctx undefined inside dispatcher.
+          const ctx = {
             action,
             bot,
             msg,
@@ -247,7 +256,9 @@ export function attachMessageRouter({
             // answer mode
             getAnswerMode,
             setAnswerMode,
-          });
+          };
+
+          await dispatchCommand(cmd, ctx);
           return;
         }
 

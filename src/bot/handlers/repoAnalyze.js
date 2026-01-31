@@ -3,7 +3,31 @@
 // === B6: /repo_analyze <path> [question...]
 // ============================================================================
 
+import pool from "../../../db.js";
+import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 import { RepoSource } from "../../repo/RepoSource.js";
+
+// ---------------------------------------------------------------------------
+// Permission guard (monarch-only)
+// ---------------------------------------------------------------------------
+async function requireMonarch(bot, chatId) {
+  const MONARCH_CHAT_ID = String(process.env.MONARCH_CHAT_ID || "").trim();
+  if (!MONARCH_CHAT_ID) return true;
+
+  if (String(chatId) !== MONARCH_CHAT_ID) {
+    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
+    return false;
+  }
+  return true;
+}
+
+function normalizePath(raw) {
+  const p = String(raw || "").trim().replace(/^\/+/, "");
+  if (!p) return "";
+  // block traversal
+  if (p.includes("..")) return "";
+  return p;
+}
 
 function denySensitivePath(path) {
   const lower = String(path || "").toLowerCase();
@@ -189,7 +213,12 @@ function buildQuestionFocus(question) {
 export async function handleRepoAnalyze(ctx) {
   const { bot, chatId, rest } = ctx || {};
 
-  const { path, question } = parsePathAndQuestion(rest);
+  const ok = await requireMonarch(bot, chatId);
+  if (!ok) return;
+
+  const parsed = parsePathAndQuestion(rest);
+  const path = normalizePath(parsed.path);
+  const question = parsed.question;
 
   if (!path) {
     await bot.sendMessage(chatId, "Usage: /repo_analyze <path/to/file.js> [question...]");
@@ -201,9 +230,39 @@ export async function handleRepoAnalyze(ctx) {
     return;
   }
 
+  // Snapshot gate: анализируем только то, что есть в текущем snapshot
+  const repo = process.env.GITHUB_REPO;
+  const branch = process.env.GITHUB_BRANCH;
+
+  const store = new RepoIndexStore({ pool });
+  const latest = await store.getLatestSnapshot({ repo, branch });
+
+  if (!latest) {
+    await bot.sendMessage(chatId, "RepoAnalyze: no snapshots yet (run /reindex first)");
+    return;
+  }
+
+  const existsRes = await pool.query(
+    `SELECT 1 FROM repo_index_files WHERE snapshot_id = $1 AND path = $2 LIMIT 1`,
+    [latest.id, path]
+  );
+
+  if (!existsRes.rows || existsRes.rows.length === 0) {
+    await bot.sendMessage(
+      chatId,
+      [
+        `RepoAnalyze: blocked (path not in snapshot)`,
+        `snapshotId: ${latest.id}`,
+        `path: ${path}`,
+        `Tip: use /repo_tree or /reindex`,
+      ].join("\n")
+    );
+    return;
+  }
+
   const source = new RepoSource({
-    repo: process.env.GITHUB_REPO,
-    branch: process.env.GITHUB_BRANCH,
+    repo,
+    branch,
     token: process.env.GITHUB_TOKEN,
   });
 
@@ -222,6 +281,7 @@ export async function handleRepoAnalyze(ctx) {
 
   const out = [];
   out.push(`repo_analyze: ${path}`);
+  out.push(`snapshotId: ${latest.id}`);
   out.push(`lines: ${metrics.lines}`);
   out.push(
     `metrics: imports=${metrics.imports}, exports=${metrics.exportsCount}, functions=${metrics.funcs + metrics.arrowFns}, classes=${metrics.classes}`

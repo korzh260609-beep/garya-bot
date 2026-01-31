@@ -45,11 +45,11 @@ async function initDb() {
     `);
 
     // --- Safe migration: add tg_user_id if missing ---
-await pool.query(`
-  ALTER TABLE users
-  ADD COLUMN IF NOT EXISTS tg_user_id TEXT
-`);
-    
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS tg_user_id TEXT
+    `);
+
     // === Таблица задач (Task Engine) ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tasks (
@@ -78,60 +78,44 @@ await pool.query(`
         last_success_at TIMESTAMPTZ,
         last_error_at TIMESTAMPTZ,
         last_error_message TEXT,
-        -- Permissions (5.12)
         allowed_roles TEXT[] DEFAULT '{ "guest", "citizen", "monarch" }',
         allowed_plans TEXT[] DEFAULT '{ "free", "pro", "vip" }',
-        -- Rate limits (5.13) — минимальный интервал между реальными запросами
         rate_limit_seconds INTEGER DEFAULT 10,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 
-    // === Мягкая миграция enabled → is_enabled (на случай старой схемы) ===
+    // === Мягкие миграции sources ===
     try {
       await pool.query(`
         ALTER TABLE sources
         RENAME COLUMN enabled TO is_enabled;
       `);
-      console.log("🔧 Migrate: sources.enabled -> sources.is_enabled");
-    } catch (e) {
-      // колонка enabled может уже не существовать — это нормально
-    }
+    } catch {}
 
-    // === Миграция 5.12 — Source-Permissions (на случай старой схемы без колонок) ===
     try {
       await pool.query(`
         ALTER TABLE sources
         ADD COLUMN allowed_roles TEXT[] DEFAULT '{ "guest", "citizen", "monarch" }';
       `);
-      console.log("🔧 Added: sources.allowed_roles");
-    } catch (e) {
-      // колонка уже существует — пропускаем
-    }
+    } catch {}
 
     try {
       await pool.query(`
         ALTER TABLE sources
         ADD COLUMN allowed_plans TEXT[] DEFAULT '{ "free", "pro", "vip" }';
       `);
-      console.log("🔧 Added: sources.allowed_plans");
-    } catch (e) {
-      // колонка уже существует — пропускаем
-    }
+    } catch {}
 
-    // === Миграция 5.13 — rate_limit_seconds (если таблица была без неё) ===
     try {
       await pool.query(`
         ALTER TABLE sources
         ADD COLUMN rate_limit_seconds INTEGER DEFAULT 10;
       `);
-      console.log("🔧 Added: sources.rate_limit_seconds");
-    } catch (e) {
-      // колонка уже существует — ок
-    }
+    } catch {}
 
-    // === Таблица кэша ответов источников (5.13 Source-cache) ===
+    // === Таблица кэша источников ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_cache (
         id SERIAL PRIMARY KEY,
@@ -146,7 +130,7 @@ await pool.query(`
       ON source_cache (source_key);
     `);
 
-    // === Таблица проверок источников (Diagnostics: source_checks) ===
+    // === Diagnostics: source_checks ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_checks (
         id SERIAL PRIMARY KEY,
@@ -160,7 +144,6 @@ await pool.query(`
       );
     `);
 
-    // Индексы для быстрых выборок по source_checks
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_source_checks_source_key_created_at
       ON source_checks (source_key, created_at DESC);
@@ -171,7 +154,7 @@ await pool.query(`
       ON source_checks (created_at DESC);
     `);
 
-    // === Логи запросов к источникам ===
+    // === Логи источников ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS source_logs (
         id SERIAL PRIMARY KEY,
@@ -207,7 +190,7 @@ await pool.query(`
       ON interaction_logs (chat_id, created_at DESC);
     `);
 
-    // === Таблица Project Memory ===
+    // === Project Memory ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS project_memory (
         id SERIAL PRIMARY KEY,
@@ -228,8 +211,36 @@ await pool.query(`
       ON project_memory (project_key, section);
     `);
 
+    // === Repo Index Snapshots (НОВОЕ) ===
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repo_index_snapshots (
+        id BIGSERIAL PRIMARY KEY,
+        repo TEXT NOT NULL,
+        branch TEXT NOT NULL,
+        commit_sha TEXT,
+        stats JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repo_index_files (
+        snapshot_id BIGINT NOT NULL
+          REFERENCES repo_index_snapshots(id) ON DELETE CASCADE,
+        path TEXT NOT NULL,
+        blob_sha TEXT,
+        size INTEGER DEFAULT 0,
+        PRIMARY KEY (snapshot_id, path)
+      );
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_repo_index_snapshots_repo_branch
+      ON repo_index_snapshots (repo, branch, created_at DESC);
+    `);
+
     console.log(
-      "✅ Tables ready: chat_memory, users, tasks, sources (+permissions +rate_limit), source_cache, source_checks, source_logs, interaction_logs, project_memory"
+      "✅ Tables ready: chat_memory, users, tasks, sources, source_cache, source_checks, source_logs, interaction_logs, project_memory, repo_index_*"
     );
   } catch (err) {
     console.error("❌ Error initializing database:", err);

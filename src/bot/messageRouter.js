@@ -2,6 +2,7 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { handleRepoSearch } from "./handlers/repoSearch.js";
 import { handleRepoFile } from "./handlers/repoFile.js";
 import { handleRepoTree } from "./handlers/repoTree.js";
 import { handleRepoStatus } from "./handlers/repoStatus.js";
@@ -299,6 +300,11 @@ export function attachMessageRouter({
 
             case "/repo_file": {
   await handleRepoFile({ bot, chatId, rest });
+  return;
+}
+
+          case "/repo_search": {
+  await handleRepoSearch({ bot, chatId, rest });
   return;
 }
 

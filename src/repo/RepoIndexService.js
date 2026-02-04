@@ -24,6 +24,37 @@ const PILLARS = [
 // ✅ Allowed prefixes for snapshot indexing (keep tight to avoid huge scans)
 const ALLOWED_PREFIXES = ["src/", "core/", "diagnostics/", "pillars/"];
 
+// ✅ Priority prefixes (critical for repo-aware commands)
+const PRIORITY_PREFIXES = [
+  "src/repo/",
+  "src/bot/",
+  "core/",
+  "diagnostics/",
+];
+
+function sortByPriority(paths) {
+  const buckets = PRIORITY_PREFIXES.map(() => []);
+  const rest = [];
+
+  for (const p of paths) {
+    let placed = false;
+    for (let i = 0; i < PRIORITY_PREFIXES.length; i += 1) {
+      if (p.startsWith(PRIORITY_PREFIXES[i])) {
+        buckets[i].push(p);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) rest.push(p);
+  }
+
+  // deterministic order inside groups
+  for (const b of buckets) b.sort((a, c) => a.localeCompare(c));
+  rest.sort((a, c) => a.localeCompare(c));
+
+  return buckets.flat().concat(rest);
+}
+
 export class RepoIndexService {
   /**
    * @param {object} params
@@ -80,8 +111,11 @@ export class RepoIndexService {
         )
       : [];
 
+    // ✅ prioritize critical folders first (deterministic)
+    const ordered = sortByPriority(filtered);
+
     const MAX_FILES_PER_RUN = 20;
-    const batch = filtered.slice(0, MAX_FILES_PER_RUN);
+    const batch = ordered.slice(0, MAX_FILES_PER_RUN);
 
     for (const path of batch) {
       const item = await this.source.fetchTextFile(path);

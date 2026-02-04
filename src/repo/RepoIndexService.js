@@ -21,6 +21,9 @@ const PILLARS = [
   "pillars/WORKFLOW.md",
 ];
 
+// ✅ Allowed prefixes for snapshot indexing (keep tight to avoid huge scans)
+const ALLOWED_PREFIXES = ["src/", "core/", "diagnostics/", "pillars/"];
+
 export class RepoIndexService {
   /**
    * @param {object} params
@@ -66,15 +69,21 @@ export class RepoIndexService {
 
     // 2) Then normal files (limited)
     const files = await this.source.listFiles();
+
+    // keep list tight: only allow selected prefixes (includes "src/")
+    const filtered = Array.isArray(files)
+      ? files.filter(
+          (p) =>
+            typeof p === "string" &&
+            ALLOWED_PREFIXES.some((pref) => p.startsWith(pref)) &&
+            !p.startsWith("pillars/") // avoid duplicates (pillars already fetched above)
+        )
+      : [];
+
     const MAX_FILES_PER_RUN = 20;
-    const batch = Array.isArray(files) ? files.slice(0, MAX_FILES_PER_RUN) : [];
+    const batch = filtered.slice(0, MAX_FILES_PER_RUN);
 
     for (const path of batch) {
-      if (typeof path !== "string") continue;
-
-      // do not duplicate pillars folder
-      if (path.startsWith("pillars/")) continue;
-
       const item = await this.source.fetchTextFile(path);
       if (item && typeof item.content === "string") {
         snapshot.addFile({ path, content: item.content });

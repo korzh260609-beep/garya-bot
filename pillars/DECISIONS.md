@@ -391,3 +391,11 @@ Restrictions:
 Consequences:
 - Any deviation is a critical governance violation
 - Human remains the sole executor
+
+## Decision: CODE_OUTPUT Skeleton
+
+- CODE_OUTPUT block is introduced as SKELETON only
+- Code generation is DISABLED until explicit enable decision
+- No auto-edits, no repo writes, no architecture changes
+- Allowed formats in future: FULLFILE, ANCHOR-INSERT
+- This decision only unlocks the skeleton, not functionality

@@ -24,13 +24,25 @@ const PILLARS = [
 // ✅ Allowed prefixes for snapshot indexing (keep tight to avoid huge scans)
 const ALLOWED_PREFIXES = ["src/", "core/", "diagnostics/", "pillars/"];
 
-// ✅ Priority prefixes (critical for repo-aware commands)
-const PRIORITY_PREFIXES = [
-  "src/repo/",
-  "src/bot/",
-  "core/",
-  "diagnostics/",
+// ✅ REQUIRED_FILES: MUST be in snapshot regardless of prefix filter / ordering.
+// NOTE: these are paths as they appear in /repo_tree output (root files have no "src/").
+const REQUIRED_FILES = [
+  "db.js",
+  "index.js",
+  "modelConfig.js",
+
+  "src/bot/messageRouter.js",
+
+  "src/bot/handlers/reindexRepo.js",
+  "src/bot/handlers/repoStatus.js",
+  "src/bot/handlers/repoTree.js",
+  "src/bot/handlers/repoFile.js",
+  "src/bot/handlers/repoAnalyze.js",
+  "src/bot/handlers/repoSearch.js",
 ];
+
+// ✅ Priority prefixes AFTER REQUIRED_FILES
+const PRIORITY_PREFIXES = ["src/repo/", "src/bot/", "core/", "diagnostics/"];
 
 function sortByPriority(paths) {
   const buckets = PRIORITY_PREFIXES.map(() => []);
@@ -100,8 +112,15 @@ export class RepoIndexService {
 
     // 2) Then normal files (limited)
     const files = await this.source.listFiles();
+    const filesListed = Array.isArray(files) ? files.length : 0;
 
-    // keep list tight: only allow selected prefixes (includes "src/")
+    const fileSet = new Set(Array.isArray(files) ? files : []);
+
+    // 2.1 REQUIRED_FILES first (if they exist in repo)
+    const requiredExisting = REQUIRED_FILES.filter((p) => fileSet.has(p));
+
+    // 2.2 Normal candidates via allowed prefixes (includes "src/")
+    // keep list tight: only allow selected prefixes
     const filtered = Array.isArray(files)
       ? files.filter(
           (p) =>
@@ -111,8 +130,9 @@ export class RepoIndexService {
         )
       : [];
 
-    // ✅ prioritize critical folders first (deterministic)
-    const ordered = sortByPriority(filtered);
+    // Remove required from filtered to avoid duplicates, then sort by priority
+    const filteredWithoutRequired = filtered.filter((p) => !requiredExisting.includes(p));
+    const ordered = requiredExisting.concat(sortByPriority(filteredWithoutRequired));
 
     const MAX_FILES_PER_RUN = 20;
     const batch = ordered.slice(0, MAX_FILES_PER_RUN);
@@ -128,7 +148,7 @@ export class RepoIndexService {
     }
 
     snapshot.finalize({
-      filesListed: Array.isArray(files) ? files.length : 0,
+      filesListed,
       filesFetched: fetched,
       filesSkipped: skipped,
     });

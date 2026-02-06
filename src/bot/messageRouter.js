@@ -169,13 +169,13 @@ export function attachMessageRouter({
       // === COMMANDS
       // =========================
       if (trimmed.startsWith("/")) {
-  const { cmd, rest } = parseCommand(trimmed);
+        const { cmd, rest } = parseCommand(trimmed);
 
-  // FORCE /reindex to bypass CMD_ACTION routing
-  if (cmd === "/reindex") {
-    await handleReindexRepo({ bot, chatId });
-    return;
-  }
+        // FORCE /reindex to bypass CMD_ACTION routing
+        if (cmd === "/reindex") {
+          await handleReindexRepo({ bot, chatId });
+          return;
+        }
 
         // ======================================================================
         // === HARD DEV-GATE (ONLY MONARCH IN PRIVATE CHAT)
@@ -191,6 +191,9 @@ export function attachMessageRouter({
           "/repo_diff",
           "/code_fullfile",
           "/code_insert",
+
+          // Step 4: CODE_OUTPUT status flag (skeleton only)
+          "/code_output_status",
 
           "/pm_set",
           "/pm_show",
@@ -289,30 +292,39 @@ export function attachMessageRouter({
             return;
           }
 
+          // Step 4: status-only flag (NO enable logic, NO code generation)
+          case "/code_output_status": {
+            await bot.sendMessage(
+              chatId,
+              "CODE_OUTPUT: DISABLED (skeleton only)\nReason: governance gate — code generation запрещена до отдельного решения в DECISIONS.md"
+            );
+            return;
+          }
+
           case "/repo_status": {
-  await handleRepoStatus({ bot, chatId });
-  return;
-}
+            await handleRepoStatus({ bot, chatId });
+            return;
+          }
 
           case "/repo_tree": {
-  await handleRepoTree({ bot, chatId, rest });
-  return;
-}
+            await handleRepoTree({ bot, chatId, rest });
+            return;
+          }
 
-            case "/repo_file": {
-  await handleRepoFile({ bot, chatId, rest });
-  return;
-}
+          case "/repo_file": {
+            await handleRepoFile({ bot, chatId, rest });
+            return;
+          }
 
           case "/repo_review2": {
-  await handleRepoReview2({ bot, chatId });
-  return;
-}
+            await handleRepoReview2({ bot, chatId });
+            return;
+          }
 
           case "/repo_search": {
-  await handleRepoSearch({ bot, chatId, rest });
-  return;
-}
+            await handleRepoSearch({ bot, chatId, rest });
+            return;
+          }
 
           case "/repo_get": {
             await handleRepoGet({ bot, chatId, rest });

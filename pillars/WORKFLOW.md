@@ -462,6 +462,7 @@ For each roadmap item:
 ✅ 12A.0.7 MemoryPolicy (policy-only, no writes)
 ✅ 12A.0.8 /reindex dry-run diagnostics
 ✅ 12A.0.9 memoryCandidates preview (NO persistence)
+❌ 12A.0.10 /code_output_status (skeleton flag; always DISABLED)
 
 Notes:
 - Read-only only
@@ -469,6 +470,7 @@ Notes:
 - No AI reasoning
 - No code modification
 - Used as foundation for future Code/Repo Analysis capability
+- Gate: /code_output_status exists ONLY to expose the current state (DISABLED). No code generation logic here.
 
 ---
 
@@ -605,4 +607,3 @@ Notes:
 2. RULE — removing spec-AI must not break tasks  
 3. RULE — expensive AI requires confirmation  
 4. RULE — system correctness > AI intelligence
-

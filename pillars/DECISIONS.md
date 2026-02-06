@@ -392,10 +392,28 @@ Consequences:
 - Any deviation is a critical governance violation
 - Human remains the sole executor
 
-## Decision: CODE_OUTPUT Skeleton
+---
 
-- CODE_OUTPUT block is introduced as SKELETON only
-- Code generation is DISABLED until explicit enable decision
-- No auto-edits, no repo writes, no architecture changes
-- Allowed formats in future: FULLFILE, ANCHOR-INSERT
-- This decision only unlocks the skeleton, not functionality
+## D-024: CODE_OUTPUT Enable Gate
+Status: ACCEPTED  
+Date: 2026-02-06  
+Scope: Code Generation / Governance
+
+Decision:
+CODE_OUTPUT (генерация кода) **запрещён по умолчанию** и может быть включён
+**только отдельным явным Decision монарха**.
+
+Никакие команды, флаги, конфигурации, условия или логика
+**не имеют права** активировать CODE_OUTPUT автоматически или косвенно.
+
+Единственный допустимый путь включения:
+- отдельная запись в DECISIONS.md;
+- прямое подтверждение монарха;
+- ручное принятие решения.
+
+До этого момента CODE_OUTPUT считается
+**PERMANENTLY DISABLED (skeleton only)**.
+
+Consequences:
+- Любая автоматическая или косвенная активация является критическим нарушением governance
+- SG обязан блокировать и явно сообщать о любой попытке обхода gate

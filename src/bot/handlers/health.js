@@ -1,8 +1,8 @@
 // src/bot/handlers/health.js
 // Stage 5 — Observability V1 (MINIMAL, READ-ONLY)
 
-import pool from "../../db.js";
-import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
+import pool from "../../../db.js";
+import { RepoIndexStore } from "../../../repo/RepoIndexStore.js";
 
 export async function handleHealth({ bot, chatId }) {
   let dbStatus = "fail";

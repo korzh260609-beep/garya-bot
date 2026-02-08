@@ -38,6 +38,9 @@ import { handleArList } from "./handlers/arList.js";
 import { handleDeny } from "./handlers/deny.js";
 import { handleApprove } from "./handlers/approve.js";
 
+// ✅ Stage 5.3: workflow check
+import { handleWorkflowCheck } from "./handlers/workflowCheck.js";
+
 import { resolveUserAccess } from "../users/userAccess.js";
 import pool from "../../db.js";
 
@@ -225,6 +228,9 @@ export function attachMessageRouter({
           // Step 4: CODE_OUTPUT status flag (skeleton only)
           "/code_output_status",
 
+          // ✅ Stage 5.3: workflow check
+          "/workflow_check",
+
           "/pm_set",
           "/pm_show",
 
@@ -349,6 +355,12 @@ export function attachMessageRouter({
               chatId,
               "CODE_OUTPUT: DISABLED (skeleton only)\nReason: governance gate — code generation запрещена до отдельного решения в DECISIONS.md"
             );
+            return;
+          }
+
+          // ✅ Stage 5.3: workflow check (skeleton handler)
+          case "/workflow_check": {
+            await handleWorkflowCheck({ bot, chatId, rest });
             return;
           }
 

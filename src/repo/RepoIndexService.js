@@ -134,7 +134,11 @@ export class RepoIndexService {
     const filteredWithoutRequired = filtered.filter((p) => !requiredExisting.includes(p));
     const ordered = requiredExisting.concat(sortByPriority(filteredWithoutRequired));
 
-    const MAX_FILES_PER_RUN = 20;
+    const MAX_FILES_PER_RUN = Math.max(
+  20,
+  Number(process.env.REPOINDEX_MAX_FILES || 200)
+);
+
     const batch = ordered.slice(0, MAX_FILES_PER_RUN);
 
     for (const path of batch) {

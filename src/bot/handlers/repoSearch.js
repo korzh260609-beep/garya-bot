@@ -20,7 +20,12 @@ async function requireMonarch(bot, chatId) {
 }
 
 function normalizeQuery(raw) {
-  const q = String(raw || "").trim();
+  let q = String(raw || "").trim();
+  if (!q) return "";
+  // strip outer quotes: "run" -> run, 'run' -> run
+  if ((q.startsWith('"') && q.endsWith('"')) || (q.startsWith("'") && q.endsWith("'"))) {
+    q = q.slice(1, -1).trim();
+  }
   if (!q) return "";
   if (q.length < 2) return ""; // слишком шумно
   return q;

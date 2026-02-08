@@ -1,71 +1,74 @@
 {
-  "version": 1,
-  "purpose": "Workflow step -> evidence hints (paths/search). READ-ONLY proofs, no status logic here.",
+  "version": 2,
+  "domain": "repo_indexing",
+  "source_of_truth": "WORKFLOW.md Stage 12A.0 (REPOSITORY INDEXING)",
+  "purpose": "Step -> evidence hints for SG↔GitHub RepoIndex foundation. READ-ONLY proofs, no status logic here.",
   "rules": {
     "no_autologic": true,
     "no_ai_required": true,
     "evidence_types": ["paths", "search", "notes"],
-    "policy": "Hints only. Status (done/todo/needs_review) is computed elsewhere in Stage 5.3."
+    "policy": "Hints only. Status (done/todo/needs_review) is computed in /workflow_check logic."
   },
   "steps": {
-    "1.1": {
-      "title": "GitHub READ-ONLY access",
+    "12A.0.1": {
+      "title": "GitHub access (fine-grained, read-only)",
       "paths": ["src/repo/RepoSource.js", "src/bot/handlers/repoStatus.js"],
       "search": ["GITHUB_TOKEN", "RepoSource", "/repo_status", "read-only"],
-      "notes": "Proof should show repo read-only integration and no write/commit actions."
+      "notes": "Proof should show read-only access and absence of write/commit actions."
     },
-    "1.2": {
-      "title": "Repo navigation commands",
-      "paths": [
-        "src/bot/handlers/repoTree.js",
-        "src/bot/handlers/repoFile.js",
-        "src/bot/handlers/repoGet.js",
-        "src/bot/handlers/repoSearch.js"
-      ],
-      "search": ["/repo_tree", "/repo_file", "/repo_get", "/repo_search"],
-      "notes": "Proof should reference handlers + router wiring."
+    "12A.0.2": {
+      "title": "RepoSource (list + fetch files)",
+      "paths": ["src/repo/RepoSource.js", "src/bot/handlers/repoTree.js", "src/bot/handlers/repoGet.js"],
+      "search": ["RepoSource", "/repo_tree", "/repo_get"],
+      "notes": "Proof: RepoSource exists and handlers use it (directly or via services)."
     },
-    "2.1": {
-      "title": "Repo Index + snapshots",
-      "paths": [
-        "src/bot/handlers/reindexRepo.js",
-        "src/repo/RepoIndexService.js",
-        "src/repo/RepoIndexSnapshot.js",
-        "src/repo/RepoIndexStore.js",
-        "db.js"
-      ],
-      "search": ["RepoIndexService", "runIndex", "saveSnapshot", "repo_index_snapshots", "repo_index_files"],
-      "notes": "Proof: /reindex works, snapshot persisted, pillars included."
+    "12A.0.3": {
+      "title": "RepoIndexService (orchestration)",
+      "paths": ["src/repo/RepoIndexService.js", "src/bot/handlers/reindexRepo.js"],
+      "search": ["RepoIndexService", "runIndex", "/reindex"],
+      "notes": "Proof: /reindex triggers indexing orchestration."
     },
-    "3.1": {
-      "title": "File-level analysis (read-only)",
-      "paths": ["src/bot/handlers/repoCheck.js", "src/bot/handlers/repoAnalyze.js"],
-      "search": ["/repo_check", "/repo_analyze"],
-      "notes": "Proof: handlers exist + no write side-effects."
+    "12A.0.4": {
+      "title": "textFilters (deny secrets / noise)",
+      "paths": ["src/repo/textFilters.js"],
+      "search": ["textFilters", "deny", "secrets", "node_modules", ".git"],
+      "notes": "Proof: excludes noisy dirs and blocks secrets patterns."
     },
-    "3.2": {
-      "title": "Repo-level audit (read-only)",
-      "paths": ["src/bot/handlers/repoReview.js", "src/bot/handlers/repoReview2.js", "src/bot/handlers/repoDiff.js"],
-      "search": ["/repo_review", "/repo_review2", "/repo_diff"],
-      "notes": "Proof: aggregator commands exist + respect read-only constraints."
+    "12A.0.5": {
+      "title": "RepoIndexSnapshot (normalized snapshot)",
+      "paths": ["src/repo/RepoIndexSnapshot.js", "src/repo/RepoIndexStore.js"],
+      "search": ["RepoIndexSnapshot", "saveSnapshot", "getLatestSnapshot", "repo_index_snapshots"],
+      "notes": "Proof: snapshot model + store exist, snapshot_id increments."
     },
-    "4.1": {
-      "title": "CODE OUTPUT status modes (skeleton)",
-      "paths": ["src/bot/handlers/codeOutputStatus.js", "pillars/CODE_INSERT_RULES.md"],
-      "search": ["/code_output_status", "DISABLED", "ENABLED_DRY_RUN", "ENABLED"],
-      "notes": "Currently expected: DISABLED."
+    "12A.0.6": {
+      "title": "Pillars indexing (pillars/*.md)",
+      "paths": ["pillars/WORKFLOW.md", "pillars/DECISIONS.md"],
+      "search": ["pillars/", "WORKFLOW.md", "DECISIONS.md"],
+      "notes": "Proof: pillars files are included in snapshot and searchable."
     },
-    "5.0": {
-      "title": "Project status infrastructure",
-      "paths": ["src/bot/handlers/health.js", "src/bot/handlers/projectStatus.js"],
-      "search": ["/health", "/project_status", "repo_index_snapshots"],
-      "notes": "Proof: system handlers, no AI."
+    "12A.0.7": {
+      "title": "MemoryPolicy (policy-only, no writes)",
+      "paths": ["src/repo/MemoryPolicy.js"],
+      "search": ["MemoryPolicy", "no writes", "policy-only"],
+      "notes": "Proof: policy exists; no persistence side-effects."
     },
-    "5.1": {
-      "title": "Project status (read-only facts: health + last_snapshot_id)",
-      "paths": ["src/bot/handlers/projectStatus.js", "src/repo/RepoIndexStore.js"],
-      "search": ["last_snapshot_id", "getLatestSnapshot", "SELECT 1"],
-      "notes": "Proof: /project_status output includes health + last_snapshot_id."
+    "12A.0.8": {
+      "title": "/reindex dry-run diagnostics",
+      "paths": ["src/bot/handlers/reindexRepo.js"],
+      "search": ["/reindex", "dry-run", "diagnostics"],
+      "notes": "If dry-run mode exists, it must be read-only and non-persistent."
+    },
+    "12A.0.9": {
+      "title": "memoryCandidates preview (NO persistence)",
+      "paths": ["src/repo/RepoIndexService.js", "src/repo/MemoryPolicy.js"],
+      "search": ["memoryCandidates", "preview", "NO persistence"],
+      "notes": "Proof: preview output exists without DB writes to memory tables."
+    },
+    "12A.0.10": {
+      "title": "/code_output_status (skeleton flag; always DISABLED)",
+      "paths": ["src/bot/messageRouter.js", "src/bot/handlers/codeOutputStatus.js"],
+      "search": ["/code_output_status", "DISABLED", "skeleton"],
+      "notes": "Proof: status exists; generation remains disabled."
     }
   }
 }

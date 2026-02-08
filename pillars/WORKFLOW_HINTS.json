@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "purpose": "Workflow step -> evidence hints (paths/search). READ-ONLY proofs, no status logic here.",
+  "rules": {
+    "no_autologic": true,
+    "no_ai_required": true,
+    "evidence_types": ["paths", "search", "notes"],
+    "policy": "Hints only. Status (done/todo/needs_review) is computed elsewhere in Stage 5.3."
+  },
+  "steps": {
+    "1.1": {
+      "title": "GitHub READ-ONLY access",
+      "paths": ["src/repo/RepoSource.js", "src/bot/handlers/repoStatus.js"],
+      "search": ["GITHUB_TOKEN", "RepoSource", "/repo_status", "read-only"],
+      "notes": "Proof should show repo read-only integration and no write/commit actions."
+    },
+    "1.2": {
+      "title": "Repo navigation commands",
+      "paths": [
+        "src/bot/handlers/repoTree.js",
+        "src/bot/handlers/repoFile.js",
+        "src/bot/handlers/repoGet.js",
+        "src/bot/handlers/repoSearch.js"
+      ],
+      "search": ["/repo_tree", "/repo_file", "/repo_get", "/repo_search"],
+      "notes": "Proof should reference handlers + router wiring."
+    },
+    "2.1": {
+      "title": "Repo Index + snapshots",
+      "paths": [
+        "src/bot/handlers/reindexRepo.js",
+        "src/repo/RepoIndexService.js",
+        "src/repo/RepoIndexSnapshot.js",
+        "src/repo/RepoIndexStore.js",
+        "db.js"
+      ],
+      "search": ["RepoIndexService", "runIndex", "saveSnapshot", "repo_index_snapshots", "repo_index_files"],
+      "notes": "Proof: /reindex works, snapshot persisted, pillars included."
+    },
+    "3.1": {
+      "title": "File-level analysis (read-only)",
+      "paths": ["src/bot/handlers/repoCheck.js", "src/bot/handlers/repoAnalyze.js"],
+      "search": ["/repo_check", "/repo_analyze"],
+      "notes": "Proof: handlers exist + no write side-effects."
+    },
+    "3.2": {
+      "title": "Repo-level audit (read-only)",
+      "paths": ["src/bot/handlers/repoReview.js", "src/bot/handlers/repoReview2.js", "src/bot/handlers/repoDiff.js"],
+      "search": ["/repo_review", "/repo_review2", "/repo_diff"],
+      "notes": "Proof: aggregator commands exist + respect read-only constraints."
+    },
+    "4.1": {
+      "title": "CODE OUTPUT status modes (skeleton)",
+      "paths": ["src/bot/handlers/codeOutputStatus.js", "pillars/CODE_INSERT_RULES.md"],
+      "search": ["/code_output_status", "DISABLED", "ENABLED_DRY_RUN", "ENABLED"],
+      "notes": "Currently expected: DISABLED."
+    },
+    "5.0": {
+      "title": "Project status infrastructure",
+      "paths": ["src/bot/handlers/health.js", "src/bot/handlers/projectStatus.js"],
+      "search": ["/health", "/project_status", "repo_index_snapshots"],
+      "notes": "Proof: system handlers, no AI."
+    },
+    "5.1": {
+      "title": "Project status (read-only facts: health + last_snapshot_id)",
+      "paths": ["src/bot/handlers/projectStatus.js", "src/repo/RepoIndexStore.js"],
+      "search": ["last_snapshot_id", "getLatestSnapshot", "SELECT 1"],
+      "notes": "Proof: /project_status output includes health + last_snapshot_id."
+    }
+  }
+}

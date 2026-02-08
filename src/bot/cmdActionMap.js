@@ -7,8 +7,6 @@ export const CMD_ACTION = {
 
   "/mode": "cmd.mode",
 
-  "/reindex": "cmd.repo.reindex",
-
   "/tasks": "cmd.tasks.list",
   "/run": "cmd.task.run",
   "/newtask": "cmd.task.create",

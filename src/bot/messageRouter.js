@@ -207,12 +207,6 @@ export function attachMessageRouter({
       if (trimmed.startsWith("/")) {
         const { cmd, rest } = parseCommand(trimmed);
 
-        // FORCE /reindex to bypass CMD_ACTION routing
-        if (cmd === "/reindex") {
-          await handleReindexRepo({ bot, chatId });
-          return;
-        }
-
         // ======================================================================
         // === HARD DEV-GATE (ONLY MONARCH IN PRIVATE CHAT)
         // ======================================================================
@@ -263,6 +257,12 @@ export function attachMessageRouter({
           return;
         }
         // ======================================================================
+
+        // FORCE /reindex to bypass CMD_ACTION routing (monarch DM only)
+        if (cmd === "/reindex") {
+          await handleReindexRepo({ bot, chatId });
+          return;
+        }
 
         // command router (some legacy commands are mapped)
         const action = CMD_ACTION[cmd];

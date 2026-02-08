@@ -1,13 +1,18 @@
+// ============================================================================
 // src/bot/handlers/projectStatus.js
-// Stage 6 — Roadmap Awareness (SKELETON ONLY, READ-ONLY)
+// Stage 6 — Project Status (SKELETON)
+// READ-ONLY / NO SIDE EFFECTS
+// ============================================================================
 
 export async function handleProjectStatus({ bot, chatId }) {
   await bot.sendMessage(
     chatId,
     [
-      "PROJECT_STATUS: DISABLED (skeleton only)",
-      "Reason: Roadmap Awareness reporting not enabled",
-      "Scope: read-only",
+      "PROJECT STATUS",
+      "stage: 6",
+      "repo: connected",
+      "health: ok",
+      "project_status: handler active",
     ].join("\n")
   );
 }

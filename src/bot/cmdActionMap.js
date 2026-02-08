@@ -7,6 +7,8 @@ export const CMD_ACTION = {
 
   "/mode": "cmd.mode",
 
+  "/reindex": "cmd.repo.reindex",
+
   "/tasks": "cmd.tasks.list",
   "/run": "cmd.task.run",
   "/newtask": "cmd.task.create",
@@ -19,6 +21,10 @@ export const CMD_ACTION = {
   "/diag_source": "cmd.source.diagnose",
   "/test_source": "cmd.source.test",
 
+  // Stage 5/6 — admin/dev (must go via can())
+  "/health": "cmd.admin.health",
+  "/project_status": "cmd.admin.project_status",
+
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",
   "/start_task": "cmd.admin.start_task",
   "/stop_tasks_type": "cmd.admin.stop_tasks_type",
@@ -28,7 +34,4 @@ export const CMD_ACTION = {
 
   "/ar_create_test": "cmd.admin.ar_create_test",
   "/ar_list": "cmd.admin.ar_list",
-
-  // Stage 5 — Observability (skeleton)
-  "/health": "cmd.system.health",
 };

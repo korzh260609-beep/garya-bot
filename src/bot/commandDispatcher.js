@@ -6,6 +6,7 @@ import { handlePrices } from "./handlers/prices.js";
 import { handlePrice } from "./handlers/price.js";
 import { handleProfile } from "./handlers/profile.js";
 import { handleMode } from "./handlers/mode.js";
+import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
 
 import pool from "../../db.js";
 
@@ -129,6 +130,12 @@ export async function dispatchCommand(cmd, ctx) {
         bypass: ctx.bypass,
         pool,
       });
+      return { handled: true };
+    }
+
+    // Stage 5 — Observability V1 (SKELETON)
+    case "/health": {
+      await handleHealth({ bot, chatId });
       return { handled: true };
     }
 

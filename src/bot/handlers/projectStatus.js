@@ -11,4 +11,3 @@ export async function handleProjectStatus({ bot, chatId }) {
     ].join("\n")
   );
 }
-

@@ -1,43 +1,47 @@
 // ============================================================================
-// === src/repo/RepoSource.js — GitHub Repo Source (SKELETON v5: list tree + filters + fetchTextFile)
+// === src/repo/RepoSource.js — GitHub Repo Source (Variant A: fetch-on-demand)
 // ============================================================================
 
 import { githubGetJson } from "./githubApi.js";
 
+const MAX_FILE_BYTES = 200 * 1024; // 200 KB
+
 export class RepoSource {
   constructor({ repo, branch, token }) {
-    this.repo = repo; // "owner/name"
+    this.repo = repo;     // "owner/name"
     this.branch = branch; // "main"
-    this.token = token; // fine-grained PAT
+    this.token = token;   // fine-grained PAT
   }
 
+  // ---------------------------------------------------------------------------
+  // List files (paths-only) — used by reindex
+  // ---------------------------------------------------------------------------
   async listFiles() {
-    // 1) Получаем SHA коммита для ветки через ref
+    // 1) Get ref -> commit SHA
     const refUrl = `https://api.github.com/repos/${this.repo}/git/ref/heads/${this.branch}`;
     const ref = await githubGetJson(refUrl, { token: this.token });
 
     const commitSha = ref?.object?.sha;
     if (!commitSha) return [];
 
-    // 2) Получаем commit object, чтобы достать tree SHA
+    // 2) Get commit -> tree SHA
     const commitUrl = `https://api.github.com/repos/${this.repo}/git/commits/${commitSha}`;
     const commit = await githubGetJson(commitUrl, { token: this.token });
 
     const treeSha = commit?.tree?.sha;
     if (!treeSha) return [];
 
-    // 3) Получаем дерево файлов (recursive)
+    // 3) Get tree (recursive)
     const treeUrl = `https://api.github.com/repos/${this.repo}/git/trees/${treeSha}?recursive=1`;
     const tree = await githubGetJson(treeUrl, { token: this.token });
 
-    // 4) Возвращаем только файлы (blob)
     const rawFiles = Array.isArray(tree?.tree)
       ? tree.tree
           .filter((n) => n && n.type === "blob" && typeof n.path === "string")
           .map((n) => n.path)
       : [];
 
-    // 5) Filters (denylist + allowlist + path length)
+    // 4) Filters
     const denyPrefixes = ["node_modules/", ".git/", "dist/", "build/"];
     const denyExact = [
       ".env",
@@ -48,48 +52,37 @@ export class RepoSource {
     const allowExt = [".js", ".ts", ".json", ".md", ".sql", ".yml", ".yaml"];
     const MAX_PATH_LEN = 300;
 
-    const files = rawFiles.filter((p) => {
+    return rawFiles.filter((p) => {
       if (!p || typeof p !== "string") return false;
       if (p.length > MAX_PATH_LEN) return false;
-
-      // exact deny
       if (denyExact.includes(p)) return false;
-
-      // prefix deny
-      for (const pref of denyPrefixes) {
-        if (p.startsWith(pref)) return false;
-      }
-
-      // extension allowlist
-      const lower = p.toLowerCase();
-      const okExt = allowExt.some((ext) => lower.endsWith(ext));
-      if (!okExt) return false;
-
-      return true;
+      if (denyPrefixes.some((pref) => p.startsWith(pref))) return false;
+      return allowExt.some((ext) => p.toLowerCase().endsWith(ext));
     });
-
-    return files;
   }
 
+  // ---------------------------------------------------------------------------
+  // Fetch file content ON DEMAND (GitHub Contents API)
+  // ---------------------------------------------------------------------------
   async fetchTextFile(path) {
-    // 1) Загружаем raw-контент файла
-    const rawUrl = `https://raw.githubusercontent.com/${this.repo}/${this.branch}/${path}`;
+    if (!path) return null;
 
-    const headers = {};
-    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    const url =
+      `https://api.github.com/repos/${this.repo}/contents/${encodeURIComponent(
+        path
+      )}?ref=${encodeURIComponent(this.branch)}`;
 
-    const res = await fetch(rawUrl, { headers });
-    if (!res.ok) return null;
+    const json = await githubGetJson(url, { token: this.token });
+    if (!json || json.type !== "file" || !json.content) return null;
 
-    // 2) Проверяем размер по Content-Length (если есть)
-    const len = res.headers.get("content-length");
-    if (len && Number(len) > 200 * 1024) return null;
+    // Size guard (GitHub gives size in bytes)
+    if (json.size && json.size > MAX_FILE_BYTES) return null;
 
-    // 3) Читаем текст
-    const text = await res.text();
+    // Decode base64
+    const buffer = Buffer.from(json.content, "base64");
+    if (buffer.length > MAX_FILE_BYTES) return null;
 
-    // 4) Доп. защита: реальный размер
-    if (text.length > 200 * 1024) return null;
+    const text = buffer.toString("utf8");
 
     return {
       path,

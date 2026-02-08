@@ -28,5 +28,7 @@ export const CMD_ACTION = {
 
   "/ar_create_test": "cmd.admin.ar_create_test",
   "/ar_list": "cmd.admin.ar_list",
-};
 
+  // Stage 5 — Observability (skeleton)
+  "/health": "cmd.system.health",
+};

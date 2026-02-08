@@ -417,3 +417,20 @@ CODE_OUTPUT (генерация кода) **запрещён по умолчан
 Consequences:
 - Любая автоматическая или косвенная активация является критическим нарушением governance
 - SG обязан блокировать и явно сообщать о любой попытке обхода gate
+
+## D-025: Active Stage Determination (Roadmap Awareness)
+
+Status: ACCEPTED  
+Date: 2026-02-08  
+Scope: Workflow / Roadmap Awareness
+
+Decision:
+ACTIVE_STAGE определяется как наивысший Stage из WORKFLOW.md,
+для которого все обязательные (non-skeleton) пункты предыдущих Stage
+либо выполнены фактически в репозитории, либо явно bypassed
+через зафиксированное решение в DECISIONS.md.
+
+Consequences:
+- SG не использует визуальные маркеры (❌/✅) как источник истины
+- Статус этапов выводится только через сопоставление WORKFLOW ↔ RepoIndex
+- SG не продвигает Stage автоматически и не выполняет действий

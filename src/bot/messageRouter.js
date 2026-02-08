@@ -99,6 +99,38 @@ import * as FileIntake from "../media/fileIntake.js";
 import { logInteraction } from "../logging/interactionLogs.js";
 
 // ============================================================================
+// Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
+// NOTE: multi-instance accuracy will be handled later via DB locks (Stage 2.8 / 6.8)
+// Env overrides (optional):
+// - CMD_RL_WINDOW_MS (default 20000)
+// - CMD_RL_MAX (default 6)
+// ============================================================================
+const CMD_RL_WINDOW_MS = Math.max(
+  1000,
+  Number(process.env.CMD_RL_WINDOW_MS || 20000)
+);
+const CMD_RL_MAX = Math.max(1, Number(process.env.CMD_RL_MAX || 6));
+
+const __cmdRateState = new Map(); // key -> [timestamps]
+
+function checkCmdRateLimit(key) {
+  const now = Date.now();
+  const arr = __cmdRateState.get(key) || [];
+  const fresh = arr.filter((t) => now - t < CMD_RL_WINDOW_MS);
+
+  if (fresh.length >= CMD_RL_MAX) {
+    const oldest = fresh[0];
+    const retryAfterMs = Math.max(0, CMD_RL_WINDOW_MS - (now - oldest));
+    __cmdRateState.set(key, fresh);
+    return { allowed: false, retryAfterMs };
+  }
+
+  fresh.push(now);
+  __cmdRateState.set(key, fresh);
+  return { allowed: true, retryAfterMs: 0 };
+}
+
+// ============================================================================
 // === ATTACH ROUTER
 // ============================================================================
 
@@ -148,7 +180,11 @@ export function attachMessageRouter({
       const userRole = accessPack?.userRole || "guest";
       const userPlan = accessPack?.userPlan || "free";
       const user =
-        accessPack?.user || { role: userRole, plan: userPlan, bypassPermissions: false };
+        accessPack?.user || {
+          role: userRole,
+          plan: userPlan,
+          bypassPermissions: false,
+        };
 
       // bypass обязателен, т.к. ниже он используется в dispatch/handlers
       const bypass = Boolean(user?.bypassPermissions);
@@ -231,6 +267,21 @@ export function attachMessageRouter({
         // command router (some legacy commands are mapped)
         const action = CMD_ACTION[cmd];
         if (action) {
+          // Stage 3.3: permissions-layer enforcement (can() + access request flow)
+          const allowed = await requirePermOrReply(cmd, { rest });
+          if (!allowed) return;
+
+          // Stage 3.5: rate-limit commands (skip for monarch/bypass)
+          if (!isMonarchUser && !bypass) {
+            const key = `${senderIdStr}:${chatIdStr}:cmd`;
+            const rl = checkCmdRateLimit(key);
+            if (!rl.allowed) {
+              const sec = Math.ceil(rl.retryAfterMs / 1000);
+              await bot.sendMessage(chatId, `⏳ Слишком часто. Подожди ${sec} сек.`);
+              return;
+            }
+          }
+
           // ✅ FIX: dispatchCommand must receive (cmd, ctx)
           // Previously it was called with a single object, which made ctx undefined inside dispatcher.
           const ctx = {

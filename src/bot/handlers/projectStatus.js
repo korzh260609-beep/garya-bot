@@ -6,21 +6,20 @@
 
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
-import { getHealthStatus } from "./health.js";
 
 export async function handleProjectStatus({ bot, chatId }) {
   let healthStatus = "unknown";
   let lastSnapshotId = "none";
 
-  // --- health ---
+  // --- health (READ-ONLY FACT) ---
   try {
-    const health = await getHealthStatus();
-    healthStatus = health?.status ?? "unknown";
+    await pool.query("SELECT 1");
+    healthStatus = "ok";
   } catch {
-    healthStatus = "error";
+    healthStatus = "fail";
   }
 
-  // --- repo index snapshot ---
+  // --- repo index snapshot (READ-ONLY FACT) ---
   try {
     const store = new RepoIndexStore({ pool });
     const repo = process.env.GITHUB_REPO;
@@ -28,8 +27,8 @@ export async function handleProjectStatus({ bot, chatId }) {
 
     if (repo && branch) {
       const snap = await store.getLatestSnapshot({ repo, branch });
-      if (snap && snap.id) {
-        lastSnapshotId = snap.id;
+      if (snap?.id) {
+        lastSnapshotId = String(snap.id);
       }
     }
   } catch {

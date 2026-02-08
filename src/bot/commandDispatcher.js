@@ -2,6 +2,7 @@
 // Central command dispatcher.
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
+import { handleProjectStatus } from "./handlers/projectStatus.js";
 import { handlePrices } from "./handlers/prices.js";
 import { handlePrice } from "./handlers/price.js";
 import { handleProfile } from "./handlers/profile.js";
@@ -138,6 +139,11 @@ export async function dispatchCommand(cmd, ctx) {
       await handleHealth({ bot, chatId });
       return { handled: true };
     }
+
+      case "/project_status": {
+  await handleProjectStatus({ bot, chatId });
+  return { handled: true };
+}
 
     case "/help": {
       if (typeof ctx.handleHelpLegacy !== "function") return { handled: false };

@@ -9,6 +9,7 @@
 import { RepoSource } from "../../repo/RepoSource.js";
 import { logCodeOutputRefuse } from "../../codeOutput/codeOutputLogger.js";
 import { validateFullFile } from "../../codeOutput/codeOutputContract.js";
+import { getCodeOutputMode, CODE_OUTPUT_MODES } from "../../codeOutput/codeOutputMode.js";
 
 const MAX_FULLFILE_CHARS = 60000; // ✅ B8 approved
 
@@ -63,91 +64,95 @@ export async function handleCodeFullfile(ctx) {
     hasRequirement: Boolean(requirement),
   };
 
+  const mode = getCodeOutputMode();
+
   // ==========================================================================
   // STAGE 12A / 4.4 — DRY_RUN (CODE_OUTPUT stays DISABLED)
+  // Enabled ONLY when ENV: CODE_OUTPUT_MODE=DRY_RUN
   // Goal: validate request (permissions + private chat + path/limits + contract) WITHOUT AI/Repo/DB.
   // Returns ONLY: DRY_RUN_OK or REFUSE.
   // ==========================================================================
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
-  const isMonarch = String(senderIdStr || "") === MONARCH_USER_ID;
+  if (mode === CODE_OUTPUT_MODES.DRY_RUN) {
+    const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
+    const isMonarch = String(senderIdStr || "") === MONARCH_USER_ID;
 
-  // practical private-chat guard: in PM chatId equals senderId
-  const isPrivateLike = String(chatId) === String(senderIdStr || "");
+    // practical private-chat guard: in PM chatId equals senderId
+    const isPrivateLike = String(chatId) === String(senderIdStr || "");
 
-  if (!isMonarch) {
-    try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "DRY_RUN_NOT_MONARCH" });
-    } catch (_) {}
+    if (!isMonarch) {
+      try {
+        console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "DRY_RUN_NOT_MONARCH" });
+      } catch (_) {}
+      await bot.sendMessage(
+        chatId,
+        refuseText("NOT_ALLOWED", "Только монарх может использовать CODE OUTPUT (включая DRY_RUN).")
+      );
+      return;
+    }
+
+    if (!isPrivateLike) {
+      try {
+        console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "DRY_RUN_NOT_PRIVATE_CHAT" });
+      } catch (_) {}
+      await bot.sendMessage(chatId, refuseText("PRIVATE_ONLY", "Используй команду только в личном чате с SG."));
+      return;
+    }
+
+    if (!path) {
+      await bot.sendMessage(chatId, refuseText("BAD_ARGS", "Формат: /code_fullfile <path/to/file.js> [requirement...]"));
+      return;
+    }
+
+    if (String(path).length > 300) {
+      await bot.sendMessage(chatId, refuseText("PATH_TOO_LONG", "Сократи path (≤ 300 символов)."));
+      return;
+    }
+
+    if (denySensitivePath(path)) {
+      await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот path запрещён (секреты/инфраструктура)."));
+      return;
+    }
+
+    const dangerousReq = (s) => {
+      const t = String(s || "").toLowerCase();
+      const patterns = [
+        "process.env",
+        "openai_api_key",
+        "github_token",
+        "api_key",
+        "apikey",
+        "password",
+        "passwd",
+        "secret",
+        "token",
+        "id_rsa",
+        "pem",
+      ];
+      return patterns.some((p) => t.includes(p));
+    };
+
+    if (dangerousReq(requirement)) {
+      await bot.sendMessage(chatId, refuseText("DANGEROUS_REQUIREMENT", "Убери упоминания секретов/ключей из requirement."));
+      return;
+    }
+
     await bot.sendMessage(
       chatId,
-      refuseText("NOT_ALLOWED", "Только монарх может использовать CODE OUTPUT (включая DRY_RUN).")
+      [
+        "DRY_RUN_OK",
+        "mode: fullfile",
+        `path: ${path}`,
+        "contract: FULLFILE (<<<FILE_START>>> … <<<FILE_END>>>)",
+        "ai: not_called | repo: not_read | db: not_written",
+      ].join("\n")
     );
     return;
   }
-
-  if (!isPrivateLike) {
-    try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "DRY_RUN_NOT_PRIVATE_CHAT" });
-    } catch (_) {}
-    await bot.sendMessage(chatId, refuseText("PRIVATE_ONLY", "Используй команду только в личном чате с SG."));
-    return;
-  }
-
-  if (!path) {
-    await bot.sendMessage(chatId, refuseText("BAD_ARGS", "Формат: /code_fullfile <path/to/file.js> [requirement...]"));
-    return;
-  }
-
-  if (String(path).length > 300) {
-    await bot.sendMessage(chatId, refuseText("PATH_TOO_LONG", "Сократи path (≤ 300 символов)."));
-    return;
-  }
-
-  if (denySensitivePath(path)) {
-    await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот path запрещён (секреты/инфраструктура)."));
-    return;
-  }
-
-  const dangerousReq = (s) => {
-    const t = String(s || "").toLowerCase();
-    const patterns = [
-      "process.env",
-      "openai_api_key",
-      "github_token",
-      "api_key",
-      "apikey",
-      "password",
-      "passwd",
-      "secret",
-      "token",
-      "id_rsa",
-      "pem",
-    ];
-    return patterns.some((p) => t.includes(p));
-  };
-
-  if (dangerousReq(requirement)) {
-    await bot.sendMessage(chatId, refuseText("DANGEROUS_REQUIREMENT", "Убери упоминания секретов/ключей из requirement."));
-    return;
-  }
-
-  await bot.sendMessage(
-    chatId,
-    [
-      "DRY_RUN_OK",
-      "mode: fullfile",
-      `path: ${path}`,
-      "contract: FULLFILE (<<<FILE_START>>> … <<<FILE_END>>>)",
-      "ai: not_called | repo: not_read | db: not_written",
-    ].join("\n")
-  );
-  return;
   // ==========================================================================
 
   // ==========================================================================
   // STAGE 12A / 4.2 — HARD BLOCK (CODE OUTPUT DISABLED)
   // Rule: NO code generation, NO RepoSource reads, NO AI calls.
-  // Allowed in 4.2: formal refusal + console logging (NO DB).
   // ==========================================================================
   try {
     await logCodeOutputRefuse({

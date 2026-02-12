@@ -2,6 +2,7 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
+import { getCodeOutputMode } from "../codeOutput/codeOutputMode.js";
 import { handleRepoReview2 } from "./handlers/repoReview2.js";
 import { handleRepoSearch } from "./handlers/repoSearch.js";
 import { handleRepoFile } from "./handlers/repoFile.js";
@@ -350,13 +351,23 @@ export function attachMessageRouter({
           }
 
           // Step 4: status-only flag (NO enable logic, NO code generation)
-          case "/code_output_status": {
-            await bot.sendMessage(
-              chatId,
-              "CODE_OUTPUT: DISABLED (skeleton only)\nReason: governance gate — code generation запрещена до отдельного решения в DECISIONS.md"
-            );
-            return;
-          }
+        case "/code_output_status": {
+  const mode = getCodeOutputMode();
+
+  await bot.sendMessage(
+    chatId,
+    [
+      `CODE_OUTPUT_MODE: ${mode}`,
+      "",
+      "Modes:",
+      "- DISABLED → генерация запрещена",
+      "- DRY_RUN → только валидация без AI",
+      "- ENABLED → реальная генерация кода",
+    ].join("\n")
+  );
+
+  return;
+}
 
           // ✅ Stage 5.3: workflow check (skeleton handler)
           case "/workflow_check": {

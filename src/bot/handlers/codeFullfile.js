@@ -143,7 +143,7 @@ function extractOnlyFileText(raw) {
 }
 
 export async function handleCodeFullfile(ctx) {
-  const { bot, chatId, rest, callAI } = ctx || {};
+  const { bot, chatId, rest, callAI, senderIdStr } = ctx || {};
   const { path, requirement } = parsePathAndRequirement(rest);
 
   const baseMeta = {
@@ -161,7 +161,7 @@ export async function handleCodeFullfile(ctx) {
   try {
     await logCodeOutputRefuse({
       chatId: String(chatId),
-      senderId: "", // NOTE: router currently doesn't pass senderId into this handler
+      senderId: String(senderIdStr || ""),
       command: "/code_fullfile",
       reason: "CODE_OUTPUT_DISABLED_STAGE_4_2",
       path: path || null,

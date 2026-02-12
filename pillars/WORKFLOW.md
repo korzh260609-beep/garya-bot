@@ -459,7 +459,7 @@ For each roadmap item:
 12A.0.7 MemoryPolicy (policy-only, no writes)  
 12A.0.8 /reindex dry-run diagnostics  
 12A.0.9 memoryCandidates preview (NO persistence)  
-12A.0.10 /code_output_status (skeleton flag; always DISABLED)
+12A.0.10 /code_output_status (reports ENV: CODE_OUTPUT_MODE = DISABLED|DRY_RUN|ENABLED)
 
 Notes:
 - Read-only only

@@ -35,12 +35,7 @@ function denySensitivePath(path) {
     "id_rsa",
   ];
 
-  const bannedExact = [
-    "render.yaml",
-    "dockerfile",
-    "docker-compose.yml",
-    ".github/workflows",
-  ];
+  const bannedExact = ["render.yaml", "dockerfile", "docker-compose.yml", ".github/workflows"];
 
   if (bannedExact.some((p) => lower === p || lower.startsWith(p + "/"))) return true;
   if (bannedParts.some((p) => lower.includes(p))) return true;
@@ -49,142 +44,55 @@ function denySensitivePath(path) {
 }
 
 function parsePathAndRequirement(rest) {
-  const raw = String(rest || "").trim();
-  if (!raw) return { path: "", requirement: "" };
+  const s = String(rest || "");
+  const idx = s.indexOf(" ");
 
-  const firstSpace = raw.indexOf(" ");
-  if (firstSpace === -1) return { path: raw, requirement: "" };
+  if (idx >= 0) return { path: s.slice(0, idx).trim(), requirement: s.slice(idx).trim() };
 
-  const path = raw.slice(0, firstSpace).trim();
-  const requirement = raw.slice(firstSpace + 1).trim();
-  return { path, requirement };
-}
-
-async function safeFetchText(source, path) {
-  try {
-    const f = await source.fetchTextFile(path);
-    if (!f || typeof f.content !== "string") return null;
-    return f.content;
-  } catch {
-    return null;
-  }
-}
-
-function guessLang(path) {
-  const p = String(path || "").toLowerCase();
-  if (p.endsWith(".js")) return "javascript";
-  if (p.endsWith(".ts")) return "typescript";
-  if (p.endsWith(".json")) return "json";
-  if (p.endsWith(".md")) return "markdown";
-  if (p.endsWith(".sql")) return "sql";
-  return "";
-}
-
-const TG_MAX_SAFE = 3500;
-const TG_MAX_PARTS = 8;
-
-function chunkString(s, size) {
-  const str = String(s || "");
-  const out = [];
-  for (let i = 0; i < str.length; i += size) out.push(str.slice(i, i + size));
-  return out;
-}
-
-async function sendInParts(bot, chatId, header, lang, content) {
-  const codeBlockLang = lang ? lang : "";
-
-  const single = `${header}\n\n\`\`\`${codeBlockLang}\n${content}\n\`\`\``;
-
-  // safe single
-  if (single.length <= TG_MAX_SAFE) {
-    await bot.sendMessage(chatId, single);
-    return;
-  }
-
-  // chunked
-  const parts = chunkString(content, TG_MAX_SAFE);
-  const capped = parts.slice(0, TG_MAX_PARTS);
-
-  await bot.sendMessage(chatId, `${header}\n(частями: ${capped.length}/${parts.length})`);
-
-  for (let i = 0; i < capped.length; i++) {
-    const part = capped[i];
-    const msg = `part ${i + 1}/${capped.length}\n\n\`\`\`${codeBlockLang}\n${part}\n\`\`\``;
-    await bot.sendMessage(chatId, msg);
-  }
-
-  if (parts.length > TG_MAX_PARTS) {
-    await bot.sendMessage(
-      chatId,
-      refuseText(
-        "TG_LIMIT",
-        `Файл слишком большой для Telegram. Получилось ${parts.length} частей, лимит ${TG_MAX_PARTS}. Сузь запрос или попроси конкретный фрагмент.`
-      )
-    );
-  }
+  return { path: s.trim(), requirement: "" };
 }
 
 export async function handleCodeFullfile(ctx) {
   const { bot, chatId, rest, callAI, senderIdStr } = ctx || {};
   const { path, requirement } = parsePathAndRequirement(rest);
 
-  const aiMetaBase = {
+  const baseMeta = {
     handler: "codeFullfile",
-    event: "CODE_FULLFILE",
     chatId: String(chatId),
     path,
     hasRequirement: Boolean(requirement),
   };
 
   // ==========================================================================
-  // STAGE 12A / 4.4 — DRY_RUN (CODE_OUTPUT остаётся DISABLED)
-  // Rule: validate request (permissions + private chat + path/limits + format contract) WITHOUT AI/Repo/DB.
-  // Returns: DRY_RUN_OK or REFUSE.
+  // STAGE 12A / 4.4 — DRY_RUN (CODE_OUTPUT stays DISABLED)
+  // Goal: validate request (permissions + private chat + path/limits + contract) WITHOUT AI/Repo/DB.
+  // Returns ONLY: DRY_RUN_OK or REFUSE.
   // ==========================================================================
   const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
   const isMonarch = String(senderIdStr || "") === MONARCH_USER_ID;
 
-  // In Telegram private chat: chat.id === senderId (practical guard)
+  // practical private-chat guard: in PM chatId equals senderId
   const isPrivateLike = String(chatId) === String(senderIdStr || "");
 
-  // ---- 4.4: PERMISSION + CHAT GUARDS ----
   if (!isMonarch) {
     try {
-      await logCodeOutputRefuse({
-        chatId: String(chatId),
-        senderId: String(senderIdStr || ""),
-        command: "/code_fullfile",
-        reason: "DRY_RUN_NOT_MONARCH",
-        path: path || null,
-        details: { active_stage: "4", active_substage: "4.4", note: "DRY_RUN доступен только монарху." },
-        snapshotId: null,
-        mode: "DRY_RUN",
-      });
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "DRY_RUN_NOT_MONARCH" });
     } catch (_) {}
-
-    await bot.sendMessage(chatId, refuseText("NOT_ALLOWED", "Только монарх может использовать CODE OUTPUT (даже DRY_RUN)."));
+    await bot.sendMessage(
+      chatId,
+      refuseText("NOT_ALLOWED", "Только монарх может использовать CODE OUTPUT (включая DRY_RUN).")
+    );
     return;
   }
 
   if (!isPrivateLike) {
     try {
-      await logCodeOutputRefuse({
-        chatId: String(chatId),
-        senderId: String(senderIdStr || ""),
-        command: "/code_fullfile",
-        reason: "DRY_RUN_NOT_PRIVATE_CHAT",
-        path: path || null,
-        details: { active_stage: "4", active_substage: "4.4", note: "DRY_RUN разрешён только в личке." },
-        snapshotId: null,
-        mode: "DRY_RUN",
-      });
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "DRY_RUN_NOT_PRIVATE_CHAT" });
     } catch (_) {}
-
     await bot.sendMessage(chatId, refuseText("PRIVATE_ONLY", "Используй команду только в личном чате с SG."));
     return;
   }
 
-  // ---- 4.4: ARG + PATH + LIMITS ----
   if (!path) {
     await bot.sendMessage(chatId, refuseText("BAD_ARGS", "Формат: /code_fullfile <path/to/file.js> [requirement...]"));
     return;
@@ -196,24 +104,11 @@ export async function handleCodeFullfile(ctx) {
   }
 
   if (denySensitivePath(path)) {
-    try {
-      await logCodeOutputRefuse({
-        chatId: String(chatId),
-        senderId: String(senderIdStr || ""),
-        command: "/code_fullfile",
-        reason: "DRY_RUN_SENSITIVE_PATH",
-        path: path || null,
-        details: { active_stage: "4", active_substage: "4.4" },
-        snapshotId: null,
-        mode: "DRY_RUN",
-      });
-    } catch (_) {}
-
     await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот path запрещён (секреты/инфраструктура)."));
     return;
   }
 
-  const dangerous = (s) => {
+  const dangerousReq = (s) => {
     const t = String(s || "").toLowerCase();
     const patterns = [
       "process.env",
@@ -231,27 +126,57 @@ export async function handleCodeFullfile(ctx) {
     return patterns.some((p) => t.includes(p));
   };
 
-  if (dangerous(requirement)) {
+  if (dangerousReq(requirement)) {
     await bot.sendMessage(chatId, refuseText("DANGEROUS_REQUIREMENT", "Убери упоминания секретов/ключей из requirement."));
     return;
   }
-
-  // ---- 4.4: FORMAT CONTRACT CHECK (logical) ----
-  // We do NOT call AI here. We only confirm that FULLFILE contract is the required output format.
-  // (Actual validateFullFile(raw) is applied later, in Stage 4.5+ when generation is enabled.)
 
   await bot.sendMessage(
     chatId,
     [
       "DRY_RUN_OK",
-      `mode: fullfile`,
+      "mode: fullfile",
       `path: ${path}`,
-      `contract: FULLFILE (<<<FILE_START>>> … <<<FILE_END>>>)`,
+      "contract: FULLFILE (<<<FILE_START>>> … <<<FILE_END>>>)",
       "ai: not_called | repo: not_read | db: not_written",
     ].join("\n")
   );
   return;
   // ==========================================================================
+
+  // ==========================================================================
+  // STAGE 12A / 4.2 — HARD BLOCK (CODE OUTPUT DISABLED)
+  // Rule: NO code generation, NO RepoSource reads, NO AI calls.
+  // Allowed in 4.2: formal refusal + console logging (NO DB).
+  // ==========================================================================
+  try {
+    await logCodeOutputRefuse({
+      chatId: String(chatId),
+      senderId: String(senderIdStr || ""),
+      command: "/code_fullfile",
+      reason: "CODE_OUTPUT_DISABLED_STAGE_4_2",
+      path: path || null,
+      details: {
+        active_stage: "4",
+        active_substage: "4.2",
+        hasRequirement: Boolean(requirement),
+        note: "Hard-blocked until Stage 4.3+ contract is implemented and CODE OUTPUT is explicitly enabled by monarch decision.",
+      },
+      snapshotId: null,
+      mode: "DISABLED",
+    });
+  } catch (_) {
+    // never
+  }
+
+  await bot.sendMessage(
+    chatId,
+    refuseText(
+      "CODE_OUTPUT_DISABLED",
+      "CODE OUTPUT отключён (STAGE 4.2). Дождись этапа 4.3+ или используй /repo_file /repo_get для чтения."
+    )
+  );
+  return;
 
   // ---- B9: BAD_ARGS ----
   if (!path) {
@@ -264,7 +189,7 @@ export async function handleCodeFullfile(ctx) {
       ].join("\n")
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "BAD_ARGS" });
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "BAD_ARGS" });
     } catch (_) {}
     return;
   }
@@ -273,36 +198,76 @@ export async function handleCodeFullfile(ctx) {
   if (denySensitivePath(path)) {
     await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот path запрещён (секреты/инфраструктура)."));
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "SENSITIVE_PATH" });
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "SENSITIVE_PATH" });
     } catch (_) {}
     return;
   }
 
-  // ---- B9: FETCH_FAIL ----
-  const source = new RepoSource();
-  const fileText = await safeFetchText(source, path);
+  // ---- B9: INTERNAL_ERROR (callAI wiring) ----
+  if (typeof callAI !== "function") {
+    await bot.sendMessage(
+      chatId,
+      refuseText("INTERNAL_ERROR", "callAI не подключён в router. Проверь передачу { callAI } в handler.")
+    );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "INTERNAL_ERROR" });
+    } catch (_) {}
+    return;
+  }
+
+  // ---- B9: NO AI until enabled ----
+  try {
+    await logCodeOutputRefuse({
+      chatId: String(chatId),
+      senderId: String(senderIdStr || ""),
+      command: "/code_fullfile",
+      reason: "CODE_OUTPUT_DISABLED",
+      path: path || null,
+      details: {
+        active_stage: "4",
+        active_substage: "4.2",
+        note: "Hard-blocked until CODE OUTPUT is explicitly enabled.",
+      },
+      snapshotId: null,
+      mode: "DISABLED",
+    });
+  } catch (_) {}
+
+  await bot.sendMessage(chatId, refuseText("CODE_OUTPUT_DISABLED", "CODE OUTPUT отключён. Сейчас только DRY_RUN."));
+  return;
+
+  // ---- fetch ----
+  const source = new RepoSource({
+    repo: process.env.GITHUB_REPO,
+    branch: process.env.GITHUB_BRANCH,
+    token: process.env.GITHUB_TOKEN,
+  });
+
+  let currentFile = null;
+  try {
+    currentFile = await source.fetchTextFile(path);
+  } catch (_) {}
+
+  const fileText = currentFile?.content || "";
+
   if (!fileText) {
     await bot.sendMessage(chatId, refuseText("FILE_NOT_FOUND", "Файл не найден или не удалось прочитать из RepoSource."));
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "FILE_NOT_FOUND" });
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "FILE_NOT_FOUND" });
     } catch (_) {}
     return;
   }
 
-  // ---- B8: size limit ----
   if (fileText.length > MAX_FULLFILE_CHARS) {
     await bot.sendMessage(
       chatId,
       refuseText("FILE_TOO_LARGE", `Файл слишком большой (${fileText.length}). Лимит ${MAX_FULLFILE_CHARS}.`)
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "FILE_TOO_LARGE" });
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "FILE_TOO_LARGE" });
     } catch (_) {}
     return;
   }
-
-  // ---- AI CALL (only after enable) ----
-  const lang = guessLang(path);
 
   const system = [
     "Ты — аккуратный код-редактор.",
@@ -323,27 +288,26 @@ export async function handleCodeFullfile(ctx) {
     requirement ? `REQUIREMENT: ${requirement}` : "REQUIREMENT: (none)",
   ].join("\n");
 
-  const raw = await callAI([
-    { role: "system", content: system },
-    { role: "user", content: user },
-  ]);
+  const raw = await callAI(
+    [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    "high",
+    { max_output_tokens: 1400, temperature: 0.2 }
+  );
 
-  // ---- Contract validate ----
   const vr = validateFullFile({ raw, maxChars: MAX_FULLFILE_CHARS, forbidMarkersInside: true });
   if (!vr.ok) {
     await bot.sendMessage(
       chatId,
-      refuseText(
-        `CONTRACT_FAIL:${vr.code}`,
-        "Модель вернула неверный формат. Повтори запрос или уточни requirement."
-      )
+      refuseText(`CONTRACT_FAIL:${vr.code}`, "Модель вернула неверный формат. Повтори запрос или уточни requirement.")
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: `CONTRACT_FAIL:${vr.code}` });
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: `CONTRACT_FAIL:${vr.code}` });
     } catch (_) {}
     return;
   }
 
-  const header = `<<<FILE_START>>> (path: ${path})`;
-  await sendInParts(bot, chatId, header, lang, vr.fileText);
+  await bot.sendMessage(chatId, vr.fileText);
 }

@@ -1,21 +1,68 @@
-
 // ============================================================================
 // === src/codeOutput/codeOutputLogger.js
-// === WORKFLOW 4.2: Security Logging for CODE OUTPUT refusals
+// === STAGE 12A / WORKFLOW 4.2: Security logging for CODE OUTPUT (NO DB)
+// === IMPORTANT: console-only. No DB writes. No tables. No migrations.
 // ============================================================================
 
-import pool from "../../db.js";
+/**
+ * Normalize any value into a safe short string (for logs).
+ */
+function toSafeString(value, maxLen = 500) {
+  const s =
+    value === null || value === undefined
+      ? ""
+      : typeof value === "string"
+      ? value
+      : String(value);
+
+  if (s.length <= maxLen) return s;
+  return s.slice(0, maxLen) + "…";
+}
 
 /**
- * Log a CODE OUTPUT refusal to the database
- * @param {object} params
- * @param {string} params.chatId - Telegram chat ID
- * @param {string} params.senderId - Telegram user ID
- * @param {string} params.command - Command name (/code_fullfile, /code_insert)
- * @param {string} params.reason - Refusal reason (BAD_ARGS, SENSITIVE_PATH, etc.)
- * @param {string} [params.path] - File path (if applicable)
- * @param {object} [params.details] - Additional details (JSON)
- * @returns {Promise<number>} - ID of the logged refusal
+ * Ensure details is a plain object (safe for JSON/logging).
+ */
+function toSafeObject(details) {
+  if (!details || typeof details !== "object") return {};
+  try {
+    // avoid circular refs
+    return JSON.parse(JSON.stringify(details));
+  } catch {
+    return { _note: "details_unserializable" };
+  }
+}
+
+/**
+ * Build a normalized refusal event payload.
+ * This module MUST remain side-effect-light: console logging only.
+ */
+export function buildCodeOutputRefusalEvent({
+  chatId,
+  senderId,
+  command,
+  reason,
+  path = null,
+  details = {},
+  snapshotId = null,
+  mode = "DISABLED",
+}) {
+  return {
+    type: "CODE_OUTPUT_REFUSE",
+    ts: new Date().toISOString(),
+    chatId: toSafeString(chatId),
+    senderId: toSafeString(senderId),
+    command: toSafeString(command),
+    reason: toSafeString(reason),
+    path: path ? toSafeString(path) : null,
+    snapshotId: snapshotId !== null ? toSafeString(snapshotId) : null,
+    mode: toSafeString(mode),
+    details: toSafeObject(details),
+  };
+}
+
+/**
+ * Console-only logging of a CODE OUTPUT refusal.
+ * @returns {Promise<object>} the normalized event payload
  */
 export async function logCodeOutputRefuse({
   chatId,
@@ -24,91 +71,52 @@ export async function logCodeOutputRefuse({
   reason,
   path = null,
   details = {},
+  snapshotId = null,
+  mode = "DISABLED",
 }) {
+  const event = buildCodeOutputRefusalEvent({
+    chatId,
+    senderId,
+    command,
+    reason,
+    path,
+    details,
+    snapshotId,
+    mode,
+  });
+
+  // Console logging only (Render logs).
+  // Do not write to DB here — by design (Stage 4.2).
   try {
-    const result = await pool.query(
-      `
-      INSERT INTO code_output_refuses
-        (chat_id, sender_id, command, reason, path, details)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id
-    `,
-      [
-        String(chatId || ""),
-        String(senderId || ""),
-        String(command || ""),
-        String(reason || ""),
-        path ? String(path) : null,
-        typeof details === "object" ? details : {},
-      ]
-    );
-
-    const id = result?.rows?.[0]?.id;
-    if (id) {
-      console.info("🚫 CODE_OUTPUT_REFUSE logged", {
-        id,
-        chatId,
-        senderId,
-        command,
-        reason,
-        path,
-      });
-    }
-
-    return id || null;
+    console.info("🚫 CODE_OUTPUT_REFUSE", {
+      ts: event.ts,
+      chatId: event.chatId,
+      senderId: event.senderId,
+      command: event.command,
+      reason: event.reason,
+      path: event.path,
+      snapshotId: event.snapshotId,
+      mode: event.mode,
+    });
   } catch (err) {
-    console.error("❌ logCodeOutputRefuse error:", err);
-    return null;
+    // last resort: never throw from logger
+    console.error("❌ CODE_OUTPUT_REFUSE logger error:", err);
   }
+
+  return event;
 }
 
 /**
- * Get recent refusals for a chat
- * @param {string} chatId - Telegram chat ID
- * @param {number} [limit] - Number of records to return (default: 10)
- * @returns {Promise<Array>} - Array of refusal records
+ * Stub: DB-backed history is NOT allowed until Stage 8.
+ * Keep API shape for future use, but return empty data now.
  */
-export async function getCodeOutputRefusals(chatId, limit = 10) {
-  try {
-    const result = await pool.query(
-      `
-      SELECT id, chat_id, sender_id, command, reason, path, details, created_at
-      FROM code_output_refuses
-      WHERE chat_id = $1
-      ORDER BY created_at DESC
-      LIMIT $2
-    `,
-      [String(chatId || ""), Math.max(1, Math.min(100, Number(limit) || 10))]
-    );
-
-    return result?.rows || [];
-  } catch (err) {
-    console.error("❌ getCodeOutputRefusals error:", err);
-    return [];
-  }
+export async function getCodeOutputRefusals(_chatId, _limit = 10) {
+  return [];
 }
 
 /**
- * Get refusal statistics by reason
- * @param {number} [hoursBack] - Look back N hours (default: 24)
- * @returns {Promise<Array>} - Array of {reason, count}
+ * Stub: DB-backed stats are NOT allowed until Stage 8.
  */
-export async function getCodeOutputRefusalStats(hoursBack = 24) {
-  try {
-    const result = await pool.query(
-      `
-      SELECT reason, COUNT(*) as count
-      FROM code_output_refuses
-      WHERE created_at > NOW() - INTERVAL '1 hour' * $1
-      GROUP BY reason
-      ORDER BY count DESC
-    `,
-      [Math.max(1, Number(hoursBack) || 24)]
-    );
-
-    return result?.rows || [];
-  } catch (err) {
-    console.error("❌ getCodeOutputRefusalStats error:", err);
-    return [];
-  }
+export async function getCodeOutputRefusalStats(_hoursBack = 24) {
+  return [];
 }

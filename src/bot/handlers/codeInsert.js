@@ -9,6 +9,7 @@
 import { RepoSource } from "../../repo/RepoSource.js";
 import { logCodeOutputRefuse } from "../../codeOutput/codeOutputLogger.js";
 import { validateInsert } from "../../codeOutput/codeOutputContract.js";
+import { getCodeOutputMode, CODE_OUTPUT_MODES } from "../../codeOutput/codeOutputMode.js";
 
 const MAX_INSERT_CHARS = 2000; // ✅ B8 approved
 
@@ -129,138 +130,116 @@ export async function handleCodeInsert(ctx) {
     hasRequirement: Boolean(requirement),
   };
 
+  const codeOutputMode = getCodeOutputMode();
+
   // ==========================================================================
-  // STAGE 12A / 4.4 — DRY_RUN (CODE OUTPUT stays DISABLED)
+  // STAGE 12A / 4.4 — DRY_RUN (CODE_OUTPUT stays DISABLED)
+  // Enabled ONLY when ENV: CODE_OUTPUT_MODE=DRY_RUN
   // Goal: validate request (permissions + private chat + path/anchor/mode/limits + contract format)
   // WITHOUT AI / WITHOUT RepoSource reads / WITHOUT DB writes.
   // Returns ONLY: DRY_RUN_OK or REFUSE.
   // ==========================================================================
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
-  const isMonarch = String(senderIdStr || "") === MONARCH_USER_ID;
+  if (codeOutputMode === CODE_OUTPUT_MODES.DRY_RUN) {
+    const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
+    const isMonarch = String(senderIdStr || "") === MONARCH_USER_ID;
 
-  // practical private-chat guard: in PM chatId equals senderId
-  const isPrivateLike = String(chatId) === String(senderIdStr || "");
+    // practical private-chat guard: in PM chatId equals senderId
+    const isPrivateLike = String(chatId) === String(senderIdStr || "");
 
-  // NOTE: console-only logger (allowed). No DB.
-  if (!isMonarch) {
-    try {
-      await logCodeOutputRefuse({
-        chatId: String(chatId),
-        senderId: String(senderIdStr || ""),
-        command: "/code_insert",
-        reason: "DRY_RUN_NOT_MONARCH",
-        path: path || null,
-        details: { active_stage: "4", active_substage: "4.4" },
-        snapshotId: null,
-        mode: "DRY_RUN",
-      });
-    } catch (_) {}
+    if (!isMonarch) {
+      try {
+        console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "DRY_RUN_NOT_MONARCH" });
+      } catch (_) {}
+      await bot.sendMessage(
+        chatId,
+        refuseText("NOT_ALLOWED", "Только монарх может использовать CODE OUTPUT (включая DRY_RUN).")
+      );
+      return;
+    }
+
+    if (!isPrivateLike) {
+      try {
+        console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "DRY_RUN_NOT_PRIVATE_CHAT" });
+      } catch (_) {}
+      await bot.sendMessage(chatId, refuseText("PRIVATE_ONLY", "Используй команду только в личном чате с SG."));
+      return;
+    }
+
+    // ---- args ----
+    if (!path || !anchor || !mode) {
+      await bot.sendMessage(
+        chatId,
+        refuseText(
+          "BAD_ARGS",
+          "Формат: /code_insert path | anchor | mode | requirement (mode=before|after|replace)"
+        )
+      );
+      return;
+    }
+
+    // ---- path ----
+    if (String(path).length > 300) {
+      await bot.sendMessage(chatId, refuseText("PATH_TOO_LONG", "Сократи path (≤ 300 символов)."));
+      return;
+    }
+    if (String(path).includes("..") || String(path).startsWith("/") || String(path).startsWith("\\")) {
+      await bot.sendMessage(
+        chatId,
+        refuseText("BAD_PATH", "Запрещены .. и абсолютные пути. Дай относительный путь из репо.")
+      );
+      return;
+    }
+    if (denySensitivePath(path)) {
+      await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот путь запрещён (секреты/инфраструктура)."));
+      return;
+    }
+
+    // ---- anchor ----
+    if (String(anchor).length > 200) {
+      await bot.sendMessage(chatId, refuseText("ANCHOR_TOO_LONG", "Сократи anchor (≤ 200 символов)."));
+      return;
+    }
+    if (isDangerousAnchorOrContent(anchor)) {
+      await bot.sendMessage(
+        chatId,
+        refuseText("DANGEROUS_ANCHOR", "Anchor выглядит опасно (env/secrets/exec/eval). Измени anchor.")
+      );
+      return;
+    }
+
+    // ---- mode ----
+    if (!isValidMode(mode)) {
+      await bot.sendMessage(chatId, refuseText("MODE_INVALID", "Используй mode: before | after | replace."));
+      return;
+    }
+
+    // ---- requirement ----
+    if (String(requirement || "").length > 1200) {
+      await bot.sendMessage(chatId, refuseText("REQ_TOO_LONG", "Сократи requirement (≤ 1200 символов)."));
+      return;
+    }
+    if (isDangerousAnchorOrContent(requirement)) {
+      await bot.sendMessage(
+        chatId,
+        refuseText("DANGEROUS_REQUIREMENT", "Убери упоминания секретов/ключей/exec/eval из requirement.")
+      );
+      return;
+    }
 
     await bot.sendMessage(
       chatId,
-      refuseText("NOT_ALLOWED", "Только монарх может использовать CODE OUTPUT (включая DRY_RUN).")
+      [
+        "DRY_RUN_OK",
+        "mode: insert",
+        `path: ${path}`,
+        `anchor: ${anchor}`,
+        `insert_mode: ${mode}`,
+        "contract: INSERT (<<<INSERT_START>>> … <<<INSERT_END>>>)",
+        "ai: not_called | repo: not_read | db: not_written",
+      ].join("\n")
     );
     return;
   }
-
-  if (!isPrivateLike) {
-    try {
-      await logCodeOutputRefuse({
-        chatId: String(chatId),
-        senderId: String(senderIdStr || ""),
-        command: "/code_insert",
-        reason: "DRY_RUN_NOT_PRIVATE_CHAT",
-        path: path || null,
-        details: { active_stage: "4", active_substage: "4.4" },
-        snapshotId: null,
-        mode: "DRY_RUN",
-      });
-    } catch (_) {}
-
-    await bot.sendMessage(
-      chatId,
-      refuseText("PRIVATE_ONLY", "Используй команду только в личном чате с SG.")
-    );
-    return;
-  }
-
-  // ---- Args format ----
-  if (!path || !anchor || !mode) {
-    await bot.sendMessage(
-      chatId,
-      refuseText(
-        "BAD_ARGS",
-        "Формат: /code_insert path | anchor | mode | requirement (mode=before|after|replace)"
-      )
-    );
-    return;
-  }
-
-  // ---- Path checks ----
-  if (String(path).length > 300) {
-    await bot.sendMessage(chatId, refuseText("PATH_TOO_LONG", "Сократи path (≤ 300 символов)."));
-    return;
-  }
-  if (String(path).includes("..") || String(path).startsWith("/") || String(path).startsWith("\\")) {
-    await bot.sendMessage(
-      chatId,
-      refuseText("BAD_PATH", "Запрещены .. и абсолютные пути. Дай относительный путь из репо.")
-    );
-    return;
-  }
-  if (denySensitivePath(path)) {
-    await bot.sendMessage(
-      chatId,
-      refuseText("SENSITIVE_PATH", "Этот путь запрещён (секреты/инфраструктура).")
-    );
-    return;
-  }
-
-  // ---- Anchor checks ----
-  if (String(anchor).length > 200) {
-    await bot.sendMessage(chatId, refuseText("ANCHOR_TOO_LONG", "Сократи anchor (≤ 200 символов)."));
-    return;
-  }
-  if (isDangerousAnchorOrContent(anchor)) {
-    await bot.sendMessage(
-      chatId,
-      refuseText("DANGEROUS_ANCHOR", "Anchor выглядит опасно (env/secrets/exec/eval). Измени anchor.")
-    );
-    return;
-  }
-
-  // ---- Mode checks ----
-  if (!isValidMode(mode)) {
-    await bot.sendMessage(chatId, refuseText("MODE_INVALID", "Используй mode: before | after | replace."));
-    return;
-  }
-
-  // ---- Requirement checks ----
-  if (String(requirement || "").length > 1200) {
-    await bot.sendMessage(chatId, refuseText("REQ_TOO_LONG", "Сократи requirement (≤ 1200 символов)."));
-    return;
-  }
-  if (isDangerousAnchorOrContent(requirement)) {
-    await bot.sendMessage(
-      chatId,
-      refuseText("DANGEROUS_REQUIREMENT", "Убери упоминания секретов/ключей/exec/eval из requirement.")
-    );
-    return;
-  }
-
-  await bot.sendMessage(
-    chatId,
-    [
-      "DRY_RUN_OK",
-      "mode: insert",
-      `path: ${path}`,
-      `anchor: ${anchor}`,
-      `insert_mode: ${mode}`,
-      "contract: INSERT (<<<INSERT_START>>> … <<<INSERT_END>>>)",
-      "ai: not_called | repo: not_read | db: not_written",
-    ].join("\n")
-  );
-  return;
   // ==========================================================================
 
   // ==========================================================================
@@ -388,7 +367,7 @@ export async function handleCodeInsert(ctx) {
     return;
   }
 
-  // ---- B9: ANCHOR_NOT_FOUND ----
+  // ---- B9: ANCHOR_NOT FOUND ----
   if (!currentFile.includes(anchor)) {
     await bot.sendMessage(
       chatId,

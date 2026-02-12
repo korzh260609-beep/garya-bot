@@ -53,6 +53,34 @@ function parsePathAndRequirement(rest) {
   return { path: s.trim(), requirement: "" };
 }
 
+function isDangerousRequirement(s) {
+  const t = String(s || "").toLowerCase();
+  const patterns = [
+    "process.env",
+    "openai_api_key",
+    "github_token",
+    "api_key",
+    "apikey",
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "id_rsa",
+    "pem",
+  ];
+  return patterns.some((p) => t.includes(p));
+}
+
+function getMonarchAndPrivateGuards({ chatId, senderIdStr }) {
+  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
+  const isMonarch = String(senderIdStr || "") === MONARCH_USER_ID;
+
+  // practical private-chat guard: in PM chatId equals senderId
+  const isPrivateLike = String(chatId) === String(senderIdStr || "");
+
+  return { isMonarch, isPrivateLike };
+}
+
 export async function handleCodeFullfile(ctx) {
   const { bot, chatId, rest, callAI, senderIdStr } = ctx || {};
   const { path, requirement } = parsePathAndRequirement(rest);
@@ -67,17 +95,14 @@ export async function handleCodeFullfile(ctx) {
   const mode = getCodeOutputMode();
 
   // ==========================================================================
-  // STAGE 12A / 4.4 — DRY_RUN (CODE_OUTPUT stays DISABLED)
+  // STAGE 12A / 4.4 — DRY_RUN
   // Enabled ONLY when ENV: CODE_OUTPUT_MODE=DRY_RUN
-  // Goal: validate request (permissions + private chat + path/limits + contract) WITHOUT AI/Repo/DB.
+  // Goal: validate request (permissions + private chat + path/limits + contract)
+  // WITHOUT AI/Repo/DB.
   // Returns ONLY: DRY_RUN_OK or REFUSE.
   // ==========================================================================
   if (mode === CODE_OUTPUT_MODES.DRY_RUN) {
-    const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
-    const isMonarch = String(senderIdStr || "") === MONARCH_USER_ID;
-
-    // practical private-chat guard: in PM chatId equals senderId
-    const isPrivateLike = String(chatId) === String(senderIdStr || "");
+    const { isMonarch, isPrivateLike } = getMonarchAndPrivateGuards({ chatId, senderIdStr });
 
     if (!isMonarch) {
       try {
@@ -113,25 +138,7 @@ export async function handleCodeFullfile(ctx) {
       return;
     }
 
-    const dangerousReq = (s) => {
-      const t = String(s || "").toLowerCase();
-      const patterns = [
-        "process.env",
-        "openai_api_key",
-        "github_token",
-        "api_key",
-        "apikey",
-        "password",
-        "passwd",
-        "secret",
-        "token",
-        "id_rsa",
-        "pem",
-      ];
-      return patterns.some((p) => t.includes(p));
-    };
-
-    if (dangerousReq(requirement)) {
+    if (isDangerousRequirement(requirement)) {
       await bot.sendMessage(chatId, refuseText("DANGEROUS_REQUIREMENT", "Убери упоминания секретов/ключей из requirement."));
       return;
     }
@@ -148,42 +155,73 @@ export async function handleCodeFullfile(ctx) {
     );
     return;
   }
-  // ==========================================================================
 
   // ==========================================================================
-  // STAGE 12A / 4.2 — HARD BLOCK (CODE OUTPUT DISABLED)
+  // STAGE 12A / 4.2 — HARD BLOCK (DISABLED)
   // Rule: NO code generation, NO RepoSource reads, NO AI calls.
   // ==========================================================================
-  try {
-    await logCodeOutputRefuse({
-      chatId: String(chatId),
-      senderId: String(senderIdStr || ""),
-      command: "/code_fullfile",
-      reason: "CODE_OUTPUT_DISABLED_STAGE_4_2",
-      path: path || null,
-      details: {
-        active_stage: "4",
-        active_substage: "4.2",
-        hasRequirement: Boolean(requirement),
-        note: "Hard-blocked until Stage 4.3+ contract is implemented and CODE OUTPUT is explicitly enabled by monarch decision.",
-      },
-      snapshotId: null,
-      mode: "DISABLED",
-    });
-  } catch (_) {
-    // never
+  if (mode === CODE_OUTPUT_MODES.DISABLED) {
+    try {
+      await logCodeOutputRefuse({
+        chatId: String(chatId),
+        senderId: String(senderIdStr || ""),
+        command: "/code_fullfile",
+        reason: "CODE_OUTPUT_DISABLED_STAGE_4_2",
+        path: path || null,
+        details: {
+          active_stage: "4",
+          active_substage: "4.2",
+          hasRequirement: Boolean(requirement),
+          note: "Hard-blocked until Stage 4.3+ contract is implemented and CODE OUTPUT is explicitly enabled by monarch decision.",
+        },
+        snapshotId: null,
+        mode: "DISABLED",
+      });
+    } catch (_) {
+      // never
+    }
+
+    await bot.sendMessage(
+      chatId,
+      refuseText(
+        "CODE_OUTPUT_DISABLED",
+        "CODE OUTPUT отключён (STAGE 4.2). Дождись этапа 4.3+ или используй /repo_file /repo_get для чтения."
+      )
+    );
+    return;
   }
 
-  await bot.sendMessage(
-    chatId,
-    refuseText(
-      "CODE_OUTPUT_DISABLED",
-      "CODE OUTPUT отключён (STAGE 4.2). Дождись этапа 4.3+ или используй /repo_file /repo_get для чтения."
-    )
-  );
-  return;
+  // ==========================================================================
+  // STAGE 12A / 4.5 — ENABLED (real generation)
+  // Enabled ONLY when ENV: CODE_OUTPUT_MODE=ENABLED
+  // Rule: AI/RepoSource allowed ONLY here. Still strict guards + contract validation.
+  // ==========================================================================
+  if (mode !== CODE_OUTPUT_MODES.ENABLED) {
+    // safe fallback (unknown mode)
+    await bot.sendMessage(chatId, refuseText("CODE_OUTPUT_DISABLED", "Неизвестный режим CODE_OUTPUT_MODE. Проверь ENV."));
+    return;
+  }
 
-  // ---- B9: BAD_ARGS ----
+  const { isMonarch, isPrivateLike } = getMonarchAndPrivateGuards({ chatId, senderIdStr });
+
+  // ---- Guards: monarch + private chat ----
+  if (!isMonarch) {
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "NOT_MONARCH" });
+    } catch (_) {}
+    await bot.sendMessage(chatId, refuseText("NOT_ALLOWED", "Только монарх может использовать CODE OUTPUT."));
+    return;
+  }
+
+  if (!isPrivateLike) {
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "NOT_PRIVATE_CHAT" });
+    } catch (_) {}
+    await bot.sendMessage(chatId, refuseText("PRIVATE_ONLY", "Используй команду только в личном чате с SG."));
+    return;
+  }
+
+  // ---- BAD_ARGS ----
   if (!path) {
     await bot.sendMessage(
       chatId,
@@ -199,7 +237,15 @@ export async function handleCodeFullfile(ctx) {
     return;
   }
 
-  // ---- B9: SENSITIVE_PATH ----
+  if (String(path).length > 300) {
+    await bot.sendMessage(chatId, refuseText("PATH_TOO_LONG", "Сократи path (≤ 300 символов)."));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "PATH_TOO_LONG" });
+    } catch (_) {}
+    return;
+  }
+
+  // ---- SENSITIVE_PATH ----
   if (denySensitivePath(path)) {
     await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот path запрещён (секреты/инфраструктура)."));
     try {
@@ -208,40 +254,28 @@ export async function handleCodeFullfile(ctx) {
     return;
   }
 
-  // ---- B9: INTERNAL_ERROR (callAI wiring) ----
+  // ---- DANGEROUS_REQUIREMENT ----
+  if (isDangerousRequirement(requirement)) {
+    await bot.sendMessage(chatId, refuseText("DANGEROUS_REQUIREMENT", "Убери упоминания секретов/ключей из requirement."));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "DANGEROUS_REQUIREMENT" });
+    } catch (_) {}
+    return;
+  }
+
+  // ---- INTERNAL_ERROR (callAI wiring) ----
   if (typeof callAI !== "function") {
     await bot.sendMessage(
       chatId,
       refuseText("INTERNAL_ERROR", "callAI не подключён в router. Проверь передачу { callAI } в handler.")
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "INTERNAL_ERROR" });
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "INTERNAL_ERROR_CALLAI" });
     } catch (_) {}
     return;
   }
 
-  // ---- B9: NO AI until enabled ----
-  try {
-    await logCodeOutputRefuse({
-      chatId: String(chatId),
-      senderId: String(senderIdStr || ""),
-      command: "/code_fullfile",
-      reason: "CODE_OUTPUT_DISABLED",
-      path: path || null,
-      details: {
-        active_stage: "4",
-        active_substage: "4.2",
-        note: "Hard-blocked until CODE OUTPUT is explicitly enabled.",
-      },
-      snapshotId: null,
-      mode: "DISABLED",
-    });
-  } catch (_) {}
-
-  await bot.sendMessage(chatId, refuseText("CODE_OUTPUT_DISABLED", "CODE OUTPUT отключён. Сейчас только DRY_RUN."));
-  return;
-
-  // ---- fetch ----
+  // ---- fetch current file from RepoSource ----
   const source = new RepoSource({
     repo: process.env.GITHUB_REPO,
     branch: process.env.GITHUB_BRANCH,

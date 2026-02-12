@@ -136,7 +136,7 @@ function extractInsertBlock(raw) {
 }
 
 export async function handleCodeInsert(ctx) {
-  const { bot, chatId, rest, callAI } = ctx || {};
+  const { bot, chatId, rest, callAI, senderIdStr } = ctx || {};
   const { path, anchor, mode, requirement } = parseInsertArgs(rest);
 
   const aiMetaBase = {
@@ -157,7 +157,7 @@ export async function handleCodeInsert(ctx) {
   try {
     await logCodeOutputRefuse({
       chatId: String(chatId),
-      senderId: "", // NOTE: router currently doesn't pass senderId into this handler
+      senderId: String(senderIdStr || ""),
       command: "/code_insert",
       reason: "CODE_OUTPUT_DISABLED_STAGE_4_2",
       path: path || null,

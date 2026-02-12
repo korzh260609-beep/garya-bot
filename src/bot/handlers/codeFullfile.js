@@ -94,270 +94,256 @@ async function sendInParts(bot, chatId, header, lang, content) {
   const codeBlockLang = lang ? lang : "";
 
   const single = `${header}\n\n\`\`\`${codeBlockLang}\n${content}\n\`\`\``;
-  if (single.length <= 4096) {
+
+  // safe single
+  if (single.length <= TG_MAX_SAFE) {
     await bot.sendMessage(chatId, single);
     return;
   }
 
-  const fenceOpen = `\`\`\`${codeBlockLang}\n`;
-  const fenceClose = `\n\`\`\``;
+  // chunked
+  const parts = chunkString(content, TG_MAX_SAFE);
+  const capped = parts.slice(0, TG_MAX_PARTS);
 
-  const reserve = header.length + 40 + fenceOpen.length + fenceClose.length + 4;
-  const chunkSize = Math.max(800, TG_MAX_SAFE - reserve);
+  await bot.sendMessage(chatId, `${header}\n(частями: ${capped.length}/${parts.length})`);
 
-  const parts = chunkString(content, chunkSize);
+  for (let i = 0; i < capped.length; i++) {
+    const part = capped[i];
+    const msg = `part ${i + 1}/${capped.length}\n\n\`\`\`${codeBlockLang}\n${part}\n\`\`\``;
+    await bot.sendMessage(chatId, msg);
+  }
+
   if (parts.length > TG_MAX_PARTS) {
     await bot.sendMessage(
       chatId,
-      [
-        refuseText(
-          "FULLFILE_TOO_LARGE",
-          `Слишком много частей для Telegram (${parts.length} > ${TG_MAX_PARTS}). Используй /code_insert или уменьши запрос.`
-        ),
-      ].join("\n")
+      refuseText(
+        "TG_LIMIT",
+        `Файл слишком большой для Telegram. Получилось ${parts.length} частей, лимит ${TG_MAX_PARTS}. Сузь запрос или попроси конкретный фрагмент.`
+      )
     );
-    return;
   }
-
-  for (let i = 0; i < parts.length; i++) {
-    const partHeader = `${header} (Part ${i + 1}/${parts.length})`;
-    const msg = `${partHeader}\n\n${fenceOpen}${parts[i]}${fenceClose}`;
-    await bot.sendMessage(chatId, msg);
-  }
-}
-
-function extractOnlyFileText(raw) {
-  const s = String(raw || "");
-
-  const m = s.match(/<<<FILE_START>>>\s*([\s\S]*?)\s*<<<FILE_END>>>/);
-  if (m && m[1]) return m[1].trim();
-
-  const fence = s.match(/```[a-zA-Z0-9_-]*\s*\n([\s\S]*?)\n```/);
-  if (fence && fence[1]) return fence[1].trim();
-
-  const idx = s.search(
-    /\b(export\s+async\s+function|export\s+function|module\.exports|import\s+|const\s+|function\s+|class\s+)\b/
-  );
-  if (idx >= 0) return s.slice(idx).trim();
-
-  return s.trim();
 }
 
 export async function handleCodeFullfile(ctx) {
   const { bot, chatId, rest, callAI, senderIdStr } = ctx || {};
   const { path, requirement } = parsePathAndRequirement(rest);
 
-  const baseMeta = {
+  const aiMetaBase = {
     handler: "codeFullfile",
+    event: "CODE_FULLFILE",
     chatId: String(chatId),
     path,
     hasRequirement: Boolean(requirement),
   };
 
   // ==========================================================================
-  // STAGE 12A / 4.2 — HARD BLOCK (CODE OUTPUT DISABLED)
-  // Rule: NO code generation, NO RepoSource reads, NO AI calls.
-  // Allowed in 4.2: formal refusal + console logging (NO DB).
+  // STAGE 12A / 4.4 — DRY_RUN (CODE_OUTPUT остаётся DISABLED)
+  // Rule: validate request (permissions + private chat + path/limits + format contract) WITHOUT AI/Repo/DB.
+  // Returns: DRY_RUN_OK or REFUSE.
   // ==========================================================================
-  try {
-    await logCodeOutputRefuse({
-      chatId: String(chatId),
-      senderId: String(senderIdStr || ""),
-      command: "/code_fullfile",
-      reason: "CODE_OUTPUT_DISABLED_STAGE_4_2",
-      path: path || null,
-      details: {
-        active_stage: "4",
-        active_substage: "4.2",
-        hasRequirement: Boolean(requirement),
-        note: "Hard-blocked until Stage 4.3+ contract is implemented and CODE OUTPUT is explicitly enabled by monarch decision.",
-      },
-      snapshotId: null,
-      mode: "DISABLED",
-    });
-  } catch (_) {
-    // never fail user response due to logging
+  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
+  const isMonarch = String(senderIdStr || "") === MONARCH_USER_ID;
+
+  // In Telegram private chat: chat.id === senderId (practical guard)
+  const isPrivateLike = String(chatId) === String(senderIdStr || "");
+
+  // ---- 4.4: PERMISSION + CHAT GUARDS ----
+  if (!isMonarch) {
+    try {
+      await logCodeOutputRefuse({
+        chatId: String(chatId),
+        senderId: String(senderIdStr || ""),
+        command: "/code_fullfile",
+        reason: "DRY_RUN_NOT_MONARCH",
+        path: path || null,
+        details: { active_stage: "4", active_substage: "4.4", note: "DRY_RUN доступен только монарху." },
+        snapshotId: null,
+        mode: "DRY_RUN",
+      });
+    } catch (_) {}
+
+    await bot.sendMessage(chatId, refuseText("NOT_ALLOWED", "Только монарх может использовать CODE OUTPUT (даже DRY_RUN)."));
+    return;
   }
 
-  await bot.sendMessage(
-    chatId,
-    refuseText(
-      "CODE_OUTPUT_DISABLED",
-      "CODE OUTPUT отключён (STAGE 4.2). Дождись этапа 4.3+ или используй /repo_file /repo_get для чтения."
-    )
-  );
-  return;
-  // ==========================================================================
-
-  if (!path) {
-    await bot.sendMessage(chatId, refuseText("BAD_ARGS", "Usage: /code_fullfile <path/to/file.js> [requirement]"));
+  if (!isPrivateLike) {
     try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "BAD_ARGS" });
+      await logCodeOutputRefuse({
+        chatId: String(chatId),
+        senderId: String(senderIdStr || ""),
+        command: "/code_fullfile",
+        reason: "DRY_RUN_NOT_PRIVATE_CHAT",
+        path: path || null,
+        details: { active_stage: "4", active_substage: "4.4", note: "DRY_RUN разрешён только в личке." },
+        snapshotId: null,
+        mode: "DRY_RUN",
+      });
     } catch (_) {}
+
+    await bot.sendMessage(chatId, refuseText("PRIVATE_ONLY", "Используй команду только в личном чате с SG."));
+    return;
+  }
+
+  // ---- 4.4: ARG + PATH + LIMITS ----
+  if (!path) {
+    await bot.sendMessage(chatId, refuseText("BAD_ARGS", "Формат: /code_fullfile <path/to/file.js> [requirement...]"));
+    return;
+  }
+
+  if (String(path).length > 300) {
+    await bot.sendMessage(chatId, refuseText("PATH_TOO_LONG", "Сократи path (≤ 300 символов)."));
     return;
   }
 
   if (denySensitivePath(path)) {
-    await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот путь запрещён. Выбери обычный файл кода."));
     try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "SENSITIVE_PATH" });
+      await logCodeOutputRefuse({
+        chatId: String(chatId),
+        senderId: String(senderIdStr || ""),
+        command: "/code_fullfile",
+        reason: "DRY_RUN_SENSITIVE_PATH",
+        path: path || null,
+        details: { active_stage: "4", active_substage: "4.4" },
+        snapshotId: null,
+        mode: "DRY_RUN",
+      });
     } catch (_) {}
+
+    await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот path запрещён (секреты/инфраструктура)."));
     return;
   }
 
-  if (typeof callAI !== "function") {
+  const dangerous = (s) => {
+    const t = String(s || "").toLowerCase();
+    const patterns = [
+      "process.env",
+      "openai_api_key",
+      "github_token",
+      "api_key",
+      "apikey",
+      "password",
+      "passwd",
+      "secret",
+      "token",
+      "id_rsa",
+      "pem",
+    ];
+    return patterns.some((p) => t.includes(p));
+  };
+
+  if (dangerous(requirement)) {
+    await bot.sendMessage(chatId, refuseText("DANGEROUS_REQUIREMENT", "Убери упоминания секретов/ключей из requirement."));
+    return;
+  }
+
+  // ---- 4.4: FORMAT CONTRACT CHECK (logical) ----
+  // We do NOT call AI here. We only confirm that FULLFILE contract is the required output format.
+  // (Actual validateFullFile(raw) is applied later, in Stage 4.5+ when generation is enabled.)
+
+  await bot.sendMessage(
+    chatId,
+    [
+      "DRY_RUN_OK",
+      `mode: fullfile`,
+      `path: ${path}`,
+      `contract: FULLFILE (<<<FILE_START>>> … <<<FILE_END>>>)`,
+      "ai: not_called | repo: not_read | db: not_written",
+    ].join("\n")
+  );
+  return;
+  // ==========================================================================
+
+  // ---- B9: BAD_ARGS ----
+  if (!path) {
     await bot.sendMessage(
       chatId,
-      refuseText("INTERNAL_ERROR", "callAI не подключён в router. Проверь передачу { callAI } в handler.")
+      [
+        refuseText("BAD_ARGS", "Формат: /code_fullfile <path/to/file.js> [requirement...]."),
+        "Example:",
+        "/code_fullfile src/x.js add helper for foo()",
+      ].join("\n")
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "INTERNAL_ERROR" });
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "BAD_ARGS" });
     } catch (_) {}
     return;
   }
 
-  const source = new RepoSource({
-    repo: process.env.GITHUB_REPO,
-    branch: process.env.GITHUB_BRANCH,
-    token: process.env.GITHUB_TOKEN,
-  });
-
-  const currentFile = await safeFetchText(source, path);
-  if (!currentFile) {
-    await bot.sendMessage(chatId, refuseText("FILE_NOT_FOUND", `Файл не найден или не читается: ${path}`));
+  // ---- B9: SENSITIVE_PATH ----
+  if (denySensitivePath(path)) {
+    await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот path запрещён (секреты/инфраструктура)."));
     try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "FILE_NOT_FOUND" });
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "SENSITIVE_PATH" });
     } catch (_) {}
     return;
   }
 
-  const decisions = await safeFetchText(source, "pillars/DECISIONS.md");
-  const workflow = await safeFetchText(source, "pillars/WORKFLOW.md");
-  const behavior = await safeFetchText(source, "pillars/SG_BEHAVIOR.md");
-  const repoindex = await safeFetchText(source, "pillars/REPOINDEX.md");
+  // ---- B9: FETCH_FAIL ----
+  const source = new RepoSource();
+  const fileText = await safeFetchText(source, path);
+  if (!fileText) {
+    await bot.sendMessage(chatId, refuseText("FILE_NOT_FOUND", "Файл не найден или не удалось прочитать из RepoSource."));
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "FILE_NOT_FOUND" });
+    } catch (_) {}
+    return;
+  }
 
+  // ---- B8: size limit ----
+  if (fileText.length > MAX_FULLFILE_CHARS) {
+    await bot.sendMessage(
+      chatId,
+      refuseText("FILE_TOO_LARGE", `Файл слишком большой (${fileText.length}). Лимит ${MAX_FULLFILE_CHARS}.`)
+    );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "FILE_TOO_LARGE" });
+    } catch (_) {}
+    return;
+  }
+
+  // ---- AI CALL (only after enable) ----
   const lang = guessLang(path);
 
   const system = [
-    "You are SG (Советник GARYA) operating in READ-ONLY mode.",
-    "Task: generate a FULL replacement for a single repository file.",
-    "",
-    "ABSOLUTE OUTPUT CONTRACT:",
-    `1) You MUST output ONLY the full file content for: ${path}`,
-    "2) NO explanations, NO notes, NO headings, NO preface text.",
-    "3) Wrap the file content ONLY between markers exactly like this:",
+    "Ты — аккуратный код-редактор.",
+    "Верни ПОЛНЫЙ файл в строгом формате контракта FULLFILE:",
     "<<<FILE_START>>>",
-    "<FULL FILE CONTENT HERE>",
+    "<FULL FILE CONTENT>",
     "<<<FILE_END>>>",
-    "4) Do NOT include markdown fences. Do NOT include any other text outside markers.",
-    "5) Do NOT output diff/patch format.",
-    "6) Preserve intended architecture and boundaries from DECISIONS/WORKFLOW/SG_BEHAVIOR.",
-    "7) Do NOT invent non-existent modules/paths unless they are already present in current file.",
-    "8) If unsure, choose the safest minimal change that satisfies requirement.",
-    `9) Output must be <= ${MAX_FULLFILE_CHARS} characters.`,
-    "If you violate the contract, the output will be discarded as invalid.",
+    "Никакого лишнего текста. Только этот блок.",
+    `Максимум символов файла: ${MAX_FULLFILE_CHARS}.`,
   ].join("\n");
 
   const user = [
-    `TARGET_FILE: ${path}`,
-    requirement ? `REQUIREMENT: ${requirement}` : "REQUIREMENT: (not provided) — keep behavior, only minimal safe changes if needed.",
+    `PATH: ${path}`,
     "",
-    "PROJECT_RULES (if provided):",
-    decisions ? `DECISIONS.md:\n${decisions}` : "DECISIONS.md: (missing)",
-    workflow ? `\nWORKFLOW.md:\n${workflow}` : "\nWORKFLOW.md: (missing)",
-    behavior ? `\nSG_BEHAVIOR.md:\n${behavior}` : "\nSG_BEHAVIOR.md: (missing)",
-    repoindex ? `\nREPOINDEX.md:\n${repoindex}` : "\nREPOINDEX.md: (missing)",
+    "CURRENT FILE:",
+    fileText,
     "",
-    "CURRENT_FILE_CONTENT (for context; do not repeat this label in output):",
-    currentFile,
-    "",
-    "REMINDER: output ONLY file content between <<<FILE_START>>> and <<<FILE_END>>>.",
+    requirement ? `REQUIREMENT: ${requirement}` : "REQUIREMENT: (none)",
   ].join("\n");
 
-  const aiMetaBase = {
-    ...baseMeta,
-    reason: "code_fullfile.generate_fullfile",
-    aiCostLevel: "high",
-    max_output_tokens: 1800,
-    temperature: 0.2,
-  };
+  const raw = await callAI([
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ]);
 
-  try {
-    console.info("🧾 AI_CALL_START", aiMetaBase);
-  } catch (_) {}
-
-  const t0 = Date.now();
-
-  let out = "";
-  try {
-    out = await callAI(
-      [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      "high",
-      { max_output_tokens: 1800, temperature: 0.2 }
-    );
-  } catch (e) {
-    const msg = e?.message ? String(e.message) : "unknown";
-    const dtMs = Date.now() - t0;
-
-    try {
-      console.info("🧾 AI_CALL_END", { ...aiMetaBase, dtMs, replyChars: 0, ok: false, error: msg });
-    } catch (_) {}
-
-    await bot.sendMessage(chatId, refuseText("INTERNAL_ERROR", `AI error: ${msg}`));
-    return;
-  }
-
-  const dtMs = Date.now() - t0;
-  try {
-    console.info("🧾 AI_CALL_END", { ...aiMetaBase, dtMs, replyChars: typeof out === "string" ? out.length : 0, ok: true });
-  } catch (_) {}
-
-  // ---- STAGE 4.3: enforce fullfile contract via centralized validator ----
-  const v = validateFullFile({
-    raw: out,
-    maxChars: MAX_FULLFILE_CHARS,
-    forbidMarkersInside: true,
-  });
-
-  if (!v.ok || !v.fileText) {
+  // ---- Contract validate ----
+  const vr = validateFullFile({ raw, maxChars: MAX_FULLFILE_CHARS, forbidMarkersInside: true });
+  if (!vr.ok) {
     await bot.sendMessage(
       chatId,
       refuseText(
-        "AI_CONTRACT_VIOLATION",
-        `Нарушение формата (${v.code || "UNKNOWN"}). Упрости requirement и повтори.`
+        `CONTRACT_FAIL:${vr.code}`,
+        "Модель вернула неверный формат. Повтори запрос или уточни requirement."
       )
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "AI_CONTRACT_VIOLATION", contractCode: v.code });
+      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: `CONTRACT_FAIL:${vr.code}` });
     } catch (_) {}
     return;
   }
 
-  const finalText = v.fileText;
-
-  if (!finalText) {
-    await bot.sendMessage(chatId, refuseText("AI_CONTRACT_VIOLATION", "Пустой/невалидный вывод. Упрости requirement и повтори."));
-    try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "AI_CONTRACT_VIOLATION", detail: "empty" });
-    } catch (_) {}
-    return;
-  }
-
-  // ---- B8: enforce fullfile size cap ----
-  if (finalText.length > MAX_FULLFILE_CHARS) {
-    await bot.sendMessage(
-      chatId,
-      refuseText("FULLFILE_TOO_LARGE", `Слишком большой файл (> ${MAX_FULLFILE_CHARS}). Используй /code_insert или уменьшай изменения.`)
-    );
-    try {
-      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "FULLFILE_TOO_LARGE", fullfileChars: finalText.length });
-    } catch (_) {}
-    return;
-  }
-
-  const header = `FULLFILE: ${path}`;
-  await sendInParts(bot, chatId, header, lang, finalText);
+  const header = `<<<FILE_START>>> (path: ${path})`;
+  await sendInParts(bot, chatId, header, lang, vr.fileText);
 }

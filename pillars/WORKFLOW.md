@@ -465,9 +465,8 @@ Notes:
 - Read-only only
 - No memory writes
 - No AI reasoning
-- No code modification
 - Used as foundation for future Code/Repo Analysis capability
-- Gate: /code_output_status exists ONLY to expose the current state (DISABLED). No code generation logic here.
+- Gate: /code_output_status exposes current ENV mode. Code Output V0 allowed under strict monarch-only + manual-apply policy.
 
 ---
 

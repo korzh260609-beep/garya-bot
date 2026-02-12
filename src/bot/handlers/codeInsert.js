@@ -7,6 +7,7 @@
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
+import { logCodeOutputRefuse } from "../../codeOutput/codeOutputLogger.js";
 
 const MAX_INSERT_CHARS = 2000; // ✅ B8 approved
 
@@ -147,6 +148,41 @@ export async function handleCodeInsert(ctx) {
     anchorLen: String(anchor || "").length,
     hasRequirement: Boolean(requirement),
   };
+
+  // ==========================================================================
+  // STAGE 12A / 4.2 — HARD BLOCK (CODE OUTPUT DISABLED)
+  // Rule: NO code generation, NO RepoSource reads, NO AI calls.
+  // Allowed in 4.2: formal refusal + console logging (NO DB).
+  // ==========================================================================
+  try {
+    await logCodeOutputRefuse({
+      chatId: String(chatId),
+      senderId: "", // NOTE: router currently doesn't pass senderId into this handler
+      command: "/code_insert",
+      reason: "CODE_OUTPUT_DISABLED_STAGE_4_2",
+      path: path || null,
+      details: {
+        active_stage: "4",
+        active_substage: "4.2",
+        anchorProvided: Boolean(anchor),
+        modeProvided: Boolean(mode),
+        hasRequirement: Boolean(requirement),
+        note: "Hard-blocked until Stage 4.3+ contract is implemented and CODE OUTPUT is explicitly enabled by monarch decision.",
+      },
+      snapshotId: null,
+      mode: "DISABLED",
+    });
+  } catch (_) {}
+
+  await bot.sendMessage(
+    chatId,
+    refuseText(
+      "CODE_OUTPUT_DISABLED",
+      "CODE OUTPUT отключён (STAGE 4.2). Дождись этапа 4.3+ или используй /repo_file /repo_get для чтения."
+    )
+  );
+  return;
+  // ==========================================================================
 
   // ---- B9: BAD_ARGS ----
   if (!path || !anchor || !mode) {

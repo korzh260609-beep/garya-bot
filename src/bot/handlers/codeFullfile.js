@@ -8,6 +8,7 @@
 
 import { RepoSource } from "../../repo/RepoSource.js";
 import { logCodeOutputRefuse } from "../../codeOutput/codeOutputLogger.js";
+import { validateFullFile } from "../../codeOutput/codeOutputContract.js";
 
 const MAX_FULLFILE_CHARS = 60000; // ✅ B8 approved
 
@@ -314,7 +315,28 @@ export async function handleCodeFullfile(ctx) {
     console.info("🧾 AI_CALL_END", { ...aiMetaBase, dtMs, replyChars: typeof out === "string" ? out.length : 0, ok: true });
   } catch (_) {}
 
-  const finalText = extractOnlyFileText(out);
+  // ---- STAGE 4.3: enforce fullfile contract via centralized validator ----
+  const v = validateFullFile({
+    raw: out,
+    maxChars: MAX_FULLFILE_CHARS,
+    forbidMarkersInside: true,
+  });
+
+  if (!v.ok || !v.fileText) {
+    await bot.sendMessage(
+      chatId,
+      refuseText(
+        "AI_CONTRACT_VIOLATION",
+        `Нарушение формата (${v.code || "UNKNOWN"}). Упрости requirement и повтори.`
+      )
+    );
+    try {
+      console.info("🧾 CODE_REFUSE", { ...baseMeta, refuseReason: "AI_CONTRACT_VIOLATION", contractCode: v.code });
+    } catch (_) {}
+    return;
+  }
+
+  const finalText = v.fileText;
 
   if (!finalText) {
     await bot.sendMessage(chatId, refuseText("AI_CONTRACT_VIOLATION", "Пустой/невалидный вывод. Упрости requirement и повтори."));

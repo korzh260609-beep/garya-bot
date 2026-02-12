@@ -411,13 +411,15 @@ export function attachMessageRouter({
 
           case "/code_fullfile": {
             // IMPORTANT: handler needs callAI
-            await handleCodeFullfile({ bot, chatId, rest, callAI });
+            // STAGE 4.2: also pass senderIdStr for refusal logging (no DB)
+            await handleCodeFullfile({ bot, chatId, rest, callAI, senderIdStr });
             return;
           }
 
           case "/code_insert": {
             // IMPORTANT: handler needs callAI
-            await handleCodeInsert({ bot, chatId, rest, callAI });
+            // STAGE 4.2: also pass senderIdStr for refusal logging (no DB)
+            await handleCodeInsert({ bot, chatId, rest, callAI, senderIdStr });
             return;
           }
 

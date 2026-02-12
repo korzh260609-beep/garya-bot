@@ -8,6 +8,7 @@
 
 import { RepoSource } from "../../repo/RepoSource.js";
 import { logCodeOutputRefuse } from "../../codeOutput/codeOutputLogger.js";
+import { validateInsert } from "../../codeOutput/codeOutputContract.js";
 
 const MAX_INSERT_CHARS = 2000; // ✅ B8 approved
 
@@ -34,9 +35,15 @@ function denySensitivePath(path) {
     "id_rsa",
   ];
 
-  const bannedExact = ["render.yaml", "dockerfile", "docker-compose.yml", ".github/workflows"];
+  const bannedExact = [
+    "render.yaml",
+    "dockerfile",
+    "docker-compose.yml",
+    ".github/workflows",
+  ];
 
-  if (bannedExact.some((p) => lower === p || lower.startsWith(p + "/"))) return true;
+  if (bannedExact.some((p) => lower === p || lower.startsWith(p + "/")))
+    return true;
   if (bannedParts.some((p) => lower.includes(p))) return true;
 
   return false;
@@ -106,33 +113,6 @@ function countOccurrences(haystack, needle) {
     idx = found + needle.length;
   }
   return count;
-}
-
-// Hard contract parser: accept ONLY marked block.
-function extractInsertBlock(raw) {
-  const s = String(raw || "");
-  const m = s.match(/<<<INSERT_START>>>\s*([\s\S]*?)\s*<<<INSERT_END>>>/);
-  if (!m || !m[1]) return null;
-
-  const body = m[1].trim();
-
-  const pathMatch = body.match(/(?:^|\n)path:\s*(.+)\s*(?:\n|$)/i);
-  const anchorMatch = body.match(/(?:^|\n)anchor:\s*(.+)\s*(?:\n|$)/i);
-  const modeMatch = body.match(/(?:^|\n)mode:\s*(before|after|replace)\s*(?:\n|$)/i);
-  const contentMatch = body.match(/(?:^|\n)content:\s*\n([\s\S]*)$/i);
-
-  const path = pathMatch ? String(pathMatch[1]).trim() : "";
-  const anchor = anchorMatch ? String(anchorMatch[1]).trim() : "";
-  const mode = modeMatch ? String(modeMatch[1]).trim().toLowerCase() : "";
-  const content = contentMatch ? String(contentMatch[1]).replace(/\s+$/, "") : "";
-
-  if (!path || !anchor || !mode || !content) return null;
-  if (!isValidMode(mode)) return null;
-
-  // B8: prevent nested markers
-  if (content.includes("<<<") || content.includes(">>>")) return null;
-
-  return { path, anchor, mode, content };
 }
 
 export async function handleCodeInsert(ctx) {
@@ -205,18 +185,30 @@ export async function handleCodeInsert(ctx) {
 
   // ---- B9: MODE_INVALID ----
   if (!isValidMode(mode)) {
-    await bot.sendMessage(chatId, refuseText("MODE_INVALID", "Используй mode: before | after | replace."));
+    await bot.sendMessage(
+      chatId,
+      refuseText("MODE_INVALID", "Используй mode: before | after | replace.")
+    );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "MODE_INVALID" });
+      console.info("🧾 CODE_REFUSE", {
+        ...aiMetaBase,
+        refuseReason: "MODE_INVALID",
+      });
     } catch (_) {}
     return;
   }
 
   // ---- B9: SENSITIVE_PATH ----
   if (denySensitivePath(path)) {
-    await bot.sendMessage(chatId, refuseText("SENSITIVE_PATH", "Этот путь запрещён. Выбери обычный файл кода."));
+    await bot.sendMessage(
+      chatId,
+      refuseText("SENSITIVE_PATH", "Этот путь запрещён. Выбери обычный файл кода.")
+    );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "SENSITIVE_PATH" });
+      console.info("🧾 CODE_REFUSE", {
+        ...aiMetaBase,
+        refuseReason: "SENSITIVE_PATH",
+      });
     } catch (_) {}
     return;
   }
@@ -225,10 +217,16 @@ export async function handleCodeInsert(ctx) {
   if (typeof callAI !== "function") {
     await bot.sendMessage(
       chatId,
-      refuseText("INTERNAL_ERROR", "callAI не подключён в router. Проверь передачу { callAI } в handler.")
+      refuseText(
+        "INTERNAL_ERROR",
+        "callAI не подключён в router. Проверь передачу { callAI } в handler."
+      )
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "INTERNAL_ERROR" });
+      console.info("🧾 CODE_REFUSE", {
+        ...aiMetaBase,
+        refuseReason: "INTERNAL_ERROR",
+      });
     } catch (_) {}
     return;
   }
@@ -243,9 +241,15 @@ export async function handleCodeInsert(ctx) {
 
   // ---- B9: FILE NOT FOUND ----
   if (!currentFile) {
-    await bot.sendMessage(chatId, refuseText("FILE_NOT_FOUND", "Файл не найден. Проверь path (как в репозитории)."));
+    await bot.sendMessage(
+      chatId,
+      refuseText("FILE_NOT_FOUND", "Файл не найден. Проверь path (как в репозитории).")
+    );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "FILE_NOT_FOUND" });
+      console.info("🧾 CODE_REFUSE", {
+        ...aiMetaBase,
+        refuseReason: "FILE_NOT_FOUND",
+      });
     } catch (_) {}
     return;
   }
@@ -257,7 +261,10 @@ export async function handleCodeInsert(ctx) {
       refuseText("ANCHOR_NOT_FOUND", "Якорь не найден. Возьми точную строку/фрагмент из файла.")
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "ANCHOR_NOT_FOUND" });
+      console.info("🧾 CODE_REFUSE", {
+        ...aiMetaBase,
+        refuseReason: "ANCHOR_NOT_FOUND",
+      });
     } catch (_) {}
     return;
   }
@@ -266,10 +273,16 @@ export async function handleCodeInsert(ctx) {
   if (isDangerousAnchorOrContent(anchor)) {
     await bot.sendMessage(
       chatId,
-      refuseText("DANGEROUS_ANCHOR", "Нельзя вставлять/заменять рядом с env/secrets/exec/eval. Выбери безопасный anchor.")
+      refuseText(
+        "DANGEROUS_ANCHOR",
+        "Нельзя вставлять/заменять рядом с env/secrets/exec/eval. Выбери безопасный anchor."
+      )
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "DANGEROUS_ANCHOR" });
+      console.info("🧾 CODE_REFUSE", {
+        ...aiMetaBase,
+        refuseReason: "DANGEROUS_ANCHOR",
+      });
     } catch (_) {}
     return;
   }
@@ -280,10 +293,17 @@ export async function handleCodeInsert(ctx) {
     if (occ !== 1) {
       await bot.sendMessage(
         chatId,
-        refuseText("ANCHOR_NOT_UNIQUE", "Для replace anchor должен встречаться 1 раз. Сделай anchor точнее.")
+        refuseText(
+          "ANCHOR_NOT_UNIQUE",
+          "Для replace anchor должен встречаться 1 раз. Сделай anchor точнее."
+        )
       );
       try {
-        console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "ANCHOR_NOT_UNIQUE", occurrences: occ });
+        console.info("🧾 CODE_REFUSE", {
+          ...aiMetaBase,
+          refuseReason: "ANCHOR_NOT_UNIQUE",
+          occurrences: occ,
+        });
       } catch (_) {}
       return;
     }
@@ -358,7 +378,13 @@ export async function handleCodeInsert(ctx) {
     const dtMs = Date.now() - t0;
 
     try {
-      console.info("🧾 AI_CALL_END", { ...aiMeta, dtMs, replyChars: 0, ok: false, error: msg });
+      console.info("🧾 AI_CALL_END", {
+        ...aiMeta,
+        dtMs,
+        replyChars: 0,
+        ok: false,
+        error: msg,
+      });
     } catch (_) {}
 
     await bot.sendMessage(chatId, refuseText("INTERNAL_ERROR", `AI error: ${msg}`));
@@ -367,66 +393,57 @@ export async function handleCodeInsert(ctx) {
 
   const dtMs = Date.now() - t0;
   try {
-    console.info("🧾 AI_CALL_END", { ...aiMeta, dtMs, replyChars: typeof out === "string" ? out.length : 0, ok: true });
+    console.info("🧾 AI_CALL_END", {
+      ...aiMeta,
+      dtMs,
+      replyChars: typeof out === "string" ? out.length : 0,
+      ok: true,
+    });
   } catch (_) {}
 
-  // ---- B9: enforce contract ----
-  const block = extractInsertBlock(out);
-  if (!block) {
+  // ---- B9: enforce contract (STAGE 4.3: centralized validator) ----
+  const v = validateInsert({
+    raw: out,
+    expectedPath: path,
+    expectedAnchor: anchor,
+    maxChars: MAX_INSERT_CHARS,
+    forbidMarkersInside: true,
+  });
+
+  if (!v.ok || !v.block) {
     await bot.sendMessage(
       chatId,
-      refuseText("AI_CONTRACT_VIOLATION", "ИИ нарушил формат. Упрости requirement или выбери другой anchor.")
+      refuseText(
+        "AI_CONTRACT_VIOLATION",
+        `ИИ нарушил формат (${v.code || "UNKNOWN"}). Упрости requirement или выбери другой anchor.`
+      )
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "AI_CONTRACT_VIOLATION" });
+      console.info("🧾 CODE_REFUSE", {
+        ...aiMetaBase,
+        refuseReason: "AI_CONTRACT_VIOLATION",
+        contractCode: v.code,
+      });
     } catch (_) {}
     return;
   }
 
-  // Safety: returned path must match requested path
-  if (String(block.path).trim() !== String(path).trim()) {
-    await bot.sendMessage(
-      chatId,
-      refuseText("AI_CONTRACT_VIOLATION", "ИИ вернул другой path. Повтори запрос, не меняя path.")
-    );
-    try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "AI_CONTRACT_VIOLATION", returnedPath: block.path });
-    } catch (_) {}
-    return;
-  }
-
-  // Safety: anchor must match requested anchor (1:1)
-  if (String(block.anchor).trim() !== String(anchor).trim()) {
-    await bot.sendMessage(
-      chatId,
-      refuseText("AI_CONTRACT_VIOLATION", "ИИ изменил anchor. Повтори запрос с тем же anchor.")
-    );
-    try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "AI_CONTRACT_VIOLATION", returnedAnchor: block.anchor });
-    } catch (_) {}
-    return;
-  }
-
-  // ---- B8: enforce insert size ----
-  if (String(block.content).length > MAX_INSERT_CHARS) {
-    await bot.sendMessage(
-      chatId,
-      refuseText("INSERT_TOO_LARGE", `Вставка слишком большая (> ${MAX_INSERT_CHARS}). Разбей на 2–3 вставки.`)
-    );
-    try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "INSERT_TOO_LARGE", insertChars: block.content.length });
-    } catch (_) {}
-    return;
-  }
+  const block = v.block;
 
   // ---- B8: dangerous content check ----
   if (isDangerousAnchorOrContent(block.content)) {
     await bot.sendMessage(
       chatId,
-      refuseText("DANGEROUS_ANCHOR", "Вставка содержит опасные конструкции (env/exec/eval). Переформулируй задачу безопасно.")
+      refuseText(
+        "DANGEROUS_ANCHOR",
+        "Вставка содержит опасные конструкции (env/exec/eval). Переформулируй задачу безопасно."
+      )
     );
     try {
-      console.info("🧾 CODE_REFUSE", { ...aiMetaBase, refuseReason: "DANGEROUS_ANCHOR" });
+      console.info("🧾 CODE_REFUSE", {
+        ...aiMetaBase,
+        refuseReason: "DANGEROUS_ANCHOR",
+      });
     } catch (_) {}
     return;
   }

@@ -39,7 +39,7 @@ export async function handleProjectStatus({ bot, chatId }) {
     chatId,
     [
       "PROJECT STATUS",
-      "stage: 6",
+      "stage: unknown (not auto-evaluated)",
       "repo: connected",
       `health: ${healthStatus}`,
       `last_snapshot_id: ${lastSnapshotId}`,

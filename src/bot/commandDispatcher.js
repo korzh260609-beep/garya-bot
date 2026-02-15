@@ -8,6 +8,7 @@ import { handlePrice } from "./handlers/price.js";
 import { handleProfile } from "./handlers/profile.js";
 import { handleMode } from "./handlers/mode.js";
 import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
+import { handleTasksList } from "./handlers/tasksList.js";
 
 import pool from "../../db.js";
 
@@ -120,6 +121,24 @@ export async function dispatchCommand(cmd, ctx) {
         chatId,
         bypass: ctx.bypass,
       });
+      return { handled: true };
+    }
+
+    case "/tasks": {
+      const access = {
+        userRole: (ctx.userRole || ctx.user?.role || "guest"),
+        userPlan: (ctx.userPlan || ctx.user?.plan || "free"),
+        bypassPermissions: Boolean(ctx.bypass),
+      };
+
+      await handleTasksList({
+        bot,
+        chatId,
+        chatIdStr,
+        getUserTasks: ctx.getUserTasks,
+        access,
+      });
+
       return { handled: true };
     }
 

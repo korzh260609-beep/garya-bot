@@ -1,34 +1,39 @@
 export async function checkRoles(report, options = {}) {
-  const { pool, monarchChatId } = options;
+  const { pool, monarchUserId } = options;
 
   if (!pool) {
     report.addWarn("roles check skipped", "No DB pool provided");
     return;
   }
-  if (!monarchChatId) {
-    report.addWarn("roles check skipped", "No MONARCH_CHAT_ID provided");
+  if (!monarchUserId) {
+    report.addWarn("roles check skipped", "No MONARCH_USER_ID provided");
     return;
   }
 
+  const expectedGlobal = `tg:${String(monarchUserId)}`;
+
   try {
     const res = await pool.query(
-      "SELECT chat_id FROM users WHERE role = 'monarch' ORDER BY created_at ASC"
+      "SELECT global_user_id FROM users WHERE role = 'monarch' ORDER BY created_at ASC"
     );
 
-    const monarchs = res.rows.map((r) => String(r.chat_id));
+    const monarchs = res.rows.map((r) => String(r.global_user_id || "")).filter(Boolean);
 
     if (monarchs.length === 0) {
-      report.addWarn("No monarch in DB", `Expected: ${monarchChatId}`);
+      report.addWarn("No monarch in DB", `Expected: ${expectedGlobal}`);
       return;
     }
 
     if (monarchs.length > 1) {
-      report.addFail("Multiple monarchs in DB", `Count: ${monarchs.length} IDs: ${monarchs.join(", ")}`);
+      report.addFail(
+        "Multiple monarchs in DB",
+        `Count: ${monarchs.length} global_user_id: ${monarchs.join(", ")}`
+      );
       return;
     }
 
-    if (monarchs[0] !== String(monarchChatId)) {
-      report.addFail("Wrong monarch in DB", `DB: ${monarchs[0]} Expected: ${monarchChatId}`);
+    if (monarchs[0] !== expectedGlobal) {
+      report.addFail("Wrong monarch in DB", `DB: ${monarchs[0]} Expected: ${expectedGlobal}`);
       return;
     }
 
@@ -37,4 +42,3 @@ export async function checkRoles(report, options = {}) {
     report.addFail("roles check crashed", e?.message || String(e));
   }
 }
-

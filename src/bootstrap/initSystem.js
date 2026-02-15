@@ -12,6 +12,9 @@ import { runDiagnostics } from "../../diagnostics/diagnostics.js";
 // ✅ DB init must live in db-layer (avoid CORE_BOUNDARY_VIOLATION)
 import { ensureTables } from "../db/ensureTables.js";
 
+// ✅ DB migrations (optional, env-gated)
+import { runMigrationsIfEnabled } from "../db/runMigrations.js";
+
 export async function initSystem({ bot }) {
   // ✅ Run diagnostics once on boot/deploy (do not loop)
   try {
@@ -23,6 +26,9 @@ export async function initSystem({ bot }) {
   } catch (e) {
     console.error("❌ BOOT DIAGNOSTICS FAILED:", e);
   }
+
+  // ✅ Run migrations ONLY if enabled by ENV
+  await runMigrationsIfEnabled();
 
   await ensureTables();
   console.log("🧠 Project Memory table OK.");

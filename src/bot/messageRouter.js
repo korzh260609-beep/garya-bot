@@ -634,4 +634,3 @@ export function attachMessageRouter({
     }
   }); // ✅ end bot.on("message", ...)
 } // ✅ end attachMessageRouter(...)
-```0

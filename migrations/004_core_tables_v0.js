@@ -56,24 +56,8 @@ export async function up(pgm) {
     { ifNotExists: true }
   );
 
-  // safety column added earlier via 003 (may already exist)
+  // safety column (unique constraint is handled by migration 003)
   pgm.addColumn("tasks", { task_run_key: { type: "text" } }, { ifNotExists: true });
-
-  // ensure unique constraint exists (MUST be safe if already exists)
-  pgm.sql(`
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'tasks_task_run_key_unique'
-  ) THEN
-    ALTER TABLE "tasks"
-      ADD CONSTRAINT "tasks_task_run_key_unique"
-      UNIQUE ("task_run_key");
-  END IF;
-END $$;
-`);
 
   pgm.createTable(
     "sources",
@@ -88,8 +72,8 @@ END $$;
       last_success_at: { type: "timestamptz" },
       last_error_at: { type: "timestamptz" },
       last_error_message: { type: "text" },
-      allowed_roles: { type: "text[]", default: '{ "guest", "citizen", "monarch" }' },
-      allowed_plans: { type: "text[]", default: '{ "free", "pro", "vip" }' },
+      allowed_roles: { type: "text[]", default: '{"guest","citizen","monarch"}' },
+      allowed_plans: { type: "text[]", default: '{"free","pro","vip"}' },
       rate_limit_seconds: { type: "integer", default: 10 },
       created_at: {
         type: "timestamptz",
@@ -237,27 +221,8 @@ END $$;
   );
 
   // IMPORTANT:
-  // Some databases may already have a PRIMARY KEY on repo_index_files (e.g., legacy id PK).
-  // Adding another PK would crash (multiple primary keys). So:
-  // 1) Add composite PK only if there is NO existing PK.
-  // 2) Always add a UNIQUE index on (snapshot_id, path) as safety.
-  pgm.sql(`
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint c
-    JOIN pg_class t ON t.oid = c.conrelid
-    WHERE t.relname = 'repo_index_files'
-      AND c.contype = 'p'
-  ) THEN
-    ALTER TABLE "repo_index_files"
-      ADD CONSTRAINT "repo_index_files_pk"
-      PRIMARY KEY ("snapshot_id", "path");
-  END IF;
-END $$;
-`);
-
+  // Do NOT add PRIMARY KEY here (prod DB may already have one with a different name).
+  // Instead, enforce uniqueness with a unique index (safe regardless of existing PK).
   pgm.createIndex("repo_index_files", ["snapshot_id", "path"], {
     name: "idx_repo_index_files_snapshot_path_unique",
     unique: true,

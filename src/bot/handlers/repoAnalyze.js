@@ -8,13 +8,13 @@ import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 import { RepoSource } from "../../repo/RepoSource.js";
 
 // ---------------------------------------------------------------------------
-// Permission guard (monarch-only)
+// Permission guard (monarch-only) — Stage 4: identity-first (MONARCH_USER_ID)
 // ---------------------------------------------------------------------------
-async function requireMonarch(bot, chatId) {
-  const MONARCH_CHAT_ID = String(process.env.MONARCH_CHAT_ID || "").trim();
-  if (!MONARCH_CHAT_ID) return true;
+async function requireMonarch(bot, chatId, userIdStr) {
+  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+  if (!MONARCH_USER_ID) return true;
 
-  if (String(chatId) !== MONARCH_CHAT_ID) {
+  if (String(userIdStr) !== MONARCH_USER_ID) {
     await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
     return false;
   }
@@ -100,13 +100,17 @@ function parsePathAndQuestion(rest) {
 
 function buildMetrics({ path, code, lines }) {
   // Без вывода кода: только метрики/флаги
-  const imports = countMatches("^\\s*import\\s+", code) + countMatches("^\\s*const\\s+\\w+\\s*=\\s*require\\(", code);
+  const imports =
+    countMatches("^\\s*import\\s+", code) +
+    countMatches("^\\s*const\\s+\\w+\\s*=\\s*require\\(", code);
   const exportsCount =
     countMatches("^\\s*export\\s+", code) +
     countMatches("module\\.exports\\s*=", code) +
     countMatches("exports\\.", code);
 
-  const funcs = countMatches("\\bfunction\\s+\\w+\\s*\\(", code) + countMatches("\\basync\\s+function\\s+\\w+\\s*\\(", code);
+  const funcs =
+    countMatches("\\bfunction\\s+\\w+\\s*\\(", code) +
+    countMatches("\\basync\\s+function\\s+\\w+\\s*\\(", code);
   const arrowFns = countMatches("\\bconst\\s+\\w+\\s*=\\s*\\(.*?\\)\\s*=>", code);
   const classes = countMatches("\\bclass\\s+\\w+\\b", code);
 
@@ -114,7 +118,9 @@ function buildMetrics({ path, code, lines }) {
   const hasNet = reTest("\\bfetch\\(", code) || reTest("\\baxios\\b", code) || reTest("\\brequest\\b", code);
   const hasFsWrite =
     reTest("\\bfs\\.", code) &&
-    (reTest("\\bwriteFile\\(", code) || reTest("\\bappendFile\\(", code) || reTest("\\bcreateWriteStream\\(", code));
+    (reTest("\\bwriteFile\\(", code) ||
+      reTest("\\bappendFile\\(", code) ||
+      reTest("\\bcreateWriteStream\\(", code));
   const hasChildProc = reTest("\\bchild_process\\b", code) || reTest("\\bexec\\(", code) || reTest("\\bspawn\\(", code);
 
   const isBootstrap = String(path || "").includes("src/bootstrap/");
@@ -211,9 +217,11 @@ function buildQuestionFocus(question) {
 }
 
 export async function handleRepoAnalyze(ctx) {
-  const { bot, chatId, rest } = ctx || {};
+  const { bot, chatId, senderIdStr, rest } = ctx || {};
 
-  const ok = await requireMonarch(bot, chatId);
+  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
+
+  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
   if (!ok) return;
 
   const parsed = parsePathAndQuestion(rest);

@@ -1,30 +1,37 @@
 // src/users/userProfile.js
-// STAGE 4.2 — Multi-Channel Identity foundation (UPSERT by chat_id)
+// STAGE 4.2 — Multi-Channel Identity foundation (SAFE: only private chat upsert by chat_id)
 
 import pool from "../../db.js";
 
+const MONARCH_TG_ID = "677128443";
+
 export async function ensureUserProfile(msg) {
-  const chatId = msg.chat.id.toString();
+  const chatId = msg.chat?.id?.toString();
+  const chatType = msg.chat?.type || null;
+
   const tgUserId = msg.from?.id?.toString() || null;
   const nameFromTelegram = msg.from?.first_name || null;
   const language = msg.from?.language_code || null;
 
-  if (!tgUserId) return;
+  if (!chatId || !tgUserId) return;
+
+  // ✅ CRITICAL SAFETY: avoid corrupting users table in group/supergroup/channel
+  // Because chat_id there is group id, not a user id.
+  if (chatType !== "private") return;
 
   const globalUserId = `tg:${tgUserId}`;
 
   let role = "guest";
   let finalName = nameFromTelegram;
 
-  // MONARCH
-  if (chatId === "677128443") {
+  // ✅ MONARCH must be bound to tgUserId, not chatId
+  if (tgUserId === MONARCH_TG_ID) {
     role = "monarch";
     finalName = "GARY";
   }
 
   try {
-    // ✅ Always set global_user_id = tg:<tgUserId>
-    // ✅ Safe with unique chat_id constraint
+    // ✅ Safe with unique chat_id constraint (private chat: chatId == userId)
     await pool.query(
       `
       INSERT INTO users (chat_id, global_user_id, name, role, language)

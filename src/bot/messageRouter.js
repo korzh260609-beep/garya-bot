@@ -161,6 +161,12 @@ export function attachMessageRouter({
       const trimmed = text.trim();
 
       // =========================
+      // === STAGE 4 (DEEP): CHAT CONTEXT NORMALIZATION
+      // =========================
+      const chatType = msg.chat?.type || "unknown"; // private | group | supergroup | channel | unknown
+      const isPrivate = chatType === "private";
+
+      // =========================
       // === ACCESS / ROLE
       // =========================
 
@@ -168,9 +174,6 @@ export function attachMessageRouter({
       const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
 
       const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
-
-      const chatType = msg.chat?.type || "unknown";
-      const isPrivate = chatType === "private";
       const isMonarchUser = isMonarchFn(senderIdStr);
 
       // =========================
@@ -210,6 +213,9 @@ export function attachMessageRouter({
       // === COMMANDS
       // =========================
       if (trimmed.startsWith("/")) {
+        // STAGE 4 DEEP: if no sender identity (channels / service updates) -> deny silently
+        if (!senderIdStr) return;
+
         const { cmd, rest } = parseCommand(trimmed);
 
         // ======================================================================
@@ -274,9 +280,20 @@ export function attachMessageRouter({
 
         // command router (some legacy commands are mapped)
         const action = CMD_ACTION[cmd];
+
+        // STAGE 4 DEEP: admin-actions are private-only + monarch-only (even if invoked in groups)
+        if (
+          action &&
+          typeof action === "string" &&
+          action.startsWith("cmd.admin.") &&
+          (!isMonarchUser || !isPrivate)
+        ) {
+          return; // silent block
+        }
+
         if (action) {
           // Stage 3.3: permissions-layer enforcement (can() + access request flow)
-          const allowed = await requirePermOrReply(cmd, { rest });
+          const allowed = await requirePermOrReply(cmd, { rest, chatType, isPrivate });
           if (!allowed) return;
 
           // Stage 3.5: rate-limit commands (skip for monarch/bypass)
@@ -299,6 +316,8 @@ export function attachMessageRouter({
             chatId,
             chatIdStr,
             senderIdStr,
+            chatType,
+            isPrivateChat: isPrivate,
             rest,
             bypass,
             requirePermOrReply,
@@ -615,3 +634,4 @@ export function attachMessageRouter({
     }
   }); // ✅ end bot.on("message", ...)
 } // ✅ end attachMessageRouter(...)
+```0

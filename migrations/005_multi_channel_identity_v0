@@ -1,0 +1,79 @@
+// migrations/005_multi_channel_identity_v0.js
+// STAGE 4.1 — Multi-Channel Identity (SKELETON)
+// - add users.global_user_id
+// - create user_identities table
+// - backfill global_user_id for existing rows
+// - schema_version bump
+
+export async function up(pgm) {
+  // 1) users.global_user_id (NOT UNIQUE, because one person can have multiple chat contexts)
+  pgm.addColumn(
+    "users",
+    {
+      global_user_id: { type: "text" },
+    },
+    { ifNotExists: true }
+  );
+
+  // Helpful index for lookups
+  pgm.createIndex("users", ["global_user_id"], {
+    name: "idx_users_global_user_id",
+    ifNotExists: true,
+  });
+
+  // 2) user_identities: links provider identities to global_user_id
+  pgm.createTable(
+    "user_identities",
+    {
+      id: "serial",
+      global_user_id: { type: "text", notNull: true },
+      provider: { type: "text", notNull: true }, // e.g. "telegram"
+      provider_user_id: { type: "text", notNull: true }, // e.g. Telegram user_id
+      chat_id: { type: "text" }, // optional: for chat-scoped links
+      meta: { type: "jsonb", default: "{}::jsonb" },
+      created_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
+    },
+    { ifNotExists: true }
+  );
+
+  // Telegram user_id is global → safe unique constraint by (provider, provider_user_id)
+  pgm.createIndex("user_identities", ["provider", "provider_user_id"], {
+    name: "ux_user_identities_provider_provider_user_id",
+    unique: true,
+    ifNotExists: true,
+  });
+
+  pgm.createIndex("user_identities", ["global_user_id"], {
+    name: "idx_user_identities_global_user_id",
+    ifNotExists: true,
+  });
+
+  // 3) Backfill global_user_id for existing users (safe, idempotent)
+  // Prefer tg_user_id if present; else fallback to chat_id.
+  pgm.sql(`
+    UPDATE users
+    SET global_user_id = COALESCE(
+      global_user_id,
+      CASE
+        WHEN tg_user_id IS NOT NULL AND tg_user_id <> '' THEN 'tg:' || tg_user_id
+        ELSE 'chat:' || chat_id
+      END
+    )
+    WHERE global_user_id IS NULL OR global_user_id = '';
+  `);
+
+  // 4) schema_version bump
+  pgm.sql(`
+    INSERT INTO schema_version (version, note)
+    VALUES (5, 'stage 4.1 multi-channel identity v0 (global_user_id + user_identities)')
+    ON CONFLICT (version) DO NOTHING;
+  `);
+}
+
+export async function down(pgm) {
+  // forward-only policy; keep down minimal
+}

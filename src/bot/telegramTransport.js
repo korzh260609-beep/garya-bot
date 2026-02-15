@@ -8,7 +8,6 @@
 // НИКАКОЙ бизнес-логики
 
 import TelegramBot from "node-telegram-bot-api";
-// import { handleIncomingMessage } from "./messageRouter.js";
 
 export function initTelegramTransport(app) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -30,16 +29,33 @@ export function initTelegramTransport(app) {
   const webhookPath = `/webhook/${token}`;
   const webhookUrl = `${BASE_URL}${webhookPath}`;
 
-  bot
-    .setWebHook(webhookUrl)
-    .then(() => {
-      // ВАЖНО: не выводим webhookUrl, чтобы не светить токен
+  // ✅ IMPORTANT: webhook errors must NOT crash the service (transient network happens)
+  const MAX_RETRIES = Number(process.env.WEBHOOK_SET_RETRIES || 10);
+  const BASE_DELAY_MS = Number(process.env.WEBHOOK_SET_DELAY_MS || 2000);
+
+  let attempt = 0;
+
+  async function trySetWebhook() {
+    attempt += 1;
+
+    try {
+      await bot.setWebHook(webhookUrl);
       console.log("🚀 Telegram webhook установлен");
-    })
-    .catch((err) => {
-      console.error("❌ Ошибка установки webhook:", err);
-      process.exit(1);
-    });
+    } catch (err) {
+      console.error(`❌ Ошибка установки webhook (attempt ${attempt}/${MAX_RETRIES}):`, err);
+
+      // Do NOT exit. Retry with backoff.
+      if (attempt < MAX_RETRIES) {
+        const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attempt - 1), 30000); // cap 30s
+        setTimeout(trySetWebhook, delay);
+      } else {
+        console.error("❌ Webhook failed too many times — continuing without exit. Check BASE_URL / Telegram.");
+      }
+    }
+  }
+
+  // start async
+  trySetWebhook();
 
   // HTTP endpoint для Telegram
   app.post(webhookPath, async (req, res) => {
@@ -51,15 +67,6 @@ export function initTelegramTransport(app) {
       res.sendStatus(500);
     }
   });
-
-  // Все входящие сообщения → router
-  // bot.on("message", async (msg) => {
-  //   try {
-  //     await handleIncomingMessage(bot, msg);
-  //   } catch (err) {
-  //     console.error("❌ handleIncomingMessage error:", err);
-  //   }
-  // });
 
   return bot;
 }

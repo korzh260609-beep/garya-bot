@@ -4,7 +4,10 @@
   "type": "module",
   "main": "./index.js",
   "scripts": {
-    "start": "node ./index.js"
+    "start": "node ./index.js",
+    "migrate:up": "node-pg-migrate up",
+    "migrate:down": "node-pg-migrate down",
+    "migrate:create": "node-pg-migrate create"
   },
   "dependencies": {
     "node-telegram-bot-api": "^0.61.0",
@@ -12,6 +15,14 @@
     "openai": "^4.28.0",
     "pg": "^8.12.0",
     "node-fetch": "^3.3.2",
-    "cheerio": "^1.0.0-rc.12"
+    "cheerio": "^1.0.0-rc.12",
+    "node-pg-migrate": "^7.9.1"
+  },
+  "node-pg-migrate": {
+    "migrations-dir": "migrations",
+    "direction": "up",
+    "create-schema": false,
+    "schema": "public",
+    "ignore-pattern": ".*\\.map$"
   }
 }

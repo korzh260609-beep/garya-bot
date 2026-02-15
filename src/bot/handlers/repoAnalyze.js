@@ -194,7 +194,7 @@ function buildFindings({ metrics, code }) {
     metrics.flags.isHandler &&
     (reTest("\\/reindex\\b", code) || reTest("\\/repo_review\\b", code) || reTest("\\/repo_diff\\b", code) || reTest("\\/repo_", code))
   ) {
-    if (!reTest("MONARCH_USER_ID", code) && !reTest("MONARCH_CHAT_ID", code) && !reTest("requirePerm", code) && !reTest("perm", code)) {
+    if (!reTest("MONARCH_USER_ID", code) && !reTest("requirePerm", code) && !reTest("perm", code)) {
       risks.push("Похоже на привилегированную команду без явного permission-guard в handler (PERMISSION_BYPASS_RISK).");
       suggestions.push("Добавь явный guard внутри handler (даже если guard есть на уровне router).");
     }
@@ -219,7 +219,12 @@ function buildQuestionFocus(question) {
 export async function handleRepoAnalyze(ctx) {
   const { bot, chatId, senderIdStr, rest } = ctx || {};
 
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
+  // Stage 4: identity-first. No trust in chatId.
+  if (!senderIdStr) {
+    await bot.sendMessage(chatId, "Internal error: senderIdStr missing (identity-first).");
+    return;
+  }
+  const effectiveUserIdStr = String(senderIdStr);
 
   const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
   if (!ok) return;

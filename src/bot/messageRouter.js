@@ -167,9 +167,6 @@ export function attachMessageRouter({
       // ВАЖНО: монарх определяется по USER_ID (msg.from.id), а не по chat_id
       const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
 
-      // Backward-compat для permGuard (там ожидается имя MONARCH_CHAT_ID)
-      const MONARCH_CHAT_ID = MONARCH_USER_ID;
-
       const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
 
       const chatType = msg.chat?.type || "unknown";
@@ -201,7 +198,7 @@ export function attachMessageRouter({
       const requirePermOrReply = buildRequirePermOrReply({
         bot,
         msg,
-        MONARCH_CHAT_ID,
+        MONARCH_USER_ID,
         user,
         userRole,
         userPlan,

@@ -14,10 +14,7 @@ import {
   runTaskWithAI,
 } from "../tasks/taskEngine.js";
 
-import {
-  getAllSourcesSafe,
-  formatSourcesList,
-} from "../sources/sourcesDebug.js";
+import { getAllSourcesSafe, formatSourcesList } from "../sources/sourcesDebug.js";
 
 import { getProjectSection, upsertProjectSection } from "../projectMemory.js";
 import { setAnswerMode } from "../core/answerMode.js";
@@ -26,17 +23,28 @@ import { setAnswerMode } from "../core/answerMode.js";
 // === Access Requests helpers/commands (extracted pattern from messageRouter.js)
 // ============================================================================
 
-const MONARCH_USER_ID = "677128443";
+// ---------------------------------------------------------------------------
+// Permission guard (monarch-only) — Stage 4: identity-first (MONARCH_USER_ID)
+// ---------------------------------------------------------------------------
+async function requireMonarch(bot, chatId, senderIdStr) {
+  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+  if (!MONARCH_USER_ID) return true;
 
-function isMonarch(chatIdStr) {
-  return String(chatIdStr) === String(MONARCH_USER_ID);
+  if (!senderIdStr) {
+    await bot.sendMessage(chatId, "Internal error: senderIdStr missing (identity-first).");
+    return false;
+  }
+
+  if (String(senderIdStr) !== MONARCH_USER_ID) {
+    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+    return false;
+  }
+  return true;
 }
 
 async function getUserRoleByChatId(chatIdStr) {
   try {
-    const res = await pool.query("SELECT role FROM users WHERE chat_id = $1", [
-      chatIdStr,
-    ]);
+    const res = await pool.query("SELECT role FROM users WHERE chat_id = $1", [chatIdStr]);
     return res.rows?.[0]?.role || "guest";
   } catch (e) {
     console.error("❌ Error fetching user role:", e);
@@ -44,11 +52,9 @@ async function getUserRoleByChatId(chatIdStr) {
   }
 }
 
-async function cmdApprove({ bot, chatId, chatIdStr, rest }) {
-  if (!isMonarch(chatIdStr)) {
-    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-    return;
-  }
+async function cmdApprove({ bot, chatId, chatIdStr, senderIdStr, rest }) {
+  const ok = await requireMonarch(bot, chatId, senderIdStr);
+  if (!ok) return;
 
   const id = Number((rest || "").trim());
   if (!id) {
@@ -60,23 +66,15 @@ async function cmdApprove({ bot, chatId, chatIdStr, rest }) {
     const AccessRequests = await import("../users/accessRequests.js");
     const result = await AccessRequests.approveAccessRequest({
       requestId: id,
-      resolvedBy: chatIdStr,
+      resolvedBy: String(senderIdStr),
     });
 
     if (!result?.ok) {
-      await bot.sendMessage(
-        chatId,
-        `⚠️ Не удалось approve: ${result?.error || "unknown"}`
-      );
+      await bot.sendMessage(chatId, `⚠️ Не удалось approve: ${result?.error || "unknown"}`);
       return;
     }
 
-    const req =
-      result.request ||
-      result.row ||
-      result.data ||
-      result.accessRequest ||
-      null;
+    const req = result.request || result.row || result.data || result.accessRequest || null;
 
     const requesterChatId =
       req?.requester_chat_id ||
@@ -88,10 +86,7 @@ async function cmdApprove({ bot, chatId, chatIdStr, rest }) {
 
     if (requesterChatId) {
       try {
-        await bot.sendMessage(
-          Number(requesterChatId),
-          `✅ Монарх одобрил вашу заявку #${id}.`
-        );
+        await bot.sendMessage(Number(requesterChatId), `✅ Монарх одобрил вашу заявку #${id}.`);
       } catch {
         // ignore
       }
@@ -104,11 +99,9 @@ async function cmdApprove({ bot, chatId, chatIdStr, rest }) {
   }
 }
 
-async function cmdDeny({ bot, chatId, chatIdStr, rest }) {
-  if (!isMonarch(chatIdStr)) {
-    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-    return;
-  }
+async function cmdDeny({ bot, chatId, chatIdStr, senderIdStr, rest }) {
+  const ok = await requireMonarch(bot, chatId, senderIdStr);
+  if (!ok) return;
 
   const id = Number((rest || "").trim());
   if (!id) {
@@ -120,23 +113,15 @@ async function cmdDeny({ bot, chatId, chatIdStr, rest }) {
     const AccessRequests = await import("../users/accessRequests.js");
     const result = await AccessRequests.denyAccessRequest({
       requestId: id,
-      resolvedBy: chatIdStr,
+      resolvedBy: String(senderIdStr),
     });
 
     if (!result?.ok) {
-      await bot.sendMessage(
-        chatId,
-        `⚠️ Не удалось deny: ${result?.error || "unknown"}`
-      );
+      await bot.sendMessage(chatId, `⚠️ Не удалось deny: ${result?.error || "unknown"}`);
       return;
     }
 
-    const req =
-      result.request ||
-      result.row ||
-      result.data ||
-      result.accessRequest ||
-      null;
+    const req = result.request || result.row || result.data || result.accessRequest || null;
 
     const requesterChatId =
       req?.requester_chat_id ||
@@ -148,10 +133,7 @@ async function cmdDeny({ bot, chatId, chatIdStr, rest }) {
 
     if (requesterChatId) {
       try {
-        await bot.sendMessage(
-          Number(requesterChatId),
-          `⛔ Монарх отклонил вашу заявку #${id}.`
-        );
+        await bot.sendMessage(Number(requesterChatId), `⛔ Монарх отклонил вашу заявку #${id}.`);
       } catch {
         // ignore
       }
@@ -164,11 +146,9 @@ async function cmdDeny({ bot, chatId, chatIdStr, rest }) {
   }
 }
 
-async function cmdArCreateTest({ bot, chatId, chatIdStr }) {
-  if (!isMonarch(chatIdStr)) {
-    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-    return;
-  }
+async function cmdArCreateTest({ bot, chatId, chatIdStr, senderIdStr }) {
+  const ok = await requireMonarch(bot, chatId, senderIdStr);
+  if (!ok) return;
 
   try {
     const AccessRequests = await import("../users/accessRequests.js");
@@ -183,7 +163,7 @@ async function cmdArCreateTest({ bot, chatId, chatIdStr }) {
       requestedCmd: "/stop_all_tasks",
       meta: {
         test: true,
-        createdBy: chatIdStr,
+        createdBy: String(senderIdStr),
         at: nowIso,
         note: "Self-test request (7.11 V1).",
       },
@@ -203,11 +183,9 @@ async function cmdArCreateTest({ bot, chatId, chatIdStr }) {
   }
 }
 
-async function cmdArList({ bot, chatId, chatIdStr, rest }) {
-  if (!isMonarch(chatIdStr)) {
-    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
-    return;
-  }
+async function cmdArList({ bot, chatId, chatIdStr, senderIdStr, rest }) {
+  const ok = await requireMonarch(bot, chatId, senderIdStr);
+  if (!ok) return;
 
   const n = Math.max(1, Math.min(Number((rest || "").trim()) || 10, 30));
 
@@ -261,6 +239,9 @@ export async function handleCommand(bot, msg, command, commandArgs) {
   const chatId = msg.chat.id;
   const chatIdStr = chatId.toString();
 
+  // Stage 4: identity-first. chat_id = transport only.
+  const senderIdStr = msg?.from?.id != null ? String(msg.from.id) : "";
+
   switch (command) {
     case "/profile":
     case "/whoami":
@@ -272,10 +253,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         );
 
         if (res.rows.length === 0) {
-          await bot.sendMessage(
-            chatId,
-            "Пока что у меня нет данных о вашем профиле в системе."
-          );
+          await bot.sendMessage(chatId, "Пока что у меня нет данных о вашем профиле в системе.");
         } else {
           const u = res.rows[0];
           const text =
@@ -299,22 +277,22 @@ export async function handleCommand(bot, msg, command, commandArgs) {
     // === Access Requests (monarch-only)
     // ======================================================================
     case "/approve": {
-      await cmdApprove({ bot, chatId, chatIdStr, rest: commandArgs });
+      await cmdApprove({ bot, chatId, chatIdStr, senderIdStr, rest: commandArgs });
       return;
     }
 
     case "/deny": {
-      await cmdDeny({ bot, chatId, chatIdStr, rest: commandArgs });
+      await cmdDeny({ bot, chatId, chatIdStr, senderIdStr, rest: commandArgs });
       return;
     }
 
     case "/ar_create_test": {
-      await cmdArCreateTest({ bot, chatId, chatIdStr });
+      await cmdArCreateTest({ bot, chatId, chatIdStr, senderIdStr });
       return;
     }
 
     case "/ar_list": {
-      await cmdArList({ bot, chatId, chatIdStr, rest: commandArgs });
+      await cmdArList({ bot, chatId, chatIdStr, senderIdStr, rest: commandArgs });
       return;
     }
 
@@ -328,10 +306,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         );
       } catch (e) {
         console.error("❌ Error in /demo_task:", e);
-        await bot.sendMessage(
-          chatId,
-          "Не удалось создать демо-задачу. См. логи сервера."
-        );
+        await bot.sendMessage(chatId, "Не удалось создать демо-задачу. См. логи сервера.");
       }
       return;
     }
@@ -664,20 +639,12 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
           const row = last.rows[0];
           if (row) {
-            const snippet =
-              row.content.length > 400 ? row.content.slice(0, 400) + "..." : row.content;
-            latestBlock =
-              `Последняя запись:\n` +
-              `🕒 ${row.created_at}\n` +
-              `🎭 Роль: ${row.role}\n` +
-              `💬 Текст: ${snippet}`;
+            const snippet = row.content.length > 400 ? row.content.slice(0, 400) + "..." : row.content;
+            latestBlock = `Последняя запись:\n` + `🕒 ${row.created_at}\n` + `🎭 Роль: ${row.role}\n` + `💬 Текст: ${snippet}`;
           }
         }
 
-        const text =
-          `📊 Статус долговременной памяти\n` +
-          `Всего сообщений в памяти: ${total}\n\n` +
-          `${latestBlock}`;
+        const text = `📊 Статус долговременной памяти\n` + `Всего сообщений в памяти: ${total}\n\n` + `${latestBlock}`;
 
         await bot.sendMessage(chatId, text);
       } catch (e) {
@@ -731,11 +698,9 @@ export async function handleCommand(bot, msg, command, commandArgs) {
     case "/source": {
       const key = commandArgs.trim();
       if (!key) {
-        await bot.sendMessage(
-          chatId,
-          "Нужно указать ключ источника.\nПример: `/source coingecko_simple_price`",
-          { parse_mode: "Markdown" }
-        );
+        await bot.sendMessage(chatId, "Нужно указать ключ источника.\nПример: `/source coingecko_simple_price`", {
+          parse_mode: "Markdown",
+        });
         return;
       }
 
@@ -754,12 +719,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
           return;
         }
 
-        const payload =
-          result.data ||
-          result.htmlSnippet ||
-          result.xmlSnippet ||
-          result.items ||
-          null;
+        const payload = result.data || result.htmlSnippet || result.xmlSnippet || result.items || null;
 
         const previewObj = {
           ok: result.ok,
@@ -788,11 +748,9 @@ export async function handleCommand(bot, msg, command, commandArgs) {
     case "/diag_source": {
       const key = commandArgs.trim();
       if (!key) {
-        await bot.sendMessage(
-          chatId,
-          "Нужно указать ключ источника.\nПример: `/diag_source coingecko_simple_price`",
-          { parse_mode: "Markdown" }
-        );
+        await bot.sendMessage(chatId, "Нужно указать ключ источника.\nПример: `/diag_source coingecko_simple_price`", {
+          parse_mode: "Markdown",
+        });
         return;
       }
 
@@ -802,16 +760,9 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
         const type = result.type || "unknown";
         const httpStatus =
-          typeof result.httpStatus === "number"
-            ? result.httpStatus
-            : result.meta?.httpStatus ?? "—";
+          typeof result.httpStatus === "number" ? result.httpStatus : result.meta?.httpStatus ?? "—";
 
-        const payload =
-          result.data ||
-          result.htmlSnippet ||
-          result.xmlSnippet ||
-          result.items ||
-          null;
+        const payload = result.data || result.htmlSnippet || result.xmlSnippet || result.items || null;
 
         const previewObj = {
           ok: result.ok,
@@ -847,22 +798,14 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
     // === ПРОЕКТНАЯ ПАМЯТЬ: /pm_set и /pm_show ===
     case "/pm_set": {
-      const userIsMonarch = chatIdStr === "677128443";
-
-      if (!userIsMonarch) {
-        await bot.sendMessage(
-          chatId,
-          "У вас нет прав изменять проектную память. Только монарх может это делать."
-        );
-        return;
-      }
+      const ok = await requireMonarch(bot, chatId, senderIdStr);
+      if (!ok) return;
 
       const raw = commandArgs.trim();
       if (!raw) {
         await bot.sendMessage(
           chatId,
-          "Использование:\n`/pm_set <section> <text>`\n\n" +
-            "Пример:\n`/pm_set roadmap SG — ROADMAP V3.2 ...`",
+          "Использование:\n`/pm_set <section> <text>`\n\n" + "Пример:\n`/pm_set roadmap SG — ROADMAP V3.2 ...`",
           { parse_mode: "Markdown" }
         );
         return;
@@ -882,8 +825,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       if (!content) {
         await bot.sendMessage(
           chatId,
-          "Нужно указать текст для записи в проектную память.\n" +
-            "Пример:\n`/pm_set roadmap ROADMAP V1.5 ...`",
+          "Нужно указать текст для записи в проектную память.\n" + "Пример:\n`/pm_set roadmap ROADMAP V1.5 ...`",
           { parse_mode: "Markdown" }
         );
         return;
@@ -985,14 +927,11 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
       let desc = "";
       if (arg === "short") {
-        desc =
-          "короткие ответы (1–2 предложения, без лишних деталей, с приоритетом экономии токенов).";
+        desc = "короткие ответы (1–2 предложения, без лишних деталей, с приоритетом экономии токенов).";
       } else if (arg === "normal") {
-        desc =
-          "средние ответы (3–7 предложений, немного деталей, умеренная экономия токенов).";
+        desc = "средние ответы (3–7 предложений, немного деталей, умеренная экономия токенов).";
       } else if (arg === "long") {
-        desc =
-          "развернутые ответы с пунктами и объяснениями (больше токенов, максимум пользы).";
+        desc = "развернутые ответы с пунктами и объяснениями (больше токенов, максимум пользы).";
       }
 
       await bot.sendMessage(chatId, `✅ Режим ответа установлен: ${arg}.\n\nОписание: ${desc}`);

@@ -124,6 +124,10 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
+    // ==========================
+    // TASKS (Stage 2.x) — FIXES
+    // ==========================
+
     case "/tasks": {
       const access = {
         userRole: (ctx.userRole || ctx.user?.role || "guest"),
@@ -139,6 +143,74 @@ export async function dispatchCommand(cmd, ctx) {
         access,
       });
 
+      return { handled: true };
+    }
+
+    case "/newtask": {
+      // Usage: /newtask <title> | <note>
+      // Minimal, safe parsing. If no delimiter, uses whole rest as title.
+      const raw = String(rest || "").trim();
+
+      if (!raw) {
+        await bot.sendMessage(chatId, "Использование: /newtask <title> | <note>");
+        return { handled: true };
+      }
+
+      const parts = raw.split("|").map((s) => s.trim());
+      const title = parts[0] || "Новая задача";
+      const note = parts.slice(1).join(" | ").trim() || "";
+
+      const access = {
+        userRole: (ctx.userRole || ctx.user?.role || "guest"),
+        userPlan: (ctx.userPlan || ctx.user?.plan || "free"),
+        bypassPermissions: Boolean(ctx.bypass),
+      };
+
+      if (typeof ctx.createManualTask !== "function") {
+        await bot.sendMessage(chatId, "⛔ createManualTask недоступен (ошибка wiring).");
+        return { handled: true };
+      }
+
+      try {
+        const row = await ctx.createManualTask(chatIdStr, title, note, access);
+        const id = row?.id ?? "?";
+        await bot.sendMessage(chatId, `✅ Задача создана: #${id}\n${title}`);
+      } catch (e) {
+        await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
+      }
+
+      return { handled: true };
+    }
+
+    case "/run": {
+      // Usage: /run <id>
+      const raw = String(rest || "").trim();
+      const taskId = parseInt(raw, 10);
+
+      if (!raw || Number.isNaN(taskId)) {
+        await bot.sendMessage(chatId, "Использование: /run <id>");
+        return { handled: true };
+      }
+
+      if (typeof ctx.getTaskById !== "function" || typeof ctx.runTaskWithAI !== "function") {
+        await bot.sendMessage(chatId, "⛔ TaskEngine недоступен (ошибка wiring).");
+        return { handled: true };
+      }
+
+      const task = await ctx.getTaskById(chatIdStr, taskId);
+
+      if (!task) {
+        await bot.sendMessage(chatId, `⛔ Задача #${taskId} не найдена`);
+        return { handled: true };
+      }
+
+      const access = {
+        userRole: (ctx.userRole || ctx.user?.role || "guest"),
+        userPlan: (ctx.userPlan || ctx.user?.plan || "free"),
+        bypassPermissions: Boolean(ctx.bypass),
+      };
+
+      await ctx.runTaskWithAI(task, chatId, bot, access);
       return { handled: true };
     }
 
@@ -159,10 +231,10 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-      case "/project_status": {
-  await handleProjectStatus({ bot, chatId });
-  return { handled: true };
-}
+    case "/project_status": {
+      await handleProjectStatus({ bot, chatId });
+      return { handled: true };
+    }
 
     case "/help": {
       if (typeof ctx.handleHelpLegacy !== "function") return { handled: false };

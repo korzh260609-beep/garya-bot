@@ -1,54 +1,47 @@
-// src/bot/users/userAccess.js
-import pool from "../../db.js";
+// src/users/userAccess.js
+import { pool } from "../../db.js";
 
-/**
- * DB-only access resolver (role/plan/bypass).
- * IMPORTANT: behavior must remain identical to legacy router logic.
- */
-export async function resolveUserAccess({
-  chatIdStr,
-  senderIdStr,
-  DEFAULT_PLAN = "free",
-  isMonarch, // function(chatIdOrSenderIdStr) -> boolean (legacy behavior is preserved by caller)
-}) {
-  // ✅ SAFETY: never crash if caller forgot to pass isMonarch(fn)
-  const isMonarchFn = typeof isMonarch === "function" ? isMonarch : () => false;
+const MONARCH_TG_ID = "677128443";
 
-  // 1) role + plan
-  let userRole = "guest";
-  let userPlan = DEFAULT_PLAN;
-
+export async function resolveUserAccess({ provider, providerUserId }) {
   try {
-    const uRes = await pool.query("SELECT role FROM users WHERE chat_id = $1", [
-      chatIdStr,
-    ]);
-    if (uRes.rows.length) userRole = uRes.rows[0].role || "guest";
-  } catch (e) {
-    console.error("❌ Error fetching user role:", e);
+    const { rows } = await pool.query(
+      `
+      SELECT u.role, u.global_user_id
+      FROM user_identities ui
+      JOIN users u ON u.global_user_id = ui.global_user_id
+      WHERE ui.provider = $1
+      AND ui.provider_user_id = $2
+      LIMIT 1
+      `,
+      [provider, providerUserId]
+    );
+
+    if (!rows.length) {
+      return {
+        role: "guest",
+        globalUserId: null,
+        bypass: false,
+      };
+    }
+
+    const { role, global_user_id } = rows[0];
+
+    // hard monarch override check
+    const isMonarch =
+      provider === "telegram" && providerUserId === MONARCH_TG_ID;
+
+    return {
+      role: isMonarch ? "monarch" : role || "guest",
+      globalUserId: global_user_id,
+      bypass: isMonarch,
+    };
+  } catch (err) {
+    console.error("resolveUserAccess error:", err);
+    return {
+      role: "guest",
+      globalUserId: null,
+      bypass: false,
+    };
   }
-
-  // ✅ SAFETY: только реальный MONARCH_CHAT_ID может иметь роль monarch
-  if ((userRole || "").toLowerCase() === "monarch" && !isMonarchFn(senderIdStr)) {
-    console.warn("⚠️ ROLE GUARD: non-monarch had role=monarch in DB:", senderIdStr);
-    userRole = "guest";
-  }
-
-  const bypass = isMonarchFn(senderIdStr);
-
-  // ✅ Backward-compatible access object
-  const access = {
-    userRole,
-    userPlan,
-    bypassPermissions: bypass,
-
-    // Aliases (do not change meaning; helps callers that expect role/plan keys)
-    role: userRole,
-    plan: userPlan,
-    bypass,
-  };
-
-  // ✅ единый user-объект для permissions-layer
-  const user = { role: userRole, plan: userPlan, bypassPermissions: bypass };
-
-  return { userRole, userPlan, bypass, access, user };
 }

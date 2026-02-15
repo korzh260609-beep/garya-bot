@@ -9,7 +9,11 @@ export async function up(pgm) {
       chat_id: { type: "text", notNull: true },
       role: { type: "text", notNull: true },
       content: { type: "text", notNull: true },
-      created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
+      created_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
     },
     { ifNotExists: true }
   );
@@ -23,7 +27,11 @@ export async function up(pgm) {
       name: { type: "text" },
       role: { type: "text", notNull: true, default: "guest" },
       language: { type: "text" },
-      created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
+      created_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
     },
     { ifNotExists: true }
   );
@@ -39,22 +47,33 @@ export async function up(pgm) {
       schedule: { type: "text" },
       status: { type: "text", notNull: true, default: "active" },
       last_run: { type: "timestamptz" },
-      created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
+      created_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
     },
     { ifNotExists: true }
   );
 
-  pgm.addColumn(
-    "tasks",
-    { task_run_key: { type: "text" } },
-    { ifNotExists: true }
-  );
+  // safety column added earlier via 003 (may already exist)
+  pgm.addColumn("tasks", { task_run_key: { type: "text" } }, { ifNotExists: true });
 
-  try {
-    pgm.addConstraint("tasks", "tasks_task_run_key_unique", {
-      unique: ["task_run_key"]
-    });
-  } catch {}
+  // ensure unique constraint exists (MUST be safe if already exists)
+  pgm.sql(`
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'tasks_task_run_key_unique'
+  ) THEN
+    ALTER TABLE "tasks"
+      ADD CONSTRAINT "tasks_task_run_key_unique"
+      UNIQUE ("task_run_key");
+  END IF;
+END $$;
+`);
 
   pgm.createTable(
     "sources",
@@ -69,11 +88,19 @@ export async function up(pgm) {
       last_success_at: { type: "timestamptz" },
       last_error_at: { type: "timestamptz" },
       last_error_message: { type: "text" },
-      allowed_roles: { type: "text[]", default: '{guest,citizen,monarch}' },
-      allowed_plans: { type: "text[]", default: '{free,pro,vip}' },
+      allowed_roles: { type: "text[]", default: '{ "guest", "citizen", "monarch" }' },
+      allowed_plans: { type: "text[]", default: '{ "free", "pro", "vip" }' },
       rate_limit_seconds: { type: "integer", default: 10 },
-      created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") },
-      updated_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
+      created_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
+      updated_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
     },
     { ifNotExists: true }
   );
@@ -84,14 +111,18 @@ export async function up(pgm) {
       id: "serial",
       source_key: { type: "text", notNull: true, unique: true },
       cached_json: { type: "jsonb", notNull: true },
-      cached_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
+      cached_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
     },
     { ifNotExists: true }
   );
 
   pgm.createIndex("source_cache", ["source_key"], {
     name: "idx_source_cache_source_key",
-    ifNotExists: true
+    ifNotExists: true,
   });
 
   pgm.createTable(
@@ -104,7 +135,11 @@ export async function up(pgm) {
       http_status: { type: "int" },
       message: { type: "text" },
       meta: { type: "jsonb", default: "{}::jsonb" },
-      created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
+      created_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
     },
     { ifNotExists: true }
   );
@@ -114,6 +149,10 @@ export async function up(pgm) {
     ["source_key", { name: "created_at", sort: "DESC" }],
     { name: "idx_source_checks_source_key_created_at", ifNotExists: true }
   );
+  pgm.createIndex("source_checks", [{ name: "created_at", sort: "DESC" }], {
+    name: "idx_source_checks_created_at",
+    ifNotExists: true,
+  });
 
   pgm.createTable(
     "source_logs",
@@ -126,9 +165,19 @@ export async function up(pgm) {
       duration_ms: { type: "integer" },
       params: { type: "jsonb" },
       extra: { type: "jsonb" },
-      created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
+      created_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
     },
     { ifNotExists: true }
+  );
+
+  pgm.createIndex(
+    "source_logs",
+    ["source_key", { name: "created_at", sort: "DESC" }],
+    { name: "idx_source_logs_source_key_created_at", ifNotExists: true }
   );
 
   pgm.createTable(
@@ -138,11 +187,22 @@ export async function up(pgm) {
       chat_id: { type: "text", notNull: true },
       task_type: { type: "text", notNull: true },
       ai_cost_level: { type: "text", notNull: true },
-      created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
+      created_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
     },
     { ifNotExists: true }
   );
 
+  pgm.createIndex(
+    "interaction_logs",
+    ["chat_id", { name: "created_at", sort: "DESC" }],
+    { name: "idx_interaction_logs_chat_created_at", ifNotExists: true }
+  );
+
+  // repo index tables
   pgm.createTable(
     "repo_index_snapshots",
     {
@@ -151,7 +211,11 @@ export async function up(pgm) {
       branch: { type: "text", notNull: true },
       commit_sha: { type: "text" },
       stats: { type: "jsonb", default: "{}::jsonb" },
-      created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
+      created_at: {
+        type: "timestamptz",
+        notNull: true,
+        default: pgm.func("now()"),
+      },
     },
     { ifNotExists: true }
   );
@@ -162,33 +226,43 @@ export async function up(pgm) {
       snapshot_id: {
         type: "bigint",
         notNull: true,
-        references: "\"repo_index_snapshots\"",
-        onDelete: "CASCADE"
+        references: '"repo_index_snapshots"',
+        onDelete: "CASCADE",
       },
       path: { type: "text", notNull: true },
       blob_sha: { type: "text" },
-      size: { type: "integer", default: 0 }
+      size: { type: "integer", default: 0 },
     },
     { ifNotExists: true }
   );
 
-  // SAFE PRIMARY KEY CHECK (corrected)
+  // IMPORTANT:
+  // Some databases may already have a PRIMARY KEY on repo_index_files (e.g., legacy id PK).
+  // Adding another PK would crash (multiple primary keys). So:
+  // 1) Add composite PK only if there is NO existing PK.
+  // 2) Always add a UNIQUE index on (snapshot_id, path) as safety.
   pgm.sql(`
 DO $$
 BEGIN
-  IF EXISTS (
+  IF NOT EXISTS (
     SELECT 1
-    FROM pg_constraint
-    WHERE conrelid = 'repo_index_files'::regclass
-      AND contype = 'p'
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    WHERE t.relname = 'repo_index_files'
+      AND c.contype = 'p'
   ) THEN
-    RETURN;
+    ALTER TABLE "repo_index_files"
+      ADD CONSTRAINT "repo_index_files_pk"
+      PRIMARY KEY ("snapshot_id", "path");
   END IF;
-
-  ALTER TABLE "repo_index_files"
-    ADD PRIMARY KEY ("snapshot_id", "path");
 END $$;
 `);
+
+  pgm.createIndex("repo_index_files", ["snapshot_id", "path"], {
+    name: "idx_repo_index_files_snapshot_path_unique",
+    unique: true,
+    ifNotExists: true,
+  });
 
   pgm.createIndex(
     "repo_index_snapshots",
@@ -204,5 +278,5 @@ END $$;
 }
 
 export async function down(pgm) {
-  // forward-only policy
+  // forward-only policy; keep down minimal
 }

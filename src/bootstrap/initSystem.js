@@ -21,7 +21,7 @@ export async function initSystem({ bot }) {
     await runDiagnostics({
       rootDir: process.cwd(),
       pool,
-      monarchChatId: (process.env.MONARCH_CHAT_ID || "677128443").toString(),
+      monarchUserId: String(process.env.MONARCH_USER_ID || "").trim(),
     });
   } catch (e) {
     console.error("❌ BOOT DIAGNOSTICS FAILED:", e);

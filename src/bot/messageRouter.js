@@ -152,9 +152,6 @@ export function attachMessageRouter({
       const chatId = msg.chat?.id;
       if (!chatId) return;
 
-      // ✅ STAGE 4.2: ensure identity/profile on every incoming message
-      await ensureUserProfile(msg);
-
       const chatIdStr = String(chatId);
       const senderIdStr = String(msg.from?.id || "");
       const text = String(msg.text || "");
@@ -166,6 +163,15 @@ export function attachMessageRouter({
       const chatType = msg.chat?.type || "unknown"; // private | group | supergroup | channel | unknown
       const isPrivate = chatType === "private";
 
+      // ======================================================================
+      // STAGE 4 (DEEP): hard safety — if there is no sender identity, do nothing
+      // (channels/service messages without msg.from)
+      // ======================================================================
+      if (!senderIdStr) return;
+
+      // ✅ STAGE 4.2: ensure identity/profile on every incoming message WITH sender identity
+      await ensureUserProfile(msg);
+
       // =========================
       // === ACCESS / ROLE
       // =========================
@@ -175,6 +181,19 @@ export function attachMessageRouter({
 
       const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
       const isMonarchUser = isMonarchFn(senderIdStr);
+
+      // =========================
+      // === STAGE 4 (DEEP): unified identity context (single source of truth)
+      // =========================
+      const identityCtx = {
+        transport: "telegram",
+        senderIdStr, // user identity
+        chatIdStr, // transport context only
+        chatType,
+        isPrivateChat: isPrivate,
+        isMonarchUser,
+        MONARCH_USER_ID,
+      };
 
       // =========================
       // === ACCESS PACK (DB)
@@ -213,9 +232,6 @@ export function attachMessageRouter({
       // === COMMANDS
       // =========================
       if (trimmed.startsWith("/")) {
-        // STAGE 4 DEEP: if no sender identity (channels / service updates) -> deny silently
-        if (!senderIdStr) return;
-
         const { cmd, rest } = parseCommand(trimmed);
 
         // ======================================================================
@@ -293,7 +309,7 @@ export function attachMessageRouter({
 
         if (action) {
           // Stage 3.3: permissions-layer enforcement (can() + access request flow)
-          const allowed = await requirePermOrReply(cmd, { rest, chatType, isPrivate });
+          const allowed = await requirePermOrReply(cmd, { rest, identityCtx });
           if (!allowed) return;
 
           // Stage 3.5: rate-limit commands (skip for monarch/bypass)
@@ -308,7 +324,6 @@ export function attachMessageRouter({
           }
 
           // ✅ FIX: dispatchCommand must receive (cmd, ctx)
-          // Previously it was called with a single object, which made ctx undefined inside dispatcher.
           const ctx = {
             action,
             bot,
@@ -318,6 +333,7 @@ export function attachMessageRouter({
             senderIdStr,
             chatType,
             isPrivateChat: isPrivate,
+            identityCtx,
             rest,
             bypass,
             requirePermOrReply,
@@ -347,6 +363,10 @@ export function attachMessageRouter({
             // answer mode
             getAnswerMode,
             setAnswerMode,
+
+            // coingecko (kept for compatibility if dispatcher uses it)
+            getCoinGeckoSimplePriceById,
+            getCoinGeckoSimplePriceMulti,
           };
 
           await dispatchCommand(cmd, ctx);
@@ -475,12 +495,25 @@ export function attachMessageRouter({
           }
 
           case "/stop_all": {
-            await handleStopAllTasks({ bot, chatId, chatIdStr, bypass, canStopTaskV1 });
+            await handleStopAllTasks({
+              bot,
+              chatId,
+              chatIdStr,
+              bypass,
+              canStopTaskV1,
+            });
             return;
           }
 
           case "/run_task_cmd": {
-            await handleRunTaskCmd({ bot, chatId, chatIdStr, rest, bypass, isOwnerTaskRow });
+            await handleRunTaskCmd({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              bypass,
+              isOwnerTaskRow,
+            });
             return;
           }
 
@@ -509,17 +542,38 @@ export function attachMessageRouter({
           }
 
           case "/source": {
-            await handleSource({ bot, chatId, chatIdStr, rest, bypass, fetchFromSourceKey });
+            await handleSource({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              bypass,
+              fetchFromSourceKey,
+            });
             return;
           }
 
           case "/diag_source": {
-            await handleDiagSource({ bot, chatId, chatIdStr, rest, bypass, diagnoseSource });
+            await handleDiagSource({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              bypass,
+              diagnoseSource,
+            });
             return;
           }
 
           case "/test_source": {
-            await handleTestSource({ bot, chatId, chatIdStr, rest, bypass, testSource });
+            await handleTestSource({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              bypass,
+              testSource,
+            });
             return;
           }
 
@@ -529,7 +583,14 @@ export function attachMessageRouter({
           }
 
           case "/start_task": {
-            await handleStartTask({ bot, chatId, chatIdStr, rest, bypass, updateTaskStatus });
+            await handleStartTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              bypass,
+              updateTaskStatus,
+            });
             return;
           }
 
@@ -547,12 +608,26 @@ export function attachMessageRouter({
           }
 
           case "/run_task": {
-            await handleRunTask({ bot, chatId, chatIdStr, rest, bypass, runTaskWithAI });
+            await handleRunTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              bypass,
+              runTaskWithAI,
+            });
             return;
           }
 
           case "/new_task": {
-            await handleNewTask({ bot, chatId, chatIdStr, rest, bypass, createManualTask });
+            await handleNewTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              bypass,
+              createManualTask,
+            });
             return;
           }
 

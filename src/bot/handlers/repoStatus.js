@@ -6,21 +6,23 @@ import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 
 // ---------------------------------------------------------------------------
-// Permission guard (monarch-only)
+// Permission guard (monarch-only) — Stage 4: identity-first (MONARCH_USER_ID)
 // ---------------------------------------------------------------------------
-async function requireMonarch(bot, chatId) {
-  const MONARCH_CHAT_ID = String(process.env.MONARCH_CHAT_ID || "").trim();
-  if (!MONARCH_CHAT_ID) return true;
+async function requireMonarch(bot, chatId, userIdStr) {
+  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+  if (!MONARCH_USER_ID) return true;
 
-  if (String(chatId) !== MONARCH_CHAT_ID) {
+  if (String(userIdStr) !== MONARCH_USER_ID) {
     await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
     return false;
   }
   return true;
 }
 
-export async function handleRepoStatus({ bot, chatId }) {
-  const ok = await requireMonarch(bot, chatId);
+export async function handleRepoStatus({ bot, chatId, senderIdStr }) {
+  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
+
+  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
   if (!ok) return;
 
   const repo = process.env.GITHUB_REPO;
@@ -55,4 +57,3 @@ export async function handleRepoStatus({ bot, chatId }) {
     ].join("\n")
   );
 }
-

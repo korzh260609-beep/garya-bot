@@ -61,6 +61,14 @@ export async function ensureUserProfile(msg) {
       [globalUserId, "telegram", tgUserId]
     );
 
+    // 🔎 TEMP DIAG (remove after check)
+    // Если тут rows пустой — вероятно нет UNIQUE(provider, provider_user_id) или вставка не прошла
+    const check = await pool.query(
+      "SELECT global_user_id, provider, provider_user_id FROM user_identities WHERE provider = $1 AND provider_user_id = $2",
+      ["telegram", tgUserId]
+    );
+    console.log("🔎 Identity check:", check.rows);
+
   } catch (err) {
     console.error("❌ Error in ensureUserProfile:", err);
   }

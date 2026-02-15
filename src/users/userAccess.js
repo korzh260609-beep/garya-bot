@@ -1,14 +1,9 @@
 // src/users/userAccess.js
-// Архитектурно чистая версия — доступ через global_user_id
+// STAGE 4.5 — Access через global_user_id (архитектурно чисто)
 
 import pool from "../../db.js";
 
-/**
- * resolveUserAccess
- * Получает доступ пользователя строго через global_user_id.
- * Никогда не использует chat_id как сущность пользователя.
- */
-export async function resolveUserAccess(chatIdStr) {
+export async function resolveUserAccess({ chatIdStr, senderIdStr, isMonarch }) {
   if (!chatIdStr) {
     throw new Error("resolveUserAccess: chatIdStr is required");
   }
@@ -24,18 +19,22 @@ export async function resolveUserAccess(chatIdStr) {
     [chatIdStr]
   );
 
+  // Если профиля нет — гость
   if (userRes.rows.length === 0) {
     return {
-      exists: false,
-      role: "guest",
-      global_user_id: null,
-      language: "uk",
+      userRole: "guest",
+      userPlan: "free",
+      user: {
+        role: "guest",
+        plan: "free",
+        bypassPermissions: false,
+      },
     };
   }
 
-  const { global_user_id, role, language } = userRes.rows[0];
+  const { global_user_id, role } = userRes.rows[0];
 
-  // 2️⃣ Проверяем identity через user_identities
+  // 2️⃣ Проверяем identity (чистая архитектура)
   const identityRes = await pool.query(
     `
     SELECT provider, provider_user_id
@@ -46,16 +45,23 @@ export async function resolveUserAccess(chatIdStr) {
     [global_user_id]
   );
 
-  const identity =
-    identityRes.rows.length > 0
-      ? `${identityRes.rows[0].provider}:${identityRes.rows[0].provider_user_id}`
-      : null;
+  const hasIdentity = identityRes.rows.length > 0;
+
+  // 3️⃣ Monarch override (по senderIdStr)
+  const monarchOverride =
+    typeof isMonarch === "function" && isMonarch(senderIdStr);
+
+  const finalRole = monarchOverride ? "monarch" : role || "guest";
 
   return {
-    exists: true,
-    role: role || "guest",
-    global_user_id,
-    language: language || "uk",
-    identity,
+    userRole: finalRole,
+    userPlan: "free", // планы подключим позже
+    user: {
+      role: finalRole,
+      plan: "free",
+      bypassPermissions: monarchOverride,
+      global_user_id,
+      hasIdentity,
+    },
   };
 }

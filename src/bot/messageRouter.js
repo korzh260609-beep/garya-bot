@@ -43,6 +43,7 @@ import { handleApprove } from "./handlers/approve.js";
 import { handleWorkflowCheck } from "./handlers/workflowCheck.js";
 
 import { resolveUserAccess } from "../users/userAccess.js";
+import { ensureUserProfile } from "../users/userProfile.js"; // ✅ STAGE 4.2 WIRE
 import pool from "../../db.js";
 
 import { dispatchCommand } from "./commandDispatcher.js";
@@ -150,6 +151,9 @@ export function attachMessageRouter({
     try {
       const chatId = msg.chat?.id;
       if (!chatId) return;
+
+      // ✅ STAGE 4.2: ensure identity/profile on every incoming message
+      await ensureUserProfile(msg);
 
       const chatIdStr = String(chatId);
       const senderIdStr = String(msg.from?.id || "");
@@ -351,23 +355,23 @@ export function attachMessageRouter({
           }
 
           // Step 4: status-only flag (NO enable logic, NO code generation)
-        case "/code_output_status": {
-  const mode = getCodeOutputMode();
+          case "/code_output_status": {
+            const mode = getCodeOutputMode();
 
-  await bot.sendMessage(
-    chatId,
-    [
-      `CODE_OUTPUT_MODE: ${mode}`,
-      "",
-      "Modes:",
-      "- DISABLED → генерация запрещена",
-      "- DRY_RUN → только валидация без AI",
-      "- ENABLED → реальная генерация кода",
-    ].join("\n")
-  );
+            await bot.sendMessage(
+              chatId,
+              [
+                `CODE_OUTPUT_MODE: ${mode}`,
+                "",
+                "Modes:",
+                "- DISABLED → генерация запрещена",
+                "- DRY_RUN → только валидация без AI",
+                "- ENABLED → реальная генерация кода",
+              ].join("\n")
+            );
 
-  return;
-}
+            return;
+          }
 
           // ✅ Stage 5.3: workflow check (skeleton handler)
           case "/workflow_check": {

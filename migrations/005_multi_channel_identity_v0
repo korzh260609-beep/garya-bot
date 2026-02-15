@@ -6,7 +6,7 @@
 // - schema_version bump
 
 export async function up(pgm) {
-  // 1) users.global_user_id (NOT UNIQUE, because one person can have multiple chat contexts)
+  // 1) users.global_user_id
   pgm.addColumn(
     "users",
     {
@@ -15,22 +15,21 @@ export async function up(pgm) {
     { ifNotExists: true }
   );
 
-  // Helpful index for lookups
   pgm.createIndex("users", ["global_user_id"], {
     name: "idx_users_global_user_id",
     ifNotExists: true,
   });
 
-  // 2) user_identities: links provider identities to global_user_id
+  // 2) user_identities
   pgm.createTable(
     "user_identities",
     {
       id: "serial",
       global_user_id: { type: "text", notNull: true },
-      provider: { type: "text", notNull: true }, // e.g. "telegram"
-      provider_user_id: { type: "text", notNull: true }, // e.g. Telegram user_id
-      chat_id: { type: "text" }, // optional: for chat-scoped links
-      meta: { type: "jsonb", default: "{}::jsonb" },
+      provider: { type: "text", notNull: true }, // "telegram"
+      provider_user_id: { type: "text", notNull: true }, // tg user id (string)
+      chat_id: { type: "text" }, // optional
+      meta: { type: "jsonb", notNull: true, default: pgm.func("'{}'::jsonb") },
       created_at: {
         type: "timestamptz",
         notNull: true,
@@ -40,7 +39,6 @@ export async function up(pgm) {
     { ifNotExists: true }
   );
 
-  // Telegram user_id is global → safe unique constraint by (provider, provider_user_id)
   pgm.createIndex("user_identities", ["provider", "provider_user_id"], {
     name: "ux_user_identities_provider_provider_user_id",
     unique: true,
@@ -52,8 +50,7 @@ export async function up(pgm) {
     ifNotExists: true,
   });
 
-  // 3) Backfill global_user_id for existing users (safe, idempotent)
-  // Prefer tg_user_id if present; else fallback to chat_id.
+  // 3) Backfill
   pgm.sql(`
     UPDATE users
     SET global_user_id = COALESCE(

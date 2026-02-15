@@ -6,13 +6,13 @@ import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 
 // ---------------------------------------------------------------------------
-// Permission guard (monarch-only)
+// Permission guard (monarch-only) — Stage 4: identity-first (MONARCH_USER_ID)
 // ---------------------------------------------------------------------------
-async function requireMonarch(bot, chatId) {
-  const MONARCH_CHAT_ID = String(process.env.MONARCH_CHAT_ID || "").trim();
-  if (!MONARCH_CHAT_ID) return true;
+async function requireMonarch(bot, chatId, userIdStr) {
+  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+  if (!MONARCH_USER_ID) return true;
 
-  if (String(chatId) !== MONARCH_CHAT_ID) {
+  if (String(userIdStr) !== MONARCH_USER_ID) {
     await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
     return false;
   }
@@ -31,8 +31,10 @@ function normalizeQuery(raw) {
   return q;
 }
 
-export async function handleRepoSearch({ bot, chatId, rest }) {
-  const ok = await requireMonarch(bot, chatId);
+export async function handleRepoSearch({ bot, chatId, senderIdStr, rest }) {
+  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
+
+  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
   if (!ok) return;
 
   const q = normalizeQuery(rest);
@@ -93,4 +95,3 @@ export async function handleRepoSearch({ bot, chatId, rest }) {
     ].join("\n")
   );
 }
-

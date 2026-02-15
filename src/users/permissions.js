@@ -1,5 +1,5 @@
 // ============================================================================
-// === permissions.js — Permissions-layer V1.1 ================================
+// === permissions.js — Permissions-layer V1.2 ================================
 // Единая точка контроля доступа (commands + sources)
 // ============================================================================
 
@@ -11,7 +11,20 @@ export function can(user, action, ctx = {}) {
   // --------------------------------------------------------------------------
   // MONARCH / TECHNICAL BYPASS
   // --------------------------------------------------------------------------
+  // ВАЖНО: монарх в Stage 4 определяется по MONARCH_USER_ID в роутере,
+  // а тут мы опираемся на bypassPermissions (и опционально role=monarch),
+  // чтобы НЕ выдавать админку citizen/vip по умолчанию.
   if (bypass) return true;
+
+  // --------------------------------------------------------------------------
+  // COMMAND-LEVEL HARD BLOCK FOR ADMIN ACTIONS
+  // --------------------------------------------------------------------------
+  // Любые cmd.admin.* запрещены всем, кроме:
+  // - bypassPermissions = true
+  // - (опционально) role === "monarch" если такая роль реально используется в DB
+  if (typeof action === "string" && action.startsWith("cmd.admin.")) {
+    return role === "monarch";
+  }
 
   // --------------------------------------------------------------------------
   // SOURCE-LEVEL PERMISSIONS (7.9)
@@ -40,7 +53,7 @@ export function can(user, action, ctx = {}) {
   // COMMAND-LEVEL PERMISSIONS (7.8)
   // --------------------------------------------------------------------------
 
-  // Разрешённые команды для guest
+  // Разрешённые действия для guest (allowlist)
   const guestAllow = new Set([
     // профиль
     "cmd.profile",
@@ -63,6 +76,7 @@ export function can(user, action, ctx = {}) {
     "cmd.sources.list",
     "cmd.source.fetch",
     "cmd.source.diagnose",
+    "cmd.source.test",
   ]);
 
   if (role === "guest") {
@@ -72,6 +86,6 @@ export function can(user, action, ctx = {}) {
   // --------------------------------------------------------------------------
   // DEFAULT (citizen / vip / future roles)
   // --------------------------------------------------------------------------
-  // Пока что: всё разрешено (будет ужесточаться позже)
+  // Пока что: всё разрешено, НО admin actions уже жёстко запрещены выше.
   return true;
 }

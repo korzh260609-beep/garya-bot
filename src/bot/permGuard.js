@@ -1,7 +1,7 @@
 // src/bot/permGuard.js
 // V1: permissions guard + access request notification
 // ВАЖНО: логика скопирована из messageRouter.js и вынесена без "улучшений".
-// Дальше messageRouter.js будет только импортировать и вызывать это.
+// Stage 4: монарх определяется ТОЛЬКО по MONARCH_USER_ID (msg.from.id), не по chat_id.
 
 import * as AccessRequests from "../users/accessRequests.js";
 import { can } from "../users/permissions.js";
@@ -15,7 +15,7 @@ import { can } from "../users/permissions.js";
 export function buildRequirePermOrReply({
   bot,
   msg,
-  MONARCH_CHAT_ID,
+  MONARCH_USER_ID, // ✅ Stage 4 source of truth (Telegram user_id)
   user, // { role, plan, bypassPermissions }
   userRole,
   userPlan,
@@ -23,6 +23,7 @@ export function buildRequirePermOrReply({
   CMD_ACTION,
 }) {
   const chatId = msg.chat.id;
+
   const senderId = msg.from?.id;
   const senderIdStr = senderId?.toString() || "";
 
@@ -43,8 +44,15 @@ export function buildRequirePermOrReply({
       if (typeof AccessRequests.createAccessRequestAndNotify === "function") {
         const pack = await AccessRequests.createAccessRequestAndNotify({
           bot,
-          monarchChatId: MONARCH_CHAT_ID,
+
+          // ✅ IMPORTANT: AccessRequests expects "monarchChatId".
+          // In Telegram private chat: chat_id == user_id, so MONARCH_USER_ID is valid target.
+          monarchChatId: MONARCH_USER_ID,
+
+          // We store requester id as senderIdStr (Telegram user_id).
+          // This keeps stage4 identity and avoids mixing by chat_id in groups.
           requesterChatId: senderIdStr,
+
           requesterName,
           requesterRole: userRole,
           requestedAction: action,
@@ -91,10 +99,10 @@ export function buildRequirePermOrReply({
         if (reqId) {
           try {
             await bot.sendMessage(
-              Number(MONARCH_CHAT_ID),
+              Number(MONARCH_USER_ID),
               [
                 `🛡️ ACCESS REQUEST #${reqId}`,
-                `requester_chat_id: ${senderIdStr}`,
+                `requester_user_id: ${senderIdStr}`,
                 requesterName ? `name: ${requesterName}` : "",
                 `role: ${userRole}`,
                 `plan: ${userPlan}`,
@@ -121,4 +129,3 @@ export function buildRequirePermOrReply({
     return false;
   };
 }
-

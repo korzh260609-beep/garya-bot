@@ -190,26 +190,8 @@ async function initDb() {
       ON interaction_logs (chat_id, created_at DESC);
     `);
 
-    // === Project Memory ===
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS project_memory (
-        id SERIAL PRIMARY KEY,
-        project_key TEXT NOT NULL,
-        section TEXT NOT NULL,
-        title TEXT,
-        content TEXT NOT NULL,
-        tags TEXT[] DEFAULT '{}',
-        meta JSONB DEFAULT '{}'::jsonb,
-        schema_version INTEGER DEFAULT 1,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_project_memory_project_section
-      ON project_memory (project_key, section);
-    `);
+    // ✅ project_memory moved to migrations (002_project_memory_and_file_intake_logs.js)
+    // Do NOT create/alter it here to keep migrations as single source of truth.
 
     // === Repo Index Snapshots (НОВОЕ) ===
     await pool.query(`
@@ -240,7 +222,7 @@ async function initDb() {
     `);
 
     console.log(
-      "✅ Tables ready: chat_memory, users, tasks, sources, source_cache, source_checks, source_logs, interaction_logs, project_memory, repo_index_*"
+      "✅ Tables ready: chat_memory, users, tasks, sources, source_cache, source_checks, source_logs, interaction_logs, repo_index_*"
     );
   } catch (err) {
     console.error("❌ Error initializing database:", err);

@@ -9,6 +9,7 @@ import { handleProfile } from "./handlers/profile.js";
 import { handleMode } from "./handlers/mode.js";
 import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
 import { handleTasksList } from "./handlers/tasksList.js";
+import { handleArList } from "./handlers/arList.js";
 
 import pool from "../../db.js";
 
@@ -125,6 +126,16 @@ export async function dispatchCommand(cmd, ctx) {
       await handleUsersStats({
         bot,
         chatId,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/ar_list": {
+      await handleArList({
+        bot,
+        chatId,
+        rest: ctx.rest,
         bypass: ctx.bypass,
       });
       return { handled: true };

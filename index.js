@@ -13,6 +13,9 @@ import { getSystemHealth } from "./core/helpers.js";
 // ✅ FIX: подключаем callAI и передаём в messageRouter
 import { callAI } from "./ai.js";
 
+// ✅ 2.7 JOB QUEUE / WORKERS (SKELETON)
+import { JobRunner } from "./src/jobs/jobRunner.js";
+
 // ============================================================================
 // === CONSTANTS / CONFIG ===
 // ============================================================================
@@ -23,6 +26,12 @@ const MONARCH_CHAT_ID = (process.env.MONARCH_CHAT_ID || "677128443").toString();
 
 // Plans placeholder
 const DEFAULT_PLAN = "free";
+
+// ============================================================================
+// === JOB RUNNER (2.7 SKELETON) ===
+// ============================================================================
+export const jobRunner = new JobRunner();
+console.log("🧩 JobRunner initialized (skeleton).");
 
 // ============================================================================
 // === EXPRESS SERVER ===

@@ -26,10 +26,10 @@ import { setAnswerMode } from "../core/answerMode.js";
 // === Access Requests helpers/commands (extracted pattern from messageRouter.js)
 // ============================================================================
 
-const MONARCH_CHAT_ID = "677128443";
+const MONARCH_USER_ID = "677128443";
 
 function isMonarch(chatIdStr) {
-  return String(chatIdStr) === String(MONARCH_CHAT_ID);
+  return String(chatIdStr) === String(MONARCH_USER_ID);
 }
 
 async function getUserRoleByChatId(chatIdStr) {

@@ -22,7 +22,7 @@ import { JobRunner } from "./src/jobs/jobRunner.js";
 const MAX_HISTORY_MESSAGES = 20;
 
 // MONARCH by chat_id (Telegram user id)
-const MONARCH_CHAT_ID = (process.env.MONARCH_CHAT_ID || "677128443").toString();
+const MONARCH_USER_ID = (process.env.MONARCH_USER_ID || "677128443").toString();
 
 // Plans placeholder
 const DEFAULT_PLAN = "free";

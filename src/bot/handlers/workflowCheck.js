@@ -10,13 +10,13 @@ import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 
 // ---------------------------------------------------------------------------
-// Monarch guard
+// Monarch guard — Stage 4: identity-first (MONARCH_USER_ID)
 // ---------------------------------------------------------------------------
-async function requireMonarch(bot, chatId) {
-  const MONARCH_CHAT_ID = String(process.env.MONARCH_CHAT_ID || "").trim();
-  if (!MONARCH_CHAT_ID) return true;
+async function requireMonarch(bot, chatId, userIdStr) {
+  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+  if (!MONARCH_USER_ID) return true;
 
-  if (String(chatId) !== MONARCH_CHAT_ID) {
+  if (String(userIdStr) !== MONARCH_USER_ID) {
     await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
     return false;
   }
@@ -35,8 +35,10 @@ function loadWorkflowHints() {
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
-export async function handleWorkflowCheck({ bot, chatId, rest }) {
-  const ok = await requireMonarch(bot, chatId);
+export async function handleWorkflowCheck({ bot, chatId, senderIdStr, rest }) {
+  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
+
+  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
   if (!ok) return;
 
   const step = String(rest || "").trim();
@@ -65,8 +67,7 @@ export async function handleWorkflowCheck({ bot, chatId, rest }) {
       `title: ${cfg.title || "-"}`,
       "",
       "status: not_evaluated",
-      "note: skeleton only, no checks executed yet"
+      "note: skeleton only, no checks executed yet",
     ].join("\n")
   );
 }
-

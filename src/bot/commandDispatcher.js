@@ -75,7 +75,13 @@ export async function dispatchCommand(cmd, ctx) {
     case "/profile":
     case "/me":
     case "/whoami": {
-      await handleProfile({ bot, chatId, chatIdStr });
+      // ✅ Stage 4: pass senderIdStr (msg.from.id) to enable identity-first profile lookup
+      await handleProfile({
+        bot,
+        chatId,
+        chatIdStr,
+        senderIdStr: ctx.senderIdStr,
+      });
       return { handled: true };
     }
 
@@ -130,8 +136,8 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/tasks": {
       const access = {
-        userRole: (ctx.userRole || ctx.user?.role || "guest"),
-        userPlan: (ctx.userPlan || ctx.user?.plan || "free"),
+        userRole: ctx.userRole || ctx.user?.role || "guest",
+        userPlan: ctx.userPlan || ctx.user?.plan || "free",
         bypassPermissions: Boolean(ctx.bypass),
       };
 
@@ -161,8 +167,8 @@ export async function dispatchCommand(cmd, ctx) {
       const note = parts.slice(1).join(" | ").trim() || "";
 
       const access = {
-        userRole: (ctx.userRole || ctx.user?.role || "guest"),
-        userPlan: (ctx.userPlan || ctx.user?.plan || "free"),
+        userRole: ctx.userRole || ctx.user?.role || "guest",
+        userPlan: ctx.userPlan || ctx.user?.plan || "free",
         bypassPermissions: Boolean(ctx.bypass),
       };
 
@@ -205,8 +211,8 @@ export async function dispatchCommand(cmd, ctx) {
       }
 
       const access = {
-        userRole: (ctx.userRole || ctx.user?.role || "guest"),
-        userPlan: (ctx.userPlan || ctx.user?.plan || "free"),
+        userRole: ctx.userRole || ctx.user?.role || "guest",
+        userPlan: ctx.userPlan || ctx.user?.plan || "free",
         bypassPermissions: Boolean(ctx.bypass),
       };
 

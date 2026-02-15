@@ -2,6 +2,7 @@
 // === ROBOT-LAYER (mock режим без реального API) ===
 
 import pool from "../../db.js";
+import { acquireExecutionLock, releaseExecutionLock } from "../jobs/executionLock.js";
 
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
@@ -135,6 +136,13 @@ async function handlePriceMonitorTask(bot, task) {
 
 // Главный "тик" робота
 export async function robotTick(bot) {
+  // ✅ 2.8 Execution safety: prevent double tick across restarts/instances
+  const locked = await acquireExecutionLock();
+  if (!locked) {
+    // Кто-то другой уже тикает — тихо выходим
+    return;
+  }
+
   try {
     const tasks = await getActiveRobotTasks();
 
@@ -149,7 +157,6 @@ export async function robotTick(bot) {
           await handlePriceMonitorTask(bot, t);
         } else if (t.type === "news_monitor") {
           // Пока заглушка — в будущем тут будет mock/реальный news монитор
-          // Можно оставить лёгкий лог, если нужно отладить:
           // console.log("📰 ROBOT: пропускаем news_monitor (mock-заглушка)", t.id);
         }
       } catch (taskErr) {
@@ -158,6 +165,8 @@ export async function robotTick(bot) {
     }
   } catch (err) {
     console.error("❌ ROBOT ERROR:", err);
+  } finally {
+    await releaseExecutionLock();
   }
 }
 

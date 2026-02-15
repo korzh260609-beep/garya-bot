@@ -44,21 +44,23 @@ function formatCandidatesPreview(preview, limit = 10) {
 }
 
 // ---------------------------------------------------------------------------
-// Permission guard (monarch-only)
+// Permission guard (monarch-only) — Stage 4: identity-first (MONARCH_USER_ID)
 // ---------------------------------------------------------------------------
-async function requireMonarch(bot, chatId) {
-  const MONARCH_CHAT_ID = String(process.env.MONARCH_CHAT_ID || "").trim();
-  if (!MONARCH_CHAT_ID) return true;
+async function requireMonarch(bot, chatId, userIdStr) {
+  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+  if (!MONARCH_USER_ID) return true;
 
-  if (String(chatId) !== MONARCH_CHAT_ID) {
+  if (String(userIdStr) !== MONARCH_USER_ID) {
     await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
     return false;
   }
   return true;
 }
 
-export async function handleReindexRepo({ bot, chatId }) {
-  const ok = await requireMonarch(bot, chatId);
+export async function handleReindexRepo({ bot, chatId, senderIdStr }) {
+  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
+
+  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
   if (!ok) return;
 
   // === Store (PostgreSQL) ===
@@ -87,18 +89,13 @@ export async function handleReindexRepo({ bot, chatId }) {
         memoryCandidatesPreview: null,
       };
 
-  const previewBlock = formatCandidatesPreview(
-    summary.memoryCandidatesPreview,
-    10
-  );
+  const previewBlock = formatCandidatesPreview(summary.memoryCandidatesPreview, 10);
 
   await bot.sendMessage(
     chatId,
     [
       `RepoIndex: ${persisted?.snapshotId ? "persisted" : "dry-run"}`,
-      persisted?.snapshotId
-        ? `snapshotId: ${persisted.snapshotId}`
-        : `snapshotId: none`,
+      persisted?.snapshotId ? `snapshotId: ${persisted.snapshotId}` : `snapshotId: none`,
       `repo: ${summary.repo || "?"}`,
       `branch: ${summary.branch || "?"}`,
       `createdAt: ${summary.createdAt || "?"}`,

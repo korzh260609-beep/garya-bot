@@ -21,8 +21,8 @@ import { JobRunner } from "./src/jobs/jobRunner.js";
 // ============================================================================
 const MAX_HISTORY_MESSAGES = 20;
 
-// MONARCH by chat_id (Telegram user id)
-const MONARCH_USER_ID = (process.env.MONARCH_USER_ID || "677128443").toString();
+// MONARCH only from ENV (Stage 4 — identity-first, no fallback)
+const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
 
 // Plans placeholder
 const DEFAULT_PLAN = "free";
@@ -63,7 +63,7 @@ startHttpServer(app, PORT);
 // ============================================================================
 attachMessageRouter({
   bot,
-  callAI, // ✅ FIX
+  callAI,
   MAX_HISTORY_MESSAGES,
 });
 

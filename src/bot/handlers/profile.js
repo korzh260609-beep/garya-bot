@@ -3,12 +3,10 @@ import pool from "../../../db.js";
 
 export async function handleProfile({ bot, chatId, chatIdStr }) {
   try {
-    // 1) Read user by chat_id (stable for Telegram chats)
     const userRes = await pool.query(
       `
       SELECT
         chat_id,
-        tg_user_id,
         global_user_id,
         name,
         role,
@@ -27,7 +25,6 @@ export async function handleProfile({ bot, chatId, chatIdStr }) {
 
     const u = userRes.rows[0];
 
-    // 2) Try fetch telegram identity link (optional)
     let identityLine = "Identity: (нет)";
     if (u.global_user_id) {
       const idRes = await pool.query(
@@ -52,7 +49,6 @@ export async function handleProfile({ bot, chatId, chatIdStr }) {
       [
         "🧾 Профиль",
         `chat_id: ${u.chat_id}`,
-        `tg_user_id: ${u.tg_user_id || "(null)"}`,
         `global_user_id: ${u.global_user_id || "(null)"}`,
         `Имя: ${u.name}`,
         `Роль: ${u.role}`,

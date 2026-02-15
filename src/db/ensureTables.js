@@ -1,65 +1,27 @@
 // src/db/ensureTables.js
+// ✅ 2.9 DB CONSOLIDATION: migrations = single source of truth
+// ensureTables = read-only readiness check (NO CREATE TABLE here)
 
 import pool from "../../db.js";
 
-async function ensureProjectMemoryTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS project_memory (
-      id BIGSERIAL PRIMARY KEY,
-      project_key TEXT NOT NULL,
-      section TEXT NOT NULL,
-      title TEXT,
-      content TEXT NOT NULL,
-      tags TEXT[] NOT NULL DEFAULT '{}',
-      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
-      schema_version INT NOT NULL DEFAULT 1,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+async function assertTableExists(tableName) {
+  const res = await pool.query(
+    `SELECT to_regclass($1) AS regclass`,
+    [tableName]
+  );
+
+  const exists = !!res.rows?.[0]?.regclass;
+  if (!exists) {
+    throw new Error(
+      `DB schema not ready: missing table "${tableName}". ` +
+        `Apply migrations (temporarily RUN_MIGRATIONS_ON_BOOT=1) and redeploy.`
     );
-  `);
-
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_project_memory_key_section_created
-    ON project_memory (project_key, section, created_at);
-  `);
-}
-
-async function ensureFileIntakeLogsTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS file_intake_logs (
-      id BIGSERIAL PRIMARY KEY,
-      chat_id TEXT NOT NULL,
-      message_id BIGINT,
-      kind TEXT,
-      file_id TEXT,
-      file_unique_id TEXT,
-      file_name TEXT,
-      mime_type TEXT,
-      file_size BIGINT,
-
-      has_text BOOLEAN NOT NULL DEFAULT FALSE,
-      should_call_ai BOOLEAN NOT NULL DEFAULT FALSE,
-      direct_reply BOOLEAN NOT NULL DEFAULT FALSE,
-
-      processed_text_chars INT NOT NULL DEFAULT 0,
-
-      ai_called BOOLEAN NOT NULL DEFAULT FALSE,
-      ai_error BOOLEAN NOT NULL DEFAULT FALSE,
-
-      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
-
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_file_intake_logs_chat_created
-    ON file_intake_logs (chat_id, created_at DESC);
-  `);
+  }
 }
 
 export async function ensureTables() {
-  await ensureProjectMemoryTable();
-  await ensureFileIntakeLogsTable();
+  // tables that must exist after migrations
+  await assertTableExists("schema_version");
+  await assertTableExists("project_memory");
+  await assertTableExists("file_intake_logs");
 }
-

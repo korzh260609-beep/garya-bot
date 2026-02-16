@@ -1,6 +1,8 @@
 // src/users/userAccess.js
 // STAGE 4.5/4.6 — Access identity-first (provider -> user_identities -> global_user_id -> users)
 // Правило: chat_id = transport only. Не используем users.chat_id для определения роли.
+//
+// V1.4: ❌ bypassPermissions полностью удалён. Монарх определяется только ролью "monarch".
 
 import pool from "../../db.js";
 
@@ -59,7 +61,7 @@ export async function resolveUserAccess({ chatIdStr, senderIdStr, isMonarch }) {
     globalUserId = transportRes.rows?.[0]?.global_user_id || null;
   }
 
-  // If no resolved identity/user -> guest
+  // If no resolved identity/user -> guest (or monarch if override)
   if (!globalUserId) {
     const role = monarchOverride ? "monarch" : "guest";
     return {
@@ -68,7 +70,6 @@ export async function resolveUserAccess({ chatIdStr, senderIdStr, isMonarch }) {
       user: {
         role,
         plan: "free",
-        bypassPermissions: monarchOverride,
         global_user_id: null,
         hasIdentity: false,
       },
@@ -108,7 +109,6 @@ export async function resolveUserAccess({ chatIdStr, senderIdStr, isMonarch }) {
     user: {
       role: finalRole,
       plan: "free",
-      bypassPermissions: monarchOverride,
       global_user_id: globalUserId,
       hasIdentity,
     },

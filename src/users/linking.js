@@ -111,11 +111,15 @@ export async function getLinkStatus({ provider = "telegram", providerUserId }) {
   const providerUserIdStr = String(providerUserId || "").trim();
   if (!providerUserIdStr) return { ok: false, error: "provider_user_id_required" };
 
+  // ✅ IMPORTANT: only treat ACTIVE link as "linked"
   const res = await pool.query(
     `
     SELECT global_user_id, provider, provider_user_id, status, updated_at
     FROM user_links
-    WHERE provider = $1 AND provider_user_id = $2
+    WHERE provider = $1
+      AND provider_user_id = $2
+      AND status = 'active'
+    ORDER BY updated_at DESC
     LIMIT 1
     `,
     [provider, providerUserIdStr]

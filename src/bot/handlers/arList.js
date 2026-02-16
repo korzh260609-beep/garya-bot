@@ -22,16 +22,19 @@ export async function handleArList({
     const res = await pool.query(
       `
       SELECT
-        id,
-        COALESCE(status, 'pending') AS status,
-        requester_chat_id,
-        COALESCE(requester_name, '') AS requester_name,
-        COALESCE(requester_role, '') AS requester_role,
-        COALESCE(requested_action, '') AS requested_action,
-        COALESCE(requested_cmd, '') AS requested_cmd,
-        created_at
-      FROM access_requests
-      ORDER BY created_at DESC
+        ar.id,
+        COALESCE(ar.status, 'pending') AS status,
+        ar.requester_chat_id,
+        COALESCE(ar.requester_name, '') AS requester_name,
+        COALESCE(ar.requester_role, '') AS requester_role,
+        COALESCE(ar.requested_action, '') AS requested_action,
+        COALESCE(ar.requested_cmd, '') AS requested_cmd,
+        ar.created_at,
+        COALESCE(u.role, '') AS current_role
+      FROM access_requests ar
+      LEFT JOIN users u
+        ON (u.tg_user_id = ar.requester_chat_id OR u.chat_id = ar.requester_chat_id)
+      ORDER BY ar.created_at DESC
       LIMIT $1
       `,
       [n]

@@ -20,7 +20,6 @@ export async function handleSource({
   const result = await fetchFromSourceKey(key, {
     userRole,
     userPlan,
-    bypassPermissions: bypass,
   });
 
   if (!result.ok) {

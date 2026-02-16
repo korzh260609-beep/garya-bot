@@ -98,7 +98,7 @@ Access-request workflow:
 /ar_create_test  
 
 Административные команды защищены:
-- доступны только монарху (через bypassPermissions или роль monarch)
+- доступны только монарху (роль monarch + permissions.can())
 - guest получает access request
 - `cmd.admin.*` запрещены всем кроме монарха
 - DEV-GATE: выполняются только в личном чате монарха
@@ -116,7 +116,7 @@ ENV:
 CMD_RL_WINDOW_MS=20000  
 CMD_RL_MAX=6  
 
-Монарх (bypassPermissions) не ограничивается rate-limit.
+Монарх (роль monarch) не ограничивается rate-limit.
 
 ---
 

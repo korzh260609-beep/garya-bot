@@ -6,7 +6,6 @@ export async function handleSourcesDiag(ctx) {
   const summary = await runSourceDiagnosticsOnce({
     userRole,
     userPlan,
-    bypassPermissions: bypass,
   });
 
   const textDiag =

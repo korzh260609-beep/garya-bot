@@ -179,7 +179,6 @@ export async function dispatchCommand(cmd, ctx) {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        bypassPermissions: Boolean(ctx.bypass),
       };
 
       await handleTasksList({
@@ -210,7 +209,6 @@ export async function dispatchCommand(cmd, ctx) {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        bypassPermissions: Boolean(ctx.bypass),
       };
 
       if (typeof ctx.createManualTask !== "function") {
@@ -254,7 +252,6 @@ export async function dispatchCommand(cmd, ctx) {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        bypassPermissions: Boolean(ctx.bypass),
       };
 
       await ctx.runTaskWithAI(task, chatId, bot, access);

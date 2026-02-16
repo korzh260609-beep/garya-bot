@@ -193,7 +193,7 @@ async function cmdArList({ bot, chatId, chatIdStr, senderIdStr, rest }) {
     const res = await pool.query(
       `
       SELECT
-         ar.id,
+                 ar.id,
         COALESCE(ar.status, 'pending') AS status,
         COALESCE(ar.requester_chat_id, ar.chat_id, ar.user_chat_id) AS requester_chat_id,
         COALESCE(ar.requester_name, '') AS requester_name,
@@ -222,7 +222,8 @@ async function cmdArList({ bot, chatId, chatIdStr, senderIdStr, rest }) {
       return;
     }
 
-    let out = `🛡️ Access Requests (last ${res.rows.length})\n\n`;
+        let out = `🛡️ Access Requests (last ${res.rows.length})\n` +
+      `ℹ️ role_at_request = historical snapshot, current_role = current profile role\n\n`;
     for (const r of res.rows) {
       out += `#${r.id} | ${r.status} | ${new Date(r.created_at).toISOString()}\n`;
       out += `who=${r.requester_chat_id}${r.requester_name ? ` (${r.requester_name})` : ""}\n`;

@@ -472,7 +472,6 @@ export async function fetchFromSourceKey(key, options = {}) {
   const user = {
     role: userRole,
     plan: userPlan,
-    bypassPermissions,
   };
 
   try {

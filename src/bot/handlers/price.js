@@ -15,7 +15,6 @@ export async function handlePrice({ bot, chatId, rest, getCoinGeckoSimplePriceBy
   const result = await getCoinGeckoSimplePriceById(coinId, "usd", {
     userRole,
     userPlan,
-    bypassPermissions: bypass,
   });
 
   if (!result.ok) {

@@ -7,6 +7,10 @@ export const CMD_ACTION = {
 
   "/mode": "cmd.mode",
 
+    "/link_start": "cmd.identity.link_start",
+  "/link_confirm": "cmd.identity.link_confirm",
+  "/link_status": "cmd.identity.link_status",
+  
   "/reindex": "cmd.repo.reindex",
 
   "/tasks": "cmd.tasks.list",

@@ -68,7 +68,7 @@ export async function up(pgm) {
       type: { type: "text", notNull: true },
       url: { type: "text" },
       is_enabled: { type: "boolean", notNull: true, default: true },
-      config: { type: "jsonb", default: "{}::jsonb" },
+      config: { type: "jsonb", default: pgm.func("'{}'::jsonb") },
       last_success_at: { type: "timestamptz" },
       last_error_at: { type: "timestamptz" },
       last_error_message: { type: "text" },
@@ -118,7 +118,7 @@ export async function up(pgm) {
       ok: { type: "boolean", notNull: true },
       http_status: { type: "int" },
       message: { type: "text" },
-      meta: { type: "jsonb", default: "{}::jsonb" },
+      meta: { type: "jsonb", default: pgm.func("'{}'::jsonb") },
       created_at: {
         type: "timestamptz",
         notNull: true,
@@ -194,7 +194,7 @@ export async function up(pgm) {
       repo: { type: "text", notNull: true },
       branch: { type: "text", notNull: true },
       commit_sha: { type: "text" },
-      stats: { type: "jsonb", default: "{}::jsonb" },
+      stats: { type: "jsonb", default: pgm.func("'{}'::jsonb") },
       created_at: {
         type: "timestamptz",
         notNull: true,

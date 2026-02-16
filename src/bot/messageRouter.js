@@ -177,7 +177,7 @@ export function attachMessageRouter({
       // =========================
 
       // ВАЖНО: монарх определяется по USER_ID (msg.from.id), а не по chat_id
-      const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "");
+      const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
 
       const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
       const isMonarchUser = isMonarchFn(senderIdStr);

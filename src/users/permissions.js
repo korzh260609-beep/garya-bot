@@ -63,6 +63,11 @@ export function can(user, action, ctx = {}) {
     // режим ответа
     "cmd.mode",
 
+        // linking identity (stage 4.4)
+    "cmd.identity.link_start",
+    "cmd.identity.link_confirm",
+    "cmd.identity.link_status",
+    
     // задачи
     "cmd.tasks.list",
     "cmd.task.run",

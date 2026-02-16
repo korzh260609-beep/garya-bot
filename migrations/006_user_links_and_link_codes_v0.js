@@ -11,7 +11,7 @@ export async function up(pgm) {
       provider_user_id: { type: "text", notNull: true },
       linked_by_global_user_id: { type: "text" },
       status: { type: "text", notNull: true, default: "active" },
-      meta: { type: "jsonb", notNull: true, default: "{}::jsonb" },
+      meta: { type: "jsonb", notNull: true, default: pgm.func("'{}'::jsonb") },
       created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") },
       updated_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") },
     },
@@ -40,7 +40,7 @@ export async function up(pgm) {
       status: { type: "text", notNull: true, default: "pending" },
       expires_at: { type: "timestamptz", notNull: true },
       consumed_at: { type: "timestamptz" },
-      meta: { type: "jsonb", notNull: true, default: "{}::jsonb" },
+      meta: { type: "jsonb", notNull: true, default: pgm.func("'{}'::jsonb") },
       created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") },
     },
     { ifNotExists: true }
@@ -52,10 +52,14 @@ export async function up(pgm) {
     ifNotExists: true,
   });
 
-  pgm.createIndex("identity_link_codes", ["global_user_id", { name: "created_at", sort: "DESC" }], {
-    name: "idx_identity_link_codes_global_created",
-    ifNotExists: true,
-  });
+  pgm.createIndex(
+    "identity_link_codes",
+    ["global_user_id", { name: "created_at", sort: "DESC" }],
+    {
+      name: "idx_identity_link_codes_global_created",
+      ifNotExists: true,
+    }
+  );
 
   pgm.sql(`
     INSERT INTO schema_version (version, note)

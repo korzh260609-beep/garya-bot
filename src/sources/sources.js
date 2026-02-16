@@ -466,7 +466,6 @@ export async function fetchFromSourceKey(key, options = {}) {
 
   const userRole = options.userRole || null;
   const userPlan = options.userPlan || null;
-  const bypassPermissions = options.bypassPermissions === true;
   const ignoreRateLimit = options.ignoreRateLimit === true;
 
   // ✅ user object for permissions-layer
@@ -501,7 +500,7 @@ export async function fetchFromSourceKey(key, options = {}) {
     // Для совместимости оставим старую логику как fallback (на случай, если где-то планы/роли ещё не заполнены)
     const allowedByLegacy = isSourceAllowedForUser(src, userRole, userPlan);
 
-    if (!bypassPermissions && !(allowedByCan || allowedByLegacy)) {
+        if (!(allowedByCan || allowedByLegacy)) {
       const error = "Доступ к этому источнику запрещён для вашей роли/тарифа.";
       await logSourceRequest({
         sourceKey: key,

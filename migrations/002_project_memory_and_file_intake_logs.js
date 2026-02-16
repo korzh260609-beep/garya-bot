@@ -11,7 +11,7 @@ export async function up(pgm) {
       title: { type: "text" },
       content: { type: "text", notNull: true },
       tags: { type: "text[]", notNull: true, default: "{}" },
-      meta: { type: "jsonb", notNull: true, default: "{}::jsonb" },
+      meta: { type: "jsonb", notNull: true, default: pgm.func("'{}'::jsonb") },
       schema_version: { type: "int", notNull: true, default: 1 },
       created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") },
       updated_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
@@ -48,7 +48,7 @@ export async function up(pgm) {
       ai_called: { type: "boolean", notNull: true, default: false },
       ai_error: { type: "boolean", notNull: true, default: false },
 
-      meta: { type: "jsonb", notNull: true, default: "{}::jsonb" },
+      meta: { type: "jsonb", notNull: true, default: pgm.func("'{}'::jsonb") },
       created_at: { type: "timestamptz", notNull: true, default: pgm.func("now()") }
     },
     { ifNotExists: true }

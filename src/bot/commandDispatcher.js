@@ -10,7 +10,9 @@ import { handleMode } from "./handlers/mode.js";
 import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
 import { handleTasksList } from "./handlers/tasksList.js";
 import { handleArList } from "./handlers/arList.js";
-
+import { handleLinkStart } from "./handlers/linkStart.js";
+import { handleLinkConfirm } from "./handlers/linkConfirm.js";
+import { handleLinkStatus } from "./handlers/linkStatus.js";
 import pool from "../../db.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
@@ -141,6 +143,34 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
+          case "/link_start": {
+      await handleLinkStart({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+      });
+      return { handled: true };
+    }
+
+    case "/link_confirm": {
+      await handleLinkConfirm({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    case "/link_status": {
+      await handleLinkStatus({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+      });
+      return { handled: true };
+    }
+      
     // ==========================
     // TASKS (Stage 2.x) — FIXES
     // ==========================

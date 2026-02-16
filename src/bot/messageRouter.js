@@ -210,11 +210,7 @@ export function attachMessageRouter({
         accessPack?.user || {
           role: userRole,
           plan: userPlan,
-          bypassPermissions: false,
         };
-
-      // bypass обязателен, т.к. ниже он используется в dispatch/handlers
-      const bypass = Boolean(user?.bypassPermissions);
 
       // permission helper (reply-safe) — permGuard ТРЕБУЕТ msg
       const requirePermOrReply = buildRequirePermOrReply({
@@ -312,8 +308,8 @@ export function attachMessageRouter({
           const allowed = await requirePermOrReply(cmd, { rest, identityCtx });
           if (!allowed) return;
 
-          // Stage 3.5: rate-limit commands (skip for monarch/bypass)
-          if (!isMonarchUser && !bypass) {
+          // Stage 3.5: rate-limit commands (skip for monarch)
+          if (!isMonarchUser) {
             const key = `${senderIdStr}:${chatIdStr}:cmd`;
             const rl = checkCmdRateLimit(key);
             if (!rl.allowed) {
@@ -335,7 +331,6 @@ export function attachMessageRouter({
             isPrivateChat: isPrivate,
             identityCtx,
             rest,
-            bypass,
             requirePermOrReply,
 
             // deps
@@ -376,12 +371,12 @@ export function attachMessageRouter({
         // inline switch (kept for backward compatibility)
         switch (cmd) {
           case "/approve": {
-            await handleApprove({ bot, chatId, rest, bypass });
+            await handleApprove({ bot, chatId, rest });
             return;
           }
 
           case "/deny": {
-            await handleDeny({ bot, chatId, rest, bypass });
+            await handleDeny({ bot, chatId, rest });
             return;
           }
 
@@ -480,12 +475,12 @@ export function attachMessageRouter({
           }
 
           case "/ar_list": {
-            await handleArList({ bot, chatId, rest, bypass });
+            await handleArList({ bot, chatId, rest });
             return;
           }
 
           case "/file_logs": {
-            await handleFileLogs({ bot, chatId, chatIdStr, rest, bypass });
+            await handleFileLogs({ bot, chatId, chatIdStr, rest });
             return;
           }
 
@@ -499,7 +494,6 @@ export function attachMessageRouter({
               bot,
               chatId,
               chatIdStr,
-              bypass,
               canStopTaskV1,
             });
             return;
@@ -511,7 +505,6 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               isOwnerTaskRow,
             });
             return;
@@ -522,7 +515,6 @@ export function attachMessageRouter({
               bot,
               chatId,
               chatIdStr,
-              bypass,
               getAllSourcesSafe,
               formatSourcesList,
             });
@@ -535,7 +527,6 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               runSourceDiagnosticsOnce,
             });
             return;
@@ -547,7 +538,6 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               fetchFromSourceKey,
             });
             return;
@@ -559,7 +549,6 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               diagnoseSource,
             });
             return;
@@ -571,14 +560,13 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               testSource,
             });
             return;
           }
 
           case "/tasks": {
-            await handleTasksList({ bot, chatId, chatIdStr, bypass, getUserTasks });
+            await handleTasksList({ bot, chatId, chatIdStr, getUserTasks });
             return;
           }
 
@@ -588,7 +576,6 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               updateTaskStatus,
             });
             return;
@@ -600,7 +587,6 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               canStopTaskV1,
               updateTaskStatus,
             });
@@ -613,7 +599,6 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               runTaskWithAI,
             });
             return;
@@ -625,7 +610,6 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               createManualTask,
             });
             return;
@@ -637,14 +621,13 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               createTestPriceMonitorTask,
             });
             return;
           }
 
           case "/pm_show": {
-            await handlePmShow({ bot, chatId, chatIdStr, rest, bypass });
+            await handlePmShow({ bot, chatId, chatIdStr, rest });
             return;
           }
 
@@ -654,7 +637,6 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              bypass,
               upsertProjectSection,
             });
             return;
@@ -680,7 +662,6 @@ export function attachMessageRouter({
         chatIdStr,
         senderIdStr,
         trimmed,
-        bypass,
         MAX_HISTORY_MESSAGES,
 
         FileIntake,

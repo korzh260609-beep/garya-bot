@@ -12,7 +12,6 @@ export async function handleSourcesList({
   const sources = await listSources({
     userRole,
     userPlan,
-    bypassPermissions: bypass,
   });
 
   if (!sources.length) {

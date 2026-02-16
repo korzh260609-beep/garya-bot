@@ -22,7 +22,7 @@ export async function handleArList({
     const res = await pool.query(
       `
       SELECT
-        ar.id,
+         ar.id,
         COALESCE(ar.status, 'pending') AS status,
         ar.requester_chat_id,
         COALESCE(ar.requester_name, '') AS requester_name,
@@ -30,10 +30,15 @@ export async function handleArList({
         COALESCE(ar.requested_action, '') AS requested_action,
         COALESCE(ar.requested_cmd, '') AS requested_cmd,
         ar.created_at,
-        COALESCE(u.role, '') AS current_role
+        COALESCE(u.role, 'unknown') AS current_role
       FROM access_requests ar
-      LEFT JOIN users u
-        ON (u.tg_user_id = ar.requester_chat_id OR u.chat_id = ar.requester_chat_id)
+      LEFT JOIN LATERAL (
+        SELECT role
+        FROM users
+        WHERE tg_user_id = ar.requester_chat_id OR chat_id = ar.requester_chat_id
+        ORDER BY (tg_user_id = ar.requester_chat_id) DESC
+        LIMIT 1
+      ) u ON TRUE
       ORDER BY ar.created_at DESC
       LIMIT $1
       `,
@@ -52,7 +57,8 @@ export async function handleArList({
       out += `who=${r.requester_chat_id}`;
       if (r.requester_name) out += ` (${r.requester_name})`;
       out += `\n`;
-      if (r.requester_role) out += `role=${r.requester_role}\n`;
+      if (r.requester_role) out += `role_at_request=${r.requester_role}\n`;
+      if (r.current_role) out += `current_role=${r.current_role}\n`;
       if (r.requested_action) out += `action=${r.requested_action}\n`;
       if (r.requested_cmd) out += `cmd=${r.requested_cmd}\n`;
       out += `\n`;

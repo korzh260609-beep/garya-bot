@@ -36,7 +36,6 @@ export async function handlePrices({
   const result = await getCoinGeckoSimplePriceMulti(ids, "usd", {
     userRole,
     userPlan,
-    bypassPermissions: bypass,
   });
 
   if (!result.ok) {

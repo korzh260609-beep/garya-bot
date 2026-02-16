@@ -50,7 +50,8 @@ export async function handleArList({
       return;
     }
 
-    let out = `🛡️ Access Requests (last ${res.rows.length})\n\n`;
+        let out = `🛡️ Access Requests (last ${res.rows.length})\n` +
+      `ℹ️ role_at_request = historical snapshot, current_role = current profile role\n\n`;
 
     for (const r of res.rows) {
       out += `#${r.id} | ${r.status} | ${new Date(r.created_at).toISOString()}\n`;

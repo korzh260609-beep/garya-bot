@@ -1,15 +1,36 @@
 import { getLinkStatus } from "../../users/linking.js";
 
 export async function handleLinkStatus({ bot, chatId, senderIdStr }) {
-  const res = await getLinkStatus({ provider: "telegram", providerUserId: senderIdStr });
+  const res = await getLinkStatus({
+    provider: "telegram",
+    providerUserId: senderIdStr,
+  });
+
   if (!res?.ok) {
     await bot.sendMessage(chatId, `⚠️ Link status error: ${res?.error || "unknown"}`);
     return;
   }
 
   const row = res.link;
-  if (!row) {
+  const pending = res.pending;
+
+  if (!row && !pending) {
     await bot.sendMessage(chatId, "ℹ️ Для этого аккаунта активной link-записи нет. Запусти /link_start.");
+    return;
+  }
+
+  if (!row && pending) {
+    await bot.sendMessage(
+      chatId,
+      [
+        "⏳ Есть активный link-code (ожидает подтверждения)",
+        `code: ${pending.code}`,
+        `global_user_id: ${pending.global_user_id}`,
+        `expires_at: ${new Date(pending.expires_at).toISOString()}`,
+        "",
+        "Подтверди на другом канале: /link_confirm <code>",
+      ].join("\n")
+    );
     return;
   }
 

@@ -10,7 +10,6 @@ function buildUser(access = {}) {
   return {
     role: (access.userRole || "guest").toLowerCase(),
     plan: (access.userPlan || "free").toLowerCase(),
-    bypassPermissions: access.bypassPermissions === true,
   };
 }
 
@@ -22,9 +21,8 @@ function isOwnerOfTask(task, chatId) {
 }
 
 function canTask(user, action, ctx = {}) {
-  // 1) monarch bypass — внутри can()
-  // 2) базовая проверка can() (для будущего расширения)
-  // 3) текущие правила V1 (сохранены)
+  // 1) базовая проверка can() (для будущего расширения)
+  // 2) текущие правила V1 (сохранены)
   if (can(user, action, ctx)) return true;
 
   // Если can() в будущем станет строгим — ниже останутся V1-правила как страховка.
@@ -35,7 +33,8 @@ function canTask(user, action, ctx = {}) {
 // ВАЖНО: task:* правила пока держим здесь (7.10), не в permissions.js,
 // чтобы не смешивать command-level и task-level в одном месте на раннем этапе.
 function applyTaskV1Rules({ user, taskType, action, isOwner }) {
-  if (user.bypassPermissions) return true;
+  // ✅ Monarch override (без bypassPermissions)
+  if (user.role === "monarch") return true;
 
   // Базовое правило: только владелец
   if (!isOwner) return false;
@@ -71,7 +70,6 @@ function assertTaskAccess({ access, taskType, action, isOwner }) {
 
   // 2) Permissions-layer hook (на будущее): если потребуется, можно будет включить строгие правила
   // Сейчас can() гостя по task:* не разрешает/не запрещает — потому мы опираемся на V1-правила.
-  // Но для монарха bypass уже обработан.
   const allowedCan = canTask(user, action, { taskType });
 
   // Сейчас allowedCan для guest обычно false (в permissions.js этого нет),

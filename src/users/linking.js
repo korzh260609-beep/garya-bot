@@ -121,5 +121,25 @@ export async function getLinkStatus({ provider = "telegram", providerUserId }) {
     [provider, providerUserIdStr]
   );
 
-  return { ok: true, link: res.rows?.[0] || null };
+  const link = res.rows?.[0] || null;
+  if (link) return { ok: true, link, pending: null };
+
+  const pendingRes = await pool.query(
+    `
+    SELECT code, global_user_id, expires_at
+    FROM identity_link_codes
+    WHERE provider = $1
+      AND provider_user_id = $2
+      AND status = 'pending'
+      AND consumed_at IS NULL
+      AND expires_at > NOW()
+    ORDER BY created_at DESC
+    LIMIT 1
+    `,
+    [provider, providerUserIdStr]
+  );
+
+  const pending = pendingRes.rows?.[0] || null;
+
+  return { ok: true, link: null, pending };
 }

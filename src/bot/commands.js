@@ -193,16 +193,25 @@ async function cmdArList({ bot, chatId, chatIdStr, senderIdStr, rest }) {
     const res = await pool.query(
       `
       SELECT
-        id,
-        COALESCE(status, 'pending') AS status,
-        COALESCE(requester_chat_id, chat_id, user_chat_id) AS requester_chat_id,
-        COALESCE(requester_name, '') AS requester_name,
-        COALESCE(requester_role, '') AS requester_role,
-        COALESCE(requested_action, requestedAction, '') AS requested_action,
-        COALESCE(requested_cmd, requestedCmd, '') AS requested_cmd,
-        created_at
-      FROM access_requests
-      ORDER BY created_at DESC
+         ar.id,
+        COALESCE(ar.status, 'pending') AS status,
+        COALESCE(ar.requester_chat_id, ar.chat_id, ar.user_chat_id) AS requester_chat_id,
+        COALESCE(ar.requester_name, '') AS requester_name,
+        COALESCE(ar.requester_role, '') AS requester_role,
+        COALESCE(ar.requested_action, ar.requestedAction, '') AS requested_action,
+        COALESCE(ar.requested_cmd, ar.requestedCmd, '') AS requested_cmd,
+        ar.created_at,
+        COALESCE(u.role, 'unknown') AS current_role
+      FROM access_requests ar
+      LEFT JOIN LATERAL (
+        SELECT role
+        FROM users
+        WHERE tg_user_id = COALESCE(ar.requester_chat_id, ar.chat_id, ar.user_chat_id)
+           OR chat_id = COALESCE(ar.requester_chat_id, ar.chat_id, ar.user_chat_id)
+        ORDER BY (tg_user_id = COALESCE(ar.requester_chat_id, ar.chat_id, ar.user_chat_id)) DESC
+        LIMIT 1
+      ) u ON TRUE
+      ORDER BY ar.created_at DESC
       LIMIT $1
       `,
       [n]
@@ -217,7 +226,8 @@ async function cmdArList({ bot, chatId, chatIdStr, senderIdStr, rest }) {
     for (const r of res.rows) {
       out += `#${r.id} | ${r.status} | ${new Date(r.created_at).toISOString()}\n`;
       out += `who=${r.requester_chat_id}${r.requester_name ? ` (${r.requester_name})` : ""}\n`;
-      if (r.requester_role) out += `role=${r.requester_role}\n`;
+      if (r.requester_role) out += `role_at_request=${r.requester_role}\n`;
+      out += `current_role=${r.current_role}\n`;
       if (r.requested_action) out += `action=${r.requested_action}\n`;
       if (r.requested_cmd) out += `cmd=${r.requested_cmd}\n`;
       out += `\n`;

@@ -19,7 +19,6 @@ export async function handleTestSource({
   const result = await fetchFromSourceKey(key, {
     userRole,
     userPlan,
-    bypassPermissions: bypass,
   });
 
   if (!result || result.error) {

@@ -28,7 +28,7 @@ export async function handleChatMessage({
   sanitizeNonMonarchReply,
 }) {
   const messageId = msg.message_id ?? null;
-if (!trimmed) return;
+  if (!trimmed) return;
 
   // ---- GUARDS (critical): never crash on wrong wiring ----
   const isMonarchFn = typeof isMonarch === "function" ? isMonarch : () => false;
@@ -37,9 +37,7 @@ if (!trimmed) return;
   if (typeof callAI !== "function") {
     const details =
       "callAI is not a function (router wiring error: pass { callAI } into handleChatMessage).";
-    const text = monarchNow
-      ? `⚠️ Ошибка конфигурации: ${details}`
-      : "⚠️ Ошибка вызова ИИ.";
+    const text = monarchNow ? `⚠️ Ошибка конфигурации: ${details}` : "⚠️ Ошибка вызова ИИ.";
 
     try {
       await bot.sendMessage(chatId, text);
@@ -67,9 +65,7 @@ if (!trimmed) return;
     : {
         effectiveUserText: trimmed,
         shouldCallAI: Boolean(trimmed),
-        directReplyText: Boolean(trimmed)
-          ? null
-          : "Напиши текстом, что нужно сделать.",
+        directReplyText: Boolean(trimmed) ? null : "Напиши текстом, что нужно сделать.",
       };
 
   const effective = (decision?.effectiveUserText || "").trim();
@@ -139,14 +135,13 @@ if (!trimmed) return;
     [msg?.from?.first_name, msg?.from?.last_name].filter(Boolean).join(" ").trim() ||
     (msg?.from?.username ? `@${msg.from.username}` : "пользователь");
 
-  const systemPrompt = buildSystemPrompt(
-    answerMode,
-    modeInstruction,
-    projectCtx || "",
-    { isMonarch: monarchNow, currentUserName }
-  );
+  const systemPrompt = buildSystemPrompt(answerMode, modeInstruction, projectCtx || "", {
+    isMonarch: monarchNow,
+    currentUserName,
+  });
 
-  const roleGuardPrompt = bypass
+  // ✅ FIX: role guard must use monarchNow (real identity), not bypass (router shortcut)
+  const roleGuardPrompt = monarchNow
     ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."
     : "SYSTEM ROLE: текущий пользователь НЕ монарх. Запрещено обращаться 'Монарх', 'Ваше Величество', 'Государь'. Называй: 'гость' или нейтрально (вы/ты).";
 
@@ -237,7 +232,8 @@ if (!trimmed) return;
   }
 
   try {
-    if (!bypass) aiReply = sanitizeNonMonarchReply(aiReply);
+    // ✅ FIX: sanitization must use monarchNow (real identity), not bypass
+    if (!monarchNow) aiReply = sanitizeNonMonarchReply(aiReply);
   } catch (e) {
     console.error("❌ sanitizeNonMonarchReply error:", e);
   }

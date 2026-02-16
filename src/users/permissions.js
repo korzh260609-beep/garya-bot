@@ -1,27 +1,25 @@
 // ============================================================================
-// === permissions.js — Permissions-layer V1.2 ================================
+// === permissions.js — Permissions-layer V1.3 ================================
 // Единая точка контроля доступа (commands + sources)
 // ============================================================================
 
 export function can(user, action, ctx = {}) {
   const role = (user?.role || "guest").toLowerCase();
   const plan = (user?.plan || "free").toLowerCase();
-  const bypass = Boolean(user?.bypassPermissions);
 
   // --------------------------------------------------------------------------
-  // MONARCH / TECHNICAL BYPASS
+  // IMPORTANT (Stage 4.C)
   // --------------------------------------------------------------------------
-  // ВАЖНО: монарх в Stage 4 определяется по MONARCH_USER_ID в роутере,
-  // а тут мы опираемся на bypassPermissions (и опционально role=monarch),
-  // чтобы НЕ выдавать админку citizen/vip по умолчанию.
-  if (bypass) return true;
+  // ❌ bypassPermissions больше НЕ используется как критерий доступа.
+  // Монарх/админ-доступ определяется ТОЛЬКО ролью role === "monarch",
+  // которую обязан выставлять identity/role-layer (isMonarch()/monarchNow).
+  // Это убирает риск случайного выдачи админки гостям через bypass.
+  // --------------------------------------------------------------------------
 
   // --------------------------------------------------------------------------
   // COMMAND-LEVEL HARD BLOCK FOR ADMIN ACTIONS
   // --------------------------------------------------------------------------
-  // Любые cmd.admin.* запрещены всем, кроме:
-  // - bypassPermissions = true
-  // - (опционально) role === "monarch" если такая роль реально используется в DB
+  // Любые cmd.admin.* запрещены всем, кроме реального монарха.
   if (typeof action === "string" && action.startsWith("cmd.admin.")) {
     return role === "monarch";
   }
@@ -63,11 +61,11 @@ export function can(user, action, ctx = {}) {
     // режим ответа
     "cmd.mode",
 
-        // linking identity (stage 4.4)
+    // linking identity (stage 4.4)
     "cmd.identity.link_start",
     "cmd.identity.link_confirm",
     "cmd.identity.link_status",
-    
+
     // задачи
     "cmd.tasks.list",
     "cmd.task.run",

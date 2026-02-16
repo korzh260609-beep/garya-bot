@@ -20,7 +20,6 @@ export async function handleDiagSource({
     sourceKey: key,
     userRole,
     userPlan,
-    bypassPermissions: bypass,
   });
 
   const out =

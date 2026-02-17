@@ -202,7 +202,6 @@ export function attachMessageRouter({
       // === ACCESS PACK (DB)
       // =========================
       const accessPack = await resolveUserAccess({
-        chatIdStr,
         senderIdStr,
         isMonarch: isMonarchFn,
         provider: identityCtx.transport,

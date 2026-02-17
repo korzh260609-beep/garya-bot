@@ -47,6 +47,11 @@ export class JobRunner {
     return { jobId, accepted: true };
   }
 
+  // run(handler) -> alias for runOnce(handler) to satisfy the contract: enqueue/run/ack/fail
+  async run(handler) {
+    return this.runOnce(handler);
+  }
+
   // runOnce(handler) -> runs one job if exists
   async runOnce(handler) {
     if (this._running) return { ran: false, reason: "already_running" };

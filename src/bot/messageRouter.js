@@ -538,35 +538,32 @@ export function attachMessageRouter({
 
               const hasUserGlobalId = (colRes.rows?.length || 0) > 0;
 
-              // summary counts
+              // ✅ identity-first only: we no longer touch user_chat_id here
               const summaryQuery = hasUserGlobalId
                 ? `
                   SELECT
                     COUNT(*)::int AS total,
-                    SUM(CASE WHEN user_chat_id IS NULL OR user_chat_id = '' THEN 1 ELSE 0 END)::int AS chat_id_missing,
                     SUM(CASE WHEN user_global_id IS NULL OR user_global_id = '' THEN 1 ELSE 0 END)::int AS global_id_missing
                   FROM tasks
                 `
                 : `
                   SELECT
-                    COUNT(*)::int AS total,
-                    SUM(CASE WHEN user_chat_id IS NULL OR user_chat_id = '' THEN 1 ELSE 0 END)::int AS chat_id_missing
+                    COUNT(*)::int AS total
                   FROM tasks
                 `;
 
               const sumRes = await pool.query(summaryQuery);
               const s = sumRes.rows?.[0] || {};
 
-              // last tasks preview
               const listQuery = hasUserGlobalId
                 ? `
-                  SELECT id, type, status, user_chat_id, user_global_id, created_at, last_run
+                  SELECT id, type, status, user_global_id, created_at, last_run
                   FROM tasks
                   ORDER BY id DESC
                   LIMIT 20
                 `
                 : `
-                  SELECT id, type, status, user_chat_id, created_at, last_run
+                  SELECT id, type, status, created_at, last_run
                   FROM tasks
                   ORDER BY id DESC
                   LIMIT 20
@@ -579,7 +576,6 @@ export function attachMessageRouter({
               lines.push("🧪 TASKS OWNER DIAG");
               lines.push(`has tasks.user_global_id: ${hasUserGlobalId ? "YES" : "NO"}`);
               lines.push(`total tasks: ${s.total ?? 0}`);
-              lines.push(`missing user_chat_id: ${s.chat_id_missing ?? 0}`);
               if (hasUserGlobalId) lines.push(`missing user_global_id: ${s.global_id_missing ?? 0}`);
               lines.push("");
               lines.push("Last 20 tasks:");
@@ -589,11 +585,11 @@ export function attachMessageRouter({
                 const lastRun = r.last_run ? new Date(r.last_run).toISOString() : "—";
                 if (hasUserGlobalId) {
                   lines.push(
-                    `#${r.id} | ${r.type} | ${r.status} | chat=${r.user_chat_id || "—"} | global=${r.user_global_id || "—"} | created=${created} | last_run=${lastRun}`
+                    `#${r.id} | ${r.type} | ${r.status} | global=${r.user_global_id || "—"} | created=${created} | last_run=${lastRun}`
                   );
                 } else {
                   lines.push(
-                    `#${r.id} | ${r.type} | ${r.status} | chat=${r.user_chat_id || "—"} | created=${created} | last_run=${lastRun}`
+                    `#${r.id} | ${r.type} | ${r.status} | created=${created} | last_run=${lastRun}`
                   );
                 }
               }
@@ -806,23 +802,13 @@ export function attachMessageRouter({
           }
 
           case "/stop_task": {
-            const access = {
-              user,
-              userRole,
-              userPlan,
-            };
-
             await handleStopTask({
               bot,
               chatId,
               chatIdStr,
               rest,
-              userRole,
-              bypass: isMonarchUser,
-              getTaskById,
               canStopTaskV1,
               updateTaskStatus,
-              access,
             });
             return;
           }

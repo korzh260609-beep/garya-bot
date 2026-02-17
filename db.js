@@ -50,11 +50,14 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS tg_user_id TEXT
     `);
 
-    // === Таблица задач (Task Engine) ===
+    // === Таблица задач (Task Engine) — identity-only ===
+    // ⚠️ ВАЖНО: legacy user_chat_id удалён.
+    // Для production-DB структура является "source of truth" через migrations,
+    // но этот initDb должен быть совместим и не создавать legacy.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tasks (
         id SERIAL PRIMARY KEY,
-        user_chat_id TEXT NOT NULL,
+        user_global_id TEXT NOT NULL,
         title TEXT NOT NULL,
         type TEXT NOT NULL,
         payload JSONB NOT NULL,
@@ -190,7 +193,7 @@ async function initDb() {
       ON interaction_logs (chat_id, created_at DESC);
     `);
 
-    // ✅ project_memory moved to migrations (002_project_memory_and_file_intake_logs.js)
+    // ✅ project_memory moved to migrations
     // Do NOT create/alter it here to keep migrations as single source of truth.
 
     // === Repo Index Snapshots (НОВОЕ) ===

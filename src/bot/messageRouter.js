@@ -103,6 +103,9 @@ import * as FileIntake from "../media/fileIntake.js";
 // === LOGGING (interaction_logs) ===
 import { logInteraction } from "../logging/interactionLogs.js";
 
+// ✅ Project Memory service (read)
+import { getProjectSection } from "../../projectMemory.js";
+
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // NOTE: multi-instance accuracy will be handled later via DB locks (Stage 2.8 / 6.8)
@@ -435,7 +438,6 @@ export function attachMessageRouter({
 
             // ✅ AUTO-SAVE: DEPLOY VERIFIED → project memory (monarch DM only via dev-gate above)
             if (typeof upsertProjectSection === "function") {
-              const sectionKey = "deploy.last_verified";
               const content = [
                 `DEPLOY VERIFIED`,
                 `ts: ${nowIso}`,
@@ -445,21 +447,18 @@ export function attachMessageRouter({
                 `node_env: ${nodeEnv}`,
               ].join("\n");
 
-              // Support both possible call signatures (object or (key, content))
               try {
                 await upsertProjectSection({
-                  sectionKey,
+                  section: "deploy.last_verified",
+                  title: "DEPLOY VERIFIED",
                   content,
-                  source: "build_info",
-                  ts: nowIso,
+                  tags: ["deploy", "build_info"],
+                  meta: { commit, serviceId, instanceId, nodeEnv, ts: nowIso },
+                  schemaVersion: 1,
                 });
-              } catch (e1) {
-                try {
-                  await upsertProjectSection(sectionKey, content);
-                } catch (e2) {
-                  // do not break /build_info if memory write fails
-                  console.error("build_info autosave failed:", e2);
-                }
+              } catch (e) {
+                // do not break /build_info if memory write fails
+                console.error("build_info autosave failed:", e);
               }
             }
 
@@ -733,7 +732,12 @@ export function attachMessageRouter({
           }
 
           case "/pm_show": {
-            await handlePmShow({ bot, chatId, chatIdStr, rest });
+            await handlePmShow({
+              bot,
+              chatId,
+              rest,
+              getProjectSection,
+            });
             return;
           }
 

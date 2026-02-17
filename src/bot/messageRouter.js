@@ -338,6 +338,86 @@ export function attachMessageRouter({
           return;
         }
 
+        // ✅ BYPASS CMD_ACTION for Project Memory ops (avoid silent dispatch)
+        if (cmdBase === "/pm_show") {
+          await handlePmShow({
+            bot,
+            chatId,
+            rest,
+            getProjectSection,
+          });
+          return;
+        }
+
+        if (cmdBase === "/pm_set") {
+          await handlePmSet({
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            upsertProjectSection,
+          });
+          return;
+        }
+
+        // ✅ BYPASS CMD_ACTION for /build_info (so autosave always runs here)
+        if (cmdBase === "/build_info") {
+          const commit =
+            String(process.env.RENDER_GIT_COMMIT || "").trim() ||
+            String(process.env.GIT_COMMIT || "").trim() ||
+            "unknown";
+
+          const serviceId =
+            String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
+
+          const instanceId =
+            String(process.env.RENDER_INSTANCE_ID || "").trim() ||
+            String(process.env.HOSTNAME || "").trim() ||
+            "unknown";
+
+          const nodeEnv = String(process.env.NODE_ENV || "").trim() || "unknown";
+
+          const nowIso = new Date().toISOString();
+
+          // ✅ AUTO-SAVE: DEPLOY VERIFIED → project memory (monarch DM only via dev-gate above)
+          if (typeof upsertProjectSection === "function") {
+            const content = [
+              `DEPLOY VERIFIED`,
+              `ts: ${nowIso}`,
+              `commit: ${commit}`,
+              `service: ${serviceId}`,
+              `instance: ${instanceId}`,
+              `node_env: ${nodeEnv}`,
+            ].join("\n");
+
+            try {
+              await upsertProjectSection({
+                section: "deploy.last_verified",
+                title: "DEPLOY VERIFIED",
+                content,
+                tags: ["deploy", "build_info"],
+                meta: { commit, serviceId, instanceId, nodeEnv, ts: nowIso },
+                schemaVersion: 1,
+              });
+            } catch (e) {
+              // do not break /build_info if memory write fails
+              console.error("build_info autosave failed:", e);
+            }
+          }
+
+          await bot.sendMessage(
+            chatId,
+            [
+              "🧩 BUILD INFO",
+              `commit: ${commit}`,
+              `service: ${serviceId}`,
+              `instance: ${instanceId}`,
+              `node_env: ${nodeEnv}`,
+            ].join("\n")
+          );
+          return;
+        }
+
         // command router (some legacy commands are mapped)
         const action = CMD_ACTION[cmdBase];
 
@@ -418,63 +498,6 @@ export function attachMessageRouter({
 
         // inline switch (kept for backward compatibility)
         switch (cmdBase) {
-          case "/build_info": {
-            const commit =
-              String(process.env.RENDER_GIT_COMMIT || "").trim() ||
-              String(process.env.GIT_COMMIT || "").trim() ||
-              "unknown";
-
-            const serviceId =
-              String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
-
-            const instanceId =
-              String(process.env.RENDER_INSTANCE_ID || "").trim() ||
-              String(process.env.HOSTNAME || "").trim() ||
-              "unknown";
-
-            const nodeEnv = String(process.env.NODE_ENV || "").trim() || "unknown";
-
-            const nowIso = new Date().toISOString();
-
-            // ✅ AUTO-SAVE: DEPLOY VERIFIED → project memory (monarch DM only via dev-gate above)
-            if (typeof upsertProjectSection === "function") {
-              const content = [
-                `DEPLOY VERIFIED`,
-                `ts: ${nowIso}`,
-                `commit: ${commit}`,
-                `service: ${serviceId}`,
-                `instance: ${instanceId}`,
-                `node_env: ${nodeEnv}`,
-              ].join("\n");
-
-              try {
-                await upsertProjectSection({
-                  section: "deploy.last_verified",
-                  title: "DEPLOY VERIFIED",
-                  content,
-                  tags: ["deploy", "build_info"],
-                  meta: { commit, serviceId, instanceId, nodeEnv, ts: nowIso },
-                  schemaVersion: 1,
-                });
-              } catch (e) {
-                // do not break /build_info if memory write fails
-                console.error("build_info autosave failed:", e);
-              }
-            }
-
-            await bot.sendMessage(
-              chatId,
-              [
-                "🧩 BUILD INFO",
-                `commit: ${commit}`,
-                `service: ${serviceId}`,
-                `instance: ${instanceId}`,
-                `node_env: ${nodeEnv}`,
-              ].join("\n")
-            );
-            return;
-          }
-
           case "/approve": {
             await handleApprove({ bot, chatId, rest });
             return;
@@ -727,27 +750,6 @@ export function attachMessageRouter({
               chatIdStr,
               rest,
               createTestPriceMonitorTask,
-            });
-            return;
-          }
-
-          case "/pm_show": {
-            await handlePmShow({
-              bot,
-              chatId,
-              rest,
-              getProjectSection,
-            });
-            return;
-          }
-
-          case "/pm_set": {
-            await handlePmSet({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              upsertProjectSection,
             });
             return;
           }

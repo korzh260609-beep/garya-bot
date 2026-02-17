@@ -21,20 +21,14 @@ function normalizeId(v) {
 
 /**
  * Identity-first ownership:
- * 1) if task.user_global_id exists -> compare with access.user.global_user_id
- * 2) else fallback legacy: task.user_chat_id vs chatId (transport-only legacy)
+ * ONLY task.user_global_id vs access.user.global_user_id
  */
 function isOwnerOfTask(task, chatId, access = {}) {
   const taskGlobal = normalizeId(task?.user_global_id);
   const userGlobal = normalizeId(access?.user?.global_user_id);
 
   if (taskGlobal && userGlobal) return taskGlobal === userGlobal;
-
-  // legacy fallback (temporary)
-  const taskOwnerChat = normalizeId(task?.user_chat_id);
-  const currentChat = normalizeId(chatId);
-  if (!taskOwnerChat || !currentChat) return false;
-  return taskOwnerChat === currentChat;
+  return false;
 }
 
 function canTask(user, action, ctx = {}) {
@@ -189,7 +183,7 @@ export async function createTestPriceMonitorTask(userChatId, access = {}) {
 }
 
 // ==================================================
-// === READ TASKS (prefers user_global_id if available)
+// === READ TASKS (identity-first ONLY)
 // ==================================================
 export async function getUserTasks(userChatId, limit = 20, access = {}) {
   // list — тоже действие (на будущее, сейчас не ломаем)
@@ -206,69 +200,34 @@ export async function getUserTasks(userChatId, limit = 20, access = {}) {
   }
 
   const userGlobalId = normalizeId(access?.user?.global_user_id);
+  if (!userGlobalId) return [];
 
-  // Identity-first list (BUT keep legacy fallback for older rows with NULL user_global_id)
-  if (userGlobalId) {
-    const result = await pool.query(
-      `
-        SELECT id, title, type, status, created_at, last_run
-        FROM tasks
-        WHERE
-          user_global_id = $1
-          OR (user_global_id IS NULL AND user_chat_id = $2)
-        ORDER BY created_at DESC
-        LIMIT $3
-      `,
-      [userGlobalId, userChatId, limit]
-    );
-    return result.rows;
-  }
-
-  // Legacy list (temporary)
   const result = await pool.query(
     `
       SELECT id, title, type, status, created_at, last_run
       FROM tasks
-      WHERE user_chat_id = $1
+      WHERE user_global_id = $1
       ORDER BY created_at DESC
       LIMIT $2
     `,
-    [userChatId, limit]
+    [userGlobalId, limit]
   );
+
   return result.rows;
 }
 
 export async function getTaskById(userChatId, taskId, access = {}) {
   const userGlobalId = normalizeId(access?.user?.global_user_id);
+  if (!userGlobalId) return null;
 
-  // Identity-first read (BUT keep legacy fallback for older rows with NULL user_global_id)
-  if (userGlobalId) {
-    const result = await pool.query(
-      `
-        SELECT id, user_chat_id, user_global_id, title, type, status, payload, schedule, last_run, created_at
-        FROM tasks
-        WHERE
-          id = $2
-          AND (
-            user_global_id = $1
-            OR (user_global_id IS NULL AND user_chat_id = $3)
-          )
-        LIMIT 1
-      `,
-      [userGlobalId, taskId, userChatId]
-    );
-    return result.rows[0] || null;
-  }
-
-  // Legacy read (temporary)
   const result = await pool.query(
     `
       SELECT id, user_chat_id, user_global_id, title, type, status, payload, schedule, last_run, created_at
       FROM tasks
-      WHERE user_chat_id = $1 AND id = $2
+      WHERE id = $2 AND user_global_id = $1
       LIMIT 1
     `,
-    [userChatId, taskId]
+    [userGlobalId, taskId]
   );
 
   return result.rows[0] || null;

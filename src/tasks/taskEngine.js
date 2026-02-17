@@ -10,14 +10,31 @@ function buildUser(access = {}) {
   return {
     role: (access.userRole || "guest").toLowerCase(),
     plan: (access.userPlan || "free").toLowerCase(),
+    global_user_id: access?.user?.global_user_id || null,
   };
 }
 
-function isOwnerOfTask(task, chatId) {
-  // task.user_chat_id хранится строкой, chatId приходит числом (Telegram)
-  const taskOwner = (task?.user_chat_id ?? "").toString();
-  const current = (chatId ?? "").toString();
-  return taskOwner === current;
+function normalizeId(v) {
+  const s = String(v ?? "").trim();
+  return s || null;
+}
+
+/**
+ * Identity-first ownership:
+ * 1) if task.user_global_id exists -> compare with access.user.global_user_id
+ * 2) else fallback legacy: task.user_chat_id vs chatId (transport-only legacy)
+ */
+function isOwnerOfTask(task, chatId, access = {}) {
+  const taskGlobal = normalizeId(task?.user_global_id);
+  const userGlobal = normalizeId(access?.user?.global_user_id);
+
+  if (taskGlobal && userGlobal) return taskGlobal === userGlobal;
+
+  // legacy fallback (temporary)
+  const taskOwnerChat = normalizeId(task?.user_chat_id);
+  const currentChat = normalizeId(chatId);
+  if (!taskOwnerChat || !currentChat) return false;
+  return taskOwnerChat === currentChat;
 }
 
 function canTask(user, action, ctx = {}) {
@@ -79,22 +96,24 @@ function assertTaskAccess({ access, taskType, action, isOwner }) {
 }
 
 // ==================================================
-// === CREATE TASKS
+// === CREATE TASKS (now writes user_global_id if available)
 // ==================================================
 
 // демо-задача
-export async function createDemoTask(userChatId) {
+export async function createDemoTask(userChatId, access = {}) {
   const payload = {
     note: "Это демо-задача. В будущем здесь будут параметры отчёта/мониторинга.",
   };
 
+  const userGlobalId = normalizeId(access?.user?.global_user_id);
+
   const result = await pool.query(
     `
-      INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO tasks (user_chat_id, user_global_id, title, type, payload, schedule, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `,
-    [userChatId, "Демо-задача", "demo", payload, null, "active"]
+    [userChatId, userGlobalId, "Демо-задача", "demo", payload, null, "active"]
   );
 
   return result.rows[0].id;
@@ -114,14 +133,15 @@ export async function createManualTask(userChatId, title, note, access = {}) {
   }
 
   const payload = { note };
+  const userGlobalId = normalizeId(access?.user?.global_user_id);
 
   const result = await pool.query(
     `
-      INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO tasks (user_chat_id, user_global_id, title, type, payload, schedule, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, created_at
     `,
-    [userChatId, title, "manual", payload, null, "active"]
+    [userChatId, userGlobalId, title, "manual", payload, null, "active"]
   );
 
   return result.rows[0];
@@ -146,14 +166,17 @@ export async function createTestPriceMonitorTask(userChatId, access = {}) {
     threshold_percent: 2,
   };
 
+  const userGlobalId = normalizeId(access?.user?.global_user_id);
+
   const result = await pool.query(
     `
-      INSERT INTO tasks (user_chat_id, title, type, payload, schedule, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO tasks (user_chat_id, user_global_id, title, type, payload, schedule, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `,
     [
       userChatId,
+      userGlobalId,
       "Тестовый price_monitor для BTC",
       "price_monitor",
       payload,
@@ -166,7 +189,7 @@ export async function createTestPriceMonitorTask(userChatId, access = {}) {
 }
 
 // ==================================================
-// === READ TASKS
+// === READ TASKS (prefers user_global_id if available)
 // ==================================================
 export async function getUserTasks(userChatId, limit = 20, access = {}) {
   // list — тоже действие (на будущее, сейчас не ломаем)
@@ -182,6 +205,24 @@ export async function getUserTasks(userChatId, limit = 20, access = {}) {
     return [];
   }
 
+  const userGlobalId = normalizeId(access?.user?.global_user_id);
+
+  // Identity-first list
+  if (userGlobalId) {
+    const result = await pool.query(
+      `
+        SELECT id, title, type, status, created_at, last_run
+        FROM tasks
+        WHERE user_global_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2
+      `,
+      [userGlobalId, limit]
+    );
+    return result.rows;
+  }
+
+  // Legacy list (temporary)
   const result = await pool.query(
     `
       SELECT id, title, type, status, created_at, last_run
@@ -195,10 +236,27 @@ export async function getUserTasks(userChatId, limit = 20, access = {}) {
   return result.rows;
 }
 
-export async function getTaskById(userChatId, taskId) {
+export async function getTaskById(userChatId, taskId, access = {}) {
+  const userGlobalId = normalizeId(access?.user?.global_user_id);
+
+  // Identity-first read
+  if (userGlobalId) {
+    const result = await pool.query(
+      `
+        SELECT id, user_chat_id, user_global_id, title, type, status, payload, schedule, last_run, created_at
+        FROM tasks
+        WHERE user_global_id = $1 AND id = $2
+        LIMIT 1
+      `,
+      [userGlobalId, taskId]
+    );
+    return result.rows[0] || null;
+  }
+
+  // Legacy read (temporary)
   const result = await pool.query(
     `
-      SELECT id, user_chat_id, title, type, status, payload, schedule, last_run, created_at
+      SELECT id, user_chat_id, user_global_id, title, type, status, payload, schedule, last_run, created_at
       FROM tasks
       WHERE user_chat_id = $1 AND id = $2
       LIMIT 1
@@ -224,14 +282,14 @@ export async function updateTaskStatus(taskId, newStatus) {
 }
 
 // ==================================================
-// === RUN TASK WITH AI (ACCESS-AWARE)
+// === RUN TASK WITH AI (ACCESS-AWARE, identity-first owner)
 // ==================================================
 export async function runTaskWithAI(task, chatId, bot, access = {}) {
   const check = assertTaskAccess({
     access,
     taskType: task.type,
     action: "task:run",
-    isOwner: isOwnerOfTask(task, chatId),
+    isOwner: isOwnerOfTask(task, chatId, access),
   });
 
   if (!check.ok) {

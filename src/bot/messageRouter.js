@@ -371,6 +371,40 @@ export function attachMessageRouter({
 
         // inline switch (kept for backward compatibility)
         switch (cmd) {
+          case "/start": {
+            await bot.sendMessage(
+              chatId,
+              [
+                "✅ SG online.",
+                "",
+                "Базовые команды:",
+                "- /link_start — начать привязку identity",
+                "- /link_confirm <code> — подтвердить привязку",
+                "- /link_status — проверить статус",
+                "",
+                "ℹ️ /help — подсказка по командам (в зависимости от прав).",
+              ].join("\n")
+            );
+            return;
+          }
+
+          case "/help": {
+            await bot.sendMessage(
+              chatId,
+              [
+                "ℹ️ Help",
+                "",
+                "Базовые команды:",
+                "- /link_start",
+                "- /link_confirm <code>",
+                "- /link_status",
+                "",
+                "Доступные dev/системные команды — только для монарха в личке.",
+              ].join("\n")
+            );
+            return;
+          }
+
           case "/approve": {
             await handleApprove({ bot, chatId, rest });
             return;

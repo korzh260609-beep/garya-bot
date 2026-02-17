@@ -356,6 +356,7 @@ export function attachMessageRouter({
             chatIdStr,
             rest,
             upsertProjectSection,
+            bypass: true,
           });
           return;
         }

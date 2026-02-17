@@ -55,6 +55,7 @@ import { buildSystemPrompt } from "../../systemPrompt.js";
 
 import {
   parseCommand,
+  callWithFallback,
   canStopTaskV1,
   sanitizeNonMonarchReply,
 } from "../../core/helpers.js";
@@ -107,10 +108,6 @@ import { getProjectSection } from "../../projectMemory.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
-// NOTE: multi-instance accuracy will be handled later via DB locks (Stage 2.8 / 6.8)
-// Env overrides (optional):
-// - CMD_RL_WINDOW_MS (default 20000)
-// - CMD_RL_MAX (default 6)
 // ============================================================================
 const CMD_RL_WINDOW_MS = Math.max(
   1000,
@@ -140,13 +137,10 @@ function checkCmdRateLimit(key) {
 // ============================================================================
 // === ATTACH ROUTER
 // ============================================================================
-
 export function attachMessageRouter({
   bot,
   callAI,
   upsertProjectSection,
-
-  // limits
   MAX_HISTORY_MESSAGES = 20,
 }) {
   bot.on("message", async (msg) => {
@@ -159,47 +153,27 @@ export function attachMessageRouter({
       const text = String(msg.text || "");
       const trimmed = text.trim();
 
-      // =========================
-      // === STAGE 4 (DEEP): CHAT CONTEXT NORMALIZATION
-      // =========================
-      const chatType = msg.chat?.type || "unknown"; // private | group | supergroup | channel | unknown
+      const chatType = msg.chat?.type || "unknown";
       const isPrivate = chatType === "private";
 
-      // ======================================================================
-      // STAGE 4 (DEEP): hard safety — if there is no sender identity, do nothing
-      // (channels/service messages without msg.from)
-      // ======================================================================
       if (!senderIdStr) return;
 
-      // ✅ STAGE 4.2: ensure identity/profile on every incoming message WITH sender identity
       await ensureUserProfile(msg);
 
-      // =========================
-      // === ACCESS / ROLE
-      // =========================
-
-      // ВАЖНО: монарх определяется по USER_ID (msg.from.id), а не по chat_id
       const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-
       const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
       const isMonarchUser = isMonarchFn(senderIdStr);
 
-      // =========================
-      // === STAGE 4 (DEEP): unified identity context (single source of truth)
-      // =========================
       const identityCtx = {
         transport: "telegram",
-        senderIdStr, // user identity
-        chatIdStr, // transport context only
+        senderIdStr,
+        chatIdStr,
         chatType,
         isPrivateChat: isPrivate,
         isMonarchUser,
         MONARCH_USER_ID,
       };
 
-      // =========================
-      // === ACCESS PACK (DB)
-      // =========================
       const accessPack = await resolveUserAccess({
         senderIdStr,
         isMonarch: isMonarchFn,
@@ -214,7 +188,6 @@ export function attachMessageRouter({
           plan: userPlan,
         };
 
-      // permission helper (reply-safe) — permGuard ТРЕБУЕТ msg
       const requirePermOrReply = buildRequirePermOrReply({
         bot,
         msg,
@@ -231,13 +204,8 @@ export function attachMessageRouter({
       // =========================
       if (trimmed.startsWith("/")) {
         const { cmd, rest } = parseCommand(trimmed);
-
-        // Normalize commands like "/start@MyBot"
         const cmdBase = String(cmd || "").split("@")[0];
 
-        // ======================================================================
-        // === ALWAYS-HANDLE BASIC COMMANDS (avoid CMD_ACTION interception)
-        // ======================================================================
         if (cmdBase === "/start") {
           await bot.sendMessage(
             chatId,
@@ -271,13 +239,7 @@ export function attachMessageRouter({
           );
           return;
         }
-        // ======================================================================
 
-        // ======================================================================
-        // === HARD DEV-GATE (ONLY MONARCH IN PRIVATE CHAT)
-        // ======================================================================
-        // Rule: ANY project/dev/system command is forbidden outside monarch DM.
-        // In groups: silent block (per monarch rule).
         const DEV_COMMANDS = new Set([
           "/reindex",
           "/repo_get",
@@ -287,19 +249,11 @@ export function attachMessageRouter({
           "/repo_diff",
           "/code_fullfile",
           "/code_insert",
-
-          // Step 4: CODE_OUTPUT status flag (skeleton only)
           "/code_output_status",
-
-          // ✅ Stage 5.3: workflow check
           "/workflow_check",
-
-          // ✅ Build info (deployment verification)
           "/build_info",
-
           "/pm_set",
           "/pm_show",
-
           "/tasks",
           "/start_task",
           "/stop_task",
@@ -309,16 +263,12 @@ export function attachMessageRouter({
           "/new_task",
           "/demo_task",
           "/btc_test_task",
-
-          // ✅ STAGE 4.x: tasks owner / identity diagnostics
           "/tasks_owner_diag",
-
           "/sources",
           "/sources_diag",
           "/source",
           "/diag_source",
           "/test_source",
-
           "/approve",
           "/deny",
           "/file_logs",
@@ -326,20 +276,13 @@ export function attachMessageRouter({
         ]);
 
         const isDev = DEV_COMMANDS.has(cmdBase);
+        if (isDev && (!isMonarchUser || !isPrivate)) return;
 
-        if (isDev && (!isMonarchUser || !isPrivate)) {
-          // Silent block (no replies, no leakage)
-          return;
-        }
-        // ======================================================================
-
-        // FORCE /reindex to bypass CMD_ACTION routing (monarch DM only)
         if (cmdBase === "/reindex") {
           await handleReindexRepo({ bot, chatId });
           return;
         }
 
-        // ✅ BYPASS CMD_ACTION for Project Memory ops (avoid silent dispatch)
         if (cmdBase === "/pm_show") {
           await handlePmShow({
             bot,
@@ -362,7 +305,6 @@ export function attachMessageRouter({
           return;
         }
 
-        // ✅ BYPASS CMD_ACTION for /build_info (so autosave always runs here)
         if (cmdBase === "/build_info") {
           const commit =
             String(process.env.RENDER_GIT_COMMIT || "").trim() ||
@@ -378,10 +320,8 @@ export function attachMessageRouter({
             "unknown";
 
           const nodeEnv = String(process.env.NODE_ENV || "").trim() || "unknown";
-
           const nowIso = new Date().toISOString();
 
-          // ✅ AUTO-SAVE: DEPLOY VERIFIED → project memory (monarch DM only via dev-gate above)
           if (typeof upsertProjectSection === "function") {
             const content = [
               `DEPLOY VERIFIED`,
@@ -402,7 +342,6 @@ export function attachMessageRouter({
                 schemaVersion: 1,
               });
             } catch (e) {
-              // do not break /build_info if memory write fails
               console.error("build_info autosave failed:", e);
             }
           }
@@ -420,25 +359,21 @@ export function attachMessageRouter({
           return;
         }
 
-        // command router (some legacy commands are mapped)
         const action = CMD_ACTION[cmdBase];
 
-        // STAGE 4 DEEP: admin-actions are private-only + monarch-only (even if invoked in groups)
         if (
           action &&
           typeof action === "string" &&
           action.startsWith("cmd.admin.") &&
           (!isMonarchUser || !isPrivate)
         ) {
-          return; // silent block
+          return;
         }
 
         if (action) {
-          // Stage 3.3: permissions-layer enforcement (can() + access request flow)
           const allowed = await requirePermOrReply(cmdBase, { rest, identityCtx });
           if (!allowed) return;
 
-          // Stage 3.5: rate-limit commands (skip for monarch)
           if (!isMonarchUser) {
             const key = `${senderIdStr}:${chatIdStr}:cmd`;
             const rl = checkCmdRateLimit(key);
@@ -449,7 +384,6 @@ export function attachMessageRouter({
             }
           }
 
-          // ✅ FIX: dispatchCommand must receive (cmd, ctx)
           const ctx = {
             action,
             bot,
@@ -463,16 +397,17 @@ export function attachMessageRouter({
             rest,
             requirePermOrReply,
 
-            // ✅ identity-first: pass resolved user + role/plan + bypass
             user,
             userRole,
             userPlan,
             bypass: isMonarchUser,
 
-            // deps
             pool,
             callAI,
             logInteraction,
+
+            // helpers
+            callWithFallback,
 
             // tasks
             createDemoTask,
@@ -495,7 +430,7 @@ export function attachMessageRouter({
             getAnswerMode,
             setAnswerMode,
 
-            // coingecko (kept for compatibility if dispatcher uses it)
+            // coingecko
             getCoinGeckoSimplePriceById,
             getCoinGeckoSimplePriceMulti,
           };
@@ -504,7 +439,6 @@ export function attachMessageRouter({
           return;
         }
 
-        // inline switch (kept for backward compatibility)
         switch (cmdBase) {
           case "/approve": {
             await handleApprove({ bot, chatId, rest });
@@ -516,12 +450,6 @@ export function attachMessageRouter({
             return;
           }
 
-          case "/reindex": {
-            await handleReindexRepo({ bot, chatId });
-            return;
-          }
-
-          // ✅ STAGE 4.x: tasks owner / identity diagnostics (monarch DM only via dev-gate)
           case "/tasks_owner_diag": {
             try {
               const colRes = await pool.query(
@@ -537,7 +465,6 @@ export function attachMessageRouter({
 
               const hasUserGlobalId = (colRes.rows?.length || 0) > 0;
 
-              // ✅ identity-first only: we no longer touch user_chat_id here
               const summaryQuery = hasUserGlobalId
                 ? `
                   SELECT
@@ -598,16 +525,125 @@ export function attachMessageRouter({
               console.error("❌ /tasks_owner_diag error:", e);
               await bot.sendMessage(
                 chatId,
-                "⚠️ /tasks_owner_diag упал. Проверь: есть ли таблица tasks и применена ли миграция 007 (колонка user_global_id)."
+                "⚠️ /tasks_owner_diag упал. Проверь: есть ли таблица tasks и применена ли миграция (колонка user_global_id)."
               );
             }
             return;
           }
 
-          // Step 4: status-only flag (NO enable logic, NO code generation)
+          case "/demo_task": {
+            await handleDemoTask({
+              bot,
+              chatId,
+              chatIdStr,
+              access: accessPack,
+              callWithFallback,
+              createDemoTask,
+            });
+            return;
+          }
+
+          case "/new_task": {
+            await handleNewTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              access: accessPack,
+              callWithFallback,
+              createManualTask,
+            });
+            return;
+          }
+
+          case "/btc_test_task": {
+            await handleBtcTestTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              access: accessPack,
+              callWithFallback,
+              createTestPriceMonitorTask,
+            });
+            return;
+          }
+
+          case "/tasks": {
+            await handleTasksList({
+              bot,
+              chatId,
+              chatIdStr,
+              getUserTasks,
+              access: accessPack,
+            });
+            return;
+          }
+
+          case "/run_task": {
+            await handleRunTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              access: accessPack,
+              getTaskById,
+              runTaskWithAI,
+            });
+            return;
+          }
+
+          case "/start_task": {
+            await handleStartTask({
+              bot,
+              chatId,
+              rest,
+              bypass: isMonarchUser,
+              updateTaskStatus,
+            });
+            return;
+          }
+
+          case "/stop_task": {
+            await handleStopTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              userRole,
+              bypass: isMonarchUser,
+              getTaskById,
+              canStopTaskV1,
+              updateTaskStatus,
+              access: accessPack,
+            });
+            return;
+          }
+
+          case "/stop_all": {
+            await handleStopAllTasks({
+              bot,
+              chatId,
+              chatIdStr,
+              canStopTaskV1,
+            });
+            return;
+          }
+
+          case "/run_task_cmd": {
+            await handleRunTaskCmd({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              access: accessPack,
+              callWithFallback,
+            });
+            return;
+          }
+
           case "/code_output_status": {
             const mode = getCodeOutputMode();
-
             await bot.sendMessage(
               chatId,
               [
@@ -619,11 +655,9 @@ export function attachMessageRouter({
                 "- ENABLED → реальная генерация кода",
               ].join("\n")
             );
-
             return;
           }
 
-          // ✅ Stage 5.3: workflow check (skeleton handler)
           case "/workflow_check": {
             await handleWorkflowCheck({ bot, chatId, rest });
             return;
@@ -675,15 +709,11 @@ export function attachMessageRouter({
           }
 
           case "/code_fullfile": {
-            // IMPORTANT: handler needs callAI
-            // STAGE 4.2: also pass senderIdStr for refusal logging (no DB)
             await handleCodeFullfile({ bot, chatId, rest, callAI, senderIdStr });
             return;
           }
 
           case "/code_insert": {
-            // IMPORTANT: handler needs callAI
-            // STAGE 4.2: also pass senderIdStr for refusal logging (no DB)
             await handleCodeInsert({ bot, chatId, rest, callAI, senderIdStr });
             return;
           }
@@ -700,34 +730,6 @@ export function attachMessageRouter({
 
           case "/file_logs": {
             await handleFileLogs({ bot, chatId, chatIdStr, rest });
-            return;
-          }
-
-          case "/demo_task": {
-            await handleDemoTask({ bot, chatId, chatIdStr, createDemoTask });
-            return;
-          }
-
-          case "/stop_all": {
-            await handleStopAllTasks({
-              bot,
-              chatId,
-              chatIdStr,
-              canStopTaskV1,
-            });
-            return;
-          }
-
-          case "/run_task_cmd": {
-            await handleRunTaskCmd({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              access: accessPack,
-              callWithFallback: null,
-              runTask: null,
-            });
             return;
           }
 
@@ -786,80 +788,17 @@ export function attachMessageRouter({
             return;
           }
 
-          case "/tasks": {
-            await handleTasksList({ bot, chatId, chatIdStr, getUserTasks });
-            return;
-          }
-
-          case "/start_task": {
-            await handleStartTask({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              updateTaskStatus,
-            });
-            return;
-          }
-
-          case "/stop_task": {
-            await handleStopTask({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              canStopTaskV1,
-              updateTaskStatus,
-            });
-            return;
-          }
-
-          case "/run_task": {
-            await handleRunTask({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              runTaskWithAI,
-            });
-            return;
-          }
-
-          case "/new_task": {
-            await handleNewTask({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              createManualTask,
-            });
-            return;
-          }
-
-          case "/btc_test_task": {
-            await handleBtcTestTask({
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              createTestPriceMonitorTask,
-            });
-            return;
-          }
-
           default: {
-            // неизвестная команда — игнор (поведение без изменений)
             break;
           }
-        } // end switch (cmdBase)
+        }
 
         return;
-      } // end if (trimmed.startsWith("/"))
+      }
 
       // ======================================================================
       // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
       // ======================================================================
-
       await handleChatMessage({
         bot,
         msg,
@@ -881,7 +820,6 @@ export function attachMessageRouter({
         getAnswerMode,
         buildSystemPrompt,
 
-        // FIX: handleChatMessage ожидает функцию isMonarch(id), а не boolean
         isMonarch: isMonarchFn,
 
         callAI,
@@ -890,8 +828,7 @@ export function attachMessageRouter({
 
       return;
     } catch (e) {
-      // не спамим чат деталями; лог — в консоль
       console.error("messageRouter error:", e);
     }
-  }); // ✅ end bot.on("message", ...)
-} // ✅ end attachMessageRouter(...)
+  });
+}

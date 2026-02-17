@@ -52,21 +52,6 @@ export async function resolveUserAccess({
     globalUserId = legacyRes.rows?.[0]?.global_user_id || null;
   }
 
-  // 3) Last fallback (transport-only) — ONLY to avoid breaking old DB in private chat
-  // Do NOT treat it as truth; only helps return some role if old row exists.
-  if (!globalUserId && chatIdStr) {
-    const transportRes = await pool.query(
-      `
-      SELECT global_user_id
-      FROM users
-      WHERE chat_id = $1
-      LIMIT 1
-      `,
-      [String(chatIdStr)]
-    );
-    globalUserId = transportRes.rows?.[0]?.global_user_id || null;
-  }
-
   // If no resolved identity/user -> guest (or monarch if override)
   if (!globalUserId) {
     const role = monarchOverride ? "monarch" : "guest";

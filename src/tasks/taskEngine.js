@@ -90,8 +90,17 @@ function assertTaskAccess({ access, taskType, action, isOwner }) {
 }
 
 // ==================================================
-// === CREATE TASKS (now writes user_global_id if available)
+// === CREATE TASKS (identity-first ONLY)
 // ==================================================
+
+function requireUserGlobalId(access = {}) {
+  const userGlobalId = normalizeId(access?.user?.global_user_id);
+  if (!userGlobalId) {
+    // безопасно: без global_user_id задачи не должны создаваться (identity-only)
+    throw new Error("Identity error: global_user_id missing");
+  }
+  return userGlobalId;
+}
 
 // демо-задача
 export async function createDemoTask(userChatId, access = {}) {
@@ -99,15 +108,15 @@ export async function createDemoTask(userChatId, access = {}) {
     note: "Это демо-задача. В будущем здесь будут параметры отчёта/мониторинга.",
   };
 
-  const userGlobalId = normalizeId(access?.user?.global_user_id);
+  const userGlobalId = requireUserGlobalId(access);
 
   const result = await pool.query(
     `
-      INSERT INTO tasks (user_chat_id, user_global_id, title, type, payload, schedule, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO tasks (user_global_id, title, type, payload, schedule, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `,
-    [userChatId, userGlobalId, "Демо-задача", "demo", payload, null, "active"]
+    [userGlobalId, "Демо-задача", "demo", payload, null, "active"]
   );
 
   return result.rows[0].id;
@@ -127,15 +136,15 @@ export async function createManualTask(userChatId, title, note, access = {}) {
   }
 
   const payload = { note };
-  const userGlobalId = normalizeId(access?.user?.global_user_id);
+  const userGlobalId = requireUserGlobalId(access);
 
   const result = await pool.query(
     `
-      INSERT INTO tasks (user_chat_id, user_global_id, title, type, payload, schedule, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO tasks (user_global_id, title, type, payload, schedule, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, created_at
     `,
-    [userChatId, userGlobalId, title, "manual", payload, null, "active"]
+    [userGlobalId, title, "manual", payload, null, "active"]
   );
 
   return result.rows[0];
@@ -160,23 +169,15 @@ export async function createTestPriceMonitorTask(userChatId, access = {}) {
     threshold_percent: 2,
   };
 
-  const userGlobalId = normalizeId(access?.user?.global_user_id);
+  const userGlobalId = requireUserGlobalId(access);
 
   const result = await pool.query(
     `
-      INSERT INTO tasks (user_chat_id, user_global_id, title, type, payload, schedule, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO tasks (user_global_id, title, type, payload, schedule, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `,
-    [
-      userChatId,
-      userGlobalId,
-      "Тестовый price_monitor для BTC",
-      "price_monitor",
-      payload,
-      null,
-      "active",
-    ]
+    [userGlobalId, "Тестовый price_monitor для BTC", "price_monitor", payload, null, "active"]
   );
 
   return result.rows[0].id;
@@ -222,7 +223,7 @@ export async function getTaskById(userChatId, taskId, access = {}) {
 
   const result = await pool.query(
     `
-      SELECT id, user_chat_id, user_global_id, title, type, status, payload, schedule, last_run, created_at
+      SELECT id, user_global_id, title, type, status, payload, schedule, last_run, created_at
       FROM tasks
       WHERE id = $2 AND user_global_id = $1
       LIMIT 1

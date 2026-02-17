@@ -99,7 +99,7 @@ export class RepoIndexService {
     let fetched = 0;
     let skipped = 0;
 
-    // 1) Pillars first (canonical)
+    // 1) Pillars first (canonical) — content
     for (const path of PILLARS) {
       const item = await this.source.fetchTextFile(path);
       if (item && typeof item.content === "string") {
@@ -110,19 +110,19 @@ export class RepoIndexService {
       }
     }
 
-    // 2) Then normal files (limited)
-    const files = await this.source.listFiles();
-    const filesListed = Array.isArray(files) ? files.length : 0;
+    // 2) Full Tree paths-only (NO CONTENT) — Contour A
+    // RepoSource.listFiles() already uses GitHub Tree API (recursive=1)
+    const allTreePaths = await this.source.listFiles();
+    const filesListed = Array.isArray(allTreePaths) ? allTreePaths.length : 0;
 
-    const fileSet = new Set(Array.isArray(files) ? files : []);
+    const fileSet = new Set(Array.isArray(allTreePaths) ? allTreePaths : []);
 
     // 2.1 REQUIRED_FILES first (if they exist in repo)
     const requiredExisting = REQUIRED_FILES.filter((p) => fileSet.has(p));
 
-    // 2.2 Normal candidates via allowed prefixes (includes "src/")
-    // keep list tight: only allow selected prefixes
-    const filtered = Array.isArray(files)
-      ? files.filter(
+    // 2.2 Content candidates via allowed prefixes (Contour B: allowlist content index)
+    const filtered = Array.isArray(allTreePaths)
+      ? allTreePaths.filter(
           (p) =>
             typeof p === "string" &&
             ALLOWED_PREFIXES.some((pref) => p.startsWith(pref)) &&
@@ -135,12 +135,13 @@ export class RepoIndexService {
     const ordered = requiredExisting.concat(sortByPriority(filteredWithoutRequired));
 
     const MAX_FILES_PER_RUN = Math.max(
-  20,
-  Number(process.env.REPOINDEX_MAX_FILES || 200)
-);
+      20,
+      Number(process.env.REPOINDEX_MAX_FILES || 200)
+    );
 
     const batch = ordered.slice(0, MAX_FILES_PER_RUN);
 
+    // 2.3 Fetch content only for allowlisted batch (Contour B)
     for (const path of batch) {
       const item = await this.source.fetchTextFile(path);
       if (item && typeof item.content === "string") {
@@ -155,16 +156,22 @@ export class RepoIndexService {
       filesListed,
       filesFetched: fetched,
       filesSkipped: skipped,
+      // extra hint for debugging/visibility (stored inside snapshot.stats)
+      fullTreeFilesListed: filesListed,
+      contentCandidatesTotal: ordered.length,
+      contentBatchSize: batch.length,
     });
 
     // 3) Optional: persist normalized snapshot (structure+hashes only) into PostgreSQL
-    // NOTE: commit/blob sha are not available in current flow; can be added later from GitHub tree API.
+    // IMPORTANT CHANGE:
+    // - Persist FULL TREE paths (Contour A) instead of snapshot.files (which is allowlist content).
+    // - Still NO CONTENT stored.
     let persisted = null;
     if (this.store && typeof this.store.saveSnapshot === "function") {
-      const normalizedFiles = (snapshot.files || []).map((f) => ({
-        path: f.path,
-        size: Number(f.size) || 0,
-        blobSha: null, // TODO: fill from GitHub tree item sha later
+      const normalizedFiles = (Array.isArray(allTreePaths) ? allTreePaths : []).map((p) => ({
+        path: p,
+        size: 0,     // not available in current flow
+        blobSha: null, // TODO: fill later (GitHub tree item sha)
       }));
 
       const snapshotId = await this.store.saveSnapshot({

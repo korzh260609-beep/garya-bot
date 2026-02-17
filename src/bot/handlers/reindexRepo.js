@@ -91,6 +91,9 @@ export async function handleReindexRepo({ bot, chatId, senderIdStr }) {
 
   const previewBlock = formatCandidatesPreview(summary.memoryCandidatesPreview, 10);
 
+  const fullTreePersistedFiles =
+    typeof persisted?.filesCount === "number" ? persisted.filesCount : "?";
+
   await bot.sendMessage(
     chatId,
     [
@@ -99,10 +102,16 @@ export async function handleReindexRepo({ bot, chatId, senderIdStr }) {
       `repo: ${summary.repo || "?"}`,
       `branch: ${summary.branch || "?"}`,
       `createdAt: ${summary.createdAt || "?"}`,
+
+      // Contour A: full tree (persisted)
+      `fullTreePersistedFiles: ${fullTreePersistedFiles}`,
+
+      // Contour B: content index (allowlist)
       `filesListed: ${summary.stats?.filesListed ?? "?"}`,
       `filesFetched: ${summary.stats?.filesFetched ?? "?"}`,
       `filesSkipped: ${summary.stats?.filesSkipped ?? "?"}`,
       `snapshotFiles: ${summary.snapshotFiles ?? "?"}`,
+
       `memoryCandidates: ${summary.memoryCandidates ?? "?"}`,
       ``,
       previewBlock,

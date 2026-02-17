@@ -1,10 +1,18 @@
 import { createLinkCode } from "../../users/linking.js";
 
-export async function handleLinkStart({ bot, chatId, senderIdStr }) {
-  const res = await createLinkCode({ provider: "telegram", providerUserId: senderIdStr });
+export async function handleLinkStart({
+  bot,
+  chatId,
+  senderIdStr,
+  provider = "telegram",
+}) {
+  const res = await createLinkCode({ provider, providerUserId: senderIdStr });
 
   if (!res?.ok) {
-    await bot.sendMessage(chatId, `⚠️ Не удалось создать link-код: ${res?.error || "unknown"}`);
+    await bot.sendMessage(
+      chatId,
+      `⚠️ Не удалось создать link-код: ${res?.error || "unknown"}`
+    );
     return;
   }
 

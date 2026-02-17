@@ -688,10 +688,10 @@ export function attachMessageRouter({
             return;
           }
 
-          case "/repo_get": {
-            await handleRepoGet({ bot, chatId, rest });
-            return;
-          }
+            case "/repo_get": {
+  await handleRepoGet({ bot, chatId, rest, senderIdStr });
+  return;
+}
 
           case "/repo_check": {
             await handleRepoCheck({ bot, chatId, rest });

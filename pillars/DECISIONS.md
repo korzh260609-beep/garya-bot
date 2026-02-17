@@ -482,3 +482,41 @@ Decision:
 Consequences:
 - SG использует отчёт исключительно для ориентации и доклада пользователю;
 - Любые действия по результатам отчёта выполняются только по явному указу монарха.
+
+---
+
+## D-028: RepoIndex contours (A/B/C) + guarded on-demand repo access
+Status: ACCEPTED  
+Date: 2026-02-17  
+Scope: Repo Indexing / Security / Repo Tools
+
+Decision:
+Repository visibility and access are split into three contours:
+
+A) Full Tree Snapshot (paths-only)
+- SG MUST persist full repository tree (all paths) as metadata only (no content).
+- This contour is the source for /repo_tree and for “what exists in repo”.
+
+B) Content Index (allowlist only)
+- SG MAY fetch and index content only for a restricted allowlist (bounded prefixes + required files).
+- This contour is the source for content search/review and memory-candidate preview.
+
+C) On-demand fetch (guarded)
+- SG MAY fetch a specific file content only when explicitly requested by the user.
+- On-demand access MUST be guarded by:
+  - path traversal denial
+  - sensitive-file denylist
+  - role-gated extra roots (monarch-only)
+- Default allowed roots remain tight. Additional roots are allowed ONLY for monarch.
+
+Monarch-only extra roots (current):
+- migrations/
+- .github/
+
+Consequences:
+- “Partial repo visibility” from content allowlists is forbidden as a source of truth.
+- Full Tree Snapshot is mandatory for accurate Roadmap Awareness and repo navigation.
+- Secret leak risk is treated as high priority; on-demand fetch MUST remain guarded.
+- Denylist may create false positives; any refinement must be deliberate and reviewed.
+
+---

@@ -1,5 +1,5 @@
 // src/bot/handlers/stopTask.js
-// extracted from case "/stop_task" — no logic changes
+// identity-first version (Stage 4)
 
 export async function handleStopTask({
   bot,
@@ -8,10 +8,10 @@ export async function handleStopTask({
   rest,
   userRole,
   bypass,
-  getTaskRowById,
-  isOwnerTaskRow,
+  getTaskById,
   canStopTaskV1,
   updateTaskStatus,
+  access, // identity pack
 }) {
   const id = Number((rest || "").trim());
   if (!id) {
@@ -20,19 +20,24 @@ export async function handleStopTask({
   }
 
   try {
-    const taskRow = await getTaskRowById(id);
+    // identity-first lookup
+    const taskRow = await getTaskById(chatIdStr, id, access);
+
     if (!taskRow) {
       await bot.sendMessage(chatId, `⚠️ Задача с ID ${id} не найдена.`);
       return;
     }
 
-    const owner = isOwnerTaskRow(taskRow, chatIdStr);
+    // identity-first owner check
+    const isOwner =
+      String(taskRow.user_global_id || "") ===
+      String(access?.user?.global_user_id || "");
 
     const allowed = canStopTaskV1({
       userRole,
       bypass,
       taskType: taskRow.type,
-      isOwner: owner,
+      isOwner,
     });
 
     if (!allowed) {
@@ -47,4 +52,3 @@ export async function handleStopTask({
     await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задачи.");
   }
 }
-

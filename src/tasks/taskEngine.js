@@ -207,17 +207,19 @@ export async function getUserTasks(userChatId, limit = 20, access = {}) {
 
   const userGlobalId = normalizeId(access?.user?.global_user_id);
 
-  // Identity-first list
+  // Identity-first list (BUT keep legacy fallback for older rows with NULL user_global_id)
   if (userGlobalId) {
     const result = await pool.query(
       `
         SELECT id, title, type, status, created_at, last_run
         FROM tasks
-        WHERE user_global_id = $1
+        WHERE
+          user_global_id = $1
+          OR (user_global_id IS NULL AND user_chat_id = $2)
         ORDER BY created_at DESC
-        LIMIT $2
+        LIMIT $3
       `,
-      [userGlobalId, limit]
+      [userGlobalId, userChatId, limit]
     );
     return result.rows;
   }
@@ -239,16 +241,21 @@ export async function getUserTasks(userChatId, limit = 20, access = {}) {
 export async function getTaskById(userChatId, taskId, access = {}) {
   const userGlobalId = normalizeId(access?.user?.global_user_id);
 
-  // Identity-first read
+  // Identity-first read (BUT keep legacy fallback for older rows with NULL user_global_id)
   if (userGlobalId) {
     const result = await pool.query(
       `
         SELECT id, user_chat_id, user_global_id, title, type, status, payload, schedule, last_run, created_at
         FROM tasks
-        WHERE user_global_id = $1 AND id = $2
+        WHERE
+          id = $2
+          AND (
+            user_global_id = $1
+            OR (user_global_id IS NULL AND user_chat_id = $3)
+          )
         LIMIT 1
       `,
-      [userGlobalId, taskId]
+      [userGlobalId, taskId, userChatId]
     );
     return result.rows[0] || null;
   }

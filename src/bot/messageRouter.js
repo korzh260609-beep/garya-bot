@@ -231,6 +231,47 @@ export function attachMessageRouter({
       if (trimmed.startsWith("/")) {
         const { cmd, rest } = parseCommand(trimmed);
 
+        // Normalize commands like "/start@MyBot"
+        const cmdBase = String(cmd || "").split("@")[0];
+
+        // ======================================================================
+        // === ALWAYS-HANDLE BASIC COMMANDS (avoid CMD_ACTION interception)
+        // ======================================================================
+        if (cmdBase === "/start") {
+          await bot.sendMessage(
+            chatId,
+            [
+              "✅ SG online.",
+              "",
+              "Базовые команды:",
+              "- /link_start — начать привязку identity",
+              "- /link_confirm <code> — подтвердить привязку",
+              "- /link_status — проверить статус",
+              "",
+              "ℹ️ /help — подсказка по командам (в зависимости от прав).",
+            ].join("\n")
+          );
+          return;
+        }
+
+        if (cmdBase === "/help") {
+          await bot.sendMessage(
+            chatId,
+            [
+              "ℹ️ Help",
+              "",
+              "Базовые команды:",
+              "- /link_start",
+              "- /link_confirm <code>",
+              "- /link_status",
+              "",
+              "Dev/системные команды — только для монарха в личке.",
+            ].join("\n")
+          );
+          return;
+        }
+        // ======================================================================
+
         // ======================================================================
         // === HARD DEV-GATE (ONLY MONARCH IN PRIVATE CHAT)
         // ======================================================================
@@ -280,7 +321,7 @@ export function attachMessageRouter({
           "/ar_list",
         ]);
 
-        const isDev = DEV_COMMANDS.has(cmd);
+        const isDev = DEV_COMMANDS.has(cmdBase);
 
         if (isDev && (!isMonarchUser || !isPrivate)) {
           // Silent block (no replies, no leakage)
@@ -289,13 +330,13 @@ export function attachMessageRouter({
         // ======================================================================
 
         // FORCE /reindex to bypass CMD_ACTION routing (monarch DM only)
-        if (cmd === "/reindex") {
+        if (cmdBase === "/reindex") {
           await handleReindexRepo({ bot, chatId });
           return;
         }
 
         // command router (some legacy commands are mapped)
-        const action = CMD_ACTION[cmd];
+        const action = CMD_ACTION[cmdBase];
 
         // STAGE 4 DEEP: admin-actions are private-only + monarch-only (even if invoked in groups)
         if (
@@ -309,7 +350,7 @@ export function attachMessageRouter({
 
         if (action) {
           // Stage 3.3: permissions-layer enforcement (can() + access request flow)
-          const allowed = await requirePermOrReply(cmd, { rest, identityCtx });
+          const allowed = await requirePermOrReply(cmdBase, { rest, identityCtx });
           if (!allowed) return;
 
           // Stage 3.5: rate-limit commands (skip for monarch)
@@ -368,59 +409,59 @@ export function attachMessageRouter({
             getCoinGeckoSimplePriceMulti,
           };
 
-          await dispatchCommand(cmd, ctx);
+          await dispatchCommand(cmdBase, ctx);
           return;
         }
 
         // inline switch (kept for backward compatibility)
-        switch (cmd) {
-          case "/start": {
-            await bot.sendMessage(
-              chatId,
-              [
-                "✅ SG online.",
-                "",
-                "Базовые команды:",
-                "- /link_start — начать привязку identity",
-                "- /link_confirm <code> — подтвердить привязку",
-                "- /link_status — проверить статус",
-                "",
-                "ℹ️ /help — подсказка по командам (в зависимости от прав).",
-              ].join("\n")
-            );
-            return;
-          }
-
-          case "/help": {
-            await bot.sendMessage(
-              chatId,
-              [
-                "ℹ️ Help",
-                "",
-                "Базовые команды:",
-                "- /link_start",
-                "- /link_confirm <code>",
-                "- /link_status",
-                "",
-                "Доступные dev/системные команды — только для монарха в личке.",
-              ].join("\n")
-            );
-            return;
-          }
-
+        switch (cmdBase) {
           case "/build_info": {
             const commit =
               String(process.env.RENDER_GIT_COMMIT || "").trim() ||
               String(process.env.GIT_COMMIT || "").trim() ||
               "unknown";
 
-            const serviceId = String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
+            const serviceId =
+              String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
+
             const instanceId =
               String(process.env.RENDER_INSTANCE_ID || "").trim() ||
               String(process.env.HOSTNAME || "").trim() ||
               "unknown";
 
             const nodeEnv = String(process.env.NODE_ENV || "").trim() || "unknown";
+
+            const nowIso = new Date().toISOString();
+
+            // ✅ AUTO-SAVE: DEPLOY VERIFIED → project memory (monarch DM only via dev-gate above)
+            if (typeof upsertProjectSection === "function") {
+              const sectionKey = "deploy.last_verified";
+              const content = [
+                `DEPLOY VERIFIED`,
+                `ts: ${nowIso}`,
+                `commit: ${commit}`,
+                `service: ${serviceId}`,
+                `instance: ${instanceId}`,
+                `node_env: ${nodeEnv}`,
+              ].join("\n");
+
+              // Support both possible call signatures (object or (key, content))
+              try {
+                await upsertProjectSection({
+                  sectionKey,
+                  content,
+                  source: "build_info",
+                  ts: nowIso,
+                });
+              } catch (e1) {
+                try {
+                  await upsertProjectSection(sectionKey, content);
+                } catch (e2) {
+                  // do not break /build_info if memory write fails
+                  console.error("build_info autosave failed:", e2);
+                }
+              }
+            }
 
             await bot.sendMessage(
               chatId,
@@ -711,7 +752,7 @@ export function attachMessageRouter({
             // неизвестная команда — игнор (поведение без изменений)
             break;
           }
-        } // end switch (cmd)
+        } // end switch (cmdBase)
 
         return;
       } // end if (trimmed.startsWith("/"))

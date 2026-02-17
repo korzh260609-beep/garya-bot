@@ -55,7 +55,6 @@ import { buildSystemPrompt } from "../../systemPrompt.js";
 
 import {
   parseCommand,
-  isOwnerTaskRow,
   canStopTaskV1,
   sanitizeNonMonarchReply,
 } from "../../core/helpers.js";
@@ -725,7 +724,9 @@ export function attachMessageRouter({
               chatId,
               chatIdStr,
               rest,
-              isOwnerTaskRow,
+              access: accessPack,
+              callWithFallback: null,
+              runTask: null,
             });
             return;
           }

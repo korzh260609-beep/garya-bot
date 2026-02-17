@@ -16,6 +16,12 @@ const DEFAULT_ALLOWED_ROOTS = [
   "package.json",
 ];
 
+// Monarch-only extra roots (Contour C: on-demand with guard)
+const MONARCH_EXTRA_ROOTS = [
+  "migrations/",
+  ".github/",
+];
+
 function parseAllowedRoots() {
   const raw = String(process.env.REPO_ALLOWED_ROOTS || "").trim();
   if (!raw) return DEFAULT_ALLOWED_ROOTS;
@@ -61,7 +67,13 @@ function isAllowedRoot(p, allowedRoots) {
   return false;
 }
 
-export async function handleRepoGet({ bot, chatId, rest }) {
+function isMonarch(senderIdStr) {
+  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+  if (!MONARCH_USER_ID) return false;
+  return String(senderIdStr || "") === MONARCH_USER_ID;
+}
+
+export async function handleRepoGet({ bot, chatId, rest, senderIdStr }) {
   const rawPath = (rest || "").trim();
   if (!rawPath) {
     await bot.sendMessage(chatId, "Usage: /repo_get <path/to/file>");
@@ -88,12 +100,18 @@ export async function handleRepoGet({ bot, chatId, rest }) {
     return;
   }
 
-  // Allowlist roots
   const allowedRoots = parseAllowedRoots();
-  if (!isAllowedRoot(path, allowedRoots)) {
+
+  // Contour C: monarch-only roots
+  const monarch = isMonarch(senderIdStr);
+  const allowedByMonarchExtra = monarch && isAllowedRoot(path, MONARCH_EXTRA_ROOTS);
+
+  // Allowlist roots (default) OR monarch-extra roots
+  if (!isAllowedRoot(path, allowedRoots) && !allowedByMonarchExtra) {
+    const extraHint = monarch ? `, ${MONARCH_EXTRA_ROOTS.join(", ")}` : "";
     await bot.sendMessage(
       chatId,
-      `Access denied: path is outside allowed roots.\nAllowed: ${allowedRoots.join(", ")}`
+      `Access denied: path is outside allowed roots.\nAllowed: ${allowedRoots.join(", ")}${extraHint}`
     );
     return;
   }

@@ -126,7 +126,10 @@ async function requireMonarch(bot, chatId, senderIdStr) {
   if (!MONARCH_USER_ID) return true;
 
   if (!senderIdStr) {
-    await bot.sendMessage(chatId, "Internal error: senderIdStr missing (identity-first).");
+    await bot.sendMessage(
+      chatId,
+      "Internal error: senderIdStr missing (identity-first)."
+    );
     return false;
   }
 
@@ -142,7 +145,10 @@ async function getUserRoleBySenderId(senderIdStr, chatIdStr) {
     const globalUserId = await resolveGlobalUserId({ senderIdStr, chatIdStr });
     if (!globalUserId) return "guest";
 
-    const res = await pool.query("SELECT role FROM users WHERE global_user_id = $1", [globalUserId]);
+    const res = await pool.query(
+      "SELECT role FROM users WHERE global_user_id = $1",
+      [globalUserId]
+    );
     return res.rows?.[0]?.role || "guest";
   } catch (e) {
     console.error("❌ Error fetching user role:", e);
@@ -168,11 +174,15 @@ async function cmdApprove({ bot, chatId, chatIdStr, senderIdStr, rest }) {
     });
 
     if (!result?.ok) {
-      await bot.sendMessage(chatId, `⚠️ Не удалось approve: ${result?.error || "unknown"}`);
+      await bot.sendMessage(
+        chatId,
+        `⚠️ Не удалось approve: ${result?.error || "unknown"}`
+      );
       return;
     }
 
-    const req = result.request || result.row || result.data || result.accessRequest || null;
+    const req =
+      result.request || result.row || result.data || result.accessRequest || null;
 
     const requesterChatId =
       req?.requester_chat_id ||
@@ -184,7 +194,10 @@ async function cmdApprove({ bot, chatId, chatIdStr, senderIdStr, rest }) {
 
     if (requesterChatId) {
       try {
-        await bot.sendMessage(Number(requesterChatId), `✅ Монарх одобрил вашу заявку #${id}.`);
+        await bot.sendMessage(
+          Number(requesterChatId),
+          `✅ Монарх одобрил вашу заявку #${id}.`
+        );
       } catch {
         // ignore
       }
@@ -215,11 +228,15 @@ async function cmdDeny({ bot, chatId, chatIdStr, senderIdStr, rest }) {
     });
 
     if (!result?.ok) {
-      await bot.sendMessage(chatId, `⚠️ Не удалось deny: ${result?.error || "unknown"}`);
+      await bot.sendMessage(
+        chatId,
+        `⚠️ Не удалось deny: ${result?.error || "unknown"}`
+      );
       return;
     }
 
-    const req = result.request || result.row || result.data || result.accessRequest || null;
+    const req =
+      result.request || result.row || result.data || result.accessRequest || null;
 
     const requesterChatId =
       req?.requester_chat_id ||
@@ -231,7 +248,10 @@ async function cmdDeny({ bot, chatId, chatIdStr, senderIdStr, rest }) {
 
     if (requesterChatId) {
       try {
-        await bot.sendMessage(Number(requesterChatId), `⛔ Монарх отклонил вашу заявку #${id}.`);
+        await bot.sendMessage(
+          Number(requesterChatId),
+          `⛔ Монарх отклонил вашу заявку #${id}.`
+        );
       } catch {
         // ignore
       }
@@ -320,11 +340,14 @@ async function cmdArList({ bot, chatId, chatIdStr, senderIdStr, rest }) {
       return;
     }
 
-    let out = `🛡️ Access Requests (last ${res.rows.length})\n` +
+    let out =
+      `🛡️ Access Requests (last ${res.rows.length})\n` +
       `ℹ️ role_at_request = historical snapshot, current_role = current profile role\n\n`;
     for (const r of res.rows) {
       out += `#${r.id} | ${r.status} | ${new Date(r.created_at).toISOString()}\n`;
-      out += `who=${r.requester_chat_id}${r.requester_name ? ` (${r.requester_name})` : ""}\n`;
+      out += `who=${r.requester_chat_id}${
+        r.requester_name ? ` (${r.requester_name})` : ""
+      }\n`;
       if (r.requester_role) out += `role_at_request=${r.requester_role}\n`;
       out += `current_role=${r.current_role}\n`;
       if (r.requested_action) out += `action=${r.requested_action}\n`;
@@ -710,6 +733,42 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
+    // === DIAG: tasks ownership backfill (tasks.user_global_id) ===
+    case "/tasks_owner_diag": {
+      const ok = await requireMonarch(bot, chatId, senderIdStr);
+      if (!ok) return;
+
+      try {
+        const res = await pool.query(`
+          SELECT
+            COUNT(*) FILTER (WHERE user_global_id IS NULL) AS null_count,
+            COUNT(*) FILTER (WHERE user_global_id IS NOT NULL) AS filled_count,
+            COUNT(*) AS total
+          FROM tasks
+        `);
+
+        const row = res.rows?.[0] || {};
+        const nullCount = Number(row.null_count || 0);
+        const filledCount = Number(row.filled_count || 0);
+        const total = Number(row.total || 0);
+
+        await bot.sendMessage(
+          chatId,
+          [
+            "🧪 TASKS OWNER DIAG",
+            `total: ${total}`,
+            `filled(user_global_id): ${filledCount}`,
+            `null(user_global_id): ${nullCount}`,
+          ].join("\n")
+        );
+      } catch (e) {
+        console.error("❌ /tasks_owner_diag error:", e);
+        await bot.sendMessage(chatId, "⚠️ Не удалось выполнить диагностику tasks (см. логи).");
+      }
+
+      return;
+    }
+
     case "/meminfo": {
       try {
         const res = await pool.query(
@@ -759,12 +818,20 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
           const row = last.rows[0];
           if (row) {
-            const snippet = row.content.length > 400 ? row.content.slice(0, 400) + "..." : row.content;
-            latestBlock = `Последняя запись:\n` + `🕒 ${row.created_at}\n` + `🎭 Роль: ${row.role}\n` + `💬 Текст: ${snippet}`;
+            const snippet =
+              row.content.length > 400 ? row.content.slice(0, 400) + "..." : row.content;
+            latestBlock =
+              `Последняя запись:\n` +
+              `🕒 ${row.created_at}\n` +
+              `🎭 Роль: ${row.role}\n` +
+              `💬 Текст: ${snippet}`;
           }
         }
 
-        const text = `📊 Статус долговременной памяти\n` + `Всего сообщений в памяти: ${total}\n\n` + `${latestBlock}`;
+        const text =
+          `📊 Статус долговременной памяти\n` +
+          `Всего сообщений в памяти: ${total}\n\n` +
+          `${latestBlock}`;
 
         await bot.sendMessage(chatId, text);
       } catch (e) {
@@ -818,9 +885,11 @@ export async function handleCommand(bot, msg, command, commandArgs) {
     case "/source": {
       const key = commandArgs.trim();
       if (!key) {
-        await bot.sendMessage(chatId, "Нужно указать ключ источника.\nПример: `/source coingecko_simple_price`", {
-          parse_mode: "Markdown",
-        });
+        await bot.sendMessage(
+          chatId,
+          "Нужно указать ключ источника.\nПример: `/source coingecko_simple_price`",
+          { parse_mode: "Markdown" }
+        );
         return;
       }
 
@@ -839,7 +908,8 @@ export async function handleCommand(bot, msg, command, commandArgs) {
           return;
         }
 
-        const payload = result.data || result.htmlSnippet || result.xmlSnippet || result.items || null;
+        const payload =
+          result.data || result.htmlSnippet || result.xmlSnippet || result.items || null;
 
         const previewObj = {
           ok: result.ok,
@@ -859,7 +929,10 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         await bot.sendMessage(chatId, text);
       } catch (e) {
         console.error("❌ Error in /source:", e);
-        await bot.sendMessage(chatId, `❌ Внутренняя ошибка при работе с источником "${key}": ${e.message}`);
+        await bot.sendMessage(
+          chatId,
+          `❌ Внутренняя ошибка при работе с источником "${key}": ${e.message}`
+        );
       }
       return;
     }
@@ -868,9 +941,11 @@ export async function handleCommand(bot, msg, command, commandArgs) {
     case "/diag_source": {
       const key = commandArgs.trim();
       if (!key) {
-        await bot.sendMessage(chatId, "Нужно указать ключ источника.\nПример: `/diag_source coingecko_simple_price`", {
-          parse_mode: "Markdown",
-        });
+        await bot.sendMessage(
+          chatId,
+          "Нужно указать ключ источника.\nПример: `/diag_source coingecko_simple_price`",
+          { parse_mode: "Markdown" }
+        );
         return;
       }
 
@@ -880,9 +955,12 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
         const type = result.type || "unknown";
         const httpStatus =
-          typeof result.httpStatus === "number" ? result.httpStatus : result.meta?.httpStatus ?? "—";
+          typeof result.httpStatus === "number"
+            ? result.httpStatus
+            : result.meta?.httpStatus ?? "—";
 
-        const payload = result.data || result.htmlSnippet || result.xmlSnippet || result.items || null;
+        const payload =
+          result.data || result.htmlSnippet || result.xmlSnippet || result.items || null;
 
         const previewObj = {
           ok: result.ok,
@@ -904,7 +982,10 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         await bot.sendMessage(chatId, text);
       } catch (e) {
         console.error("❌ Error in /diag_source:", e);
-        await bot.sendMessage(chatId, `❌ Внутренняя ошибка при диагностике источника "${key}": ${e.message}`);
+        await bot.sendMessage(
+          chatId,
+          `❌ Внутренняя ошибка при диагностике источника "${key}": ${e.message}`
+        );
       }
 
       return;
@@ -925,7 +1006,8 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       if (!raw) {
         await bot.sendMessage(
           chatId,
-          "Использование:\n`/pm_set <section> <text>`\n\n" + "Пример:\n`/pm_set roadmap SG — ROADMAP V3.2 ...`",
+          "Использование:\n`/pm_set <section> <text>`\n\n" +
+            "Пример:\n`/pm_set roadmap SG — ROADMAP V3.2 ...`",
           { parse_mode: "Markdown" }
         );
         return;
@@ -945,7 +1027,8 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       if (!content) {
         await bot.sendMessage(
           chatId,
-          "Нужно указать текст для записи в проектную память.\n" + "Пример:\n`/pm_set roadmap ROADMAP V1.5 ...`",
+          "Нужно указать текст для записи в проектную память.\n" +
+            "Пример:\n`/pm_set roadmap ROADMAP V1.5 ...`",
           { parse_mode: "Markdown" }
         );
         return;
@@ -959,7 +1042,8 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
         await bot.sendMessage(
           chatId,
-          `✅ Проектная память обновлена для секции "${section}".\n\n` + `Длина текста: ${content.length} символов.`
+          `✅ Проектная память обновлена для секции "${section}".\n\n` +
+            `Длина текста: ${content.length} символов.`
         );
       } catch (e) {
         console.error("❌ /pm_set error:", e);
@@ -1047,11 +1131,14 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
       let desc = "";
       if (arg === "short") {
-        desc = "короткие ответы (1–2 предложения, без лишних деталей, с приоритетом экономии токенов).";
+        desc =
+          "короткие ответы (1–2 предложения, без лишних деталей, с приоритетом экономии токенов).";
       } else if (arg === "normal") {
-        desc = "средние ответы (3–7 предложений, немного деталей, умеренная экономия токенов).";
+        desc =
+          "средние ответы (3–7 предложений, немного деталей, умеренная экономия токенов).";
       } else if (arg === "long") {
-        desc = "развернутые ответы с пунктами и объяснениями (больше токенов, максимум пользы).";
+        desc =
+          "развернутые ответы с пунктами и объяснениями (больше токенов, максимум пользы).";
       }
 
       await bot.sendMessage(chatId, `✅ Режим ответа установлен: ${arg}.\n\nОписание: ${desc}`);

@@ -202,6 +202,7 @@ export function attachMessageRouter({
         chatIdStr,
         senderIdStr,
         isMonarch: isMonarchFn,
+        provider: identityCtx.transport,
       });
 
       const userRole = accessPack?.userRole || "guest";
@@ -314,7 +315,7 @@ export function attachMessageRouter({
             const rl = checkCmdRateLimit(key);
             if (!rl.allowed) {
               const sec = Math.ceil(rl.retryAfterMs / 1000);
-              await bot.sendMessage(chatId, `⏳ Слишком часто. Подожди ${sec} сек.`);
+              await bot.sendMessage(chatId, `⛔ Слишком часто. Подожди ${sec} сек.`);
               return;
             }
           }

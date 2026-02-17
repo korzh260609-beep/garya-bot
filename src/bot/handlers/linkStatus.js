@@ -1,8 +1,13 @@
 import { getLinkStatus } from "../../users/linking.js";
 
-export async function handleLinkStatus({ bot, chatId, senderIdStr }) {
+export async function handleLinkStatus({
+  bot,
+  chatId,
+  senderIdStr,
+  provider = "telegram",
+}) {
   const res = await getLinkStatus({
-    provider: "telegram",
+    provider,
     providerUserId: senderIdStr,
   });
 
@@ -15,7 +20,10 @@ export async function handleLinkStatus({ bot, chatId, senderIdStr }) {
   const pending = res.pending;
 
   if (!row && !pending) {
-    await bot.sendMessage(chatId, "ℹ️ Для этого аккаунта активной link-записи нет. Запусти /link_start.");
+    await bot.sendMessage(
+      chatId,
+      "ℹ️ Для этого аккаунта активной link-записи нет. Запусти /link_start."
+    );
     return;
   }
 

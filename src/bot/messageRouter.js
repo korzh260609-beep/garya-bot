@@ -252,6 +252,9 @@ export function attachMessageRouter({
           // ✅ Stage 5.3: workflow check
           "/workflow_check",
 
+          // ✅ Build info (deployment verification)
+          "/build_info",
+
           "/pm_set",
           "/pm_show",
 
@@ -400,6 +403,33 @@ export function attachMessageRouter({
                 "- /link_status",
                 "",
                 "Доступные dev/системные команды — только для монарха в личке.",
+              ].join("\n")
+            );
+            return;
+          }
+
+          case "/build_info": {
+            const commit =
+              String(process.env.RENDER_GIT_COMMIT || "").trim() ||
+              String(process.env.GIT_COMMIT || "").trim() ||
+              "unknown";
+
+            const serviceId = String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
+            const instanceId =
+              String(process.env.RENDER_INSTANCE_ID || "").trim() ||
+              String(process.env.HOSTNAME || "").trim() ||
+              "unknown";
+
+            const nodeEnv = String(process.env.NODE_ENV || "").trim() || "unknown";
+
+            await bot.sendMessage(
+              chatId,
+              [
+                "🧩 BUILD INFO",
+                `commit: ${commit}`,
+                `service: ${serviceId}`,
+                `instance: ${instanceId}`,
+                `node_env: ${nodeEnv}`,
               ].join("\n")
             );
             return;

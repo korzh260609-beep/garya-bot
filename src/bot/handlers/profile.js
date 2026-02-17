@@ -7,6 +7,7 @@ export async function handleProfile({ bot, chatId, chatIdStr, senderIdStr }) {
 
     let globalUserId = null;
 
+    // 1) Identity-first: resolve via user_identities (telegram:provider_user_id)
     if (providerUserId) {
       const idRes = await pool.query(
         `
@@ -20,7 +21,7 @@ export async function handleProfile({ bot, chatId, chatIdStr, senderIdStr }) {
       globalUserId = idRes.rows?.[0]?.global_user_id || null;
     }
 
-    // Fallback (legacy) if identity missing
+    // 2) Legacy fallback (allowed): try users by tg/global id (NOT by chat_id)
     if (!globalUserId && providerUserId) {
       const legacyRes = await pool.query(
         `
@@ -34,19 +35,7 @@ export async function handleProfile({ bot, chatId, chatIdStr, senderIdStr }) {
       globalUserId = legacyRes.rows?.[0]?.global_user_id || null;
     }
 
-    // Last fallback: transport chatIdStr (compat only)
-    if (!globalUserId && chatIdStr) {
-      const transportRes = await pool.query(
-        `
-        SELECT global_user_id
-        FROM users
-        WHERE chat_id = $1
-        LIMIT 1
-        `,
-        [String(chatIdStr)]
-      );
-      globalUserId = transportRes.rows?.[0]?.global_user_id || null;
-    }
+    // NOTE: chatIdStr is transport-only. No DB lookup by chat_id here (Stage 4.6+).
 
     if (!globalUserId) {
       await bot.sendMessage(chatId, "Профиль не найден.");

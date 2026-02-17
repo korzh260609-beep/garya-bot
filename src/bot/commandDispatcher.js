@@ -185,6 +185,7 @@ export async function dispatchCommand(cmd, ctx) {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
+        user: ctx.user, // ✅ identity-first: provides global_user_id
       };
 
       await handleTasksList({
@@ -215,6 +216,7 @@ export async function dispatchCommand(cmd, ctx) {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
+        user: ctx.user, // ✅ identity-first
       };
 
       if (typeof ctx.createManualTask !== "function") {
@@ -248,17 +250,18 @@ export async function dispatchCommand(cmd, ctx) {
         return { handled: true };
       }
 
-      const task = await ctx.getTaskById(chatIdStr, taskId);
+      const access = {
+        userRole: ctx.userRole || ctx.user?.role || "guest",
+        userPlan: ctx.userPlan || ctx.user?.plan || "free",
+        user: ctx.user, // ✅ identity-first
+      };
+
+      const task = await ctx.getTaskById(chatIdStr, taskId, access);
 
       if (!task) {
         await bot.sendMessage(chatId, `⛔ Задача #${taskId} не найдена`);
         return { handled: true };
       }
-
-      const access = {
-        userRole: ctx.userRole || ctx.user?.role || "guest",
-        userPlan: ctx.userPlan || ctx.user?.plan || "free",
-      };
 
       await ctx.runTaskWithAI(task, chatId, bot, access);
       return { handled: true };

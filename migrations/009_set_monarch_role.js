@@ -5,27 +5,23 @@ export async function up(pgm) {
   const monarchId = String(process.env.MONARCH_USER_ID || "").trim();
   if (!monarchId) return;
 
-  // 1) tg_user_id match
-  pgm.sql(
-    `
-    UPDATE users
-    SET role = 'monarch'
-    WHERE tg_user_id = $1
-    `,
-    [monarchId]
-  );
+  const globalId = `tg:${monarchId}`;
 
-  // 2) global_user_id match tg:<id>
-  pgm.sql(
-    `
+  // ⚠️ В миграциях нельзя использовать $1 параметры — только прямой SQL
+
+  pgm.sql(`
     UPDATE users
     SET role = 'monarch'
-    WHERE global_user_id = $1
-    `,
-    [`tg:${monarchId}`]
-  );
+    WHERE tg_user_id = '${monarchId}'
+  `);
+
+  pgm.sql(`
+    UPDATE users
+    SET role = 'monarch'
+    WHERE global_user_id = '${globalId}'
+  `);
 }
 
 export async function down(pgm) {
-  // Forward-only policy: do nothing
+  // forward-only
 }

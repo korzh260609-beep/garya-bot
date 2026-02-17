@@ -34,6 +34,28 @@ export function getInitialMockPrice(symbolRaw) {
   return base;
 }
 
+// === identity-first: resolve chat_id by global_user_id ===
+async function resolveChatIdByGlobalUserId(globalUserId) {
+  if (!globalUserId) return null;
+
+  try {
+    const res = await pool.query(
+      `
+      SELECT chat_id
+      FROM users
+      WHERE global_user_id = $1
+      LIMIT 1
+      `,
+      [globalUserId]
+    );
+
+    return res.rows?.[0]?.chat_id || null;
+  } catch (e) {
+    console.error("❌ ROBOT resolveChatId error:", e);
+    return null;
+  }
+}
+
 // Обработка одной задачи типа price_monitor (mock)
 async function handlePriceMonitorTask(bot, task) {
   const payload = task.payload || {};
@@ -72,7 +94,6 @@ async function handlePriceMonitorTask(bot, task) {
   // Проверяем, прошёл ли нужный интервал
   const msSinceLast = now - state.lastCheck;
   if (msSinceLast < intervalMinutes * 60_000) {
-    // Интервал ещё не прошёл — ничего не делаем и не спамим лог
     return;
   }
 
@@ -119,10 +140,13 @@ async function handlePriceMonitorTask(bot, task) {
       `Направление: ${direction}.\n` +
       `Это ТЕСТОВЫЙ режим без реального биржевого API.`;
 
-    const userChatId = task.user_chat_id;
+    // === identity-first отправка ===
+    const globalUserId = task.user_global_id;
+    const userChatId = await resolveChatIdByGlobalUserId(globalUserId);
+
     if (userChatId && bot) {
       try {
-        await bot.sendMessage(userChatId, text);
+        await bot.sendMessage(Number(userChatId), text);
       } catch (e) {
         console.error(
           "❌ ROBOT: не удалось отправить mock-сигнал по задаче",
@@ -136,10 +160,8 @@ async function handlePriceMonitorTask(bot, task) {
 
 // Главный "тик" робота
 export async function robotTick(bot) {
-  // ✅ 2.8 Execution safety: prevent double tick across restarts/instances
   const locked = await acquireExecutionLock();
   if (!locked) {
-    // Кто-то другой уже тикает — тихо выходим
     return;
   }
 
@@ -147,7 +169,6 @@ export async function robotTick(bot) {
     const tasks = await getActiveRobotTasks();
 
     if (!tasks.length) {
-      // Нет активных задач — тихо выходим
       return;
     }
 
@@ -156,8 +177,7 @@ export async function robotTick(bot) {
         if (t.type === "price_monitor") {
           await handlePriceMonitorTask(bot, t);
         } else if (t.type === "news_monitor") {
-          // Пока заглушка — в будущем тут будет mock/реальный news монитор
-          // console.log("📰 ROBOT: пропускаем news_monitor (mock-заглушка)", t.id);
+          // future
         }
       } catch (taskErr) {
         console.error("❌ ROBOT: ошибка обработки задачи", t.id, taskErr);
@@ -170,13 +190,12 @@ export async function robotTick(bot) {
   }
 }
 
-// Старт цикла робота (обёртка для index.js)
+// Старт цикла робота
 export function startRobotLoop(bot) {
   console.log(
     `🤖 ROBOT: старт mock-цикла (tick каждые ${TICK_MS / 1000} секунд)`
   );
 
-  // делаем первый тик сразу
   robotTick(bot).catch((err) =>
     console.error("❌ ROBOT: ошибка первого mock-tick:", err)
   );
@@ -187,9 +206,3 @@ export function startRobotLoop(bot) {
     );
   }, TICK_MS);
 }
-
-// ⚠️ ВАЖНО:
-// index.js использует так:
-// import { startRobotLoop } from "./src/robot/robotMock.js";
-// ...
-// startRobotLoop(bot);

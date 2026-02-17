@@ -34,9 +34,14 @@ async function callWithFallback(fn, variants) {
 }
 
 // === 7.10 helpers: task ownership + stop permissions (V1) ===
+//
+// ⚠️ DEPRECATED:
+// Раньше ownership проверялся по taskRow.user_chat_id vs chatIdStr.
+// В Stage 4 (identity-first) owner = user_global_id.
+// Эта функция оставлена ТОЛЬКО для совместимости импорта, пока не вычистим messageRouter.
+// Следующим шагом: убрать импорт/передачу isOwnerTaskRow из messageRouter и удалить эту функцию полностью.
 function isOwnerTaskRow(taskRow, chatIdStr) {
-  const owner = (taskRow?.user_chat_id ?? "").toString();
-  return owner === chatIdStr.toString();
+  return false;
 }
 
 function canStopTaskV1({ userRole, bypass, taskType, isOwner }) {
@@ -121,4 +126,3 @@ export {
   sanitizeNonMonarchReply,
   getSystemHealth,
 };
-

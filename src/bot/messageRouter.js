@@ -806,13 +806,23 @@ export function attachMessageRouter({
           }
 
           case "/stop_task": {
+            const access = {
+              user,
+              userRole,
+              userPlan,
+            };
+
             await handleStopTask({
               bot,
               chatId,
               chatIdStr,
               rest,
+              userRole,
+              bypass: isMonarchUser,
+              getTaskById,
               canStopTaskV1,
               updateTaskStatus,
+              access,
             });
             return;
           }

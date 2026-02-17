@@ -50,6 +50,10 @@ B) Modularized “src/” layer (preferred structure)
 C) Canonical documents (Pillars)
 - pillars/*.md (DECISIONS, WORKFLOW, PROJECT, SG_BEHAVIOR, etc.)
 
+D) Repository meta / ops (not indexed by content by default)
+- migrations/*
+- .github/*
+
 ---
 
 ## 2) Core definition (what is “Core”)
@@ -138,6 +142,51 @@ Responsibilities:
 Critical invariants:
 - Read-only only (no writes, no commits).
 - Index is structural (paths, hashes, metadata), not archival.
+
+---
+
+## 2.7 RepoIndex model (Contours A/B/C) — CURRENT IMPLEMENTATION
+
+Repo access is split into three contours to avoid “partial repo visibility” and to keep content exposure bounded.
+
+### Contour A — Full Tree Snapshot (paths-only)
+Goal:
+- 100% visibility of repository structure (all file paths).
+Safety:
+- Stores metadata only (paths; hashes later). No content.
+Implementation:
+- RepoSource.listFiles() uses GitHub Tree API (recursive) to list all blob paths.
+- RepoIndexService persists the FULL tree paths into PostgreSQL snapshot.
+
+Expected behavior:
+- /reindex prints:
+  - fullTreePersistedFiles = total tree paths
+  - filesListed = total tree paths
+
+### Contour B — Content Index (allowlist only)
+Goal:
+- Provide limited, safe content for search/review without scanning everything.
+Safety:
+- Fetch content only for allowlisted prefixes + required files.
+Implementation:
+- RepoIndexService fetches content only for ALLOWED_PREFIXES + REQUIRED_FILES (bounded by REPOINDEX_MAX_FILES).
+Expected behavior:
+- /reindex prints:
+  - snapshotFiles = number of fetched content files (allowlist)
+
+### Contour C — On-demand file fetch (guarded)
+Goal:
+- Allow reading specific files outside allowlist when explicitly requested.
+Safety:
+- Strong guards: deny traversal, deny sensitive patterns, role-gated extra roots.
+Implementation:
+- /repo_get enforces:
+  - deny traversal
+  - deny “sensitive file” patterns
+  - default allowed roots (src/, core/, pillars/, docs/, README.md, index.js, package.json)
+  - monarch-only extra roots:
+    - migrations/
+    - .github/
 
 ---
 
@@ -235,6 +284,11 @@ Sensitive paths must be denied for repo fetch/check/review:
 
 Repo analysis tools must treat “leak potential” as high priority.
 
+NOTE (risk / known limitation):
+- Current denylist is substring-based (e.g., matches "token", "key", "secret").
+  This can cause false positives (blocking benign filenames) and may miss other secret patterns.
+  Any refinement must be deliberate and reviewed, not “improved casually”.
+
 ---
 
 ## 8) Change governance
@@ -242,4 +296,3 @@ Repo analysis tools must treat “leak potential” as high priority.
 If repository structure changes materially:
 - Update this file (REPOINDEX.md) in the same commit.
 - If the change alters architecture rules, also update DECISIONS.md (explicit decision record).
-

@@ -143,34 +143,40 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-          case "/link_start": {
+    case "/link_start": {
+      const provider = ctx?.identityCtx?.transport || "telegram";
       await handleLinkStart({
         bot,
         chatId,
         senderIdStr: ctx.senderIdStr,
+        provider,
       });
       return { handled: true };
     }
 
     case "/link_confirm": {
+      const provider = ctx?.identityCtx?.transport || "telegram";
       await handleLinkConfirm({
         bot,
         chatId,
         senderIdStr: ctx.senderIdStr,
         rest: ctx.rest,
+        provider,
       });
       return { handled: true };
     }
 
     case "/link_status": {
+      const provider = ctx?.identityCtx?.transport || "telegram";
       await handleLinkStatus({
         bot,
         chatId,
         senderIdStr: ctx.senderIdStr,
+        provider,
       });
       return { handled: true };
     }
-      
+
     // ==========================
     // TASKS (Stage 2.x) — FIXES
     // ==========================

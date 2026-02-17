@@ -20,6 +20,101 @@ import { getProjectSection, upsertProjectSection } from "../projectMemory.js";
 import { setAnswerMode } from "../core/answerMode.js";
 
 // ============================================================================
+// === Identity-first helpers (Stage 4)
+// ============================================================================
+
+async function resolveGlobalUserId({ senderIdStr, chatIdStr }) {
+  const providerUserId = String(senderIdStr || "").trim();
+  let globalUserId = null;
+
+  // 1) identity-first
+  if (providerUserId) {
+    try {
+      const idRes = await pool.query(
+        `
+        SELECT global_user_id
+        FROM user_identities
+        WHERE provider = 'telegram' AND provider_user_id = $1
+        LIMIT 1
+        `,
+        [providerUserId]
+      );
+      globalUserId = idRes.rows?.[0]?.global_user_id || null;
+    } catch (e) {
+      console.error("❌ resolveGlobalUserId identity query error:", e);
+    }
+  }
+
+  // 2) legacy fallback
+  if (!globalUserId && providerUserId) {
+    try {
+      const legacyRes = await pool.query(
+        `
+        SELECT global_user_id
+        FROM users
+        WHERE global_user_id = $1 OR tg_user_id = $2
+        LIMIT 1
+        `,
+        [`tg:${providerUserId}`, providerUserId]
+      );
+      globalUserId = legacyRes.rows?.[0]?.global_user_id || null;
+    } catch (e) {
+      console.error("❌ resolveGlobalUserId legacy query error:", e);
+    }
+  }
+
+  // 3) last fallback (transport chat_id only)
+  if (!globalUserId && chatIdStr) {
+    try {
+      const transportRes = await pool.query(
+        `
+        SELECT global_user_id
+        FROM users
+        WHERE chat_id = $1
+        LIMIT 1
+        `,
+        [String(chatIdStr)]
+      );
+      globalUserId = transportRes.rows?.[0]?.global_user_id || null;
+    } catch (e) {
+      console.error("❌ resolveGlobalUserId transport query error:", e);
+    }
+  }
+
+  return globalUserId;
+}
+
+async function buildAccessContext({ senderIdStr, chatIdStr }) {
+  const globalUserId = await resolveGlobalUserId({ senderIdStr, chatIdStr });
+
+  // role/plan берём из users (plan пока безопасно фиксируем как free, чтобы не ссылаться на несуществующую колонку)
+  let role = "guest";
+
+  if (globalUserId) {
+    try {
+      const uRes = await pool.query(
+        `
+        SELECT role
+        FROM users
+        WHERE global_user_id = $1
+        LIMIT 1
+        `,
+        [globalUserId]
+      );
+      role = (uRes.rows?.[0]?.role || "guest").toLowerCase();
+    } catch (e) {
+      console.error("❌ buildAccessContext user query error:", e);
+    }
+  }
+
+  return {
+    userRole: role,
+    userPlan: "free",
+    user: { global_user_id: globalUserId || null },
+  };
+}
+
+// ============================================================================
 // === Access Requests helpers/commands (extracted pattern from messageRouter.js)
 // ============================================================================
 
@@ -42,9 +137,12 @@ async function requireMonarch(bot, chatId, senderIdStr) {
   return true;
 }
 
-async function getUserRoleByChatId(chatIdStr) {
+async function getUserRoleBySenderId(senderIdStr, chatIdStr) {
   try {
-    const res = await pool.query("SELECT role FROM users WHERE chat_id = $1", [chatIdStr]);
+    const globalUserId = await resolveGlobalUserId({ senderIdStr, chatIdStr });
+    if (!globalUserId) return "guest";
+
+    const res = await pool.query("SELECT role FROM users WHERE global_user_id = $1", [globalUserId]);
     return res.rows?.[0]?.role || "guest";
   } catch (e) {
     console.error("❌ Error fetching user role:", e);
@@ -153,7 +251,7 @@ async function cmdArCreateTest({ bot, chatId, chatIdStr, senderIdStr }) {
   try {
     const AccessRequests = await import("../users/accessRequests.js");
     const nowIso = new Date().toISOString();
-    const userRole = await getUserRoleByChatId(chatIdStr);
+    const userRole = await getUserRoleBySenderId(senderIdStr, chatIdStr);
 
     const reqRow = await AccessRequests.createAccessRequest({
       requesterChatId: chatIdStr,
@@ -222,7 +320,7 @@ async function cmdArList({ bot, chatId, chatIdStr, senderIdStr, rest }) {
       return;
     }
 
-        let out = `🛡️ Access Requests (last ${res.rows.length})\n` +
+    let out = `🛡️ Access Requests (last ${res.rows.length})\n` +
       `ℹ️ role_at_request = historical snapshot, current_role = current profile role\n\n`;
     for (const r of res.rows) {
       out += `#${r.id} | ${r.status} | ${new Date(r.created_at).toISOString()}\n`;
@@ -253,23 +351,34 @@ export async function handleCommand(bot, msg, command, commandArgs) {
   // Stage 4: identity-first. chat_id = transport only.
   const senderIdStr = msg?.from?.id != null ? String(msg.from.id) : "";
 
+  // access context for TaskEngine (identity-first)
+  const access = await buildAccessContext({ senderIdStr, chatIdStr });
+
   switch (command) {
     case "/profile":
     case "/whoami":
     case "/me": {
       try {
+        const globalUserId = access?.user?.global_user_id || null;
+
+        if (!globalUserId) {
+          await bot.sendMessage(chatId, "Профиль не найден.");
+          return;
+        }
+
         const res = await pool.query(
-          "SELECT chat_id, name, role, language, created_at FROM users WHERE chat_id = $1",
-          [chatIdStr]
+          "SELECT chat_id, global_user_id, name, role, language, created_at FROM users WHERE global_user_id = $1 LIMIT 1",
+          [globalUserId]
         );
 
         if (res.rows.length === 0) {
-          await bot.sendMessage(chatId, "Пока что у меня нет данных о вашем профиле в системе.");
+          await bot.sendMessage(chatId, "Профиль не найден.");
         } else {
           const u = res.rows[0];
           const text =
             `🧾 Профиль пользователя\n` +
-            `ID чата: \`${u.chat_id}\`\n` +
+            `chat_id (transport): \`${u.chat_id || "—"}\`\n` +
+            `global_user_id: \`${u.global_user_id || "—"}\`\n` +
             `Имя: ${u.name || "—"}\n` +
             `Роль: ${u.role || "—"}\n` +
             `Язык: ${u.language || "—"}\n` +
@@ -309,7 +418,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
     case "/demo_task": {
       try {
-        const id = await createDemoTask(chatIdStr);
+        const id = await createDemoTask(chatIdStr, access);
         await bot.sendMessage(
           chatId,
           `✅ Демо-задача создана! ID: ${id}\n` +
@@ -338,14 +447,14 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       }
 
       try {
-        const task = await getTaskById(chatIdStr, taskId);
+        const task = await getTaskById(chatIdStr, taskId, access);
         if (!task) {
           await bot.sendMessage(chatId, `Я не нашёл задачу #${taskId} среди ваших задач.`);
           return;
         }
 
         await bot.sendMessage(chatId, `🚀 Запускаю задачу #${task.id} через ИИ-движок...`);
-        await runTaskWithAI(task, chatId, bot);
+        await runTaskWithAI(task, chatId, bot, access);
       } catch (e) {
         console.error("❌ Error in /run:", e);
         await bot.sendMessage(chatId, "Не удалось запустить задачу. См. логи сервера.");
@@ -355,7 +464,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
     case "/btc_test_task": {
       try {
-        const taskId = await createTestPriceMonitorTask(chatIdStr);
+        const taskId = await createTestPriceMonitorTask(chatIdStr, access);
         await bot.sendMessage(
           chatId,
           `🆕 Тестовая задача мониторинга BTC создана!\n\n` +
@@ -383,7 +492,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       }
 
       try {
-        const task = await createManualTask(chatIdStr, "Manual task", taskText);
+        const task = await createManualTask(chatIdStr, "Manual task", taskText, access);
 
         await bot.sendMessage(
           chatId,
@@ -402,7 +511,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
 
     case "/tasks": {
       try {
-        const tasks = await getUserTasks(chatIdStr, 30);
+        const tasks = await getUserTasks(chatIdStr, 30, access);
         if (!tasks || tasks.length === 0) {
           await bot.sendMessage(
             chatId,
@@ -458,7 +567,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       // /task list
       if (firstLower === "list") {
         try {
-          const tasks = await getUserTasks(chatIdStr, 50);
+          const tasks = await getUserTasks(chatIdStr, 50, access);
           if (!tasks || tasks.length === 0) {
             await bot.sendMessage(chatId, "У вас пока нет задач в Task Engine.");
           } else {
@@ -495,7 +604,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         }
 
         try {
-          const task = await createManualTask(chatIdStr, restText);
+          const task = await createManualTask(chatIdStr, "Manual task", restText, access);
 
           await bot.sendMessage(
             chatId,
@@ -535,7 +644,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         }
 
         try {
-          const existing = await getTaskById(chatIdStr, taskId);
+          const existing = await getTaskById(chatIdStr, taskId, access);
           if (!existing) {
             await bot.sendMessage(chatId, `Я не нашёл задачу #${taskId} среди ваших задач.`);
             return;
@@ -576,7 +685,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       }
 
       try {
-        const task = await getTaskById(chatIdStr, taskId);
+        const task = await getTaskById(chatIdStr, taskId, access);
         if (!task) {
           await bot.sendMessage(chatId, `Я не нашёл задачу #${taskId} среди ваших задач.`);
           return;

@@ -464,6 +464,12 @@ export function attachMessageRouter({
             rest,
             requirePermOrReply,
 
+            // ✅ identity-first: pass resolved user + role/plan + bypass
+            user,
+            userRole,
+            userPlan,
+            bypass: isMonarchUser,
+
             // deps
             pool,
             callAI,

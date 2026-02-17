@@ -8,7 +8,6 @@
 import pool from "../../db.js";
 
 export async function resolveUserAccess({
-  chatIdStr,
   senderIdStr,
   isMonarch,
   provider = "telegram",

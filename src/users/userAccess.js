@@ -3,11 +3,17 @@
 // Правило: chat_id = transport only. Не используем users.chat_id для определения роли.
 //
 // V1.4: ❌ bypassPermissions полностью удалён. Монарх определяется только ролью "monarch".
+// V1.5: ✅ provider-aware (по умолчанию "telegram", но можно передавать другой transport)
 
 import pool from "../../db.js";
 
-export async function resolveUserAccess({ chatIdStr, senderIdStr, isMonarch }) {
-  const provider = "telegram";
+export async function resolveUserAccess({
+  chatIdStr,
+  senderIdStr,
+  isMonarch,
+  provider = "telegram",
+}) {
+  const providerNorm = String(provider || "telegram").trim() || "telegram";
   const providerUserId = String(senderIdStr || "").trim();
 
   // Monarch override (ONLY by sender/user id)
@@ -25,7 +31,7 @@ export async function resolveUserAccess({ chatIdStr, senderIdStr, isMonarch }) {
       WHERE provider = $1 AND provider_user_id = $2
       LIMIT 1
       `,
-      [provider, providerUserId]
+      [providerNorm, providerUserId]
     );
 
     globalUserId = idRes.rows?.[0]?.global_user_id || null;

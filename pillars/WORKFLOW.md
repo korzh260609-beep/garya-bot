@@ -116,7 +116,7 @@ For each roadmap item:
 # STAGE 4 — MULTI-CHANNEL IDENTITY (FOUNDATION, mandatory)
 4.1 Introduce global_user_id  
 4.2 platform_user_id stored only as links  
-4.3 user_identities/user_links table (global_user_id ↔ platform ↔ platform_user_id)  
+4.3 identity tables (global_user_id ↔ platform ↔ platform_user_id): user_links + identity_link_codes  
 4.4 linking flow (code/confirm) + minimal commands/UX  
 4.5 can()/roles/plans bound to global_user_id (not platform id)  
 4.6 Hard ban: “roles/limits per platform”
@@ -460,6 +460,7 @@ For each roadmap item:
 12A.0.8 /reindex dry-run diagnostics  
 12A.0.9 memoryCandidates preview (NO persistence)  
 12A.0.10 /code_output_status (reports ENV: CODE_OUTPUT_MODE = DISABLED|DRY_RUN|ENABLED)
+12A.0.11 /project_status (Roadmap Awareness report: WORKFLOW ↔ RepoIndex, read-only)
 
 Notes:
 - Read-only only

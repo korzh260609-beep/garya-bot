@@ -148,7 +148,7 @@ async function getRecentFileIntakeLogs(chatIdStr, limit = 10) {
 async function getTaskRowById(taskId) {
   const res = await pool.query(
     `
-    SELECT id, user_chat_id, title, type, status, payload, schedule, last_run, created_at
+    SELECT id, user_global_id, title, type, status, payload, schedule, last_run, created_at
     FROM tasks
     WHERE id = $1
     LIMIT 1

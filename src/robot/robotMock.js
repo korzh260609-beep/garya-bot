@@ -3,6 +3,7 @@
 
 import pool from "../../db.js";
 import { acquireExecutionLock, releaseExecutionLock } from "../jobs/executionLock.js";
+import { tryStartTaskRun } from "../db/taskRunsRepo.js";
 
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
@@ -174,6 +175,23 @@ export async function robotTick(bot) {
 
     for (const t of tasks) {
       try {
+        // =======================================
+        // Stage 2.8 — Runtime Dedup Gate (task_runs)
+        // =======================================
+        // 1 run per task per tick-window
+        const runKey = `robot:${String(t.id)}@${Math.floor(Date.now() / TICK_MS)}`;
+
+        const gate = await tryStartTaskRun({
+          taskId: t.id,
+          runKey,
+          meta: { runner: "robotMock", type: t.type },
+        });
+
+        // already started elsewhere → skip
+        if (!gate.started) {
+          continue;
+        }
+
         if (t.type === "price_monitor") {
           await handlePriceMonitorTask(bot, t);
         } else if (t.type === "news_monitor") {

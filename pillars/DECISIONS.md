@@ -328,163 +328,6 @@ Consequences:
 
 ---
 
-## D-021: Suggestions noise filtering and aggregation rules
-Status: ACCEPTED  
-Date: 2026-01-19  
-Scope: Code Review / Suggestions (B3)
-
-Decision:
-Suggestions are high-level, aggregated and noise-filtered conclusions derived from detected issues.
-
-Rules:
-- One suggestion per issue type (no duplication)
-- Maximum 7 suggestions total
-- Heuristic-only issue types must be aggregated
-- If only heuristic issues are present, severity MUST be lowered
-- Suggestions must never contain code or instructions
-
----
-
-## D-022: Repo Review — UNREACHABLE_CODE heuristic policy
-Status: ACCEPTED  
-Date: 2026-01-21  
-Scope: Repo Review / Heuristics (B4)
-
-Decision:
-UNREACHABLE_CODE is heuristic and non-blocking.
-Allowed zones downgrade severity:
-- src/bot/handlers/*
-- src/sources/*
-- classifier.js
-
----
-
-## D-023: Controlled Code Writing (B6)
-Status: ACCEPTED  
-Date: 2026-01-25  
-Scope: Code Generation / Governance
-
-Decision:
-From stage B6, SG is allowed to WRITE CODE OUTPUT,
-but ONLY under strict human-applied control.
-
-Rules:
-- SG writes code only by explicit command.
-- SG NEVER inserts, commits, deploys or modifies files itself.
-- All code is copied and applied by the human.
-
-Mandatory output format:
-1) FILE
-2) ACTION (ADD_NEW_FILE | REPLACE | INSERT)
-3) ANCHOR
-4) CODE
-5) WHY
-6) RISKS
-7) CHECK
-
-Restrictions:
-- No refactor without command
-- No architectural changes without DECISIONS update
-- No secret handling
-- No silent behavior changes
-
-Consequences:
-- Any deviation is a critical governance violation
-- Human remains the sole executor
-
----
-
-## D-024: CODE_OUTPUT Enable Gate
-Status: ACCEPTED  
-Date: 2026-02-06  
-Scope: Code Generation / Governance
-
-Decision:
-CODE_OUTPUT (генерация кода) **запрещён по умолчанию** и может быть включён
-**только отдельным явным Decision монарха**.
-
-Никакие команды, флаги, конфигурации, условия или логика
-**не имеют права** активировать CODE_OUTPUT автоматически или косвенно.
-
-Единственный допустимый путь включения:
-- отдельная запись в DECISIONS.md;
-- прямое подтверждение монарха;
-- ручное принятие решения.
-
-До этого момента CODE_OUTPUT считается
-**PERMANENTLY DISABLED (skeleton only)**.
-
-Consequences:
-- Любая автоматическая или косвенная активация является критическим нарушением governance
-- SG обязан блокировать и явно сообщать о любой попытке обхода gate
-
-## D-025: Active Stage Determination (Roadmap Awareness)
-
-Status: ACCEPTED  
-Date: 2026-02-08  
-Scope: Workflow / Roadmap Awareness
-
-Decision:
-ACTIVE_STAGE определяется как наивысший Stage из WORKFLOW.md,
-для которого все обязательные (non-skeleton) пункты предыдущих Stage
-либо выполнены фактически в репозитории, либо явно bypassed
-через зафиксированное решение в DECISIONS.md.
-
-Consequences:
-- SG не использует визуальные маркеры (❌/✅) как источник истины
-- Статус этапов выводится только через сопоставление WORKFLOW ↔ RepoIndex
-- SG не продвигает Stage автоматически и не выполняет действий
-
-## D-026: Workflow Step Status Classification (Roadmap Awareness)
-
-Status: ACCEPTED  
-Date: 2026-02-08  
-Scope: Workflow / RepoIndex Analysis
-
-Decision:
-Каждый шаг WORKFLOW.md классифицируется SG в один из статусов:
-- DONE — все обязательные артефакты шага фактически присутствуют в репозитории;
-- PARTIAL — присутствует часть обязательных артефактов;
-- MISSING — обязательные артефакты отсутствуют;
-- SKELETON — присутствует только каркас, если шаг так задуман WORKFLOW.
-
-Классификация выполняется исключительно через сопоставление
-WORKFLOW.md (ожидания) и RepoIndex (фактические данные).
-
-Consequences:
-- SG не использует визуальные маркеры (❌/✅) как источник истины;
-- SG не изменяет статусы и не выполняет действий;
-- Статусы применяются только для анализа и отчётов.
-
-## D-027: /project_status Report (Roadmap Awareness, Read-Only)
-
-Status: ACCEPTED  
-Date: 2026-02-08  
-Scope: Workflow / RepoIndex / Reporting
-
-Decision:
-Вводится read-only отчёт /project_status, предназначенный исключительно
-для анализа состояния проекта относительно WORKFLOW.md и RepoIndex.
-
-Отчёт /project_status ОБЯЗАН содержать:
-1) ACTIVE_STAGE — определённый по правилу D-025;
-2) Текущий шаг — первый шаг со статусом MISSING в ACTIVE_STAGE;
-3) Таблицу статусов шагов: DONE / PARTIAL / MISSING / SKELETON;
-4) Краткое описание отсутствующих артефактов (файлы/модули/признаки);
-5) Next Allowed Step — следующий допустимый шаг без автопродвижения.
-
-Ограничения:
-- отчёт является analysis-only;
-- отчёт не выполняет действий и не изменяет статусы;
-- отчёт не включает генерацию кода;
-- отчёт не инициирует переходы между этапами.
-
-Consequences:
-- SG использует отчёт исключительно для ориентации и доклада пользователю;
-- Любые действия по результатам отчёта выполняются только по явному указу монарха.
-
----
-
 ## D-028: RepoIndex contours (A/B/C) + guarded on-demand repo access
 Status: ACCEPTED  
 Date: 2026-02-17  
@@ -495,28 +338,43 @@ Repository visibility and access are split into three contours:
 
 A) Full Tree Snapshot (paths-only)
 - SG MUST persist full repository tree (all paths) as metadata only (no content).
-- This contour is the source for /repo_tree and for “what exists in repo”.
 
 B) Content Index (allowlist only)
-- SG MAY fetch and index content only for a restricted allowlist (bounded prefixes + required files).
-- This contour is the source for content search/review and memory-candidate preview.
+- SG MAY fetch and index content only for a restricted allowlist.
 
 C) On-demand fetch (guarded)
-- SG MAY fetch a specific file content only when explicitly requested by the user.
-- On-demand access MUST be guarded by:
-  - path traversal denial
-  - sensitive-file denylist
-  - role-gated extra roots (monarch-only)
-- Default allowed roots remain tight. Additional roots are allowed ONLY for monarch.
+- SG MAY fetch a specific file content only when explicitly requested.
 
-Monarch-only extra roots (current):
+Monarch-only extra roots:
 - migrations/
 - .github/
 
 Consequences:
-- “Partial repo visibility” from content allowlists is forbidden as a source of truth.
-- Full Tree Snapshot is mandatory for accurate Roadmap Awareness and repo navigation.
-- Secret leak risk is treated as high priority; on-demand fetch MUST remain guarded.
-- Denylist may create false positives; any refinement must be deliberate and reviewed.
+- Full Tree Snapshot is mandatory.
+- Secret leak risk is high priority.
+- Denylist refinement must be deliberate.
 
 ---
+
+## D-029: Stage 3 — Identity Runtime Stabilization Completed
+Status: ACCEPTED  
+Date: 2026-02-18  
+Scope: Identity / DB Stabilization
+
+Decision:
+Stage 3 identity runtime is considered stable after structural hardening.
+
+Changes applied:
+- Added provider/provider_user_id bind check in confirmLinkCode
+- Wrapped confirmLinkCode in transaction + FOR UPDATE
+- Added composite index (provider, provider_user_id, status)
+- Added CHECK constraints for status fields
+- Fixed incorrect pool-level ROLLBACK → client-level ROLLBACK
+- Verified runtime via /link_status
+- Verified migrations applied on Render
+
+Consequences:
+- Identity link confirmation is race-safe
+- Status corruption is prevented at DB level
+- Runtime behavior validated
+- Stage 3 marked stable

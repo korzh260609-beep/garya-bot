@@ -20,6 +20,36 @@ function safeLine(s, max = 160) {
   return t.length > max ? t.slice(0, max - 1) + "…" : t;
 }
 
+// ✅ Kyiv time formatter (Europe/Kyiv)
+function formatKyivTs(d) {
+  try {
+    const dt = d instanceof Date ? d : new Date(d);
+    if (Number.isNaN(dt.getTime())) return "unknown";
+
+    const parts = new Intl.DateTimeFormat("uk-UA", {
+      timeZone: "Europe/Kyiv",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(dt);
+
+    // uk-UA gives "dd.mm.yyyy, hh:mm:ss"
+    return `${parts} (Kyiv)`;
+  } catch (_) {
+    // Fallback: UTC ISO if Intl/timezone not available
+    try {
+      const dt = d instanceof Date ? d : new Date(d);
+      return dt.toISOString() + " (UTC)";
+    } catch {
+      return "unknown";
+    }
+  }
+}
+
 async function sendChunked(bot, chatId, text) {
   // Telegram hard limit ~4096 chars. Keep margin.
   const MAX = 3500;
@@ -88,7 +118,7 @@ export async function handleLastErrors({ bot, chatId, rest }) {
     lines.push(`LAST_ERRORS (n=${rows.length})`);
 
     for (const e of rows) {
-      const at = e?.created_at ? new Date(e.created_at).toISOString() : "unknown";
+      const at = e?.created_at ? formatKyivTs(e.created_at) : "unknown";
       const scope = safeLine(e?.scope || "unknown", 24);
       const scopeId =
         e?.scope_id === null || e?.scope_id === undefined ? "-" : String(e.scope_id);

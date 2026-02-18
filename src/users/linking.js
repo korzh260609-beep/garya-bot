@@ -129,7 +129,7 @@ export async function confirmLinkCode({ code, provider = "telegram", providerUse
     };
   } catch (e) {
     try {
-      await pool.query("ROLLBACK");
+      await client.query("ROLLBACK");
     } catch (_) {}
     return { ok: false, error: "confirm_failed" };
   } finally {

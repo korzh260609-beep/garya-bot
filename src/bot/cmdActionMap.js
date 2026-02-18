@@ -28,6 +28,7 @@ export const CMD_ACTION = {
   // Stage 5/6 — admin/dev (must go via can())
   "/health": "cmd.admin.health",
   "/last_errors": "cmd.admin.last_errors",
+  "/task_status": "cmd.admin.task_status",
   "/project_status": "cmd.admin.project_status",
 
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",

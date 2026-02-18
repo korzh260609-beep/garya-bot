@@ -2,8 +2,11 @@
 // 2.7.1 JOB QUEUE / WORKERS (SKELETON)
 // 2.7.2 idempotency_key (task_run_key) — prevent duplicate enqueues in-memory
 // 2.7.4 DLQ skeleton (exists but disabled) — stub only, NO real queue/storage yet
+// Stage 2.8 — Runtime Dedup (task_runs table)
 // Contract: enqueue/run/ack/fail
 // NOTE: no scaling, no real queue yet. In-memory placeholder.
+
+import { tryStartTaskRun } from "../db/taskRunsRepo.js";
 
 export class JobRunner {
   constructor() {
@@ -52,12 +55,10 @@ export class JobRunner {
     return { jobId, accepted: true };
   }
 
-  // run(handler) -> alias for runOnce(handler) to satisfy the contract: enqueue/run/ack/fail
   async run(handler) {
     return this.runOnce(handler);
   }
 
-  // runOnce(handler) -> runs one job if exists
   async runOnce(handler) {
     if (this._running) return { ran: false, reason: "already_running" };
     const item = this._queue.shift();
@@ -67,26 +68,55 @@ export class JobRunner {
     item.status = "running";
 
     try {
-      await handler(item.job, { jobId: item.id, idempotencyKey: item.idempotency_key });
+      // ================================
+      // Stage 2.8 — Runtime Dedup Gate
+      // ================================
+      const taskId = item?.job?.taskId ?? item?.job?.task_id ?? null;
+      const runKey = item?.job?.runKey ?? item?.job?.run_key ?? null;
+
+      if (taskId && runKey) {
+        const gate = await tryStartTaskRun({
+          taskId,
+          runKey,
+          meta: item?.job?.meta || {},
+        });
+
+        // already started elsewhere → skip
+        if (!gate.started) {
+          await this.ack(item.id, item.idempotency_key);
+          return { ran: true, id: item.id, status: "skipped_dedup" };
+        }
+      }
+
+      // ================================
+      // Actual execution
+      // ================================
+      await handler(item.job, {
+        jobId: item.id,
+        idempotencyKey: item.idempotency_key,
+      });
+
       await this.ack(item.id, item.idempotency_key);
       return { ran: true, id: item.id, status: "acked" };
     } catch (e) {
       await this.fail(item.id, item.idempotency_key, e, item);
-      return { ran: true, id: item.id, status: "failed", error: String(e?.message || e) };
+      return {
+        ran: true,
+        id: item.id,
+        status: "failed",
+        error: String(e?.message || e),
+      };
     } finally {
       this._running = false;
     }
   }
 
   async ack(jobId, idempotencyKey) {
-    // skeleton: in real impl, mark task_run as success
     this._releaseKey(idempotencyKey);
     return { ok: true, id: jobId };
   }
 
   async fail(jobId, idempotencyKey, error, item) {
-    // skeleton: in real impl, mark task_run as failed + store error
-    // DLQ skeleton (disabled): if enabled, push minimal record
     try {
       if (this._dlqEnabled) {
         await this._moveToDLQ({
@@ -98,7 +128,6 @@ export class JobRunner {
         });
       }
     } catch (e) {
-      // DLQ is best-effort even when enabled (skeleton)
       console.error("⚠️ DLQ move failed (skeleton):", e);
     }
 
@@ -106,19 +135,16 @@ export class JobRunner {
     return { ok: false, id: jobId, error: String(error?.message || error) };
   }
 
-  // DLQ API (skeleton)
   enableDLQ(enabled = true) {
     this._dlqEnabled = !!enabled;
     return { ok: true, enabled: this._dlqEnabled };
   }
 
-  // returns a copy (skeleton)
   getDLQ() {
     return Array.isArray(this._dlq) ? [...this._dlq] : [];
   }
 
   async _moveToDLQ(record) {
-    // skeleton: later will write to DB table (dlq) + metrics
     this._dlq.push(record);
     return { ok: true };
   }
@@ -130,8 +156,7 @@ export class JobRunner {
   }
 }
 
-// helper (skeleton): deterministic key generator for tasks
+// deterministic key generator
 export function makeTaskRunKey({ taskId, scheduledForIso }) {
-  // minimal deterministic format; later будет unique в DB (task_run_key)
   return `task:${String(taskId)}@${String(scheduledForIso || "")}`;
 }

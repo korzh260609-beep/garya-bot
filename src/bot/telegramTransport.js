@@ -36,6 +36,11 @@ export function initTelegramTransport(app) {
   const MAX_RETRIES = Number(process.env.WEBHOOK_SET_RETRIES || 10);
   const BASE_DELAY_MS = Number(process.env.WEBHOOK_SET_DELAY_MS || 2000);
 
+  // ✅ CRITICAL: Telegram setWebHook() may validate URL immediately.
+  // If Express is not listening yet, setWebHook fails with AggregateError.
+  // So we delay first attempt slightly to let server start.
+  const INITIAL_DELAY_MS = Number(process.env.WEBHOOK_SET_INITIAL_DELAY_MS || 7000);
+
   let attempt = 0;
 
   async function trySetWebhook() {
@@ -86,7 +91,8 @@ export function initTelegramTransport(app) {
     }
   }
 
-  trySetWebhook();
+  // ✅ Start after server likely up
+  setTimeout(trySetWebhook, Math.max(0, INITIAL_DELAY_MS));
 
   app.post(webhookPath, async (req, res) => {
     try {

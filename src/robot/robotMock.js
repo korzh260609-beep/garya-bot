@@ -94,7 +94,27 @@ async function handlePriceMonitorTask(bot, task) {
 
   // Проверяем, прошёл ли нужный интервал
   const msSinceLast = now - state.lastCheck;
-  if (msSinceLast < intervalMinutes * 60_000) {
+  const intervalMs = intervalMinutes * 60_000;
+
+  if (msSinceLast < intervalMs) {
+    return;
+  }
+
+  // =======================================
+  // Stage 2.8 — Runtime Dedup Gate (task_runs)
+  // =======================================
+  // 1 run per task per interval-window (e.g. 60m), not per 30s tick
+  const windowId = Math.floor(now / intervalMs);
+  const runKey = `price_monitor:${String(task.id)}@${String(windowId)}`;
+
+  const gate = await tryStartTaskRun({
+    taskId: task.id,
+    runKey,
+    meta: { runner: "robotMock", type: "price_monitor", interval_minutes: intervalMinutes },
+  });
+
+  // already started elsewhere → skip
+  if (!gate.started) {
     return;
   }
 
@@ -134,9 +154,7 @@ async function handlePriceMonitorTask(bot, task) {
 
     const text =
       `⚠️ Mock-сигнал по задаче #${task.id} (${symbol}).\n` +
-      `Изменение mock-цены между двумя проверками: ${changePercent.toFixed(
-        2
-      )}%.\n` +
+      `Изменение mock-цены между двумя проверками: ${changePercent.toFixed(2)}%.\n` +
       `Текущая mock-цена: ${newPrice.toFixed(2)}\n` +
       `Направление: ${direction}.\n` +
       `Это ТЕСТОВЫЙ режим без реального биржевого API.`;
@@ -175,23 +193,6 @@ export async function robotTick(bot) {
 
     for (const t of tasks) {
       try {
-        // =======================================
-        // Stage 2.8 — Runtime Dedup Gate (task_runs)
-        // =======================================
-        // 1 run per task per tick-window
-        const runKey = `robot:${String(t.id)}@${Math.floor(Date.now() / TICK_MS)}`;
-
-        const gate = await tryStartTaskRun({
-          taskId: t.id,
-          runKey,
-          meta: { runner: "robotMock", type: t.type },
-        });
-
-        // already started elsewhere → skip
-        if (!gate.started) {
-          continue;
-        }
-
         if (t.type === "price_monitor") {
           await handlePriceMonitorTask(bot, t);
         } else if (t.type === "news_monitor") {

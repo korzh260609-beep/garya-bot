@@ -34,6 +34,31 @@ export async function initSystem({ bot }) {
   console.log("🧠 Project Memory table OK.");
   console.log("🧾 File-Intake logs table OK.");
 
+  // ✅ Stage 5.x maintenance: auto-clean old runtime error events
+  // Default: keep 7 days. Only scope=runtime (do NOT delete task/source errors)
+  const retentionDaysRaw = Number(process.env.ERROR_EVENTS_RETENTION_DAYS || 7);
+  const retentionDays = Number.isFinite(retentionDaysRaw)
+    ? Math.max(1, Math.floor(retentionDaysRaw))
+    : 7;
+
+  try {
+    const r = await pool.query(
+      `
+      DELETE FROM error_events
+      WHERE scope = 'runtime'
+        AND created_at < NOW() - ($1::interval)
+      `,
+      [`${retentionDays} days`]
+    );
+
+    console.log(
+      `🧹 error_events cleanup: deleted ${r?.rowCount || 0} rows (scope=runtime, older than ${retentionDays}d)`
+    );
+  } catch (e) {
+    // must never crash boot
+    console.error("⚠️ error_events cleanup failed:", e?.message || e);
+  }
+
   // access_requests (если модуль существует)
   if (typeof AccessRequests.ensureAccessRequestsTable === "function") {
     await AccessRequests.ensureAccessRequestsTable();

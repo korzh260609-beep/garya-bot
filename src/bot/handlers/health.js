@@ -4,6 +4,11 @@
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 
+function safeLine(s, max = 160) {
+  const t = s === null || s === undefined ? "" : String(s);
+  return t.length > max ? t.slice(0, max - 1) + "…" : t;
+}
+
 export async function handleHealth({ bot, chatId }) {
   let dbStatus = "fail";
   try {
@@ -29,6 +34,10 @@ export async function handleHealth({ bot, chatId }) {
   let lastErrorAt = "unknown";
   let errorEventsCount = "unknown";
 
+  // NEW: show last error summary (helps debug silent commands)
+  let lastErrorType = "unknown";
+  let lastErrorMsg = "unknown";
+
   try {
     const r = await pool.query(`
       SELECT COUNT(*)::int AS cnt, MAX(created_at) AS last_error_at
@@ -44,6 +53,21 @@ export async function handleHealth({ bot, chatId }) {
     // keep unknown (table missing / permission / etc.)
   }
 
+  try {
+    const r2 = await pool.query(`
+      SELECT event_type, message
+      FROM error_events
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+
+    const row = r2?.rows?.[0];
+    if (row?.event_type) lastErrorType = safeLine(row.event_type, 60);
+    if (row?.message) lastErrorMsg = safeLine(row.message, 180);
+  } catch (_) {
+    // ignore
+  }
+
   await bot.sendMessage(
     chatId,
     [
@@ -52,6 +76,8 @@ export async function handleHealth({ bot, chatId }) {
       `last_snapshot_id: ${lastSnapshot}`,
       `error_events_count: ${errorEventsCount}`,
       `last_error_at: ${lastErrorAt}`,
+      `last_error_type: ${lastErrorType}`,
+      `last_error_msg: ${lastErrorMsg}`,
     ].join("\n")
   );
 }

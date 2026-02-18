@@ -9,6 +9,7 @@ import { handleProfile } from "./handlers/profile.js";
 import { handleMode } from "./handlers/mode.js";
 import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
 import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — read-only
+import { handleTaskStatus } from "./handlers/taskStatus.js"; // Stage 5.7 — read-only
 import { handleTasksList } from "./handlers/tasksList.js";
 import { handleArList } from "./handlers/arList.js";
 import { handleLinkStart } from "./handlers/linkStart.js";
@@ -292,6 +293,12 @@ export async function dispatchCommand(cmd, ctx) {
     // Stage 5.6 — /last_errors (READ-ONLY)
     case "/last_errors": {
       await handleLastErrors({ bot, chatId, rest: ctx.rest });
+      return { handled: true };
+    }
+
+    // Stage 5.7 — /task_status (READ-ONLY)
+    case "/task_status": {
+      await handleTaskStatus({ bot, chatId, rest: ctx.rest });
       return { handled: true };
     }
 

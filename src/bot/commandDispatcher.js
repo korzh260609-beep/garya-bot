@@ -75,7 +75,11 @@ export async function dispatchCommand(cmd, ctx) {
     return { handled: false, error: "CTX_INVALID" };
   }
 
-  switch (cmd) {
+  // ✅ Telegram can send commands as "/cmd@BotName" (especially in groups).
+  // Normalize so switch-cases match reliably.
+  const cmd0 = cmd.split("@")[0];
+
+  switch (cmd0) {
     case "/profile":
     case "/me":
     case "/whoami": {

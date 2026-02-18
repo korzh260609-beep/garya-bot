@@ -38,73 +38,103 @@ export async function confirmLinkCode({ code, provider = "telegram", providerUse
     return { ok: false, error: "invalid_input" };
   }
 
-  const lookup = await pool.query(
-    `
-    SELECT id, code, global_user_id, provider, provider_user_id, expires_at, status
-    FROM identity_link_codes
-    WHERE code = $1
-    LIMIT 1
-    `,
-    [codeNorm]
-  );
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  const row = lookup.rows?.[0];
-  if (!row) return { ok: false, error: "code_not_found" };
-  if (row.status !== "pending") return { ok: false, error: "code_already_used" };
+    // Lock row to prevent race (double-consume)
+    const lookup = await client.query(
+      `
+      SELECT id, code, global_user_id, provider, provider_user_id, expires_at, status
+      FROM identity_link_codes
+      WHERE code = $1
+      LIMIT 1
+      FOR UPDATE
+      `,
+      [codeNorm]
+    );
 
-  const exp = new Date(row.expires_at).getTime();
-  if (!Number.isFinite(exp) || exp < Date.now()) {
-    return { ok: false, error: "code_expired" };
+    const row = lookup.rows?.[0];
+    if (!row) {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "code_not_found" };
+    }
+
+    // ✅ bind check: code can be confirmed only by the same provider/provider_user_id it was created for
+    if (String(row.provider) !== String(provider) || String(row.provider_user_id) !== providerUserIdStr) {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "code_owner_mismatch" };
+    }
+
+    if (row.status !== "pending") {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "code_already_used" };
+    }
+
+    const exp = new Date(row.expires_at).getTime();
+    if (!Number.isFinite(exp) || exp < Date.now()) {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "code_expired" };
+    }
+
+    await client.query(
+      `
+      INSERT INTO user_links
+        (global_user_id, provider, provider_user_id, linked_by_global_user_id, status, meta, updated_at)
+      VALUES
+        ($1, $2, $3, $4, 'active', $5::jsonb, NOW())
+      ON CONFLICT (provider, provider_user_id)
+      DO UPDATE SET
+        global_user_id = EXCLUDED.global_user_id,
+        linked_by_global_user_id = EXCLUDED.linked_by_global_user_id,
+        status = 'active',
+        meta = EXCLUDED.meta,
+        updated_at = NOW()
+      `,
+      [
+        row.global_user_id,
+        provider,
+        providerUserIdStr,
+        row.global_user_id,
+        JSON.stringify({ linked_via_code: row.code, source_provider: row.provider }),
+      ]
+    );
+
+    await client.query(
+      `
+      INSERT INTO user_identities (global_user_id, provider, provider_user_id, chat_id)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (provider, provider_user_id)
+      DO UPDATE SET global_user_id = EXCLUDED.global_user_id
+      `,
+      [row.global_user_id, provider, providerUserIdStr, providerUserIdStr]
+    );
+
+    await client.query(
+      `
+      UPDATE identity_link_codes
+      SET status = 'consumed', consumed_at = NOW()
+      WHERE id = $1 AND status = 'pending'
+      `,
+      [row.id]
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      ok: true,
+      global_user_id: row.global_user_id,
+      linked_provider: provider,
+      linked_provider_user_id: providerUserIdStr,
+    };
+  } catch (e) {
+    try {
+      await pool.query("ROLLBACK");
+    } catch (_) {}
+    return { ok: false, error: "confirm_failed" };
+  } finally {
+    client.release();
   }
-
-  await pool.query(
-    `
-    INSERT INTO user_links
-      (global_user_id, provider, provider_user_id, linked_by_global_user_id, status, meta, updated_at)
-    VALUES
-      ($1, $2, $3, $4, 'active', $5::jsonb, NOW())
-    ON CONFLICT (provider, provider_user_id)
-    DO UPDATE SET
-      global_user_id = EXCLUDED.global_user_id,
-      linked_by_global_user_id = EXCLUDED.linked_by_global_user_id,
-      status = 'active',
-      meta = EXCLUDED.meta,
-      updated_at = NOW()
-    `,
-    [
-      row.global_user_id,
-      provider,
-      providerUserIdStr,
-      row.global_user_id,
-      JSON.stringify({ linked_via_code: row.code, source_provider: row.provider }),
-    ]
-  );
-
-  await pool.query(
-    `
-    INSERT INTO user_identities (global_user_id, provider, provider_user_id, chat_id)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (provider, provider_user_id)
-    DO UPDATE SET global_user_id = EXCLUDED.global_user_id
-    `,
-    [row.global_user_id, provider, providerUserIdStr, providerUserIdStr]
-  );
-
-  await pool.query(
-    `
-    UPDATE identity_link_codes
-    SET status = 'consumed', consumed_at = NOW()
-    WHERE id = $1
-    `,
-    [row.id]
-  );
-
-  return {
-    ok: true,
-    global_user_id: row.global_user_id,
-    linked_provider: provider,
-    linked_provider_user_id: providerUserIdStr,
-  };
 }
 
 export async function getLinkStatus({ provider = "telegram", providerUserId }) {

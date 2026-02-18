@@ -27,15 +27,21 @@ export async function handleHealth({ bot, chatId }) {
   }
 
   let lastErrorAt = "unknown";
+  let errorEventsCount = "unknown";
+
   try {
-    // If table exists + has rows — show latest error timestamp
-    const r = await pool.query(
-      "SELECT MAX(created_at) AS last_error_at FROM error_events"
-    );
+    const r = await pool.query(`
+      SELECT COUNT(*)::int AS cnt, MAX(created_at) AS last_error_at
+      FROM error_events
+    `);
+
+    const cnt = r?.rows?.[0]?.cnt;
     const v = r?.rows?.[0]?.last_error_at;
+
+    if (Number.isInteger(cnt)) errorEventsCount = String(cnt);
     if (v) lastErrorAt = new Date(v).toISOString();
   } catch (_) {
-    // keep unknown (e.g. table missing / permission / cold start edge)
+    // keep unknown (table missing / permission / etc.)
   }
 
   await bot.sendMessage(
@@ -44,6 +50,7 @@ export async function handleHealth({ bot, chatId }) {
       "HEALTH: ok",
       `db: ${dbStatus}`,
       `last_snapshot_id: ${lastSnapshot}`,
+      `error_events_count: ${errorEventsCount}`,
       `last_error_at: ${lastErrorAt}`,
     ].join("\n")
   );

@@ -1,4 +1,4 @@
-// migrations/20260217170000_drop_tasks_user_chat_id.js
+// migrations/1771348050000_drop_tasks_user_chat_id.js
 // FINAL legacy cleanup: drop tasks.user_chat_id (identity-first Stage 4)
 
 export const shorthands = undefined;

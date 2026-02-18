@@ -5,6 +5,7 @@ import pool from "../../db.js";
  * tryStartTaskRun({ taskId, runKey, meta })
  * - canonical dedup gate using task_runs unique(task_id, run_key)
  * - returns { started: boolean, runId: number|null }
+ * - polish: if conflict -> attempts = attempts + 1 (diagnostics)
  */
 export async function tryStartTaskRun({ taskId, runKey, meta = {} }) {
   if (!taskId) throw new Error("tryStartTaskRun: taskId is required");
@@ -21,12 +22,26 @@ export async function tryStartTaskRun({ taskId, runKey, meta = {} }) {
   );
 
   const runId = res?.rows?.[0]?.id ?? null;
+
+  // conflict → bump attempts for diagnostics
+  if (!runId) {
+    await pool.query(
+      `
+      UPDATE task_runs
+      SET attempts = attempts + 1
+      WHERE task_id = $1
+        AND run_key = $2
+      `,
+      [taskId, runKey]
+    );
+  }
+
   return { started: Boolean(runId), runId };
 }
 
 /**
  * finishTaskRun({ taskId, runKey, status })
- * - marks run as completed
+ * - marks run as completed/failed
  */
 export async function finishTaskRun({ taskId, runKey, status = "completed" }) {
   if (!taskId) throw new Error("finishTaskRun: taskId is required");

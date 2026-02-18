@@ -7,10 +7,10 @@ export const CMD_ACTION = {
 
   "/mode": "cmd.mode",
 
-    "/link_start": "cmd.identity.link_start",
+  "/link_start": "cmd.identity.link_start",
   "/link_confirm": "cmd.identity.link_confirm",
   "/link_status": "cmd.identity.link_status",
-  
+
   "/reindex": "cmd.repo.reindex",
 
   "/tasks": "cmd.tasks.list",
@@ -27,6 +27,7 @@ export const CMD_ACTION = {
 
   // Stage 5/6 — admin/dev (must go via can())
   "/health": "cmd.admin.health",
+  "/last_errors": "cmd.admin.last_errors",
   "/project_status": "cmd.admin.project_status",
 
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",

@@ -25,7 +25,6 @@ export async function getActiveRobotTasks() {
     SELECT *
     FROM tasks
     WHERE status = 'active'
-      AND schedule IS NOT NULL
       AND (type = 'price_monitor' OR type = 'news_monitor')
   `);
   return res.rows;
@@ -144,7 +143,6 @@ async function handlePriceMonitorTask(bot, task) {
       runKey,
       status: "completed",
     });
-
   } catch (err) {
     console.error("❌ ROBOT task error:", err);
 
@@ -153,7 +151,10 @@ async function handlePriceMonitorTask(bot, task) {
       const attempts =
         (await getTaskRunAttempts({ taskId: task.id, runKey })) ?? 1;
 
-      const failReason = String(err?.message || err || "unknown_error").slice(0, 800);
+      const failReason = String(err?.message || err || "unknown_error").slice(
+        0,
+        800
+      );
       const failCode = String(err?.code || err?.name || "error");
 
       let retryAtIso = null;

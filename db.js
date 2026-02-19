@@ -68,6 +68,26 @@ async function initDb() {
       );
     `);
 
+    // --- Safe migration: ensure tasks.user_global_id exists (fix old prod DB) ---
+    // Если tasks уже существовала без user_global_id -> ROBOT падает с "column does not exist".
+    // Тут мы добавляем колонку мягко, без падения.
+    await pool.query(`
+      ALTER TABLE tasks
+      ADD COLUMN IF NOT EXISTS user_global_id TEXT
+    `);
+
+    // --- Optional backfill: if legacy tasks.user_chat_id exists, copy it to user_global_id ---
+    // Не ломаемся, если колонки user_chat_id нет.
+    try {
+      await pool.query(`
+        UPDATE tasks
+        SET user_global_id = user_chat_id
+        WHERE (user_global_id IS NULL OR user_global_id = '')
+          AND user_chat_id IS NOT NULL
+          AND user_chat_id <> ''
+      `);
+    } catch {}
+
     // === Таблица источников данных ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS sources (

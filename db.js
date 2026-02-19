@@ -44,35 +44,10 @@ async function initDb() {
       );
     `);
 
-    // --- Safe migration: add tg_user_id if missing (на случай старой БД) ---
+    // --- Safe migration: add tg_user_id if missing ---
     await pool.query(`
       ALTER TABLE users
-      ADD COLUMN IF NOT EXISTS tg_user_id TEXT
-    `);
-
-    // --- ✅ FIX: ensure users.user_global_id exists (resolveChatId expects it) ---
-    await pool.query(`
-      ALTER TABLE users
-      ADD COLUMN IF NOT EXISTS user_global_id TEXT
-    `);
-
-    // --- Backfill user_global_id (tg:<id>) ---
-    // Сначала из tg_user_id, если есть.
-    await pool.query(`
-      UPDATE users
-      SET user_global_id = 'tg:' || tg_user_id
-      WHERE (user_global_id IS NULL OR user_global_id = '')
-        AND tg_user_id IS NOT NULL
-        AND tg_user_id <> ''
-    `);
-
-    // Если tg_user_id пустой, пробуем из chat_id (в личке часто совпадает с tg id).
-    await pool.query(`
-      UPDATE users
-      SET user_global_id = 'tg:' || chat_id
-      WHERE (user_global_id IS NULL OR user_global_id = '')
-        AND chat_id IS NOT NULL
-        AND chat_id <> ''
+      ADD COLUMN IF NOT EXISTS tg_user_id TEXT;
     `);
 
     // === Таблица задач (Task Engine) — identity-only ===
@@ -93,18 +68,17 @@ async function initDb() {
     // --- Safe migration: ensure tasks.user_global_id exists (fix old prod DB) ---
     await pool.query(`
       ALTER TABLE tasks
-      ADD COLUMN IF NOT EXISTS user_global_id TEXT
+      ADD COLUMN IF NOT EXISTS user_global_id TEXT;
     `);
 
     // --- Optional backfill: if legacy tasks.user_chat_id exists, copy it to user_global_id ---
-    // Не ломаемся, если колонки user_chat_id нет.
     try {
       await pool.query(`
         UPDATE tasks
         SET user_global_id = user_chat_id
         WHERE (user_global_id IS NULL OR user_global_id = '')
           AND user_chat_id IS NOT NULL
-          AND user_chat_id <> ''
+          AND user_chat_id <> '';
       `);
     } catch {}
 
@@ -233,10 +207,7 @@ async function initDb() {
       ON interaction_logs (chat_id, created_at DESC);
     `);
 
-    // ✅ project_memory moved to migrations
-    // Do NOT create/alter it here to keep migrations as single source of truth.
-
-    // === Repo Index Snapshots (НОВОЕ) ===
+    // === Repo Index Snapshots ===
     await pool.query(`
       CREATE TABLE IF NOT EXISTS repo_index_snapshots (
         id BIGSERIAL PRIMARY KEY,

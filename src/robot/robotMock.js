@@ -21,22 +21,16 @@ import {
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
 export async function getActiveRobotTasks() {
+  // ВАЖНО: SELECT * нужен, потому что handlePriceMonitorTask читает payload и user_global_id.
+  // schedule может быть null (у тестовых задач), поэтому schedule-фильтр не используем.
   const res = await pool.query(`
-    SELECT id, status, type, schedule
+    SELECT *
     FROM tasks
+    WHERE status = 'active'
+      AND (type = 'price_monitor' OR type = 'news_monitor')
   `);
 
-  console.log("🔎 ALL TASKS:", res.rows);
-
-  const filtered = res.rows.filter(
-    (t) =>
-      t.status === "active" &&
-      (t.type === "price_monitor" || t.type === "news_monitor")
-  );
-
-  console.log("🤖 ROBOT FILTERED:", filtered);
-
-  return filtered;
+  return res.rows;
 }
 
 const mockPriceState = new Map();

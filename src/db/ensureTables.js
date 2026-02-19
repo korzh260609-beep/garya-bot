@@ -5,10 +5,7 @@
 import pool from "../../db.js";
 
 async function assertTableExists(tableName) {
-  const res = await pool.query(
-    `SELECT to_regclass($1) AS regclass`,
-    [tableName]
-  );
+  const res = await pool.query(`SELECT to_regclass($1) AS regclass`, [tableName]);
 
   const exists = !!res.rows?.[0]?.regclass;
   if (!exists) {
@@ -24,4 +21,5 @@ export async function ensureTables() {
   await assertTableExists("schema_version");
   await assertTableExists("project_memory");
   await assertTableExists("file_intake_logs");
+  await assertTableExists("task_runs");
 }

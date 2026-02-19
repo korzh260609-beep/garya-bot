@@ -165,8 +165,8 @@ export async function createTestPriceMonitorTask(userChatId, access = {}) {
 
   const payload = {
     symbol: "BTCUSDT",
-    interval_minutes: 60,
-    threshold_percent: 2,
+    interval_minutes: 1,
+    threshold_percent: 1,
   };
 
   const userGlobalId = requireUserGlobalId(access);
@@ -177,7 +177,14 @@ export async function createTestPriceMonitorTask(userChatId, access = {}) {
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `,
-    [userGlobalId, "Тестовый price_monitor для BTC", "price_monitor", payload, null, "active"]
+    [
+      userGlobalId,
+      "Тестовый price_monitor для BTC",
+      "price_monitor",
+      payload,
+      null,
+      "active",
+    ]
   );
 
   return result.rows[0].id;

@@ -47,24 +47,92 @@ function getInitialMockPrice(symbolRaw) {
   return 100;
 }
 
+// -----------------------------
+// Safe schema helpers
+// -----------------------------
+const columnExistsCache = new Map(); // key: "table.column" -> boolean
+
+async function columnExists(table, column) {
+  const key = `${table}.${column}`;
+  if (columnExistsCache.has(key)) return columnExistsCache.get(key);
+
+  try {
+    const res = await pool.query(
+      `
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+        AND column_name = $2
+      LIMIT 1
+      `,
+      [table, column]
+    );
+    const ok = (res.rows?.length || 0) > 0;
+    columnExistsCache.set(key, ok);
+    return ok;
+  } catch (e) {
+    // Если даже information_schema не доступен — считаем, что колонки нет.
+    columnExistsCache.set(key, false);
+    return false;
+  }
+}
+
 async function resolveChatIdByGlobalUserId(globalUserId) {
   if (!globalUserId) return null;
 
   try {
-    // ⚠️ Поддержка обеих схем: global_user_id и user_global_id
+    // ✅ НЕ упоминаем колонку, которой может не быть, иначе Postgres падает.
+    const hasGlobalUserId = await columnExists("users", "global_user_id");
+    const hasUserGlobalId = await columnExists("users", "user_global_id");
+
+    let where = "";
+    const params = [globalUserId];
+
+    if (hasGlobalUserId && hasUserGlobalId) {
+      where = "WHERE global_user_id = $1 OR user_global_id = $1";
+    } else if (hasGlobalUserId) {
+      where = "WHERE global_user_id = $1";
+    } else if (hasUserGlobalId) {
+      where = "WHERE user_global_id = $1";
+    } else {
+      // Ни одной колонки нет — значит схема users не соответствует identity-first
+      return null;
+    }
+
     const res = await pool.query(
       `
       SELECT chat_id
       FROM users
-      WHERE global_user_id = $1 OR user_global_id = $1
+      ${where}
       LIMIT 1
       `,
-      [globalUserId]
+      params
     );
+
     return res.rows?.[0]?.chat_id || null;
   } catch (e) {
     console.error("❌ ROBOT resolveChatId error:", e?.message || e);
     return null;
+  }
+}
+
+async function isTaskStillActive(taskId) {
+  if (!taskId) return false;
+  try {
+    const res = await pool.query(
+      `
+      SELECT status
+      FROM tasks
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [taskId]
+    );
+    const status = res.rows?.[0]?.status;
+    return status === "active";
+  } catch {
+    return false;
   }
 }
 
@@ -104,6 +172,10 @@ async function handlePriceMonitorTask(bot, task) {
   state.lastCheck = now;
 
   if (Math.abs(changePercent) >= thresholdPercent) {
+    // ✅ Анти-гонка: если задачу успели остановить — не шлём сигнал
+    const stillActive = await isTaskStillActive(task.id);
+    if (!stillActive) return;
+
     const direction = changePercent > 0 ? "вверх" : "вниз";
 
     const text =

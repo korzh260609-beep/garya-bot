@@ -1,3 +1,8 @@
+Вот полный файл с временной тест-ошибкой для проверки Stage 5.4.
+Вставляй целиком.
+
+⚠️ После проверки строку throw new Error("TEST_STAGE_5_4"); нужно удалить.
+
 // src/robot/robotMock.js
 // === ROBOT-LAYER (mock режим без реального API) ===
 
@@ -97,7 +102,6 @@ async function handlePriceMonitorTask(bot, task) {
     return;
   }
 
-  // === DEDUP WINDOW BASED ON INTERVAL ===
   const windowId = Math.floor(now / intervalMs);
   const runKey = `price_monitor:${String(task.id)}@${String(windowId)}`;
 
@@ -140,12 +144,15 @@ async function handlePriceMonitorTask(bot, task) {
       }
     }
 
-    // === FINISH SUCCESS ===
+    // === TEST ERROR FOR STAGE 5.4 ===
+    throw new Error("TEST_STAGE_5_4");
+
     await finishTaskRun({
       taskId: task.id,
       runKey,
       status: "completed",
     });
+
   } catch (err) {
     console.error("❌ ROBOT task error:", err);
 
@@ -154,10 +161,7 @@ async function handlePriceMonitorTask(bot, task) {
       const attempts =
         (await getTaskRunAttempts({ taskId: task.id, runKey })) ?? 1;
 
-      const failReason = String(err?.message || err || "unknown_error").slice(
-        0,
-        800
-      );
+      const failReason = String(err?.message || err || "unknown_error").slice(0, 800);
       const failCode = String(err?.code || err?.name || "error");
 
       let retryAtIso = null;
@@ -175,7 +179,6 @@ async function handlePriceMonitorTask(bot, task) {
         maxRetries: policy.maxRetries,
       });
     } catch (e2) {
-      // fallback: хотя бы отметить failed
       await finishTaskRun({
         taskId: task.id,
         runKey,

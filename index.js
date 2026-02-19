@@ -16,8 +16,9 @@ import { callAI } from "./ai.js";
 // ✅ Project Memory write API (needed for /pm_set and /build_info autosave)
 import { upsertProjectSection } from "./projectMemory.js";
 
-// ✅ 2.7 JOB QUEUE / WORKERS (SKELETON)
-import { JobRunner } from "./src/jobs/jobRunner.js";
+// ✅ 2.7 JOB QUEUE / WORKERS (SKELETON) — singleton (no circular imports)
+import { jobRunner } from "./src/jobs/jobRunnerInstance.js";
+export { jobRunner };
 
 // ✅ ROBOT-LAYER loop (mock)
 import { startRobotLoop } from "./src/robot/robotMock.js";
@@ -36,8 +37,7 @@ const DEFAULT_PLAN = "free";
 // ============================================================================
 // === JOB RUNNER (2.7 SKELETON) ===
 // ============================================================================
-export const jobRunner = new JobRunner();
-console.log("🧩 JobRunner initialized (skeleton).");
+console.log("🧩 JobRunner initialized (singleton).");
 
 // ============================================================================
 // === EXPRESS SERVER ===

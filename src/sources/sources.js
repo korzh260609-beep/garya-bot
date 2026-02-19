@@ -486,6 +486,24 @@ export async function fetchFromSourceKey(key, options = {}) {
     `${key}@m${Math.floor(Date.now() / 60000)}`; // default dedup per-minute
   let sourceRunStarted = false;
 
+  // ✅ Stage 5.14 prep: patch meta with duration_ms (and some signals)
+  async function patchSourceRunMetaSafe(metaPatch = {}) {
+    try {
+      if (!sourceRunStarted) return;
+      await pool.query(
+        `
+        UPDATE source_runs
+        SET meta = COALESCE(meta, '{}'::jsonb) || $3::jsonb
+        WHERE source_key = $1
+          AND run_key = $2
+        `,
+        [key, runKey, JSON.stringify(metaPatch || {})]
+      );
+    } catch (_) {
+      // never crash
+    }
+  }
+
   async function startSourceRunSafe(meta = {}) {
     try {
       const gate = await tryStartSourceRun({
@@ -499,8 +517,16 @@ export async function fetchFromSourceKey(key, options = {}) {
     }
   }
 
-  async function finishSourceRunOkSafe() {
+  async function finishSourceRunOkSafe(metaPatch = {}) {
     try {
+      const durationMs = Date.now() - startedAt;
+      await patchSourceRunMetaSafe({
+        duration_ms: durationMs,
+        http_status: httpStatus ?? null,
+        from_cache: false,
+        ...metaPatch,
+      });
+
       if (sourceRunStarted) {
         await finishSourceRun({
           sourceKey: key,
@@ -514,8 +540,16 @@ export async function fetchFromSourceKey(key, options = {}) {
     }
   }
 
-  async function finishSourceRunFailSafe(err) {
+  async function finishSourceRunFailSafe(err, metaPatch = {}) {
     try {
+      const durationMs = Date.now() - startedAt;
+      await patchSourceRunMetaSafe({
+        duration_ms: durationMs,
+        http_status: httpStatus ?? null,
+        from_cache: false,
+        ...metaPatch,
+      });
+
       if (sourceRunStarted) {
         await finishSourceRun({
           sourceKey: key,
@@ -615,7 +649,9 @@ export async function fetchFromSourceKey(key, options = {}) {
             },
           });
 
-          await finishSourceRunOkSafe();
+          await finishSourceRunOkSafe({
+            from_cache: true,
+          });
 
           return {
             ok: true,
@@ -805,7 +841,10 @@ export async function fetchFromSourceKey(key, options = {}) {
           });
 
           // Не трогаем last_success_at, чтобы rate-limit продолжал работать по реальным запросам
-          await finishSourceRunOkSafe();
+          await finishSourceRunOkSafe({
+            from_cache: true,
+            note: "coingecko-429-cache-hit",
+          });
 
           return {
             ok: true,

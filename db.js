@@ -44,16 +44,38 @@ async function initDb() {
       );
     `);
 
-    // --- Safe migration: add tg_user_id if missing ---
+    // --- Safe migration: add tg_user_id if missing (на случай старой БД) ---
     await pool.query(`
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS tg_user_id TEXT
     `);
 
+    // --- ✅ FIX: ensure users.user_global_id exists (resolveChatId expects it) ---
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS user_global_id TEXT
+    `);
+
+    // --- Backfill user_global_id (tg:<id>) ---
+    // Сначала из tg_user_id, если есть.
+    await pool.query(`
+      UPDATE users
+      SET user_global_id = 'tg:' || tg_user_id
+      WHERE (user_global_id IS NULL OR user_global_id = '')
+        AND tg_user_id IS NOT NULL
+        AND tg_user_id <> ''
+    `);
+
+    // Если tg_user_id пустой, пробуем из chat_id (в личке часто совпадает с tg id).
+    await pool.query(`
+      UPDATE users
+      SET user_global_id = 'tg:' || chat_id
+      WHERE (user_global_id IS NULL OR user_global_id = '')
+        AND chat_id IS NOT NULL
+        AND chat_id <> ''
+    `);
+
     // === Таблица задач (Task Engine) — identity-only ===
-    // ⚠️ ВАЖНО: legacy user_chat_id удалён.
-    // Для production-DB структура является "source of truth" через migrations,
-    // но этот initDb должен быть совместим и не создавать legacy.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tasks (
         id SERIAL PRIMARY KEY,
@@ -69,8 +91,6 @@ async function initDb() {
     `);
 
     // --- Safe migration: ensure tasks.user_global_id exists (fix old prod DB) ---
-    // Если tasks уже существовала без user_global_id -> ROBOT падает с "column does not exist".
-    // Тут мы добавляем колонку мягко, без падения.
     await pool.query(`
       ALTER TABLE tasks
       ADD COLUMN IF NOT EXISTS user_global_id TEXT

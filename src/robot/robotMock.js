@@ -18,10 +18,8 @@ export async function getActiveRobotTasks() {
     ORDER BY id ASC
   `);
 
-  // ✅ Логи только по флагу, иначе LOG SPAM
-  if (envTrue("ROBOT_DEBUG")) {
-    console.log("🤖 ROBOT ACTIVE TASKS:", res.rows);
-  }
+  // ❌ console.log запрещён DECISIONS.md — убрали debug-лог полностью
+  // Если нужен debug позже — добавим отдельный LoggerService по правилам.
 
   return res.rows || [];
 }
@@ -31,7 +29,7 @@ function safeJsonParse(v, fallback = {}) {
     if (v == null) return fallback;
     if (typeof v === "object") return v;
     return JSON.parse(v);
-  } catch {
+  } catch (e) {
     return fallback;
   }
 }
@@ -72,7 +70,7 @@ async function columnExists(table, column) {
     columnExistsCache.set(key, ok);
     return ok;
   } catch (e) {
-    // Если даже information_schema не доступен — считаем, что колонки нет.
+    // Если even information_schema не доступен — считаем, что колонки нет.
     columnExistsCache.set(key, false);
     return false;
   }
@@ -131,7 +129,7 @@ async function isTaskStillActive(taskId) {
     );
     const status = res.rows?.[0]?.status;
     return status === "active";
-  } catch {
+  } catch (e) {
     return false;
   }
 }

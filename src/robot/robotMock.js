@@ -22,12 +22,21 @@ const TICK_MS = 30_000; // тик каждые 30 секунд
 
 export async function getActiveRobotTasks() {
   const res = await pool.query(`
-    SELECT *
+    SELECT id, status, type, schedule
     FROM tasks
-    WHERE status = 'active'
-      AND (type = 'price_monitor' OR type = 'news_monitor')
   `);
-  return res.rows;
+
+  console.log("🔎 ALL TASKS:", res.rows);
+
+  const filtered = res.rows.filter(
+    (t) =>
+      t.status === "active" &&
+      (t.type === "price_monitor" || t.type === "news_monitor")
+  );
+
+  console.log("🤖 ROBOT FILTERED:", filtered);
+
+  return filtered;
 }
 
 const mockPriceState = new Map();

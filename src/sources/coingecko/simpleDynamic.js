@@ -1,7 +1,9 @@
 // src/sources/coingecko/simpleDynamic.js
 // CoinGecko Simple Price — динамический запрос под любые ids
+// FIX: теперь ходим через Sources Layer (fetchFromSourceKey),
+// чтобы писались source_runs + error_events + cache/rate-limit.
 
-const COINGECKO_BASE = "https://api.coingecko.com/api/v3";
+import { fetchFromSourceKey } from "../sources.js";
 
 // популярные тикеры -> CoinGecko IDs
 const ID_MAP = {
@@ -30,55 +32,61 @@ function normalizeId(id) {
   return ID_MAP[clean] || clean;
 }
 
-async function httpGetJson(url) {
-  const res = await fetch(url, {
-    headers: { accept: "application/json" },
-  });
-
-  if (!res.ok) {
-    return {
-      ok: false,
-      httpStatus: res.status,
-      error: `HTTP ${res.status}`,
-    };
-  }
-
-  const json = await res.json();
-  return { ok: true, httpStatus: res.status, data: json };
-}
-
-// ОДНА МОНЕТА (динамический simple/price)
+// -----------------------------
+// Compatibility API for /price
+// -----------------------------
+// handlePrice ожидает функцию getCoinGeckoSimplePriceById(coinId, "usd", { userRole, userPlan })
 export async function getCoinGeckoSimplePriceByIdDynamic(
   coinId,
-  vsCurrency = "usd"
+  vsCurrency = "usd",
+  options = {}
 ) {
   if (!coinId) return { ok: false, error: "coinId is required" };
 
   const cleanId = normalizeId(coinId);
   const cleanVs = String(vsCurrency).trim().toLowerCase();
 
-  const idsParam = encodeURIComponent(cleanId);
-  const vsParam = encodeURIComponent(cleanVs);
+  const userRole = options?.userRole || null;
+  const userPlan = options?.userPlan || null;
 
-  const url = `${COINGECKO_BASE}/simple/price?ids=${idsParam}&vs_currencies=${vsParam}`;
+  // ВАЖНО: runKey должен различать ids, иначе дедуп по минуте будет “склеивать” разные монеты
+  const runKey = `coingecko_simple_price@id:${cleanId}@m${Math.floor(
+    Date.now() / 60000
+  )}`;
 
-  const res = await httpGetJson(url);
-  if (!res.ok) {
+  const res = await fetchFromSourceKey("coingecko_simple_price", {
+    userRole,
+    userPlan,
+    runKey,
+    params: {
+      ids: [cleanId],
+      vs_currency: cleanVs,
+    },
+  });
+
+  // Пробрасываем httpStatus/error как есть (price.js уже умеет 429)
+  if (!res?.ok) {
     return {
       ok: false,
-      error: res.error || "CoinGecko request failed",
-      httpStatus: res.httpStatus,
-      url,
+      error: res?.error || "CoinGecko request failed",
+      httpStatus: res?.httpStatus ?? null,
+      sourceKey: res?.sourceKey || "coingecko_simple_price",
     };
   }
 
-  const entry = res.data[cleanId];
-  if (!entry || typeof entry[cleanVs] !== "number") {
+  // sources.js для coingecko возвращает data: { url, ids, vs_currency, prices }
+  const data = res?.data || {};
+  const prices = data?.prices || res?.raw || {};
+
+  const entry = prices?.[cleanId];
+  const price = entry?.[cleanVs];
+
+  if (typeof price !== "number") {
     return {
       ok: false,
       error: `CoinGecko: price for "${cleanId}" in "${cleanVs}" not found`,
-      url,
-      raw: res.data,
+      httpStatus: res?.httpStatus ?? null,
+      raw: prices,
     };
   }
 
@@ -86,8 +94,11 @@ export async function getCoinGeckoSimplePriceByIdDynamic(
     ok: true,
     id: cleanId,
     vsCurrency: cleanVs,
-    price: entry[cleanVs],
-    url,
+    price,
+    httpStatus: res?.httpStatus ?? null,
+    fromCache: !!res?.fromCache,
+    // url полезен для диагностики
+    url: data?.url || null,
     raw: entry,
   };
 }
@@ -95,7 +106,8 @@ export async function getCoinGeckoSimplePriceByIdDynamic(
 // НЕСКОЛЬКО МОНЕТ (динамический simple/price)
 export async function getCoinGeckoSimplePriceMultiDynamic(
   coinIds,
-  vsCurrency = "usd"
+  vsCurrency = "usd",
+  options = {}
 ) {
   if (!Array.isArray(coinIds) || !coinIds.length) {
     return { ok: false, error: "coinIds must be a non-empty array" };
@@ -105,33 +117,48 @@ export async function getCoinGeckoSimplePriceMultiDynamic(
 
   const requested = coinIds.map((id) => String(id || "").trim().toLowerCase());
   const canonical = requested.map((id) => normalizeId(id));
+  const uniq = [...new Set(canonical)];
 
-  const idsParam = encodeURIComponent([...new Set(canonical)].join(","));
-  const vsParam = encodeURIComponent(cleanVs);
+  const userRole = options?.userRole || null;
+  const userPlan = options?.userPlan || null;
 
-  const url = `${COINGECKO_BASE}/simple/price?ids=${idsParam}&vs_currencies=${vsParam}`;
+  // Различаем набор ids в runKey, чтобы не склеивалось
+  const runKey = `coingecko_simple_price@multi:${uniq.join(
+    ","
+  )}@m${Math.floor(Date.now() / 60000)}`;
 
-  const res = await httpGetJson(url);
-  if (!res.ok) {
+  const res = await fetchFromSourceKey("coingecko_simple_price", {
+    userRole,
+    userPlan,
+    runKey,
+    params: {
+      ids: uniq,
+      vs_currency: cleanVs,
+    },
+  });
+
+  if (!res?.ok) {
     return {
       ok: false,
-      error: res.error || "CoinGecko request failed",
-      httpStatus: res.httpStatus,
-      url,
+      error: res?.error || "CoinGecko request failed",
+      httpStatus: res?.httpStatus ?? null,
+      sourceKey: res?.sourceKey || "coingecko_simple_price",
     };
   }
 
-  const data = res.data || {};
+  const data = res?.data || {};
+  const prices = data?.prices || res?.raw || {};
+
   const result = {};
 
   for (let i = 0; i < requested.length; i++) {
     const reqId = requested[i];
     const canId = canonical[i];
 
-    const entry = data[canId];
+    const entry = prices?.[canId];
     if (!entry) continue;
 
-    const price = entry[cleanVs];
+    const price = entry?.[cleanVs];
     if (typeof price !== "number") continue;
 
     result[reqId] = {
@@ -146,8 +173,8 @@ export async function getCoinGeckoSimplePriceMultiDynamic(
     return {
       ok: false,
       error: "No matching CoinGecko ids found in response",
-      url,
-      raw: data,
+      httpStatus: res?.httpStatus ?? null,
+      raw: prices,
     };
   }
 
@@ -155,8 +182,9 @@ export async function getCoinGeckoSimplePriceMultiDynamic(
     ok: true,
     vsCurrency: cleanVs,
     items: result,
-    url,
-    raw: data,
+    httpStatus: res?.httpStatus ?? null,
+    fromCache: !!res?.fromCache,
+    url: data?.url || null,
+    raw: prices,
   };
 }
-

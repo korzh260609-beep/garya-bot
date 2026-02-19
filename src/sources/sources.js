@@ -2,6 +2,10 @@
 import pool from "../../db.js";
 import { can } from "../users/permissions.js"; // ✅ 7.9: source-level permissions via can()
 
+// ✅ Stage 5 — source_runs + error_events (best-effort, never crash)
+import { tryStartSourceRun, finishSourceRun } from "../db/sourceRunsRepo.js";
+import { ErrorEventsRepo } from "../db/errorEventsRepo.js";
+
 // === DEFAULT SOURCES (registry templates) ===
 const DEFAULT_SOURCES = [
   {
@@ -356,7 +360,8 @@ export async function testSource(key, options = {}) {
     // bytes only for data (safe)
     let bytes = 0;
     try {
-      if (res?.data != null) bytes = Buffer.byteLength(JSON.stringify(res.data), "utf8");
+      if (res?.data != null)
+        bytes = Buffer.byteLength(JSON.stringify(res.data), "utf8");
     } catch (_) {
       bytes = 0;
     }
@@ -474,6 +479,68 @@ export async function fetchFromSourceKey(key, options = {}) {
     plan: userPlan,
   };
 
+  // ✅ Stage 5: runtime observability (best-effort)
+  const errorRepo = new ErrorEventsRepo(pool);
+  const runKey =
+    options?.runKey ||
+    `${key}@m${Math.floor(Date.now() / 60000)}`; // default dedup per-minute
+  let sourceRunStarted = false;
+
+  async function startSourceRunSafe(meta = {}) {
+    try {
+      const gate = await tryStartSourceRun({
+        sourceKey: key,
+        runKey,
+        meta: meta || {},
+      });
+      sourceRunStarted = !!gate?.started;
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  async function finishSourceRunOkSafe() {
+    try {
+      if (sourceRunStarted) {
+        await finishSourceRun({
+          sourceKey: key,
+          runKey,
+          status: "ok",
+          error: null,
+        });
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  async function finishSourceRunFailSafe(err) {
+    try {
+      if (sourceRunStarted) {
+        await finishSourceRun({
+          sourceKey: key,
+          runKey,
+          status: "fail",
+          error: String(err?.message || err).slice(0, 800),
+        });
+      }
+    } catch (_) {
+      // ignore
+    }
+
+    // error_events (best-effort)
+    try {
+      await errorRepo.logError({
+        type: "source_fetch_failed",
+        message: String(err?.message || err).slice(0, 800),
+        context: { sourceKey: key, runKey, httpStatus: httpStatus ?? null, type },
+        severity: "error",
+      });
+    } catch (_) {
+      // ignore
+    }
+  }
+
   try {
     const src = await getSourceByKey(key);
     if (!src) {
@@ -499,7 +566,7 @@ export async function fetchFromSourceKey(key, options = {}) {
     // Для совместимости оставим старую логику как fallback (на случай, если где-то планы/роли ещё не заполнены)
     const allowedByLegacy = isSourceAllowedForUser(src, userRole, userPlan);
 
-        if (!(allowedByCan || allowedByLegacy)) {
+    if (!(allowedByCan || allowedByLegacy)) {
       const error = "Доступ к этому источнику запрещён для вашей роли/тарифа.";
       await logSourceRequest({
         sourceKey: key,
@@ -518,6 +585,9 @@ export async function fetchFromSourceKey(key, options = {}) {
       });
       return { ok: false, sourceKey: key, type, error };
     }
+
+    // ✅ Start source_run after we know source exists + allowed
+    await startSourceRunSafe({ params: options.params || null });
 
     // === Rate-limit + cache (5.13) ===
     const rateLimitSeconds =
@@ -544,6 +614,8 @@ export async function fetchFromSourceKey(key, options = {}) {
               diffSec,
             },
           });
+
+          await finishSourceRunOkSafe();
 
           return {
             ok: true,
@@ -577,6 +649,8 @@ export async function fetchFromSourceKey(key, options = {}) {
         extra: { note: "virtual source" },
       });
 
+      await finishSourceRunOkSafe();
+
       return {
         ok: true,
         sourceKey: key,
@@ -605,6 +679,9 @@ export async function fetchFromSourceKey(key, options = {}) {
           params: { ...(options.params || {}), url },
           extra: { url, error },
         });
+
+        await finishSourceRunFailSafe(error);
+
         return { ok: false, sourceKey: key, type, httpStatus, error };
       }
 
@@ -623,6 +700,8 @@ export async function fetchFromSourceKey(key, options = {}) {
         params: { ...(options.params || {}), url },
         extra: { url, length: text.length },
       });
+
+      await finishSourceRunOkSafe();
 
       return {
         ok: true,
@@ -653,6 +732,9 @@ export async function fetchFromSourceKey(key, options = {}) {
           params: { ...(options.params || {}), url },
           extra: { url, error },
         });
+
+        await finishSourceRunFailSafe(error);
+
         return { ok: false, sourceKey: key, type, httpStatus, error };
       }
 
@@ -671,6 +753,8 @@ export async function fetchFromSourceKey(key, options = {}) {
         params: { ...(options.params || {}), url },
         extra: { url, length: xml.length },
       });
+
+      await finishSourceRunOkSafe();
 
       return {
         ok: true,
@@ -721,6 +805,8 @@ export async function fetchFromSourceKey(key, options = {}) {
           });
 
           // Не трогаем last_success_at, чтобы rate-limit продолжал работать по реальным запросам
+          await finishSourceRunOkSafe();
+
           return {
             ok: true,
             sourceKey: key,
@@ -746,6 +832,8 @@ export async function fetchFromSourceKey(key, options = {}) {
           extra: { url, error },
         });
 
+        await finishSourceRunFailSafe(error);
+
         return { ok: false, sourceKey: key, type, httpStatus, error };
       }
 
@@ -761,6 +849,9 @@ export async function fetchFromSourceKey(key, options = {}) {
           params: { ...(options.params || {}), url, ids, vsCurrency },
           extra: { url, error },
         });
+
+        await finishSourceRunFailSafe(error);
+
         return { ok: false, sourceKey: key, type, httpStatus, error };
       }
 
@@ -779,6 +870,8 @@ export async function fetchFromSourceKey(key, options = {}) {
         params: { ...(options.params || {}), url, ids, vsCurrency },
         extra: { url, ids, vsCurrency, keys: Object.keys(json || {}) },
       });
+
+      await finishSourceRunOkSafe();
 
       return {
         ok: true,
@@ -803,6 +896,8 @@ export async function fetchFromSourceKey(key, options = {}) {
       extra: { error },
     });
 
+    await finishSourceRunFailSafe(error);
+
     return { ok: false, sourceKey: key, type, error };
   } catch (err) {
     const durationMs = Date.now() - startedAt;
@@ -819,6 +914,8 @@ export async function fetchFromSourceKey(key, options = {}) {
       params: options.params || null,
       extra: { error: err.message || String(err) },
     });
+
+    await finishSourceRunFailSafe(err);
 
     return {
       ok: false,

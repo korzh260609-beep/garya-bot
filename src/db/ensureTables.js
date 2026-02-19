@@ -20,6 +20,7 @@ export async function ensureTables() {
   // tables that must exist after migrations
   await assertTableExists("schema_version");
   await assertTableExists("users");
+  await assertTableExists("chat_memory");
   await assertTableExists("tasks");
   await assertTableExists("interaction_logs");
   await assertTableExists("project_memory");

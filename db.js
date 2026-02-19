@@ -80,7 +80,9 @@ async function initDb() {
           AND user_chat_id IS NOT NULL
           AND user_chat_id <> '';
       `);
-    } catch {}
+    } catch (e) {
+      // ignore (legacy column may not exist)
+    }
 
     // === Таблица источников данных ===
     await pool.query(`
@@ -95,8 +97,8 @@ async function initDb() {
         last_success_at TIMESTAMPTZ,
         last_error_at TIMESTAMPTZ,
         last_error_message TEXT,
-        allowed_roles TEXT[] DEFAULT '{ "guest", "citizen", "monarch" }',
-        allowed_plans TEXT[] DEFAULT '{ "free", "pro", "vip" }',
+        allowed_roles TEXT[] DEFAULT '{guest,citizen,monarch}',
+        allowed_plans TEXT[] DEFAULT '{free,pro,vip}',
         rate_limit_seconds INTEGER DEFAULT 10,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -109,28 +111,36 @@ async function initDb() {
         ALTER TABLE sources
         RENAME COLUMN enabled TO is_enabled;
       `);
-    } catch {}
+    } catch (e) {
+      // ignore
+    }
 
     try {
       await pool.query(`
         ALTER TABLE sources
-        ADD COLUMN allowed_roles TEXT[] DEFAULT '{ "guest", "citizen", "monarch" }';
+        ADD COLUMN IF NOT EXISTS allowed_roles TEXT[] DEFAULT '{guest,citizen,monarch}';
       `);
-    } catch {}
+    } catch (e) {
+      // ignore
+    }
 
     try {
       await pool.query(`
         ALTER TABLE sources
-        ADD COLUMN allowed_plans TEXT[] DEFAULT '{ "free", "pro", "vip" }';
+        ADD COLUMN IF NOT EXISTS allowed_plans TEXT[] DEFAULT '{free,pro,vip}';
       `);
-    } catch {}
+    } catch (e) {
+      // ignore
+    }
 
     try {
       await pool.query(`
         ALTER TABLE sources
-        ADD COLUMN rate_limit_seconds INTEGER DEFAULT 10;
+        ADD COLUMN IF NOT EXISTS rate_limit_seconds INTEGER DEFAULT 10;
       `);
-    } catch {}
+    } catch (e) {
+      // ignore
+    }
 
     // === Таблица кэша источников ===
     await pool.query(`

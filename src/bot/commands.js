@@ -365,6 +365,71 @@ async function cmdArList({ bot, chatId, chatIdStr, senderIdStr, rest }) {
   }
 }
 
+// ============================================================================
+// === ADMIN: STOP ALL TASKS (monarch-only) ===
+// ============================================================================
+
+async function cmdStopAllTasks({ bot, chatId, senderIdStr }) {
+  const ok = await requireMonarch(bot, chatId, senderIdStr);
+  if (!ok) return;
+
+  try {
+    // before counts
+    const beforeRes = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'active')::int  AS active_count,
+        COUNT(*) FILTER (WHERE status = 'paused')::int  AS paused_count,
+        COUNT(*) FILTER (WHERE status = 'stopped')::int AS stopped_count,
+        COUNT(*) FILTER (WHERE status = 'deleted')::int AS deleted_count,
+        COUNT(*)::int AS total
+      FROM tasks
+    `);
+
+    const b = beforeRes.rows?.[0] || {};
+    const activeBefore = Number(b.active_count || 0);
+    const pausedBefore = Number(b.paused_count || 0);
+
+    // stop everything except deleted
+    const upd = await pool.query(
+      `
+      UPDATE tasks
+      SET status = 'stopped'
+      WHERE status <> 'deleted'
+      RETURNING id
+      `
+    );
+
+    // after counts
+    const afterRes = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'active')::int  AS active_count,
+        COUNT(*) FILTER (WHERE status = 'paused')::int  AS paused_count,
+        COUNT(*) FILTER (WHERE status = 'stopped')::int AS stopped_count,
+        COUNT(*) FILTER (WHERE status = 'deleted')::int AS deleted_count,
+        COUNT(*)::int AS total
+      FROM tasks
+    `);
+
+    const a = afterRes.rows?.[0] || {};
+    const stoppedAfter = Number(a.stopped_count || 0);
+
+    await bot.sendMessage(
+      chatId,
+      [
+        "🛑 STOP ALL TASKS",
+        `updated: ${upd.rowCount || 0}`,
+        `before: active=${activeBefore}, paused=${pausedBefore}`,
+        `after: stopped=${stoppedAfter}`,
+        "",
+        "⚠️ Если логи продолжаются — значит robotTick НЕ фильтрует status='active'. Тогда правим robotMock/worker.",
+      ].join("\n")
+    );
+  } catch (e) {
+    console.error("❌ /stop_all_tasks error:", e);
+    await bot.sendMessage(chatId, "⚠️ Ошибка при остановке задач. См. логи сервера.");
+  }
+}
+
 // Главный обработчик текстовых команд.
 // Это та же логика, что была в index.js внутри switch(command).
 export async function handleCommand(bot, msg, command, commandArgs) {
@@ -439,30 +504,11 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
+    // ======================================================================
+    // === ADMIN COMMANDS (monarch-only)
+    // ======================================================================
     case "/stop_all_tasks": {
-      const ok = await requireMonarch(bot, chatId, senderIdStr);
-      if (!ok) return;
-
-      try {
-        const res = await pool.query(
-          `
-          UPDATE tasks
-          SET status = 'stopped'
-          WHERE status = 'active'
-          `
-        );
-
-        const stopped = res.rowCount || 0;
-
-        await bot.sendMessage(
-          chatId,
-          `⛔ Остановлено задач: ${stopped}\n\n` +
-            `Примечание: остановлены только задачи со статусом 'active'.`
-        );
-      } catch (e) {
-        console.error("❌ /stop_all_tasks error:", e);
-        await bot.sendMessage(chatId, "⚠️ Не удалось остановить задачи (см. логи).");
-      }
+      await cmdStopAllTasks({ bot, chatId, senderIdStr });
       return;
     }
 
@@ -1140,6 +1186,7 @@ export async function handleCommand(bot, msg, command, commandArgs) {
             "/run <id>\n" +
             "/tasks\n" +
             "/task <list|new|pause|resume|delete|id>\n" +
+            "/stop_all_tasks\n" +
             "/meminfo\n" +
             "/memstats\n" +
             "/sources\n" +

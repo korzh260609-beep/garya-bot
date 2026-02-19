@@ -2,6 +2,10 @@
 
 import pool from "../../db.js";
 
+// ✅ Stage 5 Observability: write task_runs via JobRunner
+import { jobRunner } from "../jobs/jobRunnerInstance.js";
+import { makeTaskRunKey } from "../jobs/jobRunner.js";
+
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
 function envTrue(name) {
@@ -134,7 +138,11 @@ async function isTaskStillActive(taskId) {
   }
 }
 
-async function handlePriceMonitorTask(bot, task) {
+// ============================================================================
+// === PRICE MONITOR — DIRECT BUSINESS LOGIC (NO JobRunner inside!) ============
+// ============================================================================
+
+async function handlePriceMonitorTaskDirect(bot, task) {
   const payload = safeJsonParse(task.payload, {});
   const symbol = payload.symbol || "BTCUSDT";
 
@@ -188,6 +196,63 @@ async function handlePriceMonitorTask(bot, task) {
       await bot.sendMessage(userChatId, text);
     }
   }
+}
+
+// ============================================================================
+// === PRICE MONITOR — JobRunner wrapper (writes task_runs) ====================
+// ============================================================================
+
+async function handlePriceMonitorTask(bot, task) {
+  const payload = safeJsonParse(task.payload, {});
+  const intervalMinutes =
+    typeof payload.interval_minutes === "number" ? payload.interval_minutes : 60;
+
+  const intervalMs = intervalMinutes * 60_000;
+  const now = Date.now();
+
+  // ⚠️ IMPORTANT: Do NOT write task_runs if task is not "due".
+  // We peek state to decide if it's time.
+  let state = mockPriceState.get(task.id);
+  if (!state) {
+    // same behavior as direct: initialize state and exit
+    const symbol = payload.symbol || "BTCUSDT";
+    state = { price: getInitialMockPrice(symbol), lastCheck: now };
+    mockPriceState.set(task.id, state);
+    return;
+  }
+
+  if (now - state.lastCheck < intervalMs) return;
+
+  // deterministic run window (for dedup across restarts)
+  const scheduledFor = Math.floor(now / intervalMs) * intervalMs;
+  const scheduledForIso = new Date(scheduledFor).toISOString();
+  const runKey = makeTaskRunKey({ taskId: task.id, scheduledForIso });
+
+  // enqueue into JobRunner so task_runs is written (running/completed/failed)
+  const enq = jobRunner.enqueue(
+    {
+      taskId: task.id,
+      runKey,
+      meta: {
+        source: "robot",
+        type: task.type,
+        scheduledForIso,
+      },
+      task,
+    },
+    { idempotencyKey: runKey }
+  );
+
+  // already queued/running in-memory → skip
+  if (!enq.accepted) return;
+
+  // run immediately (in-memory worker)
+  await jobRunner.runOnce(async (job) => {
+    if (job?.task?.type === "price_monitor") {
+      await handlePriceMonitorTaskDirect(bot, job.task);
+    }
+    // news_monitor можно добавить позже
+  });
 }
 
 export async function robotTick(bot) {

@@ -1,3 +1,13 @@
+✅ Принял.
+
+Следующая таблица из migrations/004_core_tables_v0.js, которую ты ещё не добавил в readiness-check — source_logs (она нужна для логов источников, Stage 10/5).
+
+1 шаг = 1 действие ✅
+
+👉 Добавь source_logs в src/db/ensureTables.js.
+
+Полный файл целиком (вставляй):
+
 // src/db/ensureTables.js
 // ✅ 2.9 DB CONSOLIDATION: migrations = single source of truth
 // ensureTables = read-only readiness check (NO CREATE TABLE here)
@@ -27,6 +37,7 @@ export async function ensureTables() {
   await assertTableExists("sources");
   await assertTableExists("source_cache");
   await assertTableExists("source_checks");
+  await assertTableExists("source_logs");
 
   await assertTableExists("project_memory");
   await assertTableExists("file_intake_logs");

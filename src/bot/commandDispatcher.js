@@ -211,13 +211,18 @@ export async function dispatchCommand(cmd, ctx) {
       const raw = String(rest || "").trim();
 
       if (!raw) {
-        await bot.sendMessage(chatId, "Использование: /newtask <title> | <note>");
+        await bot.sendMessage(
+          chatId,
+          [
+            "Использование:",
+            "- /newtask <title> | <note>  (manual, legacy)",
+            '- /newtask price_monitor {"symbol":"BTCUSDT","interval_minutes":1,"threshold_percent":1}',
+            "",
+            "Примечание: price_monitor сейчас создаётся тестовым шаблоном (payload из JSON может игнорироваться).",
+          ].join("\n")
+        );
         return { handled: true };
       }
-
-      const parts = raw.split("|").map((s) => s.trim());
-      const title = parts[0] || "Новая задача";
-      const note = parts.slice(1).join(" | ").trim() || "";
 
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
@@ -225,15 +230,86 @@ export async function dispatchCommand(cmd, ctx) {
         user: ctx.user,
       };
 
+      // Legacy manual format: "title | note"
+      if (raw.includes("|")) {
+        const parts = raw.split("|").map((s) => s.trim());
+        const title = parts[0] || "Новая задача";
+        const note = parts.slice(1).join(" | ").trim() || "";
+
+        if (typeof ctx.createManualTask !== "function") {
+          await bot.sendMessage(chatId, "⛔ createManualTask недоступен (ошибка wiring).");
+          return { handled: true };
+        }
+
+        try {
+          const row = await ctx.createManualTask(chatIdStr, title, note, access);
+          const id = row?.id ?? "?";
+          await bot.sendMessage(chatId, `✅ Задача создана: #${id}\n${title}\nТип: manual`);
+        } catch (e) {
+          await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
+        }
+
+        return { handled: true };
+      }
+
+      // New format: "<type> <json>"
+      const firstSpace = raw.indexOf(" ");
+      const type = (firstSpace === -1 ? raw : raw.slice(0, firstSpace)).trim();
+      const jsonPart = (firstSpace === -1 ? "" : raw.slice(firstSpace + 1)).trim();
+
+      if (type === "price_monitor") {
+        if (typeof ctx.createTestPriceMonitorTask !== "function") {
+          await bot.sendMessage(
+            chatId,
+            "⛔ createTestPriceMonitorTask недоступен (ошибка wiring)."
+          );
+          return { handled: true };
+        }
+
+        // JSON пока парсим только для валидации/диагностики (может быть проигнорирован в createTestPriceMonitorTask)
+        if (jsonPart) {
+          try {
+            JSON.parse(jsonPart);
+          } catch (e) {
+            await bot.sendMessage(
+              chatId,
+              '⛔ Неверный JSON. Пример: /newtask price_monitor {"symbol":"BTCUSDT","interval_minutes":1,"threshold_percent":1}'
+            );
+            return { handled: true };
+          }
+        }
+
+        try {
+          const id = await ctx.createTestPriceMonitorTask(chatIdStr, access);
+          await bot.sendMessage(
+            chatId,
+            [
+              `✅ Тест price_monitor создан!`,
+              `ID: ${id}`,
+              jsonPart
+                ? "ℹ️ JSON принят, но сейчас может игнорироваться (тестовый шаблон)."
+                : "",
+            ]
+              .filter(Boolean)
+              .join("\n")
+          );
+        } catch (e) {
+          await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
+        }
+
+        return { handled: true };
+      }
+
+      // Fallback: treat as manual title without note
       if (typeof ctx.createManualTask !== "function") {
         await bot.sendMessage(chatId, "⛔ createManualTask недоступен (ошибка wiring).");
         return { handled: true };
       }
 
       try {
-        const row = await ctx.createManualTask(chatIdStr, title, note, access);
+        const row = await ctx.createManualTask(chatIdStr, raw, "", access);
         const id = row?.id ?? "?";
-        await bot.sendMessage(chatId, `✅ Задача создана: #${id}\n${title}`);
+        await bot.sendMessage(chatId, `✅ Задача создана: #${id}\n${raw}\nТип: manual`);
       } catch (e) {
         await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
       }

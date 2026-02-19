@@ -7,8 +7,14 @@
 // Contract: enqueue/run/ack/fail
 // NOTE: no scaling, no real queue yet. In-memory placeholder.
 
-import { tryStartTaskRun, finishTaskRun } from "../db/taskRunsRepo.js";
+import {
+  tryStartTaskRun,
+  finishTaskRun,
+  getTaskRunAttempts,
+  markTaskRunFailed,
+} from "../db/taskRunsRepo.js";
 import { ErrorEventsRepo } from "../db/errorEventsRepo.js";
+import { getRetryPolicy, computeBackoffDelayMs, shouldRetry } from "./retryPolicy.js";
 import pool from "../../db.js";
 
 function safeErrMsg(e, max = 800) {
@@ -140,11 +146,30 @@ export class JobRunner {
       return { ran: true, id: item.id, status: "acked" };
     } catch (e) {
       // ================================
-      // Close task_runs (failed)
+      // Stage 5.4 — retries / fail-reasons (write fields)
       // ================================
       try {
         if (taskId && runKey && startedRunGate) {
-          await finishTaskRun({ taskId, runKey, status: "failed" });
+          const policy = getRetryPolicy();
+          const attempts = (await getTaskRunAttempts({ taskId, runKey })) ?? 1;
+
+          const failReason = safeErrMsg(e);
+          const failCode = String(e?.code || e?.name || "error");
+
+          let retryAtIso = null;
+          if (shouldRetry(attempts, policy)) {
+            const delayMs = computeBackoffDelayMs(attempts, policy);
+            retryAtIso = new Date(Date.now() + delayMs).toISOString();
+          }
+
+          await markTaskRunFailed({
+            taskId,
+            runKey,
+            failReason,
+            failCode,
+            retryAtIso,
+            maxRetries: policy.maxRetries,
+          });
         }
       } catch (_) {}
 

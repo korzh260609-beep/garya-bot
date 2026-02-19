@@ -244,10 +244,6 @@ async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_repo_index_snapshots_repo_branch
       ON repo_index_snapshots (repo, branch, created_at DESC);
     `);
-
-    console.log(
-      "✅ Tables ready: chat_memory, users, tasks, sources, source_cache, source_checks, source_logs, interaction_logs, repo_index_*"
-    );
   } catch (err) {
     console.error("❌ Error initializing database:", err);
   }

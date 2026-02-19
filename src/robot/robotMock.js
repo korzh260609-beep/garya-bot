@@ -1,29 +1,11 @@
 // src/robot/robotMock.js
-// === ROBOT-LAYER (mock режим без реального API) ===
 
-import pool from "../../db.js";
-import {
-  acquireExecutionLock,
-  releaseExecutionLock,
-} from "../jobs/executionLock.js";
-import {
-  tryStartTaskRun,
-  finishTaskRun,
-  getTaskRunAttempts,
-  markTaskRunFailed,
-} from "../db/taskRunsRepo.js";
-import {
-  getRetryPolicy,
-  computeBackoffDelayMs,
-  shouldRetry,
-} from "../jobs/retryPolicy.js";
+import pool from "../db.js";
 
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
 export async function getActiveRobotTasks() {
-  // ВАЖНО: фильтруем строго в SQL, чтобы:
-  // 1) робот не "видел" stopped/paused/deleted
-  // 2) не логировать огромные списки задач каждую итерацию
+  // ✅ Строго: робот видит ТОЛЬКО active задачи нужных типов
   const res = await pool.query(`
     SELECT id, status, type, schedule, payload, user_global_id
     FROM tasks
@@ -31,7 +13,7 @@ export async function getActiveRobotTasks() {
       AND type IN ('price_monitor', 'news_monitor')
   `);
 
-  // Debug только по флагу, иначе будет LOG SPAM
+  // ✅ Логи только по флагу, иначе LOG SPAM
   if (String(process.env.ROBOT_DEBUG || "").toLowerCase() === "true") {
     console.log("🤖 ROBOT ACTIVE TASKS:", res.rows);
   }
@@ -39,18 +21,25 @@ export async function getActiveRobotTasks() {
   return res.rows || [];
 }
 
+function safeJsonParse(v, fallback = {}) {
+  try {
+    if (v == null) return fallback;
+    if (typeof v === "object") return v;
+    return JSON.parse(v);
+  } catch {
+    return fallback;
+  }
+}
+
 const mockPriceState = new Map();
 
-export function getInitialMockPrice(symbolRaw) {
+function getInitialMockPrice(symbolRaw) {
   const symbol = (symbolRaw || "BTCUSDT").toUpperCase();
-
-  let base = 50000;
-  if (symbol.includes("BTC")) base = 50000;
-  else if (symbol.includes("ETH")) base = 3000;
-  else if (symbol.includes("SOL")) base = 150;
-  else if (symbol.includes("XRP")) base = 0.6;
-
-  return base;
+  if (symbol.includes("BTC")) return 50000;
+  if (symbol.includes("ETH")) return 3000;
+  if (symbol.includes("SOL")) return 150;
+  if (symbol.includes("XRP")) return 0.6;
+  return 100;
 }
 
 async function resolveChatIdByGlobalUserId(globalUserId) {
@@ -66,7 +55,6 @@ async function resolveChatIdByGlobalUserId(globalUserId) {
       `,
       [globalUserId]
     );
-
     return res.rows?.[0]?.chat_id || null;
   } catch (e) {
     console.error("❌ ROBOT resolveChatId error:", e);
@@ -75,133 +63,56 @@ async function resolveChatIdByGlobalUserId(globalUserId) {
 }
 
 async function handlePriceMonitorTask(bot, task) {
-  const payload = task.payload || {};
+  const payload = safeJsonParse(task.payload, {});
   const symbol = payload.symbol || "BTCUSDT";
 
   const intervalMinutes =
-    typeof payload.interval_minutes === "number"
-      ? payload.interval_minutes
-      : 60;
+    typeof payload.interval_minutes === "number" ? payload.interval_minutes : 60;
 
   const thresholdPercent =
-    typeof payload.threshold_percent === "number"
-      ? payload.threshold_percent
-      : 2;
+    typeof payload.threshold_percent === "number" ? payload.threshold_percent : 2;
 
   const now = Date.now();
   let state = mockPriceState.get(task.id);
 
   if (!state) {
-    const initialPrice = getInitialMockPrice(symbol);
-    state = { price: initialPrice, lastCheck: now };
+    state = { price: getInitialMockPrice(symbol), lastCheck: now };
     mockPriceState.set(task.id, state);
     return;
   }
 
-  const msSinceLast = now - state.lastCheck;
   const intervalMs = intervalMinutes * 60_000;
+  if (now - state.lastCheck < intervalMs) return;
 
-  if (msSinceLast < intervalMs) {
-    return;
+  // optional forced fail (для тестов)
+  if (payload.force_fail === true) {
+    throw new Error("TEST_FAIL: forced by payload.force_fail");
   }
 
-  const windowId = Math.floor(now / intervalMs);
-  const runKey = `price_monitor:${String(task.id)}@${String(windowId)}`;
+  const randomDelta = (Math.random() - 0.5) * 0.08; // ~ +/-4%
+  const newPrice = Math.max(1, state.price * (1 + randomDelta));
+  const changePercent = ((newPrice - state.price) / state.price) * 100;
 
-  const gate = await tryStartTaskRun({
-    taskId: task.id,
-    runKey,
-    meta: {
-      runner: "robotMock",
-      type: "price_monitor",
-      interval_minutes: intervalMinutes,
-    },
-  });
+  state.price = newPrice;
+  state.lastCheck = now;
 
-  if (!gate.started) {
-    return;
-  }
+  if (Math.abs(changePercent) >= thresholdPercent) {
+    const direction = changePercent > 0 ? "вверх" : "вниз";
 
-  try {
-    // ===========================
-    // STAGE 5.4 — TEST FAIL HOOK
-    // payload.force_fail === true → принудительно валим run, чтобы проверить retries
-    // ===========================
-    if (payload && payload.force_fail === true) {
-      throw new Error("TEST_FAIL: forced by payload.force_fail");
-    }
+    const text =
+      `⚠️ Mock-сигнал по задаче #${task.id} (${symbol}).\n` +
+      `Изменение: ${changePercent.toFixed(2)}%.\n` +
+      `Цена: ${newPrice.toFixed(2)}\n` +
+      `Направление: ${direction}.`;
 
-    const randomDelta = (Math.random() - 0.5) * 0.08;
-    const newPrice = Math.max(1, state.price * (1 + randomDelta));
-    const changePercent = ((newPrice - state.price) / state.price) * 100;
-
-    state.price = newPrice;
-    state.lastCheck = now;
-
-    if (Math.abs(changePercent) >= thresholdPercent) {
-      const direction = changePercent > 0 ? "вверх" : "вниз";
-
-      const text =
-        `⚠️ Mock-сигнал по задаче #${task.id} (${symbol}).\n` +
-        `Изменение: ${changePercent.toFixed(2)}%.\n` +
-        `Цена: ${newPrice.toFixed(2)}\n` +
-        `Направление: ${direction}.`;
-
-      const globalUserId = task.user_global_id;
-      const userChatId = await resolveChatIdByGlobalUserId(globalUserId);
-
-      if (userChatId && bot) {
-        await bot.sendMessage(Number(userChatId), text);
-      }
-    }
-
-    await finishTaskRun({
-      taskId: task.id,
-      runKey,
-      status: "completed",
-    });
-  } catch (err) {
-    console.error("❌ ROBOT task error:", err);
-
-    try {
-      const policy = getRetryPolicy();
-      const attempts =
-        (await getTaskRunAttempts({ taskId: task.id, runKey })) ?? 1;
-
-      const failReason = String(err?.message || err || "unknown_error").slice(
-        0,
-        800
-      );
-      const failCode = String(err?.code || err?.name || "error");
-
-      let retryAtIso = null;
-      if (shouldRetry(attempts, policy)) {
-        const delayMs = computeBackoffDelayMs(attempts, policy);
-        retryAtIso = new Date(Date.now() + delayMs).toISOString();
-      }
-
-      await markTaskRunFailed({
-        taskId: task.id,
-        runKey,
-        failReason,
-        failCode,
-        retryAtIso,
-        maxRetries: policy.maxRetries,
-      });
-    } catch (e2) {
-      await finishTaskRun({
-        taskId: task.id,
-        runKey,
-        status: "failed",
-      });
+    const userChatId = await resolveChatIdByGlobalUserId(task.user_global_id);
+    if (userChatId && bot) {
+      await bot.sendMessage(Number(userChatId), text);
     }
   }
 }
 
 export async function robotTick(bot) {
-  const locked = await acquireExecutionLock();
-  if (!locked) return;
-
   try {
     const tasks = await getActiveRobotTasks();
     if (!tasks.length) return;
@@ -211,21 +122,21 @@ export async function robotTick(bot) {
         if (t.type === "price_monitor") {
           await handlePriceMonitorTask(bot, t);
         }
+        // news_monitor можно добавить позже
       } catch (taskErr) {
-        console.error("❌ ROBOT task loop error:", t.id, taskErr);
+        // ⚠️ Ошибка по конкретной задаче — логируем коротко (без массивов)
+        console.error("❌ ROBOT task loop error:", t.id, taskErr?.message || taskErr);
       }
     }
   } catch (err) {
-    console.error("❌ ROBOT ERROR:", err);
-  } finally {
-    await releaseExecutionLock();
+    console.error("❌ ROBOT ERROR:", err?.message || err);
   }
 }
 
 export function startRobotLoop(bot) {
-  robotTick(bot).catch(console.error);
+  robotTick(bot).catch((e) => console.error("❌ ROBOT first tick error:", e));
 
   setInterval(() => {
-    robotTick(bot).catch(console.error);
+    robotTick(bot).catch((e) => console.error("❌ ROBOT tick error:", e));
   }, TICK_MS);
 }

@@ -22,6 +22,10 @@ import { handleStopTasksType } from "./handlers/stopTasksType.js";
 import { handleUsersStats } from "./handlers/usersStats.js";
 import { handleStopAllTasks } from "./handlers/stopAllTasks.js"; // ✅ /stop_all_tasks
 
+// ✅ Stage 5–6: manual /run must write task_runs via JobRunner
+import { jobRunner } from "../jobs/jobRunnerInstance.js";
+import { makeTaskRunKey } from "../jobs/jobRunner.js";
+
 /**
  * Backward-compatible dispatcher.
  *
@@ -259,10 +263,7 @@ export async function dispatchCommand(cmd, ctx) {
 
       if (type === "price_monitor") {
         if (typeof ctx.createTestPriceMonitorTask !== "function") {
-          await bot.sendMessage(
-            chatId,
-            "⛔ createTestPriceMonitorTask недоступен (ошибка wiring)."
-          );
+          await bot.sendMessage(chatId, "⛔ createTestPriceMonitorTask недоступен (ошибка wiring).");
           return { handled: true };
         }
 
@@ -286,9 +287,7 @@ export async function dispatchCommand(cmd, ctx) {
             [
               `✅ Тест price_monitor создан!`,
               `ID: ${id}`,
-              jsonPart
-                ? "ℹ️ JSON принят, но сейчас может игнорироваться (тестовый шаблон)."
-                : "",
+              jsonPart ? "ℹ️ JSON принят, но сейчас может игнорироваться (тестовый шаблон)." : "",
             ]
               .filter(Boolean)
               .join("\n")
@@ -344,7 +343,24 @@ export async function dispatchCommand(cmd, ctx) {
         return { handled: true };
       }
 
-      await ctx.runTaskWithAI(task, chatId, bot, access);
+      const runKey = makeTaskRunKey({
+        taskId: task.id,
+        scheduledForIso: new Date().toISOString(),
+      });
+
+      await jobRunner.enqueue(
+        {
+          taskId: task.id,
+          runKey,
+          meta: { source: "manual" },
+        },
+        { idempotencyKey: runKey }
+      );
+
+      await jobRunner.runOnce(async () => {
+        await ctx.runTaskWithAI(task, chatId, bot, access);
+      });
+
       return { handled: true };
     }
 

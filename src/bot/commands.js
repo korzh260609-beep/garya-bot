@@ -439,6 +439,33 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
+    case "/stop_all_tasks": {
+      const ok = await requireMonarch(bot, chatId, senderIdStr);
+      if (!ok) return;
+
+      try {
+        const res = await pool.query(
+          `
+          UPDATE tasks
+          SET status = 'stopped'
+          WHERE status = 'active'
+          `
+        );
+
+        const stopped = res.rowCount || 0;
+
+        await bot.sendMessage(
+          chatId,
+          `⛔ Остановлено задач: ${stopped}\n\n` +
+            `Примечание: остановлены только задачи со статусом 'active'.`
+        );
+      } catch (e) {
+        console.error("❌ /stop_all_tasks error:", e);
+        await bot.sendMessage(chatId, "⚠️ Не удалось остановить задачи (см. логи).");
+      }
+      return;
+    }
+
     case "/demo_task": {
       try {
         const id = await createDemoTask(chatIdStr, access);

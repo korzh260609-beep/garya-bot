@@ -1,8 +1,3 @@
-Вот полный файл с временной тест-ошибкой для проверки Stage 5.4.
-Вставляй целиком.
-
-⚠️ После проверки строку throw new Error("TEST_STAGE_5_4"); нужно удалить.
-
 // src/robot/robotMock.js
 // === ROBOT-LAYER (mock режим без реального API) ===
 
@@ -143,9 +138,6 @@ async function handlePriceMonitorTask(bot, task) {
         await bot.sendMessage(Number(userChatId), text);
       }
     }
-
-    // === TEST ERROR FOR STAGE 5.4 ===
-    throw new Error("TEST_STAGE_5_4");
 
     await finishTaskRun({
       taskId: task.id,

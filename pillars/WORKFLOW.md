@@ -149,7 +149,7 @@ For each roadmap item:
 ## (SKELETON) 5.15 ADMIN ALERTS (no dashboards)
 5.15.1 alerts to monarch: db_size_warning / repeated source failures / queue stuck
 
-## (SKELETON) 5.16 behavior_events
+## (SKELELETON) 5.16 behavior_events
 5.16.1 clarification_asked  
 5.16.2 risk_warning_shown  
 5.16.3 answer_mode_changed  
@@ -441,6 +441,12 @@ For each roadmap item:
 ---
 
 # STAGE 12A — CAPABILITY EXTENSIONS (SPECIALIZED AI ROLES)
+
+⚠️ PAUSED NOTICE (важно):
+- Сейчас активная разработка идёт только по STAGE 2–6.
+- Любые команды/файлы/хинты 12A (например WORKFLOW_HINTS.json, /workflow_check, stage detector) считаются “замороженными” и не дорабатываются до явной команды монарха.
+- Это нужно, чтобы не смешивать ветки и не ломать порядок ROADMAP.
+
 12A.1 Diagram / Chart capability  
 12A.2 Document generation capability  
 12A.3 Code/Repo analysis capability (CODE-AI skeleton)  

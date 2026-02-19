@@ -62,7 +62,9 @@ export function initTelegramTransport(app) {
         `
       );
 
-      const firstAt = res?.rows?.[0]?.first_at ? new Date(res.rows[0].first_at) : null;
+      const firstAt = res?.rows?.[0]?.first_at
+        ? new Date(res.rows[0].first_at)
+        : null;
       if (!firstAt || Number.isNaN(firstAt.getTime())) return "warn";
 
       const ageMs = Date.now() - firstAt.getTime();
@@ -86,8 +88,12 @@ export function initTelegramTransport(app) {
         err
       );
 
-      // severity escalation: warn for first 2 days, error after 2 days
+      // severity escalation: warn for first N days, error after that
       const severity = await computeWebhookSetSeverity();
+
+      // чистим "EFATAL:" из message, но сохраняем raw в context
+      const rawMsg = err?.message || String(err);
+      const cleanMsg = String(rawMsg).replace(/^EFATAL:\s*/i, "").slice(0, 4000);
 
       // Fire-and-forget error event (must never crash)
       Promise.resolve()
@@ -96,12 +102,13 @@ export function initTelegramTransport(app) {
             scope: "runtime",
             eventType: "WEBHOOK_SET_ERROR",
             severity,
-            message: err?.message || String(err),
+            message: cleanMsg,
             context: {
               attempt,
               maxRetries: MAX_RETRIES,
               name: err?.name,
               code: err?.code,
+              raw_message: rawMsg,
             },
           })
         )
@@ -140,16 +147,20 @@ export function initTelegramTransport(app) {
     } catch (err) {
       console.error("❌ bot.processUpdate error:", err);
 
+      const rawMsg = err?.message || String(err);
+      const cleanMsg = String(rawMsg).replace(/^EFATAL:\s*/i, "").slice(0, 4000);
+
       Promise.resolve()
         .then(() =>
           errorRepo.write({
             scope: "runtime",
             eventType: "TELEGRAM_PROCESS_UPDATE_ERROR",
             severity: "error",
-            message: err?.message || String(err),
+            message: cleanMsg,
             context: {
               name: err?.name,
               code: err?.code,
+              raw_message: rawMsg,
             },
           })
         )

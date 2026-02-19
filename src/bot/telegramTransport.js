@@ -80,6 +80,18 @@ export function initTelegramTransport(app) {
     attempt += 1;
 
     try {
+      // ✅ Idempotency: если webhook уже установлен на нужный URL — не трогаем
+      // (снижает шум WEBHOOK_SET_ERROR при transient network)
+      try {
+        const info = await bot.getWebHookInfo();
+        if (info?.url && String(info.url) === String(webhookUrl)) {
+          console.log("✅ Telegram webhook уже установлен (skip setWebHook)");
+          return;
+        }
+      } catch (_) {
+        // getWebHookInfo может падать из-за сети — это НЕ повод падать/останавливать setWebHook
+      }
+
       await bot.setWebHook(webhookUrl);
       console.log("🚀 Telegram webhook установлен");
     } catch (err) {

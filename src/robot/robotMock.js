@@ -2,8 +2,21 @@
 // === ROBOT-LAYER (mock режим без реального API) ===
 
 import pool from "../../db.js";
-import { acquireExecutionLock, releaseExecutionLock } from "../jobs/executionLock.js";
-import { tryStartTaskRun, finishTaskRun } from "../db/taskRunsRepo.js";
+import {
+  acquireExecutionLock,
+  releaseExecutionLock,
+} from "../jobs/executionLock.js";
+import {
+  tryStartTaskRun,
+  finishTaskRun,
+  getTaskRunAttempts,
+  markTaskRunFailed,
+} from "../db/taskRunsRepo.js";
+import {
+  getRetryPolicy,
+  computeBackoffDelayMs,
+  shouldRetry,
+} from "../jobs/retryPolicy.js";
 
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
@@ -133,15 +146,42 @@ async function handlePriceMonitorTask(bot, task) {
       runKey,
       status: "completed",
     });
-
   } catch (err) {
     console.error("❌ ROBOT task error:", err);
 
-    await finishTaskRun({
-      taskId: task.id,
-      runKey,
-      status: "failed",
-    });
+    try {
+      const policy = getRetryPolicy();
+      const attempts =
+        (await getTaskRunAttempts({ taskId: task.id, runKey })) ?? 1;
+
+      const failReason = String(err?.message || err || "unknown_error").slice(
+        0,
+        800
+      );
+      const failCode = String(err?.code || err?.name || "error");
+
+      let retryAtIso = null;
+      if (shouldRetry(attempts, policy)) {
+        const delayMs = computeBackoffDelayMs(attempts, policy);
+        retryAtIso = new Date(Date.now() + delayMs).toISOString();
+      }
+
+      await markTaskRunFailed({
+        taskId: task.id,
+        runKey,
+        failReason,
+        failCode,
+        retryAtIso,
+        maxRetries: policy.maxRetries,
+      });
+    } catch (e2) {
+      // fallback: хотя бы отметить failed
+      await finishTaskRun({
+        taskId: task.id,
+        runKey,
+        status: "failed",
+      });
+    }
   }
 }
 

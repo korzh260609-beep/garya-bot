@@ -23,10 +23,14 @@ export async function ensureTables() {
   await assertTableExists("chat_memory");
   await assertTableExists("tasks");
   await assertTableExists("interaction_logs");
+
   await assertTableExists("sources");
   await assertTableExists("source_cache");
+  await assertTableExists("source_checks");
+
   await assertTableExists("project_memory");
   await assertTableExists("file_intake_logs");
+
   await assertTableExists("task_runs");
   await assertTableExists("source_runs");
   await assertTableExists("error_events");

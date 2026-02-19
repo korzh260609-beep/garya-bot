@@ -34,6 +34,17 @@ export async function handleHealth({ bot, chatId }) {
   }
 
   // ------------------
+  // ✅ explicit table existence checks (READ-ONLY)
+  // ------------------
+  let errorEventsTable = "unknown";
+  try {
+    const t = await pool.query(`SELECT to_regclass('public.error_events') AS reg`);
+    errorEventsTable = t?.rows?.[0]?.reg ? "yes" : "no";
+  } catch (_) {
+    errorEventsTable = "unknown";
+  }
+
+  // ------------------
   // Repo snapshot id (optional)
   // ------------------
   let lastSnapshot = "unknown";
@@ -158,6 +169,9 @@ export async function handleHealth({ bot, chatId }) {
       "HEALTH: ok",
       `db: ${dbStatus}`,
       `last_snapshot_id: ${lastSnapshot}`,
+
+      // ✅ table presence
+      `error_events_table: ${errorEventsTable}`,
 
       // errors
       `error_events_count: ${errorEventsCount}`,

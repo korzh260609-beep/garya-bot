@@ -20,7 +20,7 @@ import pool from "../../db.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
 import { handleUsersStats } from "./handlers/usersStats.js";
-import { handleStopAllTasks } from "./handlers/stopAllTasks.js"; // ✅ FIX: /stop_all_tasks wiring
+import { handleStopAllTasks } from "./handlers/stopAllTasks.js"; // ✅ /stop_all_tasks
 
 /**
  * Backward-compatible dispatcher.
@@ -186,14 +186,14 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     // ==========================
-    // TASKS (Stage 2.x) — FIXES
+    // TASKS (Stage 2.x)
     // ==========================
 
     case "/tasks": {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user, // ✅ identity-first: provides global_user_id
+        user: ctx.user, // identity-first
       };
 
       await handleTasksList({
@@ -208,8 +208,6 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     case "/newtask": {
-      // Usage: /newtask <title> | <note>
-      // Minimal, safe parsing. If no delimiter, uses whole rest as title.
       const raw = String(rest || "").trim();
 
       if (!raw) {
@@ -224,7 +222,7 @@ export async function dispatchCommand(cmd, ctx) {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user, // ✅ identity-first
+        user: ctx.user,
       };
 
       if (typeof ctx.createManualTask !== "function") {
@@ -244,7 +242,6 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     case "/run": {
-      // Usage: /run <id>
       const raw = String(rest || "").trim();
       const taskId = parseInt(raw, 10);
 
@@ -261,7 +258,7 @@ export async function dispatchCommand(cmd, ctx) {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user, // ✅ identity-first
+        user: ctx.user,
       };
 
       const task = await ctx.getTaskById(chatIdStr, taskId, access);
@@ -286,13 +283,12 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // ✅ FIX: real wiring for /stop_all_tasks (mapped in cmdActionMap.js)
+    // ✅ FIX: pass bypass correctly (handler checks bypass)
     case "/stop_all_tasks": {
       await handleStopAllTasks({
         bot,
         chatId,
-        chatIdStr,
-        canStopTaskV1: ctx.canStopTaskV1,
+        bypass: ctx.bypass,
       });
       return { handled: true };
     }
@@ -308,13 +304,11 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // Stage 5.6 — /last_errors (READ-ONLY)
     case "/last_errors": {
       await handleLastErrors({ bot, chatId, rest: ctx.rest });
       return { handled: true };
     }
 
-    // Stage 5.7 — /task_status (READ-ONLY)
     case "/task_status": {
       await handleTaskStatus({ bot, chatId, rest: ctx.rest });
       return { handled: true };

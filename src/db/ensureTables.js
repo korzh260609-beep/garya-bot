@@ -23,4 +23,5 @@ export async function ensureTables() {
   await assertTableExists("file_intake_logs");
   await assertTableExists("task_runs");
   await assertTableExists("source_runs");
+  await assertTableExists("error_events");
 }

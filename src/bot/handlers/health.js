@@ -38,10 +38,22 @@ export async function handleHealth({ bot, chatId }) {
   // ------------------
   let errorEventsTable = "unknown";
   try {
-    const t = await pool.query(`SELECT to_regclass('public.error_events') AS reg`);
+    const t = await pool.query(
+      `SELECT to_regclass('public.error_events') AS reg`
+    );
     errorEventsTable = t?.rows?.[0]?.reg ? "yes" : "no";
   } catch (_) {
     errorEventsTable = "unknown";
+  }
+
+  let sourceRunsTable = "unknown";
+  try {
+    const t = await pool.query(
+      `SELECT to_regclass('public.source_runs') AS reg`
+    );
+    sourceRunsTable = t?.rows?.[0]?.reg ? "yes" : "no";
+  } catch (_) {
+    sourceRunsTable = "unknown";
   }
 
   // ------------------
@@ -99,6 +111,27 @@ export async function handleHealth({ bot, chatId }) {
   }
 
   // ------------------
+  // ✅ source_runs summary (only if table exists; still safe if not)
+  // ------------------
+  let sourceRunsCount = "unknown";
+  let lastSourceRunAt = "unknown";
+
+  try {
+    const r = await pool.query(`
+      SELECT COUNT(*)::int AS cnt, MAX(created_at) AS last_run_at
+      FROM source_runs
+    `);
+
+    const cnt = r?.rows?.[0]?.cnt;
+    const v = r?.rows?.[0]?.last_run_at;
+
+    if (Number.isInteger(cnt)) sourceRunsCount = String(cnt);
+    if (v) lastSourceRunAt = new Date(v).toISOString();
+  } catch (_) {
+    // keep unknown
+  }
+
+  // ------------------
   // Stage 5.8 — chat_messages_count (proxy via interaction_logs)
   // We count task_type='chat' as chat messages.
   // ------------------
@@ -139,7 +172,9 @@ export async function handleHealth({ bot, chatId }) {
   let dbSizeWarning = "none";
 
   try {
-    const r = await pool.query(`SELECT pg_database_size(current_database())::bigint AS bytes`);
+    const r = await pool.query(
+      `SELECT pg_database_size(current_database())::bigint AS bytes`
+    );
     const bytes = r?.rows?.[0]?.bytes;
     dbSizeMb = mbFromBytes(bytes);
 
@@ -172,12 +207,17 @@ export async function handleHealth({ bot, chatId }) {
 
       // ✅ table presence
       `error_events_table: ${errorEventsTable}`,
+      `source_runs_table: ${sourceRunsTable}`,
 
       // errors
       `error_events_count: ${errorEventsCount}`,
       `last_error_at: ${lastErrorAt}`,
       `last_error_type: ${lastErrorType}`,
       `last_error_msg: ${lastErrorMsg}`,
+
+      // sources
+      `source_runs_count: ${sourceRunsCount}`,
+      `last_source_run_at: ${lastSourceRunAt}`,
 
       // Stage 5.8
       `chat_messages_count_total: ${chatMessagesCountTotal}`,

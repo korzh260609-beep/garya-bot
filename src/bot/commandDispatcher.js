@@ -20,6 +20,7 @@ import pool from "../../db.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
 import { handleUsersStats } from "./handlers/usersStats.js";
+import { handleStopAllTasks } from "./handlers/stopAllTasks.js"; // ✅ FIX: /stop_all_tasks wiring
 
 /**
  * Backward-compatible dispatcher.
@@ -285,17 +286,28 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
+    // ✅ FIX: real wiring for /stop_all_tasks (mapped in cmdActionMap.js)
+    case "/stop_all_tasks": {
+      await handleStopAllTasks({
+        bot,
+        chatId,
+        chatIdStr,
+        canStopTaskV1: ctx.canStopTaskV1,
+      });
+      return { handled: true };
+    }
+
     // Stage 5 — Observability V1 (READ-ONLY)
     case "/health": {
       await handleHealth({ bot, chatId });
       return { handled: true };
     }
 
-      case "/webhook_info": {
+    case "/webhook_info": {
       await handleWebhookInfo({ bot, chatId });
       return { handled: true };
     }
-      
+
     // Stage 5.6 — /last_errors (READ-ONLY)
     case "/last_errors": {
       await handleLastErrors({ bot, chatId, rest: ctx.rest });

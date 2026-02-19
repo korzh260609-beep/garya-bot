@@ -10,11 +10,6 @@ function safeLine(s, max = 160) {
   return t.length > max ? t.slice(0, max - 1) + "…" : t;
 }
 
-function asInt(v, fallback = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.trunc(n) : fallback;
-}
-
 function mbFromBytes(bytes) {
   const b = Number(bytes);
   if (!Number.isFinite(b) || b < 0) return "unknown";
@@ -111,14 +106,14 @@ export async function handleHealth({ bot, chatId }) {
   }
 
   // ------------------
-  // ✅ source_runs summary (only if table exists; still safe if not)
+  // ✅ source_runs summary (FIXED: uses started_at, not created_at)
   // ------------------
   let sourceRunsCount = "unknown";
   let lastSourceRunAt = "unknown";
 
   try {
     const r = await pool.query(`
-      SELECT COUNT(*)::int AS cnt, MAX(created_at) AS last_run_at
+      SELECT COUNT(*)::int AS cnt, MAX(started_at) AS last_run_at
       FROM source_runs
     `);
 
@@ -133,7 +128,6 @@ export async function handleHealth({ bot, chatId }) {
 
   // ------------------
   // Stage 5.8 — chat_messages_count (proxy via interaction_logs)
-  // We count task_type='chat' as chat messages.
   // ------------------
   let chatMessagesCount24h = "unknown";
   let chatMessagesCountTotal = "unknown";
@@ -150,13 +144,11 @@ export async function handleHealth({ bot, chatId }) {
     const row = r?.rows?.[0] || {};
     chatMessagesCountTotal = String(row.total ?? 0);
     chatMessagesCount24h = String(row.last24h ?? 0);
-  } catch (e) {
-    // table missing or old schema → keep unknown
+  } catch (_) {
+    // keep unknown
   }
 
-  // ------------------
-  // Stage 5.9–5.12 — hooks for future modules (currently zero)
-  // ------------------
+  // Stage 5.9–5.12 hooks
   const recallRequests = 0;
   const recallErrors = 0;
   const alreadySeenHits = 0;
@@ -164,7 +156,6 @@ export async function handleHealth({ bot, chatId }) {
 
   // ------------------
   // Stage 5.13 — db_size_warning (70% / 85%)
-  // Needs DB_SIZE_LIMIT_MB env to compute % safely.
   // ------------------
   let dbSizeMb = "unknown";
   let dbLimitMb = "unknown";
@@ -205,31 +196,25 @@ export async function handleHealth({ bot, chatId }) {
       `db: ${dbStatus}`,
       `last_snapshot_id: ${lastSnapshot}`,
 
-      // ✅ table presence
       `error_events_table: ${errorEventsTable}`,
       `source_runs_table: ${sourceRunsTable}`,
 
-      // errors
       `error_events_count: ${errorEventsCount}`,
       `last_error_at: ${lastErrorAt}`,
       `last_error_type: ${lastErrorType}`,
       `last_error_msg: ${lastErrorMsg}`,
 
-      // sources
       `source_runs_count: ${sourceRunsCount}`,
       `last_source_run_at: ${lastSourceRunAt}`,
 
-      // Stage 5.8
       `chat_messages_count_total: ${chatMessagesCountTotal}`,
       `chat_messages_count_24h: ${chatMessagesCount24h}`,
 
-      // Stage 5.9–5.12 (future hooks)
       `recall_requests: ${recallRequests}`,
       `recall_errors: ${recallErrors}`,
       `already_seen_hits: ${alreadySeenHits}`,
       `already_seen_cooldown_skips: ${alreadySeenCooldownSkips}`,
 
-      // Stage 5.13
       `db_size_mb: ${dbSizeMb}`,
       `db_limit_mb: ${dbLimitMb}`,
       `db_usage_pct: ${dbUsagePct}`,

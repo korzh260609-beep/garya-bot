@@ -4,6 +4,10 @@ import pool from "../../db.js";
 
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
+function envTrue(name) {
+  return String(process.env[name] || "").toLowerCase() === "true";
+}
+
 export async function getActiveRobotTasks() {
   // ✅ Строго: робот видит ТОЛЬКО active задачи нужных типов
   const res = await pool.query(`
@@ -11,10 +15,11 @@ export async function getActiveRobotTasks() {
     FROM tasks
     WHERE status = 'active'
       AND type IN ('price_monitor', 'news_monitor')
+    ORDER BY id ASC
   `);
 
   // ✅ Логи только по флагу, иначе LOG SPAM
-  if (String(process.env.ROBOT_DEBUG || "").toLowerCase() === "true") {
+  if (envTrue("ROBOT_DEBUG")) {
     console.log("🤖 ROBOT ACTIVE TASKS:", res.rows);
   }
 
@@ -46,18 +51,19 @@ async function resolveChatIdByGlobalUserId(globalUserId) {
   if (!globalUserId) return null;
 
   try {
+    // ⚠️ Поддержка обеих схем: global_user_id и user_global_id
     const res = await pool.query(
       `
       SELECT chat_id
       FROM users
-      WHERE global_user_id = $1
+      WHERE global_user_id = $1 OR user_global_id = $1
       LIMIT 1
       `,
       [globalUserId]
     );
     return res.rows?.[0]?.chat_id || null;
   } catch (e) {
-    console.error("❌ ROBOT resolveChatId error:", e);
+    console.error("❌ ROBOT resolveChatId error:", e?.message || e);
     return null;
   }
 }
@@ -84,8 +90,9 @@ async function handlePriceMonitorTask(bot, task) {
   const intervalMs = intervalMinutes * 60_000;
   if (now - state.lastCheck < intervalMs) return;
 
-  // optional forced fail (для тестов)
-  if (payload.force_fail === true) {
+  // ✅ ВАЖНО: payload.force_fail не должен ломать прод по умолчанию.
+  // Разрешаем тест-фейл ТОЛЬКО если включён ENV ROBOT_ALLOW_FORCE_FAIL=true
+  if (payload.force_fail === true && envTrue("ROBOT_ALLOW_FORCE_FAIL")) {
     throw new Error("TEST_FAIL: forced by payload.force_fail");
   }
 
@@ -107,7 +114,8 @@ async function handlePriceMonitorTask(bot, task) {
 
     const userChatId = await resolveChatIdByGlobalUserId(task.user_global_id);
     if (userChatId && bot) {
-      await bot.sendMessage(Number(userChatId), text);
+      // chat_id в БД может быть строкой — Telegram принимает string/number
+      await bot.sendMessage(userChatId, text);
     }
   }
 }
@@ -124,8 +132,12 @@ export async function robotTick(bot) {
         }
         // news_monitor можно добавить позже
       } catch (taskErr) {
-        // ⚠️ Ошибка по конкретной задаче — коротко, без массивов
-        console.error("❌ ROBOT task loop error:", t.id, taskErr?.message || taskErr);
+        // ✅ коротко, без спама массивами/стеками
+        console.error(
+          "❌ ROBOT task loop error:",
+          t.id,
+          taskErr?.message || taskErr
+        );
       }
     }
   } catch (err) {
@@ -134,9 +146,13 @@ export async function robotTick(bot) {
 }
 
 export function startRobotLoop(bot) {
-  robotTick(bot).catch((e) => console.error("❌ ROBOT first tick error:", e));
+  robotTick(bot).catch((e) =>
+    console.error("❌ ROBOT first tick error:", e?.message || e)
+  );
 
   setInterval(() => {
-    robotTick(bot).catch((e) => console.error("❌ ROBOT tick error:", e));
+    robotTick(bot).catch((e) =>
+      console.error("❌ ROBOT tick error:", e?.message || e)
+    );
   }, TICK_MS);
 }

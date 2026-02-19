@@ -39,9 +39,40 @@ export function initTelegramTransport(app) {
   // ✅ CRITICAL: Telegram setWebHook() may validate URL immediately.
   // If Express is not listening yet, setWebHook fails with AggregateError.
   // So we delay first attempt slightly to let server start.
-  const INITIAL_DELAY_MS = Number(process.env.WEBHOOK_SET_INITIAL_DELAY_MS || 7000);
+  const INITIAL_DELAY_MS = Number(
+    process.env.WEBHOOK_SET_INITIAL_DELAY_MS || 7000
+  );
+
+  // ✅ Severity policy: first N days = warn, after that = error
+  const WEBHOOK_WARN_DAYS = Number(process.env.WEBHOOK_WARN_DAYS || 2);
 
   let attempt = 0;
+
+  async function computeWebhookSetSeverity() {
+    // If DB is down or table missing, do not crash. Default to warn.
+    try {
+      const days = Number.isFinite(WEBHOOK_WARN_DAYS) ? WEBHOOK_WARN_DAYS : 2;
+      const res = await pool.query(
+        `
+        SELECT MIN(created_at) AS first_at
+        FROM error_events
+        WHERE scope = 'runtime'
+          AND event_type = 'WEBHOOK_SET_ERROR'
+          AND created_at >= (NOW() - INTERVAL '30 days')
+        `
+      );
+
+      const firstAt = res?.rows?.[0]?.first_at ? new Date(res.rows[0].first_at) : null;
+      if (!firstAt || Number.isNaN(firstAt.getTime())) return "warn";
+
+      const ageMs = Date.now() - firstAt.getTime();
+      const thresholdMs = days * 24 * 60 * 60 * 1000;
+
+      return ageMs < thresholdMs ? "warn" : "error";
+    } catch (_) {
+      return "warn";
+    }
+  }
 
   async function trySetWebhook() {
     attempt += 1;
@@ -50,7 +81,13 @@ export function initTelegramTransport(app) {
       await bot.setWebHook(webhookUrl);
       console.log("🚀 Telegram webhook установлен");
     } catch (err) {
-      console.error(`❌ Ошибка установки webhook (attempt ${attempt}/${MAX_RETRIES}):`, err);
+      console.error(
+        `❌ Ошибка установки webhook (attempt ${attempt}/${MAX_RETRIES}):`,
+        err
+      );
+
+      // severity escalation: warn for first 2 days, error after 2 days
+      const severity = await computeWebhookSetSeverity();
 
       // Fire-and-forget error event (must never crash)
       Promise.resolve()
@@ -58,7 +95,7 @@ export function initTelegramTransport(app) {
           errorRepo.write({
             scope: "runtime",
             eventType: "WEBHOOK_SET_ERROR",
-            severity: "error",
+            severity,
             message: err?.message || String(err),
             context: {
               attempt,
@@ -74,7 +111,9 @@ export function initTelegramTransport(app) {
         const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attempt - 1), 30000);
         setTimeout(trySetWebhook, delay);
       } else {
-        console.error("❌ Webhook failed too many times — continuing without exit. Check BASE_URL / Telegram.");
+        console.error(
+          "❌ Webhook failed too many times — continuing without exit. Check BASE_URL / Telegram."
+        );
 
         Promise.resolve()
           .then(() =>

@@ -19,6 +19,9 @@ import { upsertProjectSection } from "./projectMemory.js";
 // ✅ 2.7 JOB QUEUE / WORKERS (SKELETON)
 import { JobRunner } from "./src/jobs/jobRunner.js";
 
+// ✅ ROBOT-LAYER loop (mock)
+import { startRobotLoop } from "./src/robot/robotMock.js";
+
 // ============================================================================
 // === CONSTANTS / CONFIG ===
 // ============================================================================
@@ -56,6 +59,10 @@ startHttpServer(app, PORT);
 (async () => {
   try {
     await initSystem({ bot });
+
+    // ✅ START ROBOT LOOP (needed to produce task_runs)
+    startRobotLoop(bot);
+    console.log("🤖 Robot loop started.");
   } catch (e) {
     console.error("❌ ERROR при инициализации системы:", e);
   }

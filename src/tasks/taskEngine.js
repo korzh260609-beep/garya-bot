@@ -167,6 +167,7 @@ export async function createTestPriceMonitorTask(userChatId, access = {}) {
     symbol: "BTCUSDT",
     interval_minutes: 1,
     threshold_percent: 1,
+    force_fail: true,
   };
 
   const userGlobalId = requireUserGlobalId(access);

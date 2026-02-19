@@ -21,22 +21,22 @@ import {
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
 export async function getActiveRobotTasks() {
+  // ВАЖНО: фильтруем строго в SQL, чтобы:
+  // 1) робот не "видел" stopped/paused/deleted
+  // 2) не логировать огромные списки задач каждую итерацию
   const res = await pool.query(`
-    SELECT id, status, type, schedule
+    SELECT id, status, type, schedule, payload, user_global_id
     FROM tasks
+    WHERE status = 'active'
+      AND type IN ('price_monitor', 'news_monitor')
   `);
 
-  console.log("🔎 ALL TASKS:", res.rows);
+  // Debug только по флагу, иначе будет LOG SPAM
+  if (String(process.env.ROBOT_DEBUG || "").toLowerCase() === "true") {
+    console.log("🤖 ROBOT ACTIVE TASKS:", res.rows);
+  }
 
-  const filtered = res.rows.filter(
-    (t) =>
-      t.status === "active" &&
-      (t.type === "price_monitor" || t.type === "news_monitor")
-  );
-
-  console.log("🤖 ROBOT FILTERED:", filtered);
-
-  return filtered;
+  return res.rows || [];
 }
 
 const mockPriceState = new Map();

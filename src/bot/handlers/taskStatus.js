@@ -106,9 +106,27 @@ export async function handleTaskStatus({ bot, chatId, rest }) {
       completed_24h: 0,
     };
 
-    // Latest runs
+    // Latest runs + current consecutive failures per task (computed, no schema change)
     const r = await pool.query(
       `
+      WITH last_nonfail AS (
+        SELECT
+          task_id,
+          MAX(started_at) AS last_ok_at
+        FROM task_runs
+        WHERE status NOT LIKE 'failed%'
+        GROUP BY task_id
+      ),
+      fail_streak AS (
+        SELECT
+          tr.task_id,
+          COUNT(*)::int AS fail_streak
+        FROM task_runs tr
+        LEFT JOIN last_nonfail ln ON ln.task_id = tr.task_id
+        WHERE tr.status LIKE 'failed%'
+          AND (ln.last_ok_at IS NULL OR tr.started_at > ln.last_ok_at)
+        GROUP BY tr.task_id
+      )
       SELECT
         tr.id,
         tr.task_id,
@@ -120,9 +138,11 @@ export async function handleTaskStatus({ bot, chatId, rest }) {
         tr.attempts,
         tr.started_at,
         tr.finished_at,
-        EXTRACT(EPOCH FROM (COALESCE(tr.finished_at, NOW()) - tr.started_at))::int AS duration_sec
+        EXTRACT(EPOCH FROM (COALESCE(tr.finished_at, NOW()) - tr.started_at))::int AS duration_sec,
+        COALESCE(fs.fail_streak, 0)::int AS fail_streak
       FROM task_runs tr
       LEFT JOIN tasks t ON t.id = tr.task_id
+      LEFT JOIN fail_streak fs ON fs.task_id = tr.task_id
       ORDER BY tr.started_at DESC
       LIMIT $1
       `,
@@ -157,9 +177,10 @@ export async function handleTaskStatus({ bot, chatId, rest }) {
       const runSt = safeLine(x?.run_status || "-", 24);
       const runKey = safeLine(x?.run_key || "-", 60);
       const attempts = x?.attempts ?? 0;
+      const failStreak = Number.isFinite(x?.fail_streak) ? x.fail_streak : 0;
 
       lines.push(
-        `#${x.id} task#${x.task_id} | ${type} | task=${taskSt} | run=${runSt} | attempts=${attempts}`
+        `#${x.id} task#${x.task_id} | ${type} | task=${taskSt} | run=${runSt} | attempts=${attempts} | fail_streak=${failStreak}`
       );
       lines.push(`- ${title}`);
       lines.push(`- run_key: ${runKey}`);

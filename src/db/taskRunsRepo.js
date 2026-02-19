@@ -74,3 +74,66 @@ export async function finishTaskRun({ taskId, runKey, status = "completed" }) {
 
   return { ok: true };
 }
+
+/**
+ * getTaskRunAttempts({ taskId, runKey })
+ * - returns integer attempts from task_runs
+ */
+export async function getTaskRunAttempts({ taskId, runKey }) {
+  if (!taskId) throw new Error("getTaskRunAttempts: taskId is required");
+  if (!runKey) throw new Error("getTaskRunAttempts: runKey is required");
+
+  const res = await pool.query(
+    `
+    SELECT attempts
+    FROM task_runs
+    WHERE task_id = $1
+      AND run_key = $2
+    LIMIT 1
+    `,
+    [taskId, runKey]
+  );
+
+  return res?.rows?.[0]?.attempts ?? null;
+}
+
+/**
+ * markTaskRunFailed({ taskId, runKey, failReason, failCode, retryAtIso, maxRetries })
+ * - writes Stage 5.4 fields into task_runs
+ */
+export async function markTaskRunFailed({
+  taskId,
+  runKey,
+  failReason = null,
+  failCode = null,
+  retryAtIso = null,
+  maxRetries = null,
+}) {
+  if (!taskId) throw new Error("markTaskRunFailed: taskId is required");
+  if (!runKey) throw new Error("markTaskRunFailed: runKey is required");
+
+  await pool.query(
+    `
+    UPDATE task_runs
+    SET status = 'failed',
+        finished_at = NOW(),
+        fail_reason = $3,
+        fail_code = $4,
+        retry_at = $5,
+        max_retries = $6,
+        last_error_at = NOW()
+    WHERE task_id = $1
+      AND run_key = $2
+    `,
+    [
+      taskId,
+      runKey,
+      failReason,
+      failCode,
+      retryAtIso ? new Date(retryAtIso) : null,
+      typeof maxRetries === "number" ? maxRetries : null,
+    ]
+  );
+
+  return { ok: true };
+}

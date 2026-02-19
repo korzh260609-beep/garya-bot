@@ -2,6 +2,7 @@
 // Central command dispatcher.
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
+import { handleWebhookInfo } from "./handlers/webhookInfo.js";
 import { handleProjectStatus } from "./handlers/projectStatus.js";
 import { handlePrices } from "./handlers/prices.js";
 import { handlePrice } from "./handlers/price.js";
@@ -290,6 +291,11 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
+      case "/webhook_info": {
+      await handleWebhookInfo({ bot, chatId });
+      return { handled: true };
+    }
+      
     // Stage 5.6 — /last_errors (READ-ONLY)
     case "/last_errors": {
       await handleLastErrors({ bot, chatId, rest: ctx.rest });

@@ -75,6 +75,14 @@ async function resolveChatIdByGlobalUserId(globalUserId) {
 }
 
 async function handlePriceMonitorTask(bot, task) {
+
+  // ===============================
+  // HARD TEST — инфраструктурная проверка
+  // Если после деплоя run всё равно completed —
+  // значит прод не обновляется.
+  // ===============================
+  throw new Error("HARD_TEST_FAIL");
+
   const payload = task.payload || {};
   const symbol = payload.symbol || "BTCUSDT";
 
@@ -123,14 +131,6 @@ async function handlePriceMonitorTask(bot, task) {
   }
 
   try {
-    // ===========================
-    // STAGE 5.4 — TEST FAIL HOOK
-    // payload.force_fail === true → принудительно валим run, чтобы проверить retries
-    // ===========================
-    if (payload && payload.force_fail === true) {
-      throw new Error("TEST_FAIL: forced by payload.force_fail");
-    }
-
     const randomDelta = (Math.random() - 0.5) * 0.08;
     const newPrice = Math.max(1, state.price * (1 + randomDelta));
     const changePercent = ((newPrice - state.price) / state.price) * 100;

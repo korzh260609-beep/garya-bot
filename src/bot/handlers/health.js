@@ -106,14 +106,16 @@ export async function handleHealth({ bot, chatId }) {
   }
 
   // ------------------
-  // ✅ source_runs summary (FIXED: uses started_at, not created_at)
+  // ✅ source_runs summary (defensive)
+  // Primary: MAX(started_at)
+  // Fallbacks: MAX(created_at) → MAX(finished_at)
   // ------------------
   let sourceRunsCount = "unknown";
   let lastSourceRunAt = "unknown";
 
-  try {
+  async function trySourceRunsQuery(maxCol) {
     const r = await pool.query(`
-      SELECT COUNT(*)::int AS cnt, MAX(started_at) AS last_run_at
+      SELECT COUNT(*)::int AS cnt, MAX(${maxCol}) AS last_run_at
       FROM source_runs
     `);
 
@@ -122,6 +124,24 @@ export async function handleHealth({ bot, chatId }) {
 
     if (Number.isInteger(cnt)) sourceRunsCount = String(cnt);
     if (v) lastSourceRunAt = new Date(v).toISOString();
+  }
+
+  try {
+    if (sourceRunsTable === "yes") {
+      try {
+        await trySourceRunsQuery("started_at");
+      } catch (_) {
+        try {
+          await trySourceRunsQuery("created_at");
+        } catch (_) {
+          try {
+            await trySourceRunsQuery("finished_at");
+          } catch (_) {
+            // keep unknown
+          }
+        }
+      }
+    }
   } catch (_) {
     // keep unknown
   }

@@ -7,6 +7,26 @@ export class ErrorEventsRepo {
     this.pool = pool;
   }
 
+  // Backward/forward compatible helper (so call sites can use logError())
+  // logError({ type, message, context, severity, scope, scopeId })
+  async logError({
+    type,
+    message,
+    context = {},
+    severity = "error",
+    scope = "system",
+    scopeId = null,
+  }) {
+    return this.write({
+      scope,
+      scopeId,
+      eventType: String(type || "error"),
+      severity,
+      message,
+      context,
+    });
+  }
+
   async write({
     scope,
     scopeId = null,

@@ -3,10 +3,37 @@
 // 2.7.2 idempotency_key (task_run_key) — prevent duplicate enqueues in-memory
 // 2.7.4 DLQ skeleton (exists but disabled) — stub only, NO real queue/storage yet
 // Stage 2.8 — Runtime Dedup (task_runs table)
+// Stage 5 — Observability V1: task_runs + error_events writing (safe)
 // Contract: enqueue/run/ack/fail
 // NOTE: no scaling, no real queue yet. In-memory placeholder.
 
-import { tryStartTaskRun } from "../db/taskRunsRepo.js";
+import { tryStartTaskRun, finishTaskRun } from "../db/taskRunsRepo.js";
+import { ErrorEventsRepo } from "../db/errorEventsRepo.js";
+import pool from "../../db.js";
+
+function safeErrMsg(e, max = 800) {
+  const s = String(e?.message || e || "unknown_error");
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
+}
+
+async function safeLogErrorEvent({
+  type,
+  message,
+  context = {},
+  severity = "error",
+}) {
+  try {
+    const repo = new ErrorEventsRepo(pool);
+    await repo.logError({
+      type: String(type || "error"),
+      message: safeErrMsg(message),
+      context: context || {},
+      severity,
+    });
+  } catch (_) {
+    // never crash worker because of logging
+  }
+}
 
 export class JobRunner {
   constructor() {
@@ -67,13 +94,17 @@ export class JobRunner {
     this._running = true;
     item.status = "running";
 
+    // runtime dedup keys
+    const taskId = item?.job?.taskId ?? item?.job?.task_id ?? null;
+    const runKey = item?.job?.runKey ?? item?.job?.run_key ?? null;
+
+    // remember if we actually started a DB run
+    let startedRunGate = false;
+
     try {
       // ================================
       // Stage 2.8 — Runtime Dedup Gate
       // ================================
-      const taskId = item?.job?.taskId ?? item?.job?.task_id ?? null;
-      const runKey = item?.job?.runKey ?? item?.job?.run_key ?? null;
-
       if (taskId && runKey) {
         const gate = await tryStartTaskRun({
           taskId,
@@ -86,6 +117,8 @@ export class JobRunner {
           await this.ack(item.id, item.idempotency_key);
           return { ran: true, id: item.id, status: "skipped_dedup" };
         }
+
+        startedRunGate = true;
       }
 
       // ================================
@@ -96,9 +129,39 @@ export class JobRunner {
         idempotencyKey: item.idempotency_key,
       });
 
+      // ================================
+      // Close task_runs (completed)
+      // ================================
+      if (taskId && runKey && startedRunGate) {
+        await finishTaskRun({ taskId, runKey, status: "completed" });
+      }
+
       await this.ack(item.id, item.idempotency_key);
       return { ran: true, id: item.id, status: "acked" };
     } catch (e) {
+      // ================================
+      // Close task_runs (failed)
+      // ================================
+      try {
+        if (taskId && runKey && startedRunGate) {
+          await finishTaskRun({ taskId, runKey, status: "failed" });
+        }
+      } catch (_) {}
+
+      // ================================
+      // error_events (safe)
+      // ================================
+      await safeLogErrorEvent({
+        type: "job_runner_failed",
+        message: e,
+        context: {
+          jobId: item?.id || null,
+          taskId: taskId || null,
+          runKey: runKey || null,
+          idempotencyKey: item?.idempotency_key || null,
+        },
+      });
+
       await this.fail(item.id, item.idempotency_key, e, item);
       return {
         ran: true,

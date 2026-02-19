@@ -21,16 +21,22 @@ import {
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
 export async function getActiveRobotTasks() {
-  // ВАЖНО: SELECT * нужен, потому что handlePriceMonitorTask читает payload и user_global_id.
-  // schedule может быть null (у тестовых задач), поэтому schedule-фильтр не используем.
   const res = await pool.query(`
-    SELECT *
+    SELECT id, status, type, schedule
     FROM tasks
-    WHERE status = 'active'
-      AND (type = 'price_monitor' OR type = 'news_monitor')
   `);
 
-  return res.rows;
+  console.log("🔎 ALL TASKS:", res.rows);
+
+  const filtered = res.rows.filter(
+    (t) =>
+      t.status === "active" &&
+      (t.type === "price_monitor" || t.type === "news_monitor")
+  );
+
+  console.log("🤖 ROBOT FILTERED:", filtered);
+
+  return filtered;
 }
 
 const mockPriceState = new Map();
@@ -117,6 +123,14 @@ async function handlePriceMonitorTask(bot, task) {
   }
 
   try {
+    // ===========================
+    // STAGE 5.4 — TEST FAIL HOOK
+    // payload.force_fail === true → принудительно валим run, чтобы проверить retries
+    // ===========================
+    if (payload && payload.force_fail === true) {
+      throw new Error("TEST_FAIL: forced by payload.force_fail");
+    }
+
     const randomDelta = (Math.random() - 0.5) * 0.08;
     const newPrice = Math.max(1, state.price * (1 + randomDelta));
     const changePercent = ((newPrice - state.price) / state.price) * 100;

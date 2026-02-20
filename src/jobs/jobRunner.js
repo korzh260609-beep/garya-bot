@@ -14,12 +14,78 @@ import {
   markTaskRunFailed,
 } from "../db/taskRunsRepo.js";
 import { ErrorEventsRepo } from "../db/errorEventsRepo.js";
-import { getRetryPolicy, computeBackoffDelayMs, shouldRetry } from "./retryPolicy.js";
+import {
+  getRetryPolicy,
+  computeBackoffDelayMs,
+  shouldRetry,
+} from "./retryPolicy.js";
 import pool from "../../db.js";
 
 function safeErrMsg(e, max = 800) {
   const s = String(e?.message || e || "unknown_error");
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
+}
+
+// ✅ Normalize fail_code for stable aggregation
+// Goal: small set of buckets, no random strings.
+function normalizeFailCode(e) {
+  const msg = String(e?.message || "").toLowerCase();
+  const name = String(e?.name || "").toLowerCase();
+  const code = String(e?.code || "").toLowerCase();
+
+  // network-ish
+  if (
+    code.includes("econnreset") ||
+    code.includes("etimedout") ||
+    code.includes("enotfound") ||
+    code.includes("eai_again") ||
+    code.includes("econnrefused") ||
+    msg.includes("timeout") ||
+    name.includes("timeout") ||
+    msg.includes("network")
+  ) {
+    return "NETWORK";
+  }
+
+  // HTTP-ish (if upstream throws with status)
+  const httpStatus =
+    e?.status ||
+    e?.statusCode ||
+    e?.httpStatus ||
+    e?.response?.status ||
+    null;
+
+  if (Number.isInteger(httpStatus)) {
+    if (httpStatus >= 500) return "HTTP_5XX";
+    if (httpStatus >= 400) return "HTTP_4XX";
+    return "HTTP_OTHER";
+  }
+
+  // DB-ish
+  if (
+    code.startsWith("pg") ||
+    msg.includes("postgres") ||
+    msg.includes("sql") ||
+    msg.includes("relation") ||
+    msg.includes("duplicate key") ||
+    msg.includes("violates")
+  ) {
+    return "DB";
+  }
+
+  // Logic-ish
+  if (
+    name.includes("typeerror") ||
+    name.includes("referenceerror") ||
+    msg.includes("undefined") ||
+    msg.includes("cannot read") ||
+    msg.includes("is not a function")
+  ) {
+    return "LOGIC";
+  }
+
+  // fallback
+  return String(e?.code || e?.name || "UNKNOWN").toUpperCase().slice(0, 60);
 }
 
 async function safeLogErrorEvent({
@@ -147,16 +213,23 @@ export class JobRunner {
     } catch (e) {
       // ================================
       // Stage 5.4 — retries / fail-reasons (write fields)
+      // NOTE: we only RECORD retry plan in DB (no auto-retry execution here).
       // ================================
+      let attempts = 1;
+      let retryAtIso = null;
+      let maxRetries = null;
+      let failCode = "UNKNOWN";
+
       try {
         if (taskId && runKey && startedRunGate) {
           const policy = getRetryPolicy();
-          const attempts = (await getTaskRunAttempts({ taskId, runKey })) ?? 1;
+          maxRetries = policy?.maxRetries ?? null;
+
+          attempts = (await getTaskRunAttempts({ taskId, runKey })) ?? 1;
 
           const failReason = safeErrMsg(e);
-          const failCode = String(e?.code || e?.name || "error");
+          failCode = normalizeFailCode(e);
 
-          let retryAtIso = null;
           if (shouldRetry(attempts, policy)) {
             const delayMs = computeBackoffDelayMs(attempts, policy);
             retryAtIso = new Date(Date.now() + delayMs).toISOString();
@@ -168,10 +241,12 @@ export class JobRunner {
             failReason,
             failCode,
             retryAtIso,
-            maxRetries: policy.maxRetries,
+            maxRetries,
           });
         }
-      } catch (_) {}
+      } catch (_) {
+        // do not block fail path
+      }
 
       // ================================
       // error_events (safe)
@@ -184,6 +259,10 @@ export class JobRunner {
           taskId: taskId || null,
           runKey: runKey || null,
           idempotencyKey: item?.idempotency_key || null,
+          fail_code: failCode,
+          attempts,
+          retry_at: retryAtIso,
+          max_retries: maxRetries,
         },
       });
 

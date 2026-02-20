@@ -3,11 +3,14 @@ import pool from "../../db.js";
 
 /**
  * tryStartTaskRun({ taskId, runKey, meta })
- * - canonical dedup gate using task_runs unique(task_id, run_key)
- * - returns { started: boolean, runId: number|null }
- * - polish:
- *   - if conflict -> attempts = attempts + 1
- *   - if conflict and status='failed' -> status='failed_duplicate'
+ *
+ * Runtime gate + Stage 5.4 retry behavior:
+ * - INSERT new run if not exists (status=running, attempts=1)
+ * - ON CONFLICT(task_id, run_key):
+ *     if existing is failed* AND retry_at <= NOW() -> "consume retry":
+ *       set status='running', attempts=attempts+1, clear finished_at + fail fields, clear retry_at
+ *       RETURNING id (so caller treats as started)
+ *     else -> no update, no return (caller treats as NOT started => dedup skip)
  */
 export async function tryStartTaskRun({ taskId, runKey, meta = {} }) {
   if (!taskId) throw new Error("tryStartTaskRun: taskId is required");
@@ -17,45 +20,37 @@ export async function tryStartTaskRun({ taskId, runKey, meta = {} }) {
     `
     INSERT INTO task_runs (task_id, run_key, status, attempts, meta, started_at)
     VALUES ($1, $2, 'running', 1, $3::jsonb, NOW())
-    ON CONFLICT (task_id, run_key) DO NOTHING
+    ON CONFLICT (task_id, run_key) DO UPDATE
+      SET
+        status = 'running',
+        attempts = task_runs.attempts + 1,
+        started_at = NOW(),
+        finished_at = NULL,
+
+        -- consume retry plan
+        retry_at = NULL,
+
+        -- clear last fail fields (new attempt starts clean)
+        fail_reason = NULL,
+        fail_code = NULL,
+        last_error_at = NULL
+
+    WHERE
+      task_runs.status LIKE 'failed%'
+      AND task_runs.retry_at IS NOT NULL
+      AND task_runs.retry_at <= NOW()
     RETURNING id
     `,
     [taskId, runKey, JSON.stringify(meta || {})]
   );
 
   const runId = res?.rows?.[0]?.id ?? null;
-
-  if (!runId) {
-    // conflict → bump attempts
-    await pool.query(
-      `
-      UPDATE task_runs
-      SET attempts = attempts + 1
-      WHERE task_id = $1
-        AND run_key = $2
-      `,
-      [taskId, runKey]
-    );
-
-    // if original ended as failed, mark that a duplicate retry happened (diagnostics only)
-    await pool.query(
-      `
-      UPDATE task_runs
-      SET status = 'failed_duplicate'
-      WHERE task_id = $1
-        AND run_key = $2
-        AND status = 'failed'
-      `,
-      [taskId, runKey]
-    );
-  }
-
   return { started: Boolean(runId), runId };
 }
 
 /**
  * finishTaskRun({ taskId, runKey, status })
- * - marks run as completed/failed
+ * - marks run as completed/failed-like (but Stage 5.4 uses markTaskRunFailed)
  */
 export async function finishTaskRun({ taskId, runKey, status = "completed" }) {
   if (!taskId) throw new Error("finishTaskRun: taskId is required");

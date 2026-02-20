@@ -139,6 +139,85 @@ async function isTaskStillActive(taskId) {
 }
 
 // ============================================================================
+// === Stage 5.4 — pick due retries from task_runs (scheduler logic) ============
+// ============================================================================
+
+async function pickAndRunDueRetries(bot) {
+  // Minimal safe limit to avoid storms
+  const LIMIT = 5;
+
+  try {
+    // Only retry tasks robot can execute (active + supported types)
+    const res = await pool.query(
+      `
+      SELECT
+        tr.task_id,
+        tr.run_key,
+        t.id,
+        t.status,
+        t.type,
+        t.schedule,
+        t.payload,
+        t.user_global_id
+      FROM task_runs tr
+      JOIN tasks t ON t.id = tr.task_id
+      WHERE tr.status LIKE 'failed%'
+        AND tr.retry_at IS NOT NULL
+        AND tr.retry_at <= NOW()
+        AND t.status = 'active'
+        AND t.type IN ('price_monitor', 'news_monitor')
+      ORDER BY tr.retry_at ASC
+      LIMIT $1
+      `,
+      [LIMIT]
+    );
+
+    const due = res.rows || [];
+    if (!due.length) return;
+
+    for (const row of due) {
+      const task = {
+        id: row.id,
+        status: row.status,
+        type: row.type,
+        schedule: row.schedule,
+        payload: row.payload,
+        user_global_id: row.user_global_id,
+      };
+
+      // idempotencyKey prevents enqueue storms within one process
+      const idKey = `retry:${row.task_id}:${row.run_key}`;
+
+      const enq = jobRunner.enqueue(
+        {
+          taskId: row.task_id,
+          runKey: row.run_key, // IMPORTANT: same run_key (re-attempt of same run)
+          meta: {
+            source: "retry",
+            type: task.type,
+            originalRunKey: row.run_key,
+          },
+          task,
+        },
+        { idempotencyKey: idKey }
+      );
+
+      if (!enq.accepted) continue;
+
+      // run immediately (same as normal loop style)
+      await jobRunner.runOnce(async (job) => {
+        if (job?.task?.type === "price_monitor") {
+          await handlePriceMonitorTaskDirect(bot, job.task);
+        }
+        // news_monitor можно добавить позже
+      });
+    }
+  } catch (e) {
+    console.error("❌ ROBOT retry picker error:", e?.message || e);
+  }
+}
+
+// ============================================================================
 // === PRICE MONITOR — DIRECT BUSINESS LOGIC (NO JobRunner inside!) ============
 // ============================================================================
 
@@ -257,6 +336,9 @@ async function handlePriceMonitorTask(bot, task) {
 
 export async function robotTick(bot) {
   try {
+    // ✅ Stage 5.4 — execute due retries first (scheduler responsibility)
+    await pickAndRunDueRetries(bot);
+
     const tasks = await getActiveRobotTasks();
     if (!tasks.length) return;
 

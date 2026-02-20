@@ -275,13 +275,14 @@ export function attachMessageRouter({
           "/ar_list",
         ]);
 
-        const isDev = DEV_COMMANDS.has(cmdBase);
-        if (isDev && (!isMonarchUser || !isPrivate)) return;
-
-        if (cmdBase === "/reindex") {
-          await handleReindexRepo({ bot, chatId });
-          return;
-        }
+       const isDev = DEV_COMMANDS.has(cmdBase);
+if (isDev && (!isMonarchUser || !isPrivate)) {
+  await bot.sendMessage(
+    chatId,
+    `⛔ DEV only.\ncmd=${cmdBase}\nchatType=${chatType}\nprivate=${isPrivate}\nmonarch=${isMonarchUser}\nfrom=${senderIdStr}`
+  );
+  return;
+}
 
         if (cmdBase === "/pm_show") {
           await handlePmShow({

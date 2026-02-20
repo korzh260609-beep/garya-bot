@@ -1,6 +1,7 @@
 // src/bot/handlers/taskStatus.js
 // Stage 5.7 — /task_status (READ-ONLY, safe output)
 // Shows latest task_runs with task info.
+// Stage 5.4 — surface retry/fail fields when run failed (fail_code/retry_at/max_retries/last_error_at/fail_reason)
 
 import pool from "../../../db.js";
 
@@ -139,7 +140,15 @@ export async function handleTaskStatus({ bot, chatId, rest }) {
         tr.started_at,
         tr.finished_at,
         EXTRACT(EPOCH FROM (COALESCE(tr.finished_at, NOW()) - tr.started_at))::int AS duration_sec,
-        COALESCE(fs.fail_streak, 0)::int AS fail_streak
+        COALESCE(fs.fail_streak, 0)::int AS fail_streak,
+
+        -- Stage 5.4 fields (may be NULL)
+        tr.fail_code,
+        tr.retry_at,
+        tr.max_retries,
+        tr.last_error_at,
+        tr.fail_reason
+
       FROM task_runs tr
       LEFT JOIN tasks t ON t.id = tr.task_id
       LEFT JOIN fail_streak fs ON fs.task_id = tr.task_id
@@ -185,6 +194,22 @@ export async function handleTaskStatus({ bot, chatId, rest }) {
       lines.push(`- ${title}`);
       lines.push(`- run_key: ${runKey}`);
       lines.push(`- start: ${at} | finish: ${fin} | dur: ${dur}`);
+
+      // ✅ Surface 5.4 only when failed (keeps output compact)
+      const isFailed = String(x?.run_status || "").startsWith("failed");
+      if (isFailed) {
+        const failCode = safeLine(x?.fail_code || "UNKNOWN", 32);
+        const retryAt = x?.retry_at ? formatKyivTs(x.retry_at) : "-";
+        const maxRetries =
+          typeof x?.max_retries === "number" ? String(x.max_retries) : "-";
+        const lastErrAt = x?.last_error_at ? formatKyivTs(x.last_error_at) : "-";
+        const failReason = safeLine(x?.fail_reason || "-", 220);
+
+        lines.push(`- fail_code: ${failCode} | max_retries: ${maxRetries}`);
+        lines.push(`- retry_at: ${retryAt} | last_error_at: ${lastErrAt}`);
+        lines.push(`- fail_reason: ${failReason}`);
+      }
+
       lines.push("");
     }
 

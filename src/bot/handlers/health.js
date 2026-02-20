@@ -176,6 +176,14 @@ export async function handleHealth({ bot, chatId }) {
   const alreadySeenCooldownSkips = 0;
 
   // ------------------
+  // Stage 5.14 — scaling metrics (SKELETON)
+  // ------------------
+  const queueDepth = "unknown";
+  const dlqCount = "unknown";
+  const webhookDedupeHits = "unknown";
+  const lockContention = "unknown";
+  
+  // ------------------
   // Stage 5.13 — db_size_warning (70% / 85%)
   // ------------------
   let dbSizeMb = "unknown";
@@ -235,6 +243,10 @@ export async function handleHealth({ bot, chatId }) {
       `recall_errors: ${recallErrors}`,
       `already_seen_hits: ${alreadySeenHits}`,
       `already_seen_cooldown_skips: ${alreadySeenCooldownSkips}`,
+      `queue_depth: ${queueDepth}`,
+      `dlq_count: ${dlqCount}`,
+      `webhook_dedupe_hits: ${webhookDedupeHits}`,
+      `lock_contention: ${lockContention}`,
 
       `db_size_mb: ${dbSizeMb}`,
       `db_limit_mb: ${dbLimitMb}`,

@@ -161,37 +161,6 @@ export class JobRunner {
   async runOnce(handler) {
     if (this._running) return { ran: false, reason: "already_running" };
 
-    // 🔁 Stage 5.4 — auto re-enqueue due retries (minimal scheduler step)
-    if (this._queue.length === 0) {
-      try {
-        const due = await pool.query(
-          `
-          SELECT task_id, run_key
-          FROM task_runs
-          WHERE status LIKE 'failed%'
-            AND retry_at IS NOT NULL
-            AND retry_at <= NOW()
-          ORDER BY retry_at ASC
-          LIMIT 5
-          `
-        );
-
-        for (const r of due.rows || []) {
-          const idKey = `retry:${r.task_id}:${r.run_key}`;
-          this.enqueue(
-            {
-              taskId: r.task_id,
-              runKey: r.run_key,
-              meta: { retry: true },
-            },
-            { idempotencyKey: idKey }
-          );
-        }
-      } catch (_) {
-        // never block worker
-      }
-    }
-
     const item = this._queue.shift();
     if (!item) return { ran: false, reason: "empty" };
 

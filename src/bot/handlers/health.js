@@ -59,7 +59,8 @@ export async function handleHealth({ bot, chatId }) {
     const repo = process.env.GITHUB_REPO;
     const branch = process.env.GITHUB_BRANCH;
     if (repo && branch) {
-      const store = new RepoIndexStore(pool);
+      // ✅ RepoIndexStore expects { pool }
+      const store = new RepoIndexStore({ pool });
       const latest = await store.getLatestSnapshot({ repo, branch });
       if (latest?.id) lastSnapshot = String(latest.id);
     }

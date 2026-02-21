@@ -739,6 +739,29 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             const rl = checkCmdRateLimit(key);
             if (!rl.allowed) {
               const sec = Math.ceil(rl.retryAfterMs / 1000);
+
+              // ✅ STAGE 5.16.3 — behavior_events: rate_limited
+              try {
+                await behaviorEvents.logEvent({
+                  globalUserId: accessPack?.user?.global_user_id || null,
+                  chatId: chatIdStr,
+                  eventType: "rate_limited",
+                  metadata: {
+                    scope: "command",
+                    cmd: cmdBase,
+                    retry_after_sec: sec,
+                    window_ms: CMD_RL_WINDOW_MS,
+                    max: CMD_RL_MAX,
+                    from: senderIdStr,
+                    chatType,
+                  },
+                  transport: "telegram",
+                  schemaVersion: 1,
+                });
+              } catch (e) {
+                console.error("behavior_events rate_limited log failed:", e);
+              }
+
               await bot.sendMessage(chatId, `⛔ Слишком часто. Подожди ${sec} сек.`);
               return;
             }

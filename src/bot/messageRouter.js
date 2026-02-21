@@ -102,6 +102,7 @@ import * as FileIntake from "../media/fileIntake.js";
 
 // === LOGGING (interaction_logs) ===
 import { logInteraction } from "../logging/interactionLogs.js";
+import BehaviorEventsService from "../logging/BehaviorEventsService.js";
 
 // ✅ Project Memory service (read)
 import { getProjectSection } from "../../projectMemory.js";
@@ -137,6 +138,8 @@ function checkCmdRateLimit(key) {
 export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HISTORY_MESSAGES = 20 }) {
   bot.on("message", async (msg) => {
     try {
+      const behaviorEvents = new BehaviorEventsService();
+
       const chatId = msg.chat?.id;
       if (!chatId) return;
 
@@ -277,6 +280,21 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             chatId,
             `⛔ DEV only.\ncmd=${cmdBase}\nchatType=${chatType}\nprivate=${isPrivate}\nmonarch=${isMonarchUser}\nfrom=${senderIdStr}`
           );
+
+          try {
+            await behaviorEvents.logEvent({
+              globalUserId: accessPack?.user?.global_user_id || null,
+              chatId: chatIdStr,
+              eventType: "risk_warning_shown",
+              metadata: {
+                reason: "dev_only_command",
+                command: cmdBase,
+              },
+            });
+          } catch (e) {
+            console.error("behavior_events log failed:", e);
+          }
+
           return;
         }
 

@@ -7,7 +7,7 @@ import {
   getChatHistory as _getChatHistory,
   saveMessageToMemory as _saveMessageToMemory,
   saveChatPair as _saveChatPair,
-} from "../bot/memory/chatMemory.js";
+} from "../../memory/chatMemory.js";
 
 export class ChatMemoryAdapter {
   constructor({ logger = null, config = {} } = {}) {

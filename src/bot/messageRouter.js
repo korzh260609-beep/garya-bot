@@ -67,6 +67,9 @@ import {
   saveChatPair,
 } from "../memory/chatMemory.js";
 
+// === MEMORY LAYER V1 (SKELETON) ===
+import MemoryService from "../../core/MemoryService.js";
+
 // === USERS ===
 import { buildRequirePermOrReply } from "./permGuard.js";
 
@@ -254,6 +257,7 @@ export function attachMessageRouter({
           "/build_info",
           "/pm_set",
           "/pm_show",
+          "/memory_status",
           "/tasks",
           "/start_task",
           "/stop_task",
@@ -283,6 +287,24 @@ if (isDev && (!isMonarchUser || !isPrivate)) {
   );
   return;
 }
+
+        if (cmdBase === "/memory_status") {
+          const memory = new MemoryService();
+          const status = await memory.status();
+
+          await bot.sendMessage(
+            chatId,
+            [
+              "🧠 MEMORY STATUS",
+              `enabled: ${status.enabled}`,
+              `mode: ${status.mode}`,
+              `hasDb: ${status.hasDb}`,
+              `hasLogger: ${status.hasLogger}`,
+              `configKeys: ${status.configKeys.join(", ")}`,
+            ].join("\n")
+          );
+          return;
+        }
 
         if (cmdBase === "/pm_show") {
           await handlePmShow({

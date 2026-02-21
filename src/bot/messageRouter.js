@@ -68,7 +68,7 @@ import {
 } from "../memory/chatMemory.js";
 
 // === MEMORY LAYER V1 (SKELETON) ===
-import MemoryService from "../../core/MemoryService.js";
+import MemoryService from "../../../core/MemoryService.js";
 
 // === USERS ===
 import { buildRequirePermOrReply } from "./permGuard.js";

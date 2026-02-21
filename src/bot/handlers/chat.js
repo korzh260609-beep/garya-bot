@@ -3,6 +3,8 @@
 //
 // STAGE 7.2 LOGIC: pass globalUserId to chat_memory (v2 columns)
 
+import pool from "../../../db.js";
+
 export async function handleChatMessage({
   bot,
   msg,
@@ -93,6 +95,87 @@ export async function handleChatMessage({
       console.error("❌ Telegram send error (shouldCallAI):", e);
     }
     return;
+  }
+
+  // ==========================================================
+  // STAGE 7B.7 — IDEMPOTENCY CORE (critical)
+  // Insert-first into chat_messages to guarantee process-once on webhook retries.
+  //
+  // Strategy:
+  // - Only for inbound USER messages with numeric Telegram message_id
+  // - INSERT ... ON CONFLICT DO NOTHING (partial unique index for role='user')
+  // - If conflict => already processed => exit WITHOUT calling AI and WITHOUT sending a second reply
+  // - Fail-open on any DB error (do not break production)
+  // ==========================================================
+  if (messageId !== null && Number.isFinite(Number(messageId))) {
+    try {
+      const transport = "telegram";
+      const chatType = msg?.chat?.type || null;
+      const senderId = senderIdStr || null;
+
+      const meta = {
+        senderIdStr,
+        chatIdStr,
+        messageId,
+        globalUserId,
+      };
+
+      const raw = {
+        msg,
+      };
+
+      const ins = await pool.query(
+        `
+        INSERT INTO chat_messages (
+          transport,
+          chat_id,
+          chat_type,
+          global_user_id,
+          sender_id,
+          message_id,
+          role,
+          content,
+          metadata,
+          raw,
+          schema_version
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
+        ON CONFLICT (transport, chat_id, message_id)
+          WHERE role='user' AND message_id IS NOT NULL
+        DO NOTHING
+        RETURNING id
+        `,
+        [
+          transport,
+          String(chatIdStr),
+          chatType ? String(chatType) : null,
+          globalUserId ? String(globalUserId) : null,
+          senderId ? String(senderId) : null,
+          Number(messageId),
+          "user",
+          effective,
+          JSON.stringify(meta),
+          JSON.stringify(raw),
+          1,
+        ]
+      );
+
+      // Conflict => already processed (retry) => exit silently
+      if (!ins || (ins.rowCount || 0) === 0) {
+        try {
+          console.info("🛡️ IDEMPOTENCY_SKIP", {
+            transport,
+            chatId: chatIdStr,
+            messageId,
+            reason: "chat_messages_conflict",
+          });
+        } catch (_) {}
+        return;
+      }
+    } catch (e) {
+      console.error("❌ STAGE 7B.7 chat_messages insert-first failed (fail-open):", e);
+      // fail-open: continue normal flow
+    }
   }
 
   // ✅ STAGE 7.2: save with globalUserId + metadata

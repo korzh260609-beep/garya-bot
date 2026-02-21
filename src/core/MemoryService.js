@@ -5,13 +5,20 @@
 import { getMemoryConfig } from "./memoryConfig.js";
 import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
 
+// ✅ DB pool (root-level db.js). Used only for wiring/diagnostics at Stage 7.
+import pool from "../../db.js";
+
 export class MemoryService {
   constructor({ logger = null, db = null, config = null } = {}) {
     this.logger = logger;
-    this.db = db;
 
     this.config = config || getMemoryConfig();
     this._enabled = !!this.config.enabled;
+
+    // ✅ DB wiring:
+    // - if caller provided db → use it
+    // - else fallback to shared pool (does not change behavior, only makes wiring explicit)
+    this.db = db || pool || null;
 
     // ✅ Подключаем существующий chatMemory через адаптер
     this.chatAdapter = new ChatMemoryAdapter({

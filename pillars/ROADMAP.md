@@ -110,11 +110,17 @@ Core → DB/TaskEngine → Access V0 → Multi-Channel Identity → DB Migration
 ## 5.15 ADMIN ALERTS (SKELETON)
 5.15.1 alerts монарху  
 
-## 5.16 behavior_events (SKELETON)
-5.16.1 clarification_asked  
+## 5.16 behavior_events (WIRED, minimal)
+5.16.1 behavior_events table (migration 015)  
 5.16.2 risk_warning_shown  
-5.16.3 answer_mode_changed  
-5.16.4 style_axis_used  
+5.16.3 rate_limited  
+5.16.4 permission_denied  
+5.16.5 /behavior_events_last <N> (DEV verify)  
+
+## 5.16 behavior_events (FUTURE)
+5.16.F1 clarification_asked  
+5.16.F2 answer_mode_changed  
+5.16.F3 style_axis_used  
 
 ---
 

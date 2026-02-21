@@ -29,25 +29,53 @@ function _safeJson(obj) {
  * Возвращает историю чата в формате [{ role, content }, ...],
  * отсортированную от старых к новым (как нужно для ИИ).
  *
- * v2: если передан opts.globalUserId — фильтруем по нему.
+ * v2: если передан opts.globalUserId — identity-first reading (STAGE 7.3).
+ * 1) пробуем читать по global_user_id
+ * 2) если пусто — fallback на chat_id (совместимость)
  */
 export async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES, opts = {}) {
   try {
     const globalUserId = opts?.globalUserId ?? null;
 
-    const result = await pool.query(
+    // STAGE 7.3: identity-first read
+    // 1) если есть globalUserId — читаем историю по нему (вне зависимости от chat_id)
+    // 2) если по globalUserId пусто — fallback на старую chat-based историю (совместимость)
+    if (globalUserId) {
+      const byGlobal = await pool.query(
+        `
+          SELECT role, content
+          FROM chat_memory
+          WHERE global_user_id = $2
+          ORDER BY id DESC
+          LIMIT $1
+        `,
+        [limit, globalUserId]
+      );
+
+      const rows = (byGlobal.rows || []).reverse().map((row) => ({
+        role: row.role,
+        content: row.content,
+      }));
+
+      if (rows.length > 0) return rows;
+      // fallback дальше
+    }
+
+    // fallback: старое поведение (chat_id-first)
+    if (!chatId) return [];
+
+    const byChat = await pool.query(
       `
         SELECT role, content
         FROM chat_memory
         WHERE chat_id = $1
-          AND ($3::text IS NULL OR global_user_id = $3)
         ORDER BY id DESC
         LIMIT $2
       `,
-      [chatId, limit, globalUserId]
+      [chatId, limit]
     );
 
-    return result.rows.reverse().map((row) => ({
+    return (byChat.rows || []).reverse().map((row) => ({
       role: row.role,
       content: row.content,
     }));

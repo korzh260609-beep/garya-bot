@@ -6,6 +6,10 @@
 // - transport (text)
 // - metadata (jsonb)
 // - schema_version (int)
+//
+// STAGE 7.5: Anti-dup / Memory consistency guard (no schema changes)
+// - pg_advisory_xact_lock на ключ messageId+role (+ identity)
+// - dedupe check by (global_user_id/chat_id, transport, role, metadata.messageId, content)
 
 import pool from "../../db.js";
 
@@ -25,6 +29,28 @@ function _safeJson(obj) {
   }
 }
 
+async function _withTx(fn) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const res = await fn(client);
+    await client.query("COMMIT");
+    return res;
+  } catch (e) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (_) {}
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+function _toIntOrNull(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+
 /**
  * Возвращает историю чата в формате [{ role, content }, ...],
  * отсортированную от старых к новым (как нужно для ИИ).
@@ -38,8 +64,6 @@ export async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES, opts 
     const globalUserId = opts?.globalUserId ?? null;
 
     // STAGE 7.3: identity-first read
-    // 1) если есть globalUserId — читаем историю по нему (вне зависимости от chat_id)
-    // 2) если по globalUserId пусто — fallback на старую chat-based историю (совместимость)
     if (globalUserId) {
       const byGlobal = await pool.query(
         `
@@ -124,15 +148,19 @@ export async function cleanupChatHistory(chatId, maxMessages = MAX_HISTORY_MESSA
 }
 
 /**
- * Сохраняем одно сообщение в память с защитой от дублей подряд (ЭТАП 3.6).
+ * Сохраняем одно сообщение в память с защитой от дублей.
  *
  * v2: 4-й параметр options (необязательный):
  * {
  *   globalUserId?: string|null,
  *   transport?: string,
- *   metadata?: object,
+ *   metadata?: object,        // ожидаем metadata.messageId от Telegram (см. handler/chat.js)
  *   schemaVersion?: number
  * }
+ *
+ * STAGE 7.5: Anti-dup guard:
+ * - если есть metadata.messageId -> транзакция + pg_advisory_xact_lock
+ * - проверяем, не существует ли уже запись с тем же messageId+role (+content)
  *
  * ⚠️ Старые вызовы saveMessageToMemory(chatId, role, content) продолжат работать.
  */
@@ -147,7 +175,86 @@ export async function saveMessageToMemory(chatId, role, content, options = {}) {
       ? Number(options.schemaVersion)
       : DEFAULT_SCHEMA_VERSION;
 
+  const messageId = _toIntOrNull(metadata?.messageId);
+
   try {
+    // ---------------------------
+    // STAGE 7.5: strong anti-dup path (only when messageId exists)
+    // ---------------------------
+    if (messageId !== null) {
+      const identityKey = globalUserId || String(chatId || "");
+      const lockKey = `cm:${transport}:${identityKey}:${String(role || "")}:${String(messageId)}`;
+
+      await _withTx(async (client) => {
+        // lock across instances for this message+role (+identity)
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1));`, [lockKey]);
+
+        // If already inserted (same msg id + role + content) -> skip
+        // NOTE: messageId stored inside metadata jsonb
+        const existsRes = await client.query(
+          `
+            SELECT id
+            FROM chat_memory
+            WHERE transport = $1
+              AND role = $2
+              AND content = $3
+              AND (
+                ($4::text IS NOT NULL AND global_user_id = $4)
+                OR ($4::text IS NULL AND chat_id = $5)
+              )
+              AND (metadata->>'messageId') = $6
+            ORDER BY id DESC
+            LIMIT 1
+          `,
+          [transport, role, content, globalUserId, String(chatId || ""), String(messageId)]
+        );
+
+        if ((existsRes.rows || []).length > 0) {
+          return; // already saved
+        }
+
+        // keep old "double подряд" guard as extra safety
+        const lastRes = await client.query(
+          `
+            SELECT role, content
+            FROM chat_memory
+            WHERE chat_id = $1
+              AND ($2::text IS NULL OR global_user_id = $2)
+            ORDER BY id DESC
+            LIMIT 1
+          `,
+          [chatId, globalUserId]
+        );
+
+        const last = lastRes.rows[0];
+        if (last && last.role === role && last.content === content) {
+          return;
+        }
+
+        await client.query(
+          `
+            INSERT INTO chat_memory (
+              chat_id,
+              role,
+              content,
+              global_user_id,
+              transport,
+              metadata,
+              schema_version
+            )
+            VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+          `,
+          [chatId, role, content, globalUserId, transport, JSON.stringify(metadata), schemaVersion]
+        );
+      });
+
+      return;
+    }
+
+    // ---------------------------
+    // legacy path (no messageId) — keep previous behavior
+    // ---------------------------
+
     // Берём последнее сообщение в этом чате (и global_user_id если он задан)
     const lastRes = await pool.query(
       `

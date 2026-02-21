@@ -1,26 +1,28 @@
 // src/core/MemoryService.js
 // STAGE 7 — MEMORY LAYER V1 (SKELETON + ADAPTER WIRING)
-// Пока без новой логики. Только подключение адаптера.
 
 import { getMemoryConfig } from "./memoryConfig.js";
 import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
-
-// ✅ DB pool (root-level db.js). Used only for wiring/diagnostics at Stage 7.
 import pool from "../../db.js";
+
+// ✅ простой базовый logger (skeleton)
+const defaultLogger = {
+  info: (...args) => console.log("[Memory]", ...args),
+  error: (...args) => console.error("[Memory]", ...args),
+};
 
 export class MemoryService {
   constructor({ logger = null, db = null, config = null } = {}) {
-    this.logger = logger;
-
     this.config = config || getMemoryConfig();
     this._enabled = !!this.config.enabled;
 
-    // ✅ DB wiring:
-    // - if caller provided db → use it
-    // - else fallback to shared pool (does not change behavior, only makes wiring explicit)
+    // ✅ DB wiring
     this.db = db || pool || null;
 
-    // ✅ Подключаем существующий chatMemory через адаптер
+    // ✅ Logger wiring
+    this.logger = logger || defaultLogger;
+
+    // ✅ Adapter wiring
     this.chatAdapter = new ChatMemoryAdapter({
       logger: this.logger,
       config: this.config,
@@ -36,10 +38,6 @@ export class MemoryService {
     };
   }
 
-  /**
-   * Получить контекст для промпта.
-   * Пока просто проксируем в chatMemoryAdapter.
-   */
   async getContext({ globalUserId = null, chatId = null, limit } = {}) {
     if (!this._enabled || !chatId) {
       return {
@@ -63,9 +61,6 @@ export class MemoryService {
     };
   }
 
-  /**
-   * Добавить сообщение (через адаптер)
-   */
   async appendInteraction({
     globalUserId = null,
     chatId = null,
@@ -92,6 +87,8 @@ export class MemoryService {
       content,
     });
 
+    this.logger.info("Saved message", { chatId, size: content.length });
+
     return {
       ok: true,
       enabled: this._enabled,
@@ -102,9 +99,6 @@ export class MemoryService {
     };
   }
 
-  /**
-   * Сохранить пару user/assistant
-   */
   async savePair({ chatId, userText, assistantText } = {}) {
     if (!this._enabled || !chatId) {
       return { ok: true, stored: false };
@@ -116,12 +110,11 @@ export class MemoryService {
       assistantText,
     });
 
+    this.logger.info("Saved pair", { chatId });
+
     return { ok: true, stored: true };
   }
 
-  /**
-   * PROJECT MEMORY — пока skeleton (не подключаем projectMemory.js)
-   */
   async remember({ key, value, metadata = {} } = {}) {
     if (!key || typeof value !== "string") {
       return { ok: false, reason: "invalid_input" };

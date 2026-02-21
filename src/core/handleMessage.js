@@ -1,25 +1,27 @@
-/**
- * handleMessage — transport-agnostic entry point (Stage 6.3 SKELETON)
- *
- * IMPORTANT:
- *   Not wired to production yet.
- *   messageRouter remains active.
- */
+// src/core/handleMessage.js
+// STAGE 6.3 — handleMessage(context) (SKELETON)
+// Purpose: single core entrypoint for any transport (Telegram/Discord/Web/Email).
+// IMPORTANT: contract only. Not wired into production flow yet.
 
-export async function handleMessage(context) {
-  if (!context) {
-    throw new Error("handleMessage: context is required");
+export async function handleMessage(context = {}) {
+  const transport = String(context?.transport || "unknown");
+  const chatId = context?.chatId == null ? null : String(context.chatId);
+  const senderId = context?.senderId == null ? null : String(context.senderId);
+
+  // Skeleton observability (no DB, no side-effects beyond console)
+  try {
+    console.log("📨 handleMessage(SKELETON)", { transport, chatId, senderId });
+  } catch {
+    // ignore
   }
 
-  // future:
-  // - permission layer
-  // - command dispatch
-  // - AI routing
-  // - logging
-  // - observability hooks
-
+  // No routing, no memory, no access, no AI — Stage 6.3 only.
   return {
-    handled: false,
-    reason: "SKELETON_NOT_CONNECTED",
+    ok: true,
+    stage: "6.3",
+    note: "handleMessage skeleton (not wired)",
+    transport,
   };
 }
+
+export default handleMessage;

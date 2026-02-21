@@ -170,6 +170,18 @@ export async function handleChatMessage({
             reason: "chat_messages_conflict",
           });
         } catch (_) {}
+
+        // ✅ STAGE 7B.7 OBSERVABILITY: persist dedupe-hit (so /health can count it)
+        try {
+          await logInteraction(chatIdStr, {
+            taskType: "chat",
+            aiCostLevel: "none",
+            event: "WEBHOOK_DEDUPE_HIT",
+          });
+        } catch (e) {
+          console.error("❌ logInteraction (WEBHOOK_DEDUPE_HIT) error:", e);
+        }
+
         return;
       }
     } catch (e) {

@@ -1,35 +1,26 @@
-Вот полный обновлённый src/core/MemoryService.js целиком — копируй и вставляй ✅
-
 // src/core/MemoryService.js
-// STAGE 7 — MEMORY LAYER V1 (SKELETON)
-// ВАЖНО: это только каркас. Никаких SQL-запросов, никаких зависимостей от БД.
-// Цель: единая точка входа для памяти, чтобы дальше подключать config → logic без ломания архитектуры.
+// STAGE 7 — MEMORY LAYER V1 (SKELETON + ADAPTER WIRING)
+// Пока без новой логики. Только подключение адаптера.
 
 import { getMemoryConfig } from "./memoryConfig.js";
+import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
 
 export class MemoryService {
-  /**
-   * @param {object} deps
-   * @param {object} [deps.logger] - логгер (optional)
-   * @param {object} [deps.db] - db client/pool (НЕ используем в skeleton)
-   * @param {object} [deps.config] - конфиг памяти (optional)
-   */
   constructor({ logger = null, db = null, config = null } = {}) {
     this.logger = logger;
     this.db = db;
 
-    // config: если не передан — берём из env через memoryConfig (это ещё НЕ логика памяти)
     this.config = config || getMemoryConfig();
-
-    // skeleton: просто отражаем флаг enabled из конфига, без чтения/записи в БД
     this._enabled = !!this.config.enabled;
+
+    // ✅ Подключаем существующий chatMemory через адаптер
+    this.chatAdapter = new ChatMemoryAdapter({
+      logger: this.logger,
+      config: this.config,
+    });
   }
 
-  /**
-   * Включение/инициализация (пока пусто)
-   */
   async init() {
-    // skeleton: ничего не делаем, только отражаем enabled из конфига
     this._enabled = !!this.config.enabled;
     return {
       ok: true,
@@ -39,29 +30,34 @@ export class MemoryService {
   }
 
   /**
-   * Возвращает "память" для промпта (контекст).
-   * @param {object} params
-   * @param {string|number} [params.globalUserId]
-   * @param {string|number} [params.chatId]
+   * Получить контекст для промпта.
+   * Пока просто проксируем в chatMemoryAdapter.
    */
-  async getContext({ globalUserId = null, chatId = null } = {}) {
-    // skeleton: пустой контекст
+  async getContext({ globalUserId = null, chatId = null, limit } = {}) {
+    if (!this._enabled || !chatId) {
+      return {
+        enabled: this._enabled,
+        globalUserId,
+        chatId,
+        memories: [],
+      };
+    }
+
+    const history = await this.chatAdapter.getChatHistory({
+      chatId,
+      limit,
+    });
+
     return {
       enabled: this._enabled,
       globalUserId,
       chatId,
-      memories: [],
+      memories: history || [],
     };
   }
 
   /**
-   * Добавить запись о взаимодействии (пока no-op)
-   * @param {object} params
-   * @param {string|number} [params.globalUserId]
-   * @param {string|number} [params.chatId]
-   * @param {string} params.role - "user" | "assistant" | "system"
-   * @param {string} params.content
-   * @param {object} [params.metadata]
+   * Добавить сообщение (через адаптер)
    */
   async appendInteraction({
     globalUserId = null,
@@ -70,30 +66,54 @@ export class MemoryService {
     content,
     metadata = {},
   } = {}) {
-    // skeleton: ничего не пишем в БД
     if (!role || typeof content !== "string") {
       return { ok: false, reason: "invalid_input" };
     }
 
+    if (!this._enabled || !chatId) {
+      return {
+        ok: true,
+        enabled: this._enabled,
+        stored: false,
+        mode: this.config.mode || "SKELETON",
+      };
+    }
+
+    await this.chatAdapter.saveMessage({
+      chatId,
+      role,
+      content,
+    });
+
     return {
       ok: true,
       enabled: this._enabled,
-      stored: false,
+      stored: true,
       mode: this.config.mode || "SKELETON",
-      globalUserId,
-      chatId,
-      role,
       size: content.length,
       metadata,
     };
   }
 
   /**
-   * Сохранить "решение/факт" в проектную память (пока no-op)
-   * @param {object} params
-   * @param {string} params.key
-   * @param {string} params.value
-   * @param {object} [params.metadata]
+   * Сохранить пару user/assistant
+   */
+  async savePair({ chatId, userText, assistantText } = {}) {
+    if (!this._enabled || !chatId) {
+      return { ok: true, stored: false };
+    }
+
+    await this.chatAdapter.savePair({
+      chatId,
+      userText,
+      assistantText,
+    });
+
+    return { ok: true, stored: true };
+  }
+
+  /**
+   * PROJECT MEMORY — пока skeleton (не подключаем projectMemory.js)
    */
   async remember({ key, value, metadata = {} } = {}) {
     if (!key || typeof value !== "string") {
@@ -111,9 +131,6 @@ export class MemoryService {
     };
   }
 
-  /**
-   * Быстрый health-check памяти (для будущей /memory_status)
-   */
   async status() {
     return {
       ok: true,
@@ -121,6 +138,7 @@ export class MemoryService {
       mode: this.config.mode || "SKELETON",
       hasDb: !!this.db,
       hasLogger: !!this.logger,
+      hasChatAdapter: !!this.chatAdapter,
       configKeys: Object.keys(this.config || {}),
     };
   }

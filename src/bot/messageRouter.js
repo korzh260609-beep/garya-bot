@@ -304,7 +304,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
         // ✅ /memory_status (with STAGE 7.2 DB schema verification)
         if (cmdBase === "/memory_status") {
-          const memory = new MemoryService();
+          const memory = getMemoryService();
           const status = await memory.status();
 
           // ✅ STAGE 7.2: verify DB columns exist

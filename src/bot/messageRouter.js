@@ -248,6 +248,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           "/pm_show",
           "/memory_status",
           "/memory_diag", // ✅ TEMP DIAG
+          "/memory_backfill", // ✅ STAGE 7.4
           "/tasks",
           "/start_task",
           "/stop_task",
@@ -416,6 +417,74 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           } catch (e) {
             console.error("❌ /memory_diag error:", e);
             await bot.sendMessage(chatId, "⚠️ /memory_diag упал. Смотри логи Render.");
+          }
+
+          return;
+        }
+
+        // ✅ STAGE 7.4: /memory_backfill — backfill old rows (global_user_id NULL) in safe batches
+        if (cmdBase === "/memory_backfill") {
+          const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+
+          // parse limit from args (default 200, max 500)
+          const rawN = Number(String(rest || "").trim() || "200");
+          const limit = Number.isFinite(rawN) ? Math.max(1, Math.min(500, rawN)) : 200;
+
+          if (!globalUserId) {
+            await bot.sendMessage(chatId, "⚠️ globalUserId=NULL. Нечего бэкфиллить.");
+            return;
+          }
+
+          try {
+            // update only rows in this chat with NULL global_user_id, in batches by id
+            const updRes = await pool.query(
+              `
+              WITH to_upd AS (
+                SELECT id
+                FROM chat_memory
+                WHERE chat_id = $1
+                  AND global_user_id IS NULL
+                ORDER BY id ASC
+                LIMIT $3
+              )
+              UPDATE chat_memory cm
+              SET global_user_id = $2
+              WHERE cm.id IN (SELECT id FROM to_upd)
+              RETURNING cm.id
+              `,
+              [chatIdStr, globalUserId, limit]
+            );
+
+            const updated = updRes.rows?.length || 0;
+
+            const remainRes = await pool.query(
+              `
+              SELECT COUNT(*)::int AS remaining
+              FROM chat_memory
+              WHERE chat_id = $1
+                AND global_user_id IS NULL
+              `,
+              [chatIdStr]
+            );
+
+            const remaining = remainRes.rows?.[0]?.remaining ?? 0;
+
+            await bot.sendMessage(
+              chatId,
+              [
+                "🧠 MEMORY BACKFILL",
+                `chat_id: ${chatIdStr}`,
+                `globalUserId: ${globalUserId}`,
+                `updated_now: ${updated}`,
+                `remaining_null: ${remaining}`,
+                "",
+                "Run again if remaining_null > 0:",
+                "/memory_backfill 500",
+              ].join("\n")
+            );
+          } catch (e) {
+            console.error("❌ /memory_backfill error:", e);
+            await bot.sendMessage(chatId, "⚠️ /memory_backfill упал. Смотри логи Render.");
           }
 
           return;

@@ -9,7 +9,7 @@ import {
   getChatHistory as legacyGetChatHistory,
   saveMessageToMemory as legacySaveMessageToMemory,
   saveChatPair as legacySaveChatPair,
-} from "./chatMemory.js";
+} from "../../memory/chatMemory.js";
 
 function _toString(x) {
   if (x === null || x === undefined) return "";

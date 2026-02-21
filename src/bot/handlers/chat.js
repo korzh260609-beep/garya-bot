@@ -1,5 +1,7 @@
 // src/bot/handlers/chat.js
 // extracted from messageRouter.js — no logic changes (only safety-guards + token param fix + observability logs)
+//
+// STAGE 7.2 LOGIC: pass globalUserId to chat_memory (v2 columns)
 
 export async function handleChatMessage({
   bot,
@@ -10,6 +12,9 @@ export async function handleChatMessage({
   trimmed,
   bypass,
   MAX_HISTORY_MESSAGES,
+
+  // ✅ STAGE 7.2
+  globalUserId = null,
 
   FileIntake,
 
@@ -90,15 +95,22 @@ export async function handleChatMessage({
     return;
   }
 
+  // ✅ STAGE 7.2: save with globalUserId + metadata
   try {
-    await saveMessageToMemory(chatIdStr, "user", effective);
+    await saveMessageToMemory(chatIdStr, "user", effective, {
+      globalUserId,
+      transport: "telegram",
+      metadata: { senderIdStr, chatIdStr, messageId },
+      schemaVersion: 1,
+    });
   } catch (e) {
     console.error("❌ saveMessageToMemory error:", e);
   }
 
   let history = [];
   try {
-    history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES);
+    // ✅ STAGE 7.2: load history filtered by globalUserId (if provided)
+    history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES, { globalUserId });
   } catch (e) {
     console.error("❌ getChatHistory error:", e);
   }
@@ -174,18 +186,16 @@ export async function handleChatMessage({
     chatId: chatIdStr,
     senderId: senderIdStr,
     messageId,
+    globalUserId,
   };
 
-  // Log to console (Render logs)
   try {
     console.info("🧾 AI_CALL_START", aiMetaBase);
   } catch (_) {}
 
-  // Best-effort: also log via logInteraction (if it supports richer objects)
   try {
     await logInteraction(chatIdStr, { ...classification, event: "AI_CALL_START", ...aiMetaBase });
   } catch (e) {
-    // do not fail chat flow due to logging
     console.error("❌ logInteraction (AI_CALL_START) error:", e);
   }
 
@@ -225,14 +235,19 @@ export async function handleChatMessage({
   }
   // --------------------------------------------
 
+  // ✅ STAGE 7.2: save pair with globalUserId
   try {
-    await saveChatPair(chatIdStr, effective, aiReply);
+    await saveChatPair(chatIdStr, effective, aiReply, {
+      globalUserId,
+      transport: "telegram",
+      metadata: { senderIdStr, chatIdStr, messageId },
+      schemaVersion: 1,
+    });
   } catch (e) {
     console.error("❌ saveChatPair error:", e);
   }
 
   try {
-    // ✅ FIX: sanitization must use monarchNow (real identity), not bypass
     if (!monarchNow) aiReply = sanitizeNonMonarchReply(aiReply);
   } catch (e) {
     console.error("❌ sanitizeNonMonarchReply error:", e);

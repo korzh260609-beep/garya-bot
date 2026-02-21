@@ -187,6 +187,18 @@ For each roadmap item:
 
 **Gate:** Transport implementations may exist as stubs only until Stage 4 is complete.
 
+Factual note (repo):
+- Transport layer skeleton files exist:
+  - src/transport/TransportAdapter.js
+  - src/transport/unifiedContext.js
+  - src/core/handleMessage.js
+  - src/transport/telegramAdapter.js
+  - src/transport/discordAdapter.js
+  - src/transport/webAdapter.js
+  - src/transport/emailAdapter.js
+  - src/transport/README.md
+- Not wired into production: messageRouter.js remains the active entry point.
+  
 ---
 
 # STAGE 7 — MEMORY LAYER V1

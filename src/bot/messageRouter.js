@@ -61,11 +61,7 @@ import {
 } from "../../core/helpers.js";
 
 // === MEMORY ===
-import {
-  getChatHistory,
-  saveMessageToMemory,
-  saveChatPair,
-} from "../memory/chatMemory.js";
+import { getChatHistory, saveMessageToMemory, saveChatPair } from "../memory/chatMemory.js";
 
 // === MEMORY LAYER V1 (SKELETON) ===
 // ✅ FIX: правильный путь (core находится в src/core)
@@ -113,10 +109,7 @@ import { getProjectSection } from "../../projectMemory.js";
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // ============================================================================
-const CMD_RL_WINDOW_MS = Math.max(
-  1000,
-  Number(process.env.CMD_RL_WINDOW_MS || 20000)
-);
+const CMD_RL_WINDOW_MS = Math.max(1000, Number(process.env.CMD_RL_WINDOW_MS || 20000));
 const CMD_RL_MAX = Math.max(1, Number(process.env.CMD_RL_MAX || 6));
 
 const __cmdRateState = new Map(); // key -> [timestamps]
@@ -141,12 +134,7 @@ function checkCmdRateLimit(key) {
 // ============================================================================
 // === ATTACH ROUTER
 // ============================================================================
-export function attachMessageRouter({
-  bot,
-  callAI,
-  upsertProjectSection,
-  MAX_HISTORY_MESSAGES = 20,
-}) {
+export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HISTORY_MESSAGES = 20 }) {
   bot.on("message", async (msg) => {
     try {
       const chatId = msg.chat?.id;
@@ -259,6 +247,7 @@ export function attachMessageRouter({
           "/pm_set",
           "/pm_show",
           "/memory_status",
+          "/memory_diag", // ✅ TEMP DIAG
           "/tasks",
           "/start_task",
           "/stop_task",
@@ -303,14 +292,12 @@ export function attachMessageRouter({
           };
 
           try {
-            const colRes = await pool.query(
-              `
+            const colRes = await pool.query(`
                 SELECT column_name
                 FROM information_schema.columns
                 WHERE table_schema = 'public'
                   AND table_name = 'chat_memory'
-              `
-            );
+              `);
 
             const cols = new Set((colRes.rows || []).map((r) => r.column_name));
             v2Cols = {
@@ -346,15 +333,90 @@ export function attachMessageRouter({
               `NODE_ENV: ${String(process.env.NODE_ENV || "")}`,
               "",
               "BUILD:",
-              `commit: ${String(
-                process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || ""
-              )}`,
+              `commit: ${String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "")}`,
               `service: ${String(process.env.RENDER_SERVICE_ID || "")}`,
-              `instance: ${String(
-                process.env.RENDER_INSTANCE_ID || process.env.HOSTNAME || ""
-              )}`,
+              `instance: ${String(process.env.RENDER_INSTANCE_ID || process.env.HOSTNAME || "")}`,
             ].join("\n")
           );
+
+          return;
+        }
+
+        // ✅ TEMP: /memory_diag — check last rows + global_user_id presence
+        if (cmdBase === "/memory_diag") {
+          const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+
+          try {
+            const sumRes = await pool.query(
+              `
+              SELECT
+                COUNT(*)::int AS total,
+                SUM(CASE WHEN global_user_id IS NULL THEN 1 ELSE 0 END)::int AS null_global
+              FROM chat_memory
+              WHERE chat_id = $1
+              `,
+              [chatIdStr]
+            );
+
+            const total = sumRes.rows?.[0]?.total ?? 0;
+            const nullGlobal = sumRes.rows?.[0]?.null_global ?? 0;
+
+            let totalByGlobal = null;
+            if (globalUserId) {
+              const gRes = await pool.query(
+                `
+                SELECT COUNT(*)::int AS total
+                FROM chat_memory
+                WHERE global_user_id = $1
+                `,
+                [globalUserId]
+              );
+              totalByGlobal = gRes.rows?.[0]?.total ?? 0;
+            }
+
+            const lastRes = await pool.query(
+              `
+              SELECT
+                id,
+                chat_id,
+                global_user_id,
+                transport,
+                role,
+                schema_version,
+                created_at,
+                LEFT(content, 80) AS content_preview
+              FROM chat_memory
+              WHERE chat_id = $1
+              ORDER BY id DESC
+              LIMIT 8
+              `,
+              [chatIdStr]
+            );
+
+            const rows = lastRes.rows || [];
+
+            const lines = [];
+            lines.push("🧪 MEMORY DIAG");
+            lines.push(`chat_id: ${chatIdStr}`);
+            lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
+            lines.push(`rows for chat_id: ${total}`);
+            lines.push(`rows with global_user_id NULL: ${nullGlobal}`);
+            if (globalUserId) lines.push(`rows for global_user_id: ${totalByGlobal}`);
+            lines.push("");
+            lines.push("Last rows:");
+            for (const r of rows) {
+              const ts = r.created_at ? new Date(r.created_at).toISOString() : "—";
+              const preview = String(r.content_preview || "").replace(/\s+/g, " ").trim();
+              lines.push(
+                `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${r.role || "—"} | sv=${r.schema_version ?? "—"} | ${ts} | "${preview}"`
+              );
+            }
+
+            await bot.sendMessage(chatId, lines.join("\n").slice(0, 3800));
+          } catch (e) {
+            console.error("❌ /memory_diag error:", e);
+            await bot.sendMessage(chatId, "⚠️ /memory_diag упал. Смотри логи Render.");
+          }
 
           return;
         }
@@ -387,8 +449,7 @@ export function attachMessageRouter({
             String(process.env.GIT_COMMIT || "").trim() ||
             "unknown";
 
-          const serviceId =
-            String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
+          const serviceId = String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
 
           const instanceId =
             String(process.env.RENDER_INSTANCE_ID || "").trim() ||
@@ -424,13 +485,7 @@ export function attachMessageRouter({
 
           await bot.sendMessage(
             chatId,
-            [
-              "🧩 BUILD INFO",
-              `commit: ${commit}`,
-              `service: ${serviceId}`,
-              `instance: ${instanceId}`,
-              `node_env: ${nodeEnv}`,
-            ].join("\n")
+            ["🧩 BUILD INFO", `commit: ${commit}`, `service: ${serviceId}`, `instance: ${instanceId}`, `node_env: ${nodeEnv}`].join("\n")
           );
           return;
         }
@@ -578,8 +633,7 @@ export function attachMessageRouter({
               lines.push("🧪 TASKS OWNER DIAG");
               lines.push(`has tasks.user_global_id: ${hasUserGlobalId ? "YES" : "NO"}`);
               lines.push(`total tasks: ${s.total ?? 0}`);
-              if (hasUserGlobalId)
-                lines.push(`missing user_global_id: ${s.global_id_missing ?? 0}`);
+              if (hasUserGlobalId) lines.push(`missing user_global_id: ${s.global_id_missing ?? 0}`);
               lines.push("");
               lines.push("Last 20 tasks:");
 
@@ -591,9 +645,7 @@ export function attachMessageRouter({
                     `#${r.id} | ${r.type} | ${r.status} | global=${r.user_global_id || "—"} | created=${created} | last_run=${lastRun}`
                   );
                 } else {
-                  lines.push(
-                    `#${r.id} | ${r.type} | ${r.status} | created=${created} | last_run=${lastRun}`
-                  );
+                  lines.push(`#${r.id} | ${r.type} | ${r.status} | created=${created} | last_run=${lastRun}`);
                 }
               }
 
@@ -876,8 +928,7 @@ export function attachMessageRouter({
       // ======================================================================
       // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
       // ======================================================================
-      const globalUserId =
-        accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+      const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
 
       await handleChatMessage({
         bot,

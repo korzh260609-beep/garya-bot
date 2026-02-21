@@ -876,12 +876,16 @@ export function attachMessageRouter({
       // ======================================================================
       // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
       // ======================================================================
+      const globalUserId =
+        accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+
       await handleChatMessage({
         bot,
         msg,
         chatId,
         chatIdStr,
         senderIdStr,
+        globalUserId,
         trimmed,
         MAX_HISTORY_MESSAGES,
 

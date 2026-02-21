@@ -65,7 +65,7 @@ import { getChatHistory, saveMessageToMemory, saveChatPair } from "../memory/cha
 
 // === MEMORY LAYER V1 (SKELETON) ===
 // ✅ FIX: правильный путь (core находится в src/core)
-import MemoryService from "../core/MemoryService.js";
+import { getMemoryService } from "../core/memoryServiceFactory.js";
 
 // === USERS ===
 import { buildRequirePermOrReply } from "./permGuard.js";

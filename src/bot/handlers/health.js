@@ -33,9 +33,7 @@ export async function handleHealth({ bot, chatId }) {
   // ------------------
   let errorEventsTable = "unknown";
   try {
-    const t = await pool.query(
-      `SELECT to_regclass('public.error_events') AS reg`
-    );
+    const t = await pool.query(`SELECT to_regclass('public.error_events') AS reg`);
     errorEventsTable = t?.rows?.[0]?.reg ? "yes" : "no";
   } catch (_) {
     errorEventsTable = "unknown";
@@ -43,9 +41,7 @@ export async function handleHealth({ bot, chatId }) {
 
   let sourceRunsTable = "unknown";
   try {
-    const t = await pool.query(
-      `SELECT to_regclass('public.source_runs') AS reg`
-    );
+    const t = await pool.query(`SELECT to_regclass('public.source_runs') AS reg`);
     sourceRunsTable = t?.rows?.[0]?.reg ? "yes" : "no";
   } catch (_) {
     sourceRunsTable = "unknown";
@@ -180,9 +176,13 @@ export async function handleHealth({ bot, chatId }) {
   // ------------------
   const queueDepth = "unknown";
   const dlqCount = "unknown";
-  const webhookDedupeHits = "unknown";
+
+  // ✅ IMPORTANT:
+  // This metric cannot be computed until we persist "dedupe-hit" events in DB.
+  // (We currently only console.log IDEMPOTENCY_SKIP in handler/chat.js.)
+  const webhookDedupeHits = "NOT_WIRED_YET";
   const lockContention = "unknown";
-  
+
   // ------------------
   // Stage 5.13 — db_size_warning (70% / 85%)
   // ------------------
@@ -192,9 +192,7 @@ export async function handleHealth({ bot, chatId }) {
   let dbSizeWarning = "none";
 
   try {
-    const r = await pool.query(
-      `SELECT pg_database_size(current_database())::bigint AS bytes`
-    );
+    const r = await pool.query(`SELECT pg_database_size(current_database())::bigint AS bytes`);
     const bytes = r?.rows?.[0]?.bytes;
     dbSizeMb = mbFromBytes(bytes);
 

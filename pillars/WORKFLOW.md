@@ -168,12 +168,19 @@ For each roadmap item:
 
 - 5.15.1 alerts to monarch: db_size_warning / repeated source failures / queue stuck
 
-## (SKELETON) 5.16 behavior_events
+## 5.16 behavior_events (WIRED, minimal)
 
-- 5.16.1 clarification_asked
-- 5.16.2 risk_warning_shown
-- 5.16.3 answer_mode_changed
-- 5.16.4 style_axis_used
+- 5.16.1 behavior_events table (migration 015)
+- 5.16.2 risk_warning_shown (DEV-only guard hit)
+- 5.16.3 rate_limited (command RL hit)
+- 5.16.4 permission_denied (perm guard hit)
+- 5.16.5 DEV verify command: /behavior_events_last <N> (monarch-private)
+
+## (FUTURE) 5.16 behavior_events (next events)
+
+- 5.16.F1 clarification_asked
+- 5.16.F2 answer_mode_changed
+- 5.16.F3 style_axis_used
 
 ## (FUTURE) 5.xx GROUP-SOURCES METRICS (privacy control)
 

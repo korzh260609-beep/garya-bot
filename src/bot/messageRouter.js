@@ -732,7 +732,29 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
         if (action) {
           const allowed = await requirePermOrReply(cmdBase, { rest, identityCtx });
-          if (!allowed) return;
+          if (!allowed) {
+            // ✅ STAGE 5.16.4 — behavior_events: permission_denied
+            try {
+              await behaviorEvents.logEvent({
+                globalUserId: accessPack?.user?.global_user_id || null,
+                chatId: chatIdStr,
+                eventType: "permission_denied",
+                metadata: {
+                  cmd: cmdBase,
+                  chatType,
+                  private: isPrivate,
+                  from: senderIdStr,
+                  role: userRole,
+                  plan: userPlan,
+                },
+                transport: "telegram",
+                schemaVersion: 1,
+              });
+            } catch (e) {
+              console.error("behavior_events permission_denied log failed:", e);
+            }
+            return;
+          }
 
           if (!isMonarchUser) {
             const key = `${senderIdStr}:${chatIdStr}:cmd`;

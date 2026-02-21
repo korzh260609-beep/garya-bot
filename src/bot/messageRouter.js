@@ -289,10 +289,39 @@ export function attachMessageRouter({
           return;
         }
 
-        // ✅ FIXED BLOCK: properly closed + return
+        // ✅ /memory_status (with STAGE 7.2 DB schema verification)
         if (cmdBase === "/memory_status") {
           const memory = new MemoryService();
           const status = await memory.status();
+
+          // ✅ STAGE 7.2: verify DB columns exist
+          let v2Cols = {
+            global_user_id: false,
+            transport: false,
+            metadata: false,
+            schema_version: false,
+          };
+
+          try {
+            const colRes = await pool.query(
+              `
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'chat_memory'
+              `
+            );
+
+            const cols = new Set((colRes.rows || []).map((r) => r.column_name));
+            v2Cols = {
+              global_user_id: cols.has("global_user_id"),
+              transport: cols.has("transport"),
+              metadata: cols.has("metadata"),
+              schema_version: cols.has("schema_version"),
+            };
+          } catch (e) {
+            console.error("❌ chat_memory columns check failed:", e);
+          }
 
           await bot.sendMessage(
             chatId,
@@ -304,6 +333,12 @@ export function attachMessageRouter({
               `hasLogger: ${status.hasLogger}`,
               `hasChatAdapter: ${status.hasChatAdapter}`,
               `configKeys: ${status.configKeys.join(", ")}`,
+              "",
+              "DB chat_memory V2 columns:",
+              `global_user_id: ${v2Cols.global_user_id}`,
+              `transport: ${v2Cols.transport}`,
+              `metadata: ${v2Cols.metadata}`,
+              `schema_version: ${v2Cols.schema_version}`,
               "",
               "ENV (raw):",
               `MEMORY_ENABLED: ${String(process.env.MEMORY_ENABLED || "")}`,

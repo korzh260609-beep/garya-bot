@@ -4,6 +4,7 @@
 // STAGE 7.2 LOGIC: pass globalUserId to chat_memory (v2 columns)
 
 import pool from "../../../db.js";
+import { getMemoryService } from "../../core/memoryServiceFactory.js";
 
 export async function handleChatMessage({
   bot,
@@ -226,10 +227,15 @@ export async function handleChatMessage({
 
   let history = [];
   try {
-    // ✅ STAGE 7.2: load history filtered by globalUserId (if provided)
-    history = await getChatHistory(chatIdStr, MAX_HISTORY_MESSAGES, { globalUserId });
+    // ✅ STAGE 7.3: read history via MemoryService (ban direct/legacy SQL reads here)
+    const memory = getMemoryService();
+    history = await memory.recent({
+      chatId: chatIdStr,
+      globalUserId,
+      limit: MAX_HISTORY_MESSAGES,
+    });
   } catch (e) {
-    console.error("❌ getChatHistory error:", e);
+    console.error("❌ memory.recent error:", e);
   }
 
   const classification = { taskType: "chat", aiCostLevel: "low" };

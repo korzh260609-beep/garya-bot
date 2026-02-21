@@ -293,28 +293,35 @@ export function attachMessageRouter({
           const memory = new MemoryService();
           const status = await memory.status();
 
-          await bot.sendMessage(
-  chatId,
-  [
-    "🧠 MEMORY STATUS",
-    `enabled: ${status.enabled}`,
-    `mode: ${status.mode}`,
-    `hasDb: ${status.hasDb}`,
-    `hasLogger: ${status.hasLogger}`,
-    `hasChatAdapter: ${status.hasChatAdapter}`,
-    `configKeys: ${status.configKeys.join(", ")}`,
-    "",
-    "ENV (raw):",
-    `MEMORY_ENABLED: ${String(process.env.MEMORY_ENABLED || "")}`,
-    `MEMORY_MODE: ${String(process.env.MEMORY_MODE || "")}`,
-    `NODE_ENV: ${String(process.env.NODE_ENV || "")}`,
-    "",
-    "BUILD:",
-    `commit: ${String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "")}`,
-    `service: ${String(process.env.RENDER_SERVICE_ID || "")}`,
-    `instance: ${String(process.env.RENDER_INSTANCE_ID || process.env.HOSTNAME || "")}`,
-  ].join("\n")
-);
+          if (cmdBase === "/memory_status") {
+  const memory = new MemoryService();
+  const status = await memory.status();
+
+  await bot.sendMessage(
+    chatId,
+    [
+      "🧠 MEMORY STATUS",
+      `enabled: ${status.enabled}`,
+      `mode: ${status.mode}`,
+      `hasDb: ${status.hasDb}`,
+      `hasLogger: ${status.hasLogger}`,
+      `hasChatAdapter: ${status.hasChatAdapter}`,
+      `configKeys: ${status.configKeys.join(", ")}`,
+      "",
+      "ENV (raw):",
+      `MEMORY_ENABLED: ${String(process.env.MEMORY_ENABLED || "")}`,
+      `MEMORY_MODE: ${String(process.env.MEMORY_MODE || "")}`,
+      `NODE_ENV: ${String(process.env.NODE_ENV || "")}`,
+      "",
+      "BUILD:",
+      `commit: ${String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "")}`,
+      `service: ${String(process.env.RENDER_SERVICE_ID || "")}`,
+      `instance: ${String(process.env.RENDER_INSTANCE_ID || process.env.HOSTNAME || "")}`,
+    ].join("\n")
+  );
+
+  return;
+}
 
         if (cmdBase === "/pm_show") {
           await handlePmShow({

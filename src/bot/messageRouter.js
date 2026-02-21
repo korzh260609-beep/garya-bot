@@ -248,6 +248,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           "/pm_show",
           "/memory_status",
           "/memory_diag", // ✅ TEMP DIAG
+          "/memory_integrity", // ✅ STAGE 7.6
           "/memory_backfill", // ✅ STAGE 7.4
           "/tasks",
           "/start_task",
@@ -417,6 +418,143 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           } catch (e) {
             console.error("❌ /memory_diag error:", e);
             await bot.sendMessage(chatId, "⚠️ /memory_diag упал. Смотри логи Render.");
+          }
+
+          return;
+        }
+
+        // ✅ STAGE 7.6: /memory_integrity — detect duplicates + pair anomalies by metadata.messageId
+        if (cmdBase === "/memory_integrity") {
+          try {
+            // Summary: how many rows have numeric messageId
+            const sumRes = await pool.query(
+              `
+              WITH msgs AS (
+                SELECT
+                  (metadata->>'messageId') AS mid,
+                  role
+                FROM chat_memory
+                WHERE chat_id = $1
+                  AND metadata ? 'messageId'
+                  AND (metadata->>'messageId') ~ '^[0-9]+$'
+              )
+              SELECT
+                COUNT(*)::int AS total_rows_with_mid,
+                COUNT(DISTINCT mid)::int AS distinct_mid
+              FROM msgs
+              `,
+              [chatIdStr]
+            );
+
+            const totalRowsWithMid = sumRes.rows?.[0]?.total_rows_with_mid ?? 0;
+            const distinctMid = sumRes.rows?.[0]?.distinct_mid ?? 0;
+
+            // 1) Exact duplicates (same mid+role) more than 1
+            const dupRes = await pool.query(
+              `
+              SELECT
+                (metadata->>'messageId') AS mid,
+                role,
+                COUNT(*)::int AS cnt
+              FROM chat_memory
+              WHERE chat_id = $1
+                AND metadata ? 'messageId'
+                AND (metadata->>'messageId') ~ '^[0-9]+$'
+              GROUP BY 1,2
+              HAVING COUNT(*) > 1
+              ORDER BY cnt DESC, mid DESC
+              LIMIT 15
+              `,
+              [chatIdStr]
+            );
+
+            // 2) Pair anomalies (expected: exactly 2 rows per mid: 1 user + 1 assistant)
+            const anomRes = await pool.query(
+              `
+              WITH g AS (
+                SELECT
+                  (metadata->>'messageId') AS mid,
+                  SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)::int AS u,
+                  SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)::int AS a,
+                  COUNT(*)::int AS total
+                FROM chat_memory
+                WHERE chat_id = $1
+                  AND metadata ? 'messageId'
+                  AND (metadata->>'messageId') ~ '^[0-9]+$'
+                GROUP BY 1
+              )
+              SELECT mid, u, a, total
+              FROM g
+              WHERE NOT (u=1 AND a=1 AND total=2)
+              ORDER BY total DESC, mid DESC
+              LIMIT 15
+              `,
+              [chatIdStr]
+            );
+
+            // For top anomalies, show last row preview
+            const mids = (anomRes.rows || []).map((r) => r.mid).filter(Boolean);
+            let previewRows = [];
+            if (mids.length > 0) {
+              const prevRes = await pool.query(
+                `
+                SELECT
+                  (metadata->>'messageId') AS mid,
+                  id,
+                  role,
+                  created_at,
+                  LEFT(content, 70) AS content_preview
+                FROM chat_memory
+                WHERE chat_id = $1
+                  AND (metadata->>'messageId') = ANY($2::text[])
+                ORDER BY id DESC
+                LIMIT 20
+                `,
+                [chatIdStr, mids]
+              );
+              previewRows = prevRes.rows || [];
+            }
+
+            const lines = [];
+            lines.push("🧪 MEMORY INTEGRITY");
+            lines.push(`chat_id: ${chatIdStr}`);
+            lines.push(`rows_with_messageId: ${totalRowsWithMid}`);
+            lines.push(`distinct_messageId: ${distinctMid}`);
+            lines.push("");
+
+            lines.push("1) Duplicates (same messageId + role, cnt>1):");
+            if ((dupRes.rows || []).length === 0) {
+              lines.push("OK: none ✅");
+            } else {
+              for (const r of dupRes.rows) {
+                lines.push(`mid=${r.mid} | role=${r.role} | cnt=${r.cnt}`);
+              }
+            }
+            lines.push("");
+
+            lines.push("2) Pair anomalies (expected u=1 a=1 total=2):");
+            if ((anomRes.rows || []).length === 0) {
+              lines.push("OK: none ✅");
+            } else {
+              for (const r of anomRes.rows) {
+                lines.push(`mid=${r.mid} | u=${r.u} | a=${r.a} | total=${r.total}`);
+              }
+            }
+
+            if (previewRows.length > 0) {
+              lines.push("");
+              lines.push("Last anomaly rows (preview):");
+              for (const r of previewRows) {
+                const ts = r.created_at ? new Date(r.created_at).toISOString() : "—";
+                const preview = String(r.content_preview || "").replace(/\s+/g, " ").trim();
+                lines.push(`#${r.id} | mid=${r.mid} | role=${r.role} | ${ts} | "${preview}"`);
+              }
+            }
+
+            await bot.sendMessage(chatId, lines.join("\n").slice(0, 3800));
+          } catch (e) {
+            console.error("❌ /memory_integrity error:", e);
+            await bot.sendMessage(chatId, "⚠️ /memory_integrity упал. Смотри логи Render.");
           }
 
           return;

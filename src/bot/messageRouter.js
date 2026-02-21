@@ -104,6 +104,9 @@ import * as FileIntake from "../media/fileIntake.js";
 import { logInteraction } from "../logging/interactionLogs.js";
 import BehaviorEventsService from "../logging/BehaviorEventsService.js";
 
+// ✅ STAGE 5.16.2 — DEV verify tool
+import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
+
 // ✅ Project Memory service (read)
 import { getProjectSection } from "../../projectMemory.js";
 
@@ -253,6 +256,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           "/memory_diag", // ✅ TEMP DIAG
           "/memory_integrity", // ✅ STAGE 7.6
           "/memory_backfill", // ✅ STAGE 7.4
+          "/behavior_events_last", // ✅ STAGE 5.16.2
           "/tasks",
           "/start_task",
           "/stop_task",
@@ -803,6 +807,16 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
           case "/deny": {
             await handleDeny({ bot, chatId, rest });
+            return;
+          }
+
+          case "/behavior_events_last": {
+            await handleBehaviorEventsLast({
+              bot,
+              chatId,
+              rest,
+              senderIdStr,
+            });
             return;
           }
 

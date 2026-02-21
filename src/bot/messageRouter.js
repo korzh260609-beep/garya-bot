@@ -60,8 +60,8 @@ import {
   sanitizeNonMonarchReply,
 } from "../../core/helpers.js";
 
-// === MEMORY ===
-import { getChatHistory, saveMessageToMemory, saveChatPair } from "../memory/chatMemory.js";
+// === MEMORY (via bridge, STAGE 7) ===
+import { getChatHistory, saveMessageToMemory, saveChatPair } from "./memory/memoryBridge.js";
 
 // === MEMORY LAYER V1 (SKELETON) ===
 // ✅ FIX: правильный путь (core находится в src/core)

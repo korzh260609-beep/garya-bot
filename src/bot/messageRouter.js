@@ -301,6 +301,7 @@ export function attachMessageRouter({
               `mode: ${status.mode}`,
               `hasDb: ${status.hasDb}`,
               `hasLogger: ${status.hasLogger}`,
+              `hasChatAdapter: ${status.hasChatAdapter}`, // ✅ ADDED
               `configKeys: ${status.configKeys.join(", ")}`,
             ].join("\n")
           );

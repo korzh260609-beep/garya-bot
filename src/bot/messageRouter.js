@@ -68,7 +68,8 @@ import {
 } from "../memory/chatMemory.js";
 
 // === MEMORY LAYER V1 (SKELETON) ===
-import MemoryService from "../../../core/MemoryService.js";
+// ✅ FIX: правильный путь (core находится в src/core)
+import MemoryService from "../../core/MemoryService.js";
 
 // === USERS ===
 import { buildRequirePermOrReply } from "./permGuard.js";
@@ -279,14 +280,14 @@ export function attachMessageRouter({
           "/ar_list",
         ]);
 
-       const isDev = DEV_COMMANDS.has(cmdBase);
-if (isDev && (!isMonarchUser || !isPrivate)) {
-  await bot.sendMessage(
-    chatId,
-    `⛔ DEV only.\ncmd=${cmdBase}\nchatType=${chatType}\nprivate=${isPrivate}\nmonarch=${isMonarchUser}\nfrom=${senderIdStr}`
-  );
-  return;
-}
+        const isDev = DEV_COMMANDS.has(cmdBase);
+        if (isDev && (!isMonarchUser || !isPrivate)) {
+          await bot.sendMessage(
+            chatId,
+            `⛔ DEV only.\ncmd=${cmdBase}\nchatType=${chatType}\nprivate=${isPrivate}\nmonarch=${isMonarchUser}\nfrom=${senderIdStr}`
+          );
+          return;
+        }
 
         if (cmdBase === "/memory_status") {
           const memory = new MemoryService();
@@ -711,10 +712,10 @@ if (isDev && (!isMonarchUser || !isPrivate)) {
             return;
           }
 
-            case "/repo_get": {
-  await handleRepoGet({ bot, chatId, rest, senderIdStr });
-  return;
-}
+          case "/repo_get": {
+            await handleRepoGet({ bot, chatId, rest, senderIdStr });
+            return;
+          }
 
           case "/repo_check": {
             await handleRepoCheck({ bot, chatId, rest });

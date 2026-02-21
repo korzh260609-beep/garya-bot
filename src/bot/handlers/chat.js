@@ -171,7 +171,7 @@ export async function handleChatMessage({
           });
         } catch (_) {}
 
-        // ✅ STAGE 7B.7 OBSERVABILITY: persist dedupe-hit (so /health can count it)
+        // ✅ STAGE 7B.7 OBSERVABILITY: persist dedupe-hit (legacy attempt; may be ignored if schema doesn't support it)
         try {
           await logInteraction(chatIdStr, {
             taskType: "chat",
@@ -180,6 +180,28 @@ export async function handleChatMessage({
           });
         } catch (e) {
           console.error("❌ logInteraction (WEBHOOK_DEDUPE_HIT) error:", e);
+        }
+
+        // ✅ STAGE 7B.7 OBSERVABILITY (V2): dedicated table webhook_dedupe_events
+        try {
+          await pool.query(
+            `
+            INSERT INTO webhook_dedupe_events
+            (transport, chat_id, message_id, global_user_id, reason, metadata)
+            VALUES ($1,$2,$3,$4,$5,$6::jsonb)
+            ON CONFLICT (transport, chat_id, message_id) DO NOTHING
+            `,
+            [
+              transport,
+              String(chatIdStr),
+              Number(messageId),
+              globalUserId ? String(globalUserId) : null,
+              "retry_duplicate",
+              JSON.stringify({ handler: "chat", stage: "7B.7" }),
+            ]
+          );
+        } catch (e) {
+          console.error("❌ webhook_dedupe_events insert failed:", e);
         }
 
         return;

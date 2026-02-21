@@ -177,13 +177,12 @@ export async function handleHealth({ bot, chatId }) {
   const queueDepth = "unknown";
   const dlqCount = "unknown";
 
-  // ✅ REAL dedupe metric (from interaction_logs)
+  // ✅ REAL dedupe metric (from webhook_dedupe_events)
   let webhookDedupeHits = "0";
   try {
     const r = await pool.query(`
       SELECT COUNT(*)::bigint AS cnt
-      FROM interaction_logs
-      WHERE event = 'WEBHOOK_DEDUPE_HIT'
+      FROM webhook_dedupe_events
     `);
     webhookDedupeHits = String(r?.rows?.[0]?.cnt ?? 0);
   } catch (_) {

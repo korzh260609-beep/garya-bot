@@ -1,6 +1,6 @@
 // src/bot/handlers/health.js
 // Stage 5 — Observability V1 (READ-ONLY)
-// 5.5 /health + 5.8–5.13 metrics surface
+// 5.5 /health + 5.8–5.13 metrics surface + 5.14 metrics (wired)
 
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
@@ -16,6 +16,15 @@ function mbFromBytes(bytes) {
   return (b / (1024 * 1024)).toFixed(1);
 }
 
+async function hasTable(tableName) {
+  try {
+    const r = await pool.query(`SELECT to_regclass($1) AS reg`, [tableName]);
+    return Boolean(r?.rows?.[0]?.reg);
+  } catch (_) {
+    return false;
+  }
+}
+
 export async function handleHealth({ bot, chatId }) {
   // ------------------
   // DB health
@@ -29,7 +38,7 @@ export async function handleHealth({ bot, chatId }) {
   }
 
   // ------------------
-  // ✅ explicit table existence checks (READ-ONLY)
+  // explicit table existence checks
   // ------------------
   let errorEventsTable = "unknown";
   try {
@@ -55,7 +64,6 @@ export async function handleHealth({ bot, chatId }) {
     const repo = process.env.GITHUB_REPO;
     const branch = process.env.GITHUB_BRANCH;
     if (repo && branch) {
-      // ✅ RepoIndexStore expects { pool }
       const store = new RepoIndexStore({ pool });
       const latest = await store.getLatestSnapshot({ repo, branch });
       if (latest?.id) lastSnapshot = String(latest.id);
@@ -83,9 +91,7 @@ export async function handleHealth({ bot, chatId }) {
 
     if (Number.isInteger(cnt)) errorEventsCount = String(cnt);
     if (v) lastErrorAt = new Date(v).toISOString();
-  } catch (_) {
-    // keep unknown
-  }
+  } catch (_) {}
 
   try {
     const r2 = await pool.query(`
@@ -98,14 +104,10 @@ export async function handleHealth({ bot, chatId }) {
     const row = r2?.rows?.[0];
     if (row?.event_type) lastErrorType = safeLine(row.event_type, 60);
     if (row?.message) lastErrorMsg = safeLine(row.message, 180);
-  } catch (_) {
-    // ignore
-  }
+  } catch (_) {}
 
   // ------------------
-  // ✅ source_runs summary (defensive)
-  // Primary: MAX(started_at)
-  // Fallbacks: MAX(created_at) → MAX(finished_at)
+  // source_runs summary (defensive)
   // ------------------
   let sourceRunsCount = "unknown";
   let lastSourceRunAt = "unknown";
@@ -133,18 +135,14 @@ export async function handleHealth({ bot, chatId }) {
         } catch (_) {
           try {
             await trySourceRunsQuery("finished_at");
-          } catch (_) {
-            // keep unknown
-          }
+          } catch (_) {}
         }
       }
     }
-  } catch (_) {
-    // keep unknown
-  }
+  } catch (_) {}
 
   // ------------------
-  // Stage 5.8 — chat_messages_count (proxy via interaction_logs)
+  // chat_messages_count (proxy via interaction_logs)
   // ------------------
   let chatMessagesCount24h = "unknown";
   let chatMessagesCountTotal = "unknown";
@@ -161,23 +159,42 @@ export async function handleHealth({ bot, chatId }) {
     const row = r?.rows?.[0] || {};
     chatMessagesCountTotal = String(row.total ?? 0);
     chatMessagesCount24h = String(row.last24h ?? 0);
-  } catch (_) {
-    // keep unknown
-  }
+  } catch (_) {}
 
-  // Stage 5.9–5.12 hooks
+  // placeholders (future stages)
   const recallRequests = 0;
   const recallErrors = 0;
   const alreadySeenHits = 0;
   const alreadySeenCooldownSkips = 0;
 
   // ------------------
-  // Stage 5.14 — scaling metrics (SKELETON)
+  // 5.14 SCALING METRICS (wired safely)
   // ------------------
-  const queueDepth = "unknown";
-  const dlqCount = "unknown";
+  // queue_depth / dlq_count: only if tables exist; else 0 (no queue subsystem yet)
+  let queueDepth = "0";
+  let dlqCount = "0";
 
-  // ✅ REAL dedupe metric (from webhook_dedupe_events)
+  try {
+    const hasJobQueue = await hasTable("public.job_queue");
+    if (hasJobQueue) {
+      const r = await pool.query(`SELECT COUNT(*)::bigint AS cnt FROM job_queue`);
+      queueDepth = String(r?.rows?.[0]?.cnt ?? 0);
+    }
+  } catch (_) {
+    queueDepth = "unknown";
+  }
+
+  try {
+    const hasJobDlq = await hasTable("public.job_dlq");
+    if (hasJobDlq) {
+      const r = await pool.query(`SELECT COUNT(*)::bigint AS cnt FROM job_dlq`);
+      dlqCount = String(r?.rows?.[0]?.cnt ?? 0);
+    }
+  } catch (_) {
+    dlqCount = "unknown";
+  }
+
+  // webhook_dedupe_hits: from dedicated table
   let webhookDedupeHits = "0";
   try {
     const r = await pool.query(`
@@ -189,10 +206,21 @@ export async function handleHealth({ bot, chatId }) {
     webhookDedupeHits = "unknown";
   }
 
-  const lockContention = "unknown";
+  // lock_contention: number of waiting locks (always available)
+  let lockContention = "0";
+  try {
+    const r = await pool.query(`
+      SELECT COUNT(*)::bigint AS cnt
+      FROM pg_locks
+      WHERE granted = false
+    `);
+    lockContention = String(r?.rows?.[0]?.cnt ?? 0);
+  } catch (_) {
+    lockContention = "unknown";
+  }
 
   // ------------------
-  // Stage 5.13 — db_size_warning (70% / 85%)
+  // db_size_warning (70% / 85%)
   // ------------------
   let dbSizeMb = "unknown";
   let dbLimitMb = "unknown";
@@ -220,9 +248,7 @@ export async function handleHealth({ bot, chatId }) {
         }
       }
     }
-  } catch (_) {
-    // keep unknown
-  }
+  } catch (_) {}
 
   await bot.sendMessage(
     chatId,
@@ -249,6 +275,7 @@ export async function handleHealth({ bot, chatId }) {
       `recall_errors: ${recallErrors}`,
       `already_seen_hits: ${alreadySeenHits}`,
       `already_seen_cooldown_skips: ${alreadySeenCooldownSkips}`,
+
       `queue_depth: ${queueDepth}`,
       `dlq_count: ${dlqCount}`,
       `webhook_dedupe_hits: ${webhookDedupeHits}`,

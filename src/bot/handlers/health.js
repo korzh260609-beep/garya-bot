@@ -177,10 +177,19 @@ export async function handleHealth({ bot, chatId }) {
   const queueDepth = "unknown";
   const dlqCount = "unknown";
 
-  // ✅ IMPORTANT:
-  // This metric cannot be computed until we persist "dedupe-hit" events in DB.
-  // (We currently only console.log IDEMPOTENCY_SKIP in handler/chat.js.)
-  const webhookDedupeHits = "NOT_WIRED_YET";
+  // ✅ REAL dedupe metric (from interaction_logs)
+  let webhookDedupeHits = "0";
+  try {
+    const r = await pool.query(`
+      SELECT COUNT(*)::bigint AS cnt
+      FROM interaction_logs
+      WHERE event = 'WEBHOOK_DEDUPE_HIT'
+    `);
+    webhookDedupeHits = String(r?.rows?.[0]?.cnt ?? 0);
+  } catch (_) {
+    webhookDedupeHits = "unknown";
+  }
+
   const lockContention = "unknown";
 
   // ------------------

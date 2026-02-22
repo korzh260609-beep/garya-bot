@@ -56,24 +56,25 @@ function _toIntOrNull(x) {
  * отсортированную от старых к новым (как нужно для ИИ).
  *
  * v2: если передан opts.globalUserId — identity-first reading (STAGE 7.3).
- * 1) пробуем читать по global_user_id
+ * 1) пробуем читать по global_user_id + chat_id (чтобы не смешивать разные чаты)
  * 2) если пусто — fallback на chat_id (совместимость)
  */
 export async function getChatHistory(chatId, limit = MAX_HISTORY_MESSAGES, opts = {}) {
   try {
     const globalUserId = opts?.globalUserId ?? null;
 
-    // STAGE 7.3: identity-first read
-    if (globalUserId) {
+    // STAGE 7.3: identity-first read (STRICT: within current chat)
+    if (globalUserId && chatId) {
       const byGlobal = await pool.query(
         `
           SELECT role, content
           FROM chat_memory
-          WHERE global_user_id = $2
+          WHERE chat_id = $1
+            AND global_user_id = $2
           ORDER BY id DESC
-          LIMIT $1
+          LIMIT $3
         `,
-        [limit, globalUserId]
+        [chatId, globalUserId, limit]
       );
 
       const rows = (byGlobal.rows || []).reverse().map((row) => ({

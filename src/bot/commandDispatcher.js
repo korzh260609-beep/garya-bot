@@ -392,7 +392,7 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-          case "/chat_meta_debug": {
+    case "/chat_meta_debug": {
       await handleChatMetaDebug({
         bot,
         chatId,
@@ -401,7 +401,7 @@ export async function dispatchCommand(cmd, ctx) {
       });
       return { handled: true };
     }
-      
+
     case "/webhook_info": {
       await handleWebhookInfo({ bot, chatId });
       return { handled: true };

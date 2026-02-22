@@ -64,7 +64,6 @@ import {
 import { getChatHistory, saveMessageToMemory, saveChatPair } from "./memory/memoryBridge.js";
 
 // === MEMORY LAYER V1 (SKELETON) ===
-// ✅ FIX: правильный путь (core находится в src/core)
 import { getMemoryService } from "../core/memoryServiceFactory.js";
 
 // ✅ STAGE 7: move memory diagnostics SQL out of router
@@ -257,10 +256,11 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           "/pm_set",
           "/pm_show",
           "/memory_status",
-          "/memory_diag", // ✅ TEMP DIAG
-          "/memory_integrity", // ✅ STAGE 7.6
-          "/memory_backfill", // ✅ STAGE 7.4
-          "/behavior_events_last", // ✅ STAGE 5.16.2
+          "/memory_diag",
+          "/memory_integrity",
+          "/memory_backfill",
+          "/memory_user_chats", // ✅ NEW
+          "/behavior_events_last",
           "/tasks",
           "/start_task",
           "/stop_task",
@@ -306,12 +306,10 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           return;
         }
 
-        // ✅ /memory_status (with STAGE 7.2 DB schema verification)
+        // ✅ /memory_status
         if (cmdBase === "/memory_status") {
           const memory = getMemoryService();
           const status = await memory.status();
-
-          // ✅ STAGE 7.2: verify DB columns exist (via service)
           const v2Cols = await memDiag.getChatMemoryV2Columns();
 
           await bot.sendMessage(
@@ -346,7 +344,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           return;
         }
 
-        // ✅ TEMP: /memory_diag — check last rows + global_user_id presence (via service)
+        // ✅ /memory_diag
         if (cmdBase === "/memory_diag") {
           const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
           const out = await memDiag.memoryDiag({ chatIdStr, globalUserId });
@@ -354,22 +352,28 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           return;
         }
 
-        // ✅ STAGE 7.6: /memory_integrity — detect duplicates + pair anomalies (via service)
+        // ✅ /memory_integrity
         if (cmdBase === "/memory_integrity") {
           const out = await memDiag.memoryIntegrity({ chatIdStr });
           await bot.sendMessage(chatId, out);
           return;
         }
 
-        // ✅ STAGE 7.4: /memory_backfill — backfill old rows (via service)
+        // ✅ /memory_backfill
         if (cmdBase === "/memory_backfill") {
           const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-
-          // parse limit from args (default 200, max 500)
           const rawN = Number(String(rest || "").trim() || "200");
           const limit = Number.isFinite(rawN) ? Math.max(1, Math.min(500, rawN)) : 200;
 
           const out = await memDiag.memoryBackfill({ chatIdStr, globalUserId, limit });
+          await bot.sendMessage(chatId, out);
+          return;
+        }
+
+        // ✅ NEW: /memory_user_chats — list other chats that contain rows for this user
+        if (cmdBase === "/memory_user_chats") {
+          const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+          const out = await memDiag.memoryUserChats({ globalUserId });
           await bot.sendMessage(chatId, out);
           return;
         }
@@ -457,7 +461,6 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
         if (action) {
           const allowed = await requirePermOrReply(cmdBase, { rest, identityCtx });
           if (!allowed) {
-            // ✅ STAGE 5.16.4 — behavior_events: permission_denied
             try {
               await behaviorEvents.logEvent({
                 globalUserId: accessPack?.user?.global_user_id || null,
@@ -486,7 +489,6 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             if (!rl.allowed) {
               const sec = Math.ceil(rl.retryAfterMs / 1000);
 
-              // ✅ STAGE 5.16.3 — behavior_events: rate_limited
               try {
                 await behaviorEvents.logEvent({
                   globalUserId: accessPack?.user?.global_user_id || null,
@@ -535,10 +537,8 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             callAI,
             logInteraction,
 
-            // helpers
             callWithFallback,
 
-            // tasks
             createDemoTask,
             createManualTask,
             createTestPriceMonitorTask,
@@ -547,7 +547,6 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             runTaskWithAI,
             updateTaskStatus,
 
-            // sources
             runSourceDiagnosticsOnce,
             getAllSourcesSafe,
             fetchFromSourceKey,
@@ -555,11 +554,9 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             diagnoseSource,
             testSource,
 
-            // answer mode
             getAnswerMode,
             setAnswerMode,
 
-            // coingecko
             getCoinGeckoSimplePriceById,
             getCoinGeckoSimplePriceMulti,
           };

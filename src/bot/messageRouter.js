@@ -260,6 +260,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           "/memory_integrity",
           "/memory_backfill",
           "/memory_user_chats", // ✅ NEW
+          "/chat_meta_debug",
           "/behavior_events_last",
           "/tasks",
           "/start_task",

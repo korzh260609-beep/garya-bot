@@ -867,6 +867,20 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             return;
           }
 
+            case "/chat_meta_debug": {
+  await dispatchCommand(cmdBase, {
+    bot,
+    chatId,
+    chatIdStr,
+    senderIdStr,
+    userRole,
+    userPlan,
+    user,
+    bypass: isMonarchUser,
+  });
+  return;
+}
+            
           case "/sources": {
             await handleSourcesList({
               bot,

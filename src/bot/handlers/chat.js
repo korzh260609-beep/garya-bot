@@ -38,6 +38,9 @@ export async function handleChatMessage({
   const messageId = msg.message_id ?? null;
   if (!trimmed) return;
 
+  // STAGE 7B.5.x — Free-tier DB growth protection (hard cap)
+  const MAX_CHAT_MESSAGE_CHARS = 16000;
+
   // ---- GUARDS (critical): never crash on wrong wiring ----
   const isMonarchFn = typeof isMonarch === "function" ? isMonarch : () => false;
   const monarchNow = isMonarchFn(senderIdStr);
@@ -79,6 +82,14 @@ export async function handleChatMessage({
   const effective = (decision?.effectiveUserText || "").trim();
   const shouldCallAI = Boolean(decision?.shouldCallAI);
   const directReplyText = decision?.directReplyText || null;
+
+  // DB-safe user content + truncated flag (ONLY for chat_messages storage)
+  const userContentForDb =
+    typeof effective === "string" && effective.length > MAX_CHAT_MESSAGE_CHARS
+      ? effective.slice(0, MAX_CHAT_MESSAGE_CHARS)
+      : effective;
+  const userTruncatedForDb =
+    typeof effective === "string" && effective.length > MAX_CHAT_MESSAGE_CHARS;
 
   if (directReplyText) {
     try {
@@ -136,11 +147,12 @@ export async function handleChatMessage({
           message_id,
           role,
           content,
+          truncated,
           metadata,
           raw,
           schema_version
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12)
         ON CONFLICT (transport, chat_id, message_id)
           WHERE role='user' AND message_id IS NOT NULL
         DO NOTHING
@@ -154,7 +166,8 @@ export async function handleChatMessage({
           senderId ? String(senderId) : null,
           Number(messageId),
           "user",
-          effective,
+          userContentForDb,
+          Boolean(userTruncatedForDb),
           JSON.stringify(meta),
           JSON.stringify(raw),
           1,
@@ -366,8 +379,14 @@ export async function handleChatMessage({
     const transport = "telegram";
     const chatType = msg?.chat?.type || null;
 
-    // safety cap (free-tier friendly). Keep it generous but bounded.
-    const safeReply = typeof aiReply === "string" ? aiReply.slice(0, 16000) : "";
+    const assistantContentForDb =
+      typeof aiReply === "string" && aiReply.length > MAX_CHAT_MESSAGE_CHARS
+        ? aiReply.slice(0, MAX_CHAT_MESSAGE_CHARS)
+        : typeof aiReply === "string"
+          ? aiReply
+          : "";
+    const assistantTruncatedForDb =
+      typeof aiReply === "string" && aiReply.length > MAX_CHAT_MESSAGE_CHARS;
 
     const meta = {
       senderIdStr,
@@ -389,11 +408,12 @@ export async function handleChatMessage({
         message_id,
         role,
         content,
+        truncated,
         metadata,
         raw,
         schema_version
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12)
       `,
       [
         transport,
@@ -403,7 +423,8 @@ export async function handleChatMessage({
         null, // assistant has no sender_id (transport user id)
         null, // outgoing telegram message_id not available here
         "assistant",
-        safeReply,
+        assistantContentForDb,
+        Boolean(assistantTruncatedForDb),
         JSON.stringify(meta),
         JSON.stringify({}), // no raw for assistant
         1,

@@ -5,6 +5,7 @@
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
+import { touchChatMeta } from "../../db/chatMeta.js";
 
 export async function handleChatMessage({
   bot,
@@ -88,8 +89,7 @@ export async function handleChatMessage({
     typeof effective === "string" && effective.length > MAX_CHAT_MESSAGE_CHARS
       ? effective.slice(0, MAX_CHAT_MESSAGE_CHARS)
       : effective;
-  const userTruncatedForDb =
-    typeof effective === "string" && effective.length > MAX_CHAT_MESSAGE_CHARS;
+  const userTruncatedForDb = typeof effective === "string" && effective.length > MAX_CHAT_MESSAGE_CHARS;
 
   if (directReplyText) {
     try {
@@ -220,6 +220,17 @@ export async function handleChatMessage({
 
         return;
       }
+
+      // STAGE 7B.8 — touch chat_meta (inbound user)
+      try {
+        await touchChatMeta({
+          transport,
+          chatId: String(chatIdStr),
+          chatType: msg?.chat?.type || null,
+          title: msg?.chat?.title || null,
+          role: "user",
+        });
+      } catch (_) {}
     } catch (e) {
       console.error("❌ STAGE 7B.7 chat_messages insert-first failed (fail-open):", e);
       // fail-open: continue normal flow
@@ -430,6 +441,17 @@ export async function handleChatMessage({
         1,
       ]
     );
+
+    // STAGE 7B.8 — touch chat_meta (outbound assistant)
+    try {
+      await touchChatMeta({
+        transport,
+        chatId: String(chatIdStr),
+        chatType: msg?.chat?.type || null,
+        title: msg?.chat?.title || null,
+        role: "assistant",
+      });
+    } catch (_) {}
   } catch (e) {
     console.error("❌ STAGE 7B.4 chat_messages assistant insert failed (fail-open):", e);
   }

@@ -284,7 +284,9 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
         ]);
 
         const isDev = DEV_COMMANDS.has(cmdBase);
-        if (isDev && (!isMonarchUser || !isPrivate)) {
+        const devAllowInGroup = cmdBase === "/chat_meta_debug";
+
+        if (isDev && (!isMonarchUser || (!isPrivate && !devAllowInGroup))) {
           await bot.sendMessage(
             chatId,
             `⛔ DEV only.\ncmd=${cmdBase}\nchatType=${chatType}\nprivate=${isPrivate}\nmonarch=${isMonarchUser}\nfrom=${senderIdStr}`

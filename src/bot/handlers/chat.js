@@ -358,6 +358,61 @@ export async function handleChatMessage({
   }
   // --------------------------------------------
 
+  // ==========================================================
+  // STAGE 7B.4 — Log SG output to chat_messages (assistant)
+  // fail-open (must not break production)
+  // ==========================================================
+  try {
+    const transport = "telegram";
+    const chatType = msg?.chat?.type || null;
+
+    // safety cap (free-tier friendly). Keep it generous but bounded.
+    const safeReply = typeof aiReply === "string" ? aiReply.slice(0, 16000) : "";
+
+    const meta = {
+      senderIdStr,
+      chatIdStr,
+      in_reply_to_message_id: messageId ?? null,
+      globalUserId: globalUserId ?? null,
+      handler: "chat",
+      stage: "7B.4",
+    };
+
+    await pool.query(
+      `
+      INSERT INTO chat_messages (
+        transport,
+        chat_id,
+        chat_type,
+        global_user_id,
+        sender_id,
+        message_id,
+        role,
+        content,
+        metadata,
+        raw,
+        schema_version
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
+      `,
+      [
+        transport,
+        String(chatIdStr),
+        chatType ? String(chatType) : null,
+        globalUserId ? String(globalUserId) : null,
+        null, // assistant has no sender_id (transport user id)
+        null, // outgoing telegram message_id not available here
+        "assistant",
+        safeReply,
+        JSON.stringify(meta),
+        JSON.stringify({}), // no raw for assistant
+        1,
+      ]
+    );
+  } catch (e) {
+    console.error("❌ STAGE 7B.4 chat_messages assistant insert failed (fail-open):", e);
+  }
+
   // ✅ STAGE 7.2: save pair with globalUserId
   try {
     await saveChatPair(chatIdStr, effective, aiReply, {

@@ -304,6 +304,53 @@ export class MemoryDiagnosticsService {
       return "⚠️ /memory_backfill упал. Смотри логи Render.";
     }
   }
+
+  // ✅ NEW: show all chat_ids that contain memory rows for this global user
+  async memoryUserChats({ globalUserId } = {}) {
+    if (!globalUserId) return "⚠️ /memory_user_chats: globalUserId is NULL";
+
+    try {
+      const res = await this.db.query(
+        `
+        SELECT
+          chat_id,
+          COUNT(*)::int AS rows,
+          MIN(created_at) AS first_ts,
+          MAX(created_at) AS last_ts
+        FROM chat_memory
+        WHERE global_user_id = $1
+        GROUP BY chat_id
+        ORDER BY rows DESC, chat_id ASC
+        LIMIT 30
+        `,
+        [globalUserId]
+      );
+
+      const rows = res.rows || [];
+      const lines = [];
+      lines.push("🧪 MEMORY USER CHATS");
+      lines.push(`globalUserId: ${globalUserId}`);
+      lines.push(`distinct chat_id: ${rows.length}`);
+      lines.push("");
+      lines.push("Top chats (by rows):");
+      for (const r of rows) {
+        const first = r.first_ts ? new Date(r.first_ts).toISOString() : "—";
+        const last = r.last_ts ? new Date(r.last_ts).toISOString() : "—";
+        lines.push(`chat_id=${r.chat_id} | rows=${r.rows} | first=${first} | last=${last}`);
+      }
+
+      // Hint if there are more (we limited 30)
+      if (rows.length === 30) {
+        lines.push("");
+        lines.push("⚠️ limit=30 reached (may be more chat_id).");
+      }
+
+      return lines.join("\n").slice(0, 3800);
+    } catch (e) {
+      this.logger.error("❌ memoryUserChats error:", e);
+      return "⚠️ /memory_user_chats упал. Смотри логи Render.";
+    }
+  }
 }
 
 export default MemoryDiagnosticsService;

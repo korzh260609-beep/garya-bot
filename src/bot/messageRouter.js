@@ -286,28 +286,28 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
         const isDev = DEV_COMMANDS.has(cmdBase);
         const devAllowInGroup = cmdBase === "/chat_meta_debug";
 
-        if (isDev && (!isMonarchUser || (!isPrivate && !devAllowInGroup))) {
-          await bot.sendMessage(
-            chatId,
-            `⛔ DEV only.\ncmd=${cmdBase}\nchatType=${chatType}\nprivate=${isPrivate}\nmonarch=${isMonarchUser}\nfrom=${senderIdStr}`
-          );
+if (isDev && (!isMonarchUser || !isPrivate)) {
+  await bot.sendMessage(
+    chatId,
+    `⛔ DEV only.\ncmd=${cmdBase}\nchatType=${chatType}\nprivate=${isPrivate}\nmonarch=${isMonarchUser}\nfrom=${senderIdStr}`
+  );
 
-          try {
-            await behaviorEvents.logEvent({
-              globalUserId: accessPack?.user?.global_user_id || null,
-              chatId: chatIdStr,
-              eventType: "risk_warning_shown",
-              metadata: {
-                reason: "dev_only_command",
-                command: cmdBase,
-              },
-            });
-          } catch (e) {
-            console.error("behavior_events log failed:", e);
-          }
+  try {
+    await behaviorEvents.logEvent({
+      globalUserId: accessPack?.user?.global_user_id || null,
+      chatId: chatIdStr,
+      eventType: "risk_warning_shown",
+      metadata: {
+        reason: "dev_only_command",
+        command: cmdBase,
+      },
+    });
+  } catch (e) {
+    console.error("behavior_events log failed:", e);
+  }
 
-          return;
-        }
+  return;
+}
 
         // ✅ /memory_status
         if (cmdBase === "/memory_status") {

@@ -3,12 +3,10 @@
  * 016_chat_meta_skeleton
  *
  * Skeleton table for per-chat aggregates.
- * No triggers.
- * No logic.
- * Not used in code yet.
+ * ESM version.
  */
 
-exports.up = async function (pgm) {
+export const up = async (pgm) => {
   pgm.createTable("chat_meta", {
     id: {
       type: "bigserial",
@@ -25,7 +23,6 @@ exports.up = async function (pgm) {
       notNull: true,
     },
 
-    // aggregates (future use)
     message_count: {
       type: "integer",
       notNull: true,
@@ -34,12 +31,10 @@ exports.up = async function (pgm) {
 
     last_message_at: {
       type: "timestamptz",
-      notNull: false,
     },
 
     last_role: {
       type: "text",
-      notNull: false,
     },
 
     schema_version: {
@@ -61,13 +56,12 @@ exports.up = async function (pgm) {
     },
   });
 
-  // index for fast lookup per chat
   pgm.createIndex("chat_meta", ["transport", "chat_id"], {
     unique: true,
     name: "idx_chat_meta_transport_chat",
   });
 };
 
-exports.down = async function (pgm) {
+export const down = async (pgm) => {
   pgm.dropTable("chat_meta");
 };

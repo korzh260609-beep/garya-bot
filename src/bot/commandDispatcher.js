@@ -2,6 +2,7 @@
 // Central command dispatcher.
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
+import { handleChatMetaDebug } from "./handlers/chatMetaDebug.js";
 import { handleWebhookInfo } from "./handlers/webhookInfo.js";
 import { handleProjectStatus } from "./handlers/projectStatus.js";
 import { handlePrices } from "./handlers/prices.js";
@@ -391,6 +392,16 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
+          case "/chat_meta_debug": {
+      await handleChatMetaDebug({
+        bot,
+        chatId,
+        chatIdStr,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+      
     case "/webhook_info": {
       await handleWebhookInfo({ bot, chatId });
       return { handled: true };

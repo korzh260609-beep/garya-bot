@@ -67,6 +67,9 @@ import { getChatHistory, saveMessageToMemory, saveChatPair } from "./memory/memo
 // ✅ FIX: правильный путь (core находится в src/core)
 import { getMemoryService } from "../core/memoryServiceFactory.js";
 
+// ✅ STAGE 7: move memory diagnostics SQL out of router
+import MemoryDiagnosticsService from "../core/MemoryDiagnosticsService.js";
+
 // === USERS ===
 import { buildRequirePermOrReply } from "./permGuard.js";
 
@@ -142,6 +145,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
   bot.on("message", async (msg) => {
     try {
       const behaviorEvents = new BehaviorEventsService();
+      const memDiag = new MemoryDiagnosticsService({ db: pool });
 
       const chatId = msg.chat?.id;
       if (!chatId) return;
@@ -307,32 +311,8 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           const memory = getMemoryService();
           const status = await memory.status();
 
-          // ✅ STAGE 7.2: verify DB columns exist
-          let v2Cols = {
-            global_user_id: false,
-            transport: false,
-            metadata: false,
-            schema_version: false,
-          };
-
-          try {
-            const colRes = await pool.query(`
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = 'public'
-                  AND table_name = 'chat_memory'
-              `);
-
-            const cols = new Set((colRes.rows || []).map((r) => r.column_name));
-            v2Cols = {
-              global_user_id: cols.has("global_user_id"),
-              transport: cols.has("transport"),
-              metadata: cols.has("metadata"),
-              schema_version: cols.has("schema_version"),
-            };
-          } catch (e) {
-            console.error("❌ chat_memory columns check failed:", e);
-          }
+          // ✅ STAGE 7.2: verify DB columns exist (via service)
+          const v2Cols = await memDiag.getChatMemoryV2Columns();
 
           await bot.sendMessage(
             chatId,
@@ -366,223 +346,22 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           return;
         }
 
-        // ✅ TEMP: /memory_diag — check last rows + global_user_id presence
+        // ✅ TEMP: /memory_diag — check last rows + global_user_id presence (via service)
         if (cmdBase === "/memory_diag") {
           const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-
-          try {
-            const sumRes = await pool.query(
-              `
-              SELECT
-                COUNT(*)::int AS total,
-                SUM(CASE WHEN global_user_id IS NULL THEN 1 ELSE 0 END)::int AS null_global
-              FROM chat_memory
-              WHERE chat_id = $1
-              `,
-              [chatIdStr]
-            );
-
-            const total = sumRes.rows?.[0]?.total ?? 0;
-            const nullGlobal = sumRes.rows?.[0]?.null_global ?? 0;
-
-            let totalByGlobal = null;
-            if (globalUserId) {
-              const gRes = await pool.query(
-                `
-                SELECT COUNT(*)::int AS total
-                FROM chat_memory
-                WHERE global_user_id = $1
-                `,
-                [globalUserId]
-              );
-              totalByGlobal = gRes.rows?.[0]?.total ?? 0;
-            }
-
-            const lastRes = await pool.query(
-              `
-              SELECT
-                id,
-                chat_id,
-                global_user_id,
-                transport,
-                role,
-                schema_version,
-                created_at,
-                LEFT(content, 80) AS content_preview
-              FROM chat_memory
-              WHERE chat_id = $1
-              ORDER BY id DESC
-              LIMIT 8
-              `,
-              [chatIdStr]
-            );
-
-            const rows = lastRes.rows || [];
-
-            const lines = [];
-            lines.push("🧪 MEMORY DIAG");
-            lines.push(`chat_id: ${chatIdStr}`);
-            lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
-            lines.push(`rows for chat_id: ${total}`);
-            lines.push(`rows with global_user_id NULL: ${nullGlobal}`);
-            if (globalUserId) lines.push(`rows for global_user_id: ${totalByGlobal}`);
-            lines.push("");
-            lines.push("Last rows:");
-            for (const r of rows) {
-              const ts = r.created_at ? new Date(r.created_at).toISOString() : "—";
-              const preview = String(r.content_preview || "").replace(/\s+/g, " ").trim();
-              lines.push(
-                `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${r.role || "—"} | sv=${r.schema_version ?? "—"} | ${ts} | "${preview}"`
-              );
-            }
-
-            await bot.sendMessage(chatId, lines.join("\n").slice(0, 3800));
-          } catch (e) {
-            console.error("❌ /memory_diag error:", e);
-            await bot.sendMessage(chatId, "⚠️ /memory_diag упал. Смотри логи Render.");
-          }
-
+          const out = await memDiag.memoryDiag({ chatIdStr, globalUserId });
+          await bot.sendMessage(chatId, out);
           return;
         }
 
-        // ✅ STAGE 7.6: /memory_integrity — detect duplicates + pair anomalies by metadata.messageId
+        // ✅ STAGE 7.6: /memory_integrity — detect duplicates + pair anomalies (via service)
         if (cmdBase === "/memory_integrity") {
-          try {
-            // Summary: how many rows have numeric messageId
-            const sumRes = await pool.query(
-              `
-              WITH msgs AS (
-                SELECT
-                  (metadata->>'messageId') AS mid,
-                  role
-                FROM chat_memory
-                WHERE chat_id = $1
-                  AND metadata ? 'messageId'
-                  AND (metadata->>'messageId') ~ '^[0-9]+$'
-              )
-              SELECT
-                COUNT(*)::int AS total_rows_with_mid,
-                COUNT(DISTINCT mid)::int AS distinct_mid
-              FROM msgs
-              `,
-              [chatIdStr]
-            );
-
-            const totalRowsWithMid = sumRes.rows?.[0]?.total_rows_with_mid ?? 0;
-            const distinctMid = sumRes.rows?.[0]?.distinct_mid ?? 0;
-
-            // 1) Exact duplicates (same mid+role) more than 1
-            const dupRes = await pool.query(
-              `
-              SELECT
-                (metadata->>'messageId') AS mid,
-                role,
-                COUNT(*)::int AS cnt
-              FROM chat_memory
-              WHERE chat_id = $1
-                AND metadata ? 'messageId'
-                AND (metadata->>'messageId') ~ '^[0-9]+$'
-              GROUP BY 1,2
-              HAVING COUNT(*) > 1
-              ORDER BY cnt DESC, mid DESC
-              LIMIT 15
-              `,
-              [chatIdStr]
-            );
-
-            // 2) Pair anomalies (expected: exactly 2 rows per mid: 1 user + 1 assistant)
-            const anomRes = await pool.query(
-              `
-              WITH g AS (
-                SELECT
-                  (metadata->>'messageId') AS mid,
-                  SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)::int AS u,
-                  SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)::int AS a,
-                  COUNT(*)::int AS total
-                FROM chat_memory
-                WHERE chat_id = $1
-                  AND metadata ? 'messageId'
-                  AND (metadata->>'messageId') ~ '^[0-9]+$'
-                GROUP BY 1
-              )
-              SELECT mid, u, a, total
-              FROM g
-              WHERE NOT (u=1 AND a=1 AND total=2)
-              ORDER BY total DESC, mid DESC
-              LIMIT 15
-              `,
-              [chatIdStr]
-            );
-
-            // For top anomalies, show last row preview
-            const mids = (anomRes.rows || []).map((r) => r.mid).filter(Boolean);
-            let previewRows = [];
-            if (mids.length > 0) {
-              const prevRes = await pool.query(
-                `
-                SELECT
-                  (metadata->>'messageId') AS mid,
-                  id,
-                  role,
-                  created_at,
-                  LEFT(content, 70) AS content_preview
-                FROM chat_memory
-                WHERE chat_id = $1
-                  AND (metadata->>'messageId') = ANY($2::text[])
-                ORDER BY id DESC
-                LIMIT 20
-                `,
-                [chatIdStr, mids]
-              );
-              previewRows = prevRes.rows || [];
-            }
-
-            const lines = [];
-            lines.push("🧪 MEMORY INTEGRITY");
-            lines.push(`chat_id: ${chatIdStr}`);
-            lines.push(`rows_with_messageId: ${totalRowsWithMid}`);
-            lines.push(`distinct_messageId: ${distinctMid}`);
-            lines.push("");
-
-            lines.push("1) Duplicates (same messageId + role, cnt>1):");
-            if ((dupRes.rows || []).length === 0) {
-              lines.push("OK: none ✅");
-            } else {
-              for (const r of dupRes.rows) {
-                lines.push(`mid=${r.mid} | role=${r.role} | cnt=${r.cnt}`);
-              }
-            }
-            lines.push("");
-
-            lines.push("2) Pair anomalies (expected u=1 a=1 total=2):");
-            if ((anomRes.rows || []).length === 0) {
-              lines.push("OK: none ✅");
-            } else {
-              for (const r of anomRes.rows) {
-                lines.push(`mid=${r.mid} | u=${r.u} | a=${r.a} | total=${r.total}`);
-              }
-            }
-
-            if (previewRows.length > 0) {
-              lines.push("");
-              lines.push("Last anomaly rows (preview):");
-              for (const r of previewRows) {
-                const ts = r.created_at ? new Date(r.created_at).toISOString() : "—";
-                const preview = String(r.content_preview || "").replace(/\s+/g, " ").trim();
-                lines.push(`#${r.id} | mid=${r.mid} | role=${r.role} | ${ts} | "${preview}"`);
-              }
-            }
-
-            await bot.sendMessage(chatId, lines.join("\n").slice(0, 3800));
-          } catch (e) {
-            console.error("❌ /memory_integrity error:", e);
-            await bot.sendMessage(chatId, "⚠️ /memory_integrity упал. Смотри логи Render.");
-          }
-
+          const out = await memDiag.memoryIntegrity({ chatIdStr });
+          await bot.sendMessage(chatId, out);
           return;
         }
 
-        // ✅ STAGE 7.4: /memory_backfill — backfill old rows (global_user_id NULL) in safe batches
+        // ✅ STAGE 7.4: /memory_backfill — backfill old rows (via service)
         if (cmdBase === "/memory_backfill") {
           const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
 
@@ -590,63 +369,8 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           const rawN = Number(String(rest || "").trim() || "200");
           const limit = Number.isFinite(rawN) ? Math.max(1, Math.min(500, rawN)) : 200;
 
-          if (!globalUserId) {
-            await bot.sendMessage(chatId, "⚠️ globalUserId=NULL. Нечего бэкфиллить.");
-            return;
-          }
-
-          try {
-            // update only rows in this chat with NULL global_user_id, in batches by id
-            const updRes = await pool.query(
-              `
-              WITH to_upd AS (
-                SELECT id
-                FROM chat_memory
-                WHERE chat_id = $1
-                  AND global_user_id IS NULL
-                ORDER BY id ASC
-                LIMIT $3
-              )
-              UPDATE chat_memory cm
-              SET global_user_id = $2
-              WHERE cm.id IN (SELECT id FROM to_upd)
-              RETURNING cm.id
-              `,
-              [chatIdStr, globalUserId, limit]
-            );
-
-            const updated = updRes.rows?.length || 0;
-
-            const remainRes = await pool.query(
-              `
-              SELECT COUNT(*)::int AS remaining
-              FROM chat_memory
-              WHERE chat_id = $1
-                AND global_user_id IS NULL
-              `,
-              [chatIdStr]
-            );
-
-            const remaining = remainRes.rows?.[0]?.remaining ?? 0;
-
-            await bot.sendMessage(
-              chatId,
-              [
-                "🧠 MEMORY BACKFILL",
-                `chat_id: ${chatIdStr}`,
-                `globalUserId: ${globalUserId}`,
-                `updated_now: ${updated}`,
-                `remaining_null: ${remaining}`,
-                "",
-                "Run again if remaining_null > 0:",
-                "/memory_backfill 500",
-              ].join("\n")
-            );
-          } catch (e) {
-            console.error("❌ /memory_backfill error:", e);
-            await bot.sendMessage(chatId, "⚠️ /memory_backfill упал. Смотри логи Render.");
-          }
-
+          const out = await memDiag.memoryBackfill({ chatIdStr, globalUserId, limit });
+          await bot.sendMessage(chatId, out);
           return;
         }
 

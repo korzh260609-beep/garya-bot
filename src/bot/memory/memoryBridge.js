@@ -43,7 +43,7 @@ export async function saveMessageToMemory(chatId, role, content, opts = {}) {
       content: typeof content === "string" ? content : _toString(content),
       transport: opts?.transport || "telegram",
       metadata: opts?.metadata || {},
-      schemaVersion: opts?.schemaVersion || 1,
+      schemaVersion: opts?.schemaVersion || 2,
     });
   }
 
@@ -59,11 +59,10 @@ export async function saveChatPair(chatId, userText, assistantText, opts = {}) {
       chatId: chatIdStr,
       globalUserId: opts?.globalUserId || null,
       userText: typeof userText === "string" ? userText : _toString(userText),
-      assistantText:
-        typeof assistantText === "string" ? assistantText : _toString(assistantText),
+      assistantText: typeof assistantText === "string" ? assistantText : _toString(assistantText),
       transport: opts?.transport || "telegram",
       metadata: opts?.metadata || {},
-      schemaVersion: opts?.schemaVersion || 1,
+      schemaVersion: opts?.schemaVersion || 2,
     });
   }
 

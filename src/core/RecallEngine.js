@@ -13,11 +13,11 @@
 // - Must work even if global_user_id is null/missing
 // - Must not depend on Postgres extensions
 //
-// B) Date-aware recall (minimal):
-// - If user query contains "вчера/сегодня/позавчера/Х дней назад" (UA/RU/EN basic),
-//   apply created_at range filter.
-// - ⚠️ Timezone note: uses server-local Date() boundaries (Render/Node). If DB/user
-//   expects Kyiv boundaries, results may be off near midnight.
+// B) Date-aware recall (minimal + universal):
+// - Filter range is ALWAYS computed in UTC (stable, predictable).
+// - Display/log range is also shown in Europe/Kyiv for human readability.
+// - Supports: today/yesterday/day before yesterday, N days ago,
+//   and "last week / прошлой неделе / минулого тижня" (previous calendar week).
 
 function envTruthy(v) {
   if (v === true) return true;
@@ -39,35 +39,78 @@ function normalizeRole(role) {
   return r || "unknown";
 }
 
-function startOfLocalDay(d) {
+function startOfUTCDay(d) {
   const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
+  x.setUTCHours(0, 0, 0, 0);
   return x;
 }
 
-function addDays(d, days) {
+function addDaysUTC(d, days) {
   const x = new Date(d);
-  x.setDate(x.getDate() + Number(days || 0));
+  x.setUTCDate(x.getUTCDate() + Number(days || 0));
   return x;
 }
 
-function parseRelativeDayRange(query) {
+// ISO-like week start (Monday 00:00 UTC)
+function startOfUTCWeekMonday(d) {
+  const dayStart = startOfUTCDay(d);
+  const dow = dayStart.getUTCDay(); // 0=Sun..6=Sat
+  const delta = (dow + 6) % 7; // Mon->0, Tue->1, ... Sun->6
+  return addDaysUTC(dayStart, -delta);
+}
+
+function formatInKyiv(d) {
+  try {
+    const dt = d instanceof Date ? d : new Date(d);
+    // compact + timezone-aware (Kyiv has DST)
+    return new Intl.DateTimeFormat("uk-UA", {
+      timeZone: "Europe/Kyiv",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      timeZoneName: "short",
+    }).format(dt);
+  } catch (_) {
+    return null;
+  }
+}
+
+function parseRelativeDayRangeUTC(query) {
   try {
     const q = String(query || "").toLowerCase();
-
     const now = new Date();
+
+    // last week (previous calendar week)
+    // EN: "last week", RU: "на прошлой неделе", UA: "минулого тижня"
+    if (
+      /\blast\s+week\b/.test(q) ||
+      q.includes("прошлой неделе") ||
+      q.includes("на прошлой неделе") ||
+      q.includes("минулого тижня") ||
+      q.includes("минулiй тиждень") ||
+      q.includes("на минулому тижні")
+    ) {
+      const thisWeekStart = startOfUTCWeekMonday(now);
+      const from = addDaysUTC(thisWeekStart, -7);
+      const to = thisWeekStart;
+      return { from, to, hint: "last_week" };
+    }
 
     // today
     if (q.includes("сегодня") || q.includes("сьогодні") || /\btoday\b/.test(q)) {
-      const from = startOfLocalDay(now);
-      const to = startOfLocalDay(addDays(now, 1));
+      const from = startOfUTCDay(now);
+      const to = startOfUTCDay(addDaysUTC(now, 1));
       return { from, to, hint: "today" };
     }
 
     // yesterday
     if (q.includes("вчера") || q.includes("вчора") || /\byesterday\b/.test(q)) {
-      const from = startOfLocalDay(addDays(now, -1));
-      const to = startOfLocalDay(now);
+      const from = startOfUTCDay(addDaysUTC(now, -1));
+      const to = startOfUTCDay(now);
       return { from, to, hint: "yesterday" };
     }
 
@@ -77,8 +120,8 @@ function parseRelativeDayRange(query) {
       q.includes("позавчора") ||
       /\bday\s+before\s+yesterday\b/.test(q)
     ) {
-      const from = startOfLocalDay(addDays(now, -2));
-      const to = startOfLocalDay(addDays(now, -1));
+      const from = startOfUTCDay(addDaysUTC(now, -2));
+      const to = startOfUTCDay(addDaysUTC(now, -1));
       return { from, to, hint: "day_before_yesterday" };
     }
 
@@ -86,8 +129,8 @@ function parseRelativeDayRange(query) {
     let m = q.match(/\b(\d{1,2})\s*days?\s*ago\b/);
     if (m && m[1]) {
       const n = Math.max(0, Math.min(30, Number(m[1]))); // cap to avoid huge scans
-      const from = startOfLocalDay(addDays(now, -n));
-      const to = startOfLocalDay(addDays(now, -n + 1));
+      const from = startOfUTCDay(addDaysUTC(now, -n));
+      const to = startOfUTCDay(addDaysUTC(now, -n + 1));
       return { from, to, hint: `${n}_days_ago` };
     }
 
@@ -95,8 +138,8 @@ function parseRelativeDayRange(query) {
     m = q.match(/\b(\d{1,2})\s*(дн(ей|я)|дні|днів)\s*назад\b/);
     if (m && m[1]) {
       const n = Math.max(0, Math.min(30, Number(m[1])));
-      const from = startOfLocalDay(addDays(now, -n));
-      const to = startOfLocalDay(addDays(now, -n + 1));
+      const from = startOfUTCDay(addDaysUTC(now, -n));
+      const to = startOfUTCDay(addDaysUTC(now, -n + 1));
       return { from, to, hint: `${n}_days_ago` };
     }
 
@@ -124,8 +167,8 @@ export class RecallEngine {
 
       if (!chatIdStr) return "";
 
-      // B) optional date range from query
-      const range = parseRelativeDayRange(query);
+      // B) optional UTC date range from query (filter=UTC, display=Europe/Kyiv)
+      const range = parseRelativeDayRangeUTC(query);
       const useRange = Boolean(range && range.from && range.to);
 
       // 1) Primary scope: chat_id + global_user_id (if provided)
@@ -205,12 +248,15 @@ export class RecallEngine {
           chatId: chatIdStr,
           globalUserId: globalStr,
           rows: Array.isArray(rows) ? rows.length : 0,
-          q: String(query || "").slice(0, 60),
+          q: String(query || "").slice(0, 80),
           dateFilter: useRange
             ? {
                 hint: range?.hint || null,
-                from: range?.from ? new Date(range.from).toISOString() : null,
-                to: range?.to ? new Date(range.to).toISOString() : null,
+                from_utc: range?.from ? new Date(range.from).toISOString() : null,
+                to_utc: range?.to ? new Date(range.to).toISOString() : null,
+                from_kyiv: range?.from ? formatInKyiv(range.from) : null,
+                to_kyiv: range?.to ? formatInKyiv(range.to) : null,
+                tz_note: "filter=UTC, display=Europe/Kyiv",
               }
             : null,
         });

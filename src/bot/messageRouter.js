@@ -395,8 +395,6 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           return;
         }
 
-    const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-        
         if (cmdBase === "/pm_show") {
           await handlePmShow({
             bot,

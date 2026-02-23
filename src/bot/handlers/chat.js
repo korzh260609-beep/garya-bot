@@ -337,6 +337,19 @@ export async function handleChatMessage({
     console.error("❌ RecallEngine buildRecallContext failed (fail-open):", e);
   }
 
+  // ✅ DEBUG (STAGE 8A): prove recall is wired + non-empty
+  try {
+    console.log("🧠 RECALL DBG", {
+      enabled: process.env.RECALL_ENABLED,
+      hasRecallCtx: Boolean(recallCtx && recallCtx.trim()),
+      recallLen: recallCtx ? recallCtx.length : 0,
+      chatId: String(chatIdStr),
+      senderId: String(senderIdStr),
+      globalUserId: globalUserId ? String(globalUserId) : null,
+      q: String(effective || "").slice(0, 60),
+    });
+  } catch (_) {}
+
   // ==========================================================
   // STAGE 8B — ALREADY-SEEN DETECTOR (SKELETON)
   // - wiring only

@@ -99,7 +99,23 @@ export async function dispatchCommand(cmd, ctx) {
     ctx?.identityCtx?.chatType ||
     null;
 
-  const isPrivate = chatType === "private";
+  // Robust private detection:
+  // 1) chatType === "private"
+  // 2) Telegram private chat usually has chat.id === from.id (works even if chatType is missing)
+  // 3) identityCtx.isPrivateChat if provided by router
+  const fromId =
+    ctx?.msg?.from?.id ??
+    ctx?.message?.from?.id ??
+    ctx?.senderIdStr ??
+    "";
+
+  const effectiveChatIdStr = String(ctx?.chatIdStr ?? ctx?.chatId ?? chatId ?? "");
+  const effectiveFromIdStr = String(fromId ?? "");
+
+  const isPrivate =
+    chatType === "private" ||
+    (effectiveChatIdStr && effectiveFromIdStr && effectiveChatIdStr === effectiveFromIdStr) ||
+    ctx?.identityCtx?.isPrivateChat === true;
 
   const PRIVATE_ONLY_COMMANDS = new Set([
     "/build_info",
@@ -108,12 +124,6 @@ export async function dispatchCommand(cmd, ctx) {
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
-    const fromId =
-      ctx?.msg?.from?.id ??
-      ctx?.message?.from?.id ??
-      ctx?.senderIdStr ??
-      "";
-
     await bot.sendMessage(
       chatId,
       [

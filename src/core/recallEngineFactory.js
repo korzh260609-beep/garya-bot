@@ -5,7 +5,7 @@
 // If instance already exists, but opts provide missing deps (db/logger/config) — apply them.
 // This prevents a "db=null forever" bug when first call was made without opts.
 
-import RecallEngine from "./RecallEngine.js";
+import { RecallEngine } from "./RecallEngine.js";
 
 let _instance = null;
 

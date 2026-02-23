@@ -182,4 +182,3 @@ export default class RecallEngine {
     return items.map((x) => `- [${x.source}] ${x.content}`).join("\n");
   }
 }
-```0

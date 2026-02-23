@@ -178,7 +178,18 @@ export async function handleHealth({ bot, chatId }) {
     alreadySeenHits = "unknown";
   }
 
-  const alreadySeenCooldownSkips = 0;
+  // STAGE 8B.2 — cooldown skip metric (observability only)
+  let alreadySeenCooldownSkips = "unknown";
+  try {
+    const r = await pool.query(`
+      SELECT COUNT(*)::bigint AS cnt
+      FROM interaction_logs
+      WHERE task_type = 'already_seen_cooldown_skip'
+    `);
+    alreadySeenCooldownSkips = String(r?.rows?.[0]?.cnt ?? 0);
+  } catch (_) {
+    alreadySeenCooldownSkips = "unknown";
+  }
 
   // ------------------
   // 5.14 SCALING METRICS (wired safely)
@@ -272,7 +283,8 @@ export async function handleHealth({ bot, chatId }) {
   // - ADMIN_ALERTS_COOLDOWN_MIN=60 (default 60)
   // - MONARCH_USER_ID must be set (telegram user id)
   try {
-    const enabled = String(process.env.ADMIN_ALERTS_ENABLED || "true").trim().toLowerCase() !== "false";
+    const enabled =
+      String(process.env.ADMIN_ALERTS_ENABLED || "true").trim().toLowerCase() !== "false";
     const monarchId = String(process.env.MONARCH_USER_ID || "").trim();
     const cooldownMin = Math.max(1, Number(process.env.ADMIN_ALERTS_COOLDOWN_MIN || 60));
     const cooldownMs = cooldownMin * 60 * 1000;
@@ -281,7 +293,9 @@ export async function handleHealth({ bot, chatId }) {
     globalThis.__sgAdminAlertsState = globalThis.__sgAdminAlertsState || new Map();
     const state = globalThis.__sgAdminAlertsState;
 
-    const isWarn = typeof dbSizeWarning === "string" && (dbSizeWarning.startsWith("WARN") || dbSizeWarning.startsWith("CRITICAL"));
+    const isWarn =
+      typeof dbSizeWarning === "string" &&
+      (dbSizeWarning.startsWith("WARN") || dbSizeWarning.startsWith("CRITICAL"));
     if (enabled && monarchId && isWarn) {
       const key = `db_size_warning:${dbSizeWarning}`;
       const lastTs = Number(state.get(key) || 0);

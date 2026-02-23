@@ -3,6 +3,18 @@
 // 8B.1 — hit detection
 // 8B.2 — cooldown metric
 // 8B.3 — cooldown ENV support (no blocking yet)
+//
+// FIX: remove pgcrypto dependency (digest()) by hashing in Node (crypto sha256)
+
+import crypto from "crypto";
+
+function sha256Hex(text) {
+  try {
+    return crypto.createHash("sha256").update(String(text || ""), "utf8").digest("hex");
+  } catch (_) {
+    return "";
+  }
+}
 
 export default class AlreadySeenDetector {
   constructor(opts = {}) {
@@ -11,11 +23,7 @@ export default class AlreadySeenDetector {
   }
 
   getEnabled() {
-    return (
-      String(process.env.ALREADY_SEEN_ENABLED || "")
-        .trim()
-        .toLowerCase() === "true"
-    );
+    return String(process.env.ALREADY_SEEN_ENABLED || "").trim().toLowerCase() === "true";
   }
 
   getCooldownSec() {
@@ -49,6 +57,8 @@ export default class AlreadySeenDetector {
 
     try {
       const cooldownSec = this.getCooldownSec();
+      const textHash = sha256Hex(text);
+      if (!textHash) return false;
 
       const r = await this.db.query(
         `
@@ -56,10 +66,10 @@ export default class AlreadySeenDetector {
         FROM chat_messages
         WHERE chat_id = $1
           AND role = 'user'
-          AND text_hash = encode(digest($2, 'sha256'), 'hex')
+          AND text_hash = $2
           AND created_at >= NOW() - INTERVAL '5 minutes'
         `,
-        [chatId, text]
+        [String(chatId), textHash]
       );
 
       const cnt = r?.rows?.[0]?.cnt || 0;
@@ -93,7 +103,7 @@ export default class AlreadySeenDetector {
         return false;
       }
     } catch (e) {
-      this.logger.error("AlreadySeenDetector error:", e);
+      this.logger?.error?.("AlreadySeenDetector error:", e);
     }
 
     return false;

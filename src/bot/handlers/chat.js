@@ -5,6 +5,7 @@
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
+import { getRecallEngine } from "../../core/recallEngineFactory.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
 import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
 
@@ -16,7 +17,7 @@ export async function handleChatMessage({
   senderIdStr,
   trimmed,
   bypass,
-  MAX_HISTORY_MESSAGES,
+  MAX_HISTORY_MESSAGES = 20,
 
   // ✅ STAGE 7.2
   globalUserId = null,
@@ -304,8 +305,7 @@ export async function handleChatMessage({
     modeInstruction =
       "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
   } else if (answerMode === "long") {
-    modeInstruction =
-      "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
+    modeInstruction = "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
   }
 
   const currentUserName =
@@ -317,6 +317,25 @@ export async function handleChatMessage({
     currentUserName,
   });
 
+  // ==========================================================
+  // STAGE 8A — RECALL ENGINE (SKELETON)
+  // - wiring only
+  // - default disabled via RECALL_ENABLED
+  // - fail-open (must not break production)
+  // ==========================================================
+  let recallCtx = "";
+  try {
+    const recall = getRecallEngine({ db: pool, logger: console });
+    recallCtx = await recall.buildRecallContext({
+      chatId: chatIdStr,
+      globalUserId,
+      query: effective,
+      limit: 5,
+    });
+  } catch (e) {
+    console.error("❌ RecallEngine buildRecallContext failed (fail-open):", e);
+  }
+
   // ✅ FIX: role guard must use monarchNow (real identity), not bypass (router shortcut)
   const roleGuardPrompt = monarchNow
     ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."
@@ -324,10 +343,14 @@ export async function handleChatMessage({
 
   const messages = [
     { role: "system", content: systemPrompt },
+    recallCtx ? { role: "system", content: `RECALL CONTEXT:\n${recallCtx}` } : null,
     { role: "system", content: roleGuardPrompt },
     ...history,
     { role: "user", content: effective },
   ];
+
+  // Remove null entries (when recallCtx is empty)
+  const filtered = messages.filter(Boolean);
 
   let maxTokens = 350;
   let temperature = 0.6;
@@ -369,7 +392,7 @@ export async function handleChatMessage({
 
   let aiReply = "";
   try {
-    aiReply = await callAI(messages, classification.aiCostLevel, {
+    aiReply = await callAI(filtered, classification.aiCostLevel, {
       max_completion_tokens: maxTokens,
       temperature,
     });

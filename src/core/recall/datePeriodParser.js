@@ -1,10 +1,13 @@
 // src/core/recall/datePeriodParser.js
 // STAGE 8A.1 — Date/period parser (MVP, no external deps)
 // Purpose: parse user text into a recall time window.
-// Notes:
-// - Uses UTC day boundaries to avoid server-local timezone ambiguity.
-// - Keeps logic conservative: if unsure → returns type:"none".
+//
+// KYIV TIME CHANGE (requested):
+// - Day boundaries are computed in Europe/Kyiv timezone, then converted to UTC Date objects.
+// - Conservative parsing: if unsure → returns type:"none".
 // - Future steps will wire this into RecallEngine.recall().
+
+const DEFAULT_TZ = String(process.env.RECALL_TZ || "Europe/Kyiv").trim() || "Europe/Kyiv";
 
 function toInt(x) {
   const n = Number.parseInt(String(x), 10);
@@ -15,20 +18,87 @@ function pad2(n) {
   return String(n).padStart(2, "0");
 }
 
-// UTC day helpers
-function startOfUtcDay(d) {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
-}
-function endOfUtcDay(d) {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
-}
-function addUtcDays(d, days) {
-  const base = startOfUtcDay(d);
-  return new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+function getTzParts(date, timeZone) {
+  // Returns numeric parts as seen in the target timeZone
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  const parts = dtf.formatToParts(date);
+  const map = {};
+  for (const p of parts) {
+    if (p.type !== "literal") map[p.type] = p.value;
+  }
+
+  return {
+    year: toInt(map.year),
+    month: toInt(map.month),
+    day: toInt(map.day),
+    hour: toInt(map.hour),
+    minute: toInt(map.minute),
+    second: toInt(map.second),
+  };
 }
 
-function clampFutureToNowEnd(from, to, nowUtc = new Date()) {
-  const nowEnd = endOfUtcDay(nowUtc);
+function getTzOffsetMinutes(date, timeZone) {
+  // Offset = (zoned-as-UTC - actual-UTC) in minutes
+  const p = getTzParts(date, timeZone);
+  if (!p.year || !p.month || !p.day) return 0;
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour || 0, p.minute || 0, p.second || 0);
+  return (asUtc - date.getTime()) / 60000;
+}
+
+function zonedTimeToUtcDate({ year, month, day, hour, minute, second, ms = 0 }, timeZone) {
+  // 1-iteration conversion is enough for our use (midnight boundaries).
+  const guess = new Date(Date.UTC(year, month - 1, day, hour, minute, second, ms));
+  const offsetMin = getTzOffsetMinutes(guess, timeZone);
+  const corrected = new Date(guess.getTime() - offsetMin * 60000);
+  // Re-check once to stabilize around DST boundaries
+  const offset2 = getTzOffsetMinutes(corrected, timeZone);
+  if (offset2 !== offsetMin) {
+    return new Date(guess.getTime() - offset2 * 60000);
+  }
+  return corrected;
+}
+
+function startOfDayInTz(date, timeZone) {
+  const p = getTzParts(date, timeZone);
+  return zonedTimeToUtcDate(
+    { year: p.year, month: p.month, day: p.day, hour: 0, minute: 0, second: 0, ms: 0 },
+    timeZone
+  );
+}
+
+function endOfDayInTz(date, timeZone) {
+  const p = getTzParts(date, timeZone);
+  // 23:59:59.999 local
+  return zonedTimeToUtcDate(
+    { year: p.year, month: p.month, day: p.day, hour: 23, minute: 59, second: 59, ms: 999 },
+    timeZone
+  );
+}
+
+function addDaysInTz(date, days, timeZone) {
+  // Add days by moving via local day start to avoid DST pitfalls
+  const start = startOfDayInTz(date, timeZone);
+  const moved = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+  // Return a date that still points to the target local day (safe at noon local)
+  const p = getTzParts(moved, timeZone);
+  return zonedTimeToUtcDate(
+    { year: p.year, month: p.month, day: p.day, hour: 12, minute: 0, second: 0, ms: 0 },
+    timeZone
+  );
+}
+
+function clampFutureToNowEnd(from, to, nowUtc = new Date(), timeZone = DEFAULT_TZ) {
+  const nowEnd = endOfDayInTz(nowUtc, timeZone);
   const clampedTo = to > nowEnd ? nowEnd : to;
   const clampedFrom = from > nowEnd ? nowEnd : from;
   return { from: clampedFrom, to: clampedTo };
@@ -36,7 +106,7 @@ function clampFutureToNowEnd(from, to, nowUtc = new Date()) {
 
 function parseIsoDateYYYYMMDD(s) {
   // YYYY-MM-DD
-  const m = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  const m = String(s || "").match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
   if (!m) return null;
   const y = toInt(m[1]);
   const mo = toInt(m[2]);
@@ -44,16 +114,15 @@ function parseIsoDateYYYYMMDD(s) {
   if (!y || !mo || !d) return null;
   if (mo < 1 || mo > 12) return null;
   if (d < 1 || d > 31) return null;
-  // Create UTC date at noon to avoid DST edge cases when converting
+  // Create UTC date at noon to validate the calendar date
   const dt = new Date(Date.UTC(y, mo - 1, d, 12, 0, 0, 0));
-  // Validate roundtrip
   if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
   return dt;
 }
 
 function parseDotOrSlashDateDDMMYYYY(s) {
   // DD.MM.YYYY or DD/MM/YYYY
-  const m = s.match(/\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b/);
+  const m = String(s || "").match(/\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b/);
   if (!m) return null;
   const d = toInt(m[1]);
   const mo = toInt(m[2]);
@@ -77,12 +146,7 @@ function norm(text) {
     .trim();
 }
 
-function parseRelativeDay(textNorm, nowUtc) {
-  // UA/RU/EN
-  // today / сьогодні / сегодня
-  // yesterday / вчора / вчера
-  // day before yesterday / позавчора / позавчера
-  // last N days / past N days / за N днів / за N дней
+function parseRelativeDay(textNorm, nowUtc, timeZone) {
   if (!textNorm) return null;
 
   const todayRe = /\b(today|сегодня|сьогодні)\b/;
@@ -90,16 +154,16 @@ function parseRelativeDay(textNorm, nowUtc) {
   const beforeYesterdayRe = /\b(day before yesterday|позавчера|позавчора)\b/;
 
   if (beforeYesterdayRe.test(textNorm)) {
-    const d = addUtcDays(nowUtc, -2);
-    return { type: "day", from: startOfUtcDay(d), to: endOfUtcDay(d), confidence: 0.9 };
+    const d = addDaysInTz(nowUtc, -2, timeZone);
+    return { type: "day", from: startOfDayInTz(d, timeZone), to: endOfDayInTz(d, timeZone), confidence: 0.9 };
   }
   if (yesterdayRe.test(textNorm)) {
-    const d = addUtcDays(nowUtc, -1);
-    return { type: "day", from: startOfUtcDay(d), to: endOfUtcDay(d), confidence: 0.9 };
+    const d = addDaysInTz(nowUtc, -1, timeZone);
+    return { type: "day", from: startOfDayInTz(d, timeZone), to: endOfDayInTz(d, timeZone), confidence: 0.9 };
   }
   if (todayRe.test(textNorm)) {
-    const d = addUtcDays(nowUtc, 0);
-    return { type: "day", from: startOfUtcDay(d), to: endOfUtcDay(d), confidence: 0.9 };
+    const d = addDaysInTz(nowUtc, 0, timeZone);
+    return { type: "day", from: startOfDayInTz(d, timeZone), to: endOfDayInTz(d, timeZone), confidence: 0.9 };
   }
 
   // last/past N days (range)
@@ -109,14 +173,14 @@ function parseRelativeDay(textNorm, nowUtc) {
     textNorm.match(/\b(\d{1,3})\s*d\b/);
 
   if (lastDays) {
-    // pick the first numeric group found
     const n =
       toInt(lastDays[2]) ??
       toInt(lastDays[1]) ??
       toInt(lastDays[0]?.match(/(\d{1,3})/)?.[1]);
     if (n && n >= 1 && n <= 365) {
-      const to = endOfUtcDay(nowUtc);
-      const from = startOfUtcDay(addUtcDays(nowUtc, -(n - 1)));
+      const to = endOfDayInTz(nowUtc, timeZone);
+      const fromBase = addDaysInTz(nowUtc, -(n - 1), timeZone);
+      const from = startOfDayInTz(fromBase, timeZone);
       return { type: "range", from, to, confidence: 0.75 };
     }
   }
@@ -124,112 +188,100 @@ function parseRelativeDay(textNorm, nowUtc) {
   return null;
 }
 
-function parseExplicitRange(textNorm, nowUtc) {
-  // between X and Y / from X to Y
-  // з X по Y / c X по Y
-  // also supports "X - Y" where X and Y are dates
+function parseExplicitRange(textNorm, nowUtc, timeZone) {
   const raw = textNorm;
 
-  // 1) between ... and ...
+  // between ... and ...
   let m = raw.match(/\bbetween\s+(.+?)\s+and\s+(.+)\b/);
   if (m) {
     const d1 = findFirstDate(m[1]);
     const d2 = findFirstDate(m[2]);
     if (d1 && d2) {
-      const a = startOfUtcDay(d1);
-      const b = endOfUtcDay(d2);
-      const from = a <= b ? a : startOfUtcDay(d2);
-      const to = a <= b ? b : endOfUtcDay(d1);
-      return { type: "range", ...clampFutureToNowEnd(from, to, nowUtc), confidence: 0.85 };
+      const a = startOfDayInTz(d1, timeZone);
+      const b = endOfDayInTz(d2, timeZone);
+      const from = a <= b ? a : startOfDayInTz(d2, timeZone);
+      const to = a <= b ? b : endOfDayInTz(d1, timeZone);
+      return { type: "range", ...clampFutureToNowEnd(from, to, nowUtc, timeZone), confidence: 0.85 };
     }
   }
 
-  // 2) from ... to ...
+  // from ... to ...
   m = raw.match(/\bfrom\s+(.+?)\s+to\s+(.+)\b/);
   if (m) {
     const d1 = findFirstDate(m[1]);
     const d2 = findFirstDate(m[2]);
     if (d1 && d2) {
-      const a = startOfUtcDay(d1);
-      const b = endOfUtcDay(d2);
-      const from = a <= b ? a : startOfUtcDay(d2);
-      const to = a <= b ? b : endOfUtcDay(d1);
-      return { type: "range", ...clampFutureToNowEnd(from, to, nowUtc), confidence: 0.85 };
+      const a = startOfDayInTz(d1, timeZone);
+      const b = endOfDayInTz(d2, timeZone);
+      const from = a <= b ? a : startOfDayInTz(d2, timeZone);
+      const to = a <= b ? b : endOfDayInTz(d1, timeZone);
+      return { type: "range", ...clampFutureToNowEnd(from, to, nowUtc, timeZone), confidence: 0.85 };
     }
   }
 
-  // 3) з ... по ...  / c ... по ...
+  // з ... по ... / c ... по ...
   m = raw.match(/\b(з|с)\s+(.+?)\s+по\s+(.+)\b/);
   if (m) {
     const d1 = findFirstDate(m[2]);
     const d2 = findFirstDate(m[3]);
     if (d1 && d2) {
-      const a = startOfUtcDay(d1);
-      const b = endOfUtcDay(d2);
-      const from = a <= b ? a : startOfUtcDay(d2);
-      const to = a <= b ? b : endOfUtcDay(d1);
-      return { type: "range", ...clampFutureToNowEnd(from, to, nowUtc), confidence: 0.85 };
+      const a = startOfDayInTz(d1, timeZone);
+      const b = endOfDayInTz(d2, timeZone);
+      const from = a <= b ? a : startOfDayInTz(d2, timeZone);
+      const to = a <= b ? b : endOfDayInTz(d1, timeZone);
+      return { type: "range", ...clampFutureToNowEnd(from, to, nowUtc, timeZone), confidence: 0.85 };
     }
   }
 
-  // 4) "YYYY-MM-DD - YYYY-MM-DD" or "DD.MM.YYYY - DD.MM.YYYY"
-  m = raw.match(/(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{4})\s*[-–—]\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{4})/);
+  // "date - date"
+  m = raw.match(
+    /(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{4})\s*[-–—]\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{4})/
+  );
   if (m) {
     const d1 = findFirstDate(m[1]);
     const d2 = findFirstDate(m[2]);
     if (d1 && d2) {
-      const a = startOfUtcDay(d1);
-      const b = endOfUtcDay(d2);
-      const from = a <= b ? a : startOfUtcDay(d2);
-      const to = a <= b ? b : endOfUtcDay(d1);
-      return { type: "range", ...clampFutureToNowEnd(from, to, nowUtc), confidence: 0.8 };
+      const a = startOfDayInTz(d1, timeZone);
+      const b = endOfDayInTz(d2, timeZone);
+      const from = a <= b ? a : startOfDayInTz(d2, timeZone);
+      const to = a <= b ? b : endOfDayInTz(d1, timeZone);
+      return { type: "range", ...clampFutureToNowEnd(from, to, nowUtc, timeZone), confidence: 0.8 };
     }
   }
 
   return null;
 }
 
-function parseSingleDate(textNorm, nowUtc) {
+function parseSingleDate(textNorm, nowUtc, timeZone) {
   const d = findFirstDate(textNorm);
   if (!d) return null;
-  const from = startOfUtcDay(d);
-  const to = endOfUtcDay(d);
-  return { type: "day", ...clampFutureToNowEnd(from, to, nowUtc), confidence: 0.8 };
+  const from = startOfDayInTz(d, timeZone);
+  const to = endOfDayInTz(d, timeZone);
+  return { type: "day", ...clampFutureToNowEnd(from, to, nowUtc, timeZone), confidence: 0.8 };
 }
 
 /**
  * Parse a recall date/period intent from free text.
  *
- * @returns {{
- *   type: "none"|"day"|"range",
- *   from?: Date,
- *   to?: Date,
- *   confidence: number,
- *   normalized?: { fromIso: string, toIso: string },
- *   note?: string
- * }}
+ * Returns UTC Date objects that correspond to Kyiv-local day boundaries.
  */
-export function parseDatePeriod(text, nowUtc = new Date()) {
+export function parseDatePeriod(text, nowUtc = new Date(), timeZone = DEFAULT_TZ) {
   const t = norm(text);
 
   if (!t) return { type: "none", confidence: 0.0 };
 
-  // 1) explicit ranges first (strong intent)
-  const rng = parseExplicitRange(t, nowUtc);
+  const rng = parseExplicitRange(t, nowUtc, timeZone);
   if (rng) {
     return {
       ...rng,
       normalized: {
-        fromIso: `${rng.from.getUTCFullYear()}-${pad2(rng.from.getUTCMonth() + 1)}-${pad2(
-          rng.from.getUTCDate()
-        )}`,
+        fromIso: `${rng.from.getUTCFullYear()}-${pad2(rng.from.getUTCMonth() + 1)}-${pad2(rng.from.getUTCDate())}`,
         toIso: `${rng.to.getUTCFullYear()}-${pad2(rng.to.getUTCMonth() + 1)}-${pad2(rng.to.getUTCDate())}`,
       },
     };
   }
 
-  // 2) relative days / last N days
-  const rel = parseRelativeDay(t, nowUtc);
+  const rel = parseRelativeDay(t, nowUtc, timeZone);
   if (rel) {
     return {
       ...rel,
@@ -240,8 +292,7 @@ export function parseDatePeriod(text, nowUtc = new Date()) {
     };
   }
 
-  // 3) single date
-  const one = parseSingleDate(t, nowUtc);
+  const one = parseSingleDate(t, nowUtc, timeZone);
   if (one) {
     return {
       ...one,

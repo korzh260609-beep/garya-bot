@@ -3,6 +3,10 @@
 // Goal: structure + interface + safe wiring points (does nothing when disabled)
 //
 // STAGE 8A.2 — Recall by date/period (Kyiv day boundaries via parseDatePeriod)
+//
+// PATCH (Stage 8): fallback to chat_memory when chat_messages returns 0 rows
+// - NEVER blind-fallback by chat_id in groups (requires global_user_id)
+// - fail-open: any error => empty recall
 
 import { parseDatePeriod } from "./recall/datePeriodParser.js";
 
@@ -29,7 +33,10 @@ export default class RecallEngine {
   }
 
   /**
-   * MVP recall (8A.2): if query contains date/period — fetch messages from chat_messages within window.
+   * MVP recall (8A.2): if query contains date/period — fetch messages within window.
+   * Primary source: chat_messages
+   * Fallback: chat_memory (only when global_user_id exists; no blind group mixing)
+   *
    * @returns {Promise<Array<{source:string, content:string, meta?:object}>>}
    */
   async recall({ chatId, globalUserId, query, limit = 5 } = {}) {
@@ -58,11 +65,15 @@ export default class RecallEngine {
     const from = period.from;
     const to = period.to;
 
-    // MVP: fetch latest messages in window
-    // - content comes from chat_messages redacted storage (Stage 7B.10)
-    // - fail-open on any DB error
+    const useGlobal =
+      globalUserId !== null &&
+      globalUserId !== undefined &&
+      String(globalUserId).trim() !== "";
+
+    // =========================
+    // 1) Primary: chat_messages
+    // =========================
     try {
-      const useGlobal = globalUserId !== null && globalUserId !== undefined && String(globalUserId).trim() !== "";
       const params = useGlobal
         ? [chatIdStr, String(globalUserId), from.toISOString(), to.toISOString(), hardLimit]
         : [chatIdStr, from.toISOString(), to.toISOString(), hardLimit];
@@ -91,8 +102,56 @@ export default class RecallEngine {
       const r = await this.db.query(sql, params);
       const rows = Array.isArray(r?.rows) ? r.rows : [];
 
-      return rows.map((x) => ({
-        source: "chat_messages",
+      if (rows.length > 0) {
+        return rows.map((x) => ({
+          source: "chat_messages",
+          content: safeTruncate(x?.content || "", 600),
+          meta: {
+            role: x?.role || null,
+            created_at: x?.created_at || null,
+            window: {
+              type: period.type,
+              from: from.toISOString(),
+              to: to.toISOString(),
+              tz: String(process.env.RECALL_TZ || "Europe/Kyiv"),
+            },
+            confidence: typeof period.confidence === "number" ? period.confidence : null,
+          },
+        }));
+      }
+    } catch (e) {
+      this.logger?.error?.("❌ RecallEngine chat_messages query failed (fail-open):", e);
+      // continue to fallback
+    }
+
+    // ==========================================
+    // 2) Fallback: chat_memory (historical store)
+    // ==========================================
+    // IMPORTANT:
+    // - In groups: NEVER do blind fallback by chat_id only.
+    // - So if no globalUserId -> return [] (fail-open).
+    if (!useGlobal) return [];
+
+    try {
+      const params2 = [chatIdStr, String(globalUserId), from.toISOString(), to.toISOString(), hardLimit];
+
+      // chat_memory schema (v2) is assumed: chat_id, global_user_id, role, content, created_at
+      const sql2 = `
+        SELECT role, content, created_at
+        FROM chat_memory
+        WHERE chat_id = $1
+          AND global_user_id = $2
+          AND created_at >= $3::timestamptz
+          AND created_at <= $4::timestamptz
+        ORDER BY created_at DESC
+        LIMIT $5
+      `;
+
+      const r2 = await this.db.query(sql2, params2);
+      const rows2 = Array.isArray(r2?.rows) ? r2.rows : [];
+
+      return rows2.map((x) => ({
+        source: "chat_memory",
         content: safeTruncate(x?.content || "", 600),
         meta: {
           role: x?.role || null,
@@ -107,7 +166,7 @@ export default class RecallEngine {
         },
       }));
     } catch (e) {
-      this.logger?.error?.("❌ RecallEngine recall DB failed (fail-open):", e);
+      this.logger?.error?.("❌ RecallEngine chat_memory fallback failed (fail-open):", e);
       return [];
     }
   }
@@ -123,3 +182,4 @@ export default class RecallEngine {
     return items.map((x) => `- [${x.source}] ${x.content}`).join("\n");
   }
 }
+```0

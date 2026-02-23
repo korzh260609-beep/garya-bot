@@ -400,7 +400,17 @@ export async function handleChatMessage({
 
   const messages = [
     { role: "system", content: systemPrompt },
-    recallCtx ? { role: "system", content: `RECALL CONTEXT:\n${recallCtx}` } : null,
+    recallCtx
+      ? {
+          role: "system",
+          content:
+            `RECALL CONTEXT (используй как историю чата):\n${recallCtx}\n\n` +
+            `ПРАВИЛО: если пользователь спрашивает "что мы обсуждали вчера/раньше" — ` +
+            `отвечай, опираясь на RECALL CONTEXT. ` +
+            `Не говори "история не сохраняется". ` +
+            `Если точной даты/вчера нет — скажи честно: "вижу только последние сообщения", и перечисли их.`,
+        }
+      : null,
     { role: "system", content: roleGuardPrompt },
     ...history,
     { role: "user", content: effective },

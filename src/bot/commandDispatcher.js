@@ -92,9 +92,11 @@ export async function dispatchCommand(cmd, ctx) {
   // ==========================
   // NOTE: We intentionally block these commands in non-private chats
   // even for monarch, to avoid leaking sensitive debug/runtime info in groups.
+  //
+  // ✅ CHANGE: stop relying on ctx.msg / ctx.message here.
+  // Router now passes: chatType, isPrivateChat, identityCtx, senderIdStr, chatIdStr.
   const chatType =
-    ctx?.msg?.chat?.type ||
-    ctx?.message?.chat?.type ||
+    ctx?.chatType ||
     ctx?.identityCtx?.chat_type ||
     ctx?.identityCtx?.chatType ||
     null;
@@ -102,20 +104,17 @@ export async function dispatchCommand(cmd, ctx) {
   // Robust private detection:
   // 1) chatType === "private"
   // 2) Telegram private chat usually has chat.id === from.id (works even if chatType is missing)
-  // 3) identityCtx.isPrivateChat if provided by router
-  const fromId =
-    ctx?.msg?.from?.id ??
-    ctx?.message?.from?.id ??
-    ctx?.senderIdStr ??
-    "";
+  // 3) ctx.isPrivateChat (explicit) or identityCtx.isPrivateChat if provided by router
+  const fromId = ctx?.senderIdStr ?? "";
 
   const effectiveChatIdStr = String(ctx?.chatIdStr ?? ctx?.chatId ?? chatId ?? "");
   const effectiveFromIdStr = String(fromId ?? "");
 
   const isPrivate =
+    ctx?.isPrivateChat === true ||
+    ctx?.identityCtx?.isPrivateChat === true ||
     chatType === "private" ||
-    (effectiveChatIdStr && effectiveFromIdStr && effectiveChatIdStr === effectiveFromIdStr) ||
-    ctx?.identityCtx?.isPrivateChat === true;
+    (effectiveChatIdStr && effectiveFromIdStr && effectiveChatIdStr === effectiveFromIdStr);
 
   const PRIVATE_ONLY_COMMANDS = new Set([
     "/build_info",

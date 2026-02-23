@@ -287,8 +287,8 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
         ]);
 
         const isDev = DEV_COMMANDS.has(cmdBase);
-        // ✅ Only this dev command is allowed in groups (monarch-only)
-        const devAllowInGroup = cmdBase === "/chat_meta_debug";
+        // ✅ No DEV commands allowed in groups. Single policy point: commandDispatcher.js (PRIVATE-only).
+        const devAllowInGroup = false;
 
         if (isDev && (!isMonarchUser || (!isPrivate && !devAllowInGroup))) {
           await bot.sendMessage(

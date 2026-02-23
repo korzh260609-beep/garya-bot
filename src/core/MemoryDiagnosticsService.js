@@ -106,7 +106,9 @@ export class MemoryDiagnosticsService {
         const ts = r.created_at ? new Date(r.created_at).toISOString() : "—";
         const preview = String(r.content_preview || "").replace(/\s+/g, " ").trim();
         lines.push(
-          `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${r.role || "—"} | sv=${r.schema_version ?? "—"} | ${ts} | "${preview}"`
+          `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${r.role || "—"} | sv=${
+            r.schema_version ?? "—"
+          } | ${ts} | "${preview}"`
         );
       }
 
@@ -349,6 +351,88 @@ export class MemoryDiagnosticsService {
     } catch (e) {
       this.logger.error("❌ memoryUserChats error:", e);
       return "⚠️ /memory_user_chats упал. Смотри логи Render.";
+    }
+  }
+
+  // ========================================================================
+  // STAGE 7.6 — ROBOT mock-monitor (skeleton)
+  // Minimal, no AI, no side-effects. Future: scheduled runner.
+  // ========================================================================
+  async robotMockMonitor({ chatIdStr, globalUserId = null } = {}) {
+    if (!chatIdStr) return "⚠️ robotMockMonitor: missing chatId";
+
+    try {
+      const sumRes = await this.db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total,
+          SUM(CASE WHEN global_user_id IS NULL THEN 1 ELSE 0 END)::int AS null_global
+        FROM chat_memory
+        WHERE chat_id = $1
+        `,
+        [chatIdStr]
+      );
+
+      const total = sumRes.rows?.[0]?.total ?? 0;
+      const nullGlobal = sumRes.rows?.[0]?.null_global ?? 0;
+
+      const dupRes = await this.db.query(
+        `
+        SELECT COUNT(*)::int AS dup_groups
+        FROM (
+          SELECT (metadata->>'messageId') AS mid, role, COUNT(*)::int AS cnt
+          FROM chat_memory
+          WHERE chat_id = $1
+            AND metadata ? 'messageId'
+            AND (metadata->>'messageId') ~ '^[0-9]+$'
+          GROUP BY 1,2
+          HAVING COUNT(*) > 1
+        ) x
+        `,
+        [chatIdStr]
+      );
+
+      const dupGroups = dupRes.rows?.[0]?.dup_groups ?? 0;
+
+      const anomRes = await this.db.query(
+        `
+        SELECT COUNT(*)::int AS anom_mids
+        FROM (
+          SELECT
+            (metadata->>'messageId') AS mid,
+            SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)::int AS u,
+            SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)::int AS a,
+            COUNT(*)::int AS total
+          FROM chat_memory
+          WHERE chat_id = $1
+            AND metadata ? 'messageId'
+            AND (metadata->>'messageId') ~ '^[0-9]+$'
+          GROUP BY 1
+          HAVING NOT (SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)=1
+                  AND SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)=1
+                  AND COUNT(*)=2)
+        ) y
+        `,
+        [chatIdStr]
+      );
+
+      const anomMids = anomRes.rows?.[0]?.anom_mids ?? 0;
+
+      const ok = dupGroups === 0 && anomMids === 0;
+
+      return [
+        "🤖 MEMORY ROBOT (mock-monitor)",
+        `chat_id: ${chatIdStr}`,
+        `globalUserId: ${globalUserId || "NULL"}`,
+        `rows_total: ${total}`,
+        `null_global_user_id: ${nullGlobal}`,
+        `dup_groups(mid+role): ${dupGroups}`,
+        `anom_mids(pairing): ${anomMids}`,
+        `ok: ${ok ? "YES ✅" : "NO ⛔"}`,
+      ].join("\n");
+    } catch (e) {
+      this.logger.error("❌ robotMockMonitor error:", e);
+      return "⚠️ robotMockMonitor упал. Смотри логи Render.";
     }
   }
 }

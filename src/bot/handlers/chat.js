@@ -6,6 +6,7 @@
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
 import { getRecallEngine } from "../../core/recallEngineFactory.js";
+import { getAlreadySeenDetector } from "../../core/alreadySeenFactory.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
 import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
 
@@ -334,6 +335,24 @@ export async function handleChatMessage({
     });
   } catch (e) {
     console.error("❌ RecallEngine buildRecallContext failed (fail-open):", e);
+  }
+
+  // ==========================================================
+  // STAGE 8B — ALREADY-SEEN DETECTOR (SKELETON)
+  // - wiring only
+  // - fail-open
+  // - no blocking logic in 8B
+  // ==========================================================
+  try {
+    const alreadySeen = getAlreadySeenDetector({ db: pool, logger: console });
+
+    await alreadySeen.check({
+      chatId: chatIdStr,
+      globalUserId,
+      text: effective,
+    });
+  } catch (e) {
+    console.error("❌ AlreadySeenDetector check failed (fail-open):", e);
   }
 
   // ✅ FIX: role guard must use monarchNow (real identity), not bypass (router shortcut)

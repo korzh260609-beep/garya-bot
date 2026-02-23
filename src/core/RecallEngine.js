@@ -12,6 +12,12 @@
 // - Must never crash prod (fail-open => return "")
 // - Must work even if global_user_id is null/missing
 // - Must not depend on Postgres extensions
+//
+// B) Date-aware recall (minimal):
+// - If user query contains "вчера/сегодня/позавчера/Х дней назад" (UA/RU/EN basic),
+//   apply created_at range filter.
+// - ⚠️ Timezone note: uses server-local Date() boundaries (Render/Node). If DB/user
+//   expects Kyiv boundaries, results may be off near midnight.
 
 function envTruthy(v) {
   if (v === true) return true;
@@ -33,6 +39,73 @@ function normalizeRole(role) {
   return r || "unknown";
 }
 
+function startOfLocalDay(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function addDays(d, days) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + Number(days || 0));
+  return x;
+}
+
+function parseRelativeDayRange(query) {
+  try {
+    const q = String(query || "").toLowerCase();
+
+    const now = new Date();
+
+    // today
+    if (q.includes("сегодня") || q.includes("сьогодні") || /\btoday\b/.test(q)) {
+      const from = startOfLocalDay(now);
+      const to = startOfLocalDay(addDays(now, 1));
+      return { from, to, hint: "today" };
+    }
+
+    // yesterday
+    if (q.includes("вчера") || q.includes("вчора") || /\byesterday\b/.test(q)) {
+      const from = startOfLocalDay(addDays(now, -1));
+      const to = startOfLocalDay(now);
+      return { from, to, hint: "yesterday" };
+    }
+
+    // day before yesterday
+    if (
+      q.includes("позавчера") ||
+      q.includes("позавчора") ||
+      /\bday\s+before\s+yesterday\b/.test(q)
+    ) {
+      const from = startOfLocalDay(addDays(now, -2));
+      const to = startOfLocalDay(addDays(now, -1));
+      return { from, to, hint: "day_before_yesterday" };
+    }
+
+    // "N days ago" (EN)
+    let m = q.match(/\b(\d{1,2})\s*days?\s*ago\b/);
+    if (m && m[1]) {
+      const n = Math.max(0, Math.min(30, Number(m[1]))); // cap to avoid huge scans
+      const from = startOfLocalDay(addDays(now, -n));
+      const to = startOfLocalDay(addDays(now, -n + 1));
+      return { from, to, hint: `${n}_days_ago` };
+    }
+
+    // "N дней назад" (RU/UA)
+    m = q.match(/\b(\d{1,2})\s*(дн(ей|я)|дні|днів)\s*назад\b/);
+    if (m && m[1]) {
+      const n = Math.max(0, Math.min(30, Number(m[1])));
+      const from = startOfLocalDay(addDays(now, -n));
+      const to = startOfLocalDay(addDays(now, -n + 1));
+      return { from, to, hint: `${n}_days_ago` };
+    }
+
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
 export class RecallEngine {
   constructor({ db, logger }) {
     this.db = db;
@@ -51,22 +124,36 @@ export class RecallEngine {
 
       if (!chatIdStr) return "";
 
+      // B) optional date range from query
+      const range = parseRelativeDayRange(query);
+      const useRange = Boolean(range && range.from && range.to);
+
       // 1) Primary scope: chat_id + global_user_id (if provided)
       let rows = [];
       let scope = "chat_only";
 
       if (globalStr) {
         try {
-          const r1 = await this.db.query(
-            `
+          const params = [chatIdStr, globalStr];
+          let sql = `
             SELECT role, content, created_at
             FROM chat_memory
             WHERE chat_id = $1 AND global_user_id = $2
+          `;
+
+          if (useRange) {
+            params.push(range.from);
+            params.push(range.to);
+            sql += ` AND created_at >= $3 AND created_at < $4`;
+          }
+
+          params.push(lim * 6);
+          sql += `
             ORDER BY created_at DESC
-            LIMIT $3
-            `,
-            [chatIdStr, globalStr, lim * 6] // take more to form turns
-          );
+            LIMIT $${params.length}
+          `;
+
+          const r1 = await this.db.query(sql, params);
           rows = r1?.rows || [];
           scope = "chat+global";
         } catch (e) {
@@ -81,16 +168,26 @@ export class RecallEngine {
       // 2) Fallback: chat_id only
       if (!rows || rows.length === 0) {
         try {
-          const r2 = await this.db.query(
-            `
+          const params = [chatIdStr];
+          let sql = `
             SELECT role, content, created_at
             FROM chat_memory
             WHERE chat_id = $1
+          `;
+
+          if (useRange) {
+            params.push(range.from);
+            params.push(range.to);
+            sql += ` AND created_at >= $2 AND created_at < $3`;
+          }
+
+          params.push(lim * 6);
+          sql += `
             ORDER BY created_at DESC
-            LIMIT $2
-            `,
-            [chatIdStr, lim * 6]
-          );
+            LIMIT $${params.length}
+          `;
+
+          const r2 = await this.db.query(sql, params);
           rows = r2?.rows || [];
           scope = "chat_only";
         } catch (e) {
@@ -109,6 +206,13 @@ export class RecallEngine {
           globalUserId: globalStr,
           rows: Array.isArray(rows) ? rows.length : 0,
           q: String(query || "").slice(0, 60),
+          dateFilter: useRange
+            ? {
+                hint: range?.hint || null,
+                from: range?.from ? new Date(range.from).toISOString() : null,
+                to: range?.to ? new Date(range.to).toISOString() : null,
+              }
+            : null,
         });
       } catch (_) {}
 
@@ -134,8 +238,6 @@ export class RecallEngine {
 
       if (lines.length === 0) return "";
 
-      // Extra hint: if user asks "что мы обсуждали вчера" but no dated memory exists,
-      // recall will still show last turns; the model can answer based on that context.
       const header = `Последние сообщения (контекст памяти):`;
       return [header, ...lines].join("\n");
     } catch (e) {

@@ -293,7 +293,17 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
         if (isDev && (!isMonarchUser || (!isPrivate && !devAllowInGroup))) {
           await bot.sendMessage(
             chatId,
-            `⛔ DEV only.\ncmd=${cmdBase}\nchatType=${chatType}\nprivate=${isPrivate}\nmonarch=${isMonarchUser}\nfrom=${senderIdStr}`
+            [
+              "⛔ DEV only.",
+              `cmd=${cmdBase}`,
+              `chatType=${chatType}`,
+              `private=${isPrivate}`,
+              `monarch=${isMonarchUser}`,
+              `chatId=${chatIdStr}`,
+              `from=${senderIdStr}`,
+              `rawChatType=${String(msg.chat?.type || "")}`,
+              `chatIdEqFrom=${chatIdStr === senderIdStr}`,
+            ].join("\n")
           );
 
           try {

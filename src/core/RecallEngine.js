@@ -1,288 +1,149 @@
 // src/core/RecallEngine.js
-// STAGE 8A — RECALL ENGINE (MVP SKELETON, no embeddings)
+// STAGE 8A — Recall Engine (safe, fail-open)
 //
-// STAGE 8A.2 — Recall by date/period (Kyiv day boundaries via parseDatePeriod)
+// Goal: build short recall context from DB history (NO AI, NO embeddings).
+// Strategy:
+// 1) If RECALL_ENABLED truthy => try fetch recent messages from chat_memory
+// 2) Prefer scope: (chat_id + global_user_id)
+// 3) Fallback scope: (chat_id only) if no rows found
+// 4) Return compact text block (last N turns), else "".
 //
-// Robust fallback for legacy chat_memory schema + schema probe logging
-// - Primary: chat_messages (prefer global_user_id when present)
-// - Fallback: chat_memory
-//    * Group: ONLY with global_user_id (never chat_id-only)
-//    * DM: allow chat_id-only fallback only if chat_memory has no global_user_id column
-// - fail-open: any error => empty recall
-// - DIAG: logs schema once: "✅ RecallEngine schema detected: {...}"
+// IMPORTANT:
+// - Must never crash prod (fail-open => return "")
+// - Must work even if global_user_id is null/missing
+// - Must not depend on Postgres extensions
 
-import { parseDatePeriod } from "./recall/datePeriodParser.js";
-
-function safeTruncate(s, max = 600) {
-  const t = typeof s === "string" ? s : "";
-  if (t.length <= max) return t;
-  return t.slice(0, max) + "…";
+function envTruthy(v) {
+  if (v === true) return true;
+  const s = String(v ?? "").trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes" || s === "on";
 }
 
-function isTelegramGroupChatId(chatIdStr) {
-  // Telegram: group/supergroup ids are negative numbers
-  return /^-\d+$/.test(String(chatIdStr || "").trim());
+function safeTrim(s, max = 400) {
+  const t = String(s ?? "").trim();
+  if (!t) return "";
+  return t.length > max ? t.slice(0, max) + "…" : t;
 }
 
-export default class RecallEngine {
-  constructor(opts = {}) {
-    this.db = opts.db || null;
-    this.logger = opts.logger || console;
-    this.config = opts.config || {};
-    this._schema = null; // lazy cache
+function normalizeRole(role) {
+  const r = String(role ?? "").toLowerCase();
+  if (r === "user") return "user";
+  if (r === "assistant") return "assistant";
+  if (r === "system") return "system";
+  return r || "unknown";
+}
+
+export class RecallEngine {
+  constructor({ db, logger }) {
+    this.db = db;
+    this.logger = logger || console;
   }
 
-  status() {
-    const enabled = String(process.env.RECALL_ENABLED || "").trim().toLowerCase() === "true";
-    return {
-      enabled,
-      mode: "8A.2",
-      hasDb: Boolean(this.db),
-    };
-  }
-
-  async _loadSchemaOnce() {
-    if (this._schema) return this._schema;
-
-    const schema = {
-      chat_memory: {
-        exists: false,
-        has_chat_id: false,
-        has_global_user_id: false,
-        has_role: false,
-        has_content: false,
-        has_created_at: false,
-      },
-      chat_messages: {
-        exists: false,
-        has_chat_id: false,
-        has_global_user_id: false,
-        has_role: false,
-        has_content: false,
-        has_created_at: false,
-      },
-    };
-
-    if (!this.db || typeof this.db.query !== "function") {
-      this._schema = schema;
-      return schema;
-    }
-
+  async buildRecallContext({ chatId, globalUserId = null, query = "", limit = 5 }) {
     try {
-      const r = await this.db.query(
-        `
-        SELECT table_name, column_name
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name IN ('chat_memory','chat_messages')
-        `
-      );
+      const enabled = envTruthy(process.env.RECALL_ENABLED);
+      if (!enabled) return "";
 
-      const rows = Array.isArray(r?.rows) ? r.rows : [];
-      for (const x of rows) {
-        const t = String(x.table_name || "");
-        const c = String(x.column_name || "");
-        if (!schema[t]) continue;
-        schema[t].exists = true;
-        if (c === "chat_id") schema[t].has_chat_id = true;
-        if (c === "global_user_id") schema[t].has_global_user_id = true;
-        if (c === "role") schema[t].has_role = true;
-        if (c === "content") schema[t].has_content = true;
-        if (c === "created_at") schema[t].has_created_at = true;
-      }
-    } catch (e) {
-      this.logger?.error?.("❌ RecallEngine schema probe failed (fail-open):", e);
-      // keep defaults
-    }
+      const lim = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(20, Number(limit))) : 5;
 
-    // DIAG: log once (helps confirm real schema on Render)
-    try {
-      this.logger?.info?.("✅ RecallEngine schema detected:", JSON.stringify(schema));
-    } catch (_) {}
+      const chatIdStr = chatId != null ? String(chatId) : null;
+      const globalStr = globalUserId != null ? String(globalUserId) : null;
 
-    this._schema = schema;
-    return schema;
-  }
+      if (!chatIdStr) return "";
 
-  async recall({ chatId, globalUserId, query, limit = 5 } = {}) {
-    const st = this.status();
-    if (!st.enabled) return [];
-    if (!this.db || typeof this.db.query !== "function") return [];
+      // 1) Primary scope: chat_id + global_user_id (if provided)
+      let rows = [];
+      let scope = "chat_only";
 
-    const chatIdStr = chatId ? String(chatId) : null;
-    if (!chatIdStr) return [];
-
-    const isGroup = isTelegramGroupChatId(chatIdStr);
-
-    // parse date/period intent
-    let period = null;
-    try {
-      period = parseDatePeriod(String(query || ""), new Date());
-    } catch (e) {
-      this.logger?.error?.("❌ parseDatePeriod failed (fail-open):", e);
-      return [];
-    }
-
-    if (!period || period.type === "none" || !period.from || !period.to) return [];
-
-    const hardLimit = Math.max(1, Math.min(Number(limit) || 5, 10));
-    const from = period.from;
-    const to = period.to;
-
-    const useGlobal =
-      globalUserId !== null &&
-      globalUserId !== undefined &&
-      String(globalUserId).trim() !== "";
-
-    const schema = await this._loadSchemaOnce();
-
-    // =========================
-    // 1) Primary: chat_messages
-    // =========================
-    if (schema.chat_messages.exists) {
-      try {
-        const canUseGlobal = useGlobal && schema.chat_messages.has_global_user_id;
-
-        const params = canUseGlobal
-          ? [chatIdStr, String(globalUserId), from.toISOString(), to.toISOString(), hardLimit]
-          : [chatIdStr, from.toISOString(), to.toISOString(), hardLimit];
-
-        const sql = canUseGlobal
-          ? `
+      if (globalStr) {
+        try {
+          const r1 = await this.db.query(
+            `
             SELECT role, content, created_at
-            FROM chat_messages
-            WHERE chat_id = $1
-              AND global_user_id = $2
-              AND created_at >= $3::timestamptz
-              AND created_at <= $4::timestamptz
+            FROM chat_memory
+            WHERE chat_id = $1 AND global_user_id = $2
             ORDER BY created_at DESC
-            LIMIT $5
-          `
-          : `
-            SELECT role, content, created_at
-            FROM chat_messages
-            WHERE chat_id = $1
-              AND created_at >= $2::timestamptz
-              AND created_at <= $3::timestamptz
-            ORDER BY created_at DESC
-            LIMIT $4
-          `;
-
-        const r = await this.db.query(sql, params);
-        const rows = Array.isArray(r?.rows) ? r.rows : [];
-
-        if (rows.length > 0) {
-          return rows.map((x) => ({
-            source: "chat_messages",
-            content: safeTruncate(x?.content || "", 600),
-            meta: {
-              role: x?.role || null,
-              created_at: x?.created_at || null,
-              window: {
-                type: period.type,
-                from: from.toISOString(),
-                to: to.toISOString(),
-                tz: String(process.env.RECALL_TZ || "Europe/Kyiv"),
-              },
-              confidence: typeof period.confidence === "number" ? period.confidence : null,
-            },
-          }));
+            LIMIT $3
+            `,
+            [chatIdStr, globalStr, lim * 6] // take more to form turns
+          );
+          rows = r1?.rows || [];
+          scope = "chat+global";
+        } catch (e) {
+          // Fail-open on query errors, but continue to fallback
+          try {
+            this.logger.error("❌ RecallEngine DB query (chat+global) failed:", e?.message || e);
+          } catch (_) {}
+          rows = [];
         }
-      } catch (e) {
-        this.logger?.error?.("❌ RecallEngine chat_messages query failed (fail-open):", e);
-        // continue to fallback
-      }
-    }
-
-    // ==========================================
-    // 2) Fallback: chat_memory (legacy store)
-    // ==========================================
-    if (!schema.chat_memory.exists) return [];
-
-    // GROUP RULE: never chat_id-only fallback in groups
-    if (isGroup) {
-      if (!useGlobal || !schema.chat_memory.has_global_user_id) return [];
-    }
-
-    try {
-      const hasGlobalCol = schema.chat_memory.has_global_user_id;
-
-      // If chat_memory has global_user_id: use it always (DM+Group)
-      if (hasGlobalCol && useGlobal) {
-        const params2 = [chatIdStr, String(globalUserId), from.toISOString(), to.toISOString(), hardLimit];
-        const sql2 = `
-          SELECT role, content, created_at
-          FROM chat_memory
-          WHERE chat_id = $1
-            AND global_user_id = $2
-            AND created_at >= $3::timestamptz
-            AND created_at <= $4::timestamptz
-          ORDER BY created_at DESC
-          LIMIT $5
-        `;
-        const r2 = await this.db.query(sql2, params2);
-        const rows2 = Array.isArray(r2?.rows) ? r2.rows : [];
-
-        return rows2.map((x) => ({
-          source: "chat_memory",
-          content: safeTruncate(x?.content || "", 600),
-          meta: {
-            role: x?.role || null,
-            created_at: x?.created_at || null,
-            window: {
-              type: period.type,
-              from: from.toISOString(),
-              to: to.toISOString(),
-              tz: String(process.env.RECALL_TZ || "Europe/Kyiv"),
-            },
-            confidence: typeof period.confidence === "number" ? period.confidence : null,
-          },
-        }));
       }
 
-      // If no global_user_id column in chat_memory:
-      // DM ONLY: allow chat_id-only fallback (safe in personal chat)
-      if (!isGroup) {
-        const params3 = [chatIdStr, from.toISOString(), to.toISOString(), hardLimit];
-        const sql3 = `
-          SELECT role, content, created_at
-          FROM chat_memory
-          WHERE chat_id = $1
-            AND created_at >= $2::timestamptz
-            AND created_at <= $3::timestamptz
-          ORDER BY created_at DESC
-          LIMIT $4
-        `;
-        const r3 = await this.db.query(sql3, params3);
-        const rows3 = Array.isArray(r3?.rows) ? r3.rows : [];
-
-        return rows3.map((x) => ({
-          source: "chat_memory",
-          content: safeTruncate(x?.content || "", 600),
-          meta: {
-            role: x?.role || null,
-            created_at: x?.created_at || null,
-            window: {
-              type: period.type,
-              from: from.toISOString(),
-              to: to.toISOString(),
-              tz: String(process.env.RECALL_TZ || "Europe/Kyiv"),
-            },
-            confidence: typeof period.confidence === "number" ? period.confidence : null,
-          },
-        }));
+      // 2) Fallback: chat_id only
+      if (!rows || rows.length === 0) {
+        try {
+          const r2 = await this.db.query(
+            `
+            SELECT role, content, created_at
+            FROM chat_memory
+            WHERE chat_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2
+            `,
+            [chatIdStr, lim * 6]
+          );
+          rows = r2?.rows || [];
+          scope = "chat_only";
+        } catch (e) {
+          try {
+            this.logger.error("❌ RecallEngine DB query (chat_only) failed:", e?.message || e);
+          } catch (_) {}
+          return "";
+        }
       }
+
+      // DEBUG: prove DB returns something
+      try {
+        this.logger.log("🧠 RECALL_ENGINE_ROWS", {
+          scope,
+          chatId: chatIdStr,
+          globalUserId: globalStr,
+          rows: Array.isArray(rows) ? rows.length : 0,
+          q: String(query || "").slice(0, 60),
+        });
+      } catch (_) {}
+
+      if (!rows || rows.length === 0) return "";
+
+      // We fetched DESC; turn to ASC for readable context
+      const asc = [...rows].reverse();
+
+      // Build compact "turn-like" lines (prefer user+assistant pairs)
+      const lines = [];
+      for (const r of asc) {
+        const role = normalizeRole(r.role);
+        if (role === "system") continue;
+
+        const text = safeTrim(r.content, 500);
+        if (!text) continue;
+
+        const prefix = role === "user" ? "U:" : role === "assistant" ? "A:" : `${role}:`;
+        lines.push(`${prefix} ${text}`);
+
+        if (lines.length >= lim * 2) break; // approx N turns
+      }
+
+      if (lines.length === 0) return "";
+
+      // Extra hint: if user asks "что мы обсуждали вчера" but no dated memory exists,
+      // recall will still show last turns; the model can answer based on that context.
+      const header = `Последние сообщения (контекст памяти):`;
+      return [header, ...lines].join("\n");
     } catch (e) {
-      this.logger?.error?.("❌ RecallEngine chat_memory fallback failed (fail-open):", e);
-      return [];
+      // fail-open
+      try {
+        this.logger.error("❌ RecallEngine buildRecallContext failed:", e?.message || e);
+      } catch (_) {}
+      return "";
     }
-
-    return [];
-  }
-
-  async buildRecallContext({ chatId, globalUserId, query, limit = 5 } = {}) {
-    const items = await this.recall({ chatId, globalUserId, query, limit });
-    if (!items || items.length === 0) return "";
-    return items.map((x) => `- [${x.source}] ${x.content}`).join("\n");
   }
 }

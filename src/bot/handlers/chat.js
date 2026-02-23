@@ -342,15 +342,21 @@ export async function handleChatMessage({
   // - wiring only
   // - fail-open
   // - no blocking logic in 8B
+  //
+  // STAGE 8C.1 — soft reaction flag (NO behavior change yet)
   // ==========================================================
+  let softReaction = false;
   try {
     const alreadySeen = getAlreadySeenDetector({ db: pool, logger: console });
 
-    await alreadySeen.check({
+    const alreadySeenTriggered = await alreadySeen.check({
       chatId: chatIdStr,
       globalUserId,
       text: effective,
     });
+
+    // STAGE 8C.1 — soft reaction flag (no behavior change yet)
+    softReaction = Boolean(alreadySeenTriggered);
   } catch (e) {
     console.error("❌ AlreadySeenDetector check failed (fail-open):", e);
   }

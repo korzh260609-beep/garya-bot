@@ -361,6 +361,25 @@ export async function handleChatMessage({
     console.error("❌ AlreadySeenDetector check failed (fail-open):", e);
   }
 
+  // ==========================================================
+  // STAGE 8C.2 — Soft Hint reply (UI-level, no blocking)
+  // - only when softReaction === true
+  // - no Recall changes
+  // - no Memory changes
+  // - fail-open
+  // ==========================================================
+  if (softReaction === true) {
+    try {
+      await bot.sendMessage(
+        chatId,
+        "💡 Похоже, мы это уже обсуждали недавно. Если хочешь — уточни, что именно продолжить или что изменилось."
+      );
+    } catch (e) {
+      console.error("❌ Telegram send error (soft hint):", e);
+      // fail-open
+    }
+  }
+
   // ✅ FIX: role guard must use monarchNow (real identity), not bypass (router shortcut)
   const roleGuardPrompt = monarchNow
     ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."

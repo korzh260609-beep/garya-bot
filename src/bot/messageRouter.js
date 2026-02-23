@@ -887,9 +887,14 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           case "/chat_meta_debug": {
             await dispatchCommand(cmdBase, {
               bot,
+              msg, // ✅ pass msg to remove fallback dependence
+              identityCtx, // ✅ pass identityCtx to remove fallback dependence
               chatId,
               chatIdStr,
               senderIdStr,
+              chatType, // ✅ useful for gate
+              isPrivateChat: isPrivate, // ✅ explicit flag
+              rest, // ✅ keep rest consistent
               userRole,
               userPlan,
               user,

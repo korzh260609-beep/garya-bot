@@ -87,6 +87,48 @@ export async function dispatchCommand(cmd, ctx) {
   // Normalize so switch-cases match reliably.
   const cmd0 = cmd.split("@")[0];
 
+  // ==========================
+  // PRIVATE-ONLY GATE (Stage 7 policy hardening)
+  // ==========================
+  // NOTE: We intentionally block these commands in non-private chats
+  // even for monarch, to avoid leaking sensitive debug/runtime info in groups.
+  const chatType =
+    ctx?.msg?.chat?.type ||
+    ctx?.message?.chat?.type ||
+    ctx?.identityCtx?.chat_type ||
+    ctx?.identityCtx?.chatType ||
+    null;
+
+  const isPrivate = chatType === "private";
+
+  const PRIVATE_ONLY_COMMANDS = new Set([
+    "/build_info",
+    "/chat_meta_debug",
+    "/webhook_info",
+  ]);
+
+  if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
+    const fromId =
+      ctx?.msg?.from?.id ??
+      ctx?.message?.from?.id ??
+      ctx?.senderIdStr ??
+      "";
+
+    await bot.sendMessage(
+      chatId,
+      [
+        "⛔ DEV only.",
+        `cmd=${cmd0}`,
+        `chatType=${chatType || "unknown"}`,
+        `private=${String(isPrivate)}`,
+        `monarch=${String(!!ctx?.bypass)}`,
+        `from=${String(fromId)}`,
+      ].join("\n")
+    );
+
+    return { handled: true };
+  }
+
   switch (cmd0) {
     case "/profile":
     case "/me":

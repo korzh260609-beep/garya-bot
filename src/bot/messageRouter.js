@@ -262,7 +262,6 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           "/memory_diag",
           "/memory_integrity",
           "/memory_backfill",
-          "/memory_robot",
           "/memory_user_chats", // ✅ NEW
           "/chat_meta_debug",
           "/behavior_events_last",
@@ -396,23 +395,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           return;
         }
 
-// ✅ /memory_robot
-if (cmdBase === "/memory_robot") {
-  if (!isPrivate) {
-    await bot.sendMessage(chatId, "⛔ /memory_robot только в личке.");
-    return;
-  }
-
     const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-
-  const out = await memDiag.robotMockMonitor({
-    chatIdStr: String(chatId),
-    globalUserId,
-  });
-
-  await bot.sendMessage(chatId, out);
-  return;
-}
         
         if (cmdBase === "/pm_show") {
           await handlePmShow({

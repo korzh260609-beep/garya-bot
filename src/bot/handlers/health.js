@@ -164,7 +164,20 @@ export async function handleHealth({ bot, chatId }) {
   // placeholders (future stages)
   const recallRequests = 0;
   const recallErrors = 0;
-  const alreadySeenHits = 0;
+
+  // STAGE 8B.1 — already_seen_hits counter (via interaction_logs)
+  let alreadySeenHits = "unknown";
+  try {
+    const r = await pool.query(`
+      SELECT COUNT(*)::bigint AS cnt
+      FROM interaction_logs
+      WHERE task_type = 'already_seen_hit'
+    `);
+    alreadySeenHits = String(r?.rows?.[0]?.cnt ?? 0);
+  } catch (_) {
+    alreadySeenHits = "unknown";
+  }
+
   const alreadySeenCooldownSkips = 0;
 
   // ------------------

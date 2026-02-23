@@ -155,12 +155,10 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
       const trimmed = text.trim();
 
       const chatType = msg.chat?.type || "unknown";
-
-      // ✅ FIX: Telegram иногда даёт chat.type="unknown".
-      // В личке почти всегда chat.id === from.id, поэтому используем это как fallback.
-      const isPrivate =
-        chatType === "private" ||
-        String(msg.chat?.id || "") === String(msg.from?.id || "");
+      // ✅ Robust private detection:
+      // - Telegram private chats: chat.id === from.id
+      // - Sometimes chat.type can be missing/unknown in edge updates
+      const isPrivate = chatType === "private" || String(msg.chat?.id || "") === String(msg.from?.id || "");
 
       if (!senderIdStr) return;
 
@@ -574,7 +572,382 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           return;
         }
 
-        // если команда не распознана — просто выходим
+        switch (cmdBase) {
+          case "/approve": {
+            await handleApprove({ bot, chatId, rest });
+            return;
+          }
+
+          case "/deny": {
+            await handleDeny({ bot, chatId, rest });
+            return;
+          }
+
+          case "/behavior_events_last": {
+            await handleBehaviorEventsLast({
+              bot,
+              chatId,
+              rest,
+              senderIdStr,
+            });
+            return;
+          }
+
+          case "/tasks_owner_diag": {
+            try {
+              const colRes = await pool.query(
+                `
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'tasks'
+                  AND column_name = 'user_global_id'
+                LIMIT 1
+                `
+              );
+
+              const hasUserGlobalId = (colRes.rows?.length || 0) > 0;
+
+              const summaryQuery = hasUserGlobalId
+                ? `
+                  SELECT
+                    COUNT(*)::int AS total,
+                    SUM(CASE WHEN user_global_id IS NULL OR user_global_id = '' THEN 1 ELSE 0 END)::int AS global_id_missing
+                  FROM tasks
+                `
+                : `
+                  SELECT
+                    COUNT(*)::int AS total
+                  FROM tasks
+                `;
+
+              const sumRes = await pool.query(summaryQuery);
+              const s = sumRes.rows?.[0] || {};
+
+              const listQuery = hasUserGlobalId
+                ? `
+                  SELECT id, type, status, user_global_id, created_at, last_run
+                  FROM tasks
+                  ORDER BY id DESC
+                  LIMIT 20
+                `
+                : `
+                  SELECT id, type, status, created_at, last_run
+                  FROM tasks
+                  ORDER BY id DESC
+                  LIMIT 20
+                `;
+
+              const listRes = await pool.query(listQuery);
+              const rows = listRes.rows || [];
+
+              const lines = [];
+              lines.push("🧪 TASKS OWNER DIAG");
+              lines.push(`has tasks.user_global_id: ${hasUserGlobalId ? "YES" : "NO"}`);
+              lines.push(`total tasks: ${s.total ?? 0}`);
+              if (hasUserGlobalId) lines.push(`missing user_global_id: ${s.global_id_missing ?? 0}`);
+              lines.push("");
+              lines.push("Last 20 tasks:");
+
+              for (const r of rows) {
+                const created = r.created_at ? new Date(r.created_at).toISOString() : "—";
+                const lastRun = r.last_run ? new Date(r.last_run).toISOString() : "—";
+                if (hasUserGlobalId) {
+                  lines.push(
+                    `#${r.id} | ${r.type} | ${r.status} | global=${r.user_global_id || "—"} | created=${created} | last_run=${lastRun}`
+                  );
+                } else {
+                  lines.push(`#${r.id} | ${r.type} | ${r.status} | created=${created} | last_run=${lastRun}`);
+                }
+              }
+
+              await bot.sendMessage(chatId, lines.join("\n").slice(0, 3800));
+            } catch (e) {
+              console.error("❌ /tasks_owner_diag error:", e);
+              await bot.sendMessage(
+                chatId,
+                "⚠️ /tasks_owner_diag упал. Проверь: есть ли таблица tasks и применена ли миграция (колонка user_global_id)."
+              );
+            }
+            return;
+          }
+
+          case "/demo_task": {
+            await handleDemoTask({
+              bot,
+              chatId,
+              chatIdStr,
+              access: accessPack,
+              callWithFallback,
+              createDemoTask,
+            });
+            return;
+          }
+
+          case "/new_task": {
+            await handleNewTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              access: accessPack,
+              callWithFallback,
+              createManualTask,
+            });
+            return;
+          }
+
+          case "/btc_test_task": {
+            await handleBtcTestTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              access: accessPack,
+              callWithFallback,
+              createTestPriceMonitorTask,
+            });
+            return;
+          }
+
+          case "/tasks": {
+            await handleTasksList({
+              bot,
+              chatId,
+              chatIdStr,
+              getUserTasks,
+              access: accessPack,
+            });
+            return;
+          }
+
+          case "/run_task": {
+            await handleRunTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              access: accessPack,
+              getTaskById,
+              runTaskWithAI,
+            });
+            return;
+          }
+
+          case "/start_task": {
+            await handleStartTask({
+              bot,
+              chatId,
+              rest,
+              bypass: isMonarchUser,
+              updateTaskStatus,
+            });
+            return;
+          }
+
+          case "/stop_task": {
+            await handleStopTask({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              userRole,
+              bypass: isMonarchUser,
+              getTaskById,
+              canStopTaskV1,
+              updateTaskStatus,
+              access: accessPack,
+            });
+            return;
+          }
+
+          case "/stop_all": {
+            await handleStopAllTasks({
+              bot,
+              chatId,
+              chatIdStr,
+              canStopTaskV1,
+            });
+            return;
+          }
+
+          case "/run_task_cmd": {
+            await handleRunTaskCmd({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              access: accessPack,
+              callWithFallback,
+            });
+            return;
+          }
+
+          case "/code_output_status": {
+            const mode = getCodeOutputMode();
+            await bot.sendMessage(
+              chatId,
+              [
+                `CODE_OUTPUT_MODE: ${mode}`,
+                "",
+                "Modes:",
+                "- DISABLED → генерация запрещена",
+                "- DRY_RUN → только валидация без AI",
+                "- ENABLED → реальная генерация кода",
+              ].join("\n")
+            );
+            return;
+          }
+
+          case "/workflow_check": {
+            await handleWorkflowCheck({ bot, chatId, rest });
+            return;
+          }
+
+          case "/repo_status": {
+            await handleRepoStatus({ bot, chatId });
+            return;
+          }
+
+          case "/repo_tree": {
+            await handleRepoTree({ bot, chatId, rest });
+            return;
+          }
+
+          case "/repo_file": {
+            await handleRepoFile({ bot, chatId, rest });
+            return;
+          }
+
+          case "/repo_review2": {
+            await handleRepoReview2({ bot, chatId });
+            return;
+          }
+
+          case "/repo_search": {
+            await handleRepoSearch({ bot, chatId, rest });
+            return;
+          }
+
+          case "/repo_get": {
+            await handleRepoGet({ bot, chatId, rest, senderIdStr });
+            return;
+          }
+
+          case "/repo_check": {
+            await handleRepoCheck({ bot, chatId, rest });
+            return;
+          }
+
+          case "/repo_analyze": {
+            await handleRepoAnalyze({ bot, chatId, rest });
+            return;
+          }
+
+          case "/repo_review": {
+            await handleRepoReview({ bot, chatId, rest });
+            return;
+          }
+
+          case "/code_fullfile": {
+            await handleCodeFullfile({ bot, chatId, rest, callAI, senderIdStr });
+            return;
+          }
+
+          case "/code_insert": {
+            await handleCodeInsert({ bot, chatId, rest, callAI, senderIdStr });
+            return;
+          }
+
+          case "/repo_diff": {
+            await handleRepoDiff({ bot, chatId, rest });
+            return;
+          }
+
+          case "/ar_list": {
+            await handleArList({ bot, chatId, rest });
+            return;
+          }
+
+          case "/file_logs": {
+            await handleFileLogs({ bot, chatId, chatIdStr, rest });
+            return;
+          }
+
+          case "/chat_meta_debug": {
+            await dispatchCommand(cmdBase, {
+              bot,
+              chatId,
+              chatIdStr,
+              senderIdStr,
+              userRole,
+              userPlan,
+              user,
+              bypass: isMonarchUser,
+            });
+            return;
+          }
+
+          case "/sources": {
+            await handleSourcesList({
+              bot,
+              chatId,
+              chatIdStr,
+              getAllSourcesSafe,
+              formatSourcesList,
+            });
+            return;
+          }
+
+          case "/sources_diag": {
+            await handleSourcesDiag({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              runSourceDiagnosticsOnce,
+            });
+            return;
+          }
+
+          case "/source": {
+            await handleSource({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              fetchFromSourceKey,
+            });
+            return;
+          }
+
+          case "/diag_source": {
+            await handleDiagSource({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              diagnoseSource,
+            });
+            return;
+          }
+
+          case "/test_source": {
+            await handleTestSource({
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+              testSource,
+            });
+            return;
+          }
+
+          default: {
+            break;
+          }
+        }
+
         return;
       }
 

@@ -351,6 +351,49 @@ export async function handleChatMessage({
   } catch (_) {}
 
   // ==========================================================
+  // STAGE 8A GUARD — BLOCK AI IF RECALL TOO WEAK (anti-hallucination)
+  // - If query is time-based (yesterday/N days ago/last week) AND recallCtx is too small,
+  //   do NOT call AI at all. Return deterministic "no data" reply.
+  // - This prevents GPT from inventing calendar dates (observed in prod).
+  // - Fail-open: if guard crashes, continue normal flow.
+  // ==========================================================
+  try {
+    function isTimeQuery(text) {
+      const q = String(text || "").toLowerCase();
+      return (
+        q.includes("вчера") ||
+        q.includes("позавчера") ||
+        q.includes("сегодня") ||
+        q.includes("на прошлой неделе") ||
+        q.includes("прошлую неделю") ||
+        q.includes("прошлой неделе") ||
+        q.includes("last week") ||
+        q.includes("минулого тижня") ||
+        /\d+\s*(дн|дней|дня|дні|днів)\s*назад/i.test(q) ||
+        /\d+\s*days?\s*ago/i.test(q)
+      );
+    }
+
+    if (isTimeQuery(effective)) {
+      const recallLines = (recallCtx || "")
+        .split("\n")
+        .filter((l) => l.startsWith("U:") || l.startsWith("A:")).length;
+
+      // 4 lines ~= 2 turns (U/A * 2). Below that GPT tends to "invent" dates/events.
+      if (recallLines < 4) {
+        try {
+          await bot.sendMessage(chatId, "В памяти нет данных за этот период.");
+        } catch (e) {
+          console.error("❌ Guard send error:", e);
+        }
+        return; // 🚨 STOP — do NOT call AI
+      }
+    }
+  } catch (e) {
+    console.error("❌ STAGE 8A guard failed (fail-open):", e);
+  }
+
+  // ==========================================================
   // STAGE 8B — ALREADY-SEEN DETECTOR (SKELETON)
   // - wiring only
   // - fail-open

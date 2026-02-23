@@ -88,10 +88,19 @@ function parseRelativeDayRangeUTC(query) {
     // EN: "last week", RU: "на прошлой неделе", UA: "минулого тижня"
     if (
       /\blast\s+week\b/.test(q) ||
+
+      // RU variants
+      q.includes("прошлая неделя") ||
+      q.includes("прошлую неделю") ||
       q.includes("прошлой неделе") ||
+      q.includes("прошлой недели") ||
       q.includes("на прошлой неделе") ||
+      q.includes("за прошлую неделю") ||
+
+      // UA variants
+      q.includes("минулий тиждень") ||
       q.includes("минулого тижня") ||
-      q.includes("минулiй тиждень") ||
+      q.includes("минулому тижні") ||
       q.includes("на минулому тижні")
     ) {
       const thisWeekStart = startOfUTCWeekMonday(now);
@@ -135,7 +144,7 @@ function parseRelativeDayRangeUTC(query) {
     }
 
     // "N дней назад" (RU/UA)
-    m = q.match(/\b(\d{1,2})\s*(дн(ей|я)|дні|днів)\s*назад\b/);
+    m = q.match(/(\d{1,2})\s*(дн(?:ей|я)|дні|днів)\s*назад/iu);
     if (m && m[1]) {
       const n = Math.max(0, Math.min(30, Number(m[1])));
       const from = startOfUTCDay(addDaysUTC(now, -n));

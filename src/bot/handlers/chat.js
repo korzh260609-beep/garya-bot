@@ -462,7 +462,7 @@ export async function handleChatMessage({
       globalUserId,
       transport: "telegram",
       metadata: { senderIdStr, chatIdStr, messageId },
-      schemaVersion: 1,
+      schemaVersion: 2,
     });
   } catch (e) {
     console.error("❌ saveChatPair error:", e);

@@ -12,7 +12,6 @@ let _instance = null;
 function applyOpts(instance, opts = {}) {
   if (!instance || !opts) return;
 
-  // hydrate db/logger/config only if missing or explicitly provided
   if (opts.db && !instance.db) instance.db = opts.db;
   if (opts.logger && instance.logger === console) instance.logger = opts.logger;
 

@@ -6,6 +6,7 @@
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
+import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
 
 export async function handleChatMessage({
   bot,
@@ -84,12 +85,21 @@ export async function handleChatMessage({
   const shouldCallAI = Boolean(decision?.shouldCallAI);
   const directReplyText = decision?.directReplyText || null;
 
-  // DB-safe user content + truncated flag (ONLY for chat_messages storage)
+  // ==========================================================
+  // STAGE 7B.10 + 7B.5.3 — Redaction + hard cap for chat_messages storage
+  // Store ONLY redacted content in chat_messages.
+  // ==========================================================
+  const userRedactedFull = redactText(effective);
+
   const userContentForDb =
-    typeof effective === "string" && effective.length > MAX_CHAT_MESSAGE_CHARS
-      ? effective.slice(0, MAX_CHAT_MESSAGE_CHARS)
-      : effective;
-  const userTruncatedForDb = typeof effective === "string" && effective.length > MAX_CHAT_MESSAGE_CHARS;
+    typeof userRedactedFull === "string" && userRedactedFull.length > MAX_CHAT_MESSAGE_CHARS
+      ? userRedactedFull.slice(0, MAX_CHAT_MESSAGE_CHARS)
+      : userRedactedFull;
+
+  const userTruncatedForDb =
+    typeof userRedactedFull === "string" && userRedactedFull.length > MAX_CHAT_MESSAGE_CHARS;
+
+  const userTextHash = sha256Text(userRedactedFull);
 
   if (directReplyText) {
     try {
@@ -118,6 +128,10 @@ export async function handleChatMessage({
   // - INSERT ... ON CONFLICT DO NOTHING (partial unique index for role='user')
   // - If conflict => already processed => exit WITHOUT calling AI and WITHOUT sending a second reply
   // - Fail-open on any DB error (do not break production)
+  //
+  // STAGE 7B.5.2 — raw meta only (no text/binary)
+  // STAGE 7B.2 — platform_message_id + text_hash
+  // STAGE 7B.10 — content redacted
   // ==========================================================
   if (messageId !== null && Number.isFinite(Number(messageId))) {
     try {
@@ -132,9 +146,8 @@ export async function handleChatMessage({
         globalUserId,
       };
 
-      const raw = {
-        msg,
-      };
+      // ✅ 7B.5.2: meta-only raw (NO msg text, NO attachments)
+      const raw = buildRawMeta(msg);
 
       const ins = await pool.query(
         `
@@ -145,6 +158,8 @@ export async function handleChatMessage({
           global_user_id,
           sender_id,
           message_id,
+          platform_message_id,
+          text_hash,
           role,
           content,
           truncated,
@@ -152,7 +167,7 @@ export async function handleChatMessage({
           raw,
           schema_version
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14)
         ON CONFLICT (transport, chat_id, message_id)
           WHERE role='user' AND message_id IS NOT NULL
         DO NOTHING
@@ -165,6 +180,8 @@ export async function handleChatMessage({
           globalUserId ? String(globalUserId) : null,
           senderId ? String(senderId) : null,
           Number(messageId),
+          Number(messageId), // platform_message_id (telegram = message_id)
+          userTextHash,
           "user",
           userContentForDb,
           Boolean(userTruncatedForDb),
@@ -238,6 +255,7 @@ export async function handleChatMessage({
   }
 
   // ✅ STAGE 7.2: save with globalUserId + metadata
+  // NOTE: Memory layer keeps original text; 7B redaction applies to chat_history (chat_messages) only.
   try {
     await saveMessageToMemory(chatIdStr, "user", effective, {
       globalUserId,
@@ -383,21 +401,28 @@ export async function handleChatMessage({
   // --------------------------------------------
 
   // ==========================================================
-  // STAGE 7B.4 — Log SG output to chat_messages (assistant)
+  // STAGE 7B.4 + 7B.10 + 7B.2 — Log SG output to chat_messages (assistant)
+  // - content stored redacted
+  // - text_hash stored
+  // - platform_message_id is unknown here (null)
   // fail-open (must not break production)
   // ==========================================================
   try {
     const transport = "telegram";
     const chatType = msg?.chat?.type || null;
 
+    const assistantRedactedFull = redactText(typeof aiReply === "string" ? aiReply : "");
+    const assistantTextHash = sha256Text(assistantRedactedFull);
+
     const assistantContentForDb =
-      typeof aiReply === "string" && aiReply.length > MAX_CHAT_MESSAGE_CHARS
-        ? aiReply.slice(0, MAX_CHAT_MESSAGE_CHARS)
-        : typeof aiReply === "string"
-          ? aiReply
+      typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS
+        ? assistantRedactedFull.slice(0, MAX_CHAT_MESSAGE_CHARS)
+        : typeof assistantRedactedFull === "string"
+          ? assistantRedactedFull
           : "";
+
     const assistantTruncatedForDb =
-      typeof aiReply === "string" && aiReply.length > MAX_CHAT_MESSAGE_CHARS;
+      typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS;
 
     const meta = {
       senderIdStr,
@@ -417,6 +442,8 @@ export async function handleChatMessage({
         global_user_id,
         sender_id,
         message_id,
+        platform_message_id,
+        text_hash,
         role,
         content,
         truncated,
@@ -424,7 +451,7 @@ export async function handleChatMessage({
         raw,
         schema_version
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14)
       `,
       [
         transport,
@@ -433,6 +460,8 @@ export async function handleChatMessage({
         globalUserId ? String(globalUserId) : null,
         null, // assistant has no sender_id (transport user id)
         null, // outgoing telegram message_id not available here
+        null, // platform_message_id unknown for outgoing here
+        assistantTextHash,
         "assistant",
         assistantContentForDb,
         Boolean(assistantTruncatedForDb),

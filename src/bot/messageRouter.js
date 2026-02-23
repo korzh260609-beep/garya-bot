@@ -262,6 +262,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           "/memory_diag",
           "/memory_integrity",
           "/memory_backfill",
+          "/memory_robot",
           "/memory_user_chats", // ✅ NEW
           "/chat_meta_debug",
           "/behavior_events_last",
@@ -402,7 +403,7 @@ if (cmdBase === "/memory_robot") {
     return;
   }
 
-  const globalUserId = accessPack?.globalUserId || null;
+    const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
 
   const out = await memDiag.robotMockMonitor({
     chatIdStr: String(chatId),

@@ -1,3 +1,4 @@
+```js
 // src/bot/handlers/chat.js
 // extracted from messageRouter.js — no logic changes (only safety-guards + token param fix + observability logs)
 //
@@ -7,6 +8,7 @@ import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
 import { getRecallEngine } from "../../core/recallEngineFactory.js";
 import { getAlreadySeenDetector } from "../../core/alreadySeenFactory.js";
+import { createTimeContext } from "../../core/time/timeContextFactory.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
 import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
 
@@ -358,23 +360,10 @@ export async function handleChatMessage({
   // - Fail-open: if guard crashes, continue normal flow.
   // ==========================================================
   try {
-    function isTimeQuery(text) {
-      const q = String(text || "").toLowerCase();
-      return (
-        q.includes("вчера") ||
-        q.includes("позавчера") ||
-        q.includes("сегодня") ||
-        q.includes("на прошлой неделе") ||
-        q.includes("прошлую неделю") ||
-        q.includes("прошлой неделе") ||
-        q.includes("last week") ||
-        q.includes("минулого тижня") ||
-        /\d+\s*(дн|дней|дня|дні|днів)\s*назад/i.test(q) ||
-        /\d+\s*days?\s*ago/i.test(q)
-      );
-    }
+    const timeCtx = createTimeContext({ userTimezoneFromDb: null });
+    const parsed = timeCtx.parseHumanDate(effective);
 
-    if (isTimeQuery(effective)) {
+    if (parsed) {
       const recallLines = (recallCtx || "")
         .split("\n")
         .filter((l) => l.startsWith("U:") || l.startsWith("A:")).length;
@@ -642,3 +631,4 @@ export async function handleChatMessage({
     console.error("❌ Telegram send error:", e);
   }
 }
+```

@@ -21,7 +21,7 @@ export async function handleChatMessage({
   bypass,
   MAX_HISTORY_MESSAGES = 20,
 
-  // ✅ STAGE 7.2
+  //  STAGE 7.2
   globalUserId = null,
 
   FileIntake,
@@ -53,12 +53,15 @@ export async function handleChatMessage({
   if (typeof callAI !== "function") {
     const details =
       "callAI is not a function (router wiring error: pass { callAI } into handleChatMessage).";
-    const text = monarchNow ? `⚠️ Ошибка конфигурации: ${details}` : "⚠️ Ошибка вызова ИИ.";
+    let text = "ERROR: Ошибка вызова ИИ.";
+    if (monarchNow) {
+      text = "ERROR: Ошибка конфигурации: " + details;
+    }
 
     try {
       await bot.sendMessage(chatId, text);
     } catch (e) {
-      console.error("❌ Telegram send error (callAI guard):", e);
+      console.error("ERROR Telegram send error (callAI guard):", e);
     }
     return;
   }
@@ -108,7 +111,7 @@ export async function handleChatMessage({
     try {
       await bot.sendMessage(chatId, directReplyText);
     } catch (e) {
-      console.error("❌ Telegram send error (directReplyText):", e);
+      console.error("ERROR Telegram send error (directReplyText):", e);
     }
     return;
   }
@@ -117,7 +120,7 @@ export async function handleChatMessage({
     try {
       await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");
     } catch (e) {
-      console.error("❌ Telegram send error (shouldCallAI):", e);
+      console.error("ERROR Telegram send error (shouldCallAI):", e);
     }
     return;
   }
@@ -149,7 +152,7 @@ export async function handleChatMessage({
         globalUserId,
       };
 
-      // ✅ 7B.5.2: meta-only raw (NO msg text, NO attachments)
+      //  7B.5.2: meta-only raw (NO msg text, NO attachments)
       const raw = buildRawMeta(msg);
 
       const ins = await pool.query(
@@ -197,7 +200,7 @@ export async function handleChatMessage({
       // Conflict => already processed (retry) => exit silently
       if (!ins || (ins.rowCount || 0) === 0) {
         try {
-          console.info("🛡️ IDEMPOTENCY_SKIP", {
+          console.info("IDEMPOTENCY_SKIP", {
             transport,
             chatId: chatIdStr,
             messageId,
@@ -205,7 +208,7 @@ export async function handleChatMessage({
           });
         } catch (_) {}
 
-        // ✅ STAGE 7B.7 OBSERVABILITY: persist dedupe-hit (legacy attempt; may be ignored if schema doesn't support it)
+        //  STAGE 7B.7 OBSERVABILITY: persist dedupe-hit (legacy attempt; may be ignored if schema doesn't support it)
         try {
           await logInteraction(chatIdStr, {
             taskType: "chat",
@@ -213,10 +216,10 @@ export async function handleChatMessage({
             event: "WEBHOOK_DEDUPE_HIT",
           });
         } catch (e) {
-          console.error("❌ logInteraction (WEBHOOK_DEDUPE_HIT) error:", e);
+          console.error("ERROR logInteraction (WEBHOOK_DEDUPE_HIT) error:", e);
         }
 
-        // ✅ STAGE 7B.7 OBSERVABILITY (V2): dedicated table webhook_dedupe_events
+        //  STAGE 7B.7 OBSERVABILITY (V2): dedicated table webhook_dedupe_events
         try {
           await pool.query(
             `
@@ -235,7 +238,7 @@ export async function handleChatMessage({
             ]
           );
         } catch (e) {
-          console.error("❌ webhook_dedupe_events insert failed:", e);
+          console.error("ERROR webhook_dedupe_events insert failed:", e);
         }
 
         return;
@@ -252,12 +255,12 @@ export async function handleChatMessage({
         });
       } catch (_) {}
     } catch (e) {
-      console.error("❌ STAGE 7B.7 chat_messages insert-first failed (fail-open):", e);
+      console.error("ERROR STAGE 7B.7 chat_messages insert-first failed (fail-open):", e);
       // fail-open: continue normal flow
     }
   }
 
-  // ✅ STAGE 7.2: save with globalUserId + metadata
+  //  STAGE 7.2: save with globalUserId + metadata
   // NOTE: Memory layer keeps original text; 7B redaction applies to chat_history (chat_messages) only.
   try {
     await saveMessageToMemory(chatIdStr, "user", effective, {
@@ -267,12 +270,12 @@ export async function handleChatMessage({
       schemaVersion: 2,
     });
   } catch (e) {
-    console.error("❌ saveMessageToMemory error:", e);
+    console.error("ERROR saveMessageToMemory error:", e);
   }
 
   let history = [];
   try {
-    // ✅ STAGE 7.3: read history via MemoryService (ban direct/legacy SQL reads here)
+    //  STAGE 7.3: read history via MemoryService (ban direct/legacy SQL reads here)
     const memory = getMemoryService();
     history = await memory.recent({
       chatId: chatIdStr,
@@ -280,21 +283,21 @@ export async function handleChatMessage({
       limit: MAX_HISTORY_MESSAGES,
     });
   } catch (e) {
-    console.error("❌ memory.recent error:", e);
+    console.error("ERROR memory.recent error:", e);
   }
 
   const classification = { taskType: "chat", aiCostLevel: "low" };
   try {
     await logInteraction(chatIdStr, classification);
   } catch (e) {
-    console.error("❌ logInteraction error:", e);
+    console.error("ERROR logInteraction error:", e);
   }
 
   let projectCtx = "";
   try {
     projectCtx = await loadProjectContext();
   } catch (e) {
-    console.error("❌ loadProjectContext error:", e);
+    console.error("ERROR loadProjectContext error:", e);
   }
 
   const answerMode = getAnswerMode(chatIdStr);
@@ -335,12 +338,12 @@ export async function handleChatMessage({
       limit: 5,
     });
   } catch (e) {
-    console.error("❌ RecallEngine buildRecallContext failed (fail-open):", e);
+    console.error("ERROR RecallEngine buildRecallContext failed (fail-open):", e);
   }
 
-  // ✅ DEBUG (STAGE 8A): prove recall is wired + non-empty
+  //  DEBUG (STAGE 8A): prove recall is wired + non-empty
   try {
-    console.log("🧠 RECALL DBG", {
+    console.log("RECALL DBG", {
       enabled: process.env.RECALL_ENABLED,
       hasRecallCtx: Boolean(recallCtx && recallCtx.trim()),
       recallLen: recallCtx ? recallCtx.length : 0,
@@ -372,13 +375,13 @@ export async function handleChatMessage({
         try {
           await bot.sendMessage(chatId, "В памяти нет данных за этот период.");
         } catch (e) {
-          console.error("❌ Guard send error:", e);
+          console.error("ERROR Guard send error:", e);
         }
         return; // 🚨 STOP — do NOT call AI
       }
     }
   } catch (e) {
-    console.error("❌ STAGE 8A guard failed (fail-open):", e);
+    console.error("ERROR STAGE 8A guard failed (fail-open):", e);
   }
 
   // ==========================================================
@@ -402,7 +405,7 @@ export async function handleChatMessage({
     // STAGE 8C.1 — soft reaction flag (no behavior change yet)
     softReaction = Boolean(alreadySeenTriggered);
   } catch (e) {
-    console.error("❌ AlreadySeenDetector check failed (fail-open):", e);
+    console.error("ERROR AlreadySeenDetector check failed (fail-open):", e);
   }
 
   // ==========================================================
@@ -419,12 +422,12 @@ export async function handleChatMessage({
         "💡 Похоже, мы это уже обсуждали недавно. Если хочешь — уточни, что именно продолжить или что изменилось."
       );
     } catch (e) {
-      console.error("❌ Telegram send error (soft hint):", e);
+      console.error("ERROR Telegram send error (soft hint):", e);
       // fail-open
     }
   }
 
-  // ✅ FIX: role guard must use monarchNow (real identity), not bypass (router shortcut)
+  //  FIX: role guard must use monarchNow (real identity), not bypass (router shortcut)
   const roleGuardPrompt = monarchNow
     ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."
     : "SYSTEM ROLE: текущий пользователь НЕ монарх. Запрещено обращаться 'Монарх', 'Ваше Величество', 'Государь'. Называй: 'гость' или нейтрально (вы/ты).";
@@ -476,13 +479,13 @@ export async function handleChatMessage({
   };
 
   try {
-    console.info("🧾 AI_CALL_START", aiMetaBase);
+    console.info("AI_CALL_START", aiMetaBase);
   } catch (_) {}
 
   try {
     await logInteraction(chatIdStr, { ...classification, event: "AI_CALL_START", ...aiMetaBase });
   } catch (e) {
-    console.error("❌ logInteraction (AI_CALL_START) error:", e);
+    console.error("ERROR logInteraction (AI_CALL_START) error:", e);
   }
 
   const t0 = Date.now();
@@ -495,10 +498,10 @@ export async function handleChatMessage({
       temperature,
     });
   } catch (e) {
-    console.error("❌ AI error:", e);
+    console.error("ERROR AI error:", e);
 
     const msgText = e?.message ? String(e.message) : "unknown";
-    aiReply = monarchNow ? `⚠️ Ошибка вызова ИИ: ${msgText}` : "⚠️ Ошибка вызова ИИ.";
+    aiReply = monarchNow ? `ERROR: Ошибка вызова ИИ: ${msgText}` : "ERROR: Ошибка вызова ИИ.";
   }
 
   // ---- OBSERVABILITY (minimal): log AI result ----
@@ -507,17 +510,17 @@ export async function handleChatMessage({
     ...aiMetaBase,
     dtMs,
     replyChars: typeof aiReply === "string" ? aiReply.length : 0,
-    ok: !(typeof aiReply === "string" && aiReply.startsWith("⚠️ Ошибка вызова ИИ")),
+    ok: !(typeof aiReply === "string" && aiReply.startsWith("ERROR: Ошибка вызова ИИ")),
   };
 
   try {
-    console.info("🧾 AI_CALL_END", aiMetaEnd);
+    console.info("AI_CALL_END", aiMetaEnd);
   } catch (_) {}
 
   try {
     await logInteraction(chatIdStr, { ...classification, event: "AI_CALL_END", ...aiMetaEnd });
   } catch (e) {
-    console.error("❌ logInteraction (AI_CALL_END) error:", e);
+    console.error("ERROR logInteraction (AI_CALL_END) error:", e);
   }
   // --------------------------------------------
 
@@ -603,10 +606,10 @@ export async function handleChatMessage({
       });
     } catch (_) {}
   } catch (e) {
-    console.error("❌ STAGE 7B.4 chat_messages assistant insert failed (fail-open):", e);
+    console.error("ERROR STAGE 7B.4 chat_messages assistant insert failed (fail-open):", e);
   }
 
-  // ✅ STAGE 7.2: save pair with globalUserId
+  //  STAGE 7.2: save pair with globalUserId
   try {
     await saveChatPair(chatIdStr, effective, aiReply, {
       globalUserId,
@@ -615,18 +618,18 @@ export async function handleChatMessage({
       schemaVersion: 2,
     });
   } catch (e) {
-    console.error("❌ saveChatPair error:", e);
+    console.error("ERROR saveChatPair error:", e);
   }
 
   try {
     if (!monarchNow) aiReply = sanitizeNonMonarchReply(aiReply);
   } catch (e) {
-    console.error("❌ sanitizeNonMonarchReply error:", e);
+    console.error("ERROR sanitizeNonMonarchReply error:", e);
   }
 
   try {
     await bot.sendMessage(chatId, aiReply);
   } catch (e) {
-    console.error("❌ Telegram send error:", e);
+    console.error("ERROR Telegram send error:", e);
   }
 }

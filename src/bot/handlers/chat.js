@@ -1,4 +1,3 @@
-```js
 // src/bot/handlers/chat.js
 // extracted from messageRouter.js — no logic changes (only safety-guards + token param fix + observability logs)
 //
@@ -54,9 +53,7 @@ export async function handleChatMessage({
   if (typeof callAI !== "function") {
     const details =
       "callAI is not a function (router wiring error: pass { callAI } into handleChatMessage).";
-    const text = monarchNow
-      ? `⚠️ Ошибка конфигурации: ${details}`
-      : "⚠️ Ошибка вызова ИИ.";
+    const text = monarchNow ? `⚠️ Ошибка конфигурации: ${details}` : "⚠️ Ошибка вызова ИИ.";
 
     try {
       await bot.sendMessage(chatId, text);
@@ -633,4 +630,3 @@ export async function handleChatMessage({
     console.error("❌ Telegram send error:", e);
   }
 }
-```

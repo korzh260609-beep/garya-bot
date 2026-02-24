@@ -99,6 +99,18 @@ export class TimeContext {
         return { fromUTC: from, toUTC: to, hint: `last_${n}_days` };
       }
 
+      // WEEK AGO (single day)
+      // examples: "неделю назад", "тиждень тому", "a week ago"
+      if (
+        q.includes("неделю назад") ||
+        q.includes("тиждень тому") ||
+        /\ba\s+week\s+ago\b/.test(q)
+      ) {
+        const from = this.startOfUTCDay(this.addDaysUTC(now, -7));
+        const to = this.startOfUTCDay(this.addDaysUTC(now, -6));
+        return { fromUTC: from, toUTC: to, hint: "7_days_ago" };
+      }
+
       // N days ago (EN)
       let m = q.match(/\b(\d{1,2})\s*days?\s*ago\b/);
       if (m && m[1]) {

@@ -60,6 +60,17 @@ export class TimeContext {
         return { fromUTC: from, toUTC: to, hint: "today" };
       }
 
+      // DAY BEFORE YESTERDAY
+      if (
+        q.includes("позавчера") ||
+        q.includes("позавчора") ||
+        /\bday\s+before\s+yesterday\b/.test(q)
+      ) {
+        const from = this.startOfUTCDay(this.addDaysUTC(now, -2));
+        const to = this.startOfUTCDay(this.addDaysUTC(now, -1));
+        return { fromUTC: from, toUTC: to, hint: "day_before_yesterday" };
+      }
+
       // YESTERDAY
       if (q.includes("вчера") || q.includes("вчора") || /\byesterday\b/.test(q)) {
         const from = this.startOfUTCDay(this.addDaysUTC(now, -1));

@@ -371,6 +371,7 @@ export async function handleChatMessage({
 
     const isSingleDayHint =
       parsed?.hint === "today" ||
+      parsed?.hint === "tomorrow" ||
       parsed?.hint === "yesterday" ||
       parsed?.hint === "day_before_yesterday" ||
       /_days_ago$/.test(String(parsed?.hint || ""));

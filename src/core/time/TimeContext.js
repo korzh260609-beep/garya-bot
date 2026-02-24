@@ -78,6 +78,20 @@ export class TimeContext {
         return { fromUTC: from, toUTC: to, hint: "yesterday" };
       }
 
+      // LAST N DAYS (includes today)
+      // examples: "последние 3 дня", "за последние 7 дней", "last 3 days"
+      let lastN = q.match(/(?:за\s+)?последн(?:ие|их)\s*(\d{1,2})\s*(?:дн(?:я|ей)|дні|днів)/iu);
+      if (!lastN) {
+        lastN = q.match(/\blast\s+(\d{1,2})\s+days?\b/i);
+      }
+      if (lastN && lastN[1]) {
+        const n = Math.max(1, Math.min(30, Number(lastN[1])));
+        const todayStart = this.startOfUTCDay(now);
+        const from = this.startOfUTCDay(this.addDaysUTC(todayStart, -(n - 1)));
+        const to = this.startOfUTCDay(this.addDaysUTC(todayStart, 1));
+        return { fromUTC: from, toUTC: to, hint: `last_${n}_days` };
+      }
+
       // N days ago (EN)
       let m = q.match(/\b(\d{1,2})\s*days?\s*ago\b/);
       if (m && m[1]) {

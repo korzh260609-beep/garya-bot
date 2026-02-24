@@ -55,8 +55,8 @@ export async function handleChatMessage({
     const details =
       "callAI is not a function (router wiring error: pass { callAI } into handleChatMessage).";
     const text = monarchNow
-  ? `⚠️ Ошибка конфигурации: ${details}`
-  : "⚠️ Ошибка вызова ИИ.";
+      ? `⚠️ Ошибка конфигурации: ${details}`
+      : "⚠️ Ошибка вызова ИИ.";
 
     try {
       await bot.sendMessage(chatId, text);

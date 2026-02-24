@@ -19,6 +19,8 @@
 // - Supports: today/yesterday/day before yesterday, N days ago,
 //   and "last week / прошлой неделе / минулого тижня" (previous calendar week).
 
+import { createTimeContext } from "./time/timeContextFactory.js";
+
 function envTruthy(v) {
   if (v === true) return true;
   const s = String(v ?? "").trim().toLowerCase();
@@ -62,7 +64,6 @@ function startOfUTCWeekMonday(d) {
 function formatInKyiv(d) {
   try {
     const dt = d instanceof Date ? d : new Date(d);
-    // compact + timezone-aware (Kyiv has DST)
     return new Intl.DateTimeFormat("uk-UA", {
       timeZone: "Europe/Kyiv",
       year: "numeric",
@@ -84,20 +85,14 @@ function parseRelativeDayRangeUTC(query) {
     const q = String(query || "").toLowerCase();
     const now = new Date();
 
-    // last week (previous calendar week)
-    // EN: "last week", RU: "на прошлой неделе", UA: "минулого тижня"
     if (
       /\blast\s+week\b/.test(q) ||
-
-      // RU variants
       q.includes("прошлая неделя") ||
       q.includes("прошлую неделю") ||
       q.includes("прошлой неделе") ||
       q.includes("прошлой недели") ||
       q.includes("на прошлой неделе") ||
       q.includes("за прошлую неделю") ||
-
-      // UA variants
       q.includes("минулий тиждень") ||
       q.includes("минулого тижня") ||
       q.includes("минулому тижні") ||
@@ -109,21 +104,18 @@ function parseRelativeDayRangeUTC(query) {
       return { from, to, hint: "last_week" };
     }
 
-    // today
     if (q.includes("сегодня") || q.includes("сьогодні") || /\btoday\b/.test(q)) {
       const from = startOfUTCDay(now);
       const to = startOfUTCDay(addDaysUTC(now, 1));
       return { from, to, hint: "today" };
     }
 
-    // yesterday
     if (q.includes("вчера") || q.includes("вчора") || /\byesterday\b/.test(q)) {
       const from = startOfUTCDay(addDaysUTC(now, -1));
       const to = startOfUTCDay(now);
       return { from, to, hint: "yesterday" };
     }
 
-    // day before yesterday
     if (
       q.includes("позавчера") ||
       q.includes("позавчора") ||
@@ -134,16 +126,14 @@ function parseRelativeDayRangeUTC(query) {
       return { from, to, hint: "day_before_yesterday" };
     }
 
-    // "N days ago" (EN)
     let m = q.match(/\b(\d{1,2})\s*days?\s*ago\b/);
     if (m && m[1]) {
-      const n = Math.max(0, Math.min(30, Number(m[1]))); // cap to avoid huge scans
+      const n = Math.max(0, Math.min(30, Number(m[1])));
       const from = startOfUTCDay(addDaysUTC(now, -n));
       const to = startOfUTCDay(addDaysUTC(now, -n + 1));
       return { from, to, hint: `${n}_days_ago` };
     }
 
-    // "N дней назад" (RU/UA)
     m = q.match(/(\d{1,2})\s*(дн(?:ей|я)|дні|днів)\s*назад/iu);
     if (m && m[1]) {
       const n = Math.max(0, Math.min(30, Number(m[1])));
@@ -176,11 +166,14 @@ export class RecallEngine {
 
       if (!chatIdStr) return "";
 
-      // B) optional UTC date range from query (filter=UTC, display=Europe/Kyiv)
+      // STAGE 8 — TimeContext wiring (no logic yet)
+      const timeCtx = createTimeContext({
+        userTimezoneFromDb: null,
+      });
+
       const range = parseRelativeDayRangeUTC(query);
       const useRange = Boolean(range && range.from && range.to);
 
-      // 1) Primary scope: chat_id + global_user_id (if provided)
       let rows = [];
       let scope = "chat_only";
 
@@ -209,7 +202,6 @@ export class RecallEngine {
           rows = r1?.rows || [];
           scope = "chat+global";
         } catch (e) {
-          // Fail-open on query errors, but continue to fallback
           try {
             this.logger.error("❌ RecallEngine DB query (chat+global) failed:", e?.message || e);
           } catch (_) {}
@@ -217,7 +209,6 @@ export class RecallEngine {
         }
       }
 
-      // 2) Fallback: chat_id only
       if (!rows || rows.length === 0) {
         try {
           const params = [chatIdStr];
@@ -250,7 +241,6 @@ export class RecallEngine {
         }
       }
 
-      // DEBUG: prove DB returns something
       try {
         this.logger.log("🧠 RECALL_ENGINE_ROWS", {
           scope,
@@ -273,10 +263,8 @@ export class RecallEngine {
 
       if (!rows || rows.length === 0) return "";
 
-      // We fetched DESC; turn to ASC for readable context
       const asc = [...rows].reverse();
 
-      // Build compact "turn-like" lines (prefer user+assistant pairs)
       const lines = [];
       for (const r of asc) {
         const role = normalizeRole(r.role);
@@ -288,7 +276,7 @@ export class RecallEngine {
         const prefix = role === "user" ? "U:" : role === "assistant" ? "A:" : `${role}:`;
         lines.push(`${prefix} ${text}`);
 
-        if (lines.length >= lim * 2) break; // approx N turns
+        if (lines.length >= lim * 2) break;
       }
 
       if (lines.length === 0) return "";
@@ -296,7 +284,6 @@ export class RecallEngine {
       const header = `Последние сообщения (контекст памяти):`;
       return [header, ...lines].join("\n");
     } catch (e) {
-      // fail-open
       try {
         this.logger.error("❌ RecallEngine buildRecallContext failed:", e?.message || e);
       } catch (_) {}

@@ -1,38 +1,112 @@
 // src/core/time/TimeContext.js
-// STAGE 8 — Time Architecture Skeleton
-// Goal: centralize ALL time logic (UTC internal, user TZ external)
+// STAGE 8 — Time Architecture
+// Centralized time logic
+// Internal = UTC
+// External = user timezone
 
 export class TimeContext {
   constructor({ userTimezone = "UTC" }) {
-    this.userTimezone = userTimezone;
+    this.userTimezone = userTimezone || "UTC";
   }
 
-  // Always system-UTC "now"
   nowUTC() {
     return new Date();
   }
 
-  // Convert user-relative date expression → { fromUTC, toUTC, hint }
+  // --- helpers ---
+
+  startOfUTCDay(date) {
+    const d = new Date(date);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+
+  addDaysUTC(date, days) {
+    const d = new Date(date);
+    d.setUTCDate(d.getUTCDate() + Number(days || 0));
+    return d;
+  }
+
+  startOfUTCWeekMonday(date) {
+    const dayStart = this.startOfUTCDay(date);
+    const dow = dayStart.getUTCDay(); // 0=Sun
+    const delta = (dow + 6) % 7; // Monday-based
+    return this.addDaysUTC(dayStart, -delta);
+  }
+
+  // --- main date parser (UTC output only) ---
+
   parseHumanDate(query) {
-    // TODO: implement in next step
-    return null;
+    try {
+      const q = String(query || "").toLowerCase();
+      const now = this.nowUTC();
+
+      // LAST WEEK
+      if (
+        /\blast\s+week\b/.test(q) ||
+        q.includes("прошлой неделе") ||
+        q.includes("минулого тижня")
+      ) {
+        const thisWeekStart = this.startOfUTCWeekMonday(now);
+        const from = this.addDaysUTC(thisWeekStart, -7);
+        const to = thisWeekStart;
+        return { fromUTC: from, toUTC: to, hint: "last_week" };
+      }
+
+      // TODAY
+      if (q.includes("сегодня") || q.includes("сьогодні") || /\btoday\b/.test(q)) {
+        const from = this.startOfUTCDay(now);
+        const to = this.startOfUTCDay(this.addDaysUTC(now, 1));
+        return { fromUTC: from, toUTC: to, hint: "today" };
+      }
+
+      // YESTERDAY
+      if (q.includes("вчера") || q.includes("вчора") || /\byesterday\b/.test(q)) {
+        const from = this.startOfUTCDay(this.addDaysUTC(now, -1));
+        const to = this.startOfUTCDay(now);
+        return { fromUTC: from, toUTC: to, hint: "yesterday" };
+      }
+
+      // N days ago (EN)
+      let m = q.match(/\b(\d{1,2})\s*days?\s*ago\b/);
+      if (m && m[1]) {
+        const n = Math.max(0, Math.min(30, Number(m[1])));
+        const from = this.startOfUTCDay(this.addDaysUTC(now, -n));
+        const to = this.startOfUTCDay(this.addDaysUTC(now, -n + 1));
+        return { fromUTC: from, toUTC: to, hint: `${n}_days_ago` };
+      }
+
+      // N days ago (RU/UA)
+      m = q.match(/(\d{1,2})\s*(дн(?:ей|я)|дні|днів)\s*назад/iu);
+      if (m && m[1]) {
+        const n = Math.max(0, Math.min(30, Number(m[1])));
+        const from = this.startOfUTCDay(this.addDaysUTC(now, -n));
+        const to = this.startOfUTCDay(this.addDaysUTC(now, -n + 1));
+        return { fromUTC: from, toUTC: to, hint: `${n}_days_ago` };
+      }
+
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
-  // Convert UTC date to user display timezone
+  // --- display formatter ---
+
   formatForUser(dateUTC) {
-    // TODO: implement in next step
-    return null;
-  }
-
-  // Normalize start of day in USER timezone, return UTC boundary
-  startOfUserDayUTC(date) {
-    // TODO
-    return null;
-  }
-
-  // Normalize week start (user TZ), return UTC boundary
-  startOfUserWeekUTC(date) {
-    // TODO
-    return null;
+    try {
+      return new Intl.DateTimeFormat("uk-UA", {
+        timeZone: this.userTimezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).format(dateUTC);
+    } catch (_) {
+      return null;
+    }
   }
 }

@@ -355,6 +355,43 @@ export async function handleChatMessage({
   } catch (_) {}
 
   // ==========================================================
+  // STAGE 8A.1 — deterministic calendar-date reply (no AI)
+  // For direct questions like "какое было вчера число?" return computed date from TimeContext.
+  // ==========================================================
+  try {
+    const timeCtx = createTimeContext({ userTimezoneFromDb: null });
+    const parsed = timeCtx.parseHumanDate(effective);
+
+    const qLower = String(effective || "").toLowerCase();
+    const asksCalendarDate =
+      qLower.includes("число") ||
+      qLower.includes("дата") ||
+      qLower.includes("what date") ||
+      qLower.includes("date was");
+
+    const isSingleDayHint =
+      parsed?.hint === "today" ||
+      parsed?.hint === "yesterday" ||
+      parsed?.hint === "day_before_yesterday" ||
+      /_days_ago$/.test(String(parsed?.hint || ""));
+
+    if (asksCalendarDate && parsed?.fromUTC && isSingleDayHint) {
+      const d = new Date(parsed.fromUTC);
+      const dateLabel = new Intl.DateTimeFormat("ru-RU", {
+        timeZone: "UTC",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }).format(d);
+
+      await bot.sendMessage(chatId, `По UTC это ${dateLabel}.`);
+      return;
+    }
+  } catch (e) {
+    console.error("ERROR deterministic calendar-date reply failed (fail-open):", e);
+  }
+
+  // ==========================================================
   // STAGE 8A GUARD — BLOCK AI IF RECALL TOO WEAK (anti-hallucination)
   // - If query is time-based (yesterday/N days ago/last week) AND recallCtx is too small,
   //   do NOT call AI at all. Return deterministic "no data" reply.

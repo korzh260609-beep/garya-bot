@@ -161,9 +161,33 @@ export async function handleHealth({ bot, chatId }) {
     chatMessagesCount24h = String(row.last24h ?? 0);
   } catch (_) {}
 
-  // placeholders (future stages)
-  const recallRequests = 0;
-  const recallErrors = 0;
+  // ------------------
+  // STAGE 5.9 / 5.10 — recall metrics (via interaction_logs)
+  // ------------------
+  let recallRequests = "unknown";
+  let recallErrors = "unknown";
+
+  try {
+    const r = await pool.query(`
+      SELECT COUNT(*)::bigint AS cnt
+      FROM interaction_logs
+      WHERE task_type = 'recall_request'
+    `);
+    recallRequests = String(r?.rows?.[0]?.cnt ?? 0);
+  } catch (_) {
+    recallRequests = "unknown";
+  }
+
+  try {
+    const r = await pool.query(`
+      SELECT COUNT(*)::bigint AS cnt
+      FROM interaction_logs
+      WHERE task_type = 'recall_error'
+    `);
+    recallErrors = String(r?.rows?.[0]?.cnt ?? 0);
+  } catch (_) {
+    recallErrors = "unknown";
+  }
 
   // STAGE 8B.1 — already_seen_hits counter (via interaction_logs)
   let alreadySeenHits = "unknown";

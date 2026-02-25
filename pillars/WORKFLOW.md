@@ -204,6 +204,14 @@ For each roadmap item:
 - 6.6 Web / API Adapter (skeleton)
 - 6.7 Email Adapter (skeleton)
 
+ ### Notes (factual)
+
+- 2026-02-25: финальная очистка router (удалён deriveChatMeta из router; router использует только raw msg.chat.type).
+- Verified in Telegram:
+  - /build_info works in private
+  - /build_info blocked in groups (DEV only)
+- Deployed commit: 00d8e3748864c0da1a28dadf9575937220847a4a
+
 ## (SKELETON) 6.8 MULTI-INSTANCE SAFETY
 
 - 6.8.1 adapter→core dedupe key

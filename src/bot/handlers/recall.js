@@ -1,9 +1,10 @@
 // src/bot/handlers/recall.js
 // STAGE 8A — RECALL ENGINE (MVP, no embeddings)
 // Minimal: date/range + keyword filter over chat_messages
-// Also logs observability into interaction_logs: recall_request / recall_error
+// Logs observability into interaction_logs via src/logging/interactionLogs.js
 
 import pool from "../../../db.js";
+import { logInteraction } from "../../logging/interactionLogs.js";
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -20,7 +21,6 @@ function safeText(s, max = 200) {
   return t.length > max ? t.slice(0, max) + "…" : t;
 }
 
-// Very small parser (MVP):
 // /recall [keyword]
 // /recall --days 1 [keyword]
 // /recall --limit 5 [keyword]
@@ -57,31 +57,13 @@ function parseArgs(restRaw) {
   return { days, limit, keyword };
 }
 
-async function logInteraction({ chatIdStr, taskType, meta = {} }) {
-  try {
-    await pool.query(
-      `
-      INSERT INTO interaction_logs (chat_id, task_type, meta)
-      VALUES ($1, $2, $3::jsonb)
-    `,
-      [chatIdStr, taskType, JSON.stringify(meta)]
-    );
-  } catch (_) {
-    // fail-open
-  }
-}
-
 export async function handleRecall({ bot, chatId, chatIdStr, rest }) {
   const { days, limit, keyword } = parseArgs(rest);
 
-  await logInteraction({
-    chatIdStr,
-    taskType: "recall_request",
-    meta: { days, limit, keyword: safeText(keyword, 80) },
-  });
+  // observability: recall request
+  await logInteraction(chatIdStr, { taskType: "recall_request", aiCostLevel: "low" });
 
   try {
-    // time window
     const r = await pool.query(
       `
       SELECT role, content, created_at
@@ -134,11 +116,8 @@ export async function handleRecall({ bot, chatId, chatIdStr, rest }) {
         .join("\n")
     );
   } catch (e) {
-    await logInteraction({
-      chatIdStr,
-      taskType: "recall_error",
-      meta: { msg: safeText(e?.message || "unknown", 160) },
-    });
+    // observability: recall error
+    await logInteraction(chatIdStr, { taskType: "recall_error", aiCostLevel: "low" });
 
     await bot.sendMessage(chatId, `⛔ recall_error: ${safeText(e?.message || "unknown", 160)}`);
   }

@@ -357,15 +357,31 @@ export async function handleChatMessage({
 
   // ==========================================================
   // STAGE 8C — Timezone wiring (DB -> TimeContext)
-  // Default timezone = UTC (policy).
-  // Fail-open: any DB error => UTC.
+  // Default = UTC (policy).
+  // If timezone not set → ask user and STOP (no AI call).
   // ==========================================================
   let userTz = "UTC";
+  let timezoneMissing = false;
+
   try {
     const tzInfo = await getUserTimezone(globalUserId);
-    userTz = tzInfo?.timezone || "UTC";
+
+    // tzInfo = { timezone, isSet }
+    if (!tzInfo || tzInfo.isSet !== true) {
+      timezoneMissing = true;
+    } else {
+      userTz = tzInfo.timezone || "UTC";
+    }
   } catch (_) {
-    userTz = "UTC";
+    timezoneMissing = true;
+  }
+
+  if (timezoneMissing) {
+    await bot.sendMessage(
+      chatId,
+      "Укажи свою страну и город, чтобы я мог определить твою временную зону."
+    );
+    return; // ⛔ STOP — не идём в AI
   }
 
   // ==========================================================
@@ -582,14 +598,16 @@ export async function handleChatMessage({
     const assistantTextHash = sha256Text(assistantRedactedFull);
 
     const assistantContentForDb =
-      typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS
+      typeof assistantRedactedFull === "string" &&
+      assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS
         ? assistantRedactedFull.slice(0, MAX_CHAT_MESSAGE_CHARS)
         : typeof assistantRedactedFull === "string"
           ? assistantRedactedFull
           : "";
 
     const assistantTruncatedForDb =
-      typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS;
+      typeof assistantRedactedFull === "string" &&
+      assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS;
 
     const meta = {
       senderIdStr,

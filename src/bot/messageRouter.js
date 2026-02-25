@@ -54,7 +54,7 @@ import { loadProjectContext } from "../../core/projectContext.js";
 import { buildSystemPrompt } from "../../systemPrompt.js";
 
 // ✅ STAGE 6.4 — derive chat meta in core
-import { deriveChatMeta } from "../../core/transportMeta.js";
+import { deriveChatMeta } from "../core/transportMeta.js";
 
 // ✅ STAGE 6 — shadow wiring (no behavior change)
 import { handleMessage as handleMessageCore } from "../core/handleMessage.js";

@@ -90,27 +90,27 @@ export default class AlreadySeenDetector {
       const cnt = r?.rows?.[0]?.cnt || 0;
 
       if (cnt >= 2) {
-        // Metric: already_seen_hit (fail-open)
+        // Metric: already_seen_hit (compat with current interaction_logs schema)
         try {
           await this.db.query(
             `
-            INSERT INTO interaction_logs (task_type, meta)
-            VALUES ('already_seen_hit', $1::jsonb)
+            INSERT INTO interaction_logs (chat_id, task_type, ai_cost_level)
+            VALUES ($1, $2, $3)
             `,
-            [JSON.stringify({ chatId, globalUserId, qHash, keywords: q.keywords })]
+            [String(chatId), "already_seen_hit", "none"]
           );
         } catch (_) {}
 
-        // Metric: cooldown skip placeholder (fail-open)
+        // Metric: already_seen_cooldown_skip (compat with current interaction_logs schema)
         const cooldownSec = this.getCooldownSec();
         if (cooldownSec > 0) {
           try {
             await this.db.query(
               `
-              INSERT INTO interaction_logs (task_type, meta)
-              VALUES ('already_seen_cooldown_skip', $1::jsonb)
+              INSERT INTO interaction_logs (chat_id, task_type, ai_cost_level)
+              VALUES ($1, $2, $3)
               `,
-              [JSON.stringify({ chatId, cooldownSec })]
+              [String(chatId), "already_seen_cooldown_skip", "none"]
             );
           } catch (_) {}
         }

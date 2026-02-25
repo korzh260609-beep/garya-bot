@@ -9,6 +9,7 @@ import { getRecallEngine } from "../../core/recallEngineFactory.js";
 import { getAlreadySeenDetector } from "../../core/alreadySeenFactory.js";
 import { createTimeContext } from "../../core/time/timeContextFactory.js";
 import { isTimeNowIntent } from "../../core/time/timeNowIntent.js";
+import { isCurrentDateIntent } from "../../core/time/currentDateIntent.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
 import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
 import { getUserTimezone, setUserTimezone } from "../../db/userSettings.js";
@@ -312,8 +313,7 @@ export async function handleChatMessage({
     modeInstruction =
       "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
   } else if (answerMode === "long") {
-    modeInstruction =
-      "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
+    modeInstruction = "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
   }
 
   const currentUserName =
@@ -405,8 +405,7 @@ export async function handleChatMessage({
       const mentionsKyiv =
         t.includes("kyiv") || t.includes("kiev") || t.includes("київ") || t.includes("киев");
 
-      const mentionsUkraine =
-        t.includes("ukraine") || t.includes("украина") || t.includes("україна");
+      const mentionsUkraine = t.includes("ukraine") || t.includes("украина") || t.includes("україна");
 
       if (mentionsKyiv || mentionsUkraine) {
         resolved = "Europe/Kyiv";
@@ -450,6 +449,24 @@ export async function handleChatMessage({
   }
 
   // ==========================================================
+  // STAGE 8A.1 — deterministic CURRENT_DATE reply (no AI)
+  // ==========================================================
+  try {
+    if (isCurrentDateIntent(effective)) {
+      const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
+      const nowUtc = timeCtx.nowUTC();
+      const dateOnly = timeCtx.formatDateForUser(nowUtc);
+
+      if (dateOnly) {
+        await bot.sendMessage(chatId, `Сьогодні: ${dateOnly}`);
+        return; // ⛔ запрет AI
+      }
+    }
+  } catch (e) {
+    console.error("ERROR deterministic CURRENT_DATE reply failed (fail-open):", e);
+  }
+
+  // ==========================================================
   // STAGE 8A.1 — deterministic calendar-date reply (no AI)
   // For direct questions like "какое было вчера число?" return computed date from TimeContext.
   // ==========================================================
@@ -459,10 +476,7 @@ export async function handleChatMessage({
 
     const qLower = String(effective || "").toLowerCase();
     const asksCalendarDate =
-      qLower.includes("число") ||
-      qLower.includes("дата") ||
-      qLower.includes("what date") ||
-      qLower.includes("date was");
+      qLower.includes("число") || qLower.includes("дата") || qLower.includes("what date") || qLower.includes("date was");
 
     const isSingleDayHint =
       parsed?.hint === "today" ||
@@ -526,8 +540,7 @@ export async function handleChatMessage({
       text: effective,
     });
 
-    lastMatchAt =
-      typeof alreadySeen.getLastMatchAt === "function" ? alreadySeen.getLastMatchAt() : null;
+    lastMatchAt = typeof alreadySeen.getLastMatchAt === "function" ? alreadySeen.getLastMatchAt() : null;
 
     softReaction = Boolean(alreadySeenTriggered);
   } catch (e) {

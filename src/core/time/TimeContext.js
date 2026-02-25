@@ -87,7 +87,9 @@ export class TimeContext {
 
       // LAST N DAYS (includes today)
       // examples: "последние 3 дня", "за последние 7 дней", "last 3 days"
-      let lastN = q.match(/(?:за\s+)?последн(?:ие|их)\s*(\d{1,2})\s*(?:дн(?:я|ей)|дні|днів)/iu);
+      let lastN = q.match(
+        /(?:за\s+)?последн(?:ие|их)\s*(\d{1,2})\s*(?:дн(?:я|ей)|дні|днів)/iu
+      );
       if (!lastN) {
         lastN = q.match(/\blast\s+(\d{1,2})\s+days?\b/i);
       }
@@ -136,6 +138,20 @@ export class TimeContext {
   }
 
   // --- display formatter ---
+
+  // STAGE 8A.1 — date-only formatter (user timezone)
+  formatDateForUser(dateUTC) {
+    try {
+      return new Intl.DateTimeFormat("uk-UA", {
+        timeZone: this.userTimezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(dateUTC);
+    } catch (_) {
+      return null;
+    }
+  }
 
   formatForUser(dateUTC) {
     try {

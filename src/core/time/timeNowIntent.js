@@ -15,7 +15,6 @@ function hasAny(text, list) {
 
 export function isTimeNowIntent(inputText) {
   const t = normalize(inputText);
-
   if (!t) return false;
 
   // --- blacklist (avoid false positives) ---
@@ -23,8 +22,12 @@ export function isTimeNowIntent(inputText) {
     "таймер",
     "секундомер",
     "обратный отсчет",
+    "відлік",
     "сколько времени осталось",
+    "скiльки часу залишилось",
+    "скільки часу залишилось",
     "время в пути",
+    "час у дорозі",
     "времени в пути",
     "погода",
     "температура",

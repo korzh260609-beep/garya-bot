@@ -49,4 +49,7 @@ export async function ensureTables() {
   // Chat History registry (Stage 7B)
   await assertTableExists("chat_messages");
   await assertTableExists("chat_meta");
+
+  // Webhook dedupe observability (Stage 7B.7)
+  await assertTableExists("webhook_dedupe_events");
 }

@@ -84,11 +84,11 @@ export async function handleRecall({ bot, chatId, chatIdStr, rest }) {
     // time window
     const r = await pool.query(
       `
-      SELECT role, text, created_at
+      SELECT role, content, created_at
       FROM chat_messages
       WHERE chat_id = $1
         AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
-        AND ($3 = '' OR text ILIKE ('%' || $3 || '%'))
+        AND ($3 = '' OR content ILIKE ('%' || $3 || '%'))
       ORDER BY created_at DESC
       LIMIT $4
     `,
@@ -115,7 +115,7 @@ export async function handleRecall({ bot, chatId, chatIdStr, rest }) {
     for (const row of rows.reverse()) {
       const role = String(row.role || "").toLowerCase();
       const prefix = role === "assistant" ? "A:" : role === "user" ? "U:" : `${role}:`;
-      const text = safeText(row.text, 400);
+      const text = safeText(row.content, 400);
       const ts = row.created_at ? new Date(row.created_at).toISOString().slice(0, 16) : "";
       lines.push(`${ts} ${prefix} ${text}`.trim());
     }

@@ -53,6 +53,9 @@ import { getAnswerMode, setAnswerMode } from "../../core/answerMode.js";
 import { loadProjectContext } from "../../core/projectContext.js";
 import { buildSystemPrompt } from "../../systemPrompt.js";
 
+// ✅ STAGE 6.4 — derive chat meta in core
+import { deriveChatMeta } from "../../core/transportMeta.js";
+
 // ✅ STAGE 6 — shadow wiring (no behavior change)
 import { handleMessage as handleMessageCore } from "../core/handleMessage.js";
 
@@ -157,11 +160,17 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
       const text = String(msg.text || "");
       const trimmed = text.trim();
 
-      const chatType = msg.chat?.type || "unknown";
-      // ✅ Robust private detection:
-      // - Telegram private chats: chat.id === from.id
-      // - Sometimes chat.type can be missing/unknown in edge updates
-      const isPrivate = chatType === "private" || String(msg.chat?.id || "") === String(msg.from?.id || "");
+      const transportChatType = msg.chat?.type || null;
+
+      const meta = deriveChatMeta({
+        transport: "telegram",
+        chatId: chatIdStr,
+        senderId: senderIdStr,
+        transportChatType,
+      });
+
+      const chatType = meta.chatType;
+      const isPrivate = meta.isPrivateChat;
 
       if (!senderIdStr) return;
 
@@ -196,6 +205,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           transport: "telegram",
           chatId: chatIdStr,
           senderId: senderIdStr,
+          transportChatType,
           chatType,
           isPrivateChat: isPrivate,
           text: trimmed,

@@ -17,6 +17,7 @@ import { handleArList } from "./handlers/arList.js";
 import { handleLinkStart } from "./handlers/linkStart.js";
 import { handleLinkConfirm } from "./handlers/linkConfirm.js";
 import { handleLinkStatus } from "./handlers/linkStatus.js";
+import { handleRecall } from "./handlers/recall.js";
 import pool from "../../db.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
@@ -433,6 +434,16 @@ export async function dispatchCommand(cmd, ctx) {
         bot,
         chatId,
         bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/recall": {
+      await handleRecall({
+        bot,
+        chatId,
+        chatIdStr,
+        rest: ctx.rest,
       });
       return { handled: true };
     }

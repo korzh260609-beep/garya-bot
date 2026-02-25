@@ -478,15 +478,27 @@ export async function handleChatMessage({
     const asksCalendarDate =
       qLower.includes("число") || qLower.includes("дата") || qLower.includes("what date") || qLower.includes("date was");
 
+    // ✅ FIX: include "_days_from_now" as single-day hint
     const isSingleDayHint =
       parsed?.hint === "today" ||
       parsed?.hint === "tomorrow" ||
       parsed?.hint === "yesterday" ||
       parsed?.hint === "day_before_yesterday" ||
-      /_days_ago$/.test(String(parsed?.hint || ""));
+      /_days_ago$/.test(String(parsed?.hint || "")) ||
+      /_days_from_now$/.test(String(parsed?.hint || "")); // ✅ FIX
 
     if (asksCalendarDate && parsed?.fromUTC && isSingleDayHint) {
       const d = new Date(parsed.fromUTC);
+
+      // ✅ FIX: show date in user's timezone via TimeContext formatter (not "По UTC ...")
+      const dateOnly = timeCtx.formatDateForUser(d);
+
+      if (dateOnly) {
+        await bot.sendMessage(chatId, `Дата: ${dateOnly}`);
+        return; // ⛔ STOP — deterministic answer
+      }
+
+      // fallback (should be rare)
       const dateLabel = new Intl.DateTimeFormat("ru-RU", {
         timeZone: "UTC",
         year: "numeric",
@@ -508,7 +520,10 @@ export async function handleChatMessage({
     const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
     const parsed = timeCtx.parseHumanDate(effective);
 
-    if (parsed) {
+    // ✅ FIX: future-date questions are not "memory recall" → do not block
+    const isFutureSingleDay = /_days_from_now$/.test(String(parsed?.hint || ""));
+
+    if (parsed && !isFutureSingleDay) {
       const recallLines = (recallCtx || "")
         .split("\n")
         .filter((l) => l.startsWith("U:") || l.startsWith("A:")).length;

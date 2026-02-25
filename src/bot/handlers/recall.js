@@ -4,7 +4,7 @@
 // Logs observability into interaction_logs via src/logging/interactionLogs.js
 
 import pool from "../../../db.js";
-import { logInteraction } from "../../../logging/interactionLogs.js";
+import { logInteraction } from "../../logging/interactionLogs.js";
 
 function safeInt(n, def) {
   const x = Number(n);

@@ -1,12 +1,14 @@
 // src/core/AlreadySeenDetector.js
 // STAGE 8B — ALREADY-SEEN DETECTOR
-// 8B.1 — hit detection
-// 8B.2 — cooldown metric
-// 8B.3 — cooldown ENV support (no blocking yet)
+// 8B.1 — ExtractQuery (3–7 keywords, normalized) + hit detection based on keywords
+// 8B.2 — cooldown metric placeholder
+// 8B.3 — cooldown ENV support
 //
-// FIX: remove pgcrypto dependency (digest()) by hashing in Node (crypto sha256)
+// NOTE: This is still lightweight + fail-open, no blocking logic yet.
+// It only returns true/false to allow soft UI hint in chat.js.
 
 import crypto from "crypto";
+import { extractQuery } from "./alreadySeen/extractQuery.js";
 
 function sha256Hex(text) {
   try {
@@ -36,7 +38,7 @@ export default class AlreadySeenDetector {
   status() {
     return {
       enabled: this.getEnabled(),
-      mode: "skeleton",
+      mode: "stage-8b",
       hasDb: Boolean(this.db),
       cooldown_sec: this.getCooldownSec(),
     };
@@ -44,21 +46,34 @@ export default class AlreadySeenDetector {
 
   /**
    * Check if similar message was recently processed.
-   * STAGE 8B:
-   * - hit detection works
-   * - cooldown ENV is readable
-   * - no real blocking yet
+   * Stage 8B: return true only for a "soft hint" (UI-level).
+   * Fail-open: any error => false.
    */
   async check({ chatId, globalUserId, text }) {
     const enabled = this.getEnabled();
     if (!enabled) return false;
-
     if (!this.db || !chatId || !text) return false;
 
     try {
-      const cooldownSec = this.getCooldownSec();
-      const textHash = sha256Hex(text);
-      if (!textHash) return false;
+      // 8B.1 ExtractQuery
+      const q = extractQuery(text, { minKeywords: 3, maxKeywords: 7 });
+      if (!q.ok) return false;
+
+      // Use normalized query hash for stable fingerprint (internal only)
+      const qHash = sha256Hex(q.normalized);
+      if (!qHash) return false;
+
+      // 8B.2 FastLookup (MVP): AND-match first 3 keywords in recent window
+      // IMPORTANT: current message is already inserted into chat_messages (insert-first),
+      // so we use cnt>=2 as signal "seen before".
+      const kw = q.keywords.slice(0, 3);
+
+      const params = [String(chatId)];
+      let where = "";
+      for (let i = 0; i < kw.length; i++) {
+        params.push(kw[i]);
+        where += ` AND content ILIKE ('%' || $${params.length} || '%')`;
+      }
 
       const r = await this.db.query(
         `
@@ -66,41 +81,42 @@ export default class AlreadySeenDetector {
         FROM chat_messages
         WHERE chat_id = $1
           AND role = 'user'
-          AND text_hash = $2
-          AND created_at >= NOW() - INTERVAL '5 minutes'
+          AND created_at >= NOW() - INTERVAL '10 minutes'
+          ${where}
         `,
-        [String(chatId), textHash]
+        params
       );
 
       const cnt = r?.rows?.[0]?.cnt || 0;
 
       if (cnt >= 2) {
-        // STAGE 8B.1 metric (hit)
+        // Metric: already_seen_hit (fail-open)
         try {
           await this.db.query(
             `
-            INSERT INTO interaction_logs (task_type, payload)
-            VALUES ('already_seen_hit', $1)
+            INSERT INTO interaction_logs (task_type, meta)
+            VALUES ('already_seen_hit', $1::jsonb)
             `,
-            [JSON.stringify({ chatId, globalUserId })]
+            [JSON.stringify({ chatId, globalUserId, qHash, keywords: q.keywords })]
           );
         } catch (_) {}
 
-        // STAGE 8B.2 metric (cooldown skip placeholder)
+        // Metric: cooldown skip placeholder (fail-open)
+        const cooldownSec = this.getCooldownSec();
         if (cooldownSec > 0) {
           try {
             await this.db.query(
               `
-              INSERT INTO interaction_logs (task_type, payload)
-              VALUES ('already_seen_cooldown_skip', $1)
+              INSERT INTO interaction_logs (task_type, meta)
+              VALUES ('already_seen_cooldown_skip', $1::jsonb)
               `,
               [JSON.stringify({ chatId, cooldownSec })]
             );
           } catch (_) {}
         }
 
-        // STAGE 8B — no blocking yet
-        return false;
+        // ✅ For Stage 8B: allow soft hint in chat.js
+        return true;
       }
     } catch (e) {
       this.logger?.error?.("AlreadySeenDetector error:", e);

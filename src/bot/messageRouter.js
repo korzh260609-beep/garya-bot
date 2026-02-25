@@ -53,6 +53,9 @@ import { getAnswerMode, setAnswerMode } from "../../core/answerMode.js";
 import { loadProjectContext } from "../../core/projectContext.js";
 import { buildSystemPrompt } from "../../systemPrompt.js";
 
+// ✅ STAGE 6 — shadow wiring (no behavior change)
+import { handleMessage as handleMessageCore } from "../core/handleMessage.js";
+
 import {
   parseCommand,
   callWithFallback,
@@ -183,6 +186,22 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
         isMonarch: isMonarchFn,
         provider: identityCtx.transport,
       });
+
+      // ✅ STAGE 6 shadow wiring: call core handleMessage(context) WITHOUT affecting replies
+      try {
+        await handleMessageCore({
+          transport: "telegram",
+          chatId: chatIdStr,
+          senderId: senderIdStr,
+          chatType,
+          isPrivateChat: isPrivate,
+          text: trimmed,
+          // globalUserId is not known yet here; safe to omit in Stage 6.3
+        });
+      } catch (e) {
+        // Never block Telegram flow on Stage 6 skeleton
+        console.error("handleMessageCore(SHADOW) failed:", e);
+      }
 
       const userRole = accessPack?.userRole || "guest";
       const userPlan = accessPack?.userPlan || "free";

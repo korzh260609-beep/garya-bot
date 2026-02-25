@@ -394,10 +394,6 @@ export async function handleChatMessage({
 
   // ==========================================================
   // STAGE 8A GUARD — BLOCK AI IF RECALL TOO WEAK (anti-hallucination)
-  // - If query is time-based (yesterday/N days ago/last week) AND recallCtx is too small,
-  //   do NOT call AI at all. Return deterministic "no data" reply.
-  // - This prevents GPT from inventing calendar dates (observed in prod).
-  // - Fail-open: if guard crashes, continue normal flow.
   // ==========================================================
   try {
     const timeCtx = createTimeContext({ userTimezoneFromDb: null });
@@ -408,7 +404,6 @@ export async function handleChatMessage({
         .split("\n")
         .filter((l) => l.startsWith("U:") || l.startsWith("A:")).length;
 
-      // 4 lines ~= 2 turns (U/A * 2). Below that GPT tends to "invent" dates/events.
       if (recallLines < 4) {
         try {
           await bot.sendMessage(chatId, "В памяти нет данных за этот период.");
@@ -423,14 +418,10 @@ export async function handleChatMessage({
   }
 
   // ==========================================================
-  // STAGE 8B — ALREADY-SEEN DETECTOR (SKELETON)
-  // - wiring only
-  // - fail-open
-  // - no blocking logic in 8B
-  //
-  // STAGE 8C.1 — soft reaction flag (NO behavior change yet)
+  // STAGE 8B — ALREADY-SEEN DETECTOR
   // ==========================================================
   let softReaction = false;
+  let lastMatchAt = null;
   try {
     const alreadySeen = getAlreadySeenDetector({ db: pool, logger: console });
 
@@ -440,28 +431,37 @@ export async function handleChatMessage({
       text: effective,
     });
 
-    // STAGE 8C.1 — soft reaction flag (no behavior change yet)
+    lastMatchAt =
+      typeof alreadySeen.getLastMatchAt === "function" ? alreadySeen.getLastMatchAt() : null;
+
     softReaction = Boolean(alreadySeenTriggered);
   } catch (e) {
     console.error("ERROR AlreadySeenDetector check failed (fail-open):", e);
   }
 
   // ==========================================================
-  // STAGE 8C.2 — Soft Hint reply (UI-level, no blocking)
-  // - only when softReaction === true
-  // - no Recall changes
-  // - no Memory changes
-  // - fail-open
+  // STAGE 8B.5 — Output format tightening (UTC default)
   // ==========================================================
   if (softReaction === true) {
     try {
+      const dt = lastMatchAt ? new Date(lastMatchAt) : null;
+      const when = dt
+        ? new Intl.DateTimeFormat("ru-RU", {
+            timeZone: "UTC",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(dt)
+        : "неизвестно";
+
       await bot.sendMessage(
         chatId,
-        "💡 Похоже, мы это уже обсуждали недавно. Если хочешь — уточни, что именно продолжить или что изменилось."
+        `💡 Похоже, это уже обсуждали. Последнее совпадение: ${when} (UTC)\nЕсли есть новое — уточни, что изменилось.`
       );
     } catch (e) {
       console.error("ERROR Telegram send error (soft hint):", e);
-      // fail-open
     }
   }
 
@@ -488,7 +488,6 @@ export async function handleChatMessage({
     { role: "user", content: effective },
   ];
 
-  // Remove null entries (when recallCtx is empty)
   const filtered = messages.filter(Boolean);
 
   let maxTokens = 350;
@@ -501,7 +500,6 @@ export async function handleChatMessage({
     temperature = 0.8;
   }
 
-  // ---- OBSERVABILITY (minimal): log AI call with reason + cost level ----
   const aiReason = "chat.reply";
   const aiMetaBase = {
     handler: "chat",
@@ -527,7 +525,6 @@ export async function handleChatMessage({
   }
 
   const t0 = Date.now();
-  // --------------------------------------------
 
   let aiReply = "";
   try {
@@ -542,7 +539,6 @@ export async function handleChatMessage({
     aiReply = monarchNow ? `ERROR: Ошибка вызова ИИ: ${msgText}` : "ERROR: Ошибка вызова ИИ.";
   }
 
-  // ---- OBSERVABILITY (minimal): log AI result ----
   const dtMs = Date.now() - t0;
   const aiMetaEnd = {
     ...aiMetaBase,
@@ -560,14 +556,9 @@ export async function handleChatMessage({
   } catch (e) {
     console.error("ERROR logInteraction (AI_CALL_END) error:", e);
   }
-  // --------------------------------------------
 
   // ==========================================================
-  // STAGE 7B.4 + 7B.10 + 7B.2 — Log SG output to chat_messages (assistant)
-  // - content stored redacted
-  // - text_hash stored
-  // - platform_message_id is unknown here (null)
-  // fail-open (must not break production)
+  // STAGE 7B.4 — Log assistant output to chat_messages (assistant)
   // ==========================================================
   try {
     const transport = "telegram";
@@ -620,20 +611,19 @@ export async function handleChatMessage({
         String(chatIdStr),
         chatType ? String(chatType) : null,
         globalUserId ? String(globalUserId) : null,
-        null, // assistant has no sender_id (transport user id)
-        null, // outgoing telegram message_id not available here
-        null, // platform_message_id unknown for outgoing here
+        null,
+        null,
+        null,
         assistantTextHash,
         "assistant",
         assistantContentForDb,
         Boolean(assistantTruncatedForDb),
         JSON.stringify(meta),
-        JSON.stringify({}), // no raw for assistant
+        JSON.stringify({}),
         1,
       ]
     );
 
-    // STAGE 7B.8 — touch chat_meta (outbound assistant)
     try {
       await touchChatMeta({
         transport,
@@ -647,7 +637,6 @@ export async function handleChatMessage({
     console.error("ERROR STAGE 7B.4 chat_messages assistant insert failed (fail-open):", e);
   }
 
-  //  STAGE 7.2: save pair with globalUserId
   try {
     await saveChatPair(chatIdStr, effective, aiReply, {
       globalUserId,

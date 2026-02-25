@@ -213,6 +213,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           senderId: senderIdStr,
           transportChatType, // raw-ish transport hint; core derives chat meta
           text: trimmed,
+          messageId: msg.message_id, // ✅ STAGE 7.2 — activate memory shadow
           globalUserId,
         });
       } catch (e) {

@@ -8,6 +8,7 @@ import { getMemoryService } from "../../core/memoryServiceFactory.js";
 import { getRecallEngine } from "../../core/recallEngineFactory.js";
 import { getAlreadySeenDetector } from "../../core/alreadySeenFactory.js";
 import { createTimeContext } from "../../core/time/timeContextFactory.js";
+import { isTimeNowIntent } from "../../core/time/timeNowIntent.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
 import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
 import { getUserTimezone, setUserTimezone } from "../../db/userSettings.js";
@@ -428,6 +429,24 @@ export async function handleChatMessage({
       "Укажи свою часову зону у форматі IANA, напр.: Europe/Kyiv. Якщо не знаєш — напиши країну і місто ще раз."
     );
     return; // ⛔ STOP — не идём в AI
+  }
+
+  // ==========================================================
+  // STAGE 8C.0 — deterministic TIME_NOW reply (no AI)
+  // ==========================================================
+  try {
+    if (isTimeNowIntent(effective)) {
+      const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
+      const nowUtc = timeCtx.nowUTC();
+      const formatted = timeCtx.formatForUser(nowUtc);
+
+      if (formatted) {
+        await bot.sendMessage(chatId, `Зараз: ${formatted}`);
+        return;
+      }
+    }
+  } catch (e) {
+    console.error("ERROR deterministic TIME_NOW reply failed (fail-open):", e);
   }
 
   // ==========================================================

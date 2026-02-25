@@ -26,7 +26,10 @@ function matchesAny(t, regexList) {
 }
 
 export function isTimeNowIntent(inputText) {
-  const t = normalize(inputText);
+  const raw = String(inputText || "");
+  const hadQuestionMark = raw.includes("?");
+
+  const t = normalize(raw);
   if (!t) return false;
 
   // --- BLACKLIST (block false positives) ---
@@ -107,7 +110,7 @@ export function isTimeNowIntent(inputText) {
 
   const hasTime = hasAny(t, timeTerms);
   const hasNow = hasAny(t, nowTerms);
-  const hasQuestion = hasAny(t, questionTerms) || t.includes("?");
+  const hasQuestion = hasAny(t, questionTerms) || hadQuestionMark;
 
   if (hasTime) score += 3;
   if (hasNow) score += 2;

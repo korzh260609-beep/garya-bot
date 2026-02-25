@@ -5,15 +5,21 @@
 import pool from "../../db.js";
 
 /**
- * Get timezone for user.
- * If not found → return "UTC" (default policy).
+ * Get timezone info for user.
+ * Returns:
+ * {
+ *   timezone: string,
+ *   isSet: boolean
+ * }
  */
 export async function getUserTimezone(globalUserId) {
-  if (!globalUserId) return "UTC";
+  if (!globalUserId) {
+    return { timezone: "UTC", isSet: false };
+  }
 
   const r = await pool.query(
     `
-    SELECT timezone
+    SELECT timezone, timezone_is_set
     FROM user_settings
     WHERE global_user_id = $1
     LIMIT 1
@@ -21,24 +27,31 @@ export async function getUserTimezone(globalUserId) {
     [String(globalUserId)]
   );
 
-  if (r.rowCount === 0) return "UTC";
+  if (r.rowCount === 0) {
+    return { timezone: "UTC", isSet: false };
+  }
 
-  return r.rows[0].timezone || "UTC";
+  return {
+    timezone: r.rows[0].timezone || "UTC",
+    isSet: r.rows[0].timezone_is_set === true,
+  };
 }
 
 /**
  * Set or update timezone (IANA string).
+ * Marks timezone as explicitly set by user.
  */
 export async function setUserTimezone(globalUserId, timezone) {
   if (!globalUserId) return;
 
   await pool.query(
     `
-    INSERT INTO user_settings (global_user_id, timezone, updated_at)
-    VALUES ($1, $2, NOW())
+    INSERT INTO user_settings (global_user_id, timezone, timezone_is_set, updated_at)
+    VALUES ($1, $2, true, NOW())
     ON CONFLICT (global_user_id)
     DO UPDATE SET
       timezone = EXCLUDED.timezone,
+      timezone_is_set = true,
       updated_at = NOW()
     `,
     [String(globalUserId), String(timezone)]

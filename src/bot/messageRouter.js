@@ -187,6 +187,9 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
         provider: identityCtx.transport,
       });
 
+      // ✅ globalUserId for Stage 6 core (unified identity)
+      const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+
       // ✅ STAGE 6 shadow wiring: call core handleMessage(context) WITHOUT affecting replies
       try {
         await handleMessageCore({
@@ -196,7 +199,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           chatType,
           isPrivateChat: isPrivate,
           text: trimmed,
-          // globalUserId is not known yet here; safe to omit in Stage 6.3
+          globalUserId,
         });
       } catch (e) {
         // Never block Telegram flow on Stage 6 skeleton
@@ -382,8 +385,8 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
         // ✅ /memory_diag
         if (cmdBase === "/memory_diag") {
-          const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-          const out = await memDiag.memoryDiag({ chatIdStr, globalUserId });
+          const globalUserId2 = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+          const out = await memDiag.memoryDiag({ chatIdStr, globalUserId: globalUserId2 });
           await bot.sendMessage(chatId, out);
           return;
         }
@@ -397,19 +400,19 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
         // ✅ /memory_backfill
         if (cmdBase === "/memory_backfill") {
-          const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+          const globalUserId2 = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
           const rawN = Number(String(rest || "").trim() || "200");
           const limit = Number.isFinite(rawN) ? Math.max(1, Math.min(500, rawN)) : 200;
 
-          const out = await memDiag.memoryBackfill({ chatIdStr, globalUserId, limit });
+          const out = await memDiag.memoryBackfill({ chatIdStr, globalUserId: globalUserId2, limit });
           await bot.sendMessage(chatId, out);
           return;
         }
 
         // ✅ NEW: /memory_user_chats — list other chats that contain rows for this user
         if (cmdBase === "/memory_user_chats") {
-          const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-          const out = await memDiag.memoryUserChats({ globalUserId });
+          const globalUserId2 = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+          const out = await memDiag.memoryUserChats({ globalUserId: globalUserId2 });
           await bot.sendMessage(chatId, out);
           return;
         }
@@ -988,7 +991,6 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
       // ======================================================================
       // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
       // ======================================================================
-      const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
 
       await handleChatMessage({
         bot,

@@ -118,7 +118,9 @@ export default class AlreadySeenDetector {
 
       const r = await this.db.query(
         `
-        SELECT COUNT(*)::int AS cnt
+        SELECT
+          COUNT(*)::int AS cnt,
+          MAX(created_at) AS last_at
         FROM chat_messages
         WHERE chat_id = $1
           AND role = 'user'
@@ -129,6 +131,10 @@ export default class AlreadySeenDetector {
       );
 
       const cnt = r?.rows?.[0]?.cnt || 0;
+      const lastAt = r?.rows?.[0]?.last_at || null;
+
+      // stash for UX (8B.5)
+      this._lastMatchAt = lastAt;
 
       if (cnt >= 2) {
         try {
@@ -148,5 +154,9 @@ export default class AlreadySeenDetector {
     }
 
     return false;
+  }
+
+  getLastMatchAt() {
+    return this._lastMatchAt || null;
   }
 }

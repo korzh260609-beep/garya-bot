@@ -53,9 +53,6 @@ import { getAnswerMode, setAnswerMode } from "../../core/answerMode.js";
 import { loadProjectContext } from "../../core/projectContext.js";
 import { buildSystemPrompt } from "../../systemPrompt.js";
 
-// ✅ STAGE 6.4 — derive chat meta in core
-import { deriveChatMeta } from "../core/transportMeta.js";
-
 // ✅ STAGE 6 — shadow wiring (no behavior change)
 import { handleMessage as handleMessageCore } from "../core/handleMessage.js";
 
@@ -161,22 +158,17 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
       const text = String(msg.text || "");
       const trimmed = text.trim();
 
-      // ✅ STAGE 6.5 — NO direct msg.chat.type usage here.
-      // Minimal deterministic heuristic:
-      // - private if chatId == senderId
-      // - otherwise treat as group
-      const transportChatType =
-        chatIdStr && senderIdStr && chatIdStr === senderIdStr ? "private" : "group";
+      // ✅ STAGE 6 cleanup: router uses ONLY raw transport meta (no deriveChatMeta here)
+      const transportChatTypeRaw = String(msg.chat?.type || "").trim();
 
-      const meta = deriveChatMeta({
-        transport: "telegram",
-        chatId: chatIdStr,
-        senderId: senderIdStr,
-        transportChatType,
-      });
+      // fallback for edge cases where Telegram type is missing
+      const isPrivate =
+        transportChatTypeRaw === "private" ||
+        (chatIdStr && senderIdStr && chatIdStr === senderIdStr);
+      const chatType = transportChatTypeRaw || (isPrivate ? "private" : "group");
 
-      const chatType = meta.chatType;
-      const isPrivate = meta.isPrivateChat;
+      // keep variable name for core shadow wiring (raw-ish transport hint)
+      const transportChatType = transportChatTypeRaw;
 
       if (!senderIdStr) return;
 

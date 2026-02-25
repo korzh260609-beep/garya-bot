@@ -160,7 +160,12 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
       const text = String(msg.text || "");
       const trimmed = text.trim();
 
-      const transportChatType = msg.chat?.type || null;
+      // ✅ STAGE 6.5 — NO direct msg.chat.type usage here.
+      // Minimal deterministic heuristic:
+      // - private if chatId == senderId
+      // - otherwise treat as group
+      const transportChatType =
+        chatIdStr && senderIdStr && chatIdStr === senderIdStr ? "private" : "group";
 
       const meta = deriveChatMeta({
         transport: "telegram",
@@ -333,7 +338,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
               `monarch=${isMonarchUser}`,
               `chatId=${chatIdStr}`,
               `from=${senderIdStr}`,
-              `rawChatType=${String(msg.chat?.type || "")}`,
+              `transportChatType=${String(transportChatType || "")}`,
               `chatIdEqFrom=${chatIdStr === senderIdStr}`,
             ].join("\n")
           );

@@ -131,6 +131,19 @@ export class TimeContext {
         return { fromUTC: from, toUTC: to, hint: `${n}_days_ago` };
       }
 
+      // IN N DAYS / ЧЕРЕЗ N ДНЕЙ (future single day)
+      // examples: "через 3 дня", "через 5 днів", "in 3 days"
+      let futureN = q.match(/через\s+(\d{1,2})\s*(дн(?:я|ей)|дні|днів)/iu);
+      if (!futureN) {
+        futureN = q.match(/\bin\s+(\d{1,2})\s+days?\b/i);
+      }
+      if (futureN && futureN[1]) {
+        const n = Math.max(0, Math.min(30, Number(futureN[1])));
+        const from = this.startOfUTCDay(this.addDaysUTC(now, n));
+        const to = this.startOfUTCDay(this.addDaysUTC(now, n + 1));
+        return { fromUTC: from, toUTC: to, hint: `${n}_days_from_now` };
+      }
+
       return null;
     } catch (_) {
       return null;

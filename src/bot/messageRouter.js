@@ -205,12 +205,12 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
       const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
 
       // ✅ STAGE 6 shadow wiring: call core handleMessage(context) WITHOUT affecting replies
+      // ✅ STAGE 6.6: DO NOT pass transportChatType into core (transport-specific detail)
       try {
         await handleMessageCore({
           transport: "telegram",
           chatId: chatIdStr,
           senderId: senderIdStr,
-          transportChatType,
           chatType,
           isPrivateChat: isPrivate,
           text: trimmed,

@@ -10,7 +10,7 @@ import { getAlreadySeenDetector } from "../../core/alreadySeenFactory.js";
 import { createTimeContext } from "../../core/time/timeContextFactory.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
 import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
-import { getUserTimezone } from "../../db/userSettings.js";
+import { getUserTimezone, setUserTimezone } from "../../db/userSettings.js";
 
 export async function handleChatMessage({
   bot,
@@ -311,7 +311,8 @@ export async function handleChatMessage({
     modeInstruction =
       "Режим normal: давай развёрнутый, но компактный ответ (3–7 предложений), с ключевыми деталями.";
   } else if (answerMode === "long") {
-    modeInstruction = "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
+    modeInstruction =
+      "Режим long: можно отвечать подробно, структурированно, с примерами и пояснениями.";
   }
 
   const currentUserName =
@@ -358,7 +359,7 @@ export async function handleChatMessage({
   // ==========================================================
   // STAGE 8C — Timezone wiring (DB -> TimeContext)
   // Default = UTC (policy).
-  // If timezone not set → ask user and STOP (no AI call).
+  // If timezone not set → try resolve/save OR ask user and STOP (no AI call).
   // ==========================================================
   let userTz = "UTC";
   let timezoneMissing = false;
@@ -377,9 +378,54 @@ export async function handleChatMessage({
   }
 
   if (timezoneMissing) {
+    const rawTzInput = String(effective || "").trim();
+
+    // 1) If user provides IANA timezone directly (Europe/Kyiv)
+    const ianaCandidate = rawTzInput.match(/^[A-Za-z_]+\/[A-Za-z_]+$/) ? rawTzInput : null;
+
+    const isValidIana = (tz) => {
+      try {
+        // throws RangeError on invalid timeZone
+        new Intl.DateTimeFormat("en-US", { timeZone: tz }).format(new Date());
+        return true;
+      } catch (_) {
+        return false;
+      }
+    };
+
+    let resolved = null;
+
+    if (ianaCandidate && isValidIana(ianaCandidate)) {
+      resolved = ianaCandidate;
+    } else {
+      // 2) Minimal resolver (MVP): Kyiv/Ukraine -> Europe/Kyiv
+      const t = rawTzInput.toLowerCase();
+
+      const mentionsKyiv =
+        t.includes("kyiv") || t.includes("kiev") || t.includes("київ") || t.includes("киев");
+
+      const mentionsUkraine =
+        t.includes("ukraine") || t.includes("украина") || t.includes("україна");
+
+      if (mentionsKyiv || mentionsUkraine) {
+        resolved = "Europe/Kyiv";
+      }
+    }
+
+    if (resolved) {
+      try {
+        await setUserTimezone(globalUserId, resolved);
+        await bot.sendMessage(chatId, `✅ Часовий пояс збережено: ${resolved}`);
+      } catch (e) {
+        console.error("ERROR setUserTimezone failed:", e);
+        await bot.sendMessage(chatId, "ERROR: Не вдалося зберегти часовий пояс. Спробуй ще раз.");
+      }
+      return; // ⛔ STOP — не идём в AI
+    }
+
     await bot.sendMessage(
       chatId,
-      "Укажи свою страну и город, чтобы я мог определить твою временную зону."
+      "Укажи свою часову зону у форматі IANA, напр.: Europe/Kyiv. Якщо не знаєш — напиши країну і місто ще раз."
     );
     return; // ⛔ STOP — не идём в AI
   }
@@ -598,16 +644,14 @@ export async function handleChatMessage({
     const assistantTextHash = sha256Text(assistantRedactedFull);
 
     const assistantContentForDb =
-      typeof assistantRedactedFull === "string" &&
-      assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS
+      typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS
         ? assistantRedactedFull.slice(0, MAX_CHAT_MESSAGE_CHARS)
         : typeof assistantRedactedFull === "string"
           ? assistantRedactedFull
           : "";
 
     const assistantTruncatedForDb =
-      typeof assistantRedactedFull === "string" &&
-      assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS;
+      typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS;
 
     const meta = {
       senderIdStr,

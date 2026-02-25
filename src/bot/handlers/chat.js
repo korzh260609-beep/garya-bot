@@ -10,6 +10,7 @@ import { getAlreadySeenDetector } from "../../core/alreadySeenFactory.js";
 import { createTimeContext } from "../../core/time/timeContextFactory.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
 import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
+import { getUserTimezone } from "../../db/userSettings.js";
 
 export async function handleChatMessage({
   bot,
@@ -355,11 +356,24 @@ export async function handleChatMessage({
   } catch (_) {}
 
   // ==========================================================
+  // STAGE 8C — Timezone wiring (DB -> TimeContext)
+  // Default timezone = UTC (policy).
+  // Fail-open: any DB error => UTC.
+  // ==========================================================
+  let userTz = "UTC";
+  try {
+    const tzInfo = await getUserTimezone(globalUserId);
+    userTz = tzInfo?.timezone || "UTC";
+  } catch (_) {
+    userTz = "UTC";
+  }
+
+  // ==========================================================
   // STAGE 8A.1 — deterministic calendar-date reply (no AI)
   // For direct questions like "какое было вчера число?" return computed date from TimeContext.
   // ==========================================================
   try {
-    const timeCtx = createTimeContext({ userTimezoneFromDb: null });
+    const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
     const parsed = timeCtx.parseHumanDate(effective);
 
     const qLower = String(effective || "").toLowerCase();
@@ -396,7 +410,7 @@ export async function handleChatMessage({
   // STAGE 8A GUARD — BLOCK AI IF RECALL TOO WEAK (anti-hallucination)
   // ==========================================================
   try {
-    const timeCtx = createTimeContext({ userTimezoneFromDb: null });
+    const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
     const parsed = timeCtx.parseHumanDate(effective);
 
     if (parsed) {

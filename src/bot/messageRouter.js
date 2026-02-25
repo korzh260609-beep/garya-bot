@@ -933,6 +933,26 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             return;
           }
 
+          // ✅ NEW: /recall (routes into commandDispatcher)
+          case "/recall": {
+            await dispatchCommand(cmdBase, {
+              bot,
+              msg,
+              identityCtx,
+              chatId,
+              chatIdStr,
+              senderIdStr,
+              chatType,
+              isPrivateChat: isPrivate,
+              rest,
+              userRole,
+              userPlan,
+              user,
+              bypass: isMonarchUser,
+            });
+            return;
+          }
+
           case "/sources": {
             await handleSourcesList({
               bot,

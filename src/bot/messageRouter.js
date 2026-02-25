@@ -66,8 +66,9 @@ import {
   sanitizeNonMonarchReply,
 } from "../../core/helpers.js";
 
-// === MEMORY (via bridge, STAGE 7) ===
-import { getChatHistory, saveMessageToMemory, saveChatPair } from "./memory/memoryBridge.js";
+// === MEMORY (bridge) ===
+// ✅ STAGE 7.3: stop memory writes from router; keep read-only history for chat context
+import { getChatHistory } from "./memory/memoryBridge.js";
 
 // === MEMORY LAYER V1 (SKELETON) ===
 import { getMemoryService } from "../core/memoryServiceFactory.js";
@@ -1007,6 +1008,11 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
       // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
       // ======================================================================
 
+      // ✅ STAGE 7.3: router must NOT write memory anymore (core does it).
+      // Keep no-op writers to avoid breaking handler signature if it still calls them.
+      const saveMessageToMemory = async () => {};
+      const saveChatPair = async () => {};
+
       await handleChatMessage({
         bot,
         msg,
@@ -1019,8 +1025,10 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
         FileIntake,
 
-        saveMessageToMemory,
+        // read-only
         getChatHistory,
+        // write disabled (core owns writes)
+        saveMessageToMemory,
         saveChatPair,
 
         logInteraction,

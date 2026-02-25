@@ -29,7 +29,13 @@ export class RecallEngine {
     this.logger = logger || console;
   }
 
-  async buildRecallContext({ chatId, globalUserId = null, query = "", limit = 5 }) {
+  async buildRecallContext({
+    chatId,
+    globalUserId = null,
+    query = "",
+    limit = 5,
+    userTimezone = null,
+  }) {
     try {
       const enabled = envTruthy(process.env.RECALL_ENABLED);
       if (!enabled) return "";
@@ -43,9 +49,9 @@ export class RecallEngine {
 
       if (!chatIdStr) return "";
 
-      // ✅ NEW — TimeContext real usage
+      // ✅ TimeContext should use USER TZ when parsing human date ranges
       const timeCtx = createTimeContext({
-        userTimezoneFromDb: null,
+        userTimezoneFromDb: userTimezone || null,
       });
 
       const parsed = timeCtx.parseHumanDate(query);
@@ -80,7 +86,10 @@ export class RecallEngine {
           scope = "chat+global";
         } catch (e) {
           try {
-            this.logger.error("❌ RecallEngine DB query (chat+global) failed:", e?.message || e);
+            this.logger.error(
+              "❌ RecallEngine DB query (chat+global) failed:",
+              e?.message || e
+            );
           } catch (_) {}
           rows = [];
         }
@@ -112,7 +121,10 @@ export class RecallEngine {
           scope = "chat_only";
         } catch (e) {
           try {
-            this.logger.error("❌ RecallEngine DB query (chat_only) failed:", e?.message || e);
+            this.logger.error(
+              "❌ RecallEngine DB query (chat_only) failed:",
+              e?.message || e
+            );
           } catch (_) {}
           return "";
         }
@@ -128,13 +140,9 @@ export class RecallEngine {
           dateFilter: useRange
             ? {
                 hint: parsed?.hint || null,
-                from_utc: parsed?.fromUTC
-                  ? new Date(parsed.fromUTC).toISOString()
-                  : null,
-                to_utc: parsed?.toUTC
-                  ? new Date(parsed.toUTC).toISOString()
-                  : null,
-                tz_note: "filter=UTC (via TimeContext)",
+                from_utc: parsed?.fromUTC ? new Date(parsed.fromUTC).toISOString() : null,
+                to_utc: parsed?.toUTC ? new Date(parsed.toUTC).toISOString() : null,
+                tz_used: userTimezone || null,
               }
             : null,
         });

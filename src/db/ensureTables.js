@@ -17,22 +17,36 @@ async function assertTableExists(tableName) {
 }
 
 export async function ensureTables() {
-  // tables that must exist after migrations
+  // tables that must exist after migrations (factual readiness, not stage-markers)
+
+  // Core DB
   await assertTableExists("schema_version");
   await assertTableExists("users");
-  await assertTableExists("chat_memory");
   await assertTableExists("tasks");
   await assertTableExists("interaction_logs");
 
+  // Identity (Stage 4)
+  await assertTableExists("user_links");
+  await assertTableExists("identity_link_codes");
+
+  // Memory (Stage 7)
+  await assertTableExists("chat_memory");
+  await assertTableExists("project_memory");
+  await assertTableExists("file_intake_logs");
+
+  // Observability (Stage 5)
+  await assertTableExists("task_runs");
+  await assertTableExists("source_runs");
+  await assertTableExists("error_events");
+  await assertTableExists("behavior_events");
+
+  // Sources (Stage 10 base tables may already exist in your schema)
   await assertTableExists("sources");
   await assertTableExists("source_cache");
   await assertTableExists("source_checks");
   await assertTableExists("source_logs");
 
-  await assertTableExists("project_memory");
-  await assertTableExists("file_intake_logs");
-
-  await assertTableExists("task_runs");
-  await assertTableExists("source_runs");
-  await assertTableExists("error_events");
+  // Chat History registry (Stage 7B)
+  await assertTableExists("chat_messages");
+  await assertTableExists("chat_meta");
 }

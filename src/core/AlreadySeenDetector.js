@@ -63,10 +63,34 @@ export default class AlreadySeenDetector {
       const qHash = sha256Hex(q.normalized);
       if (!qHash) return false;
 
-      // 8B.2 FastLookup (MVP): AND-match first 3 keywords in recent window
+      // 8B.2 FastLookup (MVP): AND-match 3 strongest keywords in recent window
       // IMPORTANT: current message is already inserted into chat_messages (insert-first),
       // so we use cnt>=2 as signal "seen before".
-      const kw = q.keywords.slice(0, 3);
+
+      // 8B.2 tightening + confidence threshold (reduce false-positives)
+      const minScoreRaw = String(process.env.ALREADY_SEEN_MIN_SCORE || "").trim();
+      const minScore = Number.isFinite(Number(minScoreRaw)) ? Number(minScoreRaw) : 4; // default 4
+
+      function kwScore(w) {
+        const s = String(w || "");
+        if (s.length >= 6) return 2; // “stronger” token
+        return 1;
+      }
+
+      const kwSorted = [...q.keywords]
+        .map((w) => String(w || "").trim())
+        .filter(Boolean)
+        .sort((a, b) => {
+          const sa = kwScore(a);
+          const sb = kwScore(b);
+          if (sb !== sa) return sb - sa;
+          return b.length - a.length;
+        });
+
+      const kw = kwSorted.slice(0, 3);
+
+      const totalScore = kw.reduce((sum, w) => sum + kwScore(w), 0);
+      if (totalScore < minScore) return false;
 
       const params = [String(chatId)];
       let where = "";

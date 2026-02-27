@@ -56,6 +56,32 @@ async function releaseRobotLock(client) {
   }
 }
 
+// ============================================================================
+// Stage 2.8.2 — Recover stuck "running" task_runs (crash safety)
+// ============================================================================
+
+async function recoverStuckTaskRuns() {
+  try {
+    // conservative default
+    const TIMEOUT_MINUTES = 10;
+
+    await pool.query(
+      `
+      UPDATE task_runs
+      SET
+        status = 'failed_timeout',
+        fail_reason = 'Auto-timeout recovery',
+        retry_at = NOW()
+      WHERE status = 'running'
+        AND started_at < NOW() - ($1::interval)
+      `,
+      [`${TIMEOUT_MINUTES} minutes`]
+    );
+  } catch (e) {
+    console.error("❌ ROBOT stuck recovery error:", e?.message || e);
+  }
+}
+
 export async function getActiveRobotTasks() {
   // ✅ Строго: робот видит ТОЛЬКО active задачи нужных типов
   const res = await pool.query(`
@@ -384,6 +410,9 @@ export async function robotTick(bot) {
   if (!lock.ok) return;
 
   try {
+    // Stage 2.8.2 — recover stuck "running" runs after crash
+    await recoverStuckTaskRuns();
+
     // ✅ Stage 5.4 — execute due retries first (scheduler responsibility)
     await pickAndRunDueRetries(bot);
 

@@ -177,3 +177,93 @@ export async function getLinkStatus({ provider = "telegram", providerUserId }) {
 
   return { ok: true, link: null, pending };
 }
+
+// ============================================================================
+// === STAGE 4.5 SKELETON (V2) — identity-first linking (NOT WIRED) ============
+// ============================================================================
+// Цель V2: link-коды должны опираться на реальный global_user_id (usr_...),
+// а tg:<id> оставлять только как legacy fallback.
+// ВАЖНО: ниже — только добавление функций. Старые createLinkCode/confirmLinkCode
+// НЕ меняем, чтобы не менять поведение без отдельного решения/wiring.
+// ----------------------------------------------------------------------------
+
+// NOTE: minimal helper — resolve existing global_user_id by provider mapping or users fallback
+async function resolveExistingGlobalUserIdV2({ provider = "telegram", providerUserId }) {
+  const providerNorm = String(provider || "telegram").trim() || "telegram";
+  const providerUserIdStr = String(providerUserId || "").trim();
+  if (!providerUserIdStr) return null;
+
+  // 1) user_identities is source of truth
+  try {
+    const idRes = await pool.query(
+      `
+      SELECT global_user_id
+      FROM user_identities
+      WHERE provider = $1 AND provider_user_id = $2
+      LIMIT 1
+      `,
+      [providerNorm, providerUserIdStr]
+    );
+    const gid1 = idRes.rows?.[0]?.global_user_id || null;
+    if (gid1) return gid1;
+  } catch (_) {
+    // keep V2 safe: ignore, fallback below
+  }
+
+  // 2) fallback users (legacy)
+  try {
+    const legacyRes = await pool.query(
+      `
+      SELECT global_user_id
+      FROM users
+      WHERE global_user_id = $1 OR tg_user_id = $2
+      LIMIT 1
+      `,
+      [`tg:${providerUserIdStr}`, providerUserIdStr]
+    );
+    return legacyRes.rows?.[0]?.global_user_id || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function createLinkCodeV2({ provider = "telegram", providerUserId }) {
+  const providerUserIdStr = String(providerUserId || "").trim();
+  if (!providerUserIdStr) {
+    return { ok: false, error: "provider_user_id_required" };
+  }
+
+  // identity-first if possible, else legacy tg:<id>
+  const resolved = await resolveExistingGlobalUserIdV2({
+    provider,
+    providerUserId: providerUserIdStr,
+  });
+  const globalUserId = resolved || `tg:${providerUserIdStr}`;
+
+  const code = genCode();
+
+  // NOTE: still uses existing CODE_TTL_MIN constant (config hygiene V2 later)
+  const res = await pool.query(
+    `
+    INSERT INTO identity_link_codes
+      (code, global_user_id, provider, provider_user_id, status, expires_at)
+    VALUES
+      ($1, $2, $3, $4, 'pending', NOW() + ($5::text || ' minutes')::interval)
+    RETURNING code, global_user_id, expires_at
+    `,
+    [code, globalUserId, provider, providerUserIdStr, String(CODE_TTL_MIN)]
+  );
+
+  return { ok: true, ...res.rows[0], v2: true };
+}
+
+export async function confirmLinkCodeV2({ code, provider = "telegram", providerUserId }) {
+  // Skeleton-only: for now, reuse v1 confirm logic (no behavior change).
+  // Wiring decision later: should we "upgrade" tg:<id> to usr_... at confirm time?
+  return confirmLinkCode({ code, provider, providerUserId });
+}
+
+export async function getLinkStatusV2({ provider = "telegram", providerUserId }) {
+  // Skeleton-only: reuse v1 status logic.
+  return getLinkStatus({ provider, providerUserId });
+}

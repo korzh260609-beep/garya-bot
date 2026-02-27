@@ -120,7 +120,7 @@ import { getProjectSection } from "../../projectMemory.js";
 import { checkRateLimit } from "./rateLimiter.js";
 
 // ✅ Stage 3.6 — Config hygiene V0
-import { envInt } from "../../core/config.js";
+import { envInt } from "../core/config.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)

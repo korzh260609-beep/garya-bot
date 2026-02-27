@@ -12,6 +12,50 @@ function envTrue(name) {
   return String(process.env[name] || "").toLowerCase() === "true";
 }
 
+// ============================================================================
+// Stage 2.8.1 — SINGLE ROBOT EXECUTION (DB advisory lock)
+// Prevent multi-instance duplicate robot loops.
+// ============================================================================
+
+const ROBOT_LOCK_KEY = "sg:robot_tick:lock:v1";
+
+async function tryAcquireRobotLock() {
+  const client = await pool.connect();
+  try {
+    // lock is held by this client connection
+    const r = await client.query(
+      `SELECT pg_try_advisory_lock(hashtext($1)) AS ok;`,
+      [ROBOT_LOCK_KEY]
+    );
+    const ok = !!r?.rows?.[0]?.ok;
+    if (!ok) {
+      client.release();
+      return { ok: false, client: null };
+    }
+    return { ok: true, client };
+  } catch (e) {
+    try {
+      client.release();
+    } catch (_) {}
+    return { ok: false, client: null };
+  }
+}
+
+async function releaseRobotLock(client) {
+  if (!client) return;
+  try {
+    await client.query(`SELECT pg_advisory_unlock(hashtext($1));`, [
+      ROBOT_LOCK_KEY,
+    ]);
+  } catch (_) {
+    // ignore
+  } finally {
+    try {
+      client.release();
+    } catch (_) {}
+  }
+}
+
 export async function getActiveRobotTasks() {
   // ✅ Строго: робот видит ТОЛЬКО active задачи нужных типов
   const res = await pool.query(`
@@ -335,6 +379,10 @@ async function handlePriceMonitorTask(bot, task) {
 }
 
 export async function robotTick(bot) {
+  // Stage 2.8.1: only one instance executes robot tick
+  const lock = await tryAcquireRobotLock();
+  if (!lock.ok) return;
+
   try {
     // ✅ Stage 5.4 — execute due retries first (scheduler responsibility)
     await pickAndRunDueRetries(bot);
@@ -359,6 +407,8 @@ export async function robotTick(bot) {
     }
   } catch (err) {
     console.error("❌ ROBOT ERROR:", err?.message || err);
+  } finally {
+    await releaseRobotLock(lock.client);
   }
 }
 

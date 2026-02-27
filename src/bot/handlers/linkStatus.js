@@ -1,4 +1,5 @@
-import { getLinkStatus } from "../../users/linking.js";
+import { getLinkStatus, getLinkStatusV2 } from "../../users/linking.js";
+import { getFeatureFlags } from "../../core/config.js";
 
 export async function handleLinkStatus({
   bot,
@@ -6,7 +7,10 @@ export async function handleLinkStatus({
   senderIdStr,
   provider = "telegram",
 }) {
-  const res = await getLinkStatus({
+  const flags = getFeatureFlags();
+  const fn = flags?.LINKING_V2 ? getLinkStatusV2 : getLinkStatus;
+
+  const res = await fn({
     provider,
     providerUserId: senderIdStr,
   });

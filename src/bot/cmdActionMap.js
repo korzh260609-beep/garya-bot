@@ -33,6 +33,7 @@ export const CMD_ACTION = {
   "/project_status": "cmd.admin.project_status",
 
   "/identity_diag": "cmd.admin.identity_diag",
+  "/identity_backfill": "cmd.admin.identity_backfill",
 
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",
   "/start_task": "cmd.admin.start_task",

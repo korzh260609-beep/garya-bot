@@ -62,3 +62,43 @@ export const ADMIN_ALERT_COOLDOWN_MIN = envIntRange(
   30,
   { min: 1, max: 1440 }
 );
+
+// ===============================
+// STAGE 4/5 — FEATURE FLAGS (PUBLIC-ENV allowlist + getter)
+// ===============================
+
+// Public env allowlist (safe-to-expose values only).
+// NOTE: This list is used by runtime diagnostics and feature flag getter.
+// Additions are allowed; do not remove without an explicit decision.
+export const PUBLIC_ENV_ALLOWLIST = [
+  // existing public snapshot keys
+  "NODE_ENV",
+  "MEMORY_ENABLED",
+  "MEMORY_MODE",
+  "RENDER_GIT_COMMIT",
+  "RENDER_SERVICE_ID",
+  "RENDER_INSTANCE_ID",
+  "GIT_COMMIT",
+  "HOSTNAME",
+
+  // ✅ feature flags
+  "LINKING_V2",
+  "DIAG_ROLES_V2",
+];
+
+// Internal helper: parse "1/true/yes/on" as true.
+function _isTruthyFlag(v) {
+  const s = String(v || "")
+    .trim()
+    .toLowerCase();
+  return ["1", "true", "yes", "y", "on"].includes(s);
+}
+
+// Feature flags getter.
+// IMPORTANT: return booleans (not strings) to keep call-sites stable.
+export function getFeatureFlags() {
+  return {
+    LINKING_V2: _isTruthyFlag(envStr("LINKING_V2", "0")),
+    DIAG_ROLES_V2: _isTruthyFlag(envStr("DIAG_ROLES_V2", "0")),
+  };
+}

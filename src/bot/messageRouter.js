@@ -66,7 +66,10 @@ import { handleMessage as handleMessageCore } from "../core/handleMessage.js";
 // ✅ STAGE 6 — Transport skeleton pieces (no behavior change)
 import { createUnifiedContext } from "../transport/unifiedContext.js";
 import { toCoreContextFromUnified } from "../transport/toCoreContext.js";
-import { isTransportEnforced } from "../transport/transportConfig.js";
+import {
+  isTransportEnforced,
+  isTransportTraceEnabled,
+} from "../transport/transportConfig.js";
 
 import {
   parseCommand,
@@ -310,6 +313,10 @@ export function attachMessageRouter({
       const _transportEnforced = isTransportEnforced();
       void _transportEnforced;
 
+      // ✅ Stage 6.6 — trace flag exists in transportConfig; read once for lint/clarity
+      const _transportTraceEnabled = isTransportTraceEnabled();
+      void _transportTraceEnabled;
+
       const telegramAdapterContext = createUnifiedContext({
         transport: "telegram",
         chatId: chatIdStr,
@@ -329,11 +336,11 @@ export function attachMessageRouter({
         }
       );
 
-      // ✅ STAGE 6 — trace only (under flag), NO behavior change
+      // ✅ STAGE 6 — trace only (under TRACE flag), NO behavior change
       // IMPORTANT:
       // - Must NOT call handleMessageCore() second time
       // - Log should be minimal (no full text dump) to avoid leaking payloads
-      if (isTransportEnforced()) {
+      if (isTransportTraceEnabled()) {
         try {
           const trace = {
             transport: coreContextFromTransport?.transport || null,
@@ -342,11 +349,12 @@ export function attachMessageRouter({
             transportChatType: coreContextFromTransport?.transportChatType || null,
             messageId: coreContextFromTransport?.messageId || null,
             globalUserId: coreContextFromTransport?.globalUserId || null,
-            textLen: typeof coreContextFromTransport?.text === "string"
-              ? coreContextFromTransport.text.length
-              : 0,
+            textLen:
+              typeof coreContextFromTransport?.text === "string"
+                ? coreContextFromTransport.text.length
+                : 0,
           };
-          console.log("[TRANSPORT_ENFORCED][TRACE] coreContextFromTransport:", trace);
+          console.log("[TRANSPORT_TRACE] coreContextFromTransport:", trace);
         } catch (e) {
           // swallow
         }

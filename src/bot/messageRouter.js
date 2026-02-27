@@ -436,6 +436,12 @@ export function attachMessageRouter({
           "/memory_user_chats", // ✅ NEW
           "/chat_meta_debug",
           "/behavior_events_last",
+
+          // ✅ STAGE 4.3 — Chat Gate admin (DEV-only)
+          "/chat_on",
+          "/chat_off",
+          "/chat_status",
+
           "/tasks",
           "/start_task",
           "/stop_task",

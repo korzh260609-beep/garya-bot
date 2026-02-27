@@ -25,6 +25,11 @@ export const CMD_ACTION = {
   "/diag_source": "cmd.source.diagnose",
   "/test_source": "cmd.source.test",
 
+  // ✅ STAGE 4.3 — Chat Gate admin (monarch)
+  "/chat_on": "cmd.admin.chat_set_active",
+  "/chat_off": "cmd.admin.chat_set_active",
+  "/chat_status": "cmd.admin.chat_status",
+
   // Stage 5/6 — admin/dev (must go via can())
   "/health": "cmd.admin.health",
   "/webhook_info": "cmd.admin.webhook_info",

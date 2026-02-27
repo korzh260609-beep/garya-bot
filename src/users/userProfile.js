@@ -1,6 +1,9 @@
 // src/users/userProfile.js
 // STAGE 4.2 — Multi-Channel Identity foundation
-// Safety: в groups не пишем users по chat_id (там chat_id = group id)
+// IMPORTANT:
+// - In groups, msg.chat.id is GROUP ID. We must NOT store it as user chat_id.
+// - For identity capture in groups, we use synthetic chat_id = tg_user_id (same as private chat id).
+// - This enables identity tracking for users who interact only in group.
 
 import pool from "../../db.js";
 import { envStr } from "../core/config.js";
@@ -10,17 +13,20 @@ import {
 } from "./globalUserId.js";
 
 export async function ensureUserProfile(msg) {
-  const chatId = msg.chat?.id?.toString();
+  const rawChatId = msg.chat?.id?.toString();
   const chatType = msg.chat?.type || null;
 
   const tgUserId = msg.from?.id?.toString() || null;
   const nameFromTelegram = msg.from?.first_name || null;
   const language = msg.from?.language_code || null;
 
-  if (!chatId || !tgUserId) return;
+  if (!tgUserId) return;
 
-  // CRITICAL SAFETY: avoid corrupting users table in group/supergroup/channel
-  if (chatType !== "private") return;
+  // ✅ Identity-safe chat_id:
+  // - private: real chat id
+  // - group/supergroup: synthetic chat id = tg user id (prevents corrupting users with group chat_id)
+  const isPrivate = chatType === "private" || (rawChatId && rawChatId === tgUserId);
+  const effectiveChatIdStr = isPrivate ? String(rawChatId || tgUserId) : String(tgUserId);
 
   // ✅ Stage 4: monarch identity from centralized config (no direct process.env)
   const MONARCH_USER_ID = envStr("MONARCH_USER_ID", "").trim();
@@ -35,7 +41,7 @@ export async function ensureUserProfile(msg) {
   }
 
   try {
-    // 1) If user already exists by chat_id, keep its global_user_id (avoid breaking DB links)
+    // 1) If user already exists by effective chat_id, keep its global_user_id (avoid breaking DB links)
     const byChatRes = await pool.query(
       `
       SELECT global_user_id
@@ -43,7 +49,7 @@ export async function ensureUserProfile(msg) {
       WHERE chat_id = $1
       LIMIT 1
       `,
-      [chatId]
+      [effectiveChatIdStr]
     );
 
     let globalUserId = byChatRes.rows?.[0]?.global_user_id || null;
@@ -58,8 +64,8 @@ export async function ensureUserProfile(msg) {
       globalUserId = await generateUniqueGlobalUserId();
     }
 
-    // Keep legacy chat_id column updated for private chat only (transport/compat),
-    // but identity truth is global_user_id.
+    // users table represents USER profile (identity-level).
+    // chat_id here is identity-safe: private chat id OR synthetic tg user id.
     await pool.query(
       `
       INSERT INTO users (chat_id, global_user_id, tg_user_id, name, role, language)
@@ -72,7 +78,7 @@ export async function ensureUserProfile(msg) {
         role = EXCLUDED.role,
         language = EXCLUDED.language
       `,
-      [chatId, globalUserId, tgUserId, finalName, role, language]
+      [effectiveChatIdStr, globalUserId, tgUserId, finalName, role, language]
     );
 
     // Link identity (telegram -> global_user_id)
@@ -84,7 +90,7 @@ export async function ensureUserProfile(msg) {
       ON CONFLICT (provider, provider_user_id)
       DO NOTHING
       `,
-      [globalUserId, "telegram", tgUserId, chatId]
+      [globalUserId, "telegram", tgUserId, effectiveChatIdStr]
     );
   } catch (err) {
     console.error("❌ Error in ensureUserProfile:", err);

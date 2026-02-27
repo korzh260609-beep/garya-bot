@@ -46,6 +46,10 @@ import { resolveUserAccess } from "../users/userAccess.js";
 import { ensureUserProfile } from "../users/userProfile.js"; // ✅ STAGE 4.2 WIRE
 import pool from "../../db.js";
 
+// ✅ STAGE 4 — Chats wiring (best-effort, no behavior change)
+import { upsertChat } from "../db/chatRepo.js";
+import { touchUserChatLink } from "../db/userChatLinkRepo.js";
+
 import { dispatchCommand } from "./commandDispatcher.js";
 
 // === CORE ===
@@ -122,10 +126,6 @@ import { checkRateLimit } from "./rateLimiter.js";
 // ✅ Stage 3.6 — Config hygiene (V1)
 import { envIntRange, envStr, getPublicEnvSnapshot } from "../core/config.js";
 
-// ✅ Stage 4 — Chats skeleton wiring (transport-level)
-import { upsertChat } from "../db/chatRepo.js";
-import { touchUserChatLink } from "../db/userChatLinkRepo.js";
-
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // ============================================================================
@@ -198,38 +198,39 @@ export function attachMessageRouter({
       const globalUserId =
         accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
 
-      // ✅ Stage 4 — Chats wiring (best-effort, never crash Telegram flow)
+      // ✅ STAGE 4 wiring (best-effort, NEVER block telegram flow)
       try {
+        const nowIso = new Date().toISOString();
         const title =
-          msg.chat?.title ||
-          msg.chat?.username ||
-          msg.chat?.first_name ||
-          msg.chat?.last_name ||
+          String(msg.chat?.title || "").trim() ||
+          [msg.chat?.first_name, msg.chat?.last_name].filter(Boolean).join(" ").trim() ||
           null;
-
-        const lastSeenAt = new Date();
 
         await upsertChat({
           chatId: chatIdStr,
           transport: "telegram",
           chatType: chatType || null,
-          title: title ? String(title) : null,
-          lastSeenAt,
+          title,
+          lastSeenAt: nowIso,
           meta: null,
         });
+      } catch (e) {
+        console.error("Stage4 upsertChat failed:", e);
+      }
 
-        if (globalUserId) {
+      if (globalUserId) {
+        try {
+          const nowIso = new Date().toISOString();
           await touchUserChatLink({
             globalUserId,
             chatId: chatIdStr,
             transport: "telegram",
-            lastSeenAt,
+            lastSeenAt: nowIso,
             meta: null,
           });
+        } catch (e) {
+          console.error("Stage4 touchUserChatLink failed:", e);
         }
-      } catch (e) {
-        // Tables may not exist yet on fresh deploy; do not crash bot
-        console.error("Stage4 chats wiring failed:", e?.message || e);
       }
 
       // ✅ STAGE 6 shadow wiring: call core handleMessage(context) WITHOUT affecting replies
@@ -389,6 +390,7 @@ export function attachMessageRouter({
           "/deny",
           "/file_logs",
           "/ar_list",
+          "/chat_diag", // ✅ STAGE 4 — minimal diag
         ]);
 
         const isDev = DEV_COMMANDS.has(cmdBase);
@@ -519,6 +521,91 @@ export function attachMessageRouter({
             accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
           const out = await memDiag.memoryUserChats({ globalUserId: globalUserId2 });
           await bot.sendMessage(chatId, out);
+          return;
+        }
+
+        // ✅ STAGE 4 — /chat_diag (monarch, private via DEV gate above)
+        if (cmdBase === "/chat_diag") {
+          try {
+            const chatsCountRes = await pool.query(
+              `SELECT COUNT(*)::int AS n FROM chats`
+            );
+            const linksCountRes = await pool.query(
+              `SELECT COUNT(*)::int AS n FROM user_chat_links`
+            );
+
+            const lastChatRes = await pool.query(
+              `
+              SELECT chat_id, transport, chat_type, title, updated_at, last_seen_at
+              FROM chats
+              ORDER BY updated_at DESC NULLS LAST
+              LIMIT 1
+              `
+            );
+
+            const lastLinkRes = await pool.query(
+              `
+              SELECT global_user_id, chat_id, transport, created_at, last_seen_at
+              FROM user_chat_links
+              ORDER BY COALESCE(last_seen_at, created_at) DESC NULLS LAST
+              LIMIT 1
+              `
+            );
+
+            const chatsTotal = chatsCountRes.rows?.[0]?.n ?? 0;
+            const linksTotal = linksCountRes.rows?.[0]?.n ?? 0;
+
+            const lc = lastChatRes.rows?.[0] || null;
+            const ll = lastLinkRes.rows?.[0] || null;
+
+            const fmtTs = (v) => (v ? new Date(v).toISOString() : "—");
+
+            const out = [];
+            out.push("🧩 CHAT DIAG");
+            out.push(`chats_total: ${chatsTotal}`);
+            out.push(`links_total: ${linksTotal}`);
+            out.push("");
+
+            out.push("last_chat:");
+            if (!lc) {
+              out.push("—");
+            } else {
+              out.push(
+                [
+                  `chat_id=${lc.chat_id}`,
+                  `transport=${lc.transport || "—"}`,
+                  `type=${lc.chat_type || "—"}`,
+                  `title=${lc.title || "—"}`,
+                  `updated_at=${fmtTs(lc.updated_at)}`,
+                  `last_seen_at=${fmtTs(lc.last_seen_at)}`,
+                ].join(" | ")
+              );
+            }
+
+            out.push("");
+            out.push("last_link:");
+            if (!ll) {
+              out.push("—");
+            } else {
+              out.push(
+                [
+                  `global_user_id=${ll.global_user_id}`,
+                  `chat_id=${ll.chat_id}`,
+                  `transport=${ll.transport || "—"}`,
+                  `created_at=${fmtTs(ll.created_at)}`,
+                  `last_seen_at=${fmtTs(ll.last_seen_at)}`,
+                ].join(" | ")
+              );
+            }
+
+            await bot.sendMessage(chatId, out.join("\n").slice(0, 3800));
+          } catch (e) {
+            console.error("❌ /chat_diag error:", e);
+            await bot.sendMessage(
+              chatId,
+              "⚠️ /chat_diag упал. Проверь: применена ли миграция 027 (таблицы chats и user_chat_links)."
+            );
+          }
           return;
         }
 

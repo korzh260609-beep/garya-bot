@@ -22,6 +22,8 @@ import { handleIdentityDiag } from "./handlers/identityDiag.js";
 import { handleIdentityBackfill } from "./handlers/identityBackfill.js";
 import { handleIdentityUpgradeLegacy } from "./handlers/identityUpgradeLegacy.js";
 import { handleIdentityOrphans } from "./handlers/identityOrphans.js";
+// ✅ Stage 4.5 — list legacy tg:* users
+import { handleIdentityLegacyTg } from "./handlers/identityLegacyTg.js";
 import pool from "../../db.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
@@ -133,6 +135,8 @@ export async function dispatchCommand(cmd, ctx) {
     "/identity_backfill",
     "/identity_upgrade_legacy",
     "/identity_orphans",
+    // ✅ Stage 4.5 — legacy tg:* listing
+    "/identity_legacy_tg",
 
     // ✅ STAGE 4.3 — Chat Gate admin
     "/chat_on",
@@ -283,6 +287,17 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/identity_orphans": {
       await handleIdentityOrphans({
+        bot,
+        chatId,
+        bypass: ctx.bypass,
+        rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    // ✅ Stage 4.5 — list legacy tg:* global_user_id users
+    case "/identity_legacy_tg": {
+      await handleIdentityLegacyTg({
         bot,
         chatId,
         bypass: ctx.bypass,

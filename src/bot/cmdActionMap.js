@@ -46,6 +46,9 @@ export const CMD_ACTION = {
   // Stage 4.5 — list orphan users without identity rows (monarch/dev)
   "/identity_orphans": "cmd.admin.identity_orphans",
 
+  // Stage 4.5 — list legacy tg:* users (monarch/dev)
+  "/identity_legacy_tg": "cmd.admin.identity_legacy_tg",
+
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",
   "/start_task": "cmd.admin.start_task",
   "/stop_tasks_type": "cmd.admin.stop_tasks_type",

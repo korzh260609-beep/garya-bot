@@ -20,6 +20,7 @@ import { handleLinkStatus } from "./handlers/linkStatus.js";
 import { handleRecall } from "./handlers/recall.js";
 import { handleIdentityDiag } from "./handlers/identityDiag.js";
 import { handleIdentityBackfill } from "./handlers/identityBackfill.js";
+import { handleIdentityUpgradeLegacy } from "./handlers/identityUpgradeLegacy.js";
 import pool from "../../db.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
@@ -129,6 +130,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/webhook_info",
     "/identity_diag",
     "/identity_backfill",
+    "/identity_upgrade_legacy",
 
     // ✅ STAGE 4.3 — Chat Gate admin
     "/chat_on",
@@ -262,6 +264,17 @@ export async function dispatchCommand(cmd, ctx) {
         chatId,
         bypass: ctx.bypass,
         rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    case "/identity_upgrade_legacy": {
+      await handleIdentityUpgradeLegacy({
+        bot,
+        chatId,
+        bypass: ctx.bypass,
+        rest: ctx.rest,
+        senderIdStr: ctx.senderIdStr,
       });
       return { handled: true };
     }

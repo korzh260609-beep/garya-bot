@@ -20,6 +20,9 @@ import {
 import { DlqRepo } from "../db/dlqRepo.js";
 import pool from "../../db.js";
 
+// ✅ Stage 5 — ERROR EVENTS policy (ignore TEST_FAIL, etc.)
+import { shouldIgnoreErrorEvent } from "../observability/errorEventsPolicy.js";
+
 function safeErrMsg(e, max = 800) {
   const s = String(e?.message || e || "unknown_error");
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
@@ -225,20 +228,28 @@ export class JobRunner {
         }
       } catch (_) {}
 
-      await safeLogErrorEvent({
+      // ✅ Stage 5 — ignore synthetic TEST_FAIL (do not write to error_events)
+      const ignore = shouldIgnoreErrorEvent({
         type: "job_runner_failed",
         message: e,
-        context: {
-          jobId: item?.id || null,
-          taskId: taskId || null,
-          runKey: runKey || null,
-          idempotencyKey: item?.idempotency_key || null,
-          fail_code: failCode,
-          attempts,
-          retry_at: retryAtIso,
-          max_retries: maxRetries,
-        },
       });
+
+      if (!ignore) {
+        await safeLogErrorEvent({
+          type: "job_runner_failed",
+          message: e,
+          context: {
+            jobId: item?.id || null,
+            taskId: taskId || null,
+            runKey: runKey || null,
+            idempotencyKey: item?.idempotency_key || null,
+            fail_code: failCode,
+            attempts,
+            retry_at: retryAtIso,
+            max_retries: maxRetries,
+          },
+        });
+      }
 
       await this.fail(item.id, item.idempotency_key, e, item);
       return {

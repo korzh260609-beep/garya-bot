@@ -25,6 +25,15 @@ export async function handleIdentityDiag({ bot, chatId, bypass }) {
 
     const usersOther = Math.max(0, usersTotal - usersLegacyTg - usersUsr);
 
+    // ✅ NEW: legacy chat-scoped users (old model where "user == chat")
+    const usersChatRes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM users WHERE global_user_id LIKE 'chat:%'`
+    );
+    const usersChat = usersChatRes.rows?.[0]?.n ?? 0;
+
+    // ✅ NEW: "other" excluding chat: (more informative)
+    const usersOtherExcludingChat = Math.max(0, usersTotal - usersLegacyTg - usersUsr - usersChat);
+
     const usersNoIdentityRes = await pool.query(`
       SELECT COUNT(*)::int AS n
       FROM users u
@@ -33,6 +42,17 @@ export async function handleIdentityDiag({ bot, chatId, bypass }) {
       WHERE i.global_user_id IS NULL
     `);
     const usersNoIdentity = usersNoIdentityRes.rows?.[0]?.n ?? 0;
+
+    // ✅ NEW: users_without_identity_row excluding legacy chat: users
+    const usersNoIdentityNonChatRes = await pool.query(`
+      SELECT COUNT(*)::int AS n
+      FROM users u
+      LEFT JOIN user_identities i
+        ON i.global_user_id = u.global_user_id
+      WHERE i.global_user_id IS NULL
+        AND (u.global_user_id IS NULL OR u.global_user_id NOT LIKE 'chat:%')
+    `);
+    const usersNoIdentityNonChat = usersNoIdentityNonChatRes.rows?.[0]?.n ?? 0;
 
     const identitiesOrphanRes = await pool.query(`
       SELECT COUNT(*)::int AS n
@@ -64,8 +84,19 @@ export async function handleIdentityDiag({ bot, chatId, bypass }) {
     lines.push(`- usr_: ${usersUsr}`);
     lines.push(`- tg:: ${usersLegacyTg}`);
     lines.push(`- other: ${usersOther}`);
+
+    // ✅ NEW: better breakdown
+    lines.push("");
+    lines.push("global_user_id (extra breakdown):");
+    lines.push(`- chat:: ${usersChat}`);
+    lines.push(`- other_excluding_chat: ${usersOtherExcludingChat}`);
+
     lines.push("");
     lines.push(`users_without_identity_row: ${usersNoIdentity}`);
+
+    // ✅ NEW: corrected signal (real problem indicator)
+    lines.push(`users_without_identity_row_excluding_chat: ${usersNoIdentityNonChat}`);
+
     lines.push(`identities_without_user_row: ${identitiesOrphan}`);
     lines.push("");
     lines.push("providers:");

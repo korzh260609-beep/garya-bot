@@ -329,6 +329,29 @@ export function attachMessageRouter({
         }
       );
 
+      // ✅ STAGE 6 — trace only (under flag), NO behavior change
+      // IMPORTANT:
+      // - Must NOT call handleMessageCore() second time
+      // - Log should be minimal (no full text dump) to avoid leaking payloads
+      if (isTransportEnforced()) {
+        try {
+          const trace = {
+            transport: coreContextFromTransport?.transport || null,
+            chatId: coreContextFromTransport?.chatId || null,
+            senderId: coreContextFromTransport?.senderId || null,
+            transportChatType: coreContextFromTransport?.transportChatType || null,
+            messageId: coreContextFromTransport?.messageId || null,
+            globalUserId: coreContextFromTransport?.globalUserId || null,
+            textLen: typeof coreContextFromTransport?.text === "string"
+              ? coreContextFromTransport.text.length
+              : 0,
+          };
+          console.log("[TRANSPORT_ENFORCED][TRACE] coreContextFromTransport:", trace);
+        } catch (e) {
+          // swallow
+        }
+      }
+
       // NOTE:
       // - NOT used yet as main flow
       // - Existing shadow call below remains authoritative

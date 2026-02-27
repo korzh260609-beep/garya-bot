@@ -50,7 +50,8 @@ export async function handleMessage(context = {}) {
   }
 
   // ✅ STAGE 7.1 — Memory shadow write (SAFE):
-  // - only when messageId is present (router currently does NOT pass it -> no duplicates)
+  // - runs only when messageId is present
+  // - router now passes messageId (Stage 6 shadow wiring)
   // - never throws (doesn't block transport)
   try {
     const memory = getMemoryService();

@@ -1,11 +1,14 @@
 import OpenAI from "openai";
 import { MODEL_CONFIG } from "./modelConfig.js";
+import { envStr } from "./src/core/config.js";
 
 /**
  * OpenAI client.
  * ВАЖНО: если ключа нет — не создаём клиент, чтобы ошибка была явной и читаемой.
  */
-const apiKey = process.env.OPENAI_API_KEY;
+
+// ✅ Stage 3.6 hygiene — no direct process.env
+const apiKey = envStr("OPENAI_API_KEY", "").trim();
 const client = apiKey ? new OpenAI({ apiKey }) : null;
 
 /**
@@ -26,9 +29,6 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
 
   const fallbackModel = MODEL_CONFIG.low;
 
-  // Поддержка двух имён (чтобы не ломать старые вызовы):
-  // - max_completion_tokens (новое)
-  // - max_output_tokens (старое в проекте)
   const maxTok =
     typeof opts.max_completion_tokens === "number"
       ? opts.max_completion_tokens
@@ -39,9 +39,6 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
   const temperature =
     typeof opts.temperature === "number" ? opts.temperature : undefined;
 
-  // Responses API принимает input как string или как массив items вида { role, content }.
-  // Чтобы не ломать контракт callAI(messages), конвертируем messages -> input items.
-  // system -> developer (аналог "инструкций" для модели).
   const input = Array.isArray(messages)
     ? messages.map((m) => ({
         role: m?.role === "system" ? "developer" : m?.role || "user",
@@ -59,12 +56,10 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
   try {
     const response = await client.responses.create(payload);
 
-    // В большинстве случаев текст лежит в response.output_text.
     if (typeof response?.output_text === "string" && response.output_text.length) {
       return response.output_text;
     }
 
-    // Fallback: если output_text пуст, попробуем собрать текст из output сообщений.
     const out = response?.output;
     if (Array.isArray(out)) {
       const texts = [];
@@ -84,9 +79,13 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
   } catch (e) {
     const status = e?.status || e?.statusCode || null;
     const msg = e?.message || String(e);
-    console.error("❌ callAI primary failed:", { model: primaryModel, status, msg });
 
-    // Если уже low — больше некуда фолбечиться
+    console.error("❌ callAI primary failed:", {
+      model: primaryModel,
+      status,
+      msg,
+    });
+
     if (primaryModel === fallbackModel) throw e;
 
     const fallbackPayload = {

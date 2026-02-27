@@ -40,6 +40,9 @@ export const CMD_ACTION = {
   "/identity_diag": "cmd.admin.identity_diag",
   "/identity_backfill": "cmd.admin.identity_backfill",
 
+  // Stage 4.5 — legacy global_user_id upgrade (monarch/dev)
+  "/identity_upgrade_legacy": "cmd.admin.identity_upgrade_legacy",
+
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",
   "/start_task": "cmd.admin.start_task",
   "/stop_tasks_type": "cmd.admin.stop_tasks_type",

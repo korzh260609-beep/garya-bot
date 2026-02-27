@@ -360,43 +360,58 @@ export function attachMessageRouter({
         }
       }
 
+      // ✅ STAGE 6.8 — SHADOW uses transport-built core context (single path)
+      // Goal:
+      // - Always use coreContextFromTransport for the shadow call.
+      // - Keep old Stage 6.7 branch as fallback-only to respect "no deletions".
+      // - Never block Telegram flow.
+      let __shadowWasHandledByTransport = false;
+      try {
+        await handleMessageCore(coreContextFromTransport);
+        __shadowWasHandledByTransport = true;
+      } catch (e) {
+        console.error("handleMessageCore(SHADOW_TRANSPORT_V1) failed:", e);
+      }
+
       // NOTE:
       // - NOT used yet as main flow
-      // - Existing shadow call below remains authoritative
+      // - Existing fallback shadow call below remains only if transport-shadow fails
       // - Future switch will use isTransportEnforced()
 
-      // ✅ STAGE 6.7 — enforced routing SKELETON (NO behavior change when disabled)
-      // Goal:
-      // - Prepare branch for "enforced routing" WITHOUT switching the real reply flow.
-      // - When TRANSPORT_ENFORCED=true, we ONLY change the SHADOW input context source
-      //   to the transport-built coreContextFromTransport.
-      // - We DO NOT early-return and we DO NOT call handleMessageCore twice.
-      const __useEnforcedShadowContext = isTransportEnforced() === true;
+      if (!__shadowWasHandledByTransport) {
+        // ✅ STAGE 6.7 — enforced routing SKELETON (fallback-only)
+        // Goal:
+        // - Prepare branch for "enforced routing" WITHOUT switching the real reply flow.
+        // - When TRANSPORT_ENFORCED=true, we ONLY change the SHADOW input context source
+        //   to the transport-built coreContextFromTransport.
+        // - We DO NOT early-return and we DO NOT call handleMessageCore twice.
+        const __useEnforcedShadowContext = isTransportEnforced() === true;
 
-      if (__useEnforcedShadowContext) {
-        // ✅ STAGE 6.7: SHADOW (enforced context) — still shadow-only, router remains authoritative
-        try {
-          await handleMessageCore(coreContextFromTransport);
-        } catch (e) {
-          // Never block Telegram flow on Stage 6 skeleton
-          console.error("handleMessageCore(SHADOW_ENFORCED) failed:", e);
-        }
-      } else {
-        // ✅ STAGE 6 shadow wiring: call core handleMessage(context) WITHOUT affecting replies
-        // ✅ STAGE 6.6: DO NOT pass derived chatType/isPrivateChat from router into core
-        try {
-          await handleMessageCore({
-            transport: "telegram",
-            chatId: chatIdStr,
-            senderId: senderIdStr,
-            transportChatType, // raw-ish transport hint; core derives chat meta
-            text: trimmed,
-            messageId: msg.message_id, // ✅ STAGE 7.2 — activate memory shadow
-            globalUserId,
-          });
-        } catch (e) {
-          // Never block Telegram flow on Stage 6 skeleton
-          console.error("handleMessageCore(SHADOW) failed:", e);
+        if (__useEnforcedShadowContext) {
+          // ✅ STAGE 6.7: SHADOW (enforced context) — still shadow-only, router remains authoritative
+          try {
+            await handleMessageCore(coreContextFromTransport);
+          } catch (e) {
+            // Never block Telegram flow on Stage 6 skeleton
+            console.error("handleMessageCore(SHADOW_ENFORCED) failed:", e);
+          }
+        } else {
+          // ✅ STAGE 6 shadow wiring: call core handleMessage(context) WITHOUT affecting replies
+          // ✅ STAGE 6.6: DO NOT pass derived chatType/isPrivateChat from router into core
+          try {
+            await handleMessageCore({
+              transport: "telegram",
+              chatId: chatIdStr,
+              senderId: senderIdStr,
+              transportChatType, // raw-ish transport hint; core derives chat meta
+              text: trimmed,
+              messageId: msg.message_id, // ✅ STAGE 7.2 — activate memory shadow
+              globalUserId,
+            });
+          } catch (e) {
+            // Never block Telegram flow on Stage 6 skeleton
+            console.error("handleMessageCore(SHADOW) failed:", e);
+          }
         }
       }
 

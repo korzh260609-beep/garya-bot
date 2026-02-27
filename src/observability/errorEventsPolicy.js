@@ -12,21 +12,36 @@
 export const ERROR_EVENTS_DEFAULT_RETENTION_DAYS = 30;
 
 // Synthetic test marker used by robotMock.js
-export const ERROR_EVENTS_TEST_FAIL_MARKER = "TEST_FAIL: forced by payload.force_fail";
+export const ERROR_EVENTS_TEST_FAIL_MARKER =
+  "TEST_FAIL: forced by payload.force_fail";
+
+// ✅ Stage 5.16 — feature flag reader (default true)
+export function getIgnoreTestFailEnabledFromEnv(env = process.env) {
+  const raw = String(env?.ERROR_EVENTS_IGNORE_TEST_FAIL ?? "true")
+    .trim()
+    .toLowerCase();
+  return raw === "true";
+}
 
 /**
  * Decide whether an error event should be ignored (not persisted).
  *
- * Usage (planned wiring):
+ * Usage:
  *   if (shouldIgnoreErrorEvent({ type, message })) return;
+ *
+ * Optional:
+ *   shouldIgnoreErrorEvent({ type, message }, process.env)
  */
-export function shouldIgnoreErrorEvent({ type, message }) {
+export function shouldIgnoreErrorEvent({ type, message }, env = process.env) {
   const t = String(type || "").toLowerCase();
   const msg = String(message?.message || message || "");
 
-  // D) ignore forced test failures (noise)
-  // We only ignore the known synthetic marker.
-  if (t === "job_runner_failed" && msg.includes(ERROR_EVENTS_TEST_FAIL_MARKER)) {
+  // D) ignore forced test failures (noise), guarded by ENV flag
+  if (
+    getIgnoreTestFailEnabledFromEnv(env) &&
+    t === "job_runner_failed" &&
+    msg.includes(ERROR_EVENTS_TEST_FAIL_MARKER)
+  ) {
     return true;
   }
 

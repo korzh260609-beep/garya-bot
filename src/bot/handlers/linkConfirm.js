@@ -1,4 +1,5 @@
-import { confirmLinkCode } from "../../users/linking.js";
+import { confirmLinkCode, confirmLinkCodeV2 } from "../../users/linking.js";
+import { getFeatureFlags } from "../../core/config.js";
 
 export async function handleLinkConfirm({
   bot,
@@ -13,7 +14,10 @@ export async function handleLinkConfirm({
     return;
   }
 
-  const res = await confirmLinkCode({
+  const flags = getFeatureFlags();
+  const fn = flags?.LINKING_V2 ? confirmLinkCodeV2 : confirmLinkCode;
+
+  const res = await fn({
     code,
     provider,
     providerUserId: senderIdStr,

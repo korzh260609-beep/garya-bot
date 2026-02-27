@@ -2,8 +2,12 @@
 import pkg from "pg";
 const { Pool } = pkg;
 
+// ✅ Stage 3.6 — Config hygiene (no direct process.env here)
+import { envStr } from "./src/core/config.js";
+
 // Проверяем, что задан DATABASE_URL
-if (!process.env.DATABASE_URL) {
+const DATABASE_URL = envStr("DATABASE_URL", "").trim();
+if (!DATABASE_URL) {
   console.error("❌ DATABASE_URL is missing!");
   console.error(
     "Убедись, что переменная окружения DATABASE_URL задана (Render / .env)."
@@ -12,7 +16,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: DATABASE_URL,
   ssl: {
     rejectUnauthorized: false, // для Render и других хостингов с SSL
   },

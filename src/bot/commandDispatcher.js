@@ -18,6 +18,7 @@ import { handleLinkStart } from "./handlers/linkStart.js";
 import { handleLinkConfirm } from "./handlers/linkConfirm.js";
 import { handleLinkStatus } from "./handlers/linkStatus.js";
 import { handleRecall } from "./handlers/recall.js";
+import { handleIdentityDiag } from "./handlers/identityDiag.js";
 import pool from "../../db.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
@@ -121,6 +122,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/build_info",
     "/chat_meta_debug",
     "/webhook_info",
+    "/identity_diag",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
@@ -191,6 +193,15 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/users_stats": {
       await handleUsersStats({
+        bot,
+        chatId,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/identity_diag": {
+      await handleIdentityDiag({
         bot,
         chatId,
         bypass: ctx.bypass,

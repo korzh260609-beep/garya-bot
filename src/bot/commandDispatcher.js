@@ -26,6 +26,10 @@ import { handleStopTasksType } from "./handlers/stopTasksType.js";
 import { handleUsersStats } from "./handlers/usersStats.js";
 import { handleStopAllTasks } from "./handlers/stopAllTasks.js"; // ✅ /stop_all_tasks
 
+// ✅ STAGE 4.3 — Chat Gate admin handlers (monarch)
+import { handleChatSetActive } from "./handlers/chatSetActive.js";
+import { handleChatStatus } from "./handlers/chatStatus.js";
+
 // ✅ Stage 5–6: manual /run must write task_runs via JobRunner
 import { jobRunner } from "../jobs/jobRunnerInstance.js";
 import { makeTaskRunKey } from "../jobs/jobRunner.js";
@@ -125,6 +129,11 @@ export async function dispatchCommand(cmd, ctx) {
     "/webhook_info",
     "/identity_diag",
     "/identity_backfill",
+
+    // ✅ STAGE 4.3 — Chat Gate admin
+    "/chat_on",
+    "/chat_off",
+    "/chat_status",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
@@ -191,6 +200,42 @@ export async function dispatchCommand(cmd, ctx) {
         userPlan: ctx.userPlan,
         bypass: ctx.bypass,
       });
+    }
+
+    // ✅ STAGE 4.3 — Chat Gate admin
+    case "/chat_on": {
+      await handleChatSetActive({
+        bot,
+        chatId,
+        chatIdStr,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+        isActive: true,
+      });
+      return { handled: true };
+    }
+
+    case "/chat_off": {
+      await handleChatSetActive({
+        bot,
+        chatId,
+        chatIdStr,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+        isActive: false,
+      });
+      return { handled: true };
+    }
+
+    case "/chat_status": {
+      await handleChatStatus({
+        bot,
+        chatId,
+        chatIdStr,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
     }
 
     case "/users_stats": {

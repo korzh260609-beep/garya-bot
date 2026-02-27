@@ -116,35 +116,28 @@ import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
 // ✅ Project Memory service (read)
 import { getProjectSection } from "../../projectMemory.js";
 
+// ✅ Stage 3.5 — RateLimit (V1)
+import { checkRateLimit } from "./rateLimiter.js";
+
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // ============================================================================
-const CMD_RL_WINDOW_MS = Math.max(1000, Number(process.env.CMD_RL_WINDOW_MS || 20000));
+// Default: 6 commands / 20 sec for non-monarch
+const CMD_RL_WINDOW_MS = Math.max(
+  1000,
+  Number(process.env.CMD_RL_WINDOW_MS || 20000)
+);
 const CMD_RL_MAX = Math.max(1, Number(process.env.CMD_RL_MAX || 6));
-
-const __cmdRateState = new Map(); // key -> [timestamps]
-
-function checkCmdRateLimit(key) {
-  const now = Date.now();
-  const arr = __cmdRateState.get(key) || [];
-  const fresh = arr.filter((t) => now - t < CMD_RL_WINDOW_MS);
-
-  if (fresh.length >= CMD_RL_MAX) {
-    const oldest = fresh[0];
-    const retryAfterMs = Math.max(0, CMD_RL_WINDOW_MS - (now - oldest));
-    __cmdRateState.set(key, fresh);
-    return { allowed: false, retryAfterMs };
-  }
-
-  fresh.push(now);
-  __cmdRateState.set(key, fresh);
-  return { allowed: true, retryAfterMs: 0 };
-}
 
 // ============================================================================
 // === ATTACH ROUTER
 // ============================================================================
-export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HISTORY_MESSAGES = 20 }) {
+export function attachMessageRouter({
+  bot,
+  callAI,
+  upsertProjectSection,
+  MAX_HISTORY_MESSAGES = 20,
+}) {
   bot.on("message", async (msg) => {
     try {
       const behaviorEvents = new BehaviorEventsService();
@@ -195,7 +188,8 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
       });
 
       // ✅ globalUserId for Stage 6 core (unified identity)
-      const globalUserId = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+      const globalUserId =
+        accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
 
       // ✅ STAGE 6 shadow wiring: call core handleMessage(context) WITHOUT affecting replies
       // ✅ STAGE 6.6: DO NOT pass derived chatType/isPrivateChat from router into core
@@ -240,6 +234,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
         const { cmd, rest } = parseCommand(trimmed);
         const cmdBase = String(cmd || "").split("@")[0];
 
+        // ✅ /start
         if (cmdBase === "/start") {
           await bot.sendMessage(
             chatId,
@@ -257,6 +252,7 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
           return;
         }
 
+        // ✅ /help
         if (cmdBase === "/help") {
           await bot.sendMessage(
             chatId,
@@ -272,6 +268,44 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             ].join("\n")
           );
           return;
+        }
+
+        // ✅ Stage 3.5 — apply RL to ALL commands (except /start, /help). Monarch bypass.
+        if (!isMonarchUser) {
+          const rlKey = `${senderIdStr}:${chatIdStr}:cmd`;
+          const rl = checkRateLimit({
+            key: rlKey,
+            windowMs: CMD_RL_WINDOW_MS,
+            max: CMD_RL_MAX,
+          });
+
+          if (!rl.allowed) {
+            const sec = Math.ceil(rl.retryAfterMs / 1000);
+
+            try {
+              await behaviorEvents.logEvent({
+                globalUserId: accessPack?.user?.global_user_id || null,
+                chatId: chatIdStr,
+                eventType: "rate_limited",
+                metadata: {
+                  scope: "command",
+                  cmd: cmdBase,
+                  retry_after_sec: sec,
+                  window_ms: CMD_RL_WINDOW_MS,
+                  max: CMD_RL_MAX,
+                  from: senderIdStr,
+                  chatType,
+                },
+                transport: "telegram",
+                schemaVersion: 1,
+              });
+            } catch (e) {
+              console.error("behavior_events rate_limited log failed:", e);
+            }
+
+            await bot.sendMessage(chatId, `⛔ Слишком часто. Подожди ${sec} сек.`);
+            return;
+          }
         }
 
         const DEV_COMMANDS = new Set([
@@ -382,9 +416,15 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
               `NODE_ENV: ${String(process.env.NODE_ENV || "")}`,
               "",
               "BUILD:",
-              `commit: ${String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "")}`,
+              `commit: ${String(
+                process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || ""
+              )}`,
               `service: ${String(process.env.RENDER_SERVICE_ID || "")}`,
-              `instance: ${String(process.env.RENDER_INSTANCE_ID || process.env.HOSTNAME || "")}`,
+              `instance: ${String(
+                process.env.RENDER_INSTANCE_ID ||
+                  process.env.HOSTNAME ||
+                  ""
+              )}`,
             ].join("\n")
           );
 
@@ -393,8 +433,12 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
         // ✅ /memory_diag
         if (cmdBase === "/memory_diag") {
-          const globalUserId2 = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-          const out = await memDiag.memoryDiag({ chatIdStr, globalUserId: globalUserId2 });
+          const globalUserId2 =
+            accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+          const out = await memDiag.memoryDiag({
+            chatIdStr,
+            globalUserId: globalUserId2,
+          });
           await bot.sendMessage(chatId, out);
           return;
         }
@@ -408,18 +452,26 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
         // ✅ /memory_backfill
         if (cmdBase === "/memory_backfill") {
-          const globalUserId2 = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+          const globalUserId2 =
+            accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
           const rawN = Number(String(rest || "").trim() || "200");
-          const limit = Number.isFinite(rawN) ? Math.max(1, Math.min(500, rawN)) : 200;
+          const limit = Number.isFinite(rawN)
+            ? Math.max(1, Math.min(500, rawN))
+            : 200;
 
-          const out = await memDiag.memoryBackfill({ chatIdStr, globalUserId: globalUserId2, limit });
+          const out = await memDiag.memoryBackfill({
+            chatIdStr,
+            globalUserId: globalUserId2,
+            limit,
+          });
           await bot.sendMessage(chatId, out);
           return;
         }
 
         // ✅ NEW: /memory_user_chats — list other chats that contain rows for this user
         if (cmdBase === "/memory_user_chats") {
-          const globalUserId2 = accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+          const globalUserId2 =
+            accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
           const out = await memDiag.memoryUserChats({ globalUserId: globalUserId2 });
           await bot.sendMessage(chatId, out);
           return;
@@ -453,7 +505,8 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
             String(process.env.GIT_COMMIT || "").trim() ||
             "unknown";
 
-          const serviceId = String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
+          const serviceId =
+            String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
 
           const instanceId =
             String(process.env.RENDER_INSTANCE_ID || "").trim() ||
@@ -489,7 +542,13 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
           await bot.sendMessage(
             chatId,
-            ["🧩 BUILD INFO", `commit: ${commit}`, `service: ${serviceId}`, `instance: ${instanceId}`, `node_env: ${nodeEnv}`].join("\n")
+            [
+              "🧩 BUILD INFO",
+              `commit: ${commit}`,
+              `service: ${serviceId}`,
+              `instance: ${instanceId}`,
+              `node_env: ${nodeEnv}`,
+            ].join("\n")
           );
           return;
         }
@@ -525,41 +584,12 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
                 schemaVersion: 1,
               });
             } catch (e) {
-              console.error("behavior_events permission_denied log failed:", e);
+              console.error(
+                "behavior_events permission_denied log failed:",
+                e
+              );
             }
             return;
-          }
-
-          if (!isMonarchUser) {
-            const key = `${senderIdStr}:${chatIdStr}:cmd`;
-            const rl = checkCmdRateLimit(key);
-            if (!rl.allowed) {
-              const sec = Math.ceil(rl.retryAfterMs / 1000);
-
-              try {
-                await behaviorEvents.logEvent({
-                  globalUserId: accessPack?.user?.global_user_id || null,
-                  chatId: chatIdStr,
-                  eventType: "rate_limited",
-                  metadata: {
-                    scope: "command",
-                    cmd: cmdBase,
-                    retry_after_sec: sec,
-                    window_ms: CMD_RL_WINDOW_MS,
-                    max: CMD_RL_MAX,
-                    from: senderIdStr,
-                    chatType,
-                  },
-                  transport: "telegram",
-                  schemaVersion: 1,
-                });
-              } catch (e) {
-                console.error("behavior_events rate_limited log failed:", e);
-              }
-
-              await bot.sendMessage(chatId, `⛔ Слишком часто. Подожди ${sec} сек.`);
-              return;
-            }
           }
 
           const ctx = {
@@ -683,21 +713,32 @@ export function attachMessageRouter({ bot, callAI, upsertProjectSection, MAX_HIS
 
               const lines = [];
               lines.push("🧪 TASKS OWNER DIAG");
-              lines.push(`has tasks.user_global_id: ${hasUserGlobalId ? "YES" : "NO"}`);
+              lines.push(
+                `has tasks.user_global_id: ${hasUserGlobalId ? "YES" : "NO"}`
+              );
               lines.push(`total tasks: ${s.total ?? 0}`);
-              if (hasUserGlobalId) lines.push(`missing user_global_id: ${s.global_id_missing ?? 0}`);
+              if (hasUserGlobalId)
+                lines.push(`missing user_global_id: ${s.global_id_missing ?? 0}`);
               lines.push("");
               lines.push("Last 20 tasks:");
 
               for (const r of rows) {
-                const created = r.created_at ? new Date(r.created_at).toISOString() : "—";
-                const lastRun = r.last_run ? new Date(r.last_run).toISOString() : "—";
+                const created = r.created_at
+                  ? new Date(r.created_at).toISOString()
+                  : "—";
+                const lastRun = r.last_run
+                  ? new Date(r.last_run).toISOString()
+                  : "—";
                 if (hasUserGlobalId) {
                   lines.push(
-                    `#${r.id} | ${r.type} | ${r.status} | global=${r.user_global_id || "—"} | created=${created} | last_run=${lastRun}`
+                    `#${r.id} | ${r.type} | ${r.status} | global=${
+                      r.user_global_id || "—"
+                    } | created=${created} | last_run=${lastRun}`
                   );
                 } else {
-                  lines.push(`#${r.id} | ${r.type} | ${r.status} | created=${created} | last_run=${lastRun}`);
+                  lines.push(
+                    `#${r.id} | ${r.type} | ${r.status} | created=${created} | last_run=${lastRun}`
+                  );
                 }
               }
 

@@ -1,67 +1,59 @@
-// src/observability/ErrorEventsRetentionService.js
-// Stage 5 — Observability V1
-// Retention purge service for error_events (runtime scope only).
+// src/observability/errorEventsPolicy.js
+// STAGE 5 — Observability V1
+// Policy helpers for error_events:
+// - D) Ignore synthetic TEST_FAIL events (do not write to error_events)
+// - B) Retention planning helpers (actual purge wiring will be added later)
 //
-// Goals:
-// - Delete old rows safely (no crash).
-// - Cooldown to avoid DB overload.
-// - Add-only: no changes to existing repos; this is a new service.
+// IMPORTANT:
+// - This module contains PURE functions only.
+// - No DB access here (wiring will be done in a dedicated service/job later).
+// - Add-only policy: do not delete/modify existing behavior here.
 
-import pool from "../../db.js";
-import { getRetentionDaysFromEnv } from "./errorEventsPolicy.js";
+export const ERROR_EVENTS_DEFAULT_RETENTION_DAYS = 30;
 
-function envInt(name, def) {
-  const n = Number(process.env[name]);
-  return Number.isFinite(n) ? Math.floor(n) : def;
+// Synthetic test marker used by robotMock.js
+export const ERROR_EVENTS_TEST_FAIL_MARKER =
+  "TEST_FAIL: forced by payload.force_fail";
+
+// ✅ Stage 5.16 — feature flag helper (default true)
+export function getIgnoreTestFailEnabledFromEnv(env = process.env) {
+  const raw = String(env?.ERROR_EVENTS_IGNORE_TEST_FAIL ?? "true")
+    .trim()
+    .toLowerCase();
+  return raw === "true";
 }
 
-export class ErrorEventsRetentionService {
-  constructor(dbPool = pool) {
-    this._pool = dbPool;
+/**
+ * Decide whether an error event should be ignored (not persisted).
+ *
+ * Usage (planned wiring):
+ *   if (shouldIgnoreErrorEvent({ type, message })) return;
+ */
+export function shouldIgnoreErrorEvent({ type, message }) {
+  const t = String(type || "").toLowerCase();
+  const msg = String(message?.message || message || "");
 
-    // cooldown in minutes, default 60 (safe)
-    this._cooldownMin = Math.max(1, envInt("ERROR_EVENTS_PURGE_COOLDOWN_MIN", 60));
-    this._lastRunAtMs = 0;
+  // D) ignore forced test failures (noise)
+  // We only ignore the known synthetic marker.
+  // ✅ Guarded by feature flag ERROR_EVENTS_IGNORE_TEST_FAIL
+  if (
+    getIgnoreTestFailEnabledFromEnv(process.env) &&
+    t === "job_runner_failed" &&
+    msg.includes(ERROR_EVENTS_TEST_FAIL_MARKER)
+  ) {
+    return true;
   }
 
-  _cooldownOk(nowMs) {
-    const cdMs = this._cooldownMin * 60_000;
-    return nowMs - this._lastRunAtMs >= cdMs;
-  }
+  return false;
+}
 
-  async maybePurgeRuntimeScope() {
-    const nowMs = Date.now();
-    if (!this._cooldownOk(nowMs)) return { ran: false, reason: "cooldown" };
-
-    this._lastRunAtMs = nowMs;
-
-    const retentionDays = getRetentionDaysFromEnv(process.env);
-
-    try {
-      const r = await this._pool.query(
-        `
-        DELETE FROM error_events
-        WHERE scope = 'runtime'
-          AND created_at < NOW() - ($1::interval)
-        `,
-        [`${retentionDays} days`]
-      );
-
-      return {
-        ran: true,
-        deleted: r?.rowCount || 0,
-        retentionDays,
-        scope: "runtime",
-      };
-    } catch (e) {
-      // must never crash caller
-      return {
-        ran: true,
-        deleted: 0,
-        retentionDays,
-        scope: "runtime",
-        error: String(e?.message || e),
-      };
-    }
-  }
+/**
+ * Build a retention plan (no-op helper).
+ * Real purge will be done by ErrorEventsRetentionService + scheduler wiring.
+ */
+export function getRetentionDaysFromEnv(env = process.env) {
+  const raw = String(env.ERROR_EVENTS_RETENTION_DAYS || "").trim();
+  const n = Number(raw);
+  if (Number.isFinite(n) && n >= 1 && n <= 3650) return Math.floor(n);
+  return ERROR_EVENTS_DEFAULT_RETENTION_DAYS;
 }

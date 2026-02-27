@@ -15,6 +15,11 @@ import { ensureTables } from "../db/ensureTables.js";
 // ✅ DB migrations (optional, env-gated)
 import { runMigrationsIfEnabled } from "../db/runMigrations.js";
 
+// ✅ add-only helper
+function envTrue(name, def = "false") {
+  return String(process.env[name] ?? def).trim().toLowerCase() === "true";
+}
+
 export async function initSystem({ bot }) {
   // ✅ Run diagnostics once on boot/deploy (do not loop)
   try {
@@ -35,29 +40,75 @@ export async function initSystem({ bot }) {
   console.log("🧠 Project Memory table OK.");
   console.log("🧾 File-Intake logs table OK.");
 
-  // ✅ Stage 5.x maintenance: auto-clean old runtime error events
-  // Default: keep 7 days. Only scope=runtime (do NOT delete task/source errors)
-  const retentionDaysRaw = Number(process.env.ERROR_EVENTS_RETENTION_DAYS || 7);
-  const retentionDays = Number.isFinite(retentionDaysRaw)
-    ? Math.max(1, Math.floor(retentionDaysRaw))
-    : 7;
+  // ==========================================================================
+  // STAGE 5.x — error_events retention
+  // CLEAN MODE:
+  // - Retention is handled by ErrorEventsRetentionService (robot loop) with cooldown.
+  // - Boot purge is disabled by default to avoid duplication.
+  //
+  // To manually re-enable boot purge (NOT recommended):
+  //   ERROR_EVENTS_BOOT_PURGE_ENABLED=true
+  // ==========================================================================
 
-  try {
-    const r = await pool.query(
-      `
+  const bootPurgeEnabled = envTrue("ERROR_EVENTS_BOOT_PURGE_ENABLED", "false");
+
+  if (bootPurgeEnabled) {
+    // ✅ Optional boot purge (disabled by default)
+    const retentionDaysRaw = Number(process.env.ERROR_EVENTS_RETENTION_DAYS || 7);
+    const retentionDays = Number.isFinite(retentionDaysRaw)
+      ? Math.max(1, Math.floor(retentionDaysRaw))
+      : 7;
+
+    try {
+      const r = await pool.query(
+        `
+        DELETE FROM error_events
+        WHERE scope = 'runtime'
+          AND created_at < NOW() - ($1::interval)
+        `,
+        [`${retentionDays} days`]
+      );
+
+      console.log(
+        `🧹 error_events boot cleanup: deleted ${r?.rowCount || 0} rows (scope=runtime, older than ${retentionDays}d)`
+      );
+    } catch (e) {
+      // must never crash boot
+      console.error("⚠️ error_events boot cleanup failed:", e?.message || e);
+    }
+  } else {
+    console.log("🧼 error_events boot cleanup: skipped (retention handled by service)");
+  }
+
+  // --------------------------------------------------------------------------
+  // DEPRECATED legacy boot purge block (kept for add-only policy)
+  // This block is intentionally disabled to avoid double retention.
+  // --------------------------------------------------------------------------
+  if (false) {
+    // ✅ Stage 5.x maintenance: auto-clean old runtime error events
+    // Default: keep 7 days. Only scope=runtime (do NOT delete task/source errors)
+    const retentionDaysRaw = Number(process.env.ERROR_EVENTS_RETENTION_DAYS || 7);
+    const retentionDays = Number.isFinite(retentionDaysRaw)
+      ? Math.max(1, Math.floor(retentionDaysRaw))
+      : 7;
+
+    try {
+      const r = await pool.query(
+        `
       DELETE FROM error_events
       WHERE scope = 'runtime'
         AND created_at < NOW() - ($1::interval)
       `,
-      [`${retentionDays} days`]
-    );
+        [`${retentionDays} days`]
+      );
 
-    console.log(
-      `🧹 error_events cleanup: deleted ${r?.rowCount || 0} rows (scope=runtime, older than ${retentionDays}d)`
-    );
-  } catch (e) {
-    // must never crash boot
-    console.error("⚠️ error_events cleanup failed:", e?.message || e);
+      console.log(
+        `🧹 error_events cleanup: deleted ${r?.rowCount || 0} rows (scope=runtime, older than ${retentionDays}d)`
+      );
+    } catch (e) {
+      // must never crash boot
+      console.error("⚠️ error_events cleanup failed:", e?.message || e);
+    }
   }
 
   // access_requests (если модуль существует)

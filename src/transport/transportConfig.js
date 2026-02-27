@@ -20,7 +20,19 @@ export function isTransportEnforced() {
   return TRANSPORT_ENFORCED;
 }
 
+// ✅ NEW — independent trace flag (does NOT switch routing)
+export const TRANSPORT_TRACE = parseBool(
+  process.env.TRANSPORT_TRACE,
+  false
+);
+
+export function isTransportTraceEnabled() {
+  return TRANSPORT_TRACE;
+}
+
 export default {
   TRANSPORT_ENFORCED,
   isTransportEnforced,
+  TRANSPORT_TRACE,
+  isTransportTraceEnabled,
 };

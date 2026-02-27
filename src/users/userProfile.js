@@ -4,6 +4,10 @@
 
 import pool from "../../db.js";
 import { envStr } from "../core/config.js";
+import {
+  resolveGlobalUserIdForTelegramUser,
+  generateUniqueGlobalUserId,
+} from "./globalUserId.js";
 
 export async function ensureUserProfile(msg) {
   const chatId = msg.chat?.id?.toString();
@@ -18,8 +22,6 @@ export async function ensureUserProfile(msg) {
   // CRITICAL SAFETY: avoid corrupting users table in group/supergroup/channel
   if (chatType !== "private") return;
 
-  const globalUserId = `tg:${tgUserId}`;
-
   // ✅ Stage 4: monarch identity from centralized config (no direct process.env)
   const MONARCH_USER_ID = envStr("MONARCH_USER_ID", "").trim();
 
@@ -33,6 +35,29 @@ export async function ensureUserProfile(msg) {
   }
 
   try {
+    // 1) If user already exists by chat_id, keep its global_user_id (avoid breaking DB links)
+    const byChatRes = await pool.query(
+      `
+      SELECT global_user_id
+      FROM users
+      WHERE chat_id = $1
+      LIMIT 1
+      `,
+      [chatId]
+    );
+
+    let globalUserId = byChatRes.rows?.[0]?.global_user_id || null;
+
+    // 2) Else resolve via identity/legacy fallback (may return tg:<id> or usr_<id>)
+    if (!globalUserId) {
+      globalUserId = await resolveGlobalUserIdForTelegramUser(tgUserId);
+    }
+
+    // 3) If still none => create NEW SG-issued id (usr_<...>)
+    if (!globalUserId) {
+      globalUserId = await generateUniqueGlobalUserId();
+    }
+
     // Keep legacy chat_id column updated for private chat only (transport/compat),
     // but identity truth is global_user_id.
     await pool.query(
@@ -51,6 +76,7 @@ export async function ensureUserProfile(msg) {
     );
 
     // Link identity (telegram -> global_user_id)
+    // IMPORTANT: do NOT hijack existing mapping; if it exists, keep it (migration is a separate step)
     await pool.query(
       `
       INSERT INTO user_identities (global_user_id, provider, provider_user_id, chat_id)

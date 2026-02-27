@@ -1,10 +1,5 @@
 // src/core/config.js
 // Stage 3.6 — Config/Secrets hygiene V0 (ESM)
-//
-// Goal (V0):
-// - one place to read env with defaults + type safety
-// - avoid scattered process.env parsing across modules
-// - do NOT expose secrets in logs; provide allowlisted snapshot helper
 
 export function envStr(name, def = "") {
   const v = process.env[name];
@@ -18,8 +13,6 @@ export function envInt(name, def) {
 
   const n = Number(raw);
   if (!Number.isFinite(n)) return def;
-
-  // integers only
   return Math.trunc(n);
 }
 
@@ -29,7 +22,7 @@ export function envBool(name, def = false) {
   return raw === "true" || raw === "1" || raw === "yes" || raw === "y";
 }
 
-// Only for diagnostics: allowlist ONLY (no secrets!)
+// allowlist-only snapshot (no secrets!)
 export function getPublicEnvSnapshot(keys = []) {
   const out = {};
   for (const k of keys) out[k] = envStr(k, "");

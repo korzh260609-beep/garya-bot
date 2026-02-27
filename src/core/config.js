@@ -1,3 +1,43 @@
+// ============================================================================
+// src/core/config.js
+// Centralized ENV helpers + Stage configs
+// ============================================================================
+
+// ===============================
+// ENV HELPERS (CORE)
+// ===============================
+
+export function envStr(key, def = "") {
+  const v = process.env[key];
+  if (v === undefined || v === null || String(v).trim() === "") return def;
+  return String(v);
+}
+
+export function envIntRange(key, def, { min = -Infinity, max = Infinity } = {}) {
+  const raw = process.env[key];
+  const num = Number(raw);
+
+  if (!Number.isFinite(num)) return def;
+
+  if (num < min) return min;
+  if (num > max) return max;
+
+  return Math.floor(num);
+}
+
+export function getPublicEnvSnapshot() {
+  return {
+    NODE_ENV: process.env.NODE_ENV,
+    MEMORY_ENABLED: process.env.MEMORY_ENABLED,
+    MEMORY_MODE: process.env.MEMORY_MODE,
+    RENDER_GIT_COMMIT: process.env.RENDER_GIT_COMMIT,
+    RENDER_SERVICE_ID: process.env.RENDER_SERVICE_ID,
+    RENDER_INSTANCE_ID: process.env.RENDER_INSTANCE_ID,
+    GIT_COMMIT: process.env.GIT_COMMIT,
+    HOSTNAME: process.env.HOSTNAME,
+  };
+}
+
 // ===============================
 // STAGE 5.15 — ADMIN ALERTS CONFIG
 // ===============================

@@ -3,6 +3,7 @@
 // Safety: в groups не пишем users по chat_id (там chat_id = group id)
 
 import pool from "../../db.js";
+import { envStr } from "../core/config.js";
 
 export async function ensureUserProfile(msg) {
   const chatId = msg.chat?.id?.toString();
@@ -19,7 +20,8 @@ export async function ensureUserProfile(msg) {
 
   const globalUserId = `tg:${tgUserId}`;
 
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+  // ✅ Stage 4: monarch identity from centralized config (no direct process.env)
+  const MONARCH_USER_ID = envStr("MONARCH_USER_ID", "").trim();
 
   let role = "guest";
   let finalName = nameFromTelegram;

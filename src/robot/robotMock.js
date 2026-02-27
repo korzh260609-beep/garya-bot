@@ -6,6 +6,9 @@ import pool from "../../db.js";
 import { jobRunner } from "../jobs/jobRunnerInstance.js";
 import { makeTaskRunKey } from "../jobs/jobRunner.js";
 
+// ✅ Stage 5 — error_events retention purge (cooldown protected)
+import { ErrorEventsRetentionService } from "../observability/ErrorEventsRetentionService.js";
+
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
 function envTrue(name) {
@@ -404,12 +407,23 @@ async function handlePriceMonitorTask(bot, task) {
   });
 }
 
+// ✅ singleton retention service (in-memory cooldown per instance)
+const _errorEventsRetention = new ErrorEventsRetentionService(pool);
+
 export async function robotTick(bot) {
   // Stage 2.8.1: only one instance executes robot tick
   const lock = await tryAcquireRobotLock();
   if (!lock.ok) return;
 
   try {
+    // ✅ Stage 5.x maintenance: retention purge with cooldown (no overload)
+    // Never blocks the bot if it fails.
+    try {
+      await _errorEventsRetention.maybePurgeRuntimeScope();
+    } catch (_) {
+      // ignore
+    }
+
     // Stage 2.8.2 — recover stuck "running" runs after crash
     await recoverStuckTaskRuns();
 

@@ -1,4 +1,5 @@
-import { createLinkCode } from "../../users/linking.js";
+import { createLinkCode, createLinkCodeV2 } from "../../users/linking.js";
+import { getFeatureFlags } from "../../core/config.js";
 
 export async function handleLinkStart({
   bot,
@@ -6,7 +7,10 @@ export async function handleLinkStart({
   senderIdStr,
   provider = "telegram",
 }) {
-  const res = await createLinkCode({ provider, providerUserId: senderIdStr });
+  const flags = getFeatureFlags();
+  const fn = flags?.LINKING_V2 ? createLinkCodeV2 : createLinkCode;
+
+  const res = await fn({ provider, providerUserId: senderIdStr });
 
   if (!res?.ok) {
     await bot.sendMessage(

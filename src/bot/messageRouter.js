@@ -119,15 +119,18 @@ import { getProjectSection } from "../../projectMemory.js";
 // ✅ Stage 3.5 — RateLimit (V1)
 import { checkRateLimit } from "./rateLimiter.js";
 
-// ✅ Stage 3.6 — Config hygiene V0
-import { envInt } from "../core/config.js";
+// ✅ Stage 3.6 — Config hygiene (V1)
+import { envIntRange, envStr, getPublicEnvSnapshot } from "../core/config.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // ============================================================================
 // Default: 6 commands / 20 sec for non-monarch
-const CMD_RL_WINDOW_MS = Math.max(1000, envInt("CMD_RL_WINDOW_MS", 20000));
-const CMD_RL_MAX = Math.max(1, envInt("CMD_RL_MAX", 6));
+const CMD_RL_WINDOW_MS = envIntRange("CMD_RL_WINDOW_MS", 20000, {
+  min: 1000,
+  max: 300000,
+});
+const CMD_RL_MAX = envIntRange("CMD_RL_MAX", 6, { min: 1, max: 50 });
 
 // ============================================================================
 // === ATTACH ROUTER
@@ -167,7 +170,7 @@ export function attachMessageRouter({
 
       await ensureUserProfile(msg);
 
-      const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+      const MONARCH_USER_ID = envStr("MONARCH_USER_ID", "").trim();
       const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
       const isMonarchUser = isMonarchFn(senderIdStr);
 
@@ -393,6 +396,16 @@ export function attachMessageRouter({
           const status = await memory.status();
           const v2Cols = await memDiag.getChatMemoryV2Columns();
 
+          const pub = getPublicEnvSnapshot();
+          const buildCommit =
+            String(pub.RENDER_GIT_COMMIT || "").trim() ||
+            String(pub.GIT_COMMIT || "").trim() ||
+            "";
+          const buildService = String(pub.RENDER_SERVICE_ID || "").trim();
+          const buildInstance =
+            String(pub.RENDER_INSTANCE_ID || "").trim() ||
+            String(pub.HOSTNAME || "").trim();
+
           await bot.sendMessage(
             chatId,
             [
@@ -410,19 +423,15 @@ export function attachMessageRouter({
               `metadata: ${v2Cols.metadata}`,
               `schema_version: ${v2Cols.schema_version}`,
               "",
-              "ENV (raw):",
-              `MEMORY_ENABLED: ${String(process.env.MEMORY_ENABLED || "")}`,
-              `MEMORY_MODE: ${String(process.env.MEMORY_MODE || "")}`,
-              `NODE_ENV: ${String(process.env.NODE_ENV || "")}`,
+              "ENV (public allowlist):",
+              `MEMORY_ENABLED: ${String(pub.MEMORY_ENABLED || "")}`,
+              `MEMORY_MODE: ${String(pub.MEMORY_MODE || "")}`,
+              `NODE_ENV: ${String(pub.NODE_ENV || "")}`,
               "",
               "BUILD:",
-              `commit: ${String(
-                process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || ""
-              )}`,
-              `service: ${String(process.env.RENDER_SERVICE_ID || "")}`,
-              `instance: ${String(
-                process.env.RENDER_INSTANCE_ID || process.env.HOSTNAME || ""
-              )}`,
+              `commit: ${buildCommit}`,
+              `service: ${buildService}`,
+              `instance: ${buildInstance}`,
             ].join("\n")
           );
 
@@ -498,20 +507,21 @@ export function attachMessageRouter({
         }
 
         if (cmdBase === "/build_info") {
+          const pub = getPublicEnvSnapshot();
+
           const commit =
-            String(process.env.RENDER_GIT_COMMIT || "").trim() ||
-            String(process.env.GIT_COMMIT || "").trim() ||
+            String(pub.RENDER_GIT_COMMIT || "").trim() ||
+            String(pub.GIT_COMMIT || "").trim() ||
             "unknown";
 
-          const serviceId =
-            String(process.env.RENDER_SERVICE_ID || "").trim() || "unknown";
+          const serviceId = String(pub.RENDER_SERVICE_ID || "").trim() || "unknown";
 
           const instanceId =
-            String(process.env.RENDER_INSTANCE_ID || "").trim() ||
-            String(process.env.HOSTNAME || "").trim() ||
+            String(pub.RENDER_INSTANCE_ID || "").trim() ||
+            String(pub.HOSTNAME || "").trim() ||
             "unknown";
 
-          const nodeEnv = String(process.env.NODE_ENV || "").trim() || "unknown";
+          const nodeEnv = String(pub.NODE_ENV || "").trim() || "unknown";
           const nowIso = new Date().toISOString();
 
           if (typeof upsertProjectSection === "function") {

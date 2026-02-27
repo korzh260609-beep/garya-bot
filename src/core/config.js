@@ -71,6 +71,31 @@ export const ADMIN_ALERT_COOLDOWN_MIN = envIntRange(
 );
 
 // ===============================
+// STAGE 5.16 — ERROR EVENTS CONFIG
+// ===============================
+// NOTE:
+// - ERROR_EVENTS_RETENTION_DAYS is used by retention helpers/service.
+// - ERROR_EVENTS_IGNORE_TEST_FAIL is a feature flag for policy behavior.
+//   (Current policy may ignore TEST_FAIL by marker regardless; flag is kept for strict control later.)
+// - ERROR_EVENTS_PURGE_COOLDOWN_MIN is used by retention purge service to avoid DB overload.
+
+export const ERROR_EVENTS_RETENTION_DAYS = envIntRange(
+  "ERROR_EVENTS_RETENTION_DAYS",
+  30,
+  { min: 1, max: 3650 }
+);
+
+export const ERROR_EVENTS_IGNORE_TEST_FAIL =
+  String(process.env.ERROR_EVENTS_IGNORE_TEST_FAIL || "true").toLowerCase() ===
+  "true";
+
+export const ERROR_EVENTS_PURGE_COOLDOWN_MIN = envIntRange(
+  "ERROR_EVENTS_PURGE_COOLDOWN_MIN",
+  60,
+  { min: 1, max: 1440 }
+);
+
+// ===============================
 // FEATURE FLAGS
 // ===============================
 

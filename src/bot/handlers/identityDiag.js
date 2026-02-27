@@ -18,6 +18,13 @@ export async function handleIdentityDiag({ bot, chatId, bypass }) {
     );
     const usersLegacyTg = legacyTgRes.rows?.[0]?.n ?? 0;
 
+    const usersUsrRes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM users WHERE global_user_id LIKE 'usr_%'`
+    );
+    const usersUsr = usersUsrRes.rows?.[0]?.n ?? 0;
+
+    const usersOther = Math.max(0, usersTotal - usersLegacyTg - usersUsr);
+
     const usersNoIdentityRes = await pool.query(`
       SELECT COUNT(*)::int AS n
       FROM users u
@@ -52,7 +59,12 @@ export async function handleIdentityDiag({ bot, chatId, bypass }) {
     const lines = [];
     lines.push("🧬 IDENTITY DIAG");
     lines.push(`users_total: ${usersTotal}`);
-    lines.push(`users_global_id_legacy_tg: ${usersLegacyTg}`);
+    lines.push("");
+    lines.push("global_user_id:");
+    lines.push(`- usr_: ${usersUsr}`);
+    lines.push(`- tg:: ${usersLegacyTg}`);
+    lines.push(`- other: ${usersOther}`);
+    lines.push("");
     lines.push(`users_without_identity_row: ${usersNoIdentity}`);
     lines.push(`identities_without_user_row: ${identitiesOrphan}`);
     lines.push("");

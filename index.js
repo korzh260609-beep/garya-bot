@@ -23,13 +23,16 @@ export { jobRunner };
 // ✅ ROBOT-LAYER loop (mock)
 import { startRobotLoop } from "./src/robot/robotMock.js";
 
+// ✅ Stage 3.6: centralized env access (no direct process.env here)
+import { envInt, envStr } from "./src/core/config.js";
+
 // ============================================================================
 // === CONSTANTS / CONFIG ===
 // ============================================================================
 const MAX_HISTORY_MESSAGES = 20;
 
 // MONARCH only from ENV (Stage 4 — identity-first, no fallback)
-const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
+const MONARCH_USER_ID = envStr("MONARCH_USER_ID", "").trim();
 
 // Plans placeholder
 const DEFAULT_PLAN = "free";
@@ -45,7 +48,7 @@ console.log("🧩 JobRunner initialized (singleton).");
 const app = createApp();
 const bot = initTelegramTransport(app);
 
-const PORT = process.env.PORT || 3000;
+const PORT = envInt("PORT", 3000);
 
 app.get("/health", (req, res) => {
   res.status(200).json(getSystemHealth());

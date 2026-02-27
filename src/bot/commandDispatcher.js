@@ -19,6 +19,7 @@ import { handleLinkConfirm } from "./handlers/linkConfirm.js";
 import { handleLinkStatus } from "./handlers/linkStatus.js";
 import { handleRecall } from "./handlers/recall.js";
 import { handleIdentityDiag } from "./handlers/identityDiag.js";
+import { handleIdentityBackfill } from "./handlers/identityBackfill.js";
 import pool from "../../db.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
@@ -123,6 +124,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/chat_meta_debug",
     "/webhook_info",
     "/identity_diag",
+    "/identity_backfill",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
@@ -205,6 +207,16 @@ export async function dispatchCommand(cmd, ctx) {
         bot,
         chatId,
         bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/identity_backfill": {
+      await handleIdentityBackfill({
+        bot,
+        chatId,
+        bypass: ctx.bypass,
+        rest: ctx.rest,
       });
       return { handled: true };
     }

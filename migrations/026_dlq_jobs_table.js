@@ -1,8 +1,8 @@
 // migrations/026_dlq_jobs_table.js
 
-exports.shorthands = undefined;
+export const shorthands = undefined;
 
-exports.up = (pgm) => {
+export async function up(pgm) {
   pgm.createTable("dlq_jobs", {
     id: "id",
 
@@ -49,15 +49,13 @@ exports.up = (pgm) => {
     },
   });
 
-  // защита от повторной записи одного и того же упавшего job
   pgm.createIndex("dlq_jobs", ["job_id"], { unique: true });
-
   pgm.createIndex("dlq_jobs", ["created_at"]);
   pgm.createIndex("dlq_jobs", ["task_id"]);
   pgm.createIndex("dlq_jobs", ["run_key"]);
   pgm.createIndex("dlq_jobs", ["status"]);
-};
+}
 
-exports.down = (pgm) => {
+export async function down(pgm) {
   pgm.dropTable("dlq_jobs");
-};
+}

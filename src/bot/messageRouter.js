@@ -1,3 +1,12 @@
+Ок ✅ Вот полный обработанный src/bot/messageRouter.js целиком (только изменения Stage 3.6 V0):
+
+добавлен импорт envInt из src/core/config.js
+
+CMD_RL_WINDOW_MS и CMD_RL_MAX читаются через envInt() вместо прямого process.env
+
+
+⚠️ Важно: файл src/core/config.js должен уже существовать, иначе будет ошибка импорта.
+
 // ============================================================================
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
@@ -119,15 +128,15 @@ import { getProjectSection } from "../../projectMemory.js";
 // ✅ Stage 3.5 — RateLimit (V1)
 import { checkRateLimit } from "./rateLimiter.js";
 
+// ✅ Stage 3.6 — Config hygiene V0
+import { envInt } from "../../core/config.js";
+
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // ============================================================================
 // Default: 6 commands / 20 sec for non-monarch
-const CMD_RL_WINDOW_MS = Math.max(
-  1000,
-  Number(process.env.CMD_RL_WINDOW_MS || 20000)
-);
-const CMD_RL_MAX = Math.max(1, Number(process.env.CMD_RL_MAX || 6));
+const CMD_RL_WINDOW_MS = Math.max(1000, envInt("CMD_RL_WINDOW_MS", 20000));
+const CMD_RL_MAX = Math.max(1, envInt("CMD_RL_MAX", 6));
 
 // ============================================================================
 // === ATTACH ROUTER
@@ -261,7 +270,7 @@ export function attachMessageRouter({
               "",
               "Базовые команды:",
               "- /link_start",
-              "- /link_confirm <code>",
+              "- /link_confirm <code> ",
               "- /link_status",
               "",
               "Dev/системные команды — только для монарха в личке.",
@@ -421,9 +430,7 @@ export function attachMessageRouter({
               )}`,
               `service: ${String(process.env.RENDER_SERVICE_ID || "")}`,
               `instance: ${String(
-                process.env.RENDER_INSTANCE_ID ||
-                  process.env.HOSTNAME ||
-                  ""
+                process.env.RENDER_INSTANCE_ID || process.env.HOSTNAME || ""
               )}`,
             ].join("\n")
           );
@@ -584,10 +591,7 @@ export function attachMessageRouter({
                 schemaVersion: 1,
               });
             } catch (e) {
-              console.error(
-                "behavior_events permission_denied log failed:",
-                e
-              );
+              console.error("behavior_events permission_denied log failed:", e);
             }
             return;
           }

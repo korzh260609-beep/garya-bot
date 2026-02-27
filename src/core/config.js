@@ -28,7 +28,7 @@ export function envBool(name, def = false) {
 }
 
 // ============================================================================
-// === SAFE INTEGER WITH RANGE (NEW V1) ===
+// === SAFE INTEGER WITH RANGE (V1) ===
 // ============================================================================
 
 export function envIntRange(name, def, { min = null, max = null } = {}) {
@@ -45,11 +45,27 @@ export function envIntRange(name, def, { min = null, max = null } = {}) {
 // ============================================================================
 
 const PUBLIC_ENV_ALLOWLIST = new Set([
+  // runtime
   "NODE_ENV",
   "PORT",
+
+  // command rate-limit (Stage 3.5)
   "CMD_RL_WINDOW_MS",
   "CMD_RL_MAX",
-  "JOB_DLQ_ENABLED"
+
+  // jobs
+  "JOB_DLQ_ENABLED",
+
+  // memory flags (not secrets)
+  "MEMORY_ENABLED",
+  "MEMORY_MODE",
+
+  // build metadata (not secrets)
+  "RENDER_GIT_COMMIT",
+  "GIT_COMMIT",
+  "RENDER_SERVICE_ID",
+  "RENDER_INSTANCE_ID",
+  "HOSTNAME",
 ]);
 
 // allowlist-only snapshot (no secrets!)

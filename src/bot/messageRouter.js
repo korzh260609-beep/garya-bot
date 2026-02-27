@@ -122,6 +122,10 @@ import { checkRateLimit } from "./rateLimiter.js";
 // ✅ Stage 3.6 — Config hygiene (V1)
 import { envIntRange, envStr, getPublicEnvSnapshot } from "../core/config.js";
 
+// ✅ Stage 4 — Chats skeleton wiring (transport-level)
+import { upsertChat } from "../db/chatRepo.js";
+import { touchUserChatLink } from "../db/userChatLinkRepo.js";
+
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // ============================================================================
@@ -193,6 +197,40 @@ export function attachMessageRouter({
       // ✅ globalUserId for Stage 6 core (unified identity)
       const globalUserId =
         accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
+
+      // ✅ Stage 4 — Chats wiring (best-effort, never crash Telegram flow)
+      try {
+        const title =
+          msg.chat?.title ||
+          msg.chat?.username ||
+          msg.chat?.first_name ||
+          msg.chat?.last_name ||
+          null;
+
+        const lastSeenAt = new Date();
+
+        await upsertChat({
+          chatId: chatIdStr,
+          transport: "telegram",
+          chatType: chatType || null,
+          title: title ? String(title) : null,
+          lastSeenAt,
+          meta: null,
+        });
+
+        if (globalUserId) {
+          await touchUserChatLink({
+            globalUserId,
+            chatId: chatIdStr,
+            transport: "telegram",
+            lastSeenAt,
+            meta: null,
+          });
+        }
+      } catch (e) {
+        // Tables may not exist yet on fresh deploy; do not crash bot
+        console.error("Stage4 chats wiring failed:", e?.message || e);
+      }
 
       // ✅ STAGE 6 shadow wiring: call core handleMessage(context) WITHOUT affecting replies
       // ✅ STAGE 6.6: DO NOT pass derived chatType/isPrivateChat from router into core

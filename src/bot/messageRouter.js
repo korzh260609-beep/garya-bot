@@ -50,6 +50,9 @@ import pool from "../../db.js";
 import { upsertChat } from "../db/chatRepo.js";
 import { touchUserChatLink } from "../db/userChatLinkRepo.js";
 
+// ✅ STAGE 4.3 — Chat Gate (db)
+import { getChatById } from "../db/chatRepo.js";
+
 import { dispatchCommand } from "./commandDispatcher.js";
 
 // === CORE ===
@@ -137,6 +140,19 @@ const CMD_RL_WINDOW_MS = envIntRange("CMD_RL_WINDOW_MS", 20000, {
 const CMD_RL_MAX = envIntRange("CMD_RL_MAX", 6, { min: 1, max: 50 });
 
 // ============================================================================
+// ✅ STAGE 4.3: CHAT GATE (ENV-driven, mode=db)
+// ============================================================================
+// CHAT_GATE_MODE: "off" | "db"
+// CHAT_DEFAULT_ACTIVE: "true"/"false" (applied on INSERT only; see chatRepo.upsertChat)
+const CHAT_GATE_MODE = envStr("CHAT_GATE_MODE", "off").trim().toLowerCase();
+const CHAT_DEFAULT_ACTIVE_RAW = envStr("CHAT_DEFAULT_ACTIVE", "true")
+  .trim()
+  .toLowerCase();
+const CHAT_DEFAULT_ACTIVE = ["1", "true", "yes", "y", "on"].includes(
+  CHAT_DEFAULT_ACTIVE_RAW
+);
+
+// ============================================================================
 // === ATTACH ROUTER
 // ============================================================================
 export function attachMessageRouter({
@@ -214,6 +230,8 @@ export function attachMessageRouter({
           transport: "telegram",
           chatType: chatType || null,
           title,
+          // ✅ STAGE 4.3: apply default active on INSERT only (if gate enabled)
+          isActiveInsert: CHAT_GATE_MODE === "db" ? CHAT_DEFAULT_ACTIVE : null,
           lastSeenAt: nowIso,
           meta: null,
         });
@@ -233,6 +251,50 @@ export function attachMessageRouter({
           });
         } catch (e) {
           console.error("Stage4 touchUserChatLink failed:", e);
+        }
+      }
+
+      // ✅ STAGE 4.3 — CHAT GATE (mode=db)
+      // Blocks ALL processing for inactive chats (monarch bypass).
+      // Best-effort: DB issues must NOT block Telegram flow.
+      if (CHAT_GATE_MODE === "db") {
+        try {
+          const chatRow = await getChatById({
+            chatId: chatIdStr,
+            transport: "telegram",
+          });
+
+          const isActive =
+            chatRow && typeof chatRow.is_active !== "undefined"
+              ? !!chatRow.is_active
+              : true;
+
+          if (!isActive && !isMonarchUser) {
+            try {
+              await behaviorEvents.logEvent({
+                globalUserId: accessPack?.user?.global_user_id || null,
+                chatId: chatIdStr,
+                eventType: "chat_gated",
+                metadata: {
+                  reason: "chat_inactive",
+                  chat_id: chatIdStr,
+                  transport: "telegram",
+                  chatType,
+                  from: senderIdStr,
+                },
+                transport: "telegram",
+                schemaVersion: 1,
+              });
+            } catch (e) {
+              console.error("behavior_events chat_gated log failed:", e);
+            }
+
+            // Silent drop to avoid spam loops in group chats.
+            return;
+          }
+        } catch (e) {
+          console.error("Chat gate check failed:", e);
+          // fail-open
         }
       }
 

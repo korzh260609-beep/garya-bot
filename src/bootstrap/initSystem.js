@@ -22,6 +22,7 @@ export async function initSystem({ bot }) {
       rootDir: process.cwd(),
       pool,
       monarchUserId: String(process.env.MONARCH_USER_ID || "").trim(),
+      monarchGlobalUserId: String(process.env.MONARCH_GLOBAL_USER_ID || "").trim(),
     });
   } catch (e) {
     console.error("❌ BOOT DIAGNOSTICS FAILED:", e);

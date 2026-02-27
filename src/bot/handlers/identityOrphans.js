@@ -87,7 +87,80 @@ export async function handleIdentityOrphans({ bot, chatId, bypass, rest }) {
 
     await bot.sendMessage(chatId, lines.join("\n").slice(0, 3800));
   } catch (e) {
-    console.error("❌ /identity_orphans error:", e);
-    await bot.sendMessage(chatId, "⚠️ /identity_orphans упал. Проверь users/user_identities.");
+    // ✅ Fallback: current prod schema may NOT have users.plan (and other future fields).
+    // Try a safer query that only uses guaranteed columns from migrations:
+    // users: id, chat_id, tg_user_id, name, role, language, created_at, global_user_id
+    try {
+      const countRes2 = await pool.query(`
+        SELECT COUNT(*)::int AS n
+        FROM users u
+        LEFT JOIN user_identities i
+          ON i.global_user_id = u.global_user_id
+        WHERE i.global_user_id IS NULL
+      `);
+
+      const total2 = countRes2.rows?.[0]?.n ?? 0;
+
+      const rowsRes2 = await pool.query(
+        `
+        SELECT
+          u.id,
+          u.global_user_id,
+          u.chat_id,
+          u.tg_user_id,
+          u.name,
+          u.role,
+          u.language,
+          u.created_at
+        FROM users u
+        LEFT JOIN user_identities i
+          ON i.global_user_id = u.global_user_id
+        WHERE i.global_user_id IS NULL
+        ORDER BY u.created_at DESC
+        LIMIT $1
+        `,
+        [limit]
+      );
+
+      const lines2 = [];
+      lines2.push("🧩 IDENTITY ORPHANS (users without identity row) — FALLBACK");
+      lines2.push(`total: ${total2}`);
+      lines2.push(`showing: ${Math.min(limit, rowsRes2.rows?.length || 0)} (limit=${limit})`);
+      lines2.push("");
+
+      if (!rowsRes2.rows || rowsRes2.rows.length === 0) {
+        lines2.push("✅ none");
+        await bot.sendMessage(chatId, lines2.join("\n").slice(0, 3800));
+        return;
+      }
+
+      for (const r of rowsRes2.rows) {
+        const id = r.id ?? "?";
+        const gid = String(r.global_user_id || "");
+        const chat = r.chat_id == null ? "(null)" : String(r.chat_id);
+        const tg = r.tg_user_id == null ? "(null)" : String(r.tg_user_id);
+        const name = r.name == null ? "(null)" : String(r.name);
+        const role = r.role || "(null)";
+        const lang = r.language == null ? "(null)" : String(r.language);
+        const created = r.created_at ? new Date(r.created_at).toISOString() : "(null)";
+
+        lines2.push(`- id=${id}`);
+        lines2.push(`  global_user_id=${gid}`);
+        lines2.push(`  chat_id=${chat}`);
+        lines2.push(`  tg_user_id=${tg}`);
+        lines2.push(`  name=${name}`);
+        lines2.push(`  role=${role} language=${lang}`);
+        lines2.push(`  created_at=${created}`);
+      }
+
+      lines2.push("");
+      lines2.push("ℹ️ If tg_user_id is null for these rows, /identity_backfill cannot create telegram identities.");
+
+      await bot.sendMessage(chatId, lines2.join("\n").slice(0, 3800));
+    } catch (e2) {
+      console.error("❌ /identity_orphans error:", e);
+      console.error("❌ /identity_orphans fallback error:", e2);
+      await bot.sendMessage(chatId, "⚠️ /identity_orphans упал. Проверь users/user_identities.");
+    }
   }
 }

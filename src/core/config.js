@@ -13,6 +13,13 @@ export function envStr(key, def = "") {
   return String(v);
 }
 
+export function envInt(key, def) {
+  const raw = process.env[key];
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return def;
+  return Math.floor(num);
+}
+
 export function envIntRange(key, def, { min = -Infinity, max = Infinity } = {}) {
   const raw = process.env[key];
   const num = Number(raw);
@@ -64,14 +71,10 @@ export const ADMIN_ALERT_COOLDOWN_MIN = envIntRange(
 );
 
 // ===============================
-// STAGE 4/5 — FEATURE FLAGS (PUBLIC-ENV allowlist + getter)
+// FEATURE FLAGS
 // ===============================
 
-// Public env allowlist (safe-to-expose values only).
-// NOTE: This list is used by runtime diagnostics and feature flag getter.
-// Additions are allowed; do not remove without an explicit decision.
 export const PUBLIC_ENV_ALLOWLIST = [
-  // existing public snapshot keys
   "NODE_ENV",
   "MEMORY_ENABLED",
   "MEMORY_MODE",
@@ -80,13 +83,10 @@ export const PUBLIC_ENV_ALLOWLIST = [
   "RENDER_INSTANCE_ID",
   "GIT_COMMIT",
   "HOSTNAME",
-
-  // ✅ feature flags
   "LINKING_V2",
   "DIAG_ROLES_V2",
 ];
 
-// Internal helper: parse "1/true/yes/on" as true.
 function _isTruthyFlag(v) {
   const s = String(v || "")
     .trim()
@@ -94,8 +94,6 @@ function _isTruthyFlag(v) {
   return ["1", "true", "yes", "y", "on"].includes(s);
 }
 
-// Feature flags getter.
-// IMPORTANT: return booleans (not strings) to keep call-sites stable.
 export function getFeatureFlags() {
   return {
     LINKING_V2: _isTruthyFlag(envStr("LINKING_V2", "0")),

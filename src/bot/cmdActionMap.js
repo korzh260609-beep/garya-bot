@@ -32,6 +32,8 @@ export const CMD_ACTION = {
   "/task_status": "cmd.admin.task_status",
   "/project_status": "cmd.admin.project_status",
 
+  "/identity_diag": "cmd.admin.identity_diag",
+
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",
   "/start_task": "cmd.admin.start_task",
   "/stop_tasks_type": "cmd.admin.stop_tasks_type",

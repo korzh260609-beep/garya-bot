@@ -5,6 +5,9 @@
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 
+// ✅ STAGE 5.15 — ADMIN ALERTS (preferred): DB-backed cooldown service
+import { AdminAlertsService } from "../../observability/AdminAlertsService.js";
+
 function safeLine(s, max = 160) {
   const t = s === null || s === undefined ? "" : String(s);
   return t.length > max ? t.slice(0, max - 1) + "…" : t;
@@ -299,51 +302,84 @@ export async function handleHealth({ bot, chatId }) {
   } catch (_) {}
 
   // ------------------
-  // 5.15 ADMIN ALERTS (monarch notify) — minimal wired
+  // 5.15 ADMIN ALERTS (monarch notify) — DB-backed cooldown (preferred)
   // ------------------
-  // In-memory cooldown (per instance). Good enough for V1.
-  // Env:
-  // - ADMIN_ALERTS_ENABLED=true|false (default true)
-  // - ADMIN_ALERTS_COOLDOWN_MIN=60 (default 60)
-  // - MONARCH_USER_ID must be set (telegram user id)
+  // Uses:
+  // - src/observability/AdminAlertsService.js
+  // - migrations/029_admin_alerts_state_table.js
+  // - config exports in src/core/config.js
   try {
-    const enabled =
-      String(process.env.ADMIN_ALERTS_ENABLED || "true").trim().toLowerCase() !== "false";
     const monarchId = String(process.env.MONARCH_USER_ID || "").trim();
-    const cooldownMin = Math.max(1, Number(process.env.ADMIN_ALERTS_COOLDOWN_MIN || 60));
-    const cooldownMs = cooldownMin * 60 * 1000;
 
-    // module-scope static (works because Node caches modules)
-    globalThis.__sgAdminAlertsState = globalThis.__sgAdminAlertsState || new Map();
-    const state = globalThis.__sgAdminAlertsState;
+    const usedMbNum = Number(dbSizeMb);
+    const limitMbNum = Number(dbLimitMb);
 
-    const isWarn =
-      typeof dbSizeWarning === "string" &&
-      (dbSizeWarning.startsWith("WARN") || dbSizeWarning.startsWith("CRITICAL"));
-    if (enabled && monarchId && isWarn) {
-      const key = `db_size_warning:${dbSizeWarning}`;
-      const lastTs = Number(state.get(key) || 0);
-      const now = Date.now();
-
-      if (!Number.isFinite(lastTs) || now - lastTs >= cooldownMs) {
-        state.set(key, now);
-
-        const msg = [
-          "🚨 ADMIN ALERT",
-          "type: db_size_warning",
-          `level: ${dbSizeWarning}`,
-          `db_size_mb: ${dbSizeMb}`,
-          `db_limit_mb: ${dbLimitMb}`,
-          `db_usage_pct: ${dbUsagePct}`,
-          `ts: ${new Date().toISOString()}`,
-        ].join("\n");
-
-        // notify monarch (even if /health called in group)
-        await bot.sendMessage(monarchId, msg);
-      }
+    if (
+      monarchId &&
+      Number.isFinite(usedMbNum) &&
+      usedMbNum > 0 &&
+      Number.isFinite(limitMbNum) &&
+      limitMbNum > 0
+    ) {
+      const svc = new AdminAlertsService({ bot, monarchUserId: monarchId });
+      await svc.checkDbUsage({ usedMb: usedMbNum, limitMb: limitMbNum });
     }
   } catch (e) {
-    console.error("admin alert (db_size_warning) failed:", e);
+    console.error("AdminAlertsService check failed:", e);
+  }
+
+  // ------------------
+  // 5.15 ADMIN ALERTS (monarch notify) — legacy in-memory wiring (kept, disabled)
+  // ------------------
+  // NOTE: This block was an earlier V0 in-memory cooldown. It is kept for safety,
+  // but disabled to avoid duplicate alerts. Preferred path is AdminAlertsService above.
+  const legacyEnabled = false;
+
+  if (legacyEnabled) {
+    // In-memory cooldown (per instance). Good enough for V1.
+    // Env:
+    // - ADMIN_ALERTS_ENABLED=true|false (default true)
+    // - ADMIN_ALERTS_COOLDOWN_MIN=60 (default 60)
+    // - MONARCH_USER_ID must be set (telegram user id)
+    try {
+      const enabled =
+        String(process.env.ADMIN_ALERTS_ENABLED || "true").trim().toLowerCase() !== "false";
+      const monarchId = String(process.env.MONARCH_USER_ID || "").trim();
+      const cooldownMin = Math.max(1, Number(process.env.ADMIN_ALERTS_COOLDOWN_MIN || 60));
+      const cooldownMs = cooldownMin * 60 * 1000;
+
+      // module-scope static (works because Node caches modules)
+      globalThis.__sgAdminAlertsState = globalThis.__sgAdminAlertsState || new Map();
+      const state = globalThis.__sgAdminAlertsState;
+
+      const isWarn =
+        typeof dbSizeWarning === "string" &&
+        (dbSizeWarning.startsWith("WARN") || dbSizeWarning.startsWith("CRITICAL"));
+      if (enabled && monarchId && isWarn) {
+        const key = `db_size_warning:${dbSizeWarning}`;
+        const lastTs = Number(state.get(key) || 0);
+        const now = Date.now();
+
+        if (!Number.isFinite(lastTs) || now - lastTs >= cooldownMs) {
+          state.set(key, now);
+
+          const msg = [
+            "🚨 ADMIN ALERT",
+            "type: db_size_warning",
+            `level: ${dbSizeWarning}`,
+            `db_size_mb: ${dbSizeMb}`,
+            `db_limit_mb: ${dbLimitMb}`,
+            `db_usage_pct: ${dbUsagePct}`,
+            `ts: ${new Date().toISOString()}`,
+          ].join("\n");
+
+          // notify monarch (even if /health called in group)
+          await bot.sendMessage(monarchId, msg);
+        }
+      }
+    } catch (e) {
+      console.error("admin alert (db_size_warning) failed:", e);
+    }
   }
 
   await bot.sendMessage(

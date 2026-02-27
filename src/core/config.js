@@ -66,6 +66,12 @@ const PUBLIC_ENV_ALLOWLIST = new Set([
   "RENDER_SERVICE_ID",
   "RENDER_INSTANCE_ID",
   "HOSTNAME",
+
+  // ========================================================================
+  // Stage 4.5 — Feature flags (not secrets)
+  // ========================================================================
+  "LINKING_V2",
+  "DIAG_ROLES_V2",
 ]);
 
 // allowlist-only snapshot (no secrets!)
@@ -77,4 +83,16 @@ export function getPublicEnvSnapshot() {
   }
 
   return out;
+}
+
+// ============================================================================
+// === FEATURE FLAGS (Stage 4.5) ==============================================
+// ============================================================================
+// IMPORTANT: This is config-only. No wiring here.
+// Consumers may switch behavior based on these flags in their own modules.
+export function getFeatureFlags() {
+  return {
+    LINKING_V2: envBool("LINKING_V2", false),
+    DIAG_ROLES_V2: envBool("DIAG_ROLES_V2", false),
+  };
 }

@@ -63,6 +63,11 @@ import { buildSystemPrompt } from "../../systemPrompt.js";
 // ✅ STAGE 6 — shadow wiring (no behavior change)
 import { handleMessage as handleMessageCore } from "../core/handleMessage.js";
 
+// ✅ STAGE 6 — Transport skeleton pieces (no behavior change)
+import { createUnifiedContext } from "../transport/unifiedContext.js";
+import { toCoreContextFromUnified } from "../transport/toCoreContext.js";
+import { isTransportEnforced } from "../transport/transportConfig.js";
+
 import {
   parseCommand,
   callWithFallback,
@@ -297,6 +302,37 @@ export function attachMessageRouter({
           // fail-open
         }
       }
+
+      // =========================================================================
+      // STAGE 6 — Transport skeleton wiring (NO behavior change)
+      // =========================================================================
+      // eslint/linters may complain about unused import; read once (no side-effects beyond env read)
+      const _transportEnforced = isTransportEnforced();
+      void _transportEnforced;
+
+      const telegramAdapterContext = createUnifiedContext({
+        transport: "telegram",
+        chatId: chatIdStr,
+        senderId: senderIdStr,
+        chatType: transportChatTypeRaw,
+        isPrivate,
+        text: trimmed,
+        raw: msg,
+      });
+
+      const coreContextFromTransport = toCoreContextFromUnified(
+        telegramAdapterContext,
+        {
+          messageId: msg.message_id,
+          globalUserId,
+          transportChatTypeOverride: transportChatTypeRaw,
+        }
+      );
+
+      // NOTE:
+      // - NOT used yet as main flow
+      // - Existing shadow call below remains authoritative
+      // - Future switch will use isTransportEnforced()
 
       // ✅ STAGE 6 shadow wiring: call core handleMessage(context) WITHOUT affecting replies
       // ✅ STAGE 6.6: DO NOT pass derived chatType/isPrivateChat from router into core

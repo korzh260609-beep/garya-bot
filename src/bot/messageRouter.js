@@ -365,14 +365,9 @@ export function attachMessageRouter({
       // - Always use coreContextFromTransport for the shadow call.
       // - Keep old Stage 6.7 branch as fallback-only to respect "no deletions".
       // - Never block Telegram flow.
-      let __shadowWasHandledByTransport = false;
+     let __shadowWasHandledByTransport = false;
 
 try {
-  // ✅ TEST ONLY: force failure inside shadow call
-  if (String(process.env.TRANSPORT_FORCE_FALLBACK || "").trim().toLowerCase() === "true") {
-    throw new Error("TRANSPORT_FORCE_FALLBACK");
-  }
-
   await handleMessageCore(coreContextFromTransport);
   __shadowWasHandledByTransport = true;
 } catch (e) {

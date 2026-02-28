@@ -380,7 +380,6 @@ try {
       // - Future switch will use isTransportEnforced()
 
       if (!__shadowWasHandledByTransport) {
-        if (isTransportTraceEnabled()) {
           console.warn("[TRANSPORT_FALLBACK] legacy shadow activated");
         }
 

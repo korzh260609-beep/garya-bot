@@ -379,6 +379,10 @@ export function attachMessageRouter({
       // - Future switch will use isTransportEnforced()
 
       if (!__shadowWasHandledByTransport) {
+        if (isTransportTraceEnabled()) {
+          console.warn("[TRANSPORT_FALLBACK] legacy shadow activated");
+        }
+
         // ✅ STAGE 6.7 — enforced routing SKELETON (fallback-only)
         // Goal:
         // - Prepare branch for "enforced routing" WITHOUT switching the real reply flow.

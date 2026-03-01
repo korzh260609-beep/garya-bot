@@ -352,6 +352,7 @@ export function attachMessageRouter({
             senderId: coreContextFromTransport?.senderId || null,
             transportChatType: coreContextFromTransport?.transportChatType || null,
             messageId: coreContextFromTransport?.messageId || null,
+            dedupeKey: coreContextFromTransport?.dedupeKey || null, // ✅ Stage 6.8 (trace-only)
             globalUserId: coreContextFromTransport?.globalUserId || null,
             textLen:
               typeof coreContextFromTransport?.text === "string"

@@ -365,23 +365,23 @@ export function attachMessageRouter({
       // - Always use coreContextFromTransport for the shadow call.
       // - Keep old Stage 6.7 branch as fallback-only to respect "no deletions".
       // - Never block Telegram flow.
-     let __shadowWasHandledByTransport = false;
+      let __shadowWasHandledByTransport = false;
 
-try {
-  await handleMessageCore(coreContextFromTransport);
-  __shadowWasHandledByTransport = true;
-} catch (e) {
-  console.error("handleMessageCore(SHADOW_TRANSPORT_V1) failed:", e);
-}
+      try {
+        await handleMessageCore(coreContextFromTransport);
+        __shadowWasHandledByTransport = true;
+      } catch (e) {
+        console.error("handleMessageCore(SHADOW_TRANSPORT_V1) failed:", e);
+      }
 
       // NOTE:
       // - NOT used yet as main flow
       // - Existing fallback shadow call below remains only if transport-shadow fails
       // - Future switch will use isTransportEnforced()
 
+      // ✅ FIX: keep fallback branch fully inside this if-block (was closing early and breaking try/catch)
       if (!__shadowWasHandledByTransport) {
-          console.warn("[TRANSPORT_FALLBACK] legacy shadow activated");
-        }
+        console.warn("[TRANSPORT_FALLBACK] legacy shadow activated");
 
         // ✅ STAGE 6.7 — enforced routing SKELETON (fallback-only)
         // Goal:

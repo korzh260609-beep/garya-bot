@@ -325,6 +325,10 @@ export function attachMessageRouter({
         isPrivate,
         text: trimmed,
         raw: msg,
+        meta: {
+          // Stage 6.8: idempotency signal (multi-instance safety skeleton)
+          messageId: String(msg.message_id ?? ""),
+        },
       });
 
       const coreContextFromTransport = toCoreContextFromUnified(

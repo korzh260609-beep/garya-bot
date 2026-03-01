@@ -381,7 +381,10 @@ export function attachMessageRouter({
 
       // ✅ FIX: keep fallback branch fully inside this if-block (was closing early and breaking try/catch)
       if (!__shadowWasHandledByTransport) {
-        console.warn("[TRANSPORT_FALLBACK] legacy shadow activated");
+        // ✅ CHANGE: warn only when TRACE enabled (no prod log spam)
+        if (isTransportTraceEnabled()) {
+          console.warn("[TRANSPORT_FALLBACK] legacy shadow activated");
+        }
 
         // ✅ STAGE 6.7 — enforced routing SKELETON (fallback-only)
         // Goal:

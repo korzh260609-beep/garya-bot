@@ -9,14 +9,12 @@
 export function toCoreContextFromUnified(unified = {}, extra = {}) {
   const transport = String(unified?.transport || extra?.transport || "unknown");
 
-  const chatId =
-    unified?.chatId == null ? null : String(unified.chatId);
+  const chatId = unified?.chatId == null ? null : String(unified.chatId);
 
   const senderId =
     unified?.senderId == null ? null : String(unified.senderId);
 
-  const text =
-    typeof unified?.text === "string" ? unified.text : "";
+  const text = typeof unified?.text === "string" ? unified.text : "";
 
   // ⚠️ Core expects "transportChatType" as raw-ish hint.
   // We prefer explicit override, otherwise use unified.chatType (which is sourced from raw transport).
@@ -27,11 +25,14 @@ export function toCoreContextFromUnified(unified = {}, extra = {}) {
         ? String(unified.chatType)
         : null;
 
-  const messageId =
-    extra?.messageId == null ? null : String(extra.messageId);
+  const messageId = extra?.messageId == null ? null : String(extra.messageId);
 
   const globalUserId =
     extra?.globalUserId == null ? null : String(extra.globalUserId);
+
+  // Stage 6.8.1 (skeleton): adapter→core dedupe key (no behavior change)
+  const dedupeKey =
+    chatId && transport && messageId ? `${transport}:${chatId}:${messageId}` : null;
 
   return {
     transport,
@@ -41,6 +42,7 @@ export function toCoreContextFromUnified(unified = {}, extra = {}) {
     text,
     messageId,
     globalUserId,
+    dedupeKey,
 
     // NOTE: intentionally NOT passing isPrivateChat/chatType here.
     // Core derives chat meta via deriveChatMeta().

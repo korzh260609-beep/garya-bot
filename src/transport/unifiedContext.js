@@ -27,6 +27,7 @@ export function createUnifiedContext({
   isPrivate,
   text,
   raw,
+  meta,
 } = {}) {
   const chatTypeRaw = chatType == null ? null : String(chatType);
   const chatTypeNormalized = normalizeChatType(chatTypeRaw);
@@ -46,6 +47,6 @@ export function createUnifiedContext({
     isPrivate: Boolean(isPrivate),
     text: typeof text === "string" ? text : "",
     raw: raw ?? null,
-    meta: {}, // reserved (threadId, locale, messageId, etc.)
+    meta: meta && typeof meta === "object" ? { ...meta } : {}, // reserved (threadId, locale, messageId, etc.)
   };
 }

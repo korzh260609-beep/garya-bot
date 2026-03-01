@@ -4,6 +4,7 @@
 // IMPORTANT: contract only. Shadow-wired into production flow.
 
 import { deriveChatMeta } from "./transportMeta.js";
+import { isTransportTraceEnabled } from "../transport/transportConfig.js";
 
 // ✅ STAGE 7.1 — Memory shadow hook (safe: runs only if messageId is provided)
 import { getMemoryService } from "./memoryServiceFactory.js";
@@ -37,14 +38,16 @@ export async function handleMessage(context = {}) {
 
   // Skeleton observability (no DB, no side-effects beyond console)
   try {
-    console.log("📨 handleMessage(SKELETON)", {
-      transport,
-      chatId,
-      senderId,
-      globalUserId,
-      chatType,
-      isPrivateChat,
-    });
+    if (isTransportTraceEnabled()) {
+      console.log("📨 handleMessage(SKELETON)", {
+        transport,
+        chatId,
+        senderId,
+        globalUserId,
+        chatType,
+        isPrivateChat,
+      });
+    }
   } catch {
     // ignore logging errors
   }

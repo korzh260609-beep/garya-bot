@@ -1,5 +1,10 @@
 // src/core/time/timeNowIntent.js
 // STAGE 8C — Deterministic TIME_NOW intent (score + blacklist, no AI)
+//
+// ✅ FIX (2026-03-02): make intent universal BUT safe:
+// - NEVER trigger by "сейчас/now" alone
+// - Require explicit time-term presence (время/час/time/...) unless strong pattern matches
+// - Add imperative-now anti-patterns: "ответь сейчас", "сделай сейчас" etc
 
 function normalize(s) {
   // Normalize unicode + collapse any whitespace (incl. NBSP)
@@ -57,6 +62,16 @@ export function isTimeNowIntent(inputText) {
   ];
   if (hasAny(t, blacklistPhrases)) return false;
 
+  // Imperative-now anti-patterns (the exact bug from screenshot)
+  // Examples: "Ответь сейчас коротко", "Сделай сейчас", "Объясни сейчас"
+  const imperativeNowRe = [
+    /\b(ответь|ответьте|напиши|напишите|сделай|сделайте|объясни|объясните|поясни|поясните|дай|дайте)\s+сейчас\b/u,
+    /\b(скажите|скажи)\s+сейчас\b/u,
+    /\b(please)\s+(reply|answer|explain|do)\s+now\b/i,
+    /\b(answer|reply|explain|do)\s+now\b/i,
+  ];
+  if (matchesAny(t, imperativeNowRe)) return false;
+
   // Extra blacklist patterns
   const blacklistRe = [
     /\b(remind|reminder)\b/i,
@@ -67,7 +82,7 @@ export function isTimeNowIntent(inputText) {
   if (matchesAny(t, blacklistRe)) return false;
 
   // --- HIGH-CONFIDENCE (instant true) ---
-  // These should be super safe.
+  // Strong patterns that clearly mean "current time"
   const strongPatterns = [
     /\bкотор(ый|ая)\s+час\b/u,
     /\bсколько\s+(сейчас\s+)?времен[иь]\b/u,
@@ -75,65 +90,88 @@ export function isTimeNowIntent(inputText) {
     /\bкотра\s+(зараз\s+)?година\b/u,
     /\bwhat\s+time\s+is\s+it\b/i,
     /\bwhat\s+is\s+the\s+time\b/i,
-    /\btime\s+now\b/i,
     /\bcurrent\s+time\b/i,
+    /\btime\s+is\s+it\b/i,
   ];
   if (matchesAny(t, strongPatterns)) return true;
 
-  // --- SCORE MODEL ---
-  // Goal: catch most natural variants without AI.
-  let score = 0;
-
+  // --- CORE RULE: must contain a TIME TERM ---
+  // Without a time-term, do NOT treat as time intent (prevents "сейчас" bug).
   const timeTerms = [
+    // RU/UA
     "время",
     "час",
+    "часов",
     "година",
+    "годин",
+    // EN
     "time",
     "clock",
-    "heure", // optional FR
-    "zeit", // optional DE
+    // DE/FR/ES (optional, cheap coverage)
+    "uhr",
+    "zeit",
+    "heure",
+    "hora",
   ];
 
-  const nowTerms = ["сейчас", "щас", "зараз", "now", "current", "currently", "moment", "rn"];
+  const hasTime = hasAny(t, timeTerms);
+  if (!hasTime) return false;
 
+  // --- SCORE MODEL ---
+  // Goal: catch many variants, but only when time-term exists.
+  let score = 0;
+
+  const nowTerms = ["сейчас", "щас", "зараз", "now", "current", "currently", "rn"];
   const questionTerms = [
-    "котор", // catches который/которая/котрої etc (rough stem)
+    // RU/UA stems
+    "котор",
     "сколько",
     "скільки",
     "котра",
+    // EN
     "what",
     "whats",
     "what's",
     "tell",
     "say",
+    // DE/FR/ES minimal
+    "wie",
+    "quel",
+    "quelle",
+    "que",
+    "qué",
   ];
 
-  const hasTime = hasAny(t, timeTerms);
   const hasNow = hasAny(t, nowTerms);
   const hasQuestion = hasAny(t, questionTerms) || hadQuestionMark;
 
-  if (hasTime) score += 3;
+  // Base
+  score += 3; // hasTime is true here (mandatory)
+
   if (hasNow) score += 2;
   if (hasQuestion) score += 1;
 
-  // Short direct questions are more likely to be TIME_NOW
+  // Very short requests often mean time-now: "время?", "time?", "час?"
   const wc = countWords(t);
-  if (wc > 0 && wc <= 5) score += 1;
+  if (wc > 0 && wc <= 4) score += 1;
 
-  // Common constructions (loose)
+  // Loose constructions (still require time-term due to earlier guard)
   const loosePatterns = [
-    /\bчас\s+зараз\b/u,
     /\bвремя\s+сейчас\b/u,
     /\bсейчас\s+время\b/u,
+    /\bчас\s+зараз\b/u,
     /\bсколько\s+часов\b/u,
-    /\bкотор(ый|ая)\b/u,
     /\bwhat\s+time\b/i,
+    /\btime\s+now\b/i,
+    /\bhora\s+es\b/i,
+    /\bquelle\s+heure\b/i,
+    /\bwie\s+spät\b/i,
   ];
   if (matchesAny(t, loosePatterns)) score += 1;
 
-  // Threshold chosen to reduce false positives:
-  // - time + now => 3+2 = 5 (instant pass)
-  // - "который час" often hits time + question (+short bonus) => pass
-  // - "time?" hits time + question + short => 3+1+1=5 => pass
+  // Threshold:
+  // - "время?" => hasTime(3) + questionMark(1) + short(1) = 5 => true
+  // - "время сейчас" => 3 + now(2) = 5 => true
+  // - "ответь сейчас коротко" => no time term => false (fixed)
   return score >= 5;
 }

@@ -179,8 +179,9 @@ export async function handleChatMessage({
         schemaVersion: 1,
       });
 
+      // ✅ FIX: insertUserMessage returns { inserted: true/false }, not rowCount
       // Conflict => already processed (retry) => exit silently
-      if (!ins || (ins.rowCount || 0) === 0) {
+      if (!ins || ins.inserted !== true) {
         try {
           console.info("IDEMPOTENCY_SKIP", {
             transport,

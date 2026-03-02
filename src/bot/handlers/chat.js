@@ -275,7 +275,13 @@ export async function handleChatMessage({
     console.error("ERROR loadProjectContext error:", e);
   }
 
-  const answerMode = getAnswerMode(chatIdStr);
+  // ✅ FIX (2026-03-02): adaptive answer mode (monarch default normal + minimal-sufficient upgrades)
+  const answerMode = getAnswerMode(chatIdStr, {
+    isMonarch: monarchNow,
+    text: effective,
+    taskType: classification.taskType,
+    aiCostLevel: classification.aiCostLevel,
+  });
 
   let modeInstruction = "";
   if (answerMode === "short") {

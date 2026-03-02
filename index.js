@@ -5,6 +5,9 @@
 import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 import { attachMessageRouter } from "./src/bot/messageRouter.js";
 
+// ✅ STAGE 6 LOGIC STEP 3 — TelegramAdapter (attach when TRANSPORT_ENFORCED=true)
+import { TelegramAdapter } from "./src/transport/telegramAdapter.js";
+
 import { createApp, startHttpServer } from "./src/http/server.js";
 import { initSystem } from "./src/bootstrap/initSystem.js";
 
@@ -80,5 +83,9 @@ attachMessageRouter({
   upsertProjectSection,
   MAX_HISTORY_MESSAGES,
 });
+
+// ✅ STAGE 6 — TelegramAdapter (no-op when TRANSPORT_ENFORCED=false)
+const telegramAdapter = new TelegramAdapter({ bot, callAI, MAX_HISTORY_MESSAGES });
+telegramAdapter.attach();
 
 console.log("🤖 SG (GARYA AI Bot) работает…");

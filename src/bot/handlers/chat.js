@@ -4,6 +4,11 @@
 // STAGE 7.2 LOGIC: pass globalUserId to chat_memory (v2 columns)
 
 import pool from "../../../db.js";
+import {
+  insertUserMessage,
+  insertAssistantMessage,
+  insertWebhookDedupeEvent,
+} from "../../db/chatMessagesRepo.js"; // ✅ STAGE 7.7.2
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
 import { getRecallEngine } from "../../core/recallEngineFactory.js";
 import { getAlreadySeenDetector } from "../../core/alreadySeenFactory.js";
@@ -159,47 +164,20 @@ export async function handleChatMessage({
       //  7B.5.2: meta-only raw (NO msg text, NO attachments)
       const raw = buildRawMeta(msg);
 
-      const ins = await pool.query(
-        `
-        INSERT INTO chat_messages (
-          transport,
-          chat_id,
-          chat_type,
-          global_user_id,
-          sender_id,
-          message_id,
-          platform_message_id,
-          text_hash,
-          role,
-          content,
-          truncated,
-          metadata,
-          raw,
-          schema_version
-        )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14)
-        ON CONFLICT (transport, chat_id, message_id)
-          WHERE role='user' AND message_id IS NOT NULL
-        DO NOTHING
-        RETURNING id
-        `,
-        [
-          transport,
-          String(chatIdStr),
-          chatType ? String(chatType) : null,
-          globalUserId ? String(globalUserId) : null,
-          senderId ? String(senderId) : null,
-          Number(messageId),
-          Number(messageId), // platform_message_id (telegram = message_id)
-          userTextHash,
-          "user",
-          userContentForDb,
-          Boolean(userTruncatedForDb),
-          JSON.stringify(meta),
-          JSON.stringify(raw),
-          1,
-        ]
-      );
+      const ins = await insertUserMessage({
+        transport,
+        chatId: chatIdStr,
+        chatType: msg?.chat?.type || null,
+        globalUserId: globalUserId || null,
+        senderId: senderId || null,
+        messageId,
+        textHash: userTextHash,
+        content: userContentForDb,
+        truncated: Boolean(userTruncatedForDb),
+        metadata: meta,
+        raw,
+        schemaVersion: 1,
+      });
 
       // Conflict => already processed (retry) => exit silently
       if (!ins || (ins.rowCount || 0) === 0) {
@@ -225,22 +203,14 @@ export async function handleChatMessage({
 
         //  STAGE 7B.7 OBSERVABILITY (V2): dedicated table webhook_dedupe_events
         try {
-          await pool.query(
-            `
-            INSERT INTO webhook_dedupe_events
-            (transport, chat_id, message_id, global_user_id, reason, metadata)
-            VALUES ($1,$2,$3,$4,$5,$6::jsonb)
-            ON CONFLICT (transport, chat_id, message_id) DO NOTHING
-            `,
-            [
-              transport,
-              String(chatIdStr),
-              Number(messageId),
-              globalUserId ? String(globalUserId) : null,
-              "retry_duplicate",
-              JSON.stringify({ handler: "chat", stage: "7B.7" }),
-            ]
-          );
+          await insertWebhookDedupeEvent({
+            transport,
+            chatId: chatIdStr,
+            messageId,
+            globalUserId: globalUserId || null,
+            reason: "retry_duplicate",
+            metadata: { handler: "chat", stage: "7B.7" },
+          });
         } catch (e) {
           console.error("ERROR webhook_dedupe_events insert failed:", e);
         }
@@ -729,43 +699,17 @@ export async function handleChatMessage({
       stage: "7B.4",
     };
 
-    await pool.query(
-      `
-      INSERT INTO chat_messages (
-        transport,
-        chat_id,
-        chat_type,
-        global_user_id,
-        sender_id,
-        message_id,
-        platform_message_id,
-        text_hash,
-        role,
-        content,
-        truncated,
-        metadata,
-        raw,
-        schema_version
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14)
-      `,
-      [
-        transport,
-        String(chatIdStr),
-        chatType ? String(chatType) : null,
-        globalUserId ? String(globalUserId) : null,
-        null,
-        null,
-        null,
-        assistantTextHash,
-        "assistant",
-        assistantContentForDb,
-        Boolean(assistantTruncatedForDb),
-        JSON.stringify(meta),
-        JSON.stringify({}),
-        1,
-      ]
-    );
+    await insertAssistantMessage({
+      transport,
+      chatId: chatIdStr,
+      chatType: msg?.chat?.type || null,
+      globalUserId: globalUserId || null,
+      textHash: assistantTextHash,
+      content: assistantContentForDb,
+      truncated: Boolean(assistantTruncatedForDb),
+      metadata: meta,
+      schemaVersion: 1,
+    });
 
     try {
       await touchChatMeta({

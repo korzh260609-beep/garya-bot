@@ -9,6 +9,57 @@ Telegram на текущем этапе используется как transpor
 
 ---
 
+## 🚀 Запуск
+
+### Требования
+
+- Node.js 18+
+- PostgreSQL (локальный или облачный, например Render / Supabase)
+- Telegram Bot Token (получить у [@BotFather](https://t.me/BotFather))
+
+### Шаги
+
+1. **Клонировать репозиторий**
+
+   ```bash
+   git clone https://github.com/korzh260609-beep/garya-bot.git
+   cd garya-bot
+   ```
+
+2. **Установить зависимости**
+
+   ```bash
+   npm install
+   ```
+
+3. **Настроить переменные окружения**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Заполнить `.env`:
+
+   ```
+   BOT_TOKEN=<токен бота от @BotFather>
+   DATABASE_URL=<строка подключения к PostgreSQL>
+   MONARCH_USER_ID=<ваш Telegram user_id>
+   ```
+
+4. **Применить миграции базы данных**
+
+   ```bash
+   npm run migrate:up
+   ```
+
+5. **Запустить бота**
+
+   ```bash
+   npm start
+   ```
+
+---
+
 ## 🏗 Архитектура
 
 - Node.js (ESM)

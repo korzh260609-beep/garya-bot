@@ -99,24 +99,30 @@ export function isTimeNowIntent(inputText) {
   const imperativeNow = matchesAny(t, imperativeNowRe);
 
   // --- CORE RULE: must contain a TIME TERM ---
-  const timeTerms = [
-    // RU/UA
-    "время",
-    "час",
-    "часов",
-    "година",
-    "годин",
+  // IMPORTANT: word-boundary-safe regex to avoid substring bug: "сейчас" contains "час".
+  // We use Unicode property escapes to define "word chars" as letters/digits/underscore.
+  const timeTermsRe = [
+    // RU
+    /(?<![\p{L}\p{N}_])время(?![\p{L}\p{N}_])/u,
+    /(?<![\p{L}\p{N}_])час(?![\p{L}\p{N}_])/u,
+    /(?<![\p{L}\p{N}_])часов(?![\p{L}\p{N}_])/u,
+
+    // UA
+    /(?<![\p{L}\p{N}_])година(?![\p{L}\p{N}_])/u,
+    /(?<![\p{L}\p{N}_])годин(?![\p{L}\p{N}_])/u,
+
     // EN
-    "time",
-    "clock",
+    /(?<![\p{L}\p{N}_])time(?![\p{L}\p{N}_])/iu,
+    /(?<![\p{L}\p{N}_])clock(?![\p{L}\p{N}_])/iu,
+
     // DE/FR/ES minimal
-    "uhr",
-    "zeit",
-    "heure",
-    "hora",
+    /(?<![\p{L}\p{N}_])uhr(?![\p{L}\p{N}_])/iu,
+    /(?<![\p{L}\p{N}_])zeit(?![\p{L}\p{N}_])/iu,
+    /(?<![\p{L}\p{N}_])heure(?![\p{L}\p{N}_])/iu,
+    /(?<![\p{L}\p{N}_])hora(?![\p{L}\p{N}_])/iu,
   ];
 
-  const hasTime = hasAny(t, timeTerms);
+  const hasTime = matchesAny(t, timeTermsRe);
 
   // ✅ Hard safety: if it’s an imperative-now phrase but NO time term => NOT a time intent.
   // This directly fixes: "Ответь сейчас коротко" / "Отвечай сейчас коротко"

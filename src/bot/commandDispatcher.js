@@ -182,6 +182,7 @@ export async function dispatchCommand(cmd, ctx) {
         rest: ctx.rest,
         getAnswerMode: ctx.getAnswerMode,
         setAnswerMode: ctx.setAnswerMode,
+        globalUserId: ctx.user?.global_user_id ?? null,
       });
       return { handled: true };
     }

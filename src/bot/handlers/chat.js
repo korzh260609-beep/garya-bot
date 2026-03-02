@@ -13,6 +13,7 @@ import { isCurrentDateIntent } from "../../core/time/currentDateIntent.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
 import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
 import { getUserTimezone, setUserTimezone } from "../../db/userSettings.js";
+import BehaviorEventsService from "../../logging/BehaviorEventsService.js";
 
 export async function handleChatMessage({
   bot,
@@ -669,6 +670,25 @@ export async function handleChatMessage({
     replyChars: typeof aiReply === "string" ? aiReply.length : 0,
     ok: !(typeof aiReply === "string" && aiReply.startsWith("ERROR: Ошибка вызова ИИ")),
   };
+
+  // ✅ STAGE 5.16 — detect clarification_asked
+  try {
+    const _looksLikeClarification =
+      typeof aiReply === "string" && aiReply.trim().endsWith("?");
+    if (_looksLikeClarification) {
+      const _be = new BehaviorEventsService();
+      await _be.logEvent({
+        globalUserId: globalUserId ?? null,
+        chatId: chatIdStr,
+        eventType: "clarification_asked",
+        metadata: { replyChars: aiReply.length },
+        transport: "telegram",
+        schemaVersion: 1,
+      });
+    }
+  } catch (_clarErr) {
+    console.error("behavior_events clarification_asked log failed:", _clarErr);
+  }
 
   try {
     console.info("AI_CALL_END", aiMetaEnd);

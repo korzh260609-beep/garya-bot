@@ -1,17 +1,20 @@
 // src/core/time/timeNowIntent.js
 // STAGE 8C — Deterministic TIME_NOW intent (score + blacklist, no AI)
 //
-// ✅ FIX (2026-03-02): make intent universal BUT safe:
+// ✅ FIX (2026-03-02): universal BUT safe
 // - NEVER trigger by "сейчас/now" alone
 // - Require explicit time-term presence (время/час/time/...) unless strong pattern matches
-// - Add imperative-now anti-patterns: "ответь сейчас", "сделай сейчас" etc
+// - Handle imperative-now phrases safely:
+//    * "ответь сейчас коротко" => NOT time
+//    * "скажи сейчас который час" => time (has time + question)
+
+// NOTE: keep this module deterministic and cheap.
 
 function normalize(s) {
-  // Normalize unicode + collapse any whitespace (incl. NBSP)
   return String(s || "")
     .normalize("NFKC")
     .toLowerCase()
-    .replace(/\u00a0/g, " ") // NBSP -> space
+    .replace(/\u00a0/g, " ")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -38,7 +41,6 @@ export function isTimeNowIntent(inputText) {
   if (!t) return false;
 
   // --- BLACKLIST (block false positives) ---
-  // If any matched -> NOT time-now.
   const blacklistPhrases = [
     "таймер",
     "секундомер",
@@ -62,17 +64,6 @@ export function isTimeNowIntent(inputText) {
   ];
   if (hasAny(t, blacklistPhrases)) return false;
 
-  // Imperative-now anti-patterns (the exact bug from screenshot)
-  // Examples: "Ответь сейчас коротко", "Сделай сейчас", "Объясни сейчас"
-  const imperativeNowRe = [
-    /\b(ответь|ответьте|напиши|напишите|сделай|сделайте|объясни|объясните|поясни|поясните|дай|дайте)\s+сейчас\b/u,
-    /\b(скажите|скажи)\s+сейчас\b/u,
-    /\b(please)\s+(reply|answer|explain|do)\s+now\b/i,
-    /\b(answer|reply|explain|do)\s+now\b/i,
-  ];
-  if (matchesAny(t, imperativeNowRe)) return false;
-
-  // Extra blacklist patterns
   const blacklistRe = [
     /\b(remind|reminder)\b/i,
     /\balarm\b/i,
@@ -82,7 +73,6 @@ export function isTimeNowIntent(inputText) {
   if (matchesAny(t, blacklistRe)) return false;
 
   // --- HIGH-CONFIDENCE (instant true) ---
-  // Strong patterns that clearly mean "current time"
   const strongPatterns = [
     /\bкотор(ый|ая)\s+час\b/u,
     /\bсколько\s+(сейчас\s+)?времен[иь]\b/u,
@@ -95,8 +85,20 @@ export function isTimeNowIntent(inputText) {
   ];
   if (matchesAny(t, strongPatterns)) return true;
 
+  // --- Imperative-now detector (safe handling) ---
+  // We do NOT auto-classify as time.
+  // It only blocks false positives unless explicit time indicators exist.
+  const imperativeNowRe = [
+    // RU
+    /\b(ответь|ответьте|отвечай|отвечайте|напиши|напишите|сделай|сделайте|объясни|объясните|поясни|поясните|дай|дайте|скажи|скажите)\s+сейчас\b/u,
+    // UA
+    /\b(відповідай|відповідайте|напиши|напишіть|зроби|зробіть|поясни|поясніть|скажи|скажіть)\s+зараз\b/u,
+    // EN
+    /\b(please\s+)?(reply|answer|explain|do|tell)\s+now\b/i,
+  ];
+  const imperativeNow = matchesAny(t, imperativeNowRe);
+
   // --- CORE RULE: must contain a TIME TERM ---
-  // Without a time-term, do NOT treat as time intent (prevents "сейчас" bug).
   const timeTerms = [
     // RU/UA
     "время",
@@ -107,7 +109,7 @@ export function isTimeNowIntent(inputText) {
     // EN
     "time",
     "clock",
-    // DE/FR/ES (optional, cheap coverage)
+    // DE/FR/ES minimal
     "uhr",
     "zeit",
     "heure",
@@ -115,13 +117,19 @@ export function isTimeNowIntent(inputText) {
   ];
 
   const hasTime = hasAny(t, timeTerms);
+
+  // ✅ Hard safety: if it’s an imperative-now phrase but NO time term => NOT a time intent.
+  // This directly fixes: "Ответь сейчас коротко" / "Отвечай сейчас коротко"
+  if (imperativeNow && !hasTime) return false;
+
+  // Without time-term -> never time intent (except strongPatterns already returned true).
   if (!hasTime) return false;
 
   // --- SCORE MODEL ---
-  // Goal: catch many variants, but only when time-term exists.
   let score = 0;
 
   const nowTerms = ["сейчас", "щас", "зараз", "now", "current", "currently", "rn"];
+
   const questionTerms = [
     // RU/UA stems
     "котор",
@@ -132,8 +140,6 @@ export function isTimeNowIntent(inputText) {
     "what",
     "whats",
     "what's",
-    "tell",
-    "say",
     // DE/FR/ES minimal
     "wie",
     "quel",
@@ -145,17 +151,15 @@ export function isTimeNowIntent(inputText) {
   const hasNow = hasAny(t, nowTerms);
   const hasQuestion = hasAny(t, questionTerms) || hadQuestionMark;
 
-  // Base
-  score += 3; // hasTime is true here (mandatory)
+  // Base: time term exists
+  score += 3;
 
   if (hasNow) score += 2;
   if (hasQuestion) score += 1;
 
-  // Very short requests often mean time-now: "время?", "time?", "час?"
   const wc = countWords(t);
   if (wc > 0 && wc <= 4) score += 1;
 
-  // Loose constructions (still require time-term due to earlier guard)
   const loosePatterns = [
     /\bвремя\s+сейчас\b/u,
     /\bсейчас\s+время\b/u,
@@ -169,9 +173,11 @@ export function isTimeNowIntent(inputText) {
   ];
   if (matchesAny(t, loosePatterns)) score += 1;
 
-  // Threshold:
-  // - "время?" => hasTime(3) + questionMark(1) + short(1) = 5 => true
-  // - "время сейчас" => 3 + now(2) = 5 => true
-  // - "ответь сейчас коротко" => no time term => false (fixed)
+  // ✅ Additional safety:
+  // If imperative-now is present AND time term exists, require question-ness.
+  // This avoids misfiring on: "скажи сейчас время" (could be command to respond now),
+  // but still allows: "скажи сейчас который час?".
+  if (imperativeNow && !hasQuestion) return false;
+
   return score >= 5;
 }

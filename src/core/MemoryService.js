@@ -281,6 +281,11 @@ export class MemoryService {
   // BACKWARD COMPAT (aliases) — чтобы не ломать текущие вызовы
   // ========================================================================
 
+  // ✅ 7.7.1 CONTRACT: read() — алиас recent()
+  async read({ globalUserId = null, chatId = null, limit } = {}) {
+    return this.recent({ globalUserId, chatId, limit });
+  }
+
   // старое имя
   async getContext({ globalUserId = null, chatId = null, limit } = {}) {
     return this.context({ globalUserId, chatId, limit });

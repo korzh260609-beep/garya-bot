@@ -186,4 +186,45 @@ export class RecallEngine {
       return "";
     }
   }
+  // ========================================================================
+  // search() — читает из chat_messages (таблица 7B, актуальный лог)
+  // Используется хендлером /recall вместо прямого pool.query.
+  // Параметры:
+  //   chatId      — обязательный
+  //   days        — глубина поиска (1..30)
+  //   limit       — макс строк (1..20)
+  //   keyword     — подстрока для ILIKE (пустая строка = без фильтра)
+  // Возвращает: [{ role, content, created_at }] | []
+  // ========================================================================
+  async search({ chatId, days = 1, limit = 5, keyword = "" }) {
+    const chatIdStr = chatId != null ? String(chatId) : null;
+    if (!chatIdStr) return [];
+
+    const lim = Math.max(1, Math.min(20, Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : 5));
+    const d   = Math.max(1, Math.min(30, Number.isFinite(Number(days))  ? Math.trunc(Number(days))  : 1));
+    const kw  = String(keyword ?? "").trim();
+
+    try {
+      const r = await this.db.query(
+        `
+        SELECT role, content, created_at
+        FROM chat_messages
+        WHERE chat_id = $1
+          AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
+          AND ($3 = '' OR content ILIKE ('%' || $3 || '%'))
+          AND is_redacted = false
+        ORDER BY created_at DESC
+        LIMIT $4
+        `,
+        [chatIdStr, d, kw, lim]
+      );
+      return r?.rows || [];
+    } catch (e) {
+      try {
+        this.logger.error("❌ RecallEngine.search failed:", e?.message || e);
+      } catch (_) {}
+      return [];
+    }
+  }
+
 }

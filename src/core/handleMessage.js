@@ -5,21 +5,33 @@
 //   v1: SKELETON — derived chat meta only
 //   v2: STAGE 7.1 — Memory shadow write
 //   v3: STAGE 6 LOGIC STEP 1 — Access check + identity resolution (shadow-safe)
+//   v4: STAGE 6 LOGIC STEP 2 — Routing (command vs message), reply via adapter
 //
 // IMPORTANT:
-//   Still shadow-wired. No replies produced here.
+//   Shadow-wired when deps.reply / deps.callAI are not provided.
 //   TRANSPORT_ENFORCED=false by default — old messageRouter remains authoritative.
-//   Access check result is computed and logged but NOT used to block yet.
+//   When deps are provided (future enforced mode), this function produces real replies.
+//
+// deps contract (injected by adapter, e.g. TelegramAdapter):
+//   deps.reply(context, text)      — send reply to user
+//   deps.callAI(messages, cost, opts) — call AI
+//   deps.bot                       — raw bot instance (for handlers that need it)
+//   deps.dispatchCommand(cmd, ctx) — command dispatcher
+//   deps.handleChatMessage(opts)   — chat/AI handler
 
 import { deriveChatMeta } from "./transportMeta.js";
 import { isTransportTraceEnabled } from "../transport/transportConfig.js";
 import { getMemoryService } from "./memoryServiceFactory.js";
 
-// ✅ STAGE 6 LOGIC — Access resolution
+// ✅ STAGE 6 LOGIC — Access + Identity
 import { resolveUserAccess } from "../users/userAccess.js";
 import { ensureUserProfile } from "../users/userProfile.js";
 import { can } from "../users/permissions.js";
 import { envStr } from "./config.js";
+
+// ✅ STAGE 6 LOGIC — Routing helpers
+import { CMD_ACTION } from "../bot/cmdActionMap.js";
+import { parseCommand } from "../../core/helpers.js";
 
 export async function handleMessage(context = {}) {
   const transport = String(context?.transport || "unknown");
@@ -27,6 +39,12 @@ export async function handleMessage(context = {}) {
   const senderId = context?.senderId == null ? null : String(context.senderId);
   const text = context?.text == null ? "" : String(context.text);
   const messageId = context?.messageId == null ? null : String(context.messageId);
+
+  // deps — injected by adapter for real mode; absent in shadow mode
+  const deps = context?.deps || null;
+  const hasReply = typeof deps?.reply === "function";
+  const hasCallAI = typeof deps?.callAI === "function";
+  const isEnforced = hasReply && hasCallAI;
 
   let globalUserId =
     context?.globalUserId == null ? null : String(context.globalUserId);
@@ -45,19 +63,15 @@ export async function handleMessage(context = {}) {
       : derived.isPrivateChat;
 
   // =========================================================================
-  // STAGE 6 LOGIC STEP 1 — Identity + Access (shadow-safe, never blocks flow)
+  // STAGE 6 LOGIC STEP 1 — Identity + Access
   // =========================================================================
-
   let accessPack = null;
   let userRole = "guest";
   let userPlan = "free";
   let user = { role: "guest", plan: "free", global_user_id: null };
 
-  // Only resolve for Telegram (other transports: skeleton)
   if (transport === "telegram" && senderId) {
     try {
-      // ensureUserProfile needs raw msg shape — in shadow mode we reconstruct minimal shape
-      // IMPORTANT: only call if context.raw is available (full Telegram update)
       if (context?.raw && typeof context.raw === "object") {
         await ensureUserProfile(context.raw);
       }
@@ -79,7 +93,6 @@ export async function handleMessage(context = {}) {
       userPlan = accessPack?.userPlan || "free";
       user = accessPack?.user || user;
 
-      // Use resolved global_user_id if not already provided by transport layer
       if (!globalUserId && user?.global_user_id) {
         globalUserId = user.global_user_id;
       }
@@ -88,27 +101,20 @@ export async function handleMessage(context = {}) {
     }
   }
 
-  // =========================================================================
-  // STAGE 6 LOGIC — isMonarch derived from resolved role (not from env directly)
-  // =========================================================================
   const isMonarchUser = userRole === "monarch";
 
   // =========================================================================
-  // STAGE 6 LOGIC — Permission check (shadow: compute but don't block yet)
+  // STAGE 6 LOGIC STEP 2 — Routing
   // =========================================================================
-  // Determine if this is a command
   const trimmed = text.trim();
   const isCommand = trimmed.startsWith("/");
-  const cmdBase = isCommand
-    ? trimmed.split(/\s+/)[0].split("@")[0]
-    : null;
+  const parsed = isCommand ? parseCommand(trimmed) : null;
+  const cmdBase = parsed ? String(parsed.cmd).split("@")[0] : null;
+  const rest = parsed?.rest || "";
 
-  // Example: check if user can use command (shadow — result logged only)
+  // Permission check for commands
   let canProceed = true;
   if (isCommand && cmdBase) {
-    const { CMD_ACTION } = await import("../bot/cmdActionMap.js").catch(() => ({
-      CMD_ACTION: {},
-    }));
     const action = CMD_ACTION[cmdBase];
     if (action) {
       canProceed = can(user, action);
@@ -116,11 +122,11 @@ export async function handleMessage(context = {}) {
   }
 
   // =========================================================================
-  // Trace log (TRANSPORT_TRACE only)
+  // Trace log
   // =========================================================================
   try {
     if (isTransportTraceEnabled()) {
-      console.log("📨 handleMessage(v3)", {
+      console.log("📨 handleMessage(v4)", {
         transport,
         chatId,
         senderId,
@@ -132,6 +138,7 @@ export async function handleMessage(context = {}) {
         isCommand,
         cmdBase,
         canProceed,
+        isEnforced,
       });
     }
   } catch {
@@ -139,8 +146,7 @@ export async function handleMessage(context = {}) {
   }
 
   // =========================================================================
-  // STAGE 7.1 — Memory shadow write (SAFE)
-  // Only when messageId is present (avoids duplicate writes)
+  // STAGE 7.1 — Memory shadow write
   // =========================================================================
   try {
     const memory = getMemoryService();
@@ -166,17 +172,137 @@ export async function handleMessage(context = {}) {
     console.error("handleMessage(memory shadow) failed:", e);
   }
 
-  // No routing, no reply — shadow only.
-  // Next step (LOGIC STEP 2): command routing + AI delegation.
-  return {
-    ok: true,
-    stage: "6.logic.1",
-    note: "access check wired (shadow). routing + reply — next step.",
-    transport,
-    userRole,
-    isMonarchUser,
-    canProceed,
-  };
+  // =========================================================================
+  // ROUTING — only when enforced (deps provided)
+  // Shadow mode: compute routing but don't act
+  // =========================================================================
+
+  if (!isEnforced) {
+    return {
+      ok: true,
+      stage: "6.logic.2",
+      note: "routing computed (shadow). deps not provided — no reply.",
+      transport,
+      userRole,
+      isMonarchUser,
+      isCommand,
+      cmdBase,
+      canProceed,
+    };
+  }
+
+  // =========================================================================
+  // ENFORCED MODE — real routing + reply
+  // =========================================================================
+
+  const chatIdNum = chatId ? Number(chatId) : null;
+  const chatIdStr = chatId || "";
+
+  if (!chatIdNum) {
+    return { ok: false, reason: "missing_chatId" };
+  }
+
+  // --- COMMAND ROUTING ---
+  if (isCommand && cmdBase) {
+
+    if (!canProceed) {
+      await deps.reply(context, "⛔ Недостаточно прав.");
+      return { ok: true, stage: "6.logic.2", result: "permission_denied", cmdBase };
+    }
+
+    if (typeof deps?.dispatchCommand === "function") {
+      try {
+        const dispatchCtx = {
+          bot: deps.bot || null,
+          chatId: chatIdNum,
+          chatIdStr,
+          senderIdStr: senderId || "",
+          rest,
+          user,
+          userRole,
+          userPlan,
+          bypass: isMonarchUser,
+          chatType,
+          isPrivateChat,
+          identityCtx: {
+            transport,
+            senderIdStr: senderId || "",
+            chatIdStr,
+            chatType,
+            isPrivateChat,
+            isMonarchUser,
+          },
+          getAnswerMode: deps.getAnswerMode,
+          setAnswerMode: deps.setAnswerMode,
+          callAI: deps.callAI,
+          logInteraction: deps.logInteraction,
+          getCoinGeckoSimplePriceById: deps.getCoinGeckoSimplePriceById,
+          getCoinGeckoSimplePriceMulti: deps.getCoinGeckoSimplePriceMulti,
+          getUserTasks: deps.getUserTasks,
+          getTaskById: deps.getTaskById,
+          runTaskWithAI: deps.runTaskWithAI,
+          updateTaskStatus: deps.updateTaskStatus,
+          createDemoTask: deps.createDemoTask,
+          createManualTask: deps.createManualTask,
+          createTestPriceMonitorTask: deps.createTestPriceMonitorTask,
+        };
+
+        const result = await deps.dispatchCommand(cmdBase, dispatchCtx);
+        if (result?.handled) {
+          return { ok: true, stage: "6.logic.2", result: "command_handled", cmdBase };
+        }
+      } catch (e) {
+        console.error("handleMessage(dispatchCommand) failed:", e);
+        await deps.reply(context, "⛔ Ошибка при выполнении команды.");
+        return { ok: false, reason: "dispatch_error", cmdBase };
+      }
+    }
+
+    // Unknown command — silent drop (matches messageRouter behaviour)
+    return { ok: true, stage: "6.logic.2", result: "unknown_command", cmdBase };
+  }
+
+  // --- MESSAGE ROUTING (non-command) ---
+  if (typeof deps?.handleChatMessage === "function") {
+    try {
+      const saveMessageToMemory = async () => {};
+      const saveChatPair = async () => {};
+
+      await deps.handleChatMessage({
+        bot: deps.bot,
+        msg: context.raw,
+        chatId: chatIdNum,
+        chatIdStr,
+        senderIdStr: senderId || "",
+        globalUserId,
+        trimmed,
+        MAX_HISTORY_MESSAGES: deps.MAX_HISTORY_MESSAGES || 20,
+
+        FileIntake: deps.FileIntake,
+
+        getChatHistory: deps.getChatHistory,
+        saveMessageToMemory,
+        saveChatPair,
+
+        logInteraction: deps.logInteraction,
+        loadProjectContext: deps.loadProjectContext,
+        getAnswerMode: deps.getAnswerMode,
+        buildSystemPrompt: deps.buildSystemPrompt,
+
+        isMonarch: (id) => String(id || "") === envStr("MONARCH_USER_ID", ""),
+
+        callAI: deps.callAI,
+        sanitizeNonMonarchReply: deps.sanitizeNonMonarchReply,
+      });
+
+      return { ok: true, stage: "6.logic.2", result: "chat_handled" };
+    } catch (e) {
+      console.error("handleMessage(handleChatMessage) failed:", e);
+      return { ok: false, reason: "chat_error" };
+    }
+  }
+
+  return { ok: false, reason: "no_handler" };
 }
 
 export default handleMessage;

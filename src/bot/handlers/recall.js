@@ -3,8 +3,10 @@
 // Minimal: date/range + keyword filter over chat_messages
 // Logs observability into interaction_logs via src/logging/interactionLogs.js
 
+// pool нужен только для передачи в RecallEngine (не для прямых запросов)
 import pool from "../../../db.js";
 import { logInteraction } from "../../logging/interactionLogs.js";
+import { getRecallEngine } from "../../core/recallEngineFactory.js"; // ✅ 8A + 7.7.2
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -64,20 +66,8 @@ export async function handleRecall({ bot, chatId, chatIdStr, rest }) {
   await logInteraction(chatIdStr, { taskType: "recall_request", aiCostLevel: "low" });
 
   try {
-    const r = await pool.query(
-      `
-      SELECT role, content, created_at
-      FROM chat_messages
-      WHERE chat_id = $1
-        AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
-        AND ($3 = '' OR content ILIKE ('%' || $3 || '%'))
-      ORDER BY created_at DESC
-      LIMIT $4
-    `,
-      [String(chatIdStr), days, keyword, limit]
-    );
-
-    const rows = r?.rows || [];
+    const engine = getRecallEngine({ db: pool, logger: console });
+    const rows = await engine.search({ chatId: chatIdStr, days, limit, keyword });
     if (!rows.length) {
       await bot.sendMessage(
         chatId,

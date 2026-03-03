@@ -11,14 +11,17 @@ import TelegramBot from "node-telegram-bot-api";
 import pool from "../../db.js";
 import { ErrorEventsRepo } from "../db/errorEventsRepo.js";
 
+// ✅ Stage 3.6 — centralized env access (no direct process.env here)
+import { envStr, envIntRange } from "../core/config.js";
+
 export function initTelegramTransport(app) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const token = envStr("TELEGRAM_BOT_TOKEN", "").trim();
   if (!token) {
     console.error("❌ TELEGRAM_BOT_TOKEN not provided");
     process.exit(1);
   }
 
-  const BASE_URL = process.env.BASE_URL;
+  const BASE_URL = envStr("BASE_URL", "").trim();
   if (!BASE_URL) {
     console.error("❌ BASE_URL not provided");
     process.exit(1);
@@ -32,24 +35,14 @@ export function initTelegramTransport(app) {
 
   const errorRepo = new ErrorEventsRepo(pool);
 
-  // ✅ IMPORTANT: webhook errors must NOT crash the service (transient network happens)
-  const MAX_RETRIES = Number(process.env.WEBHOOK_SET_RETRIES || 10);
-  const BASE_DELAY_MS = Number(process.env.WEBHOOK_SET_DELAY_MS || 2000);
-
-  // ✅ CRITICAL: Telegram setWebHook() may validate URL immediately.
-  // If Express is not listening yet, setWebHook fails with AggregateError.
-  // So we delay first attempt slightly to let server start.
-  const INITIAL_DELAY_MS = Number(
-    process.env.WEBHOOK_SET_INITIAL_DELAY_MS || 7000
-  );
-
-  // ✅ Severity policy: first N days = warn, after that = error
-  const WEBHOOK_WARN_DAYS = Number(process.env.WEBHOOK_WARN_DAYS || 2);
+  const MAX_RETRIES = envIntRange("WEBHOOK_SET_RETRIES", 10, { min: 1, max: 100 });
+  const BASE_DELAY_MS = envIntRange("WEBHOOK_SET_DELAY_MS", 2000, { min: 100, max: 60000 });
+  const INITIAL_DELAY_MS = envIntRange("WEBHOOK_SET_INITIAL_DELAY_MS", 7000, { min: 0, max: 120000 });
+  const WEBHOOK_WARN_DAYS = envIntRange("WEBHOOK_WARN_DAYS", 2, { min: 0, max: 365 });
 
   let attempt = 0;
 
   async function computeWebhookSetSeverity() {
-    // If DB is down or table missing, do not crash. Default to warn.
     try {
       const days = Number.isFinite(WEBHOOK_WARN_DAYS) ? WEBHOOK_WARN_DAYS : 2;
       const res = await pool.query(
@@ -62,9 +55,7 @@ export function initTelegramTransport(app) {
         `
       );
 
-      const firstAt = res?.rows?.[0]?.first_at
-        ? new Date(res.rows[0].first_at)
-        : null;
+      const firstAt = res?.rows?.[0]?.first_at ? new Date(res.rows[0].first_at) : null;
       if (!firstAt || Number.isNaN(firstAt.getTime())) return "warn";
 
       const ageMs = Date.now() - firstAt.getTime();
@@ -80,34 +71,24 @@ export function initTelegramTransport(app) {
     attempt += 1;
 
     try {
-      // ✅ Idempotency: если webhook уже установлен на нужный URL — не трогаем
-      // (снижает шум WEBHOOK_SET_ERROR при transient network)
       try {
         const info = await bot.getWebHookInfo();
         if (info?.url && String(info.url) === String(webhookUrl)) {
           console.log("✅ Telegram webhook уже установлен (skip setWebHook)");
           return;
         }
-      } catch (_) {
-        // getWebHookInfo может падать из-за сети — это НЕ повод падать/останавливать setWebHook
-      }
+      } catch (_) {}
 
       await bot.setWebHook(webhookUrl);
       console.log("🚀 Telegram webhook установлен");
     } catch (err) {
-      console.error(
-        `❌ Ошибка установки webhook (attempt ${attempt}/${MAX_RETRIES}):`,
-        err
-      );
+      console.error(`❌ Ошибка установки webhook (attempt ${attempt}/${MAX_RETRIES}):`, err);
 
-      // severity escalation: warn for first N days, error after that
       const severity = await computeWebhookSetSeverity();
 
-      // чистим "EFATAL:" из message, но сохраняем raw в context
       const rawMsg = err?.message || String(err);
       const cleanMsg = String(rawMsg).replace(/^EFATAL:\s*/i, "").slice(0, 4000);
 
-      // Fire-and-forget error event (must never crash)
       Promise.resolve()
         .then(() =>
           errorRepo.write({
@@ -130,9 +111,7 @@ export function initTelegramTransport(app) {
         const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attempt - 1), 30000);
         setTimeout(trySetWebhook, delay);
       } else {
-        console.error(
-          "❌ Webhook failed too many times — continuing without exit. Check BASE_URL / Telegram."
-        );
+        console.error("❌ Webhook failed too many times — continuing without exit. Check BASE_URL / Telegram.");
 
         Promise.resolve()
           .then(() =>
@@ -149,7 +128,6 @@ export function initTelegramTransport(app) {
     }
   }
 
-  // ✅ Start after server likely up
   setTimeout(trySetWebhook, Math.max(0, INITIAL_DELAY_MS));
 
   app.post(webhookPath, async (req, res) => {
@@ -169,11 +147,7 @@ export function initTelegramTransport(app) {
             eventType: "TELEGRAM_PROCESS_UPDATE_ERROR",
             severity: "error",
             message: cleanMsg,
-            context: {
-              name: err?.name,
-              code: err?.code,
-              raw_message: rawMsg,
-            },
+            context: { name: err?.name, code: err?.code, raw_message: rawMsg },
           })
         )
         .catch(() => {});

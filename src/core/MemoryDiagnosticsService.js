@@ -106,9 +106,9 @@ export class MemoryDiagnosticsService {
         const ts = r.created_at ? new Date(r.created_at).toISOString() : "—";
         const preview = String(r.content_preview || "").replace(/\s+/g, " ").trim();
         lines.push(
-          `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${r.role || "—"} | sv=${
-            r.schema_version ?? "—"
-          } | ${ts} | "${preview}"`
+          `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${
+            r.role || "—"
+          } | sv=${r.schema_version ?? "—"} | ${ts} | "${preview}"`
         );
       }
 
@@ -119,6 +119,11 @@ export class MemoryDiagnosticsService {
     }
   }
 
+  /**
+   * Integrity check for *chat pairs*.
+   * IMPORTANT: we EXCLUDE commands (user content starting with '/') because
+   * command replies are not guaranteed to be stored as assistant rows with the same messageId.
+   */
   async memoryIntegrity({ chatIdStr } = {}) {
     if (!chatIdStr) return "⚠️ memoryIntegrity: missing chatId";
 
@@ -128,11 +133,13 @@ export class MemoryDiagnosticsService {
         WITH msgs AS (
           SELECT
             (metadata->>'messageId') AS mid,
-            role
+            role,
+            content
           FROM chat_memory
           WHERE chat_id = $1
             AND metadata ? 'messageId'
             AND (metadata->>'messageId') ~ '^[0-9]+$'
+            AND NOT (role='user' AND content LIKE '/%')
         )
         SELECT
           COUNT(*)::int AS total_rows_with_mid,
@@ -147,14 +154,19 @@ export class MemoryDiagnosticsService {
 
       const dupRes = await this.db.query(
         `
-        SELECT
-          (metadata->>'messageId') AS mid,
-          role,
-          COUNT(*)::int AS cnt
-        FROM chat_memory
-        WHERE chat_id = $1
-          AND metadata ? 'messageId'
-          AND (metadata->>'messageId') ~ '^[0-9]+$'
+        WITH msgs AS (
+          SELECT
+            (metadata->>'messageId') AS mid,
+            role,
+            content
+          FROM chat_memory
+          WHERE chat_id = $1
+            AND metadata ? 'messageId'
+            AND (metadata->>'messageId') ~ '^[0-9]+$'
+            AND NOT (role='user' AND content LIKE '/%')
+        )
+        SELECT mid, role, COUNT(*)::int AS cnt
+        FROM msgs
         GROUP BY 1,2
         HAVING COUNT(*) > 1
         ORDER BY cnt DESC, mid DESC
@@ -165,16 +177,24 @@ export class MemoryDiagnosticsService {
 
       const anomRes = await this.db.query(
         `
-        WITH g AS (
+        WITH msgs AS (
           SELECT
             (metadata->>'messageId') AS mid,
-            SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)::int AS u,
-            SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)::int AS a,
-            COUNT(*)::int AS total
+            role,
+            content
           FROM chat_memory
           WHERE chat_id = $1
             AND metadata ? 'messageId'
             AND (metadata->>'messageId') ~ '^[0-9]+$'
+            AND NOT (role='user' AND content LIKE '/%')
+        ),
+        g AS (
+          SELECT
+            mid,
+            SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)::int AS u,
+            SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)::int AS a,
+            COUNT(*)::int AS total
+          FROM msgs
           GROUP BY 1
         )
         SELECT mid, u, a, total
@@ -191,15 +211,27 @@ export class MemoryDiagnosticsService {
       if (mids.length > 0) {
         const prevRes = await this.db.query(
           `
+          WITH msgs AS (
+            SELECT
+              (metadata->>'messageId') AS mid,
+              id,
+              role,
+              created_at,
+              content
+            FROM chat_memory
+            WHERE chat_id = $1
+              AND (metadata->>'messageId') = ANY($2::text[])
+              AND metadata ? 'messageId'
+              AND (metadata->>'messageId') ~ '^[0-9]+$'
+              AND NOT (role='user' AND content LIKE '/%')
+          )
           SELECT
-            (metadata->>'messageId') AS mid,
+            mid,
             id,
             role,
             created_at,
             LEFT(content, 70) AS content_preview
-          FROM chat_memory
-          WHERE chat_id = $1
-            AND (metadata->>'messageId') = ANY($2::text[])
+          FROM msgs
           ORDER BY id DESC
           LIMIT 20
           `,
@@ -213,6 +245,8 @@ export class MemoryDiagnosticsService {
       lines.push(`chat_id: ${chatIdStr}`);
       lines.push(`rows_with_messageId: ${totalRowsWithMid}`);
       lines.push(`distinct_messageId: ${distinctMid}`);
+      lines.push("");
+      lines.push("NOTE: commands '/...' are excluded from pairing check ✅");
       lines.push("");
 
       lines.push("1) Duplicates (same messageId + role, cnt>1):");
@@ -341,7 +375,6 @@ export class MemoryDiagnosticsService {
         lines.push(`chat_id=${r.chat_id} | rows=${r.rows} | first=${first} | last=${last}`);
       }
 
-      // Hint if there are more (we limited 30)
       if (rows.length === 30) {
         lines.push("");
         lines.push("⚠️ limit=30 reached (may be more chat_id).");
@@ -378,13 +411,21 @@ export class MemoryDiagnosticsService {
 
       const dupRes = await this.db.query(
         `
-        SELECT COUNT(*)::int AS dup_groups
-        FROM (
-          SELECT (metadata->>'messageId') AS mid, role, COUNT(*)::int AS cnt
+        WITH msgs AS (
+          SELECT
+            (metadata->>'messageId') AS mid,
+            role,
+            content
           FROM chat_memory
           WHERE chat_id = $1
             AND metadata ? 'messageId'
             AND (metadata->>'messageId') ~ '^[0-9]+$'
+            AND NOT (role='user' AND content LIKE '/%')
+        )
+        SELECT COUNT(*)::int AS dup_groups
+        FROM (
+          SELECT mid, role, COUNT(*)::int AS cnt
+          FROM msgs
           GROUP BY 1,2
           HAVING COUNT(*) > 1
         ) x
@@ -396,22 +437,29 @@ export class MemoryDiagnosticsService {
 
       const anomRes = await this.db.query(
         `
-        SELECT COUNT(*)::int AS anom_mids
-        FROM (
+        WITH msgs AS (
           SELECT
             (metadata->>'messageId') AS mid,
-            SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)::int AS u,
-            SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)::int AS a,
-            COUNT(*)::int AS total
+            role,
+            content
           FROM chat_memory
           WHERE chat_id = $1
             AND metadata ? 'messageId'
             AND (metadata->>'messageId') ~ '^[0-9]+$'
+            AND NOT (role='user' AND content LIKE '/%')
+        ),
+        g AS (
+          SELECT
+            mid,
+            SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)::int AS u,
+            SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)::int AS a,
+            COUNT(*)::int AS total
+          FROM msgs
           GROUP BY 1
-          HAVING NOT (SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)=1
-                  AND SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)=1
-                  AND COUNT(*)=2)
-        ) y
+        )
+        SELECT COUNT(*)::int AS anom_mids
+        FROM g
+        WHERE NOT (u=1 AND a=1 AND total=2)
         `,
         [chatIdStr]
       );

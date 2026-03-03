@@ -290,7 +290,20 @@ export async function saveMessageToMemory(chatId, role, content, options = {}) {
       [chatId, role, content, globalUserId, transport, JSON.stringify(metadata), schemaVersion]
     );
   } catch (err) {
-    console.error("❌ saveMessageToMemory DB error:", err);
+    // ✅ ENHANCED CONTEXT LOG (critical for Render diagnosis)
+    try {
+      console.error("❌ saveMessageToMemory DB error:", {
+        role: String(role || ""),
+        chatId: String(chatId || ""),
+        globalUserId: globalUserId || null,
+        transport,
+        schemaVersion,
+        messageId: messageId !== null ? messageId : null,
+        err: err?.message ? String(err.message) : err,
+      });
+    } catch (_) {
+      console.error("❌ saveMessageToMemory DB error:", err);
+    }
   }
 }
 

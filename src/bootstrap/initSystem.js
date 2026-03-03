@@ -15,9 +15,12 @@ import { ensureTables } from "../db/ensureTables.js";
 // ✅ DB migrations (optional, env-gated)
 import { runMigrationsIfEnabled } from "../db/runMigrations.js";
 
-// ✅ add-only helper
+// ✅ Stage 3.6 — Config hygiene (no direct process.env here)
+import { envStr, envIntRange } from "../core/config.js";
+
+// ✅ add-only helper (now via envStr)
 function envTrue(name, def = "false") {
-  return String(process.env[name] ?? def).trim().toLowerCase() === "true";
+  return envStr(name, def).trim().toLowerCase() === "true";
 }
 
 export async function initSystem({ bot }) {
@@ -26,8 +29,8 @@ export async function initSystem({ bot }) {
     await runDiagnostics({
       rootDir: process.cwd(),
       pool,
-      monarchUserId: String(process.env.MONARCH_USER_ID || "").trim(),
-      monarchGlobalUserId: String(process.env.MONARCH_GLOBAL_USER_ID || "").trim(),
+      monarchUserId: envStr("MONARCH_USER_ID", "").trim(),
+      monarchGlobalUserId: envStr("MONARCH_GLOBAL_USER_ID", "").trim(),
     });
   } catch (e) {
     console.error("❌ BOOT DIAGNOSTICS FAILED:", e);
@@ -54,10 +57,10 @@ export async function initSystem({ bot }) {
 
   if (bootPurgeEnabled) {
     // ✅ Optional boot purge (disabled by default)
-    const retentionDaysRaw = Number(process.env.ERROR_EVENTS_RETENTION_DAYS || 7);
-    const retentionDays = Number.isFinite(retentionDaysRaw)
-      ? Math.max(1, Math.floor(retentionDaysRaw))
-      : 7;
+    const retentionDays = envIntRange("ERROR_EVENTS_RETENTION_DAYS", 7, {
+      min: 1,
+      max: 3650,
+    });
 
     try {
       const r = await pool.query(
@@ -87,10 +90,10 @@ export async function initSystem({ bot }) {
   if (false) {
     // ✅ Stage 5.x maintenance: auto-clean old runtime error events
     // Default: keep 7 days. Only scope=runtime (do NOT delete task/source errors)
-    const retentionDaysRaw = Number(process.env.ERROR_EVENTS_RETENTION_DAYS || 7);
-    const retentionDays = Number.isFinite(retentionDaysRaw)
-      ? Math.max(1, Math.floor(retentionDaysRaw))
-      : 7;
+    const retentionDays = envIntRange("ERROR_EVENTS_RETENTION_DAYS", 7, {
+      min: 1,
+      max: 3650,
+    });
 
     try {
       const r = await pool.query(

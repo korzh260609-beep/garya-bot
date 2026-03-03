@@ -20,11 +20,24 @@ import { getMemoryService } from "./memoryServiceFactory.js";
 import { resolveUserAccess } from "../users/userAccess.js";
 import { ensureUserProfile } from "../users/userProfile.js";
 import { can } from "../users/permissions.js";
-import { envStr } from "./config.js";
+import { envStr, envIntRange } from "./config.js";
 
 // ✅ STAGE 6 LOGIC — Routing helpers
 import { CMD_ACTION } from "../bot/cmdActionMap.js";
 import { parseCommand } from "../../core/helpers.js";
+
+// ✅ STAGE 3.5 — RateLimit (V1, in-memory, per instance)
+import { checkRateLimit } from "../bot/rateLimiter.js";
+
+// ============================================================================
+// Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
+// ============================================================================
+// Default: 6 commands / 20 sec for non-monarch
+const CMD_RL_WINDOW_MS = envIntRange("CMD_RL_WINDOW_MS", 20000, {
+  min: 1000,
+  max: 300000,
+});
+const CMD_RL_MAX = envIntRange("CMD_RL_MAX", 6, { min: 1, max: 50 });
 
 function envBool(name, def = false) {
   const v = envStr(name, def ? "true" : "false").trim().toLowerCase();
@@ -46,7 +59,8 @@ export async function handleMessage(context = {}) {
   const hasCallAI = typeof deps?.callAI === "function";
   const isEnforced = hasReply && hasCallAI;
 
-  let globalUserId = context?.globalUserId == null ? null : String(context.globalUserId);
+  let globalUserId =
+    context?.globalUserId == null ? null : String(context.globalUserId);
 
   const derived = deriveChatMeta({
     transport,
@@ -57,7 +71,9 @@ export async function handleMessage(context = {}) {
 
   const chatType = derived.chatType || null;
   const isPrivateChat =
-    typeof context?.isPrivateChat === "boolean" ? context.isPrivateChat : derived.isPrivateChat;
+    typeof context?.isPrivateChat === "boolean"
+      ? context.isPrivateChat
+      : derived.isPrivateChat;
 
   // =========================================================================
   // STAGE 6 LOGIC STEP 1 — Identity + Access
@@ -208,6 +224,22 @@ export async function handleMessage(context = {}) {
 
   // --- COMMAND ROUTING ---
   if (isCommand && cmdBase) {
+    // ✅ Stage 3.5 — apply RL to ALL commands (except /start, /help). Monarch bypass.
+    if (!isMonarchUser && cmdBase !== "/start" && cmdBase !== "/help") {
+      const rlKey = `${senderId || ""}:${chatIdStr}:cmd`;
+      const rl = checkRateLimit({
+        key: rlKey,
+        windowMs: CMD_RL_WINDOW_MS,
+        max: CMD_RL_MAX,
+      });
+
+      if (!rl.allowed) {
+        const sec = Math.ceil(rl.retryAfterMs / 1000);
+        await deps.reply(context, `⛔ Слишком часто. Подожди ${sec} сек.`);
+        return { ok: true, stage: "3.5", result: "rate_limited", cmdBase };
+      }
+    }
+
     if (!canProceed) {
       await deps.reply(context, "⛔ Недостаточно прав.");
       return { ok: true, stage: "6.logic.2", result: "permission_denied", cmdBase };

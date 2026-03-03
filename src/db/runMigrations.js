@@ -2,18 +2,24 @@
 import path from "path";
 import { createRequire } from "module";
 
+import { envStr } from "../core/config.js";
+
 const require = createRequire(import.meta.url);
 
 export async function runMigrationsIfEnabled() {
-  const flag = (process.env.RUN_MIGRATIONS_ON_BOOT || "").toString().trim();
-  const enabled = flag === "1" || flag.toLowerCase() === "true" || flag.toLowerCase() === "yes";
+  const flag = envStr("RUN_MIGRATIONS_ON_BOOT", "").toString().trim();
+  const enabled =
+    flag === "1" ||
+    flag.toLowerCase() === "true" ||
+    flag.toLowerCase() === "yes";
 
   if (!enabled) {
     console.log("🧱 Migrations: skipped (RUN_MIGRATIONS_ON_BOOT is not enabled).");
     return;
   }
 
-  if (!process.env.DATABASE_URL) {
+  const databaseUrl = envStr("DATABASE_URL", "").trim();
+  if (!databaseUrl) {
     console.error("❌ Migrations: DATABASE_URL is missing — cannot run migrations.");
     return;
   }
@@ -28,15 +34,19 @@ export async function runMigrationsIfEnabled() {
 
   try {
     const applied = await pgMigrate({
-      databaseUrl: process.env.DATABASE_URL,
+      databaseUrl,
       dir,
       direction: "up",
       // keep defaults; do not create schema, use public
       schema: "public",
-      createSchema: false
+      createSchema: false,
     });
 
-    console.log(`✅ Migrations: done. Applied: ${Array.isArray(applied) ? applied.length : 0}`);
+    console.log(
+      `✅ Migrations: done. Applied: ${
+        Array.isArray(applied) ? applied.length : 0
+      }`
+    );
   } catch (e) {
     console.error("❌ Migrations: FAILED:", e);
     // IMPORTANT: fail fast, so you see it in Render logs

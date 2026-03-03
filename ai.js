@@ -56,7 +56,8 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
   try {
     const response = await client.responses.create(payload);
 
-    if (typeof response?.output_text === "string" && response.output_text.length) {
+    // ✅ FIX: reject whitespace-only output (prevents chat_memory u=1 a=0)
+    if (typeof response?.output_text === "string" && response.output_text.trim().length) {
       return response.output_text;
     }
 
@@ -72,7 +73,10 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
           }
         }
       }
-      if (texts.length) return texts.join("\n");
+
+      const joined = texts.join("\n");
+      // ✅ FIX: reject whitespace-only output
+      if (joined.trim().length) return joined;
     }
 
     // 🚨 CRITICAL: never return empty string silently (breaks chat_memory pairing u=1 a=0)
@@ -98,7 +102,8 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
 
     const response = await client.responses.create(fallbackPayload);
 
-    if (typeof response?.output_text === "string" && response.output_text.length) {
+    // ✅ FIX: reject whitespace-only output (fallback)
+    if (typeof response?.output_text === "string" && response.output_text.trim().length) {
       return response.output_text;
     }
 
@@ -114,7 +119,10 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
           }
         }
       }
-      if (texts.length) return texts.join("\n");
+
+      const joined = texts.join("\n");
+      // ✅ FIX: reject whitespace-only output (fallback)
+      if (joined.trim().length) return joined;
     }
 
     // 🚨 same rule for fallback

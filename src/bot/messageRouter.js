@@ -1437,10 +1437,42 @@ export function attachMessageRouter({
       // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
       // ======================================================================
 
-      // ✅ STAGE 7.3: router must NOT write memory anymore (core does it).
-      // Keep no-op writers to avoid breaking handler signature if it still calls them.
-      const saveMessageToMemory = async () => {};
-      const saveChatPair = async () => {};
+      // ✅ FIX: router MUST provide real memory writers for chat.js,
+      // otherwise core shadow can write only user (MEMORY_SHADOW_WRITE) => u=1 a=0.
+      const memory = getMemoryService();
+
+      const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
+        try {
+          return await memory.write({
+            chatId: String(chatIdStr2 || ""),
+            globalUserId: opts?.globalUserId ?? globalUserId ?? null,
+            role,
+            content: String(content ?? ""),
+            transport: opts?.transport ?? "telegram",
+            metadata: opts?.metadata ?? {},
+            schemaVersion: opts?.schemaVersion ?? 2,
+          });
+        } catch (e) {
+          console.error("router.saveMessageToMemory failed:", e);
+        }
+      };
+
+      const saveChatPair = async (chatIdStr2, _userText, assistantText, opts = {}) => {
+        try {
+          const meta = opts?.metadata ?? {};
+          return await memory.write({
+            chatId: String(chatIdStr2 || ""),
+            globalUserId: opts?.globalUserId ?? globalUserId ?? null,
+            role: "assistant",
+            content: String(assistantText ?? ""),
+            transport: opts?.transport ?? "telegram",
+            metadata: meta,
+            schemaVersion: opts?.schemaVersion ?? 2,
+          });
+        } catch (e) {
+          console.error("router.saveChatPair failed:", e);
+        }
+      };
 
       await handleChatMessage({
         bot,
@@ -1456,7 +1488,7 @@ export function attachMessageRouter({
 
         // read-only
         getChatHistory,
-        // write disabled (core owns writes)
+        // ✅ write enabled (router provides writers)
         saveMessageToMemory,
         saveChatPair,
 

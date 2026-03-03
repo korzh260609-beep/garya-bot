@@ -25,6 +25,9 @@ import { handleIdentityOrphans } from "./handlers/identityOrphans.js";
 // ✅ Stage 4.5 — list legacy tg:* users
 import { handleIdentityLegacyTg } from "./handlers/identityLegacyTg.js";
 
+// ✅ Stage 5.16 — behavior events verification
+import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
+
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -155,6 +158,9 @@ export async function dispatchCommand(cmd, ctx) {
     "/chat_on",
     "/chat_off",
     "/chat_status",
+
+    // ✅ STAGE 5.16 — behavior events (keep private)
+    "/behavior_events_last",
 
     // ✅ STAGE 7 — Memory diagnostics (keep private)
     "/memory_status",
@@ -678,6 +684,16 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/task_status": {
       await handleTaskStatus({ bot, chatId, rest: ctx.rest });
+      return { handled: true };
+    }
+
+    case "/behavior_events_last": {
+      await handleBehaviorEventsLast({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        senderIdStr: ctx.senderIdStr,
+      });
       return { handled: true };
     }
 

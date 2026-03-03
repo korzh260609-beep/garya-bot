@@ -26,6 +26,13 @@ import { envStr } from "./config.js";
 import { CMD_ACTION } from "../bot/cmdActionMap.js";
 import { parseCommand } from "../../core/helpers.js";
 
+function envBool(name, def = false) {
+  const v = envStr(name, def ? "true" : "false").trim().toLowerCase();
+  if (v === "true" || v === "1" || v === "yes") return true;
+  if (v === "false" || v === "0" || v === "no") return false;
+  return def;
+}
+
 export async function handleMessage(context = {}) {
   const transport = String(context?.transport || "unknown");
   const chatId = context?.chatId == null ? null : String(context.chatId);
@@ -137,13 +144,21 @@ export async function handleMessage(context = {}) {
 
   // =========================================================================
   // STAGE 7.1 — Memory shadow write
-  // ✅ IMPORTANT: ONLY in shadow mode to avoid double writes in enforced mode
+  //
+  // 🚫 IMPORTANT:
+  // Shadow mode currently DOES NOT generate assistant replies.
+  // If we write only user messages here, /memory_integrity will show u=1 a=0 anomalies.
+  //
+  // ✅ Therefore: shadow write is OFF by default.
+  // Enable ONLY when you intentionally want shadow writes:
+  //   MEMORY_SHADOW_WRITE=true
   // =========================================================================
   try {
     const memory = getMemoryService();
     const enabled = Boolean(memory?.config?.enabled);
+    const shadowWriteEnabled = envBool("MEMORY_SHADOW_WRITE", false);
 
-    if (!isEnforced && enabled && chatId && messageId && text) {
+    if (!isEnforced && enabled && shadowWriteEnabled && chatId && messageId && text) {
       await memory.write({
         chatId,
         globalUserId: globalUserId || null,

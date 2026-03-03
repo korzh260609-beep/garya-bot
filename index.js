@@ -8,6 +8,9 @@ import { attachMessageRouter } from "./src/bot/messageRouter.js";
 // ✅ STAGE 6 LOGIC STEP 3 — TelegramAdapter (attach when TRANSPORT_ENFORCED=true)
 import { TelegramAdapter } from "./src/transport/telegramAdapter.js";
 
+// ✅ Stage 6 — transport enforced flag (single authoritative handler)
+import { isTransportEnforced } from "./src/transport/transportConfig.js";
+
 import { createApp, startHttpServer } from "./src/http/server.js";
 import { initSystem } from "./src/bootstrap/initSystem.js";
 
@@ -77,12 +80,20 @@ startHttpServer(app, PORT);
 // ============================================================================
 // === MAIN HANDLER (EXTRACTED) ===
 // ============================================================================
-attachMessageRouter({
-  bot,
-  callAI,
-  upsertProjectSection,
-  MAX_HISTORY_MESSAGES,
-});
+
+// ✅ STAGE 6 — choose SINGLE authoritative message handler
+if (!isTransportEnforced()) {
+  attachMessageRouter({
+    bot,
+    callAI,
+    upsertProjectSection,
+    MAX_HISTORY_MESSAGES,
+  });
+} else {
+  console.log(
+    "🧭 Transport enforced: messageRouter is NOT attached (TelegramAdapter is authoritative)."
+  );
+}
 
 // ✅ STAGE 6 — TelegramAdapter (no-op when TRANSPORT_ENFORCED=false)
 const telegramAdapter = new TelegramAdapter({ bot, callAI, MAX_HISTORY_MESSAGES });

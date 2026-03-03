@@ -75,7 +75,8 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
       if (texts.length) return texts.join("\n");
     }
 
-    return "";
+    // 🚨 CRITICAL: never return empty string silently (breaks chat_memory pairing u=1 a=0)
+    throw new Error(`AI returned empty output (model=${primaryModel})`);
   } catch (e) {
     const status = e?.status || e?.statusCode || null;
     const msg = e?.message || String(e);
@@ -116,6 +117,7 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
       if (texts.length) return texts.join("\n");
     }
 
-    return "";
+    // 🚨 same rule for fallback
+    throw new Error(`AI returned empty output (fallback model=${fallbackModel})`);
   }
 }

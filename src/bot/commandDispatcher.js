@@ -42,6 +42,12 @@ import { handleChatStatus } from "./handlers/chatStatus.js";
 import { jobRunner } from "../jobs/jobRunnerInstance.js";
 import { makeTaskRunKey } from "../jobs/jobRunner.js";
 
+// ✅ Stage 6 — helpers (used for /demo_task)
+import { callWithFallback } from "../../core/helpers.js";
+
+// ✅ /build_info (public env snapshot)
+import { getPublicEnvSnapshot } from "../core/config.js";
+
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
 
@@ -369,6 +375,31 @@ export async function dispatchCommand(cmd, ctx) {
     // TASKS (Stage 2.x)
     // ==========================
 
+    case "/demo_task": {
+      if (typeof ctx.createDemoTask !== "function") {
+        await bot.sendMessage(chatId, "⛔ createDemoTask недоступен (ошибка wiring).");
+        return { handled: true };
+      }
+
+      const access = {
+        userRole: ctx.userRole || ctx.user?.role || "guest",
+        userPlan: ctx.userPlan || ctx.user?.plan || "free",
+        user: ctx.user, // identity-first
+      };
+
+      try {
+        const id = await callWithFallback(ctx.createDemoTask, [
+          [chatIdStr, access],
+          [chatIdStr],
+        ]);
+        await bot.sendMessage(chatId, `✅ Демо-задача создана!\nID: ${id?.id || id}`);
+      } catch (e) {
+        await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
+      }
+
+      return { handled: true };
+    }
+
     case "/tasks": {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
@@ -652,6 +683,37 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/project_status": {
       await handleProjectStatus({ bot, chatId });
+      return { handled: true };
+    }
+
+    case "/build_info": {
+      const pub = getPublicEnvSnapshot();
+
+      const commit =
+        String(pub.RENDER_GIT_COMMIT || "").trim() ||
+        String(pub.GIT_COMMIT || "").trim() ||
+        "unknown";
+
+      const serviceId = String(pub.RENDER_SERVICE_ID || "").trim() || "unknown";
+
+      const instanceId =
+        String(pub.RENDER_INSTANCE_ID || "").trim() ||
+        String(pub.HOSTNAME || "").trim() ||
+        "unknown";
+
+      const nodeEnv = String(pub.NODE_ENV || "").trim() || "unknown";
+
+      await bot.sendMessage(
+        chatId,
+        [
+          "🧩 BUILD INFO",
+          `commit: ${commit}`,
+          `service: ${serviceId}`,
+          `instance: ${instanceId}`,
+          `node_env: ${nodeEnv}`,
+        ].join("\n")
+      );
+
       return { handled: true };
     }
 

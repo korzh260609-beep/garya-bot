@@ -82,11 +82,12 @@ export class MemoryDiagnosticsService {
           role,
           schema_version,
           created_at,
+          (metadata->>'messageId') AS mid,
           LEFT(content, 80) AS content_preview
         FROM chat_memory
         WHERE chat_id = $1
         ORDER BY id DESC
-        LIMIT 8
+        LIMIT 12
         `,
         [chatIdStr]
       );
@@ -106,9 +107,9 @@ export class MemoryDiagnosticsService {
         const ts = r.created_at ? new Date(r.created_at).toISOString() : "—";
         const preview = String(r.content_preview || "").replace(/\s+/g, " ").trim();
         lines.push(
-          `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${
-            r.role || "—"
-          } | sv=${r.schema_version ?? "—"} | ${ts} | "${preview}"`
+          `#${r.id} | mid=${r.mid || "—"} | g=${r.global_user_id || "NULL"} | t=${
+            r.transport || "—"
+          } | role=${r.role || "—"} | sv=${r.schema_version ?? "—"} | ${ts} | "${preview}"`
         );
       }
 

@@ -5,6 +5,8 @@
 // - Default = disabled
 // - No production behavior change
 
+import { envStr } from "../core/config.js";
+
 function parseBool(v, def = false) {
   if (v == null) return def;
   const s = String(v).trim().toLowerCase();
@@ -12,7 +14,7 @@ function parseBool(v, def = false) {
 }
 
 export const TRANSPORT_ENFORCED = parseBool(
-  process.env.TRANSPORT_ENFORCED,
+  envStr("TRANSPORT_ENFORCED", ""),
   false
 );
 
@@ -21,10 +23,7 @@ export function isTransportEnforced() {
 }
 
 // ✅ NEW — independent trace flag (does NOT switch routing)
-export const TRANSPORT_TRACE = parseBool(
-  process.env.TRANSPORT_TRACE,
-  false
-);
+export const TRANSPORT_TRACE = parseBool(envStr("TRANSPORT_TRACE", ""), false);
 
 export function isTransportTraceEnabled() {
   return TRANSPORT_TRACE;

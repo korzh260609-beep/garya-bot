@@ -10,14 +10,7 @@
 // IMPORTANT:
 //   Shadow-wired when deps.reply / deps.callAI are not provided.
 //   TRANSPORT_ENFORCED=false by default — old messageRouter remains authoritative.
-//   When deps are provided (future enforced mode), this function produces real replies.
-//
-// deps contract (injected by adapter, e.g. TelegramAdapter):
-//   deps.reply(context, text)      — send reply to user
-//   deps.callAI(messages, cost, opts) — call AI
-//   deps.bot                       — raw bot instance (for handlers that need it)
-//   deps.dispatchCommand(cmd, ctx) — command dispatcher
-//   deps.handleChatMessage(opts)   — chat/AI handler
+//   When deps are provided (enforced mode), this function produces real replies.
 
 import { deriveChatMeta } from "./transportMeta.js";
 import { isTransportTraceEnabled } from "../transport/transportConfig.js";
@@ -46,8 +39,7 @@ export async function handleMessage(context = {}) {
   const hasCallAI = typeof deps?.callAI === "function";
   const isEnforced = hasReply && hasCallAI;
 
-  let globalUserId =
-    context?.globalUserId == null ? null : String(context.globalUserId);
+  let globalUserId = context?.globalUserId == null ? null : String(context.globalUserId);
 
   const derived = deriveChatMeta({
     transport,
@@ -58,9 +50,7 @@ export async function handleMessage(context = {}) {
 
   const chatType = derived.chatType || null;
   const isPrivateChat =
-    typeof context?.isPrivateChat === "boolean"
-      ? context.isPrivateChat
-      : derived.isPrivateChat;
+    typeof context?.isPrivateChat === "boolean" ? context.isPrivateChat : derived.isPrivateChat;
 
   // =========================================================================
   // STAGE 6 LOGIC STEP 1 — Identity + Access
@@ -147,12 +137,13 @@ export async function handleMessage(context = {}) {
 
   // =========================================================================
   // STAGE 7.1 — Memory shadow write
+  // ✅ IMPORTANT: ONLY in shadow mode to avoid double writes in enforced mode
   // =========================================================================
   try {
     const memory = getMemoryService();
     const enabled = Boolean(memory?.config?.enabled);
 
-    if (enabled && chatId && messageId && text) {
+    if (!isEnforced && enabled && chatId && messageId && text) {
       await memory.write({
         chatId,
         globalUserId: globalUserId || null,
@@ -176,7 +167,6 @@ export async function handleMessage(context = {}) {
   // ROUTING — only when enforced (deps provided)
   // Shadow mode: compute routing but don't act
   // =========================================================================
-
   if (!isEnforced) {
     return {
       ok: true,
@@ -194,7 +184,6 @@ export async function handleMessage(context = {}) {
   // =========================================================================
   // ENFORCED MODE — real routing + reply
   // =========================================================================
-
   const chatIdNum = chatId ? Number(chatId) : null;
   const chatIdStr = chatId || "";
 
@@ -204,7 +193,6 @@ export async function handleMessage(context = {}) {
 
   // --- COMMAND ROUTING ---
   if (isCommand && cmdBase) {
-
     if (!canProceed) {
       await deps.reply(context, "⛔ Недостаточно прав.");
       return { ok: true, stage: "6.logic.2", result: "permission_denied", cmdBase };
@@ -265,8 +253,36 @@ export async function handleMessage(context = {}) {
   // --- MESSAGE ROUTING (non-command) ---
   if (typeof deps?.handleChatMessage === "function") {
     try {
-      const saveMessageToMemory = async () => {};
-      const saveChatPair = async () => {};
+      const memory = getMemoryService();
+
+      // ✅ Real writers for enforced mode (fix pair anomalies):
+      // - user message written by handleChatMessage via saveMessageToMemory
+      // - assistant message written via saveChatPair (assistant-only, same messageId)
+      const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
+        return memory.write({
+          chatId: chatIdStr2,
+          globalUserId: opts?.globalUserId ?? globalUserId ?? null,
+          role,
+          content: String(content ?? ""),
+          transport: opts?.transport ?? transport,
+          metadata: opts?.metadata ?? {},
+          schemaVersion: opts?.schemaVersion ?? 2,
+        });
+      };
+
+      const saveChatPair = async (chatIdStr2, _userText, assistantText, opts = {}) => {
+        // IMPORTANT: write ONLY assistant to avoid double-writing user
+        const meta = opts?.metadata ?? {};
+        return memory.write({
+          chatId: chatIdStr2,
+          globalUserId: opts?.globalUserId ?? globalUserId ?? null,
+          role: "assistant",
+          content: String(assistantText ?? ""),
+          transport: opts?.transport ?? transport,
+          metadata: meta,
+          schemaVersion: opts?.schemaVersion ?? 2,
+        });
+      };
 
       await deps.handleChatMessage({
         bot: deps.bot,

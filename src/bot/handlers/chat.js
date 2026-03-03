@@ -780,15 +780,48 @@ export async function handleChatMessage({
     console.error("ERROR STAGE 7B.4 chat_messages assistant insert failed (fail-open):", e);
   }
 
+  // ==========================================================
+  // ✅ STAGE 7 — deterministic save (assistant pairing) : HARD LOG
+  // ==========================================================
   try {
-    await saveChatPair(chatIdStr, effective, aiReply, {
+    const meta = { senderIdStr, chatIdStr, messageId };
+
+    const res = await saveChatPair(chatIdStr, effective, aiReply, {
       globalUserId,
       transport: "telegram",
-      metadata: { senderIdStr, chatIdStr, messageId },
+      metadata: meta,
       schemaVersion: 2,
     });
+
+    // ✅ Hard signal into logs: if stored=false or res missing
+    if (!res || res.stored !== true) {
+      try {
+        console.error("MEMORY_PAIR_SAVE_NOT_STORED", {
+          chatId: chatIdStr,
+          globalUserId,
+          senderId: senderIdStr,
+          messageId,
+          res: res || null,
+        });
+      } catch (_) {}
+    } else {
+      try {
+        console.info("MEMORY_PAIR_SAVE_OK", {
+          chatId: chatIdStr,
+          globalUserId,
+          senderId: senderIdStr,
+          messageId,
+        });
+      } catch (_) {}
+    }
   } catch (e) {
-    console.error("ERROR saveChatPair error:", e);
+    console.error("ERROR saveChatPair error:", {
+      chatId: chatIdStr,
+      globalUserId,
+      senderId: senderIdStr,
+      messageId,
+      err: e?.message ? String(e.message) : e,
+    });
   }
 
   try {

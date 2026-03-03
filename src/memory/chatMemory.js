@@ -10,6 +10,9 @@
 // STAGE 7.5: Anti-dup / Memory consistency guard (no schema changes)
 // - pg_advisory_xact_lock на ключ messageId+role (+ identity)
 // - dedupe check by (global_user_id/chat_id, transport, role, metadata.messageId, content)
+//
+// ✅ FIX (2026-03-03): hard cap for chat_memory.content to prevent DB insert failures
+// that cause missing_assistant (u=1 a=0) while user rows succeed.
 
 import pool from "../../db.js";
 
@@ -19,6 +22,14 @@ const MAX_HISTORY_MESSAGES = 20;
 const DEFAULT_SCHEMA_VERSION = 1;
 const DEFAULT_TRANSPORT = "telegram";
 
+// ✅ Hard cap for chat_memory.content (avoid DB constraint/index/trigger failures).
+// Default aligned with chat.js MAX_CHAT_MESSAGE_CHARS to keep system consistent.
+const CHAT_MEMORY_MAX_CHARS = (() => {
+  const raw = Number(process.env.CHAT_MEMORY_MAX_CHARS || "16000");
+  if (!Number.isFinite(raw)) return 16000;
+  return Math.max(500, Math.min(200000, raw));
+})();
+
 function _safeJson(obj) {
   try {
     if (!obj) return {};
@@ -27,6 +38,28 @@ function _safeJson(obj) {
   } catch (_) {
     return {};
   }
+}
+
+function _toIntOrNull(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+
+function _toStr(x) {
+  try {
+    if (x === null || x === undefined) return "";
+    if (typeof x === "string") return x;
+    return String(x);
+  } catch (_) {
+    return "";
+  }
+}
+
+function _truncateText(s, maxChars) {
+  const str = _toStr(s);
+  if (!str) return "";
+  if (str.length <= maxChars) return str;
+  return str.slice(0, maxChars);
 }
 
 async function _withTx(fn) {
@@ -44,11 +77,6 @@ async function _withTx(fn) {
   } finally {
     client.release();
   }
-}
-
-function _toIntOrNull(x) {
-  const n = Number(x);
-  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -166,7 +194,9 @@ export async function cleanupChatHistory(chatId, maxMessages = MAX_HISTORY_MESSA
  * ⚠️ Старые вызовы saveMessageToMemory(chatId, role, content) продолжат работать.
  */
 export async function saveMessageToMemory(chatId, role, content, options = {}) {
-  if (!content || !content.trim()) return;
+  // ✅ Normalize + HARD CAP to prevent DB failures (missing_assistant)
+  const normalized = _truncateText(content, CHAT_MEMORY_MAX_CHARS);
+  if (!normalized || !normalized.trim()) return;
 
   const globalUserId = options?.globalUserId ?? null;
   const transport = String(options?.transport || DEFAULT_TRANSPORT);
@@ -207,7 +237,7 @@ export async function saveMessageToMemory(chatId, role, content, options = {}) {
             ORDER BY id DESC
             LIMIT 1
           `,
-          [transport, role, content, globalUserId, String(chatId || ""), String(messageId)]
+          [transport, role, normalized, globalUserId, String(chatId || ""), String(messageId)]
         );
 
         if ((existsRes.rows || []).length > 0) {
@@ -228,7 +258,7 @@ export async function saveMessageToMemory(chatId, role, content, options = {}) {
         );
 
         const last = lastRes.rows[0];
-        if (last && last.role === role && last.content === content) {
+        if (last && last.role === role && last.content === normalized) {
           return;
         }
 
@@ -245,7 +275,7 @@ export async function saveMessageToMemory(chatId, role, content, options = {}) {
             )
             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
           `,
-          [chatId, role, content, globalUserId, transport, JSON.stringify(metadata), schemaVersion]
+          [chatId, role, normalized, globalUserId, transport, JSON.stringify(metadata), schemaVersion]
         );
       });
 
@@ -270,7 +300,7 @@ export async function saveMessageToMemory(chatId, role, content, options = {}) {
     );
 
     const last = lastRes.rows[0];
-    if (last && last.role === role && last.content === content) {
+    if (last && last.role === role && last.content === normalized) {
       return; // дубль подряд — не пишем
     }
 
@@ -287,7 +317,7 @@ export async function saveMessageToMemory(chatId, role, content, options = {}) {
         )
         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
       `,
-      [chatId, role, content, globalUserId, transport, JSON.stringify(metadata), schemaVersion]
+      [chatId, role, normalized, globalUserId, transport, JSON.stringify(metadata), schemaVersion]
     );
   } catch (err) {
     // ✅ ENHANCED CONTEXT LOG (critical for Render diagnosis)
@@ -299,6 +329,9 @@ export async function saveMessageToMemory(chatId, role, content, options = {}) {
         transport,
         schemaVersion,
         messageId: messageId !== null ? messageId : null,
+        // ✅ include content length to confirm size-related failures
+        contentLen: typeof normalized === "string" ? normalized.length : null,
+        maxChars: CHAT_MEMORY_MAX_CHARS,
         err: err?.message ? String(err.message) : err,
       });
     } catch (_) {

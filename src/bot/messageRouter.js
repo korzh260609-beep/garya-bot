@@ -167,6 +167,32 @@ const CHAT_DEFAULT_ACTIVE = ["1", "true", "yes", "y", "on"].includes(
 );
 
 // ============================================================================
+// STAGE 7 — deterministic pairing helper
+// Rule: ALWAYS use user telegram mid (msg.message_id) as metadata.messageId
+// for BOTH user and assistant rows. If caller passes other messageId, store it
+// as metadata.originalMessageId for diagnostics.
+// ============================================================================
+function _forcePairMessageId(metaIn, msg) {
+  const meta = metaIn && typeof metaIn === "object" ? { ...metaIn } : {};
+  const userMid = msg?.message_id ?? null;
+
+  if (userMid === null || userMid === undefined) return meta;
+
+  const userMidStr = String(userMid);
+
+  if (meta.messageId !== undefined && meta.messageId !== null) {
+    const incomingStr = String(meta.messageId);
+    if (incomingStr !== userMidStr) {
+      meta.originalMessageId = meta.messageId;
+    }
+  }
+
+  meta.messageId = userMid; // deterministic pair key
+  meta.pairMessageId = userMid; // explicit alias (debug)
+  return meta;
+}
+
+// ============================================================================
 // === ATTACH ROUTER
 // ============================================================================
 export function attachMessageRouter({
@@ -1521,13 +1547,16 @@ export function attachMessageRouter({
 
       const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
         try {
+          // ✅ STAGE 7 deterministic pairing: force pair key = msg.message_id
+          const meta = _forcePairMessageId(opts?.metadata ?? {}, msg);
+
           return await memory.write({
             chatId: String(chatIdStr2 || ""),
             globalUserId: opts?.globalUserId ?? globalUserId ?? null,
             role,
             content: String(content ?? ""),
             transport: opts?.transport ?? "telegram",
-            metadata: opts?.metadata ?? {},
+            metadata: meta,
             schemaVersion: opts?.schemaVersion ?? 2,
           });
         } catch (e) {
@@ -1536,19 +1565,11 @@ export function attachMessageRouter({
       };
 
       // ✅ STAGE 7 — deterministic save (assistant pairing)
-      // IMPORTANT: enforce metadata.messageId for assistant save
+      // IMPORTANT: force metadata.messageId to user telegram mid ALWAYS (not only when missing)
       const saveChatPair = async (chatIdStr2, _userText, assistantText, opts = {}) => {
         try {
-          const meta = { ...(opts?.metadata ?? {}) };
-
-          // ✅ ENFORCE: messageId must exist for pairing integrity
-          if (
-            meta.messageId === undefined ||
-            meta.messageId === null ||
-            String(meta.messageId).trim() === ""
-          ) {
-            meta.messageId = msg?.message_id ?? null;
-          }
+          // ✅ STAGE 7 deterministic pairing: force pair key = msg.message_id
+          const meta = _forcePairMessageId(opts?.metadata ?? {}, msg);
 
           return await memory.write({
             chatId: String(chatIdStr2 || ""),

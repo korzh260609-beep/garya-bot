@@ -18,6 +18,9 @@ import { createUnifiedContext } from "./unifiedContext.js";
 import { toCoreContextFromUnified } from "./toCoreContext.js";
 import { isTransportEnforced } from "./transportConfig.js";
 
+// ✅ STAGE 6.8.2 — command idempotency (DB guard)
+import { insertCommandInvocation } from "../db/commandInvocationsRepo.js";
+
 // Core entrypoint
 import { handleMessage } from "../core/handleMessage.js";
 
@@ -178,6 +181,36 @@ export class TelegramAdapter extends TransportAdapter {
 
     this.bot.on("message", async (msg) => {
       try {
+        // ✅ STAGE 6.8.2 — command idempotency (ENFORCED path)
+        // DB-guard only for commands; fail-open on any DB error.
+        const rawText = typeof msg?.text === "string" ? msg.text.trim() : "";
+        const chatIdRaw = msg?.chat?.id ?? null;
+        const messageIdRaw = msg?.message_id ?? null;
+
+        if (rawText.startsWith("/") && chatIdRaw != null && messageIdRaw != null) {
+          const cmd0 = rawText.split(/\s+/)[0].split("@")[0];
+
+          try {
+            const ins = await insertCommandInvocation({
+              transport: "telegram",
+              chatId: String(chatIdRaw),
+              messageId: Number(messageIdRaw),
+              cmd: cmd0,
+              globalUserId: null, // identity resolved in core; safe to keep null here
+              senderId: String(msg?.from?.id ?? ""),
+              metadata: { enforced: true },
+            });
+
+            if (!ins?.inserted) {
+              // duplicate delivery -> drop silently
+              return;
+            }
+          } catch (e) {
+            console.error("TelegramAdapter idempotency guard failed:", e);
+            // fail-open
+          }
+        }
+
         // 1. Normalize raw event -> UnifiedContext
         const unified = this.toContext(msg);
 

@@ -137,6 +137,12 @@ import { checkRateLimit } from "./rateLimiter.js";
 // ✅ Stage 3.6 — Config hygiene (V1)
 import { envIntRange, envStr, getPublicEnvSnapshot } from "../core/config.js";
 
+// ✅ STAGE 6.8.2 — COMMAND IDEMPOTENCY (DB guard)
+import { insertCommandInvocation } from "../db/commandInvocationsRepo.js";
+
+// ✅ STAGE 6.8.2 — OBSERVABILITY (reuse webhook_dedupe_events)
+import { insertWebhookDedupeEvent } from "../db/chatMessagesRepo.js";
+
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // ============================================================================
@@ -452,6 +458,78 @@ export function attachMessageRouter({
       if (trimmed.startsWith("/")) {
         const { cmd, rest } = parseCommand(trimmed);
         const cmdBase = String(cmd || "").split("@")[0];
+
+        // ==========================================================
+        // STAGE 6.8.2 — COMMAND IDEMPOTENCY (critical)
+        // Insert-first into command_invocations to guarantee process-once on webhook retries.
+        // Strategy:
+        // - Only when Telegram message_id is numeric
+        // - INSERT ... ON CONFLICT DO NOTHING
+        // - If conflict => already processed => exit WITHOUT side-effects
+        // - Fail-open on DB error (do not break production)
+        // ==========================================================
+        const _cmdMessageId = msg.message_id ?? null;
+        if (_cmdMessageId !== null && Number.isFinite(Number(_cmdMessageId))) {
+          try {
+            const transport = "telegram";
+
+            const meta = {
+              cmd: cmdBase,
+              senderIdStr,
+              chatIdStr,
+              messageId: _cmdMessageId,
+              globalUserId,
+              stage: "6.8.2",
+            };
+
+            const ins = await insertCommandInvocation({
+              transport,
+              chatId: chatIdStr,
+              messageId: _cmdMessageId,
+              cmd: cmdBase,
+              globalUserId: globalUserId || null,
+              senderId: senderIdStr || null,
+              metadata: meta,
+            });
+
+            if (!ins || ins.inserted !== true) {
+              try {
+                console.info("IDEMPOTENCY_SKIP", {
+                  transport,
+                  chatId: chatIdStr,
+                  messageId: _cmdMessageId,
+                  reason: "command_invocations_conflict",
+                  cmd: cmdBase,
+                });
+              } catch (_) {}
+
+              // STAGE 6.8.2 OBSERVABILITY (V2): reuse webhook_dedupe_events
+              try {
+                await insertWebhookDedupeEvent({
+                  transport,
+                  chatId: chatIdStr,
+                  messageId: _cmdMessageId,
+                  globalUserId: globalUserId || null,
+                  reason: "retry_duplicate_command",
+                  metadata: { handler: "command", cmd: cmdBase, stage: "6.8.2" },
+                });
+              } catch (e) {
+                console.error(
+                  "ERROR webhook_dedupe_events insert failed (command):",
+                  e
+                );
+              }
+
+              return; // ⛔ STOP — no side-effects
+            }
+          } catch (e) {
+            console.error(
+              "ERROR STAGE 6.8.2 command insert-first failed (fail-open):",
+              e
+            );
+            // fail-open: continue normal flow
+          }
+        }
 
         // ✅ /start
         if (cmdBase === "/start") {

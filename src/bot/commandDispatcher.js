@@ -27,6 +27,8 @@ import { handleIdentityLegacyTg } from "./handlers/identityLegacyTg.js";
 
 // ✅ Stage 5.16 — behavior events verification
 import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
+// ✅ Stage 5.16 — behavior events test emitter (DEV)
+import { handleBeEmit } from "./handlers/beEmit.js";
 
 import pool from "../../db.js";
 
@@ -117,21 +119,12 @@ export async function dispatchCommand(cmd, ctx) {
   // ==========================
   // PRIVATE-ONLY GATE (Stage 7 policy hardening)
   // ==========================
-  // NOTE: We intentionally block these commands in non-private chats
-  // even for monarch, to avoid leaking sensitive debug/runtime info in groups.
-  //
-  // ✅ CHANGE: stop relying on ctx.msg / ctx.message here.
-  // Router now passes: chatType, isPrivateChat, identityCtx, senderIdStr, chatIdStr.
   const chatType =
     ctx?.chatType ||
     ctx?.identityCtx?.chat_type ||
     ctx?.identityCtx?.chatType ||
     null;
 
-  // Robust private detection:
-  // 1) chatType === "private"
-  // 2) Telegram private chat usually has chat.id === from.id (works even if chatType is missing)
-  // 3) ctx.isPrivateChat (explicit) or identityCtx.isPrivateChat if provided by router
   const fromId = ctx?.senderIdStr ?? "";
 
   const effectiveChatIdStr = String(ctx?.chatIdStr ?? ctx?.chatId ?? chatId ?? "");
@@ -151,18 +144,16 @@ export async function dispatchCommand(cmd, ctx) {
     "/identity_backfill",
     "/identity_upgrade_legacy",
     "/identity_orphans",
-    // ✅ Stage 4.5 — legacy tg:* listing
     "/identity_legacy_tg",
 
-    // ✅ STAGE 4.3 — Chat Gate admin
     "/chat_on",
     "/chat_off",
     "/chat_status",
 
     // ✅ STAGE 5.16 — behavior events (keep private)
     "/behavior_events_last",
+    "/be_emit",
 
-    // ✅ STAGE 7 — Memory diagnostics (keep private)
     "/memory_status",
     "/memory_diag",
     "/memory_integrity",
@@ -190,7 +181,6 @@ export async function dispatchCommand(cmd, ctx) {
     case "/profile":
     case "/me":
     case "/whoami": {
-      // ✅ Stage 4: pass senderIdStr (msg.from.id) to enable identity-first profile lookup
       await handleProfile({
         bot,
         chatId,
@@ -237,7 +227,6 @@ export async function dispatchCommand(cmd, ctx) {
       });
     }
 
-    // ✅ STAGE 4.3 — Chat Gate admin
     case "/chat_on": {
       await handleChatSetActive({
         bot,
@@ -322,7 +311,6 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // ✅ Stage 4.5 — list legacy tg:* global_user_id users
     case "/identity_legacy_tg": {
       await handleIdentityLegacyTg({
         bot,
@@ -378,7 +366,7 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     // ==========================
-    // TASKS (Stage 2.x)
+    // TASKS
     // ==========================
 
     case "/demo_task": {
@@ -390,7 +378,7 @@ export async function dispatchCommand(cmd, ctx) {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user, // identity-first
+        user: ctx.user,
       };
 
       try {
@@ -410,7 +398,7 @@ export async function dispatchCommand(cmd, ctx) {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",
         userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user, // identity-first
+        user: ctx.user,
       };
 
       await handleTasksList({
@@ -447,7 +435,6 @@ export async function dispatchCommand(cmd, ctx) {
         user: ctx.user,
       };
 
-      // Legacy manual format: "title | note"
       if (raw.includes("|")) {
         const parts = raw.split("|").map((s) => s.trim());
         const title = parts[0] || "Новая задача";
@@ -469,7 +456,6 @@ export async function dispatchCommand(cmd, ctx) {
         return { handled: true };
       }
 
-      // New format: "<type> <json>"
       const firstSpace = raw.indexOf(" ");
       const type = (firstSpace === -1 ? raw : raw.slice(0, firstSpace)).trim();
       const jsonPart = (firstSpace === -1 ? "" : raw.slice(firstSpace + 1)).trim();
@@ -480,7 +466,6 @@ export async function dispatchCommand(cmd, ctx) {
           return { handled: true };
         }
 
-        // JSON пока парсим только для валидации/диагностики (может быть проигнорирован в createTestPriceMonitorTask)
         if (jsonPart) {
           try {
             JSON.parse(jsonPart);
@@ -512,7 +497,6 @@ export async function dispatchCommand(cmd, ctx) {
         return { handled: true };
       }
 
-      // Fallback: treat as manual title without note
       if (typeof ctx.createManualTask !== "function") {
         await bot.sendMessage(chatId, "⛔ createManualTask недоступен (ошибка wiring).");
         return { handled: true };
@@ -588,7 +572,6 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // ✅ FIX: pass bypass correctly (handler checks bypass)
     case "/stop_all_tasks": {
       await handleStopAllTasks({
         bot,
@@ -609,7 +592,7 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     // ==========================
-    // MEMORY DIAGNOSTICS (Stage 7) — ENFORCED PIPELINE
+    // MEMORY DIAGNOSTICS
     // ==========================
 
     case "/memory_status": {
@@ -656,7 +639,10 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // Stage 5 — Observability V1 (READ-ONLY)
+    // ==========================
+    // OBSERVABILITY
+    // ==========================
+
     case "/health": {
       await handleHealth({ bot, chatId });
       return { handled: true };
@@ -693,6 +679,21 @@ export async function dispatchCommand(cmd, ctx) {
         chatId,
         rest: ctx.rest,
         senderIdStr: ctx.senderIdStr,
+      });
+      return { handled: true };
+    }
+
+    // ✅ TEST EMITTER (DEV)
+    case "/be_emit": {
+      await handleBeEmit({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        senderIdStr: ctx.senderIdStr,
+        chatIdStr,
+        transport: ctx?.identityCtx?.transport || "telegram",
+        globalUserId: ctx?.user?.global_user_id ?? null,
+        bypass: !!ctx.bypass,
       });
       return { handled: true };
     }

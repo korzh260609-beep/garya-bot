@@ -1,11 +1,11 @@
 # Transport Layer — Stage 6
 
 Current state:
-- messageRouter.js remains production entry point.
-- New transport layer is SKELETON only.
-- Not connected to production flow.
+- TelegramAdapter is production entry point (TRANSPORT_ENFORCED=true).
+- messageRouter.js is NOT attached in production (kept as fallback only).
+- Transport layer remains Stage 6 SKELETON: migration is not considered complete.
 
-Target architecture (future switch):
+Architecture:
 
 Telegram webhook
   → TelegramAdapter.toContext()
@@ -14,5 +14,5 @@ Telegram webhook
   → Adapter.reply()
 
 IMPORTANT:
-Switch to new flow must be done in controlled step.
+Switching flows must be done in a controlled step.
 No partial rewiring.

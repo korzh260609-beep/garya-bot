@@ -9,10 +9,13 @@ import { makeTaskRunKey } from "../jobs/jobRunner.js";
 // ✅ Stage 5 — error_events retention purge (cooldown protected)
 import { ErrorEventsRetentionService } from "../observability/ErrorEventsRetentionService.js";
 
+// ✅ Stage 3.6 — centralized env access (no direct process.env here)
+import { envStr } from "../core/config.js";
+
 const TICK_MS = 30_000; // тик каждые 30 секунд
 
 function envTrue(name) {
-  return String(process.env[name] || "").toLowerCase() === "true";
+  return envStr(name, "").toLowerCase() === "true";
 }
 
 // ============================================================================

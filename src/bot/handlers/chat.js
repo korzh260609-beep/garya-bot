@@ -2,6 +2,8 @@
 // extracted from messageRouter.js — no logic changes (only safety-guards + token param fix + observability logs)
 //
 // STAGE 7.2 LOGIC: pass globalUserId to chat_memory (v2 columns)
+// STAGE 7 (Integrity hardening): ensure assistant replies are also saved on early-return branches
+// (timezone/deterministic/guards), otherwise /memory_integrity shows missing_assistant.
 
 import pool from "../../../db.js";
 import {
@@ -116,8 +118,36 @@ export async function handleChatMessage({
 
   const userTextHash = sha256Text(userRedactedFull);
 
+  // ==========================================================
+  // STAGE 7 — helper: store assistant reply on early-return branches
+  // Reason: without it, /memory_integrity reports missing_assistant (u=1 a=0)
+  // ==========================================================
+  const saveAssistantEarlyReturn = async (text, reason = "early_return") => {
+    try {
+      if (typeof saveMessageToMemory !== "function") return;
+      const replyText = typeof text === "string" ? text : String(text || "");
+      if (!replyText.trim()) return;
+
+      await saveMessageToMemory(chatIdStr, "assistant", replyText, {
+        globalUserId,
+        transport: "telegram",
+        metadata: {
+          senderIdStr,
+          chatIdStr,
+          messageId,
+          earlyReturn: true,
+          reason,
+        },
+        schemaVersion: 2,
+      });
+    } catch (e) {
+      console.error("ERROR saveAssistantEarlyReturn error:", e);
+    }
+  };
+
   if (directReplyText) {
     try {
+      await saveAssistantEarlyReturn(directReplyText, "directReplyText");
       await bot.sendMessage(chatId, directReplyText);
     } catch (e) {
       console.error("ERROR Telegram send error (directReplyText):", e);
@@ -126,8 +156,10 @@ export async function handleChatMessage({
   }
 
   if (!shouldCallAI) {
+    const text = "Напиши текстом, что нужно сделать.";
     try {
-      await bot.sendMessage(chatId, "Напиши текстом, что нужно сделать.");
+      await saveAssistantEarlyReturn(text, "shouldCallAI_false");
+      await bot.sendMessage(chatId, text);
     } catch (e) {
       console.error("ERROR Telegram send error (shouldCallAI):", e);
     }
@@ -393,19 +425,25 @@ export async function handleChatMessage({
     if (resolved) {
       try {
         await setUserTimezone(globalUserId, resolved);
-        await bot.sendMessage(chatId, `✅ Часовий пояс збережено: ${resolved}`);
+        const text = `✅ Часовий пояс збережено: ${resolved}`;
+        await saveAssistantEarlyReturn(text, "timezone_saved");
+        await bot.sendMessage(chatId, text);
       } catch (e) {
         console.error("ERROR setUserTimezone failed:", e);
-        await bot.sendMessage(chatId, "ERROR: Не вдалося зберегти часовий пояс. Спробуй ще раз.");
+        const text = "ERROR: Не вдалося зберегти часовий пояс. Спробуй ще раз.";
+        await saveAssistantEarlyReturn(text, "timezone_save_failed");
+        await bot.sendMessage(chatId, text);
       }
       return; // ⛔ STOP — не идём в AI
     }
 
-    await bot.sendMessage(
-      chatId,
-      "Укажи свою часову зону у форматі IANA, напр.: Europe/Kyiv. Якщо не знаєш — напиши країну і місто ще раз."
-    );
-    return; // ⛔ STOP — не идём в AI
+    {
+      const text =
+        "Укажи свою часову зону у форматі IANA, напр.: Europe/Kyiv. Якщо не знаєш — напиши країну і місто ще раз.";
+      await saveAssistantEarlyReturn(text, "timezone_ask");
+      await bot.sendMessage(chatId, text);
+      return; // ⛔ STOP — не идём в AI
+    }
   }
 
   // ==========================================================
@@ -418,7 +456,9 @@ export async function handleChatMessage({
       const formatted = timeCtx.formatForUser(nowUtc);
 
       if (formatted) {
-        await bot.sendMessage(chatId, `Зараз: ${formatted}`);
+        const text = `Зараз: ${formatted}`;
+        await saveAssistantEarlyReturn(text, "deterministic_time_now");
+        await bot.sendMessage(chatId, text);
         return;
       }
     }
@@ -436,7 +476,9 @@ export async function handleChatMessage({
       const dateOnly = timeCtx.formatDateForUser(nowUtc);
 
       if (dateOnly) {
-        await bot.sendMessage(chatId, `Сьогодні: ${dateOnly}`);
+        const text = `Сьогодні: ${dateOnly}`;
+        await saveAssistantEarlyReturn(text, "deterministic_current_date");
+        await bot.sendMessage(chatId, text);
         return; // ⛔ запрет AI
       }
     }
@@ -472,7 +514,9 @@ export async function handleChatMessage({
       const dateOnly = timeCtx.formatDateForUser(d);
 
       if (dateOnly) {
-        await bot.sendMessage(chatId, `Дата: ${dateOnly}`);
+        const text = `Дата: ${dateOnly}`;
+        await saveAssistantEarlyReturn(text, "deterministic_calendar_date");
+        await bot.sendMessage(chatId, text);
         return; // ⛔ STOP — deterministic answer
       }
 
@@ -484,7 +528,9 @@ export async function handleChatMessage({
         day: "numeric",
       }).format(d);
 
-      await bot.sendMessage(chatId, `По UTC это ${dateLabel}.`);
+      const text = `По UTC это ${dateLabel}.`;
+      await saveAssistantEarlyReturn(text, "deterministic_calendar_date_fallback_utc");
+      await bot.sendMessage(chatId, text);
       return;
     }
   } catch (e) {
@@ -508,7 +554,9 @@ export async function handleChatMessage({
 
       if (recallLines < 4) {
         try {
-          await bot.sendMessage(chatId, "В памяти нет данных за этот период.");
+          const text = "В памяти нет данных за этот период.";
+          await saveAssistantEarlyReturn(text, "guard_recall_too_weak");
+          await bot.sendMessage(chatId, text);
         } catch (e) {
           console.error("ERROR Guard send error:", e);
         }
@@ -542,6 +590,8 @@ export async function handleChatMessage({
 
   // ==========================================================
   // STAGE 8B.5 — Output format tightening (UTC default)
+  // NOTE: This is a non-terminal hint (we continue to AI).
+  // DO NOT store to chat_memory with same messageId, otherwise we create multi_assistant anomalies.
   // ==========================================================
   if (softReaction === true) {
     try {
@@ -650,8 +700,7 @@ export async function handleChatMessage({
 
   // ✅ STAGE 5.16 — detect clarification_asked
   try {
-    const _looksLikeClarification =
-      typeof aiReply === "string" && aiReply.trim().endsWith("?");
+    const _looksLikeClarification = typeof aiReply === "string" && aiReply.trim().endsWith("?");
     if (_looksLikeClarification) {
       const _be = new BehaviorEventsService();
       await _be.logEvent({

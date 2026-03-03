@@ -206,6 +206,63 @@ export class MemoryDiagnosticsService {
         [chatIdStr]
       );
 
+      // ✅ STAGE 7 — summary counts by anomaly type (unmatched / overcount)
+      const anomCountRes = await this.db.query(
+        `
+        WITH msgs AS (
+          SELECT
+            (metadata->>'messageId') AS mid,
+            role,
+            content
+          FROM chat_memory
+          WHERE chat_id = $1
+            AND metadata ? 'messageId'
+            AND (metadata->>'messageId') ~ '^[0-9]+$'
+            AND NOT (role='user' AND content LIKE '/%')
+        ),
+        g AS (
+          SELECT
+            mid,
+            SUM(CASE WHEN role='user' THEN 1 ELSE 0 END)::int AS u,
+            SUM(CASE WHEN role='assistant' THEN 1 ELSE 0 END)::int AS a,
+            COUNT(*)::int AS total
+          FROM msgs
+          GROUP BY 1
+        )
+        SELECT
+          SUM(CASE WHEN u=1 AND a=0 THEN 1 ELSE 0 END)::int AS missing_assistant,
+          SUM(CASE WHEN u=0 AND a=1 THEN 1 ELSE 0 END)::int AS missing_user,
+          SUM(CASE WHEN u>1 AND a=1 THEN 1 ELSE 0 END)::int AS multi_user,
+          SUM(CASE WHEN u=1 AND a>1 THEN 1 ELSE 0 END)::int AS multi_assistant,
+          SUM(CASE WHEN NOT (u=1 AND a=1 AND total=2) THEN 1 ELSE 0 END)::int AS total_anom
+        FROM g
+        `,
+        [chatIdStr]
+      );
+
+      // ✅ STAGE 7 — assistant duplicates specifically (same messageId + role=assistant)
+      const assistantDupRes = await this.db.query(
+        `
+        WITH msgs AS (
+          SELECT
+            (metadata->>'messageId') AS mid,
+            role
+          FROM chat_memory
+          WHERE chat_id = $1
+            AND metadata ? 'messageId'
+            AND (metadata->>'messageId') ~ '^[0-9]+$'
+            AND role = 'assistant'
+        )
+        SELECT mid, COUNT(*)::int AS cnt
+        FROM msgs
+        GROUP BY 1
+        HAVING COUNT(*) > 1
+        ORDER BY cnt DESC, mid DESC
+        LIMIT 15
+        `,
+        [chatIdStr]
+      );
+
       const mids = (anomRes.rows || []).map((r) => r.mid).filter(Boolean);
       let previewRows = [];
       if (mids.length > 0) {
@@ -249,7 +306,26 @@ export class MemoryDiagnosticsService {
       lines.push("NOTE: commands '/...' are excluded from pairing check ✅");
       lines.push("");
 
-      lines.push("1) Duplicates (same messageId + role, cnt>1):");
+      const anomCounts = anomCountRes.rows?.[0] || {};
+      lines.push("0) Summary (by messageId):");
+      lines.push(`total_anom: ${anomCounts.total_anom ?? 0}`);
+      lines.push(`missing_assistant (u=1 a=0): ${anomCounts.missing_assistant ?? 0}`);
+      lines.push(`missing_user      (u=0 a=1): ${anomCounts.missing_user ?? 0}`);
+      lines.push(`multi_user        (u>1): ${anomCounts.multi_user ?? 0}`);
+      lines.push(`multi_assistant   (a>1): ${anomCounts.multi_assistant ?? 0}`);
+      lines.push("");
+
+      lines.push("1) Assistant duplicates (same messageId, role=assistant, cnt>1):");
+      if ((assistantDupRes.rows || []).length === 0) {
+        lines.push("OK: none ✅");
+      } else {
+        for (const r of assistantDupRes.rows) {
+          lines.push(`mid=${r.mid} | role=assistant | cnt=${r.cnt}`);
+        }
+      }
+      lines.push("");
+
+      lines.push("2) Duplicates (same messageId + role, cnt>1):");
       if ((dupRes.rows || []).length === 0) {
         lines.push("OK: none ✅");
       } else {
@@ -259,7 +335,7 @@ export class MemoryDiagnosticsService {
       }
       lines.push("");
 
-      lines.push("2) Pair anomalies (expected u=1 a=1 total=2):");
+      lines.push("3) Pair anomalies (expected u=1 a=1 total=2):");
       if ((anomRes.rows || []).length === 0) {
         lines.push("OK: none ✅");
       } else {

@@ -24,7 +24,11 @@ import { handleIdentityUpgradeLegacy } from "./handlers/identityUpgradeLegacy.js
 import { handleIdentityOrphans } from "./handlers/identityOrphans.js";
 // ✅ Stage 4.5 — list legacy tg:* users
 import { handleIdentityLegacyTg } from "./handlers/identityLegacyTg.js";
+
 import pool from "../../db.js";
+
+// ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
+import { MemoryDiagnosticsService } from "../core/MemoryDiagnosticsService.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
 import { handleUsersStats } from "./handlers/usersStats.js";
@@ -37,6 +41,9 @@ import { handleChatStatus } from "./handlers/chatStatus.js";
 // ✅ Stage 5–6: manual /run must write task_runs via JobRunner
 import { jobRunner } from "../jobs/jobRunnerInstance.js";
 import { makeTaskRunKey } from "../jobs/jobRunner.js";
+
+// ✅ Singleton service (safe: no side-effects)
+const memoryDiagSvc = new MemoryDiagnosticsService();
 
 /**
  * Backward-compatible dispatcher.
@@ -142,6 +149,13 @@ export async function dispatchCommand(cmd, ctx) {
     "/chat_on",
     "/chat_off",
     "/chat_status",
+
+    // ✅ STAGE 7 — Memory diagnostics (keep private)
+    "/memory_status",
+    "/memory_diag",
+    "/memory_integrity",
+    "/memory_backfill",
+    "/memory_user_chats",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
@@ -554,6 +568,54 @@ export async function dispatchCommand(cmd, ctx) {
         chatIdStr,
         rest: ctx.rest,
       });
+      return { handled: true };
+    }
+
+    // ==========================
+    // MEMORY DIAGNOSTICS (Stage 7) — ENFORCED PIPELINE
+    // ==========================
+
+    case "/memory_status": {
+      const cols = await memoryDiagSvc.getChatMemoryV2Columns();
+      await bot.sendMessage(
+        chatId,
+        [
+          "🧪 MEMORY STATUS",
+          `global_user_id: ${cols.global_user_id ? "true ✅" : "false ⛔"}`,
+          `transport: ${cols.transport ? "true ✅" : "false ⛔"}`,
+          `metadata: ${cols.metadata ? "true ✅" : "false ⛔"}`,
+          `schema_version: ${cols.schema_version ? "true ✅" : "false ⛔"}`,
+        ].join("\n")
+      );
+      return { handled: true };
+    }
+
+    case "/memory_diag": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const text = await memoryDiagSvc.memoryDiag({ chatIdStr, globalUserId });
+      await bot.sendMessage(chatId, text);
+      return { handled: true };
+    }
+
+    case "/memory_integrity": {
+      const text = await memoryDiagSvc.memoryIntegrity({ chatIdStr });
+      await bot.sendMessage(chatId, text);
+      return { handled: true };
+    }
+
+    case "/memory_backfill": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const limitStr = String(ctx?.rest || "").trim();
+      const limit = limitStr ? Number(limitStr) : 200;
+      const text = await memoryDiagSvc.memoryBackfill({ chatIdStr, globalUserId, limit });
+      await bot.sendMessage(chatId, text);
+      return { handled: true };
+    }
+
+    case "/memory_user_chats": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const text = await memoryDiagSvc.memoryUserChats({ globalUserId });
+      await bot.sendMessage(chatId, text);
       return { handled: true };
     }
 

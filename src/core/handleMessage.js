@@ -29,6 +29,10 @@ import { parseCommand } from "../../core/helpers.js";
 // ✅ STAGE 3.5 — RateLimit (V1, in-memory, per instance)
 import { checkRateLimit } from "../bot/rateLimiter.js";
 
+// ✅ STAGE 5.16 — Behavior events (observability)
+import { BehaviorEventsService } from "../logging/BehaviorEventsService.js";
+const behaviorEvents = new BehaviorEventsService();
+
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // ============================================================================
@@ -234,6 +238,25 @@ export async function handleMessage(context = {}) {
       });
 
       if (!rl.allowed) {
+        // ✅ STAGE 5.16 — behavior_events: rate_limited
+        try {
+          await behaviorEvents.logEvent({
+            globalUserId: globalUserId || null,
+            chatId: chatIdStr,
+            transport,
+            eventType: "rate_limited",
+            metadata: {
+              cmd: cmdBase,
+              windowMs: CMD_RL_WINDOW_MS,
+              max: CMD_RL_MAX,
+              senderId: senderId || null,
+            },
+            schemaVersion: 1,
+          });
+        } catch (e) {
+          console.error("handleMessage(rate_limited logEvent) failed:", e);
+        }
+
         const sec = Math.ceil(rl.retryAfterMs / 1000);
         await deps.reply(context, `⛔ Слишком часто. Подожди ${sec} сек.`);
         return { ok: true, stage: "3.5", result: "rate_limited", cmdBase };
@@ -241,6 +264,25 @@ export async function handleMessage(context = {}) {
     }
 
     if (!canProceed) {
+      // ✅ STAGE 5.16 — behavior_events: permission_denied
+      try {
+        await behaviorEvents.logEvent({
+          globalUserId: globalUserId || null,
+          chatId: chatIdStr,
+          transport,
+          eventType: "permission_denied",
+          metadata: {
+            cmd: cmdBase,
+            userRole,
+            userPlan,
+            senderId: senderId || null,
+          },
+          schemaVersion: 1,
+        });
+      } catch (e) {
+        console.error("handleMessage(permission_denied logEvent) failed:", e);
+      }
+
       await deps.reply(context, "⛔ Недостаточно прав.");
       return { ok: true, stage: "6.logic.2", result: "permission_denied", cmdBase };
     }

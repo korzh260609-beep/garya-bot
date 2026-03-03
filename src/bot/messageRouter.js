@@ -1535,9 +1535,21 @@ export function attachMessageRouter({
         }
       };
 
+      // ✅ STAGE 7 — deterministic save (assistant pairing)
+      // IMPORTANT: enforce metadata.messageId for assistant save
       const saveChatPair = async (chatIdStr2, _userText, assistantText, opts = {}) => {
         try {
-          const meta = opts?.metadata ?? {};
+          const meta = { ...(opts?.metadata ?? {}) };
+
+          // ✅ ENFORCE: messageId must exist for pairing integrity
+          if (
+            meta.messageId === undefined ||
+            meta.messageId === null ||
+            String(meta.messageId).trim() === ""
+          ) {
+            meta.messageId = msg?.message_id ?? null;
+          }
+
           return await memory.write({
             chatId: String(chatIdStr2 || ""),
             globalUserId: opts?.globalUserId ?? globalUserId ?? null,

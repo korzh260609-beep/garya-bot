@@ -52,4 +52,7 @@ export async function ensureTables() {
 
   // Webhook dedupe observability (Stage 7B.7)
   await assertTableExists("webhook_dedupe_events");
+
+  // Command idempotency (Stage 6.8.2)
+  await assertTableExists("command_invocations");
 }

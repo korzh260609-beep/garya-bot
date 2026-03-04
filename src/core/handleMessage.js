@@ -1,47 +1,36 @@
 // src/core/handleMessage.js
 // STAGE 6.4 — handleMessage(context) — Core entrypoint for any transport.
-//
-// Evolution:
-//   v1: SKELETON — derived chat meta only
-//   v2: STAGE 7.1 — Memory shadow write
-//   v3: STAGE 6 LOGIC STEP 1 — Access check + identity resolution (shadow-safe)
-//   v4: STAGE 6 LOGIC STEP 2 — Routing (command vs message), reply via adapter
-//
-// IMPORTANT:
-//   Shadow-wired when deps.reply / deps.callAI are not provided.
-//   TRANSPORT_ENFORCED=false by default — old messageRouter remains authoritative.
-//   When deps are provided (enforced mode), this function produces real replies.
 
 import { deriveChatMeta } from "./transportMeta.js";
 import { isTransportTraceEnabled } from "../transport/transportConfig.js";
 import { getMemoryService } from "./memoryServiceFactory.js";
 
-// ✅ STAGE 6 LOGIC — Access + Identity
 import { resolveUserAccess } from "../users/userAccess.js";
 import { ensureUserProfile } from "../users/userProfile.js";
 import { can } from "../users/permissions.js";
+
 import { envStr, envIntRange } from "./config.js";
 
-// ✅ STAGE 6 LOGIC — Routing helpers
 import { CMD_ACTION } from "../bot/cmdActionMap.js";
 import { parseCommand } from "../../core/helpers.js";
 
-// ✅ STAGE 3.5 — RateLimit (V1, in-memory, per instance)
 import { checkRateLimit } from "../bot/rateLimiter.js";
 
-// ✅ STAGE 5.16 — Behavior events (observability)
 import { BehaviorEventsService } from "../logging/BehaviorEventsService.js";
+
+import { insertCommandInvocation } from "../db/commandInvocationsRepo.js";
+
 const behaviorEvents = new BehaviorEventsService();
 
-// ============================================================================
-// Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
-// ============================================================================
-// Default: 6 commands / 20 sec for non-monarch
 const CMD_RL_WINDOW_MS = envIntRange("CMD_RL_WINDOW_MS", 20000, {
   min: 1000,
   max: 300000,
 });
-const CMD_RL_MAX = envIntRange("CMD_RL_MAX", 6, { min: 1, max: 50 });
+
+const CMD_RL_MAX = envIntRange("CMD_RL_MAX", 6, {
+  min: 1,
+  max: 50,
+});
 
 function envBool(name, def = false) {
   const v = envStr(name, def ? "true" : "false").trim().toLowerCase();
@@ -57,10 +46,10 @@ export async function handleMessage(context = {}) {
   const text = context?.text == null ? "" : String(context.text);
   const messageId = context?.messageId == null ? null : String(context.messageId);
 
-  // deps — injected by adapter for real mode; absent in shadow mode
   const deps = context?.deps || null;
   const hasReply = typeof deps?.reply === "function";
   const hasCallAI = typeof deps?.callAI === "function";
+
   const isEnforced = hasReply && hasCallAI;
 
   let globalUserId =
@@ -79,10 +68,34 @@ export async function handleMessage(context = {}) {
       ? context.isPrivateChat
       : derived.isPrivateChat;
 
-  // =========================================================================
-  // STAGE 6 LOGIC STEP 1 — Identity + Access
-  // =========================================================================
-  let accessPack = null;
+  // -------------------------------------------------------------------------
+  // STAGE 6.8 — Idempotency guard (transport-level)
+  // -------------------------------------------------------------------------
+  if (isEnforced) {
+    const dedupeKey = context?.dedupeKey || null;
+
+    if (!dedupeKey || !messageId) {
+      if (isTransportTraceEnabled()) {
+        console.warn("ENFORCED_DROP_NO_DEDUPE", {
+          transport,
+          chatId,
+          senderId,
+          messageId,
+          dedupeKey,
+        });
+      }
+
+      return {
+        ok: false,
+        reason: "missing_dedupeKey",
+        stage: "6.8",
+      };
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Identity + Access
+  // -------------------------------------------------------------------------
   let userRole = "guest";
   let userPlan = "free";
   let user = { role: "guest", plan: "free", global_user_id: null };
@@ -93,16 +106,15 @@ export async function handleMessage(context = {}) {
         await ensureUserProfile(context.raw);
       }
     } catch (e) {
-      console.error("handleMessage(ensureUserProfile) failed:", e);
+      console.error("ensureUserProfile failed:", e);
     }
 
     try {
       const MONARCH_USER_ID = envStr("MONARCH_USER_ID", "").trim();
-      const isMonarchFn = (id) => String(id || "") === MONARCH_USER_ID;
 
-      accessPack = await resolveUserAccess({
+      const accessPack = await resolveUserAccess({
         senderIdStr: senderId,
-        isMonarch: isMonarchFn,
+        isMonarch: (id) => String(id || "") === MONARCH_USER_ID,
         provider: transport,
       });
 
@@ -114,23 +126,20 @@ export async function handleMessage(context = {}) {
         globalUserId = user.global_user_id;
       }
     } catch (e) {
-      console.error("handleMessage(resolveUserAccess) failed:", e);
+      console.error("resolveUserAccess failed:", e);
     }
   }
 
   const isMonarchUser = userRole === "monarch";
 
-  // =========================================================================
-  // STAGE 6 LOGIC STEP 2 — Routing
-  // =========================================================================
   const trimmed = text.trim();
   const isCommand = trimmed.startsWith("/");
   const parsed = isCommand ? parseCommand(trimmed) : null;
   const cmdBase = parsed ? String(parsed.cmd).split("@")[0] : null;
   const rest = parsed?.rest || "";
 
-  // Permission check for commands
   let canProceed = true;
+
   if (isCommand && cmdBase) {
     const action = CMD_ACTION[cmdBase];
     if (action) {
@@ -138,87 +147,42 @@ export async function handleMessage(context = {}) {
     }
   }
 
-  // =========================================================================
-  // Trace log
-  // =========================================================================
-  try {
-    if (isTransportTraceEnabled()) {
-      console.log("📨 handleMessage(v4)", {
+  // -------------------------------------------------------------------------
+  // COMMAND IDEMPOTENCY (Stage 6.8.2)
+  // -------------------------------------------------------------------------
+  if (isCommand && cmdBase && chatId && messageId) {
+    try {
+      const ins = await insertCommandInvocation({
         transport,
         chatId,
-        senderId,
-        globalUserId,
-        chatType,
-        isPrivateChat,
-        isMonarchUser,
-        userRole,
-        isCommand,
-        cmdBase,
-        canProceed,
-        isEnforced,
-      });
-    }
-  } catch {
-    // ignore
-  }
-
-  // =========================================================================
-  // STAGE 7.1 — Memory shadow write
-  //
-  // 🚫 IMPORTANT:
-  // Shadow mode currently DOES NOT generate assistant replies.
-  // If we write only user messages here, /memory_integrity will show u=1 a=0 anomalies.
-  //
-  // ✅ Therefore: shadow write is OFF by default.
-  // Enable ONLY when you intentionally want shadow writes:
-  //   MEMORY_SHADOW_WRITE=true
-  // =========================================================================
-  try {
-    const memory = getMemoryService();
-    const enabled = Boolean(memory?.config?.enabled);
-    const shadowWriteEnabled = envBool("MEMORY_SHADOW_WRITE", false);
-
-    if (!isEnforced && enabled && shadowWriteEnabled && chatId && messageId && text) {
-      await memory.write({
-        chatId,
+        messageId: Number(messageId),
+        cmd: cmdBase,
         globalUserId: globalUserId || null,
-        role: "user",
-        content: text,
-        transport,
-        metadata: {
-          messageId,
-          source: "core.handleMessage.shadow",
-          chatType,
-          isPrivateChat,
-        },
-        schemaVersion: 2,
+        senderId,
+        metadata: { source: "core.handleMessage" },
       });
+
+      if (!ins?.inserted) {
+        return {
+          ok: true,
+          stage: "6.8.2",
+          result: "duplicate_command_drop",
+          cmdBase,
+        };
+      }
+    } catch (e) {
+      console.error("command idempotency guard failed:", e);
     }
-  } catch (e) {
-    console.error("handleMessage(memory shadow) failed:", e);
   }
 
-  // =========================================================================
-  // ROUTING — only when enforced (deps provided)
-  // Shadow mode: compute routing but don't act
-  // =========================================================================
   if (!isEnforced) {
     return {
       ok: true,
-      stage: "6.logic.2",
-      note: "routing computed (shadow). deps not provided — no reply.",
-      transport,
-      userRole,
-      isMonarchUser,
-      isCommand,
-      cmdBase,
-      canProceed,
+      stage: "6.shadow",
+      note: "shadow mode",
     };
   }
 
-  // =========================================================================
-  // ENFORCED MODE — real routing + reply
-  // =========================================================================
   const chatIdNum = chatId ? Number(chatId) : null;
   const chatIdStr = chatId || "";
 
@@ -226,11 +190,13 @@ export async function handleMessage(context = {}) {
     return { ok: false, reason: "missing_chatId" };
   }
 
-  // --- COMMAND ROUTING ---
+  // -------------------------------------------------------------------------
+  // COMMAND ROUTING
+  // -------------------------------------------------------------------------
   if (isCommand && cmdBase) {
-    // ✅ Stage 3.5 — apply RL to ALL commands (except /start, /help). Monarch bypass.
     if (!isMonarchUser && cmdBase !== "/start" && cmdBase !== "/help") {
       const rlKey = `${senderId || ""}:${chatIdStr}:cmd`;
+
       const rl = checkRateLimit({
         key: rlKey,
         windowMs: CMD_RL_WINDOW_MS,
@@ -238,173 +204,57 @@ export async function handleMessage(context = {}) {
       });
 
       if (!rl.allowed) {
-        // ✅ STAGE 5.16 — behavior_events: rate_limited
-        try {
-          await behaviorEvents.logEvent({
-            globalUserId: globalUserId || null,
-            chatId: chatIdStr,
-            transport,
-            eventType: "rate_limited",
-            metadata: {
-              cmd: cmdBase,
-              windowMs: CMD_RL_WINDOW_MS,
-              max: CMD_RL_MAX,
-              senderId: senderId || null,
-            },
-            schemaVersion: 1,
-          });
-        } catch (e) {
-          console.error("handleMessage(rate_limited logEvent) failed:", e);
-        }
-
         const sec = Math.ceil(rl.retryAfterMs / 1000);
+
         await deps.reply(context, `⛔ Слишком часто. Подожди ${sec} сек.`);
-        return { ok: true, stage: "3.5", result: "rate_limited", cmdBase };
+
+        return { ok: true, result: "rate_limited", cmdBase };
       }
     }
 
     if (!canProceed) {
-      // ✅ STAGE 5.16 — behavior_events: permission_denied
-      try {
-        await behaviorEvents.logEvent({
-          globalUserId: globalUserId || null,
-          chatId: chatIdStr,
-          transport,
-          eventType: "permission_denied",
-          metadata: {
-            cmd: cmdBase,
-            userRole,
-            userPlan,
-            senderId: senderId || null,
-          },
-          schemaVersion: 1,
-        });
-      } catch (e) {
-        console.error("handleMessage(permission_denied logEvent) failed:", e);
-      }
-
       await deps.reply(context, "⛔ Недостаточно прав.");
-      return { ok: true, stage: "6.logic.2", result: "permission_denied", cmdBase };
+      return { ok: true, result: "permission_denied", cmdBase };
     }
 
     if (typeof deps?.dispatchCommand === "function") {
-      try {
-        const dispatchCtx = {
-          bot: deps.bot || null,
-          chatId: chatIdNum,
-          chatIdStr,
-          senderIdStr: senderId || "",
-          rest,
-          user,
-          userRole,
-          userPlan,
-          bypass: isMonarchUser,
-          chatType,
-          isPrivateChat,
-          identityCtx: {
-            transport,
-            senderIdStr: senderId || "",
-            chatIdStr,
-            chatType,
-            isPrivateChat,
-            isMonarchUser,
-          },
-          getAnswerMode: deps.getAnswerMode,
-          setAnswerMode: deps.setAnswerMode,
-          callAI: deps.callAI,
-          logInteraction: deps.logInteraction,
-          getCoinGeckoSimplePriceById: deps.getCoinGeckoSimplePriceById,
-          getCoinGeckoSimplePriceMulti: deps.getCoinGeckoSimplePriceMulti,
-          getUserTasks: deps.getUserTasks,
-          getTaskById: deps.getTaskById,
-          runTaskWithAI: deps.runTaskWithAI,
-          updateTaskStatus: deps.updateTaskStatus,
-          createDemoTask: deps.createDemoTask,
-          createManualTask: deps.createManualTask,
-          createTestPriceMonitorTask: deps.createTestPriceMonitorTask,
-        };
-
-        const result = await deps.dispatchCommand(cmdBase, dispatchCtx);
-        if (result?.handled) {
-          return { ok: true, stage: "6.logic.2", result: "command_handled", cmdBase };
-        }
-      } catch (e) {
-        console.error("handleMessage(dispatchCommand) failed:", e);
-        await deps.reply(context, "⛔ Ошибка при выполнении команды.");
-        return { ok: false, reason: "dispatch_error", cmdBase };
-      }
-    }
-
-    // Unknown command — silent drop (matches messageRouter behaviour)
-    return { ok: true, stage: "6.logic.2", result: "unknown_command", cmdBase };
-  }
-
-  // --- MESSAGE ROUTING (non-command) ---
-  if (typeof deps?.handleChatMessage === "function") {
-    try {
-      const memory = getMemoryService();
-
-      // ✅ Real writers for enforced mode (fix pair anomalies):
-      // - user message written by handleChatMessage via saveMessageToMemory
-      // - assistant message written via saveChatPair (assistant-only, same messageId)
-      const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
-        return memory.write({
-          chatId: chatIdStr2,
-          globalUserId: opts?.globalUserId ?? globalUserId ?? null,
-          role,
-          content: String(content ?? ""),
-          transport: opts?.transport ?? transport,
-          metadata: opts?.metadata ?? {},
-          schemaVersion: opts?.schemaVersion ?? 2,
-        });
-      };
-
-      const saveChatPair = async (chatIdStr2, _userText, assistantText, opts = {}) => {
-        // IMPORTANT: write ONLY assistant to avoid double-writing user
-        const meta = opts?.metadata ?? {};
-        return memory.write({
-          chatId: chatIdStr2,
-          globalUserId: opts?.globalUserId ?? globalUserId ?? null,
-          role: "assistant",
-          content: String(assistantText ?? ""),
-          transport: opts?.transport ?? transport,
-          metadata: meta,
-          schemaVersion: opts?.schemaVersion ?? 2,
-        });
-      };
-
-      await deps.handleChatMessage({
+      const result = await deps.dispatchCommand(cmdBase, {
         bot: deps.bot,
-        msg: context.raw,
         chatId: chatIdNum,
         chatIdStr,
         senderIdStr: senderId || "",
-        globalUserId,
-        trimmed,
-        MAX_HISTORY_MESSAGES: deps.MAX_HISTORY_MESSAGES || 20,
-
-        FileIntake: deps.FileIntake,
-
-        getChatHistory: deps.getChatHistory,
-        saveMessageToMemory,
-        saveChatPair,
-
-        logInteraction: deps.logInteraction,
-        loadProjectContext: deps.loadProjectContext,
-        getAnswerMode: deps.getAnswerMode,
-        buildSystemPrompt: deps.buildSystemPrompt,
-
-        isMonarch: (id) => String(id || "") === envStr("MONARCH_USER_ID", ""),
-
-        callAI: deps.callAI,
-        sanitizeNonMonarchReply: deps.sanitizeNonMonarchReply,
+        rest,
+        user,
+        userRole,
+        userPlan,
+        bypass: isMonarchUser,
       });
 
-      return { ok: true, stage: "6.logic.2", result: "chat_handled" };
-    } catch (e) {
-      console.error("handleMessage(handleChatMessage) failed:", e);
-      return { ok: false, reason: "chat_error" };
+      if (result?.handled) {
+        return { ok: true, result: "command_handled", cmdBase };
+      }
     }
+
+    return { ok: true, result: "unknown_command", cmdBase };
+  }
+
+  // -------------------------------------------------------------------------
+  // CHAT MESSAGE ROUTING
+  // -------------------------------------------------------------------------
+  if (typeof deps?.handleChatMessage === "function") {
+    await deps.handleChatMessage({
+      bot: deps.bot,
+      msg: context.raw,
+      chatId: chatIdNum,
+      chatIdStr,
+      senderIdStr: senderId || "",
+      globalUserId,
+      trimmed,
+      MAX_HISTORY_MESSAGES: deps.MAX_HISTORY_MESSAGES || 20,
+      callAI: deps.callAI,
+    });
+
+    return { ok: true, result: "chat_handled" };
   }
 
   return { ok: false, reason: "no_handler" };

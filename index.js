@@ -5,10 +5,13 @@
 import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 import { attachMessageRouter } from "./src/bot/messageRouter.js";
 
-// ✅ STAGE 6 LOGIC STEP 3 — TelegramAdapter (attach when TRANSPORT_ENFORCED=true)
+// ✅ TelegramAdapter
 import { TelegramAdapter } from "./src/transport/telegramAdapter.js";
 
-// ✅ Stage 6 — transport enforced flag (single authoritative handler)
+// ✅ STAGE 6.9 — deps factory (core wiring, not transport)
+import { buildCoreDeps } from "./src/core/coreDepsFactory.js";
+
+// ✅ Stage 6 — transport enforced flag
 import { isTransportEnforced } from "./src/transport/transportConfig.js";
 
 import { createApp, startHttpServer } from "./src/http/server.js";
@@ -16,40 +19,37 @@ import { initSystem } from "./src/bootstrap/initSystem.js";
 
 import { getSystemHealth } from "./core/helpers.js";
 
-// ✅ FIX: подключаем callAI и передаём в messageRouter
+// AI
 import { callAI } from "./ai.js";
 
-// ✅ Project Memory write API (needed for /pm_set and /build_info autosave)
+// Project memory
 import { upsertProjectSection } from "./projectMemory.js";
 
-// ✅ 2.7 JOB QUEUE / WORKERS (SKELETON) — singleton (no circular imports)
+// Job runner
 import { jobRunner } from "./src/jobs/jobRunnerInstance.js";
 export { jobRunner };
 
-// ✅ ROBOT-LAYER loop (mock)
+// Robot loop
 import { startRobotLoop } from "./src/robot/robotMock.js";
 
-// ✅ Stage 3.6: centralized env access (no direct process.env here)
+// Env
 import { envInt, envStr } from "./src/core/config.js";
 
 // ============================================================================
-// === CONSTANTS / CONFIG ===
+// CONFIG
 // ============================================================================
 const MAX_HISTORY_MESSAGES = 20;
 
-// MONARCH only from ENV (Stage 4 — identity-first, no fallback)
 const MONARCH_USER_ID = envStr("MONARCH_USER_ID", "").trim();
-
-// Plans placeholder
 const DEFAULT_PLAN = "free";
 
 // ============================================================================
-// === JOB RUNNER (2.7 SKELETON) ===
+// JOB RUNNER
 // ============================================================================
 console.log("🧩 JobRunner initialized (singleton).");
 
 // ============================================================================
-// === EXPRESS SERVER ===
+// EXPRESS SERVER
 // ============================================================================
 const app = createApp();
 const bot = initTelegramTransport(app);
@@ -61,7 +61,7 @@ app.get("/health", (req, res) => {
 });
 
 // ============================================================================
-// === START SERVER + INIT SYSTEM ===
+// START SERVER
 // ============================================================================
 startHttpServer(app, PORT);
 
@@ -69,7 +69,6 @@ startHttpServer(app, PORT);
   try {
     await initSystem({ bot });
 
-    // ✅ START ROBOT LOOP (needed to produce task_runs)
     startRobotLoop(bot);
     console.log("🤖 Robot loop started.");
   } catch (e) {
@@ -78,10 +77,10 @@ startHttpServer(app, PORT);
 })();
 
 // ============================================================================
-// === MAIN HANDLER (EXTRACTED) ===
+// MAIN HANDLER
 // ============================================================================
 
-// ✅ STAGE 6 — choose SINGLE authoritative message handler
+// Router only when transport NOT enforced
 if (!isTransportEnforced()) {
   attachMessageRouter({
     bot,
@@ -95,8 +94,28 @@ if (!isTransportEnforced()) {
   );
 }
 
-// ✅ STAGE 6 — TelegramAdapter (no-op when TRANSPORT_ENFORCED=false)
-const telegramAdapter = new TelegramAdapter({ bot, callAI, MAX_HISTORY_MESSAGES });
+// ============================================================================
+// TELEGRAM ADAPTER
+// ============================================================================
+
+const telegramAdapter = new TelegramAdapter({
+  bot,
+  callAI,
+  MAX_HISTORY_MESSAGES,
+});
+
+// reply wrapper (adapter reply)
+const reply = (ctx, text) => telegramAdapter.reply(ctx, text);
+
+// build deps in CORE layer (not transport)
+telegramAdapter.deps = buildCoreDeps({
+  bot,
+  callAI,
+  reply,
+  MAX_HISTORY_MESSAGES,
+});
+
+// attach adapter
 telegramAdapter.attach();
 
 console.log("🤖 SG (GARYA AI Bot) работает…");

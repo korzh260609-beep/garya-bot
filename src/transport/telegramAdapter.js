@@ -1,64 +1,32 @@
 // src/transport/telegramAdapter.js
-// STAGE 6.4 — TelegramAdapter
+// STAGE 6.4 — TelegramAdapter (THIN)
 //
-// Evolution:
-//   v1: SKELETON — toContext() + reply() contract only
-//   v2: STAGE 6 LOGIC STEP 3 — deps injection + attach() method
-//
-// attach() wires bot.on("message") -> handleMessage(context + deps)
-// This replaces attachMessageRouter() when TRANSPORT_ENFORCED=true.
-//
-// TRANSPORT RULES (hard):
-//   - Adapter is THIN: normalize raw event -> UnifiedContext + deps, then delegate to core
-//   - Adapter MUST NOT: check permissions, write memory, call AI directly, run tasks
-//   - All business logic lives in handleMessage (core)
+// Rules (hard):
+// - Adapter is THIN: normalize raw event -> UnifiedContext -> CoreContext, then delegate to core
+// - Adapter MUST NOT: check permissions, write memory, call AI directly, run tasks
+// - All business logic lives in core.handleMessage (and below)
 
 import { TransportAdapter } from "./TransportAdapter.js";
 import { createUnifiedContext } from "./unifiedContext.js";
 import { toCoreContextFromUnified } from "./toCoreContext.js";
 import { isTransportEnforced } from "./transportConfig.js";
 
-// ✅ STAGE 6.8.2 — command idempotency (DB guard)
-import { insertCommandInvocation } from "../db/commandInvocationsRepo.js";
-
 // Core entrypoint
 import { handleMessage } from "../core/handleMessage.js";
-
-// Deps that adapter assembles and injects into context
-import { dispatchCommand } from "../bot/commandDispatcher.js";
-import { handleChatMessage } from "../bot/handlers/chat.js";
-import { getChatHistory } from "../bot/memory/memoryBridge.js";
-import { getAnswerMode, setAnswerMode } from "../../core/answerMode.js";
-import { loadProjectContext } from "../../core/projectContext.js";
-import { buildSystemPrompt } from "../../systemPrompt.js";
-import { logInteraction } from "../logging/interactionLogs.js";
-import { sanitizeNonMonarchReply } from "../../core/helpers.js";
-import * as FileIntake from "../media/fileIntake.js";
-import {
-  getCoinGeckoSimplePriceById,
-  getCoinGeckoSimplePriceMulti,
-} from "../sources/coingecko/index.js";
-import {
-  createDemoTask,
-  createManualTask,
-  createTestPriceMonitorTask,
-  getUserTasks,
-  getTaskById,
-  runTaskWithAI,
-  updateTaskStatus,
-} from "../tasks/taskEngine.js";
 
 export class TelegramAdapter extends TransportAdapter {
   /**
    * @param {object} opts
-   * @param {object} opts.bot     — node-telegram-bot-api instance
+   * @param {object} opts.bot      — node-telegram-bot-api instance
    * @param {Function} opts.callAI — AI call function
+   * @param {object} opts.deps     — deps object for core (built outside transport)
    * @param {number} [opts.MAX_HISTORY_MESSAGES]
    */
-  constructor({ bot, callAI, MAX_HISTORY_MESSAGES = 20 } = {}) {
+  constructor({ bot, callAI, deps = null, MAX_HISTORY_MESSAGES = 20 } = {}) {
     super();
     this.bot = bot || null;
     this.callAI = callAI || null;
+    this.deps = deps || null;
     this.MAX_HISTORY_MESSAGES = MAX_HISTORY_MESSAGES;
   }
 
@@ -97,72 +65,10 @@ export class TelegramAdapter extends TransportAdapter {
   }
 
   // -------------------------------------------------------------------------
-  // buildDeps — assemble all dependencies for handleMessage
-  // IMPORTANT: deps are plain objects/functions, NOT business logic
-  // -------------------------------------------------------------------------
-  buildDeps() {
-    const adapter = this;
-
-    return {
-      // reply via adapter (thin wrapper)
-      reply: (ctx, text) => adapter.reply(ctx, text),
-
-      // AI call
-      callAI: this.callAI,
-
-      // raw bot (for handlers that still need it directly)
-      bot: this.bot,
-
-      // command dispatcher
-      dispatchCommand,
-
-      // chat/AI handler
-      handleChatMessage,
-
-      // memory
-      getChatHistory,
-
-      // answer mode
-      getAnswerMode,
-      setAnswerMode,
-
-      // project context + system prompt
-      loadProjectContext,
-      buildSystemPrompt,
-
-      // logging
-      logInteraction,
-
-      // reply sanitizer
-      sanitizeNonMonarchReply,
-
-      // file intake
-      FileIntake,
-
-      // coingecko
-      getCoinGeckoSimplePriceById,
-      getCoinGeckoSimplePriceMulti,
-
-      // tasks
-      getUserTasks,
-      getTaskById,
-      runTaskWithAI,
-      updateTaskStatus,
-      createDemoTask,
-      createManualTask,
-      createTestPriceMonitorTask,
-
-      // config
-      MAX_HISTORY_MESSAGES: this.MAX_HISTORY_MESSAGES,
-    };
-  }
-
-  // -------------------------------------------------------------------------
-  // attach — wire bot.on("message") -> handleMessage
+  // attach — wire bot.on("message") -> core.handleMessage
   //
-  // IMPORTANT:
-  //   Only active when TRANSPORT_ENFORCED=true.
-  //   Otherwise this method is a no-op (messageRouter remains authoritative).
+  // Only active when TRANSPORT_ENFORCED=true.
+  // Otherwise this method is a no-op (messageRouter remains authoritative).
   // -------------------------------------------------------------------------
   attach() {
     if (!this.bot) {
@@ -177,57 +83,33 @@ export class TelegramAdapter extends TransportAdapter {
       return;
     }
 
-    const deps = this.buildDeps();
+    const deps = this.deps;
+    if (!deps || typeof deps.reply !== "function" || typeof deps.callAI !== "function") {
+      console.warn(
+        "TelegramAdapter.attach: deps missing, skipping (must provide deps in enforced mode)."
+      );
+      return;
+    }
 
     this.bot.on("message", async (msg) => {
       try {
-        // ✅ STAGE 6.8.2 — command idempotency (ENFORCED path)
-        // DB-guard only for commands; fail-open on any DB error.
-        const rawText = typeof msg?.text === "string" ? msg.text.trim() : "";
-        const chatIdRaw = msg?.chat?.id ?? null;
-        const messageIdRaw = msg?.message_id ?? null;
-
-        if (rawText.startsWith("/") && chatIdRaw != null && messageIdRaw != null) {
-          const cmd0 = rawText.split(/\s+/)[0].split("@")[0];
-
-          try {
-            const ins = await insertCommandInvocation({
-              transport: "telegram",
-              chatId: String(chatIdRaw),
-              messageId: Number(messageIdRaw),
-              cmd: cmd0,
-              globalUserId: null, // identity resolved in core; safe to keep null here
-              senderId: String(msg?.from?.id ?? ""),
-              metadata: { enforced: true },
-            });
-
-            if (!ins?.inserted) {
-              // duplicate delivery -> drop silently
-              return;
-            }
-          } catch (e) {
-            console.error("TelegramAdapter idempotency guard failed:", e);
-            // fail-open
-          }
-        }
-
-        // 1. Normalize raw event -> UnifiedContext
+        // 1) Normalize raw event -> UnifiedContext
         const unified = this.toContext(msg);
 
-        // 2. Convert to core context shape
+        // 2) Convert to core context shape
         const coreContext = toCoreContextFromUnified(unified, {
-          messageId: msg.message_id,
-          transportChatTypeOverride: String(msg.chat?.type || ""),
+          messageId: msg?.message_id,
+          transportChatTypeOverride: String(msg?.chat?.type || ""),
         });
 
-        // 3. Attach deps + raw message (needed by handlers)
+        // 3) Attach deps + raw message (needed by handlers)
         const context = {
           ...coreContext,
           raw: msg,
           deps,
         };
 
-        // 4. Delegate to core
+        // 4) Delegate to core
         await handleMessage(context);
       } catch (e) {
         console.error("TelegramAdapter.attach message handler failed:", e);
@@ -237,3 +119,5 @@ export class TelegramAdapter extends TransportAdapter {
     console.log("✅ TelegramAdapter.attach: wired (TRANSPORT_ENFORCED=true).");
   }
 }
+
+export default TelegramAdapter;

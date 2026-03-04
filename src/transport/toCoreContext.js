@@ -16,8 +16,6 @@ export function toCoreContextFromUnified(unified = {}, extra = {}) {
 
   const text = typeof unified?.text === "string" ? unified.text : "";
 
-  // ⚠️ Core expects "transportChatType" as raw-ish hint.
-  // We prefer explicit override, otherwise use unified.chatType (which is sourced from raw transport).
   const transportChatType =
     extra?.transportChatTypeOverride != null
       ? String(extra.transportChatTypeOverride)
@@ -30,9 +28,23 @@ export function toCoreContextFromUnified(unified = {}, extra = {}) {
   const globalUserId =
     extra?.globalUserId == null ? null : String(extra.globalUserId);
 
-  // Stage 6.8.1 (skeleton): adapter→core dedupe key (no behavior change)
-  const dedupeKey =
-    chatId && transport && messageId ? `${transport}:${chatId}:${messageId}` : null;
+  // --------------------------------------------------------------------------
+  // NEW: universal event id (future-proof architecture)
+  // --------------------------------------------------------------------------
+
+  let eventId = null;
+
+  if (unified?.eventId) {
+    eventId = String(unified.eventId);
+  } else if (transport && chatId && messageId) {
+    eventId = `${transport}:${chatId}:${messageId}`;
+  }
+
+  // --------------------------------------------------------------------------
+  // Backward compatibility (Stage 6)
+  // --------------------------------------------------------------------------
+
+  const dedupeKey = eventId;
 
   return {
     transport,
@@ -42,10 +54,12 @@ export function toCoreContextFromUnified(unified = {}, extra = {}) {
     text,
     messageId,
     globalUserId,
-    dedupeKey,
 
-    // NOTE: intentionally NOT passing isPrivateChat/chatType here.
-    // Core derives chat meta via deriveChatMeta().
+    // NEW universal id
+    eventId,
+
+    // legacy (used by current Stage 6 guards)
+    dedupeKey
   };
 }
 

@@ -53,6 +53,10 @@ import { callWithFallback } from "../../core/helpers.js";
 // ✅ /build_info (public env snapshot)
 import { getPublicEnvSnapshot } from "../core/config.js";
 
+// ✅ STAGE 7A — Project Memory commands
+import { handlePmSet } from "./handlers/pmSet.js";
+import { handlePmShow } from "./handlers/pmShow.js";
+
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
 
@@ -165,6 +169,9 @@ export async function dispatchCommand(cmd, ctx) {
     "/memory_integrity",
     "/memory_backfill",
     "/memory_user_chats",
+
+    // ✅ STAGE 7A — keep PM write private
+    "/pm_set",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
@@ -184,6 +191,44 @@ export async function dispatchCommand(cmd, ctx) {
   }
 
   switch (cmd0) {
+    // ==========================
+    // STAGE 7A — PROJECT MEMORY
+    // ==========================
+
+    case "/pm_show": {
+      if (typeof ctx.getProjectSection !== "function") {
+        await reply("⛔ getProjectSection недоступен (ошибка wiring).", { cmd: cmd0 });
+        return { handled: true };
+      }
+
+      await handlePmShow({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        getProjectSection: ctx.getProjectSection,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_set": {
+      if (typeof ctx.upsertProjectSection !== "function") {
+        await reply("⛔ upsertProjectSection недоступен (ошибка wiring).", { cmd: cmd0 });
+        return { handled: true };
+      }
+
+      await handlePmSet({
+        bot,
+        chatId,
+        chatIdStr,
+        rest: ctx.rest,
+        bypass: !!ctx.bypass,
+        upsertProjectSection: ctx.upsertProjectSection,
+      });
+
+      return { handled: true };
+    }
+
     case "/profile":
     case "/me":
     case "/whoami": {

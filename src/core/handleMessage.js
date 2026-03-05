@@ -519,6 +519,10 @@ export async function handleMessage(context = {}) {
           createDemoTask: deps.createDemoTask,
           createManualTask: deps.createManualTask,
           createTestPriceMonitorTask: deps.createTestPriceMonitorTask,
+
+          // ✅ STAGE 7A — Project Memory wiring (FIX)
+          getProjectSection: deps.getProjectSection,
+          upsertProjectSection: deps.upsertProjectSection,
         };
 
         const result = await deps.dispatchCommand(cmdBase, dispatchCtx);

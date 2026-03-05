@@ -1,11 +1,10 @@
 // src/core/MemoryService.js
 // STAGE 7 — MEMORY LAYER V1
-// STAGE 7.7 — MemoryService CONTRACT (SKELETON)
 //
 // CONTRACT GOAL:
-// - Any module consuming memory must call MemoryService only.
-// - Handlers/modules должны перестать делать прямой SQL к chat_memory.
-// - Пока это skeleton: контракт зафиксирован, обратная совместимость сохранена.
+// - Любой модуль, которому нужна память, вызывает ТОЛЬКО MemoryService.
+// - Никакого прямого SQL к chat_memory из handlers/modules.
+// - Реальный backend на данном этапе: chat_memory (через ChatMemoryAdapter).
 //
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
@@ -18,7 +17,7 @@ import { getMemoryConfig } from "./memoryConfig.js";
 import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
 import pool from "../../db.js";
 
-// ✅ простой базовый logger (skeleton)
+// Минимальный базовый logger (можно заменить внешним)
 const defaultLogger = {
   info: (...args) => console.log("[Memory]", ...args),
   error: (...args) => console.error("[Memory]", ...args),
@@ -58,13 +57,13 @@ export class MemoryService {
     this.config = config || getMemoryConfig();
     this._enabled = !!this.config.enabled;
 
-    // ✅ DB wiring (do not use directly from handlers; use adapter via MemoryService)
+    // DB wiring (НЕ использовать напрямую из handlers; только через adapter)
     this.db = db || pool || null;
 
-    // ✅ Logger wiring
+    // Logger wiring
     this.logger = logger || defaultLogger;
 
-    // ✅ Adapter wiring
+    // Adapter wiring (chat_memory backend)
     this.chatAdapter = new ChatMemoryAdapter({
       logger: this.logger,
       config: this.config,
@@ -76,13 +75,14 @@ export class MemoryService {
     return {
       ok: true,
       enabled: this._enabled,
-      mode: this.config.mode || "SKELETON",
+      mode: this.config.mode || "CHAT_MEMORY_V1",
+      backend: "chat_memory",
       contractVersion: MemoryService.CONTRACT_VERSION,
     };
   }
 
   // ========================================================================
-  // CONTRACT: recent() — минимальный API для чтения истории
+  // recent() — минимальный API для чтения истории
   // ========================================================================
   async recent({ globalUserId = null, chatId = null, limit } = {}) {
     const chatIdStr = chatId ? String(chatId) : null;
@@ -99,7 +99,7 @@ export class MemoryService {
   }
 
   // ========================================================================
-  // CONTRACT: context() — структурированный пакет для AI слоя
+  // context() — структурированный пакет для AI слоя
   // ========================================================================
   async context({ globalUserId = null, chatId = null, limit } = {}) {
     const chatIdStr = chatId ? String(chatId) : null;
@@ -110,6 +110,7 @@ export class MemoryService {
         globalUserId: globalUserId || null,
         chatId: chatIdStr,
         memories: [],
+        backend: "chat_memory",
         contractVersion: MemoryService.CONTRACT_VERSION,
       };
     }
@@ -121,12 +122,13 @@ export class MemoryService {
       globalUserId: globalUserId || null,
       chatId: chatIdStr,
       memories: memories || [],
+      backend: "chat_memory",
       contractVersion: MemoryService.CONTRACT_VERSION,
     };
   }
 
   // ========================================================================
-  // CONTRACT: write() — запись одного сообщения (user/assistant/system)
+  // write() — запись одного сообщения (user/assistant/system)
   // ========================================================================
   async write({
     globalUserId = null,
@@ -148,7 +150,8 @@ export class MemoryService {
         ok: true,
         enabled: this._enabled,
         stored: false,
-        mode: this.config.mode || "SKELETON",
+        mode: this.config.mode || "CHAT_MEMORY_V1",
+        backend: "chat_memory",
         contractVersion: MemoryService.CONTRACT_VERSION,
       };
     }
@@ -157,7 +160,7 @@ export class MemoryService {
     const safeMeta = _safeObj(metadata);
     const sv = _normalizeSchemaVersion(schemaVersion);
 
-    await this.chatAdapter.saveMessage({
+    const r = await this.chatAdapter.saveMessage({
       chatId: chatIdStr,
       role: _safeStr(role),
       content,
@@ -169,19 +172,33 @@ export class MemoryService {
       },
     });
 
-    this.logger.info("Saved message", {
-      chatId: chatIdStr,
-      globalUserId: globalUserId || null,
-      size: content.length,
-      transport: safeTransport,
-      sv,
-    });
+    // adapter может вернуть ok:false — отражаем честно
+    const ok = r?.ok !== false;
+
+    if (ok) {
+      this.logger.info("Saved message", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        size: content.length,
+        transport: safeTransport,
+        sv,
+      });
+    } else {
+      this.logger.error("Save message failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        transport: safeTransport,
+        sv,
+        reason: r?.reason || "unknown",
+      });
+    }
 
     return {
-      ok: true,
+      ok,
       enabled: this._enabled,
-      stored: true,
-      mode: this.config.mode || "SKELETON",
+      stored: ok,
+      mode: this.config.mode || "CHAT_MEMORY_V1",
+      backend: "chat_memory",
       size: content.length,
       globalUserId: globalUserId || null,
       transport: safeTransport,
@@ -191,7 +208,7 @@ export class MemoryService {
   }
 
   // ========================================================================
-  // CONTRACT: writePair() — запись user + assistant пары
+  // writePair() — запись user + assistant пары
   // ========================================================================
   async writePair({
     globalUserId = null,
@@ -209,6 +226,7 @@ export class MemoryService {
         ok: true,
         enabled: this._enabled,
         stored: false,
+        backend: "chat_memory",
         contractVersion: MemoryService.CONTRACT_VERSION,
       };
     }
@@ -217,7 +235,7 @@ export class MemoryService {
     const safeMeta = _safeObj(metadata);
     const sv = _normalizeSchemaVersion(schemaVersion);
 
-    await this.chatAdapter.savePair({
+    const r = await this.chatAdapter.savePair({
       chatId: chatIdStr,
       userText: typeof userText === "string" ? userText : _safeStr(userText),
       assistantText: typeof assistantText === "string" ? assistantText : _safeStr(assistantText),
@@ -229,23 +247,37 @@ export class MemoryService {
       },
     });
 
-    this.logger.info("Saved pair", {
-      chatId: chatIdStr,
-      globalUserId: globalUserId || null,
-      transport: safeTransport,
-      sv,
-    });
+    const ok = r?.ok !== false;
+
+    if (ok) {
+      this.logger.info("Saved pair", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        transport: safeTransport,
+        sv,
+      });
+    } else {
+      this.logger.error("Save pair failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        transport: safeTransport,
+        sv,
+        reason: r?.reason || "unknown",
+      });
+    }
 
     return {
-      ok: true,
+      ok,
       enabled: this._enabled,
-      stored: true,
+      stored: ok,
+      backend: "chat_memory",
       contractVersion: MemoryService.CONTRACT_VERSION,
     };
   }
 
   // ========================================================================
-  // STAGE 7A+ placeholder: remember() — отдельная “долгая память” (пока skeleton)
+  // remember() — reserved for future “curated long-term memory”
+  // На Stage 7 не пишем никуда (честный no-op).
   // ========================================================================
   async remember({ key, value, metadata = {} } = {}) {
     if (!key || typeof value !== "string") {
@@ -256,11 +288,12 @@ export class MemoryService {
       ok: true,
       enabled: this._enabled,
       stored: false,
-      mode: this.config.mode || "SKELETON",
+      backend: "none",
       key,
       size: value.length,
       metadata: _safeObj(metadata),
       contractVersion: MemoryService.CONTRACT_VERSION,
+      reason: "remember_not_implemented_stage7",
     };
   }
 
@@ -268,7 +301,8 @@ export class MemoryService {
     return {
       ok: true,
       enabled: this._enabled,
-      mode: this.config.mode || "SKELETON",
+      mode: this.config.mode || "CHAT_MEMORY_V1",
+      backend: "chat_memory",
       hasDb: !!this.db,
       hasLogger: !!this.logger,
       hasChatAdapter: !!this.chatAdapter,
@@ -278,20 +312,17 @@ export class MemoryService {
   }
 
   // ========================================================================
-  // BACKWARD COMPAT (aliases) — чтобы не ломать текущие вызовы
+  // BACKWARD COMPAT (aliases)
   // ========================================================================
 
-  // ✅ 7.7.1 CONTRACT: read() — алиас recent()
   async read({ globalUserId = null, chatId = null, limit } = {}) {
     return this.recent({ globalUserId, chatId, limit });
   }
 
-  // старое имя
   async getContext({ globalUserId = null, chatId = null, limit } = {}) {
     return this.context({ globalUserId, chatId, limit });
   }
 
-  // старое имя
   async appendInteraction({
     globalUserId = null,
     chatId = null,
@@ -304,7 +335,6 @@ export class MemoryService {
     return this.write({ globalUserId, chatId, role, content, transport, metadata, schemaVersion });
   }
 
-  // старое имя
   async savePair({
     globalUserId = null,
     chatId = null,
@@ -314,7 +344,15 @@ export class MemoryService {
     metadata = {},
     schemaVersion = null,
   } = {}) {
-    return this.writePair({ globalUserId, chatId, userText, assistantText, transport, metadata, schemaVersion });
+    return this.writePair({
+      globalUserId,
+      chatId,
+      userText,
+      assistantText,
+      transport,
+      metadata,
+      schemaVersion,
+    });
   }
 }
 

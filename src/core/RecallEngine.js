@@ -1,5 +1,10 @@
 // src/core/RecallEngine.js
 // STAGE 8A — Recall Engine (safe, fail-open)
+//
+// Goal (Stage 8):
+// - buildRecallContext(): prefer LONG-TERM chat history (chat_messages, Stage 7B)
+// - fallback to chat_memory (Stage 7) if anything fails
+// - keep fail-open: bot must keep replying even if recall breaks
 
 import { createTimeContext } from "./time/timeContextFactory.js";
 
@@ -7,6 +12,15 @@ function envTruthy(v) {
   if (v === true) return true;
   const s = String(v ?? "").trim().toLowerCase();
   return s === "1" || s === "true" || s === "yes" || s === "on";
+}
+
+function envInt(name, def, min = null, max = null) {
+  const raw = process.env[name];
+  const n = Number.isFinite(Number(raw)) ? Math.trunc(Number(raw)) : def;
+  let v = n;
+  if (min != null) v = Math.max(min, v);
+  if (max != null) v = Math.min(max, v);
+  return v;
 }
 
 function safeTrim(s, max = 400) {
@@ -46,7 +60,6 @@ export class RecallEngine {
 
       const chatIdStr = chatId != null ? String(chatId) : null;
       const globalStr = globalUserId != null ? String(globalUserId) : null;
-
       if (!chatIdStr) return "";
 
       // ✅ TimeContext should use USER TZ when parsing human date ranges
@@ -54,75 +67,155 @@ export class RecallEngine {
         userTimezoneFromDb: userTimezone || null,
       });
 
-      const parsed = timeCtx.parseHumanDate(query);
+      const q = String(query || "");
+      const parsed = timeCtx.parseHumanDate(q);
       const useRange = Boolean(parsed?.fromUTC && parsed?.toUTC);
 
-      let rows = [];
-      let scope = "chat_only";
+      // ✅ Optional clamp to avoid huge scans (Stage 8 safety)
+      // Default: 30 days. Can be changed via env RECALL_MAX_DAYS.
+      const maxDays = envInt("RECALL_MAX_DAYS", 30, 1, 365);
 
-      if (globalStr) {
+      let fromUTC = parsed?.fromUTC || null;
+      let toUTC = parsed?.toUTC || null;
+
+      if (useRange) {
         try {
-          const params = [chatIdStr, globalStr];
-          let sql = `
-            SELECT role, content, created_at
-            FROM chat_memory
-            WHERE chat_id = $1 AND global_user_id = $2
-          `;
+          const now = Date.now();
+          const minFrom = now - maxDays * 24 * 60 * 60 * 1000;
+          const f = new Date(fromUTC).getTime();
+          const t = new Date(toUTC).getTime();
 
-          if (useRange) {
-            params.push(parsed.fromUTC);
-            params.push(parsed.toUTC);
-            sql += ` AND created_at >= $3 AND created_at < $4`;
+          // if parsing produced weird values, skip clamp
+          if (Number.isFinite(f) && Number.isFinite(t)) {
+            if (f < minFrom) fromUTC = new Date(minFrom).toISOString();
+            // keep toUTC as parsed (usually "now/end of day"), but ensure it's not before from
+            if (new Date(toUTC).getTime() < new Date(fromUTC).getTime()) {
+              toUTC = new Date(now).toISOString();
+            }
           }
-
-          params.push(lim * 6);
-          sql += `
-            ORDER BY created_at DESC
-            LIMIT $${params.length}
-          `;
-
-          const r1 = await this.db.query(sql, params);
-          rows = r1?.rows || [];
-          scope = "chat+global";
-        } catch (e) {
-          try {
-            this.logger.error(
-              "❌ RecallEngine DB query (chat+global) failed:",
-              e?.message || e
-            );
-          } catch (_) {}
-          rows = [];
+        } catch (_) {
+          // ignore clamp errors (fail-open)
         }
       }
 
+      let rows = [];
+      let scope = "chat_only";
+      let source = "chat_messages";
+
+      // ====================================================================
+      // 1) Prefer chat_messages (Stage 7B long-term log)
+      // ====================================================================
+      const tryChatMessages = async () => {
+        const params = [chatIdStr];
+        let sql = `
+          SELECT role, content, created_at
+          FROM chat_messages
+          WHERE chat_id = $1
+            AND is_redacted = false
+        `;
+
+        // If we have global_user_id, narrow down first (better precision for private chats)
+        if (globalStr) {
+          params.push(globalStr);
+          sql += ` AND (global_user_id = $2 OR role = 'assistant')`;
+          scope = "chat+global";
+        } else {
+          scope = "chat_only";
+        }
+
+        if (useRange) {
+          params.push(fromUTC);
+          params.push(toUTC);
+          const a = params.length - 1;
+          const b = params.length;
+          sql += ` AND created_at >= $${a} AND created_at < $${b}`;
+        }
+
+        // Keep it safe: we only need user/assistant for model context and guard logic
+        sql += `
+          AND role IN ('user','assistant')
+          ORDER BY created_at DESC
+        `;
+
+        params.push(lim * 6);
+        sql += ` LIMIT $${params.length}`;
+
+        const r = await this.db.query(sql, params);
+        return r?.rows || [];
+      };
+
+      try {
+        rows = await tryChatMessages();
+      } catch (e) {
+        // fail-open: fallback to chat_memory
+        try {
+          this.logger.error(
+            "❌ RecallEngine chat_messages query failed (fallback to chat_memory):",
+            e?.message || e
+          );
+        } catch (_) {}
+        rows = [];
+        source = "chat_memory";
+      }
+
+      // ====================================================================
+      // 2) Fallback: chat_memory (Stage 7 memory layer)
+      // ====================================================================
       if (!rows || rows.length === 0) {
         try {
-          const params = [chatIdStr];
-          let sql = `
-            SELECT role, content, created_at
-            FROM chat_memory
-            WHERE chat_id = $1
-          `;
+          if (globalStr) {
+            const params = [chatIdStr, globalStr];
+            let sql = `
+              SELECT role, content, created_at
+              FROM chat_memory
+              WHERE chat_id = $1 AND global_user_id = $2
+            `;
 
-          if (useRange) {
-            params.push(parsed.fromUTC);
-            params.push(parsed.toUTC);
-            sql += ` AND created_at >= $2 AND created_at < $3`;
+            if (useRange) {
+              params.push(fromUTC);
+              params.push(toUTC);
+              sql += ` AND created_at >= $3 AND created_at < $4`;
+            }
+
+            params.push(lim * 6);
+            sql += `
+              ORDER BY created_at DESC
+              LIMIT $${params.length}
+            `;
+
+            const r1 = await this.db.query(sql, params);
+            rows = r1?.rows || [];
+            scope = "chat+global";
           }
 
-          params.push(lim * 6);
-          sql += `
-            ORDER BY created_at DESC
-            LIMIT $${params.length}
-          `;
+          if (!rows || rows.length === 0) {
+            const params = [chatIdStr];
+            let sql = `
+              SELECT role, content, created_at
+              FROM chat_memory
+              WHERE chat_id = $1
+            `;
 
-          const r2 = await this.db.query(sql, params);
-          rows = r2?.rows || [];
-          scope = "chat_only";
+            if (useRange) {
+              params.push(fromUTC);
+              params.push(toUTC);
+              sql += ` AND created_at >= $2 AND created_at < $3`;
+            }
+
+            params.push(lim * 6);
+            sql += `
+              ORDER BY created_at DESC
+              LIMIT $${params.length}
+            `;
+
+            const r2 = await this.db.query(sql, params);
+            rows = r2?.rows || [];
+            scope = "chat_only";
+          }
         } catch (e) {
           try {
             this.logger.error(
-              "❌ RecallEngine DB query (chat_only) failed:",
+              "❌ RecallEngine chat_memory query failed:",
               e?.message || e
             );
           } catch (_) {}
@@ -130,21 +223,24 @@ export class RecallEngine {
         }
       }
 
+      // ====================================================================
+      // Logging (diagnostics)
+      // ====================================================================
       try {
         this.logger.log("🧠 RECALL_ENGINE_ROWS", {
+          source,
           scope,
           chatId: chatIdStr,
           globalUserId: globalStr,
           rows: Array.isArray(rows) ? rows.length : 0,
-          q: String(query || "").slice(0, 80),
+          q: q.slice(0, 80),
           dateFilter: useRange
             ? {
                 hint: parsed?.hint || null,
-                from_utc: parsed?.fromUTC
-                  ? new Date(parsed.fromUTC).toISOString()
-                  : null,
-                to_utc: parsed?.toUTC ? new Date(parsed.toUTC).toISOString() : null,
+                from_utc: fromUTC ? new Date(fromUTC).toISOString() : null,
+                to_utc: toUTC ? new Date(toUTC).toISOString() : null,
                 tz_used: userTimezone || null,
+                max_days: maxDays,
               }
             : null,
         });
@@ -159,7 +255,6 @@ export class RecallEngine {
           const d = dt instanceof Date ? dt : new Date(dt);
           if (!d || isNaN(d.getTime())) return "";
 
-          // ✅ ISO-like local time to avoid dd.mm ambiguity for the model
           // sv-SE yields "YYYY-MM-DD HH:mm"
           return new Intl.DateTimeFormat("sv-SE", {
             timeZone: tz || "UTC",
@@ -183,14 +278,13 @@ export class RecallEngine {
       for (const r of asc) {
         const role = normalizeRole(r.role);
 
-        // ✅ IMPORTANT: only user/assistant lines count for chat.js guard (anti-hallucination)
+        // ✅ IMPORTANT: only user/assistant lines count for chat.js guard
         if (role !== "user" && role !== "assistant") continue;
 
         const text = safeTrim(r.content, 500);
         if (!text) continue;
 
         const prefix = role === "user" ? "U:" : "A:";
-
         const ts = r?.created_at ? fmtTs(r.created_at, userTimezone || "UTC") : "";
         const tsLabel = ts ? `[${ts}] ` : "";
         lines.push(`${tsLabel}${prefix} ${text}`);
@@ -200,7 +294,11 @@ export class RecallEngine {
 
       if (lines.length === 0) return "";
 
-      const header = `Последние сообщения (контекст памяти):`;
+      const header =
+        source === "chat_messages"
+          ? `Последние сообщения (контекст истории):`
+          : `Последние сообщения (контекст памяти):`;
+
       return [header, ...lines].join("\n");
     } catch (e) {
       try {
@@ -231,10 +329,14 @@ export class RecallEngine {
       1,
       Math.min(20, Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : 5)
     );
+
+    // keep legacy clamp + allow overriding upper bound via RECALL_MAX_DAYS
+    const hardMax = envInt("RECALL_MAX_DAYS", 30, 1, 365);
     const d = Math.max(
       1,
-      Math.min(30, Number.isFinite(Number(days)) ? Math.trunc(Number(days)) : 1)
+      Math.min(hardMax, Number.isFinite(Number(days)) ? Math.trunc(Number(days)) : 1)
     );
+
     const kw = String(keyword ?? "").trim();
 
     try {
@@ -246,6 +348,7 @@ export class RecallEngine {
           AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
           AND ($3 = '' OR content ILIKE ('%' || $3 || '%'))
           AND is_redacted = false
+          AND role IN ('user','assistant')
         ORDER BY created_at DESC
         LIMIT $4
         `,

@@ -4,6 +4,8 @@
 // STAGE 7.2 LOGIC: pass globalUserId to chat_memory (v2 columns)
 // STAGE 7 (Integrity hardening): ensure assistant replies are also saved on early-return branches
 // (timezone/deterministic/guards), otherwise /memory_integrity shows missing_assistant.
+//
+// ✅ STAGE 7B (this patch): early-return replies + AlreadySeen hint also logged into chat_messages (assistant)
 
 import pool from "../../../db.js";
 import {
@@ -127,6 +129,48 @@ export async function handleChatMessage({
       if (typeof saveMessageToMemory !== "function") return;
       const replyText = typeof text === "string" ? text : String(text || "");
       if (!replyText.trim()) return;
+
+      // ✅ STAGE 7B — also log assistant early-return into chat_messages (fail-open)
+      try {
+        const transport = "telegram";
+        const chatType = msg?.chat?.type || null;
+
+        const assistantRedactedFull = redactText(replyText);
+        const assistantTextHash = sha256Text(assistantRedactedFull);
+
+        const assistantContentForDb =
+          typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS
+            ? assistantRedactedFull.slice(0, MAX_CHAT_MESSAGE_CHARS)
+            : typeof assistantRedactedFull === "string"
+              ? assistantRedactedFull
+              : "";
+
+        const assistantTruncatedForDb =
+          typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS;
+
+        await insertAssistantMessage({
+          transport,
+          chatId: chatIdStr,
+          chatType,
+          globalUserId: globalUserId || null,
+          textHash: assistantTextHash,
+          content: assistantContentForDb,
+          truncated: Boolean(assistantTruncatedForDb),
+          metadata: {
+            senderIdStr,
+            chatIdStr,
+            in_reply_to_message_id: messageId ?? null,
+            globalUserId: globalUserId ?? null,
+            handler: "chat",
+            earlyReturn: true,
+            reason,
+            stage: "7B.early_return",
+          },
+          schemaVersion: 1,
+        });
+      } catch (e) {
+        console.error("ERROR STAGE 7B early-return assistant insert failed (fail-open):", e);
+      }
 
       await saveMessageToMemory(chatIdStr, "assistant", replyText, {
         globalUserId,
@@ -595,10 +639,49 @@ export async function handleChatMessage({
           }).format(dt)
         : "неизвестно";
 
-      await bot.sendMessage(
-        chatId,
-        `💡 Похоже, это уже обсуждали. Последнее совпадение: ${when} (UTC)\nЕсли есть новое — уточни, что изменилось.`
-      );
+      const hintText = `💡 Похоже, це вже обговорювали. Останній збіг: ${when} (UTC)\nЯкщо є нове — уточни, що змінилося.`;
+
+      await bot.sendMessage(chatId, hintText);
+
+      // ✅ STAGE 7B — log soft hint into chat_messages (assistant) (fail-open)
+      try {
+        const transport = "telegram";
+        const chatType = msg?.chat?.type || null;
+
+        const assistantRedactedFull = redactText(hintText);
+        const assistantTextHash = sha256Text(assistantRedactedFull);
+
+        const assistantContentForDb =
+          typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS
+            ? assistantRedactedFull.slice(0, MAX_CHAT_MESSAGE_CHARS)
+            : typeof assistantRedactedFull === "string"
+              ? assistantRedactedFull
+              : "";
+
+        const assistantTruncatedForDb =
+          typeof assistantRedactedFull === "string" && assistantRedactedFull.length > MAX_CHAT_MESSAGE_CHARS;
+
+        await insertAssistantMessage({
+          transport,
+          chatId: chatIdStr,
+          chatType,
+          globalUserId: globalUserId || null,
+          textHash: assistantTextHash,
+          content: assistantContentForDb,
+          truncated: Boolean(assistantTruncatedForDb),
+          metadata: {
+            senderIdStr,
+            chatIdStr,
+            in_reply_to_message_id: messageId ?? null,
+            globalUserId: globalUserId ?? null,
+            handler: "chat",
+            stage: "7B.already_seen_hint",
+          },
+          schemaVersion: 1,
+        });
+      } catch (e) {
+        console.error("ERROR STAGE 7B already-seen hint insert failed (fail-open):", e);
+      }
     } catch (e) {
       console.error("ERROR Telegram send error (soft hint):", e);
     }

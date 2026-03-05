@@ -56,6 +56,7 @@ import { getPublicEnvSnapshot } from "../core/config.js";
 // ✅ STAGE 7A — Project Memory commands
 import { handlePmSet } from "./handlers/pmSet.js";
 import { handlePmShow } from "./handlers/pmShow.js";
+import { handlePmList } from "./handlers/pmList.js";
 
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
@@ -172,6 +173,7 @@ export async function dispatchCommand(cmd, ctx) {
 
     // ✅ STAGE 7A — keep PM write private
     "/pm_set",
+    "/pm_list",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
@@ -224,6 +226,22 @@ export async function dispatchCommand(cmd, ctx) {
         rest: ctx.rest,
         bypass: !!ctx.bypass,
         upsertProjectSection: ctx.upsertProjectSection,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_list": {
+      if (typeof ctx.getProjectMemoryList !== "function") {
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
+        return { handled: true };
+      }
+
+      await handlePmList({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        getProjectMemoryList: ctx.getProjectMemoryList,
       });
 
       return { handled: true };

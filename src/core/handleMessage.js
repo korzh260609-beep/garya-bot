@@ -50,6 +50,47 @@ function envBool(name, def = false) {
   return def;
 }
 
+// ============================================================================
+// STAGE 8D — Idempotency (chat): in-memory dedupe for enforced mode
+// Purpose: drop duplicate deliveries (Telegram retries, webhook replays).
+// No DB, no schema changes. TTL-based. Does NOT survive process restart.
+// ============================================================================
+const DEDUPE_TTL_MS = envIntRange("DEDUPE_TTL_MS", 5 * 60 * 1000, {
+  min: 1000,
+  max: 60 * 60 * 1000,
+});
+const DEDUPE_MAX = envIntRange("DEDUPE_MAX", 5000, { min: 100, max: 50000 });
+
+// key -> lastSeenTs
+const __dedupeSeen = new Map();
+
+function dedupeSeenHasFresh(key, now) {
+  if (!key) return false;
+  const ts = __dedupeSeen.get(key);
+  if (!ts) return false;
+  return now - ts <= DEDUPE_TTL_MS;
+}
+
+function dedupeRemember(key, now) {
+  if (!key) return;
+  __dedupeSeen.set(key, now);
+
+  // cheap pruning to keep Map bounded
+  if (__dedupeSeen.size <= DEDUPE_MAX) return;
+
+  const cutoff = now - DEDUPE_TTL_MS;
+  for (const [k, ts] of __dedupeSeen.entries()) {
+    if (ts < cutoff) __dedupeSeen.delete(k);
+    if (__dedupeSeen.size <= DEDUPE_MAX) break;
+  }
+
+  // still too big: drop oldest approx (iteration order == insertion order)
+  while (__dedupeSeen.size > DEDUPE_MAX) {
+    const oldestKey = __dedupeSeen.keys().next().value;
+    __dedupeSeen.delete(oldestKey);
+  }
+}
+
 export async function handleMessage(context = {}) {
   const transport = String(context?.transport || "unknown");
   const chatId = context?.chatId == null ? null : String(context.chatId);
@@ -103,6 +144,34 @@ export async function handleMessage(context = {}) {
         }
       } catch (_) {}
       return { ok: false, reason: "missing_dedupeKey", stage: "6.8" };
+    }
+
+    // =========================================================================
+    // STAGE 8D — In-memory dedupe drop (prevents double-processing + double-reply)
+    // =========================================================================
+    try {
+      const now = Date.now();
+      const key = String(dedupeKey);
+
+      if (dedupeSeenHasFresh(key, now)) {
+        if (isTransportTraceEnabled()) {
+          console.warn("ENFORCED_DROP_DUPLICATE", {
+            transport,
+            chatId,
+            senderId,
+            messageId,
+            dedupeKey: key,
+          });
+        }
+        return { ok: true, stage: "8D", result: "dup_drop" };
+      }
+
+      dedupeRemember(key, now);
+    } catch (e) {
+      // fail-open: never block processing because of dedupe errors
+      try {
+        console.error("dedupe guard failed (fail-open):", e);
+      } catch (_) {}
     }
   }
 

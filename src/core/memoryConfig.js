@@ -1,23 +1,24 @@
 // src/core/memoryConfig.js
-// STAGE 7 — MEMORY LAYER V1 (CONFIG SKELETON)
-// Никакой логики и никаких импортов projectMemory/db тут нет.
-// Только конфиг и флаги.
+// STAGE 7 — MEMORY LAYER V1 (CONFIG)
+// Только конфиг и флаги. Без бизнес-логики и без прямых DB импортов.
 
 export function getMemoryConfig() {
+  const enabled = process.env.MEMORY_ENABLED === "1";
+
   return {
-    // Глобальный флаг Memory Layer (пока выключено, чтобы не сломать прод)
-    enabled: process.env.MEMORY_ENABLED === "1",
+    // Глобальный флаг Memory Layer
+    enabled,
 
-    // Режимы для дальнейшего расширения
-    // SKELETON: ничего не пишем/читаем
-    // PROJECT_MEMORY: читать/писать через projectMemory.js (позже через MemoryService-адаптер)
-    mode: process.env.MEMORY_MODE || "SKELETON",
+    // Режимы:
+    // CHAT_MEMORY_V1: текущий рабочий backend Stage 7 (chat_memory)
+    // (дальше будут другие режимы, но сейчас держим честный дефолт)
+    mode: process.env.MEMORY_MODE || "CHAT_MEMORY_V1",
 
-    // Ограничения (на будущее)
+    // Лимиты чтения контекста (для формирования промпта)
     maxItems: Number(process.env.MEMORY_MAX_ITEMS || 20),
     maxChars: Number(process.env.MEMORY_MAX_CHARS || 4000),
 
-    // projectKey по умолчанию (на будущее, чтобы не хардкодить в нескольких местах)
+    // Резерв на будущее (не используется в Stage 7, но оставляем как конфиг-ключ)
     defaultProjectKey: process.env.MEMORY_PROJECT_KEY || "garya_ai",
   };
 }

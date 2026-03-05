@@ -36,11 +36,29 @@ export class TimeContext {
     return this.addDaysUTC(dayStart, -delta);
   }
 
+  // --- internal: safe timezone (fallback to UTC on invalid TZ) ---
+
+  _safeTimeZoneOrUTC(tz) {
+    const cand = String(tz || "").trim() || "UTC";
+    if (cand === "UTC") return "UTC";
+    try {
+      // throws RangeError on invalid timeZone
+      new Intl.DateTimeFormat("en-US", { timeZone: cand }).format(new Date());
+      return cand;
+    } catch (_) {
+      return "UTC";
+    }
+  }
+
+  _tz() {
+    return this._safeTimeZoneOrUTC(this.userTimezone);
+  }
+
   // --- timezone-safe helpers (USER TZ -> UTC instants) ---
 
   getZonedParts(dateUTC) {
     const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: this.userTimezone,
+      timeZone: this._tz(),
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -98,9 +116,7 @@ export class TimeContext {
     const { year, month, day } = this.getZonedParts(baseStart);
 
     // Use 12:00 UTC anchor to reduce DST edge artifacts, then normalize back to start-of-day
-    const shifted = new Date(
-      Date.UTC(year, month - 1, day + Number(days || 0), 12, 0, 0, 0)
-    );
+    const shifted = new Date(Date.UTC(year, month - 1, day + Number(days || 0), 12, 0, 0, 0));
 
     return this.startOfUserDayUTC(shifted);
   }
@@ -109,7 +125,7 @@ export class TimeContext {
     const dayStart = this.startOfUserDayUTC(dateUTC);
 
     const w = new Intl.DateTimeFormat("en-US", {
-      timeZone: this.userTimezone,
+      timeZone: this._tz(),
       weekday: "short",
     }).format(dayStart); // "Mon", "Tue", ...
 
@@ -128,11 +144,7 @@ export class TimeContext {
       const now = this.nowUTC();
 
       // LAST WEEK (user TZ week boundaries)
-      if (
-        /\blast\s+week\b/.test(q) ||
-        q.includes("прошлой неделе") ||
-        q.includes("минулого тижня")
-      ) {
+      if (/\blast\s+week\b/.test(q) || q.includes("прошлой неделе") || q.includes("минулого тижня")) {
         const thisWeekStart = this.startOfUserWeekMondayUTC(now);
         const from = this.addDaysUser(thisWeekStart, -7);
         const to = thisWeekStart;
@@ -154,11 +166,7 @@ export class TimeContext {
       }
 
       // DAY BEFORE YESTERDAY
-      if (
-        q.includes("позавчера") ||
-        q.includes("позавчора") ||
-        /\bday\s+before\s+yesterday\b/.test(q)
-      ) {
+      if (q.includes("позавчера") || q.includes("позавчора") || /\bday\s+before\s+yesterday\b/.test(q)) {
         const from = this.addDaysUser(now, -2);
         const to = this.addDaysUser(now, -1);
         return { fromUTC: from, toUTC: to, hint: "day_before_yesterday" };
@@ -173,9 +181,7 @@ export class TimeContext {
 
       // LAST N DAYS (includes today) — user TZ
       // examples: "последние 3 дня", "за последние 7 дней", "last 3 days"
-      let lastN = q.match(
-        /(?:за\s+)?последн(?:ие|их)\s*(\d{1,2})\s*(?:дн(?:я|ей)|дні|днів)/iu
-      );
+      let lastN = q.match(/(?:за\s+)?последн(?:ие|их)\s*(\d{1,2})\s*(?:дн(?:я|ей)|дні|днів)/iu);
       if (!lastN) {
         lastN = q.match(/\blast\s+(\d{1,2})\s+days?\b/i);
       }
@@ -189,11 +195,7 @@ export class TimeContext {
 
       // WEEK AGO (single day)
       // examples: "неделю назад", "тиждень тому", "a week ago"
-      if (
-        q.includes("неделю назад") ||
-        q.includes("тиждень тому") ||
-        /\ba\s+week\s+ago\b/.test(q)
-      ) {
+      if (q.includes("неделю назад") || q.includes("тиждень тому") || /\ba\s+week\s+ago\b/.test(q)) {
         const from = this.addDaysUser(now, -7);
         const to = this.addDaysUser(now, -6);
         return { fromUTC: from, toUTC: to, hint: "7_days_ago" };
@@ -242,20 +244,30 @@ export class TimeContext {
   formatDateForUser(dateUTC) {
     try {
       return new Intl.DateTimeFormat("uk-UA", {
-        timeZone: this.userTimezone,
+        timeZone: this._tz(),
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
       }).format(dateUTC);
     } catch (_) {
-      return null;
+      // hard fallback
+      try {
+        return new Intl.DateTimeFormat("uk-UA", {
+          timeZone: "UTC",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(dateUTC);
+      } catch (__2) {
+        return null;
+      }
     }
   }
 
   formatForUser(dateUTC) {
     try {
       return new Intl.DateTimeFormat("uk-UA", {
-        timeZone: this.userTimezone,
+        timeZone: this._tz(),
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
@@ -265,7 +277,21 @@ export class TimeContext {
         hour12: false,
       }).format(dateUTC);
     } catch (_) {
-      return null;
+      // hard fallback
+      try {
+        return new Intl.DateTimeFormat("uk-UA", {
+          timeZone: "UTC",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }).format(dateUTC);
+      } catch (__2) {
+        return null;
+      }
     }
   }
 }

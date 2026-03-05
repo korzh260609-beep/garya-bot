@@ -193,6 +193,56 @@ function _forcePairMessageId(metaIn, msg) {
 }
 
 // ============================================================================
+// ✅ STAGE 7B — unified command reply helper
+// Responsibilities:
+// 1) Send message to Telegram
+// 2) Save assistant response to memory (chat_memory)
+// 3) Deterministic pairing via metadata.messageId = user msg.message_id
+// 4) Best-effort, never blocks command flow
+// ============================================================================
+async function _ctxReplyCommand({
+  bot,
+  chatId,
+  chatIdStr,
+  msg,
+  memory,
+  globalUserId,
+  text,
+  meta = {},
+}) {
+  const outText = String(text ?? "");
+
+  // 1) Send to Telegram (authoritative)
+  const sent = await bot.sendMessage(chatId, outText);
+
+  // 2) Save assistant reply to memory (best-effort)
+  try {
+    const forcedMeta = _forcePairMessageId(
+      {
+        ...meta,
+        kind: "command_reply",
+        assistantMessageId: sent?.message_id ?? null,
+      },
+      msg
+    );
+
+    await memory.write({
+      chatId: String(chatIdStr || ""),
+      globalUserId: globalUserId ?? null,
+      role: "assistant",
+      content: outText,
+      transport: "telegram",
+      metadata: forcedMeta,
+      schemaVersion: 2,
+    });
+  } catch (e) {
+    console.error("ctx.reply(command) memory.write failed:", e);
+  }
+
+  return sent;
+}
+
+// ============================================================================
 // === ATTACH ROUTER
 // ============================================================================
 export function attachMessageRouter({
@@ -478,6 +528,22 @@ export function attachMessageRouter({
         CMD_ACTION,
       });
 
+      // ✅ Stage 7B: command replies must be logged to chat_memory
+      // Create once per message; used in command flow and passed to dispatchCommand(ctx).
+      const memory = getMemoryService();
+      const ctxReply = async (text, meta) => {
+        return _ctxReplyCommand({
+          bot,
+          chatId,
+          chatIdStr,
+          msg,
+          memory,
+          globalUserId,
+          text,
+          meta: meta && typeof meta === "object" ? meta : {},
+        });
+      };
+
       // =========================
       // === COMMANDS
       // =========================
@@ -559,8 +625,7 @@ export function attachMessageRouter({
 
         // ✅ /start
         if (cmdBase === "/start") {
-          await bot.sendMessage(
-            chatId,
+          await ctxReply(
             [
               "✅ SG online.",
               "",
@@ -570,15 +635,15 @@ export function attachMessageRouter({
               "- /link_status — проверить статус",
               "",
               "ℹ️ /help — подсказка по командам (в зависимости от прав).",
-            ].join("\n")
+            ].join("\n"),
+            { cmd: cmdBase, handler: "messageRouter", event: "start" }
           );
           return;
         }
 
         // ✅ /help
         if (cmdBase === "/help") {
-          await bot.sendMessage(
-            chatId,
+          await ctxReply(
             [
               "ℹ️ Help",
               "",
@@ -588,7 +653,8 @@ export function attachMessageRouter({
               "- /link_status",
               "",
               "Dev/системные команды — только для монарха в личке.",
-            ].join("\n")
+            ].join("\n"),
+            { cmd: cmdBase, handler: "messageRouter", event: "help" }
           );
           return;
         }
@@ -626,7 +692,12 @@ export function attachMessageRouter({
               console.error("behavior_events rate_limited log failed:", e);
             }
 
-            await bot.sendMessage(chatId, `⛔ Слишком часто. Подожди ${sec} сек.`);
+            await ctxReply(`⛔ Слишком часто. Подожди ${sec} сек.`, {
+              cmd: cmdBase,
+              handler: "messageRouter",
+              event: "rate_limit",
+              retry_after_sec: sec,
+            });
             return;
           }
         }
@@ -685,8 +756,7 @@ export function attachMessageRouter({
         const devAllowInGroup = false;
 
         if (isDev && (!isMonarchUser || (!isPrivate && !devAllowInGroup))) {
-          await bot.sendMessage(
-            chatId,
+          await ctxReply(
             [
               "⛔ DEV only.",
               `cmd=${cmdBase}`,
@@ -697,7 +767,8 @@ export function attachMessageRouter({
               `from=${senderIdStr}`,
               `transportChatType=${String(transportChatType || "")}`,
               `chatIdEqFrom=${chatIdStr === senderIdStr}`,
-            ].join("\n")
+            ].join("\n"),
+            { cmd: cmdBase, handler: "messageRouter", event: "dev_only_block" }
           );
 
           try {
@@ -719,7 +790,6 @@ export function attachMessageRouter({
 
         // ✅ /memory_status
         if (cmdBase === "/memory_status") {
-          const memory = getMemoryService();
           const status = await memory.status();
           const v2Cols = await memDiag.getChatMemoryV2Columns();
 
@@ -733,8 +803,7 @@ export function attachMessageRouter({
             String(pub.RENDER_INSTANCE_ID || "").trim() ||
             String(pub.HOSTNAME || "").trim();
 
-          await bot.sendMessage(
-            chatId,
+          await ctxReply(
             [
               "🧠 MEMORY STATUS",
               `enabled: ${status.enabled}`,
@@ -759,7 +828,8 @@ export function attachMessageRouter({
               `commit: ${buildCommit}`,
               `service: ${buildService}`,
               `instance: ${buildInstance}`,
-            ].join("\n")
+            ].join("\n"),
+            { cmd: cmdBase, handler: "messageRouter" }
           );
 
           return;
@@ -773,14 +843,14 @@ export function attachMessageRouter({
             chatIdStr,
             globalUserId: globalUserId2,
           });
-          await bot.sendMessage(chatId, out);
+          await ctxReply(out, { cmd: cmdBase, handler: "messageRouter" });
           return;
         }
 
         // ✅ /memory_integrity
         if (cmdBase === "/memory_integrity") {
           const out = await memDiag.memoryIntegrity({ chatIdStr });
-          await bot.sendMessage(chatId, out);
+          await ctxReply(out, { cmd: cmdBase, handler: "messageRouter" });
           return;
         }
 
@@ -798,7 +868,7 @@ export function attachMessageRouter({
             globalUserId: globalUserId2,
             limit,
           });
-          await bot.sendMessage(chatId, out);
+          await ctxReply(out, { cmd: cmdBase, handler: "messageRouter" });
           return;
         }
 
@@ -807,7 +877,7 @@ export function attachMessageRouter({
           const globalUserId2 =
             accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
           const out = await memDiag.memoryUserChats({ globalUserId: globalUserId2 });
-          await bot.sendMessage(chatId, out);
+          await ctxReply(out, { cmd: cmdBase, handler: "messageRouter" });
           return;
         }
 
@@ -948,12 +1018,15 @@ export function attachMessageRouter({
               }
             }
 
-            await bot.sendMessage(chatId, out.join("\n").slice(0, 3800));
+            await ctxReply(out.join("\n").slice(0, 3800), {
+              cmd: cmdBase,
+              handler: "messageRouter",
+            });
           } catch (e) {
             console.error("❌ /chat_diag error:", e);
-            await bot.sendMessage(
-              chatId,
-              "⚠️ /chat_diag упал. Проверь: применена ли миграция 027 (таблицы chats и user_chat_links)."
+            await ctxReply(
+              "⚠️ /chat_diag упал. Проверь: применена ли миграция 027 (таблицы chats и user_chat_links).",
+              { cmd: cmdBase, handler: "messageRouter" }
             );
           }
           return;
@@ -1023,15 +1096,15 @@ export function attachMessageRouter({
             }
           }
 
-          await bot.sendMessage(
-            chatId,
+          await ctxReply(
             [
               "🧩 BUILD INFO",
               `commit: ${commit}`,
               `service: ${serviceId}`,
               `instance: ${instanceId}`,
               `node_env: ${nodeEnv}`,
-            ].join("\n")
+            ].join("\n"),
+            { cmd: cmdBase, handler: "messageRouter" }
           );
           return;
         }
@@ -1116,6 +1189,9 @@ export function attachMessageRouter({
 
             getCoinGeckoSimplePriceById,
             getCoinGeckoSimplePriceMulti,
+
+            // ✅ STAGE 7B — unified reply (writes assistant reply to chat_memory)
+            reply: ctxReply,
           };
 
           await dispatchCommand(cmdBase, ctx);
@@ -1222,12 +1298,15 @@ export function attachMessageRouter({
                 }
               }
 
-              await bot.sendMessage(chatId, lines.join("\n").slice(0, 3800));
+              await ctxReply(lines.join("\n").slice(0, 3800), {
+                cmd: cmdBase,
+                handler: "messageRouter",
+              });
             } catch (e) {
               console.error("❌ /tasks_owner_diag error:", e);
-              await bot.sendMessage(
-                chatId,
-                "⚠️ /tasks_owner_diag упал. Проверь: есть ли таблица tasks и применена ли миграция (колонка user_global_id)."
+              await ctxReply(
+                "⚠️ /tasks_owner_diag упал. Проверь: есть ли таблица tasks и применена ли миграция (колонка user_global_id).",
+                { cmd: cmdBase, handler: "messageRouter" }
               );
             }
             return;
@@ -1346,8 +1425,7 @@ export function attachMessageRouter({
 
           case "/code_output_status": {
             const mode = getCodeOutputMode();
-            await bot.sendMessage(
-              chatId,
+            await ctxReply(
               [
                 `CODE_OUTPUT_MODE: ${mode}`,
                 "",
@@ -1355,7 +1433,8 @@ export function attachMessageRouter({
                 "- DISABLED → генерация запрещена",
                 "- DRY_RUN → только валидация без AI",
                 "- ENABLED → реальная генерация кода",
-              ].join("\n")
+              ].join("\n"),
+              { cmd: cmdBase, handler: "messageRouter" }
             );
             return;
           }
@@ -1450,6 +1529,9 @@ export function attachMessageRouter({
               userPlan,
               user,
               bypass: isMonarchUser,
+
+              // ✅ STAGE 7B — unified reply
+              reply: ctxReply,
             });
             return;
           }
@@ -1470,6 +1552,9 @@ export function attachMessageRouter({
               userPlan,
               user,
               bypass: isMonarchUser,
+
+              // ✅ STAGE 7B — unified reply
+              reply: ctxReply,
             });
             return;
           }
@@ -1543,7 +1628,7 @@ export function attachMessageRouter({
 
       // ✅ FIX: router MUST provide real memory writers for chat.js,
       // otherwise core shadow can write only user (MEMORY_SHADOW_WRITE) => u=1 a=0.
-      const memory = getMemoryService();
+      // NOTE: memory already created above (Stage 7B) — keep local name for clarity.
 
       const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
         try {

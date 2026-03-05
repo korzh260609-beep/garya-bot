@@ -43,6 +43,9 @@ const CMD_RL_WINDOW_MS = envIntRange("CMD_RL_WINDOW_MS", 20000, {
 });
 const CMD_RL_MAX = envIntRange("CMD_RL_MAX", 6, { min: 1, max: 50 });
 
+// ✅ SAFE COMMANDS — MUST ALWAYS REPLY (even on webhook retries)
+const IDEMPOTENCY_BYPASS = new Set(["/start", "/help"]);
+
 function envBool(name, def = false) {
   const v = envStr(name, def ? "true" : "false").trim().toLowerCase();
   if (v === "true" || v === "1" || v === "yes") return true;
@@ -98,6 +101,14 @@ export async function handleMessage(context = {}) {
   const text = context?.text == null ? "" : String(context.text);
   const messageId = context?.messageId == null ? null : String(context.messageId);
 
+  // ✅ pre-parse for early dedupe bypass (Stage 8D happens before routing)
+  const __trimmedForBypass = text.trim();
+  const __isCommandForBypass = __trimmedForBypass.startsWith("/");
+  const __parsedForBypass = __isCommandForBypass ? parseCommand(__trimmedForBypass) : null;
+  const __cmdBaseForBypass = __parsedForBypass
+    ? String(__parsedForBypass.cmd).split("@")[0]
+    : null;
+
   // deps — injected by adapter for real mode; absent in shadow mode
   const deps = context?.deps || null;
   const hasReply = typeof deps?.reply === "function";
@@ -150,23 +161,26 @@ export async function handleMessage(context = {}) {
     // STAGE 8D — In-memory dedupe drop (prevents double-processing + double-reply)
     // =========================================================================
     try {
-      const now = Date.now();
-      const key = String(dedupeKey);
+      // ✅ bypass dedupe for safe commands — must always reply
+      if (!IDEMPOTENCY_BYPASS.has(__cmdBaseForBypass)) {
+        const now = Date.now();
+        const key = String(dedupeKey);
 
-      if (dedupeSeenHasFresh(key, now)) {
-        if (isTransportTraceEnabled()) {
-          console.warn("ENFORCED_DROP_DUPLICATE", {
-            transport,
-            chatId,
-            senderId,
-            messageId,
-            dedupeKey: key,
-          });
+        if (dedupeSeenHasFresh(key, now)) {
+          if (isTransportTraceEnabled()) {
+            console.warn("ENFORCED_DROP_DUPLICATE", {
+              transport,
+              chatId,
+              senderId,
+              messageId,
+              dedupeKey: key,
+            });
+          }
+          return { ok: true, stage: "8D", result: "dup_drop" };
         }
-        return { ok: true, stage: "8D", result: "dup_drop" };
-      }
 
-      dedupeRemember(key, now);
+        dedupeRemember(key, now);
+      }
     } catch (e) {
       // fail-open: never block processing because of dedupe errors
       try {
@@ -232,6 +246,11 @@ export async function handleMessage(context = {}) {
     if (action) {
       canProceed = can(user, action);
     }
+  }
+
+  // ✅ /start and /help must be universally allowed
+  if (isCommand && cmdBase && IDEMPOTENCY_BYPASS.has(cmdBase)) {
+    canProceed = true;
   }
 
   // =========================================================================
@@ -354,27 +373,31 @@ export async function handleMessage(context = {}) {
   if (isCommand && cmdBase) {
     // STAGE 6.8.2 — command idempotency (core-level, enforced path)
     let commandInvocationInserted = true;
-    try {
-      if (transport === "telegram" && chatIdStr && messageId) {
-        const ins = await insertCommandInvocation({
-          transport,
-          chatId: chatIdStr,
-          messageId: Number(messageId),
-          cmd: cmdBase,
-          globalUserId: globalUserId || null,
-          senderId: senderId || "",
-          metadata: { enforced: true, source: "core.handleMessage" },
-        });
 
-        if (!ins?.inserted) {
-          commandInvocationInserted = false;
-          return { ok: true, stage: "6.8.2", result: "dup_command_drop", cmdBase };
+    // ✅ bypass idempotency for safe commands — must always reply (even on retries)
+    if (!IDEMPOTENCY_BYPASS.has(cmdBase)) {
+      try {
+        if (transport === "telegram" && chatIdStr && messageId) {
+          const ins = await insertCommandInvocation({
+            transport,
+            chatId: chatIdStr,
+            messageId: Number(messageId),
+            cmd: cmdBase,
+            globalUserId: globalUserId || null,
+            senderId: senderId || "",
+            metadata: { enforced: true, source: "core.handleMessage" },
+          });
+
+          if (!ins?.inserted) {
+            commandInvocationInserted = false;
+            return { ok: true, stage: "6.8.2", result: "dup_command_drop", cmdBase };
+          }
         }
+      } catch (e) {
+        console.error("core command idempotency guard failed:", e);
+        // fail-open
+        commandInvocationInserted = true;
       }
-    } catch (e) {
-      console.error("core command idempotency guard failed:", e);
-      // fail-open
-      commandInvocationInserted = true;
     }
 
     // ✅ STAGE 7B — log inbound COMMAND as user message into chat_messages (fail-open)
@@ -448,7 +471,7 @@ export async function handleMessage(context = {}) {
       }
     }
 
-    if (!canProceed) {
+    if (!canProceed && !IDEMPOTENCY_BYPASS.has(cmdBase)) {
       // behavior_events: permission_denied
       try {
         await behaviorEvents.logEvent({
@@ -473,6 +496,42 @@ export async function handleMessage(context = {}) {
         event: "permission_denied",
       });
       return { ok: true, stage: "6.logic.2", result: "permission_denied", cmdBase };
+    }
+
+    // ✅ /start — must always reply in ENFORCED
+    if (cmdBase === "/start") {
+      await replyAndLog(
+        [
+          "✅ SG online.",
+          "",
+          "Базовые команды:",
+          "- /link_start — начать привязку identity",
+          "- /link_confirm <code> — подтвердить привязку",
+          "- /link_status — проверить статус",
+          "",
+          "ℹ️ /help — подсказка по командам (в зависимости от прав).",
+        ].join("\n"),
+        { cmd: cmdBase, event: "start" }
+      );
+      return { ok: true, stage: "6.logic.2", result: "start_replied", cmdBase };
+    }
+
+    // ✅ /help — must always reply in ENFORCED
+    if (cmdBase === "/help") {
+      await replyAndLog(
+        [
+          "ℹ️ Help",
+          "",
+          "Базовые команды:",
+          "- /link_start",
+          "- /link_confirm <code>",
+          "- /link_status",
+          "",
+          "Dev/системные команды — только для монарха в личке.",
+        ].join("\n"),
+        { cmd: cmdBase, event: "help" }
+      );
+      return { ok: true, stage: "6.logic.2", result: "help_replied", cmdBase };
     }
 
     if (typeof deps?.dispatchCommand === "function") {

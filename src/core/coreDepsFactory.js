@@ -1,19 +1,22 @@
 // src/core/coreDepsFactory.js
+// Stage 7A — ProjectMemory wiring (SAFE: no missing modules)
 
-import { createProjectMemoryService } from "../services/projectMemory/projectMemoryService.js";
+import { getProjectSection, upsertProjectSection } from "../../projectMemory.js";
 
 /**
  * Core dependencies factory
- * Stage 7A — ProjectMemory wiring
+ * We expose getProjectSection/upsertProjectSection directly,
+ * because commandDispatcher expects ctx.getProjectSection / ctx.upsertProjectSection.
  */
-export function createCoreDeps({ pool, bot }) {
-
-  // Project Memory Service
-  const pm = createProjectMemoryService({ pool });
-
+export function createCoreDeps({ pool, bot } = {}) {
   return {
     pool,
     bot,
-    pm
+
+    // ✅ Stage 7A — Project Memory functions
+    getProjectSection,
+    upsertProjectSection,
   };
 }
+
+export default createCoreDeps;

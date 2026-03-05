@@ -522,6 +522,7 @@ export async function handleMessage(context = {}) {
 
           // ✅ STAGE 7A — Project Memory wiring (FIX)
           getProjectSection: deps.getProjectSection,
+          getProjectMemoryList: deps.getProjectMemoryList,
           upsertProjectSection: deps.upsertProjectSection,
         };
 

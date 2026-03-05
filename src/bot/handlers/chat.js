@@ -536,9 +536,9 @@ export async function handleChatMessage({
     const isFutureSingleDay = /_days_from_now$/.test(String(parsed?.hint || ""));
 
     if (parsed && !isFutureSingleDay) {
-      const recallLines = (recallCtx || "")
-        .split("\n")
-        .filter((l) => l.startsWith("U:") || l.startsWith("A:")).length;
+      // ✅ FIX (STAGE 8): count U:/A: even when timestamps prefix the line: "[dd.mm hh:mm] U:"
+      const uaCount = (recallCtx || "").match(/U:|A:/g)?.length ?? 0;
+      const recallLines = uaCount;
 
       if (recallLines < 4) {
         try {

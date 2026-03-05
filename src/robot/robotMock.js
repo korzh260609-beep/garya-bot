@@ -9,6 +9,9 @@ import { makeTaskRunKey } from "../jobs/jobRunner.js";
 // ✅ Stage 5 — error_events retention purge (cooldown protected)
 import { ErrorEventsRetentionService } from "../observability/ErrorEventsRetentionService.js";
 
+// ✅ Stage 7B.6 — chat_messages retention purge (cooldown protected, disabled by default)
+import { ChatHistoryRetentionService } from "../core/retention/ChatHistoryRetentionService.js";
+
 // ✅ Stage 3.6 — centralized env access (no direct process.env here)
 import { envStr } from "../core/config.js";
 
@@ -413,6 +416,9 @@ async function handlePriceMonitorTask(bot, task) {
 // ✅ singleton retention service (in-memory cooldown per instance)
 const _errorEventsRetention = new ErrorEventsRetentionService(pool);
 
+// ✅ Stage 7B.6 singleton retention service (in-memory cooldown per instance)
+const _chatHistoryRetention = new ChatHistoryRetentionService(pool);
+
 export async function robotTick(bot) {
   // Stage 2.8.1: only one instance executes robot tick
   const lock = await tryAcquireRobotLock();
@@ -423,6 +429,14 @@ export async function robotTick(bot) {
     // Never blocks the bot if it fails.
     try {
       await _errorEventsRetention.maybePurgeRuntimeScope();
+    } catch (_) {
+      // ignore
+    }
+
+    // ✅ Stage 7B.6 maintenance: chat_messages retention purge (disabled by default)
+    // Never blocks the bot if it fails.
+    try {
+      await _chatHistoryRetention.maybePurge();
     } catch (_) {
       // ignore
     }

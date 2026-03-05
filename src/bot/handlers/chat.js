@@ -427,7 +427,7 @@ export async function handleChatMessage({
       chatId: chatIdStr,
       globalUserId,
       query: effective,
-      limit: 5,
+      limit: 10,
       userTimezone: userTz,
     });
   } catch (e) {

@@ -1,56 +1,47 @@
 // migrations/022_chat_history_retention_policy_skeleton.js
-// STAGE 7B.6
-// Retention policy skeleton (no logic yet)
-// Forward-only migration
+// STAGE 7B — CHAT HISTORY RETENTION POLICY
+//
+// Эта миграция создаёт таблицу chat_history_retention_policy.
+// Таблица хранит правила retention для истории сообщений.
+//
+// Enforcement выполняется сервисом:
+//
+//   src/core/retention/ChatHistoryRetentionService.js
+//
+// Сервис вызывается из robotTick() и выполняет:
+// - batch deletion
+// - cooldown protection
+// - fail-safe поведение
+//
+// Таким образом:
+// DB хранит policy,
+// а удаление выполняет сервис.
 
-export const up = async (pgm) => {
-  pgm.createTable("chat_history_retention_policy", {
-    id: {
-      type: "serial",
-      primaryKey: true,
-    },
-    guest_retention_days: {
-      type: "integer",
-      notNull: false,
-    },
-    citizen_retention_days: {
-      type: "integer",
-      notNull: false,
-    },
-    monarch_retention_days: {
-      type: "integer",
-      notNull: false,
-    },
-    archive_enabled: {
-      type: "boolean",
-      notNull: true,
-      default: false,
-    },
-    created_at: {
-      type: "timestamp",
-      notNull: true,
-      default: pgm.func("now()"),
-    },
-  });
+export async function up(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chat_history_retention_policy (
+      id SERIAL PRIMARY KEY,
 
-  // Insert single default row
-  pgm.sql(`
-    INSERT INTO chat_history_retention_policy (
-      guest_retention_days,
-      citizen_retention_days,
-      monarch_retention_days,
-      archive_enabled
-    )
-    VALUES (NULL, NULL, NULL, false);
+      role TEXT NOT NULL,
+      retention_days INTEGER,
+
+      created_at TIMESTAMP DEFAULT NOW()
+    );
   `);
 
-  pgm.sql(`
-    INSERT INTO schema_version (version, note)
-    VALUES (22, 'chat_history_retention_policy skeleton (stage 7B.6)')
-    ON CONFLICT (version) DO NOTHING;
+  // базовые политики
+  await pool.query(`
+    INSERT INTO chat_history_retention_policy (role, retention_days)
+    VALUES
+      ('guest', 30),
+      ('citizen', 90),
+      ('monarch', NULL)
+    ON CONFLICT DO NOTHING;
   `);
-};
+}
 
-export const down = async () => {
-  // forward-only
-};
+export async function down(pool) {
+  await pool.query(`
+    DROP TABLE IF EXISTS chat_history_retention_policy;
+  `);
+}

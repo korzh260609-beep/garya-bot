@@ -158,7 +158,10 @@ export class RecallEngine {
         try {
           const d = dt instanceof Date ? dt : new Date(dt);
           if (!d || isNaN(d.getTime())) return "";
-          return new Intl.DateTimeFormat("ru-RU", {
+
+          // ✅ ISO-like local time to avoid dd.mm ambiguity for the model
+          // sv-SE yields "YYYY-MM-DD HH:mm"
+          return new Intl.DateTimeFormat("sv-SE", {
             timeZone: tz || "UTC",
             year: "numeric",
             month: "2-digit",

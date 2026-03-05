@@ -18,6 +18,9 @@ import { runMigrationsIfEnabled } from "../db/runMigrations.js";
 // ✅ Stage 3.6 — Config hygiene (no direct process.env here)
 import { envStr, envIntRange } from "../core/config.js";
 
+// ✅ STAGE 7A.4 — Auto-restore seed
+import { autoRestoreProjectMemory } from "./projectMemoryAutoRestore.js";
+
 // ✅ add-only helper (now via envStr)
 function envTrue(name, def = "false") {
   return envStr(name, def).trim().toLowerCase() === "true";
@@ -43,6 +46,19 @@ export async function initSystem({ bot }) {
   console.log("🧠 Project Memory table OK.");
   console.log("🧾 File-Intake logs table OK.");
 
+  // ✅ STAGE 7A.4 — Auto-restore ROADMAP/WORKFLOW into DB if missing
+  try {
+    const enabled = envTrue("PROJECT_MEMORY_AUTO_RESTORE", "true");
+    const r = await autoRestoreProjectMemory({ enabled });
+    if (r?.skipped) {
+      console.log("🧩 Project Memory auto-restore: skipped");
+    } else {
+      console.log("🧩 Project Memory auto-restore:", r?.results || r);
+    }
+  } catch (e) {
+    console.error("⚠️ Project Memory auto-restore failed:", e?.message || e);
+  }
+
   // ==========================================================================
   // STAGE 5.x — error_events retention
   // CLEAN MODE:
@@ -56,7 +72,6 @@ export async function initSystem({ bot }) {
   const bootPurgeEnabled = envTrue("ERROR_EVENTS_BOOT_PURGE_ENABLED", "false");
 
   if (bootPurgeEnabled) {
-    // ✅ Optional boot purge (disabled by default)
     const retentionDays = envIntRange("ERROR_EVENTS_RETENTION_DAYS", 7, {
       min: 1,
       max: 3650,
@@ -76,42 +91,10 @@ export async function initSystem({ bot }) {
         `🧹 error_events boot cleanup: deleted ${r?.rowCount || 0} rows (scope=runtime, older than ${retentionDays}d)`
       );
     } catch (e) {
-      // must never crash boot
       console.error("⚠️ error_events boot cleanup failed:", e?.message || e);
     }
   } else {
     console.log("🧼 error_events boot cleanup: skipped (retention handled by service)");
-  }
-
-  // --------------------------------------------------------------------------
-  // DEPRECATED legacy boot purge block (kept for add-only policy)
-  // This block is intentionally disabled to avoid double retention.
-  // --------------------------------------------------------------------------
-  if (false) {
-    // ✅ Stage 5.x maintenance: auto-clean old runtime error events
-    // Default: keep 7 days. Only scope=runtime (do NOT delete task/source errors)
-    const retentionDays = envIntRange("ERROR_EVENTS_RETENTION_DAYS", 7, {
-      min: 1,
-      max: 3650,
-    });
-
-    try {
-      const r = await pool.query(
-        `
-      DELETE FROM error_events
-      WHERE scope = 'runtime'
-        AND created_at < NOW() - ($1::interval)
-      `,
-        [`${retentionDays} days`]
-      );
-
-      console.log(
-        `🧹 error_events cleanup: deleted ${r?.rowCount || 0} rows (scope=runtime, older than ${retentionDays}d)`
-      );
-    } catch (e) {
-      // must never crash boot
-      console.error("⚠️ error_events cleanup failed:", e?.message || e);
-    }
   }
 
   // access_requests (если модуль существует)

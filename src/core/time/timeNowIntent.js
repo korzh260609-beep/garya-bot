@@ -74,10 +74,12 @@ export function isTimeNowIntent(inputText) {
 
   // --- HIGH-CONFIDENCE (instant true) ---
   const strongPatterns = [
-    /\bкотор(ый|ая)\s+час\b/u,
-    /\bсколько\s+(сейчас\s+)?времен[иь]\b/u,
-    /\bскільки\s+(зараз\s+)?(годин|часу)\b/u,
-    /\bкотра\s+(зараз\s+)?година\b/u,
+    // ✅ Unicode-aware boundaries (JS \b is NOT Cyrillic-safe)
+    /(?<![\p{L}\p{N}_])котор(ый|ая)\s+час(?![\p{L}\p{N}_])/u,
+    /(?<![\p{L}\p{N}_])сколько\s+(сейчас\s+)?времен[иь](?![\p{L}\p{N}_])/u,
+    /(?<![\p{L}\p{N}_])скільки\s+(зараз\s+)?(годин|часу)(?![\p{L}\p{N}_])/u,
+    /(?<![\p{L}\p{N}_])котра\s+(зараз\s+)?година(?![\p{L}\p{N}_])/u,
+
     /\bwhat\s+time\s+is\s+it\b/i,
     /\bwhat\s+is\s+the\s+time\b/i,
     /\bcurrent\s+time\b/i,

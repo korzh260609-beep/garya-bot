@@ -1,14 +1,88 @@
 // src/core/memoryAdapters/chatMemoryAdapter.js
 // STAGE 7 — MEMORY LAYER V1 (ADAPTER)
-// Цель: прокси к src/memory/chatMemory.js
+// Цель: прямой доступ к chat_memory через adapter (без legacy src/memory/chatMemory.js)
+// RULE: handlers -> MemoryService -> Adapter -> DB
 //
-// STAGE 7.2 LOGIC: прокидываем globalUserId/options в v2-колонки.
+// Поддержка v2 колонок (если существуют):
+// - global_user_id (text)
+// - transport (text)
+// - metadata (jsonb)
+// - schema_version (int)
+//
+// Fail-safe: если v2 колонок нет — пишем/читаем по старой схеме (chat_id, role, content).
 
-import {
-  getChatHistory as _getChatHistory,
-  saveMessageToMemory as _saveMessageToMemory,
-  saveChatPair as _saveChatPair,
-} from "../../memory/chatMemory.js";
+import pool from "../../../db.js";
+
+const DEFAULT_TRANSPORT = "telegram";
+const DEFAULT_SCHEMA_VERSION = 1;
+
+// -------- schema detection (safe) --------
+const _colCache = new Map(); // "table.column" -> boolean
+
+async function _columnExists(table, column) {
+  const key = `${table}.${column}`;
+  if (_colCache.has(key)) return _colCache.get(key);
+
+  try {
+    const r = await pool.query(
+      `
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema='public'
+        AND table_name=$1
+        AND column_name=$2
+      LIMIT 1
+      `,
+      [table, column]
+    );
+    const ok = (r.rows?.length || 0) > 0;
+    _colCache.set(key, ok);
+    return ok;
+  } catch (_) {
+    _colCache.set(key, false);
+    return false;
+  }
+}
+
+function _safeStr(x) {
+  if (typeof x === "string") return x;
+  if (x === null || x === undefined) return "";
+  return String(x);
+}
+
+function _safeObj(o) {
+  try {
+    if (!o) return {};
+    if (typeof o === "object") return o;
+    return { value: String(o) };
+  } catch (_) {
+    return {};
+  }
+}
+
+function _toIntOrNull(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? Math.floor(n) : null;
+}
+
+async function _withTx(fn) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const res = await fn(client);
+    await client.query("COMMIT");
+    return res;
+  } catch (e) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (_) {}
+    throw e;
+  } finally {
+    try {
+      client.release();
+    } catch (_) {}
+  }
+}
 
 export class ChatMemoryAdapter {
   constructor({ logger = null, config = {} } = {}) {
@@ -16,46 +90,228 @@ export class ChatMemoryAdapter {
     this.config = config;
   }
 
-  /**
-   * Вернуть историю чата в формате [{role, content}, ...]
-   * v2: если есть globalUserId — фильтрация по нему
-   */
+  // ========================================================================
+  // read
+  // ========================================================================
   async getChatHistory({ chatId, limit, globalUserId = null } = {}) {
-    if (!chatId) return [];
-    return _getChatHistory(chatId, limit, { globalUserId });
+    const chatIdStr = _safeStr(chatId);
+    const lim = Number.isFinite(Number(limit)) ? Math.max(1, Math.floor(limit)) : 20;
+    if (!chatIdStr) return [];
+
+    const hasGlobal = await _columnExists("chat_memory", "global_user_id");
+
+    try {
+      // identity-first (within current chat) if column exists + globalUserId provided
+      if (hasGlobal && globalUserId) {
+        const r = await pool.query(
+          `
+          SELECT role, content
+          FROM chat_memory
+          WHERE chat_id = $1
+            AND global_user_id = $2
+          ORDER BY id DESC
+          LIMIT $3
+          `,
+          [chatIdStr, _safeStr(globalUserId), lim]
+        );
+
+        const rows = (r.rows || []).reverse().map((row) => ({
+          role: row.role,
+          content: row.content,
+        }));
+
+        if (rows.length) return rows;
+        // fallback below if empty
+      }
+
+      // legacy read (chat_id only)
+      const r2 = await pool.query(
+        `
+        SELECT role, content
+        FROM chat_memory
+        WHERE chat_id = $1
+        ORDER BY id DESC
+        LIMIT $2
+        `,
+        [chatIdStr, lim]
+      );
+
+      return (r2.rows || []).reverse().map((row) => ({
+        role: row.role,
+        content: row.content,
+      }));
+    } catch (e) {
+      if (this.logger?.error) this.logger.error("ChatMemoryAdapter.getChatHistory error", e?.message || e);
+      return [];
+    }
   }
 
-  /**
-   * Записать одно сообщение в chat_memory
-   * v2: options -> globalUserId/transport/metadata/schemaVersion
-   */
+  // ========================================================================
+  // write one message
+  // ========================================================================
   async saveMessage({ chatId, role, content, globalUserId = null, options = {} } = {}) {
-    if (!chatId) return { ok: false, reason: "missing_chatId" };
-    if (!role) return { ok: false, reason: "missing_role" };
-    if (typeof content !== "string") return { ok: false, reason: "invalid_content" };
+    const chatIdStr = _safeStr(chatId);
+    const roleStr = _safeStr(role);
+    const text = typeof content === "string" ? content : _safeStr(content);
 
-    await _saveMessageToMemory(chatId, role, content, {
+    if (!chatIdStr) return { ok: false, reason: "missing_chatId" };
+    if (!roleStr) return { ok: false, reason: "missing_role" };
+    if (!text) return { ok: false, reason: "empty_content" };
+
+    const transport = _safeStr(options?.transport || DEFAULT_TRANSPORT) || DEFAULT_TRANSPORT;
+    const metadata = _safeObj(options?.metadata);
+    const schemaVersion = Number.isFinite(Number(options?.schemaVersion)) && Number(options.schemaVersion) > 0
+      ? Math.floor(Number(options.schemaVersion))
+      : DEFAULT_SCHEMA_VERSION;
+
+    // detect v2 columns
+    const hasGlobal = await _columnExists("chat_memory", "global_user_id");
+    const hasTransport = await _columnExists("chat_memory", "transport");
+    const hasMeta = await _columnExists("chat_memory", "metadata");
+    const hasSv = await _columnExists("chat_memory", "schema_version");
+
+    const messageId = _toIntOrNull(metadata?.messageId);
+
+    try {
+      // Strong anti-dup only if messageId exists AND metadata column exists
+      if (messageId !== null && hasMeta) {
+        const identityKey = (hasGlobal && globalUserId) ? _safeStr(globalUserId) : chatIdStr;
+        const lockKey = `cm:${transport}:${identityKey}:${roleStr}:${String(messageId)}`;
+
+        await _withTx(async (client) => {
+          await client.query(`SELECT pg_advisory_xact_lock(hashtext($1));`, [lockKey]);
+
+          // dedupe check
+          const exists = await client.query(
+            `
+            SELECT id
+            FROM chat_memory
+            WHERE chat_id = $1
+              AND role = $2
+              AND content = $3
+              ${hasGlobal ? "AND ($4::text IS NULL OR global_user_id = $4)" : ""}
+              ${hasTransport ? "AND transport = $5" : ""}
+              AND (metadata->>'messageId') = $6
+            ORDER BY id DESC
+            LIMIT 1
+            `,
+            [
+              chatIdStr,
+              roleStr,
+              text,
+              hasGlobal ? (globalUserId ? _safeStr(globalUserId) : null) : undefined,
+              hasTransport ? transport : undefined,
+              String(messageId),
+            ].filter((v) => v !== undefined)
+          );
+
+          if ((exists.rows || []).length) return;
+
+          // insert
+          if (hasGlobal || hasTransport || hasMeta || hasSv) {
+            const cols = ["chat_id", "role", "content"];
+            const vals = [chatIdStr, roleStr, text];
+
+            if (hasGlobal) {
+              cols.push("global_user_id");
+              vals.push(globalUserId ? _safeStr(globalUserId) : null);
+            }
+            if (hasTransport) {
+              cols.push("transport");
+              vals.push(transport);
+            }
+            if (hasMeta) {
+              cols.push("metadata");
+              vals.push(JSON.stringify(metadata));
+            }
+            if (hasSv) {
+              cols.push("schema_version");
+              vals.push(schemaVersion);
+            }
+
+            const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
+            await client.query(
+              `INSERT INTO chat_memory (${cols.join(", ")}) VALUES (${placeholders})`,
+              vals
+            );
+            return;
+          }
+
+          // legacy insert (only base columns)
+          await client.query(
+            `INSERT INTO chat_memory (chat_id, role, content) VALUES ($1, $2, $3)`,
+            [chatIdStr, roleStr, text]
+          );
+        });
+
+        return { ok: true };
+      }
+
+      // No messageId path (simple insert)
+      if (hasGlobal || hasTransport || hasMeta || hasSv) {
+        const cols = ["chat_id", "role", "content"];
+        const vals = [chatIdStr, roleStr, text];
+
+        if (hasGlobal) {
+          cols.push("global_user_id");
+          vals.push(globalUserId ? _safeStr(globalUserId) : null);
+        }
+        if (hasTransport) {
+          cols.push("transport");
+          vals.push(transport);
+        }
+        if (hasMeta) {
+          cols.push("metadata");
+          vals.push(JSON.stringify(metadata));
+        }
+        if (hasSv) {
+          cols.push("schema_version");
+          vals.push(schemaVersion);
+        }
+
+        const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
+        await pool.query(
+          `INSERT INTO chat_memory (${cols.join(", ")}) VALUES (${placeholders})`,
+          vals
+        );
+
+        return { ok: true };
+      }
+
+      // legacy insert
+      await pool.query(
+        `INSERT INTO chat_memory (chat_id, role, content) VALUES ($1, $2, $3)`,
+        [chatIdStr, roleStr, text]
+      );
+
+      return { ok: true };
+    } catch (e) {
+      if (this.logger?.error) this.logger.error("ChatMemoryAdapter.saveMessage error", e?.message || e);
+      return { ok: false, reason: "db_error" };
+    }
+  }
+
+  // ========================================================================
+  // write pair
+  // ========================================================================
+  async savePair({ chatId, userText, assistantText, globalUserId = null, options = {} } = {}) {
+    const chatIdStr = _safeStr(chatId);
+    if (!chatIdStr) return { ok: false, reason: "missing_chatId" };
+
+    await this.saveMessage({
+      chatId: chatIdStr,
+      role: "user",
+      content: typeof userText === "string" ? userText : _safeStr(userText),
       globalUserId,
-      transport: options.transport,
-      metadata: options.metadata,
-      schemaVersion: options.schemaVersion,
+      options,
     });
 
-    return { ok: true };
-  }
-
-  /**
-   * Записать пару user+assistant
-   * v2: options -> globalUserId/transport/metadata/schemaVersion
-   */
-  async savePair({ chatId, userText, assistantText, globalUserId = null, options = {} } = {}) {
-    if (!chatId) return { ok: false, reason: "missing_chatId" };
-
-    await _saveChatPair(chatId, userText || "", assistantText || "", {
+    await this.saveMessage({
+      chatId: chatIdStr,
+      role: "assistant",
+      content: typeof assistantText === "string" ? assistantText : _safeStr(assistantText),
       globalUserId,
-      transport: options.transport,
-      metadata: options.metadata,
-      schemaVersion: options.schemaVersion,
+      options,
     });
 
     return { ok: true };

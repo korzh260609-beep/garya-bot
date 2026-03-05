@@ -63,6 +63,81 @@ export async function handleChatMessage({
   const isMonarchFn = typeof isMonarch === "function" ? isMonarch : () => false;
   const monarchNow = isMonarchFn(senderIdStr);
 
+  // ==========================================================
+  // STAGE 7.7 Gate — MemoryService ONLY (handlers must not call chat_memory directly)
+  // Fail-open: if MemoryService not available/disabled, fall back to injected functions.
+  // ==========================================================
+  const memory = getMemoryService ? getMemoryService() : null;
+
+  const memoryWrite = async ({ role, content, transport, metadata, schemaVersion }) => {
+    try {
+      if (memory && typeof memory.write === "function") {
+        return await memory.write({
+          chatId: chatIdStr,
+          globalUserId,
+          role,
+          content: typeof content === "string" ? content : String(content || ""),
+          transport: transport || "telegram",
+          metadata: metadata || {},
+          schemaVersion: schemaVersion || 2,
+        });
+      }
+    } catch (e) {
+      console.error("ERROR MemoryService.write failed (fail-open):", e);
+    }
+
+    // fallback (legacy injection)
+    try {
+      if (typeof saveMessageToMemory === "function") {
+        return await saveMessageToMemory(chatIdStr, role, content, {
+          globalUserId,
+          transport: transport || "telegram",
+          metadata: metadata || {},
+          schemaVersion: schemaVersion || 2,
+        });
+      }
+    } catch (e) {
+      console.error("ERROR saveMessageToMemory fallback failed (fail-open):", e);
+    }
+
+    return { ok: true, stored: false, reason: "memory_write_fail_open" };
+  };
+
+  const memoryWritePair = async ({ userText, assistantText, transport, metadata, schemaVersion }) => {
+    try {
+      if (memory && typeof memory.writePair === "function") {
+        return await memory.writePair({
+          chatId: chatIdStr,
+          globalUserId,
+          userText: typeof userText === "string" ? userText : String(userText || ""),
+          assistantText:
+            typeof assistantText === "string" ? assistantText : String(assistantText || ""),
+          transport: transport || "telegram",
+          metadata: metadata || {},
+          schemaVersion: schemaVersion || 2,
+        });
+      }
+    } catch (e) {
+      console.error("ERROR MemoryService.writePair failed (fail-open):", e);
+    }
+
+    // fallback (legacy injection)
+    try {
+      if (typeof saveChatPair === "function") {
+        return await saveChatPair(chatIdStr, userText, assistantText, {
+          globalUserId,
+          transport: transport || "telegram",
+          metadata: metadata || {},
+          schemaVersion: schemaVersion || 2,
+        });
+      }
+    } catch (e) {
+      console.error("ERROR saveChatPair fallback failed (fail-open):", e);
+    }
+
+    return { ok: true, stored: false, reason: "memory_writePair_fail_open" };
+  };
+
   if (typeof callAI !== "function") {
     const details =
       "callAI is not a function (router wiring error: pass { callAI } into handleChatMessage).";
@@ -126,7 +201,6 @@ export async function handleChatMessage({
   // ==========================================================
   const saveAssistantEarlyReturn = async (text, reason = "early_return") => {
     try {
-      if (typeof saveMessageToMemory !== "function") return;
       const replyText = typeof text === "string" ? text : String(text || "");
       if (!replyText.trim()) return;
 
@@ -172,8 +246,9 @@ export async function handleChatMessage({
         console.error("ERROR STAGE 7B early-return assistant insert failed (fail-open):", e);
       }
 
-      await saveMessageToMemory(chatIdStr, "assistant", replyText, {
-        globalUserId,
+      await memoryWrite({
+        role: "assistant",
+        content: replyText,
         transport: "telegram",
         metadata: {
           senderIdStr,
@@ -314,14 +389,15 @@ export async function handleChatMessage({
   //  STAGE 7.2: save with globalUserId + metadata
   // NOTE: Memory layer keeps original text; 7B redaction applies to chat_history (chat_messages) only.
   try {
-    await saveMessageToMemory(chatIdStr, "user", effective, {
-      globalUserId,
+    await memoryWrite({
+      role: "user",
+      content: effective,
       transport: "telegram",
       metadata: { senderIdStr, chatIdStr, messageId },
       schemaVersion: 2,
     });
   } catch (e) {
-    console.error("ERROR saveMessageToMemory error:", e);
+    console.error("ERROR memoryWrite(user) error:", e);
   }
 
   let history = [];
@@ -922,8 +998,9 @@ export async function handleChatMessage({
   try {
     const meta = { senderIdStr, chatIdStr, messageId };
 
-    const res = await saveChatPair(chatIdStr, effective, aiReply, {
-      globalUserId,
+    const res = await memoryWritePair({
+      userText: effective,
+      assistantText: aiReply,
       transport: "telegram",
       metadata: meta,
       schemaVersion: 2,

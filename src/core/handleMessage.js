@@ -10,6 +10,10 @@ import { deriveChatMeta } from "./transportMeta.js";
 import { isTransportTraceEnabled } from "../transport/transportConfig.js";
 import { getMemoryService } from "./memoryServiceFactory.js";
 
+// ✅ STAGE 7B — chat_messages logging for COMMANDS (Core-level; Transport stays thin)
+import { insertUserMessage, insertAssistantMessage } from "../db/chatMessagesRepo.js";
+import { redactText, sha256Text, buildRawMeta } from "./redaction.js";
+
 // ✅ STAGE 6 LOGIC — Access + Identity
 import { resolveUserAccess } from "../users/userAccess.js";
 import { ensureUserProfile } from "../users/userProfile.js";
@@ -71,6 +75,15 @@ export async function handleMessage(context = {}) {
   const chatType = derived.chatType || null;
   const isPrivateChat =
     typeof context?.isPrivateChat === "boolean" ? context.isPrivateChat : derived.isPrivateChat;
+
+  // STAGE 7B — shared constants/helpers (match handlers/chat.js policy)
+  const MAX_CHAT_MESSAGE_CHARS = 16000;
+
+  const truncateForDb = (s) => {
+    const t = typeof s === "string" ? s : String(s ?? "");
+    if (t.length <= MAX_CHAT_MESSAGE_CHARS) return { text: t, truncated: false };
+    return { text: t.slice(0, MAX_CHAT_MESSAGE_CHARS), truncated: true };
+  };
 
   // =========================================================================
   // STAGE 6.8 — Enforced guard: no processing without dedupe key/messageId
@@ -231,9 +244,47 @@ export async function handleMessage(context = {}) {
     return { ok: false, reason: "missing_chatId" };
   }
 
+  // ✅ STAGE 7B — Core reply wrapper: always fail-open
+  const replyAndLog = async (message, meta = {}) => {
+    const out = String(message ?? "");
+    try {
+      await deps.reply(context, out);
+    } catch (e) {
+      console.error("replyAndLog: deps.reply failed:", e);
+    }
+
+    try {
+      const red = redactText(out);
+      const { text: content, truncated } = truncateForDb(red);
+      const textHash = sha256Text(red);
+
+      await insertAssistantMessage({
+        transport,
+        chatId: chatIdStr,
+        chatType,
+        globalUserId: globalUserId || null,
+        textHash,
+        content,
+        truncated,
+        metadata: {
+          ...meta,
+          stage: "7B.command.reply",
+          cmd: meta?.cmd || null,
+          senderId,
+          chatId: chatIdStr,
+          messageId: messageId ? Number(messageId) : null,
+        },
+        schemaVersion: 1,
+      });
+    } catch (e) {
+      console.error("replyAndLog: insertAssistantMessage failed (fail-open):", e);
+    }
+  };
+
   // --- COMMAND ROUTING ---
   if (isCommand && cmdBase) {
     // STAGE 6.8.2 — command idempotency (core-level, enforced path)
+    let commandInvocationInserted = true;
     try {
       if (transport === "telegram" && chatIdStr && messageId) {
         const ins = await insertCommandInvocation({
@@ -247,12 +298,47 @@ export async function handleMessage(context = {}) {
         });
 
         if (!ins?.inserted) {
+          commandInvocationInserted = false;
           return { ok: true, stage: "6.8.2", result: "dup_command_drop", cmdBase };
         }
       }
     } catch (e) {
       console.error("core command idempotency guard failed:", e);
       // fail-open
+      commandInvocationInserted = true;
+    }
+
+    // ✅ STAGE 7B — log inbound COMMAND as user message into chat_messages (fail-open)
+    // (only after command idempotency accepted; avoids duplicate user rows on retries)
+    try {
+      if (commandInvocationInserted && transport === "telegram" && chatIdStr && messageId) {
+        const red = redactText(trimmed);
+        const { text: content, truncated } = truncateForDb(red);
+        const textHash = sha256Text(red);
+
+        await insertUserMessage({
+          transport,
+          chatId: chatIdStr,
+          chatType,
+          globalUserId: globalUserId || null,
+          senderId: senderId || null,
+          messageId: Number(messageId),
+          textHash,
+          content,
+          truncated,
+          metadata: {
+            stage: "7B.command.in",
+            cmd: cmdBase,
+            senderId,
+            chatId: chatIdStr,
+            messageId: Number(messageId),
+          },
+          raw: buildRawMeta(context?.raw || {}),
+          schemaVersion: 1,
+        });
+      }
+    } catch (e) {
+      console.error("STAGE 7B command insertUserMessage failed (fail-open):", e);
     }
 
     // Stage 3.5 — apply RL to ALL commands (except /start, /help). Monarch bypass.
@@ -285,7 +371,10 @@ export async function handleMessage(context = {}) {
         }
 
         const sec = Math.ceil(rl.retryAfterMs / 1000);
-        await deps.reply(context, `⛔ Слишком часто. Подожди ${sec} сек.`);
+        await replyAndLog(`⛔ Слишком часто. Подожди ${sec} сек.`, {
+          cmd: cmdBase,
+          event: "rate_limited",
+        });
         return { ok: true, stage: "3.5", result: "rate_limited", cmdBase };
       }
     }
@@ -310,7 +399,10 @@ export async function handleMessage(context = {}) {
         console.error("handleMessage(permission_denied logEvent) failed:", e);
       }
 
-      await deps.reply(context, "⛔ Недостаточно прав.");
+      await replyAndLog("⛔ Недостаточно прав.", {
+        cmd: cmdBase,
+        event: "permission_denied",
+      });
       return { ok: true, stage: "6.logic.2", result: "permission_denied", cmdBase };
     }
 
@@ -326,7 +418,16 @@ export async function handleMessage(context = {}) {
           userRole,
           userPlan,
           bypass: isMonarchUser,
+
+          // ✅ reply that logs assistant output into chat_messages (Stage 7B)
+          reply: async (text, meta = {}) => replyAndLog(text, { cmd: cmdBase, ...meta }),
+
+          // extra useful context
+          globalUserId,
+          transport,
           chatType,
+          messageId: messageId ? Number(messageId) : null,
+
           isPrivateChat,
           identityCtx: {
             transport,
@@ -357,7 +458,10 @@ export async function handleMessage(context = {}) {
         }
       } catch (e) {
         console.error("handleMessage(dispatchCommand) failed:", e);
-        await deps.reply(context, "⛔ Ошибка при выполнении команды.");
+        await replyAndLog("⛔ Ошибка при выполнении команды.", {
+          cmd: cmdBase,
+          event: "dispatch_error",
+        });
         return { ok: false, reason: "dispatch_error", cmdBase };
       }
     }

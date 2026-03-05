@@ -336,38 +336,6 @@ export async function handleChatMessage({
   });
 
   // ==========================================================
-  // STAGE 8A — RECALL ENGINE (SKELETON)
-  // - wiring only
-  // - default disabled via RECALL_ENABLED
-  // - fail-open (must not break production)
-  // ==========================================================
-  let recallCtx = "";
-  try {
-    const recall = getRecallEngine({ db: pool, logger: console });
-    recallCtx = await recall.buildRecallContext({
-      chatId: chatIdStr,
-      globalUserId,
-      query: effective,
-      limit: 5,
-    });
-  } catch (e) {
-    console.error("ERROR RecallEngine buildRecallContext failed (fail-open):", e);
-  }
-
-  //  DEBUG (STAGE 8A): prove recall is wired + non-empty
-  try {
-    console.log("RECALL DBG", {
-      enabled: process.env.RECALL_ENABLED,
-      hasRecallCtx: Boolean(recallCtx && recallCtx.trim()),
-      recallLen: recallCtx ? recallCtx.length : 0,
-      chatId: String(chatIdStr),
-      senderId: String(senderIdStr),
-      globalUserId: globalUserId ? String(globalUserId) : null,
-      q: String(effective || "").slice(0, 60),
-    });
-  } catch (_) {}
-
-  // ==========================================================
   // STAGE 8C — Timezone wiring (DB -> TimeContext)
   // Default = UTC (policy).
   // If timezone not set → try resolve/save OR ask user and STOP (no AI call).
@@ -444,6 +412,26 @@ export async function handleChatMessage({
       await bot.sendMessage(chatId, text);
       return; // ⛔ STOP — не идём в AI
     }
+  }
+
+  // ==========================================================
+  // STAGE 8A — RECALL ENGINE
+  // - default disabled via RECALL_ENABLED
+  // - fail-open (must not break production)
+  // - IMPORTANT: pass userTimezone for correct human-date parsing
+  // ==========================================================
+  let recallCtx = "";
+  try {
+    const recall = getRecallEngine({ db: pool, logger: console });
+    recallCtx = await recall.buildRecallContext({
+      chatId: chatIdStr,
+      globalUserId,
+      query: effective,
+      limit: 5,
+      userTimezone: userTz,
+    });
+  } catch (e) {
+    console.error("ERROR RecallEngine buildRecallContext failed (fail-open):", e);
   }
 
   // ==========================================================

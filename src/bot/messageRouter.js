@@ -560,8 +560,13 @@ export function attachMessageRouter({
         // - If conflict => already processed => exit WITHOUT side-effects
         // - Fail-open on DB error (do not break production)
         // ==========================================================
+        const IDEMPOTENCY_BYPASS = new Set(["/start", "/help"]);
         const _cmdMessageId = msg.message_id ?? null;
-        if (_cmdMessageId !== null && Number.isFinite(Number(_cmdMessageId))) {
+        if (
+          !IDEMPOTENCY_BYPASS.has(cmdBase) &&
+          _cmdMessageId !== null &&
+          Number.isFinite(Number(_cmdMessageId))
+        ) {
           try {
             const transport = "telegram";
 

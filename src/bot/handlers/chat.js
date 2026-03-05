@@ -403,6 +403,41 @@ export async function handleChatMessage({
   if (timezoneMissing) {
     const rawTzInput = String(effective || "").trim();
 
+    // ✅ NEW: allow deterministic TIME_NOW / CURRENT_DATE even without timezone (fallback UTC)
+    try {
+      if (isTimeNowIntent(effective)) {
+        const timeCtx = createTimeContext({ userTimezoneFromDb: "UTC" });
+        const nowUtc = timeCtx.nowUTC();
+        const formatted = timeCtx.formatForUser(nowUtc);
+
+        if (formatted) {
+          const text =
+            `Зараз (UTC): ${formatted}\n` +
+            `Щоб показувати локальний час — вкажи часову зону IANA, напр.: Europe/Kyiv`;
+          await saveAssistantEarlyReturn(text, "deterministic_time_now_utc_no_tz");
+          await bot.sendMessage(chatId, text);
+          return; // ⛔ STOP — no AI
+        }
+      }
+
+      if (isCurrentDateIntent(effective)) {
+        const timeCtx = createTimeContext({ userTimezoneFromDb: "UTC" });
+        const nowUtc = timeCtx.nowUTC();
+        const dateOnly = timeCtx.formatDateForUser(nowUtc);
+
+        if (dateOnly) {
+          const text =
+            `Сьогодні (UTC): ${dateOnly}\n` +
+            `Щоб показувати локальну дату — вкажи часову зону IANA, напр.: Europe/Kyiv`;
+          await saveAssistantEarlyReturn(text, "deterministic_current_date_utc_no_tz");
+          await bot.sendMessage(chatId, text);
+          return; // ⛔ STOP — no AI
+        }
+      }
+    } catch (e) {
+      console.error("ERROR deterministic no-tz reply failed (fail-open):", e);
+    }
+
     // 1) If user provides IANA timezone directly (Europe/Kyiv)
     const ianaCandidate = rawTzInput.match(/^[A-Za-z_]+\/[A-Za-z_]+$/) ? rawTzInput : null;
 
@@ -487,8 +522,23 @@ export async function handleChatMessage({
       const nowUtc = timeCtx.nowUTC();
       const formatted = timeCtx.formatForUser(nowUtc);
 
-      if (formatted) {
-        const text = `Зараз: ${formatted}`;
+      // ✅ NEW: hard fallback to UTC if formatting fails (invalid TZ / Intl issue)
+      const fallback =
+        !formatted
+          ? (() => {
+              try {
+                const utcCtx = createTimeContext({ userTimezoneFromDb: "UTC" });
+                return utcCtx.formatForUser(nowUtc);
+              } catch (_) {
+                return null;
+              }
+            })()
+          : null;
+
+      const out = formatted || fallback;
+
+      if (out) {
+        const text = `Зараз: ${out}`;
         await saveAssistantEarlyReturn(text, "deterministic_time_now");
         await bot.sendMessage(chatId, text);
         return;
@@ -507,8 +557,23 @@ export async function handleChatMessage({
       const nowUtc = timeCtx.nowUTC();
       const dateOnly = timeCtx.formatDateForUser(nowUtc);
 
-      if (dateOnly) {
-        const text = `Сьогодні: ${dateOnly}`;
+      // ✅ NEW: hard fallback to UTC if formatting fails
+      const fallback =
+        !dateOnly
+          ? (() => {
+              try {
+                const utcCtx = createTimeContext({ userTimezoneFromDb: "UTC" });
+                return utcCtx.formatDateForUser(nowUtc);
+              } catch (_) {
+                return null;
+              }
+            })()
+          : null;
+
+      const out = dateOnly || fallback;
+
+      if (out) {
+        const text = `Сьогодні: ${out}`;
         await saveAssistantEarlyReturn(text, "deterministic_current_date");
         await bot.sendMessage(chatId, text);
         return; // ⛔ запрет AI

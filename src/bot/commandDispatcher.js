@@ -107,6 +107,12 @@ export async function dispatchCommand(cmd, ctx) {
 
   const { bot, chatId, chatIdStr, rest } = ctx;
 
+  // ✅ Stage 7B: prefer ctx.reply() (Core wrapper logs assistant output)
+  const reply =
+    typeof ctx.reply === "function"
+      ? ctx.reply
+      : async (text) => bot.sendMessage(chatId, String(text ?? ""));
+
   // If critical fields missing, don't crash
   if (!bot || !chatId) {
     return { handled: false, error: "CTX_INVALID" };
@@ -162,8 +168,7 @@ export async function dispatchCommand(cmd, ctx) {
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
-    await bot.sendMessage(
-      chatId,
+    await reply(
       [
         "⛔ DEV only.",
         `cmd=${cmd0}`,
@@ -171,7 +176,8 @@ export async function dispatchCommand(cmd, ctx) {
         `private=${String(isPrivate)}`,
         `monarch=${String(!!ctx?.bypass)}`,
         `from=${String(fromId)}`,
-      ].join("\n")
+      ].join("\n"),
+      { cmd: cmd0, handler: "commandDispatcher", event: "private_only_gate" }
     );
 
     return { handled: true };
@@ -371,7 +377,10 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/demo_task": {
       if (typeof ctx.createDemoTask !== "function") {
-        await bot.sendMessage(chatId, "⛔ createDemoTask недоступен (ошибка wiring).");
+        await reply("⛔ createDemoTask недоступен (ошибка wiring).", {
+          cmd: cmd0,
+          handler: "commandDispatcher",
+        });
         return { handled: true };
       }
 
@@ -386,9 +395,15 @@ export async function dispatchCommand(cmd, ctx) {
           [chatIdStr, access],
           [chatIdStr],
         ]);
-        await bot.sendMessage(chatId, `✅ Демо-задача создана!\nID: ${id?.id || id}`);
+        await reply(`✅ Демо-задача создана!\nID: ${id?.id || id}`, {
+          cmd: cmd0,
+          handler: "commandDispatcher",
+        });
       } catch (e) {
-        await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
+        await reply(`⛔ ${e?.message || "Запрещено"}`, {
+          cmd: cmd0,
+          handler: "commandDispatcher",
+        });
       }
 
       return { handled: true };
@@ -416,15 +431,15 @@ export async function dispatchCommand(cmd, ctx) {
       const raw = String(rest || "").trim();
 
       if (!raw) {
-        await bot.sendMessage(
-          chatId,
+        await reply(
           [
             "Использование:",
             "- /newtask <title> | <note>  (manual, legacy)",
             '- /newtask price_monitor {"symbol":"BTCUSDT","interval_minutes":1,"threshold_percent":1}',
             "",
             "Примечание: price_monitor сейчас создаётся тестовым шаблоном (payload из JSON может игнорироваться).",
-          ].join("\n")
+          ].join("\n"),
+          { cmd: cmd0, handler: "commandDispatcher" }
         );
         return { handled: true };
       }
@@ -441,16 +456,25 @@ export async function dispatchCommand(cmd, ctx) {
         const note = parts.slice(1).join(" | ").trim() || "";
 
         if (typeof ctx.createManualTask !== "function") {
-          await bot.sendMessage(chatId, "⛔ createManualTask недоступен (ошибка wiring).");
+          await reply("⛔ createManualTask недоступен (ошибка wiring).", {
+            cmd: cmd0,
+            handler: "commandDispatcher",
+          });
           return { handled: true };
         }
 
         try {
           const row = await ctx.createManualTask(chatIdStr, title, note, access);
           const id = row?.id ?? "?";
-          await bot.sendMessage(chatId, `✅ Задача создана: #${id}\n${title}\nТип: manual`);
+          await reply(`✅ Задача создана: #${id}\n${title}\nТип: manual`, {
+            cmd: cmd0,
+            handler: "commandDispatcher",
+          });
         } catch (e) {
-          await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
+          await reply(`⛔ ${e?.message || "Запрещено"}`, {
+            cmd: cmd0,
+            handler: "commandDispatcher",
+          });
         }
 
         return { handled: true };
@@ -462,7 +486,10 @@ export async function dispatchCommand(cmd, ctx) {
 
       if (type === "price_monitor") {
         if (typeof ctx.createTestPriceMonitorTask !== "function") {
-          await bot.sendMessage(chatId, "⛔ createTestPriceMonitorTask недоступен (ошибка wiring).");
+          await reply("⛔ createTestPriceMonitorTask недоступен (ошибка wiring).", {
+            cmd: cmd0,
+            handler: "commandDispatcher",
+          });
           return { handled: true };
         }
 
@@ -470,9 +497,9 @@ export async function dispatchCommand(cmd, ctx) {
           try {
             JSON.parse(jsonPart);
           } catch (e) {
-            await bot.sendMessage(
-              chatId,
-              '⛔ Неверный JSON. Пример: /newtask price_monitor {"symbol":"BTCUSDT","interval_minutes":1,"threshold_percent":1}'
+            await reply(
+              '⛔ Неверный JSON. Пример: /newtask price_monitor {"symbol":"BTCUSDT","interval_minutes":1,"threshold_percent":1}',
+              { cmd: cmd0, handler: "commandDispatcher" }
             );
             return { handled: true };
           }
@@ -480,34 +507,46 @@ export async function dispatchCommand(cmd, ctx) {
 
         try {
           const id = await ctx.createTestPriceMonitorTask(chatIdStr, access);
-          await bot.sendMessage(
-            chatId,
+          await reply(
             [
               `✅ Тест price_monitor создан!`,
               `ID: ${id}`,
               jsonPart ? "ℹ️ JSON принят, но сейчас может игнорироваться (тестовый шаблон)." : "",
             ]
               .filter(Boolean)
-              .join("\n")
+              .join("\n"),
+            { cmd: cmd0, handler: "commandDispatcher" }
           );
         } catch (e) {
-          await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
+          await reply(`⛔ ${e?.message || "Запрещено"}`, {
+            cmd: cmd0,
+            handler: "commandDispatcher",
+          });
         }
 
         return { handled: true };
       }
 
       if (typeof ctx.createManualTask !== "function") {
-        await bot.sendMessage(chatId, "⛔ createManualTask недоступен (ошибка wiring).");
+        await reply("⛔ createManualTask недоступен (ошибка wiring).", {
+          cmd: cmd0,
+          handler: "commandDispatcher",
+        });
         return { handled: true };
       }
 
       try {
         const row = await ctx.createManualTask(chatIdStr, raw, "", access);
         const id = row?.id ?? "?";
-        await bot.sendMessage(chatId, `✅ Задача создана: #${id}\n${raw}\nТип: manual`);
+        await reply(`✅ Задача создана: #${id}\n${raw}\nТип: manual`, {
+          cmd: cmd0,
+          handler: "commandDispatcher",
+        });
       } catch (e) {
-        await bot.sendMessage(chatId, `⛔ ${e?.message || "Запрещено"}`);
+        await reply(`⛔ ${e?.message || "Запрещено"}`, {
+          cmd: cmd0,
+          handler: "commandDispatcher",
+        });
       }
 
       return { handled: true };
@@ -518,12 +557,15 @@ export async function dispatchCommand(cmd, ctx) {
       const taskId = parseInt(raw, 10);
 
       if (!raw || Number.isNaN(taskId)) {
-        await bot.sendMessage(chatId, "Использование: /run <id>");
+        await reply("Использование: /run <id>", { cmd: cmd0, handler: "commandDispatcher" });
         return { handled: true };
       }
 
       if (typeof ctx.getTaskById !== "function" || typeof ctx.runTaskWithAI !== "function") {
-        await bot.sendMessage(chatId, "⛔ TaskEngine недоступен (ошибка wiring).");
+        await reply("⛔ TaskEngine недоступен (ошибка wiring).", {
+          cmd: cmd0,
+          handler: "commandDispatcher",
+        });
         return { handled: true };
       }
 
@@ -536,7 +578,7 @@ export async function dispatchCommand(cmd, ctx) {
       const task = await ctx.getTaskById(chatIdStr, taskId, access);
 
       if (!task) {
-        await bot.sendMessage(chatId, `⛔ Задача #${taskId} не найдена`);
+        await reply(`⛔ Задача #${taskId} не найдена`, { cmd: cmd0, handler: "commandDispatcher" });
         return { handled: true };
       }
 
@@ -597,15 +639,15 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/memory_status": {
       const cols = await memoryDiagSvc.getChatMemoryV2Columns();
-      await bot.sendMessage(
-        chatId,
+      await reply(
         [
           "🧪 MEMORY STATUS",
           `global_user_id: ${cols.global_user_id ? "true ✅" : "false ⛔"}`,
           `transport: ${cols.transport ? "true ✅" : "false ⛔"}`,
           `metadata: ${cols.metadata ? "true ✅" : "false ⛔"}`,
           `schema_version: ${cols.schema_version ? "true ✅" : "false ⛔"}`,
-        ].join("\n")
+        ].join("\n"),
+        { cmd: cmd0, handler: "commandDispatcher" }
       );
       return { handled: true };
     }
@@ -613,13 +655,13 @@ export async function dispatchCommand(cmd, ctx) {
     case "/memory_diag": {
       const globalUserId = ctx?.user?.global_user_id ?? null;
       const text = await memoryDiagSvc.memoryDiag({ chatIdStr, globalUserId });
-      await bot.sendMessage(chatId, text);
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
       return { handled: true };
     }
 
     case "/memory_integrity": {
       const text = await memoryDiagSvc.memoryIntegrity({ chatIdStr });
-      await bot.sendMessage(chatId, text);
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
       return { handled: true };
     }
 
@@ -628,14 +670,14 @@ export async function dispatchCommand(cmd, ctx) {
       const limitStr = String(ctx?.rest || "").trim();
       const limit = limitStr ? Number(limitStr) : 200;
       const text = await memoryDiagSvc.memoryBackfill({ chatIdStr, globalUserId, limit });
-      await bot.sendMessage(chatId, text);
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
       return { handled: true };
     }
 
     case "/memory_user_chats": {
       const globalUserId = ctx?.user?.global_user_id ?? null;
       const text = await memoryDiagSvc.memoryUserChats({ globalUserId });
-      await bot.sendMessage(chatId, text);
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
       return { handled: true };
     }
 
@@ -720,15 +762,11 @@ export async function dispatchCommand(cmd, ctx) {
 
       const nodeEnv = String(pub.NODE_ENV || "").trim() || "unknown";
 
-      await bot.sendMessage(
-        chatId,
-        [
-          "🧩 BUILD INFO",
-          `commit: ${commit}`,
-          `service: ${serviceId}`,
-          `instance: ${instanceId}`,
-          `node_env: ${nodeEnv}`,
-        ].join("\n")
+      await reply(
+        ["🧩 BUILD INFO", `commit: ${commit}`, `service: ${serviceId}`, `instance: ${instanceId}`, `node_env: ${nodeEnv}`].join(
+          "\n"
+        ),
+        { cmd: cmd0, handler: "commandDispatcher" }
       );
 
       return { handled: true };

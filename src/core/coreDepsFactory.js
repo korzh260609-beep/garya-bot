@@ -28,6 +28,12 @@ import {
   updateTaskStatus,
 } from "../tasks/taskEngine.js";
 
+// ✅ STAGE 7A — Project Memory wiring for enforced pipeline
+import {
+  getProjectSection,
+  upsertProjectSection,
+} from "../../projectMemory.js";
+
 export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } = {}) {
   return {
     reply,
@@ -59,6 +65,10 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     createDemoTask,
     createManualTask,
     createTestPriceMonitorTask,
+
+    // ✅ STAGE 7A — make /pm_set /pm_show available in enforced path
+    getProjectSection,
+    upsertProjectSection,
 
     MAX_HISTORY_MESSAGES,
   };

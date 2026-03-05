@@ -152,6 +152,28 @@ export class RecallEngine {
 
       const asc = [...rows].reverse();
 
+      const fmtTs = (dt, tz) => {
+        try {
+          const d = dt instanceof Date ? dt : new Date(dt);
+          if (!d || isNaN(d.getTime())) return "";
+          return new Intl.DateTimeFormat("ru-RU", {
+            timeZone: tz || "UTC",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(d);
+        } catch (_) {
+          try {
+            const d = dt instanceof Date ? dt : new Date(dt);
+            return d.toISOString();
+          } catch (_) {
+            return "";
+          }
+        }
+      };
+
       const lines = [];
       for (const r of asc) {
         const role = normalizeRole(r.role);
@@ -167,7 +189,9 @@ export class RecallEngine {
             ? "A:"
             : `${role}:`;
 
-        lines.push(`${prefix} ${text}`);
+        const ts = r?.created_at ? fmtTs(r.created_at, userTimezone || "UTC") : "";
+        const tsLabel = ts ? `[${ts}] ` : "";
+        lines.push(`${tsLabel}${prefix} ${text}`);
 
         if (lines.length >= lim * 2) break;
       }

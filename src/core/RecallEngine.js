@@ -140,7 +140,9 @@ export class RecallEngine {
           dateFilter: useRange
             ? {
                 hint: parsed?.hint || null,
-                from_utc: parsed?.fromUTC ? new Date(parsed.fromUTC).toISOString() : null,
+                from_utc: parsed?.fromUTC
+                  ? new Date(parsed.fromUTC).toISOString()
+                  : null,
                 to_utc: parsed?.toUTC ? new Date(parsed.toUTC).toISOString() : null,
                 tz_used: userTimezone || null,
               }
@@ -177,17 +179,14 @@ export class RecallEngine {
       const lines = [];
       for (const r of asc) {
         const role = normalizeRole(r.role);
-        if (role === "system") continue;
+
+        // ✅ IMPORTANT: only user/assistant lines count for chat.js guard (anti-hallucination)
+        if (role !== "user" && role !== "assistant") continue;
 
         const text = safeTrim(r.content, 500);
         if (!text) continue;
 
-        const prefix =
-          role === "user"
-            ? "U:"
-            : role === "assistant"
-            ? "A:"
-            : `${role}:`;
+        const prefix = role === "user" ? "U:" : "A:";
 
         const ts = r?.created_at ? fmtTs(r.created_at, userTimezone || "UTC") : "";
         const tsLabel = ts ? `[${ts}] ` : "";
@@ -210,6 +209,7 @@ export class RecallEngine {
       return "";
     }
   }
+
   // ========================================================================
   // search() — читает из chat_messages (таблица 7B, актуальный лог)
   // Используется хендлером /recall вместо прямого pool.query.
@@ -224,9 +224,15 @@ export class RecallEngine {
     const chatIdStr = chatId != null ? String(chatId) : null;
     if (!chatIdStr) return [];
 
-    const lim = Math.max(1, Math.min(20, Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : 5));
-    const d   = Math.max(1, Math.min(30, Number.isFinite(Number(days))  ? Math.trunc(Number(days))  : 1));
-    const kw  = String(keyword ?? "").trim();
+    const lim = Math.max(
+      1,
+      Math.min(20, Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : 5)
+    );
+    const d = Math.max(
+      1,
+      Math.min(30, Number.isFinite(Number(days)) ? Math.trunc(Number(days)) : 1)
+    );
+    const kw = String(keyword ?? "").trim();
 
     try {
       const r = await this.db.query(
@@ -250,5 +256,4 @@ export class RecallEngine {
       return [];
     }
   }
-
 }

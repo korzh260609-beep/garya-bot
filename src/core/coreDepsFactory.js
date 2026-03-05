@@ -31,6 +31,7 @@ import {
 // ✅ STAGE 7A — Project Memory wiring for enforced pipeline
 import {
   getProjectSection,
+  getProjectMemoryList,
   upsertProjectSection,
 } from "../../projectMemory.js";
 
@@ -68,6 +69,7 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
 
     // ✅ STAGE 7A — make /pm_set /pm_show available in enforced path
     getProjectSection,
+    getProjectMemoryList,
     upsertProjectSection,
 
     MAX_HISTORY_MESSAGES,

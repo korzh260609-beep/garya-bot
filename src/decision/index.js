@@ -16,6 +16,8 @@ export { DECISION_PLANNER_REPLAY_SET } from "./decisionPlannerReplaySet.js";
 
 export { runDecisionPlannerReplay } from "./decisionPlannerReplay.js";
 
+export { analyzeDecisionPlannerReplay } from "./decisionPlannerCompare.js";
+
 export { createDecisionRoute, routeDecision } from "./decisionRouter.js";
 
 export { runDecisionWorker } from "./decisionWorker.js";

@@ -1,51 +1,47 @@
-'use strict';
+// src/services/chatMemory/index.js
+// Stage 7B foundation helper
+// NOTE:
+// - aligned to ESM
+// - aligned to current runtime chat_messages schema
+// - NOT wired automatically into production flow yet
 
-const { buildStoredMessage } = require('./buildStoredMessage');
-const { insertChatMessage } = require('./chatMessagesRepo');
+import { buildStoredMessage } from "./buildStoredMessage.js";
+import { insertChatMessage } from "./chatMessagesRepo.js";
 
-async function saveIncomingMessage(payload) {
+export async function saveIncomingMessage(payload = {}) {
   const message = buildStoredMessage({
     ...payload,
-    direction: 'incoming',
+    role: "user",
   });
 
   if (!message.chatId) {
-    throw new Error('saveIncomingMessage: chatId is required');
+    throw new Error("saveIncomingMessage: chatId is required");
   }
 
-  if (!message.platform) {
-    throw new Error('saveIncomingMessage: platform is required');
+  if (!message.transport) {
+    throw new Error("saveIncomingMessage: transport is required");
   }
 
-  if (!message.platformMessageId) {
-    throw new Error('saveIncomingMessage: platformMessageId is required');
+  if (message.messageId === null || message.messageId === undefined) {
+    throw new Error("saveIncomingMessage: messageId is required");
   }
 
   return insertChatMessage(message);
 }
 
-async function saveOutgoingMessage(payload) {
+export async function saveOutgoingMessage(payload = {}) {
   const message = buildStoredMessage({
     ...payload,
-    direction: 'outgoing',
+    role: "assistant",
   });
 
   if (!message.chatId) {
-    throw new Error('saveOutgoingMessage: chatId is required');
+    throw new Error("saveOutgoingMessage: chatId is required");
   }
 
-  if (!message.platform) {
-    throw new Error('saveOutgoingMessage: platform is required');
-  }
-
-  if (!message.platformMessageId) {
-    throw new Error('saveOutgoingMessage: platformMessageId is required');
+  if (!message.transport) {
+    throw new Error("saveOutgoingMessage: transport is required");
   }
 
   return insertChatMessage(message);
 }
-
-module.exports = {
-  saveIncomingMessage,
-  saveOutgoingMessage,
-};

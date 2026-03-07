@@ -98,7 +98,9 @@ export {
   default as decisionPlannerService,
 } from "./decisionPlannerService.js";
 
-export { runDecisionPlannerServiceSandboxTest } from "./decisionPlannerServiceSandboxTest.js";
+export {
+  runDecisionPlannerServiceSandboxTest,
+} from "./decisionPlannerServiceSandboxTest.js";
 
 /* Decision Service Runner */
 
@@ -107,8 +109,19 @@ export {
   default as decisionServiceRunner,
 } from "./decisionServiceRunner.js";
 
-export { runDecisionServiceRunnerSandboxTest } from "./decisionServiceRunnerSandboxTest.js";
+export {
+  runDecisionServiceRunnerSandboxTest,
+} from "./decisionServiceRunnerSandboxTest.js";
 
 /* Decision Index Smoke Test */
 
-export { runDecisionIndexSmokeTest } from "./decisionIndexSmokeTest.js";
+export {
+  runDecisionIndexSmokeTest,
+} from "./decisionIndexSmokeTest.js";
+
+/* Decision Diagnostics */
+
+export {
+  runDecisionDiagnostics,
+  default as decisionDiagnostics,
+} from "./decisionDiagnostics.js";

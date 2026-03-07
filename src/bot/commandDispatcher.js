@@ -10,6 +10,7 @@ import { handlePrice } from "./handlers/price.js";
 import { handleProfile } from "./handlers/profile.js";
 import { handleMode } from "./handlers/mode.js";
 import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
+import { handleDecisionDiag } from "./handlers/decisionDiag.js";
 import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — read-only
 import { handleTaskStatus } from "./handlers/taskStatus.js"; // Stage 5.7 — read-only
 import { handleTasksList } from "./handlers/tasksList.js";
@@ -170,6 +171,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/memory_integrity",
     "/memory_backfill",
     "/memory_user_chats",
+    "/diag_decision",
 
     // ✅ STAGE 7A — keep PM write private
     "/pm_set",
@@ -750,6 +752,16 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/health": {
       await handleHealth({ bot, chatId });
+      return { handled: true };
+    }
+
+    case "/diag_decision": {
+      await handleDecisionDiag({
+        bot,
+        chatId,
+        reply,
+        rest: ctx.rest,
+      });
       return { handled: true };
     }
 

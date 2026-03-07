@@ -70,4 +70,61 @@ export async function handleDbDiag(ctx = {}) {
     const poolMeta = {
       totalCount: typeof pool.totalCount === "number" ? pool.totalCount : "—",
       idleCount: typeof pool.idleCount === "number" ? pool.idleCount : "—",
-      waitingCount: typeof pool.waitingCount === "number" ? pool.waitingCount : "—
+      waitingCount: typeof pool.waitingCount === "number" ? pool.waitingCount : "—",
+    };
+
+    const lines = [];
+    lines.push("🗄️ DB DIAG");
+    lines.push("");
+    lines.push(`chat_id: ${chatIdStr || "—"}`);
+    lines.push(`global_user_id: ${globalUserId || "—"}`);
+    lines.push(`db_now: ${safeTs(dbNow)}`);
+    lines.push("");
+    lines.push("pool:");
+    lines.push(`total=${poolMeta.totalCount}`);
+    lines.push(`idle=${poolMeta.idleCount}`);
+    lines.push(`waiting=${poolMeta.waitingCount}`);
+    lines.push("");
+    lines.push("tables:");
+    lines.push(
+      `chat_messages=${chatMessagesRes.rows?.[0]?.n ?? 0} | last=${safeTs(chatMessagesRes.rows?.[0]?.last_created_at)}`
+    );
+    lines.push(
+      `webhook_dedupe_events=${dedupeRes.rows?.[0]?.n ?? 0} | last=${safeTs(dedupeRes.rows?.[0]?.last_created_at)}`
+    );
+    lines.push(
+      `users=${usersRes.rows?.[0]?.n ?? 0} | last=${safeTs(usersRes.rows?.[0]?.last_created_at)}`
+    );
+    lines.push(
+      `tasks=${tasksRes.rows?.[0]?.n ?? 0} | last=${safeTs(tasksRes.rows?.[0]?.last_created_at)}`
+    );
+    lines.push(
+      `sources=${sourcesRes.rows?.[0]?.n ?? 0} | last=${safeTs(sourcesRes.rows?.[0]?.last_updated_at)}`
+    );
+    lines.push(
+      `source_cache=${sourceCacheRes.rows?.[0]?.n ?? 0} | last=${safeTs(sourceCacheRes.rows?.[0]?.last_cached_at)}`
+    );
+    lines.push(
+      `source_checks=${sourceChecksRes.rows?.[0]?.n ?? 0} | last=${safeTs(sourceChecksRes.rows?.[0]?.last_created_at)}`
+    );
+    lines.push(
+      `interaction_logs=${interactionLogsRes.rows?.[0]?.n ?? 0} | last=${safeTs(interactionLogsRes.rows?.[0]?.last_created_at)}`
+    );
+
+    await replyAndLog(lines.join("\n").slice(0, 3900), {
+      cmd: cmdBase,
+      event: "diag_db",
+    });
+
+    return { handled: true, ok: true, stage: "7B.diag_db", result: "diag_db_replied", cmdBase };
+  } catch (e) {
+    console.error("handleDbDiag(/diag_db) failed:", e);
+    await replyAndLog("⚠️ /diag_db failed. Проверь Render logs и доступность таблиц.", {
+      cmd: cmdBase,
+      event: "diag_db_failed",
+    });
+    return { handled: true, ok: false, reason: "diag_db_failed", cmdBase };
+  }
+}
+
+export default handleDbDiag;

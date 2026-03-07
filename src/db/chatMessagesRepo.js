@@ -14,6 +14,27 @@ import {
   saveIncomingMessage,
   saveOutgoingMessage,
 } from "../services/chatMemory/index.js";
+import { getChatMeta } from "./chatMetaRepo.js";
+
+async function loadChatRedactionPolicy({ transport, chatId }) {
+  try {
+    const meta = await getChatMeta(String(transport), String(chatId));
+
+    if (!meta) {
+      return null;
+    }
+
+    return {
+      sourceEnabled: meta.source_enabled === true,
+      privacyLevel: String(meta.privacy_level || "private_only"),
+      allowQuotes: meta.allow_quotes === true,
+      allowRawSnippets: meta.allow_raw_snippets === true,
+    };
+  } catch (e) {
+    console.error("loadChatRedactionPolicy failed:", e);
+    return null;
+  }
+}
 
 // ============================================================================
 // insertUserMessage
@@ -36,6 +57,11 @@ export async function insertUserMessage({
   schemaVersion = 1,
 }) {
   try {
+    const redactionPolicy = await loadChatRedactionPolicy({
+      transport,
+      chatId,
+    });
+
     const res = await saveIncomingMessage({
       transport,
       chatId: String(chatId),
@@ -46,11 +72,17 @@ export async function insertUserMessage({
       platformMessageId: Number(messageId),
       role: "user",
       content,
+      redactionPolicy: redactionPolicy || undefined,
       metadata: {
         ...(metadata && typeof metadata === "object" ? metadata : {}),
         _runtimeAdapter: "src/db/chatMessagesRepo.js",
         _legacyTextHash: textHash ?? null,
         _legacyTruncated: Boolean(truncated),
+        _redactionPolicyApplied: Boolean(redactionPolicy),
+        _sourceEnabled: redactionPolicy?.sourceEnabled ?? false,
+        _privacyLevel: redactionPolicy?.privacyLevel ?? null,
+        _allowQuotes: redactionPolicy?.allowQuotes ?? null,
+        _allowRawSnippets: redactionPolicy?.allowRawSnippets ?? null,
       },
       raw: raw && typeof raw === "object" ? raw : {},
       schemaVersion,
@@ -86,6 +118,11 @@ export async function insertAssistantMessage({
   schemaVersion = 1,
 }) {
   try {
+    const redactionPolicy = await loadChatRedactionPolicy({
+      transport,
+      chatId,
+    });
+
     await saveOutgoingMessage({
       transport,
       chatId: String(chatId),
@@ -96,11 +133,17 @@ export async function insertAssistantMessage({
       platformMessageId: null,
       role: "assistant",
       content,
+      redactionPolicy: redactionPolicy || undefined,
       metadata: {
         ...(metadata && typeof metadata === "object" ? metadata : {}),
         _runtimeAdapter: "src/db/chatMessagesRepo.js",
         _legacyTextHash: textHash ?? null,
         _legacyTruncated: Boolean(truncated),
+        _redactionPolicyApplied: Boolean(redactionPolicy),
+        _sourceEnabled: redactionPolicy?.sourceEnabled ?? false,
+        _privacyLevel: redactionPolicy?.privacyLevel ?? null,
+        _allowQuotes: redactionPolicy?.allowQuotes ?? null,
+        _allowRawSnippets: redactionPolicy?.allowRawSnippets ?? null,
       },
       raw: {},
       schemaVersion,

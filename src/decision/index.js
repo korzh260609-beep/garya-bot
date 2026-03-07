@@ -25,6 +25,12 @@ export {
   traceJudge,
 } from "./decisionTrace.js";
 
+export {
+  validateDecisionRoute,
+  validateDecisionWorkerResult,
+  validateDecisionJudgeResult,
+} from "./decisionValidator.js";
+
 export { executeDecision } from "./decisionExecutor.js";
 
 export { runDecisionSandboxTest } from "./decisionSandboxTest.js";

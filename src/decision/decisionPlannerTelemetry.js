@@ -53,9 +53,11 @@ function createPlannerTelemetryReplay(replay = {}, analysis = {}) {
   };
 }
 
-export async function saveDecisionPlannerTelemetry() {
-  const replay = await runDecisionPlannerReplay();
-  const analysis = analyzeDecisionPlannerReplay(replay);
+export function createDecisionPlannerTelemetryFromReplay(
+  replay = {},
+  analysisInput = null
+) {
+  const analysis = analysisInput || analyzeDecisionPlannerReplay(replay);
 
   const telemetryReplay = createPlannerTelemetryReplay(replay, analysis);
   const record = saveDecisionTelemetry(telemetryReplay, {
@@ -69,4 +71,10 @@ export async function saveDecisionPlannerTelemetry() {
     analysis,
     telemetry: record,
   };
+}
+
+export async function saveDecisionPlannerTelemetry() {
+  const replay = await runDecisionPlannerReplay();
+
+  return createDecisionPlannerTelemetryFromReplay(replay);
 }

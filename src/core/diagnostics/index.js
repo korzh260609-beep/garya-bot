@@ -8,6 +8,7 @@ import { handleTransportDiag } from "./transportDiag.js";
 import { handlePipelineDiag } from "./pipelineDiag.js";
 import { handleSystemDiag } from "./systemDiag.js";
 import { handleAllDiag } from "./allDiag.js";
+import { handleHealthDiag } from "./healthDiag.js";
 
 const DIAGNOSTIC_HANDLERS = {
   "/chat_messages_diag": handleChatMessagesDiag,
@@ -17,6 +18,7 @@ const DIAGNOSTIC_HANDLERS = {
   "/diag_pipeline": handlePipelineDiag,
   "/diag_system": handleSystemDiag,
   "/diag_all": handleAllDiag,
+  "/diag_health": handleHealthDiag,
 };
 
 export async function dispatchDiagnosticCommand(ctx = {}) {

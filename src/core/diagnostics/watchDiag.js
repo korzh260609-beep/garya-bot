@@ -12,6 +12,7 @@ import os from "os";
 import process from "process";
 import pool from "../../../db.js";
 import { isTransportEnforced } from "../../transport/transportConfig.js";
+import { getHealthThresholds } from "./healthConfig.js";
 
 function safeMs(value) {
   const n = Number(value ?? 0);
@@ -24,21 +25,21 @@ function safeMb(bytes) {
   return `${Math.round((n / 1024 / 1024) * 10) / 10} MB`;
 }
 
-function classifyDbPing(ms) {
+function classifyDbPing(ms, thresholds) {
   if (!Number.isFinite(ms)) return "WARN";
-  if (ms <= 300) return "OK";
+  if (ms <= thresholds.DB_PING_WARN_MS) return "OK";
   return "WARN";
 }
 
-function classifyEventLoopLag(ms) {
+function classifyEventLoopLag(ms, thresholds) {
   if (!Number.isFinite(ms)) return "WARN";
-  if (ms <= 50) return "OK";
+  if (ms <= thresholds.EVENT_LOOP_LAG_WARN_MS) return "OK";
   return "WARN";
 }
 
-function classifyHeapUsedMb(mb) {
+function classifyHeapUsedMb(mb, thresholds) {
   if (!Number.isFinite(mb)) return "WARN";
-  if (mb <= 300) return "OK";
+  if (mb <= thresholds.HEAP_USED_WARN_MB) return "OK";
   return "WARN";
 }
 
@@ -97,6 +98,7 @@ export async function handleWatchDiag(ctx = {}) {
   }
 
   try {
+    const thresholds = getHealthThresholds();
     const enforced = isTransportEnforced();
     const mu = process.memoryUsage();
 
@@ -117,9 +119,9 @@ export async function handleWatchDiag(ctx = {}) {
     });
 
     const transportStatus = enforced ? "OK" : "WARN";
-    const dbStatus = classifyDbPing(dbPingMs);
-    const loopStatus = classifyEventLoopLag(eventLoopLagMs);
-    const heapStatus = classifyHeapUsedMb(heapUsedMb);
+    const dbStatus = classifyDbPing(dbPingMs, thresholds);
+    const loopStatus = classifyEventLoopLag(eventLoopLagMs, thresholds);
+    const heapStatus = classifyHeapUsedMb(heapUsedMb, thresholds);
     const loadStatus = classifyLoad(load1, cpuCount);
 
     const overall = calcOverallStatus([
@@ -159,13 +161,19 @@ export async function handleWatchDiag(ctx = {}) {
     lines.push("future_ready:");
     lines.push("watch_scheduler=NOT_ATTACHED");
     lines.push("alert_dispatch=NOT_ATTACHED");
-    lines.push("threshold_config=HARDCODED_STAGE_7B");
+    lines.push("threshold_config=EXTERNALIZED_STAGE_7B");
     lines.push("status_log_sink=NOT_ATTACHED");
     lines.push("");
+    lines.push("thresholds:");
+    lines.push(`db_ping <= ${thresholds.DB_PING_WARN_MS} ms`);
+    lines.push(`event_loop_lag <= ${thresholds.EVENT_LOOP_LAG_WARN_MS} ms`);
+    lines.push(`heap_used <= ${thresholds.HEAP_USED_WARN_MB} MB`);
+    lines.push("loadavg_1m <= cpu_count");
+    lines.push("");
     lines.push("next_stage_hint:");
-    lines.push("extract thresholds to config");
     lines.push("attach scheduler outside command path");
     lines.push("add warn/critical alert policy");
+    lines.push("attach status log sink");
 
     await replyAndLog(lines.join("\n").slice(0, 3900), {
       cmd: cmdBase,

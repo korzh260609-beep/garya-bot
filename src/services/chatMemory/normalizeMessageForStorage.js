@@ -1,25 +1,25 @@
-'use strict';
+// src/services/chatMemory/normalizeMessageForStorage.js
 
-const DEFAULT_MAX_BYTES = 12 * 1024; // 12 KB
+export const DEFAULT_MAX_BYTES = 12 * 1024; // 12 KB
 
 function safeTrimToUtf8Bytes(value, maxBytes) {
   let result = String(value);
 
-  while (Buffer.byteLength(result, 'utf8') > maxBytes) {
+  while (Buffer.byteLength(result, "utf8") > maxBytes) {
     result = result.slice(0, -1);
   }
 
   return result;
 }
 
-function normalizeMessageForStorage(input, options = {}) {
+export function normalizeMessageForStorage(input, options = {}) {
   const maxBytes = Number.isInteger(options.maxBytes)
     ? options.maxBytes
     : DEFAULT_MAX_BYTES;
 
   if (input === null || input === undefined) {
     return {
-      text: '',
+      text: "",
       truncated: false,
       byteLength: 0,
     };
@@ -27,7 +27,7 @@ function normalizeMessageForStorage(input, options = {}) {
 
   let text = String(input);
 
-  const originalBytes = Buffer.byteLength(text, 'utf8');
+  const originalBytes = Buffer.byteLength(text, "utf8");
   if (originalBytes <= maxBytes) {
     return {
       text,
@@ -41,11 +41,6 @@ function normalizeMessageForStorage(input, options = {}) {
   return {
     text,
     truncated: true,
-    byteLength: Buffer.byteLength(text, 'utf8'),
+    byteLength: Buffer.byteLength(text, "utf8"),
   };
 }
-
-module.exports = {
-  DEFAULT_MAX_BYTES,
-  normalizeMessageForStorage,
-};

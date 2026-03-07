@@ -4,6 +4,8 @@ export { DECISION_CAPABILITIES } from "./decisionCapabilities.js";
 
 export { DECISION_WORKERS } from "./decisionWorkers.js";
 
+export { DECISION_JUDGES } from "./decisionJudges.js";
+
 export { createDecisionContext } from "./decisionContext.js";
 
 export { createDecisionRoute, routeDecision } from "./decisionRouter.js";

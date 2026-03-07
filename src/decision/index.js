@@ -20,6 +20,8 @@ export { analyzeDecisionPlannerReplay } from "./decisionPlannerCompare.js";
 
 export { saveDecisionPlannerTelemetry } from "./decisionPlannerTelemetry.js";
 
+export { getDecisionPlannerHealth } from "./decisionPlannerHealth.js";
+
 export { createDecisionRoute, routeDecision } from "./decisionRouter.js";
 
 export { runDecisionWorker } from "./decisionWorker.js";

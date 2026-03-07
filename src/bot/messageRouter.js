@@ -127,6 +127,7 @@ import BehaviorEventsService from "../logging/BehaviorEventsService.js";
 
 // ✅ STAGE 5.16.2 — DEV verify tool
 import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
+import { handleChatMessagesDiag } from "./handlers/chatMessagesDiag.js";
 
 // ✅ Project Memory service (read)
 import { getProjectSection } from "../../projectMemory.js";
@@ -728,6 +729,7 @@ export function attachMessageRouter({
           "/memory_user_chats", // ✅ NEW
           "/chat_meta_debug",
           "/behavior_events_last",
+          "/chat_messages_diag",
 
           // ✅ STAGE 4.3 — Chat Gate admin (DEV-only)
           "/chat_on",
@@ -1220,6 +1222,18 @@ export function attachMessageRouter({
               chatId,
               rest,
               senderIdStr,
+            });
+            return;
+          }
+
+          case "/chat_messages_diag": {
+            await handleChatMessagesDiag({
+              bot,
+              chatId,
+              chatIdStr,
+              senderIdStr,
+              globalUserId,
+              isPrivateChat: isPrivate,
             });
             return;
           }

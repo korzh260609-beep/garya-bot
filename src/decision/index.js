@@ -10,6 +10,8 @@ export { DECISION_JUDGES } from "./decisionJudges.js";
 
 export { createDecisionContext } from "./decisionContext.js";
 
+export { createDecisionPlan, planDecision } from "./decisionPlanner.js";
+
 export { createDecisionRoute, routeDecision } from "./decisionRouter.js";
 
 export { runDecisionWorker } from "./decisionWorker.js";

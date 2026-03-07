@@ -16,6 +16,7 @@ export function createDecisionTrace() {
     createdAt: Date.now(),
 
     router: null,
+    validator: null,
     worker: null,
     judge: null,
 
@@ -29,6 +30,14 @@ export function traceRouter(trace, route) {
     workerType: route?.workerType || null,
     judgeRequired: route?.judgeRequired || false,
     reason: route?.reason || null,
+  };
+}
+
+export function traceValidator(trace, data = {}) {
+  trace.validator = {
+    routeWarnings: Array.isArray(data.routeWarnings) ? data.routeWarnings : [],
+    workerWarnings: Array.isArray(data.workerWarnings) ? data.workerWarnings : [],
+    judgeWarnings: Array.isArray(data.judgeWarnings) ? data.judgeWarnings : [],
   };
 }
 

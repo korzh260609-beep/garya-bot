@@ -6,7 +6,8 @@
  * - returns normalized Decision Route
  * - contains ONLY sandbox skeleton logic
  * - does NOT connect to production pipeline
- * * Expected context shape:
+ *
+ * Expected context shape:
  * {
  *   text?: string | null,
  *   command?: string | null,
@@ -20,6 +21,7 @@
  */
 
 import { DECISION_KIND } from "./decisionTypes.js";
+import { DECISION_CAPABILITIES } from "./decisionCapabilities.js";
 
 export function createDecisionRoute(data = {}) {
   return {
@@ -32,19 +34,17 @@ export function createDecisionRoute(data = {}) {
 }
 
 export async function routeDecision(context = {}) {
-  const text = typeof context.text === "string" ? context.text.trim() : "";
-  const command =
-    typeof context.command === "string" ? context.command.trim() : "";
+  for (const capability of DECISION_CAPABILITIES) {
+    if (typeof capability?.match !== "function") {
+      continue;
+    }
 
-  if (command) {
-    return createDecisionRoute({
-      kind: DECISION_KIND.TASK_EXECUTION,
-      needsAI: false,
-      workerType: "command",
-      judgeRequired: false,
-      reason: "command_detected",
-    });
+    if (capability.match(context)) {
+      return createDecisionRoute(capability.route || {});
+    }
   }
+
+  const text = typeof context.text === "string" ? context.text.trim() : "";
 
   if (!text) {
     return createDecisionRoute({

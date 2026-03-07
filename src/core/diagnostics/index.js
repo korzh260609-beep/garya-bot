@@ -11,6 +11,7 @@ import { handleAllDiag } from "./allDiag.js";
 import { handleHealthDiag } from "./healthDiag.js";
 import { handleWatchDiag } from "./watchDiag.js";
 import { handleDiagScheduler } from "./diagScheduler.js";
+import { handleHealthSnapshotDiag } from "./healthSnapshotDiag.js";
 
 const DIAGNOSTIC_HANDLERS = {
   "/chat_messages_diag": handleChatMessagesDiag,
@@ -23,6 +24,7 @@ const DIAGNOSTIC_HANDLERS = {
   "/diag_health": handleHealthDiag,
   "/diag_watch": handleWatchDiag,
   "/diag_scheduler": handleDiagScheduler,
+  "/diag_health_snapshot": handleHealthSnapshotDiag,
 };
 
 export async function dispatchDiagnosticCommand(ctx = {}) {

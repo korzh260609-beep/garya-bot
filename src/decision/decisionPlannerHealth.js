@@ -41,9 +41,11 @@ function createEmptyPlannerHealth() {
   };
 }
 
-export async function getDecisionPlannerHealth() {
-  const replay = await runDecisionPlannerReplay();
-  const analysis = analyzeDecisionPlannerReplay(replay);
+export function getDecisionPlannerHealthFromReplay(
+  replay = {},
+  analysisInput = null
+) {
+  const analysis = analysisInput || analyzeDecisionPlannerReplay(replay);
 
   const total = analysis?.summary?.total || 0;
   const passed = analysis?.summary?.passed || 0;
@@ -75,4 +77,10 @@ export async function getDecisionPlannerHealth() {
       .map((item) => item?.id || null)
       .filter(Boolean),
   };
+}
+
+export async function getDecisionPlannerHealth() {
+  const replay = await runDecisionPlannerReplay();
+
+  return getDecisionPlannerHealthFromReplay(replay);
 }

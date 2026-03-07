@@ -33,6 +33,7 @@ import {
   validateDecisionWorkerResult,
   validateDecisionJudgeResult,
 } from "./decisionValidator.js";
+import { saveDecisionMemory } from "./decisionMemory.js";
 
 export async function executeDecision(input = {}) {
   const context = createDecisionContext(input);
@@ -62,7 +63,7 @@ export async function executeDecision(input = {}) {
 
   const judgeWarnings = validateDecisionJudgeResult(judgeResult);
 
-  return createDecisionResult({
+  const result = createDecisionResult({
     context,
     route,
     workerResult,
@@ -74,4 +75,8 @@ export async function executeDecision(input = {}) {
       ...judgeWarnings,
     ],
   });
+
+  saveDecisionMemory(result);
+
+  return result;
 }

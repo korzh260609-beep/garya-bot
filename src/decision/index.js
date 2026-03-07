@@ -86,6 +86,8 @@ export { analyzeDecisionReplay } from "./decisionCompare.js";
 
 export { runDecisionService } from "./decisionService.js";
 
+/* Planner Service */
+
 export {
   plan,
   replay,
@@ -98,9 +100,15 @@ export {
 
 export { runDecisionPlannerServiceSandboxTest } from "./decisionPlannerServiceSandboxTest.js";
 
+/* Decision Service Runner */
+
 export {
   runDecisionLayerServices,
   default as decisionServiceRunner,
 } from "./decisionServiceRunner.js";
 
 export { runDecisionServiceRunnerSandboxTest } from "./decisionServiceRunnerSandboxTest.js";
+
+/* Decision Index Smoke Test */
+
+export { runDecisionIndexSmokeTest } from "./decisionIndexSmokeTest.js";

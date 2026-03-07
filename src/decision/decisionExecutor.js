@@ -22,13 +22,22 @@ import { routeDecision } from "./decisionRouter.js";
 import { runDecisionWorker } from "./decisionWorker.js";
 import { judgeDecisionResult } from "./decisionJudge.js";
 import { createDecisionResult } from "./decisionResult.js";
+import {
+  createDecisionTrace,
+  traceRouter,
+  traceWorker,
+  traceJudge,
+} from "./decisionTrace.js";
 
 export async function executeDecision(input = {}) {
   const context = createDecisionContext(input);
+  const trace = createDecisionTrace();
 
   const route = await routeDecision(context);
+  traceRouter(trace, route);
 
   const workerResult = await runDecisionWorker(route, context);
+  traceWorker(trace, workerResult);
 
   const judgeResult = route?.judgeRequired
     ? await judgeDecisionResult(workerResult, context)
@@ -40,10 +49,13 @@ export async function executeDecision(input = {}) {
         reason: "judge_skipped",
       };
 
+  traceJudge(trace, judgeResult);
+
   return createDecisionResult({
     context,
     route,
     workerResult,
     judgeResult,
+    trace,
   });
 }

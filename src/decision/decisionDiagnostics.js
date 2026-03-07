@@ -38,11 +38,29 @@ function createMeta() {
 }
 
 function createBaseline(input = {}) {
-  return input?.baseline || {
+  if (input?.baseline && typeof input.baseline === "object") {
+    return {
+      finalText:
+        input.baseline.finalText == null
+          ? null
+          : String(input.baseline.finalText),
+      route: input.baseline.route || null,
+      warnings: Array.isArray(input.baseline.warnings)
+        ? input.baseline.warnings
+        : [],
+      source: input.baseline.source || "sandbox_custom",
+    };
+  }
+
+  return {
     finalText: null,
-    route: null,
+    route: {
+      kind: "sandbox_baseline",
+      worker: "baseline_stub",
+      judgeRequired: false,
+    },
     warnings: [],
-    source: "core_stub",
+    source: "sandbox_demo_baseline",
   };
 }
 
@@ -81,6 +99,7 @@ export async function runDecisionDiagnostics(input = {}) {
     telemetry,
 
     shadowCompare: {
+      baseline,
       replay,
       analysis,
     },

@@ -24,8 +24,14 @@
 import { planDecision } from "./decisionPlanner.js";
 import { runDecisionPlannerReplay } from "./decisionPlannerReplay.js";
 import { analyzeDecisionPlannerReplay } from "./decisionPlannerCompare.js";
-import { saveDecisionPlannerTelemetry } from "./decisionPlannerTelemetry.js";
-import { getDecisionPlannerHealth } from "./decisionPlannerHealth.js";
+import {
+  saveDecisionPlannerTelemetry,
+  createDecisionPlannerTelemetryFromReplay,
+} from "./decisionPlannerTelemetry.js";
+import {
+  getDecisionPlannerHealth,
+  getDecisionPlannerHealthFromReplay,
+} from "./decisionPlannerHealth.js";
 
 export async function plan(input = {}) {
   return planDecision(input);
@@ -73,8 +79,19 @@ export async function runAll(input = {}) {
     analysis: compareAnalysis,
   };
 
-  const telemetryResult = await telemetry();
-  const healthResult = await health();
+  const telemetryResult = createDecisionPlannerTelemetryFromReplay(
+    replayResult,
+    compareAnalysis
+  );
+
+  const healthResult = {
+    ok: true,
+    mode: "planner_health",
+    health: getDecisionPlannerHealthFromReplay(
+      replayResult,
+      compareAnalysis
+    ),
+  };
 
   return {
     ok:

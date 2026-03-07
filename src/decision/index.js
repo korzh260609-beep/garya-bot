@@ -66,6 +66,8 @@ export { executeDecision } from "./decisionExecutor.js";
 
 export { runDecisionSandboxTest } from "./decisionSandboxTest.js";
 
+export { runDecisionPlannerSandboxTest } from "./decisionPlannerSandboxTest.js";
+
 export { runDecisionShadow } from "./decisionShadowRunner.js";
 
 export { runDecisionReplay } from "./decisionReplay.js";

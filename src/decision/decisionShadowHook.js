@@ -23,14 +23,12 @@ export async function runDecisionShadowHook(input = {}, coreResult = {}) {
 
     const analysis = analyzeDecisionReplay(replay);
 
-    saveDecisionTelemetry({
-      type: "shadow_compare",
-      replay,
-      analysis,
-    });
+    saveDecisionTelemetry(replay, analysis);
 
     return {
       ok: true,
+      baseline,
+      replay,
       analysis,
     };
   } catch (err) {

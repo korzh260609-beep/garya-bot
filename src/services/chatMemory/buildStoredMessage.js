@@ -10,7 +10,16 @@ import { computeTextHash } from "./computeTextHash.js";
 
 export function buildStoredMessage(payload = {}) {
   const rawInput = payload.content ?? payload.textRaw ?? "";
-  const redacted = redactMessage(rawInput);
+
+  const redactionPolicy =
+    payload.redactionPolicy && typeof payload.redactionPolicy === "object"
+      ? payload.redactionPolicy
+      : payload?.metadata?.redactionPolicy &&
+          typeof payload.metadata.redactionPolicy === "object"
+        ? payload.metadata.redactionPolicy
+        : {};
+
+  const redacted = redactMessage(rawInput, redactionPolicy);
   const normalized = normalizeMessageForStorage(redacted);
 
   return {

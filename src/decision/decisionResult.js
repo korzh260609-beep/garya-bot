@@ -17,6 +17,7 @@ export function createDecisionResult(data = {}) {
   const route = data.route || null;
   const workerResult = data.workerResult || null;
   const judgeResult = data.judgeResult || null;
+  const trace = data.trace || null;
 
   return {
     ok: Boolean(route) && Boolean(workerResult?.ok) && Boolean(judgeResult?.ok),
@@ -24,6 +25,7 @@ export function createDecisionResult(data = {}) {
     route,
     workerResult,
     judgeResult,
+    trace,
     finalText: judgeResult?.finalText || null,
     warnings: normalizeWarnings(
       workerResult?.warnings || [],

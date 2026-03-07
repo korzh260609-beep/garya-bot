@@ -20,28 +20,44 @@ function toLines(result = {}) {
     `mode: ${result?.mode || "unknown"}`,
     `generatedAt: ${result?.meta?.generatedAt || "unknown"}`,
     "",
+
     `smoke_ok: ${smokeOk}`,
     `decision_total: ${result?.decisionHealth?.total ?? 0}`,
     `decision_error_rate: ${result?.decisionHealth?.decisionErrorRate ?? 0}`,
     `validator_warning_rate: ${result?.decisionHealth?.validatorWarningRate ?? 0}`,
     `judge_approval_rate: ${result?.decisionHealth?.judgeApprovalRate ?? 0}`,
     "",
+
     `planner_total: ${result?.plannerHealth?.total ?? 0}`,
     `planner_passed: ${result?.plannerHealth?.passed ?? 0}`,
     `planner_failed: ${result?.plannerHealth?.failed ?? 0}`,
     `planner_pass_rate: ${result?.plannerHealth?.passRate ?? 0}`,
     `planner_failure_rate: ${result?.plannerHealth?.failureRate ?? 0}`,
     "",
+
     `memory_size: ${result?.memory?.size ?? 0}`,
     `memory_limit: ${result?.memory?.limit ?? 0}`,
     `telemetry_size: ${result?.telemetry?.size ?? 0}`,
     "",
+
+    "shadow_compare:",
+    `shadow_ok: ${result?.shadowCompare?.replay?.ok === true ? "true ✅" : "false ⛔"}`,
+    `same_final_text: ${result?.shadowCompare?.analysis?.decisionQuality?.sameFinalText ?? false}`,
+    `same_route: ${result?.shadowCompare?.analysis?.decisionQuality?.sameRoute ?? false}`,
+    `improvement: ${result?.shadowCompare?.analysis?.decisionQuality?.improvement ?? "unknown"}`,
+    `shadow_duration_ms: ${result?.shadowCompare?.analysis?.performance?.durationMs ?? 0}`,
+    `baseline_warnings: ${result?.shadowCompare?.analysis?.warnings?.baseline ?? 0}`,
+    `shadow_warnings: ${result?.shadowCompare?.analysis?.warnings?.shadow ?? 0}`,
+    "",
+
     "route_distribution:",
     fmtJson(result?.decisionHealth?.routeDistribution || {}),
     "",
+
     "worker_reliability:",
     fmtJson(result?.decisionHealth?.workerReliability || {}),
     "",
+
     "telemetry_stats:",
     fmtJson(result?.telemetry?.stats || {}),
   ];

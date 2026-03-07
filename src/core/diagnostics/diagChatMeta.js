@@ -1,32 +1,47 @@
 import { getChatMeta } from "../../db/chatMetaRepo.js";
 
-export async function handleDiagChatMeta(ctx = {}) {
+function safeText(value) {
+  if (value == null || value === "") return "-";
+  return String(value);
+}
 
-  const { cmdBase, transport, chatIdStr, replyAndLog } = ctx;
+export async function handleDiagChatMeta(ctx = {}) {
+  const {
+    cmdBase,
+    transport,
+    chatIdStr,
+    replyAndLog,
+  } = ctx;
 
   if (cmdBase !== "/diag_chat_meta") {
-    return { handled:false };
+    return { handled: false };
   }
 
   const meta = await getChatMeta(transport, chatIdStr);
 
   if (!meta) {
     await replyAndLog("chat_meta: not found");
-    return { handled:true };
+    return { handled: true };
   }
 
   const lines = [
     "CHAT META",
     "",
-    `platform=${meta.platform}`,
-    `chat_id=${meta.chat_id}`,
-    `chat_type=${meta.chat_type}`,
-    `alias=${meta.alias || "-"}`,
-    `title=${meta.title || "-"}`,
-    `created_at=${meta.created_at}`,
+    `platform=${safeText(meta.platform)}`,
+    `chat_id=${safeText(meta.chat_id)}`,
+    `chat_type=${safeText(meta.chat_type)}`,
+    `alias=${safeText(meta.alias)}`,
+    `title=${safeText(meta.title)}`,
+    `source_enabled=${safeText(meta.source_enabled)}`,
+    `privacy_level=${safeText(meta.privacy_level)}`,
+    `allow_quotes=${safeText(meta.allow_quotes)}`,
+    `allow_raw_snippets=${safeText(meta.allow_raw_snippets)}`,
+    `created_at=${safeText(meta.created_at)}`,
   ];
 
   await replyAndLog(lines.join("\n"));
 
-  return { handled:true };
+  return { handled: true };
 }
+
+export default handleDiagChatMeta;

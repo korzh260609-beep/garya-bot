@@ -59,4 +59,6 @@ export { runDecisionShadow } from "./decisionShadowRunner.js";
 
 export { runDecisionReplay } from "./decisionReplay.js";
 
+export { analyzeDecisionReplay } from "./decisionCompare.js";
+
 export { runDecisionService } from "./decisionService.js";

@@ -132,4 +132,55 @@ export async function handleHealthDiag(ctx = {}) {
     lines.push("❤️ SG HEALTH");
     lines.push("");
     lines.push(`transport: ${transportStatus}`);
-    lines.push(`db_ping:
+    lines.push(`db_ping: ${dbStatus}`);
+    lines.push(`event_loop: ${loopStatus}`);
+    lines.push(`memory_heap: ${heapStatus}`);
+    lines.push(`cpu_load: ${loadStatus}`);
+    lines.push("");
+    lines.push(`health_state: ${healthy ? "HEALTHY" : "WARN"}`);
+    lines.push("");
+    lines.push("metrics:");
+    lines.push(`db_ping_ms=${safeMs(dbPingMs)}`);
+    lines.push(`event_loop_lag_ms=${safeMs(eventLoopLagMs)}`);
+    lines.push(`heap_used=${safeMb(mu.heapUsed)}`);
+    lines.push(`rss=${safeMb(mu.rss)}`);
+    lines.push(`loadavg_1m=${Number.isFinite(load1) ? load1.toFixed(2) : "—"}`);
+    lines.push(`cpus=${cpuCount || "—"}`);
+    lines.push(`transport_enforced=${String(enforced)}`);
+    lines.push("");
+    lines.push("thresholds:");
+    lines.push("db_ping <= 300 ms");
+    lines.push("event_loop_lag <= 50 ms");
+    lines.push("heap_used <= 300 MB");
+    lines.push("loadavg_1m <= cpu_count");
+
+    await replyAndLog(lines.join("\n").slice(0, 3900), {
+      cmd: cmdBase,
+      event: "diag_health",
+    });
+
+    return {
+      handled: true,
+      ok: true,
+      stage: "7B.diag_health",
+      result: "diag_health_replied",
+      cmdBase,
+    };
+  } catch (e) {
+    console.error("handleHealthDiag(/diag_health) failed:", e);
+
+    await replyAndLog("⚠️ /diag_health failed. Проверь Render logs.", {
+      cmd: cmdBase,
+      event: "diag_health_failed",
+    });
+
+    return {
+      handled: true,
+      ok: false,
+      reason: "diag_health_failed",
+      cmdBase,
+    };
+  }
+}
+
+export default handleHealthDiag;

@@ -34,6 +34,7 @@ const behaviorEvents = new BehaviorEventsService();
 
 // ✅ STAGE 6.8.2 — command idempotency (core-level)
 import { insertCommandInvocation } from "../db/commandInvocationsRepo.js";
+import { dispatchDiagnosticCommand } from "./diagnostics/index.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -547,6 +548,40 @@ export async function handleMessage(context = {}) {
         { cmd: cmdBase, event: "help" }
       );
       return { ok: true, stage: "6.logic.2", result: "help_replied", cmdBase };
+    }
+
+    // ✅ STAGE 7B — diagnostics registry skeleton
+    // IMPORTANT:
+    // - currently fail-open
+    // - old inline command logic remains authoritative for now
+    try {
+      const diagnosticResult = await dispatchDiagnosticCommand({
+        cmdBase,
+        context,
+        deps,
+        user,
+        userRole,
+        userPlan,
+        isMonarchUser,
+        isPrivateChat,
+        globalUserId,
+        chatIdStr,
+        chatIdNum,
+        senderId,
+        messageId,
+        chatType,
+        transport,
+        trimmed,
+        rest,
+        replyAndLog,
+      });
+
+      if (diagnosticResult?.handled) {
+        return diagnosticResult;
+      }
+    } catch (e) {
+      console.error("handleMessage(dispatchDiagnosticCommand) failed:", e);
+      // fail-open: keep old inline handlers authoritative until migration
     }
 
     // ✅ STAGE 7B foundation — /chat_messages_diag in ENFORCED transport path

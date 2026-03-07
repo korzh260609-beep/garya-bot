@@ -12,6 +12,7 @@ import { handleMode } from "./handlers/mode.js";
 import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
 import { handleDecisionDiag } from "./handlers/decisionDiag.js";
 import { handleDecisionDiagLast } from "./handlers/decisionDiagLast.js";
+import { handleDecisionDiagStats } from "./handlers/decisionDiagStats.js";
 import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — read-only
 import { handleTaskStatus } from "./handlers/taskStatus.js"; // Stage 5.7 — read-only
 import { handleTasksList } from "./handlers/tasksList.js";
@@ -174,6 +175,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/memory_user_chats",
     "/diag_decision",
     "/diag_decision_last",
+    "/diag_decision_stats",
 
     // ✅ STAGE 7A — keep PM write private
     "/pm_set",
@@ -769,6 +771,15 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/diag_decision_last": {
       await handleDecisionDiagLast({
+        bot,
+        chatId,
+        reply,
+      });
+      return { handled: true };
+    }
+
+    case "/diag_decision_stats": {
+      await handleDecisionDiagStats({
         bot,
         chatId,
         reply,

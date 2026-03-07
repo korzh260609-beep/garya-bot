@@ -1,102 +1,55 @@
+import { DECISION_ACTIONS } from "./decisionActions.js";
+
+async function runAction(actionType, context) {
+  const action =
+    DECISION_ACTIONS[actionType] || DECISION_ACTIONS.none;
+
+  const actionResult = await action(context);
+
+  return {
+    ok: actionResult?.ok ?? true,
+    facts: actionResult?.facts || [],
+    draft: actionResult?.draft || null,
+    warnings: [
+      ...(actionType in DECISION_ACTIONS ? [] : ["action_type_not_found"]),
+      ...(actionResult?.warnings || []),
+    ],
+  };
+}
+
 export const DECISION_WORKERS = {
   none: async function noneWorker(route, context) {
     void route;
-    void context;
-
-    return {
-      ok: true,
-      facts: [],
-      draft: null,
-      warnings: ["worker_none_selected"],
-    };
+    return runAction("none", context);
   },
 
   basic: async function basicWorker(route, context) {
     void route;
-
-    return {
-      ok: true,
-      facts: [],
-      draft: context?.text || null,
-      warnings: ["worker_basic_not_implemented"],
-    };
+    return runAction("basic", context);
   },
 
   command: async function commandWorker(route, context) {
-    return {
-      ok: true,
-      facts: [
-        {
-          type: "command",
-          value: context?.command || null,
-        },
-      ],
-      draft: null,
-      warnings: ["worker_command_not_implemented"],
-    };
+    void route;
+    return runAction("command", context);
   },
 
   source_query: async function sourceQueryWorker(route, context) {
     void route;
-
-    return {
-      ok: true,
-      facts: [
-        {
-          type: "source_query",
-          value: context?.text || context?.command || null,
-        },
-      ],
-      draft: null,
-      warnings: ["worker_source_query_not_implemented"],
-    };
+    return runAction("source_query", context);
   },
 
   repo_analysis: async function repoAnalysisWorker(route, context) {
     void route;
-
-    return {
-      ok: true,
-      facts: [
-        {
-          type: "repo_analysis",
-          value: context?.text || context?.command || null,
-        },
-      ],
-      draft: null,
-      warnings: ["worker_repo_analysis_not_implemented"],
-    };
+    return runAction("repo_analysis", context);
   },
 
   system_diag: async function systemDiagWorker(route, context) {
     void route;
-
-    return {
-      ok: true,
-      facts: [
-        {
-          type: "system_diag",
-          value: context?.text || context?.command || null,
-        },
-      ],
-      draft: null,
-      warnings: ["worker_system_diag_not_implemented"],
-    };
+    return runAction("system_diag", context);
   },
 
   chat: async function chatWorker(route, context) {
     void route;
-
-    return {
-      ok: true,
-      facts: [
-        {
-          type: "chat",
-          value: context?.text || null,
-        },
-      ],
-      draft: context?.text || null,
-      warnings: ["worker_chat_not_implemented"],
-    };
+    return runAction("chat", context);
   },
 };

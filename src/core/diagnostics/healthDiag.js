@@ -8,6 +8,7 @@ import os from "os";
 import process from "process";
 import pool from "../../../db.js";
 import { isTransportEnforced } from "../../transport/transportConfig.js";
+import { getHealthThresholds } from "./healthConfig.js";
 
 function safeMs(value) {
   const n = Number(value ?? 0);
@@ -20,25 +21,21 @@ function safeMb(bytes) {
   return `${Math.round((n / 1024 / 1024) * 10) / 10} MB`;
 }
 
-function formatStatus(ok) {
-  return ok ? "OK" : "WARN";
-}
-
-function classifyEventLoopLag(ms) {
+function classifyEventLoopLag(ms, thresholds) {
   if (!Number.isFinite(ms)) return "WARN";
-  if (ms <= 50) return "OK";
+  if (ms <= thresholds.EVENT_LOOP_LAG_WARN_MS) return "OK";
   return "WARN";
 }
 
-function classifyDbPing(ms) {
+function classifyDbPing(ms, thresholds) {
   if (!Number.isFinite(ms)) return "WARN";
-  if (ms <= 300) return "OK";
+  if (ms <= thresholds.DB_PING_WARN_MS) return "OK";
   return "WARN";
 }
 
-function classifyHeapUsedMb(mb) {
+function classifyHeapUsedMb(mb, thresholds) {
   if (!Number.isFinite(mb)) return "WARN";
-  if (mb <= 300) return "OK";
+  if (mb <= thresholds.HEAP_USED_WARN_MB) return "OK";
   return "WARN";
 }
 
@@ -94,6 +91,7 @@ export async function handleHealthDiag(ctx = {}) {
   }
 
   try {
+    const thresholds = getHealthThresholds();
     const enforced = isTransportEnforced();
     const mu = process.memoryUsage();
 
@@ -101,12 +99,10 @@ export async function handleHealthDiag(ctx = {}) {
     const cpuCount = Array.isArray(os.cpus()) ? os.cpus().length : 0;
     const load1 = Array.isArray(os.loadavg()) ? Number(os.loadavg()[0] || 0) : NaN;
 
-    // 1) DB ping latency
     const dbStart = process.hrtime.bigint();
     await pool.query(`SELECT 1 AS ok`);
     const dbPingMs = Number(process.hrtime.bigint() - dbStart) / 1e6;
 
-    // 2) Event loop lag (cheap single-sample)
     const loopStart = process.hrtime.bigint();
     const eventLoopLagMs = await new Promise((resolve) => {
       setTimeout(() => {
@@ -115,9 +111,9 @@ export async function handleHealthDiag(ctx = {}) {
       }, 0);
     });
 
-    const dbStatus = classifyDbPing(dbPingMs);
-    const loopStatus = classifyEventLoopLag(eventLoopLagMs);
-    const heapStatus = classifyHeapUsedMb(heapUsedMb);
+    const dbStatus = classifyDbPing(dbPingMs, thresholds);
+    const loopStatus = classifyEventLoopLag(eventLoopLagMs, thresholds);
+    const heapStatus = classifyHeapUsedMb(heapUsedMb, thresholds);
     const loadStatus = classifyLoad(load1, cpuCount);
     const transportStatus = enforced ? "OK" : "WARN";
 
@@ -149,9 +145,9 @@ export async function handleHealthDiag(ctx = {}) {
     lines.push(`transport_enforced=${String(enforced)}`);
     lines.push("");
     lines.push("thresholds:");
-    lines.push("db_ping <= 300 ms");
-    lines.push("event_loop_lag <= 50 ms");
-    lines.push("heap_used <= 300 MB");
+    lines.push(`db_ping <= ${thresholds.DB_PING_WARN_MS} ms`);
+    lines.push(`event_loop_lag <= ${thresholds.EVENT_LOOP_LAG_WARN_MS} ms`);
+    lines.push(`heap_used <= ${thresholds.HEAP_USED_WARN_MB} MB`);
     lines.push("loadavg_1m <= cpu_count");
 
     await replyAndLog(lines.join("\n").slice(0, 3900), {

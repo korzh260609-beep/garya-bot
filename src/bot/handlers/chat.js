@@ -24,6 +24,7 @@ import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
 import { getUserTimezone, setUserTimezone } from "../../db/userSettings.js";
 import BehaviorEventsService from "../../logging/BehaviorEventsService.js";
 import { runDecisionShadowHook } from "../../decision/decisionShadowHook.js";
+import { routeDecision } from "../../decision/index.js";
 
 export async function handleChatMessage({
   bot,
@@ -781,7 +782,7 @@ export async function handleChatMessage({
           }).format(dt)
         : "неизвестно";
 
-      const hintText = `💡 Похоже, це вже обговорювали. Останній збіг: ${when} (UTC)\nЯкщо є нове — уточни, що змінилося.`;
+      const hintText = `💡 Похоже, це вже обговорювали. Останній збіг: ${when} (UTC)\nЯкщо є нове — уточни, что змінилося.`;
 
       await bot.sendMessage(chatId, hintText);
 
@@ -1051,6 +1052,30 @@ export async function handleChatMessage({
   }
 
   // ==========================================================
+  // DECISION PREVIEW ROUTE — policy/telemetry only
+  // IMPORTANT:
+  // - no production effect
+  // - no promotion
+  // - used only to avoid hardcoded "core_chat" baseline kind
+  // ==========================================================
+  let decisionPreviewRoute = null;
+  try {
+    decisionPreviewRoute = await routeDecision({
+      text: effective,
+      command: null,
+      transport: "telegram",
+      userId: senderIdStr || null,
+      chatId: chatIdStr || null,
+      messageId: messageId ?? null,
+      meta: {
+        source: "chat_handler_preview_route",
+      },
+    });
+  } catch (e) {
+    console.error("ERROR decision preview route failed (fail-open):", e);
+  }
+
+  // ==========================================================
   // DECISION SHADOW HOOK — sandbox compare after real chat reply
   // IMPORTANT:
   // - must NEVER affect production response
@@ -1069,14 +1094,21 @@ export async function handleChatMessage({
         globalUserId: globalUserId ?? null,
         meta: {
           source: "chat_handler_post_reply_shadow",
+          previewKind: decisionPreviewRoute?.kind || null,
+          previewWorkerType: decisionPreviewRoute?.workerType || null,
+          previewReason: decisionPreviewRoute?.reason || null,
         },
       },
       {
         finalText: aiReply,
         route: {
-          kind: "core_chat",
-          worker: "chat_handler",
-          judgeRequired: false,
+          kind: decisionPreviewRoute?.kind || "core_chat",
+          worker: decisionPreviewRoute?.workerType || "chat_handler",
+          judgeRequired:
+            typeof decisionPreviewRoute?.judgeRequired === "boolean"
+              ? decisionPreviewRoute.judgeRequired
+              : false,
+          reason: decisionPreviewRoute?.reason || "chat_handler_post_reply_shadow",
         },
         warnings: [],
       }

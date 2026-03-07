@@ -60,7 +60,7 @@ export async function routeDecision(context = {}) {
     kind: DECISION_KIND.CHAT_SIMPLE,
     needsAI: false,
     workerType: "basic",
-    judgeRequired: true,
+    judgeRequired: false,
     reason: "default_sandbox_route",
   });
 }

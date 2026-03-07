@@ -1,71 +1,69 @@
-'use strict';
+// src/services/chatMemory/chatMessagesRepo.js
+// Stage 7B foundation helper
+// NOTE:
+// - aligned to current repo ESM style
+// - aligned to real runtime chat_messages schema
+// - NOT wired automatically into production flow yet
 
-/*
-  IMPORTANT:
-  Replace the import below with your real DB accessor.
-  Example:
-  const db = require('../../db');
-  or:
-  const { query } = require('../../db/pg');
-*/
-
-const db = require('../../db'); // <-- adjust path if needed
+import pool from "../../../db.js";
 
 const INSERT_SQL = `
   INSERT INTO chat_messages (
+    transport,
     chat_id,
-    platform,
+    chat_type,
+    global_user_id,
+    sender_id,
+    message_id,
     platform_message_id,
-    direction,
-    user_id,
-    role,
-    text_raw,
-    text_redacted,
     text_hash,
-    truncated
+    role,
+    content,
+    truncated,
+    metadata,
+    raw,
+    schema_version
   )
   VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14
   )
+  ON CONFLICT (transport, chat_id, message_id)
+    WHERE role = 'user' AND message_id IS NOT NULL
+  DO NOTHING
   RETURNING id, created_at
 `;
 
-async function insertChatMessage(message) {
+export async function insertChatMessage(message) {
   const values = [
+    message.transport,
     message.chatId,
-    message.platform,
+    message.chatType,
+    message.globalUserId,
+    message.senderId,
+    message.messageId,
     message.platformMessageId,
-    message.direction,
-    message.userId,
-    message.role,
-    message.textRaw,
-    message.textRedacted,
     message.textHash,
-    message.truncated,
+    message.role,
+    message.content,
+    Boolean(message.truncated),
+    JSON.stringify(message.metadata || {}),
+    JSON.stringify(message.raw || {}),
+    Number.isInteger(message.schemaVersion) ? message.schemaVersion : 1,
   ];
 
-  try {
-    const result = await db.query(INSERT_SQL, values);
+  const result = await pool.query(INSERT_SQL, values);
 
+  if (!result || (result.rowCount || 0) === 0) {
     return {
       ok: true,
-      duplicate: false,
-      row: result.rows[0] || null,
+      duplicate: true,
+      row: null,
     };
-  } catch (error) {
-    // PostgreSQL unique violation
-    if (error && error.code === '23505') {
-      return {
-        ok: true,
-        duplicate: true,
-        row: null,
-      };
-    }
-
-    throw error;
   }
-}
 
-module.exports = {
-  insertChatMessage,
-};
+  return {
+    ok: true,
+    duplicate: false,
+    row: result.rows?.[0] || null,
+  };
+}

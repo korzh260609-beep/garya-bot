@@ -70,6 +70,61 @@ function safeDiagTs(value) {
 }
 
 // ============================================================================
+// STAGE 7B.5.2 — no binary (links/meta only) for inbound storage/logging
+// IMPORTANT:
+// - do NOT block runtime pipeline
+// - do NOT block FileIntake
+// - do NOT store binary payload as message content
+// - store placeholder/meta only
+// ============================================================================
+function getBinaryAttachmentKinds(raw = null) {
+  if (!raw || typeof raw !== "object") return [];
+
+  const kinds = [];
+
+  if (Array.isArray(raw.photo) && raw.photo.length > 0) kinds.push("photo");
+  if (raw.document) kinds.push("document");
+  if (raw.voice) kinds.push("voice");
+  if (raw.audio) kinds.push("audio");
+  if (raw.video) kinds.push("video");
+  if (raw.video_note) kinds.push("video_note");
+  if (raw.sticker) kinds.push("sticker");
+  if (raw.animation) kinds.push("animation");
+
+  return kinds;
+}
+
+function buildInboundStorageText(text = "", raw = null) {
+  const original = typeof text === "string" ? text : String(text ?? "");
+  const trimmed = original.trim();
+  const binaryKinds = getBinaryAttachmentKinds(raw);
+
+  if (binaryKinds.length === 0) {
+    return {
+      content: original,
+      hasBinaryAttachment: false,
+      attachmentKinds: [],
+    };
+  }
+
+  const marker = `[binary_attachment:${binaryKinds.join(",")}]`;
+
+  if (!trimmed) {
+    return {
+      content: marker,
+      hasBinaryAttachment: true,
+      attachmentKinds: binaryKinds,
+    };
+  }
+
+  return {
+    content: `${marker}\n${original}`,
+    hasBinaryAttachment: true,
+    attachmentKinds: binaryKinds,
+  };
+}
+
+// ============================================================================
 // STAGE 8D — Idempotency (chat): in-memory dedupe for enforced mode
 // Purpose: drop duplicate deliveries (Telegram retries, webhook replays).
 // No DB, no schema changes. TTL-based. Does NOT survive process restart.
@@ -116,6 +171,7 @@ export async function handleMessage(context = {}) {
   const senderId = context?.senderId == null ? null : String(context.senderId);
   const text = context?.text == null ? "" : String(context.text);
   const messageId = context?.messageId == null ? null : String(context.messageId);
+  const raw = context?.raw && typeof context.raw === "object" ? context.raw : null;
 
   // ✅ pre-parse for early dedupe bypass (Stage 8D happens before routing)
   const __trimmedForBypass = text.trim();
@@ -215,8 +271,8 @@ export async function handleMessage(context = {}) {
 
   if (transport === "telegram" && senderId) {
     try {
-      if (context?.raw && typeof context.raw === "object") {
-        await ensureUserProfile(context.raw);
+      if (raw) {
+        await ensureUserProfile(raw);
       }
     } catch (e) {
       console.error("handleMessage(ensureUserProfile) failed:", e);
@@ -420,7 +476,8 @@ export async function handleMessage(context = {}) {
     // (only after command idempotency accepted; avoids duplicate user rows on retries)
     try {
       if (commandInvocationInserted && transport === "telegram" && chatIdStr && messageId) {
-        const red = redactText(trimmed);
+        const inboundStorage = buildInboundStorageText(trimmed, raw);
+        const red = redactText(inboundStorage.content);
         const { text: content, truncated } = truncateForDb(red);
         const textHash = sha256Text(red);
 
@@ -440,8 +497,10 @@ export async function handleMessage(context = {}) {
             senderId,
             chatId: chatIdStr,
             messageId: Number(messageId),
+            hasBinaryAttachment: inboundStorage.hasBinaryAttachment,
+            attachmentKinds: inboundStorage.attachmentKinds,
           },
-          raw: buildRawMeta(context?.raw || {}),
+          raw: buildRawMeta(raw || {}),
           schemaVersion: 1,
         });
       }

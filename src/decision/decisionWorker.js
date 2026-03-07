@@ -3,48 +3,35 @@
  *
  * Responsibility:
  * - accepts route result from Router
+ * - selects worker by route.workerType
  * - prepares facts / draft
  * - does NOT finalize response
  * - does NOT validate final quality
  * - does NOT replace existing handleMessage flow
- *
- * Expected route shape:
- * {
- *   kind: string,
- *   needsAI: boolean,
- *   workerType: string,
- *   judgeRequired: boolean,
- *   reason: string,
- * }
- *
- * Expected context shape:
- * {
- *   messageText?: string,
- *   command?: string,
- *   transport?: string,
- *   user?: object,
- *   chat?: object,
- *   meta?: object,
- * }
- *
- * Expected output shape:
- * {
- *   ok: boolean,
- *   route: object,
- *   facts: Array,
- *   draft: string | null,
- *   warnings: string[],
- * }
  */
 
+import { DECISION_WORKERS } from "./decisionWorkers.js";
+
+function normalizeWarnings(...warningGroups) {
+  return warningGroups.flat().filter(Boolean);
+}
+
 export async function runDecisionWorker(route, context) {
-  void context;
+  const workerType = route?.workerType || "none";
+
+  const worker =
+    DECISION_WORKERS[workerType] || DECISION_WORKERS.none;
+
+  const workerResult = await worker(route, context);
 
   return {
-    ok: true,
+    ok: workerResult?.ok ?? true,
     route,
-    facts: [],
-    draft: null,
-    warnings: ["worker_not_implemented"],
+    facts: workerResult?.facts || [],
+    draft: workerResult?.draft || null,
+    warnings: normalizeWarnings(
+      workerType in DECISION_WORKERS ? [] : ["worker_type_not_found"],
+      workerResult?.warnings || []
+    ),
   };
 }

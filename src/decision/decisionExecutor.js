@@ -25,6 +25,7 @@ import { createDecisionResult } from "./decisionResult.js";
 import {
   createDecisionTrace,
   traceRouter,
+  traceValidator,
   traceWorker,
   traceJudge,
 } from "./decisionTrace.js";
@@ -62,6 +63,12 @@ export async function executeDecision(input = {}) {
   traceJudge(trace, judgeResult);
 
   const judgeWarnings = validateDecisionJudgeResult(judgeResult);
+
+  traceValidator(trace, {
+    routeWarnings,
+    workerWarnings,
+    judgeWarnings,
+  });
 
   const result = createDecisionResult({
     context,

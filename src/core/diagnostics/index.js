@@ -1,13 +1,12 @@
 // src/core/diagnostics/index.js
 // STAGE 7B — diagnostics registry skeleton
-// IMPORTANT:
-// - skeleton only
-// - no production logic moved yet
 
 import { handleChatMessagesDiag } from "./chatMessagesDiag.js";
+import { handleDbDiag } from "./dbDiag.js";
 
 const DIAGNOSTIC_HANDLERS = {
   "/chat_messages_diag": handleChatMessagesDiag,
+  "/diag_db": handleDbDiag,
 };
 
 export async function dispatchDiagnosticCommand(ctx = {}) {

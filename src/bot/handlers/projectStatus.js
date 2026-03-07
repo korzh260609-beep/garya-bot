@@ -39,7 +39,8 @@ export async function handleProjectStatus({ bot, chatId }) {
     [
       "PROJECT STATUS",
       "stage: unknown (not auto-evaluated)",
-      "repo: connected",
+      `repo: ${process.env.GITHUB_REPO ? "configured" : "not_configured"}`,
+      `branch: ${process.env.GITHUB_BRANCH || "unknown"}`,
       `health: ${healthStatus}`,
       `last_snapshot_id: ${lastSnapshotId}`,
       "project_status: read-only",

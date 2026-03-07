@@ -1,16 +1,12 @@
-'use strict';
+// src/services/chatMemory/computeTextHash.js
 
-const crypto = require('crypto');
+import crypto from "crypto";
 
-function computeTextHash(input) {
-  const value = input === null || input === undefined ? '' : String(input);
+export function computeTextHash(input) {
+  const value = input === null || input === undefined ? "" : String(input);
 
   return crypto
-    .createHash('sha256')
-    .update(value, 'utf8')
-    .digest('hex');
+    .createHash("sha256")
+    .update(value, "utf8")
+    .digest("hex");
 }
-
-module.exports = {
-  computeTextHash,
-};

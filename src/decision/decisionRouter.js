@@ -1,41 +1,24 @@
 /**
- * Decision Layer — Router
+ * Decision Route Contract
  *
- * Responsibility:
- * - accepts raw decision input
- * - returns normalized routing result
- * - does NOT execute work
- * - does NOT call AI
- * - does NOT touch current production pipeline
+ * Defines normalized structure returned by Decision Router.
  *
- * Expected input shape:
- * {
- *   text?: string,
- *   command?: string,
- *   transport?: string,
- *   userId?: string | number,
- *   chatId?: string | number,
- *   meta?: object,
- * }
+ * Router must return an object with this shape.
+ * Worker and Judge rely on this structure.
  *
- * Expected output shape:
- * {
- *   kind: string,
- *   needsAI: boolean,
- *   workerType: string,
- *   judgeRequired: boolean,
- *   reason: string,
- * }
+ * This file contains NO routing logic.
  */
 
-export async function routeDecision(input) {
-  void input;
-
+export function createDecisionRoute(data = {}) {
   return {
-    kind: "unknown",
-    needsAI: false,
-    workerType: "none",
-    judgeRequired: false,
-    reason: "not_implemented",
+    kind: data.kind || "unknown",
+
+    needsAI: data.needsAI || false,
+
+    workerType: data.workerType || "none",
+
+    judgeRequired: data.judgeRequired || false,
+
+    reason: data.reason || "not_defined",
   };
 }

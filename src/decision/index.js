@@ -1,5 +1,7 @@
 export { DECISION_KIND } from "./decisionTypes.js";
 
+export { DECISION_CAPABILITIES } from "./decisionCapabilities.js";
+
 export { createDecisionContext } from "./decisionContext.js";
 
 export { createDecisionRoute, routeDecision } from "./decisionRouter.js";

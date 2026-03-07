@@ -64,12 +64,15 @@ export async function health() {
 export async function runAll(input = {}) {
   const planResult = await plan(input);
   const replayResult = await replay();
+  const compareAnalysis = analyzeDecisionPlannerReplay(replayResult);
+
   const compareResult = {
-    ok: false,
+    ok: compareAnalysis?.ok || false,
     mode: "planner_compare",
     replay: replayResult,
-    analysis: analyzeDecisionPlannerReplay(replayResult),
+    analysis: compareAnalysis,
   };
+
   const telemetryResult = await telemetry();
   const healthResult = await health();
 
@@ -77,7 +80,7 @@ export async function runAll(input = {}) {
     ok:
       Boolean(planResult?.ok) &&
       Boolean(replayResult?.ok) &&
-      Boolean(compareResult?.analysis),
+      Boolean(compareResult?.ok),
     mode: "planner_service",
     plan: planResult,
     replay: replayResult,

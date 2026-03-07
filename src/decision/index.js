@@ -49,6 +49,8 @@ export {
   getWarningStats,
 } from "./decisionInspector.js";
 
+export { getDecisionHealth } from "./decisionHealth.js";
+
 export { executeDecision } from "./decisionExecutor.js";
 
 export { runDecisionSandboxTest } from "./decisionSandboxTest.js";

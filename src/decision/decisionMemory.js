@@ -13,6 +13,8 @@
  * - no external side effects
  */
 
+const DECISION_MEMORY_LIMIT = 50;
+
 const decisionMemoryStore = [];
 
 function createMemoryRecord(result = {}) {
@@ -29,10 +31,17 @@ function createMemoryRecord(result = {}) {
   };
 }
 
+function trimDecisionMemory() {
+  while (decisionMemoryStore.length > DECISION_MEMORY_LIMIT) {
+    decisionMemoryStore.shift();
+  }
+}
+
 export function saveDecisionMemory(result = {}) {
   const record = createMemoryRecord(result);
 
   decisionMemoryStore.push(record);
+  trimDecisionMemory();
 
   return record;
 }
@@ -41,8 +50,21 @@ export function getDecisionMemory() {
   return [...decisionMemoryStore];
 }
 
+export function getRecentDecisionMemory(limit = 10) {
+  const normalizedLimit =
+    typeof limit === "number" && limit > 0
+      ? Math.min(Math.floor(limit), DECISION_MEMORY_LIMIT)
+      : 10;
+
+  return decisionMemoryStore.slice(-normalizedLimit);
+}
+
 export function getDecisionMemorySize() {
   return decisionMemoryStore.length;
+}
+
+export function getDecisionMemoryLimit() {
+  return DECISION_MEMORY_LIMIT;
 }
 
 export function clearDecisionMemory() {

@@ -3,14 +3,16 @@
  *
  * Responsibility:
  * - stores sandbox replay analytics in isolated in-memory telemetry
+ * - optionally mirrors telemetry into DB (fail-open)
  * - provides aggregated diagnostics for Decision Layer evolution
  *
  * IMPORTANT:
  * - sandbox only
- * - no production integration
- * - no DB
- * - no side effects outside in-memory store
+ * - must NEVER affect production responses
+ * - DB write is mirror-only and fail-open
  */
+
+import { insertDecisionTelemetry } from "../db/decisionTelemetryRepo.js";
 
 const DECISION_TELEMETRY_LIMIT = 100;
 
@@ -41,6 +43,23 @@ export function saveDecisionTelemetry(replay = {}, analysis = {}) {
 
   decisionTelemetryStore.push(record);
   trimDecisionTelemetry();
+
+  // DB mirror (fail-open, no await, no production impact)
+  Promise.resolve()
+    .then(() =>
+      insertDecisionTelemetry({
+        ok: record.ok,
+        mode: record.mode,
+        baseline: record.baseline,
+        shadow: record.shadow,
+        compare: record.compare,
+        analysis: record.analysis,
+        schemaVersion: 1,
+      })
+    )
+    .catch((e) => {
+      console.error("ERROR decision_telemetry mirror insert failed (fail-open):", e);
+    });
 
   return record;
 }

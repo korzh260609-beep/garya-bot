@@ -9,7 +9,7 @@
 // - does NOT attach to runtime
 // - safe inspection only
 
-import { createHealthScheduler } from "./healthScheduler.js";
+import { getHealthSchedulerConfig } from "./healthConfig.js";
 
 function safeText(value) {
   if (value == null) return "—";
@@ -67,11 +67,17 @@ export async function handleDiagScheduler(ctx = {}) {
   }
 
   try {
-    // IMPORTANT:
-    // This creates an isolated scheduler instance ONLY for config/state inspection.
-    // It does not start anything.
-    const scheduler = createHealthScheduler();
-    const st = scheduler.status();
+    const config = getHealthSchedulerConfig();
+    const st = {
+      enabled: Boolean(config.ENABLED),
+      running: false,
+      intervalMs: config.INTERVAL_MS,
+      warnConsecutiveCount: config.WARN_CONSECUTIVE_COUNT,
+      criticalConsecutiveCount: config.CRITICAL_CONSECUTIVE_COUNT,
+      warnStreak: 0,
+      criticalStreak: 0,
+      lastSnapshot: null,
+    };
 
     const lines = [];
     lines.push("🧭 SG SCHEDULER");

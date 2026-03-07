@@ -40,6 +40,14 @@ export {
   clearDecisionMemory,
 } from "./decisionMemory.js";
 
+export {
+  getLastDecision,
+  getLastRoute,
+  getDecisionStats,
+  getRouteStats,
+  getWarningStats,
+} from "./decisionInspector.js";
+
 export { executeDecision } from "./decisionExecutor.js";
 
 export { runDecisionSandboxTest } from "./decisionSandboxTest.js";

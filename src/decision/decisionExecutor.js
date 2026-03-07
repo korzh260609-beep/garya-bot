@@ -21,10 +21,7 @@ import { createDecisionContext } from "./decisionContext.js";
 import { routeDecision } from "./decisionRouter.js";
 import { runDecisionWorker } from "./decisionWorker.js";
 import { judgeDecisionResult } from "./decisionJudge.js";
-
-function normalizeWarnings(...warningGroups) {
-  return warningGroups.flat().filter(Boolean);
-}
+import { createDecisionResult } from "./decisionResult.js";
 
 export async function executeDecision(input = {}) {
   const context = createDecisionContext(input);
@@ -43,16 +40,10 @@ export async function executeDecision(input = {}) {
         reason: "judge_skipped",
       };
 
-  return {
-    ok: Boolean(route) && Boolean(workerResult?.ok) && Boolean(judgeResult?.ok),
+  return createDecisionResult({
     context,
     route,
     workerResult,
     judgeResult,
-    finalText: judgeResult?.finalText || null,
-    warnings: normalizeWarnings(
-      workerResult?.warnings || [],
-      judgeResult?.warnings || []
-    ),
-  };
+  });
 }

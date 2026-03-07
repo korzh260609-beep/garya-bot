@@ -4,6 +4,7 @@
  * Responsibility:
  * - provides unified sandbox diagnostics for Decision Layer
  * - aggregates smoke test, runtime health, planner health, memory stats, telemetry stats
+ * - runs shadow replay + compare in sandbox-only mode
  * - does NOT modify production pipeline
  * - does NOT connect into handleMessage
  * - does NOT connect into TelegramAdapter
@@ -25,12 +26,23 @@ import {
   getDecisionTelemetrySize,
   getDecisionTelemetryStats,
 } from "./decisionTelemetry.js";
+import { runDecisionReplay } from "./decisionReplay.js";
+import { analyzeDecisionReplay } from "./decisionCompare.js";
 
 function createMeta() {
   return {
     generatedAt: Date.now(),
     source: "decision_diagnostics",
     mode: "sandbox_only",
+  };
+}
+
+function createBaseline(input = {}) {
+  return input?.baseline || {
+    finalText: null,
+    route: null,
+    warnings: [],
+    source: "core_stub",
   };
 }
 
@@ -49,6 +61,10 @@ export async function runDecisionDiagnostics(input = {}) {
     stats: getDecisionTelemetryStats(),
   };
 
+  const baseline = createBaseline(input);
+  const replay = await runDecisionReplay(input, baseline);
+  const analysis = analyzeDecisionReplay(replay);
+
   return {
     ok:
       Boolean(smoke?.ok) &&
@@ -63,6 +79,11 @@ export async function runDecisionDiagnostics(input = {}) {
     plannerHealth,
     memory,
     telemetry,
+
+    shadowCompare: {
+      replay,
+      analysis,
+    },
   };
 }
 

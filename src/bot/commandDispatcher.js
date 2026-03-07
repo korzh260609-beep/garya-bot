@@ -14,6 +14,7 @@ import { handleDecisionDiag } from "./handlers/decisionDiag.js";
 import { handleDecisionDiagLast } from "./handlers/decisionDiagLast.js";
 import { handleDecisionDiagStats } from "./handlers/decisionDiagStats.js";
 import { handleDecisionDiagDbStats } from "./handlers/decisionDiagDbStats.js";
+import { handleDecisionDiagLastDb } from "./handlers/decisionDiagLastDb.js";
 import { handleDecisionPromotionDiag } from "./handlers/decisionPromotionDiag.js";
 import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — read-only
 import { handleTaskStatus } from "./handlers/taskStatus.js"; // Stage 5.7 — read-only
@@ -179,6 +180,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/diag_decision_last",
     "/diag_decision_stats",
     "/diag_decision_db_stats",
+    "/diag_decision_last_db",
     "/diag_decision_promotion",
 
     // ✅ STAGE 7A — keep PM write private
@@ -793,6 +795,15 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/diag_decision_db_stats": {
       await handleDecisionDiagDbStats({
+        bot,
+        chatId,
+        reply,
+      });
+      return { handled: true };
+    }
+
+    case "/diag_decision_last_db": {
+      await handleDecisionDiagLastDb({
         bot,
         chatId,
         reply,

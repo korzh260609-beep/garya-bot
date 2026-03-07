@@ -28,6 +28,11 @@ import {
   traceWorker,
   traceJudge,
 } from "./decisionTrace.js";
+import {
+  validateDecisionRoute,
+  validateDecisionWorkerResult,
+  validateDecisionJudgeResult,
+} from "./decisionValidator.js";
 
 export async function executeDecision(input = {}) {
   const context = createDecisionContext(input);
@@ -36,8 +41,12 @@ export async function executeDecision(input = {}) {
   const route = await routeDecision(context);
   traceRouter(trace, route);
 
+  const routeWarnings = validateDecisionRoute(route);
+
   const workerResult = await runDecisionWorker(route, context);
   traceWorker(trace, workerResult);
+
+  const workerWarnings = validateDecisionWorkerResult(workerResult);
 
   const judgeResult = route?.judgeRequired
     ? await judgeDecisionResult(workerResult, context)
@@ -51,11 +60,18 @@ export async function executeDecision(input = {}) {
 
   traceJudge(trace, judgeResult);
 
+  const judgeWarnings = validateDecisionJudgeResult(judgeResult);
+
   return createDecisionResult({
     context,
     route,
     workerResult,
     judgeResult,
     trace,
+    warnings: [
+      ...routeWarnings,
+      ...workerWarnings,
+      ...judgeWarnings,
+    ],
   });
 }

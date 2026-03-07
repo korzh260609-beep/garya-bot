@@ -85,3 +85,22 @@ export { runDecisionReplay } from "./decisionReplay.js";
 export { analyzeDecisionReplay } from "./decisionCompare.js";
 
 export { runDecisionService } from "./decisionService.js";
+
+export {
+  plan,
+  replay,
+  compare,
+  telemetry,
+  health,
+  runAll,
+  default as decisionPlannerService,
+} from "./decisionPlannerService.js";
+
+export { runDecisionPlannerServiceSandboxTest } from "./decisionPlannerServiceSandboxTest.js";
+
+export {
+  runDecisionLayerServices,
+  default as decisionServiceRunner,
+} from "./decisionServiceRunner.js";
+
+export { runDecisionServiceRunnerSandboxTest } from "./decisionServiceRunnerSandboxTest.js";

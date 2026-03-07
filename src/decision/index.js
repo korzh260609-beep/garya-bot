@@ -18,6 +18,13 @@ export { judgeDecisionResult } from "./decisionJudge.js";
 
 export { createDecisionResult } from "./decisionResult.js";
 
+export {
+  createDecisionTrace,
+  traceRouter,
+  traceWorker,
+  traceJudge,
+} from "./decisionTrace.js";
+
 export { executeDecision } from "./decisionExecutor.js";
 
 export { runDecisionSandboxTest } from "./decisionSandboxTest.js";

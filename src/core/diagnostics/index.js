@@ -3,10 +3,12 @@
 
 import { handleChatMessagesDiag } from "./chatMessagesDiag.js";
 import { handleDbDiag } from "./dbDiag.js";
+import { handleCoreDiag } from "./coreDiag.js";
 
 const DIAGNOSTIC_HANDLERS = {
   "/chat_messages_diag": handleChatMessagesDiag,
   "/diag_db": handleDbDiag,
+  "/diag_core": handleCoreDiag,
 };
 
 export async function dispatchDiagnosticCommand(ctx = {}) {

@@ -1,14 +1,25 @@
 // src/db/chatMessagesRepo.js
-// STAGE 7.7.2 — Chat Messages DB layer
-// Purpose: single place for all SQL touching chat_messages + webhook_dedupe_events.
-// Handlers MUST NOT do direct pool.query on these tables.
+// STAGE 7B — runtime adapter over services/chatMemory foundation
+// Purpose:
+// - keep OLD runtime API stable for handlers/chat.js and messageRouter.js
+// - delegate chat_messages writes to Stage 7B foundation service layer
+// - keep webhook_dedupe_events write here (runtime DB adapter)
+// Rules:
+// - minimal safe integration
+// - no abrupt runtime path rewrite
+// - handlers still import from src/db/chatMessagesRepo.js
 
 import pool from "../../db.js";
+import {
+  saveIncomingMessage,
+  saveOutgoingMessage,
+} from "../services/chatMemory/index.js";
 
 // ============================================================================
 // insertUserMessage
-// Inserts incoming user message with idempotency (ON CONFLICT DO NOTHING).
-// Returns: { inserted: true } | { inserted: false, reason: "duplicate" }
+// Runtime-compatible wrapper over Stage 7B foundation.
+// Input API preserved.
+// Returns: { inserted: true, id } | { inserted: false, reason: "duplicate" }
 // ============================================================================
 export async function insertUserMessage({
   transport,
@@ -17,120 +28,93 @@ export async function insertUserMessage({
   globalUserId = null,
   senderId = null,
   messageId,
-  textHash,
+  textHash, // preserved for API compatibility; foundation recomputes from stored content
   content,
-  truncated = false,
+  truncated = false, // preserved for API compatibility; foundation normalizes again
   metadata = {},
   raw = {},
   schemaVersion = 1,
 }) {
-  const res = await pool.query(
-    `
-    INSERT INTO chat_messages (
+  try {
+    const res = await saveIncomingMessage({
       transport,
-      chat_id,
-      chat_type,
-      global_user_id,
-      sender_id,
-      message_id,
-      platform_message_id,
-      text_hash,
-      role,
+      chatId: String(chatId),
+      chatType: chatType ? String(chatType) : null,
+      globalUserId: globalUserId ? String(globalUserId) : null,
+      senderId: senderId ? String(senderId) : null,
+      messageId: Number(messageId),
+      platformMessageId: Number(messageId),
+      role: "user",
       content,
-      truncated,
-      metadata,
-      raw,
-      schema_version
-    )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14)
-    ON CONFLICT (transport, chat_id, message_id)
-      WHERE role='user' AND message_id IS NOT NULL
-    DO NOTHING
-    RETURNING id
-    `,
-    [
-      transport,
-      String(chatId),
-      chatType ? String(chatType) : null,
-      globalUserId ? String(globalUserId) : null,
-      senderId ? String(senderId) : null,
-      Number(messageId),
-      Number(messageId),
-      textHash,
-      "user",
-      content,
-      Boolean(truncated),
-      JSON.stringify(metadata),
-      JSON.stringify(raw),
+      metadata: {
+        ...(metadata && typeof metadata === "object" ? metadata : {}),
+        _runtimeAdapter: "src/db/chatMessagesRepo.js",
+        _legacyTextHash: textHash ?? null,
+        _legacyTruncated: Boolean(truncated),
+      },
+      raw: raw && typeof raw === "object" ? raw : {},
       schemaVersion,
-    ]
-  );
+    });
 
-  if (!res || (res.rowCount || 0) === 0) {
-    return { inserted: false, reason: "duplicate" };
+    if (!res || res.duplicate === true) {
+      return { inserted: false, reason: "duplicate" };
+    }
+
+    return {
+      inserted: true,
+      id: res?.row?.id ?? null,
+    };
+  } catch (e) {
+    throw e;
   }
-
-  return { inserted: true, id: res.rows?.[0]?.id ?? null };
 }
 
 // ============================================================================
 // insertAssistantMessage
-// Inserts outgoing assistant message (no idempotency key — assistant messages
-// don't have a platform message_id at write time).
+// Runtime-compatible wrapper over Stage 7B foundation.
+// Input API preserved.
 // ============================================================================
 export async function insertAssistantMessage({
   transport,
   chatId,
   chatType = null,
   globalUserId = null,
-  textHash,
+  textHash, // preserved for API compatibility; foundation recomputes from stored content
   content,
-  truncated = false,
+  truncated = false, // preserved for API compatibility; foundation normalizes again
   metadata = {},
   schemaVersion = 1,
 }) {
-  await pool.query(
-    `
-    INSERT INTO chat_messages (
+  try {
+    await saveOutgoingMessage({
       transport,
-      chat_id,
-      chat_type,
-      global_user_id,
-      sender_id,
-      message_id,
-      platform_message_id,
-      text_hash,
-      role,
+      chatId: String(chatId),
+      chatType: chatType ? String(chatType) : null,
+      globalUserId: globalUserId ? String(globalUserId) : null,
+      senderId: null,
+      messageId: null,
+      platformMessageId: null,
+      role: "assistant",
       content,
-      truncated,
-      metadata,
-      raw,
-      schema_version
-    )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14)
-    `,
-    [
-      transport,
-      String(chatId),
-      chatType ? String(chatType) : null,
-      globalUserId ? String(globalUserId) : null,
-      null,
-      null,
-      null,
-      textHash,
-      "assistant",
-      content,
-      Boolean(truncated),
-      JSON.stringify(metadata),
-      JSON.stringify({}),
+      metadata: {
+        ...(metadata && typeof metadata === "object" ? metadata : {}),
+        _runtimeAdapter: "src/db/chatMessagesRepo.js",
+        _legacyTextHash: textHash ?? null,
+        _legacyTruncated: Boolean(truncated),
+      },
+      raw: {},
       schemaVersion,
-    ]
-  );
+    });
+  } catch (e) {
+    throw e;
+  }
 }
 
 // ============================================================================
 // insertWebhookDedupeEvent
 // Records a deduplicated webhook hit for observability.
+// Kept in runtime DB layer because Stage 7B foundation currently covers
+// chat_messages only.
 // ============================================================================
 export async function insertWebhookDedupeEvent({
   transport,

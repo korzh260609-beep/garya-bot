@@ -125,3 +125,9 @@ export {
   runDecisionDiagnostics,
   default as decisionDiagnostics,
 } from "./decisionDiagnostics.js";
+
+/* Decision Diagnostics Sandbox Test */
+
+export {
+  runDecisionDiagnosticsSandboxTest,
+} from "./decisionDiagnosticsSandboxTest.js";

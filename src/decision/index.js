@@ -57,4 +57,6 @@ export { runDecisionSandboxTest } from "./decisionSandboxTest.js";
 
 export { runDecisionShadow } from "./decisionShadowRunner.js";
 
+export { runDecisionReplay } from "./decisionReplay.js";
+
 export { runDecisionService } from "./decisionService.js";

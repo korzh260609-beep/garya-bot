@@ -2,6 +2,8 @@ export { DECISION_KIND } from "./decisionTypes.js";
 
 export { DECISION_CAPABILITIES } from "./decisionCapabilities.js";
 
+export { DECISION_ACTIONS } from "./decisionActions.js";
+
 export { DECISION_WORKERS } from "./decisionWorkers.js";
 
 export { DECISION_JUDGES } from "./decisionJudges.js";

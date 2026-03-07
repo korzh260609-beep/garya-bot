@@ -16,6 +16,8 @@ export { runDecisionWorker } from "./decisionWorker.js";
 
 export { judgeDecisionResult } from "./decisionJudge.js";
 
+export { createDecisionResult } from "./decisionResult.js";
+
 export { executeDecision } from "./decisionExecutor.js";
 
 export { runDecisionSandboxTest } from "./decisionSandboxTest.js";

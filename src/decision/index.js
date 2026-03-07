@@ -12,6 +12,10 @@ export { createDecisionContext } from "./decisionContext.js";
 
 export { createDecisionPlan, planDecision } from "./decisionPlanner.js";
 
+export { DECISION_PLANNER_REPLAY_SET } from "./decisionPlannerReplaySet.js";
+
+export { runDecisionPlannerReplay } from "./decisionPlannerReplay.js";
+
 export { createDecisionRoute, routeDecision } from "./decisionRouter.js";
 
 export { runDecisionWorker } from "./decisionWorker.js";

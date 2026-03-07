@@ -23,6 +23,7 @@ import { touchChatMeta } from "../../db/chatMeta.js";
 import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
 import { getUserTimezone, setUserTimezone } from "../../db/userSettings.js";
 import BehaviorEventsService from "../../logging/BehaviorEventsService.js";
+import { runDecisionShadowHook } from "../../decision/decisionShadowHook.js";
 
 export async function handleChatMessage({
   bot,
@@ -1047,5 +1048,40 @@ export async function handleChatMessage({
     await bot.sendMessage(chatId, aiReply);
   } catch (e) {
     console.error("ERROR Telegram send error:", e);
+  }
+
+  // ==========================================================
+  // DECISION SHADOW HOOK — sandbox compare after real chat reply
+  // IMPORTANT:
+  // - must NEVER affect production response
+  // - best-effort only
+  // - runs only after Telegram reply is already sent
+  // ==========================================================
+  try {
+    await runDecisionShadowHook(
+      {
+        goal: effective,
+        text: effective,
+        transport: "telegram",
+        userId: senderIdStr || null,
+        chatId: chatIdStr || null,
+        messageId: messageId ?? null,
+        globalUserId: globalUserId ?? null,
+        meta: {
+          source: "chat_handler_post_reply_shadow",
+        },
+      },
+      {
+        finalText: aiReply,
+        route: {
+          kind: "core_chat",
+          worker: "chat_handler",
+          judgeRequired: false,
+        },
+        warnings: [],
+      }
+    );
+  } catch (e) {
+    console.error("ERROR DecisionShadowHook failed (fail-open):", e);
   }
 }

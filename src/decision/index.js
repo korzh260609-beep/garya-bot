@@ -34,7 +34,9 @@ export {
 export {
   saveDecisionMemory,
   getDecisionMemory,
+  getRecentDecisionMemory,
   getDecisionMemorySize,
+  getDecisionMemoryLimit,
   clearDecisionMemory,
 } from "./decisionMemory.js";
 

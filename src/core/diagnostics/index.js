@@ -5,12 +5,14 @@ import { handleChatMessagesDiag } from "./chatMessagesDiag.js";
 import { handleDbDiag } from "./dbDiag.js";
 import { handleCoreDiag } from "./coreDiag.js";
 import { handleTransportDiag } from "./transportDiag.js";
+import { handlePipelineDiag } from "./pipelineDiag.js";
 
 const DIAGNOSTIC_HANDLERS = {
   "/chat_messages_diag": handleChatMessagesDiag,
   "/diag_db": handleDbDiag,
   "/diag_core": handleCoreDiag,
   "/diag_transport": handleTransportDiag,
+  "/diag_pipeline": handlePipelineDiag,
 };
 
 export async function dispatchDiagnosticCommand(ctx = {}) {

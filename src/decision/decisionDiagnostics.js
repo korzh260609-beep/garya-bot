@@ -28,6 +28,7 @@ import {
 } from "./decisionTelemetry.js";
 import { runDecisionReplay } from "./decisionReplay.js";
 import { analyzeDecisionReplay } from "./decisionCompare.js";
+import { createCoreBaselineSnapshot } from "./coreBaselineAdapter.js";
 
 function createMeta() {
   return {
@@ -52,16 +53,7 @@ function createBaseline(input = {}) {
     };
   }
 
-  return {
-    finalText: null,
-    route: {
-      kind: "sandbox_baseline",
-      worker: "baseline_stub",
-      judgeRequired: false,
-    },
-    warnings: [],
-    source: "sandbox_demo_baseline",
-  };
+  return createCoreBaselineSnapshot({});
 }
 
 export async function runDecisionDiagnostics(input = {}) {

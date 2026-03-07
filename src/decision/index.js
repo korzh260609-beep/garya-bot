@@ -31,6 +31,13 @@ export {
   validateDecisionJudgeResult,
 } from "./decisionValidator.js";
 
+export {
+  saveDecisionMemory,
+  getDecisionMemory,
+  getDecisionMemorySize,
+  clearDecisionMemory,
+} from "./decisionMemory.js";
+
 export { executeDecision } from "./decisionExecutor.js";
 
 export { runDecisionSandboxTest } from "./decisionSandboxTest.js";

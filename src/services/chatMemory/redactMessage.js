@@ -1,42 +1,38 @@
-'use strict';
+// src/services/chatMemory/redactMessage.js
 
-function redactMessage(input) {
+export function redactMessage(input) {
   if (input === null || input === undefined) {
-    return '';
+    return "";
   }
 
   let text = String(input);
 
   // remove telegram mentions / username-like handles
-  text = text.replace(/(^|\s)@[\p{L}\p{N}_]{2,64}/gu, '$1[mention]');
+  text = text.replace(/(^|\s)@[\p{L}\p{N}_]{2,64}/gu, "$1[mention]");
 
   // remove emails
   text = text.replace(
     /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/giu,
-    '[email]'
+    "[email]"
   );
 
   // remove phone-like values
   text = text.replace(
     /(?<!\w)(\+?\d[\d\s().\-]{7,}\d)(?!\w)/g,
-    '[phone]'
+    "[phone]"
   );
 
   // remove t.me links
   text = text.replace(
     /\bhttps?:\/\/t\.me\/[^\s]+/giu,
-    '[telegram_link]'
+    "[telegram_link]"
   );
 
-  // remove explicit profile links (generic)
+  // remove generic links
   text = text.replace(
     /\bhttps?:\/\/[^\s]+/giu,
-    '[link]'
+    "[link]"
   );
 
   return text.trim();
 }
-
-module.exports = {
-  redactMessage,
-};

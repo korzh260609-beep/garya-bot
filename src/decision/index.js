@@ -21,6 +21,7 @@ export { createDecisionResult } from "./decisionResult.js";
 export {
   createDecisionTrace,
   traceRouter,
+  traceValidator,
   traceWorker,
   traceJudge,
 } from "./decisionTrace.js";

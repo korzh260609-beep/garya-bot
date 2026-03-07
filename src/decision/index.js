@@ -11,3 +11,5 @@ export { judgeDecisionResult } from "./decisionJudge.js";
 export { executeDecision } from "./decisionExecutor.js";
 
 export { runDecisionSandboxTest } from "./decisionSandboxTest.js";
+
+export { runDecisionService } from "./decisionService.js";

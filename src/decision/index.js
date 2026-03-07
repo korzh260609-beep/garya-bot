@@ -51,6 +51,15 @@ export {
 
 export { getDecisionHealth } from "./decisionHealth.js";
 
+export {
+  saveDecisionTelemetry,
+  getDecisionTelemetry,
+  getRecentDecisionTelemetry,
+  getDecisionTelemetrySize,
+  clearDecisionTelemetry,
+  getDecisionTelemetryStats,
+} from "./decisionTelemetry.js";
+
 export { executeDecision } from "./decisionExecutor.js";
 
 export { runDecisionSandboxTest } from "./decisionSandboxTest.js";

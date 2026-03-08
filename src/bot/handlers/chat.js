@@ -9,10 +9,10 @@
 
 import pool from "../../../db.js";
 import {
-  insertUserMessage,
   insertAssistantMessage,
   insertWebhookDedupeEvent,
 } from "../../db/chatMessagesRepo.js"; // ✅ STAGE 7.7.2
+import { guardIncomingChatMessage } from "../../services/chatMemory/guardIncomingChatMessage.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
 import { getRecallEngine } from "../../core/recallEngineFactory.js";
 import { getAlreadySeenDetector } from "../../core/alreadySeenFactory.js";
@@ -317,7 +317,7 @@ export async function handleChatMessage({
       //  7B.5.2: meta-only raw (NO msg text, NO attachments)
       const raw = buildRawMeta(msg);
 
-      const ins = await insertUserMessage({
+      const ins = await guardIncomingChatMessage({
         transport,
         chatId: chatIdStr,
         chatType: msg?.chat?.type || null,
@@ -332,9 +332,8 @@ export async function handleChatMessage({
         schemaVersion: 1,
       });
 
-      // ✅ FIX: insertUserMessage returns { inserted: true/false }, not rowCount
       // Conflict => already processed (retry) => exit silently
-      if (!ins || ins.inserted !== true) {
+      if (ins?.duplicate === true) {
         try {
           console.info("IDEMPOTENCY_SKIP", {
             transport,

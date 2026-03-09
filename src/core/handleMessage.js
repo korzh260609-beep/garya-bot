@@ -12,8 +12,14 @@ import { isTransportTraceEnabled } from "../transport/transportConfig.js";
 import { getMemoryService } from "./memoryServiceFactory.js";
 
 // ✅ STAGE 7B — chat_messages logging for COMMANDS (Core-level; Transport stays thin)
-import { insertUserMessage, insertAssistantMessage } from "../db/chatMessagesRepo.js";
+import {
+  insertUserMessage,
+  insertAssistantMessage,
+  insertWebhookDedupeEvent,
+} from "../db/chatMessagesRepo.js";
 import { redactText, sha256Text, buildRawMeta } from "./redaction.js";
+import { touchChatMeta } from "../db/chatMeta.js";
+import { guardIncomingChatMessage } from "../services/chatMemory/guardIncomingChatMessage.js";
 
 // ✅ STAGE 6 LOGIC — Access + Identity
 import { resolveUserAccess } from "../users/userAccess.js";
@@ -349,7 +355,7 @@ export async function handleMessage(context = {}) {
     // ignore
   }
 
-  // =========================================================================
+// =========================================================================
   // STAGE 7.1 — Memory shadow write (OFF by default)
   // =========================================================================
   try {
@@ -788,7 +794,7 @@ export async function handleMessage(context = {}) {
       }
     }
 
-    if (typeof deps?.dispatchCommand === "function") {
+if (typeof deps?.dispatchCommand === "function") {
       try {
         const dispatchCtx = {
           bot: deps.bot || null,
@@ -885,6 +891,103 @@ export async function handleMessage(context = {}) {
           schemaVersion: opts?.schemaVersion ?? 2,
         });
       };
+
+      // ==========================================================
+      // STAGE 7B.7 — CORE inbound chat idempotency guard
+      // Insert-first before handler/AI.
+      //
+      // Rules:
+      // - only for Telegram inbound user messages with numeric message_id
+      // - duplicate => stop before handler
+      // - log WEBHOOK_DEDUPE_HIT
+      // - persist webhook_dedupe_events
+      // - touchChatMeta
+      // - fail-open on DB errors
+      // ==========================================================
+      if (
+        transport === "telegram" &&
+        messageId !== null &&
+        Number.isFinite(Number(messageId))
+      ) {
+        try {
+          const inboundStorage = buildInboundStorageText(trimmed, raw);
+          const red = redactText(inboundStorage.content);
+          const { text: content, truncated } = truncateForDb(red);
+          const textHash = sha256Text(red);
+
+          const ins = await guardIncomingChatMessage({
+            transport,
+            chatId: chatIdStr,
+            chatType,
+            globalUserId: globalUserId || null,
+            senderId: senderId || null,
+            messageId: Number(messageId),
+            textHash,
+            content,
+            truncated,
+            metadata: {
+              stage: "7B.7.core.in",
+              senderId,
+              chatId: chatIdStr,
+              messageId: Number(messageId),
+              hasBinaryAttachment: inboundStorage.hasBinaryAttachment,
+              attachmentKinds: inboundStorage.attachmentKinds,
+            },
+            raw: buildRawMeta(raw || {}),
+            schemaVersion: 1,
+          });
+
+          if (ins?.duplicate === true) {
+            try {
+              console.info("WEBHOOK_DEDUPE_HIT", {
+                transport,
+                chatId: chatIdStr,
+                messageId: Number(messageId),
+                reason: "chat_messages_conflict",
+                stage: "7B.7.core",
+              });
+            } catch (_) {}
+
+            try {
+              await insertWebhookDedupeEvent({
+                transport,
+                chatId: chatIdStr,
+                messageId: Number(messageId),
+                globalUserId: globalUserId || null,
+                reason: "retry_duplicate",
+                metadata: { handler: "core.handleMessage", stage: "7B.7.core" },
+              });
+            } catch (e) {
+              console.error("ERROR webhook_dedupe_events insert failed:", e);
+            }
+
+            try {
+              await touchChatMeta({
+                transport,
+                chatId: String(chatIdStr),
+                chatType,
+                title: raw?.chat?.title || null,
+                role: "user",
+              });
+            } catch (_) {}
+
+            return { ok: true, stage: "7B.7", result: "dup_chat_drop" };
+          }
+
+          try {
+            await touchChatMeta({
+              transport,
+              chatId: String(chatIdStr),
+              chatType,
+              title: raw?.chat?.title || null,
+              role: "user",
+            });
+          } catch (_) {}
+        } catch (e) {
+          console.error("ERROR STAGE 7B.7 core chat insert-first failed (fail-open):", e);
+          // fail-open: continue normal flow
+        }
+      }
 
       await deps.handleChatMessage({
         bot: deps.bot,

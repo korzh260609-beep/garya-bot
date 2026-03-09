@@ -8,11 +8,7 @@
 // ✅ STAGE 7B (this patch): early-return replies + AlreadySeen hint also logged into chat_messages (assistant)
 
 import pool from "../../../db.js";
-import {
-  insertAssistantMessage,
-  insertWebhookDedupeEvent,
-} from "../../db/chatMessagesRepo.js"; // ✅ STAGE 7.7.2
-import { guardIncomingChatMessage } from "../../services/chatMemory/guardIncomingChatMessage.js";
+import { insertAssistantMessage } from "../../db/chatMessagesRepo.js"; // ✅ STAGE 7.7.2
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
 import { getRecallEngine } from "../../core/recallEngineFactory.js";
 import { getAlreadySeenDetector } from "../../core/alreadySeenFactory.js";
@@ -20,7 +16,7 @@ import { createTimeContext } from "../../core/time/timeContextFactory.js";
 import { isTimeNowIntent } from "../../core/time/timeNowIntent.js";
 import { isCurrentDateIntent } from "../../core/time/currentDateIntent.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
-import { redactText, sha256Text, buildRawMeta } from "../../core/redaction.js";
+import { redactText, sha256Text } from "../../core/redaction.js";
 import { getUserTimezone, setUserTimezone } from "../../db/userSettings.js";
 import BehaviorEventsService from "../../logging/BehaviorEventsService.js";
 import { runDecisionShadowHook } from "../../decision/decisionShadowHook.js";
@@ -182,22 +178,6 @@ export async function handleChatMessage({
   const directReplyText = decision?.directReplyText || null;
 
   // ==========================================================
-  // STAGE 7B.10 + 7B.5.3 — Redaction + hard cap for chat_messages storage
-  // Store ONLY redacted content in chat_messages.
-  // ==========================================================
-  const userRedactedFull = redactText(effective);
-
-  const userContentForDb =
-    typeof userRedactedFull === "string" && userRedactedFull.length > MAX_CHAT_MESSAGE_CHARS
-      ? userRedactedFull.slice(0, MAX_CHAT_MESSAGE_CHARS)
-      : userRedactedFull;
-
-  const userTruncatedForDb =
-    typeof userRedactedFull === "string" && userRedactedFull.length > MAX_CHAT_MESSAGE_CHARS;
-
-  const userTextHash = sha256Text(userRedactedFull);
-
-  // ==========================================================
   // STAGE 7 — helper: store assistant reply on early-return branches
   // Reason: without it, /memory_integrity reports missing_assistant (u=1 a=0)
   // ==========================================================
@@ -285,106 +265,6 @@ export async function handleChatMessage({
       console.error("ERROR Telegram send error (shouldCallAI):", e);
     }
     return;
-  }
-
-  // ==========================================================
-  // STAGE 7B.7 — IDEMPOTENCY CORE (critical)
-  // Insert-first into chat_messages to guarantee process-once on webhook retries.
-  //
-  // Strategy:
-  // - Only for inbound USER messages with numeric Telegram message_id
-  // - INSERT ... ON CONFLICT DO NOTHING (partial unique index for role='user')
-  // - If conflict => already processed => exit WITHOUT calling AI and WITHOUT sending a second reply
-  // - Fail-open on any DB error (do not break production)
-  //
-  // STAGE 7B.5.2 — raw meta only (no text/binary)
-  // STAGE 7B.2 — platform_message_id + text_hash
-  // STAGE 7B.10 — content redacted
-  // ==========================================================
-  if (messageId !== null && Number.isFinite(Number(messageId))) {
-    try {
-      const transport = "telegram";
-      const chatType = msg?.chat?.type || null;
-      const senderId = senderIdStr || null;
-
-      const meta = {
-        senderIdStr,
-        chatIdStr,
-        messageId,
-        globalUserId,
-      };
-
-      //  7B.5.2: meta-only raw (NO msg text, NO attachments)
-      const raw = buildRawMeta(msg);
-
-      const ins = await guardIncomingChatMessage({
-        transport,
-        chatId: chatIdStr,
-        chatType: msg?.chat?.type || null,
-        globalUserId: globalUserId || null,
-        senderId: senderId || null,
-        messageId,
-        textHash: userTextHash,
-        content: userContentForDb,
-        truncated: Boolean(userTruncatedForDb),
-        metadata: meta,
-        raw,
-        schemaVersion: 1,
-      });
-
-      // Conflict => already processed (retry) => exit silently
-      if (ins?.duplicate === true) {
-        try {
-          console.info("IDEMPOTENCY_SKIP", {
-            transport,
-            chatId: chatIdStr,
-            messageId,
-            reason: "chat_messages_conflict",
-          });
-        } catch (_) {}
-
-        //  STAGE 7B.7 OBSERVABILITY: persist dedupe-hit (legacy attempt; may be ignored if schema doesn't support it)
-        try {
-          await logInteraction(chatIdStr, {
-            taskType: "chat",
-            aiCostLevel: "none",
-            event: "WEBHOOK_DEDUPE_HIT",
-          });
-        } catch (e) {
-          console.error("ERROR logInteraction (WEBHOOK_DEDUPE_HIT) error:", e);
-        }
-
-        //  STAGE 7B.7 OBSERVABILITY (V2): dedicated table webhook_dedupe_events
-        try {
-          await insertWebhookDedupeEvent({
-            transport,
-            chatId: chatIdStr,
-            messageId,
-            globalUserId: globalUserId || null,
-            reason: "retry_duplicate",
-            metadata: { handler: "chat", stage: "7B.7" },
-          });
-        } catch (e) {
-          console.error("ERROR webhook_dedupe_events insert failed:", e);
-        }
-
-        return;
-      }
-
-      // STAGE 7B.8 — touch chat_meta (inbound user)
-      try {
-        await touchChatMeta({
-          transport,
-          chatId: String(chatIdStr),
-          chatType: msg?.chat?.type || null,
-          title: msg?.chat?.title || null,
-          role: "user",
-        });
-      } catch (_) {}
-    } catch (e) {
-      console.error("ERROR STAGE 7B.7 chat_messages insert-first failed (fail-open):", e);
-      // fail-open: continue normal flow
-    }
   }
 
   //  STAGE 7.2: save with globalUserId + metadata

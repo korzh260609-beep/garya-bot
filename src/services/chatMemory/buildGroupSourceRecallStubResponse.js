@@ -90,6 +90,35 @@ function normalizePreviewDecisions(input = {}) {
   return safeCount(input?.previewResult?.meta?.counters?.decisionsReturned, "0");
 }
 
+function normalizeRowsScanned(input = {}) {
+  return safeCount(input?.candidateResult?.meta?.counters?.rowsScanned, "0");
+}
+
+function normalizeExcludedAliasMissing(input = {}) {
+  return safeCount(
+    input?.candidateResult?.meta?.counters?.excludedAliasMissing,
+    "0"
+  );
+}
+
+function normalizeExcludedRequesterChat(input = {}) {
+  return safeCount(
+    input?.candidateResult?.meta?.counters?.excludedRequesterChat,
+    "0"
+  );
+}
+
+function normalizeFilterDaysApplied(input = {}) {
+  return safeCount(input?.candidateResult?.meta?.filters?.daysApplied, "0");
+}
+
+function normalizeFilterKeywordApplied(input = {}) {
+  return safeText(
+    input?.candidateResult?.meta?.filters?.keywordApplied,
+    80
+  );
+}
+
 function extractRenderedCardBlock(input = {}) {
   const rawOriginal = toSafeString(input?.renderedResult?.text);
   const raw = rawOriginal.trim();
@@ -137,6 +166,12 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
   const previewCards = normalizePreviewCards(input);
   const previewDecisions = normalizePreviewDecisions(input);
 
+  const rowsScanned = normalizeRowsScanned(input);
+  const excludedAliasMissing = normalizeExcludedAliasMissing(input);
+  const excludedRequesterChat = normalizeExcludedRequesterChat(input);
+  const filterDaysApplied = normalizeFilterDaysApplied(input);
+  const filterKeywordApplied = normalizeFilterKeywordApplied(input);
+
   const renderedPreview = extractRenderedCardBlock(input);
 
   const lines = [
@@ -146,7 +181,14 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     keyword ? `keyword=${keyword}` : "",
     `cards=${cardsRendered}`,
     `decisions=${previewDecisions}`,
-    renderedPreview.shown ? "preview=true" : "preview=false",
+    `preview=${renderedPreview.shown ? "true" : "false"}`,
+    "",
+    "SAFE FILTERS:",
+    `filter_days_applied=${filterDaysApplied}`,
+    `filter_keyword_applied=${filterKeywordApplied || "—"}`,
+    `rows_scanned=${rowsScanned}`,
+    `excluded_alias_missing=${excludedAliasMissing}`,
+    `excluded_requester_chat=${excludedRequesterChat}`,
     "",
     "Cross-group retrieval is not enabled yet.",
     "Safe preview only.",
@@ -164,7 +206,7 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     ok: true,
     text,
     meta: {
-      contractVersion: 7,
+      contractVersion: 8,
       stubOnly: true,
       runtimeActive: false,
       retrievalImplemented: false,
@@ -176,6 +218,14 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
         cardsRendered: Number(cardsRendered) || 0,
         previewCards: Number(previewCards) || 0,
         previewDecisions: Number(previewDecisions) || 0,
+        rowsScanned: Number(rowsScanned) || 0,
+        excludedAliasMissing: Number(excludedAliasMissing) || 0,
+        excludedRequesterChat: Number(excludedRequesterChat) || 0,
+      },
+
+      filters: {
+        daysApplied: Number(filterDaysApplied) || 0,
+        keywordApplied: filterKeywordApplied || "",
       },
 
       request: {

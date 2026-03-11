@@ -48,6 +48,9 @@ function normalizeLimit(value, fallback = 5) {
 }
 
 function normalizeCandidate(candidate = {}) {
+  const meta =
+    candidate.meta && typeof candidate.meta === "object" ? candidate.meta : {};
+
   return {
     platform: toSafeString(candidate.platform || "telegram").trim() || "telegram",
     chatId: toSafeString(candidate.chatId).trim(),
@@ -57,7 +60,12 @@ function normalizeCandidate(candidate = {}) {
     rawText: toSafeString(candidate.rawText),
     date: candidate.date || null,
     confidence: candidate.confidence,
-    meta: candidate.meta && typeof candidate.meta === "object" ? candidate.meta : {},
+    meta,
+    safeTopic:
+      toSafeString(candidate.safeTopic).trim() ||
+      toSafeString(meta.safeTopic).trim() ||
+      toSafeString(meta.topic).trim() ||
+      "",
   };
 }
 
@@ -71,6 +79,7 @@ function buildDeniedCandidate(reason, candidate, policy = null) {
       alias: candidate.alias,
       privacyLevel: candidate.privacyLevel,
       sourceEnabled: candidate.sourceEnabled,
+      safeTopicPresent: Boolean(candidate.safeTopic),
     },
     policy,
     card: null,
@@ -83,7 +92,7 @@ export async function groupSourceRecallOrchestrator(input = {}) {
   const limit = normalizeLimit(input.limit, 5);
 
   const meta = {
-    contractVersion: 1,
+    contractVersion: 2,
     skeletonOnly: true,
     runtimeActive: false,
 
@@ -97,6 +106,7 @@ export async function groupSourceRecallOrchestrator(input = {}) {
       requestedCandidates: candidates.length,
       limit,
       role,
+      candidatesWithSafeTopic: candidates.filter((c) => Boolean(c.safeTopic)).length,
     },
 
     counters: {
@@ -106,6 +116,7 @@ export async function groupSourceRecallOrchestrator(input = {}) {
       deniedAliasRequired: 0,
       deniedPolicy: 0,
       deniedOther: 0,
+      metadataTopicPassedToCard: 0,
     },
   };
 
@@ -162,7 +173,13 @@ export async function groupSourceRecallOrchestrator(input = {}) {
       rawText: candidate.rawText,
       date: candidate.date,
       confidence: candidate.confidence,
+      safeTopic: candidate.safeTopic,
+      meta: candidate.meta,
     });
+
+    if (candidate.safeTopic) {
+      meta.counters.metadataTopicPassedToCard += 1;
+    }
 
     if (!cardResult.allowed || !cardResult.card) {
       meta.counters.denied += 1;
@@ -193,6 +210,7 @@ export async function groupSourceRecallOrchestrator(input = {}) {
         alias: candidate.alias,
         privacyLevel: candidate.privacyLevel,
         sourceEnabled: candidate.sourceEnabled,
+        safeTopicPresent: Boolean(candidate.safeTopic),
       },
       policy: {
         allowed: policy.allowed,

@@ -749,6 +749,11 @@ export async function dispatchCommand(cmd, ctx) {
         chatId,
         chatIdStr,
         rest: ctx.rest,
+        bypass: !!ctx.bypass,
+        isPrivateChat: !!ctx.isPrivateChat,
+        senderIdStr: ctx.senderIdStr ?? null,
+        chatType: ctx.chatType ?? null,
+        identityCtx: ctx.identityCtx ?? null,
       });
       return { handled: true };
     }

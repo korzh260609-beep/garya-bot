@@ -54,7 +54,11 @@ function buildStorageContent(originalText = "", binaryKinds = []) {
   return `${marker}\n${original}`;
 }
 
-function buildEffectiveUserTextPreview({ originalText = "", raw = null, binaryKinds = [] } = {}) {
+function buildEffectiveUserTextPreview({
+  originalText = "",
+  raw = null,
+  binaryKinds = [],
+} = {}) {
   const original = toSafeString(originalText);
   const trimmed = original.trim();
   const caption = toSafeString(raw?.caption).trim();
@@ -84,17 +88,30 @@ function buildEffectiveUserTextPreview({ originalText = "", raw = null, binaryKi
   const primaryKind = binaryKinds[0] || "file";
 
   const mediaNote = (() => {
-    if (primaryKind === "photo") return "Вложение: фото (preview only; OCR/Vision пока не активен).";
-    if (primaryKind === "document")
+    if (primaryKind === "photo") {
+      return "Вложение: фото (preview only; OCR/Vision пока не активен).";
+    }
+    if (primaryKind === "document") {
       return "Вложение: документ (preview only; parsing пока не активен).";
-    if (primaryKind === "voice") return "Вложение: голосовое (preview only; STT пока не активен).";
-    if (primaryKind === "audio") return "Вложение: аудио (preview only; STT пока не активен).";
-    if (primaryKind === "video") return "Вложение: видео (preview only; analysis пока не активен).";
-    if (primaryKind === "video_note")
+    }
+    if (primaryKind === "voice") {
+      return "Вложение: голосовое (preview only; STT пока не активен).";
+    }
+    if (primaryKind === "audio") {
+      return "Вложение: аудио (preview only; STT пока не активен).";
+    }
+    if (primaryKind === "video") {
+      return "Вложение: видео (preview only; analysis пока не активен).";
+    }
+    if (primaryKind === "video_note") {
       return "Вложение: video_note (preview only; analysis пока не активен).";
-    if (primaryKind === "sticker") return "Вложение: sticker (preview only; analysis пока не активен).";
-    if (primaryKind === "animation")
+    }
+    if (primaryKind === "sticker") {
+      return "Вложение: sticker (preview only; analysis пока не активен).";
+    }
+    if (primaryKind === "animation") {
       return "Вложение: animation (preview only; analysis пока не активен).";
+    }
     return "Вложение: файл (preview only; analysis пока не активен).";
   })();
 
@@ -124,11 +141,50 @@ export function buildInboundChatPayload(text = "", raw = null) {
     storagePreviewSource: "buildInboundStorageText_legacy",
     aiPreviewSource: "FileIntake.buildEffectiveUserTextAndDecision_legacy",
 
+    // More explicit authority markers for future migration planning.
+    storageAuthorityNow: {
+      file: "src/core/handleMessage.js",
+      function: "buildInboundStorageText",
+      authoritativeRuntimeNow: true,
+      purpose: "storage_facing_inbound_content",
+    },
+    aiAuthorityNow: {
+      file: "src/media/fileIntake.js",
+      function: "buildEffectiveUserTextAndDecision",
+      authoritativeRuntimeNow: true,
+      purpose: "ai_facing_effective_user_text_and_media_decision",
+    },
+
     // IMPORTANT:
     // current repo intentionally has semantic divergence between
     // storage-facing content and AI-facing effective text for media/caption flows.
     semanticDivergenceExpected: true,
     migrationBlocked: true,
+
+    // Future contract intent only — these fields describe target shape,
+    // not active runtime behavior.
+    futureUnifiedFields: {
+      originalText: "raw user-visible input text before normalization",
+      trimmedText: "normalized text-only value",
+      storageContent: "future storage-facing content candidate",
+      effectiveUserText: "future AI-facing content candidate",
+      hasBinaryAttachment: "boolean binary/media flag",
+      attachmentKinds: "normalized attachment kind list",
+      hasCaption: "caption presence flag",
+      semanticMode: "planned storage/ai semantic descriptor",
+    },
+
+    // Preconditions are documentation only at this stage.
+    // They MUST be satisfied before any runtime switch is allowed.
+    migrationPreconditions: [
+      "explicit approved micro-step for runtime migration",
+      "repo verification of handleMessage.js and chat.js before wiring",
+      "decision on single authoritative inbound contract owner",
+      "alignment of storage semantics vs AI-facing semantics",
+      "separate verification for media-only, text+media, caption+media flows",
+      "no silent replacement of FileIntake runtime behavior",
+      "no silent replacement of buildInboundStorageText runtime behavior",
+    ],
 
     hasText: Boolean(trimmedText),
     hasBinaryAttachment,

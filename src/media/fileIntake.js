@@ -324,6 +324,14 @@ export async function processIncomingFile(intake) {
  * - do NOT replace it with buildInboundChatPayload.js yet
  * - do NOT import future contract here during skeleton stage
  *
+ * BRIDGE NOTE:
+ * - authority here applies ONLY to AI-facing semantics
+ * - this function is NOT the authority for chat_messages storage semantics
+ * - Core storage-facing authority still remains in:
+ *   src/core/handleMessage.js -> buildInboundStorageText(...)
+ * - semantic divergence between storage and AI-facing text is intentional at current Stage 7B
+ * - any unification must happen only in a separate explicit runtime migration step
+ *
  * Future migration target:
  * - src/services/chatMemory/buildInboundChatPayload.js
  *

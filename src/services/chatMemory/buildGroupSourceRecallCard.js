@@ -108,6 +108,7 @@ function buildSummaryCandidate(text = "", maxLen = DEFAULT_SUMMARY_MAX_LEN) {
       summary: "",
       truncated: false,
       empty: true,
+      source: "none",
     };
   }
 
@@ -117,6 +118,7 @@ function buildSummaryCandidate(text = "", maxLen = DEFAULT_SUMMARY_MAX_LEN) {
     summary: trunc.text,
     truncated: trunc.truncated,
     empty: false,
+    source: "redacted_text",
   };
 }
 
@@ -169,6 +171,49 @@ function buildSafeMetadataTopic(input = {}, topicMaxLen = DEFAULT_TOPIC_MAX_LEN)
   };
 }
 
+function normalizeMetaNumber(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0) return 0;
+  return Math.trunc(n);
+}
+
+function buildSafeMetadataSummary(input = {}, maxLen = DEFAULT_SUMMARY_MAX_LEN) {
+  const meta = input?.meta && typeof input.meta === "object" ? input.meta : {};
+
+  const privacyLevel = toSafeString(input?.privacyLevel).trim() || "private";
+  const sourceEnabled = input?.sourceEnabled === true;
+  const messageCount = normalizeMetaNumber(meta.messageCount);
+  const lastMessageAt = normalizeDate(meta.lastMessageAt || meta.updatedAt || input?.date);
+
+  const parts = [
+    `source_enabled=${sourceEnabled ? "true" : "false"}`,
+    `privacy=${privacyLevel}`,
+    messageCount == null ? "" : `message_count=${messageCount}`,
+    lastMessageAt ? `last_activity=${lastMessageAt.slice(0, 16)}` : "",
+  ].filter(Boolean);
+
+  const singleLine = collapseToSingleLine(parts.join(" | "));
+
+  if (!singleLine) {
+    return {
+      summary: "",
+      truncated: false,
+      empty: true,
+      source: "none",
+    };
+  }
+
+  const trunc = safeTruncate(singleLine, maxLen);
+
+  return {
+    summary: trunc.text,
+    truncated: trunc.truncated,
+    empty: false,
+    source: "metadata",
+  };
+}
+
 export function buildGroupSourceRecallCard(input = {}) {
   const rawText = toSafeString(input.rawText);
   const alias = toSafeString(input.alias).trim();
@@ -197,7 +242,7 @@ export function buildGroupSourceRecallCard(input = {}) {
   });
 
   const meta = {
-    contractVersion: 2,
+    contractVersion: 3,
     skeletonOnly: true,
     runtimeActive: false,
 
@@ -207,6 +252,8 @@ export function buildGroupSourceRecallCard(input = {}) {
       outputMode: "anon_card_only",
       metadataTopicChecked: true,
       metadataTopicUsed: false,
+      metadataSummaryChecked: true,
+      metadataSummaryUsed: false,
     },
 
     constraints: {
@@ -254,7 +301,19 @@ export function buildGroupSourceRecallCard(input = {}) {
     meta.pipeline.metadataTopicUsed = true;
   }
 
-  const summaryCandidate = buildSummaryCandidate(redaction.redactedText, summaryMaxLen);
+  const redactedSummaryCandidate = buildSummaryCandidate(
+    redaction.redactedText,
+    summaryMaxLen
+  );
+
+  const metadataSummaryCandidate = buildSafeMetadataSummary(input, summaryMaxLen);
+  const summaryCandidate = redactedSummaryCandidate.empty
+    ? metadataSummaryCandidate
+    : redactedSummaryCandidate;
+
+  if (!metadataSummaryCandidate.empty && redactedSummaryCandidate.empty) {
+    meta.pipeline.metadataSummaryUsed = true;
+  }
 
   // Hard privacy rule:
   // even if future source text contained author-like hints, the card must not expose them.
@@ -275,6 +334,7 @@ export function buildGroupSourceRecallCard(input = {}) {
     topicSource: topicCandidate.source || "redacted_text",
     summaryEmpty: summaryCandidate.empty,
     summaryTruncated: summaryCandidate.truncated,
+    summarySource: summaryCandidate.source || "none",
     visibility: policy.visibility,
   };
 

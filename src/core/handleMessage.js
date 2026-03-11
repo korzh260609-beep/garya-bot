@@ -889,6 +889,13 @@ export async function handleMessage(context = {}) {
     try {
       const memory = getMemoryService();
 
+      // STAGE 7B — MEMORY BRIDGE NOTE
+      // IMPORTANT:
+      // - helpers below are only runtime bridge helpers for chat handler memory writes
+      // - they are NOT authoritative inbound storage semantics
+      // - storage-facing inbound authority remains buildInboundStorageText(...)
+      // - do NOT unify these helpers with buildInboundChatPayload.js in this step
+
       const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
         return memory.write({
           chatId: chatIdStr2,

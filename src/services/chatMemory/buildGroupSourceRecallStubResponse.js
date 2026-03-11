@@ -82,11 +82,21 @@ function normalizePreviewDecisions(input = {}) {
 }
 
 function extractRenderedCardBlock(input = {}) {
-  const raw = toSafeString(input?.renderedResult?.text).trim();
+  const rawOriginal = toSafeString(input?.renderedResult?.text);
+  const raw = rawOriginal.trim();
+
   if (!raw) {
     return {
       text: "",
       shown: false,
+      debug: {
+        rawLength: rawOriginal.length,
+        trimmedLength: raw.length,
+        lineCount: 0,
+        firstLine: "",
+        secondLine: "",
+        bodyLength: 0,
+      },
     };
   }
 
@@ -94,21 +104,6 @@ function extractRenderedCardBlock(input = {}) {
     .split("\n")
     .map((line) => line.trimEnd());
 
-  if (!lines.length) {
-    return {
-      text: "",
-      shown: false,
-    };
-  }
-
-  // Renderer format today:
-  // RECALL GROUPS:
-  // cards=N
-  // <empty line>
-  // 1. alias
-  // ...
-  //
-  // We intentionally strip the renderer header and keep only safe card lines.
   let startIndex = 0;
 
   if (lines[0] === "RECALL GROUPS:") {
@@ -126,8 +121,16 @@ function extractRenderedCardBlock(input = {}) {
   const body = lines.slice(startIndex).join("\n").trim();
 
   return {
-    text: body ? safeText(body, 3000) : "",
+    text: body ? body.slice(0, 3000) : "",
     shown: Boolean(body),
+    debug: {
+      rawLength: rawOriginal.length,
+      trimmedLength: raw.length,
+      lineCount: lines.length,
+      firstLine: safeText(lines[0] || "", 80),
+      secondLine: safeText(lines[1] || "", 80),
+      bodyLength: body.length,
+    },
   };
 }
 
@@ -154,6 +157,12 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     `preview_cards=${previewCards}`,
     `preview_decisions=${previewDecisions}`,
     renderedPreview.shown ? "safe_preview_cards_shown=true" : "safe_preview_cards_shown=false",
+    `debug_render_raw_length=${renderedPreview.debug.rawLength}`,
+    `debug_render_trimmed_length=${renderedPreview.debug.trimmedLength}`,
+    `debug_render_line_count=${renderedPreview.debug.lineCount}`,
+    renderedPreview.debug.firstLine ? `debug_render_first_line=${renderedPreview.debug.firstLine}` : "",
+    renderedPreview.debug.secondLine ? `debug_render_second_line=${renderedPreview.debug.secondLine}` : "",
+    `debug_render_body_length=${renderedPreview.debug.bodyLength}`,
     "",
     "Stage 7B.10 / 11.17 / 8A.9 foundations are present.",
     "Group candidate runtime boundary exists.",
@@ -174,7 +183,7 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     ok: true,
     text,
     meta: {
-      contractVersion: 2,
+      contractVersion: 3,
       stubOnly: true,
       runtimeActive: false,
       retrievalImplemented: false,
@@ -204,6 +213,7 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
       preview: {
         safePreviewCardsShown: renderedPreview.shown,
         safePreviewTextLength: renderedPreview.text.length,
+        debug: renderedPreview.debug,
       },
 
       reason,

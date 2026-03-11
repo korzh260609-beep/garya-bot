@@ -482,6 +482,9 @@ export async function handleMessage(context = {}) {
     // (only after command idempotency accepted; avoids duplicate user rows on retries)
     try {
       if (commandInvocationInserted && transport === "telegram" && chatIdStr && messageId) {
+        // TODO(stage-7b): future inbound payload contract skeleton lives in
+        // src/services/chatMemory/buildInboundChatPayload.js
+        // Keep current runtime on buildInboundStorageText(...) until explicit migration step.
         const inboundStorage = buildInboundStorageText(trimmed, raw);
         const red = redactText(inboundStorage.content);
         const { text: content, truncated } = truncateForDb(red);
@@ -910,6 +913,9 @@ if (typeof deps?.dispatchCommand === "function") {
         Number.isFinite(Number(messageId))
       ) {
         try {
+          // TODO(stage-7b): future inbound payload contract skeleton lives in
+          // src/services/chatMemory/buildInboundChatPayload.js
+          // Keep current runtime on buildInboundStorageText(...) until explicit migration step.
           const inboundStorage = buildInboundStorageText(trimmed, raw);
           const red = redactText(inboundStorage.content);
           const { text: content, truncated } = truncateForDb(red);

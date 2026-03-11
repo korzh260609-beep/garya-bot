@@ -26,6 +26,12 @@
 // - preview bridge uses orchestrator with empty candidates only
 // - no DB reads, no retrieval, no author exposure
 // - this creates a safe future runtime boundary to orchestration layer
+//
+// CONTROLLED RESPONSE ASSEMBLY STEP:
+// - group stub-flow now delegates final text assembly
+//   to buildGroupSourceRecallStubResponse()
+// - recall.js keeps orchestration only
+// - no real cross-group payload is exposed yet
 
 // pool нужен только для передачи в RecallEngine (не для прямых запросов)
 import pool from "../../../db.js";
@@ -34,6 +40,7 @@ import { getRecallEngine } from "../../core/recallEngineFactory.js"; // ✅ 8A +
 import { getGroupSourceRecallCandidates } from "../../services/chatMemory/getGroupSourceRecallCandidates.js";
 import { renderGroupSourceRecallCards } from "../../services/chatMemory/renderGroupSourceRecallCards.js";
 import { getGroupSourceRecallPreview } from "../../services/chatMemory/getGroupSourceRecallPreview.js";
+import { buildGroupSourceRecallStubResponse } from "../../services/chatMemory/buildGroupSourceRecallStubResponse.js";
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -203,7 +210,7 @@ export async function handleRecall({
         keyword,
       });
 
-      const rendered = renderGroupSourceRecallCards(
+      const renderedResult = renderGroupSourceRecallCards(
         Array.isArray(previewResult?.cards)
           ? previewResult.cards
           : Array.isArray(candidateResult?.candidates)
@@ -211,55 +218,18 @@ export async function handleRecall({
             : []
       );
 
-      const reason = safeText(
-        previewResult?.meta?.reason ||
-          candidateResult?.meta?.reason ||
-          "not_enabled_yet",
-        80
-      );
-
-      const renderedStatus = safeText(
-        rendered?.meta?.inputStats?.renderedCards != null
-          ? String(rendered.meta.inputStats.renderedCards)
-          : "0",
-        20
-      );
-
-      const previewCards = safeText(
-        previewResult?.meta?.counters?.cardsReturned != null
-          ? String(previewResult.meta.counters.cardsReturned)
-          : "0",
-        20
-      );
-
-      const previewDecisions = safeText(
-        previewResult?.meta?.counters?.decisionsReturned != null
-          ? String(previewResult.meta.counters.decisionsReturned)
-          : "0",
-        20
-      );
+      const stubResponse = buildGroupSourceRecallStubResponse({
+        days,
+        limit,
+        keyword,
+        candidateResult,
+        previewResult,
+        renderedResult,
+      });
 
       await bot.sendMessage(
         chatId,
-        [
-          "RECALL GROUPS: not_enabled_yet",
-          "scope=include_groups",
-          `days=${days}`,
-          `limit=${limit}`,
-          keyword ? `keyword=${safeText(keyword, 80)}` : "",
-          `reason=${reason}`,
-          `cards_rendered=${renderedStatus}`,
-          `preview_cards=${previewCards}`,
-          `preview_decisions=${previewDecisions}`,
-          "",
-          "Stage 7B.10 / 11.17 / 8A.9 foundations are present.",
-          "Group candidate runtime boundary exists.",
-          "Group card formatter boundary exists.",
-          "Group orchestration preview boundary exists.",
-          "Runtime cross-group retrieval is not wired yet.",
-        ]
-          .filter(Boolean)
-          .join("\n")
+        safeText(stubResponse?.text || "RECALL GROUPS: not_enabled_yet", 4000)
       );
       return;
     } catch (e) {

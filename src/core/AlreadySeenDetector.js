@@ -4,6 +4,7 @@
 // 8B.2 Tightened lookup
 // 8B.3 Confidence threshold
 // 8B.4 Real cooldown enforcement
+// 8B.6 Role-based depth (CONFIG/SKELETON, behavior unchanged by default)
 
 import crypto from "crypto";
 import { extractQuery } from "./alreadySeen/extractQuery.js";
@@ -13,6 +14,32 @@ function sha256Hex(text) {
     return crypto.createHash("sha256").update(String(text || ""), "utf8").digest("hex");
   } catch (_) {
     return "";
+  }
+}
+
+function clampInt(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const x = Math.trunc(n);
+  if (x < min) return min;
+  if (x > max) return max;
+  return x;
+}
+
+function normalizeRole(value) {
+  const role = String(value || "").trim().toLowerCase();
+  if (role === "monarch") return "monarch";
+  if (role === "vip") return "vip";
+  if (role === "citizen") return "citizen";
+  return "guest";
+}
+
+function safeJsonParseObject(text) {
+  try {
+    const parsed = JSON.parse(String(text || ""));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch (_) {
+    return null;
   }
 }
 
@@ -33,22 +60,115 @@ export default class AlreadySeenDetector {
     return 0;
   }
 
+  // ==========================================================
+  // STAGE 8B.6 — Role-based depth (CONFIG/SKELETON)
+  // IMPORTANT:
+  // - config-only step
+  // - no role-based behavior change by default
+  // - defaults must preserve current detector behavior
+  // - no cross-group logic here
+  // ==========================================================
+  getDefaultDepthPolicy() {
+    return {
+      guest: {
+        minKeywords: 3,
+        maxKeywords: 7,
+        lookupKeywords: 3,
+      },
+      citizen: {
+        minKeywords: 3,
+        maxKeywords: 7,
+        lookupKeywords: 3,
+      },
+      vip: {
+        minKeywords: 3,
+        maxKeywords: 7,
+        lookupKeywords: 3,
+      },
+      monarch: {
+        minKeywords: 3,
+        maxKeywords: 7,
+        lookupKeywords: 3,
+      },
+    };
+  }
+
+  getRoleDepthPolicy() {
+    const defaults = this.getDefaultDepthPolicy();
+
+    const rawJson = String(process.env.ALREADY_SEEN_ROLE_DEPTH_JSON || "").trim();
+    if (!rawJson) return defaults;
+
+    const parsed = safeJsonParseObject(rawJson);
+    if (!parsed) return defaults;
+
+    const out = { ...defaults };
+
+    for (const roleKey of Object.keys(defaults)) {
+      const src = parsed?.[roleKey];
+      if (!src || typeof src !== "object" || Array.isArray(src)) continue;
+
+      out[roleKey] = {
+        minKeywords: clampInt(
+          src.minKeywords,
+          1,
+          10,
+          defaults[roleKey].minKeywords
+        ),
+        maxKeywords: clampInt(
+          src.maxKeywords,
+          1,
+          20,
+          defaults[roleKey].maxKeywords
+        ),
+        lookupKeywords: clampInt(
+          src.lookupKeywords,
+          1,
+          10,
+          defaults[roleKey].lookupKeywords
+        ),
+      };
+
+      if (out[roleKey].maxKeywords < out[roleKey].minKeywords) {
+        out[roleKey].maxKeywords = out[roleKey].minKeywords;
+      }
+
+      if (out[roleKey].lookupKeywords > out[roleKey].maxKeywords) {
+        out[roleKey].lookupKeywords = out[roleKey].maxKeywords;
+      }
+    }
+
+    return out;
+  }
+
+  resolveDepthForRole(role) {
+    const normalizedRole = normalizeRole(role);
+    const policy = this.getRoleDepthPolicy();
+    return policy[normalizedRole] || policy.guest || this.getDefaultDepthPolicy().guest;
+  }
+
   status() {
     return {
       enabled: this.getEnabled(),
       mode: "stage-8b",
       hasDb: Boolean(this.db),
       cooldown_sec: this.getCooldownSec(),
+      role_depth_policy: this.getRoleDepthPolicy(),
     };
   }
 
-  async check({ chatId, globalUserId, text }) {
+  async check({ chatId, globalUserId, text, role = "guest" }) {
     const enabled = this.getEnabled();
     if (!enabled) return false;
     if (!this.db || !chatId || !text) return false;
 
     try {
-      const q = extractQuery(text, { minKeywords: 3, maxKeywords: 7 });
+      const depth = this.resolveDepthForRole(role);
+
+      const q = extractQuery(text, {
+        minKeywords: depth.minKeywords,
+        maxKeywords: depth.maxKeywords,
+      });
       if (!q.ok) return false;
 
       const qHash = sha256Hex(q.normalized);
@@ -74,7 +194,14 @@ export default class AlreadySeenDetector {
           return b.length - a.length;
         });
 
-      const kw = kwSorted.slice(0, 3);
+      const lookupKeywords = clampInt(
+        depth.lookupKeywords,
+        1,
+        10,
+        3
+      );
+
+      const kw = kwSorted.slice(0, lookupKeywords);
 
       const totalScore = kw.reduce((sum, w) => sum + kwScore(w), 0);
       if (totalScore < minScore) return false;

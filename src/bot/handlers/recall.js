@@ -14,12 +14,19 @@
 // - /recall --groups now calls a dedicated runtime stub helper
 // - helper currently returns [] and meta.reason=not_enabled_yet
 // - this creates a safe future integration point without enabling cross-group retrieval
+//
+// CONTROLLED FORMATTER BRIDGE STEP:
+// - group stub-flow now also calls renderGroupSourceRecallCards()
+// - renderer is fed with stub/empty cards only
+// - no real cross-group results are exposed yet
+// - this creates a safe future output boundary for anon group cards
 
 // pool нужен только для передачи в RecallEngine (не для прямых запросов)
 import pool from "../../../db.js";
 import { logInteraction } from "../../logging/interactionLogs.js";
 import { getRecallEngine } from "../../core/recallEngineFactory.js"; // ✅ 8A + 7.7.2
 import { getGroupSourceRecallCandidates } from "../../services/chatMemory/getGroupSourceRecallCandidates.js";
+import { renderGroupSourceRecallCards } from "../../services/chatMemory/renderGroupSourceRecallCards.js";
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -177,9 +184,20 @@ export async function handleRecall({
         keyword,
       });
 
+      const rendered = renderGroupSourceRecallCards(
+        Array.isArray(candidateResult?.candidates) ? candidateResult.candidates : []
+      );
+
       const reason = safeText(
         candidateResult?.meta?.reason || "not_enabled_yet",
         80
+      );
+
+      const renderedStatus = safeText(
+        rendered?.meta?.inputStats?.renderedCards != null
+          ? String(rendered.meta.inputStats.renderedCards)
+          : "0",
+        20
       );
 
       await bot.sendMessage(
@@ -191,9 +209,11 @@ export async function handleRecall({
           `limit=${limit}`,
           keyword ? `keyword=${safeText(keyword, 80)}` : "",
           `reason=${reason}`,
+          `cards_rendered=${renderedStatus}`,
           "",
           "Stage 7B.10 / 11.17 / 8A.9 foundations are present.",
           "Group candidate runtime boundary exists.",
+          "Group card formatter boundary exists.",
           "Runtime cross-group retrieval is not wired yet.",
         ]
           .filter(Boolean)

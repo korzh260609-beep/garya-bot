@@ -62,6 +62,14 @@ function buildEffectiveUserTextPreview({ originalText = "", raw = null, binaryKi
   // SKELETON ONLY:
   // preview tries to show what future unified AI-facing text may look like,
   // but MUST NOT be treated as authoritative runtime output yet.
+  //
+  // IMPORTANT:
+  // this preview is conceptually closer to current chat.js AI-facing behavior,
+  // but it is NOT guaranteed to be a 1:1 equivalent of:
+  // FileIntake.buildEffectiveUserTextAndDecision(...)
+  //
+  // Current production semantics for AI-facing media/text decisions
+  // still live in src/media/fileIntake.js.
 
   if (!binaryKinds.length) {
     return trimmed;
@@ -110,6 +118,18 @@ export function buildInboundChatPayload(text = "", raw = null) {
   const decisionMeta = {
     contractVersion: 1,
     skeletonOnly: true,
+
+    // Explicit bridge markers for current legacy semantics.
+    // These fields document which production paths are authoritative TODAY.
+    storagePreviewSource: "buildInboundStorageText_legacy",
+    aiPreviewSource: "FileIntake.buildEffectiveUserTextAndDecision_legacy",
+
+    // IMPORTANT:
+    // current repo intentionally has semantic divergence between
+    // storage-facing content and AI-facing effective text for media/caption flows.
+    semanticDivergenceExpected: true,
+    migrationBlocked: true,
+
     hasText: Boolean(trimmedText),
     hasBinaryAttachment,
     attachmentKinds,
@@ -129,10 +149,16 @@ export function buildInboundChatPayload(text = "", raw = null) {
   return {
     originalText,
     trimmedText,
+
+    // storage-facing preview only
     storageContent,
+
     hasBinaryAttachment,
     attachmentKinds,
+
+    // AI-facing preview only
     effectiveUserTextPreview,
+
     decisionMeta,
   };
 }

@@ -183,18 +183,17 @@ function normalizeCard(card = {}, options = {}) {
 }
 
 function buildCardLines(card, index) {
-  const line = [
-    `${index}. ${card.group_alias}`,
-    formatDateShort(card.date),
-    `topic=${card.topic}`,
-    `conf=${formatConfidence(card.confidence)}`,
-  ].join(" | ");
+  const lines = [];
+
+  lines.push(`${index}. ${card.group_alias}`);
+  lines.push(formatDateShort(card.date));
+  lines.push(`topic=${card.topic} | conf=${formatConfidence(card.confidence)}`);
 
   if (card.summary) {
-    return [line, `summary=${card.summary}`];
+    lines.push(`summary=${card.summary}`);
   }
 
-  return [line];
+  return lines;
 }
 
 export function renderGroupSourceRecallCards(cardsInput = [], options = {}) {
@@ -212,7 +211,7 @@ export function renderGroupSourceRecallCards(cardsInput = [], options = {}) {
   );
 
   const meta = {
-    contractVersion: 3,
+    contractVersion: 4,
     formatterOnly: true,
     runtimeActive: false,
     sourceFetchingImplemented: false,

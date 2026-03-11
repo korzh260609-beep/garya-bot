@@ -37,6 +37,12 @@
 // - no snippets, no quotes, no author data
 // - exclude requester chat
 // - only source_enabled = true
+//
+// SAFE TOPIC STEP:
+// - does NOT assume schema blindly
+// - first checks chat_meta columns through information_schema
+// - uses safe_topic / topic / meta / metadata only if реально существуют
+// - no runtime crash if such columns are absent
 
 import pool from "../../../db.js";
 
@@ -93,6 +99,12 @@ function normalizeBoolean(value) {
   return value === true;
 }
 
+function safeText(value, max = 80) {
+  const text = toSafeString(value).trim();
+  if (!text) return "";
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
 function buildSafeRequestMeta(input = {}) {
   const role = normalizeRole(input.role);
 
@@ -106,7 +118,38 @@ function buildSafeRequestMeta(input = {}) {
   };
 }
 
+function extractSafeTopicFromJson(value) {
+  if (!value || typeof value !== "object") return "";
+
+  const direct =
+    toSafeString(value.safe_topic).trim() ||
+    toSafeString(value.safeTopic).trim() ||
+    toSafeString(value.topic).trim();
+
+  return safeText(direct, 80);
+}
+
+function extractSafeTopic(row = {}) {
+  const direct =
+    toSafeString(row.safe_topic).trim() ||
+    toSafeString(row.topic).trim();
+
+  if (direct) {
+    return safeText(direct, 80);
+  }
+
+  const fromMeta = extractSafeTopicFromJson(row.meta);
+  if (fromMeta) return fromMeta;
+
+  const fromMetadata = extractSafeTopicFromJson(row.metadata);
+  if (fromMetadata) return fromMetadata;
+
+  return "";
+}
+
 function normalizeCandidateRow(row = {}) {
+  const safeTopic = extractSafeTopic(row);
+
   return {
     platform: toSafeString(row.platform || "telegram").trim() || "telegram",
     chatId: normalizeChatId(row.chat_id),
@@ -120,6 +163,7 @@ function normalizeCandidateRow(row = {}) {
     rawText: "",
     date: normalizeTimestamp(row.last_message_at || row.updated_at || null),
     confidence: 0.5,
+    safeTopic,
 
     meta: {
       source: "chat_meta",
@@ -132,15 +176,59 @@ function normalizeCandidateRow(row = {}) {
           : clampNumber(row.message_count, 0, 1_000_000_000, 0),
       lastMessageAt: normalizeTimestamp(row.last_message_at),
       updatedAt: normalizeTimestamp(row.updated_at),
+      safeTopic,
     },
   };
+}
+
+async function detectChatMetaOptionalColumns() {
+  const sql = `
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'chat_meta'
+      AND column_name IN ('safe_topic', 'topic', 'meta', 'metadata')
+  `;
+
+  const result = await pool.query(sql);
+  const rows = Array.isArray(result?.rows) ? result.rows : [];
+  const set = new Set(rows.map((r) => String(r.column_name || "").trim()));
+
+  return {
+    hasSafeTopic: set.has("safe_topic"),
+    hasTopic: set.has("topic"),
+    hasMeta: set.has("meta"),
+    hasMetadata: set.has("metadata"),
+  };
+}
+
+function buildOptionalSelectSql(columns) {
+  const parts = [];
+
+  if (columns.hasSafeTopic) {
+    parts.push(`safe_topic`);
+  }
+
+  if (columns.hasTopic) {
+    parts.push(`topic`);
+  }
+
+  if (columns.hasMeta) {
+    parts.push(`meta`);
+  }
+
+  if (columns.hasMetadata) {
+    parts.push(`metadata`);
+  }
+
+  return parts.length ? `,\n        ${parts.join(",\n        ")}` : "";
 }
 
 export async function getGroupSourceRecallCandidates(input = {}) {
   const request = buildSafeRequestMeta(input);
 
   const meta = {
-    contractVersion: 2,
+    contractVersion: 3,
     runtimeStub: false,
     runtimeActive: true,
     sourceSelectionImplemented: true,
@@ -161,11 +249,19 @@ export async function getGroupSourceRecallCandidates(input = {}) {
       candidatesReturned: 0,
       excludedRequesterChat: 0,
       excludedAliasMissing: 0,
+      candidatesWithSafeTopic: 0,
     },
 
     filters: {
       daysApplied: request.days,
       keywordApplied: request.keyword || "",
+    },
+
+    optionalColumns: {
+      safe_topic: false,
+      topic: false,
+      meta: false,
+      metadata: false,
     },
 
     constraints: {
@@ -183,6 +279,15 @@ export async function getGroupSourceRecallCandidates(input = {}) {
     const sinceIso = buildSinceIso(request.days);
     const hasKeyword = Boolean(request.keyword);
 
+    const detected = await detectChatMetaOptionalColumns();
+
+    meta.optionalColumns.safe_topic = detected.hasSafeTopic;
+    meta.optionalColumns.topic = detected.hasTopic;
+    meta.optionalColumns.meta = detected.hasMeta;
+    meta.optionalColumns.metadata = detected.hasMetadata;
+
+    const optionalSelectSql = buildOptionalSelectSql(detected);
+
     const sql = `
       SELECT
         platform,
@@ -195,7 +300,7 @@ export async function getGroupSourceRecallCandidates(input = {}) {
         allow_raw_snippets,
         message_count,
         last_message_at,
-        updated_at
+        updated_at${optionalSelectSql}
       FROM chat_meta
       WHERE source_enabled = true
         AND COALESCE(last_message_at, updated_at) >= $1
@@ -238,6 +343,10 @@ export async function getGroupSourceRecallCandidates(input = {}) {
       if (request.requesterChatId && candidate.chatId === request.requesterChatId) {
         meta.counters.excludedRequesterChat += 1;
         continue;
+      }
+
+      if (candidate.safeTopic) {
+        meta.counters.candidatesWithSafeTopic += 1;
       }
 
       candidates.push(candidate);

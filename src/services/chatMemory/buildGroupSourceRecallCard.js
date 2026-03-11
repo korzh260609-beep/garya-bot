@@ -142,6 +142,33 @@ function buildDeniedCard(reason, meta = {}) {
   };
 }
 
+function buildSafeMetadataTopic(input = {}, topicMaxLen = DEFAULT_TOPIC_MAX_LEN) {
+  const rawTopic =
+    toSafeString(input?.safeTopic) ||
+    toSafeString(input?.meta?.safeTopic) ||
+    toSafeString(input?.meta?.topic);
+
+  const singleLine = collapseToSingleLine(rawTopic);
+
+  if (!singleLine) {
+    return {
+      topic: "—",
+      truncated: false,
+      empty: true,
+      source: "none",
+    };
+  }
+
+  const trunc = safeTruncate(singleLine, topicMaxLen);
+
+  return {
+    topic: trunc.text || "—",
+    truncated: trunc.truncated,
+    empty: false,
+    source: "metadata",
+  };
+}
+
 export function buildGroupSourceRecallCard(input = {}) {
   const rawText = toSafeString(input.rawText);
   const alias = toSafeString(input.alias).trim();
@@ -170,7 +197,7 @@ export function buildGroupSourceRecallCard(input = {}) {
   });
 
   const meta = {
-    contractVersion: 1,
+    contractVersion: 2,
     skeletonOnly: true,
     runtimeActive: false,
 
@@ -178,6 +205,8 @@ export function buildGroupSourceRecallCard(input = {}) {
       redactionApplied: false,
       policyEvaluated: true,
       outputMode: "anon_card_only",
+      metadataTopicChecked: true,
+      metadataTopicUsed: false,
     },
 
     constraints: {
@@ -216,7 +245,15 @@ export function buildGroupSourceRecallCard(input = {}) {
   meta.pipeline.redactionApplied = true;
   meta.redactionMeta = redaction.meta || null;
 
-  const topicCandidate = buildTopicCandidate(redaction.redactedText, topicMaxLen);
+  const metadataTopicCandidate = buildSafeMetadataTopic(input, topicMaxLen);
+  const topicCandidate = metadataTopicCandidate.empty
+    ? buildTopicCandidate(redaction.redactedText, topicMaxLen)
+    : metadataTopicCandidate;
+
+  if (!metadataTopicCandidate.empty) {
+    meta.pipeline.metadataTopicUsed = true;
+  }
+
   const summaryCandidate = buildSummaryCandidate(redaction.redactedText, summaryMaxLen);
 
   // Hard privacy rule:
@@ -235,6 +272,7 @@ export function buildGroupSourceRecallCard(input = {}) {
   meta.output = {
     topicEmpty: topicCandidate.empty,
     topicTruncated: topicCandidate.truncated,
+    topicSource: topicCandidate.source || "redacted_text",
     summaryEmpty: summaryCandidate.empty,
     summaryTruncated: summaryCandidate.truncated,
     visibility: policy.visibility,

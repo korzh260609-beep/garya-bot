@@ -31,6 +31,12 @@
 //   to buildGroupSourceRecallStubResponse()
 // - recall.js keeps orchestration only
 // - no real cross-group payload is exposed yet
+//
+// CONTROLLED PAGING SKELETON STEP:
+// - exports handleRecallMore()
+// - preserves scope-aware contract for future paging
+// - returns safe stub only
+// - no cursor store, no real paging, no cross-group retrieval
 
 // pool нужен только для передачи в RecallEngine (не для прямых запросов)
 import pool from "../../../db.js";
@@ -107,6 +113,40 @@ function parseArgs(restRaw) {
   return { days, limit, keyword, scope };
 }
 
+// /recall_more [cursor]
+// /recall_more --groups [cursor]
+// /recall_more --local [cursor]
+function parseRecallMoreArgs(restRaw) {
+  const rest = String(restRaw ?? "").trim();
+  const parts = rest ? rest.split(/\s+/) : [];
+
+  let scope = "local_only";
+  let cursor = "";
+
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+
+    if (p === "--groups") {
+      scope = "include_groups";
+      continue;
+    }
+
+    if (p === "--local") {
+      scope = "local_only";
+      continue;
+    }
+
+    if (!cursor) {
+      cursor = p;
+    }
+  }
+
+  return {
+    scope,
+    cursor: safeText(cursor, 120),
+  };
+}
+
 function isPrivateChatCtx(ctx = {}) {
   const chatType =
     ctx?.chatType ||
@@ -123,6 +163,22 @@ function isPrivateChatCtx(ctx = {}) {
     chatType === "private" ||
     (effectiveChatIdStr && fromId && effectiveChatIdStr === fromId)
   );
+}
+
+function buildRecallMoreStubText({ scope, cursor }) {
+  const lines = [
+    "RECALL MORE: preview_only",
+    `scope=${scope}`,
+    `cursor=${cursor || "—"}`,
+    "paging_enabled=false",
+    "reason=scope_aware_stub_only",
+    "",
+    "No real paging yet.",
+    "No cursor store yet.",
+    "No cross-group retrieval enabled.",
+  ];
+
+  return lines.join("\n");
 }
 
 export async function handleRecall({
@@ -307,3 +363,62 @@ export async function handleRecall({
     );
   }
 }
+
+export async function handleRecallMore({
+  bot,
+  chatId,
+  chatIdStr,
+  rest,
+  bypass = false,
+  isPrivateChat = false,
+  senderIdStr = null,
+  chatType = null,
+  identityCtx = null,
+}) {
+  const { scope, cursor } = parseRecallMoreArgs(rest);
+
+  const privateChat = isPrivateChatCtx({
+    isPrivateChat,
+    senderIdStr,
+    chatIdStr,
+    chatId,
+    chatType,
+    identityCtx,
+  });
+
+  await logInteraction(chatIdStr, {
+    taskType: scope === "include_groups" ? "recall_more_request_groups" : "recall_more_request",
+    aiCostLevel: "low",
+  });
+
+  if (scope === "include_groups" && !bypass) {
+    await bot.sendMessage(
+      chatId,
+      [
+        "⛔ recall_more_groups_forbidden",
+        "scope=include_groups",
+        "reason=monarch_only_initially",
+      ].join("\n")
+    );
+    return;
+  }
+
+  if (scope === "include_groups" && !privateChat) {
+    await bot.sendMessage(
+      chatId,
+      [
+        "⛔ recall_more_groups_forbidden",
+        "scope=include_groups",
+        "reason=private_chat_required",
+      ].join("\n")
+    );
+    return;
+  }
+
+  await bot.sendMessage(
+    chatId,
+    buildRecallMoreStubText({ scope, cursor })
+  );
+}
+
+export default handleRecall;

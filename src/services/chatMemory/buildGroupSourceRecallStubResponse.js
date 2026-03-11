@@ -140,12 +140,10 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
   const renderedPreview = extractRenderedCardBlock(input);
 
   const lines = [
-    "RECALL GROUPS: not_enabled_yet",
-    "scope=include_groups",
+    `RECALL GROUPS: ${reason}`,
     `days=${days}`,
     `limit=${limit}`,
     keyword ? `keyword=${keyword}` : "",
-    `reason=${reason}`,
     `cards=${cardsRendered}`,
     `decisions=${previewDecisions}`,
     renderedPreview.shown ? "preview=true" : "preview=false",
@@ -166,7 +164,7 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     ok: true,
     text,
     meta: {
-      contractVersion: 6,
+      contractVersion: 7,
       stubOnly: true,
       runtimeActive: false,
       retrievalImplemented: false,

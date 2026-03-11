@@ -9,11 +9,17 @@
 // - cross-group runtime is NOT enabled yet
 // - --groups is monarch-private gated and returns safe "not enabled yet"
 // - local recall behavior remains unchanged
+//
+// CONTROLLED BRIDGE STEP:
+// - /recall --groups now calls a dedicated runtime stub helper
+// - helper currently returns [] and meta.reason=not_enabled_yet
+// - this creates a safe future integration point without enabling cross-group retrieval
 
 // pool нужен только для передачи в RecallEngine (не для прямых запросов)
 import pool from "../../../db.js";
 import { logInteraction } from "../../logging/interactionLogs.js";
 import { getRecallEngine } from "../../core/recallEngineFactory.js"; // ✅ 8A + 7.7.2
+import { getGroupSourceRecallCandidates } from "../../services/chatMemory/getGroupSourceRecallCandidates.js";
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -156,23 +162,56 @@ export async function handleRecall({
 
   // Controlled wiring boundary:
   // parse + gate exists, but real cross-group retrieval is intentionally not enabled yet.
+  // This step only adds a dedicated runtime stub helper call as future integration boundary.
   if (scope === "include_groups") {
-    await bot.sendMessage(
-      chatId,
-      [
-        "RECALL GROUPS: not_enabled_yet",
-        "scope=include_groups",
-        `days=${days}`,
-        `limit=${limit}`,
-        keyword ? `keyword=${safeText(keyword, 80)}` : "",
-        "",
-        "Stage 7B.10 / 11.17 / 8A.9 foundations are present.",
-        "Runtime cross-group retrieval is not wired yet.",
-      ]
-        .filter(Boolean)
-        .join("\n")
-    );
-    return;
+    try {
+      const candidateResult = await getGroupSourceRecallCandidates({
+        role: bypass ? "monarch" : "guest",
+        requesterChatId: chatIdStr,
+        requesterGlobalUserId:
+          identityCtx?.global_user_id ||
+          identityCtx?.globalUserId ||
+          null,
+        days,
+        limit,
+        keyword,
+      });
+
+      const reason = safeText(
+        candidateResult?.meta?.reason || "not_enabled_yet",
+        80
+      );
+
+      await bot.sendMessage(
+        chatId,
+        [
+          "RECALL GROUPS: not_enabled_yet",
+          "scope=include_groups",
+          `days=${days}`,
+          `limit=${limit}`,
+          keyword ? `keyword=${safeText(keyword, 80)}` : "",
+          `reason=${reason}`,
+          "",
+          "Stage 7B.10 / 11.17 / 8A.9 foundations are present.",
+          "Group candidate runtime boundary exists.",
+          "Runtime cross-group retrieval is not wired yet.",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      );
+      return;
+    } catch (e) {
+      await logInteraction(chatIdStr, {
+        taskType: "recall_error_groups",
+        aiCostLevel: "low",
+      });
+
+      await bot.sendMessage(
+        chatId,
+        `⛔ recall_error: ${safeText(e?.message || "unknown", 160)}`
+      );
+      return;
+    }
   }
 
   try {

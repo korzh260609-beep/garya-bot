@@ -1046,6 +1046,7 @@ export async function handleMessage(context = {}) {
         chatIdStr,
         senderIdStr: senderId || "",
         globalUserId,
+        userRole,
         trimmed,
         MAX_HISTORY_MESSAGES: deps.MAX_HISTORY_MESSAGES || 20,
 

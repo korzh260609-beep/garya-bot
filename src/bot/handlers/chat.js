@@ -160,6 +160,15 @@ export async function handleChatMessage({
 
   const mediaSummary = summarizeMediaAttachment(msg);
 
+  // ==========================================================
+  // STAGE 7B — CURRENT AI-FACING AUTHORITY
+  // IMPORTANT:
+  // - runtime AI/media decision semantics remain authoritative in FileIntake
+  // - do NOT switch this handler to buildInboundChatPayload.js yet
+  // - unified inbound contract exists only as skeleton:
+  //   src/services/chatMemory/buildInboundChatPayload.js
+  // - migration must be explicit and separate from this comment-only step
+  // ==========================================================
   const decisionFn =
     typeof FileIntake?.buildEffectiveUserTextAndDecision === "function"
       ? FileIntake.buildEffectiveUserTextAndDecision
@@ -173,6 +182,9 @@ export async function handleChatMessage({
         directReplyText: Boolean(trimmed) ? null : "Напиши текстом, что нужно сделать.",
       };
 
+  // STAGE 7B NOTE:
+  // effective below is still the AI-facing runtime value.
+  // It is intentionally NOT unified yet with Core storage-facing semantics.
   const effective = (decision?.effectiveUserText || "").trim();
   const shouldCallAI = Boolean(decision?.shouldCallAI);
   const directReplyText = decision?.directReplyText || null;
@@ -268,7 +280,9 @@ export async function handleChatMessage({
   }
 
   //  STAGE 7.2: save with globalUserId + metadata
-  // NOTE: Memory layer keeps original text; 7B redaction applies to chat_history (chat_messages) only.
+  // NOTE: Memory layer keeps original AI-facing text as used by this handler.
+  // 7B redaction applies to chat_history (chat_messages) only.
+  // Storage-vs-AI semantic unification is intentionally postponed.
   try {
     await memoryWrite({
       role: "user",

@@ -13,6 +13,20 @@
 // define one future normalized payload shape for inbound chat/media messages,
 // so Core storage semantics and AI-facing semantics can be aligned later
 // through an explicit contract instead of ad-hoc branching.
+//
+// STAGE 7B — VERIFIED CONTRACT BOUNDARY
+// IMPORTANT:
+// - this file exists only as a future contract sketch
+// - this file is NOT the runtime source of truth today
+// - this file must remain non-authoritative until a separate approved migration
+// - current repo intentionally keeps two authorities split:
+//   1) Core storage-facing inbound authority
+//      src/core/handleMessage.js -> buildInboundStorageText(...)
+//   2) AI-facing media/text authority
+//      src/media/fileIntake.js -> buildEffectiveUserTextAndDecision(...)
+// - semantic divergence between storage-facing and AI-facing handling is expected
+//   and must NOT be “cleaned up” here during comment-only stage
+// - any future switch must be explicit, reviewed, and runtime-tested separately
 
 function toSafeString(value) {
   if (typeof value === "string") return value;
@@ -74,6 +88,12 @@ function buildEffectiveUserTextPreview({
   //
   // Current production semantics for AI-facing media/text decisions
   // still live in src/media/fileIntake.js.
+  //
+  // VERIFIED NON-RUNTIME RULE:
+  // - even if this preview “looks right”, it must not be used for runtime
+  //   decisions, storage writes, dedupe, or handler wiring at this stage
+  // - preview parity with production is not assumed
+  // - differences here are documentation signals, not bugs by themselves
 
   if (!binaryKinds.length) {
     return trimmed;
@@ -169,6 +189,14 @@ export function buildInboundChatPayload(text = "", raw = null) {
     // - do NOT treat this file as authoritative over FileIntake AI-facing logic
     contractOwnerApproved: false,
     runtimeSourceOfTruthNow: false,
+
+    // VERIFIED STAGE 7B GUARDRAILS:
+    // - no handler is allowed to silently “graduate” this file into runtime
+    // - no comment cleanup should reframe this file as active contract owner
+    // - no future migration may skip repo verification of handleMessage.js / chat.js / fileIntake.js
+    // - if this file ever becomes runtime-owned later, that must be stated explicitly
+    //   in a separate approved micro-step with tests for text-only / media-only /
+    //   text+media / caption+media flows
 
     // Future contract intent only — these fields describe target shape,
     // not active runtime behavior.

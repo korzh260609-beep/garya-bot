@@ -807,6 +807,15 @@ export async function handleMessage(context = {}) {
       }
     }
 
+    // =========================================================================
+    // STAGE 7B — MANUAL-EDIT RISK ZONE (comment-only clarification)
+    // IMPORTANT:
+    // - the next line intentionally remains in current repo formatting
+    // - do NOT mix indentation cleanup with runtime edits in the same step
+    // - do NOT refactor this block during skeleton-only clarification work
+    // - if formatting is ever corrected later, do it as a separate minimal safe step
+    // - current authority here is still runtime command dispatch, unchanged
+    // =========================================================================
 if (typeof deps?.dispatchCommand === "function") {
       try {
         const dispatchCtx = {

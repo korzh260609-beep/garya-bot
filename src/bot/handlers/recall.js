@@ -20,6 +20,12 @@
 // - renderer is fed with stub/empty cards only
 // - no real cross-group results are exposed yet
 // - this creates a safe future output boundary for anon group cards
+//
+// CONTROLLED ORCHESTRATION BRIDGE STEP:
+// - group stub-flow now also calls getGroupSourceRecallPreview()
+// - preview bridge uses orchestrator with empty candidates only
+// - no DB reads, no retrieval, no author exposure
+// - this creates a safe future runtime boundary to orchestration layer
 
 // pool нужен только для передачи в RecallEngine (не для прямых запросов)
 import pool from "../../../db.js";
@@ -27,6 +33,7 @@ import { logInteraction } from "../../logging/interactionLogs.js";
 import { getRecallEngine } from "../../core/recallEngineFactory.js"; // ✅ 8A + 7.7.2
 import { getGroupSourceRecallCandidates } from "../../services/chatMemory/getGroupSourceRecallCandidates.js";
 import { renderGroupSourceRecallCards } from "../../services/chatMemory/renderGroupSourceRecallCards.js";
+import { getGroupSourceRecallPreview } from "../../services/chatMemory/getGroupSourceRecallPreview.js";
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -169,33 +176,65 @@ export async function handleRecall({
 
   // Controlled wiring boundary:
   // parse + gate exists, but real cross-group retrieval is intentionally not enabled yet.
-  // This step only adds a dedicated runtime stub helper call as future integration boundary.
+  // This step only adds dedicated runtime stub helper calls as future integration boundaries.
   if (scope === "include_groups") {
     try {
+      const requestRole = bypass ? "monarch" : "guest";
+      const requesterGlobalUserId =
+        identityCtx?.global_user_id ||
+        identityCtx?.globalUserId ||
+        null;
+
       const candidateResult = await getGroupSourceRecallCandidates({
-        role: bypass ? "monarch" : "guest",
+        role: requestRole,
         requesterChatId: chatIdStr,
-        requesterGlobalUserId:
-          identityCtx?.global_user_id ||
-          identityCtx?.globalUserId ||
-          null,
+        requesterGlobalUserId,
+        days,
+        limit,
+        keyword,
+      });
+
+      const previewResult = await getGroupSourceRecallPreview({
+        role: requestRole,
+        requesterChatId: chatIdStr,
+        requesterGlobalUserId,
         days,
         limit,
         keyword,
       });
 
       const rendered = renderGroupSourceRecallCards(
-        Array.isArray(candidateResult?.candidates) ? candidateResult.candidates : []
+        Array.isArray(previewResult?.cards)
+          ? previewResult.cards
+          : Array.isArray(candidateResult?.candidates)
+            ? candidateResult.candidates
+            : []
       );
 
       const reason = safeText(
-        candidateResult?.meta?.reason || "not_enabled_yet",
+        previewResult?.meta?.reason ||
+          candidateResult?.meta?.reason ||
+          "not_enabled_yet",
         80
       );
 
       const renderedStatus = safeText(
         rendered?.meta?.inputStats?.renderedCards != null
           ? String(rendered.meta.inputStats.renderedCards)
+          : "0",
+        20
+      );
+
+      const previewCards = safeText(
+        previewResult?.meta?.counters?.cardsReturned != null
+          ? String(previewResult.meta.counters.cardsReturned)
+          : "0",
+        20
+      );
+
+      const previewDecisions = safeText(
+        previewResult?.meta?.counters?.decisionsReturned != null
+          ? String(previewResult.meta.counters.decisionsReturned)
           : "0",
         20
       );
@@ -210,10 +249,13 @@ export async function handleRecall({
           keyword ? `keyword=${safeText(keyword, 80)}` : "",
           `reason=${reason}`,
           `cards_rendered=${renderedStatus}`,
+          `preview_cards=${previewCards}`,
+          `preview_decisions=${previewDecisions}`,
           "",
           "Stage 7B.10 / 11.17 / 8A.9 foundations are present.",
           "Group candidate runtime boundary exists.",
           "Group card formatter boundary exists.",
+          "Group orchestration preview boundary exists.",
           "Runtime cross-group retrieval is not wired yet.",
         ]
           .filter(Boolean)

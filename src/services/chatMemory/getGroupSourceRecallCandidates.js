@@ -1,44 +1,42 @@
 // src/services/chatMemory/getGroupSourceRecallCandidates.js
 // STAGE 8A.8 — GROUP SOURCE RECALL CANDIDATES (CHAT_META-ONLY SELECTOR)
 //
-/*
-IMPORTANT:
-- first real data step
-- reads ONLY from chat_meta
-- NO chat_messages reads
-- NO cross-group message retrieval
-- NO RecallEngine integration here
-- NO policy bypass
-- NO author identity output
-- NO quotes
-- NO raw snippets
-- NO message content
-- local /recall must remain unaffected
-
-Purpose:
-upgrade the runtime boundary from pure []-stub into a safe chat_meta-only selector,
-so /recall --groups can see eligible source groups metadata without exposing content.
-
-Allowed source fields:
-- platform
-- chat_id
-- chat_type
-- alias
-- privacy_level
-- source_enabled
-- allow_quotes
-- allow_raw_snippets
-- message_count
-- last_message_at
-- updated_at
-
-Hard safety in this step:
-- return metadata candidates only
-- rawText stays empty
-- no snippets, no quotes, no author data
-- exclude requester chat
-- only source_enabled = true
-*/
+// IMPORTANT:
+// - first real data step
+// - reads ONLY from chat_meta
+// - NO chat_messages reads
+// - NO cross-group message retrieval
+// - NO RecallEngine integration here
+// - NO policy bypass
+// - NO author identity output
+// - NO quotes
+// - NO raw snippets
+// - NO message content
+// - local /recall must remain unaffected
+//
+// Purpose:
+// upgrade the runtime boundary from pure []-stub into a safe chat_meta-only selector,
+// so /recall --groups can see eligible source groups metadata without exposing content.
+//
+// Allowed source fields:
+// - platform
+// - chat_id
+// - chat_type
+// - alias
+// - privacy_level
+// - source_enabled
+// - allow_quotes
+// - allow_raw_snippets
+// - message_count
+// - last_message_at
+// - updated_at
+//
+// Hard safety in this step:
+// - return metadata candidates only
+// - rawText stays empty
+// - no snippets, no quotes, no author data
+// - exclude requester chat
+// - only source_enabled = true
 
 import pool from "../../../db.js";
 
@@ -84,6 +82,13 @@ function normalizeTimestamp(value) {
   return d.toISOString();
 }
 
+function buildSinceIso(days) {
+  const safeDays = clampNumber(days, 1, 30, 1);
+  const now = Date.now();
+  const sinceMs = now - safeDays * 24 * 60 * 60 * 1000;
+  return new Date(sinceMs).toISOString();
+}
+
 function normalizeBoolean(value) {
   return value === true;
 }
@@ -122,7 +127,9 @@ function normalizeCandidateRow(row = {}) {
       allowQuotes: normalizeBoolean(row.allow_quotes),
       allowRawSnippets: normalizeBoolean(row.allow_raw_snippets),
       messageCount:
-        row.message_count == null ? null : clampNumber(row.message_count, 0, 1_000_000_000, 0),
+        row.message_count == null
+          ? null
+          : clampNumber(row.message_count, 0, 1_000_000_000, 0),
       lastMessageAt: normalizeTimestamp(row.last_message_at),
       updatedAt: normalizeTimestamp(row.updated_at),
     },
@@ -156,6 +163,11 @@ export async function getGroupSourceRecallCandidates(input = {}) {
       excludedAliasMissing: 0,
     },
 
+    filters: {
+      daysApplied: request.days,
+      keywordApplied: request.keyword || "",
+    },
+
     constraints: {
       metadataOnly: true,
       noMessageContent: true,
@@ -168,6 +180,9 @@ export async function getGroupSourceRecallCandidates(input = {}) {
   };
 
   try {
+    const sinceIso = buildSinceIso(request.days);
+    const hasKeyword = Boolean(request.keyword);
+
     const sql = `
       SELECT
         platform,
@@ -183,18 +198,26 @@ export async function getGroupSourceRecallCandidates(input = {}) {
         updated_at
       FROM chat_meta
       WHERE source_enabled = true
+        AND COALESCE(last_message_at, updated_at) >= $1
+        AND ($2 = '' OR alias ILIKE $3)
       ORDER BY
         COALESCE(last_message_at, updated_at) DESC NULLS LAST,
         updated_at DESC NULLS LAST,
         chat_id ASC
-      LIMIT $1
+      LIMIT $4
     `;
 
     // Fetch a small buffer above requested limit to allow safe exclusion
     // of requester chat and alias-missing rows without extra queries.
     const fetchLimit = Math.min(request.limit + 10, 100);
+    const keywordLike = hasKeyword ? `%${request.keyword}%` : "%";
 
-    const result = await pool.query(sql, [fetchLimit]);
+    const result = await pool.query(sql, [
+      sinceIso,
+      request.keyword,
+      keywordLike,
+      fetchLimit,
+    ]);
     const rows = Array.isArray(result?.rows) ? result.rows : [];
 
     meta.dbReadsPerformed = true;

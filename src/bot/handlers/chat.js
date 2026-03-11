@@ -76,6 +76,16 @@ export async function handleChatMessage({
   // - AI-facing media/text authority remains:
   //   FileIntake.buildEffectiveUserTextAndDecision(...)
   // - do NOT unify these helpers with buildInboundChatPayload.js in this step
+  //
+  // VERIFIED BOUNDARY FOR THIS HANDLER:
+  // - this file consumes AI-facing semantics only
+  // - this file does NOT own canonical inbound storage normalization
+  // - this file may save AI-facing values into memory for chat continuity,
+  //   but that does NOT promote those values into storage authority
+  // - “same inbound message” may legitimately have:
+  //   1) one storage-facing representation in Core
+  //   2) another AI-facing representation here
+  // - that split is currently intentional and must remain explicit
 
   const memoryWrite = async ({ role, content, transport, metadata, schemaVersion }) => {
     try {
@@ -189,6 +199,12 @@ export async function handleChatMessage({
   // - this handler must continue to trust FileIntake for AI-facing semantics
   // - do NOT silently align this block with Core storage semantics
   // - do NOT import/call buildInboundChatPayload.js here during skeleton-only stage
+  //
+  // VERIFIED HANDLER RULE:
+  // - this handler decides conversational flow using AI-facing semantics only
+  // - it must NOT reinterpret Core storage markers as AI intent by itself
+  // - if future contract wiring happens later, it must preserve:
+  //   text-only, media-only, text+media, caption+media behavior separately
   const decisionFn =
     typeof FileIntake?.buildEffectiveUserTextAndDecision === "function"
       ? FileIntake.buildEffectiveUserTextAndDecision
@@ -213,6 +229,10 @@ export async function handleChatMessage({
   //   storage-facing content built in src/core/handleMessage.js
   // - this divergence is expected at the current Stage 7B micro-step
   // - any unification must happen only through a separate approved runtime migration
+  //
+  // SAFETY NOTE:
+  // - memory writes below use `effective` for conversational continuity only
+  // - that must NOT be read later as proof that `effective` became canonical storage input
   const effective = (decision?.effectiveUserText || "").trim();
   const shouldCallAI = Boolean(decision?.shouldCallAI);
   const directReplyText = decision?.directReplyText || null;
@@ -318,6 +338,10 @@ export async function handleChatMessage({
   // - do NOT replace this with buildInboundChatPayload.js during skeleton stage
   // - do NOT reinterpret this as canonical inbound storage content
   // - explicit storage-vs-AI contract alignment must be a separate reviewed step
+  //
+  // VERIFIED NOTE:
+  // - storing `effective` here is acceptable because memory role = chat continuity
+  // - memory continuity must not be confused with chat_messages storage contract
   try {
     await memoryWrite({
       role: "user",

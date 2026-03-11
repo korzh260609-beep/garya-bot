@@ -74,3 +74,41 @@ export async function updateChatSourceFlags({
 
   return res.rows[0] || null;
 }
+
+export async function listKnownChats({
+  platform = "telegram",
+  limit = 20,
+  includePrivate = false,
+} = {}) {
+  const safeLimit = Number.isFinite(Number(limit))
+    ? Math.max(1, Math.min(100, Math.trunc(Number(limit))))
+    : 20;
+
+  const res = await pool.query(
+    `
+    SELECT
+      platform,
+      chat_id,
+      chat_type,
+      alias,
+      source_enabled,
+      privacy_level,
+      allow_quotes,
+      allow_raw_snippets,
+      message_count,
+      last_message_at,
+      updated_at
+    FROM chat_meta
+    WHERE platform = $1
+      AND ($2::boolean = true OR COALESCE(chat_type, '') <> 'private')
+    ORDER BY
+      COALESCE(last_message_at, updated_at) DESC NULLS LAST,
+      updated_at DESC NULLS LAST,
+      chat_id ASC
+    LIMIT $3
+    `,
+    [platform, includePrivate, safeLimit]
+  );
+
+  return Array.isArray(res.rows) ? res.rows : [];
+}

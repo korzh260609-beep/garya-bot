@@ -1,3 +1,4 @@
+// src/core/diagnostics/diagChatMeta.js
 import { getChatMeta } from "../../db/chatMetaRepo.js";
 
 function safeText(value) {
@@ -31,7 +32,7 @@ export async function handleDiagChatMeta(ctx = {}) {
     `chat_id=${safeText(meta.chat_id)}`,
     `chat_type=${safeText(meta.chat_type)}`,
     `alias=${safeText(meta.alias)}`,
-    `title=${safeText(meta.title)}`,
+    "title=[hidden service field]",
     `source_enabled=${safeText(meta.source_enabled)}`,
     `privacy_level=${safeText(meta.privacy_level)}`,
     `allow_quotes=${safeText(meta.allow_quotes)}`,

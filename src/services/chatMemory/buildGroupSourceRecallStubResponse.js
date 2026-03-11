@@ -62,11 +62,20 @@ function normalizeKeyword(value) {
 }
 
 function normalizeReason(input = {}) {
-  return (
+  const raw =
     safeText(input?.previewResult?.meta?.reason, 80) ||
     safeText(input?.candidateResult?.meta?.reason, 80) ||
-    "not_enabled_yet"
-  );
+    "not_enabled_yet";
+
+  if (raw === "candidate_aware_preview_only") {
+    return "preview_only";
+  }
+
+  if (raw === "chat_meta_only_candidates") {
+    return "meta_only";
+  }
+
+  return raw;
 }
 
 function normalizeRenderedCards(input = {}) {
@@ -137,10 +146,9 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     `limit=${limit}`,
     keyword ? `keyword=${keyword}` : "",
     `reason=${reason}`,
-    `cards_rendered=${cardsRendered}`,
-    `preview_cards=${previewCards}`,
-    `preview_decisions=${previewDecisions}`,
-    renderedPreview.shown ? "safe_preview_cards_shown=true" : "safe_preview_cards_shown=false",
+    `cards=${cardsRendered}`,
+    `decisions=${previewDecisions}`,
+    renderedPreview.shown ? "preview=true" : "preview=false",
     "",
     "Cross-group retrieval is not enabled yet.",
     "Safe preview only.",
@@ -158,7 +166,7 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     ok: true,
     text,
     meta: {
-      contractVersion: 5,
+      contractVersion: 6,
       stubOnly: true,
       runtimeActive: false,
       retrievalImplemented: false,

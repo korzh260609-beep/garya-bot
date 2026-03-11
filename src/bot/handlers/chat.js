@@ -67,6 +67,16 @@ export async function handleChatMessage({
   // ==========================================================
   const memory = getMemoryService ? getMemoryService() : null;
 
+  // STAGE 7B — CHAT HANDLER MEMORY BRIDGE NOTE
+  // IMPORTANT:
+  // - memoryWrite(...) and memoryWritePair(...) below are runtime helper bridges only
+  // - they are NOT authoritative inbound storage semantics
+  // - Core storage-facing inbound authority remains:
+  //   src/core/handleMessage.js -> buildInboundStorageText(...)
+  // - AI-facing media/text authority remains:
+  //   FileIntake.buildEffectiveUserTextAndDecision(...)
+  // - do NOT unify these helpers with buildInboundChatPayload.js in this step
+
   const memoryWrite = async ({ role, content, transport, metadata, schemaVersion }) => {
     try {
       if (memory && typeof memory.write === "function") {

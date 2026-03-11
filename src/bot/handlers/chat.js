@@ -22,6 +22,14 @@ import BehaviorEventsService from "../../logging/BehaviorEventsService.js";
 import { runDecisionShadowHook } from "../../decision/decisionShadowHook.js";
 import { routeDecision } from "../../decision/index.js";
 
+function normalizeAlreadySeenRole(value) {
+  const role = String(value || "").trim().toLowerCase();
+  if (role === "monarch") return "monarch";
+  if (role === "vip") return "vip";
+  if (role === "citizen") return "citizen";
+  return "guest";
+}
+
 export async function handleChatMessage({
   bot,
   msg,
@@ -34,6 +42,7 @@ export async function handleChatMessage({
 
   //  STAGE 7.2
   globalUserId = null,
+  userRole = "guest",
 
   FileIntake,
 
@@ -703,7 +712,7 @@ export async function handleChatMessage({
       chatId: chatIdStr,
       globalUserId,
       text: effective,
-      role: monarchNow ? "monarch" : "guest",
+      role: normalizeAlreadySeenRole(userRole),
     });
 
     lastMatchAt = typeof alreadySeen.getLastMatchAt === "function" ? alreadySeen.getLastMatchAt() : null;

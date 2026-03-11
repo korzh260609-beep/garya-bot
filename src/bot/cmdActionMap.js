@@ -30,6 +30,11 @@ export const CMD_ACTION = {
   "/chat_off": "cmd.admin.chat_set_active",
   "/chat_status": "cmd.admin.chat_status",
 
+  // ✅ STAGE 7B.9 / 11.18 — Group Source admin (monarch, skeleton)
+  "/group_source_on": "cmd.admin.group_source_set",
+  "/group_source_off": "cmd.admin.group_source_set",
+  "/group_sources": "cmd.admin.group_source_status",
+
   // Stage 5/6 — admin/dev (must go via can())
   "/health": "cmd.admin.health",
   "/webhook_info": "cmd.admin.webhook_info",

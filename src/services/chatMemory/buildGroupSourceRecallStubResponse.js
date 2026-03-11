@@ -182,11 +182,11 @@ function buildTopicFallbackReason(input = {}) {
     optional.metadata === true;
 
   if (!schemaPresent) {
-    return "chat_meta_has_no_topic_related_columns";
+    return "no_topic_fields_in_chat_meta";
   }
 
   if (Number.isFinite(safeTopicCount) && safeTopicCount <= 0) {
-    return "topic_columns_exist_but_no_safe_topic_found_in_candidates";
+    return "topic_fields_exist_but_no_safe_topic_in_candidates";
   }
 
   return "metadata_topic_available";

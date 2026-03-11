@@ -169,6 +169,16 @@ export async function handleChatMessage({
   //   src/services/chatMemory/buildInboundChatPayload.js
   // - migration must be explicit and separate from this comment-only step
   // ==========================================================
+  //
+  // CURRENT AI AUTHORITY DETAILS:
+  // - FileIntake.buildEffectiveUserTextAndDecision(...) is still the only
+  //   authoritative runtime source here for:
+  //   1) effectiveUserText
+  //   2) shouldCallAI
+  //   3) directReplyText
+  // - this handler must continue to trust FileIntake for AI-facing semantics
+  // - do NOT silently align this block with Core storage semantics
+  // - do NOT import/call buildInboundChatPayload.js here during skeleton-only stage
   const decisionFn =
     typeof FileIntake?.buildEffectiveUserTextAndDecision === "function"
       ? FileIntake.buildEffectiveUserTextAndDecision
@@ -185,6 +195,14 @@ export async function handleChatMessage({
   // STAGE 7B NOTE:
   // effective below is still the AI-facing runtime value.
   // It is intentionally NOT unified yet with Core storage-facing semantics.
+  //
+  // IMPORTANT BRIDGE NOTE:
+  // - `effective` below is NOT a storage contract field
+  // - it is the current AI-facing runtime value chosen by FileIntake
+  // - for media/caption flows it may intentionally diverge from Core
+  //   storage-facing content built in src/core/handleMessage.js
+  // - this divergence is expected at the current Stage 7B micro-step
+  // - any unification must happen only through a separate approved runtime migration
   const effective = (decision?.effectiveUserText || "").trim();
   const shouldCallAI = Boolean(decision?.shouldCallAI);
   const directReplyText = decision?.directReplyText || null;
@@ -283,6 +301,13 @@ export async function handleChatMessage({
   // NOTE: Memory layer keeps original AI-facing text as used by this handler.
   // 7B redaction applies to chat_history (chat_messages) only.
   // Storage-vs-AI semantic unification is intentionally postponed.
+  //
+  // CURRENT MEMORY WRITE SEMANTICS:
+  // - this user-memory write stores the AI-facing `effective` text only
+  // - it does NOT attempt to mirror Core storage-facing payload semantics
+  // - do NOT replace this with buildInboundChatPayload.js during skeleton stage
+  // - do NOT reinterpret this as canonical inbound storage content
+  // - explicit storage-vs-AI contract alignment must be a separate reviewed step
   try {
     await memoryWrite({
       role: "user",

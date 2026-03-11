@@ -75,6 +75,33 @@ export async function updateChatSourceFlags({
   return res.rows[0] || null;
 }
 
+export async function updateChatMetaFields({
+  platform,
+  chatId,
+  alias,
+  privacyLevel,
+}) {
+  const res = await pool.query(
+    `
+    UPDATE chat_meta
+    SET
+      alias = COALESCE($3, alias),
+      privacy_level = COALESCE($4, privacy_level)
+    WHERE platform = $1
+      AND chat_id = $2
+    RETURNING *
+    `,
+    [
+      platform,
+      chatId,
+      alias ?? null,
+      privacyLevel ?? null,
+    ]
+  );
+
+  return res.rows[0] || null;
+}
+
 export async function listKnownChats({
   platform = "telegram",
   limit = 20,

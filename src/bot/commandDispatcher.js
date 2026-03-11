@@ -24,7 +24,7 @@ import { handleArList } from "./handlers/arList.js";
 import { handleLinkStart } from "./handlers/linkStart.js";
 import { handleLinkConfirm } from "./handlers/linkConfirm.js";
 import { handleLinkStatus } from "./handlers/linkStatus.js";
-import { handleRecall } from "./handlers/recall.js";
+import { handleRecall, handleRecallMore } from "./handlers/recall.js";
 import { handleIdentityDiag } from "./handlers/identityDiag.js";
 import { handleIdentityBackfill } from "./handlers/identityBackfill.js";
 import { handleIdentityUpgradeLegacy } from "./handlers/identityUpgradeLegacy.js";
@@ -783,6 +783,21 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/recall": {
       await handleRecall({
+        bot,
+        chatId,
+        chatIdStr,
+        rest: ctx.rest,
+        bypass: !!ctx.bypass,
+        isPrivateChat: !!ctx.isPrivateChat,
+        senderIdStr: ctx.senderIdStr ?? null,
+        chatType: ctx.chatType ?? null,
+        identityCtx: ctx.identityCtx ?? null,
+      });
+      return { handled: true };
+    }
+
+    case "/recall_more": {
+      await handleRecallMore({
         bot,
         chatId,
         chatIdStr,

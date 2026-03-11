@@ -50,6 +50,10 @@ import { handleStopAllTasks } from "./handlers/stopAllTasks.js"; // ✅ /stop_al
 import { handleChatSetActive } from "./handlers/chatSetActive.js";
 import { handleChatStatus } from "./handlers/chatStatus.js";
 
+// ✅ STAGE 7B.9 / 11.18 — Group Source admin handlers (monarch, skeleton)
+import { handleGroupSourceSet } from "./handlers/groupSourceSet.js";
+import { handleGroupSources } from "./handlers/groupSources.js";
+
 // ✅ Stage 5–6: manual /run must write task_runs via JobRunner
 import { jobRunner } from "../jobs/jobRunnerInstance.js";
 import { makeTaskRunKey } from "../jobs/jobRunner.js";
@@ -167,6 +171,10 @@ export async function dispatchCommand(cmd, ctx) {
     "/chat_on",
     "/chat_off",
     "/chat_status",
+
+    "/group_source_on",
+    "/group_source_off",
+    "/group_sources",
 
     // ✅ STAGE 5.16 — behavior events (keep private)
     "/behavior_events_last",
@@ -336,6 +344,41 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/chat_status": {
       await handleChatStatus({
+        bot,
+        chatId,
+        chatIdStr,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/group_source_on": {
+      await handleGroupSourceSet({
+        bot,
+        chatId,
+        chatIdStr,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+        sourceEnabled: true,
+      });
+      return { handled: true };
+    }
+
+    case "/group_source_off": {
+      await handleGroupSourceSet({
+        bot,
+        chatId,
+        chatIdStr,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+        sourceEnabled: false,
+      });
+      return { handled: true };
+    }
+
+    case "/group_sources": {
+      await handleGroupSources({
         bot,
         chatId,
         chatIdStr,

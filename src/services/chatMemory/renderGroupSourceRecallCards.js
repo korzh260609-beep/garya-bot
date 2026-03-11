@@ -212,7 +212,7 @@ export function renderGroupSourceRecallCards(cardsInput = [], options = {}) {
   );
 
   const meta = {
-    contractVersion: 1,
+    contractVersion: 2,
     formatterOnly: true,
     runtimeActive: false,
     sourceFetchingImplemented: false,

@@ -316,6 +316,20 @@ export async function processIncomingFile(intake) {
 // === STEP 6: EFFECTIVE TEXT + DECISION (7F.9)
 // ==================================================
 /**
+ * CURRENT AUTHORITATIVE AI-FACING POLICY.
+ *
+ * IMPORTANT:
+ * - this function remains the authoritative runtime path for AI-facing
+ *   media/text decision semantics in production
+ * - do NOT replace it with buildInboundChatPayload.js yet
+ * - do NOT import future contract here during skeleton stage
+ *
+ * Future migration target:
+ * - src/services/chatMemory/buildInboundChatPayload.js
+ *
+ * But at the current step that file is CONTRACT/SKELETON ONLY and must not
+ * change runtime behavior until an explicit migration micro-step is approved.
+ *
  * Главный хелпер:
  * - если у пользователя НЕТ текста и НЕТ caption, но есть медиа → возвращаем stub и НЕ зовём AI
  * - если текст есть (включая caption у фото/доков) → зовём AI, но честно сообщаем что парсинга пока нет

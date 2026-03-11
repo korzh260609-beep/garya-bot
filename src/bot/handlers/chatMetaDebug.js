@@ -3,6 +3,11 @@
 
 import pool from "../../../db.js";
 
+function safeText(value) {
+  if (value == null || value === "") return "";
+  return String(value);
+}
+
 export async function handleChatMetaDebug({ bot, chatId, chatIdStr, bypass }) {
   if (!bypass) {
     await bot.sendMessage(chatId, "⛔ Forbidden (monarch-only).");
@@ -54,6 +59,7 @@ export async function handleChatMetaDebug({ bot, chatId, chatIdStr, bypass }) {
     }
 
     const row = r.rows[0] || {};
+    const alias = safeText(row.alias);
 
     await bot.sendMessage(
       chatId,
@@ -63,8 +69,8 @@ export async function handleChatMetaDebug({ bot, chatId, chatIdStr, bypass }) {
         `chat_id: ${row.chat_id ?? ""}`,
         `platform: ${row.platform ?? ""}`,
         `chat_type: ${row.chat_type ?? ""}`,
-        `title: ${row.title ?? ""}`,
-        `alias: ${row.alias ?? ""}`,
+        `alias: ${alias || "-"}`,
+        "title: [hidden service field]",
         `source_enabled: ${row.source_enabled ?? ""}`,
         `privacy_level: ${row.privacy_level ?? ""}`,
         `allow_quotes: ${row.allow_quotes ?? ""}`,

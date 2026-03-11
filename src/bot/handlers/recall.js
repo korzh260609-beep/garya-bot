@@ -7,28 +7,27 @@
 // - default scope = local_only
 // - supports scope flags: --local / --groups
 // - cross-group runtime is NOT enabled yet
-// - --groups is monarch-private gated and returns safe "not enabled yet"
+// - --groups is monarch-private gated and returns safe controlled response
 // - local recall behavior remains unchanged
 //
 // CONTROLLED BRIDGE STEP:
-// - /recall --groups now calls a dedicated runtime stub helper
-// - helper currently returns [] and meta.reason=not_enabled_yet
-// - this creates a safe future integration point without enabling cross-group retrieval
+// - /recall --groups calls dedicated group-source helpers
+// - candidate helper may return chat_meta-only safe candidates
+// - preview bridge may receive those candidates
+// - no cross-group message retrieval is enabled here
 //
 // CONTROLLED FORMATTER BRIDGE STEP:
-// - group stub-flow now also calls renderGroupSourceRecallCards()
-// - renderer is fed with stub/empty cards only
-// - no real cross-group results are exposed yet
-// - this creates a safe future output boundary for anon group cards
+// - group flow calls renderGroupSourceRecallCards()
+// - renderer works only on anon-card-like structures
+// - no author identity / quotes / raw snippets are exposed
 //
 // CONTROLLED ORCHESTRATION BRIDGE STEP:
-// - group stub-flow now also calls getGroupSourceRecallPreview()
-// - preview bridge uses orchestrator with empty candidates only
-// - no DB reads, no retrieval, no author exposure
-// - this creates a safe future runtime boundary to orchestration layer
+// - group flow calls getGroupSourceRecallPreview()
+// - preview bridge may pass safe metadata candidates into orchestrator
+// - still no chat_messages reads, no RecallEngine cross-group wiring
 //
 // CONTROLLED RESPONSE ASSEMBLY STEP:
-// - group stub-flow now delegates final text assembly
+// - group flow delegates final text assembly
 //   to buildGroupSourceRecallStubResponse()
 // - recall.js keeps orchestration only
 // - no real cross-group payload is exposed yet
@@ -181,9 +180,9 @@ export async function handleRecall({
     return;
   }
 
-  // Controlled wiring boundary:
+  // Controlled group-source boundary:
   // parse + gate exists, but real cross-group retrieval is intentionally not enabled yet.
-  // This step only adds dedicated runtime stub helper calls as future integration boundaries.
+  // This step only wires safe metadata candidates into preview/orchestration.
   if (scope === "include_groups") {
     try {
       const requestRole = bypass ? "monarch" : "guest";
@@ -201,6 +200,10 @@ export async function handleRecall({
         keyword,
       });
 
+      const safeCandidates = Array.isArray(candidateResult?.candidates)
+        ? candidateResult.candidates
+        : [];
+
       const previewResult = await getGroupSourceRecallPreview({
         role: requestRole,
         requesterChatId: chatIdStr,
@@ -208,14 +211,11 @@ export async function handleRecall({
         days,
         limit,
         keyword,
+        candidates: safeCandidates,
       });
 
       const renderedResult = renderGroupSourceRecallCards(
-        Array.isArray(previewResult?.cards)
-          ? previewResult.cards
-          : Array.isArray(candidateResult?.candidates)
-            ? candidateResult.candidates
-            : []
+        Array.isArray(previewResult?.cards) ? previewResult.cards : []
       );
 
       const stubResponse = buildGroupSourceRecallStubResponse({

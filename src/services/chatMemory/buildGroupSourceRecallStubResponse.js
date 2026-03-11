@@ -19,7 +19,8 @@
 // Current behavior:
 // - consumes already-safe stub/helper outputs
 // - returns a normalized text block + meta
-// - never exposes any cross-group content
+// - may optionally show already-rendered SAFE preview cards
+// - never exposes any cross-group raw content
 //
 // Expected inputs:
 // {
@@ -80,6 +81,56 @@ function normalizePreviewDecisions(input = {}) {
   return safeCount(input?.previewResult?.meta?.counters?.decisionsReturned, "0");
 }
 
+function extractRenderedCardBlock(input = {}) {
+  const raw = toSafeString(input?.renderedResult?.text).trim();
+  if (!raw) {
+    return {
+      text: "",
+      shown: false,
+    };
+  }
+
+  const lines = raw
+    .split("\n")
+    .map((line) => line.trimEnd());
+
+  if (!lines.length) {
+    return {
+      text: "",
+      shown: false,
+    };
+  }
+
+  // Renderer format today:
+  // RECALL GROUPS:
+  // cards=N
+  // <empty line>
+  // 1. alias
+  // ...
+  //
+  // We intentionally strip the renderer header and keep only safe card lines.
+  let startIndex = 0;
+
+  if (lines[0] === "RECALL GROUPS:") {
+    startIndex = 1;
+  }
+
+  if (lines[startIndex] && /^cards=\d+$/i.test(lines[startIndex])) {
+    startIndex += 1;
+  }
+
+  while (startIndex < lines.length && !lines[startIndex].trim()) {
+    startIndex += 1;
+  }
+
+  const body = lines.slice(startIndex).join("\n").trim();
+
+  return {
+    text: body ? safeText(body, 3000) : "",
+    shown: Boolean(body),
+  };
+}
+
 export function buildGroupSourceRecallStubResponse(input = {}) {
   const days = clampNumber(input.days, 1, 30, 1);
   const limit = clampNumber(input.limit, 1, 20, 5);
@@ -89,6 +140,8 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
   const cardsRendered = normalizeRenderedCards(input);
   const previewCards = normalizePreviewCards(input);
   const previewDecisions = normalizePreviewDecisions(input);
+
+  const renderedPreview = extractRenderedCardBlock(input);
 
   const lines = [
     "RECALL GROUPS: not_enabled_yet",
@@ -100,6 +153,7 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     `cards_rendered=${cardsRendered}`,
     `preview_cards=${previewCards}`,
     `preview_decisions=${previewDecisions}`,
+    renderedPreview.shown ? "safe_preview_cards_shown=true" : "safe_preview_cards_shown=false",
     "",
     "Stage 7B.10 / 11.17 / 8A.9 foundations are present.",
     "Group candidate runtime boundary exists.",
@@ -108,13 +162,19 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     "Runtime cross-group retrieval is not wired yet.",
   ].filter(Boolean);
 
+  if (renderedPreview.shown) {
+    lines.push("");
+    lines.push("SAFE PREVIEW CARDS:");
+    lines.push(renderedPreview.text);
+  }
+
   const text = lines.join("\n");
 
   return {
     ok: true,
     text,
     meta: {
-      contractVersion: 1,
+      contractVersion: 2,
       stubOnly: true,
       runtimeActive: false,
       retrievalImplemented: false,
@@ -139,6 +199,11 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
         noAuthorIdentity: true,
         noQuotes: true,
         noRawSnippets: true,
+      },
+
+      preview: {
+        safePreviewCardsShown: renderedPreview.shown,
+        safePreviewTextLength: renderedPreview.text.length,
       },
 
       reason,

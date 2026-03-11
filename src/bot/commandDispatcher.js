@@ -57,6 +57,7 @@ import { handleGroupSources } from "./handlers/groupSources.js";
 // ✅ monarch-private diagnostic helpers
 import { handleMySeenChats } from "./handlers/mySeenChats.js";
 import { handleGroupSourceMeta } from "./handlers/groupSourceMeta.js";
+import { handleGroupSourceTopicDiag } from "./handlers/groupSourceTopicDiag.js";
 
 // ✅ Stage 5–6: manual /run must write task_runs via JobRunner
 import { jobRunner } from "../jobs/jobRunnerInstance.js";
@@ -181,6 +182,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/group_sources",
     "/my_seen_chats",
     "/group_source_meta",
+    "/group_source_topic_diag",
 
     // ✅ STAGE 5.16 — behavior events (keep private)
     "/behavior_events_last",
@@ -406,6 +408,16 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/group_source_meta": {
       await handleGroupSourceMeta({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/group_source_topic_diag": {
+      await handleGroupSourceTopicDiag({
         bot,
         chatId,
         rest: ctx.rest,

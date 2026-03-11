@@ -1,14 +1,23 @@
 // src/services/chatMemory/buildInboundChatPayload.js
-// STAGE 7B.next — inbound chat payload contract (SKELETON ONLY)
+// STAGE 7B.x — inbound chat payload contract (SKELETON ONLY)
+//
 // IMPORTANT:
-// - no runtime behavior change yet
-// - no DB writes here
-// - no AI calls here
-// - used to unify future policy for storage text vs effective text
+// - contract only
+// - NO runtime wiring yet
+// - NO behavior changes in production
+// - does NOT call FileIntake
+// - does NOT replace buildInboundStorageText()
+// - does NOT replace dedupe/storage logic
+//
+// Purpose:
+// define one future normalized payload shape for inbound chat/media messages,
+// so Core storage semantics and AI-facing semantics can be aligned later
+// through an explicit contract instead of ad-hoc branching.
 
-function safeStr(v) {
-  if (v === null || v === undefined) return "";
-  return String(v);
+function toSafeString(value) {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+  return String(value);
 }
 
 function getBinaryAttachmentKinds(raw = null) {
@@ -28,59 +37,103 @@ function getBinaryAttachmentKinds(raw = null) {
   return kinds;
 }
 
-function buildStorageContent(text = "", raw = null) {
-  const original = safeStr(text);
+function buildStorageContent(originalText = "", binaryKinds = []) {
+  const original = toSafeString(originalText);
   const trimmed = original.trim();
-  const binaryKinds = getBinaryAttachmentKinds(raw);
 
-  if (binaryKinds.length === 0) {
-    return {
-      storageContent: original,
-      hasBinaryAttachment: false,
-      attachmentKinds: [],
-    };
+  if (!binaryKinds.length) {
+    return original;
   }
 
   const marker = `[binary_attachment:${binaryKinds.join(",")}]`;
 
   if (!trimmed) {
-    return {
-      storageContent: marker,
-      hasBinaryAttachment: true,
-      attachmentKinds: binaryKinds,
-    };
+    return marker;
   }
 
-  return {
-    storageContent: `${marker}\n${original}`,
-    hasBinaryAttachment: true,
-    attachmentKinds: binaryKinds,
-  };
+  return `${marker}\n${original}`;
 }
 
-export function buildInboundChatPayload({ text = "", raw = null } = {}) {
-  const originalText = safeStr(text);
-  const trimmedText = originalText.trim();
+function buildEffectiveUserTextPreview({ originalText = "", raw = null, binaryKinds = [] } = {}) {
+  const original = toSafeString(originalText);
+  const trimmed = original.trim();
+  const caption = toSafeString(raw?.caption).trim();
 
-  const storage = buildStorageContent(originalText, raw);
+  // SKELETON ONLY:
+  // preview tries to show what future unified AI-facing text may look like,
+  // but MUST NOT be treated as authoritative runtime output yet.
+
+  if (!binaryKinds.length) {
+    return trimmed;
+  }
+
+  const effectiveBase = trimmed || caption;
+
+  if (!effectiveBase) {
+    return "";
+  }
+
+  const primaryKind = binaryKinds[0] || "file";
+
+  const mediaNote = (() => {
+    if (primaryKind === "photo") return "Вложение: фото (preview only; OCR/Vision пока не активен).";
+    if (primaryKind === "document")
+      return "Вложение: документ (preview only; parsing пока не активен).";
+    if (primaryKind === "voice") return "Вложение: голосовое (preview only; STT пока не активен).";
+    if (primaryKind === "audio") return "Вложение: аудио (preview only; STT пока не активен).";
+    if (primaryKind === "video") return "Вложение: видео (preview only; analysis пока не активен).";
+    if (primaryKind === "video_note")
+      return "Вложение: video_note (preview only; analysis пока не активен).";
+    if (primaryKind === "sticker") return "Вложение: sticker (preview only; analysis пока не активен).";
+    if (primaryKind === "animation")
+      return "Вложение: animation (preview only; analysis пока не активен).";
+    return "Вложение: файл (preview only; analysis пока не активен).";
+  })();
+
+  return `${effectiveBase}\n\n(${mediaNote})`;
+}
+
+export function buildInboundChatPayload(text = "", raw = null) {
+  const originalText = toSafeString(text);
+  const trimmedText = originalText.trim();
+  const attachmentKinds = getBinaryAttachmentKinds(raw);
+  const hasBinaryAttachment = attachmentKinds.length > 0;
+
+  const storageContent = buildStorageContent(originalText, attachmentKinds);
+
+  const effectiveUserTextPreview = buildEffectiveUserTextPreview({
+    originalText,
+    raw,
+    binaryKinds: attachmentKinds,
+  });
+
+  const decisionMeta = {
+    contractVersion: 1,
+    skeletonOnly: true,
+    hasText: Boolean(trimmedText),
+    hasBinaryAttachment,
+    attachmentKinds,
+    hasCaption: Boolean(toSafeString(raw?.caption).trim()),
+    previewReason:
+      hasBinaryAttachment
+        ? trimmedText
+          ? "text_plus_binary_preview"
+          : toSafeString(raw?.caption).trim()
+            ? "caption_plus_binary_preview"
+            : "binary_only_preview"
+        : trimmedText
+          ? "text_only_preview"
+          : "empty_preview",
+  };
 
   return {
     originalText,
     trimmedText,
-
-    // current Core-compatible storage contract
-    storageContent: storage.storageContent,
-    hasBinaryAttachment: storage.hasBinaryAttachment,
-    attachmentKinds: storage.attachmentKinds,
-
-    // future alignment fields (not authoritative yet)
-    effectiveUserTextPreview: trimmedText,
-    decisionMeta: {
-      hasText: Boolean(trimmedText),
-      hasBinaryAttachment: storage.hasBinaryAttachment,
-      attachmentKinds: storage.attachmentKinds,
-      source: "buildInboundChatPayload.skeleton",
-    },
+    storageContent,
+    hasBinaryAttachment,
+    attachmentKinds,
+    effectiveUserTextPreview,
+    decisionMeta,
   };
 }
 

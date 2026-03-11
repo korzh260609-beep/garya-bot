@@ -182,15 +182,13 @@ function buildSafeMetadataSummary(input = {}, maxLen = DEFAULT_SUMMARY_MAX_LEN) 
   const meta = input?.meta && typeof input.meta === "object" ? input.meta : {};
 
   const privacyLevel = toSafeString(input?.privacyLevel).trim() || "private";
-  const sourceEnabled = input?.sourceEnabled === true;
   const messageCount = normalizeMetaNumber(meta.messageCount);
   const lastMessageAt = normalizeDate(meta.lastMessageAt || meta.updatedAt || input?.date);
 
   const parts = [
-    `source_enabled=${sourceEnabled ? "true" : "false"}`,
     `privacy=${privacyLevel}`,
-    messageCount == null ? "" : `message_count=${messageCount}`,
-    lastMessageAt ? `last_activity=${lastMessageAt.slice(0, 16)}` : "",
+    messageCount == null ? "" : `messages=${messageCount}`,
+    lastMessageAt ? `last=${lastMessageAt.slice(0, 16)}` : "",
   ].filter(Boolean);
 
   const singleLine = collapseToSingleLine(parts.join(" | "));
@@ -242,7 +240,7 @@ export function buildGroupSourceRecallCard(input = {}) {
   });
 
   const meta = {
-    contractVersion: 3,
+    contractVersion: 4,
     skeletonOnly: true,
     runtimeActive: false,
 
@@ -315,8 +313,6 @@ export function buildGroupSourceRecallCard(input = {}) {
     meta.pipeline.metadataSummaryUsed = true;
   }
 
-  // Hard privacy rule:
-  // even if future source text contained author-like hints, the card must not expose them.
   const card = {
     group_alias: alias || "—",
     date: dateIso,

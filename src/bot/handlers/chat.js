@@ -199,10 +199,7 @@ export async function handleChatMessage({
   // - this handler must continue to trust FileIntake for AI-facing semantics
   // - do NOT silently align this block with Core storage semantics
   // - do NOT import/call buildInboundChatPayload.js here during skeleton-only stage
-  //
-  // VERIFIED HANDLER RULE:
-  // - this handler decides conversational flow using AI-facing semantics only
-  // - it must NOT reinterpret Core storage markers as AI intent by itself
+  // - do NOT reinterpret Core storage markers as AI intent by itself
   // - if future contract wiring happens later, it must preserve:
   //   text-only, media-only, text+media, caption+media behavior separately
   const decisionFn =
@@ -706,6 +703,7 @@ export async function handleChatMessage({
       chatId: chatIdStr,
       globalUserId,
       text: effective,
+      role: monarchNow ? "monarch" : "guest",
     });
 
     lastMatchAt = typeof alreadySeen.getLastMatchAt === "function" ? alreadySeen.getLastMatchAt() : null;

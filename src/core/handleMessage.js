@@ -1031,6 +1031,14 @@ export async function handleMessage(context = {}) {
         }
       }
 
+      // STAGE 7B — CHAT HANDLER HANDOFF NOTE
+      // IMPORTANT:
+      // - saveMessageToMemory / saveChatPair passed below are runtime bridge adapters only
+      // - they are provided for handler compatibility, not as authoritative inbound semantics
+      // - storage-facing inbound authority remains buildInboundStorageText(...)
+      // - AI-facing media/text authority remains:
+      //   FileIntake.buildEffectiveUserTextAndDecision(...)
+      // - buildInboundChatPayload.js remains skeleton-only and must NOT be wired here in this step
       await deps.handleChatMessage({
         bot: deps.bot,
         msg: context.raw,

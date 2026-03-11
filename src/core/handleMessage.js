@@ -355,7 +355,7 @@ export async function handleMessage(context = {}) {
     // ignore
   }
 
-// =========================================================================
+  // =========================================================================
   // STAGE 7.1 — Memory shadow write (OFF by default)
   // =========================================================================
   try {
@@ -816,7 +816,7 @@ export async function handleMessage(context = {}) {
     // - if formatting is ever corrected later, do it as a separate minimal safe step
     // - current authority here is still runtime command dispatch, unchanged
     // =========================================================================
-if (typeof deps?.dispatchCommand === "function") {
+    if (typeof deps?.dispatchCommand === "function") {
       try {
         const dispatchCtx = {
           bot: deps.bot || null,

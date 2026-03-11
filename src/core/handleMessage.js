@@ -485,6 +485,16 @@ export async function handleMessage(context = {}) {
         // TODO(stage-7b): future inbound payload contract skeleton lives in
         // src/services/chatMemory/buildInboundChatPayload.js
         // Keep current runtime on buildInboundStorageText(...) until explicit migration step.
+        //
+        // CURRENT STORAGE AUTHORITY:
+        // - this branch uses buildInboundStorageText(...) as the authoritative
+        //   storage-facing shape for chat_messages user rows
+        // - mapped fields TODAY:
+        //   inboundStorage.content -> stored content
+        //   inboundStorage.hasBinaryAttachment -> metadata.hasBinaryAttachment
+        //   inboundStorage.attachmentKinds -> metadata.attachmentKinds
+        // - do NOT import or call buildInboundChatPayload.js here yet
+        // - future contract alignment must be approved as a separate runtime migration step
         const inboundStorage = buildInboundStorageText(trimmed, raw);
         const red = redactText(inboundStorage.content);
         const { text: content, truncated } = truncateForDb(red);
@@ -916,6 +926,16 @@ if (typeof deps?.dispatchCommand === "function") {
           // TODO(stage-7b): future inbound payload contract skeleton lives in
           // src/services/chatMemory/buildInboundChatPayload.js
           // Keep current runtime on buildInboundStorageText(...) until explicit migration step.
+          //
+          // CURRENT STORAGE AUTHORITY:
+          // - this branch uses buildInboundStorageText(...) as the authoritative
+          //   storage-facing shape before guardIncomingChatMessage(...)
+          // - mapped fields TODAY:
+          //   inboundStorage.content -> guardIncomingChatMessage.content
+          //   inboundStorage.hasBinaryAttachment -> metadata.hasBinaryAttachment
+          //   inboundStorage.attachmentKinds -> metadata.attachmentKinds
+          // - do NOT import or call buildInboundChatPayload.js here yet
+          // - contract migration must happen only after explicit storage-vs-AI alignment review
           const inboundStorage = buildInboundStorageText(trimmed, raw);
           const red = redactText(inboundStorage.content);
           const { text: content, truncated } = truncateForDb(red);

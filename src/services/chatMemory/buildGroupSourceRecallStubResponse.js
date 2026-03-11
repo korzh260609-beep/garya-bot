@@ -142,11 +142,8 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     `preview_decisions=${previewDecisions}`,
     renderedPreview.shown ? "safe_preview_cards_shown=true" : "safe_preview_cards_shown=false",
     "",
-    "Stage 7B.10 / 11.17 / 8A.9 foundations are present.",
-    "Group candidate runtime boundary exists.",
-    "Group card formatter boundary exists.",
-    "Group orchestration preview boundary exists.",
-    "Runtime cross-group retrieval is not wired yet.",
+    "Cross-group retrieval is not enabled yet.",
+    "Safe preview only.",
   ].filter(Boolean);
 
   if (renderedPreview.shown) {
@@ -161,7 +158,7 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     ok: true,
     text,
     meta: {
-      contractVersion: 4,
+      contractVersion: 5,
       stubOnly: true,
       runtimeActive: false,
       retrievalImplemented: false,

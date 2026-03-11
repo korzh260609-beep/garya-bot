@@ -332,6 +332,12 @@ export async function processIncomingFile(intake) {
  * - semantic divergence between storage and AI-facing text is intentional at current Stage 7B
  * - any unification must happen only in a separate explicit runtime migration step
  *
+ * VERIFIED RUNTIME BOUNDARY:
+ * - this function decides how chat.js should talk to AI right now
+ * - this function does NOT decide how inbound messages are stored in chat_messages
+ * - this function does NOT own dedupe semantics
+ * - this function does NOT approve contract migration on its own
+ *
  * Future migration target:
  * - src/services/chatMemory/buildInboundChatPayload.js
  *
@@ -383,6 +389,12 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
   }
 
   // 2) Есть текст + медиа → ИИ можно, но честно сообщаем, что парсинга пока нет
+  //
+  // IMPORTANT:
+  // - returned effectiveUserText below is an AI-facing conversational payload
+  // - it is intentionally richer than plain storage-facing content
+  // - adding media note here does NOT mean Core storage must store same suffix
+  // - this extra note is part of current AI policy, not universal inbound normalization
   const mediaNote = (() => {
     if (mediaSummary.kind === "photo") return "Вложение: фото (OCR/Vision пока не активен).";
     if (mediaSummary.kind === "document")

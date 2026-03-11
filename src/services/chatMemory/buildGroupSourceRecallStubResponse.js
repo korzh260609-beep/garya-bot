@@ -119,6 +119,79 @@ function normalizeFilterKeywordApplied(input = {}) {
   );
 }
 
+function normalizeTopicSchemaPresent(input = {}) {
+  const optional = input?.candidateResult?.meta?.optionalColumns;
+  if (!optional || typeof optional !== "object") return "false";
+
+  const present =
+    optional.safe_topic === true ||
+    optional.topic === true ||
+    optional.meta === true ||
+    optional.metadata === true;
+
+  return present ? "true" : "false";
+}
+
+function normalizeSafeTopicColumn(input = {}) {
+  return input?.candidateResult?.meta?.optionalColumns?.safe_topic === true
+    ? "true"
+    : "false";
+}
+
+function normalizeTopicColumn(input = {}) {
+  return input?.candidateResult?.meta?.optionalColumns?.topic === true
+    ? "true"
+    : "false";
+}
+
+function normalizeMetaColumn(input = {}) {
+  return input?.candidateResult?.meta?.optionalColumns?.meta === true
+    ? "true"
+    : "false";
+}
+
+function normalizeMetadataColumn(input = {}) {
+  return input?.candidateResult?.meta?.optionalColumns?.metadata === true
+    ? "true"
+    : "false";
+}
+
+function normalizeCandidatesWithSafeTopic(input = {}) {
+  return safeCount(
+    input?.candidateResult?.meta?.counters?.candidatesWithSafeTopic,
+    "0"
+  );
+}
+
+function buildTopicFallbackReason(input = {}) {
+  const optional = input?.candidateResult?.meta?.optionalColumns;
+  const safeTopicCount = Number(
+    input?.candidateResult?.meta?.counters?.candidatesWithSafeTopic
+  );
+
+  const hasOptionalObject = optional && typeof optional === "object";
+
+  if (!hasOptionalObject) {
+    return "optional_columns_unknown";
+  }
+
+  const schemaPresent =
+    optional.safe_topic === true ||
+    optional.topic === true ||
+    optional.meta === true ||
+    optional.metadata === true;
+
+  if (!schemaPresent) {
+    return "chat_meta_has_no_topic_related_columns";
+  }
+
+  if (Number.isFinite(safeTopicCount) && safeTopicCount <= 0) {
+    return "topic_columns_exist_but_no_safe_topic_found_in_candidates";
+  }
+
+  return "metadata_topic_available";
+}
+
 function extractRenderedCardBlock(input = {}) {
   const rawOriginal = toSafeString(input?.renderedResult?.text);
   const raw = rawOriginal.trim();
@@ -172,6 +245,14 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
   const filterDaysApplied = normalizeFilterDaysApplied(input);
   const filterKeywordApplied = normalizeFilterKeywordApplied(input);
 
+  const topicSchemaPresent = normalizeTopicSchemaPresent(input);
+  const safeTopicColumn = normalizeSafeTopicColumn(input);
+  const topicColumn = normalizeTopicColumn(input);
+  const metaColumn = normalizeMetaColumn(input);
+  const metadataColumn = normalizeMetadataColumn(input);
+  const candidatesWithSafeTopic = normalizeCandidatesWithSafeTopic(input);
+  const topicFallbackReason = buildTopicFallbackReason(input);
+
   const renderedPreview = extractRenderedCardBlock(input);
 
   const lines = [
@@ -190,6 +271,15 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     `excluded_alias_missing=${excludedAliasMissing}`,
     `excluded_requester_chat=${excludedRequesterChat}`,
     "",
+    "SAFE TOPIC DIAG:",
+    `topic_schema_present=${topicSchemaPresent}`,
+    `safe_topic_column=${safeTopicColumn}`,
+    `topic_column=${topicColumn}`,
+    `meta_column=${metaColumn}`,
+    `metadata_column=${metadataColumn}`,
+    `candidates_with_safe_topic=${candidatesWithSafeTopic}`,
+    `topic_fallback_reason=${topicFallbackReason}`,
+    "",
     "Cross-group retrieval is not enabled yet.",
     "Safe preview only.",
   ].filter(Boolean);
@@ -206,7 +296,7 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
     ok: true,
     text,
     meta: {
-      contractVersion: 8,
+      contractVersion: 9,
       stubOnly: true,
       runtimeActive: false,
       retrievalImplemented: false,
@@ -221,6 +311,7 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
         rowsScanned: Number(rowsScanned) || 0,
         excludedAliasMissing: Number(excludedAliasMissing) || 0,
         excludedRequesterChat: Number(excludedRequesterChat) || 0,
+        candidatesWithSafeTopic: Number(candidatesWithSafeTopic) || 0,
       },
 
       filters: {
@@ -239,6 +330,16 @@ export function buildGroupSourceRecallStubResponse(input = {}) {
         noAuthorIdentity: true,
         noQuotes: true,
         noRawSnippets: true,
+      },
+
+      topicDiag: {
+        topicSchemaPresent: topicSchemaPresent === "true",
+        safeTopicColumn: safeTopicColumn === "true",
+        topicColumn: topicColumn === "true",
+        metaColumn: metaColumn === "true",
+        metadataColumn: metadataColumn === "true",
+        candidatesWithSafeTopic: Number(candidatesWithSafeTopic) || 0,
+        topicFallbackReason,
       },
 
       preview: {

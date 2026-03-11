@@ -161,6 +161,15 @@ export function buildInboundChatPayload(text = "", raw = null) {
     semanticDivergenceExpected: true,
     migrationBlocked: true,
 
+    // CONTRACT OWNERSHIP NOTE:
+    // - this file is NOT yet the approved runtime source of truth
+    // - contract owner for future unified inbound semantics is still NOT approved
+    // - this file must remain documentation/skeleton only until that owner is explicitly chosen
+    // - do NOT treat this file as authoritative over Core storage logic
+    // - do NOT treat this file as authoritative over FileIntake AI-facing logic
+    contractOwnerApproved: false,
+    runtimeSourceOfTruthNow: false,
+
     // Future contract intent only — these fields describe target shape,
     // not active runtime behavior.
     futureUnifiedFields: {

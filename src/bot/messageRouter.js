@@ -147,6 +147,7 @@ import { devCommandGate } from "./router/devCommandGate.js";
 import { createChatMemoryWriters } from "./router/chatMemoryWriters.js";
 import { runTransportShadowFlow } from "./router/transportShadowRunner.js";
 import { createRouterCommandContext } from "./router/routerCommandContext.js";
+import { handleBuildInfoCommand } from "./router/buildInfoCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -786,57 +787,12 @@ export function attachMessageRouter({
         }
 
         if (cmdBase === "/build_info") {
-          const pub = getPublicEnvSnapshot();
-
-          const commit =
-            String(pub.RENDER_GIT_COMMIT || "").trim() ||
-            String(pub.GIT_COMMIT || "").trim() ||
-            "unknown";
-
-          const serviceId = String(pub.RENDER_SERVICE_ID || "").trim() || "unknown";
-
-          const instanceId =
-            String(pub.RENDER_INSTANCE_ID || "").trim() ||
-            String(pub.HOSTNAME || "").trim() ||
-            "unknown";
-
-          const nodeEnv = String(pub.NODE_ENV || "").trim() || "unknown";
-          const nowIso = new Date().toISOString();
-
-          if (typeof upsertProjectSection === "function") {
-            const content = [
-              `DEPLOY VERIFIED`,
-              `ts: ${nowIso}`,
-              `commit: ${commit}`,
-              `service: ${serviceId}`,
-              `instance: ${instanceId}`,
-              `node_env: ${nodeEnv}`,
-            ].join("\n");
-
-            try {
-              await upsertProjectSection({
-                section: "deploy.last_verified",
-                title: "DEPLOY VERIFIED",
-                content,
-                tags: ["deploy", "build_info"],
-                meta: { commit, serviceId, instanceId, nodeEnv, ts: nowIso },
-                schemaVersion: 1,
-              });
-            } catch (e) {
-              console.error("build_info autosave failed:", e);
-            }
-          }
-
-          await ctxReply(
-            [
-              "🧩 BUILD INFO",
-              `commit: ${commit}`,
-              `service: ${serviceId}`,
-              `instance: ${instanceId}`,
-              `node_env: ${nodeEnv}`,
-            ].join("\n"),
-            { cmd: cmdBase, handler: "messageRouter" }
-          );
+          await handleBuildInfoCommand({
+            ctxReply,
+            getPublicEnvSnapshot,
+            upsertProjectSection,
+            cmdBase,
+          });
           return;
         }
 

@@ -171,6 +171,9 @@ import { handleStopAllCommand } from "./router/stopAllCommand.js";
 import { handleWorkflowCheckCommand } from "./router/workflowCheckCommand.js";
 import { handleRepoStatusCommand } from "./router/repoStatusCommand.js";
 import { handleRepoTreeCommand } from "./router/repoTreeCommand.js";
+import { handleRepoFileCommand } from "./router/repoFileCommand.js";
+import { handleRepoReview2Command } from "./router/repoReview2Command.js";
+import { handleRepoSearchCommand } from "./router/repoSearchCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -928,17 +931,31 @@ export function attachMessageRouter({
           }
 
           case "/repo_file": {
-            await handleRepoFile({ bot, chatId, rest });
+            await handleRepoFileCommand({
+              handleRepoFile,
+              bot,
+              chatId,
+              rest,
+            });
             return;
           }
 
           case "/repo_review2": {
-            await handleRepoReview2({ bot, chatId });
+            await handleRepoReview2Command({
+              handleRepoReview2,
+              bot,
+              chatId,
+            });
             return;
           }
 
           case "/repo_search": {
-            await handleRepoSearch({ bot, chatId, rest });
+            await handleRepoSearchCommand({
+              handleRepoSearch,
+              bot,
+              chatId,
+              rest,
+            });
             return;
           }
 

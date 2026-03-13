@@ -319,7 +319,11 @@ export class RecallEngine {
   //   days        — глубина поиска (1..30)
   //   limit       — макс строк (1..20)
   //   keyword     — подстрока для ILIKE (пустая строка = без фильтра)
-  // Возвращает: [{ role, content, created_at }] | []
+  // Возвращает: [{ id, role, content, created_at }] | []
+  //
+  // STAGE 8A.5 FOUNDATION:
+  // - adds id for future cursor paging
+  // - current /recall output remains compatible
   // ========================================================================
   async search({ chatId, days = 1, limit = 5, keyword = "" }) {
     const chatIdStr = chatId != null ? String(chatId) : null;
@@ -342,14 +346,14 @@ export class RecallEngine {
     try {
       const r = await this.db.query(
         `
-        SELECT role, content, created_at
+        SELECT id, role, content, created_at
         FROM chat_messages
         WHERE chat_id = $1
           AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
           AND ($3 = '' OR content ILIKE ('%' || $3 || '%'))
           AND is_redacted = false
           AND role IN ('user','assistant')
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, id DESC
         LIMIT $4
         `,
         [chatIdStr, d, kw, lim]

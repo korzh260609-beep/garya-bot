@@ -180,6 +180,9 @@ import { handleRepoAnalyzeCommand } from "./router/repoAnalyzeCommand.js";
 import { handleRepoReviewCommand } from "./router/repoReviewCommand.js";
 import { handleRepoDiffCommand } from "./router/repoDiffCommand.js";
 import { handleArListCommand } from "./router/arListCommand.js";
+import { handleFileLogsCommand } from "./router/fileLogsCommand.js";
+import { handleSourcesCommand } from "./router/sourcesCommand.js";
+import { handleSourcesDiagCommand } from "./router/sourcesDiagCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -1037,7 +1040,13 @@ export function attachMessageRouter({
           }
 
           case "/file_logs": {
-            await handleFileLogs({ bot, chatId, chatIdStr, rest });
+            await handleFileLogsCommand({
+              handleFileLogs,
+              bot,
+              chatId,
+              chatIdStr,
+              rest,
+            });
             return;
           }
 
@@ -1087,7 +1096,8 @@ export function attachMessageRouter({
           }
 
           case "/sources": {
-            await handleSourcesList({
+            await handleSourcesCommand({
+              handleSourcesList,
               bot,
               chatId,
               chatIdStr,
@@ -1098,7 +1108,8 @@ export function attachMessageRouter({
           }
 
           case "/sources_diag": {
-            await handleSourcesDiag({
+            await handleSourcesDiagCommand({
+              handleSourcesDiag,
               bot,
               chatId,
               chatIdStr,

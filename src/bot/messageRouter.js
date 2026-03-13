@@ -149,6 +149,7 @@ import { runTransportShadowFlow } from "./router/transportShadowRunner.js";
 import { createRouterCommandContext } from "./router/routerCommandContext.js";
 import { handleBuildInfoCommand } from "./router/buildInfoCommand.js";
 import { handleCodeOutputStatusCommand } from "./router/codeOutputStatusCommand.js";
+import { handleMemoryUserChatsCommand } from "./router/memoryUserChatsCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -607,10 +608,12 @@ export function attachMessageRouter({
 
         // ✅ NEW: /memory_user_chats — list other chats that contain rows for this user
         if (cmdBase === "/memory_user_chats") {
-          const globalUserId2 =
-            accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-          const out = await memDiag.memoryUserChats({ globalUserId: globalUserId2 });
-          await ctxReply(out, { cmd: cmdBase, handler: "messageRouter" });
+          await handleMemoryUserChatsCommand({
+            accessPack,
+            memDiag,
+            ctxReply,
+            cmdBase,
+          });
           return;
         }
 

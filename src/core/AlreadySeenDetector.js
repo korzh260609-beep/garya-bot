@@ -4,7 +4,7 @@
 // 8B.2 Tightened lookup
 // 8B.3 Confidence threshold
 // 8B.4 Real cooldown enforcement
-// 8B.6 Role-based depth (CONFIG/SKELETON, behavior unchanged by default)
+// 8B.6 Role-based depth (CONFIG/SKELETON, behavior enabled by differentiated defaults)
 
 import crypto from "crypto";
 import { extractQuery } from "./alreadySeen/extractQuery.js";
@@ -61,19 +61,19 @@ export default class AlreadySeenDetector {
   }
 
   // ==========================================================
-  // STAGE 8B.6 — Role-based depth (CONFIG/SKELETON)
+  // STAGE 8B.6 — Role-based depth
   // IMPORTANT:
-  // - config-only step
-  // - no role-based behavior change by default
-  // - defaults must preserve current detector behavior
+  // - this file has NO lookupDays field
+  // - role difference here is implemented via keyword depth only
+  // - env override via ALREADY_SEEN_ROLE_DEPTH_JSON still wins
   // - no cross-group logic here
   // ==========================================================
   getDefaultDepthPolicy() {
     return {
       guest: {
-        minKeywords: 3,
-        maxKeywords: 7,
-        lookupKeywords: 3,
+        minKeywords: 2,
+        maxKeywords: 5,
+        lookupKeywords: 2,
       },
       citizen: {
         minKeywords: 3,
@@ -82,13 +82,13 @@ export default class AlreadySeenDetector {
       },
       vip: {
         minKeywords: 3,
-        maxKeywords: 7,
-        lookupKeywords: 3,
+        maxKeywords: 9,
+        lookupKeywords: 5,
       },
       monarch: {
         minKeywords: 3,
-        maxKeywords: 7,
-        lookupKeywords: 3,
+        maxKeywords: 10,
+        lookupKeywords: 6,
       },
     };
   }

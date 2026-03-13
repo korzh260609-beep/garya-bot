@@ -3,10 +3,11 @@
 // NOTE:
 // - aligned to ESM
 // - aligned to current runtime chat_messages schema
-// - NOT wired automatically into production flow yet
+// - internal foundation store lives in ./chatMessagesStore.js
+// - public/runtime API must stay in src/db/chatMessagesRepo.js
 
 import { buildStoredMessage } from "./buildStoredMessage.js";
-import { insertChatMessage } from "./chatMessagesRepo.js";
+import { insertChatMessage } from "./chatMessagesStore.js";
 
 export async function saveIncomingMessage(payload = {}) {
   const message = buildStoredMessage({

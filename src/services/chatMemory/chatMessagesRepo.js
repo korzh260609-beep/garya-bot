@@ -1,5 +1,11 @@
 // src/services/chatMemory/chatMessagesRepo.js
 // Stage 7B foundation helper
+// INTERNAL-ONLY NOTE:
+// - this file is NOT a runtime/public import target
+// - handlers, router, runtime modules must NOT import this file directly
+// - canonical runtime entry-point is: src/db/chatMessagesRepo.js
+// - this file is allowed only for internal service/foundation usage
+//
 // NOTE:
 // - aligned to current repo ESM style
 // - aligned to real runtime chat_messages schema

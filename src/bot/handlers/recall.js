@@ -265,7 +265,7 @@ function parseRecallMoreArgs(restRaw) {
 
   return {
     scope,
-    cursor: safeText(cursor, 1000),
+    cursor: String(cursor || "").trim(),
   };
 }
 
@@ -418,13 +418,11 @@ export async function handleRecall({
     return;
   }
 
-  // observability: recall request
   await logInteraction(chatIdStr, {
     taskType: scope === "include_groups" ? "recall_request_groups" : "recall_request",
     aiCostLevel: "low",
   });
 
-  // STAGE 8A.10.2 — /recall --groups monarch-only initially
   if (scope === "include_groups" && !bypass) {
     await bot.sendMessage(
       chatId,
@@ -437,8 +435,6 @@ export async function handleRecall({
     return;
   }
 
-  // DEV/private safety:
-  // even for monarch, group-scope runtime stays blocked outside private chat for now
   if (scope === "include_groups" && !privateChat) {
     await bot.sendMessage(
       chatId,
@@ -451,9 +447,6 @@ export async function handleRecall({
     return;
   }
 
-  // Controlled group-source boundary:
-  // parse + gate exists, but real cross-group retrieval is intentionally not enabled yet.
-  // This step only wires safe metadata candidates into preview/orchestration.
   if (scope === "include_groups") {
     try {
       const requestRole = bypass ? "monarch" : "guest";
@@ -578,7 +571,6 @@ export async function handleRecall({
         .join("\n")
     );
   } catch (e) {
-    // observability: recall error
     await logInteraction(chatIdStr, {
       taskType:
         scope === "include_groups" ? "recall_error_groups" : "recall_error",

@@ -3,8 +3,9 @@
 // PURPOSE:
 // - this file is the ONLY runtime/public entry-point for chat_messages writes
 // - handlers, router, runtime modules must import chat message write helpers ONLY from here
-// - do NOT import src/services/chatMemory/chatMessagesRepo.js directly from handlers/router
-// - service-level repo below is internal foundation/helper only
+// - do NOT import src/services/chatMemory/chatMessagesStore.js directly from handlers/router/runtime
+// - do NOT import src/services/chatMemory/chatMessagesRepo.js directly from handlers/router/runtime
+// - service-level foundation below is internal-only
 //
 // Purpose:
 // - keep OLD runtime API stable for handlers/chat.js and messageRouter.js

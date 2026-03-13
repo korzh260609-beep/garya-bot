@@ -20,9 +20,9 @@ import {
   setGrantedRole,
   normalizeGrantRole,
 } from "../../users/grants.js";
-import BehaviorEventsService from "../../logging/BehaviorEventsService.js";
+import AuditEventsService from "../../logging/AuditEventsService.js";
 
-const behaviorEvents = new BehaviorEventsService();
+const auditEvents = new AuditEventsService();
 
 function parseArgs(rest) {
   const raw = String(rest || "").trim();
@@ -91,10 +91,11 @@ export async function handleGrant({
     }
 
     try {
-      await behaviorEvents.logEvent({
+      await auditEvents.logEvent({
         globalUserId: row.global_user_id,
         chatId: String(chatId),
         eventType: "role_granted",
+        actorRef: "monarch",
         metadata: {
           target_ref: targetRef,
           previous_role: row.previous_role,
@@ -106,7 +107,7 @@ export async function handleGrant({
         schemaVersion: 1,
       });
     } catch (e) {
-      console.error("handleGrant behavior_events error:", e);
+      console.error("handleGrant audit_events error:", e);
     }
 
     await bot.sendMessage(

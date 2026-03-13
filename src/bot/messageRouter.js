@@ -156,6 +156,9 @@ import { handleMemoryBackfillCommand } from "./router/memoryBackfillCommand.js";
 import { handleMemoryStatusCommand } from "./router/memoryStatusCommand.js";
 import { handleChatDiagCommand } from "./router/chatDiagCommand.js";
 import { handleTasksOwnerDiagCommand } from "./router/tasksOwnerDiagCommand.js";
+import { handleApproveCommand } from "./router/approveCommand.js";
+import { handleDenyCommand } from "./router/denyCommand.js";
+import { handleBehaviorEventsLastCommand } from "./router/behaviorEventsLastCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -701,17 +704,28 @@ export function attachMessageRouter({
 
         switch (cmdBase) {
           case "/approve": {
-            await handleApprove({ bot, chatId, rest });
+            await handleApproveCommand({
+              handleApprove,
+              bot,
+              chatId,
+              rest,
+            });
             return;
           }
 
           case "/deny": {
-            await handleDeny({ bot, chatId, rest });
+            await handleDenyCommand({
+              handleDeny,
+              bot,
+              chatId,
+              rest,
+            });
             return;
           }
 
           case "/behavior_events_last": {
-            await handleBehaviorEventsLast({
+            await handleBehaviorEventsLastCommand({
+              handleBehaviorEventsLast,
               bot,
               chatId,
               rest,

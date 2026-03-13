@@ -32,11 +32,11 @@
 // - recall.js keeps orchestration only
 // - no real cross-group payload is exposed yet
 //
-// CONTROLLED PAGING SKELETON STEP:
-// - exports handleRecallMore()
-// - preserves scope-aware contract for future paging
-// - returns safe stub only
-// - no cursor store, no real paging, no cross-group retrieval
+// CONTROLLED PAGING STEP:
+// - /recall returns next_cursor for local scope when more rows exist
+// - /recall_more <cursor> loads next page for local scope
+// - cursor is stateless base64url JSON
+// - paging uses created_at + id to avoid duplicate/missing rows
 //
 // STAGE 11.14 — dedicated rate-limit for /recall
 // IMPORTANT:
@@ -93,6 +93,95 @@ function safeText(s, max = 200) {
   const t = String(s ?? "").trim();
   if (!t) return "";
   return t.length > max ? t.slice(0, max) + "…" : t;
+}
+
+function toBase64Url(text) {
+  return Buffer.from(String(text ?? ""), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function fromBase64Url(token) {
+  const normalized = String(token ?? "")
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  const padLen = (4 - (normalized.length % 4)) % 4;
+  const padded = normalized + "=".repeat(padLen);
+
+  return Buffer.from(padded, "base64").toString("utf8");
+}
+
+function buildRecallCursor({
+  scope,
+  days,
+  limit,
+  keyword,
+  lastCreatedAt,
+  lastId,
+}) {
+  const payload = {
+    v: 1,
+    s: String(scope || "local_only"),
+    d: clamp(safeInt(days, 1), 1, 30),
+    l: clamp(safeInt(limit, 5), 1, 20),
+    k: safeText(keyword || "", 120),
+    t: String(lastCreatedAt || ""),
+    i: safeInt(lastId, 0),
+  };
+
+  return toBase64Url(JSON.stringify(payload));
+}
+
+function parseRecallCursor(cursorRaw) {
+  try {
+    const raw = String(cursorRaw ?? "").trim();
+    if (!raw) return null;
+
+    const decoded = fromBase64Url(raw);
+    const parsed = JSON.parse(decoded);
+
+    const scope = String(parsed?.s || "local_only");
+    const days = clamp(safeInt(parsed?.d, 1), 1, 30);
+    const limit = clamp(safeInt(parsed?.l, 5), 1, 20);
+    const keyword = safeText(parsed?.k || "", 120);
+    const lastCreatedAt = String(parsed?.t || "").trim();
+    const lastId = safeInt(parsed?.i, 0);
+
+    if (!lastCreatedAt || !lastId) {
+      return null;
+    }
+
+    return {
+      scope,
+      days,
+      limit,
+      keyword,
+      lastCreatedAt,
+      lastId,
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function formatRecallRows(rows = []) {
+  const lines = [];
+
+  for (const row of [...rows].reverse()) {
+    const role = String(row.role || "").toLowerCase();
+    const prefix =
+      role === "assistant" ? "A:" : role === "user" ? "U:" : `${role}:`;
+    const text = safeText(row.content, 400);
+    const ts = row.created_at
+      ? new Date(row.created_at).toISOString().slice(0, 16)
+      : "";
+    lines.push(`${ts} ${prefix} ${text}`.trim());
+  }
+
+  return lines;
 }
 
 // /recall [keyword]
@@ -176,7 +265,7 @@ function parseRecallMoreArgs(restRaw) {
 
   return {
     scope,
-    cursor: safeText(cursor, 120),
+    cursor: safeText(cursor, 1000),
   };
 }
 
@@ -430,7 +519,15 @@ export async function handleRecall({
 
   try {
     const engine = getRecallEngine({ db: pool, logger: console });
-    const rows = await engine.search({ chatId: chatIdStr, days, limit, keyword });
+    const page = await engine.searchPage({
+      chatId: chatIdStr,
+      days,
+      limit,
+      keyword,
+    });
+
+    const rows = Array.isArray(page?.rows) ? page.rows : [];
+    const hasMore = page?.hasMore === true;
 
     if (!rows.length) {
       await bot.sendMessage(
@@ -448,17 +545,21 @@ export async function handleRecall({
       return;
     }
 
-    const lines = [];
+    const lines = formatRecallRows(rows);
 
-    for (const row of rows.reverse()) {
-      const role = String(row.role || "").toLowerCase();
-      const prefix =
-        role === "assistant" ? "A:" : role === "user" ? "U:" : `${role}:`;
-      const text = safeText(row.content, 400);
-      const ts = row.created_at
-        ? new Date(row.created_at).toISOString().slice(0, 16)
-        : "";
-      lines.push(`${ts} ${prefix} ${text}`.trim());
+    let nextCursor = "";
+    if (hasMore) {
+      const lastRow = rows[rows.length - 1];
+      nextCursor = buildRecallCursor({
+        scope,
+        days,
+        limit,
+        keyword,
+        lastCreatedAt: lastRow?.created_at
+          ? new Date(lastRow.created_at).toISOString()
+          : "",
+        lastId: lastRow?.id ?? 0,
+      });
     }
 
     await bot.sendMessage(
@@ -469,6 +570,7 @@ export async function handleRecall({
         `days=${days}`,
         `limit=${limit}`,
         keyword ? `keyword=${safeText(keyword, 80)}` : "",
+        hasMore && nextCursor ? `next_cursor=${nextCursor}` : "",
         "",
         ...lines,
       ]
@@ -555,10 +657,128 @@ export async function handleRecallMore({
     return;
   }
 
-  await bot.sendMessage(
-    chatId,
-    buildRecallMoreStubText({ scope, cursor })
-  );
+  if (scope === "include_groups") {
+    await bot.sendMessage(
+      chatId,
+      buildRecallMoreStubText({ scope, cursor })
+    );
+    return;
+  }
+
+  if (!cursor) {
+    await bot.sendMessage(
+      chatId,
+      [
+        "⛔ recall_more_invalid_cursor",
+        "reason=missing_cursor",
+      ].join("\n")
+    );
+    return;
+  }
+
+  const parsedCursor = parseRecallCursor(cursor);
+
+  if (!parsedCursor) {
+    await bot.sendMessage(
+      chatId,
+      [
+        "⛔ recall_more_invalid_cursor",
+        "reason=decode_failed",
+      ].join("\n")
+    );
+    return;
+  }
+
+  if (parsedCursor.scope !== "local_only") {
+    await bot.sendMessage(
+      chatId,
+      [
+        "⛔ recall_more_invalid_cursor",
+        `scope=${parsedCursor.scope}`,
+        "reason=unsupported_scope",
+      ].join("\n")
+    );
+    return;
+  }
+
+  try {
+    const engine = getRecallEngine({ db: pool, logger: console });
+    const page = await engine.searchPage({
+      chatId: chatIdStr,
+      days: parsedCursor.days,
+      limit: parsedCursor.limit,
+      keyword: parsedCursor.keyword,
+      cursorCreatedAt: parsedCursor.lastCreatedAt,
+      cursorId: parsedCursor.lastId,
+    });
+
+    const rows = Array.isArray(page?.rows) ? page.rows : [];
+    const hasMore = page?.hasMore === true;
+
+    if (!rows.length) {
+      await bot.sendMessage(
+        chatId,
+        [
+          "RECALL MORE: пусто",
+          "reason=no_more_results",
+          `scope=${parsedCursor.scope}`,
+          `days=${parsedCursor.days}`,
+          `limit=${parsedCursor.limit}`,
+          parsedCursor.keyword
+            ? `keyword=${safeText(parsedCursor.keyword, 80)}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      );
+      return;
+    }
+
+    const lines = formatRecallRows(rows);
+
+    let nextCursor = "";
+    if (hasMore) {
+      const lastRow = rows[rows.length - 1];
+      nextCursor = buildRecallCursor({
+        scope: parsedCursor.scope,
+        days: parsedCursor.days,
+        limit: parsedCursor.limit,
+        keyword: parsedCursor.keyword,
+        lastCreatedAt: lastRow?.created_at
+          ? new Date(lastRow.created_at).toISOString()
+          : "",
+        lastId: lastRow?.id ?? 0,
+      });
+    }
+
+    await bot.sendMessage(
+      chatId,
+      [
+        "RECALL MORE:",
+        `scope=${parsedCursor.scope}`,
+        `days=${parsedCursor.days}`,
+        `limit=${parsedCursor.limit}`,
+        parsedCursor.keyword
+          ? `keyword=${safeText(parsedCursor.keyword, 80)}`
+          : "",
+        hasMore && nextCursor ? `next_cursor=${nextCursor}` : "",
+        "",
+        ...lines,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    );
+  } catch (e) {
+    await logInteraction(chatIdStr, {
+      taskType: "recall_more_error",
+      aiCostLevel: "low",
+    });
+
+    await bot.sendMessage(
+      chatId,
+      `⛔ recall_more_error: ${safeText(e?.message || "unknown", 160)}`
+    );
+  }
 }
 
 export default handleRecall;

@@ -153,6 +153,9 @@ import { handleMemoryUserChatsCommand } from "./router/memoryUserChatsCommand.js
 import { handleMemoryDiagCommand } from "./router/memoryDiagCommand.js";
 import { handleMemoryIntegrityCommand } from "./router/memoryIntegrityCommand.js";
 import { handleMemoryBackfillCommand } from "./router/memoryBackfillCommand.js";
+import { handleMemoryStatusCommand } from "./router/memoryStatusCommand.js";
+import { handleChatDiagCommand } from "./router/chatDiagCommand.js";
+import { handleTasksOwnerDiagCommand } from "./router/tasksOwnerDiagCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -527,48 +530,13 @@ export function attachMessageRouter({
 
         // ✅ /memory_status
         if (cmdBase === "/memory_status") {
-          const status = await memory.status();
-          const v2Cols = await memDiag.getChatMemoryV2Columns();
-
-          const pub = getPublicEnvSnapshot();
-          const buildCommit =
-            String(pub.RENDER_GIT_COMMIT || "").trim() ||
-            String(pub.GIT_COMMIT || "").trim() ||
-            "";
-          const buildService = String(pub.RENDER_SERVICE_ID || "").trim();
-          const buildInstance =
-            String(pub.RENDER_INSTANCE_ID || "").trim() ||
-            String(pub.HOSTNAME || "").trim();
-
-          await ctxReply(
-            [
-              "🧠 MEMORY STATUS",
-              `enabled: ${status.enabled}`,
-              `mode: ${status.mode}`,
-              `hasDb: ${status.hasDb}`,
-              `hasLogger: ${status.hasLogger}`,
-              `hasChatAdapter: ${status.hasChatAdapter}`,
-              `configKeys: ${status.configKeys.join(", ")}`,
-              "",
-              "DB chat_memory V2 columns:",
-              `global_user_id: ${v2Cols.global_user_id}`,
-              `transport: ${v2Cols.transport}`,
-              `metadata: ${v2Cols.metadata}`,
-              `schema_version: ${v2Cols.schema_version}`,
-              "",
-              "ENV (public allowlist):",
-              `MEMORY_ENABLED: ${String(pub.MEMORY_ENABLED || "")}`,
-              `MEMORY_MODE: ${String(pub.MEMORY_MODE || "")}`,
-              `NODE_ENV: ${String(pub.NODE_ENV || "")}`,
-              "",
-              "BUILD:",
-              `commit: ${buildCommit}`,
-              `service: ${buildService}`,
-              `instance: ${buildInstance}`,
-            ].join("\n"),
-            { cmd: cmdBase, handler: "messageRouter" }
-          );
-
+          await handleMemoryStatusCommand({
+            memory,
+            memDiag,
+            ctxReply,
+            getPublicEnvSnapshot,
+            cmdBase,
+          });
           return;
         }
 
@@ -621,152 +589,11 @@ export function attachMessageRouter({
 
         // ✅ STAGE 4 — /chat_diag (monarch, private via DEV gate above)
         if (cmdBase === "/chat_diag") {
-          try {
-            const chatsCountRes = await pool.query(
-              `SELECT COUNT(*)::int AS n FROM chats`
-            );
-            const linksCountRes = await pool.query(
-              `SELECT COUNT(*)::int AS n FROM user_chat_links`
-            );
-
-            const lastChatRes = await pool.query(
-              `
-              SELECT chat_id, transport, chat_type, title, updated_at, last_seen_at
-              FROM chats
-              ORDER BY updated_at DESC NULLS LAST
-              LIMIT 1
-              `
-            );
-
-            const lastLinkRes = await pool.query(
-              `
-              SELECT global_user_id, chat_id, transport, created_at, last_seen_at
-              FROM user_chat_links
-              ORDER BY COALESCE(last_seen_at, created_at) DESC NULLS LAST
-              LIMIT 1
-              `
-            );
-
-            // ✅ NEW: last 5 chats/links (compact listing)
-            const lastChatsRes = await pool.query(
-              `
-              SELECT chat_id, transport, chat_type, title, updated_at, last_seen_at
-              FROM chats
-              ORDER BY updated_at DESC NULLS LAST
-              LIMIT 5
-              `
-            );
-
-            const lastLinksRes = await pool.query(
-              `
-              SELECT global_user_id, chat_id, transport, created_at, last_seen_at
-              FROM user_chat_links
-              ORDER BY COALESCE(last_seen_at, created_at) DESC NULLS LAST
-              LIMIT 5
-              `
-            );
-
-            const chatsTotal = chatsCountRes.rows?.[0]?.n ?? 0;
-            const linksTotal = linksCountRes.rows?.[0]?.n ?? 0;
-
-            const lc = lastChatRes.rows?.[0] || null;
-            const ll = lastLinkRes.rows?.[0] || null;
-
-            const lastChats = lastChatsRes.rows || [];
-            const lastLinks = lastLinksRes.rows || [];
-
-            const fmtTs = (v) => (v ? new Date(v).toISOString() : "—");
-
-            const out = [];
-            out.push("🧩 CHAT DIAG");
-            out.push(`chats_total: ${chatsTotal}`);
-            out.push(`links_total: ${linksTotal}`);
-            out.push("");
-
-            out.push("last_chat:");
-            if (!lc) {
-              out.push("—");
-            } else {
-              out.push(
-                [
-                  `chat_id=${lc.chat_id}`,
-                  `transport=${lc.transport || "—"}`,
-                  `type=${lc.chat_type || "—"}`,
-                  `title=${lc.title || "—"}`,
-                  `updated_at=${fmtTs(lc.updated_at)}`,
-                  `last_seen_at=${fmtTs(lc.last_seen_at)}`,
-                ].join(" | ")
-              );
-            }
-
-            out.push("");
-            out.push("last_link:");
-            if (!ll) {
-              out.push("—");
-            } else {
-              out.push(
-                [
-                  `global_user_id=${ll.global_user_id}`,
-                  `chat_id=${ll.chat_id}`,
-                  `transport=${ll.transport || "—"}`,
-                  `created_at=${fmtTs(ll.created_at)}`,
-                  `last_seen_at=${fmtTs(ll.last_seen_at)}`,
-                ].join(" | ")
-              );
-            }
-
-            out.push("");
-            out.push("last_5_chats:");
-            if (!lastChats.length) {
-              out.push("—");
-            } else {
-              let i = 0;
-              for (const r of lastChats) {
-                i += 1;
-                out.push(
-                  [
-                    `${i})`,
-                    `chat_id=${r.chat_id}`,
-                    `type=${r.chat_type || "—"}`,
-                    `title=${r.title || "—"}`,
-                    `updated_at=${fmtTs(r.updated_at)}`,
-                    `last_seen_at=${fmtTs(r.last_seen_at)}`,
-                  ].join(" ")
-                );
-              }
-            }
-
-            out.push("");
-            out.push("last_5_links:");
-            if (!lastLinks.length) {
-              out.push("—");
-            } else {
-              let i = 0;
-              for (const r of lastLinks) {
-                i += 1;
-                out.push(
-                  [
-                    `${i})`,
-                    `global_user_id=${r.global_user_id}`,
-                    `chat_id=${r.chat_id}`,
-                    `created_at=${fmtTs(r.created_at)}`,
-                    `last_seen_at=${fmtTs(r.last_seen_at)}`,
-                  ].join(" ")
-                );
-              }
-            }
-
-            await ctxReply(out.join("\n").slice(0, 3800), {
-              cmd: cmdBase,
-              handler: "messageRouter",
-            });
-          } catch (e) {
-            console.error("❌ /chat_diag error:", e);
-            await ctxReply(
-              "⚠️ /chat_diag упал. Проверь: применена ли миграция 027 (таблицы chats и user_chat_links).",
-              { cmd: cmdBase, handler: "messageRouter" }
-            );
-          }
+          await handleChatDiagCommand({
+            pool,
+            ctxReply,
+            cmdBase,
+          });
           return;
         }
 
@@ -906,95 +733,11 @@ export function attachMessageRouter({
           }
 
           case "/tasks_owner_diag": {
-            try {
-              const colRes = await pool.query(
-                `
-                SELECT 1
-                FROM information_schema.columns
-                WHERE table_schema = 'public'
-                  AND table_name = 'tasks'
-                  AND column_name = 'user_global_id'
-                LIMIT 1
-                `
-              );
-
-              const hasUserGlobalId = (colRes.rows?.length || 0) > 0;
-
-              const summaryQuery = hasUserGlobalId
-                ? `
-                  SELECT
-                    COUNT(*)::int AS total,
-                    SUM(CASE WHEN user_global_id IS NULL OR user_global_id = '' THEN 1 ELSE 0 END)::int AS global_id_missing
-                  FROM tasks
-                `
-                : `
-                  SELECT
-                    COUNT(*)::int AS total
-                  FROM tasks
-                `;
-
-              const sumRes = await pool.query(summaryQuery);
-              const s = sumRes.rows?.[0] || {};
-
-              const listQuery = hasUserGlobalId
-                ? `
-                  SELECT id, type, status, user_global_id, created_at, last_run
-                  FROM tasks
-                  ORDER BY id DESC
-                  LIMIT 20
-                `
-                : `
-                  SELECT id, type, status, created_at, last_run
-                  FROM tasks
-                  ORDER BY id DESC
-                  LIMIT 20
-                `;
-
-              const listRes = await pool.query(listQuery);
-              const rows = listRes.rows || [];
-
-              const lines = [];
-              lines.push("🧪 TASKS OWNER DIAG");
-              lines.push(
-                `has tasks.user_global_id: ${hasUserGlobalId ? "YES" : "NO"}`
-              );
-              lines.push(`total tasks: ${s.total ?? 0}`);
-              if (hasUserGlobalId)
-                lines.push(`missing user_global_id: ${s.global_id_missing ?? 0}`);
-              lines.push("");
-              lines.push("Last 20 tasks:");
-
-              for (const r of rows) {
-                const created = r.created_at
-                  ? new Date(r.created_at).toISOString()
-                  : "—";
-                const lastRun = r.last_run
-                  ? new Date(r.last_run).toISOString()
-                  : "—";
-                if (hasUserGlobalId) {
-                  lines.push(
-                    `#${r.id} | ${r.type} | ${r.status} | global=${
-                      r.user_global_id || "—"
-                    } | created=${created} | last_run=${lastRun}`
-                  );
-                } else {
-                  lines.push(
-                    `#${r.id} | ${r.type} | ${r.status} | created=${created} | last_run=${lastRun}`
-                  );
-                }
-              }
-
-              await ctxReply(lines.join("\n").slice(0, 3800), {
-                cmd: cmdBase,
-                handler: "messageRouter",
-              });
-            } catch (e) {
-              console.error("❌ /tasks_owner_diag error:", e);
-              await ctxReply(
-                "⚠️ /tasks_owner_diag упал. Проверь: есть ли таблица tasks и применена ли миграция (колонка user_global_id).",
-                { cmd: cmdBase, handler: "messageRouter" }
-              );
-            }
+            await handleTasksOwnerDiagCommand({
+              pool,
+              ctxReply,
+              cmdBase,
+            });
             return;
           }
 

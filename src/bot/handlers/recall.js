@@ -37,6 +37,13 @@
 // - preserves scope-aware contract for future paging
 // - returns safe stub only
 // - no cursor store, no real paging, no cross-group retrieval
+//
+// STAGE 11.14 — dedicated rate-limit for /recall
+// IMPORTANT:
+// - in-memory / per-instance only
+// - NOT global across multi-instance
+// - monarch bypass enabled intentionally
+// - dedicated limits for /recall and /recall_more
 
 // pool нужен только для передачи в RecallEngine (не для прямых запросов)
 import pool from "../../../db.js";
@@ -46,6 +53,28 @@ import { getGroupSourceRecallCandidates } from "../../services/chatMemory/getGro
 import { renderGroupSourceRecallCards } from "../../services/chatMemory/renderGroupSourceRecallCards.js";
 import { getGroupSourceRecallPreview } from "../../services/chatMemory/getGroupSourceRecallPreview.js";
 import { buildGroupSourceRecallStubResponse } from "../../services/chatMemory/buildGroupSourceRecallStubResponse.js";
+import { checkRateLimit } from "../rateLimiter.js";
+import { envIntRange } from "../../core/config.js";
+
+const RECALL_RL_WINDOW_MS = envIntRange("RECALL_RL_WINDOW_MS", 30000, {
+  min: 1000,
+  max: 300000,
+});
+
+const RECALL_RL_MAX = envIntRange("RECALL_RL_MAX", 5, {
+  min: 1,
+  max: 50,
+});
+
+const RECALL_MORE_RL_WINDOW_MS = envIntRange("RECALL_MORE_RL_WINDOW_MS", 30000, {
+  min: 1000,
+  max: 300000,
+});
+
+const RECALL_MORE_RL_MAX = envIntRange("RECALL_MORE_RL_MAX", 8, {
+  min: 1,
+  max: 100,
+});
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -181,6 +210,85 @@ function buildRecallMoreStubText({ scope, cursor }) {
   return lines.join("\n");
 }
 
+function buildRecallRateLimitKey({
+  kind,
+  chatIdStr,
+  senderIdStr,
+  identityCtx,
+}) {
+  const globalUserId =
+    identityCtx?.global_user_id ||
+    identityCtx?.globalUserId ||
+    null;
+
+  if (globalUserId) {
+    return `recall:${kind}:gu:${String(globalUserId)}`;
+  }
+
+  if (senderIdStr) {
+    return `recall:${kind}:sender:${String(senderIdStr)}`;
+  }
+
+  return `recall:${kind}:chat:${String(chatIdStr || "unknown")}`;
+}
+
+async function applyRecallRateLimit({
+  bot,
+  chatId,
+  chatIdStr,
+  senderIdStr,
+  identityCtx,
+  bypass,
+  kind,
+}) {
+  if (bypass) {
+    return { allowed: true, retryAfterMs: 0 };
+  }
+
+  const key = buildRecallRateLimitKey({
+    kind,
+    chatIdStr,
+    senderIdStr,
+    identityCtx,
+  });
+
+  const windowMs =
+    kind === "recall_more" ? RECALL_MORE_RL_WINDOW_MS : RECALL_RL_WINDOW_MS;
+
+  const max =
+    kind === "recall_more" ? RECALL_MORE_RL_MAX : RECALL_RL_MAX;
+
+  const rl = checkRateLimit({
+    key,
+    windowMs,
+    max,
+  });
+
+  if (rl.allowed) {
+    return rl;
+  }
+
+  const sec = Math.max(1, Math.ceil(rl.retryAfterMs / 1000));
+
+  await logInteraction(chatIdStr, {
+    taskType: kind === "recall_more" ? "recall_more_rate_limited" : "recall_rate_limited",
+    aiCostLevel: "low",
+  });
+
+  await bot.sendMessage(
+    chatId,
+    [
+      "⛔ recall_rate_limited",
+      `kind=${kind}`,
+      `retry_after_sec=${sec}`,
+      `window_ms=${windowMs}`,
+      `max=${max}`,
+    ].join("\n")
+  );
+
+  return rl;
+}
+
 export async function handleRecall({
   bot,
   chatId,
@@ -202,6 +310,20 @@ export async function handleRecall({
     chatType,
     identityCtx,
   });
+
+  const rl = await applyRecallRateLimit({
+    bot,
+    chatId,
+    chatIdStr,
+    senderIdStr,
+    identityCtx,
+    bypass,
+    kind: "recall",
+  });
+
+  if (!rl.allowed) {
+    return;
+  }
 
   // observability: recall request
   await logInteraction(chatIdStr, {
@@ -385,6 +507,20 @@ export async function handleRecallMore({
     chatType,
     identityCtx,
   });
+
+  const rl = await applyRecallRateLimit({
+    bot,
+    chatId,
+    chatIdStr,
+    senderIdStr,
+    identityCtx,
+    bypass,
+    kind: "recall_more",
+  });
+
+  if (!rl.allowed) {
+    return;
+  }
 
   await logInteraction(chatIdStr, {
     taskType: scope === "include_groups" ? "recall_more_request_groups" : "recall_more_request",

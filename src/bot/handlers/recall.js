@@ -42,7 +42,7 @@
 // IMPORTANT:
 // - in-memory / per-instance only
 // - NOT global across multi-instance
-// - monarch bypass enabled intentionally
+// - monarch bypass is controlled by env flag
 // - dedicated limits for /recall and /recall_more
 
 // pool нужен только для передачи в RecallEngine (не для прямых запросов)
@@ -54,7 +54,7 @@ import { renderGroupSourceRecallCards } from "../../services/chatMemory/renderGr
 import { getGroupSourceRecallPreview } from "../../services/chatMemory/getGroupSourceRecallPreview.js";
 import { buildGroupSourceRecallStubResponse } from "../../services/chatMemory/buildGroupSourceRecallStubResponse.js";
 import { checkRateLimit } from "../rateLimiter.js";
-import { envIntRange } from "../../core/config.js";
+import { envIntRange, envStr } from "../../core/config.js";
 
 const RECALL_RL_WINDOW_MS = envIntRange("RECALL_RL_WINDOW_MS", 30000, {
   min: 1000,
@@ -75,6 +75,10 @@ const RECALL_MORE_RL_MAX = envIntRange("RECALL_MORE_RL_MAX", 8, {
   min: 1,
   max: 100,
 });
+
+const RECALL_RL_BYPASS_MONARCH = ["1", "true", "yes", "on"].includes(
+  envStr("RECALL_RL_BYPASS_MONARCH", "true").trim().toLowerCase()
+);
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -241,7 +245,7 @@ async function applyRecallRateLimit({
   bypass,
   kind,
 }) {
-  if (bypass) {
+  if (bypass && RECALL_RL_BYPASS_MONARCH) {
     return { allowed: true, retryAfterMs: 0 };
   }
 

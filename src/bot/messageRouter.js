@@ -164,10 +164,6 @@ import { handleDemoTaskCommand } from "./router/demoTaskCommand.js";
 import { handleNewTaskCommand } from "./router/newTaskCommand.js";
 import { handleBtcTestTaskCommand } from "./router/btcTestTaskCommand.js";
 import { handleTasksCommand } from "./router/tasksCommand.js";
-import { handleRunTaskCommand } from "./router/runTaskCommand.js";
-import { handleStartTaskCommand } from "./router/startTaskCommand.js";
-import { handleStopTaskCommand } from "./router/stopTaskCommand.js";
-import { handleStopAllCommand } from "./router/stopAllCommand.js";
 import { handleWorkflowCheckCommand } from "./router/workflowCheckCommand.js";
 import { handleRepoStatusCommand } from "./router/repoStatusCommand.js";
 import { handleRepoTreeCommand } from "./router/repoTreeCommand.js";
@@ -186,8 +182,8 @@ import { handleSourcesDiagCommand } from "./router/sourcesDiagCommand.js";
 import { handleSourceCommand } from "./router/sourceCommand.js";
 import { handleDiagSourceCommand } from "./router/diagSourceCommand.js";
 import { handleTestSourceCommand } from "./router/testSourceCommand.js";
-import { handleRunTaskCmdCommand } from "./router/runTaskCmdCommand.js";
 import { handleProjectMemoryCommands } from "./router/projectMemoryCommands.js";
+import { handleTaskExecutionCommands } from "./router/taskExecutionCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -834,72 +830,39 @@ export function attachMessageRouter({
             return;
           }
 
-          case "/run_task": {
-            await handleRunTaskCommand({
-              handleRunTask,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              access: accessPack,
-              getTaskById,
-              runTaskWithAI,
-            });
+          default: {
+            break;
+          }
+        }
+
+        {
+          const handledTaskExecution = await handleTaskExecutionCommands({
+            cmdBase,
+            handleRunTask,
+            handleStartTask,
+            handleStopTask,
+            handleStopAllTasks,
+            handleRunTaskCmd,
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            access: accessPack,
+            getTaskById,
+            runTaskWithAI,
+            bypass: isMonarchUser,
+            updateTaskStatus,
+            userRole,
+            canStopTaskV1,
+            callWithFallback,
+          });
+
+          if (handledTaskExecution) {
             return;
           }
+        }
 
-          case "/start_task": {
-            await handleStartTaskCommand({
-              handleStartTask,
-              bot,
-              chatId,
-              rest,
-              bypass: isMonarchUser,
-              updateTaskStatus,
-            });
-            return;
-          }
-
-          case "/stop_task": {
-            await handleStopTaskCommand({
-              handleStopTask,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              userRole,
-              bypass: isMonarchUser,
-              getTaskById,
-              canStopTaskV1,
-              updateTaskStatus,
-              access: accessPack,
-            });
-            return;
-          }
-
-          case "/stop_all": {
-            await handleStopAllCommand({
-              handleStopAllTasks,
-              bot,
-              chatId,
-              bypass: isMonarchUser,
-            });
-            return;
-          }
-
-          case "/run_task_cmd": {
-            await handleRunTaskCmdCommand({
-              handleRunTaskCmd,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              access: accessPack,
-              callWithFallback,
-            });
-            return;
-          }
-
+        switch (cmdBase) {
           case "/code_output_status": {
             await handleCodeOutputStatusCommand({
               ctxReply,

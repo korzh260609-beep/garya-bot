@@ -159,6 +159,9 @@ import { handleTasksOwnerDiagCommand } from "./router/tasksOwnerDiagCommand.js";
 import { handleApproveCommand } from "./router/approveCommand.js";
 import { handleDenyCommand } from "./router/denyCommand.js";
 import { handleBehaviorEventsLastCommand } from "./router/behaviorEventsLastCommand.js";
+import { handleChatMessagesDiagCommand } from "./router/chatMessagesDiagCommand.js";
+import { handleDemoTaskCommand } from "./router/demoTaskCommand.js";
+import { handleNewTaskCommand } from "./router/newTaskCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -735,7 +738,8 @@ export function attachMessageRouter({
           }
 
           case "/chat_messages_diag": {
-            await handleChatMessagesDiag({
+            await handleChatMessagesDiagCommand({
+              handleChatMessagesDiag,
               bot,
               chatId,
               chatIdStr,
@@ -756,7 +760,8 @@ export function attachMessageRouter({
           }
 
           case "/demo_task": {
-            await handleDemoTask({
+            await handleDemoTaskCommand({
+              handleDemoTask,
               bot,
               chatId,
               chatIdStr,
@@ -768,7 +773,8 @@ export function attachMessageRouter({
           }
 
           case "/new_task": {
-            await handleNewTask({
+            await handleNewTaskCommand({
+              handleNewTask,
               bot,
               chatId,
               chatIdStr,

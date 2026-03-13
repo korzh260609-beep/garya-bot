@@ -148,6 +148,7 @@ import { createChatMemoryWriters } from "./router/chatMemoryWriters.js";
 import { runTransportShadowFlow } from "./router/transportShadowRunner.js";
 import { createRouterCommandContext } from "./router/routerCommandContext.js";
 import { handleBuildInfoCommand } from "./router/buildInfoCommand.js";
+import { handleCodeOutputStatusCommand } from "./router/codeOutputStatusCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -1104,18 +1105,11 @@ export function attachMessageRouter({
           }
 
           case "/code_output_status": {
-            const mode = getCodeOutputMode();
-            await ctxReply(
-              [
-                `CODE_OUTPUT_MODE: ${mode}`,
-                "",
-                "Modes:",
-                "- DISABLED → генерация запрещена",
-                "- DRY_RUN → только валидация без AI",
-                "- ENABLED → реальная генерация кода",
-              ].join("\n"),
-              { cmd: cmdBase, handler: "messageRouter" }
-            );
+            await handleCodeOutputStatusCommand({
+              ctxReply,
+              getCodeOutputMode,
+              cmdBase,
+            });
             return;
           }
 

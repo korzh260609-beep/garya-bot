@@ -165,6 +165,9 @@ import { handleNewTaskCommand } from "./router/newTaskCommand.js";
 import { handleBtcTestTaskCommand } from "./router/btcTestTaskCommand.js";
 import { handleTasksCommand } from "./router/tasksCommand.js";
 import { handleRunTaskCommand } from "./router/runTaskCommand.js";
+import { handleStartTaskCommand } from "./router/startTaskCommand.js";
+import { handleStopTaskCommand } from "./router/stopTaskCommand.js";
+import { handleStopAllCommand } from "./router/stopAllCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -830,7 +833,8 @@ export function attachMessageRouter({
           }
 
           case "/start_task": {
-            await handleStartTask({
+            await handleStartTaskCommand({
+              handleStartTask,
               bot,
               chatId,
               rest,
@@ -841,7 +845,8 @@ export function attachMessageRouter({
           }
 
           case "/stop_task": {
-            await handleStopTask({
+            await handleStopTaskCommand({
+              handleStopTask,
               bot,
               chatId,
               chatIdStr,
@@ -857,11 +862,11 @@ export function attachMessageRouter({
           }
 
           case "/stop_all": {
-            await handleStopAllTasks({
+            await handleStopAllCommand({
+              handleStopAllTasks,
               bot,
               chatId,
-              chatIdStr,
-              canStopTaskV1,
+              bypass: isMonarchUser,
             });
             return;
           }

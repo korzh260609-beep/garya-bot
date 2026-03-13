@@ -2,9 +2,14 @@
 // Stage 11.12 — /grant
 // Usage:
 // - /grant <target_ref> <role>
-// target_ref:
+//
+// Canonical target_ref:
 // - global_user_id
-// - telegram user id
+//
+// Convenience fallback:
+// - numeric telegram user id
+// - tg:<telegram_user_id>
+// - telegram:<telegram_user_id>
 //
 // Allowed roles:
 // - guest
@@ -15,6 +20,9 @@ import {
   setGrantedRole,
   normalizeGrantRole,
 } from "../../users/grants.js";
+import BehaviorEventsService from "../../logging/BehaviorEventsService.js";
+
+const behaviorEvents = new BehaviorEventsService();
 
 function parseArgs(rest) {
   const raw = String(rest || "").trim();
@@ -48,14 +56,20 @@ export async function handleGrant({
         "Использование:",
         "/grant <target_ref> <role>",
         "",
+        "Где target_ref:",
+        "- global_user_id (основной путь)",
+        "- telegram user id (fallback)",
+        "- tg:<telegram_user_id> (fallback)",
+        "",
         "Где role:",
         "- guest",
         "- citizen",
         "- vip",
         "",
         "Пример:",
-        "/grant tg:123456 citizen",
-        "/grant 123456 vip",
+        "/grant usr_abc123 citizen",
+        "/grant 123456789 vip",
+        "/grant tg:123456789 guest",
       ].join("\n")
     );
     return;
@@ -76,6 +90,25 @@ export async function handleGrant({
       return;
     }
 
+    try {
+      await behaviorEvents.logEvent({
+        globalUserId: row.global_user_id,
+        chatId: String(chatId),
+        eventType: "role_granted",
+        metadata: {
+          target_ref: targetRef,
+          previous_role: row.previous_role,
+          next_role: row.role,
+          changed_by: "monarch",
+          tg_user_id: row.tg_user_id || null,
+        },
+        transport: "telegram",
+        schemaVersion: 1,
+      });
+    } catch (e) {
+      console.error("handleGrant behavior_events error:", e);
+    }
+
     await bot.sendMessage(
       chatId,
       [
@@ -83,6 +116,7 @@ export async function handleGrant({
         `target: ${targetRef}`,
         `global_user_id: ${row.global_user_id}`,
         `tg_user_id: ${row.tg_user_id || "—"}`,
+        `previous_role: ${row.previous_role}`,
         `role: ${row.role}`,
       ].join("\n")
     );

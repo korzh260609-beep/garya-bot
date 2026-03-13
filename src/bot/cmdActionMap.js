@@ -25,6 +25,10 @@ export const CMD_ACTION = {
   "/diag_source": "cmd.source.diagnose",
   "/test_source": "cmd.source.test",
 
+  // ✅ STAGE 11.13 — Recall role gate
+  "/recall": "cmd.recall",
+  "/recall_more": "cmd.recall",
+
   // ✅ STAGE 4.3 — Chat Gate admin (monarch)
   "/chat_on": "cmd.admin.chat_set_active",
   "/chat_off": "cmd.admin.chat_set_active",

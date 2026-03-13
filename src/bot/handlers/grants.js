@@ -2,6 +2,14 @@
 // Stage 11.12 — /grants
 // Usage:
 // - /grants <target_ref>
+//
+// Canonical target_ref:
+// - global_user_id
+//
+// Convenience fallback:
+// - numeric telegram user id
+// - tg:<telegram_user_id>
+// - telegram:<telegram_user_id>
 
 import { getGrantInfo } from "../../users/grants.js";
 
@@ -30,9 +38,15 @@ export async function handleGrants({
         "Использование:",
         "/grants <target_ref>",
         "",
+        "Где target_ref:",
+        "- global_user_id (основной путь)",
+        "- telegram user id (fallback)",
+        "- tg:<telegram_user_id> (fallback)",
+        "",
         "Пример:",
-        "/grants tg:123456",
-        "/grants 123456",
+        "/grants usr_abc123",
+        "/grants 123456789",
+        "/grants tg:123456789",
       ].join("\n")
     );
     return;

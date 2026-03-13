@@ -37,6 +37,11 @@ import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
 // ✅ Stage 5.16 — behavior events test emitter (DEV)
 import { handleBeEmit } from "./handlers/beEmit.js";
 
+// ✅ STAGE 11.12 — grants
+import { handleGrant } from "./handlers/grant.js";
+import { handleRevoke } from "./handlers/revoke.js";
+import { handleGrants } from "./handlers/grants.js";
+
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -183,6 +188,11 @@ export async function dispatchCommand(cmd, ctx) {
     "/my_seen_chats",
     "/group_source_meta",
     "/group_source_topic_diag",
+
+    // ✅ STAGE 11.12 — grants are private-only
+    "/grant",
+    "/revoke",
+    "/grants",
 
     // ✅ STAGE 5.16 — behavior events (keep private)
     "/behavior_events_last",
@@ -418,6 +428,37 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/group_source_topic_diag": {
       await handleGroupSourceTopicDiag({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    // ✅ STAGE 11.12 — grants
+    case "/grant": {
+      await handleGrant({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/revoke": {
+      await handleRevoke({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/grants": {
+      await handleGrants({
         bot,
         chatId,
         rest: ctx.rest,

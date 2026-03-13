@@ -35,6 +35,11 @@ export const CMD_ACTION = {
   "/group_source_off": "cmd.admin.group_source_set",
   "/group_sources": "cmd.admin.group_source_status",
 
+  // ✅ STAGE 11.12 — Grants admin (monarch)
+  "/grant": "cmd.admin.grant",
+  "/revoke": "cmd.admin.revoke",
+  "/grants": "cmd.admin.grants",
+
   // Stage 5/6 — admin/dev (must go via can())
   "/health": "cmd.admin.health",
   "/webhook_info": "cmd.admin.webhook_info",

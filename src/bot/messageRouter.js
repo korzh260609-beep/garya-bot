@@ -186,6 +186,9 @@ import { handleSourcesDiagCommand } from "./router/sourcesDiagCommand.js";
 import { handleSourceCommand } from "./router/sourceCommand.js";
 import { handleDiagSourceCommand } from "./router/diagSourceCommand.js";
 import { handleTestSourceCommand } from "./router/testSourceCommand.js";
+import { handlePmShowCommand } from "./router/pmShowCommand.js";
+import { handlePmSetCommand } from "./router/pmSetCommand.js";
+import { handleRunTaskCmdCommand } from "./router/runTaskCmdCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -628,7 +631,8 @@ export function attachMessageRouter({
         }
 
         if (cmdBase === "/pm_show") {
-          await handlePmShow({
+          await handlePmShowCommand({
+            handlePmShow,
             bot,
             chatId,
             rest,
@@ -638,13 +642,13 @@ export function attachMessageRouter({
         }
 
         if (cmdBase === "/pm_set") {
-          await handlePmSet({
+          await handlePmSetCommand({
+            handlePmSet,
             bot,
             chatId,
             chatIdStr,
             rest,
             upsertProjectSection,
-            bypass: true,
           });
           return;
         }
@@ -890,7 +894,8 @@ export function attachMessageRouter({
           }
 
           case "/run_task_cmd": {
-            await handleRunTaskCmd({
+            await handleRunTaskCmdCommand({
+              handleRunTaskCmd,
               bot,
               chatId,
               chatIdStr,

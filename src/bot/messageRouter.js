@@ -150,6 +150,9 @@ import { createRouterCommandContext } from "./router/routerCommandContext.js";
 import { handleBuildInfoCommand } from "./router/buildInfoCommand.js";
 import { handleCodeOutputStatusCommand } from "./router/codeOutputStatusCommand.js";
 import { handleMemoryUserChatsCommand } from "./router/memoryUserChatsCommand.js";
+import { handleMemoryDiagCommand } from "./router/memoryDiagCommand.js";
+import { handleMemoryIntegrityCommand } from "./router/memoryIntegrityCommand.js";
+import { handleMemoryBackfillCommand } from "./router/memoryBackfillCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -571,38 +574,37 @@ export function attachMessageRouter({
 
         // ✅ /memory_diag
         if (cmdBase === "/memory_diag") {
-          const globalUserId2 =
-            accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-          const out = await memDiag.memoryDiag({
+          await handleMemoryDiagCommand({
+            accessPack,
+            memDiag,
             chatIdStr,
-            globalUserId: globalUserId2,
+            ctxReply,
+            cmdBase,
           });
-          await ctxReply(out, { cmd: cmdBase, handler: "messageRouter" });
           return;
         }
 
         // ✅ /memory_integrity
         if (cmdBase === "/memory_integrity") {
-          const out = await memDiag.memoryIntegrity({ chatIdStr });
-          await ctxReply(out, { cmd: cmdBase, handler: "messageRouter" });
+          await handleMemoryIntegrityCommand({
+            memDiag,
+            chatIdStr,
+            ctxReply,
+            cmdBase,
+          });
           return;
         }
 
         // ✅ /memory_backfill
         if (cmdBase === "/memory_backfill") {
-          const globalUserId2 =
-            accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-          const rawN = Number(String(rest || "").trim() || "200");
-          const limit = Number.isFinite(rawN)
-            ? Math.max(1, Math.min(500, rawN))
-            : 200;
-
-          const out = await memDiag.memoryBackfill({
+          await handleMemoryBackfillCommand({
+            accessPack,
+            memDiag,
             chatIdStr,
-            globalUserId: globalUserId2,
-            limit,
+            rest,
+            ctxReply,
+            cmdBase,
           });
-          await ctxReply(out, { cmd: cmdBase, handler: "messageRouter" });
           return;
         }
 

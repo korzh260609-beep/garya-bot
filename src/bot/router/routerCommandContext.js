@@ -1,6 +1,6 @@
 // src/bot/router/routerCommandContext.js
 
-import { getMemoryService } from "../core/memoryServiceFactory.js";
+import { getMemoryService } from "../../core/memoryServiceFactory.js";
 import { buildRequirePermOrReply } from "../permGuard.js";
 import { ctxReplyCommand } from "./ctxReplyCommand.js";
 

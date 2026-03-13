@@ -54,6 +54,193 @@ export class TimeContext {
     return this._safeTimeZoneOrUTC(this.userTimezone);
   }
 
+  _monthMapRuUa() {
+    return {
+      января: 0,
+      січня: 0,
+
+      февраля: 1,
+      лютого: 1,
+
+      марта: 2,
+      березня: 2,
+
+      апреля: 3,
+      квітня: 3,
+
+      мая: 4,
+      травня: 4,
+
+      июня: 5,
+      червня: 5,
+
+      июля: 6,
+      липня: 6,
+
+      августа: 7,
+      серпня: 7,
+
+      сентября: 8,
+      вересня: 8,
+
+      октября: 9,
+      жовтня: 9,
+
+      ноября: 10,
+      листопада: 10,
+
+      декабря: 11,
+      грудня: 11,
+    };
+  }
+
+  _monthMapEn() {
+    return {
+      january: 0,
+      jan: 0,
+
+      february: 1,
+      feb: 1,
+
+      march: 2,
+      mar: 2,
+
+      april: 3,
+      apr: 3,
+
+      may: 4,
+
+      june: 5,
+      jun: 5,
+
+      july: 6,
+      jul: 6,
+
+      august: 7,
+      aug: 7,
+
+      september: 8,
+      sep: 8,
+      sept: 8,
+
+      october: 9,
+      oct: 9,
+
+      november: 10,
+      nov: 10,
+
+      december: 11,
+      dec: 11,
+    };
+  }
+
+  _resolveExplicitDayMonth(query, nowUTC) {
+    const q = String(query || "").toLowerCase().trim();
+    if (!q) return null;
+
+    const ruUa = this._monthMapRuUa();
+    const en = this._monthMapEn();
+
+    // RU/UA: "11 марта", "5 квітня"
+    let m = q.match(
+      /\b(\d{1,2})\s+(января|січня|февраля|лютого|марта|березня|апреля|квітня|мая|травня|июня|червня|июля|липня|августа|серпня|сентября|вересня|октября|жовтня|ноября|листопада|декабря|грудня)\b/iu
+    );
+
+    if (m) {
+      const day = Number(m[1]);
+      const monthName = String(m[2] || "").toLowerCase();
+      const month = ruUa[monthName];
+
+      if (Number.isInteger(day) && day >= 1 && day <= 31 && Number.isInteger(month)) {
+        const nowParts = this.getZonedParts(nowUTC);
+        let year = nowParts.year;
+
+        let candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+        if (Number.isNaN(candidate.getTime())) return null;
+
+        // If the date is in the future relative to user's current date, assume previous year
+        const candidateStart = this.startOfUserDayUTC(candidate);
+        const tomorrowStart = this.addDaysUser(nowUTC, 1);
+
+        if (candidateStart.getTime() >= tomorrowStart.getTime()) {
+          year -= 1;
+          candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+        }
+
+        const from = this.startOfUserDayUTC(candidate);
+        const to = this.addDaysUser(from, 1);
+
+        return { fromUTC: from, toUTC: to, hint: `explicit_${day}_${month + 1}` };
+      }
+    }
+
+    // EN: "march 11", "mar 11"
+    m = q.match(
+      /\b(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)\s+(\d{1,2})\b/i
+    );
+
+    if (m) {
+      const monthName = String(m[1] || "").toLowerCase();
+      const day = Number(m[2]);
+      const month = en[monthName];
+
+      if (Number.isInteger(day) && day >= 1 && day <= 31 && Number.isInteger(month)) {
+        const nowParts = this.getZonedParts(nowUTC);
+        let year = nowParts.year;
+
+        let candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+        if (Number.isNaN(candidate.getTime())) return null;
+
+        const candidateStart = this.startOfUserDayUTC(candidate);
+        const tomorrowStart = this.addDaysUser(nowUTC, 1);
+
+        if (candidateStart.getTime() >= tomorrowStart.getTime()) {
+          year -= 1;
+          candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+        }
+
+        const from = this.startOfUserDayUTC(candidate);
+        const to = this.addDaysUser(from, 1);
+
+        return { fromUTC: from, toUTC: to, hint: `explicit_${day}_${month + 1}` };
+      }
+    }
+
+    // EN: "11 march", "11 mar"
+    m = q.match(
+      /\b(\d{1,2})\s+(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)\b/i
+    );
+
+    if (m) {
+      const day = Number(m[1]);
+      const monthName = String(m[2] || "").toLowerCase();
+      const month = en[monthName];
+
+      if (Number.isInteger(day) && day >= 1 && day <= 31 && Number.isInteger(month)) {
+        const nowParts = this.getZonedParts(nowUTC);
+        let year = nowParts.year;
+
+        let candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+        if (Number.isNaN(candidate.getTime())) return null;
+
+        const candidateStart = this.startOfUserDayUTC(candidate);
+        const tomorrowStart = this.addDaysUser(nowUTC, 1);
+
+        if (candidateStart.getTime() >= tomorrowStart.getTime()) {
+          year -= 1;
+          candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+        }
+
+        const from = this.startOfUserDayUTC(candidate);
+        const to = this.addDaysUser(from, 1);
+
+        return { fromUTC: from, toUTC: to, hint: `explicit_${day}_${month + 1}` };
+      }
+    }
+
+    return null;
+  }
+
   // --- timezone-safe helpers (USER TZ -> UTC instants) ---
 
   getZonedParts(dateUTC) {
@@ -177,6 +364,13 @@ export class TimeContext {
         const from = this.addDaysUser(now, -1);
         const to = this.startOfUserDayUTC(now);
         return { fromUTC: from, toUTC: to, hint: "yesterday" };
+      }
+
+      // EXPLICIT DAY + MONTH
+      // examples: "11 марта", "5 апреля", "march 11", "11 march"
+      const explicitDate = this._resolveExplicitDayMonth(q, now);
+      if (explicitDate) {
+        return explicitDate;
       }
 
       // LAST N DAYS (includes today) — user TZ

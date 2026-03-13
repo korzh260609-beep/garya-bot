@@ -436,7 +436,14 @@ export async function robotTick(bot) {
     // ✅ Stage 7B.6 maintenance: chat_messages retention purge (disabled by default)
     // Never blocks the bot if it fails.
     try {
-      await _chatHistoryRetention.maybePurge();
+      const purgeResult = await _chatHistoryRetention.maybePurge();
+
+      if (purgeResult?.ran === true) {
+        console.log("🧹 chat_messages retention:", {
+          deleted: purgeResult?.deleted || 0,
+          perRole: purgeResult?.perRole || {},
+        });
+      }
     } catch (_) {
       // ignore
     }

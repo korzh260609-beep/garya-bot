@@ -149,6 +149,7 @@ import {
   ctxReplyCommand,
   forcePairMessageId,
 } from "./router/ctxReplyCommand.js";
+import { devCommandGate } from "./router/devCommandGate.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -620,91 +621,22 @@ export function attachMessageRouter({
           }
         }
 
-        const DEV_COMMANDS = new Set([
-          "/reindex",
-          "/repo_get",
-          "/repo_check",
-          "/repo_review",
-          "/repo_analyze",
-          "/repo_diff",
-          "/code_fullfile",
-          "/code_insert",
-          "/code_output_status",
-          "/workflow_check",
-          "/build_info",
-          "/pm_set",
-          "/pm_show",
-          "/memory_status",
-          "/memory_diag",
-          "/memory_integrity",
-          "/memory_backfill",
-          "/memory_user_chats", // ✅ NEW
-          "/chat_meta_debug",
-          "/behavior_events_last",
-          "/chat_messages_diag",
+        {
+          const devGate = await devCommandGate({
+            cmdBase,
+            isMonarchUser,
+            isPrivate,
+            chatType,
+            chatIdStr,
+            senderIdStr,
+            transportChatType,
+            accessPack,
+            ctxReply,
+          });
 
-          // ✅ STAGE 4.3 — Chat Gate admin (DEV-only)
-          "/chat_on",
-          "/chat_off",
-          "/chat_status",
-
-          "/tasks",
-          "/start_task",
-          "/stop_task",
-          "/stop_all",
-          "/run_task",
-          "/run_task_cmd",
-          "/new_task",
-          "/demo_task",
-          "/btc_test_task",
-          "/tasks_owner_diag",
-          "/sources",
-          "/sources_diag",
-          "/source",
-          "/diag_source",
-          "/test_source",
-          "/approve",
-          "/deny",
-          "/file_logs",
-          "/ar_list",
-          "/chat_diag", // ✅ STAGE 4 — minimal diag
-        ]);
-
-        const isDev = DEV_COMMANDS.has(cmdBase);
-        // ✅ No DEV commands allowed in groups. Single policy point: commandDispatcher.js (PRIVATE-only).
-        const devAllowInGroup = false;
-
-        if (isDev && (!isMonarchUser || (!isPrivate && !devAllowInGroup))) {
-          await ctxReply(
-            [
-              "⛔ DEV only.",
-              `cmd=${cmdBase}`,
-              `chatType=${chatType}`,
-              `private=${isPrivate}`,
-              `monarch=${isMonarchUser}`,
-              `chatId=${chatIdStr}`,
-              `from=${senderIdStr}`,
-              `transportChatType=${String(transportChatType || "")}`,
-              `chatIdEqFrom=${chatIdStr === senderIdStr}`,
-            ].join("\n"),
-            { cmd: cmdBase, handler: "messageRouter", event: "dev_only_block" }
-          );
-
-          try {
-            await behaviorEvents.logEvent({
-              globalUserId: accessPack?.user?.global_user_id || null,
-              chatId: chatIdStr,
-              eventType: "risk_warning_shown",
-              metadata: {
-                reason: "dev_only_command",
-                command: cmdBase,
-              },
-            });
-          } catch (e) {
-            console.error("behavior_events log failed:", e);
+          if (devGate?.handled) {
+            return;
           }
-
-          return;
         }
 
         // ✅ /memory_status
@@ -1034,7 +966,7 @@ export function attachMessageRouter({
           action &&
           typeof action === "string" &&
           action.startsWith("cmd.admin.") &&
-          (!isMonarchUser || (!isPrivate && !devAllowInGroup))
+          (!isMonarchUser || (!isPrivate && false))
         ) {
           return;
         }

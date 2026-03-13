@@ -29,9 +29,6 @@ import { upsertProjectSection } from "./projectMemory.js";
 import { jobRunner } from "./src/jobs/jobRunnerInstance.js";
 export { jobRunner };
 
-// Robot loop
-import { startRobotLoop } from "./src/robot/robotMock.js";
-
 // Env
 import { envInt, envStr } from "./src/core/config.js";
 
@@ -68,9 +65,6 @@ startHttpServer(app, PORT);
 (async () => {
   try {
     await initSystem({ bot });
-
-    startRobotLoop(bot);
-    console.log("🤖 Robot loop started.");
   } catch (e) {
     console.error("❌ ERROR при инициализации системы:", e);
   }

@@ -144,6 +144,12 @@ import { insertCommandInvocation } from "../db/commandInvocationsRepo.js";
 // ✅ STAGE 6.8.2 — OBSERVABILITY (reuse webhook_dedupe_events)
 import { insertWebhookDedupeEvent } from "../db/chatMessagesRepo.js";
 
+// ✅ SPLIT — extracted from messageRouter.js
+import {
+  ctxReplyCommand,
+  forcePairMessageId,
+} from "./router/ctxReplyCommand.js";
+
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
 // ============================================================================
@@ -166,82 +172,6 @@ const CHAT_DEFAULT_ACTIVE_RAW = envStr("CHAT_DEFAULT_ACTIVE", "true")
 const CHAT_DEFAULT_ACTIVE = ["1", "true", "yes", "y", "on"].includes(
   CHAT_DEFAULT_ACTIVE_RAW
 );
-
-// ============================================================================
-// STAGE 7 — deterministic pairing helper
-// Rule: ALWAYS use user telegram mid (msg.message_id) as metadata.messageId
-// for BOTH user and assistant rows. If caller passes other messageId, store it
-// as metadata.originalMessageId for diagnostics.
-// ============================================================================
-function _forcePairMessageId(metaIn, msg) {
-  const meta = metaIn && typeof metaIn === "object" ? { ...metaIn } : {};
-  const userMid = msg?.message_id ?? null;
-
-  if (userMid === null || userMid === undefined) return meta;
-
-  const userMidStr = String(userMid);
-
-  if (meta.messageId !== undefined && meta.messageId !== null) {
-    const incomingStr = String(meta.messageId);
-    if (incomingStr !== userMidStr) {
-      meta.originalMessageId = meta.messageId;
-    }
-  }
-
-  meta.messageId = userMid; // deterministic pair key
-  meta.pairMessageId = userMid; // explicit alias (debug)
-  return meta;
-}
-
-// ============================================================================
-// ✅ STAGE 7B — unified command reply helper
-// Responsibilities:
-// 1) Send message to Telegram
-// 2) Save assistant response to memory (chat_memory)
-// 3) Deterministic pairing via metadata.messageId = user msg.message_id
-// 4) Best-effort, never blocks command flow
-// ============================================================================
-async function _ctxReplyCommand({
-  bot,
-  chatId,
-  chatIdStr,
-  msg,
-  memory,
-  globalUserId,
-  text,
-  meta = {},
-}) {
-  const outText = String(text ?? "");
-
-  // 1) Send to Telegram (authoritative)
-  const sent = await bot.sendMessage(chatId, outText);
-
-  // 2) Save assistant reply to memory (best-effort)
-  try {
-    const forcedMeta = _forcePairMessageId(
-      {
-        ...meta,
-        kind: "command_reply",
-        assistantMessageId: sent?.message_id ?? null,
-      },
-      msg
-    );
-
-    await memory.write({
-      chatId: String(chatIdStr || ""),
-      globalUserId: globalUserId ?? null,
-      role: "assistant",
-      content: outText,
-      transport: "telegram",
-      metadata: forcedMeta,
-      schemaVersion: 2,
-    });
-  } catch (e) {
-    console.error("ctx.reply(command) memory.write failed:", e);
-  }
-
-  return sent;
-}
 
 // ============================================================================
 // === ATTACH ROUTER
@@ -533,7 +463,7 @@ export function attachMessageRouter({
       // Create once per message; used in command flow and passed to dispatchCommand(ctx).
       const memory = getMemoryService();
       const ctxReply = async (text, meta) => {
-        return _ctxReplyCommand({
+        return ctxReplyCommand({
           bot,
           chatId,
           chatIdStr,
@@ -1615,7 +1545,7 @@ export function attachMessageRouter({
       const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
         try {
           // ✅ STAGE 7 deterministic pairing: force pair key = msg.message_id
-          const meta = _forcePairMessageId(opts?.metadata ?? {}, msg);
+          const meta = forcePairMessageId(opts?.metadata ?? {}, msg);
 
           return await memory.write({
             chatId: String(chatIdStr2 || ""),
@@ -1636,7 +1566,7 @@ export function attachMessageRouter({
       const saveChatPair = async (chatIdStr2, _userText, assistantText, opts = {}) => {
         try {
           // ✅ STAGE 7 deterministic pairing: force pair key = msg.message_id
-          const meta = _forcePairMessageId(opts?.metadata ?? {}, msg);
+          const meta = forcePairMessageId(opts?.metadata ?? {}, msg);
 
           return await memory.write({
             chatId: String(chatIdStr2 || ""),

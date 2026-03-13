@@ -312,18 +312,8 @@ export class RecallEngine {
   }
 
   // ========================================================================
-  // search() — читает из chat_messages (таблица 7B, актуальный лог)
-  // Используется хендлером /recall вместо прямого pool.query.
-  // Параметры:
-  //   chatId      — обязательный
-  //   days        — глубина поиска (1..30)
-  //   limit       — макс строк (1..20)
-  //   keyword     — подстрока для ILIKE (пустая строка = без фильтра)
+  // search() — legacy/simple search
   // Возвращает: [{ id, role, content, created_at }] | []
-  //
-  // STAGE 8A.5 FOUNDATION:
-  // - adds id for future cursor paging
-  // - current /recall output remains compatible
   // ========================================================================
   async search({ chatId, days = 1, limit = 5, keyword = "" }) {
     const chatIdStr = chatId != null ? String(chatId) : null;
@@ -334,7 +324,6 @@ export class RecallEngine {
       Math.min(20, Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : 5)
     );
 
-    // keep legacy clamp + allow overriding upper bound via RECALL_MAX_DAYS
     const hardMax = envInt("RECALL_MAX_DAYS", 30, 1, 365);
     const d = Math.max(
       1,
@@ -364,6 +353,103 @@ export class RecallEngine {
         this.logger.error("❌ RecallEngine.search failed:", e?.message || e);
       } catch (_) {}
       return [];
+    }
+  }
+
+  // ========================================================================
+  // searchPage() — real stateless paging foundation for /recall_more
+  // Параметры:
+  //   chatId
+  //   days
+  //   limit
+  //   keyword
+  //   cursorCreatedAt (optional)
+  //   cursorId (optional)
+  //
+  // Возвращает:
+  //   {
+  //     rows: [{ id, role, content, created_at }],
+  //     hasMore: boolean
+  //   }
+  // ========================================================================
+  async searchPage({
+    chatId,
+    days = 1,
+    limit = 5,
+    keyword = "",
+    cursorCreatedAt = null,
+    cursorId = null,
+  }) {
+    const chatIdStr = chatId != null ? String(chatId) : null;
+    if (!chatIdStr) {
+      return { rows: [], hasMore: false };
+    }
+
+    const lim = Math.max(
+      1,
+      Math.min(20, Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : 5)
+    );
+
+    const hardMax = envInt("RECALL_MAX_DAYS", 30, 1, 365);
+    const d = Math.max(
+      1,
+      Math.min(hardMax, Number.isFinite(Number(days)) ? Math.trunc(Number(days)) : 1)
+    );
+
+    const kw = String(keyword ?? "").trim();
+
+    const hasCursorTs =
+      typeof cursorCreatedAt === "string" && cursorCreatedAt.trim().length > 0;
+    const parsedCursorId = Number.isFinite(Number(cursorId))
+      ? Math.trunc(Number(cursorId))
+      : null;
+
+    try {
+      const params = [chatIdStr, d, kw];
+      let sql = `
+        SELECT id, role, content, created_at
+        FROM chat_messages
+        WHERE chat_id = $1
+          AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
+          AND ($3 = '' OR content ILIKE ('%' || $3 || '%'))
+          AND is_redacted = false
+          AND role IN ('user','assistant')
+      `;
+
+      if (hasCursorTs && parsedCursorId !== null) {
+        params.push(String(cursorCreatedAt).trim());
+        params.push(parsedCursorId);
+
+        const tsIdx = params.length - 1;
+        const idIdx = params.length;
+
+        sql += `
+          AND (
+            created_at < $${tsIdx}
+            OR (created_at = $${tsIdx} AND id < $${idIdx})
+          )
+        `;
+      }
+
+      params.push(lim + 1);
+
+      sql += `
+        ORDER BY created_at DESC, id DESC
+        LIMIT $${params.length}
+      `;
+
+      const r = await this.db.query(sql, params);
+      const rawRows = Array.isArray(r?.rows) ? r.rows : [];
+
+      const hasMore = rawRows.length > lim;
+      const rows = hasMore ? rawRows.slice(0, lim) : rawRows;
+
+      return { rows, hasMore };
+    } catch (e) {
+      try {
+        this.logger.error("❌ RecallEngine.searchPage failed:", e?.message || e);
+      } catch (_) {}
+      return { rows: [], hasMore: false };
     }
   }
 }

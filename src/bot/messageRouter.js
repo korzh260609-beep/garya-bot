@@ -150,6 +150,7 @@ import {
   forcePairMessageId,
 } from "./router/ctxReplyCommand.js";
 import { devCommandGate } from "./router/devCommandGate.js";
+import { createChatMemoryWriters } from "./router/chatMemoryWriters.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -1474,45 +1475,12 @@ export function attachMessageRouter({
       // otherwise core shadow can write only user (MEMORY_SHADOW_WRITE) => u=1 a=0.
       // NOTE: memory already created above (Stage 7B) — keep local name for clarity.
 
-      const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
-        try {
-          // ✅ STAGE 7 deterministic pairing: force pair key = msg.message_id
-          const meta = forcePairMessageId(opts?.metadata ?? {}, msg);
-
-          return await memory.write({
-            chatId: String(chatIdStr2 || ""),
-            globalUserId: opts?.globalUserId ?? globalUserId ?? null,
-            role,
-            content: String(content ?? ""),
-            transport: opts?.transport ?? "telegram",
-            metadata: meta,
-            schemaVersion: opts?.schemaVersion ?? 2,
-          });
-        } catch (e) {
-          console.error("router.saveMessageToMemory failed:", e);
-        }
-      };
-
-      // ✅ STAGE 7 — deterministic save (assistant pairing)
-      // IMPORTANT: force metadata.messageId to user telegram mid ALWAYS (not only when missing)
-      const saveChatPair = async (chatIdStr2, _userText, assistantText, opts = {}) => {
-        try {
-          // ✅ STAGE 7 deterministic pairing: force pair key = msg.message_id
-          const meta = forcePairMessageId(opts?.metadata ?? {}, msg);
-
-          return await memory.write({
-            chatId: String(chatIdStr2 || ""),
-            globalUserId: opts?.globalUserId ?? globalUserId ?? null,
-            role: "assistant",
-            content: String(assistantText ?? ""),
-            transport: opts?.transport ?? "telegram",
-            metadata: meta,
-            schemaVersion: opts?.schemaVersion ?? 2,
-          });
-        } catch (e) {
-          console.error("router.saveChatPair failed:", e);
-        }
-      };
+      const { saveMessageToMemory, saveChatPair } = createChatMemoryWriters({
+        memory,
+        msg,
+        globalUserId,
+        forcePairMessageId,
+      });
 
       await handleChatMessage({
         bot,

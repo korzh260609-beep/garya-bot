@@ -186,9 +186,8 @@ import { handleSourcesDiagCommand } from "./router/sourcesDiagCommand.js";
 import { handleSourceCommand } from "./router/sourceCommand.js";
 import { handleDiagSourceCommand } from "./router/diagSourceCommand.js";
 import { handleTestSourceCommand } from "./router/testSourceCommand.js";
-import { handlePmShowCommand } from "./router/pmShowCommand.js";
-import { handlePmSetCommand } from "./router/pmSetCommand.js";
 import { handleRunTaskCmdCommand } from "./router/runTaskCmdCommand.js";
+import { handleProjectMemoryCommands } from "./router/projectMemoryCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -630,27 +629,22 @@ export function attachMessageRouter({
           return;
         }
 
-        if (cmdBase === "/pm_show") {
-          await handlePmShowCommand({
+        {
+          const handledProjectMemory = await handleProjectMemoryCommands({
+            cmdBase,
             handlePmShow,
-            bot,
-            chatId,
-            rest,
-            getProjectSection,
-          });
-          return;
-        }
-
-        if (cmdBase === "/pm_set") {
-          await handlePmSetCommand({
             handlePmSet,
             bot,
             chatId,
             chatIdStr,
             rest,
+            getProjectSection,
             upsertProjectSection,
           });
-          return;
+
+          if (handledProjectMemory) {
+            return;
+          }
         }
 
         if (cmdBase === "/build_info") {

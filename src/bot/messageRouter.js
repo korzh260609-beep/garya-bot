@@ -666,6 +666,9 @@ export function attachMessageRouter({
         }
 
         // ✅ Stage 3.5 — apply RL to ALL commands (except /start, /help). Monarch bypass.
+        // NOTE Stage 11.x:
+        // - router-level behavior_events logging for rate_limited removed
+        // - authoritative observability now lives in core/handleMessage.js
         if (!isMonarchUser) {
           const rlKey = `${senderIdStr}:${chatIdStr}:cmd`;
           const rl = checkRateLimit({
@@ -676,27 +679,6 @@ export function attachMessageRouter({
 
           if (!rl.allowed) {
             const sec = Math.ceil(rl.retryAfterMs / 1000);
-
-            try {
-              await behaviorEvents.logEvent({
-                globalUserId: accessPack?.user?.global_user_id || null,
-                chatId: chatIdStr,
-                eventType: "rate_limited",
-                metadata: {
-                  scope: "command",
-                  cmd: cmdBase,
-                  retry_after_sec: sec,
-                  window_ms: CMD_RL_WINDOW_MS,
-                  max: CMD_RL_MAX,
-                  from: senderIdStr,
-                  chatType,
-                },
-                transport: "telegram",
-                schemaVersion: 1,
-              });
-            } catch (e) {
-              console.error("behavior_events rate_limited log failed:", e);
-            }
 
             await ctxReply(`⛔ Слишком часто. Подожди ${sec} сек.`, {
               cmd: cmdBase,
@@ -1130,25 +1112,6 @@ export function attachMessageRouter({
         if (action) {
           const allowed = await requirePermOrReply(cmdBase, { rest, identityCtx });
           if (!allowed) {
-            try {
-              await behaviorEvents.logEvent({
-                globalUserId: accessPack?.user?.global_user_id || null,
-                chatId: chatIdStr,
-                eventType: "permission_denied",
-                metadata: {
-                  cmd: cmdBase,
-                  chatType,
-                  private: isPrivate,
-                  from: senderIdStr,
-                  role: userRole,
-                  plan: userPlan,
-                },
-                transport: "telegram",
-                schemaVersion: 1,
-              });
-            } catch (e) {
-              console.error("behavior_events permission_denied log failed:", e);
-            }
             return;
           }
 

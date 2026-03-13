@@ -30,15 +30,12 @@ import { jobRunner } from "./src/jobs/jobRunnerInstance.js";
 export { jobRunner };
 
 // Env
-import { envInt, envStr } from "./src/core/config.js";
+import { envInt } from "./src/core/config.js";
 
 // ============================================================================
 // CONFIG
 // ============================================================================
 const MAX_HISTORY_MESSAGES = 20;
-
-const MONARCH_USER_ID = envStr("MONARCH_USER_ID", "").trim();
-const DEFAULT_PLAN = "free";
 
 // ============================================================================
 // JOB RUNNER

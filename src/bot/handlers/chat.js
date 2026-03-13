@@ -638,7 +638,7 @@ export async function handleChatMessage({
       parsed?.hint === "yesterday" ||
       parsed?.hint === "day_before_yesterday" ||
       /_days_ago$/.test(String(parsed?.hint || "")) ||
-      /_days_from_now$/.test(String(parsed?.hint || "")); // ✅ FIX
+      /_days_from_now$/.test(String(parsed?.hint || ""));
 
     if (asksCalendarDate && parsed?.fromUTC && isSingleDayHint) {
       const d = new Date(parsed.fromUTC);
@@ -683,9 +683,11 @@ export async function handleChatMessage({
     if (parsed && !isFutureSingleDay) {
       // ✅ FIX (STAGE 8): count U:/A: even when timestamps prefix the line: "[dd.mm hh:mm] U:"
       const uaCount = (recallCtx || "").match(/U:|A:/g)?.length ?? 0;
-      const recallLines = uaCount;
 
-      if (recallLines < 4) {
+      // ✅ SAFER FIX:
+      // block only when recall context is effectively empty
+      // or there are no user/assistant lines at all
+      if (!String(recallCtx || "").trim() || uaCount < 1) {
         try {
           const text = "В памяти нет данных за этот период.";
           await saveAssistantEarlyReturn(text, "guard_recall_too_weak");

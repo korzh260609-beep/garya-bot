@@ -82,14 +82,8 @@ import {
 // ✅ STAGE 7.3: stop memory writes from router; keep read-only history for chat context
 import { getChatHistory } from "./memory/memoryBridge.js";
 
-// === MEMORY LAYER V1 (SKELETON) ===
-import { getMemoryService } from "../core/memoryServiceFactory.js";
-
 // ✅ STAGE 7: move memory diagnostics SQL out of router
 import MemoryDiagnosticsService from "../core/MemoryDiagnosticsService.js";
-
-// === USERS ===
-import { buildRequirePermOrReply } from "./permGuard.js";
 
 // === TASK ENGINE ===
 import {
@@ -152,6 +146,7 @@ import {
 import { devCommandGate } from "./router/devCommandGate.js";
 import { createChatMemoryWriters } from "./router/chatMemoryWriters.js";
 import { runTransportShadowFlow } from "./router/transportShadowRunner.js";
+import { createRouterCommandContext } from "./router/routerCommandContext.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -346,32 +341,20 @@ export function attachMessageRouter({
           plan: userPlan,
         };
 
-      const requirePermOrReply = buildRequirePermOrReply({
-        bot,
-        msg,
-        MONARCH_USER_ID,
-        user,
-        userRole,
-        userPlan,
-        trimmed,
-        CMD_ACTION,
-      });
-
-      // ✅ Stage 7B: command replies must be logged to chat_memory
-      // Create once per message; used in command flow and passed to dispatchCommand(ctx).
-      const memory = getMemoryService();
-      const ctxReply = async (text, meta) => {
-        return ctxReplyCommand({
+      const { memory, ctxReply, requirePermOrReply } =
+        createRouterCommandContext({
           bot,
+          msg,
           chatId,
           chatIdStr,
-          msg,
-          memory,
+          MONARCH_USER_ID,
+          user,
+          userRole,
+          userPlan,
+          trimmed,
+          CMD_ACTION,
           globalUserId,
-          text,
-          meta: meta && typeof meta === "object" ? meta : {},
         });
-      };
 
       // =========================
       // === COMMANDS

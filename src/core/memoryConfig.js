@@ -2,8 +2,14 @@
 // STAGE 7 — MEMORY LAYER V1 (CONFIG)
 // Только конфиг и флаги. Без бизнес-логики и без прямых DB импортов.
 
+function envTruthy(v) {
+  if (v === true) return true;
+  const s = String(v ?? "").trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes" || s === "on";
+}
+
 export function getMemoryConfig() {
-  const enabled = process.env.MEMORY_ENABLED === "1";
+  const enabled = envTruthy(process.env.MEMORY_ENABLED);
 
   return {
     // Глобальный флаг Memory Layer

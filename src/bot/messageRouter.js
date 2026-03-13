@@ -183,6 +183,9 @@ import { handleArListCommand } from "./router/arListCommand.js";
 import { handleFileLogsCommand } from "./router/fileLogsCommand.js";
 import { handleSourcesCommand } from "./router/sourcesCommand.js";
 import { handleSourcesDiagCommand } from "./router/sourcesDiagCommand.js";
+import { handleSourceCommand } from "./router/sourceCommand.js";
+import { handleDiagSourceCommand } from "./router/diagSourceCommand.js";
+import { handleTestSourceCommand } from "./router/testSourceCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -1120,7 +1123,8 @@ export function attachMessageRouter({
           }
 
           case "/source": {
-            await handleSource({
+            await handleSourceCommand({
+              handleSource,
               bot,
               chatId,
               chatIdStr,
@@ -1131,7 +1135,8 @@ export function attachMessageRouter({
           }
 
           case "/diag_source": {
-            await handleDiagSource({
+            await handleDiagSourceCommand({
+              handleDiagSource,
               bot,
               chatId,
               chatIdStr,
@@ -1142,7 +1147,8 @@ export function attachMessageRouter({
           }
 
           case "/test_source": {
-            await handleTestSource({
+            await handleTestSourceCommand({
+              handleTestSource,
               bot,
               chatId,
               chatIdStr,

@@ -162,6 +162,9 @@ import { handleBehaviorEventsLastCommand } from "./router/behaviorEventsLastComm
 import { handleChatMessagesDiagCommand } from "./router/chatMessagesDiagCommand.js";
 import { handleDemoTaskCommand } from "./router/demoTaskCommand.js";
 import { handleNewTaskCommand } from "./router/newTaskCommand.js";
+import { handleBtcTestTaskCommand } from "./router/btcTestTaskCommand.js";
+import { handleTasksCommand } from "./router/tasksCommand.js";
+import { handleRunTaskCommand } from "./router/runTaskCommand.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -787,7 +790,8 @@ export function attachMessageRouter({
           }
 
           case "/btc_test_task": {
-            await handleBtcTestTask({
+            await handleBtcTestTaskCommand({
+              handleBtcTestTask,
               bot,
               chatId,
               chatIdStr,
@@ -800,7 +804,8 @@ export function attachMessageRouter({
           }
 
           case "/tasks": {
-            await handleTasksList({
+            await handleTasksCommand({
+              handleTasksList,
               bot,
               chatId,
               chatIdStr,
@@ -811,7 +816,8 @@ export function attachMessageRouter({
           }
 
           case "/run_task": {
-            await handleRunTask({
+            await handleRunTaskCommand({
+              handleRunTask,
               bot,
               chatId,
               chatIdStr,

@@ -1,7 +1,9 @@
 // src/users/grants.js
-// Stage 11.12 — Grants V1
+// Stage 11.12 — Grants V1.1
 // PURPOSE:
 // - monarch-only role management without direct SQL
+// - canonical target_ref = global_user_id
+// - provider-specific ids are only convenience fallback
 // - V1 scope: users.role only
 // - supported roles: guest / citizen / vip
 // - monarch role is NOT grantable via bot command
@@ -14,6 +16,69 @@ export function normalizeGrantRole(role) {
   const value = String(role || "").trim().toLowerCase();
   if (!GRANTABLE_ROLES.has(value)) return null;
   return value;
+}
+
+function normalizeTargetRef(targetRef) {
+  const raw = String(targetRef || "").trim();
+  if (!raw) {
+    return {
+      raw: "",
+      kind: "empty",
+      globalUserId: null,
+      provider: null,
+      providerUserId: null,
+      numericTelegramId: null,
+    };
+  }
+
+  const lower = raw.toLowerCase();
+
+  // Explicit provider prefix: tg:123456 or telegram:123456
+  if (lower.startsWith("tg:")) {
+    const providerUserId = raw.slice(3).trim();
+    return {
+      raw,
+      kind: "provider_explicit",
+      globalUserId: null,
+      provider: "telegram",
+      providerUserId,
+      numericTelegramId: /^\d+$/.test(providerUserId) ? providerUserId : null,
+    };
+  }
+
+  if (lower.startsWith("telegram:")) {
+    const providerUserId = raw.slice("telegram:".length).trim();
+    return {
+      raw,
+      kind: "provider_explicit",
+      globalUserId: null,
+      provider: "telegram",
+      providerUserId,
+      numericTelegramId: /^\d+$/.test(providerUserId) ? providerUserId : null,
+    };
+  }
+
+  // Numeric fallback = likely telegram id (temporary convenience path)
+  if (/^\d+$/.test(raw)) {
+    return {
+      raw,
+      kind: "numeric_fallback",
+      globalUserId: null,
+      provider: "telegram",
+      providerUserId: raw,
+      numericTelegramId: raw,
+    };
+  }
+
+  // Canonical path = exact global_user_id
+  return {
+    raw,
+    kind: "global_user_id",
+    globalUserId: raw,
+    provider: null,
+    providerUserId: null,
+    numericTelegramId: null,
+  };
 }
 
 async function findUserByGlobalUserId(globalUserId) {
@@ -47,9 +112,11 @@ async function findUserByTelegramUserId(tgUserId) {
   return res.rows?.[0] || null;
 }
 
-async function findUserByIdentityProviderUserId(providerUserId) {
+async function findUserByIdentityProviderUserId(provider, providerUserId) {
+  const providerNorm = String(provider || "").trim().toLowerCase();
   const raw = String(providerUserId || "").trim();
-  if (!raw) return null;
+
+  if (!providerNorm || !raw) return null;
 
   const res = await pool.query(
     `
@@ -57,32 +124,52 @@ async function findUserByIdentityProviderUserId(providerUserId) {
     FROM user_identities ui
     JOIN users u
       ON u.global_user_id = ui.global_user_id
-    WHERE ui.provider = 'telegram'
-      AND ui.provider_user_id = $1
+    WHERE ui.provider = $1
+      AND ui.provider_user_id = $2
     LIMIT 1
     `,
-    [raw]
+    [providerNorm, raw]
   );
 
   return res.rows?.[0] || null;
 }
 
 export async function resolveGrantTarget(targetRef) {
-  const raw = String(targetRef || "").trim();
-  if (!raw) return null;
+  const target = normalizeTargetRef(targetRef);
 
-  // 1) Exact global_user_id
-  let user = await findUserByGlobalUserId(raw);
-  if (user) return user;
+  if (target.kind === "empty") return null;
 
-  // 2) Telegram numeric ID in users.tg_user_id
-  if (/^\d+$/.test(raw)) {
-    user = await findUserByTelegramUserId(raw);
+  // 1) Canonical path: exact global_user_id
+  if (target.globalUserId) {
+    const user = await findUserByGlobalUserId(target.globalUserId);
     if (user) return user;
+  }
 
-    // 3) Telegram provider_user_id via user_identities
-    user = await findUserByIdentityProviderUserId(raw);
-    if (user) return user;
+  // 2) Explicit provider path
+  if (target.provider && target.providerUserId) {
+    const byIdentity = await findUserByIdentityProviderUserId(
+      target.provider,
+      target.providerUserId
+    );
+    if (byIdentity) return byIdentity;
+
+    // Legacy telegram fallback through users.tg_user_id
+    if (target.provider === "telegram" && target.numericTelegramId) {
+      const byLegacyTg = await findUserByTelegramUserId(target.numericTelegramId);
+      if (byLegacyTg) return byLegacyTg;
+    }
+  }
+
+  // 3) Numeric telegram convenience fallback
+  if (target.numericTelegramId) {
+    const byIdentity = await findUserByIdentityProviderUserId(
+      "telegram",
+      target.numericTelegramId
+    );
+    if (byIdentity) return byIdentity;
+
+    const byLegacyTg = await findUserByTelegramUserId(target.numericTelegramId);
+    if (byLegacyTg) return byLegacyTg;
   }
 
   return null;
@@ -115,6 +202,8 @@ export async function setGrantedRole({
     return null;
   }
 
+  const previousRole = String(target.role || "guest");
+
   const res = await pool.query(
     `
     UPDATE users
@@ -131,6 +220,7 @@ export async function setGrantedRole({
   return {
     global_user_id: row.global_user_id,
     tg_user_id: row.tg_user_id || null,
+    previous_role: previousRole,
     role: String(row.role || "guest"),
     language: row.language || null,
     changed_by: changedBy,

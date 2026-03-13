@@ -42,7 +42,6 @@ export class TimeContext {
     const cand = String(tz || "").trim() || "UTC";
     if (cand === "UTC") return "UTC";
     try {
-      // throws RangeError on invalid timeZone
       new Intl.DateTimeFormat("en-US", { timeZone: cand }).format(new Date());
       return cand;
     } catch (_) {
@@ -134,6 +133,45 @@ export class TimeContext {
     };
   }
 
+  _isValidDayMonth(year, month, day) {
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+    if (month < 0 || month > 11) return false;
+    if (day < 1 || day > 31) return false;
+
+    const d = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+    return (
+      d.getUTCFullYear() === year &&
+      d.getUTCMonth() === month &&
+      d.getUTCDate() === day
+    );
+  }
+
+  _buildSingleDayRange(year, month, day) {
+    if (!this._isValidDayMonth(year, month, day)) return null;
+
+    const candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+    const from = this.startOfUserDayUTC(candidate);
+    const to = this.addDaysUser(from, 1);
+
+    return { fromUTC: from, toUTC: to };
+  }
+
+  _resolveYearForSingleDay(month, day, nowUTC) {
+    const nowParts = this.getZonedParts(nowUTC);
+    let year = nowParts.year;
+
+    const currentYearRange = this._buildSingleDayRange(year, month, day);
+    if (!currentYearRange) return null;
+
+    const tomorrowStart = this.addDaysUser(nowUTC, 1);
+
+    if (currentYearRange.fromUTC.getTime() >= tomorrowStart.getTime()) {
+      year -= 1;
+    }
+
+    return year;
+  }
+
   _resolveExplicitDayMonth(query, nowUTC) {
     const q = String(query || "").toLowerCase().trim();
     if (!q) return null;
@@ -152,25 +190,13 @@ export class TimeContext {
       const month = ruUa[monthName];
 
       if (Number.isInteger(day) && day >= 1 && day <= 31 && Number.isInteger(month)) {
-        const nowParts = this.getZonedParts(nowUTC);
-        let year = nowParts.year;
+        const year = this._resolveYearForSingleDay(month, day, nowUTC);
+        if (year == null) return null;
 
-        let candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-        if (Number.isNaN(candidate.getTime())) return null;
+        const range = this._buildSingleDayRange(year, month, day);
+        if (!range) return null;
 
-        // If the date is in the future relative to user's current date, assume previous year
-        const candidateStart = this.startOfUserDayUTC(candidate);
-        const tomorrowStart = this.addDaysUser(nowUTC, 1);
-
-        if (candidateStart.getTime() >= tomorrowStart.getTime()) {
-          year -= 1;
-          candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-        }
-
-        const from = this.startOfUserDayUTC(candidate);
-        const to = this.addDaysUser(from, 1);
-
-        return { fromUTC: from, toUTC: to, hint: `explicit_${day}_${month + 1}` };
+        return { ...range, hint: `explicit_${day}_${month + 1}` };
       }
     }
 
@@ -185,24 +211,13 @@ export class TimeContext {
       const month = en[monthName];
 
       if (Number.isInteger(day) && day >= 1 && day <= 31 && Number.isInteger(month)) {
-        const nowParts = this.getZonedParts(nowUTC);
-        let year = nowParts.year;
+        const year = this._resolveYearForSingleDay(month, day, nowUTC);
+        if (year == null) return null;
 
-        let candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-        if (Number.isNaN(candidate.getTime())) return null;
+        const range = this._buildSingleDayRange(year, month, day);
+        if (!range) return null;
 
-        const candidateStart = this.startOfUserDayUTC(candidate);
-        const tomorrowStart = this.addDaysUser(nowUTC, 1);
-
-        if (candidateStart.getTime() >= tomorrowStart.getTime()) {
-          year -= 1;
-          candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-        }
-
-        const from = this.startOfUserDayUTC(candidate);
-        const to = this.addDaysUser(from, 1);
-
-        return { fromUTC: from, toUTC: to, hint: `explicit_${day}_${month + 1}` };
+        return { ...range, hint: `explicit_${day}_${month + 1}` };
       }
     }
 
@@ -217,24 +232,145 @@ export class TimeContext {
       const month = en[monthName];
 
       if (Number.isInteger(day) && day >= 1 && day <= 31 && Number.isInteger(month)) {
+        const year = this._resolveYearForSingleDay(month, day, nowUTC);
+        if (year == null) return null;
+
+        const range = this._buildSingleDayRange(year, month, day);
+        if (!range) return null;
+
+        return { ...range, hint: `explicit_${day}_${month + 1}` };
+      }
+    }
+
+    return null;
+  }
+
+  _resolveExplicitRange(query, nowUTC) {
+    const q = String(query || "").toLowerCase().trim();
+    if (!q) return null;
+
+    const ruUa = this._monthMapRuUa();
+    const en = this._monthMapEn();
+
+    // RU/UA:
+    // "с 8 по 13 марта"
+    // "с 8 марта по 13 марта"
+    // "8-13 марта"
+    let m = q.match(
+      /\b(?:с\s*)?(\d{1,2})\s*(?:(января|січня|февраля|лютого|марта|березня|апреля|квітня|мая|травня|июня|червня|июля|липня|августа|серпня|сентября|вересня|октября|жовтня|ноября|листопада|декабря|грудня)\s*)?(?:по|-)\s*(\d{1,2})\s*(января|січня|февраля|лютого|марта|березня|апреля|квітня|мая|травня|июня|червня|июля|липня|августа|серпня|сентября|вересня|октября|жовтня|ноября|листопада|декабря|грудня)\b/iu
+    );
+
+    if (m) {
+      const dayFrom = Number(m[1]);
+      const firstMonthName = m[2] ? String(m[2]).toLowerCase() : null;
+      const dayTo = Number(m[3]);
+      const secondMonthName = String(m[4] || "").toLowerCase();
+
+      const monthTo = ruUa[secondMonthName];
+      const monthFrom = firstMonthName ? ruUa[firstMonthName] : monthTo;
+
+      if (
+        Number.isInteger(dayFrom) &&
+        Number.isInteger(dayTo) &&
+        Number.isInteger(monthFrom) &&
+        Number.isInteger(monthTo)
+      ) {
+        const nowParts = this.getZonedParts(nowUTC);
+        let yearFrom = nowParts.year;
+        let yearTo = nowParts.year;
+
+        // cross-year only if month order clearly wraps
+        if (monthFrom > monthTo) {
+          yearFrom -= 1;
+        }
+
+        if (!this._isValidDayMonth(yearFrom, monthFrom, dayFrom)) return null;
+        if (!this._isValidDayMonth(yearTo, monthTo, dayTo)) return null;
+
+        let fromRange = this._buildSingleDayRange(yearFrom, monthFrom, dayFrom);
+        let toRange = this._buildSingleDayRange(yearTo, monthTo, dayTo);
+        if (!fromRange || !toRange) return null;
+
+        if (fromRange.fromUTC.getTime() > toRange.fromUTC.getTime()) {
+          // fallback to previous year for both if range ended up in future/backwards
+          yearFrom -= 1;
+          yearTo -= 1;
+
+          if (!this._isValidDayMonth(yearFrom, monthFrom, dayFrom)) return null;
+          if (!this._isValidDayMonth(yearTo, monthTo, dayTo)) return null;
+
+          fromRange = this._buildSingleDayRange(yearFrom, monthFrom, dayFrom);
+          toRange = this._buildSingleDayRange(yearTo, monthTo, dayTo);
+          if (!fromRange || !toRange) return null;
+        }
+
+        const tomorrowStart = this.addDaysUser(nowUTC, 1);
+        if (fromRange.fromUTC.getTime() >= tomorrowStart.getTime()) {
+          yearFrom -= 1;
+          yearTo -= 1;
+
+          if (!this._isValidDayMonth(yearFrom, monthFrom, dayFrom)) return null;
+          if (!this._isValidDayMonth(yearTo, monthTo, dayTo)) return null;
+
+          fromRange = this._buildSingleDayRange(yearFrom, monthFrom, dayFrom);
+          toRange = this._buildSingleDayRange(yearTo, monthTo, dayTo);
+          if (!fromRange || !toRange) return null;
+        }
+
+        return {
+          fromUTC: fromRange.fromUTC,
+          toUTC: toRange.toUTC,
+          hint: `explicit_range_${dayFrom}_${monthFrom + 1}_${dayTo}_${monthTo + 1}`,
+        };
+      }
+    }
+
+    // EN:
+    // "between 8 and 13 march"
+    // "from 8 to 13 march"
+    // "8-13 march"
+    m = q.match(
+      /\b(?:between|from)?\s*(\d{1,2})\s*(?:and|to|-)\s*(\d{1,2})\s+(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)\b/i
+    );
+
+    if (m) {
+      const dayFrom = Number(m[1]);
+      const dayTo = Number(m[2]);
+      const monthName = String(m[3] || "").toLowerCase();
+      const month = en[monthName];
+
+      if (Number.isInteger(dayFrom) && Number.isInteger(dayTo) && Number.isInteger(month)) {
         const nowParts = this.getZonedParts(nowUTC);
         let year = nowParts.year;
 
-        let candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
-        if (Number.isNaN(candidate.getTime())) return null;
+        if (!this._isValidDayMonth(year, month, dayFrom)) return null;
+        if (!this._isValidDayMonth(year, month, dayTo)) return null;
 
-        const candidateStart = this.startOfUserDayUTC(candidate);
-        const tomorrowStart = this.addDaysUser(nowUTC, 1);
+        let fromRange = this._buildSingleDayRange(year, month, dayFrom);
+        let toRange = this._buildSingleDayRange(year, month, dayTo);
+        if (!fromRange || !toRange) return null;
 
-        if (candidateStart.getTime() >= tomorrowStart.getTime()) {
-          year -= 1;
-          candidate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+        if (fromRange.fromUTC.getTime() > toRange.fromUTC.getTime()) {
+          return null;
         }
 
-        const from = this.startOfUserDayUTC(candidate);
-        const to = this.addDaysUser(from, 1);
+        const tomorrowStart = this.addDaysUser(nowUTC, 1);
+        if (fromRange.fromUTC.getTime() >= tomorrowStart.getTime()) {
+          year -= 1;
 
-        return { fromUTC: from, toUTC: to, hint: `explicit_${day}_${month + 1}` };
+          if (!this._isValidDayMonth(year, month, dayFrom)) return null;
+          if (!this._isValidDayMonth(year, month, dayTo)) return null;
+
+          fromRange = this._buildSingleDayRange(year, month, dayFrom);
+          toRange = this._buildSingleDayRange(year, month, dayTo);
+          if (!fromRange || !toRange) return null;
+        }
+
+        return {
+          fromUTC: fromRange.fromUTC,
+          toUTC: toRange.toUTC,
+          hint: `explicit_range_${dayFrom}_${month + 1}_${dayTo}_${month + 1}`,
+        };
       }
     }
 
@@ -269,14 +405,10 @@ export class TimeContext {
 
   // Start of day in USER timezone, returned as UTC Date (instant)
   startOfUserDayUTC(dateUTC) {
-    // 1) Take Y-M-D in user TZ for this moment
     const { year, month, day } = this.getZonedParts(dateUTC);
 
-    // 2) Candidate: UTC midnight of that Y-M-D
     let candidate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
-    // 3) Shift candidate so that it becomes 00:00 in user TZ
-    // Up to 2 passes to stabilize around DST changes
     for (let i = 0; i < 2; i++) {
       const p = this.getZonedParts(candidate);
       const deltaMinutes = (p.hour || 0) * 60 + (p.minute || 0);
@@ -302,7 +434,6 @@ export class TimeContext {
     const baseStart = this.startOfUserDayUTC(dateUTC);
     const { year, month, day } = this.getZonedParts(baseStart);
 
-    // Use 12:00 UTC anchor to reduce DST edge artifacts, then normalize back to start-of-day
     const shifted = new Date(Date.UTC(year, month - 1, day + Number(days || 0), 12, 0, 0, 0));
 
     return this.startOfUserDayUTC(shifted);
@@ -314,10 +445,10 @@ export class TimeContext {
     const w = new Intl.DateTimeFormat("en-US", {
       timeZone: this._tz(),
       weekday: "short",
-    }).format(dayStart); // "Mon", "Tue", ...
+    }).format(dayStart);
 
     const map = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
-    const dow = map[w] || 1; // 1=Mon..7=Sun
+    const dow = map[w] || 1;
     const delta = dow - 1;
 
     return this.addDaysUser(dayStart, -delta);
@@ -366,6 +497,13 @@ export class TimeContext {
         return { fromUTC: from, toUTC: to, hint: "yesterday" };
       }
 
+      // EXPLICIT RANGE
+      // examples: "с 8 по 13 марта", "с 8 марта по 13 марта", "between 8 and 13 march"
+      const explicitRange = this._resolveExplicitRange(q, now);
+      if (explicitRange) {
+        return explicitRange;
+      }
+
       // EXPLICIT DAY + MONTH
       // examples: "11 марта", "5 апреля", "march 11", "11 march"
       const explicitDate = this._resolveExplicitDayMonth(q, now);
@@ -374,7 +512,6 @@ export class TimeContext {
       }
 
       // LAST N DAYS (includes today) — user TZ
-      // examples: "последние 3 дня", "за последние 7 дней", "last 3 days"
       let lastN = q.match(/(?:за\s+)?последн(?:ие|их)\s*(\d{1,2})\s*(?:дн(?:я|ей)|дні|днів)/iu);
       if (!lastN) {
         lastN = q.match(/\blast\s+(\d{1,2})\s+days?\b/i);
@@ -388,7 +525,6 @@ export class TimeContext {
       }
 
       // WEEK AGO (single day)
-      // examples: "неделю назад", "тиждень тому", "a week ago"
       if (q.includes("неделю назад") || q.includes("тиждень тому") || /\ba\s+week\s+ago\b/.test(q)) {
         const from = this.addDaysUser(now, -7);
         const to = this.addDaysUser(now, -6);
@@ -414,7 +550,6 @@ export class TimeContext {
       }
 
       // IN N DAYS / ЧЕРЕЗ N ДНЕЙ (future single day) — user TZ
-      // examples: "через 3 дня", "через 5 днів", "in 3 days"
       let futureN = q.match(/через\s+(\d{1,2})\s*(дн(?:я|ей)|дні|днів)/iu);
       if (!futureN) {
         futureN = q.match(/\bin\s+(\d{1,2})\s+days?\b/i);
@@ -444,7 +579,6 @@ export class TimeContext {
         day: "2-digit",
       }).format(dateUTC);
     } catch (_) {
-      // hard fallback
       try {
         return new Intl.DateTimeFormat("uk-UA", {
           timeZone: "UTC",
@@ -471,7 +605,6 @@ export class TimeContext {
         hour12: false,
       }).format(dateUTC);
     } catch (_) {
-      // hard fallback
       try {
         return new Intl.DateTimeFormat("uk-UA", {
           timeZone: "UTC",

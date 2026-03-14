@@ -401,15 +401,6 @@ export function attachMessageRouter({
         const { cmd, rest } = parseCommand(trimmed);
         const cmdBase = String(cmd || "").split("@")[0];
 
-        // ==========================================================
-        // STAGE 6.8.2 — COMMAND IDEMPOTENCY (critical)
-        // Insert-first into command_invocations to guarantee process-once on webhook retries.
-        // Strategy:
-        // - Only when Telegram message_id is numeric
-        // - INSERT ... ON CONFLICT DO NOTHING
-        // - If conflict => already processed => exit WITHOUT side-effects
-        // - Fail-open on DB error (do not break production)
-        // ==========================================================
         const IDEMPOTENCY_BYPASS = new Set(["/start", "/help"]);
         const _cmdMessageId = msg.message_id ?? null;
         if (
@@ -450,7 +441,6 @@ export function attachMessageRouter({
                 });
               } catch (_) {}
 
-              // STAGE 6.8.2 OBSERVABILITY (V2): reuse webhook_dedupe_events
               try {
                 await insertWebhookDedupeEvent({
                   transport,
@@ -467,18 +457,16 @@ export function attachMessageRouter({
                 );
               }
 
-              return; // ⛔ STOP — no side-effects
+              return;
             }
           } catch (e) {
             console.error(
               "ERROR STAGE 6.8.2 command insert-first failed (fail-open):",
               e
             );
-            // fail-open: continue normal flow
           }
         }
 
-        // ✅ /start
         if (cmdBase === "/start") {
           await ctxReply(
             [
@@ -496,7 +484,6 @@ export function attachMessageRouter({
           return;
         }
 
-        // ✅ /help
         if (cmdBase === "/help") {
           await ctxReply(
             [
@@ -514,10 +501,6 @@ export function attachMessageRouter({
           return;
         }
 
-        // ✅ Stage 3.5 — apply RL to ALL commands (except /start, /help). Monarch bypass.
-        // NOTE Stage 11.x:
-        // - router-level behavior_events logging for rate_limited removed
-        // - authoritative observability now lives in core/handleMessage.js
         if (!isMonarchUser) {
           const rlKey = `${senderIdStr}:${chatIdStr}:cmd`;
           const rl = checkRateLimit({
@@ -557,7 +540,6 @@ export function attachMessageRouter({
           }
         }
 
-        // ✅ /memory_status
         if (cmdBase === "/memory_status") {
           await handleMemoryStatusCommand({
             memory,
@@ -569,7 +551,6 @@ export function attachMessageRouter({
           return;
         }
 
-        // ✅ /memory_diag
         if (cmdBase === "/memory_diag") {
           await handleMemoryDiagCommand({
             accessPack,
@@ -581,7 +562,6 @@ export function attachMessageRouter({
           return;
         }
 
-        // ✅ /memory_integrity
         if (cmdBase === "/memory_integrity") {
           await handleMemoryIntegrityCommand({
             memDiag,
@@ -592,7 +572,6 @@ export function attachMessageRouter({
           return;
         }
 
-        // ✅ /memory_backfill
         if (cmdBase === "/memory_backfill") {
           await handleMemoryBackfillCommand({
             accessPack,
@@ -605,7 +584,6 @@ export function attachMessageRouter({
           return;
         }
 
-        // ✅ NEW: /memory_user_chats — list other chats that contain rows for this user
         if (cmdBase === "/memory_user_chats") {
           await handleMemoryUserChatsCommand({
             accessPack,
@@ -616,7 +594,6 @@ export function attachMessageRouter({
           return;
         }
 
-        // ✅ STAGE 4 — /chat_diag (monarch, private via DEV gate above)
         if (cmdBase === "/chat_diag") {
           await handleChatDiagCommand({
             pool,
@@ -716,7 +693,6 @@ export function attachMessageRouter({
             getCoinGeckoSimplePriceById,
             getCoinGeckoSimplePriceMulti,
 
-            // ✅ STAGE 7B — unified reply (writes assistant reply to chat_memory)
             reply: ctxReply,
           };
 
@@ -1019,26 +995,23 @@ export function attachMessageRouter({
           case "/chat_meta_debug": {
             await dispatchCommand(cmdBase, {
               bot,
-              msg, // ✅ pass msg to remove fallback dependence
-              identityCtx, // ✅ pass identityCtx to remove fallback dependence
+              msg,
+              identityCtx,
               chatId,
               chatIdStr,
               senderIdStr,
-              chatType, // ✅ useful for gate
-              isPrivateChat: isPrivate, // ✅ explicit flag
-              rest, // ✅ keep rest consistent
+              chatType,
+              isPrivateChat: isPrivate,
+              rest,
               userRole,
               userPlan,
               user,
               bypass: isMonarchUser,
-
-              // ✅ STAGE 7B — unified reply
               reply: ctxReply,
             });
             return;
           }
 
-          // ✅ NEW: /recall (routes into commandDispatcher)
           case "/recall": {
             await dispatchCommand(cmdBase, {
               bot,
@@ -1054,8 +1027,6 @@ export function attachMessageRouter({
               userPlan,
               user,
               bypass: isMonarchUser,
-
-              // ✅ STAGE 7B — unified reply
               reply: ctxReply,
             });
             return;
@@ -1076,14 +1047,10 @@ export function attachMessageRouter({
             handleTestSource,
             bot,
             chatId,
-            chatIdStr,
             rest,
-            getAllSourcesSafe,
-            formatSourcesList,
-            runSourceDiagnosticsOnce,
-            fetchFromSourceKey,
-            diagnoseSource,
-            testSource,
+            userRole,
+            userPlan,
+            bypass: isMonarchUser,
           });
 
           if (handledSourceDomain) {
@@ -1093,14 +1060,6 @@ export function attachMessageRouter({
 
         return;
       }
-
-      // ======================================================================
-      // === NOT COMMANDS: FILE-INTAKE + MEMORY + CONTEXT + AI ===
-      // ======================================================================
-
-      // ✅ FIX: router MUST provide real memory writers for chat.js,
-      // otherwise core shadow can write only user (MEMORY_SHADOW_WRITE) => u=1 a=0.
-      // NOTE: memory already created above (Stage 7B) — keep local name for clarity.
 
       const { saveMessageToMemory, saveChatPair } = createChatMemoryWriters({
         memory,
@@ -1121,9 +1080,7 @@ export function attachMessageRouter({
 
         FileIntake,
 
-        // read-only
         getChatHistory,
-        // ✅ write enabled (router provides writers)
         saveMessageToMemory,
         saveChatPair,
 

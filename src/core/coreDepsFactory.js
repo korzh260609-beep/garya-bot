@@ -35,6 +35,16 @@ import {
   upsertProjectSection,
 } from "../../projectMemory.js";
 
+// ✅ SOURCES — required for enforced command path
+import {
+  runSourceDiagnosticsOnce,
+  getAllSourcesSafe,
+  fetchFromSourceKey,
+  formatSourcesList,
+  diagnoseSource,
+  testSource,
+} from "../sources/sources.js";
+
 export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } = {}) {
   return {
     reply,
@@ -71,6 +81,14 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     getProjectSection,
     getProjectMemoryList,
     upsertProjectSection,
+
+    // ✅ SOURCES — make source commands available in enforced path
+    runSourceDiagnosticsOnce,
+    getAllSourcesSafe,
+    fetchFromSourceKey,
+    formatSourcesList,
+    diagnoseSource,
+    testSource,
 
     MAX_HISTORY_MESSAGES,
   };

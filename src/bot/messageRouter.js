@@ -184,6 +184,7 @@ import { handleDiagSourceCommand } from "./router/diagSourceCommand.js";
 import { handleTestSourceCommand } from "./router/testSourceCommand.js";
 import { handleProjectMemoryCommands } from "./router/projectMemoryCommands.js";
 import { handleTaskExecutionCommands } from "./router/taskExecutionCommands.js";
+import { handleSourceDomainCommands } from "./router/sourceDomainCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -1060,68 +1061,33 @@ export function attachMessageRouter({
             return;
           }
 
-          case "/sources": {
-            await handleSourcesCommand({
-              handleSourcesList,
-              bot,
-              chatId,
-              chatIdStr,
-              getAllSourcesSafe,
-              formatSourcesList,
-            });
-            return;
-          }
-
-          case "/sources_diag": {
-            await handleSourcesDiagCommand({
-              handleSourcesDiag,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              runSourceDiagnosticsOnce,
-            });
-            return;
-          }
-
-          case "/source": {
-            await handleSourceCommand({
-              handleSource,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              fetchFromSourceKey,
-            });
-            return;
-          }
-
-          case "/diag_source": {
-            await handleDiagSourceCommand({
-              handleDiagSource,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              diagnoseSource,
-            });
-            return;
-          }
-
-          case "/test_source": {
-            await handleTestSourceCommand({
-              handleTestSource,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              testSource,
-            });
-            return;
-          }
-
           default: {
             break;
+          }
+        }
+
+        {
+          const handledSourceDomain = await handleSourceDomainCommands({
+            cmdBase,
+            handleSourcesList,
+            handleSourcesDiag,
+            handleSource,
+            handleDiagSource,
+            handleTestSource,
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            getAllSourcesSafe,
+            formatSourcesList,
+            runSourceDiagnosticsOnce,
+            fetchFromSourceKey,
+            diagnoseSource,
+            testSource,
+          });
+
+          if (handledSourceDomain) {
+            return;
           }
         }
 

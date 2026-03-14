@@ -9,22 +9,22 @@ export async function handleSourceDomainCommands({
   handleTestSource,
   bot,
   chatId,
-  chatIdStr,
   rest,
-  getAllSourcesSafe,
-  formatSourcesList,
-  runSourceDiagnosticsOnce,
-  fetchFromSourceKey,
-  diagnoseSource,
-  testSource,
+  userRole,
+  userPlan,
+  bypass,
 }) {
   if (cmdBase === "/sources") {
     await handleSourcesList({
       bot,
       chatId,
-      chatIdStr,
-      getAllSourcesSafe,
-      formatSourcesList,
+      listSources: async ({ userRole, userPlan }) => {
+        const { getAllSourcesSafe } = await import("../sources/sources.js");
+        return await getAllSourcesSafe({ userRole, userPlan });
+      },
+      userRole,
+      userPlan,
+      bypass,
     });
     return true;
   }
@@ -33,9 +33,9 @@ export async function handleSourceDomainCommands({
     await handleSourcesDiag({
       bot,
       chatId,
-      chatIdStr,
-      rest,
-      runSourceDiagnosticsOnce,
+      userRole,
+      userPlan,
+      bypass,
     });
     return true;
   }
@@ -44,9 +44,10 @@ export async function handleSourceDomainCommands({
     await handleSource({
       bot,
       chatId,
-      chatIdStr,
       rest,
-      fetchFromSourceKey,
+      userRole,
+      userPlan,
+      bypass,
     });
     return true;
   }
@@ -55,9 +56,10 @@ export async function handleSourceDomainCommands({
     await handleDiagSource({
       bot,
       chatId,
-      chatIdStr,
       rest,
-      diagnoseSource,
+      userRole,
+      userPlan,
+      bypass,
     });
     return true;
   }
@@ -66,9 +68,10 @@ export async function handleSourceDomainCommands({
     await handleTestSource({
       bot,
       chatId,
-      chatIdStr,
       rest,
-      testSource,
+      userRole,
+      userPlan,
+      bypass,
     });
     return true;
   }

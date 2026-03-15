@@ -1,9 +1,10 @@
 // src/bot/router/artifactFileCommands.js
 
+import { handleFileLogs } from "../handlers/fileLogs.js";
+import { handleArList } from "../handlers/arList.js";
+
 export async function handleArtifactFileCommands({
   cmdBase,
-  handleArList,
-  handleFileLogs,
   bot,
   chatId,
   chatIdStr,

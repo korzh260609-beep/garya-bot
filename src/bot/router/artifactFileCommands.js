@@ -2,8 +2,6 @@
 
 export async function handleArtifactFileCommands({
   cmdBase,
-  handleArListCommand,
-  handleFileLogsCommand,
   handleArList,
   handleFileLogs,
   bot,
@@ -12,8 +10,7 @@ export async function handleArtifactFileCommands({
   rest,
 }) {
   if (cmdBase === "/ar_list") {
-    await handleArListCommand({
-      handleArList,
+    await handleArList({
       bot,
       chatId,
       rest,
@@ -22,8 +19,7 @@ export async function handleArtifactFileCommands({
   }
 
   if (cmdBase === "/file_logs") {
-    await handleFileLogsCommand({
-      handleFileLogs,
+    await handleFileLogs({
       bot,
       chatId,
       chatIdStr,

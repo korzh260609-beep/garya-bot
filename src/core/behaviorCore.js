@@ -1,6 +1,6 @@
 // src/core/behaviorCore.js
 // ============================================================================
-// STAGE 9.6 — BehaviorCore V1
+// STAGE 9.6 / 9.7 — BehaviorCore V1 + Style Axis skeleton
 // ============================================================================
 //
 // CURRENT STATE:
@@ -102,6 +102,57 @@ function detectCriticalityFromText(text) {
   return "normal";
 }
 
+// ============================================================================
+// STAGE 9.7 — STYLE AXIS SKELETON
+// IMPORTANT:
+// - this is prompt-policy only
+// - no DB
+// - no ENV
+// - no runtime branching outside prompt generation
+// - does NOT change answer length
+// ============================================================================
+
+function getStyleAxisPolicy(styleAxis) {
+  const axis = clampStyleAxis(styleAxis);
+
+  if (axis === "tech") {
+    return {
+      axis: "tech",
+      label: "technical",
+      promptLines: [
+        "- prioritize structure, precision and implementation details",
+        "- use engineering language when useful",
+        "- focus on logic, architecture, failure points and concrete actions",
+        "- avoid decorative phrasing and emotional padding",
+      ],
+    };
+  }
+
+  if (axis === "humanitarian") {
+    return {
+      axis: "humanitarian",
+      label: "humanitarian",
+      promptLines: [
+        "- prioritize clarity, empathy and human understanding",
+        "- explain in simpler words before using technical density",
+        "- keep the answer soft in tone but still honest and critical",
+        "- focus on meaning, risks for people and practical understanding",
+      ],
+    };
+  }
+
+  return {
+    axis: "mixed",
+    label: "mixed",
+    promptLines: [
+      "- balance technical precision with simple human-readable explanation",
+      "- keep the answer understandable first, but not shallow",
+      "- combine structure, logic and practical clarity",
+      "- use technical terms only where they improve accuracy",
+    ],
+  };
+}
+
 export function getBehaviorCore(input = {}) {
   const text = String(input?.text || "");
   const requestedStyleAxis = input?.styleAxis || null;
@@ -112,11 +163,15 @@ export function getBehaviorCore(input = {}) {
     requestedCriticality || detectCriticalityFromText(text)
   );
 
+  const stylePolicy = getStyleAxisPolicy(styleAxis);
+
   return {
-    version: "9.6-skeleton-v1",
+    version: "9.7-skeleton-v1",
 
     // Stage 9.7 skeleton
     styleAxis,
+    styleAxisLabel: stylePolicy.label,
+    styleAxisPromptLines: stylePolicy.promptLines,
 
     // Stage 9.9 skeleton
     criticality,
@@ -144,10 +199,14 @@ export function buildBehaviorCorePromptBlock(coreInput = {}) {
     "BEHAVIOR CORE V1:",
     `- version: ${core.version}`,
     `- style_axis: ${core.styleAxis}`,
+    `- style_axis_label: ${core.styleAxisLabel}`,
     `- criticality: ${core.criticality}`,
     `- no_nodding: ${core.noNodding ? "true" : "false"}`,
     `- max_soft_clarifying_questions: ${core.maxSoftClarifyingQuestions}`,
     "- behavior_independent_from_answer_mode: true",
+    "",
+    "STYLE AXIS RULES:",
+    ...core.styleAxisPromptLines,
     "",
     "RULES:",
     "- do not agree automatically just to sound supportive",

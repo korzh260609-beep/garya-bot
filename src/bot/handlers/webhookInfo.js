@@ -1,6 +1,8 @@
 // src/bot/handlers/webhookInfo.js
 // Admin diagnostic: shows Telegram getWebhookInfo result (token-safe)
 
+import { fetchWithTimeout } from "../../core/fetchWithTimeout.js";
+
 function maskTokenInUrl(url, token) {
   try {
     if (!url) return "";
@@ -27,7 +29,7 @@ export async function handleWebhookInfo({ bot, chatId }) {
   const apiUrl = `https://api.telegram.org/bot${token}/getWebhookInfo`;
 
   try {
-    const r = await fetch(apiUrl, { method: "GET" });
+    const r = await fetchWithTimeout(apiUrl, { method: "GET" }, 8000);
     const data = await r.json();
 
     const result = data?.result || {};

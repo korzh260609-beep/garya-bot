@@ -1,5 +1,8 @@
 // src/bot/router/utilityStatusCommands.js
 
+import { getCodeOutputMode } from "../../codeOutput/codeOutputMode.js";
+import { handleWorkflowCheck } from "../handlers/workflowCheck.js";
+
 export async function handleUtilityStatusEarlyCommands({
   cmdBase,
   ctxReply,
@@ -66,9 +69,7 @@ export async function handleUtilityStatusEarlyCommands({
 
 export async function handleUtilityStatusLateCommands({
   cmdBase,
-  handleWorkflowCheck,
   ctxReply,
-  getCodeOutputMode,
   bot,
   chatId,
   rest,

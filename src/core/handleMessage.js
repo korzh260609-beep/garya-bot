@@ -865,6 +865,14 @@ export async function handleMessage(context = {}) {
           getProjectSection: deps.getProjectSection,
           getProjectMemoryList: deps.getProjectMemoryList,
           upsertProjectSection: deps.upsertProjectSection,
+
+          // ✅ SOURCES — enforced command path wiring
+          runSourceDiagnosticsOnce: deps.runSourceDiagnosticsOnce,
+          getAllSourcesSafe: deps.getAllSourcesSafe,
+          fetchFromSourceKey: deps.fetchFromSourceKey,
+          formatSourcesList: deps.formatSourcesList,
+          diagnoseSource: deps.diagnoseSource,
+          testSource: deps.testSource,
         };
 
         const result = await deps.dispatchCommand(cmdBase, dispatchCtx);

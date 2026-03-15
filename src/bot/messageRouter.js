@@ -19,8 +19,6 @@ import { handleReindexRepo } from "./handlers/reindexRepo.js";
 import { CMD_ACTION } from "./cmdActionMap.js";
 import { handleRunTaskCmd } from "./handlers/runTaskCmd.js";
 import { handleChatMessage } from "./handlers/chat.js";
-import { handlePmSet } from "./handlers/pmSet.js";
-import { handlePmShow } from "./handlers/pmShow.js";
 import { handleTestSource } from "./handlers/testSource.js";
 import { handleDiagSource } from "./handlers/diagSource.js";
 import { handleSourcesList } from "./handlers/sourcesList.js";
@@ -538,8 +536,6 @@ export function attachMessageRouter({
         {
           const handledProjectMemory = await handleProjectMemoryCommands({
             cmdBase,
-            handlePmShow,
-            handlePmSet,
             bot,
             chatId,
             chatIdStr,

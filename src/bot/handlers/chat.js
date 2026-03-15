@@ -18,6 +18,10 @@
 // - uses sourceResult.meta.parsed directly
 // - bypasses AI call when deterministic source reply is available
 // - keeps fail-open behavior and does not affect non-price requests
+//
+// ✅ STAGE 10.6.x debug:
+// - logs requestedCoinIds / requestedVs / parsed keys
+// - helps diagnose why multi-coin robot reply may not trigger
 
 import pool from "../../../db.js";
 import { insertAssistantMessage } from "../../db/chatMessagesRepo.js"; // ✅ STAGE 7.7.2
@@ -247,16 +251,71 @@ function formatRobotUpdatedAt(value) {
 }
 
 function tryBuildRobotPriceReply({ text = "", sourceCtx = null }) {
-  if (!isSimplePriceIntent(text)) return null;
+  const simpleIntent = isSimplePriceIntent(text);
 
   const parsed = sourceCtx?.sourceResult?.meta?.parsed;
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-  if (sourceCtx?.sourceResult?.ok !== true) return null;
+  const parsedKeys =
+    parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? Object.keys(parsed)
+      : [];
 
   const requestedCoinIds = detectRequestedCoinIdsFromText(text);
-  if (!requestedCoinIds.length) return null;
-
   const requestedVs = detectRequestedVsCurrenciesFromText(text);
+
+  try {
+    console.info("ROBOT_PRICE_DEBUG_INPUT", {
+      text,
+      simpleIntent,
+      sourceResultOk: sourceCtx?.sourceResult?.ok === true,
+      sourceResultKey: sourceCtx?.sourceResult?.sourceKey || null,
+      requestedCoinIds,
+      requestedVs,
+      parsedKeys,
+      fetchedAt: sourceCtx?.sourceResult?.fetchedAt || null,
+      reason: sourceCtx?.reason || null,
+    });
+  } catch (_) {}
+
+  if (!simpleIntent) {
+    try {
+      console.info("ROBOT_PRICE_DEBUG_SKIP", {
+        reason: "not_simple_price_intent",
+        text,
+      });
+    } catch (_) {}
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    try {
+      console.info("ROBOT_PRICE_DEBUG_SKIP", {
+        reason: "parsed_missing_or_invalid",
+        hasParsed: Boolean(parsed),
+        parsedType: Array.isArray(parsed) ? "array" : typeof parsed,
+      });
+    } catch (_) {}
+    return null;
+  }
+
+  if (sourceCtx?.sourceResult?.ok !== true) {
+    try {
+      console.info("ROBOT_PRICE_DEBUG_SKIP", {
+        reason: "source_result_not_ok",
+        sourceResultOk: sourceCtx?.sourceResult?.ok === true,
+        sourceReason: sourceCtx?.reason || null,
+      });
+    } catch (_) {}
+    return null;
+  }
+
+  if (!requestedCoinIds.length) {
+    try {
+      console.info("ROBOT_PRICE_DEBUG_SKIP", {
+        reason: "no_requested_coin_ids",
+      });
+    } catch (_) {}
+    return null;
+  }
 
   const lines = [];
   let builtCount = 0;
@@ -264,6 +323,15 @@ function tryBuildRobotPriceReply({ text = "", sourceCtx = null }) {
 
   for (const coinId of requestedCoinIds) {
     const coinBlock = parsed?.[coinId];
+
+    try {
+      console.info("ROBOT_PRICE_DEBUG_COIN", {
+        coinId,
+        existsInParsed: Boolean(coinBlock),
+        availableKeys: coinBlock && typeof coinBlock === "object" ? Object.keys(coinBlock) : [],
+      });
+    } catch (_) {}
+
     if (!coinBlock || typeof coinBlock !== "object") continue;
 
     const availableVs = Object.keys(coinBlock).filter((key) => key !== "lastUpdatedAt");
@@ -273,6 +341,15 @@ function tryBuildRobotPriceReply({ text = "", sourceCtx = null }) {
       requestedVs.length > 0
         ? requestedVs.filter((vs) => availableVs.includes(vs))
         : [availableVs[0]];
+
+    try {
+      console.info("ROBOT_PRICE_DEBUG_VS", {
+        coinId,
+        availableVs,
+        requestedVs,
+        chosenVs,
+      });
+    } catch (_) {}
 
     if (!chosenVs.length) continue;
 
@@ -295,13 +372,32 @@ function tryBuildRobotPriceReply({ text = "", sourceCtx = null }) {
     }
   }
 
-  if (builtCount === 0) return null;
+  if (builtCount === 0) {
+    try {
+      console.info("ROBOT_PRICE_DEBUG_SKIP", {
+        reason: "built_count_zero",
+        requestedCoinIds,
+        requestedVs,
+        parsedKeys,
+      });
+    } catch (_) {}
+    return null;
+  }
 
   if (updatedAtText) {
     lines.push(`Обновлено: ${updatedAtText}`);
   }
 
-  return lines.join("\n");
+  const reply = lines.join("\n");
+
+  try {
+    console.info("ROBOT_PRICE_DEBUG_SUCCESS", {
+      builtCount,
+      reply,
+    });
+  } catch (_) {}
+
+  return reply;
 }
 
 export async function handleChatMessage({
@@ -689,6 +785,13 @@ export async function handleChatMessage({
       text: effective,
       sourceCtx,
     });
+
+    try {
+      console.info("ROBOT_PRICE_DEBUG_RESULT", {
+        matched: Boolean(robotPriceReply),
+        reply: robotPriceReply || null,
+      });
+    } catch (_) {}
 
     if (robotPriceReply) {
       await saveAssistantEarlyReturn(robotPriceReply, "robot_price_reply");

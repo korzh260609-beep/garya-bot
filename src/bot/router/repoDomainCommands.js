@@ -1,16 +1,17 @@
 // src/bot/router/repoDomainCommands.js
 
+import { handleRepoReview2 } from "../handlers/repoReview2.js";
+import { handleRepoSearch } from "../handlers/repoSearch.js";
+import { handleRepoFile } from "../handlers/repoFile.js";
+import { handleRepoTree } from "../handlers/repoTree.js";
+import { handleRepoStatus } from "../handlers/repoStatus.js";
+import { handleRepoReview } from "../handlers/repoReview.js";
+import { handleRepoCheck } from "../handlers/repoCheck.js";
+import { handleRepoAnalyze } from "../handlers/repoAnalyze.js";
+import { handleRepoGet } from "../handlers/repoGet.js";
+
 export async function handleRepoDomainCommands({
   cmdBase,
-  handleRepoStatus,
-  handleRepoTree,
-  handleRepoFile,
-  handleRepoReview2,
-  handleRepoSearch,
-  handleRepoGet,
-  handleRepoCheck,
-  handleRepoAnalyze,
-  handleRepoReview,
   bot,
   chatId,
   rest,

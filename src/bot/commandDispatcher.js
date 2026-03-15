@@ -21,6 +21,7 @@ import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — re
 import { handleTaskStatus } from "./handlers/taskStatus.js"; // Stage 5.7 — read-only
 import { handleTasksList } from "./handlers/tasksList.js";
 import { handleArList } from "./handlers/arList.js";
+import { handleFileLogs } from "./handlers/fileLogs.js";
 import { handleLinkStart } from "./handlers/linkStart.js";
 import { handleLinkConfirm } from "./handlers/linkConfirm.js";
 import { handleLinkStatus } from "./handlers/linkStatus.js";
@@ -627,6 +628,17 @@ export async function dispatchCommand(cmd, ctx) {
       await handleArList({
         bot,
         chatId,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/file_logs": {
+      await handleFileLogs({
+        bot,
+        chatId,
+        chatIdStr,
         rest: ctx.rest,
         bypass: ctx.bypass,
       });

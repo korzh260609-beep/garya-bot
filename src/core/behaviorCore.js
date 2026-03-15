@@ -1,6 +1,6 @@
 // src/core/behaviorCore.js
 // ============================================================================
-// STAGE 9.6 / 9.7 — BehaviorCore V1 + Style Axis skeleton
+// STAGE 9.6 / 9.7 / 9.8 — BehaviorCore V1 + Style Axis + Soft Style Ask skeleton
 // ============================================================================
 //
 // CURRENT STATE:
@@ -153,12 +153,121 @@ function getStyleAxisPolicy(styleAxis) {
   };
 }
 
+// ============================================================================
+// STAGE 9.8 — SOFT STYLE ASK SKELETON
+// IMPORTANT:
+// - soft detection only
+// - explicit styleAxis input always wins
+// - no persistent user preference yet
+// - no DB / no settings / no command layer
+// ============================================================================
+
+function detectSoftStyleAxisFromText(text) {
+  const t = String(text || "").trim().toLowerCase();
+  if (!t) {
+    return {
+      styleAxis: "mixed",
+      source: "default",
+      softAskDetected: false,
+    };
+  }
+
+  const techSignals = [
+    "технически",
+    "технично",
+    "technical",
+    "technically",
+    "по архитектуре",
+    "архитектурно",
+    "с точки зрения кода",
+    "по коду",
+    "для разработчика",
+    "engineering",
+    "implementation details",
+  ];
+
+  for (const signal of techSignals) {
+    if (t.includes(signal)) {
+      return {
+        styleAxis: "tech",
+        source: "soft_ask_from_text",
+        softAskDetected: true,
+      };
+    }
+  }
+
+  const humanitarianSignals = [
+    "простыми словами",
+    "по простому",
+    "объясни просто",
+    "объясни как ребенку",
+    "без сложных слов",
+    "мягче",
+    "humanly",
+    "human",
+    "simple words",
+    "for a child",
+    "easy words",
+  ];
+
+  for (const signal of humanitarianSignals) {
+    if (t.includes(signal)) {
+      return {
+        styleAxis: "humanitarian",
+        source: "soft_ask_from_text",
+        softAskDetected: true,
+      };
+    }
+  }
+
+  const mixedSignals = [
+    "и просто и точно",
+    "просто но точно",
+    "сбалансировано",
+    "balanced",
+    "mixed",
+    "и технически и понятно",
+  ];
+
+  for (const signal of mixedSignals) {
+    if (t.includes(signal)) {
+      return {
+        styleAxis: "mixed",
+        source: "soft_ask_from_text",
+        softAskDetected: true,
+      };
+    }
+  }
+
+  return {
+    styleAxis: "mixed",
+    source: "default",
+    softAskDetected: false,
+  };
+}
+
+function resolveStyleAxis(input = {}) {
+  const requestedStyleAxis = input?.styleAxis || null;
+  const text = String(input?.text || "");
+
+  if (requestedStyleAxis) {
+    return {
+      styleAxis: clampStyleAxis(requestedStyleAxis),
+      source: "explicit_input",
+      softAskDetected: false,
+    };
+  }
+
+  return detectSoftStyleAxisFromText(text);
+}
+
 export function getBehaviorCore(input = {}) {
   const text = String(input?.text || "");
-  const requestedStyleAxis = input?.styleAxis || null;
   const requestedCriticality = input?.criticality || null;
 
-  const styleAxis = clampStyleAxis(requestedStyleAxis || "mixed");
+  const styleAxisResolution = resolveStyleAxis(input);
+  const styleAxis = styleAxisResolution.styleAxis;
+
   const criticality = clampCriticality(
     requestedCriticality || detectCriticalityFromText(text)
   );
@@ -166,12 +275,16 @@ export function getBehaviorCore(input = {}) {
   const stylePolicy = getStyleAxisPolicy(styleAxis);
 
   return {
-    version: "9.7-skeleton-v1",
+    version: "9.8-skeleton-v1",
 
     // Stage 9.7 skeleton
     styleAxis,
     styleAxisLabel: stylePolicy.label,
     styleAxisPromptLines: stylePolicy.promptLines,
+
+    // Stage 9.8 skeleton
+    styleAxisSource: styleAxisResolution.source,
+    softStyleAskDetected: Boolean(styleAxisResolution.softAskDetected),
 
     // Stage 9.9 skeleton
     criticality,
@@ -187,6 +300,7 @@ export function getBehaviorCore(input = {}) {
 
     // skeleton flags for future expansion
     supportsStyleAxis: true,
+    supportsSoftStyleAsk: true,
     supportsCriticality: true,
     supportsNoNodding: true,
   };
@@ -200,6 +314,8 @@ export function buildBehaviorCorePromptBlock(coreInput = {}) {
     `- version: ${core.version}`,
     `- style_axis: ${core.styleAxis}`,
     `- style_axis_label: ${core.styleAxisLabel}`,
+    `- style_axis_source: ${core.styleAxisSource}`,
+    `- soft_style_ask_detected: ${core.softStyleAskDetected ? "true" : "false"}`,
     `- criticality: ${core.criticality}`,
     `- no_nodding: ${core.noNodding ? "true" : "false"}`,
     `- max_soft_clarifying_questions: ${core.maxSoftClarifyingQuestions}`,
@@ -214,6 +330,8 @@ export function buildBehaviorCorePromptBlock(coreInput = {}) {
     "- soft form, hard essence",
     "- if intent is unclear, ask at most one soft clarifying question",
     "- answer length must NOT define behavior style",
+    "- explicit style axis input has priority over soft style detection",
+    "- soft style detection is temporary and must not be treated as saved user preference",
   ].join("\n");
 }
 

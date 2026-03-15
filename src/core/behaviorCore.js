@@ -197,7 +197,7 @@ function getStyleAxisPolicy(styleAxis) {
         "- prefer structured, engineering-style explanation",
         "- focus on mechanism, causality, constraints, edge cases and implementation details",
         "- use precise technical terms when they improve accuracy",
-        "- reduce бытовые analogies and emotional softeners unless they are necessary",
+        "- reduce everyday analogies and emotional softeners unless they are necessary",
         "- when possible, explain in terms of system, inputs, outputs, failure points and trade-offs",
         "- prefer exact wording over conversational softness",
       ],
@@ -359,10 +359,10 @@ function getNoNoddingPolicy() {
     enabled: true,
     promptLines: [
       "- never start by mirroring the user's confidence as if it proves correctness",
-      "- do not praise an idea before checking whether it is actually sound",
-      "- avoid empty phrases like 'great idea' or 'exactly right' unless they are justified by analysis",
+      "- do not praise, romanticize or positively frame an idea before checking whether it is actually sound",
+      "- avoid empty phrases like 'great idea', 'sounds inspiring', 'exactly right' or similar approval unless they are justified by analysis",
       "- when the idea is only partly useful, say clearly which part works and which part fails",
-      "- if the core conclusion is wrong, say so politely but directly",
+      "- if the core conclusion is wrong, say so politely but directly in the first evaluative sentence",
       "- politeness is allowed, blind validation is forbidden",
     ],
   };
@@ -380,7 +380,7 @@ export function getBehaviorCore(input = {}) {
   const noNoddingPolicy = getNoNoddingPolicy();
 
   return {
-    version: "9.10-skeleton-v2",
+    version: "9.10-skeleton-v3",
 
     // Stage 9.7 skeleton
     styleAxis,

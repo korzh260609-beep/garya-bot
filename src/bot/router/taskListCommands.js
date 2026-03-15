@@ -2,10 +2,6 @@
 
 export async function handleTaskListCommands({
   cmdBase,
-  handleDemoTaskCommand,
-  handleNewTaskCommand,
-  handleBtcTestTaskCommand,
-  handleTasksCommand,
   handleDemoTask,
   handleNewTask,
   handleBtcTestTask,
@@ -22,8 +18,7 @@ export async function handleTaskListCommands({
   getUserTasks,
 }) {
   if (cmdBase === "/demo_task") {
-    await handleDemoTaskCommand({
-      handleDemoTask,
+    await handleDemoTask({
       bot,
       chatId,
       chatIdStr,
@@ -35,8 +30,7 @@ export async function handleTaskListCommands({
   }
 
   if (cmdBase === "/new_task") {
-    await handleNewTaskCommand({
-      handleNewTask,
+    await handleNewTask({
       bot,
       chatId,
       chatIdStr,
@@ -49,8 +43,7 @@ export async function handleTaskListCommands({
   }
 
   if (cmdBase === "/btc_test_task") {
-    await handleBtcTestTaskCommand({
-      handleBtcTestTask,
+    await handleBtcTestTask({
       bot,
       chatId,
       chatIdStr,
@@ -63,8 +56,7 @@ export async function handleTaskListCommands({
   }
 
   if (cmdBase === "/tasks") {
-    await handleTasksCommand({
-      handleTasksList,
+    await handleTasksList({
       bot,
       chatId,
       chatIdStr,

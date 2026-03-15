@@ -154,8 +154,6 @@ import { handleMemoryBackfillCommand } from "./router/memoryBackfillCommand.js";
 import { handleMemoryStatusCommand } from "./router/memoryStatusCommand.js";
 import { handleChatDiagCommand } from "./router/chatDiagCommand.js";
 import { handleRepoDiffCommand } from "./router/repoDiffCommand.js";
-import { handleArListCommand } from "./router/arListCommand.js";
-import { handleFileLogsCommand } from "./router/fileLogsCommand.js";
 import { handleSourcesCommand } from "./router/sourcesCommand.js";
 import { handleSourcesDiagCommand } from "./router/sourcesDiagCommand.js";
 import { handleSourceCommand } from "./router/sourceCommand.js";
@@ -798,8 +796,6 @@ export function attachMessageRouter({
         {
           const handledArtifactFile = await handleArtifactFileCommands({
             cmdBase,
-            handleArListCommand,
-            handleFileLogsCommand,
             handleArList,
             handleFileLogs,
             bot,

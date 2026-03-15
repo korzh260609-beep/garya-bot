@@ -1,5 +1,6 @@
 // src/sources/sources.js — Sources Layer v1 (virtual/html/rss/coingecko)
 import pool from "../../db.js";
+import { fetchWithTimeout } from "./src/core/fetchWithTimeout.js";
 
 // === DEFAULT SOURCES (registry templates) ===
 const DEFAULT_SOURCES = [
@@ -338,7 +339,7 @@ export async function fetchFromSourceKey(key, options = {}) {
     // === HTML ===
     if (type === "html") {
       const url = options.params?.url || src.url || "https://example.com/";
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url, { method: "GET" }, 8000);
       httpStatus = res.status;
 
       if (!res.ok) {
@@ -382,7 +383,7 @@ export async function fetchFromSourceKey(key, options = {}) {
     if (type === "rss") {
       const url =
         options.params?.url || src.url || "https://hnrss.org/frontpage";
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url, { method: "GET" }, 8000);
       httpStatus = res.status;
 
       if (!res.ok) {
@@ -437,7 +438,7 @@ export async function fetchFromSourceKey(key, options = {}) {
         `?ids=${encodeURIComponent(ids.join(","))}` +
         `&vs_currencies=${encodeURIComponent(vsCurrency)}`;
 
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url, { method: "GET" }, 8000);
       httpStatus = res.status;
 
       if (!res.ok) {

@@ -69,19 +69,52 @@ export async function handleRepoStatus({ bot, chatId, senderIdStr }) {
   const branch = process.env.GITHUB_BRANCH;
 
   const store = new RepoIndexStore({ pool });
-  const latest = await store.getLatestSnapshot({ repo, branch });
 
-  if (!latest) {
-    await bot.sendMessage(chatId, `RepoStatus: no snapshots yet`);
+  let latest;
+  let filesCount = 0;
+
+  try {
+    latest = await store.getLatestSnapshot({ repo, branch });
+
+    if (!latest) {
+      await bot.sendMessage(chatId, `RepoStatus: no snapshots yet`);
+      return;
+    }
+
+    // files count
+    const countRes = await pool.query(
+      `SELECT COUNT(*)::int AS cnt FROM repo_index_files WHERE snapshot_id = $1`,
+      [latest.id]
+    );
+    filesCount = countRes?.rows?.[0]?.cnt ?? 0;
+  } catch (e) {
+    const msg = String(e?.message || e || "");
+
+    if (
+      msg.includes('relation "repo_index_snapshots" does not exist') ||
+      msg.includes("repo_index_snapshots")
+    ) {
+      await bot.sendMessage(
+        chatId,
+        "RepoStatus: таблица не инициализирована, запусти /reindex сначала"
+      );
+      return;
+    }
+
+    if (
+      msg.includes('relation "repo_index_files" does not exist') ||
+      msg.includes("repo_index_files")
+    ) {
+      await bot.sendMessage(
+        chatId,
+        "RepoStatus: файловый индекс не инициализирован, запусти /reindex сначала"
+      );
+      return;
+    }
+
+    await bot.sendMessage(chatId, "RepoStatus: DB error while reading snapshot");
     return;
   }
-
-  // files count
-  const countRes = await pool.query(
-    `SELECT COUNT(*)::int AS cnt FROM repo_index_files WHERE snapshot_id = $1`,
-    [latest.id]
-  );
-  const filesCount = countRes?.rows?.[0]?.cnt ?? 0;
 
   // -----------------------------------------------------------------------
   // Fix display: commitSha is NULL in DB → try to fetch and persist once

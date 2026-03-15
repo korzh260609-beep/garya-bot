@@ -2,6 +2,8 @@
 // === src/repo/githubApi.js — GitHub REST helper (SKELETON)
 // ============================================================================
 
+import { fetchWithTimeout } from "../core/fetchWithTimeout.js";
+
 function buildHeaders(token) {
   const headers = {
     Accept: "application/vnd.github+json",
@@ -13,10 +15,14 @@ function buildHeaders(token) {
 }
 
 export async function githubGetJson(url, { token } = {}) {
-  const res = await fetch(url, {
-    method: "GET",
-    headers: buildHeaders(token),
-  });
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: "GET",
+      headers: buildHeaders(token),
+    },
+    8000
+  );
 
   const text = await res.text();
   let json = null;
@@ -37,4 +43,3 @@ export async function githubGetJson(url, { token } = {}) {
 
   return json;
 }
-

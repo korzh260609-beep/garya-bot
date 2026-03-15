@@ -1,7 +1,7 @@
 // src/core/behaviorCore.js
 // ============================================================================
-// STAGE 9.6 / 9.7 / 9.8 / 9.9 — BehaviorCore V1 + Style Axis +
-// Soft Style Ask + Criticality V1 skeleton
+// STAGE 9.6 / 9.7 / 9.8 / 9.9 / 9.10 — BehaviorCore V1 + Style Axis +
+// Soft Style Ask + Criticality V1 + No-Nodding hard rule
 // ============================================================================
 //
 // CURRENT STATE:
@@ -332,6 +332,28 @@ function resolveStyleAxis(input = {}) {
   return detectSoftStyleAxisFromText(text);
 }
 
+// ============================================================================
+// STAGE 9.10 — NO-NODDING HARD RULE
+// IMPORTANT:
+// - this is a hard behavior rule
+// - must not turn the assistant rude
+// - must prevent fake agreement, flattery-agreement and empty validation
+// - still allows polite tone and accurate partial agreement
+// ============================================================================
+
+function getNoNoddingPolicy() {
+  return {
+    enabled: true,
+    promptLines: [
+      "- do not imitate agreement before analysis",
+      "- do not validate an idea automatically just because the user sounds confident",
+      "- do not use empty support phrases as a substitute for reasoning",
+      "- if part of the idea is sound and part is weak, separate them explicitly",
+      "- polite tone is allowed, blind agreement is forbidden",
+    ],
+  };
+}
+
 export function getBehaviorCore(input = {}) {
   const styleAxisResolution = resolveStyleAxis(input);
   const styleAxis = styleAxisResolution.styleAxis;
@@ -341,9 +363,10 @@ export function getBehaviorCore(input = {}) {
 
   const stylePolicy = getStyleAxisPolicy(styleAxis);
   const criticalityPolicy = getCriticalityPolicy(criticality);
+  const noNoddingPolicy = getNoNoddingPolicy();
 
   return {
-    version: "9.9-skeleton-v1",
+    version: "9.10-skeleton-v1",
 
     // Stage 9.7 skeleton
     styleAxis,
@@ -361,6 +384,7 @@ export function getBehaviorCore(input = {}) {
 
     // Stage 9.10 hard rule
     noNodding: true,
+    noNoddingPromptLines: noNoddingPolicy.promptLines,
 
     // workflow 1.1 rule
     maxSoftClarifyingQuestions: 1,
@@ -398,6 +422,9 @@ export function buildBehaviorCorePromptBlock(coreInput = {}) {
     "CRITICALITY RULES:",
     ...core.criticalityPromptLines,
     "",
+    "NO-NODDING RULES:",
+    ...core.noNoddingPromptLines,
+    "",
     "RULES:",
     "- do not agree automatically just to sound supportive",
     "- first check for risks, contradictions, weak points and hidden assumptions",
@@ -408,6 +435,7 @@ export function buildBehaviorCorePromptBlock(coreInput = {}) {
     "- soft style detection is temporary and must not be treated as saved user preference",
     "- explicit criticality input has priority over detected criticality",
     "- criticality affects strictness of analysis, not answer length and not core personality",
+    "- no-nodding forbids blind agreement, but does not forbid polite and precise partial agreement",
   ].join("\n");
 }
 

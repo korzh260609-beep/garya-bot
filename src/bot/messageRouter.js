@@ -147,12 +147,6 @@ import { devCommandGate } from "./router/devCommandGate.js";
 import { createChatMemoryWriters } from "./router/chatMemoryWriters.js";
 import { runTransportShadowFlow } from "./router/transportShadowRunner.js";
 import { createRouterCommandContext } from "./router/routerCommandContext.js";
-import { handleMemoryUserChatsCommand } from "./router/memoryUserChatsCommand.js";
-import { handleMemoryDiagCommand } from "./router/memoryDiagCommand.js";
-import { handleMemoryIntegrityCommand } from "./router/memoryIntegrityCommand.js";
-import { handleMemoryBackfillCommand } from "./router/memoryBackfillCommand.js";
-import { handleMemoryStatusCommand } from "./router/memoryStatusCommand.js";
-import { handleChatDiagCommand } from "./router/chatDiagCommand.js";
 import { handleRepoDiffCommand } from "./router/repoDiffCommand.js";
 import { handleProjectMemoryCommands } from "./router/projectMemoryCommands.js";
 import { handleTaskExecutionCommands } from "./router/taskExecutionCommands.js";
@@ -526,12 +520,6 @@ export function attachMessageRouter({
           const handledMemoryDiagnostics =
             await handleMemoryDiagnosticsCommands({
               cmdBase,
-              handleMemoryStatusCommand,
-              handleMemoryDiagCommand,
-              handleMemoryIntegrityCommand,
-              handleMemoryBackfillCommand,
-              handleMemoryUserChatsCommand,
-              handleChatDiagCommand,
               memory,
               memDiag,
               accessPack,

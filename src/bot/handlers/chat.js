@@ -413,6 +413,7 @@ export async function handleChatMessage({
   const systemPrompt = buildSystemPrompt(answerMode, modeInstruction, projectCtx || "", {
     isMonarch: monarchNow,
     currentUserName,
+    userText: effective,
   });
 
   // ==========================================================

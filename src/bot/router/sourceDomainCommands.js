@@ -1,12 +1,13 @@
 // src/bot/router/sourceDomainCommands.js
 
+import { handleSourcesList } from "../handlers/sourcesList.js";
+import { handleSourcesDiag } from "../handlers/sources_diag.js";
+import { handleSource } from "../handlers/source.js";
+import { handleDiagSource } from "../handlers/diagSource.js";
+import { handleTestSource } from "../handlers/testSource.js";
+
 export async function handleSourceDomainCommands({
   cmdBase,
-  handleSourcesList,
-  handleSourcesDiag,
-  handleSource,
-  handleDiagSource,
-  handleTestSource,
   bot,
   chatId,
   rest,

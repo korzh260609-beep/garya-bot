@@ -1,12 +1,14 @@
 // systemPrompt.js
 // Отдельный модуль с системным промптом Советника GARYA
 
+import { buildBehaviorCorePromptBlock } from "./src/core/behaviorCore.js";
+
 // Общее правило минимально достаточного ответа
 export const minimalAnswerInstruction = `
 ОБЩЕЕ ПРАВИЛО "МИНИМАЛЬНО ДОСТАТОЧНОГО ОТВЕТА":
 
 — Если вопрос простой и неопасный, следуй заявленному режиму длины ответа (short/normal/long).
-— Если вопрос сложный, технический, медицинский, финансовый, юри...еский или связан с безопасностью, рисками и возможными потерями:
+— Если вопрос сложный, технический, медицинский, финансовый, юридический или связан с безопасностью, рисками и возможными потерями:
   • НЕ сокращай ответ до степени, при которой он становится опасным, туманным или вводящим в заблуждение;
   • даже в режиме "short" дай столько текста, сколько нужно, чтобы ответ был понятным и безопасным;
   • всё равно избегай лишней воды, отвечай по существу.
@@ -15,6 +17,7 @@ export const minimalAnswerInstruction = `
 
 // Функция, которая собирает системный промпт
 // 🔵 ТЕПЕРЬ УМЕЕТ ПРИНИМАТЬ ТЕКСТ ПРОЕКТНОЙ ПАМЯТИ (projectContextText)
+// 🔵 STAGE 9.6 wiring: includes BehaviorCore block, but BehaviorCore is still skeleton-only
 export function buildSystemPrompt(
   answerMode,
   modeInstruction,
@@ -42,6 +45,17 @@ ${safeProjectContext}
   const isMonarch = Boolean(opts?.isMonarch);
   const currentUserName = String(opts?.currentUserName || "пользователь");
 
+  // ✅ STAGE 9.6 — BehaviorCore skeleton block
+  // IMPORTANT:
+  // - this does NOT make BehaviorCore fully active logic yet
+  // - this only injects a unified behavior policy block into the prompt
+  // - answer length is still controlled by answerMode/modeInstruction separately
+  const behaviorCoreBlock = buildBehaviorCorePromptBlock({
+    text: String(opts?.userText || ""),
+    styleAxis: opts?.styleAxis || "mixed",
+    criticality: opts?.criticality || null,
+  });
+
   return `
 Ты — ИИ-Советник Королевства GARYA, твое имя «Советник».
 Текущий пользователь: ${isMonarch ? "MONARCH (GARY)" : `НЕ монарх (${currentUserName})`}.
@@ -56,6 +70,9 @@ ${isMonarch ? "Ты всегда знаешь, что монарх этого к
 ${projectBlock}
 
 ${minimalAnswerInstruction}
+
+🧠 BEHAVIOR CORE:
+${behaviorCoreBlock}
 
 🎯 РЕЖИМ ДЛИНЫ ОТВЕТА:
 — Текущий режим: ${answerMode}

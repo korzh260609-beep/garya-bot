@@ -6,7 +6,6 @@ import { getCodeOutputMode } from "../codeOutput/codeOutputMode.js";
 import { handleCodeFullfile } from "./handlers/codeFullfile.js";
 import { handleCodeInsert } from "./handlers/codeInsert.js";
 import { handleRepoDiff } from "./handlers/repoDiff.js";
-import { handleReindexRepo } from "./handlers/reindexRepo.js";
 import { CMD_ACTION } from "./cmdActionMap.js";
 import { handleChatMessage } from "./handlers/chat.js";
 import { handleTasksList } from "./handlers/tasksList.js";

@@ -2,18 +2,62 @@
 
 export async function handleUtilityStatusEarlyCommands({
   cmdBase,
-  handleBuildInfoCommand,
   ctxReply,
   getPublicEnvSnapshot,
   upsertProjectSection,
 }) {
   if (cmdBase === "/build_info") {
-    await handleBuildInfoCommand({
-      ctxReply,
-      getPublicEnvSnapshot,
-      upsertProjectSection,
-      cmdBase,
-    });
+    const pub = getPublicEnvSnapshot();
+
+    const commit =
+      String(pub.RENDER_GIT_COMMIT || "").trim() ||
+      String(pub.GIT_COMMIT || "").trim() ||
+      "unknown";
+
+    const serviceId = String(pub.RENDER_SERVICE_ID || "").trim() || "unknown";
+
+    const instanceId =
+      String(pub.RENDER_INSTANCE_ID || "").trim() ||
+      String(pub.HOSTNAME || "").trim() ||
+      "unknown";
+
+    const nodeEnv = String(pub.NODE_ENV || "").trim() || "unknown";
+    const nowIso = new Date().toISOString();
+
+    if (typeof upsertProjectSection === "function") {
+      const content = [
+        `DEPLOY VERIFIED`,
+        `ts: ${nowIso}`,
+        `commit: ${commit}`,
+        `service: ${serviceId}`,
+        `instance: ${instanceId}`,
+        `node_env: ${nodeEnv}`,
+      ].join("\n");
+
+      try {
+        await upsertProjectSection({
+          section: "deploy.last_verified",
+          title: "DEPLOY VERIFIED",
+          content,
+          tags: ["deploy", "build_info"],
+          meta: { commit, serviceId, instanceId, nodeEnv, ts: nowIso },
+          schemaVersion: 1,
+        });
+      } catch (e) {
+        console.error("build_info autosave failed:", e);
+      }
+    }
+
+    await ctxReply(
+      [
+        "🧩 BUILD INFO",
+        `commit: ${commit}`,
+        `service: ${serviceId}`,
+        `instance: ${instanceId}`,
+        `node_env: ${nodeEnv}`,
+      ].join("\n"),
+      { cmd: cmdBase, handler: "messageRouter" }
+    );
     return true;
   }
 
@@ -22,8 +66,6 @@ export async function handleUtilityStatusEarlyCommands({
 
 export async function handleUtilityStatusLateCommands({
   cmdBase,
-  handleCodeOutputStatusCommand,
-  handleWorkflowCheckCommand,
   handleWorkflowCheck,
   ctxReply,
   getCodeOutputMode,
@@ -33,17 +75,24 @@ export async function handleUtilityStatusLateCommands({
   senderIdStr,
 }) {
   if (cmdBase === "/code_output_status") {
-    await handleCodeOutputStatusCommand({
-      ctxReply,
-      getCodeOutputMode,
-      cmdBase,
-    });
+    const mode = getCodeOutputMode();
+
+    await ctxReply(
+      [
+        `CODE_OUTPUT_MODE: ${mode}`,
+        "",
+        "Modes:",
+        "- DISABLED → генерация запрещена",
+        "- DRY_RUN → только валидация без AI",
+        "- ENABLED → реальная генерация кода",
+      ].join("\n"),
+      { cmd: cmdBase, handler: "messageRouter" }
+    );
     return true;
   }
 
   if (cmdBase === "/workflow_check") {
-    await handleWorkflowCheckCommand({
-      handleWorkflowCheck,
+    await handleWorkflowCheck({
       bot,
       chatId,
       rest,

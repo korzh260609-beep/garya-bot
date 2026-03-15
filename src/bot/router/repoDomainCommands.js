@@ -2,15 +2,6 @@
 
 export async function handleRepoDomainCommands({
   cmdBase,
-  handleRepoStatusCommand,
-  handleRepoTreeCommand,
-  handleRepoFileCommand,
-  handleRepoReview2Command,
-  handleRepoSearchCommand,
-  handleRepoGetCommand,
-  handleRepoCheckCommand,
-  handleRepoAnalyzeCommand,
-  handleRepoReviewCommand,
   handleRepoStatus,
   handleRepoTree,
   handleRepoFile,
@@ -26,8 +17,7 @@ export async function handleRepoDomainCommands({
   senderIdStr,
 }) {
   if (cmdBase === "/repo_status") {
-    await handleRepoStatusCommand({
-      handleRepoStatus,
+    await handleRepoStatus({
       bot,
       chatId,
       senderIdStr,
@@ -36,8 +26,7 @@ export async function handleRepoDomainCommands({
   }
 
   if (cmdBase === "/repo_tree") {
-    await handleRepoTreeCommand({
-      handleRepoTree,
+    await handleRepoTree({
       bot,
       chatId,
       rest,
@@ -47,8 +36,7 @@ export async function handleRepoDomainCommands({
   }
 
   if (cmdBase === "/repo_file") {
-    await handleRepoFileCommand({
-      handleRepoFile,
+    await handleRepoFile({
       bot,
       chatId,
       rest,
@@ -57,8 +45,7 @@ export async function handleRepoDomainCommands({
   }
 
   if (cmdBase === "/repo_review2") {
-    await handleRepoReview2Command({
-      handleRepoReview2,
+    await handleRepoReview2({
       bot,
       chatId,
     });
@@ -66,8 +53,7 @@ export async function handleRepoDomainCommands({
   }
 
   if (cmdBase === "/repo_search") {
-    await handleRepoSearchCommand({
-      handleRepoSearch,
+    await handleRepoSearch({
       bot,
       chatId,
       rest,
@@ -76,8 +62,7 @@ export async function handleRepoDomainCommands({
   }
 
   if (cmdBase === "/repo_get") {
-    await handleRepoGetCommand({
-      handleRepoGet,
+    await handleRepoGet({
       bot,
       chatId,
       rest,
@@ -87,8 +72,7 @@ export async function handleRepoDomainCommands({
   }
 
   if (cmdBase === "/repo_check") {
-    await handleRepoCheckCommand({
-      handleRepoCheck,
+    await handleRepoCheck({
       bot,
       chatId,
       rest,
@@ -97,8 +81,7 @@ export async function handleRepoDomainCommands({
   }
 
   if (cmdBase === "/repo_analyze") {
-    await handleRepoAnalyzeCommand({
-      handleRepoAnalyze,
+    await handleRepoAnalyze({
       bot,
       chatId,
       rest,
@@ -107,8 +90,7 @@ export async function handleRepoDomainCommands({
   }
 
   if (cmdBase === "/repo_review") {
-    await handleRepoReviewCommand({
-      handleRepoReview,
+    await handleRepoReview({
       bot,
       chatId,
       rest,

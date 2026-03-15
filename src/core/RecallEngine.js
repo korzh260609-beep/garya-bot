@@ -114,10 +114,15 @@ export class RecallEngine {
             AND is_redacted = false
         `;
 
-        // If we have global_user_id, narrow down first (better precision for private chats)
+        // identity-first (within current chat) if global_user_id provided
+        // IMPORTANT FIX:
+        // - assistant rows in chat_messages already carry the same global_user_id
+        //   as the requesting user
+        // - do NOT use "OR role = 'assistant'" in groups, otherwise assistant
+        //   replies addressed to other users may leak into current context
         if (globalStr) {
           params.push(globalStr);
-          sql += ` AND (global_user_id = $2 OR role = 'assistant')`;
+          sql += ` AND global_user_id = $2`;
           scope = "chat+global";
         } else {
           scope = "chat_only";

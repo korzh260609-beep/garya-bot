@@ -1,5 +1,29 @@
-// bot/commands.js
-// Обработка всех текстовых команд (/profile, /tasks, /task, /mode, /pm_set и т.д.)
+// src/bot/commands.js
+//
+// ⚠️ LEGACY / NOT AUTHORITATIVE
+//
+// Этот файл содержит старую командную логику и оставлен
+// только как исторический reference / fallback-material.
+//
+// Актуальные authoritative runtime paths сейчас:
+// - src/bot/messageRouter.js
+// - src/bot/commandDispatcher.js
+// - index.js wiring
+//
+// ВАЖНО:
+// - не использовать этот файл как источник текущей архитектуры
+// - не копировать из него логику без проверки по runtime path
+// - не считать этот файл активным роутером команд
+//
+// Причина сохранения:
+// - historical reference
+// - старые шаблоны/паттерны для сравнения
+// - безопаснее пометить, чем удалять вслепую
+//
+// Если позже будет принято решение:
+// - либо удалить файл отдельным шагом после полной проверки импортов
+// - либо перенести в docs/legacy/
+// - либо оставить как архив, но уже вне active src-path
 
 import pool from "../db.js";
 import * as Sources from "../sources.js";
@@ -431,7 +455,7 @@ async function cmdStopAllTasks({ bot, chatId, senderIdStr }) {
 }
 
 // Главный обработчик текстовых команд.
-// Это та же логика, что была в index.js внутри switch(command).
+// LEGACY ONLY. NOT AUTHORITATIVE RUNTIME PATH.
 export async function handleCommand(bot, msg, command, commandArgs) {
   const chatId = msg.chat.id;
   const chatIdStr = chatId.toString();
@@ -481,9 +505,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
-    // ======================================================================
-    // === Access Requests (monarch-only)
-    // ======================================================================
     case "/approve": {
       await cmdApprove({ bot, chatId, chatIdStr, senderIdStr, rest: commandArgs });
       return;
@@ -504,9 +525,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
-    // ======================================================================
-    // === ADMIN COMMANDS (monarch-only)
-    // ======================================================================
     case "/stop_all_tasks": {
       await cmdStopAllTasks({ bot, chatId, senderIdStr });
       return;
@@ -635,11 +653,9 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
-    // Универсальная команда /task
     case "/task": {
       const raw = commandArgs.trim();
 
-      // без аргументов — помощь
       if (!raw) {
         await bot.sendMessage(
           chatId,
@@ -660,7 +676,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       const firstLower = first.toLowerCase();
       const restText = restParts.join(" ").trim();
 
-      // /task list
       if (firstLower === "list") {
         try {
           const tasks = await getUserTasks(chatIdStr, 50, access);
@@ -687,7 +702,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         return;
       }
 
-      // /task new <описание>
       if (firstLower === "new") {
         if (!restText) {
           await bot.sendMessage(
@@ -717,7 +731,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         return;
       }
 
-      // /task pause|resume|delete <id>
       if (firstLower === "pause" || firstLower === "resume" || firstLower === "delete") {
         if (!restText) {
           await bot.sendMessage(
@@ -769,7 +782,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
         return;
       }
 
-      // /task <id> — показать детали
       const taskId = Number(first);
       if (Number.isNaN(taskId)) {
         await bot.sendMessage(
@@ -806,7 +818,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
-    // === DIAG: tasks ownership backfill (tasks.user_global_id) ===
     case "/tasks_owner_diag": {
       const ok = await requireMonarch(bot, chatId, senderIdStr);
       if (!ok) return;
@@ -854,7 +865,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
-    // Новая команда: диагностика всех источников
     case "/sources_diag": {
       try {
         const summary = await Sources.runSourceDiagnosticsOnce();
@@ -882,7 +892,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
-    // /source <key> — быстрый просмотр одного источника через Sources.fetchFromSourceKey
     case "/source": {
       const key = commandArgs.trim();
       if (!key) {
@@ -938,7 +947,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
       return;
     }
 
-    // /diag_source <key> — детальная диагностика одного источника
     case "/diag_source": {
       const key = commandArgs.trim();
       if (!key) {
@@ -993,12 +1001,9 @@ export async function handleCommand(bot, msg, command, commandArgs) {
     }
 
     case "/test_source": {
-      // Обработчик уже реализован через bot.onText в другом месте,
-      // здесь просто выходим, чтобы не срабатывать "неизвестная команда".
       return;
     }
 
-    // === ПРОЕКТНАЯ ПАМЯТЬ: /pm_set и /pm_show ===
     case "/pm_set": {
       const ok = await requireMonarch(bot, chatId, senderIdStr);
       if (!ok) return;
@@ -1148,7 +1153,6 @@ export async function handleCommand(bot, msg, command, commandArgs) {
     }
 
     default:
-      // Неизвестная команда — пусть дальше обрабатывается как обычный текст (ИИ)
       return;
   }
 }

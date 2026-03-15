@@ -18,12 +18,7 @@ import { handleRepoGet } from "./handlers/repoGet.js";
 import { handleReindexRepo } from "./handlers/reindexRepo.js";
 import { CMD_ACTION } from "./cmdActionMap.js";
 import { handleChatMessage } from "./handlers/chat.js";
-import { handleTestSource } from "./handlers/testSource.js";
-import { handleDiagSource } from "./handlers/diagSource.js";
-import { handleSourcesList } from "./handlers/sourcesList.js";
 import { handleTasksList } from "./handlers/tasksList.js";
-import { handleSourcesDiag } from "./handlers/sources_diag.js";
-import { handleSource } from "./handlers/source.js";
 import { handleNewTask } from "./handlers/newTask.js";
 import { handleBtcTestTask } from "./handlers/btcTestTask.js";
 import { handleDemoTask } from "./handlers/demoTask.js";
@@ -802,11 +797,6 @@ export function attachMessageRouter({
         {
           const handledSourceDomain = await handleSourceDomainCommands({
             cmdBase,
-            handleSourcesList,
-            handleSourcesDiag,
-            handleSource,
-            handleDiagSource,
-            handleTestSource,
             bot,
             chatId,
             rest,

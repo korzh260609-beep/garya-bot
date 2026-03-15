@@ -191,6 +191,10 @@ import { handleTaskListCommands } from "./router/taskListCommands.js";
 import { handleContextDebugCommands } from "./router/contextDebugCommands.js";
 import { handleArtifactFileCommands } from "./router/artifactFileCommands.js";
 import { handleMemoryDiagnosticsCommands } from "./router/memoryDiagnosticsCommands.js";
+import {
+  handleUtilityStatusEarlyCommands,
+  handleUtilityStatusLateCommands,
+} from "./router/utilityStatusCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -589,14 +593,18 @@ export function attachMessageRouter({
           }
         }
 
-        if (cmdBase === "/build_info") {
-          await handleBuildInfoCommand({
+        {
+          const handledUtilityStatusEarly = await handleUtilityStatusEarlyCommands({
+            cmdBase,
+            handleBuildInfoCommand,
             ctxReply,
             getPublicEnvSnapshot,
             upsertProjectSection,
-            cmdBase,
           });
-          return;
+
+          if (handledUtilityStatusEarly) {
+            return;
+          }
         }
 
         const action = CMD_ACTION[cmdBase];
@@ -751,29 +759,22 @@ export function attachMessageRouter({
           }
         }
 
-        switch (cmdBase) {
-          case "/code_output_status": {
-            await handleCodeOutputStatusCommand({
-              ctxReply,
-              getCodeOutputMode,
-              cmdBase,
-            });
-            return;
-          }
+        {
+          const handledUtilityStatusLate = await handleUtilityStatusLateCommands({
+            cmdBase,
+            handleCodeOutputStatusCommand,
+            handleWorkflowCheckCommand,
+            handleWorkflowCheck,
+            ctxReply,
+            getCodeOutputMode,
+            bot,
+            chatId,
+            rest,
+            senderIdStr,
+          });
 
-          case "/workflow_check": {
-            await handleWorkflowCheckCommand({
-              handleWorkflowCheck,
-              bot,
-              chatId,
-              rest,
-              senderIdStr,
-            });
+          if (handledUtilityStatusLate) {
             return;
-          }
-
-          default: {
-            break;
           }
         }
 

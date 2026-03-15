@@ -188,6 +188,7 @@ import { handleSourceDomainCommands } from "./router/sourceDomainCommands.js";
 import { handleRepoDomainCommands } from "./router/repoDomainCommands.js";
 import { handleMiscDiagnosticsCommands } from "./router/miscDiagnosticsCommands.js";
 import { handleTaskListCommands } from "./router/taskListCommands.js";
+import { handleContextDebugCommands } from "./router/contextDebugCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -886,28 +887,11 @@ export function attachMessageRouter({
             return;
           }
 
-          case "/chat_meta_debug": {
-            await dispatchCommand(cmdBase, {
-              bot,
-              msg,
-              identityCtx,
-              chatId,
-              chatIdStr,
-              senderIdStr,
-              chatType,
-              isPrivateChat: isPrivate,
-              rest,
-              userRole,
-              userPlan,
-              user,
-              bypass: isMonarchUser,
-              reply: ctxReply,
-            });
-            return;
-          }
-
+          case "/chat_meta_debug":
           case "/recall": {
-            await dispatchCommand(cmdBase, {
+            const handledContextDebug = await handleContextDebugCommands({
+              cmdBase,
+              dispatchCommand,
               bot,
               msg,
               identityCtx,
@@ -915,15 +899,20 @@ export function attachMessageRouter({
               chatIdStr,
               senderIdStr,
               chatType,
-              isPrivateChat: isPrivate,
+              isPrivate,
               rest,
               userRole,
               userPlan,
               user,
-              bypass: isMonarchUser,
-              reply: ctxReply,
+              isMonarchUser,
+              ctxReply,
             });
-            return;
+
+            if (handledContextDebug) {
+              return;
+            }
+
+            break;
           }
 
           default: {

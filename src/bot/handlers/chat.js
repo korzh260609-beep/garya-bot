@@ -6,6 +6,12 @@
 // (timezone/deterministic/guards), otherwise /memory_integrity shows missing_assistant.
 //
 // ✅ STAGE 7B (this patch): early-return replies + AlreadySeen hint also logged into chat_messages (assistant)
+//
+// ✅ STAGE 10.3 wiring:
+// - add Sources Runtime skeleton visibility
+// - DO NOT fetch real sources yet
+// - DO NOT block production AI path yet
+// - only make runtime state explicit and safe
 
 import pool from "../../../db.js";
 import { insertAssistantMessage } from "../../db/chatMessagesRepo.js"; // ✅ STAGE 7.7.2
@@ -21,6 +27,10 @@ import { getUserTimezone, setUserTimezone } from "../../db/userSettings.js";
 import BehaviorEventsService from "../../logging/BehaviorEventsService.js";
 import { runDecisionShadowHook } from "../../decision/decisionShadowHook.js";
 import { routeDecision } from "../../decision/index.js";
+import {
+  resolveSourceRuntime,
+  buildSourceRuntimePromptBlock,
+} from "../../sources/sourceRuntime.js";
 
 function normalizeAlreadySeenRole(value) {
   const role = String(value || "").trim().toLowerCase();
@@ -242,6 +252,54 @@ export async function handleChatMessage({
   const effective = (decision?.effectiveUserText || "").trim();
   const shouldCallAI = Boolean(decision?.shouldCallAI);
   const directReplyText = decision?.directReplyText || null;
+
+  // ==========================================================
+  // STAGE 10.3 — Sources Runtime skeleton (non-blocking)
+  // IMPORTANT:
+  // - no real fetch here yet
+  // - no source result injected yet
+  // - only explicit runtime state + safe transparency
+  // ==========================================================
+  let sourceRuntime = null;
+  let sourceRuntimePromptBlock = "";
+  try {
+    sourceRuntime = resolveSourceRuntime({
+      text: effective,
+      sourceResult: null,
+      sourceKey: null,
+      requireSource: false,
+      allowedSourceKeys: [],
+    });
+
+    sourceRuntimePromptBlock = buildSourceRuntimePromptBlock({
+      text: effective,
+      sourceResult: null,
+      sourceKey: null,
+      requireSource: false,
+      allowedSourceKeys: [],
+    });
+  } catch (e) {
+    console.error("ERROR sourceRuntime resolve failed (fail-open):", e);
+    sourceRuntime = {
+      version: "10.3-skeleton-v1",
+      decision: "skip",
+      needsSource: false,
+      shouldUseSourceResult: false,
+      shouldRequireSourceResult: false,
+      sourceKey: null,
+      reason: "source_runtime_fail_open",
+    };
+    sourceRuntimePromptBlock = [
+      "SOURCE RUNTIME:",
+      "- version: 10.3-skeleton-v1",
+      "- decision: skip",
+      "- needs_source: false",
+      "- should_use_source_result: false",
+      "- should_require_source_result: false",
+      "- source_key: none",
+      "- reason: source_runtime_fail_open",
+    ].join("\n");
+  }
 
   // ==========================================================
   // STAGE 7 — helper: store assistant reply on early-return branches
@@ -797,8 +855,22 @@ export async function handleChatMessage({
     ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."
     : "SYSTEM ROLE: текущий пользователь НЕ монарх. Запрещено обращаться 'Монарх', 'Ваше Величество', 'Государь'. Называй: 'гость' или нейтрально (вы/ты).";
 
+  const sourceRuntimeSystemMessage =
+    sourceRuntimePromptBlock && String(sourceRuntimePromptBlock).trim()
+      ? {
+          role: "system",
+          content:
+            `${sourceRuntimePromptBlock}\n\n` +
+            `IMPORTANT:\n` +
+            `- this runtime message is informational only at current stage\n` +
+            `- no real source fetch was executed in this request unless explicit fetched data is present\n` +
+            `- if source is needed but missing, be honest about missing source runtime`,
+        }
+      : null;
+
   const messages = [
     { role: "system", content: systemPrompt },
+    sourceRuntimeSystemMessage,
     recallCtx
       ? {
           role: "system",
@@ -839,6 +911,9 @@ export async function handleChatMessage({
     senderId: senderIdStr,
     messageId,
     globalUserId,
+    sourceRuntimeDecision: sourceRuntime?.decision || "unknown",
+    sourceRuntimeNeedsSource: Boolean(sourceRuntime?.needsSource),
+    sourceRuntimeReason: sourceRuntime?.reason || "unknown",
   };
 
   try {
@@ -929,6 +1004,9 @@ export async function handleChatMessage({
       globalUserId: globalUserId ?? null,
       handler: "chat",
       stage: "7B.4",
+      sourceRuntimeDecision: sourceRuntime?.decision || "unknown",
+      sourceRuntimeNeedsSource: Boolean(sourceRuntime?.needsSource),
+      sourceRuntimeReason: sourceRuntime?.reason || "unknown",
     };
 
     await insertAssistantMessage({
@@ -1059,6 +1137,9 @@ export async function handleChatMessage({
           previewKind: decisionPreviewRoute?.kind || null,
           previewWorkerType: decisionPreviewRoute?.workerType || null,
           previewReason: decisionPreviewRoute?.reason || null,
+          sourceRuntimeDecision: sourceRuntime?.decision || "unknown",
+          sourceRuntimeNeedsSource: Boolean(sourceRuntime?.needsSource),
+          sourceRuntimeReason: sourceRuntime?.reason || "unknown",
         },
       },
       {

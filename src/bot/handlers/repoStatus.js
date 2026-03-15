@@ -24,6 +24,8 @@ async function requireMonarch(bot, chatId, userIdStr) {
 // - Uses GITHUB_TOKEN if present
 // - Does NOT throw (safe)
 // ---------------------------------------------------------------------------
+// TEMP DEBUG:
+// function kept for future restore, but NOT used in current test version
 async function fetchHeadCommitSha({ repo, branch }) {
   try {
     const token = String(process.env.GITHUB_TOKEN || "").trim();
@@ -117,30 +119,14 @@ export async function handleRepoStatus({ bot, chatId, senderIdStr }) {
   }
 
   // -----------------------------------------------------------------------
-  // Fix display: commitSha is NULL in DB → try to fetch and persist once
+  // TEMP DEBUG:
+  // Skip GitHub fetchHeadCommitSha() completely to verify whether repo_status
+  // hangs on external fetch without timeout.
   // -----------------------------------------------------------------------
   let commitSha = latest.commit_sha || null;
 
   if (!commitSha) {
-    const headSha = await fetchHeadCommitSha({ repo, branch });
-
-    if (headSha) {
-      commitSha = headSha;
-
-      // Persist into repo_index_snapshots for this snapshot (safe, non-breaking)
-      try {
-        await pool.query(
-          `
-          UPDATE repo_index_snapshots
-          SET commit_sha = $2
-          WHERE id = $1
-        `,
-          [latest.id, headSha]
-        );
-      } catch {
-        // ignore — we still can show headSha
-      }
-    }
+    commitSha = "null";
   }
 
   await bot.sendMessage(

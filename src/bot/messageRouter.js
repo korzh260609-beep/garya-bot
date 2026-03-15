@@ -120,6 +120,7 @@ import { handleTaskListCommands } from "./router/taskListCommands.js";
 import { handleContextDebugCommands } from "./router/contextDebugCommands.js";
 import { handleArtifactFileCommands } from "./router/artifactFileCommands.js";
 import { handleMemoryDiagnosticsCommands } from "./router/memoryDiagnosticsCommands.js";
+import { handleBasicPublicCommands } from "./router/basicPublicCommands.js";
 import {
   handleUtilityStatusEarlyCommands,
   handleUtilityStatusLateCommands,
@@ -406,38 +407,15 @@ export function attachMessageRouter({
           }
         }
 
-        if (cmdBase === "/start") {
-          await ctxReply(
-            [
-              "✅ SG online.",
-              "",
-              "Базовые команды:",
-              "- /link_start — начать привязку identity",
-              "- /link_confirm <code> — подтвердить привязку",
-              "- /link_status — проверить статус",
-              "",
-              "ℹ️ /help — подсказка по командам (в зависимости от прав).",
-            ].join("\n"),
-            { cmd: cmdBase, handler: "messageRouter", event: "start" }
-          );
-          return;
-        }
+        {
+          const handledBasicPublic = await handleBasicPublicCommands({
+            cmdBase,
+            ctxReply,
+          });
 
-        if (cmdBase === "/help") {
-          await ctxReply(
-            [
-              "ℹ️ Help",
-              "",
-              "Базовые команды:",
-              "- /link_start",
-              "- /link_confirm <code> ",
-              "- /link_status",
-              "",
-              "Dev/системные команды — только для монарха в личке.",
-            ].join("\n"),
-            { cmd: cmdBase, handler: "messageRouter", event: "help" }
-          );
-          return;
+          if (handledBasicPublic) {
+            return;
+          }
         }
 
         if (!isMonarchUser) {

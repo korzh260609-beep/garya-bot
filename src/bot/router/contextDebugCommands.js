@@ -1,8 +1,9 @@
 // src/bot/router/contextDebugCommands.js
 
+import { dispatchCommand } from "../commandDispatcher.js";
+
 export async function handleContextDebugCommands({
   cmdBase,
-  dispatchCommand,
   bot,
   msg,
   identityCtx,

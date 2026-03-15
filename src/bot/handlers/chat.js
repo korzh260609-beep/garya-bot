@@ -7,11 +7,11 @@
 //
 // ✅ STAGE 7B (this patch): early-return replies + AlreadySeen hint also logged into chat_messages (assistant)
 //
-// ✅ STAGE 10.3 wiring:
-// - add SourceService skeleton visibility
-// - do NOT fetch real sources yet
-// - do NOT block production AI path yet
-// - only make runtime/service state explicit and safe
+// ✅ STAGE 10.6 wiring:
+// - SourceService may now perform first real source fetch (CoinGecko simple price)
+// - fetched source result is injected into AI context only when sourceResult.ok=true
+// - behavior remains fail-open: if source fails, chat still works
+// - no hard source-blocking yet
 
 import pool from "../../../db.js";
 import { insertAssistantMessage } from "../../db/chatMessagesRepo.js"; // ✅ STAGE 7.7.2
@@ -208,19 +208,6 @@ export async function handleChatMessage({
   //   src/services/chatMemory/buildInboundChatPayload.js
   // - migration must be explicit and separate from this comment-only step
   // ==========================================================
-  //
-  // CURRENT AI AUTHORITY DETAILS:
-  // - FileIntake.buildEffectiveUserTextAndDecision(...) is still the only
-  //   authoritative runtime source here for:
-  //   1) effectiveUserText
-  //   2) shouldCallAI
-  //   3) directReplyText
-  // - this handler must continue to trust FileIntake for AI-facing semantics
-  // - do NOT silently align this block with Core storage semantics
-  // - do NOT import/call buildInboundChatPayload.js here during skeleton-only stage
-  // - do NOT reinterpret Core storage markers as AI intent by itself
-  // - if future contract wiring happens later, it must preserve:
-  //   text-only, media-only, text+media, caption+media behavior separately
   const decisionFn =
     typeof FileIntake?.buildEffectiveUserTextAndDecision === "function"
       ? FileIntake.buildEffectiveUserTextAndDecision
@@ -234,31 +221,16 @@ export async function handleChatMessage({
         directReplyText: Boolean(trimmed) ? null : "Напиши текстом, что нужно сделать.",
       };
 
-  // STAGE 7B NOTE:
-  // effective below is still the AI-facing runtime value.
-  // It is intentionally NOT unified yet with Core storage-facing semantics.
-  //
-  // IMPORTANT BRIDGE NOTE:
-  // - `effective` below is NOT a storage contract field
-  // - it is the current AI-facing runtime value chosen by FileIntake
-  // - for media/caption flows it may intentionally diverge from Core
-  //   storage-facing content built in src/core/handleMessage.js
-  // - this divergence is expected at the current Stage 7B micro-step
-  // - any unification must happen only through a separate approved runtime migration
-  //
-  // SAFETY NOTE:
-  // - memory writes below use `effective` for conversational continuity only
-  // - that must NOT be read later as proof that `effective` became canonical storage input
   const effective = (decision?.effectiveUserText || "").trim();
   const shouldCallAI = Boolean(decision?.shouldCallAI);
   const directReplyText = decision?.directReplyText || null;
 
   // ==========================================================
-  // STAGE 10.3 — SourceService skeleton (non-blocking)
+  // STAGE 10.6 — SourceService (fail-open)
   // IMPORTANT:
-  // - no real fetch here yet
-  // - no source result injected yet
-  // - only explicit runtime/service state + safe transparency
+  // - may perform first real fetch via SourceService
+  // - fetched result is optional
+  // - chat must continue working even if source fails
   // ==========================================================
   let sourceCtx = null;
   let sourceServiceDebugBlock = "";
@@ -282,7 +254,7 @@ export async function handleChatMessage({
   } catch (e) {
     console.error("ERROR sourceService resolve failed (fail-open):", e);
     sourceCtx = {
-      version: "10.3-skeleton-v1",
+      version: "10.6-skeleton-v1",
       ok: false,
       usedExistingSourceResult: false,
       shouldUseSourceResult: false,
@@ -310,7 +282,7 @@ export async function handleChatMessage({
 
     sourceServiceDebugBlock = [
       "SOURCE SERVICE:",
-      "- version: 10.3-skeleton-v1",
+      "- version: 10.6-skeleton-v1",
       "- decision: noop",
       "- should_fetch: false",
       "- source_definition_found: false",
@@ -321,16 +293,34 @@ export async function handleChatMessage({
     ].join("\n");
   }
 
+  const sourceContextText =
+    sourceCtx?.shouldUseSourceResult === true &&
+    sourceCtx?.sourceResult?.ok === true &&
+    typeof sourceCtx?.sourceResult?.content === "string" &&
+    sourceCtx.sourceResult.content.trim()
+      ? sourceCtx.sourceResult.content.trim()
+      : "";
+
+  const sourceResultSystemMessage = sourceContextText
+    ? {
+        role: "system",
+        content:
+          `SOURCE RESULT (verified runtime data):\n` +
+          `- source_key: ${sourceCtx?.sourceResult?.sourceKey || "unknown"}\n` +
+          `- fetched_at: ${sourceCtx?.sourceResult?.fetchedAt || "unknown"}\n` +
+          `- use this as factual runtime context when relevant\n\n` +
+          `${sourceContextText}`,
+      }
+    : null;
+
   // ==========================================================
   // STAGE 7 — helper: store assistant reply on early-return branches
-  // Reason: without it, /memory_integrity reports missing_assistant (u=1 a=0)
   // ==========================================================
   const saveAssistantEarlyReturn = async (text, reason = "early_return") => {
     try {
       const replyText = typeof text === "string" ? text : String(text || "");
       if (!replyText.trim()) return;
 
-      // ✅ STAGE 7B — also log assistant early-return into chat_messages (fail-open)
       try {
         const transport = "telegram";
         const chatType = msg?.chat?.type || null;
@@ -411,21 +401,6 @@ export async function handleChatMessage({
     return;
   }
 
-  //  STAGE 7.2: save with globalUserId + metadata
-  // NOTE: Memory layer keeps original AI-facing text as used by this handler.
-  // 7B redaction applies to chat_history (chat_messages) only.
-  // Storage-vs-AI semantic unification is intentionally postponed.
-  //
-  // CURRENT MEMORY WRITE SEMANTICS:
-  // - this user-memory write stores the AI-facing `effective` text only
-  // - it does NOT attempt to mirror Core storage-facing payload semantics
-  // - do NOT replace this with buildInboundChatPayload.js during skeleton stage
-  // - do NOT reinterpret this as canonical inbound storage content
-  // - explicit storage-vs-AI contract alignment must be a separate reviewed step
-  //
-  // VERIFIED NOTE:
-  // - storing `effective` here is acceptable because memory role = chat continuity
-  // - memory continuity must not be confused with chat_messages storage contract
   try {
     await memoryWrite({
       role: "user",
@@ -440,9 +415,8 @@ export async function handleChatMessage({
 
   let history = [];
   try {
-    //  STAGE 7.3: read history via MemoryService (ban direct/legacy SQL reads here)
-    const memory = getMemoryService();
-    history = await memory.recent({
+    const memoryLocal = getMemoryService();
+    history = await memoryLocal.recent({
       chatId: chatIdStr,
       globalUserId,
       limit: MAX_HISTORY_MESSAGES,
@@ -465,7 +439,6 @@ export async function handleChatMessage({
     console.error("ERROR loadProjectContext error:", e);
   }
 
-  // ✅ FIX (2026-03-02): adaptive answer mode (monarch default normal + minimal-sufficient upgrades)
   const answerMode = getAnswerMode(chatIdStr, {
     isMonarch: monarchNow,
     text: effective,
@@ -496,16 +469,12 @@ export async function handleChatMessage({
 
   // ==========================================================
   // STAGE 8C — Timezone wiring (DB -> TimeContext)
-  // Default = UTC (policy).
-  // If timezone not set → try resolve/save OR ask user and STOP (no AI call).
   // ==========================================================
   let userTz = "UTC";
   let timezoneMissing = false;
 
   try {
     const tzInfo = await getUserTimezone(globalUserId);
-
-    // tzInfo = { timezone, isSet }
     if (!tzInfo || tzInfo.isSet !== true) {
       timezoneMissing = true;
     } else {
@@ -518,7 +487,6 @@ export async function handleChatMessage({
   if (timezoneMissing) {
     const rawTzInput = String(effective || "").trim();
 
-    // ✅ NEW: allow deterministic TIME_NOW / CURRENT_DATE even without timezone (fallback UTC)
     try {
       if (isTimeNowIntent(effective)) {
         const timeCtx = createTimeContext({ userTimezoneFromDb: "UTC" });
@@ -531,7 +499,7 @@ export async function handleChatMessage({
             `Щоб показувати локальний час — вкажи часову зону IANA, напр.: Europe/Kyiv`;
           await saveAssistantEarlyReturn(text, "deterministic_time_now_utc_no_tz");
           await bot.sendMessage(chatId, text);
-          return; // ⛔ STOP — no AI
+          return;
         }
       }
 
@@ -546,19 +514,17 @@ export async function handleChatMessage({
             `Щоб показувати локальну дату — вкажи часову зону IANA, напр.: Europe/Kyiv`;
           await saveAssistantEarlyReturn(text, "deterministic_current_date_utc_no_tz");
           await bot.sendMessage(chatId, text);
-          return; // ⛔ STOP — no AI
+          return;
         }
       }
     } catch (e) {
       console.error("ERROR deterministic no-tz reply failed (fail-open):", e);
     }
 
-    // 1) If user provides IANA timezone directly (Europe/Kyiv)
     const ianaCandidate = rawTzInput.match(/^[A-Za-z_]+\/[A-Za-z_]+$/) ? rawTzInput : null;
 
     const isValidIana = (tz) => {
       try {
-        // throws RangeError on invalid timeZone
         new Intl.DateTimeFormat("en-US", { timeZone: tz }).format(new Date());
         return true;
       } catch (_) {
@@ -571,7 +537,6 @@ export async function handleChatMessage({
     if (ianaCandidate && isValidIana(ianaCandidate)) {
       resolved = ianaCandidate;
     } else {
-      // 2) Minimal resolver (MVP): Kyiv/Ukraine -> Europe/Kyiv
       const t = rawTzInput.toLowerCase();
 
       const mentionsKyiv =
@@ -596,7 +561,7 @@ export async function handleChatMessage({
         await saveAssistantEarlyReturn(text, "timezone_save_failed");
         await bot.sendMessage(chatId, text);
       }
-      return; // ⛔ STOP — не идём в AI
+      return;
     }
 
     {
@@ -604,16 +569,10 @@ export async function handleChatMessage({
         "Укажи свою часову зону у форматі IANA, напр.: Europe/Kyiv. Якщо не знаєш — напиши країну і місто ще раз.";
       await saveAssistantEarlyReturn(text, "timezone_ask");
       await bot.sendMessage(chatId, text);
-      return; // ⛔ STOP — не идём в AI
+      return;
     }
   }
 
-  // ==========================================================
-  // STAGE 8A — RECALL ENGINE
-  // - default disabled via RECALL_ENABLED
-  // - fail-open (must not break production)
-  // - IMPORTANT: pass userTimezone for correct human-date parsing
-  // ==========================================================
   let recallCtx = "";
   try {
     const recall = getRecallEngine({ db: pool, logger: console });
@@ -628,16 +587,12 @@ export async function handleChatMessage({
     console.error("ERROR RecallEngine buildRecallContext failed (fail-open):", e);
   }
 
-  // ==========================================================
-  // STAGE 8C.0 — deterministic TIME_NOW reply (no AI)
-  // ==========================================================
   try {
     if (isTimeNowIntent(effective)) {
       const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
       const nowUtc = timeCtx.nowUTC();
       const formatted = timeCtx.formatForUser(nowUtc);
 
-      // ✅ NEW: hard fallback to UTC if formatting fails (invalid TZ / Intl issue)
       const fallback =
         !formatted
           ? (() => {
@@ -663,16 +618,12 @@ export async function handleChatMessage({
     console.error("ERROR deterministic TIME_NOW reply failed (fail-open):", e);
   }
 
-  // ==========================================================
-  // STAGE 8A.1 — deterministic CURRENT_DATE reply (no AI)
-  // ==========================================================
   try {
     if (isCurrentDateIntent(effective)) {
       const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
       const nowUtc = timeCtx.nowUTC();
       const dateOnly = timeCtx.formatDateForUser(nowUtc);
 
-      // ✅ NEW: hard fallback to UTC if formatting fails
       const fallback =
         !dateOnly
           ? (() => {
@@ -691,17 +642,13 @@ export async function handleChatMessage({
         const text = `Сьогодні: ${out}`;
         await saveAssistantEarlyReturn(text, "deterministic_current_date");
         await bot.sendMessage(chatId, text);
-        return; // ⛔ запрет AI
+        return;
       }
     }
   } catch (e) {
     console.error("ERROR deterministic CURRENT_DATE reply failed (fail-open):", e);
   }
 
-  // ==========================================================
-  // STAGE 8A.1 — deterministic calendar-date reply (no AI)
-  // For direct questions like "какое было вчера число?" return computed date from TimeContext.
-  // ==========================================================
   try {
     const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
     const parsed = timeCtx.parseHumanDate(effective);
@@ -710,7 +657,6 @@ export async function handleChatMessage({
     const asksCalendarDate =
       qLower.includes("число") || qLower.includes("дата") || qLower.includes("what date") || qLower.includes("date was");
 
-    // ✅ FIX: include "_days_from_now" as single-day hint
     const isSingleDayHint =
       parsed?.hint === "today" ||
       parsed?.hint === "tomorrow" ||
@@ -721,18 +667,15 @@ export async function handleChatMessage({
 
     if (asksCalendarDate && parsed?.fromUTC && isSingleDayHint) {
       const d = new Date(parsed.fromUTC);
-
-      // ✅ FIX: show date in user's timezone via TimeContext formatter (not "По UTC ...")
       const dateOnly = timeCtx.formatDateForUser(d);
 
       if (dateOnly) {
         const text = `Дата: ${dateOnly}`;
         await saveAssistantEarlyReturn(text, "deterministic_calendar_date");
         await bot.sendMessage(chatId, text);
-        return; // ⛔ STOP — deterministic answer
+        return;
       }
 
-      // fallback (should be rare)
       const dateLabel = new Intl.DateTimeFormat("ru-RU", {
         timeZone: "UTC",
         year: "numeric",
@@ -749,23 +692,14 @@ export async function handleChatMessage({
     console.error("ERROR deterministic calendar-date reply failed (fail-open):", e);
   }
 
-  // ==========================================================
-  // STAGE 8A GUARD — BLOCK AI IF RECALL TOO WEAK (anti-hallucination)
-  // ==========================================================
   try {
     const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
     const parsed = timeCtx.parseHumanDate(effective);
-
-    // ✅ FIX: future-date questions are not "memory recall" → do not block
     const isFutureSingleDay = /_days_from_now$/.test(String(parsed?.hint || ""));
 
     if (parsed && !isFutureSingleDay) {
-      // ✅ FIX (STAGE 8): count U:/A: even when timestamps prefix the line: "[dd.mm hh:mm] U:"
       const uaCount = (recallCtx || "").match(/U:|A:/g)?.length ?? 0;
 
-      // ✅ SAFER FIX:
-      // block only when recall context is effectively empty
-      // or there are no user/assistant lines at all
       if (!String(recallCtx || "").trim() || uaCount < 1) {
         try {
           const text = "В памяти нет данных за этот период.";
@@ -774,16 +708,13 @@ export async function handleChatMessage({
         } catch (e) {
           console.error("ERROR Guard send error:", e);
         }
-        return; // 🚨 STOP — do NOT call AI
+        return;
       }
     }
   } catch (e) {
     console.error("ERROR STAGE 8A guard failed (fail-open):", e);
   }
 
-  // ==========================================================
-  // STAGE 8B — ALREADY-SEEN DETECTOR
-  // ==========================================================
   let softReaction = false;
   let lastMatchAt = null;
   try {
@@ -797,17 +728,11 @@ export async function handleChatMessage({
     });
 
     lastMatchAt = typeof alreadySeen.getLastMatchAt === "function" ? alreadySeen.getLastMatchAt() : null;
-
     softReaction = Boolean(alreadySeenTriggered);
   } catch (e) {
     console.error("ERROR AlreadySeenDetector check failed (fail-open):", e);
   }
 
-  // ==========================================================
-  // STAGE 8B.5 — Output format tightening (UTC default)
-  // NOTE: This is a non-terminal hint (we continue to AI).
-  // DO NOT store to chat_memory with same messageId, otherwise we create multi_assistant anomalies.
-  // ==========================================================
   if (softReaction === true) {
     try {
       const dt = lastMatchAt ? new Date(lastMatchAt) : null;
@@ -826,7 +751,6 @@ export async function handleChatMessage({
 
       await bot.sendMessage(chatId, hintText);
 
-      // ✅ STAGE 7B — log soft hint into chat_messages (assistant) (fail-open)
       try {
         const transport = "telegram";
         const chatType = msg?.chat?.type || null;
@@ -870,7 +794,6 @@ export async function handleChatMessage({
     }
   }
 
-  //  FIX: role guard must use monarchNow (real identity), not bypass (router shortcut)
   const roleGuardPrompt = monarchNow
     ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."
     : "SYSTEM ROLE: текущий пользователь НЕ монарх. Запрещено обращаться 'Монарх', 'Ваше Величество', 'Государь'. Называй: 'гость' или нейтрально (вы/ты).";
@@ -882,15 +805,16 @@ export async function handleChatMessage({
           content:
             `${sourceServiceDebugBlock}\n\n` +
             `IMPORTANT:\n` +
-            `- this service block is informational only at current stage\n` +
-            `- no real source fetch was executed in this request unless explicit fetched data is present\n` +
-            `- if source is needed but missing, be honest about missing source runtime/service`,
+            `- this service block describes current source-service state\n` +
+            `- factual source data is injected separately only when sourceResult.ok=true\n` +
+            `- if source fetch failed or was skipped, do not pretend that the source was used`,
         }
       : null;
 
   const messages = [
     { role: "system", content: systemPrompt },
     sourceServiceSystemMessage,
+    sourceResultSystemMessage,
     recallCtx
       ? {
           role: "system",
@@ -935,6 +859,8 @@ export async function handleChatMessage({
     sourceRuntimeDecision: sourceCtx?.sourceRuntime?.decision || "unknown",
     sourceRuntimeNeedsSource: Boolean(sourceCtx?.sourceRuntime?.needsSource),
     sourceReason: sourceCtx?.reason || "unknown",
+    sourceResultOk: Boolean(sourceCtx?.sourceResult?.ok),
+    sourceResultKey: sourceCtx?.sourceResult?.sourceKey || null,
   };
 
   try {
@@ -970,7 +896,6 @@ export async function handleChatMessage({
     ok: !(typeof aiReply === "string" && aiReply.startsWith("ERROR: Ошибка вызова ИИ")),
   };
 
-  // ✅ STAGE 5.16 — detect clarification_asked
   try {
     const _looksLikeClarification = typeof aiReply === "string" && aiReply.trim().endsWith("?");
     if (_looksLikeClarification) {
@@ -998,13 +923,8 @@ export async function handleChatMessage({
     console.error("ERROR logInteraction (AI_CALL_END) error:", e);
   }
 
-  // ==========================================================
-  // STAGE 7B.4 — Log assistant output to chat_messages (assistant)
-  // ==========================================================
   try {
     const transport = "telegram";
-    const chatType = msg?.chat?.type || null;
-
     const assistantRedactedFull = redactText(typeof aiReply === "string" ? aiReply : "");
     const assistantTextHash = sha256Text(assistantRedactedFull);
 
@@ -1029,6 +949,8 @@ export async function handleChatMessage({
       sourceRuntimeDecision: sourceCtx?.sourceRuntime?.decision || "unknown",
       sourceRuntimeNeedsSource: Boolean(sourceCtx?.sourceRuntime?.needsSource),
       sourceReason: sourceCtx?.reason || "unknown",
+      sourceResultOk: Boolean(sourceCtx?.sourceResult?.ok),
+      sourceResultKey: sourceCtx?.sourceResult?.sourceKey || null,
     };
 
     await insertAssistantMessage({
@@ -1056,9 +978,6 @@ export async function handleChatMessage({
     console.error("ERROR STAGE 7B.4 chat_messages assistant insert failed (fail-open):", e);
   }
 
-  // ==========================================================
-  // ✅ STAGE 7 — deterministic save (assistant pairing) : HARD LOG
-  // ==========================================================
   try {
     const meta = { senderIdStr, chatIdStr, messageId };
 
@@ -1070,7 +989,6 @@ export async function handleChatMessage({
       schemaVersion: 2,
     });
 
-    // ✅ Hard signal into logs: if stored=false or res missing
     if (!res || res.stored !== true) {
       try {
         console.error("MEMORY_PAIR_SAVE_NOT_STORED", {
@@ -1113,13 +1031,6 @@ export async function handleChatMessage({
     console.error("ERROR Telegram send error:", e);
   }
 
-  // ==========================================================
-  // DECISION PREVIEW ROUTE — policy/telemetry only
-  // IMPORTANT:
-  // - no production effect
-  // - no promotion
-  // - used only to avoid hardcoded "core_chat" baseline kind
-  // ==========================================================
   let decisionPreviewRoute = null;
   try {
     decisionPreviewRoute = await routeDecision({
@@ -1137,13 +1048,6 @@ export async function handleChatMessage({
     console.error("ERROR decision preview route failed (fail-open):", e);
   }
 
-  // ==========================================================
-  // DECISION SHADOW HOOK — sandbox compare after real chat reply
-  // IMPORTANT:
-  // - must NEVER affect production response
-  // - best-effort only
-  // - runs only after Telegram reply is already sent
-  // ==========================================================
   try {
     await runDecisionShadowHook(
       {
@@ -1163,6 +1067,8 @@ export async function handleChatMessage({
           sourceRuntimeDecision: sourceCtx?.sourceRuntime?.decision || "unknown",
           sourceRuntimeNeedsSource: Boolean(sourceCtx?.sourceRuntime?.needsSource),
           sourceReason: sourceCtx?.reason || "unknown",
+          sourceResultOk: Boolean(sourceCtx?.sourceResult?.ok),
+          sourceResultKey: sourceCtx?.sourceResult?.sourceKey || null,
         },
       },
       {

@@ -153,10 +153,6 @@ import { handleMemoryIntegrityCommand } from "./router/memoryIntegrityCommand.js
 import { handleMemoryBackfillCommand } from "./router/memoryBackfillCommand.js";
 import { handleMemoryStatusCommand } from "./router/memoryStatusCommand.js";
 import { handleChatDiagCommand } from "./router/chatDiagCommand.js";
-import { handleDemoTaskCommand } from "./router/demoTaskCommand.js";
-import { handleNewTaskCommand } from "./router/newTaskCommand.js";
-import { handleBtcTestTaskCommand } from "./router/btcTestTaskCommand.js";
-import { handleTasksCommand } from "./router/tasksCommand.js";
 import { handleRepoStatusCommand } from "./router/repoStatusCommand.js";
 import { handleRepoTreeCommand } from "./router/repoTreeCommand.js";
 import { handleRepoFileCommand } from "./router/repoFileCommand.js";
@@ -694,10 +690,6 @@ export function attachMessageRouter({
         {
           const handledTaskList = await handleTaskListCommands({
             cmdBase,
-            handleDemoTaskCommand,
-            handleNewTaskCommand,
-            handleBtcTestTaskCommand,
-            handleTasksCommand,
             handleDemoTask,
             handleNewTask,
             handleBtcTestTask,

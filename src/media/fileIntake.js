@@ -13,7 +13,7 @@
 
 import fs from "fs";
 import path from "path";
-import fetch from "node-fetch";
+import { fetchWithTimeout } from "../core/fetchWithTimeout.js";
 
 // ==================================================
 // === CONFIG
@@ -163,10 +163,12 @@ export async function downloadTelegramFile(botToken, fileId) {
   ensureTmpDir();
 
   // 1) getFile
-  const metaRes = await fetch(
+  const metaRes = await fetchWithTimeout(
     `https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(
       fileId
-    )}`
+    )}`,
+    { method: "GET" },
+    8000
   );
   const metaJson = await metaRes.json();
 
@@ -181,7 +183,7 @@ export async function downloadTelegramFile(botToken, fileId) {
   const fileName = path.basename(telegramPath);
   const localPath = path.join(TMP_DIR, fileName);
 
-  const fileRes = await fetch(fileUrl);
+  const fileRes = await fetchWithTimeout(fileUrl, { method: "GET" }, 12000);
   if (!fileRes.ok) throw new Error("File download failed");
 
   const buffer = await fileRes.arrayBuffer();

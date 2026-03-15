@@ -12,6 +12,12 @@
 // - fetched source result is injected into AI context only when sourceResult.ok=true
 // - behavior remains fail-open: if source fails, chat still works
 // - no hard source-blocking yet
+//
+// ✅ STAGE 10.6.x narrow robot-layer price reply:
+// - for simple price intents only
+// - uses sourceResult.meta.parsed directly
+// - bypasses AI call when deterministic source reply is available
+// - keeps fail-open behavior and does not affect non-price requests
 
 import pool from "../../../db.js";
 import { insertAssistantMessage } from "../../db/chatMessagesRepo.js"; // ✅ STAGE 7.7.2
@@ -38,6 +44,264 @@ function normalizeAlreadySeenRole(value) {
   if (role === "vip") return "vip";
   if (role === "citizen") return "citizen";
   return "guest";
+}
+
+function normalizeTextForRobot(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function detectRequestedCoinIdsFromText(text = "") {
+  const t = normalizeTextForRobot(text).toLowerCase();
+  if (!t) return [];
+
+  const found = [];
+
+  const rules = [
+    { id: "bitcoin", label: "BTC", signals: ["bitcoin", "btc", "биткоин", "біткоїн"] },
+    { id: "ethereum", label: "ETH", signals: ["ethereum", "eth", "эфир", "ефир", "ефір"] },
+    { id: "binancecoin", label: "BNB", signals: ["binance", "bnb"] },
+    { id: "solana", label: "SOL", signals: ["solana", "sol"] },
+    { id: "ripple", label: "XRP", signals: ["ripple", "xrp"] },
+    { id: "toncoin", label: "TON", signals: ["toncoin", "ton"] },
+    { id: "avalanche-2", label: "AVAX", signals: ["avalanche", "avax"] },
+    { id: "aptos", label: "APT", signals: ["aptos", "apt"] },
+    { id: "hedera-hashgraph", label: "HBAR", signals: ["hedera", "hbar"] },
+    { id: "ondo-finance", label: "ONDO", signals: ["ondo"] },
+    { id: "sei-network", label: "SEI", signals: ["sei"] },
+    { id: "sui", label: "SUI", signals: ["sui"] },
+    { id: "tether", label: "USDT", signals: ["tether", "usdt"] },
+  ];
+
+  for (const rule of rules) {
+    if (rule.signals.some((signal) => t.includes(signal))) {
+      found.push(rule.id);
+    }
+  }
+
+  return [...new Set(found)];
+}
+
+function getCoinLabel(coinId) {
+  const map = {
+    bitcoin: "BTC",
+    ethereum: "ETH",
+    binancecoin: "BNB",
+    solana: "SOL",
+    ripple: "XRP",
+    toncoin: "TON",
+    "avalanche-2": "AVAX",
+    aptos: "APT",
+    "hedera-hashgraph": "HBAR",
+    "ondo-finance": "ONDO",
+    "sei-network": "SEI",
+    sui: "SUI",
+    tether: "USDT",
+  };
+
+  return map[String(coinId || "").trim().toLowerCase()] || String(coinId || "").trim().toUpperCase();
+}
+
+function detectRequestedVsCurrenciesFromText(text = "") {
+  const t = normalizeTextForRobot(text).toLowerCase();
+  if (!t) return [];
+
+  const found = [];
+
+  if (t.includes("usd") || t.includes("доллар") || t.includes("долар") || t.includes("usdt")) {
+    found.push("usd");
+  }
+  if (t.includes("eur") || t.includes("euro") || t.includes("евро") || t.includes("євро")) {
+    found.push("eur");
+  }
+  if (t.includes("uah") || t.includes("грн") || t.includes("hryvnia")) {
+    found.push("uah");
+  }
+
+  return [...new Set(found)];
+}
+
+function isSimplePriceIntent(text = "") {
+  const t = normalizeTextForRobot(text).toLowerCase();
+  if (!t) return false;
+
+  const priceSignals = [
+    "цена",
+    "курс",
+    "сколько стоит",
+    "скільки коштує",
+    "price",
+    "cost",
+    "worth",
+    "сколько сейчас",
+    "скільки зараз",
+  ];
+
+  const complexSignals = [
+    "почему",
+    "чому",
+    "why",
+    "прогноз",
+    "forecast",
+    "predict",
+    "анализ",
+    "analysis",
+    "разбор",
+    "trend",
+    "тренд",
+    "новости",
+    "news",
+    "график",
+    "chart",
+    "индикатор",
+    "indicator",
+    "support",
+    "resistance",
+    "сопротивление",
+    "поддержка",
+    "buy",
+    "sell",
+    "лонг",
+    "шорт",
+    "entry",
+    "sl",
+    "tp",
+    "сигнал",
+    "signal",
+    "сравни",
+    "compare",
+    "vs",
+    "против",
+    "лучше",
+    "хуже",
+    "капитализация",
+    "market cap",
+    "volume",
+    "объем",
+    "объём",
+  ];
+
+  if (complexSignals.some((signal) => t.includes(signal))) {
+    return false;
+  }
+
+  const hasCoin = detectRequestedCoinIdsFromText(t).length > 0;
+  const hasPriceWord = priceSignals.some((signal) => t.includes(signal));
+
+  if (!hasCoin) return false;
+
+  if (hasPriceWord) return true;
+
+  const compactCoinOnly = /^[a-zа-яіїє0-9\s?,.!/-]{1,40}$/i.test(t);
+  return compactCoinOnly;
+}
+
+function formatRobotNumber(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "n/a";
+
+  if (Math.abs(value) >= 1000) {
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
+  if (Math.abs(value) >= 1) {
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
+  if (Math.abs(value) >= 0.01) {
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4,
+    }).format(value);
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 6,
+    maximumFractionDigits: 8,
+  }).format(value);
+}
+
+function formatRobotPercent(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
+}
+
+function formatRobotUpdatedAt(value) {
+  if (!value) return null;
+
+  try {
+    const date =
+      typeof value === "number" && Number.isFinite(value)
+        ? new Date(value * 1000)
+        : new Date(value);
+
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().replace("T", " ").replace(".000Z", " UTC");
+  } catch (_) {
+    return null;
+  }
+}
+
+function tryBuildRobotPriceReply({ text = "", sourceCtx = null }) {
+  if (!isSimplePriceIntent(text)) return null;
+
+  const parsed = sourceCtx?.sourceResult?.meta?.parsed;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  if (sourceCtx?.sourceResult?.ok !== true) return null;
+
+  const requestedCoinIds = detectRequestedCoinIdsFromText(text);
+  if (!requestedCoinIds.length) return null;
+
+  const requestedVs = detectRequestedVsCurrenciesFromText(text);
+
+  const lines = [];
+  let builtCount = 0;
+  let updatedAtText = null;
+
+  for (const coinId of requestedCoinIds) {
+    const coinBlock = parsed?.[coinId];
+    if (!coinBlock || typeof coinBlock !== "object") continue;
+
+    const availableVs = Object.keys(coinBlock).filter((key) => key !== "lastUpdatedAt");
+    if (!availableVs.length) continue;
+
+    const chosenVs =
+      requestedVs.length > 0
+        ? requestedVs.filter((vs) => availableVs.includes(vs))
+        : [availableVs[0]];
+
+    if (!chosenVs.length) continue;
+
+    const coinLabel = getCoinLabel(coinId);
+
+    for (const vs of chosenVs) {
+      const row = coinBlock?.[vs];
+      if (!row || typeof row !== "object") continue;
+
+      const price = formatRobotNumber(row.price);
+      const change = formatRobotPercent(row.change24h);
+      const changePart = change ? ` | 24ч: ${change}` : "";
+
+      lines.push(`${coinLabel}: ${price} ${vs.toUpperCase()}${changePart}`);
+      builtCount += 1;
+    }
+
+    if (!updatedAtText) {
+      updatedAtText = formatRobotUpdatedAt(coinBlock?.lastUpdatedAt || sourceCtx?.sourceResult?.fetchedAt);
+    }
+  }
+
+  if (builtCount === 0) return null;
+
+  if (updatedAtText) {
+    lines.push(`Обновлено: ${updatedAtText}`);
+  }
+
+  return lines.join("\n");
 }
 
 export async function handleChatMessage({
@@ -411,6 +675,28 @@ export async function handleChatMessage({
     });
   } catch (e) {
     console.error("ERROR memoryWrite(user) error:", e);
+  }
+
+  // ==========================================================
+  // STAGE 10.6.x — narrow deterministic robot reply for simple prices
+  // IMPORTANT:
+  // - only for simple price intents
+  // - only when real source parsed data exists
+  // - no AI call for this path
+  // ==========================================================
+  try {
+    const robotPriceReply = tryBuildRobotPriceReply({
+      text: effective,
+      sourceCtx,
+    });
+
+    if (robotPriceReply) {
+      await saveAssistantEarlyReturn(robotPriceReply, "robot_price_reply");
+      await bot.sendMessage(chatId, robotPriceReply);
+      return;
+    }
+  } catch (e) {
+    console.error("ERROR robot price reply failed (fail-open):", e);
   }
 
   let history = [];

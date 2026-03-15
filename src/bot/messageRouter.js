@@ -2,23 +2,13 @@
 // === src/bot/messageRouter.js — MAIN HANDLER extracted from index.js ===
 // ============================================================================
 
-import { getCodeOutputMode } from "../codeOutput/codeOutputMode.js";
 import { handleCodeFullfile } from "./handlers/codeFullfile.js";
 import { handleCodeInsert } from "./handlers/codeInsert.js";
 import { handleRepoDiff } from "./handlers/repoDiff.js";
 import { CMD_ACTION } from "./cmdActionMap.js";
 import { handleChatMessage } from "./handlers/chat.js";
-import { handleTasksList } from "./handlers/tasksList.js";
-import { handleNewTask } from "./handlers/newTask.js";
-import { handleBtcTestTask } from "./handlers/btcTestTask.js";
-import { handleDemoTask } from "./handlers/demoTask.js";
-import { handleFileLogs } from "./handlers/fileLogs.js";
-import { handleArList } from "./handlers/arList.js";
-import { handleDeny } from "./handlers/deny.js";
-import { handleApprove } from "./handlers/approve.js";
 
 // ✅ Stage 5.3: workflow check
-import { handleWorkflowCheck } from "./handlers/workflowCheck.js";
 
 import { resolveUserAccess } from "../users/userAccess.js";
 import { ensureUserProfile } from "../users/userProfile.js"; // ✅ STAGE 4.2 WIRE
@@ -95,10 +85,6 @@ import * as FileIntake from "../media/fileIntake.js";
 // === LOGGING (interaction_logs) ===
 import { logInteraction } from "../logging/interactionLogs.js";
 import BehaviorEventsService from "../logging/BehaviorEventsService.js";
-
-// ✅ STAGE 5.16.2 — DEV verify tool
-import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
-import { handleChatMessagesDiag } from "./handlers/chatMessagesDiag.js";
 
 // ✅ Project Memory service (read)
 import { getProjectSection } from "../../projectMemory.js";
@@ -614,10 +600,6 @@ export function attachMessageRouter({
         {
           const handledMiscDiagnostics = await handleMiscDiagnosticsCommands({
             cmdBase,
-            handleApprove,
-            handleDeny,
-            handleBehaviorEventsLast,
-            handleChatMessagesDiag,
             bot,
             chatId,
             chatIdStr,
@@ -637,16 +619,11 @@ export function attachMessageRouter({
         {
           const handledTaskList = await handleTaskListCommands({
             cmdBase,
-            handleDemoTask,
-            handleNewTask,
-            handleBtcTestTask,
-            handleTasksList,
             bot,
             chatId,
             chatIdStr,
             rest,
             accessPack,
-            callWithFallback,
             createDemoTask,
             createManualTask,
             createTestPriceMonitorTask,
@@ -681,9 +658,7 @@ export function attachMessageRouter({
         {
           const handledUtilityStatusLate = await handleUtilityStatusLateCommands({
             cmdBase,
-            handleWorkflowCheck,
             ctxReply,
-            getCodeOutputMode,
             bot,
             chatId,
             rest,
@@ -738,8 +713,6 @@ export function attachMessageRouter({
         {
           const handledArtifactFile = await handleArtifactFileCommands({
             cmdBase,
-            handleArList,
-            handleFileLogs,
             bot,
             chatId,
             chatIdStr,

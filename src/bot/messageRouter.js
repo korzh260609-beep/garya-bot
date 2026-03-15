@@ -118,7 +118,6 @@ import { handleRepoDomainCommands } from "./router/repoDomainCommands.js";
 import { handleMiscDiagnosticsCommands } from "./router/miscDiagnosticsCommands.js";
 import { handleTaskListCommands } from "./router/taskListCommands.js";
 import { handleContextDebugCommands } from "./router/contextDebugCommands.js";
-import { handleArtifactFileCommands } from "./router/artifactFileCommands.js";
 import { handleMemoryDiagnosticsCommands } from "./router/memoryDiagnosticsCommands.js";
 import { handleBasicPublicCommands } from "./router/basicPublicCommands.js";
 import {
@@ -685,20 +684,6 @@ export function attachMessageRouter({
 
           default: {
             break;
-          }
-        }
-
-        {
-          const handledArtifactFile = await handleArtifactFileCommands({
-            cmdBase,
-            bot,
-            chatId,
-            chatIdStr,
-            rest,
-          });
-
-          if (handledArtifactFile) {
-            return;
           }
         }
 

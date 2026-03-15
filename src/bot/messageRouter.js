@@ -187,6 +187,7 @@ import { handleTaskExecutionCommands } from "./router/taskExecutionCommands.js";
 import { handleSourceDomainCommands } from "./router/sourceDomainCommands.js";
 import { handleRepoDomainCommands } from "./router/repoDomainCommands.js";
 import { handleMiscDiagnosticsCommands } from "./router/miscDiagnosticsCommands.js";
+import { handleTaskListCommands } from "./router/taskListCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -730,62 +731,31 @@ export function attachMessageRouter({
           }
         }
 
-        switch (cmdBase) {
-          case "/demo_task": {
-            await handleDemoTaskCommand({
-              handleDemoTask,
-              bot,
-              chatId,
-              chatIdStr,
-              access: accessPack,
-              callWithFallback,
-              createDemoTask,
-            });
-            return;
-          }
+        {
+          const handledTaskList = await handleTaskListCommands({
+            cmdBase,
+            handleDemoTaskCommand,
+            handleNewTaskCommand,
+            handleBtcTestTaskCommand,
+            handleTasksCommand,
+            handleDemoTask,
+            handleNewTask,
+            handleBtcTestTask,
+            handleTasksList,
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            accessPack,
+            callWithFallback,
+            createDemoTask,
+            createManualTask,
+            createTestPriceMonitorTask,
+            getUserTasks,
+          });
 
-          case "/new_task": {
-            await handleNewTaskCommand({
-              handleNewTask,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              access: accessPack,
-              callWithFallback,
-              createManualTask,
-            });
+          if (handledTaskList) {
             return;
-          }
-
-          case "/btc_test_task": {
-            await handleBtcTestTaskCommand({
-              handleBtcTestTask,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-              access: accessPack,
-              callWithFallback,
-              createTestPriceMonitorTask,
-            });
-            return;
-          }
-
-          case "/tasks": {
-            await handleTasksCommand({
-              handleTasksList,
-              bot,
-              chatId,
-              chatIdStr,
-              getUserTasks,
-              access: accessPack,
-            });
-            return;
-          }
-
-          default: {
-            break;
           }
         }
 

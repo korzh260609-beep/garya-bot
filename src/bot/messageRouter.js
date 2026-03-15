@@ -778,7 +778,6 @@ export function attachMessageRouter({
         {
           const handledContextDebug = await handleContextDebugCommands({
             cmdBase,
-            dispatchCommand,
             bot,
             msg,
             identityCtx,

@@ -153,15 +153,6 @@ import { handleMemoryIntegrityCommand } from "./router/memoryIntegrityCommand.js
 import { handleMemoryBackfillCommand } from "./router/memoryBackfillCommand.js";
 import { handleMemoryStatusCommand } from "./router/memoryStatusCommand.js";
 import { handleChatDiagCommand } from "./router/chatDiagCommand.js";
-import { handleRepoStatusCommand } from "./router/repoStatusCommand.js";
-import { handleRepoTreeCommand } from "./router/repoTreeCommand.js";
-import { handleRepoFileCommand } from "./router/repoFileCommand.js";
-import { handleRepoReview2Command } from "./router/repoReview2Command.js";
-import { handleRepoSearchCommand } from "./router/repoSearchCommand.js";
-import { handleRepoGetCommand } from "./router/repoGetCommand.js";
-import { handleRepoCheckCommand } from "./router/repoCheckCommand.js";
-import { handleRepoAnalyzeCommand } from "./router/repoAnalyzeCommand.js";
-import { handleRepoReviewCommand } from "./router/repoReviewCommand.js";
 import { handleRepoDiffCommand } from "./router/repoDiffCommand.js";
 import { handleArListCommand } from "./router/arListCommand.js";
 import { handleFileLogsCommand } from "./router/fileLogsCommand.js";
@@ -758,15 +749,6 @@ export function attachMessageRouter({
         {
           const handledRepoDomain = await handleRepoDomainCommands({
             cmdBase,
-            handleRepoStatusCommand,
-            handleRepoTreeCommand,
-            handleRepoFileCommand,
-            handleRepoReview2Command,
-            handleRepoSearchCommand,
-            handleRepoGetCommand,
-            handleRepoCheckCommand,
-            handleRepoAnalyzeCommand,
-            handleRepoReviewCommand,
             handleRepoStatus,
             handleRepoTree,
             handleRepoFile,

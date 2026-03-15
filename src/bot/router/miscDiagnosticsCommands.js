@@ -1,11 +1,12 @@
 // src/bot/router/miscDiagnosticsCommands.js
 
+import { handleDeny } from "../handlers/deny.js";
+import { handleApprove } from "../handlers/approve.js";
+import { handleBehaviorEventsLast } from "../handlers/behaviorEventsLast.js";
+import { handleChatMessagesDiag } from "../handlers/chatMessagesDiag.js";
+
 export async function handleMiscDiagnosticsCommands({
   cmdBase,
-  handleApprove,
-  handleDeny,
-  handleBehaviorEventsLast,
-  handleChatMessagesDiag,
   bot,
   chatId,
   chatIdStr,

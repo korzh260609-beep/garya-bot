@@ -1,4 +1,30 @@
-// src/sources/sources.js — Sources Layer v1 (virtual/html/rss/coingecko)
+// sources.js
+//
+// ⚠️ LEGACY / NOT AUTHORITATIVE ROOT DUPLICATE
+//
+// ВАЖНО:
+// - этот файл находится в корне проекта и НЕ является текущим authoritative
+//   Sources runtime path
+// - текущий authoritative path для boot/runtime сейчас:
+//     src/sources/sources.js
+// - boot wiring использует:
+//     src/bootstrap/initSystem.js -> ../sources/sources.js
+//
+// Этот root-файл сохранён временно как legacy-duplicate / historical fallback
+// до отдельного подтверждённого шага удаления или архивирования.
+//
+// ПРАВИЛА:
+// - не использовать этот файл как источник истины по Sources Layer
+// - не добавлять сюда новую логику
+// - не править архитектуру, ориентируясь на этот файл
+// - если потребуется cleanup:
+//   1) сначала проверить все импорты ещё раз
+//   2) затем отдельным шагом архивировать или удалить
+//
+// Техническое примечание:
+// - логика ниже сохранена add-only / no-runtime-change
+// - файл оставлен только чтобы не ломать возможные скрытые legacy references
+
 import pool from "../../db.js";
 import { fetchWithTimeout } from "./src/core/fetchWithTimeout.js";
 

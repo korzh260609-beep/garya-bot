@@ -144,9 +144,10 @@ function getCriticalityPolicy(criticality) {
     return {
       level: "low",
       promptLines: [
-        "- keep analysis lightweight when risk is truly low",
-        "- still stay honest and do not agree automatically",
-        "- avoid overloading the user with excessive alarm signals",
+        "- keep analysis light only when the topic is truly low-risk",
+        "- do not create artificial alarm where it is unnecessary",
+        "- still remain honest and critical even in simple topics",
+        "- prefer calm proportional reasoning over dramatic warnings",
       ],
     };
   }
@@ -155,10 +156,11 @@ function getCriticalityPolicy(criticality) {
     return {
       level: "high",
       promptLines: [
-        "- prioritize risks, contradictions, hidden assumptions and failure modes first",
-        "- explicitly warn when the decision may cause losses, breakage or unsafe outcomes",
-        "- prefer precision over comfort when safety, money, law, health or architecture is involved",
-        "- do not soften away important risks",
+        "- start from risks, failure modes, contradictions and hidden assumptions",
+        "- warn explicitly if the idea may cause loss, breakage, unsafe behavior or false confidence",
+        "- be stricter than usual when safety, law, money, medicine, production or architecture is involved",
+        "- do not soften away important weaknesses just to sound pleasant",
+        "- when needed, separate critical blockers from secondary notes",
       ],
     };
   }
@@ -167,8 +169,9 @@ function getCriticalityPolicy(criticality) {
     level: "normal",
     promptLines: [
       "- keep balanced critical analysis",
-      "- point out meaningful risks without over-dramatizing",
-      "- preserve practical clarity and proportional caution",
+      "- point out important risks, but stay proportional",
+      "- preserve practical clarity without over-dramatizing",
+      "- prefer useful critique over abstract caution",
     ],
   };
 }
@@ -191,10 +194,12 @@ function getStyleAxisPolicy(styleAxis) {
       axis: "tech",
       label: "technical",
       promptLines: [
-        "- prioritize structure, precision and implementation details",
-        "- use engineering language when useful",
-        "- focus on logic, architecture, failure points and concrete actions",
-        "- avoid decorative phrasing and emotional padding",
+        "- prefer structured, engineering-style explanation",
+        "- focus on mechanism, causality, constraints, edge cases and implementation details",
+        "- use precise technical terms when they improve accuracy",
+        "- reduce бытовые analogies and emotional softeners unless they are necessary",
+        "- when possible, explain in terms of system, inputs, outputs, failure points and trade-offs",
+        "- prefer exact wording over conversational softness",
       ],
     };
   }
@@ -204,10 +209,12 @@ function getStyleAxisPolicy(styleAxis) {
       axis: "humanitarian",
       label: "humanitarian",
       promptLines: [
-        "- prioritize clarity, empathy and human understanding",
-        "- explain in simpler words before using technical density",
-        "- keep the answer soft in tone but still honest and critical",
-        "- focus on meaning, risks for people and practical understanding",
+        "- explain in simple human words first",
+        "- prefer shorter sentences and clearer wording",
+        "- reduce technical density unless it is necessary for accuracy",
+        "- prioritize intuitive meaning, practical understanding and readability",
+        "- use examples from everyday life when they help",
+        "- sound understandable to a child, but do not become false or shallow",
       ],
     };
   }
@@ -216,10 +223,11 @@ function getStyleAxisPolicy(styleAxis) {
     axis: "mixed",
     label: "mixed",
     promptLines: [
-      "- balance technical precision with simple human-readable explanation",
-      "- keep the answer understandable first, but not shallow",
-      "- combine structure, logic and practical clarity",
-      "- use technical terms only where they improve accuracy",
+      "- balance precision with readability",
+      "- explain clearly, but keep meaningful technical accuracy",
+      "- combine practical explanation with core mechanism",
+      "- use technical terms only where they truly add value",
+      "- avoid both oversimplification and unnecessary complexity",
     ],
   };
 }
@@ -255,6 +263,8 @@ function detectSoftStyleAxisFromText(text) {
     "для разработчика",
     "engineering",
     "implementation details",
+    "подробно технически",
+    "разбери технически",
   ];
 
   for (const signal of techSignals) {
@@ -279,6 +289,8 @@ function detectSoftStyleAxisFromText(text) {
     "simple words",
     "for a child",
     "easy words",
+    "понятно для ребенка",
+    "объясни по-человечески",
   ];
 
   for (const signal of humanitarianSignals) {
@@ -298,6 +310,7 @@ function detectSoftStyleAxisFromText(text) {
     "balanced",
     "mixed",
     "и технически и понятно",
+    "понятно но точно",
   ];
 
   for (const signal of mixedSignals) {
@@ -345,11 +358,12 @@ function getNoNoddingPolicy() {
   return {
     enabled: true,
     promptLines: [
-      "- do not imitate agreement before analysis",
-      "- do not validate an idea automatically just because the user sounds confident",
-      "- do not use empty support phrases as a substitute for reasoning",
-      "- if part of the idea is sound and part is weak, separate them explicitly",
-      "- polite tone is allowed, blind agreement is forbidden",
+      "- never start by mirroring the user's confidence as if it proves correctness",
+      "- do not praise an idea before checking whether it is actually sound",
+      "- avoid empty phrases like 'great idea' or 'exactly right' unless they are justified by analysis",
+      "- when the idea is only partly useful, say clearly which part works and which part fails",
+      "- if the core conclusion is wrong, say so politely but directly",
+      "- politeness is allowed, blind validation is forbidden",
     ],
   };
 }
@@ -366,7 +380,7 @@ export function getBehaviorCore(input = {}) {
   const noNoddingPolicy = getNoNoddingPolicy();
 
   return {
-    version: "9.10-skeleton-v1",
+    version: "9.10-skeleton-v2",
 
     // Stage 9.7 skeleton
     styleAxis,

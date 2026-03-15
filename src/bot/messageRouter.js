@@ -186,6 +186,7 @@ import { handleProjectMemoryCommands } from "./router/projectMemoryCommands.js";
 import { handleTaskExecutionCommands } from "./router/taskExecutionCommands.js";
 import { handleSourceDomainCommands } from "./router/sourceDomainCommands.js";
 import { handleRepoDomainCommands } from "./router/repoDomainCommands.js";
+import { handleMiscDiagnosticsCommands } from "./router/miscDiagnosticsCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -701,60 +702,35 @@ export function attachMessageRouter({
           return;
         }
 
+        {
+          const handledMiscDiagnostics = await handleMiscDiagnosticsCommands({
+            cmdBase,
+            handleApproveCommand,
+            handleDenyCommand,
+            handleBehaviorEventsLastCommand,
+            handleChatMessagesDiagCommand,
+            handleTasksOwnerDiagCommand,
+            handleApprove,
+            handleDeny,
+            handleBehaviorEventsLast,
+            handleChatMessagesDiag,
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+            senderIdStr,
+            globalUserId,
+            isPrivate,
+            pool,
+            ctxReply,
+          });
+
+          if (handledMiscDiagnostics) {
+            return;
+          }
+        }
+
         switch (cmdBase) {
-          case "/approve": {
-            await handleApproveCommand({
-              handleApprove,
-              bot,
-              chatId,
-              rest,
-            });
-            return;
-          }
-
-          case "/deny": {
-            await handleDenyCommand({
-              handleDeny,
-              bot,
-              chatId,
-              rest,
-            });
-            return;
-          }
-
-          case "/behavior_events_last": {
-            await handleBehaviorEventsLastCommand({
-              handleBehaviorEventsLast,
-              bot,
-              chatId,
-              rest,
-              senderIdStr,
-            });
-            return;
-          }
-
-          case "/chat_messages_diag": {
-            await handleChatMessagesDiagCommand({
-              handleChatMessagesDiag,
-              bot,
-              chatId,
-              chatIdStr,
-              senderIdStr,
-              globalUserId,
-              isPrivateChat: isPrivate,
-            });
-            return;
-          }
-
-          case "/tasks_owner_diag": {
-            await handleTasksOwnerDiagCommand({
-              pool,
-              ctxReply,
-              cmdBase,
-            });
-            return;
-          }
-
           case "/demo_task": {
             await handleDemoTaskCommand({
               handleDemoTask,

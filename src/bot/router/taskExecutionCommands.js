@@ -1,12 +1,14 @@
 // src/bot/router/taskExecutionCommands.js
 
+import { handleRunTask } from "../handlers/runTask.js";
+import { handleStartTask } from "../handlers/startTask.js";
+import { handleStopTask } from "../handlers/stopTask.js";
+import { handleStopAllTasks } from "../handlers/stopAllTasks.js";
+import { handleRunTaskCmd } from "../handlers/runTaskCmd.js";
+import { canStopTaskV1, callWithFallback } from "../../core/helpers.js";
+
 export async function handleTaskExecutionCommands({
   cmdBase,
-  handleRunTask,
-  handleStartTask,
-  handleStopTask,
-  handleStopAllTasks,
-  handleRunTaskCmd,
   bot,
   chatId,
   chatIdStr,
@@ -17,8 +19,6 @@ export async function handleTaskExecutionCommands({
   bypass,
   updateTaskStatus,
   userRole,
-  canStopTaskV1,
-  callWithFallback,
 }) {
   if (cmdBase === "/run_task") {
     await handleRunTask({

@@ -1,26 +1,28 @@
 // src/sources/sourceService.js
 // ============================================================================
-// STAGE 10.1 / 10.2 / 10.3 — SourceService Skeleton
+// STAGE 10.1 / 10.2 / 10.3 / 10.6 — SourceService Skeleton + first real fetch
 // PURPOSE:
-// - create a single entry point for future sources layer
+// - create a single entry point for sources layer
 // - keep fetch logic OUT of chat handler
-// - keep current step non-invasive and fail-open
+// - add first isolated real source fetch: CoinGecko simple price
 //
 // IMPORTANT:
-// - this file does NOT perform real network calls yet
-// - this file does NOT require DB yet
-// - this file is a service skeleton only
-// - current production behavior must remain unchanged until explicit wiring step
+// - this file must remain fail-open
+// - current chat runtime must not break if source fails
+// - explicit source result still has priority
+// - network fetch is currently limited to CoinGecko simple price only
 // ============================================================================
 
 import { resolveSourceRuntime } from "./sourceRuntime.js";
+import { fetchCoinGeckoSimplePrice } from "./fetchCoingeckoSimplePrice.js";
 
-export const SOURCE_SERVICE_VERSION = "10.3-skeleton-v1";
+export const SOURCE_SERVICE_VERSION = "10.6-skeleton-v1";
 
 export const SOURCE_SERVICE_DECISIONS = Object.freeze({
   SKIP: "skip",
   NOOP: "noop",
-  READY_FOR_FUTURE_FETCH: "ready_for_future_fetch",
+  READY_FOR_FETCH: "ready_for_fetch",
+  FETCHED: "fetched",
 });
 
 function normalizeText(value) {
@@ -79,8 +81,8 @@ export function getDefaultSourceRegistry() {
     {
       key: "coingecko_simple_price",
       type: "json_api",
-      enabled: false,
-      description: "CoinGecko simple price skeleton",
+      enabled: true,
+      description: "CoinGecko simple price fetcher",
     },
   ];
 }
@@ -108,10 +110,92 @@ export function getSourceDefinition(sourceKey) {
 }
 
 // ============================================================================
+// CoinGecko helpers
+// ============================================================================
+
+function detectCoinGeckoIdsFromText(text = "") {
+  const t = normalizeText(text).toLowerCase();
+  if (!t) return [];
+
+  const found = [];
+
+  const rules = [
+    { id: "bitcoin", signals: ["bitcoin", "btc", "биткоин", "біткоїн"] },
+    { id: "ethereum", signals: ["ethereum", "eth", "эфир", "ефир", "ефір"] },
+    { id: "binancecoin", signals: ["binance", "bnb"] },
+    { id: "solana", signals: ["solana", "sol"] },
+    { id: "ripple", signals: ["ripple", "xrp"] },
+    { id: "toncoin", signals: ["toncoin", "ton"] },
+    { id: "avalanche-2", signals: ["avalanche", "avax"] },
+    { id: "aptos", signals: ["aptos", "apt"] },
+    { id: "hedera-hashgraph", signals: ["hedera", "hbar"] },
+    { id: "ondo-finance", signals: ["ondo"] },
+    { id: "sei-network", signals: ["sei"] },
+    { id: "sui", signals: ["sui"] },
+    { id: "tether", signals: ["tether", "usdt"] },
+  ];
+
+  for (const rule of rules) {
+    if (rule.signals.some((signal) => t.includes(signal))) {
+      found.push(rule.id);
+    }
+  }
+
+  return [...new Set(found)];
+}
+
+function detectVsCurrenciesFromText(text = "") {
+  const t = normalizeText(text).toLowerCase();
+  if (!t) return ["usd"];
+
+  const found = [];
+  if (t.includes("usd") || t.includes("доллар") || t.includes("долар") || t.includes("usdt")) {
+    found.push("usd");
+  }
+  if (t.includes("eur") || t.includes("euro") || t.includes("евро") || t.includes("євро")) {
+    found.push("eur");
+  }
+  if (t.includes("uah") || t.includes("грн") || t.includes("hryvnia")) {
+    found.push("uah");
+  }
+
+  return found.length ? [...new Set(found)] : ["usd"];
+}
+
+function shouldAutoUseCoinGecko(plan, input = {}) {
+  const explicitSourceKey = normalizeSourceKey(input?.sourceKey || "");
+  const text = normalizeText(input?.text || "");
+
+  if (explicitSourceKey === "coingecko_simple_price") return true;
+  if (plan.runtime?.needsSource !== true) return false;
+  if (!text) return false;
+
+  const ids = detectCoinGeckoIdsFromText(text);
+  return ids.length > 0;
+}
+
+function buildCoinGeckoFetchInput(input = {}) {
+  const text = normalizeText(input?.text || "");
+  const explicitIds = Array.isArray(input?.coinIds)
+    ? input.coinIds.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  const ids = explicitIds.length ? explicitIds : detectCoinGeckoIdsFromText(text);
+  const vsCurrencies = Array.isArray(input?.vsCurrencies)
+    ? input.vsCurrencies.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean)
+    : detectVsCurrenciesFromText(text);
+
+  return {
+    ids,
+    vsCurrencies,
+  };
+}
+
+// ============================================================================
 // STAGE 10.2 — service plan resolution
 // IMPORTANT:
-// - this step decides what WOULD happen later
-// - but still does not fetch anything
+// - this step decides what SHOULD happen
+// - real fetch decision is still isolated below
 // ============================================================================
 
 export function resolveSourceServicePlan(input = {}) {
@@ -163,22 +247,40 @@ export function resolveSourceServicePlan(input = {}) {
     };
   }
 
+  const useCoinGecko =
+    explicitDefinition?.key === "coingecko_simple_price" || shouldAutoUseCoinGecko({ runtime }, input);
+
+  if (useCoinGecko) {
+    return {
+      version: SOURCE_SERVICE_VERSION,
+      decision: SOURCE_SERVICE_DECISIONS.READY_FOR_FETCH,
+      runtime,
+      shouldFetch: true,
+      sourceDefinition: getSourceDefinition("coingecko_simple_price"),
+      reason: explicitDefinition?.key === "coingecko_simple_price"
+        ? "explicit_coingecko_fetch_ready"
+        : "autodetected_coingecko_fetch_ready",
+    };
+  }
+
   return {
     version: SOURCE_SERVICE_VERSION,
-    decision: SOURCE_SERVICE_DECISIONS.READY_FOR_FUTURE_FETCH,
+    decision: SOURCE_SERVICE_DECISIONS.NOOP,
     runtime,
     shouldFetch: false,
     sourceDefinition: explicitDefinition,
-    reason: sourceKey ? "registered_source_key_but_fetch_not_implemented" : "source_needed_but_fetch_not_implemented",
+    reason: sourceKey
+      ? "registered_source_key_but_fetcher_not_implemented"
+      : "source_needed_but_no_matching_fetcher",
   };
 }
 
 // ============================================================================
-// STAGE 10.3 — public service entry point
+// STAGE 10.6 — public service entry point
 // IMPORTANT:
-// - returns a stable structure now
-// - later same method can start real fetch logic
-// - chat handler should never own direct source fetch logic
+// - explicit source result still wins
+// - fetch failures must remain non-fatal
+// - caller decides whether to use fetched result in prompt/runtime
 // ============================================================================
 
 export async function resolveSourceContext(input = {}) {
@@ -226,21 +328,68 @@ export async function resolveSourceContext(input = {}) {
     };
   }
 
+  if (
+    plan.decision === SOURCE_SERVICE_DECISIONS.READY_FOR_FETCH &&
+    plan.sourceDefinition?.key === "coingecko_simple_price"
+  ) {
+    try {
+      const fetchInput = buildCoinGeckoFetchInput(input);
+      const fetched = await fetchCoinGeckoSimplePrice(fetchInput);
+
+      return {
+        version: SOURCE_SERVICE_VERSION,
+        ok: Boolean(fetched?.ok),
+        usedExistingSourceResult: false,
+        shouldUseSourceResult: Boolean(fetched?.ok),
+        shouldRequireSourceResult: false,
+        sourceRuntime: plan.runtime,
+        sourcePlan: {
+          ...plan,
+          decision: SOURCE_SERVICE_DECISIONS.FETCHED,
+        },
+        sourceResult: fetched,
+        reason: fetched?.ok ? "coingecko_fetch_ok" : "coingecko_fetch_failed",
+      };
+    } catch (error) {
+      return {
+        version: SOURCE_SERVICE_VERSION,
+        ok: false,
+        usedExistingSourceResult: false,
+        shouldUseSourceResult: false,
+        shouldRequireSourceResult: Boolean(plan.runtime?.shouldRequireSourceResult),
+        sourceRuntime: plan.runtime,
+        sourcePlan: plan,
+        sourceResult: {
+          ok: false,
+          sourceKey: "coingecko_simple_price",
+          content: "",
+          fetchedAt: new Date().toISOString(),
+          meta: {
+            reason: "coingecko_fetch_exception",
+            message: error?.message ? String(error.message) : "unknown_error",
+            serviceVersion: SOURCE_SERVICE_VERSION,
+          },
+        },
+        reason: "coingecko_fetch_exception",
+      };
+    }
+  }
+
   return {
     version: SOURCE_SERVICE_VERSION,
-    ok: true,
+    ok: false,
     usedExistingSourceResult: false,
     shouldUseSourceResult: false,
     shouldRequireSourceResult: Boolean(plan.runtime?.shouldRequireSourceResult),
     sourceRuntime: plan.runtime,
     sourcePlan: plan,
-    sourceResult: buildNoSourceResult(plan.reason, plan.runtime),
-    reason: plan.reason,
+    sourceResult: buildNoSourceResult("unhandled_source_plan", plan.runtime),
+    reason: "unhandled_source_plan",
   };
 }
 
 // ============================================================================
-// future helper: build diagnostic block for logs / debug prompts
+// debug helper
 // ============================================================================
 
 export function buildSourceServiceDebugBlock(input = {}) {
@@ -253,6 +402,8 @@ export function buildSourceServiceDebugBlock(input = {}) {
     requireSource: input?.requireSource === true,
     sourceResult: input?.sourceResult || null,
     allowedSourceKeys,
+    coinIds: input?.coinIds || [],
+    vsCurrencies: input?.vsCurrencies || [],
   });
 
   const lines = [

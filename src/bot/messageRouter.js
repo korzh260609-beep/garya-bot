@@ -190,6 +190,7 @@ import { handleMiscDiagnosticsCommands } from "./router/miscDiagnosticsCommands.
 import { handleTaskListCommands } from "./router/taskListCommands.js";
 import { handleContextDebugCommands } from "./router/contextDebugCommands.js";
 import { handleArtifactFileCommands } from "./router/artifactFileCommands.js";
+import { handleMemoryDiagnosticsCommands } from "./router/memoryDiagnosticsCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -545,67 +546,29 @@ export function attachMessageRouter({
           }
         }
 
-        if (cmdBase === "/memory_status") {
-          await handleMemoryStatusCommand({
-            memory,
-            memDiag,
-            ctxReply,
-            getPublicEnvSnapshot,
-            cmdBase,
-          });
-          return;
-        }
+        {
+          const handledMemoryDiagnostics =
+            await handleMemoryDiagnosticsCommands({
+              cmdBase,
+              handleMemoryStatusCommand,
+              handleMemoryDiagCommand,
+              handleMemoryIntegrityCommand,
+              handleMemoryBackfillCommand,
+              handleMemoryUserChatsCommand,
+              handleChatDiagCommand,
+              memory,
+              memDiag,
+              accessPack,
+              chatIdStr,
+              rest,
+              ctxReply,
+              getPublicEnvSnapshot,
+              pool,
+            });
 
-        if (cmdBase === "/memory_diag") {
-          await handleMemoryDiagCommand({
-            accessPack,
-            memDiag,
-            chatIdStr,
-            ctxReply,
-            cmdBase,
-          });
-          return;
-        }
-
-        if (cmdBase === "/memory_integrity") {
-          await handleMemoryIntegrityCommand({
-            memDiag,
-            chatIdStr,
-            ctxReply,
-            cmdBase,
-          });
-          return;
-        }
-
-        if (cmdBase === "/memory_backfill") {
-          await handleMemoryBackfillCommand({
-            accessPack,
-            memDiag,
-            chatIdStr,
-            rest,
-            ctxReply,
-            cmdBase,
-          });
-          return;
-        }
-
-        if (cmdBase === "/memory_user_chats") {
-          await handleMemoryUserChatsCommand({
-            accessPack,
-            memDiag,
-            ctxReply,
-            cmdBase,
-          });
-          return;
-        }
-
-        if (cmdBase === "/chat_diag") {
-          await handleChatDiagCommand({
-            pool,
-            ctxReply,
-            cmdBase,
-          });
-          return;
+          if (handledMemoryDiagnostics) {
+            return;
+          }
         }
 
         {

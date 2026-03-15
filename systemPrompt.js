@@ -16,8 +16,9 @@ export const minimalAnswerInstruction = `
 `;
 
 // Функция, которая собирает системный промпт
-// 🔵 ТЕПЕРЬ УМЕЕТ ПРИНИМАТЬ ТЕКСТ ПРОЕКТНОЙ ПАМЯТИ (projectContextText)
-// 🔵 STAGE 9.6 wiring: includes BehaviorCore block, but BehaviorCore is still skeleton-only
+// 🔵 Принимает текст проектной памяти (projectContextText)
+// 🔵 Stage 9 wiring: BehaviorCore подключён и получает userText
+// 🔵 IMPORTANT: styleAxis must remain optional here, otherwise soft-style detection breaks
 export function buildSystemPrompt(
   answerMode,
   modeInstruction,
@@ -45,15 +46,15 @@ ${safeProjectContext}
   const isMonarch = Boolean(opts?.isMonarch);
   const currentUserName = String(opts?.currentUserName || "пользователь");
 
-  // ✅ STAGE 9.6 — BehaviorCore skeleton block
+  // ✅ STAGE 9 — BehaviorCore block
   // IMPORTANT:
-  // - this does NOT make BehaviorCore fully active logic yet
-  // - this only injects a unified behavior policy block into the prompt
-  // - answer length is still controlled by answerMode/modeInstruction separately
+  // - answer length is still controlled separately by answerMode/modeInstruction
+  // - BehaviorCore controls behavior policy only
+  // - styleAxis must NOT default to "mixed" here, otherwise soft-style detection never activates
   const behaviorCoreBlock = buildBehaviorCorePromptBlock({
     text: String(opts?.userText || ""),
-    styleAxis: opts?.styleAxis || "mixed",
-    criticality: opts?.criticality || null,
+    styleAxis: opts?.styleAxis ?? null,
+    criticality: opts?.criticality ?? null,
   });
 
   return `

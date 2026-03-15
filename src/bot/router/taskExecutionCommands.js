@@ -5,7 +5,7 @@ import { handleStartTask } from "../handlers/startTask.js";
 import { handleStopTask } from "../handlers/stopTask.js";
 import { handleStopAllTasks } from "../handlers/stopAllTasks.js";
 import { handleRunTaskCmd } from "../handlers/runTaskCmd.js";
-import { canStopTaskV1, callWithFallback } from "../../core/helpers.js";
+import { canStopTaskV1, callWithFallback } from "../../../core/helpers.js";
 
 export async function handleTaskExecutionCommands({
   cmdBase,

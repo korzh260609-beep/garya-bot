@@ -1,6 +1,7 @@
 // src/core/behaviorCore.js
 // ============================================================================
-// STAGE 9.6 / 9.7 / 9.8 — BehaviorCore V1 + Style Axis + Soft Style Ask skeleton
+// STAGE 9.6 / 9.7 / 9.8 / 9.9 — BehaviorCore V1 + Style Axis +
+// Soft Style Ask + Criticality V1 skeleton
 // ============================================================================
 //
 // CURRENT STATE:
@@ -44,6 +45,15 @@ function clampCriticality(value) {
   return "normal";
 }
 
+// ============================================================================
+// STAGE 9.9 — CRITICALITY V1 SKELETON
+// IMPORTANT:
+// - criticality is behavior pressure, not answer length
+// - high criticality may increase strictness of analysis
+// - but must NOT silently become a different personality
+// - explicit input wins over text detection
+// ============================================================================
+
 function detectCriticalityFromText(text) {
   const t = String(text || "").trim().toLowerCase();
   if (!t) return "normal";
@@ -67,6 +77,7 @@ function detectCriticalityFromText(text) {
     "financial",
     "деньги",
     "потер",
+    "loss",
     "risk",
     "риск",
     "опас",
@@ -80,6 +91,10 @@ function detectCriticalityFromText(text) {
     "repo",
     "workflow",
     "roadmap",
+    "incident",
+    "failure",
+    "broken",
+    "crash",
   ];
 
   for (const signal of highSignals) {
@@ -93,6 +108,9 @@ function detectCriticalityFromText(text) {
     "шутк",
     "мем",
     "smile",
+    "joke",
+    "just curious",
+    "просто интересно",
   ];
 
   for (const signal of lowSignals) {
@@ -100,6 +118,59 @@ function detectCriticalityFromText(text) {
   }
 
   return "normal";
+}
+
+function resolveCriticality(input = {}) {
+  const requestedCriticality = input?.criticality || null;
+  const text = String(input?.text || "");
+
+  if (requestedCriticality) {
+    return {
+      criticality: clampCriticality(requestedCriticality),
+      source: "explicit_input",
+    };
+  }
+
+  return {
+    criticality: clampCriticality(detectCriticalityFromText(text)),
+    source: "detected_from_text",
+  };
+}
+
+function getCriticalityPolicy(criticality) {
+  const level = clampCriticality(criticality);
+
+  if (level === "low") {
+    return {
+      level: "low",
+      promptLines: [
+        "- keep analysis lightweight when risk is truly low",
+        "- still stay honest and do not agree automatically",
+        "- avoid overloading the user with excessive alarm signals",
+      ],
+    };
+  }
+
+  if (level === "high") {
+    return {
+      level: "high",
+      promptLines: [
+        "- prioritize risks, contradictions, hidden assumptions and failure modes first",
+        "- explicitly warn when the decision may cause losses, breakage or unsafe outcomes",
+        "- prefer precision over comfort when safety, money, law, health or architecture is involved",
+        "- do not soften away important risks",
+      ],
+    };
+  }
+
+  return {
+    level: "normal",
+    promptLines: [
+      "- keep balanced critical analysis",
+      "- point out meaningful risks without over-dramatizing",
+      "- preserve practical clarity and proportional caution",
+    ],
+  };
 }
 
 // ============================================================================
@@ -262,20 +333,17 @@ function resolveStyleAxis(input = {}) {
 }
 
 export function getBehaviorCore(input = {}) {
-  const text = String(input?.text || "");
-  const requestedCriticality = input?.criticality || null;
-
   const styleAxisResolution = resolveStyleAxis(input);
   const styleAxis = styleAxisResolution.styleAxis;
 
-  const criticality = clampCriticality(
-    requestedCriticality || detectCriticalityFromText(text)
-  );
+  const criticalityResolution = resolveCriticality(input);
+  const criticality = criticalityResolution.criticality;
 
   const stylePolicy = getStyleAxisPolicy(styleAxis);
+  const criticalityPolicy = getCriticalityPolicy(criticality);
 
   return {
-    version: "9.8-skeleton-v1",
+    version: "9.9-skeleton-v1",
 
     // Stage 9.7 skeleton
     styleAxis,
@@ -288,6 +356,8 @@ export function getBehaviorCore(input = {}) {
 
     // Stage 9.9 skeleton
     criticality,
+    criticalitySource: criticalityResolution.source,
+    criticalityPromptLines: criticalityPolicy.promptLines,
 
     // Stage 9.10 hard rule
     noNodding: true,
@@ -317,12 +387,16 @@ export function buildBehaviorCorePromptBlock(coreInput = {}) {
     `- style_axis_source: ${core.styleAxisSource}`,
     `- soft_style_ask_detected: ${core.softStyleAskDetected ? "true" : "false"}`,
     `- criticality: ${core.criticality}`,
+    `- criticality_source: ${core.criticalitySource}`,
     `- no_nodding: ${core.noNodding ? "true" : "false"}`,
     `- max_soft_clarifying_questions: ${core.maxSoftClarifyingQuestions}`,
     "- behavior_independent_from_answer_mode: true",
     "",
     "STYLE AXIS RULES:",
     ...core.styleAxisPromptLines,
+    "",
+    "CRITICALITY RULES:",
+    ...core.criticalityPromptLines,
     "",
     "RULES:",
     "- do not agree automatically just to sound supportive",
@@ -332,6 +406,8 @@ export function buildBehaviorCorePromptBlock(coreInput = {}) {
     "- answer length must NOT define behavior style",
     "- explicit style axis input has priority over soft style detection",
     "- soft style detection is temporary and must not be treated as saved user preference",
+    "- explicit criticality input has priority over detected criticality",
+    "- criticality affects strictness of analysis, not answer length and not core personality",
   ].join("\n");
 }
 

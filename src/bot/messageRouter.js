@@ -185,6 +185,7 @@ import { handleTestSourceCommand } from "./router/testSourceCommand.js";
 import { handleProjectMemoryCommands } from "./router/projectMemoryCommands.js";
 import { handleTaskExecutionCommands } from "./router/taskExecutionCommands.js";
 import { handleSourceDomainCommands } from "./router/sourceDomainCommands.js";
+import { handleRepoDomainCommands } from "./router/repoDomainCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -860,97 +861,35 @@ export function attachMessageRouter({
             return;
           }
 
-          case "/repo_status": {
-            await handleRepoStatusCommand({
-              handleRepoStatus,
-              bot,
-              chatId,
-              senderIdStr,
-            });
+          default: {
+            break;
+          }
+        }
+
+        {
+          const handledRepoDomain = await handleRepoDomainCommands({
+            cmdBase,
+            handleRepoStatusCommand,
+            handleRepoTreeCommand,
+            handleRepoFileCommand,
+            handleRepoReview2Command,
+            handleRepoSearchCommand,
+            handleRepoGetCommand,
+            handleRepoCheckCommand,
+            handleRepoAnalyzeCommand,
+            handleRepoReviewCommand,
+            bot,
+            chatId,
+            rest,
+            senderIdStr,
+          });
+
+          if (handledRepoDomain) {
             return;
           }
+        }
 
-          case "/repo_tree": {
-            await handleRepoTreeCommand({
-              handleRepoTree,
-              bot,
-              chatId,
-              rest,
-              senderIdStr,
-            });
-            return;
-          }
-
-          case "/repo_file": {
-            await handleRepoFileCommand({
-              handleRepoFile,
-              bot,
-              chatId,
-              rest,
-            });
-            return;
-          }
-
-          case "/repo_review2": {
-            await handleRepoReview2Command({
-              handleRepoReview2,
-              bot,
-              chatId,
-            });
-            return;
-          }
-
-          case "/repo_search": {
-            await handleRepoSearchCommand({
-              handleRepoSearch,
-              bot,
-              chatId,
-              rest,
-            });
-            return;
-          }
-
-          case "/repo_get": {
-            await handleRepoGetCommand({
-              handleRepoGet,
-              bot,
-              chatId,
-              rest,
-              senderIdStr,
-            });
-            return;
-          }
-
-          case "/repo_check": {
-            await handleRepoCheckCommand({
-              handleRepoCheck,
-              bot,
-              chatId,
-              rest,
-            });
-            return;
-          }
-
-          case "/repo_analyze": {
-            await handleRepoAnalyzeCommand({
-              handleRepoAnalyze,
-              bot,
-              chatId,
-              rest,
-            });
-            return;
-          }
-
-          case "/repo_review": {
-            await handleRepoReviewCommand({
-              handleRepoReview,
-              bot,
-              chatId,
-              rest,
-            });
-            return;
-          }
-
+        switch (cmdBase) {
           case "/code_fullfile": {
             await handleCodeFullfile({ bot, chatId, rest, callAI, senderIdStr });
             return;

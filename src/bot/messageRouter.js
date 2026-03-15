@@ -189,6 +189,7 @@ import { handleRepoDomainCommands } from "./router/repoDomainCommands.js";
 import { handleMiscDiagnosticsCommands } from "./router/miscDiagnosticsCommands.js";
 import { handleTaskListCommands } from "./router/taskListCommands.js";
 import { handleContextDebugCommands } from "./router/contextDebugCommands.js";
+import { handleArtifactFileCommands } from "./router/artifactFileCommands.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -866,57 +867,51 @@ export function attachMessageRouter({
             return;
           }
 
-          case "/ar_list": {
-            await handleArListCommand({
-              handleArList,
-              bot,
-              chatId,
-              rest,
-            });
-            return;
-          }
-
-          case "/file_logs": {
-            await handleFileLogsCommand({
-              handleFileLogs,
-              bot,
-              chatId,
-              chatIdStr,
-              rest,
-            });
-            return;
-          }
-
-          case "/chat_meta_debug":
-          case "/recall": {
-            const handledContextDebug = await handleContextDebugCommands({
-              cmdBase,
-              dispatchCommand,
-              bot,
-              msg,
-              identityCtx,
-              chatId,
-              chatIdStr,
-              senderIdStr,
-              chatType,
-              isPrivate,
-              rest,
-              userRole,
-              userPlan,
-              user,
-              isMonarchUser,
-              ctxReply,
-            });
-
-            if (handledContextDebug) {
-              return;
-            }
-
-            break;
-          }
-
           default: {
             break;
+          }
+        }
+
+        {
+          const handledArtifactFile = await handleArtifactFileCommands({
+            cmdBase,
+            handleArListCommand,
+            handleFileLogsCommand,
+            handleArList,
+            handleFileLogs,
+            bot,
+            chatId,
+            chatIdStr,
+            rest,
+          });
+
+          if (handledArtifactFile) {
+            return;
+          }
+        }
+
+        {
+          const handledContextDebug = await handleContextDebugCommands({
+            cmdBase,
+            dispatchCommand,
+            bot,
+            msg,
+            identityCtx,
+            chatId,
+            chatIdStr,
+            senderIdStr,
+            chatType,
+            isPrivate,
+            rest,
+            userRole,
+            userPlan,
+            user,
+            isMonarchUser,
+            ctxReply,
+          });
+
+          if (handledContextDebug) {
+            return;
           }
         }
 

@@ -1,17 +1,18 @@
 // src/bot/router/taskListCommands.js
 
+import { handleTasksList } from "../handlers/tasksList.js";
+import { handleNewTask } from "../handlers/newTask.js";
+import { handleBtcTestTask } from "../handlers/btcTestTask.js";
+import { handleDemoTask } from "../handlers/demoTask.js";
+import { callWithFallback } from "../../../core/helpers.js";
+
 export async function handleTaskListCommands({
   cmdBase,
-  handleDemoTask,
-  handleNewTask,
-  handleBtcTestTask,
-  handleTasksList,
   bot,
   chatId,
   chatIdStr,
   rest,
   accessPack,
-  callWithFallback,
   createDemoTask,
   createManualTask,
   createTestPriceMonitorTask,

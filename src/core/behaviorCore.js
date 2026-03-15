@@ -1,16 +1,31 @@
 // src/core/behaviorCore.js
 // ============================================================================
-// STAGE 9.6 — BehaviorCore V1 (SKELETON ONLY)
+// STAGE 9.6 — BehaviorCore V1
 // ============================================================================
 //
-// PURPOSE:
-// - introduce a single place for behavior-level policy
-// - keep BehaviorCore independent from AnswerMode
-// - do NOT change runtime behavior yet
-// - do NOT wire this into prompt/router in this step
+// CURRENT STATE:
+// - BehaviorCore introduced as a separate behavior-policy module
+// - prompt wiring is already connected through systemPrompt.js
+// - chat handler already passes userText into buildSystemPrompt(...)
+// - runtime behavior expansion is still minimal/skeleton-level
 //
-// THIS FILE IS SKELETON ONLY.
-// Real integration into systemPrompt / chat handler must be a separate step.
+// PURPOSE:
+// - keep behavior-level policy in one place
+// - keep BehaviorCore independent from AnswerMode
+// - provide a safe foundation for Stage 9.7 / 9.9 / 9.10
+//
+// IMPORTANT:
+// - this module is already wired into prompt generation
+// - but it still remains skeleton-level by logic depth
+// - future steps may expand:
+//   1) style axis behavior
+//   2) criticality behavior
+//   3) no-nodding enforcement
+//   4) behavior events integration
+//
+// HARD RULE:
+// - answer length != behavior style
+// - AnswerMode and BehaviorCore must remain separate concerns
 
 export const BEHAVIOR_STYLE_AXES = ["tech", "humanitarian", "mixed"];
 export const BEHAVIOR_CRITICALITY_LEVELS = ["low", "normal", "high"];

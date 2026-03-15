@@ -17,21 +17,16 @@ import { handleRepoAnalyze } from "./handlers/repoAnalyze.js";
 import { handleRepoGet } from "./handlers/repoGet.js";
 import { handleReindexRepo } from "./handlers/reindexRepo.js";
 import { CMD_ACTION } from "./cmdActionMap.js";
-import { handleRunTaskCmd } from "./handlers/runTaskCmd.js";
 import { handleChatMessage } from "./handlers/chat.js";
 import { handleTestSource } from "./handlers/testSource.js";
 import { handleDiagSource } from "./handlers/diagSource.js";
 import { handleSourcesList } from "./handlers/sourcesList.js";
 import { handleTasksList } from "./handlers/tasksList.js";
-import { handleStartTask } from "./handlers/startTask.js";
-import { handleStopTask } from "./handlers/stopTask.js";
 import { handleSourcesDiag } from "./handlers/sources_diag.js";
 import { handleSource } from "./handlers/source.js";
-import { handleRunTask } from "./handlers/runTask.js";
 import { handleNewTask } from "./handlers/newTask.js";
 import { handleBtcTestTask } from "./handlers/btcTestTask.js";
 import { handleDemoTask } from "./handlers/demoTask.js";
-import { handleStopAllTasks } from "./handlers/stopAllTasks.js";
 import { handleFileLogs } from "./handlers/fileLogs.js";
 import { handleArList } from "./handlers/arList.js";
 import { handleDeny } from "./handlers/deny.js";
@@ -72,7 +67,6 @@ import {
 import {
   parseCommand,
   callWithFallback,
-  canStopTaskV1,
   sanitizeNonMonarchReply,
 } from "../../core/helpers.js";
 
@@ -682,11 +676,6 @@ export function attachMessageRouter({
         {
           const handledTaskExecution = await handleTaskExecutionCommands({
             cmdBase,
-            handleRunTask,
-            handleStartTask,
-            handleStopTask,
-            handleStopAllTasks,
-            handleRunTaskCmd,
             bot,
             chatId,
             chatIdStr,
@@ -697,8 +686,6 @@ export function attachMessageRouter({
             bypass: isMonarchUser,
             updateTaskStatus,
             userRole,
-            canStopTaskV1,
-            callWithFallback,
           });
 
           if (handledTaskExecution) {

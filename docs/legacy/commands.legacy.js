@@ -1,4 +1,4 @@
-// src/bot/commands.js
+// docs/legacy/commands.legacy.js
 //
 // ⚠️ LEGACY / NOT AUTHORITATIVE
 //

@@ -147,24 +147,16 @@ import { devCommandGate } from "./router/devCommandGate.js";
 import { createChatMemoryWriters } from "./router/chatMemoryWriters.js";
 import { runTransportShadowFlow } from "./router/transportShadowRunner.js";
 import { createRouterCommandContext } from "./router/routerCommandContext.js";
-import { handleBuildInfoCommand } from "./router/buildInfoCommand.js";
-import { handleCodeOutputStatusCommand } from "./router/codeOutputStatusCommand.js";
 import { handleMemoryUserChatsCommand } from "./router/memoryUserChatsCommand.js";
 import { handleMemoryDiagCommand } from "./router/memoryDiagCommand.js";
 import { handleMemoryIntegrityCommand } from "./router/memoryIntegrityCommand.js";
 import { handleMemoryBackfillCommand } from "./router/memoryBackfillCommand.js";
 import { handleMemoryStatusCommand } from "./router/memoryStatusCommand.js";
 import { handleChatDiagCommand } from "./router/chatDiagCommand.js";
-import { handleTasksOwnerDiagCommand } from "./router/tasksOwnerDiagCommand.js";
-import { handleApproveCommand } from "./router/approveCommand.js";
-import { handleDenyCommand } from "./router/denyCommand.js";
-import { handleBehaviorEventsLastCommand } from "./router/behaviorEventsLastCommand.js";
-import { handleChatMessagesDiagCommand } from "./router/chatMessagesDiagCommand.js";
 import { handleDemoTaskCommand } from "./router/demoTaskCommand.js";
 import { handleNewTaskCommand } from "./router/newTaskCommand.js";
 import { handleBtcTestTaskCommand } from "./router/btcTestTaskCommand.js";
 import { handleTasksCommand } from "./router/tasksCommand.js";
-import { handleWorkflowCheckCommand } from "./router/workflowCheckCommand.js";
 import { handleRepoStatusCommand } from "./router/repoStatusCommand.js";
 import { handleRepoTreeCommand } from "./router/repoTreeCommand.js";
 import { handleRepoFileCommand } from "./router/repoFileCommand.js";
@@ -594,13 +586,13 @@ export function attachMessageRouter({
         }
 
         {
-          const handledUtilityStatusEarly = await handleUtilityStatusEarlyCommands({
-            cmdBase,
-            handleBuildInfoCommand,
-            ctxReply,
-            getPublicEnvSnapshot,
-            upsertProjectSection,
-          });
+          const handledUtilityStatusEarly =
+            await handleUtilityStatusEarlyCommands({
+              cmdBase,
+              ctxReply,
+              getPublicEnvSnapshot,
+              upsertProjectSection,
+            });
 
           if (handledUtilityStatusEarly) {
             return;
@@ -679,11 +671,6 @@ export function attachMessageRouter({
         {
           const handledMiscDiagnostics = await handleMiscDiagnosticsCommands({
             cmdBase,
-            handleApproveCommand,
-            handleDenyCommand,
-            handleBehaviorEventsLastCommand,
-            handleChatMessagesDiagCommand,
-            handleTasksOwnerDiagCommand,
             handleApprove,
             handleDeny,
             handleBehaviorEventsLast,
@@ -762,8 +749,6 @@ export function attachMessageRouter({
         {
           const handledUtilityStatusLate = await handleUtilityStatusLateCommands({
             cmdBase,
-            handleCodeOutputStatusCommand,
-            handleWorkflowCheckCommand,
             handleWorkflowCheck,
             ctxReply,
             getCodeOutputMode,

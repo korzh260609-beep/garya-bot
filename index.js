@@ -15,6 +15,7 @@ import { buildCoreDeps } from "./src/core/coreDepsFactory.js";
 import { isTransportEnforced } from "./src/transport/transportConfig.js";
 
 import { createApp, startHttpServer } from "./src/http/server.js";
+import { createDebugCoingeckoMarketChartRoute } from "./src/http/debugCoingeckoMarketChartRoute.js";
 import { initSystem } from "./src/bootstrap/initSystem.js";
 
 import { getSystemHealth } from "./core/helpers.js";
@@ -53,6 +54,14 @@ const PORT = envInt("PORT", 3000);
 app.get("/health", (req, res) => {
   res.status(200).json(getSystemHealth());
 });
+
+// ============================================================================
+// TEMP DEBUG ROUTE — STAGE 10C.5 CHECK
+// IMPORTANT:
+// - route itself is protected internally by env + token
+// - this only mounts the route
+// ============================================================================
+app.use(createDebugCoingeckoMarketChartRoute());
 
 // ============================================================================
 // START SERVER

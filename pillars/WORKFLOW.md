@@ -419,9 +419,6 @@ For each roadmap item:
 - 10C.2 V1 base data
 - 10C.3 /price /prices
 - 10C.4 integrations
-
-10C.PAUSE — Free-tier IP rate-limit (Render NAT), cache-first needed
-
 - 10C.5 historical data
 - 10C.6 indicators
 - 10C.7 TA module

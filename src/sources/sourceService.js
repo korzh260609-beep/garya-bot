@@ -1,28 +1,43 @@
 // src/sources/sourceService.js
 // ============================================================================
-// STAGE 10.1 / 10.2 / 10.3 / 10.6 — SourceService Skeleton + first real fetch
+// STAGE 10.1 / 10.2 / 10.3 / 10.6 / 10.15 — SourceService + cache-first
 // PURPOSE:
 // - create a single entry point for sources layer
 // - keep fetch logic OUT of chat handler
 // - add first isolated real source fetch: CoinGecko simple price
+// - add cache-first runtime layer for CoinGecko free-tier stability
 //
 // IMPORTANT:
 // - this file must remain fail-open
 // - current chat runtime must not break if source fails
 // - explicit source result still has priority
 // - network fetch is currently limited to CoinGecko simple price only
+// - cache is on-demand TTL only (no cron)
 // ============================================================================
 
 import { resolveSourceRuntime } from "./sourceRuntime.js";
 import { fetchCoinGeckoSimplePrice } from "./fetchCoingeckoSimplePrice.js";
+import {
+  buildSourceCacheKey,
+  getSourceCacheEntry,
+  upsertSourceCacheEntry,
+} from "../db/sourceCacheRepo.js";
+import { envIntRange } from "../core/config.js";
 
-export const SOURCE_SERVICE_VERSION = "10.6-skeleton-v1";
+export const SOURCE_SERVICE_VERSION = "10.15-cache-first-v1";
+
+const COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC = envIntRange(
+  "COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC",
+  20,
+  { min: 5, max: 3600 }
+);
 
 export const SOURCE_SERVICE_DECISIONS = Object.freeze({
   SKIP: "skip",
   NOOP: "noop",
   READY_FOR_FETCH: "ready_for_fetch",
   FETCHED: "fetched",
+  CACHE_HIT: "cache_hit",
 });
 
 function normalizeText(value) {
@@ -191,6 +206,28 @@ function buildCoinGeckoFetchInput(input = {}) {
   };
 }
 
+function buildCachedSourceResult(entry = null) {
+  const payload = entry?.payload || null;
+
+  return {
+    ok: Boolean(payload?.ok),
+    sourceKey: payload?.sourceKey || "coingecko_simple_price",
+    content: typeof payload?.content === "string" ? payload.content : "",
+    fetchedAt: payload?.fetchedAt || entry?.fetchedAt || null,
+    meta: {
+      ...(payload?.meta && typeof payload.meta === "object" ? payload.meta : {}),
+      cache: {
+        hit: true,
+        stale: Boolean(entry?.stale),
+        cacheKey: entry?.cacheKey || null,
+        ageSec: entry?.ageSec ?? null,
+        ttlSec: entry?.ttlSec ?? null,
+      },
+      serviceVersion: SOURCE_SERVICE_VERSION,
+    },
+  };
+}
+
 // ============================================================================
 // STAGE 10.2 — service plan resolution
 // IMPORTANT:
@@ -257,9 +294,10 @@ export function resolveSourceServicePlan(input = {}) {
       runtime,
       shouldFetch: true,
       sourceDefinition: getSourceDefinition("coingecko_simple_price"),
-      reason: explicitDefinition?.key === "coingecko_simple_price"
-        ? "explicit_coingecko_fetch_ready"
-        : "autodetected_coingecko_fetch_ready",
+      reason:
+        explicitDefinition?.key === "coingecko_simple_price"
+          ? "explicit_coingecko_fetch_ready"
+          : "autodetected_coingecko_fetch_ready",
     };
   }
 
@@ -276,7 +314,182 @@ export function resolveSourceServicePlan(input = {}) {
 }
 
 // ============================================================================
-// STAGE 10.6 — public service entry point
+// STAGE 10.15 — cache-first fetch path for CoinGecko
+// IMPORTANT:
+// - cache hit returns without network fetch
+// - stale/miss falls through to network fetch
+// - cache write is fail-open
+// ============================================================================
+
+async function resolveCoinGeckoWithCache(input = {}, plan) {
+  const fetchInput = buildCoinGeckoFetchInput(input);
+
+  if (!fetchInput.ids.length) {
+    return {
+      version: SOURCE_SERVICE_VERSION,
+      ok: false,
+      usedExistingSourceResult: false,
+      shouldUseSourceResult: false,
+      shouldRequireSourceResult: Boolean(plan.runtime?.shouldRequireSourceResult),
+      sourceRuntime: plan.runtime,
+      sourcePlan: plan,
+      sourceResult: {
+        ok: false,
+        sourceKey: "coingecko_simple_price",
+        content: "",
+        fetchedAt: new Date().toISOString(),
+        meta: {
+          reason: "missing_ids",
+          serviceVersion: SOURCE_SERVICE_VERSION,
+        },
+      },
+      reason: "coingecko_missing_ids",
+    };
+  }
+
+  const cacheKey = buildSourceCacheKey({
+    sourceKey: "coingecko_simple_price",
+    ids: fetchInput.ids,
+    vsCurrencies: fetchInput.vsCurrencies,
+  });
+
+  try {
+    const cacheRead = await getSourceCacheEntry({ cacheKey });
+
+    if (cacheRead?.ok && cacheRead.hit === true && cacheRead.stale === false && cacheRead.entry?.payload) {
+      try {
+        console.info("SOURCE_CACHE_HIT", {
+          sourceKey: "coingecko_simple_price",
+          cacheKey,
+          ageSec: cacheRead.entry.ageSec,
+          ttlSec: cacheRead.entry.ttlSec,
+        });
+      } catch (_) {}
+
+      const cachedResult = buildCachedSourceResult({
+        ...cacheRead.entry,
+        stale: false,
+      });
+
+      return {
+        version: SOURCE_SERVICE_VERSION,
+        ok: Boolean(cachedResult?.ok),
+        usedExistingSourceResult: false,
+        shouldUseSourceResult: Boolean(cachedResult?.ok),
+        shouldRequireSourceResult: false,
+        sourceRuntime: plan.runtime,
+        sourcePlan: {
+          ...plan,
+          decision: SOURCE_SERVICE_DECISIONS.CACHE_HIT,
+        },
+        sourceResult: cachedResult,
+        reason: "coingecko_cache_hit",
+      };
+    }
+
+    if (cacheRead?.ok && cacheRead.hit === true && cacheRead.stale === true) {
+      try {
+        console.info("SOURCE_CACHE_STALE", {
+          sourceKey: "coingecko_simple_price",
+          cacheKey,
+          ageSec: cacheRead.entry?.ageSec ?? null,
+          ttlSec: cacheRead.entry?.ttlSec ?? null,
+        });
+      } catch (_) {}
+    } else {
+      try {
+        console.info("SOURCE_CACHE_MISS", {
+          sourceKey: "coingecko_simple_price",
+          cacheKey,
+        });
+      } catch (_) {}
+    }
+  } catch (e) {
+    try {
+      console.error("SOURCE_CACHE_READ_FAIL_OPEN", {
+        sourceKey: "coingecko_simple_price",
+        cacheKey,
+        message: e?.message ? String(e.message) : "unknown_error",
+      });
+    } catch (_) {}
+  }
+
+  try {
+    const fetched = await fetchCoinGeckoSimplePrice(fetchInput);
+
+    if (fetched?.ok) {
+      try {
+        await upsertSourceCacheEntry({
+          sourceKey: "coingecko_simple_price",
+          cacheKey,
+          payload: fetched,
+          ttlSec: COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC,
+        });
+
+        try {
+          console.info("SOURCE_CACHE_SAVE_OK", {
+            sourceKey: "coingecko_simple_price",
+            cacheKey,
+            ttlSec: COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC,
+          });
+        } catch (_) {}
+      } catch (cacheWriteError) {
+        try {
+          console.error("SOURCE_CACHE_WRITE_FAIL_OPEN", {
+            sourceKey: "coingecko_simple_price",
+            cacheKey,
+            message: cacheWriteError?.message ? String(cacheWriteError.message) : "unknown_error",
+          });
+        } catch (_) {}
+      }
+    }
+
+    return {
+      version: SOURCE_SERVICE_VERSION,
+      ok: Boolean(fetched?.ok),
+      usedExistingSourceResult: false,
+      shouldUseSourceResult: Boolean(fetched?.ok),
+      shouldRequireSourceResult: false,
+      sourceRuntime: plan.runtime,
+      sourcePlan: {
+        ...plan,
+        decision: SOURCE_SERVICE_DECISIONS.FETCHED,
+      },
+      sourceResult: fetched,
+      reason: fetched?.ok ? "coingecko_fetch_ok" : "coingecko_fetch_failed",
+    };
+  } catch (error) {
+    return {
+      version: SOURCE_SERVICE_VERSION,
+      ok: false,
+      usedExistingSourceResult: false,
+      shouldUseSourceResult: false,
+      shouldRequireSourceResult: Boolean(plan.runtime?.shouldRequireSourceResult),
+      sourceRuntime: plan.runtime,
+      sourcePlan: plan,
+      sourceResult: {
+        ok: false,
+        sourceKey: "coingecko_simple_price",
+        content: "",
+        fetchedAt: new Date().toISOString(),
+        meta: {
+          reason: "coingecko_fetch_exception",
+          message: error?.message ? String(error.message) : "unknown_error",
+          serviceVersion: SOURCE_SERVICE_VERSION,
+          cache: {
+            hit: false,
+            stale: false,
+            cacheKey,
+          },
+        },
+      },
+      reason: "coingecko_fetch_exception",
+    };
+  }
+}
+
+// ============================================================================
+// STAGE 10.6 / 10.15 — public service entry point
 // IMPORTANT:
 // - explicit source result still wins
 // - fetch failures must remain non-fatal
@@ -332,47 +545,7 @@ export async function resolveSourceContext(input = {}) {
     plan.decision === SOURCE_SERVICE_DECISIONS.READY_FOR_FETCH &&
     plan.sourceDefinition?.key === "coingecko_simple_price"
   ) {
-    try {
-      const fetchInput = buildCoinGeckoFetchInput(input);
-      const fetched = await fetchCoinGeckoSimplePrice(fetchInput);
-
-      return {
-        version: SOURCE_SERVICE_VERSION,
-        ok: Boolean(fetched?.ok),
-        usedExistingSourceResult: false,
-        shouldUseSourceResult: Boolean(fetched?.ok),
-        shouldRequireSourceResult: false,
-        sourceRuntime: plan.runtime,
-        sourcePlan: {
-          ...plan,
-          decision: SOURCE_SERVICE_DECISIONS.FETCHED,
-        },
-        sourceResult: fetched,
-        reason: fetched?.ok ? "coingecko_fetch_ok" : "coingecko_fetch_failed",
-      };
-    } catch (error) {
-      return {
-        version: SOURCE_SERVICE_VERSION,
-        ok: false,
-        usedExistingSourceResult: false,
-        shouldUseSourceResult: false,
-        shouldRequireSourceResult: Boolean(plan.runtime?.shouldRequireSourceResult),
-        sourceRuntime: plan.runtime,
-        sourcePlan: plan,
-        sourceResult: {
-          ok: false,
-          sourceKey: "coingecko_simple_price",
-          content: "",
-          fetchedAt: new Date().toISOString(),
-          meta: {
-            reason: "coingecko_fetch_exception",
-            message: error?.message ? String(error.message) : "unknown_error",
-            serviceVersion: SOURCE_SERVICE_VERSION,
-          },
-        },
-        reason: "coingecko_fetch_exception",
-      };
-    }
+    return await resolveCoinGeckoWithCache(input, plan);
   }
 
   return {
@@ -406,6 +579,16 @@ export function buildSourceServiceDebugBlock(input = {}) {
     vsCurrencies: input?.vsCurrencies || [],
   });
 
+  const fetchInput = buildCoinGeckoFetchInput(input);
+  const debugCacheKey =
+    plan.sourceDefinition?.key === "coingecko_simple_price"
+      ? buildSourceCacheKey({
+          sourceKey: "coingecko_simple_price",
+          ids: fetchInput.ids,
+          vsCurrencies: fetchInput.vsCurrencies,
+        })
+      : "n/a";
+
   const lines = [
     "SOURCE SERVICE:",
     `- version: ${SOURCE_SERVICE_VERSION}`,
@@ -416,6 +599,8 @@ export function buildSourceServiceDebugBlock(input = {}) {
     `- runtime_decision: ${plan.runtime?.decision || "unknown"}`,
     `- runtime_needs_source: ${plan.runtime?.needsSource ? "true" : "false"}`,
     `- reason: ${plan.reason}`,
+    `- cache_ttl_sec: ${COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC}`,
+    `- cache_key: ${debugCacheKey}`,
   ];
 
   return lines.join("\n");

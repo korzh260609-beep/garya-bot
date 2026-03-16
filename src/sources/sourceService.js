@@ -5,7 +5,8 @@
 // - create a single entry point for sources layer
 // - keep fetch logic OUT of chat handler
 // - keep current CoinGecko simple price cache-first path
-// - add minimal historical-data skeleton path for CoinGecko market_chart
+// - add minimal historical-data path for CoinGecko market_chart
+// - add cache-first runtime layer for market_chart too
 //
 // IMPORTANT:
 // - this file must remain fail-open
@@ -26,12 +27,18 @@ import {
 } from "../db/sourceCacheRepo.js";
 import { envIntRange } from "../core/config.js";
 
-export const SOURCE_SERVICE_VERSION = "10C.5-market-chart-skeleton-v1";
+export const SOURCE_SERVICE_VERSION = "10C.5-market-chart-cache-v1";
 
 const COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC = envIntRange(
   "COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC",
   20,
   { min: 5, max: 3600 }
+);
+
+const COINGECKO_MARKET_CHART_CACHE_TTL_SEC = envIntRange(
+  "COINGECKO_MARKET_CHART_CACHE_TTL_SEC",
+  300,
+  { min: 10, max: 86400 }
 );
 
 export const SOURCE_SERVICE_DECISIONS = Object.freeze({
@@ -52,9 +59,7 @@ function normalizeSourceKey(value) {
 
 function normalizeAllowedSourceKeys(value) {
   return Array.isArray(value)
-    ? value
-        .map((item) => normalizeSourceKey(item))
-        .filter(Boolean)
+    ? value.map((item) => normalizeSourceKey(item)).filter(Boolean)
     : [];
 }
 
@@ -109,9 +114,6 @@ function buildNoSourceResult(reason, runtime = null) {
 
 // ============================================================================
 // STAGE 10.1 — default source registry skeleton
-// IMPORTANT:
-// - hardcoded temporary registry is allowed at skeleton stage
-// - real DB-backed sources table can be connected later
 // ============================================================================
 
 export function getDefaultSourceRegistry() {
@@ -280,9 +282,6 @@ function buildCachedSourceResult(entry = null) {
 
 // ============================================================================
 // STAGE 10.2 — service plan resolution
-// IMPORTANT:
-// - this step decides what SHOULD happen
-// - real fetch decision is still isolated below
 // ============================================================================
 
 export function resolveSourceServicePlan(input = {}) {
@@ -376,10 +375,6 @@ export function resolveSourceServicePlan(input = {}) {
 
 // ============================================================================
 // STAGE 10.15 — cache-first fetch path for CoinGecko simple price
-// IMPORTANT:
-// - cache hit returns without network fetch
-// - stale/miss falls through to network fetch
-// - cache write is fail-open
 // ============================================================================
 
 async function resolveCoinGeckoWithCache(input = {}, plan) {
@@ -550,15 +545,10 @@ async function resolveCoinGeckoWithCache(input = {}, plan) {
 }
 
 // ============================================================================
-// STAGE 10C.5 — explicit historical fetch path for CoinGecko market_chart
-// IMPORTANT:
-// - no auto text detection yet
-// - no cache yet
-// - no chat wiring yet
-// - explicit sourceKey only
+// STAGE 10C.5 — cache-first historical fetch path for CoinGecko market_chart
 // ============================================================================
 
-async function resolveCoinGeckoMarketChart(input = {}, plan) {
+async function resolveCoinGeckoMarketChartWithCache(input = {}, plan) {
   const fetchInput = buildCoinGeckoMarketChartFetchInput(input);
 
   if (!fetchInput.coinId) {
@@ -584,8 +574,102 @@ async function resolveCoinGeckoMarketChart(input = {}, plan) {
     };
   }
 
+  const cacheKey = buildSourceCacheKey({
+    sourceKey: "coingecko_market_chart",
+    ids: [fetchInput.coinId, `days:${fetchInput.days}`, `interval:${fetchInput.interval || "auto"}`],
+    vsCurrencies: [fetchInput.vsCurrency],
+  });
+
+  try {
+    const cacheRead = await getSourceCacheEntry({ cacheKey });
+
+    if (cacheRead?.ok && cacheRead.hit === true && cacheRead.stale === false && cacheRead.entry?.payload) {
+      try {
+        console.info("SOURCE_CACHE_HIT", {
+          sourceKey: "coingecko_market_chart",
+          cacheKey,
+          ageSec: cacheRead.entry.ageSec,
+          ttlSec: cacheRead.entry.ttlSec,
+        });
+      } catch (_) {}
+
+      const cachedResult = buildCachedSourceResult({
+        ...cacheRead.entry,
+        stale: false,
+      });
+
+      return {
+        version: SOURCE_SERVICE_VERSION,
+        ok: Boolean(cachedResult?.ok),
+        usedExistingSourceResult: false,
+        shouldUseSourceResult: Boolean(cachedResult?.ok),
+        shouldRequireSourceResult: false,
+        sourceRuntime: plan.runtime,
+        sourcePlan: {
+          ...plan,
+          decision: SOURCE_SERVICE_DECISIONS.CACHE_HIT,
+        },
+        sourceResult: cachedResult,
+        reason: "coingecko_market_chart_cache_hit",
+      };
+    }
+
+    if (cacheRead?.ok && cacheRead.hit === true && cacheRead.stale === true) {
+      try {
+        console.info("SOURCE_CACHE_STALE", {
+          sourceKey: "coingecko_market_chart",
+          cacheKey,
+          ageSec: cacheRead.entry?.ageSec ?? null,
+          ttlSec: cacheRead.entry?.ttlSec ?? null,
+        });
+      } catch (_) {}
+    } else {
+      try {
+        console.info("SOURCE_CACHE_MISS", {
+          sourceKey: "coingecko_market_chart",
+          cacheKey,
+        });
+      } catch (_) {}
+    }
+  } catch (e) {
+    try {
+      console.error("SOURCE_CACHE_READ_FAIL_OPEN", {
+        sourceKey: "coingecko_market_chart",
+        cacheKey,
+        message: e?.message ? String(e.message) : "unknown_error",
+      });
+    } catch (_) {}
+  }
+
   try {
     const fetched = await fetchCoinGeckoMarketChart(fetchInput);
+
+    if (fetched?.ok) {
+      try {
+        await upsertSourceCacheEntry({
+          sourceKey: "coingecko_market_chart",
+          cacheKey,
+          payload: fetched,
+          ttlSec: COINGECKO_MARKET_CHART_CACHE_TTL_SEC,
+        });
+
+        try {
+          console.info("SOURCE_CACHE_SAVE_OK", {
+            sourceKey: "coingecko_market_chart",
+            cacheKey,
+            ttlSec: COINGECKO_MARKET_CHART_CACHE_TTL_SEC,
+          });
+        } catch (_) {}
+      } catch (cacheWriteError) {
+        try {
+          console.error("SOURCE_CACHE_WRITE_FAIL_OPEN", {
+            sourceKey: "coingecko_market_chart",
+            cacheKey,
+            message: cacheWriteError?.message ? String(cacheWriteError.message) : "unknown_error",
+          });
+        } catch (_) {}
+      }
+    }
 
     return {
       version: SOURCE_SERVICE_VERSION,
@@ -621,6 +705,11 @@ async function resolveCoinGeckoMarketChart(input = {}, plan) {
           reason: "coingecko_market_chart_fetch_exception",
           message: error?.message ? String(error.message) : "unknown_error",
           serviceVersion: SOURCE_SERVICE_VERSION,
+          cache: {
+            hit: false,
+            stale: false,
+            cacheKey,
+          },
         },
       },
       reason: "coingecko_market_chart_fetch_exception",
@@ -629,11 +718,7 @@ async function resolveCoinGeckoMarketChart(input = {}, plan) {
 }
 
 // ============================================================================
-// STAGE 10.6 / 10.15 / 10C.5 — public service entry point
-// IMPORTANT:
-// - explicit source result still wins
-// - fetch failures must remain non-fatal
-// - caller decides whether to use fetched result in prompt/runtime
+// public service entry point
 // ============================================================================
 
 export async function resolveSourceContext(input = {}) {
@@ -692,7 +777,7 @@ export async function resolveSourceContext(input = {}) {
     plan.decision === SOURCE_SERVICE_DECISIONS.READY_FOR_FETCH &&
     plan.sourceDefinition?.key === "coingecko_market_chart"
   ) {
-    return await resolveCoinGeckoMarketChart(input, plan);
+    return await resolveCoinGeckoMarketChartWithCache(input, plan);
   }
 
   return {
@@ -740,7 +825,22 @@ export function buildSourceServiceDebugBlock(input = {}) {
           ids: fetchInput.ids,
           vsCurrencies: fetchInput.vsCurrencies,
         })
-      : "n/a";
+      : plan.sourceDefinition?.key === "coingecko_market_chart"
+        ? buildSourceCacheKey({
+            sourceKey: "coingecko_market_chart",
+            ids: [
+              marketChartInput.coinId,
+              `days:${marketChartInput.days}`,
+              `interval:${marketChartInput.interval || "auto"}`,
+            ],
+            vsCurrencies: [marketChartInput.vsCurrency],
+          })
+        : "n/a";
+
+  const ttlText =
+    plan.sourceDefinition?.key === "coingecko_market_chart"
+      ? COINGECKO_MARKET_CHART_CACHE_TTL_SEC
+      : COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC;
 
   const lines = [
     "SOURCE SERVICE:",
@@ -752,7 +852,7 @@ export function buildSourceServiceDebugBlock(input = {}) {
     `- runtime_decision: ${plan.runtime?.decision || "unknown"}`,
     `- runtime_needs_source: ${plan.runtime?.needsSource ? "true" : "false"}`,
     `- reason: ${plan.reason}`,
-    `- cache_ttl_sec: ${COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC}`,
+    `- cache_ttl_sec: ${ttlText}`,
     `- cache_key: ${debugCacheKey}`,
     `- market_chart_coin_id: ${marketChartInput.coinId || "none"}`,
     `- market_chart_vs_currency: ${marketChartInput.vsCurrency || "usd"}`,

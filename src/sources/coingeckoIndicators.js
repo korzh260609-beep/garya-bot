@@ -7,16 +7,17 @@
 // - prepare normalized output for future TA module
 //
 // IMPORTANT:
-// - EMA logic is implemented first
-// - EMA20 / EMA50 cross signal is now added as the next reversible step
-// - RSI and MACD remain skeleton-only
+// - EMA logic is implemented
+// - EMA20 / EMA50 cross signal is implemented
+// - RSI(14) is now added as the next reversible step
+// - MACD remains skeleton-only
 // - no chat wiring
 // - no SourceService integration yet
 // - fail-open
 // - accepts parsed market_chart series only
 // ============================================================================
 
-export const COINGECKO_INDICATORS_VERSION = "10C.6-indicators-ema-cross-v1";
+export const COINGECKO_INDICATORS_VERSION = "10C.6-indicators-rsi-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -299,15 +300,100 @@ export function computeEmaCross(prices = [], fastPeriod = 20, slowPeriod = 50) {
   };
 }
 
-export function computeRsiSkeleton(inputSeries = [], period = 14) {
+export function computeRsi(prices = [], period = 14) {
   const safePeriod = normalizePositiveInt(period, 14);
+  const series = normalizePriceSeries(prices);
 
-  return buildIndicatorSkeletonResult({
+  if (series.length <= safePeriod) {
+    return {
+      ok: false,
+      indicatorKey: "rsi",
+      period: safePeriod,
+      reason: "not_enough_data",
+      version: COINGECKO_INDICATORS_VERSION,
+      inputMeta: buildSeriesMeta(series),
+      output: {
+        values: [],
+        latest: null,
+        signal: null,
+      },
+    };
+  }
+
+  let gainSum = 0;
+  let lossSum = 0;
+
+  for (let i = 1; i <= safePeriod; i += 1) {
+    const change = series[i].value - series[i - 1].value;
+    if (change > 0) {
+      gainSum += change;
+    } else if (change < 0) {
+      lossSum += Math.abs(change);
+    }
+  }
+
+  let avgGain = gainSum / safePeriod;
+  let avgLoss = lossSum / safePeriod;
+
+  const values = [];
+
+  const firstRs =
+    avgLoss === 0 ? Number.POSITIVE_INFINITY : avgGain / avgLoss;
+  const firstRsi =
+    avgLoss === 0 ? 100 : roundIndicatorValue(100 - 100 / (1 + firstRs));
+
+  values.push({
+    ts: series[safePeriod].ts,
+    value: firstRsi,
+  });
+
+  for (let i = safePeriod + 1; i < series.length; i += 1) {
+    const change = series[i].value - series[i - 1].value;
+    const gain = change > 0 ? change : 0;
+    const loss = change < 0 ? Math.abs(change) : 0;
+
+    avgGain = (avgGain * (safePeriod - 1) + gain) / safePeriod;
+    avgLoss = (avgLoss * (safePeriod - 1) + loss) / safePeriod;
+
+    const rs = avgLoss === 0 ? Number.POSITIVE_INFINITY : avgGain / avgLoss;
+    const rsi = avgLoss === 0 ? 100 : roundIndicatorValue(100 - 100 / (1 + rs));
+
+    values.push({
+      ts: series[i].ts,
+      value: rsi,
+    });
+  }
+
+  const latest = values[values.length - 1] || null;
+
+  let signal = null;
+  if (latest && typeof latest.value === "number") {
+    if (latest.value >= 70) {
+      signal = "overbought";
+    } else if (latest.value <= 30) {
+      signal = "oversold";
+    } else if (latest.value > 50) {
+      signal = "bullish_zone";
+    } else if (latest.value < 50) {
+      signal = "bearish_zone";
+    } else {
+      signal = "neutral_50";
+    }
+  }
+
+  return {
+    ok: true,
     indicatorKey: "rsi",
     period: safePeriod,
-    inputSeries,
-    reason: "rsi_not_implemented",
-  });
+    reason: "rsi_computed",
+    version: COINGECKO_INDICATORS_VERSION,
+    inputMeta: buildSeriesMeta(series),
+    output: {
+      values,
+      latest,
+      signal,
+    },
+  };
 }
 
 export function computeMacdSkeleton(
@@ -361,7 +447,7 @@ export function buildIndicatorBundle(input = {}) {
       ema20: computeEma(prices, emaPeriod),
       ema50: computeEma(prices, emaSlowPeriod),
       emaCross: computeEmaCross(prices, emaPeriod, emaSlowPeriod),
-      rsi14: computeRsiSkeleton(prices, rsiPeriod),
+      rsi14: computeRsi(prices, rsiPeriod),
       macd: computeMacdSkeleton(prices),
     },
   };
@@ -379,6 +465,7 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
   const ema20 = bundle.indicators.ema20;
   const ema50 = bundle.indicators.ema50;
   const emaCross = bundle.indicators.emaCross;
+  const rsi14 = bundle.indicators.rsi14;
 
   const lines = [
     "COINGECKO INDICATORS:",
@@ -395,7 +482,9 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- ema_cross_status: ${emaCross.reason}`,
     `- ema_cross_latest_spread: ${emaCross.output.latest?.spread ?? "n/a"}`,
     `- ema_cross_signal: ${emaCross.output.signal ?? "n/a"}`,
-    `- rsi14_status: ${bundle.indicators.rsi14.reason}`,
+    `- rsi14_status: ${rsi14.reason}`,
+    `- rsi14_latest: ${rsi14.output.latest?.value ?? "n/a"}`,
+    `- rsi14_signal: ${rsi14.output.signal ?? "n/a"}`,
     `- macd_status: ${bundle.indicators.macd.reason}`,
   ];
 
@@ -408,7 +497,7 @@ export default {
   buildIndicatorSkeletonResult,
   computeEma,
   computeEmaCross,
-  computeRsiSkeleton,
+  computeRsi,
   computeMacdSkeleton,
   buildIndicatorBundle,
   buildCoingeckoIndicatorsDebugText,

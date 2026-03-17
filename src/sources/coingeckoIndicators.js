@@ -1,22 +1,21 @@
 // src/sources/coingeckoIndicators.js
 // ============================================================================
-// STAGE 10C.6 — CoinGecko Indicators Skeleton
+// STAGE 10C.6 — CoinGecko Indicators
 // PURPOSE:
 // - define deterministic indicator contract for historical market_chart data
 // - keep indicator logic isolated from fetcher / SourceService / chat wiring
 // - prepare normalized output for future TA module
 //
 // IMPORTANT:
-// - skeleton only
+// - EMA is implemented first as the smallest reversible logic step
+// - RSI and MACD remain skeleton-only
 // - no chat wiring
 // - no SourceService integration yet
-// - no command integration yet
-// - no heavy math yet
 // - fail-open
 // - accepts parsed market_chart series only
 // ============================================================================
 
-export const COINGECKO_INDICATORS_VERSION = "10C.6-indicators-skeleton-v1";
+export const COINGECKO_INDICATORS_VERSION = "10C.6-indicators-ema-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -74,6 +73,11 @@ function buildSeriesMeta(series = []) {
   };
 }
 
+function roundIndicatorValue(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Number(value.toFixed(8));
+}
+
 export function buildIndicatorSkeletonResult({
   indicatorKey,
   period = null,
@@ -97,15 +101,93 @@ export function buildIndicatorSkeletonResult({
   };
 }
 
-export function computeEmaSkeleton(inputSeries = [], period = 20) {
+function buildEmaSeries(prices = [], period = 20) {
   const safePeriod = normalizePositiveInt(period, 20);
+  const series = normalizePriceSeries(prices);
 
-  return buildIndicatorSkeletonResult({
-    indicatorKey: "ema",
-    period: safePeriod,
-    inputSeries,
-    reason: "ema_not_implemented",
+  if (series.length < safePeriod) {
+    return {
+      ok: false,
+      reason: "not_enough_data",
+      period: safePeriod,
+      values: [],
+      latest: null,
+      signal: null,
+      inputMeta: buildSeriesMeta(series),
+    };
+  }
+
+  const multiplier = 2 / (safePeriod + 1);
+  const out = [];
+
+  let seedSum = 0;
+  for (let i = 0; i < safePeriod; i += 1) {
+    seedSum += series[i].value;
+  }
+
+  let prevEma = seedSum / safePeriod;
+
+  out.push({
+    ts: series[safePeriod - 1].ts,
+    value: roundIndicatorValue(prevEma),
   });
+
+  for (let i = safePeriod; i < series.length; i += 1) {
+    const price = series[i].value;
+    prevEma = (price - prevEma) * multiplier + prevEma;
+
+    out.push({
+      ts: series[i].ts,
+      value: roundIndicatorValue(prevEma),
+    });
+  }
+
+  const latestPoint = out[out.length - 1] || null;
+  const latestPricePoint = series[series.length - 1] || null;
+
+  let signal = null;
+  if (
+    latestPoint &&
+    latestPricePoint &&
+    typeof latestPoint.value === "number" &&
+    typeof latestPricePoint.value === "number"
+  ) {
+    if (latestPricePoint.value > latestPoint.value) {
+      signal = "price_above_ema";
+    } else if (latestPricePoint.value < latestPoint.value) {
+      signal = "price_below_ema";
+    } else {
+      signal = "price_at_ema";
+    }
+  }
+
+  return {
+    ok: true,
+    reason: "ema_computed",
+    period: safePeriod,
+    values: out,
+    latest: latestPoint,
+    signal,
+    inputMeta: buildSeriesMeta(series),
+  };
+}
+
+export function computeEma(prices = [], period = 20) {
+  const result = buildEmaSeries(prices, period);
+
+  return {
+    ok: result.ok,
+    indicatorKey: "ema",
+    period: result.period,
+    reason: result.reason,
+    version: COINGECKO_INDICATORS_VERSION,
+    inputMeta: result.inputMeta,
+    output: {
+      values: result.values,
+      latest: result.latest,
+      signal: result.signal,
+    },
+  };
 }
 
 export function computeRsiSkeleton(inputSeries = [], period = 14) {
@@ -155,7 +237,7 @@ export function computeMacdSkeleton(
   };
 }
 
-export function buildIndicatorBundleSkeleton(input = {}) {
+export function buildIndicatorBundle(input = {}) {
   const prices = normalizePriceSeries(input?.prices || []);
   const emaPeriod = normalizePositiveInt(input?.emaPeriod, 20);
   const rsiPeriod = normalizePositiveInt(input?.rsiPeriod, 14);
@@ -163,10 +245,10 @@ export function buildIndicatorBundleSkeleton(input = {}) {
   return {
     ok: true,
     version: COINGECKO_INDICATORS_VERSION,
-    reason: "indicator_bundle_skeleton_ready",
+    reason: "indicator_bundle_ready",
     inputMeta: buildSeriesMeta(prices),
     indicators: {
-      ema20: computeEmaSkeleton(prices, emaPeriod),
+      ema20: computeEma(prices, emaPeriod),
       rsi14: computeRsiSkeleton(prices, rsiPeriod),
       macd: computeMacdSkeleton(prices),
     },
@@ -175,11 +257,13 @@ export function buildIndicatorBundleSkeleton(input = {}) {
 
 export function buildCoingeckoIndicatorsDebugText(input = {}) {
   const prices = normalizePriceSeries(input?.prices || []);
-  const bundle = buildIndicatorBundleSkeleton({
+  const bundle = buildIndicatorBundle({
     prices,
     emaPeriod: input?.emaPeriod,
     rsiPeriod: input?.rsiPeriod,
   });
+
+  const ema = bundle.indicators.ema20;
 
   const lines = [
     "COINGECKO INDICATORS:",
@@ -187,7 +271,9 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- prices_count: ${bundle.inputMeta.count}`,
     `- first_ts: ${bundle.inputMeta.firstTs ?? "n/a"}`,
     `- last_ts: ${bundle.inputMeta.lastTs ?? "n/a"}`,
-    `- ema20_status: ${bundle.indicators.ema20.reason}`,
+    `- ema20_status: ${ema.reason}`,
+    `- ema20_latest: ${ema.output.latest?.value ?? "n/a"}`,
+    `- ema20_signal: ${ema.output.signal ?? "n/a"}`,
     `- rsi14_status: ${bundle.indicators.rsi14.reason}`,
     `- macd_status: ${bundle.indicators.macd.reason}`,
   ];
@@ -199,9 +285,9 @@ export default {
   COINGECKO_INDICATORS_VERSION,
   normalizePriceSeries,
   buildIndicatorSkeletonResult,
-  computeEmaSkeleton,
+  computeEma,
   computeRsiSkeleton,
   computeMacdSkeleton,
-  buildIndicatorBundleSkeleton,
+  buildIndicatorBundle,
   buildCoingeckoIndicatorsDebugText,
 };

@@ -17,6 +17,9 @@
 // - dedup by ts added in normalizePriceSeries()
 // - signal_summary logic improved for conflicting trend/momentum states
 // - confidence logic improved for trend-strength-aware summary quality
+// - entryHints added as a small additive interpretation layer
+// - no trade execution logic
+// - no TP/SL engine
 // - no chat wiring
 // - no SourceService integration yet
 // - fail-open
@@ -24,7 +27,7 @@
 // ============================================================================
 
 export const COINGECKO_INDICATORS_VERSION =
-  "10C.12-indicators-confidence-quality-v1";
+  "10C.13-entry-hints-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -939,6 +942,119 @@ function buildSignalSummary(summary = {}) {
   };
 }
 
+function buildEntryHints(summary = {}) {
+  const marketBias = summary?.marketBias;
+  const momentumBias = summary?.momentumBias;
+  const trendStrength = summary?.trendStrength;
+  const signalSummary = summary?.signalSummary;
+
+  const result = {
+    ok: false,
+    reason: "entry_hints_inputs_not_ready",
+    hint: null,
+    bias: null,
+    confidence: null,
+    context: null,
+    note: null,
+  };
+
+  if (
+    !marketBias?.ok ||
+    !momentumBias?.ok ||
+    !trendStrength?.ok ||
+    !signalSummary?.ok
+  ) {
+    return result;
+  }
+
+  const summarySignal = signalSummary.signal || null;
+  const summaryConfidence = signalSummary.confidence || "low";
+  const trendSignal = trendStrength.signal || null;
+  const trendScore = trendStrength.score;
+  const marketSignal = marketBias.signal || null;
+  const momentumSignal = momentumBias.signal || null;
+
+  let hint = "no_entry_hint";
+  let bias = "neutral";
+  let context = "mixed";
+  let note = "No clear entry hint from current summary state.";
+
+  if (summarySignal === "pullback_in_uptrend") {
+    hint = "possible_buy_on_dip";
+    bias = "bullish";
+    context = "trend_continuation_pullback";
+    note =
+      "Bullish structure remains, but momentum is pulling back. Watch for dip stabilization, not blind entry.";
+  } else if (summarySignal === "bounce_in_downtrend") {
+    hint = "possible_sell_on_bounce";
+    bias = "bearish";
+    context = "trend_continuation_bounce";
+    note =
+      "Bearish structure remains, but momentum is bouncing. Watch for bounce weakness, not blind entry.";
+  } else if (summarySignal === "buy" || summarySignal === "buy_watch") {
+    hint = "possible_buy_with_trend";
+    bias = "bullish";
+    context = "trend_alignment";
+    note =
+      summarySignal === "buy"
+        ? "Trend and momentum are aligned to the upside."
+        : "Bullish structure exists, but confirmation is weaker than full buy state.";
+  } else if (summarySignal === "sell" || summarySignal === "sell_watch") {
+    hint = "possible_sell_with_trend";
+    bias = "bearish";
+    context = "trend_alignment";
+    note =
+      summarySignal === "sell"
+        ? "Trend and momentum are aligned to the downside."
+        : "Bearish structure exists, but confirmation is weaker than full sell state.";
+  } else if (summarySignal === "wait") {
+    hint = "wait_for_confirmation";
+    bias =
+      trendSignal === "slightly_bullish"
+        ? "slightly_bullish"
+        : trendSignal === "slightly_bearish"
+          ? "slightly_bearish"
+          : "neutral";
+    context = "weak_or_mixed";
+    note =
+      "Structure is not clean enough. Better wait for stronger confirmation before any entry idea.";
+  }
+
+  if (
+    hint === "possible_buy_on_dip" &&
+    trendScore !== null &&
+    trendScore <= 0
+  ) {
+    note =
+      "Signal looks like a pullback, but trend strength is weak. Treat buy-on-dip idea cautiously.";
+  }
+
+  if (
+    hint === "possible_sell_on_bounce" &&
+    trendScore !== null &&
+    trendScore >= 0
+  ) {
+    note =
+      "Signal looks like a bounce, but trend strength is weak. Treat sell-on-bounce idea cautiously.";
+  }
+
+  return {
+    ok: true,
+    reason: "entry_hints_ready",
+    hint,
+    bias,
+    confidence: summaryConfidence,
+    context,
+    note,
+    basedOn: {
+      marketBias: marketSignal,
+      momentumBias: momentumSignal,
+      trendStrength: trendSignal,
+      signalSummary: summarySignal,
+    },
+  };
+}
+
 function buildSummaryMeta(summary = {}) {
   const marketBiasOk = summary?.marketBias?.ok === true;
   const momentumBiasOk = summary?.momentumBias?.ok === true;
@@ -1021,6 +1137,7 @@ export function buildIndicatorBundle(input = {}) {
     indicators.macd.ok === true;
 
   const summary = buildIndicatorSummary(indicators);
+  const entryHints = buildEntryHints(summary);
 
   return {
     ok: indicatorsReady && summary.ok === true,
@@ -1033,6 +1150,7 @@ export function buildIndicatorBundle(input = {}) {
     inputMeta: buildSeriesMeta(prices),
     indicators,
     summary,
+    entryHints,
   };
 }
 
@@ -1054,6 +1172,7 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
   const momentumBias = bundle.summary?.momentumBias;
   const trendStrength = bundle.summary?.trendStrength;
   const signalSummary = bundle.summary?.signalSummary;
+  const entryHints = bundle.entryHints;
 
   const lines = [
     "COINGECKO INDICATORS:",
@@ -1090,6 +1209,12 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- signal_summary_status: ${signalSummary?.reason ?? "n/a"}`,
     `- signal_summary_signal: ${signalSummary?.signal ?? "n/a"}`,
     `- signal_summary_confidence: ${signalSummary?.confidence ?? "n/a"}`,
+    `- entry_hints_status: ${entryHints?.reason ?? "n/a"}`,
+    `- entry_hints_hint: ${entryHints?.hint ?? "n/a"}`,
+    `- entry_hints_bias: ${entryHints?.bias ?? "n/a"}`,
+    `- entry_hints_confidence: ${entryHints?.confidence ?? "n/a"}`,
+    `- entry_hints_context: ${entryHints?.context ?? "n/a"}`,
+    `- entry_hints_note: ${entryHints?.note ?? "n/a"}`,
   ];
 
   return lines.join("\n");

@@ -1,24 +1,23 @@
 // src/sources/coingeckoIndicators.js
 // ============================================================================
-// STAGE 10C.7 — CoinGecko Indicators Summary Layer
+// STAGE 10C.7 → next additive step
 // PURPOSE:
 // - define deterministic indicator contract for historical market_chart data
 // - keep indicator logic isolated from fetcher / SourceService / chat wiring
 // - prepare normalized output for future TA module
 //
 // IMPORTANT:
-// - EMA logic is implemented
-// - EMA20 / EMA50 cross signal is implemented
-// - RSI(14) is implemented
-// - MACD is implemented
-// - derived summary layer is now added as the next reversible step
+// - existing indicator logic is preserved
+// - existing summary fields are preserved
+// - only additive fields were added for trendStrength / signalSummary / meta
 // - no chat wiring
 // - no SourceService integration yet
 // - fail-open
 // - accepts parsed market_chart series only
 // ============================================================================
 
-export const COINGECKO_INDICATORS_VERSION = "10C.7-indicators-summary-v1";
+export const COINGECKO_INDICATORS_VERSION =
+  "10C.8-indicators-signal-summary-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -713,13 +712,226 @@ function buildMomentumBias(indicators = {}) {
   };
 }
 
-export function buildIndicatorSummary(indicators = {}) {
+function buildTrendStrength(indicators = {}, summary = {}) {
+  const emaCrossSignal = indicators?.emaCross?.output?.signal || null;
+  const macdSignal = indicators?.macd?.output?.signal || null;
+  const rsiValue = indicators?.rsi14?.output?.latest?.value;
+  const marketBiasSignal = summary?.marketBias?.signal || null;
+  const momentumBiasSignal = summary?.momentumBias?.signal || null;
+
+  const result = {
+    ok: false,
+    reason: "trend_strength_inputs_not_ready",
+    score: null,
+    signal: null,
+  };
+
+  if (
+    !summary?.marketBias?.ok ||
+    !summary?.momentumBias?.ok ||
+    !indicators?.emaCross?.ok ||
+    !indicators?.macd?.ok ||
+    !indicators?.rsi14?.ok
+  ) {
+    return result;
+  }
+
+  let score = 0;
+
+  if (marketBiasSignal === "bullish") score += 3;
+  else if (marketBiasSignal === "slightly_bullish") score += 1;
+  else if (marketBiasSignal === "bearish") score -= 3;
+  else if (marketBiasSignal === "slightly_bearish") score -= 1;
+
+  if (momentumBiasSignal === "bullish") score += 2;
+  else if (
+    momentumBiasSignal === "slightly_bullish" ||
+    momentumBiasSignal === "bullish_overheated"
+  ) {
+    score += 1;
+  } else if (momentumBiasSignal === "bearish") score -= 2;
+  else if (
+    momentumBiasSignal === "slightly_bearish" ||
+    momentumBiasSignal === "bearish_exhausted"
+  ) {
+    score -= 1;
+  }
+
+  if (emaCrossSignal === "bullish_cross") score += 2;
+  else if (emaCrossSignal === "fast_above_slow") score += 1;
+  else if (emaCrossSignal === "bearish_cross") score -= 2;
+  else if (emaCrossSignal === "fast_below_slow") score -= 1;
+
+  if (macdSignal === "bullish_cross") score += 2;
+  else if (macdSignal === "bullish_momentum") score += 1;
+  else if (macdSignal === "bearish_cross") score -= 2;
+  else if (macdSignal === "bearish_momentum") score -= 1;
+
+  if (typeof rsiValue === "number") {
+    if (rsiValue >= 60 && rsiValue < 70) score += 1;
+    else if (rsiValue <= 40 && rsiValue > 30) score -= 1;
+    else if (rsiValue >= 70) score += 0;
+    else if (rsiValue <= 30) score -= 0;
+  }
+
+  let signal = "neutral";
+
+  if (score >= 6) {
+    signal = "strong_bullish";
+  } else if (score >= 3) {
+    signal = "bullish";
+  } else if (score >= 1) {
+    signal = "slightly_bullish";
+  } else if (score <= -6) {
+    signal = "strong_bearish";
+  } else if (score <= -3) {
+    signal = "bearish";
+  } else if (score <= -1) {
+    signal = "slightly_bearish";
+  }
+
   return {
+    ok: true,
+    reason: "trend_strength_ready",
+    score,
+    signal,
+  };
+}
+
+function buildSignalSummary(summary = {}) {
+  const marketBiasSignal = summary?.marketBias?.signal || null;
+  const momentumBiasSignal = summary?.momentumBias?.signal || null;
+  const trendStrengthSignal = summary?.trendStrength?.signal || null;
+  const trendStrengthScore = summary?.trendStrength?.score;
+
+  const result = {
+    ok: false,
+    reason: "signal_summary_inputs_not_ready",
+    signal: null,
+    confidence: null,
+  };
+
+  if (
+    !summary?.marketBias?.ok ||
+    !summary?.momentumBias?.ok ||
+    !summary?.trendStrength?.ok
+  ) {
+    return result;
+  }
+
+  let signal = "neutral";
+  let confidence = "low";
+
+  if (
+    trendStrengthSignal === "strong_bullish" &&
+    (marketBiasSignal === "bullish" || marketBiasSignal === "slightly_bullish") &&
+    (momentumBiasSignal === "bullish" ||
+      momentumBiasSignal === "slightly_bullish" ||
+      momentumBiasSignal === "bullish_overheated")
+  ) {
+    signal = "buy";
+    confidence = "high";
+  } else if (
+    trendStrengthSignal === "bullish" &&
+    marketBiasSignal !== "bearish" &&
+    momentumBiasSignal !== "bearish"
+  ) {
+    signal = "buy_watch";
+    confidence = "medium";
+  } else if (
+    trendStrengthSignal === "strong_bearish" &&
+    (marketBiasSignal === "bearish" || marketBiasSignal === "slightly_bearish") &&
+    (momentumBiasSignal === "bearish" ||
+      momentumBiasSignal === "slightly_bearish" ||
+      momentumBiasSignal === "bearish_exhausted")
+  ) {
+    signal = "sell";
+    confidence = "high";
+  } else if (
+    trendStrengthSignal === "bearish" &&
+    marketBiasSignal !== "bullish" &&
+    momentumBiasSignal !== "bullish"
+  ) {
+    signal = "sell_watch";
+    confidence = "medium";
+  } else if (
+    trendStrengthSignal === "slightly_bullish" ||
+    trendStrengthSignal === "slightly_bearish"
+  ) {
+    signal = "wait";
+    confidence = "low";
+  } else if (trendStrengthSignal === "neutral") {
+    signal = "wait";
+    confidence = "low";
+  }
+
+  if (typeof trendStrengthScore === "number" && Math.abs(trendStrengthScore) >= 6) {
+    confidence = "high";
+  } else if (
+    typeof trendStrengthScore === "number" &&
+    Math.abs(trendStrengthScore) >= 3 &&
+    confidence === "low"
+  ) {
+    confidence = "medium";
+  }
+
+  return {
+    ok: true,
+    reason: "signal_summary_ready",
+    signal,
+    confidence,
+  };
+}
+
+function buildSummaryMeta(summary = {}) {
+  const marketBiasOk = summary?.marketBias?.ok === true;
+  const momentumBiasOk = summary?.momentumBias?.ok === true;
+  const trendStrengthOk = summary?.trendStrength?.ok === true;
+  const signalSummaryOk = summary?.signalSummary?.ok === true;
+
+  return {
+    version: COINGECKO_INDICATORS_VERSION,
+    layer: "summary",
+    componentsReady: {
+      marketBias: marketBiasOk,
+      momentumBias: momentumBiasOk,
+      trendStrength: trendStrengthOk,
+      signalSummary: signalSummaryOk,
+    },
+    readyCount: [marketBiasOk, momentumBiasOk, trendStrengthOk, signalSummaryOk]
+      .filter(Boolean)
+      .length,
+  };
+}
+
+export function buildIndicatorSummary(indicators = {}) {
+  const marketBias = buildMarketBias(indicators);
+  const momentumBias = buildMomentumBias(indicators);
+
+  const partialSummary = {
+    marketBias,
+    momentumBias,
+  };
+
+  const trendStrength = buildTrendStrength(indicators, partialSummary);
+  const signalSummary = buildSignalSummary({
+    ...partialSummary,
+    trendStrength,
+  });
+
+  const summary = {
     ok: true,
     reason: "indicator_summary_ready",
     version: COINGECKO_INDICATORS_VERSION,
-    marketBias: buildMarketBias(indicators),
-    momentumBias: buildMomentumBias(indicators),
+    marketBias,
+    momentumBias,
+    trendStrength,
+    signalSummary,
+  };
+
+  return {
+    ...summary,
+    meta: buildSummaryMeta(summary),
   };
 }
 

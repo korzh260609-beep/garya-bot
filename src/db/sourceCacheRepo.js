@@ -10,7 +10,7 @@
 // - this file does NOT fetch network data
 // - this file provides storage/read-write only
 // - runtime cache-first decisions are made in SourceService
-// - current change adds DB diagnostics only
+// - current version is aligned to DB column cached_json
 // ============================================================================
 
 import pool from "../../db.js";
@@ -89,7 +89,7 @@ export async function getSourceCacheEntry({ cacheKey }) {
         id,
         source_key,
         cache_key,
-        payload,
+        cached_json,
         fetched_at,
         ttl_sec,
         GREATEST(
@@ -112,7 +112,7 @@ export async function getSourceCacheEntry({ cacheKey }) {
       rowId: row?.id ?? null,
       rowSourceKey: row?.source_key ?? null,
       rowCacheKey: row?.cache_key ?? null,
-      hasPayload: Boolean(row?.payload),
+      hasPayload: Boolean(row?.cached_json),
       rawTtlSec: row?.ttl_sec ?? null,
       rawFetchedAt: row?.fetched_at
         ? new Date(row.fetched_at).toISOString()
@@ -150,7 +150,7 @@ export async function getSourceCacheEntry({ cacheKey }) {
         id: row.id,
         sourceKey: row.source_key,
         cacheKey: row.cache_key,
-        payload: row.payload || null,
+        payload: row.cached_json || null,
         fetchedAt: row.fetched_at ? new Date(row.fetched_at).toISOString() : null,
         ttlSec,
         ageSec,
@@ -222,7 +222,7 @@ export async function upsertSourceCacheEntry({
       INSERT INTO source_cache (
         source_key,
         cache_key,
-        payload,
+        cached_json,
         fetched_at,
         ttl_sec,
         created_at,
@@ -232,7 +232,7 @@ export async function upsertSourceCacheEntry({
       ON CONFLICT (cache_key)
       DO UPDATE SET
         source_key = EXCLUDED.source_key,
-        payload = EXCLUDED.payload,
+        cached_json = EXCLUDED.cached_json,
         fetched_at = NOW(),
         ttl_sec = EXCLUDED.ttl_sec,
         updated_at = NOW()
@@ -240,7 +240,7 @@ export async function upsertSourceCacheEntry({
         id,
         source_key,
         cache_key,
-        payload,
+        cached_json,
         fetched_at,
         ttl_sec
       `,
@@ -261,8 +261,8 @@ export async function upsertSourceCacheEntry({
       rowFetchedAt: row?.fetched_at
         ? new Date(row.fetched_at).toISOString()
         : null,
-      hasPayload: Boolean(row?.payload),
-      payloadSourceKey: row?.payload?.sourceKey || null,
+      hasPayload: Boolean(row?.cached_json),
+      payloadSourceKey: row?.cached_json?.sourceKey || null,
     });
 
     return {
@@ -273,7 +273,7 @@ export async function upsertSourceCacheEntry({
             id: row.id,
             sourceKey: row.source_key,
             cacheKey: row.cache_key,
-            payload: row.payload || null,
+            payload: row.cached_json || null,
             fetchedAt: row.fetched_at
               ? new Date(row.fetched_at).toISOString()
               : null,

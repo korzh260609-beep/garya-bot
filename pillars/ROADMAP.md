@@ -174,6 +174,12 @@ Core → DB/TaskEngine → Access V0 → Multi-Channel Identity → DB Migration
 10.7 commands  
 10.8 diagnostics  
 10.9 logs  
+10.10 Binance Spot Candles Source  
+10.11 Binance Market Structure Layer  
+10.12 Binance Depth Source  
+10.13 Binance Trade Flow Source  
+10.14 Binance Derivatives Source  
+10.15 Market Fusion Layer
 
 ---
 

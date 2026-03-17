@@ -9,15 +9,15 @@
 // IMPORTANT:
 // - EMA logic is implemented
 // - EMA20 / EMA50 cross signal is implemented
-// - RSI(14) is now added as the next reversible step
-// - MACD remains skeleton-only
+// - RSI(14) is implemented
+// - MACD is now added as the next reversible step
 // - no chat wiring
 // - no SourceService integration yet
 // - fail-open
 // - accepts parsed market_chart series only
 // ============================================================================
 
-export const COINGECKO_INDICATORS_VERSION = "10C.6-indicators-rsi-v1";
+export const COINGECKO_INDICATORS_VERSION = "10C.6-indicators-macd-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -200,7 +200,8 @@ function buildAlignedSeriesMap(values = []) {
   for (const point of values) {
     if (!point || typeof point !== "object") continue;
     if (typeof point.ts !== "number" || !Number.isFinite(point.ts)) continue;
-    if (typeof point.value !== "number" || !Number.isFinite(point.value)) continue;
+    if (typeof point.value !== "number" || !Number.isFinite(point.value))
+      continue;
     map.set(point.ts, point.value);
   }
 
@@ -356,7 +357,8 @@ export function computeRsi(prices = [], period = 14) {
     avgLoss = (avgLoss * (safePeriod - 1) + loss) / safePeriod;
 
     const rs = avgLoss === 0 ? Number.POSITIVE_INFINITY : avgGain / avgLoss;
-    const rsi = avgLoss === 0 ? 100 : roundIndicatorValue(100 - 100 / (1 + rs));
+    const rsi =
+      avgLoss === 0 ? 100 : roundIndicatorValue(100 - 100 / (1 + rs));
 
     values.push({
       ts: series[i].ts,
@@ -396,8 +398,29 @@ export function computeRsi(prices = [], period = 14) {
   };
 }
 
-export function computeMacdSkeleton(
-  inputSeries = [],
+function buildSeriesFromPoints(points = [], valueKey = "value") {
+  const out = [];
+
+  if (!Array.isArray(points)) return out;
+
+  for (const point of points) {
+    if (!point || typeof point !== "object") continue;
+    if (typeof point.ts !== "number" || !Number.isFinite(point.ts)) continue;
+
+    const value = point[valueKey];
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+
+    out.push({
+      ts: point.ts,
+      value,
+    });
+  }
+
+  return out;
+}
+
+export function computeMacd(
+  prices = [],
   {
     fastPeriod = 12,
     slowPeriod = 26,
@@ -407,14 +430,154 @@ export function computeMacdSkeleton(
   const safeFastPeriod = normalizePositiveInt(fastPeriod, 12);
   const safeSlowPeriod = normalizePositiveInt(slowPeriod, 26);
   const safeSignalPeriod = normalizePositiveInt(signalPeriod, 9);
+  const series = normalizePriceSeries(prices);
 
-  const series = normalizePriceSeries(inputSeries);
+  const fast = computeEma(series, safeFastPeriod);
+  const slow = computeEma(series, safeSlowPeriod);
+
+  if (!fast.ok || !slow.ok) {
+    return {
+      ok: false,
+      indicatorKey: "macd",
+      period: null,
+      reason: "macd_inputs_not_ready",
+      version: COINGECKO_INDICATORS_VERSION,
+      inputMeta: buildSeriesMeta(series),
+      params: {
+        fastPeriod: safeFastPeriod,
+        slowPeriod: safeSlowPeriod,
+        signalPeriod: safeSignalPeriod,
+      },
+      output: {
+        macdLine: [],
+        signalLine: [],
+        histogram: [],
+        latest: null,
+        signal: null,
+      },
+    };
+  }
+
+  const fastMap = buildAlignedSeriesMap(fast.output.values);
+  const slowMap = buildAlignedSeriesMap(slow.output.values);
+
+  const macdLine = [];
+
+  for (const [ts, fastValue] of fastMap.entries()) {
+    const slowValue = slowMap.get(ts);
+    if (typeof slowValue !== "number") continue;
+
+    macdLine.push({
+      ts,
+      value: roundIndicatorValue(fastValue - slowValue),
+    });
+  }
+
+  macdLine.sort((a, b) => a.ts - b.ts);
+
+  const signalInput = buildSeriesFromPoints(macdLine);
+  const signalEma = computeEma(signalInput, safeSignalPeriod);
+
+  if (!signalEma.ok) {
+    return {
+      ok: false,
+      indicatorKey: "macd",
+      period: null,
+      reason: "macd_signal_not_ready",
+      version: COINGECKO_INDICATORS_VERSION,
+      inputMeta: buildSeriesMeta(series),
+      params: {
+        fastPeriod: safeFastPeriod,
+        slowPeriod: safeSlowPeriod,
+        signalPeriod: safeSignalPeriod,
+      },
+      output: {
+        macdLine,
+        signalLine: [],
+        histogram: [],
+        latest: null,
+        signal: null,
+      },
+    };
+  }
+
+  const signalLine = signalEma.output.values.map((point) => ({
+    ts: point.ts,
+    value: roundIndicatorValue(point.value),
+  }));
+
+  const signalMap = buildAlignedSeriesMap(signalLine);
+  const histogram = [];
+
+  for (const point of macdLine) {
+    const signalValue = signalMap.get(point.ts);
+    if (typeof signalValue !== "number") continue;
+
+    histogram.push({
+      ts: point.ts,
+      value: roundIndicatorValue(point.value - signalValue),
+    });
+  }
+
+  const histogramMap = buildAlignedSeriesMap(histogram);
+  const aligned = [];
+
+  for (const point of macdLine) {
+    const signalValue = signalMap.get(point.ts);
+    const histogramValue = histogramMap.get(point.ts);
+
+    if (
+      typeof signalValue !== "number" ||
+      typeof histogramValue !== "number"
+    ) {
+      continue;
+    }
+
+    aligned.push({
+      ts: point.ts,
+      macd: roundIndicatorValue(point.value),
+      signal: roundIndicatorValue(signalValue),
+      histogram: roundIndicatorValue(histogramValue),
+    });
+  }
+
+  aligned.sort((a, b) => a.ts - b.ts);
+
+  const latest = aligned[aligned.length - 1] || null;
+  const prev = aligned.length >= 2 ? aligned[aligned.length - 2] : null;
+
+  let signal = null;
+
+  if (latest) {
+    if (prev) {
+      const prevSpread = prev.macd - prev.signal;
+      const latestSpread = latest.macd - latest.signal;
+
+      if (prevSpread <= 0 && latestSpread > 0) {
+        signal = "bullish_cross";
+      } else if (prevSpread >= 0 && latestSpread < 0) {
+        signal = "bearish_cross";
+      } else if (latest.histogram > 0) {
+        signal = "bullish_momentum";
+      } else if (latest.histogram < 0) {
+        signal = "bearish_momentum";
+      } else {
+        signal = "neutral_momentum";
+      }
+    } else if (latest.histogram > 0) {
+      signal = "bullish_momentum";
+    } else if (latest.histogram < 0) {
+      signal = "bearish_momentum";
+    } else {
+      signal = "neutral_momentum";
+    }
+  }
 
   return {
-    ok: false,
+    ok: true,
     indicatorKey: "macd",
     period: null,
-    reason: "macd_not_implemented",
+    reason: "macd_computed",
     version: COINGECKO_INDICATORS_VERSION,
     inputMeta: buildSeriesMeta(series),
     params: {
@@ -423,11 +586,11 @@ export function computeMacdSkeleton(
       signalPeriod: safeSignalPeriod,
     },
     output: {
-      macdLine: [],
-      signalLine: [],
-      histogram: [],
-      latest: null,
-      signal: null,
+      macdLine,
+      signalLine,
+      histogram,
+      latest,
+      signal,
     },
   };
 }
@@ -448,7 +611,7 @@ export function buildIndicatorBundle(input = {}) {
       ema50: computeEma(prices, emaSlowPeriod),
       emaCross: computeEmaCross(prices, emaPeriod, emaSlowPeriod),
       rsi14: computeRsi(prices, rsiPeriod),
-      macd: computeMacdSkeleton(prices),
+      macd: computeMacd(prices),
     },
   };
 }
@@ -466,6 +629,7 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
   const ema50 = bundle.indicators.ema50;
   const emaCross = bundle.indicators.emaCross;
   const rsi14 = bundle.indicators.rsi14;
+  const macd = bundle.indicators.macd;
 
   const lines = [
     "COINGECKO INDICATORS:",
@@ -485,7 +649,11 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- rsi14_status: ${rsi14.reason}`,
     `- rsi14_latest: ${rsi14.output.latest?.value ?? "n/a"}`,
     `- rsi14_signal: ${rsi14.output.signal ?? "n/a"}`,
-    `- macd_status: ${bundle.indicators.macd.reason}`,
+    `- macd_status: ${macd.reason}`,
+    `- macd_latest_macd: ${macd.output.latest?.macd ?? "n/a"}`,
+    `- macd_latest_signal: ${macd.output.latest?.signal ?? "n/a"}`,
+    `- macd_latest_histogram: ${macd.output.latest?.histogram ?? "n/a"}`,
+    `- macd_signal: ${macd.output.signal ?? "n/a"}`,
   ];
 
   return lines.join("\n");
@@ -498,7 +666,7 @@ export default {
   computeEma,
   computeEmaCross,
   computeRsi,
-  computeMacdSkeleton,
+  computeMacd,
   buildIndicatorBundle,
   buildCoingeckoIndicatorsDebugText,
 };

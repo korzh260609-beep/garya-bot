@@ -12,8 +12,9 @@
 // - readiness logic fixed:
 //   - summary.ok is honest
 //   - bundle.ok is honest
-//   - indicatorsReady added
+// - indicatorsReady added
 // - sorting added in normalizePriceSeries()
+// - dedup by ts added in normalizePriceSeries()
 // - no chat wiring
 // - no SourceService integration yet
 // - fail-open
@@ -58,7 +59,24 @@ export function normalizePriceSeries(input) {
 
   out.sort((a, b) => a.ts - b.ts);
 
-  return out;
+  if (out.length <= 1) {
+    return out;
+  }
+
+  const deduped = [];
+
+  for (const point of out) {
+    const last = deduped[deduped.length - 1];
+
+    if (last && last.ts === point.ts) {
+      deduped[deduped.length - 1] = point;
+      continue;
+    }
+
+    deduped.push(point);
+  }
+
+  return deduped;
 }
 
 function buildSeriesMeta(series = []) {

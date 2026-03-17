@@ -25,6 +25,7 @@
 // - entryHints readinessScore/readinessLabel/shouldWaitForConfirmation added
 // - entryHints priority/summaryLine/confidenceScoreNormalized added
 // - entryHints stateTag added
+// - entryHints attentionLevel added
 // - no trade execution logic
 // - no TP/SL engine
 // - no chat wiring
@@ -34,7 +35,7 @@
 // ============================================================================
 
 export const COINGECKO_INDICATORS_VERSION =
-  "10C.20-entry-hints-state-tag-pack-v1";
+  "10C.21-entry-hints-attention-level-pack-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -151,6 +152,24 @@ function getConfidenceScoreNormalized(confidence) {
   if (confidence === "high") return 100;
   if (confidence === "medium") return 65;
   return 30;
+}
+
+function getAttentionLevel({ triggerStatus, readinessLabel }) {
+  const safeTriggerStatus = triggerStatus || "not_ready";
+  const safeReadinessLabel = readinessLabel || "low";
+
+  if (safeTriggerStatus === "confirmed" || safeReadinessLabel === "high") {
+    return "high";
+  }
+
+  if (
+    safeTriggerStatus === "early_confirmation" ||
+    safeReadinessLabel === "medium"
+  ) {
+    return "medium";
+  }
+
+  return "low";
 }
 
 function getStateTag({
@@ -1038,6 +1057,7 @@ function buildEntryHints(summary = {}) {
     bias: null,
     confidence: null,
     confidenceScoreNormalized: null,
+    attentionLevel: null,
     context: null,
     setup: null,
     triggerStatus: null,
@@ -1080,6 +1100,7 @@ function buildEntryHints(summary = {}) {
   let readinessLabel = "low";
   let priority = "low";
   let stateTag = "wait_mixed";
+  let attentionLevel = "low";
   let shouldWaitForConfirmation = true;
   let summaryLine = null;
   let confidenceScoreNormalized = getConfidenceScoreNormalized(summaryConfidence);
@@ -1224,6 +1245,10 @@ function buildEntryHints(summary = {}) {
   readinessLabel = getReadinessLabel(readinessScore);
   priority = getPriorityFromReadiness(readinessScore);
   confidenceScoreNormalized = getConfidenceScoreNormalized(summaryConfidence);
+  attentionLevel = getAttentionLevel({
+    triggerStatus,
+    readinessLabel,
+  });
   stateTag = getStateTag({
     bias,
     triggerStatus,
@@ -1245,6 +1270,7 @@ function buildEntryHints(summary = {}) {
     bias,
     confidence: summaryConfidence,
     confidenceScoreNormalized,
+    attentionLevel,
     context,
     setup,
     triggerStatus,
@@ -1426,6 +1452,7 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- entry_hints_bias: ${entryHints?.bias ?? "n/a"}`,
     `- entry_hints_confidence: ${entryHints?.confidence ?? "n/a"}`,
     `- entry_hints_confidence_score_normalized: ${entryHints?.confidenceScoreNormalized ?? "n/a"}`,
+    `- entry_hints_attention_level: ${entryHints?.attentionLevel ?? "n/a"}`,
     `- entry_hints_context: ${entryHints?.context ?? "n/a"}`,
     `- entry_hints_setup: ${entryHints?.setup ?? "n/a"}`,
     `- entry_hints_trigger_status: ${entryHints?.triggerStatus ?? "n/a"}`,

@@ -1,3 +1,15 @@
+# SG AI SYSTEM — ROADMAP (ORDER OF SYSTEM EVOLUTION)
+> Назначение: этот файл задаёт **единственно допустимый порядок развития СГ**.  
+> Он нужен, чтобы СГ и люди **не принимали преждевременных решений**, не трогали запрещённые зоны и не «ломали скелет» ради удобства.
+>
+> Формат:
+> - статусы намеренно убраны
+> - порядок и структура являются источником истины
+>
+> Главный принцип: **сначала Foundation → потом Safety/Observability → потом расширения**.
+
+---
+
 ## GLOBAL RULES (HARD)
 - GLOBAL RULE — AI is execution only, SG is decision maker
 - GLOBAL RULE — specialized AI first, reasoning AI last

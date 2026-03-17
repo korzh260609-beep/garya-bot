@@ -22,6 +22,7 @@
 // - entryHints explanationShort added for short human-readable explanation
 // - entryHints actionBias added as tiny action interpretation
 // - entryHints riskMode added as tiny caution interpretation
+// - entryHints readinessScore/readinessLabel/shouldWaitForConfirmation added
 // - no trade execution logic
 // - no TP/SL engine
 // - no chat wiring
@@ -31,7 +32,7 @@
 // ============================================================================
 
 export const COINGECKO_INDICATORS_VERSION =
-  "10C.17-entry-hints-risk-mode-v1";
+  "10C.18-entry-hints-readiness-pack-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -119,6 +120,21 @@ function getScoreConfidence(score) {
 
   if (absScore >= 6) return "high";
   if (absScore >= 3) return "medium";
+  return "low";
+}
+
+function clampReadinessScore(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  if (n <= 0) return 0;
+  if (n >= 100) return 100;
+  return Math.round(n);
+}
+
+function getReadinessLabel(score) {
+  if (typeof score !== "number" || !Number.isFinite(score)) return "low";
+  if (score >= 75) return "high";
+  if (score >= 40) return "medium";
   return "low";
 }
 
@@ -963,6 +979,9 @@ function buildEntryHints(summary = {}) {
     triggerStatus: null,
     actionBias: null,
     riskMode: null,
+    readinessScore: null,
+    readinessLabel: null,
+    shouldWaitForConfirmation: null,
     explanationShort: null,
     note: null,
   };
@@ -990,6 +1009,9 @@ function buildEntryHints(summary = {}) {
   let triggerStatus = "not_ready";
   let actionBias = "hold";
   let riskMode = "defensive";
+  let readinessScore = 10;
+  let readinessLabel = "low";
+  let shouldWaitForConfirmation = true;
   let explanationShort = "No clear setup right now.";
   let note = "No clear entry hint from current summary state.";
 
@@ -1002,6 +1024,8 @@ function buildEntryHints(summary = {}) {
       summaryConfidence === "high" ? "early_confirmation" : "not_ready";
     actionBias = "accumulate";
     riskMode = summaryConfidence === "high" ? "balanced" : "defensive";
+    readinessScore = summaryConfidence === "high" ? 62 : 38;
+    shouldWaitForConfirmation = true;
     explanationShort =
       "Uptrend is intact, but current dip still needs confirmation.";
     note =
@@ -1015,6 +1039,8 @@ function buildEntryHints(summary = {}) {
       summaryConfidence === "high" ? "early_confirmation" : "not_ready";
     actionBias = "reduce";
     riskMode = summaryConfidence === "high" ? "balanced" : "defensive";
+    readinessScore = summaryConfidence === "high" ? 62 : 38;
+    shouldWaitForConfirmation = true;
     explanationShort =
       "Downtrend is intact, but current bounce still needs confirmation.";
     note =
@@ -1027,6 +1053,8 @@ function buildEntryHints(summary = {}) {
     triggerStatus = "confirmed";
     actionBias = "accumulate";
     riskMode = "aggressive";
+    readinessScore = 88;
+    shouldWaitForConfirmation = false;
     explanationShort = "Trend and momentum are aligned upward.";
     note = "Trend and momentum are aligned to the upside.";
   } else if (summarySignal === "buy_watch") {
@@ -1037,6 +1065,8 @@ function buildEntryHints(summary = {}) {
     triggerStatus = "early_confirmation";
     actionBias = "accumulate";
     riskMode = "balanced";
+    readinessScore = 68;
+    shouldWaitForConfirmation = true;
     explanationShort =
       "Bullish structure exists, but confirmation is still partial.";
     note =
@@ -1049,6 +1079,8 @@ function buildEntryHints(summary = {}) {
     triggerStatus = "confirmed";
     actionBias = "reduce";
     riskMode = "aggressive";
+    readinessScore = 88;
+    shouldWaitForConfirmation = false;
     explanationShort = "Trend and momentum are aligned downward.";
     note = "Trend and momentum are aligned to the downside.";
   } else if (summarySignal === "sell_watch") {
@@ -1059,6 +1091,8 @@ function buildEntryHints(summary = {}) {
     triggerStatus = "early_confirmation";
     actionBias = "reduce";
     riskMode = "balanced";
+    readinessScore = 68;
+    shouldWaitForConfirmation = true;
     explanationShort =
       "Bearish structure exists, but confirmation is still partial.";
     note =
@@ -1076,6 +1110,8 @@ function buildEntryHints(summary = {}) {
     triggerStatus = "not_ready";
     actionBias = "hold";
     riskMode = "defensive";
+    readinessScore = 18;
+    shouldWaitForConfirmation = true;
     explanationShort = "Market structure is mixed. Better wait.";
     note =
       "Structure is not clean enough. Better wait for stronger confirmation before any entry idea.";
@@ -1089,6 +1125,8 @@ function buildEntryHints(summary = {}) {
     triggerStatus = "not_ready";
     actionBias = "hold";
     riskMode = "defensive";
+    readinessScore = 24;
+    shouldWaitForConfirmation = true;
     explanationShort =
       "Possible dip idea exists, but trend strength is too weak.";
     note =
@@ -1103,11 +1141,16 @@ function buildEntryHints(summary = {}) {
     triggerStatus = "not_ready";
     actionBias = "hold";
     riskMode = "defensive";
+    readinessScore = 24;
+    shouldWaitForConfirmation = true;
     explanationShort =
       "Possible bounce-sell idea exists, but trend strength is too weak.";
     note =
       "Signal looks like a bounce, but trend strength is weak. Treat sell-on-bounce idea cautiously.";
   }
+
+  readinessScore = clampReadinessScore(readinessScore);
+  readinessLabel = getReadinessLabel(readinessScore);
 
   return {
     ok: true,
@@ -1120,6 +1163,9 @@ function buildEntryHints(summary = {}) {
     triggerStatus,
     actionBias,
     riskMode,
+    readinessScore,
+    readinessLabel,
+    shouldWaitForConfirmation,
     explanationShort,
     note,
     basedOn: {
@@ -1294,6 +1340,9 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- entry_hints_trigger_status: ${entryHints?.triggerStatus ?? "n/a"}`,
     `- entry_hints_action_bias: ${entryHints?.actionBias ?? "n/a"}`,
     `- entry_hints_risk_mode: ${entryHints?.riskMode ?? "n/a"}`,
+    `- entry_hints_readiness_score: ${entryHints?.readinessScore ?? "n/a"}`,
+    `- entry_hints_readiness_label: ${entryHints?.readinessLabel ?? "n/a"}`,
+    `- entry_hints_should_wait: ${entryHints?.shouldWaitForConfirmation ?? "n/a"}`,
     `- entry_hints_explanation_short: ${entryHints?.explanationShort ?? "n/a"}`,
     `- entry_hints_note: ${entryHints?.note ?? "n/a"}`,
   ];

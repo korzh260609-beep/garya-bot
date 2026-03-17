@@ -16,6 +16,7 @@ import { isTransportEnforced } from "./src/transport/transportConfig.js";
 
 import { createApp, startHttpServer } from "./src/http/server.js";
 import { createDebugCoingeckoMarketChartRoute } from "./src/http/debugCoingeckoMarketChartRoute.js";
+import { createDebugCoingeckoIndicatorsRoute } from "./src/http/debugCoingeckoIndicatorsRoute.js";
 import { initSystem } from "./src/bootstrap/initSystem.js";
 
 import { getSystemHealth } from "./core/helpers.js";
@@ -56,12 +57,13 @@ app.get("/health", (req, res) => {
 });
 
 // ============================================================================
-// TEMP DEBUG ROUTE — STAGE 10C.5 CHECK
+// TEMP DEBUG ROUTES — STAGE 10C.5 / 10C.6 CHECK
 // IMPORTANT:
-// - route itself is protected internally by env + token
-// - this only mounts the route
+// - routes themselves are protected internally by env + token
+// - this only mounts the routes
 // ============================================================================
 app.use(createDebugCoingeckoMarketChartRoute());
+app.use(createDebugCoingeckoIndicatorsRoute());
 
 // ============================================================================
 // START SERVER

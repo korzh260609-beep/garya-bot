@@ -1,6 +1,6 @@
 // src/http/debugCoingeckoIndicatorsRoute.js
 // ============================================================================
-// STAGE 10C.6 — temporary protected debug route for CoinGecko indicators
+// STAGE 10C.7 — temporary protected debug route for CoinGecko indicators
 // PURPOSE:
 // - verify indicators logic on top of market_chart historical data
 // - keep verification outside chat runtime
@@ -14,8 +14,8 @@
 // - fail-closed
 // - no chat wiring
 // - no SourceService modification
-// - EMA is implemented first
-// - RSI and MACD remain skeleton-only
+// - EMA / EMA Cross / RSI / MACD are implemented
+// - summary layer is now exposed for verification
 // ============================================================================
 
 import express from "express";
@@ -152,6 +152,10 @@ export function createDebugCoingeckoIndicatorsRoute() {
         indicatorReason: indicators?.reason || null,
         emaReason: indicators?.indicators?.ema20?.reason || null,
         emaLatest: indicators?.indicators?.ema20?.output?.latest?.value ?? null,
+        marketBias:
+          indicators?.summary?.marketBias?.signal ?? null,
+        momentumBias:
+          indicators?.summary?.momentumBias?.signal ?? null,
       });
 
       return res.status(success ? 200 : 502).json({

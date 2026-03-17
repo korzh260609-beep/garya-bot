@@ -512,3 +512,66 @@ Consequences:
 - D-001 не нарушается: агенты предлагают, монарх решает
 - D-017 не нарушается: вывод advisory only
 - Смена модели агента не требует изменения логики
+
+## D-033: Binance is the primary market microstructure source for SG trading analytics
+
+Status: ACCEPTED  
+Date: 2026-03-17  
+Scope: Sources / Trading Analytics / Market Data
+
+Decision:
+
+Для торговой аналитики SG использует Binance как основной источник рыночной микроструктуры.
+
+Роли источников фиксируются так:
+
+- CoinGecko:
+  - базовые цены
+  - historical market chart
+  - market cap
+  - общий market context
+  - fallback / redundancy source
+
+- Binance Spot:
+  - klines / uiKlines
+  - depth
+  - trades / aggTrades
+  - avgPrice
+  - ticker/24hr
+
+- Binance Futures / Derivatives:
+  - open interest
+  - funding rate history
+
+Назначение Binance в системе SG:
+- свечной анализ
+- структура рынка
+- уровни поддержки/сопротивления
+- order book pressure
+- trade flow / tape activity
+- derivatives pressure
+- market bias fusion
+
+Жёсткие правила:
+1. SG не использует один CoinGecko как единственный источник для продвинутого трейдинг-анализа.
+2. Для свечного анализа, market structure, стакана, funding и open interest Binance является приоритетным источником.
+3. Все вычисления выполняются сначала в robot-layer.
+4. AI-layer не вычисляет сырые рыночные данные, а только объясняет уже рассчитанный результат.
+5. Источники подключаются поэтапно:
+   - сначала candles
+   - потом market structure
+   - потом depth
+   - потом derivatives
+   - потом fusion layer
+6. Нельзя тащить все market endpoints в каждый отчёт без стратегии лимитов, rate-limit control и нормализации.
+7. Spot и Futures рассматриваются как разные контуры данных и не смешиваются без явного слоя нормализации.
+
+Consequences:
+- CoinGecko остаётся полезным, но не является достаточным источником для полного TA
+- Binance становится главным источником для расширенного market analysis
+- Архитектура Sources Layer должна предусматривать отдельные Binance-модули
+- Любые будущие торговые отчёты SG должны учитывать различие:
+  - price source
+  - candles source
+  - order book source
+  - derivatives source

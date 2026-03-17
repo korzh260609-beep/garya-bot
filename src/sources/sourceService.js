@@ -15,6 +15,7 @@
 // - auto runtime fetch is still limited to CoinGecko simple price only
 // - market_chart is wired only by explicit sourceKey for now
 // - cache is on-demand TTL only (no cron)
+// - current change adds READBACK diagnostics only
 // ============================================================================
 
 import { resolveSourceRuntime } from "./sourceRuntime.js";
@@ -27,7 +28,7 @@ import {
 } from "../db/sourceCacheRepo.js";
 import { envIntRange } from "../core/config.js";
 
-export const SOURCE_SERVICE_VERSION = "10C.5-market-chart-cache-v1";
+export const SOURCE_SERVICE_VERSION = "10C.5-market-chart-cache-readback-v1";
 
 const COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC = envIntRange(
   "COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC",
@@ -110,6 +111,38 @@ function buildNoSourceResult(reason, runtime = null) {
       serviceVersion: SOURCE_SERVICE_VERSION,
     },
   };
+}
+
+async function logSourceCacheReadback({ sourceKey, cacheKey }) {
+  try {
+    const readback = await getSourceCacheEntry({ cacheKey });
+
+    console.info("SOURCE_CACHE_READBACK", {
+      sourceKey,
+      cacheKey,
+      ok: Boolean(readback?.ok),
+      reason: readback?.reason || null,
+      hit: readback?.hit === true,
+      stale: readback?.stale === true,
+      entryId: readback?.entry?.id ?? null,
+      fetchedAt: readback?.entry?.fetchedAt ?? null,
+      ageSec: readback?.entry?.ageSec ?? null,
+      ttlSec: readback?.entry?.ttlSec ?? null,
+      hasPayload: Boolean(readback?.entry?.payload),
+      payloadSourceKey: readback?.entry?.payload?.sourceKey || null,
+      error: readback?.error || null,
+    });
+  } catch (readbackError) {
+    try {
+      console.error("SOURCE_CACHE_READBACK_FAIL_OPEN", {
+        sourceKey,
+        cacheKey,
+        message: readbackError?.message
+          ? String(readbackError.message)
+          : "unknown_error",
+      });
+    } catch (_) {}
+  }
 }
 
 // ============================================================================
@@ -207,10 +240,20 @@ function detectVsCurrenciesFromText(text = "") {
   if (!t) return ["usd"];
 
   const found = [];
-  if (t.includes("usd") || t.includes("доллар") || t.includes("долар") || t.includes("usdt")) {
+  if (
+    t.includes("usd") ||
+    t.includes("доллар") ||
+    t.includes("долар") ||
+    t.includes("usdt")
+  ) {
     found.push("usd");
   }
-  if (t.includes("eur") || t.includes("euro") || t.includes("евро") || t.includes("євро")) {
+  if (
+    t.includes("eur") ||
+    t.includes("euro") ||
+    t.includes("евро") ||
+    t.includes("євро")
+  ) {
     found.push("eur");
   }
   if (t.includes("uah") || t.includes("грн") || t.includes("hryvnia")) {
@@ -235,12 +278,19 @@ function shouldAutoUseCoinGecko(plan, input = {}) {
 function buildCoinGeckoFetchInput(input = {}) {
   const text = normalizeText(input?.text || "");
   const explicitIds = Array.isArray(input?.coinIds)
-    ? input.coinIds.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean)
+    ? input.coinIds
+        .map((x) => String(x || "").trim().toLowerCase())
+        .filter(Boolean)
     : [];
 
-  const ids = explicitIds.length ? explicitIds : detectCoinGeckoIdsFromText(text);
+  const ids = explicitIds.length
+    ? explicitIds
+    : detectCoinGeckoIdsFromText(text);
+
   const vsCurrencies = Array.isArray(input?.vsCurrencies)
-    ? input.vsCurrencies.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean)
+    ? input.vsCurrencies
+        .map((x) => String(x || "").trim().toLowerCase())
+        .filter(Boolean)
     : detectVsCurrenciesFromText(text);
 
   return {
@@ -267,7 +317,9 @@ function buildCachedSourceResult(entry = null) {
     content: typeof payload?.content === "string" ? payload.content : "",
     fetchedAt: payload?.fetchedAt || entry?.fetchedAt || null,
     meta: {
-      ...(payload?.meta && typeof payload.meta === "object" ? payload.meta : {}),
+      ...(payload?.meta && typeof payload.meta === "object"
+        ? payload.meta
+        : {}),
       cache: {
         hit: true,
         stale: Boolean(entry?.stale),
@@ -288,7 +340,9 @@ export function resolveSourceServicePlan(input = {}) {
   const text = normalizeText(input?.text || "");
   const sourceKey = normalizeSourceKey(input?.sourceKey || "");
   const requireSource = input?.requireSource === true;
-  const allowedSourceKeys = normalizeAllowedSourceKeys(input?.allowedSourceKeys || []);
+  const allowedSourceKeys = normalizeAllowedSourceKeys(
+    input?.allowedSourceKeys || []
+  );
 
   const runtime = resolveSourceRuntime({
     text,
@@ -345,7 +399,8 @@ export function resolveSourceServicePlan(input = {}) {
   }
 
   const useCoinGecko =
-    explicitDefinition?.key === "coingecko_simple_price" || shouldAutoUseCoinGecko({ runtime }, input);
+    explicitDefinition?.key === "coingecko_simple_price" ||
+    shouldAutoUseCoinGecko({ runtime }, input);
 
   if (useCoinGecko) {
     return {
@@ -412,7 +467,12 @@ async function resolveCoinGeckoWithCache(input = {}, plan) {
   try {
     const cacheRead = await getSourceCacheEntry({ cacheKey });
 
-    if (cacheRead?.ok && cacheRead.hit === true && cacheRead.stale === false && cacheRead.entry?.payload) {
+    if (
+      cacheRead?.ok &&
+      cacheRead.hit === true &&
+      cacheRead.stale === false &&
+      cacheRead.entry?.payload
+    ) {
       try {
         console.info("SOURCE_CACHE_HIT", {
           sourceKey: "coingecko_simple_price",
@@ -489,12 +549,19 @@ async function resolveCoinGeckoWithCache(input = {}, plan) {
             ttlSec: COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC,
           });
         } catch (_) {}
+
+        await logSourceCacheReadback({
+          sourceKey: "coingecko_simple_price",
+          cacheKey,
+        });
       } catch (cacheWriteError) {
         try {
           console.error("SOURCE_CACHE_WRITE_FAIL_OPEN", {
             sourceKey: "coingecko_simple_price",
             cacheKey,
-            message: cacheWriteError?.message ? String(cacheWriteError.message) : "unknown_error",
+            message: cacheWriteError?.message
+              ? String(cacheWriteError.message)
+              : "unknown_error",
           });
         } catch (_) {}
       }
@@ -576,14 +643,23 @@ async function resolveCoinGeckoMarketChartWithCache(input = {}, plan) {
 
   const cacheKey = buildSourceCacheKey({
     sourceKey: "coingecko_market_chart",
-    ids: [fetchInput.coinId, `days:${fetchInput.days}`, `interval:${fetchInput.interval || "auto"}`],
+    ids: [
+      fetchInput.coinId,
+      `days:${fetchInput.days}`,
+      `interval:${fetchInput.interval || "auto"}`,
+    ],
     vsCurrencies: [fetchInput.vsCurrency],
   });
 
   try {
     const cacheRead = await getSourceCacheEntry({ cacheKey });
 
-    if (cacheRead?.ok && cacheRead.hit === true && cacheRead.stale === false && cacheRead.entry?.payload) {
+    if (
+      cacheRead?.ok &&
+      cacheRead.hit === true &&
+      cacheRead.stale === false &&
+      cacheRead.entry?.payload
+    ) {
       try {
         console.info("SOURCE_CACHE_HIT", {
           sourceKey: "coingecko_market_chart",
@@ -660,12 +736,19 @@ async function resolveCoinGeckoMarketChartWithCache(input = {}, plan) {
             ttlSec: COINGECKO_MARKET_CHART_CACHE_TTL_SEC,
           });
         } catch (_) {}
+
+        await logSourceCacheReadback({
+          sourceKey: "coingecko_market_chart",
+          cacheKey,
+        });
       } catch (cacheWriteError) {
         try {
           console.error("SOURCE_CACHE_WRITE_FAIL_OPEN", {
             sourceKey: "coingecko_market_chart",
             cacheKey,
-            message: cacheWriteError?.message ? String(cacheWriteError.message) : "unknown_error",
+            message: cacheWriteError?.message
+              ? String(cacheWriteError.message)
+              : "unknown_error",
           });
         } catch (_) {}
       }
@@ -800,7 +883,9 @@ export async function resolveSourceContext(input = {}) {
 export function buildSourceServiceDebugBlock(input = {}) {
   const text = normalizeText(input?.text || "");
   const sourceKey = normalizeSourceKey(input?.sourceKey || "");
-  const allowedSourceKeys = normalizeAllowedSourceKeys(input?.allowedSourceKeys || []);
+  const allowedSourceKeys = normalizeAllowedSourceKeys(
+    input?.allowedSourceKeys || []
+  );
   const plan = resolveSourceServicePlan({
     text,
     sourceKey,

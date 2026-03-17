@@ -16,6 +16,7 @@
 // - sorting added in normalizePriceSeries()
 // - dedup by ts added in normalizePriceSeries()
 // - signal_summary logic improved for conflicting trend/momentum states
+// - confidence logic improved for trend-strength-aware summary quality
 // - no chat wiring
 // - no SourceService integration yet
 // - fail-open
@@ -23,7 +24,7 @@
 // ============================================================================
 
 export const COINGECKO_INDICATORS_VERSION =
-  "10C.11-indicators-summary-quality-v1";
+  "10C.12-indicators-confidence-quality-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -103,6 +104,15 @@ function buildSeriesMeta(series = []) {
 function roundIndicatorValue(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return Number(value.toFixed(8));
+}
+
+function getScoreConfidence(score) {
+  if (typeof score !== "number" || !Number.isFinite(score)) return "low";
+  const absScore = Math.abs(score);
+
+  if (absScore >= 6) return "high";
+  if (absScore >= 3) return "medium";
+  return "low";
 }
 
 export function buildIndicatorSkeletonResult({
@@ -847,6 +857,8 @@ function buildSignalSummary(summary = {}) {
   let signal = "neutral";
   let confidence = "low";
 
+  const scoreConfidence = getScoreConfidence(trendStrengthScore);
+
   const marketBullish =
     marketBiasSignal === "bullish" || marketBiasSignal === "slightly_bullish";
   const marketBearish =
@@ -875,7 +887,7 @@ function buildSignalSummary(summary = {}) {
     momentumBiasSignal !== "bearish"
   ) {
     signal = "buy_watch";
-    confidence = "medium";
+    confidence = scoreConfidence === "high" ? "high" : "medium";
   } else if (
     trendStrengthSignal === "strong_bearish" &&
     marketBearish &&
@@ -889,7 +901,7 @@ function buildSignalSummary(summary = {}) {
     momentumBiasSignal !== "bullish"
   ) {
     signal = "sell_watch";
-    confidence = "medium";
+    confidence = scoreConfidence === "high" ? "high" : "medium";
   } else if (
     marketBullish &&
     momentumBearish &&
@@ -898,7 +910,7 @@ function buildSignalSummary(summary = {}) {
       trendStrengthSignal === "strong_bullish")
   ) {
     signal = "pullback_in_uptrend";
-    confidence = "medium";
+    confidence = scoreConfidence;
   } else if (
     marketBearish &&
     momentumBullish &&
@@ -907,28 +919,16 @@ function buildSignalSummary(summary = {}) {
       trendStrengthSignal === "strong_bearish")
   ) {
     signal = "bounce_in_downtrend";
-    confidence = "medium";
+    confidence = scoreConfidence;
   } else if (
     trendStrengthSignal === "slightly_bullish" ||
     trendStrengthSignal === "slightly_bearish"
   ) {
     signal = "wait";
-    confidence = "low";
+    confidence = scoreConfidence === "high" ? "medium" : "low";
   } else if (trendStrengthSignal === "neutral") {
     signal = "wait";
     confidence = "low";
-  }
-
-  if (typeof trendStrengthScore === "number" && Math.abs(trendStrengthScore) >= 6) {
-    if (signal !== "pullback_in_uptrend" && signal !== "bounce_in_downtrend") {
-      confidence = "high";
-    }
-  } else if (
-    typeof trendStrengthScore === "number" &&
-    Math.abs(trendStrengthScore) >= 3 &&
-    confidence === "low"
-  ) {
-    confidence = "medium";
   }
 
   return {

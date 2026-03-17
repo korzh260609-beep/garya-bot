@@ -1,8 +1,8 @@
 // src/http/debugCoingeckoIndicatorsRoute.js
 // ============================================================================
-// STAGE 10C.6 — temporary protected debug route for CoinGecko indicators skeleton
+// STAGE 10C.6 — temporary protected debug route for CoinGecko indicators
 // PURPOSE:
-// - verify indicators skeleton on top of market_chart historical data
+// - verify indicators logic on top of market_chart historical data
 // - keep verification outside chat runtime
 // - allow browser / Render log testing without command wiring
 //
@@ -14,13 +14,14 @@
 // - fail-closed
 // - no chat wiring
 // - no SourceService modification
-// - indicators are still skeleton-only
+// - EMA is implemented first
+// - RSI and MACD remain skeleton-only
 // ============================================================================
 
 import express from "express";
 import { fetchCoinGeckoMarketChart } from "../sources/fetchCoingeckoMarketChart.js";
 import {
-  buildIndicatorBundleSkeleton,
+  buildIndicatorBundle,
   buildCoingeckoIndicatorsDebugText,
 } from "../sources/coingeckoIndicators.js";
 
@@ -126,7 +127,7 @@ export function createDebugCoingeckoIndicatorsRoute() {
       const marketChartResult = await fetchCoinGeckoMarketChart(fetchInput);
 
       const prices = marketChartResult?.meta?.parsed?.prices || [];
-      const indicators = buildIndicatorBundleSkeleton({
+      const indicators = buildIndicatorBundle({
         prices,
         emaPeriod,
         rsiPeriod,
@@ -149,6 +150,8 @@ export function createDebugCoingeckoIndicatorsRoute() {
         marketChartOk: marketChartResult?.ok === true,
         pricesCount: Array.isArray(prices) ? prices.length : 0,
         indicatorReason: indicators?.reason || null,
+        emaReason: indicators?.indicators?.ema20?.reason || null,
+        emaLatest: indicators?.indicators?.ema20?.output?.latest?.value ?? null,
       });
 
       return res.status(success ? 200 : 502).json({

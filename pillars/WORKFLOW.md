@@ -419,6 +419,7 @@ For each roadmap item:
 - 10.17.4 Spot and Futures data must be normalized separately
 - 10.17.5 robot-layer computes, AI-layer explains
 - 10.17.6 rate-limit strategy is mandatory before broad Binance expansion
+
 ---
 
 # STAGE 10C — COINGECKO MODULE (V1)

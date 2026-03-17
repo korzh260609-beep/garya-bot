@@ -7,7 +7,8 @@
 // - prepare normalized output for future TA module
 //
 // IMPORTANT:
-// - EMA is implemented first as the smallest reversible logic step
+// - EMA logic is implemented first
+// - EMA20 / EMA50 cross signal is now added as the next reversible step
 // - RSI and MACD remain skeleton-only
 // - no chat wiring
 // - no SourceService integration yet
@@ -15,7 +16,7 @@
 // - accepts parsed market_chart series only
 // ============================================================================
 
-export const COINGECKO_INDICATORS_VERSION = "10C.6-indicators-ema-v1";
+export const COINGECKO_INDICATORS_VERSION = "10C.6-indicators-ema-cross-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -190,6 +191,114 @@ export function computeEma(prices = [], period = 20) {
   };
 }
 
+function buildAlignedSeriesMap(values = []) {
+  const map = new Map();
+
+  if (!Array.isArray(values)) return map;
+
+  for (const point of values) {
+    if (!point || typeof point !== "object") continue;
+    if (typeof point.ts !== "number" || !Number.isFinite(point.ts)) continue;
+    if (typeof point.value !== "number" || !Number.isFinite(point.value)) continue;
+    map.set(point.ts, point.value);
+  }
+
+  return map;
+}
+
+export function computeEmaCross(prices = [], fastPeriod = 20, slowPeriod = 50) {
+  const safeFastPeriod = normalizePositiveInt(fastPeriod, 20);
+  const safeSlowPeriod = normalizePositiveInt(slowPeriod, 50);
+  const series = normalizePriceSeries(prices);
+
+  const fast = computeEma(series, safeFastPeriod);
+  const slow = computeEma(series, safeSlowPeriod);
+
+  if (!fast.ok || !slow.ok) {
+    return {
+      ok: false,
+      indicatorKey: "ema_cross",
+      reason: "ema_cross_inputs_not_ready",
+      version: COINGECKO_INDICATORS_VERSION,
+      inputMeta: buildSeriesMeta(series),
+      params: {
+        fastPeriod: safeFastPeriod,
+        slowPeriod: safeSlowPeriod,
+      },
+      output: {
+        values: [],
+        latest: null,
+        signal: null,
+      },
+    };
+  }
+
+  const fastMap = buildAlignedSeriesMap(fast.output.values);
+  const slowMap = buildAlignedSeriesMap(slow.output.values);
+
+  const aligned = [];
+
+  for (const [ts, fastValue] of fastMap.entries()) {
+    const slowValue = slowMap.get(ts);
+    if (typeof slowValue !== "number") continue;
+
+    aligned.push({
+      ts,
+      fastValue: roundIndicatorValue(fastValue),
+      slowValue: roundIndicatorValue(slowValue),
+      spread: roundIndicatorValue(fastValue - slowValue),
+    });
+  }
+
+  aligned.sort((a, b) => a.ts - b.ts);
+
+  const latest = aligned[aligned.length - 1] || null;
+  const prev = aligned.length >= 2 ? aligned[aligned.length - 2] : null;
+
+  let signal = null;
+
+  if (latest) {
+    if (prev) {
+      if (prev.spread <= 0 && latest.spread > 0) {
+        signal = "bullish_cross";
+      } else if (prev.spread >= 0 && latest.spread < 0) {
+        signal = "bearish_cross";
+      } else if (latest.spread > 0) {
+        signal = "fast_above_slow";
+      } else if (latest.spread < 0) {
+        signal = "fast_below_slow";
+      } else {
+        signal = "fast_equals_slow";
+      }
+    } else {
+      if (latest.spread > 0) {
+        signal = "fast_above_slow";
+      } else if (latest.spread < 0) {
+        signal = "fast_below_slow";
+      } else {
+        signal = "fast_equals_slow";
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    indicatorKey: "ema_cross",
+    reason: "ema_cross_computed",
+    version: COINGECKO_INDICATORS_VERSION,
+    inputMeta: buildSeriesMeta(series),
+    params: {
+      fastPeriod: safeFastPeriod,
+      slowPeriod: safeSlowPeriod,
+    },
+    output: {
+      values: aligned,
+      latest,
+      signal,
+    },
+  };
+}
+
 export function computeRsiSkeleton(inputSeries = [], period = 14) {
   const safePeriod = normalizePositiveInt(period, 14);
 
@@ -241,6 +350,7 @@ export function buildIndicatorBundle(input = {}) {
   const prices = normalizePriceSeries(input?.prices || []);
   const emaPeriod = normalizePositiveInt(input?.emaPeriod, 20);
   const rsiPeriod = normalizePositiveInt(input?.rsiPeriod, 14);
+  const emaSlowPeriod = normalizePositiveInt(input?.emaSlowPeriod, 50);
 
   return {
     ok: true,
@@ -249,6 +359,8 @@ export function buildIndicatorBundle(input = {}) {
     inputMeta: buildSeriesMeta(prices),
     indicators: {
       ema20: computeEma(prices, emaPeriod),
+      ema50: computeEma(prices, emaSlowPeriod),
+      emaCross: computeEmaCross(prices, emaPeriod, emaSlowPeriod),
       rsi14: computeRsiSkeleton(prices, rsiPeriod),
       macd: computeMacdSkeleton(prices),
     },
@@ -260,10 +372,13 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
   const bundle = buildIndicatorBundle({
     prices,
     emaPeriod: input?.emaPeriod,
+    emaSlowPeriod: input?.emaSlowPeriod,
     rsiPeriod: input?.rsiPeriod,
   });
 
-  const ema = bundle.indicators.ema20;
+  const ema20 = bundle.indicators.ema20;
+  const ema50 = bundle.indicators.ema50;
+  const emaCross = bundle.indicators.emaCross;
 
   const lines = [
     "COINGECKO INDICATORS:",
@@ -271,9 +386,15 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- prices_count: ${bundle.inputMeta.count}`,
     `- first_ts: ${bundle.inputMeta.firstTs ?? "n/a"}`,
     `- last_ts: ${bundle.inputMeta.lastTs ?? "n/a"}`,
-    `- ema20_status: ${ema.reason}`,
-    `- ema20_latest: ${ema.output.latest?.value ?? "n/a"}`,
-    `- ema20_signal: ${ema.output.signal ?? "n/a"}`,
+    `- ema20_status: ${ema20.reason}`,
+    `- ema20_latest: ${ema20.output.latest?.value ?? "n/a"}`,
+    `- ema20_signal: ${ema20.output.signal ?? "n/a"}`,
+    `- ema50_status: ${ema50.reason}`,
+    `- ema50_latest: ${ema50.output.latest?.value ?? "n/a"}`,
+    `- ema50_signal: ${ema50.output.signal ?? "n/a"}`,
+    `- ema_cross_status: ${emaCross.reason}`,
+    `- ema_cross_latest_spread: ${emaCross.output.latest?.spread ?? "n/a"}`,
+    `- ema_cross_signal: ${emaCross.output.signal ?? "n/a"}`,
     `- rsi14_status: ${bundle.indicators.rsi14.reason}`,
     `- macd_status: ${bundle.indicators.macd.reason}`,
   ];
@@ -286,6 +407,7 @@ export default {
   normalizePriceSeries,
   buildIndicatorSkeletonResult,
   computeEma,
+  computeEmaCross,
   computeRsiSkeleton,
   computeMacdSkeleton,
   buildIndicatorBundle,

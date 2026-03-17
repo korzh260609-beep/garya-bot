@@ -1,4 +1,11 @@
-# SG AI SYSTEM — ROADMAP (ORDER OF SYSTEM EVOLUTION)
+## 10.X MARKET ANALYTICS SOURCE PRIORITY (HARD)
+- CoinGecko = base market source / fallback / macro market context
+- Binance = primary advanced trading source
+- Advanced TA must use Binance candles, not CoinGecko-only arrays
+- Order book analysis requires Binance depth
+- Trade flow analysis requires Binance trades / aggTrades
+- Derivatives analysis requires Binance futures data
+- AI explains results, robot-layer computes them first# SG AI SYSTEM — ROADMAP (ORDER OF SYSTEM EVOLUTION)
 > Назначение: этот файл задаёт **единственно допустимый порядок развития СГ**.  
 > Он нужен, чтобы СГ и люди **не принимали преждевременных решений**, не трогали запрещённые зоны и не «ломали скелет» ради удобства.
 >
@@ -180,6 +187,15 @@ Core → DB/TaskEngine → Access V0 → Multi-Channel Identity → DB Migration
 10.13 Binance Trade Flow Source  
 10.14 Binance Derivatives Source  
 10.15 Market Fusion Layer
+
+## 10.X MARKET ANALYTICS SOURCE PRIORITY (HARD)
+- CoinGecko = base market source / fallback / macro market context
+- Binance = primary advanced trading source
+- Advanced TA must use Binance candles, not CoinGecko-only arrays
+- Order book analysis requires Binance depth
+- Trade flow analysis requires Binance trades / aggTrades
+- Derivatives analysis requires Binance futures data
+- AI explains results, robot-layer computes them first
 
 ---
 

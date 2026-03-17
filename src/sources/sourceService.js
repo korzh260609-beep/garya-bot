@@ -15,7 +15,7 @@
 // - auto runtime fetch is still limited to CoinGecko simple price only
 // - market_chart is wired only by explicit sourceKey for now
 // - cache is on-demand TTL only (no cron)
-// - current change adds READBACK diagnostics only
+// - cache success logging must happen ONLY after confirmed repo write success
 // ============================================================================
 
 import { resolveSourceRuntime } from "./sourceRuntime.js";
@@ -28,7 +28,8 @@ import {
 } from "../db/sourceCacheRepo.js";
 import { envIntRange } from "../core/config.js";
 
-export const SOURCE_SERVICE_VERSION = "10C.5-market-chart-cache-readback-v1";
+export const SOURCE_SERVICE_VERSION =
+  "10C.5-market-chart-cache-write-confirmed-v1";
 
 const COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC = envIntRange(
   "COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC",
@@ -142,6 +143,74 @@ async function logSourceCacheReadback({ sourceKey, cacheKey }) {
           : "unknown_error",
       });
     } catch (_) {}
+  }
+}
+
+async function persistSourceCacheEntry({
+  sourceKey,
+  cacheKey,
+  payload,
+  ttlSec,
+}) {
+  try {
+    const saveResult = await upsertSourceCacheEntry({
+      sourceKey,
+      cacheKey,
+      payload,
+      ttlSec,
+    });
+
+    if (saveResult?.ok === true) {
+      try {
+        console.info("SOURCE_CACHE_SAVE_OK", {
+          sourceKey,
+          cacheKey,
+          ttlSec,
+          reason: saveResult?.reason || "cache_saved",
+          entryId: saveResult?.entry?.id ?? null,
+        });
+      } catch (_) {}
+
+      await logSourceCacheReadback({
+        sourceKey,
+        cacheKey,
+      });
+
+      return {
+        ok: true,
+        saveResult,
+      };
+    }
+
+    try {
+      console.error("SOURCE_CACHE_WRITE_FAIL_OPEN", {
+        sourceKey,
+        cacheKey,
+        reason: saveResult?.reason || "cache_write_not_confirmed",
+        error: saveResult?.error || null,
+      });
+    } catch (_) {}
+
+    return {
+      ok: false,
+      saveResult,
+    };
+  } catch (cacheWriteError) {
+    try {
+      console.error("SOURCE_CACHE_WRITE_FAIL_OPEN", {
+        sourceKey,
+        cacheKey,
+        reason: "cache_write_exception",
+        message: cacheWriteError?.message
+          ? String(cacheWriteError.message)
+          : "unknown_error",
+      });
+    } catch (_) {}
+
+    return {
+      ok: false,
+      saveResult: null,
+    };
   }
 }
 
@@ -534,37 +603,12 @@ async function resolveCoinGeckoWithCache(input = {}, plan) {
     const fetched = await fetchCoinGeckoSimplePrice(fetchInput);
 
     if (fetched?.ok) {
-      try {
-        await upsertSourceCacheEntry({
-          sourceKey: "coingecko_simple_price",
-          cacheKey,
-          payload: fetched,
-          ttlSec: COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC,
-        });
-
-        try {
-          console.info("SOURCE_CACHE_SAVE_OK", {
-            sourceKey: "coingecko_simple_price",
-            cacheKey,
-            ttlSec: COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC,
-          });
-        } catch (_) {}
-
-        await logSourceCacheReadback({
-          sourceKey: "coingecko_simple_price",
-          cacheKey,
-        });
-      } catch (cacheWriteError) {
-        try {
-          console.error("SOURCE_CACHE_WRITE_FAIL_OPEN", {
-            sourceKey: "coingecko_simple_price",
-            cacheKey,
-            message: cacheWriteError?.message
-              ? String(cacheWriteError.message)
-              : "unknown_error",
-          });
-        } catch (_) {}
-      }
+      await persistSourceCacheEntry({
+        sourceKey: "coingecko_simple_price",
+        cacheKey,
+        payload: fetched,
+        ttlSec: COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC,
+      });
     }
 
     return {
@@ -721,37 +765,12 @@ async function resolveCoinGeckoMarketChartWithCache(input = {}, plan) {
     const fetched = await fetchCoinGeckoMarketChart(fetchInput);
 
     if (fetched?.ok) {
-      try {
-        await upsertSourceCacheEntry({
-          sourceKey: "coingecko_market_chart",
-          cacheKey,
-          payload: fetched,
-          ttlSec: COINGECKO_MARKET_CHART_CACHE_TTL_SEC,
-        });
-
-        try {
-          console.info("SOURCE_CACHE_SAVE_OK", {
-            sourceKey: "coingecko_market_chart",
-            cacheKey,
-            ttlSec: COINGECKO_MARKET_CHART_CACHE_TTL_SEC,
-          });
-        } catch (_) {}
-
-        await logSourceCacheReadback({
-          sourceKey: "coingecko_market_chart",
-          cacheKey,
-        });
-      } catch (cacheWriteError) {
-        try {
-          console.error("SOURCE_CACHE_WRITE_FAIL_OPEN", {
-            sourceKey: "coingecko_market_chart",
-            cacheKey,
-            message: cacheWriteError?.message
-              ? String(cacheWriteError.message)
-              : "unknown_error",
-          });
-        } catch (_) {}
-      }
+      await persistSourceCacheEntry({
+        sourceKey: "coingecko_market_chart",
+        cacheKey,
+        payload: fetched,
+        ttlSec: COINGECKO_MARKET_CHART_CACHE_TTL_SEC,
+      });
     }
 
     return {

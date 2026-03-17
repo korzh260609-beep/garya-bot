@@ -411,6 +411,14 @@ For each roadmap item:
 - 10.16.2 resolve alias via chat_meta
 - 10.16.3 access via Stage 11 policy
 
+## 10.17 BINANCE SOURCE POLICY (HARD)
+
+- 10.17.1 Binance is the primary advanced trading source
+- 10.17.2 CoinGecko remains base/fallback market source
+- 10.17.3 Advanced TA must not rely on CoinGecko-only arrays
+- 10.17.4 Spot and Futures data must be normalized separately
+- 10.17.5 robot-layer computes, AI-layer explains
+- 10.17.6 rate-limit strategy is mandatory before broad Binance expansion
 ---
 
 # STAGE 10C — COINGECKO MODULE (V1)
@@ -427,6 +435,27 @@ For each roadmap item:
 - 10C.10 diagnostics
 - 10C.11 CG V-Fuse
 - 10C.12 API key
+
+# STAGE 10D — BINANCE MARKET MODULE (PRIMARY TRADING SOURCE)
+
+- 10D.1 Binance module skeleton
+- 10D.2 Binance Spot candles source (klines / uiKlines)
+- 10D.3 Binance market structure layer
+- 10D.4 Binance depth source
+- 10D.5 Binance trade flow source
+- 10D.6 Binance derivatives source
+- 10D.7 Binance normalization layer
+- 10D.8 Binance rate-limit policy
+- 10D.9 Binance diagnostics
+- 10D.10 Market fusion with CoinGecko fallback
+
+## Gate rules
+
+- Binance implementation starts with candles only
+- Depth is forbidden until candles + structure are stable
+- Derivatives are forbidden until Spot normalization exists
+- Fusion is forbidden until individual sources are verified separately
+- AI must not consume raw Binance payload directly
 
 ---
 

@@ -1,14 +1,15 @@
 // src/db/sourceCacheRepo.js
 // ============================================================================
-// STAGE 10.15.1 — Source Cache Repo (storage only, no runtime wiring yet)
+// STAGE 10.15.1 — Source Cache Repo (storage layer for source cache)
 // PURPOSE:
 // - normalize source cache access behind one repo
 // - support cache_key per request shape
 // - keep logic deterministic and minimal
+//
 // IMPORTANT:
 // - this file does NOT fetch network data
-// - this file does NOT decide when to use cache in runtime yet
-// - current step = storage/read-write foundation only
+// - this file provides storage/read-write only
+// - runtime cache-first decisions are made in SourceService
 // ============================================================================
 
 import pool from "../../db.js";

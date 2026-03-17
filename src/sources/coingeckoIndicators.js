@@ -1,6 +1,6 @@
 // src/sources/coingeckoIndicators.js
 // ============================================================================
-// STAGE 10C.6 — CoinGecko Indicators
+// STAGE 10C.7 — CoinGecko Indicators Summary Layer
 // PURPOSE:
 // - define deterministic indicator contract for historical market_chart data
 // - keep indicator logic isolated from fetcher / SourceService / chat wiring
@@ -10,14 +10,15 @@
 // - EMA logic is implemented
 // - EMA20 / EMA50 cross signal is implemented
 // - RSI(14) is implemented
-// - MACD is now added as the next reversible step
+// - MACD is implemented
+// - derived summary layer is now added as the next reversible step
 // - no chat wiring
 // - no SourceService integration yet
 // - fail-open
 // - accepts parsed market_chart series only
 // ============================================================================
 
-export const COINGECKO_INDICATORS_VERSION = "10C.6-indicators-macd-v1";
+export const COINGECKO_INDICATORS_VERSION = "10C.7-indicators-summary-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -595,24 +596,154 @@ export function computeMacd(
   };
 }
 
+function buildMarketBias(indicators = {}) {
+  const ema20 = indicators?.ema20;
+  const ema50 = indicators?.ema50;
+  const emaCross = indicators?.emaCross;
+
+  const result = {
+    ok: false,
+    reason: "market_bias_inputs_not_ready",
+    signal: null,
+  };
+
+  if (!ema20?.ok || !ema50?.ok || !emaCross?.ok) {
+    return result;
+  }
+
+  const ema20Signal = ema20.output?.signal || null;
+  const ema50Signal = ema50.output?.signal || null;
+  const emaCrossSignal = emaCross.output?.signal || null;
+
+  let signal = "neutral";
+
+  if (
+    emaCrossSignal === "bullish_cross" ||
+    (emaCrossSignal === "fast_above_slow" &&
+      ema20Signal === "price_above_ema" &&
+      ema50Signal === "price_above_ema")
+  ) {
+    signal = "bullish";
+  } else if (
+    emaCrossSignal === "bearish_cross" ||
+    (emaCrossSignal === "fast_below_slow" &&
+      ema20Signal === "price_below_ema" &&
+      ema50Signal === "price_below_ema")
+  ) {
+    signal = "bearish";
+  } else if (
+    emaCrossSignal === "fast_above_slow" ||
+    ema20Signal === "price_above_ema"
+  ) {
+    signal = "slightly_bullish";
+  } else if (
+    emaCrossSignal === "fast_below_slow" ||
+    ema20Signal === "price_below_ema"
+  ) {
+    signal = "slightly_bearish";
+  }
+
+  return {
+    ok: true,
+    reason: "market_bias_ready",
+    signal,
+  };
+}
+
+function buildMomentumBias(indicators = {}) {
+  const rsi14 = indicators?.rsi14;
+  const macd = indicators?.macd;
+
+  const result = {
+    ok: false,
+    reason: "momentum_bias_inputs_not_ready",
+    signal: null,
+  };
+
+  if (!rsi14?.ok || !macd?.ok) {
+    return result;
+  }
+
+  const rsiValue = rsi14.output?.latest?.value;
+  const rsiSignal = rsi14.output?.signal || null;
+  const macdSignal = macd.output?.signal || null;
+
+  let signal = "neutral";
+
+  if (
+    (macdSignal === "bullish_cross" || macdSignal === "bullish_momentum") &&
+    typeof rsiValue === "number" &&
+    rsiValue > 55
+  ) {
+    signal = "bullish";
+  } else if (
+    (macdSignal === "bearish_cross" || macdSignal === "bearish_momentum") &&
+    typeof rsiValue === "number" &&
+    rsiValue < 45
+  ) {
+    signal = "bearish";
+  } else if (
+    rsiSignal === "overbought" &&
+    (macdSignal === "bullish_cross" || macdSignal === "bullish_momentum")
+  ) {
+    signal = "bullish_overheated";
+  } else if (
+    rsiSignal === "oversold" &&
+    (macdSignal === "bearish_cross" || macdSignal === "bearish_momentum")
+  ) {
+    signal = "bearish_exhausted";
+  } else if (
+    macdSignal === "bullish_cross" ||
+    macdSignal === "bullish_momentum" ||
+    rsiSignal === "bullish_zone"
+  ) {
+    signal = "slightly_bullish";
+  } else if (
+    macdSignal === "bearish_cross" ||
+    macdSignal === "bearish_momentum" ||
+    rsiSignal === "bearish_zone"
+  ) {
+    signal = "slightly_bearish";
+  }
+
+  return {
+    ok: true,
+    reason: "momentum_bias_ready",
+    signal,
+  };
+}
+
+export function buildIndicatorSummary(indicators = {}) {
+  return {
+    ok: true,
+    reason: "indicator_summary_ready",
+    version: COINGECKO_INDICATORS_VERSION,
+    marketBias: buildMarketBias(indicators),
+    momentumBias: buildMomentumBias(indicators),
+  };
+}
+
 export function buildIndicatorBundle(input = {}) {
   const prices = normalizePriceSeries(input?.prices || []);
   const emaPeriod = normalizePositiveInt(input?.emaPeriod, 20);
   const rsiPeriod = normalizePositiveInt(input?.rsiPeriod, 14);
   const emaSlowPeriod = normalizePositiveInt(input?.emaSlowPeriod, 50);
 
+  const indicators = {
+    ema20: computeEma(prices, emaPeriod),
+    ema50: computeEma(prices, emaSlowPeriod),
+    emaCross: computeEmaCross(prices, emaPeriod, emaSlowPeriod),
+    rsi14: computeRsi(prices, rsiPeriod),
+    macd: computeMacd(prices),
+  };
+
   return {
     ok: true,
     version: COINGECKO_INDICATORS_VERSION,
     reason: "indicator_bundle_ready",
     inputMeta: buildSeriesMeta(prices),
-    indicators: {
-      ema20: computeEma(prices, emaPeriod),
-      ema50: computeEma(prices, emaSlowPeriod),
-      emaCross: computeEmaCross(prices, emaPeriod, emaSlowPeriod),
-      rsi14: computeRsi(prices, rsiPeriod),
-      macd: computeMacd(prices),
-    },
+    indicators,
+    summary: buildIndicatorSummary(indicators),
   };
 }
 
@@ -630,6 +761,8 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
   const emaCross = bundle.indicators.emaCross;
   const rsi14 = bundle.indicators.rsi14;
   const macd = bundle.indicators.macd;
+  const marketBias = bundle.summary?.marketBias;
+  const momentumBias = bundle.summary?.momentumBias;
 
   const lines = [
     "COINGECKO INDICATORS:",
@@ -654,6 +787,10 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- macd_latest_signal: ${macd.output.latest?.signal ?? "n/a"}`,
     `- macd_latest_histogram: ${macd.output.latest?.histogram ?? "n/a"}`,
     `- macd_signal: ${macd.output.signal ?? "n/a"}`,
+    `- market_bias_status: ${marketBias?.reason ?? "n/a"}`,
+    `- market_bias_signal: ${marketBias?.signal ?? "n/a"}`,
+    `- momentum_bias_status: ${momentumBias?.reason ?? "n/a"}`,
+    `- momentum_bias_signal: ${momentumBias?.signal ?? "n/a"}`,
   ];
 
   return lines.join("\n");
@@ -667,6 +804,7 @@ export default {
   computeEmaCross,
   computeRsi,
   computeMacd,
+  buildIndicatorSummary,
   buildIndicatorBundle,
   buildCoingeckoIndicatorsDebugText,
 };

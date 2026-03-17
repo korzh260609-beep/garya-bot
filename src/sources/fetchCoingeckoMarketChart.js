@@ -1,6 +1,6 @@
 // src/sources/fetchCoingeckoMarketChart.js
 // ============================================================================
-// STAGE 10C.5 — CoinGecko historical market_chart fetcher (isolated skeleton)
+// STAGE 10C.5 — CoinGecko historical market_chart fetcher
 // PURPOSE:
 // - add minimal historical-data fetch layer
 // - keep network logic OUT of chat handler
@@ -8,8 +8,8 @@
 //
 // IMPORTANT:
 // - this module is fetcher-only
-// - no chat wiring yet
-// - no sourceService wiring yet
+// - this module is used by SourceService
+// - this module does NOT do chat wiring by itself
 // - no indicators yet
 // - no TA yet
 // - caller layer decides whether/how to use this result

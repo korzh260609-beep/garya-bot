@@ -13,6 +13,7 @@
 //   - summary.ok is honest
 //   - bundle.ok is honest
 //   - indicatorsReady added
+// - sorting added in normalizePriceSeries()
 // - no chat wiring
 // - no SourceService integration yet
 // - fail-open
@@ -20,7 +21,7 @@
 // ============================================================================
 
 export const COINGECKO_INDICATORS_VERSION =
-  "10C.9-indicators-safe-readiness-v1";
+  "10C.10-indicators-safe-readiness-sorted-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -54,6 +55,8 @@ export function normalizePriceSeries(input) {
     if (!normalized) continue;
     out.push(normalized);
   }
+
+  out.sort((a, b) => a.ts - b.ts);
 
   return out;
 }

@@ -1,23 +1,24 @@
 // src/sources/fetchCoingeckoMarketChart.js
 // ============================================================================
-// STAGE 10C.5 — CoinGecko historical market_chart fetcher
+// STAGE 10C.7 — CoinGecko historical market_chart fetcher
 // PURPOSE:
-// - add minimal historical-data fetch layer
+// - provide deterministic historical-data fetch layer for market_chart
 // - keep network logic OUT of chat handler
 // - keep parser deterministic and fail-open
+// - align source metadata versioning with current debug/source stage
 //
 // IMPORTANT:
 // - this module is fetcher-only
 // - this module is used by SourceService
 // - this module does NOT do chat wiring by itself
-// - no indicators yet
-// - no TA yet
+// - no indicators here
+// - no TA text here
 // - caller layer decides whether/how to use this result
 // ============================================================================
 
 import fetch from "node-fetch";
 
-export const COINGECKO_MARKET_CHART_VERSION = "10C.5-skeleton-v1";
+export const COINGECKO_MARKET_CHART_VERSION = "10C.7-market-chart-fetcher-v1";
 
 const COINGECKO_MARKET_CHART_BASE_URL =
   "https://api.coingecko.com/api/v3/coins";

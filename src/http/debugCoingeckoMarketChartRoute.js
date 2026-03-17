@@ -1,9 +1,10 @@
 // src/http/debugCoingeckoMarketChartRoute.js
 // ============================================================================
-// STAGE 10C.5 — temporary protected debug route for CoinGecko market_chart
+// STAGE 10C.7 — temporary protected debug route for CoinGecko market_chart
 // PURPOSE:
 // - verify historical-data path through SourceService
 // - allow check via browser / Render logs without local terminal
+// - keep CoinGecko debug routes in one consistent style
 //
 // IMPORTANT:
 // - temporary developer-only route
@@ -13,6 +14,7 @@
 // - fail-closed
 // - no chat wiring
 // - no public access
+// - no SourceService modification
 // ============================================================================
 
 import express from "express";
@@ -23,7 +25,9 @@ function normalizeString(value) {
 }
 
 function isDebugEnabled() {
-  return String(process.env.DEBUG_SOURCE_TESTS || "").trim().toLowerCase() === "true";
+  return (
+    String(process.env.DEBUG_SOURCE_TESTS || "").trim().toLowerCase() === "true"
+  );
 }
 
 function getExpectedToken() {
@@ -46,6 +50,7 @@ function normalizeVsCurrency(value) {
 
 function normalizeDays(value) {
   const raw = normalizeString(value).toLowerCase();
+
   if (!raw) return "7";
   if (raw === "max") return "max";
 
@@ -59,9 +64,11 @@ function normalizeDays(value) {
 
 function normalizeInterval(value) {
   const raw = normalizeString(value).toLowerCase();
+
   if (!raw) return "";
   if (raw === "daily") return "daily";
   if (raw === "hourly") return "hourly";
+
   return "";
 }
 
@@ -94,29 +101,79 @@ export function createDebugCoingeckoMarketChartRoute() {
     };
 
     try {
-      console.info("DEBUG_COINGECKO_MARKET_CHART_START", input);
+      console.info("DEBUG_COINGECKO_MARKET_CHART_START", {
+        coinId,
+        vsCurrency,
+        days,
+        interval: interval || "auto",
+      });
 
       const result = await resolveSourceContext(input);
+
+      const sourceResult = result?.sourceResult || null;
+      const parsed = sourceResult?.meta?.parsed || null;
+      const prices = parsed?.prices || [];
+      const marketCaps = parsed?.marketCaps || [];
+      const totalVolumes = parsed?.totalVolumes || [];
 
       const success = Boolean(
         result &&
           result.ok &&
-          result.sourceResult &&
-          result.sourceResult.ok &&
-          result.sourceResult.sourceKey === "coingecko_market_chart"
+          sourceResult &&
+          sourceResult.ok &&
+          sourceResult.sourceKey === "coingecko_market_chart"
       );
 
       console.info("DEBUG_COINGECKO_MARKET_CHART_END", {
         ok: success,
-        sourceKey: result?.sourceResult?.sourceKey || null,
+        sourceKey: sourceResult?.sourceKey || null,
         reason: result?.reason || null,
+        sourceReason: sourceResult?.meta?.reason || null,
+        pricesCount: Array.isArray(prices) ? prices.length : 0,
+        marketCapsCount: Array.isArray(marketCaps) ? marketCaps.length : 0,
+        totalVolumesCount: Array.isArray(totalVolumes) ? totalVolumes.length : 0,
+        firstPriceTs: Array.isArray(prices) ? prices[0]?.ts ?? null : null,
+        lastPriceTs: Array.isArray(prices)
+          ? prices[prices.length - 1]?.ts ?? null
+          : null,
       });
 
       return res.status(success ? 200 : 502).json({
         ok: success,
-        input,
-        reason: result?.reason || null,
-        sourceResult: result?.sourceResult || null,
+        input: {
+          coinId,
+          vsCurrency,
+          days,
+          interval,
+        },
+        sourceContext: {
+          ok: result?.ok === true,
+          reason: result?.reason || null,
+        },
+        sourceResult: {
+          ok: sourceResult?.ok === true,
+          sourceKey: sourceResult?.sourceKey || null,
+          fetchedAt: sourceResult?.fetchedAt || null,
+          reason: sourceResult?.meta?.reason || null,
+          parsedCounts: {
+            prices: Array.isArray(prices) ? prices.length : 0,
+            marketCaps: Array.isArray(marketCaps) ? marketCaps.length : 0,
+            totalVolumes: Array.isArray(totalVolumes) ? totalVolumes.length : 0,
+          },
+          parsedRange: {
+            firstPriceTs: Array.isArray(prices) ? prices[0]?.ts ?? null : null,
+            lastPriceTs: Array.isArray(prices)
+              ? prices[prices.length - 1]?.ts ?? null
+              : null,
+            firstPriceValue: Array.isArray(prices)
+              ? prices[0]?.value ?? null
+              : null,
+            lastPriceValue: Array.isArray(prices)
+              ? prices[prices.length - 1]?.value ?? null
+              : null,
+          },
+          meta: sourceResult?.meta || null,
+        },
       });
     } catch (error) {
       console.error("DEBUG_COINGECKO_MARKET_CHART_ERROR", {

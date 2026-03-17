@@ -21,6 +21,7 @@
 // - entryHints detail layer extended with setup + triggerStatus
 // - entryHints explanationShort added for short human-readable explanation
 // - entryHints actionBias added as tiny action interpretation
+// - entryHints riskMode added as tiny caution interpretation
 // - no trade execution logic
 // - no TP/SL engine
 // - no chat wiring
@@ -30,7 +31,7 @@
 // ============================================================================
 
 export const COINGECKO_INDICATORS_VERSION =
-  "10C.16-entry-hints-action-bias-v1";
+  "10C.17-entry-hints-risk-mode-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -961,6 +962,7 @@ function buildEntryHints(summary = {}) {
     setup: null,
     triggerStatus: null,
     actionBias: null,
+    riskMode: null,
     explanationShort: null,
     note: null,
   };
@@ -987,6 +989,7 @@ function buildEntryHints(summary = {}) {
   let setup = "no_clear_setup";
   let triggerStatus = "not_ready";
   let actionBias = "hold";
+  let riskMode = "defensive";
   let explanationShort = "No clear setup right now.";
   let note = "No clear entry hint from current summary state.";
 
@@ -998,6 +1001,7 @@ function buildEntryHints(summary = {}) {
     triggerStatus =
       summaryConfidence === "high" ? "early_confirmation" : "not_ready";
     actionBias = "accumulate";
+    riskMode = summaryConfidence === "high" ? "balanced" : "defensive";
     explanationShort =
       "Uptrend is intact, but current dip still needs confirmation.";
     note =
@@ -1010,6 +1014,7 @@ function buildEntryHints(summary = {}) {
     triggerStatus =
       summaryConfidence === "high" ? "early_confirmation" : "not_ready";
     actionBias = "reduce";
+    riskMode = summaryConfidence === "high" ? "balanced" : "defensive";
     explanationShort =
       "Downtrend is intact, but current bounce still needs confirmation.";
     note =
@@ -1021,6 +1026,7 @@ function buildEntryHints(summary = {}) {
     setup = "trend_buy_setup";
     triggerStatus = "confirmed";
     actionBias = "accumulate";
+    riskMode = "aggressive";
     explanationShort = "Trend and momentum are aligned upward.";
     note = "Trend and momentum are aligned to the upside.";
   } else if (summarySignal === "buy_watch") {
@@ -1030,6 +1036,7 @@ function buildEntryHints(summary = {}) {
     setup = "trend_buy_setup";
     triggerStatus = "early_confirmation";
     actionBias = "accumulate";
+    riskMode = "balanced";
     explanationShort =
       "Bullish structure exists, but confirmation is still partial.";
     note =
@@ -1041,6 +1048,7 @@ function buildEntryHints(summary = {}) {
     setup = "trend_sell_setup";
     triggerStatus = "confirmed";
     actionBias = "reduce";
+    riskMode = "aggressive";
     explanationShort = "Trend and momentum are aligned downward.";
     note = "Trend and momentum are aligned to the downside.";
   } else if (summarySignal === "sell_watch") {
@@ -1050,6 +1058,7 @@ function buildEntryHints(summary = {}) {
     setup = "trend_sell_setup";
     triggerStatus = "early_confirmation";
     actionBias = "reduce";
+    riskMode = "balanced";
     explanationShort =
       "Bearish structure exists, but confirmation is still partial.";
     note =
@@ -1066,6 +1075,7 @@ function buildEntryHints(summary = {}) {
     setup = "no_clear_setup";
     triggerStatus = "not_ready";
     actionBias = "hold";
+    riskMode = "defensive";
     explanationShort = "Market structure is mixed. Better wait.";
     note =
       "Structure is not clean enough. Better wait for stronger confirmation before any entry idea.";
@@ -1078,6 +1088,7 @@ function buildEntryHints(summary = {}) {
   ) {
     triggerStatus = "not_ready";
     actionBias = "hold";
+    riskMode = "defensive";
     explanationShort =
       "Possible dip idea exists, but trend strength is too weak.";
     note =
@@ -1091,6 +1102,7 @@ function buildEntryHints(summary = {}) {
   ) {
     triggerStatus = "not_ready";
     actionBias = "hold";
+    riskMode = "defensive";
     explanationShort =
       "Possible bounce-sell idea exists, but trend strength is too weak.";
     note =
@@ -1107,6 +1119,7 @@ function buildEntryHints(summary = {}) {
     setup,
     triggerStatus,
     actionBias,
+    riskMode,
     explanationShort,
     note,
     basedOn: {
@@ -1280,6 +1293,7 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- entry_hints_setup: ${entryHints?.setup ?? "n/a"}`,
     `- entry_hints_trigger_status: ${entryHints?.triggerStatus ?? "n/a"}`,
     `- entry_hints_action_bias: ${entryHints?.actionBias ?? "n/a"}`,
+    `- entry_hints_risk_mode: ${entryHints?.riskMode ?? "n/a"}`,
     `- entry_hints_explanation_short: ${entryHints?.explanationShort ?? "n/a"}`,
     `- entry_hints_note: ${entryHints?.note ?? "n/a"}`,
   ];

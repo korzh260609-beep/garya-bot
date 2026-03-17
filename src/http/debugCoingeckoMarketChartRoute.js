@@ -1,29 +1,37 @@
-// src/http/debugCoingeckoMarketChartRoute.js
+// src/http/debugCoingeckoIndicatorsRoute.js
 // ============================================================================
-// STAGE 10C.5 — temporary protected debug route for CoinGecko market_chart
+// STAGE 10C.6 — temporary protected debug route for CoinGecko indicators skeleton
 // PURPOSE:
-// - verify historical-data path through SourceService
-// - allow check via browser / Render logs without local terminal
+// - verify indicators skeleton on top of market_chart historical data
+// - keep verification outside chat runtime
+// - allow browser / Render log testing without command wiring
 //
 // IMPORTANT:
-// - temporary developer-only route
+// - developer-only route
 // - protected by BOTH:
 //   1) DEBUG_SOURCE_TESTS === "true"
 //   2) token === DEBUG_SOURCE_TOKEN
 // - fail-closed
 // - no chat wiring
-// - no public access
+// - no SourceService modification
+// - indicators are still skeleton-only
 // ============================================================================
 
 import express from "express";
-import { resolveSourceContext } from "../sources/sourceService.js";
+import { fetchCoinGeckoMarketChart } from "../sources/fetchCoingeckoMarketChart.js";
+import {
+  buildIndicatorBundleSkeleton,
+  buildCoingeckoIndicatorsDebugText,
+} from "../sources/coingeckoIndicators.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
 function isDebugEnabled() {
-  return String(process.env.DEBUG_SOURCE_TESTS || "").trim().toLowerCase() === "true";
+  return (
+    String(process.env.DEBUG_SOURCE_TESTS || "").trim().toLowerCase() === "true"
+  );
 }
 
 function getExpectedToken() {
@@ -46,6 +54,7 @@ function normalizeVsCurrency(value) {
 
 function normalizeDays(value) {
   const raw = normalizeString(value).toLowerCase();
+
   if (!raw) return "7";
   if (raw === "max") return "max";
 
@@ -59,16 +68,26 @@ function normalizeDays(value) {
 
 function normalizeInterval(value) {
   const raw = normalizeString(value).toLowerCase();
+
   if (!raw) return "";
   if (raw === "daily") return "daily";
   if (raw === "hourly") return "hourly";
+
   return "";
 }
 
-export function createDebugCoingeckoMarketChartRoute() {
+function normalizePositiveInt(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+
+  const out = Math.trunc(n);
+  return out > 0 ? out : fallback;
+}
+
+export function createDebugCoingeckoIndicatorsRoute() {
   const router = express.Router();
 
-  router.get("/debug/source/coingecko-market-chart", async (req, res) => {
+  router.get("/debug/source/coingecko-indicators", async (req, res) => {
     const debugEnabled = isDebugEnabled();
     const expectedToken = getExpectedToken();
     const providedToken = getProvidedToken(req);
@@ -84,9 +103,10 @@ export function createDebugCoingeckoMarketChartRoute() {
     const vsCurrency = normalizeVsCurrency(req.query.vsCurrency);
     const days = normalizeDays(req.query.days);
     const interval = normalizeInterval(req.query.interval);
+    const emaPeriod = normalizePositiveInt(req.query.emaPeriod, 20);
+    const rsiPeriod = normalizePositiveInt(req.query.rsiPeriod, 14);
 
-    const input = {
-      sourceKey: "coingecko_market_chart",
+    const fetchInput = {
       coinId,
       vsCurrency,
       days,
@@ -94,32 +114,65 @@ export function createDebugCoingeckoMarketChartRoute() {
     };
 
     try {
-      console.info("DEBUG_COINGECKO_MARKET_CHART_START", input);
+      console.info("DEBUG_COINGECKO_INDICATORS_START", {
+        coinId,
+        vsCurrency,
+        days,
+        interval: interval || "auto",
+        emaPeriod,
+        rsiPeriod,
+      });
 
-      const result = await resolveSourceContext(input);
+      const marketChartResult = await fetchCoinGeckoMarketChart(fetchInput);
+
+      const prices = marketChartResult?.meta?.parsed?.prices || [];
+      const indicators = buildIndicatorBundleSkeleton({
+        prices,
+        emaPeriod,
+        rsiPeriod,
+      });
+
+      const debugText = buildCoingeckoIndicatorsDebugText({
+        prices,
+        emaPeriod,
+        rsiPeriod,
+      });
 
       const success = Boolean(
-        result &&
-          result.ok &&
-          result.sourceResult &&
-          result.sourceResult.ok &&
-          result.sourceResult.sourceKey === "coingecko_market_chart"
+        marketChartResult?.ok === true &&
+          Array.isArray(prices) &&
+          indicators?.ok === true
       );
 
-      console.info("DEBUG_COINGECKO_MARKET_CHART_END", {
+      console.info("DEBUG_COINGECKO_INDICATORS_END", {
         ok: success,
-        sourceKey: result?.sourceResult?.sourceKey || null,
-        reason: result?.reason || null,
+        marketChartOk: marketChartResult?.ok === true,
+        pricesCount: Array.isArray(prices) ? prices.length : 0,
+        indicatorReason: indicators?.reason || null,
       });
 
       return res.status(success ? 200 : 502).json({
         ok: success,
-        input,
-        reason: result?.reason || null,
-        sourceResult: result?.sourceResult || null,
+        input: {
+          coinId,
+          vsCurrency,
+          days,
+          interval,
+          emaPeriod,
+          rsiPeriod,
+        },
+        marketChart: {
+          ok: marketChartResult?.ok === true,
+          reason: marketChartResult?.meta?.reason || null,
+          sourceKey: marketChartResult?.sourceKey || null,
+          fetchedAt: marketChartResult?.fetchedAt || null,
+          pricesCount: Array.isArray(prices) ? prices.length : 0,
+        },
+        indicators,
+        debugText,
       });
     } catch (error) {
-      console.error("DEBUG_COINGECKO_MARKET_CHART_ERROR", {
+      console.error("DEBUG_COINGECKO_INDICATORS_ERROR", {
         message: error?.message ? String(error.message) : "unknown_error",
       });
 
@@ -135,5 +188,5 @@ export function createDebugCoingeckoMarketChartRoute() {
 }
 
 export default {
-  createDebugCoingeckoMarketChartRoute,
+  createDebugCoingeckoIndicatorsRoute,
 };

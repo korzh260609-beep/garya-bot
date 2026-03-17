@@ -14,7 +14,7 @@
 // - CoinGecko free tier may return 429 / temporary failures
 // ============================================================================
 
-import fetch from "node-fetch";
+import { fetchWithTimeout } from "../core/fetchWithTimeout.js";
 
 export const COINGECKO_SIMPLE_PRICE_VERSION = "10.6-skeleton-v1";
 
@@ -161,12 +161,16 @@ export async function fetchCoinGeckoSimplePrice(input = {}) {
   const startedAt = Date.now();
 
   try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        accept: "application/json",
+    const response = await fetchWithTimeout(
+      url,
+      {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+        },
       },
-    });
+      8000
+    );
 
     const fetchedAt = new Date().toISOString();
     const durationMs = Date.now() - startedAt;

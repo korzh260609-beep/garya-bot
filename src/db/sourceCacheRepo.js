@@ -10,6 +10,7 @@
 // - this file does NOT fetch network data
 // - this file provides storage/read-write only
 // - runtime cache-first decisions are made in SourceService
+// - current change adds DB diagnostics only
 // ============================================================================
 
 import pool from "../../db.js";
@@ -32,6 +33,22 @@ function normalizeStringArray(value) {
     .filter(Boolean);
 }
 
+function safeErrorMessage(error) {
+  return error?.message ? String(error.message) : "unknown_error";
+}
+
+function logInfo(event, payload) {
+  try {
+    console.info(event, payload);
+  } catch (_) {}
+}
+
+function logError(event, payload) {
+  try {
+    console.error(event, payload);
+  } catch (_) {}
+}
+
 export function buildSourceCacheKey({
   sourceKey = "",
   ids = [],
@@ -50,6 +67,7 @@ export function buildSourceCacheKey({
 
 export async function getSourceCacheEntry({ cacheKey }) {
   const key = normalizeString(cacheKey);
+
   if (!key) {
     return {
       ok: false,
@@ -59,6 +77,10 @@ export async function getSourceCacheEntry({ cacheKey }) {
       entry: null,
     };
   }
+
+  logInfo("SOURCE_CACHE_DB_READ_START", {
+    cacheKey: key,
+  });
 
   try {
     const res = await pool.query(
@@ -82,6 +104,21 @@ export async function getSourceCacheEntry({ cacheKey }) {
     );
 
     const row = res?.rows?.[0] || null;
+
+    logInfo("SOURCE_CACHE_DB_READ_RESULT", {
+      cacheKey: key,
+      rowCount: Number.isFinite(res?.rowCount) ? res.rowCount : null,
+      hasRow: Boolean(row),
+      rowId: row?.id ?? null,
+      rowSourceKey: row?.source_key ?? null,
+      rowCacheKey: row?.cache_key ?? null,
+      hasPayload: Boolean(row?.payload),
+      rawTtlSec: row?.ttl_sec ?? null,
+      rawFetchedAt: row?.fetched_at
+        ? new Date(row.fetched_at).toISOString()
+        : null,
+    });
+
     if (!row) {
       return {
         ok: true,
@@ -114,20 +151,23 @@ export async function getSourceCacheEntry({ cacheKey }) {
         sourceKey: row.source_key,
         cacheKey: row.cache_key,
         payload: row.payload || null,
-        fetchedAt: row.fetched_at
-          ? new Date(row.fetched_at).toISOString()
-          : null,
+        fetchedAt: row.fetched_at ? new Date(row.fetched_at).toISOString() : null,
         ttlSec,
         ageSec,
       },
     };
   } catch (error) {
+    logError("SOURCE_CACHE_DB_READ_ERROR", {
+      cacheKey: key,
+      message: safeErrorMessage(error),
+    });
+
     return {
       ok: false,
       hit: false,
       stale: false,
       reason: "cache_read_error",
-      error: error?.message ? String(error.message) : "unknown_error",
+      error: safeErrorMessage(error),
       entry: null,
     };
   }
@@ -167,6 +207,15 @@ export async function upsertSourceCacheEntry({
     };
   }
 
+  logInfo("SOURCE_CACHE_DB_WRITE_START", {
+    sourceKey: source,
+    cacheKey: key,
+    ttlSec: ttl,
+    payloadSourceKey: payload?.sourceKey || null,
+    payloadOk: payload?.ok === true,
+    hasContent: typeof payload?.content === "string" && payload.content.length > 0,
+  });
+
   try {
     const res = await pool.query(
       `
@@ -200,6 +249,22 @@ export async function upsertSourceCacheEntry({
 
     const row = res?.rows?.[0] || null;
 
+    logInfo("SOURCE_CACHE_DB_WRITE_RESULT", {
+      sourceKey: source,
+      cacheKey: key,
+      rowCount: Number.isFinite(res?.rowCount) ? res.rowCount : null,
+      hasRow: Boolean(row),
+      rowId: row?.id ?? null,
+      rowSourceKey: row?.source_key ?? null,
+      rowCacheKey: row?.cache_key ?? null,
+      rowTtlSec: row?.ttl_sec ?? null,
+      rowFetchedAt: row?.fetched_at
+        ? new Date(row.fetched_at).toISOString()
+        : null,
+      hasPayload: Boolean(row?.payload),
+      payloadSourceKey: row?.payload?.sourceKey || null,
+    });
+
     return {
       ok: true,
       reason: "cache_saved",
@@ -217,22 +282,33 @@ export async function upsertSourceCacheEntry({
         : null,
     };
   } catch (error) {
+    logError("SOURCE_CACHE_DB_WRITE_ERROR", {
+      sourceKey: source,
+      cacheKey: key,
+      message: safeErrorMessage(error),
+    });
+
     return {
       ok: false,
       reason: "cache_write_error",
-      error: error?.message ? String(error.message) : "unknown_error",
+      error: safeErrorMessage(error),
     };
   }
 }
 
 export async function deleteSourceCacheEntry({ cacheKey }) {
   const key = normalizeString(cacheKey);
+
   if (!key) {
     return {
       ok: false,
       reason: "missing_cache_key",
     };
   }
+
+  logInfo("SOURCE_CACHE_DB_DELETE_START", {
+    cacheKey: key,
+  });
 
   try {
     const res = await pool.query(
@@ -244,16 +320,27 @@ export async function deleteSourceCacheEntry({ cacheKey }) {
       [key]
     );
 
+    logInfo("SOURCE_CACHE_DB_DELETE_RESULT", {
+      cacheKey: key,
+      rowCount: Number.isFinite(res?.rowCount) ? res.rowCount : null,
+      deleted: res.rowCount > 0,
+    });
+
     return {
       ok: true,
       reason: res.rowCount > 0 ? "cache_deleted" : "cache_not_found",
       deleted: res.rowCount > 0,
     };
   } catch (error) {
+    logError("SOURCE_CACHE_DB_DELETE_ERROR", {
+      cacheKey: key,
+      message: safeErrorMessage(error),
+    });
+
     return {
       ok: false,
       reason: "cache_delete_error",
-      error: error?.message ? String(error.message) : "unknown_error",
+      error: safeErrorMessage(error),
     };
   }
 }

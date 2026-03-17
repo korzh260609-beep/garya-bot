@@ -29,7 +29,7 @@ import {
 import { envIntRange } from "../core/config.js";
 
 export const SOURCE_SERVICE_VERSION =
-  "10C.5-market-chart-cache-write-confirmed-v1";
+  "10C.5-market-chart-cache-write-confirmed-v2";
 
 const COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC = envIntRange(
   "COINGECKO_SIMPLE_PRICE_CACHE_TTL_SEC",
@@ -118,7 +118,7 @@ async function logSourceCacheReadback({ sourceKey, cacheKey }) {
   try {
     const readback = await getSourceCacheEntry({ cacheKey });
 
-    console.info("SOURCE_CACHE_READBACK", {
+    const logPayload = {
       sourceKey,
       cacheKey,
       ok: Boolean(readback?.ok),
@@ -131,8 +131,13 @@ async function logSourceCacheReadback({ sourceKey, cacheKey }) {
       ttlSec: readback?.entry?.ttlSec ?? null,
       hasPayload: Boolean(readback?.entry?.payload),
       payloadSourceKey: readback?.entry?.payload?.sourceKey || null,
-      error: readback?.error || null,
-    });
+    };
+
+    if (readback?.error) {
+      logPayload.error = readback.error;
+    }
+
+    console.info("SOURCE_CACHE_READBACK", logPayload);
   } catch (readbackError) {
     try {
       console.error("SOURCE_CACHE_READBACK_FAIL_OPEN", {

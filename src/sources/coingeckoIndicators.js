@@ -24,6 +24,7 @@
 // - entryHints riskMode added as tiny caution interpretation
 // - entryHints readinessScore/readinessLabel/shouldWaitForConfirmation added
 // - entryHints priority/summaryLine/confidenceScoreNormalized added
+// - entryHints stateTag added
 // - no trade execution logic
 // - no TP/SL engine
 // - no chat wiring
@@ -33,7 +34,7 @@
 // ============================================================================
 
 export const COINGECKO_INDICATORS_VERSION =
-  "10C.19-entry-hints-reporting-pack-v1";
+  "10C.20-entry-hints-state-tag-pack-v1";
 
 function normalizeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -150,6 +151,37 @@ function getConfidenceScoreNormalized(confidence) {
   if (confidence === "high") return 100;
   if (confidence === "medium") return 65;
   return 30;
+}
+
+function getStateTag({
+  bias,
+  triggerStatus,
+  readinessLabel,
+  shouldWaitForConfirmation,
+}) {
+  const safeBias = bias || "neutral";
+  const safeTriggerStatus = triggerStatus || "not_ready";
+  const safeReadinessLabel = readinessLabel || "low";
+
+  if (safeTriggerStatus === "confirmed" && shouldWaitForConfirmation === false) {
+    if (safeBias === "bullish") return "trend_ready_bullish";
+    if (safeBias === "bearish") return "trend_ready_bearish";
+    return "ready_neutral";
+  }
+
+  if (safeTriggerStatus === "early_confirmation") {
+    if (safeBias === "bullish") return "building_bullish";
+    if (safeBias === "bearish") return "building_bearish";
+    return "building_neutral";
+  }
+
+  if (safeReadinessLabel === "low" && shouldWaitForConfirmation === true) {
+    if (safeBias === "bullish") return "watch_pullback_bullish";
+    if (safeBias === "bearish") return "watch_bounce_bearish";
+    return "wait_mixed";
+  }
+
+  return "wait_mixed";
 }
 
 function buildEntrySummaryLine({
@@ -1014,6 +1046,7 @@ function buildEntryHints(summary = {}) {
     readinessScore: null,
     readinessLabel: null,
     priority: null,
+    stateTag: null,
     shouldWaitForConfirmation: null,
     summaryLine: null,
     explanationShort: null,
@@ -1046,6 +1079,7 @@ function buildEntryHints(summary = {}) {
   let readinessScore = 10;
   let readinessLabel = "low";
   let priority = "low";
+  let stateTag = "wait_mixed";
   let shouldWaitForConfirmation = true;
   let summaryLine = null;
   let confidenceScoreNormalized = getConfidenceScoreNormalized(summaryConfidence);
@@ -1190,6 +1224,12 @@ function buildEntryHints(summary = {}) {
   readinessLabel = getReadinessLabel(readinessScore);
   priority = getPriorityFromReadiness(readinessScore);
   confidenceScoreNormalized = getConfidenceScoreNormalized(summaryConfidence);
+  stateTag = getStateTag({
+    bias,
+    triggerStatus,
+    readinessLabel,
+    shouldWaitForConfirmation,
+  });
   summaryLine = buildEntrySummaryLine({
     bias,
     setup,
@@ -1213,6 +1253,7 @@ function buildEntryHints(summary = {}) {
     readinessScore,
     readinessLabel,
     priority,
+    stateTag,
     shouldWaitForConfirmation,
     summaryLine,
     explanationShort,
@@ -1393,6 +1434,7 @@ export function buildCoingeckoIndicatorsDebugText(input = {}) {
     `- entry_hints_readiness_score: ${entryHints?.readinessScore ?? "n/a"}`,
     `- entry_hints_readiness_label: ${entryHints?.readinessLabel ?? "n/a"}`,
     `- entry_hints_priority: ${entryHints?.priority ?? "n/a"}`,
+    `- entry_hints_state_tag: ${entryHints?.stateTag ?? "n/a"}`,
     `- entry_hints_should_wait: ${entryHints?.shouldWaitForConfirmation ?? "n/a"}`,
     `- entry_hints_summary_line: ${entryHints?.summaryLine ?? "n/a"}`,
     `- entry_hints_explanation_short: ${entryHints?.explanationShort ?? "n/a"}`,

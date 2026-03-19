@@ -4,6 +4,7 @@
 
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
+import { fetchWithTimeout } from "../../core/fetchWithTimeout.js";
 
 // ---------------------------------------------------------------------------
 // Permission guard (monarch-only) — Stage 4: identity-first (MONARCH_USER_ID)
@@ -40,14 +41,18 @@ async function fetchHeadCommitSha({ repo, branch }) {
       branchStr
     )}`;
 
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        Authorization: `token ${token}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": "garya-bot",
+    const res = await fetchWithTimeout(
+      url,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "garya-bot",
+        },
       },
-    });
+      5000
+    );
 
     if (!res.ok) return null;
 

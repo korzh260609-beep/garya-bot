@@ -2,8 +2,6 @@
 // Central command dispatcher.
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
-import { handlePrices } from "./handlers/prices.js";
-import { handlePrice } from "./handlers/price.js";
 import { handleArList } from "./handlers/arList.js";
 
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
@@ -41,6 +39,9 @@ import { dispatchDiagnosticsUtilityCommands } from "./dispatchers/dispatchDiagno
 
 // ✅ META DEBUG dispatcher (extracted 1:1 block)
 import { dispatchMetaDebugCommands } from "./dispatchers/dispatchMetaDebugCommands.js";
+
+// ✅ PRICE dispatcher (extracted 1:1 block)
+import { dispatchPriceCommands } from "./dispatchers/dispatchPriceCommands.js";
 
 /**
  * Backward-compatible dispatcher.
@@ -83,7 +84,7 @@ export async function dispatchCommand(cmd, ctx) {
     return { handled: false };
   }
 
-  const { bot, chatId, chatIdStr, rest } = ctx;
+  const { bot, chatId, chatIdStr } = ctx;
 
   const reply =
     typeof ctx.reply === "function"
@@ -319,31 +320,17 @@ export async function dispatchCommand(cmd, ctx) {
     return metaDebugHandled;
   }
 
+  const priceHandled = await dispatchPriceCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (priceHandled?.handled) {
+    return priceHandled;
+  }
+
   switch (cmd0) {
-    case "/price": {
-      return await handlePrice({
-        bot,
-        chatId,
-        rest,
-        getCoinGeckoSimplePriceById: ctx.getCoinGeckoSimplePriceById,
-        userRole: ctx.userRole,
-        userPlan: ctx.userPlan,
-        bypass: ctx.bypass,
-      });
-    }
-
-    case "/prices": {
-      return await handlePrices({
-        bot,
-        chatId,
-        rest,
-        getCoinGeckoSimplePriceMulti: ctx.getCoinGeckoSimplePriceMulti,
-        userRole: ctx.userRole,
-        userPlan: ctx.userPlan,
-        bypass: ctx.bypass,
-      });
-    }
-
     case "/ar_list": {
       await handleArList({
         bot,

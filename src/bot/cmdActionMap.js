@@ -37,6 +37,10 @@ export const CMD_ACTION = {
   "/news_rss": "cmd.admin.news_rss",
   "/news_rss_full": "cmd.admin.news_rss",
 
+  // ✅ STAGE 10C.9 — Multi-monitor debug commands (monarch/dev)
+  "/multi_monitor": "cmd.admin.multi_monitor",
+  "/multi_monitor_full": "cmd.admin.multi_monitor",
+
   // ✅ STAGE 11.13 — Recall role gate
   "/recall": "cmd.recall",
   "/recall_more": "cmd.recall",

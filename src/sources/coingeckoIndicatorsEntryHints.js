@@ -1,6 +1,6 @@
 // src/sources/coingeckoIndicatorsEntryHints.js
 // ============================================================================
-// STAGE 10C.26
+// STAGE 10C.27
 // ENTRY HINTS LAYER
 //
 // PURPOSE:
@@ -104,7 +104,7 @@ export function buildEntryHints(summary = {}) {
         ? 58
         : summaryConfidence === "medium"
           ? 46
-          : 34;
+          : 38;
     shouldWaitForConfirmation = true;
     explanationShort =
       "Uptrend is intact, but current dip still needs confirmation.";
@@ -125,7 +125,7 @@ export function buildEntryHints(summary = {}) {
             ? 66
             : summaryConfidence === "medium"
               ? 52
-              : 40;
+              : 42;
         explanationShort =
           "Uptrend remains strong, but the pullback still needs confirmation.";
         branchReason =
@@ -146,14 +146,14 @@ export function buildEntryHints(summary = {}) {
             ? 58
             : summaryConfidence === "medium"
               ? 46
-              : 34;
+              : 38;
         branchReason =
           "signalSummary is pullback_in_uptrend with moderate trend strength, so branch stays continuation-pullback and still waits for confirmation.";
       } else {
         triggerStatus = "not_ready";
         actionBias = "hold";
         riskMode = "defensive";
-        readinessScore = 24;
+        readinessScore = 28;
         shouldWaitForConfirmation = true;
         explanationShort =
           "Possible dip idea exists, but trend strength is too weak.";
@@ -182,7 +182,7 @@ export function buildEntryHints(summary = {}) {
         ? 58
         : summaryConfidence === "medium"
           ? 46
-          : 34;
+          : 38;
     shouldWaitForConfirmation = true;
     explanationShort =
       "Downtrend is intact, but current bounce still needs confirmation.";
@@ -203,7 +203,7 @@ export function buildEntryHints(summary = {}) {
             ? 66
             : summaryConfidence === "medium"
               ? 52
-              : 40;
+              : 42;
         explanationShort =
           "Downtrend remains strong, but the bounce still needs confirmation.";
         branchReason =
@@ -224,14 +224,14 @@ export function buildEntryHints(summary = {}) {
             ? 58
             : summaryConfidence === "medium"
               ? 46
-              : 34;
+              : 38;
         branchReason =
           "signalSummary is bounce_in_downtrend with moderate bearish trend strength, so branch stays continuation-bounce and still waits for confirmation.";
       } else {
         triggerStatus = "not_ready";
         actionBias = "hold";
         riskMode = "defensive";
-        readinessScore = 24;
+        readinessScore = 28;
         shouldWaitForConfirmation = true;
         explanationShort =
           "Possible bounce-sell idea exists, but trend strength is too weak.";

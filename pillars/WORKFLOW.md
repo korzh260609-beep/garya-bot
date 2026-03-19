@@ -458,6 +458,36 @@ For each roadmap item:
 - Fusion is forbidden until individual sources are verified separately
 - AI must not consume raw Binance payload directly
 
+### Notes (factual)
+
+- 2026-03-19: Binance module skeleton was tested through `/bn_ticker` and `/bn_ticker_full`.
+- Current environment returns `HTTP 451` with restricted-location response from Binance public API.
+- Binance expansion is paused until provider/region accessibility changes.
+
+---
+
+# STAGE 10D-alt — OKX MARKET MODULE (ALTERNATIVE PUBLIC SOURCE)
+
+- 10D-alt.1 OKX module skeleton
+- 10D-alt.2 OKX public ticker source
+- 10D-alt.3 OKX candles source
+- 10D-alt.4 OKX snapshot layer
+- 10D-alt.5 OKX diagnostics
+- 10D-alt.6 OKX market fusion with CoinGecko / other fallback sources
+
+## Gate rules
+
+- OKX implementation starts with public ticker / candles only
+- Snapshot is forbidden until ticker/candles are verified separately
+- Fusion is forbidden until individual OKX sources are verified separately
+- AI must not consume raw OKX payload directly
+
+### Notes (factual)
+
+- 2026-03-19: OKX public ticker skeleton was verified through `/okx_ticker`.
+- Current environment can access OKX public market endpoint successfully.
+- OKX is the active alternative market source while Binance remains paused in this environment.
+
 ---
 
 # STAGE 11 — ACCESS MODULE (EXPANDED)

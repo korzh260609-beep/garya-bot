@@ -43,6 +43,9 @@ import { handleGrant } from "./handlers/grant.js";
 import { handleRevoke } from "./handlers/revoke.js";
 import { handleGrants } from "./handlers/grants.js";
 
+// ✅ STAGE 10C.29 — TA debug reader
+import { handleTaDebug } from "./handlers/taDebug.js";
+
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -205,6 +208,9 @@ export async function dispatchCommand(cmd, ctx) {
     // ✅ STAGE 5.16 — behavior events (keep private)
     "/behavior_events_last",
     "/be_emit",
+
+    // ✅ STAGE 10C.29 — TA debug command private-only
+    "/ta_debug",
 
     "/memory_status",
     "/memory_diag",
@@ -430,6 +436,18 @@ export async function dispatchCommand(cmd, ctx) {
         userRole: ctx.userRole,
         userPlan: ctx.userPlan,
         bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    // ✅ STAGE 10C.29 — TA DEBUG READER
+    case "/ta_debug": {
+      await handleTaDebug({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        reply,
+        bypass: !!ctx.bypass,
       });
       return { handled: true };
     }

@@ -1,6 +1,6 @@
 // src/sources/coingeckoIndicatorsDebug.js
 // ============================================================================
-// STAGE 10C.23
+// STAGE 10C.25
 // DEBUG LAYER
 //
 // PURPOSE:
@@ -103,6 +103,7 @@ export function formatCoingeckoIndicatorsDebugText(bundle = {}) {
     `- entry_hints_should_wait: ${entryHints?.shouldWaitForConfirmation ?? "n/a"}`,
     `- entry_hints_summary_line: ${entryHints?.summaryLine ?? "n/a"}`,
     `- entry_hints_explanation_short: ${entryHints?.explanationShort ?? "n/a"}`,
+    `- entry_hints_branch_reason: ${entryHints?.branchReason ?? "n/a"}`,
     `- entry_hints_note: ${entryHints?.note ?? "n/a"}`,
     `- entry_hints_based_on_market_bias: ${entryHintsBasedOn?.marketBias ?? "n/a"}`,
     `- entry_hints_based_on_momentum_bias: ${entryHintsBasedOn?.momentumBias ?? "n/a"}`,

@@ -160,47 +160,95 @@ function buildOverallStatus(blocks = []) {
   return "down";
 }
 
+function buildBlockStatusText(block) {
+  return block?.ok === true ? "ok" : "degraded";
+}
+
 function buildHeadlineNote(news = {}) {
   const headlines = Array.isArray(news?.headlines) ? news.headlines : [];
-  if (!headlines.length) return "News headlines are limited right now.";
-  return `${headlines.length} headline(s) available from RSS.`;
+  if (!headlines.length) return "Новостной блок сейчас ограничен.";
+  if (headlines.length === 1) return "Доступен 1 новостной заголовок из RSS.";
+  return `Доступно ${headlines.length} новостных заголовков из RSS.`;
+}
+
+function buildPriceShort(price = {}) {
+  if (typeof price?.price !== "number") return "цена недоступна";
+  return `цена ${price.price}`;
+}
+
+function buildTaShort(ta = {}) {
+  const signal = ta?.signal || "unknown";
+  const trigger = ta?.triggerStatus || "unknown";
+  return `TA ${signal}/${trigger}`;
+}
+
+function buildNewsShort(news = {}) {
+  const count = news?.itemsAfterTrim ?? 0;
+  return `новости ${count}`;
 }
 
 function buildFusedShortText({ overallStatus, price, ta, news }) {
-  const priceText =
-    typeof price?.price === "number" ? String(price.price) : "n/a";
-
-  const signalText = ta?.signal || "n/a";
-  const taStatusText = ta?.status || "n/a";
-  const newsCount = news?.itemsAfterTrim ?? 0;
+  const parts = [
+    buildPriceShort(price),
+    buildTaShort(ta),
+    buildNewsShort(news),
+  ];
 
   if (overallStatus === "full") {
-    return `Price=${priceText}, TA=${signalText}/${taStatusText}, news=${newsCount}.`;
+    return `V-Fuse готов: ${parts.join(", ")}.`;
   }
 
   if (overallStatus === "partial") {
-    return `Partial fuse: price=${priceText}, TA=${signalText}/${taStatusText}, news=${newsCount}.`;
+    return `V-Fuse частично готов: ${parts.join(", ")}.`;
   }
 
-  return "Fuse snapshot is down right now.";
+  return "V-Fuse сейчас недоступен.";
 }
 
-function buildFusedNote({ overallStatus, ta, news }) {
-  if (overallStatus === "full") {
-    return ta?.note || "Fused crypto snapshot is ready.";
+function buildPartialReasons({ price, ta, news }) {
+  const out = [];
+
+  if (price?.ok !== true) {
+    out.push(`price=${price?.reason || "degraded"}`);
   }
 
-  if (overallStatus === "partial") {
+  if (ta?.ok !== true) {
+    out.push(`ta=${ta?.reason || "degraded"}`);
+  }
+
+  if (news?.ok !== true) {
+    out.push(`news=${news?.reason || "degraded"}`);
+  }
+
+  return out;
+}
+
+function buildFusedNote({ overallStatus, price, ta, news }) {
+  if (overallStatus === "full") {
     return [
-      ta?.note || null,
+      ta?.note || "Все три блока доступны.",
       buildHeadlineNote(news),
-      "Some source blocks are degraded, but the snapshot is still usable.",
     ]
       .filter(Boolean)
       .join(" ");
   }
 
-  return "All fused source blocks are unavailable right now.";
+  if (overallStatus === "partial") {
+    const degraded = buildPartialReasons({ price, ta, news });
+
+    return [
+      ta?.note || null,
+      buildHeadlineNote(news),
+      degraded.length
+        ? `Проблемные блоки: ${degraded.join(", ")}.`
+        : "Часть блоков работает нестабильно.",
+      "Снимок остаётся пригодным для dev-диагностики.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  return "Все fused-блоки сейчас недоступны.";
 }
 
 export async function readCoingeckoVFuseSnapshot(input = {}) {
@@ -291,9 +339,15 @@ export async function readCoingeckoVFuseSnapshot(input = {}) {
       }),
       note: buildFusedNote({
         overallStatus,
+        price,
         ta,
         news,
       }),
+      blocks: {
+        price: buildBlockStatusText(price),
+        ta: buildBlockStatusText(ta),
+        news: buildBlockStatusText(news),
+      },
     },
   };
 }

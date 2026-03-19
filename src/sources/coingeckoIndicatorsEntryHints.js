@@ -1,6 +1,6 @@
 // src/sources/coingeckoIndicatorsEntryHints.js
 // ============================================================================
-// STAGE 10C.24
+// STAGE 10C.26
 // ENTRY HINTS LAYER
 //
 // PURPOSE:
@@ -91,10 +91,20 @@ export function buildEntryHints(summary = {}) {
     context = "trend_continuation_pullback";
     setup = "buy_the_dip_setup";
     triggerStatus =
-      summaryConfidence === "high" ? "early_confirmation" : "not_ready";
+      summaryConfidence === "high" || summaryConfidence === "medium"
+        ? "early_confirmation"
+        : "not_ready";
     actionBias = "accumulate";
-    riskMode = summaryConfidence === "high" ? "balanced" : "defensive";
-    readinessScore = summaryConfidence === "high" ? 58 : 34;
+    riskMode =
+      summaryConfidence === "high" || summaryConfidence === "medium"
+        ? "balanced"
+        : "defensive";
+    readinessScore =
+      summaryConfidence === "high"
+        ? 58
+        : summaryConfidence === "medium"
+          ? 46
+          : 34;
     shouldWaitForConfirmation = true;
     explanationShort =
       "Uptrend is intact, but current dip still needs confirmation.";
@@ -106,9 +116,16 @@ export function buildEntryHints(summary = {}) {
     if (typeof trendScore === "number") {
       if (trendScore >= 5) {
         triggerStatus =
-          summaryConfidence === "high" ? "early_confirmation" : "not_ready";
+          summaryConfidence === "high" || summaryConfidence === "medium"
+            ? "early_confirmation"
+            : "not_ready";
         riskMode = "balanced";
-        readinessScore = summaryConfidence === "high" ? 66 : 44;
+        readinessScore =
+          summaryConfidence === "high"
+            ? 66
+            : summaryConfidence === "medium"
+              ? 52
+              : 40;
         explanationShort =
           "Uptrend remains strong, but the pullback still needs confirmation.";
         branchReason =
@@ -117,9 +134,19 @@ export function buildEntryHints(summary = {}) {
           "Bullish structure is strong. Watch for pullback stabilization before acting.";
       } else if (trendScore >= 2) {
         triggerStatus =
-          summaryConfidence === "high" ? "early_confirmation" : "not_ready";
-        riskMode = "balanced";
-        readinessScore = summaryConfidence === "high" ? 58 : 34;
+          summaryConfidence === "high" || summaryConfidence === "medium"
+            ? "early_confirmation"
+            : "not_ready";
+        riskMode =
+          summaryConfidence === "high" || summaryConfidence === "medium"
+            ? "balanced"
+            : "defensive";
+        readinessScore =
+          summaryConfidence === "high"
+            ? 58
+            : summaryConfidence === "medium"
+              ? 46
+              : 34;
         branchReason =
           "signalSummary is pullback_in_uptrend with moderate trend strength, so branch stays continuation-pullback and still waits for confirmation.";
       } else {
@@ -142,10 +169,20 @@ export function buildEntryHints(summary = {}) {
     context = "trend_continuation_bounce";
     setup = "sell_the_bounce_setup";
     triggerStatus =
-      summaryConfidence === "high" ? "early_confirmation" : "not_ready";
+      summaryConfidence === "high" || summaryConfidence === "medium"
+        ? "early_confirmation"
+        : "not_ready";
     actionBias = "reduce";
-    riskMode = summaryConfidence === "high" ? "balanced" : "defensive";
-    readinessScore = summaryConfidence === "high" ? 58 : 34;
+    riskMode =
+      summaryConfidence === "high" || summaryConfidence === "medium"
+        ? "balanced"
+        : "defensive";
+    readinessScore =
+      summaryConfidence === "high"
+        ? 58
+        : summaryConfidence === "medium"
+          ? 46
+          : 34;
     shouldWaitForConfirmation = true;
     explanationShort =
       "Downtrend is intact, but current bounce still needs confirmation.";
@@ -157,9 +194,16 @@ export function buildEntryHints(summary = {}) {
     if (typeof trendScore === "number") {
       if (trendScore <= -5) {
         triggerStatus =
-          summaryConfidence === "high" ? "early_confirmation" : "not_ready";
+          summaryConfidence === "high" || summaryConfidence === "medium"
+            ? "early_confirmation"
+            : "not_ready";
         riskMode = "balanced";
-        readinessScore = summaryConfidence === "high" ? 66 : 44;
+        readinessScore =
+          summaryConfidence === "high"
+            ? 66
+            : summaryConfidence === "medium"
+              ? 52
+              : 40;
         explanationShort =
           "Downtrend remains strong, but the bounce still needs confirmation.";
         branchReason =
@@ -168,9 +212,19 @@ export function buildEntryHints(summary = {}) {
           "Bearish structure is strong. Watch for bounce weakness before acting.";
       } else if (trendScore <= -2) {
         triggerStatus =
-          summaryConfidence === "high" ? "early_confirmation" : "not_ready";
-        riskMode = "balanced";
-        readinessScore = summaryConfidence === "high" ? 58 : 34;
+          summaryConfidence === "high" || summaryConfidence === "medium"
+            ? "early_confirmation"
+            : "not_ready";
+        riskMode =
+          summaryConfidence === "high" || summaryConfidence === "medium"
+            ? "balanced"
+            : "defensive";
+        readinessScore =
+          summaryConfidence === "high"
+            ? 58
+            : summaryConfidence === "medium"
+              ? 46
+              : 34;
         branchReason =
           "signalSummary is bounce_in_downtrend with moderate bearish trend strength, so branch stays continuation-bounce and still waits for confirmation.";
       } else {

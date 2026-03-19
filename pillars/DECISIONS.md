@@ -575,3 +575,59 @@ Consequences:
   - candles source
   - order book source
   - derivatives source
+
+---
+
+## D-034: Binance paused in current runtime environment; OKX selected as active alternative public market source
+
+Status: ACCEPTED  
+Date: 2026-03-19  
+Scope: Sources / Runtime Availability / Trading Data
+
+Decision:
+
+В текущей runtime-среде SG публичный Binance API недоступен для практического использования.
+
+Фактически подтверждено:
+- Binance public market endpoint returns `HTTP 451`
+- ответ содержит restricted-location / eligibility restriction
+- проблема относится к доступности провайдера в текущем окружении, а не к wiring кода
+
+Поэтому принимается runtime-решение:
+
+- Binance market module сохраняется в architecture/workflow как стратегически важный источник
+- но дальнейшее развитие Binance-модулей в текущей среде ставится на паузу
+- активным альтернативным публичным market source в текущем окружении назначается OKX
+
+Роли источников в текущем runtime фиксируются так:
+
+- CoinGecko:
+  - base / fallback market source
+  - simple price
+  - historical market chart
+  - broad market context
+  - RSS/news-related fusion
+
+- OKX:
+  - active public exchange market source in current environment
+  - ticker / market endpoint
+  - next candidate for candles / snapshot / diagnostics expansion
+
+- Binance:
+  - remains strategic target source in architecture
+  - paused in current runtime until provider/region accessibility changes
+
+Hard rules:
+
+1. SG must not continue expanding Binance-specific logic in the current environment as if the source were available.
+2. Binance runtime failures caused by provider restriction must be treated as provider-access limitation, not as internal system bugs.
+3. OKX becomes the active exchange source for next public market-source steps in the current environment.
+4. If runtime accessibility changes in the future, Binance may be resumed explicitly without deleting this decision history.
+5. Source selection must follow real runtime verification, not assumptions.
+
+Consequences:
+
+- D-033 remains architecturally valid, but is currently constrained by runtime accessibility.
+- Stage 10D is effectively paused at current environment level.
+- OKX becomes the practical continuation path for exchange-source development.
+- Future source fusion and diagnostics in this environment should prioritize OKX over Binance until restrictions are lifted.

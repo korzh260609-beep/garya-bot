@@ -1,6 +1,6 @@
 // src/bot/handlers/taCore.js
 // ============================================================================
-// STAGE 10C.38
+// STAGE 10C.41
 // MONARCH/DEV INTERNAL TA CORE HANDLER
 // - /ta_core
 // - /ta_core_full
@@ -9,6 +9,7 @@
 // - use direct internal snapshot source as the new TA core path
 // - keep legacy taDebug handler untouched
 // - provide compact and expanded internal TA views
+// - tiny polish: show interval_used=auto instead of n/a when interval is implicit
 // - no SourceService changes
 // - no chat runtime refactor
 // - no execution logic
@@ -95,6 +96,10 @@ function getAttemptsCount(result = {}) {
   return 0;
 }
 
+function getIntervalUsedText(result = {}) {
+  return normalizeString(result?.fetchMeta?.intervalUsed) || "auto";
+}
+
 function buildShortSuccessText(result = {}, input = {}) {
   const branch = result?.sgView?.branch || "unknown";
   const status = result?.sgView?.status || "unknown";
@@ -111,7 +116,7 @@ function buildShortSuccessText(result = {}, input = {}) {
     `branch: ${branch}`,
     `status: ${status}`,
     `readiness: ${readiness}`,
-    `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+    `interval_used: ${getIntervalUsedText(result)}`,
     `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
     "",
     `short: ${shortText}`,
@@ -165,7 +170,7 @@ function buildFullSuccessText(result = {}, input = {}) {
     `attention: ${attentionLevel}`,
     "",
     `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
-    `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+    `interval_used: ${getIntervalUsedText(result)}`,
     `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
     `attempts_count: ${getAttemptsCount(result)}`,
     `market_chart_reason: ${result?.fetchMeta?.marketChartReason || "n/a"}`,
@@ -197,7 +202,7 @@ function buildErrorText(result = {}, input = {}, mode = "short") {
     `message: ${message}`,
     `market_chart_reason: ${result?.fetchMeta?.marketChartReason || "n/a"}`,
     `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
-    `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+    `interval_used: ${getIntervalUsedText(result)}`,
     `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
     `attempts_count: ${getAttemptsCount(result)}`,
     `fetch_reason: ${result?.meta?.fetchReason || "n/a"}`,

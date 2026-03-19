@@ -7,7 +7,6 @@ import { handleWebhookInfo } from "./handlers/webhookInfo.js";
 import { handlePrices } from "./handlers/prices.js";
 import { handlePrice } from "./handlers/price.js";
 import { handleArList } from "./handlers/arList.js";
-import { handleFileLogs } from "./handlers/fileLogs.js";
 
 // ✅ Stage 5.16 — behavior events verification
 import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
@@ -343,17 +342,6 @@ export async function dispatchCommand(cmd, ctx) {
       await handleArList({
         bot,
         chatId,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/file_logs": {
-      await handleFileLogs({
-        bot,
-        chatId,
-        chatIdStr,
         rest: ctx.rest,
         bypass: ctx.bypass,
       });

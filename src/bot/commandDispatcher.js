@@ -2,16 +2,9 @@
 // Central command dispatcher.
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
-import { handleChatMetaDebug } from "./handlers/chatMetaDebug.js";
-import { handleWebhookInfo } from "./handlers/webhookInfo.js";
 import { handlePrices } from "./handlers/prices.js";
 import { handlePrice } from "./handlers/price.js";
 import { handleArList } from "./handlers/arList.js";
-
-// ✅ Stage 5.16 — behavior events verification
-import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
-// ✅ Stage 5.16 — behavior events test emitter (DEV)
-import { handleBeEmit } from "./handlers/beEmit.js";
 
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
 import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
@@ -45,6 +38,9 @@ import { dispatchSystemInfoCommands } from "./dispatchers/dispatchSystemInfoComm
 
 // ✅ DIAGNOSTICS / UTILITY dispatcher (extracted 1:1 block)
 import { dispatchDiagnosticsUtilityCommands } from "./dispatchers/dispatchDiagnosticsUtilityCommands.js";
+
+// ✅ META DEBUG dispatcher (extracted 1:1 block)
+import { dispatchMetaDebugCommands } from "./dispatchers/dispatchMetaDebugCommands.js";
 
 /**
  * Backward-compatible dispatcher.
@@ -313,6 +309,16 @@ export async function dispatchCommand(cmd, ctx) {
     return diagnosticsUtilityHandled;
   }
 
+  const metaDebugHandled = await dispatchMetaDebugCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (metaDebugHandled?.handled) {
+    return metaDebugHandled;
+  }
+
   switch (cmd0) {
     case "/price": {
       return await handlePrice({
@@ -344,45 +350,6 @@ export async function dispatchCommand(cmd, ctx) {
         chatId,
         rest: ctx.rest,
         bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/chat_meta_debug": {
-      await handleChatMetaDebug({
-        bot,
-        chatId,
-        chatIdStr,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/webhook_info": {
-      await handleWebhookInfo({ bot, chatId });
-      return { handled: true };
-    }
-
-    case "/behavior_events_last": {
-      await handleBehaviorEventsLast({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        senderIdStr: ctx.senderIdStr,
-      });
-      return { handled: true };
-    }
-
-    case "/be_emit": {
-      await handleBeEmit({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        senderIdStr: ctx.senderIdStr,
-        chatIdStr,
-        transport: ctx?.identityCtx?.transport || "telegram",
-        globalUserId: ctx?.user?.global_user_id ?? null,
-        bypass: !!ctx.bypass,
       });
       return { handled: true };
     }

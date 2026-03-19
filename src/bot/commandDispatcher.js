@@ -43,8 +43,9 @@ import { handleGrant } from "./handlers/grant.js";
 import { handleRevoke } from "./handlers/revoke.js";
 import { handleGrants } from "./handlers/grants.js";
 
-// ✅ STAGE 10C.29 / 10C.30 / 10C.36 — TA debug + snapshot reader
+// ✅ STAGE 10C.29 / 10C.30 / 10C.36 / 10C.38 — TA debug + snapshot + core
 import { handleTaDebug } from "./handlers/taDebug.js";
+import { handleTaCore } from "./handlers/taCore.js";
 
 import pool from "../../db.js";
 
@@ -101,14 +102,9 @@ const memoryDiagSvc = new MemoryDiagnosticsService();
  * 2) dispatchCommand(ctx)       // legacy / accidental call (prevents crash)
  */
 export async function dispatchCommand(cmd, ctx) {
-  // ---- Normalize arguments (prevent "ctx is undefined" crash) ----
-  // If called as dispatchCommand(ctxObj), then `cmd` is actually ctxObj and ctx is undefined.
   if (ctx === undefined && cmd && typeof cmd === "object") {
     const ctxObj = cmd;
 
-    // Try to derive command string:
-    // 1) ctx.cmd / ctx.command
-    // 2) first token of msg.text
     let derivedCmd = ctxObj.cmd || ctxObj.command;
 
     const rawText =
@@ -122,7 +118,6 @@ export async function dispatchCommand(cmd, ctx) {
       derivedCmd = rawText.trim().split(/\s+/)[0];
     }
 
-    // Ensure "rest" exists if we had raw text
     if (ctxObj && (ctxObj.rest === undefined || ctxObj.rest === null) && rawText) {
       const parts = rawText.trim().split(/\s+/);
       ctxObj.rest = parts.slice(1).join(" ");
@@ -132,36 +127,27 @@ export async function dispatchCommand(cmd, ctx) {
     cmd = derivedCmd;
   }
 
-  // Guard: still no ctx -> nothing to do (but do NOT crash)
   if (!ctx || typeof ctx !== "object") {
     return { handled: false, error: "CTX_MISSING" };
   }
 
-  // Guard: command must be a string
   if (typeof cmd !== "string" || !cmd.startsWith("/")) {
     return { handled: false };
   }
 
   const { bot, chatId, chatIdStr, rest } = ctx;
 
-  // ✅ Stage 7B: prefer ctx.reply() (Core wrapper logs assistant output)
   const reply =
     typeof ctx.reply === "function"
       ? ctx.reply
       : async (text) => bot.sendMessage(chatId, String(text ?? ""));
 
-  // If critical fields missing, don't crash
   if (!bot || !chatId) {
     return { handled: false, error: "CTX_INVALID" };
   }
 
-  // ✅ Telegram can send commands as "/cmd@BotName" (especially in groups).
-  // Normalize so switch-cases match reliably.
   const cmd0 = cmd.split("@")[0];
 
-  // ==========================
-  // PRIVATE-ONLY GATE (Stage 7 policy hardening)
-  // ==========================
   const chatType =
     ctx?.chatType ||
     ctx?.identityCtx?.chat_type ||
@@ -200,20 +186,19 @@ export async function dispatchCommand(cmd, ctx) {
     "/group_source_meta",
     "/group_source_topic_diag",
 
-    // ✅ STAGE 11.12 — grants are private-only
     "/grant",
     "/revoke",
     "/grants",
 
-    // ✅ STAGE 5.16 — behavior events (keep private)
     "/behavior_events_last",
     "/be_emit",
 
-    // ✅ STAGE 10C.29 / 10C.30 / 10C.36 — TA debug commands private-only
     "/ta_debug",
     "/ta_debug_full",
     "/ta_snapshot",
     "/ta_snapshot_full",
+    "/ta_core",
+    "/ta_core_full",
 
     "/memory_status",
     "/memory_diag",
@@ -228,7 +213,6 @@ export async function dispatchCommand(cmd, ctx) {
     "/diag_decision_window",
     "/diag_decision_promotion",
 
-    // ✅ STAGE 7A — keep PM write private
     "/pm_set",
     "/pm_list",
   ]);
@@ -250,10 +234,6 @@ export async function dispatchCommand(cmd, ctx) {
   }
 
   switch (cmd0) {
-    // ==========================
-    // STAGE 7A — PROJECT MEMORY
-    // ==========================
-
     case "/pm_show": {
       if (typeof ctx.getProjectSection !== "function") {
         await reply("⛔ getProjectSection недоступен (ошибка wiring).", { cmd: cmd0 });
@@ -353,10 +333,6 @@ export async function dispatchCommand(cmd, ctx) {
       });
     }
 
-    // ==========================
-    // SOURCES
-    // ==========================
-
     case "/sources": {
       if (typeof ctx.getAllSourcesSafe !== "function") {
         await reply("⛔ getAllSourcesSafe недоступен (ошибка wiring).", {
@@ -443,12 +419,24 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // ✅ STAGE 10C.29 / 10C.30 / 10C.36 — TA DEBUG + SNAPSHOT
     case "/ta_debug":
     case "/ta_debug_full":
     case "/ta_snapshot":
     case "/ta_snapshot_full": {
       await handleTaDebug({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        reply,
+        bypass: !!ctx.bypass,
+        cmd: cmd0,
+      });
+      return { handled: true };
+    }
+
+    case "/ta_core":
+    case "/ta_core_full": {
+      await handleTaCore({
         bot,
         chatId,
         rest: ctx.rest,
@@ -559,7 +547,6 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // ✅ STAGE 11.12 — grants
     case "/grant": {
       await handleGrant({
         bot,
@@ -703,10 +690,6 @@ export async function dispatchCommand(cmd, ctx) {
       });
       return { handled: true };
     }
-
-    // ==========================
-    // TASKS
-    // ==========================
 
     case "/demo_task": {
       if (typeof ctx.createDemoTask !== "function") {
@@ -986,10 +969,6 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // ==========================
-    // MEMORY DIAGNOSTICS
-    // ==========================
-
     case "/memory_status": {
       const cols = await memoryDiagSvc.getChatMemoryV2Columns();
       await reply(
@@ -1033,10 +1012,6 @@ export async function dispatchCommand(cmd, ctx) {
       await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
       return { handled: true };
     }
-
-    // ==========================
-    // OBSERVABILITY
-    // ==========================
 
     case "/health": {
       await handleHealth({ bot, chatId });
@@ -1143,7 +1118,6 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // ✅ TEST EMITTER (DEV)
     case "/be_emit": {
       await handleBeEmit({
         bot,

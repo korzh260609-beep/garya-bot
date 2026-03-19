@@ -12,6 +12,7 @@ export const CMD_ACTION = {
   "/link_status": "cmd.identity.link_status",
 
   "/reindex": "cmd.repo.reindex",
+  "/repo_status": "cmd.admin.repo_status",
 
   "/tasks": "cmd.tasks.list",
   "/run": "cmd.task.run",

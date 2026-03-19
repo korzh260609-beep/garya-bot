@@ -4,10 +4,8 @@
 
 import { handleChatMetaDebug } from "./handlers/chatMetaDebug.js";
 import { handleWebhookInfo } from "./handlers/webhookInfo.js";
-import { handleProjectStatus } from "./handlers/projectStatus.js";
 import { handlePrices } from "./handlers/prices.js";
 import { handlePrice } from "./handlers/price.js";
-import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
 import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — read-only
 import { handleTaskStatus } from "./handlers/taskStatus.js";
 import { handleArList } from "./handlers/arList.js";
@@ -17,9 +15,6 @@ import { handleFileLogs } from "./handlers/fileLogs.js";
 import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
 // ✅ Stage 5.16 — behavior events test emitter (DEV)
 import { handleBeEmit } from "./handlers/beEmit.js";
-
-// ✅ /build_info (public env snapshot)
-import { getPublicEnvSnapshot } from "../core/config.js";
 
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
 import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
@@ -47,6 +42,9 @@ import { dispatchDecisionDiagnosticsCommands } from "./dispatchers/dispatchDecis
 
 // ✅ PROFILE / MODE dispatcher (extracted 1:1 block)
 import { dispatchProfileModeCommands } from "./dispatchers/dispatchProfileModeCommands.js";
+
+// ✅ SYSTEM INFO dispatcher (extracted 1:1 block)
+import { dispatchSystemInfoCommands } from "./dispatchers/dispatchSystemInfoCommands.js";
 
 /**
  * Backward-compatible dispatcher.
@@ -295,6 +293,16 @@ export async function dispatchCommand(cmd, ctx) {
     return profileModeHandled;
   }
 
+  const systemInfoHandled = await dispatchSystemInfoCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (systemInfoHandled?.handled) {
+    return systemInfoHandled;
+  }
+
   switch (cmd0) {
     case "/price": {
       return await handlePrice({
@@ -338,11 +346,6 @@ export async function dispatchCommand(cmd, ctx) {
         rest: ctx.rest,
         bypass: ctx.bypass,
       });
-      return { handled: true };
-    }
-
-    case "/health": {
-      await handleHealth({ bot, chatId });
       return { handled: true };
     }
 
@@ -392,38 +395,6 @@ export async function dispatchCommand(cmd, ctx) {
         globalUserId: ctx?.user?.global_user_id ?? null,
         bypass: !!ctx.bypass,
       });
-      return { handled: true };
-    }
-
-    case "/project_status": {
-      await handleProjectStatus({ bot, chatId });
-      return { handled: true };
-    }
-
-    case "/build_info": {
-      const pub = getPublicEnvSnapshot();
-
-      const commit =
-        String(pub.RENDER_GIT_COMMIT || "").trim() ||
-        String(pub.GIT_COMMIT || "").trim() ||
-        "unknown";
-
-      const serviceId = String(pub.RENDER_SERVICE_ID || "").trim() || "unknown";
-
-      const instanceId =
-        String(pub.RENDER_INSTANCE_ID || "").trim() ||
-        String(pub.HOSTNAME || "").trim() ||
-        "unknown";
-
-      const nodeEnv = String(pub.NODE_ENV || "").trim() || "unknown";
-
-      await reply(
-        ["🧩 BUILD INFO", `commit: ${commit}`, `service: ${serviceId}`, `instance: ${instanceId}`, `node_env: ${nodeEnv}`].join(
-          "\n"
-        ),
-        { cmd: cmd0, handler: "commandDispatcher" }
-      );
-
       return { handled: true };
     }
 

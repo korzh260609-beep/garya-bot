@@ -25,11 +25,13 @@ export const CMD_ACTION = {
   "/diag_source": "cmd.source.diagnose",
   "/test_source": "cmd.source.test",
 
-  // ✅ STAGE 10C.29 / 10C.36 — TA debug/snapshot reader commands (monarch/dev)
+  // ✅ STAGE 10C.29 / 10C.36 / 10C.38 — TA debug/snapshot/core commands (monarch/dev)
   "/ta_debug": "cmd.admin.ta_debug",
   "/ta_debug_full": "cmd.admin.ta_debug",
   "/ta_snapshot": "cmd.admin.ta_snapshot",
   "/ta_snapshot_full": "cmd.admin.ta_snapshot",
+  "/ta_core": "cmd.admin.ta_core",
+  "/ta_core_full": "cmd.admin.ta_core",
 
   // ✅ STAGE 11.13 — Recall role gate
   "/recall": "cmd.recall",
@@ -60,13 +62,8 @@ export const CMD_ACTION = {
   "/identity_diag": "cmd.admin.identity_diag",
   "/identity_backfill": "cmd.admin.identity_backfill",
 
-  // Stage 4.5 — legacy global_user_id upgrade (monarch/dev)
   "/identity_upgrade_legacy": "cmd.admin.identity_upgrade_legacy",
-
-  // Stage 4.5 — list orphan users without identity rows (monarch/dev)
   "/identity_orphans": "cmd.admin.identity_orphans",
-
-  // Stage 4.5 — list legacy tg:* users (monarch/dev)
   "/identity_legacy_tg": "cmd.admin.identity_legacy_tg",
 
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",

@@ -62,6 +62,9 @@ import { handleCgVFuse } from "./handlers/cgVFuse.js";
 // ✅ STAGE 10D.1 — Binance ticker debug
 import { handleBinanceDebug } from "./handlers/binanceDebug.js";
 
+// ✅ STAGE 10D-alt.1 — OKX ticker debug
+import { handleOkxDebug } from "./handlers/okxDebug.js";
+
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -229,6 +232,9 @@ export async function dispatchCommand(cmd, ctx) {
 
     "/bn_ticker",
     "/bn_ticker_full",
+
+    "/okx_ticker",
+    "/okx_ticker_full",
 
     "/memory_status",
     "/memory_diag",
@@ -532,6 +538,19 @@ export async function dispatchCommand(cmd, ctx) {
     case "/bn_ticker":
     case "/bn_ticker_full": {
       await handleBinanceDebug({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        reply,
+        bypass: !!ctx.bypass,
+        cmd: cmd0,
+      });
+      return { handled: true };
+    }
+
+    case "/okx_ticker":
+    case "/okx_ticker_full": {
+      await handleOkxDebug({
         bot,
         chatId,
         rest: ctx.rest,

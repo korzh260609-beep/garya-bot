@@ -10,13 +10,7 @@ import { handleChatMessage } from "./handlers/chat.js";
 
 // ✅ Stage 5.3: workflow check
 
-import { resolveUserAccess } from "../users/userAccess.js";
-import { ensureUserProfile } from "../users/userProfile.js"; // ✅ STAGE 4.2 WIRE
 import pool from "../../db.js";
-
-// ✅ STAGE 4 — Chats wiring (best-effort, no behavior change)
-import { upsertChat } from "../db/chatRepo.js";
-import { touchUserChatLink } from "../db/userChatLinkRepo.js";
 
 // ✅ STAGE 4.3 — Chat Gate (db)
 import { getChatById } from "../db/chatRepo.js";
@@ -127,6 +121,7 @@ import {
   handleUtilityStatusEarlyCommands,
   handleUtilityStatusLateCommands,
 } from "./router/utilityStatusCommands.js";
+import { bootstrapRouterIdentityAndLinks } from "./router/identityBootstrap.js";
 
 // ============================================================================
 // Stage 3.5: COMMAND RATE-LIMIT (in-memory, per instance)
@@ -187,71 +182,24 @@ export function attachMessageRouter({
 
       if (!senderIdStr) return;
 
-      await ensureUserProfile(msg);
-
       const MONARCH_USER_ID = envStr("MONARCH_USER_ID", "").trim();
       const isMonarchFn = (idStr) => String(idStr || "") === MONARCH_USER_ID;
-      const isMonarchUser = isMonarchFn(senderIdStr);
 
-      const identityCtx = {
-        transport: "telegram",
-        senderIdStr,
-        chatIdStr,
-        chatType,
-        isPrivateChat: isPrivate,
+      const {
+        identityCtx,
+        accessPack,
+        globalUserId,
         isMonarchUser,
-        MONARCH_USER_ID,
-      };
-
-      const accessPack = await resolveUserAccess({
+      } = await bootstrapRouterIdentityAndLinks({
+        msg,
+        chatIdStr,
         senderIdStr,
-        isMonarch: isMonarchFn,
-        provider: identityCtx.transport,
+        chatType,
+        isPrivate,
+        isMonarchFn,
+        chatGateMode: CHAT_GATE_MODE,
+        chatDefaultActive: CHAT_DEFAULT_ACTIVE,
       });
-
-      // ✅ globalUserId for Stage 6 core (unified identity)
-      const globalUserId =
-        accessPack?.user?.global_user_id || accessPack?.global_user_id || null;
-
-      // ✅ STAGE 4 wiring (best-effort, NEVER block telegram flow)
-      try {
-        const nowIso = new Date().toISOString();
-        const title =
-          String(msg.chat?.title || "").trim() ||
-          [msg.chat?.first_name, msg.chat?.last_name]
-            .filter(Boolean)
-            .join(" ")
-            .trim() ||
-          null;
-
-        await upsertChat({
-          chatId: chatIdStr,
-          transport: "telegram",
-          chatType: chatType || null,
-          title,
-          // ✅ STAGE 4.3: apply default active on INSERT only (if gate enabled)
-          isActiveInsert: CHAT_GATE_MODE === "db" ? CHAT_DEFAULT_ACTIVE : null,
-          lastSeenAt: nowIso,
-          meta: null,
-        });
-      } catch (e) {
-        console.error("Stage4 upsertChat failed:", e);
-      }
-
-      if (globalUserId) {
-        try {
-          const nowIso = new Date().toISOString();
-          await touchUserChatLink({
-            globalUserId,
-            chatId: chatIdStr,
-            transport: "telegram",
-            lastSeenAt: nowIso,
-            meta: null,
-          });
-        } catch (e) {
-          console.error("Stage4 touchUserChatLink failed:", e);
-        }
-      }
 
       // ✅ STAGE 4.3 — CHAT GATE (mode=db)
       // Blocks ALL processing for inactive chats (monarch bypass).

@@ -1,18 +1,23 @@
 // src/bot/handlers/taDebug.js
 // ============================================================================
-// STAGE 10C.30
-// MONARCH/DEV COMMAND HANDLER — /ta_debug / /ta_debug_full
+// STAGE 10C.36
+// MONARCH/DEV COMMAND HANDLER
+// - /ta_debug / /ta_debug_full
+// - /ta_snapshot / /ta_snapshot_full
 //
 // PURPOSE:
-// - let SG read coingecko indicators debug reader through existing source layer
-// - /ta_debug returns short compact SG view
-// - /ta_debug_full returns expanded technical view
+// - let SG read coingecko indicators through internal source layer
+// - debug mode uses old debug-reader chain
+// - snapshot mode uses new direct snapshot source
+// - short variants return compact SG view
+// - full variants return expanded technical view
 // - no SourceService changes
 // - no chat runtime refactor
 // - no execution logic
 // ============================================================================
 
 import { readCoingeckoIndicatorsDebug } from "../../sources/readCoingeckoIndicatorsDebug.js";
+import { readCoingeckoIndicatorsSnapshot } from "../../sources/readCoingeckoIndicatorsSnapshot.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -74,7 +79,34 @@ function parseTaDebugArgs(rest = "") {
   };
 }
 
-function buildShortSuccessText(result = {}, input = {}) {
+function getCommandKind(cmd = "") {
+  if (cmd === "/ta_snapshot" || cmd === "/ta_snapshot_full") {
+    return "snapshot";
+  }
+  return "debug";
+}
+
+function getMode(cmd = "") {
+  return cmd === "/ta_debug_full" || cmd === "/ta_snapshot_full"
+    ? "full"
+    : "short";
+}
+
+function getTitle(kind = "debug", mode = "short") {
+  if (kind === "snapshot") {
+    return mode === "full" ? "🧪 TA SNAPSHOT FULL" : "🧪 TA SNAPSHOT";
+  }
+  return mode === "full" ? "🧪 TA DEBUG FULL" : "🧪 TA DEBUG";
+}
+
+function getDefaultCmd(kind = "debug", mode = "short") {
+  if (kind === "snapshot") {
+    return mode === "full" ? "/ta_snapshot_full" : "/ta_snapshot";
+  }
+  return mode === "full" ? "/ta_debug_full" : "/ta_debug";
+}
+
+function buildShortSuccessText(result = {}, input = {}, kind = "debug") {
   const branch = result?.sgView?.branch || "unknown";
   const status = result?.sgView?.status || "unknown";
   const readiness = result?.sgView?.readiness || "unknown";
@@ -82,7 +114,7 @@ function buildShortSuccessText(result = {}, input = {}) {
   const note = normalizeString(result?.sgView?.note) || "n/a";
 
   return [
-    "🧪 TA DEBUG",
+    getTitle(kind, "short"),
     `coin: ${input.coinId}`,
     `vs: ${input.vsCurrency}`,
     `days: ${input.days}`,
@@ -96,7 +128,7 @@ function buildShortSuccessText(result = {}, input = {}) {
   ].join("\n");
 }
 
-function buildFullSuccessText(result = {}, input = {}) {
+function buildFullSuccessText(result = {}, input = {}, kind = "debug") {
   const branch = result?.sgView?.branch || "unknown";
   const status = result?.sgView?.status || "unknown";
   const readiness = result?.sgView?.readiness || "unknown";
@@ -121,8 +153,8 @@ function buildFullSuccessText(result = {}, input = {}) {
   const branchReason =
     normalizeString(result?.snapshot?.branchReason) || "n/a";
 
-  return [
-    "🧪 TA DEBUG FULL",
+  const lines = [
+    getTitle(kind, "full"),
     `coin: ${input.coinId}`,
     `vs: ${input.vsCurrency}`,
     `days: ${input.days}`,
@@ -141,43 +173,69 @@ function buildFullSuccessText(result = {}, input = {}) {
     `setup: ${setup}`,
     `priority: ${priority}`,
     `attention: ${attentionLevel}`,
+  ];
+
+  if (kind === "snapshot") {
+    lines.push(
+      `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
+      `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+      `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`
+    );
+  }
+
+  lines.push(
     "",
     `short: ${shortText}`,
     `note: ${note}`,
     `summary: ${summaryLine}`,
-    `reason: ${branchReason}`,
-  ].join("\n");
+    `reason: ${branchReason}`
+  );
+
+  return lines.join("\n");
 }
 
-function buildErrorText(result = {}, input = {}, mode = "short") {
+function buildErrorText(result = {}, input = {}, kind = "debug", mode = "short") {
   const reason = result?.reason || "unknown_error";
-  const status = result?.http?.status ?? "n/a";
+  const status = result?.http?.status ?? result?.fetchMeta?.marketChartStatus ?? "n/a";
   const message = result?.meta?.message || result?.meta?.error || "n/a";
-  const rawPreview = normalizeString(result?.raw?.rawPreview || "");
+  const rawPreview = normalizeString(
+    result?.raw?.rawPreview ||
+      result?.fetchMeta?.rawPreview ||
+      ""
+  );
   const previewShort = rawPreview ? rawPreview.slice(0, 300) : "n/a";
 
-  if (mode === "full") {
-    return [
-      "⛔ TA DEBUG FULL",
-      `coin: ${input.coinId}`,
-      `vs: ${input.vsCurrency}`,
-      `days: ${input.days}`,
-      `reason: ${reason}`,
-      `http_status: ${status}`,
-      `message: ${message}`,
-      `raw_preview: ${previewShort}`,
-    ].join("\n");
-  }
-
-  return [
-    "⛔ TA DEBUG",
+  const lines = [
+    getTitle(kind, mode),
     `coin: ${input.coinId}`,
     `vs: ${input.vsCurrency}`,
     `days: ${input.days}`,
     `reason: ${reason}`,
     `http_status: ${status}`,
     `message: ${message}`,
-  ].join("\n");
+  ];
+
+  if (kind === "snapshot") {
+    lines.push(
+      `market_chart_reason: ${result?.fetchMeta?.marketChartReason || "n/a"}`,
+      `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
+      `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+      `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`
+    );
+  }
+
+  if (mode === "full") {
+    lines.push(`raw_preview: ${previewShort}`);
+  }
+
+  return lines.join("\n");
+}
+
+async function readByKind(kind = "debug", input = {}) {
+  if (kind === "snapshot") {
+    return await readCoingeckoIndicatorsSnapshot(input);
+  }
+  return await readCoingeckoIndicatorsDebug(input);
 }
 
 export async function handleTaDebug({
@@ -188,26 +246,32 @@ export async function handleTaDebug({
   bypass,
   cmd,
 }) {
+  const kind = getCommandKind(cmd);
+  const mode = getMode(cmd);
+  const defaultCmd = getDefaultCmd(kind, mode);
+
   if (!bypass) {
     await reply("⛔ DEV only.", {
-      cmd: cmd || "/ta_debug",
+      cmd: cmd || defaultCmd,
       handler: "taDebug",
       event: "forbidden",
+      kind,
+      mode,
     });
     return { handled: true };
   }
 
   const input = parseTaDebugArgs(rest);
-  const mode = cmd === "/ta_debug_full" ? "full" : "short";
 
   try {
-    const result = await readCoingeckoIndicatorsDebug(input);
+    const result = await readByKind(kind, input);
 
     if (!result?.ok) {
-      await reply(buildErrorText(result, input, mode), {
-        cmd: cmd || "/ta_debug",
+      await reply(buildErrorText(result, input, kind, mode), {
+        cmd: cmd || defaultCmd,
         handler: "taDebug",
-        event: "reader_not_ready",
+        event: kind === "snapshot" ? "snapshot_not_ready" : "reader_not_ready",
+        kind,
         mode,
       });
       return { handled: true };
@@ -215,13 +279,14 @@ export async function handleTaDebug({
 
     const text =
       mode === "full"
-        ? buildFullSuccessText(result, input)
-        : buildShortSuccessText(result, input);
+        ? buildFullSuccessText(result, input, kind)
+        : buildShortSuccessText(result, input, kind);
 
     await reply(text, {
-      cmd: cmd || "/ta_debug",
+      cmd: cmd || defaultCmd,
       handler: "taDebug",
-      event: "reader_ready",
+      event: kind === "snapshot" ? "snapshot_ready" : "reader_ready",
+      kind,
       mode,
       branch: result?.sgView?.branch || null,
       status: result?.sgView?.status || null,
@@ -230,29 +295,20 @@ export async function handleTaDebug({
 
     return { handled: true };
   } catch (error) {
-    const text =
-      mode === "full"
-        ? [
-            "⛔ TA DEBUG FULL",
-            `coin: ${input.coinId}`,
-            `vs: ${input.vsCurrency}`,
-            `days: ${input.days}`,
-            "reason: exception",
-            `message: ${error?.message ? String(error.message) : "unknown_error"}`,
-          ].join("\n")
-        : [
-            "⛔ TA DEBUG",
-            `coin: ${input.coinId}`,
-            `vs: ${input.vsCurrency}`,
-            `days: ${input.days}`,
-            "reason: exception",
-            `message: ${error?.message ? String(error.message) : "unknown_error"}`,
-          ].join("\n");
+    const text = [
+      getTitle(kind, mode),
+      `coin: ${input.coinId}`,
+      `vs: ${input.vsCurrency}`,
+      `days: ${input.days}`,
+      "reason: exception",
+      `message: ${error?.message ? String(error.message) : "unknown_error"}`,
+    ].join("\n");
 
     await reply(text, {
-      cmd: cmd || "/ta_debug",
+      cmd: cmd || defaultCmd,
       handler: "taDebug",
       event: "exception",
+      kind,
       mode,
     });
 

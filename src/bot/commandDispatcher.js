@@ -50,6 +50,9 @@ import { handleTaCore } from "./handlers/taCore.js";
 // ✅ STAGE 10C.8 — News RSS debug
 import { handleNewsDebug } from "./handlers/newsDebug.js";
 
+// ✅ STAGE 10C.9 — Multi-monitor debug
+import { handleMultiMonitorDebug } from "./handlers/multiMonitorDebug.js";
+
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -205,6 +208,9 @@ export async function dispatchCommand(cmd, ctx) {
 
     "/news_rss",
     "/news_rss_full",
+
+    "/multi_monitor",
+    "/multi_monitor_full",
 
     "/memory_status",
     "/memory_diag",
@@ -456,6 +462,19 @@ export async function dispatchCommand(cmd, ctx) {
     case "/news_rss":
     case "/news_rss_full": {
       await handleNewsDebug({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        reply,
+        bypass: !!ctx.bypass,
+        cmd: cmd0,
+      });
+      return { handled: true };
+    }
+
+    case "/multi_monitor":
+    case "/multi_monitor_full": {
+      await handleMultiMonitorDebug({
         bot,
         chatId,
         rest: ctx.rest,

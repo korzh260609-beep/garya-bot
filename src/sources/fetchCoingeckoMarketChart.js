@@ -18,7 +18,7 @@
 
 import { fetchWithTimeout } from "../core/fetchWithTimeout.js";
 
-export const COINGECKO_MARKET_CHART_VERSION = "10C.7-market-chart-fetcher-v2";
+export const COINGECKO_MARKET_CHART_VERSION = "10C.33-market-chart-fetcher-v3";
 
 const COINGECKO_MARKET_CHART_BASE_URL =
   "https://api.coingecko.com/api/v3/coins";
@@ -260,7 +260,15 @@ function safeJsonParse(text) {
 }
 
 function shouldRetryHttpStatus(status) {
-  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+  return (
+    status === 408 ||
+    status === 425 ||
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504
+  );
 }
 
 function shouldRetryErrorMessage(message) {
@@ -273,7 +281,8 @@ function shouldRetryErrorMessage(message) {
     text.includes("socket") ||
     text.includes("econnreset") ||
     text.includes("etimedout") ||
-    text.includes("network")
+    text.includes("network") ||
+    text.includes("aborted")
   );
 }
 
@@ -281,7 +290,45 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchMarketChartAttempt({ url, timeoutMs }) {
+function shouldTryHourlyFallback({ days, interval }) {
+  if (interval === "hourly") return false;
+  if (days === "max") return false;
+
+  const n = Number(days);
+  if (!Number.isFinite(n)) return false;
+
+  return n > 0 && n <= 90;
+}
+
+function buildAttemptSnapshot({
+  attempt,
+  phase,
+  interval,
+  ok,
+  status,
+  statusText,
+  durationMs,
+  errorMessage,
+  rawText,
+  payload,
+}) {
+  return {
+    attempt,
+    phase,
+    interval: interval || "auto",
+    ok: Boolean(ok),
+    status: typeof status === "number" ? status : null,
+    statusText: statusText || "",
+    durationMs: typeof durationMs === "number" ? durationMs : null,
+    errorMessage: errorMessage || null,
+    rawPreview: typeof rawText === "string" ? rawText.slice(0, 500) : "",
+    payloadOk: payload?.ok === true,
+    payloadError: normalizeString(payload?.error) || null,
+    payloadMessage: normalizeString(payload?.message) || null,
+  };
+}
+
+async function fetchMarketChartAttempt({ url, timeoutMs, interval, phase, attempt }) {
   const startedAt = Date.now();
 
   try {
@@ -299,6 +346,9 @@ async function fetchMarketChartAttempt({ url, timeoutMs }) {
     const payload = safeJsonParse(rawText);
 
     return {
+      attempt,
+      phase,
+      interval,
       ok: response.ok,
       status: response.status,
       statusText: response.statusText || "",
@@ -311,6 +361,9 @@ async function fetchMarketChartAttempt({ url, timeoutMs }) {
     const durationMs = Date.now() - startedAt;
 
     return {
+      attempt,
+      phase,
+      interval,
       ok: false,
       status: null,
       statusText: "",
@@ -322,29 +375,16 @@ async function fetchMarketChartAttempt({ url, timeoutMs }) {
   }
 }
 
-export async function fetchCoinGeckoMarketChart(input = {}) {
-  const coinId = normalizeCoinId(input?.coinId);
-  const vsCurrency = normalizeVsCurrency(input?.vsCurrency);
-  const days = normalizeDays(input?.days);
-  const interval = normalizeInterval(input?.interval);
-  const limitPreviewPoints = normalizePositiveInt(input?.limitPreviewPoints, 3);
-  const timeoutMs = normalizePositiveInt(input?.timeoutMs, DEFAULT_TIMEOUT_MS);
-  const maxAttempts = normalizePositiveInt(input?.maxAttempts, DEFAULT_MAX_ATTEMPTS);
-  const retryDelayMs = normalizePositiveInt(input?.retryDelayMs, DEFAULT_RETRY_DELAY_MS);
-
-  if (!coinId) {
-    return {
-      ok: false,
-      sourceKey: "coingecko_market_chart",
-      content: "",
-      fetchedAt: new Date().toISOString(),
-      meta: {
-        version: COINGECKO_MARKET_CHART_VERSION,
-        reason: "missing_coin_id",
-      },
-    };
-  }
-
+async function runAttemptsForInterval({
+  coinId,
+  vsCurrency,
+  days,
+  interval,
+  timeoutMs,
+  maxAttempts,
+  retryDelayMs,
+  phase,
+}) {
   const url = buildUrl({
     coinId,
     vsCurrency,
@@ -361,20 +401,16 @@ export async function fetchCoinGeckoMarketChart(input = {}) {
     const attempt = await fetchMarketChartAttempt({
       url,
       timeoutMs,
-    });
-
-    const rawPreview =
-      typeof attempt.rawText === "string" ? attempt.rawText.slice(0, 500) : "";
-
-    attempts.push({
+      interval,
+      phase,
       attempt: attemptNo,
-      ok: attempt.ok,
-      status: attempt.status,
-      statusText: attempt.statusText || "",
-      durationMs: attempt.durationMs,
-      errorMessage: attempt.errorMessage || null,
-      rawPreview,
     });
+
+    attempts.push(
+      buildAttemptSnapshot({
+        ...attempt,
+      })
+    );
 
     lastAttempt = attempt;
 
@@ -384,10 +420,8 @@ export async function fetchCoinGeckoMarketChart(input = {}) {
 
     const canRetry =
       attemptNo < maxAttempts &&
-      (
-        (typeof attempt.status === "number" && shouldRetryHttpStatus(attempt.status)) ||
-        shouldRetryErrorMessage(attempt.errorMessage)
-      );
+      ((typeof attempt.status === "number" && shouldRetryHttpStatus(attempt.status)) ||
+        shouldRetryErrorMessage(attempt.errorMessage));
 
     if (!canRetry) {
       break;
@@ -396,8 +430,23 @@ export async function fetchCoinGeckoMarketChart(input = {}) {
     await delay(retryDelayMs);
   }
 
-  const fetchedAt = new Date().toISOString();
+  return {
+    url,
+    attempts,
+    lastAttempt,
+  };
+}
 
+function buildFailureMeta({
+  fetchedAt,
+  coinId,
+  vsCurrency,
+  days,
+  interval,
+  url,
+  lastAttempt,
+  attempts,
+}) {
   if (!lastAttempt) {
     return {
       ok: false,
@@ -417,33 +466,7 @@ export async function fetchCoinGeckoMarketChart(input = {}) {
     };
   }
 
-  if (!lastAttempt.ok) {
-    if (typeof lastAttempt.status === "number") {
-      return {
-        ok: false,
-        sourceKey: "coingecko_market_chart",
-        content: "",
-        fetchedAt,
-        meta: {
-          version: COINGECKO_MARKET_CHART_VERSION,
-          reason: "http_error",
-          status: lastAttempt.status,
-          statusText: lastAttempt.statusText || "",
-          url,
-          durationMs: lastAttempt.durationMs,
-          coinId,
-          vsCurrency,
-          days,
-          interval: interval || null,
-          rawPreview:
-            typeof lastAttempt.rawText === "string"
-              ? lastAttempt.rawText.slice(0, 500)
-              : "",
-          attempts,
-        },
-      };
-    }
-
+  if (typeof lastAttempt.status === "number") {
     return {
       ok: false,
       sourceKey: "coingecko_market_chart",
@@ -451,20 +474,230 @@ export async function fetchCoinGeckoMarketChart(input = {}) {
       fetchedAt,
       meta: {
         version: COINGECKO_MARKET_CHART_VERSION,
-        reason: "network_error",
-        message: lastAttempt.errorMessage || "unknown_error",
+        reason: "http_error",
+        status: lastAttempt.status,
+        statusText: lastAttempt.statusText || "",
+        url,
+        durationMs: lastAttempt.durationMs,
         coinId,
         vsCurrency,
         days,
         interval: interval || null,
-        url,
-        durationMs: lastAttempt.durationMs,
+        rawPreview:
+          typeof lastAttempt.rawText === "string"
+            ? lastAttempt.rawText.slice(0, 500)
+            : "",
         attempts,
       },
     };
   }
 
+  return {
+    ok: false,
+    sourceKey: "coingecko_market_chart",
+    content: "",
+    fetchedAt,
+    meta: {
+      version: COINGECKO_MARKET_CHART_VERSION,
+      reason: "network_error",
+      message: lastAttempt.errorMessage || "unknown_error",
+      coinId,
+      vsCurrency,
+      days,
+      interval: interval || null,
+      url,
+      durationMs: lastAttempt.durationMs,
+      attempts,
+    },
+  };
+}
+
+export async function fetchCoinGeckoMarketChart(input = {}) {
+  const coinId = normalizeCoinId(input?.coinId);
+  const vsCurrency = normalizeVsCurrency(input?.vsCurrency);
+  const days = normalizeDays(input?.days);
+  const interval = normalizeInterval(input?.interval);
+  const limitPreviewPoints = normalizePositiveInt(input?.limitPreviewPoints, 3);
+  const timeoutMs = normalizePositiveInt(input?.timeoutMs, DEFAULT_TIMEOUT_MS);
+  const maxAttempts = normalizePositiveInt(input?.maxAttempts, DEFAULT_MAX_ATTEMPTS);
+  const retryDelayMs = normalizePositiveInt(
+    input?.retryDelayMs,
+    DEFAULT_RETRY_DELAY_MS
+  );
+
+  if (!coinId) {
+    return {
+      ok: false,
+      sourceKey: "coingecko_market_chart",
+      content: "",
+      fetchedAt: new Date().toISOString(),
+      meta: {
+        version: COINGECKO_MARKET_CHART_VERSION,
+        reason: "missing_coin_id",
+      },
+    };
+  }
+
+  const primaryRun = await runAttemptsForInterval({
+    coinId,
+    vsCurrency,
+    days,
+    interval,
+    timeoutMs,
+    maxAttempts,
+    retryDelayMs,
+    phase: "primary",
+  });
+
+  let chosenRun = primaryRun;
+  let fallbackUsed = false;
+
+  if (
+    !primaryRun?.lastAttempt?.ok &&
+    shouldTryHourlyFallback({ days, interval })
+  ) {
+    const fallbackRun = await runAttemptsForInterval({
+      coinId,
+      vsCurrency,
+      days,
+      interval: "hourly",
+      timeoutMs,
+      maxAttempts,
+      retryDelayMs,
+      phase: "fallback_hourly",
+    });
+
+    if (fallbackRun?.lastAttempt?.ok) {
+      chosenRun = fallbackRun;
+      fallbackUsed = true;
+      chosenRun.attempts = [
+        ...(primaryRun?.attempts || []),
+        ...(fallbackRun?.attempts || []),
+      ];
+    } else {
+      primaryRun.attempts = [
+        ...(primaryRun?.attempts || []),
+        ...(fallbackRun?.attempts || []),
+      ];
+      chosenRun = {
+        ...primaryRun,
+        attempts: primaryRun.attempts,
+      };
+    }
+  }
+
+  const fetchedAt = new Date().toISOString();
+  const lastAttempt = chosenRun?.lastAttempt || null;
+  const attempts = chosenRun?.attempts || [];
+  const finalInterval = fallbackUsed ? "hourly" : interval;
+  const finalUrl = chosenRun?.url || buildUrl({ coinId, vsCurrency, days, interval });
+
+  if (!lastAttempt?.ok) {
+    return buildFailureMeta({
+      fetchedAt,
+      coinId,
+      vsCurrency,
+      days,
+      interval: finalInterval,
+      url: finalUrl,
+      lastAttempt,
+      attempts,
+    });
+  }
+
   const parsedResult = parseCoinGeckoMarketChartPayload(lastAttempt.payload);
+
+  if (
+    !parsedResult.ok &&
+    !fallbackUsed &&
+    shouldTryHourlyFallback({ days, interval })
+  ) {
+    const fallbackRun = await runAttemptsForInterval({
+      coinId,
+      vsCurrency,
+      days,
+      interval: "hourly",
+      timeoutMs,
+      maxAttempts,
+      retryDelayMs,
+      phase: "fallback_hourly_after_empty",
+    });
+
+    const mergedAttempts = [
+      ...attempts,
+      ...(fallbackRun?.attempts || []),
+    ];
+
+    if (fallbackRun?.lastAttempt?.ok) {
+      const fallbackParsedResult = parseCoinGeckoMarketChartPayload(
+        fallbackRun.lastAttempt.payload
+      );
+
+      if (fallbackParsedResult.ok) {
+        const pricesPreview = (fallbackParsedResult?.parsed?.prices || []).slice(
+          0,
+          limitPreviewPoints
+        );
+        const marketCapsPreview = (
+          fallbackParsedResult?.parsed?.marketCaps || []
+        ).slice(0, limitPreviewPoints);
+        const totalVolumesPreview = (
+          fallbackParsedResult?.parsed?.totalVolumes || []
+        ).slice(0, limitPreviewPoints);
+
+        const content = buildContentText({
+          coinId,
+          vsCurrency,
+          days,
+          interval: "hourly",
+          parsed: fallbackParsedResult.parsed,
+        });
+
+        return {
+          ok: true,
+          sourceKey: "coingecko_market_chart",
+          content,
+          fetchedAt,
+          meta: {
+            version: COINGECKO_MARKET_CHART_VERSION,
+            reason: fallbackParsedResult.reason,
+            status: fallbackRun.lastAttempt.status,
+            url: fallbackRun.url,
+            durationMs: fallbackRun.lastAttempt.durationMs,
+            coinId,
+            vsCurrency,
+            days,
+            interval: "hourly",
+            fallbackUsed: true,
+            fallbackReason: "primary_parsed_empty",
+            attempts: mergedAttempts,
+            parsed: {
+              prices: fallbackParsedResult.parsed.prices,
+              marketCaps: fallbackParsedResult.parsed.marketCaps,
+              totalVolumes: fallbackParsedResult.parsed.totalVolumes,
+              meta: fallbackParsedResult.parsed.meta,
+            },
+            preview: {
+              prices: pricesPreview,
+              marketCaps: marketCapsPreview,
+              totalVolumes: totalVolumesPreview,
+            },
+          },
+        };
+      }
+    }
+
+    return buildFailureMeta({
+      fetchedAt,
+      coinId,
+      vsCurrency,
+      days,
+      interval,
+      url: fallbackRun?.url || finalUrl,
+      lastAttempt: fallbackRun?.lastAttempt || lastAttempt,
+      attempts: mergedAttempts,
+    });
+  }
 
   const pricesPreview = (parsedResult?.parsed?.prices || []).slice(
     0,
@@ -482,7 +715,7 @@ export async function fetchCoinGeckoMarketChart(input = {}) {
     coinId,
     vsCurrency,
     days,
-    interval,
+    interval: finalInterval,
     parsed: parsedResult.parsed,
   });
 
@@ -495,12 +728,13 @@ export async function fetchCoinGeckoMarketChart(input = {}) {
       version: COINGECKO_MARKET_CHART_VERSION,
       reason: parsedResult.reason,
       status: lastAttempt.status,
-      url,
+      url: finalUrl,
       durationMs: lastAttempt.durationMs,
       coinId,
       vsCurrency,
       days,
-      interval: interval || null,
+      interval: finalInterval || null,
+      fallbackUsed,
       attempts,
       parsed: {
         prices: parsedResult.parsed.prices,

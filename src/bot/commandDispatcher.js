@@ -56,6 +56,9 @@ import { handleMultiMonitorDebug } from "./handlers/multiMonitorDebug.js";
 // ✅ STAGE 10C.10 — Crypto diagnostics
 import { handleCryptoDiagnostics } from "./handlers/cryptoDiagnostics.js";
 
+// ✅ STAGE 10C.11 — CG V-Fuse
+import { handleCgVFuse } from "./handlers/cgVFuse.js";
+
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -217,6 +220,9 @@ export async function dispatchCommand(cmd, ctx) {
 
     "/crypto_diag",
     "/crypto_diag_full",
+
+    "/cg_vfuse",
+    "/cg_vfuse_full",
 
     "/memory_status",
     "/memory_diag",
@@ -494,6 +500,19 @@ export async function dispatchCommand(cmd, ctx) {
     case "/crypto_diag":
     case "/crypto_diag_full": {
       await handleCryptoDiagnostics({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        reply,
+        bypass: !!ctx.bypass,
+        cmd: cmd0,
+      });
+      return { handled: true };
+    }
+
+    case "/cg_vfuse":
+    case "/cg_vfuse_full": {
+      await handleCgVFuse({
         bot,
         chatId,
         rest: ctx.rest,

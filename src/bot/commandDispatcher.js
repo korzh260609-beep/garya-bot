@@ -22,26 +22,12 @@ import { handleTaskStatus } from "./handlers/taskStatus.js"; // Stage 5.7 — re
 import { handleTasksList } from "./handlers/tasksList.js";
 import { handleArList } from "./handlers/arList.js";
 import { handleFileLogs } from "./handlers/fileLogs.js";
-import { handleLinkStart } from "./handlers/linkStart.js";
-import { handleLinkConfirm } from "./handlers/linkConfirm.js";
-import { handleLinkStatus } from "./handlers/linkStatus.js";
 import { handleRecall, handleRecallMore } from "./handlers/recall.js";
-import { handleIdentityDiag } from "./handlers/identityDiag.js";
-import { handleIdentityBackfill } from "./handlers/identityBackfill.js";
-import { handleIdentityUpgradeLegacy } from "./handlers/identityUpgradeLegacy.js";
-import { handleIdentityOrphans } from "./handlers/identityOrphans.js";
-// ✅ Stage 4.5 — list legacy tg:* users
-import { handleIdentityLegacyTg } from "./handlers/identityLegacyTg.js";
 
 // ✅ Stage 5.16 — behavior events verification
 import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
 // ✅ Stage 5.16 — behavior events test emitter (DEV)
 import { handleBeEmit } from "./handlers/beEmit.js";
-
-// ✅ STAGE 11.12 — grants
-import { handleGrant } from "./handlers/grant.js";
-import { handleRevoke } from "./handlers/revoke.js";
-import { handleGrants } from "./handlers/grants.js";
 
 import pool from "../../db.js";
 
@@ -49,21 +35,7 @@ import pool from "../../db.js";
 import { MemoryDiagnosticsService } from "../core/MemoryDiagnosticsService.js";
 
 import { handleStopTasksType } from "./handlers/stopTasksType.js";
-import { handleUsersStats } from "./handlers/usersStats.js";
 import { handleStopAllTasks } from "./handlers/stopAllTasks.js"; // ✅ /stop_all_tasks
-
-// ✅ STAGE 4.3 — Chat Gate admin handlers (monarch)
-import { handleChatSetActive } from "./handlers/chatSetActive.js";
-import { handleChatStatus } from "./handlers/chatStatus.js";
-
-// ✅ STAGE 7B.9 / 11.18 — Group Source admin handlers (monarch, skeleton)
-import { handleGroupSourceSet } from "./handlers/groupSourceSet.js";
-import { handleGroupSources } from "./handlers/groupSources.js";
-
-// ✅ monarch-private diagnostic helpers
-import { handleMySeenChats } from "./handlers/mySeenChats.js";
-import { handleGroupSourceMeta } from "./handlers/groupSourceMeta.js";
-import { handleGroupSourceTopicDiag } from "./handlers/groupSourceTopicDiag.js";
 
 // ✅ Stage 5–6: manual /run must write task_runs via JobRunner
 import { jobRunner } from "../jobs/jobRunnerInstance.js";
@@ -83,6 +55,9 @@ import { dispatchSourcesCommands } from "./dispatchers/dispatchSourcesCommands.j
 
 // ✅ PROJECT MEMORY dispatcher (extracted 1:1 block)
 import { dispatchProjectMemoryCommands } from "./dispatchers/dispatchProjectMemoryCommands.js";
+
+// ✅ IDENTITY / LINK dispatcher (extracted 1:1 block)
+import { dispatchIdentityCommands } from "./dispatchers/dispatchIdentityCommands.js";
 
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
@@ -274,6 +249,16 @@ export async function dispatchCommand(cmd, ctx) {
     return projectMemoryHandled;
   }
 
+  const identityHandled = await dispatchIdentityCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (identityHandled?.handled) {
+    return identityHandled;
+  }
+
   switch (cmd0) {
     case "/profile":
     case "/me":
@@ -324,195 +309,6 @@ export async function dispatchCommand(cmd, ctx) {
       });
     }
 
-    case "/chat_on": {
-      await handleChatSetActive({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-        isActive: true,
-      });
-      return { handled: true };
-    }
-
-    case "/chat_off": {
-      await handleChatSetActive({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-        isActive: false,
-      });
-      return { handled: true };
-    }
-
-    case "/chat_status": {
-      await handleChatStatus({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/group_source_on": {
-      await handleGroupSourceSet({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-        sourceEnabled: true,
-      });
-      return { handled: true };
-    }
-
-    case "/group_source_off": {
-      await handleGroupSourceSet({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-        sourceEnabled: false,
-      });
-      return { handled: true };
-    }
-
-    case "/group_sources": {
-      await handleGroupSources({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/my_seen_chats": {
-      await handleMySeenChats({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/group_source_meta": {
-      await handleGroupSourceMeta({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/group_source_topic_diag": {
-      await handleGroupSourceTopicDiag({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/grant": {
-      await handleGrant({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/revoke": {
-      await handleRevoke({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/grants": {
-      await handleGrants({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/users_stats": {
-      await handleUsersStats({
-        bot,
-        chatId,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/identity_diag": {
-      await handleIdentityDiag({
-        bot,
-        chatId,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/identity_backfill": {
-      await handleIdentityBackfill({
-        bot,
-        chatId,
-        bypass: ctx.bypass,
-        rest: ctx.rest,
-      });
-      return { handled: true };
-    }
-
-    case "/identity_upgrade_legacy": {
-      await handleIdentityUpgradeLegacy({
-        bot,
-        chatId,
-        bypass: ctx.bypass,
-        rest: ctx.rest,
-        senderIdStr: ctx.senderIdStr,
-      });
-      return { handled: true };
-    }
-
-    case "/identity_orphans": {
-      await handleIdentityOrphans({
-        bot,
-        chatId,
-        bypass: ctx.bypass,
-        rest: ctx.rest,
-      });
-      return { handled: true };
-    }
-
-    case "/identity_legacy_tg": {
-      await handleIdentityLegacyTg({
-        bot,
-        chatId,
-        bypass: ctx.bypass,
-        rest: ctx.rest,
-      });
-      return { handled: true };
-    }
-
     case "/ar_list": {
       await handleArList({
         bot,
@@ -530,40 +326,6 @@ export async function dispatchCommand(cmd, ctx) {
         chatIdStr,
         rest: ctx.rest,
         bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/link_start": {
-      const provider = ctx?.identityCtx?.transport || "telegram";
-      await handleLinkStart({
-        bot,
-        chatId,
-        senderIdStr: ctx.senderIdStr,
-        provider,
-      });
-      return { handled: true };
-    }
-
-    case "/link_confirm": {
-      const provider = ctx?.identityCtx?.transport || "telegram";
-      await handleLinkConfirm({
-        bot,
-        chatId,
-        senderIdStr: ctx.senderIdStr,
-        rest: ctx.rest,
-        provider,
-      });
-      return { handled: true };
-    }
-
-case "/link_status": {
-      const provider = ctx?.identityCtx?.transport || "telegram";
-      await handleLinkStatus({
-        bot,
-        chatId,
-        senderIdStr: ctx.senderIdStr,
-        provider,
       });
       return { handled: true };
     }

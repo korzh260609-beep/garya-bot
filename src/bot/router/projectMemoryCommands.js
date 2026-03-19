@@ -8,6 +8,7 @@ export async function handleProjectMemoryCommands({
   rest,
   getProjectSection,
   upsertProjectSection,
+  getProjectMemoryList,
 }) {
   if (cmdBase === "/pm_show") {
     const section = (rest || "").trim();
@@ -115,6 +116,59 @@ export async function handleProjectMemoryCommands({
     } catch (e) {
       console.error("❌ /pm_set error:", e);
       await bot.sendMessage(chatId, "⚠️ Ошибка записи Project Memory.");
+    }
+
+    return true;
+  }
+
+  if (cmdBase === "/pm_list") {
+    const raw = String(rest || "").trim();
+    const sectionFilter = raw ? raw.split(/\s+/)[0].trim() : null;
+
+    try {
+      if (typeof getProjectMemoryList !== "function") {
+        await bot.sendMessage(chatId, "⚠️ getProjectMemoryList недоступен.");
+        return true;
+      }
+
+      const rows = await getProjectMemoryList(undefined, sectionFilter || null);
+
+      if (!rows || rows.length === 0) {
+        const msg = sectionFilter
+          ? `🧠 Project Memory: секция "${sectionFilter}" не найдена.`
+          : "🧠 Project Memory: секций пока нет.";
+        await bot.sendMessage(chatId, msg);
+        return true;
+      }
+
+      const sections = [];
+      const seen = new Set();
+
+      for (const r of rows) {
+        const s = String(r.section || "").trim();
+        if (!s) continue;
+        if (seen.has(s)) continue;
+        seen.add(s);
+        sections.push(s);
+      }
+
+      if (sectionFilter) {
+        const msg = [
+          `🧠 Project Memory: "${sectionFilter}"`,
+          "",
+          "✅ Есть записи (используй /pm_show " + sectionFilter + ")",
+        ].join("\n");
+        await bot.sendMessage(chatId, msg);
+        return true;
+      }
+
+      const msg = ["🧠 Project Memory sections:", "", ...sections.map((s) => `• ${s}`)].join("\n");
+      const out = msg.length > 3800 ? msg.slice(0, 3800) + "\n…(обрезано)" : msg;
+
+      await bot.sendMessage(chatId, out);
+    } catch (e) {
+      console.error("❌ /pm_list error:", e);
+      await bot.sendMessage(chatId, "⚠️ Ошибка чтения списка Project Memory.");
     }
 
     return true;

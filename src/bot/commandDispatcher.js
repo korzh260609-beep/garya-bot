@@ -80,15 +80,11 @@ import { handlePmSet } from "./handlers/pmSet.js";
 import { handlePmShow } from "./handlers/pmShow.js";
 import { handlePmList } from "./handlers/pmList.js";
 
-// ✅ SOURCES — enforced command path
-import { handleSourcesList } from "./handlers/sourcesList.js";
-import { handleSourcesDiag } from "./handlers/sources_diag.js";
-import { handleSource } from "./handlers/source.js";
-import { handleDiagSource } from "./handlers/diagSource.js";
-import { handleTestSource } from "./handlers/testSource.js";
-
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
 import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
+
+// ✅ SOURCES dispatcher (extracted 1:1 block)
+import { dispatchSourcesCommands } from "./dispatchers/dispatchSourcesCommands.js";
 
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
@@ -260,6 +256,16 @@ export async function dispatchCommand(cmd, ctx) {
     return cryptoHandled;
   }
 
+  const sourcesHandled = await dispatchSourcesCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (sourcesHandled?.handled) {
+    return sourcesHandled;
+  }
+
   switch (cmd0) {
     case "/pm_show": {
       if (typeof ctx.getProjectSection !== "function") {
@@ -358,92 +364,6 @@ export async function dispatchCommand(cmd, ctx) {
         userPlan: ctx.userPlan,
         bypass: ctx.bypass,
       });
-    }
-
-    case "/sources": {
-      if (typeof ctx.getAllSourcesSafe !== "function") {
-        await reply("⛔ getAllSourcesSafe недоступен (ошибка wiring).", {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-        return { handled: true };
-      }
-
-      await handleSourcesList({
-        bot,
-        chatId,
-        listSources: ctx.getAllSourcesSafe,
-        userRole: ctx.userRole,
-        userPlan: ctx.userPlan,
-        bypass: ctx.bypass,
-      });
-
-      return { handled: true };
-    }
-
-    case "/sources_diag": {
-      await handleSourcesDiag({
-        bot,
-        chatId,
-        userRole: ctx.userRole,
-        userPlan: ctx.userPlan,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/source": {
-      await handleSource({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        userRole: ctx.userRole,
-        userPlan: ctx.userPlan,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/diag_source": {
-      if (typeof ctx.runSourceDiagnosticsOnce !== "function") {
-        await reply("⛔ runSourceDiagnosticsOnce недоступен (ошибка wiring).", {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-        return { handled: true };
-      }
-
-      await handleDiagSource({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        userRole: ctx.userRole,
-        userPlan: ctx.userPlan,
-        bypass: ctx.bypass,
-        runSourceDiagnosticsOnce: ctx.runSourceDiagnosticsOnce,
-      });
-      return { handled: true };
-    }
-
-    case "/test_source": {
-      if (typeof ctx.fetchFromSourceKey !== "function") {
-        await reply("⛔ fetchFromSourceKey недоступен (ошибка wiring).", {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-        return { handled: true };
-      }
-
-      await handleTestSource({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        fetchFromSourceKey: ctx.fetchFromSourceKey,
-        userRole: ctx.userRole,
-        userPlan: ctx.userPlan,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
     }
 
     case "/chat_on": {

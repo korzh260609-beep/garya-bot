@@ -27,9 +27,6 @@ import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
 // ✅ Stage 5.16 — behavior events test emitter (DEV)
 import { handleBeEmit } from "./handlers/beEmit.js";
 
-// ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
-import { MemoryDiagnosticsService } from "../core/MemoryDiagnosticsService.js";
-
 // ✅ /build_info (public env snapshot)
 import { getPublicEnvSnapshot } from "../core/config.js";
 
@@ -51,8 +48,8 @@ import { dispatchTaskCommands } from "./dispatchers/dispatchTaskCommands.js";
 // ✅ RECALL dispatcher (extracted 1:1 block)
 import { dispatchRecallCommands } from "./dispatchers/dispatchRecallCommands.js";
 
-// ✅ Singleton service (safe: no side-effects)
-const memoryDiagSvc = new MemoryDiagnosticsService();
+// ✅ MEMORY DIAGNOSTICS dispatcher (extracted 1:1 block)
+import { dispatchMemoryDiagnosticsCommands } from "./dispatchers/dispatchMemoryDiagnosticsCommands.js";
 
 /**
  * Backward-compatible dispatcher.
@@ -271,6 +268,16 @@ export async function dispatchCommand(cmd, ctx) {
     return recallHandled;
   }
 
+  const memoryDiagnosticsHandled = await dispatchMemoryDiagnosticsCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (memoryDiagnosticsHandled?.handled) {
+    return memoryDiagnosticsHandled;
+  }
+
   switch (cmd0) {
     case "/profile":
     case "/me":
@@ -339,50 +346,6 @@ export async function dispatchCommand(cmd, ctx) {
         rest: ctx.rest,
         bypass: ctx.bypass,
       });
-      return { handled: true };
-    }
-
-    case "/memory_status": {
-      const cols = await memoryDiagSvc.getChatMemoryV2Columns();
-      await reply(
-        [
-          "🧪 MEMORY STATUS",
-          `global_user_id: ${cols.global_user_id ? "true ✅" : "false ⛔"}`,
-          `transport: ${cols.transport ? "true ✅" : "false ⛔"}`,
-          `metadata: ${cols.metadata ? "true ✅" : "false ⛔"}`,
-          `schema_version: ${cols.schema_version ? "true ✅" : "false ⛔"}`,
-        ].join("\n"),
-        { cmd: cmd0, handler: "commandDispatcher" }
-      );
-      return { handled: true };
-    }
-
-    case "/memory_diag": {
-      const globalUserId = ctx?.user?.global_user_id ?? null;
-      const text = await memoryDiagSvc.memoryDiag({ chatIdStr, globalUserId });
-      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
-      return { handled: true };
-    }
-
-    case "/memory_integrity": {
-      const text = await memoryDiagSvc.memoryIntegrity({ chatIdStr });
-      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
-      return { handled: true };
-    }
-
-    case "/memory_backfill": {
-      const globalUserId = ctx?.user?.global_user_id ?? null;
-      const limitStr = String(ctx?.rest || "").trim();
-      const limit = limitStr ? Number(limitStr) : 200;
-      const text = await memoryDiagSvc.memoryBackfill({ chatIdStr, globalUserId, limit });
-      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
-      return { handled: true };
-    }
-
-    case "/memory_user_chats": {
-      const globalUserId = ctx?.user?.global_user_id ?? null;
-      const text = await memoryDiagSvc.memoryUserChats({ globalUserId });
-      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
       return { handled: true };
     }
 

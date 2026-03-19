@@ -33,6 +33,10 @@ export const CMD_ACTION = {
   "/ta_core": "cmd.admin.ta_core",
   "/ta_core_full": "cmd.admin.ta_core",
 
+  // ✅ STAGE 10C.8 — News RSS debug commands (monarch/dev)
+  "/news_rss": "cmd.admin.news_rss",
+  "/news_rss_full": "cmd.admin.news_rss",
+
   // ✅ STAGE 11.13 — Recall role gate
   "/recall": "cmd.recall",
   "/recall_more": "cmd.recall",

@@ -49,6 +49,10 @@ export const CMD_ACTION = {
   "/cg_vfuse": "cmd.admin.cg_vfuse",
   "/cg_vfuse_full": "cmd.admin.cg_vfuse",
 
+  // ✅ STAGE 10D.1 — Binance ticker debug commands (monarch/dev)
+  "/bn_ticker": "cmd.admin.bn_ticker",
+  "/bn_ticker_full": "cmd.admin.bn_ticker",
+
   // ✅ STAGE 11.13 — Recall role gate
   "/recall": "cmd.recall",
   "/recall_more": "cmd.recall",

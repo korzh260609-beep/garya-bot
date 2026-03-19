@@ -18,8 +18,7 @@ import { handleDecisionDiagLastDb } from "./handlers/decisionDiagLastDb.js";
 import { handleDecisionDiagWindow } from "./handlers/decisionDiagWindow.js";
 import { handleDecisionPromotionDiag } from "./handlers/decisionPromotionDiag.js";
 import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — read-only
-import { handleTaskStatus } from "./handlers/taskStatus.js"; // Stage 5.7 — read-only
-import { handleTasksList } from "./handlers/tasksList.js";
+import { handleTaskStatus } from "./handlers/taskStatus.js";
 import { handleArList } from "./handlers/arList.js";
 import { handleFileLogs } from "./handlers/fileLogs.js";
 import { handleRecall, handleRecallMore } from "./handlers/recall.js";
@@ -29,20 +28,8 @@ import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
 // ✅ Stage 5.16 — behavior events test emitter (DEV)
 import { handleBeEmit } from "./handlers/beEmit.js";
 
-import pool from "../../db.js";
-
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
 import { MemoryDiagnosticsService } from "../core/MemoryDiagnosticsService.js";
-
-import { handleStopTasksType } from "./handlers/stopTasksType.js";
-import { handleStopAllTasks } from "./handlers/stopAllTasks.js"; // ✅ /stop_all_tasks
-
-// ✅ Stage 5–6: manual /run must write task_runs via JobRunner
-import { jobRunner } from "../jobs/jobRunnerInstance.js";
-import { makeTaskRunKey } from "../jobs/jobRunner.js";
-
-// ✅ Stage 6 — helpers (used for /demo_task)
-import { callWithFallback } from "../../core/helpers.js";
 
 // ✅ /build_info (public env snapshot)
 import { getPublicEnvSnapshot } from "../core/config.js";
@@ -58,6 +45,9 @@ import { dispatchProjectMemoryCommands } from "./dispatchers/dispatchProjectMemo
 
 // ✅ IDENTITY / LINK dispatcher (extracted 1:1 block)
 import { dispatchIdentityCommands } from "./dispatchers/dispatchIdentityCommands.js";
+
+// ✅ TASK dispatcher (extracted 1:1 block)
+import { dispatchTaskCommands } from "./dispatchers/dispatchTaskCommands.js";
 
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
@@ -259,6 +249,16 @@ export async function dispatchCommand(cmd, ctx) {
     return identityHandled;
   }
 
+  const taskHandled = await dispatchTaskCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (taskHandled?.handled) {
+    return taskHandled;
+  }
+
   switch (cmd0) {
     case "/profile":
     case "/me":
@@ -325,254 +325,6 @@ export async function dispatchCommand(cmd, ctx) {
         chatId,
         chatIdStr,
         rest: ctx.rest,
-        bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/demo_task": {
-      if (typeof ctx.createDemoTask !== "function") {
-        await reply("⛔ createDemoTask недоступен (ошибка wiring).", {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-        return { handled: true };
-      }
-
-      const access = {
-        userRole: ctx.userRole || ctx.user?.role || "guest",
-        userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user,
-      };
-
-      try {
-        const id = await callWithFallback(ctx.createDemoTask, [
-          [chatIdStr, access],
-          [chatIdStr],
-        ]);
-        await reply(`✅ Демо-задача создана!\nID: ${id?.id || id}`, {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-      } catch (e) {
-        await reply(`⛔ ${e?.message || "Запрещено"}`, {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-      }
-
-      return { handled: true };
-    }
-
-    case "/tasks": {
-      const access = {
-        userRole: ctx.userRole || ctx.user?.role || "guest",
-        userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user,
-      };
-
-      await handleTasksList({
-        bot,
-        chatId,
-        chatIdStr,
-        getUserTasks: ctx.getUserTasks,
-        access,
-      });
-
-      return { handled: true };
-    }
-
-    case "/newtask": {
-      const raw = String(rest || "").trim();
-
-      if (!raw) {
-        await reply(
-          [
-            "Использование:",
-            "- /newtask <title> | <note>  (manual, legacy)",
-            '- /newtask price_monitor {"symbol":"BTCUSDT","interval_minutes":1,"threshold_percent":1}',
-            "",
-            "Примечание: price_monitor сейчас создаётся тестовым шаблоном (payload из JSON может игнорироваться).",
-          ].join("\n"),
-          { cmd: cmd0, handler: "commandDispatcher" }
-        );
-        return { handled: true };
-      }
-
-      const access = {
-        userRole: ctx.userRole || ctx.user?.role || "guest",
-        userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user,
-      };
-
-      if (raw.includes("|")) {
-        const parts = raw.split("|").map((s) => s.trim());
-        const title = parts[0] || "Новая задача";
-        const note = parts.slice(1).join(" | ").trim() || "";
-
-        if (typeof ctx.createManualTask !== "function") {
-          await reply("⛔ createManualTask недоступен (ошибка wiring).", {
-            cmd: cmd0,
-            handler: "commandDispatcher",
-          });
-          return { handled: true };
-        }
-
-        try {
-          const row = await ctx.createManualTask(chatIdStr, title, note, access);
-          const id = row?.id ?? "?";
-          await reply(`✅ Задача создана: #${id}\n${title}\nТип: manual`, {
-            cmd: cmd0,
-            handler: "commandDispatcher",
-          });
-        } catch (e) {
-          await reply(`⛔ ${e?.message || "Запрещено"}`, {
-            cmd: cmd0,
-            handler: "commandDispatcher",
-          });
-        }
-
-        return { handled: true };
-      }
-
-      const firstSpace = raw.indexOf(" ");
-      const type = (firstSpace === -1 ? raw : raw.slice(0, firstSpace)).trim();
-      const jsonPart = (firstSpace === -1 ? "" : raw.slice(firstSpace + 1)).trim();
-
-      if (type === "price_monitor") {
-        if (typeof ctx.createTestPriceMonitorTask !== "function") {
-          await reply("⛔ createTestPriceMonitorTask недоступен (ошибка wiring).", {
-            cmd: cmd0,
-            handler: "commandDispatcher",
-          });
-          return { handled: true };
-        }
-
-        if (jsonPart) {
-          try {
-            JSON.parse(jsonPart);
-          } catch (e) {
-            await reply(
-              '⛔ Неверный JSON. Пример: /newtask price_monitor {"symbol":"BTCUSDT","interval_minutes":1,"threshold_percent":1}',
-              { cmd: cmd0, handler: "commandDispatcher" }
-            );
-            return { handled: true };
-          }
-        }
-
-        try {
-          const id = await ctx.createTestPriceMonitorTask(chatIdStr, access);
-          await reply(
-            [
-              `✅ Тест price_monitor создан!`,
-              `ID: ${id}`,
-              jsonPart ? "ℹ️ JSON принят, но сейчас может игнорироваться (тестовый шаблон)." : "",
-            ]
-              .filter(Boolean)
-              .join("\n"),
-            { cmd: cmd0, handler: "commandDispatcher" }
-          );
-        } catch (e) {
-          await reply(`⛔ ${e?.message || "Запрещено"}`, {
-            cmd: cmd0,
-            handler: "commandDispatcher",
-          });
-        }
-
-        return { handled: true };
-      }
-
-      if (typeof ctx.createManualTask !== "function") {
-        await reply("⛔ createManualTask недоступен (ошибка wiring).", {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-        return { handled: true };
-      }
-
-      try {
-        const row = await ctx.createManualTask(chatIdStr, raw, "", access);
-        const id = row?.id ?? "?";
-        await reply(`✅ Задача создана: #${id}\n${raw}\nТип: manual`, {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-      } catch (e) {
-        await reply(`⛔ ${e?.message || "Запрещено"}`, {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-      }
-
-      return { handled: true };
-    }
-
-    case "/run": {
-      const raw = String(rest || "").trim();
-      const taskId = parseInt(raw, 10);
-
-      if (!raw || Number.isNaN(taskId)) {
-        await reply("Использование: /run <id>", { cmd: cmd0, handler: "commandDispatcher" });
-        return { handled: true };
-      }
-
-      if (typeof ctx.getTaskById !== "function" || typeof ctx.runTaskWithAI !== "function") {
-        await reply("⛔ TaskEngine недоступен (ошибка wiring).", {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-        return { handled: true };
-      }
-
-      const access = {
-        userRole: ctx.userRole || ctx.user?.role || "guest",
-        userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user,
-      };
-
-      const task = await ctx.getTaskById(chatIdStr, taskId, access);
-
-      if (!task) {
-        await reply(`⛔ Задача #${taskId} не найдена`, { cmd: cmd0, handler: "commandDispatcher" });
-        return { handled: true };
-      }
-
-      const runKey = makeTaskRunKey({
-        taskId: task.id,
-        scheduledForIso: new Date().toISOString(),
-      });
-
-      await jobRunner.enqueue(
-        {
-          taskId: task.id,
-          runKey,
-          meta: { source: "manual" },
-        },
-        { idempotencyKey: runKey }
-      );
-
-      await jobRunner.runOnce(async () => {
-        await ctx.runTaskWithAI(task, chatId, bot, access);
-      });
-
-      return { handled: true };
-    }
-
-    case "/stop_tasks_type": {
-      await handleStopTasksType({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        bypass: ctx.bypass,
-        pool,
-      });
-      return { handled: true };
-    }
-
-    case "/stop_all_tasks": {
-      await handleStopAllTasks({
-        bot,
-        chatId,
         bypass: ctx.bypass,
       });
       return { handled: true };

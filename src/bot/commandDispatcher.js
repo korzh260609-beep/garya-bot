@@ -47,6 +47,9 @@ import { handleGrants } from "./handlers/grants.js";
 import { handleTaDebug } from "./handlers/taDebug.js";
 import { handleTaCore } from "./handlers/taCore.js";
 
+// ✅ STAGE 10C.8 — News RSS debug
+import { handleNewsDebug } from "./handlers/newsDebug.js";
+
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -199,6 +202,9 @@ export async function dispatchCommand(cmd, ctx) {
     "/ta_snapshot_full",
     "/ta_core",
     "/ta_core_full",
+
+    "/news_rss",
+    "/news_rss_full",
 
     "/memory_status",
     "/memory_diag",
@@ -437,6 +443,19 @@ export async function dispatchCommand(cmd, ctx) {
     case "/ta_core":
     case "/ta_core_full": {
       await handleTaCore({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        reply,
+        bypass: !!ctx.bypass,
+        cmd: cmd0,
+      });
+      return { handled: true };
+    }
+
+    case "/news_rss":
+    case "/news_rss_full": {
+      await handleNewsDebug({
         bot,
         chatId,
         rest: ctx.rest,

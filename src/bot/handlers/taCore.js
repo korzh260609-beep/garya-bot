@@ -1,0 +1,289 @@
+// src/bot/handlers/taCore.js
+// ============================================================================
+// STAGE 10C.38
+// MONARCH/DEV INTERNAL TA CORE HANDLER
+// - /ta_core
+// - /ta_core_full
+//
+// PURPOSE:
+// - use direct internal snapshot source as the new TA core path
+// - keep legacy taDebug handler untouched
+// - provide compact and expanded internal TA views
+// - no SourceService changes
+// - no chat runtime refactor
+// - no execution logic
+// ============================================================================
+
+import { readCoingeckoIndicatorsSnapshot } from "../../sources/readCoingeckoIndicatorsSnapshot.js";
+
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeCoinId(value) {
+  return normalizeString(value).toLowerCase() || "bitcoin";
+}
+
+function normalizeVsCurrency(value) {
+  return normalizeString(value).toLowerCase() || "usd";
+}
+
+function normalizeDays(value) {
+  const raw = normalizeString(value).toLowerCase();
+
+  if (!raw) return "30";
+  if (raw === "max") return "max";
+
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) {
+    return String(Math.trunc(n));
+  }
+
+  return "30";
+}
+
+function normalizePositiveInt(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+
+  const out = Math.trunc(n);
+  return out > 0 ? out : fallback;
+}
+
+function parseTaCoreArgs(rest = "") {
+  const raw = normalizeString(rest);
+
+  if (!raw) {
+    return {
+      coinId: "bitcoin",
+      vsCurrency: "usd",
+      days: "30",
+      emaPeriod: 20,
+      rsiPeriod: 14,
+      timeoutMs: 8000,
+    };
+  }
+
+  const parts = raw.split(/\s+/).filter(Boolean);
+
+  return {
+    coinId: normalizeCoinId(parts[0]),
+    vsCurrency: normalizeVsCurrency(parts[1] || "usd"),
+    days: normalizeDays(parts[2] || "30"),
+    emaPeriod: normalizePositiveInt(parts[3], 20),
+    rsiPeriod: normalizePositiveInt(parts[4], 14),
+    timeoutMs: normalizePositiveInt(parts[5], 8000),
+  };
+}
+
+function getMode(cmd = "") {
+  return cmd === "/ta_core_full" ? "full" : "short";
+}
+
+function getTitle(mode = "short") {
+  return mode === "full" ? "🧪 TA CORE FULL" : "🧪 TA CORE";
+}
+
+function getDefaultCmd(mode = "short") {
+  return mode === "full" ? "/ta_core_full" : "/ta_core";
+}
+
+function getAttemptsCount(result = {}) {
+  if (Array.isArray(result?.fetchMeta?.attempts)) {
+    return result.fetchMeta.attempts.length;
+  }
+  return 0;
+}
+
+function buildShortSuccessText(result = {}, input = {}) {
+  const branch = result?.sgView?.branch || "unknown";
+  const status = result?.sgView?.status || "unknown";
+  const readiness = result?.sgView?.readiness || "unknown";
+  const shortText = normalizeString(result?.sgView?.shortText) || "n/a";
+  const note = normalizeString(result?.sgView?.note) || "n/a";
+
+  return [
+    getTitle("short"),
+    `coin: ${input.coinId}`,
+    `vs: ${input.vsCurrency}`,
+    `days: ${input.days}`,
+    "",
+    `branch: ${branch}`,
+    `status: ${status}`,
+    `readiness: ${readiness}`,
+    `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+    `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
+    "",
+    `short: ${shortText}`,
+    `note: ${note}`,
+  ].join("\n");
+}
+
+function buildFullSuccessText(result = {}, input = {}) {
+  const branch = result?.sgView?.branch || "unknown";
+  const status = result?.sgView?.status || "unknown";
+  const readiness = result?.sgView?.readiness || "unknown";
+  const shortText = normalizeString(result?.sgView?.shortText) || "n/a";
+  const note = normalizeString(result?.sgView?.note) || "n/a";
+
+  const signal = result?.snapshot?.signal || "n/a";
+  const confidence = result?.snapshot?.confidence || "n/a";
+  const triggerStatus = result?.snapshot?.triggerStatus || "n/a";
+  const readinessScore =
+    typeof result?.snapshot?.readinessScore === "number"
+      ? result.snapshot.readinessScore
+      : "n/a";
+  const bias = result?.snapshot?.bias || "n/a";
+  const hint = result?.snapshot?.hint || "n/a";
+  const context = result?.snapshot?.context || "n/a";
+  const setup = result?.snapshot?.setup || "n/a";
+  const priority = result?.snapshot?.priority || "n/a";
+  const attentionLevel = result?.snapshot?.attentionLevel || "n/a";
+  const summaryLine = normalizeString(result?.snapshot?.summaryLine) || "n/a";
+  const branchReason =
+    normalizeString(result?.snapshot?.branchReason) || "n/a";
+
+  return [
+    getTitle("full"),
+    `coin: ${input.coinId}`,
+    `vs: ${input.vsCurrency}`,
+    `days: ${input.days}`,
+    "",
+    `branch: ${branch}`,
+    `status: ${status}`,
+    `readiness: ${readiness}`,
+    "",
+    `signal: ${signal}`,
+    `confidence: ${confidence}`,
+    `trigger: ${triggerStatus}`,
+    `readiness_score: ${readinessScore}`,
+    `bias: ${bias}`,
+    `hint: ${hint}`,
+    `context: ${context}`,
+    `setup: ${setup}`,
+    `priority: ${priority}`,
+    `attention: ${attentionLevel}`,
+    "",
+    `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
+    `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+    `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
+    `attempts_count: ${getAttemptsCount(result)}`,
+    `market_chart_reason: ${result?.fetchMeta?.marketChartReason || "n/a"}`,
+    `bundle_reason: ${result?.bundleMeta?.bundleReason || "n/a"}`,
+    `bundle_ok: ${result?.bundleMeta?.bundleOk === true ? "true" : "false"}`,
+    `indicators_ready: ${result?.bundleMeta?.indicatorsReady === true ? "true" : "false"}`,
+    "",
+    `short: ${shortText}`,
+    `note: ${note}`,
+    `summary: ${summaryLine}`,
+    `reason: ${branchReason}`,
+  ].join("\n");
+}
+
+function buildErrorText(result = {}, input = {}, mode = "short") {
+  const reason = result?.reason || "unknown_error";
+  const status = result?.fetchMeta?.marketChartStatus ?? "n/a";
+  const message = result?.meta?.message || result?.meta?.error || "n/a";
+  const rawPreview = normalizeString(result?.fetchMeta?.rawPreview || "");
+  const previewShort = rawPreview ? rawPreview.slice(0, 300) : "n/a";
+
+  const lines = [
+    getTitle(mode),
+    `coin: ${input.coinId}`,
+    `vs: ${input.vsCurrency}`,
+    `days: ${input.days}`,
+    `reason: ${reason}`,
+    `http_status: ${status}`,
+    `message: ${message}`,
+    `market_chart_reason: ${result?.fetchMeta?.marketChartReason || "n/a"}`,
+    `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
+    `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+    `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
+    `attempts_count: ${getAttemptsCount(result)}`,
+    `fetch_reason: ${result?.meta?.fetchReason || "n/a"}`,
+    `bundle_reason: ${result?.meta?.bundleReason || "n/a"}`,
+  ];
+
+  if (mode === "full") {
+    lines.push(`raw_preview: ${previewShort}`);
+  }
+
+  return lines.join("\n");
+}
+
+export async function handleTaCore({
+  bot,
+  chatId,
+  rest,
+  reply,
+  bypass,
+  cmd,
+}) {
+  const mode = getMode(cmd);
+  const defaultCmd = getDefaultCmd(mode);
+
+  if (!bypass) {
+    await reply("⛔ DEV only.", {
+      cmd: cmd || defaultCmd,
+      handler: "taCore",
+      event: "forbidden",
+      mode,
+    });
+    return { handled: true };
+  }
+
+  const input = parseTaCoreArgs(rest);
+
+  try {
+    const result = await readCoingeckoIndicatorsSnapshot(input);
+
+    if (!result?.ok) {
+      await reply(buildErrorText(result, input, mode), {
+        cmd: cmd || defaultCmd,
+        handler: "taCore",
+        event: "snapshot_not_ready",
+        mode,
+      });
+      return { handled: true };
+    }
+
+    const text =
+      mode === "full"
+        ? buildFullSuccessText(result, input)
+        : buildShortSuccessText(result, input);
+
+    await reply(text, {
+      cmd: cmd || defaultCmd,
+      handler: "taCore",
+      event: "snapshot_ready",
+      mode,
+      branch: result?.sgView?.branch || null,
+      status: result?.sgView?.status || null,
+      readiness: result?.sgView?.readiness || null,
+    });
+
+    return { handled: true };
+  } catch (error) {
+    const text = [
+      getTitle(mode),
+      `coin: ${input.coinId}`,
+      `vs: ${input.vsCurrency}`,
+      `days: ${input.days}`,
+      "reason: exception",
+      `message: ${error?.message ? String(error.message) : "unknown_error"}`,
+    ].join("\n");
+
+    await reply(text, {
+      cmd: cmd || defaultCmd,
+      handler: "taCore",
+      event: "exception",
+      mode,
+    });
+
+    return { handled: true };
+  }
+}
+
+export default {
+  handleTaCore,
+};

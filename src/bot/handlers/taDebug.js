@@ -1,11 +1,12 @@
 // src/bot/handlers/taDebug.js
 // ============================================================================
-// STAGE 10C.29
-// MONARCH/DEV COMMAND HANDLER — /ta_debug
+// STAGE 10C.30
+// MONARCH/DEV COMMAND HANDLER — /ta_debug / /ta_debug_full
 //
 // PURPOSE:
 // - let SG read coingecko indicators debug reader through existing source layer
-// - return compact SG-friendly snapshot to chat
+// - /ta_debug returns short compact SG view
+// - /ta_debug_full returns expanded technical view
 // - no SourceService changes
 // - no chat runtime refactor
 // - no execution logic
@@ -73,7 +74,29 @@ function parseTaDebugArgs(rest = "") {
   };
 }
 
-function buildSuccessText(result = {}, input = {}) {
+function buildShortSuccessText(result = {}, input = {}) {
+  const branch = result?.sgView?.branch || "unknown";
+  const status = result?.sgView?.status || "unknown";
+  const readiness = result?.sgView?.readiness || "unknown";
+  const shortText = normalizeString(result?.sgView?.shortText) || "n/a";
+  const note = normalizeString(result?.sgView?.note) || "n/a";
+
+  return [
+    "🧪 TA DEBUG",
+    `coin: ${input.coinId}`,
+    `vs: ${input.vsCurrency}`,
+    `days: ${input.days}`,
+    "",
+    `branch: ${branch}`,
+    `status: ${status}`,
+    `readiness: ${readiness}`,
+    "",
+    `short: ${shortText}`,
+    `note: ${note}`,
+  ].join("\n");
+}
+
+function buildFullSuccessText(result = {}, input = {}) {
   const branch = result?.sgView?.branch || "unknown";
   const status = result?.sgView?.status || "unknown";
   const readiness = result?.sgView?.readiness || "unknown";
@@ -99,7 +122,7 @@ function buildSuccessText(result = {}, input = {}) {
     normalizeString(result?.snapshot?.branchReason) || "n/a";
 
   return [
-    "🧪 TA DEBUG",
+    "🧪 TA DEBUG FULL",
     `coin: ${input.coinId}`,
     `vs: ${input.vsCurrency}`,
     `days: ${input.days}`,
@@ -126,12 +149,25 @@ function buildSuccessText(result = {}, input = {}) {
   ].join("\n");
 }
 
-function buildErrorText(result = {}, input = {}) {
+function buildErrorText(result = {}, input = {}, mode = "short") {
   const reason = result?.reason || "unknown_error";
   const status = result?.http?.status ?? "n/a";
   const message = result?.meta?.message || result?.meta?.error || "n/a";
   const rawPreview = normalizeString(result?.raw?.rawPreview || "");
   const previewShort = rawPreview ? rawPreview.slice(0, 300) : "n/a";
+
+  if (mode === "full") {
+    return [
+      "⛔ TA DEBUG FULL",
+      `coin: ${input.coinId}`,
+      `vs: ${input.vsCurrency}`,
+      `days: ${input.days}`,
+      `reason: ${reason}`,
+      `http_status: ${status}`,
+      `message: ${message}`,
+      `raw_preview: ${previewShort}`,
+    ].join("\n");
+  }
 
   return [
     "⛔ TA DEBUG",
@@ -141,7 +177,6 @@ function buildErrorText(result = {}, input = {}) {
     `reason: ${reason}`,
     `http_status: ${status}`,
     `message: ${message}`,
-    `raw_preview: ${previewShort}`,
   ].join("\n");
 }
 
@@ -151,10 +186,11 @@ export async function handleTaDebug({
   rest,
   reply,
   bypass,
+  cmd,
 }) {
   if (!bypass) {
     await reply("⛔ DEV only.", {
-      cmd: "/ta_debug",
+      cmd: cmd || "/ta_debug",
       handler: "taDebug",
       event: "forbidden",
     });
@@ -162,23 +198,31 @@ export async function handleTaDebug({
   }
 
   const input = parseTaDebugArgs(rest);
+  const mode = cmd === "/ta_debug_full" ? "full" : "short";
 
   try {
     const result = await readCoingeckoIndicatorsDebug(input);
 
     if (!result?.ok) {
-      await reply(buildErrorText(result, input), {
-        cmd: "/ta_debug",
+      await reply(buildErrorText(result, input, mode), {
+        cmd: cmd || "/ta_debug",
         handler: "taDebug",
         event: "reader_not_ready",
+        mode,
       });
       return { handled: true };
     }
 
-    await reply(buildSuccessText(result, input), {
-      cmd: "/ta_debug",
+    const text =
+      mode === "full"
+        ? buildFullSuccessText(result, input)
+        : buildShortSuccessText(result, input);
+
+    await reply(text, {
+      cmd: cmd || "/ta_debug",
       handler: "taDebug",
       event: "reader_ready",
+      mode,
       branch: result?.sgView?.branch || null,
       status: result?.sgView?.status || null,
       readiness: result?.sgView?.readiness || null,
@@ -186,19 +230,30 @@ export async function handleTaDebug({
 
     return { handled: true };
   } catch (error) {
-    const text = [
-      "⛔ TA DEBUG",
-      `coin: ${input.coinId}`,
-      `vs: ${input.vsCurrency}`,
-      `days: ${input.days}`,
-      `reason: exception`,
-      `message: ${error?.message ? String(error.message) : "unknown_error"}`,
-    ].join("\n");
+    const text =
+      mode === "full"
+        ? [
+            "⛔ TA DEBUG FULL",
+            `coin: ${input.coinId}`,
+            `vs: ${input.vsCurrency}`,
+            `days: ${input.days}`,
+            "reason: exception",
+            `message: ${error?.message ? String(error.message) : "unknown_error"}`,
+          ].join("\n")
+        : [
+            "⛔ TA DEBUG",
+            `coin: ${input.coinId}`,
+            `vs: ${input.vsCurrency}`,
+            `days: ${input.days}`,
+            "reason: exception",
+            `message: ${error?.message ? String(error.message) : "unknown_error"}`,
+          ].join("\n");
 
     await reply(text, {
-      cmd: "/ta_debug",
+      cmd: cmd || "/ta_debug",
       handler: "taDebug",
       event: "exception",
+      mode,
     });
 
     return { handled: true };

@@ -53,6 +53,10 @@ export const CMD_ACTION = {
   "/bn_ticker": "cmd.admin.bn_ticker",
   "/bn_ticker_full": "cmd.admin.bn_ticker",
 
+  // ✅ STAGE 10D-alt.1 — OKX ticker debug commands (monarch/dev)
+  "/okx_ticker": "cmd.admin.okx_ticker",
+  "/okx_ticker_full": "cmd.admin.okx_ticker",
+
   // ✅ STAGE 11.13 — Recall role gate
   "/recall": "cmd.recall",
   "/recall_more": "cmd.recall",

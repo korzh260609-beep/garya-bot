@@ -1,16 +1,17 @@
 // src/bot/handlers/taDebug.js
 // ============================================================================
-// STAGE 10C.37
+// STAGE 10C.39
 // MONARCH/DEV COMMAND HANDLER
 // - /ta_debug / /ta_debug_full
 // - /ta_snapshot / /ta_snapshot_full
 //
 // PURPOSE:
 // - let SG read coingecko indicators through internal source layer
-// - debug mode uses old debug-reader chain
-// - snapshot mode uses new direct snapshot source
+// - debug mode is LEGACY diagnostic path
+// - snapshot mode uses direct snapshot source
 // - short variants return compact SG view
 // - full variants return expanded technical view
+// - keep /ta_core as the new main internal TA dev path
 // - no SourceService changes
 // - no chat runtime refactor
 // - no execution logic
@@ -96,7 +97,9 @@ function getTitle(kind = "debug", mode = "short") {
   if (kind === "snapshot") {
     return mode === "full" ? "🧪 TA SNAPSHOT FULL" : "🧪 TA SNAPSHOT";
   }
-  return mode === "full" ? "🧪 TA DEBUG FULL" : "🧪 TA DEBUG";
+  return mode === "full"
+    ? "🧪 TA DEBUG LEGACY FULL"
+    : "🧪 TA DEBUG LEGACY";
 }
 
 function getDefaultCmd(kind = "debug", mode = "short") {
@@ -111,6 +114,17 @@ function getAttemptsCount(result = {}) {
     return result.fetchMeta.attempts.length;
   }
   return 0;
+}
+
+function appendLegacyHint(lines = [], kind = "debug") {
+  if (kind !== "debug") return lines;
+
+  return [
+    ...lines,
+    "",
+    "legacy_path: true",
+    "preferred_cmd: /ta_core",
+  ];
 }
 
 function buildShortSuccessText(result = {}, input = {}, kind = "debug") {
@@ -144,7 +158,7 @@ function buildShortSuccessText(result = {}, input = {}, kind = "debug") {
     `note: ${note}`
   );
 
-  return lines.join("\n");
+  return appendLegacyHint(lines, kind).join("\n");
 }
 
 function buildFullSuccessText(result = {}, input = {}, kind = "debug") {
@@ -216,7 +230,7 @@ function buildFullSuccessText(result = {}, input = {}, kind = "debug") {
     `reason: ${branchReason}`
   );
 
-  return lines.join("\n");
+  return appendLegacyHint(lines, kind).join("\n");
 }
 
 function buildErrorText(result = {}, input = {}, kind = "debug", mode = "short") {
@@ -256,7 +270,7 @@ function buildErrorText(result = {}, input = {}, kind = "debug", mode = "short")
     lines.push(`raw_preview: ${previewShort}`);
   }
 
-  return lines.join("\n");
+  return appendLegacyHint(lines, kind).join("\n");
 }
 
 async function readByKind(kind = "debug", input = {}) {
@@ -301,6 +315,8 @@ export async function handleTaDebug({
         event: kind === "snapshot" ? "snapshot_not_ready" : "reader_not_ready",
         kind,
         mode,
+        legacyPath: kind === "debug",
+        preferredCmd: kind === "debug" ? "/ta_core" : null,
       });
       return { handled: true };
     }
@@ -319,18 +335,23 @@ export async function handleTaDebug({
       branch: result?.sgView?.branch || null,
       status: result?.sgView?.status || null,
       readiness: result?.sgView?.readiness || null,
+      legacyPath: kind === "debug",
+      preferredCmd: kind === "debug" ? "/ta_core" : null,
     });
 
     return { handled: true };
   } catch (error) {
-    const text = [
-      getTitle(kind, mode),
-      `coin: ${input.coinId}`,
-      `vs: ${input.vsCurrency}`,
-      `days: ${input.days}`,
-      "reason: exception",
-      `message: ${error?.message ? String(error.message) : "unknown_error"}`,
-    ].join("\n");
+    const text = appendLegacyHint(
+      [
+        getTitle(kind, mode),
+        `coin: ${input.coinId}`,
+        `vs: ${input.vsCurrency}`,
+        `days: ${input.days}`,
+        "reason: exception",
+        `message: ${error?.message ? String(error.message) : "unknown_error"}`,
+      ],
+      kind
+    ).join("\n");
 
     await reply(text, {
       cmd: cmd || defaultCmd,
@@ -338,6 +359,8 @@ export async function handleTaDebug({
       event: "exception",
       kind,
       mode,
+      legacyPath: kind === "debug",
+      preferredCmd: kind === "debug" ? "/ta_core" : null,
     });
 
     return { handled: true };

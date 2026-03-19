@@ -7,8 +7,6 @@ import { handleWebhookInfo } from "./handlers/webhookInfo.js";
 import { handleProjectStatus } from "./handlers/projectStatus.js";
 import { handlePrices } from "./handlers/prices.js";
 import { handlePrice } from "./handlers/price.js";
-import { handleProfile } from "./handlers/profile.js";
-import { handleMode } from "./handlers/mode.js";
 import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
 import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — read-only
 import { handleTaskStatus } from "./handlers/taskStatus.js";
@@ -46,6 +44,9 @@ import { dispatchMemoryDiagnosticsCommands } from "./dispatchers/dispatchMemoryD
 
 // ✅ DECISION DIAGNOSTICS dispatcher (extracted 1:1 block)
 import { dispatchDecisionDiagnosticsCommands } from "./dispatchers/dispatchDecisionDiagnosticsCommands.js";
+
+// ✅ PROFILE / MODE dispatcher (extracted 1:1 block)
+import { dispatchProfileModeCommands } from "./dispatchers/dispatchProfileModeCommands.js";
 
 /**
  * Backward-compatible dispatcher.
@@ -284,32 +285,17 @@ export async function dispatchCommand(cmd, ctx) {
     return decisionDiagnosticsHandled;
   }
 
+  const profileModeHandled = await dispatchProfileModeCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (profileModeHandled?.handled) {
+    return profileModeHandled;
+  }
+
   switch (cmd0) {
-    case "/profile":
-    case "/me":
-    case "/whoami": {
-      await handleProfile({
-        bot,
-        chatId,
-        chatIdStr,
-        senderIdStr: ctx.senderIdStr,
-      });
-      return { handled: true };
-    }
-
-    case "/mode": {
-      await handleMode({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        getAnswerMode: ctx.getAnswerMode,
-        setAnswerMode: ctx.setAnswerMode,
-        globalUserId: ctx.user?.global_user_id ?? null,
-      });
-      return { handled: true };
-    }
-
     case "/price": {
       return await handlePrice({
         bot,

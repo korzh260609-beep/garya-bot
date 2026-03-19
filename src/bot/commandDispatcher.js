@@ -75,16 +75,14 @@ import { callWithFallback } from "../../core/helpers.js";
 // ✅ /build_info (public env snapshot)
 import { getPublicEnvSnapshot } from "../core/config.js";
 
-// ✅ STAGE 7A — Project Memory commands
-import { handlePmSet } from "./handlers/pmSet.js";
-import { handlePmShow } from "./handlers/pmShow.js";
-import { handlePmList } from "./handlers/pmList.js";
-
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
 import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
 
 // ✅ SOURCES dispatcher (extracted 1:1 block)
 import { dispatchSourcesCommands } from "./dispatchers/dispatchSourcesCommands.js";
+
+// ✅ PROJECT MEMORY dispatcher (extracted 1:1 block)
+import { dispatchProjectMemoryCommands } from "./dispatchers/dispatchProjectMemoryCommands.js";
 
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
@@ -266,57 +264,17 @@ export async function dispatchCommand(cmd, ctx) {
     return sourcesHandled;
   }
 
+  const projectMemoryHandled = await dispatchProjectMemoryCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (projectMemoryHandled?.handled) {
+    return projectMemoryHandled;
+  }
+
   switch (cmd0) {
-    case "/pm_show": {
-      if (typeof ctx.getProjectSection !== "function") {
-        await reply("⛔ getProjectSection недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmShow({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        getProjectSection: ctx.getProjectSection,
-      });
-
-      return { handled: true };
-    }
-
-    case "/pm_set": {
-      if (typeof ctx.upsertProjectSection !== "function") {
-        await reply("⛔ upsertProjectSection недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmSet({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: !!ctx.bypass,
-        upsertProjectSection: ctx.upsertProjectSection,
-      });
-
-      return { handled: true };
-    }
-
-    case "/pm_list": {
-      if (typeof ctx.getProjectMemoryList !== "function") {
-        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmList({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        getProjectMemoryList: ctx.getProjectMemoryList,
-      });
-
-      return { handled: true };
-    }
-
     case "/profile":
     case "/me":
     case "/whoami": {
@@ -599,7 +557,7 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    case "/link_status": {
+case "/link_status": {
       const provider = ctx?.identityCtx?.transport || "telegram";
       await handleLinkStatus({
         bot,

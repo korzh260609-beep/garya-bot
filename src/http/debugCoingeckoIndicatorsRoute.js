@@ -1,10 +1,11 @@
 // src/http/debugCoingeckoIndicatorsRoute.js
 // ============================================================================
-// STAGE 10C.7 — temporary protected debug route for CoinGecko indicators
+// STAGE 10C.40 — temporary protected debug route for CoinGecko indicators
 // PURPOSE:
 // - verify indicators logic on top of market_chart historical data
 // - keep verification outside chat runtime
 // - allow browser / Render log testing without command wiring
+// - align debug route fetch input with direct snapshot/core chain
 //
 // IMPORTANT:
 // - developer-only route
@@ -85,6 +86,13 @@ function normalizePositiveInt(value, fallback) {
   return out > 0 ? out : fallback;
 }
 
+function getAttemptsCount(marketChartResult = {}) {
+  if (Array.isArray(marketChartResult?.meta?.attempts)) {
+    return marketChartResult.meta.attempts.length;
+  }
+  return 0;
+}
+
 export function createDebugCoingeckoIndicatorsRoute() {
   const router = express.Router();
 
@@ -106,12 +114,18 @@ export function createDebugCoingeckoIndicatorsRoute() {
     const interval = normalizeInterval(req.query.interval);
     const emaPeriod = normalizePositiveInt(req.query.emaPeriod, 20);
     const rsiPeriod = normalizePositiveInt(req.query.rsiPeriod, 14);
+    const timeoutMs = normalizePositiveInt(req.query.timeoutMs, 8000);
+    const maxAttempts = normalizePositiveInt(req.query.maxAttempts, 2);
+    const retryDelayMs = normalizePositiveInt(req.query.retryDelayMs, 700);
 
     const fetchInput = {
       coinId,
       vsCurrency,
       days,
       interval,
+      timeoutMs,
+      maxAttempts,
+      retryDelayMs,
     };
 
     try {
@@ -122,6 +136,9 @@ export function createDebugCoingeckoIndicatorsRoute() {
         interval: interval || "auto",
         emaPeriod,
         rsiPeriod,
+        timeoutMs,
+        maxAttempts,
+        retryDelayMs,
       });
 
       const marketChartResult = await fetchCoinGeckoMarketChart(fetchInput);
@@ -148,7 +165,11 @@ export function createDebugCoingeckoIndicatorsRoute() {
       console.info("DEBUG_COINGECKO_INDICATORS_END", {
         ok: success,
         marketChartOk: marketChartResult?.ok === true,
+        marketChartReason: marketChartResult?.meta?.reason || null,
         pricesCount: Array.isArray(prices) ? prices.length : 0,
+        intervalUsed: marketChartResult?.meta?.interval || null,
+        fallbackUsed: marketChartResult?.meta?.fallbackUsed === true,
+        attemptsCount: getAttemptsCount(marketChartResult),
         indicatorReason: indicators?.reason || null,
         emaReason: indicators?.indicators?.ema20?.reason || null,
         emaLatest: indicators?.indicators?.ema20?.output?.latest?.value ?? null,
@@ -167,6 +188,9 @@ export function createDebugCoingeckoIndicatorsRoute() {
           interval,
           emaPeriod,
           rsiPeriod,
+          timeoutMs,
+          maxAttempts,
+          retryDelayMs,
         },
         marketChart: {
           ok: marketChartResult?.ok === true,
@@ -174,6 +198,12 @@ export function createDebugCoingeckoIndicatorsRoute() {
           sourceKey: marketChartResult?.sourceKey || null,
           fetchedAt: marketChartResult?.fetchedAt || null,
           pricesCount: Array.isArray(prices) ? prices.length : 0,
+          intervalUsed: marketChartResult?.meta?.interval || null,
+          fallbackUsed: marketChartResult?.meta?.fallbackUsed === true,
+          attemptsCount: getAttemptsCount(marketChartResult),
+          durationMs: marketChartResult?.meta?.durationMs ?? null,
+          status: marketChartResult?.meta?.status ?? null,
+          rawPreview: marketChartResult?.meta?.rawPreview || null,
         },
         indicators,
         debugText,

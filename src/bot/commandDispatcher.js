@@ -21,7 +21,6 @@ import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — re
 import { handleTaskStatus } from "./handlers/taskStatus.js";
 import { handleArList } from "./handlers/arList.js";
 import { handleFileLogs } from "./handlers/fileLogs.js";
-import { handleRecall, handleRecallMore } from "./handlers/recall.js";
 
 // ✅ Stage 5.16 — behavior events verification
 import { handleBehaviorEventsLast } from "./handlers/behaviorEventsLast.js";
@@ -48,6 +47,9 @@ import { dispatchIdentityCommands } from "./dispatchers/dispatchIdentityCommands
 
 // ✅ TASK dispatcher (extracted 1:1 block)
 import { dispatchTaskCommands } from "./dispatchers/dispatchTaskCommands.js";
+
+// ✅ RECALL dispatcher (extracted 1:1 block)
+import { dispatchRecallCommands } from "./dispatchers/dispatchRecallCommands.js";
 
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
@@ -259,6 +261,16 @@ export async function dispatchCommand(cmd, ctx) {
     return taskHandled;
   }
 
+  const recallHandled = await dispatchRecallCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (recallHandled?.handled) {
+    return recallHandled;
+  }
+
   switch (cmd0) {
     case "/profile":
     case "/me":
@@ -326,36 +338,6 @@ export async function dispatchCommand(cmd, ctx) {
         chatIdStr,
         rest: ctx.rest,
         bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/recall": {
-      await handleRecall({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: !!ctx.bypass,
-        isPrivateChat: !!ctx.isPrivateChat,
-        senderIdStr: ctx.senderIdStr ?? null,
-        chatType: ctx.chatType ?? null,
-        identityCtx: ctx.identityCtx ?? null,
-      });
-      return { handled: true };
-    }
-
-    case "/recall_more": {
-      await handleRecallMore({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: !!ctx.bypass,
-        isPrivateChat: !!ctx.isPrivateChat,
-        senderIdStr: ctx.senderIdStr ?? null,
-        chatType: ctx.chatType ?? null,
-        identityCtx: ctx.identityCtx ?? null,
       });
       return { handled: true };
     }

@@ -20,7 +20,7 @@
 import { fetchWithTimeout } from "../core/fetchWithTimeout.js";
 
 export const COINGECKO_INDICATORS_DEBUG_READER_VERSION =
-  "10C.29-debug-reader-v1";
+  "10C.29-debug-reader-v2";
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const DEFAULT_PATH = "/debug/source/coingecko-indicators";
@@ -120,6 +120,24 @@ function safeJsonParse(text) {
   } catch (_) {
     return null;
   }
+}
+
+function extractUpstreamMeta(payload) {
+  const marketChart = isPlainObject(payload?.marketChart) ? payload.marketChart : {};
+  const indicators = isPlainObject(payload?.indicators) ? payload.indicators : {};
+
+  return {
+    routeOk: payload?.ok === true,
+    error: payload?.error || null,
+    message: payload?.message || null,
+    upstreamReason: marketChart?.reason || indicators?.reason || null,
+    upstreamStatus:
+      typeof marketChart?.status === "number" ? marketChart.status : null,
+    upstreamPricesCount:
+      typeof marketChart?.pricesCount === "number" ? marketChart.pricesCount : null,
+    marketChartOk: marketChart?.ok === true,
+    indicatorsOk: indicators?.ok === true,
+  };
 }
 
 function buildNotReadyResult(reason, extra = {}) {
@@ -359,6 +377,8 @@ export async function readCoingeckoIndicatorsDebug(input = {}) {
     const payload = safeJsonParse(rawText);
 
     if (!response.ok) {
+      const upstreamMeta = extractUpstreamMeta(payload);
+
       return buildNotReadyResult("http_error", {
         url,
         coinId,
@@ -372,11 +392,7 @@ export async function readCoingeckoIndicatorsDebug(input = {}) {
         durationMs,
         rawPreview: typeof rawText === "string" ? rawText.slice(0, 1000) : "",
         debugText: normalizeString(payload?.debugText) || null,
-        meta: {
-          routeOk: payload?.ok === true,
-          error: payload?.error || null,
-          message: payload?.message || null,
-        },
+        meta: upstreamMeta,
       });
     }
 
@@ -412,6 +428,16 @@ export async function readCoingeckoIndicatorsDebug(input = {}) {
         debugText: normalizeString(payload?.debugText) || null,
         meta: {
           routeOk: payload?.ok === true,
+          marketChartOk: payload?.marketChart?.ok === true,
+          upstreamReason: payload?.marketChart?.reason || null,
+          upstreamStatus:
+            typeof payload?.marketChart?.status === "number"
+              ? payload.marketChart.status
+              : null,
+          upstreamPricesCount:
+            typeof payload?.marketChart?.pricesCount === "number"
+              ? payload.marketChart.pricesCount
+              : null,
         },
       });
     }

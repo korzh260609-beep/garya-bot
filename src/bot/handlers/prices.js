@@ -48,9 +48,20 @@ export async function handlePrices({
     return { handled: true };
   }
 
-  const lines = (result.items || []).map((it) => `• ${it.id.toUpperCase()}: $${it.price}`);
-  await bot.sendMessage(chatId, lines.length ? `💰 Цены:\n${lines.join("\n")}` : "⚠️ Нет данных по этим coinId.");
+  const itemsObj =
+    result.items && typeof result.items === "object" && !Array.isArray(result.items)
+      ? result.items
+      : {};
+
+  const lines = Object.entries(itemsObj).map(([requestedId, it]) => {
+    const label = String(it?.id || requestedId || "").toUpperCase();
+    return `• ${label}: $${it?.price}`;
+  });
+
+  await bot.sendMessage(
+    chatId,
+    lines.length ? `💰 Цены:\n${lines.join("\n")}` : "⚠️ Нет данных по этим coinId."
+  );
 
   return { handled: true };
 }
-

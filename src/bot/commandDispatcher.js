@@ -43,28 +43,6 @@ import { handleGrant } from "./handlers/grant.js";
 import { handleRevoke } from "./handlers/revoke.js";
 import { handleGrants } from "./handlers/grants.js";
 
-// ✅ STAGE 10C.29 / 10C.30 / 10C.36 / 10C.38 — TA debug + snapshot + core
-import { handleTaDebug } from "./handlers/taDebug.js";
-import { handleTaCore } from "./handlers/taCore.js";
-
-// ✅ STAGE 10C.8 — News RSS debug
-import { handleNewsDebug } from "./handlers/newsDebug.js";
-
-// ✅ STAGE 10C.9 — Multi-monitor debug
-import { handleMultiMonitorDebug } from "./handlers/multiMonitorDebug.js";
-
-// ✅ STAGE 10C.10 — Crypto diagnostics
-import { handleCryptoDiagnostics } from "./handlers/cryptoDiagnostics.js";
-
-// ✅ STAGE 10C.11 — CG V-Fuse
-import { handleCgVFuse } from "./handlers/cgVFuse.js";
-
-// ✅ STAGE 10D.1 — Binance ticker debug
-import { handleBinanceDebug } from "./handlers/binanceDebug.js";
-
-// ✅ STAGE 10D-alt.1 — OKX ticker debug
-import { handleOkxDebug } from "./handlers/okxDebug.js";
-
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -108,6 +86,9 @@ import { handleSourcesDiag } from "./handlers/sources_diag.js";
 import { handleSource } from "./handlers/source.js";
 import { handleDiagSource } from "./handlers/diagSource.js";
 import { handleTestSource } from "./handlers/testSource.js";
+
+// ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
+import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
 
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
@@ -267,6 +248,16 @@ export async function dispatchCommand(cmd, ctx) {
     );
 
     return { handled: true };
+  }
+
+  const cryptoHandled = await dispatchCryptoDevCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (cryptoHandled?.handled) {
+    return cryptoHandled;
   }
 
   switch (cmd0) {
@@ -451,112 +442,6 @@ export async function dispatchCommand(cmd, ctx) {
         userRole: ctx.userRole,
         userPlan: ctx.userPlan,
         bypass: ctx.bypass,
-      });
-      return { handled: true };
-    }
-
-    case "/ta_debug":
-    case "/ta_debug_full":
-    case "/ta_snapshot":
-    case "/ta_snapshot_full": {
-      await handleTaDebug({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        reply,
-        bypass: !!ctx.bypass,
-        cmd: cmd0,
-      });
-      return { handled: true };
-    }
-
-    case "/ta_core":
-    case "/ta_core_full": {
-      await handleTaCore({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        reply,
-        bypass: !!ctx.bypass,
-        cmd: cmd0,
-      });
-      return { handled: true };
-    }
-
-    case "/news_rss":
-    case "/news_rss_full": {
-      await handleNewsDebug({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        reply,
-        bypass: !!ctx.bypass,
-        cmd: cmd0,
-      });
-      return { handled: true };
-    }
-
-    case "/multi_monitor":
-    case "/multi_monitor_full": {
-      await handleMultiMonitorDebug({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        reply,
-        bypass: !!ctx.bypass,
-        cmd: cmd0,
-      });
-      return { handled: true };
-    }
-
-    case "/crypto_diag":
-    case "/crypto_diag_full": {
-      await handleCryptoDiagnostics({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        reply,
-        bypass: !!ctx.bypass,
-        cmd: cmd0,
-      });
-      return { handled: true };
-    }
-
-    case "/cg_vfuse":
-    case "/cg_vfuse_full": {
-      await handleCgVFuse({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        reply,
-        bypass: !!ctx.bypass,
-        cmd: cmd0,
-      });
-      return { handled: true };
-    }
-
-    case "/bn_ticker":
-    case "/bn_ticker_full": {
-      await handleBinanceDebug({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        reply,
-        bypass: !!ctx.bypass,
-        cmd: cmd0,
-      });
-      return { handled: true };
-    }
-
-    case "/okx_ticker":
-    case "/okx_ticker_full": {
-      await handleOkxDebug({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        reply,
-        bypass: !!ctx.bypass,
-        cmd: cmd0,
       });
       return { handled: true };
     }

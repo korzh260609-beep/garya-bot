@@ -87,7 +87,10 @@ import { logInteraction } from "../logging/interactionLogs.js";
 import BehaviorEventsService from "../logging/BehaviorEventsService.js";
 
 // ✅ Project Memory service (read)
-import { getProjectSection } from "../../projectMemory.js";
+import {
+  getProjectSection,
+  getProjectMemoryList,
+} from "../../projectMemory.js";
 
 // ✅ Stage 3.5 — RateLimit (V1)
 import { checkRateLimit } from "./rateLimiter.js";
@@ -484,6 +487,7 @@ export function attachMessageRouter({
             rest,
             getProjectSection,
             upsertProjectSection,
+            getProjectMemoryList,
           });
 
           if (handledProjectMemory) {

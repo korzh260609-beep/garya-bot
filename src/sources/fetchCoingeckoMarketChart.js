@@ -18,10 +18,14 @@
 
 import { fetchWithTimeout } from "../core/fetchWithTimeout.js";
 
-export const COINGECKO_MARKET_CHART_VERSION = "10C.7-market-chart-fetcher-v1";
+export const COINGECKO_MARKET_CHART_VERSION = "10C.7-market-chart-fetcher-v2";
 
 const COINGECKO_MARKET_CHART_BASE_URL =
   "https://api.coingecko.com/api/v3/coins";
+
+const DEFAULT_TIMEOUT_MS = 8000;
+const DEFAULT_RETRY_DELAY_MS = 700;
+const DEFAULT_MAX_ATTEMPTS = 2;
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -240,12 +244,93 @@ function buildContentText({ coinId, vsCurrency, days, interval, parsed }) {
   return lines.join("\n");
 }
 
+function buildHeaders() {
+  return {
+    accept: "application/json",
+    "user-agent": "SG-GARYA/10C-market-chart (+Render; debug-safe)",
+  };
+}
+
+function safeJsonParse(text) {
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function shouldRetryHttpStatus(status) {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+function shouldRetryErrorMessage(message) {
+  const text = normalizeString(message).toLowerCase();
+  if (!text) return false;
+
+  return (
+    text.includes("timeout") ||
+    text.includes("fetch failed") ||
+    text.includes("socket") ||
+    text.includes("econnreset") ||
+    text.includes("etimedout") ||
+    text.includes("network")
+  );
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchMarketChartAttempt({ url, timeoutMs }) {
+  const startedAt = Date.now();
+
+  try {
+    const response = await fetchWithTimeout(
+      url,
+      {
+        method: "GET",
+        headers: buildHeaders(),
+      },
+      timeoutMs
+    );
+
+    const durationMs = Date.now() - startedAt;
+    const rawText = await response.text();
+    const payload = safeJsonParse(rawText);
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText || "",
+      durationMs,
+      rawText,
+      payload,
+      errorMessage: null,
+    };
+  } catch (error) {
+    const durationMs = Date.now() - startedAt;
+
+    return {
+      ok: false,
+      status: null,
+      statusText: "",
+      durationMs,
+      rawText: "",
+      payload: null,
+      errorMessage: error?.message ? String(error.message) : "unknown_error",
+    };
+  }
+}
+
 export async function fetchCoinGeckoMarketChart(input = {}) {
   const coinId = normalizeCoinId(input?.coinId);
   const vsCurrency = normalizeVsCurrency(input?.vsCurrency);
   const days = normalizeDays(input?.days);
   const interval = normalizeInterval(input?.interval);
   const limitPreviewPoints = normalizePositiveInt(input?.limitPreviewPoints, 3);
+  const timeoutMs = normalizePositiveInt(input?.timeoutMs, DEFAULT_TIMEOUT_MS);
+  const maxAttempts = normalizePositiveInt(input?.maxAttempts, DEFAULT_MAX_ATTEMPTS);
+  const retryDelayMs = normalizePositiveInt(input?.retryDelayMs, DEFAULT_RETRY_DELAY_MS);
 
   if (!coinId) {
     return {
@@ -267,32 +352,73 @@ export async function fetchCoinGeckoMarketChart(input = {}) {
     interval,
   });
 
-  const startedAt = Date.now();
+  const attempts = [];
+  let lastAttempt = null;
 
-  try {
-    const response = await fetchWithTimeout(
+  for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
+    const attemptNo = attemptIndex + 1;
+
+    const attempt = await fetchMarketChartAttempt({
       url,
-      {
-        method: "GET",
-        headers: {
-          accept: "application/json",
-        },
-      },
-      8000
-    );
+      timeoutMs,
+    });
 
-    const fetchedAt = new Date().toISOString();
-    const durationMs = Date.now() - startedAt;
-    const rawText = await response.text();
+    const rawPreview =
+      typeof attempt.rawText === "string" ? attempt.rawText.slice(0, 500) : "";
 
-    let payload = null;
-    try {
-      payload = rawText ? JSON.parse(rawText) : null;
-    } catch (_) {
-      payload = null;
+    attempts.push({
+      attempt: attemptNo,
+      ok: attempt.ok,
+      status: attempt.status,
+      statusText: attempt.statusText || "",
+      durationMs: attempt.durationMs,
+      errorMessage: attempt.errorMessage || null,
+      rawPreview,
+    });
+
+    lastAttempt = attempt;
+
+    if (attempt.ok) {
+      break;
     }
 
-    if (!response.ok) {
+    const canRetry =
+      attemptNo < maxAttempts &&
+      (
+        (typeof attempt.status === "number" && shouldRetryHttpStatus(attempt.status)) ||
+        shouldRetryErrorMessage(attempt.errorMessage)
+      );
+
+    if (!canRetry) {
+      break;
+    }
+
+    await delay(retryDelayMs);
+  }
+
+  const fetchedAt = new Date().toISOString();
+
+  if (!lastAttempt) {
+    return {
+      ok: false,
+      sourceKey: "coingecko_market_chart",
+      content: "",
+      fetchedAt,
+      meta: {
+        version: COINGECKO_MARKET_CHART_VERSION,
+        reason: "no_attempt_result",
+        coinId,
+        vsCurrency,
+        days,
+        interval: interval || null,
+        url,
+        attempts,
+      },
+    };
+  }
+
+  if (!lastAttempt.ok) {
+    if (typeof lastAttempt.status === "number") {
       return {
         ok: false,
         sourceKey: "coingecko_market_chart",
@@ -301,87 +427,94 @@ export async function fetchCoinGeckoMarketChart(input = {}) {
         meta: {
           version: COINGECKO_MARKET_CHART_VERSION,
           reason: "http_error",
-          status: response.status,
-          statusText: response.statusText || "",
+          status: lastAttempt.status,
+          statusText: lastAttempt.statusText || "",
           url,
-          durationMs,
+          durationMs: lastAttempt.durationMs,
           coinId,
           vsCurrency,
           days,
           interval: interval || null,
-          rawPreview: typeof rawText === "string" ? rawText.slice(0, 500) : "",
+          rawPreview:
+            typeof lastAttempt.rawText === "string"
+              ? lastAttempt.rawText.slice(0, 500)
+              : "",
+          attempts,
         },
       };
     }
 
-    const parsedResult = parseCoinGeckoMarketChartPayload(payload);
-
-    const pricesPreview = (parsedResult?.parsed?.prices || []).slice(
-      0,
-      limitPreviewPoints
-    );
-    const marketCapsPreview = (parsedResult?.parsed?.marketCaps || []).slice(
-      0,
-      limitPreviewPoints
-    );
-    const totalVolumesPreview = (
-      parsedResult?.parsed?.totalVolumes || []
-    ).slice(0, limitPreviewPoints);
-
-    const content = buildContentText({
-      coinId,
-      vsCurrency,
-      days,
-      interval,
-      parsed: parsedResult.parsed,
-    });
-
-    return {
-      ok: parsedResult.ok,
-      sourceKey: "coingecko_market_chart",
-      content,
-      fetchedAt,
-      meta: {
-        version: COINGECKO_MARKET_CHART_VERSION,
-        reason: parsedResult.reason,
-        status: response.status,
-        url,
-        durationMs,
-        coinId,
-        vsCurrency,
-        days,
-        interval: interval || null,
-        parsed: {
-          prices: parsedResult.parsed.prices,
-          marketCaps: parsedResult.parsed.marketCaps,
-          totalVolumes: parsedResult.parsed.totalVolumes,
-          meta: parsedResult.parsed.meta,
-        },
-        preview: {
-          prices: pricesPreview,
-          marketCaps: marketCapsPreview,
-          totalVolumes: totalVolumesPreview,
-        },
-      },
-    };
-  } catch (error) {
     return {
       ok: false,
       sourceKey: "coingecko_market_chart",
       content: "",
-      fetchedAt: new Date().toISOString(),
+      fetchedAt,
       meta: {
         version: COINGECKO_MARKET_CHART_VERSION,
         reason: "network_error",
-        message: error?.message ? String(error.message) : "unknown_error",
+        message: lastAttempt.errorMessage || "unknown_error",
         coinId,
         vsCurrency,
         days,
         interval: interval || null,
         url,
+        durationMs: lastAttempt.durationMs,
+        attempts,
       },
     };
   }
+
+  const parsedResult = parseCoinGeckoMarketChartPayload(lastAttempt.payload);
+
+  const pricesPreview = (parsedResult?.parsed?.prices || []).slice(
+    0,
+    limitPreviewPoints
+  );
+  const marketCapsPreview = (parsedResult?.parsed?.marketCaps || []).slice(
+    0,
+    limitPreviewPoints
+  );
+  const totalVolumesPreview = (
+    parsedResult?.parsed?.totalVolumes || []
+  ).slice(0, limitPreviewPoints);
+
+  const content = buildContentText({
+    coinId,
+    vsCurrency,
+    days,
+    interval,
+    parsed: parsedResult.parsed,
+  });
+
+  return {
+    ok: parsedResult.ok,
+    sourceKey: "coingecko_market_chart",
+    content,
+    fetchedAt,
+    meta: {
+      version: COINGECKO_MARKET_CHART_VERSION,
+      reason: parsedResult.reason,
+      status: lastAttempt.status,
+      url,
+      durationMs: lastAttempt.durationMs,
+      coinId,
+      vsCurrency,
+      days,
+      interval: interval || null,
+      attempts,
+      parsed: {
+        prices: parsedResult.parsed.prices,
+        marketCaps: parsedResult.parsed.marketCaps,
+        totalVolumes: parsedResult.parsed.totalVolumes,
+        meta: parsedResult.parsed.meta,
+      },
+      preview: {
+        prices: pricesPreview,
+        marketCaps: marketCapsPreview,
+        totalVolumes: totalVolumesPreview,
+      },
+    },
+  };
 }
 
 export default {

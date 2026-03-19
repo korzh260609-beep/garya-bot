@@ -25,9 +25,11 @@ export const CMD_ACTION = {
   "/diag_source": "cmd.source.diagnose",
   "/test_source": "cmd.source.test",
 
-  // ✅ STAGE 10C.29 — TA debug reader commands (monarch/dev)
+  // ✅ STAGE 10C.29 / 10C.36 — TA debug/snapshot reader commands (monarch/dev)
   "/ta_debug": "cmd.admin.ta_debug",
   "/ta_debug_full": "cmd.admin.ta_debug",
+  "/ta_snapshot": "cmd.admin.ta_snapshot",
+  "/ta_snapshot_full": "cmd.admin.ta_snapshot",
 
   // ✅ STAGE 11.13 — Recall role gate
   "/recall": "cmd.recall",

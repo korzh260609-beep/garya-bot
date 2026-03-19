@@ -59,6 +59,9 @@ import { handleCryptoDiagnostics } from "./handlers/cryptoDiagnostics.js";
 // ✅ STAGE 10C.11 — CG V-Fuse
 import { handleCgVFuse } from "./handlers/cgVFuse.js";
 
+// ✅ STAGE 10D.1 — Binance ticker debug
+import { handleBinanceDebug } from "./handlers/binanceDebug.js";
+
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -223,6 +226,9 @@ export async function dispatchCommand(cmd, ctx) {
 
     "/cg_vfuse",
     "/cg_vfuse_full",
+
+    "/bn_ticker",
+    "/bn_ticker_full",
 
     "/memory_status",
     "/memory_diag",
@@ -513,6 +519,19 @@ export async function dispatchCommand(cmd, ctx) {
     case "/cg_vfuse":
     case "/cg_vfuse_full": {
       await handleCgVFuse({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        reply,
+        bypass: !!ctx.bypass,
+        cmd: cmd0,
+      });
+      return { handled: true };
+    }
+
+    case "/bn_ticker":
+    case "/bn_ticker_full": {
+      await handleBinanceDebug({
         bot,
         chatId,
         rest: ctx.rest,

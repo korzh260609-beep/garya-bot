@@ -6,8 +6,6 @@ import { handleChatMetaDebug } from "./handlers/chatMetaDebug.js";
 import { handleWebhookInfo } from "./handlers/webhookInfo.js";
 import { handlePrices } from "./handlers/prices.js";
 import { handlePrice } from "./handlers/price.js";
-import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — read-only
-import { handleTaskStatus } from "./handlers/taskStatus.js";
 import { handleArList } from "./handlers/arList.js";
 import { handleFileLogs } from "./handlers/fileLogs.js";
 
@@ -45,6 +43,9 @@ import { dispatchProfileModeCommands } from "./dispatchers/dispatchProfileModeCo
 
 // ✅ SYSTEM INFO dispatcher (extracted 1:1 block)
 import { dispatchSystemInfoCommands } from "./dispatchers/dispatchSystemInfoCommands.js";
+
+// ✅ DIAGNOSTICS / UTILITY dispatcher (extracted 1:1 block)
+import { dispatchDiagnosticsUtilityCommands } from "./dispatchers/dispatchDiagnosticsUtilityCommands.js";
 
 /**
  * Backward-compatible dispatcher.
@@ -303,6 +304,16 @@ export async function dispatchCommand(cmd, ctx) {
     return systemInfoHandled;
   }
 
+  const diagnosticsUtilityHandled = await dispatchDiagnosticsUtilityCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (diagnosticsUtilityHandled?.handled) {
+    return diagnosticsUtilityHandled;
+  }
+
   switch (cmd0) {
     case "/price": {
       return await handlePrice({
@@ -361,16 +372,6 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/webhook_info": {
       await handleWebhookInfo({ bot, chatId });
-      return { handled: true };
-    }
-
-    case "/last_errors": {
-      await handleLastErrors({ bot, chatId, rest: ctx.rest });
-      return { handled: true };
-    }
-
-    case "/task_status": {
-      await handleTaskStatus({ bot, chatId, rest: ctx.rest });
       return { handled: true };
     }
 

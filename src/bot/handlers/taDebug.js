@@ -1,6 +1,6 @@
 // src/bot/handlers/taDebug.js
 // ============================================================================
-// STAGE 10C.39
+// STAGE 10C.41
 // MONARCH/DEV COMMAND HANDLER
 // - /ta_debug / /ta_debug_full
 // - /ta_snapshot / /ta_snapshot_full
@@ -12,6 +12,7 @@
 // - short variants return compact SG view
 // - full variants return expanded technical view
 // - keep /ta_core as the new main internal TA dev path
+// - tiny polish: show interval_used=auto instead of n/a when interval is implicit
 // - no SourceService changes
 // - no chat runtime refactor
 // - no execution logic
@@ -116,6 +117,10 @@ function getAttemptsCount(result = {}) {
   return 0;
 }
 
+function getIntervalUsedText(result = {}) {
+  return normalizeString(result?.fetchMeta?.intervalUsed) || "auto";
+}
+
 function appendLegacyHint(lines = [], kind = "debug") {
   if (kind !== "debug") return lines;
 
@@ -147,7 +152,7 @@ function buildShortSuccessText(result = {}, input = {}, kind = "debug") {
 
   if (kind === "snapshot") {
     lines.push(
-      `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+      `interval_used: ${getIntervalUsedText(result)}`,
       `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`
     );
   }
@@ -212,7 +217,7 @@ function buildFullSuccessText(result = {}, input = {}, kind = "debug") {
     lines.push(
       "",
       `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
-      `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+      `interval_used: ${getIntervalUsedText(result)}`,
       `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
       `attempts_count: ${getAttemptsCount(result)}`,
       `market_chart_reason: ${result?.fetchMeta?.marketChartReason || "n/a"}`,
@@ -258,7 +263,7 @@ function buildErrorText(result = {}, input = {}, kind = "debug", mode = "short")
     lines.push(
       `market_chart_reason: ${result?.fetchMeta?.marketChartReason || "n/a"}`,
       `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
-      `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+      `interval_used: ${getIntervalUsedText(result)}`,
       `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
       `attempts_count: ${getAttemptsCount(result)}`,
       `fetch_reason: ${result?.meta?.fetchReason || "n/a"}`,

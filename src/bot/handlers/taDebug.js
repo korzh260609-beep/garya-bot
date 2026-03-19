@@ -1,6 +1,6 @@
 // src/bot/handlers/taDebug.js
 // ============================================================================
-// STAGE 10C.36
+// STAGE 10C.37
 // MONARCH/DEV COMMAND HANDLER
 // - /ta_debug / /ta_debug_full
 // - /ta_snapshot / /ta_snapshot_full
@@ -106,6 +106,13 @@ function getDefaultCmd(kind = "debug", mode = "short") {
   return mode === "full" ? "/ta_debug_full" : "/ta_debug";
 }
 
+function getAttemptsCount(result = {}) {
+  if (Array.isArray(result?.fetchMeta?.attempts)) {
+    return result.fetchMeta.attempts.length;
+  }
+  return 0;
+}
+
 function buildShortSuccessText(result = {}, input = {}, kind = "debug") {
   const branch = result?.sgView?.branch || "unknown";
   const status = result?.sgView?.status || "unknown";
@@ -113,7 +120,7 @@ function buildShortSuccessText(result = {}, input = {}, kind = "debug") {
   const shortText = normalizeString(result?.sgView?.shortText) || "n/a";
   const note = normalizeString(result?.sgView?.note) || "n/a";
 
-  return [
+  const lines = [
     getTitle(kind, "short"),
     `coin: ${input.coinId}`,
     `vs: ${input.vsCurrency}`,
@@ -122,10 +129,22 @@ function buildShortSuccessText(result = {}, input = {}, kind = "debug") {
     `branch: ${branch}`,
     `status: ${status}`,
     `readiness: ${readiness}`,
+  ];
+
+  if (kind === "snapshot") {
+    lines.push(
+      `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
+      `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`
+    );
+  }
+
+  lines.push(
     "",
     `short: ${shortText}`,
-    `note: ${note}`,
-  ].join("\n");
+    `note: ${note}`
+  );
+
+  return lines.join("\n");
 }
 
 function buildFullSuccessText(result = {}, input = {}, kind = "debug") {
@@ -177,9 +196,15 @@ function buildFullSuccessText(result = {}, input = {}, kind = "debug") {
 
   if (kind === "snapshot") {
     lines.push(
+      "",
       `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
       `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
-      `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`
+      `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
+      `attempts_count: ${getAttemptsCount(result)}`,
+      `market_chart_reason: ${result?.fetchMeta?.marketChartReason || "n/a"}`,
+      `bundle_reason: ${result?.bundleMeta?.bundleReason || "n/a"}`,
+      `bundle_ok: ${result?.bundleMeta?.bundleOk === true ? "true" : "false"}`,
+      `indicators_ready: ${result?.bundleMeta?.indicatorsReady === true ? "true" : "false"}`
     );
   }
 
@@ -220,7 +245,10 @@ function buildErrorText(result = {}, input = {}, kind = "debug", mode = "short")
       `market_chart_reason: ${result?.fetchMeta?.marketChartReason || "n/a"}`,
       `prices_count: ${result?.fetchMeta?.pricesCount ?? "n/a"}`,
       `interval_used: ${result?.fetchMeta?.intervalUsed || "n/a"}`,
-      `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`
+      `fallback_used: ${result?.fetchMeta?.fallbackUsed === true ? "true" : "false"}`,
+      `attempts_count: ${getAttemptsCount(result)}`,
+      `fetch_reason: ${result?.meta?.fetchReason || "n/a"}`,
+      `bundle_reason: ${result?.meta?.bundleReason || "n/a"}`
     );
   }
 

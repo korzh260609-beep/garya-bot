@@ -88,6 +88,7 @@ const RECALL_RL_BYPASS_MONARCH = ["1", "true", "yes", "on"].includes(
 
 // in-memory / per-instance cursor store for local recall paging
 const recallCursorStore = new Map();
+const RECALL_CURSOR_END_SENTINEL = "__RECALL_END__";
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -375,6 +376,19 @@ function setStoredRecallCursor({
   }
 
   recallCursorStore.set(key, value);
+}
+
+function setStoredRecallEnd({
+  chatIdStr,
+  senderIdStr,
+  identityCtx,
+}) {
+  setStoredRecallCursor({
+    chatIdStr,
+    senderIdStr,
+    identityCtx,
+    cursor: RECALL_CURSOR_END_SENTINEL,
+  });
 }
 
 function getStoredRecallCursor({
@@ -758,9 +772,8 @@ export async function handleRecallMore({
     return;
   }
 
-  const effectiveCursor = String(
-    cursor || getStoredRecallCursor({ chatIdStr, senderIdStr, identityCtx }) || ""
-  ).trim();
+  const storedCursor = getStoredRecallCursor({ chatIdStr, senderIdStr, identityCtx });
+  const effectiveCursor = String(cursor || storedCursor || "").trim();
 
   if (!effectiveCursor) {
     await bot.sendMessage(
@@ -768,6 +781,17 @@ export async function handleRecallMore({
       [
         "⛔ recall_more_invalid_cursor",
         "reason=missing_cursor",
+      ].join("\n")
+    );
+    return;
+  }
+
+  if (!cursor && effectiveCursor === RECALL_CURSOR_END_SENTINEL) {
+    await bot.sendMessage(
+      chatId,
+      [
+        "END OF RECALL",
+        "no more results",
       ].join("\n")
     );
     return;
@@ -813,7 +837,7 @@ export async function handleRecallMore({
     const hasMore = page?.hasMore === true;
 
     if (!rows.length) {
-      clearStoredRecallCursor({
+      setStoredRecallEnd({
         chatIdStr,
         senderIdStr,
         identityCtx,
@@ -822,8 +846,8 @@ export async function handleRecallMore({
       await bot.sendMessage(
         chatId,
         [
-          "RECALL MORE: пусто",
-          "reason=no_more_results",
+          "END OF RECALL",
+          "no more results",
           `scope=${parsedCursor.scope}`,
           `days=${parsedCursor.days}`,
           `limit=${parsedCursor.limit}`,
@@ -862,7 +886,7 @@ export async function handleRecallMore({
         cursor: nextCursor,
       });
     } else {
-      clearStoredRecallCursor({
+      setStoredRecallEnd({
         chatIdStr,
         senderIdStr,
         identityCtx,
@@ -880,6 +904,8 @@ export async function handleRecallMore({
           ? `keyword=${safeText(parsedCursor.keyword, 80)}`
           : "",
         hasMore && nextCursor ? `next_cursor=${nextCursor}` : "",
+        !hasMore ? "END OF RECALL" : "",
+        !hasMore ? "no more results" : "",
         "",
         ...lines,
       ]

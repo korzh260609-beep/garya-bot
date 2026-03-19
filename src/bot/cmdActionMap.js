@@ -45,6 +45,10 @@ export const CMD_ACTION = {
   "/crypto_diag": "cmd.admin.crypto_diag",
   "/crypto_diag_full": "cmd.admin.crypto_diag",
 
+  // ✅ STAGE 10C.11 — CG V-Fuse commands (monarch/dev)
+  "/cg_vfuse": "cmd.admin.cg_vfuse",
+  "/cg_vfuse_full": "cmd.admin.cg_vfuse",
+
   // ✅ STAGE 11.13 — Recall role gate
   "/recall": "cmd.recall",
   "/recall_more": "cmd.recall",

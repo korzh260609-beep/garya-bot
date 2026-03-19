@@ -1,0 +1,62 @@
+// src/bot/dispatchers/dispatchMemoryDiagnosticsCommands.js
+// Extracted 1:1 from commandDispatcher.js
+// Purpose: keep commandDispatcher smaller without changing behavior.
+
+// ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
+import { MemoryDiagnosticsService } from "../../core/MemoryDiagnosticsService.js";
+
+// ✅ Singleton service (safe: no side-effects)
+const memoryDiagSvc = new MemoryDiagnosticsService();
+
+export async function dispatchMemoryDiagnosticsCommands({ cmd0, ctx, reply }) {
+  const { chatIdStr } = ctx;
+
+  switch (cmd0) {
+    case "/memory_status": {
+      const cols = await memoryDiagSvc.getChatMemoryV2Columns();
+      await reply(
+        [
+          "🧪 MEMORY STATUS",
+          `global_user_id: ${cols.global_user_id ? "true ✅" : "false ⛔"}`,
+          `transport: ${cols.transport ? "true ✅" : "false ⛔"}`,
+          `metadata: ${cols.metadata ? "true ✅" : "false ⛔"}`,
+          `schema_version: ${cols.schema_version ? "true ✅" : "false ⛔"}`,
+        ].join("\n"),
+        { cmd: cmd0, handler: "commandDispatcher" }
+      );
+      return { handled: true };
+    }
+
+    case "/memory_diag": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const text = await memoryDiagSvc.memoryDiag({ chatIdStr, globalUserId });
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
+    case "/memory_integrity": {
+      const text = await memoryDiagSvc.memoryIntegrity({ chatIdStr });
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
+    case "/memory_backfill": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const limitStr = String(ctx?.rest || "").trim();
+      const limit = limitStr ? Number(limitStr) : 200;
+      const text = await memoryDiagSvc.memoryBackfill({ chatIdStr, globalUserId, limit });
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
+    case "/memory_user_chats": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const text = await memoryDiagSvc.memoryUserChats({ globalUserId });
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
+    default:
+      return { handled: false };
+  }
+}

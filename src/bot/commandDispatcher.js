@@ -53,6 +53,9 @@ import { handleNewsDebug } from "./handlers/newsDebug.js";
 // ✅ STAGE 10C.9 — Multi-monitor debug
 import { handleMultiMonitorDebug } from "./handlers/multiMonitorDebug.js";
 
+// ✅ STAGE 10C.10 — Crypto diagnostics
+import { handleCryptoDiagnostics } from "./handlers/cryptoDiagnostics.js";
+
 import pool from "../../db.js";
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
@@ -211,6 +214,9 @@ export async function dispatchCommand(cmd, ctx) {
 
     "/multi_monitor",
     "/multi_monitor_full",
+
+    "/crypto_diag",
+    "/crypto_diag_full",
 
     "/memory_status",
     "/memory_diag",
@@ -475,6 +481,19 @@ export async function dispatchCommand(cmd, ctx) {
     case "/multi_monitor":
     case "/multi_monitor_full": {
       await handleMultiMonitorDebug({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        reply,
+        bypass: !!ctx.bypass,
+        cmd: cmd0,
+      });
+      return { handled: true };
+    }
+
+    case "/crypto_diag":
+    case "/crypto_diag_full": {
+      await handleCryptoDiagnostics({
         bot,
         chatId,
         rest: ctx.rest,

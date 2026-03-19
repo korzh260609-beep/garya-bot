@@ -38,6 +38,12 @@
 // - cursor is stateless base64url JSON
 // - paging uses created_at + id to avoid duplicate/missing rows
 //
+// CONTROLLED CURSOR STORE STEP:
+// - /recall stores last local next_cursor in in-memory store
+// - /recall_more without arg may use stored cursor automatically
+// - manual cursor in command args has priority
+// - store is per-instance only and may be lost on restart
+//
 // STAGE 11.14 — dedicated rate-limit for /recall
 // IMPORTANT:
 // - in-memory / per-instance only
@@ -79,6 +85,9 @@ const RECALL_MORE_RL_MAX = envIntRange("RECALL_MORE_RL_MAX", 8, {
 const RECALL_RL_BYPASS_MONARCH = ["1", "true", "yes", "on"].includes(
   envStr("RECALL_RL_BYPASS_MONARCH", "true").trim().toLowerCase()
 );
+
+// in-memory / per-instance cursor store for local recall paging
+const recallCursorStore = new Map();
 
 function safeInt(n, def) {
   const x = Number(n);
@@ -325,6 +334,77 @@ function buildRecallRateLimitKey({
   return `recall:${kind}:chat:${String(chatIdStr || "unknown")}`;
 }
 
+function buildRecallCursorStoreKey({
+  chatIdStr,
+  senderIdStr,
+  identityCtx,
+}) {
+  const globalUserId =
+    identityCtx?.global_user_id ||
+    identityCtx?.globalUserId ||
+    null;
+
+  if (globalUserId) {
+    return `recall_cursor:gu:${String(globalUserId)}`;
+  }
+
+  if (senderIdStr) {
+    return `recall_cursor:sender:${String(senderIdStr)}`;
+  }
+
+  return `recall_cursor:chat:${String(chatIdStr || "unknown")}`;
+}
+
+function setStoredRecallCursor({
+  chatIdStr,
+  senderIdStr,
+  identityCtx,
+  cursor,
+}) {
+  const key = buildRecallCursorStoreKey({
+    chatIdStr,
+    senderIdStr,
+    identityCtx,
+  });
+
+  const value = String(cursor || "").trim();
+
+  if (!value) {
+    recallCursorStore.delete(key);
+    return;
+  }
+
+  recallCursorStore.set(key, value);
+}
+
+function getStoredRecallCursor({
+  chatIdStr,
+  senderIdStr,
+  identityCtx,
+}) {
+  const key = buildRecallCursorStoreKey({
+    chatIdStr,
+    senderIdStr,
+    identityCtx,
+  });
+
+  return String(recallCursorStore.get(key) || "").trim();
+}
+
+function clearStoredRecallCursor({
+  chatIdStr,
+  senderIdStr,
+  identityCtx,
+}) {
+  const key = buildRecallCursorStoreKey({
+    chatIdStr,
+    senderIdStr,
+    identityCtx,
+  });
+
+  recallCursorStore.delete(key);
+}
+
 async function applyRecallRateLimit({
   bot,
   chatId,
@@ -523,6 +603,12 @@ export async function handleRecall({
     const hasMore = page?.hasMore === true;
 
     if (!rows.length) {
+      clearStoredRecallCursor({
+        chatIdStr,
+        senderIdStr,
+        identityCtx,
+      });
+
       await bot.sendMessage(
         chatId,
         [
@@ -552,6 +638,21 @@ export async function handleRecall({
           ? new Date(lastRow.created_at).toISOString()
           : "",
         lastId: lastRow?.id ?? 0,
+      });
+    }
+
+    if (hasMore && nextCursor) {
+      setStoredRecallCursor({
+        chatIdStr,
+        senderIdStr,
+        identityCtx,
+        cursor: nextCursor,
+      });
+    } else {
+      clearStoredRecallCursor({
+        chatIdStr,
+        senderIdStr,
+        identityCtx,
       });
     }
 
@@ -657,7 +758,11 @@ export async function handleRecallMore({
     return;
   }
 
-  if (!cursor) {
+  const effectiveCursor = String(
+    cursor || getStoredRecallCursor({ chatIdStr, senderIdStr, identityCtx }) || ""
+  ).trim();
+
+  if (!effectiveCursor) {
     await bot.sendMessage(
       chatId,
       [
@@ -668,7 +773,7 @@ export async function handleRecallMore({
     return;
   }
 
-  const parsedCursor = parseRecallCursor(cursor);
+  const parsedCursor = parseRecallCursor(effectiveCursor);
 
   if (!parsedCursor) {
     await bot.sendMessage(
@@ -708,6 +813,12 @@ export async function handleRecallMore({
     const hasMore = page?.hasMore === true;
 
     if (!rows.length) {
+      clearStoredRecallCursor({
+        chatIdStr,
+        senderIdStr,
+        identityCtx,
+      });
+
       await bot.sendMessage(
         chatId,
         [
@@ -740,6 +851,21 @@ export async function handleRecallMore({
           ? new Date(lastRow.created_at).toISOString()
           : "",
         lastId: lastRow?.id ?? 0,
+      });
+    }
+
+    if (hasMore && nextCursor) {
+      setStoredRecallCursor({
+        chatIdStr,
+        senderIdStr,
+        identityCtx,
+        cursor: nextCursor,
+      });
+    } else {
+      clearStoredRecallCursor({
+        chatIdStr,
+        senderIdStr,
+        identityCtx,
       });
     }
 

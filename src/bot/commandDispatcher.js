@@ -43,7 +43,7 @@ import { handleGrant } from "./handlers/grant.js";
 import { handleRevoke } from "./handlers/revoke.js";
 import { handleGrants } from "./handlers/grants.js";
 
-// ✅ STAGE 10C.29 / 10C.30 — TA debug reader
+// ✅ STAGE 10C.29 / 10C.30 / 10C.36 — TA debug + snapshot reader
 import { handleTaDebug } from "./handlers/taDebug.js";
 
 import pool from "../../db.js";
@@ -209,9 +209,11 @@ export async function dispatchCommand(cmd, ctx) {
     "/behavior_events_last",
     "/be_emit",
 
-    // ✅ STAGE 10C.29 / 10C.30 — TA debug commands private-only
+    // ✅ STAGE 10C.29 / 10C.30 / 10C.36 — TA debug commands private-only
     "/ta_debug",
     "/ta_debug_full",
+    "/ta_snapshot",
+    "/ta_snapshot_full",
 
     "/memory_status",
     "/memory_diag",
@@ -441,9 +443,11 @@ export async function dispatchCommand(cmd, ctx) {
       return { handled: true };
     }
 
-    // ✅ STAGE 10C.29 / 10C.30 — TA DEBUG READER
+    // ✅ STAGE 10C.29 / 10C.30 / 10C.36 — TA DEBUG + SNAPSHOT
     case "/ta_debug":
-    case "/ta_debug_full": {
+    case "/ta_debug_full":
+    case "/ta_snapshot":
+    case "/ta_snapshot_full": {
       await handleTaDebug({
         bot,
         chatId,

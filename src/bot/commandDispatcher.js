@@ -3,6 +3,7 @@
 // IMPORTANT: keep behavior identical; we only move cases 1:1.
 
 import { handleArList } from "./handlers/arList.js";
+import { handleRepoStatus } from "./handlers/repoStatus.js";
 
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
 import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
@@ -331,6 +332,15 @@ export async function dispatchCommand(cmd, ctx) {
   }
 
   switch (cmd0) {
+    case "/repo_status": {
+      await handleRepoStatus({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+      });
+      return { handled: true };
+    }
+
     case "/ar_list": {
       await handleArList({
         bot,

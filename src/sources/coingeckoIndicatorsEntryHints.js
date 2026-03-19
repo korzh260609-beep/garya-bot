@@ -1,6 +1,6 @@
 // src/sources/coingeckoIndicatorsEntryHints.js
 // ============================================================================
-// STAGE 10C.21
+// STAGE 10C.22
 // ENTRY HINTS LAYER
 //
 // PURPOSE:
@@ -92,12 +92,40 @@ export function buildEntryHints(summary = {}) {
       summaryConfidence === "high" ? "early_confirmation" : "not_ready";
     actionBias = "accumulate";
     riskMode = summaryConfidence === "high" ? "balanced" : "defensive";
-    readinessScore = summaryConfidence === "high" ? 62 : 38;
+    readinessScore = summaryConfidence === "high" ? 58 : 34;
     shouldWaitForConfirmation = true;
     explanationShort =
       "Uptrend is intact, but current dip still needs confirmation.";
     note =
       "Bullish structure remains, but momentum is pulling back. Watch for dip stabilization, not blind entry.";
+
+    if (typeof trendScore === "number") {
+      if (trendScore >= 5) {
+        triggerStatus =
+          summaryConfidence === "high" ? "early_confirmation" : "not_ready";
+        riskMode = "balanced";
+        readinessScore = summaryConfidence === "high" ? 66 : 44;
+        explanationShort =
+          "Uptrend remains strong, but the pullback still needs confirmation.";
+        note =
+          "Bullish structure is strong. Watch for pullback stabilization before acting.";
+      } else if (trendScore >= 2) {
+        triggerStatus =
+          summaryConfidence === "high" ? "early_confirmation" : "not_ready";
+        riskMode = "balanced";
+        readinessScore = summaryConfidence === "high" ? 58 : 34;
+      } else {
+        triggerStatus = "not_ready";
+        actionBias = "hold";
+        riskMode = "defensive";
+        readinessScore = 24;
+        shouldWaitForConfirmation = true;
+        explanationShort =
+          "Possible dip idea exists, but trend strength is too weak.";
+        note =
+          "Signal looks like a pullback, but trend strength is weak. Treat buy-on-dip idea cautiously.";
+      }
+    }
   } else if (summarySignal === "bounce_in_downtrend") {
     hint = "possible_sell_on_bounce";
     bias = "bearish";
@@ -107,12 +135,40 @@ export function buildEntryHints(summary = {}) {
       summaryConfidence === "high" ? "early_confirmation" : "not_ready";
     actionBias = "reduce";
     riskMode = summaryConfidence === "high" ? "balanced" : "defensive";
-    readinessScore = summaryConfidence === "high" ? 62 : 38;
+    readinessScore = summaryConfidence === "high" ? 58 : 34;
     shouldWaitForConfirmation = true;
     explanationShort =
       "Downtrend is intact, but current bounce still needs confirmation.";
     note =
       "Bearish structure remains, but momentum is bouncing. Watch for bounce weakness, not blind entry.";
+
+    if (typeof trendScore === "number") {
+      if (trendScore <= -5) {
+        triggerStatus =
+          summaryConfidence === "high" ? "early_confirmation" : "not_ready";
+        riskMode = "balanced";
+        readinessScore = summaryConfidence === "high" ? 66 : 44;
+        explanationShort =
+          "Downtrend remains strong, but the bounce still needs confirmation.";
+        note =
+          "Bearish structure is strong. Watch for bounce weakness before acting.";
+      } else if (trendScore <= -2) {
+        triggerStatus =
+          summaryConfidence === "high" ? "early_confirmation" : "not_ready";
+        riskMode = "balanced";
+        readinessScore = summaryConfidence === "high" ? 58 : 34;
+      } else {
+        triggerStatus = "not_ready";
+        actionBias = "hold";
+        riskMode = "defensive";
+        readinessScore = 24;
+        shouldWaitForConfirmation = true;
+        explanationShort =
+          "Possible bounce-sell idea exists, but trend strength is too weak.";
+        note =
+          "Signal looks like a bounce, but trend strength is weak. Treat sell-on-bounce idea cautiously.";
+      }
+    }
   } else if (summarySignal === "buy") {
     hint = "possible_buy_with_trend";
     bias = "bullish";
@@ -120,11 +176,35 @@ export function buildEntryHints(summary = {}) {
     setup = "trend_buy_setup";
     triggerStatus = "confirmed";
     actionBias = "accumulate";
-    riskMode = "aggressive";
-    readinessScore = 88;
+    riskMode = "balanced";
+    readinessScore = 76;
     shouldWaitForConfirmation = false;
     explanationShort = "Trend and momentum are aligned upward.";
     note = "Trend and momentum are aligned to the upside.";
+
+    if (typeof trendScore === "number") {
+      if (trendScore >= 8) {
+        riskMode = "aggressive";
+        readinessScore = 90;
+        shouldWaitForConfirmation = false;
+        explanationShort = "Trend and momentum are strongly aligned upward.";
+        note = "Bullish alignment is strong and already confirmed.";
+      } else if (trendScore >= 6) {
+        riskMode = "aggressive";
+        readinessScore = 84;
+        shouldWaitForConfirmation = false;
+        explanationShort = "Trend and momentum are aligned upward.";
+        note = "Bullish alignment is confirmed with solid trend strength.";
+      } else {
+        riskMode = "balanced";
+        readinessScore = 76;
+        shouldWaitForConfirmation = false;
+        explanationShort =
+          "Bullish alignment exists, but trend strength is not at the strongest edge.";
+        note =
+          "Bullish structure is confirmed, but not at maximum strength. Avoid overconfidence.";
+      }
+    }
   } else if (summarySignal === "buy_watch") {
     hint = "possible_buy_with_trend";
     bias = "bullish";
@@ -133,12 +213,39 @@ export function buildEntryHints(summary = {}) {
     triggerStatus = "early_confirmation";
     actionBias = "accumulate";
     riskMode = "balanced";
-    readinessScore = 68;
+    readinessScore = 60;
     shouldWaitForConfirmation = true;
     explanationShort =
       "Bullish structure exists, but confirmation is still partial.";
     note =
       "Bullish structure exists, but confirmation is weaker than full buy state.";
+
+    if (typeof trendScore === "number") {
+      if (trendScore >= 5) {
+        riskMode = "balanced";
+        readinessScore = 72;
+        explanationShort =
+          "Bullish structure is fairly strong, but still needs final confirmation.";
+        note =
+          "Bullish setup is close to ready, but not yet a full confirmed buy state.";
+      } else if (trendScore >= 3) {
+        riskMode = "balanced";
+        readinessScore = 60;
+        explanationShort =
+          "Bullish structure exists, but confirmation is still partial.";
+        note =
+          "Bullish structure exists, but confirmation is weaker than full buy state.";
+      } else {
+        triggerStatus = "not_ready";
+        actionBias = "hold";
+        riskMode = "defensive";
+        readinessScore = 46;
+        explanationShort =
+          "Bullish watch idea exists, but current trend strength is still modest.";
+        note =
+          "Bullish structure is present, but trend strength is not strong enough to treat it as nearly ready.";
+      }
+    }
   } else if (summarySignal === "sell") {
     hint = "possible_sell_with_trend";
     bias = "bearish";
@@ -146,11 +253,35 @@ export function buildEntryHints(summary = {}) {
     setup = "trend_sell_setup";
     triggerStatus = "confirmed";
     actionBias = "reduce";
-    riskMode = "aggressive";
-    readinessScore = 88;
+    riskMode = "balanced";
+    readinessScore = 76;
     shouldWaitForConfirmation = false;
     explanationShort = "Trend and momentum are aligned downward.";
     note = "Trend and momentum are aligned to the downside.";
+
+    if (typeof trendScore === "number") {
+      if (trendScore <= -8) {
+        riskMode = "aggressive";
+        readinessScore = 90;
+        shouldWaitForConfirmation = false;
+        explanationShort = "Trend and momentum are strongly aligned downward.";
+        note = "Bearish alignment is strong and already confirmed.";
+      } else if (trendScore <= -6) {
+        riskMode = "aggressive";
+        readinessScore = 84;
+        shouldWaitForConfirmation = false;
+        explanationShort = "Trend and momentum are aligned downward.";
+        note = "Bearish alignment is confirmed with solid trend strength.";
+      } else {
+        riskMode = "balanced";
+        readinessScore = 76;
+        shouldWaitForConfirmation = false;
+        explanationShort =
+          "Bearish alignment exists, but trend strength is not at the strongest edge.";
+        note =
+          "Bearish structure is confirmed, but not at maximum strength. Avoid overconfidence.";
+      }
+    }
   } else if (summarySignal === "sell_watch") {
     hint = "possible_sell_with_trend";
     bias = "bearish";
@@ -159,12 +290,39 @@ export function buildEntryHints(summary = {}) {
     triggerStatus = "early_confirmation";
     actionBias = "reduce";
     riskMode = "balanced";
-    readinessScore = 68;
+    readinessScore = 60;
     shouldWaitForConfirmation = true;
     explanationShort =
       "Bearish structure exists, but confirmation is still partial.";
     note =
       "Bearish structure exists, but confirmation is weaker than full sell state.";
+
+    if (typeof trendScore === "number") {
+      if (trendScore <= -5) {
+        riskMode = "balanced";
+        readinessScore = 72;
+        explanationShort =
+          "Bearish structure is fairly strong, but still needs final confirmation.";
+        note =
+          "Bearish setup is close to ready, but not yet a full confirmed sell state.";
+      } else if (trendScore <= -3) {
+        riskMode = "balanced";
+        readinessScore = 60;
+        explanationShort =
+          "Bearish structure exists, but confirmation is still partial.";
+        note =
+          "Bearish structure exists, but confirmation is weaker than full sell state.";
+      } else {
+        triggerStatus = "not_ready";
+        actionBias = "hold";
+        riskMode = "defensive";
+        readinessScore = 46;
+        explanationShort =
+          "Bearish watch idea exists, but current trend strength is still modest.";
+        note =
+          "Bearish structure is present, but trend strength is not strong enough to treat it as nearly ready.";
+      }
+    }
   } else if (summarySignal === "wait") {
     hint = "wait_for_confirmation";
     bias =
@@ -183,38 +341,27 @@ export function buildEntryHints(summary = {}) {
     explanationShort = "Market structure is mixed. Better wait.";
     note =
       "Structure is not clean enough. Better wait for stronger confirmation before any entry idea.";
-  }
 
-  if (
-    hint === "possible_buy_on_dip" &&
-    trendScore !== null &&
-    trendScore <= 0
-  ) {
-    triggerStatus = "not_ready";
-    actionBias = "hold";
-    riskMode = "defensive";
-    readinessScore = 24;
-    shouldWaitForConfirmation = true;
-    explanationShort =
-      "Possible dip idea exists, but trend strength is too weak.";
-    note =
-      "Signal looks like a pullback, but trend strength is weak. Treat buy-on-dip idea cautiously.";
-  }
-
-  if (
-    hint === "possible_sell_on_bounce" &&
-    trendScore !== null &&
-    trendScore >= 0
-  ) {
-    triggerStatus = "not_ready";
-    actionBias = "hold";
-    riskMode = "defensive";
-    readinessScore = 24;
-    shouldWaitForConfirmation = true;
-    explanationShort =
-      "Possible bounce-sell idea exists, but trend strength is too weak.";
-    note =
-      "Signal looks like a bounce, but trend strength is weak. Treat sell-on-bounce idea cautiously.";
+    if (typeof trendScore === "number") {
+      if (Math.abs(trendScore) >= 2) {
+        readinessScore = 28;
+        explanationShort =
+          "There is slight directional structure, but it is still too weak for action.";
+        note =
+          "Market has a small directional lean, but confirmation is still not strong enough.";
+      } else if (Math.abs(trendScore) === 1) {
+        readinessScore = 22;
+        explanationShort =
+          "There is a weak directional lean, but the setup is still not ready.";
+        note =
+          "A weak directional bias exists, but it is not reliable enough yet.";
+      } else {
+        readinessScore = 14;
+        explanationShort = "Market is mostly neutral or mixed. Better wait.";
+        note =
+          "No clean directional structure is visible. Better wait for a clearer setup.";
+      }
+    }
   }
 
   readinessScore = clampReadinessScore(readinessScore);

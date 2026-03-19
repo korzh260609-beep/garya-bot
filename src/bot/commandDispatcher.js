@@ -10,13 +10,6 @@ import { handlePrice } from "./handlers/price.js";
 import { handleProfile } from "./handlers/profile.js";
 import { handleMode } from "./handlers/mode.js";
 import { handleHealth } from "./handlers/health.js"; // Stage 5 — skeleton
-import { handleDecisionDiag } from "./handlers/decisionDiag.js";
-import { handleDecisionDiagLast } from "./handlers/decisionDiagLast.js";
-import { handleDecisionDiagStats } from "./handlers/decisionDiagStats.js";
-import { handleDecisionDiagDbStats } from "./handlers/decisionDiagDbStats.js";
-import { handleDecisionDiagLastDb } from "./handlers/decisionDiagLastDb.js";
-import { handleDecisionDiagWindow } from "./handlers/decisionDiagWindow.js";
-import { handleDecisionPromotionDiag } from "./handlers/decisionPromotionDiag.js";
 import { handleLastErrors } from "./handlers/lastErrors.js"; // Stage 5.6 — read-only
 import { handleTaskStatus } from "./handlers/taskStatus.js";
 import { handleArList } from "./handlers/arList.js";
@@ -50,6 +43,9 @@ import { dispatchRecallCommands } from "./dispatchers/dispatchRecallCommands.js"
 
 // ✅ MEMORY DIAGNOSTICS dispatcher (extracted 1:1 block)
 import { dispatchMemoryDiagnosticsCommands } from "./dispatchers/dispatchMemoryDiagnosticsCommands.js";
+
+// ✅ DECISION DIAGNOSTICS dispatcher (extracted 1:1 block)
+import { dispatchDecisionDiagnosticsCommands } from "./dispatchers/dispatchDecisionDiagnosticsCommands.js";
 
 /**
  * Backward-compatible dispatcher.
@@ -278,6 +274,16 @@ export async function dispatchCommand(cmd, ctx) {
     return memoryDiagnosticsHandled;
   }
 
+  const decisionDiagnosticsHandled = await dispatchDecisionDiagnosticsCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (decisionDiagnosticsHandled?.handled) {
+    return decisionDiagnosticsHandled;
+  }
+
   switch (cmd0) {
     case "/profile":
     case "/me":
@@ -351,71 +357,6 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/health": {
       await handleHealth({ bot, chatId });
-      return { handled: true };
-    }
-
-    case "/diag_decision": {
-      await handleDecisionDiag({
-        bot,
-        chatId,
-        reply,
-        rest: ctx.rest,
-      });
-      return { handled: true };
-    }
-
-    case "/diag_decision_last": {
-      await handleDecisionDiagLast({
-        bot,
-        chatId,
-        reply,
-      });
-      return { handled: true };
-    }
-
-    case "/diag_decision_stats": {
-      await handleDecisionDiagStats({
-        bot,
-        chatId,
-        reply,
-      });
-      return { handled: true };
-    }
-
-    case "/diag_decision_db_stats": {
-      await handleDecisionDiagDbStats({
-        bot,
-        chatId,
-        reply,
-      });
-      return { handled: true };
-    }
-
-    case "/diag_decision_last_db": {
-      await handleDecisionDiagLastDb({
-        bot,
-        chatId,
-        reply,
-      });
-      return { handled: true };
-    }
-
-    case "/diag_decision_window": {
-      await handleDecisionDiagWindow({
-        bot,
-        chatId,
-        reply,
-        rest: ctx.rest,
-      });
-      return { handled: true };
-    }
-
-    case "/diag_decision_promotion": {
-      await handleDecisionPromotionDiag({
-        bot,
-        chatId,
-        reply,
-      });
       return { handled: true };
     }
 

@@ -41,6 +41,10 @@ export const CMD_ACTION = {
   "/multi_monitor": "cmd.admin.multi_monitor",
   "/multi_monitor_full": "cmd.admin.multi_monitor",
 
+  // ✅ STAGE 10C.10 — Crypto diagnostics commands (monarch/dev)
+  "/crypto_diag": "cmd.admin.crypto_diag",
+  "/crypto_diag_full": "cmd.admin.crypto_diag",
+
   // ✅ STAGE 11.13 — Recall role gate
   "/recall": "cmd.recall",
   "/recall_more": "cmd.recall",

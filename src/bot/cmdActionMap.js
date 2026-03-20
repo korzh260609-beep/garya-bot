@@ -13,6 +13,7 @@ export const CMD_ACTION = {
 
   "/reindex": "cmd.repo.reindex",
   "/repo_status": "cmd.admin.repo_status",
+  "/workflow_check": "cmd.admin.workflow_check",
 
   "/tasks": "cmd.tasks.list",
   "/run": "cmd.task.run",

@@ -4,6 +4,7 @@
 
 import { handleArList } from "./handlers/arList.js";
 import { handleRepoStatus } from "./handlers/repoStatus.js";
+import { handleWorkflowCheck } from "./handlers/workflowCheck.js";
 
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
 import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
@@ -337,6 +338,16 @@ export async function dispatchCommand(cmd, ctx) {
         bot,
         chatId,
         senderIdStr: ctx.senderIdStr,
+      });
+      return { handled: true };
+    }
+
+    case "/workflow_check": {
+      await handleWorkflowCheck({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
       });
       return { handled: true };
     }

@@ -631,3 +631,36 @@ Consequences:
 - Stage 10D is effectively paused at current environment level.
 - OKX becomes the practical continuation path for exchange-source development.
 - Future source fusion and diagnostics in this environment should prioritize OKX over Binance until restrictions are lifted.
+
+---
+
+## D-035: Guest → Citizen promotion is manual-only in V1
+
+Status: ACCEPTED  
+Date: 2026-03-20  
+Scope: Identity / Access / Promotion Policy
+
+Decision:
+
+В текущей V1-логике SG автоматическое продвижение пользователя
+из `guest` в `citizen` НЕ выполняется.
+
+Продвижение guest → citizen допускается только вручную монархом
+через административные команды (например, `/grant`).
+
+Любые механизмы auto-promotion:
+- по активности
+- по количеству сообщений
+- по доверию
+- по времени использования
+- по любым score / telemetry правилам
+
+считаются отключёнными до отдельного явного решения монарха
+и отдельного этапа реализации.
+
+Consequences:
+
+- Текущая политика promotion в runtime считается manual-only
+- Отсутствие auto-promotion не является bug
+- Любая попытка включить auto-promotion без нового decision-entry считается нарушением stage governance
+- Тестирование ролей guest/citizen в V1 должно опираться на ручной `/grant` и `/revoke`

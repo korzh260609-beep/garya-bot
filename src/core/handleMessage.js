@@ -929,6 +929,66 @@ export async function handleMessage(context = {}) {
         });
       };
 
+            // ==========================================================
+      // STAGE 7.4 V1 — explicit remember only
+      // Rule:
+      // - only explicit user request like "запомни ..." / "remember ..."
+      // - no AI extraction
+      // - no auto-curation
+      // - fail-open
+      // ==========================================================
+      const explicitRememberMatch = /^(?:запомни|remember)\s+(.+)$/i.exec(trimmed);
+
+      if (explicitRememberMatch) {
+        const rememberValue = String(explicitRememberMatch[1] || "").trim();
+
+        if (!rememberValue) {
+          await replyAndLog("Напиши после «запомни» что именно сохранить.", {
+            event: "remember_empty",
+          });
+          return { ok: true, stage: "7.4", result: "remember_empty" };
+        }
+
+        try {
+          const rememberRes = await memory.remember({
+            key: "user_explicit_memory",
+            value: rememberValue,
+            chatId: chatIdStr,
+            globalUserId: globalUserId || null,
+            transport,
+            metadata: {
+              source: "core.handleMessage.explicit_remember",
+              senderId: senderId || null,
+              chatId: chatIdStr,
+              messageId: messageId ? Number(messageId) : null,
+              userRole,
+            },
+            schemaVersion: 2,
+          });
+
+          if (rememberRes?.ok === true && rememberRes?.stored === true) {
+            await replyAndLog("✅ Запомнил.", {
+              event: "remember_saved",
+              memoryKey: "user_explicit_memory",
+            });
+            return { ok: true, stage: "7.4", result: "remember_saved" };
+          }
+
+          await replyAndLog("⚠️ Не удалось сохранить в память.", {
+            event: "remember_not_saved",
+            memoryKey: "user_explicit_memory",
+          });
+          return { ok: false, reason: "remember_not_saved" };
+        } catch (e) {
+          console.error("handleMessage(explicit remember) failed:", e);
+          await replyAndLog("⚠️ Не удалось сохранить в память.", {
+            event: "remember_error",
+            memoryKey: "user_explicit_memory",
+          });
+          return { ok: false, reason: "remember_error" };
+        }
+      }
+
       // ==========================================================
       // STAGE 7B.7 — CORE inbound chat idempotency guard
       // Insert-first before handler/AI.

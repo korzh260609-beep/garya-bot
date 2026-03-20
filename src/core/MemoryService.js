@@ -16,6 +16,7 @@
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
 // - recent({ chatId, globalUserId, limit }) -> [{role, content}, ...]
 // - context({ chatId, globalUserId, limit }) -> { enabled, chatId, globalUserId, memories: [...] }
+// - remember({ key, value, chatId, globalUserId, transport, metadata, schemaVersion })
 // - status() -> diag info
 
 import { getMemoryConfig } from "./memoryConfig.js";
@@ -359,24 +360,106 @@ export class MemoryService {
   }
 
   // ========================================================================
-  // remember() — reserved for future “curated long-term memory”
-  // На Stage 7 не пишем никуда (честный no-op).
+  // remember() — minimal explicit long-term memory V1
+  // Rules:
+  // - only explicit remember-call should use this method
+  // - no AI extraction here
+  // - no new schema
+  // - persisted through chat_memory backend as system memory record
   // ========================================================================
-  async remember({ key, value, metadata = {} } = {}) {
-    if (!key || typeof value !== "string") {
+  async remember({
+    key,
+    value,
+    globalUserId = null,
+    chatId = null,
+    transport = null,
+    metadata = {},
+    schemaVersion = null,
+  } = {}) {
+    const keyStr = _safeStr(key).trim();
+    const valueStr = typeof value === "string" ? value.trim() : _safeStr(value).trim();
+    const chatIdStr = chatId ? String(chatId) : null;
+
+    if (!keyStr || !valueStr) {
       return { ok: false, reason: "invalid_input" };
     }
 
+    if (!this._enabled || !chatIdStr) {
+      return {
+        ok: true,
+        enabled: this._enabled,
+        stored: false,
+        backend: "chat_memory",
+        key: keyStr,
+        size: valueStr.length,
+        metadata: _safeObj(metadata),
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: !this._enabled ? "memory_disabled" : "missing_chatId",
+      };
+    }
+
+    const safeTransport = _normalizeTransport(transport);
+    const safeMeta = _safeObj(metadata);
+    const sv = _normalizeSchemaVersion(schemaVersion);
+
+    const rememberContent = `[MEMORY:${keyStr}] ${valueStr}`;
+
+    const writeRes = await this.write({
+      globalUserId: globalUserId || null,
+      chatId: chatIdStr,
+      role: "system",
+      content: rememberContent,
+      transport: safeTransport,
+      metadata: {
+        ...safeMeta,
+        memoryType: "long_term",
+        rememberKey: keyStr,
+        explicit: true,
+        source: safeMeta.source || "MemoryService.remember",
+      },
+      schemaVersion: sv,
+    });
+
+    const ok = writeRes?.ok === true;
+    const stored = writeRes?.stored === true;
+
+    if (stored) {
+      this.logger.info("Saved remember", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        key: keyStr,
+        transport: safeTransport,
+        sv,
+      });
+    } else {
+      this.logger.error("Save remember failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        key: keyStr,
+        transport: safeTransport,
+        sv,
+        reason: writeRes?.reason || "unknown",
+      });
+    }
+
     return {
-      ok: true,
+      ok,
       enabled: this._enabled,
-      stored: false,
-      backend: "none",
-      key,
-      size: value.length,
-      metadata: _safeObj(metadata),
+      stored,
+      backend: "chat_memory",
+      key: keyStr,
+      size: valueStr.length,
+      globalUserId: globalUserId || null,
+      transport: safeTransport,
+      schemaVersion: sv,
+      metadata: {
+        ...safeMeta,
+        memoryType: "long_term",
+        rememberKey: keyStr,
+        explicit: true,
+      },
       contractVersion: MemoryService.CONTRACT_VERSION,
-      reason: "remember_not_implemented_stage7",
+      reason: stored ? "remember_saved" : writeRes?.reason || "remember_save_failed",
     };
   }
 

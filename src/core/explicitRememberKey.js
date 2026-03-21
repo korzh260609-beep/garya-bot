@@ -37,6 +37,27 @@ export function classifyExplicitRememberKey(value) {
   }
 
   // ==========================================================
+  // USER PROFILE — NAME
+  // IMPORTANT:
+  // - keep narrow and deterministic
+  // - detect only explicit self-name statements
+  // - avoid broad guessing
+  // ==========================================================
+  if (
+    hasAny(text, [
+      "мое имя ",
+      "моё имя ",
+      "меня зовут ",
+      "my name is ",
+      "my name ",
+      "i am ",
+      "i'm ",
+    ])
+  ) {
+    return "name";
+  }
+
+  // ==========================================================
   // TASK / SCHEDULE
   // IMPORTANT:
   // - keep BEFORE maintenance checks

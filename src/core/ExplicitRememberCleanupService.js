@@ -23,6 +23,7 @@
 
 import pool from "../../db.js";
 import { classifyExplicitRememberKey } from "./explicitRememberKey.js";
+import { deriveRememberTypeFromKey } from "./rememberType.js";
 
 function safeInt(value, fallback = 100, min = 1, max = 500) {
   const n = Number(value);
@@ -43,55 +44,6 @@ function extractRememberValue(content) {
 
 function buildRememberContent(key, value) {
   return `[MEMORY:${key}] ${value}`;
-}
-
-function deriveRememberTypeFromKey(key) {
-  const k = String(key || "").trim().toLowerCase();
-
-  if (!k) return "general_fact";
-
-  // ==========================================================
-  // TASK / SCHEDULE
-  // ==========================================================
-  if (k === "task_schedule") {
-    return "task_intent";
-  }
-
-  // ==========================================================
-  // VEHICLE PROFILE
-  // ==========================================================
-  if (k === "car" || k === "car_engine" || k === "car_trim") {
-    return "vehicle_profile";
-  }
-
-  // ==========================================================
-  // MAINTENANCE INTERVALS
-  // ==========================================================
-  if (
-    k === "maintenance_oil_interval" ||
-    k === "maintenance_fuel_filter_interval" ||
-    k === "maintenance_haldex_interval"
-  ) {
-    return "maintenance_interval";
-  }
-
-  // ==========================================================
-  // MAINTENANCE FACTS / LAST CHANGE
-  // ==========================================================
-  if (
-    k === "maintenance_oil_last_change" ||
-    k === "maintenance_fuel_filter_last_change" ||
-    k === "maintenance_haldex_last_change" ||
-    k === "car_service_fact"
-  ) {
-    return "maintenance_fact";
-  }
-
-  if (k === "user_explicit_memory") {
-    return "general_fact";
-  }
-
-  return "general_fact";
 }
 
 function isMissingRememberType(meta = {}) {

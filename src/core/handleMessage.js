@@ -1128,6 +1128,25 @@ export async function handleMessage(context = {}) {
       // - AI-facing media/text authority remains:
       //   FileIntake.buildEffectiveUserTextAndDecision(...)
       // - buildInboundChatPayload.js remains skeleton-only and must NOT be wired here in this step
+
+      // STAGE 7B — FUTURE LTM INJECTION ACTIVATION PLAN (comment-only)
+      // IMPORTANT:
+      // - current step does NOT activate long-term memory injection
+      // - current runtime contract must remain unchanged
+      // - longTermMemoryInjected must stay false until a separate approved logic step
+      // - future activation point belongs in the chat handler runtime path below,
+      //   not in router, not in transport, and not in memory storage layer
+      // - future activation must be controlled, explicit, and fail-open
+      // - before activation, preserve assistant metadata contract used by /chat_messages_diag:
+      //   longTermMemoryBridgePrepared
+      //   longTermMemoryBridgeOk
+      //   longTermMemoryBridgeReason
+      //   longTermMemoryInjected
+      // - after future activation, verification must include:
+      //   1) ordinary Telegram chat-flow
+      //   2) Render logs (AI_CALL_START / AI_CALL_END)
+      //   3) /chat_messages_diag assistant row inspection
+      // - no prompt-shape changes are allowed in this comment-only preparation step
       await deps.handleChatMessage({
         bot: deps.bot,
         msg: context.raw,

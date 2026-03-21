@@ -715,7 +715,14 @@ export async function handleMessage(context = {}) {
 
           pool.query(
             `
-            SELECT id, created_at, content
+            SELECT
+              id,
+              created_at,
+              content,
+              metadata->>'longTermMemoryBridgePrepared' AS ltm_prepared,
+              metadata->>'longTermMemoryBridgeOk' AS ltm_ok,
+              metadata->>'longTermMemoryBridgeReason' AS ltm_reason,
+              metadata->>'longTermMemoryInjected' AS ltm_injected
             FROM chat_messages
             WHERE chat_id = $1
               AND role = 'assistant'
@@ -778,6 +785,10 @@ export async function handleMessage(context = {}) {
         } else {
           lines.push(`id=${lastAssistant.id ?? "—"}`);
           lines.push(`created_at=${safeDiagTs(lastAssistant.created_at)}`);
+          lines.push(`longTermMemoryBridgePrepared=${lastAssistant.ltm_prepared ?? "—"}`);
+          lines.push(`longTermMemoryBridgeOk=${lastAssistant.ltm_ok ?? "—"}`);
+          lines.push(`longTermMemoryBridgeReason=${lastAssistant.ltm_reason ?? "—"}`);
+          lines.push(`longTermMemoryInjected=${lastAssistant.ltm_injected ?? "—"}`);
           lines.push(`content=${safeDiagText(lastAssistant.content)}`);
         }
 

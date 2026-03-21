@@ -4,11 +4,13 @@
 // Rule: handlers must NOT query chat_memory directly.
 
 import pool from "../../db.js";
+import MemoryService from "./MemoryService.js";
 
 export class MemoryDiagnosticsService {
   constructor({ db = null, logger = null } = {}) {
     this.db = db || pool;
     this.logger = logger || console;
+    this.memoryService = new MemoryService({ db: this.db, logger: this.logger });
   }
 
   async getChatMemoryV2Columns() {
@@ -286,6 +288,146 @@ export class MemoryDiagnosticsService {
     } catch (e) {
       this.logger.error("❌ memoryTypeStats error:", e);
       return "⚠️ /memory_type_stats упал. Смотри логи Render.";
+    }
+  }
+
+  async memoryFetchByType({ chatIdStr, globalUserId = null, rememberType = null, limit = 10 } = {}) {
+    const rememberTypeStr = String(rememberType || "").trim();
+
+    if (!chatIdStr) return "⚠️ memoryFetchByType: missing chatId";
+    if (!rememberTypeStr) return "⚠️ usage: /memory_fetch_type <rememberType> [limit]";
+
+    try {
+      const result = await this.memoryService.getLongTermByType({
+        chatId: chatIdStr,
+        globalUserId,
+        rememberType: rememberTypeStr,
+        limit,
+      });
+
+      if (!result || result.ok !== true) {
+        return `⚠️ memory fetch by type failed: ${result?.reason || "unknown_error"}`;
+      }
+
+      const lines = [];
+      lines.push("🧠 MEMORY FETCH BY TYPE");
+      lines.push(`chat_id: ${chatIdStr}`);
+      lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
+      lines.push(`type: ${rememberTypeStr}`);
+      lines.push(`total: ${result.total ?? 0}`);
+      lines.push("");
+
+      if (!Array.isArray(result.items) || result.items.length === 0) {
+        lines.push("No rows found.");
+        return lines.join("\n");
+      }
+
+      lines.push("Rows:");
+      for (const item of result.items.slice(0, 20)) {
+        const ts = item?.createdAt || "—";
+        const value = String(item?.value || "").replace(/\s+/g, " ").trim().slice(0, 160);
+        lines.push(
+          `#${item?.id ?? "—"} | key=${item?.rememberKey || "—"} | type=${item?.rememberType || "—"} | explicit=${item?.explicit ? "true" : "false"} | ${ts} | "${value}"`
+        );
+      }
+
+      return lines.join("\n").slice(0, 3800);
+    } catch (e) {
+      this.logger.error("❌ memoryFetchByType error:", e);
+      return "⚠️ /memory_fetch_type упал. Смотри логи Render.";
+    }
+  }
+
+  async memoryFetchByKey({ chatIdStr, globalUserId = null, rememberKey = null, limit = 10 } = {}) {
+    const rememberKeyStr = String(rememberKey || "").trim();
+
+    if (!chatIdStr) return "⚠️ memoryFetchByKey: missing chatId";
+    if (!rememberKeyStr) return "⚠️ usage: /memory_fetch_key <rememberKey> [limit]";
+
+    try {
+      const result = await this.memoryService.getLongTermByKey({
+        chatId: chatIdStr,
+        globalUserId,
+        rememberKey: rememberKeyStr,
+        limit,
+      });
+
+      if (!result || result.ok !== true) {
+        return `⚠️ memory fetch by key failed: ${result?.reason || "unknown_error"}`;
+      }
+
+      const lines = [];
+      lines.push("🧠 MEMORY FETCH BY KEY");
+      lines.push(`chat_id: ${chatIdStr}`);
+      lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
+      lines.push(`key: ${rememberKeyStr}`);
+      lines.push(`total: ${result.total ?? 0}`);
+      lines.push("");
+
+      if (!Array.isArray(result.items) || result.items.length === 0) {
+        lines.push("No rows found.");
+        return lines.join("\n");
+      }
+
+      lines.push("Rows:");
+      for (const item of result.items.slice(0, 20)) {
+        const ts = item?.createdAt || "—";
+        const value = String(item?.value || "").replace(/\s+/g, " ").trim().slice(0, 160);
+        lines.push(
+          `#${item?.id ?? "—"} | key=${item?.rememberKey || "—"} | type=${item?.rememberType || "—"} | explicit=${item?.explicit ? "true" : "false"} | ${ts} | "${value}"`
+        );
+      }
+
+      return lines.join("\n").slice(0, 3800);
+    } catch (e) {
+      this.logger.error("❌ memoryFetchByKey error:", e);
+      return "⚠️ /memory_fetch_key упал. Смотри логи Render.";
+    }
+  }
+
+  async memorySummaryViaService({ chatIdStr, globalUserId = null, limit = 20 } = {}) {
+    if (!chatIdStr) return "⚠️ memorySummaryViaService: missing chatId";
+
+    try {
+      const result = await this.memoryService.getLongTermSummary({
+        chatId: chatIdStr,
+        globalUserId,
+        limit,
+      });
+
+      if (!result || result.ok !== true) {
+        return `⚠️ memory summary via service failed: ${result?.reason || "unknown_error"}`;
+      }
+
+      const byType = Array.isArray(result.byType) ? result.byType : [];
+      const byKeyType = Array.isArray(result.byKeyType) ? result.byKeyType : [];
+
+      const lines = [];
+      lines.push("🧠 MEMORY SUMMARY VIA SERVICE");
+      lines.push(`chat_id: ${chatIdStr}`);
+      lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
+      lines.push("");
+
+      if (byType.length === 0) {
+        lines.push("No long-term rows found.");
+        return lines.join("\n");
+      }
+
+      lines.push("By type:");
+      for (const row of byType) {
+        lines.push(`type=${row.remember_type} | total=${row.total}`);
+      }
+
+      lines.push("");
+      lines.push("Top key/type pairs:");
+      for (const row of byKeyType) {
+        lines.push(`type=${row.remember_type} | key=${row.remember_key} | total=${row.total}`);
+      }
+
+      return lines.join("\n").slice(0, 3800);
+    } catch (e) {
+      this.logger.error("❌ memorySummaryViaService error:", e);
+      return "⚠️ /memory_summary_service упал. Смотри логи Render.";
     }
   }
 

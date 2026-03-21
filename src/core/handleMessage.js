@@ -10,7 +10,10 @@ import pool from "../../db.js";
 import { deriveChatMeta } from "./transportMeta.js";
 import { isTransportTraceEnabled } from "../transport/transportConfig.js";
 import { getMemoryService } from "./memoryServiceFactory.js";
-import { classifyExplicitRememberKey } from "./explicitRememberKey.js";
+import {
+  classifyExplicitRememberKey,
+  extractExplicitRememberValue,
+} from "./explicitRememberKey.js";
 
 // ✅ STAGE 7B — chat_messages logging for COMMANDS (Core-level; Transport stays thin)
 import {
@@ -941,16 +944,19 @@ export async function handleMessage(context = {}) {
       const explicitRememberMatch = /^(?:запомни|remember)\s+(.+)$/i.exec(trimmed);
 
       if (explicitRememberMatch) {
-        const rememberValue = String(explicitRememberMatch[1] || "").trim();
+        const rememberRawValue = String(explicitRememberMatch[1] || "").trim();
 
-        if (!rememberValue) {
+        if (!rememberRawValue) {
           await replyAndLog("Напиши после «запомни» что именно сохранить.", {
             event: "remember_empty",
           });
           return { ok: true, stage: "7.4", result: "remember_empty" };
         }
 
-        const rememberKey = classifyExplicitRememberKey(rememberValue);
+        const rememberKey = classifyExplicitRememberKey(rememberRawValue);
+        const rememberValue = String(
+          extractExplicitRememberValue(rememberRawValue) || rememberRawValue
+        ).trim();
 
         try {
           const rememberRes = await memory.remember({
@@ -965,6 +971,7 @@ export async function handleMessage(context = {}) {
               chatId: chatIdStr,
               messageId: messageId ? Number(messageId) : null,
               userRole,
+              explicitRememberRawValue: rememberRawValue,
             },
             schemaVersion: 2,
           });

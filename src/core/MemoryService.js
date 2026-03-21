@@ -21,6 +21,7 @@
 
 import { getMemoryConfig } from "./memoryConfig.js";
 import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
+import { deriveRememberTypeFromKey } from "./rememberType.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -54,61 +55,6 @@ function _safeObj(o) {
   } catch (_) {
     return {};
   }
-}
-
-function _deriveRememberTypeFromKey(key) {
-  const k = _safeStr(key).trim().toLowerCase();
-
-  if (!k) return "general_fact";
-
-  // ==========================================================
-  // TASK / SCHEDULE
-  // ==========================================================
-  if (k === "task_schedule") {
-    return "task_intent";
-  }
-
-  // ==========================================================
-  // VEHICLE PROFILE
-  // ==========================================================
-  if (k === "car" || k === "car_engine" || k === "car_trim") {
-    return "vehicle_profile";
-  }
-
-  // ==========================================================
-  // MAINTENANCE INTERVALS
-  // ==========================================================
-  if (
-    k === "maintenance_oil_interval" ||
-    k === "maintenance_fuel_filter_interval" ||
-    k === "maintenance_haldex_interval"
-  ) {
-    return "maintenance_interval";
-  }
-
-  // ==========================================================
-  // MAINTENANCE FACTS / LAST CHANGE
-  // ==========================================================
-  if (
-    k === "maintenance_oil_last_change" ||
-    k === "maintenance_fuel_filter_last_change" ||
-    k === "maintenance_haldex_last_change" ||
-    k === "car_service_fact"
-  ) {
-    return "maintenance_fact";
-  }
-
-  // ==========================================================
-  // FALLBACK
-  // IMPORTANT:
-  // - unknown / generic remembered facts must still get a broad type
-  // - this is the first universal layer above rememberKey
-  // ==========================================================
-  if (k === "user_explicit_memory") {
-    return "general_fact";
-  }
-
-  return "general_fact";
 }
 
 function _envBool(name, fallback = false) {
@@ -462,7 +408,7 @@ export class MemoryService {
     const safeTransport = _normalizeTransport(transport);
     const safeMeta = _safeObj(metadata);
     const sv = _normalizeSchemaVersion(schemaVersion);
-    const rememberType = _deriveRememberTypeFromKey(keyStr);
+    const rememberType = deriveRememberTypeFromKey(keyStr);
 
     const rememberContent = `[MEMORY:${keyStr}] ${valueStr}`;
 

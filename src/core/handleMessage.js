@@ -1147,6 +1147,19 @@ export async function handleMessage(context = {}) {
       //   2) Render logs (AI_CALL_START / AI_CALL_END)
       //   3) /chat_messages_diag assistant row inspection
       // - no prompt-shape changes are allowed in this comment-only preparation step
+
+      // STAGE 7B — FUTURE LTM ACTIVATION CHECKLIST (comment-only)
+      // CHECKLIST FOR SEPARATE APPROVED LOGIC STEP:
+      // 1) verify the exact prompt-build point inside deps.handleChatMessage path
+      // 2) inject LTM block only when bridgePrepared === true and bridgeOk === true
+      // 3) keep fail-open behavior: any LTM assembly error must not break normal AI reply
+      // 4) preserve current metadata fields in assistant chat_messages row
+      // 5) set longTermMemoryInjected=true only when prompt block was actually appended
+      // 6) set longTermMemoryInjected=false when bridge prep exists but injection is skipped
+      // 7) do NOT move activation into router / transport / memory write layer
+      // 8) do NOT change command path behavior
+      // 9) verify ordinary chat-flow after deploy
+      // 10) verify /chat_messages_diag after deploy
       await deps.handleChatMessage({
         bot: deps.bot,
         msg: context.raw,

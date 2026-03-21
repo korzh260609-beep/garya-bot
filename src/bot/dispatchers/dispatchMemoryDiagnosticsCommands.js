@@ -10,6 +10,69 @@ import { ExplicitRememberCleanupService } from "../../core/ExplicitRememberClean
 const memoryDiagSvc = new MemoryDiagnosticsService();
 const explicitRememberCleanupSvc = new ExplicitRememberCleanupService();
 
+function parseSelectorArgs(restRaw = "") {
+  const rest = String(restRaw || "").trim();
+  const parts = rest ? rest.split(/\s+/).filter(Boolean) : [];
+
+  const rememberTypes = [];
+  const rememberKeys = [];
+
+  let perTypeLimit = 3;
+  let perKeyLimit = 3;
+  let totalLimit = 12;
+
+  for (const rawPart of parts) {
+    const part = String(rawPart || "").trim();
+    if (!part) continue;
+
+    const lower = part.toLowerCase();
+
+    if (lower.startsWith("type=")) {
+      const value = part.slice(5).trim();
+      if (value) {
+        const list = value.split(",").map((x) => String(x || "").trim()).filter(Boolean);
+        rememberTypes.push(...list);
+      }
+      continue;
+    }
+
+    if (lower.startsWith("key=")) {
+      const value = part.slice(4).trim();
+      if (value) {
+        const list = value.split(",").map((x) => String(x || "").trim()).filter(Boolean);
+        rememberKeys.push(...list);
+      }
+      continue;
+    }
+
+    if (lower.startsWith("pertype=")) {
+      const value = part.slice(8).trim();
+      if (/^\d+$/.test(value)) perTypeLimit = Number(value);
+      continue;
+    }
+
+    if (lower.startsWith("perkey=")) {
+      const value = part.slice(7).trim();
+      if (/^\d+$/.test(value)) perKeyLimit = Number(value);
+      continue;
+    }
+
+    if (lower.startsWith("total=")) {
+      const value = part.slice(6).trim();
+      if (/^\d+$/.test(value)) totalLimit = Number(value);
+      continue;
+    }
+  }
+
+  return {
+    rememberTypes,
+    rememberKeys,
+    perTypeLimit,
+    perKeyLimit,
+    totalLimit,
+  };
+}
+
 export async function dispatchMemoryDiagnosticsCommands({ cmd0, ctx, reply }) {
   const { chatIdStr } = ctx;
 
@@ -119,6 +182,30 @@ export async function dispatchMemoryDiagnosticsCommands({ cmd0, ctx, reply }) {
         chatIdStr,
         globalUserId,
         limit,
+      });
+
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
+    case "/memory_select_context": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const {
+        rememberTypes,
+        rememberKeys,
+        perTypeLimit,
+        perKeyLimit,
+        totalLimit,
+      } = parseSelectorArgs(ctx?.rest || "");
+
+      const text = await memoryDiagSvc.memorySelectContext({
+        chatIdStr,
+        globalUserId,
+        rememberTypes,
+        rememberKeys,
+        perTypeLimit,
+        perKeyLimit,
+        totalLimit,
       });
 
       await reply(text, { cmd: cmd0, handler: "commandDispatcher" });

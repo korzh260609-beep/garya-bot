@@ -4,6 +4,7 @@
 // GOAL:
 // - take already selected long-term memory items
 // - convert them into compact deterministic prompt-safe block
+// - deduplicate identical semantic lines for prompt cleanliness
 // - NO AI
 // - NO DB
 // - NO side effects
@@ -63,6 +64,27 @@ function _normalizeItem(raw = {}) {
   };
 }
 
+function _dedupeSemanticItems(items = []) {
+  const out = [];
+  const seen = new Set();
+
+  for (const item of items) {
+    const rememberType = _oneLine(item?.rememberType) || "—";
+    const rememberKey = _oneLine(item?.rememberKey) || "—";
+    const value = _oneLine(item?.value);
+
+    if (!value) continue;
+
+    const dedupeKey = `${rememberType}||${rememberKey}||${value}`.toLowerCase();
+
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    out.push(item);
+  }
+
+  return out;
+}
+
 export function formatSelectedMemoryForPrompt({
   items = [],
   header = "LONG_TERM_MEMORY",
@@ -78,7 +100,6 @@ export function formatSelectedMemoryForPrompt({
   }
 
   const normalized = items
-    .slice(0, safeMaxItems)
     .map((item) => _normalizeItem(item))
     .filter((item) => item.value);
 
@@ -86,9 +107,15 @@ export function formatSelectedMemoryForPrompt({
     return "";
   }
 
+  const deduped = _dedupeSemanticItems(normalized).slice(0, safeMaxItems);
+
+  if (deduped.length === 0) {
+    return "";
+  }
+
   const lines = [`[${safeHeader}]`];
 
-  for (const item of normalized) {
+  for (const item of deduped) {
     const rememberType = item.rememberType || "—";
     const rememberKey = item.rememberKey || "—";
     const value = _clip(item.value, safeMaxValueLength);

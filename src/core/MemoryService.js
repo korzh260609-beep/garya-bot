@@ -23,6 +23,7 @@
 // - getLongTermByType(...)
 // - getLongTermByKey(...)
 // - getLongTermSummary(...)
+// - selectLongTermContext(...)
 // IMPORTANT:
 // - read-only helpers only
 // - no router changes
@@ -91,6 +92,23 @@ function _extractRememberValue(content) {
   const m = /^\[MEMORY:[^\]]+\]\s*(.+)$/s.exec(text);
   if (m && m[1]) return String(m[1]).trim();
   return text;
+}
+
+function _normalizeStrList(value) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  const seen = new Set();
+
+  for (const item of value) {
+    const s = _safeStr(item).trim();
+    if (!s) continue;
+    const k = s.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+  }
+
+  return out;
 }
 
 function _normalizeLongTermRow(row = {}) {
@@ -587,6 +605,161 @@ export class MemoryService {
         backend: "chat_memory",
         contractVersion: MemoryService.CONTRACT_VERSION,
         reason: "get_long_term_summary_failed",
+        error: e?.message || String(e),
+      };
+    }
+  }
+
+  // ========================================================================
+  // selectLongTermContext() — unified selector for future prompt/retrieval use
+  // Rules:
+  // - read-only only
+  // - uses existing service API
+  // - de-duplicates by row id
+  // - sorts by freshness (newest first)
+  // - deterministic only, no AI scoring
+  // ========================================================================
+  async selectLongTermContext({
+    globalUserId = null,
+    chatId = null,
+    rememberTypes = [],
+    rememberKeys = [],
+    perTypeLimit = 3,
+    perKeyLimit = 3,
+    totalLimit = 12,
+  } = {}) {
+    const chatIdStr = chatId ? String(chatId) : null;
+    const typeList = _normalizeStrList(rememberTypes);
+    const keyList = _normalizeStrList(rememberKeys);
+    const safePerTypeLimit = _normalizeLimit(perTypeLimit, 3, 1, 50);
+    const safePerKeyLimit = _normalizeLimit(perKeyLimit, 3, 1, 50);
+    const safeTotalLimit = _normalizeLimit(totalLimit, 12, 1, 100);
+
+    if (!this._enabled || !chatIdStr) {
+      return {
+        ok: true,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberTypes: typeList,
+        rememberKeys: keyList,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: !this._enabled ? "memory_disabled" : "missing_chatId",
+      };
+    }
+
+    if (typeList.length === 0 && keyList.length === 0) {
+      return {
+        ok: false,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberTypes: typeList,
+        rememberKeys: keyList,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: "empty_selector",
+      };
+    }
+
+    try {
+      const collected = [];
+      const seenIds = new Set();
+
+      for (const rememberType of typeList) {
+        const res = await this.getLongTermByType({
+          chatId: chatIdStr,
+          globalUserId,
+          rememberType,
+          limit: safePerTypeLimit,
+        });
+
+        if (res?.ok !== true || !Array.isArray(res.items)) continue;
+
+        for (const item of res.items) {
+          const idKey = item?.id ?? null;
+          const dedupeKey = idKey !== null ? `id:${idKey}` : `fallback:type:${rememberType}:${item?.rememberKey || ""}:${item?.createdAt || ""}:${item?.value || ""}`;
+          if (seenIds.has(dedupeKey)) continue;
+          seenIds.add(dedupeKey);
+          collected.push(item);
+        }
+      }
+
+      for (const rememberKey of keyList) {
+        const res = await this.getLongTermByKey({
+          chatId: chatIdStr,
+          globalUserId,
+          rememberKey,
+          limit: safePerKeyLimit,
+        });
+
+        if (res?.ok !== true || !Array.isArray(res.items)) continue;
+
+        for (const item of res.items) {
+          const idKey = item?.id ?? null;
+          const dedupeKey = idKey !== null ? `id:${idKey}` : `fallback:key:${rememberKey}:${item?.rememberType || ""}:${item?.createdAt || ""}:${item?.value || ""}`;
+          if (seenIds.has(dedupeKey)) continue;
+          seenIds.add(dedupeKey);
+          collected.push(item);
+        }
+      }
+
+      collected.sort((a, b) => {
+        const aTs = a?.createdAt ? Date.parse(a.createdAt) : 0;
+        const bTs = b?.createdAt ? Date.parse(b.createdAt) : 0;
+
+        if (bTs !== aTs) return bTs - aTs;
+
+        const aId = Number.isFinite(Number(a?.id)) ? Number(a.id) : 0;
+        const bId = Number.isFinite(Number(b?.id)) ? Number(b.id) : 0;
+        return bId - aId;
+      });
+
+      const items = collected.slice(0, safeTotalLimit);
+
+      return {
+        ok: true,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberTypes: typeList,
+        rememberKeys: keyList,
+        items,
+        total: items.length,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        limits: {
+          perTypeLimit: safePerTypeLimit,
+          perKeyLimit: safePerKeyLimit,
+          totalLimit: safeTotalLimit,
+        },
+      };
+    } catch (e) {
+      this.logger.error("selectLongTermContext failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberTypes: typeList,
+        rememberKeys: keyList,
+        error: e?.message || e,
+      });
+
+      return {
+        ok: false,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberTypes: typeList,
+        rememberKeys: keyList,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: "select_long_term_context_failed",
         error: e?.message || String(e),
       };
     }

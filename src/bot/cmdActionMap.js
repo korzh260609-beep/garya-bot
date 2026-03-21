@@ -105,6 +105,7 @@ export const CMD_ACTION = {
   "/memory_fetch_key": "cmd.admin.memory_fetch_key",
   "/memory_summary_service": "cmd.admin.memory_summary_service",
   "/memory_select_context": "cmd.admin.memory_select_context",
+  "/memory_format_context": "cmd.admin.memory_format_context",
   "/memory_reclassify_explicit": "cmd.admin.memory_reclassify_explicit",
 
   "/ar_create_test": "cmd.admin.ar_create_test",

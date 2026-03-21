@@ -1,18 +1,12 @@
 // src/core/explicitRememberKey.js
-// STAGE 7.4 V1 — explicit remember key classification
+// STAGE 7.5 — explicit remember key + value extraction
 //
 // Goal:
-// - keep deterministic no-AI classification
-// - keep current useful exact keys
-// - do NOT try to classify every topic in the world
-// - unknown => fallback user_explicit_memory
-//
-// IMPORTANT:
-// - keep logic narrow and predictable
-// - do not rewrite user value broadly
-// - only derive rememberKey + narrow normalized value where explicitly safe
-// - broad universal memory must be solved later by Memory V2,
-//   not by endless if/else growth here
+// - deterministic only
+// - no AI
+// - classify narrow known cases
+// - extract normalized value for known patterns
+// - fallback to raw value for unknown cases
 
 function normalizeRememberText(value) {
   return String(value || "")
@@ -21,8 +15,17 @@ function normalizeRememberText(value) {
     .trim();
 }
 
-function normalizeOriginalText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
+function safeStr(value) {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function cleanValue(v) {
+  return safeStr(v)
+    .replace(/^[\s:=-]+/, "")
+    .replace(/[\s.]+$/, "")
+    .trim();
 }
 
 function hasAny(text, parts = []) {
@@ -33,47 +36,50 @@ function hasAll(text, parts = []) {
   return parts.every((part) => text.includes(part));
 }
 
-function extractExplicitNameValue(value) {
-  const original = normalizeOriginalText(value);
-  if (!original) return "";
+// ==========================================================
+// VALUE EXTRACTORS
+// ==========================================================
+
+function extractNameValue(raw) {
+  const text = safeStr(raw);
 
   const patterns = [
-    /^(?:мое|моё)\s+имя\s+(.+)$/i,
-    /^меня\s+зовут\s+(.+)$/i,
-    /^my\s+name\s+is\s+(.+)$/i,
-    /^my\s+name\s+(.+)$/i,
-    /^i\s+am\s+(.+)$/i,
-    /^i'm\s+(.+)$/i,
+    /м[оё]е имя\s+(.+)/i,
+    /меня зовут\s+(.+)/i,
+    /my name is\s+(.+)/i,
+    /my name\s+(.+)/i,
+    /i am\s+(.+)/i,
+    /i'm\s+(.+)/i,
   ];
 
-  for (const pattern of patterns) {
-    const match = pattern.exec(original);
-    if (!match || !match[1]) continue;
-
-    const extracted = String(match[1] || "").replace(/\s+/g, " ").trim();
-    if (extracted) return extracted;
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m && m[1]) {
+      const value = cleanValue(m[1]);
+      if (value) return value;
+    }
   }
 
-  return "";
+  return null;
 }
 
+// ==========================================================
+// MAIN CLASSIFIER
+// ==========================================================
+
 export function classifyExplicitRemember(value) {
-  const original = normalizeOriginalText(value);
+  const raw = safeStr(value).replace(/\s+/g, " ").trim();
   const text = normalizeRememberText(value);
 
   if (!text) {
     return {
       key: "user_explicit_memory",
-      value: original,
+      value: raw,
     };
   }
 
   // ==========================================================
   // USER PROFILE — NAME
-  // IMPORTANT:
-  // - keep narrow and deterministic
-  // - detect only explicit self-name statements
-  // - avoid broad guessing
   // ==========================================================
   if (
     hasAny(text, [
@@ -86,19 +92,16 @@ export function classifyExplicitRemember(value) {
       "i'm ",
     ])
   ) {
-    const extractedName = extractExplicitNameValue(original);
+    const extracted = extractNameValue(raw);
 
     return {
       key: "name",
-      value: extractedName || original,
+      value: extracted || raw,
     };
   }
 
   // ==========================================================
   // TASK / SCHEDULE
-  // IMPORTANT:
-  // - keep BEFORE maintenance checks
-  // - require stronger schedule intent to avoid false positives
   // ==========================================================
   if (
     (hasAny(text, [
@@ -126,7 +129,7 @@ export function classifyExplicitRemember(value) {
   ) {
     return {
       key: "task_schedule",
-      value: original,
+      value: raw,
     };
   }
 
@@ -164,7 +167,7 @@ export function classifyExplicitRemember(value) {
     ) {
       return {
         key: "car_engine",
-        value: original,
+        value: raw,
       };
     }
 
@@ -182,21 +185,18 @@ export function classifyExplicitRemember(value) {
     ) {
       return {
         key: "car_trim",
-        value: original,
+        value: raw,
       };
     }
 
     return {
       key: "car",
-      value: original,
+      value: raw,
     };
   }
 
   // ==========================================================
   // MAINTENANCE — OIL LAST CHANGE
-  // IMPORTANT:
-  // - keep BEFORE oil interval
-  // - detect factual statement about last replacement
   // ==========================================================
   if (
     hasAny(text, ["масла", "масло", "oil"]) &&
@@ -220,7 +220,7 @@ export function classifyExplicitRemember(value) {
   ) {
     return {
       key: "maintenance_oil_last_change",
-      value: original,
+      value: raw,
     };
   }
 
@@ -241,7 +241,7 @@ export function classifyExplicitRemember(value) {
   ) {
     return {
       key: "maintenance_oil_interval",
-      value: original,
+      value: raw,
     };
   }
 
@@ -272,7 +272,7 @@ export function classifyExplicitRemember(value) {
   ) {
     return {
       key: "maintenance_fuel_filter_last_change",
-      value: original,
+      value: raw,
     };
   }
 
@@ -301,7 +301,7 @@ export function classifyExplicitRemember(value) {
   ) {
     return {
       key: "maintenance_fuel_filter_interval",
-      value: original,
+      value: raw,
     };
   }
 
@@ -328,7 +328,7 @@ export function classifyExplicitRemember(value) {
     ) {
       return {
         key: "maintenance_haldex_last_change",
-        value: original,
+        value: raw,
       };
     }
 
@@ -343,24 +343,32 @@ export function classifyExplicitRemember(value) {
     ) {
       return {
         key: "maintenance_haldex_interval",
-        value: original,
+        value: raw,
       };
     }
 
     return {
       key: "car_service_fact",
-      value: original,
+      value: raw,
     };
   }
 
   return {
     key: "user_explicit_memory",
-    value: original,
+    value: raw,
   };
 }
 
+// ==========================================================
+// PUBLIC EXPORTS
+// ==========================================================
+
 export function classifyExplicitRememberKey(value) {
   return classifyExplicitRemember(value).key;
+}
+
+export function extractExplicitRememberValue(value) {
+  return classifyExplicitRemember(value).value;
 }
 
 export default classifyExplicitRememberKey;

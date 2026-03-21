@@ -18,6 +18,16 @@
 // - context({ chatId, globalUserId, limit }) -> { enabled, chatId, globalUserId, memories: [...] }
 // - remember({ key, value, chatId, globalUserId, transport, metadata, schemaVersion })
 // - status() -> diag info
+//
+// STAGE 11+ transitional universal read layer:
+// - getLongTermByType(...)
+// - getLongTermByKey(...)
+// - getLongTermSummary(...)
+// IMPORTANT:
+// - read-only helpers only
+// - no router changes
+// - no AI logic here
+// - no schema changes
 
 import { getMemoryConfig } from "./memoryConfig.js";
 import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
@@ -68,6 +78,41 @@ function _envInt(name, fallback) {
   const n = Number(process.env[name]);
   if (!Number.isFinite(n)) return fallback;
   return n;
+}
+
+function _normalizeLimit(value, fallback = 20, min = 1, max = 200) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
+
+function _extractRememberValue(content) {
+  const text = _safeStr(content).trim();
+  const m = /^\[MEMORY:[^\]]+\]\s*(.+)$/s.exec(text);
+  if (m && m[1]) return String(m[1]).trim();
+  return text;
+}
+
+function _normalizeLongTermRow(row = {}) {
+  const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
+
+  return {
+    id: row?.id ?? null,
+    chatId: row?.chat_id ? String(row.chat_id) : null,
+    globalUserId: row?.global_user_id ? String(row.global_user_id) : null,
+    transport: row?.transport ? String(row.transport) : null,
+    role: row?.role ? String(row.role) : null,
+    schemaVersion: row?.schema_version ?? null,
+    createdAt: row?.created_at ? new Date(row.created_at).toISOString() : null,
+    content: _safeStr(row?.content),
+    value: _extractRememberValue(row?.content),
+    metadata,
+    memoryType: _safeStr(metadata?.memoryType).trim() || null,
+    rememberKey: _safeStr(metadata?.rememberKey).trim() || null,
+    rememberType: _safeStr(metadata?.rememberType).trim() || null,
+    explicit: metadata?.explicit === true || String(metadata?.explicit || "").trim() === "true",
+    source: _safeStr(metadata?.source).trim() || null,
+  };
 }
 
 export class MemoryService {
@@ -173,6 +218,378 @@ export class MemoryService {
       backend: "chat_memory",
       contractVersion: MemoryService.CONTRACT_VERSION,
     };
+  }
+
+  // ========================================================================
+  // getLongTermByType() — read-only long-term retrieval by rememberType
+  // IMPORTANT:
+  // - transitional universal read layer
+  // - no AI/ranking here
+  // - deterministic only
+  // ========================================================================
+  async getLongTermByType({
+    globalUserId = null,
+    chatId = null,
+    rememberType,
+    limit = 20,
+  } = {}) {
+    const chatIdStr = chatId ? String(chatId) : null;
+    const rememberTypeStr = _safeStr(rememberType).trim();
+    const safeLimit = _normalizeLimit(limit, 20, 1, 200);
+
+    if (!rememberTypeStr) {
+      return {
+        ok: false,
+        reason: "missing_rememberType",
+        items: [],
+      };
+    }
+
+    if (!this._enabled || !chatIdStr) {
+      return {
+        ok: true,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberType: rememberTypeStr,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: !this._enabled ? "memory_disabled" : "missing_chatId",
+      };
+    }
+
+    if (!this.db) {
+      return {
+        ok: false,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberType: rememberTypeStr,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: "db_unavailable",
+      };
+    }
+
+    try {
+      const params = [chatIdStr, rememberTypeStr];
+      let idx = 3;
+
+      let globalUserSql = "";
+      if (globalUserId) {
+        globalUserSql = ` AND global_user_id = $${idx} `;
+        params.push(String(globalUserId));
+        idx += 1;
+      }
+
+      params.push(safeLimit);
+
+      const res = await this.db.query(
+        `
+        SELECT
+          id,
+          chat_id,
+          global_user_id,
+          transport,
+          role,
+          content,
+          schema_version,
+          created_at,
+          metadata
+        FROM chat_memory
+        WHERE chat_id = $1
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+          AND COALESCE(metadata->>'rememberType', '') = $2
+          ${globalUserSql}
+        ORDER BY id DESC
+        LIMIT $${idx}
+        `,
+        params
+      );
+
+      const rows = (res.rows || []).map(_normalizeLongTermRow);
+
+      return {
+        ok: true,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberType: rememberTypeStr,
+        items: rows,
+        total: rows.length,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+      };
+    } catch (e) {
+      this.logger.error("getLongTermByType failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberType: rememberTypeStr,
+        error: e?.message || e,
+      });
+
+      return {
+        ok: false,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberType: rememberTypeStr,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: "get_long_term_by_type_failed",
+        error: e?.message || String(e),
+      };
+    }
+  }
+
+  // ========================================================================
+  // getLongTermByKey() — read-only long-term retrieval by rememberKey
+  // ========================================================================
+  async getLongTermByKey({
+    globalUserId = null,
+    chatId = null,
+    rememberKey,
+    limit = 20,
+  } = {}) {
+    const chatIdStr = chatId ? String(chatId) : null;
+    const rememberKeyStr = _safeStr(rememberKey).trim();
+    const safeLimit = _normalizeLimit(limit, 20, 1, 200);
+
+    if (!rememberKeyStr) {
+      return {
+        ok: false,
+        reason: "missing_rememberKey",
+        items: [],
+      };
+    }
+
+    if (!this._enabled || !chatIdStr) {
+      return {
+        ok: true,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberKey: rememberKeyStr,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: !this._enabled ? "memory_disabled" : "missing_chatId",
+      };
+    }
+
+    if (!this.db) {
+      return {
+        ok: false,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberKey: rememberKeyStr,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: "db_unavailable",
+      };
+    }
+
+    try {
+      const params = [chatIdStr, rememberKeyStr];
+      let idx = 3;
+
+      let globalUserSql = "";
+      if (globalUserId) {
+        globalUserSql = ` AND global_user_id = $${idx} `;
+        params.push(String(globalUserId));
+        idx += 1;
+      }
+
+      params.push(safeLimit);
+
+      const res = await this.db.query(
+        `
+        SELECT
+          id,
+          chat_id,
+          global_user_id,
+          transport,
+          role,
+          content,
+          schema_version,
+          created_at,
+          metadata
+        FROM chat_memory
+        WHERE chat_id = $1
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+          AND COALESCE(metadata->>'rememberKey', '') = $2
+          ${globalUserSql}
+        ORDER BY id DESC
+        LIMIT $${idx}
+        `,
+        params
+      );
+
+      const rows = (res.rows || []).map(_normalizeLongTermRow);
+
+      return {
+        ok: true,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberKey: rememberKeyStr,
+        items: rows,
+        total: rows.length,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+      };
+    } catch (e) {
+      this.logger.error("getLongTermByKey failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberKey: rememberKeyStr,
+        error: e?.message || e,
+      });
+
+      return {
+        ok: false,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberKey: rememberKeyStr,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: "get_long_term_by_key_failed",
+        error: e?.message || String(e),
+      };
+    }
+  }
+
+  // ========================================================================
+  // getLongTermSummary() — read-only grouped stats for transitional retrieval
+  // ========================================================================
+  async getLongTermSummary({
+    globalUserId = null,
+    chatId = null,
+    limit = 100,
+  } = {}) {
+    const chatIdStr = chatId ? String(chatId) : null;
+    const safeLimit = _normalizeLimit(limit, 100, 1, 500);
+
+    if (!this._enabled || !chatIdStr) {
+      return {
+        ok: true,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        byType: [],
+        byKeyType: [],
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: !this._enabled ? "memory_disabled" : "missing_chatId",
+      };
+    }
+
+    if (!this.db) {
+      return {
+        ok: false,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        byType: [],
+        byKeyType: [],
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: "db_unavailable",
+      };
+    }
+
+    try {
+      const params = [chatIdStr];
+      let idx = 2;
+
+      let globalUserSql = "";
+      if (globalUserId) {
+        globalUserSql = ` AND global_user_id = $${idx} `;
+        params.push(String(globalUserId));
+        idx += 1;
+      }
+
+      const byTypeRes = await this.db.query(
+        `
+        SELECT
+          COALESCE(NULLIF(metadata->>'rememberType', ''), '—') AS remember_type,
+          COUNT(*)::int AS total
+        FROM chat_memory
+        WHERE chat_id = $1
+          ${globalUserSql}
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+        GROUP BY 1
+        ORDER BY total DESC, remember_type ASC
+        `,
+        params
+      );
+
+      params.push(safeLimit);
+
+      const byKeyTypeRes = await this.db.query(
+        `
+        SELECT
+          COALESCE(NULLIF(metadata->>'rememberKey', ''), '—') AS remember_key,
+          COALESCE(NULLIF(metadata->>'rememberType', ''), '—') AS remember_type,
+          COUNT(*)::int AS total
+        FROM chat_memory
+        WHERE chat_id = $1
+          ${globalUserSql}
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+        GROUP BY 1, 2
+        ORDER BY total DESC, remember_type ASC, remember_key ASC
+        LIMIT $${idx}
+        `,
+        params
+      );
+
+      return {
+        ok: true,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        byType: byTypeRes.rows || [],
+        byKeyType: byKeyTypeRes.rows || [],
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+      };
+    } catch (e) {
+      this.logger.error("getLongTermSummary failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        error: e?.message || e,
+      });
+
+      return {
+        ok: false,
+        enabled: this._enabled,
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        byType: [],
+        byKeyType: [],
+        backend: "chat_memory",
+        contractVersion: MemoryService.CONTRACT_VERSION,
+        reason: "get_long_term_summary_failed",
+        error: e?.message || String(e),
+      };
+    }
   }
 
   // ========================================================================

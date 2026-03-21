@@ -65,6 +65,13 @@ export async function dispatchMemoryDiagnosticsCommands({ cmd0, ctx, reply }) {
       return { handled: true };
     }
 
+    case "/memory_type_stats": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const text = await memoryDiagSvc.memoryTypeStats({ chatIdStr, globalUserId });
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
     case "/memory_reclassify_explicit": {
       const globalUserId = ctx?.user?.global_user_id ?? null;
       const rest = String(ctx?.rest || "").trim();

@@ -23,6 +23,10 @@ function hasAny(text, parts = []) {
   return parts.some((part) => text.includes(part));
 }
 
+function hasAll(text, parts = []) {
+  return parts.every((part) => text.includes(part));
+}
+
 export function classifyExplicitRememberKey(value) {
   const text = normalizeRememberText(value);
 
@@ -34,32 +38,31 @@ export function classifyExplicitRememberKey(value) {
   // TASK / SCHEDULE
   // IMPORTANT:
   // - keep BEFORE maintenance checks
-  // - otherwise phrases like "каждый день" may be mistaken for service interval
+  // - require stronger schedule intent to avoid false positives
   // ==========================================================
   if (
-    hasAny(text, [
+    (hasAny(text, [
       "каждый день",
       "каждое утро",
       "каждый вечер",
       "ежедневно",
       "every day",
       "daily",
-      "в 9 утра",
-      "в 10 утра",
-      "в 11 утра",
-      "утра",
-      "вечера",
-      "доклад",
-      "отчёт",
-      "отчет",
-      "report",
-      "присылать",
-      "отправлять",
-      "напоминать",
-      "напоминание",
-      "schedule",
-      "расписание",
-    ])
+    ]) &&
+      hasAny(text, [
+        "доклад",
+        "отчёт",
+        "отчет",
+        "report",
+        "присылать",
+        "отправлять",
+        "напоминать",
+        "напоминание",
+      ])) ||
+    (hasAny(text, ["расписание", "schedule"]) &&
+      hasAny(text, ["доклад", "отчёт", "отчет", "report", "напоминание", "напоминать"])) ||
+    (hasAny(text, ["в 9 утра", "в 10 утра", "в 11 утра"]) &&
+      hasAny(text, ["доклад", "отчёт", "отчет", "report", "присылать", "отправлять"]))
   ) {
     return "task_schedule";
   }
@@ -105,6 +108,7 @@ export function classifyExplicitRememberKey(value) {
         "trim",
         "версия",
         "модификац",
+        " s",
         "s ",
         "se",
         "hse",
@@ -120,20 +124,27 @@ export function classifyExplicitRememberKey(value) {
   // MAINTENANCE — OIL LAST CHANGE
   // IMPORTANT:
   // - keep BEFORE oil interval
-  // - "последняя замена масла..." is a fact, not interval
+  // - detect factual statement about last replacement
   // ==========================================================
   if (
-    hasAny(text, ["масло", "oil"]) &&
-    hasAny(text, [
-      "последняя замена",
-      "последний раз",
-      "заменил",
-      "заменена",
-      "была на",
-      "last change",
-      "last oil change",
-      "last replaced",
-    ])
+    hasAny(text, ["масла", "масло", "oil"]) &&
+    (
+      hasAny(text, [
+        "последняя замена",
+        "последний раз",
+        "last change",
+        "last oil change",
+      ]) ||
+      hasAll(text, ["замена", "масла", "была"]) ||
+      hasAll(text, ["замена", "масло", "была"]) ||
+      hasAll(text, ["замена", "масла", "на"]) ||
+      hasAll(text, ["замена", "масло", "на"]) ||
+      hasAny(text, [
+        "заменил масло",
+        "заменили масло",
+        "масло заменено",
+      ])
+    )
   ) {
     return "maintenance_oil_last_change";
   }

@@ -30,7 +30,10 @@ function parseSelectorArgs(restRaw = "") {
     if (lower.startsWith("type=")) {
       const value = part.slice(5).trim();
       if (value) {
-        const list = value.split(",").map((x) => String(x || "").trim()).filter(Boolean);
+        const list = value
+          .split(",")
+          .map((x) => String(x || "").trim())
+          .filter(Boolean);
         rememberTypes.push(...list);
       }
       continue;
@@ -39,7 +42,10 @@ function parseSelectorArgs(restRaw = "") {
     if (lower.startsWith("key=")) {
       const value = part.slice(4).trim();
       if (value) {
-        const list = value.split(",").map((x) => String(x || "").trim()).filter(Boolean);
+        const list = value
+          .split(",")
+          .map((x) => String(x || "").trim())
+          .filter(Boolean);
         rememberKeys.push(...list);
       }
       continue;

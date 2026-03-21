@@ -56,6 +56,13 @@ export async function dispatchMemoryDiagnosticsCommands({ cmd0, ctx, reply }) {
       return { handled: true };
     }
 
+    case "/memory_longterm_diag": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const text = await memoryDiagSvc.memoryLongTermDiag({ chatIdStr, globalUserId });
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
     default:
       return { handled: false };
   }

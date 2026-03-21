@@ -56,6 +56,61 @@ function _safeObj(o) {
   }
 }
 
+function _deriveRememberTypeFromKey(key) {
+  const k = _safeStr(key).trim().toLowerCase();
+
+  if (!k) return "general_fact";
+
+  // ==========================================================
+  // TASK / SCHEDULE
+  // ==========================================================
+  if (k === "task_schedule") {
+    return "task_intent";
+  }
+
+  // ==========================================================
+  // VEHICLE PROFILE
+  // ==========================================================
+  if (k === "car" || k === "car_engine" || k === "car_trim") {
+    return "vehicle_profile";
+  }
+
+  // ==========================================================
+  // MAINTENANCE INTERVALS
+  // ==========================================================
+  if (
+    k === "maintenance_oil_interval" ||
+    k === "maintenance_fuel_filter_interval" ||
+    k === "maintenance_haldex_interval"
+  ) {
+    return "maintenance_interval";
+  }
+
+  // ==========================================================
+  // MAINTENANCE FACTS / LAST CHANGE
+  // ==========================================================
+  if (
+    k === "maintenance_oil_last_change" ||
+    k === "maintenance_fuel_filter_last_change" ||
+    k === "maintenance_haldex_last_change" ||
+    k === "car_service_fact"
+  ) {
+    return "maintenance_fact";
+  }
+
+  // ==========================================================
+  // FALLBACK
+  // IMPORTANT:
+  // - unknown / generic remembered facts must still get a broad type
+  // - this is the first universal layer above rememberKey
+  // ==========================================================
+  if (k === "user_explicit_memory") {
+    return "general_fact";
+  }
+
+  return "general_fact";
+}
+
 function _envBool(name, fallback = false) {
   const v = String(process.env[name] || "").trim().toLowerCase();
   if (v === "1" || v === "true" || v === "yes" || v === "on") return true;
@@ -366,6 +421,12 @@ export class MemoryService {
   // - no AI extraction here
   // - no new schema
   // - persisted through chat_memory backend as system memory record
+  //
+  // STAGE 7.4+ — rememberType layer (first broad semantic bucket)
+  // IMPORTANT:
+  // - no DB schema change
+  // - stored only in metadata.rememberType
+  // - rememberKey remains authoritative exact key
   // ========================================================================
   async remember({
     key,
@@ -401,6 +462,7 @@ export class MemoryService {
     const safeTransport = _normalizeTransport(transport);
     const safeMeta = _safeObj(metadata);
     const sv = _normalizeSchemaVersion(schemaVersion);
+    const rememberType = _deriveRememberTypeFromKey(keyStr);
 
     const rememberContent = `[MEMORY:${keyStr}] ${valueStr}`;
 
@@ -414,6 +476,7 @@ export class MemoryService {
         ...safeMeta,
         memoryType: "long_term",
         rememberKey: keyStr,
+        rememberType,
         explicit: true,
         source: safeMeta.source || "MemoryService.remember",
       },
@@ -428,6 +491,7 @@ export class MemoryService {
         chatId: chatIdStr,
         globalUserId: globalUserId || null,
         key: keyStr,
+        rememberType,
         transport: safeTransport,
         sv,
       });
@@ -436,6 +500,7 @@ export class MemoryService {
         chatId: chatIdStr,
         globalUserId: globalUserId || null,
         key: keyStr,
+        rememberType,
         transport: safeTransport,
         sv,
         reason: writeRes?.reason || "unknown",
@@ -448,6 +513,7 @@ export class MemoryService {
       stored,
       backend: "chat_memory",
       key: keyStr,
+      rememberType,
       size: valueStr.length,
       globalUserId: globalUserId || null,
       transport: safeTransport,
@@ -456,6 +522,7 @@ export class MemoryService {
         ...safeMeta,
         memoryType: "long_term",
         rememberKey: keyStr,
+        rememberType,
         explicit: true,
       },
       contractVersion: MemoryService.CONTRACT_VERSION,

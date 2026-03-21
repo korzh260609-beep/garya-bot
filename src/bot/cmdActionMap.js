@@ -101,6 +101,9 @@ export const CMD_ACTION = {
 
   "/memory_longterm_diag": "cmd.admin.memory_longterm_diag",
   "/memory_type_stats": "cmd.admin.memory_type_stats",
+  "/memory_fetch_type": "cmd.admin.memory_fetch_type",
+  "/memory_fetch_key": "cmd.admin.memory_fetch_key",
+  "/memory_summary_service": "cmd.admin.memory_summary_service",
   "/memory_reclassify_explicit": "cmd.admin.memory_reclassify_explicit",
 
   "/ar_create_test": "cmd.admin.ar_create_test",

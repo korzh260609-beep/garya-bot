@@ -693,7 +693,7 @@ export async function handleChatMessage({
     longTermMemoryBridgeResult = await buildLongTermMemoryPromptBridge({
       chatId: chatIdStr,
       globalUserId,
-      rememberTypes: [],
+      rememberTypes: ["user_profile"],
       rememberKeys: [],
       perTypeLimit: 3,
       perKeyLimit: 3,

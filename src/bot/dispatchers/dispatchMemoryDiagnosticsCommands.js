@@ -72,6 +72,59 @@ export async function dispatchMemoryDiagnosticsCommands({ cmd0, ctx, reply }) {
       return { handled: true };
     }
 
+    case "/memory_fetch_type": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const rest = String(ctx?.rest || "").trim();
+      const parts = rest ? rest.split(/\s+/).filter(Boolean) : [];
+
+      const rememberType = parts[0] ? String(parts[0]).trim() : "";
+      const limit = parts[1] && /^\d+$/.test(parts[1]) ? Number(parts[1]) : 10;
+
+      const text = await memoryDiagSvc.memoryFetchByType({
+        chatIdStr,
+        globalUserId,
+        rememberType,
+        limit,
+      });
+
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
+    case "/memory_fetch_key": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const rest = String(ctx?.rest || "").trim();
+      const parts = rest ? rest.split(/\s+/).filter(Boolean) : [];
+
+      const rememberKey = parts[0] ? String(parts[0]).trim() : "";
+      const limit = parts[1] && /^\d+$/.test(parts[1]) ? Number(parts[1]) : 10;
+
+      const text = await memoryDiagSvc.memoryFetchByKey({
+        chatIdStr,
+        globalUserId,
+        rememberKey,
+        limit,
+      });
+
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
+    case "/memory_summary_service": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const rest = String(ctx?.rest || "").trim();
+      const limit = /^\d+$/.test(rest) ? Number(rest) : 20;
+
+      const text = await memoryDiagSvc.memorySummaryViaService({
+        chatIdStr,
+        globalUserId,
+        limit,
+      });
+
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
     case "/memory_reclassify_explicit": {
       const globalUserId = ctx?.user?.global_user_id ?? null;
       const rest = String(ctx?.rest || "").trim();

@@ -6,6 +6,7 @@
 import pool from "../../db.js";
 import MemoryService from "./MemoryService.js";
 import formatSelectedMemoryForPrompt from "./formatSelectedMemoryForPrompt.js";
+import buildLongTermMemoryPromptBridge from "./buildLongTermMemoryPromptBridge.js";
 
 export class MemoryDiagnosticsService {
   constructor({ db = null, logger = null } = {}) {
@@ -553,6 +554,70 @@ export class MemoryDiagnosticsService {
     } catch (e) {
       this.logger.error("❌ memoryFormatSelectedContext error:", e);
       return "⚠️ /memory_format_context упал. Смотри логи Render.";
+    }
+  }
+
+  async memoryPromptBridge({
+    chatIdStr,
+    globalUserId = null,
+    rememberTypes = [],
+    rememberKeys = [],
+    perTypeLimit = 3,
+    perKeyLimit = 3,
+    totalLimit = 12,
+    header = "LONG_TERM_MEMORY",
+    maxItems = 12,
+    maxValueLength = 240,
+  } = {}) {
+    if (!chatIdStr) return "⚠️ memoryPromptBridge: missing chatId";
+
+    try {
+      const result = await buildLongTermMemoryPromptBridge({
+        chatId: chatIdStr,
+        globalUserId,
+        rememberTypes,
+        rememberKeys,
+        perTypeLimit,
+        perKeyLimit,
+        totalLimit,
+        header,
+        maxItems,
+        maxValueLength,
+        memoryService: this.memoryService,
+      });
+
+      if (!result || result.ok !== true) {
+        return `⚠️ memory prompt bridge failed: ${result?.reason || "unknown_error"}`;
+      }
+
+      const lines = [];
+      lines.push("🧠 MEMORY PROMPT BRIDGE");
+      lines.push(`chat_id: ${chatIdStr}`);
+      lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
+      lines.push(`types: ${Array.isArray(result.rememberTypes) && result.rememberTypes.length > 0 ? result.rememberTypes.join(", ") : "—"}`);
+      lines.push(`keys: ${Array.isArray(result.rememberKeys) && result.rememberKeys.length > 0 ? result.rememberKeys.join(", ") : "—"}`);
+      lines.push(`selected_total: ${result.total ?? 0}`);
+      lines.push(`reason: ${result.reason || "—"}`);
+
+      if (result?.limits) {
+        lines.push(
+          `limits: perType=${result.limits.perTypeLimit} | perKey=${result.limits.perKeyLimit} | total=${result.limits.totalLimit} | maxItems=${result.limits.maxItems} | maxValueLength=${result.limits.maxValueLength}`
+        );
+      }
+
+      lines.push("");
+
+      if (!result.block) {
+        lines.push("No prompt block.");
+        return lines.join("\n").slice(0, 3800);
+      }
+
+      lines.push(result.block);
+
+      return lines.join("\n").slice(0, 3800);
+    } catch (e) {
+      this.logger.error("❌ memoryPromptBridge error:", e);
+      return "⚠️ /memory_prompt_bridge упал. Смотри логи Render.";
     }
   }
 

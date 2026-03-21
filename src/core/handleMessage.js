@@ -10,6 +10,7 @@ import pool from "../../db.js";
 import { deriveChatMeta } from "./transportMeta.js";
 import { isTransportTraceEnabled } from "../transport/transportConfig.js";
 import { getMemoryService } from "./memoryServiceFactory.js";
+import { classifyExplicitRememberKey } from "./explicitRememberKey.js";
 
 // ✅ STAGE 7B — chat_messages logging for COMMANDS (Core-level; Transport stays thin)
 import {
@@ -929,7 +930,7 @@ export async function handleMessage(context = {}) {
         });
       };
 
-            // ==========================================================
+      // ==========================================================
       // STAGE 7.4 V1 — explicit remember only
       // Rule:
       // - only explicit user request like "запомни ..." / "remember ..."
@@ -949,9 +950,11 @@ export async function handleMessage(context = {}) {
           return { ok: true, stage: "7.4", result: "remember_empty" };
         }
 
+        const rememberKey = classifyExplicitRememberKey(rememberValue);
+
         try {
           const rememberRes = await memory.remember({
-            key: "user_explicit_memory",
+            key: rememberKey,
             value: rememberValue,
             chatId: chatIdStr,
             globalUserId: globalUserId || null,
@@ -969,21 +972,21 @@ export async function handleMessage(context = {}) {
           if (rememberRes?.ok === true && rememberRes?.stored === true) {
             await replyAndLog("✅ Запомнил.", {
               event: "remember_saved",
-              memoryKey: "user_explicit_memory",
+              memoryKey: rememberKey,
             });
             return { ok: true, stage: "7.4", result: "remember_saved" };
           }
 
           await replyAndLog("⚠️ Не удалось сохранить в память.", {
             event: "remember_not_saved",
-            memoryKey: "user_explicit_memory",
+            memoryKey: rememberKey,
           });
           return { ok: false, reason: "remember_not_saved" };
         } catch (e) {
           console.error("handleMessage(explicit remember) failed:", e);
           await replyAndLog("⚠️ Не удалось сохранить в память.", {
             event: "remember_error",
-            memoryKey: "user_explicit_memory",
+            memoryKey: rememberKey,
           });
           return { ok: false, reason: "remember_error" };
         }

@@ -431,6 +431,69 @@ export class MemoryDiagnosticsService {
     }
   }
 
+  async memorySelectContext({
+    chatIdStr,
+    globalUserId = null,
+    rememberTypes = [],
+    rememberKeys = [],
+    perTypeLimit = 3,
+    perKeyLimit = 3,
+    totalLimit = 12,
+  } = {}) {
+    if (!chatIdStr) return "⚠️ memorySelectContext: missing chatId";
+
+    try {
+      const result = await this.memoryService.selectLongTermContext({
+        chatId: chatIdStr,
+        globalUserId,
+        rememberTypes,
+        rememberKeys,
+        perTypeLimit,
+        perKeyLimit,
+        totalLimit,
+      });
+
+      if (!result || result.ok !== true) {
+        return `⚠️ memory select context failed: ${result?.reason || "unknown_error"}`;
+      }
+
+      const lines = [];
+      lines.push("🧠 MEMORY SELECT CONTEXT");
+      lines.push(`chat_id: ${chatIdStr}`);
+      lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
+      lines.push(`types: ${Array.isArray(result.rememberTypes) && result.rememberTypes.length > 0 ? result.rememberTypes.join(", ") : "—"}`);
+      lines.push(`keys: ${Array.isArray(result.rememberKeys) && result.rememberKeys.length > 0 ? result.rememberKeys.join(", ") : "—"}`);
+      lines.push(`total: ${result.total ?? 0}`);
+
+      if (result?.limits) {
+        lines.push(
+          `limits: perType=${result.limits.perTypeLimit} | perKey=${result.limits.perKeyLimit} | total=${result.limits.totalLimit}`
+        );
+      }
+
+      lines.push("");
+
+      if (!Array.isArray(result.items) || result.items.length === 0) {
+        lines.push("No rows found.");
+        return lines.join("\n");
+      }
+
+      lines.push("Rows:");
+      for (const item of result.items.slice(0, 20)) {
+        const ts = item?.createdAt || "—";
+        const value = String(item?.value || "").replace(/\s+/g, " ").trim().slice(0, 160);
+        lines.push(
+          `#${item?.id ?? "—"} | key=${item?.rememberKey || "—"} | type=${item?.rememberType || "—"} | explicit=${item?.explicit ? "true" : "false"} | ${ts} | "${value}"`
+        );
+      }
+
+      return lines.join("\n").slice(0, 3800);
+    } catch (e) {
+      this.logger.error("❌ memorySelectContext error:", e);
+      return "⚠️ /memory_select_context упал. Смотри логи Render.";
+    }
+  }
+
   /**
    * Integrity check for *chat pairs*.
    * IMPORTANT: we EXCLUDE commands (user content starting with '/') because

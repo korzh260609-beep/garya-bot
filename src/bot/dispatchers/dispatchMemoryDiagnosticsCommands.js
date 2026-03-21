@@ -272,6 +272,36 @@ export async function dispatchMemoryDiagnosticsCommands({ cmd0, ctx, reply }) {
       return { handled: true };
     }
 
+    case "/memory_prompt_bridge": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const {
+        rememberTypes,
+        rememberKeys,
+        perTypeLimit,
+        perKeyLimit,
+        totalLimit,
+        header,
+        maxItems,
+        maxValueLength,
+      } = parseSelectorArgs(ctx?.rest || "");
+
+      const text = await memoryDiagSvc.memoryPromptBridge({
+        chatIdStr,
+        globalUserId,
+        rememberTypes,
+        rememberKeys,
+        perTypeLimit,
+        perKeyLimit,
+        totalLimit,
+        header,
+        maxItems,
+        maxValueLength,
+      });
+
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
     case "/memory_reclassify_explicit": {
       const globalUserId = ctx?.user?.global_user_id ?? null;
       const rest = String(ctx?.rest || "").trim();

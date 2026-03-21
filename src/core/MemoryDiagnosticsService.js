@@ -5,6 +5,7 @@
 
 import pool from "../../db.js";
 import MemoryService from "./MemoryService.js";
+import formatSelectedMemoryForPrompt from "./formatSelectedMemoryForPrompt.js";
 
 export class MemoryDiagnosticsService {
   constructor({ db = null, logger = null } = {}) {
@@ -491,6 +492,67 @@ export class MemoryDiagnosticsService {
     } catch (e) {
       this.logger.error("❌ memorySelectContext error:", e);
       return "⚠️ /memory_select_context упал. Смотри логи Render.";
+    }
+  }
+
+  async memoryFormatSelectedContext({
+    chatIdStr,
+    globalUserId = null,
+    rememberTypes = [],
+    rememberKeys = [],
+    perTypeLimit = 3,
+    perKeyLimit = 3,
+    totalLimit = 12,
+    header = "LONG_TERM_MEMORY",
+    maxItems = 12,
+    maxValueLength = 240,
+  } = {}) {
+    if (!chatIdStr) return "⚠️ memoryFormatSelectedContext: missing chatId";
+
+    try {
+      const result = await this.memoryService.selectLongTermContext({
+        chatId: chatIdStr,
+        globalUserId,
+        rememberTypes,
+        rememberKeys,
+        perTypeLimit,
+        perKeyLimit,
+        totalLimit,
+      });
+
+      if (!result || result.ok !== true) {
+        return `⚠️ memory format selected context failed: ${result?.reason || "unknown_error"}`;
+      }
+
+      const block = formatSelectedMemoryForPrompt({
+        items: result.items || [],
+        header,
+        maxItems,
+        maxValueLength,
+      });
+
+      const lines = [];
+      lines.push("🧠 MEMORY FORMAT SELECTED CONTEXT");
+      lines.push(`chat_id: ${chatIdStr}`);
+      lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
+      lines.push(`types: ${Array.isArray(result.rememberTypes) && result.rememberTypes.length > 0 ? result.rememberTypes.join(", ") : "—"}`);
+      lines.push(`keys: ${Array.isArray(result.rememberKeys) && result.rememberKeys.length > 0 ? result.rememberKeys.join(", ") : "—"}`);
+      lines.push(`selected_total: ${result.total ?? 0}`);
+      lines.push(`format_header: ${header || "LONG_TERM_MEMORY"}`);
+      lines.push(`format_limits: maxItems=${maxItems} | maxValueLength=${maxValueLength}`);
+      lines.push("");
+
+      if (!block) {
+        lines.push("No formatted block.");
+        return lines.join("\n").slice(0, 3800);
+      }
+
+      lines.push(block);
+
+      return lines.join("\n").slice(0, 3800);
+    } catch (e) {
+      this.logger.error("❌ memoryFormatSelectedContext error:", e);
+      return "⚠️ /memory_format_context упал. Смотри логи Render.";
     }
   }
 

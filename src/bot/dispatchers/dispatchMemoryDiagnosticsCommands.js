@@ -20,6 +20,9 @@ function parseSelectorArgs(restRaw = "") {
   let perTypeLimit = 3;
   let perKeyLimit = 3;
   let totalLimit = 12;
+  let header = "LONG_TERM_MEMORY";
+  let maxItems = 12;
+  let maxValueLength = 240;
 
   for (const rawPart of parts) {
     const part = String(rawPart || "").trim();
@@ -68,6 +71,24 @@ function parseSelectorArgs(restRaw = "") {
       if (/^\d+$/.test(value)) totalLimit = Number(value);
       continue;
     }
+
+    if (lower.startsWith("header=")) {
+      const value = part.slice(7).trim();
+      if (value) header = value;
+      continue;
+    }
+
+    if (lower.startsWith("maxitems=")) {
+      const value = part.slice(9).trim();
+      if (/^\d+$/.test(value)) maxItems = Number(value);
+      continue;
+    }
+
+    if (lower.startsWith("maxvaluelen=")) {
+      const value = part.slice(12).trim();
+      if (/^\d+$/.test(value)) maxValueLength = Number(value);
+      continue;
+    }
   }
 
   return {
@@ -76,6 +97,9 @@ function parseSelectorArgs(restRaw = "") {
     perTypeLimit,
     perKeyLimit,
     totalLimit,
+    header,
+    maxItems,
+    maxValueLength,
   };
 }
 
@@ -212,6 +236,36 @@ export async function dispatchMemoryDiagnosticsCommands({ cmd0, ctx, reply }) {
         perTypeLimit,
         perKeyLimit,
         totalLimit,
+      });
+
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
+    case "/memory_format_context": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const {
+        rememberTypes,
+        rememberKeys,
+        perTypeLimit,
+        perKeyLimit,
+        totalLimit,
+        header,
+        maxItems,
+        maxValueLength,
+      } = parseSelectorArgs(ctx?.rest || "");
+
+      const text = await memoryDiagSvc.memoryFormatSelectedContext({
+        chatIdStr,
+        globalUserId,
+        rememberTypes,
+        rememberKeys,
+        perTypeLimit,
+        perKeyLimit,
+        totalLimit,
+        header,
+        maxItems,
+        maxValueLength,
       });
 
       await reply(text, { cmd: cmd0, handler: "commandDispatcher" });

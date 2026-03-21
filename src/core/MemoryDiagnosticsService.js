@@ -209,6 +209,86 @@ export class MemoryDiagnosticsService {
     }
   }
 
+  async memoryTypeStats({ chatIdStr, globalUserId = null } = {}) {
+    if (!chatIdStr) return "⚠️ memoryTypeStats: missing chatId";
+
+    try {
+      const params = [chatIdStr];
+      let idx = 2;
+
+      let globalUserSql = "";
+      if (globalUserId) {
+        globalUserSql = ` AND global_user_id = $${idx} `;
+        params.push(globalUserId);
+        idx += 1;
+      }
+
+      const res = await this.db.query(
+        `
+        SELECT
+          COALESCE(NULLIF(metadata->>'rememberType', ''), '—') AS remember_type,
+          COUNT(*)::int AS total
+        FROM chat_memory
+        WHERE chat_id = $1
+          ${globalUserSql}
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+        GROUP BY 1
+        ORDER BY total DESC, remember_type ASC
+        `,
+        params
+      );
+
+      const keyRes = await this.db.query(
+        `
+        SELECT
+          COALESCE(NULLIF(metadata->>'rememberKey', ''), '—') AS remember_key,
+          COALESCE(NULLIF(metadata->>'rememberType', ''), '—') AS remember_type,
+          COUNT(*)::int AS total
+        FROM chat_memory
+        WHERE chat_id = $1
+          ${globalUserSql}
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+        GROUP BY 1,2
+        ORDER BY total DESC, remember_type ASC, remember_key ASC
+        LIMIT 20
+        `,
+        params
+      );
+
+      const rows = res.rows || [];
+      const keyRows = keyRes.rows || [];
+
+      const lines = [];
+      lines.push("🧠 MEMORY TYPE STATS");
+      lines.push(`chat_id: ${chatIdStr}`);
+      lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
+      lines.push("");
+
+      if (rows.length === 0) {
+        lines.push("No long-term rows found.");
+        return lines.join("\n");
+      }
+
+      lines.push("By type:");
+      for (const r of rows) {
+        lines.push(`type=${r.remember_type} | total=${r.total}`);
+      }
+
+      lines.push("");
+      lines.push("Top key/type pairs:");
+      for (const r of keyRows) {
+        lines.push(`type=${r.remember_type} | key=${r.remember_key} | total=${r.total}`);
+      }
+
+      return lines.join("\n").slice(0, 3800);
+    } catch (e) {
+      this.logger.error("❌ memoryTypeStats error:", e);
+      return "⚠️ /memory_type_stats упал. Смотри логи Render.";
+    }
+  }
+
   /**
    * Integrity check for *chat pairs*.
    * IMPORTANT: we EXCLUDE commands (user content starting with '/') because

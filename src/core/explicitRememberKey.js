@@ -31,6 +31,40 @@ export function classifyExplicitRememberKey(value) {
   }
 
   // ==========================================================
+  // TASK / SCHEDULE
+  // IMPORTANT:
+  // - keep BEFORE maintenance checks
+  // - otherwise phrases like "каждый день" may be mistaken for service interval
+  // ==========================================================
+  if (
+    hasAny(text, [
+      "каждый день",
+      "каждое утро",
+      "каждый вечер",
+      "ежедневно",
+      "every day",
+      "daily",
+      "в 9 утра",
+      "в 10 утра",
+      "в 11 утра",
+      "утра",
+      "вечера",
+      "доклад",
+      "отчёт",
+      "отчет",
+      "report",
+      "присылать",
+      "отправлять",
+      "напоминать",
+      "напоминание",
+      "schedule",
+      "расписание",
+    ])
+  ) {
+    return "task_schedule";
+  }
+
+  // ==========================================================
   // CAR / VEHICLE
   // ==========================================================
   if (
@@ -80,6 +114,28 @@ export function classifyExplicitRememberKey(value) {
     }
 
     return "car";
+  }
+
+  // ==========================================================
+  // MAINTENANCE — OIL LAST CHANGE
+  // IMPORTANT:
+  // - keep BEFORE oil interval
+  // - "последняя замена масла..." is a fact, not interval
+  // ==========================================================
+  if (
+    hasAny(text, ["масло", "oil"]) &&
+    hasAny(text, [
+      "последняя замена",
+      "последний раз",
+      "заменил",
+      "заменена",
+      "была на",
+      "last change",
+      "last oil change",
+      "last replaced",
+    ])
+  ) {
+    return "maintenance_oil_last_change";
   }
 
   // ==========================================================

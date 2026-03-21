@@ -22,6 +22,11 @@
 // ✅ STAGE 10.6.x debug:
 // - logs requestedCoinIds / requestedVs / parsed keys
 // - helps diagnose why multi-coin robot reply may not trigger
+//
+// ✅ STAGE 11+ memory prompt bridge prep:
+// - bridge is read-prepared but NOT activated into AI prompt by default
+// - no response-flow change yet
+// - activation must be a separate explicit step
 
 import pool from "../../../db.js";
 import { insertAssistantMessage } from "../../db/chatMessagesRepo.js"; // ✅ STAGE 7.7.2
@@ -41,6 +46,7 @@ import {
   resolveSourceContext,
   buildSourceServiceDebugBlock,
 } from "../../sources/sourceService.js";
+import buildLongTermMemoryPromptBridge from "../../core/buildLongTermMemoryPromptBridge.js";
 
 function normalizeAlreadySeenRole(value) {
   const role = String(value || "").trim().toLowerCase();
@@ -674,6 +680,48 @@ export async function handleChatMessage({
     : null;
 
   // ==========================================================
+  // STAGE 11+ — long-term memory bridge PREP (disabled by default)
+  // IMPORTANT:
+  // - helper is called/read-prepared only
+  // - result is NOT injected into messages unless explicitly enabled later
+  // - keeps response flow unchanged for now
+  // ==========================================================
+  let longTermMemoryBridgeResult = null;
+  let longTermMemorySystemMessage = null;
+
+  try {
+    longTermMemoryBridgeResult = await buildLongTermMemoryPromptBridge({
+      chatId: chatIdStr,
+      globalUserId,
+      rememberTypes: [],
+      rememberKeys: [],
+      perTypeLimit: 3,
+      perKeyLimit: 3,
+      totalLimit: 8,
+      header: "LONG_TERM_MEMORY",
+      maxItems: 8,
+      maxValueLength: 180,
+      memoryService: memory,
+    });
+
+    // IMPORTANT:
+    // do NOT activate yet.
+    // This message stays null until a separate explicit step enables it.
+    if (false && longTermMemoryBridgeResult?.ok === true && longTermMemoryBridgeResult?.block) {
+      longTermMemorySystemMessage = {
+        role: "system",
+        content:
+          `LONG-TERM MEMORY (deterministic selected context):\n` +
+          `${longTermMemoryBridgeResult.block}`,
+      };
+    }
+  } catch (e) {
+    console.error("ERROR long-term memory bridge prep failed (fail-open):", e);
+    longTermMemoryBridgeResult = null;
+    longTermMemorySystemMessage = null;
+  }
+
+  // ==========================================================
   // STAGE 7 — helper: store assistant reply on early-return branches
   // ==========================================================
   const saveAssistantEarlyReturn = async (text, reason = "early_return") => {
@@ -1204,6 +1252,7 @@ export async function handleChatMessage({
     { role: "system", content: systemPrompt },
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
+    longTermMemorySystemMessage,
     recallCtx
       ? {
           role: "system",
@@ -1250,6 +1299,10 @@ export async function handleChatMessage({
     sourceReason: sourceCtx?.reason || "unknown",
     sourceResultOk: Boolean(sourceCtx?.sourceResult?.ok),
     sourceResultKey: sourceCtx?.sourceResult?.sourceKey || null,
+    longTermMemoryBridgePrepared: Boolean(longTermMemoryBridgeResult),
+    longTermMemoryBridgeOk: Boolean(longTermMemoryBridgeResult?.ok),
+    longTermMemoryBridgeReason: longTermMemoryBridgeResult?.reason || null,
+    longTermMemoryInjected: false,
   };
 
   try {
@@ -1340,6 +1393,10 @@ export async function handleChatMessage({
       sourceReason: sourceCtx?.reason || "unknown",
       sourceResultOk: Boolean(sourceCtx?.sourceResult?.ok),
       sourceResultKey: sourceCtx?.sourceResult?.sourceKey || null,
+      longTermMemoryBridgePrepared: Boolean(longTermMemoryBridgeResult),
+      longTermMemoryBridgeOk: Boolean(longTermMemoryBridgeResult?.ok),
+      longTermMemoryBridgeReason: longTermMemoryBridgeResult?.reason || null,
+      longTermMemoryInjected: false,
     };
 
     await insertAssistantMessage({
@@ -1458,6 +1515,10 @@ export async function handleChatMessage({
           sourceReason: sourceCtx?.reason || "unknown",
           sourceResultOk: Boolean(sourceCtx?.sourceResult?.ok),
           sourceResultKey: sourceCtx?.sourceResult?.sourceKey || null,
+          longTermMemoryBridgePrepared: Boolean(longTermMemoryBridgeResult),
+          longTermMemoryBridgeOk: Boolean(longTermMemoryBridgeResult?.ok),
+          longTermMemoryBridgeReason: longTermMemoryBridgeResult?.reason || null,
+          longTermMemoryInjected: false,
         },
       },
       {

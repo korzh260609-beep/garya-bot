@@ -100,6 +100,7 @@ export const CMD_ACTION = {
   "/pm_set": "cmd.admin.pm_set",
 
   "/memory_longterm_diag": "cmd.admin.memory_longterm_diag",
+  "/memory_reclassify_explicit": "cmd.admin.memory_reclassify_explicit",
 
   "/ar_create_test": "cmd.admin.ar_create_test",
   "/ar_list": "cmd.admin.ar_list",

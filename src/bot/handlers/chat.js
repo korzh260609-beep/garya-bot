@@ -680,14 +680,15 @@ export async function handleChatMessage({
     : null;
 
   // ==========================================================
-  // STAGE 11+ — long-term memory bridge PREP (disabled by default)
+  // STAGE 11+ — long-term memory bridge PREP
   // IMPORTANT:
-  // - helper is called/read-prepared only
-  // - result is NOT injected into messages unless explicitly enabled later
-  // - keeps response flow unchanged for now
+  // - bridge is built fail-open
+  // - injection is allowed only from this exact point
+  // - injection happens only when bridge returns ok=true and non-empty block
   // ==========================================================
   let longTermMemoryBridgeResult = null;
   let longTermMemorySystemMessage = null;
+  let longTermMemoryInjected = false;
 
   try {
     longTermMemoryBridgeResult = await buildLongTermMemoryPromptBridge({
@@ -704,23 +705,15 @@ export async function handleChatMessage({
       memoryService: memory,
     });
 
-    // STAGE 7B — SINGLE FUTURE LTM ACTIVATION POINT (comment-only)
+    // STAGE 7B — SINGLE FUTURE LTM ACTIVATION POINT
     // IMPORTANT:
-    // - this exact block is the only correct future runtime activation point
-    //   for injecting long-term memory into the AI prompt in this handler
     // - do NOT activate in router / transport / memory storage layer / callAI wrapper
-    // - do NOT duplicate activation elsewhere in this file
-    // - future logic step must replace only this disabled gate, while preserving:
-    //   longTermMemoryBridgePrepared
-    //   longTermMemoryBridgeOk
-    //   longTermMemoryBridgeReason
-    //   longTermMemoryInjected
-    // - until that separate approved logic step, this must remain OFF
-    //
-    // IMPORTANT:
-    // do NOT activate yet.
-    // This message stays null until a separate explicit step enables it.
-    if (false && longTermMemoryBridgeResult?.ok === true && longTermMemoryBridgeResult?.block) {
+    // - metadata contract must stay aligned with real prompt state
+    longTermMemoryInjected = Boolean(
+      longTermMemoryBridgeResult?.ok === true && longTermMemoryBridgeResult?.block
+    );
+
+    if (longTermMemoryInjected) {
       longTermMemorySystemMessage = {
         role: "system",
         content:
@@ -732,6 +725,7 @@ export async function handleChatMessage({
     console.error("ERROR long-term memory bridge prep failed (fail-open):", e);
     longTermMemoryBridgeResult = null;
     longTermMemorySystemMessage = null;
+    longTermMemoryInjected = false;
   }
 
   // ==========================================================
@@ -1315,7 +1309,7 @@ export async function handleChatMessage({
     longTermMemoryBridgePrepared: Boolean(longTermMemoryBridgeResult),
     longTermMemoryBridgeOk: Boolean(longTermMemoryBridgeResult?.ok),
     longTermMemoryBridgeReason: longTermMemoryBridgeResult?.reason || null,
-    longTermMemoryInjected: false,
+    longTermMemoryInjected,
   };
 
   try {
@@ -1409,7 +1403,7 @@ export async function handleChatMessage({
       longTermMemoryBridgePrepared: Boolean(longTermMemoryBridgeResult),
       longTermMemoryBridgeOk: Boolean(longTermMemoryBridgeResult?.ok),
       longTermMemoryBridgeReason: longTermMemoryBridgeResult?.reason || null,
-      longTermMemoryInjected: false,
+      longTermMemoryInjected,
     };
 
     await insertAssistantMessage({
@@ -1531,7 +1525,7 @@ export async function handleChatMessage({
           longTermMemoryBridgePrepared: Boolean(longTermMemoryBridgeResult),
           longTermMemoryBridgeOk: Boolean(longTermMemoryBridgeResult?.ok),
           longTermMemoryBridgeReason: longTermMemoryBridgeResult?.reason || null,
-          longTermMemoryInjected: false,
+          longTermMemoryInjected,
         },
       },
       {

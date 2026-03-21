@@ -704,6 +704,19 @@ export async function handleChatMessage({
       memoryService: memory,
     });
 
+    // STAGE 7B — SINGLE FUTURE LTM ACTIVATION POINT (comment-only)
+    // IMPORTANT:
+    // - this exact block is the only correct future runtime activation point
+    //   for injecting long-term memory into the AI prompt in this handler
+    // - do NOT activate in router / transport / memory storage layer / callAI wrapper
+    // - do NOT duplicate activation elsewhere in this file
+    // - future logic step must replace only this disabled gate, while preserving:
+    //   longTermMemoryBridgePrepared
+    //   longTermMemoryBridgeOk
+    //   longTermMemoryBridgeReason
+    //   longTermMemoryInjected
+    // - until that separate approved logic step, this must remain OFF
+    //
     // IMPORTANT:
     // do NOT activate yet.
     // This message stays null until a separate explicit step enables it.

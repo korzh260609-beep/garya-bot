@@ -1,12 +1,13 @@
 // src/core/ExplicitRememberCleanupService.js
-// STAGE 7.4 V1.1 — cleanup / reclassify old explicit remember rows
+// STAGE 7.4 V1.2 — cleanup / reclassify old explicit remember rows
 //
 // Goal:
-// - find old long_term explicit memories with rememberKey=user_explicit_memory
-// - classify them again using current deterministic classifier
-// - update ONLY rows that can be upgraded to a better key
-// - do NOT touch rows that already have a specific key
-// - do NOT rewrite content
+// - find old long_term explicit memories that still need upgrade
+// - support BOTH:
+//   1) legacy rememberKey=user_explicit_memory -> reclassify to better key
+//   2) rows with specific rememberKey but missing rememberType -> backfill type
+// - do NOT touch rows that already have good key + good rememberType
+// - do NOT rewrite user value
 // - minimal safe DB update
 //
 // Rules:
@@ -15,14 +16,10 @@
 // - fail-open
 // - dry-run supported
 //
-// Expected usage later:
-//   const svc = new ExplicitRememberCleanupService();
-//   const result = await svc.reclassifyLegacyExplicitRemember({
-//     chatIdStr,
-//     globalUserId,
-//     limit: 100,
-//     dryRun: true,
-//   });
+// IMPORTANT:
+// - current command wiring may still call only this service method
+// - therefore this method must cover both:
+//   legacy key cleanup + missing-type backfill
 
 import pool from "../../db.js";
 import { classifyExplicitRememberKey } from "./explicitRememberKey.js";
@@ -46,6 +43,64 @@ function extractRememberValue(content) {
 
 function buildRememberContent(key, value) {
   return `[MEMORY:${key}] ${value}`;
+}
+
+function deriveRememberTypeFromKey(key) {
+  const k = String(key || "").trim().toLowerCase();
+
+  if (!k) return "general_fact";
+
+  // ==========================================================
+  // TASK / SCHEDULE
+  // ==========================================================
+  if (k === "task_schedule") {
+    return "task_intent";
+  }
+
+  // ==========================================================
+  // VEHICLE PROFILE
+  // ==========================================================
+  if (k === "car" || k === "car_engine" || k === "car_trim") {
+    return "vehicle_profile";
+  }
+
+  // ==========================================================
+  // MAINTENANCE INTERVALS
+  // ==========================================================
+  if (
+    k === "maintenance_oil_interval" ||
+    k === "maintenance_fuel_filter_interval" ||
+    k === "maintenance_haldex_interval"
+  ) {
+    return "maintenance_interval";
+  }
+
+  // ==========================================================
+  // MAINTENANCE FACTS / LAST CHANGE
+  // ==========================================================
+  if (
+    k === "maintenance_oil_last_change" ||
+    k === "maintenance_fuel_filter_last_change" ||
+    k === "maintenance_haldex_last_change" ||
+    k === "car_service_fact"
+  ) {
+    return "maintenance_fact";
+  }
+
+  if (k === "user_explicit_memory") {
+    return "general_fact";
+  }
+
+  return "general_fact";
+}
+
+function isMissingRememberType(meta = {}) {
+  const rememberType = String(meta?.rememberType || "").trim();
+  return !rememberType;
+}
+
+function isLegacyGenericKey(meta = {}) {
+  return String(meta?.rememberKey || "").trim() === "user_explicit_memory";
 }
 
 export class ExplicitRememberCleanupService {
@@ -83,6 +138,9 @@ export class ExplicitRememberCleanupService {
 
       params.push(safeLimit);
 
+      // IMPORTANT:
+      // - inspect BOTH legacy generic-key rows and rows with missing rememberType
+      // - command remains the same, behavior becomes stronger
       const res = await this.db.query(
         `
         SELECT
@@ -101,7 +159,10 @@ export class ExplicitRememberCleanupService {
           AND role = 'system'
           AND metadata->>'memoryType' = 'long_term'
           AND metadata->>'explicit' = 'true'
-          AND metadata->>'rememberKey' = 'user_explicit_memory'
+          AND (
+            metadata->>'rememberKey' = 'user_explicit_memory'
+            OR COALESCE(metadata->>'rememberType', '') = ''
+          )
         ORDER BY id ASC
         LIMIT $${idx}
         `,
@@ -119,29 +180,73 @@ export class ExplicitRememberCleanupService {
       for (const row of rows) {
         const oldContent = String(row.content || "");
         const rememberValue = extractRememberValue(oldContent);
-        const newKey = classifyExplicitRememberKey(rememberValue);
+        const oldMeta = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
 
-        // keep generic if classifier still does not know better
-        if (!newKey || newKey === "user_explicit_memory") {
+        const currentKey = String(oldMeta.rememberKey || "").trim() || "user_explicit_memory";
+        const legacyGeneric = isLegacyGenericKey(oldMeta);
+        const missingType = isMissingRememberType(oldMeta);
+
+        let nextKey = currentKey;
+        let action = "unchanged";
+
+        if (legacyGeneric) {
+          const classifiedKey = classifyExplicitRememberKey(rememberValue);
+
+          // keep generic if classifier still does not know better
+          if (!classifiedKey || classifiedKey === "user_explicit_memory") {
+            if (!missingType) {
+              unchanged += 1;
+              preview.push({
+                id: row.id,
+                action: "unchanged",
+                fromKey: currentKey,
+                toKey: currentKey,
+                fromType: oldMeta.rememberType || "—",
+                toType: oldMeta.rememberType || "—",
+                value: rememberValue,
+              });
+              continue;
+            }
+
+            nextKey = "user_explicit_memory";
+          } else {
+            nextKey = classifiedKey;
+            action = safeDryRun ? "dry_run_upgrade" : "updated";
+          }
+        }
+
+        const nextType = deriveRememberTypeFromKey(nextKey);
+        const currentType = String(oldMeta.rememberType || "").trim();
+
+        // nothing to do
+        if (nextKey === currentKey && currentType === nextType) {
           unchanged += 1;
           preview.push({
             id: row.id,
             action: "unchanged",
-            fromKey: "user_explicit_memory",
-            toKey: "user_explicit_memory",
+            fromKey: currentKey,
+            toKey: nextKey,
+            fromType: currentType || "—",
+            toType: nextType || "—",
             value: rememberValue,
           });
           continue;
         }
 
-        const nextContent = buildRememberContent(newKey, rememberValue);
+        // if key same, but type was missing -> backfill type
+        if (nextKey === currentKey && currentType !== nextType) {
+          action = safeDryRun ? "dry_run_type_backfill" : "updated";
+        }
 
-        const oldMeta = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+        const nextContent =
+          nextKey === currentKey ? oldContent : buildRememberContent(nextKey, rememberValue);
+
         const nextMeta = {
           ...oldMeta,
           memoryType: "long_term",
           explicit: true,
-          rememberKey: newKey,
+          rememberKey: nextKey,
+          rememberType: nextType,
           cleanupSource: "ExplicitRememberCleanupService.reclassifyLegacyExplicitRemember",
           cleanupAt: new Date().toISOString(),
           legacyRememberKey: oldMeta.rememberKey || "user_explicit_memory",
@@ -151,9 +256,11 @@ export class ExplicitRememberCleanupService {
           skipped += 1;
           preview.push({
             id: row.id,
-            action: "dry_run_upgrade",
-            fromKey: "user_explicit_memory",
-            toKey: newKey,
+            action,
+            fromKey: currentKey,
+            toKey: nextKey,
+            fromType: currentType || "—",
+            toType: nextType,
             value: rememberValue,
           });
           continue;
@@ -176,8 +283,10 @@ export class ExplicitRememberCleanupService {
           preview.push({
             id: row.id,
             action: "updated",
-            fromKey: "user_explicit_memory",
-            toKey: newKey,
+            fromKey: currentKey,
+            toKey: nextKey,
+            fromType: currentType || "—",
+            toType: nextType,
             value: rememberValue,
           });
         } else {
@@ -185,8 +294,10 @@ export class ExplicitRememberCleanupService {
           preview.push({
             id: row.id,
             action: "update_failed",
-            fromKey: "user_explicit_memory",
-            toKey: newKey,
+            fromKey: currentKey,
+            toKey: nextKey,
+            fromType: currentType || "—",
+            toType: nextType,
             value: rememberValue,
           });
         }
@@ -239,7 +350,7 @@ export class ExplicitRememberCleanupService {
     for (const item of preview) {
       const value = String(item.value || "").replace(/\s+/g, " ").trim().slice(0, 120);
       lines.push(
-        `#${item.id} | ${item.action} | ${item.fromKey} -> ${item.toKey} | "${value}"`
+        `#${item.id} | ${item.action} | key: ${item.fromKey} -> ${item.toKey} | type: ${item.fromType} -> ${item.toType} | "${value}"`
       );
     }
 

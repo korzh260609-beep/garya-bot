@@ -1,13 +1,13 @@
 // src/core/ExplicitRememberCleanupService.js
-// STAGE 7.4 V1.2 — cleanup / reclassify old explicit remember rows
+// STAGE 7.5 — cleanup / reclassify old explicit remember rows
 //
 // Goal:
 // - find old long_term explicit memories that still need upgrade
 // - support BOTH:
 //   1) legacy rememberKey=user_explicit_memory -> reclassify to better key
 //   2) rows with specific rememberKey but missing rememberType -> backfill type
-// - do NOT touch rows that already have good key + good rememberType
-// - do NOT rewrite user value
+//   3) rows with known rememberKey but old/raw value -> normalize value
+// - do NOT touch rows that already have good key + good rememberType + good value
 // - minimal safe DB update
 //
 // Rules:
@@ -15,14 +15,12 @@
 // - no schema changes
 // - fail-open
 // - dry-run supported
-//
-// IMPORTANT:
-// - current command wiring may still call only this service method
-// - therefore this method must cover both:
-//   legacy key cleanup + missing-type backfill
 
 import pool from "../../db.js";
-import { classifyExplicitRememberKey } from "./explicitRememberKey.js";
+import {
+  classifyExplicitRememberKey,
+  extractExplicitRememberValue,
+} from "./explicitRememberKey.js";
 import { deriveRememberTypeFromKey } from "./rememberType.js";
 
 function safeInt(value, fallback = 100, min = 1, max = 500) {
@@ -53,6 +51,27 @@ function isMissingRememberType(meta = {}) {
 
 function isLegacyGenericKey(meta = {}) {
   return String(meta?.rememberKey || "").trim() === "user_explicit_memory";
+}
+
+function normalizeComparableValue(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function shouldNormalizeKnownValue(currentKey, currentValue) {
+  const key = String(currentKey || "").trim();
+  const rawValue = String(currentValue || "").trim();
+
+  if (!key || !rawValue) return false;
+
+  const extracted = extractExplicitRememberValue(rawValue);
+  const safeExtracted = normalizeComparableValue(extracted);
+  const safeCurrent = normalizeComparableValue(rawValue);
+
+  if (!safeExtracted) return false;
+  if (safeExtracted === safeCurrent) return false;
+
+  // At this stage only normalize if extractor actually changes value.
+  return true;
 }
 
 export class ExplicitRememberCleanupService {
@@ -91,8 +110,10 @@ export class ExplicitRememberCleanupService {
       params.push(safeLimit);
 
       // IMPORTANT:
-      // - inspect BOTH legacy generic-key rows and rows with missing rememberType
-      // - command remains the same, behavior becomes stronger
+      // - inspect:
+      //   1) legacy generic-key rows
+      //   2) rows with missing rememberType
+      //   3) rows that can get normalized value from deterministic extractor
       const res = await this.db.query(
         `
         SELECT
@@ -111,10 +132,6 @@ export class ExplicitRememberCleanupService {
           AND role = 'system'
           AND metadata->>'memoryType' = 'long_term'
           AND metadata->>'explicit' = 'true'
-          AND (
-            metadata->>'rememberKey' = 'user_explicit_memory'
-            OR COALESCE(metadata->>'rememberType', '') = ''
-          )
         ORDER BY id ASC
         LIMIT $${idx}
         `,
@@ -135,43 +152,45 @@ export class ExplicitRememberCleanupService {
         const oldMeta = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
 
         const currentKey = String(oldMeta.rememberKey || "").trim() || "user_explicit_memory";
+        const currentType = String(oldMeta.rememberType || "").trim();
         const legacyGeneric = isLegacyGenericKey(oldMeta);
         const missingType = isMissingRememberType(oldMeta);
 
         let nextKey = currentKey;
+        let nextValue = rememberValue;
         let action = "unchanged";
 
         if (legacyGeneric) {
           const classifiedKey = classifyExplicitRememberKey(rememberValue);
 
           // keep generic if classifier still does not know better
-          if (!classifiedKey || classifiedKey === "user_explicit_memory") {
-            if (!missingType) {
-              unchanged += 1;
-              preview.push({
-                id: row.id,
-                action: "unchanged",
-                fromKey: currentKey,
-                toKey: currentKey,
-                fromType: oldMeta.rememberType || "—",
-                toType: oldMeta.rememberType || "—",
-                value: rememberValue,
-              });
-              continue;
-            }
-
-            nextKey = "user_explicit_memory";
-          } else {
+          if (classifiedKey && classifiedKey !== "user_explicit_memory") {
             nextKey = classifiedKey;
             action = safeDryRun ? "dry_run_upgrade" : "updated";
           }
         }
 
-        const nextType = deriveRememberTypeFromKey(nextKey);
-        const currentType = String(oldMeta.rememberType || "").trim();
+        // deterministic value normalization for known patterns
+        if (shouldNormalizeKnownValue(nextKey, nextValue)) {
+          const extractedValue = extractExplicitRememberValue(nextValue);
+          const safeExtractedValue = normalizeComparableValue(extractedValue);
 
-        // nothing to do
-        if (nextKey === currentKey && currentType === nextType) {
+          if (safeExtractedValue && safeExtractedValue !== normalizeComparableValue(nextValue)) {
+            nextValue = safeExtractedValue;
+            if (action === "unchanged") {
+              action = safeDryRun ? "dry_run_value_normalize" : "updated";
+            }
+          }
+        }
+
+        const nextType = deriveRememberTypeFromKey(nextKey);
+
+        const sameKey = nextKey === currentKey;
+        const sameType = currentType === nextType;
+        const sameValue =
+          normalizeComparableValue(nextValue) === normalizeComparableValue(rememberValue);
+
+        if (sameKey && sameType && sameValue) {
           unchanged += 1;
           preview.push({
             id: row.id,
@@ -180,18 +199,14 @@ export class ExplicitRememberCleanupService {
             toKey: nextKey,
             fromType: currentType || "—",
             toType: nextType || "—",
-            value: rememberValue,
+            fromValue: rememberValue,
+            toValue: nextValue,
           });
           continue;
         }
 
-        // if key same, but type was missing -> backfill type
-        if (nextKey === currentKey && currentType !== nextType) {
-          action = safeDryRun ? "dry_run_type_backfill" : "updated";
-        }
-
         const nextContent =
-          nextKey === currentKey ? oldContent : buildRememberContent(nextKey, rememberValue);
+          sameKey && sameValue ? oldContent : buildRememberContent(nextKey, nextValue);
 
         const nextMeta = {
           ...oldMeta,
@@ -213,7 +228,8 @@ export class ExplicitRememberCleanupService {
             toKey: nextKey,
             fromType: currentType || "—",
             toType: nextType,
-            value: rememberValue,
+            fromValue: rememberValue,
+            toValue: nextValue,
           });
           continue;
         }
@@ -239,7 +255,8 @@ export class ExplicitRememberCleanupService {
             toKey: nextKey,
             fromType: currentType || "—",
             toType: nextType,
-            value: rememberValue,
+            fromValue: rememberValue,
+            toValue: nextValue,
           });
         } else {
           skipped += 1;
@@ -250,7 +267,8 @@ export class ExplicitRememberCleanupService {
             toKey: nextKey,
             fromType: currentType || "—",
             toType: nextType,
-            value: rememberValue,
+            fromValue: rememberValue,
+            toValue: nextValue,
           });
         }
       }
@@ -300,9 +318,11 @@ export class ExplicitRememberCleanupService {
 
     lines.push("Preview:");
     for (const item of preview) {
-      const value = String(item.value || "").replace(/\s+/g, " ").trim().slice(0, 120);
+      const fromValue = String(item.fromValue || "").replace(/\s+/g, " ").trim().slice(0, 80);
+      const toValue = String(item.toValue || "").replace(/\s+/g, " ").trim().slice(0, 80);
+
       lines.push(
-        `#${item.id} | ${item.action} | key: ${item.fromKey} -> ${item.toKey} | type: ${item.fromType} -> ${item.toType} | "${value}"`
+        `#${item.id} | ${item.action} | key: ${item.fromKey} -> ${item.toKey} | type: ${item.fromType} -> ${item.toType} | value: "${fromValue}" -> "${toValue}"`
       );
     }
 

@@ -120,6 +120,94 @@ export class MemoryDiagnosticsService {
     }
   }
 
+  async memoryLongTermDiag({ chatIdStr, globalUserId = null } = {}) {
+    if (!chatIdStr) return "⚠️ memoryLongTermDiag: missing chatId";
+
+    try {
+      const sumRes = await this.db.query(
+        `
+        SELECT COUNT(*)::int AS total
+        FROM chat_memory
+        WHERE chat_id = $1
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+        `,
+        [chatIdStr]
+      );
+
+      const total = sumRes.rows?.[0]?.total ?? 0;
+
+      let totalByGlobal = null;
+      if (globalUserId) {
+        const gRes = await this.db.query(
+          `
+          SELECT COUNT(*)::int AS total
+          FROM chat_memory
+          WHERE chat_id = $1
+            AND global_user_id = $2
+            AND role = 'system'
+            AND metadata->>'memoryType' = 'long_term'
+          `,
+          [chatIdStr, globalUserId]
+        );
+        totalByGlobal = gRes.rows?.[0]?.total ?? 0;
+      }
+
+      const lastRes = await this.db.query(
+        `
+        SELECT
+          id,
+          chat_id,
+          global_user_id,
+          transport,
+          role,
+          schema_version,
+          created_at,
+          metadata->>'rememberKey' AS remember_key,
+          metadata->>'source' AS source,
+          metadata->>'explicit' AS explicit,
+          LEFT(content, 140) AS content_preview
+        FROM chat_memory
+        WHERE chat_id = $1
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+        ORDER BY id DESC
+        LIMIT 20
+        `,
+        [chatIdStr]
+      );
+
+      const rows = lastRes.rows || [];
+
+      const lines = [];
+      lines.push("🧠 MEMORY LONG-TERM DIAG");
+      lines.push(`chat_id: ${chatIdStr}`);
+      lines.push(`globalUserId (resolved): ${globalUserId || "NULL"}`);
+      lines.push(`long_term rows for chat_id: ${total}`);
+      if (globalUserId) lines.push(`long_term rows for global_user_id in this chat: ${totalByGlobal}`);
+      lines.push("");
+
+      if (rows.length === 0) {
+        lines.push("No long-term rows found.");
+        return lines.join("\n");
+      }
+
+      lines.push("Last long-term rows:");
+      for (const r of rows) {
+        const ts = r.created_at ? new Date(r.created_at).toISOString() : "—";
+        const preview = String(r.content_preview || "").replace(/\s+/g, " ").trim();
+        lines.push(
+          `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${r.role || "—"} | sv=${r.schema_version ?? "—"} | key=${r.remember_key || "—"} | explicit=${r.explicit || "—"} | source=${r.source || "—"} | ${ts} | "${preview}"`
+        );
+      }
+
+      return lines.join("\n").slice(0, 3800);
+    } catch (e) {
+      this.logger.error("❌ memoryLongTermDiag error:", e);
+      return "⚠️ /memory_longterm_diag упал. Смотри логи Render.";
+    }
+  }
+
   /**
    * Integrity check for *chat pairs*.
    * IMPORTANT: we EXCLUDE commands (user content starting with '/') because
@@ -207,7 +295,6 @@ export class MemoryDiagnosticsService {
         [chatIdStr]
       );
 
-      // ✅ STAGE 7 — summary counts by anomaly type (unmatched / overcount)
       const anomCountRes = await this.db.query(
         `
         WITH msgs AS (
@@ -241,7 +328,6 @@ export class MemoryDiagnosticsService {
         [chatIdStr]
       );
 
-      // ✅ STAGE 7 — assistant duplicates specifically (same messageId + role=assistant)
       const assistantDupRes = await this.db.query(
         `
         WITH msgs AS (
@@ -418,7 +504,6 @@ export class MemoryDiagnosticsService {
     }
   }
 
-  // ✅ NEW: show all chat_ids that contain memory rows for this global user
   async memoryUserChats({ globalUserId } = {}) {
     if (!globalUserId) return "⚠️ /memory_user_chats: globalUserId is NULL";
 
@@ -464,10 +549,6 @@ export class MemoryDiagnosticsService {
     }
   }
 
-  // ========================================================================
-  // STAGE 7.6 — ROBOT mock-monitor (skeleton)
-  // Minimal, no AI, no side-effects. Future: scheduled runner.
-  // ========================================================================
   async robotMockMonitor({ chatIdStr, globalUserId = null } = {}) {
     if (!chatIdStr) return "⚠️ robotMockMonitor: missing chatId";
 

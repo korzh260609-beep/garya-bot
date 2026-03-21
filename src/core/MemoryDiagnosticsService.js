@@ -164,6 +164,7 @@ export class MemoryDiagnosticsService {
           schema_version,
           created_at,
           metadata->>'rememberKey' AS remember_key,
+          metadata->>'rememberType' AS remember_type,
           metadata->>'source' AS source,
           metadata->>'explicit' AS explicit,
           LEFT(content, 140) AS content_preview
@@ -197,7 +198,7 @@ export class MemoryDiagnosticsService {
         const ts = r.created_at ? new Date(r.created_at).toISOString() : "—";
         const preview = String(r.content_preview || "").replace(/\s+/g, " ").trim();
         lines.push(
-          `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${r.role || "—"} | sv=${r.schema_version ?? "—"} | key=${r.remember_key || "—"} | explicit=${r.explicit || "—"} | source=${r.source || "—"} | ${ts} | "${preview}"`
+          `#${r.id} | g=${r.global_user_id || "NULL"} | t=${r.transport || "—"} | role=${r.role || "—"} | sv=${r.schema_version ?? "—"} | type=${r.remember_type || "—"} | key=${r.remember_key || "—"} | explicit=${r.explicit || "—"} | source=${r.source || "—"} | ${ts} | "${preview}"`
         );
       }
 

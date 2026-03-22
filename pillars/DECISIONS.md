@@ -292,6 +292,47 @@ Consequences:
 
 ---
 
+## D-018A: Structured dialogue memory is layered into archive, topic digests, and confirmed memory
+
+Status: ACCEPTED  
+Date: 2026-03-22  
+Scope: Memory / Recall / Dialogue History
+
+Decision:
+
+SG dialogue-related memory must be split into three separate layers:
+
+1. Raw Dialogue Archive
+- stores recoverable dialogue history for future restoration
+- is a source for recall and restoration
+- is NOT a prompt-facing memory layer by default
+
+2. Topic Digest Layer
+- SG may periodically review dialogue history
+- SG may group dialogues by topic
+- SG may build compact thematic digests/summaries
+- digest is intended to compress noise while preserving meaning
+
+3. Confirmed Memory Layer
+- stores confirmed facts, decisions, preferences, rules, conclusions, stable patterns
+- remains the highest-trust reusable memory layer for future prompt usage
+
+Hard rules:
+- raw dialogue must not be injected into prompts as uncontrolled dumps
+- topic digests must not replace confirmed memory
+- archive, digest, and confirmed memory must remain logically separate
+- future recall must support restoration by theme/topic, not only by raw date/log scan
+- any automated dialogue digestion must remain reviewable, bounded, and fail-safe
+- group attribution and privacy rules remain mandatory
+
+Consequences:
+- explicit memory like "запомни ..." remains valid and unchanged
+- SG memory architecture is extended beyond simple explicit memory + raw recall
+- future dialogue restoration and topic recall are approved directions
+- implementation must follow skeleton → config → logic
+
+---
+
 ## D-019: Pillars are source of truth, not chat logs
 Status: ACCEPTED  
 Date: 2026-01-11  

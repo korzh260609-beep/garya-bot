@@ -147,6 +147,24 @@ Core → DB/TaskEngine → Access V0 → Multi-Channel Identity → DB Migration
 7.7.1 write / read / context / recent  
 7.7.2 запрет прямых SQL  
 
+## 7.8 Dialogue Digest / Topic Recall / Archive Memory (SKELETON, FUTURE)
+7.8.1 Raw Dialogue Archive layer  
+7.8.2 Topic Digest layer  
+7.8.3 Confirmed Memory layer separation  
+7.8.4 periodic dialogue review policy (bounded / optional)  
+7.8.5 topic grouping / clustering rules  
+7.8.6 digest generation rules  
+7.8.7 topic-based recall / restoration support  
+7.8.8 privacy / attribution / safety constraints  
+7.8.9 diagnostics for archive/digest generation  
+7.8.10 prompt-safe memory usage rules  
+
+## 7.9 Dialogue Recall UX (FUTURE)
+7.9.1 restore what was discussed by topic  
+7.9.2 recall conclusions by topic  
+7.9.3 recall confirmed preferences/facts by topic  
+7.9.4 archive-backed conversation restoration (bounded)
+
 ---
 
 # ЭТАП 8 — RECALL / ALREADY-SEEN

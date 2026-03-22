@@ -244,6 +244,21 @@ For each roadmap item:
 
 **Gate:** Any module consuming memory must call MemoryService only.
 
+## (SKELETON, FUTURE) 7.8 DIALOGUE DIGEST / TOPIC RECALL / ARCHIVE MEMORY
+
+- 7.8.1 Raw Dialogue Archive layer (restore-capable, not prompt-facing by default)
+- 7.8.2 Topic Digest layer (compact summaries by theme/topic)
+- 7.8.3 Confirmed Memory separation from archive/digest
+- 7.8.4 bounded periodic dialogue review policy
+- 7.8.5 topic grouping / clustering rules
+- 7.8.6 digest generation rules
+- 7.8.7 topic-based recall / conversation restoration interface
+- 7.8.8 privacy / attribution / group-safety rules
+- 7.8.9 diagnostics for archive/digest generation
+- 7.8.10 strict rule: raw dialogue must not become uncontrolled prompt memory
+
+**Gate:** Do not implement automatic dialogue digestion until skeleton, storage separation, attribution rules, and diagnostics are explicitly defined.
+
 ---
 
 # STAGE 7A — PROJECT MEMORY LAYER (VOICE FOUNDATION)

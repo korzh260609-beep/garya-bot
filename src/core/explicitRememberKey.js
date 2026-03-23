@@ -63,6 +63,66 @@ function extractNameValue(raw) {
   return null;
 }
 
+function isCommunicationStylePreference(text) {
+  const styleWords = [
+    "интонаци",
+    "тон",
+    "настроени",
+    "стиль общения",
+    "стиль ответа",
+    "манера общения",
+    "общайся",
+    "разговаривай",
+    "веди разговор",
+    "отвечай со мной",
+    "как я",
+    "в моем стиле",
+    "подстраивайся",
+    "уловливай",
+    "tone",
+    "mood",
+    "communication style",
+    "response style",
+    "speak to me",
+    "talk to me",
+    "reply to me",
+    "adapt to my tone",
+    "same tone",
+    "same mood",
+    "same style",
+  ];
+
+  const instructionWords = [
+    "должен",
+    "нужно",
+    "хочу",
+    "прошу",
+    "запомни",
+    "remember",
+    "must",
+    "should",
+    "need to",
+    "i want",
+    "please",
+  ];
+
+  const hasStyleSignal = hasAny(text, styleWords);
+  const hasInstructionSignal = hasAny(text, instructionWords);
+
+  if (
+    hasAll(text, ["такой же", "тон"]) ||
+    hasAll(text, ["такой же", "интонаци"]) ||
+    hasAll(text, ["такой же", "настроени"]) ||
+    hasAll(text, ["same", "tone"]) ||
+    hasAll(text, ["same", "mood"]) ||
+    hasAll(text, ["same", "style"])
+  ) {
+    return true;
+  }
+
+  return hasStyleSignal && hasInstructionSignal;
+}
+
 // ==========================================================
 // MAIN CLASSIFIER
 // ==========================================================
@@ -97,6 +157,20 @@ export function classifyExplicitRemember(value) {
     return {
       key: "name",
       value: extracted || raw,
+    };
+  }
+
+  // ==========================================================
+  // USER PREFERENCE — COMMUNICATION STYLE
+  // IMPORTANT:
+  // - this improves explicit key classification
+  // - BUT rememberType.js must also know this key,
+  //   otherwise it will still fall back to general_fact
+  // ==========================================================
+  if (isCommunicationStylePreference(text)) {
+    return {
+      key: "communication_style",
+      value: raw,
     };
   }
 

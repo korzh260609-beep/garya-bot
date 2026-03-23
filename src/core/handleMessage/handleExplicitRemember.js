@@ -7,6 +7,7 @@ import {
 } from "../explicitRememberKey.js";
 import { classifyMemoryCandidateV2 } from "../classifyMemoryCandidateV2.js";
 import { getMemoryClassifierV2Config } from "../memoryClassifierV2Config.js";
+import { isMemoryClassifierV2SafeAdoptionKey } from "../memoryClassifierV2AdoptionConfig.js";
 
 function safeStr(value) {
   if (typeof value === "string") return value;
@@ -48,13 +49,7 @@ function isSafeV2AdoptionCandidate(v2Result) {
     return false;
   }
 
-  // STAGE NOW:
-  // only "name" is proven safe for runtime adoption
-  if (key === "name") {
-    return true;
-  }
-
-  return false;
+  return isMemoryClassifierV2SafeAdoptionKey(key);
 }
 
 function buildShadowComparison({

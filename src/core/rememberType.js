@@ -26,6 +26,13 @@ export function deriveRememberTypeFromKey(key) {
   }
 
   // ==========================================================
+  // USER PREFERENCES / COMMUNICATION
+  // ==========================================================
+  if (k === "communication_style") {
+    return "user_profile";
+  }
+
+  // ==========================================================
   // TASK / SCHEDULE
   // ==========================================================
   if (k === "task_schedule") {

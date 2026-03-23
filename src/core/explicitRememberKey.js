@@ -77,8 +77,11 @@ function isCommunicationStylePreference(text) {
     "отвечай со мной",
     "как я",
     "в моем стиле",
+    "в моём стиле",
     "подстраивайся",
     "уловливай",
+    "официально",
+    "официоз",
     "tone",
     "mood",
     "communication style",
@@ -90,6 +93,8 @@ function isCommunicationStylePreference(text) {
     "same tone",
     "same mood",
     "same style",
+    "formal",
+    "formal tone",
   ];
 
   const instructionWords = [
@@ -121,6 +126,82 @@ function isCommunicationStylePreference(text) {
   }
 
   return hasStyleSignal && hasInstructionSignal;
+}
+
+function extractCommunicationStyleValue(raw) {
+  const text = normalizeRememberText(raw);
+
+  if (!text) {
+    return "Отвечай коротко, прямо, по делу, как для ребёнка. Улавливай мою интонацию и не уходи в официоз.";
+  }
+
+  const prefersShort =
+    hasAny(text, [
+      "коротко",
+      "кратко",
+      "по делу",
+      "без воды",
+      "как для ребенка",
+      "как для ребёнка",
+      "short",
+      "brief",
+      "concise",
+      "direct",
+    ]);
+
+  const dislikesOfficial =
+    hasAny(text, [
+      "не уходи в официоз",
+      "без официоза",
+      "не официально",
+      "неофициально",
+      "не слишком официально",
+      "не будь слишком официальным",
+      "без канцелярщины",
+      "официоз",
+      "канцелярщин",
+      "not too formal",
+      "less formal",
+      "avoid formal tone",
+    ]);
+
+  const wantsToneAdaptation =
+    hasAny(text, [
+      "улавливай интонацию",
+      "улавливай настроение",
+      "тот же тон",
+      "такой же тон",
+      "такая же интонация",
+      "такое же настроение",
+      "подстраивайся под мой стиль",
+      "под мой стиль",
+      "same tone",
+      "same mood",
+      "adapt to my tone",
+      "match my tone",
+    ]) || isCommunicationStylePreference(text);
+
+  const parts = [];
+
+  if (prefersShort) {
+    parts.push("Отвечай коротко, прямо и по делу, как для ребёнка.");
+  } else {
+    parts.push("Отвечай понятно, прямо и естественно.");
+  }
+
+  if (wantsToneAdaptation) {
+    parts.push("Улавливай мою интонацию и подстраивайся под мой тон общения.");
+  }
+
+  if (dislikesOfficial) {
+    parts.push("Не уходи в официоз и канцелярщину.");
+  }
+
+  if (parts.length === 0) {
+    return "Отвечай коротко, прямо, по делу, как для ребёнка. Улавливай мою интонацию и не уходи в официоз.";
+  }
+
+  return parts.join(" ");
 }
 
 // ==========================================================
@@ -162,15 +243,11 @@ export function classifyExplicitRemember(value) {
 
   // ==========================================================
   // USER PREFERENCE — COMMUNICATION STYLE
-  // IMPORTANT:
-  // - this improves explicit key classification
-  // - BUT rememberType.js must also know this key,
-  //   otherwise it will still fall back to general_fact
   // ==========================================================
   if (isCommunicationStylePreference(text)) {
     return {
       key: "communication_style",
-      value: raw,
+      value: extractCommunicationStyleValue(raw),
     };
   }
 

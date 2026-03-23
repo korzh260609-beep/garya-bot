@@ -82,6 +82,12 @@ function isCommunicationStylePreference(text) {
     "уловливай",
     "официально",
     "официоз",
+    "канцеляр",
+    "коротко",
+    "по делу",
+    "без воды",
+    "как для ребенка",
+    "как для ребёнка",
     "tone",
     "mood",
     "communication style",
@@ -95,6 +101,9 @@ function isCommunicationStylePreference(text) {
     "same style",
     "formal",
     "formal tone",
+    "concise",
+    "brief",
+    "direct",
   ];
 
   const instructionWords = [
@@ -117,7 +126,7 @@ function isCommunicationStylePreference(text) {
   if (
     hasAll(text, ["такой же", "тон"]) ||
     hasAll(text, ["такой же", "интонаци"]) ||
-    hasAll(text, ["такой же", "настроени"]) ||
+    hasAll(text, ["такое же", "настроени"]) ||
     hasAll(text, ["same", "tone"]) ||
     hasAll(text, ["same", "mood"]) ||
     hasAll(text, ["same", "style"])
@@ -131,39 +140,35 @@ function isCommunicationStylePreference(text) {
 function extractCommunicationStyleValue(raw) {
   const text = normalizeRememberText(raw);
 
-  if (!text) {
-    return "Отвечай коротко, прямо, по делу, как для ребёнка. Улавливай мою интонацию и не уходи в официоз.";
-  }
+  // Намеренно делаем нормализованную память жёстче и короче,
+  // чтобы она лучше влияла на тон ответа.
+  const prefersShort = hasAny(text, [
+    "коротко",
+    "кратко",
+    "по делу",
+    "без воды",
+    "как для ребенка",
+    "как для ребёнка",
+    "short",
+    "brief",
+    "concise",
+    "direct",
+  ]);
 
-  const prefersShort =
-    hasAny(text, [
-      "коротко",
-      "кратко",
-      "по делу",
-      "без воды",
-      "как для ребенка",
-      "как для ребёнка",
-      "short",
-      "brief",
-      "concise",
-      "direct",
-    ]);
-
-  const dislikesOfficial =
-    hasAny(text, [
-      "не уходи в официоз",
-      "без официоза",
-      "не официально",
-      "неофициально",
-      "не слишком официально",
-      "не будь слишком официальным",
-      "без канцелярщины",
-      "официоз",
-      "канцелярщин",
-      "not too formal",
-      "less formal",
-      "avoid formal tone",
-    ]);
+  const dislikesOfficial = hasAny(text, [
+    "не уходи в официоз",
+    "без официоза",
+    "не официально",
+    "неофициально",
+    "не слишком официально",
+    "не будь слишком официальным",
+    "без канцелярщины",
+    "официоз",
+    "канцеляр",
+    "not too formal",
+    "less formal",
+    "avoid formal tone",
+  ]);
 
   const wantsToneAdaptation =
     hasAny(text, [
@@ -181,27 +186,21 @@ function extractCommunicationStyleValue(raw) {
       "match my tone",
     ]) || isCommunicationStylePreference(text);
 
-  const parts = [];
+  // По умолчанию делаем память в сильной форме.
+  // Это безопаснее для твоего кейса, чем мягкая формулировка.
+  const sentence1 = prefersShort
+    ? "Отвечай коротко, прямо, по делу и естественно."
+    : "Отвечай прямо, по делу и естественно.";
 
-  if (prefersShort) {
-    parts.push("Отвечай коротко, прямо и по делу, как для ребёнка.");
-  } else {
-    parts.push("Отвечай понятно, прямо и естественно.");
-  }
+  const sentence2 = wantsToneAdaptation
+    ? "Улавливай мою интонацию и подстраивайся под мой тон общения."
+    : "Подстраивайся под мой тон общения.";
 
-  if (wantsToneAdaptation) {
-    parts.push("Улавливай мою интонацию и подстраивайся под мой тон общения.");
-  }
+  const sentence3 = dislikesOfficial
+    ? "Не уходи в официоз и канцелярщину."
+    : "Не уходи в официоз.";
 
-  if (dislikesOfficial) {
-    parts.push("Не уходи в официоз и канцелярщину.");
-  }
-
-  if (parts.length === 0) {
-    return "Отвечай коротко, прямо, по делу, как для ребёнка. Улавливай мою интонацию и не уходи в официоз.";
-  }
-
-  return parts.join(" ");
+  return `${sentence1} ${sentence2} ${sentence3}`.trim();
 }
 
 // ==========================================================

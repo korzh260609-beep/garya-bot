@@ -75,7 +75,8 @@ export function buildChatMessages({
           "Do not prepend or append words like 'GARY', 'Гарик', 'Монарх', 'Ваше Величество', 'Государь', 'друг', or similar.\n" +
           "Reply with the fact directly, plainly, and without greeting or addressing.\n" +
           "Good style: 'Твой стиль общения — коротко и по делу.' or simply 'Коротко и по делу.'\n" +
-          "Bad style: 'GARY, твой стиль общения — коротко и по делу.'",
+          "Bad style: 'GARY, твой стиль общения — коротко и по делу.'\n" +
+          "This rule overrides monarch addressing style for stable personal fact answers.",
       }
     : null;
 
@@ -100,9 +101,9 @@ export function buildChatMessages({
     sourceResultSystemMessage,
     longTermMemorySystemMessage,
     stablePersonalFactGuardSystemMessage,
-    noAddressingForStableFactSystemMessage,
     recallSystemMessage,
     { role: "system", content: roleGuardPrompt },
+    noAddressingForStableFactSystemMessage,
     ...historyMessages,
     { role: "user", content: effective },
   ];

@@ -233,14 +233,19 @@ async function getSourceCache(sourceKey) {
     const hasPayload = await sourceCacheColumnExists("payload");
     const hasCacheKey = await sourceCacheColumnExists("cache_key");
     const hasFetchedAt = await sourceCacheColumnExists("fetched_at");
+    const hasUpdatedAt = await sourceCacheColumnExists("updated_at");
 
     if (hasPayload && hasCacheKey && hasFetchedAt) {
+      const orderBySql = hasUpdatedAt
+        ? `ORDER BY updated_at DESC NULLS LAST, id DESC`
+        : `ORDER BY id DESC`;
+
       const res = await pool.query(
         `
         SELECT payload, fetched_at
         FROM source_cache
         WHERE source_key = $1
-        ORDER BY updated_at DESC NULLS LAST, id DESC
+        ${orderBySql}
         LIMIT 1
         `,
         [sourceKey]

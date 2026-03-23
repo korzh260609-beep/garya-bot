@@ -197,28 +197,132 @@ function isSourceAllowedForUser(src, userRole, userPlan) {
 }
 
 // === CACHE (5.13) ===
+const _sourceCacheColumnCache = new Map();
+
+async function sourceCacheColumnExists(columnName) {
+  const key = `source_cache.${columnName}`;
+  if (_sourceCacheColumnCache.has(key)) {
+    return _sourceCacheColumnCache.get(key);
+  }
+
+  try {
+    const res = await pool.query(
+      `
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'source_cache'
+        AND column_name = $1
+      LIMIT 1
+      `,
+      [columnName]
+    );
+
+    const exists = (res.rows?.length || 0) > 0;
+    _sourceCacheColumnCache.set(key, exists);
+    return exists;
+  } catch (err) {
+    console.error("❌ sourceCacheColumnExists error:", err);
+    _sourceCacheColumnCache.set(key, false);
+    return false;
+  }
+}
+
 async function getSourceCache(sourceKey) {
-  const res = await pool.query(
-    `
+  try {
+    const hasPayload = await sourceCacheColumnExists("payload");
+    const hasCacheKey = await sourceCacheColumnExists("cache_key");
+    const hasFetchedAt = await sourceCacheColumnExists("fetched_at");
+
+    if (hasPayload && hasCacheKey && hasFetchedAt) {
+      const res = await pool.query(
+        `
+        SELECT payload, fetched_at
+        FROM source_cache
+        WHERE source_key = $1
+        ORDER BY updated_at DESC NULLS LAST, id DESC
+        LIMIT 1
+        `,
+        [sourceKey]
+      );
+
+      const row = res.rows[0] || null;
+      if (!row) return null;
+
+      return {
+        cached_json: row.payload,
+        cached_at: row.fetched_at,
+      };
+    }
+
+    const res = await pool.query(
+      `
       SELECT cached_json, cached_at
       FROM source_cache
       WHERE source_key = $1
       LIMIT 1
-    `,
-    [sourceKey]
-  );
-  return res.rows[0] || null;
+      `,
+      [sourceKey]
+    );
+
+    return res.rows[0] || null;
+  } catch (err) {
+    console.error("❌ getSourceCache error:", err);
+    return null;
+  }
 }
 
 async function upsertSourceCache(sourceKey, payload) {
   try {
+    const hasPayload = await sourceCacheColumnExists("payload");
+    const hasCacheKey = await sourceCacheColumnExists("cache_key");
+    const hasFetchedAt = await sourceCacheColumnExists("fetched_at");
+    const hasTtlSec = await sourceCacheColumnExists("ttl_sec");
+    const hasUpdatedAt = await sourceCacheColumnExists("updated_at");
+
+    if (hasPayload && hasCacheKey && hasFetchedAt) {
+      const columns = ["source_key", "cache_key", "payload", "fetched_at"];
+      const values = [sourceKey, sourceKey, payload, new Date()];
+      const updates = [
+        "source_key = EXCLUDED.source_key",
+        "payload = EXCLUDED.payload",
+        "fetched_at = EXCLUDED.fetched_at",
+      ];
+
+      if (hasTtlSec) {
+        columns.push("ttl_sec");
+        values.push(20);
+        updates.push("ttl_sec = EXCLUDED.ttl_sec");
+      }
+
+      if (hasUpdatedAt) {
+        columns.push("updated_at");
+        values.push(new Date());
+        updates.push("updated_at = EXCLUDED.updated_at");
+      }
+
+      const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
+
+      await pool.query(
+        `
+        INSERT INTO source_cache (${columns.join(", ")})
+        VALUES (${placeholders})
+        ON CONFLICT (cache_key) DO UPDATE SET
+          ${updates.join(", ")}
+        `,
+        values
+      );
+
+      return;
+    }
+
     await pool.query(
       `
-        INSERT INTO source_cache (source_key, cached_json, cached_at)
-        VALUES ($1, $2, NOW())
-        ON CONFLICT (source_key) DO UPDATE SET
-          cached_json = EXCLUDED.cached_json,
-          cached_at   = NOW()
+      INSERT INTO source_cache (source_key, cached_json, cached_at)
+      VALUES ($1, $2, NOW())
+      ON CONFLICT (source_key) DO UPDATE SET
+        cached_json = EXCLUDED.cached_json,
+        cached_at   = NOW()
       `,
       [sourceKey, payload]
     );

@@ -1,11 +1,4 @@
 // src/core/buildDefaultChatLongTermSelector.js
-//
-// Goal:
-// - centralize default LTM selector for chat flow
-// - keep bridge clean
-// - no DB
-// - no side effects
-// - deterministic only
 
 import buildLongTermPromptSelector from "./buildLongTermPromptSelector.js";
 

@@ -16,6 +16,29 @@ export function buildModeInstruction(answerMode) {
   return "";
 }
 
+function safeStr(value) {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function isIdentityMemoryQuestion(text) {
+  const normalized = safeStr(text).trim().toLowerCase();
+
+  if (!normalized) return false;
+
+  const patterns = [
+    /как меня зовут\??$/i,
+    /какое у меня имя\??$/i,
+    /ты помнишь как меня зовут\??$/i,
+    /what is my name\??$/i,
+    /do you remember my name\??$/i,
+    /who am i\??$/i,
+  ];
+
+  return patterns.some((pattern) => pattern.test(normalized));
+}
+
 export function buildChatMessages({
   buildSystemPrompt,
   answerMode,
@@ -45,12 +68,21 @@ export function buildChatMessages({
     ? "SYSTEM ROLE: текущий пользователь = MONARCH (разрешено обращаться 'Монарх', 'Гарик')."
     : "SYSTEM ROLE: текущий пользователь НЕ монарх. Запрещено обращаться 'Монарх', 'Ваше Величество', 'Государь'. Называй: 'гость' или нейтрально (вы/ты).";
 
-  const messages = [
-    { role: "system", content: systemPrompt },
-    sourceServiceSystemMessage,
-    sourceResultSystemMessage,
-    longTermMemorySystemMessage,
-    recallCtx
+  const identityMemoryMode = isIdentityMemoryQuestion(effective);
+
+  const identityMemoryGuardSystemMessage =
+    identityMemoryMode && longTermMemorySystemMessage
+      ? {
+          role: "system",
+          content:
+            "IDENTITY MEMORY RULE:\n" +
+            "If the user asks about their name or stable identity facts, use LONG-TERM MEMORY as the primary source of truth.\n" +
+            "Do not prefer chat history or recall snippets over LONG-TERM MEMORY for these questions unless the user explicitly corrected the fact in the current conversation.",
+        }
+      : null;
+
+  const recallSystemMessage =
+    !identityMemoryMode && recallCtx
       ? {
           role: "system",
           content:
@@ -60,9 +92,19 @@ export function buildChatMessages({
             `Не говори "история не сохраняется". ` +
             `Если точной даты/вчера нет — скажи честно: "вижу только последние сообщения", и перечисли их.`,
         }
-      : null,
+      : null;
+
+  const historyMessages = identityMemoryMode ? [] : Array.isArray(history) ? history : [];
+
+  const messages = [
+    { role: "system", content: systemPrompt },
+    sourceServiceSystemMessage,
+    sourceResultSystemMessage,
+    longTermMemorySystemMessage,
+    identityMemoryGuardSystemMessage,
+    recallSystemMessage,
     { role: "system", content: roleGuardPrompt },
-    ...history,
+    ...historyMessages,
     { role: "user", content: effective },
   ];
 
@@ -70,6 +112,7 @@ export function buildChatMessages({
     modeInstruction,
     systemPrompt,
     roleGuardPrompt,
+    identityMemoryMode,
     messages: messages.filter(Boolean),
   };
 }

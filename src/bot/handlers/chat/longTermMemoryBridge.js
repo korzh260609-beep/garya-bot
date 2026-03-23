@@ -15,7 +15,12 @@ export async function resolveLongTermMemoryBridge({
     longTermMemoryBridgeResult = await buildLongTermMemoryPromptBridge({
       chatId: chatIdStr,
       globalUserId,
-      rememberTypes: ["user_profile", "vehicle_profile"],
+      rememberTypes: [
+        "user_profile",
+        "vehicle_profile",
+        "maintenance_fact",
+        "maintenance_interval",
+      ],
       rememberKeys: [],
       perTypeLimit: 3,
       perKeyLimit: 3,

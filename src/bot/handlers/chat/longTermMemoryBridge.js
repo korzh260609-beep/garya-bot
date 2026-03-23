@@ -24,9 +24,9 @@ export async function resolveLongTermMemoryBridge({
       rememberKeys: [],
       perTypeLimit: 3,
       perKeyLimit: 3,
-      totalLimit: 8,
+      totalLimit: 12,
       header: "LONG_TERM_MEMORY",
-      maxItems: 8,
+      maxItems: 12,
       maxValueLength: 180,
       memoryService: memory,
     });

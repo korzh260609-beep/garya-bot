@@ -4,6 +4,7 @@ import { getMemoryService } from "../memoryServiceFactory.js";
 import { buildLegacyExplicitRememberPair } from "../buildLegacyExplicitRememberPair.js";
 import { buildExplicitRememberMetadata } from "../buildExplicitRememberMetadata.js";
 import { buildExplicitRememberSaveRequest } from "../buildExplicitRememberSaveRequest.js";
+import { buildExplicitRememberOutcome } from "../buildExplicitRememberOutcome.js";
 import {
   buildRememberPlan,
   getMemoryClassifierV2RuntimeConfig,
@@ -30,13 +31,9 @@ export async function handleExplicitRemember({
   const rememberRawValue = String(explicitRememberMatch[1] || "").trim();
 
   if (!rememberRawValue) {
-    await replyAndLog("Напиши после «запомни» что именно сохранить.", {
-      event: "remember_empty",
-    });
-    return {
-      handled: true,
-      response: { ok: true, stage: "7.4", result: "remember_empty" },
-    };
+    const outcome = buildExplicitRememberOutcome("remember_empty");
+    await replyAndLog(outcome.replyText, outcome.replyMeta);
+    return outcome.response;
   }
 
   const runtimeConfig = getMemoryClassifierV2RuntimeConfig();
@@ -84,33 +81,25 @@ export async function handleExplicitRemember({
     const rememberRes = await memory.remember(rememberRequest);
 
     if (rememberRes?.ok === true && rememberRes?.stored === true) {
-      await replyAndLog("✅ Запомнил.", {
-        event: "remember_saved",
+      const outcome = buildExplicitRememberOutcome("remember_saved", {
         memoryKey: rememberKey,
       });
-      return {
-        handled: true,
-        response: { ok: true, stage: "7.4", result: "remember_saved" },
-      };
+      await replyAndLog(outcome.replyText, outcome.replyMeta);
+      return outcome.response;
     }
 
-    await replyAndLog("⚠️ Не удалось сохранить в память.", {
-      event: "remember_not_saved",
+    const outcome = buildExplicitRememberOutcome("remember_not_saved", {
       memoryKey: rememberKey,
     });
-    return {
-      handled: true,
-      response: { ok: false, reason: "remember_not_saved" },
-    };
+    await replyAndLog(outcome.replyText, outcome.replyMeta);
+    return outcome.response;
   } catch (e) {
     console.error("handleMessage(explicit remember) failed:", e);
-    await replyAndLog("⚠️ Не удалось сохранить в память.", {
-      event: "remember_error",
+
+    const outcome = buildExplicitRememberOutcome("remember_error", {
       memoryKey: rememberKey,
     });
-    return {
-      handled: true,
-      response: { ok: false, reason: "remember_error" },
-    };
+    await replyAndLog(outcome.replyText, outcome.replyMeta);
+    return outcome.response;
   }
 }

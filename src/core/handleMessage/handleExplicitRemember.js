@@ -1,10 +1,7 @@
 // src/core/handleMessage/handleExplicitRemember.js
 
 import { getMemoryService } from "../memoryServiceFactory.js";
-import {
-  classifyExplicitRememberKey,
-  extractExplicitRememberValue,
-} from "../explicitRememberKey.js";
+import { buildLegacyExplicitRememberPair } from "../buildLegacyExplicitRememberPair.js";
 import {
   buildRememberPlan,
   getMemoryClassifierV2RuntimeConfig,
@@ -42,10 +39,8 @@ export async function handleExplicitRemember({
 
   const runtimeConfig = getMemoryClassifierV2RuntimeConfig();
 
-  const legacyRememberKey = classifyExplicitRememberKey(rememberRawValue);
-  const legacyRememberValue = String(
-    extractExplicitRememberValue(rememberRawValue) || rememberRawValue
-  ).trim();
+  const { legacyRememberKey, legacyRememberValue } =
+    buildLegacyExplicitRememberPair(rememberRawValue);
 
   const v2Result = runExplicitRememberV2Shadow({
     rememberRawValue,

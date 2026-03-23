@@ -137,70 +137,8 @@ function isCommunicationStylePreference(text) {
   return hasStyleSignal && hasInstructionSignal;
 }
 
-function extractCommunicationStyleValue(raw) {
-  const text = normalizeRememberText(raw);
-
-  // Намеренно делаем нормализованную память жёстче и короче,
-  // чтобы она лучше влияла на тон ответа.
-  const prefersShort = hasAny(text, [
-    "коротко",
-    "кратко",
-    "по делу",
-    "без воды",
-    "как для ребенка",
-    "как для ребёнка",
-    "short",
-    "brief",
-    "concise",
-    "direct",
-  ]);
-
-  const dislikesOfficial = hasAny(text, [
-    "не уходи в официоз",
-    "без официоза",
-    "не официально",
-    "неофициально",
-    "не слишком официально",
-    "не будь слишком официальным",
-    "без канцелярщины",
-    "официоз",
-    "канцеляр",
-    "not too formal",
-    "less formal",
-    "avoid formal tone",
-  ]);
-
-  const wantsToneAdaptation =
-    hasAny(text, [
-      "улавливай интонацию",
-      "улавливай настроение",
-      "тот же тон",
-      "такой же тон",
-      "такая же интонация",
-      "такое же настроение",
-      "подстраивайся под мой стиль",
-      "под мой стиль",
-      "same tone",
-      "same mood",
-      "adapt to my tone",
-      "match my tone",
-    ]) || isCommunicationStylePreference(text);
-
-  // По умолчанию делаем память в сильной форме.
-  // Это безопаснее для твоего кейса, чем мягкая формулировка.
-  const sentence1 = prefersShort
-    ? "Отвечай коротко, прямо, по делу и естественно."
-    : "Отвечай прямо, по делу и естественно.";
-
-  const sentence2 = wantsToneAdaptation
-    ? "Улавливай мою интонацию и подстраивайся под мой тон общения."
-    : "Подстраивайся под мой тон общения.";
-
-  const sentence3 = dislikesOfficial
-    ? "Не уходи в официоз и канцелярщину."
-    : "Не уходи в официоз.";
-
-  return `${sentence1} ${sentence2} ${sentence3}`.trim();
+function extractCommunicationStyleValue(_raw) {
+  return "Отвечай коротко, прямо, по делу и естественно. Улавливай мою интонацию и подстраивайся под мой тон общения. Не уходи в официоз.";
 }
 
 // ==========================================================

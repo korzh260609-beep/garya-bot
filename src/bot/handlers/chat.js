@@ -1,5 +1,5 @@
 // src/bot/handlers/chat.js
-// STAGE 11.x stable personal fact early routing fix (production-safe)
+// STAGE 11.x FULL stable personal fact isolation
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -28,13 +28,11 @@ export async function handleChatMessage({
   chatIdStr,
   senderIdStr,
   trimmed,
-  bypass,
   MAX_HISTORY_MESSAGES = 20,
   globalUserId = null,
   userRole = "guest",
   FileIntake,
   saveMessageToMemory,
-  getChatHistory,
   saveChatPair,
   logInteraction,
   loadProjectContext,
@@ -48,10 +46,10 @@ export async function handleChatMessage({
   const messageId = msg.message_id ?? null;
   if (!trimmed) return;
 
-  const MAX_CHAT_MESSAGE_CHARS = 16000;
-  const monarchNow = typeof isMonarch === "function"
-    ? isMonarch(senderIdStr)
-    : false;
+  const monarchNow =
+    typeof isMonarch === "function"
+      ? isMonarch(senderIdStr)
+      : false;
 
   const { memory, memoryWrite, memoryWritePair } =
     createChatMemoryBridge({
@@ -64,10 +62,9 @@ export async function handleChatMessage({
 
   const {
     insertAssistantReply,
-    touchAssistantChatMeta,
     saveAssistantEarlyReturn,
   } = createAssistantReplyPersistence({
-    MAX_CHAT_MESSAGE_CHARS,
+    MAX_CHAT_MESSAGE_CHARS: 16000,
     chatIdStr,
     senderIdStr,
     messageId,
@@ -78,6 +75,9 @@ export async function handleChatMessage({
 
   const { effective, shouldCallAI, directReplyText } =
     resolveFileIntakeDecision({ FileIntake, msg, trimmed });
+
+  const stablePersonalFactMode =
+    isStablePersonalFactQuestion(effective);
 
   const {
     sourceCtx,
@@ -96,14 +96,14 @@ export async function handleChatMessage({
   });
 
   if (directReplyText) {
-    await saveAssistantEarlyReturn(directReplyText, "directReplyText");
+    await saveAssistantEarlyReturn(directReplyText, "direct");
     await bot.sendMessage(chatId, directReplyText);
     return;
   }
 
   if (!shouldCallAI) {
     const text = "Напиши текстом, что нужно сделать.";
-    await saveAssistantEarlyReturn(text, "shouldCallAI_false");
+    await saveAssistantEarlyReturn(text, "no_ai");
     await bot.sendMessage(chatId, text);
     return;
   }
@@ -116,38 +116,8 @@ export async function handleChatMessage({
     schemaVersion: 2,
   });
 
-  const stablePersonalFactMode =
-    isStablePersonalFactQuestion(effective);
-
-  // HISTORY
   let history = [];
-  try {
-    const memoryLocal = getMemoryService();
-    history = await memoryLocal.recent({
-      chatId: chatIdStr,
-      globalUserId,
-      limit: MAX_HISTORY_MESSAGES,
-    });
-  } catch {}
-
-  const classification = {
-    taskType: "chat",
-    aiCostLevel: "low",
-  };
-
-  await logInteraction(chatIdStr, classification);
-
-  let projectCtx = "";
-  try {
-    projectCtx = await loadProjectContext();
-  } catch {}
-
-  const answerMode = getAnswerMode(chatIdStr, {
-    isMonarch: monarchNow,
-    text: effective,
-    taskType: classification.taskType,
-    aiCostLevel: classification.aiCostLevel,
-  });
+  let recallCtx = null;
 
   const { userTz, timezoneMissing } =
     await resolveUserTimezoneState(globalUserId);
@@ -163,10 +133,17 @@ export async function handleChatMessage({
     if (result?.handled) return;
   }
 
-  let recallCtx = null;
-
-  // 🔥 EARLY STABLE PERSONAL FACT ROUTING
+  // 🔥 FULL ISOLATION
   if (!stablePersonalFactMode) {
+
+    try {
+      const memoryLocal = getMemoryService();
+      history = await memoryLocal.recent({
+        chatId: chatIdStr,
+        globalUserId,
+        limit: MAX_HISTORY_MESSAGES,
+      });
+    } catch {}
 
     recallCtx = await buildChatRecallContext({
       pool,
@@ -197,11 +174,24 @@ export async function handleChatMessage({
       userRole,
       saveAssistantHint: async (hintText) => {
         await insertAssistantReply(hintText, {
-          stage: "7B.already_seen_hint",
+          stage: "already_seen",
         });
       },
     });
   }
+
+  const classification = { taskType: "chat", aiCostLevel: "low" };
+  await logInteraction(chatIdStr, classification);
+
+  let projectCtx = "";
+  try { projectCtx = await loadProjectContext(); } catch {}
+
+  const answerMode = getAnswerMode(chatIdStr, {
+    isMonarch: monarchNow,
+    text: effective,
+    taskType: classification.taskType,
+    aiCostLevel: classification.aiCostLevel,
+  });
 
   const { messages } = buildChatMessages({
     buildSystemPrompt,
@@ -222,33 +212,10 @@ export async function handleChatMessage({
 
   const aiMetaBase = {
     handler: "chat",
-    reason: "chat.reply",
-    aiCostLevel: classification.aiCostLevel,
-    answerMode,
-    max_completion_tokens: maxTokens,
-    temperature,
-    chatId: chatIdStr,
-    senderId: senderIdStr,
-    messageId,
-    globalUserId,
-    sourceServiceDecision:
-      sourceCtx?.sourcePlan?.decision || "unknown",
-    sourceRuntimeDecision:
-      sourceCtx?.sourceRuntime?.decision || "unknown",
-    sourceRuntimeNeedsSource:
-      Boolean(sourceCtx?.sourceRuntime?.needsSource),
-    sourceReason: sourceCtx?.reason || "unknown",
-    sourceResultOk:
-      Boolean(sourceCtx?.sourceResult?.ok),
-    sourceResultKey:
-      sourceCtx?.sourceResult?.sourceKey || null,
+    stablePersonalFactMode,
+    longTermMemoryInjected,
     longTermMemoryBridgePrepared:
       Boolean(longTermMemoryBridgeResult),
-    longTermMemoryBridgeOk:
-      Boolean(longTermMemoryBridgeResult?.ok),
-    longTermMemoryBridgeReason:
-      longTermMemoryBridgeResult?.reason || null,
-    longTermMemoryInjected,
   };
 
   const { aiReply } = await executeChatAI({
@@ -264,9 +231,7 @@ export async function handleChatMessage({
     chatIdStr,
   });
 
-  await insertAssistantReply(aiReply, {
-    stage: "stable_fact_fix",
-  });
+  await insertAssistantReply(aiReply, { stage: "final" });
 
   await memoryWritePair({
     userText: effective,

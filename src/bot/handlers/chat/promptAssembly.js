@@ -66,6 +66,19 @@ export function buildChatMessages({
       }
     : null;
 
+  const noAddressingForStableFactSystemMessage = stablePersonalFactMode
+    ? {
+        role: "system",
+        content:
+          "NO ADDRESSING RULE:\n" +
+          "For stable personal fact answers, do not start with the user's name, title, rank, or any form of address.\n" +
+          "Do not prepend or append words like 'GARY', 'Гарик', 'Монарх', 'Ваше Величество', 'Государь', 'друг', or similar.\n" +
+          "Reply with the fact directly, plainly, and without greeting or addressing.\n" +
+          "Good style: 'Твой стиль общения — коротко и по делу.' or simply 'Коротко и по делу.'\n" +
+          "Bad style: 'GARY, твой стиль общения — коротко и по делу.'",
+      }
+    : null;
+
   const recallSystemMessage =
     !stablePersonalFactMode && recallCtx
       ? {
@@ -87,6 +100,7 @@ export function buildChatMessages({
     sourceResultSystemMessage,
     longTermMemorySystemMessage,
     stablePersonalFactGuardSystemMessage,
+    noAddressingForStableFactSystemMessage,
     recallSystemMessage,
     { role: "system", content: roleGuardPrompt },
     ...historyMessages,

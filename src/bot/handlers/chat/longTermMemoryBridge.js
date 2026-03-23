@@ -21,7 +21,6 @@ export async function resolveLongTermMemoryBridge({
         "maintenance_fact",
         "maintenance_interval",
         "task_intent",
-        "project_rule",
       ],
       rememberKeys: [],
       perTypeLimit: 3,

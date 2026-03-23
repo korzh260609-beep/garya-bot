@@ -12,6 +12,8 @@
 // - this helper does NOT run V2
 // - this helper only builds metadata for memory.remember()
 
+import { getExplicitRememberClassifierVersion } from "./getExplicitRememberClassifierVersion.js";
+
 export function buildExplicitRememberMetadata({
   chatIdStr,
   senderId,
@@ -28,8 +30,7 @@ export function buildExplicitRememberMetadata({
     messageId: messageId ? Number(messageId) : null,
     userRole,
     explicitRememberRawValue: rememberRawValue,
-    classifierVersion:
-      rememberPlan?.selectedBy === "v2_safe_adoption" ? "v2" : "legacy",
+    classifierVersion: getExplicitRememberClassifierVersion(rememberPlan),
     classifierMode: runtimeConfig?.mode,
   };
 }

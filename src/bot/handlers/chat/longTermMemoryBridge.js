@@ -20,6 +20,7 @@ export async function resolveLongTermMemoryBridge({
         "vehicle_profile",
         "maintenance_fact",
         "maintenance_interval",
+        "task_intent",
       ],
       rememberKeys: [],
       perTypeLimit: 3,

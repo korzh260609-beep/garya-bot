@@ -22,7 +22,7 @@ export async function resolveLongTermMemoryBridge({
         "maintenance_interval",
         "task_intent",
       ],
-      rememberKeys: [],
+      rememberKeys: ["communication_style"],
       perTypeLimit: 3,
       perKeyLimit: 3,
       totalLimit: 12,

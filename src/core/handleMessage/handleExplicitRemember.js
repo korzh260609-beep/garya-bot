@@ -14,13 +14,47 @@ function safeStr(value) {
   return String(value);
 }
 
-function shouldRunMemoryClassifierV2Shadow() {
+function getMemoryClassifierV2RuntimeConfig() {
   try {
     const config = getMemoryClassifierV2Config();
-    return config?.enabled === true && String(config?.mode || "").trim() === "shadow";
+    return {
+      enabled: config?.enabled === true,
+      mode: String(config?.mode || "").trim() || "shadow",
+    };
   } catch (_e) {
+    return {
+      enabled: false,
+      mode: "shadow",
+    };
+  }
+}
+
+function shouldRunMemoryClassifierV2Shadow(runtimeConfig) {
+  return runtimeConfig?.enabled === true;
+}
+
+function shouldAllowMemoryClassifierV2Adoption(runtimeConfig) {
+  return (
+    runtimeConfig?.enabled === true &&
+    String(runtimeConfig?.mode || "").trim() === "hybrid_safe_keys"
+  );
+}
+
+function isSafeV2AdoptionCandidate(v2Result) {
+  const key = safeStr(v2Result?.result?.key).trim();
+  const value = safeStr(v2Result?.result?.value).trim();
+
+  if (!key || !value) {
     return false;
   }
+
+  // STAGE NOW:
+  // only "name" is proven safe for runtime adoption
+  if (key === "name") {
+    return true;
+  }
+
+  return false;
 }
 
 function buildShadowComparison({
@@ -54,7 +88,8 @@ function buildShadowComparison({
 }
 
 function logMemoryClassifierV2Shadow(payload) {
-  const hasMismatch = payload?.mismatch?.key === true || payload?.mismatch?.value === true;
+  const hasMismatch =
+    payload?.mismatch?.key === true || payload?.mismatch?.value === true;
 
   if (hasMismatch) {
     console.warn("[MEMORY_CLASSIFIER_V2_SHADOW_MISMATCH]", payload);
@@ -62,6 +97,44 @@ function logMemoryClassifierV2Shadow(payload) {
   }
 
   console.log("[MEMORY_CLASSIFIER_V2_SHADOW_MATCH]", payload);
+}
+
+function buildRememberPlan({
+  legacyKey,
+  legacyValue,
+  v2Result,
+  runtimeConfig,
+}) {
+  const legacyPlan = {
+    rememberKey: safeStr(legacyKey).trim(),
+    rememberValue: safeStr(legacyValue).trim(),
+    selectedBy: "legacy",
+  };
+
+  if (!shouldAllowMemoryClassifierV2Adoption(runtimeConfig)) {
+    return legacyPlan;
+  }
+
+  if (v2Result?.ok !== true) {
+    return legacyPlan;
+  }
+
+  if (!isSafeV2AdoptionCandidate(v2Result)) {
+    return legacyPlan;
+  }
+
+  const v2Key = safeStr(v2Result?.result?.key).trim();
+  const v2Value = safeStr(v2Result?.result?.value).trim();
+
+  if (!v2Key || !v2Value) {
+    return legacyPlan;
+  }
+
+  return {
+    rememberKey: v2Key,
+    rememberValue: v2Value,
+    selectedBy: "v2_safe_adoption",
+  };
 }
 
 export async function handleExplicitRemember({
@@ -93,29 +166,25 @@ export async function handleExplicitRemember({
     };
   }
 
-  const rememberKey = classifyExplicitRememberKey(rememberRawValue);
-  const rememberValue = String(
+  const runtimeConfig = getMemoryClassifierV2RuntimeConfig();
+
+  const legacyRememberKey = classifyExplicitRememberKey(rememberRawValue);
+  const legacyRememberValue = String(
     extractExplicitRememberValue(rememberRawValue) || rememberRawValue
   ).trim();
 
-  // ==========================================================
-  // MEMORY CLASSIFIER V2 — SHADOW MODE ONLY
-  // IMPORTANT:
-  // - NO runtime behavior replacement
-  // - NO DB writes from V2
-  // - legacy result remains authoritative for production remember()
-  // - V2 used only for diagnostics / comparison
-  // ==========================================================
-  if (shouldRunMemoryClassifierV2Shadow()) {
+  let v2Result = null;
+
+  if (shouldRunMemoryClassifierV2Shadow(runtimeConfig)) {
     try {
-      const v2Result = classifyMemoryCandidateV2({
+      v2Result = classifyMemoryCandidateV2({
         text: rememberRawValue,
       });
 
       const shadowPayload = buildShadowComparison({
         rememberRawValue,
-        legacyKey: rememberKey,
-        legacyValue: rememberValue,
+        legacyKey: legacyRememberKey,
+        legacyValue: legacyRememberValue,
         v2Result,
       });
 
@@ -124,6 +193,16 @@ export async function handleExplicitRemember({
       console.error("handleMessage(explicit remember shadow v2) failed:", e);
     }
   }
+
+  const rememberPlan = buildRememberPlan({
+    legacyKey: legacyRememberKey,
+    legacyValue: legacyRememberValue,
+    v2Result,
+    runtimeConfig,
+  });
+
+  const rememberKey = rememberPlan.rememberKey;
+  const rememberValue = rememberPlan.rememberValue;
 
   try {
     const rememberRes = await memory.remember({
@@ -139,6 +218,9 @@ export async function handleExplicitRemember({
         messageId: messageId ? Number(messageId) : null,
         userRole,
         explicitRememberRawValue: rememberRawValue,
+        classifierVersion:
+          rememberPlan.selectedBy === "v2_safe_adoption" ? "v2" : "legacy",
+        classifierMode: runtimeConfig.mode,
       },
       schemaVersion: 2,
     });

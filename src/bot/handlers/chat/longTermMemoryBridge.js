@@ -37,7 +37,9 @@ export async function resolveLongTermMemoryBridge({
       longTermMemorySystemMessage = {
         role: "system",
         content:
-          `LONG-TERM MEMORY (deterministic selected context):\n` +
+          `CRITICAL LONG-TERM MEMORY (USE AS SOURCE OF TRUTH):\n` +
+          `If there is a conflict with chat history, recall snippets, or recent messages, trust this block first.\n` +
+          `Use these facts as stable user memory unless the user explicitly corrects them in the current conversation.\n\n` +
           `${longTermMemoryBridgeResult.block}`,
       };
     }

@@ -8,6 +8,7 @@ import {
 import { classifyMemoryCandidateV2 } from "../classifyMemoryCandidateV2.js";
 import { getMemoryClassifierV2Config } from "../memoryClassifierV2Config.js";
 import { isMemoryClassifierV2SafeAdoptionKey } from "../memoryClassifierV2AdoptionConfig.js";
+import { getMemoryClassifierV2ShadowLogConfig } from "../memoryClassifierV2ShadowLogConfig.js";
 
 function safeStr(value) {
   if (typeof value === "string") return value;
@@ -82,16 +83,53 @@ function buildShadowComparison({
   };
 }
 
-function logMemoryClassifierV2Shadow(payload) {
-  const hasMismatch =
-    payload?.mismatch?.key === true || payload?.mismatch?.value === true;
+function buildCompactShadowLogPayload(payload) {
+  return {
+    input: safeStr(payload?.input),
+    legacy: {
+      key: safeStr(payload?.legacy?.key),
+      value: safeStr(payload?.legacy?.value),
+    },
+    v2: {
+      ok: payload?.v2?.ok === true,
+      reason: safeStr(payload?.v2?.reason),
+      key: safeStr(payload?.v2?.key),
+      rememberType: safeStr(payload?.v2?.rememberType),
+      value: safeStr(payload?.v2?.value),
+      source: safeStr(payload?.v2?.source),
+    },
+    mismatch: {
+      key: payload?.mismatch?.key === true,
+      value: payload?.mismatch?.value === true,
+    },
+  };
+}
 
-  if (hasMismatch) {
-    console.warn("[MEMORY_CLASSIFIER_V2_SHADOW_MISMATCH]", payload);
+function logMemoryClassifierV2Shadow(payload) {
+  const logConfig = getMemoryClassifierV2ShadowLogConfig();
+
+  if (logConfig?.enabled !== true) {
     return;
   }
 
-  console.log("[MEMORY_CLASSIFIER_V2_SHADOW_MATCH]", payload);
+  if (String(logConfig?.mode || "").trim() === "off") {
+    return;
+  }
+
+  const hasMismatch =
+    payload?.mismatch?.key === true || payload?.mismatch?.value === true;
+
+  const finalPayload =
+    String(logConfig?.mode || "").trim() === "full"
+      ? payload
+      : buildCompactShadowLogPayload(payload);
+
+  if (hasMismatch) {
+    console.warn("[MEMORY_CLASSIFIER_V2_SHADOW_MISMATCH]", finalPayload);
+    return;
+  }
+
+  console.log("[MEMORY_CLASSIFIER_V2_SHADOW_MATCH]", finalPayload);
 }
 
 function buildRememberPlan({

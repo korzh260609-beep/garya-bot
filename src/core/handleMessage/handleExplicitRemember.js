@@ -2,6 +2,7 @@
 
 import { getMemoryService } from "../memoryServiceFactory.js";
 import { buildLegacyExplicitRememberPair } from "../buildLegacyExplicitRememberPair.js";
+import { buildExplicitRememberMetadata } from "../buildExplicitRememberMetadata.js";
 import {
   buildRememberPlan,
   getMemoryClassifierV2RuntimeConfig,
@@ -59,6 +60,16 @@ export async function handleExplicitRemember({
   const rememberKey = rememberPlan.rememberKey;
   const rememberValue = rememberPlan.rememberValue;
 
+  const metadata = buildExplicitRememberMetadata({
+    chatIdStr,
+    senderId,
+    messageId,
+    userRole,
+    rememberRawValue,
+    rememberPlan,
+    runtimeConfig,
+  });
+
   try {
     const rememberRes = await memory.remember({
       key: rememberKey,
@@ -66,17 +77,7 @@ export async function handleExplicitRemember({
       chatId: chatIdStr,
       globalUserId: globalUserId || null,
       transport,
-      metadata: {
-        source: "core.handleMessage.explicit_remember",
-        senderId: senderId || null,
-        chatId: chatIdStr,
-        messageId: messageId ? Number(messageId) : null,
-        userRole,
-        explicitRememberRawValue: rememberRawValue,
-        classifierVersion:
-          rememberPlan.selectedBy === "v2_safe_adoption" ? "v2" : "legacy",
-        classifierMode: runtimeConfig.mode,
-      },
+      metadata,
       schemaVersion: 2,
     });
 

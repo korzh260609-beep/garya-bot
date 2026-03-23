@@ -76,7 +76,12 @@ export function buildChatMessages({
           role: "system",
           content:
             "IDENTITY MEMORY RULE:\n" +
-            "If the user asks about their name or stable identity facts, use LONG-TERM MEMORY as the primary source of truth.\n" +
+            "If the user asks about their saved name or another stable identity fact, use LONG-TERM MEMORY as the primary source of truth.\n" +
+            "Reply with the saved fact directly and plainly.\n" +
+            "Do not add titles, ranks, honorifics, or decorative wording to the factual answer.\n" +
+            "Do not add words like 'Монарх', 'Ваше Величество', 'Государь', 'GARY ruler' or similar.\n" +
+            "If LONG-TERM MEMORY contains a saved name, reproduce that name exactly as stored.\n" +
+            "Do not normalize, translate, reinterpret, or embellish the saved name.\n" +
             "Do not prefer chat history or recall snippets over LONG-TERM MEMORY for these questions unless the user explicitly corrected the fact in the current conversation.",
         }
       : null;

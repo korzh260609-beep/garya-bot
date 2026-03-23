@@ -5,14 +5,11 @@ import {
   classifyExplicitRememberKey,
   extractExplicitRememberValue,
 } from "../explicitRememberKey.js";
-import { classifyMemoryCandidateV2 } from "../classifyMemoryCandidateV2.js";
 import {
   buildRememberPlan,
-  buildShadowComparison,
   getMemoryClassifierV2RuntimeConfig,
-  logMemoryClassifierV2Shadow,
-  shouldRunMemoryClassifierV2Shadow,
 } from "../memoryClassifierV2RuntimeDecision.js";
+import { runExplicitRememberV2Shadow } from "../runExplicitRememberV2Shadow.js";
 
 export async function handleExplicitRemember({
   trimmed,
@@ -50,26 +47,12 @@ export async function handleExplicitRemember({
     extractExplicitRememberValue(rememberRawValue) || rememberRawValue
   ).trim();
 
-  let v2Result = null;
-
-  if (shouldRunMemoryClassifierV2Shadow(runtimeConfig)) {
-    try {
-      v2Result = classifyMemoryCandidateV2({
-        text: rememberRawValue,
-      });
-
-      const shadowPayload = buildShadowComparison({
-        rememberRawValue,
-        legacyKey: legacyRememberKey,
-        legacyValue: legacyRememberValue,
-        v2Result,
-      });
-
-      logMemoryClassifierV2Shadow(shadowPayload);
-    } catch (e) {
-      console.error("handleMessage(explicit remember shadow v2) failed:", e);
-    }
-  }
+  const v2Result = runExplicitRememberV2Shadow({
+    rememberRawValue,
+    legacyKey: legacyRememberKey,
+    legacyValue: legacyRememberValue,
+    runtimeConfig,
+  });
 
   const rememberPlan = buildRememberPlan({
     legacyKey: legacyRememberKey,

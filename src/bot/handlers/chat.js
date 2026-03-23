@@ -1,10 +1,5 @@
 // src/bot/handlers/chat.js
-// extracted from messageRouter.js — no logic changes (only safety-guards + token param fix + observability logs)
-//
-// STAGE 7.2 LOGIC: pass globalUserId to chat_memory (v2 columns)
-// STAGE 7 (Integrity hardening): ensure assistant replies are also saved on early-return branches
-//
-// ✅ STAGE 11.x stable personal fact early routing fix
+// STAGE 11.x stable personal fact early routing fix (production-safe)
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -35,41 +30,37 @@ export async function handleChatMessage({
   trimmed,
   bypass,
   MAX_HISTORY_MESSAGES = 20,
-
   globalUserId = null,
   userRole = "guest",
-
   FileIntake,
-
   saveMessageToMemory,
   getChatHistory,
   saveChatPair,
-
   logInteraction,
-
   loadProjectContext,
   getAnswerMode,
   buildSystemPrompt,
   isMonarch,
-
   callAI,
   sanitizeNonMonarchReply,
 }) {
+
   const messageId = msg.message_id ?? null;
   if (!trimmed) return;
 
   const MAX_CHAT_MESSAGE_CHARS = 16000;
+  const monarchNow = typeof isMonarch === "function"
+    ? isMonarch(senderIdStr)
+    : false;
 
-  const isMonarchFn = typeof isMonarch === "function" ? isMonarch : () => false;
-  const monarchNow = isMonarchFn(senderIdStr);
-
-  const { memory, memoryWrite, memoryWritePair } = createChatMemoryBridge({
-    chatIdStr,
-    globalUserId,
-    saveMessageToMemory,
-    saveChatPair,
-    getMemoryService,
-  });
+  const { memory, memoryWrite, memoryWritePair } =
+    createChatMemoryBridge({
+      chatIdStr,
+      globalUserId,
+      saveMessageToMemory,
+      saveChatPair,
+      getMemoryService,
+    });
 
   const {
     insertAssistantReply,
@@ -85,23 +76,14 @@ export async function handleChatMessage({
     memoryWrite,
   });
 
-  const {
-    effective,
-    shouldCallAI,
-    directReplyText,
-  } = resolveFileIntakeDecision({
-    FileIntake,
-    msg,
-    trimmed,
-  });
+  const { effective, shouldCallAI, directReplyText } =
+    resolveFileIntakeDecision({ FileIntake, msg, trimmed });
 
   const {
     sourceCtx,
     sourceResultSystemMessage,
     sourceServiceSystemMessage,
-  } = await resolveChatSourceFlow({
-    effective,
-  });
+  } = await resolveChatSourceFlow({ effective });
 
   const {
     longTermMemoryBridgeResult,
@@ -134,8 +116,10 @@ export async function handleChatMessage({
     schemaVersion: 2,
   });
 
-  const stablePersonalFactMode = isStablePersonalFactQuestion(effective);
+  const stablePersonalFactMode =
+    isStablePersonalFactQuestion(effective);
 
+  // HISTORY
   let history = [];
   try {
     const memoryLocal = getMemoryService();
@@ -146,7 +130,11 @@ export async function handleChatMessage({
     });
   } catch {}
 
-  const classification = { taskType: "chat", aiCostLevel: "low" };
+  const classification = {
+    taskType: "chat",
+    aiCostLevel: "low",
+  };
+
   await logInteraction(chatIdStr, classification);
 
   let projectCtx = "";
@@ -177,7 +165,9 @@ export async function handleChatMessage({
 
   let recallCtx = null;
 
+  // 🔥 EARLY STABLE PERSONAL FACT ROUTING
   if (!stablePersonalFactMode) {
+
     recallCtx = await buildChatRecallContext({
       pool,
       chatIdStr,
@@ -227,7 +217,39 @@ export async function handleChatMessage({
     history,
   });
 
-  const { maxTokens, temperature } = resolveAiParams(answerMode);
+  const { maxTokens, temperature } =
+    resolveAiParams(answerMode);
+
+  const aiMetaBase = {
+    handler: "chat",
+    reason: "chat.reply",
+    aiCostLevel: classification.aiCostLevel,
+    answerMode,
+    max_completion_tokens: maxTokens,
+    temperature,
+    chatId: chatIdStr,
+    senderId: senderIdStr,
+    messageId,
+    globalUserId,
+    sourceServiceDecision:
+      sourceCtx?.sourcePlan?.decision || "unknown",
+    sourceRuntimeDecision:
+      sourceCtx?.sourceRuntime?.decision || "unknown",
+    sourceRuntimeNeedsSource:
+      Boolean(sourceCtx?.sourceRuntime?.needsSource),
+    sourceReason: sourceCtx?.reason || "unknown",
+    sourceResultOk:
+      Boolean(sourceCtx?.sourceResult?.ok),
+    sourceResultKey:
+      sourceCtx?.sourceResult?.sourceKey || null,
+    longTermMemoryBridgePrepared:
+      Boolean(longTermMemoryBridgeResult),
+    longTermMemoryBridgeOk:
+      Boolean(longTermMemoryBridgeResult?.ok),
+    longTermMemoryBridgeReason:
+      longTermMemoryBridgeResult?.reason || null,
+    longTermMemoryInjected,
+  };
 
   const { aiReply } = await executeChatAI({
     callAI,
@@ -237,12 +259,14 @@ export async function handleChatMessage({
     temperature,
     monarchNow,
     logInteraction,
-    aiMetaBase: {},
+    aiMetaBase,
     globalUserId,
     chatIdStr,
   });
 
-  await insertAssistantReply(aiReply, { stage: "stable_fact_fix" });
+  await insertAssistantReply(aiReply, {
+    stage: "stable_fact_fix",
+  });
 
   await memoryWritePair({
     userText: effective,

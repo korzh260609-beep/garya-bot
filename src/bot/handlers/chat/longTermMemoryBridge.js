@@ -1,6 +1,7 @@
 // src/bot/handlers/chat/longTermMemoryBridge.js
 
 import buildLongTermMemoryPromptBridge from "../../../core/buildLongTermMemoryPromptBridge.js";
+import buildLongTermPromptSelector from "../../../core/buildLongTermPromptSelector.js";
 
 export async function resolveLongTermMemoryBridge({
   chatIdStr,
@@ -12,9 +13,7 @@ export async function resolveLongTermMemoryBridge({
   let longTermMemoryInjected = false;
 
   try {
-    longTermMemoryBridgeResult = await buildLongTermMemoryPromptBridge({
-      chatId: chatIdStr,
-      globalUserId,
+    const selector = buildLongTermPromptSelector({
       rememberTypes: [
         "user_profile",
         "vehicle_profile",
@@ -26,6 +25,16 @@ export async function resolveLongTermMemoryBridge({
       perTypeLimit: 3,
       perKeyLimit: 3,
       totalLimit: 12,
+    });
+
+    longTermMemoryBridgeResult = await buildLongTermMemoryPromptBridge({
+      chatId: chatIdStr,
+      globalUserId,
+      rememberTypes: selector.rememberTypes,
+      rememberKeys: selector.rememberKeys,
+      perTypeLimit: selector.perTypeLimit,
+      perKeyLimit: selector.perKeyLimit,
+      totalLimit: selector.totalLimit,
       header: "LONG_TERM_MEMORY",
       maxItems: 12,
       maxValueLength: 180,

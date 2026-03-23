@@ -3,6 +3,7 @@
 import { getMemoryService } from "../memoryServiceFactory.js";
 import { buildLegacyExplicitRememberPair } from "../buildLegacyExplicitRememberPair.js";
 import { buildExplicitRememberMetadata } from "../buildExplicitRememberMetadata.js";
+import { buildExplicitRememberSaveRequest } from "../buildExplicitRememberSaveRequest.js";
 import {
   buildRememberPlan,
   getMemoryClassifierV2RuntimeConfig,
@@ -70,16 +71,17 @@ export async function handleExplicitRemember({
     runtimeConfig,
   });
 
+  const rememberRequest = buildExplicitRememberSaveRequest({
+    rememberKey,
+    rememberValue,
+    chatIdStr,
+    globalUserId,
+    transport,
+    metadata,
+  });
+
   try {
-    const rememberRes = await memory.remember({
-      key: rememberKey,
-      value: rememberValue,
-      chatId: chatIdStr,
-      globalUserId: globalUserId || null,
-      transport,
-      metadata,
-      schemaVersion: 2,
-    });
+    const rememberRes = await memory.remember(rememberRequest);
 
     if (rememberRes?.ok === true && rememberRes?.stored === true) {
       await replyAndLog("✅ Запомнил.", {

@@ -71,21 +71,28 @@ function isCommunicationStylePreference(text) {
     "стиль общения",
     "стиль ответа",
     "манера общения",
+    "стиль спілкування",
+    "манера спілкування",
     "общайся",
+    "спілкуйся",
     "разговаривай",
     "веди разговор",
     "отвечай со мной",
     "как я",
     "в моем стиле",
     "в моём стиле",
+    "в моєму стилі",
     "подстраивайся",
+    "підлаштовуйся",
     "уловливай",
+    "вловлюй",
     "официально",
     "официоз",
     "канцеляр",
     "коротко",
     "по делу",
     "без воды",
+    "як для дитини",
     "как для ребенка",
     "как для ребёнка",
     "tone",
@@ -134,6 +141,16 @@ function isCommunicationStylePreference(text) {
     return true;
   }
 
+  // важно: shadow/normalized input часто приходит уже без "запомни"
+  if (
+    text.startsWith("мой стиль общения ") ||
+    text.startsWith("мій стиль спілкування ") ||
+    text.startsWith("стиль общения ") ||
+    text.startsWith("стиль спілкування ")
+  ) {
+    return true;
+  }
+
   return hasStyleSignal && hasInstructionSignal;
 }
 
@@ -163,7 +180,6 @@ function extractCommunicationStyleValue(raw) {
     }
   }
 
-  // fallback: убираем явный префикс "запомни", но не подменяем смысл
   const simplified = text
     .replace(/^(запомни|remember)\s+/i, "")
     .trim();

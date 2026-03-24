@@ -22,6 +22,9 @@
 // STAGE 11+ transitional universal read layer:
 // - getLongTermByType(...)
 // - getLongTermByKey(...)
+// - getLongTermByDomain(...)
+// - getLongTermBySlot(...)
+// - getLongTermByDomainSlot(...)
 // - getLongTermSummary(...)
 // - selectLongTermContext(...)
 // IMPORTANT:
@@ -228,6 +231,18 @@ export class MemoryService {
 
   async getLongTermByKey(args = {}) {
     return this.longTermRead.getLongTermByKey(args);
+  }
+
+  async getLongTermByDomain(args = {}) {
+    return this.longTermRead.getLongTermByDomain(args);
+  }
+
+  async getLongTermBySlot(args = {}) {
+    return this.longTermRead.getLongTermBySlot(args);
+  }
+
+  async getLongTermByDomainSlot(args = {}) {
+    return this.longTermRead.getLongTermByDomainSlot(args);
   }
 
   async getLongTermSummary(args = {}) {

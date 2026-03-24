@@ -33,6 +33,7 @@
 import { getMemoryConfig } from "./memoryConfig.js";
 import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
 import { deriveRememberTypeFromKey } from "./rememberType.js";
+import { deriveExplicitRememberStructure } from "./explicitRememberStructure.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -128,6 +129,9 @@ function _normalizeLongTermRow(row = {}) {
     memoryType: _safeStr(metadata?.memoryType).trim() || null,
     rememberKey: _safeStr(metadata?.rememberKey).trim() || null,
     rememberType: _safeStr(metadata?.rememberType).trim() || null,
+    rememberDomain: _safeStr(metadata?.rememberDomain).trim() || null,
+    rememberSlot: _safeStr(metadata?.rememberSlot).trim() || null,
+    rememberCanonicalKey: _safeStr(metadata?.rememberCanonicalKey).trim() || null,
     explicit: metadata?.explicit === true || String(metadata?.explicit || "").trim() === "true",
     source: _safeStr(metadata?.source).trim() || null,
   };
@@ -683,7 +687,10 @@ export class MemoryService {
 
         for (const item of res.items) {
           const idKey = item?.id ?? null;
-          const dedupeKey = idKey !== null ? `id:${idKey}` : `fallback:type:${rememberType}:${item?.rememberKey || ""}:${item?.createdAt || ""}:${item?.value || ""}`;
+          const dedupeKey =
+            idKey !== null
+              ? `id:${idKey}`
+              : `fallback:type:${rememberType}:${item?.rememberKey || ""}:${item?.createdAt || ""}:${item?.value || ""}`;
           if (seenIds.has(dedupeKey)) continue;
           seenIds.add(dedupeKey);
           collected.push(item);
@@ -702,7 +709,10 @@ export class MemoryService {
 
         for (const item of res.items) {
           const idKey = item?.id ?? null;
-          const dedupeKey = idKey !== null ? `id:${idKey}` : `fallback:key:${rememberKey}:${item?.rememberType || ""}:${item?.createdAt || ""}:${item?.value || ""}`;
+          const dedupeKey =
+            idKey !== null
+              ? `id:${idKey}`
+              : `fallback:key:${rememberKey}:${item?.rememberType || ""}:${item?.createdAt || ""}:${item?.value || ""}`;
           if (seenIds.has(dedupeKey)) continue;
           seenIds.add(dedupeKey);
           collected.push(item);
@@ -963,6 +973,15 @@ export class MemoryService {
   // - no DB schema change
   // - stored only in metadata.rememberType
   // - rememberKey remains authoritative exact key
+  //
+  // STAGE 11.x additive structure:
+  // - rememberDomain
+  // - rememberSlot
+  // - rememberCanonicalKey
+  // IMPORTANT:
+  // - additive only
+  // - no breaking changes
+  // - rememberKey / rememberType stay primary runtime fields
   // ========================================================================
   async remember({
     key,
@@ -1000,6 +1019,16 @@ export class MemoryService {
     const sv = _normalizeSchemaVersion(schemaVersion);
     const rememberType = deriveRememberTypeFromKey(keyStr);
 
+    const structured = deriveExplicitRememberStructure({
+      key: keyStr,
+      value: valueStr,
+    });
+
+    const rememberDomain = _safeStr(structured?.domain).trim() || "user_memory";
+    const rememberSlot = _safeStr(structured?.slot).trim() || "generic";
+    const rememberCanonicalKey =
+      _safeStr(structured?.canonicalKey).trim() || `${rememberDomain}.${rememberSlot}`;
+
     const rememberContent = `[MEMORY:${keyStr}] ${valueStr}`;
 
     const writeRes = await this.write({
@@ -1013,6 +1042,9 @@ export class MemoryService {
         memoryType: "long_term",
         rememberKey: keyStr,
         rememberType,
+        rememberDomain,
+        rememberSlot,
+        rememberCanonicalKey,
         explicit: true,
         source: safeMeta.source || "MemoryService.remember",
       },
@@ -1028,6 +1060,9 @@ export class MemoryService {
         globalUserId: globalUserId || null,
         key: keyStr,
         rememberType,
+        rememberDomain,
+        rememberSlot,
+        rememberCanonicalKey,
         transport: safeTransport,
         sv,
       });
@@ -1037,6 +1072,9 @@ export class MemoryService {
         globalUserId: globalUserId || null,
         key: keyStr,
         rememberType,
+        rememberDomain,
+        rememberSlot,
+        rememberCanonicalKey,
         transport: safeTransport,
         sv,
         reason: writeRes?.reason || "unknown",
@@ -1050,6 +1088,9 @@ export class MemoryService {
       backend: "chat_memory",
       key: keyStr,
       rememberType,
+      rememberDomain,
+      rememberSlot,
+      rememberCanonicalKey,
       size: valueStr.length,
       globalUserId: globalUserId || null,
       transport: safeTransport,
@@ -1059,6 +1100,9 @@ export class MemoryService {
         memoryType: "long_term",
         rememberKey: keyStr,
         rememberType,
+        rememberDomain,
+        rememberSlot,
+        rememberCanonicalKey,
         explicit: true,
       },
       contractVersion: MemoryService.CONTRACT_VERSION,

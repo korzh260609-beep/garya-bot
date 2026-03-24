@@ -50,7 +50,8 @@ function _normalizeStrList(value) {
 }
 
 function _normalizeLongTermRow(row = {}) {
-  const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
+  const metadata =
+    row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
 
   return {
     id: row?.id ?? null,
@@ -68,7 +69,8 @@ function _normalizeLongTermRow(row = {}) {
     rememberType: _safeStr(metadata?.rememberType).trim() || null,
     rememberDomain: _safeStr(metadata?.rememberDomain).trim() || null,
     rememberSlot: _safeStr(metadata?.rememberSlot).trim() || null,
-    rememberCanonicalKey: _safeStr(metadata?.rememberCanonicalKey).trim() || null,
+    rememberCanonicalKey:
+      _safeStr(metadata?.rememberCanonicalKey).trim() || null,
     explicit:
       metadata?.explicit === true ||
       String(metadata?.explicit || "").trim() === "true",
@@ -731,7 +733,8 @@ export class MemoryLongTermReadService {
         GROUP BY 1, 2
         ORDER BY total DESC, remember_type ASC, remember_key ASC
         LIMIT ${safeLimit}
-        `
+        `,
+        params
       );
 
       const byDomainRes = await this.db.query(
@@ -838,7 +841,12 @@ export class MemoryLongTermReadService {
     const safePerKeyLimit = _normalizeLimit(perKeyLimit, 3, 1, 50);
     const safePerDomainLimit = _normalizeLimit(perDomainLimit, 3, 1, 50);
     const safePerSlotLimit = _normalizeLimit(perSlotLimit, 3, 1, 50);
-    const safePerDomainSlotLimit = _normalizeLimit(perDomainSlotLimit, 3, 1, 50);
+    const safePerDomainSlotLimit = _normalizeLimit(
+      perDomainSlotLimit,
+      3,
+      1,
+      50
+    );
     const safeTotalLimit = _normalizeLimit(totalLimit, 12, 1, 100);
 
     if (!this.getEnabled() || !chatIdStr) {

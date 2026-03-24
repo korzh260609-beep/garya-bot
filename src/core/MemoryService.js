@@ -34,6 +34,7 @@ import { getMemoryConfig } from "./memoryConfig.js";
 import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
 import MemoryLongTermReadService from "./memory/MemoryLongTermReadService.js";
 import MemoryWriteService from "./memory/MemoryWriteService.js";
+import MemoryBufferService from "./memory/MemoryBufferService.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -135,13 +136,19 @@ export class MemoryService {
       Math.min(5000, _envInt("MEMORY_BUFFER_MAX_QUEUE", 1500))
     );
 
-    this._queue = [];
-    this._flushTimer = null;
-    this._flushInFlight = false;
-    this._shutdownHooksInstalled = false;
+    this.bufferService = new MemoryBufferService({
+      logger: this.logger,
+      getEnabled: () => this._enabled,
+      executeDirect: async (op) => this._executeDirect(op),
+      contractVersion: MemoryService.CONTRACT_VERSION,
+      flushMs: this._bufferFlushMs,
+      maxBatch: this._bufferMaxBatch,
+      maxQueue: this._bufferMaxQueue,
+      enabled: this._bufferEnabled,
+    });
 
     if (this._bufferEnabled) {
-      this._installShutdownHooksOnce();
+      this.bufferService.installShutdownHooksOnce();
       this.logger.info("Buffer enabled", {
         flushMs: this._bufferFlushMs,
         maxBatch: this._bufferMaxBatch,
@@ -158,12 +165,7 @@ export class MemoryService {
       mode: this.config.mode || "CHAT_MEMORY_V1",
       backend: "chat_memory",
       contractVersion: MemoryService.CONTRACT_VERSION,
-      buffer: {
-        enabled: this._bufferEnabled,
-        flushMs: this._bufferFlushMs,
-        maxBatch: this._bufferMaxBatch,
-        maxQueue: this._bufferMaxQueue,
-      },
+      buffer: this.bufferService.status(),
     };
   }
 
@@ -271,7 +273,7 @@ export class MemoryService {
 
     // Buffered path (optional)
     if (this._bufferEnabled) {
-      return await this._enqueueAndWait({
+      return this.bufferService.enqueueAndWait({
         type: "message",
         chatId: chatIdStr,
         globalUserId: globalUserId || null,
@@ -330,7 +332,7 @@ export class MemoryService {
 
     // Buffered path (optional)
     if (this._bufferEnabled) {
-      return await this._enqueueAndWait({
+      return this.bufferService.enqueueAndWait({
         type: "pair",
         chatId: chatIdStr,
         globalUserId: globalUserId || null,
@@ -389,16 +391,10 @@ export class MemoryService {
       hasChatAdapter: !!this.chatAdapter,
       hasLongTermRead: !!this.longTermRead,
       hasWriteService: !!this.writeService,
+      hasBufferService: !!this.bufferService,
       configKeys: Object.keys(this.config || {}),
       contractVersion: MemoryService.CONTRACT_VERSION,
-      buffer: {
-        enabled: this._bufferEnabled,
-        flushMs: this._bufferFlushMs,
-        maxBatch: this._bufferMaxBatch,
-        maxQueue: this._bufferMaxQueue,
-        queueSize: Array.isArray(this._queue) ? this._queue.length : 0,
-        inFlight: !!this._flushInFlight,
-      },
+      buffer: this.bufferService.status(),
     };
   }
 
@@ -455,120 +451,8 @@ export class MemoryService {
   }
 
   // ========================================================================
-  // INTERNAL: buffering helpers
+  // INTERNAL: direct execution for buffer service
   // ========================================================================
-
-  _installShutdownHooksOnce() {
-    if (this._shutdownHooksInstalled) return;
-    this._shutdownHooksInstalled = true;
-
-    const flushAndLog = async (reason) => {
-      try {
-        await this._flushQueue(reason);
-      } catch (e) {
-        this.logger.error("Flush on shutdown failed (fail-open)", {
-          reason,
-          err: e?.message || e,
-        });
-      }
-    };
-
-    // Render sends SIGTERM on deploy/restart
-    process.on("SIGTERM", () => {
-      flushAndLog("SIGTERM").finally(() => process.exit(0));
-    });
-
-    process.on("SIGINT", () => {
-      flushAndLog("SIGINT").finally(() => process.exit(0));
-    });
-
-    process.on("beforeExit", () => {
-      // best-effort
-      flushAndLog("beforeExit");
-    });
-  }
-
-  _scheduleFlush() {
-    if (this._flushTimer) return;
-    this._flushTimer = setTimeout(() => {
-      this._flushTimer = null;
-      this._flushQueue("timer").catch((e) => {
-        this.logger.error("Buffered flush failed (fail-open)", {
-          err: e?.message || e,
-        });
-      });
-    }, this._bufferFlushMs);
-  }
-
-  async _enqueueAndWait(op) {
-    try {
-      if (!Array.isArray(this._queue)) this._queue = [];
-
-      // Backpressure: if queue too large, do direct write (fail-open, avoid OOM)
-      if (this._queue.length >= this._bufferMaxQueue) {
-        this.logger.error("Buffer queue overflow -> direct write (fail-open)", {
-          size: this._queue.length,
-          maxQueue: this._bufferMaxQueue,
-          type: op?.type || "unknown",
-        });
-        return await this._executeDirect(op);
-      }
-
-      return await new Promise((resolve) => {
-        this._queue.push({
-          op,
-          resolve,
-          enqueuedAt: Date.now(),
-        });
-        this._scheduleFlush();
-      });
-    } catch (e) {
-      this.logger.error("Enqueue failed -> direct write (fail-open)", {
-        err: e?.message || e,
-      });
-      return await this._executeDirect(op);
-    }
-  }
-
-  async _flushQueue(reason = "unknown") {
-    if (this._flushInFlight) return;
-    this._flushInFlight = true;
-
-    try {
-      while (this._queue.length > 0) {
-        const batch = this._queue.splice(0, this._bufferMaxBatch);
-
-        for (const item of batch) {
-          const { op, resolve } = item || {};
-          if (!op || typeof resolve !== "function") continue;
-
-          try {
-            const res = await this._executeDirect(op);
-            resolve(res);
-          } catch (e) {
-            this.logger.error("Buffered item failed (fail-open)", {
-              reason,
-              type: op?.type || "unknown",
-              err: e?.message || e,
-            });
-
-            resolve({
-              ok: false,
-              enabled: this._enabled,
-              stored: false,
-              backend: "chat_memory",
-              contractVersion: MemoryService.CONTRACT_VERSION,
-              reason: "buffered_item_failed",
-            });
-          }
-        }
-
-        await new Promise((r) => setTimeout(r, 0));
-      }
-    } finally {
-      this._flushInFlight = false;
-    }
-  }
 
   async _executeDirect(op) {
     const type = op?.type;

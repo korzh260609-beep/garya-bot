@@ -7,6 +7,14 @@
 // - classify narrow known cases
 // - extract normalized value for known patterns
 // - fallback to raw value for unknown cases
+//
+// STAGE 11.x additive layer:
+// - preserve existing key/value behavior
+// - expose structured memory mapping in parallel:
+//   domain -> slot -> value
+// - DO NOT break current runtime callers
+
+import { deriveExplicitRememberStructure } from "./explicitRememberStructure.js";
 
 function normalizeRememberText(value) {
   return String(value || "")
@@ -180,9 +188,7 @@ function extractCommunicationStyleValue(raw) {
     }
   }
 
-  const simplified = text
-    .replace(/^(запомни|remember)\s+/i, "")
-    .trim();
+  const simplified = text.replace(/^(запомни|remember)\s+/i, "").trim();
 
   return cleanValue(simplified || text);
 }
@@ -257,9 +263,23 @@ export function classifyExplicitRemember(value) {
         "напоминание",
       ])) ||
     (hasAny(text, ["расписание", "schedule"]) &&
-      hasAny(text, ["доклад", "отчёт", "отчет", "report", "напоминание", "напоминать"])) ||
+      hasAny(text, [
+        "доклад",
+        "отчёт",
+        "отчет",
+        "report",
+        "напоминание",
+        "напоминать",
+      ])) ||
     (hasAny(text, ["в 9 утра", "в 10 утра", "в 11 утра"]) &&
-      hasAny(text, ["доклад", "отчёт", "отчет", "report", "присылать", "отправлять"]))
+      hasAny(text, [
+        "доклад",
+        "отчёт",
+        "отчет",
+        "report",
+        "присылать",
+        "отправлять",
+      ]))
   ) {
     return {
       key: "task_schedule",
@@ -334,23 +354,17 @@ export function classifyExplicitRemember(value) {
   // ==========================================================
   if (
     hasAny(text, ["масла", "масло", "oil"]) &&
-    (
-      hasAny(text, [
-        "последняя замена",
-        "последний раз",
-        "last change",
-        "last oil change",
-      ]) ||
+    (hasAny(text, [
+      "последняя замена",
+      "последний раз",
+      "last change",
+      "last oil change",
+    ]) ||
       hasAll(text, ["замена", "масла", "была"]) ||
       hasAll(text, ["замена", "масло", "была"]) ||
       hasAll(text, ["замена", "масла", "на"]) ||
       hasAll(text, ["замена", "масло", "на"]) ||
-      hasAny(text, [
-        "заменил масло",
-        "заменили масло",
-        "масло заменено",
-      ])
-    )
+      hasAny(text, ["заменил масло", "заменили масло", "масло заменено"]))
   ) {
     return {
       key: "maintenance_oil_last_change",
@@ -390,19 +404,13 @@ export function classifyExplicitRemember(value) {
       "фильтр топлива",
       "паливн",
     ]) &&
-    (
-      hasAny(text, [
-        "последняя замена",
-        "последний раз",
-        "last change",
-        "last replaced",
-      ]) ||
-      hasAny(text, [
-        "заменил",
-        "заменили",
-        "была на",
-      ])
-    )
+    (hasAny(text, [
+      "последняя замена",
+      "последний раз",
+      "last change",
+      "last replaced",
+    ]) ||
+      hasAny(text, ["заменил", "заменили", "была на"]))
   ) {
     return {
       key: "maintenance_fuel_filter_last_change",
@@ -443,13 +451,7 @@ export function classifyExplicitRemember(value) {
   // MAINTENANCE — HALDEX
   // ==========================================================
   if (
-    hasAny(text, [
-      "haldex",
-      "халдекс",
-      "муфта",
-      "муфте",
-      "муфты",
-    ])
+    hasAny(text, ["haldex", "халдекс", "муфта", "муфте", "муфты"])
   ) {
     if (
       hasAny(text, [
@@ -491,6 +493,39 @@ export function classifyExplicitRemember(value) {
     key: "user_explicit_memory",
     value: raw,
   };
+}
+
+// ==========================================================
+// STRUCTURED LAYER (ADDITIVE, SAFE)
+// ==========================================================
+
+export function classifyExplicitRememberStructured(value) {
+  const classified = classifyExplicitRemember(value);
+
+  const structured = deriveExplicitRememberStructure({
+    key: classified.key,
+    value: classified.value,
+  });
+
+  return {
+    ...classified,
+    domain: structured.domain,
+    slot: structured.slot,
+    canonicalKey: structured.canonicalKey,
+    structureSource: structured.source,
+  };
+}
+
+export function classifyExplicitRememberDomain(value) {
+  return classifyExplicitRememberStructured(value).domain;
+}
+
+export function classifyExplicitRememberSlot(value) {
+  return classifyExplicitRememberStructured(value).slot;
+}
+
+export function classifyExplicitRememberCanonicalKey(value) {
+  return classifyExplicitRememberStructured(value).canonicalKey;
 }
 
 // ==========================================================

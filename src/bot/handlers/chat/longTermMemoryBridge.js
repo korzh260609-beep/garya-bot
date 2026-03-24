@@ -7,13 +7,14 @@ export async function resolveLongTermMemoryBridge({
   chatIdStr,
   globalUserId,
   memory,
+  effective = "",
 }) {
   let longTermMemoryBridgeResult = null;
   let longTermMemorySystemMessage = null;
   let longTermMemoryInjected = false;
 
   try {
-    const selector = buildDefaultChatLongTermSelector();
+    const selector = buildDefaultChatLongTermSelector({ effective });
 
     longTermMemoryBridgeResult = await buildLongTermMemoryPromptBridge({
       chatId: chatIdStr,
@@ -56,3 +57,5 @@ export async function resolveLongTermMemoryBridge({
     longTermMemoryInjected,
   };
 }
+
+export default resolveLongTermMemoryBridge;

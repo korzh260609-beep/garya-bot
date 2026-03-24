@@ -137,8 +137,38 @@ function isCommunicationStylePreference(text) {
   return hasStyleSignal && hasInstructionSignal;
 }
 
-function extractCommunicationStyleValue(_raw) {
-  return "Отвечай коротко, прямо, по делу и естественно. Улавливай мою интонацию и подстраивайся под мой тон общения. Не уходи в официоз.";
+function extractCommunicationStyleValue(raw) {
+  const text = safeStr(raw).replace(/\s+/g, " ").trim();
+  if (!text) return null;
+
+  const patterns = [
+    /(?:запомни|remember)\s+мой\s+стиль\s+общения\s+(.+)/i,
+    /(?:запомни|remember)\s+мій\s+стиль\s+спілкування\s+(.+)/i,
+    /мой\s+стиль\s+общения\s+(.+)/i,
+    /мій\s+стиль\s+спілкування\s+(.+)/i,
+    /стиль\s+общения\s+(.+)/i,
+    /стиль\s+спілкування\s+(.+)/i,
+    /(?:запомни|remember)\s+отвечай\s+(.+)/i,
+    /(?:запомни|remember)\s+відповідай\s+(.+)/i,
+    /(?:запомни|remember)\s+общайся\s+(.+)/i,
+    /(?:запомни|remember)\s+спілкуйся\s+(.+)/i,
+    /(?:запомни|remember)\s+разговаривай\s+(.+)/i,
+  ];
+
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m && m[1]) {
+      const value = cleanValue(m[1]);
+      if (value) return value;
+    }
+  }
+
+  // fallback: убираем явный префикс "запомни", но не подменяем смысл
+  const simplified = text
+    .replace(/^(запомни|remember)\s+/i, "")
+    .trim();
+
+  return cleanValue(simplified || text);
 }
 
 // ==========================================================
@@ -184,7 +214,7 @@ export function classifyExplicitRemember(value) {
   if (isCommunicationStylePreference(text)) {
     return {
       key: "communication_style",
-      value: extractCommunicationStyleValue(raw),
+      value: extractCommunicationStyleValue(raw) || raw,
     };
   }
 

@@ -32,9 +32,8 @@
 
 import { getMemoryConfig } from "./memoryConfig.js";
 import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
-import { deriveRememberTypeFromKey } from "./rememberType.js";
-import { deriveExplicitRememberStructure } from "./explicitRememberStructure.js";
 import MemoryLongTermReadService from "./memory/MemoryLongTermReadService.js";
+import MemoryWriteService from "./memory/MemoryWriteService.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -110,13 +109,31 @@ export class MemoryService {
       contractVersion: MemoryService.CONTRACT_VERSION,
     });
 
+    // Direct write/remember service
+    this.writeService = new MemoryWriteService({
+      chatAdapter: this.chatAdapter,
+      logger: this.logger,
+      getEnabled: () => this._enabled,
+      getMode: () => this.config.mode || "CHAT_MEMORY_V1",
+      contractVersion: MemoryService.CONTRACT_VERSION,
+    });
+
     // ==========================================================
     // STAGE 7.7+ — micro-batch buffering (optional)
     // ==========================================================
     this._bufferEnabled = _envBool("MEMORY_BUFFER_ENABLED", false);
-    this._bufferFlushMs = Math.max(25, Math.min(500, _envInt("MEMORY_BUFFER_FLUSH_MS", 100)));
-    this._bufferMaxBatch = Math.max(10, Math.min(500, _envInt("MEMORY_BUFFER_MAX_BATCH", 200)));
-    this._bufferMaxQueue = Math.max(50, Math.min(5000, _envInt("MEMORY_BUFFER_MAX_QUEUE", 1500)));
+    this._bufferFlushMs = Math.max(
+      25,
+      Math.min(500, _envInt("MEMORY_BUFFER_FLUSH_MS", 100))
+    );
+    this._bufferMaxBatch = Math.max(
+      10,
+      Math.min(500, _envInt("MEMORY_BUFFER_MAX_BATCH", 200))
+    );
+    this._bufferMaxQueue = Math.max(
+      50,
+      Math.min(5000, _envInt("MEMORY_BUFFER_MAX_QUEUE", 1500))
+    );
 
     this._queue = [];
     this._flushTimer = null;
@@ -184,7 +201,11 @@ export class MemoryService {
       };
     }
 
-    const memories = await this.recent({ globalUserId, chatId: chatIdStr, limit });
+    const memories = await this.recent({
+      globalUserId,
+      chatId: chatIdStr,
+      limit,
+    });
 
     return {
       enabled: this._enabled,
@@ -216,7 +237,7 @@ export class MemoryService {
   }
 
   // ========================================================================
-  // write() — запись одного сообщения (user/assistant/system)
+  // WRITE FACADE
   // ========================================================================
   async write({
     globalUserId = null,
@@ -264,52 +285,15 @@ export class MemoryService {
       });
     }
 
-    // Direct path (default)
-    const r = await this.chatAdapter.saveMessage({
+    return this.writeService.write({
+      globalUserId: globalUserId || null,
       chatId: chatIdStr,
       role: _safeStr(role),
       content,
-      globalUserId: globalUserId || null,
-      options: {
-        transport: safeTransport,
-        metadata: safeMeta,
-        schemaVersion: sv,
-      },
-    });
-
-    // adapter может вернуть ok:false — отражаем честно
-    const ok = r?.ok !== false;
-
-    if (ok) {
-      this.logger.info("Saved message", {
-        chatId: chatIdStr,
-        globalUserId: globalUserId || null,
-        size: content.length,
-        transport: safeTransport,
-        sv,
-      });
-    } else {
-      this.logger.error("Save message failed", {
-        chatId: chatIdStr,
-        globalUserId: globalUserId || null,
-        transport: safeTransport,
-        sv,
-        reason: r?.reason || "unknown",
-      });
-    }
-
-    return {
-      ok,
-      enabled: this._enabled,
-      stored: ok,
-      mode: this.config.mode || "CHAT_MEMORY_V1",
-      backend: "chat_memory",
-      size: content.length,
-      globalUserId: globalUserId || null,
       transport: safeTransport,
+      metadata: safeMeta,
       schemaVersion: sv,
-      contractVersion: MemoryService.CONTRACT_VERSION,
-    };
+    });
   }
 
   // ========================================================================
@@ -341,7 +325,8 @@ export class MemoryService {
     const sv = _normalizeSchemaVersion(schemaVersion);
 
     const u = typeof userText === "string" ? userText : _safeStr(userText);
-    const a = typeof assistantText === "string" ? assistantText : _safeStr(assistantText);
+    const a =
+      typeof assistantText === "string" ? assistantText : _safeStr(assistantText);
 
     // Buffered path (optional)
     if (this._bufferEnabled) {
@@ -359,69 +344,19 @@ export class MemoryService {
       });
     }
 
-    // Direct path (default)
-    const r = await this.chatAdapter.savePair({
+    return this.writeService.writePair({
+      globalUserId: globalUserId || null,
       chatId: chatIdStr,
       userText: u,
       assistantText: a,
-      globalUserId: globalUserId || null,
-      options: {
-        transport: safeTransport,
-        metadata: safeMeta,
-        schemaVersion: sv,
-      },
+      transport: safeTransport,
+      metadata: safeMeta,
+      schemaVersion: sv,
     });
-
-    const ok = r?.ok !== false;
-
-    if (ok) {
-      this.logger.info("Saved pair", {
-        chatId: chatIdStr,
-        globalUserId: globalUserId || null,
-        transport: safeTransport,
-        sv,
-      });
-    } else {
-      this.logger.error("Save pair failed", {
-        chatId: chatIdStr,
-        globalUserId: globalUserId || null,
-        transport: safeTransport,
-        sv,
-        reason: r?.reason || "unknown",
-      });
-    }
-
-    return {
-      ok,
-      enabled: this._enabled,
-      stored: ok,
-      backend: "chat_memory",
-      contractVersion: MemoryService.CONTRACT_VERSION,
-    };
   }
 
   // ========================================================================
-  // remember() — minimal explicit long-term memory V1
-  // Rules:
-  // - only explicit remember-call should use this method
-  // - no AI extraction here
-  // - no new schema
-  // - persisted through chat_memory backend as system memory record
-  //
-  // STAGE 7.4+ — rememberType layer (first broad semantic bucket)
-  // IMPORTANT:
-  // - no DB schema change
-  // - stored only in metadata.rememberType
-  // - rememberKey remains authoritative exact key
-  //
-  // STAGE 11.x additive structure:
-  // - rememberDomain
-  // - rememberSlot
-  // - rememberCanonicalKey
-  // IMPORTANT:
-  // - additive only
-  // - no breaking changes
-  // - rememberKey / rememberType stay primary runtime fields
+  // remember() — explicit long-term memory facade
   // ========================================================================
   async remember({
     key,
@@ -432,122 +367,15 @@ export class MemoryService {
     metadata = {},
     schemaVersion = null,
   } = {}) {
-    const keyStr = _safeStr(key).trim();
-    const valueStr = typeof value === "string" ? value.trim() : _safeStr(value).trim();
-    const chatIdStr = chatId ? String(chatId) : null;
-
-    if (!keyStr || !valueStr) {
-      return { ok: false, reason: "invalid_input" };
-    }
-
-    if (!this._enabled || !chatIdStr) {
-      return {
-        ok: true,
-        enabled: this._enabled,
-        stored: false,
-        backend: "chat_memory",
-        key: keyStr,
-        size: valueStr.length,
-        metadata: _safeObj(metadata),
-        contractVersion: MemoryService.CONTRACT_VERSION,
-        reason: !this._enabled ? "memory_disabled" : "missing_chatId",
-      };
-    }
-
-    const safeTransport = _normalizeTransport(transport);
-    const safeMeta = _safeObj(metadata);
-    const sv = _normalizeSchemaVersion(schemaVersion);
-    const rememberType = deriveRememberTypeFromKey(keyStr);
-
-    const structured = deriveExplicitRememberStructure({
-      key: keyStr,
-      value: valueStr,
+    return this.writeService.remember({
+      key,
+      value,
+      globalUserId,
+      chatId,
+      transport,
+      metadata,
+      schemaVersion,
     });
-
-    const rememberDomain = _safeStr(structured?.domain).trim() || "user_memory";
-    const rememberSlot = _safeStr(structured?.slot).trim() || "generic";
-    const rememberCanonicalKey =
-      _safeStr(structured?.canonicalKey).trim() || `${rememberDomain}.${rememberSlot}`;
-
-    const rememberContent = `[MEMORY:${keyStr}] ${valueStr}`;
-
-    const writeRes = await this.write({
-      globalUserId: globalUserId || null,
-      chatId: chatIdStr,
-      role: "system",
-      content: rememberContent,
-      transport: safeTransport,
-      metadata: {
-        ...safeMeta,
-        memoryType: "long_term",
-        rememberKey: keyStr,
-        rememberType,
-        rememberDomain,
-        rememberSlot,
-        rememberCanonicalKey,
-        explicit: true,
-        source: safeMeta.source || "MemoryService.remember",
-      },
-      schemaVersion: sv,
-    });
-
-    const ok = writeRes?.ok === true;
-    const stored = writeRes?.stored === true;
-
-    if (stored) {
-      this.logger.info("Saved remember", {
-        chatId: chatIdStr,
-        globalUserId: globalUserId || null,
-        key: keyStr,
-        rememberType,
-        rememberDomain,
-        rememberSlot,
-        rememberCanonicalKey,
-        transport: safeTransport,
-        sv,
-      });
-    } else {
-      this.logger.error("Save remember failed", {
-        chatId: chatIdStr,
-        globalUserId: globalUserId || null,
-        key: keyStr,
-        rememberType,
-        rememberDomain,
-        rememberSlot,
-        rememberCanonicalKey,
-        transport: safeTransport,
-        sv,
-        reason: writeRes?.reason || "unknown",
-      });
-    }
-
-    return {
-      ok,
-      enabled: this._enabled,
-      stored,
-      backend: "chat_memory",
-      key: keyStr,
-      rememberType,
-      rememberDomain,
-      rememberSlot,
-      rememberCanonicalKey,
-      size: valueStr.length,
-      globalUserId: globalUserId || null,
-      transport: safeTransport,
-      schemaVersion: sv,
-      metadata: {
-        ...safeMeta,
-        memoryType: "long_term",
-        rememberKey: keyStr,
-        rememberType,
-        rememberDomain,
-        rememberSlot,
-        rememberCanonicalKey,
-        explicit: true,
-      },
-      contractVersion: MemoryService.CONTRACT_VERSION,
-      reason: stored ? "remember_saved" : writeRes?.reason || "remember_save_failed",
-    };
   }
 
   async status() {
@@ -560,6 +388,7 @@ export class MemoryService {
       hasLogger: !!this.logger,
       hasChatAdapter: !!this.chatAdapter,
       hasLongTermRead: !!this.longTermRead,
+      hasWriteService: !!this.writeService,
       configKeys: Object.keys(this.config || {}),
       contractVersion: MemoryService.CONTRACT_VERSION,
       buffer: {
@@ -594,7 +423,15 @@ export class MemoryService {
     metadata = {},
     schemaVersion = null,
   } = {}) {
-    return this.write({ globalUserId, chatId, role, content, transport, metadata, schemaVersion });
+    return this.write({
+      globalUserId,
+      chatId,
+      role,
+      content,
+      transport,
+      metadata,
+      schemaVersion,
+    });
   }
 
   async savePair({
@@ -629,7 +466,10 @@ export class MemoryService {
       try {
         await this._flushQueue(reason);
       } catch (e) {
-        this.logger.error("Flush on shutdown failed (fail-open)", { reason, err: e?.message || e });
+        this.logger.error("Flush on shutdown failed (fail-open)", {
+          reason,
+          err: e?.message || e,
+        });
       }
     };
 
@@ -653,7 +493,9 @@ export class MemoryService {
     this._flushTimer = setTimeout(() => {
       this._flushTimer = null;
       this._flushQueue("timer").catch((e) => {
-        this.logger.error("Buffered flush failed (fail-open)", { err: e?.message || e });
+        this.logger.error("Buffered flush failed (fail-open)", {
+          err: e?.message || e,
+        });
       });
     }, this._bufferFlushMs);
   }
@@ -681,8 +523,9 @@ export class MemoryService {
         this._scheduleFlush();
       });
     } catch (e) {
-      // fail-open
-      this.logger.error("Enqueue failed -> direct write (fail-open)", { err: e?.message || e });
+      this.logger.error("Enqueue failed -> direct write (fail-open)", {
+        err: e?.message || e,
+      });
       return await this._executeDirect(op);
     }
   }
@@ -695,8 +538,6 @@ export class MemoryService {
       while (this._queue.length > 0) {
         const batch = this._queue.splice(0, this._bufferMaxBatch);
 
-        // Execute sequentially (no schema change; adapter stays authoritative).
-        // This still reduces overhead under burst (coalesces flush scheduling).
         for (const item of batch) {
           const { op, resolve } = item || {};
           if (!op || typeof resolve !== "function") continue;
@@ -705,7 +546,6 @@ export class MemoryService {
             const res = await this._executeDirect(op);
             resolve(res);
           } catch (e) {
-            // fail-open per item: return ok:false but don't crash flush
             this.logger.error("Buffered item failed (fail-open)", {
               reason,
               type: op?.type || "unknown",
@@ -723,7 +563,6 @@ export class MemoryService {
           }
         }
 
-        // Yield to event loop to avoid long blocking on huge backlogs
         await new Promise((r) => setTimeout(r, 0));
       }
     } finally {
@@ -735,85 +574,27 @@ export class MemoryService {
     const type = op?.type;
 
     if (type === "message") {
-      const r = await this.chatAdapter.saveMessage({
+      return this.writeService.write({
+        globalUserId: op.globalUserId || null,
         chatId: op.chatId,
         role: op.role,
         content: op.content,
-        globalUserId: op.globalUserId || null,
-        options: op.options || {},
-      });
-
-      const ok = r?.ok !== false;
-
-      if (ok) {
-        this.logger.info("Saved message", {
-          chatId: op.chatId,
-          globalUserId: op.globalUserId || null,
-          size: typeof op.content === "string" ? op.content.length : 0,
-          transport: op?.options?.transport || "telegram",
-          sv: op?.options?.schemaVersion || 1,
-        });
-      } else {
-        this.logger.error("Save message failed", {
-          chatId: op.chatId,
-          globalUserId: op.globalUserId || null,
-          transport: op?.options?.transport || "telegram",
-          sv: op?.options?.schemaVersion || 1,
-          reason: r?.reason || "unknown",
-        });
-      }
-
-      return {
-        ok,
-        enabled: this._enabled,
-        stored: ok,
-        mode: this.config.mode || "CHAT_MEMORY_V1",
-        backend: "chat_memory",
-        size: typeof op.content === "string" ? op.content.length : 0,
-        globalUserId: op.globalUserId || null,
         transport: op?.options?.transport || "telegram",
+        metadata: op?.options?.metadata || {},
         schemaVersion: op?.options?.schemaVersion || 1,
-        contractVersion: MemoryService.CONTRACT_VERSION,
-        buffered: !!this._bufferEnabled,
-      };
+      });
     }
 
     if (type === "pair") {
-      const r = await this.chatAdapter.savePair({
+      return this.writeService.writePair({
+        globalUserId: op.globalUserId || null,
         chatId: op.chatId,
         userText: op.userText,
         assistantText: op.assistantText,
-        globalUserId: op.globalUserId || null,
-        options: op.options || {},
+        transport: op?.options?.transport || "telegram",
+        metadata: op?.options?.metadata || {},
+        schemaVersion: op?.options?.schemaVersion || 1,
       });
-
-      const ok = r?.ok !== false;
-
-      if (ok) {
-        this.logger.info("Saved pair", {
-          chatId: op.chatId,
-          globalUserId: op.globalUserId || null,
-          transport: op?.options?.transport || "telegram",
-          sv: op?.options?.schemaVersion || 1,
-        });
-      } else {
-        this.logger.error("Save pair failed", {
-          chatId: op.chatId,
-          globalUserId: op.globalUserId || null,
-          transport: op?.options?.transport || "telegram",
-          sv: op?.options?.schemaVersion || 1,
-          reason: r?.reason || "unknown",
-        });
-      }
-
-      return {
-        ok,
-        enabled: this._enabled,
-        stored: ok,
-        backend: "chat_memory",
-        contractVersion: MemoryService.CONTRACT_VERSION,
-        buffered: !!this._bufferEnabled,
-      };
     }
 
     return {

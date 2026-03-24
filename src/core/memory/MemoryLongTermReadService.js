@@ -330,6 +330,326 @@ export class MemoryLongTermReadService {
     }
   }
 
+  async getLongTermByDomain({
+    globalUserId = null,
+    chatId = null,
+    rememberDomain,
+    limit = 20,
+  } = {}) {
+    const chatIdStr = chatId ? String(chatId) : null;
+    const rememberDomainStr = _safeStr(rememberDomain).trim();
+    const safeLimit = _normalizeLimit(limit, 20, 1, 200);
+
+    if (!rememberDomainStr) {
+      return {
+        ok: false,
+        reason: "missing_rememberDomain",
+        items: [],
+      };
+    }
+
+    if (!this.getEnabled() || !chatIdStr) {
+      return this._baseDisabledResult(chatIdStr, globalUserId, {
+        rememberDomain: rememberDomainStr,
+      });
+    }
+
+    if (!this.db) {
+      return this._baseDbUnavailableResult(chatIdStr, globalUserId, {
+        rememberDomain: rememberDomainStr,
+      });
+    }
+
+    try {
+      const params = [chatIdStr, rememberDomainStr];
+      let idx = 3;
+
+      let globalUserSql = "";
+      if (globalUserId) {
+        globalUserSql = ` AND global_user_id = $${idx} `;
+        params.push(String(globalUserId));
+        idx += 1;
+      }
+
+      params.push(safeLimit);
+
+      const res = await this.db.query(
+        `
+        SELECT
+          id,
+          chat_id,
+          global_user_id,
+          transport,
+          role,
+          content,
+          schema_version,
+          created_at,
+          metadata
+        FROM chat_memory
+        WHERE chat_id = $1
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+          AND COALESCE(metadata->>'rememberDomain', '') = $2
+          ${globalUserSql}
+        ORDER BY id DESC
+        LIMIT $${idx}
+        `,
+        params
+      );
+
+      const rows = (res.rows || []).map(_normalizeLongTermRow);
+
+      return {
+        ok: true,
+        enabled: !!this.getEnabled(),
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberDomain: rememberDomainStr,
+        items: rows,
+        total: rows.length,
+        backend: "chat_memory",
+        contractVersion: this.contractVersion,
+      };
+    } catch (e) {
+      this.logger.error("getLongTermByDomain failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberDomain: rememberDomainStr,
+        error: e?.message || e,
+      });
+
+      return {
+        ok: false,
+        enabled: !!this.getEnabled(),
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberDomain: rememberDomainStr,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: this.contractVersion,
+        reason: "get_long_term_by_domain_failed",
+        error: e?.message || String(e),
+      };
+    }
+  }
+
+  async getLongTermBySlot({
+    globalUserId = null,
+    chatId = null,
+    rememberSlot,
+    limit = 20,
+  } = {}) {
+    const chatIdStr = chatId ? String(chatId) : null;
+    const rememberSlotStr = _safeStr(rememberSlot).trim();
+    const safeLimit = _normalizeLimit(limit, 20, 1, 200);
+
+    if (!rememberSlotStr) {
+      return {
+        ok: false,
+        reason: "missing_rememberSlot",
+        items: [],
+      };
+    }
+
+    if (!this.getEnabled() || !chatIdStr) {
+      return this._baseDisabledResult(chatIdStr, globalUserId, {
+        rememberSlot: rememberSlotStr,
+      });
+    }
+
+    if (!this.db) {
+      return this._baseDbUnavailableResult(chatIdStr, globalUserId, {
+        rememberSlot: rememberSlotStr,
+      });
+    }
+
+    try {
+      const params = [chatIdStr, rememberSlotStr];
+      let idx = 3;
+
+      let globalUserSql = "";
+      if (globalUserId) {
+        globalUserSql = ` AND global_user_id = $${idx} `;
+        params.push(String(globalUserId));
+        idx += 1;
+      }
+
+      params.push(safeLimit);
+
+      const res = await this.db.query(
+        `
+        SELECT
+          id,
+          chat_id,
+          global_user_id,
+          transport,
+          role,
+          content,
+          schema_version,
+          created_at,
+          metadata
+        FROM chat_memory
+        WHERE chat_id = $1
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+          AND COALESCE(metadata->>'rememberSlot', '') = $2
+          ${globalUserSql}
+        ORDER BY id DESC
+        LIMIT $${idx}
+        `,
+        params
+      );
+
+      const rows = (res.rows || []).map(_normalizeLongTermRow);
+
+      return {
+        ok: true,
+        enabled: !!this.getEnabled(),
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberSlot: rememberSlotStr,
+        items: rows,
+        total: rows.length,
+        backend: "chat_memory",
+        contractVersion: this.contractVersion,
+      };
+    } catch (e) {
+      this.logger.error("getLongTermBySlot failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberSlot: rememberSlotStr,
+        error: e?.message || e,
+      });
+
+      return {
+        ok: false,
+        enabled: !!this.getEnabled(),
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberSlot: rememberSlotStr,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: this.contractVersion,
+        reason: "get_long_term_by_slot_failed",
+        error: e?.message || String(e),
+      };
+    }
+  }
+
+  async getLongTermByDomainSlot({
+    globalUserId = null,
+    chatId = null,
+    rememberDomain,
+    rememberSlot,
+    limit = 20,
+  } = {}) {
+    const chatIdStr = chatId ? String(chatId) : null;
+    const rememberDomainStr = _safeStr(rememberDomain).trim();
+    const rememberSlotStr = _safeStr(rememberSlot).trim();
+    const safeLimit = _normalizeLimit(limit, 20, 1, 200);
+
+    if (!rememberDomainStr || !rememberSlotStr) {
+      return {
+        ok: false,
+        reason: "missing_rememberDomain_or_rememberSlot",
+        items: [],
+      };
+    }
+
+    if (!this.getEnabled() || !chatIdStr) {
+      return this._baseDisabledResult(chatIdStr, globalUserId, {
+        rememberDomain: rememberDomainStr,
+        rememberSlot: rememberSlotStr,
+      });
+    }
+
+    if (!this.db) {
+      return this._baseDbUnavailableResult(chatIdStr, globalUserId, {
+        rememberDomain: rememberDomainStr,
+        rememberSlot: rememberSlotStr,
+      });
+    }
+
+    try {
+      const params = [chatIdStr, rememberDomainStr, rememberSlotStr];
+      let idx = 4;
+
+      let globalUserSql = "";
+      if (globalUserId) {
+        globalUserSql = ` AND global_user_id = $${idx} `;
+        params.push(String(globalUserId));
+        idx += 1;
+      }
+
+      params.push(safeLimit);
+
+      const res = await this.db.query(
+        `
+        SELECT
+          id,
+          chat_id,
+          global_user_id,
+          transport,
+          role,
+          content,
+          schema_version,
+          created_at,
+          metadata
+        FROM chat_memory
+        WHERE chat_id = $1
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+          AND COALESCE(metadata->>'rememberDomain', '') = $2
+          AND COALESCE(metadata->>'rememberSlot', '') = $3
+          ${globalUserSql}
+        ORDER BY id DESC
+        LIMIT $${idx}
+        `,
+        params
+      );
+
+      const rows = (res.rows || []).map(_normalizeLongTermRow);
+
+      return {
+        ok: true,
+        enabled: !!this.getEnabled(),
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberDomain: rememberDomainStr,
+        rememberSlot: rememberSlotStr,
+        items: rows,
+        total: rows.length,
+        backend: "chat_memory",
+        contractVersion: this.contractVersion,
+      };
+    } catch (e) {
+      this.logger.error("getLongTermByDomainSlot failed", {
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberDomain: rememberDomainStr,
+        rememberSlot: rememberSlotStr,
+        error: e?.message || e,
+      });
+
+      return {
+        ok: false,
+        enabled: !!this.getEnabled(),
+        chatId: chatIdStr,
+        globalUserId: globalUserId || null,
+        rememberDomain: rememberDomainStr,
+        rememberSlot: rememberSlotStr,
+        items: [],
+        total: 0,
+        backend: "chat_memory",
+        contractVersion: this.contractVersion,
+        reason: "get_long_term_by_domain_slot_failed",
+        error: e?.message || String(e),
+      };
+    }
+  }
+
   async getLongTermSummary({
     globalUserId = null,
     chatId = null,
@@ -346,6 +666,8 @@ export class MemoryLongTermReadService {
         globalUserId: globalUserId || null,
         byType: [],
         byKeyType: [],
+        byDomain: [],
+        byDomainSlot: [],
         backend: "chat_memory",
         contractVersion: this.contractVersion,
         reason: !this.getEnabled() ? "memory_disabled" : "missing_chatId",
@@ -360,6 +682,8 @@ export class MemoryLongTermReadService {
         globalUserId: globalUserId || null,
         byType: [],
         byKeyType: [],
+        byDomain: [],
+        byDomainSlot: [],
         backend: "chat_memory",
         contractVersion: this.contractVersion,
         reason: "db_unavailable",
@@ -393,8 +717,6 @@ export class MemoryLongTermReadService {
         params
       );
 
-      params.push(safeLimit);
-
       const byKeyTypeRes = await this.db.query(
         `
         SELECT
@@ -408,7 +730,41 @@ export class MemoryLongTermReadService {
           AND metadata->>'memoryType' = 'long_term'
         GROUP BY 1, 2
         ORDER BY total DESC, remember_type ASC, remember_key ASC
-        LIMIT $${idx}
+        LIMIT ${safeLimit}
+        `
+      );
+
+      const byDomainRes = await this.db.query(
+        `
+        SELECT
+          COALESCE(NULLIF(metadata->>'rememberDomain', ''), '—') AS remember_domain,
+          COUNT(*)::int AS total
+        FROM chat_memory
+        WHERE chat_id = $1
+          ${globalUserSql}
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+        GROUP BY 1
+        ORDER BY total DESC, remember_domain ASC
+        LIMIT ${safeLimit}
+        `,
+        params
+      );
+
+      const byDomainSlotRes = await this.db.query(
+        `
+        SELECT
+          COALESCE(NULLIF(metadata->>'rememberDomain', ''), '—') AS remember_domain,
+          COALESCE(NULLIF(metadata->>'rememberSlot', ''), '—') AS remember_slot,
+          COUNT(*)::int AS total
+        FROM chat_memory
+        WHERE chat_id = $1
+          ${globalUserSql}
+          AND role = 'system'
+          AND metadata->>'memoryType' = 'long_term'
+        GROUP BY 1, 2
+        ORDER BY total DESC, remember_domain ASC, remember_slot ASC
+        LIMIT ${safeLimit}
         `,
         params
       );
@@ -420,6 +776,8 @@ export class MemoryLongTermReadService {
         globalUserId: globalUserId || null,
         byType: byTypeRes.rows || [],
         byKeyType: byKeyTypeRes.rows || [],
+        byDomain: byDomainRes.rows || [],
+        byDomainSlot: byDomainSlotRes.rows || [],
         backend: "chat_memory",
         contractVersion: this.contractVersion,
       };
@@ -437,6 +795,8 @@ export class MemoryLongTermReadService {
         globalUserId: globalUserId || null,
         byType: [],
         byKeyType: [],
+        byDomain: [],
+        byDomainSlot: [],
         backend: "chat_memory",
         contractVersion: this.contractVersion,
         reason: "get_long_term_summary_failed",
@@ -450,15 +810,35 @@ export class MemoryLongTermReadService {
     chatId = null,
     rememberTypes = [],
     rememberKeys = [],
+    rememberDomains = [],
+    rememberSlots = [],
+    domainSlots = [],
     perTypeLimit = 3,
     perKeyLimit = 3,
+    perDomainLimit = 3,
+    perSlotLimit = 3,
+    perDomainSlotLimit = 3,
     totalLimit = 12,
   } = {}) {
     const chatIdStr = chatId ? String(chatId) : null;
     const typeList = _normalizeStrList(rememberTypes);
     const keyList = _normalizeStrList(rememberKeys);
+    const domainList = _normalizeStrList(rememberDomains);
+    const slotList = _normalizeStrList(rememberSlots);
+    const domainSlotList = Array.isArray(domainSlots)
+      ? domainSlots
+          .map((item) => ({
+            rememberDomain: _safeStr(item?.rememberDomain).trim(),
+            rememberSlot: _safeStr(item?.rememberSlot).trim(),
+          }))
+          .filter((item) => item.rememberDomain && item.rememberSlot)
+      : [];
+
     const safePerTypeLimit = _normalizeLimit(perTypeLimit, 3, 1, 50);
     const safePerKeyLimit = _normalizeLimit(perKeyLimit, 3, 1, 50);
+    const safePerDomainLimit = _normalizeLimit(perDomainLimit, 3, 1, 50);
+    const safePerSlotLimit = _normalizeLimit(perSlotLimit, 3, 1, 50);
+    const safePerDomainSlotLimit = _normalizeLimit(perDomainSlotLimit, 3, 1, 50);
     const safeTotalLimit = _normalizeLimit(totalLimit, 12, 1, 100);
 
     if (!this.getEnabled() || !chatIdStr) {
@@ -469,6 +849,9 @@ export class MemoryLongTermReadService {
         globalUserId: globalUserId || null,
         rememberTypes: typeList,
         rememberKeys: keyList,
+        rememberDomains: domainList,
+        rememberSlots: slotList,
+        domainSlots: domainSlotList,
         items: [],
         total: 0,
         backend: "chat_memory",
@@ -477,7 +860,13 @@ export class MemoryLongTermReadService {
       };
     }
 
-    if (typeList.length === 0 && keyList.length === 0) {
+    if (
+      typeList.length === 0 &&
+      keyList.length === 0 &&
+      domainList.length === 0 &&
+      slotList.length === 0 &&
+      domainSlotList.length === 0
+    ) {
       return {
         ok: false,
         enabled: !!this.getEnabled(),
@@ -485,6 +874,9 @@ export class MemoryLongTermReadService {
         globalUserId: globalUserId || null,
         rememberTypes: typeList,
         rememberKeys: keyList,
+        rememberDomains: domainList,
+        rememberSlots: slotList,
+        domainSlots: domainSlotList,
         items: [],
         total: 0,
         backend: "chat_memory",
@@ -497,6 +889,19 @@ export class MemoryLongTermReadService {
       const collected = [];
       const seenIds = new Set();
 
+      const addItems = (items = [], fallbackPrefix = "fallback") => {
+        for (const item of items) {
+          const idKey = item?.id ?? null;
+          const dedupeKey =
+            idKey !== null
+              ? `id:${idKey}`
+              : `${fallbackPrefix}:${item?.rememberKey || ""}:${item?.rememberType || ""}:${item?.rememberDomain || ""}:${item?.rememberSlot || ""}:${item?.createdAt || ""}:${item?.value || ""}`;
+          if (seenIds.has(dedupeKey)) continue;
+          seenIds.add(dedupeKey);
+          collected.push(item);
+        }
+      };
+
       for (const rememberType of typeList) {
         const res = await this.getLongTermByType({
           chatId: chatIdStr,
@@ -504,19 +909,8 @@ export class MemoryLongTermReadService {
           rememberType,
           limit: safePerTypeLimit,
         });
-
-        if (res?.ok !== true || !Array.isArray(res.items)) continue;
-
-        for (const item of res.items) {
-          const idKey = item?.id ?? null;
-          const dedupeKey =
-            idKey !== null
-              ? `id:${idKey}`
-              : `fallback:type:${rememberType}:${item?.rememberKey || ""}:${item?.createdAt || ""}:${item?.value || ""}`;
-
-          if (seenIds.has(dedupeKey)) continue;
-          seenIds.add(dedupeKey);
-          collected.push(item);
+        if (res?.ok === true && Array.isArray(res.items)) {
+          addItems(res.items, `type:${rememberType}`);
         }
       }
 
@@ -527,19 +921,48 @@ export class MemoryLongTermReadService {
           rememberKey,
           limit: safePerKeyLimit,
         });
+        if (res?.ok === true && Array.isArray(res.items)) {
+          addItems(res.items, `key:${rememberKey}`);
+        }
+      }
 
-        if (res?.ok !== true || !Array.isArray(res.items)) continue;
+      for (const rememberDomain of domainList) {
+        const res = await this.getLongTermByDomain({
+          chatId: chatIdStr,
+          globalUserId,
+          rememberDomain,
+          limit: safePerDomainLimit,
+        });
+        if (res?.ok === true && Array.isArray(res.items)) {
+          addItems(res.items, `domain:${rememberDomain}`);
+        }
+      }
 
-        for (const item of res.items) {
-          const idKey = item?.id ?? null;
-          const dedupeKey =
-            idKey !== null
-              ? `id:${idKey}`
-              : `fallback:key:${rememberKey}:${item?.rememberType || ""}:${item?.createdAt || ""}:${item?.value || ""}`;
+      for (const rememberSlot of slotList) {
+        const res = await this.getLongTermBySlot({
+          chatId: chatIdStr,
+          globalUserId,
+          rememberSlot,
+          limit: safePerSlotLimit,
+        });
+        if (res?.ok === true && Array.isArray(res.items)) {
+          addItems(res.items, `slot:${rememberSlot}`);
+        }
+      }
 
-          if (seenIds.has(dedupeKey)) continue;
-          seenIds.add(dedupeKey);
-          collected.push(item);
+      for (const pair of domainSlotList) {
+        const res = await this.getLongTermByDomainSlot({
+          chatId: chatIdStr,
+          globalUserId,
+          rememberDomain: pair.rememberDomain,
+          rememberSlot: pair.rememberSlot,
+          limit: safePerDomainSlotLimit,
+        });
+        if (res?.ok === true && Array.isArray(res.items)) {
+          addItems(
+            res.items,
+            `domain_slot:${pair.rememberDomain}:${pair.rememberSlot}`
+          );
         }
       }
 
@@ -563,6 +986,9 @@ export class MemoryLongTermReadService {
         globalUserId: globalUserId || null,
         rememberTypes: typeList,
         rememberKeys: keyList,
+        rememberDomains: domainList,
+        rememberSlots: slotList,
+        domainSlots: domainSlotList,
         items,
         total: items.length,
         backend: "chat_memory",
@@ -570,6 +996,9 @@ export class MemoryLongTermReadService {
         limits: {
           perTypeLimit: safePerTypeLimit,
           perKeyLimit: safePerKeyLimit,
+          perDomainLimit: safePerDomainLimit,
+          perSlotLimit: safePerSlotLimit,
+          perDomainSlotLimit: safePerDomainSlotLimit,
           totalLimit: safeTotalLimit,
         },
       };
@@ -579,6 +1008,9 @@ export class MemoryLongTermReadService {
         globalUserId: globalUserId || null,
         rememberTypes: typeList,
         rememberKeys: keyList,
+        rememberDomains: domainList,
+        rememberSlots: slotList,
+        domainSlots: domainSlotList,
         error: e?.message || e,
       });
 
@@ -589,6 +1021,9 @@ export class MemoryLongTermReadService {
         globalUserId: globalUserId || null,
         rememberTypes: typeList,
         rememberKeys: keyList,
+        rememberDomains: domainList,
+        rememberSlots: slotList,
+        domainSlots: domainSlotList,
         items: [],
         total: 0,
         backend: "chat_memory",

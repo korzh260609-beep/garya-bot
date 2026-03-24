@@ -92,6 +92,7 @@ export async function handleChatMessage({
     chatIdStr,
     globalUserId,
     memory,
+    effective,
   });
 
   if (directReplyText) {

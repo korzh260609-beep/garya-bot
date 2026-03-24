@@ -61,7 +61,7 @@ function isVehicleQuestion(text) {
     "мой автомобиль",
     "моё авто",
     "мое авто",
-    "моя машина",
+    "mоя машина",
     "freelander",
     "фрилендер",
     "автомобиль",
@@ -135,8 +135,19 @@ export function buildDefaultChatLongTermSelector(input = {}) {
     return buildLongTermPromptSelector({
       rememberKeys: ["communication_style"],
       rememberTypes: ["user_preference"],
+      rememberDomains: ["user_preference"],
+      rememberSlots: ["communication_style"],
+      domainSlots: [
+        {
+          rememberDomain: "user_preference",
+          rememberSlot: "communication_style",
+        },
+      ],
       perKeyLimit: 1,
       perTypeLimit: 1,
+      perDomainLimit: 1,
+      perSlotLimit: 1,
+      perDomainSlotLimit: 1,
       totalLimit: 2,
     });
   }
@@ -145,8 +156,19 @@ export function buildDefaultChatLongTermSelector(input = {}) {
     return buildLongTermPromptSelector({
       rememberKeys: ["name"],
       rememberTypes: ["identity_profile", "user_profile"],
+      rememberDomains: ["identity"],
+      rememberSlots: ["name"],
+      domainSlots: [
+        {
+          rememberDomain: "identity",
+          rememberSlot: "name",
+        },
+      ],
       perKeyLimit: 1,
       perTypeLimit: 1,
+      perDomainLimit: 1,
+      perSlotLimit: 1,
+      perDomainSlotLimit: 1,
       totalLimit: 2,
     });
   }
@@ -159,9 +181,52 @@ export function buildDefaultChatLongTermSelector(input = {}) {
         "maintenance_fact",
         "maintenance_interval",
       ],
+      rememberDomains: [
+        "vehicle_profile",
+        "vehicle_maintenance",
+      ],
+      rememberSlots: [
+        "vehicle",
+        "engine",
+        "trim",
+        "service_fact",
+        "oil_last_change",
+        "oil_interval",
+        "fuel_filter_last_change",
+        "fuel_filter_interval",
+        "haldex_last_change",
+        "haldex_interval",
+      ],
+      domainSlots: [
+        { rememberDomain: "vehicle_profile", rememberSlot: "vehicle" },
+        { rememberDomain: "vehicle_profile", rememberSlot: "engine" },
+        { rememberDomain: "vehicle_profile", rememberSlot: "trim" },
+        { rememberDomain: "vehicle_maintenance", rememberSlot: "service_fact" },
+        { rememberDomain: "vehicle_maintenance", rememberSlot: "oil_last_change" },
+        { rememberDomain: "vehicle_maintenance", rememberSlot: "oil_interval" },
+        {
+          rememberDomain: "vehicle_maintenance",
+          rememberSlot: "fuel_filter_last_change",
+        },
+        {
+          rememberDomain: "vehicle_maintenance",
+          rememberSlot: "fuel_filter_interval",
+        },
+        {
+          rememberDomain: "vehicle_maintenance",
+          rememberSlot: "haldex_last_change",
+        },
+        {
+          rememberDomain: "vehicle_maintenance",
+          rememberSlot: "haldex_interval",
+        },
+      ],
       perKeyLimit: 1,
       perTypeLimit: 2,
-      totalLimit: 4,
+      perDomainLimit: 2,
+      perSlotLimit: 1,
+      perDomainSlotLimit: 1,
+      totalLimit: 6,
     });
   }
 
@@ -169,8 +234,19 @@ export function buildDefaultChatLongTermSelector(input = {}) {
     return buildLongTermPromptSelector({
       rememberKeys: [],
       rememberTypes: ["task_intent", "user_profile"],
+      rememberDomains: ["task"],
+      rememberSlots: ["schedule"],
+      domainSlots: [
+        {
+          rememberDomain: "task",
+          rememberSlot: "schedule",
+        },
+      ],
       perKeyLimit: 1,
       perTypeLimit: 2,
+      perDomainLimit: 2,
+      perSlotLimit: 1,
+      perDomainSlotLimit: 1,
       totalLimit: 4,
     });
   }
@@ -184,8 +260,63 @@ export function buildDefaultChatLongTermSelector(input = {}) {
       "task_intent",
     ],
     rememberKeys: ["communication_style"],
+    rememberDomains: [
+      "identity",
+      "user_preference",
+      "vehicle_profile",
+      "vehicle_maintenance",
+      "task",
+    ],
+    rememberSlots: [
+      "name",
+      "communication_style",
+      "vehicle",
+      "engine",
+      "trim",
+      "service_fact",
+      "oil_last_change",
+      "oil_interval",
+      "fuel_filter_last_change",
+      "fuel_filter_interval",
+      "haldex_last_change",
+      "haldex_interval",
+      "schedule",
+    ],
+    domainSlots: [
+      { rememberDomain: "identity", rememberSlot: "name" },
+      {
+        rememberDomain: "user_preference",
+        rememberSlot: "communication_style",
+      },
+      { rememberDomain: "vehicle_profile", rememberSlot: "vehicle" },
+      { rememberDomain: "vehicle_profile", rememberSlot: "engine" },
+      { rememberDomain: "vehicle_profile", rememberSlot: "trim" },
+      { rememberDomain: "vehicle_maintenance", rememberSlot: "service_fact" },
+      { rememberDomain: "vehicle_maintenance", rememberSlot: "oil_last_change" },
+      { rememberDomain: "vehicle_maintenance", rememberSlot: "oil_interval" },
+      {
+        rememberDomain: "vehicle_maintenance",
+        rememberSlot: "fuel_filter_last_change",
+      },
+      {
+        rememberDomain: "vehicle_maintenance",
+        rememberSlot: "fuel_filter_interval",
+      },
+      {
+        rememberDomain: "vehicle_maintenance",
+        rememberSlot: "haldex_last_change",
+      },
+      {
+        rememberDomain: "vehicle_maintenance",
+        rememberSlot: "haldex_interval",
+      },
+      { rememberDomain: "task", rememberSlot: "schedule" },
+    ],
     perTypeLimit: 3,
-    perKeyLimit: 3,
+    perKeyLimit: 2,
+    perDomainLimit: 2,
+    perSlotLimit: 1,
+    perDomainSlotLimit: 1,
     totalLimit: 12,
   });
 }

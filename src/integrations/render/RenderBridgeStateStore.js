@@ -25,8 +25,14 @@ class RenderBridgeStateStore {
           selected_service_id TEXT,
           selected_service_name TEXT,
           selected_service_slug TEXT,
+          selected_owner_id TEXT,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+      `);
+
+      await this.pool.query(`
+        ALTER TABLE render_bridge_state
+        ADD COLUMN IF NOT EXISTS selected_owner_id TEXT;
       `);
 
       await this.pool.query(`
@@ -57,6 +63,7 @@ class RenderBridgeStateStore {
         selected_service_id,
         selected_service_name,
         selected_service_slug,
+        selected_owner_id,
         updated_at
       FROM render_bridge_state
       WHERE owner_key = $1
@@ -73,6 +80,7 @@ class RenderBridgeStateStore {
     serviceId = null,
     serviceName = null,
     serviceSlug = null,
+    ownerId = null,
   }) {
     await this.ensureSchema();
 
@@ -85,20 +93,23 @@ class RenderBridgeStateStore {
         selected_service_id,
         selected_service_name,
         selected_service_slug,
+        selected_owner_id,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, NOW())
+      VALUES ($1, $2, $3, $4, $5, NOW())
       ON CONFLICT (owner_key)
       DO UPDATE SET
         selected_service_id = EXCLUDED.selected_service_id,
         selected_service_name = EXCLUDED.selected_service_name,
         selected_service_slug = EXCLUDED.selected_service_slug,
+        selected_owner_id = EXCLUDED.selected_owner_id,
         updated_at = NOW()
       RETURNING
         owner_key,
         selected_service_id,
         selected_service_name,
         selected_service_slug,
+        selected_owner_id,
         updated_at
       `,
       [
@@ -106,6 +117,7 @@ class RenderBridgeStateStore {
         serviceId ? normalizeString(serviceId) : null,
         serviceName ? normalizeString(serviceName) : null,
         serviceSlug ? normalizeString(serviceSlug) : null,
+        ownerId ? normalizeString(ownerId) : null,
       ]
     );
 
@@ -124,20 +136,23 @@ class RenderBridgeStateStore {
         selected_service_id,
         selected_service_name,
         selected_service_slug,
+        selected_owner_id,
         updated_at
       )
-      VALUES ($1, NULL, NULL, NULL, NOW())
+      VALUES ($1, NULL, NULL, NULL, NULL, NOW())
       ON CONFLICT (owner_key)
       DO UPDATE SET
         selected_service_id = NULL,
         selected_service_name = NULL,
         selected_service_slug = NULL,
+        selected_owner_id = NULL,
         updated_at = NOW()
       RETURNING
         owner_key,
         selected_service_id,
         selected_service_name,
         selected_service_slug,
+        selected_owner_id,
         updated_at
       `,
       [normalizedOwnerKey]

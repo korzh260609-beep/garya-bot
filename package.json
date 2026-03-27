@@ -7,7 +7,8 @@
     "start": "node ./index.js",
     "migrate:up": "node-pg-migrate up",
     "migrate:create": "node-pg-migrate create",
-    "render:ingest:send": "node ./scripts/renderLogSender.js"
+    "render:ingest:send": "node ./scripts/renderLogSender.js",
+    "render:bridge:run": "node ./scripts/renderLogSourceBridge.js"
   },
   "dependencies": {
     "node-telegram-bot-api": "^0.61.0",

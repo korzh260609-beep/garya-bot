@@ -24,6 +24,7 @@ import { createDebugCoingeckoIndicatorsSnapshotRoute } from "./src/http/debugCoi
 import { createDebugCryptoNewsRssRoute } from "./src/http/debugCryptoNewsRssRoute.js";
 import { createDebugRenderLogDiagnosisRoute } from "./src/http/debugRenderLogDiagnosisRoute.js";
 import { createRenderLogIngestRoute } from "./src/http/renderLogIngestRoute.js";
+import { createDebugRenderLogIngestTestRoute } from "./src/http/debugRenderLogIngestTestRoute.js";
 import { initSystem } from "./src/bootstrap/initSystem.js";
 
 import { getSystemHealth } from "./core/helpers.js";
@@ -78,6 +79,7 @@ app.use(createDebugCoingeckoIndicatorsSnapshotRoute());
 app.use(createDebugCryptoNewsRssRoute());
 app.use(createDebugRenderLogDiagnosisRoute());
 app.use(createRenderLogIngestRoute());
+app.use(createDebugRenderLogIngestTestRoute());
 
 // ============================================================================
 // START SERVER

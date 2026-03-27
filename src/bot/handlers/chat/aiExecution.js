@@ -20,6 +20,76 @@ export function resolveAiParams(answerMode) {
   };
 }
 
+async function logBehaviorUsageEvents({
+  globalUserId,
+  chatIdStr,
+  aiMetaBase,
+}) {
+  try {
+    const be = new BehaviorEventsService();
+
+    const behaviorStyleAxis =
+      typeof aiMetaBase?.behaviorStyleAxis === "string"
+        ? aiMetaBase.behaviorStyleAxis
+        : "unknown";
+
+    const behaviorStyleAxisSource =
+      typeof aiMetaBase?.behaviorStyleAxisSource === "string"
+        ? aiMetaBase.behaviorStyleAxisSource
+        : "unknown";
+
+    const behaviorCriticality =
+      typeof aiMetaBase?.behaviorCriticality === "string"
+        ? aiMetaBase.behaviorCriticality
+        : "unknown";
+
+    const behaviorCriticalitySource =
+      typeof aiMetaBase?.behaviorCriticalitySource === "string"
+        ? aiMetaBase.behaviorCriticalitySource
+        : "unknown";
+
+    const behaviorVersion =
+      typeof aiMetaBase?.behaviorVersion === "string"
+        ? aiMetaBase.behaviorVersion
+        : "unknown";
+
+    const behaviorNoNodding = Boolean(aiMetaBase?.behaviorNoNodding);
+    const behaviorSoftStyleAskDetected = Boolean(
+      aiMetaBase?.behaviorSoftStyleAskDetected
+    );
+
+    await be.logEvent({
+      globalUserId: globalUserId ?? null,
+      chatId: chatIdStr,
+      eventType: "style_axis_used",
+      metadata: {
+        behaviorVersion,
+        styleAxis: behaviorStyleAxis,
+        styleAxisSource: behaviorStyleAxisSource,
+        softStyleAskDetected: behaviorSoftStyleAskDetected,
+      },
+      transport: "telegram",
+      schemaVersion: 1,
+    });
+
+    await be.logEvent({
+      globalUserId: globalUserId ?? null,
+      chatId: chatIdStr,
+      eventType: "criticality_used",
+      metadata: {
+        behaviorVersion,
+        criticality: behaviorCriticality,
+        criticalitySource: behaviorCriticalitySource,
+        noNodding: behaviorNoNodding,
+      },
+      transport: "telegram",
+      schemaVersion: 1,
+    });
+  } catch (e) {
+    console.error("behavior_events style/criticality log failed:", e);
+  }
+}
+
 export async function executeChatAI({
   callAI,
   filtered,
@@ -37,10 +107,20 @@ export async function executeChatAI({
   } catch (_) {}
 
   try {
-    await logInteraction(chatIdStr, { ...classification, event: "AI_CALL_START", ...aiMetaBase });
+    await logInteraction(chatIdStr, {
+      ...classification,
+      event: "AI_CALL_START",
+      ...aiMetaBase,
+    });
   } catch (e) {
     console.error("ERROR logInteraction (AI_CALL_START) error:", e);
   }
+
+  await logBehaviorUsageEvents({
+    globalUserId,
+    chatIdStr,
+    aiMetaBase,
+  });
 
   const t0 = Date.now();
 
@@ -54,7 +134,9 @@ export async function executeChatAI({
     console.error("ERROR AI error:", e);
 
     const msgText = e?.message ? String(e.message) : "unknown";
-    aiReply = monarchNow ? `ERROR: Ошибка вызова ИИ: ${msgText}` : "ERROR: Ошибка вызова ИИ.";
+    aiReply = monarchNow
+      ? `ERROR: Ошибка вызова ИИ: ${msgText}`
+      : "ERROR: Ошибка вызова ИИ.";
   }
 
   const dtMs = Date.now() - t0;
@@ -62,11 +144,15 @@ export async function executeChatAI({
     ...aiMetaBase,
     dtMs,
     replyChars: typeof aiReply === "string" ? aiReply.length : 0,
-    ok: !(typeof aiReply === "string" && aiReply.startsWith("ERROR: Ошибка вызова ИИ")),
+    ok: !(
+      typeof aiReply === "string" &&
+      aiReply.startsWith("ERROR: Ошибка вызова ИИ")
+    ),
   };
 
   try {
-    const looksLikeClarification = typeof aiReply === "string" && aiReply.trim().endsWith("?");
+    const looksLikeClarification =
+      typeof aiReply === "string" && aiReply.trim().endsWith("?");
     if (looksLikeClarification) {
       const be = new BehaviorEventsService();
       await be.logEvent({
@@ -87,7 +173,11 @@ export async function executeChatAI({
   } catch (_) {}
 
   try {
-    await logInteraction(chatIdStr, { ...classification, event: "AI_CALL_END", ...aiMetaEnd });
+    await logInteraction(chatIdStr, {
+      ...classification,
+      event: "AI_CALL_END",
+      ...aiMetaEnd,
+    });
   } catch (e) {
     console.error("ERROR logInteraction (AI_CALL_END) error:", e);
   }

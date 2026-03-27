@@ -7,92 +7,177 @@ function normalizeString(value) {
 function toArray(payload) {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== "object") return [];
+
   if (Array.isArray(payload.items)) return payload.items;
   if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.results)) return payload.results;
   if (Array.isArray(payload.logs)) return payload.logs;
   if (Array.isArray(payload.services)) return payload.services;
   if (Array.isArray(payload.deploys)) return payload.deploys;
-  return [];
+  if (Array.isArray(payload.resources)) return payload.resources;
+
+  // if API returned a single object instead of an array
+  return [payload];
+}
+
+function unwrapEntity(item, candidates = []) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return {};
+  }
+
+  for (const key of candidates) {
+    const value = item[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value;
+    }
+  }
+
+  return item;
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const s = normalizeString(value);
+    if (s) return s;
+  }
+  return "";
 }
 
 function extractServiceId(item) {
-  return (
-    normalizeString(item?.serviceId) ||
-    normalizeString(item?.resourceId) ||
-    normalizeString(item?.service?.id) ||
-    normalizeString(item?.resource?.id) ||
-    ""
+  const base = unwrapEntity(item, ["service", "resource"]);
+  return firstNonEmpty(
+    item?.serviceId,
+    item?.resourceId,
+    item?.service?.id,
+    item?.resource?.id,
+    base?.id
   );
 }
 
 function extractTimestamp(item) {
-  return (
-    normalizeString(item?.timestamp) ||
-    normalizeString(item?.createdAt) ||
-    normalizeString(item?.time) ||
-    normalizeString(item?.ts) ||
-    normalizeString(item?.occurredAt) ||
-    ""
+  const base = unwrapEntity(item, ["log", "event", "entry"]);
+  return firstNonEmpty(
+    item?.timestamp,
+    item?.createdAt,
+    item?.time,
+    item?.ts,
+    item?.occurredAt,
+    base?.timestamp,
+    base?.createdAt,
+    base?.time,
+    base?.occurredAt
   );
 }
 
 function extractLogLevel(item) {
-  return (
-    normalizeString(item?.level).toLowerCase() ||
-    normalizeString(item?.severity).toLowerCase() ||
-    normalizeString(item?.labels?.level).toLowerCase() ||
-    normalizeString(item?.attributes?.level).toLowerCase() ||
-    ""
-  );
+  const base = unwrapEntity(item, ["log", "event", "entry"]);
+  return firstNonEmpty(
+    item?.level,
+    item?.severity,
+    item?.labels?.level,
+    item?.attributes?.level,
+    base?.level,
+    base?.severity,
+    base?.labels?.level,
+    base?.attributes?.level
+  ).toLowerCase();
 }
 
 function extractLogMessage(item) {
-  return (
-    normalizeString(item?.message) ||
-    normalizeString(item?.msg) ||
-    normalizeString(item?.text) ||
-    normalizeString(item?.line) ||
-    normalizeString(item?.body) ||
-    ""
+  const base = unwrapEntity(item, ["log", "event", "entry"]);
+  return firstNonEmpty(
+    item?.message,
+    item?.msg,
+    item?.text,
+    item?.line,
+    item?.body,
+    base?.message,
+    base?.msg,
+    base?.text,
+    base?.line,
+    base?.body
   );
 }
 
 export function normalizeServices(payload) {
   const items = toArray(payload);
 
-  return items.map((item) => ({
-    id: normalizeString(item?.id),
-    name: normalizeString(item?.name),
-    slug: normalizeString(item?.slug),
-    type: normalizeString(item?.type),
-    region: normalizeString(item?.region),
-    url: normalizeString(item?.url),
-    suspended: item?.suspended,
-  }));
+  return items
+    .map((item) => {
+      const base = unwrapEntity(item, [
+        "service",
+        "resource",
+        "item",
+        "data",
+        "result",
+      ]);
+
+      return {
+        id: firstNonEmpty(base?.id, item?.id),
+        name: firstNonEmpty(base?.name, item?.name, base?.serviceName),
+        slug: firstNonEmpty(base?.slug, item?.slug),
+        type: firstNonEmpty(base?.type, item?.type),
+        region: firstNonEmpty(base?.region, item?.region),
+        url: firstNonEmpty(
+          base?.url,
+          item?.url,
+          base?.serviceDetails?.url,
+          item?.serviceDetails?.url
+        ),
+        suspended:
+          typeof base?.suspended === "boolean"
+            ? base.suspended
+            : typeof item?.suspended === "boolean"
+              ? item.suspended
+              : undefined,
+      };
+    })
+    .filter((item) => item.id || item.name || item.slug);
 }
 
 export function normalizeDeploys(payload) {
   const items = toArray(payload);
 
-  return items.map((item) => ({
-    id:
-      normalizeString(item?.id) ||
-      normalizeString(item?.deployId) ||
-      normalizeString(item?.deploy?.id),
-    status:
-      normalizeString(item?.status) ||
-      normalizeString(item?.state) ||
-      normalizeString(item?.deployStatus),
-    createdAt: normalizeString(item?.createdAt),
-    finishedAt:
-      normalizeString(item?.finishedAt) ||
-      normalizeString(item?.updatedAt) ||
-      normalizeString(item?.completedAt),
-    commit:
-      normalizeString(item?.commit?.id) ||
-      normalizeString(item?.commitId) ||
-      normalizeString(item?.commit?.sha),
-  }));
+  return items
+    .map((item) => {
+      const base = unwrapEntity(item, [
+        "deploy",
+        "resource",
+        "item",
+        "data",
+        "result",
+      ]);
+
+      return {
+        id: firstNonEmpty(base?.id, item?.id, item?.deployId, base?.deployId),
+        status: firstNonEmpty(
+          base?.status,
+          item?.status,
+          item?.state,
+          base?.state,
+          item?.deployStatus,
+          base?.deployStatus
+        ),
+        createdAt: firstNonEmpty(base?.createdAt, item?.createdAt),
+        finishedAt: firstNonEmpty(
+          base?.finishedAt,
+          item?.finishedAt,
+          base?.updatedAt,
+          item?.updatedAt,
+          base?.completedAt,
+          item?.completedAt
+        ),
+        commit: firstNonEmpty(
+          base?.commit?.id,
+          item?.commit?.id,
+          base?.commitId,
+          item?.commitId,
+          base?.commit?.sha,
+          item?.commit?.sha
+        ),
+      };
+    })
+    .filter((item) => item.id || item.status || item.createdAt);
 }
 
 export function normalizeLogs(payload) {

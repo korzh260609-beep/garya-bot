@@ -5,6 +5,8 @@
 
 import pool from "../../../db.js";
 
+const LEGACY_EVENT_TYPES = new Set(["style_axis_used", "criticality_used"]);
+
 async function requireMonarch(bot, chatId, userIdStr) {
   const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
   if (!MONARCH_USER_ID) return true;
@@ -23,6 +25,7 @@ function parseArgs(rest) {
     return {
       limit: 5,
       showRaw: false,
+      showLegacy: false,
     };
   }
 
@@ -30,12 +33,18 @@ function parseArgs(rest) {
 
   let limit = 5;
   let showRaw = false;
+  let showLegacy = false;
 
   for (const token of tokens) {
     const lower = token.toLowerCase();
 
     if (lower === "raw") {
       showRaw = true;
+      continue;
+    }
+
+    if (lower === "legacy") {
+      showLegacy = true;
       continue;
     }
 
@@ -50,6 +59,7 @@ function parseArgs(rest) {
   return {
     limit,
     showRaw,
+    showLegacy,
   };
 }
 
@@ -272,6 +282,22 @@ function formatEventBlock(r, opts = {}) {
   return block.join("\n");
 }
 
+function shouldHideLegacyEvent(row, opts = {}) {
+  if (opts?.showLegacy) return false;
+  const eventType = String(row?.event_type || "").trim();
+  return LEGACY_EVENT_TYPES.has(eventType);
+}
+
+function buildHeader({ shownCount, showRaw, showLegacy, hiddenLegacyCount }) {
+  const suffix = [];
+
+  if (showRaw) suffix.push("raw=on");
+  if (showLegacy) suffix.push("legacy=on");
+  else if (hiddenLegacyCount > 0) suffix.push(`legacy_hidden=${hiddenLegacyCount}`);
+
+  return `behavior_events (last ${shownCount}${suffix.length ? `, ${suffix.join(", ")}` : ""})`;
+}
+
 export async function handleBehaviorEventsLast({
   bot,
   chatId,
@@ -282,9 +308,11 @@ export async function handleBehaviorEventsLast({
   const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
   if (!ok) return;
 
-  const { limit, showRaw } = parseArgs(rest);
+  const { limit, showRaw, showLegacy } = parseArgs(rest);
 
   try {
+    const sqlLimit = Math.min(Math.max(limit * 10, 20), 200);
+
     const res = await pool.query(
       `
       SELECT
@@ -300,22 +328,49 @@ export async function handleBehaviorEventsLast({
       ORDER BY id DESC
       LIMIT $1
       `,
-      [limit]
+      [sqlLimit]
     );
 
     const rows = res?.rows || [];
+    let hiddenLegacyCount = 0;
 
-    if (rows.length === 0) {
-      await sendChunked(bot, chatId, `behavior_events (n=${limit})\n(no records)`);
+    const visibleRows = [];
+    for (const row of rows) {
+      if (shouldHideLegacyEvent(row, { showLegacy })) {
+        hiddenLegacyCount += 1;
+        continue;
+      }
+
+      visibleRows.push(row);
+
+      if (visibleRows.length >= limit) {
+        break;
+      }
+    }
+
+    if (visibleRows.length === 0) {
+      const header = buildHeader({
+        shownCount: 0,
+        showRaw,
+        showLegacy,
+        hiddenLegacyCount,
+      });
+
+      await sendChunked(bot, chatId, `${header}\n(no records)`);
       return;
     }
 
     const blocks = [];
     blocks.push(
-      `behavior_events (last ${rows.length}${showRaw ? ", raw=on" : ""})`
+      buildHeader({
+        shownCount: visibleRows.length,
+        showRaw,
+        showLegacy,
+        hiddenLegacyCount,
+      })
     );
 
-    for (const r of rows) {
+    for (const r of visibleRows) {
       blocks.push("");
       blocks.push(formatEventBlock(r, { showRaw }));
     }

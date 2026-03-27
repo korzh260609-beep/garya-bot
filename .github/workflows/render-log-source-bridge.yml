@@ -1,0 +1,96 @@
+name: Render Log Source Bridge
+
+on:
+  workflow_dispatch:
+    inputs:
+      bridge_mode:
+        description: "error or deploy"
+        required: true
+        default: "error"
+        type: choice
+        options:
+          - error
+          - deploy
+      bridge_source_key:
+        description: "sourceKey for SG storage"
+        required: true
+        default: "render_primary"
+        type: string
+      bridge_status:
+        description: "deploy status for deploy mode"
+        required: false
+        default: "failed"
+        type: choice
+        options:
+          - failed
+          - success
+          - building
+          - deploying
+          - running
+          - pending
+          - unknown
+      bridge_deploy_id:
+        description: "optional deployId override"
+        required: false
+        default: ""
+        type: string
+      dry_run:
+        description: "do not send to ingest, only print normalized payload"
+        required: true
+        default: false
+        type: boolean
+
+  schedule:
+    - cron: "*/15 * * * *"
+
+jobs:
+  source-bridge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run render log source bridge
+        env:
+          LOG_SOURCE_URL: ${{ secrets.LOG_SOURCE_URL }}
+          LOG_SOURCE_METHOD: ${{ secrets.LOG_SOURCE_METHOD }}
+          LOG_SOURCE_BODY: ${{ secrets.LOG_SOURCE_BODY }}
+          LOG_SOURCE_TIMEOUT_MS: ${{ secrets.LOG_SOURCE_TIMEOUT_MS }}
+
+          LOG_SOURCE_AUTH_TYPE: ${{ secrets.LOG_SOURCE_AUTH_TYPE }}
+          LOG_SOURCE_AUTH_TOKEN: ${{ secrets.LOG_SOURCE_AUTH_TOKEN }}
+          LOG_SOURCE_AUTH_HEADER_NAME: ${{ secrets.LOG_SOURCE_AUTH_HEADER_NAME }}
+          LOG_SOURCE_QUERY_PARAM: ${{ secrets.LOG_SOURCE_QUERY_PARAM }}
+
+          RENDER_LOG_INGEST_URL: ${{ secrets.RENDER_LOG_INGEST_URL }}
+          RENDER_LOG_INGEST_TOKEN: ${{ secrets.RENDER_LOG_INGEST_TOKEN }}
+
+          BRIDGE_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bridge_mode || 'error' }}
+          BRIDGE_SOURCE_KEY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bridge_source_key || 'render_primary' }}
+          BRIDGE_STATUS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bridge_status || 'failed' }}
+          BRIDGE_DEPLOY_ID: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bridge_deploy_id || '' }}
+          BRIDGE_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
+        run: node ./scripts/renderLogSourceBridge.js
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Render log source bridge"
+            echo ""
+            echo "- event: ${{ github.event_name }}"
+            echo "- branch: ${{ github.ref_name }}"
+            echo "- bridge_mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bridge_mode || 'error' }}"
+            echo "- bridge_source_key: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bridge_source_key || 'render_primary' }}"
+            echo "- bridge_status: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bridge_status || 'failed' }}"
+            echo "- dry_run: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

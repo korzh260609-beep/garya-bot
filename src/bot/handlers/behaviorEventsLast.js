@@ -17,16 +17,40 @@ async function requireMonarch(bot, chatId, userIdStr) {
   return true;
 }
 
-function parseLimit(rest) {
+function parseArgs(rest) {
   const raw = String(rest || "").trim();
-  if (!raw) return 5;
+  if (!raw) {
+    return {
+      limit: 5,
+      showRaw: false,
+    };
+  }
 
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return 5;
+  const tokens = raw.split(/\s+/).filter(Boolean);
 
-  if (n < 1) return 1;
-  if (n > 20) return 20;
-  return Math.trunc(n);
+  let limit = 5;
+  let showRaw = false;
+
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+
+    if (lower === "raw") {
+      showRaw = true;
+      continue;
+    }
+
+    const n = Number(token);
+    if (Number.isFinite(n)) {
+      if (n < 1) limit = 1;
+      else if (n > 20) limit = 20;
+      else limit = Math.trunc(n);
+    }
+  }
+
+  return {
+    limit,
+    showRaw,
+  };
 }
 
 function safeLine(value, max = 500) {
@@ -116,11 +140,13 @@ function toReadableScalar(value) {
   }
 }
 
-function formatMetadataLines(metadata) {
+function formatMetadataLines(metadata, opts = {}) {
   const meta =
     metadata && typeof metadata === "object" && !Array.isArray(metadata)
       ? metadata
       : {};
+
+  const showRaw = Boolean(opts?.showRaw);
 
   const preferredOrder = [
     "behaviorVersion",
@@ -159,11 +185,14 @@ function formatMetadataLines(metadata) {
     lines.push("  - (empty)");
   }
 
-  lines.push(`  - raw: ${safeJson(meta, 1200)}`);
+  if (showRaw) {
+    lines.push(`  - raw: ${safeJson(meta, 1200)}`);
+  }
+
   return lines;
 }
 
-function formatEventBlock(r) {
+function formatEventBlock(r, opts = {}) {
   const at = r?.created_at ? formatKyivTs(r.created_at) : "unknown";
   const eventType = safeLine(r?.event_type || "unknown", 80);
   const g = r?.global_user_id ? String(r.global_user_id) : "NULL";
@@ -177,9 +206,11 @@ function formatEventBlock(r) {
   const block = [];
   block.push(`#${r.id} | ${eventType}`);
   block.push(`time: ${at}`);
-  block.push(`scope: g=${g} | chat=${chat} | transport=${transport} | schema=${schemaVersion}`);
+  block.push(
+    `scope: g=${g} | chat=${chat} | transport=${transport} | schema=${schemaVersion}`
+  );
   block.push("meta:");
-  block.push(...formatMetadataLines(r?.metadata));
+  block.push(...formatMetadataLines(r?.metadata, opts));
 
   return block.join("\n");
 }
@@ -194,7 +225,7 @@ export async function handleBehaviorEventsLast({
   const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
   if (!ok) return;
 
-  const limit = parseLimit(rest);
+  const { limit, showRaw } = parseArgs(rest);
 
   try {
     const res = await pool.query(
@@ -223,11 +254,13 @@ export async function handleBehaviorEventsLast({
     }
 
     const blocks = [];
-    blocks.push(`behavior_events (last ${rows.length})`);
+    blocks.push(
+      `behavior_events (last ${rows.length}${showRaw ? ", raw=on" : ""})`
+    );
 
     for (const r of rows) {
       blocks.push("");
-      blocks.push(formatEventBlock(r));
+      blocks.push(formatEventBlock(r, { showRaw }));
     }
 
     await sendChunked(bot, chatId, blocks.join("\n"));

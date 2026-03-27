@@ -23,6 +23,7 @@ import { createDebugCoingeckoIndicatorsReaderRoute } from "./src/http/debugCoing
 import { createDebugCoingeckoIndicatorsSnapshotRoute } from "./src/http/debugCoingeckoIndicatorsSnapshotRoute.js";
 import { createDebugCryptoNewsRssRoute } from "./src/http/debugCryptoNewsRssRoute.js";
 import { createDebugRenderLogDiagnosisRoute } from "./src/http/debugRenderLogDiagnosisRoute.js";
+import { createRenderLogIngestRoute } from "./src/http/renderLogIngestRoute.js";
 import { initSystem } from "./src/bootstrap/initSystem.js";
 
 import { getSystemHealth } from "./core/helpers.js";
@@ -55,9 +56,6 @@ console.log("🧩 JobRunner initialized (singleton).");
 // ============================================================================
 const app = createApp();
 
-// IMPORTANT:
-// - debug diagnosis route accepts POST body
-// - keep body parsing local and minimal
 app.use(express.json({ limit: "256kb" }));
 
 const bot = initTelegramTransport(app);
@@ -69,10 +67,9 @@ app.get("/health", (req, res) => {
 });
 
 // ============================================================================
-// TEMP DEBUG ROUTES — STAGE 10C.5 / 10C.6 / 10C.29 / 10C.35 / 10C.8 CHECK
+// TEMP DEBUG / INGEST ROUTES
 // IMPORTANT:
 // - routes themselves are protected internally by env + token
-// - this only mounts the routes
 // ============================================================================
 app.use(createDebugCoingeckoMarketChartRoute());
 app.use(createDebugCoingeckoIndicatorsRoute());
@@ -80,6 +77,7 @@ app.use(createDebugCoingeckoIndicatorsReaderRoute());
 app.use(createDebugCoingeckoIndicatorsSnapshotRoute());
 app.use(createDebugCryptoNewsRssRoute());
 app.use(createDebugRenderLogDiagnosisRoute());
+app.use(createRenderLogIngestRoute());
 
 // ============================================================================
 // START SERVER
@@ -98,7 +96,6 @@ startHttpServer(app, PORT);
 // MAIN HANDLER
 // ============================================================================
 
-// Router only when transport NOT enforced
 if (!isTransportEnforced()) {
   attachMessageRouter({
     bot,
@@ -122,10 +119,8 @@ const telegramAdapter = new TelegramAdapter({
   MAX_HISTORY_MESSAGES,
 });
 
-// reply wrapper (adapter reply)
 const reply = (ctx, text) => telegramAdapter.reply(ctx, text);
 
-// build deps in CORE layer (not transport)
 telegramAdapter.deps = buildCoreDeps({
   bot,
   callAI,
@@ -133,7 +128,6 @@ telegramAdapter.deps = buildCoreDeps({
   MAX_HISTORY_MESSAGES,
 });
 
-// attach adapter
 telegramAdapter.attach();
 
 console.log("🤖 SG (GARYA AI Bot) работает…");

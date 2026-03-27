@@ -3,6 +3,7 @@
 import { handleRenderBridgeService } from "../handlers/renderBridgeService.js";
 import { handleRenderBridgeServices } from "../handlers/renderBridgeServices.js";
 import { handleRenderBridgeErrors } from "../handlers/renderBridgeErrors.js";
+import { handleRenderBridgeLogs } from "../handlers/renderBridgeLogs.js";
 import { handleRenderBridgeDeploys } from "../handlers/renderBridgeDeploys.js";
 import { handleRenderBridgeDeploy } from "../handlers/renderBridgeDeploy.js";
 import { handleRenderBridgeDiag } from "../handlers/renderBridgeDiag.js";
@@ -34,6 +35,17 @@ export async function dispatchRenderBridgeCommands({ cmd0, ctx }) {
 
     case "/render_bridge_errors": {
       await handleRenderBridgeErrors({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    case "/render_bridge_logs": {
+      await handleRenderBridgeLogs({
         bot,
         chatId,
         senderIdStr: ctx.senderIdStr,

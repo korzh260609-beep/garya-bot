@@ -21,16 +21,68 @@ function parseArgs(rest, defaults = {}) {
   return { minutes, limit };
 }
 
+function normalizePreviewMessage(value) {
+  const rawMessage = typeof value === "string" ? value.trim() : "";
+  return rawMessage.replace(/\s+/g, " ").trim();
+}
+
+function isNoiseLogMessage(message) {
+  const msg = normalizePreviewMessage(message);
+  if (!msg) return true;
+
+  const lower = msg.toLowerCase();
+
+  if (lower === "==>" || lower === "=>") {
+    return true;
+  }
+
+  if (/^[=/\\\-_|. ]+$/.test(msg)) {
+    return true;
+  }
+
+  if (/^==>\s*[=/\\\-_|. ]+$/.test(msg)) {
+    return true;
+  }
+
+  return false;
+}
+
+function selectRenderableLogs(logs, limit) {
+  const cleaned = [];
+  let skippedNoise = 0;
+
+  for (const item of logs) {
+    const message = normalizePreviewMessage(item?.message);
+
+    if (isNoiseLogMessage(message)) {
+      skippedNoise += 1;
+      continue;
+    }
+
+    cleaned.push({
+      ...item,
+      message,
+    });
+
+    if (cleaned.length >= limit) {
+      break;
+    }
+  }
+
+  return {
+    cleaned,
+    skippedNoise,
+  };
+}
+
 function compactLogLine(item, index, maxLen = 220) {
   const ts = item?.timestamp || "-";
   const lvl = item?.level || "-";
-  const rawMessage =
-    typeof item?.message === "string" ? item.message.trim() : "";
-  const oneLine = rawMessage.replace(/\s+/g, " ");
-  const message =
-    oneLine.length > maxLen ? `${oneLine.slice(0, maxLen)}…` : oneLine || "-";
+  const message = normalizePreviewMessage(item?.message);
+  const compact =
+    message.length > maxLen ? `${message.slice(0, maxLen)}…` : message || "-";
 
-  return `${index + 1}) [${ts}] [${lvl}] ${message}`;
+  return `${index + 1}) [${ts}] [${lvl}] ${compact}`;
 }
 
 export async function handleRenderBridgeLogs({
@@ -69,12 +121,14 @@ export async function handleRenderBridgeLogs({
       limit: 5,
     });
 
+    const fetchLimit = Math.max(limit * 3, 15);
+
     const logs = await renderBridge.listRecentLogs({
       ownerId: state.selected_owner_id,
       serviceId: state.selected_service_id,
       level: "all",
       minutes,
-      limit,
+      limit: fetchLimit,
     });
 
     if (!logs.length) {
@@ -91,9 +145,26 @@ export async function handleRenderBridgeLogs({
       return;
     }
 
-    const previewLines = logs
-      .slice(0, limit)
-      .map((item, index) => compactLogLine(item, index, 220));
+    const { cleaned, skippedNoise } = selectRenderableLogs(logs, limit);
+
+    if (!cleaned.length) {
+      await bot.sendMessage(
+        chatId,
+        [
+          "Render logs получены, но это только шумные runtime-строки.",
+          `ownerId=${state.selected_owner_id}`,
+          `serviceId=${state.selected_service_id}`,
+          `windowMinutes=${minutes}`,
+          `fetched=${logs.length}`,
+          `skippedNoise=${skippedNoise}`,
+        ].join("\n")
+      );
+      return;
+    }
+
+    const previewLines = cleaned.map((item, index) =>
+      compactLogLine(item, index, 220)
+    );
 
     await bot.sendMessage(
       chatId,
@@ -102,7 +173,9 @@ export async function handleRenderBridgeLogs({
         `ownerId=${state.selected_owner_id}`,
         `serviceId=${state.selected_service_id}`,
         `windowMinutes=${minutes}`,
-        `returned=${logs.length}`,
+        `fetched=${logs.length}`,
+        `shown=${cleaned.length}`,
+        `skippedNoise=${skippedNoise}`,
         ...previewLines,
       ].join("\n")
     );

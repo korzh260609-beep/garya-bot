@@ -71,7 +71,7 @@ export async function handleRenderDiagLast({
     return;
   }
 
-  const inboxEntry = renderLogInbox.getLatest({
+  const inboxEntry = await renderLogInbox.getLatest({
     chatId: String(chatId),
     senderIdStr: String(senderIdStr || ""),
   });

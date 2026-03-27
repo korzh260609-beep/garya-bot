@@ -61,23 +61,12 @@ async function logBehaviorUsageEvents({
     await be.logEvent({
       globalUserId: globalUserId ?? null,
       chatId: chatIdStr,
-      eventType: "style_axis_used",
+      eventType: "behavior_snapshot_used",
       metadata: {
         behaviorVersion,
         styleAxis: behaviorStyleAxis,
         styleAxisSource: behaviorStyleAxisSource,
         softStyleAskDetected: behaviorSoftStyleAskDetected,
-      },
-      transport: "telegram",
-      schemaVersion: 1,
-    });
-
-    await be.logEvent({
-      globalUserId: globalUserId ?? null,
-      chatId: chatIdStr,
-      eventType: "criticality_used",
-      metadata: {
-        behaviorVersion,
         criticality: behaviorCriticality,
         criticalitySource: behaviorCriticalitySource,
         noNodding: behaviorNoNodding,
@@ -86,7 +75,7 @@ async function logBehaviorUsageEvents({
       schemaVersion: 1,
     });
   } catch (e) {
-    console.error("behavior_events style/criticality log failed:", e);
+    console.error("behavior_events behavior_snapshot_used log failed:", e);
   }
 }
 

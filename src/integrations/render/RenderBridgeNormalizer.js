@@ -108,6 +108,64 @@ function extractLogMessage(item) {
   );
 }
 
+function hasWholeWord(text, word) {
+  const escaped = String(word).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`\\b${escaped}\\b`, "i");
+  return re.test(text);
+}
+
+function includesAny(text, tokens = []) {
+  return tokens.some((token) => text.includes(token));
+}
+
+function isBenignErrorNoise(message) {
+  const msg = normalizeString(message).toLowerCase();
+  if (!msg) return false;
+
+  return (
+    msg.includes("error_events") ||
+    msg.includes("boot cleanup: skipped") ||
+    msg.includes("retention handled by service")
+  );
+}
+
+function looksLikeRealErrorMessage(message) {
+  const msg = normalizeString(message).toLowerCase();
+  if (!msg) return false;
+
+  if (isBenignErrorNoise(msg)) {
+    return false;
+  }
+
+  if (
+    hasWholeWord(msg, "error") ||
+    hasWholeWord(msg, "exception") ||
+    hasWholeWord(msg, "fatal")
+  ) {
+    return true;
+  }
+
+  return includesAny(msg, [
+    "syntaxerror",
+    "typeerror",
+    "referenceerror",
+    "rangeerror",
+    "urierror",
+    "evalerror",
+    "aggregateerror",
+    "unhandled rejection",
+    "unhandledrejection",
+    "uncaught exception",
+    "cannot read properties of",
+    "cannot set properties of",
+    "is not defined",
+    "failed to",
+    "crash",
+    "crashed",
+    "panic",
+  ]);
+}
+
 export function normalizeServices(payload) {
   const items = toArray(payload);
 
@@ -225,26 +283,26 @@ export function filterLogsByLevel(logs, level = "error") {
   const normalizedLevel = normalizeString(level).toLowerCase();
   if (!normalizedLevel) return logs;
 
-  const matched = logs.filter((item) =>
-    normalizeString(item.level).toLowerCase().includes(normalizedLevel)
-  );
+  const strictLevelMatched = logs.filter((item) => {
+    const lvl = normalizeString(item.level).toLowerCase();
+    if (!lvl) return false;
 
-  if (matched.length) {
-    return matched;
+    if (normalizedLevel === "error") {
+      return lvl === "error" || lvl === "fatal" || lvl === "critical";
+    }
+
+    return lvl.includes(normalizedLevel);
+  });
+
+  if (strictLevelMatched.length) {
+    return strictLevelMatched.filter((item) => {
+      if (normalizedLevel !== "error") return true;
+      return !isBenignErrorNoise(item.message);
+    });
   }
 
   if (normalizedLevel === "error") {
-    return logs.filter((item) => {
-      const msg = normalizeString(item.message).toLowerCase();
-      return (
-        msg.includes("error") ||
-        msg.includes("exception") ||
-        msg.includes("syntaxerror") ||
-        msg.includes("typeerror") ||
-        msg.includes("referenceerror") ||
-        msg.includes("fatal")
-      );
-    });
+    return logs.filter((item) => looksLikeRealErrorMessage(item.message));
   }
 
   return logs;

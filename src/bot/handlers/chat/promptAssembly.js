@@ -18,6 +18,63 @@ export function buildModeInstruction(answerMode) {
   return "";
 }
 
+function normalizeWhitespace(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function countWords(value) {
+  const text = normalizeWhitespace(value);
+  if (!text) return 0;
+  return text.split(" ").filter(Boolean).length;
+}
+
+function countSentenceMarks(value) {
+  const text = String(value || "");
+  const m = text.match(/[.!?]/g);
+  return Array.isArray(m) ? m.length : 0;
+}
+
+function countLineBreaks(value) {
+  const text = String(value || "");
+  const m = text.match(/\n/g);
+  return Array.isArray(m) ? m.length : 0;
+}
+
+function hasStructuredPayload(value) {
+  const text = String(value || "");
+  if (!text) return false;
+
+  if (text.includes("\n")) return true;
+  if (text.includes(":")) return true;
+  if (text.includes("{") || text.includes("}")) return true;
+  if (text.includes("[") || text.includes("]")) return true;
+  if (text.includes("/")) return true;
+  if (text.includes("http://") || text.includes("https://")) return true;
+
+  return false;
+}
+
+function isStructurallyUnderspecifiedRequest(value) {
+  const text = normalizeWhitespace(value);
+  if (!text) return false;
+
+  const chars = text.length;
+  const words = countWords(text);
+  const sentenceMarks = countSentenceMarks(text);
+  const lineBreaks = countLineBreaks(text);
+  const structuredPayload = hasStructuredPayload(text);
+
+  const shortByChars = chars <= 24;
+  const shortByWords = words <= 3;
+  const lowStructure = sentenceMarks <= 1 && lineBreaks === 0 && !structuredPayload;
+
+  // IMPORTANT:
+  // - no meaning/keyword lists
+  // - only structural underspecification
+  // - conservative on purpose
+  return shortByChars && shortByWords && lowStructure;
+}
+
 export function buildChatMessages({
   buildSystemPrompt,
   answerMode,
@@ -95,6 +152,28 @@ export function buildChatMessages({
 
   const historyMessages = stablePersonalFactMode ? [] : Array.isArray(history) ? history : [];
 
+  const clarificationFirstSystemMessage =
+    !stablePersonalFactMode && isStructurallyUnderspecifiedRequest(effective)
+      ? {
+          role: "system",
+          content:
+            "CLARIFICATION-FIRST RULE:\n" +
+            "The current user request is structurally underspecified.\n" +
+            "Do NOT bind it to the most recent chat topic just because that topic was discussed last.\n" +
+            "Do NOT guess the object of action from nearby context when the current request itself does not identify it clearly enough.\n" +
+            "Ask exactly ONE short neutral clarification question.\n" +
+            "The clarification must stay broad and must not force one specific topic, technology, file, or interpretation.\n" +
+            "Good examples:\n" +
+            "- 'Что именно нужно сделать?'\n" +
+            "- 'Уточни, что именно проверить.'\n" +
+            "- 'С чем именно работать?'\n" +
+            "Bad examples:\n" +
+            "- narrowing the request to the last discussed topic without explicit grounding in the current user message.\n" +
+            "- guessing one specific object and asking only about it.\n" +
+            "After one clarification question, stop and wait for the user's answer.",
+        }
+      : null;
+
   const messages = [
     { role: "system", content: systemPrompt },
     sourceServiceSystemMessage,
@@ -105,6 +184,7 @@ export function buildChatMessages({
     { role: "system", content: roleGuardPrompt },
     noAddressingForStableFactSystemMessage,
     ...historyMessages,
+    clarificationFirstSystemMessage,
     { role: "user", content: effective },
   ];
 

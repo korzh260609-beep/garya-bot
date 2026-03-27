@@ -198,6 +198,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/render_bridge_services",
     "/render_bridge_errors",
     "/render_bridge_logs",
+    "/render_bridge_diagnose",
     "/render_bridge_deploys",
     "/render_bridge_deploy",
     "/render_bridge_diag",

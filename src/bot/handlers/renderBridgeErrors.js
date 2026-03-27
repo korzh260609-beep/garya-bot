@@ -42,10 +42,19 @@ export async function handleRenderBridgeErrors({
       return;
     }
 
+    if (!state?.selected_owner_id) {
+      await bot.sendMessage(
+        chatId,
+        "Для выбранного Render service не сохранён ownerId. Выбери сервис заново:\n/render_bridge_service <serviceId|name|slug>"
+      );
+      return;
+    }
+
     const cfg = getRenderBridgeConfig();
     const minutes = parseMinutes(rest, cfg.defaultLogWindowMinutes);
 
     const logs = await renderBridge.listRecentLogs({
+      ownerId: state.selected_owner_id,
       serviceId: state.selected_service_id,
       level: cfg.defaultLogLevel,
       minutes,
@@ -57,6 +66,7 @@ export async function handleRenderBridgeErrors({
         chatId,
         [
           "Render error logs не найдены.",
+          `ownerId=${state.selected_owner_id}`,
           `serviceId=${state.selected_service_id}`,
           `windowMinutes=${minutes}`,
         ].join("\n")
@@ -71,6 +81,7 @@ export async function handleRenderBridgeErrors({
         id: state.selected_service_id,
         name: state.selected_service_name,
         slug: state.selected_service_slug,
+        ownerId: state.selected_owner_id,
       },
       level: cfg.defaultLogLevel,
       minutes,
@@ -96,6 +107,7 @@ export async function handleRenderBridgeErrors({
       chatId,
       [
         "✅ Render error logs получены и сохранены.",
+        `ownerId=${state.selected_owner_id}`,
         `serviceId=${state.selected_service_id}`,
         `lines=${logs.length}`,
         `storedId=${stored?.payload?.storedId || "-"}`,

@@ -293,9 +293,12 @@ function buildHeader({ shownCount, showRaw, showLegacy, hiddenLegacyCount }) {
 
   if (showRaw) suffix.push("raw=on");
   if (showLegacy) suffix.push("legacy=on");
-  else if (hiddenLegacyCount > 0) suffix.push(`legacy_hidden=${hiddenLegacyCount}`);
+  else if (hiddenLegacyCount > 0)
+    suffix.push(`legacy_hidden=${hiddenLegacyCount}`);
 
-  return `behavior_events (last ${shownCount}${suffix.length ? `, ${suffix.join(", ")}` : ""})`;
+  return `behavior_events (last ${shownCount}${
+    suffix.length ? `, ${suffix.join(", ")}` : ""
+  })`;
 }
 
 export async function handleBehaviorEventsLast({

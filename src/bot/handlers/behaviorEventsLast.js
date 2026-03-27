@@ -102,6 +102,88 @@ async function sendChunked(bot, chatId, text) {
   }
 }
 
+function toReadableScalar(value) {
+  if (value === null) return "NULL";
+  if (value === undefined) return "undefined";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return safeLine(value, 240);
+
+  try {
+    return safeLine(JSON.stringify(value), 240);
+  } catch {
+    return "[unserializable]";
+  }
+}
+
+function formatMetadataLines(metadata) {
+  const meta =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? metadata
+      : {};
+
+  const preferredOrder = [
+    "behaviorVersion",
+    "styleAxis",
+    "styleAxisSource",
+    "softStyleAskDetected",
+    "criticality",
+    "criticalitySource",
+    "noNodding",
+    "detectorVersion",
+    "reason",
+    "replyChars",
+    "questionCount",
+    "lineCount",
+  ];
+
+  const lines = [];
+  const seen = new Set();
+
+  for (const key of preferredOrder) {
+    if (Object.prototype.hasOwnProperty.call(meta, key)) {
+      lines.push(`  - ${key}: ${toReadableScalar(meta[key])}`);
+      seen.add(key);
+    }
+  }
+
+  const restKeys = Object.keys(meta)
+    .filter((key) => !seen.has(key))
+    .sort((a, b) => a.localeCompare(b));
+
+  for (const key of restKeys) {
+    lines.push(`  - ${key}: ${toReadableScalar(meta[key])}`);
+  }
+
+  if (lines.length === 0) {
+    lines.push("  - (empty)");
+  }
+
+  lines.push(`  - raw: ${safeJson(meta, 1200)}`);
+  return lines;
+}
+
+function formatEventBlock(r) {
+  const at = r?.created_at ? formatKyivTs(r.created_at) : "unknown";
+  const eventType = safeLine(r?.event_type || "unknown", 80);
+  const g = r?.global_user_id ? String(r.global_user_id) : "NULL";
+  const chat = r?.chat_id ? String(r.chat_id) : "NULL";
+  const transport = safeLine(r?.transport || "unknown", 20);
+  const schemaVersion =
+    r?.schema_version === null || r?.schema_version === undefined
+      ? "NULL"
+      : String(r.schema_version);
+
+  const block = [];
+  block.push(`#${r.id} | ${eventType}`);
+  block.push(`time: ${at}`);
+  block.push(`scope: g=${g} | chat=${chat} | transport=${transport} | schema=${schemaVersion}`);
+  block.push("meta:");
+  block.push(...formatMetadataLines(r?.metadata));
+
+  return block.join("\n");
+}
+
 export async function handleBehaviorEventsLast({
   bot,
   chatId,
@@ -140,27 +222,15 @@ export async function handleBehaviorEventsLast({
       return;
     }
 
-    const lines = [];
-    lines.push(`behavior_events (last ${rows.length})`);
+    const blocks = [];
+    blocks.push(`behavior_events (last ${rows.length})`);
 
     for (const r of rows) {
-      const at = r?.created_at ? formatKyivTs(r.created_at) : "unknown";
-      const eventType = safeLine(r?.event_type || "unknown", 80);
-      const g = r?.global_user_id ? String(r.global_user_id) : "NULL";
-      const chat = r?.chat_id ? String(r.chat_id) : "NULL";
-      const transport = safeLine(r?.transport || "unknown", 20);
-      const schemaVersion =
-        r?.schema_version === null || r?.schema_version === undefined
-          ? "NULL"
-          : String(r.schema_version);
-
-      lines.push(
-        `#${r.id} | ${at} | ${eventType} | g=${g} | chat=${chat} | transport=${transport} | schema=${schemaVersion}`
-      );
-      lines.push(`meta=${safeJson(r?.metadata, 1200)}`);
+      blocks.push("");
+      blocks.push(formatEventBlock(r));
     }
 
-    await sendChunked(bot, chatId, lines.join("\n"));
+    await sendChunked(bot, chatId, blocks.join("\n"));
   } catch (e) {
     console.error("❌ handleBehaviorEventsLast failed:", e);
 

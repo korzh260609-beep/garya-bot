@@ -4,6 +4,42 @@ function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function stripAnsi(value) {
+  const s = typeof value === "string" ? value : "";
+  if (!s) return "";
+
+  return s
+    .replace(
+      // ANSI escape sequences
+      // eslint-disable-next-line no-control-regex
+      /\u001B\[[0-?]*[ -/]*[@-~]/g,
+      ""
+    )
+    .replace(
+      // OSC hyperlinks / terminal control sequences
+      // eslint-disable-next-line no-control-regex
+      /\u001B\].*?(?:\u0007|\u001B\\)/g,
+      ""
+    )
+    .replace(
+      // stray ESC char
+      // eslint-disable-next-line no-control-regex
+      /\u001B/g,
+      ""
+    );
+}
+
+function cleanLogText(value) {
+  const s = stripAnsi(typeof value === "string" ? value : "");
+  if (!s) return "";
+
+  return s
+    .replace(/\r/g, "")
+    .replace(/\t/g, " ")
+    .replace(/[ ]{2,}/g, " ")
+    .trim();
+}
+
 function toArray(payload) {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== "object") return [];
@@ -94,17 +130,19 @@ function extractLogLevel(item) {
 
 function extractLogMessage(item) {
   const base = unwrapEntity(item, ["log", "event", "entry"]);
-  return firstNonEmpty(
-    item?.message,
-    item?.msg,
-    item?.text,
-    item?.line,
-    item?.body,
-    base?.message,
-    base?.msg,
-    base?.text,
-    base?.line,
-    base?.body
+  return cleanLogText(
+    firstNonEmpty(
+      item?.message,
+      item?.msg,
+      item?.text,
+      item?.line,
+      item?.body,
+      base?.message,
+      base?.msg,
+      base?.text,
+      base?.line,
+      base?.body
+    )
   );
 }
 

@@ -39,6 +39,9 @@ import { dispatchSystemInfoCommands } from "./dispatchers/dispatchSystemInfoComm
 // ✅ DIAGNOSTICS / UTILITY dispatcher (extracted 1:1 block)
 import { dispatchDiagnosticsUtilityCommands } from "./dispatchers/dispatchDiagnosticsUtilityCommands.js";
 
+// ✅ RENDER BRIDGE dispatcher
+import { dispatchRenderBridgeCommands } from "./dispatchers/dispatchRenderBridgeCommands.js";
+
 // ✅ META DEBUG dispatcher (extracted 1:1 block)
 import { dispatchMetaDebugCommands } from "./dispatchers/dispatchMetaDebugCommands.js";
 
@@ -190,6 +193,13 @@ export async function dispatchCommand(cmd, ctx) {
     "/render_log_show",
     "/render_errors_last",
     "/render_deploys_last",
+
+    "/render_bridge_service",
+    "/render_bridge_services",
+    "/render_bridge_errors",
+    "/render_bridge_deploys",
+    "/render_bridge_deploy",
+    "/render_bridge_diag",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
@@ -316,6 +326,16 @@ export async function dispatchCommand(cmd, ctx) {
 
   if (diagnosticsUtilityHandled?.handled) {
     return diagnosticsUtilityHandled;
+  }
+
+  const renderBridgeHandled = await dispatchRenderBridgeCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (renderBridgeHandled?.handled) {
+    return renderBridgeHandled;
   }
 
   const metaDebugHandled = await dispatchMetaDebugCommands({

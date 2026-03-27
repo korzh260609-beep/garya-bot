@@ -53,6 +53,8 @@ function looksLikeServiceObject(obj) {
     firstNonEmpty(obj.url),
     firstNonEmpty(obj.dashboardUrl),
     firstNonEmpty(obj.serviceId),
+    firstNonEmpty(obj.ownerId),
+    firstNonEmpty(obj.owner?.id),
   ].filter(Boolean).length;
 
   return score >= 2;
@@ -72,11 +74,12 @@ function normalizeServiceCandidate(obj) {
     obj;
 
   const item = {
-    id: firstNonEmpty(
-      nested.id,
-      nested.serviceId,
-      obj.id,
-      obj.serviceId
+    id: firstNonEmpty(nested.id, nested.serviceId, obj.id, obj.serviceId),
+    ownerId: firstNonEmpty(
+      nested.ownerId,
+      nested.owner?.id,
+      obj.ownerId,
+      obj.owner?.id
     ),
     name: firstNonEmpty(
       nested.name,
@@ -84,18 +87,9 @@ function normalizeServiceCandidate(obj) {
       obj.name,
       obj.serviceName
     ),
-    slug: firstNonEmpty(
-      nested.slug,
-      obj.slug
-    ),
-    type: firstNonEmpty(
-      nested.type,
-      obj.type
-    ),
-    region: firstNonEmpty(
-      nested.region,
-      obj.region
-    ),
+    slug: firstNonEmpty(nested.slug, obj.slug),
+    type: firstNonEmpty(nested.type, obj.type),
+    region: firstNonEmpty(nested.region, obj.region),
     url: firstNonEmpty(
       nested.url,
       nested.dashboardUrl,
@@ -173,6 +167,7 @@ function dedupeServices(items) {
     const prev = map.get(key);
     map.set(key, {
       id: firstNonEmpty(prev.id, item.id),
+      ownerId: firstNonEmpty(prev.ownerId, item.ownerId),
       name: firstNonEmpty(prev.name, item.name),
       slug: firstNonEmpty(prev.slug, item.slug),
       type: firstNonEmpty(prev.type, item.type),
@@ -257,13 +252,10 @@ class RenderBridge {
 
     let items = normalizeServices(raw);
 
-    // fallback: aggressively scan raw payload for service-like objects
     if (!items.length) {
       items = dedupeServices(extractServiceCandidatesDeep(raw));
     }
 
-    // temporary defensive fallback:
-    // if still empty but raw itself is a single service-like object
     if (!items.length && isPlainObject(raw)) {
       const one = normalizeServiceCandidate(raw);
       if (one) {
@@ -276,6 +268,7 @@ class RenderBridge {
       items = items.filter((item) => {
         return (
           normalizeString(item.id).toLowerCase().includes(q) ||
+          normalizeString(item.ownerId).toLowerCase().includes(q) ||
           normalizeString(item.name).toLowerCase().includes(q) ||
           normalizeString(item.slug).toLowerCase().includes(q) ||
           normalizeString(item.type).toLowerCase().includes(q)
@@ -386,11 +379,17 @@ class RenderBridge {
   }
 
   async listRecentLogs({
+    ownerId,
     serviceId,
     level,
     minutes,
     limit,
   } = {}) {
+    const normalizedOwnerId = normalizeString(ownerId);
+    if (!normalizedOwnerId) {
+      throw new Error("render_owner_id_missing");
+    }
+
     const windowMinutes = Math.max(
       1,
       Math.min(
@@ -413,6 +412,7 @@ class RenderBridge {
 
     const raw = await this.request("/logs", {
       query: {
+        ownerId: normalizedOwnerId,
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       },

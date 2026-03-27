@@ -6,6 +6,8 @@ import { handleLastErrors } from "../handlers/lastErrors.js";
 import { handleTaskStatus } from "../handlers/taskStatus.js";
 import { handleFileLogs } from "../handlers/fileLogs.js";
 import { handleRenderDiag } from "../handlers/renderDiag.js";
+import { handleRenderLogSet } from "../handlers/renderLogSet.js";
+import { handleRenderDiagLast } from "../handlers/renderDiagLast.js";
 
 export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
   const { bot, chatId, chatIdStr } = ctx;
@@ -39,6 +41,28 @@ export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
         rest: ctx.rest,
         bypass: ctx.bypass,
         msg: ctx.msg,
+      });
+      return { handled: true };
+    }
+
+    case "/render_log_set": {
+      await handleRenderLogSet({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+        bypass: ctx.bypass,
+        msg: ctx.msg,
+      });
+      return { handled: true };
+    }
+
+    case "/render_diag_last": {
+      await handleRenderDiagLast({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        bypass: ctx.bypass,
       });
       return { handled: true };
     }

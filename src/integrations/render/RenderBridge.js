@@ -24,6 +24,16 @@ function buildUrl(baseUrl, path, query = {}) {
   for (const [key, value] of Object.entries(query)) {
     if (value === null || value === undefined) continue;
     if (value === "") continue;
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (entry === null || entry === undefined) continue;
+        if (String(entry) === "") continue;
+        url.searchParams.append(key, String(entry));
+      }
+      continue;
+    }
+
     url.searchParams.set(key, String(value));
   }
 
@@ -235,8 +245,8 @@ class RenderBridge {
         throw new Error(
           `render_api_http_${response.status}: ${
             typeof parsed === "string"
-              ? parsed.slice(0, 300)
-              : JSON.stringify(parsed).slice(0, 300)
+              ? parsed.slice(0, 500)
+              : JSON.stringify(parsed).slice(0, 500)
           }`
         );
       }
@@ -378,6 +388,77 @@ class RenderBridge {
     };
   }
 
+  async requestLogsWithFallbacks({
+    ownerId,
+    serviceId,
+    startTime,
+    endTime,
+  }) {
+    const attempts = [
+      {
+        label: "resource",
+        query: {
+          ownerId,
+          resource: serviceId,
+          startTime,
+          endTime,
+        },
+      },
+      {
+        label: "resourceId",
+        query: {
+          ownerId,
+          resourceId: serviceId,
+          startTime,
+          endTime,
+        },
+      },
+      {
+        label: "serviceId",
+        query: {
+          ownerId,
+          serviceId,
+          startTime,
+          endTime,
+        },
+      },
+      {
+        label: "resourceIds",
+        query: {
+          ownerId,
+          resourceIds: [serviceId],
+          startTime,
+          endTime,
+        },
+      },
+    ];
+
+    let lastError = null;
+
+    for (const attempt of attempts) {
+      try {
+        const raw = await this.request("/logs", {
+          query: attempt.query,
+        });
+        return raw;
+      } catch (error) {
+        lastError = error;
+
+        const msg = String(error?.message || "");
+        const isFilterError =
+          msg.includes("must specify at least one resource in filters") ||
+          msg.includes("ownerId is required") ||
+          msg.includes("render_api_http_400");
+
+        if (!isFilterError) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError || new Error("render_logs_request_failed");
+  }
+
   async listRecentLogs({
     ownerId,
     serviceId,
@@ -388,6 +469,11 @@ class RenderBridge {
     const normalizedOwnerId = normalizeString(ownerId);
     if (!normalizedOwnerId) {
       throw new Error("render_owner_id_missing");
+    }
+
+    const normalizedServiceId = normalizeString(serviceId);
+    if (!normalizedServiceId) {
+      throw new Error("render_service_id_missing");
     }
 
     const windowMinutes = Math.max(
@@ -410,16 +496,15 @@ class RenderBridge {
     const end = new Date();
     const start = new Date(Date.now() - windowMinutes * 60 * 1000);
 
-    const raw = await this.request("/logs", {
-      query: {
-        ownerId: normalizedOwnerId,
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
-      },
+    const raw = await this.requestLogsWithFallbacks({
+      ownerId: normalizedOwnerId,
+      serviceId: normalizedServiceId,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
     });
 
     let items = normalizeLogs(raw);
-    items = filterLogsForService(items, serviceId);
+    items = filterLogsForService(items, normalizedServiceId);
     items = filterLogsByLevel(items, requestedLevel);
     items = sortLogsNewestFirst(items).slice(0, maxItems);
 

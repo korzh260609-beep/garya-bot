@@ -100,6 +100,102 @@ function buildDeployStoreInput(sourceKey, deployId, status, diagnosis, logText, 
   };
 }
 
+export async function ingestRenderLogSnapshot({
+  sourceKey = "render_primary",
+  mode = "error",
+  logText = "",
+  meta = {},
+  deployId = "",
+  status = "unknown",
+  diagnosisSource = null,
+} = {}) {
+  const normalizedSourceKey = normalizeString(sourceKey || "render_primary") || "render_primary";
+  const normalizedMode = normalizeMode(mode);
+  const normalizedLogText = normalizeString(logText || "");
+  const normalizedMeta = normalizeMeta(meta);
+  const normalizedDeployId = normalizeString(deployId || "");
+  const normalizedStatus = normalizeString(status || "unknown") || "unknown";
+
+  if (normalizedMode === "error" && !normalizedLogText) {
+    return {
+      ok: false,
+      statusCode: 400,
+      error: "missing_log_text",
+    };
+  }
+
+  if (normalizedMode === "deploy" && !normalizedDeployId) {
+    return {
+      ok: false,
+      statusCode: 400,
+      error: "missing_deploy_id",
+    };
+  }
+
+  const diagnosisService = new RenderLogDiagnosisService();
+  const shouldDiagnose = Boolean(normalizedLogText);
+  const diagnosis = shouldDiagnose
+    ? await diagnosisService.diagnose(normalizedLogText, {
+        source: diagnosisSource || `render_ingest_${normalizedMode}`,
+      })
+    : null;
+
+  if (normalizedMode === "error") {
+    const storeResult = await renderOpsStore.addErrorSnapshot(
+      buildErrorStoreInput(
+        normalizedSourceKey,
+        diagnosis,
+        normalizedLogText,
+        normalizedMeta
+      )
+    );
+
+    return {
+      ok: true,
+      statusCode: 200,
+      payload: {
+        ok: true,
+        mode: normalizedMode,
+        sourceKey: normalizedSourceKey,
+        retentionLimit: storeResult.retentionLimit,
+        storedId: storeResult?.row?.id || null,
+        candidatePath: storeResult?.row?.candidate_path || null,
+        exactLine: storeResult?.row?.exact_line || null,
+        confidence: storeResult?.row?.confidence || "very_low",
+      },
+    };
+  }
+
+  const storeResult = await renderOpsStore.upsertDeploySnapshot(
+    buildDeployStoreInput(
+      normalizedSourceKey,
+      normalizedDeployId,
+      normalizedStatus,
+      diagnosis,
+      normalizedLogText,
+      normalizedMeta
+    )
+  );
+
+  return {
+    ok: true,
+    statusCode: 200,
+    payload: {
+      ok: true,
+      mode: normalizedMode,
+      sourceKey: normalizedSourceKey,
+      deployId: normalizedDeployId,
+      retentionLimit: storeResult.retentionLimit,
+      storedId: storeResult?.row?.id || null,
+      status: storeResult?.row?.status || normalizedStatus,
+      topError: storeResult?.row?.top_error || null,
+      candidatePath: storeResult?.row?.candidate_path || null,
+      exactLine: storeResult?.row?.exact_line || null,
+      confidence: storeResult?.row?.confidence || "very_low",
+    },
+  };
+}
+
 export function createRenderLogIngestRoute() {
   const router = express.Router();
 
@@ -122,63 +218,25 @@ export function createRenderLogIngestRoute() {
     const deployId = normalizeString(req.body?.deployId || "");
     const status = normalizeString(req.body?.status || "unknown") || "unknown";
 
-    if (!logText && mode === "error") {
-      return res.status(400).json({
-        ok: false,
-        error: "missing_log_text",
-      });
-    }
-
-    if (!deployId && mode === "deploy") {
-      return res.status(400).json({
-        ok: false,
-        error: "missing_deploy_id",
-      });
-    }
-
     try {
-      const diagnosisService = new RenderLogDiagnosisService();
-      const shouldDiagnose = Boolean(logText);
-      const diagnosis = shouldDiagnose
-        ? await diagnosisService.diagnose(logText, {
-            source: `render_ingest_${mode}`,
-          })
-        : null;
+      const result = await ingestRenderLogSnapshot({
+        sourceKey,
+        mode,
+        logText,
+        meta,
+        deployId,
+        status,
+        diagnosisSource: `render_ingest_${mode}`,
+      });
 
-      if (mode === "error") {
-        const storeResult = await renderOpsStore.addErrorSnapshot(
-          buildErrorStoreInput(sourceKey, diagnosis, logText, meta)
-        );
-
-        return res.status(200).json({
-          ok: true,
-          mode,
-          sourceKey,
-          retentionLimit: storeResult.retentionLimit,
-          storedId: storeResult?.row?.id || null,
-          candidatePath: storeResult?.row?.candidate_path || null,
-          exactLine: storeResult?.row?.exact_line || null,
-          confidence: storeResult?.row?.confidence || "very_low",
+      if (!result.ok) {
+        return res.status(result.statusCode || 400).json({
+          ok: false,
+          error: result.error || "ingest_validation_failed",
         });
       }
 
-      const storeResult = await renderOpsStore.upsertDeploySnapshot(
-        buildDeployStoreInput(sourceKey, deployId, status, diagnosis, logText, meta)
-      );
-
-      return res.status(200).json({
-        ok: true,
-        mode,
-        sourceKey,
-        deployId,
-        retentionLimit: storeResult.retentionLimit,
-        storedId: storeResult?.row?.id || null,
-        status: storeResult?.row?.status || status,
-        topError: storeResult?.row?.top_error || null,
-        candidatePath: storeResult?.row?.candidate_path || null,
-        exactLine: storeResult?.row?.exact_line || null,
-        confidence: storeResult?.row?.confidence || "very_low",
-      });
+      return res.status(result.statusCode || 200).json(result.payload);
     } catch (error) {
       console.error("❌ render log ingest failed:", error);
 
@@ -195,4 +253,5 @@ export function createRenderLogIngestRoute() {
 
 export default {
   createRenderLogIngestRoute,
+  ingestRenderLogSnapshot,
 };

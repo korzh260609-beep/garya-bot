@@ -41,8 +41,23 @@ function fileNameOnly(pathValue) {
 }
 
 function normalizeRepoPathHint(pathValue) {
-  const s = safeStr(pathValue).trim().replace(/^.*?(src\/)/, "src/");
+  let s = safeStr(pathValue).trim();
   if (!s) return "";
+
+  s = s.replace(/^file:\/\//, "");
+  s = s.replace(/\\/g, "/");
+
+  const srcIndex = s.indexOf("src/");
+  if (srcIndex >= 0) {
+    s = s.slice(srcIndex);
+  }
+
+  s = s.replace(/\/+/g, "/");
+
+  while (s.startsWith("src/src/")) {
+    s = s.slice(4);
+  }
+
   return s;
 }
 

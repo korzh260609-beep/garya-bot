@@ -26,6 +26,16 @@ function normalizePreviewMessage(value) {
   return rawMessage.replace(/\s+/g, " ").trim();
 }
 
+function stripPreviewPrefix(message) {
+  const msg = normalizePreviewMessage(message);
+  if (!msg) return "";
+
+  return msg
+    .replace(/^(==>|=>)\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function isNoiseLogMessage(message) {
   const msg = normalizePreviewMessage(message);
   if (!msg) return true;
@@ -52,9 +62,15 @@ function selectRenderableLogs(logs, limit) {
   let skippedNoise = 0;
 
   for (const item of logs) {
-    const message = normalizePreviewMessage(item?.message);
+    const normalized = normalizePreviewMessage(item?.message);
 
-    if (isNoiseLogMessage(message)) {
+    if (isNoiseLogMessage(normalized)) {
+      skippedNoise += 1;
+      continue;
+    }
+
+    const message = stripPreviewPrefix(normalized);
+    if (!message) {
       skippedNoise += 1;
       continue;
     }
@@ -78,7 +94,7 @@ function selectRenderableLogs(logs, limit) {
 function compactLogLine(item, index, maxLen = 220) {
   const ts = item?.timestamp || "-";
   const lvl = item?.level || "-";
-  const message = normalizePreviewMessage(item?.message);
+  const message = stripPreviewPrefix(item?.message);
   const compact =
     message.length > maxLen ? `${message.slice(0, maxLen)}…` : message || "-";
 

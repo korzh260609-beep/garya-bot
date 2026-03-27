@@ -57,7 +57,7 @@ export async function handleRenderLogSet({
     return;
   }
 
-  const result = renderLogInbox.setLatest({
+  const result = await renderLogInbox.setLatest({
     chatId: String(chatId),
     senderIdStr: String(senderIdStr || ""),
     logText,

@@ -35,6 +35,7 @@ export async function handleRenderBridgeService({
         `id=${state.selected_service_id || "-"}`,
         `name=${state.selected_service_name || "-"}`,
         `slug=${state.selected_service_slug || "-"}`,
+        `ownerId=${state.selected_owner_id || "-"}`,
       ].join("\n")
     );
     return;
@@ -69,7 +70,7 @@ export async function handleRenderBridgeService({
 
         for (const item of resolved.matches || []) {
           lines.push(
-            `- ${item.name || "-"} | slug=${item.slug || "-"} | id=${item.id || "-"}`
+            `- ${item.name || "-"} | slug=${item.slug || "-"} | id=${item.id || "-"} | ownerId=${item.ownerId || "-"}`
           );
         }
 
@@ -86,6 +87,7 @@ export async function handleRenderBridgeService({
       serviceId: resolved.service.id,
       serviceName: resolved.service.name,
       serviceSlug: resolved.service.slug,
+      ownerId: resolved.service.ownerId,
     });
 
     await bot.sendMessage(
@@ -95,6 +97,7 @@ export async function handleRenderBridgeService({
         `id=${saved?.selected_service_id || "-"}`,
         `name=${saved?.selected_service_name || "-"}`,
         `slug=${saved?.selected_service_slug || "-"}`,
+        `ownerId=${saved?.selected_owner_id || "-"}`,
       ].join("\n")
     );
   } catch (error) {

@@ -2,6 +2,8 @@
 // === index.js — SG (Советник GARYA) : Express + Telegram Webhook + Bootstrap ===
 // ============================================================================
 
+import express from "express";
+
 import { initTelegramTransport } from "./src/bot/telegramTransport.js";
 import { attachMessageRouter } from "./src/bot/messageRouter.js";
 
@@ -20,6 +22,7 @@ import { createDebugCoingeckoIndicatorsRoute } from "./src/http/debugCoingeckoIn
 import { createDebugCoingeckoIndicatorsReaderRoute } from "./src/http/debugCoingeckoIndicatorsReaderRoute.js";
 import { createDebugCoingeckoIndicatorsSnapshotRoute } from "./src/http/debugCoingeckoIndicatorsSnapshotRoute.js";
 import { createDebugCryptoNewsRssRoute } from "./src/http/debugCryptoNewsRssRoute.js";
+import { createDebugRenderLogDiagnosisRoute } from "./src/http/debugRenderLogDiagnosisRoute.js";
 import { initSystem } from "./src/bootstrap/initSystem.js";
 
 import { getSystemHealth } from "./core/helpers.js";
@@ -51,6 +54,12 @@ console.log("🧩 JobRunner initialized (singleton).");
 // EXPRESS SERVER
 // ============================================================================
 const app = createApp();
+
+// IMPORTANT:
+// - debug diagnosis route accepts POST body
+// - keep body parsing local and minimal
+app.use(express.json({ limit: "256kb" }));
+
 const bot = initTelegramTransport(app);
 
 const PORT = envInt("PORT", 3000);
@@ -70,6 +79,7 @@ app.use(createDebugCoingeckoIndicatorsRoute());
 app.use(createDebugCoingeckoIndicatorsReaderRoute());
 app.use(createDebugCoingeckoIndicatorsSnapshotRoute());
 app.use(createDebugCryptoNewsRssRoute());
+app.use(createDebugRenderLogDiagnosisRoute());
 
 // ============================================================================
 // START SERVER

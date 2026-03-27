@@ -252,7 +252,7 @@ export class RenderLogFingerprintService {
     const severity = detectSeverity(trimmed);
 
     const { pathHints, fnHints, lineHints } = extractStackPathHints(
-      nonEmptyLines.slice(0, Math.max(nonEmptyLines.length, this.config.maxStackLines))
+      nonEmptyLines.slice(0, Math.min(nonEmptyLines.length, this.config.maxStackLines))
     );
 
     const moduleHints = extractModuleHints(trimmed, nonEmptyLines);

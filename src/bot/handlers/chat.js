@@ -184,7 +184,7 @@ export async function handleChatMessage({
     });
   }
 
-  const classification = { taskType: "chat", aiCostLevel: "low" };
+  const classification = { taskType: "chat", aiCostLevel: "high" };
   await logInteraction(chatIdStr, classification);
 
   let projectCtx = "";

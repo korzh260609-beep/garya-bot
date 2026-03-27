@@ -27,6 +27,11 @@
 // HARD RULE:
 // - answer length != behavior style
 // - AnswerMode and BehaviorCore must remain separate concerns
+//
+// ADDITIONAL HARD RULE:
+// - do NOT derive behavior from keyword / phrase lists
+// - do NOT pretend semantic understanding from surface words
+// - if no explicit signal is provided, use safe defaults
 
 export const BEHAVIOR_STYLE_AXES = ["tech", "humanitarian", "mixed"];
 export const BEHAVIOR_CRITICALITY_LEVELS = ["low", "normal", "high"];
@@ -51,78 +56,12 @@ function clampCriticality(value) {
 // - criticality is behavior pressure, not answer length
 // - high criticality may increase strictness of analysis
 // - but must NOT silently become a different personality
-// - explicit input wins over text detection
+// - explicit input wins over defaults
+// - NO keyword / phrase based criticality detection here
 // ============================================================================
-
-function detectCriticalityFromText(text) {
-  const t = String(text || "").trim().toLowerCase();
-  if (!t) return "normal";
-
-  const highSignals = [
-    "ошибка",
-    "error",
-    "bug",
-    "security",
-    "безопас",
-    "небезопас",
-    "уязв",
-    "взлом",
-    "hack",
-    "law",
-    "legal",
-    "юрид",
-    "медиц",
-    "medical",
-    "финанс",
-    "financial",
-    "деньги",
-    "потер",
-    "loss",
-    "risk",
-    "риск",
-    "опас",
-    "архитект",
-    "архітект",
-    "prod",
-    "production",
-    "deploy",
-    "render",
-    "github",
-    "repo",
-    "workflow",
-    "roadmap",
-    "incident",
-    "failure",
-    "broken",
-    "crash",
-  ];
-
-  for (const signal of highSignals) {
-    if (t.includes(signal)) return "high";
-  }
-
-  const lowSignals = [
-    "привет",
-    "hello",
-    "как дела",
-    "шутк",
-    "мем",
-    "smile",
-    "joke",
-    "just curious",
-    "просто интересно",
-  ];
-
-  for (const signal of lowSignals) {
-    if (t.includes(signal)) return "low";
-  }
-
-  return "normal";
-}
 
 function resolveCriticality(input = {}) {
   const requestedCriticality = input?.criticality || null;
-  const text = String(input?.text || "");
 
   if (requestedCriticality) {
     return {
@@ -132,8 +71,8 @@ function resolveCriticality(input = {}) {
   }
 
   return {
-    criticality: clampCriticality(detectCriticalityFromText(text)),
-    source: "detected_from_text",
+    criticality: "normal",
+    source: "default_no_text_detection",
   };
 }
 
@@ -235,104 +174,14 @@ function getStyleAxisPolicy(styleAxis) {
 // ============================================================================
 // STAGE 9.8 — SOFT STYLE ASK SKELETON
 // IMPORTANT:
-// - soft detection only
 // - explicit styleAxis input always wins
 // - no persistent user preference yet
 // - no DB / no settings / no command layer
+// - NO keyword / phrase based soft-style detection here
 // ============================================================================
-
-function detectSoftStyleAxisFromText(text) {
-  const t = String(text || "").trim().toLowerCase();
-  if (!t) {
-    return {
-      styleAxis: "mixed",
-      source: "default",
-      softAskDetected: false,
-    };
-  }
-
-  const techSignals = [
-    "технически",
-    "технично",
-    "technical",
-    "technically",
-    "по архитектуре",
-    "архитектурно",
-    "с точки зрения кода",
-    "по коду",
-    "для разработчика",
-    "engineering",
-    "implementation details",
-    "подробно технически",
-    "разбери технически",
-  ];
-
-  for (const signal of techSignals) {
-    if (t.includes(signal)) {
-      return {
-        styleAxis: "tech",
-        source: "soft_ask_from_text",
-        softAskDetected: true,
-      };
-    }
-  }
-
-  const humanitarianSignals = [
-    "простыми словами",
-    "по простому",
-    "объясни просто",
-    "объясни как ребенку",
-    "без сложных слов",
-    "мягче",
-    "humanly",
-    "human",
-    "simple words",
-    "for a child",
-    "easy words",
-    "понятно для ребенка",
-    "объясни по-человечески",
-  ];
-
-  for (const signal of humanitarianSignals) {
-    if (t.includes(signal)) {
-      return {
-        styleAxis: "humanitarian",
-        source: "soft_ask_from_text",
-        softAskDetected: true,
-      };
-    }
-  }
-
-  const mixedSignals = [
-    "и просто и точно",
-    "просто но точно",
-    "сбалансировано",
-    "balanced",
-    "mixed",
-    "и технически и понятно",
-    "понятно но точно",
-  ];
-
-  for (const signal of mixedSignals) {
-    if (t.includes(signal)) {
-      return {
-        styleAxis: "mixed",
-        source: "soft_ask_from_text",
-        softAskDetected: true,
-      };
-    }
-  }
-
-  return {
-    styleAxis: "mixed",
-    source: "default",
-    softAskDetected: false,
-  };
-}
 
 function resolveStyleAxis(input = {}) {
   const requestedStyleAxis = input?.styleAxis || null;
-  const text = String(input?.text || "");
 
   if (requestedStyleAxis) {
     return {
@@ -342,7 +191,11 @@ function resolveStyleAxis(input = {}) {
     };
   }
 
-  return detectSoftStyleAxisFromText(text);
+  return {
+    styleAxis: "mixed",
+    source: "default_no_text_detection",
+    softAskDetected: false,
+  };
 }
 
 // ============================================================================
@@ -380,7 +233,7 @@ export function getBehaviorCore(input = {}) {
   const noNoddingPolicy = getNoNoddingPolicy();
 
   return {
-    version: "9.10-skeleton-v3",
+    version: "9.10-skeleton-v4",
 
     // Stage 9.7 skeleton
     styleAxis,
@@ -445,9 +298,10 @@ export function buildBehaviorCorePromptBlock(coreInput = {}) {
     "- soft form, hard essence",
     "- if intent is unclear, ask at most one soft clarifying question",
     "- answer length must NOT define behavior style",
-    "- explicit style axis input has priority over soft style detection",
-    "- soft style detection is temporary and must not be treated as saved user preference",
-    "- explicit criticality input has priority over detected criticality",
+    "- explicit style axis input has priority over defaults",
+    "- explicit criticality input has priority over defaults",
+    "- no keyword or phrase lists may be treated as true understanding of user intent",
+    "- if there is no explicit behavior signal, use safe defaults instead of pretending semantic certainty",
     "- criticality affects strictness of analysis, not answer length and not core personality",
     "- no-nodding forbids blind agreement, but does not forbid polite and precise partial agreement",
   ].join("\n");

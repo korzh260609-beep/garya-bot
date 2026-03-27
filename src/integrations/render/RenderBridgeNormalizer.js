@@ -16,7 +16,6 @@ function toArray(payload) {
   if (Array.isArray(payload.deploys)) return payload.deploys;
   if (Array.isArray(payload.resources)) return payload.resources;
 
-  // if API returned a single object instead of an array
   return [payload];
 }
 
@@ -41,6 +40,16 @@ function firstNonEmpty(...values) {
     if (s) return s;
   }
   return "";
+}
+
+function extractOwnerId(item) {
+  const base = unwrapEntity(item, ["service", "resource", "item", "data", "result"]);
+  return firstNonEmpty(
+    base?.ownerId,
+    item?.ownerId,
+    base?.owner?.id,
+    item?.owner?.id
+  );
 }
 
 function extractServiceId(item) {
@@ -114,6 +123,7 @@ export function normalizeServices(payload) {
 
       return {
         id: firstNonEmpty(base?.id, item?.id),
+        ownerId: extractOwnerId(item),
         name: firstNonEmpty(base?.name, item?.name, base?.serviceName),
         slug: firstNonEmpty(base?.slug, item?.slug),
         type: firstNonEmpty(base?.type, item?.type),
@@ -121,6 +131,8 @@ export function normalizeServices(payload) {
         url: firstNonEmpty(
           base?.url,
           item?.url,
+          base?.dashboardUrl,
+          item?.dashboardUrl,
           base?.serviceDetails?.url,
           item?.serviceDetails?.url
         ),
@@ -268,6 +280,7 @@ export function buildErrorSnapshotFromLogs({
       serviceId: service?.id || null,
       serviceName: service?.name || null,
       serviceSlug: service?.slug || null,
+      ownerId: service?.ownerId || null,
       requestedLevel: level,
       requestedWindowMinutes: minutes,
       lines: logs.length,
@@ -303,6 +316,7 @@ export function buildDeploySnapshotFromDeploy({
       serviceId: service?.id || null,
       serviceName: service?.name || null,
       serviceSlug: service?.slug || null,
+      ownerId: service?.ownerId || null,
     },
   };
 }

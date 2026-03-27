@@ -90,6 +90,96 @@ async function logBehaviorUsageEvents({
   }
 }
 
+function countMatches(text, regex) {
+  const m = text.match(regex);
+  return Array.isArray(m) ? m.length : 0;
+}
+
+function buildClarificationSignal(reply) {
+  const raw = typeof reply === "string" ? reply : "";
+  const text = raw.trim();
+
+  if (!text) {
+    return {
+      shouldLog: false,
+      reason: "empty",
+      replyChars: 0,
+      questionCount: 0,
+      lineCount: 0,
+    };
+  }
+
+  if (text.startsWith("ERROR: Ошибка вызова ИИ")) {
+    return {
+      shouldLog: false,
+      reason: "error_reply",
+      replyChars: text.length,
+      questionCount: 0,
+      lineCount: 0,
+    };
+  }
+
+  const replyChars = text.length;
+  const questionCount = countMatches(text, /\?/g);
+  const lineCount = text.split(/\n+/).filter(Boolean).length;
+  const endsWithQuestion = text.endsWith("?");
+  const firstQuestionIndex = text.indexOf("?");
+  const charsBeforeFirstQuestion =
+    firstQuestionIndex >= 0 ? firstQuestionIndex : text.length;
+
+  const sentenceBreakCount = countMatches(text, /[.!?]/g);
+  const colonCount = countMatches(text, /:/g);
+  const bulletLineCount = text
+    .split("\n")
+    .filter((line) => /^\s*[-•–—\d]+\)?[.\-]?\s+/.test(line.trim())).length;
+
+  const shortEnough = replyChars <= 280;
+  const compactEnough = lineCount <= 3;
+  const hasSingleQuestion = questionCount === 1;
+  const lowStructure =
+    bulletLineCount === 0 && colonCount <= 1 && sentenceBreakCount <= 3;
+  const questionAppearsEarly = charsBeforeFirstQuestion <= 220;
+
+  const shouldLog =
+    endsWithQuestion &&
+    hasSingleQuestion &&
+    shortEnough &&
+    compactEnough &&
+    lowStructure &&
+    questionAppearsEarly;
+
+  let reason = "not_clarification";
+  if (shouldLog) {
+    reason = "short_single_question";
+  } else if (!endsWithQuestion) {
+    reason = "no_terminal_question";
+  } else if (!hasSingleQuestion) {
+    reason = "question_count_mismatch";
+  } else if (!shortEnough) {
+    reason = "too_long";
+  } else if (!compactEnough) {
+    reason = "too_many_lines";
+  } else if (!lowStructure) {
+    reason = "too_structured";
+  } else if (!questionAppearsEarly) {
+    reason = "question_too_late";
+  }
+
+  return {
+    shouldLog,
+    reason,
+    replyChars,
+    questionCount,
+    lineCount,
+    sentenceBreakCount,
+    colonCount,
+    bulletLineCount,
+    endsWithQuestion,
+    charsBeforeFirstQuestion,
+    detectorVersion: "clar_v2",
+  };
+}
+
 export async function executeChatAI({
   callAI,
   filtered,
@@ -151,15 +241,21 @@ export async function executeChatAI({
   };
 
   try {
-    const looksLikeClarification =
-      typeof aiReply === "string" && aiReply.trim().endsWith("?");
-    if (looksLikeClarification) {
+    const clarificationSignal = buildClarificationSignal(aiReply);
+
+    if (clarificationSignal.shouldLog) {
       const be = new BehaviorEventsService();
       await be.logEvent({
         globalUserId: globalUserId ?? null,
         chatId: chatIdStr,
         eventType: "clarification_asked",
-        metadata: { replyChars: aiReply.length },
+        metadata: {
+          replyChars: clarificationSignal.replyChars,
+          questionCount: clarificationSignal.questionCount,
+          lineCount: clarificationSignal.lineCount,
+          detectorVersion: clarificationSignal.detectorVersion,
+          reason: clarificationSignal.reason,
+        },
         transport: "telegram",
         schemaVersion: 1,
       });

@@ -1,0 +1,171 @@
+name: Render Log Ingest Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "error or deploy"
+        required: true
+        default: "error"
+        type: choice
+        options:
+          - error
+          - deploy
+      source_key:
+        description: "sourceKey for SG storage"
+        required: true
+        default: "render_primary"
+        type: string
+      deploy_id:
+        description: "deployId (required for deploy mode)"
+        required: false
+        default: ""
+        type: string
+      status:
+        description: "deploy status for deploy mode"
+        required: false
+        default: "failed"
+        type: choice
+        options:
+          - failed
+          - success
+          - building
+          - deploying
+          - running
+          - pending
+          - unknown
+      log_text:
+        description: "Paste log snapshot text here"
+        required: true
+        default: "SyntaxError: Missing catch or finally after try at src/bot/messageRouter.js:420"
+        type: string
+
+jobs:
+  send-render-log:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODE="${{ github.event.inputs.mode }}"
+          DEPLOY_ID="${{ github.event.inputs.deploy_id }}"
+          LOG_TEXT="${{ github.event.inputs.log_text }}"
+
+          if [ -z "$LOG_TEXT" ]; then
+            echo "log_text is required"
+            exit 1
+          fi
+
+          if [ "$MODE" = "deploy" ] && [ -z "$DEPLOY_ID" ]; then
+            echo "deploy_id is required when mode=deploy"
+            exit 1
+          fi
+
+      - name: Send snapshot to SG ingest route
+        uses: actions/github-script@v7
+        env:
+          INGEST_URL: ${{ secrets.RENDER_LOG_INGEST_URL }}
+          INGEST_TOKEN: ${{ secrets.RENDER_LOG_INGEST_TOKEN }}
+          MODE: ${{ github.event.inputs.mode }}
+          SOURCE_KEY: ${{ github.event.inputs.source_key }}
+          DEPLOY_ID: ${{ github.event.inputs.deploy_id }}
+          STATUS: ${{ github.event.inputs.status }}
+          LOG_TEXT: ${{ github.event.inputs.log_text }}
+        with:
+          script: |
+            const ingestUrl = process.env.INGEST_URL;
+            const ingestToken = process.env.INGEST_TOKEN;
+            const mode = process.env.MODE || "error";
+            const sourceKey = process.env.SOURCE_KEY || "render_primary";
+            const deployId = process.env.DEPLOY_ID || "";
+            const status = process.env.STATUS || "failed";
+            const logText = process.env.LOG_TEXT || "";
+
+            if (!ingestUrl) {
+              core.setFailed("Missing repo secret: RENDER_LOG_INGEST_URL");
+              return;
+            }
+
+            if (!ingestToken) {
+              core.setFailed("Missing repo secret: RENDER_LOG_INGEST_TOKEN");
+              return;
+            }
+
+            if (!logText.trim()) {
+              core.setFailed("log_text is empty");
+              return;
+            }
+
+            if (mode === "deploy" && !deployId.trim()) {
+              core.setFailed("deploy_id is required for deploy mode");
+              return;
+            }
+
+            const body = {
+              sourceKey,
+              mode,
+              meta: {
+                trigger: "github_actions_workflow_dispatch",
+                synthetic: false,
+                source: "github_actions",
+                repo: context.repo.owner + "/" + context.repo.repo,
+                workflow: context.workflow,
+                runId: String(context.runId),
+                actor: context.actor
+              }
+            };
+
+            if (mode === "error") {
+              body.logText = logText;
+            }
+
+            if (mode === "deploy") {
+              body.deployId = deployId;
+              body.status = status;
+              body.logText = logText;
+            }
+
+            const response = await fetch(ingestUrl, {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "x-render-log-token": ingestToken
+              },
+              body: JSON.stringify(body)
+            });
+
+            const text = await response.text();
+
+            let parsed;
+            try {
+              parsed = JSON.parse(text);
+            } catch {
+              parsed = text;
+            }
+
+            core.info("HTTP status: " + response.status);
+            core.info("Response: " + JSON.stringify(parsed, null, 2));
+
+            if (!response.ok) {
+              core.setFailed("Ingest failed with status " + response.status);
+              return;
+            }
+
+            core.setOutput("ingest_response", JSON.stringify(parsed));
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "## Render log ingest result"
+            echo ""
+            echo "- mode: ${{ github.event.inputs.mode }}"
+            echo "- source_key: ${{ github.event.inputs.source_key }}"
+            echo "- deploy_id: ${{ github.event.inputs.deploy_id }}"
+            echo "- status: ${{ github.event.inputs.status }}"
+            echo "- actor: ${{ github.actor }}"
+            echo "- workflow: ${{ github.workflow }}"
+          } >> "$GITHUB_STEP_SUMMARY"

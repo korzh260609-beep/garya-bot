@@ -19,6 +19,19 @@ function parseMinutes(rest, fallback = 60) {
   return Math.max(1, Math.min(Math.trunc(n), 1440));
 }
 
+function buildPreviewLines(logs, maxLines = 2, maxLen = 220) {
+  return logs.slice(0, maxLines).map((item, index) => {
+    const ts = item?.timestamp || "-";
+    const lvl = item?.level || "-";
+    const rawMessage = typeof item?.message === "string" ? item.message.trim() : "";
+    const oneLine = rawMessage.replace(/\s+/g, " ");
+    const message =
+      oneLine.length > maxLen ? `${oneLine.slice(0, maxLen)}…` : oneLine;
+
+    return `preview${index + 1}=[${ts}] [${lvl}] ${message || "-"}`;
+  });
+}
+
 export async function handleRenderBridgeErrors({
   bot,
   chatId,
@@ -103,6 +116,8 @@ export async function handleRenderBridgeErrors({
       return;
     }
 
+    const previewLines = buildPreviewLines(logs, 2, 220);
+
     await bot.sendMessage(
       chatId,
       [
@@ -114,6 +129,7 @@ export async function handleRenderBridgeErrors({
         `candidatePath=${stored?.payload?.candidatePath || "-"}`,
         `exactLine=${stored?.payload?.exactLine || "-"}`,
         `confidence=${stored?.payload?.confidence || "-"}`,
+        ...previewLines,
       ].join("\n")
     );
   } catch (error) {

@@ -187,6 +187,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/render_diag",
     "/render_log_set",
     "/render_diag_last",
+    "/render_log_show",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {

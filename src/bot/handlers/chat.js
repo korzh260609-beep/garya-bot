@@ -20,6 +20,8 @@ import { buildChatMessages } from "./chat/promptAssembly.js";
 import { resolveAiParams, executeChatAI } from "./chat/aiExecution.js";
 import { finalizeChatReply } from "./chat/postReplyFlow.js";
 import isStablePersonalFactQuestion from "./chat/isStablePersonalFactQuestion.js";
+import resolveChatIntent from "./chat/intent/resolveChatIntent.js";
+import buildBehaviorSnapshot from "./chat/behaviorSnapshot.js";
 
 export async function handleChatMessage({
   bot,
@@ -74,6 +76,10 @@ export async function handleChatMessage({
 
   const { effective, shouldCallAI, directReplyText } =
     resolveFileIntakeDecision({ FileIntake, msg, trimmed });
+
+  const chatIntent = resolveChatIntent({
+    text: effective,
+  });
 
   const stablePersonalFactMode =
     isStablePersonalFactQuestion(effective);
@@ -210,12 +216,27 @@ export async function handleChatMessage({
   const { maxTokens, temperature } =
     resolveAiParams(answerMode);
 
+  const behaviorSnapshot = buildBehaviorSnapshot({
+    userText: effective,
+    intent: chatIntent,
+  });
+
   const aiMetaBase = {
     handler: "chat",
     stablePersonalFactMode,
     longTermMemoryInjected,
     longTermMemoryBridgePrepared:
       Boolean(longTermMemoryBridgeResult),
+
+    // intent skeleton visibility
+    chatIntentMode: chatIntent?.mode || "normal",
+    chatIntentDomain: chatIntent?.domain || "unknown",
+    chatIntentCandidateSlots: Array.isArray(chatIntent?.candidateSlots)
+      ? chatIntent.candidateSlots
+      : [],
+
+    // behavior observability
+    ...behaviorSnapshot,
   };
 
   const { aiReply } = await executeChatAI({
@@ -257,3 +278,5 @@ export async function handleChatMessage({
     longTermMemoryInjected,
   });
 }
+
+export default handleChatMessage;

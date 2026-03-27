@@ -1,517 +1,192 @@
-// src/integrations/render/RenderBridge.js
+// src/bot/handlers/renderBridgeLogs.js
 
-import fetch from "node-fetch";
-import {
-  getRenderBridgeConfig,
-  getRenderBridgeDiag,
-} from "./RenderBridgeConfig.js";
-import {
-  normalizeServices,
-  normalizeDeploys,
-  normalizeLogs,
-  filterLogsForService,
-  filterLogsByLevel,
-  sortLogsNewestFirst,
-} from "./RenderBridgeNormalizer.js";
+import renderBridge from "../../integrations/render/RenderBridge.js";
+import renderBridgeStateStore from "../../integrations/render/RenderBridgeStateStore.js";
 
-function normalizeString(value) {
-  return typeof value === "string" ? value.trim() : "";
+function parseArgs(rest, defaults = {}) {
+  const raw = typeof rest === "string" ? rest.trim() : "";
+  const parts = raw ? raw.split(/\s+/) : [];
+
+  const minutesRaw = Number(parts[0]);
+  const limitRaw = Number(parts[1]);
+
+  const minutes = Number.isFinite(minutesRaw)
+    ? Math.max(1, Math.min(Math.trunc(minutesRaw), 1440))
+    : defaults.minutes ?? 60;
+
+  const limit = Number.isFinite(limitRaw)
+    ? Math.max(1, Math.min(Math.trunc(limitRaw), 10))
+    : defaults.limit ?? 5;
+
+  return { minutes, limit };
 }
 
-function buildUrl(baseUrl, path, query = {}) {
-  const url = new URL(`${baseUrl}${path}`);
+function normalizePreviewMessage(value) {
+  const rawMessage = typeof value === "string" ? value.trim() : "";
+  return rawMessage.replace(/\s+/g, " ").trim();
+}
 
-  for (const [key, value] of Object.entries(query)) {
-    if (value === null || value === undefined) continue;
-    if (value === "") continue;
+function isNoiseLogMessage(message) {
+  const msg = normalizePreviewMessage(message);
+  if (!msg) return true;
 
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (entry === null || entry === undefined) continue;
-        if (String(entry) === "") continue;
-        url.searchParams.append(key, String(entry));
-      }
+  const lower = msg.toLowerCase();
+
+  if (lower === "==>" || lower === "=>") {
+    return true;
+  }
+
+  if (/^[=/\\\-_|. ]+$/.test(msg)) {
+    return true;
+  }
+
+  if (/^==>\s*[=/\\\-_|. ]+$/.test(msg)) {
+    return true;
+  }
+
+  return false;
+}
+
+function selectRenderableLogs(logs, limit) {
+  const cleaned = [];
+  let skippedNoise = 0;
+
+  for (const item of logs) {
+    const message = normalizePreviewMessage(item?.message);
+
+    if (isNoiseLogMessage(message)) {
+      skippedNoise += 1;
       continue;
     }
 
-    url.searchParams.set(key, String(value));
+    cleaned.push({
+      ...item,
+      message,
+    });
+
+    if (cleaned.length >= limit) {
+      break;
+    }
   }
 
-  return url.toString();
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function firstNonEmpty(...values) {
-  for (const value of values) {
-    const s = normalizeString(value);
-    if (s) return s;
-  }
-  return "";
-}
-
-function looksLikeServiceObject(obj) {
-  if (!isPlainObject(obj)) return false;
-
-  const score = [
-    firstNonEmpty(obj.id),
-    firstNonEmpty(obj.name),
-    firstNonEmpty(obj.slug),
-    firstNonEmpty(obj.type),
-    firstNonEmpty(obj.url),
-    firstNonEmpty(obj.dashboardUrl),
-    firstNonEmpty(obj.serviceId),
-    firstNonEmpty(obj.ownerId),
-    firstNonEmpty(obj.owner?.id),
-  ].filter(Boolean).length;
-
-  return score >= 2;
-}
-
-function normalizeServiceCandidate(obj) {
-  if (!isPlainObject(obj)) {
-    return null;
-  }
-
-  const nested =
-    (isPlainObject(obj.service) && obj.service) ||
-    (isPlainObject(obj.resource) && obj.resource) ||
-    (isPlainObject(obj.item) && obj.item) ||
-    (isPlainObject(obj.data) && obj.data) ||
-    (isPlainObject(obj.result) && obj.result) ||
-    obj;
-
-  const item = {
-    id: firstNonEmpty(nested.id, nested.serviceId, obj.id, obj.serviceId),
-    ownerId: firstNonEmpty(
-      nested.ownerId,
-      nested.owner?.id,
-      obj.ownerId,
-      obj.owner?.id
-    ),
-    name: firstNonEmpty(
-      nested.name,
-      nested.serviceName,
-      obj.name,
-      obj.serviceName
-    ),
-    slug: firstNonEmpty(nested.slug, obj.slug),
-    type: firstNonEmpty(nested.type, obj.type),
-    region: firstNonEmpty(nested.region, obj.region),
-    url: firstNonEmpty(
-      nested.url,
-      nested.dashboardUrl,
-      nested.serviceDetails?.url,
-      obj.url,
-      obj.dashboardUrl,
-      obj.serviceDetails?.url
-    ),
-    suspended:
-      typeof nested.suspended === "boolean"
-        ? nested.suspended
-        : typeof obj.suspended === "boolean"
-          ? obj.suspended
-          : undefined,
+  return {
+    cleaned,
+    skippedNoise,
   };
-
-  if (!item.id && !item.name && !item.slug) {
-    return null;
-  }
-
-  return item;
 }
 
-function extractServiceCandidatesDeep(node, acc = [], seen = new WeakSet()) {
-  if (!node || typeof node !== "object") {
-    return acc;
-  }
+function compactLogLine(item, index, maxLen = 220) {
+  const ts = item?.timestamp || "-";
+  const lvl = item?.level || "-";
+  const message = normalizePreviewMessage(item?.message);
+  const compact =
+    message.length > maxLen ? `${message.slice(0, maxLen)}…` : message || "-";
 
-  if (seen.has(node)) {
-    return acc;
-  }
-  seen.add(node);
-
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      extractServiceCandidatesDeep(item, acc, seen);
-    }
-    return acc;
-  }
-
-  if (looksLikeServiceObject(node)) {
-    const normalized = normalizeServiceCandidate(node);
-    if (normalized) {
-      acc.push(normalized);
-    }
-  }
-
-  for (const value of Object.values(node)) {
-    if (value && typeof value === "object") {
-      extractServiceCandidatesDeep(value, acc, seen);
-    }
-  }
-
-  return acc;
+  return `${index + 1}) [${ts}] [${lvl}] ${compact}`;
 }
 
-function dedupeServices(items) {
-  const map = new Map();
-
-  for (const item of items) {
-    if (!item) continue;
-
-    const key =
-      firstNonEmpty(item.id) ||
-      `slug:${firstNonEmpty(item.slug)}` ||
-      `name:${firstNonEmpty(item.name)}`;
-
-    if (!key) continue;
-
-    if (!map.has(key)) {
-      map.set(key, item);
-      continue;
-    }
-
-    const prev = map.get(key);
-    map.set(key, {
-      id: firstNonEmpty(prev.id, item.id),
-      ownerId: firstNonEmpty(prev.ownerId, item.ownerId),
-      name: firstNonEmpty(prev.name, item.name),
-      slug: firstNonEmpty(prev.slug, item.slug),
-      type: firstNonEmpty(prev.type, item.type),
-      region: firstNonEmpty(prev.region, item.region),
-      url: firstNonEmpty(prev.url, item.url),
-      suspended:
-        typeof prev.suspended === "boolean"
-          ? prev.suspended
-          : item.suspended,
-    });
+export async function handleRenderBridgeLogs({
+  bot,
+  chatId,
+  senderIdStr,
+  rest,
+  bypass,
+}) {
+  if (!bypass) {
+    await bot.sendMessage(chatId, "Эта команда доступна только монарху GARYA.");
+    return;
   }
 
-  return [...map.values()];
-}
+  try {
+    const state = await renderBridgeStateStore.getState(senderIdStr || "global");
 
-class RenderBridge {
-  constructor() {
-    this.config = getRenderBridgeConfig();
-  }
-
-  getDiag() {
-    return getRenderBridgeDiag();
-  }
-
-  ensureReady() {
-    if (!this.config.enabled) {
-      throw new Error("render_bridge_disabled");
+    if (!state?.selected_service_id) {
+      await bot.sendMessage(
+        chatId,
+        "Сначала выбери Render service:\n/render_bridge_service <serviceId|name|slug>"
+      );
+      return;
     }
 
-    if (!this.config.apiKey) {
-      throw new Error("render_api_key_missing");
-    }
-  }
-
-  async request(path, { method = "GET", query = {}, body = null } = {}) {
-    this.ensureReady();
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
-
-    const url = buildUrl(this.config.apiBaseUrl, path, query);
-
-    try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          authorization: `Bearer ${this.config.apiKey}`,
-          "content-type": "application/json",
-          accept: "application/json",
-        },
-        body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
-
-      const text = await response.text();
-      let parsed = null;
-
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        parsed = text;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          `render_api_http_${response.status}: ${
-            typeof parsed === "string"
-              ? parsed.slice(0, 500)
-              : JSON.stringify(parsed).slice(0, 500)
-          }`
-        );
-      }
-
-      return parsed;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  async listServices({ filter = "" } = {}) {
-    const raw = await this.request("/services");
-
-    let items = normalizeServices(raw);
-
-    if (!items.length) {
-      items = dedupeServices(extractServiceCandidatesDeep(raw));
+    if (!state?.selected_owner_id) {
+      await bot.sendMessage(
+        chatId,
+        "Для выбранного Render service не сохранён ownerId. Выбери сервис заново:\n/render_bridge_service <serviceId|name|slug>"
+      );
+      return;
     }
 
-    if (!items.length && isPlainObject(raw)) {
-      const one = normalizeServiceCandidate(raw);
-      if (one) {
-        items = [one];
-      }
-    }
-
-    const q = normalizeString(filter).toLowerCase();
-    if (q) {
-      items = items.filter((item) => {
-        return (
-          normalizeString(item.id).toLowerCase().includes(q) ||
-          normalizeString(item.ownerId).toLowerCase().includes(q) ||
-          normalizeString(item.name).toLowerCase().includes(q) ||
-          normalizeString(item.slug).toLowerCase().includes(q) ||
-          normalizeString(item.type).toLowerCase().includes(q)
-        );
-      });
-    }
-
-    return items;
-  }
-
-  async resolveService(selection) {
-    const rawSelection = normalizeString(selection);
-    if (!rawSelection) {
-      return {
-        ok: false,
-        error: "missing_service_selection",
-      };
-    }
-
-    const services = await this.listServices({ filter: rawSelection });
-
-    const exactId = services.find((s) => s.id === rawSelection);
-    if (exactId) {
-      return { ok: true, service: exactId };
-    }
-
-    const lower = rawSelection.toLowerCase();
-
-    const exactSlug = services.find(
-      (s) => normalizeString(s.slug).toLowerCase() === lower
-    );
-    if (exactSlug) {
-      return { ok: true, service: exactSlug };
-    }
-
-    const exactName = services.find(
-      (s) => normalizeString(s.name).toLowerCase() === lower
-    );
-    if (exactName) {
-      return { ok: true, service: exactName };
-    }
-
-    if (services.length === 1) {
-      return { ok: true, service: services[0] };
-    }
-
-    if (!services.length) {
-      return { ok: false, error: "service_not_found", matches: [] };
-    }
-
-    return {
-      ok: false,
-      error: "service_ambiguous",
-      matches: services.slice(0, 10),
-    };
-  }
-
-  async listDeploys({ serviceId, limit } = {}) {
-    const raw = await this.request(
-      `/services/${encodeURIComponent(serviceId)}/deploys`
-    );
-    const items = normalizeDeploys(raw);
-    const n = Math.max(
-      1,
-      Math.min(Number(limit) || this.config.defaultDeployLimit, 20)
-    );
-    return items.slice(0, n);
-  }
-
-  async getDeploy({ serviceId, deployId }) {
-    const raw = await this.request(
-      `/services/${encodeURIComponent(serviceId)}/deploys/${encodeURIComponent(
-        deployId
-      )}`
-    );
-
-    const items = normalizeDeploys(raw);
-    if (items.length) return items[0];
-
-    if (raw && typeof raw === "object") {
-      return {
-        id:
-          normalizeString(raw.id) ||
-          normalizeString(raw.deployId) ||
-          deployId,
-        status:
-          normalizeString(raw.status) ||
-          normalizeString(raw.state) ||
-          "unknown",
-        createdAt: normalizeString(raw.createdAt),
-        finishedAt:
-          normalizeString(raw.finishedAt) ||
-          normalizeString(raw.updatedAt),
-        commit:
-          normalizeString(raw.commit?.id) ||
-          normalizeString(raw.commitId) ||
-          normalizeString(raw.commit?.sha),
-      };
-    }
-
-    return {
-      id: deployId,
-      status: "unknown",
-      createdAt: "",
-      finishedAt: "",
-      commit: "",
-    };
-  }
-
-  async requestLogsWithFallbacks({
-    ownerId,
-    serviceId,
-    startTime,
-    endTime,
-  }) {
-    const attempts = [
-      {
-        label: "resource",
-        query: {
-          ownerId,
-          resource: serviceId,
-          startTime,
-          endTime,
-        },
-      },
-      {
-        label: "resourceId",
-        query: {
-          ownerId,
-          resourceId: serviceId,
-          startTime,
-          endTime,
-        },
-      },
-      {
-        label: "serviceId",
-        query: {
-          ownerId,
-          serviceId,
-          startTime,
-          endTime,
-        },
-      },
-      {
-        label: "resourceIds",
-        query: {
-          ownerId,
-          resourceIds: [serviceId],
-          startTime,
-          endTime,
-        },
-      },
-    ];
-
-    let lastError = null;
-
-    for (const attempt of attempts) {
-      try {
-        const raw = await this.request("/logs", {
-          query: attempt.query,
-        });
-        return raw;
-      } catch (error) {
-        lastError = error;
-
-        const msg = String(error?.message || "");
-        const isFilterError =
-          msg.includes("must specify at least one resource in filters") ||
-          msg.includes("ownerId is required") ||
-          msg.includes("render_api_http_400");
-
-        if (!isFilterError) {
-          throw error;
-        }
-      }
-    }
-
-    throw lastError || new Error("render_logs_request_failed");
-  }
-
-  async listRecentLogs({
-    ownerId,
-    serviceId,
-    level,
-    minutes,
-    limit,
-  } = {}) {
-    const normalizedOwnerId = normalizeString(ownerId);
-    if (!normalizedOwnerId) {
-      throw new Error("render_owner_id_missing");
-    }
-
-    const normalizedServiceId = normalizeString(serviceId);
-    if (!normalizedServiceId) {
-      throw new Error("render_service_id_missing");
-    }
-
-    const windowMinutes = Math.max(
-      1,
-      Math.min(
-        Number(minutes) || this.config.defaultLogWindowMinutes,
-        1440
-      )
-    );
-
-    const maxItems = Math.max(
-      1,
-      Math.min(Number(limit) || this.config.defaultLogLimit, 500)
-    );
-
-    const requestedLevel = normalizeString(
-      level || this.config.defaultLogLevel
-    );
-
-    const end = new Date();
-    const start = new Date(Date.now() - windowMinutes * 60 * 1000);
-
-    const raw = await this.requestLogsWithFallbacks({
-      ownerId: normalizedOwnerId,
-      serviceId: normalizedServiceId,
-      startTime: start.toISOString(),
-      endTime: end.toISOString(),
+    const { minutes, limit } = parseArgs(rest, {
+      minutes: 60,
+      limit: 5,
     });
 
-    let items = normalizeLogs(raw);
-    items = filterLogsForService(items, normalizedServiceId);
-    items = filterLogsByLevel(items, requestedLevel);
-    items = sortLogsNewestFirst(items).slice(0, maxItems);
+    const fetchLimit = Math.max(limit * 3, 15);
 
-    return items;
+    const logs = await renderBridge.listRecentLogs({
+      ownerId: state.selected_owner_id,
+      serviceId: state.selected_service_id,
+      level: "all",
+      minutes,
+      limit: fetchLimit,
+    });
+
+    if (!logs.length) {
+      await bot.sendMessage(
+        chatId,
+        [
+          "Render logs не найдены.",
+          `ownerId=${state.selected_owner_id}`,
+          `serviceId=${state.selected_service_id}`,
+          `windowMinutes=${minutes}`,
+          `limit=${limit}`,
+        ].join("\n")
+      );
+      return;
+    }
+
+    const { cleaned, skippedNoise } = selectRenderableLogs(logs, limit);
+
+    if (!cleaned.length) {
+      await bot.sendMessage(
+        chatId,
+        [
+          "Render logs получены, но это только шумные runtime-строки.",
+          `ownerId=${state.selected_owner_id}`,
+          `serviceId=${state.selected_service_id}`,
+          `windowMinutes=${minutes}`,
+          `fetched=${logs.length}`,
+          `skippedNoise=${skippedNoise}`,
+        ].join("\n")
+      );
+      return;
+    }
+
+    const previewLines = cleaned.map((item, index) =>
+      compactLogLine(item, index, 220)
+    );
+
+    await bot.sendMessage(
+      chatId,
+      [
+        "✅ Render logs получены.",
+        `ownerId=${state.selected_owner_id}`,
+        `serviceId=${state.selected_service_id}`,
+        `windowMinutes=${minutes}`,
+        `fetched=${logs.length}`,
+        `shown=${cleaned.length}`,
+        `skippedNoise=${skippedNoise}`,
+        ...previewLines,
+      ].join("\n")
+    );
+  } catch (error) {
+    await bot.sendMessage(
+      chatId,
+      `Ошибка RenderBridge logs: ${error?.message || "unknown_error"}`
+    );
   }
 }
 
-export const renderBridge = new RenderBridge();
-
-export default renderBridge;
+export default {
+  handleRenderBridgeLogs,
+};

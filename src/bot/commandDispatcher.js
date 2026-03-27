@@ -70,8 +70,7 @@ export async function dispatchCommand(cmd, ctx) {
     }
 
     if (ctxObj && (ctxObj.rest === undefined || ctxObj.rest === null) && rawText) {
-      const parts = rawText.trim().split(/\s+/);
-      ctxObj.rest = parts.slice(1).join(" ");
+      ctxObj.rest = rawText.trim().split(/\s+/).slice(1).join(" ");
     }
 
     ctx = ctxObj;
@@ -184,6 +183,8 @@ export async function dispatchCommand(cmd, ctx) {
 
     "/pm_set",
     "/pm_list",
+
+    "/render_diag",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {

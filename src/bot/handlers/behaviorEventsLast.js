@@ -140,12 +140,63 @@ function toReadableScalar(value) {
   }
 }
 
-function formatMetadataLines(metadata, opts = {}) {
-  const meta =
-    metadata && typeof metadata === "object" && !Array.isArray(metadata)
-      ? metadata
-      : {};
+function isObjectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
 
+function formatBehaviorSnapshotCompactLines(metadata, opts = {}) {
+  const meta = isObjectRecord(metadata) ? metadata : {};
+  const showRaw = Boolean(opts?.showRaw);
+
+  const version = toReadableScalar(meta.behaviorVersion);
+  const styleAxis = toReadableScalar(meta.styleAxis);
+  const styleAxisSource = toReadableScalar(meta.styleAxisSource);
+  const softStyleAskDetected = toReadableScalar(meta.softStyleAskDetected);
+  const criticality = toReadableScalar(meta.criticality);
+  const criticalitySource = toReadableScalar(meta.criticalitySource);
+  const noNodding = toReadableScalar(meta.noNodding);
+
+  const lines = [];
+  lines.push("behavior_snapshot:");
+  lines.push(`  - version: ${version}`);
+  lines.push(
+    `  - style: axis=${styleAxis} | source=${styleAxisSource} | softAsk=${softStyleAskDetected}`
+  );
+  lines.push(
+    `  - criticality: level=${criticality} | source=${criticalitySource}`
+  );
+  lines.push(`  - noNodding: ${noNodding}`);
+
+  const preferredKeys = new Set([
+    "behaviorVersion",
+    "styleAxis",
+    "styleAxisSource",
+    "softStyleAskDetected",
+    "criticality",
+    "criticalitySource",
+    "noNodding",
+  ]);
+
+  const extraKeys = Object.keys(meta)
+    .filter((key) => !preferredKeys.has(key))
+    .sort((a, b) => a.localeCompare(b));
+
+  if (extraKeys.length > 0) {
+    lines.push("extra_meta:");
+    for (const key of extraKeys) {
+      lines.push(`  - ${key}: ${toReadableScalar(meta[key])}`);
+    }
+  }
+
+  if (showRaw) {
+    lines.push(`raw: ${safeJson(meta, 1200)}`);
+  }
+
+  return lines;
+}
+
+function formatMetadataLines(metadata, opts = {}) {
+  const meta = isObjectRecord(metadata) ? metadata : {};
   const showRaw = Boolean(opts?.showRaw);
 
   const preferredOrder = [
@@ -209,6 +260,12 @@ function formatEventBlock(r, opts = {}) {
   block.push(
     `scope: g=${g} | chat=${chat} | transport=${transport} | schema=${schemaVersion}`
   );
+
+  if (eventType === "behavior_snapshot_used") {
+    block.push(...formatBehaviorSnapshotCompactLines(r?.metadata, opts));
+    return block.join("\n");
+  }
+
   block.push("meta:");
   block.push(...formatMetadataLines(r?.metadata, opts));
 

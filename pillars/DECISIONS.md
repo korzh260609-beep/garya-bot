@@ -790,3 +790,65 @@ Consequences:
 - Render short commands and RenderBridge commands are currently treated as separate operational surfaces
 - blind cleanup of Render commands is forbidden
 - future cleanup requires overlap audit first
+
+---
+
+## D-037: Render operator primary command set v1
+
+Status: ACCEPTED  
+Date: 2026-03-29  
+Scope: Render Diagnostics / Monarch Operator UX / Command Usage
+
+Decision:
+
+For daily monarch operation, SG defines a primary Render command set.
+This decision does not delete or replace other Render commands.
+It only fixes which commands are considered the main operator path.
+
+Primary operator command set:
+
+1. Live Render service workflow
+- `/render_bridge_service`
+- `/render_bridge_logs`
+- `/render_bridge_diagnose`
+
+Purpose:
+- choose the active Render service
+- inspect fresh live logs from Render API
+- get a short diagnosis from live fetched logs
+
+2. Manual pasted-log workflow
+- `/render_diag`
+
+Purpose:
+- diagnose copied log text when live RenderBridge access is not needed
+- use as a fast manual fallback
+
+3. Frozen snapshot workflow
+- `/render_log_set`
+- `/render_diag_last`
+
+Purpose:
+- freeze one chosen log snapshot locally
+- re-run diagnosis on the same saved snapshot without pasting it again
+
+4. Historical local snapshot review
+- `/render_errors_last`
+- `/render_deploys_last`
+
+Purpose:
+- inspect already saved rolling snapshots
+- use for quick historical review, not for live API inspection
+
+Hard rules:
+
+1. Daily operator guidance must prefer the primary command set above.
+2. Secondary Render commands may remain available, but are treated as auxiliary/dev surface.
+3. Default operator explanations and future help text should prefer the primary command set first.
+4. This decision does not authorize deletion, merge, or renaming of any existing Render command.
+
+Consequences:
+
+- monarch has a fixed minimal Render toolkit for routine work
+- command confusion is reduced without breaking existing tooling
+- advanced Render commands remain available but are no longer the default first-choice path

@@ -5,6 +5,7 @@
 import { handleArList } from "./handlers/arList.js";
 import { handleRepoStatus } from "./handlers/repoStatus.js";
 import { handleWorkflowCheck } from "./handlers/workflowCheck.js";
+import { handleReindexRepo } from "./handlers/reindexRepo.js";
 
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
 import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
@@ -202,6 +203,9 @@ export async function dispatchCommand(cmd, ctx) {
     "/render_bridge_deploys",
     "/render_bridge_deploy",
     "/render_bridge_diag",
+
+    "/reindex",
+    "/repo_status",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
@@ -361,6 +365,15 @@ export async function dispatchCommand(cmd, ctx) {
   }
 
   switch (cmd0) {
+    case "/reindex": {
+      await handleReindexRepo({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+      });
+      return { handled: true };
+    }
+
     case "/repo_status": {
       await handleRepoStatus({
         bot,

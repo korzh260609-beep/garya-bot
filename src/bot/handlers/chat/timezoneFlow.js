@@ -5,6 +5,16 @@ import { isTimeNowIntent } from "../../../core/time/timeNowIntent.js";
 import { isCurrentDateIntent } from "../../../core/time/currentDateIntent.js";
 import { getUserTimezone, setUserTimezone } from "../../../db/userSettings.js";
 
+function isFutureParsedHint(parsed) {
+  const hint = String(parsed?.hint || "").trim();
+
+  return (
+    hint === "tomorrow" ||
+    hint === "day_after_tomorrow" ||
+    /_days_from_now$/.test(hint)
+  );
+}
+
 export async function resolveUserTimezoneState(globalUserId) {
   let userTz = "UTC";
   let timezoneMissing = false;
@@ -194,7 +204,6 @@ export async function tryHandleDeterministicTimeReplies({
   try {
     const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
     const parsed = timeCtx.parseHumanDate(effective);
-
     const qLower = String(effective || "").toLowerCase();
     const asksCalendarDate =
       qLower.includes("число") || qLower.includes("дата") || qLower.includes("what date") || qLower.includes("date was");
@@ -204,6 +213,7 @@ export async function tryHandleDeterministicTimeReplies({
       parsed?.hint === "tomorrow" ||
       parsed?.hint === "yesterday" ||
       parsed?.hint === "day_before_yesterday" ||
+      parsed?.hint === "day_after_tomorrow" ||
       /_days_ago$/.test(String(parsed?.hint || "")) ||
       /_days_from_now$/.test(String(parsed?.hint || ""));
 
@@ -237,7 +247,7 @@ export async function tryHandleDeterministicTimeReplies({
   try {
     const timeCtx = createTimeContext({ userTimezoneFromDb: userTz });
     const parsed = timeCtx.parseHumanDate(effective);
-    const isFutureSingleDay = /_days_from_now$/.test(String(parsed?.hint || ""));
+    const isFutureSingleDay = isFutureParsedHint(parsed);
 
     if (parsed && !isFutureSingleDay) {
       const uaCount = (recallCtx || "").match(/U:|A:/g)?.length ?? 0;

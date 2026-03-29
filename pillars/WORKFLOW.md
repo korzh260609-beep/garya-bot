@@ -182,6 +182,14 @@ For each roadmap item:
 - 5.16.F2 answer_mode_changed
 - 5.16.F3 style_axis_used
 
+### Notes (factual)
+
+- Current behavior-events verification surface is active via `/behavior_events_last` (monarch-private).
+- Legacy event types `style_axis_used` and `criticality_used` are hidden by default in output and shown only with explicit `legacy` flag.
+- Current runtime snapshot event is `behavior_snapshot_used` with compact rendering; raw metadata is shown only with explicit `raw` flag.
+- `clarification_asked` logging is active for short single-question clarification replies.
+- Workflow names in the FUTURE subsection may lag behind runtime event evolution; repository/runtime remain the source of truth for active event names.
+
 ## (FUTURE) 5.xx GROUP-SOURCES METRICS (privacy control)
 
 - 5.xx.1 cross_group_recall_requests
@@ -211,6 +219,10 @@ For each roadmap item:
   - /build_info works in private
   - /build_info blocked in groups (DEV only)
 - Deployed commit: 00d8e3748864c0da1a28dadf9575937220847a4a
+- Render diagnostics currently have two active command surfaces:
+  - legacy short commands (`/render_diag`, `/render_log_set`, `/render_diag_last`, `/render_log_show`, `/render_errors_last`, `/render_deploys_last`)
+  - RenderBridge commands (`/render_bridge_*`)
+- These surfaces are not proven duplicates and must not be deleted without runtime usage audit.
 
 ## (SKELETON) 6.8 MULTI-INSTANCE SAFETY
 
@@ -358,6 +370,12 @@ For each roadmap item:
 - 8A.10.2 /recall --groups monarch-only initially
 - 8A.10.3 /recall_more respects scope + cursor
 
+### Notes (factual)
+
+- False-recall guard for future single-day phrases was corrected.
+- Parsed future hints such as `tomorrow`, `day_after_tomorrow`, and `*_days_from_now` must not trigger `В памяти нет данных за этот период.`
+- Historical recall guard still applies when parsed date exists but recall context is too weak.
+
 **Gate:** Cross-group recall forbidden until Stage 11.17 and 7B.10 exist.
 
 ---
@@ -391,6 +409,12 @@ For each roadmap item:
 - 9.8 Soft style ask skeleton
 - 9.9 Criticality levels V1 skeleton
 - 9.10 No-Nodding rule (hard)
+
+### Notes (factual)
+
+- Short contextual reactions after a substantive assistant reply should not automatically trigger a generic clarification question.
+- Examples of protected reaction-like messages: `Да)`, `Ок`, `Хороший план )`.
+- Contextual reaction handling is separated from structurally-underspecified request handling.
 
 **Gate:** AnswerMode must never change personality; BehaviorCore controls behavior, not length.
 

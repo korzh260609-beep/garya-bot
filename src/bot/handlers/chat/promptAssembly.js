@@ -75,6 +75,93 @@ function isStructurallyUnderspecifiedRequest(value) {
   return shortByChars && shortByWords && lowStructure;
 }
 
+function getLastAssistantMessage(history) {
+  if (!Array.isArray(history) || history.length === 0) return null;
+
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const item = history[i];
+    if (item?.role === "assistant" && typeof item?.content === "string") {
+      return item.content;
+    }
+  }
+
+  return null;
+}
+
+function hasReactionToneHints(text) {
+  const s = String(text || "").trim();
+  if (!s) return false;
+
+  if (s.includes(")") || s.includes("))")) return true;
+  if (s.includes("👍") || s.includes("👌") || s.includes("🙂") || s.includes("😊")) return true;
+  if (s.endsWith("!")) return true;
+
+  return false;
+}
+
+function isLikelyAcknowledgmentToken(text) {
+  const s = normalizeWhitespace(text).toLowerCase();
+  if (!s) return false;
+
+  const compact = s.replace(/[()!.,]+/g, "").trim();
+
+  return new Set([
+    "ок",
+    "ok",
+    "okay",
+    "да",
+    "ага",
+    "угу",
+    "ясно",
+    "понял",
+    "понятно",
+    "принял",
+    "хорошо",
+    "норм",
+    "нормально",
+    "супер",
+    "отлично",
+  ]).has(compact);
+}
+
+function isLikelyContextualReactionMessage(value, history) {
+  const text = normalizeWhitespace(value);
+  if (!text) return false;
+
+  const chars = text.length;
+  const words = countWords(text);
+  const sentenceMarks = countSentenceMarks(text);
+  const lineBreaks = countLineBreaks(text);
+  const structuredPayload = hasStructuredPayload(text);
+  const endsWithQuestion = text.endsWith("?");
+
+  if (endsWithQuestion) return false;
+  if (structuredPayload) return false;
+  if (lineBreaks > 0) return false;
+  if (sentenceMarks > 2) return false;
+  if (chars > 80) return false;
+  if (words > 8) return false;
+
+  const lastAssistantMessage = getLastAssistantMessage(history);
+  if (!lastAssistantMessage) return false;
+
+  const lastAssistantChars = normalizeWhitespace(lastAssistantMessage).length;
+  const lastAssistantWords = countWords(lastAssistantMessage);
+  const lastAssistantWasSubstantive =
+    lastAssistantChars >= 80 || lastAssistantWords >= 12;
+
+  if (!lastAssistantWasSubstantive) {
+    return false;
+  }
+
+  const reactionTone = hasReactionToneHints(text);
+  const acknowledgmentToken = isLikelyAcknowledgmentToken(text);
+  const shortEvaluativeUtterance =
+    chars <= 40 && words <= 4 && !endsWithQuestion && !structuredPayload;
+
+  return reactionTone || acknowledgmentToken || shortEvaluativeUtterance;
+}
+
 export function buildChatMessages({
   buildSystemPrompt,
   answerMode,
@@ -152,8 +239,31 @@ export function buildChatMessages({
 
   const historyMessages = stablePersonalFactMode ? [] : Array.isArray(history) ? history : [];
 
+  const likelyContextualReaction =
+    !stablePersonalFactMode &&
+    isLikelyContextualReactionMessage(effective, historyMessages);
+
+  const contextualReactionSystemMessage = likelyContextualReaction
+    ? {
+        role: "system",
+        content:
+          "CONTEXTUAL REACTION RULE:\n" +
+          "The current user message is likely a short reaction or acknowledgment to the previous assistant reply, not a new underspecified task.\n" +
+          "Do NOT respond with a generic clarification like 'Что именно нужно сделать?'\n" +
+          "Do NOT force the message into task-clarification mode unless the user clearly starts a new action request.\n" +
+          "Prefer one of these behaviors:\n" +
+          "- briefly acknowledge and continue the current topic,\n" +
+          "- confirm and offer the next step,\n" +
+          "- continue naturally from the previous assistant message.\n" +
+          "Keep the reply short and context-aware.\n" +
+          "Only ask for clarification if the user is clearly requesting a new action and the object is still unclear.",
+      }
+    : null;
+
   const clarificationFirstSystemMessage =
-    !stablePersonalFactMode && isStructurallyUnderspecifiedRequest(effective)
+    !stablePersonalFactMode &&
+    !likelyContextualReaction &&
+    isStructurallyUnderspecifiedRequest(effective)
       ? {
           role: "system",
           content:
@@ -184,6 +294,7 @@ export function buildChatMessages({
     { role: "system", content: roleGuardPrompt },
     noAddressingForStableFactSystemMessage,
     ...historyMessages,
+    contextualReactionSystemMessage,
     clarificationFirstSystemMessage,
     { role: "user", content: effective },
   ];

@@ -705,3 +705,88 @@ Consequences:
 - Отсутствие auto-promotion не является bug
 - Любая попытка включить auto-promotion без нового decision-entry считается нарушением stage governance
 - Тестирование ролей guest/citizen в V1 должно опираться на ручной `/grant` и `/revoke`
+
+---
+
+## D-036: Render command surface policy v1
+
+Status: ACCEPTED  
+Date: 2026-03-29  
+Scope: Render Diagnostics / Operator Surface / Runtime Tooling
+
+Decision:
+
+Render command surface in SG is split into separate operational groups.
+These commands must not be treated as blind duplicates unless runtime usage,
+data source, and output responsibility are proven equivalent.
+
+Render command groups are fixed as follows:
+
+1. Manual pasted-log tools
+- `/render_diag`
+
+Purpose:
+- diagnose log text manually pasted by monarch
+- works without live Render API access
+- used for ad-hoc analysis of copied logs/messages
+
+2. Local snapshot inbox tools
+- `/render_log_set`
+- `/render_log_show`
+- `/render_diag_last`
+
+Purpose:
+- save one chosen log snapshot locally
+- inspect the currently saved snapshot
+- run diagnosis on the saved snapshot without pasting the log again
+
+3. Local rolling snapshot store tools
+- `/render_errors_last`
+- `/render_deploys_last`
+
+Purpose:
+- inspect already stored rolling snapshots
+- provide historical operational view of saved Render events
+- this is not a live Render API surface
+
+4. Live RenderBridge / Render API tools
+- `/render_bridge_service`
+- `/render_bridge_services`
+- `/render_bridge_logs`
+- `/render_bridge_errors`
+- `/render_bridge_diagnose`
+- `/render_bridge_deploys`
+- `/render_bridge_deploy`
+- `/render_bridge_diag`
+
+Purpose:
+- work with selected live Render service
+- fetch live logs and deploys from Render API
+- normalize live data
+- optionally persist snapshots
+- diagnose live-fetched logs
+- inspect RenderBridge subsystem state
+
+Hard rules:
+
+1. No Render command may be removed only because its name looks legacy or overlaps conceptually.
+2. Removal is allowed only after:
+   - runtime usage is audited
+   - source-path and responsibility are proven redundant
+   - replacement command is confirmed functionally equivalent
+3. Live RenderBridge tools do not automatically replace manual pasted-log tools.
+4. Local snapshot tools do not automatically replace live RenderBridge tools.
+5. If help surface becomes noisy, secondary Render commands may be hidden from default help, but not deleted.
+
+Preferred operator usage:
+
+- use `/render_bridge_*` when live Render service access is needed
+- use `/render_diag` when only copied log text is available
+- use `/render_log_set` + `/render_diag_last` when one log snapshot must be frozen and re-checked repeatedly
+- use `/render_errors_last` and `/render_deploys_last` for local historical snapshot review
+
+Consequences:
+
+- Render short commands and RenderBridge commands are currently treated as separate operational surfaces
+- blind cleanup of Render commands is forbidden
+- future cleanup requires overlap audit first

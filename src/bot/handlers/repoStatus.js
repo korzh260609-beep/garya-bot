@@ -25,8 +25,6 @@ async function requireMonarch(bot, chatId, userIdStr) {
 // - Uses GITHUB_TOKEN if present
 // - Does NOT throw (safe)
 // ---------------------------------------------------------------------------
-// TEMP DEBUG:
-// function kept for future restore, but NOT used in current test version
 async function fetchHeadCommitSha({ repo, branch }) {
   try {
     const token = String(process.env.GITHUB_TOKEN || "").trim();
@@ -84,11 +82,10 @@ export async function handleRepoStatus({ bot, chatId, senderIdStr }) {
     latest = await store.getLatestSnapshot({ repo, branch });
 
     if (!latest) {
-      await bot.sendMessage(chatId, `RepoStatus: no snapshots yet`);
+      await bot.sendMessage(chatId, "RepoStatus: no snapshots yet");
       return;
     }
 
-    // files count
     const countRes = await pool.query(
       `SELECT COUNT(*)::int AS cnt FROM repo_index_files WHERE snapshot_id = $1`,
       [latest.id]
@@ -123,21 +120,16 @@ export async function handleRepoStatus({ bot, chatId, senderIdStr }) {
     return;
   }
 
-  // -----------------------------------------------------------------------
-  // TEMP DEBUG:
-  // Skip GitHub fetchHeadCommitSha() completely to verify whether repo_status
-  // hangs on external fetch without timeout.
-  // -----------------------------------------------------------------------
   let commitSha = latest.commit_sha || null;
 
   if (!commitSha) {
-    commitSha = "null";
+    commitSha = await fetchHeadCommitSha({ repo, branch });
   }
 
   await bot.sendMessage(
     chatId,
     [
-      `RepoStatus: ok`,
+      "RepoStatus: ok",
       `snapshotId: ${latest.id}`,
       `repo: ${latest.repo || "?"}`,
       `branch: ${latest.branch || "?"}`,
@@ -147,3 +139,7 @@ export async function handleRepoStatus({ bot, chatId, senderIdStr }) {
     ].join("\n")
   );
 }
+
+export default {
+  handleRepoStatus,
+};

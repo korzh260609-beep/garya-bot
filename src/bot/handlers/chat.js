@@ -34,6 +34,7 @@ export async function handleChatMessage({
   globalUserId = null,
   userRole = "guest",
   FileIntake,
+  telegramBotToken = "",
   saveMessageToMemory,
   saveChatPair,
   logInteraction,
@@ -73,8 +74,16 @@ export async function handleChatMessage({
     memoryWrite,
   });
 
-  const { effective, shouldCallAI, directReplyText } =
-    resolveFileIntakeDecision({ FileIntake, msg, trimmed });
+  const {
+    effective,
+    shouldCallAI,
+    directReplyText,
+  } = await resolveFileIntakeDecision({
+    FileIntake,
+    msg,
+    trimmed,
+    telegramBotToken,
+  });
 
   // --------------------------------------------------------------------------
   // STAGE 11F — unified empty guard AFTER file-intake decision

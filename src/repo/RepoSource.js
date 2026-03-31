@@ -3,8 +3,11 @@
 // ============================================================================
 
 import { githubGetJson } from "./githubApi.js";
-
-const MAX_FILE_BYTES = 200 * 1024; // 200 KB
+import {
+  MAX_TEXT_FILE_SIZE,
+  isAllowedTextPath,
+  isProbablyText,
+} from "./textFilters.js";
 
 export class RepoSource {
   constructor({ repo, branch, token }) {
@@ -41,31 +44,14 @@ export class RepoSource {
           .map((n) => n.path)
       : [];
 
-    // 4) Filters
-    const denyPrefixes = ["node_modules/", ".git/", "dist/", "build/"];
-    const denyExact = [
-      ".env",
-      ".env.local",
-      ".env.production",
-      ".env.development",
-    ];
-    const allowExt = [".js", ".ts", ".json", ".md", ".sql", ".yml", ".yaml"];
-    const MAX_PATH_LEN = 300;
-
-    return rawFiles.filter((p) => {
-      if (!p || typeof p !== "string") return false;
-      if (p.length > MAX_PATH_LEN) return false;
-      if (denyExact.includes(p)) return false;
-      if (denyPrefixes.some((pref) => p.startsWith(pref))) return false;
-      return allowExt.some((ext) => p.toLowerCase().endsWith(ext));
-    });
+    return rawFiles.filter((p) => isAllowedTextPath(p));
   }
 
   // ---------------------------------------------------------------------------
   // Fetch file content ON DEMAND (GitHub Contents API)
   // ---------------------------------------------------------------------------
   async fetchTextFile(path) {
-    if (!path) return null;
+    if (!path || !isAllowedTextPath(path)) return null;
 
     const url =
       `https://api.github.com/repos/${this.repo}/contents/${encodeURIComponent(
@@ -76,11 +62,12 @@ export class RepoSource {
     if (!json || json.type !== "file" || !json.content) return null;
 
     // Size guard (GitHub gives size in bytes)
-    if (json.size && json.size > MAX_FILE_BYTES) return null;
+    if (json.size && json.size > MAX_TEXT_FILE_SIZE) return null;
 
     // Decode base64
     const buffer = Buffer.from(json.content, "base64");
-    if (buffer.length > MAX_FILE_BYTES) return null;
+    if (buffer.length > MAX_TEXT_FILE_SIZE) return null;
+    if (!isProbablyText(buffer)) return null;
 
     const text = buffer.toString("utf8");
 

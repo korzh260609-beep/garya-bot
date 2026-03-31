@@ -69,7 +69,7 @@ class RenderOpsStore {
 
         throw new Error(
           `RenderOpsStore schema is missing: ${missing.join(", ")}. ` +
-          `Apply DB migrations first (expected migration: 046_render_ops_snapshots.sql).`
+          `Apply DB migrations first (expected migration: 040_render_ops_snapshots.sql).`
         );
       }
 

@@ -1,5 +1,6 @@
 // src/bot/handlers/sourcesList.js
-// extracted from case "/sources" — no logic changes
+// extracted from case "/sources"
+// aligned with getAllSourcesSafe() shape
 
 export async function handleSourcesList({
   bot,
@@ -14,16 +15,21 @@ export async function handleSourcesList({
     userPlan,
   });
 
-  if (!sources.length) {
+  if (!Array.isArray(sources) || sources.length === 0) {
     await bot.sendMessage(chatId, "Источники не найдены.");
     return;
   }
 
   let out = "📚 Источники:\n\n";
+
   for (const s of sources) {
-    out += `• ${s.key} — ${s.title || s.type}\n`;
+    const key = s?.key ? String(s.key) : "unknown";
+    const name = s?.name ? String(s.name) : null;
+    const type = s?.type ? String(s.type) : "unknown";
+    const enabled = s?.enabled === true ? "🟢" : "🔴";
+
+    out += `• ${key} — ${name || type} ${enabled}\n`;
   }
 
-  await bot.sendMessage(chatId, out);
+  await bot.sendMessage(chatId, out.trim());
 }
-

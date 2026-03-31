@@ -45,7 +45,6 @@ export async function handleChatMessage({
   sanitizeNonMonarchReply,
 }) {
   const messageId = msg.message_id ?? null;
-  if (!trimmed) return;
 
   const monarchNow =
     typeof isMonarch === "function"
@@ -76,6 +75,20 @@ export async function handleChatMessage({
 
   const { effective, shouldCallAI, directReplyText } =
     resolveFileIntakeDecision({ FileIntake, msg, trimmed });
+
+  // --------------------------------------------------------------------------
+  // STAGE 11F — unified empty guard AFTER file-intake decision
+  // IMPORTANT:
+  // - text-only empty -> ask user for text
+  // - media-only may still produce directReplyText from FileIntake
+  // - caption-only is allowed because effective may come from media caption
+  // --------------------------------------------------------------------------
+  if (!effective && !shouldCallAI && !directReplyText) {
+    const text = "Напиши текстом, что нужно сделать.";
+    await saveAssistantEarlyReturn(text, "empty");
+    await bot.sendMessage(chatId, text);
+    return;
+  }
 
   const chatIntent = resolveChatIntent({
     text: effective,

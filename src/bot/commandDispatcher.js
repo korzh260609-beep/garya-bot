@@ -6,6 +6,11 @@ import { handleArList } from "./handlers/arList.js";
 import { handleRepoStatus } from "./handlers/repoStatus.js";
 import { handleWorkflowCheck } from "./handlers/workflowCheck.js";
 import { handleReindexRepo } from "./handlers/reindexRepo.js";
+import { handleRepoTree } from "./handlers/repoTree.js";
+import { handleRepoFile } from "./handlers/repoFile.js";
+import { handleRepoAnalyze } from "./handlers/repoAnalyze.js";
+import { handleRepoSearch } from "./handlers/repoSearch.js";
+import { handleCodeOutputStatus } from "./handlers/codeOutputStatus.js";
 
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
 import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
@@ -89,7 +94,7 @@ export async function dispatchCommand(cmd, ctx) {
     return { handled: false };
   }
 
-  const { bot, chatId, chatIdStr } = ctx;
+  const { bot, chatId } = ctx;
 
   const reply =
     typeof ctx.reply === "function"
@@ -117,7 +122,9 @@ export async function dispatchCommand(cmd, ctx) {
     ctx?.isPrivateChat === true ||
     ctx?.identityCtx?.isPrivateChat === true ||
     chatType === "private" ||
-    (effectiveChatIdStr && effectiveFromIdStr && effectiveChatIdStr === effectiveFromIdStr);
+    (effectiveChatIdStr &&
+      effectiveFromIdStr &&
+      effectiveChatIdStr === effectiveFromIdStr);
 
   const PRIVATE_ONLY_COMMANDS = new Set([
     "/build_info",
@@ -206,6 +213,11 @@ export async function dispatchCommand(cmd, ctx) {
 
     "/reindex",
     "/repo_status",
+    "/repo_tree",
+    "/repo_file",
+    "/repo_analyze",
+    "/repo_search",
+    "/code_output_status",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
@@ -376,6 +388,55 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/repo_status": {
       await handleRepoStatus({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+      });
+      return { handled: true };
+    }
+
+    case "/repo_tree": {
+      await handleRepoTree({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    case "/repo_file": {
+      await handleRepoFile({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    case "/repo_analyze": {
+      await handleRepoAnalyze({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    case "/repo_search": {
+      await handleRepoSearch({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    case "/code_output_status": {
+      await handleCodeOutputStatus({
         bot,
         chatId,
         senderIdStr: ctx.senderIdStr,

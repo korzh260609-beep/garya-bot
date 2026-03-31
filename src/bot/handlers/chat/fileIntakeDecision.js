@@ -1,36 +1,105 @@
 // src/bot/handlers/chat/fileIntakeDecision.js
 
-export function resolveFileIntakeDecision({ FileIntake, msg, trimmed }) {
-  const summarizeMediaAttachment =
-    typeof FileIntake?.summarizeMediaAttachment === "function"
-      ? FileIntake.summarizeMediaAttachment
-      : () => null;
+function getFn(obj, name, fallback) {
+  return typeof obj?.[name] === "function" ? obj[name] : fallback;
+}
+
+export async function resolveFileIntakeDecision({
+  FileIntake,
+  msg,
+  trimmed,
+  telegramBotToken = "",
+}) {
+  const summarizeMediaAttachment = getFn(
+    FileIntake,
+    "summarizeMediaAttachment",
+    () => null
+  );
 
   const mediaSummary = summarizeMediaAttachment(msg);
 
-  const decisionFn =
-    typeof FileIntake?.buildEffectiveUserTextAndDecision === "function"
-      ? FileIntake.buildEffectiveUserTextAndDecision
-      : null;
+  const decisionFn = getFn(
+    FileIntake,
+    "buildEffectiveUserTextAndDecision",
+    null
+  );
 
-  const decision = decisionFn
+  const baseDecision = decisionFn
     ? decisionFn(trimmed, mediaSummary)
     : {
         effectiveUserText: trimmed,
         shouldCallAI: Boolean(trimmed),
-        directReplyText: Boolean(trimmed) ? null : "Напиши текстом, что нужно сделать.",
+        directReplyText: Boolean(trimmed)
+          ? null
+          : "Напиши текстом, что нужно сделать.",
       };
 
-  const effective = (decision?.effectiveUserText || "").trim();
-  const shouldCallAI = Boolean(decision?.shouldCallAI);
-  const directReplyText = decision?.directReplyText || null;
+  let effective = (baseDecision?.effectiveUserText || "").trim();
+  let shouldCallAI = Boolean(baseDecision?.shouldCallAI);
+  let directReplyText = baseDecision?.directReplyText || null;
+
+  // --------------------------------------------------------------------------
+  // STAGE 11F.1 + 11F.3 runtime hook (best-effort)
+  // PURPOSE:
+  // - connect existing download/process skeleton to real chat flow
+  // - DO NOT block chat if file intake download fails
+  // - currently used mainly for media-only path
+  // --------------------------------------------------------------------------
+  if (mediaSummary && !shouldCallAI) {
+    const intakeAndDownloadIfNeeded = getFn(
+      FileIntake,
+      "intakeAndDownloadIfNeeded",
+      null
+    );
+    const processFile = getFn(
+      FileIntake,
+      "processFile",
+      null
+    );
+
+    if (
+      intakeAndDownloadIfNeeded &&
+      processFile &&
+      telegramBotToken
+    ) {
+      try {
+        const intake = await intakeAndDownloadIfNeeded(
+          msg,
+          telegramBotToken
+        );
+
+        if (intake) {
+          const processed = await processFile(intake);
+
+          if (
+            processed?.directUserHint &&
+            typeof processed.directUserHint === "string"
+          ) {
+            directReplyText = processed.directUserHint;
+          }
+        }
+      } catch (error) {
+        try {
+          console.error("fileIntakeDecision runtime hook failed:", error);
+        } catch (_) {
+          // ignore
+        }
+        // fail-open:
+        // keep original directReplyText from base decision
+      }
+    }
+  }
 
   return {
     summarizeMediaAttachment,
     mediaSummary,
-    decision,
+    decision: baseDecision,
     effective,
     shouldCallAI,
     directReplyText,
   };
 }
+
+export default {
+  resolveFileIntakeDecision,
+};

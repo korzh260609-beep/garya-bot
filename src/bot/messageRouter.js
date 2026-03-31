@@ -700,6 +700,7 @@ export function attachMessageRouter({
         MAX_HISTORY_MESSAGES,
 
         FileIntake,
+        telegramBotToken: envStr("TELEGRAM_BOT_TOKEN", ""),
 
         getChatHistory,
         saveMessageToMemory,

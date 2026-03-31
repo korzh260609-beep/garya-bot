@@ -2,8 +2,7 @@
 // ============================================================================
 // SOURCES COMMANDS DISPATCHER
 // - extracted 1:1 from commandDispatcher
-// - NO logic changes
-// - ONLY routing isolation
+// - updated wiring for mature Sources Layer handlers
 // ============================================================================
 
 import { handleSourcesList } from "../handlers/sourcesList.js";
@@ -38,21 +37,39 @@ export async function dispatchSourcesCommands({ cmd0, ctx, reply }) {
     }
 
     case "/sources_diag": {
+      if (typeof ctx.runSourceDiagnosticsOnce !== "function") {
+        await reply("⛔ runSourceDiagnosticsOnce недоступен (ошибка wiring).", {
+          cmd: cmd0,
+          handler: "commandDispatcher",
+        });
+        return { handled: true };
+      }
+
       await handleSourcesDiag({
         bot,
         chatId,
         userRole: ctx.userRole,
         userPlan: ctx.userPlan,
         bypass: ctx.bypass,
+        runSourceDiagnosticsOnce: ctx.runSourceDiagnosticsOnce,
       });
       return { handled: true };
     }
 
     case "/source": {
+      if (typeof ctx.fetchFromSourceKey !== "function") {
+        await reply("⛔ fetchFromSourceKey недоступен (ошибка wiring).", {
+          cmd: cmd0,
+          handler: "commandDispatcher",
+        });
+        return { handled: true };
+      }
+
       await handleSource({
         bot,
         chatId,
         rest: ctx.rest,
+        fetchFromSourceKey: ctx.fetchFromSourceKey,
         userRole: ctx.userRole,
         userPlan: ctx.userPlan,
         bypass: ctx.bypass,
@@ -61,8 +78,8 @@ export async function dispatchSourcesCommands({ cmd0, ctx, reply }) {
     }
 
     case "/diag_source": {
-      if (typeof ctx.runSourceDiagnosticsOnce !== "function") {
-        await reply("⛔ runSourceDiagnosticsOnce недоступен (ошибка wiring).", {
+      if (typeof ctx.diagnoseSource !== "function") {
+        await reply("⛔ diagnoseSource недоступен (ошибка wiring).", {
           cmd: cmd0,
           handler: "commandDispatcher",
         });
@@ -76,14 +93,14 @@ export async function dispatchSourcesCommands({ cmd0, ctx, reply }) {
         userRole: ctx.userRole,
         userPlan: ctx.userPlan,
         bypass: ctx.bypass,
-        runSourceDiagnosticsOnce: ctx.runSourceDiagnosticsOnce,
+        diagnoseSource: ctx.diagnoseSource,
       });
       return { handled: true };
     }
 
     case "/test_source": {
-      if (typeof ctx.fetchFromSourceKey !== "function") {
-        await reply("⛔ fetchFromSourceKey недоступен (ошибка wiring).", {
+      if (typeof ctx.testSource !== "function") {
+        await reply("⛔ testSource недоступен (ошибка wiring).", {
           cmd: cmd0,
           handler: "commandDispatcher",
         });
@@ -94,7 +111,7 @@ export async function dispatchSourcesCommands({ cmd0, ctx, reply }) {
         bot,
         chatId,
         rest: ctx.rest,
-        fetchFromSourceKey: ctx.fetchFromSourceKey,
+        testSource: ctx.testSource,
         userRole: ctx.userRole,
         userPlan: ctx.userPlan,
         bypass: ctx.bypass,

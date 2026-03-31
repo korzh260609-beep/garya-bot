@@ -17,6 +17,7 @@ import { handleOkxDebug } from "../handlers/okxDebug.js";
 import { handleOkxCandlesDebug } from "../handlers/okxCandlesDebug.js";
 import { handleOkxSnapshotDebug } from "../handlers/okxSnapshotDebug.js";
 import { handleOkxDiagnosticsDebug } from "../handlers/okxDiagnosticsDebug.js";
+import { handleFileIntakeDebug } from "../handlers/fileIntakeDebug.js";
 
 export async function dispatchCryptoDevCommands({ cmd0, ctx, reply }) {
   const { bot, chatId } = ctx;
@@ -160,6 +161,19 @@ export async function dispatchCryptoDevCommands({ cmd0, ctx, reply }) {
         bot,
         chatId,
         rest: ctx.rest,
+        reply,
+        bypass: !!ctx.bypass,
+        cmd: cmd0,
+      });
+      return { handled: true };
+    }
+
+    case "/file_intake_diag":
+    case "/file_intake_diag_full": {
+      await handleFileIntakeDebug({
+        bot,
+        chatId,
+        msg: ctx.msg,
         reply,
         bypass: !!ctx.bypass,
         cmd: cmd0,

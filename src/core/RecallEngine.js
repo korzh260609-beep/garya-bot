@@ -111,7 +111,6 @@ export class RecallEngine {
           SELECT role, content, created_at
           FROM chat_messages
           WHERE chat_id = $1
-            AND is_redacted = false
         `;
 
         // identity-first (within current chat) if global_user_id provided
@@ -345,7 +344,6 @@ export class RecallEngine {
         WHERE chat_id = $1
           AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
           AND ($3 = '' OR content ILIKE ('%' || $3 || '%'))
-          AND is_redacted = false
           AND role IN ('user','assistant')
         ORDER BY created_at DESC, id DESC
         LIMIT $4
@@ -417,7 +415,6 @@ export class RecallEngine {
         WHERE chat_id = $1
           AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
           AND ($3 = '' OR content ILIKE ('%' || $3 || '%'))
-          AND is_redacted = false
           AND role IN ('user','assistant')
       `;
 

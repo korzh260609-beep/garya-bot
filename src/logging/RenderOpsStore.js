@@ -8,6 +8,7 @@
 // IMPORTANT:
 // - rolling retention, not infinite archive
 // - one source_key can represent one render service / environment
+// - schema is managed ONLY by migrations (no runtime CREATE TABLE)
 // ============================================================================
 
 import pool from "../../db.js";
@@ -51,49 +52,28 @@ class RenderOpsStore {
     }
 
     this.schemaReadyPromise = (async () => {
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS render_error_snapshots (
-          id BIGSERIAL PRIMARY KEY,
-          source_key TEXT NOT NULL,
-          severity TEXT NOT NULL DEFAULT 'unknown',
-          error_kind TEXT NOT NULL DEFAULT 'unknown',
-          error_headline TEXT NOT NULL DEFAULT 'unknown',
-          candidate_path TEXT,
-          exact_line INTEGER,
-          confidence TEXT NOT NULL DEFAULT 'very_low',
-          log_text TEXT NOT NULL,
-          meta JSONB NOT NULL DEFAULT '{}'::jsonb,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      const res = await this.pool.query(`
+        SELECT
+          to_regclass('public.render_error_snapshots')  AS render_error_snapshots,
+          to_regclass('public.render_deploy_snapshots') AS render_deploy_snapshots
+      `);
+
+      const row = res?.rows?.[0] || {};
+      const hasErrorTable = Boolean(row.render_error_snapshots);
+      const hasDeployTable = Boolean(row.render_deploy_snapshots);
+
+      if (!hasErrorTable || !hasDeployTable) {
+        const missing = [];
+        if (!hasErrorTable) missing.push("render_error_snapshots");
+        if (!hasDeployTable) missing.push("render_deploy_snapshots");
+
+        throw new Error(
+          `RenderOpsStore schema is missing: ${missing.join(", ")}. ` +
+          `Apply DB migrations first (expected migration: 046_render_ops_snapshots.sql).`
         );
-      `);
+      }
 
-      await this.pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_render_error_snapshots_source_created
-        ON render_error_snapshots (source_key, created_at DESC, id DESC);
-      `);
-
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS render_deploy_snapshots (
-          id BIGSERIAL PRIMARY KEY,
-          source_key TEXT NOT NULL,
-          deploy_id TEXT NOT NULL,
-          status TEXT NOT NULL DEFAULT 'unknown',
-          top_error TEXT,
-          candidate_path TEXT,
-          exact_line INTEGER,
-          confidence TEXT NOT NULL DEFAULT 'very_low',
-          log_text TEXT,
-          meta JSONB NOT NULL DEFAULT '{}'::jsonb,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          UNIQUE (source_key, deploy_id)
-        );
-      `);
-
-      await this.pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_render_deploy_snapshots_source_updated
-        ON render_deploy_snapshots (source_key, updated_at DESC, id DESC);
-      `);
+      return true;
     })();
 
     try {

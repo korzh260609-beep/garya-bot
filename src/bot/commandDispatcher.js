@@ -178,6 +178,15 @@ export async function dispatchCommand(cmd, ctx) {
 
     "/okx_ticker",
     "/okx_ticker_full",
+    "/okx_candles",
+    "/okx_candles_full",
+    "/okx_snapshot",
+    "/okx_snapshot_full",
+    "/okx_diag",
+    "/okx_diag_full",
+
+    "/file_intake_diag",
+    "/file_intake_diag_full",
 
     "/memory_status",
     "/memory_diag",

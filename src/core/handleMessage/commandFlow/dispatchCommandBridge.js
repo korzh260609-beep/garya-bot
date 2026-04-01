@@ -19,6 +19,7 @@ export async function dispatchCommandBridge({
   messageId,
   isPrivateChat,
   replyAndLog,
+  raw,
 }) {
   if (typeof deps?.dispatchCommand !== "function") {
     return { handled: false };
@@ -42,6 +43,7 @@ export async function dispatchCommandBridge({
       messageId,
       isPrivateChat,
       replyAndLog,
+      raw,
     });
 
     const result = await deps.dispatchCommand(cmdBase, dispatchCtx);

@@ -44,6 +44,7 @@ export async function resolveFileIntakeDecision({
   // - connect existing download/process skeleton to real chat flow
   // - DO NOT block chat if file intake download fails
   // - currently used mainly for media-only path
+  // - cleanup tmp files after processing attempt
   // --------------------------------------------------------------------------
   if (mediaSummary && !shouldCallAI) {
     const intakeAndDownloadIfNeeded = getFn(
@@ -56,14 +57,21 @@ export async function resolveFileIntakeDecision({
       "processFile",
       null
     );
+    const cleanupIntakeTempFiles = getFn(
+      FileIntake,
+      "cleanupIntakeTempFiles",
+      null
+    );
 
     if (
       intakeAndDownloadIfNeeded &&
       processFile &&
       telegramBotToken
     ) {
+      let intake = null;
+
       try {
-        const intake = await intakeAndDownloadIfNeeded(
+        intake = await intakeAndDownloadIfNeeded(
           msg,
           telegramBotToken
         );
@@ -86,6 +94,18 @@ export async function resolveFileIntakeDecision({
         }
         // fail-open:
         // keep original directReplyText from base decision
+      } finally {
+        if (intake && cleanupIntakeTempFiles) {
+          try {
+            cleanupIntakeTempFiles(intake);
+          } catch (cleanupError) {
+            try {
+              console.error("fileIntakeDecision cleanup failed:", cleanupError);
+            } catch (_) {
+              // ignore
+            }
+          }
+        }
       }
     }
   }

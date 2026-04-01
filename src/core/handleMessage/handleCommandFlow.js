@@ -123,6 +123,7 @@ export async function handleCommandFlow({
     messageId,
     isPrivateChat,
     replyAndLog,
+    raw,
   });
 
   if (dispatchResult?.handled) {

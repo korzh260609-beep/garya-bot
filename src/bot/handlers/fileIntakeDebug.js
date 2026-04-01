@@ -7,6 +7,7 @@
 // PURPOSE:
 // - inspect current Telegram file-intake skeleton against a replied message
 // - verify summarize / download / process hooks
+// - verify cleanup hook
 // - keep diagnostics deterministic
 // - no AI usage
 // - fail-open
@@ -123,6 +124,7 @@ function buildShortText({
   mediaSummary,
   intakeResult,
   processResult,
+  cleanupResult,
   errorMessage,
 }) {
   return [
@@ -137,6 +139,8 @@ function buildShortText({
     `mime_type: ${mediaSummary?.mimeType || "n/a"}`,
     `download_ok: ${toBoolText(Boolean(intakeResult?.downloaded?.localPath))}`,
     `process_ok: ${toBoolText(processResult?.ok === true)}`,
+    `cleanup_ok: ${toBoolText(cleanupResult?.ok === true)}`,
+    `cleanup_removed: ${toBoolText(cleanupResult?.removed === true)}`,
     `direct_hint: ${processResult?.directUserHint ? "yes" : "no"}`,
     errorMessage ? `error: ${errorMessage}` : null,
   ]
@@ -152,9 +156,14 @@ function buildFullText({
   mediaSummary,
   intakeResult,
   processResult,
+  cleanupResult,
   errorMessage,
 }) {
-  const metaLogs = intakeResult?.meta?.logs || processResult?.meta?.logs || [];
+  const metaLogs =
+    cleanupResult?.meta?.logs ||
+    intakeResult?.meta?.logs ||
+    processResult?.meta?.logs ||
+    [];
 
   return [
     getTitle("full"),
@@ -191,6 +200,11 @@ function buildFullText({
     `processed_text: ${processResult?.processedText || "n/a"}`,
     `direct_hint: ${processResult?.directUserHint || "n/a"}`,
     "",
+    `cleanup_ok: ${toBoolText(cleanupResult?.ok === true)}`,
+    `cleanup_removed: ${toBoolText(cleanupResult?.removed === true)}`,
+    `cleanup_reason: ${cleanupResult?.reason || "n/a"}`,
+    `cleanup_local_path: ${cleanupResult?.localPath || "n/a"}`,
+    "",
     `logs_count: ${Array.isArray(metaLogs) ? metaLogs.length : 0}`,
     "msg_shape_json:",
     safeJson(msgShape, 2000),
@@ -208,8 +222,20 @@ function buildFullText({
       1200
     ),
     "",
+    "cleanup_json:",
+    safeJson(
+      {
+        ok: cleanupResult?.ok === true,
+        removed: cleanupResult?.removed === true,
+        reason: cleanupResult?.reason || null,
+        localPath: cleanupResult?.localPath || null,
+        error: cleanupResult?.error || null,
+      },
+      1200
+    ),
+    "",
     "logs_json:",
-    safeJson(metaLogs, 2000),
+    safeJson(metaLogs, 2500),
     errorMessage ? `error: ${errorMessage}` : null,
   ]
     .filter(Boolean)
@@ -290,6 +316,11 @@ export async function handleFileIntakeDebug({
       ? FileIntake.processFile
       : null;
 
+  const cleanupIntakeTempFiles =
+    typeof FileIntake?.cleanupIntakeTempFiles === "function"
+      ? FileIntake.cleanupIntakeTempFiles
+      : null;
+
   const mediaSummary = summarizeMediaAttachment(replyTarget);
 
   if (!mediaSummary) {
@@ -335,11 +366,13 @@ export async function handleFileIntakeDebug({
 
   let intakeResult = null;
   let processResult = null;
+  let cleanupResult = null;
   let errorMessage = null;
 
   try {
     if (tokenPresent && intakeAndDownloadIfNeeded && processFile) {
       intakeResult = await intakeAndDownloadIfNeeded(replyTarget, token);
+
       if (intakeResult) {
         processResult = await processFile(intakeResult);
       }
@@ -350,6 +383,23 @@ export async function handleFileIntakeDebug({
     }
   } catch (error) {
     errorMessage = error?.message ? String(error.message) : "unknown_error";
+  } finally {
+    if (intakeResult && cleanupIntakeTempFiles) {
+      try {
+        cleanupResult = cleanupIntakeTempFiles(intakeResult);
+      } catch (cleanupError) {
+        cleanupResult = {
+          ok: false,
+          removed: false,
+          reason: "cleanup_failed",
+          error: cleanupError?.message
+            ? String(cleanupError.message)
+            : "unknown_error",
+          localPath: intakeResult?.downloaded?.localPath || null,
+          meta: intakeResult?.meta || null,
+        };
+      }
+    }
   }
 
   const text =
@@ -362,6 +412,7 @@ export async function handleFileIntakeDebug({
           mediaSummary,
           intakeResult,
           processResult,
+          cleanupResult,
           errorMessage,
         })
       : buildShortText({
@@ -371,6 +422,7 @@ export async function handleFileIntakeDebug({
           mediaSummary,
           intakeResult,
           processResult,
+          cleanupResult,
           errorMessage,
         });
 

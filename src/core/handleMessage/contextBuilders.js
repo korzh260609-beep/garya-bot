@@ -19,9 +19,12 @@ export function buildDispatchCommandContext({
   messageId,
   isPrivateChat,
   replyAndLog,
+  raw,
 }) {
   return {
     bot: deps.bot || null,
+    msg: raw || null,
+    raw: raw || null,
     chatId: chatIdNum,
     chatIdStr,
     senderIdStr: senderId || "",

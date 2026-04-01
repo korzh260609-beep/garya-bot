@@ -48,14 +48,77 @@ function safeJson(value, limit = 1200) {
   }
 }
 
-function getReplyTargetMessage(msg) {
-  return msg?.reply_to_message && typeof msg.reply_to_message === "object"
-    ? msg.reply_to_message
-    : null;
+function getTopKeys(obj) {
+  if (!obj || typeof obj !== "object") return [];
+  try {
+    return Object.keys(obj).slice(0, 40);
+  } catch (_) {
+    return [];
+  }
+}
+
+function pickReplyTarget(msg) {
+  if (!msg || typeof msg !== "object") {
+    return {
+      replyTarget: null,
+      replySource: "none",
+    };
+  }
+
+  if (msg.reply_to_message && typeof msg.reply_to_message === "object") {
+    return {
+      replyTarget: msg.reply_to_message,
+      replySource: "msg.reply_to_message",
+    };
+  }
+
+  if (msg.replyToMessage && typeof msg.replyToMessage === "object") {
+    return {
+      replyTarget: msg.replyToMessage,
+      replySource: "msg.replyToMessage",
+    };
+  }
+
+  if (msg.message?.reply_to_message && typeof msg.message.reply_to_message === "object") {
+    return {
+      replyTarget: msg.message.reply_to_message,
+      replySource: "msg.message.reply_to_message",
+    };
+  }
+
+  if (msg.message?.replyToMessage && typeof msg.message.replyToMessage === "object") {
+    return {
+      replyTarget: msg.message.replyToMessage,
+      replySource: "msg.message.replyToMessage",
+    };
+  }
+
+  return {
+    replyTarget: null,
+    replySource: "none",
+  };
+}
+
+function buildMsgShapeSummary(msg) {
+  return {
+    hasMsg: Boolean(msg && typeof msg === "object"),
+    msgTopKeys: getTopKeys(msg),
+    hasReplyToMessage: Boolean(msg?.reply_to_message),
+    hasReplyToMessageCamel: Boolean(msg?.replyToMessage),
+    hasNestedMessage: Boolean(msg?.message && typeof msg.message === "object"),
+    nestedMessageTopKeys: getTopKeys(msg?.message),
+    hasNestedReplyToMessage: Boolean(msg?.message?.reply_to_message),
+    hasNestedReplyToMessageCamel: Boolean(msg?.message?.replyToMessage),
+    messageId: msg?.message_id ?? null,
+    chatId: msg?.chat?.id ?? null,
+    text: typeof msg?.text === "string" ? msg.text : null,
+    caption: typeof msg?.caption === "string" ? msg.caption : null,
+  };
 }
 
 function buildShortText({
   replyTarget,
+  replySource,
   tokenPresent,
   mediaSummary,
   intakeResult,
@@ -65,6 +128,7 @@ function buildShortText({
   return [
     getTitle("short"),
     `reply_target: ${replyTarget ? "yes" : "no"}`,
+    `reply_source: ${replySource || "n/a"}`,
     `token_present: ${toBoolText(tokenPresent)}`,
     `media_found: ${toBoolText(Boolean(mediaSummary))}`,
     `kind: ${mediaSummary?.kind || "n/a"}`,
@@ -81,7 +145,9 @@ function buildShortText({
 }
 
 function buildFullText({
+  msgShape,
   replyTarget,
+  replySource,
   tokenPresent,
   mediaSummary,
   intakeResult,
@@ -93,7 +159,19 @@ function buildFullText({
   return [
     getTitle("full"),
     `reply_target: ${replyTarget ? "yes" : "no"}`,
+    `reply_source: ${replySource || "n/a"}`,
     `token_present: ${toBoolText(tokenPresent)}`,
+    "",
+    `msg_has_object: ${toBoolText(msgShape?.hasMsg === true)}`,
+    `msg_has_reply_to_message: ${toBoolText(msgShape?.hasReplyToMessage === true)}`,
+    `msg_has_replyToMessage: ${toBoolText(msgShape?.hasReplyToMessageCamel === true)}`,
+    `msg_has_nested_message: ${toBoolText(msgShape?.hasNestedMessage === true)}`,
+    `msg_has_nested_reply_to_message: ${toBoolText(msgShape?.hasNestedReplyToMessage === true)}`,
+    `msg_has_nested_replyToMessage: ${toBoolText(msgShape?.hasNestedReplyToMessageCamel === true)}`,
+    `msg_message_id: ${msgShape?.messageId ?? "n/a"}`,
+    `msg_chat_id: ${msgShape?.chatId ?? "n/a"}`,
+    `msg_text: ${msgShape?.text || "n/a"}`,
+    `msg_caption: ${msgShape?.caption || "n/a"}`,
     "",
     `media_found: ${toBoolText(Boolean(mediaSummary))}`,
     `kind: ${mediaSummary?.kind || "n/a"}`,
@@ -114,6 +192,9 @@ function buildFullText({
     `direct_hint: ${processResult?.directUserHint || "n/a"}`,
     "",
     `logs_count: ${Array.isArray(metaLogs) ? metaLogs.length : 0}`,
+    "msg_shape_json:",
+    safeJson(msgShape, 2000),
+    "",
     "summary_json:",
     safeJson(mediaSummary, 1200),
     "",
@@ -156,14 +237,31 @@ export async function handleFileIntakeDebug({
     return { handled: true };
   }
 
-  const replyTarget = getReplyTargetMessage(msg);
+  const msgShape = buildMsgShapeSummary(msg);
+  const { replyTarget, replySource } = pickReplyTarget(msg);
 
   if (!replyTarget) {
-    const text = [
-      getTitle(mode),
-      "reason: missing_reply_target",
-      "usage: reply to a media message with /file_intake_diag",
-    ].join("\n");
+    const text =
+      mode === "full"
+        ? [
+            getTitle(mode),
+            "reason: missing_reply_target",
+            "usage: reply to a media message with /file_intake_diag",
+            "",
+            `reply_source: ${replySource}`,
+            "msg_shape_json:",
+            safeJson(msgShape, 2500),
+          ].join("\n")
+        : [
+            getTitle(mode),
+            "reason: missing_reply_target",
+            "usage: reply to a media message with /file_intake_diag",
+            `reply_source: ${replySource}`,
+            `msg_has_reply_to_message: ${toBoolText(msgShape?.hasReplyToMessage === true)}`,
+            `msg_has_nested_reply_to_message: ${toBoolText(
+              msgShape?.hasNestedReplyToMessage === true
+            )}`,
+          ].join("\n");
 
     await reply(text, {
       cmd: cmd || defaultCmd,
@@ -195,11 +293,36 @@ export async function handleFileIntakeDebug({
   const mediaSummary = summarizeMediaAttachment(replyTarget);
 
   if (!mediaSummary) {
-    const text = [
-      getTitle(mode),
-      "reason: no_media_in_reply_target",
-      "media_found: no",
-    ].join("\n");
+    const text =
+      mode === "full"
+        ? [
+            getTitle(mode),
+            "reason: no_media_in_reply_target",
+            "media_found: no",
+            `reply_source: ${replySource}`,
+            "reply_target_json:",
+            safeJson(
+              {
+                topKeys: getTopKeys(replyTarget),
+                messageId: replyTarget?.message_id ?? null,
+                hasPhoto: Boolean(replyTarget?.photo),
+                hasDocument: Boolean(replyTarget?.document),
+                hasVoice: Boolean(replyTarget?.voice),
+                hasAudio: Boolean(replyTarget?.audio),
+                hasVideo: Boolean(replyTarget?.video),
+                text: typeof replyTarget?.text === "string" ? replyTarget.text : null,
+                caption:
+                  typeof replyTarget?.caption === "string" ? replyTarget.caption : null,
+              },
+              2000
+            ),
+          ].join("\n")
+        : [
+            getTitle(mode),
+            "reason: no_media_in_reply_target",
+            "media_found: no",
+            `reply_source: ${replySource}`,
+          ].join("\n");
 
     await reply(text, {
       cmd: cmd || defaultCmd,
@@ -232,7 +355,9 @@ export async function handleFileIntakeDebug({
   const text =
     mode === "full"
       ? buildFullText({
+          msgShape,
           replyTarget,
+          replySource,
           tokenPresent,
           mediaSummary,
           intakeResult,
@@ -241,6 +366,7 @@ export async function handleFileIntakeDebug({
         })
       : buildShortText({
           replyTarget,
+          replySource,
           tokenPresent,
           mediaSummary,
           intakeResult,

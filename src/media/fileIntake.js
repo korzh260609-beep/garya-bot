@@ -12,6 +12,7 @@
 // - умеет скачать файл по file_id
 // - умеет сделать базовый routing/stub
 // - даёт расширенные intake logs
+// - умеет чистить временные файлы после обработки
 //
 // NOT ACTIVE YET:
 // - OCR
@@ -212,6 +213,73 @@ export async function downloadTelegramFile(botToken, fileId) {
     size: buffer.byteLength,
     telegramPath,
   };
+}
+
+// ==================================================
+// === cleanup helpers
+// ==================================================
+export function cleanupDownloadedFile(intake, options = {}) {
+  const meta = intake?.meta || makeMeta();
+  const localPath = intake?.downloaded?.localPath || null;
+
+  if (!localPath) {
+    pushLog(meta, "info", "cleanup", "No local file to cleanup.");
+    return {
+      ok: true,
+      removed: false,
+      reason: "no_local_path",
+      localPath: null,
+      meta,
+    };
+  }
+
+  try {
+    if (!fs.existsSync(localPath)) {
+      pushLog(meta, "info", "cleanup", "Local file already missing.", {
+        localPath,
+      });
+      return {
+        ok: true,
+        removed: false,
+        reason: "already_missing",
+        localPath,
+        meta,
+      };
+    }
+
+    fs.unlinkSync(localPath);
+
+    pushLog(meta, "info", "cleanup", "Temporary file removed.", {
+      localPath,
+    });
+
+    return {
+      ok: true,
+      removed: true,
+      reason: "removed",
+      localPath,
+      meta,
+    };
+  } catch (error) {
+    pushLog(meta, "error", "cleanup", "Temporary file cleanup failed.", {
+      localPath,
+      message: error?.message ? String(error.message) : "unknown_error",
+    });
+
+    return {
+      ok: false,
+      removed: false,
+      reason: "cleanup_failed",
+      localPath,
+      error: error?.message ? String(error.message) : "unknown_error",
+      meta,
+    };
+  }
+}
+
+// Явный alias под wording future/runtime
+export function cleanupIntakeTempFiles(intake, options = {}) {
+  return cleanupDownloadedFile(intake, options);
 }
 
 // ==================================================

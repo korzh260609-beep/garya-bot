@@ -7,6 +7,7 @@
 // - support real DOCX extraction via mammoth
 // - support real PDF extraction via pdf-parse
 // - provide honest unavailable results for DOC until parser deps are added
+// - add lightweight structure for already-extracted text
 // - do NOT do semantic analysis here
 // ============================================================================
 
@@ -15,6 +16,7 @@ import path from "path";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 import { VISION_MAX_FILE_MB } from "../core/config.js";
+import { buildDocumentStructure } from "./documentStructuring.js";
 
 function nowIso() {
   return new Date().toISOString();
@@ -235,6 +237,7 @@ function buildSuccessResult({
   extension = "",
   text = "",
   warnings = [],
+  blocks = [],
   extraMeta = {},
 }) {
   return {
@@ -252,7 +255,7 @@ function buildSuccessResult({
       extension: extension || "",
     },
     text: normalizeExtractedText(text),
-    blocks: [],
+    blocks: Array.isArray(blocks) ? blocks : [],
     warnings: Array.isArray(warnings) ? warnings : [],
     error: null,
     meta: {
@@ -334,6 +337,43 @@ function resolveValidatedLocalFile(intake) {
   };
 }
 
+function buildStructuredResult({
+  requestedKind,
+  filePath,
+  mimeType,
+  fileSize,
+  extension,
+  text,
+  warnings = [],
+  extraMeta = {},
+}) {
+  const normalizedText = normalizeExtractedText(text);
+  const structure = buildDocumentStructure({
+    text: normalizedText,
+    fileName: path.basename(String(filePath || "")),
+    mimeType,
+  });
+
+  return buildSuccessResult({
+    requestedKind,
+    filePath,
+    mimeType,
+    fileSize,
+    extension,
+    text: normalizedText,
+    warnings,
+    blocks: structure?.blocks || [],
+    extraMeta: {
+      ...extraMeta,
+      structureVersion: structure?.version || 1,
+      structureSource: structure?.source || "document_structuring_v1",
+      title: structure?.title || null,
+      stats: structure?.stats || null,
+      headings: structure?.headings || [],
+    },
+  });
+}
+
 export function canRunDocumentTextForIntake(intake) {
   const kind = String(intake?.kind || "").trim().toLowerCase();
   return kind === "document";
@@ -353,8 +393,9 @@ export function getDocumentTextServiceStatus(params = {}) {
     extension: ext || "",
     pdfReady: true,
     docxReady: true,
+    structuringReady: true,
     notes:
-      "Text-like files supported. RTF basic extraction supported. DOCX extraction supported via mammoth. PDF extraction supported via pdf-parse. DOC still needs parser dependency.",
+      "Text-like files supported. RTF basic extraction supported. DOCX extraction supported via mammoth. PDF extraction supported via pdf-parse. Lightweight block structuring enabled. DOC still needs parser dependency.",
   };
 }
 
@@ -374,7 +415,7 @@ export async function extractTextFromDocumentIntake(intake) {
     if (isPdf(extension, mimeType)) {
       const pdfResult = await extractPdfText(localPath);
 
-      return buildSuccessResult({
+      return buildStructuredResult({
         requestedKind,
         filePath: localPath,
         mimeType,
@@ -396,7 +437,7 @@ export async function extractTextFromDocumentIntake(intake) {
     if (isDocx(extension, mimeType)) {
       const docxResult = await extractDocxText(localPath);
 
-      return buildSuccessResult({
+      return buildStructuredResult({
         requestedKind,
         filePath: localPath,
         mimeType,
@@ -425,7 +466,7 @@ export async function extractTextFromDocumentIntake(intake) {
       const raw = readUtf8Text(localPath);
       const text = stripBasicRtf(raw);
 
-      return buildSuccessResult({
+      return buildStructuredResult({
         requestedKind,
         filePath: localPath,
         mimeType,
@@ -441,7 +482,7 @@ export async function extractTextFromDocumentIntake(intake) {
     if (isTextMime(mimeType) || isPlainTextLikeExtension(extension)) {
       const text = readUtf8Text(localPath);
 
-      return buildSuccessResult({
+      return buildStructuredResult({
         requestedKind,
         filePath: localPath,
         mimeType,

@@ -1,6 +1,6 @@
 // ============================================================================
 // src/vision/visionService.js
-// STAGE 12.1 — OCR vision service (provider-agnostic skeleton)
+// STAGE 12.2 — OCR vision service with provider router (skeleton)
 // Rules:
 // - extract-only contract
 // - no semantic analysis
@@ -39,7 +39,7 @@ function safeFileStat(filePath) {
 function buildInvalidResult(reason, extra = {}) {
   return {
     ok: false,
-    stage: "12.1-skeleton",
+    stage: "12.2-skeleton",
     extractOnly: VISION_EXTRACT_ONLY === true,
     startedAt: nowIso(),
     finishedAt: nowIso(),
@@ -54,18 +54,25 @@ function buildInvalidResult(reason, extra = {}) {
   };
 }
 
-export function getVisionServiceStatus() {
-  const providerStatus = getVisionProviderStatus();
+export function getVisionServiceStatus(params = {}) {
+  const providerStatus = getVisionProviderStatus(params);
 
   return {
-    stage: "12.1-skeleton",
+    stage: "12.2-skeleton",
     service: "vision",
     provider: providerStatus.provider,
+    requestedProvider: providerStatus.requestedProvider,
+    selectedProviderKey: providerStatus.selectedProviderKey,
     enabled: providerStatus.enabled,
     providerAvailable: providerStatus.providerAvailable,
     ocrEnabled: providerStatus.ocrEnabled,
     extractOnly: providerStatus.extractOnly,
     maxFileMb: providerStatus.maxFileMb,
+    selectionMode: providerStatus.selectionMode,
+    minQualityScore: providerStatus.minQualityScore,
+    taskType: providerStatus.taskType,
+    scoredProviders: providerStatus.scoredProviders || [],
+    reason: providerStatus.reason || "unknown",
   };
 }
 
@@ -77,7 +84,7 @@ export function canRunVisionForIntake(intake) {
 
   // future note:
   // document may later be routed to parser/image-ocr split.
-  // For 12.1 we keep only image/photo-safe path active.
+  // For current stage we keep only image/photo-safe path active.
   return false;
 }
 
@@ -87,7 +94,7 @@ export async function extractTextWithVisionFromIntake(intake) {
   }
 
   if (!canRunVisionForIntake(intake)) {
-    return buildInvalidResult("vision_kind_not_supported_in_12_1", {
+    return buildInvalidResult("vision_kind_not_supported_in_current_stage", {
       kind: intake?.kind || "unknown",
     });
   }
@@ -115,7 +122,10 @@ export async function extractTextWithVisionFromIntake(intake) {
     });
   }
 
-  const provider = createVisionProvider();
+  const provider = createVisionProvider({
+    kind: intake?.kind || "unknown",
+    mimeType: intake?.mimeType || null,
+  });
 
   return provider.extractTextFromFile({
     filePath: path.resolve(localPath),

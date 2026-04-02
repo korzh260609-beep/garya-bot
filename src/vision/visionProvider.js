@@ -1,11 +1,11 @@
 // ============================================================================
 // src/vision/visionProvider.js
-// STAGE 12.2 — SWITCHABLE VISION PROVIDER ROUTER + SCORER (SKELETON)
+// STAGE 12.3 — SWITCHABLE VISION PROVIDER ROUTER + SCORER
 // Purpose:
 // - provider-agnostic contract
 // - manual provider switch via env
 // - auto mode chooses cheapest acceptable provider
-// - no real OCR calls yet
+// - ONLY implemented providers may be eligible
 // ============================================================================
 
 import {
@@ -38,7 +38,7 @@ function normalizeKind(kind) {
   return normalizeText(kind) || "unknown";
 }
 
-function buildVisionProviderConfig() {
+export function buildVisionProviderConfig() {
   return {
     enabled: VISION_ENABLED === true,
     provider: normalizeText(VISION_PROVIDER) || "noop",
@@ -107,7 +107,7 @@ function getCostLevel(providerKey) {
       return 2;
     case "noop":
     default:
-      return 0;
+      return 999;
   }
 }
 
@@ -140,7 +140,7 @@ function buildBaseProviderStatus(providerKey, cfg) {
   const qualityScoresByTask = getQualityScoresByTask(providerKey);
 
   return {
-    stage: "12.2-skeleton",
+    stage: "12.3-openai-first",
     key: providerKey,
     enabled: cfg.enabled === true,
     ocrEnabled: cfg.ocrEnabled === true,
@@ -157,7 +157,7 @@ function buildBaseProviderStatus(providerKey, cfg) {
     speedLevel: getSpeedLevel(providerKey),
     providerFlagEnabled: cfg.providerFlags?.[providerKey] === true,
     providerAvailable: false,
-    notes: "provider skeleton",
+    notes: "provider status base",
   };
 }
 
@@ -179,7 +179,6 @@ function instantiateProviderByKey(providerKey, cfg) {
 
 function getAllProvidersInternal() {
   const cfg = buildVisionProviderConfig();
-
   return PROVIDER_KEYS.map((key) => instantiateProviderByKey(key, cfg));
 }
 
@@ -201,8 +200,11 @@ export function scoreVisionProvider(provider, taskType, cfg) {
     cfg.ocrEnabled === true &&
     status.providerFlagEnabled === true;
 
+  const actuallyUsable = status.providerAvailable === true;
+
   const eligible =
     enabledByFlags === true &&
+    actuallyUsable === true &&
     key !== "noop" &&
     qualityScore >= cfg.minQualityScore;
 
@@ -217,9 +219,11 @@ export function scoreVisionProvider(provider, taskType, cfg) {
         ? "eligible"
         : enabledByFlags !== true
           ? "provider_disabled"
-          : qualityScore < cfg.minQualityScore
-            ? "quality_below_threshold"
-            : "unknown",
+          : actuallyUsable !== true
+            ? "provider_not_implemented_or_not_ready"
+            : qualityScore < cfg.minQualityScore
+              ? "quality_below_threshold"
+              : "unknown",
   };
 }
 
@@ -310,7 +314,7 @@ export function getVisionProviderStatus(params = {}) {
   const choice = chooseVisionProvider(params);
 
   return {
-    stage: "12.2-skeleton",
+    stage: "12.3-openai-first",
     enabled: cfg.enabled,
     provider: cfg.provider,
     ocrEnabled: cfg.ocrEnabled,
@@ -320,23 +324,19 @@ export function getVisionProviderStatus(params = {}) {
     selectionMode: cfg.selectionMode,
     minQualityScore: cfg.minQualityScore,
     providerAvailable:
-      choice?.selectedProvider?.key &&
-      choice.selectedProvider.key !== "noop" &&
-      cfg.enabled === true &&
-      cfg.ocrEnabled === true,
+      choice?.selectedProvider?.status?.providerAvailable === true,
     requestedProvider: choice?.requestedProvider || cfg.provider,
     selectedProviderKey: choice?.selectedProviderKey || "noop",
     taskType: choice?.taskType || detectTaskType(params),
     scoredProviders: choice?.scoredProviders || [],
     reason: choice?.reason || "unknown",
     notes:
-      "Switchable provider router skeleton. Auto mode chooses the cheapest provider that passes the minimum quality threshold.",
+      "Switchable provider router. Auto mode chooses the cheapest provider that passes the minimum quality threshold and is actually implemented/ready.",
   };
 }
 
 export function createVisionProvider(params = {}) {
   const choice = chooseVisionProvider(params);
-
   return choice?.selectedProvider || createNoopVisionProvider({});
 }
 

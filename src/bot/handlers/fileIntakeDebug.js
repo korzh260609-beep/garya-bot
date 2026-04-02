@@ -8,6 +8,7 @@
 // - inspect current Telegram file-intake skeleton against a replied message
 // - verify summarize / download / process hooks
 // - verify cleanup hook
+// - verify data lifecycle skeleton
 // - keep diagnostics deterministic
 // - no AI usage
 // - fail-open
@@ -151,6 +152,29 @@ function compactLogs(metaLogs) {
   }));
 }
 
+function buildLifecycleSummary(FileIntake, lifecycle) {
+  if (typeof FileIntake?.compactLifecycleForDebug === "function") {
+    return FileIntake.compactLifecycleForDebug(lifecycle);
+  }
+
+  return {
+    lifecycleVersion: lifecycle?.lifecycleVersion || "n/a",
+    kind: lifecycle?.kind || "n/a",
+    binaryPersisted: lifecycle?.storage?.binaryPersisted === true,
+    tempLocalPath: lifecycle?.storage?.tempLocalPath || null,
+    tempExists: lifecycle?.storage?.tempExists === true,
+    downloaded: lifecycle?.processing?.downloaded === true,
+    processed: lifecycle?.processing?.processed === true,
+    cleanupAttempted: lifecycle?.processing?.cleanupAttempted === true,
+    cleanupRemoved: lifecycle?.processing?.cleanupRemoved === true,
+    cleanupReason: lifecycle?.processing?.cleanupReason || null,
+    retentionEnabled: lifecycle?.retention?.enabled === true,
+    archiveEnabled: lifecycle?.retention?.archiveEnabled === true,
+    binaryPersistenceAllowed: lifecycle?.retention?.binaryPersistenceAllowed === true,
+    policy: lifecycle?.storage?.policy || "n/a",
+  };
+}
+
 function buildShortText({
   replyTarget,
   replySource,
@@ -159,6 +183,7 @@ function buildShortText({
   intakeResult,
   processResult,
   cleanupResult,
+  lifecycleSummary,
   errorMessage,
 }) {
   return [
@@ -175,6 +200,8 @@ function buildShortText({
     `process_ok: ${toBoolText(processResult?.ok === true)}`,
     `cleanup_ok: ${toBoolText(cleanupResult?.ok === true)}`,
     `cleanup_removed: ${toBoolText(cleanupResult?.removed === true)}`,
+    `lifecycle_policy: ${lifecycleSummary?.policy || "n/a"}`,
+    `binary_persisted: ${toBoolText(lifecycleSummary?.binaryPersisted === true)}`,
     `direct_hint: ${processResult?.directUserHint ? "yes" : "no"}`,
     errorMessage ? `error: ${errorMessage}` : null,
   ]
@@ -191,6 +218,7 @@ function buildFullText({
   intakeResult,
   processResult,
   cleanupResult,
+  lifecycleSummary,
   errorMessage,
 }) {
   const metaLogs =
@@ -244,6 +272,23 @@ function buildFullText({
     `cleanup_reason: ${cleanup.reason}`,
     `cleanup_local_path: ${cleanup.localPath}`,
     cleanup.error ? `cleanup_error: ${cleanup.error}` : null,
+    "",
+    `lifecycle_version: ${lifecycleSummary?.lifecycleVersion || "n/a"}`,
+    `lifecycle_kind: ${lifecycleSummary?.kind || "n/a"}`,
+    `lifecycle_policy: ${lifecycleSummary?.policy || "n/a"}`,
+    `binary_persisted: ${toBoolText(lifecycleSummary?.binaryPersisted === true)}`,
+    `temp_local_path: ${lifecycleSummary?.tempLocalPath || "n/a"}`,
+    `temp_exists: ${toBoolText(lifecycleSummary?.tempExists === true)}`,
+    `lifecycle_downloaded: ${toBoolText(lifecycleSummary?.downloaded === true)}`,
+    `lifecycle_processed: ${toBoolText(lifecycleSummary?.processed === true)}`,
+    `cleanup_attempted: ${toBoolText(lifecycleSummary?.cleanupAttempted === true)}`,
+    `lifecycle_cleanup_removed: ${toBoolText(lifecycleSummary?.cleanupRemoved === true)}`,
+    `lifecycle_cleanup_reason: ${lifecycleSummary?.cleanupReason || "n/a"}`,
+    `retention_enabled: ${toBoolText(lifecycleSummary?.retentionEnabled === true)}`,
+    `archive_enabled: ${toBoolText(lifecycleSummary?.archiveEnabled === true)}`,
+    `binary_persistence_allowed: ${toBoolText(
+      lifecycleSummary?.binaryPersistenceAllowed === true
+    )}`,
     "",
     `logs_count: ${Array.isArray(metaLogs) ? metaLogs.length : 0}`,
     "logs_tail:",
@@ -411,6 +456,11 @@ export async function handleFileIntakeDebug({
     }
   }
 
+  const lifecycleSummary = buildLifecycleSummary(
+    FileIntake,
+    intakeResult?.lifecycle || processResult?.lifecycle || null
+  );
+
   const text =
     mode === "full"
       ? buildFullText({
@@ -422,6 +472,7 @@ export async function handleFileIntakeDebug({
           intakeResult,
           processResult,
           cleanupResult,
+          lifecycleSummary,
           errorMessage,
         })
       : buildShortText({
@@ -432,6 +483,7 @@ export async function handleFileIntakeDebug({
           intakeResult,
           processResult,
           cleanupResult,
+          lifecycleSummary,
           errorMessage,
         });
 

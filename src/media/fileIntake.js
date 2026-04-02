@@ -215,9 +215,14 @@ function buildAutoSummaryRequestText(fileName) {
   const normalizedFileName = safeStr(fileName || "document").trim() || "document";
 
   return (
-    `Сделай краткую полезную сводку документа ${normalizedFileName}. ` +
-    `Нужен сначала общий смысл, основные пункты и о чем документ в целом. ` +
-    `Не выдавай весь текст целиком без отдельного запроса пользователя.`
+    `Сделай ОЧЕНЬ КОРОТКУЮ и полезную сводку документа ${normalizedFileName}. ` +
+    `Нужен только общий смысл документа в сжатом виде. ` +
+    `Формат ответа: ` +
+    `1) одна короткая строка "О чем документ", ` +
+    `2) затем 2-4 очень коротких пункта с главным. ` +
+    `Без длинного пересказа, без больших абзацев, без воды, без цитирования всего текста. ` +
+    `Если данных мало — скажи это коротко. ` +
+    `Полный текст НЕ выдавай без отдельного запроса пользователя.`
   );
 }
 
@@ -315,10 +320,10 @@ export function shouldBindMessageToRecentDocumentSession(text) {
     compact.includes("```");
   if (hasCodeLike) return false;
 
-  const wordCount = compact.split(" ").filter(Boolean).length;
-  if (wordCount <= 14) return true;
+  const words = compact.split(" ").filter(Boolean).length;
+  if (words <= 14) return true;
 
-  if (compact.endsWith("?") && wordCount <= 24) return true;
+  if (compact.endsWith("?") && words <= 24) return true;
 
   const hasDocumentReference =
     compact.includes("документ") ||
@@ -1261,9 +1266,6 @@ export async function processIncomingFile(intake) {
         structureSource: documentStructureSource,
       });
 
-      // IMPORTANT:
-      // for media-only document upload, we want immediate AI summary,
-      // not only service hint.
       shouldCallAI = true;
       effectiveUserText = buildAutoSummaryRequestText(
         intake?.downloaded?.fileName || intake?.fileName || "document"

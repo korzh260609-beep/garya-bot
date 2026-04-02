@@ -1,6 +1,6 @@
 // src/media/fileIntake.js
 // ==================================================
-// STAGE 11F + STAGE 12.4 — FILE-INTAKE + OCR + VISIBLE FACTS BRIDGE
+// STAGE 11F + STAGE 12.4/12.6 — FILE-INTAKE + OCR + VISIBLE FACTS BRIDGE
 // 11F.1 download file
 // 11F.2 detect type
 // 11F.3 process file (routing + stub)
@@ -16,7 +16,8 @@
 //
 // 12.x document extract-first bridge
 // - text-like document extraction
-// - honest fallback for PDF/DOCX until parser dependency is added
+// - real PDF/DOCX extraction
+// - lightweight document structuring
 //
 // IMPORTANT:
 // - media-only path should return real OCR text when available
@@ -201,6 +202,31 @@ function saveDocumentSessionCache({ chatId, fileName, text }) {
   return cache;
 }
 
+function safeDocumentMeta(meta = {}) {
+  return {
+    title: safeStr(meta?.title || "").trim() || null,
+    structureVersion: Number(meta?.structureVersion || 0) || null,
+    structureSource: safeStr(meta?.structureSource || "").trim() || null,
+    stats:
+      meta?.stats && typeof meta.stats === "object"
+        ? {
+            charCount: Number(meta.stats.charCount || 0) || 0,
+            wordCount: Number(meta.stats.wordCount || 0) || 0,
+            paragraphCount: Number(meta.stats.paragraphCount || 0) || 0,
+            blockCount: Number(meta.stats.blockCount || 0) || 0,
+            headingCount: Number(meta.stats.headingCount || 0) || 0,
+          }
+        : null,
+    headings: Array.isArray(meta?.headings)
+      ? meta.headings.map((item) => ({
+          index: Number(item?.index || 0) || 0,
+          type: safeStr(item?.type || "").trim() || "heading",
+          text: safeStr(item?.text || "").trim(),
+        }))
+      : [],
+  };
+}
+
 export function getDocumentSessionCache(chatId) {
   const key = String(chatId || "").trim();
   if (!key) return null;
@@ -283,7 +309,7 @@ export function buildSpecializedAIRoutingRule(summary) {
         genericAiMode: "text_fallback_only",
         fallbackMode: "stub_or_caption_text_only",
         notes:
-          "Document should route to parser/extract-class handler; current runtime may extract text from text-like files, while PDF/DOC/DOCX still return honest fallback.",
+          "Document should route to parser/extract-class handler; current runtime may extract text and lightweight structure from supported formats.",
       };
 
     case "voice":
@@ -947,6 +973,13 @@ export async function processIncomingFile(intake) {
   let visibleFactsError = null;
   let visibleFactsProviderKey = null;
 
+  let documentBlocks = [];
+  let documentTitle = null;
+  let documentStats = null;
+  let documentHeadings = [];
+  let documentStructureVersion = null;
+  let documentStructureSource = null;
+
   if (canRunVisionForIntake(intake)) {
     const visionStatus = getVisionServiceStatus({
       kind: intake?.kind || "unknown",
@@ -1072,6 +1105,7 @@ export async function processIncomingFile(intake) {
       mimeType: documentStatus?.mimeType || null,
       pdfReady: documentStatus?.pdfReady === true,
       docxReady: documentStatus?.docxReady === true,
+      structuringReady: documentStatus?.structuringReady === true,
     });
 
     const documentResult = await extractTextFromDocumentIntake(intake);
@@ -1082,12 +1116,32 @@ export async function processIncomingFile(intake) {
       extractionError = null;
       extractionProviderKey = documentResult.providerKey || null;
 
+      const docMeta = safeDocumentMeta(documentResult?.meta || {});
+      documentBlocks = Array.isArray(documentResult?.blocks)
+        ? documentResult.blocks
+        : [];
+      documentTitle = docMeta.title;
+      documentStats = docMeta.stats;
+      documentHeadings = docMeta.headings;
+      documentStructureVersion = docMeta.structureVersion;
+      documentStructureSource = docMeta.structureSource;
+
       processedText += ` document=ok; provider=${documentResult.providerKey || "n/a"}; textLen=${extractedText.length}.`;
+
+      if (documentStats) {
+        processedText += ` documentBlocks=${documentStats.blockCount}; documentHeadings=${documentStats.headingCount}; documentWords=${documentStats.wordCount}.`;
+      }
 
       pushLog(meta, "info", "document", "Document extraction result available.", {
         provider: documentResult?.providerKey || "n/a",
         textLen: extractedText.length,
         textPreview: extractedText.slice(0, 200),
+        title: documentTitle,
+        structureVersion: documentStructureVersion,
+        structureSource: documentStructureSource,
+        blockCount: documentStats?.blockCount ?? 0,
+        headingCount: documentStats?.headingCount ?? 0,
+        wordCount: documentStats?.wordCount ?? 0,
       });
 
       saveDocumentSessionCache({
@@ -1114,6 +1168,10 @@ export async function processIncomingFile(intake) {
 
   pushLog(meta, "info", "process", "Processing complete.", {
     processedText,
+    documentTitle,
+    documentStats,
+    documentStructureVersion,
+    documentStructureSource,
   });
 
   if (intake?.lifecycle?.processing) {
@@ -1134,6 +1192,13 @@ export async function processIncomingFile(intake) {
     visibleFactsAvailable,
     visibleFactsError,
     visibleFactsProviderKey,
+
+    documentBlocks,
+    documentTitle,
+    documentStats,
+    documentHeadings,
+    documentStructureVersion,
+    documentStructureSource,
 
     lifecycle: intake?.lifecycle || null,
     meta,

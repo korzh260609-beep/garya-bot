@@ -1,15 +1,14 @@
 // src/bot/handlers/visionDiag.js
 // ============================================================================
-// STAGE 12.2 — VISION DIAGNOSTIC (monarch/dev)
+// STAGE 12.3 — VISION DIAGNOSTIC (monarch/dev)
 // Command:
 // - /vision_diag
 //
 // Purpose:
-// - show current vision/ocr skeleton status
+// - show current vision/ocr status
 // - show requested vs selected provider
 // - show provider scoring in auto mode
-// - no OCR calls
-// - no provider execution
+// - show which providers are actually ready now
 // ============================================================================
 
 import { getVisionServiceStatus } from "../../vision/visionService.js";
@@ -61,11 +60,13 @@ function formatKnownProviders(providers) {
     return [
       `- ${item?.key || "unknown"}`,
       `  flag_enabled: ${toBoolText(status?.providerFlagEnabled === true)}`,
+      `  provider_ready: ${toBoolText(status?.providerAvailable === true)}`,
       `  supportsVision: ${toBoolText(status?.supportsVision === true)}`,
       `  supportsOcr: ${toBoolText(status?.supportsOcr === true)}`,
       `  supportsDocs: ${toBoolText(status?.supportsDocs === true)}`,
       `  costLevel: ${status?.costLevel ?? "n/a"}`,
       `  speedLevel: ${status?.speedLevel ?? "n/a"}`,
+      `  notes: ${status?.notes || "n/a"}`,
     ].join("\n");
   });
 }
@@ -78,7 +79,7 @@ function buildVisionDiagText() {
   const lines = [];
 
   lines.push("VISION DIAG");
-  lines.push(`stage: ${service?.stage || "12.2-skeleton"}`);
+  lines.push(`stage: ${service?.stage || "12.3-openai-first"}`);
   lines.push(`service: ${service?.service || "vision"}`);
   lines.push(`enabled: ${toBoolText(service?.enabled === true)}`);
   lines.push(`ocr_enabled: ${toBoolText(service?.ocrEnabled === true)}`);
@@ -114,9 +115,9 @@ function buildVisionDiagText() {
 
   lines.push("Policy:");
   lines.push("- current auto mode picks cheapest acceptable provider");
-  lines.push("- quality must be >= threshold");
-  lines.push("- no real OCR call guaranteed yet");
-  lines.push("- provider files are switchable by config/env");
+  lines.push("- provider must be both enabled and really ready");
+  lines.push("- only OpenAI is implemented first in this step");
+  lines.push("- provider files remain switchable by config/env");
 
   return lines.join("\n");
 }

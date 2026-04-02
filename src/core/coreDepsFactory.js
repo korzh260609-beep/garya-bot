@@ -45,6 +45,8 @@ import {
   testSource,
 } from "../sources/sources.js";
 
+import { envStr } from "../core/config.js";
+
 export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } = {}) {
   return {
     reply,
@@ -65,6 +67,10 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     sanitizeNonMonarchReply,
 
     FileIntake,
+
+    // ✅ CRITICAL FIX — make Telegram file download token available
+    // for enforced transport/core path -> chat.js -> fileIntakeDecision.js
+    telegramBotToken: envStr("TELEGRAM_BOT_TOKEN", ""),
 
     getCoinGeckoSimplePriceById,
     getCoinGeckoSimplePriceMulti,

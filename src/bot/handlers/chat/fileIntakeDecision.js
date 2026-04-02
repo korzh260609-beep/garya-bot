@@ -15,6 +15,10 @@ function wordCount(value) {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
+function normalizeWhitespace(value) {
+  return safeText(value).replace(/\s+/g, " ").trim();
+}
+
 function isLikelyShortMediaQuestion(value) {
   const text = safeText(value);
   if (!text) return false;
@@ -26,6 +30,29 @@ function isLikelyShortMediaQuestion(value) {
   return hasQuestionMark || shortEnough;
 }
 
+function isLikelyDocumentFullTextRequest(value) {
+  const text = normalizeWhitespace(value).toLowerCase();
+  if (!text) return false;
+
+  return [
+    "весь файл",
+    "весь текст",
+    "полный текст",
+    "полностью",
+    "целиком",
+    "полный документ",
+    "дай полностью",
+    "покажи полностью",
+    "покажи весь файл",
+    "выдай весь файл",
+    "выдай полностью",
+    "частями",
+    "по частям",
+    "продолжай",
+    "продолжение",
+  ].some((token) => text.includes(token));
+}
+
 function resolveMediaResponseMode({
   baseEffectiveText = "",
   mediaSummary = null,
@@ -33,12 +60,24 @@ function resolveMediaResponseMode({
   const text = safeText(baseEffectiveText);
   const kind = safeText(mediaSummary?.kind || "unknown");
 
-  if (!text || !mediaSummary) {
+  if (!mediaSummary) {
     return null;
   }
 
-  if (kind === "photo" && isLikelyShortMediaQuestion(text)) {
+  if (kind === "photo" && text && isLikelyShortMediaQuestion(text)) {
     return "short_object_answer";
+  }
+
+  if (kind === "document" && !text) {
+    return "document_summary_answer";
+  }
+
+  if (kind === "document" && isLikelyDocumentFullTextRequest(text)) {
+    return "document_full_text_answer";
+  }
+
+  if (kind === "document") {
+    return "document_summary_answer";
   }
 
   return null;
@@ -75,6 +114,7 @@ function buildMediaAiContextNote(mediaSummary) {
 function buildResponseStyleDirective({
   baseEffectiveText = "",
   mediaSummary = null,
+  mediaResponseMode = null,
 }) {
   const text = safeText(baseEffectiveText);
   const kind = safeText(mediaSummary?.kind || "unknown");
@@ -90,6 +130,26 @@ function buildResponseStyleDirective({
     );
     lines.push(
       "Не делай длинные списки и не расписывай лишние детали без необходимости."
+    );
+  } else if (mediaResponseMode === "document_summary_answer") {
+    lines.push(
+      "Для документа сначала дай только общий смысл и краткую сводку."
+    );
+    lines.push(
+      "Не вставляй весь документ целиком без явного запроса пользователя."
+    );
+    lines.push(
+      "Добавь короткую подсказку, что пользователь может попросить полный текст или вывод частями."
+    );
+  } else if (mediaResponseMode === "document_full_text_answer") {
+    lines.push(
+      "Пользователь просит полный текст документа."
+    );
+    lines.push(
+      "Если текст не вмещается в один ответ, отдай только первую часть и явно скажи написать 'продолжай' для следующей части."
+    );
+    lines.push(
+      "Не заменяй полный текст кратким пересказом."
     );
   } else {
     lines.push(
@@ -108,6 +168,7 @@ function buildResponseStyleDirective({
 function buildEffectiveTextWithMediaContext({
   baseEffectiveText = "",
   mediaSummary = null,
+  mediaResponseMode = null,
   extractedText = "",
   visibleFactsText = "",
   extractionProviderKey = "",
@@ -129,14 +190,19 @@ function buildEffectiveTextWithMediaContext({
     buildResponseStyleDirective({
       baseEffectiveText: userPart,
       mediaSummary,
+      mediaResponseMode,
     }),
     "",
     "[MEDIA_CONTEXT]",
     buildMediaAiContextNote(mediaSummary),
   ];
 
+  if (mediaResponseMode) {
+    lines.push(`Media response mode: ${mediaResponseMode}.`);
+  }
+
   if (extractionProvider) {
-    lines.push(`OCR провайдер: ${extractionProvider}.`);
+    lines.push(`OCR/Text extraction провайдер: ${extractionProvider}.`);
   }
 
   if (factsProvider) {
@@ -144,10 +210,10 @@ function buildEffectiveTextWithMediaContext({
   }
 
   if (extractedPart) {
-    lines.push("Ниже текст, извлечённый специализированным OCR-маршрутом:");
+    lines.push("Ниже текст, извлечённый специализированным маршрутом:");
     lines.push(extractedPart);
   } else if (extractionErr) {
-    lines.push(`OCR текст не извлечён. Причина: ${extractionErr}.`);
+    lines.push(`Текст не извлечён. Причина: ${extractionErr}.`);
   }
 
   if (factsPart) {
@@ -200,7 +266,7 @@ export async function resolveFileIntakeDecision({
   let shouldCallAI = Boolean(baseDecision?.shouldCallAI);
   let directReplyText = baseDecision?.directReplyText || null;
 
-  const mediaResponseMode = resolveMediaResponseMode({
+  let mediaResponseMode = resolveMediaResponseMode({
     baseEffectiveText: effective,
     mediaSummary,
   });
@@ -242,6 +308,10 @@ export async function resolveFileIntakeDecision({
             processed?.directUserHint || ""
           );
 
+          const processedEffectiveText = safeText(
+            processed?.effectiveUserText || processed?.processedText || ""
+          );
+
           const processedExtractedText = safeText(
             processed?.extractedText || ""
           );
@@ -274,10 +344,6 @@ export async function resolveFileIntakeDecision({
             if (processed && processed.shouldCallAI === true) {
               shouldCallAI = true;
 
-              const processedEffectiveText = safeText(
-                processed.effectiveUserText || processed.processedText || ""
-              );
-
               if (processedEffectiveText) {
                 effective = processedEffectiveText;
               }
@@ -285,6 +351,11 @@ export async function resolveFileIntakeDecision({
               if (!processedDirectUserHint) {
                 directReplyText = null;
               }
+
+              mediaResponseMode = resolveMediaResponseMode({
+                baseEffectiveText: trimmed || processedEffectiveText,
+                mediaSummary,
+              });
             }
           }
 
@@ -294,6 +365,7 @@ export async function resolveFileIntakeDecision({
             effective = buildEffectiveTextWithMediaContext({
               baseEffectiveText: effective,
               mediaSummary,
+              mediaResponseMode,
               extractedText: processedExtractedText,
               visibleFactsText: processedVisibleFactsText,
               extractionProviderKey: processedExtractionProviderKey,

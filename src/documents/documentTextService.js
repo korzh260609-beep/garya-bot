@@ -4,12 +4,14 @@
 // Purpose:
 // - handle document intake in specialized-first mode
 // - extract text from text-like files safely
-// - provide honest unavailable results for PDF/DOCX until parser deps are added
+// - support real DOCX extraction via mammoth
+// - provide honest unavailable results for PDF/DOC until parser deps are added
 // - do NOT do semantic analysis here
 // ============================================================================
 
 import fs from "fs";
 import path from "path";
+import mammoth from "mammoth";
 import { VISION_MAX_FILE_MB } from "../core/config.js";
 
 function nowIso() {
@@ -148,6 +150,21 @@ function stripBasicRtf(rtf) {
   );
 }
 
+async function extractDocxText(localPath) {
+  const result = await mammoth.extractRawText({ path: localPath });
+
+  return {
+    text: normalizeExtractedText(result?.value || ""),
+    warnings: Array.isArray(result?.messages)
+      ? result.messages.map((item) => {
+          const type = item?.type ? String(item.type) : "warning";
+          const message = item?.message ? String(item.message) : "unknown";
+          return `mammoth_${type}: ${message}`;
+        })
+      : [],
+  };
+}
+
 function buildUnavailableResult({
   requestedKind,
   reason,
@@ -191,6 +208,7 @@ function buildSuccessResult({
   fileSize = null,
   extension = "",
   text = "",
+  warnings = [],
   extraMeta = {},
 }) {
   return {
@@ -209,7 +227,7 @@ function buildSuccessResult({
     },
     text: normalizeExtractedText(text),
     blocks: [],
-    warnings: [],
+    warnings: Array.isArray(warnings) ? warnings : [],
     error: null,
     meta: {
       stage: "12-document-text-service",
@@ -308,9 +326,9 @@ export function getDocumentTextServiceStatus(params = {}) {
     mimeType: mimeType || null,
     extension: ext || "",
     pdfReady: false,
-    docxReady: false,
+    docxReady: true,
     notes:
-      "Text-like files supported. RTF basic extraction supported. PDF/DOC/DOCX need parser dependency in a later step.",
+      "Text-like files supported. RTF basic extraction supported. DOCX extraction supported via mammoth. PDF/DOC still need parser dependency.",
   };
 }
 
@@ -339,13 +357,19 @@ export async function extractTextFromDocumentIntake(intake) {
     }
 
     if (isDocx(extension, mimeType)) {
-      return buildUnavailableResult({
+      const docxResult = await extractDocxText(localPath);
+
+      return buildSuccessResult({
         requestedKind,
-        reason: "docx_parser_not_available_current_stage",
         filePath: localPath,
         mimeType,
         fileSize,
         extension,
+        text: docxResult.text,
+        warnings: docxResult.warnings,
+        extraMeta: {
+          parser: "mammoth_raw_text",
+        },
       });
     }
 

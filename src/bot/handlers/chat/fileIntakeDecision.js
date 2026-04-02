@@ -4,6 +4,11 @@ function getFn(obj, name, fallback) {
   return typeof obj?.[name] === "function" ? obj[name] : fallback;
 }
 
+function safeText(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
 export async function resolveFileIntakeDecision({
   FileIntake,
   msg,
@@ -34,16 +39,16 @@ export async function resolveFileIntakeDecision({
           : "Напиши текстом, что нужно сделать.",
       };
 
-  let effective = (baseDecision?.effectiveUserText || "").trim();
+  let effective = safeText(baseDecision?.effectiveUserText || "");
   let shouldCallAI = Boolean(baseDecision?.shouldCallAI);
   let directReplyText = baseDecision?.directReplyText || null;
 
   // --------------------------------------------------------------------------
-  // STAGE 11F.1 + 11F.3 runtime hook (best-effort)
+  // STAGE 11F + 12.x runtime hook
   // PURPOSE:
-  // - connect existing download/process skeleton to real chat flow
-  // - DO NOT block chat if file intake download fails
-  // - currently used mainly for media-only path
+  // - connect download/process pipeline to real chat flow
+  // - media-only path should prefer processFile().directUserHint when available
+  // - fail-open on runtime errors
   // - cleanup tmp files after processing attempt
   // --------------------------------------------------------------------------
   if (mediaSummary && !shouldCallAI) {
@@ -79,11 +84,36 @@ export async function resolveFileIntakeDecision({
         if (intake) {
           const processed = await processFile(intake);
 
-          if (
-            processed?.directUserHint &&
-            typeof processed.directUserHint === "string"
-          ) {
-            directReplyText = processed.directUserHint;
+          const processedDirectUserHint = safeText(
+            processed?.directUserHint || ""
+          );
+
+          // ================================================================
+          // CRITICAL RULE:
+          // If runtime processing produced a direct user hint
+          // (for example OCR result), it MUST override base stub.
+          // ================================================================
+          if (processedDirectUserHint) {
+            directReplyText = processedDirectUserHint;
+          }
+
+          // Optional safety:
+          // if some future processor wants to escalate to AI,
+          // allow that only when it explicitly returns shouldCallAI=true.
+          if (processed && processed.shouldCallAI === true) {
+            shouldCallAI = true;
+
+            const processedEffectiveText = safeText(
+              processed.effectiveUserText || processed.processedText || ""
+            );
+
+            if (processedEffectiveText) {
+              effective = processedEffectiveText;
+            }
+
+            if (!processedDirectUserHint) {
+              directReplyText = null;
+            }
           }
         }
       } catch (error) {

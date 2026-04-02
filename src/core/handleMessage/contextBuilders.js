@@ -102,6 +102,10 @@ export function buildChatHandlerContext({
 
     FileIntake: deps.FileIntake,
 
+    // ✅ CRITICAL FIX — pass Telegram token into chat.js
+    // so enforced path can download/process media exactly like router path
+    telegramBotToken: deps.telegramBotToken || "",
+
     getChatHistory: deps.getChatHistory,
     saveMessageToMemory,
     saveChatPair,

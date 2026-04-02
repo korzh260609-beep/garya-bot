@@ -46,6 +46,7 @@ import {
 const TMP_DIR = path.resolve(process.cwd(), "tmp", "media");
 const DOCUMENT_REPLY_CHUNK_SIZE = 3200;
 const DOCUMENT_SESSION_CACHE = new Map();
+const DOCUMENT_SESSION_BIND_WINDOW_MS = 30 * 60 * 1000; // 30 min
 
 function ensureTmpDir() {
   if (!fs.existsSync(TMP_DIR)) {
@@ -60,6 +61,10 @@ function safeStr(v) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function nowMs() {
+  return Date.now();
 }
 
 function makeMeta() {
@@ -181,27 +186,6 @@ function isDocumentContinueCommand(value) {
   ].includes(text);
 }
 
-function saveDocumentSessionCache({ chatId, fileName, text }) {
-  const key = String(chatId || "").trim();
-  const content = safeStr(text).trim();
-
-  if (!key || !content) return null;
-
-  const chunks = splitTextIntoChunks(content, DOCUMENT_REPLY_CHUNK_SIZE);
-
-  const cache = {
-    chatId: key,
-    fileName: safeStr(fileName || "document"),
-    text: content,
-    chunks,
-    nextChunkIndex: 0,
-    createdAt: nowIso(),
-  };
-
-  DOCUMENT_SESSION_CACHE.set(key, cache);
-  return cache;
-}
-
 function safeDocumentMeta(meta = {}) {
   return {
     title: safeStr(meta?.title || "").trim() || null,
@@ -227,10 +211,125 @@ function safeDocumentMeta(meta = {}) {
   };
 }
 
+function buildAutoSummaryRequestText(fileName) {
+  const normalizedFileName = safeStr(fileName || "document").trim() || "document";
+
+  return (
+    `Сделай краткую полезную сводку документа ${normalizedFileName}. ` +
+    `Нужен сначала общий смысл, основные пункты и о чем документ в целом. ` +
+    `Не выдавай весь текст целиком без отдельного запроса пользователя.`
+  );
+}
+
+function saveDocumentSessionCache({
+  chatId,
+  fileName,
+  text,
+  title = null,
+  stats = null,
+  headings = [],
+  blocks = [],
+  structureVersion = null,
+  structureSource = null,
+}) {
+  const key = String(chatId || "").trim();
+  const content = safeStr(text).trim();
+
+  if (!key || !content) return null;
+
+  const chunks = splitTextIntoChunks(content, DOCUMENT_REPLY_CHUNK_SIZE);
+
+  const cache = {
+    chatId: key,
+    fileName: safeStr(fileName || "document"),
+    text: content,
+    chunks,
+    nextChunkIndex: 0,
+    createdAt: nowIso(),
+    createdAtMs: nowMs(),
+    lastUsedAt: nowIso(),
+    lastUsedAtMs: nowMs(),
+    title: safeStr(title || "").trim() || null,
+    stats: stats && typeof stats === "object" ? stats : null,
+    headings: Array.isArray(headings) ? headings : [],
+    blocks: Array.isArray(blocks) ? blocks : [],
+    structureVersion: Number(structureVersion || 0) || null,
+    structureSource: safeStr(structureSource || "").trim() || null,
+  };
+
+  DOCUMENT_SESSION_CACHE.set(key, cache);
+  return cache;
+}
+
+function touchDocumentSessionCache(cache) {
+  if (!cache || typeof cache !== "object") return;
+  cache.lastUsedAt = nowIso();
+  cache.lastUsedAtMs = nowMs();
+}
+
 export function getDocumentSessionCache(chatId) {
   const key = String(chatId || "").trim();
   if (!key) return null;
   return DOCUMENT_SESSION_CACHE.get(key) || null;
+}
+
+export function getRecentDocumentSessionCache(chatId) {
+  const cache = getDocumentSessionCache(chatId);
+  if (!cache) return null;
+
+  const lastUsedAtMs = Number(cache?.lastUsedAtMs || cache?.createdAtMs || 0);
+  if (!lastUsedAtMs) return null;
+
+  const ageMs = nowMs() - lastUsedAtMs;
+  if (ageMs > DOCUMENT_SESSION_BIND_WINDOW_MS) {
+    return null;
+  }
+
+  return cache;
+}
+
+export function shouldBindMessageToRecentDocumentSession(text) {
+  const src = safeStr(text).trim();
+  if (!src) return false;
+
+  if (src.startsWith("/")) return false;
+  if (src.length > 400) return false;
+
+  const compact = normalizeCommandText(src);
+  if (!compact) return false;
+
+  if (isDocumentFullTextCommand(compact)) return true;
+  if (isDocumentContinueCommand(compact)) return true;
+
+  const hasUrl =
+    compact.includes("http://") ||
+    compact.includes("https://") ||
+    compact.includes("www.");
+  if (hasUrl) return false;
+
+  const hasCodeLike =
+    compact.includes("{") ||
+    compact.includes("}") ||
+    compact.includes("[") ||
+    compact.includes("]") ||
+    compact.includes("```");
+  if (hasCodeLike) return false;
+
+  const wordCount = compact.split(" ").filter(Boolean).length;
+  if (wordCount <= 14) return true;
+
+  if (compact.endsWith("?") && wordCount <= 24) return true;
+
+  const hasDocumentReference =
+    compact.includes("документ") ||
+    compact.includes("файл") ||
+    compact.includes("текст") ||
+    compact.includes("смысл") ||
+    compact.includes("суть") ||
+    compact.includes("кратко") ||
+    compact.includes("summary");
+
+  return hasDocumentReference;
 }
 
 export function tryHandleDocumentSessionCommand({ chatId, text }) {
@@ -243,6 +342,7 @@ export function tryHandleDocumentSessionCommand({ chatId, text }) {
   }
 
   if (isDocumentFullTextCommand(text)) {
+    touchDocumentSessionCache(cache);
     cache.nextChunkIndex = 1;
 
     const replyText = buildDocumentPartReply(cache, 0);
@@ -253,6 +353,8 @@ export function tryHandleDocumentSessionCommand({ chatId, text }) {
   }
 
   if (isDocumentContinueCommand(text)) {
+    touchDocumentSessionCache(cache);
+
     const nextIndex = Number(cache.nextChunkIndex || 0);
 
     if (nextIndex >= cache.chunks.length) {
@@ -980,6 +1082,9 @@ export async function processIncomingFile(intake) {
   let documentStructureVersion = null;
   let documentStructureSource = null;
 
+  let shouldCallAI = false;
+  let effectiveUserText = "";
+
   if (canRunVisionForIntake(intake)) {
     const visionStatus = getVisionServiceStatus({
       kind: intake?.kind || "unknown",
@@ -1148,7 +1253,22 @@ export async function processIncomingFile(intake) {
         chatId: intake?.chatId ?? intake?.lifecycle?.identity?.chatId ?? null,
         fileName: intake?.downloaded?.fileName || intake?.fileName || "document",
         text: extractedText,
+        title: documentTitle,
+        stats: documentStats,
+        headings: documentHeadings,
+        blocks: documentBlocks,
+        structureVersion: documentStructureVersion,
+        structureSource: documentStructureSource,
       });
+
+      // IMPORTANT:
+      // for media-only document upload, we want immediate AI summary,
+      // not only service hint.
+      shouldCallAI = true;
+      effectiveUserText = buildAutoSummaryRequestText(
+        intake?.downloaded?.fileName || intake?.fileName || "document"
+      );
+      directUserHint = null;
     } else {
       extractedText = "";
       extractionAvailable = false;
@@ -1161,9 +1281,9 @@ export async function processIncomingFile(intake) {
         reason: documentResult?.error || "unknown",
         provider: documentResult?.providerKey || "n/a",
       });
-    }
 
-    directUserHint = buildDocumentHintForUser(documentResult, intake) || directUserHint;
+      directUserHint = buildDocumentHintForUser(documentResult, intake) || directUserHint;
+    }
   }
 
   pushLog(meta, "info", "process", "Processing complete.", {
@@ -1172,6 +1292,7 @@ export async function processIncomingFile(intake) {
     documentStats,
     documentStructureVersion,
     documentStructureSource,
+    shouldCallAI,
   });
 
   if (intake?.lifecycle?.processing) {
@@ -1182,6 +1303,9 @@ export async function processIncomingFile(intake) {
     ok: true,
     processedText,
     directUserHint,
+
+    shouldCallAI,
+    effectiveUserText,
 
     extractedText,
     extractionAvailable,

@@ -19,7 +19,8 @@
     "node-fetch": "^3.3.2",
     "cheerio": "^1.0.0-rc.12",
     "node-pg-migrate": "^7.9.1",
-    "mammoth": "^1.8.0"
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^1.1.1"
   },
   "node-pg-migrate": {
     "migrations-dir": "migrations",

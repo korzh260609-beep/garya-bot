@@ -9,6 +9,7 @@
 // - verify summarize / download / process hooks
 // - verify cleanup hook
 // - verify data lifecycle skeleton
+// - verify AI routing rule skeleton
 // - keep diagnostics deterministic
 // - no AI usage
 // - fail-open
@@ -172,7 +173,27 @@ function buildLifecycleSummary(FileIntake, lifecycle) {
     archiveEnabled: lifecycle?.retention?.archiveEnabled === true,
     binaryPersistenceAllowed: lifecycle?.retention?.binaryPersistenceAllowed === true,
     policy: lifecycle?.storage?.policy || "n/a",
+    routing:
+      typeof FileIntake?.compactRoutingRuleForDebug === "function"
+        ? FileIntake.compactRoutingRuleForDebug(lifecycle?.routing || null)
+        : null,
   };
+}
+
+function buildRoutingSummary(FileIntake, mediaSummary, lifecycleSummary) {
+  if (lifecycleSummary?.routing) {
+    return lifecycleSummary.routing;
+  }
+
+  if (typeof FileIntake?.buildSpecializedAIRoutingRule === "function") {
+    const rule = FileIntake.buildSpecializedAIRoutingRule(mediaSummary);
+    if (typeof FileIntake?.compactRoutingRuleForDebug === "function") {
+      return FileIntake.compactRoutingRuleForDebug(rule);
+    }
+    return rule;
+  }
+
+  return null;
 }
 
 function buildShortText({
@@ -184,6 +205,7 @@ function buildShortText({
   processResult,
   cleanupResult,
   lifecycleSummary,
+  routingSummary,
   errorMessage,
 }) {
   return [
@@ -202,7 +224,11 @@ function buildShortText({
     `cleanup_removed: ${toBoolText(cleanupResult?.removed === true)}`,
     `lifecycle_policy: ${lifecycleSummary?.policy || "n/a"}`,
     `binary_persisted: ${toBoolText(lifecycleSummary?.binaryPersisted === true)}`,
-    `direct_hint: ${processResult?.directUserHint ? "yes" : "no"}`,
+    `ai_route: ${routingSummary?.specializedRoute || "n/a"}`,
+    `provider_required: ${toBoolText(routingSummary?.specializedProviderRequired === true)}`,
+    `provider_active: ${toBoolText(routingSummary?.specializedProviderActive === true)}`,
+    `generic_ai_binary: ${toBoolText(routingSummary?.genericAiAllowedToSeeBinary === true)}`,
+    `generic_ai_mode: ${routingSummary?.genericAiMode || "n/a"}`,
     errorMessage ? `error: ${errorMessage}` : null,
   ]
     .filter(Boolean)
@@ -219,6 +245,7 @@ function buildFullText({
   processResult,
   cleanupResult,
   lifecycleSummary,
+  routingSummary,
   errorMessage,
 }) {
   const metaLogs =
@@ -289,6 +316,14 @@ function buildFullText({
     `binary_persistence_allowed: ${toBoolText(
       lifecycleSummary?.binaryPersistenceAllowed === true
     )}`,
+    "",
+    `ai_route_version: ${routingSummary?.routeVersion || "n/a"}`,
+    `ai_route: ${routingSummary?.specializedRoute || "n/a"}`,
+    `provider_required: ${toBoolText(routingSummary?.specializedProviderRequired === true)}`,
+    `provider_active: ${toBoolText(routingSummary?.specializedProviderActive === true)}`,
+    `generic_ai_binary: ${toBoolText(routingSummary?.genericAiAllowedToSeeBinary === true)}`,
+    `generic_ai_mode: ${routingSummary?.genericAiMode || "n/a"}`,
+    `fallback_mode: ${routingSummary?.fallbackMode || "n/a"}`,
     "",
     `logs_count: ${Array.isArray(metaLogs) ? metaLogs.length : 0}`,
     "logs_tail:",
@@ -461,6 +496,12 @@ export async function handleFileIntakeDebug({
     intakeResult?.lifecycle || processResult?.lifecycle || null
   );
 
+  const routingSummary = buildRoutingSummary(
+    FileIntake,
+    mediaSummary,
+    lifecycleSummary
+  );
+
   const text =
     mode === "full"
       ? buildFullText({
@@ -473,6 +514,7 @@ export async function handleFileIntakeDebug({
           processResult,
           cleanupResult,
           lifecycleSummary,
+          routingSummary,
           errorMessage,
         })
       : buildShortText({
@@ -484,6 +526,7 @@ export async function handleFileIntakeDebug({
           processResult,
           cleanupResult,
           lifecycleSummary,
+          routingSummary,
           errorMessage,
         });
 

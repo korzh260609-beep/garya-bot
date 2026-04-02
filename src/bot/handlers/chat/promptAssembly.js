@@ -68,10 +68,6 @@ function isStructurallyUnderspecifiedRequest(value) {
   const shortByWords = words <= 3;
   const lowStructure = sentenceMarks <= 1 && lineBreaks === 0 && !structuredPayload;
 
-  // IMPORTANT:
-  // - no meaning/keyword lists
-  // - only structural underspecification
-  // - conservative on purpose
   return shortByChars && shortByWords && lowStructure;
 }
 
@@ -163,22 +159,48 @@ function isLikelyContextualReactionMessage(value, history) {
 }
 
 function buildMediaResponseOverrideSystemMessage(mediaResponseMode) {
-  if (mediaResponseMode !== "short_object_answer") {
-    return null;
+  if (mediaResponseMode === "short_object_answer") {
+    return {
+      role: "system",
+      content:
+        "SHORT MEDIA ANSWER RULE:\n" +
+        "The current user request is a simple short question about an image, object, or visible scene.\n" +
+        "Answer in 1 or 2 short sentences maximum.\n" +
+        "Sentence 1: give the direct answer about what is shown.\n" +
+        "Sentence 2: only if needed, add one short note about uncertainty or one key visible trait.\n" +
+        "Do not write long lists.\n" +
+        "Do not expand into broad explanations unless the user explicitly asks for detail.\n" +
+        "If identification is uncertain, prefer cautious wording such as 'Похоже на ...'.",
+    };
   }
 
-  return {
-    role: "system",
-    content:
-      "SHORT MEDIA ANSWER RULE:\n" +
-      "The current user request is a simple short question about an image, object, or visible scene.\n" +
-      "Answer in 1 or 2 short sentences maximum.\n" +
-      "Sentence 1: give the direct answer about what is shown.\n" +
-      "Sentence 2: only if needed, add one short note about uncertainty or one key visible trait.\n" +
-      "Do not write long lists.\n" +
-      "Do not expand into broad explanations unless the user explicitly asks for detail.\n" +
-      "If identification is uncertain, prefer cautious wording such as 'Похоже на ...'.",
-  };
+  if (mediaResponseMode === "document_summary_answer") {
+    return {
+      role: "system",
+      content:
+        "DOCUMENT SUMMARY RULE:\n" +
+        "The current request is about a document.\n" +
+        "First give only the general meaning and short summary of the document.\n" +
+        "Do NOT output the full document text unless the user explicitly asks for it.\n" +
+        "Keep the summary compact and useful.\n" +
+        "At the end, add one short line telling the user they can ask for the full text or for output in parts.",
+    };
+  }
+
+  if (mediaResponseMode === "document_full_text_answer") {
+    return {
+      role: "system",
+      content:
+        "DOCUMENT FULL TEXT RULE:\n" +
+        "The user is asking for the document text itself, not a summary.\n" +
+        "Output the document text.\n" +
+        "If it is too long, output only the first part and clearly say that this is part 1 and the user should write 'продолжай' for the next part.\n" +
+        "Do NOT replace the full text with a summary.\n" +
+        "Preserve the original meaning of the document text.",
+    };
+  }
+
+  return null;
 }
 
 export function buildChatMessages({

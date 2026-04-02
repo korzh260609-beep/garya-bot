@@ -1,6 +1,6 @@
 // src/media/fileIntake.js
 // ==================================================
-// STAGE 11F + STAGE 12.3 — FILE-INTAKE + REAL OCR OUTPUT BRIDGE
+// STAGE 11F + STAGE 12.4 — FILE-INTAKE + OCR + VISIBLE FACTS BRIDGE
 // 11F.1 download file
 // 11F.2 detect type
 // 11F.3 process file (routing + stub)
@@ -10,24 +10,14 @@
 // 11F.12 AI routing rule skeleton
 //
 // 12.x OCR vision routing/service/provider bridge
-// - provider router exists
-// - OpenAI may already be real/ready
-// - other providers may still be skeleton-only
-//
-// CURRENT STATUS:
-// - определяет вложение из Telegram msg (summary)
-// - умеет скачать файл по file_id
-// - умеет сделать базовый routing/stub
-// - даёт расширенные intake logs
-// - умеет чистить временные файлы после обработки
-// - lifecycle хранит только meta/links, не binary
-// - routing rule задаёт specialized-first policy
-// - vision service contract integrated
+// - OCR text extraction
+// - visible scene/object facts extraction
+// - direct reply for media-only path may use OCR and/or visible facts
 //
 // IMPORTANT:
-// - media-only path must return real OCR text when provider succeeded
-// - if OCR fails, return honest fallback with exact reason
-// - generic AI is still text fallback only for media+text flows
+// - media-only path should return real OCR text when available
+// - if OCR has no text, visible facts may still help for object questions
+// - generic AI is still text-only fallback for media+text flows
 // ==================================================
 
 import fs from "fs";
@@ -36,6 +26,7 @@ import { fetchWithTimeout } from "../core/fetchWithTimeout.js";
 import {
   getVisionServiceStatus,
   extractTextWithVisionFromIntake,
+  extractVisibleFactsWithVisionFromIntake,
   canRunVisionForIntake,
 } from "../vision/visionService.js";
 
@@ -62,7 +53,7 @@ function nowIso() {
 function makeMeta() {
   return {
     startedAt: nowIso(),
-    logs: [], // { t, level, step, msg, data? }
+    logs: [],
   };
 }
 
@@ -103,7 +94,7 @@ export function buildSpecializedAIRoutingRule(summary) {
         genericAiMode: "text_fallback_only",
         fallbackMode: "stub_or_caption_text_only",
         notes:
-          "Photo should route to Vision-class handler; current runtime may return real OCR if provider is active.",
+          "Photo should route to Vision-class handler; current runtime may return OCR and visible facts if provider is active.",
       };
 
     case "document":
@@ -245,6 +236,10 @@ function buildDataLifecycleSkeleton(summary) {
       visionAttempted: false,
       visionOk: false,
       visionReason: null,
+
+      factsAttempted: false,
+      factsOk: false,
+      factsReason: null,
     },
 
     retention: buildRetentionPolicySkeleton(kind),
@@ -272,6 +267,9 @@ export function compactLifecycleForDebug(lifecycle) {
     visionAttempted: lifecycle?.processing?.visionAttempted === true,
     visionOk: lifecycle?.processing?.visionOk === true,
     visionReason: lifecycle?.processing?.visionReason || null,
+    factsAttempted: lifecycle?.processing?.factsAttempted === true,
+    factsOk: lifecycle?.processing?.factsOk === true,
+    factsReason: lifecycle?.processing?.factsReason || null,
     retentionEnabled: lifecycle?.retention?.enabled === true,
     archiveEnabled: lifecycle?.retention?.archiveEnabled === true,
     binaryPersistenceAllowed: lifecycle?.retention?.binaryPersistenceAllowed === true,
@@ -371,7 +369,6 @@ export function summarizeMediaAttachment(msg) {
   return null;
 }
 
-// Явный alias под wording WORKFLOW
 export function detectIncomingFileType(msg) {
   return summarizeMediaAttachment(msg);
 }
@@ -518,7 +515,6 @@ export function cleanupDownloadedFile(intake, options = {}) {
   }
 }
 
-// Явный alias под wording future/runtime
 export function cleanupIntakeTempFiles(intake, options = {}) {
   return cleanupDownloadedFile(intake, options);
 }
@@ -574,7 +570,7 @@ export async function intakeAndDownloadIfNeeded(msg, botToken) {
 }
 
 // ==================================================
-// === stub helpers
+// === stub/fallback helpers
 // ==================================================
 function buildStubMessage(summary) {
   if (!summary) return null;
@@ -647,6 +643,57 @@ function buildVisionHintForUser(visionResult) {
   );
 }
 
+function buildVisibleFactsHintForUser(factsResult) {
+  if (!factsResult) {
+    return "👁 Видимые факты: результата нет.";
+  }
+
+  if (factsResult.ok === true) {
+    const facts = safeStr(factsResult.text).trim();
+
+    if (facts) {
+      return `👁 Что видно на фото:\n\n${facts}`;
+    }
+
+    return (
+      `👁 Vision-анализ выполнен, но кратких видимых фактов не извлечено.\n` +
+      `Возможно, изображение слишком неясное или деталей недостаточно.`
+    );
+  }
+
+  return (
+    `👁 Vision-описание сейчас не сработало.\n` +
+    `Причина: ${factsResult.error || "vision_facts_unavailable"}.`
+  );
+}
+
+function buildCombinedDirectHint({ visionResult, factsResult }) {
+  const ocrText = safeStr(visionResult?.text).trim();
+  const factsText = safeStr(factsResult?.text).trim();
+
+  if (ocrText && factsText) {
+    return `📷 OCR результат:\n\n${ocrText}\n\n👁 Что видно на фото:\n\n${factsText}`;
+  }
+
+  if (ocrText) {
+    return buildVisionHintForUser(visionResult);
+  }
+
+  if (factsText) {
+    return buildVisibleFactsHintForUser(factsResult);
+  }
+
+  if (visionResult && visionResult.ok === false) {
+    return buildVisionHintForUser(visionResult);
+  }
+
+  if (factsResult && factsResult.ok === false) {
+    return buildVisibleFactsHintForUser(factsResult);
+  }
+
+  return null;
+}
+
 // ==================================================
 // === 11F.3 + 12.x process file
 // ==================================================
@@ -674,6 +721,11 @@ export async function processIncomingFile(intake) {
   let extractionAvailable = false;
   let extractionError = null;
   let extractionProviderKey = null;
+
+  let visibleFactsText = "";
+  let visibleFactsAvailable = false;
+  let visibleFactsError = null;
+  let visibleFactsProviderKey = null;
 
   if (canRunVisionForIntake(intake)) {
     const visionStatus = getVisionServiceStatus({
@@ -711,9 +763,7 @@ export async function processIncomingFile(intake) {
 
       processedText += ` vision=ok; provider=${visionResult.providerKey || "n/a"}; textLen=${extractedText.length}.`;
 
-      directUserHint = buildVisionHintForUser(visionResult);
-
-      pushLog(meta, "info", "vision", "Vision extract-only result available.", {
+      pushLog(meta, "info", "vision", "Vision OCR result available.", {
         provider: visionResult?.providerKey || "n/a",
         textLen: extractedText.length,
         textPreview: extractedText.slice(0, 200),
@@ -732,13 +782,61 @@ export async function processIncomingFile(intake) {
 
       processedText += ` vision=unavailable; reason=${visionResult?.error || "unknown"}.`;
 
-      directUserHint = buildVisionHintForUser(visionResult);
-
-      pushLog(meta, "info", "vision", "Vision unavailable/noop result.", {
+      pushLog(meta, "info", "vision", "Vision OCR unavailable/noop result.", {
         reason: visionResult?.error || "unknown",
         provider: visionResult?.providerKey || "n/a",
       });
     }
+
+    if (intake?.lifecycle?.processing) {
+      intake.lifecycle.processing.factsAttempted = true;
+    }
+
+    const factsResult = await extractVisibleFactsWithVisionFromIntake(intake);
+
+    if (factsResult?.ok === true) {
+      if (intake?.lifecycle?.processing) {
+        intake.lifecycle.processing.factsOk = true;
+        intake.lifecycle.processing.factsReason = "facts_ok";
+      }
+
+      visibleFactsText = safeStr(factsResult.text).trim();
+      visibleFactsAvailable = Boolean(visibleFactsText);
+      visibleFactsError = null;
+      visibleFactsProviderKey = factsResult.providerKey || null;
+
+      processedText += ` facts=ok; provider=${factsResult.providerKey || "n/a"}; factsLen=${visibleFactsText.length}.`;
+
+      pushLog(meta, "info", "vision", "Visible facts result available.", {
+        provider: factsResult?.providerKey || "n/a",
+        factsLen: visibleFactsText.length,
+        factsPreview: visibleFactsText.slice(0, 200),
+      });
+    } else {
+      if (intake?.lifecycle?.processing) {
+        intake.lifecycle.processing.factsOk = false;
+        intake.lifecycle.processing.factsReason =
+          factsResult?.error || "facts_unavailable";
+      }
+
+      visibleFactsText = "";
+      visibleFactsAvailable = false;
+      visibleFactsError = factsResult?.error || "unknown";
+      visibleFactsProviderKey = factsResult?.providerKey || null;
+
+      processedText += ` facts=unavailable; reason=${factsResult?.error || "unknown"}.`;
+
+      pushLog(meta, "info", "vision", "Visible facts unavailable/noop result.", {
+        reason: factsResult?.error || "unknown",
+        provider: factsResult?.providerKey || "n/a",
+      });
+    }
+
+    directUserHint =
+      buildCombinedDirectHint({
+        visionResult,
+        factsResult,
+      }) || directUserHint;
   }
 
   pushLog(meta, "info", "process", "Processing complete.", {
@@ -753,16 +851,22 @@ export async function processIncomingFile(intake) {
     ok: true,
     processedText,
     directUserHint,
+
     extractedText,
     extractionAvailable,
     extractionError,
     extractionProviderKey,
+
+    visibleFactsText,
+    visibleFactsAvailable,
+    visibleFactsError,
+    visibleFactsProviderKey,
+
     lifecycle: intake?.lifecycle || null,
     meta,
   };
 }
 
-// Явный alias под wording WORKFLOW
 export async function processFile(intake) {
   return processIncomingFile(intake);
 }
@@ -770,32 +874,6 @@ export async function processFile(intake) {
 // ==================================================
 // === 11F.9 effectiveUserText + decision
 // ==================================================
-/**
- * CURRENT AUTHORITATIVE AI-FACING POLICY.
- *
- * IMPORTANT:
- * - this function remains the authoritative runtime path for AI-facing
- *   media/text decision semantics in production
- * - do NOT replace it with buildInboundChatPayload.js yet
- * - do NOT import future contract here during skeleton stage
- *
- * BRIDGE NOTE:
- * - authority here applies ONLY to AI-facing semantics
- * - this function is NOT the authority for chat_messages storage semantics
- * - Core storage-facing authority still remains in:
- *   src/core/handleMessage.js -> buildInboundStorageText(...)
- * - semantic divergence between storage and AI-facing text is intentional
- *
- * VERIFIED RUNTIME BOUNDARY:
- * - this function decides how chat.js should talk to AI right now
- * - this function does NOT decide how inbound messages are stored in chat_messages
- * - this function does NOT own dedupe semantics
- *
- * Главный хелпер:
- * - если у пользователя НЕТ текста и НЕТ caption, но есть медиа → возвращаем stub/ocr и НЕ зовём AI
- * - если текст есть (включая caption у фото/доков) → зовём AI, но только как text fallback,
- *   без доступа generic AI к binary/media payload
- */
 export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
   const trimmedText = safeStr(userText).trim();
   const captionText = safeStr(mediaSummary?.caption).trim();
@@ -839,7 +917,7 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
 
   const mediaNote = (() => {
     if (mediaSummary.kind === "photo") {
-      return "Вложение: фото. Специализированный маршрут: Vision-class. Generic AI видит только твой текст, не изображение.";
+      return "Вложение: фото. Специализированный маршрут: Vision-class. Generic AI видит только твой текст, не изображение напрямую.";
     }
     if (mediaSummary.kind === "document") {
       return `Вложение: документ (${mediaSummary.fileName || "file"}). Специализированный маршрут: Document-parse/OCR-class. Generic AI видит только твой текст, не файл.`;

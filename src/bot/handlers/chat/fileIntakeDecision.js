@@ -9,6 +9,87 @@ function safeText(value) {
   return String(value).trim();
 }
 
+function buildMediaAiContextNote(mediaSummary) {
+  const kind = safeText(mediaSummary?.kind || "unknown");
+
+  if (kind === "photo") {
+    return "Специализированное извлечение: OCR/Vision для фото.";
+  }
+
+  if (kind === "document") {
+    return `Специализированное извлечение: parser/OCR для документа (${safeText(
+      mediaSummary?.fileName || "file"
+    )}).`;
+  }
+
+  if (kind === "voice") {
+    return "Специализированное извлечение: STT для голосового сообщения.";
+  }
+
+  if (kind === "audio") {
+    return "Специализированное извлечение: STT для аудио.";
+  }
+
+  if (kind === "video") {
+    return "Специализированное извлечение: video/audio extraction.";
+  }
+
+  return "Специализированное извлечение: media handler.";
+}
+
+function buildEffectiveTextWithExtractedMedia({
+  baseEffectiveText = "",
+  mediaSummary = null,
+  extractedText = "",
+  extractionProviderKey = "",
+}) {
+  const userPart = safeText(baseEffectiveText);
+  const extractedPart = safeText(extractedText);
+  const providerPart = safeText(extractionProviderKey || "");
+
+  const mediaContextNote = buildMediaAiContextNote(mediaSummary);
+
+  const providerLine = providerPart
+    ? `Провайдер извлечения: ${providerPart}.`
+    : null;
+
+  return [
+    userPart,
+    "",
+    "[MEDIA_CONTEXT]",
+    mediaContextNote,
+    providerLine,
+    "Ниже текст, извлечённый специализированным media-маршрутом:",
+    extractedPart,
+    "[/MEDIA_CONTEXT]",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildEffectiveTextWithUnavailableExtraction({
+  baseEffectiveText = "",
+  mediaSummary = null,
+  extractionError = "",
+}) {
+  const userPart = safeText(baseEffectiveText);
+  const mediaContextNote = buildMediaAiContextNote(mediaSummary);
+  const errorText = safeText(extractionError || "specialized_extraction_unavailable");
+
+  return [
+    userPart,
+    "",
+    "[MEDIA_CONTEXT]",
+    mediaContextNote,
+    "Специализированное извлечение было запрошено, но не дало текста.",
+    `Причина: ${errorText}.`,
+    "Важно: generic AI не видел binary/media напрямую и отвечает только по тексту пользователя и доступному текстовому контексту.",
+    "[/MEDIA_CONTEXT]",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export async function resolveFileIntakeDecision({
   FileIntake,
   msg,
@@ -44,14 +125,15 @@ export async function resolveFileIntakeDecision({
   let directReplyText = baseDecision?.directReplyText || null;
 
   // --------------------------------------------------------------------------
-  // STAGE 11F + 12.x runtime hook
+  // STAGE 12.x runtime hook
   // PURPOSE:
-  // - connect download/process pipeline to real chat flow
-  // - media-only path should prefer processFile().directUserHint when available
+  // - media-only path: prefer processFile().directUserHint when available
+  // - media+text path: specialized extraction first, then AI gets extracted text
+  // - no phrase-based routing; decision is based on message shape + semantics
   // - fail-open on runtime errors
   // - cleanup tmp files after processing attempt
   // --------------------------------------------------------------------------
-  if (mediaSummary && !shouldCallAI) {
+  if (mediaSummary) {
     const intakeAndDownloadIfNeeded = getFn(
       FileIntake,
       "intakeAndDownloadIfNeeded",
@@ -88,31 +170,72 @@ export async function resolveFileIntakeDecision({
             processed?.directUserHint || ""
           );
 
+          const processedExtractedText = safeText(
+            processed?.extractedText || ""
+          );
+
+          const processedExtractionAvailable =
+            processed?.extractionAvailable === true &&
+            Boolean(processedExtractedText);
+
+          const processedExtractionError = safeText(
+            processed?.extractionError || ""
+          );
+
+          const processedExtractionProviderKey = safeText(
+            processed?.extractionProviderKey || ""
+          );
+
           // ================================================================
-          // CRITICAL RULE:
-          // If runtime processing produced a direct user hint
-          // (for example OCR result), it MUST override base stub.
+          // PATH A — MEDIA ONLY
           // ================================================================
-          if (processedDirectUserHint) {
-            directReplyText = processedDirectUserHint;
-          }
-
-          // Optional safety:
-          // if some future processor wants to escalate to AI,
-          // allow that only when it explicitly returns shouldCallAI=true.
-          if (processed && processed.shouldCallAI === true) {
-            shouldCallAI = true;
-
-            const processedEffectiveText = safeText(
-              processed.effectiveUserText || processed.processedText || ""
-            );
-
-            if (processedEffectiveText) {
-              effective = processedEffectiveText;
+          if (!shouldCallAI) {
+            if (processedDirectUserHint) {
+              directReplyText = processedDirectUserHint;
             }
 
-            if (!processedDirectUserHint) {
-              directReplyText = null;
+            // Optional future path:
+            // if processor explicitly requests AI escalation, allow it.
+            if (processed && processed.shouldCallAI === true) {
+              shouldCallAI = true;
+
+              const processedEffectiveText = safeText(
+                processed.effectiveUserText || processed.processedText || ""
+              );
+
+              if (processedEffectiveText) {
+                effective = processedEffectiveText;
+              }
+
+              if (!processedDirectUserHint) {
+                directReplyText = null;
+              }
+            }
+          }
+
+          // ================================================================
+          // PATH B — MEDIA + USER TEXT/CAPTION
+          // RULE:
+          // - no keyword matching
+          // - if user already asked something in text, we do specialized
+          //   extraction first and feed the extracted result into AI context
+          // ================================================================
+          if (shouldCallAI) {
+            directReplyText = null;
+
+            if (processedExtractionAvailable) {
+              effective = buildEffectiveTextWithExtractedMedia({
+                baseEffectiveText: effective,
+                mediaSummary,
+                extractedText: processedExtractedText,
+                extractionProviderKey: processedExtractionProviderKey,
+              });
+            } else {
+              effective = buildEffectiveTextWithUnavailableExtraction({
+                baseEffectiveText: effective,
+                mediaSummary,
+                extractionError: processedExtractionError,
+              });
             }
           }
         }
@@ -123,7 +246,7 @@ export async function resolveFileIntakeDecision({
           // ignore
         }
         // fail-open:
-        // keep original directReplyText from base decision
+        // keep original base decision
       } finally {
         if (intake && cleanupIntakeTempFiles) {
           try {

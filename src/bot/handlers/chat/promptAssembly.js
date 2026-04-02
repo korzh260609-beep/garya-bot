@@ -162,6 +162,25 @@ function isLikelyContextualReactionMessage(value, history) {
   return reactionTone || acknowledgmentToken || shortEvaluativeUtterance;
 }
 
+function buildMediaResponseOverrideSystemMessage(mediaResponseMode) {
+  if (mediaResponseMode !== "short_object_answer") {
+    return null;
+  }
+
+  return {
+    role: "system",
+    content:
+      "SHORT MEDIA ANSWER RULE:\n" +
+      "The current user request is a simple short question about an image, object, or visible scene.\n" +
+      "Answer in 1 or 2 short sentences maximum.\n" +
+      "Sentence 1: give the direct answer about what is shown.\n" +
+      "Sentence 2: only if needed, add one short note about uncertainty or one key visible trait.\n" +
+      "Do not write long lists.\n" +
+      "Do not expand into broad explanations unless the user explicitly asks for detail.\n" +
+      "If identification is uncertain, prefer cautious wording such as 'Похоже на ...'.",
+  };
+}
+
 export function buildChatMessages({
   buildSystemPrompt,
   answerMode,
@@ -169,6 +188,7 @@ export function buildChatMessages({
   monarchNow,
   msg,
   effective,
+  mediaResponseMode,
   sourceServiceSystemMessage,
   sourceResultSystemMessage,
   longTermMemorySystemMessage,
@@ -284,6 +304,9 @@ export function buildChatMessages({
         }
       : null;
 
+  const mediaResponseOverrideSystemMessage =
+    buildMediaResponseOverrideSystemMessage(mediaResponseMode);
+
   const messages = [
     { role: "system", content: systemPrompt },
     sourceServiceSystemMessage,
@@ -296,6 +319,7 @@ export function buildChatMessages({
     ...historyMessages,
     contextualReactionSystemMessage,
     clarificationFirstSystemMessage,
+    mediaResponseOverrideSystemMessage,
     { role: "user", content: effective },
   ];
 

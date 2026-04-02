@@ -26,6 +26,24 @@ function isLikelyShortMediaQuestion(value) {
   return hasQuestionMark || shortEnough;
 }
 
+function resolveMediaResponseMode({
+  baseEffectiveText = "",
+  mediaSummary = null,
+}) {
+  const text = safeText(baseEffectiveText);
+  const kind = safeText(mediaSummary?.kind || "unknown");
+
+  if (!text || !mediaSummary) {
+    return null;
+  }
+
+  if (kind === "photo" && isLikelyShortMediaQuestion(text)) {
+    return "short_object_answer";
+  }
+
+  return null;
+}
+
 function buildMediaAiContextNote(mediaSummary) {
   const kind = safeText(mediaSummary?.kind || "unknown");
 
@@ -182,6 +200,11 @@ export async function resolveFileIntakeDecision({
   let shouldCallAI = Boolean(baseDecision?.shouldCallAI);
   let directReplyText = baseDecision?.directReplyText || null;
 
+  const mediaResponseMode = resolveMediaResponseMode({
+    baseEffectiveText: effective,
+    mediaSummary,
+  });
+
   if (mediaSummary) {
     const intakeAndDownloadIfNeeded = getFn(
       FileIntake,
@@ -306,6 +329,7 @@ export async function resolveFileIntakeDecision({
   return {
     summarizeMediaAttachment,
     mediaSummary,
+    mediaResponseMode,
     decision: baseDecision,
     effective,
     shouldCallAI,

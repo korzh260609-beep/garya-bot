@@ -104,7 +104,7 @@ export const ERROR_EVENTS_PURGE_COOLDOWN_MIN = envIntRange(
 );
 
 // ===============================
-// STAGE 12.1 / 12.2 — VISION / OCR CONFIG
+// STAGE 12.1 / 12.2 / 12.3 — VISION / OCR CONFIG
 // ===============================
 
 export const VISION_ENABLED = envBool("VISION_ENABLED", false);
@@ -148,14 +148,13 @@ export const VISION_PROVIDER_SELECTION_MODE = envStr(
   .toLowerCase();
 
 // Required minimum quality score in auto mode.
-// Current stage uses coarse integer scoring only.
 export const VISION_MIN_QUALITY_SCORE = envIntRange(
   "VISION_MIN_QUALITY_SCORE",
   60,
   { min: 1, max: 100 }
 );
 
-// Feature flags for provider availability (skeleton-level)
+// Feature flags for provider availability
 export const VISION_PROVIDER_NOOP_ENABLED = envBool(
   "VISION_PROVIDER_NOOP_ENABLED",
   true
@@ -171,6 +170,25 @@ export const VISION_PROVIDER_CLAUDE_ENABLED = envBool(
 export const VISION_PROVIDER_OPENAI_ENABLED = envBool(
   "VISION_PROVIDER_OPENAI_ENABLED",
   false
+);
+
+// OpenAI Vision runtime config
+export const OPENAI_VISION_MODEL = envStr(
+  "OPENAI_VISION_MODEL",
+  "gpt-4o-mini"
+).trim();
+
+export const OPENAI_VISION_DETAIL = envStr(
+  "OPENAI_VISION_DETAIL",
+  "auto"
+)
+  .trim()
+  .toLowerCase();
+
+export const OPENAI_VISION_MAX_OUTPUT_TOKENS = envIntRange(
+  "OPENAI_VISION_MAX_OUTPUT_TOKENS",
+  1200,
+  { min: 64, max: 4096 }
 );
 
 // ===============================
@@ -200,6 +218,9 @@ export const PUBLIC_ENV_ALLOWLIST = [
   "VISION_PROVIDER_GEMINI_ENABLED",
   "VISION_PROVIDER_CLAUDE_ENABLED",
   "VISION_PROVIDER_OPENAI_ENABLED",
+  "OPENAI_VISION_MODEL",
+  "OPENAI_VISION_DETAIL",
+  "OPENAI_VISION_MAX_OUTPUT_TOKENS",
 ];
 
 function _isTruthyFlag(v) {

@@ -9,6 +9,23 @@ function safeText(value) {
   return String(value).trim();
 }
 
+function wordCount(value) {
+  const text = safeText(value);
+  if (!text) return 0;
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
+function isLikelyShortMediaQuestion(value) {
+  const text = safeText(value);
+  if (!text) return false;
+
+  const words = wordCount(text);
+  const hasQuestionMark = text.includes("?");
+  const shortEnough = text.length <= 80 && words <= 8;
+
+  return hasQuestionMark || shortEnough;
+}
+
 function buildMediaAiContextNote(mediaSummary) {
   const kind = safeText(mediaSummary?.kind || "unknown");
 
@@ -37,6 +54,39 @@ function buildMediaAiContextNote(mediaSummary) {
   return "Специализированное извлечение: media handler.";
 }
 
+function buildResponseStyleDirective({
+  baseEffectiveText = "",
+  mediaSummary = null,
+}) {
+  const text = safeText(baseEffectiveText);
+  const kind = safeText(mediaSummary?.kind || "unknown");
+
+  const lines = ["[RESPONSE_STYLE]"];
+
+  if (kind === "photo" && isLikelyShortMediaQuestion(text)) {
+    lines.push(
+      "Если запрос пользователя простой и короткий про изображение, сначала дай 1 короткий прямой ответ в первом предложении."
+    );
+    lines.push(
+      "Затем, только если нужно, добавь 1 короткое уточнение о неуверенности или видимых признаках."
+    );
+    lines.push(
+      "Не делай длинные списки и не расписывай лишние детали без необходимости."
+    );
+  } else {
+    lines.push(
+      "Опирайся на специализированный media-контекст и отвечай по существу."
+    );
+    lines.push(
+      "Не раздувай ответ без необходимости. Сначала вывод, потом короткое пояснение."
+    );
+  }
+
+  lines.push("[/RESPONSE_STYLE]");
+
+  return lines.join("\n");
+}
+
 function buildEffectiveTextWithMediaContext({
   baseEffectiveText = "",
   mediaSummary = null,
@@ -57,6 +107,11 @@ function buildEffectiveTextWithMediaContext({
 
   const lines = [
     userPart,
+    "",
+    buildResponseStyleDirective({
+      baseEffectiveText: userPart,
+      mediaSummary,
+    }),
     "",
     "[MEDIA_CONTEXT]",
     buildMediaAiContextNote(mediaSummary),

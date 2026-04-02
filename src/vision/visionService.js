@@ -1,9 +1,9 @@
 // ============================================================================
 // src/vision/visionService.js
-// STAGE 12.2 — OCR vision service with provider router (skeleton)
+// STAGE 12.4 — OCR + visible-facts vision service with provider router
 // Rules:
-// - extract-only contract
-// - no semantic analysis
+// - OCR path remains extract-only
+// - visible-facts path is short and evidence-based
 // - no direct chat formatting here
 // - current runtime may return unavailable/noop result
 // ============================================================================
@@ -39,7 +39,7 @@ function safeFileStat(filePath) {
 function buildInvalidResult(reason, extra = {}) {
   return {
     ok: false,
-    stage: "12.2-skeleton",
+    stage: "12.4-ocr-plus-facts",
     extractOnly: VISION_EXTRACT_ONLY === true,
     startedAt: nowIso(),
     finishedAt: nowIso(),
@@ -54,11 +54,67 @@ function buildInvalidResult(reason, extra = {}) {
   };
 }
 
+function resolveValidatedLocalFile(intake) {
+  if (!intake || typeof intake !== "object") {
+    return {
+      ok: false,
+      result: buildInvalidResult("vision_intake_missing"),
+    };
+  }
+
+  if (!canRunVisionForIntake(intake)) {
+    return {
+      ok: false,
+      result: buildInvalidResult("vision_kind_not_supported_in_current_stage", {
+        kind: intake?.kind || "unknown",
+      }),
+    };
+  }
+
+  const localPath = intake?.downloaded?.localPath || null;
+  if (!localPath) {
+    return {
+      ok: false,
+      result: buildInvalidResult("vision_local_file_missing", {
+        kind: intake?.kind || "unknown",
+      }),
+    };
+  }
+
+  const stat = safeFileStat(localPath);
+  if (!stat || !stat.isFile()) {
+    return {
+      ok: false,
+      result: buildInvalidResult("vision_local_file_not_found", {
+        localPath,
+      }),
+    };
+  }
+
+  const maxBytes = bytesFromMb(VISION_MAX_FILE_MB);
+  if (stat.size > maxBytes) {
+    return {
+      ok: false,
+      result: buildInvalidResult("vision_file_too_large", {
+        localPath,
+        fileSize: stat.size,
+        maxBytes,
+      }),
+    };
+  }
+
+  return {
+    ok: true,
+    localPath: path.resolve(localPath),
+    fileSize: stat.size,
+  };
+}
+
 export function getVisionServiceStatus(params = {}) {
   const providerStatus = getVisionProviderStatus(params);
 
   return {
-    stage: "12.2-skeleton",
+    stage: "12.4-ocr-plus-facts",
     service: "vision",
     provider: providerStatus.provider,
     requestedProvider: providerStatus.requestedProvider,
@@ -89,37 +145,9 @@ export function canRunVisionForIntake(intake) {
 }
 
 export async function extractTextWithVisionFromIntake(intake) {
-  if (!intake || typeof intake !== "object") {
-    return buildInvalidResult("vision_intake_missing");
-  }
-
-  if (!canRunVisionForIntake(intake)) {
-    return buildInvalidResult("vision_kind_not_supported_in_current_stage", {
-      kind: intake?.kind || "unknown",
-    });
-  }
-
-  const localPath = intake?.downloaded?.localPath || null;
-  if (!localPath) {
-    return buildInvalidResult("vision_local_file_missing", {
-      kind: intake?.kind || "unknown",
-    });
-  }
-
-  const stat = safeFileStat(localPath);
-  if (!stat || !stat.isFile()) {
-    return buildInvalidResult("vision_local_file_not_found", {
-      localPath,
-    });
-  }
-
-  const maxBytes = bytesFromMb(VISION_MAX_FILE_MB);
-  if (stat.size > maxBytes) {
-    return buildInvalidResult("vision_file_too_large", {
-      localPath,
-      fileSize: stat.size,
-      maxBytes,
-    });
+  const validated = resolveValidatedLocalFile(intake);
+  if (!validated.ok) {
+    return validated.result;
   }
 
   const provider = createVisionProvider({
@@ -127,10 +155,41 @@ export async function extractTextWithVisionFromIntake(intake) {
     mimeType: intake?.mimeType || null,
   });
 
+  if (typeof provider?.extractTextFromFile !== "function") {
+    return buildInvalidResult("vision_provider_extract_text_not_supported", {
+      providerKey: provider?.key || "unknown",
+    });
+  }
+
   return provider.extractTextFromFile({
-    filePath: path.resolve(localPath),
+    filePath: validated.localPath,
     mimeType: intake?.mimeType || null,
-    fileSize: stat.size,
+    fileSize: validated.fileSize,
+    kind: intake?.kind || "unknown",
+  });
+}
+
+export async function extractVisibleFactsWithVisionFromIntake(intake) {
+  const validated = resolveValidatedLocalFile(intake);
+  if (!validated.ok) {
+    return validated.result;
+  }
+
+  const provider = createVisionProvider({
+    kind: intake?.kind || "unknown",
+    mimeType: intake?.mimeType || null,
+  });
+
+  if (typeof provider?.extractVisibleFactsFromFile !== "function") {
+    return buildInvalidResult("vision_provider_extract_facts_not_supported", {
+      providerKey: provider?.key || "unknown",
+    });
+  }
+
+  return provider.extractVisibleFactsFromFile({
+    filePath: validated.localPath,
+    mimeType: intake?.mimeType || null,
+    fileSize: validated.fileSize,
     kind: intake?.kind || "unknown",
   });
 }
@@ -139,4 +198,5 @@ export default {
   getVisionServiceStatus,
   canRunVisionForIntake,
   extractTextWithVisionFromIntake,
+  extractVisibleFactsWithVisionFromIntake,
 };

@@ -364,6 +364,73 @@ export async function resolveFileIntakeDecision({
     mediaSummary,
   });
 
+  // ==================================================
+  // === NO-MEDIA follow-up binding to recent document session
+  // IMPORTANT:
+  // - not tied to one exact phrase
+  // - binds short / nearby follow-up text to the last recent document
+  // ==================================================
+  if (!mediaSummary && trimmed) {
+    const getRecentDocumentSessionCache = getFn(
+      FileIntake,
+      "getRecentDocumentSessionCache",
+      null
+    );
+    const shouldBindMessageToRecentDocumentSession = getFn(
+      FileIntake,
+      "shouldBindMessageToRecentDocumentSession",
+      null
+    );
+
+    const recentDocumentCache = getRecentDocumentSessionCache
+      ? getRecentDocumentSessionCache(msg?.chat?.id ?? null)
+      : null;
+
+    const canBindToRecentDocument =
+      recentDocumentCache &&
+      (!shouldBindMessageToRecentDocumentSession ||
+        shouldBindMessageToRecentDocumentSession(trimmed) === true);
+
+    if (canBindToRecentDocument) {
+      const pseudoDocumentSummary = {
+        kind: "document",
+        fileName: recentDocumentCache?.fileName || "document",
+      };
+
+      mediaResponseMode = resolveMediaResponseMode({
+        baseEffectiveText: trimmed,
+        mediaSummary: pseudoDocumentSummary,
+      });
+
+      shouldCallAI = true;
+      directReplyText = null;
+
+      effective = buildEffectiveTextWithMediaContext({
+        baseEffectiveText: trimmed,
+        mediaSummary: pseudoDocumentSummary,
+        mediaResponseMode,
+        extractedText: safeText(recentDocumentCache?.text || ""),
+        visibleFactsText: "",
+        extractionProviderKey: "document_text",
+        visibleFactsProviderKey: "",
+        extractionError: "",
+        visibleFactsError: "",
+        documentTitle: safeText(recentDocumentCache?.title || ""),
+        documentStats: recentDocumentCache?.stats || null,
+        documentHeadings: Array.isArray(recentDocumentCache?.headings)
+          ? recentDocumentCache.headings
+          : [],
+        documentBlocks: Array.isArray(recentDocumentCache?.blocks)
+          ? recentDocumentCache.blocks
+          : [],
+        documentStructureVersion: recentDocumentCache?.structureVersion ?? null,
+        documentStructureSource: safeText(
+          recentDocumentCache?.structureSource || ""
+        ),
+      });
+    }
+  }
+
   if (mediaSummary) {
     const intakeAndDownloadIfNeeded = getFn(
       FileIntake,
@@ -404,6 +471,8 @@ export async function resolveFileIntakeDecision({
           const processedEffectiveText = safeText(
             processed?.effectiveUserText || processed?.processedText || ""
           );
+
+          const processedShouldCallAI = processed?.shouldCallAI === true;
 
           const processedExtractedText = safeText(
             processed?.extractedText || ""
@@ -459,16 +528,14 @@ export async function resolveFileIntakeDecision({
               directReplyText = processedDirectUserHint;
             }
 
-            if (processed && processed.shouldCallAI === true) {
+            if (processedShouldCallAI) {
               shouldCallAI = true;
 
               if (processedEffectiveText) {
                 effective = processedEffectiveText;
               }
 
-              if (!processedDirectUserHint) {
-                directReplyText = null;
-              }
+              directReplyText = null;
 
               mediaResponseMode = resolveMediaResponseMode({
                 baseEffectiveText: trimmed || processedEffectiveText,

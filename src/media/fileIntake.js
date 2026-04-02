@@ -7,6 +7,7 @@
 // 11F.9 effectiveUserText
 // 11F.10 logs
 // 11F.11 DATA LIFECYCLE skeleton
+// 11F.12 AI routing rule skeleton
 //
 // CURRENT STATUS:
 // - определяет вложение из Telegram msg (summary)
@@ -15,6 +16,7 @@
 // - даёт расширенные intake logs
 // - умеет чистить временные файлы после обработки
 // - lifecycle хранит только meta/links, не binary
+// - routing rule задаёт specialized-first policy
 //
 // NOT ACTIVE YET:
 // - OCR
@@ -23,12 +25,14 @@
 // - STT
 // - video/audio semantic analysis
 // - retention cron / archive storage
+// - real specialized AI providers
 //
 // IMPORTANT:
 // - skeleton only
 // - no AI extraction here
 // - no heavy parsing yet
 // - no binary persistence policy
+// - generic AI is text fallback only for media flows
 // ==================================================
 
 import fs from "fs";
@@ -79,6 +83,99 @@ function pushLog(meta, level, step, msg, data = null) {
 function toIntOr(v, fallback) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+// ==================================================
+// === 11F.12 AI ROUTING RULE skeleton
+// ==================================================
+export function buildSpecializedAIRoutingRule(summary) {
+  const kind = summary?.kind || "unknown";
+
+  switch (kind) {
+    case "photo":
+      return {
+        routeVersion: "11F.12-skeleton",
+        kind,
+        specializedRoute: "vision_candidate",
+        specializedProviderRequired: true,
+        specializedProviderActive: false,
+        genericAiAllowedToSeeBinary: false,
+        genericAiMode: "text_fallback_only",
+        fallbackMode: "stub_or_caption_text_only",
+        notes:
+          "Photo must go to Vision-class handler in future; current runtime allows only text fallback.",
+      };
+
+    case "document":
+      return {
+        routeVersion: "11F.12-skeleton",
+        kind,
+        specializedRoute: "document_parse_candidate",
+        specializedProviderRequired: true,
+        specializedProviderActive: false,
+        genericAiAllowedToSeeBinary: false,
+        genericAiMode: "text_fallback_only",
+        fallbackMode: "stub_or_caption_text_only",
+        notes:
+          "Document must go to parser/OCR-class handler in future; current runtime allows only text fallback.",
+      };
+
+    case "voice":
+    case "audio":
+      return {
+        routeVersion: "11F.12-skeleton",
+        kind,
+        specializedRoute: "stt_candidate",
+        specializedProviderRequired: true,
+        specializedProviderActive: false,
+        genericAiAllowedToSeeBinary: false,
+        genericAiMode: "text_fallback_only",
+        fallbackMode: "stub_or_caption_text_only",
+        notes:
+          "Voice/audio must go to STT-class handler in future; current runtime allows only text fallback.",
+      };
+
+    case "video":
+      return {
+        routeVersion: "11F.12-skeleton",
+        kind,
+        specializedRoute: "video_extract_candidate",
+        specializedProviderRequired: true,
+        specializedProviderActive: false,
+        genericAiAllowedToSeeBinary: false,
+        genericAiMode: "text_fallback_only",
+        fallbackMode: "stub_or_caption_text_only",
+        notes:
+          "Video must go to frame/audio extraction handler in future; current runtime allows only text fallback.",
+      };
+
+    default:
+      return {
+        routeVersion: "11F.12-skeleton",
+        kind,
+        specializedRoute: "unknown_candidate",
+        specializedProviderRequired: false,
+        specializedProviderActive: false,
+        genericAiAllowedToSeeBinary: false,
+        genericAiMode: "text_fallback_only",
+        fallbackMode: "stub_or_caption_text_only",
+        notes:
+          "Unknown file kind has no active specialized handler; current runtime allows only text fallback.",
+      };
+  }
+}
+
+export function compactRoutingRuleForDebug(rule) {
+  return {
+    routeVersion: rule?.routeVersion || "n/a",
+    kind: rule?.kind || "n/a",
+    specializedRoute: rule?.specializedRoute || "n/a",
+    specializedProviderRequired: rule?.specializedProviderRequired === true,
+    specializedProviderActive: rule?.specializedProviderActive === true,
+    genericAiAllowedToSeeBinary: rule?.genericAiAllowedToSeeBinary === true,
+    genericAiMode: rule?.genericAiMode || "n/a",
+    fallbackMode: rule?.fallbackMode || "n/a",
+  };
 }
 
 // ==================================================
@@ -135,6 +232,8 @@ function buildDataLifecycleSkeleton(summary) {
       policy: "meta_only_no_binary_persistence",
     },
 
+    routing: buildSpecializedAIRoutingRule(summary),
+
     processing: {
       summaryDone: false,
       downloaded: false,
@@ -170,6 +269,7 @@ export function compactLifecycleForDebug(lifecycle) {
     archiveEnabled: lifecycle?.retention?.archiveEnabled === true,
     binaryPersistenceAllowed: lifecycle?.retention?.binaryPersistenceAllowed === true,
     policy: lifecycle?.storage?.policy || "n/a",
+    routing: compactRoutingRuleForDebug(lifecycle?.routing || null),
   };
 }
 
@@ -439,6 +539,7 @@ export async function intakeAndDownloadIfNeeded(msg, botToken) {
     fileName: summary.fileName || null,
     mimeType: summary.mimeType || null,
     fileSize: summary.fileSize || null,
+    specializedRoute: lifecycle?.routing?.specializedRoute || null,
   });
 
   const downloaded = await downloadTelegramFile(botToken, summary.fileId);
@@ -523,6 +624,8 @@ export async function processIncomingFile(intake) {
   pushLog(meta, "info", "process", "Start processing intake.", {
     kind: intake?.kind,
     fileName: intake?.downloaded?.fileName || intake?.fileName || null,
+    specializedRoute: intake?.lifecycle?.routing?.specializedRoute || null,
+    genericAiMode: intake?.lifecycle?.routing?.genericAiMode || null,
   });
 
   const stub = buildStubMessage(intake);
@@ -532,7 +635,8 @@ export async function processIncomingFile(intake) {
     const kind = intake.kind || "unknown";
     const fileName = intake?.downloaded?.fileName || intake?.fileName || "";
     const mime = intake?.mimeType || "";
-    return `File-Intake stub: kind=${kind}; file=${fileName}; mime=${mime || "n/a"}.`;
+    const route = intake?.lifecycle?.routing?.specializedRoute || "n/a";
+    return `File-Intake stub: kind=${kind}; file=${fileName}; mime=${mime || "n/a"}; route=${route}.`;
   })();
 
   pushLog(meta, "info", "process", "Stub processing complete.", {
@@ -583,7 +687,8 @@ export async function processFile(intake) {
  *
  * Главный хелпер:
  * - если у пользователя НЕТ текста и НЕТ caption, но есть медиа → возвращаем stub и НЕ зовём AI
- * - если текст есть (включая caption у фото/доков) → зовём AI, но честно сообщаем что парсинга пока нет
+ * - если текст есть (включая caption у фото/доков) → зовём AI, но только как text fallback,
+ *   без доступа generic AI к binary/media payload
  */
 export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
   const trimmedText = safeStr(userText).trim();
@@ -602,11 +707,13 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
         hasMedia: false,
         shouldCallAI: hasText,
         reason: hasText ? "text_only" : "empty",
+        aiRouting: null,
       },
     };
   }
 
   const stub = buildStubMessage(mediaSummary);
+  const aiRouting = buildSpecializedAIRoutingRule(mediaSummary);
 
   if (!hasText) {
     return {
@@ -619,27 +726,28 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
         shouldCallAI: false,
         reason: "media_only_no_text",
         kind: mediaSummary.kind,
+        aiRouting,
       },
     };
   }
 
   const mediaNote = (() => {
     if (mediaSummary.kind === "photo") {
-      return "Вложение: фото (OCR/Vision пока не активен).";
+      return "Вложение: фото. Специализированный маршрут: Vision-class. Generic AI видит только твой текст, не изображение.";
     }
     if (mediaSummary.kind === "document") {
-      return `Вложение: документ (${mediaSummary.fileName || "file"}) (парсинг пока не активен).`;
+      return `Вложение: документ (${mediaSummary.fileName || "file"}). Специализированный маршрут: Document-parse/OCR-class. Generic AI видит только твой текст, не файл.`;
     }
     if (mediaSummary.kind === "voice") {
-      return "Вложение: голосовое (STT пока не активен).";
+      return "Вложение: голосовое. Специализированный маршрут: STT-class. Generic AI видит только твой текст, не аудио.";
     }
     if (mediaSummary.kind === "audio") {
-      return "Вложение: аудио (STT пока не активен).";
+      return "Вложение: аудио. Специализированный маршрут: STT-class. Generic AI видит только твой текст, не аудио.";
     }
     if (mediaSummary.kind === "video") {
-      return "Вложение: видео (анализ пока не активен).";
+      return "Вложение: видео. Специализированный маршрут: Video-extract-class. Generic AI видит только твой текст, не видео.";
     }
-    return "Вложение: файл (анализ пока не активен).";
+    return "Вложение: файл. Generic AI видит только твой текст, не binary payload.";
   })();
 
   return {
@@ -652,6 +760,7 @@ export function buildEffectiveUserTextAndDecision(userText, mediaSummary) {
       shouldCallAI: true,
       reason: trimmedText ? "text_plus_media" : "caption_plus_media",
       kind: mediaSummary.kind,
+      aiRouting,
     },
   };
 }

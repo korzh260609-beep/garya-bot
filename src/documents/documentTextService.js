@@ -5,13 +5,15 @@
 // - handle document intake in specialized-first mode
 // - extract text from text-like files safely
 // - support real DOCX extraction via mammoth
-// - provide honest unavailable results for PDF/DOC until parser deps are added
+// - support real PDF extraction via pdf-parse
+// - provide honest unavailable results for DOC until parser deps are added
 // - do NOT do semantic analysis here
 // ============================================================================
 
 import fs from "fs";
 import path from "path";
 import mammoth from "mammoth";
+import pdfParse from "pdf-parse";
 import { VISION_MAX_FILE_MB } from "../core/config.js";
 
 function nowIso() {
@@ -162,6 +164,30 @@ async function extractDocxText(localPath) {
           return `mammoth_${type}: ${message}`;
         })
       : [],
+  };
+}
+
+async function extractPdfText(localPath) {
+  const fileBuffer = fs.readFileSync(localPath);
+  const result = await pdfParse(fileBuffer);
+
+  const pagesCount =
+    Number.isFinite(Number(result?.numpages)) ? Number(result.numpages) : null;
+
+  const renderedPagesCount =
+    Number.isFinite(Number(result?.numrender)) ? Number(result.numrender) : null;
+
+  return {
+    text: normalizeExtractedText(result?.text || ""),
+    warnings: [],
+    meta: {
+      parser: "pdf-parse",
+      pagesCount,
+      renderedPagesCount,
+      info: result?.info || null,
+      metadata: result?.metadata || null,
+      version: result?.version || null,
+    },
   };
 }
 
@@ -325,10 +351,10 @@ export function getDocumentTextServiceStatus(params = {}) {
     maxFileMb: VISION_MAX_FILE_MB,
     mimeType: mimeType || null,
     extension: ext || "",
-    pdfReady: false,
+    pdfReady: true,
     docxReady: true,
     notes:
-      "Text-like files supported. RTF basic extraction supported. DOCX extraction supported via mammoth. PDF/DOC still need parser dependency.",
+      "Text-like files supported. RTF basic extraction supported. DOCX extraction supported via mammoth. PDF extraction supported via pdf-parse. DOC still needs parser dependency.",
   };
 }
 
@@ -346,13 +372,24 @@ export async function extractTextFromDocumentIntake(intake) {
 
   try {
     if (isPdf(extension, mimeType)) {
-      return buildUnavailableResult({
+      const pdfResult = await extractPdfText(localPath);
+
+      return buildSuccessResult({
         requestedKind,
-        reason: "pdf_parser_not_available_current_stage",
         filePath: localPath,
         mimeType,
         fileSize,
         extension,
+        text: pdfResult.text,
+        warnings: pdfResult.warnings,
+        extraMeta: {
+          parser: "pdf-parse",
+          pagesCount: pdfResult?.meta?.pagesCount ?? null,
+          renderedPagesCount: pdfResult?.meta?.renderedPagesCount ?? null,
+          pdfInfo: pdfResult?.meta?.info || null,
+          pdfMetadata: pdfResult?.meta?.metadata || null,
+          pdfVersion: pdfResult?.meta?.version || null,
+        },
       });
     }
 

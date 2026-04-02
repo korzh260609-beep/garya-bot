@@ -86,11 +86,6 @@ export const ADMIN_ALERT_COOLDOWN_MIN = envIntRange(
 // ===============================
 // STAGE 5.16 — ERROR EVENTS CONFIG
 // ===============================
-// NOTE:
-// - ERROR_EVENTS_RETENTION_DAYS is used by retention helpers/service.
-// - ERROR_EVENTS_IGNORE_TEST_FAIL is a feature flag for policy behavior.
-//   (Current policy may ignore TEST_FAIL by marker regardless; flag is kept for strict control later.)
-// - ERROR_EVENTS_PURGE_COOLDOWN_MIN is used by retention purge service to avoid DB overload.
 
 export const ERROR_EVENTS_RETENTION_DAYS = envIntRange(
   "ERROR_EVENTS_RETENTION_DAYS",
@@ -109,22 +104,25 @@ export const ERROR_EVENTS_PURGE_COOLDOWN_MIN = envIntRange(
 );
 
 // ===============================
-// STAGE 12.1 — VISION / OCR SKELETON CONFIG
+// STAGE 12.1 / 12.2 — VISION / OCR CONFIG
 // ===============================
 
 export const VISION_ENABLED = envBool("VISION_ENABLED", false);
 
-// Provider-agnostic:
-// - "none"   -> explicitly disabled
-// - "noop"   -> dry skeleton provider (default)
-// - future   -> "gemini", "openai", etc.
+// values:
+// - none
+// - noop
+// - gemini
+// - claude
+// - openai
+// - auto
 export const VISION_PROVIDER = envStr("VISION_PROVIDER", "noop")
   .trim()
   .toLowerCase();
 
 export const VISION_OCR_ENABLED = envBool("VISION_OCR_ENABLED", false);
 
-// Extract-only policy for 12.1:
+// Extract-only policy for current stage:
 // no semantic analysis, no long-form reasoning here.
 export const VISION_EXTRACT_ONLY = envBool("VISION_EXTRACT_ONLY", true);
 
@@ -138,6 +136,42 @@ export const VISION_TIMEOUT_MS = envIntRange("VISION_TIMEOUT_MS", 15000, {
   min: 1000,
   max: 120000,
 });
+
+// Auto-selection mode:
+// - cheapest_acceptable  -> choose cheapest provider that passes quality threshold
+// - manual              -> use exact VISION_PROVIDER
+export const VISION_PROVIDER_SELECTION_MODE = envStr(
+  "VISION_PROVIDER_SELECTION_MODE",
+  "cheapest_acceptable"
+)
+  .trim()
+  .toLowerCase();
+
+// Required minimum quality score in auto mode.
+// Current stage uses coarse integer scoring only.
+export const VISION_MIN_QUALITY_SCORE = envIntRange(
+  "VISION_MIN_QUALITY_SCORE",
+  60,
+  { min: 1, max: 100 }
+);
+
+// Feature flags for provider availability (skeleton-level)
+export const VISION_PROVIDER_NOOP_ENABLED = envBool(
+  "VISION_PROVIDER_NOOP_ENABLED",
+  true
+);
+export const VISION_PROVIDER_GEMINI_ENABLED = envBool(
+  "VISION_PROVIDER_GEMINI_ENABLED",
+  false
+);
+export const VISION_PROVIDER_CLAUDE_ENABLED = envBool(
+  "VISION_PROVIDER_CLAUDE_ENABLED",
+  false
+);
+export const VISION_PROVIDER_OPENAI_ENABLED = envBool(
+  "VISION_PROVIDER_OPENAI_ENABLED",
+  false
+);
 
 // ===============================
 // FEATURE FLAGS
@@ -160,6 +194,12 @@ export const PUBLIC_ENV_ALLOWLIST = [
   "VISION_EXTRACT_ONLY",
   "VISION_MAX_FILE_MB",
   "VISION_TIMEOUT_MS",
+  "VISION_PROVIDER_SELECTION_MODE",
+  "VISION_MIN_QUALITY_SCORE",
+  "VISION_PROVIDER_NOOP_ENABLED",
+  "VISION_PROVIDER_GEMINI_ENABLED",
+  "VISION_PROVIDER_CLAUDE_ENABLED",
+  "VISION_PROVIDER_OPENAI_ENABLED",
 ];
 
 function _isTruthyFlag(v) {
@@ -174,9 +214,11 @@ export function getFeatureFlags() {
     LINKING_V2: _isTruthyFlag(envStr("LINKING_V2", "0")),
     DIAG_ROLES_V2: _isTruthyFlag(envStr("DIAG_ROLES_V2", "0")),
 
-    // Stage 12.1
+    // Stage 12
     VISION_ENABLED,
     VISION_OCR_ENABLED,
     VISION_EXTRACT_ONLY,
+    VISION_PROVIDER_SELECTION_MODE:
+      VISION_PROVIDER_SELECTION_MODE || "cheapest_acceptable",
   };
 }

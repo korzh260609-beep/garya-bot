@@ -1,6 +1,6 @@
 // src/media/fileIntake.js
 // ==================================================
-// STAGE 11F + STAGE 12.1 — FILE-INTAKE + VISION SKELETON
+// STAGE 11F + STAGE 12.3 — FILE-INTAKE + REAL OCR OUTPUT BRIDGE
 // 11F.1 download file
 // 11F.2 detect type
 // 11F.3 process file (routing + stub)
@@ -9,11 +9,10 @@
 // 11F.11 DATA LIFECYCLE skeleton
 // 11F.12 AI routing rule skeleton
 //
-// 12.1 OCR vision (provider-agnostic skeleton)
-// - provider contract exists
-// - service contract exists
-// - current runtime may return unavailable/noop result
-// - no real OCR extraction yet
+// 12.x OCR vision routing/service/provider bridge
+// - provider router exists
+// - OpenAI may already be real/ready
+// - other providers may still be skeleton-only
 //
 // CURRENT STATUS:
 // - определяет вложение из Telegram msg (summary)
@@ -23,23 +22,12 @@
 // - умеет чистить временные файлы после обработки
 // - lifecycle хранит только meta/links, не binary
 // - routing rule задаёт specialized-first policy
-// - vision service contract added (12.1 skeleton only)
-//
-// NOT ACTIVE YET:
-// - real OCR extraction provider
-// - PDF parsing
-// - DOCX parsing
-// - STT
-// - video/audio semantic analysis
-// - retention cron / archive storage
-// - real specialized AI providers
+// - vision service contract integrated
 //
 // IMPORTANT:
-// - skeleton only
-// - no AI extraction here beyond service contract
-// - no heavy parsing yet
-// - no binary persistence policy
-// - generic AI is text fallback only for media flows
+// - media-only path must return real OCR text when provider succeeded
+// - if OCR fails, return honest fallback with exact reason
+// - generic AI is still text fallback only for media+text flows
 // ==================================================
 
 import fs from "fs";
@@ -115,7 +103,7 @@ export function buildSpecializedAIRoutingRule(summary) {
         genericAiMode: "text_fallback_only",
         fallbackMode: "stub_or_caption_text_only",
         notes:
-          "Photo must go to Vision-class handler in future; current runtime allows only text fallback.",
+          "Photo should route to Vision-class handler; current runtime may return real OCR if provider is active.",
       };
 
     case "document":
@@ -254,7 +242,6 @@ function buildDataLifecycleSkeleton(summary) {
       cleanupRemoved: false,
       cleanupReason: null,
 
-      // Stage 12.1
       visionAttempted: false,
       visionOk: false,
       visionReason: null,
@@ -595,7 +582,7 @@ function buildStubMessage(summary) {
   if (summary.kind === "photo") {
     return (
       `📸 Фото получено.\n` +
-      `OCR/Vision анализ будет добавлен на следующем этапе.\n` +
+      `OCR/Vision анализ пока недоступен.\n` +
       `Если нужно — напиши, что именно искать на фото (текст, объекты, детали).`
     );
   }
@@ -637,25 +624,34 @@ function buildStubMessage(summary) {
 
 function buildVisionHintForUser(visionResult) {
   if (!visionResult) {
-    return "Vision/OCR skeleton: результата нет.";
+    return "📷 Vision/OCR: результата нет.";
   }
 
-  if (visionResult.ok !== true) {
+  if (visionResult.ok === true) {
+    const extracted = safeStr(visionResult.text).trim();
+
+    if (extracted) {
+      return (
+        `📷 OCR результат:\n\n` +
+        `${extracted}`
+      );
+    }
+
     return (
-      `📷 Vision/OCR skeleton активирован, но реальный OCR пока недоступен.\n` +
-      `Причина: ${visionResult.error || "vision_unavailable"}.\n` +
-      `Сейчас SG продолжает работать в безопасном fallback-режиме.`
+      `📷 OCR выполнен, но текст не извлечён.\n` +
+      `Возможно, на фото мало читаемого текста или он слишком нечёткий.`
     );
   }
 
   return (
-    `📷 Vision/OCR skeleton вернул extract-only результат.\n` +
-    `Извлечённый текст пока не используется как полноценный OCR pipeline.`
+    `📷 OCR сейчас не сработал.\n` +
+    `Причина: ${visionResult.error || "vision_unavailable"}.\n` +
+    `SG продолжает работать в безопасном fallback-режиме.`
   );
 }
 
 // ==================================================
-// === 11F.3 + 12.1 process file
+// === 11F.3 + 12.x process file
 // ==================================================
 export async function processIncomingFile(intake) {
   const meta = intake?.meta || makeMeta();
@@ -677,18 +673,21 @@ export async function processIncomingFile(intake) {
     return `File-Intake stub: kind=${kind}; file=${fileName}; mime=${mime || "n/a"}; route=${route}.`;
   })();
 
-  // ==================================================
-  // === STAGE 12.1 — provider-agnostic vision skeleton
-  // ==================================================
   if (canRunVisionForIntake(intake)) {
-    const visionStatus = getVisionServiceStatus();
+    const visionStatus = getVisionServiceStatus({
+      kind: intake?.kind || "unknown",
+      mimeType: intake?.mimeType || null,
+    });
 
     pushLog(meta, "info", "vision", "Vision service status checked.", {
       provider: visionStatus?.provider || "n/a",
+      requestedProvider: visionStatus?.requestedProvider || "n/a",
+      selectedProviderKey: visionStatus?.selectedProviderKey || "n/a",
       enabled: visionStatus?.enabled === true,
       providerAvailable: visionStatus?.providerAvailable === true,
       ocrEnabled: visionStatus?.ocrEnabled === true,
       extractOnly: visionStatus?.extractOnly === true,
+      reason: visionStatus?.reason || "n/a",
     });
 
     if (intake?.lifecycle?.processing) {
@@ -703,15 +702,16 @@ export async function processIncomingFile(intake) {
         intake.lifecycle.processing.visionReason = "extract_ok";
       }
 
-      processedText += ` vision=ok; provider=${visionResult.providerKey || "n/a"}; textLen=${safeStr(
-        visionResult.text
-      ).length}.`;
+      const extractedText = safeStr(visionResult.text).trim();
+
+      processedText += ` vision=ok; provider=${visionResult.providerKey || "n/a"}; textLen=${extractedText.length}.`;
 
       directUserHint = buildVisionHintForUser(visionResult);
 
       pushLog(meta, "info", "vision", "Vision extract-only result available.", {
         provider: visionResult?.providerKey || "n/a",
-        textLen: safeStr(visionResult?.text).length,
+        textLen: extractedText.length,
+        textPreview: extractedText.slice(0, 200),
       });
     } else {
       if (intake?.lifecycle?.processing) {
@@ -731,7 +731,7 @@ export async function processIncomingFile(intake) {
     }
   }
 
-  pushLog(meta, "info", "process", "Stub processing complete.", {
+  pushLog(meta, "info", "process", "Processing complete.", {
     processedText,
   });
 
@@ -778,7 +778,7 @@ export async function processFile(intake) {
  * - this function does NOT own dedupe semantics
  *
  * Главный хелпер:
- * - если у пользователя НЕТ текста и НЕТ caption, но есть медиа → возвращаем stub и НЕ зовём AI
+ * - если у пользователя НЕТ текста и НЕТ caption, но есть медиа → возвращаем stub/ocr и НЕ зовём AI
  * - если текст есть (включая caption у фото/доков) → зовём AI, но только как text fallback,
  *   без доступа generic AI к binary/media payload
  */

@@ -19,6 +19,11 @@ function normalizeWhitespace(value) {
   return safeText(value).replace(/\s+/g, " ").trim();
 }
 
+function safeNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function isLikelyShortMediaQuestion(value) {
   const text = safeText(value);
   if (!text) return false;
@@ -139,6 +144,9 @@ function buildResponseStyleDirective({
       "Не вставляй весь документ целиком без явного запроса пользователя."
     );
     lines.push(
+      "Используй не только сырой текст, но и структурные признаки документа: title, headings, stats, blocks — если они есть."
+    );
+    lines.push(
       "Добавь короткую подсказку, что пользователь может попросить полный текст или вывод частями."
     );
   } else if (mediaResponseMode === "document_full_text_answer") {
@@ -165,6 +173,44 @@ function buildResponseStyleDirective({
   return lines.join("\n");
 }
 
+function normalizeDocumentStats(stats = null) {
+  if (!stats || typeof stats !== "object") return null;
+
+  return {
+    charCount: safeNumber(stats?.charCount, 0),
+    wordCount: safeNumber(stats?.wordCount, 0),
+    paragraphCount: safeNumber(stats?.paragraphCount, 0),
+    blockCount: safeNumber(stats?.blockCount, 0),
+    headingCount: safeNumber(stats?.headingCount, 0),
+  };
+}
+
+function normalizeDocumentHeadings(headings = []) {
+  if (!Array.isArray(headings)) return [];
+
+  return headings
+    .map((item) => ({
+      index: safeNumber(item?.index, 0),
+      type: safeText(item?.type || "heading"),
+      text: safeText(item?.text || ""),
+    }))
+    .filter((item) => item.text);
+}
+
+function normalizeDocumentBlocks(blocks = []) {
+  if (!Array.isArray(blocks)) return [];
+
+  return blocks
+    .map((item) => ({
+      index: safeNumber(item?.index, 0),
+      type: safeText(item?.type || "paragraph"),
+      preview: safeText(item?.preview || ""),
+      wordCount: safeNumber(item?.wordCount, 0),
+      charCount: safeNumber(item?.charCount, 0),
+    }))
+    .filter((item) => item.preview);
+}
+
 function buildEffectiveTextWithMediaContext({
   baseEffectiveText = "",
   mediaSummary = null,
@@ -175,6 +221,12 @@ function buildEffectiveTextWithMediaContext({
   visibleFactsProviderKey = "",
   extractionError = "",
   visibleFactsError = "",
+  documentTitle = "",
+  documentStats = null,
+  documentHeadings = [],
+  documentBlocks = [],
+  documentStructureVersion = null,
+  documentStructureSource = "",
 }) {
   const userPart = safeText(baseEffectiveText);
   const extractedPart = safeText(extractedText);
@@ -183,6 +235,13 @@ function buildEffectiveTextWithMediaContext({
   const factsProvider = safeText(visibleFactsProviderKey);
   const extractionErr = safeText(extractionError);
   const factsErr = safeText(visibleFactsError);
+
+  const normalizedDocumentTitle = safeText(documentTitle);
+  const normalizedDocumentStats = normalizeDocumentStats(documentStats);
+  const normalizedDocumentHeadings = normalizeDocumentHeadings(documentHeadings);
+  const normalizedDocumentBlocks = normalizeDocumentBlocks(documentBlocks);
+  const normalizedStructureSource = safeText(documentStructureSource);
+  const normalizedStructureVersion = safeNumber(documentStructureVersion, 0);
 
   const lines = [
     userPart,
@@ -207,6 +266,40 @@ function buildEffectiveTextWithMediaContext({
 
   if (factsProvider) {
     lines.push(`Vision facts провайдер: ${factsProvider}.`);
+  }
+
+  if (normalizedDocumentTitle) {
+    lines.push(`Название/заголовок документа: ${normalizedDocumentTitle}`);
+  }
+
+  if (normalizedDocumentStats) {
+    lines.push(
+      `Статистика документа: words=${normalizedDocumentStats.wordCount}, chars=${normalizedDocumentStats.charCount}, paragraphs=${normalizedDocumentStats.paragraphCount}, blocks=${normalizedDocumentStats.blockCount}, headings=${normalizedDocumentStats.headingCount}.`
+    );
+  }
+
+  if (normalizedStructureVersion > 0 || normalizedStructureSource) {
+    lines.push(
+      `Структура документа: version=${normalizedStructureVersion || "n/a"}, source=${normalizedStructureSource || "n/a"}.`
+    );
+  }
+
+  if (normalizedDocumentHeadings.length > 0) {
+    lines.push("Ниже ключевые заголовки документа:");
+    for (const heading of normalizedDocumentHeadings.slice(0, 12)) {
+      lines.push(
+        `- [${heading.index}] (${heading.type || "heading"}) ${heading.text}`
+      );
+    }
+  }
+
+  if (normalizedDocumentBlocks.length > 0) {
+    lines.push("Ниже краткие previews блоков документа:");
+    for (const block of normalizedDocumentBlocks.slice(0, 12)) {
+      lines.push(
+        `- [${block.index}] (${block.type || "paragraph"}) ${block.preview}`
+      );
+    }
   }
 
   if (extractedPart) {
@@ -336,6 +429,31 @@ export async function resolveFileIntakeDecision({
             processed?.visibleFactsProviderKey || ""
           );
 
+          const processedDocumentTitle = safeText(
+            processed?.documentTitle || ""
+          );
+
+          const processedDocumentStats = processed?.documentStats || null;
+
+          const processedDocumentHeadings = Array.isArray(
+            processed?.documentHeadings
+          )
+            ? processed.documentHeadings
+            : [];
+
+          const processedDocumentBlocks = Array.isArray(
+            processed?.documentBlocks
+          )
+            ? processed.documentBlocks
+            : [];
+
+          const processedDocumentStructureVersion =
+            processed?.documentStructureVersion ?? null;
+
+          const processedDocumentStructureSource = safeText(
+            processed?.documentStructureSource || ""
+          );
+
           if (!shouldCallAI) {
             if (processedDirectUserHint) {
               directReplyText = processedDirectUserHint;
@@ -372,6 +490,12 @@ export async function resolveFileIntakeDecision({
               visibleFactsProviderKey: processedVisibleFactsProviderKey,
               extractionError: processedExtractionError,
               visibleFactsError: processedVisibleFactsError,
+              documentTitle: processedDocumentTitle,
+              documentStats: processedDocumentStats,
+              documentHeadings: processedDocumentHeadings,
+              documentBlocks: processedDocumentBlocks,
+              documentStructureVersion: processedDocumentStructureVersion,
+              documentStructureSource: processedDocumentStructureSource,
             });
           }
         }

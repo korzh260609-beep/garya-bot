@@ -14,6 +14,10 @@
 // - visible scene/object facts extraction
 // - direct reply for media-only path may use OCR and/or visible facts
 //
+// 12.x document extract-first bridge
+// - text-like document extraction
+// - honest fallback for PDF/DOCX until parser dependency is added
+//
 // IMPORTANT:
 // - media-only path should return real OCR text when available
 // - if OCR has no text, visible facts may still help for object questions
@@ -29,6 +33,11 @@ import {
   extractVisibleFactsWithVisionFromIntake,
   canRunVisionForIntake,
 } from "../vision/visionService.js";
+import {
+  getDocumentTextServiceStatus,
+  extractTextFromDocumentIntake,
+  canRunDocumentTextForIntake,
+} from "../documents/documentTextService.js";
 
 // ==================================================
 // === CONFIG
@@ -108,7 +117,7 @@ export function buildSpecializedAIRoutingRule(summary) {
         genericAiMode: "text_fallback_only",
         fallbackMode: "stub_or_caption_text_only",
         notes:
-          "Document must go to parser/OCR-class handler in future; current runtime allows only text fallback.",
+          "Document should route to parser/extract-class handler; current runtime may extract text from text-like files, while PDF/DOC/DOCX still return honest fallback.",
       };
 
     case "voice":
@@ -588,8 +597,8 @@ function buildStubMessage(summary) {
     const mime = summary.mimeType ? `, mime=${summary.mimeType}` : "";
     return (
       `📄 Документ получен${name}${mime}.\n` +
-      `Парсинг PDF/DOCX будет добавлен на следующем этапе.\n` +
-      `Если нужно сейчас — вставь сюда текст/ключевые фрагменты.`
+      `Извлечение текста доступно только для части форматов на текущем этапе.\n` +
+      `PDF/DOCX парсер будет добавлен отдельным шагом.`
     );
   }
 
@@ -692,6 +701,47 @@ function buildCombinedDirectHint({ visionResult, factsResult }) {
   }
 
   return null;
+}
+
+function buildDocumentHintForUser(documentResult, intake = null) {
+  const fileName =
+    intake?.downloaded?.fileName ||
+    intake?.fileName ||
+    "file";
+
+  if (!documentResult) {
+    return `📄 Документ ${fileName} обработан без результата.`;
+  }
+
+  if (documentResult.ok === true) {
+    const extracted = safeStr(documentResult.text).trim();
+
+    if (extracted) {
+      return `📄 Извлечённый текст из ${fileName}:\n\n${extracted}`;
+    }
+
+    return (
+      `📄 Документ ${fileName} обработан, но текст не извлечён.\n` +
+      `Возможно, файл пустой или формат пока поддерживается ограниченно.`
+    );
+  }
+
+  if (
+    documentResult.error === "pdf_parser_not_available_current_stage" ||
+    documentResult.error === "docx_parser_not_available_current_stage" ||
+    documentResult.error === "doc_parser_not_available_current_stage"
+  ) {
+    return (
+      `📄 Документ ${fileName} получен.\n` +
+      `Для этого формата реальный parser ещё не подключён на текущем этапе.\n` +
+      `Сейчас доступны текстовые форматы и базовый RTF.`
+    );
+  }
+
+  return (
+    `📄 Извлечение текста из ${fileName} сейчас не сработало.\n` +
+    `Причина: ${documentResult.error || "document_extract_unavailable"}.`
+  );
 }
 
 // ==================================================
@@ -837,6 +887,53 @@ export async function processIncomingFile(intake) {
         visionResult,
         factsResult,
       }) || directUserHint;
+  }
+
+  if (canRunDocumentTextForIntake(intake)) {
+    const documentStatus = getDocumentTextServiceStatus({
+      fileName: intake?.downloaded?.fileName || intake?.fileName || "",
+      mimeType: intake?.mimeType || null,
+    });
+
+    pushLog(meta, "info", "document", "Document text service status checked.", {
+      enabled: documentStatus?.enabled === true,
+      extractOnly: documentStatus?.extractOnly === true,
+      extension: documentStatus?.extension || "",
+      mimeType: documentStatus?.mimeType || null,
+      pdfReady: documentStatus?.pdfReady === true,
+      docxReady: documentStatus?.docxReady === true,
+    });
+
+    const documentResult = await extractTextFromDocumentIntake(intake);
+
+    if (documentResult?.ok === true) {
+      extractedText = safeStr(documentResult.text).trim();
+      extractionAvailable = Boolean(extractedText);
+      extractionError = null;
+      extractionProviderKey = documentResult.providerKey || null;
+
+      processedText += ` document=ok; provider=${documentResult.providerKey || "n/a"}; textLen=${extractedText.length}.`;
+
+      pushLog(meta, "info", "document", "Document extraction result available.", {
+        provider: documentResult?.providerKey || "n/a",
+        textLen: extractedText.length,
+        textPreview: extractedText.slice(0, 200),
+      });
+    } else {
+      extractedText = "";
+      extractionAvailable = false;
+      extractionError = documentResult?.error || "unknown";
+      extractionProviderKey = documentResult?.providerKey || null;
+
+      processedText += ` document=unavailable; reason=${documentResult?.error || "unknown"}.`;
+
+      pushLog(meta, "info", "document", "Document extraction unavailable/noop result.", {
+        reason: documentResult?.error || "unknown",
+        provider: documentResult?.providerKey || "n/a",
+      });
+    }
+
+    directUserHint = buildDocumentHintForUser(documentResult, intake) || directUserHint;
   }
 
   pushLog(meta, "info", "process", "Processing complete.", {

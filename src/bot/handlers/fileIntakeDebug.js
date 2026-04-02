@@ -41,18 +41,10 @@ function toBoolText(v) {
   return v === true ? "yes" : "no";
 }
 
-function safeJson(value, limit = 1200) {
-  try {
-    return JSON.stringify(value, null, 2).slice(0, limit);
-  } catch (_) {
-    return "n/a";
-  }
-}
-
 function getTopKeys(obj) {
   if (!obj || typeof obj !== "object") return [];
   try {
-    return Object.keys(obj).slice(0, 40);
+    return Object.keys(obj).slice(0, 20);
   } catch (_) {
     return [];
   }
@@ -117,6 +109,48 @@ function buildMsgShapeSummary(msg) {
   };
 }
 
+function compactMediaSummary(mediaSummary) {
+  return {
+    kind: mediaSummary?.kind || "n/a",
+    chatId: mediaSummary?.chatId ?? null,
+    messageId: mediaSummary?.messageId ?? null,
+    fileId: mediaSummary?.fileId || "n/a",
+    fileUniqueId: mediaSummary?.fileUniqueId || "n/a",
+    fileName: mediaSummary?.fileName || "n/a",
+    mimeType: mediaSummary?.mimeType || "n/a",
+    fileSize: mediaSummary?.fileSize ?? "n/a",
+    captionPresent: Boolean(mediaSummary?.caption),
+  };
+}
+
+function compactProcessSummary(processResult) {
+  return {
+    ok: processResult?.ok === true,
+    processedText: processResult?.processedText || "n/a",
+    directUserHintPresent: Boolean(processResult?.directUserHint),
+  };
+}
+
+function compactCleanupSummary(cleanupResult) {
+  return {
+    ok: cleanupResult?.ok === true,
+    removed: cleanupResult?.removed === true,
+    reason: cleanupResult?.reason || "n/a",
+    localPath: cleanupResult?.localPath || "n/a",
+    error: cleanupResult?.error || null,
+  };
+}
+
+function compactLogs(metaLogs) {
+  if (!Array.isArray(metaLogs)) return [];
+  return metaLogs.slice(-5).map((l) => ({
+    t: l?.t || null,
+    level: l?.level || null,
+    step: l?.step || null,
+    msg: l?.msg || null,
+  }));
+}
+
 function buildShortText({
   replyTarget,
   replySource,
@@ -165,6 +199,11 @@ function buildFullText({
     processResult?.meta?.logs ||
     [];
 
+  const media = compactMediaSummary(mediaSummary);
+  const process = compactProcessSummary(processResult);
+  const cleanup = compactCleanupSummary(cleanupResult);
+  const logs = compactLogs(metaLogs);
+
   return [
     getTitle("full"),
     `reply_target: ${replyTarget ? "yes" : "no"}`,
@@ -183,59 +222,35 @@ function buildFullText({
     `msg_caption: ${msgShape?.caption || "n/a"}`,
     "",
     `media_found: ${toBoolText(Boolean(mediaSummary))}`,
-    `kind: ${mediaSummary?.kind || "n/a"}`,
-    `file_id: ${mediaSummary?.fileId || "n/a"}`,
-    `file_unique_id: ${mediaSummary?.fileUniqueId || "n/a"}`,
-    `file_name: ${mediaSummary?.fileName || "n/a"}`,
-    `mime_type: ${mediaSummary?.mimeType || "n/a"}`,
-    `file_size: ${mediaSummary?.fileSize ?? "n/a"}`,
-    `caption_present: ${toBoolText(Boolean(mediaSummary?.caption))}`,
+    `kind: ${media.kind}`,
+    `file_id: ${media.fileId}`,
+    `file_unique_id: ${media.fileUniqueId}`,
+    `file_name: ${media.fileName}`,
+    `mime_type: ${media.mimeType}`,
+    `file_size: ${media.fileSize}`,
+    `caption_present: ${toBoolText(media.captionPresent)}`,
     "",
     `download_ok: ${toBoolText(Boolean(intakeResult?.downloaded?.localPath))}`,
     `download_local_path: ${intakeResult?.downloaded?.localPath || "n/a"}`,
     `download_file_name: ${intakeResult?.downloaded?.fileName || "n/a"}`,
     `download_size: ${intakeResult?.downloaded?.size ?? "n/a"}`,
     "",
-    `process_ok: ${toBoolText(processResult?.ok === true)}`,
-    `processed_text: ${processResult?.processedText || "n/a"}`,
+    `process_ok: ${toBoolText(process.ok)}`,
+    `processed_text: ${process.processedText}`,
     `direct_hint: ${processResult?.directUserHint || "n/a"}`,
     "",
-    `cleanup_ok: ${toBoolText(cleanupResult?.ok === true)}`,
-    `cleanup_removed: ${toBoolText(cleanupResult?.removed === true)}`,
-    `cleanup_reason: ${cleanupResult?.reason || "n/a"}`,
-    `cleanup_local_path: ${cleanupResult?.localPath || "n/a"}`,
+    `cleanup_ok: ${toBoolText(cleanup.ok)}`,
+    `cleanup_removed: ${toBoolText(cleanup.removed)}`,
+    `cleanup_reason: ${cleanup.reason}`,
+    `cleanup_local_path: ${cleanup.localPath}`,
+    cleanup.error ? `cleanup_error: ${cleanup.error}` : null,
     "",
     `logs_count: ${Array.isArray(metaLogs) ? metaLogs.length : 0}`,
-    "msg_shape_json:",
-    safeJson(msgShape, 2000),
-    "",
-    "summary_json:",
-    safeJson(mediaSummary, 1200),
-    "",
-    "process_json:",
-    safeJson(
-      {
-        ok: processResult?.ok === true,
-        processedText: processResult?.processedText || null,
-        directUserHint: processResult?.directUserHint || null,
-      },
-      1200
+    "logs_tail:",
+    ...logs.map(
+      (l, i) =>
+        `${i + 1}) [${l.level || "n/a"}] ${l.step || "n/a"} — ${l.msg || "n/a"}`
     ),
-    "",
-    "cleanup_json:",
-    safeJson(
-      {
-        ok: cleanupResult?.ok === true,
-        removed: cleanupResult?.removed === true,
-        reason: cleanupResult?.reason || null,
-        localPath: cleanupResult?.localPath || null,
-        error: cleanupResult?.error || null,
-      },
-      1200
-    ),
-    "",
-    "logs_json:",
-    safeJson(metaLogs, 2500),
     errorMessage ? `error: ${errorMessage}` : null,
   ]
     .filter(Boolean)
@@ -275,8 +290,12 @@ export async function handleFileIntakeDebug({
             "usage: reply to a media message with /file_intake_diag",
             "",
             `reply_source: ${replySource}`,
-            "msg_shape_json:",
-            safeJson(msgShape, 2500),
+            `msg_has_object: ${toBoolText(msgShape?.hasMsg === true)}`,
+            `msg_has_reply_to_message: ${toBoolText(msgShape?.hasReplyToMessage === true)}`,
+            `msg_has_nested_reply_to_message: ${toBoolText(
+              msgShape?.hasNestedReplyToMessage === true
+            )}`,
+            `msg_top_keys: ${msgShape?.msgTopKeys?.join(", ") || "n/a"}`,
           ].join("\n")
         : [
             getTitle(mode),
@@ -331,22 +350,12 @@ export async function handleFileIntakeDebug({
             "reason: no_media_in_reply_target",
             "media_found: no",
             `reply_source: ${replySource}`,
-            "reply_target_json:",
-            safeJson(
-              {
-                topKeys: getTopKeys(replyTarget),
-                messageId: replyTarget?.message_id ?? null,
-                hasPhoto: Boolean(replyTarget?.photo),
-                hasDocument: Boolean(replyTarget?.document),
-                hasVoice: Boolean(replyTarget?.voice),
-                hasAudio: Boolean(replyTarget?.audio),
-                hasVideo: Boolean(replyTarget?.video),
-                text: typeof replyTarget?.text === "string" ? replyTarget.text : null,
-                caption:
-                  typeof replyTarget?.caption === "string" ? replyTarget.caption : null,
-              },
-              2000
-            ),
+            `reply_target_top_keys: ${getTopKeys(replyTarget).join(", ") || "n/a"}`,
+            `has_photo: ${toBoolText(Boolean(replyTarget?.photo))}`,
+            `has_document: ${toBoolText(Boolean(replyTarget?.document))}`,
+            `has_voice: ${toBoolText(Boolean(replyTarget?.voice))}`,
+            `has_audio: ${toBoolText(Boolean(replyTarget?.audio))}`,
+            `has_video: ${toBoolText(Boolean(replyTarget?.video))}`,
           ].join("\n")
         : [
             getTitle(mode),

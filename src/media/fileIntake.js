@@ -6,6 +6,7 @@
 // 11F.3 process file (routing + stub)
 // 11F.9 effectiveUserText
 // 11F.10 logs
+// 11F.11 DATA LIFECYCLE skeleton
 //
 // CURRENT STATUS:
 // - определяет вложение из Telegram msg (summary)
@@ -13,6 +14,7 @@
 // - умеет сделать базовый routing/stub
 // - даёт расширенные intake logs
 // - умеет чистить временные файлы после обработки
+// - lifecycle хранит только meta/links, не binary
 //
 // NOT ACTIVE YET:
 // - OCR
@@ -20,11 +22,13 @@
 // - DOCX parsing
 // - STT
 // - video/audio semantic analysis
+// - retention cron / archive storage
 //
 // IMPORTANT:
 // - skeleton only
 // - no AI extraction here
 // - no heavy parsing yet
+// - no binary persistence policy
 // ==================================================
 
 import fs from "fs";
@@ -75,6 +79,98 @@ function pushLog(meta, level, step, msg, data = null) {
 function toIntOr(v, fallback) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+// ==================================================
+// === 11F.11 DATA LIFECYCLE skeleton
+// ==================================================
+function buildRetentionPolicySkeleton(kind = "unknown") {
+  return {
+    enabled: false,
+    policyVersion: 1,
+    retentionDays: null,
+    archiveEnabled: false,
+    binaryPersistenceAllowed: false,
+    cleanupMode: "tmp_delete_after_processing",
+    notes: `Retention not active yet for kind=${kind}.`,
+  };
+}
+
+function buildDataLifecycleSkeleton(summary) {
+  const kind = summary?.kind || "unknown";
+
+  return {
+    schemaVersion: 1,
+    lifecycleVersion: "11F.11-skeleton",
+    sourceType: "telegram_media",
+    kind,
+    createdAt: nowIso(),
+
+    identity: {
+      chatId: summary?.chatId ?? null,
+      messageId: summary?.messageId ?? null,
+      fileId: summary?.fileId || null,
+      fileUniqueId: summary?.fileUniqueId || null,
+    },
+
+    descriptor: {
+      fileName: summary?.fileName || null,
+      mimeType: summary?.mimeType || null,
+      fileSize: summary?.fileSize ?? null,
+      width: summary?.width ?? null,
+      height: summary?.height ?? null,
+      duration: summary?.duration ?? null,
+      captionPresent: Boolean(summary?.caption),
+    },
+
+    storage: {
+      binaryPersisted: false,
+      persistedBinaryLocation: null,
+      tempLocalPath: null,
+      tempExists: false,
+      extractedTextPersisted: false,
+      extractedTextLocation: null,
+      structuredDataPersisted: false,
+      structuredDataLocation: null,
+      policy: "meta_only_no_binary_persistence",
+    },
+
+    processing: {
+      summaryDone: false,
+      downloaded: false,
+      processed: false,
+      cleanupAttempted: false,
+      cleanupRemoved: false,
+      cleanupReason: null,
+    },
+
+    retention: buildRetentionPolicySkeleton(kind),
+  };
+}
+
+export function buildFileLifecycleRecord(msg) {
+  const summary = summarizeMediaAttachment(msg);
+  if (!summary) return null;
+  return buildDataLifecycleSkeleton(summary);
+}
+
+export function compactLifecycleForDebug(lifecycle) {
+  return {
+    lifecycleVersion: lifecycle?.lifecycleVersion || "n/a",
+    kind: lifecycle?.kind || "n/a",
+    binaryPersisted: lifecycle?.storage?.binaryPersisted === true,
+    tempLocalPath: lifecycle?.storage?.tempLocalPath || null,
+    tempExists: lifecycle?.storage?.tempExists === true,
+    downloaded: lifecycle?.processing?.downloaded === true,
+    processed: lifecycle?.processing?.processed === true,
+    cleanupAttempted: lifecycle?.processing?.cleanupAttempted === true,
+    cleanupRemoved: lifecycle?.processing?.cleanupRemoved === true,
+    cleanupReason: lifecycle?.processing?.cleanupReason || null,
+    retentionEnabled: lifecycle?.retention?.enabled === true,
+    archiveEnabled: lifecycle?.retention?.archiveEnabled === true,
+    binaryPersistenceAllowed: lifecycle?.retention?.binaryPersistenceAllowed === true,
+    policy: lifecycle?.storage?.policy || "n/a",
+  };
 }
 
 // ==================================================
@@ -222,8 +318,22 @@ export function cleanupDownloadedFile(intake, options = {}) {
   const meta = intake?.meta || makeMeta();
   const localPath = intake?.downloaded?.localPath || null;
 
+  if (intake?.lifecycle?.processing) {
+    intake.lifecycle.processing.cleanupAttempted = true;
+  }
+
   if (!localPath) {
     pushLog(meta, "info", "cleanup", "No local file to cleanup.");
+
+    if (intake?.lifecycle?.processing) {
+      intake.lifecycle.processing.cleanupRemoved = false;
+      intake.lifecycle.processing.cleanupReason = "no_local_path";
+    }
+
+    if (intake?.lifecycle?.storage) {
+      intake.lifecycle.storage.tempExists = false;
+    }
+
     return {
       ok: true,
       removed: false,
@@ -238,6 +348,16 @@ export function cleanupDownloadedFile(intake, options = {}) {
       pushLog(meta, "info", "cleanup", "Local file already missing.", {
         localPath,
       });
+
+      if (intake?.lifecycle?.processing) {
+        intake.lifecycle.processing.cleanupRemoved = false;
+        intake.lifecycle.processing.cleanupReason = "already_missing";
+      }
+
+      if (intake?.lifecycle?.storage) {
+        intake.lifecycle.storage.tempExists = false;
+      }
+
       return {
         ok: true,
         removed: false,
@@ -253,6 +373,15 @@ export function cleanupDownloadedFile(intake, options = {}) {
       localPath,
     });
 
+    if (intake?.lifecycle?.processing) {
+      intake.lifecycle.processing.cleanupRemoved = true;
+      intake.lifecycle.processing.cleanupReason = "removed";
+    }
+
+    if (intake?.lifecycle?.storage) {
+      intake.lifecycle.storage.tempExists = false;
+    }
+
     return {
       ok: true,
       removed: true,
@@ -265,6 +394,11 @@ export function cleanupDownloadedFile(intake, options = {}) {
       localPath,
       message: error?.message ? String(error.message) : "unknown_error",
     });
+
+    if (intake?.lifecycle?.processing) {
+      intake.lifecycle.processing.cleanupRemoved = false;
+      intake.lifecycle.processing.cleanupReason = "cleanup_failed";
+    }
 
     return {
       ok: false,
@@ -294,6 +428,11 @@ export async function intakeAndDownloadIfNeeded(msg, botToken) {
     return null;
   }
 
+  const lifecycle = buildDataLifecycleSkeleton(summary);
+  if (lifecycle?.processing) {
+    lifecycle.processing.summaryDone = true;
+  }
+
   pushLog(meta, "info", "summary", "Attachment summarized.", {
     kind: summary.kind,
     fileId: summary.fileId,
@@ -303,6 +442,15 @@ export async function intakeAndDownloadIfNeeded(msg, botToken) {
   });
 
   const downloaded = await downloadTelegramFile(botToken, summary.fileId);
+
+  if (lifecycle?.storage) {
+    lifecycle.storage.tempLocalPath = downloaded.localPath;
+    lifecycle.storage.tempExists = true;
+  }
+  if (lifecycle?.processing) {
+    lifecycle.processing.downloaded = true;
+  }
+
   pushLog(meta, "info", "download", "Attachment downloaded.", {
     fileName: downloaded.fileName,
     size: downloaded.size,
@@ -312,6 +460,7 @@ export async function intakeAndDownloadIfNeeded(msg, botToken) {
   return {
     ...summary,
     downloaded,
+    lifecycle,
     meta,
   };
 }
@@ -390,10 +539,15 @@ export async function processIncomingFile(intake) {
     processedText,
   });
 
+  if (intake?.lifecycle?.processing) {
+    intake.lifecycle.processing.processed = true;
+  }
+
   return {
     ok: true,
     processedText,
     directUserHint: stub,
+    lifecycle: intake?.lifecycle || null,
     meta,
   };
 }

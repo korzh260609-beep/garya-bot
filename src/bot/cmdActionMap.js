@@ -78,6 +78,13 @@ export const CMD_ACTION = {
   "/revoke": "cmd.admin.revoke",
   "/grants": "cmd.admin.grants",
 
+  // ✅ STAGE 12A — capability skeleton commands
+  "/capabilities": "cmd.admin.capabilities",
+  "/capability": "cmd.admin.capability",
+  "/cap_diagram": "cmd.admin.capability.diagram",
+  "/cap_doc": "cmd.admin.capability.document",
+  "/cap_automation": "cmd.admin.capability.automation",
+
   // Stage 5/6 — admin/dev (must go via can())
   "/health": "cmd.admin.health",
   "/webhook_info": "cmd.admin.webhook_info",

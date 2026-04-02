@@ -1,6 +1,6 @@
 // src/media/fileIntake.js
 // ==================================================
-// STAGE 11F — FILE-INTAKE SKELETON
+// STAGE 11F + STAGE 12.1 — FILE-INTAKE + VISION SKELETON
 // 11F.1 download file
 // 11F.2 detect type
 // 11F.3 process file (routing + stub)
@@ -8,6 +8,12 @@
 // 11F.10 logs
 // 11F.11 DATA LIFECYCLE skeleton
 // 11F.12 AI routing rule skeleton
+//
+// 12.1 OCR vision (provider-agnostic skeleton)
+// - provider contract exists
+// - service contract exists
+// - current runtime may return unavailable/noop result
+// - no real OCR extraction yet
 //
 // CURRENT STATUS:
 // - определяет вложение из Telegram msg (summary)
@@ -17,9 +23,10 @@
 // - умеет чистить временные файлы после обработки
 // - lifecycle хранит только meta/links, не binary
 // - routing rule задаёт specialized-first policy
+// - vision service contract added (12.1 skeleton only)
 //
 // NOT ACTIVE YET:
-// - OCR
+// - real OCR extraction provider
 // - PDF parsing
 // - DOCX parsing
 // - STT
@@ -29,7 +36,7 @@
 //
 // IMPORTANT:
 // - skeleton only
-// - no AI extraction here
+// - no AI extraction here beyond service contract
 // - no heavy parsing yet
 // - no binary persistence policy
 // - generic AI is text fallback only for media flows
@@ -38,6 +45,11 @@
 import fs from "fs";
 import path from "path";
 import { fetchWithTimeout } from "../core/fetchWithTimeout.js";
+import {
+  getVisionServiceStatus,
+  extractTextWithVisionFromIntake,
+  canRunVisionForIntake,
+} from "../vision/visionService.js";
 
 // ==================================================
 // === CONFIG
@@ -241,6 +253,11 @@ function buildDataLifecycleSkeleton(summary) {
       cleanupAttempted: false,
       cleanupRemoved: false,
       cleanupReason: null,
+
+      // Stage 12.1
+      visionAttempted: false,
+      visionOk: false,
+      visionReason: null,
     },
 
     retention: buildRetentionPolicySkeleton(kind),
@@ -265,6 +282,9 @@ export function compactLifecycleForDebug(lifecycle) {
     cleanupAttempted: lifecycle?.processing?.cleanupAttempted === true,
     cleanupRemoved: lifecycle?.processing?.cleanupRemoved === true,
     cleanupReason: lifecycle?.processing?.cleanupReason || null,
+    visionAttempted: lifecycle?.processing?.visionAttempted === true,
+    visionOk: lifecycle?.processing?.visionOk === true,
+    visionReason: lifecycle?.processing?.visionReason || null,
     retentionEnabled: lifecycle?.retention?.enabled === true,
     archiveEnabled: lifecycle?.retention?.archiveEnabled === true,
     binaryPersistenceAllowed: lifecycle?.retention?.binaryPersistenceAllowed === true,
@@ -615,8 +635,27 @@ function buildStubMessage(summary) {
   return `📎 Вложение получено.`;
 }
 
+function buildVisionHintForUser(visionResult) {
+  if (!visionResult) {
+    return "Vision/OCR skeleton: результата нет.";
+  }
+
+  if (visionResult.ok !== true) {
+    return (
+      `📷 Vision/OCR skeleton активирован, но реальный OCR пока недоступен.\n` +
+      `Причина: ${visionResult.error || "vision_unavailable"}.\n` +
+      `Сейчас SG продолжает работать в безопасном fallback-режиме.`
+    );
+  }
+
+  return (
+    `📷 Vision/OCR skeleton вернул extract-only результат.\n` +
+    `Извлечённый текст пока не используется как полноценный OCR pipeline.`
+  );
+}
+
 // ==================================================
-// === 11F.3 process file (routing + stub)
+// === 11F.3 + 12.1 process file
 // ==================================================
 export async function processIncomingFile(intake) {
   const meta = intake?.meta || makeMeta();
@@ -628,9 +667,8 @@ export async function processIncomingFile(intake) {
     genericAiMode: intake?.lifecycle?.routing?.genericAiMode || null,
   });
 
-  const stub = buildStubMessage(intake);
-
-  const processedText = (() => {
+  let directUserHint = buildStubMessage(intake);
+  let processedText = (() => {
     if (!intake) return "";
     const kind = intake.kind || "unknown";
     const fileName = intake?.downloaded?.fileName || intake?.fileName || "";
@@ -638,6 +676,60 @@ export async function processIncomingFile(intake) {
     const route = intake?.lifecycle?.routing?.specializedRoute || "n/a";
     return `File-Intake stub: kind=${kind}; file=${fileName}; mime=${mime || "n/a"}; route=${route}.`;
   })();
+
+  // ==================================================
+  // === STAGE 12.1 — provider-agnostic vision skeleton
+  // ==================================================
+  if (canRunVisionForIntake(intake)) {
+    const visionStatus = getVisionServiceStatus();
+
+    pushLog(meta, "info", "vision", "Vision service status checked.", {
+      provider: visionStatus?.provider || "n/a",
+      enabled: visionStatus?.enabled === true,
+      providerAvailable: visionStatus?.providerAvailable === true,
+      ocrEnabled: visionStatus?.ocrEnabled === true,
+      extractOnly: visionStatus?.extractOnly === true,
+    });
+
+    if (intake?.lifecycle?.processing) {
+      intake.lifecycle.processing.visionAttempted = true;
+    }
+
+    const visionResult = await extractTextWithVisionFromIntake(intake);
+
+    if (visionResult?.ok === true) {
+      if (intake?.lifecycle?.processing) {
+        intake.lifecycle.processing.visionOk = true;
+        intake.lifecycle.processing.visionReason = "extract_ok";
+      }
+
+      processedText += ` vision=ok; provider=${visionResult.providerKey || "n/a"}; textLen=${safeStr(
+        visionResult.text
+      ).length}.`;
+
+      directUserHint = buildVisionHintForUser(visionResult);
+
+      pushLog(meta, "info", "vision", "Vision extract-only result available.", {
+        provider: visionResult?.providerKey || "n/a",
+        textLen: safeStr(visionResult?.text).length,
+      });
+    } else {
+      if (intake?.lifecycle?.processing) {
+        intake.lifecycle.processing.visionOk = false;
+        intake.lifecycle.processing.visionReason =
+          visionResult?.error || "vision_unavailable";
+      }
+
+      processedText += ` vision=unavailable; reason=${visionResult?.error || "unknown"}.`;
+
+      directUserHint = buildVisionHintForUser(visionResult);
+
+      pushLog(meta, "info", "vision", "Vision unavailable/noop result.", {
+        reason: visionResult?.error || "unknown",
+        provider: visionResult?.providerKey || "n/a",
+      });
+    }
+  }
 
   pushLog(meta, "info", "process", "Stub processing complete.", {
     processedText,
@@ -650,7 +742,7 @@ export async function processIncomingFile(intake) {
   return {
     ok: true,
     processedText,
-    directUserHint: stub,
+    directUserHint,
     lifecycle: intake?.lifecycle || null,
     meta,
   };

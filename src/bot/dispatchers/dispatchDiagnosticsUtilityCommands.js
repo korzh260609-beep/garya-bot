@@ -12,6 +12,15 @@ import { handleRenderLogShow } from "../handlers/renderLogShow.js";
 import { handleRenderErrorsLast } from "../handlers/renderErrorsLast.js";
 import { handleRenderDeploysLast } from "../handlers/renderDeploysLast.js";
 
+// ✅ STAGE 12A — capability skeleton handlers
+import {
+  handleCapabilitiesRegistry,
+  handleCapabilityLookup,
+} from "../handlers/capabilitiesRegistry.js";
+import { handleCapabilityDiagram } from "../handlers/capabilityDiagram.js";
+import { handleCapabilityDocument } from "../handlers/capabilityDocument.js";
+import { handleCapabilityAutomation } from "../handlers/capabilityAutomation.js";
+
 export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
   const { bot, chatId, chatIdStr } = ctx;
 
@@ -96,6 +105,59 @@ export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
         chatId,
         rest: ctx.rest,
         bypass: ctx.bypass,
+      });
+      return { handled: true };
+    }
+
+    // ✅ STAGE 12A.5
+    case "/capabilities": {
+      await handleCapabilitiesRegistry({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+      });
+      return { handled: true };
+    }
+
+    case "/capability": {
+      await handleCapabilityLookup({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    // ✅ STAGE 12A.1
+    case "/cap_diagram": {
+      await handleCapabilityDiagram({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    // ✅ STAGE 12A.2
+    case "/cap_doc": {
+      await handleCapabilityDocument({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    // ✅ STAGE 12A.4
+    case "/cap_automation": {
+      await handleCapabilityAutomation({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
       });
       return { handled: true };
     }

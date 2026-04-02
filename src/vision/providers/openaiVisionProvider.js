@@ -1,14 +1,16 @@
 // ============================================================================
 // src/vision/providers/openaiVisionProvider.js
-// STAGE 12.3 — OPENAI vision provider (real first provider)
+// STAGE 12.4 — OPENAI vision provider (OCR + visible facts)
 // Purpose:
 // - first real OCR-capable provider in SG
+// - adds short visible-facts extraction for object/scene understanding
 // - feature-flag controlled
 // - safe fallback on config/auth/network/model failure
 //
 // IMPORTANT:
-// - extract-only usage
-// - no semantic long-form analysis
+// - OCR remains extract-first
+// - facts mode is short, observable, non-immersive
+// - no unsafe operational advice
 // - no provider is enabled by default
 // - this provider only becomes usable when:
 //   VISION_ENABLED=true
@@ -57,9 +59,10 @@ function createClient() {
   });
 }
 
-function buildUnavailableExtractResult({
+function buildUnavailableResult({
   providerKey,
   requestedKind,
+  mode,
   reason,
   filePath = null,
   mimeType = null,
@@ -84,17 +87,18 @@ function buildUnavailableExtractResult({
     warnings: [reason || "openai_provider_unavailable"],
     error: reason || "openai_provider_unavailable",
     meta: {
-      stage: "12.3-openai-first",
+      stage: "12.4-openai-ocr-plus-facts",
       providerType: "openai",
-      mode: "unavailable",
+      mode: mode || "unavailable",
       ...extraMeta,
     },
   };
 }
 
-function buildSuccessExtractResult({
+function buildSuccessResult({
   providerKey,
   requestedKind,
+  mode,
   filePath = null,
   mimeType = null,
   fileSize = null,
@@ -122,9 +126,9 @@ function buildSuccessExtractResult({
     warnings: [],
     error: null,
     meta: {
-      stage: "12.3-openai-first",
+      stage: "12.4-openai-ocr-plus-facts",
       providerType: "openai",
-      mode: "live_api_call",
+      mode: mode || "live_api_call",
       ...extraMeta,
     },
   };
@@ -150,6 +154,41 @@ function extractTextFromCompletionResponse(response) {
   }
 
   return "";
+}
+
+async function runVisionCompletion({
+  client,
+  dataUrl,
+  systemPrompt,
+  userPrompt,
+}) {
+  return client.chat.completions.create({
+    model: OPENAI_VISION_MODEL,
+    temperature: 0,
+    max_tokens: OPENAI_VISION_MAX_OUTPUT_TOKENS,
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: userPrompt,
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: dataUrl,
+              detail: OPENAI_VISION_DETAIL,
+            },
+          },
+        ],
+      },
+    ],
+  });
 }
 
 export function createOpenAIVisionProvider(baseStatus = {}) {
@@ -182,9 +221,10 @@ export function createOpenAIVisionProvider(baseStatus = {}) {
       const startedAt = nowIso();
 
       if (!filePath || !fs.existsSync(filePath)) {
-        return buildUnavailableExtractResult({
+        return buildUnavailableResult({
           providerKey,
           requestedKind: kind,
+          mode: "ocr_unavailable",
           reason: "openai_file_missing",
           filePath,
           mimeType,
@@ -194,9 +234,10 @@ export function createOpenAIVisionProvider(baseStatus = {}) {
 
       const client = createClient();
       if (!client) {
-        return buildUnavailableExtractResult({
+        return buildUnavailableResult({
           providerKey,
           requestedKind: kind,
+          mode: "ocr_unavailable",
           reason: "openai_api_key_missing",
           filePath,
           mimeType,
@@ -208,9 +249,10 @@ export function createOpenAIVisionProvider(baseStatus = {}) {
       try {
         dataUrl = toDataUrl(filePath, mimeType);
       } catch (error) {
-        return buildUnavailableExtractResult({
+        return buildUnavailableResult({
           providerKey,
           requestedKind: kind,
+          mode: "ocr_unavailable",
           reason: "openai_file_read_failed",
           filePath,
           mimeType,
@@ -222,43 +264,23 @@ export function createOpenAIVisionProvider(baseStatus = {}) {
       }
 
       try {
-        const response = await client.chat.completions.create({
-          model: OPENAI_VISION_MODEL,
-          temperature: 0,
-          max_tokens: OPENAI_VISION_MAX_OUTPUT_TOKENS,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an OCR extraction engine. Extract visible text faithfully and concisely. Do not add commentary. If text is unreadable, return the readable parts only.",
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text:
-                    "Extract visible text from this image. Return plain text only. No markdown. No explanations.",
-                },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: dataUrl,
-                    detail: OPENAI_VISION_DETAIL,
-                  },
-                },
-              ],
-            },
-          ],
+        const response = await runVisionCompletion({
+          client,
+          dataUrl,
+          systemPrompt:
+            "You are an OCR extraction engine. Extract visible text faithfully and concisely. Do not add commentary. If text is unreadable, return the readable parts only.",
+          userPrompt:
+            "Extract visible text from this image. Return plain text only. No markdown. No explanations.",
         });
 
         const extractedText = extractTextFromCompletionResponse(response);
         const usage = response?.usage || null;
 
         return {
-          ...buildSuccessExtractResult({
+          ...buildSuccessResult({
             providerKey,
             requestedKind: kind,
+            mode: "ocr_live_api_call",
             filePath,
             mimeType,
             fileSize,
@@ -278,9 +300,116 @@ export function createOpenAIVisionProvider(baseStatus = {}) {
           }),
         };
       } catch (error) {
-        return buildUnavailableExtractResult({
+        return buildUnavailableResult({
           providerKey,
           requestedKind: kind,
+          mode: "ocr_unavailable",
+          reason: "openai_api_call_failed",
+          filePath,
+          mimeType,
+          fileSize,
+          extraMeta: {
+            model: OPENAI_VISION_MODEL,
+            detail: OPENAI_VISION_DETAIL,
+            startedAt,
+            message: error?.message ? String(error.message) : "unknown_error",
+          },
+        });
+      }
+    },
+
+    async extractVisibleFactsFromFile({
+      filePath,
+      mimeType = null,
+      fileSize = null,
+      kind = "unknown",
+    }) {
+      const startedAt = nowIso();
+
+      if (!filePath || !fs.existsSync(filePath)) {
+        return buildUnavailableResult({
+          providerKey,
+          requestedKind: kind,
+          mode: "facts_unavailable",
+          reason: "openai_file_missing",
+          filePath,
+          mimeType,
+          fileSize,
+        });
+      }
+
+      const client = createClient();
+      if (!client) {
+        return buildUnavailableResult({
+          providerKey,
+          requestedKind: kind,
+          mode: "facts_unavailable",
+          reason: "openai_api_key_missing",
+          filePath,
+          mimeType,
+          fileSize,
+        });
+      }
+
+      let dataUrl;
+      try {
+        dataUrl = toDataUrl(filePath, mimeType);
+      } catch (error) {
+        return buildUnavailableResult({
+          providerKey,
+          requestedKind: kind,
+          mode: "facts_unavailable",
+          reason: "openai_file_read_failed",
+          filePath,
+          mimeType,
+          fileSize,
+          extraMeta: {
+            message: error?.message ? String(error.message) : "unknown_error",
+          },
+        });
+      }
+
+      try {
+        const response = await runVisionCompletion({
+          client,
+          dataUrl,
+          systemPrompt:
+            "You are a concise visual fact extraction engine. Describe only clearly visible objects, scene facts, and simple relations. Be brief. Do not speculate beyond visible evidence. Do not give instructions for using dangerous items.",
+          userPrompt:
+            "Describe what is clearly visible in this image in 1-3 short sentences. Mention main object(s), obvious material/color/form, and any visible text if it matters. No markdown. No long analysis. No instructions.",
+        });
+
+        const factsText = extractTextFromCompletionResponse(response);
+        const usage = response?.usage || null;
+
+        return {
+          ...buildSuccessResult({
+            providerKey,
+            requestedKind: kind,
+            mode: "facts_live_api_call",
+            filePath,
+            mimeType,
+            fileSize,
+            text: factsText,
+            extraMeta: {
+              model: OPENAI_VISION_MODEL,
+              detail: OPENAI_VISION_DETAIL,
+              startedAt,
+              usage: usage
+                ? {
+                    prompt_tokens: safeNumber(usage.prompt_tokens, null),
+                    completion_tokens: safeNumber(usage.completion_tokens, null),
+                    total_tokens: safeNumber(usage.total_tokens, null),
+                  }
+                : null,
+            },
+          }),
+        };
+      } catch (error) {
+        return buildUnavailableResult({
+          providerKey,
+          requestedKind: kind,
+          mode: "facts_unavailable",
           reason: "openai_api_call_failed",
           filePath,
           mimeType,

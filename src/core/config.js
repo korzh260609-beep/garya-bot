@@ -32,6 +32,19 @@ export function envIntRange(key, def, { min = -Infinity, max = Infinity } = {}) 
   return Math.floor(num);
 }
 
+export function envBool(key, def = false) {
+  const raw = process.env[key];
+  if (raw === undefined || raw === null || String(raw).trim() === "") {
+    return Boolean(def);
+  }
+
+  const value = String(raw).trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(value)) return true;
+  if (["0", "false", "no", "n", "off"].includes(value)) return false;
+
+  return Boolean(def);
+}
+
 export function getPublicEnvSnapshot() {
   return {
     NODE_ENV: process.env.NODE_ENV,
@@ -96,6 +109,37 @@ export const ERROR_EVENTS_PURGE_COOLDOWN_MIN = envIntRange(
 );
 
 // ===============================
+// STAGE 12.1 — VISION / OCR SKELETON CONFIG
+// ===============================
+
+export const VISION_ENABLED = envBool("VISION_ENABLED", false);
+
+// Provider-agnostic:
+// - "none"   -> explicitly disabled
+// - "noop"   -> dry skeleton provider (default)
+// - future   -> "gemini", "openai", etc.
+export const VISION_PROVIDER = envStr("VISION_PROVIDER", "noop")
+  .trim()
+  .toLowerCase();
+
+export const VISION_OCR_ENABLED = envBool("VISION_OCR_ENABLED", false);
+
+// Extract-only policy for 12.1:
+// no semantic analysis, no long-form reasoning here.
+export const VISION_EXTRACT_ONLY = envBool("VISION_EXTRACT_ONLY", true);
+
+// Safety/cost guard for future provider calls
+export const VISION_MAX_FILE_MB = envIntRange("VISION_MAX_FILE_MB", 10, {
+  min: 1,
+  max: 50,
+});
+
+export const VISION_TIMEOUT_MS = envIntRange("VISION_TIMEOUT_MS", 15000, {
+  min: 1000,
+  max: 120000,
+});
+
+// ===============================
 // FEATURE FLAGS
 // ===============================
 
@@ -110,6 +154,12 @@ export const PUBLIC_ENV_ALLOWLIST = [
   "HOSTNAME",
   "LINKING_V2",
   "DIAG_ROLES_V2",
+  "VISION_ENABLED",
+  "VISION_PROVIDER",
+  "VISION_OCR_ENABLED",
+  "VISION_EXTRACT_ONLY",
+  "VISION_MAX_FILE_MB",
+  "VISION_TIMEOUT_MS",
 ];
 
 function _isTruthyFlag(v) {
@@ -123,5 +173,10 @@ export function getFeatureFlags() {
   return {
     LINKING_V2: _isTruthyFlag(envStr("LINKING_V2", "0")),
     DIAG_ROLES_V2: _isTruthyFlag(envStr("DIAG_ROLES_V2", "0")),
+
+    // Stage 12.1
+    VISION_ENABLED,
+    VISION_OCR_ENABLED,
+    VISION_EXTRACT_ONLY,
   };
 }

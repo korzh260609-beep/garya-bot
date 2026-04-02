@@ -374,9 +374,9 @@ export function createOpenAIVisionProvider(baseStatus = {}) {
           client,
           dataUrl,
           systemPrompt:
-            "You are a concise visual fact extraction engine. Describe only clearly visible objects, scene facts, and simple relations. Be brief. Do not speculate beyond visible evidence. Do not give instructions for using dangerous items.",
+            "You are a concise visual fact extraction engine. Describe only clearly visible objects, scene facts, and simple relations. Be brief. Do not speculate beyond visible evidence. Use 1 or 2 short sentences maximum. No bullets. No markdown. No instructions for using dangerous items.",
           userPrompt:
-            "Describe what is clearly visible in this image in 1-3 short sentences. Mention main object(s), obvious material/color/form, and any visible text if it matters. No markdown. No long analysis. No instructions.",
+            "State the main visible subject and the most obvious visual traits in 1 or 2 short sentences. If uncertain, say 'Похоже на ...'. Mention visible text only if it is important.",
         });
 
         const factsText = extractTextFromCompletionResponse(response);

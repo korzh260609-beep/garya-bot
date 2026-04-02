@@ -1,10 +1,10 @@
 // ============================================================================
 // src/vision/providers/claudeVisionProvider.js
-// STAGE 12.2 — CLAUDE vision provider (skeleton)
+// STAGE 12.3 — CLAUDE vision provider (skeleton only)
 // Purpose:
 // - selectable provider
 // - no real API call yet
-// - provider metadata + contract only
+// - MUST remain unavailable until implemented
 // ============================================================================
 
 import { VISION_EXTRACT_ONLY } from "../../core/config.js";
@@ -43,7 +43,7 @@ function buildUnavailableExtractResult({
     warnings: [reason || "claude_provider_not_implemented_yet"],
     error: reason || "claude_provider_not_implemented_yet",
     meta: {
-      stage: "12.2-skeleton",
+      stage: "12.3-openai-first",
       providerType: "claude",
       mode: "skeleton",
     },
@@ -62,7 +62,8 @@ export function createClaudeVisionProvider(baseStatus = {}) {
       supportsVision: true,
       supportsOcr: true,
       supportsDocs: true,
-      providerAvailable: true,
+      providerAvailable: false,
+      notes: "Skeleton only. Claude real API call is not implemented yet.",
     },
 
     async extractTextFromFile({

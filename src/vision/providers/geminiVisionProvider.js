@@ -1,10 +1,10 @@
 // ============================================================================
 // src/vision/providers/geminiVisionProvider.js
-// STAGE 12.2 — GEMINI vision provider (skeleton)
+// STAGE 12.3 — GEMINI vision provider (skeleton only)
 // Purpose:
 // - selectable provider
 // - no real API call yet
-// - provider metadata + contract only
+// - MUST remain unavailable until implemented
 // ============================================================================
 
 import { VISION_EXTRACT_ONLY } from "../../core/config.js";
@@ -43,7 +43,7 @@ function buildUnavailableExtractResult({
     warnings: [reason || "gemini_provider_not_implemented_yet"],
     error: reason || "gemini_provider_not_implemented_yet",
     meta: {
-      stage: "12.2-skeleton",
+      stage: "12.3-openai-first",
       providerType: "gemini",
       mode: "skeleton",
     },
@@ -62,7 +62,8 @@ export function createGeminiVisionProvider(baseStatus = {}) {
       supportsVision: true,
       supportsOcr: true,
       supportsDocs: true,
-      providerAvailable: true,
+      providerAvailable: false,
+      notes: "Skeleton only. Gemini real API call is not implemented yet.",
     },
 
     async extractTextFromFile({

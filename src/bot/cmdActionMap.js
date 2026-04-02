@@ -85,6 +85,9 @@ export const CMD_ACTION = {
   "/cap_doc": "cmd.admin.capability.document",
   "/cap_automation": "cmd.admin.capability.automation",
 
+  // ✅ STAGE 12.1 — vision diagnostic
+  "/vision_diag": "cmd.admin.vision_diag",
+
   // Stage 5/6 — admin/dev (must go via can())
   "/health": "cmd.admin.health",
   "/webhook_info": "cmd.admin.webhook_info",

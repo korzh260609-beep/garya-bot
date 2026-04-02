@@ -21,6 +21,9 @@ import { handleCapabilityDiagram } from "../handlers/capabilityDiagram.js";
 import { handleCapabilityDocument } from "../handlers/capabilityDocument.js";
 import { handleCapabilityAutomation } from "../handlers/capabilityAutomation.js";
 
+// ✅ STAGE 12.1 — vision diag
+import { handleVisionDiag } from "../handlers/visionDiag.js";
+
 export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
   const { bot, chatId, chatIdStr } = ctx;
 
@@ -158,6 +161,16 @@ export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
         chatId,
         senderIdStr: ctx.senderIdStr,
         rest: ctx.rest,
+      });
+      return { handled: true };
+    }
+
+    // ✅ STAGE 12.1
+    case "/vision_diag": {
+      await handleVisionDiag({
+        bot,
+        chatId,
+        senderIdStr: ctx.senderIdStr,
       });
       return { handled: true };
     }

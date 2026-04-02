@@ -43,6 +43,8 @@ import {
 // === CONFIG
 // ==================================================
 const TMP_DIR = path.resolve(process.cwd(), "tmp", "media");
+const DOCUMENT_REPLY_CHUNK_SIZE = 3200;
+const DOCUMENT_SESSION_CACHE = new Map();
 
 function ensureTmpDir() {
   if (!fs.existsSync(TMP_DIR)) {
@@ -83,6 +85,170 @@ function pushLog(meta, level, step, msg, data = null) {
 function toIntOr(v, fallback) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+function normalizeCommandText(value) {
+  return safeStr(value)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function splitTextIntoChunks(text, chunkSize = DOCUMENT_REPLY_CHUNK_SIZE) {
+  const src = safeStr(text);
+  if (!src) return [];
+
+  const chunks = [];
+  let start = 0;
+
+  while (start < src.length) {
+    const endLimit = Math.min(start + chunkSize, src.length);
+
+    if (endLimit >= src.length) {
+      chunks.push(src.slice(start).trim());
+      break;
+    }
+
+    let splitAt = src.lastIndexOf("\n\n", endLimit);
+    if (splitAt <= start + 400) {
+      splitAt = src.lastIndexOf("\n", endLimit);
+    }
+    if (splitAt <= start + 300) {
+      splitAt = src.lastIndexOf(" ", endLimit);
+    }
+    if (splitAt <= start) {
+      splitAt = endLimit;
+    }
+
+    chunks.push(src.slice(start, splitAt).trim());
+    start = splitAt;
+  }
+
+  return chunks.filter(Boolean);
+}
+
+function buildDocumentPartReply(cache, partIndex) {
+  const chunks = Array.isArray(cache?.chunks) ? cache.chunks : [];
+  const total = chunks.length;
+
+  if (!total || partIndex < 0 || partIndex >= total) {
+    return null;
+  }
+
+  const fileName = safeStr(cache?.fileName || "document");
+  const body = safeStr(chunks[partIndex]).trim();
+  const currentPart = partIndex + 1;
+
+  const tail =
+    currentPart < total
+      ? `\n\nНапиши: дальше`
+      : "\n\nЭто последняя часть.";
+
+  return `📄 ${fileName}\nЧасть ${currentPart}/${total}\n\n${body}${tail}`;
+}
+
+function isDocumentFullTextCommand(value) {
+  const text = normalizeCommandText(value);
+  if (!text) return false;
+
+  return [
+    "покажи весь файл",
+    "выдай весь файл",
+    "покажи полный файл",
+    "покажи весь документ",
+    "покажи полный документ",
+    "покажи полный текст",
+    "выдай полный текст",
+    "полный текст",
+    "весь файл",
+    "весь документ",
+  ].includes(text);
+}
+
+function isDocumentContinueCommand(value) {
+  const text = normalizeCommandText(value);
+  if (!text) return false;
+
+  return [
+    "дальше",
+    "продолжай",
+    "еще",
+    "ещё",
+    "следующая часть",
+    "следующий кусок",
+    "следующий фрагмент",
+  ].includes(text);
+}
+
+function saveDocumentSessionCache({ chatId, fileName, text }) {
+  const key = String(chatId || "").trim();
+  const content = safeStr(text).trim();
+
+  if (!key || !content) return null;
+
+  const chunks = splitTextIntoChunks(content, DOCUMENT_REPLY_CHUNK_SIZE);
+
+  const cache = {
+    chatId: key,
+    fileName: safeStr(fileName || "document"),
+    text: content,
+    chunks,
+    nextChunkIndex: 0,
+    createdAt: nowIso(),
+  };
+
+  DOCUMENT_SESSION_CACHE.set(key, cache);
+  return cache;
+}
+
+export function getDocumentSessionCache(chatId) {
+  const key = String(chatId || "").trim();
+  if (!key) return null;
+  return DOCUMENT_SESSION_CACHE.get(key) || null;
+}
+
+export function tryHandleDocumentSessionCommand({ chatId, text }) {
+  const cache = getDocumentSessionCache(chatId);
+  if (!cache) {
+    return {
+      handled: false,
+      replyText: null,
+    };
+  }
+
+  if (isDocumentFullTextCommand(text)) {
+    cache.nextChunkIndex = 1;
+
+    const replyText = buildDocumentPartReply(cache, 0);
+    return {
+      handled: Boolean(replyText),
+      replyText,
+    };
+  }
+
+  if (isDocumentContinueCommand(text)) {
+    const nextIndex = Number(cache.nextChunkIndex || 0);
+
+    if (nextIndex >= cache.chunks.length) {
+      return {
+        handled: true,
+        replyText: "Это уже последняя часть документа.",
+      };
+    }
+
+    const replyText = buildDocumentPartReply(cache, nextIndex);
+    cache.nextChunkIndex = nextIndex + 1;
+
+    return {
+      handled: Boolean(replyText),
+      replyText,
+    };
+  }
+
+  return {
+    handled: false,
+    replyText: null,
+  };
 }
 
 // ==================================================
@@ -717,7 +883,11 @@ function buildDocumentHintForUser(documentResult, intake = null) {
     const extracted = safeStr(documentResult.text).trim();
 
     if (extracted) {
-      return `📄 Извлечённый текст из ${fileName}:\n\n${extracted}`;
+      return (
+        `📄 Документ ${fileName} обработан.\n` +
+        `Сейчас дам только общий смысл, а не весь текст целиком.\n` +
+        `Если нужен полный текст — напиши: покажи весь файл`
+      );
     }
 
     return (
@@ -918,6 +1088,12 @@ export async function processIncomingFile(intake) {
         provider: documentResult?.providerKey || "n/a",
         textLen: extractedText.length,
         textPreview: extractedText.slice(0, 200),
+      });
+
+      saveDocumentSessionCache({
+        chatId: intake?.chatId ?? intake?.lifecycle?.identity?.chatId ?? null,
+        fileName: intake?.downloaded?.fileName || intake?.fileName || "document",
+        text: extractedText,
       });
     } else {
       extractedText = "";

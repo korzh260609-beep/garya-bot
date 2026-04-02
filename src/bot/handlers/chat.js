@@ -78,6 +78,7 @@ export async function handleChatMessage({
     effective,
     shouldCallAI,
     directReplyText,
+    mediaResponseMode,
   } = await resolveFileIntakeDecision({
     FileIntake,
     msg,
@@ -228,6 +229,7 @@ export async function handleChatMessage({
     monarchNow,
     msg,
     effective,
+    mediaResponseMode,
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
     longTermMemorySystemMessage,

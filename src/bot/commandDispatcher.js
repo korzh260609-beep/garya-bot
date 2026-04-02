@@ -188,6 +188,8 @@ export async function dispatchCommand(cmd, ctx) {
     "/file_intake_diag",
     "/file_intake_diag_full",
 
+    "/vision_diag",
+
     "/memory_status",
     "/memory_diag",
     "/memory_integrity",
@@ -227,6 +229,12 @@ export async function dispatchCommand(cmd, ctx) {
     "/repo_analyze",
     "/repo_search",
     "/code_output_status",
+
+    "/capabilities",
+    "/capability",
+    "/cap_diagram",
+    "/cap_doc",
+    "/cap_automation",
   ]);
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {

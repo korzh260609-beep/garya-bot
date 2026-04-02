@@ -631,10 +631,7 @@ function buildVisionHintForUser(visionResult) {
     const extracted = safeStr(visionResult.text).trim();
 
     if (extracted) {
-      return (
-        `📷 OCR результат:\n\n` +
-        `${extracted}`
-      );
+      return `📷 OCR результат:\n\n${extracted}`;
     }
 
     return (
@@ -673,6 +670,11 @@ export async function processIncomingFile(intake) {
     return `File-Intake stub: kind=${kind}; file=${fileName}; mime=${mime || "n/a"}; route=${route}.`;
   })();
 
+  let extractedText = "";
+  let extractionAvailable = false;
+  let extractionError = null;
+  let extractionProviderKey = null;
+
   if (canRunVisionForIntake(intake)) {
     const visionStatus = getVisionServiceStatus({
       kind: intake?.kind || "unknown",
@@ -702,7 +704,10 @@ export async function processIncomingFile(intake) {
         intake.lifecycle.processing.visionReason = "extract_ok";
       }
 
-      const extractedText = safeStr(visionResult.text).trim();
+      extractedText = safeStr(visionResult.text).trim();
+      extractionAvailable = Boolean(extractedText);
+      extractionError = null;
+      extractionProviderKey = visionResult.providerKey || null;
 
       processedText += ` vision=ok; provider=${visionResult.providerKey || "n/a"}; textLen=${extractedText.length}.`;
 
@@ -719,6 +724,11 @@ export async function processIncomingFile(intake) {
         intake.lifecycle.processing.visionReason =
           visionResult?.error || "vision_unavailable";
       }
+
+      extractedText = "";
+      extractionAvailable = false;
+      extractionError = visionResult?.error || "unknown";
+      extractionProviderKey = visionResult?.providerKey || null;
 
       processedText += ` vision=unavailable; reason=${visionResult?.error || "unknown"}.`;
 
@@ -743,6 +753,10 @@ export async function processIncomingFile(intake) {
     ok: true,
     processedText,
     directUserHint,
+    extractedText,
+    extractionAvailable,
+    extractionError,
+    extractionProviderKey,
     lifecycle: intake?.lifecycle || null,
     meta,
   };

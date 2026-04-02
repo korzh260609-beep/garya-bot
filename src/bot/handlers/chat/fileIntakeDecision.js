@@ -13,7 +13,7 @@ function buildMediaAiContextNote(mediaSummary) {
   const kind = safeText(mediaSummary?.kind || "unknown");
 
   if (kind === "photo") {
-    return "Специализированное извлечение: OCR/Vision для фото.";
+    return "Специализированное извлечение: OCR/Vision + visible facts для фото.";
   }
 
   if (kind === "document") {
@@ -37,57 +37,60 @@ function buildMediaAiContextNote(mediaSummary) {
   return "Специализированное извлечение: media handler.";
 }
 
-function buildEffectiveTextWithExtractedMedia({
+function buildEffectiveTextWithMediaContext({
   baseEffectiveText = "",
   mediaSummary = null,
   extractedText = "",
+  visibleFactsText = "",
   extractionProviderKey = "",
+  visibleFactsProviderKey = "",
+  extractionError = "",
+  visibleFactsError = "",
 }) {
   const userPart = safeText(baseEffectiveText);
   const extractedPart = safeText(extractedText);
-  const providerPart = safeText(extractionProviderKey || "");
+  const factsPart = safeText(visibleFactsText);
+  const extractionProvider = safeText(extractionProviderKey);
+  const factsProvider = safeText(visibleFactsProviderKey);
+  const extractionErr = safeText(extractionError);
+  const factsErr = safeText(visibleFactsError);
 
-  const mediaContextNote = buildMediaAiContextNote(mediaSummary);
-
-  const providerLine = providerPart
-    ? `Провайдер извлечения: ${providerPart}.`
-    : null;
-
-  return [
+  const lines = [
     userPart,
     "",
     "[MEDIA_CONTEXT]",
-    mediaContextNote,
-    providerLine,
-    "Ниже текст, извлечённый специализированным media-маршрутом:",
-    extractedPart,
-    "[/MEDIA_CONTEXT]",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
+    buildMediaAiContextNote(mediaSummary),
+  ];
 
-function buildEffectiveTextWithUnavailableExtraction({
-  baseEffectiveText = "",
-  mediaSummary = null,
-  extractionError = "",
-}) {
-  const userPart = safeText(baseEffectiveText);
-  const mediaContextNote = buildMediaAiContextNote(mediaSummary);
-  const errorText = safeText(extractionError || "specialized_extraction_unavailable");
+  if (extractionProvider) {
+    lines.push(`OCR провайдер: ${extractionProvider}.`);
+  }
 
-  return [
-    userPart,
-    "",
-    "[MEDIA_CONTEXT]",
-    mediaContextNote,
-    "Специализированное извлечение было запрошено, но не дало текста.",
-    `Причина: ${errorText}.`,
-    "Важно: generic AI не видел binary/media напрямую и отвечает только по тексту пользователя и доступному текстовому контексту.",
-    "[/MEDIA_CONTEXT]",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  if (factsProvider) {
+    lines.push(`Vision facts провайдер: ${factsProvider}.`);
+  }
+
+  if (extractedPart) {
+    lines.push("Ниже текст, извлечённый специализированным OCR-маршрутом:");
+    lines.push(extractedPart);
+  } else if (extractionErr) {
+    lines.push(`OCR текст не извлечён. Причина: ${extractionErr}.`);
+  }
+
+  if (factsPart) {
+    lines.push("");
+    lines.push("Ниже краткие видимые факты по изображению:");
+    lines.push(factsPart);
+  } else if (factsErr) {
+    lines.push(`Vision facts недоступны. Причина: ${factsErr}.`);
+  }
+
+  lines.push(
+    "Важно: generic AI не видел binary/media напрямую и отвечает только по тексту пользователя и подготовленному специализированному контексту."
+  );
+  lines.push("[/MEDIA_CONTEXT]");
+
+  return lines.filter(Boolean).join("\n");
 }
 
 export async function resolveFileIntakeDecision({
@@ -124,15 +127,6 @@ export async function resolveFileIntakeDecision({
   let shouldCallAI = Boolean(baseDecision?.shouldCallAI);
   let directReplyText = baseDecision?.directReplyText || null;
 
-  // --------------------------------------------------------------------------
-  // STAGE 12.x runtime hook
-  // PURPOSE:
-  // - media-only path: prefer processFile().directUserHint when available
-  // - media+text path: specialized extraction first, then AI gets extracted text
-  // - no phrase-based routing; decision is based on message shape + semantics
-  // - fail-open on runtime errors
-  // - cleanup tmp files after processing attempt
-  // --------------------------------------------------------------------------
   if (mediaSummary) {
     const intakeAndDownloadIfNeeded = getFn(
       FileIntake,
@@ -174,28 +168,31 @@ export async function resolveFileIntakeDecision({
             processed?.extractedText || ""
           );
 
-          const processedExtractionAvailable =
-            processed?.extractionAvailable === true &&
-            Boolean(processedExtractedText);
+          const processedVisibleFactsText = safeText(
+            processed?.visibleFactsText || ""
+          );
 
           const processedExtractionError = safeText(
             processed?.extractionError || ""
+          );
+
+          const processedVisibleFactsError = safeText(
+            processed?.visibleFactsError || ""
           );
 
           const processedExtractionProviderKey = safeText(
             processed?.extractionProviderKey || ""
           );
 
-          // ================================================================
-          // PATH A — MEDIA ONLY
-          // ================================================================
+          const processedVisibleFactsProviderKey = safeText(
+            processed?.visibleFactsProviderKey || ""
+          );
+
           if (!shouldCallAI) {
             if (processedDirectUserHint) {
               directReplyText = processedDirectUserHint;
             }
 
-            // Optional future path:
-            // if processor explicitly requests AI escalation, allow it.
             if (processed && processed.shouldCallAI === true) {
               shouldCallAI = true;
 
@@ -213,30 +210,19 @@ export async function resolveFileIntakeDecision({
             }
           }
 
-          // ================================================================
-          // PATH B — MEDIA + USER TEXT/CAPTION
-          // RULE:
-          // - no keyword matching
-          // - if user already asked something in text, we do specialized
-          //   extraction first and feed the extracted result into AI context
-          // ================================================================
           if (shouldCallAI) {
             directReplyText = null;
 
-            if (processedExtractionAvailable) {
-              effective = buildEffectiveTextWithExtractedMedia({
-                baseEffectiveText: effective,
-                mediaSummary,
-                extractedText: processedExtractedText,
-                extractionProviderKey: processedExtractionProviderKey,
-              });
-            } else {
-              effective = buildEffectiveTextWithUnavailableExtraction({
-                baseEffectiveText: effective,
-                mediaSummary,
-                extractionError: processedExtractionError,
-              });
-            }
+            effective = buildEffectiveTextWithMediaContext({
+              baseEffectiveText: effective,
+              mediaSummary,
+              extractedText: processedExtractedText,
+              visibleFactsText: processedVisibleFactsText,
+              extractionProviderKey: processedExtractionProviderKey,
+              visibleFactsProviderKey: processedVisibleFactsProviderKey,
+              extractionError: processedExtractionError,
+              visibleFactsError: processedVisibleFactsError,
+            });
           }
         }
       } catch (error) {
@@ -245,8 +231,7 @@ export async function resolveFileIntakeDecision({
         } catch (_) {
           // ignore
         }
-        // fail-open:
-        // keep original base decision
+        // fail-open: keep original base decision
       } finally {
         if (intake && cleanupIntakeTempFiles) {
           try {

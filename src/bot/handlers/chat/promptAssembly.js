@@ -183,6 +183,8 @@ function buildMediaResponseOverrideSystemMessage(mediaResponseMode) {
         "First give only the general meaning and short summary of the document.\n" +
         "Do NOT output the full document text unless the user explicitly asks for it.\n" +
         "Keep the summary compact and useful.\n" +
+        "If structured document hints are present in the user context, use them: title, headings, stats, block previews.\n" +
+        "Prefer extracting the main meaning from the whole document context, not from the first lines only.\n" +
         "At the end, add one short line telling the user they can ask for the full text or for output in parts.",
     };
   }

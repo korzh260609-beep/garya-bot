@@ -3,7 +3,10 @@
 // STAGE 12A.2 — CLARIFICATION SESSION CACHE
 // Purpose:
 // - store pending clarification state per chat
-// - current scope: export clarification flow
+// - current scope:
+//   1) export_source
+//   2) document_export_target
+//   3) document_estimate_source
 // - no DB
 // - no AI
 // ============================================================================
@@ -29,6 +32,7 @@ function normalizeKind(value) {
 
   if (src === "export_source") return "export_source";
   if (src === "document_export_target") return "document_export_target";
+  if (src === "document_estimate_source") return "document_estimate_source";
 
   return "";
 }

@@ -1,5 +1,7 @@
 // src/bot/handlers/chat/fileIntakeDecision.js
 
+import { resolveDocumentFollowupIntent } from "./documentFollowupIntentResolver.js";
+
 function getFn(obj, name, fallback) {
   return typeof obj?.[name] === "function" ? obj[name] : fallback;
 }
@@ -35,29 +37,6 @@ function isLikelyShortMediaQuestion(value) {
   return hasQuestionMark || shortEnough;
 }
 
-function isLikelyDocumentFullTextRequest(value) {
-  const text = normalizeWhitespace(value).toLowerCase();
-  if (!text) return false;
-
-  return [
-    "весь файл",
-    "весь текст",
-    "полный текст",
-    "полностью",
-    "целиком",
-    "полный документ",
-    "дай полностью",
-    "покажи полностью",
-    "покажи весь файл",
-    "выдай весь файл",
-    "выдай полностью",
-    "частями",
-    "по частям",
-    "продолжай",
-    "продолжение",
-  ].some((token) => text.includes(token));
-}
-
 function resolveMediaResponseMode({
   baseEffectiveText = "",
   mediaSummary = null,
@@ -75,10 +54,6 @@ function resolveMediaResponseMode({
 
   if (kind === "document" && !text) {
     return "document_summary_answer";
-  }
-
-  if (kind === "document" && isLikelyDocumentFullTextRequest(text)) {
-    return "document_full_text_answer";
   }
 
   if (kind === "document") {
@@ -150,15 +125,11 @@ function buildResponseStyleDirective({
       "Добавь короткую подсказку, что пользователь может попросить полный текст или вывод частями."
     );
   } else if (mediaResponseMode === "document_full_text_answer") {
-    lines.push(
-      "Пользователь просит полный текст документа."
-    );
+    lines.push("Пользователь просит полный текст документа.");
     lines.push(
       "Если текст не вмещается в один ответ, отдай только первую часть и явно скажи написать 'продолжай' для следующей части."
     );
-    lines.push(
-      "Не заменяй полный текст кратким пересказом."
-    );
+    lines.push("Не заменяй полный текст кратким пересказом.");
   } else {
     lines.push(
       "Опирайся на специализированный media-контекст и отвечай по существу."
@@ -325,11 +296,63 @@ function buildEffectiveTextWithMediaContext({
   return lines.filter(Boolean).join("\n");
 }
 
+async function resolveSemanticDocumentMode({
+  callAI,
+  userText,
+  hasRecentDocument = false,
+  hasAttachedDocument = false,
+  fallbackMode = "document_summary_answer",
+}) {
+  const resolved = await resolveDocumentFollowupIntent({
+    callAI,
+    userText,
+    hasRecentDocument,
+    hasAttachedDocument,
+  });
+
+  if (!resolved?.isDocumentIntent) {
+    return {
+      isDocumentIntent: false,
+      mediaResponseMode: fallbackMode,
+      needsClarification: false,
+      clarificationQuestion: "",
+      confidence: 0,
+      reason: resolved?.reason || "no_document_intent",
+    };
+  }
+
+  if (resolved?.needsClarification) {
+    return {
+      isDocumentIntent: true,
+      mediaResponseMode: "document_summary_answer",
+      needsClarification: true,
+      clarificationQuestion:
+        safeText(resolved?.clarificationQuestion) ||
+        "Уточни: нужен общий смысл или полный текст документа?",
+      confidence: resolved?.confidence ?? 0,
+      reason: resolved?.reason || "clarification_needed",
+    };
+  }
+
+  return {
+    isDocumentIntent: true,
+    mediaResponseMode:
+      resolved?.responseMode === "document_full_text_answer"
+        ? "document_full_text_answer"
+        : "document_summary_answer",
+    needsClarification: false,
+    clarificationQuestion: "",
+    confidence: resolved?.confidence ?? 0,
+    reason: resolved?.reason || "resolved",
+  };
+}
+
 export async function resolveFileIntakeDecision({
   FileIntake,
   msg,
   trimmed,
   telegramBotToken = "",
+  callAI = null,
 }) {
   const summarizeMediaAttachment = getFn(
     FileIntake,
@@ -364,21 +387,10 @@ export async function resolveFileIntakeDecision({
     mediaSummary,
   });
 
-  // ==================================================
-  // === NO-MEDIA follow-up binding to recent document session
-  // IMPORTANT:
-  // - not tied to one exact phrase
-  // - binds short / nearby follow-up text to the last recent document
-  // ==================================================
   if (!mediaSummary && trimmed) {
     const getRecentDocumentSessionCache = getFn(
       FileIntake,
       "getRecentDocumentSessionCache",
-      null
-    );
-    const shouldBindMessageToRecentDocumentSession = getFn(
-      FileIntake,
-      "shouldBindMessageToRecentDocumentSession",
       null
     );
 
@@ -386,48 +398,62 @@ export async function resolveFileIntakeDecision({
       ? getRecentDocumentSessionCache(msg?.chat?.id ?? null)
       : null;
 
-    const canBindToRecentDocument =
-      recentDocumentCache &&
-      (!shouldBindMessageToRecentDocumentSession ||
-        shouldBindMessageToRecentDocumentSession(trimmed) === true);
-
-    if (canBindToRecentDocument) {
-      const pseudoDocumentSummary = {
-        kind: "document",
-        fileName: recentDocumentCache?.fileName || "document",
-      };
-
-      mediaResponseMode = resolveMediaResponseMode({
-        baseEffectiveText: trimmed,
-        mediaSummary: pseudoDocumentSummary,
+    if (recentDocumentCache) {
+      const semanticDocumentMode = await resolveSemanticDocumentMode({
+        callAI,
+        userText: trimmed,
+        hasRecentDocument: true,
+        hasAttachedDocument: false,
+        fallbackMode: "document_summary_answer",
       });
 
-      shouldCallAI = true;
-      directReplyText = null;
+      if (semanticDocumentMode?.needsClarification) {
+        return {
+          summarizeMediaAttachment,
+          mediaSummary: null,
+          mediaResponseMode: "document_summary_answer",
+          decision: baseDecision,
+          effective: "",
+          shouldCallAI: false,
+          directReplyText: semanticDocumentMode.clarificationQuestion,
+        };
+      }
 
-      effective = buildEffectiveTextWithMediaContext({
-        baseEffectiveText: trimmed,
-        mediaSummary: pseudoDocumentSummary,
-        mediaResponseMode,
-        extractedText: safeText(recentDocumentCache?.text || ""),
-        visibleFactsText: "",
-        extractionProviderKey: "document_text",
-        visibleFactsProviderKey: "",
-        extractionError: "",
-        visibleFactsError: "",
-        documentTitle: safeText(recentDocumentCache?.title || ""),
-        documentStats: recentDocumentCache?.stats || null,
-        documentHeadings: Array.isArray(recentDocumentCache?.headings)
-          ? recentDocumentCache.headings
-          : [],
-        documentBlocks: Array.isArray(recentDocumentCache?.blocks)
-          ? recentDocumentCache.blocks
-          : [],
-        documentStructureVersion: recentDocumentCache?.structureVersion ?? null,
-        documentStructureSource: safeText(
-          recentDocumentCache?.structureSource || ""
-        ),
-      });
+      if (semanticDocumentMode?.isDocumentIntent) {
+        const pseudoDocumentSummary = {
+          kind: "document",
+          fileName: recentDocumentCache?.fileName || "document",
+        };
+
+        mediaResponseMode = semanticDocumentMode.mediaResponseMode;
+        shouldCallAI = true;
+        directReplyText = null;
+
+        effective = buildEffectiveTextWithMediaContext({
+          baseEffectiveText: trimmed,
+          mediaSummary: pseudoDocumentSummary,
+          mediaResponseMode,
+          extractedText: safeText(recentDocumentCache?.text || ""),
+          visibleFactsText: "",
+          extractionProviderKey: "document_text",
+          visibleFactsProviderKey: "",
+          extractionError: "",
+          visibleFactsError: "",
+          documentTitle: safeText(recentDocumentCache?.title || ""),
+          documentStats: recentDocumentCache?.stats || null,
+          documentHeadings: Array.isArray(recentDocumentCache?.headings)
+            ? recentDocumentCache.headings
+            : [],
+          documentBlocks: Array.isArray(recentDocumentCache?.blocks)
+            ? recentDocumentCache.blocks
+            : [],
+          documentStructureVersion:
+            recentDocumentCache?.structureVersion ?? null,
+          documentStructureSource: safeText(
+            recentDocumentCache?.structureSource || ""
+          ),
+        });
+      }
     }
   }
 
@@ -437,29 +463,18 @@ export async function resolveFileIntakeDecision({
       "intakeAndDownloadIfNeeded",
       null
     );
-    const processFile = getFn(
-      FileIntake,
-      "processFile",
-      null
-    );
+    const processFile = getFn(FileIntake, "processFile", null);
     const cleanupIntakeTempFiles = getFn(
       FileIntake,
       "cleanupIntakeTempFiles",
       null
     );
 
-    if (
-      intakeAndDownloadIfNeeded &&
-      processFile &&
-      telegramBotToken
-    ) {
+    if (intakeAndDownloadIfNeeded && processFile && telegramBotToken) {
       let intake = null;
 
       try {
-        intake = await intakeAndDownloadIfNeeded(
-          msg,
-          telegramBotToken
-        );
+        intake = await intakeAndDownloadIfNeeded(msg, telegramBotToken);
 
         if (intake) {
           const processed = await processFile(intake);
@@ -544,6 +559,38 @@ export async function resolveFileIntakeDecision({
             }
           }
 
+          if (
+            mediaSummary?.kind === "document" &&
+            trimmed &&
+            processedExtractedText
+          ) {
+            const semanticDocumentMode = await resolveSemanticDocumentMode({
+              callAI,
+              userText: trimmed,
+              hasRecentDocument: true,
+              hasAttachedDocument: true,
+              fallbackMode: mediaResponseMode || "document_summary_answer",
+            });
+
+            if (semanticDocumentMode?.needsClarification) {
+              return {
+                summarizeMediaAttachment,
+                mediaSummary,
+                mediaResponseMode: "document_summary_answer",
+                decision: baseDecision,
+                effective: "",
+                shouldCallAI: false,
+                directReplyText: semanticDocumentMode.clarificationQuestion,
+              };
+            }
+
+            if (semanticDocumentMode?.isDocumentIntent) {
+              mediaResponseMode = semanticDocumentMode.mediaResponseMode;
+              shouldCallAI = true;
+              directReplyText = null;
+            }
+          }
+
           if (shouldCallAI) {
             directReplyText = null;
 
@@ -572,7 +619,6 @@ export async function resolveFileIntakeDecision({
         } catch (_) {
           // ignore
         }
-        // fail-open: keep original base decision
       } finally {
         if (intake && cleanupIntakeTempFiles) {
           try {

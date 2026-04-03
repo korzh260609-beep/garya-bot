@@ -6,6 +6,7 @@
 // + semantic document follow-up wiring
 // + semantic document export target selection
 // + pending clarification state for export flow
+// + semantic document chat split estimate
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -54,6 +55,7 @@ import {
   resolveExportSourceClarification,
   resolveDocumentExportTargetClarification,
 } from "./chat/exportClarificationResolver.js";
+import { resolveDocumentChatEstimateIntent } from "./chat/documentChatEstimateResolver.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -172,6 +174,78 @@ async function sendCreatedExportFile({
   } finally {
     cleanupDocumentOutputFile(created.filePath);
   }
+}
+
+async function tryHandleDocumentChatEstimate({
+  bot,
+  msg,
+  chatId,
+  trimmed,
+  FileIntake,
+  saveAssistantEarlyReturn,
+  callAI,
+}) {
+  const userText = safeText(trimmed);
+  if (!userText) return { handled: false };
+
+  const getRecentDocumentSessionCache =
+    typeof FileIntake?.getRecentDocumentSessionCache === "function"
+      ? FileIntake.getRecentDocumentSessionCache
+      : null;
+
+  const estimateRecentDocumentChatSplit =
+    typeof FileIntake?.estimateRecentDocumentChatSplit === "function"
+      ? FileIntake.estimateRecentDocumentChatSplit
+      : null;
+
+  if (!getRecentDocumentSessionCache || !estimateRecentDocumentChatSplit) {
+    return { handled: false };
+  }
+
+  const recentDocument = getRecentDocumentSessionCache(msg?.chat?.id ?? null);
+
+  const estimateIntent = await resolveDocumentChatEstimateIntent({
+    callAI,
+    userText,
+    hasRecentDocument: Boolean(recentDocument),
+  });
+
+  if (!estimateIntent?.isEstimateIntent) {
+    return { handled: false };
+  }
+
+  if (!recentDocument) {
+    const text = "Не вижу недавний документ, для которого можно оценить разбиение.";
+    await saveAssistantEarlyReturn(text, "document_estimate_no_recent_document");
+    await bot.sendMessage(chatId, text);
+    return { handled: true };
+  }
+
+  const estimate = estimateRecentDocumentChatSplit(msg?.chat?.id ?? null);
+  if (!estimate?.ok) {
+    const text = "Не удалось оценить разбиение документа.";
+    await saveAssistantEarlyReturn(text, "document_estimate_failed");
+    await bot.sendMessage(chatId, text);
+    return { handled: true };
+  }
+
+  const fileName = safeText(estimate?.fileName || "document");
+  const chunkCount = Number(estimate?.chunkCount || 0);
+  const charCount = Number(estimate?.charCount || 0);
+  const chunkSize = Number(estimate?.chunkSize || 0);
+
+  let text = `Если вывести ${fileName} в чат, получится примерно ${chunkCount} частей.`;
+  if (chunkCount <= 1) {
+    text = `Если вывести ${fileName} в чат, он поместится примерно в 1 сообщение.`;
+  }
+
+  if (chunkSize > 0 && charCount > 0) {
+    text += ` Основа оценки: около ${charCount} символов текста при лимите ~${chunkSize} символов на часть.`;
+  }
+
+  await saveAssistantEarlyReturn(text, "document_chat_estimate");
+  await bot.sendMessage(chatId, text);
+  return { handled: true };
 }
 
 async function continuePendingClarificationIfAny({
@@ -537,6 +611,20 @@ export async function handleChatMessage({
       msg,
       memoryWrite,
     });
+
+  const estimateResult = await tryHandleDocumentChatEstimate({
+    bot,
+    msg,
+    chatId,
+    trimmed,
+    FileIntake,
+    saveAssistantEarlyReturn,
+    callAI,
+  });
+
+  if (estimateResult?.handled) {
+    return;
+  }
 
   const exportResult = await tryHandleRecentExport({
     bot,

@@ -272,6 +272,10 @@ function touchDocumentSessionCache(cache) {
   cache.lastUsedAtMs = nowMs();
 }
 
+export function getDocumentReplyChunkSize() {
+  return DOCUMENT_REPLY_CHUNK_SIZE;
+}
+
 export function getDocumentSessionCache(chatId) {
   const key = String(chatId || "").trim();
   if (!key) return null;
@@ -291,6 +295,24 @@ export function getRecentDocumentSessionCache(chatId) {
   }
 
   return cache;
+}
+
+export function estimateRecentDocumentChatSplit(chatId) {
+  const cache = getRecentDocumentSessionCache(chatId);
+  if (!cache) return null;
+
+  const chunks = Array.isArray(cache?.chunks) ? cache.chunks : [];
+  const text = safeStr(cache?.text || "");
+  const fileName = safeStr(cache?.fileName || "document");
+
+  return {
+    ok: true,
+    fileName,
+    chunkSize: DOCUMENT_REPLY_CHUNK_SIZE,
+    chunkCount: chunks.length,
+    charCount: text.length,
+    currentPartIndex: Number(cache?.nextChunkIndex || 0),
+  };
 }
 
 export function shouldBindMessageToRecentDocumentSession(text) {

@@ -2,6 +2,7 @@
 // STAGE 11.x FULL stable personal fact isolation
 // + STAGE 12A.2 minimal document output wiring
 // + recent assistant-reply export
+// + explicit export source selection: document / assistant reply
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -31,7 +32,7 @@ import {
 import {
   saveRecentAssistantReplyForExport,
   saveRecentDocumentForExport,
-  getRecentExportCandidate,
+  getExplicitExportCandidate,
 } from "./chat/outputSessionCache.js";
 
 function safeText(value) {
@@ -93,6 +94,42 @@ function detectRequestedOutputFormat(text) {
   return "txt";
 }
 
+function detectExplicitExportKind(text) {
+  const src = normalizeWhitespace(text).toLowerCase();
+  if (!src) return "";
+
+  const replySignals = [
+    "ответ",
+    "ответ sg",
+    "ответ сг",
+    "мой ответ",
+    "последний ответ",
+    "ответ советника",
+    "reply",
+  ];
+
+  const documentSignals = [
+    "документ",
+    "файл",
+    "текст документа",
+    "последний документ",
+    "document",
+  ];
+
+  const hasReplySignal = replySignals.some((token) => src.includes(token));
+  const hasDocumentSignal = documentSignals.some((token) => src.includes(token));
+
+  if (hasReplySignal && !hasDocumentSignal) {
+    return "assistant_reply";
+  }
+
+  if (hasDocumentSignal && !hasReplySignal) {
+    return "document";
+  }
+
+  return "";
+}
+
 function isLikelyExportRequest(text) {
   const src = normalizeWhitespace(text).toLowerCase();
   if (!src) return false;
@@ -129,6 +166,8 @@ function isLikelyExportRequest(text) {
     "docx",
     "word",
     "ворд",
+    "ответ",
+    "reply",
   ];
 
   const hasExportSignal = exportSignals.some((token) => src.includes(token));
@@ -144,6 +183,10 @@ function isLikelyExportRequest(text) {
       "markdown файлом",
       "как файл",
       "файлом",
+      "сохрани ответ",
+      "сохрани документ",
+      "отправь ответ",
+      "отправь документ",
     ];
 
     if (shortPatterns.some((token) => src.includes(token))) {
@@ -169,10 +212,22 @@ async function tryHandleRecentExport({
     return { handled: false };
   }
 
-  const recentExportCandidate = getRecentExportCandidate(msg?.chat?.id ?? null);
+  const explicitKind = detectExplicitExportKind(userText);
+  const recentExportCandidate = getExplicitExportCandidate(
+    msg?.chat?.id ?? null,
+    explicitKind
+  );
 
   if (!recentExportCandidate) {
-    const text = "Не вижу недавний документ или ответ для экспорта. Сначала отправь файл или получи ответ SG.";
+    let text =
+      "Не вижу недавний документ или ответ для экспорта. Сначала отправь файл или получи ответ SG.";
+
+    if (explicitKind === "assistant_reply") {
+      text = "Не вижу недавний ответ SG для экспорта.";
+    } else if (explicitKind === "document") {
+      text = "Не вижу недавний документ для экспорта.";
+    }
+
     await saveAssistantEarlyReturn(text, "export_no_recent_session");
     await bot.sendMessage(chatId, text);
     return { handled: true };
@@ -183,7 +238,9 @@ async function tryHandleRecentExport({
     recentExportCandidate?.baseName ||
       recentExportCandidate?.meta?.fileName ||
       recentExportCandidate?.meta?.title ||
-      (recentExportCandidate?.kind === "document" ? "document" : "assistant_reply")
+      (recentExportCandidate?.kind === "document"
+        ? "document"
+        : "assistant_reply")
   );
 
   const created = createDocumentOutputFile({
@@ -197,7 +254,9 @@ async function tryHandleRecentExport({
 
     if (created?.error === "document_output_pdf_not_connected_current_stage") {
       text = "PDF-генерация ещё не подключена. Сейчас могу отдать TXT или MD.";
-    } else if (created?.error === "document_output_docx_not_connected_current_stage") {
+    } else if (
+      created?.error === "document_output_docx_not_connected_current_stage"
+    ) {
       text = "DOCX-генерация ещё не подключена. Сейчас могу отдать TXT или MD.";
     } else if (created?.error === "document_output_format_not_supported") {
       text = "Этот формат пока не поддерживается. Сейчас доступны TXT и MD.";
@@ -226,6 +285,7 @@ async function tryHandleRecentExport({
       fileName: created.fileName,
       format: created.format,
       sourceKind: recentExportCandidate?.kind || "unknown",
+      explicitKind,
     };
   } catch (error) {
     const text = "Файл создался, но отправка в Telegram не сработала.";
@@ -292,6 +352,7 @@ export async function handleChatMessage({
   // IMPORTANT:
   // - supports recent document export
   // - supports recent assistant reply export
+  // - explicit source selection supported: answer / document
   // - safe formats only for now: txt / md
   // --------------------------------------------------------------------------
   const exportResult = await tryHandleRecentExport({
@@ -315,13 +376,6 @@ export async function handleChatMessage({
       telegramBotToken,
     });
 
-  // --------------------------------------------------------------------------
-  // STAGE 11F — unified empty guard AFTER file-intake decision
-  // IMPORTANT:
-  // - text-only empty -> ask user for text
-  // - media-only may still produce directReplyText from FileIntake
-  // - caption-only is allowed because effective may come from media caption
-  // --------------------------------------------------------------------------
   if (!effective && !shouldCallAI && !directReplyText) {
     const text = "Напиши текстом, что нужно сделать.";
     await saveAssistantEarlyReturn(text, "empty");
@@ -397,7 +451,8 @@ export async function handleChatMessage({
   let history = [];
   let recallCtx = null;
 
-  const { userTz, timezoneMissing } = await resolveUserTimezoneState(globalUserId);
+  const { userTz, timezoneMissing } =
+    await resolveUserTimezoneState(globalUserId);
 
   if (timezoneMissing) {
     const result = await tryHandleMissingTimezoneFlow({
@@ -497,14 +552,12 @@ export async function handleChatMessage({
     longTermMemoryInjected,
     longTermMemoryBridgePrepared: Boolean(longTermMemoryBridgeResult),
 
-    // intent skeleton visibility
     chatIntentMode: chatIntent?.mode || "normal",
     chatIntentDomain: chatIntent?.domain || "unknown",
     chatIntentCandidateSlots: Array.isArray(chatIntent?.candidateSlots)
       ? chatIntent.candidateSlots
       : [],
 
-    // behavior observability
     ...behaviorSnapshot,
   };
 

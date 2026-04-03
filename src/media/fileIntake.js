@@ -153,6 +153,17 @@ function buildDocumentPartReply(cache, partIndex) {
   return `📄 ${fileName}\nЧасть ${currentPart}/${total}\n\n${body}${tail}`;
 }
 
+function buildChunkStartPreview(text) {
+  const src = safeStr(text)
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!src) return "";
+
+  if (src.length <= 90) return src;
+  return `${src.slice(0, 90).trim()}…`;
+}
+
 function isDocumentFullTextCommand(value) {
   const text = normalizeCommandText(value);
   if (!text) return false;
@@ -312,6 +323,31 @@ export function estimateRecentDocumentChatSplit(chatId) {
     chunkCount: chunks.length,
     charCount: text.length,
     currentPartIndex: Number(cache?.nextChunkIndex || 0),
+  };
+}
+
+export function estimateRecentDocumentChatSplitDetailed(chatId) {
+  const cache = getRecentDocumentSessionCache(chatId);
+  if (!cache) return null;
+
+  const chunks = Array.isArray(cache?.chunks) ? cache.chunks : [];
+  const text = safeStr(cache?.text || "");
+  const fileName = safeStr(cache?.fileName || "document");
+
+  const parts = chunks.map((chunk, index) => ({
+    partNumber: index + 1,
+    charCount: safeStr(chunk).length,
+    startsWith: buildChunkStartPreview(chunk),
+  }));
+
+  return {
+    ok: true,
+    fileName,
+    chunkSize: DOCUMENT_REPLY_CHUNK_SIZE,
+    chunkCount: chunks.length,
+    charCount: text.length,
+    currentPartIndex: Number(cache?.nextChunkIndex || 0),
+    parts,
   };
 }
 

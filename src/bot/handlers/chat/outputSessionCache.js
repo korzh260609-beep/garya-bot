@@ -6,6 +6,7 @@
 // - support export of:
 //   1) latest document text
 //   2) latest assistant reply text
+// - allow explicit source selection: document / assistant reply
 // - no DB persistence here
 // - no AI here
 // ============================================================================
@@ -58,7 +59,10 @@ function buildCacheRecord({
     kind: safeText(kind).trim() || "assistant_reply",
     chatId: String(chatId || "").trim(),
     text: normalizeExportText(text),
-    baseName: safeBaseName(baseName, kind === "document" ? "document" : "assistant_reply"),
+    baseName: safeBaseName(
+      baseName,
+      kind === "document" ? "document" : "assistant_reply"
+    ),
     createdAt: nowIso(),
     createdAtMs: nowMs(),
     lastUsedAt: nowIso(),
@@ -165,7 +169,9 @@ export function getRecentExportCandidate(chatId) {
   }
 
   const docTs = Number(freshDoc?.lastUsedAtMs || freshDoc?.createdAtMs || 0);
-  const replyTs = Number(freshReply?.lastUsedAtMs || freshReply?.createdAtMs || 0);
+  const replyTs = Number(
+    freshReply?.lastUsedAtMs || freshReply?.createdAtMs || 0
+  );
 
   const winner = docTs >= replyTs ? freshDoc : freshReply;
   touchCacheRecord(winner);
@@ -188,6 +194,20 @@ export function getRecentAssistantReplyExportCandidate(chatId) {
   return reply;
 }
 
+export function getExplicitExportCandidate(chatId, preferredKind = "") {
+  const normalized = safeText(preferredKind).trim().toLowerCase();
+
+  if (normalized === "document") {
+    return getRecentDocumentExportCandidate(chatId);
+  }
+
+  if (normalized === "assistant_reply") {
+    return getRecentAssistantReplyExportCandidate(chatId);
+  }
+
+  return getRecentExportCandidate(chatId);
+}
+
 export function clearExportSessionCache(chatId) {
   const key = String(chatId || "").trim();
   if (!key) return false;
@@ -200,5 +220,6 @@ export default {
   getRecentExportCandidate,
   getRecentDocumentExportCandidate,
   getRecentAssistantReplyExportCandidate,
+  getExplicitExportCandidate,
   clearExportSessionCache,
 };

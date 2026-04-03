@@ -2,7 +2,7 @@
 // STAGE 11.x FULL stable personal fact isolation
 // + STAGE 12A.2 minimal document output wiring
 // + recent assistant-reply export
-// + explicit export source selection: document / assistant reply
+// + semantic export source selection: document / assistant reply
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -33,21 +33,14 @@ import {
   saveRecentAssistantReplyForExport,
   saveRecentDocumentForExport,
   getExplicitExportCandidate,
+  getRecentDocumentExportCandidate,
+  getRecentAssistantReplyExportCandidate,
 } from "./chat/outputSessionCache.js";
+import { resolveExportIntent } from "./chat/exportIntentResolver.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
   return String(value).trim();
-}
-
-function normalizeWhitespace(value) {
-  return safeText(value).replace(/\s+/g, " ").trim();
-}
-
-function countWords(value) {
-  const text = normalizeWhitespace(value);
-  if (!text) return 0;
-  return text.split(" ").filter(Boolean).length;
 }
 
 function normalizeFileBaseName(value) {
@@ -63,138 +56,22 @@ function normalizeFileBaseName(value) {
   );
 }
 
-function detectRequestedOutputFormat(text) {
-  const src = normalizeWhitespace(text).toLowerCase();
+function normalizeRequestedOutputFormat(value) {
+  const src = safeText(value).toLowerCase();
 
-  if (!src) return "txt";
-
-  if (
-    src.includes("markdown") ||
-    src.includes("md файл") ||
-    src.includes("md-файл") ||
-    src.includes("в md") ||
-    src.includes(".md")
-  ) {
-    return "md";
-  }
-
-  if (src.includes("pdf") || src.includes("пдф")) {
-    return "pdf";
-  }
-
-  if (
-    src.includes("docx") ||
-    src.includes("докс") ||
-    src.includes("ворд") ||
-    src.includes("word")
-  ) {
-    return "docx";
-  }
-
+  if (src === "txt") return "txt";
+  if (src === "md") return "md";
+  if (src === "pdf") return "pdf";
+  if (src === "docx") return "docx";
   return "txt";
 }
 
-function detectExplicitExportKind(text) {
-  const src = normalizeWhitespace(text).toLowerCase();
-  if (!src) return "";
+function normalizePreferredExportKind(value) {
+  const src = safeText(value).toLowerCase();
 
-  const replySignals = [
-    "ответ",
-    "ответ sg",
-    "ответ сг",
-    "мой ответ",
-    "последний ответ",
-    "ответ советника",
-    "reply",
-  ];
-
-  const documentSignals = [
-    "документ",
-    "файл",
-    "текст документа",
-    "последний документ",
-    "document",
-  ];
-
-  const hasReplySignal = replySignals.some((token) => src.includes(token));
-  const hasDocumentSignal = documentSignals.some((token) => src.includes(token));
-
-  if (hasReplySignal && !hasDocumentSignal) {
-    return "assistant_reply";
-  }
-
-  if (hasDocumentSignal && !hasReplySignal) {
-    return "document";
-  }
-
+  if (src === "document") return "document";
+  if (src === "assistant_reply") return "assistant_reply";
   return "";
-}
-
-function isLikelyExportRequest(text) {
-  const src = normalizeWhitespace(text).toLowerCase();
-  if (!src) return false;
-  if (src.startsWith("/")) return false;
-  if (src.length > 300) return false;
-
-  const words = countWords(src);
-
-  const exportSignals = [
-    "сохрани",
-    "сохранить",
-    "отправь",
-    "отправить",
-    "сделай файл",
-    "создай файл",
-    "в файл",
-    "файлом",
-    "выгрузи",
-    "экспорт",
-    "экспортируй",
-    "download",
-    "save as",
-    "as file",
-  ];
-
-  const formatSignals = [
-    "документ",
-    "файл",
-    "текст",
-    "txt",
-    "md",
-    "markdown",
-    "pdf",
-    "docx",
-    "word",
-    "ворд",
-    "ответ",
-    "reply",
-  ];
-
-  const hasExportSignal = exportSignals.some((token) => src.includes(token));
-  const hasFormatSignal = formatSignals.some((token) => src.includes(token));
-
-  if (hasExportSignal && hasFormatSignal) return true;
-
-  if (words <= 8) {
-    const shortPatterns = [
-      "в txt",
-      "в md",
-      "текстовым файлом",
-      "markdown файлом",
-      "как файл",
-      "файлом",
-      "сохрани ответ",
-      "сохрани документ",
-      "отправь ответ",
-      "отправь документ",
-    ];
-
-    if (shortPatterns.some((token) => src.includes(token))) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 async function tryHandleRecentExport({
@@ -202,17 +79,38 @@ async function tryHandleRecentExport({
   msg,
   chatId,
   trimmed,
-  FileIntake,
   saveAssistantEarlyReturn,
+  callAI,
 }) {
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
 
-  if (!isLikelyExportRequest(userText)) {
+  const recentDocument = getRecentDocumentExportCandidate(msg?.chat?.id ?? null);
+  const recentAssistantReply = getRecentAssistantReplyExportCandidate(
+    msg?.chat?.id ?? null
+  );
+
+  const exportIntent = await resolveExportIntent({
+    callAI,
+    userText,
+    hasRecentDocument: Boolean(recentDocument),
+    hasRecentAssistantReply: Boolean(recentAssistantReply),
+  });
+
+  if (!exportIntent?.isExportIntent) {
     return { handled: false };
   }
 
-  const explicitKind = detectExplicitExportKind(userText);
+  if (exportIntent?.needsClarification) {
+    const question =
+      safeText(exportIntent?.clarificationQuestion) ||
+      "Уточни: сохранить ответ или документ?";
+    await saveAssistantEarlyReturn(question, "export_clarification");
+    await bot.sendMessage(chatId, question);
+    return { handled: true };
+  }
+
+  const explicitKind = normalizePreferredExportKind(exportIntent?.sourceKind);
   const recentExportCandidate = getExplicitExportCandidate(
     msg?.chat?.id ?? null,
     explicitKind
@@ -233,7 +131,7 @@ async function tryHandleRecentExport({
     return { handled: true };
   }
 
-  const requestedFormat = detectRequestedOutputFormat(userText);
+  const requestedFormat = normalizeRequestedOutputFormat(exportIntent?.format);
   const baseName = normalizeFileBaseName(
     recentExportCandidate?.baseName ||
       recentExportCandidate?.meta?.fileName ||
@@ -286,6 +184,8 @@ async function tryHandleRecentExport({
       format: created.format,
       sourceKind: recentExportCandidate?.kind || "unknown",
       explicitKind,
+      confidence: exportIntent?.confidence ?? 0,
+      reason: exportIntent?.reason || "resolved",
     };
   } catch (error) {
     const text = "Файл создался, но отправка в Telegram не сработала.";
@@ -352,8 +252,8 @@ export async function handleChatMessage({
     msg,
     chatId,
     trimmed,
-    FileIntake,
     saveAssistantEarlyReturn,
+    callAI,
   });
 
   if (exportResult?.handled) {

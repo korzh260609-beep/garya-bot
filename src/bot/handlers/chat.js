@@ -347,14 +347,6 @@ export async function handleChatMessage({
       memoryWrite,
     });
 
-  // --------------------------------------------------------------------------
-  // STAGE 12A.2 — recent export path
-  // IMPORTANT:
-  // - supports recent document export
-  // - supports recent assistant reply export
-  // - explicit source selection supported: answer / document
-  // - safe formats only for now: txt / md
-  // --------------------------------------------------------------------------
   const exportResult = await tryHandleRecentExport({
     bot,
     msg,

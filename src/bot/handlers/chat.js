@@ -8,6 +8,7 @@
 // + pending clarification state for export flow
 // + semantic document chat split estimate
 // + estimate fallback bridge for active document resolution
+// + pending clarification state for estimate-mode
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -58,6 +59,7 @@ import {
 } from "./chat/exportClarificationResolver.js";
 import { resolveDocumentChatEstimateIntent } from "./chat/documentChatEstimateResolver.js";
 import { resolveRecentDocumentEstimateCandidate } from "./chat/documentEstimateBridge.js";
+import { resolveDocumentEstimateClarification } from "./chat/documentEstimateClarificationResolver.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -178,52 +180,7 @@ async function sendCreatedExportFile({
   }
 }
 
-async function tryHandleDocumentChatEstimate({
-  bot,
-  msg,
-  chatId,
-  trimmed,
-  FileIntake,
-  saveAssistantEarlyReturn,
-  callAI,
-}) {
-  const userText = safeText(trimmed);
-  if (!userText) return { handled: false };
-
-  const getRecentDocumentSessionCache =
-    typeof FileIntake?.getRecentDocumentSessionCache === "function"
-      ? FileIntake.getRecentDocumentSessionCache
-      : null;
-
-  if (!getRecentDocumentSessionCache) {
-    return { handled: false };
-  }
-
-  const recentDocument = getRecentDocumentSessionCache(msg?.chat?.id ?? null);
-
-  const estimateIntent = await resolveDocumentChatEstimateIntent({
-    callAI,
-    userText,
-    hasRecentDocument: Boolean(recentDocument),
-  });
-
-  if (!estimateIntent?.isEstimateIntent) {
-    return { handled: false };
-  }
-
-  const estimate = resolveRecentDocumentEstimateCandidate({
-    chatId: msg?.chat?.id ?? null,
-    FileIntake,
-  });
-
-  if (!estimate?.ok) {
-    const text =
-      "Не вижу недавний документ, для которого можно оценить разбиение.";
-    await saveAssistantEarlyReturn(text, "document_estimate_no_recent_document");
-    await bot.sendMessage(chatId, text);
-    return { handled: true };
-  }
-
+function buildEstimateReplyText(estimate) {
   const fileName = safeText(estimate?.fileName || "document");
   const chunkCount = Number(estimate?.chunkCount || 0);
   const charCount = Number(estimate?.charCount || 0);
@@ -269,14 +226,7 @@ async function tryHandleDocumentChatEstimate({
     }
   }
 
-  const text = lines.join("\n").trim();
-
-  await saveAssistantEarlyReturn(text, "document_chat_estimate");
-  await bot.sendMessage(chatId, text);
-  return {
-    handled: true,
-    estimateSource: estimate?.source || "unknown",
-  };
+  return lines.join("\n").trim();
 }
 
 async function continuePendingClarificationIfAny({
@@ -286,12 +236,75 @@ async function continuePendingClarificationIfAny({
   trimmed,
   saveAssistantEarlyReturn,
   callAI,
+  FileIntake,
 }) {
   const pending = getPendingClarification(msg?.chat?.id ?? null);
   if (!pending) return { handled: false };
 
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
+
+  if (pending.kind === "document_estimate_source") {
+    const recentRuntimeDocument =
+      typeof FileIntake?.getRecentDocumentSessionCache === "function"
+        ? FileIntake.getRecentDocumentSessionCache(msg?.chat?.id ?? null)
+        : null;
+
+    const recentEstimateCandidate = resolveRecentDocumentEstimateCandidate({
+      chatId: msg?.chat?.id ?? null,
+      FileIntake,
+    });
+
+    const resolved = await resolveDocumentEstimateClarification({
+      callAI,
+      userText,
+      hasRecentDocument: Boolean(recentRuntimeDocument),
+      hasRecentDocumentCandidate: Boolean(recentEstimateCandidate?.ok),
+    });
+
+    if (resolved?.needsClarification) {
+      const question =
+        safeText(resolved?.clarificationQuestion) ||
+        "Уточни, о каком недавнем документе идёт речь?";
+      savePendingClarification({
+        chatId: msg?.chat?.id ?? null,
+        kind: "document_estimate_source",
+        question,
+        payload: pending.payload || {},
+      });
+      await saveAssistantEarlyReturn(question, "document_estimate_clarification_repeat");
+      await bot.sendMessage(chatId, question);
+      return { handled: true };
+    }
+
+    clearPendingClarification(msg?.chat?.id ?? null);
+
+    if (!resolved?.resolved || !resolved?.refersToRecentDocument) {
+      const text =
+        "Не смог понять, о каком документе идёт речь для оценки разбиения.";
+      await saveAssistantEarlyReturn(text, "document_estimate_unresolved");
+      await bot.sendMessage(chatId, text);
+      return { handled: true };
+    }
+
+    const estimate = resolveRecentDocumentEstimateCandidate({
+      chatId: msg?.chat?.id ?? null,
+      FileIntake,
+    });
+
+    if (!estimate?.ok) {
+      const text =
+        "Не вижу недавний документ, для которого можно оценить разбиение.";
+      await saveAssistantEarlyReturn(text, "document_estimate_no_recent_document");
+      await bot.sendMessage(chatId, text);
+      return { handled: true };
+    }
+
+    const text = buildEstimateReplyText(estimate);
+    await saveAssistantEarlyReturn(text, "document_chat_estimate");
+    await bot.sendMessage(chatId, text);
+    return { handled: true };
+  }
 
   if (pending.kind === "export_source") {
     const recentDocument = getRecentDocumentExportCandidate(msg?.chat?.id ?? null);
@@ -444,6 +457,67 @@ async function continuePendingClarificationIfAny({
   return { handled: false };
 }
 
+async function tryHandleDocumentChatEstimate({
+  bot,
+  msg,
+  chatId,
+  trimmed,
+  FileIntake,
+  saveAssistantEarlyReturn,
+  callAI,
+}) {
+  const userText = safeText(trimmed);
+  if (!userText) return { handled: false };
+
+  const getRecentDocumentSessionCache =
+    typeof FileIntake?.getRecentDocumentSessionCache === "function"
+      ? FileIntake.getRecentDocumentSessionCache
+      : null;
+
+  if (!getRecentDocumentSessionCache) {
+    return { handled: false };
+  }
+
+  const recentDocument = getRecentDocumentSessionCache(msg?.chat?.id ?? null);
+
+  const estimateIntent = await resolveDocumentChatEstimateIntent({
+    callAI,
+    userText,
+    hasRecentDocument: Boolean(recentDocument),
+  });
+
+  if (!estimateIntent?.isEstimateIntent) {
+    return { handled: false };
+  }
+
+  const estimate = resolveRecentDocumentEstimateCandidate({
+    chatId: msg?.chat?.id ?? null,
+    FileIntake,
+  });
+
+  if (!estimate?.ok) {
+    const question = "О каком недавнем документе идёт речь?";
+    savePendingClarification({
+      chatId: msg?.chat?.id ?? null,
+      kind: "document_estimate_source",
+      question,
+      payload: {},
+    });
+    await saveAssistantEarlyReturn(question, "document_estimate_clarification");
+    await bot.sendMessage(chatId, question);
+    return { handled: true };
+  }
+
+  const text = buildEstimateReplyText(estimate);
+
+  await saveAssistantEarlyReturn(text, "document_chat_estimate");
+  await bot.sendMessage(chatId, text);
+  return {
+    handled: true,
+    estimateSource: estimate?.source || "unknown",
+  };
+}
+
 async function tryHandleRecentExport({
   bot,
   msg,
@@ -452,19 +526,6 @@ async function tryHandleRecentExport({
   saveAssistantEarlyReturn,
   callAI,
 }) {
-  const clarificationContinuation = await continuePendingClarificationIfAny({
-    bot,
-    msg,
-    chatId,
-    trimmed,
-    saveAssistantEarlyReturn,
-    callAI,
-  });
-
-  if (clarificationContinuation?.handled) {
-    return clarificationContinuation;
-  }
-
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
 
@@ -642,6 +703,20 @@ export async function handleChatMessage({
       msg,
       memoryWrite,
     });
+
+  const clarificationResult = await continuePendingClarificationIfAny({
+    bot,
+    msg,
+    chatId,
+    trimmed,
+    saveAssistantEarlyReturn,
+    callAI,
+    FileIntake,
+  });
+
+  if (clarificationResult?.handled) {
+    return;
+  }
 
   const estimateResult = await tryHandleDocumentChatEstimate({
     bot,

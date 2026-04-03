@@ -3,6 +3,7 @@
 // + STAGE 12A.2 minimal document output wiring
 // + recent assistant-reply export
 // + semantic export source selection: document / assistant reply
+// + semantic document follow-up wiring
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -266,6 +267,7 @@ export async function handleChatMessage({
       msg,
       trimmed,
       telegramBotToken,
+      callAI,
     });
 
   if (!effective && !shouldCallAI && !directReplyText) {

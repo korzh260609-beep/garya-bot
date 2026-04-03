@@ -7,6 +7,11 @@
 //   1) latest document text
 //   2) latest assistant reply text
 // - allow explicit source selection: document / assistant reply
+// - add document export targets:
+//   - summary
+//   - full_text
+//   - current_part
+//   - assistant_answer_about_document
 // - no DB persistence here
 // - no AI here
 // ============================================================================
@@ -144,6 +149,78 @@ export function saveRecentDocumentForExport({
   return bucket.document;
 }
 
+export function saveRecentDocumentSummaryForExport({
+  chatId,
+  text,
+  baseName = "document_summary",
+  meta = {},
+}) {
+  const normalizedText = normalizeExportText(text);
+  const key = String(chatId || "").trim();
+
+  if (!key || !normalizedText) return null;
+
+  const bucket = getChatBucket(key) || {};
+  bucket.documentSummary = buildCacheRecord({
+    kind: "document_summary",
+    chatId: key,
+    text: normalizedText,
+    baseName,
+    meta,
+  });
+
+  setChatBucket(key, bucket);
+  return bucket.documentSummary;
+}
+
+export function saveRecentDocumentCurrentPartForExport({
+  chatId,
+  text,
+  baseName = "document_part",
+  meta = {},
+}) {
+  const normalizedText = normalizeExportText(text);
+  const key = String(chatId || "").trim();
+
+  if (!key || !normalizedText) return null;
+
+  const bucket = getChatBucket(key) || {};
+  bucket.documentCurrentPart = buildCacheRecord({
+    kind: "document_current_part",
+    chatId: key,
+    text: normalizedText,
+    baseName,
+    meta,
+  });
+
+  setChatBucket(key, bucket);
+  return bucket.documentCurrentPart;
+}
+
+export function saveRecentAssistantAnswerAboutDocumentForExport({
+  chatId,
+  text,
+  baseName = "document_answer",
+  meta = {},
+}) {
+  const normalizedText = normalizeExportText(text);
+  const key = String(chatId || "").trim();
+
+  if (!key || !normalizedText) return null;
+
+  const bucket = getChatBucket(key) || {};
+  bucket.documentAssistantAnswer = buildCacheRecord({
+    kind: "document_assistant_answer",
+    chatId: key,
+    text: normalizedText,
+    baseName,
+    meta,
+  });
+
+  setChatBucket(key, bucket);
+  return bucket.documentAssistantAnswer;
+}
+
 export function getRecentExportCandidate(chatId) {
   const bucket = getChatBucket(chatId);
   if (!bucket) return null;
@@ -194,6 +271,30 @@ export function getRecentAssistantReplyExportCandidate(chatId) {
   return reply;
 }
 
+export function getRecentDocumentSummaryExportCandidate(chatId) {
+  const bucket = getChatBucket(chatId);
+  const item = bucket?.documentSummary || null;
+  if (!item || !isFresh(item)) return null;
+  touchCacheRecord(item);
+  return item;
+}
+
+export function getRecentDocumentCurrentPartExportCandidate(chatId) {
+  const bucket = getChatBucket(chatId);
+  const item = bucket?.documentCurrentPart || null;
+  if (!item || !isFresh(item)) return null;
+  touchCacheRecord(item);
+  return item;
+}
+
+export function getRecentAssistantAnswerAboutDocumentExportCandidate(chatId) {
+  const bucket = getChatBucket(chatId);
+  const item = bucket?.documentAssistantAnswer || null;
+  if (!item || !isFresh(item)) return null;
+  touchCacheRecord(item);
+  return item;
+}
+
 export function getExplicitExportCandidate(chatId, preferredKind = "") {
   const normalized = safeText(preferredKind).trim().toLowerCase();
 
@@ -208,6 +309,33 @@ export function getExplicitExportCandidate(chatId, preferredKind = "") {
   return getRecentExportCandidate(chatId);
 }
 
+export function getDocumentExportTargetCandidate(chatId, target = "") {
+  const normalized = safeText(target).trim().toLowerCase();
+
+  if (normalized === "summary") {
+    return getRecentDocumentSummaryExportCandidate(chatId);
+  }
+
+  if (normalized === "full_text") {
+    return getRecentDocumentExportCandidate(chatId);
+  }
+
+  if (normalized === "current_part") {
+    return getRecentDocumentCurrentPartExportCandidate(chatId);
+  }
+
+  if (normalized === "assistant_answer_about_document") {
+    return getRecentAssistantAnswerAboutDocumentExportCandidate(chatId);
+  }
+
+  return (
+    getRecentDocumentSummaryExportCandidate(chatId) ||
+    getRecentDocumentCurrentPartExportCandidate(chatId) ||
+    getRecentAssistantAnswerAboutDocumentExportCandidate(chatId) ||
+    getRecentDocumentExportCandidate(chatId)
+  );
+}
+
 export function clearExportSessionCache(chatId) {
   const key = String(chatId || "").trim();
   if (!key) return false;
@@ -217,9 +345,16 @@ export function clearExportSessionCache(chatId) {
 export default {
   saveRecentAssistantReplyForExport,
   saveRecentDocumentForExport,
+  saveRecentDocumentSummaryForExport,
+  saveRecentDocumentCurrentPartForExport,
+  saveRecentAssistantAnswerAboutDocumentForExport,
   getRecentExportCandidate,
   getRecentDocumentExportCandidate,
   getRecentAssistantReplyExportCandidate,
+  getRecentDocumentSummaryExportCandidate,
+  getRecentDocumentCurrentPartExportCandidate,
+  getRecentAssistantAnswerAboutDocumentExportCandidate,
   getExplicitExportCandidate,
+  getDocumentExportTargetCandidate,
   clearExportSessionCache,
 };

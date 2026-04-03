@@ -7,6 +7,7 @@
 // + semantic document export target selection
 // + pending clarification state for export flow
 // + semantic document chat split estimate
+// + estimate fallback bridge for active document resolution
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -56,6 +57,7 @@ import {
   resolveDocumentExportTargetClarification,
 } from "./chat/exportClarificationResolver.js";
 import { resolveDocumentChatEstimateIntent } from "./chat/documentChatEstimateResolver.js";
+import { resolveRecentDocumentEstimateCandidate } from "./chat/documentEstimateBridge.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -193,20 +195,7 @@ async function tryHandleDocumentChatEstimate({
       ? FileIntake.getRecentDocumentSessionCache
       : null;
 
-  const estimateRecentDocumentChatSplitDetailed =
-    typeof FileIntake?.estimateRecentDocumentChatSplitDetailed === "function"
-      ? FileIntake.estimateRecentDocumentChatSplitDetailed
-      : null;
-
-  const estimateRecentDocumentChatSplit =
-    typeof FileIntake?.estimateRecentDocumentChatSplit === "function"
-      ? FileIntake.estimateRecentDocumentChatSplit
-      : null;
-
-  if (
-    !getRecentDocumentSessionCache ||
-    (!estimateRecentDocumentChatSplitDetailed && !estimateRecentDocumentChatSplit)
-  ) {
+  if (!getRecentDocumentSessionCache) {
     return { handled: false };
   }
 
@@ -222,41 +211,35 @@ async function tryHandleDocumentChatEstimate({
     return { handled: false };
   }
 
-  if (!recentDocument) {
-    const text = "Не вижу недавний документ, для которого можно оценить разбиение.";
+  const estimate = resolveRecentDocumentEstimateCandidate({
+    chatId: msg?.chat?.id ?? null,
+    FileIntake,
+  });
+
+  if (!estimate?.ok) {
+    const text =
+      "Не вижу недавний документ, для которого можно оценить разбиение.";
     await saveAssistantEarlyReturn(text, "document_estimate_no_recent_document");
     await bot.sendMessage(chatId, text);
     return { handled: true };
   }
 
-  const detailedEstimate = estimateRecentDocumentChatSplitDetailed
-    ? estimateRecentDocumentChatSplitDetailed(msg?.chat?.id ?? null)
-    : null;
-
-  const basicEstimate =
-    detailedEstimate ||
-    (estimateRecentDocumentChatSplit
-      ? estimateRecentDocumentChatSplit(msg?.chat?.id ?? null)
-      : null);
-
-  if (!basicEstimate?.ok) {
-    const text = "Не удалось оценить разбиение документа.";
-    await saveAssistantEarlyReturn(text, "document_estimate_failed");
-    await bot.sendMessage(chatId, text);
-    return { handled: true };
-  }
-
-  const fileName = safeText(basicEstimate?.fileName || "document");
-  const chunkCount = Number(basicEstimate?.chunkCount || 0);
-  const charCount = Number(basicEstimate?.charCount || 0);
-  const chunkSize = Number(basicEstimate?.chunkSize || 0);
+  const fileName = safeText(estimate?.fileName || "document");
+  const chunkCount = Number(estimate?.chunkCount || 0);
+  const charCount = Number(estimate?.charCount || 0);
+  const chunkSize = Number(estimate?.chunkSize || 0);
+  const parts = Array.isArray(estimate?.parts) ? estimate.parts : [];
 
   const lines = [];
 
   if (chunkCount <= 1) {
-    lines.push(`Если вывести ${fileName} в чат, он поместится примерно в 1 сообщение.`);
+    lines.push(
+      `Если вывести ${fileName} в чат, он поместится примерно в 1 сообщение.`
+    );
   } else {
-    lines.push(`Если вывести ${fileName} в чат, получится примерно ${chunkCount} частей.`);
+    lines.push(
+      `Если вывести ${fileName} в чат, получится примерно ${chunkCount} частей.`
+    );
   }
 
   if (chunkSize > 0 && charCount > 0) {
@@ -264,10 +247,6 @@ async function tryHandleDocumentChatEstimate({
       `Основа оценки: около ${charCount} символов текста при лимите ~${chunkSize} символов на часть.`
     );
   }
-
-  const parts = Array.isArray(detailedEstimate?.parts)
-    ? detailedEstimate.parts
-    : [];
 
   if (parts.length > 0) {
     lines.push("");
@@ -294,7 +273,10 @@ async function tryHandleDocumentChatEstimate({
 
   await saveAssistantEarlyReturn(text, "document_chat_estimate");
   await bot.sendMessage(chatId, text);
-  return { handled: true };
+  return {
+    handled: true,
+    estimateSource: estimate?.source || "unknown",
+  };
 }
 
 async function continuePendingClarificationIfAny({
@@ -972,12 +954,24 @@ export async function handleChatMessage({
   }
 
   if (mediaResponseMode && mediaResponseMode.startsWith("document_")) {
+    const recentRuntimeDocument =
+      typeof FileIntake?.getRecentDocumentSessionCache === "function"
+        ? FileIntake.getRecentDocumentSessionCache(chatId)
+        : null;
+
     saveRecentDocumentForExport({
       chatId,
-      text: effective,
-      baseName: "document_context",
+      text: recentRuntimeDocument?.text || effective,
+      baseName:
+        recentRuntimeDocument?.fileName ||
+        recentRuntimeDocument?.title ||
+        "document_context",
       meta: {
-        source: "document_effective_context",
+        source: recentRuntimeDocument?.text
+          ? "document_runtime_text"
+          : "document_effective_context",
+        fileName: recentRuntimeDocument?.fileName || null,
+        title: recentRuntimeDocument?.title || null,
         chatIdStr,
         messageId,
       },

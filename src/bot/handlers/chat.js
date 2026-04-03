@@ -193,12 +193,20 @@ async function tryHandleDocumentChatEstimate({
       ? FileIntake.getRecentDocumentSessionCache
       : null;
 
+  const estimateRecentDocumentChatSplitDetailed =
+    typeof FileIntake?.estimateRecentDocumentChatSplitDetailed === "function"
+      ? FileIntake.estimateRecentDocumentChatSplitDetailed
+      : null;
+
   const estimateRecentDocumentChatSplit =
     typeof FileIntake?.estimateRecentDocumentChatSplit === "function"
       ? FileIntake.estimateRecentDocumentChatSplit
       : null;
 
-  if (!getRecentDocumentSessionCache || !estimateRecentDocumentChatSplit) {
+  if (
+    !getRecentDocumentSessionCache ||
+    (!estimateRecentDocumentChatSplitDetailed && !estimateRecentDocumentChatSplit)
+  ) {
     return { handled: false };
   }
 
@@ -221,27 +229,68 @@ async function tryHandleDocumentChatEstimate({
     return { handled: true };
   }
 
-  const estimate = estimateRecentDocumentChatSplit(msg?.chat?.id ?? null);
-  if (!estimate?.ok) {
+  const detailedEstimate = estimateRecentDocumentChatSplitDetailed
+    ? estimateRecentDocumentChatSplitDetailed(msg?.chat?.id ?? null)
+    : null;
+
+  const basicEstimate =
+    detailedEstimate ||
+    (estimateRecentDocumentChatSplit
+      ? estimateRecentDocumentChatSplit(msg?.chat?.id ?? null)
+      : null);
+
+  if (!basicEstimate?.ok) {
     const text = "Не удалось оценить разбиение документа.";
     await saveAssistantEarlyReturn(text, "document_estimate_failed");
     await bot.sendMessage(chatId, text);
     return { handled: true };
   }
 
-  const fileName = safeText(estimate?.fileName || "document");
-  const chunkCount = Number(estimate?.chunkCount || 0);
-  const charCount = Number(estimate?.charCount || 0);
-  const chunkSize = Number(estimate?.chunkSize || 0);
+  const fileName = safeText(basicEstimate?.fileName || "document");
+  const chunkCount = Number(basicEstimate?.chunkCount || 0);
+  const charCount = Number(basicEstimate?.charCount || 0);
+  const chunkSize = Number(basicEstimate?.chunkSize || 0);
 
-  let text = `Если вывести ${fileName} в чат, получится примерно ${chunkCount} частей.`;
+  const lines = [];
+
   if (chunkCount <= 1) {
-    text = `Если вывести ${fileName} в чат, он поместится примерно в 1 сообщение.`;
+    lines.push(`Если вывести ${fileName} в чат, он поместится примерно в 1 сообщение.`);
+  } else {
+    lines.push(`Если вывести ${fileName} в чат, получится примерно ${chunkCount} частей.`);
   }
 
   if (chunkSize > 0 && charCount > 0) {
-    text += ` Основа оценки: около ${charCount} символов текста при лимите ~${chunkSize} символов на часть.`;
+    lines.push(
+      `Основа оценки: около ${charCount} символов текста при лимите ~${chunkSize} символов на часть.`
+    );
   }
+
+  const parts = Array.isArray(detailedEstimate?.parts)
+    ? detailedEstimate.parts
+    : [];
+
+  if (parts.length > 0) {
+    lines.push("");
+    lines.push("Примерно по частям:");
+
+    for (const part of parts.slice(0, 6)) {
+      const partNumber = Number(part?.partNumber || 0);
+      const partCharCount = Number(part?.charCount || 0);
+      const startsWith = safeText(part?.startsWith || "");
+
+      let line = `- Часть ${partNumber}: ~${partCharCount} символов`;
+      if (startsWith) {
+        line += `, начинается с: "${startsWith}"`;
+      }
+      lines.push(line);
+    }
+
+    if (parts.length > 6) {
+      lines.push(`- ... ещё ${parts.length - 6} частей`);
+    }
+  }
+
+  const text = lines.join("\n").trim();
 
   await saveAssistantEarlyReturn(text, "document_chat_estimate");
   await bot.sendMessage(chatId, text);

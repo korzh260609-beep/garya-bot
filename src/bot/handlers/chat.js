@@ -1,6 +1,7 @@
 // src/bot/handlers/chat.js
 // STAGE 11.x FULL stable personal fact isolation
 // + STAGE 12A.2 minimal document output wiring
+// + recent assistant-reply export
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -27,6 +28,11 @@ import {
   createDocumentOutputFile,
   cleanupDocumentOutputFile,
 } from "../../documents/documentOutputService.js";
+import {
+  saveRecentAssistantReplyForExport,
+  saveRecentDocumentForExport,
+  getRecentExportCandidate,
+} from "./chat/outputSessionCache.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -45,13 +51,15 @@ function countWords(value) {
 
 function normalizeFileBaseName(value) {
   const src = safeText(value) || "document";
-  return src
-    .replace(/\.[a-z0-9]+$/i, "")
-    .replace(/\s+/g, "_")
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+/, "")
-    .replace(/_+$/, "") || "document";
+  return (
+    src
+      .replace(/\.[a-z0-9]+$/i, "")
+      .replace(/\s+/g, "_")
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+/, "")
+      .replace(/_+$/, "") || "document"
+  );
 }
 
 function detectRequestedOutputFormat(text) {
@@ -69,10 +77,7 @@ function detectRequestedOutputFormat(text) {
     return "md";
   }
 
-  if (
-    src.includes("pdf") ||
-    src.includes("пдф")
-  ) {
+  if (src.includes("pdf") || src.includes("пдф")) {
     return "pdf";
   }
 
@@ -88,7 +93,7 @@ function detectRequestedOutputFormat(text) {
   return "txt";
 }
 
-function isLikelyDocumentExportRequest(text) {
+function isLikelyExportRequest(text) {
   const src = normalizeWhitespace(text).toLowerCase();
   if (!src) return false;
   if (src.startsWith("/")) return false;
@@ -113,7 +118,7 @@ function isLikelyDocumentExportRequest(text) {
     "as file",
   ];
 
-  const documentSignals = [
+  const formatSignals = [
     "документ",
     "файл",
     "текст",
@@ -127,9 +132,9 @@ function isLikelyDocumentExportRequest(text) {
   ];
 
   const hasExportSignal = exportSignals.some((token) => src.includes(token));
-  const hasDocumentSignal = documentSignals.some((token) => src.includes(token));
+  const hasFormatSignal = formatSignals.some((token) => src.includes(token));
 
-  if (hasExportSignal && hasDocumentSignal) return true;
+  if (hasExportSignal && hasFormatSignal) return true;
 
   if (words <= 8) {
     const shortPatterns = [
@@ -149,7 +154,7 @@ function isLikelyDocumentExportRequest(text) {
   return false;
 }
 
-async function tryHandleRecentDocumentExport({
+async function tryHandleRecentExport({
   bot,
   msg,
   chatId,
@@ -160,34 +165,29 @@ async function tryHandleRecentDocumentExport({
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
 
-  if (!isLikelyDocumentExportRequest(userText)) {
+  if (!isLikelyExportRequest(userText)) {
     return { handled: false };
   }
 
-  const getRecentDocumentSessionCache =
-    typeof FileIntake?.getRecentDocumentSessionCache === "function"
-      ? FileIntake.getRecentDocumentSessionCache
-      : null;
+  const recentExportCandidate = getRecentExportCandidate(msg?.chat?.id ?? null);
 
-  if (!getRecentDocumentSessionCache) {
-    return { handled: false };
-  }
-
-  const recentDocumentCache = getRecentDocumentSessionCache(msg?.chat?.id ?? null);
-  if (!recentDocumentCache) {
-    const text = "Не вижу недавний документ в сессии. Сначала отправь файл.";
-    await saveAssistantEarlyReturn(text, "document_export_no_recent_session");
+  if (!recentExportCandidate) {
+    const text = "Не вижу недавний документ или ответ для экспорта. Сначала отправь файл или получи ответ SG.";
+    await saveAssistantEarlyReturn(text, "export_no_recent_session");
     await bot.sendMessage(chatId, text);
     return { handled: true };
   }
 
   const requestedFormat = detectRequestedOutputFormat(userText);
   const baseName = normalizeFileBaseName(
-    recentDocumentCache?.fileName || recentDocumentCache?.title || "document"
+    recentExportCandidate?.baseName ||
+      recentExportCandidate?.meta?.fileName ||
+      recentExportCandidate?.meta?.title ||
+      (recentExportCandidate?.kind === "document" ? "document" : "assistant_reply")
   );
 
   const created = createDocumentOutputFile({
-    text: recentDocumentCache?.text || "",
+    text: recentExportCandidate?.text || "",
     baseName,
     format: requestedFormat,
   });
@@ -202,10 +202,10 @@ async function tryHandleRecentDocumentExport({
     } else if (created?.error === "document_output_format_not_supported") {
       text = "Этот формат пока не поддерживается. Сейчас доступны TXT и MD.";
     } else if (created?.error === "document_output_empty_text") {
-      text = "Не удалось создать файл: в текущей сессии нет извлечённого текста документа.";
+      text = "Не удалось создать файл: нет текста для экспорта.";
     }
 
-    await saveAssistantEarlyReturn(text, "document_export_failed");
+    await saveAssistantEarlyReturn(text, "export_failed");
     await bot.sendMessage(chatId, text);
     return { handled: true };
   }
@@ -217,7 +217,7 @@ async function tryHandleRecentDocumentExport({
 
     await saveAssistantEarlyReturn(
       `Файл сформирован и отправлен: ${created.fileName}`,
-      "document_export_sent"
+      "export_sent"
     );
 
     return {
@@ -225,10 +225,11 @@ async function tryHandleRecentDocumentExport({
       fileSent: true,
       fileName: created.fileName,
       format: created.format,
+      sourceKind: recentExportCandidate?.kind || "unknown",
     };
   } catch (error) {
     const text = "Файл создался, но отправка в Telegram не сработала.";
-    await saveAssistantEarlyReturn(text, "document_export_send_failed");
+    await saveAssistantEarlyReturn(text, "export_send_failed");
     await bot.sendMessage(chatId, text);
     return {
       handled: true,
@@ -265,40 +266,35 @@ export async function handleChatMessage({
   const messageId = msg.message_id ?? null;
 
   const monarchNow =
-    typeof isMonarch === "function"
-      ? isMonarch(senderIdStr)
-      : false;
+    typeof isMonarch === "function" ? isMonarch(senderIdStr) : false;
 
-  const { memory, memoryWrite, memoryWritePair } =
-    createChatMemoryBridge({
-      chatIdStr,
-      globalUserId,
-      saveMessageToMemory,
-      saveChatPair,
-      getMemoryService,
-    });
-
-  const {
-    insertAssistantReply,
-    saveAssistantEarlyReturn,
-  } = createAssistantReplyPersistence({
-    MAX_CHAT_MESSAGE_CHARS: 16000,
+  const { memory, memoryWrite, memoryWritePair } = createChatMemoryBridge({
     chatIdStr,
-    senderIdStr,
-    messageId,
     globalUserId,
-    msg,
-    memoryWrite,
+    saveMessageToMemory,
+    saveChatPair,
+    getMemoryService,
   });
 
+  const { insertAssistantReply, saveAssistantEarlyReturn } =
+    createAssistantReplyPersistence({
+      MAX_CHAT_MESSAGE_CHARS: 16000,
+      chatIdStr,
+      senderIdStr,
+      messageId,
+      globalUserId,
+      msg,
+      memoryWrite,
+    });
+
   // --------------------------------------------------------------------------
-  // STAGE 12A.2 — recent document export path
+  // STAGE 12A.2 — recent export path
   // IMPORTANT:
-  // - not tied to one exact phrase
-  // - works from recent document session cache
+  // - supports recent document export
+  // - supports recent assistant reply export
   // - safe formats only for now: txt / md
   // --------------------------------------------------------------------------
-  const exportResult = await tryHandleRecentDocumentExport({
+  const exportResult = await tryHandleRecentExport({
     bot,
     msg,
     chatId,
@@ -311,17 +307,13 @@ export async function handleChatMessage({
     return;
   }
 
-  const {
-    effective,
-    shouldCallAI,
-    directReplyText,
-    mediaResponseMode,
-  } = await resolveFileIntakeDecision({
-    FileIntake,
-    msg,
-    trimmed,
-    telegramBotToken,
-  });
+  const { effective, shouldCallAI, directReplyText, mediaResponseMode } =
+    await resolveFileIntakeDecision({
+      FileIntake,
+      msg,
+      trimmed,
+      telegramBotToken,
+    });
 
   // --------------------------------------------------------------------------
   // STAGE 11F — unified empty guard AFTER file-intake decision
@@ -341,14 +333,10 @@ export async function handleChatMessage({
     text: effective,
   });
 
-  const stablePersonalFactMode =
-    isStablePersonalFactQuestion(effective);
+  const stablePersonalFactMode = isStablePersonalFactQuestion(effective);
 
-  const {
-    sourceCtx,
-    sourceResultSystemMessage,
-    sourceServiceSystemMessage,
-  } = await resolveChatSourceFlow({ effective });
+  const { sourceCtx, sourceResultSystemMessage, sourceServiceSystemMessage } =
+    await resolveChatSourceFlow({ effective });
 
   const {
     longTermMemoryBridgeResult,
@@ -364,6 +352,18 @@ export async function handleChatMessage({
   if (directReplyText) {
     await saveAssistantEarlyReturn(directReplyText, "direct");
     await bot.sendMessage(chatId, directReplyText);
+
+    saveRecentAssistantReplyForExport({
+      chatId,
+      text: directReplyText,
+      baseName: "assistant_reply",
+      meta: {
+        source: "direct_reply",
+        chatIdStr,
+        messageId,
+      },
+    });
+
     return;
   }
 
@@ -371,6 +371,18 @@ export async function handleChatMessage({
     const text = "Напиши текстом, что нужно сделать.";
     await saveAssistantEarlyReturn(text, "no_ai");
     await bot.sendMessage(chatId, text);
+
+    saveRecentAssistantReplyForExport({
+      chatId,
+      text,
+      baseName: "assistant_reply",
+      meta: {
+        source: "no_ai_fallback",
+        chatIdStr,
+        messageId,
+      },
+    });
+
     return;
   }
 
@@ -385,8 +397,7 @@ export async function handleChatMessage({
   let history = [];
   let recallCtx = null;
 
-  const { userTz, timezoneMissing } =
-    await resolveUserTimezoneState(globalUserId);
+  const { userTz, timezoneMissing } = await resolveUserTimezoneState(globalUserId);
 
   if (timezoneMissing) {
     const result = await tryHandleMissingTimezoneFlow({
@@ -417,15 +428,14 @@ export async function handleChatMessage({
       userTz,
     });
 
-    const deterministicResult =
-      await tryHandleDeterministicTimeReplies({
-        effective,
-        userTz,
-        recallCtx,
-        saveAssistantEarlyReturn,
-        bot,
-        chatId,
-      });
+    const deterministicResult = await tryHandleDeterministicTimeReplies({
+      effective,
+      userTz,
+      recallCtx,
+      saveAssistantEarlyReturn,
+      bot,
+      chatId,
+    });
 
     if (deterministicResult?.handled) return;
 
@@ -474,8 +484,7 @@ export async function handleChatMessage({
     history,
   });
 
-  const { maxTokens, temperature } =
-    resolveAiParams(answerMode);
+  const { maxTokens, temperature } = resolveAiParams(answerMode);
 
   const behaviorSnapshot = buildBehaviorSnapshot({
     userText: effective,
@@ -486,8 +495,7 @@ export async function handleChatMessage({
     handler: "chat",
     stablePersonalFactMode,
     longTermMemoryInjected,
-    longTermMemoryBridgePrepared:
-      Boolean(longTermMemoryBridgeResult),
+    longTermMemoryBridgePrepared: Boolean(longTermMemoryBridgeResult),
 
     // intent skeleton visibility
     chatIntentMode: chatIntent?.mode || "normal",
@@ -538,6 +546,32 @@ export async function handleChatMessage({
     longTermMemoryBridgeResult,
     longTermMemoryInjected,
   });
+
+  saveRecentAssistantReplyForExport({
+    chatId,
+    text: aiReply,
+    baseName: "assistant_reply",
+    meta: {
+      source: "ai_reply",
+      chatIdStr,
+      messageId,
+      answerMode,
+      mediaResponseMode: mediaResponseMode || null,
+    },
+  });
+
+  if (mediaResponseMode && mediaResponseMode.startsWith("document_")) {
+    saveRecentDocumentForExport({
+      chatId,
+      text: effective,
+      baseName: "document_context",
+      meta: {
+        source: "document_effective_context",
+        chatIdStr,
+        messageId,
+      },
+    });
+  }
 }
 
 export default handleChatMessage;

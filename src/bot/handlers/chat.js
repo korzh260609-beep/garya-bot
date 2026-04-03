@@ -4,6 +4,7 @@
 // + recent assistant-reply export
 // + semantic export source selection: document / assistant reply
 // + semantic document follow-up wiring
+// + semantic document export target selection
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -33,11 +34,16 @@ import {
 import {
   saveRecentAssistantReplyForExport,
   saveRecentDocumentForExport,
+  saveRecentDocumentSummaryForExport,
+  saveRecentDocumentCurrentPartForExport,
+  saveRecentAssistantAnswerAboutDocumentForExport,
   getExplicitExportCandidate,
   getRecentDocumentExportCandidate,
   getRecentAssistantReplyExportCandidate,
+  getDocumentExportTargetCandidate,
 } from "./chat/outputSessionCache.js";
 import { resolveExportIntent } from "./chat/exportIntentResolver.js";
+import { resolveDocumentExportTarget } from "./chat/documentExportTargetResolver.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -73,6 +79,11 @@ function normalizePreferredExportKind(value) {
   if (src === "document") return "document";
   if (src === "assistant_reply") return "assistant_reply";
   return "";
+}
+
+function isDocumentRelatedSourceKind(value) {
+  const src = safeText(value).toLowerCase();
+  return src === "document";
 }
 
 async function tryHandleRecentExport({
@@ -112,10 +123,49 @@ async function tryHandleRecentExport({
   }
 
   const explicitKind = normalizePreferredExportKind(exportIntent?.sourceKind);
-  const recentExportCandidate = getExplicitExportCandidate(
-    msg?.chat?.id ?? null,
-    explicitKind
-  );
+
+  let recentExportCandidate = null;
+
+  if (isDocumentRelatedSourceKind(explicitKind)) {
+    const exportTarget = await resolveDocumentExportTarget({
+      callAI,
+      userText,
+      hasSummaryCandidate: Boolean(
+        getDocumentExportTargetCandidate(msg?.chat?.id ?? null, "summary")
+      ),
+      hasFullTextCandidate: Boolean(
+        getDocumentExportTargetCandidate(msg?.chat?.id ?? null, "full_text")
+      ),
+      hasCurrentPartCandidate: Boolean(
+        getDocumentExportTargetCandidate(msg?.chat?.id ?? null, "current_part")
+      ),
+      hasAssistantAnswerCandidate: Boolean(
+        getDocumentExportTargetCandidate(
+          msg?.chat?.id ?? null,
+          "assistant_answer_about_document"
+        )
+      ),
+    });
+
+    if (exportTarget?.needsClarification) {
+      const question =
+        safeText(exportTarget?.clarificationQuestion) ||
+        "Уточни: нужен summary, полный текст, текущая часть или мой ответ про документ?";
+      await saveAssistantEarlyReturn(question, "document_export_target_clarification");
+      await bot.sendMessage(chatId, question);
+      return { handled: true };
+    }
+
+    recentExportCandidate = getDocumentExportTargetCandidate(
+      msg?.chat?.id ?? null,
+      exportTarget?.target || "auto"
+    );
+  } else {
+    recentExportCandidate = getExplicitExportCandidate(
+      msg?.chat?.id ?? null,
+      explicitKind
+    );
+  }
 
   if (!recentExportCandidate) {
     let text =
@@ -124,7 +174,7 @@ async function tryHandleRecentExport({
     if (explicitKind === "assistant_reply") {
       text = "Не вижу недавний ответ SG для экспорта.";
     } else if (explicitKind === "document") {
-      text = "Не вижу недавний документ для экспорта.";
+      text = "Не вижу подходящий недавний контент документа для экспорта.";
     }
 
     await saveAssistantEarlyReturn(text, "export_no_recent_session");
@@ -184,9 +234,6 @@ async function tryHandleRecentExport({
       fileName: created.fileName,
       format: created.format,
       sourceKind: recentExportCandidate?.kind || "unknown",
-      explicitKind,
-      confidence: exportIntent?.confidence ?? 0,
-      reason: exportIntent?.reason || "resolved",
     };
   } catch (error) {
     const text = "Файл создался, но отправка в Telegram не сработала.";
@@ -506,6 +553,43 @@ export async function handleChatMessage({
       mediaResponseMode: mediaResponseMode || null,
     },
   });
+
+  if (mediaResponseMode === "document_summary_answer") {
+    saveRecentDocumentSummaryForExport({
+      chatId,
+      text: aiReply,
+      baseName: "document_summary",
+      meta: {
+        source: "document_summary_answer",
+        chatIdStr,
+        messageId,
+      },
+    });
+
+    saveRecentAssistantAnswerAboutDocumentForExport({
+      chatId,
+      text: aiReply,
+      baseName: "document_answer",
+      meta: {
+        source: "assistant_answer_about_document",
+        chatIdStr,
+        messageId,
+      },
+    });
+  }
+
+  if (mediaResponseMode === "document_full_text_answer") {
+    saveRecentDocumentCurrentPartForExport({
+      chatId,
+      text: aiReply,
+      baseName: "document_part",
+      meta: {
+        source: "document_current_part",
+        chatIdStr,
+        messageId,
+      },
+    });
+  }
 
   if (mediaResponseMode && mediaResponseMode.startsWith("document_")) {
     saveRecentDocumentForExport({

@@ -15,6 +15,7 @@
 // + semantic estimate follow-up continuation
 // + active document export target cache
 // + active export source cache
+// + pending clarification for estimate follow-up detail
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -490,6 +491,69 @@ async function continuePendingClarificationIfAny({
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
 
+  if (pending.kind === "document_estimate_followup_detail") {
+    const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
+
+    if (!activeEstimate?.estimate?.ok) {
+      clearPendingClarification(msg?.chat?.id ?? null);
+      return { handled: false };
+    }
+
+    const resolved = await resolveDocumentEstimateClarification({
+      callAI,
+      userText,
+      hasRecentDocument: true,
+      hasRecentDocumentCandidate: true,
+    });
+
+    if (resolved?.needsClarification) {
+      const question =
+        safeText(resolved?.clarificationQuestion) ||
+        safeText(pending?.question) ||
+        "Уточни, что именно посчитать по последнему документу?";
+      savePendingClarification({
+        chatId: msg?.chat?.id ?? null,
+        kind: "document_estimate_followup_detail",
+        question,
+        payload: pending?.payload || {},
+      });
+      await saveAssistantEarlyReturn(
+        question,
+        "document_estimate_followup_detail_clarification_repeat"
+      );
+      await bot.sendMessage(chatId, question);
+      return { handled: true };
+    }
+
+    if (!resolved?.resolved || !resolved?.refersToRecentDocument) {
+      clearPendingClarification(msg?.chat?.id ?? null);
+      const text =
+        "Не смог понять, относится ли это уточнение к последнему документу.";
+      await saveAssistantEarlyReturn(
+        text,
+        "document_estimate_followup_detail_unresolved"
+      );
+      await bot.sendMessage(chatId, text);
+      return { handled: true };
+    }
+
+    clearPendingClarification(msg?.chat?.id ?? null);
+
+    const requestedFocus =
+      safeText(pending?.payload?.requestedFocus).toLowerCase() ||
+      "general_estimate";
+
+    const text = buildEstimateFollowUpReplyText(activeEstimate, requestedFocus);
+
+    if (!text) {
+      return { handled: false };
+    }
+
+    await saveAssistantEarlyReturn(text, "document_estimate_followup_detail");
+    await bot.sendMessage(chatId, text);
+    return { handled: true };
+  }
+
   if (pending.kind === "document_estimate_source") {
     const recentRuntimeDocument =
       typeof FileIntake?.getRecentDocumentSessionCache === "function"
@@ -790,7 +854,21 @@ async function tryHandleActiveEstimateFollowUp({
     const question =
       safeText(resolved?.clarificationQuestion) ||
       "Уточни, что именно по последней оценке тебя интересует?";
-    await saveAssistantEarlyReturn(question, "document_estimate_followup_clarification");
+
+    savePendingClarification({
+      chatId: msg?.chat?.id ?? null,
+      kind: "document_estimate_followup_detail",
+      question,
+      payload: {
+        requestedFocus:
+          safeText(resolved?.requestedFocus).toLowerCase() || "general_estimate",
+      },
+    });
+
+    await saveAssistantEarlyReturn(
+      question,
+      "document_estimate_followup_clarification"
+    );
     await bot.sendMessage(chatId, question);
     return { handled: true };
   }

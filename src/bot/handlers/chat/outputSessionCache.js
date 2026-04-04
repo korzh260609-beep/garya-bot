@@ -17,6 +17,7 @@
 // ============================================================================
 
 import { getActiveDocumentExportTarget } from "./activeDocumentExportTargetCache.js";
+import { getActiveExportSource } from "./activeExportSourceCache.js";
 
 const OUTPUT_SESSION_CACHE = new Map();
 const OUTPUT_SESSION_WINDOW_MS = 30 * 60 * 1000; // 30 min
@@ -306,6 +307,23 @@ export function getExplicitExportCandidate(chatId, preferredKind = "") {
 
   if (normalized === "assistant_reply") {
     return getRecentAssistantReplyExportCandidate(chatId);
+  }
+
+  const activeSourceRecord = getActiveExportSource(chatId);
+  const activeSourceKind = safeText(activeSourceRecord?.sourceKind).toLowerCase();
+
+  if (activeSourceKind === "assistant_reply") {
+    return (
+      getRecentAssistantReplyExportCandidate(chatId) ||
+      getRecentDocumentExportCandidate(chatId)
+    );
+  }
+
+  if (activeSourceKind === "document") {
+    return (
+      getRecentDocumentExportCandidate(chatId) ||
+      getRecentAssistantReplyExportCandidate(chatId)
+    );
   }
 
   return getRecentExportCandidate(chatId);

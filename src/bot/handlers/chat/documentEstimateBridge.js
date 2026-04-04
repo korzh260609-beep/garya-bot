@@ -3,12 +3,15 @@
 // STAGE 12A.2 — DOCUMENT ESTIMATE BRIDGE
 // Purpose:
 // - resolve active document for estimate-mode through multiple sources
-// - primary: recent runtime document session
-// - fallback: recent raw document export candidate
+// - priority:
+//   1) recent runtime document session
+//   2) active document context cache
+//   3) recent raw document export candidate
 // - no AI
 // ============================================================================
 
 import { getRecentDocumentExportCandidate } from "./outputSessionCache.js";
+import { getActiveDocumentContext } from "./activeDocumentContextCache.js";
 
 const DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE = 3200;
 
@@ -19,7 +22,9 @@ function safeText(value) {
 
 function normalizeChunkSize(value) {
   const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE;
+  return Number.isFinite(n) && n > 0
+    ? Math.floor(n)
+    : DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE;
 }
 
 function splitTextIntoChunks(text, chunkSize = DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE) {
@@ -102,6 +107,10 @@ export function resolveRecentDocumentEstimateCandidate({ chatId, FileIntake }) {
       ? FileIntake.getDocumentReplyChunkSize
       : null;
 
+  const chunkSize = getDocumentReplyChunkSize
+    ? getDocumentReplyChunkSize()
+    : DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE;
+
   if (getRecentDocumentSessionCache) {
     const cache = getRecentDocumentSessionCache(normalizedChatId);
 
@@ -109,13 +118,22 @@ export function resolveRecentDocumentEstimateCandidate({ chatId, FileIntake }) {
       return buildDetailedEstimate({
         fileName: cache?.fileName || cache?.title || "document",
         text: cache.text,
-        chunkSize: getDocumentReplyChunkSize
-          ? getDocumentReplyChunkSize()
-          : DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE,
+        chunkSize,
         currentPartIndex: cache?.nextChunkIndex || 0,
         source: "runtime_document_session",
       });
     }
+  }
+
+  const activeDocument = getActiveDocumentContext(normalizedChatId);
+  if (activeDocument?.text) {
+    return buildDetailedEstimate({
+      fileName: activeDocument?.fileName || activeDocument?.title || "document",
+      text: activeDocument.text,
+      chunkSize,
+      currentPartIndex: 0,
+      source: "active_document_context",
+    });
   }
 
   const exportCandidate = getRecentDocumentExportCandidate(normalizedChatId);
@@ -127,9 +145,7 @@ export function resolveRecentDocumentEstimateCandidate({ chatId, FileIntake }) {
         exportCandidate?.baseName ||
         "document",
       text: exportCandidate.text,
-      chunkSize: getDocumentReplyChunkSize
-        ? getDocumentReplyChunkSize()
-        : DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE,
+      chunkSize,
       currentPartIndex: 0,
       source: "recent_document_export_candidate",
     });

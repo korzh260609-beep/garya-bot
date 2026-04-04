@@ -130,6 +130,9 @@ export async function resolveDocumentEstimateFollowUp({
         "- requestedFocus=chunk_count when asking how many parts/messages.\n" +
         "- requestedFocus=parts_overview when asking about parts in general.\n" +
         "- requestedFocus=general_estimate for general continuation about the same estimate.\n" +
+        "- Do NOT classify as estimate follow-up if the user asks for the ACTUAL TEXT of a specific part.\n" +
+        "- Do NOT classify as estimate follow-up if the user asks WHAT A SPECIFIC PART IS ABOUT or requests a short summary/description of a specific part.\n" +
+        "- Do NOT classify as estimate follow-up if the user complains that previously shown raw text was cut/truncated/abrupt.\n" +
         "- needsClarification=true only if the message is estimate-related but still too ambiguous.\n" +
         "- clarificationQuestion must be one short neutral Russian question.\n" +
         "- Output JSON only.",
@@ -150,7 +153,7 @@ export async function resolveDocumentEstimateFollowUp({
 
   try {
     const raw = await callAI(messages, "low", {
-      max_completion_tokens: 160,
+      max_completion_tokens: 180,
       temperature: 0.1,
     });
 

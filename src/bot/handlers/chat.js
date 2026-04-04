@@ -14,6 +14,7 @@
 // + active estimate context cache
 // + semantic estimate follow-up continuation
 // + active document export target cache
+// + active export source cache
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -72,6 +73,7 @@ import {
   getActiveEstimateContext,
 } from "./chat/activeEstimateContextCache.js";
 import { saveActiveDocumentExportTarget } from "./chat/activeDocumentExportTargetCache.js";
+import { saveActiveExportSource } from "./chat/activeExportSourceCache.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -127,6 +129,27 @@ function normalizeDocumentExportTarget(value) {
 function isDocumentRelatedSourceKind(value) {
   const src = safeText(value).toLowerCase();
   return src === "document";
+}
+
+function saveExportSourceContext({
+  chatId,
+  sourceKind,
+  chatIdStr,
+  messageId,
+  reason,
+}) {
+  const normalizedSourceKind = normalizePreferredExportKind(sourceKind);
+  if (!normalizedSourceKind) return null;
+
+  return saveActiveExportSource({
+    chatId,
+    sourceKind: normalizedSourceKind,
+    meta: {
+      chatIdStr,
+      messageId,
+      reason: safeText(reason || "active_export_source"),
+    },
+  });
 }
 
 function saveDocumentExportTargetContext({
@@ -192,6 +215,14 @@ function hydrateRecentRuntimeDocumentIntoCaches({
       chatIdStr,
       messageId,
     },
+  });
+
+  saveExportSourceContext({
+    chatId,
+    sourceKind: "document",
+    chatIdStr,
+    messageId,
+    reason: "runtime_document_session",
   });
 
   return recentRuntimeDocument;
@@ -565,6 +596,14 @@ async function continuePendingClarificationIfAny({
     let recentExportCandidate = null;
 
     if (isDocumentRelatedSourceKind(explicitKind)) {
+      saveExportSourceContext({
+        chatId: msg?.chat?.id ?? null,
+        sourceKind: "document",
+        chatIdStr,
+        messageId,
+        reason: "export_source_clarification_document",
+      });
+
       const exportTarget = pending?.payload?.documentTarget || "auto";
 
       const normalizedDocumentTarget = normalizeDocumentExportTarget(exportTarget);
@@ -583,6 +622,16 @@ async function continuePendingClarificationIfAny({
         exportTarget
       );
     } else {
+      if (explicitKind === "assistant_reply") {
+        saveExportSourceContext({
+          chatId: msg?.chat?.id ?? null,
+          sourceKind: "assistant_reply",
+          chatIdStr,
+          messageId,
+          reason: "export_source_clarification_assistant_reply",
+        });
+      }
+
       recentExportCandidate = getExplicitExportCandidate(
         msg?.chat?.id ?? null,
         explicitKind
@@ -670,6 +719,14 @@ async function continuePendingClarificationIfAny({
         reason: "document_export_target_clarification_resolved",
       });
     }
+
+    saveExportSourceContext({
+      chatId: msg?.chat?.id ?? null,
+      sourceKind: "document",
+      chatIdStr,
+      messageId,
+      reason: "document_export_target_clarification_resolved",
+    });
 
     clearPendingClarification(msg?.chat?.id ?? null);
 
@@ -870,6 +927,14 @@ async function tryHandleRecentExport({
   let recentExportCandidate = null;
 
   if (isDocumentRelatedSourceKind(explicitKind)) {
+    saveExportSourceContext({
+      chatId: msg?.chat?.id ?? null,
+      sourceKind: "document",
+      chatIdStr,
+      messageId,
+      reason: "document_export_requested",
+    });
+
     const exportTarget = await resolveDocumentExportTarget({
       callAI,
       userText,
@@ -930,6 +995,19 @@ async function tryHandleRecentExport({
       exportTarget?.target || "auto"
     );
   } else {
+    if (explicitKind === "assistant_reply" || explicitKind === "auto") {
+      saveExportSourceContext({
+        chatId: msg?.chat?.id ?? null,
+        sourceKind: "assistant_reply",
+        chatIdStr,
+        messageId,
+        reason:
+          explicitKind === "assistant_reply"
+            ? "assistant_reply_export_requested"
+            : "auto_export_requested",
+      });
+    }
+
     recentExportCandidate = getExplicitExportCandidate(
       msg?.chat?.id ?? null,
       explicitKind
@@ -1134,6 +1212,14 @@ export async function handleChatMessage({
       },
     });
 
+    saveExportSourceContext({
+      chatId,
+      sourceKind: "assistant_reply",
+      chatIdStr,
+      messageId,
+      reason: "direct_reply",
+    });
+
     return;
   }
 
@@ -1151,6 +1237,14 @@ export async function handleChatMessage({
         chatIdStr,
         messageId,
       },
+    });
+
+    saveExportSourceContext({
+      chatId,
+      sourceKind: "assistant_reply",
+      chatIdStr,
+      messageId,
+      reason: "no_ai_fallback",
     });
 
     return;
@@ -1329,6 +1423,16 @@ export async function handleChatMessage({
     },
   });
 
+  saveExportSourceContext({
+    chatId,
+    sourceKind: "assistant_reply",
+    chatIdStr,
+    messageId,
+    reason: mediaResponseMode && mediaResponseMode.startsWith("document_")
+      ? "document_mode_assistant_reply_saved"
+      : "ai_reply",
+  });
+
   if (mediaResponseMode === "document_summary_answer") {
     saveRecentDocumentSummaryForExport({
       chatId,
@@ -1359,6 +1463,14 @@ export async function handleChatMessage({
       messageId,
       reason: "document_summary_answer",
     });
+
+    saveExportSourceContext({
+      chatId,
+      sourceKind: "document",
+      chatIdStr,
+      messageId,
+      reason: "document_summary_answer",
+    });
   }
 
   if (mediaResponseMode === "document_full_text_answer") {
@@ -1376,6 +1488,14 @@ export async function handleChatMessage({
     saveDocumentExportTargetContext({
       chatId,
       target: "current_part",
+      chatIdStr,
+      messageId,
+      reason: "document_full_text_answer",
+    });
+
+    saveExportSourceContext({
+      chatId,
+      sourceKind: "document",
       chatIdStr,
       messageId,
       reason: "document_full_text_answer",
@@ -1419,6 +1539,14 @@ export async function handleChatMessage({
         chatIdStr,
         messageId,
       },
+    });
+
+    saveExportSourceContext({
+      chatId,
+      sourceKind: "document",
+      chatIdStr,
+      messageId,
+      reason: "document_context_active",
     });
   }
 }

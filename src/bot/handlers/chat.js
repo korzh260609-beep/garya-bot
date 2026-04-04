@@ -52,7 +52,6 @@ import {
   getRecentAssistantReplyExportCandidate,
   getDocumentExportTargetCandidate,
 } from "./chat/outputSessionCache.js";
-import { resolveExportIntent } from "./chat/exportIntentResolver.js";
 import { resolveDocumentExportTarget } from "./chat/documentExportTargetResolver.js";
 import {
   savePendingClarification,
@@ -63,16 +62,12 @@ import {
   resolveExportSourceClarification,
   resolveDocumentExportTargetClarification,
 } from "./chat/exportClarificationResolver.js";
-import { resolveDocumentChatEstimateIntent } from "./chat/documentChatEstimateResolver.js";
 import {
   resolveRecentDocumentEstimateCandidate,
   resolveRecentDocumentPartsCandidate,
 } from "./chat/documentEstimateBridge.js";
 import { resolveDocumentEstimateClarification } from "./chat/documentEstimateClarificationResolver.js";
-import { resolveDocumentEstimateFollowUp } from "./chat/documentEstimateFollowUpResolver.js";
-import { resolveDocumentEstimateCorrection } from "./chat/documentEstimateCorrectionResolver.js";
 import { resolveDocumentPartRequest } from "./chat/documentPartRequestResolver.js";
-import { resolveDocumentFollowupIntent } from "./chat/documentFollowupIntentResolver.js";
 import { saveActiveDocumentContext } from "./chat/activeDocumentContextCache.js";
 import {
   getActiveEstimateContext,
@@ -103,6 +98,11 @@ import {
   buildRequestedDocumentPartReply,
   buildInvalidRequestedPartReply,
 } from "./chat/chatDocumentPartReplies.js";
+import { tryHandleEstimateCorrection } from "./chat/chatEstimateCorrectionFlow.js";
+import { tryHandleDocumentPartRequest } from "./chat/chatDocumentPartFlow.js";
+import { tryHandleActiveEstimateFollowUp } from "./chat/chatEstimateFollowupFlow.js";
+import { tryHandleDocumentChatEstimate } from "./chat/chatDocumentEstimateFlow.js";
+import { tryHandleRecentExport } from "./chat/chatRecentExportFlow.js";
 
 async function continuePendingClarificationIfAny({
   bot,
@@ -313,7 +313,10 @@ async function continuePendingClarificationIfAny({
         question,
         payload: pending.payload || {},
       });
-      await saveAssistantEarlyReturn(question, "document_estimate_clarification_repeat");
+      await saveAssistantEarlyReturn(
+        question,
+        "document_estimate_clarification_repeat"
+      );
       await bot.sendMessage(chatId, question);
       return { handled: true };
     }
@@ -336,7 +339,10 @@ async function continuePendingClarificationIfAny({
     if (!estimate?.ok) {
       const text =
         "Не вижу недавний документ, для которого можно оценить разбиение.";
-      await saveAssistantEarlyReturn(text, "document_estimate_no_recent_document");
+      await saveAssistantEarlyReturn(
+        text,
+        "document_estimate_no_recent_document"
+      );
       await bot.sendMessage(chatId, text);
       return { handled: true };
     }
@@ -553,526 +559,6 @@ async function continuePendingClarificationIfAny({
   }
 
   return { handled: false };
-}
-
-async function tryHandleEstimateCorrection({
-  bot,
-  msg,
-  chatId,
-  trimmed,
-  FileIntake,
-  saveAssistantEarlyReturn,
-  callAI,
-  chatIdStr,
-  messageId,
-}) {
-  const userText = safeText(trimmed);
-  if (!userText) return { handled: false };
-
-  const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
-  if (!activeEstimate?.estimate?.ok) {
-    return { handled: false };
-  }
-
-  const recentEstimateCandidate = resolveRecentDocumentEstimateCandidate({
-    chatId: msg?.chat?.id ?? null,
-    FileIntake,
-  });
-
-  if (!recentEstimateCandidate?.ok) {
-    return { handled: false };
-  }
-
-  const resolved = await resolveDocumentEstimateCorrection({
-    callAI,
-    userText,
-    currentEstimateFileName: activeEstimate?.estimate?.fileName || "",
-    recentDocumentFileName: recentEstimateCandidate?.fileName || "",
-    hasActiveEstimate: true,
-    hasRecentDocumentCandidate: true,
-  });
-
-  if (!resolved?.isEstimateCorrection) {
-    return { handled: false };
-  }
-
-  if (resolved?.needsClarification) {
-    const question =
-      safeText(resolved?.clarificationQuestion) ||
-      "Уточни, какой именно недавний документ нужно взять для оценки?";
-    await saveAssistantEarlyReturn(
-      question,
-      "document_estimate_correction_clarification"
-    );
-    await bot.sendMessage(chatId, question);
-    return { handled: true };
-  }
-
-  if (!resolved?.shouldRebindToRecentDocument) {
-    return { handled: false };
-  }
-
-  saveSuccessfulEstimateContext({
-    chatId: msg?.chat?.id ?? null,
-    estimate: recentEstimateCandidate,
-    chatIdStr,
-    messageId,
-    reason: "document_estimate_rebound_to_recent_document",
-  });
-
-  const text = buildEstimateReplyText(recentEstimateCandidate);
-  await saveAssistantEarlyReturn(text, "document_chat_estimate_rebound");
-  await bot.sendMessage(chatId, text);
-  return {
-    handled: true,
-    estimateSource: recentEstimateCandidate?.source || "unknown",
-  };
-}
-
-async function tryHandleDocumentPartRequest({
-  bot,
-  msg,
-  chatId,
-  trimmed,
-  FileIntake,
-  saveAssistantEarlyReturn,
-  callAI,
-  chatIdStr,
-  messageId,
-}) {
-  const userText = safeText(trimmed);
-  if (!userText) return { handled: false };
-
-  const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
-  if (!activeEstimate?.estimate?.ok) {
-    return { handled: false };
-  }
-
-  const resolved = await resolveDocumentPartRequest({
-    callAI,
-    userText,
-    estimateContext: activeEstimate,
-  });
-
-  if (!resolved?.isDocumentPartRequest) {
-    return { handled: false };
-  }
-
-  if (resolved?.needsClarification || !resolved?.requestedPartNumber) {
-    const question =
-      safeText(resolved?.clarificationQuestion) ||
-      "Какую именно часть документа показать?";
-    savePendingClarification({
-      chatId: msg?.chat?.id ?? null,
-      kind: "document_part_request",
-      question,
-      payload: {},
-    });
-    await saveAssistantEarlyReturn(
-      question,
-      "document_part_request_clarification"
-    );
-    await bot.sendMessage(chatId, question);
-    return { handled: true };
-  }
-
-  const resolvedParts = resolveRecentDocumentPartsCandidate({
-    chatId: msg?.chat?.id ?? null,
-    FileIntake,
-  });
-
-  if (!resolvedParts?.ok) {
-    const text = "Не вижу активный документ, из которого можно показать часть.";
-    await saveAssistantEarlyReturn(text, "document_part_request_no_document");
-    await bot.sendMessage(chatId, text);
-    return { handled: true };
-  }
-
-  const requestedPartNumber = Number(resolved?.requestedPartNumber || 0);
-  const replyText = buildRequestedDocumentPartReply({
-    resolvedParts,
-    requestedPartNumber,
-  });
-
-  if (!replyText) {
-    const text = buildInvalidRequestedPartReply({
-      resolvedParts,
-      requestedPartNumber,
-    });
-    await saveAssistantEarlyReturn(text, "document_part_request_invalid_part");
-    await bot.sendMessage(chatId, text);
-    return { handled: true };
-  }
-
-  saveRecentDocumentCurrentPartForExport({
-    chatId,
-    text: replyText,
-    baseName: `${normalizeFileBaseName(
-      resolvedParts?.fileName || "document"
-    )}_part_${requestedPartNumber}`,
-    meta: {
-      source: "document_requested_part",
-      fileName: resolvedParts?.fileName || null,
-      partNumber: requestedPartNumber,
-      chunkCount: resolvedParts?.chunkCount || 0,
-      chatIdStr,
-      messageId,
-    },
-  });
-
-  saveDocumentExportTargetContext({
-    chatId: msg?.chat?.id ?? null,
-    target: "current_part",
-    chatIdStr,
-    messageId,
-    reason: "document_requested_part",
-  });
-
-  saveExportSourceContext({
-    chatId: msg?.chat?.id ?? null,
-    sourceKind: "document",
-    chatIdStr,
-    messageId,
-    reason: "document_requested_part",
-  });
-
-  await saveAssistantEarlyReturn(replyText, "document_part_request");
-  await bot.sendMessage(chatId, replyText);
-  return {
-    handled: true,
-    requestedPartNumber,
-  };
-}
-
-async function tryHandleActiveEstimateFollowUp({
-  bot,
-  msg,
-  chatId,
-  trimmed,
-  saveAssistantEarlyReturn,
-  callAI,
-}) {
-  const userText = safeText(trimmed);
-  if (!userText) return { handled: false };
-
-  const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
-  if (!activeEstimate?.estimate?.ok) {
-    return { handled: false };
-  }
-
-  const resolved = await resolveDocumentEstimateFollowUp({
-    callAI,
-    userText,
-    estimateContext: activeEstimate,
-  });
-
-  if (!resolved?.isFollowUpToLastEstimate) {
-    return { handled: false };
-  }
-
-  if (resolved?.needsClarification) {
-    const question =
-      safeText(resolved?.clarificationQuestion) ||
-      "Уточни, что именно по последней оценке тебя интересует?";
-
-    savePendingClarification({
-      chatId: msg?.chat?.id ?? null,
-      kind: "document_estimate_followup_detail",
-      question,
-      payload: {
-        requestedFocus:
-          safeText(resolved?.requestedFocus).toLowerCase() || "general_estimate",
-      },
-    });
-
-    await saveAssistantEarlyReturn(
-      question,
-      "document_estimate_followup_clarification"
-    );
-    await bot.sendMessage(chatId, question);
-    return { handled: true };
-  }
-
-  const text = buildEstimateFollowUpReplyText(
-    activeEstimate,
-    resolved?.requestedFocus || "general_estimate"
-  );
-
-  if (!text) {
-    return { handled: false };
-  }
-
-  await saveAssistantEarlyReturn(text, "document_estimate_followup");
-  await bot.sendMessage(chatId, text);
-  return {
-    handled: true,
-    requestedFocus: resolved?.requestedFocus || "general_estimate",
-  };
-}
-
-async function tryHandleDocumentChatEstimate({
-  bot,
-  msg,
-  chatId,
-  trimmed,
-  FileIntake,
-  saveAssistantEarlyReturn,
-  callAI,
-  chatIdStr,
-  messageId,
-}) {
-  const userText = safeText(trimmed);
-  if (!userText) return { handled: false };
-
-  const currentEstimateCandidate = resolveRecentDocumentEstimateCandidate({
-    chatId: msg?.chat?.id ?? null,
-    FileIntake,
-  });
-
-  const estimateIntent = await resolveDocumentChatEstimateIntent({
-    callAI,
-    userText,
-    hasRecentDocument: Boolean(currentEstimateCandidate?.ok),
-  });
-
-  if (!estimateIntent?.isEstimateIntent) {
-    return { handled: false };
-  }
-
-  if (!currentEstimateCandidate?.ok) {
-    const question = "О каком недавнем документе идёт речь?";
-    savePendingClarification({
-      chatId: msg?.chat?.id ?? null,
-      kind: "document_estimate_source",
-      question,
-      payload: {},
-    });
-    await saveAssistantEarlyReturn(question, "document_estimate_clarification");
-    await bot.sendMessage(chatId, question);
-    return { handled: true };
-  }
-
-  saveSuccessfulEstimateContext({
-    chatId: msg?.chat?.id ?? null,
-    estimate: currentEstimateCandidate,
-    chatIdStr,
-    messageId,
-    reason: "document_chat_estimate_direct",
-  });
-
-  const text = buildEstimateReplyText(currentEstimateCandidate);
-
-  await saveAssistantEarlyReturn(text, "document_chat_estimate");
-  await bot.sendMessage(chatId, text);
-  return {
-    handled: true,
-    estimateSource: currentEstimateCandidate?.source || "unknown",
-  };
-}
-
-async function tryHandleRecentExport({
-  bot,
-  msg,
-  chatId,
-  trimmed,
-  saveAssistantEarlyReturn,
-  callAI,
-  chatIdStr,
-  messageId,
-  FileIntake,
-}) {
-  const userText = safeText(trimmed);
-  if (!userText) return { handled: false };
-
-  const recentDocument = getRecentDocumentExportCandidate(msg?.chat?.id ?? null);
-  const recentAssistantReply = getRecentAssistantReplyExportCandidate(
-    msg?.chat?.id ?? null
-  );
-
-  if (recentDocument) {
-    const estimateCandidate = resolveRecentDocumentEstimateCandidate({
-      chatId: msg?.chat?.id ?? null,
-      FileIntake,
-    });
-
-    const estimateIntent = await resolveDocumentChatEstimateIntent({
-      callAI,
-      userText,
-      hasRecentDocument: Boolean(estimateCandidate?.ok),
-    });
-
-    if (estimateIntent?.isEstimateIntent) {
-      return { handled: false };
-    }
-
-    const documentFollowupIntent = await resolveDocumentFollowupIntent({
-      callAI,
-      userText,
-      hasRecentDocument: true,
-      hasAttachedDocument: false,
-    });
-
-    if (documentFollowupIntent?.isDocumentIntent) {
-      return { handled: false };
-    }
-  }
-
-  const exportIntent = await resolveExportIntent({
-    callAI,
-    userText,
-    hasRecentDocument: Boolean(recentDocument),
-    hasRecentAssistantReply: Boolean(recentAssistantReply),
-  });
-
-  if (!exportIntent?.isExportIntent) {
-    return { handled: false };
-  }
-
-  if (exportIntent?.needsClarification) {
-    const question =
-      safeText(exportIntent?.clarificationQuestion) ||
-      "Уточни: сохранить ответ или документ?";
-
-    savePendingClarification({
-      chatId: msg?.chat?.id ?? null,
-      kind: "export_source",
-      question,
-      payload: {
-        requestedFormat: normalizeRequestedOutputFormat(exportIntent?.format),
-        documentTarget: "auto",
-      },
-    });
-
-    await saveAssistantEarlyReturn(question, "export_clarification");
-    await bot.sendMessage(chatId, question);
-    return { handled: true };
-  }
-
-  const explicitKind = normalizePreferredExportKind(exportIntent?.sourceKind);
-  const requestedFormat = normalizeRequestedOutputFormat(exportIntent?.format);
-
-  let recentExportCandidate = null;
-
-  if (isDocumentRelatedSourceKind(explicitKind)) {
-    saveExportSourceContext({
-      chatId: msg?.chat?.id ?? null,
-      sourceKind: "document",
-      chatIdStr,
-      messageId,
-      reason: "document_export_requested",
-    });
-
-    const exportTarget = await resolveDocumentExportTarget({
-      callAI,
-      userText,
-      hasSummaryCandidate: Boolean(
-        getDocumentExportTargetCandidate(msg?.chat?.id ?? null, "summary")
-      ),
-      hasFullTextCandidate: Boolean(
-        getDocumentExportTargetCandidate(msg?.chat?.id ?? null, "full_text")
-      ),
-      hasCurrentPartCandidate: Boolean(
-        getDocumentExportTargetCandidate(msg?.chat?.id ?? null, "current_part")
-      ),
-      hasAssistantAnswerCandidate: Boolean(
-        getDocumentExportTargetCandidate(
-          msg?.chat?.id ?? null,
-          "assistant_answer_about_document"
-        )
-      ),
-    });
-
-    if (exportTarget?.needsClarification) {
-      const question =
-        safeText(exportTarget?.clarificationQuestion) ||
-        "Уточни: нужен summary, полный текст, текущая часть или мой ответ про документ?";
-
-      savePendingClarification({
-        chatId: msg?.chat?.id ?? null,
-        kind: "document_export_target",
-        question,
-        payload: {
-          requestedFormat,
-        },
-      });
-
-      await saveAssistantEarlyReturn(
-        question,
-        "document_export_target_clarification"
-      );
-      await bot.sendMessage(chatId, question);
-      return { handled: true };
-    }
-
-    const normalizedDocumentTarget = normalizeDocumentExportTarget(
-      exportTarget?.target || "auto"
-    );
-    if (normalizedDocumentTarget) {
-      saveDocumentExportTargetContext({
-        chatId: msg?.chat?.id ?? null,
-        target: normalizedDocumentTarget,
-        chatIdStr,
-        messageId,
-        reason: "document_export_target_resolved",
-      });
-    }
-
-    recentExportCandidate = getDocumentExportTargetCandidate(
-      msg?.chat?.id ?? null,
-      exportTarget?.target || "auto"
-    );
-  } else {
-    if (explicitKind === "assistant_reply" || explicitKind === "auto") {
-      saveExportSourceContext({
-        chatId: msg?.chat?.id ?? null,
-        sourceKind: "assistant_reply",
-        chatIdStr,
-        messageId,
-        reason:
-          explicitKind === "assistant_reply"
-            ? "assistant_reply_export_requested"
-            : "auto_export_requested",
-      });
-    }
-
-    recentExportCandidate = getExplicitExportCandidate(
-      msg?.chat?.id ?? null,
-      explicitKind
-    );
-  }
-
-  if (!recentExportCandidate) {
-    let text =
-      "Не вижу недавний документ или ответ для экспорта. Сначала отправь файл или получи ответ SG.";
-
-    if (explicitKind === "assistant_reply") {
-      text = "Не вижу недавний ответ SG для экспорта.";
-    } else if (explicitKind === "document") {
-      text = "Не вижу подходящий недавний контент документа для экспорта.";
-    }
-
-    await saveAssistantEarlyReturn(text, "export_no_recent_session");
-    await bot.sendMessage(chatId, text);
-    return { handled: true };
-  }
-
-  const created = buildCreatedExportFile({
-    recentExportCandidate,
-    requestedFormat,
-  });
-
-  const sent = await sendCreatedExportFile({
-    bot,
-    chatId,
-    created,
-    saveAssistantEarlyReturn,
-  });
-
-  return {
-    handled: true,
-    ok: sent?.ok === true,
-    sourceKind: recentExportCandidate?.kind || "unknown",
-  };
 }
 
 export async function handleChatMessage({

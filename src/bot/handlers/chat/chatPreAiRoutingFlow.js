@@ -57,22 +57,6 @@ export async function runChatPreAiRouting({
     return { handled: true };
   }
 
-  const documentPartRequestResult = await tryHandleDocumentPartRequest({
-    bot,
-    msg,
-    chatId,
-    trimmed,
-    FileIntake,
-    saveAssistantEarlyReturn,
-    callAI,
-    chatIdStr,
-    messageId,
-  });
-
-  if (documentPartRequestResult?.handled) {
-    return { handled: true };
-  }
-
   const documentPartSummaryResult = await tryHandleDocumentPartSummaryRequest({
     bot,
     msg,
@@ -86,6 +70,22 @@ export async function runChatPreAiRouting({
   });
 
   if (documentPartSummaryResult?.handled) {
+    return { handled: true };
+  }
+
+  const documentPartRequestResult = await tryHandleDocumentPartRequest({
+    bot,
+    msg,
+    chatId,
+    trimmed,
+    FileIntake,
+    saveAssistantEarlyReturn,
+    callAI,
+    chatIdStr,
+    messageId,
+  });
+
+  if (documentPartRequestResult?.handled) {
     return { handled: true };
   }
 

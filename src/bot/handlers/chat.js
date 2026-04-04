@@ -20,10 +20,7 @@
 // + document part request flow
 // + export guard against document-in-chat / estimate stealing
 
-import { getMemoryService } from "../../core/memoryServiceFactory.js";
-import { createChatMemoryBridge } from "./chat/memoryBridge.js";
-import { createAssistantReplyPersistence } from "./chat/assistantReplyPersistence.js";
-import { hydrateRecentRuntimeDocumentIntoCaches } from "./chat/chatContextCacheHelpers.js";
+import { bootstrapChatHandler } from "./chat/chatBootstrapFlow.js";
 import { runChatPreAiRouting } from "./chat/chatPreAiRoutingFlow.js";
 import { runChatAiOrchestration } from "./chat/chatAiOrchestrationFlow.js";
 
@@ -49,34 +46,23 @@ export async function handleChatMessage({
   callAI,
   sanitizeNonMonarchReply,
 }) {
-  const messageId = msg.message_id ?? null;
-
-  const monarchNow =
-    typeof isMonarch === "function" ? isMonarch(senderIdStr) : false;
-
-  const { memory, memoryWrite, memoryWritePair } = createChatMemoryBridge({
+  const {
+    messageId,
+    monarchNow,
+    memory,
+    memoryWrite,
+    memoryWritePair,
+    insertAssistantReply,
+    saveAssistantEarlyReturn,
+  } = bootstrapChatHandler({
+    msg,
+    chatId,
     chatIdStr,
+    senderIdStr,
     globalUserId,
     saveMessageToMemory,
     saveChatPair,
-    getMemoryService,
-  });
-
-  const { insertAssistantReply, saveAssistantEarlyReturn } =
-    createAssistantReplyPersistence({
-      MAX_CHAT_MESSAGE_CHARS: 16000,
-      chatIdStr,
-      senderIdStr,
-      messageId,
-      globalUserId,
-      msg,
-      memoryWrite,
-    });
-
-  hydrateRecentRuntimeDocumentIntoCaches({
-    chatId,
-    chatIdStr,
-    messageId,
+    isMonarch,
     FileIntake,
   });
 

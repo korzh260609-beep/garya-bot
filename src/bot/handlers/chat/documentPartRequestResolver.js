@@ -5,6 +5,7 @@
 // - detect request for ACTUAL document part content in chat
 // - extract target part number semantically
 // - do NOT confuse with estimate follow-up / largest part / export
+// - do NOT confuse with request for short summary/description of a part
 // - no exact phrase dependency in app logic
 // ============================================================================
 
@@ -106,6 +107,8 @@ export async function resolveDocumentPartRequest({
         "- Do NOT confuse with asking how many parts there are.\n" +
         "- Do NOT confuse with asking which part is the largest/longest.\n" +
         "- Do NOT confuse with export/file generation requests.\n" +
+        "- Do NOT confuse with asking WHAT THE PART IS ABOUT, short description, short summary, essence, explanation of a part.\n" +
+        "- If the user wants a concise explanation/summary/about-what-it-says for a part, isDocumentPartRequest must be false.\n" +
         "- needsClarification=true only if the message clearly asks for a document part text but the requested part number is still unclear.\n" +
         "- clarificationQuestion must be one short neutral Russian question.\n" +
         "- Output JSON only.",
@@ -122,7 +125,7 @@ export async function resolveDocumentPartRequest({
 
   try {
     const raw = await callAI(messages, "low", {
-      max_completion_tokens: 160,
+      max_completion_tokens: 180,
       temperature: 0.1,
     });
 

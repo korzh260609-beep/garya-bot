@@ -16,6 +16,8 @@
 // - no AI here
 // ============================================================================
 
+import { getActiveDocumentExportTarget } from "./activeDocumentExportTargetCache.js";
+
 const OUTPUT_SESSION_CACHE = new Map();
 const OUTPUT_SESSION_WINDOW_MS = 30 * 60 * 1000; // 30 min
 
@@ -326,6 +328,45 @@ export function getDocumentExportTargetCandidate(chatId, target = "") {
 
   if (normalized === "assistant_answer_about_document") {
     return getRecentAssistantAnswerAboutDocumentExportCandidate(chatId);
+  }
+
+  const activeTargetRecord = getActiveDocumentExportTarget(chatId);
+  const activeTarget = safeText(activeTargetRecord?.target).toLowerCase();
+
+  if (activeTarget === "summary") {
+    return (
+      getRecentDocumentSummaryExportCandidate(chatId) ||
+      getRecentDocumentCurrentPartExportCandidate(chatId) ||
+      getRecentAssistantAnswerAboutDocumentExportCandidate(chatId) ||
+      getRecentDocumentExportCandidate(chatId)
+    );
+  }
+
+  if (activeTarget === "full_text") {
+    return (
+      getRecentDocumentExportCandidate(chatId) ||
+      getRecentDocumentCurrentPartExportCandidate(chatId) ||
+      getRecentAssistantAnswerAboutDocumentExportCandidate(chatId) ||
+      getRecentDocumentSummaryExportCandidate(chatId)
+    );
+  }
+
+  if (activeTarget === "current_part") {
+    return (
+      getRecentDocumentCurrentPartExportCandidate(chatId) ||
+      getRecentDocumentSummaryExportCandidate(chatId) ||
+      getRecentAssistantAnswerAboutDocumentExportCandidate(chatId) ||
+      getRecentDocumentExportCandidate(chatId)
+    );
+  }
+
+  if (activeTarget === "assistant_answer_about_document") {
+    return (
+      getRecentAssistantAnswerAboutDocumentExportCandidate(chatId) ||
+      getRecentDocumentSummaryExportCandidate(chatId) ||
+      getRecentDocumentCurrentPartExportCandidate(chatId) ||
+      getRecentDocumentExportCandidate(chatId)
+    );
   }
 
   return (

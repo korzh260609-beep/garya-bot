@@ -3,10 +3,8 @@
 import {
   createDocumentOutputFile,
   cleanupDocumentOutputFile,
-} from "../../documents/documentOutputService.js";
-import {
-  normalizeFileBaseName,
-} from "./chatShared.js";
+} from "../../../documents/documentOutputService.js";
+import { normalizeFileBaseName } from "./chatShared.js";
 
 export function buildCreatedExportFile({
   recentExportCandidate,

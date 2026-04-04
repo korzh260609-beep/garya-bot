@@ -17,6 +17,7 @@
 // + active export source cache
 // + pending clarification for estimate follow-up detail
 // + estimate correction / rebind to recent document
+// + document part request flow
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -66,10 +67,14 @@ import {
   resolveDocumentExportTargetClarification,
 } from "./chat/exportClarificationResolver.js";
 import { resolveDocumentChatEstimateIntent } from "./chat/documentChatEstimateResolver.js";
-import { resolveRecentDocumentEstimateCandidate } from "./chat/documentEstimateBridge.js";
+import {
+  resolveRecentDocumentEstimateCandidate,
+  resolveRecentDocumentPartsCandidate,
+} from "./chat/documentEstimateBridge.js";
 import { resolveDocumentEstimateClarification } from "./chat/documentEstimateClarificationResolver.js";
 import { resolveDocumentEstimateFollowUp } from "./chat/documentEstimateFollowUpResolver.js";
 import { resolveDocumentEstimateCorrection } from "./chat/documentEstimateCorrectionResolver.js";
+import { resolveDocumentPartRequest } from "./chat/documentPartRequestResolver.js";
 import { saveActiveDocumentContext } from "./chat/activeDocumentContextCache.js";
 import {
   saveActiveEstimateContext,
@@ -476,6 +481,53 @@ function saveSuccessfulEstimateContext({
   });
 }
 
+function buildRequestedDocumentPartReply({
+  resolvedParts,
+  requestedPartNumber,
+}) {
+  const chunkCount = Number(resolvedParts?.chunkCount || 0);
+  const fileName = safeText(resolvedParts?.fileName || "document");
+  const chunks = Array.isArray(resolvedParts?.chunks) ? resolvedParts.chunks : [];
+  const targetIndex = Number(requestedPartNumber || 0) - 1;
+
+  if (!Number.isFinite(targetIndex) || targetIndex < 0 || targetIndex >= chunks.length) {
+    return "";
+  }
+
+  const chunkText = safeText(chunks[targetIndex]);
+  if (!chunkText) return "";
+
+  const header =
+    chunkCount > 1
+      ? `Часть ${requestedPartNumber} из ${chunkCount} (${fileName}):`
+      : `Текст документа (${fileName}):`;
+
+  return `${header}\n\n${chunkText}`.trim();
+}
+
+function buildInvalidRequestedPartReply({
+  resolvedParts,
+  requestedPartNumber,
+}) {
+  const chunkCount = Number(resolvedParts?.chunkCount || 0);
+  const fileName = safeText(resolvedParts?.fileName || "document");
+  const requested = Number(requestedPartNumber || 0);
+
+  if (chunkCount <= 0) {
+    return `Не вижу частей для ${fileName}.`;
+  }
+
+  if (requested <= 0) {
+    return `Не понял номер части. Укажи номер от 1 до ${chunkCount}.`;
+  }
+
+  if (chunkCount === 1) {
+    return `${fileName} помещается в 1 часть. Укажи часть 1.`;
+  }
+
+  return `В ${fileName} только ${chunkCount} частей. Укажи номер от 1 до ${chunkCount}.`;
+}
+
 async function continuePendingClarificationIfAny({
   bot,
   msg,
@@ -492,6 +544,107 @@ async function continuePendingClarificationIfAny({
 
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
+
+  if (pending.kind === "document_part_request") {
+    const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
+
+    if (!activeEstimate?.estimate?.ok) {
+      clearPendingClarification(msg?.chat?.id ?? null);
+      return { handled: false };
+    }
+
+    const resolved = await resolveDocumentPartRequest({
+      callAI,
+      userText,
+      estimateContext: activeEstimate,
+    });
+
+    if (resolved?.needsClarification || !resolved?.requestedPartNumber) {
+      const question =
+        safeText(resolved?.clarificationQuestion) ||
+        safeText(pending?.question) ||
+        "Какую именно часть документа показать?";
+      savePendingClarification({
+        chatId: msg?.chat?.id ?? null,
+        kind: "document_part_request",
+        question,
+        payload: pending?.payload || {},
+      });
+      await saveAssistantEarlyReturn(
+        question,
+        "document_part_request_clarification_repeat"
+      );
+      await bot.sendMessage(chatId, question);
+      return { handled: true };
+    }
+
+    clearPendingClarification(msg?.chat?.id ?? null);
+
+    const resolvedParts = resolveRecentDocumentPartsCandidate({
+      chatId: msg?.chat?.id ?? null,
+      FileIntake,
+    });
+
+    if (!resolvedParts?.ok) {
+      const text = "Не вижу активный документ, из которого можно показать часть.";
+      await saveAssistantEarlyReturn(text, "document_part_request_no_document");
+      await bot.sendMessage(chatId, text);
+      return { handled: true };
+    }
+
+    const requestedPartNumber = Number(resolved?.requestedPartNumber || 0);
+    const replyText = buildRequestedDocumentPartReply({
+      resolvedParts,
+      requestedPartNumber,
+    });
+
+    if (!replyText) {
+      const text = buildInvalidRequestedPartReply({
+        resolvedParts,
+        requestedPartNumber,
+      });
+
+      await saveAssistantEarlyReturn(text, "document_part_request_invalid_part");
+      await bot.sendMessage(chatId, text);
+      return { handled: true };
+    }
+
+    saveRecentDocumentCurrentPartForExport({
+      chatId,
+      text: replyText,
+      baseName: `${normalizeFileBaseName(
+        resolvedParts?.fileName || "document"
+      )}_part_${requestedPartNumber}`,
+      meta: {
+        source: "document_requested_part",
+        fileName: resolvedParts?.fileName || null,
+        partNumber: requestedPartNumber,
+        chunkCount: resolvedParts?.chunkCount || 0,
+        chatIdStr,
+        messageId,
+      },
+    });
+
+    saveDocumentExportTargetContext({
+      chatId: msg?.chat?.id ?? null,
+      target: "current_part",
+      chatIdStr,
+      messageId,
+      reason: "document_requested_part",
+    });
+
+    saveExportSourceContext({
+      chatId: msg?.chat?.id ?? null,
+      sourceKind: "document",
+      chatIdStr,
+      messageId,
+      reason: "document_requested_part",
+    });
+
+    await saveAssistantEarlyReturn(replyText, "document_part_request");
+    await bot.sendMessage(chatId, replyText);
+    return { handled: true };
+  }
 
   if (pending.kind === "document_estimate_followup_detail") {
     const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
@@ -900,6 +1053,121 @@ async function tryHandleEstimateCorrection({
   };
 }
 
+async function tryHandleDocumentPartRequest({
+  bot,
+  msg,
+  chatId,
+  trimmed,
+  FileIntake,
+  saveAssistantEarlyReturn,
+  callAI,
+  chatIdStr,
+  messageId,
+}) {
+  const userText = safeText(trimmed);
+  if (!userText) return { handled: false };
+
+  const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
+  if (!activeEstimate?.estimate?.ok) {
+    return { handled: false };
+  }
+
+  const resolved = await resolveDocumentPartRequest({
+    callAI,
+    userText,
+    estimateContext: activeEstimate,
+  });
+
+  if (!resolved?.isDocumentPartRequest) {
+    return { handled: false };
+  }
+
+  if (resolved?.needsClarification || !resolved?.requestedPartNumber) {
+    const question =
+      safeText(resolved?.clarificationQuestion) ||
+      "Какую именно часть документа показать?";
+    savePendingClarification({
+      chatId: msg?.chat?.id ?? null,
+      kind: "document_part_request",
+      question,
+      payload: {},
+    });
+    await saveAssistantEarlyReturn(
+      question,
+      "document_part_request_clarification"
+    );
+    await bot.sendMessage(chatId, question);
+    return { handled: true };
+  }
+
+  const resolvedParts = resolveRecentDocumentPartsCandidate({
+    chatId: msg?.chat?.id ?? null,
+    FileIntake,
+  });
+
+  if (!resolvedParts?.ok) {
+    const text = "Не вижу активный документ, из которого можно показать часть.";
+    await saveAssistantEarlyReturn(text, "document_part_request_no_document");
+    await bot.sendMessage(chatId, text);
+    return { handled: true };
+  }
+
+  const requestedPartNumber = Number(resolved?.requestedPartNumber || 0);
+  const replyText = buildRequestedDocumentPartReply({
+    resolvedParts,
+    requestedPartNumber,
+  });
+
+  if (!replyText) {
+    const text = buildInvalidRequestedPartReply({
+      resolvedParts,
+      requestedPartNumber,
+    });
+    await saveAssistantEarlyReturn(text, "document_part_request_invalid_part");
+    await bot.sendMessage(chatId, text);
+    return { handled: true };
+  }
+
+  saveRecentDocumentCurrentPartForExport({
+    chatId,
+    text: replyText,
+    baseName: `${normalizeFileBaseName(
+      resolvedParts?.fileName || "document"
+    )}_part_${requestedPartNumber}`,
+    meta: {
+      source: "document_requested_part",
+      fileName: resolvedParts?.fileName || null,
+      partNumber: requestedPartNumber,
+      chunkCount: resolvedParts?.chunkCount || 0,
+      chatIdStr,
+      messageId,
+    },
+  });
+
+  saveDocumentExportTargetContext({
+    chatId: msg?.chat?.id ?? null,
+    target: "current_part",
+    chatIdStr,
+    messageId,
+    reason: "document_requested_part",
+  });
+
+  saveExportSourceContext({
+    chatId: msg?.chat?.id ?? null,
+    sourceKind: "document",
+    chatIdStr,
+    messageId,
+    reason: "document_requested_part",
+  });
+
+  await saveAssistantEarlyReturn(replyText, "document_part_request");
+  await bot.sendMessage(chatId, replyText);
+  return {
+    handled: true,
+    requestedPartNumber,
+  };
+}
+
 async function tryHandleActiveEstimateFollowUp({
   bot,
   msg,
@@ -1284,6 +1552,22 @@ export async function handleChatMessage({
   });
 
   if (estimateCorrectionResult?.handled) {
+    return;
+  }
+
+  const documentPartRequestResult = await tryHandleDocumentPartRequest({
+    bot,
+    msg,
+    chatId,
+    trimmed,
+    FileIntake,
+    saveAssistantEarlyReturn,
+    callAI,
+    chatIdStr,
+    messageId,
+  });
+
+  if (documentPartRequestResult?.handled) {
     return;
   }
 

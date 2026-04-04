@@ -40,25 +40,18 @@ import { finalizeChatReply } from "./chat/postReplyFlow.js";
 import isStablePersonalFactQuestion from "./chat/isStablePersonalFactQuestion.js";
 import resolveChatIntent from "./chat/intent/resolveChatIntent.js";
 import buildBehaviorSnapshot from "./chat/behaviorSnapshot.js";
-import {
-  saveRecentAssistantReplyForExport,
-  saveRecentDocumentForExport,
-  saveRecentDocumentSummaryForExport,
-  saveRecentDocumentCurrentPartForExport,
-  saveRecentAssistantAnswerAboutDocumentForExport,
-} from "./chat/outputSessionCache.js";
-import { saveActiveDocumentContext } from "./chat/activeDocumentContextCache.js";
-import {
-  saveExportSourceContext,
-  saveDocumentExportTargetContext,
-  hydrateRecentRuntimeDocumentIntoCaches,
-} from "./chat/chatContextCacheHelpers.js";
+import { hydrateRecentRuntimeDocumentIntoCaches } from "./chat/chatContextCacheHelpers.js";
 import { tryHandleEstimateCorrection } from "./chat/chatEstimateCorrectionFlow.js";
 import { tryHandleDocumentPartRequest } from "./chat/chatDocumentPartFlow.js";
 import { tryHandleActiveEstimateFollowUp } from "./chat/chatEstimateFollowupFlow.js";
 import { tryHandleDocumentChatEstimate } from "./chat/chatDocumentEstimateFlow.js";
 import { tryHandleRecentExport } from "./chat/chatRecentExportFlow.js";
 import { continuePendingClarificationIfAny } from "./chat/chatPendingClarificationFlow.js";
+import {
+  handleDirectReplyEarlyReturn,
+  handleNoAiEarlyReturn,
+} from "./chat/chatEarlyReturnFlow.js";
+import { handlePostAiExportPersistence } from "./chat/chatPostAiPersistenceFlow.js";
 
 export async function handleChatMessage({
   bot,
@@ -222,6 +215,32 @@ export async function handleChatMessage({
     return;
   }
 
+  const directReplyResult = await handleDirectReplyEarlyReturn({
+    bot,
+    chatId,
+    directReplyText,
+    saveAssistantEarlyReturn,
+    chatIdStr,
+    messageId,
+  });
+
+  if (directReplyResult?.handled) {
+    return;
+  }
+
+  const noAiResult = await handleNoAiEarlyReturn({
+    bot,
+    chatId,
+    shouldCallAI,
+    saveAssistantEarlyReturn,
+    chatIdStr,
+    messageId,
+  });
+
+  if (noAiResult?.handled) {
+    return;
+  }
+
   const chatIntent = resolveChatIntent({
     text: effective,
   });
@@ -241,59 +260,6 @@ export async function handleChatMessage({
     memory,
     effective,
   });
-
-  if (directReplyText) {
-    await saveAssistantEarlyReturn(directReplyText, "direct");
-    await bot.sendMessage(chatId, directReplyText);
-
-    saveRecentAssistantReplyForExport({
-      chatId,
-      text: directReplyText,
-      baseName: "assistant_reply",
-      meta: {
-        source: "direct_reply",
-        chatIdStr,
-        messageId,
-      },
-    });
-
-    saveExportSourceContext({
-      chatId,
-      sourceKind: "assistant_reply",
-      chatIdStr,
-      messageId,
-      reason: "direct_reply",
-    });
-
-    return;
-  }
-
-  if (!shouldCallAI) {
-    const text = "Напиши текстом, что нужно сделать.";
-    await saveAssistantEarlyReturn(text, "no_ai");
-    await bot.sendMessage(chatId, text);
-
-    saveRecentAssistantReplyForExport({
-      chatId,
-      text,
-      baseName: "assistant_reply",
-      meta: {
-        source: "no_ai_fallback",
-        chatIdStr,
-        messageId,
-      },
-    });
-
-    saveExportSourceContext({
-      chatId,
-      sourceKind: "assistant_reply",
-      chatIdStr,
-      messageId,
-      reason: "no_ai_fallback",
-    });
-
-    return;
-  }
 
   await memoryWrite({
     role: "user",
@@ -455,146 +421,16 @@ export async function handleChatMessage({
     longTermMemoryInjected,
   });
 
-  saveRecentAssistantReplyForExport({
+  handlePostAiExportPersistence({
     chatId,
-    text: aiReply,
-    baseName: "assistant_reply",
-    meta: {
-      source: "ai_reply",
-      chatIdStr,
-      messageId,
-      answerMode,
-      mediaResponseMode: mediaResponseMode || null,
-    },
-  });
-
-  saveExportSourceContext({
-    chatId,
-    sourceKind: "assistant_reply",
+    aiReply,
+    answerMode,
+    mediaResponseMode,
     chatIdStr,
     messageId,
-    reason:
-      mediaResponseMode && mediaResponseMode.startsWith("document_")
-        ? "document_mode_assistant_reply_saved"
-        : "ai_reply",
+    FileIntake,
+    effective,
   });
-
-  if (mediaResponseMode === "document_summary_answer") {
-    saveRecentDocumentSummaryForExport({
-      chatId,
-      text: aiReply,
-      baseName: "document_summary",
-      meta: {
-        source: "document_summary_answer",
-        chatIdStr,
-        messageId,
-      },
-    });
-
-    saveRecentAssistantAnswerAboutDocumentForExport({
-      chatId,
-      text: aiReply,
-      baseName: "document_answer",
-      meta: {
-        source: "assistant_answer_about_document",
-        chatIdStr,
-        messageId,
-      },
-    });
-
-    saveDocumentExportTargetContext({
-      chatId,
-      target: "summary",
-      chatIdStr,
-      messageId,
-      reason: "document_summary_answer",
-    });
-
-    saveExportSourceContext({
-      chatId,
-      sourceKind: "document",
-      chatIdStr,
-      messageId,
-      reason: "document_summary_answer",
-    });
-  }
-
-  if (mediaResponseMode === "document_full_text_answer") {
-    saveRecentDocumentCurrentPartForExport({
-      chatId,
-      text: aiReply,
-      baseName: "document_part",
-      meta: {
-        source: "document_current_part",
-        chatIdStr,
-        messageId,
-      },
-    });
-
-    saveDocumentExportTargetContext({
-      chatId,
-      target: "current_part",
-      chatIdStr,
-      messageId,
-      reason: "document_full_text_answer",
-    });
-
-    saveExportSourceContext({
-      chatId,
-      sourceKind: "document",
-      chatIdStr,
-      messageId,
-      reason: "document_full_text_answer",
-    });
-  }
-
-  if (mediaResponseMode && mediaResponseMode.startsWith("document_")) {
-    const recentRuntimeDocument =
-      typeof FileIntake?.getRecentDocumentSessionCache === "function"
-        ? FileIntake.getRecentDocumentSessionCache(chatId)
-        : null;
-
-    const rawDocumentText = recentRuntimeDocument?.text || effective;
-    const rawDocumentFileName =
-      recentRuntimeDocument?.fileName || recentRuntimeDocument?.title || "document_context";
-
-    saveRecentDocumentForExport({
-      chatId,
-      text: rawDocumentText,
-      baseName: rawDocumentFileName,
-      meta: {
-        source: recentRuntimeDocument?.text
-          ? "document_runtime_text"
-          : "document_effective_context",
-        fileName: recentRuntimeDocument?.fileName || null,
-        title: recentRuntimeDocument?.title || null,
-        chatIdStr,
-        messageId,
-      },
-    });
-
-    saveActiveDocumentContext({
-      chatId,
-      fileName: recentRuntimeDocument?.fileName || "",
-      title: recentRuntimeDocument?.title || "",
-      text: rawDocumentText,
-      source: recentRuntimeDocument?.text
-        ? "document_runtime_text"
-        : "document_effective_context",
-      meta: {
-        chatIdStr,
-        messageId,
-      },
-    });
-
-    saveExportSourceContext({
-      chatId,
-      sourceKind: "document",
-      chatIdStr,
-      messageId,
-      reason: "document_context_active",
-    });
-  }
 }
 
 export default handleChatMessage;

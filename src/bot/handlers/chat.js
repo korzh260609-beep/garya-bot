@@ -965,6 +965,19 @@ export async function handleChatMessage({
     return;
   }
 
+  const exportResult = await tryHandleRecentExport({
+    bot,
+    msg,
+    chatId,
+    trimmed,
+    saveAssistantEarlyReturn,
+    callAI,
+  });
+
+  if (exportResult?.handled) {
+    return;
+  }
+
   const activeEstimateFollowUpResult = await tryHandleActiveEstimateFollowUp({
     bot,
     msg,
@@ -991,19 +1004,6 @@ export async function handleChatMessage({
   });
 
   if (estimateResult?.handled) {
-    return;
-  }
-
-  const exportResult = await tryHandleRecentExport({
-    bot,
-    msg,
-    chatId,
-    trimmed,
-    saveAssistantEarlyReturn,
-    callAI,
-  });
-
-  if (exportResult?.handled) {
     return;
   }
 

@@ -6,6 +6,192 @@ import { getActiveEstimateContext } from "./activeEstimateContextCache.js";
 import { safeText } from "./chatShared.js";
 import { buildEstimateFollowUpReplyText } from "./chatEstimateReplies.js";
 
+function normalizeSemanticText(value) {
+  return safeText(value)
+    .toLowerCase()
+    .replace(/[ё]/g, "е")
+    .replace(/[’']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasAnyStem(text, stems = []) {
+  return stems.some((stem) => text.includes(stem));
+}
+
+function extractAllNumbers(text) {
+  const matches = text.match(/\d+/g);
+  if (!matches) return [];
+  return matches
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
+}
+
+function hasSpecificPartReference(text) {
+  const normalized = normalizeSemanticText(text);
+  const numbers = extractAllNumbers(normalized);
+  if (numbers.length === 0) return false;
+
+  return hasAnyStem(normalized, [
+    "част",
+    "part",
+    "chunk",
+    "секц",
+    "раздел",
+    "глава",
+    "пункт",
+    "фрагмент",
+    "кусок",
+  ]);
+}
+
+function looksLikeDocumentPartSummaryIntent(text) {
+  const normalized = normalizeSemanticText(text);
+  if (!hasSpecificPartReference(normalized)) return false;
+
+  const summaryMeaning = hasAnyStem(normalized, [
+    "о чем",
+    "про что",
+    "что там",
+    "что в",
+    "суть",
+    "кратк",
+    "коротк",
+    "summary",
+    "summar",
+    "describe",
+    "description",
+    "about",
+    "essence",
+    "объясн",
+    "опис",
+    "опиши",
+    "поясн",
+    "смысл",
+  ]);
+
+  if (!summaryMeaning) return false;
+
+  const rawTextMeaning = hasAnyStem(normalized, [
+    "покажи",
+    "показ",
+    "дай ",
+    "скинь",
+    "отправ",
+    "встав",
+    "вывед",
+    "текст",
+    "полный",
+    "целиком",
+    "raw",
+    "exact text",
+    "actual text",
+    "content",
+  ]);
+
+  return !rawTextMeaning;
+}
+
+function looksLikeRawDocumentPartIntent(text) {
+  const normalized = normalizeSemanticText(text);
+  if (!hasSpecificPartReference(normalized)) return false;
+
+  const rawMeaning = hasAnyStem(normalized, [
+    "покажи",
+    "показ",
+    "дай ",
+    "скинь",
+    "отправ",
+    "встав",
+    "вывед",
+    "текст",
+    "полный",
+    "целиком",
+    "raw",
+    "exact text",
+    "actual text",
+    "content",
+    "сюда в чат",
+    "в чат",
+  ]);
+
+  if (!rawMeaning) return false;
+
+  const summaryMeaning = hasAnyStem(normalized, [
+    "о чем",
+    "про что",
+    "суть",
+    "кратк",
+    "коротк",
+    "summary",
+    "summar",
+    "describe",
+    "description",
+    "about",
+    "essence",
+    "объясн",
+    "опис",
+    "поясн",
+    "смысл",
+  ]);
+
+  return !summaryMeaning;
+}
+
+function looksLikeTruncatedRawTextComplaint(text) {
+  const normalized = normalizeSemanticText(text);
+
+  const complaintMeaning = hasAnyStem(normalized, [
+    "обрез",
+    "урез",
+    "усеч",
+    "оборва",
+    "прерва",
+    "не весь",
+    "не полностью",
+    "не полный",
+    "не допис",
+    "не до конца",
+    "почему кусок",
+    "с середины",
+    "закончился",
+    "часть текста пропала",
+    "text cut",
+    "cut off",
+    "truncat",
+    "abrupt",
+    "incomplete",
+    "missing part",
+  ]);
+
+  if (!complaintMeaning) return false;
+
+  const rawTextContext = hasAnyStem(normalized, [
+    "текст",
+    "част",
+    "part",
+    "chunk",
+    "кусок",
+    "фрагмент",
+    "сообщение",
+    "ответ",
+    "в чат",
+  ]);
+
+  return rawTextContext;
+}
+
+function shouldBypassEstimateFollowUp(userText) {
+  const normalized = normalizeSemanticText(userText);
+  if (!normalized) return false;
+
+  if (looksLikeTruncatedRawTextComplaint(normalized)) return true;
+  if (looksLikeDocumentPartSummaryIntent(normalized)) return true;
+  if (looksLikeRawDocumentPartIntent(normalized)) return true;
+
+  return false;
+}
+
 export async function tryHandleActiveEstimateFollowUp({
   bot,
   msg,
@@ -19,6 +205,15 @@ export async function tryHandleActiveEstimateFollowUp({
 
   const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
   if (!activeEstimate?.estimate?.ok) {
+    return { handled: false };
+  }
+
+  // Guard layer:
+  // do not allow estimate follow-up to steal:
+  // 1) complaint about truncated/cut raw text
+  // 2) summary/description of specific part intent
+  // 3) raw specific part request intent
+  if (shouldBypassEstimateFollowUp(userText)) {
     return { handled: false };
   }
 

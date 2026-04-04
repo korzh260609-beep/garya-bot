@@ -13,6 +13,7 @@
 // + active document context cache
 // + active estimate context cache
 // + semantic estimate follow-up continuation
+// + active document export target cache
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -70,6 +71,7 @@ import {
   saveActiveEstimateContext,
   getActiveEstimateContext,
 } from "./chat/activeEstimateContextCache.js";
+import { saveActiveDocumentExportTarget } from "./chat/activeDocumentExportTargetCache.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -109,9 +111,43 @@ function normalizePreferredExportKind(value) {
   return "";
 }
 
+function normalizeDocumentExportTarget(value) {
+  const src = safeText(value).toLowerCase();
+
+  if (src === "summary") return "summary";
+  if (src === "full_text") return "full_text";
+  if (src === "current_part") return "current_part";
+  if (src === "assistant_answer_about_document") {
+    return "assistant_answer_about_document";
+  }
+
+  return "";
+}
+
 function isDocumentRelatedSourceKind(value) {
   const src = safeText(value).toLowerCase();
   return src === "document";
+}
+
+function saveDocumentExportTargetContext({
+  chatId,
+  target,
+  chatIdStr,
+  messageId,
+  reason,
+}) {
+  const normalizedTarget = normalizeDocumentExportTarget(target);
+  if (!normalizedTarget) return null;
+
+  return saveActiveDocumentExportTarget({
+    chatId,
+    target: normalizedTarget,
+    meta: {
+      chatIdStr,
+      messageId,
+      reason: safeText(reason || "document_export_target_active"),
+    },
+  });
 }
 
 function hydrateRecentRuntimeDocumentIntoCaches({
@@ -530,6 +566,18 @@ async function continuePendingClarificationIfAny({
 
     if (isDocumentRelatedSourceKind(explicitKind)) {
       const exportTarget = pending?.payload?.documentTarget || "auto";
+
+      const normalizedDocumentTarget = normalizeDocumentExportTarget(exportTarget);
+      if (normalizedDocumentTarget) {
+        saveDocumentExportTargetContext({
+          chatId: msg?.chat?.id ?? null,
+          target: normalizedDocumentTarget,
+          chatIdStr,
+          messageId,
+          reason: "export_source_clarification_payload_target",
+        });
+      }
+
       recentExportCandidate = getDocumentExportTargetCandidate(
         msg?.chat?.id ?? null,
         exportTarget
@@ -611,6 +659,17 @@ async function continuePendingClarificationIfAny({
     const requestedFormat = normalizeRequestedOutputFormat(
       pending?.payload?.requestedFormat || "txt"
     );
+
+    const normalizedDocumentTarget = normalizeDocumentExportTarget(target);
+    if (normalizedDocumentTarget) {
+      saveDocumentExportTargetContext({
+        chatId: msg?.chat?.id ?? null,
+        target: normalizedDocumentTarget,
+        chatIdStr,
+        messageId,
+        reason: "document_export_target_clarification_resolved",
+      });
+    }
 
     clearPendingClarification(msg?.chat?.id ?? null);
 
@@ -763,6 +822,8 @@ async function tryHandleRecentExport({
   trimmed,
   saveAssistantEarlyReturn,
   callAI,
+  chatIdStr,
+  messageId,
 }) {
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
@@ -849,6 +910,19 @@ async function tryHandleRecentExport({
       );
       await bot.sendMessage(chatId, question);
       return { handled: true };
+    }
+
+    const normalizedDocumentTarget = normalizeDocumentExportTarget(
+      exportTarget?.target || "auto"
+    );
+    if (normalizedDocumentTarget) {
+      saveDocumentExportTargetContext({
+        chatId: msg?.chat?.id ?? null,
+        target: normalizedDocumentTarget,
+        chatIdStr,
+        messageId,
+        reason: "document_export_target_resolved",
+      });
     }
 
     recentExportCandidate = getDocumentExportTargetCandidate(
@@ -972,6 +1046,8 @@ export async function handleChatMessage({
     trimmed,
     saveAssistantEarlyReturn,
     callAI,
+    chatIdStr,
+    messageId,
   });
 
   if (exportResult?.handled) {
@@ -1275,6 +1351,14 @@ export async function handleChatMessage({
         messageId,
       },
     });
+
+    saveDocumentExportTargetContext({
+      chatId,
+      target: "summary",
+      chatIdStr,
+      messageId,
+      reason: "document_summary_answer",
+    });
   }
 
   if (mediaResponseMode === "document_full_text_answer") {
@@ -1287,6 +1371,14 @@ export async function handleChatMessage({
         chatIdStr,
         messageId,
       },
+    });
+
+    saveDocumentExportTargetContext({
+      chatId,
+      target: "current_part",
+      chatIdStr,
+      messageId,
+      reason: "document_full_text_answer",
     });
   }
 

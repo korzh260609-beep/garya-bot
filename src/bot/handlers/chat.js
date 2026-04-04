@@ -11,6 +11,8 @@
 // + pending clarification state for estimate-mode
 // + raw document hydration into output cache on every turn
 // + active document context cache
+// + active estimate context cache
+// + semantic estimate follow-up continuation
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -62,7 +64,12 @@ import {
 import { resolveDocumentChatEstimateIntent } from "./chat/documentChatEstimateResolver.js";
 import { resolveRecentDocumentEstimateCandidate } from "./chat/documentEstimateBridge.js";
 import { resolveDocumentEstimateClarification } from "./chat/documentEstimateClarificationResolver.js";
+import { resolveDocumentEstimateFollowUp } from "./chat/documentEstimateFollowUpResolver.js";
 import { saveActiveDocumentContext } from "./chat/activeDocumentContextCache.js";
+import {
+  saveActiveEstimateContext,
+  getActiveEstimateContext,
+} from "./chat/activeEstimateContextCache.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -303,6 +310,102 @@ function buildEstimateReplyText(estimate) {
   return lines.join("\n").trim();
 }
 
+function buildEstimateFollowUpReplyText(record, requestedFocus = "general_estimate") {
+  const estimate = record?.estimate || null;
+  if (!estimate) return "";
+
+  const fileName = safeText(estimate?.fileName || "document");
+  const chunkCount = Number(estimate?.chunkCount || 0);
+  const charCount = Number(estimate?.charCount || 0);
+  const chunkSize = Number(estimate?.chunkSize || 0);
+  const approxInputTokens = Math.ceil(charCount / 4);
+  const parts = Array.isArray(estimate?.parts) ? estimate.parts : [];
+
+  const largestPart = parts.reduce(
+    (max, part) => {
+      const current = Number(part?.charCount || 0);
+      return current > max.charCount
+        ? { partNumber: Number(part?.partNumber || 0), charCount: current }
+        : max;
+    },
+    { partNumber: 0, charCount: 0 }
+  );
+
+  if (requestedFocus === "tokens") {
+    return `Для ${fileName} это примерно ~${approxInputTokens} токенов текста. Оценка грубая: считаю примерно 1 токен ≈ 4 символа.`;
+  }
+
+  if (requestedFocus === "chars") {
+    if (chunkSize > 0) {
+      return `В ${fileName} около ${charCount} символов текста. При лимите ~${chunkSize} символов на часть это и даёт примерно ${chunkCount} частей.`;
+    }
+    return `В ${fileName} около ${charCount} символов текста.`;
+  }
+
+  if (requestedFocus === "largest_part") {
+    if (largestPart.charCount > 0) {
+      return `Самая большая часть у ${fileName} — №${largestPart.partNumber}, около ${largestPart.charCount} символов.`;
+    }
+    return `Не вижу достаточно данных по частям, чтобы уверенно назвать самую большую часть у ${fileName}.`;
+  }
+
+  if (requestedFocus === "file_vs_chat") {
+    if (chunkCount <= 2) {
+      return `Для ${fileName} выгоднее чат: частей мало, читать будет проще прямо в переписке.`;
+    }
+    return `Для ${fileName} выгоднее файл: частей около ${chunkCount}, длинная серия сообщений будет менее удобной.`;
+  }
+
+  if (requestedFocus === "chunk_count") {
+    if (chunkCount <= 1) {
+      return `Если выводить ${fileName} в чат, это примерно 1 сообщение.`;
+    }
+    return `Если выводить ${fileName} в чат, получится примерно ${chunkCount} частей.`;
+  }
+
+  if (requestedFocus === "parts_overview") {
+    if (!parts.length) {
+      return `По ${fileName} вижу общую оценку, но детальная разбивка по частям сейчас недоступна.`;
+    }
+
+    const lines = [`По ${fileName} примерно ${chunkCount} частей.`];
+
+    for (const part of parts.slice(0, 6)) {
+      lines.push(
+        `- Часть ${Number(part?.partNumber || 0)}: ~${Number(part?.charCount || 0)} символов`
+      );
+    }
+
+    if (parts.length > 6) {
+      lines.push(`- ... ещё ${parts.length - 6} частей`);
+    }
+
+    return lines.join("\n").trim();
+  }
+
+  return buildEstimateReplyText(estimate);
+}
+
+function saveSuccessfulEstimateContext({
+  chatId,
+  estimate,
+  chatIdStr,
+  messageId,
+  reason,
+}) {
+  if (!estimate?.ok) return null;
+
+  return saveActiveEstimateContext({
+    chatId,
+    estimate,
+    meta: {
+      chatIdStr,
+      messageId,
+      reason: safeText(reason || "document_chat_estimate"),
+    },
+  });
+}
+
 async function continuePendingClarificationIfAny({
   bot,
   msg,
@@ -311,6 +414,8 @@ async function continuePendingClarificationIfAny({
   saveAssistantEarlyReturn,
   callAI,
   FileIntake,
+  chatIdStr,
+  messageId,
 }) {
   const pending = getPendingClarification(msg?.chat?.id ?? null);
   if (!pending) return { handled: false };
@@ -373,6 +478,14 @@ async function continuePendingClarificationIfAny({
       await bot.sendMessage(chatId, text);
       return { handled: true };
     }
+
+    saveSuccessfulEstimateContext({
+      chatId: msg?.chat?.id ?? null,
+      estimate,
+      chatIdStr,
+      messageId,
+      reason: "document_estimate_clarification_resolved",
+    });
 
     const text = buildEstimateReplyText(estimate);
     await saveAssistantEarlyReturn(text, "document_chat_estimate");
@@ -531,6 +644,58 @@ async function continuePendingClarificationIfAny({
   return { handled: false };
 }
 
+async function tryHandleActiveEstimateFollowUp({
+  bot,
+  msg,
+  chatId,
+  trimmed,
+  saveAssistantEarlyReturn,
+  callAI,
+}) {
+  const userText = safeText(trimmed);
+  if (!userText) return { handled: false };
+
+  const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
+  if (!activeEstimate?.estimate?.ok) {
+    return { handled: false };
+  }
+
+  const resolved = await resolveDocumentEstimateFollowUp({
+    callAI,
+    userText,
+    estimateContext: activeEstimate,
+  });
+
+  if (!resolved?.isFollowUpToLastEstimate) {
+    return { handled: false };
+  }
+
+  if (resolved?.needsClarification) {
+    const question =
+      safeText(resolved?.clarificationQuestion) ||
+      "Уточни, что именно по последней оценке тебя интересует?";
+    await saveAssistantEarlyReturn(question, "document_estimate_followup_clarification");
+    await bot.sendMessage(chatId, question);
+    return { handled: true };
+  }
+
+  const text = buildEstimateFollowUpReplyText(
+    activeEstimate,
+    resolved?.requestedFocus || "general_estimate"
+  );
+
+  if (!text) {
+    return { handled: false };
+  }
+
+  await saveAssistantEarlyReturn(text, "document_estimate_followup");
+  await bot.sendMessage(chatId, text);
+  return {
+    handled: true,
+    requestedFocus: resolved?.requestedFocus || "general_estimate",
+  };
+}
+
 async function tryHandleDocumentChatEstimate({
   bot,
   msg,
@@ -539,6 +704,8 @@ async function tryHandleDocumentChatEstimate({
   FileIntake,
   saveAssistantEarlyReturn,
   callAI,
+  chatIdStr,
+  messageId,
 }) {
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
@@ -570,6 +737,14 @@ async function tryHandleDocumentChatEstimate({
     await bot.sendMessage(chatId, question);
     return { handled: true };
   }
+
+  saveSuccessfulEstimateContext({
+    chatId: msg?.chat?.id ?? null,
+    estimate: currentEstimateCandidate,
+    chatIdStr,
+    messageId,
+    reason: "document_chat_estimate_direct",
+  });
 
   const text = buildEstimateReplyText(currentEstimateCandidate);
 
@@ -782,9 +957,24 @@ export async function handleChatMessage({
     saveAssistantEarlyReturn,
     callAI,
     FileIntake,
+    chatIdStr,
+    messageId,
   });
 
   if (clarificationResult?.handled) {
+    return;
+  }
+
+  const activeEstimateFollowUpResult = await tryHandleActiveEstimateFollowUp({
+    bot,
+    msg,
+    chatId,
+    trimmed,
+    saveAssistantEarlyReturn,
+    callAI,
+  });
+
+  if (activeEstimateFollowUpResult?.handled) {
     return;
   }
 
@@ -796,6 +986,8 @@ export async function handleChatMessage({
     FileIntake,
     saveAssistantEarlyReturn,
     callAI,
+    chatIdStr,
+    messageId,
   });
 
   if (estimateResult?.handled) {

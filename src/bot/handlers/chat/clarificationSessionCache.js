@@ -8,6 +8,7 @@
 //   2) document_export_target
 //   3) document_estimate_source
 //   4) document_estimate_followup_detail
+//   5) document_part_request
 // - no DB
 // - no AI
 // ============================================================================
@@ -37,6 +38,7 @@ function normalizeKind(value) {
   if (src === "document_estimate_followup_detail") {
     return "document_estimate_followup_detail";
   }
+  if (src === "document_part_request") return "document_part_request";
 
   return "";
 }

@@ -7,13 +7,14 @@
 //   1) recent runtime document session
 //   2) active document context cache
 //   3) recent raw document export candidate
+// - expose deterministic split reuse for estimate + requested part content
 // - no AI
 // ============================================================================
 
 import { getRecentDocumentExportCandidate } from "./outputSessionCache.js";
 import { getActiveDocumentContext } from "./activeDocumentContextCache.js";
 
-const DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE = 3200;
+export const DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE = 3200;
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -27,7 +28,10 @@ function normalizeChunkSize(value) {
     : DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE;
 }
 
-function splitTextIntoChunks(text, chunkSize = DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE) {
+export function splitTextIntoChunks(
+  text,
+  chunkSize = DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE
+) {
   const src = safeText(text);
   if (!src) return [];
 
@@ -67,7 +71,7 @@ function buildChunkStartPreview(text) {
   return `${src.slice(0, 90).trim()}…`;
 }
 
-function buildDetailedEstimate({
+export function buildDetailedEstimate({
   fileName = "document",
   text = "",
   chunkSize = DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE,
@@ -94,13 +98,59 @@ function buildDetailedEstimate({
   };
 }
 
-export function resolveRecentDocumentEstimateCandidate({ chatId, FileIntake }) {
+function resolveRecentDocumentRawCandidate({ chatId, FileIntake }) {
   const normalizedChatId = chatId ?? null;
 
   const getRecentDocumentSessionCache =
     typeof FileIntake?.getRecentDocumentSessionCache === "function"
       ? FileIntake.getRecentDocumentSessionCache
       : null;
+
+  if (getRecentDocumentSessionCache) {
+    const cache = getRecentDocumentSessionCache(normalizedChatId);
+
+    if (cache?.text) {
+      return {
+        ok: true,
+        fileName: cache?.fileName || cache?.title || "document",
+        text: safeText(cache.text).trim(),
+        currentPartIndex: Number(cache?.nextChunkIndex || 0) || 0,
+        source: "runtime_document_session",
+      };
+    }
+  }
+
+  const activeDocument = getActiveDocumentContext(normalizedChatId);
+  if (activeDocument?.text) {
+    return {
+      ok: true,
+      fileName: activeDocument?.fileName || activeDocument?.title || "document",
+      text: safeText(activeDocument.text).trim(),
+      currentPartIndex: 0,
+      source: "active_document_context",
+    };
+  }
+
+  const exportCandidate = getRecentDocumentExportCandidate(normalizedChatId);
+  if (exportCandidate?.text) {
+    return {
+      ok: true,
+      fileName:
+        exportCandidate?.meta?.fileName ||
+        exportCandidate?.meta?.title ||
+        exportCandidate?.baseName ||
+        "document",
+      text: safeText(exportCandidate.text).trim(),
+      currentPartIndex: 0,
+      source: "recent_document_export_candidate",
+    };
+  }
+
+  return null;
+}
+
+export function resolveRecentDocumentEstimateCandidate({ chatId, FileIntake }) {
+  const normalizedChatId = chatId ?? null;
 
   const getDocumentReplyChunkSize =
     typeof FileIntake?.getDocumentReplyChunkSize === "function"
@@ -111,49 +161,72 @@ export function resolveRecentDocumentEstimateCandidate({ chatId, FileIntake }) {
     ? getDocumentReplyChunkSize()
     : DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE;
 
-  if (getRecentDocumentSessionCache) {
-    const cache = getRecentDocumentSessionCache(normalizedChatId);
+  const raw = resolveRecentDocumentRawCandidate({
+    chatId: normalizedChatId,
+    FileIntake,
+  });
 
-    if (cache?.text) {
-      return buildDetailedEstimate({
-        fileName: cache?.fileName || cache?.title || "document",
-        text: cache.text,
-        chunkSize,
-        currentPartIndex: cache?.nextChunkIndex || 0,
-        source: "runtime_document_session",
-      });
-    }
+  if (!raw?.ok || !raw?.text) {
+    return null;
   }
 
-  const activeDocument = getActiveDocumentContext(normalizedChatId);
-  if (activeDocument?.text) {
-    return buildDetailedEstimate({
-      fileName: activeDocument?.fileName || activeDocument?.title || "document",
-      text: activeDocument.text,
-      chunkSize,
-      currentPartIndex: 0,
-      source: "active_document_context",
-    });
+  return buildDetailedEstimate({
+    fileName: raw.fileName,
+    text: raw.text,
+    chunkSize,
+    currentPartIndex: raw.currentPartIndex,
+    source: raw.source,
+  });
+}
+
+export function resolveRecentDocumentPartsCandidate({ chatId, FileIntake }) {
+  const normalizedChatId = chatId ?? null;
+
+  const getDocumentReplyChunkSize =
+    typeof FileIntake?.getDocumentReplyChunkSize === "function"
+      ? FileIntake.getDocumentReplyChunkSize
+      : null;
+
+  const chunkSize = getDocumentReplyChunkSize
+    ? getDocumentReplyChunkSize()
+    : DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE;
+
+  const raw = resolveRecentDocumentRawCandidate({
+    chatId: normalizedChatId,
+    FileIntake,
+  });
+
+  if (!raw?.ok || !raw?.text) {
+    return null;
   }
 
-  const exportCandidate = getRecentDocumentExportCandidate(normalizedChatId);
-  if (exportCandidate?.text) {
-    return buildDetailedEstimate({
-      fileName:
-        exportCandidate?.meta?.fileName ||
-        exportCandidate?.meta?.title ||
-        exportCandidate?.baseName ||
-        "document",
-      text: exportCandidate.text,
-      chunkSize,
-      currentPartIndex: 0,
-      source: "recent_document_export_candidate",
-    });
-  }
+  const normalizedText = safeText(raw.text).trim();
+  const normalizedChunkSize = normalizeChunkSize(chunkSize);
+  const chunks = splitTextIntoChunks(normalizedText, normalizedChunkSize);
 
-  return null;
+  return {
+    ok: true,
+    fileName: raw.fileName,
+    source: raw.source,
+    chunkSize: normalizedChunkSize,
+    charCount: normalizedText.length,
+    chunkCount: chunks.length,
+    currentPartIndex: raw.currentPartIndex,
+    chunks,
+    estimate: buildDetailedEstimate({
+      fileName: raw.fileName,
+      text: normalizedText,
+      chunkSize: normalizedChunkSize,
+      currentPartIndex: raw.currentPartIndex,
+      source: raw.source,
+    }),
+  };
 }
 
 export default {
+  DEFAULT_DOCUMENT_REPLY_CHUNK_SIZE,
+  splitTextIntoChunks,
+  buildDetailedEstimate,
   resolveRecentDocumentEstimateCandidate,
+  resolveRecentDocumentPartsCandidate,
 };

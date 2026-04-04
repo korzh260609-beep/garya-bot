@@ -18,6 +18,7 @@
 // + pending clarification for estimate follow-up detail
 // + estimate correction / rebind to recent document
 // + document part request flow
+// + export guard against document-in-chat / estimate stealing
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -75,6 +76,7 @@ import { resolveDocumentEstimateClarification } from "./chat/documentEstimateCla
 import { resolveDocumentEstimateFollowUp } from "./chat/documentEstimateFollowUpResolver.js";
 import { resolveDocumentEstimateCorrection } from "./chat/documentEstimateCorrectionResolver.js";
 import { resolveDocumentPartRequest } from "./chat/documentPartRequestResolver.js";
+import { resolveDocumentFollowupIntent } from "./chat/documentFollowupIntentResolver.js";
 import { saveActiveDocumentContext } from "./chat/activeDocumentContextCache.js";
 import {
   saveActiveEstimateContext,
@@ -1303,6 +1305,7 @@ async function tryHandleRecentExport({
   callAI,
   chatIdStr,
   messageId,
+  FileIntake,
 }) {
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
@@ -1311,6 +1314,34 @@ async function tryHandleRecentExport({
   const recentAssistantReply = getRecentAssistantReplyExportCandidate(
     msg?.chat?.id ?? null
   );
+
+  if (recentDocument) {
+    const estimateCandidate = resolveRecentDocumentEstimateCandidate({
+      chatId: msg?.chat?.id ?? null,
+      FileIntake,
+    });
+
+    const estimateIntent = await resolveDocumentChatEstimateIntent({
+      callAI,
+      userText,
+      hasRecentDocument: Boolean(estimateCandidate?.ok),
+    });
+
+    if (estimateIntent?.isEstimateIntent) {
+      return { handled: false };
+    }
+
+    const documentFollowupIntent = await resolveDocumentFollowupIntent({
+      callAI,
+      userText,
+      hasRecentDocument: true,
+      hasAttachedDocument: false,
+    });
+
+    if (documentFollowupIntent?.isDocumentIntent) {
+      return { handled: false };
+    }
+  }
 
   const exportIntent = await resolveExportIntent({
     callAI,
@@ -1580,6 +1611,7 @@ export async function handleChatMessage({
     callAI,
     chatIdStr,
     messageId,
+    FileIntake,
   });
 
   if (exportResult?.handled) {

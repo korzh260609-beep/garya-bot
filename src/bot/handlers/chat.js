@@ -16,6 +16,7 @@
 // + active document export target cache
 // + active export source cache
 // + pending clarification for estimate follow-up detail
+// + estimate correction / rebind to recent document
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -68,6 +69,7 @@ import { resolveDocumentChatEstimateIntent } from "./chat/documentChatEstimateRe
 import { resolveRecentDocumentEstimateCandidate } from "./chat/documentEstimateBridge.js";
 import { resolveDocumentEstimateClarification } from "./chat/documentEstimateClarificationResolver.js";
 import { resolveDocumentEstimateFollowUp } from "./chat/documentEstimateFollowUpResolver.js";
+import { resolveDocumentEstimateCorrection } from "./chat/documentEstimateCorrectionResolver.js";
 import { saveActiveDocumentContext } from "./chat/activeDocumentContextCache.js";
 import {
   saveActiveEstimateContext,
@@ -824,6 +826,80 @@ async function continuePendingClarificationIfAny({
   return { handled: false };
 }
 
+async function tryHandleEstimateCorrection({
+  bot,
+  msg,
+  chatId,
+  trimmed,
+  FileIntake,
+  saveAssistantEarlyReturn,
+  callAI,
+  chatIdStr,
+  messageId,
+}) {
+  const userText = safeText(trimmed);
+  if (!userText) return { handled: false };
+
+  const activeEstimate = getActiveEstimateContext(msg?.chat?.id ?? null);
+  if (!activeEstimate?.estimate?.ok) {
+    return { handled: false };
+  }
+
+  const recentEstimateCandidate = resolveRecentDocumentEstimateCandidate({
+    chatId: msg?.chat?.id ?? null,
+    FileIntake,
+  });
+
+  if (!recentEstimateCandidate?.ok) {
+    return { handled: false };
+  }
+
+  const resolved = await resolveDocumentEstimateCorrection({
+    callAI,
+    userText,
+    currentEstimateFileName: activeEstimate?.estimate?.fileName || "",
+    recentDocumentFileName: recentEstimateCandidate?.fileName || "",
+    hasActiveEstimate: true,
+    hasRecentDocumentCandidate: true,
+  });
+
+  if (!resolved?.isEstimateCorrection) {
+    return { handled: false };
+  }
+
+  if (resolved?.needsClarification) {
+    const question =
+      safeText(resolved?.clarificationQuestion) ||
+      "Уточни, какой именно недавний документ нужно взять для оценки?";
+    await saveAssistantEarlyReturn(
+      question,
+      "document_estimate_correction_clarification"
+    );
+    await bot.sendMessage(chatId, question);
+    return { handled: true };
+  }
+
+  if (!resolved?.shouldRebindToRecentDocument) {
+    return { handled: false };
+  }
+
+  saveSuccessfulEstimateContext({
+    chatId: msg?.chat?.id ?? null,
+    estimate: recentEstimateCandidate,
+    chatIdStr,
+    messageId,
+    reason: "document_estimate_rebound_to_recent_document",
+  });
+
+  const text = buildEstimateReplyText(recentEstimateCandidate);
+  await saveAssistantEarlyReturn(text, "document_chat_estimate_rebound");
+  await bot.sendMessage(chatId, text);
+  return {
+    handled: true,
+    estimateSource: recentEstimateCandidate?.source || "unknown",
+  };
+}
+
 async function tryHandleActiveEstimateFollowUp({
   bot,
   msg,
@@ -1195,6 +1271,22 @@ export async function handleChatMessage({
     return;
   }
 
+  const estimateCorrectionResult = await tryHandleEstimateCorrection({
+    bot,
+    msg,
+    chatId,
+    trimmed,
+    FileIntake,
+    saveAssistantEarlyReturn,
+    callAI,
+    chatIdStr,
+    messageId,
+  });
+
+  if (estimateCorrectionResult?.handled) {
+    return;
+  }
+
   const exportResult = await tryHandleRecentExport({
     bot,
     msg,
@@ -1506,9 +1598,10 @@ export async function handleChatMessage({
     sourceKind: "assistant_reply",
     chatIdStr,
     messageId,
-    reason: mediaResponseMode && mediaResponseMode.startsWith("document_")
-      ? "document_mode_assistant_reply_saved"
-      : "ai_reply",
+    reason:
+      mediaResponseMode && mediaResponseMode.startsWith("document_")
+        ? "document_mode_assistant_reply_saved"
+        : "ai_reply",
   });
 
   if (mediaResponseMode === "document_summary_answer") {

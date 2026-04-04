@@ -10,6 +10,7 @@
 // + estimate fallback bridge for active document resolution
 // + pending clarification state for estimate-mode
 // + raw document hydration into output cache on every turn
+// + active document context cache
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -61,6 +62,7 @@ import {
 import { resolveDocumentChatEstimateIntent } from "./chat/documentChatEstimateResolver.js";
 import { resolveRecentDocumentEstimateCandidate } from "./chat/documentEstimateBridge.js";
 import { resolveDocumentEstimateClarification } from "./chat/documentEstimateClarificationResolver.js";
+import { saveActiveDocumentContext } from "./chat/activeDocumentContextCache.js";
 
 function safeText(value) {
   if (value === null || value === undefined) return "";
@@ -105,7 +107,7 @@ function isDocumentRelatedSourceKind(value) {
   return src === "document";
 }
 
-function hydrateRecentRuntimeDocumentIntoOutputCache({
+function hydrateRecentRuntimeDocumentIntoCaches({
   chatId,
   chatIdStr,
   messageId,
@@ -132,6 +134,18 @@ function hydrateRecentRuntimeDocumentIntoOutputCache({
       source: "document_runtime_text_hydrated",
       fileName: recentRuntimeDocument?.fileName || null,
       title: recentRuntimeDocument?.title || null,
+      chatIdStr,
+      messageId,
+    },
+  });
+
+  saveActiveDocumentContext({
+    chatId,
+    fileName: recentRuntimeDocument?.fileName || "",
+    title: recentRuntimeDocument?.title || "",
+    text: recentRuntimeDocument?.text || "",
+    source: "runtime_document_session",
+    meta: {
       chatIdStr,
       messageId,
     },
@@ -223,6 +237,17 @@ function buildEstimateReplyText(estimate) {
   const chunkSize = Number(estimate?.chunkSize || 0);
   const parts = Array.isArray(estimate?.parts) ? estimate.parts : [];
 
+  const approxInputTokens = Math.ceil(charCount / 4);
+  const largestPart = parts.reduce(
+    (max, part) => {
+      const current = Number(part?.charCount || 0);
+      return current > max.charCount
+        ? { partNumber: Number(part?.partNumber || 0), charCount: current }
+        : max;
+    },
+    { partNumber: 0, charCount: 0 }
+  );
+
   const lines = [];
 
   if (chunkCount <= 1) {
@@ -239,6 +264,19 @@ function buildEstimateReplyText(estimate) {
     lines.push(
       `Основа оценки: около ${charCount} символов текста при лимите ~${chunkSize} символов на часть.`
     );
+    lines.push(`Это примерно ~${approxInputTokens} токенов текста.`);
+  }
+
+  if (largestPart.charCount > 0) {
+    lines.push(
+      `Самая большая часть: №${largestPart.partNumber}, около ${largestPart.charCount} символов.`
+    );
+  }
+
+  if (chunkCount <= 2) {
+    lines.push(`Практичнее вывести в чат.`);
+  } else {
+    lines.push(`Практичнее отдать файлом, а не длинной серией сообщений.`);
   }
 
   if (parts.length > 0) {
@@ -729,7 +767,7 @@ export async function handleChatMessage({
       memoryWrite,
     });
 
-  hydrateRecentRuntimeDocumentIntoOutputCache({
+  hydrateRecentRuntimeDocumentIntoCaches({
     chatId,
     chatIdStr,
     messageId,
@@ -1066,19 +1104,34 @@ export async function handleChatMessage({
         ? FileIntake.getRecentDocumentSessionCache(chatId)
         : null;
 
+    const rawDocumentText = recentRuntimeDocument?.text || effective;
+    const rawDocumentFileName =
+      recentRuntimeDocument?.fileName || recentRuntimeDocument?.title || "document_context";
+
     saveRecentDocumentForExport({
       chatId,
-      text: recentRuntimeDocument?.text || effective,
-      baseName:
-        recentRuntimeDocument?.fileName ||
-        recentRuntimeDocument?.title ||
-        "document_context",
+      text: rawDocumentText,
+      baseName: rawDocumentFileName,
       meta: {
         source: recentRuntimeDocument?.text
           ? "document_runtime_text"
           : "document_effective_context",
         fileName: recentRuntimeDocument?.fileName || null,
         title: recentRuntimeDocument?.title || null,
+        chatIdStr,
+        messageId,
+      },
+    });
+
+    saveActiveDocumentContext({
+      chatId,
+      fileName: recentRuntimeDocument?.fileName || "",
+      title: recentRuntimeDocument?.title || "",
+      text: rawDocumentText,
+      source: recentRuntimeDocument?.text
+        ? "document_runtime_text"
+        : "document_effective_context",
+      meta: {
         chatIdStr,
         messageId,
       },

@@ -4,6 +4,7 @@ import { resolveFileIntakeDecision } from "./fileIntakeDecision.js";
 import { continuePendingClarificationIfAny } from "./chatPendingClarificationFlow.js";
 import { tryHandleEstimateCorrection } from "./chatEstimateCorrectionFlow.js";
 import { tryHandleDocumentPartRequest } from "./chatDocumentPartFlow.js";
+import { tryHandleDocumentPartSummaryRequest } from "./chatDocumentPartSummaryFlow.js";
 import { tryHandleActiveEstimateFollowUp } from "./chatEstimateFollowupFlow.js";
 import { tryHandleDocumentChatEstimate } from "./chatDocumentEstimateFlow.js";
 import { tryHandleRecentExport } from "./chatRecentExportFlow.js";
@@ -69,6 +70,22 @@ export async function runChatPreAiRouting({
   });
 
   if (documentPartRequestResult?.handled) {
+    return { handled: true };
+  }
+
+  const documentPartSummaryResult = await tryHandleDocumentPartSummaryRequest({
+    bot,
+    msg,
+    chatId,
+    trimmed,
+    FileIntake,
+    saveAssistantEarlyReturn,
+    callAI,
+    chatIdStr,
+    messageId,
+  });
+
+  if (documentPartSummaryResult?.handled) {
     return { handled: true };
   }
 

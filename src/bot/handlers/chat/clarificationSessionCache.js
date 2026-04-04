@@ -7,6 +7,7 @@
 //   1) export_source
 //   2) document_export_target
 //   3) document_estimate_source
+//   4) document_estimate_followup_detail
 // - no DB
 // - no AI
 // ============================================================================
@@ -33,6 +34,9 @@ function normalizeKind(value) {
   if (src === "export_source") return "export_source";
   if (src === "document_export_target") return "document_export_target";
   if (src === "document_estimate_source") return "document_estimate_source";
+  if (src === "document_estimate_followup_detail") {
+    return "document_estimate_followup_detail";
+  }
 
   return "";
 }

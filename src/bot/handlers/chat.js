@@ -9,6 +9,7 @@
 // + semantic document chat split estimate
 // + estimate fallback bridge for active document resolution
 // + pending clarification state for estimate-mode
+// + raw document hydration into output cache on every turn
 
 import pool from "../../../db.js";
 import { getMemoryService } from "../../core/memoryServiceFactory.js";
@@ -102,6 +103,41 @@ function normalizePreferredExportKind(value) {
 function isDocumentRelatedSourceKind(value) {
   const src = safeText(value).toLowerCase();
   return src === "document";
+}
+
+function hydrateRecentRuntimeDocumentIntoOutputCache({
+  chatId,
+  chatIdStr,
+  messageId,
+  FileIntake,
+}) {
+  const getRecentDocumentSessionCache =
+    typeof FileIntake?.getRecentDocumentSessionCache === "function"
+      ? FileIntake.getRecentDocumentSessionCache
+      : null;
+
+  if (!getRecentDocumentSessionCache) return null;
+
+  const recentRuntimeDocument = getRecentDocumentSessionCache(chatId);
+  if (!recentRuntimeDocument?.text) return null;
+
+  saveRecentDocumentForExport({
+    chatId,
+    text: recentRuntimeDocument.text,
+    baseName:
+      recentRuntimeDocument?.fileName ||
+      recentRuntimeDocument?.title ||
+      "document_context",
+    meta: {
+      source: "document_runtime_text_hydrated",
+      fileName: recentRuntimeDocument?.fileName || null,
+      title: recentRuntimeDocument?.title || null,
+      chatIdStr,
+      messageId,
+    },
+  });
+
+  return recentRuntimeDocument;
 }
 
 function buildCreatedExportFile({
@@ -469,33 +505,22 @@ async function tryHandleDocumentChatEstimate({
   const userText = safeText(trimmed);
   if (!userText) return { handled: false };
 
-  const getRecentDocumentSessionCache =
-    typeof FileIntake?.getRecentDocumentSessionCache === "function"
-      ? FileIntake.getRecentDocumentSessionCache
-      : null;
-
-  if (!getRecentDocumentSessionCache) {
-    return { handled: false };
-  }
-
-  const recentDocument = getRecentDocumentSessionCache(msg?.chat?.id ?? null);
+  const currentEstimateCandidate = resolveRecentDocumentEstimateCandidate({
+    chatId: msg?.chat?.id ?? null,
+    FileIntake,
+  });
 
   const estimateIntent = await resolveDocumentChatEstimateIntent({
     callAI,
     userText,
-    hasRecentDocument: Boolean(recentDocument),
+    hasRecentDocument: Boolean(currentEstimateCandidate?.ok),
   });
 
   if (!estimateIntent?.isEstimateIntent) {
     return { handled: false };
   }
 
-  const estimate = resolveRecentDocumentEstimateCandidate({
-    chatId: msg?.chat?.id ?? null,
-    FileIntake,
-  });
-
-  if (!estimate?.ok) {
+  if (!currentEstimateCandidate?.ok) {
     const question = "О каком недавнем документе идёт речь?";
     savePendingClarification({
       chatId: msg?.chat?.id ?? null,
@@ -508,13 +533,13 @@ async function tryHandleDocumentChatEstimate({
     return { handled: true };
   }
 
-  const text = buildEstimateReplyText(estimate);
+  const text = buildEstimateReplyText(currentEstimateCandidate);
 
   await saveAssistantEarlyReturn(text, "document_chat_estimate");
   await bot.sendMessage(chatId, text);
   return {
     handled: true,
-    estimateSource: estimate?.source || "unknown",
+    estimateSource: currentEstimateCandidate?.source || "unknown",
   };
 }
 
@@ -703,6 +728,13 @@ export async function handleChatMessage({
       msg,
       memoryWrite,
     });
+
+  hydrateRecentRuntimeDocumentIntoOutputCache({
+    chatId,
+    chatIdStr,
+    messageId,
+    FileIntake,
+  });
 
   const clarificationResult = await continuePendingClarificationIfAny({
     bot,

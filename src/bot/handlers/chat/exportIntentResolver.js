@@ -113,7 +113,7 @@ export async function resolveExportIntent({
         '  "reason": string\n' +
         "}\n\n" +
         "Rules:\n" +
-        "- isExportIntent=true only if the user is actually asking to get content as a file/document/export.\n" +
+        "- isExportIntent=true only if the user really wants a FILE to be created/sent/exported.\n" +
         "- sourceKind=document if the user clearly refers to uploaded/read document content.\n" +
         "- sourceKind=assistant_reply if the user clearly refers to the assistant's answer/reply/result.\n" +
         "- sourceKind=auto if export is intended but source is not explicit.\n" +
@@ -121,6 +121,8 @@ export async function resolveExportIntent({
         "- format=auto unless the user meaning clearly indicates txt/md/pdf/docx.\n" +
         "- needsClarification=true only when export intent is present but source or target is too ambiguous.\n" +
         "- clarificationQuestion must be one short neutral question in Russian.\n" +
+        "- If the user asks to SHOW text IN CHAT, OUTPUT text HERE, CONTINUE in chat, count chat parts, or give document text directly in messages, that is NOT export.\n" +
+        "- If the user asks for document summary/full text/current part in chat, that is NOT export.\n" +
         "- If the request is not about export, set isExportIntent=false and needsClarification=false.\n" +
         "- Do not explain. JSON only.",
     },

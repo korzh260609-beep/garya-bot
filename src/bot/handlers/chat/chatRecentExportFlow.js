@@ -28,6 +28,87 @@ import {
   sendCreatedExportFile,
 } from "./chatExportFlow.js";
 
+function normalizeSemanticText(value) {
+  return safeText(value)
+    .toLowerCase()
+    .replace(/[ё]/g, "е")
+    .replace(/[’']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasAnyStem(text, stems = []) {
+  return stems.some((stem) => text.includes(stem));
+}
+
+function looksLikeExplicitFileExportRequest(userText) {
+  const normalized = normalizeSemanticText(userText);
+  if (!normalized) return false;
+
+  const mentionsFormat = hasAnyStem(normalized, [
+    " txt",
+    "txt ",
+    " pdf",
+    "pdf ",
+    " docx",
+    "docx ",
+    " md",
+    "md ",
+    "markdown",
+    "в формате",
+    "format",
+  ]);
+
+  const mentionsFileTarget = hasAnyStem(normalized, [
+    "файл",
+    "файлом",
+    "документом",
+    "документ",
+    "document",
+  ]);
+
+  const exportMeaning = hasAnyStem(normalized, [
+    "экспорт",
+    "сохран",
+    "скача",
+    "выгруз",
+    "отправ",
+    "пришли",
+    "вышли",
+    "выдай",
+    "отдай",
+    "сделай файл",
+    "сделай txt",
+    "сделай pdf",
+    "переделай",
+    "преобраз",
+    "конверт",
+    "convert",
+    "export",
+  ]);
+
+  const wholeDocumentMeaning = hasAnyStem(normalized, [
+    "весь файл",
+    "весь документ",
+    "полный файл",
+    "полный документ",
+    "целиком файл",
+    "целиком документ",
+    "whole file",
+    "full document",
+  ]);
+
+  if ((mentionsFormat || mentionsFileTarget) && exportMeaning) {
+    return true;
+  }
+
+  if (wholeDocumentMeaning && mentionsFormat) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function tryHandleRecentExport({
   bot,
   msg,
@@ -47,7 +128,9 @@ export async function tryHandleRecentExport({
     msg?.chat?.id ?? null
   );
 
-  if (recentDocument) {
+  const explicitFileExportRequest = looksLikeExplicitFileExportRequest(userText);
+
+  if (recentDocument && !explicitFileExportRequest) {
     const estimateCandidate = resolveRecentDocumentEstimateCandidate({
       chatId: msg?.chat?.id ?? null,
       FileIntake,

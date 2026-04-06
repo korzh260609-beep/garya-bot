@@ -21,7 +21,7 @@ export function bootstrapChatHandler({
   const monarchNow =
     typeof isMonarch === "function" ? isMonarch(senderIdStr) : false;
 
-  const { memory, memoryWrite, memoryWritePair } = createChatMemoryBridge({
+  const { memory, memoryWrite } = createChatMemoryBridge({
     chatIdStr,
     globalUserId,
     saveMessageToMemory,
@@ -52,7 +52,6 @@ export function bootstrapChatHandler({
     monarchNow,
     memory,
     memoryWrite,
-    memoryWritePair,
     insertAssistantReply,
     saveAssistantEarlyReturn,
   };

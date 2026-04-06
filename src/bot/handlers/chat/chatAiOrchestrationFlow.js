@@ -256,9 +256,9 @@ export async function runChatAiOrchestration({
 
   await insertAssistantReply(aiReply, { stage: "final" });
 
-  await memoryWritePair({
-    userText: effective,
-    assistantText: aiReply,
+  await memoryWrite({
+    role: "assistant",
+    content: aiReply,
     transport: "telegram",
     metadata: {
       ...senderMemoryMeta,

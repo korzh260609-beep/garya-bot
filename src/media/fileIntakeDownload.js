@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import { fetchWithTimeout } from "../core/fetchWithTimeout.js";
 import {
+  TMP_DIR,
   ensureTmpDir,
   makeMeta,
   pushLog,
@@ -41,7 +42,7 @@ export async function downloadTelegramFile(botToken, fileId) {
 
   const fileUrl = `https://api.telegram.org/file/bot${botToken}/${telegramPath}`;
   const fileName = path.basename(telegramPath);
-  const localPath = path.join(path.resolve(process.cwd(), "tmp", "media"), fileName);
+  const localPath = path.join(TMP_DIR, fileName);
 
   const fileRes = await fetchWithTimeout(fileUrl, { method: "GET" }, 12000);
   if (!fileRes.ok) throw new Error("File download failed");

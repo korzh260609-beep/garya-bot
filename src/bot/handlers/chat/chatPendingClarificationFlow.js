@@ -41,7 +41,7 @@ import {
   sendCreatedExportFile,
 } from "./chatExportFlow.js";
 import {
-  buildEstimateReplyText,
+  buildEstimateReplyTextByFocus,
   buildEstimateFollowUpReplyText,
   saveSuccessfulEstimateContext,
 } from "./chatEstimateReplies.js";
@@ -432,7 +432,7 @@ export async function continuePendingClarificationIfAny({
       reason: "document_estimate_clarification_resolved",
     });
 
-    const text = buildEstimateReplyText(estimate);
+    const text = buildEstimateReplyTextByFocus(estimate, userText);
     await saveAssistantEarlyReturn(text, "document_chat_estimate");
     await bot.sendMessage(chatId, text);
     return { handled: true };

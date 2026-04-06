@@ -5,6 +5,8 @@
 // - detect whether the user follow-up refers to the LAST estimate result
 // - semantic-only continuation, no exact phrase binding in app logic
 // - decide what part of estimate the user asks about
+// - handle scope questions:
+//   "is this about the whole document or only one part?"
 // ============================================================================
 
 function safeText(value) {
@@ -54,6 +56,7 @@ function normalizeFocus(value) {
   if (src === "file_vs_chat") return "file_vs_chat";
   if (src === "chunk_count") return "chunk_count";
   if (src === "parts_overview") return "parts_overview";
+  if (src === "whole_document_scope") return "whole_document_scope";
   if (src === "general_estimate") return "general_estimate";
 
   return "general_estimate";
@@ -115,7 +118,7 @@ export async function resolveDocumentEstimateFollowUp({
         "Schema:\n" +
         "{\n" +
         '  "isFollowUpToLastEstimate": boolean,\n' +
-        '  "requestedFocus": "tokens" | "chars" | "largest_part" | "file_vs_chat" | "chunk_count" | "parts_overview" | "general_estimate",\n' +
+        '  "requestedFocus": "tokens" | "chars" | "largest_part" | "file_vs_chat" | "chunk_count" | "parts_overview" | "whole_document_scope" | "general_estimate",\n' +
         '  "needsClarification": boolean,\n' +
         '  "clarificationQuestion": string,\n' +
         '  "confidence": number,\n' +
@@ -129,6 +132,7 @@ export async function resolveDocumentEstimateFollowUp({
         "- requestedFocus=file_vs_chat when asking what is better: file or chat output.\n" +
         "- requestedFocus=chunk_count when asking how many parts/messages.\n" +
         "- requestedFocus=parts_overview when asking about parts in general.\n" +
+        "- requestedFocus=whole_document_scope when the user asks whether the estimate/tokens/chars apply to the whole document, the full text, all parts together, or only a fragment/one part.\n" +
         "- requestedFocus=general_estimate for general continuation about the same estimate.\n" +
         "- Do NOT classify as estimate follow-up if the user asks for the ACTUAL TEXT of a specific part.\n" +
         "- Do NOT classify as estimate follow-up if the user asks WHAT A SPECIFIC PART IS ABOUT or requests a short summary/description of a specific part.\n" +
@@ -153,7 +157,7 @@ export async function resolveDocumentEstimateFollowUp({
 
   try {
     const raw = await callAI(messages, "low", {
-      max_completion_tokens: 180,
+      max_completion_tokens: 200,
       temperature: 0.1,
     });
 

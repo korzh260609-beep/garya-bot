@@ -166,7 +166,7 @@ export async function runChatAiOrchestration({
     aiCostLevel: classification.aiCostLevel,
   });
 
-  const { messages } = buildChatMessages({
+  const { messages, promptBlockDiagnostics } = buildChatMessages({
     buildSystemPrompt,
     answerMode,
     projectCtx: guardedProjectCtx,
@@ -215,6 +215,7 @@ export async function runChatAiOrchestration({
 
     ...behaviorSnapshot,
     ...inputGuardMeta,
+    ...promptBlockDiagnostics,
   };
 
   const { aiReply } = await executeChatAI({

@@ -13,6 +13,20 @@ import {
   saveDocumentExportTargetContext,
 } from "./chatContextCacheHelpers.js";
 
+function buildRecentRuntimeDocumentMeta({
+  recentRuntimeDocument,
+  chatIdStr,
+  messageId,
+}) {
+  return {
+    originalFileName: recentRuntimeDocument?.fileName || null,
+    fileName: recentRuntimeDocument?.fileName || null,
+    title: recentRuntimeDocument?.title || null,
+    chatIdStr,
+    messageId,
+  };
+}
+
 export function handlePostAiExportPersistence({
   chatId,
   aiReply,
@@ -23,6 +37,19 @@ export function handlePostAiExportPersistence({
   FileIntake,
   effective,
 }) {
+  const recentRuntimeDocument =
+    mediaResponseMode && mediaResponseMode.startsWith("document_")
+      ? typeof FileIntake?.getRecentDocumentSessionCache === "function"
+        ? FileIntake.getRecentDocumentSessionCache(chatId)
+        : null
+      : null;
+
+  const runtimeDocumentMeta = buildRecentRuntimeDocumentMeta({
+    recentRuntimeDocument,
+    chatIdStr,
+    messageId,
+  });
+
   saveRecentAssistantReplyForExport({
     chatId,
     text: aiReply,
@@ -33,6 +60,9 @@ export function handlePostAiExportPersistence({
       messageId,
       answerMode,
       mediaResponseMode: mediaResponseMode || null,
+      originalFileName: runtimeDocumentMeta.originalFileName,
+      fileName: runtimeDocumentMeta.fileName,
+      title: runtimeDocumentMeta.title,
     },
   });
 
@@ -54,8 +84,7 @@ export function handlePostAiExportPersistence({
       baseName: "document_summary",
       meta: {
         source: "document_summary_answer",
-        chatIdStr,
-        messageId,
+        ...runtimeDocumentMeta,
       },
     });
 
@@ -65,8 +94,7 @@ export function handlePostAiExportPersistence({
       baseName: "document_answer",
       meta: {
         source: "assistant_answer_about_document",
-        chatIdStr,
-        messageId,
+        ...runtimeDocumentMeta,
       },
     });
 
@@ -94,8 +122,17 @@ export function handlePostAiExportPersistence({
       baseName: "document_part",
       meta: {
         source: "document_current_part",
-        chatIdStr,
-        messageId,
+        ...runtimeDocumentMeta,
+      },
+    });
+
+    saveRecentAssistantAnswerAboutDocumentForExport({
+      chatId,
+      text: aiReply,
+      baseName: "document_answer",
+      meta: {
+        source: "assistant_answer_about_document",
+        ...runtimeDocumentMeta,
       },
     });
 
@@ -117,11 +154,6 @@ export function handlePostAiExportPersistence({
   }
 
   if (mediaResponseMode && mediaResponseMode.startsWith("document_")) {
-    const recentRuntimeDocument =
-      typeof FileIntake?.getRecentDocumentSessionCache === "function"
-        ? FileIntake.getRecentDocumentSessionCache(chatId)
-        : null;
-
     const rawDocumentText = recentRuntimeDocument?.text || effective;
     const rawDocumentFileName =
       recentRuntimeDocument?.fileName ||
@@ -136,6 +168,7 @@ export function handlePostAiExportPersistence({
         source: recentRuntimeDocument?.text
           ? "document_runtime_text"
           : "document_effective_context",
+        originalFileName: recentRuntimeDocument?.fileName || null,
         fileName: recentRuntimeDocument?.fileName || null,
         title: recentRuntimeDocument?.title || null,
         chatIdStr,

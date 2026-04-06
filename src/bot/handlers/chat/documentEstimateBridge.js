@@ -91,6 +91,69 @@ function findLastStringBoundary(src, fromIndex, minIndex, token) {
   return idx + token.length;
 }
 
+function isStrongBoundaryChar(ch = "") {
+  return /[.!?…]/.test(ch);
+}
+
+function isWeakTrailingEnding(text = "") {
+  const src = safeText(text).trim();
+  if (!src) return false;
+
+  const lastChar = src[src.length - 1] || "";
+  if (isStrongBoundaryChar(lastChar)) return false;
+  if (lastChar === '"' || lastChar === "'" || lastChar === "”" || lastChar === "»") {
+    const before = src[src.length - 2] || "";
+    if (isStrongBoundaryChar(before)) return false;
+  }
+
+  return /[,:;\-–—(]$/.test(src) || /[A-Za-zА-Яа-яІіЇїЄєҐґ0-9]$/.test(lastChar);
+}
+
+function tryExtendToBetterBoundary(src, hardEnd, forwardLimit) {
+  const safeHardEnd = clamp(Number(hardEnd || 0), 0, src.length);
+  const safeForwardLimit = clamp(Number(forwardLimit || 0), safeHardEnd, src.length);
+
+  if (safeHardEnd >= src.length) return src.length;
+  if (safeForwardLimit <= safeHardEnd) return -1;
+
+  const currentTail = src.slice(Math.max(0, safeHardEnd - 80), safeHardEnd);
+  if (!isWeakTrailingEnding(currentTail)) {
+    return -1;
+  }
+
+  const paragraphBoundaryRegex = /\n\s*\n+/g;
+  const sentenceBoundaryRegex = /[.!?…](?:["»”')\]]*)\s+/g;
+  const newlineBoundaryRegex = /\n+/g;
+
+  let splitAt = -1;
+
+  splitAt = findFirstRegexBoundary(
+    src,
+    safeHardEnd,
+    safeForwardLimit,
+    paragraphBoundaryRegex
+  );
+  if (splitAt > safeHardEnd) return splitAt;
+
+  splitAt = findFirstRegexBoundary(
+    src,
+    safeHardEnd,
+    safeForwardLimit,
+    sentenceBoundaryRegex
+  );
+  if (splitAt > safeHardEnd) return splitAt;
+
+  splitAt = findFirstRegexBoundary(
+    src,
+    safeHardEnd,
+    safeForwardLimit,
+    newlineBoundaryRegex
+  );
+  if (splitAt > safeHardEnd) return splitAt;
+
+  return -1;
+}
+
 function findBestSplitIndex(src, start, chunkSize) {
   const hardEnd = Math.min(start + chunkSize, src.length);
   if (hardEnd >= src.length) {
@@ -101,11 +164,12 @@ function findBestSplitIndex(src, start, chunkSize) {
   const minSplitIndex = Math.min(start + minChunkLength, hardEnd);
 
   const backwardParagraphWindow = Math.max(start, hardEnd - 1200);
-  const backwardSentenceWindow = Math.max(start, hardEnd - 500);
+  const backwardSentenceWindow = Math.max(start, hardEnd - 650);
   const backwardLineWindow = Math.max(start, hardEnd - 700);
   const backwardSpaceWindow = Math.max(start, hardEnd - 220);
 
   const forwardSoftLimit = Math.min(src.length, hardEnd + 140);
+  const forwardSentenceRescueLimit = Math.min(src.length, hardEnd + 260);
 
   const paragraphBoundaryRegex = /\n\s*\n+/g;
   const numberedLineBoundaryRegex =
@@ -173,7 +237,11 @@ function findBestSplitIndex(src, start, chunkSize) {
     Math.max(minSplitIndex, backwardSpaceWindow),
     " "
   );
-  if (splitAt > start) return splitAt;
+  if (splitAt > start) {
+    const rescued = tryExtendToBetterBoundary(src, splitAt, forwardSentenceRescueLimit);
+    if (rescued > splitAt) return rescued;
+    return splitAt;
+  }
 
   splitAt = findLastRegexBoundary(
     src,
@@ -181,6 +249,13 @@ function findBestSplitIndex(src, start, chunkSize) {
     Math.max(minSplitIndex, backwardSpaceWindow),
     spaceBoundaryRegex
   );
+  if (splitAt > start) {
+    const rescued = tryExtendToBetterBoundary(src, splitAt, forwardSentenceRescueLimit);
+    if (rescued > splitAt) return rescued;
+    return splitAt;
+  }
+
+  splitAt = tryExtendToBetterBoundary(src, hardEnd, forwardSentenceRescueLimit);
   if (splitAt > start) return splitAt;
 
   return hardEnd;

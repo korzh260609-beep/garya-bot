@@ -3,14 +3,14 @@
 import { saveActiveEstimateContext } from "./activeEstimateContextCache.js";
 import { safeText } from "./chatShared.js";
 
-export function buildEstimateReplyText(estimate) {
+function getEstimateMeta(estimate) {
   const fileName = safeText(estimate?.fileName || "document");
   const chunkCount = Number(estimate?.chunkCount || 0);
   const charCount = Number(estimate?.charCount || 0);
   const chunkSize = Number(estimate?.chunkSize || 0);
+  const approxInputTokens = Math.ceil(charCount / 4);
   const parts = Array.isArray(estimate?.parts) ? estimate.parts : [];
 
-  const approxInputTokens = Math.ceil(charCount / 4);
   const largestPart = parts.reduce(
     (max, part) => {
       const current = Number(part?.charCount || 0);
@@ -21,59 +21,25 @@ export function buildEstimateReplyText(estimate) {
     { partNumber: 0, charCount: 0 }
   );
 
-  const lines = [];
+  return {
+    fileName,
+    chunkCount,
+    charCount,
+    chunkSize,
+    approxInputTokens,
+    parts,
+    largestPart,
+  };
+}
+
+export function buildEstimateReplyText(estimate) {
+  const { fileName, chunkCount } = getEstimateMeta(estimate);
 
   if (chunkCount <= 1) {
-    lines.push(
-      `Если вывести ${fileName} в чат, он поместится примерно в 1 сообщение.`
-    );
-  } else {
-    lines.push(
-      `Если вывести ${fileName} в чат, получится примерно ${chunkCount} частей.`
-    );
+    return `Если вывести ${fileName} в чат, он поместится примерно в 1 сообщение.`;
   }
 
-  if (chunkSize > 0 && charCount > 0) {
-    lines.push(
-      `Основа оценки: около ${charCount} символов текста при лимите ~${chunkSize} символов на часть.`
-    );
-    lines.push(`Это примерно ~${approxInputTokens} токенов текста.`);
-  }
-
-  if (largestPart.charCount > 0) {
-    lines.push(
-      `Самая большая часть: №${largestPart.partNumber}, около ${largestPart.charCount} символов.`
-    );
-  }
-
-  if (chunkCount <= 2) {
-    lines.push(`Практичнее вывести в чат.`);
-  } else {
-    lines.push(`Практичнее отдать файлом, а не длинной серией сообщений.`);
-  }
-
-  if (parts.length > 0) {
-    lines.push("");
-    lines.push("Примерно по частям:");
-
-    for (const part of parts.slice(0, 6)) {
-      const partNumber = Number(part?.partNumber || 0);
-      const partCharCount = Number(part?.charCount || 0);
-      const startsWith = safeText(part?.startsWith || "");
-
-      let line = `- Часть ${partNumber}: ~${partCharCount} символов`;
-      if (startsWith) {
-        line += `, начинается с: "${startsWith}"`;
-      }
-      lines.push(line);
-    }
-
-    if (parts.length > 6) {
-      lines.push(`- ... ещё ${parts.length - 6} частей`);
-    }
-  }
-
-  return lines.join("\n").trim();
+  return `Если вывести ${fileName} в чат, получится примерно ${chunkCount} частей.`;
 }
 
 export function buildEstimateFollowUpReplyText(
@@ -83,22 +49,15 @@ export function buildEstimateFollowUpReplyText(
   const estimate = record?.estimate || null;
   if (!estimate) return "";
 
-  const fileName = safeText(estimate?.fileName || "document");
-  const chunkCount = Number(estimate?.chunkCount || 0);
-  const charCount = Number(estimate?.charCount || 0);
-  const chunkSize = Number(estimate?.chunkSize || 0);
-  const approxInputTokens = Math.ceil(charCount / 4);
-  const parts = Array.isArray(estimate?.parts) ? estimate.parts : [];
-
-  const largestPart = parts.reduce(
-    (max, part) => {
-      const current = Number(part?.charCount || 0);
-      return current > max.charCount
-        ? { partNumber: Number(part?.partNumber || 0), charCount: current }
-        : max;
-    },
-    { partNumber: 0, charCount: 0 }
-  );
+  const {
+    fileName,
+    chunkCount,
+    charCount,
+    chunkSize,
+    approxInputTokens,
+    parts,
+    largestPart,
+  } = getEstimateMeta(estimate);
 
   if (requestedFocus === "tokens") {
     return `Для ${fileName} это примерно ~${approxInputTokens} токенов текста. Оценка грубая: считаю примерно 1 токен ≈ 4 символа.`;

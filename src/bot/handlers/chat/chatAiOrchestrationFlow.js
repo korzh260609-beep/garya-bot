@@ -61,7 +61,6 @@ export async function runChatAiOrchestration({
 
   memory,
   memoryWrite,
-  memoryWritePair,
   insertAssistantReply,
   saveAssistantEarlyReturn,
 

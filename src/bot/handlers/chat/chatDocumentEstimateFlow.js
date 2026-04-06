@@ -5,7 +5,7 @@ import { resolveRecentDocumentEstimateCandidate } from "./documentEstimateBridge
 import { savePendingClarification } from "./clarificationSessionCache.js";
 import { safeText } from "./chatShared.js";
 import {
-  buildEstimateReplyText,
+  buildEstimateReplyTextByFocus,
   saveSuccessfulEstimateContext,
 } from "./chatEstimateReplies.js";
 
@@ -146,7 +146,7 @@ export async function tryHandleDocumentChatEstimate({
     reason: "document_chat_estimate_direct",
   });
 
-  const text = buildEstimateReplyText(currentEstimateCandidate);
+  const text = buildEstimateReplyTextByFocus(currentEstimateCandidate, userText);
 
   await saveAssistantEarlyReturn(text, "document_chat_estimate");
   await bot.sendMessage(chatId, text);

@@ -12,15 +12,44 @@ function stripTrailingExtensionPreserveStem(value) {
   return src.replace(/\.[a-z0-9]{1,10}$/i, "").trim();
 }
 
-function resolvePreferredExportBaseName(recentExportCandidate) {
-  const originalFileName =
+function resolveOriginalDocumentNameCandidate(recentExportCandidate) {
+  return (
+    safeText(recentExportCandidate?.meta?.originalFileName) ||
     safeText(recentExportCandidate?.meta?.fileName) ||
-    safeText(recentExportCandidate?.meta?.title);
+    safeText(recentExportCandidate?.meta?.title)
+  );
+}
 
-  if (originalFileName) {
-    const stem = stripTrailingExtensionPreserveStem(originalFileName);
-    const normalized = normalizeFileBaseName(stem);
-    if (normalized) return normalized;
+function resolveExportSuffix(recentExportCandidate) {
+  const kind = safeText(recentExportCandidate?.kind).toLowerCase();
+
+  if (kind === "document_summary") return "summary";
+  if (kind === "document_current_part") return "part";
+  if (kind === "document_assistant_answer") return "answer";
+
+  return "";
+}
+
+function buildExportBaseNameFromOriginalDocument(recentExportCandidate) {
+  const originalName = resolveOriginalDocumentNameCandidate(recentExportCandidate);
+  if (!originalName) return "";
+
+  const stem = stripTrailingExtensionPreserveStem(originalName);
+  const normalizedStem = normalizeFileBaseName(stem);
+  if (!normalizedStem) return "";
+
+  const suffix = resolveExportSuffix(recentExportCandidate);
+  if (!suffix) return normalizedStem;
+
+  return normalizeFileBaseName(`${normalizedStem}_${suffix}`);
+}
+
+function resolvePreferredExportBaseName(recentExportCandidate) {
+  const originalDocumentBasedName =
+    buildExportBaseNameFromOriginalDocument(recentExportCandidate);
+
+  if (originalDocumentBasedName) {
+    return originalDocumentBasedName;
   }
 
   const candidateBaseName = normalizeFileBaseName(

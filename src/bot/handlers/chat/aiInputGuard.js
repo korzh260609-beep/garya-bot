@@ -22,8 +22,8 @@ function truncateText(value, maxChars, suffix = "\n...[truncated]") {
 }
 
 export const CHAT_AI_INPUT_LIMITS = {
-  projectCtxChars: 900,
-  recallCtxChars: 800,
+  projectCtxChars: 500,
+  recallCtxChars: 400,
   historyMessagesMax: 2,
   historyMessageChars: 300,
   userTextChars: 6000,

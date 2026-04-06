@@ -30,6 +30,13 @@ function resolveExportSuffix(recentExportCandidate) {
   return "";
 }
 
+function looksLikeTelegramTempName(value) {
+  const src = safeText(value).trim().toLowerCase();
+  if (!src) return false;
+
+  return /^file[_-]?\d+$/i.test(src) || /^file[_-]?\d+\.[a-z0-9]{1,10}$/i.test(src);
+}
+
 function buildExportBaseNameFromOriginalDocument(recentExportCandidate) {
   const originalName = resolveOriginalDocumentNameCandidate(recentExportCandidate);
   if (!originalName) return "";
@@ -52,13 +59,20 @@ function resolvePreferredExportBaseName(recentExportCandidate) {
     return originalDocumentBasedName;
   }
 
-  const candidateBaseName = normalizeFileBaseName(
-    recentExportCandidate?.baseName ||
-      (recentExportCandidate?.kind === "document" ? "document" : "assistant_reply")
+  const rawBaseName = safeText(recentExportCandidate?.baseName);
+  if (rawBaseName && !looksLikeTelegramTempName(rawBaseName)) {
+    const candidateBaseName = normalizeFileBaseName(rawBaseName);
+    if (candidateBaseName) {
+      return candidateBaseName;
+    }
+  }
+
+  const fallbackBaseName = normalizeFileBaseName(
+    recentExportCandidate?.kind === "document" ? "document" : "assistant_reply"
   );
 
-  if (candidateBaseName) {
-    return candidateBaseName;
+  if (fallbackBaseName) {
+    return fallbackBaseName;
   }
 
   return "document";

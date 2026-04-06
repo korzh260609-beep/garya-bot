@@ -161,30 +161,29 @@ function isLikelyContextualReactionMessage(value, history) {
 function buildMediaResponsePolicy(mediaResponseMode) {
   if (mediaResponseMode === "short_object_answer") {
     return [
-      "MEDIA: короткий ответ по изображению/объекту.",
-      "1-2 коротких предложения.",
-      "Сначала прямой ответ, затем при необходимости одно короткое уточнение.",
-      "Без длинных списков и лишних объяснений.",
-      "При неуверенности: 'Похоже на ...'.",
+      "MEDIA:",
+      "- short answer about image/object",
+      "- 1-2 short sentences",
+      "- direct answer first",
+      "- if unsure: 'Похоже на ...'",
     ].join("\n");
   }
 
   if (mediaResponseMode === "document_summary_answer") {
     return [
-      "MEDIA: краткое summary документа.",
-      "Формат: 1 короткая строка о сути + 2-4 коротких пункта.",
-      "Не выводить полный текст, если пользователь прямо не просил.",
-      "Не пересказывать документ по разделам.",
-      "В конце можно одной короткой строкой указать, что доступен полный текст или вывод по частям.",
+      "MEDIA:",
+      "- short document summary",
+      "- 1 short line of essence + 2-4 short points",
+      "- do not output full text unless explicitly asked",
     ].join("\n");
   }
 
   if (mediaResponseMode === "document_full_text_answer") {
     return [
-      "MEDIA: пользователь просит текст документа, не summary.",
-      "Выводи текст документа.",
-      "Если длинно — только первую часть и явно скажи, что это часть 1.",
-      "Не заменять полный текст summary.",
+      "MEDIA:",
+      "- user wants document text, not summary",
+      "- output the text",
+      "- if too long, give only part 1 and say it clearly",
     ].join("\n");
   }
 
@@ -205,9 +204,9 @@ function buildAuxPolicySystemMessage({
     blocks.push(
       [
         "ROLE:",
-        "Текущий пользователь не монарх.",
-        "Не обращаться: 'Монарх', 'Ваше Величество', 'Государь'.",
-        "Используй нейтральное обращение.",
+        "- current user is not monarch",
+        "- do not address as Monarch / Ваше Величество / Государь",
+        "- use neutral addressing",
       ].join("\n")
     );
   }
@@ -215,12 +214,11 @@ function buildAuxPolicySystemMessage({
   if (stablePersonalFactMode) {
     blocks.push(
       [
-        "STABLE PERSONAL FACT:",
-        "Если вопрос о стабильном факте пользователя, LONG-TERM MEMORY = основной источник.",
-        "Не подменяй сохранённый факт недавним чатом или догадкой.",
-        "Имя/факт воспроизводи точно как сохранено.",
-        "Не добавляй титулы и украшения.",
-        "Отвечай прямо, без обращения и приветствия.",
+        "STABLE FACT:",
+        "- LONG-TERM MEMORY is primary source",
+        "- do not replace saved fact with guess or recent chat",
+        "- reproduce saved name/fact exactly",
+        "- answer directly, without decorative addressing",
       ].join("\n")
     );
   }
@@ -229,9 +227,11 @@ function buildAuxPolicySystemMessage({
     blocks.push(
       [
         "RECALL:",
-        `Используй этот контекст как историю чата:\n${recallCtx}`,
-        "Если пользователь спрашивает, что обсуждали раньше, опирайся на RECALL.",
-        "Если точных данных нет — скажи честно и не выдумывай.",
+        "- use this as prior chat context when relevant",
+        "- if user asks what was discussed before, rely on RECALL",
+        "- if data is missing, say so honestly",
+        "",
+        recallCtx,
       ].join("\n")
     );
   }
@@ -239,10 +239,10 @@ function buildAuxPolicySystemMessage({
   if (!stablePersonalFactMode && likelyContextualReaction) {
     blocks.push(
       [
-        "CONTEXTUAL REACTION:",
-        "Текущее сообщение похоже на короткую реакцию на прошлый ответ.",
-        "Не задавай generic-уточнение вроде 'Что именно нужно сделать?'",
-        "Лучше коротко подтвердить и естественно продолжить тему.",
+        "REACTION:",
+        "- current message looks like a short reaction to prior answer",
+        "- do not ask generic clarification",
+        "- briefly acknowledge and continue naturally",
       ].join("\n")
     );
   }
@@ -250,11 +250,10 @@ function buildAuxPolicySystemMessage({
   if (!stablePersonalFactMode && !likelyContextualReaction && needsClarificationFirst) {
     blocks.push(
       [
-        "CLARIFICATION-FIRST:",
-        "Запрос структурно слишком расплывчатый.",
-        "Не угадывай объект действия по соседнему контексту.",
-        "Задай ровно ОДИН короткий нейтральный уточняющий вопрос.",
-        "Не сужай вопрос до одной догадки.",
+        "CLARIFY FIRST:",
+        "- request is too vague",
+        "- do not guess object from nearby context",
+        "- ask one short neutral clarifying question",
       ].join("\n")
     );
   }

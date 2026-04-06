@@ -5,7 +5,7 @@ import { resolveRecentDocumentEstimateCandidate } from "./documentEstimateBridge
 import { getActiveEstimateContext } from "./activeEstimateContextCache.js";
 import { safeText } from "./chatShared.js";
 import {
-  buildEstimateReplyText,
+  buildEstimateReplyTextByFocus,
   saveSuccessfulEstimateContext,
 } from "./chatEstimateReplies.js";
 
@@ -74,7 +74,7 @@ export async function tryHandleEstimateCorrection({
     reason: "document_estimate_rebound_to_recent_document",
   });
 
-  const text = buildEstimateReplyText(recentEstimateCandidate);
+  const text = buildEstimateReplyTextByFocus(recentEstimateCandidate, userText);
   await saveAssistantEarlyReturn(text, "document_chat_estimate_rebound");
   await bot.sendMessage(chatId, text);
   return {

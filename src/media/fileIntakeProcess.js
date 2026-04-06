@@ -34,12 +34,22 @@ import {
   buildDocumentHintForUser,
 } from "./fileIntakeHints.js";
 
+function resolvePreferredIntakeFileName(intake, fallback = "document") {
+  return (
+    safeStr(intake?.fileName).trim() ||
+    safeStr(intake?.downloaded?.fileName).trim() ||
+    fallback
+  );
+}
+
 export async function processIncomingFile(intake) {
   const meta = intake?.meta || makeMeta();
 
+  const preferredFileName = resolvePreferredIntakeFileName(intake);
+
   pushLog(meta, "info", "process", "Start processing intake.", {
     kind: intake?.kind,
-    fileName: intake?.downloaded?.fileName || intake?.fileName || null,
+    fileName: preferredFileName || null,
     specializedRoute: intake?.lifecycle?.routing?.specializedRoute || null,
     genericAiMode: intake?.lifecycle?.routing?.genericAiMode || null,
   });
@@ -48,7 +58,7 @@ export async function processIncomingFile(intake) {
   let processedText = (() => {
     if (!intake) return "";
     const kind = intake.kind || "unknown";
-    const fileName = intake?.downloaded?.fileName || intake?.fileName || "";
+    const fileName = preferredFileName || "";
     const mime = intake?.mimeType || "";
     const route = intake?.lifecycle?.routing?.specializedRoute || "n/a";
     return `File-Intake stub: kind=${kind}; file=${fileName}; mime=${mime || "n/a"}; route=${route}.`;
@@ -240,7 +250,7 @@ export async function processIncomingFile(intake) {
 
       saveDocumentSessionCache({
         chatId: intake?.chatId ?? intake?.lifecycle?.identity?.chatId ?? null,
-        fileName: intake?.downloaded?.fileName || intake?.fileName || "document",
+        fileName: preferredFileName,
         text: extractedText,
         title: documentTitle,
         stats: documentStats,
@@ -251,9 +261,7 @@ export async function processIncomingFile(intake) {
       });
 
       shouldCallAI = true;
-      effectiveUserText = buildAutoSummaryRequestText(
-        intake?.downloaded?.fileName || intake?.fileName || "document"
-      );
+      effectiveUserText = buildAutoSummaryRequestText(preferredFileName);
       directUserHint = null;
     } else {
       extractedText = "";
@@ -279,6 +287,7 @@ export async function processIncomingFile(intake) {
     documentStructureVersion,
     documentStructureSource,
     shouldCallAI,
+    preferredFileName,
   });
 
   if (intake?.lifecycle?.processing) {

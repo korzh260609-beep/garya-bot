@@ -27,6 +27,25 @@ import {
   buildChatInputGuardMeta,
 } from "./aiInputGuard.js";
 
+function buildSenderMemoryMeta(msg, chatIdStr, senderIdStr, messageId) {
+  const firstName = String(msg?.from?.first_name || "").trim();
+  const lastName = String(msg?.from?.last_name || "").trim();
+  const username = String(msg?.from?.username || "").trim();
+  const chatType = String(msg?.chat?.type || "").trim() || "unknown";
+  const senderName = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+  return {
+    senderIdStr,
+    chatIdStr,
+    messageId,
+    chatType,
+    senderFirstName: firstName,
+    senderLastName: lastName,
+    senderUsername: username,
+    senderName: senderName || (username ? `@${username}` : ""),
+  };
+}
+
 export async function runChatAiOrchestration({
   bot,
   msg,
@@ -60,6 +79,8 @@ export async function runChatAiOrchestration({
   });
 
   const stablePersonalFactMode = isStablePersonalFactQuestion(effective);
+  const currentChatType = String(msg?.chat?.type || "").trim() || "unknown";
+  const senderMemoryMeta = buildSenderMemoryMeta(msg, chatIdStr, senderIdStr, messageId);
 
   const { sourceCtx, sourceResultSystemMessage, sourceServiceSystemMessage } =
     await resolveChatSourceFlow({ effective });
@@ -79,15 +100,16 @@ export async function runChatAiOrchestration({
     role: "user",
     content: effective,
     transport: "telegram",
-    metadata: { senderIdStr, chatIdStr, messageId },
+    metadata: {
+      ...senderMemoryMeta,
+    },
     schemaVersion: 2,
   });
 
   let history = [];
   let recallCtx = null;
 
-  const { userTz, timezoneMissing } =
-    await resolveUserTimezoneState(globalUserId);
+  const { userTz, timezoneMissing } = await resolveUserTimezoneState(globalUserId);
 
   if (timezoneMissing) {
     const result = await tryHandleMissingTimezoneFlow({
@@ -107,6 +129,7 @@ export async function runChatAiOrchestration({
         chatId: chatIdStr,
         globalUserId,
         limit: MAX_HISTORY_MESSAGES,
+        chatType: currentChatType,
       });
     } catch {}
 
@@ -237,7 +260,10 @@ export async function runChatAiOrchestration({
     userText: effective,
     assistantText: aiReply,
     transport: "telegram",
-    metadata: { senderIdStr, chatIdStr, messageId },
+    metadata: {
+      ...senderMemoryMeta,
+      assistantLabel: "sg_assistant",
+    },
     schemaVersion: 2,
   });
 

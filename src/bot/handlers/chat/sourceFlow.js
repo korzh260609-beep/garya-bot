@@ -79,10 +79,10 @@ export async function resolveChatSourceFlow({ effective }) {
     ? {
         role: "system",
         content:
-          `SOURCE RESULT (verified runtime data):\n` +
+          "SOURCE RESULT:\n" +
           `- source_key: ${sourceCtx?.sourceResult?.sourceKey || "unknown"}\n` +
           `- fetched_at: ${sourceCtx?.sourceResult?.fetchedAt || "unknown"}\n` +
-          `- use this as factual runtime context when relevant\n\n` +
+          "- use as runtime factual context when relevant\n\n" +
           `${sourceContextText}`,
       }
     : null;
@@ -93,10 +93,9 @@ export async function resolveChatSourceFlow({ effective }) {
           role: "system",
           content:
             `${sourceServiceDebugBlock}\n\n` +
-            `IMPORTANT:\n` +
-            `- this service block describes current source-service state\n` +
-            `- factual source data is injected separately only when sourceResult.ok=true\n` +
-            `- if source fetch failed or was skipped, do not pretend that the source was used`,
+            "SOURCE RULE:\n" +
+            "- use factual source data only when SOURCE RESULT exists\n" +
+            "- if source was skipped or failed, do not pretend it was used",
         }
       : null;
 

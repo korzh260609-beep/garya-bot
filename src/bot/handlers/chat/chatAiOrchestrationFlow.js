@@ -46,6 +46,39 @@ function buildSenderMemoryMeta(msg, chatIdStr, senderIdStr, messageId) {
   };
 }
 
+function safeReplyText(value) {
+  if (typeof value === "string") return value.trim();
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+function buildReplyAuthorLabel(replyMsg) {
+  const firstName = String(replyMsg?.from?.first_name || "").trim();
+  const lastName = String(replyMsg?.from?.last_name || "").trim();
+  const username = String(replyMsg?.from?.username || "").trim();
+
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  if (fullName) return fullName;
+  if (username) return username.startsWith("@") ? username : `@${username}`;
+  return "unknown_user";
+}
+
+function buildReplyContext(msg) {
+  const replyMsg = msg?.reply_to_message;
+  if (!replyMsg) return null;
+
+  const replyText = safeReplyText(replyMsg?.text || replyMsg?.caption || "");
+  const authorLabel = buildReplyAuthorLabel(replyMsg);
+  const replyMessageId = replyMsg?.message_id ?? null;
+
+  return {
+    exists: true,
+    authorLabel,
+    replyMessageId,
+    replyText,
+  };
+}
+
 export async function runChatAiOrchestration({
   bot,
   msg,
@@ -80,6 +113,7 @@ export async function runChatAiOrchestration({
   const stablePersonalFactMode = isStablePersonalFactQuestion(effective);
   const currentChatType = String(msg?.chat?.type || "").trim() || "unknown";
   const senderMemoryMeta = buildSenderMemoryMeta(msg, chatIdStr, senderIdStr, messageId);
+  const replyContext = buildReplyContext(msg);
 
   const { sourceCtx, sourceResultSystemMessage, sourceServiceSystemMessage } =
     await resolveChatSourceFlow({ effective });
@@ -201,6 +235,7 @@ export async function runChatAiOrchestration({
     longTermMemorySystemMessage,
     recallCtx: guardedRecallCtx,
     history: guardedHistory,
+    replyContext,
   });
 
   const guardedMessages = guardChatMessages(messages);
@@ -234,6 +269,10 @@ export async function runChatAiOrchestration({
     chatIntentCandidateSlots: Array.isArray(chatIntent?.candidateSlots)
       ? chatIntent.candidateSlots
       : [],
+
+    replyContextInjected: Boolean(replyContext?.exists),
+    replyContextAuthor: replyContext?.authorLabel || "",
+    replyContextHasText: Boolean(replyContext?.replyText),
 
     ...behaviorSnapshot,
     ...inputGuardMeta,

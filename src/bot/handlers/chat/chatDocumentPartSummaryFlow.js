@@ -15,6 +15,7 @@ import {
   saveExportSourceContext,
   saveDocumentExportTargetContext,
 } from "./chatContextCacheHelpers.js";
+import { guardDocumentPartText } from "./aiInputGuard.js";
 
 function buildInvalidRequestedPartSummaryReply({
   resolvedParts,
@@ -48,8 +49,11 @@ export async function buildDocumentPartSummaryReply({
   partText,
 }) {
   if (typeof callAI !== "function") return "";
+
   const normalizedPartText = safeText(partText).trim();
   if (!normalizedPartText) return "";
+
+  const guardedPartText = guardDocumentPartText(normalizedPartText);
 
   const messages = [
     {
@@ -73,7 +77,7 @@ export async function buildDocumentPartSummaryReply({
         `User request:\n${safeText(userText).trim()}\n\n` +
         `Document: ${safeText(fileName).trim() || "document"}\n` +
         `Requested part: ${Number(requestedPartNumber || 0)} of ${Number(chunkCount || 0)}\n\n` +
-        `Part text:\n${normalizedPartText}`,
+        `Part text:\n${guardedPartText}`,
     },
   ];
 

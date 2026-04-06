@@ -246,6 +246,58 @@ function finalizeAiReplyBoundary(reply) {
   return trimmed;
 }
 
+function countChars(value) {
+  if (value === null || value === undefined) return 0;
+  return String(value).length;
+}
+
+function buildAiInputStats(messages) {
+  const list = Array.isArray(messages) ? messages : [];
+
+  let totalChars = 0;
+  let systemChars = 0;
+  let userChars = 0;
+  let assistantChars = 0;
+  let otherChars = 0;
+
+  let longestMessageChars = 0;
+  let longestMessageRole = "unknown";
+
+  for (const item of list) {
+    const role = item?.role || "unknown";
+    const chars = countChars(item?.content);
+
+    totalChars += chars;
+
+    if (chars > longestMessageChars) {
+      longestMessageChars = chars;
+      longestMessageRole = role;
+    }
+
+    if (role === "system") {
+      systemChars += chars;
+    } else if (role === "user") {
+      userChars += chars;
+    } else if (role === "assistant") {
+      assistantChars += chars;
+    } else {
+      otherChars += chars;
+    }
+  }
+
+  return {
+    aiInputMessageCount: list.length,
+    aiInputTotalChars: totalChars,
+    aiInputApproxTokens: Math.ceil(totalChars / 4),
+    aiInputSystemChars: systemChars,
+    aiInputUserChars: userChars,
+    aiInputAssistantChars: assistantChars,
+    aiInputOtherChars: otherChars,
+    aiInputLongestMessageChars: longestMessageChars,
+    aiInputLongestMessageRole: longestMessageRole,
+  };
+}
+
 export async function executeChatAI({
   callAI,
   filtered,
@@ -258,16 +310,24 @@ export async function executeChatAI({
   globalUserId,
   chatIdStr,
 }) {
+  const guardedMessages = withCompletionBoundaryGuard(filtered, maxTokens);
+  const aiInputStats = buildAiInputStats(guardedMessages);
+
+  const aiMetaStart = {
+    ...classification,
+    event: "AI_CALL_START",
+    ...aiMetaBase,
+    ...aiInputStats,
+    aiRequestedMaxCompletionTokens: maxTokens,
+    aiRequestedTemperature: temperature,
+  };
+
   try {
-    console.info("AI_CALL_START", aiMetaBase);
+    console.info("AI_CALL_START", aiMetaStart);
   } catch (_) {}
 
   try {
-    await logInteraction(chatIdStr, {
-      ...classification,
-      event: "AI_CALL_START",
-      ...aiMetaBase,
-    });
+    await logInteraction(chatIdStr, aiMetaStart);
   } catch (e) {
     console.error("ERROR logInteraction (AI_CALL_START) error:", e);
   }
@@ -282,8 +342,6 @@ export async function executeChatAI({
 
   let aiReply = "";
   try {
-    const guardedMessages = withCompletionBoundaryGuard(filtered, maxTokens);
-
     aiReply = await callAI(guardedMessages, classification.aiCostLevel, {
       max_completion_tokens: maxTokens,
       temperature,
@@ -302,8 +360,10 @@ export async function executeChatAI({
   const dtMs = Date.now() - t0;
   const aiMetaEnd = {
     ...aiMetaBase,
+    ...aiInputStats,
     dtMs,
     replyChars: typeof aiReply === "string" ? aiReply.length : 0,
+    replyApproxTokens: Math.ceil(countChars(aiReply) / 4),
     ok: !(
       typeof aiReply === "string" &&
       aiReply.startsWith("ERROR: Ошибка вызова ИИ")

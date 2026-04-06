@@ -9,6 +9,14 @@
 
 import { safeStr } from "./fileIntakeCore.js";
 
+function resolvePreferredIntakeFileName(intake, fallback = "file") {
+  return (
+    safeStr(intake?.fileName).trim() ||
+    safeStr(intake?.downloaded?.fileName).trim() ||
+    fallback
+  );
+}
+
 export function buildStubMessage(summary) {
   if (!summary) return null;
 
@@ -132,10 +140,7 @@ export function buildCombinedDirectHint({ visionResult, factsResult }) {
 }
 
 export function buildDocumentHintForUser(documentResult, intake = null) {
-  const fileName =
-    intake?.downloaded?.fileName ||
-    intake?.fileName ||
-    "file";
+  const fileName = resolvePreferredIntakeFileName(intake, "file");
 
   if (!documentResult) {
     return `📄 Документ ${fileName} обработан без результата.`;

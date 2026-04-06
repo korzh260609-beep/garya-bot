@@ -272,6 +272,24 @@ function buildAuxPolicySystemMessage({
   };
 }
 
+function countChars(value) {
+  if (value === null || value === undefined) return 0;
+  return String(value).length;
+}
+
+function sumMessageChars(list = []) {
+  const items = Array.isArray(list) ? list : [];
+  return items.reduce((sum, item) => sum + countChars(item?.content), 0);
+}
+
+function sumMessageCharsByRole(list = [], role = "user") {
+  const items = Array.isArray(list) ? list : [];
+  return items.reduce((sum, item) => {
+    if ((item?.role || "user") !== role) return sum;
+    return sum + countChars(item?.content);
+  }, 0);
+}
+
 export function buildChatMessages({
   buildSystemPrompt,
   answerMode,
@@ -335,6 +353,27 @@ export function buildChatMessages({
     { role: "user", content: effective },
   ];
 
+  const promptBlockDiagnostics = {
+    promptBlockSystemPromptChars: countChars(systemPrompt),
+    promptBlockSourceServiceChars: countChars(sourceServiceSystemMessage?.content),
+    promptBlockSourceResultChars: countChars(sourceResultSystemMessage?.content),
+    promptBlockLongTermMemoryChars: countChars(longTermMemorySystemMessage?.content),
+    promptBlockAuxPolicyChars: countChars(auxPolicySystemMessage?.content),
+
+    promptBlockHistoryCount: historyMessages.length,
+    promptBlockHistoryTotalChars: sumMessageChars(historyMessages),
+    promptBlockHistoryUserChars: sumMessageCharsByRole(historyMessages, "user"),
+    promptBlockHistoryAssistantChars: sumMessageCharsByRole(historyMessages, "assistant"),
+    promptBlockHistoryOtherChars:
+      sumMessageChars(historyMessages) -
+      sumMessageCharsByRole(historyMessages, "user") -
+      sumMessageCharsByRole(historyMessages, "assistant"),
+
+    promptBlockFinalUserChars: countChars(effective),
+    promptBlockPreGuardMessageCount: messages.filter(Boolean).length,
+    promptBlockPreGuardTotalChars: sumMessageChars(messages.filter(Boolean)),
+  };
+
   return {
     modeInstruction,
     systemPrompt,
@@ -342,6 +381,7 @@ export function buildChatMessages({
       ? "SYSTEM ROLE: MONARCH"
       : "SYSTEM ROLE: NON_MONARCH",
     stablePersonalFactMode,
+    promptBlockDiagnostics,
     messages: messages.filter(Boolean),
   };
 }

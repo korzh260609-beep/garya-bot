@@ -65,6 +65,72 @@ function _toIntOrNull(x) {
   return Number.isFinite(n) ? Math.floor(n) : null;
 }
 
+function _normalizeChatType(value) {
+  const v = _safeStr(value).trim().toLowerCase();
+  if (!v) return "unknown";
+  return v;
+}
+
+function _isSharedChatType(chatType) {
+  const v = _normalizeChatType(chatType);
+  return v === "group" || v === "supergroup";
+}
+
+function _buildAuthorLabel(metadata = {}) {
+  const meta = _safeObj(metadata);
+
+  const senderName = _safeStr(meta.senderName).trim();
+  if (senderName) return senderName;
+
+  const firstName = _safeStr(meta.senderFirstName).trim();
+  const lastName = _safeStr(meta.senderLastName).trim();
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  if (fullName) return fullName;
+
+  const username = _safeStr(meta.senderUsername).trim();
+  if (username) {
+    return username.startsWith("@") ? username : `@${username}`;
+  }
+
+  const senderId = _safeStr(meta.senderIdStr).trim();
+  if (senderId) return `user:${senderId}`;
+
+  return "unknown_user";
+}
+
+function _decorateHistoryRow({ role, content, metadata = {}, chatType = "unknown" }) {
+  const roleStr = _safeStr(role).trim() || "user";
+  const text = typeof content === "string" ? content : _safeStr(content);
+  const normalizedChatType = _normalizeChatType(chatType);
+
+  if (!_isSharedChatType(normalizedChatType)) {
+    return {
+      role: roleStr,
+      content: text,
+    };
+  }
+
+  if (roleStr === "user") {
+    const authorLabel = _buildAuthorLabel(metadata);
+    return {
+      role: roleStr,
+      content: `[group user: ${authorLabel}] ${text}`,
+    };
+  }
+
+  if (roleStr === "assistant") {
+    return {
+      role: roleStr,
+      content: `[sg assistant] ${text}`,
+    };
+  }
+
+  return {
+    role: roleStr,
+    content: text,
+  };
+}
+
 async function _withTx(fn) {
   const client = await pool.connect();
   try {
@@ -93,19 +159,24 @@ export class ChatMemoryAdapter {
   // ========================================================================
   // read
   // ========================================================================
-  async getChatHistory({ chatId, limit, globalUserId = null } = {}) {
+  async getChatHistory({ chatId, limit, globalUserId = null, chatType = null } = {}) {
     const chatIdStr = _safeStr(chatId);
     const lim = Number.isFinite(Number(limit)) ? Math.max(1, Math.floor(limit)) : 20;
+    const normalizedChatType = _normalizeChatType(chatType);
+
     if (!chatIdStr) return [];
 
     const hasGlobal = await _columnExists("chat_memory", "global_user_id");
+    const hasMeta = await _columnExists("chat_memory", "metadata");
 
     try {
-      // identity-first (within current chat) if column exists + globalUserId provided
-      if (hasGlobal && globalUserId) {
+      const useSharedChatHistory = _isSharedChatType(normalizedChatType);
+
+      // identity-first only for private/unknown chats
+      if (hasGlobal && globalUserId && !useSharedChatHistory) {
         const r = await pool.query(
           `
-          SELECT role, content
+          SELECT role, content, ${hasMeta ? "metadata" : "'{}'::jsonb AS metadata"}
           FROM chat_memory
           WHERE chat_id = $1
             AND global_user_id = $2
@@ -115,19 +186,23 @@ export class ChatMemoryAdapter {
           [chatIdStr, _safeStr(globalUserId), lim]
         );
 
-        const rows = (r.rows || []).reverse().map((row) => ({
-          role: row.role,
-          content: row.content,
-        }));
+        const rows = (r.rows || []).reverse().map((row) =>
+          _decorateHistoryRow({
+            role: row.role,
+            content: row.content,
+            metadata: row.metadata || {},
+            chatType: normalizedChatType,
+          })
+        );
 
         if (rows.length) return rows;
         // fallback below if empty
       }
 
-      // legacy read (chat_id only)
+      // shared/group read OR legacy fallback
       const r2 = await pool.query(
         `
-        SELECT role, content
+        SELECT role, content, ${hasMeta ? "metadata" : "'{}'::jsonb AS metadata"}
         FROM chat_memory
         WHERE chat_id = $1
         ORDER BY id DESC
@@ -136,12 +211,18 @@ export class ChatMemoryAdapter {
         [chatIdStr, lim]
       );
 
-      return (r2.rows || []).reverse().map((row) => ({
-        role: row.role,
-        content: row.content,
-      }));
+      return (r2.rows || []).reverse().map((row) =>
+        _decorateHistoryRow({
+          role: row.role,
+          content: row.content,
+          metadata: row.metadata || {},
+          chatType: normalizedChatType,
+        })
+      );
     } catch (e) {
-      if (this.logger?.error) this.logger.error("ChatMemoryAdapter.getChatHistory error", e?.message || e);
+      if (this.logger?.error) {
+        this.logger.error("ChatMemoryAdapter.getChatHistory error", e?.message || e);
+      }
       return [];
     }
   }
@@ -160,9 +241,10 @@ export class ChatMemoryAdapter {
 
     const transport = _safeStr(options?.transport || DEFAULT_TRANSPORT) || DEFAULT_TRANSPORT;
     const metadata = _safeObj(options?.metadata);
-    const schemaVersion = Number.isFinite(Number(options?.schemaVersion)) && Number(options.schemaVersion) > 0
-      ? Math.floor(Number(options.schemaVersion))
-      : DEFAULT_SCHEMA_VERSION;
+    const schemaVersion =
+      Number.isFinite(Number(options?.schemaVersion)) && Number(options.schemaVersion) > 0
+        ? Math.floor(Number(options.schemaVersion))
+        : DEFAULT_SCHEMA_VERSION;
 
     // detect v2 columns
     const hasGlobal = await _columnExists("chat_memory", "global_user_id");
@@ -175,7 +257,7 @@ export class ChatMemoryAdapter {
     try {
       // Strong anti-dup only if messageId exists AND metadata column exists
       if (messageId !== null && hasMeta) {
-        const identityKey = (hasGlobal && globalUserId) ? _safeStr(globalUserId) : chatIdStr;
+        const identityKey = hasGlobal && globalUserId ? _safeStr(globalUserId) : chatIdStr;
         const lockKey = `cm:${transport}:${identityKey}:${roleStr}:${String(messageId)}`;
 
         await _withTx(async (client) => {
@@ -279,14 +361,17 @@ export class ChatMemoryAdapter {
       }
 
       // legacy insert
-      await pool.query(
-        `INSERT INTO chat_memory (chat_id, role, content) VALUES ($1, $2, $3)`,
-        [chatIdStr, roleStr, text]
-      );
+      await pool.query(`INSERT INTO chat_memory (chat_id, role, content) VALUES ($1, $2, $3)`, [
+        chatIdStr,
+        roleStr,
+        text,
+      ]);
 
       return { ok: true };
     } catch (e) {
-      if (this.logger?.error) this.logger.error("ChatMemoryAdapter.saveMessage error", e?.message || e);
+      if (this.logger?.error) {
+        this.logger.error("ChatMemoryAdapter.saveMessage error", e?.message || e);
+      }
       return { ok: false, reason: "db_error" };
     }
   }

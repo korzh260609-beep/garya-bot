@@ -1,6 +1,7 @@
 // src/bot/handlers/chat/chatAiOrchestrationFlow.js
 
 import pool from "../../../../db.js";
+import { classifyInteraction } from "../../../../classifier.js";
 import { getMemoryService } from "../../../core/memoryServiceFactory.js";
 import { resolveChatSourceFlow } from "./sourceFlow.js";
 import { resolveLongTermMemoryBridge } from "./longTermMemoryBridge.js";
@@ -18,6 +19,13 @@ import isStablePersonalFactQuestion from "./isStablePersonalFactQuestion.js";
 import resolveChatIntent from "./intent/resolveChatIntent.js";
 import buildBehaviorSnapshot from "./behaviorSnapshot.js";
 import { handlePostAiExportPersistence } from "./chatPostAiPersistenceFlow.js";
+import {
+  guardProjectContext,
+  guardRecallContext,
+  guardHistoryMessages,
+  guardChatMessages,
+  buildChatInputGuardMeta,
+} from "./aiInputGuard.js";
 
 export async function runChatAiOrchestration({
   bot,
@@ -136,13 +144,20 @@ export async function runChatAiOrchestration({
     });
   }
 
-  const classification = { taskType: "chat", aiCostLevel: "high" };
+  const classification = classifyInteraction({
+    userText: effective,
+  });
+
   await logInteraction(chatIdStr, classification);
 
   let projectCtx = "";
   try {
     projectCtx = await loadProjectContext();
   } catch {}
+
+  const guardedProjectCtx = guardProjectContext(projectCtx);
+  const guardedRecallCtx = guardRecallContext(recallCtx || "");
+  const guardedHistory = guardHistoryMessages(history);
 
   const answerMode = getAnswerMode(chatIdStr, {
     isMonarch: monarchNow,
@@ -154,7 +169,7 @@ export async function runChatAiOrchestration({
   const { messages } = buildChatMessages({
     buildSystemPrompt,
     answerMode,
-    projectCtx,
+    projectCtx: guardedProjectCtx,
     monarchNow,
     msg,
     effective,
@@ -162,15 +177,28 @@ export async function runChatAiOrchestration({
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
     longTermMemorySystemMessage,
-    recallCtx,
-    history,
+    recallCtx: guardedRecallCtx,
+    history: guardedHistory,
   });
+
+  const guardedMessages = guardChatMessages(messages);
 
   const { maxTokens, temperature } = resolveAiParams(answerMode);
 
   const behaviorSnapshot = buildBehaviorSnapshot({
     userText: effective,
     intent: chatIntent,
+  });
+
+  const inputGuardMeta = buildChatInputGuardMeta({
+    rawProjectCtx: projectCtx,
+    rawRecallCtx: recallCtx || "",
+    rawHistory: history,
+    rawMessages: messages,
+    guardedProjectCtx,
+    guardedRecallCtx,
+    guardedHistory,
+    guardedMessages,
   });
 
   const aiMetaBase = {
@@ -186,11 +214,12 @@ export async function runChatAiOrchestration({
       : [],
 
     ...behaviorSnapshot,
+    ...inputGuardMeta,
   };
 
   const { aiReply } = await executeChatAI({
     callAI,
-    filtered: messages,
+    filtered: guardedMessages,
     classification,
     maxTokens,
     temperature,

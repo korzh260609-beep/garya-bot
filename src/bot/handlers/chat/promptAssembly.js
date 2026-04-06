@@ -190,6 +190,32 @@ function buildMediaResponsePolicy(mediaResponseMode) {
   return "";
 }
 
+function truncateReplyText(value, maxChars = 220) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars).trimEnd()} ...[reply truncated]`;
+}
+
+function buildReplyContextSystemMessage(replyContext) {
+  if (!replyContext?.exists) return null;
+
+  const authorLabel = String(replyContext?.authorLabel || "unknown_user").trim();
+  const replyText = truncateReplyText(replyContext?.replyText || "");
+
+  return {
+    role: "system",
+    content: [
+      "REPLY CONTEXT:",
+      "- current user replied to an earlier message",
+      "- if user asks about 'this message' / 'этого сообщения' / 'этого текста', first interpret it as the replied message",
+      `- replied message author: ${authorLabel}`,
+      replyText ? `- replied message text: ${replyText}` : "- replied message text: [not available]",
+      "- do not confuse replied-message author with current sender",
+    ].join("\n"),
+  };
+}
+
 function buildAuxPolicySystemMessage({
   monarchNow,
   stablePersonalFactMode,
@@ -302,6 +328,7 @@ export function buildChatMessages({
   longTermMemorySystemMessage,
   recallCtx,
   history,
+  replyContext,
 }) {
   const modeInstruction = buildModeInstruction(answerMode);
 
@@ -333,6 +360,8 @@ export function buildChatMessages({
     !likelyContextualReaction &&
     isStructurallyUnderspecifiedRequest(effective);
 
+  const replyContextSystemMessage = buildReplyContextSystemMessage(replyContext);
+
   const auxPolicySystemMessage = buildAuxPolicySystemMessage({
     monarchNow,
     stablePersonalFactMode,
@@ -347,6 +376,7 @@ export function buildChatMessages({
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
     longTermMemorySystemMessage,
+    replyContextSystemMessage,
     auxPolicySystemMessage,
     ...historyMessages,
     { role: "user", content: effective },
@@ -357,6 +387,7 @@ export function buildChatMessages({
     promptBlockSourceServiceChars: countChars(sourceServiceSystemMessage?.content),
     promptBlockSourceResultChars: countChars(sourceResultSystemMessage?.content),
     promptBlockLongTermMemoryChars: countChars(longTermMemorySystemMessage?.content),
+    promptBlockReplyContextChars: countChars(replyContextSystemMessage?.content),
     promptBlockAuxPolicyChars: countChars(auxPolicySystemMessage?.content),
 
     promptBlockHistoryCount: historyMessages.length,

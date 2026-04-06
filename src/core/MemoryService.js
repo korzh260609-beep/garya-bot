@@ -14,8 +14,8 @@
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
-// - recent({ chatId, globalUserId, limit }) -> [{role, content}, ...]
-// - context({ chatId, globalUserId, limit }) -> { enabled, chatId, globalUserId, memories: [...] }
+// - recent({ chatId, globalUserId, limit, chatType }) -> [{role, content}, ...]
+// - context({ chatId, globalUserId, limit, chatType }) -> { enabled, chatId, globalUserId, memories: [...] }
 // - remember({ key, value, chatId, globalUserId, transport, metadata, schemaVersion })
 // - status() -> diag info
 //
@@ -126,18 +126,9 @@ export class MemoryService {
     // STAGE 7.7+ — micro-batch buffering (optional)
     // ==========================================================
     this._bufferEnabled = _envBool("MEMORY_BUFFER_ENABLED", false);
-    this._bufferFlushMs = Math.max(
-      25,
-      Math.min(500, _envInt("MEMORY_BUFFER_FLUSH_MS", 100))
-    );
-    this._bufferMaxBatch = Math.max(
-      10,
-      Math.min(500, _envInt("MEMORY_BUFFER_MAX_BATCH", 200))
-    );
-    this._bufferMaxQueue = Math.max(
-      50,
-      Math.min(5000, _envInt("MEMORY_BUFFER_MAX_QUEUE", 1500))
-    );
+    this._bufferFlushMs = Math.max(25, Math.min(500, _envInt("MEMORY_BUFFER_FLUSH_MS", 100)));
+    this._bufferMaxBatch = Math.max(10, Math.min(500, _envInt("MEMORY_BUFFER_MAX_BATCH", 200)));
+    this._bufferMaxQueue = Math.max(50, Math.min(5000, _envInt("MEMORY_BUFFER_MAX_QUEUE", 1500)));
 
     this.bufferService = new MemoryBufferService({
       logger: this.logger,
@@ -175,7 +166,7 @@ export class MemoryService {
   // ========================================================================
   // recent() — минимальный API для чтения истории
   // ========================================================================
-  async recent({ globalUserId = null, chatId = null, limit } = {}) {
+  async recent({ globalUserId = null, chatId = null, limit, chatType = null } = {}) {
     const chatIdStr = chatId ? String(chatId) : null;
 
     if (!this._enabled || !chatIdStr) return [];
@@ -184,6 +175,7 @@ export class MemoryService {
       chatId: chatIdStr,
       limit,
       globalUserId: globalUserId || null,
+      chatType,
     });
 
     return history || [];
@@ -192,7 +184,7 @@ export class MemoryService {
   // ========================================================================
   // context() — структурированный пакет для AI слоя
   // ========================================================================
-  async context({ globalUserId = null, chatId = null, limit } = {}) {
+  async context({ globalUserId = null, chatId = null, limit, chatType = null } = {}) {
     const chatIdStr = chatId ? String(chatId) : null;
 
     if (!this._enabled || !chatIdStr) {
@@ -210,6 +202,7 @@ export class MemoryService {
       globalUserId,
       chatId: chatIdStr,
       limit,
+      chatType,
     });
 
     return {
@@ -342,8 +335,7 @@ export class MemoryService {
     const sv = _normalizeSchemaVersion(schemaVersion);
 
     const u = typeof userText === "string" ? userText : _safeStr(userText);
-    const a =
-      typeof assistantText === "string" ? assistantText : _safeStr(assistantText);
+    const a = typeof assistantText === "string" ? assistantText : _safeStr(assistantText);
 
     // Buffered path (optional)
     if (this._bufferEnabled) {
@@ -417,12 +409,12 @@ export class MemoryService {
   // BACKWARD COMPAT (aliases)
   // ========================================================================
 
-  async read({ globalUserId = null, chatId = null, limit } = {}) {
-    return this.recent({ globalUserId, chatId, limit });
+  async read({ globalUserId = null, chatId = null, limit, chatType = null } = {}) {
+    return this.recent({ globalUserId, chatId, limit, chatType });
   }
 
-  async getContext({ globalUserId = null, chatId = null, limit } = {}) {
-    return this.context({ globalUserId, chatId, limit });
+  async getContext({ globalUserId = null, chatId = null, limit, chatType = null } = {}) {
+    return this.context({ globalUserId, chatId, limit, chatType });
   }
 
   async appendInteraction({

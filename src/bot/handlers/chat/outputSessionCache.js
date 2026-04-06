@@ -56,6 +56,36 @@ function safeBaseName(value, fallback = "export") {
   return cleaned || fallback;
 }
 
+function isDocumentLikeKind(kind) {
+  const normalized = safeText(kind).trim().toLowerCase();
+  return (
+    normalized === "document" ||
+    normalized === "document_summary" ||
+    normalized === "document_current_part" ||
+    normalized === "document_assistant_answer"
+  );
+}
+
+function resolvePreferredDocumentExportBaseName({ kind, baseName, meta }) {
+  if (!isDocumentLikeKind(kind)) {
+    return safeBaseName(
+      baseName,
+      kind === "document" ? "document" : "assistant_reply"
+    );
+  }
+
+  const originalDocumentName =
+    safeText(meta?.originalFileName).trim() ||
+    safeText(meta?.fileName).trim() ||
+    safeText(meta?.title).trim();
+
+  if (originalDocumentName) {
+    return safeBaseName(originalDocumentName, "document");
+  }
+
+  return safeBaseName(baseName, "document");
+}
+
 function buildCacheRecord({
   kind = "assistant_reply",
   chatId,
@@ -63,19 +93,23 @@ function buildCacheRecord({
   baseName,
   meta = {},
 }) {
+  const normalizedKind = safeText(kind).trim() || "assistant_reply";
+  const normalizedMeta = meta && typeof meta === "object" ? meta : {};
+
   return {
-    kind: safeText(kind).trim() || "assistant_reply",
+    kind: normalizedKind,
     chatId: String(chatId || "").trim(),
     text: normalizeExportText(text),
-    baseName: safeBaseName(
+    baseName: resolvePreferredDocumentExportBaseName({
+      kind: normalizedKind,
       baseName,
-      kind === "document" ? "document" : "assistant_reply"
-    ),
+      meta: normalizedMeta,
+    }),
     createdAt: nowIso(),
     createdAtMs: nowMs(),
     lastUsedAt: nowIso(),
     lastUsedAtMs: nowMs(),
-    meta: meta && typeof meta === "object" ? meta : {},
+    meta: normalizedMeta,
   };
 }
 

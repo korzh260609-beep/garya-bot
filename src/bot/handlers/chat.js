@@ -51,7 +51,6 @@ export async function handleChatMessage({
     monarchNow,
     memory,
     memoryWrite,
-    memoryWritePair,
     insertAssistantReply,
     saveAssistantEarlyReturn,
   } = bootstrapChatHandler({
@@ -98,7 +97,6 @@ export async function handleChatMessage({
 
     memory,
     memoryWrite,
-    memoryWritePair,
     insertAssistantReply,
     saveAssistantEarlyReturn,
 

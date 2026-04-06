@@ -31,8 +31,8 @@ export async function resolveLongTermMemoryBridge({
       perDomainSlotLimit: selector.perDomainSlotLimit,
       totalLimit: selector.totalLimit,
       header: "LONG_TERM_MEMORY",
-      maxItems: 12,
-      maxValueLength: 180,
+      maxItems: 8,
+      maxValueLength: 120,
       memoryService: memory,
     });
 
@@ -44,9 +44,8 @@ export async function resolveLongTermMemoryBridge({
       longTermMemorySystemMessage = {
         role: "system",
         content:
-          `CRITICAL LONG-TERM MEMORY (USE AS SOURCE OF TRUTH):\n` +
-          `If there is a conflict with chat history, recall snippets, or recent messages, trust this block first.\n` +
-          `Use these facts as stable user memory unless the user explicitly corrects them in the current conversation.\n\n` +
+          "LONG-TERM MEMORY:\n" +
+          "Use as primary stable memory. If it conflicts with recall/history, trust this block unless the user explicitly corrects it now.\n\n" +
           `${longTermMemoryBridgeResult.block}`,
       };
     }

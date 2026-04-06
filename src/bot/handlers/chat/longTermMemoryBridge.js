@@ -31,8 +31,8 @@ export async function resolveLongTermMemoryBridge({
       perDomainSlotLimit: selector.perDomainSlotLimit,
       totalLimit: selector.totalLimit,
       header: "LONG_TERM_MEMORY",
-      maxItems: 8,
-      maxValueLength: 120,
+      maxItems: 5,
+      maxValueLength: 80,
       memoryService: memory,
     });
 
@@ -45,7 +45,7 @@ export async function resolveLongTermMemoryBridge({
         role: "system",
         content:
           "LONG-TERM MEMORY:\n" +
-          "Use as primary stable memory. If it conflicts with recall/history, trust this block unless the user explicitly corrects it now.\n\n" +
+          "Primary stable memory. Prefer this over recall/history unless user corrects it now.\n\n" +
           `${longTermMemoryBridgeResult.block}`,
       };
     }

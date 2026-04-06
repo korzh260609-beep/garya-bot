@@ -4,20 +4,42 @@ import {
   createDocumentOutputFile,
   cleanupDocumentOutputFile,
 } from "../../../documents/documentOutputService.js";
-import { normalizeFileBaseName } from "./chatShared.js";
+import { normalizeFileBaseName, safeText } from "./chatShared.js";
+
+function stripTrailingExtensionPreserveStem(value) {
+  const src = safeText(value);
+  if (!src) return "";
+  return src.replace(/\.[a-z0-9]{1,10}$/i, "").trim();
+}
+
+function resolvePreferredExportBaseName(recentExportCandidate) {
+  const originalFileName =
+    safeText(recentExportCandidate?.meta?.fileName) ||
+    safeText(recentExportCandidate?.meta?.title);
+
+  if (originalFileName) {
+    const stem = stripTrailingExtensionPreserveStem(originalFileName);
+    const normalized = normalizeFileBaseName(stem);
+    if (normalized) return normalized;
+  }
+
+  const candidateBaseName = normalizeFileBaseName(
+    recentExportCandidate?.baseName ||
+      (recentExportCandidate?.kind === "document" ? "document" : "assistant_reply")
+  );
+
+  if (candidateBaseName) {
+    return candidateBaseName;
+  }
+
+  return "document";
+}
 
 export function buildCreatedExportFile({
   recentExportCandidate,
   requestedFormat,
 }) {
-  const baseName = normalizeFileBaseName(
-    recentExportCandidate?.baseName ||
-      recentExportCandidate?.meta?.fileName ||
-      recentExportCandidate?.meta?.title ||
-      (recentExportCandidate?.kind === "document"
-        ? "document"
-        : "assistant_reply")
-  );
+  const baseName = resolvePreferredExportBaseName(recentExportCandidate);
 
   return createDocumentOutputFile({
     text: recentExportCandidate?.text || "",

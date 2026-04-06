@@ -11,6 +11,53 @@ import { envStr } from "./src/core/config.js";
 const apiKey = envStr("OPENAI_API_KEY", "").trim();
 const client = apiKey ? new OpenAI({ apiKey }) : null;
 
+function resolveModelByCostLevel(costLevel = "medium") {
+  if (costLevel === "low") {
+    return MODEL_CONFIG.low;
+  }
+
+  if (costLevel === "medium") {
+    return MODEL_CONFIG.medium || MODEL_CONFIG.default;
+  }
+
+  if (costLevel === "high") {
+    return MODEL_CONFIG.high || MODEL_CONFIG.default;
+  }
+
+  return MODEL_CONFIG.default;
+}
+
+function extractOutputText(response) {
+  if (
+    typeof response?.output_text === "string" &&
+    response.output_text.trim().length
+  ) {
+    return response.output_text;
+  }
+
+  const out = response?.output;
+  if (Array.isArray(out)) {
+    const texts = [];
+
+    for (const item of out) {
+      if (item?.type === "message" && Array.isArray(item?.content)) {
+        for (const c of item.content) {
+          if (c?.type === "output_text" && typeof c?.text === "string") {
+            texts.push(c.text);
+          }
+        }
+      }
+    }
+
+    const joined = texts.join("\n");
+    if (joined.trim().length) {
+      return joined;
+    }
+  }
+
+  return "";
+}
+
 /**
  * Универсальный вызов ИИ.
  * Поддерживает opts: { max_completion_tokens, max_output_tokens, temperature }.
@@ -19,14 +66,12 @@ const client = apiKey ? new OpenAI({ apiKey }) : null;
  * - Для gpt-5.* используем Responses API + max_output_tokens.
  * - НЕ используем max_tokens (он вызывает 400 "Unsupported parameter").
  */
-export async function callAI(messages, costLevel = "high", opts = {}) {
+export async function callAI(messages, costLevel = "medium", opts = {}) {
   if (!client) {
     throw new Error("OPENAI_API_KEY missing (Render env not set / not loaded)");
   }
 
-  const primaryModel =
-    costLevel === "low" ? MODEL_CONFIG.low : MODEL_CONFIG.default;
-
+  const primaryModel = resolveModelByCostLevel(costLevel);
   const fallbackModel = MODEL_CONFIG.low;
 
   const maxTok =
@@ -55,43 +100,29 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
 
   try {
     const response = await client.responses.create(payload);
+    const text = extractOutputText(response);
 
-    // ✅ FIX: reject whitespace-only output (prevents chat_memory u=1 a=0)
-    if (typeof response?.output_text === "string" && response.output_text.trim().length) {
-      return response.output_text;
+    // 🚨 never return empty string silently
+    if (text.trim().length) {
+      return text;
     }
 
-    const out = response?.output;
-    if (Array.isArray(out)) {
-      const texts = [];
-      for (const item of out) {
-        if (item?.type === "message" && Array.isArray(item?.content)) {
-          for (const c of item.content) {
-            if (c?.type === "output_text" && typeof c?.text === "string") {
-              texts.push(c.text);
-            }
-          }
-        }
-      }
-
-      const joined = texts.join("\n");
-      // ✅ FIX: reject whitespace-only output
-      if (joined.trim().length) return joined;
-    }
-
-    // 🚨 CRITICAL: never return empty string silently (breaks chat_memory pairing u=1 a=0)
     throw new Error(`AI returned empty output (model=${primaryModel})`);
   } catch (e) {
     const status = e?.status || e?.statusCode || null;
     const msg = e?.message || String(e);
 
     console.error("❌ callAI primary failed:", {
+      requestedCostLevel: costLevel,
       model: primaryModel,
+      fallbackModel,
       status,
       msg,
     });
 
-    if (primaryModel === fallbackModel) throw e;
+    if (primaryModel === fallbackModel) {
+      throw e;
+    }
 
     const fallbackPayload = {
       model: fallbackModel,
@@ -101,31 +132,12 @@ export async function callAI(messages, costLevel = "high", opts = {}) {
     };
 
     const response = await client.responses.create(fallbackPayload);
+    const text = extractOutputText(response);
 
-    // ✅ FIX: reject whitespace-only output (fallback)
-    if (typeof response?.output_text === "string" && response.output_text.trim().length) {
-      return response.output_text;
+    if (text.trim().length) {
+      return text;
     }
 
-    const out = response?.output;
-    if (Array.isArray(out)) {
-      const texts = [];
-      for (const item of out) {
-        if (item?.type === "message" && Array.isArray(item?.content)) {
-          for (const c of item.content) {
-            if (c?.type === "output_text" && typeof c?.text === "string") {
-              texts.push(c.text);
-            }
-          }
-        }
-      }
-
-      const joined = texts.join("\n");
-      // ✅ FIX: reject whitespace-only output (fallback)
-      if (joined.trim().length) return joined;
-    }
-
-    // 🚨 same rule for fallback
     throw new Error(`AI returned empty output (fallback model=${fallbackModel})`);
   }
 }

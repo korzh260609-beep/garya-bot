@@ -32,6 +32,59 @@ function getEstimateMeta(estimate) {
   };
 }
 
+function normalizeSemanticText(value) {
+  return safeText(value)
+    .toLowerCase()
+    .replace(/[ё]/g, "е")
+    .replace(/[’']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasAnyStem(text, stems = []) {
+  return stems.some((stem) => text.includes(stem));
+}
+
+export function resolveEstimateFocus(userText = "") {
+  const normalized = normalizeSemanticText(userText);
+  if (!normalized) return "chunk_count";
+
+  const asksTokens = hasAnyStem(normalized, [
+    "токен",
+    "token",
+    "tokens",
+    "сколько токен",
+    "примерно токен",
+  ]);
+
+  const asksChars = hasAnyStem(normalized, [
+    "символ",
+    "знак",
+    "букв",
+    "characters",
+    "chars",
+    "char count",
+  ]);
+
+  const asksParts = hasAnyStem(normalized, [
+    "част",
+    "кус",
+    "фрагмент",
+    "сообщени",
+    "chunk",
+    "chunks",
+    "parts",
+    "messages",
+  ]);
+
+  if (asksChars && asksTokens) return "chars_and_tokens";
+  if (asksTokens) return "tokens";
+  if (asksChars) return "chars";
+  if (asksParts) return "chunk_count";
+
+  return "chunk_count";
+}
+
 export function buildEstimateReplyText(estimate) {
   const { fileName, chunkCount } = getEstimateMeta(estimate);
 
@@ -40,6 +93,45 @@ export function buildEstimateReplyText(estimate) {
   }
 
   return `Если вывести ${fileName} в чат, получится примерно ${chunkCount} частей.`;
+}
+
+export function buildEstimateReplyTextByFocus(estimate, userText = "") {
+  const focus = resolveEstimateFocus(userText);
+  const {
+    fileName,
+    chunkCount,
+    charCount,
+    chunkSize,
+    approxInputTokens,
+  } = getEstimateMeta(estimate);
+
+  if (focus === "chars_and_tokens") {
+    if (chunkSize > 0) {
+      return (
+        `В ${fileName} примерно ${charCount} символов текста и около ~${approxInputTokens} токенов. ` +
+        `Оценка токенов грубая: считаю примерно 1 токен ≈ 4 символа. ` +
+        `Если выводить в чат по ~${chunkSize} символов на часть, получится примерно ${chunkCount} частей.`
+      );
+    }
+
+    return (
+      `В ${fileName} примерно ${charCount} символов текста и около ~${approxInputTokens} токенов. ` +
+      `Оценка токенов грубая: считаю примерно 1 токен ≈ 4 символа.`
+    );
+  }
+
+  if (focus === "tokens") {
+    return `Для ${fileName} это примерно ~${approxInputTokens} токенов текста. Оценка грубая: считаю примерно 1 токен ≈ 4 символа.`;
+  }
+
+  if (focus === "chars") {
+    if (chunkSize > 0) {
+      return `В ${fileName} около ${charCount} символов текста. При лимите ~${chunkSize} символов на часть это и даёт примерно ${chunkCount} частей.`;
+    }
+    return `В ${fileName} около ${charCount} символов текста.`;
+  }
+
+  return buildEstimateReplyText(estimate);
 }
 
 export function buildEstimateFollowUpReplyText(
@@ -146,6 +238,8 @@ export function saveSuccessfulEstimateContext({
 
 export default {
   buildEstimateReplyText,
+  buildEstimateReplyTextByFocus,
   buildEstimateFollowUpReplyText,
   saveSuccessfulEstimateContext,
+  resolveEstimateFocus,
 };

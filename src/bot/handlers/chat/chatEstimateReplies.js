@@ -113,6 +113,14 @@ export function buildEstimateFollowUpReplyText(
     return lines.join("\n").trim();
   }
 
+  if (requestedFocus === "whole_document_scope") {
+    if (chunkCount <= 1) {
+      return `Да, эта оценка относится ко всему тексту ${fileName} целиком, а не к отдельному фрагменту.`;
+    }
+
+    return `Да, это оценка для всего текста ${fileName} целиком. Части — это только способ безопасно вывести полный документ в чат по кускам.`;
+  }
+
   return buildEstimateReplyText(estimate);
 }
 

@@ -22,15 +22,15 @@ function truncateText(value, maxChars, suffix = "\n...[truncated]") {
 }
 
 export const CHAT_AI_INPUT_LIMITS = {
-  projectCtxChars: 1200,
-  recallCtxChars: 2500,
-  historyMessagesMax: 6,
-  historyMessageChars: 700,
-  userTextChars: 8000,
-  systemMessageChars: 1400,
-  assistantMessageChars: 900,
-  genericMessageChars: 900,
-  partSummaryChars: 8000,
+  projectCtxChars: 900,
+  recallCtxChars: 800,
+  historyMessagesMax: 2,
+  historyMessageChars: 300,
+  userTextChars: 6000,
+  systemMessageChars: 900,
+  assistantMessageChars: 400,
+  genericMessageChars: 500,
+  partSummaryChars: 6000,
 };
 
 export function guardProjectContext(projectCtx = "") {
@@ -121,7 +121,7 @@ export function buildChatInputGuardMeta({
     : 0;
 
   return {
-    aiInputGuardVersion: "v2",
+    aiInputGuardVersion: "v3",
     rawProjectCtxChars: safeText(rawProjectCtx).length,
     guardedProjectCtxChars: safeText(guardedProjectCtx).length,
     rawRecallCtxChars: safeText(rawRecallCtx).length,

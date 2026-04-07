@@ -21,11 +21,25 @@ function truncateText(value, maxChars, suffix = "\n...[truncated]") {
   return `${text.slice(0, safeLimit).trimEnd()}${suffix}`;
 }
 
+function normalizeChatType(chatType = "") {
+  return String(chatType || "").trim().toLowerCase();
+}
+
+function isSharedChatType(chatType = "") {
+  const v = normalizeChatType(chatType);
+  return v === "group" || v === "supergroup";
+}
+
 export const CHAT_AI_INPUT_LIMITS = {
   projectCtxChars: 500,
   recallCtxChars: 400,
+
   historyMessagesMax: 2,
+  historyMessagesMaxGroup: 4,
+
   historyMessageChars: 300,
+  historyMessageCharsGroup: 220,
+
   userTextChars: 6000,
   systemMessageChars: 900,
   assistantMessageChars: 400,
@@ -49,9 +63,19 @@ export function guardRecallContext(recallCtx = "") {
   );
 }
 
-export function guardHistoryMessages(history = []) {
+export function guardHistoryMessages(history = [], opts = {}) {
   const list = Array.isArray(history) ? history : [];
-  const trimmed = list.slice(-CHAT_AI_INPUT_LIMITS.historyMessagesMax);
+  const sharedChat = isSharedChatType(opts?.chatType);
+
+  const maxMessages = sharedChat
+    ? CHAT_AI_INPUT_LIMITS.historyMessagesMaxGroup
+    : CHAT_AI_INPUT_LIMITS.historyMessagesMax;
+
+  const maxCharsPerMessage = sharedChat
+    ? CHAT_AI_INPUT_LIMITS.historyMessageCharsGroup
+    : CHAT_AI_INPUT_LIMITS.historyMessageChars;
+
+  const trimmed = list.slice(-maxMessages);
 
   return trimmed.map((item) => {
     const role = item?.role || "user";
@@ -60,7 +84,7 @@ export function guardHistoryMessages(history = []) {
       ...item,
       content: truncateText(
         item?.content ?? "",
-        CHAT_AI_INPUT_LIMITS.historyMessageChars,
+        maxCharsPerMessage,
         "\n...[history truncated]"
       ),
       role,
@@ -121,7 +145,7 @@ export function buildChatInputGuardMeta({
     : 0;
 
   return {
-    aiInputGuardVersion: "v3",
+    aiInputGuardVersion: "v4-group-aware",
     rawProjectCtxChars: safeText(rawProjectCtx).length,
     guardedProjectCtxChars: safeText(guardedProjectCtx).length,
     rawRecallCtxChars: safeText(rawRecallCtx).length,

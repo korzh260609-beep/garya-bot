@@ -79,6 +79,9 @@ function _isSharedChatType(chatType) {
 function _buildAuthorLabel(metadata = {}) {
   const meta = _safeObj(metadata);
 
+  const assistantLabel = _safeStr(meta.assistantLabel).trim();
+  if (assistantLabel) return assistantLabel;
+
   const senderName = _safeStr(meta.senderName).trim();
   if (senderName) return senderName;
 
@@ -102,6 +105,7 @@ function _decorateHistoryRow({ role, content, metadata = {}, chatType = "unknown
   const roleStr = _safeStr(role).trim() || "user";
   const text = typeof content === "string" ? content : _safeStr(content);
   const normalizedChatType = _normalizeChatType(chatType);
+  const meta = _safeObj(metadata);
 
   if (!_isSharedChatType(normalizedChatType)) {
     return {
@@ -111,7 +115,7 @@ function _decorateHistoryRow({ role, content, metadata = {}, chatType = "unknown
   }
 
   if (roleStr === "user") {
-    const authorLabel = _buildAuthorLabel(metadata);
+    const authorLabel = _buildAuthorLabel(meta);
     return {
       role: roleStr,
       content: `[group user: ${authorLabel}] ${text}`,
@@ -119,9 +123,10 @@ function _decorateHistoryRow({ role, content, metadata = {}, chatType = "unknown
   }
 
   if (roleStr === "assistant") {
+    const assistantLabel = _safeStr(meta.assistantLabel).trim() || "sg_assistant";
     return {
       role: roleStr,
-      content: `[sg assistant] ${text}`,
+      content: `[${assistantLabel}] ${text}`,
     };
   }
 

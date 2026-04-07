@@ -46,6 +46,17 @@ function buildSenderMemoryMeta(msg, chatIdStr, senderIdStr, messageId) {
   };
 }
 
+function buildAssistantMemoryMeta(msg, chatIdStr, messageId) {
+  const chatType = String(msg?.chat?.type || "").trim() || "unknown";
+
+  return {
+    chatIdStr,
+    messageId,
+    chatType,
+    assistantLabel: "sg_assistant",
+  };
+}
+
 function safeReplyText(value) {
   if (typeof value === "string") return value.trim();
   if (value === null || value === undefined) return "";
@@ -77,6 +88,19 @@ function buildReplyContext(msg) {
     replyMessageId,
     replyText,
   };
+}
+
+function resolveHistoryLimit({
+  currentChatType = "unknown",
+  defaultLimit = 20,
+}) {
+  const chatType = String(currentChatType || "").trim().toLowerCase();
+
+  if (chatType === "group" || chatType === "supergroup") {
+    return Math.max(defaultLimit, 6);
+  }
+
+  return defaultLimit;
 }
 
 export async function runChatAiOrchestration({
@@ -113,7 +137,12 @@ export async function runChatAiOrchestration({
   const stablePersonalFactMode = isStablePersonalFactQuestion(effective);
   const currentChatType = String(msg?.chat?.type || "").trim() || "unknown";
   const senderMemoryMeta = buildSenderMemoryMeta(msg, chatIdStr, senderIdStr, messageId);
+  const assistantMemoryMeta = buildAssistantMemoryMeta(msg, chatIdStr, messageId);
   const replyContext = buildReplyContext(msg);
+  const historyLimit = resolveHistoryLimit({
+    currentChatType,
+    defaultLimit: MAX_HISTORY_MESSAGES,
+  });
 
   const { sourceCtx, sourceResultSystemMessage, sourceServiceSystemMessage } =
     await resolveChatSourceFlow({ effective });
@@ -161,7 +190,7 @@ export async function runChatAiOrchestration({
       history = await memoryLocal.recent({
         chatId: chatIdStr,
         globalUserId,
-        limit: MAX_HISTORY_MESSAGES,
+        limit: historyLimit,
         chatType: currentChatType,
       });
     } catch {}
@@ -213,7 +242,9 @@ export async function runChatAiOrchestration({
 
   const guardedProjectCtx = guardProjectContext(projectCtx);
   const guardedRecallCtx = guardRecallContext(recallCtx || "");
-  const guardedHistory = guardHistoryMessages(history);
+  const guardedHistory = guardHistoryMessages(history, {
+    chatType: currentChatType,
+  });
 
   const answerMode = getAnswerMode(chatIdStr, {
     isMonarch: monarchNow,
@@ -274,6 +305,9 @@ export async function runChatAiOrchestration({
     replyContextAuthor: replyContext?.authorLabel || "",
     replyContextHasText: Boolean(replyContext?.replyText),
 
+    historyRequestedLimit: historyLimit,
+    historyChatType: currentChatType,
+
     ...behaviorSnapshot,
     ...inputGuardMeta,
     ...promptBlockDiagnostics,
@@ -299,8 +333,7 @@ export async function runChatAiOrchestration({
     content: aiReply,
     transport: "telegram",
     metadata: {
-      ...senderMemoryMeta,
-      assistantLabel: "sg_assistant",
+      ...assistantMemoryMeta,
     },
     schemaVersion: 2,
   });

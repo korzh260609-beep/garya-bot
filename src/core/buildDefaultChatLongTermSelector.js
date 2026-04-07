@@ -35,6 +35,30 @@ function isCommunicationStyleQuestion(text) {
   );
 }
 
+function isAddressingQuestion(text) {
+  const t = normalizeText(text);
+  if (!t) return false;
+
+  return (
+    includesAny(t, [
+      "как меня называть",
+      "как ко мне обращаться",
+      "как меня лучше называть",
+      "как ты должен меня называть",
+      "как до мене звертатися",
+      "як мене називати",
+      "як ти маєш мене називати",
+      "call me",
+      "address me as",
+      "what should you call me",
+    ]) ||
+    t.startsWith("как меня называть") ||
+    t.startsWith("як мене називати") ||
+    t.startsWith("как ко мне обращаться") ||
+    t.startsWith("як до мене звертатися")
+  );
+}
+
 function isNameQuestion(text) {
   const t = normalizeText(text);
   if (!t) return false;
@@ -133,14 +157,43 @@ export function buildDefaultChatLongTermSelector(input = {}) {
 
   if (isCommunicationStyleQuestion(effective)) {
     return buildLongTermPromptSelector({
-      rememberKeys: ["communication_style"],
+      rememberKeys: ["communication_style", "preferred_address"],
       rememberTypes: ["user_preference"],
       rememberDomains: ["user_preference"],
-      rememberSlots: ["communication_style"],
+      rememberSlots: ["communication_style", "preferred_address"],
       domainSlots: [
         {
           rememberDomain: "user_preference",
           rememberSlot: "communication_style",
+        },
+        {
+          rememberDomain: "user_preference",
+          rememberSlot: "preferred_address",
+        },
+      ],
+      perKeyLimit: 1,
+      perTypeLimit: 1,
+      perDomainLimit: 1,
+      perSlotLimit: 1,
+      perDomainSlotLimit: 1,
+      totalLimit: 2,
+    });
+  }
+
+  if (isAddressingQuestion(effective)) {
+    return buildLongTermPromptSelector({
+      rememberKeys: ["preferred_address", "name"],
+      rememberTypes: ["user_preference", "identity_profile", "user_profile"],
+      rememberDomains: ["user_preference", "identity"],
+      rememberSlots: ["preferred_address", "name"],
+      domainSlots: [
+        {
+          rememberDomain: "user_preference",
+          rememberSlot: "preferred_address",
+        },
+        {
+          rememberDomain: "identity",
+          rememberSlot: "name",
         },
       ],
       perKeyLimit: 1,
@@ -154,14 +207,18 @@ export function buildDefaultChatLongTermSelector(input = {}) {
 
   if (isNameQuestion(effective)) {
     return buildLongTermPromptSelector({
-      rememberKeys: ["name"],
-      rememberTypes: ["identity_profile", "user_profile"],
-      rememberDomains: ["identity"],
-      rememberSlots: ["name"],
+      rememberKeys: ["name", "preferred_address"],
+      rememberTypes: ["identity_profile", "user_profile", "user_preference"],
+      rememberDomains: ["identity", "user_preference"],
+      rememberSlots: ["name", "preferred_address"],
       domainSlots: [
         {
           rememberDomain: "identity",
           rememberSlot: "name",
+        },
+        {
+          rememberDomain: "user_preference",
+          rememberSlot: "preferred_address",
         },
       ],
       perKeyLimit: 1,
@@ -258,8 +315,9 @@ export function buildDefaultChatLongTermSelector(input = {}) {
       "maintenance_fact",
       "maintenance_interval",
       "task_intent",
+      "user_preference",
     ],
-    rememberKeys: ["communication_style"],
+    rememberKeys: ["communication_style", "preferred_address"],
     rememberDomains: [
       "identity",
       "user_preference",
@@ -270,6 +328,7 @@ export function buildDefaultChatLongTermSelector(input = {}) {
     rememberSlots: [
       "name",
       "communication_style",
+      "preferred_address",
       "vehicle",
       "engine",
       "trim",
@@ -287,6 +346,10 @@ export function buildDefaultChatLongTermSelector(input = {}) {
       {
         rememberDomain: "user_preference",
         rememberSlot: "communication_style",
+      },
+      {
+        rememberDomain: "user_preference",
+        rememberSlot: "preferred_address",
       },
       { rememberDomain: "vehicle_profile", rememberSlot: "vehicle" },
       { rememberDomain: "vehicle_profile", rememberSlot: "engine" },

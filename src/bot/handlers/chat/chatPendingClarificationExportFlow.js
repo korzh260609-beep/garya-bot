@@ -9,7 +9,6 @@ import {
   resolveDocumentExportTargetClarification,
 } from "./exportClarificationResolver.js";
 import {
-  saveRecentDocumentCurrentPartForExport,
   getExplicitExportCandidate,
   getRecentDocumentExportCandidate,
   getRecentAssistantReplyExportCandidate,

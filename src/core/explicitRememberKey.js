@@ -193,6 +193,79 @@ function extractCommunicationStyleValue(raw) {
   return cleanValue(simplified || text);
 }
 
+function isPreferredAddressPreference(text) {
+  if (!text) return false;
+
+  if (
+    hasAny(text, [
+      "называй меня",
+      "зови меня",
+      "обращайся ко мне",
+      "обращайся ко мне как",
+      "называй меня так",
+      "зови мене",
+      "називай мене",
+      "звертайся до мене",
+      "звертайся до мене як",
+      "call me",
+      "address me as",
+      "refer to me as",
+    ])
+  ) {
+    return true;
+  }
+
+  if (
+    hasAll(text, ["как", "меня", "называть"]) ||
+    hasAll(text, ["как", "ко", "мне", "обращаться"]) ||
+    hasAll(text, ["як", "мене", "називати"]) ||
+    hasAll(text, ["як", "до", "мене", "звертатися"])
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function extractPreferredAddressValue(raw) {
+  const text = safeStr(raw).replace(/\s+/g, " ").trim();
+  if (!text) return null;
+
+  const patterns = [
+    /(?:запомни|remember)\s+называй\s+меня\s+(.+)/i,
+    /(?:запомни|remember)\s+зови\s+меня\s+(.+)/i,
+    /(?:запомни|remember)\s+обращайся\s+ко\s+мне\s+как\s+(.+)/i,
+    /(?:запомни|remember)\s+обращайся\s+ко\s+мне\s+(.+)/i,
+    /(?:запомни|remember)\s+називай\s+мене\s+(.+)/i,
+    /(?:запомни|remember)\s+зови\s+мене\s+(.+)/i,
+    /(?:запомни|remember)\s+звертайся\s+до\s+мене\s+як\s+(.+)/i,
+    /(?:запомни|remember)\s+звертайся\s+до\s+мене\s+(.+)/i,
+    /(?:запомни|remember)\s+call\s+me\s+(.+)/i,
+    /(?:запомни|remember)\s+address\s+me\s+as\s+(.+)/i,
+    /называй\s+меня\s+(.+)/i,
+    /зови\s+меня\s+(.+)/i,
+    /обращайся\s+ко\s+мне\s+как\s+(.+)/i,
+    /обращайся\s+ко\s+мне\s+(.+)/i,
+    /називай\s+мене\s+(.+)/i,
+    /зови\s+мене\s+(.+)/i,
+    /звертайся\s+до\s+мене\s+як\s+(.+)/i,
+    /звертайся\s+до\s+мене\s+(.+)/i,
+    /call\s+me\s+(.+)/i,
+    /address\s+me\s+as\s+(.+)/i,
+    /refer\s+to\s+me\s+as\s+(.+)/i,
+  ];
+
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m && m[1]) {
+      const value = cleanValue(m[1]);
+      if (value) return value;
+    }
+  }
+
+  return null;
+}
+
 // ==========================================================
 // MAIN CLASSIFIER
 // ==========================================================
@@ -227,6 +300,16 @@ export function classifyExplicitRemember(value) {
     return {
       key: "name",
       value: extracted || raw,
+    };
+  }
+
+  // ==========================================================
+  // USER PREFERENCE — PREFERRED ADDRESS
+  // ==========================================================
+  if (isPreferredAddressPreference(text)) {
+    return {
+      key: "preferred_address",
+      value: extractPreferredAddressValue(raw) || raw,
     };
   }
 
@@ -450,9 +533,7 @@ export function classifyExplicitRemember(value) {
   // ==========================================================
   // MAINTENANCE — HALDEX
   // ==========================================================
-  if (
-    hasAny(text, ["haldex", "халдекс", "муфта", "муфте", "муфты"])
-  ) {
+  if (hasAny(text, ["haldex", "халдекс", "муфта", "муфте", "муфты"])) {
     if (
       hasAny(text, [
         "последняя замена",

@@ -67,6 +67,16 @@ function mapPreferenceKey(key, value) {
     });
   }
 
+  if (key === "preferred_address") {
+    return buildStructuredResult({
+      key,
+      value,
+      domain: "user_preference",
+      slot: "preferred_address",
+      source: "explicit_remember_structure.user_preference.preferred_address",
+    });
+  }
+
   return null;
 }
 

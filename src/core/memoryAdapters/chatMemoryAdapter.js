@@ -101,6 +101,17 @@ function _buildAuthorLabel(metadata = {}) {
   return "unknown_user";
 }
 
+function _buildAssistantOnlyMeta(metadata = {}) {
+  const meta = _safeObj(metadata);
+
+  return {
+    chatIdStr: _safeStr(meta.chatIdStr),
+    messageId: meta.messageId ?? null,
+    chatType: _safeStr(meta.chatType) || "unknown",
+    assistantLabel: _safeStr(meta.assistantLabel).trim() || "sg_assistant",
+  };
+}
+
 function _decorateHistoryRow({ role, content, metadata = {}, chatType = "unknown" }) {
   const roleStr = _safeStr(role).trim() || "user";
   const text = typeof content === "string" ? content : _safeStr(content);
@@ -268,7 +279,6 @@ export class ChatMemoryAdapter {
         await _withTx(async (client) => {
           await client.query(`SELECT pg_advisory_xact_lock(hashtext($1));`, [lockKey]);
 
-          // dedupe check
           const exists = await client.query(
             `
             SELECT id
@@ -294,7 +304,6 @@ export class ChatMemoryAdapter {
 
           if ((exists.rows || []).length) return;
 
-          // insert
           if (hasGlobal || hasTransport || hasMeta || hasSv) {
             const cols = ["chat_id", "role", "content"];
             const vals = [chatIdStr, roleStr, text];
@@ -324,7 +333,6 @@ export class ChatMemoryAdapter {
             return;
           }
 
-          // legacy insert (only base columns)
           await client.query(
             `INSERT INTO chat_memory (chat_id, role, content) VALUES ($1, $2, $3)`,
             [chatIdStr, roleStr, text]
@@ -334,7 +342,6 @@ export class ChatMemoryAdapter {
         return { ok: true };
       }
 
-      // No messageId path (simple insert)
       if (hasGlobal || hasTransport || hasMeta || hasSv) {
         const cols = ["chat_id", "role", "content"];
         const vals = [chatIdStr, roleStr, text];
@@ -365,7 +372,6 @@ export class ChatMemoryAdapter {
         return { ok: true };
       }
 
-      // legacy insert
       await pool.query(`INSERT INTO chat_memory (chat_id, role, content) VALUES ($1, $2, $3)`, [
         chatIdStr,
         roleStr,
@@ -388,12 +394,26 @@ export class ChatMemoryAdapter {
     const chatIdStr = _safeStr(chatId);
     if (!chatIdStr) return { ok: false, reason: "missing_chatId" };
 
+    const baseOptions = _safeObj(options);
+    const userMetadata = _safeObj(baseOptions?.metadata);
+    const assistantMetadata = _buildAssistantOnlyMeta(userMetadata);
+
+    const userOptions = {
+      ...baseOptions,
+      metadata: userMetadata,
+    };
+
+    const assistantOptions = {
+      ...baseOptions,
+      metadata: assistantMetadata,
+    };
+
     await this.saveMessage({
       chatId: chatIdStr,
       role: "user",
       content: typeof userText === "string" ? userText : _safeStr(userText),
       globalUserId,
-      options,
+      options: userOptions,
     });
 
     await this.saveMessage({
@@ -401,7 +421,7 @@ export class ChatMemoryAdapter {
       role: "assistant",
       content: typeof assistantText === "string" ? assistantText : _safeStr(assistantText),
       globalUserId,
-      options,
+      options: assistantOptions,
     });
 
     return { ok: true };

@@ -4,7 +4,6 @@ export function createChatMemoryBridge({
   chatIdStr,
   globalUserId,
   saveMessageToMemory,
-  saveChatPair,
   getMemoryService,
 }) {
   const memory = getMemoryService ? getMemoryService() : null;
@@ -42,43 +41,8 @@ export function createChatMemoryBridge({
     return { ok: true, stored: false, reason: "memory_write_fail_open" };
   };
 
-  const memoryWritePair = async ({ userText, assistantText, transport, metadata, schemaVersion }) => {
-    try {
-      if (memory && typeof memory.writePair === "function") {
-        return await memory.writePair({
-          chatId: chatIdStr,
-          globalUserId,
-          userText: typeof userText === "string" ? userText : String(userText || ""),
-          assistantText:
-            typeof assistantText === "string" ? assistantText : String(assistantText || ""),
-          transport: transport || "telegram",
-          metadata: metadata || {},
-          schemaVersion: schemaVersion || 2,
-        });
-      }
-    } catch (e) {
-      console.error("ERROR MemoryService.writePair failed (fail-open):", e);
-    }
-
-    try {
-      if (typeof saveChatPair === "function") {
-        return await saveChatPair(chatIdStr, userText, assistantText, {
-          globalUserId,
-          transport: transport || "telegram",
-          metadata: metadata || {},
-          schemaVersion: schemaVersion || 2,
-        });
-      }
-    } catch (e) {
-      console.error("ERROR saveChatPair fallback failed (fail-open):", e);
-    }
-
-    return { ok: true, stored: false, reason: "memory_writePair_fail_open" };
-  };
-
   return {
     memory,
     memoryWrite,
-    memoryWritePair,
   };
 }

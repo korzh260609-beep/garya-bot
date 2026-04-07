@@ -13,9 +13,10 @@ export function createAssistantReplyPersistence({
   msg,
   memoryWrite,
 }) {
+  const chatType = msg?.chat?.type || null;
+
   const buildAssistantDbPayload = (replyText, metadata = {}) => {
     const transport = "telegram";
-    const chatType = msg?.chat?.type || null;
 
     const assistantRedactedFull = redactText(replyText);
     const assistantTextHash = sha256Text(assistantRedactedFull);
@@ -69,7 +70,7 @@ export function createAssistantReplyPersistence({
       await touchChatMeta({
         transport: "telegram",
         chatId: String(chatIdStr),
-        chatType: msg?.chat?.type || null,
+        chatType,
         title: msg?.chat?.title || null,
         role: "assistant",
       });
@@ -99,6 +100,8 @@ export function createAssistantReplyPersistence({
           senderIdStr,
           chatIdStr,
           messageId,
+          chatType,
+          assistantLabel: "sg_assistant",
           earlyReturn: true,
           reason,
         },

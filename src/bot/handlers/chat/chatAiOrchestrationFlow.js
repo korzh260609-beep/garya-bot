@@ -104,17 +104,6 @@ export async function runChatAiOrchestration({
     currentChatType,
     stablePersonalFactMode,
     historyLimit,
-    memoryWrite: async ({ role, content, transport, metadata, schemaVersion }) =>
-      memoryWrite({
-        role,
-        content,
-        transport,
-        metadata: {
-          ...senderMemoryMeta,
-          ...(metadata || {}),
-        },
-        schemaVersion,
-      }),
     insertAssistantReply,
     saveAssistantEarlyReturn,
   });

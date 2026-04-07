@@ -20,18 +20,9 @@ export async function runChatAiMemoryPrep({
   currentChatType = "unknown",
   stablePersonalFactMode = false,
   historyLimit = 20,
-  memoryWrite,
   insertAssistantReply,
   saveAssistantEarlyReturn,
 }) {
-  await memoryWrite({
-    role: "user",
-    content: effective,
-    transport: "telegram",
-    metadata: {},
-    schemaVersion: 2,
-  });
-
   let history = [];
   let recallCtx = null;
 

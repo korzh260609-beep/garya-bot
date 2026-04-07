@@ -1,24 +1,13 @@
 // src/bot/handlers/chat/chatAiOrchestrationFlow.js
 
-import pool from "../../../../db.js";
 import { classifyInteraction } from "../../../../classifier.js";
-import { getMemoryService } from "../../../core/memoryServiceFactory.js";
 import { resolveChatSourceFlow } from "./sourceFlow.js";
 import { resolveLongTermMemoryBridge } from "./longTermMemoryBridge.js";
-import {
-  resolveUserTimezoneState,
-  tryHandleMissingTimezoneFlow,
-  tryHandleDeterministicTimeReplies,
-} from "./timezoneFlow.js";
-import { buildChatRecallContext } from "./recallFlow.js";
-import { runAlreadySeenFlow } from "./alreadySeenFlow.js";
 import { buildChatMessages } from "./promptAssembly.js";
 import { resolveAiParams, executeChatAI } from "./aiExecution.js";
-import { finalizeChatReply } from "./postReplyFlow.js";
 import isStablePersonalFactQuestion from "./isStablePersonalFactQuestion.js";
 import resolveChatIntent from "./intent/resolveChatIntent.js";
 import buildBehaviorSnapshot from "./behaviorSnapshot.js";
-import { handlePostAiExportPersistence } from "./chatPostAiPersistenceFlow.js";
 import {
   guardProjectContext,
   guardRecallContext,
@@ -26,82 +15,14 @@ import {
   guardChatMessages,
   buildChatInputGuardMeta,
 } from "./aiInputGuard.js";
-
-function buildSenderMemoryMeta(msg, chatIdStr, senderIdStr, messageId) {
-  const firstName = String(msg?.from?.first_name || "").trim();
-  const lastName = String(msg?.from?.last_name || "").trim();
-  const username = String(msg?.from?.username || "").trim();
-  const chatType = String(msg?.chat?.type || "").trim() || "unknown";
-  const senderName = [firstName, lastName].filter(Boolean).join(" ").trim();
-
-  return {
-    senderIdStr,
-    chatIdStr,
-    messageId,
-    chatType,
-    senderFirstName: firstName,
-    senderLastName: lastName,
-    senderUsername: username,
-    senderName: senderName || (username ? `@${username}` : ""),
-  };
-}
-
-function buildAssistantMemoryMeta(msg, chatIdStr, messageId) {
-  const chatType = String(msg?.chat?.type || "").trim() || "unknown";
-
-  return {
-    chatIdStr,
-    messageId,
-    chatType,
-    assistantLabel: "sg_assistant",
-  };
-}
-
-function safeReplyText(value) {
-  if (typeof value === "string") return value.trim();
-  if (value === null || value === undefined) return "";
-  return String(value).trim();
-}
-
-function buildReplyAuthorLabel(replyMsg) {
-  const firstName = String(replyMsg?.from?.first_name || "").trim();
-  const lastName = String(replyMsg?.from?.last_name || "").trim();
-  const username = String(replyMsg?.from?.username || "").trim();
-
-  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
-  if (fullName) return fullName;
-  if (username) return username.startsWith("@") ? username : `@${username}`;
-  return "unknown_user";
-}
-
-function buildReplyContext(msg) {
-  const replyMsg = msg?.reply_to_message;
-  if (!replyMsg) return null;
-
-  const replyText = safeReplyText(replyMsg?.text || replyMsg?.caption || "");
-  const authorLabel = buildReplyAuthorLabel(replyMsg);
-  const replyMessageId = replyMsg?.message_id ?? null;
-
-  return {
-    exists: true,
-    authorLabel,
-    replyMessageId,
-    replyText,
-  };
-}
-
-function resolveHistoryLimit({
-  currentChatType = "unknown",
-  defaultLimit = 20,
-}) {
-  const chatType = String(currentChatType || "").trim().toLowerCase();
-
-  if (chatType === "group" || chatType === "supergroup") {
-    return Math.max(defaultLimit, 6);
-  }
-
-  return defaultLimit;
-}
+import {
+  buildSenderMemoryMeta,
+  buildAssistantMemoryMeta,
+  buildReplyContext,
+  resolveHistoryLimit,
+} from "./chatAiContextBuilders.js";
+import { runChatAiMemoryPrep } from "./chatAiMemoryPrepFlow.js";
+import { runChatAiPostProcessing } from "./chatAiPostProcessingFlow.js";
 
 export async function runChatAiOrchestration({
   bot,
@@ -136,7 +57,12 @@ export async function runChatAiOrchestration({
 
   const stablePersonalFactMode = isStablePersonalFactQuestion(effective);
   const currentChatType = String(msg?.chat?.type || "").trim() || "unknown";
-  const senderMemoryMeta = buildSenderMemoryMeta(msg, chatIdStr, senderIdStr, messageId);
+  const senderMemoryMeta = buildSenderMemoryMeta(
+    msg,
+    chatIdStr,
+    senderIdStr,
+    messageId
+  );
   const assistantMemoryMeta = buildAssistantMemoryMeta(msg, chatIdStr, messageId);
   const replyContext = buildReplyContext(msg);
   const historyLimit = resolveHistoryLimit({
@@ -168,66 +94,37 @@ export async function runChatAiOrchestration({
     schemaVersion: 2,
   });
 
-  let history = [];
-  let recallCtx = null;
+  const prepResult = await runChatAiMemoryPrep({
+    bot,
+    chatId,
+    chatIdStr,
+    globalUserId,
+    userRole,
+    effective,
+    currentChatType,
+    stablePersonalFactMode,
+    historyLimit,
+    memoryWrite: async ({ role, content, transport, metadata, schemaVersion }) =>
+      memoryWrite({
+        role,
+        content,
+        transport,
+        metadata: {
+          ...senderMemoryMeta,
+          ...(metadata || {}),
+        },
+        schemaVersion,
+      }),
+    insertAssistantReply,
+    saveAssistantEarlyReturn,
+  });
 
-  const { userTz, timezoneMissing } = await resolveUserTimezoneState(globalUserId);
-
-  if (timezoneMissing) {
-    const result = await tryHandleMissingTimezoneFlow({
-      effective,
-      globalUserId,
-      saveAssistantEarlyReturn,
-      bot,
-      chatId,
-    });
-    if (result?.handled) return { handled: true };
+  if (prepResult?.handled) {
+    return { handled: true };
   }
 
-  if (!stablePersonalFactMode) {
-    try {
-      const memoryLocal = getMemoryService();
-      history = await memoryLocal.recent({
-        chatId: chatIdStr,
-        globalUserId,
-        limit: historyLimit,
-        chatType: currentChatType,
-      });
-    } catch {}
-
-    recallCtx = await buildChatRecallContext({
-      pool,
-      chatIdStr,
-      globalUserId,
-      effective,
-      userTz,
-    });
-
-    const deterministicResult = await tryHandleDeterministicTimeReplies({
-      effective,
-      userTz,
-      recallCtx,
-      saveAssistantEarlyReturn,
-      bot,
-      chatId,
-    });
-
-    if (deterministicResult?.handled) return { handled: true };
-
-    await runAlreadySeenFlow({
-      bot,
-      chatId,
-      chatIdStr,
-      globalUserId,
-      effective,
-      userRole,
-      saveAssistantHint: async (hintText) => {
-        await insertAssistantReply(hintText, {
-          stage: "already_seen",
-        });
-      },
-    });
-  }
+  const history = Array.isArray(prepResult?.history) ? prepResult.history : [];
+  const recallCtx = prepResult?.recallCtx || null;
 
   const classification = classifyInteraction({
     userText: effective,
@@ -326,22 +223,13 @@ export async function runChatAiOrchestration({
     chatIdStr,
   });
 
-  await insertAssistantReply(aiReply, { stage: "final" });
-
-  await memoryWrite({
-    role: "assistant",
-    content: aiReply,
-    transport: "telegram",
-    metadata: {
-      ...assistantMemoryMeta,
-    },
-    schemaVersion: 2,
-  });
-
-  await finalizeChatReply({
+  await runChatAiPostProcessing({
+    aiReply,
+    insertAssistantReply,
+    memoryWrite,
+    assistantMemoryMeta,
     sanitizeNonMonarchReply,
     monarchNow,
-    aiReply,
     bot,
     chatId,
     effective,
@@ -352,17 +240,9 @@ export async function runChatAiOrchestration({
     sourceCtx,
     longTermMemoryBridgeResult,
     longTermMemoryInjected,
-  });
-
-  handlePostAiExportPersistence({
-    chatId,
-    aiReply,
     answerMode,
     mediaResponseMode,
-    chatIdStr,
-    messageId,
     FileIntake,
-    effective,
   });
 
   return {

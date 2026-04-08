@@ -111,7 +111,6 @@ import { handleRepoDiffCommand } from "./router/repoDiffCommand.js";
 import { handleProjectMemoryCommands } from "./router/projectMemoryCommands.js";
 import { handleTaskExecutionCommands } from "./router/taskExecutionCommands.js";
 import { handleSourceDomainCommands } from "./router/sourceDomainCommands.js";
-import { handleRepoDomainCommands } from "./router/repoDomainCommands.js";
 import { handleMiscDiagnosticsCommands } from "./router/miscDiagnosticsCommands.js";
 import { handleTaskListCommands } from "./router/taskListCommands.js";
 import { handleContextDebugCommands } from "./router/contextDebugCommands.js";
@@ -595,20 +594,6 @@ export function attachMessageRouter({
           });
 
           if (handledUtilityStatusLate) {
-            return;
-          }
-        }
-
-        {
-          const handledRepoDomain = await handleRepoDomainCommands({
-            cmdBase,
-            bot,
-            chatId,
-            rest,
-            senderIdStr,
-          });
-
-          if (handledRepoDomain) {
             return;
           }
         }

@@ -72,7 +72,8 @@ export async function dispatchTaskCommands({ cmd0, ctx, reply }) {
       return { handled: true };
     }
 
-    case "/newtask": {
+    case "/newtask":
+    case "/new_task": {
       const raw = String(rest || "").trim();
 
       if (!raw) {
@@ -197,7 +198,8 @@ export async function dispatchTaskCommands({ cmd0, ctx, reply }) {
       return { handled: true };
     }
 
-    case "/run": {
+    case "/run":
+    case "/run_task": {
       const raw = String(rest || "").trim();
       const taskId = parseInt(raw, 10);
 
@@ -270,7 +272,8 @@ export async function dispatchTaskCommands({ cmd0, ctx, reply }) {
       return { handled: true };
     }
 
-    case "/stop_all_tasks": {
+    case "/stop_all_tasks":
+    case "/stop_all": {
       await handleStopAllTasks({
         bot,
         chatId,

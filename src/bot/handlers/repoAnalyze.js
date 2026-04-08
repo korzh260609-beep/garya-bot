@@ -6,20 +6,7 @@
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 import { RepoSource } from "../../repo/RepoSource.js";
-
-// ---------------------------------------------------------------------------
-// Permission guard (monarch-only) — Stage 4: identity-first (MONARCH_USER_ID)
-// ---------------------------------------------------------------------------
-async function requireMonarch(bot, chatId, userIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return true;
-
-  if (String(userIdStr) !== MONARCH_USER_ID) {
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
-    return false;
-  }
-  return true;
-}
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 function normalizePath(raw) {
   const p = String(raw || "").trim().replace(/^\/+/, "");
@@ -115,13 +102,17 @@ function buildMetrics({ path, code, lines }) {
   const classes = countMatches("\\bclass\\s+\\w+\\b", code);
 
   const hasEnv = reTest("\\bprocess\\.env\\.", code);
-  const hasNet = reTest("\\bfetch\\(", code) || reTest("\\baxios\\b", code) || reTest("\\brequest\\b", code);
+  const hasNet =
+    reTest("\\bfetch\\(", code) || reTest("\\baxios\\b", code) || reTest("\\brequest\\b", code);
   const hasFsWrite =
     reTest("\\bfs\\.", code) &&
     (reTest("\\bwriteFile\\(", code) ||
       reTest("\\bappendFile\\(", code) ||
       reTest("\\bcreateWriteStream\\(", code));
-  const hasChildProc = reTest("\\bchild_process\\b", code) || reTest("\\bexec\\(", code) || reTest("\\bspawn\\(", code);
+  const hasChildProc =
+    reTest("\\bchild_process\\b", code) ||
+    reTest("\\bexec\\(", code) ||
+    reTest("\\bspawn\\(", code);
 
   const isBootstrap = String(path || "").includes("src/bootstrap/");
   const isHandler = String(path || "").includes("src/bot/handlers/");
@@ -192,7 +183,10 @@ function buildFindings({ metrics, code }) {
   // privileged commands inside handler check (heuristic)
   if (
     metrics.flags.isHandler &&
-    (reTest("\\/reindex\\b", code) || reTest("\\/repo_review\\b", code) || reTest("\\/repo_diff\\b", code) || reTest("\\/repo_", code))
+    (reTest("\\/reindex\\b", code) ||
+      reTest("\\/repo_review\\b", code) ||
+      reTest("\\/repo_diff\\b", code) ||
+      reTest("\\/repo_", code))
   ) {
     if (!reTest("MONARCH_USER_ID", code) && !reTest("requirePerm", code) && !reTest("perm", code)) {
       risks.push("Похоже на привилегированную команду без явного permission-guard в handler (PERMISSION_BYPASS_RISK).");
@@ -216,18 +210,11 @@ function buildQuestionFocus(question) {
   return `Фокус-вопрос: ${q}`;
 }
 
-export async function handleRepoAnalyze(ctx) {
-  const { bot, chatId, senderIdStr, rest } = ctx || {};
-
-  // Stage 4: identity-first. No trust in chatId.
-  if (!senderIdStr) {
-    await bot.sendMessage(chatId, "Internal error: senderIdStr missing (identity-first).");
-    return;
-  }
-  const effectiveUserIdStr = String(senderIdStr);
-
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleRepoAnalyze(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
+
+  const { bot, chatId, rest } = ctx;
 
   const parsed = parsePathAndQuestion(rest);
   const path = normalizePath(parsed.path);

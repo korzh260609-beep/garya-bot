@@ -12,7 +12,7 @@ import {
   resolveCapability,
   buildCapabilityRegistrySummary,
 } from "../../capabilities/capabilityRegistry.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function normalizeRest(rest) {
   return String(rest || "").trim();
@@ -95,14 +95,14 @@ function formatSingleCapabilityText(capability) {
 }
 
 export async function handleCapabilitiesRegistry(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   await ctx.bot.sendMessage(ctx.chatId, formatListText());
 }
 
 export async function handleCapabilityLookup(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const query = normalizeRest(ctx.rest);

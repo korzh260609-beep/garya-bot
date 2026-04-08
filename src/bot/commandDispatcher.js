@@ -228,6 +228,10 @@ export async function dispatchCommand(cmd, ctx) {
     "/repo_file",
     "/repo_analyze",
     "/repo_search",
+    "/repo_get",
+    "/repo_check",
+    "/repo_review",
+    "/repo_review2",
     "/code_output_status",
 
     "/capabilities",

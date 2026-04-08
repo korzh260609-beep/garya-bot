@@ -4,20 +4,9 @@
 // ============================================================================
 
 import pool from "../../../db.js";
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 const LEGACY_EVENT_TYPES = new Set(["style_axis_used", "criticality_used"]);
-
-async function requireMonarch(bot, chatId, userIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return true;
-
-  if (String(userIdStr) !== MONARCH_USER_ID) {
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
-    return false;
-  }
-
-  return true;
-}
 
 function parseArgs(rest) {
   const raw = String(rest || "").trim();
@@ -301,16 +290,11 @@ function buildHeader({ shownCount, showRaw, showLegacy, hiddenLegacyCount }) {
   })`;
 }
 
-export async function handleBehaviorEventsLast({
-  bot,
-  chatId,
-  rest,
-  senderIdStr,
-}) {
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleBehaviorEventsLast(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
 
+  const { bot, chatId, rest } = ctx;
   const { limit, showRaw, showLegacy } = parseArgs(rest);
 
   try {

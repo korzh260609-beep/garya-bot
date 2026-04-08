@@ -41,6 +41,7 @@ export async function handleRepoDomainCommands({
       bot,
       chatId,
       rest,
+      senderIdStr,
     });
     return true;
   }
@@ -58,6 +59,7 @@ export async function handleRepoDomainCommands({
       bot,
       chatId,
       rest,
+      senderIdStr,
     });
     return true;
   }
@@ -86,6 +88,7 @@ export async function handleRepoDomainCommands({
       bot,
       chatId,
       rest,
+      senderIdStr,
     });
     return true;
   }

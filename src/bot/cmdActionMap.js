@@ -17,6 +17,7 @@ export const CMD_ACTION = {
   "/repo_file": "cmd.admin.repo_file",
   "/repo_search": "cmd.admin.repo_search",
   "/repo_analyze": "cmd.admin.repo_analyze",
+  "/repo_diff": "cmd.admin.repo_diff",
   "/repo_get": "cmd.admin.repo_get",
   "/repo_check": "cmd.admin.repo_check",
   "/repo_review": "cmd.admin.repo_review",

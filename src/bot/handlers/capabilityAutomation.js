@@ -29,9 +29,15 @@ function formatAutomationCapabilityText(capability, requestText) {
 
   lines.push("Current mode:");
   lines.push("- skeleton only");
-  lines.push("- no webhook creation");
-  lines.push("- no endpoint registration");
-  lines.push("- no env/secrets mutation");
+
+  if (Array.isArray(capability?.currentLimits) && capability.currentLimits.length) {
+    for (const item of capability.currentLimits) {
+      lines.push(`- ${item}`);
+    }
+  } else {
+    lines.push("- no limits declared");
+  }
+
   lines.push("");
 
   if (requestText) {

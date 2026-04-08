@@ -8,13 +8,14 @@ import { handleTasksList } from "../handlers/tasksList.js";
 import { handleStopTasksType } from "../handlers/stopTasksType.js";
 import { handleStopAllTasks } from "../handlers/stopAllTasks.js";
 import { handleStartTask } from "../handlers/startTask.js";
+import { handleStopTask } from "../handlers/stopTask.js";
 
 // ✅ Stage 5–6: manual /run must write task_runs via JobRunner
 import { jobRunner } from "../../jobs/jobRunnerInstance.js";
 import { makeTaskRunKey } from "../../jobs/jobRunner.js";
 
-// ✅ Stage 6 — helpers (used for /demo_task)
-import { callWithFallback } from "../../../core/helpers.js";
+// ✅ Stage 6 — helpers (used for /demo_task and /stop_task)
+import { callWithFallback, canStopTaskV1 } from "../../../core/helpers.js";
 
 export async function dispatchTaskCommands({ cmd0, ctx, reply }) {
   const { bot, chatId, chatIdStr, rest } = ctx;
@@ -245,6 +246,29 @@ export async function dispatchTaskCommands({ cmd0, ctx, reply }) {
 
       await jobRunner.runOnce(async () => {
         await ctx.runTaskWithAI(task, chatId, bot, access);
+      });
+
+      return { handled: true };
+    }
+
+    case "/stop_task": {
+      const access = {
+        userRole: ctx.userRole || ctx.user?.role || "guest",
+        userPlan: ctx.userPlan || ctx.user?.plan || "free",
+        user: ctx.user,
+      };
+
+      await handleStopTask({
+        bot,
+        chatId,
+        chatIdStr,
+        rest,
+        userRole: ctx.userRole,
+        bypass: ctx.bypass,
+        getTaskById: ctx.getTaskById,
+        canStopTaskV1,
+        updateTaskStatus: ctx.updateTaskStatus,
+        access,
       });
 
       return { handled: true };

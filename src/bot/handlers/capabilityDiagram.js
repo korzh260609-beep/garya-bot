@@ -29,9 +29,15 @@ function formatDiagramCapabilityText(capability, requestText) {
 
   lines.push("Current mode:");
   lines.push("- skeleton only");
-  lines.push("- no real chart render");
-  lines.push("- no image export");
-  lines.push("- no external renderer");
+
+  if (Array.isArray(capability?.currentLimits) && capability.currentLimits.length) {
+    for (const item of capability.currentLimits) {
+      lines.push(`- ${item}`);
+    }
+  } else {
+    lines.push("- no limits declared");
+  }
+
   lines.push("");
 
   if (requestText) {

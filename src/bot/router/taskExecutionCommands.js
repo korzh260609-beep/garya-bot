@@ -1,7 +1,26 @@
 // src/bot/router/taskExecutionCommands.js
+//
+// LEGACY TASK EXECUTION SHIM
+// ----------------------------------------------------------------------------
+// Main-path task execution commands are handled through:
+//
+//   CMD_ACTION -> requirePermOrReply -> dispatchCommand -> task handlers
+//
+// Current source of truth for active main-path task execution commands:
+// - /run
+// - /start_task
+// - /stop_all_tasks
+// - /stop_tasks_type
+//
+// This legacy router block must remain only for old command aliases / old task
+// execution commands that are not yet migrated to CMD_ACTION.
+//
+// Rule:
+// - do NOT handle /start_task here anymore
+// - keep only legacy-only execution commands until they are migrated or removed
+// ----------------------------------------------------------------------------
 
 import { handleRunTask } from "../handlers/runTask.js";
-import { handleStartTask } from "../handlers/startTask.js";
 import { handleStopTask } from "../handlers/stopTask.js";
 import { handleStopAllTasks } from "../handlers/stopAllTasks.js";
 import { handleRunTaskCmd } from "../handlers/runTaskCmd.js";
@@ -29,17 +48,6 @@ export async function handleTaskExecutionCommands({
       access,
       getTaskById,
       runTaskWithAI,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/start_task") {
-    await handleStartTask({
-      bot,
-      chatId,
-      rest,
-      bypass,
-      updateTaskStatus,
     });
     return true;
   }

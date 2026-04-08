@@ -2,7 +2,7 @@
 //
 // LEGACY TASK LIST / CREATE SHIM
 // ----------------------------------------------------------------------------
-// Main user-facing task commands were moved to the main command path:
+// Main user-facing task commands are handled through:
 //
 //   CMD_ACTION -> requirePermOrReply -> dispatchCommand -> task handlers
 //
@@ -11,53 +11,15 @@
 // - /newtask
 // - /new_task (legacy alias routed through main path)
 //
-// This legacy router block must remain only for old dev-style task commands that
-// are not yet migrated to CMD_ACTION.
+// Legacy-only dev task commands /demo_task and /btc_test_task were removed from
+// active routing because they are no longer part of the supported task contract.
 //
 // Rule:
 // - do NOT handle /tasks here anymore
 // - do NOT handle /new_task here anymore
-// - keep only legacy-only commands until they are migrated or removed
+// - do NOT re-introduce /demo_task or /btc_test_task without explicit contract decision
 // ----------------------------------------------------------------------------
 
-import { handleBtcTestTask } from "../handlers/btcTestTask.js";
-import { handleDemoTask } from "../handlers/demoTask.js";
-import { callWithFallback } from "../../../core/helpers.js";
-
-export async function handleTaskListCommands({
-  cmdBase,
-  bot,
-  chatId,
-  chatIdStr,
-  rest,
-  accessPack,
-  createDemoTask,
-  createTestPriceMonitorTask,
-}) {
-  if (cmdBase === "/demo_task") {
-    await handleDemoTask({
-      bot,
-      chatId,
-      chatIdStr,
-      access: accessPack,
-      callWithFallback,
-      createDemoTask,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/btc_test_task") {
-    await handleBtcTestTask({
-      bot,
-      chatId,
-      chatIdStr,
-      rest,
-      access: accessPack,
-      callWithFallback,
-      createTestPriceMonitorTask,
-    });
-    return true;
-  }
-
+export async function handleTaskListCommands() {
   return false;
 }

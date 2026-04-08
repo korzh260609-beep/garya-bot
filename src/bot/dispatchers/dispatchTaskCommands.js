@@ -14,47 +14,13 @@ import { handleStopTask } from "../handlers/stopTask.js";
 import { jobRunner } from "../../jobs/jobRunnerInstance.js";
 import { makeTaskRunKey } from "../../jobs/jobRunner.js";
 
-// ✅ Stage 6 — helpers (used for /demo_task and /stop_task)
-import { callWithFallback, canStopTaskV1 } from "../../../core/helpers.js";
+// ✅ Stage 6 — helpers (used for /stop_task)
+import { canStopTaskV1 } from "../../../core/helpers.js";
 
 export async function dispatchTaskCommands({ cmd0, ctx, reply }) {
   const { bot, chatId, chatIdStr, rest } = ctx;
 
   switch (cmd0) {
-    case "/demo_task": {
-      if (typeof ctx.createDemoTask !== "function") {
-        await reply("⛔ createDemoTask недоступен (ошибка wiring).", {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-        return { handled: true };
-      }
-
-      const access = {
-        userRole: ctx.userRole || ctx.user?.role || "guest",
-        userPlan: ctx.userPlan || ctx.user?.plan || "free",
-        user: ctx.user,
-      };
-
-      try {
-        const id = await callWithFallback(ctx.createDemoTask, [
-          [chatIdStr, access],
-          [chatIdStr],
-        ]);
-        await reply(`✅ Демо-задача создана!\nID: ${id?.id || id}`, {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-      } catch (e) {
-        await reply(`⛔ ${e?.message || "Запрещено"}`, {
-          cmd: cmd0,
-          handler: "commandDispatcher",
-        });
-      }
-
-      return { handled: true };
-    }
-
     case "/tasks": {
       const access = {
         userRole: ctx.userRole || ctx.user?.role || "guest",

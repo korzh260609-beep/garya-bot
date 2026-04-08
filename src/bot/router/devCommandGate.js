@@ -44,6 +44,13 @@ const DEV_COMMANDS = new Set([
   "/file_logs",
   "/ar_list",
   "/chat_diag",
+
+  // Stage 12A capability surface — monarch-private / dev-only
+  "/capabilities",
+  "/capability",
+  "/cap_diagram",
+  "/cap_doc",
+  "/cap_automation",
 ]);
 
 export async function devCommandGate({

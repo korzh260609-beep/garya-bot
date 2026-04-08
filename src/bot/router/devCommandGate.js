@@ -2,9 +2,14 @@ import BehaviorEventsService from "../../logging/BehaviorEventsService.js";
 
 const DEV_COMMANDS = new Set([
   "/reindex",
+  "/repo_status",
+  "/repo_tree",
+  "/repo_file",
+  "/repo_search",
   "/repo_get",
   "/repo_check",
   "/repo_review",
+  "/repo_review2",
   "/repo_analyze",
   "/repo_diff",
   "/code_fullfile",

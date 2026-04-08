@@ -32,6 +32,7 @@ const DEV_COMMANDS = new Set([
   "/chat_off",
   "/chat_status",
 
+  // System/global task controls — NOT user-scoped
   "/start_task",
   "/stop_task",
   "/stop_all",

@@ -23,6 +23,9 @@ export const CMD_ACTION = {
   "/repo_review2": "cmd.admin.repo_review2",
   "/workflow_check": "cmd.admin.workflow_check",
 
+  // ===========================================================================
+  // PERSONAL TASK COMMANDS (user-scoped / should operate within user's access)
+  // ===========================================================================
   "/tasks": "cmd.tasks.list",
   "/run": "cmd.task.run",
   "/run_task": "cmd.task.run",
@@ -113,10 +116,14 @@ export const CMD_ACTION = {
   "/identity_orphans": "cmd.admin.identity_orphans",
   "/identity_legacy_tg": "cmd.admin.identity_legacy_tg",
 
+  // ===========================================================================
+  // SYSTEM TASK ADMIN COMMANDS (NOT user-scoped / must stay admin-controlled)
+  // ===========================================================================
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",
   "/stop_all": "cmd.admin.stop_all_tasks",
   "/start_task": "cmd.admin.start_task",
   "/stop_tasks_type": "cmd.admin.stop_tasks_type",
+
   "/users_stats": "cmd.admin.users_stats",
   "/file_logs": "cmd.admin.file_logs",
   "/pm_set": "cmd.admin.pm_set",

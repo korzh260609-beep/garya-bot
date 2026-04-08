@@ -50,6 +50,7 @@ export async function handleRepoDomainCommands({
     await handleRepoReview2({
       bot,
       chatId,
+      senderIdStr,
     });
     return true;
   }
@@ -79,6 +80,7 @@ export async function handleRepoDomainCommands({
       bot,
       chatId,
       rest,
+      senderIdStr,
     });
     return true;
   }
@@ -98,6 +100,7 @@ export async function handleRepoDomainCommands({
       bot,
       chatId,
       rest,
+      senderIdStr,
     });
     return true;
   }

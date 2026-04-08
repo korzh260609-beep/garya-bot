@@ -1,6 +1,23 @@
 // src/bot/router/taskListCommands.js
+//
+// LEGACY TASK LIST / CREATE SHIM
+// ----------------------------------------------------------------------------
+// Main user-facing task commands were moved to the main command path:
+//
+//   CMD_ACTION -> requirePermOrReply -> dispatchCommand -> task handlers
+//
+// Current source of truth for active main-path task commands:
+// - /tasks
+// - /newtask
+//
+// This legacy router block must remain only for old command aliases / dev-style
+// task commands that are not yet migrated to CMD_ACTION.
+//
+// Rule:
+// - do NOT handle /tasks here anymore
+// - keep only legacy-only commands until they are migrated or removed
+// ----------------------------------------------------------------------------
 
-import { handleTasksList } from "../handlers/tasksList.js";
 import { handleNewTask } from "../handlers/newTask.js";
 import { handleBtcTestTask } from "../handlers/btcTestTask.js";
 import { handleDemoTask } from "../handlers/demoTask.js";
@@ -16,7 +33,6 @@ export async function handleTaskListCommands({
   createDemoTask,
   createManualTask,
   createTestPriceMonitorTask,
-  getUserTasks,
 }) {
   if (cmdBase === "/demo_task") {
     await handleDemoTask({
@@ -52,17 +68,6 @@ export async function handleTaskListCommands({
       access: accessPack,
       callWithFallback,
       createTestPriceMonitorTask,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/tasks") {
-    await handleTasksList({
-      bot,
-      chatId,
-      chatIdStr,
-      getUserTasks,
-      access: accessPack,
     });
     return true;
   }

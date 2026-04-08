@@ -1,107 +1,74 @@
 {
   "version": 1,
-  "notes": "Stage check rules. Read-only. No AI. No DB required.",
-  "stages": {
-    "6": {
-      "title": "TRANSPORT LAYER SKELETON",
-      "checks": [
-        {
-          "type": "path_exists",
-          "path": "src/transport/telegramAdapter.js",
-          "label": "telegram adapter file"
-        },
-        {
-          "type": "path_exists",
-          "path": "src/core/handleMessage.js",
-          "label": "core handleMessage entrypoint"
-        },
-        {
-          "type": "file_contains",
-          "path": "index.js",
-          "value": "new TelegramAdapter(",
-          "label": "telegram adapter wiring in index.js"
-        },
-        {
-          "type": "file_contains",
-          "path": "index.js",
-          "value": "buildCoreDeps(",
-          "label": "core deps wiring"
-        }
-      ]
-    },
-
-    "10": {
-      "title": "SOURCES LAYER",
-      "checks": [
-        {
-          "type": "path_exists",
-          "path": "src/bot/dispatchers/dispatchSourcesCommands.js",
-          "label": "sources dispatcher"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bot/cmdActionMap.js",
-          "value": "\"/sources\":",
-          "label": "sources command"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bot/cmdActionMap.js",
-          "value": "\"/source\":",
-          "label": "source command"
-        }
-      ]
-    },
-
-    "11F": {
+  "coverage": "partial_rules_only",
+  "notes": [
+    "Read-only static checks only",
+    "Source of truth = WORKFLOW.md + repository files",
+    "No AI",
+    "No WORKFLOW_HINTS.json"
+  ],
+  "stages": [
+    {
+      "stage": "11F",
       "title": "FILE-INTAKE SKELETON",
       "checks": [
         {
-          "type": "path_exists",
-          "path": "src/media/fileIntake.js",
-          "label": "file intake module"
+          "type": "file_exists",
+          "path": "src/documents/documentTextService.js",
+          "label": "document text service"
         },
         {
-          "type": "path_exists",
-          "path": "src/bot/handlers/fileIntakeDebug.js",
-          "label": "file intake diagnostics handler"
+          "type": "file_exists",
+          "path": "src/bot/handlers/chat/chatDocumentEstimateFlow.js",
+          "label": "document estimate flow"
         },
         {
-          "type": "file_contains",
-          "path": "src/bot/cmdActionMap.js",
-          "value": "\"/vision_diag\":",
-          "label": "vision diagnostic command"
+          "type": "file_exists",
+          "path": "src/bot/handlers/chat/chatEstimateReplies.js",
+          "label": "estimate replies"
         },
         {
-          "type": "file_contains",
-          "path": "src/bot/handlers/chat/fileIntakeDecision.js",
-          "value": "resolveFileIntakeDecision",
-          "label": "file intake decision layer"
+          "type": "file_exists",
+          "path": "src/bot/handlers/chat/chatEstimateCorrectionFlow.js",
+          "label": "estimate correction flow"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/bot/handlers/chat/chatPendingClarificationFlow.js",
+          "label": "pending clarification flow"
         }
       ]
     },
-
-    "12A": {
-      "title": "CAPABILITY EXTENSIONS",
+    {
+      "stage": "12A.0",
+      "title": "REPOSITORY INDEXING (READ-ONLY FOUNDATION)",
       "checks": [
         {
-          "type": "path_exists",
-          "path": "src/capabilities/capabilityRegistry.js",
-          "label": "capability registry"
+          "type": "file_exists",
+          "path": "src/repo/RepoSource.js",
+          "label": "repo source"
         },
         {
-          "type": "file_contains",
-          "path": "src/bot/cmdActionMap.js",
-          "value": "\"/capabilities\":",
-          "label": "capabilities command"
+          "type": "file_exists",
+          "path": "src/bot/handlers/reindexRepo.js",
+          "label": "reindex handler"
         },
         {
-          "type": "file_contains",
-          "path": "src/bot/cmdActionMap.js",
-          "value": "\"/capability\":",
-          "label": "capability command"
+          "type": "file_exists",
+          "path": "src/bot/handlers/repoStatus.js",
+          "label": "repo status handler"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/bot/handlers/repoTree.js",
+          "label": "repo tree handler"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/bot/handlers/repoFile.js",
+          "label": "repo file handler"
         }
       ]
     }
-  }
+  ]
 }

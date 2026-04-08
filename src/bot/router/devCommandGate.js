@@ -35,8 +35,6 @@ const DEV_COMMANDS = new Set([
   // System/global task controls — NOT user-scoped
   "/start_task",
   "/stop_all",
-  "/demo_task",
-  "/btc_test_task",
   "/tasks_owner_diag",
 
   "/sources_diag",

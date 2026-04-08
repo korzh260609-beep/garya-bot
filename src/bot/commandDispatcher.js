@@ -456,7 +456,26 @@ export async function dispatchCommand(cmd, ctx) {
       await handleCodeOutputStatus({
         bot,
         chatId,
+        chatIdStr: ctx.chatIdStr,
         senderIdStr: ctx.senderIdStr,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply,
       });
       return { handled: true };
     }
@@ -465,8 +484,27 @@ export async function dispatchCommand(cmd, ctx) {
       await handleWorkflowCheck({
         bot,
         chatId,
+        chatIdStr: ctx.chatIdStr,
         senderIdStr: ctx.senderIdStr,
         rest: ctx.rest,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply,
       });
       return { handled: true };
     }

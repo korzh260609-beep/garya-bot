@@ -10,18 +10,7 @@
 // ============================================================================
 
 import { getCapabilityByKey } from "../../capabilities/capabilityRegistry.js";
-
-async function requireMonarch(bot, chatId, userIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return true;
-
-  if (String(userIdStr) !== MONARCH_USER_ID) {
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
-    return false;
-  }
-
-  return true;
-}
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 function normalizeRest(rest) {
   return String(rest || "").trim();
@@ -58,22 +47,15 @@ function formatAutomationCapabilityText(capability, requestText) {
   return lines.join("\n");
 }
 
-export async function handleCapabilityAutomation({
-  bot,
-  chatId,
-  senderIdStr,
-  rest,
-}) {
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
-
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleCapabilityAutomation(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
 
   const capability = getCapabilityByKey("automation_webhook");
-  const requestText = normalizeRest(rest);
+  const requestText = normalizeRest(ctx.rest);
 
-  await bot.sendMessage(
-    chatId,
+  await ctx.bot.sendMessage(
+    ctx.chatId,
     formatAutomationCapabilityText(capability, requestText)
   );
 }

@@ -5,20 +5,7 @@
 import { RepoSource } from "../../repo/RepoSource.js";
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
-
-// ---------------------------------------------------------------------------
-// Permission guard (monarch-only) — Stage 4: identity-first (MONARCH_USER_ID)
-// ---------------------------------------------------------------------------
-async function requireMonarch(bot, chatId, userIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return true;
-
-  if (String(userIdStr) !== MONARCH_USER_ID) {
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
-    return false;
-  }
-  return true;
-}
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 function normalizePath(raw) {
   const p = String(raw || "").trim().replace(/^\/+/, "");
@@ -28,11 +15,11 @@ function normalizePath(raw) {
   return p;
 }
 
-export async function handleRepoFile({ bot, chatId, senderIdStr, rest }) {
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
-
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleRepoFile(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
+
+  const { bot, chatId, rest } = ctx;
 
   const path = normalizePath(rest);
   if (!path) {
@@ -88,9 +75,10 @@ export async function handleRepoFile({ bot, chatId, senderIdStr, rest }) {
 
   // Telegram message size guard
   const MAX_CHARS = 3500;
-  const content = item.content.length > MAX_CHARS
-    ? item.content.slice(0, MAX_CHARS) + "\n\n...[TRUNCATED]..."
-    : item.content;
+  const content =
+    item.content.length > MAX_CHARS
+      ? item.content.slice(0, MAX_CHARS) + "\n\n...[TRUNCATED]..."
+      : item.content;
 
   await bot.sendMessage(
     chatId,

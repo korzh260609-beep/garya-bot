@@ -23,6 +23,7 @@ export const CMD_ACTION = {
   "/repo_review": "cmd.admin.repo_review",
   "/repo_review2": "cmd.admin.repo_review2",
   "/workflow_check": "cmd.admin.workflow_check",
+  "/stage_check": "cmd.admin.stage_check",
 
   // ===========================================================================
   // PERSONAL TASK COMMANDS (user-scoped / should operate within user's access)

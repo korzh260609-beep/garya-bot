@@ -8,24 +8,8 @@ import fs from "fs";
 import path from "path";
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
+import { requireMonarchAccess } from "./handlerAccess.js";
 
-// ---------------------------------------------------------------------------
-// Monarch guard — Stage 4: identity-first (MONARCH_USER_ID)
-// ---------------------------------------------------------------------------
-async function requireMonarch(bot, chatId, userIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return true;
-
-  if (String(userIdStr) !== MONARCH_USER_ID) {
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
-    return false;
-  }
-  return true;
-}
-
-// ---------------------------------------------------------------------------
-// Load workflow hints (CONFIG)
-// ---------------------------------------------------------------------------
 function loadWorkflowHints() {
   const filePath = path.resolve("pillars/WORKFLOW_HINTS.json");
   const raw = fs.readFileSync(filePath, "utf8");
@@ -181,14 +165,11 @@ function buildReply({
   return lines.join("\n").slice(0, 3900);
 }
 
-// ---------------------------------------------------------------------------
-// Handler
-// ---------------------------------------------------------------------------
-export async function handleWorkflowCheck({ bot, chatId, senderIdStr, rest }) {
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
-
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleWorkflowCheck(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
+
+  const { bot, chatId, rest } = ctx;
 
   const step = String(rest || "").trim();
   if (!step) {
@@ -218,7 +199,6 @@ export async function handleWorkflowCheck({ bot, chatId, senderIdStr, rest }) {
   const searchChecks = checkSearchTerms(pathsList, searchTerms);
   const status = computeStatus(pathChecks, searchChecks);
 
-  // Optional note from latest repo snapshot (read-only, fail-open)
   let repoSnapshotNote = "";
   try {
     const repo = process.env.GITHUB_REPO;

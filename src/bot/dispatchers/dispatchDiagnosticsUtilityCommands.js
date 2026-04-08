@@ -112,12 +112,30 @@ export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
       return { handled: true };
     }
 
-    // ✅ STAGE 12A.5
     case "/capabilities": {
       await handleCapabilitiesRegistry({
         bot,
         chatId,
+        chatIdStr,
         senderIdStr: ctx.senderIdStr,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply: ctx.reply,
       });
       return { handled: true };
     }
@@ -126,51 +144,142 @@ export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
       await handleCapabilityLookup({
         bot,
         chatId,
+        chatIdStr,
         senderIdStr: ctx.senderIdStr,
         rest: ctx.rest,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply: ctx.reply,
       });
       return { handled: true };
     }
 
-    // ✅ STAGE 12A.1
     case "/cap_diagram": {
       await handleCapabilityDiagram({
         bot,
         chatId,
+        chatIdStr,
         senderIdStr: ctx.senderIdStr,
         rest: ctx.rest,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply: ctx.reply,
       });
       return { handled: true };
     }
 
-    // ✅ STAGE 12A.2
     case "/cap_doc": {
       await handleCapabilityDocument({
         bot,
         chatId,
+        chatIdStr,
         senderIdStr: ctx.senderIdStr,
         rest: ctx.rest,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply: ctx.reply,
       });
       return { handled: true };
     }
 
-    // ✅ STAGE 12A.4
     case "/cap_automation": {
       await handleCapabilityAutomation({
         bot,
         chatId,
+        chatIdStr,
         senderIdStr: ctx.senderIdStr,
         rest: ctx.rest,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply: ctx.reply,
       });
       return { handled: true };
     }
 
-    // ✅ STAGE 12.1
     case "/vision_diag": {
       await handleVisionDiag({
         bot,
         chatId,
+        chatIdStr,
         senderIdStr: ctx.senderIdStr,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply: ctx.reply,
       });
       return { handled: true };
     }

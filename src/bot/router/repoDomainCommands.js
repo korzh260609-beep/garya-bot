@@ -1,109 +1,28 @@
 // src/bot/router/repoDomainCommands.js
+//
+// LEGACY SHIM
+// ----------------------------------------------------------------------------
+// Repo-domain commands were moved to the main command path:
+//
+//   CMD_ACTION -> requirePermOrReply -> dispatchCommand -> repo handlers
+//
+// Current source of truth:
+// - src/bot/cmdActionMap.js
+// - src/bot/commandDispatcher.js
+//
+// Why this file still exists:
+// - messageRouter still calls handleRepoDomainCommands(...) as a late fallback
+// - keeping this shim is safer than deleting the call site immediately
+//
+// Rule:
+// - do NOT execute repo handlers from here anymore
+// - return false and let the main dispatcher path remain the only active path
+// ----------------------------------------------------------------------------
 
-import { handleRepoReview2 } from "../handlers/repoReview2.js";
-import { handleRepoSearch } from "../handlers/repoSearch.js";
-import { handleRepoFile } from "../handlers/repoFile.js";
-import { handleRepoTree } from "../handlers/repoTree.js";
-import { handleRepoStatus } from "../handlers/repoStatus.js";
-import { handleRepoReview } from "../handlers/repoReview.js";
-import { handleRepoCheck } from "../handlers/repoCheck.js";
-import { handleRepoAnalyze } from "../handlers/repoAnalyze.js";
-import { handleRepoGet } from "../handlers/repoGet.js";
-
-export async function handleRepoDomainCommands({
-  cmdBase,
-  bot,
-  chatId,
-  rest,
-  senderIdStr,
-}) {
-  if (cmdBase === "/repo_status") {
-    await handleRepoStatus({
-      bot,
-      chatId,
-      senderIdStr,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/repo_tree") {
-    await handleRepoTree({
-      bot,
-      chatId,
-      rest,
-      senderIdStr,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/repo_file") {
-    await handleRepoFile({
-      bot,
-      chatId,
-      rest,
-      senderIdStr,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/repo_review2") {
-    await handleRepoReview2({
-      bot,
-      chatId,
-      senderIdStr,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/repo_search") {
-    await handleRepoSearch({
-      bot,
-      chatId,
-      rest,
-      senderIdStr,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/repo_get") {
-    await handleRepoGet({
-      bot,
-      chatId,
-      rest,
-      senderIdStr,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/repo_check") {
-    await handleRepoCheck({
-      bot,
-      chatId,
-      rest,
-      senderIdStr,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/repo_analyze") {
-    await handleRepoAnalyze({
-      bot,
-      chatId,
-      rest,
-      senderIdStr,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/repo_review") {
-    await handleRepoReview({
-      bot,
-      chatId,
-      rest,
-      senderIdStr,
-    });
-    return true;
-  }
-
+export async function handleRepoDomainCommands() {
   return false;
 }
+
+export default {
+  handleRepoDomainCommands,
+};

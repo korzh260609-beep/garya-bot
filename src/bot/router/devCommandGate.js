@@ -42,11 +42,7 @@ const DEV_COMMANDS = new Set([
   "/btc_test_task",
   "/tasks_owner_diag",
 
-  "/sources",
   "/sources_diag",
-  "/source",
-  "/diag_source",
-  "/test_source",
 
   "/approve",
   "/deny",

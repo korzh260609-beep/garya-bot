@@ -12,18 +12,7 @@ import {
   resolveCapability,
   buildCapabilityRegistrySummary,
 } from "../../capabilities/capabilityRegistry.js";
-
-async function requireMonarch(bot, chatId, userIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return true;
-
-  if (String(userIdStr) !== MONARCH_USER_ID) {
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
-    return false;
-  }
-
-  return true;
-}
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 function normalizeRest(rest) {
   return String(rest || "").trim();
@@ -105,32 +94,28 @@ function formatSingleCapabilityText(capability) {
   return lines.join("\n");
 }
 
-export async function handleCapabilitiesRegistry({ bot, chatId, senderIdStr }) {
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
-
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleCapabilitiesRegistry(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
 
-  await bot.sendMessage(chatId, formatListText());
+  await ctx.bot.sendMessage(ctx.chatId, formatListText());
 }
 
-export async function handleCapabilityLookup({ bot, chatId, senderIdStr, rest }) {
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
-
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleCapabilityLookup(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
 
-  const query = normalizeRest(rest);
+  const query = normalizeRest(ctx.rest);
   if (!query) {
-    await bot.sendMessage(chatId, "Usage: /capability <key|command>");
+    await ctx.bot.sendMessage(ctx.chatId, "Usage: /capability <key|command>");
     return;
   }
 
   const capability = resolveCapability(query);
   if (!capability) {
     const known = listCapabilities().map((item) => item.key).join(", ");
-    await bot.sendMessage(
-      chatId,
+    await ctx.bot.sendMessage(
+      ctx.chatId,
       [
         "Capability not found.",
         `query: ${query}`,
@@ -140,7 +125,7 @@ export async function handleCapabilityLookup({ bot, chatId, senderIdStr, rest })
     return;
   }
 
-  await bot.sendMessage(chatId, formatSingleCapabilityText(capability));
+  await ctx.bot.sendMessage(ctx.chatId, formatSingleCapabilityText(capability));
 }
 
 export default {

@@ -31,6 +31,7 @@ export const CMD_ACTION = {
   "/run_task": "cmd.task.run",
   "/newtask": "cmd.task.create",
   "/new_task": "cmd.task.create",
+  "/stop_task": "cmd.task.stop",
 
   "/price": "cmd.price",
   "/prices": "cmd.prices",

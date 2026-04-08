@@ -16,6 +16,7 @@ const DEV_COMMANDS = new Set([
   "/code_insert",
   "/code_output_status",
   "/workflow_check",
+  "/stage_check",
   "/build_info",
   "/pm_set",
   "/pm_show",

@@ -13,6 +13,14 @@ export const CMD_ACTION = {
 
   "/reindex": "cmd.repo.reindex",
   "/repo_status": "cmd.admin.repo_status",
+  "/repo_tree": "cmd.admin.repo_tree",
+  "/repo_file": "cmd.admin.repo_file",
+  "/repo_search": "cmd.admin.repo_search",
+  "/repo_analyze": "cmd.admin.repo_analyze",
+  "/repo_get": "cmd.admin.repo_get",
+  "/repo_check": "cmd.admin.repo_check",
+  "/repo_review": "cmd.admin.repo_review",
+  "/repo_review2": "cmd.admin.repo_review2",
   "/workflow_check": "cmd.admin.workflow_check",
 
   "/tasks": "cmd.tasks.list",

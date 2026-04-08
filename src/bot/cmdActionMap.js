@@ -31,6 +31,7 @@ export const CMD_ACTION = {
   "/prices": "cmd.prices",
 
   "/sources": "cmd.sources.list",
+  "/sources_diag": "cmd.sources.diag",
   "/source": "cmd.source.fetch",
   "/diag_source": "cmd.source.diagnose",
   "/test_source": "cmd.source.test",

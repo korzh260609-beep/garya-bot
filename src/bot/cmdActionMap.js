@@ -25,7 +25,9 @@ export const CMD_ACTION = {
 
   "/tasks": "cmd.tasks.list",
   "/run": "cmd.task.run",
+  "/run_task": "cmd.task.run",
   "/newtask": "cmd.task.create",
+  "/new_task": "cmd.task.create",
 
   "/price": "cmd.price",
   "/prices": "cmd.prices",
@@ -112,6 +114,7 @@ export const CMD_ACTION = {
   "/identity_legacy_tg": "cmd.admin.identity_legacy_tg",
 
   "/stop_all_tasks": "cmd.admin.stop_all_tasks",
+  "/stop_all": "cmd.admin.stop_all_tasks",
   "/start_task": "cmd.admin.start_task",
   "/stop_tasks_type": "cmd.admin.stop_tasks_type",
   "/users_stats": "cmd.admin.users_stats",

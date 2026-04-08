@@ -20,6 +20,12 @@ export function can(user, action, ctx = {}) {
   // COMMAND-LEVEL HARD BLOCK FOR ADMIN ACTIONS
   // --------------------------------------------------------------------------
   // Любые cmd.admin.* запрещены всем, кроме реального монарха.
+  //
+  // IMPORTANT:
+  // - сюда попадают системные task-команды, которые не являются user-scoped
+  //   (например: start/stop-all/system-level operations)
+  // - пользовательские task-команды должны жить НЕ в cmd.admin.*, а в
+  //   персональных action namespace (cmd.task.* / cmd.tasks.*)
   if (typeof action === "string" && action.startsWith("cmd.admin.")) {
     return role === "monarch";
   }
@@ -52,6 +58,11 @@ export function can(user, action, ctx = {}) {
   // --------------------------------------------------------------------------
 
   // Разрешённые действия для guest (allowlist)
+  //
+  // IMPORTANT:
+  // - здесь только user-scoped команды
+  // - они должны работать в рамках доступа конкретного пользователя
+  // - любые глобальные/system-wide task actions сюда добавлять нельзя
   const guestAllow = new Set([
     // профиль
     "cmd.profile",
@@ -66,7 +77,7 @@ export function can(user, action, ctx = {}) {
     "cmd.identity.link_confirm",
     "cmd.identity.link_status",
 
-    // задачи
+    // персональные задачи
     "cmd.tasks.list",
     "cmd.task.run",
     "cmd.task.create",

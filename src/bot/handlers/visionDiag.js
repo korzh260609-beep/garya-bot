@@ -16,18 +16,7 @@ import {
   getVisionProviderStatus,
   listVisionProviders,
 } from "../../vision/visionProvider.js";
-
-async function requireMonarch(bot, chatId, userIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return true;
-
-  if (String(userIdStr) !== MONARCH_USER_ID) {
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
-    return false;
-  }
-
-  return true;
-}
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 function toBoolText(value) {
   return value === true ? "yes" : "no";
@@ -122,13 +111,11 @@ function buildVisionDiagText() {
   return lines.join("\n");
 }
 
-export async function handleVisionDiag({ bot, chatId, senderIdStr }) {
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
-
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleVisionDiag(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
 
-  await bot.sendMessage(chatId, buildVisionDiagText());
+  await ctx.bot.sendMessage(ctx.chatId, buildVisionDiagText());
 }
 
 export default {

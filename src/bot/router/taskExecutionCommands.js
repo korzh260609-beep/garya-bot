@@ -9,6 +9,7 @@
 // Current source of truth for active main-path task execution commands:
 // - /run
 // - /run_task (legacy alias routed through main path)
+// - /stop_task
 // - /start_task
 // - /stop_all_tasks
 // - /stop_all (legacy alias routed through main path)
@@ -19,14 +20,14 @@
 //
 // Rule:
 // - do NOT handle /run_task here anymore
+// - do NOT handle /stop_task here anymore
 // - do NOT handle /start_task here anymore
 // - do NOT handle /stop_all here anymore
 // - keep only legacy-only execution commands until they are migrated or removed
 // ----------------------------------------------------------------------------
 
-import { handleStopTask } from "../handlers/stopTask.js";
 import { handleRunTaskCmd } from "../handlers/runTaskCmd.js";
-import { canStopTaskV1, callWithFallback } from "../../../core/helpers.js";
+import { callWithFallback } from "../../../core/helpers.js";
 
 export async function handleTaskExecutionCommands({
   cmdBase,
@@ -35,27 +36,7 @@ export async function handleTaskExecutionCommands({
   chatIdStr,
   rest,
   access,
-  getTaskById,
-  bypass,
-  updateTaskStatus,
-  userRole,
 }) {
-  if (cmdBase === "/stop_task") {
-    await handleStopTask({
-      bot,
-      chatId,
-      chatIdStr,
-      rest,
-      userRole,
-      bypass,
-      getTaskById,
-      canStopTaskV1,
-      updateTaskStatus,
-      access,
-    });
-    return true;
-  }
-
   if (cmdBase === "/run_task_cmd") {
     await handleRunTaskCmd({
       bot,

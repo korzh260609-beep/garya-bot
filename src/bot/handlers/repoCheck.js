@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 function denySensitivePath(path) {
   const lower = String(path || "").toLowerCase();
@@ -481,7 +482,12 @@ function aggregateIssuesForDisplay(issues) {
    MAIN HANDLER
    ========================= */
 
-export async function handleRepoCheck({ bot, chatId, rest }) {
+export async function handleRepoCheck(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
+  if (!ok) return;
+
+  const { bot, chatId, rest } = ctx;
+
   const path = (rest || "").trim();
 
   if (!path) {

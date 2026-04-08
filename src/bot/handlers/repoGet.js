@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
+import { resolveHandlerAccess, requireMonarchAccess } from "./handlerAccess.js";
 
 // --- Config (safe defaults) ---
 // You can override allowed roots via env: REPO_ALLOWED_ROOTS="src/,core/,pillars/,docs/,README.md,index.js,package.json"
@@ -67,13 +68,9 @@ function isAllowedRoot(p, allowedRoots) {
   return false;
 }
 
-function isMonarch(senderIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return false;
-  return String(senderIdStr || "") === MONARCH_USER_ID;
-}
+export async function handleRepoGet(ctx = {}) {
+  const { bot, chatId, rest } = ctx;
 
-export async function handleRepoGet({ bot, chatId, rest, senderIdStr }) {
   const rawPath = (rest || "").trim();
   if (!rawPath) {
     await bot.sendMessage(chatId, "Usage: /repo_get <path/to/file>");
@@ -88,7 +85,7 @@ export async function handleRepoGet({ bot, chatId, rest, senderIdStr }) {
     return;
   }
 
-  // Safety: deny obvious secrets (keep your original intent)
+  // Safety: deny obvious secrets (keep original intent)
   const lower = path.toLowerCase();
   if (
     lower.includes(".env") ||
@@ -101,14 +98,21 @@ export async function handleRepoGet({ bot, chatId, rest, senderIdStr }) {
   }
 
   const allowedRoots = parseAllowedRoots();
+  const access = resolveHandlerAccess(ctx);
+  const wantsMonarchExtra = isAllowedRoot(path, MONARCH_EXTRA_ROOTS);
 
-  // Contour C: monarch-only roots
-  const monarch = isMonarch(senderIdStr);
-  const allowedByMonarchExtra = monarch && isAllowedRoot(path, MONARCH_EXTRA_ROOTS);
+  // For extra roots, require explicit monarch access via shared helper.
+  if (wantsMonarchExtra) {
+    const ok = await requireMonarchAccess(ctx);
+    if (!ok) return;
+  }
 
   // Allowlist roots (default) OR monarch-extra roots
-  if (!isAllowedRoot(path, allowedRoots) && !allowedByMonarchExtra) {
-    const extraHint = monarch ? `, ${MONARCH_EXTRA_ROOTS.join(", ")}` : "";
+  const allowedByDefault = isAllowedRoot(path, allowedRoots);
+  const allowedByMonarchExtra = access.isMonarchUser && wantsMonarchExtra;
+
+  if (!allowedByDefault && !allowedByMonarchExtra) {
+    const extraHint = access.isMonarchUser ? `, ${MONARCH_EXTRA_ROOTS.join(", ")}` : "";
     await bot.sendMessage(
       chatId,
       `Access denied: path is outside allowed roots.\nAllowed: ${allowedRoots.join(", ")}${extraHint}`

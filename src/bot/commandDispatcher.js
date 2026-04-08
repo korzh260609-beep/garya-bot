@@ -9,6 +9,7 @@ import { handleReindexRepo } from "./handlers/reindexRepo.js";
 import { handleRepoTree } from "./handlers/repoTree.js";
 import { handleRepoFile } from "./handlers/repoFile.js";
 import { handleRepoAnalyze } from "./handlers/repoAnalyze.js";
+import { handleRepoDiff } from "./handlers/repoDiff.js";
 import { handleRepoSearch } from "./handlers/repoSearch.js";
 import { handleRepoGet } from "./handlers/repoGet.js";
 import { handleRepoCheck } from "./handlers/repoCheck.js";
@@ -238,6 +239,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/repo_tree",
     "/repo_file",
     "/repo_analyze",
+    "/repo_diff",
     "/repo_search",
     "/repo_get",
     "/repo_check",
@@ -527,6 +529,35 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/repo_analyze": {
       await handleRepoAnalyze({
+        bot,
+        chatId,
+        chatIdStr: ctx.chatIdStr,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply,
+      });
+      return { handled: true };
+    }
+
+    case "/repo_diff": {
+      await handleRepoDiff({
         bot,
         chatId,
         chatIdStr: ctx.chatIdStr,

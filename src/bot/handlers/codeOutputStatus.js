@@ -3,17 +3,7 @@
 // === 12A.0.10 /code_output_status (READ-ONLY, monarch-only)
 // ============================================================================
 
-async function requireMonarch(bot, chatId, userIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return true;
-
-  if (String(userIdStr) !== MONARCH_USER_ID) {
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
-    return false;
-  }
-
-  return true;
-}
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 function normalizeMode(raw) {
   const value = String(raw || "").trim().toUpperCase();
@@ -22,22 +12,16 @@ function normalizeMode(raw) {
   return "DISABLED";
 }
 
-export async function handleCodeOutputStatus({
-  bot,
-  chatId,
-  senderIdStr,
-}) {
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
-
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleCodeOutputStatus(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
 
   const mode = normalizeMode(process.env.CODE_OUTPUT_MODE);
   const manualApplyOnly = true;
   const deployAllowed = false;
 
-  await bot.sendMessage(
-    chatId,
+  await ctx.bot.sendMessage(
+    ctx.chatId,
     [
       "CODE OUTPUT STATUS",
       `mode: ${mode}`,

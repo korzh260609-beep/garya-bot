@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 // ---------------------------------------------------------------------------
 // Small arg parser (no dependencies)
@@ -524,7 +525,11 @@ function buildSuggestionsFromAggregated(agg) {
   return suggestions;
 }
 
-export async function handleRepoReview({ bot, chatId, rest }) {
+export async function handleRepoReview(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
+  if (!ok) return;
+
+  const { bot, chatId, rest } = ctx;
   const { limit } = parseArgs(rest);
 
   const source = new RepoSource({

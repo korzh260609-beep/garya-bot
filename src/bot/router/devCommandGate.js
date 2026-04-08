@@ -32,7 +32,6 @@ const DEV_COMMANDS = new Set([
   "/chat_off",
   "/chat_status",
 
-  "/tasks",
   "/start_task",
   "/stop_task",
   "/stop_all",
@@ -42,11 +41,13 @@ const DEV_COMMANDS = new Set([
   "/demo_task",
   "/btc_test_task",
   "/tasks_owner_diag",
+
   "/sources",
   "/sources_diag",
   "/source",
   "/diag_source",
   "/test_source",
+
   "/approve",
   "/deny",
   "/file_logs",

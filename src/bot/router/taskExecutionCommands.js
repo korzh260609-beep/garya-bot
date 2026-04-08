@@ -15,39 +15,17 @@
 // - /stop_all (legacy alias routed through main path)
 // - /stop_tasks_type
 //
-// This legacy router block must remain only for old task execution commands that
-// are not yet migrated to CMD_ACTION.
+// Legacy-only execution command /run_task_cmd was removed from active routing
+// because it is no longer part of the supported task contract.
 //
 // Rule:
 // - do NOT handle /run_task here anymore
 // - do NOT handle /stop_task here anymore
 // - do NOT handle /start_task here anymore
 // - do NOT handle /stop_all here anymore
-// - keep only legacy-only execution commands until they are migrated or removed
+// - do NOT re-introduce /run_task_cmd without explicit contract decision
 // ----------------------------------------------------------------------------
 
-import { handleRunTaskCmd } from "../handlers/runTaskCmd.js";
-import { callWithFallback } from "../../../core/helpers.js";
-
-export async function handleTaskExecutionCommands({
-  cmdBase,
-  bot,
-  chatId,
-  chatIdStr,
-  rest,
-  access,
-}) {
-  if (cmdBase === "/run_task_cmd") {
-    await handleRunTaskCmd({
-      bot,
-      chatId,
-      chatIdStr,
-      rest,
-      access,
-      callWithFallback,
-    });
-    return true;
-  }
-
+export async function handleTaskExecutionCommands() {
   return false;
 }

@@ -15,6 +15,13 @@ import { handleRepoCheck } from "./handlers/repoCheck.js";
 import { handleRepoReview } from "./handlers/repoReview.js";
 import { handleRepoReview2 } from "./handlers/repoReview2.js";
 import { handleCodeOutputStatus } from "./handlers/codeOutputStatus.js";
+import {
+  handleCapabilitiesRegistry,
+  handleCapabilityLookup,
+} from "./handlers/capabilitiesRegistry.js";
+import { handleCapabilityDiagram } from "./handlers/capabilityDiagram.js";
+import { handleCapabilityDocument } from "./handlers/capabilityDocument.js";
+import { handleCapabilityAutomation } from "./handlers/capabilityAutomation.js";
 
 // ✅ CRYPTO DEV dispatcher (extracted 1:1 block)
 import { dispatchCryptoDevCommands } from "./dispatchers/dispatchCryptoDevCommands.js";
@@ -746,6 +753,31 @@ export async function dispatchCommand(cmd, ctx) {
         identityCtx: ctx.identityCtx,
         reply,
       });
+      return { handled: true };
+    }
+
+    case "/capabilities": {
+      await handleCapabilitiesRegistry(ctx);
+      return { handled: true };
+    }
+
+    case "/capability": {
+      await handleCapabilityLookup(ctx);
+      return { handled: true };
+    }
+
+    case "/cap_diagram": {
+      await handleCapabilityDiagram(ctx);
+      return { handled: true };
+    }
+
+    case "/cap_doc": {
+      await handleCapabilityDocument(ctx);
+      return { handled: true };
+    }
+
+    case "/cap_automation": {
+      await handleCapabilityAutomation(ctx);
       return { handled: true };
     }
 

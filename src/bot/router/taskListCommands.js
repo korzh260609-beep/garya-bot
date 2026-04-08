@@ -9,16 +9,17 @@
 // Current source of truth for active main-path task commands:
 // - /tasks
 // - /newtask
+// - /new_task (legacy alias routed through main path)
 //
-// This legacy router block must remain only for old command aliases / dev-style
-// task commands that are not yet migrated to CMD_ACTION.
+// This legacy router block must remain only for old dev-style task commands that
+// are not yet migrated to CMD_ACTION.
 //
 // Rule:
 // - do NOT handle /tasks here anymore
+// - do NOT handle /new_task here anymore
 // - keep only legacy-only commands until they are migrated or removed
 // ----------------------------------------------------------------------------
 
-import { handleNewTask } from "../handlers/newTask.js";
 import { handleBtcTestTask } from "../handlers/btcTestTask.js";
 import { handleDemoTask } from "../handlers/demoTask.js";
 import { callWithFallback } from "../../../core/helpers.js";
@@ -31,7 +32,6 @@ export async function handleTaskListCommands({
   rest,
   accessPack,
   createDemoTask,
-  createManualTask,
   createTestPriceMonitorTask,
 }) {
   if (cmdBase === "/demo_task") {
@@ -42,19 +42,6 @@ export async function handleTaskListCommands({
       access: accessPack,
       callWithFallback,
       createDemoTask,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/new_task") {
-    await handleNewTask({
-      bot,
-      chatId,
-      chatIdStr,
-      rest,
-      access: accessPack,
-      callWithFallback,
-      createManualTask,
     });
     return true;
   }

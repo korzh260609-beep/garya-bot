@@ -5,20 +5,7 @@
 
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
-
-// ---------------------------------------------------------------------------
-// Permission guard (monarch-only) — Stage 4: identity-first (MONARCH_USER_ID)
-// ---------------------------------------------------------------------------
-async function requireMonarch(bot, chatId, userIdStr) {
-  const MONARCH_USER_ID = String(process.env.MONARCH_USER_ID || "").trim();
-  if (!MONARCH_USER_ID) return true;
-
-  if (String(userIdStr) !== MONARCH_USER_ID) {
-    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
-    return false;
-  }
-  return true;
-}
+import { requireMonarchAccess } from "./handlerAccess.js";
 
 function dirOf(path) {
   const p = String(path || "");
@@ -56,11 +43,11 @@ function isSuspicious(path) {
   return false;
 }
 
-export async function handleRepoReview2({ bot, chatId, senderIdStr }) {
-  const effectiveUserIdStr = senderIdStr ? String(senderIdStr) : String(chatId);
-
-  const ok = await requireMonarch(bot, chatId, effectiveUserIdStr);
+export async function handleRepoReview2(ctx = {}) {
+  const ok = await requireMonarchAccess(ctx);
   if (!ok) return;
+
+  const { bot, chatId } = ctx;
 
   const repo = process.env.GITHUB_REPO;
   const branch = process.env.GITHUB_BRANCH;

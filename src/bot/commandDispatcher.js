@@ -5,6 +5,7 @@
 import { handleArList } from "./handlers/arList.js";
 import { handleRepoStatus } from "./handlers/repoStatus.js";
 import { handleWorkflowCheck } from "./handlers/workflowCheck.js";
+import { handleStageCheck } from "./handlers/stageCheck.js";
 import { handleReindexRepo } from "./handlers/reindexRepo.js";
 import { handleRepoTree } from "./handlers/repoTree.js";
 import { handleRepoFile } from "./handlers/repoFile.js";
@@ -90,7 +91,11 @@ export async function dispatchCommand(cmd, ctx) {
       derivedCmd = rawText.trim().split(/\s+/)[0];
     }
 
-    if (ctxObj && (ctxObj.rest === undefined || ctxObj.rest === null) && rawText) {
+    if (
+      ctxObj &&
+      (ctxObj.rest === undefined || ctxObj.rest === null) &&
+      rawText
+    ) {
       ctxObj.rest = rawText.trim().split(/\s+/).slice(1).join(" ");
     }
 
@@ -245,6 +250,8 @@ export async function dispatchCommand(cmd, ctx) {
     "/repo_check",
     "/repo_review",
     "/repo_review2",
+    "/workflow_check",
+    "/stage_check",
     "/code_output_status",
 
     "/capabilities",
@@ -760,6 +767,35 @@ export async function dispatchCommand(cmd, ctx) {
 
     case "/workflow_check": {
       await handleWorkflowCheck({
+        bot,
+        chatId,
+        chatIdStr: ctx.chatIdStr,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply,
+      });
+      return { handled: true };
+    }
+
+    case "/stage_check": {
+      await handleStageCheck({
         bot,
         chatId,
         chatIdStr: ctx.chatIdStr,

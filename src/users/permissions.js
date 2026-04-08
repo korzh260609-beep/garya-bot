@@ -81,6 +81,7 @@ export function can(user, action, ctx = {}) {
     "cmd.tasks.list",
     "cmd.task.run",
     "cmd.task.create",
+    "cmd.task.stop",
 
     // цены
     "cmd.price",

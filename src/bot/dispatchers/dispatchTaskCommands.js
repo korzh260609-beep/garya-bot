@@ -7,6 +7,7 @@ import pool from "../../../db.js";
 import { handleTasksList } from "../handlers/tasksList.js";
 import { handleStopTasksType } from "../handlers/stopTasksType.js";
 import { handleStopAllTasks } from "../handlers/stopAllTasks.js";
+import { handleStartTask } from "../handlers/startTask.js";
 
 // ✅ Stage 5–6: manual /run must write task_runs via JobRunner
 import { jobRunner } from "../../jobs/jobRunnerInstance.js";
@@ -244,6 +245,17 @@ export async function dispatchTaskCommands({ cmd0, ctx, reply }) {
         await ctx.runTaskWithAI(task, chatId, bot, access);
       });
 
+      return { handled: true };
+    }
+
+    case "/start_task": {
+      await handleStartTask({
+        bot,
+        chatId,
+        rest,
+        bypass: ctx.bypass,
+        updateTaskStatus: ctx.updateTaskStatus,
+      });
       return { handled: true };
     }
 

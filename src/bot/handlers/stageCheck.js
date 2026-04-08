@@ -1,272 +1,343 @@
 // ============================================================================
-// src/bot/handlers/stageCheck.js
-// READ-ONLY STAGE CHECK
-// - no AI
-// - no DB required
-// - source of truth: WORKFLOW.md + STAGE_CHECK_RULES.json + repo files
+// === src/bot/handlers/stageCheck.js — READ-ONLY stage checks (no AI)
 // ============================================================================
 
-import fs from "fs";
-import path from "path";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { RepoSource } from "../../repo/RepoSource.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
-const WORKFLOW_PATH = path.resolve("pillars/WORKFLOW.md");
-const RULES_PATH = path.resolve("pillars/STAGE_CHECK_RULES.json");
+const WORKFLOW_PATH = "pillars/WORKFLOW.md";
+const RULES_PATH = "pillars/STAGE_CHECK_RULES.json";
 
-function safeReadText(absPath) {
-  try {
-    if (!fs.existsSync(absPath)) return null;
-    return fs.readFileSync(absPath, "utf8");
-  } catch (_) {
-    return null;
-  }
-}
-
-function loadWorkflowText() {
-  const raw = safeReadText(WORKFLOW_PATH);
-  if (!raw) {
-    throw new Error("WORKFLOW.md not found");
-  }
-  return raw;
-}
-
-function loadRules() {
-  const raw = safeReadText(RULES_PATH);
-  if (!raw) {
-    return { version: 1, stages: {} };
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object"
-      ? parsed
-      : { version: 1, stages: {} };
-  } catch {
-    throw new Error("STAGE_CHECK_RULES.json invalid JSON");
-  }
-}
-
-function normalizeStageKey(value) {
+function normalizeStageId(value) {
   return String(value || "")
     .trim()
-    .toUpperCase()
-    .replace(/^STAGE\s+/i, "")
-    .replace(/\s+/g, "");
+    .replace(/^stage\s+/i, "")
+    .toUpperCase();
+}
+
+function parseMode(rest) {
+  const token = String(rest || "")
+    .trim()
+    .split(/\s+/)[0];
+
+  const normalized = normalizeStageId(token);
+
+  if (!normalized) return { mode: "current", value: "current" };
+  if (normalized === "ALL") return { mode: "all", value: "all" };
+  if (normalized === "CURRENT") return { mode: "current", value: "current" };
+
+  return { mode: "stage", value: normalized };
 }
 
 function parseWorkflowStages(workflowText) {
-  const lines = String(workflowText || "").split(/\r?\n/);
   const stages = [];
+  const re = /^# STAGE\s+([A-Za-z0-9.-]+)\s+—\s+(.+)$/gm;
+  let match;
 
-  for (const line of lines) {
-    const match = line.match(/^#\s+STAGE\s+(.+?)\s+—\s+(.+)$/);
-    if (!match) continue;
-
-    const rawKey = String(match[1] || "").trim();
-    const title = String(match[2] || "").trim();
-
+  while ((match = re.exec(String(workflowText || "")))) {
     stages.push({
-      key: normalizeStageKey(rawKey),
-      rawKey,
-      title,
+      stage: normalizeStageId(match[1]),
+      title: String(match[2] || "").trim(),
     });
   }
 
   return stages;
 }
 
-function fileExists(relPath) {
+function safeJsonParse(text) {
   try {
-    return fs.existsSync(path.resolve(relPath));
+    return JSON.parse(String(text || "{}"));
   } catch {
-    return false;
+    return null;
   }
 }
 
-function fileContains(relPath, needle) {
-  const text = safeReadText(path.resolve(relPath));
-  if (!text) return false;
-  return String(text).includes(String(needle || ""));
+function buildRulesMap(rulesJson) {
+  const map = new Map();
+  const stages = Array.isArray(rulesJson?.stages) ? rulesJson.stages : [];
+
+  for (const item of stages) {
+    const stage = normalizeStageId(item?.stage);
+    if (!stage) continue;
+    map.set(stage, item);
+  }
+
+  return map;
 }
 
-function runSingleCheck(check) {
-  const type = String(check?.type || "").trim();
-  const label = String(check?.label || "").trim() || type;
+function buildWorkflowTitleMap(workflowStages) {
+  const map = new Map();
 
-  if (type === "path_exists") {
-    const ok = fileExists(check.path);
+  for (const item of workflowStages) {
+    map.set(item.stage, item.title);
+  }
+
+  return map;
+}
+
+function formatCheckLabel(rule) {
+  const label = String(rule?.label || "").trim();
+  if (label) return label;
+
+  if (rule?.type === "file_exists") return String(rule?.path || "").trim();
+  if (rule?.type === "all_files_exist" || rule?.type === "any_file_exists") {
+    return (Array.isArray(rule?.paths) ? rule.paths : []).join(", ");
+  }
+
+  return "unnamed_check";
+}
+
+function evaluateRule(rule, fileSet) {
+  const type = String(rule?.type || "").trim();
+
+  if (type === "file_exists") {
+    const path = String(rule?.path || "").trim();
+    const ok = !!path && fileSet.has(path);
+
     return {
       ok,
-      label,
-      detail: ok ? String(check.path) : `missing path: ${check.path}`,
+      type,
+      label: formatCheckLabel(rule),
+      details: path || "missing_path",
     };
   }
 
-  if (type === "file_contains") {
-    const ok = fileContains(check.path, check.value);
+  if (type === "all_files_exist") {
+    const paths = Array.isArray(rule?.paths)
+      ? rule.paths.map((x) => String(x || "").trim()).filter(Boolean)
+      : [];
+
+    const missing = paths.filter((p) => !fileSet.has(p));
+    const ok = paths.length > 0 && missing.length === 0;
+
     return {
       ok,
-      label,
-      detail: ok
-        ? `${check.path} contains required marker`
-        : `missing marker in ${check.path}: ${check.value}`,
+      type,
+      label: formatCheckLabel(rule),
+      details: ok ? "all_present" : `missing: ${missing.join(", ")}`,
+    };
+  }
+
+  if (type === "any_file_exists") {
+    const paths = Array.isArray(rule?.paths)
+      ? rule.paths.map((x) => String(x || "").trim()).filter(Boolean)
+      : [];
+
+    const found = paths.filter((p) => fileSet.has(p));
+    const ok = found.length > 0;
+
+    return {
+      ok,
+      type,
+      label: formatCheckLabel(rule),
+      details: ok ? `found: ${found.join(", ")}` : `none_found: ${paths.join(", ")}`,
     };
   }
 
   return {
     ok: false,
-    label,
-    detail: `unknown check type: ${type}`,
+    type: type || "unknown",
+    label: formatCheckLabel(rule),
+    details: "unsupported_rule_type",
   };
 }
 
-function computeStageStatus(results = [], hasRules = false) {
-  if (!hasRules) return "no_rules";
-  if (!Array.isArray(results) || results.length === 0) return "no_rules";
-
-  const okCount = results.filter((x) => x.ok).length;
-  if (okCount === results.length) return "done";
-  if (okCount === 0) return "todo";
-  return "partial";
-}
-
-function summarizeStage(stage, rules) {
-  const cfg = rules?.stages?.[stage.key] || null;
-  const checks = Array.isArray(cfg?.checks) ? cfg.checks : [];
-  const results = checks.map(runSingleCheck);
-  const status = computeStageStatus(results, Boolean(cfg));
+function evaluateStage(stageRule, fileSet) {
+  const checks = Array.isArray(stageRule?.checks) ? stageRule.checks : [];
+  const results = checks.map((rule) => evaluateRule(rule, fileSet));
+  const passed = results.filter((x) => x.ok).length;
+  const failed = results.filter((x) => !x.ok);
+  const complete = checks.length > 0 && failed.length === 0;
 
   return {
-    key: stage.key,
-    rawKey: stage.rawKey,
-    title: cfg?.title || stage.title,
-    status,
+    stage: normalizeStageId(stageRule?.stage),
+    title: String(stageRule?.title || "").trim(),
+    totalChecks: checks.length,
+    passedChecks: passed,
+    failedChecks: failed.length,
+    complete,
     results,
   };
 }
 
-function buildSingleStageReply(summary) {
-  const doneItems = summary.results.filter((x) => x.ok).map((x) => x.label);
-  const missingItems = summary.results.filter((x) => !x.ok).map((x) => x.label);
-
-  const lines = [];
-  lines.push(`STAGE ${summary.rawKey} — ${summary.status}`);
-  lines.push(summary.title);
-
-  if (summary.status === "no_rules") {
-    lines.push("");
-    lines.push("Правила проверки для этого этапа ещё не заданы.");
-    return lines.join("\n").slice(0, 3900);
+function findCurrentOpenStage(orderedStages) {
+  for (const item of orderedStages) {
+    if (!item.complete) return item;
   }
-
-  if (doneItems.length > 0) {
-    lines.push("");
-    lines.push("Готово:");
-    for (const item of doneItems.slice(0, 8)) {
-      lines.push(`- ${item}`);
-    }
-  }
-
-  if (missingItems.length > 0) {
-    lines.push("");
-    lines.push("Не готово:");
-    for (const item of missingItems.slice(0, 8)) {
-      lines.push(`- ${item}`);
-    }
-  }
-
-  return lines.join("\n").slice(0, 3900);
+  return null;
 }
 
-function buildAllStagesReply(summaries = []) {
+function formatSingleStageOutput({
+  stageId,
+  workflowTitle,
+  evaluation,
+  coverageMode,
+}) {
   const lines = [];
 
-  for (const summary of summaries) {
-    lines.push(`STAGE ${summary.rawKey} — ${summary.status}`);
+  lines.push(`stage_check: ${stageId}`);
+  lines.push(`workflow: ${workflowTitle || "(title_not_found)"}`);
+  lines.push(`status: ${evaluation.complete ? "COMPLETE" : "OPEN"}`);
+  lines.push(`checks: ${evaluation.passedChecks}/${evaluation.totalChecks}`);
+  lines.push(`coverage: ${coverageMode}`);
 
-    if (summary.status === "partial" || summary.status === "todo") {
-      const missingItems = summary.results
-        .filter((x) => !x.ok)
-        .map((x) => x.label)
-        .slice(0, 2);
-
-      if (missingItems.length > 0) {
-        lines.push(`не хватает: ${missingItems.join("; ")}`);
+  if (!evaluation.complete) {
+    const failed = evaluation.results.filter((x) => !x.ok).slice(0, 10);
+    if (failed.length > 0) {
+      lines.push("missing:");
+      for (const item of failed) {
+        lines.push(`- ${item.label}`);
       }
-    } else if (summary.status === "no_rules") {
-      lines.push("не хватает: rules");
     }
-
-    lines.push("");
   }
 
-  return lines.join("\n").trim().slice(0, 3900);
+  return lines.join("\n");
 }
 
-function buildCurrentStageReply(summaries = []) {
-  const firstOpen = summaries.find(
-    (x) => x.status === "partial" || x.status === "todo" || x.status === "no_rules"
-  );
+function formatAllStagesOutput(items, coverageMode) {
+  const lines = [];
+  lines.push("stage_check: all");
+  lines.push(`coverage: ${coverageMode}`);
 
-  if (!firstOpen) {
-    return "Все этапы, для которых заданы правила, сейчас выглядят завершёнными.";
+  if (!items.length) {
+    lines.push("rules: no stages configured");
+    return lines.join("\n");
   }
 
-  return buildSingleStageReply(firstOpen);
+  for (const item of items) {
+    lines.push(
+      `${item.stage} — ${item.complete ? "COMPLETE" : "OPEN"} — ${item.passedChecks}/${item.totalChecks}`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function formatCurrentOutput(item, coverageMode) {
+  const lines = [];
+  lines.push("stage_check: current");
+  lines.push(`coverage: ${coverageMode}`);
+
+  if (!item) {
+    lines.push("result: no open stage found inside rules coverage");
+    return lines.join("\n");
+  }
+
+  lines.push(`current: ${item.stage}`);
+  lines.push(`title: ${item.workflowTitle || "(title_not_found)"}`);
+  lines.push(`checks: ${item.passedChecks}/${item.totalChecks}`);
+  return lines.join("\n");
 }
 
 export async function handleStageCheck(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
-  const { bot, chatId, rest } = ctx;
+  const reply =
+    typeof ctx.reply === "function"
+      ? ctx.reply
+      : async (text) => ctx.bot.sendMessage(ctx.chatId, String(text ?? ""));
 
-  const rawArg = String(rest || "").trim();
-  if (!rawArg) {
-    await bot.sendMessage(chatId, "Usage: /stage_check <stage|all|current>");
+  const source = new RepoSource({
+    repo: process.env.GITHUB_REPO,
+    branch: process.env.GITHUB_BRANCH,
+    token: process.env.GITHUB_TOKEN,
+  });
+
+  const modeInfo = parseMode(ctx.rest);
+
+  const [workflowFile, rulesFile, repoFiles] = await Promise.all([
+    source.fetchTextFile(WORKFLOW_PATH),
+    source.fetchTextFile(RULES_PATH),
+    source.listFiles(),
+  ]);
+
+  if (!workflowFile?.content) {
+    await reply(`stage_check error: cannot read ${WORKFLOW_PATH}`);
     return;
   }
 
-  let workflowText;
-  let rules;
-
-  try {
-    workflowText = loadWorkflowText();
-    rules = loadRules();
-  } catch (e) {
-    await bot.sendMessage(chatId, `StageCheck error: ${e.message || "load_failed"}`);
+  if (!rulesFile?.content) {
+    await reply(`stage_check error: cannot read ${RULES_PATH}`);
     return;
   }
 
-  const stages = parseWorkflowStages(workflowText);
-  if (!stages.length) {
-    await bot.sendMessage(chatId, "StageCheck error: no stages found in WORKFLOW.md");
+  const rulesJson = safeJsonParse(rulesFile.content);
+  if (!rulesJson) {
+    await reply(`stage_check error: invalid JSON in ${RULES_PATH}`);
     return;
   }
 
-  const arg = normalizeStageKey(rawArg);
+  const workflowStages = parseWorkflowStages(workflowFile.content);
+  const workflowTitleMap = buildWorkflowTitleMap(workflowStages);
+  const rulesMap = buildRulesMap(rulesJson);
+  const fileSet = new Set(Array.isArray(repoFiles) ? repoFiles : []);
 
-  const summaries = stages.map((stage) => summarizeStage(stage, rules));
+  const orderedRuleStages = workflowStages
+    .filter((item) => rulesMap.has(item.stage))
+    .map((item) => {
+      const rule = rulesMap.get(item.stage);
+      const evaluation = evaluateStage(rule, fileSet);
 
-  if (arg === "ALL") {
-    await bot.sendMessage(chatId, buildAllStagesReply(summaries));
+      return {
+        stage: item.stage,
+        workflowTitle: item.title,
+        title: evaluation.title || item.title,
+        totalChecks: evaluation.totalChecks,
+        passedChecks: evaluation.passedChecks,
+        failedChecks: evaluation.failedChecks,
+        complete: evaluation.complete,
+        results: evaluation.results,
+      };
+    });
+
+  const coverageMode =
+    String(rulesJson?.coverage || "").trim() || "partial_rules_only";
+
+  if (modeInfo.mode === "all") {
+    await reply(formatAllStagesOutput(orderedRuleStages, coverageMode), {
+      cmd: "/stage_check",
+      handler: "stageCheck",
+      event: "stage_check_all",
+    });
     return;
   }
 
-  if (arg === "CURRENT") {
-    await bot.sendMessage(chatId, buildCurrentStageReply(summaries));
+  if (modeInfo.mode === "current") {
+    const current = findCurrentOpenStage(orderedRuleStages);
+    await reply(formatCurrentOutput(current, coverageMode), {
+      cmd: "/stage_check",
+      handler: "stageCheck",
+      event: "stage_check_current",
+    });
     return;
   }
 
-  const target = summaries.find((x) => x.key === arg);
-  if (!target) {
-    await bot.sendMessage(chatId, `StageCheck: unknown stage "${rawArg}"`);
+  const stageId = modeInfo.value;
+  const stageRule = rulesMap.get(stageId);
+
+  if (!stageRule) {
+    await reply(
+      `stage_check: ${stageId}\nstatus: RULES_NOT_FOUND\ncoverage: ${coverageMode}`
+    );
     return;
   }
 
-  await bot.sendMessage(chatId, buildSingleStageReply(target));
+  const evaluation = evaluateStage(stageRule, fileSet);
+  const workflowTitle =
+    workflowTitleMap.get(stageId) || String(stageRule?.title || "").trim();
+
+  await reply(
+    formatSingleStageOutput({
+      stageId,
+      workflowTitle,
+      evaluation,
+      coverageMode,
+    }),
+    {
+      cmd: "/stage_check",
+      handler: "stageCheck",
+      event: "stage_check_single",
+    }
+  );
 }
-
-export default {
-  handleStageCheck,
-};

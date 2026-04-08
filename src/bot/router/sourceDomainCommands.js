@@ -1,81 +1,29 @@
 // src/bot/router/sourceDomainCommands.js
+//
+// LEGACY SHIM
+// ----------------------------------------------------------------------------
+// Source-domain commands were moved to the main command path:
+//
+//   CMD_ACTION -> requirePermOrReply -> dispatchCommand -> sources handlers
+//
+// Current source of truth:
+// - src/bot/cmdActionMap.js
+// - src/bot/commandDispatcher.js
+// - src/bot/dispatchers/dispatchSourcesCommands.js
+//
+// Why this file still exists:
+// - messageRouter still calls handleSourceDomainCommands(...) as a late fallback
+// - keeping this shim is safer than deleting the call site immediately
+//
+// Rule:
+// - do NOT execute source handlers from here anymore
+// - return false and let the main dispatcher path remain the only active path
+// ----------------------------------------------------------------------------
 
-import { handleSourcesList } from "../handlers/sourcesList.js";
-import { handleSourcesDiag } from "../handlers/sources_diag.js";
-import { handleSource } from "../handlers/source.js";
-import { handleDiagSource } from "../handlers/diagSource.js";
-import { handleTestSource } from "../handlers/testSource.js";
-
-export async function handleSourceDomainCommands({
-  cmdBase,
-  bot,
-  chatId,
-  rest,
-  userRole,
-  userPlan,
-  bypass,
-}) {
-  if (cmdBase === "/sources") {
-    await handleSourcesList({
-      bot,
-      chatId,
-      listSources: async ({ userRole, userPlan }) => {
-        const { getAllSourcesSafe } = await import("../sources/sources.js");
-        return await getAllSourcesSafe({ userRole, userPlan });
-      },
-      userRole,
-      userPlan,
-      bypass,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/sources_diag") {
-    await handleSourcesDiag({
-      bot,
-      chatId,
-      userRole,
-      userPlan,
-      bypass,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/source") {
-    await handleSource({
-      bot,
-      chatId,
-      rest,
-      userRole,
-      userPlan,
-      bypass,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/diag_source") {
-    await handleDiagSource({
-      bot,
-      chatId,
-      rest,
-      userRole,
-      userPlan,
-      bypass,
-    });
-    return true;
-  }
-
-  if (cmdBase === "/test_source") {
-    await handleTestSource({
-      bot,
-      chatId,
-      rest,
-      userRole,
-      userPlan,
-      bypass,
-    });
-    return true;
-  }
-
+export async function handleSourceDomainCommands() {
   return false;
 }
+
+export default {
+  handleSourceDomainCommands,
+};

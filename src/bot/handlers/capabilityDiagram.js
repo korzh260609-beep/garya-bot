@@ -10,7 +10,7 @@
 // ============================================================================
 
 import { getCapabilityByKey } from "../../capabilities/capabilityRegistry.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function normalizeRest(rest) {
   return String(rest || "").trim();
@@ -48,7 +48,7 @@ function formatDiagramCapabilityText(capability, requestText) {
 }
 
 export async function handleCapabilityDiagram(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const capability = getCapabilityByKey("diagram_chart");

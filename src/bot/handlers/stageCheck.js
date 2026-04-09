@@ -9,11 +9,46 @@ import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 const WORKFLOW_PATH = "pillars/WORKFLOW.md";
 const RULES_PATH = "pillars/STAGE_CHECK_RULES.json";
 
-function normalizeItemCode(value) {
+const CYRILLIC_TO_LATIN_MAP = {
+  А: "A",
+  В: "B",
+  Е: "E",
+  К: "K",
+  М: "M",
+  Н: "H",
+  О: "O",
+  Р: "P",
+  С: "C",
+  Т: "T",
+  Х: "X",
+  І: "I",
+  а: "a",
+  в: "b",
+  е: "e",
+  к: "k",
+  м: "m",
+  н: "h",
+  о: "o",
+  р: "p",
+  с: "c",
+  т: "t",
+  х: "x",
+  і: "i"
+};
+
+function replaceLookalikeCyrillic(value) {
   return String(value || "")
-    .trim()
-    .replace(/^stage\s+/i, "")
-    .toUpperCase();
+    .split("")
+    .map((ch) => CYRILLIC_TO_LATIN_MAP[ch] || ch)
+    .join("");
+}
+
+function normalizeItemCode(value) {
+  return replaceLookalikeCyrillic(
+    String(value || "")
+      .trim()
+      .replace(/^stage\s+/i, "")
+  ).toUpperCase();
 }
 
 function normalizeText(value) {
@@ -230,6 +265,7 @@ function buildConfig(rulesJson) {
     maxSearchFilesPerToken: Number(cfg.max_search_files_per_token || 300),
     maxInheritedSignals: Number(cfg.max_inherited_signals || 6),
     maxDescendantSignals: Number(cfg.max_descendant_signals || 4),
+    maxFileFetchesPerCommand: Number(cfg.max_file_fetches_per_command || 120),
     preferredPathPrefixes: Array.isArray(cfg.preferred_path_prefixes)
       ? cfg.preferred_path_prefixes.map((x) => String(x || ""))
       : [],
@@ -561,13 +597,43 @@ function findBasenameInRepo(basename, fileSet) {
   return null;
 }
 
-async function searchTokenInRepo(token, source, searchableFiles, contentCache, searchCache, config) {
+async function safeFetchTextFile(path, ctx) {
+  if (ctx.contentCache.has(path)) {
+    return ctx.contentCache.get(path);
+  }
+
+  if (ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand) {
+    ctx.contentCache.set(path, null);
+    return null;
+  }
+
+  ctx.fetchStats.used += 1;
+
+  try {
+    const file = await ctx.source.fetchTextFile(path);
+    const content = file?.content || null;
+    ctx.contentCache.set(path, content);
+    return content;
+  } catch (error) {
+    ctx.errorStats.fetchFailures += 1;
+    ctx.contentCache.set(path, null);
+    return null;
+  }
+}
+
+async function searchTokenInRepo(token, ctx) {
   const normalizedToken = String(token || "").trim();
   if (!normalizedToken) return { ok: false, details: "missing_token" };
 
   const cacheKey = normalizedToken.toLowerCase();
-  if (searchCache.has(cacheKey)) {
-    return searchCache.get(cacheKey);
+  if (ctx.searchCache.has(cacheKey)) {
+    return ctx.searchCache.get(cacheKey);
+  }
+
+  if (ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand) {
+    const limited = { ok: false, details: "search_budget_exhausted" };
+    ctx.searchCache.set(cacheKey, limited);
+    return limited;
   }
 
   const regex = new RegExp(
@@ -575,28 +641,25 @@ async function searchTokenInRepo(token, source, searchableFiles, contentCache, s
     "i"
   );
 
-  const limitedFiles = searchableFiles.slice(0, config.maxSearchFilesPerToken);
+  const limitedFiles = ctx.searchableFiles.slice(0, ctx.config.maxSearchFilesPerToken);
 
   for (const path of limitedFiles) {
-    let content = contentCache.get(path);
-
-    if (content === undefined) {
-      const file = await source.fetchTextFile(path);
-      content = file?.content || null;
-      contentCache.set(path, content);
-    }
-
+    const content = await safeFetchTextFile(path, ctx);
     if (!content) continue;
 
     if (content.includes(normalizedToken) || regex.test(content)) {
       const result = { ok: true, details: `found_in: ${path}` };
-      searchCache.set(cacheKey, result);
+      ctx.searchCache.set(cacheKey, result);
       return result;
     }
   }
 
-  const miss = { ok: false, details: "not_found_in_repo_text" };
-  searchCache.set(cacheKey, miss);
+  const miss =
+    ctx.errorStats.fetchFailures > 0
+      ? { ok: false, details: "search_unavailable_or_not_found" }
+      : { ok: false, details: "not_found_in_repo_text" };
+
+  ctx.searchCache.set(cacheKey, miss);
   return miss;
 }
 
@@ -629,14 +692,7 @@ async function evaluateCheck(check, ctx) {
   if (check.type === "text_exists") {
     const token = String(check.token || "").trim();
 
-    const searchResult = await searchTokenInRepo(
-      token,
-      ctx.source,
-      ctx.searchableFiles,
-      ctx.contentCache,
-      ctx.searchCache,
-      ctx.config
-    );
+    const searchResult = await searchTokenInRepo(token, ctx);
 
     return {
       ok: searchResult.ok,
@@ -865,11 +921,24 @@ export async function handleStageCheck(ctx = {}) {
     searchableFiles,
     contentCache: new Map(),
     searchCache: new Map(),
+    fetchStats: { used: 0 },
+    errorStats: { fetchFailures: 0 },
     itemMap,
     allItems: workflowItems,
   };
 
-  const evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
+  let evaluatedItems;
+  try {
+    evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
+  } catch (error) {
+    await reply(
+      `stage_check error: runtime_evaluation_failed\ncoverage: ${String(
+        rulesJson?.coverage || "workflow_tree_semantic_auto_signals"
+      ).trim()}`
+    );
+    return;
+  }
+
   const topLevelStages = workflowItems.filter((item) => item.kind === "stage");
 
   const coverageMode =

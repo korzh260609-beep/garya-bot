@@ -244,10 +244,6 @@ function getAncestorChain(item, itemMap) {
   return chain;
 }
 
-function getDescendants(baseCode, items) {
-  return items.filter((item) => item.code !== baseCode && isSameOrDescendant(baseCode, item.code));
-}
-
 function getSubtreeItems(baseCode, evaluatedItems) {
   return evaluatedItems.filter((item) => isSameOrDescendant(baseCode, item.code));
 }
@@ -264,7 +260,6 @@ function buildConfig(rulesJson) {
     minIdentifierLength: Number(cfg.min_identifier_length || 3),
     maxSearchFilesPerToken: Number(cfg.max_search_files_per_token || 300),
     maxInheritedSignals: Number(cfg.max_inherited_signals || 6),
-    maxDescendantSignals: Number(cfg.max_descendant_signals || 4),
     maxFileFetchesPerCommand: Number(cfg.max_file_fetches_per_command || 120),
     preferredPathPrefixes: Array.isArray(cfg.preferred_path_prefixes)
       ? cfg.preferred_path_prefixes.map((x) => String(x || ""))
@@ -450,7 +445,7 @@ function buildCandidateBasenamesFromToken(token) {
   ]);
 }
 
-function collectSemanticSignals(item, itemMap, allItems, config) {
+function collectOwnSignals(item, config) {
   const ownText = `${item.title}\n${item.body || ""}`;
   const ownPaths = extractExplicitPaths(ownText);
   const ownCommands = extractCommands(ownText);
@@ -464,18 +459,23 @@ function collectSemanticSignals(item, itemMap, allItems, config) {
     (x) => !x.startsWith("/") && !(x.includes("/") && x.includes("."))
   );
 
-  const ownSignals = uniq([
-    ...ownIdentifiers,
-    ...ownSlashList,
-    ...ownBacktickIdentifiers,
-  ]).filter((token) => isUsefulToken(token, config));
+  return {
+    explicitPaths: uniq([...ownPaths, ...ownBacktickPaths]),
+    commands: uniq([...ownCommands, ...ownBacktickCommands.map((x) => x.toLowerCase())]),
+    signals: uniq([
+      ...ownIdentifiers,
+      ...ownSlashList,
+      ...ownBacktickIdentifiers,
+    ]).filter((token) => isUsefulToken(token, config)),
+  };
+}
 
+function collectInheritedSignals(item, itemMap, config) {
   const ancestorSignals = [];
   const ancestors = getAncestorChain(item, itemMap);
 
   for (const parent of ancestors) {
     const parentText = `${parent.title}\n${parent.body || ""}`;
-
     const tokens = uniq([
       ...extractIdentifiers(parentText, config),
       ...extractBackticked(parentText),
@@ -489,39 +489,13 @@ function collectSemanticSignals(item, itemMap, allItems, config) {
     }
   }
 
-  const descendantSignals = [];
-  const descendants = getDescendants(item.code, allItems);
-
-  for (const child of descendants) {
-    if (child.parentCode !== item.code) continue;
-
-    const childText = `${child.title}\n${child.body || ""}`;
-    const tokens = uniq([
-      ...extractIdentifiers(childText, config),
-      ...extractBackticked(childText),
-      ...extractSlashListItems(childText),
-      ...extractExplicitPaths(childText),
-      ...extractCommands(childText),
-    ]);
-
-    for (const token of tokens) {
-      if (canGenerateBasenameFromSignal(token, config) || isUsefulToken(token, config)) {
-        descendantSignals.push(token);
-      }
-    }
-  }
-
-  return {
-    explicitPaths: uniq([...ownPaths, ...ownBacktickPaths]),
-    commands: uniq([...ownCommands, ...ownBacktickCommands.map((x) => x.toLowerCase())]),
-    ownSignals,
-    ancestorSignals: uniq(ancestorSignals).slice(0, config.maxInheritedSignals),
-    descendantSignals: uniq(descendantSignals).slice(0, config.maxDescendantSignals),
-  };
+  return uniq(ancestorSignals).slice(0, config.maxInheritedSignals);
 }
 
-function buildAutoChecksForItem(item, itemMap, allItems, config) {
-  const signals = collectSemanticSignals(item, itemMap, allItems, config);
+function buildAutoChecksForItem(item, itemMap, config) {
+  const own = collectOwnSignals(item, config);
+  const inheritedSignals = collectInheritedSignals(item, itemMap, config);
+
   const checks = [];
   const seen = new Set();
 
@@ -538,7 +512,31 @@ function buildAutoChecksForItem(item, itemMap, allItems, config) {
     checks.push(check);
   }
 
-  for (const path of signals.explicitPaths) {
+  // Для container-узлов: stage / substage
+  // Не генерируем обычные смысловые токены из title/body.
+  // Берём только явные file paths и slash-команды из собственного текста.
+  if (item.kind === "stage" || item.kind === "substage") {
+    for (const path of own.explicitPaths) {
+      pushCheck({
+        type: "file_exists",
+        path,
+        label: `file path: ${path}`,
+      });
+    }
+
+    for (const cmd of own.commands) {
+      pushCheck({
+        type: "text_exists",
+        token: cmd,
+        label: `command token: ${cmd}`,
+      });
+    }
+
+    return checks.slice(0, config.maxChecksPerItem);
+  }
+
+  // Для point-узлов — полноценная авто-проверка.
+  for (const path of own.explicitPaths) {
     pushCheck({
       type: "file_exists",
       path,
@@ -546,7 +544,7 @@ function buildAutoChecksForItem(item, itemMap, allItems, config) {
     });
   }
 
-  for (const cmd of signals.commands) {
+  for (const cmd of own.commands) {
     pushCheck({
       type: "text_exists",
       token: cmd,
@@ -554,7 +552,7 @@ function buildAutoChecksForItem(item, itemMap, allItems, config) {
     });
   }
 
-  for (const token of signals.ownSignals) {
+  for (const token of own.signals) {
     pushCheck({
       type: "text_exists",
       token,
@@ -572,7 +570,7 @@ function buildAutoChecksForItem(item, itemMap, allItems, config) {
     }
   }
 
-  for (const token of signals.ancestorSignals) {
+  for (const token of inheritedSignals) {
     pushCheck({
       type: "text_exists",
       token,
@@ -588,14 +586,6 @@ function buildAutoChecksForItem(item, itemMap, allItems, config) {
         });
       }
     }
-  }
-
-  for (const token of signals.descendantSignals) {
-    pushCheck({
-      type: "text_exists",
-      token,
-      label: `descendant signal: ${token}`,
-    });
   }
 
   return checks.slice(0, config.maxChecksPerItem);
@@ -731,7 +721,6 @@ async function evaluateSingleItem(item, ctx) {
   const autoChecks = buildAutoChecksForItem(
     item,
     ctx.itemMap,
-    ctx.allItems,
     ctx.config
   );
 
@@ -941,7 +930,6 @@ export async function handleStageCheck(ctx = {}) {
     fetchStats: { used: 0 },
     errorStats: { fetchFailures: 0 },
     itemMap,
-    allItems: workflowItems,
   };
 
   let evaluatedItems;

@@ -1,5 +1,6 @@
 // ============================================================================
-// === src/bot/handlers/stageCheck.js — READ-ONLY workflow item checks (no AI)
+// === src/bot/handlers/stageCheck.js — READ-ONLY workflow tree checks (no AI)
+// === UNIVERSAL MATCH-BASED VERSION (no hard binding to workflow item codes)
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -13,6 +14,15 @@ function normalizeItemCode(value) {
     .trim()
     .replace(/^stage\s+/i, "")
     .toUpperCase();
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\r/g, "")
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function parseMode(rest) {
@@ -43,7 +53,7 @@ function isSameOrDescendant(baseCode, candidateCode) {
   return candidate === base || candidate.startsWith(`${base}.`);
 }
 
-function extractCodeFromStageHeading(line) {
+function extractStageHeading(line) {
   const match = String(line || "").match(/^# STAGE\s+([A-Za-z0-9.-]+)\s+—\s+(.+)$/);
   if (!match) return null;
 
@@ -54,7 +64,7 @@ function extractCodeFromStageHeading(line) {
   };
 }
 
-function extractCodeFromSubHeading(line) {
+function extractSubHeading(line) {
   const match = String(line || "").match(/^##+\s+(.+)$/);
   if (!match) return null;
 
@@ -67,7 +77,7 @@ function extractCodeFromSubHeading(line) {
   if (!codeMatch) return null;
 
   const code = normalizeItemCode(codeMatch[1]);
-  const title = raw.replace(codeMatch[1], "").replace(/\(\s*\)/g, "").trim();
+  const title = raw.replace(codeMatch[1], "").trim();
 
   return {
     code,
@@ -76,7 +86,7 @@ function extractCodeFromSubHeading(line) {
   };
 }
 
-function extractCodeFromBullet(line) {
+function extractBulletItem(line) {
   const match = String(line || "").match(/^\s*-\s+([A-Za-z0-9.-]+)\s+(.+)$/);
   if (!match) return null;
 
@@ -88,35 +98,35 @@ function extractCodeFromBullet(line) {
 }
 
 function parseWorkflowItems(workflowText) {
-  const text = String(workflowText || "").replace(/\r/g, "");
-  const lines = text.split("\n");
+  const lines = String(workflowText || "").replace(/\r/g, "").split("\n");
 
-  const items = [];
-  const seen = new Set();
+  const rawItems = [];
+  const seenCodes = new Set();
 
-  let insideRoadmap = false;
+  let insideWorkflow = false;
   let currentStageCode = null;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+
     if (/^## 4\)\s+WORKFLOW/i.test(line.trim())) {
-      insideRoadmap = true;
+      insideWorkflow = true;
       continue;
     }
 
-    if (!insideRoadmap) continue;
+    if (!insideWorkflow) continue;
 
-    const stageHit = extractCodeFromStageHeading(line);
+    const stageHit = extractStageHeading(line);
     if (stageHit) {
       currentStageCode = stageHit.code;
 
-      if (!seen.has(stageHit.code)) {
-        items.push({
-          code: stageHit.code,
-          title: stageHit.title,
-          kind: stageHit.kind,
+      if (!seenCodes.has(stageHit.code)) {
+        rawItems.push({
+          ...stageHit,
+          lineIndex: i,
           parentCode: null,
         });
-        seen.add(stageHit.code);
+        seenCodes.add(stageHit.code);
       }
 
       continue;
@@ -124,29 +134,45 @@ function parseWorkflowItems(workflowText) {
 
     if (!currentStageCode) continue;
 
-    const subHit = extractCodeFromSubHeading(line);
-    if (subHit && !seen.has(subHit.code)) {
-      items.push({
-        code: subHit.code,
-        title: subHit.title,
-        kind: subHit.kind,
+    const subHit = extractSubHeading(line);
+    if (subHit && !seenCodes.has(subHit.code)) {
+      rawItems.push({
+        ...subHit,
+        lineIndex: i,
         parentCode: getParentCode(subHit.code) || currentStageCode,
       });
-      seen.add(subHit.code);
+      seenCodes.add(subHit.code);
       continue;
     }
 
-    const bulletHit = extractCodeFromBullet(line);
-    if (bulletHit && !seen.has(bulletHit.code)) {
-      items.push({
-        code: bulletHit.code,
-        title: bulletHit.title,
-        kind: bulletHit.kind,
+    const bulletHit = extractBulletItem(line);
+    if (bulletHit && !seenCodes.has(bulletHit.code)) {
+      rawItems.push({
+        ...bulletHit,
+        lineIndex: i,
         parentCode: getParentCode(bulletHit.code) || currentStageCode,
       });
-      seen.add(bulletHit.code);
+      seenCodes.add(bulletHit.code);
     }
   }
+
+  const items = rawItems.map((item, idx) => {
+    const nextLineIndex =
+      idx + 1 < rawItems.length ? rawItems[idx + 1].lineIndex : lines.length;
+
+    const body = lines.slice(item.lineIndex + 1, nextLineIndex).join("\n").trim();
+
+    return {
+      code: item.code,
+      title: item.title,
+      kind: item.kind,
+      parentCode: item.parentCode,
+      body,
+      normalizedTitle: normalizeText(item.title),
+      normalizedBody: normalizeText(body),
+      normalizedText: normalizeText(`${item.title}\n${body}`),
+    };
+  });
 
   return items;
 }
@@ -159,17 +185,122 @@ function safeJsonParse(text) {
   }
 }
 
-function buildRulesMap(rulesJson) {
-  const map = new Map();
-  const items = Array.isArray(rulesJson?.items) ? rulesJson.items : [];
+function toTokenList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((x) => normalizeText(x)).filter(Boolean);
+}
 
+function buildItemMap(items) {
+  const map = new Map();
   for (const item of items) {
-    const code = normalizeItemCode(item?.code);
-    if (!code) continue;
-    map.set(code, item);
+    map.set(item.code, item);
+  }
+  return map;
+}
+
+function getAncestorChain(item, itemMap) {
+  const chain = [];
+  let currentParentCode = item?.parentCode || null;
+
+  while (currentParentCode) {
+    const parent = itemMap.get(currentParentCode);
+    if (!parent) break;
+
+    chain.push(parent);
+    currentParentCode = parent.parentCode || null;
   }
 
-  return map;
+  return chain;
+}
+
+function tokensMatch(haystack, allTokens, anyTokens, noneTokens) {
+  if (allTokens.length > 0 && !allTokens.every((t) => haystack.includes(t))) {
+    return false;
+  }
+
+  if (anyTokens.length > 0 && !anyTokens.some((t) => haystack.includes(t))) {
+    return false;
+  }
+
+  if (noneTokens.length > 0 && noneTokens.some((t) => haystack.includes(t))) {
+    return false;
+  }
+
+  return allTokens.length > 0 || anyTokens.length > 0 || noneTokens.length > 0;
+}
+
+function ruleMatchesItem(rule, item, itemMap) {
+  const targetKinds = Array.isArray(rule?.target_kinds)
+    ? rule.target_kinds.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  if (targetKinds.length > 0 && !targetKinds.includes(String(item.kind || "").toLowerCase())) {
+    return false;
+  }
+
+  const match = rule?.match || {};
+
+  const itemAllTokens = toTokenList(match.all_tokens);
+  const itemAnyTokens = toTokenList(match.any_tokens);
+  const itemNoneTokens = toTokenList(match.none_tokens);
+
+  const ancestorAllTokens = toTokenList(match.ancestor_all_tokens);
+  const ancestorAnyTokens = toTokenList(match.ancestor_any_tokens);
+  const ancestorNoneTokens = toTokenList(match.ancestor_none_tokens);
+
+  const titleAllTokens = toTokenList(match.title_all_tokens);
+  const titleAnyTokens = toTokenList(match.title_any_tokens);
+  const titleNoneTokens = toTokenList(match.title_none_tokens);
+
+  const bodyAllTokens = toTokenList(match.body_all_tokens);
+  const bodyAnyTokens = toTokenList(match.body_any_tokens);
+  const bodyNoneTokens = toTokenList(match.body_none_tokens);
+
+  const itemHaystack = item.normalizedText || "";
+  const titleHaystack = item.normalizedTitle || "";
+  const bodyHaystack = item.normalizedBody || "";
+  const ancestorHaystack = normalizeText(
+    getAncestorChain(item, itemMap)
+      .map((x) => `${x.title}\n${x.body}`)
+      .join("\n")
+  );
+
+  if (
+    (itemAllTokens.length > 0 || itemAnyTokens.length > 0 || itemNoneTokens.length > 0) &&
+    !tokensMatch(itemHaystack, itemAllTokens, itemAnyTokens, itemNoneTokens)
+  ) {
+    return false;
+  }
+
+  if (
+    (titleAllTokens.length > 0 || titleAnyTokens.length > 0 || titleNoneTokens.length > 0) &&
+    !tokensMatch(titleHaystack, titleAllTokens, titleAnyTokens, titleNoneTokens)
+  ) {
+    return false;
+  }
+
+  if (
+    (bodyAllTokens.length > 0 || bodyAnyTokens.length > 0 || bodyNoneTokens.length > 0) &&
+    !tokensMatch(bodyHaystack, bodyAllTokens, bodyAnyTokens, bodyNoneTokens)
+  ) {
+    return false;
+  }
+
+  if (
+    (ancestorAllTokens.length > 0 ||
+      ancestorAnyTokens.length > 0 ||
+      ancestorNoneTokens.length > 0) &&
+    !tokensMatch(
+      ancestorHaystack,
+      ancestorAllTokens,
+      ancestorAnyTokens,
+      ancestorNoneTokens
+    )
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function formatCheckLabel(rule) {
@@ -242,11 +373,13 @@ function evaluateRule(rule, fileSet) {
   };
 }
 
-function evaluateSingleItem(item, rulesMap, fileSet) {
-  const ruleEntry = rulesMap.get(item.code);
-  const checks = Array.isArray(ruleEntry?.checks) ? ruleEntry.checks : [];
-  const results = checks.map((rule) => evaluateRule(rule, fileSet));
+function evaluateSingleItem(item, rules, itemMap, fileSet) {
+  const matchedRules = rules.filter((rule) => ruleMatchesItem(rule, item, itemMap));
+  const checks = matchedRules.flatMap((rule) =>
+    Array.isArray(rule?.checks) ? rule.checks : []
+  );
 
+  const results = checks.map((rule) => evaluateRule(rule, fileSet));
   const passedChecks = results.filter((x) => x.ok).length;
   const failedChecks = results.filter((x) => !x.ok).length;
   const hasChecks = checks.length > 0;
@@ -260,6 +393,9 @@ function evaluateSingleItem(item, rulesMap, fileSet) {
     title: item.title,
     kind: item.kind,
     parentCode: item.parentCode,
+    matchedRuleIds: matchedRules
+      .map((x) => String(x?.id || "").trim())
+      .filter(Boolean),
     totalChecks: checks.length,
     passedChecks,
     failedChecks,
@@ -268,8 +404,13 @@ function evaluateSingleItem(item, rulesMap, fileSet) {
   };
 }
 
-function buildEvaluatedItems(workflowItems, rulesMap, fileSet) {
-  return workflowItems.map((item) => evaluateSingleItem(item, rulesMap, fileSet));
+function buildEvaluatedItems(workflowItems, rulesJson, fileSet) {
+  const rules = Array.isArray(rulesJson?.rules) ? rulesJson.rules : [];
+  const itemMap = buildItemMap(workflowItems);
+
+  return workflowItems.map((item) =>
+    evaluateSingleItem(item, rules, itemMap, fileSet)
+  );
 }
 
 function getSubtreeItems(baseCode, evaluatedItems) {
@@ -280,7 +421,6 @@ function aggregateScope(scopeItems) {
   const configuredItems = scopeItems.filter((x) => x.totalChecks > 0);
   const noRulesItems = scopeItems.filter((x) => x.totalChecks === 0);
   const openItems = scopeItems.filter((x) => x.status === "OPEN");
-  const completeItems = scopeItems.filter((x) => x.status === "COMPLETE");
 
   let status = "NO_RULES";
   if (openItems.length > 0) status = "OPEN";
@@ -304,8 +444,6 @@ function aggregateScope(scopeItems) {
     totalItems: scopeItems.length,
     configuredItems: configuredItems.length,
     noRulesItems: noRulesItems.length,
-    openItems: openItems.length,
-    completeItems: completeItems.length,
     totalChecks: scopeItems.reduce((sum, x) => sum + x.totalChecks, 0),
     passedChecks: scopeItems.reduce((sum, x) => sum + x.passedChecks, 0),
     failedChecks: scopeItems.reduce((sum, x) => sum + x.failedChecks, 0),
@@ -339,8 +477,13 @@ function formatSingleItemOutput(baseItem, scopeItems, aggregate, coverageMode) {
   if (scopeItems.length > 1) {
     lines.push("scope:");
     for (const item of scopeItems.slice(0, 20)) {
+      const rulesSuffix =
+        Array.isArray(item.matchedRuleIds) && item.matchedRuleIds.length > 0
+          ? ` rules:${item.matchedRuleIds.join(",")}`
+          : "";
+
       lines.push(
-        `- ${item.code} — ${item.status} — ${item.passedChecks}/${item.totalChecks}`
+        `- ${item.code} — ${item.status} — ${item.passedChecks}/${item.totalChecks}${rulesSuffix}`
       );
     }
   }
@@ -435,14 +578,13 @@ export async function handleStageCheck(ctx = {}) {
   }
 
   const workflowItems = parseWorkflowItems(workflowFile.content);
-  const rulesMap = buildRulesMap(rulesJson);
   const fileSet = new Set(Array.isArray(repoFiles) ? repoFiles : []);
-  const evaluatedItems = buildEvaluatedItems(workflowItems, rulesMap, fileSet);
+  const evaluatedItems = buildEvaluatedItems(workflowItems, rulesJson, fileSet);
 
   const topLevelStages = workflowItems.filter((item) => item.kind === "stage");
 
   const coverageMode =
-    String(rulesJson?.coverage || "").trim() || "workflow_tree_item_rules";
+    String(rulesJson?.coverage || "").trim() || "workflow_tree_match_rules";
 
   if (modeInfo.mode === "all") {
     await reply(formatAllStagesOutput(topLevelStages, evaluatedItems, coverageMode), {

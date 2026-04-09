@@ -1,6 +1,6 @@
 // ============================================================================
 // === src/bot/handlers/stageCheck.js — READ-ONLY universal workflow checker
-// === NO AI / NO HARD-CODED STAGE IDS / TREE + AUTO-SIGNAL EXTRACTION
+// === NO AI / NO HARD-CODED STAGE IDS / TREE + SEMANTIC AUTO-SIGNAL EXTRACTION
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -35,7 +35,7 @@ function safeJsonParse(text) {
 }
 
 function uniq(arr) {
-  return Array.from(new Set(arr.filter(Boolean)));
+  return Array.from(new Set((arr || []).filter(Boolean)));
 }
 
 function parseMode(rest) {
@@ -168,7 +168,7 @@ function parseWorkflowItems(workflowText) {
     }
   }
 
-  const items = rawItems.map((item, idx) => {
+  return rawItems.map((item, idx) => {
     const nextLineIndex =
       idx + 1 < rawItems.length ? rawItems[idx + 1].lineIndex : lines.length;
 
@@ -185,8 +185,6 @@ function parseWorkflowItems(workflowText) {
       normalizedText: normalizeText(`${item.title}\n${body}`),
     };
   });
-
-  return items;
 }
 
 function buildItemMap(items) {
@@ -195,6 +193,24 @@ function buildItemMap(items) {
     map.set(item.code, item);
   }
   return map;
+}
+
+function getAncestorChain(item, itemMap) {
+  const chain = [];
+  let currentParentCode = item?.parentCode || null;
+
+  while (currentParentCode) {
+    const parent = itemMap.get(currentParentCode);
+    if (!parent) break;
+    chain.push(parent);
+    currentParentCode = parent.parentCode || null;
+  }
+
+  return chain;
+}
+
+function getDescendants(baseCode, items) {
+  return items.filter((item) => item.code !== baseCode && isSameOrDescendant(baseCode, item.code));
 }
 
 function getSubtreeItems(baseCode, evaluatedItems) {
@@ -209,20 +225,22 @@ function buildConfig(rulesJson) {
   const cfg = rulesJson?.engine || {};
 
   return {
-    maxChecksPerItem: Number(cfg.max_checks_per_item || 12),
+    maxChecksPerItem: Number(cfg.max_checks_per_item || 14),
     minIdentifierLength: Number(cfg.min_identifier_length || 3),
     maxSearchFilesPerToken: Number(cfg.max_search_files_per_token || 300),
-    stopTokens: new Set(
-      Array.isArray(cfg.stop_tokens)
-        ? cfg.stop_tokens.map((x) => String(x || "").toLowerCase()).filter(Boolean)
-        : []
-    ),
+    maxInheritedSignals: Number(cfg.max_inherited_signals || 6),
+    maxDescendantSignals: Number(cfg.max_descendant_signals || 4),
     preferredPathPrefixes: Array.isArray(cfg.preferred_path_prefixes)
       ? cfg.preferred_path_prefixes.map((x) => String(x || ""))
       : [],
     searchableExtensions: Array.isArray(cfg.searchable_extensions)
       ? cfg.searchable_extensions.map((x) => String(x || "").toLowerCase())
       : [".js", ".mjs", ".cjs", ".json", ".md", ".sql", ".txt", ".yaml", ".yml"],
+    stopTokens: new Set(
+      Array.isArray(cfg.stop_tokens)
+        ? cfg.stop_tokens.map((x) => String(x || "").toLowerCase()).filter(Boolean)
+        : []
+    ),
   };
 }
 
@@ -276,6 +294,27 @@ function extractBackticked(text) {
   return uniq(matches);
 }
 
+function extractSlashListItems(text) {
+  const out = [];
+  const source = String(text || "");
+
+  const patterns = source.match(/\b[A-Za-z][A-Za-z0-9_-]*(?:\/[A-Za-z][A-Za-z0-9_-]*){1,}\b/g) || [];
+  for (const entry of patterns) {
+    const parts = entry
+      .split("/")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    for (const part of parts) {
+      out.push(part);
+    }
+
+    out.push(entry);
+  }
+
+  return uniq(out);
+}
+
 function isUsefulToken(token, config) {
   const raw = String(token || "").trim();
   if (!raw) return false;
@@ -297,73 +336,199 @@ function extractIdentifiers(text, config) {
   const snake = source.match(/\b[a-z]+(?:_[a-z0-9]+)+\b/g) || [];
   const upper = source.match(/\b[A-Z][A-Z0-9_]{2,}\b/g) || [];
   const camel = source.match(/\b[a-z]+(?:[A-Z][a-z0-9]+){1,}\b/g) || [];
+  const pascal = source.match(/\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b/g) || [];
   const kebab = source.match(/\b[a-z0-9]+(?:-[a-z0-9]+)+\b/g) || [];
 
-  const combined = uniq([...snake, ...upper, ...camel, ...kebab]);
-
-  return combined.filter((token) => isUsefulToken(token, config));
+  return uniq([...snake, ...upper, ...camel, ...pascal, ...kebab]).filter((token) =>
+    isUsefulToken(token, config)
+  );
 }
 
-function buildAutoChecksForItem(item, config) {
-  const combinedText = `${item.title}\n${item.body || ""}`;
+function buildCandidateBasenamesFromToken(token) {
+  const raw = String(token || "").trim();
+  if (!raw) return [];
 
-  const explicitPaths = extractExplicitPaths(combinedText);
-  const commands = extractCommands(combinedText);
+  return uniq([
+    `${raw}.js`,
+    `${raw}.mjs`,
+    `${raw}.cjs`,
+    `${raw}.json`,
+    `${raw}.sql`,
+    "index.js",
+    "index.mjs",
+    "index.cjs",
+  ]);
+}
 
-  const backticked = extractBackticked(combinedText);
-  const backtickPaths = backticked.filter((x) => x.includes("/") && x.includes("."));
-  const backtickCommands = backticked.filter((x) => x.startsWith("/"));
-  const backtickIdentifiers = backticked.filter(
+function isStrongIdentifier(token) {
+  const value = String(token || "").trim();
+
+  return (
+    /\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b/.test(value) || // PascalCase
+    /\b[a-z]+(?:[A-Z][a-z0-9]+){1,}\b/.test(value) || // camelCase
+    /\b[a-z]+(?:_[a-z0-9]+)+\b/.test(value) || // snake_case
+    /\b[A-Z][A-Z0-9_]{2,}\b/.test(value) // UPPER_CASE
+  );
+}
+
+function collectSemanticSignals(item, itemMap, allItems, config) {
+  const ownText = `${item.title}\n${item.body || ""}`;
+  const ownPaths = extractExplicitPaths(ownText);
+  const ownCommands = extractCommands(ownText);
+  const ownBackticked = extractBackticked(ownText);
+  const ownSlashList = extractSlashListItems(ownText);
+  const ownIdentifiers = extractIdentifiers(ownText, config);
+
+  const ownBacktickPaths = ownBackticked.filter((x) => x.includes("/") && x.includes("."));
+  const ownBacktickCommands = ownBackticked.filter((x) => x.startsWith("/"));
+  const ownBacktickIdentifiers = ownBackticked.filter(
     (x) => !x.startsWith("/") && !(x.includes("/") && x.includes("."))
   );
 
-  const identifiers = extractIdentifiers(combinedText, config);
+  const ownSignals = uniq([
+    ...ownIdentifiers,
+    ...ownSlashList,
+    ...ownBacktickIdentifiers,
+  ]).filter((token) => isUsefulToken(token, config));
 
+  const ancestorSignals = [];
+  const ancestors = getAncestorChain(item, itemMap);
+
+  for (const parent of ancestors) {
+    const parentText = `${parent.title}\n${parent.body || ""}`;
+
+    const tokens = uniq([
+      ...extractIdentifiers(parentText, config),
+      ...extractBackticked(parentText),
+      ...extractSlashListItems(parentText),
+    ]);
+
+    for (const token of tokens) {
+      if (isStrongIdentifier(token) && isUsefulToken(token, config)) {
+        ancestorSignals.push(token);
+      }
+    }
+  }
+
+  const descendantSignals = [];
+  const descendants = getDescendants(item.code, allItems);
+
+  for (const child of descendants) {
+    const childText = `${child.title}\n${child.body || ""}`;
+
+    const tokens = uniq([
+      ...extractIdentifiers(childText, config),
+      ...extractBackticked(childText),
+      ...extractSlashListItems(childText),
+    ]);
+
+    for (const token of tokens) {
+      if (isStrongIdentifier(token) && isUsefulToken(token, config)) {
+        descendantSignals.push(token);
+      }
+    }
+  }
+
+  return {
+    explicitPaths: uniq([...ownPaths, ...ownBacktickPaths]),
+    commands: uniq([...ownCommands, ...ownBacktickCommands.map((x) => x.toLowerCase())]),
+    ownSignals,
+    ancestorSignals: uniq(ancestorSignals).slice(0, config.maxInheritedSignals),
+    descendantSignals: uniq(descendantSignals).slice(0, config.maxDescendantSignals),
+  };
+}
+
+function buildAutoChecksForItem(item, itemMap, allItems, fileSet, config) {
+  const signals = collectSemanticSignals(item, itemMap, allItems, config);
   const checks = [];
+  const seen = new Set();
 
-  for (const path of uniq([...explicitPaths, ...backtickPaths])) {
-    checks.push({
+  function pushCheck(check) {
+    const key =
+      check.type === "file_exists"
+        ? `file:${check.path}`
+        : check.type === "basename_exists"
+          ? `basename:${String(check.basename || "").toLowerCase()}`
+          : `text:${String(check.token || "").toLowerCase()}`;
+
+    if (seen.has(key)) return;
+    seen.add(key);
+    checks.push(check);
+  }
+
+  for (const path of signals.explicitPaths) {
+    pushCheck({
       type: "file_exists",
       path,
       label: `file path: ${path}`,
     });
   }
 
-  for (const cmd of uniq([...commands, ...backtickCommands.map((x) => x.toLowerCase())])) {
-    checks.push({
+  for (const cmd of signals.commands) {
+    pushCheck({
       type: "text_exists",
       token: cmd,
       label: `command token: ${cmd}`,
     });
   }
 
-  for (const token of uniq([...identifiers, ...backtickIdentifiers])) {
-    if (!isUsefulToken(token, config)) continue;
-
-    checks.push({
+  for (const token of signals.ownSignals) {
+    pushCheck({
       type: "text_exists",
       token,
-      label: `symbol token: ${token}`,
+      label: `signal token: ${token}`,
+    });
+
+    if (isStrongIdentifier(token)) {
+      for (const basename of buildCandidateBasenamesFromToken(token)) {
+        pushCheck({
+          type: "basename_exists",
+          basename,
+          label: `basename for signal: ${basename}`,
+        });
+      }
+    }
+  }
+
+  for (const token of signals.ancestorSignals) {
+    pushCheck({
+      type: "text_exists",
+      token,
+      label: `inherited signal: ${token}`,
+    });
+
+    for (const basename of buildCandidateBasenamesFromToken(token)) {
+      pushCheck({
+        type: "basename_exists",
+        basename,
+        label: `basename for inherited signal: ${basename}`,
+      });
+    }
+  }
+
+  for (const token of signals.descendantSignals) {
+    pushCheck({
+      type: "text_exists",
+      token,
+      label: `descendant signal: ${token}`,
     });
   }
 
-  const dedup = [];
-  const seen = new Set();
-
+  const finalChecks = [];
   for (const check of checks) {
-    const key =
-      check.type === "file_exists"
-        ? `file:${check.path}`
-        : `text:${String(check.token || "").toLowerCase()}`;
-
-    if (seen.has(key)) continue;
-    seen.add(key);
-    dedup.push(check);
-
-    if (dedup.length >= config.maxChecksPerItem) break;
+    finalChecks.push(check);
+    if (finalChecks.length >= config.maxChecksPerItem) break;
   }
 
-  return dedup;
+  return finalChecks;
+}
+
+function findBasenameInRepo(basename, fileSet) {
+  const needle = `/${String(basename || "").toLowerCase()}`;
+  const direct = Array.from(fileSet).find((p) => p.toLowerCase().endsWith(needle));
+  if (direct) return direct;
+
+  return Array.from(fileSet).find((p) => p.toLowerCase() === String(basename || "").toLowerCase()) || null;
 }
 
 async function searchTokenInRepo(token, source, searchableFiles, contentCache, searchCache, config) {
@@ -375,7 +540,11 @@ async function searchTokenInRepo(token, source, searchableFiles, contentCache, s
     return searchCache.get(cacheKey);
   }
 
-  const regex = new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(normalizedToken)}([^A-Za-z0-9_]|$)`, "i");
+  const regex = new RegExp(
+    `(^|[^A-Za-z0-9_])${escapeRegExp(normalizedToken)}([^A-Za-z0-9_]|$)`,
+    "i"
+  );
+
   const limitedFiles = searchableFiles.slice(0, config.maxSearchFilesPerToken);
 
   for (const path of limitedFiles) {
@@ -414,8 +583,22 @@ async function evaluateCheck(check, ctx) {
     };
   }
 
+  if (check.type === "basename_exists") {
+    const basename = String(check.basename || "").trim();
+    const foundPath = findBasenameInRepo(basename, ctx.fileSet);
+    const ok = !!foundPath;
+
+    return {
+      ok,
+      type: check.type,
+      label: check.label || basename || "basename_exists",
+      details: ok ? `found_as: ${foundPath}` : "basename_not_found",
+    };
+  }
+
   if (check.type === "text_exists") {
     const token = String(check.token || "").trim();
+
     const searchResult = await searchTokenInRepo(
       token,
       ctx.source,
@@ -442,9 +625,15 @@ async function evaluateCheck(check, ctx) {
 }
 
 async function evaluateSingleItem(item, ctx) {
-  const autoChecks = buildAutoChecksForItem(item, ctx.config);
-  const results = [];
+  const autoChecks = buildAutoChecksForItem(
+    item,
+    ctx.itemMap,
+    ctx.allItems,
+    ctx.fileSet,
+    ctx.config
+  );
 
+  const results = [];
   for (const check of autoChecks) {
     results.push(await evaluateCheck(check, ctx));
   }
@@ -472,11 +661,9 @@ async function evaluateSingleItem(item, ctx) {
 
 async function buildEvaluatedItems(workflowItems, ctx) {
   const output = [];
-
   for (const item of workflowItems) {
     output.push(await evaluateSingleItem(item, ctx));
   }
-
   return output;
 }
 
@@ -538,7 +725,9 @@ function formatSingleItemOutput(baseItem, scopeItems, aggregate, coverageMode) {
   if (scopeItems.length > 1) {
     lines.push("scope:");
     for (const item of scopeItems.slice(0, 20)) {
-      lines.push(`- ${item.code} — ${item.status} — ${item.passedChecks}/${item.totalChecks}`);
+      lines.push(
+        `- ${item.code} — ${item.status} — ${item.passedChecks}/${item.totalChecks}`
+      );
     }
   }
 
@@ -633,6 +822,7 @@ export async function handleStageCheck(ctx = {}) {
 
   const config = buildConfig(rulesJson);
   const workflowItems = parseWorkflowItems(workflowFile.content);
+  const itemMap = buildItemMap(workflowItems);
   const fileSet = new Set(Array.isArray(repoFiles) ? repoFiles : []);
   const searchableFiles = sortSearchPaths(
     Array.from(fileSet).filter((p) => hasAllowedExtension(p, config)),
@@ -646,13 +836,15 @@ export async function handleStageCheck(ctx = {}) {
     searchableFiles,
     contentCache: new Map(),
     searchCache: new Map(),
+    itemMap,
+    allItems: workflowItems,
   };
 
   const evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
   const topLevelStages = workflowItems.filter((item) => item.kind === "stage");
 
   const coverageMode =
-    String(rulesJson?.coverage || "").trim() || "workflow_tree_auto_signals";
+    String(rulesJson?.coverage || "").trim() || "workflow_tree_semantic_auto_signals";
 
   if (modeInfo.mode === "all") {
     await reply(formatAllStagesOutput(topLevelStages, evaluatedItems, coverageMode), {

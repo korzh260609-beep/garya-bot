@@ -1,166 +1,118 @@
 {
-  "version": 5,
-  "coverage": "workflow_tree_match_rules",
+  "version": 6,
+  "coverage": "workflow_tree_auto_signals",
   "notes": [
-    "Read-only static checks only",
-    "Source of truth = WORKFLOW.md + repository files",
-    "No AI",
-    "No WORKFLOW_HINTS.json",
-    "Rules are matched by workflow text meaning, not by hard-coded stage/item ids",
-    "Parent aggregation is done in stageCheck.js",
-    "If workflow numbering changes but the semantic text stays similar, rules should still match",
-    "If workflow wording changes too aggressively, match-based rules may still need revision",
-    "This file must avoid direct binding to item codes such as 2.6, 11F.5, 12A.0.8"
+    "Universal stage_check engine config",
+    "No hard-coded workflow item ids",
+    "No hard-coded semantic bindings to specific stages",
+    "The checker extracts technical signals directly from WORKFLOW item text",
+    "Signals include file paths, slash commands, snake_case, UPPER_CASE, camelCase, kebab-case, and backticked tokens",
+    "If workflow numbering changes, checker still works because it does not bind checks to item ids",
+    "If workflow wording changes, checker still works as long as technical signals remain present in the item text",
+    "This file configures the engine only; it does not map individual stages or subtasks"
   ],
-  "rules": [
-    {
-      "id": "db_migrations_framework_runner",
-      "target_kinds": ["point"],
-      "match": {
-        "ancestor_any_tokens": ["db migrations", "migrations framework"],
-        "any_tokens": ["migrations framework", "node-pg-migrate"]
-      },
-      "checks": [
-        {
-          "type": "all_files_exist",
-          "paths": [
-            "src/db/runMigrations.js",
-            "package.json"
-          ],
-          "label": "migration framework wiring"
-        }
-      ]
-    },
-    {
-      "id": "db_migrations_schema_version",
-      "target_kinds": ["point"],
-      "match": {
-        "ancestor_any_tokens": ["db migrations"],
-        "any_tokens": ["schema_version", "apply order"]
-      },
-      "checks": [
-        {
-          "type": "file_exists",
-          "path": "migrations/001_schema_version.js",
-          "label": "schema_version migration exists"
-        }
-      ]
-    },
-    {
-      "id": "db_migrations_forward_chain",
-      "target_kinds": ["point"],
-      "match": {
-        "ancestor_any_tokens": ["db migrations"],
-        "all_tokens": ["forward-only migrations"]
-      },
-      "checks": [
-        {
-          "type": "all_files_exist",
-          "paths": [
-            "migrations/001_schema_version.js",
-            "migrations/003_task_run_key_unique.js",
-            "migrations/012_chat_messages_table.js",
-            "migrations/015_behavior_events_table.js",
-            "migrations/038_create_audit_events.js"
-          ],
-          "label": "forward migration chain files exist"
-        }
-      ]
-    },
-    {
-      "id": "file_intake_pdf_parse",
-      "target_kinds": ["point"],
-      "match": {
-        "ancestor_any_tokens": ["file-intake skeleton", "specialized ai gate"],
-        "any_tokens": ["pdf parse"]
-      },
-      "checks": [
-        {
-          "type": "file_exists",
-          "path": "src/documents/documentTextService.js",
-          "label": "document text service for PDF parse"
-        }
-      ]
-    },
-    {
-      "id": "file_intake_docx_parse",
-      "target_kinds": ["point"],
-      "match": {
-        "ancestor_any_tokens": ["file-intake skeleton", "specialized ai gate"],
-        "any_tokens": ["docx parse"]
-      },
-      "checks": [
-        {
-          "type": "file_exists",
-          "path": "src/documents/documentTextService.js",
-          "label": "document text service for DOCX parse"
-        }
-      ]
-    },
-    {
-      "id": "file_intake_integration",
-      "target_kinds": ["point"],
-      "match": {
-        "ancestor_any_tokens": ["file-intake skeleton", "specialized ai gate"],
-        "any_tokens": ["integration"]
-      },
-      "checks": [
-        {
-          "type": "all_files_exist",
-          "paths": [
-            "src/bot/handlers/chat/chatDocumentEstimateFlow.js",
-            "src/bot/handlers/chat/chatEstimateReplies.js",
-            "src/bot/handlers/chat/chatEstimateCorrectionFlow.js",
-            "src/bot/handlers/chat/chatPendingClarificationFlow.js"
-          ],
-          "label": "file-intake chat integration flows"
-        }
-      ]
-    },
-    {
-      "id": "repo_indexing_repo_source",
-      "target_kinds": ["point"],
-      "match": {
-        "ancestor_any_tokens": ["repository indexing", "read-only foundation"],
-        "any_tokens": ["reposource", "repo source", "list + fetch files"]
-      },
-      "checks": [
-        {
-          "type": "file_exists",
-          "path": "src/repo/RepoSource.js",
-          "label": "repo source"
-        }
-      ]
-    },
-    {
-      "id": "repo_indexing_reindex_dry_run",
-      "target_kinds": ["point"],
-      "match": {
-        "ancestor_any_tokens": ["repository indexing", "read-only foundation"],
-        "any_tokens": ["reindex dry-run", "/reindex"]
-      },
-      "checks": [
-        {
-          "type": "file_exists",
-          "path": "src/bot/handlers/reindexRepo.js",
-          "label": "reindex handler"
-        }
-      ]
-    },
-    {
-      "id": "repo_indexing_output_status",
-      "target_kinds": ["point"],
-      "match": {
-        "ancestor_any_tokens": ["repository indexing", "read-only foundation"],
-        "any_tokens": ["code_output_status", "/code_output_status", "reports env: code_output_mode"]
-      },
-      "checks": [
-        {
-          "type": "file_exists",
-          "path": "src/bot/handlers/codeOutputStatus.js",
-          "label": "code output status handler"
-        }
-      ]
-    }
-  ]
+  "engine": {
+    "max_checks_per_item": 12,
+    "min_identifier_length": 3,
+    "max_search_files_per_token": 300,
+    "preferred_path_prefixes": [
+      "src/",
+      "core/",
+      "migrations/",
+      "scripts/",
+      "pillars/",
+      ""
+    ],
+    "searchable_extensions": [
+      ".js",
+      ".mjs",
+      ".cjs",
+      ".json",
+      ".md",
+      ".sql",
+      ".txt",
+      ".yaml",
+      ".yml"
+    ],
+    "stop_tokens": [
+      "stage",
+      "stages",
+      "workflow",
+      "skeleton",
+      "foundation",
+      "mandatory",
+      "future",
+      "gate",
+      "rules",
+      "rule",
+      "notes",
+      "allowed",
+      "forbidden",
+      "integration",
+      "integrations",
+      "module",
+      "modules",
+      "system",
+      "global",
+      "local",
+      "private",
+      "public",
+      "default",
+      "minimal",
+      "normal",
+      "long",
+      "short",
+      "policy",
+      "policies",
+      "status",
+      "draft",
+      "plan",
+      "plans",
+      "core",
+      "adapter",
+      "service",
+      "services",
+      "logic",
+      "config",
+      "db",
+      "v0",
+      "v1",
+      "v2",
+      "v3",
+      "mvp",
+      "hard",
+      "soft",
+      "only",
+      "used",
+      "exists",
+      "table",
+      "tables",
+      "command",
+      "commands",
+      "user",
+      "users",
+      "role",
+      "roles",
+      "task",
+      "tasks",
+      "memory",
+      "source",
+      "sources",
+      "chat",
+      "bot",
+      "and",
+      "or",
+      "other",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight",
+      "nine",
+      "ten"
+    ]
+  }
 }

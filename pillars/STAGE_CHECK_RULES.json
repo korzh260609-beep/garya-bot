@@ -1,20 +1,79 @@
 {
-  "version": 3,
-  "coverage": "workflow_tree_item_rules",
+  "version": 5,
+  "coverage": "workflow_tree_match_rules",
   "notes": [
     "Read-only static checks only",
     "Source of truth = WORKFLOW.md + repository files",
     "No AI",
     "No WORKFLOW_HINTS.json",
-    "Rules are attached to workflow item codes",
+    "Rules are matched by workflow text meaning, not by hard-coded stage/item ids",
     "Parent aggregation is done in stageCheck.js",
-    "If /stage_check 2 is called, handler aggregates 2 + 2.*",
-    "If /stage_check 2.6 is called, handler aggregates 2.6 + 2.6.*",
-    "If /stage_check 2.6.2 is called, handler checks only that exact item"
+    "If workflow numbering changes but the semantic text stays similar, rules should still match",
+    "If workflow wording changes too aggressively, match-based rules may still need revision",
+    "This file must avoid direct binding to item codes such as 2.6, 11F.5, 12A.0.8"
   ],
-  "items": [
+  "rules": [
     {
-      "code": "11F.5",
+      "id": "db_migrations_framework_runner",
+      "target_kinds": ["point"],
+      "match": {
+        "ancestor_any_tokens": ["db migrations", "migrations framework"],
+        "any_tokens": ["migrations framework", "node-pg-migrate"]
+      },
+      "checks": [
+        {
+          "type": "all_files_exist",
+          "paths": [
+            "src/db/runMigrations.js",
+            "package.json"
+          ],
+          "label": "migration framework wiring"
+        }
+      ]
+    },
+    {
+      "id": "db_migrations_schema_version",
+      "target_kinds": ["point"],
+      "match": {
+        "ancestor_any_tokens": ["db migrations"],
+        "any_tokens": ["schema_version", "apply order"]
+      },
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "migrations/001_schema_version.js",
+          "label": "schema_version migration exists"
+        }
+      ]
+    },
+    {
+      "id": "db_migrations_forward_chain",
+      "target_kinds": ["point"],
+      "match": {
+        "ancestor_any_tokens": ["db migrations"],
+        "all_tokens": ["forward-only migrations"]
+      },
+      "checks": [
+        {
+          "type": "all_files_exist",
+          "paths": [
+            "migrations/001_schema_version.js",
+            "migrations/003_task_run_key_unique.js",
+            "migrations/012_chat_messages_table.js",
+            "migrations/015_behavior_events_table.js",
+            "migrations/038_create_audit_events.js"
+          ],
+          "label": "forward migration chain files exist"
+        }
+      ]
+    },
+    {
+      "id": "file_intake_pdf_parse",
+      "target_kinds": ["point"],
+      "match": {
+        "ancestor_any_tokens": ["file-intake skeleton", "specialized ai gate"],
+        "any_tokens": ["pdf parse"]
+      },
       "checks": [
         {
           "type": "file_exists",
@@ -24,7 +83,12 @@
       ]
     },
     {
-      "code": "11F.6",
+      "id": "file_intake_docx_parse",
+      "target_kinds": ["point"],
+      "match": {
+        "ancestor_any_tokens": ["file-intake skeleton", "specialized ai gate"],
+        "any_tokens": ["docx parse"]
+      },
       "checks": [
         {
           "type": "file_exists",
@@ -34,7 +98,12 @@
       ]
     },
     {
-      "code": "11F.8",
+      "id": "file_intake_integration",
+      "target_kinds": ["point"],
+      "match": {
+        "ancestor_any_tokens": ["file-intake skeleton", "specialized ai gate"],
+        "any_tokens": ["integration"]
+      },
       "checks": [
         {
           "type": "all_files_exist",
@@ -49,7 +118,12 @@
       ]
     },
     {
-      "code": "12A.0.2",
+      "id": "repo_indexing_repo_source",
+      "target_kinds": ["point"],
+      "match": {
+        "ancestor_any_tokens": ["repository indexing", "read-only foundation"],
+        "any_tokens": ["reposource", "repo source", "list + fetch files"]
+      },
       "checks": [
         {
           "type": "file_exists",
@@ -59,7 +133,12 @@
       ]
     },
     {
-      "code": "12A.0.8",
+      "id": "repo_indexing_reindex_dry_run",
+      "target_kinds": ["point"],
+      "match": {
+        "ancestor_any_tokens": ["repository indexing", "read-only foundation"],
+        "any_tokens": ["reindex dry-run", "/reindex"]
+      },
       "checks": [
         {
           "type": "file_exists",
@@ -69,7 +148,12 @@
       ]
     },
     {
-      "code": "12A.0.10",
+      "id": "repo_indexing_output_status",
+      "target_kinds": ["point"],
+      "match": {
+        "ancestor_any_tokens": ["repository indexing", "read-only foundation"],
+        "any_tokens": ["code_output_status", "/code_output_status", "reports env: code_output_mode"]
+      },
       "checks": [
         {
           "type": "file_exists",

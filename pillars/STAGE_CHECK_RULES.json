@@ -1,19 +1,19 @@
 {
-  "version": 7,
+  "version": 8,
   "coverage": "workflow_tree_semantic_auto_signals",
   "notes": [
     "Universal stage_check engine config",
     "No hard-coded workflow item ids",
     "No hard-coded semantic bindings to specific stages",
     "The checker extracts semantic technical signals directly from WORKFLOW item text",
-    "Signals include file paths, slash commands, snake_case, UPPER_CASE, camelCase, PascalCase, kebab-case, backticked tokens, and slash-list interfaces like write/read/context/recent",
+    "Signals include file paths, slash commands, snake_case, UPPER_CASE, camelCase, PascalCase, kebab-case, backticked tokens, and slash-list interfaces",
     "Strong parent signals are inherited by child points and substages",
     "Strong descendant signals can help abstract parent containers",
-    "If workflow numbering changes, checker still works because it does not bind checks to item ids",
-    "If workflow text changes, checker should still work while technical semantic signals remain present"
+    "Basename checks are allowed only for service-like PascalCase signals",
+    "Noise words and status words must never produce basename checks"
   ],
   "engine": {
-    "max_checks_per_item": 14,
+    "max_checks_per_item": 12,
     "min_identifier_length": 3,
     "max_search_files_per_token": 300,
     "max_inherited_signals": 6,
@@ -30,12 +30,49 @@
       ".js",
       ".mjs",
       ".cjs",
+      ".ts",
+      ".mts",
+      ".cts",
       ".json",
       ".md",
       ".sql",
       ".txt",
       ".yaml",
       ".yml"
+    ],
+    "basename_signal_suffixes": [
+      "Service",
+      "Source",
+      "Repo",
+      "Store",
+      "Adapter",
+      "Router",
+      "Handler",
+      "Loader",
+      "Manager",
+      "Provider",
+      "Registry",
+      "Bridge",
+      "Client",
+      "Controller",
+      "Engine",
+      "Guard",
+      "Policy"
+    ],
+    "basename_blocklist": [
+      "wired",
+      "future",
+      "foundation",
+      "mandatory",
+      "minimal",
+      "open",
+      "complete",
+      "skeleton",
+      "contract",
+      "gate",
+      "rules",
+      "policy",
+      "default"
     ],
     "stop_tokens": [
       "stage",
@@ -125,13 +162,11 @@
       "contract",
       "layer",
       "layers",
-      "policy-only",
-      "real",
       "manual",
-      "used",
+      "real",
       "show",
       "shown",
-      "default"
+      "wired"
     ]
   }
 }

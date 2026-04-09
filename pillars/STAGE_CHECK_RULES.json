@@ -1,104 +1,80 @@
 {
-  "version": 2,
-  "coverage": "generic_match_rules",
+  "version": 3,
+  "coverage": "workflow_tree_item_rules",
   "notes": [
     "Read-only static checks only",
     "Source of truth = WORKFLOW.md + repository files",
     "No AI",
     "No WORKFLOW_HINTS.json",
-    "Rules are matched against workflow section text, not stage ids",
-    "If no generic rule matches a stage, result must be NO_GENERIC_CHECKS"
+    "Rules are attached to workflow item codes",
+    "Parent aggregation is done in stageCheck.js",
+    "If /stage_check 2 is called, handler aggregates 2 + 2.*",
+    "If /stage_check 2.6 is called, handler aggregates 2.6 + 2.6.*",
+    "If /stage_check 2.6.2 is called, handler checks only that exact item"
   ],
-  "rules": [
+  "items": [
     {
-      "id": "file_intake_skeleton_v1",
-      "match": {
-        "all_tokens": [
-          "download file",
-          "effectiveusertext"
-        ],
-        "any_tokens": [
-          "ocr img",
-          "pdf parse",
-          "docx parse",
-          "audio transcript",
-          "data lifecycle skeleton"
-        ],
-        "none_tokens": [
-          "vision analysis",
-          "keyframe ocr",
-          "emotion"
-        ]
-      },
+      "code": "11F.5",
       "checks": [
         {
           "type": "file_exists",
           "path": "src/documents/documentTextService.js",
-          "label": "document text service"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/bot/handlers/chat/chatDocumentEstimateFlow.js",
-          "label": "document estimate flow"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/bot/handlers/chat/chatEstimateReplies.js",
-          "label": "estimate replies"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/bot/handlers/chat/chatEstimateCorrectionFlow.js",
-          "label": "estimate correction flow"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/bot/handlers/chat/chatPendingClarificationFlow.js",
-          "label": "pending clarification flow"
+          "label": "document text service for PDF parse"
         }
       ]
     },
     {
-      "id": "repo_indexing_readonly_foundation_v1",
-      "match": {
-        "all_tokens": [
-          "read-only foundation"
-        ],
-        "any_tokens": [
-          "github access",
-          "reposource",
-          "repoindexservice",
-          "repoindexsnapshot",
-          "memorypolicy",
-          "reindex dry-run",
-          "memorycandidates preview"
-        ]
-      },
+      "code": "11F.6",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/documents/documentTextService.js",
+          "label": "document text service for DOCX parse"
+        }
+      ]
+    },
+    {
+      "code": "11F.8",
+      "checks": [
+        {
+          "type": "all_files_exist",
+          "paths": [
+            "src/bot/handlers/chat/chatDocumentEstimateFlow.js",
+            "src/bot/handlers/chat/chatEstimateReplies.js",
+            "src/bot/handlers/chat/chatEstimateCorrectionFlow.js",
+            "src/bot/handlers/chat/chatPendingClarificationFlow.js"
+          ],
+          "label": "file-intake chat integration flows"
+        }
+      ]
+    },
+    {
+      "code": "12A.0.2",
       "checks": [
         {
           "type": "file_exists",
           "path": "src/repo/RepoSource.js",
           "label": "repo source"
-        },
+        }
+      ]
+    },
+    {
+      "code": "12A.0.8",
+      "checks": [
         {
           "type": "file_exists",
           "path": "src/bot/handlers/reindexRepo.js",
           "label": "reindex handler"
-        },
+        }
+      ]
+    },
+    {
+      "code": "12A.0.10",
+      "checks": [
         {
           "type": "file_exists",
-          "path": "src/bot/handlers/repoStatus.js",
-          "label": "repo status handler"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/bot/handlers/repoTree.js",
-          "label": "repo tree handler"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/bot/handlers/repoFile.js",
-          "label": "repo file handler"
+          "path": "src/bot/handlers/codeOutputStatus.js",
+          "label": "code output status handler"
         }
       ]
     }

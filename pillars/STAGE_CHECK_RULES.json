@@ -1,20 +1,23 @@
 {
-  "version": 6,
-  "coverage": "workflow_tree_auto_signals",
+  "version": 7,
+  "coverage": "workflow_tree_semantic_auto_signals",
   "notes": [
     "Universal stage_check engine config",
     "No hard-coded workflow item ids",
     "No hard-coded semantic bindings to specific stages",
-    "The checker extracts technical signals directly from WORKFLOW item text",
-    "Signals include file paths, slash commands, snake_case, UPPER_CASE, camelCase, kebab-case, and backticked tokens",
+    "The checker extracts semantic technical signals directly from WORKFLOW item text",
+    "Signals include file paths, slash commands, snake_case, UPPER_CASE, camelCase, PascalCase, kebab-case, backticked tokens, and slash-list interfaces like write/read/context/recent",
+    "Strong parent signals are inherited by child points and substages",
+    "Strong descendant signals can help abstract parent containers",
     "If workflow numbering changes, checker still works because it does not bind checks to item ids",
-    "If workflow wording changes, checker still works as long as technical signals remain present in the item text",
-    "This file configures the engine only; it does not map individual stages or subtasks"
+    "If workflow text changes, checker should still work while technical semantic signals remain present"
   ],
   "engine": {
-    "max_checks_per_item": 12,
+    "max_checks_per_item": 14,
     "min_identifier_length": 3,
     "max_search_files_per_token": 300,
+    "max_inherited_signals": 6,
+    "max_descendant_signals": 4,
     "preferred_path_prefixes": [
       "src/",
       "core/",
@@ -112,7 +115,23 @@
       "seven",
       "eight",
       "nine",
-      "ten"
+      "ten",
+      "strict",
+      "read-only",
+      "read",
+      "write",
+      "ban",
+      "interface",
+      "contract",
+      "layer",
+      "layers",
+      "policy-only",
+      "real",
+      "manual",
+      "used",
+      "show",
+      "shown",
+      "default"
     ]
   }
 }

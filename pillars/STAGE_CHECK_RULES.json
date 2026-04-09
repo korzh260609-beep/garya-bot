@@ -1,16 +1,35 @@
 {
-  "version": 1,
-  "coverage": "partial_rules_only",
+  "version": 2,
+  "coverage": "generic_match_rules",
   "notes": [
     "Read-only static checks only",
     "Source of truth = WORKFLOW.md + repository files",
     "No AI",
-    "No WORKFLOW_HINTS.json"
+    "No WORKFLOW_HINTS.json",
+    "Rules are matched against workflow section text, not stage ids",
+    "If no generic rule matches a stage, result must be NO_GENERIC_CHECKS"
   ],
-  "stages": [
+  "rules": [
     {
-      "stage": "11F",
-      "title": "FILE-INTAKE SKELETON",
+      "id": "file_intake_skeleton_v1",
+      "match": {
+        "all_tokens": [
+          "download file",
+          "effectiveusertext"
+        ],
+        "any_tokens": [
+          "ocr img",
+          "pdf parse",
+          "docx parse",
+          "audio transcript",
+          "data lifecycle skeleton"
+        ],
+        "none_tokens": [
+          "vision analysis",
+          "keyframe ocr",
+          "emotion"
+        ]
+      },
       "checks": [
         {
           "type": "file_exists",
@@ -40,8 +59,21 @@
       ]
     },
     {
-      "stage": "12A.0",
-      "title": "REPOSITORY INDEXING (READ-ONLY FOUNDATION)",
+      "id": "repo_indexing_readonly_foundation_v1",
+      "match": {
+        "all_tokens": [
+          "read-only foundation"
+        ],
+        "any_tokens": [
+          "github access",
+          "reposource",
+          "repoindexservice",
+          "repoindexsnapshot",
+          "memorypolicy",
+          "reindex dry-run",
+          "memorycandidates preview"
+        ]
+      },
       "checks": [
         {
           "type": "file_exists",

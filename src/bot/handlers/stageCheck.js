@@ -225,7 +225,7 @@ function buildConfig(rulesJson) {
   const cfg = rulesJson?.engine || {};
 
   return {
-    maxChecksPerItem: Number(cfg.max_checks_per_item || 14),
+    maxChecksPerItem: Number(cfg.max_checks_per_item || 12),
     minIdentifierLength: Number(cfg.min_identifier_length || 3),
     maxSearchFilesPerToken: Number(cfg.max_search_files_per_token || 300),
     maxInheritedSignals: Number(cfg.max_inherited_signals || 6),
@@ -239,6 +239,32 @@ function buildConfig(rulesJson) {
     stopTokens: new Set(
       Array.isArray(cfg.stop_tokens)
         ? cfg.stop_tokens.map((x) => String(x || "").toLowerCase()).filter(Boolean)
+        : []
+    ),
+    basenameSignalSuffixes: Array.isArray(cfg.basename_signal_suffixes)
+      ? cfg.basename_signal_suffixes.map((x) => String(x || ""))
+      : [
+          "Service",
+          "Source",
+          "Repo",
+          "Store",
+          "Adapter",
+          "Router",
+          "Handler",
+          "Loader",
+          "Manager",
+          "Provider",
+          "Registry",
+          "Bridge",
+          "Client",
+          "Controller",
+          "Engine",
+          "Guard",
+          "Policy"
+        ],
+    basenameBlocklist: new Set(
+      Array.isArray(cfg.basename_blocklist)
+        ? cfg.basename_blocklist.map((x) => String(x || "").toLowerCase()).filter(Boolean)
         : []
     ),
   };
@@ -321,6 +347,7 @@ function isUsefulToken(token, config) {
 
   const lower = raw.toLowerCase();
   if (config.stopTokens.has(lower)) return false;
+  if (config.basenameBlocklist.has(lower)) return false;
   if (lower.length < config.minIdentifierLength) return false;
 
   if (/^[0-9.]+$/.test(lower)) return false;
@@ -344,6 +371,21 @@ function extractIdentifiers(text, config) {
   );
 }
 
+function isPascalCaseToken(token) {
+  return /\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b/.test(String(token || ""));
+}
+
+function canGenerateBasenameFromSignal(token, config) {
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+
+  if (!raw) return false;
+  if (!isPascalCaseToken(raw)) return false;
+  if (config.basenameBlocklist.has(lower)) return false;
+
+  return config.basenameSignalSuffixes.some((suffix) => raw.endsWith(suffix));
+}
+
 function buildCandidateBasenamesFromToken(token) {
   const raw = String(token || "").trim();
   if (!raw) return [];
@@ -352,23 +394,10 @@ function buildCandidateBasenamesFromToken(token) {
     `${raw}.js`,
     `${raw}.mjs`,
     `${raw}.cjs`,
-    `${raw}.json`,
-    `${raw}.sql`,
-    "index.js",
-    "index.mjs",
-    "index.cjs",
+    `${raw}.ts`,
+    `${raw}.mts`,
+    `${raw}.cts`
   ]);
-}
-
-function isStrongIdentifier(token) {
-  const value = String(token || "").trim();
-
-  return (
-    /\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b/.test(value) || // PascalCase
-    /\b[a-z]+(?:[A-Z][a-z0-9]+){1,}\b/.test(value) || // camelCase
-    /\b[a-z]+(?:_[a-z0-9]+)+\b/.test(value) || // snake_case
-    /\b[A-Z][A-Z0-9_]{2,}\b/.test(value) // UPPER_CASE
-  );
 }
 
 function collectSemanticSignals(item, itemMap, allItems, config) {
@@ -404,7 +433,7 @@ function collectSemanticSignals(item, itemMap, allItems, config) {
     ]);
 
     for (const token of tokens) {
-      if (isStrongIdentifier(token) && isUsefulToken(token, config)) {
+      if (canGenerateBasenameFromSignal(token, config) || isUsefulToken(token, config)) {
         ancestorSignals.push(token);
       }
     }
@@ -423,7 +452,7 @@ function collectSemanticSignals(item, itemMap, allItems, config) {
     ]);
 
     for (const token of tokens) {
-      if (isStrongIdentifier(token) && isUsefulToken(token, config)) {
+      if (canGenerateBasenameFromSignal(token, config) || isUsefulToken(token, config)) {
         descendantSignals.push(token);
       }
     }
@@ -438,7 +467,7 @@ function collectSemanticSignals(item, itemMap, allItems, config) {
   };
 }
 
-function buildAutoChecksForItem(item, itemMap, allItems, fileSet, config) {
+function buildAutoChecksForItem(item, itemMap, allItems, config) {
   const signals = collectSemanticSignals(item, itemMap, allItems, config);
   const checks = [];
   const seen = new Set();
@@ -479,7 +508,7 @@ function buildAutoChecksForItem(item, itemMap, allItems, fileSet, config) {
       label: `signal token: ${token}`,
     });
 
-    if (isStrongIdentifier(token)) {
+    if (canGenerateBasenameFromSignal(token, config)) {
       for (const basename of buildCandidateBasenamesFromToken(token)) {
         pushCheck({
           type: "basename_exists",
@@ -497,12 +526,14 @@ function buildAutoChecksForItem(item, itemMap, allItems, fileSet, config) {
       label: `inherited signal: ${token}`,
     });
 
-    for (const basename of buildCandidateBasenamesFromToken(token)) {
-      pushCheck({
-        type: "basename_exists",
-        basename,
-        label: `basename for inherited signal: ${basename}`,
-      });
+    if (canGenerateBasenameFromSignal(token, config)) {
+      for (const basename of buildCandidateBasenamesFromToken(token)) {
+        pushCheck({
+          type: "basename_exists",
+          basename,
+          label: `basename for inherited signal: ${basename}`,
+        });
+      }
     }
   }
 
@@ -514,21 +545,20 @@ function buildAutoChecksForItem(item, itemMap, allItems, fileSet, config) {
     });
   }
 
-  const finalChecks = [];
-  for (const check of checks) {
-    finalChecks.push(check);
-    if (finalChecks.length >= config.maxChecksPerItem) break;
-  }
-
-  return finalChecks;
+  return checks.slice(0, config.maxChecksPerItem);
 }
 
 function findBasenameInRepo(basename, fileSet) {
-  const needle = `/${String(basename || "").toLowerCase()}`;
-  const direct = Array.from(fileSet).find((p) => p.toLowerCase().endsWith(needle));
-  if (direct) return direct;
+  const target = String(basename || "").toLowerCase();
 
-  return Array.from(fileSet).find((p) => p.toLowerCase() === String(basename || "").toLowerCase()) || null;
+  for (const path of fileSet) {
+    const lower = String(path || "").toLowerCase();
+    if (lower.endsWith(`/${target}`) || lower === target) {
+      return path;
+    }
+  }
+
+  return null;
 }
 
 async function searchTokenInRepo(token, source, searchableFiles, contentCache, searchCache, config) {
@@ -629,7 +659,6 @@ async function evaluateSingleItem(item, ctx) {
     item,
     ctx.itemMap,
     ctx.allItems,
-    ctx.fileSet,
     ctx.config
   );
 

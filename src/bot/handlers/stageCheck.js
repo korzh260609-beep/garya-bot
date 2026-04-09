@@ -1,6 +1,6 @@
 // ============================================================================
-// === src/bot/handlers/stageCheck.js — READ-ONLY workflow tree checks (no AI)
-// === UNIVERSAL MATCH-BASED VERSION (no hard binding to workflow item codes)
+// === src/bot/handlers/stageCheck.js — READ-ONLY universal workflow checker
+// === NO AI / NO HARD-CODED STAGE IDS / TREE + AUTO-SIGNAL EXTRACTION
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -18,11 +18,24 @@ function normalizeItemCode(value) {
 
 function normalizeText(value) {
   return String(value || "")
-    .toLowerCase()
     .replace(/\r/g, "")
     .replace(/[–—]/g, "-")
+    .replace(/\u00A0/g, " ")
+    .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function safeJsonParse(text) {
+  try {
+    return JSON.parse(String(text || "{}"));
+  } catch {
+    return null;
+  }
+}
+
+function uniq(arr) {
+  return Array.from(new Set(arr.filter(Boolean)));
 }
 
 function parseMode(rest) {
@@ -49,7 +62,6 @@ function getParentCode(code) {
 function isSameOrDescendant(baseCode, candidateCode) {
   const base = normalizeItemCode(baseCode);
   const candidate = normalizeItemCode(candidateCode);
-
   return candidate === base || candidate.startsWith(`${base}.`);
 }
 
@@ -177,19 +189,6 @@ function parseWorkflowItems(workflowText) {
   return items;
 }
 
-function safeJsonParse(text) {
-  try {
-    return JSON.parse(String(text || "{}"));
-  } catch {
-    return null;
-  }
-}
-
-function toTokenList(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((x) => normalizeText(x)).filter(Boolean);
-}
-
 function buildItemMap(items) {
   const map = new Map();
   for (const item of items) {
@@ -198,235 +197,297 @@ function buildItemMap(items) {
   return map;
 }
 
-function getAncestorChain(item, itemMap) {
-  const chain = [];
-  let currentParentCode = item?.parentCode || null;
-
-  while (currentParentCode) {
-    const parent = itemMap.get(currentParentCode);
-    if (!parent) break;
-
-    chain.push(parent);
-    currentParentCode = parent.parentCode || null;
-  }
-
-  return chain;
+function getSubtreeItems(baseCode, evaluatedItems) {
+  return evaluatedItems.filter((item) => isSameOrDescendant(baseCode, item.code));
 }
 
-function tokensMatch(haystack, allTokens, anyTokens, noneTokens) {
-  if (allTokens.length > 0 && !allTokens.every((t) => haystack.includes(t))) {
-    return false;
-  }
-
-  if (anyTokens.length > 0 && !anyTokens.some((t) => haystack.includes(t))) {
-    return false;
-  }
-
-  if (noneTokens.length > 0 && noneTokens.some((t) => haystack.includes(t))) {
-    return false;
-  }
-
-  return allTokens.length > 0 || anyTokens.length > 0 || noneTokens.length > 0;
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function ruleMatchesItem(rule, item, itemMap) {
-  const targetKinds = Array.isArray(rule?.target_kinds)
-    ? rule.target_kinds.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean)
+function buildConfig(rulesJson) {
+  const cfg = rulesJson?.engine || {};
+
+  return {
+    maxChecksPerItem: Number(cfg.max_checks_per_item || 12),
+    minIdentifierLength: Number(cfg.min_identifier_length || 3),
+    maxSearchFilesPerToken: Number(cfg.max_search_files_per_token || 300),
+    stopTokens: new Set(
+      Array.isArray(cfg.stop_tokens)
+        ? cfg.stop_tokens.map((x) => String(x || "").toLowerCase()).filter(Boolean)
+        : []
+    ),
+    preferredPathPrefixes: Array.isArray(cfg.preferred_path_prefixes)
+      ? cfg.preferred_path_prefixes.map((x) => String(x || ""))
+      : [],
+    searchableExtensions: Array.isArray(cfg.searchable_extensions)
+      ? cfg.searchable_extensions.map((x) => String(x || "").toLowerCase())
+      : [".js", ".mjs", ".cjs", ".json", ".md", ".sql", ".txt", ".yaml", ".yml"],
+  };
+}
+
+function hasAllowedExtension(path, config) {
+  const lower = String(path || "").toLowerCase();
+  return config.searchableExtensions.some((ext) => lower.endsWith(ext));
+}
+
+function sortSearchPaths(paths, config) {
+  const prefixes = Array.isArray(config.preferredPathPrefixes)
+    ? config.preferredPathPrefixes
     : [];
 
-  if (targetKinds.length > 0 && !targetKinds.includes(String(item.kind || "").toLowerCase())) {
-    return false;
-  }
+  const scorePath = (path) => {
+    for (let i = 0; i < prefixes.length; i += 1) {
+      if (path.startsWith(prefixes[i])) return i;
+    }
+    return prefixes.length + 100;
+  };
 
-  const match = rule?.match || {};
+  return [...paths].sort((a, b) => {
+    const sa = scorePath(a);
+    const sb = scorePath(b);
+    if (sa !== sb) return sa - sb;
+    return a.localeCompare(b);
+  });
+}
 
-  const itemAllTokens = toTokenList(match.all_tokens);
-  const itemAnyTokens = toTokenList(match.any_tokens);
-  const itemNoneTokens = toTokenList(match.none_tokens);
-
-  const ancestorAllTokens = toTokenList(match.ancestor_all_tokens);
-  const ancestorAnyTokens = toTokenList(match.ancestor_any_tokens);
-  const ancestorNoneTokens = toTokenList(match.ancestor_none_tokens);
-
-  const titleAllTokens = toTokenList(match.title_all_tokens);
-  const titleAnyTokens = toTokenList(match.title_any_tokens);
-  const titleNoneTokens = toTokenList(match.title_none_tokens);
-
-  const bodyAllTokens = toTokenList(match.body_all_tokens);
-  const bodyAnyTokens = toTokenList(match.body_any_tokens);
-  const bodyNoneTokens = toTokenList(match.body_none_tokens);
-
-  const itemHaystack = item.normalizedText || "";
-  const titleHaystack = item.normalizedTitle || "";
-  const bodyHaystack = item.normalizedBody || "";
-  const ancestorHaystack = normalizeText(
-    getAncestorChain(item, itemMap)
-      .map((x) => `${x.title}\n${x.body}`)
-      .join("\n")
+function extractExplicitPaths(text) {
+  const matches = String(text || "").match(
+    /\b(?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+\.[A-Za-z0-9_.-]+\b/g
   );
+  return uniq(matches || []);
+}
 
-  if (
-    (itemAllTokens.length > 0 || itemAnyTokens.length > 0 || itemNoneTokens.length > 0) &&
-    !tokensMatch(itemHaystack, itemAllTokens, itemAnyTokens, itemNoneTokens)
-  ) {
-    return false;
+function extractCommands(text) {
+  const matches = String(text || "").match(/\/[a-z][a-z0-9_]+/gi);
+  return uniq((matches || []).map((x) => x.toLowerCase()));
+}
+
+function extractBackticked(text) {
+  const matches = [];
+  const re = /`([^`]+)`/g;
+  let hit;
+
+  while ((hit = re.exec(String(text || "")))) {
+    const value = String(hit[1] || "").trim();
+    if (value) matches.push(value);
   }
 
-  if (
-    (titleAllTokens.length > 0 || titleAnyTokens.length > 0 || titleNoneTokens.length > 0) &&
-    !tokensMatch(titleHaystack, titleAllTokens, titleAnyTokens, titleNoneTokens)
-  ) {
-    return false;
-  }
+  return uniq(matches);
+}
 
-  if (
-    (bodyAllTokens.length > 0 || bodyAnyTokens.length > 0 || bodyNoneTokens.length > 0) &&
-    !tokensMatch(bodyHaystack, bodyAllTokens, bodyAnyTokens, bodyNoneTokens)
-  ) {
-    return false;
-  }
+function isUsefulToken(token, config) {
+  const raw = String(token || "").trim();
+  if (!raw) return false;
 
-  if (
-    (ancestorAllTokens.length > 0 ||
-      ancestorAnyTokens.length > 0 ||
-      ancestorNoneTokens.length > 0) &&
-    !tokensMatch(
-      ancestorHaystack,
-      ancestorAllTokens,
-      ancestorAnyTokens,
-      ancestorNoneTokens
-    )
-  ) {
-    return false;
-  }
+  const lower = raw.toLowerCase();
+  if (config.stopTokens.has(lower)) return false;
+  if (lower.length < config.minIdentifierLength) return false;
+
+  if (/^[0-9.]+$/.test(lower)) return false;
+  if (/^[a-z]$/.test(lower)) return false;
+  if (/^[ivxlcdm]+$/i.test(lower)) return false;
 
   return true;
 }
 
-function formatCheckLabel(rule) {
-  const label = String(rule?.label || "").trim();
-  if (label) return label;
+function extractIdentifiers(text, config) {
+  const source = String(text || "");
 
-  if (rule?.type === "file_exists") return String(rule?.path || "").trim();
+  const snake = source.match(/\b[a-z]+(?:_[a-z0-9]+)+\b/g) || [];
+  const upper = source.match(/\b[A-Z][A-Z0-9_]{2,}\b/g) || [];
+  const camel = source.match(/\b[a-z]+(?:[A-Z][a-z0-9]+){1,}\b/g) || [];
+  const kebab = source.match(/\b[a-z0-9]+(?:-[a-z0-9]+)+\b/g) || [];
 
-  if (rule?.type === "all_files_exist" || rule?.type === "any_file_exists") {
-    return (Array.isArray(rule?.paths) ? rule.paths : []).join(", ");
-  }
+  const combined = uniq([...snake, ...upper, ...camel, ...kebab]);
 
-  return "unnamed_check";
+  return combined.filter((token) => isUsefulToken(token, config));
 }
 
-function evaluateRule(rule, fileSet) {
-  const type = String(rule?.type || "").trim();
+function buildAutoChecksForItem(item, config) {
+  const combinedText = `${item.title}\n${item.body || ""}`;
 
-  if (type === "file_exists") {
-    const path = String(rule?.path || "").trim();
-    const ok = !!path && fileSet.has(path);
+  const explicitPaths = extractExplicitPaths(combinedText);
+  const commands = extractCommands(combinedText);
+
+  const backticked = extractBackticked(combinedText);
+  const backtickPaths = backticked.filter((x) => x.includes("/") && x.includes("."));
+  const backtickCommands = backticked.filter((x) => x.startsWith("/"));
+  const backtickIdentifiers = backticked.filter(
+    (x) => !x.startsWith("/") && !(x.includes("/") && x.includes("."))
+  );
+
+  const identifiers = extractIdentifiers(combinedText, config);
+
+  const checks = [];
+
+  for (const path of uniq([...explicitPaths, ...backtickPaths])) {
+    checks.push({
+      type: "file_exists",
+      path,
+      label: `file path: ${path}`,
+    });
+  }
+
+  for (const cmd of uniq([...commands, ...backtickCommands.map((x) => x.toLowerCase())])) {
+    checks.push({
+      type: "text_exists",
+      token: cmd,
+      label: `command token: ${cmd}`,
+    });
+  }
+
+  for (const token of uniq([...identifiers, ...backtickIdentifiers])) {
+    if (!isUsefulToken(token, config)) continue;
+
+    checks.push({
+      type: "text_exists",
+      token,
+      label: `symbol token: ${token}`,
+    });
+  }
+
+  const dedup = [];
+  const seen = new Set();
+
+  for (const check of checks) {
+    const key =
+      check.type === "file_exists"
+        ? `file:${check.path}`
+        : `text:${String(check.token || "").toLowerCase()}`;
+
+    if (seen.has(key)) continue;
+    seen.add(key);
+    dedup.push(check);
+
+    if (dedup.length >= config.maxChecksPerItem) break;
+  }
+
+  return dedup;
+}
+
+async function searchTokenInRepo(token, source, searchableFiles, contentCache, searchCache, config) {
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken) return { ok: false, details: "missing_token" };
+
+  const cacheKey = normalizedToken.toLowerCase();
+  if (searchCache.has(cacheKey)) {
+    return searchCache.get(cacheKey);
+  }
+
+  const regex = new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(normalizedToken)}([^A-Za-z0-9_]|$)`, "i");
+  const limitedFiles = searchableFiles.slice(0, config.maxSearchFilesPerToken);
+
+  for (const path of limitedFiles) {
+    let content = contentCache.get(path);
+
+    if (content === undefined) {
+      const file = await source.fetchTextFile(path);
+      content = file?.content || null;
+      contentCache.set(path, content);
+    }
+
+    if (!content) continue;
+
+    if (content.includes(normalizedToken) || regex.test(content)) {
+      const result = { ok: true, details: `found_in: ${path}` };
+      searchCache.set(cacheKey, result);
+      return result;
+    }
+  }
+
+  const miss = { ok: false, details: "not_found_in_repo_text" };
+  searchCache.set(cacheKey, miss);
+  return miss;
+}
+
+async function evaluateCheck(check, ctx) {
+  if (check.type === "file_exists") {
+    const path = String(check.path || "").trim();
+    const ok = !!path && ctx.fileSet.has(path);
 
     return {
       ok,
-      type,
-      label: formatCheckLabel(rule),
+      type: check.type,
+      label: check.label || path || "file_exists",
       details: path || "missing_path",
     };
   }
 
-  if (type === "all_files_exist") {
-    const paths = Array.isArray(rule?.paths)
-      ? rule.paths.map((x) => String(x || "").trim()).filter(Boolean)
-      : [];
-
-    const missing = paths.filter((p) => !fileSet.has(p));
-    const ok = paths.length > 0 && missing.length === 0;
-
-    return {
-      ok,
-      type,
-      label: formatCheckLabel(rule),
-      details: ok ? "all_present" : `missing: ${missing.join(", ")}`,
-    };
-  }
-
-  if (type === "any_file_exists") {
-    const paths = Array.isArray(rule?.paths)
-      ? rule.paths.map((x) => String(x || "").trim()).filter(Boolean)
-      : [];
-
-    const found = paths.filter((p) => fileSet.has(p));
-    const ok = found.length > 0;
+  if (check.type === "text_exists") {
+    const token = String(check.token || "").trim();
+    const searchResult = await searchTokenInRepo(
+      token,
+      ctx.source,
+      ctx.searchableFiles,
+      ctx.contentCache,
+      ctx.searchCache,
+      ctx.config
+    );
 
     return {
-      ok,
-      type,
-      label: formatCheckLabel(rule),
-      details: ok
-        ? `found: ${found.join(", ")}`
-        : `none_found: ${paths.join(", ")}`,
+      ok: searchResult.ok,
+      type: check.type,
+      label: check.label || token || "text_exists",
+      details: searchResult.details,
     };
   }
 
   return {
     ok: false,
-    type: type || "unknown",
-    label: formatCheckLabel(rule),
-    details: "unsupported_rule_type",
+    type: String(check.type || "unknown"),
+    label: String(check.label || "unsupported_check"),
+    details: "unsupported_check_type",
   };
 }
 
-function evaluateSingleItem(item, rules, itemMap, fileSet) {
-  const matchedRules = rules.filter((rule) => ruleMatchesItem(rule, item, itemMap));
-  const checks = matchedRules.flatMap((rule) =>
-    Array.isArray(rule?.checks) ? rule.checks : []
-  );
+async function evaluateSingleItem(item, ctx) {
+  const autoChecks = buildAutoChecksForItem(item, ctx.config);
+  const results = [];
 
-  const results = checks.map((rule) => evaluateRule(rule, fileSet));
+  for (const check of autoChecks) {
+    results.push(await evaluateCheck(check, ctx));
+  }
+
   const passedChecks = results.filter((x) => x.ok).length;
   const failedChecks = results.filter((x) => !x.ok).length;
-  const hasChecks = checks.length > 0;
 
-  let status = "NO_RULES";
-  if (hasChecks && failedChecks === 0) status = "COMPLETE";
-  else if (hasChecks) status = "OPEN";
+  let status = "NO_SIGNALS";
+  if (autoChecks.length > 0 && failedChecks === 0) status = "COMPLETE";
+  else if (autoChecks.length > 0) status = "OPEN";
 
   return {
     code: item.code,
     title: item.title,
     kind: item.kind,
     parentCode: item.parentCode,
-    matchedRuleIds: matchedRules
-      .map((x) => String(x?.id || "").trim())
-      .filter(Boolean),
-    totalChecks: checks.length,
+    totalChecks: autoChecks.length,
     passedChecks,
     failedChecks,
     status,
+    checks: autoChecks,
     results,
   };
 }
 
-function buildEvaluatedItems(workflowItems, rulesJson, fileSet) {
-  const rules = Array.isArray(rulesJson?.rules) ? rulesJson.rules : [];
-  const itemMap = buildItemMap(workflowItems);
+async function buildEvaluatedItems(workflowItems, ctx) {
+  const output = [];
 
-  return workflowItems.map((item) =>
-    evaluateSingleItem(item, rules, itemMap, fileSet)
-  );
-}
+  for (const item of workflowItems) {
+    output.push(await evaluateSingleItem(item, ctx));
+  }
 
-function getSubtreeItems(baseCode, evaluatedItems) {
-  return evaluatedItems.filter((item) => isSameOrDescendant(baseCode, item.code));
+  return output;
 }
 
 function aggregateScope(scopeItems) {
   const configuredItems = scopeItems.filter((x) => x.totalChecks > 0);
-  const noRulesItems = scopeItems.filter((x) => x.totalChecks === 0);
   const openItems = scopeItems.filter((x) => x.status === "OPEN");
+  const noSignalItems = scopeItems.filter((x) => x.status === "NO_SIGNALS");
 
-  let status = "NO_RULES";
+  let status = "NO_SIGNALS";
   if (openItems.length > 0) status = "OPEN";
-  else if (configuredItems.length === 0) status = "NO_RULES";
-  else if (noRulesItems.length > 0) status = "PARTIAL_RULES";
-  else status = "COMPLETE";
+  else if (configuredItems.length > 0) status = "COMPLETE";
 
   const failedEntries = [];
   for (const item of scopeItems) {
@@ -443,7 +504,7 @@ function aggregateScope(scopeItems) {
   return {
     totalItems: scopeItems.length,
     configuredItems: configuredItems.length,
-    noRulesItems: noRulesItems.length,
+    noSignalItems: noSignalItems.length,
     totalChecks: scopeItems.reduce((sum, x) => sum + x.totalChecks, 0),
     passedChecks: scopeItems.reduce((sum, x) => sum + x.passedChecks, 0),
     failedChecks: scopeItems.reduce((sum, x) => sum + x.failedChecks, 0),
@@ -463,8 +524,8 @@ function formatSingleItemOutput(baseItem, scopeItems, aggregate, coverageMode) {
   lines.push(`checks: ${aggregate.passedChecks}/${aggregate.totalChecks}`);
   lines.push(`coverage: ${coverageMode}`);
 
-  if (aggregate.noRulesItems > 0) {
-    lines.push(`no_rules_items: ${aggregate.noRulesItems}`);
+  if (aggregate.noSignalItems > 0) {
+    lines.push(`no_signal_items: ${aggregate.noSignalItems}`);
   }
 
   if (aggregate.failedEntries.length > 0) {
@@ -477,14 +538,7 @@ function formatSingleItemOutput(baseItem, scopeItems, aggregate, coverageMode) {
   if (scopeItems.length > 1) {
     lines.push("scope:");
     for (const item of scopeItems.slice(0, 20)) {
-      const rulesSuffix =
-        Array.isArray(item.matchedRuleIds) && item.matchedRuleIds.length > 0
-          ? ` rules:${item.matchedRuleIds.join(",")}`
-          : "";
-
-      lines.push(
-        `- ${item.code} — ${item.status} — ${item.passedChecks}/${item.totalChecks}${rulesSuffix}`
-      );
+      lines.push(`- ${item.code} — ${item.status} — ${item.passedChecks}/${item.totalChecks}`);
     }
   }
 
@@ -577,14 +631,28 @@ export async function handleStageCheck(ctx = {}) {
     return;
   }
 
+  const config = buildConfig(rulesJson);
   const workflowItems = parseWorkflowItems(workflowFile.content);
   const fileSet = new Set(Array.isArray(repoFiles) ? repoFiles : []);
-  const evaluatedItems = buildEvaluatedItems(workflowItems, rulesJson, fileSet);
+  const searchableFiles = sortSearchPaths(
+    Array.from(fileSet).filter((p) => hasAllowedExtension(p, config)),
+    config
+  );
 
+  const evaluationCtx = {
+    source,
+    config,
+    fileSet,
+    searchableFiles,
+    contentCache: new Map(),
+    searchCache: new Map(),
+  };
+
+  const evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
   const topLevelStages = workflowItems.filter((item) => item.kind === "stage");
 
   const coverageMode =
-    String(rulesJson?.coverage || "").trim() || "workflow_tree_match_rules";
+    String(rulesJson?.coverage || "").trim() || "workflow_tree_auto_signals";
 
   if (modeInfo.mode === "all") {
     await reply(formatAllStagesOutput(topLevelStages, evaluatedItems, coverageMode), {

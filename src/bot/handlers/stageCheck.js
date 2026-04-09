@@ -33,7 +33,7 @@ const CYRILLIC_TO_LATIN_MAP = {
   с: "c",
   т: "t",
   х: "x",
-  і: "i"
+  і: "i",
 };
 
 function replaceLookalikeCyrillic(value) {
@@ -260,7 +260,7 @@ function buildConfig(rulesJson) {
   const cfg = rulesJson?.engine || {};
 
   return {
-    maxChecksPerItem: Number(cfg.max_checks_per_item || 12),
+    maxChecksPerItem: Number(cfg.max_checks_per_item || 8),
     minIdentifierLength: Number(cfg.min_identifier_length || 3),
     maxSearchFilesPerToken: Number(cfg.max_search_files_per_token || 300),
     maxInheritedSignals: Number(cfg.max_inherited_signals || 6),
@@ -296,11 +296,16 @@ function buildConfig(rulesJson) {
           "Controller",
           "Engine",
           "Guard",
-          "Policy"
+          "Policy",
         ],
     basenameBlocklist: new Set(
       Array.isArray(cfg.basename_blocklist)
         ? cfg.basename_blocklist.map((x) => String(x || "").toLowerCase()).filter(Boolean)
+        : []
+    ),
+    genericUppercaseWords: new Set(
+      Array.isArray(cfg.generic_uppercase_words)
+        ? cfg.generic_uppercase_words.map((x) => String(x || "").toLowerCase()).filter(Boolean)
         : []
     ),
   };
@@ -377,6 +382,10 @@ function extractSlashListItems(text) {
   return uniq(out);
 }
 
+function isAllUppercaseWord(token) {
+  return /^[A-Z][A-Z0-9_-]+$/.test(String(token || ""));
+}
+
 function isUsefulToken(token, config) {
   const raw = String(token || "").trim();
   if (!raw) return false;
@@ -384,11 +393,16 @@ function isUsefulToken(token, config) {
   const lower = raw.toLowerCase();
   if (config.stopTokens.has(lower)) return false;
   if (config.basenameBlocklist.has(lower)) return false;
+  if (config.genericUppercaseWords.has(lower)) return false;
   if (lower.length < config.minIdentifierLength) return false;
 
   if (/^[0-9.]+$/.test(lower)) return false;
   if (/^[a-z]$/.test(lower)) return false;
   if (/^[ivxlcdm]+$/i.test(lower)) return false;
+
+  if (isAllUppercaseWord(raw) && !raw.includes("_")) {
+    return false;
+  }
 
   return true;
 }
@@ -432,7 +446,7 @@ function buildCandidateBasenamesFromToken(token) {
     `${raw}.cjs`,
     `${raw}.ts`,
     `${raw}.mts`,
-    `${raw}.cts`
+    `${raw}.cts`,
   ]);
 }
 
@@ -479,12 +493,15 @@ function collectSemanticSignals(item, itemMap, allItems, config) {
   const descendants = getDescendants(item.code, allItems);
 
   for (const child of descendants) {
-    const childText = `${child.title}\n${child.body || ""}`;
+    if (child.parentCode !== item.code) continue;
 
+    const childText = `${child.title}\n${child.body || ""}`;
     const tokens = uniq([
       ...extractIdentifiers(childText, config),
       ...extractBackticked(childText),
       ...extractSlashListItems(childText),
+      ...extractExplicitPaths(childText),
+      ...extractCommands(childText),
     ]);
 
     for (const token of tokens) {
@@ -614,7 +631,7 @@ async function safeFetchTextFile(path, ctx) {
     const content = file?.content || null;
     ctx.contentCache.set(path, content);
     return content;
-  } catch (error) {
+  } catch {
     ctx.errorStats.fetchFailures += 1;
     ctx.contentCache.set(path, null);
     return null;
@@ -930,7 +947,7 @@ export async function handleStageCheck(ctx = {}) {
   let evaluatedItems;
   try {
     evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
-  } catch (error) {
+  } catch {
     await reply(
       `stage_check error: runtime_evaluation_failed\ncoverage: ${String(
         rulesJson?.coverage || "workflow_tree_semantic_auto_signals"

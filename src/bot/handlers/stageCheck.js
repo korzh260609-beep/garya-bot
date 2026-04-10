@@ -1038,12 +1038,31 @@ async function evaluateSingleItem(item, ctx) {
     results.push(await evaluateCheck(check, ctx));
   }
 
+  const entries = autoChecks.map((check, index) => ({
+    check,
+    result: results[index],
+  }));
+
   const passedChecks = results.filter((x) => x.ok).length;
   const failedChecks = results.filter((x) => !x.ok).length;
 
+  const structuredEntries = entries.filter(
+    (entry) => entry.check?.type === "structured_index_exists"
+  );
+  const hasStructuredChecks = structuredEntries.length > 0;
+  const hasPassedStructuredCheck = structuredEntries.some((entry) => entry.result?.ok);
+
   let status = "NO_SIGNALS";
-  if (autoChecks.length > 0 && failedChecks === 0) status = "COMPLETE";
-  else if (autoChecks.length > 0) status = "OPEN";
+
+  if (autoChecks.length === 0) {
+    status = "NO_SIGNALS";
+  } else if (hasStructuredChecks) {
+    status = hasPassedStructuredCheck ? "COMPLETE" : "OPEN";
+  } else if (failedChecks === 0) {
+    status = "COMPLETE";
+  } else {
+    status = "OPEN";
+  }
 
   return {
     code: item.code,
@@ -1076,16 +1095,22 @@ function aggregateScope(scopeItems) {
   if (openItems.length > 0) status = "OPEN";
   else if (configuredItems.length > 0) status = "COMPLETE";
 
+  const passedEntries = [];
   const failedEntries = [];
+
   for (const item of scopeItems) {
     item.results.forEach((result, index) => {
-      if (!result.ok) {
-        failedEntries.push({
-          code: item.code,
-          details: result.details,
-          type: result.type,
-          check: item.checks[index],
-        });
+      const entry = {
+        code: item.code,
+        details: result.details,
+        type: result.type,
+        check: item.checks[index],
+      };
+
+      if (result.ok) {
+        passedEntries.push(entry);
+      } else {
+        failedEntries.push(entry);
       }
     });
   }
@@ -1098,6 +1123,7 @@ function aggregateScope(scopeItems) {
     passedChecks: scopeItems.reduce((sum, x) => sum + x.passedChecks, 0),
     failedChecks: scopeItems.reduce((sum, x) => sum + x.failedChecks, 0),
     status,
+    passedEntries,
     failedEntries,
   };
 }
@@ -1138,7 +1164,9 @@ function formatSingleItemOutput(baseItem, scopeItems, aggregate, lang) {
   }
 
   if (aggregate.status === "COMPLETE") {
-    lines.push(`${t(lang, "found")}: ${t(lang, "found_in_repo")}`);
+    lines.push(
+      `${t(lang, "found")}: ${summarizeEvidence(aggregate.passedEntries, lang) || t(lang, "found_in_repo")}`
+    );
     lines.push(`${t(lang, "result")}: ${t(lang, "confirmed")}`);
     return lines.join("\n");
   }
@@ -1149,7 +1177,7 @@ function formatSingleItemOutput(baseItem, scopeItems, aggregate, lang) {
     return lines.join("\n");
   }
 
-  lines.push(`${t(lang, "found")}: ${summarizeEvidence(aggregate.failedEntries, lang)}`);
+  lines.push(`${t(lang, "found")}: ${summarizeEvidence(aggregate.passedEntries, lang)}`);
   lines.push(`${t(lang, "result")}: ${t(lang, "not_confirmed")}`);
 
   return lines.join("\n");

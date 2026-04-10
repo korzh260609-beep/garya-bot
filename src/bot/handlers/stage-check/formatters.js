@@ -92,6 +92,12 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       aggregated_scope: "Агрегированная проверка дочерних пунктов",
       exact_point: "Проверка точечного пункта",
       stage_line: "{code} — {status}",
+      child_points: "Пункты",
+      summary: "Сводка",
+      completed_count: "Завершено",
+      partial_count: "Частично",
+      open_count: "Не выполнено",
+      no_signals_count: "Без сигналов",
     },
     uk: {
       header_single: "Перевірка етапу: {code}",
@@ -123,6 +129,12 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       aggregated_scope: "Агрегована перевірка дочірніх пунктів",
       exact_point: "Перевірка точкового пункту",
       stage_line: "{code} — {status}",
+      child_points: "Пункти",
+      summary: "Зведення",
+      completed_count: "Завершено",
+      partial_count: "Частково",
+      open_count: "Не виконано",
+      no_signals_count: "Без сигналів",
     },
     en: {
       header_single: "Stage check: {code}",
@@ -154,6 +166,12 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       aggregated_scope: "Aggregated check of child items",
       exact_point: "Exact point check",
       stage_line: "{code} — {status}",
+      child_points: "Items",
+      summary: "Summary",
+      completed_count: "Completed",
+      partial_count: "Partial",
+      open_count: "Open",
+      no_signals_count: "No signals",
     },
   };
 
@@ -209,9 +227,27 @@ function buildTopLevelAggregates(topLevelItems, evaluatedItems) {
     return {
       stage,
       index,
+      scopeItems,
       aggregate,
     };
   });
+}
+
+function sortCodes(a, b) {
+  return String(a.code || "").localeCompare(String(b.code || ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function formatChildLines(scopeItems, humanStatus) {
+  const childItems = scopeItems
+    .filter((item) => item.kind !== "stage")
+    .sort(sortCodes);
+
+  if (!childItems.length) return [];
+
+  return childItems.slice(0, 30).map((item) => `${item.code} — ${humanStatus(item.status)}`);
 }
 
 export function formatSingleItemOutput({
@@ -235,24 +271,28 @@ export function formatSingleItemOutput({
 
   if (aggregate.status === "COMPLETE") {
     lines.push(`${t("found")}: ${summarizeEvidence(aggregate.passedEntries, t)}`);
-    lines.push(`${t("result")}: ${t("confirmed")}`);
-    return lines.join("\n");
-  }
-
-  if (aggregate.status === "PARTIAL") {
+  } else if (aggregate.status === "PARTIAL") {
     lines.push(`${t("found")}: ${summarizeEvidence(aggregate.passedEntries, t)}`);
-    lines.push(`${t("result")}: ${t("partially_confirmed")}`);
-    return lines.join("\n");
-  }
-
-  if (aggregate.status === "NO_SIGNALS") {
+  } else if (aggregate.status === "NO_SIGNALS") {
     lines.push(`${t("found")}: ${t("no_signals")}`);
-    lines.push(`${t("result")}: ${t("not_confirmed")}`);
-    return lines.join("\n");
+  } else {
+    lines.push(`${t("found")}: ${summarizeEvidence(aggregate.passedEntries, t)}`);
   }
 
-  lines.push(`${t("found")}: ${summarizeEvidence(aggregate.passedEntries, t)}`);
-  lines.push(`${t("result")}: ${t("not_confirmed")}`);
+  lines.push(
+    `${t("summary")}: ${t("completed_count")} ${aggregate.completeItems}, ` +
+      `${t("partial_count")} ${aggregate.partialItems}, ` +
+      `${t("open_count")} ${aggregate.openItems}, ` +
+      `${t("no_signals_count")} ${aggregate.noSignalItems}`
+  );
+
+  const childLines = formatChildLines(scopeItems, humanStatus);
+  if (childLines.length > 0) {
+    lines.push(`${t("child_points")}:`);
+    lines.push(...childLines);
+  }
+
+  lines.push(`${t("result")}: ${humanStatus(aggregate.status)}`);
   return lines.join("\n");
 }
 
@@ -271,10 +311,15 @@ export function formatAllStagesOutput({
   }
 
   for (const { stage, aggregate } of buildTopLevelAggregates(topLevelItems, evaluatedItems)) {
+    const summary =
+      aggregate.configuredItems > 0
+        ? ` (${aggregate.completeItems}/${aggregate.configuredItems})`
+        : "";
+
     lines.push(
       t("stage_line", {
         code: stage.code,
-        status: humanStatus(aggregate.status),
+        status: `${humanStatus(aggregate.status)}${summary}`,
       })
     );
   }

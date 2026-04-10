@@ -1,7 +1,8 @@
 // ============================================================================
 // === src/bot/handlers/stageCheck.js — READ-ONLY universal workflow checker
 // === HUMAN-READABLE OUTPUT / LANGUAGE-AWARE / NO RAW INTERNAL NOISE
-// === + structured migration/index pattern checks (minimal safe extension)
+// === + structured migration/index pattern checks
+// === + universal diagnostics (--diag / diag / --debug / debug)
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -128,7 +129,6 @@ function t(lang, key, vars = {}) {
       partial_scope: "Есть подтверждённые и неподтверждённые подпункты",
       stage_line: "{code} — {status}",
       current_line: "{code} — {status}",
-      details_hidden: "Внутренние технические детали скрыты",
     },
     uk: {
       header_single: "Перевірка етапу: {code}",
@@ -162,7 +162,6 @@ function t(lang, key, vars = {}) {
       partial_scope: "Є підтверджені та непідтверджені підпункти",
       stage_line: "{code} — {status}",
       current_line: "{code} — {status}",
-      details_hidden: "Внутрішні технічні деталі приховано",
     },
     en: {
       header_single: "Stage check: {code}",
@@ -196,7 +195,6 @@ function t(lang, key, vars = {}) {
       partial_scope: "Some child items are confirmed and some are not",
       stage_line: "{code} — {status}",
       current_line: "{code} — {status}",
-      details_hidden: "Internal technical details hidden",
     },
   };
 
@@ -240,14 +238,8 @@ function parseMode(rest) {
   const token = filtered[0] || "";
   const normalized = normalizeItemCode(token);
 
-  if (!normalized) {
-    return { mode: "current", value: "current", diag: hasDiag };
-  }
-
-  if (normalized === "ALL") {
-    return { mode: "all", value: "all", diag: hasDiag };
-  }
-
+  if (!normalized) return { mode: "current", value: "current", diag: hasDiag };
+  if (normalized === "ALL") return { mode: "all", value: "all", diag: hasDiag };
   if (normalized === "CURRENT") {
     return { mode: "current", value: "current", diag: hasDiag };
   }
@@ -528,7 +520,9 @@ function extractSlashListItems(text) {
   const out = [];
   const source = String(text || "");
 
-  const patterns = source.match(/\b[A-Za-z][A-Za-z0-9_-]*(?:\/[A-Za-z][A-Za-z0-9_-]*){1,}\b/g) || [];
+  const patterns =
+    source.match(/\b[A-Za-z][A-Za-z0-9_-]*(?:\/[A-Za-z][A-Za-z0-9_-]*){1,}\b/g) || [];
+
   for (const entry of patterns) {
     const parts = entry
       .split("/")
@@ -676,12 +670,13 @@ function parseStructuredTuplePart(rawPart) {
 function extractStructuredTuplePatterns(text) {
   const source = String(text || "");
   const matches = [];
-  const re = /\b(unique\s+)?\(([^()]+)\)/gi;
+  const re = /(unique\s+)?\(([^()]+)\)/gi;
   let hit;
 
   while ((hit = re.exec(source))) {
     const unique = !!hit[1];
     const inner = String(hit[2] || "").trim();
+
     if (!inner || !inner.includes(",")) continue;
 
     const fields = inner
@@ -710,15 +705,11 @@ function buildStructuredChecksForItem(item, itemMap) {
   ];
 
   const ownPatterns = extractStructuredTuplePatterns(texts[0]);
-  if (ownPatterns.length > 0) {
-    return ownPatterns;
-  }
+  if (ownPatterns.length > 0) return ownPatterns;
 
   for (const text of texts.slice(1)) {
     const inheritedPatterns = extractStructuredTuplePatterns(text);
-    if (inheritedPatterns.length > 0) {
-      return inheritedPatterns;
-    }
+    if (inheritedPatterns.length > 0) return inheritedPatterns;
   }
 
   return [];
@@ -849,9 +840,7 @@ function findBasenameInRepo(basename, fileSet) {
 
   for (const path of fileSet) {
     const lower = String(path || "").toLowerCase();
-    if (lower.endsWith(`/${target}`) || lower === target) {
-      return path;
-    }
+    if (lower.endsWith(`/${target}`) || lower === target) return path;
   }
 
   return null;
@@ -886,9 +875,7 @@ async function searchTokenInRepo(token, ctx) {
   if (!normalizedToken) return { ok: false, details: "missing_token" };
 
   const cacheKey = normalizedToken.toLowerCase();
-  if (ctx.searchCache.has(cacheKey)) {
-    return ctx.searchCache.get(cacheKey);
-  }
+  if (ctx.searchCache.has(cacheKey)) return ctx.searchCache.get(cacheKey);
 
   if (ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand) {
     const limited = { ok: false, details: "search_budget_exhausted" };
@@ -1009,7 +996,7 @@ function parseIndexFieldItem(itemText) {
   const text = String(itemText || "").trim();
   if (!text) return null;
 
-  if (/^["'`].*["'`]$/.test(text)) {
+  if (/^[\"'`].*[\"'`]$/.test(text)) {
     return {
       name: stripWrappingQuotes(text).toLowerCase(),
       sort: null,
@@ -1017,10 +1004,10 @@ function parseIndexFieldItem(itemText) {
   }
 
   if (text.startsWith("{") && text.endsWith("}")) {
-    const nameMatch = text.match(/name\s*:\s*["'`]([A-Za-z_][A-Za-z0-9_]*)["'`]/i);
+    const nameMatch = text.match(/name\s*:\s*[\"'`]([A-Za-z_][A-Za-z0-9_]*)[\"'`]/i);
     if (!nameMatch) return null;
 
-    const sortMatch = text.match(/sort\s*:\s*["'`](ASC|DESC)["'`]/i);
+    const sortMatch = text.match(/sort\s*:\s*[\"'`](ASC|DESC)[\"'`]/i);
 
     return {
       name: String(nameMatch[1] || "").toLowerCase(),
@@ -1091,9 +1078,7 @@ function indexSpecMatchesPattern(spec, pattern) {
     const expectedSort = expected.sort ? String(expected.sort).toUpperCase() : null;
     const actualSort = actual.sort ? String(actual.sort).toUpperCase() : null;
 
-    if (expectedSort !== actualSort) {
-      return false;
-    }
+    if (expectedSort !== actualSort) return false;
   }
 
   return true;
@@ -1197,11 +1182,7 @@ async function evaluateCheck(check, ctx) {
 }
 
 async function evaluateSingleItem(item, ctx) {
-  const autoChecks = buildAutoChecksForItem(
-    item,
-    ctx.itemMap,
-    ctx.config
-  );
+  const autoChecks = buildAutoChecksForItem(item, ctx.itemMap, ctx.config);
 
   const results = [];
   for (const check of autoChecks) {
@@ -1277,11 +1258,8 @@ function aggregateScope(scopeItems) {
         check: item.checks[index],
       };
 
-      if (result.ok) {
-        passedEntries.push(entry);
-      } else {
-        failedEntries.push(entry);
-      }
+      if (result.ok) passedEntries.push(entry);
+      else failedEntries.push(entry);
     });
   }
 
@@ -1316,7 +1294,6 @@ function summarizeEvidence(entries, lang) {
   if (!entries.length) return t(lang, "no_clear_evidence");
 
   const kinds = new Set(entries.map((e) => describeCheckShort(e, lang)));
-
   return Array.from(kinds).slice(0, 3).join(", ");
 }
 
@@ -1355,7 +1332,6 @@ function formatSingleItemOutput(baseItem, scopeItems, aggregate, lang) {
 
 function formatAllStagesOutput(topLevelItems, evaluatedItems, lang) {
   const lines = [];
-
   lines.push(t(lang, "header_all"));
 
   if (!topLevelItems.length) {
@@ -1380,7 +1356,6 @@ function formatAllStagesOutput(topLevelItems, evaluatedItems, lang) {
 
 function formatCurrentOutput(topLevelItems, evaluatedItems, lang) {
   const lines = [];
-
   lines.push(t(lang, "header_current"));
 
   for (const stage of topLevelItems) {
@@ -1399,23 +1374,41 @@ function formatCurrentOutput(topLevelItems, evaluatedItems, lang) {
   return lines.join("\n");
 }
 
-function pickFirstStructuredCheck(item, itemMap) {
-  const config = {
-    maxChecksPerItem: 12,
-    minIdentifierLength: 3,
-    maxSearchFilesPerToken: 300,
-    maxInheritedSignals: 6,
-    maxFileFetchesPerCommand: 120,
-    preferredPathPrefixes: ["src/", "core/", "migrations/", "scripts/", "pillars/", ""],
-    searchableExtensions: [".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".json", ".md", ".sql", ".txt", ".yaml", ".yml"],
-    stopTokens: new Set(),
-    basenameSignalSuffixes: [],
-    basenameBlocklist: new Set(),
-    genericUppercaseWords: new Set(),
-  };
+async function buildItemDiag(item, ctx) {
+  const own = collectOwnSignals(item, ctx.config);
+  const inherited = collectInheritedSignals(item, ctx.itemMap, ctx.config);
+  const checks = buildAutoChecksForItem(item, ctx.itemMap, ctx.config);
 
-  const checks = buildAutoChecksForItem(item, itemMap, config);
-  return checks.find((check) => check?.type === "structured_index_exists") || null;
+  const explicitPaths = own.explicitPaths.slice(0, 5);
+  const directFileReads = [];
+
+  for (const path of explicitPaths.slice(0, 3)) {
+    const content = await safeFetchTextFile(path, ctx);
+    directFileReads.push({
+      path,
+      readable: typeof content === "string" && content.length > 0,
+    });
+  }
+
+  const structuredCheck =
+    checks.find((check) => check?.type === "structured_index_exists") || null;
+
+  const structuredResult =
+    structuredCheck && structuredCheck.type === "structured_index_exists"
+      ? await findStructuredIndexInMigrations(structuredCheck, ctx)
+      : null;
+
+  return {
+    explicitPaths,
+    commands: own.commands.slice(0, 5),
+    ownSignals: own.signals.slice(0, 8),
+    inheritedSignals: inherited.slice(0, 8),
+    checks: checks.slice(0, 12),
+    structuredCheck,
+    structuredResult,
+    directFileReads,
+    migrationCandidates: ctx.searchableFiles.filter((p) => p.startsWith("migrations/")).length,
+  };
 }
 
 function formatDiagOutput({
@@ -1424,11 +1417,10 @@ function formatDiagOutput({
   repoFiles,
   searchableFiles,
   workflowItems,
-  targetItem,
+  topLevelStages,
   evaluationCtx,
-  structuredCheck,
-  structuredResult,
-  migrationContent,
+  targetItem,
+  itemDiag,
 }) {
   const lines = [];
 
@@ -1440,52 +1432,43 @@ function formatDiagOutput({
   lines.push(`repoFiles=${Array.isArray(repoFiles) ? repoFiles.length : 0}`);
   lines.push(`searchableFiles=${Array.isArray(searchableFiles) ? searchableFiles.length : 0}`);
   lines.push(`workflowItems=${Array.isArray(workflowItems) ? workflowItems.length : 0}`);
-  lines.push(
-    `has_commandDispatcher=${Array.isArray(repoFiles) && repoFiles.includes("src/bot/commandDispatcher.js")}`
-  );
-  lines.push(
-    `has_stageCheck=${Array.isArray(repoFiles) && repoFiles.includes("src/bot/handlers/stageCheck.js")}`
-  );
-  lines.push(
-    `has_migration_012=${Array.isArray(repoFiles) && repoFiles.includes("migrations/012_chat_messages_table.js")}`
-  );
+  lines.push(`topLevelStages=${Array.isArray(topLevelStages) ? topLevelStages.length : 0}`);
   lines.push(`fetchBudgetUsed=${evaluationCtx?.fetchStats?.used ?? 0}`);
   lines.push(`fetchFailures=${evaluationCtx?.errorStats?.fetchFailures ?? 0}`);
 
-  if (targetItem) {
-    lines.push(`targetItem=${targetItem.code}`);
-    lines.push(`targetTitle=${targetItem.title || "-"}`);
-  } else {
+  if (!targetItem) {
     lines.push("targetItem=(not resolved)");
+    return lines.join("\n");
   }
 
-  if (structuredCheck) {
-    lines.push(`structuredCheck=${JSON.stringify(structuredCheck)}`);
+  lines.push(`targetItem=${targetItem.code}`);
+  lines.push(`targetKind=${targetItem.kind}`);
+  lines.push(`targetTitle=${targetItem.title || "-"}`);
+  lines.push(`targetParent=${targetItem.parentCode || "(root)"}`);
+  lines.push(`explicitPaths=${JSON.stringify(itemDiag?.explicitPaths || [])}`);
+  lines.push(`commands=${JSON.stringify(itemDiag?.commands || [])}`);
+  lines.push(`ownSignals=${JSON.stringify(itemDiag?.ownSignals || [])}`);
+  lines.push(`inheritedSignals=${JSON.stringify(itemDiag?.inheritedSignals || [])}`);
+  lines.push(`checksCount=${Array.isArray(itemDiag?.checks) ? itemDiag.checks.length : 0}`);
+  lines.push(`migrationCandidates=${itemDiag?.migrationCandidates ?? 0}`);
+
+  if (Array.isArray(itemDiag?.directFileReads) && itemDiag.directFileReads.length > 0) {
+    lines.push(`directFileReads=${JSON.stringify(itemDiag.directFileReads)}`);
+  } else {
+    lines.push("directFileReads=[]");
+  }
+
+  if (itemDiag?.structuredCheck) {
+    lines.push(`structuredCheck=${JSON.stringify(itemDiag.structuredCheck)}`);
   } else {
     lines.push("structuredCheck=(none)");
   }
 
-  if (structuredResult) {
-    lines.push(`structuredResult.ok=${String(!!structuredResult.ok)}`);
-    lines.push(`structuredResult.details=${String(structuredResult.details || "-")}`);
+  if (itemDiag?.structuredResult) {
+    lines.push(`structuredResult.ok=${String(!!itemDiag.structuredResult.ok)}`);
+    lines.push(`structuredResult.details=${String(itemDiag.structuredResult.details || "-")}`);
   } else {
     lines.push("structuredResult=(not executed)");
-  }
-
-  lines.push(
-    `migration012Readable=${typeof migrationContent === "string" && migrationContent.length > 0}`
-  );
-
-  if (typeof migrationContent === "string" && migrationContent.length > 0) {
-    lines.push(
-      `migration012HasTuple=${migrationContent.includes('["chat_id", { name: "created_at", sort: "DESC" }]')}`
-    );
-    lines.push(
-      `migration012HasIndexName=${migrationContent.includes("idx_chat_messages_chat_created_at_desc")}`
-    );
-    lines.push(
-      `migration012HasCreateIndex=${migrationContent.includes("pgm.createIndex")}`
-    );
   }
 
   return lines.join("\n");
@@ -1554,26 +1537,15 @@ export async function handleStageCheck(ctx = {}) {
     itemMap,
   };
 
-  const targetItemPre =
+  const topLevelStages = workflowItems.filter((item) => item.kind === "stage");
+  const targetItem =
     modeInfo.mode === "item"
       ? workflowItems.find((x) => x.code === modeInfo.value) || null
       : null;
 
-  const migration012File = await safeFetchTextFile(
-    "migrations/012_chat_messages_table.js",
-    evaluationCtx
-  );
-
-  const structuredCheckPre = targetItemPre
-    ? pickFirstStructuredCheck(targetItemPre, itemMap)
-    : null;
-
-  const structuredResultPre =
-    structuredCheckPre && structuredCheckPre.type === "structured_index_exists"
-      ? await findStructuredIndexInMigrations(structuredCheckPre, evaluationCtx)
-      : null;
-
   if (modeInfo.diag) {
+    const itemDiag = targetItem ? await buildItemDiag(targetItem, evaluationCtx) : null;
+
     await reply(
       formatDiagOutput({
         modeInfo,
@@ -1581,11 +1553,10 @@ export async function handleStageCheck(ctx = {}) {
         repoFiles,
         searchableFiles,
         workflowItems,
-        targetItem: targetItemPre,
+        topLevelStages,
         evaluationCtx,
-        structuredCheck: structuredCheckPre,
-        structuredResult: structuredResultPre,
-        migrationContent: migration012File?.content || null,
+        targetItem,
+        itemDiag,
       }),
       {
         cmd: "/stage_check",
@@ -1603,8 +1574,6 @@ export async function handleStageCheck(ctx = {}) {
     await reply(t(lang, "runtime_failed"));
     return;
   }
-
-  const topLevelStages = workflowItems.filter((item) => item.kind === "stage");
 
   if (modeInfo.mode === "all") {
     await reply(formatAllStagesOutput(topLevelStages, evaluatedItems, lang), {
@@ -1637,12 +1606,9 @@ export async function handleStageCheck(ctx = {}) {
   const scopeItems = getSubtreeItems(itemCode, evaluatedItems);
   const aggregate = aggregateScope(scopeItems);
 
-  await reply(
-    formatSingleItemOutput(baseItem, scopeItems, aggregate, lang),
-    {
-      cmd: "/stage_check",
-      handler: "stageCheck",
-      event: "stage_check_single",
-    }
-  );
+  await reply(formatSingleItemOutput(baseItem, scopeItems, aggregate, lang), {
+    cmd: "/stage_check",
+    handler: "stageCheck",
+    event: "stage_check_single",
+  });
 }

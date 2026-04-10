@@ -96,6 +96,8 @@ export async function evaluateSingleItem(item, ctx) {
     status = hasPassedStructuredCheck ? "COMPLETE" : "OPEN";
   } else if (failedChecks === 0) {
     status = "COMPLETE";
+  } else if (passedChecks > 0) {
+    status = "PARTIAL";
   } else {
     status = "OPEN";
   }
@@ -125,15 +127,20 @@ export async function buildEvaluatedItems(workflowItems, ctx) {
 export function aggregateScope(scopeItems) {
   const configuredItems = scopeItems.filter((x) => x.totalChecks > 0);
   const completeItems = configuredItems.filter((x) => x.status === "COMPLETE");
+  const partialItems = configuredItems.filter((x) => x.status === "PARTIAL");
   const openItems = configuredItems.filter((x) => x.status === "OPEN");
   const noSignalItems = scopeItems.filter((x) => x.status === "NO_SIGNALS");
+
+  const totalChecks = scopeItems.reduce((sum, x) => sum + x.totalChecks, 0);
+  const passedChecks = scopeItems.reduce((sum, x) => sum + x.passedChecks, 0);
+  const failedChecks = scopeItems.reduce((sum, x) => sum + x.failedChecks, 0);
 
   let status = "NO_SIGNALS";
   if (configuredItems.length === 0) {
     status = "NO_SIGNALS";
-  } else if (openItems.length === 0) {
+  } else if (failedChecks === 0 && passedChecks > 0) {
     status = "COMPLETE";
-  } else if (completeItems.length > 0) {
+  } else if (passedChecks > 0) {
     status = "PARTIAL";
   } else {
     status = "OPEN";
@@ -146,6 +153,9 @@ export function aggregateScope(scopeItems) {
     item.results.forEach((result, index) => {
       const entry = {
         code: item.code,
+        title: item.title,
+        kind: item.kind,
+        status: item.status,
         details: result.details,
         type: result.type,
         check: item.checks[index],
@@ -156,15 +166,21 @@ export function aggregateScope(scopeItems) {
     });
   }
 
+  const configuredChildItems = configuredItems.filter((x) => x.kind !== "stage");
+  const childItems = scopeItems.filter((x) => x.kind !== "stage");
+
   return {
     totalItems: scopeItems.length,
+    childItemsCount: childItems.length,
     configuredItems: configuredItems.length,
+    configuredChildItems: configuredChildItems.length,
     completeItems: completeItems.length,
+    partialItems: partialItems.length,
     openItems: openItems.length,
     noSignalItems: noSignalItems.length,
-    totalChecks: scopeItems.reduce((sum, x) => sum + x.totalChecks, 0),
-    passedChecks: scopeItems.reduce((sum, x) => sum + x.passedChecks, 0),
-    failedChecks: scopeItems.reduce((sum, x) => sum + x.failedChecks, 0),
+    totalChecks,
+    passedChecks,
+    failedChecks,
     status,
     passedEntries,
     failedEntries,

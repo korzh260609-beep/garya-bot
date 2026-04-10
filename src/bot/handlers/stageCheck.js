@@ -218,17 +218,41 @@ function humanStatus(status, lang) {
 }
 
 function parseMode(rest) {
-  const token = String(rest || "")
+  const parts = String(rest || "")
     .trim()
-    .split(/\s+/)[0];
+    .split(/\s+/)
+    .filter(Boolean);
 
+  const hasDiag =
+    parts.includes("--diag") ||
+    parts.includes("diag") ||
+    parts.includes("debug") ||
+    parts.includes("--debug");
+
+  const filtered = parts.filter(
+    (part) =>
+      part !== "--diag" &&
+      part !== "diag" &&
+      part !== "debug" &&
+      part !== "--debug"
+  );
+
+  const token = filtered[0] || "";
   const normalized = normalizeItemCode(token);
 
-  if (!normalized) return { mode: "current", value: "current" };
-  if (normalized === "ALL") return { mode: "all", value: "all" };
-  if (normalized === "CURRENT") return { mode: "current", value: "current" };
+  if (!normalized) {
+    return { mode: "current", value: "current", diag: hasDiag };
+  }
 
-  return { mode: "item", value: normalized };
+  if (normalized === "ALL") {
+    return { mode: "all", value: "all", diag: hasDiag };
+  }
+
+  if (normalized === "CURRENT") {
+    return { mode: "current", value: "current", diag: hasDiag };
+  }
+
+  return { mode: "item", value: normalized, diag: hasDiag };
 }
 
 function getParentCode(code) {
@@ -1375,6 +1399,98 @@ function formatCurrentOutput(topLevelItems, evaluatedItems, lang) {
   return lines.join("\n");
 }
 
+function pickFirstStructuredCheck(item, itemMap) {
+  const config = {
+    maxChecksPerItem: 12,
+    minIdentifierLength: 3,
+    maxSearchFilesPerToken: 300,
+    maxInheritedSignals: 6,
+    maxFileFetchesPerCommand: 120,
+    preferredPathPrefixes: ["src/", "core/", "migrations/", "scripts/", "pillars/", ""],
+    searchableExtensions: [".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".json", ".md", ".sql", ".txt", ".yaml", ".yml"],
+    stopTokens: new Set(),
+    basenameSignalSuffixes: [],
+    basenameBlocklist: new Set(),
+    genericUppercaseWords: new Set(),
+  };
+
+  const checks = buildAutoChecksForItem(item, itemMap, config);
+  return checks.find((check) => check?.type === "structured_index_exists") || null;
+}
+
+function formatDiagOutput({
+  modeInfo,
+  source,
+  repoFiles,
+  searchableFiles,
+  workflowItems,
+  targetItem,
+  evaluationCtx,
+  structuredCheck,
+  structuredResult,
+  migrationContent,
+}) {
+  const lines = [];
+
+  lines.push("STAGE_CHECK DIAG");
+  lines.push(`mode=${modeInfo.mode}`);
+  lines.push(`value=${modeInfo.value}`);
+  lines.push(`repo=${String(source?.repo || "") || "(empty)"}`);
+  lines.push(`branch=${String(source?.branch || "") || "(empty)"}`);
+  lines.push(`repoFiles=${Array.isArray(repoFiles) ? repoFiles.length : 0}`);
+  lines.push(`searchableFiles=${Array.isArray(searchableFiles) ? searchableFiles.length : 0}`);
+  lines.push(`workflowItems=${Array.isArray(workflowItems) ? workflowItems.length : 0}`);
+  lines.push(
+    `has_commandDispatcher=${Array.isArray(repoFiles) && repoFiles.includes("src/bot/commandDispatcher.js")}`
+  );
+  lines.push(
+    `has_stageCheck=${Array.isArray(repoFiles) && repoFiles.includes("src/bot/handlers/stageCheck.js")}`
+  );
+  lines.push(
+    `has_migration_012=${Array.isArray(repoFiles) && repoFiles.includes("migrations/012_chat_messages_table.js")}`
+  );
+  lines.push(`fetchBudgetUsed=${evaluationCtx?.fetchStats?.used ?? 0}`);
+  lines.push(`fetchFailures=${evaluationCtx?.errorStats?.fetchFailures ?? 0}`);
+
+  if (targetItem) {
+    lines.push(`targetItem=${targetItem.code}`);
+    lines.push(`targetTitle=${targetItem.title || "-"}`);
+  } else {
+    lines.push("targetItem=(not resolved)");
+  }
+
+  if (structuredCheck) {
+    lines.push(`structuredCheck=${JSON.stringify(structuredCheck)}`);
+  } else {
+    lines.push("structuredCheck=(none)");
+  }
+
+  if (structuredResult) {
+    lines.push(`structuredResult.ok=${String(!!structuredResult.ok)}`);
+    lines.push(`structuredResult.details=${String(structuredResult.details || "-")}`);
+  } else {
+    lines.push("structuredResult=(not executed)");
+  }
+
+  lines.push(
+    `migration012Readable=${typeof migrationContent === "string" && migrationContent.length > 0}`
+  );
+
+  if (typeof migrationContent === "string" && migrationContent.length > 0) {
+    lines.push(
+      `migration012HasTuple=${migrationContent.includes('["chat_id", { name: "created_at", sort: "DESC" }]')}`
+    );
+    lines.push(
+      `migration012HasIndexName=${migrationContent.includes("idx_chat_messages_chat_created_at_desc")}`
+    );
+    lines.push(
+      `migration012HasCreateIndex=${migrationContent.includes("pgm.createIndex")}`
+    );
+  }
+
+  return lines.join("\n");
+}
+
 export async function handleStageCheck(ctx = {}) {
   const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
@@ -1437,6 +1553,48 @@ export async function handleStageCheck(ctx = {}) {
     errorStats: { fetchFailures: 0 },
     itemMap,
   };
+
+  const targetItemPre =
+    modeInfo.mode === "item"
+      ? workflowItems.find((x) => x.code === modeInfo.value) || null
+      : null;
+
+  const migration012File = await safeFetchTextFile(
+    "migrations/012_chat_messages_table.js",
+    evaluationCtx
+  );
+
+  const structuredCheckPre = targetItemPre
+    ? pickFirstStructuredCheck(targetItemPre, itemMap)
+    : null;
+
+  const structuredResultPre =
+    structuredCheckPre && structuredCheckPre.type === "structured_index_exists"
+      ? await findStructuredIndexInMigrations(structuredCheckPre, evaluationCtx)
+      : null;
+
+  if (modeInfo.diag) {
+    await reply(
+      formatDiagOutput({
+        modeInfo,
+        source,
+        repoFiles,
+        searchableFiles,
+        workflowItems,
+        targetItem: targetItemPre,
+        evaluationCtx,
+        structuredCheck: structuredCheckPre,
+        structuredResult: structuredResultPre,
+        migrationContent: migration012File?.content || null,
+      }),
+      {
+        cmd: "/stage_check",
+        handler: "stageCheck",
+        event: "stage_check_diag",
+      }
+    );
+    return;
+  }
 
   let evaluatedItems;
   try {

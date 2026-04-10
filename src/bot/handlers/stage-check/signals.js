@@ -2,7 +2,7 @@
 // === src/bot/handlers/stage-check/signals.js
 // ============================================================================
 
-import { uniq } from "./common.js";
+import { uniq, normalizeItemCode } from "./common.js";
 import { getAncestorChain } from "./workflowParser.js";
 
 export function buildConfig(rulesJson) {
@@ -286,6 +286,77 @@ export function extractLikelyTableNames(text) {
   return uniq(out);
 }
 
+function decrementTrailingNumericSegment(code) {
+  const normalized = normalizeItemCode(code);
+  if (!normalized) return null;
+
+  const parts = normalized.split(".");
+  const last = parts[parts.length - 1];
+
+  if (!/^\d+$/.test(last)) return null;
+
+  const num = Number(last);
+  if (!Number.isFinite(num) || num <= 1) return null;
+
+  parts[parts.length - 1] = String(num - 1);
+  return parts.join(".");
+}
+
+function collectPreviousSiblingCodes(startCode, limit = 3) {
+  const out = [];
+  let current = normalizeItemCode(startCode);
+
+  for (let i = 0; i < limit; i += 1) {
+    current = decrementTrailingNumericSegment(current);
+    if (!current) break;
+    out.push(current);
+  }
+
+  return out;
+}
+
+function collectContextTableNames(item, itemMap) {
+  const out = [];
+  const visited = new Set();
+
+  function pushFromText(text) {
+    const names = extractLikelyTableNames(text);
+    for (const name of names) {
+      if (!visited.has(name)) {
+        visited.add(name);
+        out.push(name);
+      }
+    }
+  }
+
+  pushFromText(`${item.title}\n${item.body || ""}`);
+
+  const ancestors = getAncestorChain(item, itemMap);
+  for (const parent of ancestors) {
+    pushFromText(`${parent.title}\n${parent.body || ""}`);
+  }
+
+  const relatedCodes = [];
+
+  if (item.parentCode) {
+    relatedCodes.push(...collectPreviousSiblingCodes(item.parentCode, 3));
+  }
+
+  for (const parent of ancestors) {
+    if (parent.parentCode) {
+      relatedCodes.push(...collectPreviousSiblingCodes(parent.code, 3));
+    }
+  }
+
+  for (const code of uniq(relatedCodes)) {
+    const relatedItem = itemMap.get(code);
+    if (!relatedItem) continue;
+    pushFromText(`${relatedItem.title}\n${relatedItem.body || ""}`);
+  }
+
+  return out;
+}
+
 export function extractStructuredTuplePatterns(text) {
   const source = String(text || "");
   const matches = [];
@@ -333,10 +404,10 @@ export function buildStructuredChecksForItem(item, itemMap) {
   const ancestorTexts = ancestors.map((x) => `${x.title}\n${x.body || ""}`);
 
   const ownPatterns = extractStructuredTuplePatterns(ownText);
-  const ownTableNames = extractLikelyTableNames(ownText);
+  const contextTableNames = collectContextTableNames(item, itemMap);
 
   if (ownPatterns.length > 0) {
-    return withPreferredTableName(ownPatterns, ownTableNames[0] || "");
+    return withPreferredTableName(ownPatterns, contextTableNames[0] || "");
   }
 
   for (let i = 0; i < ancestorTexts.length; i += 1) {
@@ -344,8 +415,7 @@ export function buildStructuredChecksForItem(item, itemMap) {
     const inheritedPatterns = extractStructuredTuplePatterns(text);
     if (inheritedPatterns.length === 0) continue;
 
-    const inheritedTableNames = extractLikelyTableNames(text);
-    return withPreferredTableName(inheritedPatterns, inheritedTableNames[0] || "");
+    return withPreferredTableName(inheritedPatterns, contextTableNames[0] || "");
   }
 
   return [];

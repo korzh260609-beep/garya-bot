@@ -636,13 +636,6 @@ function collectInheritedSignals(item, itemMap, config) {
   return uniq(ancestorSignals).slice(0, config.maxInheritedSignals);
 }
 
-function normalizeCodeLikeText(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[`"'']/g, "")
-    .replace(/\s+/g, "");
-}
-
 function parseStructuredTuplePart(rawPart) {
   const value = String(rawPart || "").trim();
   if (!value) return null;
@@ -893,37 +886,177 @@ async function searchTokenInRepo(token, ctx) {
   return miss;
 }
 
-function orderedSubstringsExist(haystack, needles) {
-  let cursor = 0;
+function splitTopLevelCommaItems(input) {
+  const items = [];
+  let current = "";
+  let depthCurly = 0;
+  let depthSquare = 0;
+  let depthRound = 0;
+  let quote = null;
+  let escaped = false;
 
-  for (const needle of needles) {
-    const idx = haystack.indexOf(needle, cursor);
-    if (idx === -1) return false;
-    cursor = idx + needle.length;
+  const source = String(input || "");
+
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i];
+
+    if (escaped) {
+      current += ch;
+      escaped = false;
+      continue;
+    }
+
+    if (quote) {
+      current += ch;
+      if (ch === "\\") {
+        escaped = true;
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      current += ch;
+      continue;
+    }
+
+    if (ch === "{") depthCurly += 1;
+    else if (ch === "}") depthCurly -= 1;
+    else if (ch === "[") depthSquare += 1;
+    else if (ch === "]") depthSquare -= 1;
+    else if (ch === "(") depthRound += 1;
+    else if (ch === ")") depthRound -= 1;
+
+    if (
+      ch === "," &&
+      depthCurly === 0 &&
+      depthSquare === 0 &&
+      depthRound === 0
+    ) {
+      const value = current.trim();
+      if (value) items.push(value);
+      current = "";
+      continue;
+    }
+
+    current += ch;
   }
 
-  return true;
+  const tail = current.trim();
+  if (tail) items.push(tail);
+
+  return items;
 }
 
-function blockMatchesStructuredIndex(block, pattern) {
-  const normalizedBlock = normalizeCodeLikeText(block);
-  const orderedNeedles = [];
+function stripWrappingQuotes(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
 
-  for (const field of pattern.fields || []) {
-    if (field.sort) {
-      orderedNeedles.push(`name:${field.name}`);
-      orderedNeedles.push(`sort:${String(field.sort).toLowerCase()}`);
-    } else {
-      orderedNeedles.push(field.name);
+  const first = text[0];
+  const last = text[text.length - 1];
+
+  if (
+    (first === '"' && last === '"') ||
+    (first === "'" && last === "'") ||
+    (first === "`" && last === "`")
+  ) {
+    return text.slice(1, -1);
+  }
+
+  return text;
+}
+
+function parseIndexFieldItem(itemText) {
+  const text = String(itemText || "").trim();
+  if (!text) return null;
+
+  if (/^["'`].*["'`]$/.test(text)) {
+    return {
+      name: stripWrappingQuotes(text).toLowerCase(),
+      sort: null,
+    };
+  }
+
+  if (text.startsWith("{") && text.endsWith("}")) {
+    const nameMatch = text.match(/name\s*:\s*["'`]([A-Za-z_][A-Za-z0-9_]*)["'`]/i);
+    if (!nameMatch) return null;
+
+    const sortMatch = text.match(/sort\s*:\s*["'`](ASC|DESC)["'`]/i);
+
+    return {
+      name: String(nameMatch[1] || "").toLowerCase(),
+      sort: sortMatch ? String(sortMatch[1] || "").toUpperCase() : null,
+    };
+  }
+
+  return null;
+}
+
+function extractCreateIndexSpecsFromContent(content) {
+  const specs = [];
+  const blocks = String(content || "").match(/pgm\.createIndex\s*\([\s\S]*?\);\s*/g) || [];
+
+  for (const block of blocks) {
+    const argsStart = block.indexOf("(");
+    const argsEnd = block.lastIndexOf(")");
+    if (argsStart === -1 || argsEnd === -1 || argsEnd <= argsStart) continue;
+
+    const argsText = block.slice(argsStart + 1, argsEnd).trim();
+    const args = splitTopLevelCommaItems(argsText);
+    if (args.length < 3) continue;
+
+    const tableArg = args[0];
+    const fieldsArg = args[1];
+    const optionsArg = args.slice(2).join(",").trim();
+
+    const tableName = stripWrappingQuotes(tableArg).toLowerCase();
+
+    if (!fieldsArg.startsWith("[") || !fieldsArg.endsWith("]")) continue;
+
+    const fieldsInner = fieldsArg.slice(1, -1).trim();
+    const fieldItems = splitTopLevelCommaItems(fieldsInner)
+      .map((x) => parseIndexFieldItem(x))
+      .filter(Boolean);
+
+    if (fieldItems.length === 0) continue;
+
+    const unique = /unique\s*:\s*true/i.test(optionsArg);
+
+    specs.push({
+      tableName,
+      fields: fieldItems,
+      unique,
+      raw: block,
+    });
+  }
+
+  return specs;
+}
+
+function indexSpecMatchesPattern(spec, pattern) {
+  const patternFields = Array.isArray(pattern?.fields) ? pattern.fields : [];
+  const specFields = Array.isArray(spec?.fields) ? spec.fields : [];
+
+  if (patternFields.length !== specFields.length) return false;
+  if (!!pattern?.unique !== !!spec?.unique) return false;
+
+  for (let i = 0; i < patternFields.length; i += 1) {
+    const expected = patternFields[i];
+    const actual = specFields[i];
+
+    if (!actual) return false;
+    if (String(expected.name || "").toLowerCase() !== String(actual.name || "").toLowerCase()) {
+      return false;
     }
-  }
 
-  if (!orderedSubstringsExist(normalizedBlock, orderedNeedles)) {
-    return false;
-  }
+    const expectedSort = expected.sort ? String(expected.sort).toUpperCase() : null;
+    const actualSort = actual.sort ? String(actual.sort).toUpperCase() : null;
 
-  if (pattern.unique && !normalizedBlock.includes("unique:true")) {
-    return false;
+    if (expectedSort !== actualSort) {
+      return false;
+    }
   }
 
   return true;
@@ -946,9 +1079,9 @@ async function findStructuredIndexInMigrations(pattern, ctx) {
     const content = await safeFetchTextFile(path, ctx);
     if (!content) continue;
 
-    const blocks = content.match(/pgm\.createIndex\s*\([\s\S]*?\);\s*/g) || [];
-    for (const block of blocks) {
-      if (blockMatchesStructuredIndex(block, pattern)) {
+    const specs = extractCreateIndexSpecsFromContent(content);
+    for (const spec of specs) {
+      if (indexSpecMatchesPattern(spec, pattern)) {
         const result = {
           ok: true,
           details: `structured_match_in: ${path}`,

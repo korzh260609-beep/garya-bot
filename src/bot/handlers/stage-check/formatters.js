@@ -288,12 +288,29 @@ export function formatCurrentOutput({
 
     const aggregate = aggregateScope(scopeItems);
 
-    if (aggregate.status !== "COMPLETE") {
+    if (aggregate.status === "OPEN" || aggregate.status === "PARTIAL") {
       lines.push(`${t("current_stage")}: ${stage.code}`);
       lines.push(`${t("title")}: ${stage.title || "-"}`);
       lines.push(`${t("status")}: ${humanStatus(aggregate.status)}`);
       return lines.join("\n");
     }
+  }
+
+  for (const stage of topLevelItems) {
+    const scopeItems = evaluatedItems.filter(
+      (item) => item.code === stage.code || item.code.startsWith(`${stage.code}.`)
+    );
+
+    const aggregate = aggregateScope(scopeItems);
+
+    if (aggregate.status === "NO_SIGNALS") {
+      continue;
+    }
+
+    lines.push(`${t("current_stage")}: ${stage.code}`);
+    lines.push(`${t("title")}: ${stage.title || "-"}`);
+    lines.push(`${t("status")}: ${humanStatus(aggregate.status)}`);
+    return lines.join("\n");
   }
 
   lines.push(t("all_complete"));

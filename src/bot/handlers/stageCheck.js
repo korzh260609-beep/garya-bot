@@ -676,9 +676,7 @@ function extractStructuredTuplePatterns(text) {
     });
   }
 
-  return uniq(
-    matches.map((x) => JSON.stringify(x))
-  ).map((x) => JSON.parse(x));
+  return uniq(matches.map((x) => JSON.stringify(x))).map((x) => JSON.parse(x));
 }
 
 function buildStructuredChecksForItem(item, itemMap) {
@@ -707,10 +705,11 @@ function buildAutoChecksForItem(item, itemMap, config) {
   const inheritedSignals = collectInheritedSignals(item, itemMap, config);
   const structuredChecks = buildStructuredChecksForItem(item, itemMap);
 
-  const checks = [];
+  const priorityChecks = [];
+  const normalChecks = [];
   const seen = new Set();
 
-  function pushCheck(check) {
+  function pushCheck(target, check) {
     const key =
       check.type === "file_exists"
         ? `file:${check.path}`
@@ -725,12 +724,12 @@ function buildAutoChecksForItem(item, itemMap, config) {
 
     if (seen.has(key)) return;
     seen.add(key);
-    checks.push(check);
+    target.push(check);
   }
 
   if (item.kind === "stage" || item.kind === "substage") {
     for (const path of own.explicitPaths) {
-      pushCheck({
+      pushCheck(normalChecks, {
         type: "file_exists",
         path,
         label: `file path: ${path}`,
@@ -738,18 +737,22 @@ function buildAutoChecksForItem(item, itemMap, config) {
     }
 
     for (const cmd of own.commands) {
-      pushCheck({
+      pushCheck(normalChecks, {
         type: "text_exists",
         token: cmd,
         label: `command token: ${cmd}`,
       });
     }
 
-    return checks.slice(0, config.maxChecksPerItem);
+    return normalChecks.slice(0, config.maxChecksPerItem);
+  }
+
+  for (const structuredCheck of structuredChecks) {
+    pushCheck(priorityChecks, structuredCheck);
   }
 
   for (const path of own.explicitPaths) {
-    pushCheck({
+    pushCheck(normalChecks, {
       type: "file_exists",
       path,
       label: `file path: ${path}`,
@@ -757,7 +760,7 @@ function buildAutoChecksForItem(item, itemMap, config) {
   }
 
   for (const cmd of own.commands) {
-    pushCheck({
+    pushCheck(normalChecks, {
       type: "text_exists",
       token: cmd,
       label: `command token: ${cmd}`,
@@ -765,7 +768,7 @@ function buildAutoChecksForItem(item, itemMap, config) {
   }
 
   for (const token of own.signals) {
-    pushCheck({
+    pushCheck(normalChecks, {
       type: "text_exists",
       token,
       label: `signal token: ${token}`,
@@ -773,7 +776,7 @@ function buildAutoChecksForItem(item, itemMap, config) {
 
     if (canGenerateBasenameFromSignal(token, config)) {
       for (const basename of buildCandidateBasenamesFromToken(token)) {
-        pushCheck({
+        pushCheck(normalChecks, {
           type: "basename_exists",
           basename,
           label: `basename for signal: ${basename}`,
@@ -783,7 +786,7 @@ function buildAutoChecksForItem(item, itemMap, config) {
   }
 
   for (const token of inheritedSignals) {
-    pushCheck({
+    pushCheck(normalChecks, {
       type: "text_exists",
       token,
       label: `inherited signal: ${token}`,
@@ -791,7 +794,7 @@ function buildAutoChecksForItem(item, itemMap, config) {
 
     if (canGenerateBasenameFromSignal(token, config)) {
       for (const basename of buildCandidateBasenamesFromToken(token)) {
-        pushCheck({
+        pushCheck(normalChecks, {
           type: "basename_exists",
           basename,
           label: `basename for inherited signal: ${basename}`,
@@ -800,11 +803,21 @@ function buildAutoChecksForItem(item, itemMap, config) {
     }
   }
 
-  for (const structuredCheck of structuredChecks) {
-    pushCheck(structuredCheck);
+  const maxChecks = Math.max(0, config.maxChecksPerItem);
+  if (maxChecks === 0) return [];
+
+  const result = [];
+  for (const check of priorityChecks) {
+    if (result.length >= maxChecks) break;
+    result.push(check);
   }
 
-  return checks.slice(0, config.maxChecksPerItem);
+  for (const check of normalChecks) {
+    if (result.length >= maxChecks) break;
+    result.push(check);
+  }
+
+  return result;
 }
 
 function findBasenameInRepo(basename, fileSet) {

@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { normalizeItemCode } from "./common.js";
+import { aggregateScope } from "./evaluator.js";
 
 export const WORKFLOW_PATH = "pillars/WORKFLOW.md";
 export const RULES_PATH = "pillars/STAGE_CHECK_RULES.json";
@@ -74,6 +75,7 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       title: "Название",
       all_complete: "Все верхние этапы подтверждены",
       confirmed: "подтверждено",
+      partially_confirmed: "частично подтверждено",
       not_confirmed: "не подтверждено",
       no_signals: "нет сигналов для проверки",
       item_not_found: "пункт не найден в WORKFLOW",
@@ -104,6 +106,7 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       title: "Назва",
       all_complete: "Усі верхні етапи підтверджені",
       confirmed: "підтверджено",
+      partially_confirmed: "частково підтверджено",
       not_confirmed: "не підтверджено",
       no_signals: "немає сигналів для перевірки",
       item_not_found: "пункт не знайдено у WORKFLOW",
@@ -134,6 +137,7 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       title: "Title",
       all_complete: "All top-level stages are confirmed",
       confirmed: "confirmed",
+      partially_confirmed: "partially confirmed",
       not_confirmed: "not confirmed",
       no_signals: "no signals available for checking",
       item_not_found: "item not found in WORKFLOW",
@@ -165,6 +169,7 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
 
   function humanStatus(status) {
     if (status === "COMPLETE") return t("confirmed");
+    if (status === "PARTIAL") return t("partially_confirmed");
     if (status === "OPEN") return t("not_confirmed");
     if (status === "NO_SIGNALS") return t("no_signals");
     return status;
@@ -218,6 +223,12 @@ export function formatSingleItemOutput({
     return lines.join("\n");
   }
 
+  if (aggregate.status === "PARTIAL") {
+    lines.push(`${t("found")}: ${summarizeEvidence(aggregate.passedEntries, t)}`);
+    lines.push(`${t("result")}: ${t("partially_confirmed")}`);
+    return lines.join("\n");
+  }
+
   if (aggregate.status === "NO_SIGNALS") {
     lines.push(`${t("found")}: ${t("no_signals")}`);
     lines.push(`${t("result")}: ${t("not_confirmed")}`);
@@ -248,17 +259,12 @@ export function formatAllStagesOutput({
       (item) => item.code === stage.code || item.code.startsWith(`${stage.code}.`)
     );
 
-    let status = "NO_SIGNALS";
-    const configuredItems = scopeItems.filter((x) => x.totalChecks > 0);
-    const openItems = scopeItems.filter((x) => x.status === "OPEN");
-
-    if (openItems.length > 0) status = "OPEN";
-    else if (configuredItems.length > 0) status = "COMPLETE";
+    const aggregate = aggregateScope(scopeItems);
 
     lines.push(
       t("stage_line", {
         code: stage.code,
-        status: humanStatus(status),
+        status: humanStatus(aggregate.status),
       })
     );
   }
@@ -280,17 +286,12 @@ export function formatCurrentOutput({
       (item) => item.code === stage.code || item.code.startsWith(`${stage.code}.`)
     );
 
-    let status = "NO_SIGNALS";
-    const configuredItems = scopeItems.filter((x) => x.totalChecks > 0);
-    const openItems = scopeItems.filter((x) => x.status === "OPEN");
+    const aggregate = aggregateScope(scopeItems);
 
-    if (openItems.length > 0) status = "OPEN";
-    else if (configuredItems.length > 0) status = "COMPLETE";
-
-    if (status !== "COMPLETE") {
+    if (aggregate.status !== "COMPLETE") {
       lines.push(`${t("current_stage")}: ${stage.code}`);
       lines.push(`${t("title")}: ${stage.title || "-"}`);
-      lines.push(`${t("status")}: ${humanStatus(status)}`);
+      lines.push(`${t("status")}: ${humanStatus(aggregate.status)}`);
       return lines.join("\n");
     }
   }

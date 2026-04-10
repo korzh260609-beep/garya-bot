@@ -124,12 +124,20 @@ export async function buildEvaluatedItems(workflowItems, ctx) {
 
 export function aggregateScope(scopeItems) {
   const configuredItems = scopeItems.filter((x) => x.totalChecks > 0);
-  const openItems = scopeItems.filter((x) => x.status === "OPEN");
+  const completeItems = configuredItems.filter((x) => x.status === "COMPLETE");
+  const openItems = configuredItems.filter((x) => x.status === "OPEN");
   const noSignalItems = scopeItems.filter((x) => x.status === "NO_SIGNALS");
 
   let status = "NO_SIGNALS";
-  if (openItems.length > 0) status = "OPEN";
-  else if (configuredItems.length > 0) status = "COMPLETE";
+  if (configuredItems.length === 0) {
+    status = "NO_SIGNALS";
+  } else if (openItems.length === 0) {
+    status = "COMPLETE";
+  } else if (completeItems.length > 0) {
+    status = "PARTIAL";
+  } else {
+    status = "OPEN";
+  }
 
   const passedEntries = [];
   const failedEntries = [];
@@ -151,6 +159,8 @@ export function aggregateScope(scopeItems) {
   return {
     totalItems: scopeItems.length,
     configuredItems: configuredItems.length,
+    completeItems: completeItems.length,
+    openItems: openItems.length,
     noSignalItems: noSignalItems.length,
     totalChecks: scopeItems.reduce((sum, x) => sum + x.totalChecks, 0),
     passedChecks: scopeItems.reduce((sum, x) => sum + x.passedChecks, 0),

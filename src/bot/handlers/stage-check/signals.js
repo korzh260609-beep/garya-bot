@@ -257,6 +257,41 @@ function parseStructuredTuplePart(rawPart) {
   };
 }
 
+function normalizeTableName(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return "";
+  if (!/^[a-z_][a-z0-9_]*$/.test(text)) return "";
+  return text;
+}
+
+export function extractLikelyTableNames(text) {
+  const source = String(text || "");
+  const out = [];
+
+  const directPatterns = [
+    /createTable\s*\(\s*["'`]([a-z_][a-z0-9_]*)["'`]/gi,
+    /\btable\s+["'`]([a-z_][a-z0-9_]*)["'`]/gi,
+    /["'`]([a-z_][a-z0-9_]*)["'`]\s+table\b/gi,
+    /\b([a-z_][a-z0-9_]*)\s+table\b/gi,
+  ];
+
+  for (const re of directPatterns) {
+    let hit;
+    while ((hit = re.exec(source))) {
+      const value = normalizeTableName(hit[1]);
+      if (value) out.push(value);
+    }
+  }
+
+  const identifiers = source.match(/\b[a-z]+(?:_[a-z0-9]+)+\b/g) || [];
+  for (const token of identifiers) {
+    const value = normalizeTableName(token);
+    if (value) out.push(value);
+  }
+
+  return uniq(out);
+}
+
 export function extractStructuredTuplePatterns(text) {
   const source = String(text || "");
   const matches = [];
@@ -287,18 +322,36 @@ export function extractStructuredTuplePatterns(text) {
   return uniq(matches.map((x) => JSON.stringify(x))).map((x) => JSON.parse(x));
 }
 
+function withPreferredTableName(patterns, tableName) {
+  const normalizedTable = normalizeTableName(tableName);
+  if (!normalizedTable) return patterns;
+
+  return patterns.map((pattern) => ({
+    ...pattern,
+    tableName: normalizedTable,
+    label: `${pattern.label} @ ${normalizedTable}`,
+  }));
+}
+
 export function buildStructuredChecksForItem(item, itemMap) {
-  const texts = [
-    `${item.title}\n${item.body || ""}`,
-    ...getAncestorChain(item, itemMap).map((x) => `${x.title}\n${x.body || ""}`),
-  ];
+  const ancestors = getAncestorChain(item, itemMap);
+  const ownText = `${item.title}\n${item.body || ""}`;
+  const ancestorTexts = ancestors.map((x) => `${x.title}\n${x.body || ""}`);
 
-  const ownPatterns = extractStructuredTuplePatterns(texts[0]);
-  if (ownPatterns.length > 0) return ownPatterns;
+  const ownPatterns = extractStructuredTuplePatterns(ownText);
+  const ownTableNames = extractLikelyTableNames(ownText);
 
-  for (const text of texts.slice(1)) {
+  if (ownPatterns.length > 0) {
+    return withPreferredTableName(ownPatterns, ownTableNames[0] || "");
+  }
+
+  for (let i = 0; i < ancestorTexts.length; i += 1) {
+    const text = ancestorTexts[i];
     const inheritedPatterns = extractStructuredTuplePatterns(text);
-    if (inheritedPatterns.length > 0) return inheritedPatterns;
+    if (inheritedPatterns.length === 0) continue;
+
+    const inheritedTableNames = extractLikelyTableNames(text);
+    return withPreferredTableName(inheritedPatterns, inheritedTableNames[0] || "");
   }
 
   return [];
@@ -321,6 +374,7 @@ export function buildAutoChecksForItem(item, itemMap, config) {
           ? `basename:${String(check.basename || "").toLowerCase()}`
           : check.type === "structured_index_exists"
             ? `structured:${JSON.stringify({
+                tableName: String(check.tableName || "").toLowerCase(),
                 unique: !!check.unique,
                 fields: check.fields || [],
               })}`

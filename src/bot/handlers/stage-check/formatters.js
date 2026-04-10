@@ -198,6 +198,22 @@ function summarizeEvidence(entries, t) {
   return Array.from(kinds).slice(0, 3).join(", ");
 }
 
+function buildTopLevelAggregates(topLevelItems, evaluatedItems) {
+  return topLevelItems.map((stage, index) => {
+    const scopeItems = evaluatedItems.filter(
+      (item) => item.code === stage.code || item.code.startsWith(`${stage.code}.`)
+    );
+
+    const aggregate = aggregateScope(scopeItems);
+
+    return {
+      stage,
+      index,
+      aggregate,
+    };
+  });
+}
+
 export function formatSingleItemOutput({
   baseItem,
   scopeItems,
@@ -254,13 +270,7 @@ export function formatAllStagesOutput({
     return lines.join("\n");
   }
 
-  for (const stage of topLevelItems) {
-    const scopeItems = evaluatedItems.filter(
-      (item) => item.code === stage.code || item.code.startsWith(`${stage.code}.`)
-    );
-
-    const aggregate = aggregateScope(scopeItems);
-
+  for (const { stage, aggregate } of buildTopLevelAggregates(topLevelItems, evaluatedItems)) {
     lines.push(
       t("stage_line", {
         code: stage.code,
@@ -281,35 +291,31 @@ export function formatCurrentOutput({
   const lines = [];
   lines.push(t("header_current"));
 
-  for (const stage of topLevelItems) {
-    const scopeItems = evaluatedItems.filter(
-      (item) => item.code === stage.code || item.code.startsWith(`${stage.code}.`)
-    );
+  const stageStates = buildTopLevelAggregates(topLevelItems, evaluatedItems);
 
-    const aggregate = aggregateScope(scopeItems);
+  const activeNonComplete = stageStates.filter(
+    ({ aggregate }) =>
+      (aggregate.status === "OPEN" || aggregate.status === "PARTIAL") &&
+      aggregate.passedChecks > 0
+  );
 
-    if (aggregate.status === "OPEN" || aggregate.status === "PARTIAL") {
-      lines.push(`${t("current_stage")}: ${stage.code}`);
-      lines.push(`${t("title")}: ${stage.title || "-"}`);
-      lines.push(`${t("status")}: ${humanStatus(aggregate.status)}`);
-      return lines.join("\n");
-    }
+  if (activeNonComplete.length > 0) {
+    const chosen = activeNonComplete[activeNonComplete.length - 1];
+    lines.push(`${t("current_stage")}: ${chosen.stage.code}`);
+    lines.push(`${t("title")}: ${chosen.stage.title || "-"}`);
+    lines.push(`${t("status")}: ${humanStatus(chosen.aggregate.status)}`);
+    return lines.join("\n");
   }
 
-  for (const stage of topLevelItems) {
-    const scopeItems = evaluatedItems.filter(
-      (item) => item.code === stage.code || item.code.startsWith(`${stage.code}.`)
-    );
+  const latestWithEvidence = stageStates.filter(
+    ({ aggregate }) => aggregate.passedChecks > 0 || aggregate.configuredItems > 0
+  );
 
-    const aggregate = aggregateScope(scopeItems);
-
-    if (aggregate.status === "NO_SIGNALS") {
-      continue;
-    }
-
-    lines.push(`${t("current_stage")}: ${stage.code}`);
-    lines.push(`${t("title")}: ${stage.title || "-"}`);
-    lines.push(`${t("status")}: ${humanStatus(aggregate.status)}`);
+  if (latestWithEvidence.length > 0) {
+    const chosen = latestWithEvidence[latestWithEvidence.length - 1];
+    lines.push(`${t("current_stage")}: ${chosen.stage.code}`);
+    lines.push(`${t("title")}: ${chosen.stage.title || "-"}`);
+    lines.push(`${t("status")}: ${humanStatus(chosen.aggregate.status)}`);
     return lines.join("\n");
   }
 

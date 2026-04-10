@@ -169,7 +169,7 @@ function parseIndexFieldItem(itemText) {
   const text = String(itemText || "").trim();
   if (!text) return null;
 
-  if (/^[\"'`].*[\"'`]$/.test(text)) {
+  if (/^["'`].*["'`]$/.test(text)) {
     return {
       name: stripWrappingQuotes(text).toLowerCase(),
       sort: null,
@@ -177,10 +177,10 @@ function parseIndexFieldItem(itemText) {
   }
 
   if (text.startsWith("{") && text.endsWith("}")) {
-    const nameMatch = text.match(/name\s*:\s*[\"'`]([A-Za-z_][A-Za-z0-9_]*)[\"'`]/i);
+    const nameMatch = text.match(/name\s*:\s*["'`]([A-Za-z_][A-Za-z0-9_]*)["'`]/i);
     if (!nameMatch) return null;
 
-    const sortMatch = text.match(/sort\s*:\s*[\"'`](ASC|DESC)[\"'`]/i);
+    const sortMatch = text.match(/sort\s*:\s*["'`](ASC|DESC)["'`]/i);
 
     return {
       name: String(nameMatch[1] || "").toLowerCase(),
@@ -232,12 +232,21 @@ function extractCreateIndexSpecsFromContent(content) {
   return specs;
 }
 
+function normalizeTableName(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function indexSpecMatchesPattern(spec, pattern) {
   const patternFields = Array.isArray(pattern?.fields) ? pattern.fields : [];
   const specFields = Array.isArray(spec?.fields) ? spec.fields : [];
 
   if (patternFields.length !== specFields.length) return false;
   if (!!pattern?.unique !== !!spec?.unique) return false;
+
+  const expectedTable = normalizeTableName(pattern?.tableName);
+  if (expectedTable && expectedTable !== normalizeTableName(spec?.tableName)) {
+    return false;
+  }
 
   for (let i = 0; i < patternFields.length; i += 1) {
     const expected = patternFields[i];
@@ -260,6 +269,7 @@ function indexSpecMatchesPattern(spec, pattern) {
 export async function findStructuredIndexInMigrations(pattern, ctx) {
   const cacheKey = JSON.stringify({
     type: "structured_index_exists",
+    tableName: String(pattern.tableName || "").toLowerCase(),
     unique: !!pattern.unique,
     fields: pattern.fields || [],
   });
@@ -279,7 +289,7 @@ export async function findStructuredIndexInMigrations(pattern, ctx) {
       if (indexSpecMatchesPattern(spec, pattern)) {
         const result = {
           ok: true,
-          details: `structured_match_in: ${path}`,
+          details: `structured_match_in: ${path}${spec.tableName ? ` @ ${spec.tableName}` : ""}`,
         };
         ctx.structuredCache.set(cacheKey, result);
         return result;

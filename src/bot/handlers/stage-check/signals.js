@@ -283,12 +283,6 @@ export function extractLikelyTableNames(text) {
     }
   }
 
-  const identifiers = source.match(/\b[a-z]+(?:_[a-z0-9]+)+\b/g) || [];
-  for (const token of identifiers) {
-    const value = normalizeTableName(token);
-    if (value) out.push(value);
-  }
-
   return uniq(out);
 }
 

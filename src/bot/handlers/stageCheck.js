@@ -1,6 +1,7 @@
 // ============================================================================
 // === src/bot/handlers/stageCheck.js — READ-ONLY universal workflow checker
 // === HUMAN-READABLE OUTPUT / LANGUAGE-AWARE / NO RAW INTERNAL NOISE
+// === + structured migration/index pattern checks (minimal safe extension)
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -119,6 +120,7 @@ function t(lang, key, vars = {}) {
       command_surface: "Наличие команды",
       repo_token: "Наличие технического признака в репозитории",
       basename_signal: "Наличие файла/модуля по имени",
+      structured_index: "Наличие структурного индекса/unique в миграциях",
       found_in_repo: "Есть подтверждение в репозитории",
       no_clear_evidence: "Явного подтверждения в репозитории не найдено",
       aggregated_scope: "Агрегированная проверка дочерних пунктов",
@@ -152,6 +154,7 @@ function t(lang, key, vars = {}) {
       command_surface: "Наявність команди",
       repo_token: "Наявність технічної ознаки в репозиторії",
       basename_signal: "Наявність файлу/модуля за назвою",
+      structured_index: "Наявність структурного індексу/unique у міграціях",
       found_in_repo: "Є підтвердження в репозиторії",
       no_clear_evidence: "Явного підтвердження в репозиторії не знайдено",
       aggregated_scope: "Агрегована перевірка дочірніх пунктів",
@@ -185,6 +188,7 @@ function t(lang, key, vars = {}) {
       command_surface: "Command exists",
       repo_token: "Technical evidence exists in repository",
       basename_signal: "File/module exists by name",
+      structured_index: "Structured index/unique exists in migrations",
       found_in_repo: "Evidence found in repository",
       no_clear_evidence: "No clear evidence found in repository",
       aggregated_scope: "Aggregated check of child items",
@@ -632,9 +636,83 @@ function collectInheritedSignals(item, itemMap, config) {
   return uniq(ancestorSignals).slice(0, config.maxInheritedSignals);
 }
 
+function normalizeCodeLikeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[`"'']/g, "")
+    .replace(/\s+/g, "");
+}
+
+function parseStructuredTuplePart(rawPart) {
+  const value = String(rawPart || "").trim();
+  if (!value) return null;
+
+  const match = value.match(/^([A-Za-z_][A-Za-z0-9_]*)(?:\s+(ASC|DESC))?$/i);
+  if (!match) return null;
+
+  return {
+    name: String(match[1] || "").toLowerCase(),
+    sort: match[2] ? String(match[2]).toUpperCase() : null,
+  };
+}
+
+function extractStructuredTuplePatterns(text) {
+  const source = String(text || "");
+  const matches = [];
+  const re = /\b(unique\s+)?\(([^()]+)\)/gi;
+  let hit;
+
+  while ((hit = re.exec(source))) {
+    const unique = !!hit[1];
+    const inner = String(hit[2] || "").trim();
+    if (!inner || !inner.includes(",")) continue;
+
+    const fields = inner
+      .split(",")
+      .map((part) => parseStructuredTuplePart(part))
+      .filter(Boolean);
+
+    if (fields.length < 2) continue;
+
+    matches.push({
+      type: "structured_index_exists",
+      unique,
+      fields,
+      raw: `${unique ? "unique " : ""}(${inner})`,
+      label: `structured tuple: ${unique ? "unique " : ""}(${inner})`,
+    });
+  }
+
+  return uniq(
+    matches.map((x) => JSON.stringify(x))
+  ).map((x) => JSON.parse(x));
+}
+
+function buildStructuredChecksForItem(item, itemMap) {
+  const texts = [
+    `${item.title}\n${item.body || ""}`,
+    ...getAncestorChain(item, itemMap).map((x) => `${x.title}\n${x.body || ""}`),
+  ];
+
+  const ownPatterns = extractStructuredTuplePatterns(texts[0]);
+  if (ownPatterns.length > 0) {
+    return ownPatterns;
+  }
+
+  for (const text of texts.slice(1)) {
+    const inheritedPatterns = extractStructuredTuplePatterns(text);
+    if (inheritedPatterns.length > 0) {
+      return inheritedPatterns;
+    }
+  }
+
+  return [];
+}
+
 function buildAutoChecksForItem(item, itemMap, config) {
   const own = collectOwnSignals(item, config);
   const inheritedSignals = collectInheritedSignals(item, itemMap, config);
+  const structuredChecks = buildStructuredChecksForItem(item, itemMap);
 
   const checks = [];
   const seen = new Set();
@@ -645,7 +723,12 @@ function buildAutoChecksForItem(item, itemMap, config) {
         ? `file:${check.path}`
         : check.type === "basename_exists"
           ? `basename:${String(check.basename || "").toLowerCase()}`
-          : `text:${String(check.token || "").toLowerCase()}`;
+          : check.type === "structured_index_exists"
+            ? `structured:${JSON.stringify({
+                unique: !!check.unique,
+                fields: check.fields || [],
+              })}`
+            : `text:${String(check.token || "").toLowerCase()}`;
 
     if (seen.has(key)) return;
     seen.add(key);
@@ -722,6 +805,10 @@ function buildAutoChecksForItem(item, itemMap, config) {
         });
       }
     }
+  }
+
+  for (const structuredCheck of structuredChecks) {
+    pushCheck(structuredCheck);
   }
 
   return checks.slice(0, config.maxChecksPerItem);
@@ -806,6 +893,81 @@ async function searchTokenInRepo(token, ctx) {
   return miss;
 }
 
+function orderedSubstringsExist(haystack, needles) {
+  let cursor = 0;
+
+  for (const needle of needles) {
+    const idx = haystack.indexOf(needle, cursor);
+    if (idx === -1) return false;
+    cursor = idx + needle.length;
+  }
+
+  return true;
+}
+
+function blockMatchesStructuredIndex(block, pattern) {
+  const normalizedBlock = normalizeCodeLikeText(block);
+  const orderedNeedles = [];
+
+  for (const field of pattern.fields || []) {
+    if (field.sort) {
+      orderedNeedles.push(`name:${field.name}`);
+      orderedNeedles.push(`sort:${String(field.sort).toLowerCase()}`);
+    } else {
+      orderedNeedles.push(field.name);
+    }
+  }
+
+  if (!orderedSubstringsExist(normalizedBlock, orderedNeedles)) {
+    return false;
+  }
+
+  if (pattern.unique && !normalizedBlock.includes("unique:true")) {
+    return false;
+  }
+
+  return true;
+}
+
+async function findStructuredIndexInMigrations(pattern, ctx) {
+  const cacheKey = JSON.stringify({
+    type: "structured_index_exists",
+    unique: !!pattern.unique,
+    fields: pattern.fields || [],
+  });
+
+  if (ctx.structuredCache.has(cacheKey)) {
+    return ctx.structuredCache.get(cacheKey);
+  }
+
+  const migrationFiles = ctx.searchableFiles.filter((path) => path.startsWith("migrations/"));
+
+  for (const path of migrationFiles) {
+    const content = await safeFetchTextFile(path, ctx);
+    if (!content) continue;
+
+    const blocks = content.match(/pgm\.createIndex\s*\([\s\S]*?\);\s*/g) || [];
+    for (const block of blocks) {
+      if (blockMatchesStructuredIndex(block, pattern)) {
+        const result = {
+          ok: true,
+          details: `structured_match_in: ${path}`,
+        };
+        ctx.structuredCache.set(cacheKey, result);
+        return result;
+      }
+    }
+  }
+
+  const miss =
+    ctx.errorStats.fetchFailures > 0
+      ? { ok: false, details: "structured_search_unavailable_or_not_found" }
+      : { ok: false, details: "structured_pattern_not_found" };
+
+  ctx.structuredCache.set(cacheKey, miss);
+  return miss;
+}
+
 async function evaluateCheck(check, ctx) {
   if (check.type === "file_exists") {
     const path = String(check.path || "").trim();
@@ -841,6 +1003,17 @@ async function evaluateCheck(check, ctx) {
       ok: searchResult.ok,
       type: check.type,
       label: check.label || token || "text_exists",
+      details: searchResult.details,
+    };
+  }
+
+  if (check.type === "structured_index_exists") {
+    const searchResult = await findStructuredIndexInMigrations(check, ctx);
+
+    return {
+      ok: searchResult.ok,
+      type: check.type,
+      label: check.label || "structured_index_exists",
       details: searchResult.details,
     };
   }
@@ -933,6 +1106,7 @@ function describeCheckShort(entry, lang) {
   const check = entry.check || {};
   if (check.type === "file_exists") return t(lang, "explicit_file");
   if (check.type === "basename_exists") return t(lang, "basename_signal");
+  if (check.type === "structured_index_exists") return t(lang, "structured_index");
   if (check.type === "text_exists") {
     if (String(check.label || "").startsWith("command token:")) {
       return t(lang, "command_surface");
@@ -1084,6 +1258,7 @@ export async function handleStageCheck(ctx = {}) {
     searchableFiles,
     contentCache: new Map(),
     searchCache: new Map(),
+    structuredCache: new Map(),
     fetchStats: { used: 0 },
     errorStats: { fetchFailures: 0 },
     itemMap,

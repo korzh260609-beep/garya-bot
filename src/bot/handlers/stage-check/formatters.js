@@ -2,6 +2,8 @@
 // === src/bot/handlers/stage-check/formatters.js
 // ============================================================================
 
+import { normalizeItemCode } from "./common.js";
+
 export const WORKFLOW_PATH = "pillars/WORKFLOW.md";
 export const RULES_PATH = "pillars/STAGE_CHECK_RULES.json";
 
@@ -46,7 +48,7 @@ export function parseMode(rest) {
   );
 
   const token = filtered[0] || "";
-  const normalized = String(token || "").trim().toUpperCase();
+  const normalized = normalizeItemCode(token);
 
   if (!normalized) return { mode: "current", value: "current", diag: hasDiag };
   if (normalized === "ALL") return { mode: "all", value: "all", diag: hasDiag };

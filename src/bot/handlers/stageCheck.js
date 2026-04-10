@@ -1,6 +1,6 @@
 // ============================================================================
 // === src/bot/handlers/stageCheck.js — READ-ONLY universal workflow checker
-// === NO AI / NO HARD-CODED STAGE IDS / TREE + SEMANTIC AUTO-SIGNAL EXTRACTION
+// === HUMAN-READABLE OUTPUT / LANGUAGE-AWARE / NO RAW INTERNAL NOISE
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -73,172 +73,131 @@ function uniq(arr) {
   return Array.from(new Set((arr || []).filter(Boolean)));
 }
 
-function detectLanguage(text) {
-  const s = String(text || "");
-  if (/[іїєґІЇЄҐ]/.test(s)) return "uk";
-  if (/[а-яА-ЯёЁ]/.test(s)) return "ru";
-  return "en";
+function detectLanguageFromContext(ctx = {}) {
+  const candidates = [
+    ctx.lang,
+    ctx.language,
+    ctx.userLang,
+    ctx.locale,
+    ctx.telegramLanguageCode,
+  ]
+    .map((x) => String(x || "").toLowerCase())
+    .filter(Boolean);
+
+  for (const value of candidates) {
+    if (value.startsWith("uk")) return "uk";
+    if (value.startsWith("ru")) return "ru";
+    if (value.startsWith("en")) return "en";
+  }
+
+  return "ru";
 }
 
 function t(lang, key, vars = {}) {
   const dict = {
     ru: {
-      coverage: "покрытие",
-      item_not_found: "ПУНКТ_НЕ_НАЙДЕН_В_WORKFLOW",
-      runtime_failed: "ошибка выполнения проверки",
-      cannot_read_workflow: `ошибка stage_check: не удалось прочитать ${WORKFLOW_PATH}`,
-      cannot_read_rules: `ошибка stage_check: не удалось прочитать ${RULES_PATH}`,
-      invalid_rules: `ошибка stage_check: неверный JSON в ${RULES_PATH}`,
-      all: "проверка этапов: все",
-      current: "проверка этапов: текущий",
-      result_all_complete: "результат: все верхние этапы подтверждены",
-      current_stage: "текущий этап",
-      title: "название",
-      workflow: "пункт workflow",
-      status: "статус",
-      scope_items: "элементов в области",
-      configured_items: "элементов с проверками",
-      checks: "проверки",
-      no_signal_items: "элементов без сигналов",
-      scope: "область",
-      details: "детали",
-      missing: "не подтверждено",
-      expected: "ожидалось",
-      found: "найдено",
-      not_confirmed: "не подтверждено",
+      header_single: "Проверка этапа: {code}",
+      header_all: "Проверка этапов: все",
+      header_current: "Проверка этапов: текущий",
+      workflow: "Пункт workflow",
+      status: "Статус",
+      checked: "Что проверялось",
+      found: "Что найдено",
+      result: "Итог",
+      current_stage: "Текущий этап",
+      title: "Название",
+      all_complete: "Все верхние этапы подтверждены",
       confirmed: "подтверждено",
-      partial: "частично",
-      no_signals: "НЕТ_СИГНАЛОВ",
-      open: "НЕ_ПОДТВЕРЖДЕНО",
-      complete: "ПОДТВЕРЖДЕНО",
-      raw_signal_hidden: "внутренние сигналы скрыты",
-      command_surface: "команда",
-      explicit_file: "явный путь к файлу",
-      repo_token: "технический признак в репозитории",
-      basename_signal: "файл/модуль по имени",
-      no_clear_evidence: "явных подтверждений в репозитории не найдено",
-      search_unavailable: "поиск недоступен или не дал результата",
-      search_budget: "лимит поиска исчерпан",
-      found_in: "найдено в",
-      found_as: "найден как",
-      missing_path: "путь не найден",
-      basename_not_found: "файл по имени не найден",
-      summary_header: "итог",
-      line_scope_item: "{code} — {status} — {checks}",
-      line_stage_all: "{code} — {status} — {checks} — элементов:{items}",
-      single_header: "проверка этапа: {code}",
-      current_header: "проверка этапа: текущий",
-      no_title: "(название не найдено)",
-      reason: "причина",
-      exact_item: "точечный пункт",
-      group_item: "агрегированный пункт",
+      not_confirmed: "не подтверждено",
+      no_signals: "нет сигналов для проверки",
+      item_not_found: "пункт не найден в WORKFLOW",
+      cannot_read_workflow: `Ошибка stage_check: не удалось прочитать ${WORKFLOW_PATH}`,
+      cannot_read_rules: `Ошибка stage_check: не удалось прочитать ${RULES_PATH}`,
+      invalid_rules: `Ошибка stage_check: неверный JSON в ${RULES_PATH}`,
+      runtime_failed: "Ошибка stage_check: не удалось выполнить проверку",
+      explicit_file: "Наличие явного файла",
+      command_surface: "Наличие команды",
+      repo_token: "Наличие технического признака в репозитории",
+      basename_signal: "Наличие файла/модуля по имени",
+      found_in_repo: "Есть подтверждение в репозитории",
+      no_clear_evidence: "Явного подтверждения в репозитории не найдено",
+      aggregated_scope: "Агрегированная проверка дочерних пунктов",
+      exact_point: "Проверка точечного пункта",
+      partial_scope: "Есть подтверждённые и неподтверждённые подпункты",
+      stage_line: "{code} — {status}",
+      current_line: "{code} — {status}",
+      details_hidden: "Внутренние технические детали скрыты",
     },
     uk: {
-      coverage: "покриття",
-      item_not_found: "ПУНКТ_НЕ_ЗНАЙДЕНО_У_WORKFLOW",
-      runtime_failed: "помилка виконання перевірки",
-      cannot_read_workflow: `помилка stage_check: не вдалося прочитати ${WORKFLOW_PATH}`,
-      cannot_read_rules: `помилка stage_check: не вдалося прочитати ${RULES_PATH}`,
-      invalid_rules: `помилка stage_check: некоректний JSON у ${RULES_PATH}`,
-      all: "перевірка етапів: усі",
-      current: "перевірка етапів: поточний",
-      result_all_complete: "результат: усі верхні етапи підтверджені",
-      current_stage: "поточний етап",
-      title: "назва",
-      workflow: "пункт workflow",
-      status: "статус",
-      scope_items: "елементів в області",
-      configured_items: "елементів із перевірками",
-      checks: "перевірки",
-      no_signal_items: "елементів без сигналів",
-      scope: "область",
-      details: "деталі",
-      missing: "не підтверджено",
-      expected: "очікувалось",
-      found: "знайдено",
-      not_confirmed: "не підтверджено",
+      header_single: "Перевірка етапу: {code}",
+      header_all: "Перевірка етапів: усі",
+      header_current: "Перевірка етапів: поточний",
+      workflow: "Пункт workflow",
+      status: "Статус",
+      checked: "Що перевірялось",
+      found: "Що знайдено",
+      result: "Підсумок",
+      current_stage: "Поточний етап",
+      title: "Назва",
+      all_complete: "Усі верхні етапи підтверджені",
       confirmed: "підтверджено",
-      partial: "частково",
-      no_signals: "НЕМАЄ_СИГНАЛІВ",
-      open: "НЕ_ПІДТВЕРДЖЕНО",
-      complete: "ПІДТВЕРДЖЕНО",
-      raw_signal_hidden: "внутрішні сигнали приховані",
-      command_surface: "команда",
-      explicit_file: "явний шлях до файлу",
-      repo_token: "технічна ознака в репозиторії",
-      basename_signal: "файл/модуль за назвою",
-      no_clear_evidence: "явних підтверджень у репозиторії не знайдено",
-      search_unavailable: "пошук недоступний або не дав результату",
-      search_budget: "ліміт пошуку вичерпано",
-      found_in: "знайдено в",
-      found_as: "знайдено як",
-      missing_path: "шлях не знайдено",
-      basename_not_found: "файл за назвою не знайдено",
-      summary_header: "підсумок",
-      line_scope_item: "{code} — {status} — {checks}",
-      line_stage_all: "{code} — {status} — {checks} — елементів:{items}",
-      single_header: "перевірка етапу: {code}",
-      current_header: "перевірка етапу: поточний",
-      no_title: "(назву не знайдено)",
-      reason: "причина",
-      exact_item: "точковий пункт",
-      group_item: "агрегований пункт",
+      not_confirmed: "не підтверджено",
+      no_signals: "немає сигналів для перевірки",
+      item_not_found: "пункт не знайдено у WORKFLOW",
+      cannot_read_workflow: `Помилка stage_check: не вдалося прочитати ${WORKFLOW_PATH}`,
+      cannot_read_rules: `Помилка stage_check: не вдалося прочитати ${RULES_PATH}`,
+      invalid_rules: `Помилка stage_check: некоректний JSON у ${RULES_PATH}`,
+      runtime_failed: "Помилка stage_check: не вдалося виконати перевірку",
+      explicit_file: "Наявність явного файлу",
+      command_surface: "Наявність команди",
+      repo_token: "Наявність технічної ознаки в репозиторії",
+      basename_signal: "Наявність файлу/модуля за назвою",
+      found_in_repo: "Є підтвердження в репозиторії",
+      no_clear_evidence: "Явного підтвердження в репозиторії не знайдено",
+      aggregated_scope: "Агрегована перевірка дочірніх пунктів",
+      exact_point: "Перевірка точкового пункту",
+      partial_scope: "Є підтверджені та непідтверджені підпункти",
+      stage_line: "{code} — {status}",
+      current_line: "{code} — {status}",
+      details_hidden: "Внутрішні технічні деталі приховано",
     },
     en: {
-      coverage: "coverage",
-      item_not_found: "ITEM_NOT_FOUND_IN_WORKFLOW",
-      runtime_failed: "stage check runtime failed",
+      header_single: "Stage check: {code}",
+      header_all: "Stage check: all",
+      header_current: "Stage check: current",
+      workflow: "Workflow item",
+      status: "Status",
+      checked: "What was checked",
+      found: "What was found",
+      result: "Result",
+      current_stage: "Current stage",
+      title: "Title",
+      all_complete: "All top-level stages are confirmed",
+      confirmed: "confirmed",
+      not_confirmed: "not confirmed",
+      no_signals: "no signals available for checking",
+      item_not_found: "item not found in WORKFLOW",
       cannot_read_workflow: `stage_check error: cannot read ${WORKFLOW_PATH}`,
       cannot_read_rules: `stage_check error: cannot read ${RULES_PATH}`,
       invalid_rules: `stage_check error: invalid JSON in ${RULES_PATH}`,
-      all: "stage check: all",
-      current: "stage check: current",
-      result_all_complete: "result: all top-level stages confirmed",
-      current_stage: "current stage",
-      title: "title",
-      workflow: "workflow item",
-      status: "status",
-      scope_items: "scope items",
-      configured_items: "items with checks",
-      checks: "checks",
-      no_signal_items: "items without signals",
-      scope: "scope",
-      details: "details",
-      missing: "not confirmed",
-      expected: "expected",
-      found: "found",
-      not_confirmed: "not confirmed",
-      confirmed: "confirmed",
-      partial: "partial",
-      no_signals: "NO_SIGNALS",
-      open: "NOT_CONFIRMED",
-      complete: "CONFIRMED",
-      raw_signal_hidden: "internal signals hidden",
-      command_surface: "command",
-      explicit_file: "explicit file path",
-      repo_token: "technical evidence in repository",
-      basename_signal: "file/module by name",
-      no_clear_evidence: "no clear evidence found in repository",
-      search_unavailable: "search unavailable or no result",
-      search_budget: "search budget exhausted",
-      found_in: "found in",
-      found_as: "found as",
-      missing_path: "path not found",
-      basename_not_found: "file by basename not found",
-      summary_header: "summary",
-      line_scope_item: "{code} — {status} — {checks}",
-      line_stage_all: "{code} — {status} — {checks} — items:{items}",
-      single_header: "stage check: {code}",
-      current_header: "stage check: current",
-      no_title: "(title not found)",
-      reason: "reason",
-      exact_item: "exact item",
-      group_item: "aggregated item",
+      runtime_failed: "stage_check error: runtime evaluation failed",
+      explicit_file: "Explicit file exists",
+      command_surface: "Command exists",
+      repo_token: "Technical evidence exists in repository",
+      basename_signal: "File/module exists by name",
+      found_in_repo: "Evidence found in repository",
+      no_clear_evidence: "No clear evidence found in repository",
+      aggregated_scope: "Aggregated check of child items",
+      exact_point: "Exact point check",
+      partial_scope: "Some child items are confirmed and some are not",
+      stage_line: "{code} — {status}",
+      current_line: "{code} — {status}",
+      details_hidden: "Internal technical details hidden",
     },
   };
 
-  const langDict = dict[lang] || dict.en;
-  let str = langDict[key] || dict.en[key] || key;
+  const langDict = dict[lang] || dict.ru;
+  let str = langDict[key] || dict.ru[key] || key;
 
   for (const [k, v] of Object.entries(vars)) {
     str = str.replaceAll(`{${k}}`, String(v));
@@ -247,9 +206,9 @@ function t(lang, key, vars = {}) {
   return str;
 }
 
-function formatStatusForHuman(status, lang) {
-  if (status === "COMPLETE") return t(lang, "complete");
-  if (status === "OPEN") return t(lang, "open");
+function humanStatus(status, lang) {
+  if (status === "COMPLETE") return t(lang, "confirmed");
+  if (status === "OPEN") return t(lang, "not_confirmed");
   if (status === "NO_SIGNALS") return t(lang, "no_signals");
   return status;
 }
@@ -847,51 +806,6 @@ async function searchTokenInRepo(token, ctx) {
   return miss;
 }
 
-function explainCheckLabel(check, lang) {
-  const label = String(check.label || "");
-  const path = String(check.path || "");
-  const token = String(check.token || "");
-  const basename = String(check.basename || "");
-
-  if (check.type === "file_exists") {
-    return `${t(lang, "explicit_file")}: ${path}`;
-  }
-
-  if (check.type === "basename_exists") {
-    return `${t(lang, "basename_signal")}: ${basename}`;
-  }
-
-  if (check.type === "text_exists") {
-    if (label.startsWith("command token:")) {
-      return `${t(lang, "command_surface")}: ${token}`;
-    }
-
-    return `${t(lang, "repo_token")}: ${token}`;
-  }
-
-  return label || check.type;
-}
-
-function explainCheckResultDetails(details, lang) {
-  const value = String(details || "");
-
-  if (value.startsWith("found_in: ")) {
-    return `${t(lang, "found_in")}: ${value.slice("found_in: ".length)}`;
-  }
-
-  if (value.startsWith("found_as: ")) {
-    return `${t(lang, "found_as")}: ${value.slice("found_as: ".length)}`;
-  }
-
-  if (value === "missing_path") return t(lang, "missing_path");
-  if (value === "basename_not_found") return t(lang, "basename_not_found");
-  if (value === "search_unavailable_or_not_found") return t(lang, "search_unavailable");
-  if (value === "search_budget_exhausted") return t(lang, "search_budget");
-  if (value === "not_found_in_repo_text") return t(lang, "no_clear_evidence");
-
-  return value || t(lang, "no_clear_evidence");
-}
-
 async function evaluateCheck(check, ctx) {
   if (check.type === "file_exists") {
     const path = String(check.path || "").trim();
@@ -995,7 +909,6 @@ function aggregateScope(scopeItems) {
       if (!result.ok) {
         failedEntries.push({
           code: item.code,
-          label: result.label,
           details: result.details,
           type: result.type,
           check: item.checks[index],
@@ -1016,57 +929,65 @@ function aggregateScope(scopeItems) {
   };
 }
 
-function formatSingleItemOutput(baseItem, scopeItems, aggregate, coverageMode, lang) {
+function describeCheckShort(entry, lang) {
+  const check = entry.check || {};
+  if (check.type === "file_exists") return t(lang, "explicit_file");
+  if (check.type === "basename_exists") return t(lang, "basename_signal");
+  if (check.type === "text_exists") {
+    if (String(check.label || "").startsWith("command token:")) {
+      return t(lang, "command_surface");
+    }
+    return t(lang, "repo_token");
+  }
+  return t(lang, "repo_token");
+}
+
+function summarizeEvidence(entries, lang) {
+  if (!entries.length) return t(lang, "no_clear_evidence");
+
+  const kinds = new Set(entries.map((e) => describeCheckShort(e, lang)));
+
+  return Array.from(kinds).slice(0, 3).join(", ");
+}
+
+function formatSingleItemOutput(baseItem, scopeItems, aggregate, lang) {
   const lines = [];
 
-  lines.push(t(lang, "single_header", { code: baseItem.code }));
-  lines.push(`${t(lang, "workflow")}: ${baseItem.title || t(lang, "no_title")}`);
-  lines.push(`${t(lang, "status")}: ${formatStatusForHuman(aggregate.status, lang)}`);
-  lines.push(`${t(lang, "scope_items")}: ${aggregate.totalItems}`);
-  lines.push(`${t(lang, "configured_items")}: ${aggregate.configuredItems}`);
-  lines.push(`${t(lang, "checks")}: ${aggregate.passedChecks}/${aggregate.totalChecks}`);
-  lines.push(`${t(lang, "coverage")}: ${coverageMode}`);
-
-  if (aggregate.noSignalItems > 0) {
-    lines.push(`${t(lang, "no_signal_items")}: ${aggregate.noSignalItems}`);
-  }
-
-  if (aggregate.failedEntries.length > 0) {
-    lines.push(`${t(lang, "missing")}:`);
-    for (const entry of aggregate.failedEntries.slice(0, 6)) {
-      lines.push(`- ${entry.code}: ${explainCheckLabel(entry.check || entry, lang)}`);
-      lines.push(`  ${t(lang, "reason")}: ${explainCheckResultDetails(entry.details, lang)}`);
-    }
-  } else if (aggregate.status === "OPEN") {
-    lines.push(`${t(lang, "reason")}: ${t(lang, "no_clear_evidence")}`);
-  }
+  lines.push(t(lang, "header_single", { code: baseItem.code }));
+  lines.push(`${t(lang, "workflow")}: ${baseItem.title || "-"}`);
+  lines.push(`${t(lang, "status")}: ${humanStatus(aggregate.status, lang)}`);
 
   if (scopeItems.length > 1) {
-    lines.push(`${t(lang, "scope")}:`);
-    for (const item of scopeItems.slice(0, 20)) {
-      lines.push(
-        t(lang, "line_scope_item", {
-          code: item.code,
-          status: formatStatusForHuman(item.status, lang),
-          checks: `${item.passedChecks}/${item.totalChecks}`,
-        })
-      );
-    }
+    lines.push(`${t(lang, "checked")}: ${t(lang, "aggregated_scope")}`);
+  } else {
+    lines.push(`${t(lang, "checked")}: ${t(lang, "exact_point")}`);
   }
 
-  lines.push(`${t(lang, "summary_header")}: ${aggregate.status === "COMPLETE" ? t(lang, "confirmed") : t(lang, "not_confirmed")}`);
+  if (aggregate.status === "COMPLETE") {
+    lines.push(`${t(lang, "found")}: ${t(lang, "found_in_repo")}`);
+    lines.push(`${t(lang, "result")}: ${t(lang, "confirmed")}`);
+    return lines.join("\n");
+  }
+
+  if (aggregate.status === "NO_SIGNALS") {
+    lines.push(`${t(lang, "found")}: ${t(lang, "no_signals")}`);
+    lines.push(`${t(lang, "result")}: ${t(lang, "not_confirmed")}`);
+    return lines.join("\n");
+  }
+
+  lines.push(`${t(lang, "found")}: ${summarizeEvidence(aggregate.failedEntries, lang)}`);
+  lines.push(`${t(lang, "result")}: ${t(lang, "not_confirmed")}`);
 
   return lines.join("\n");
 }
 
-function formatAllStagesOutput(topLevelItems, evaluatedItems, coverageMode, lang) {
+function formatAllStagesOutput(topLevelItems, evaluatedItems, lang) {
   const lines = [];
 
-  lines.push(t(lang, "all"));
-  lines.push(`${t(lang, "coverage")}: ${coverageMode}`);
+  lines.push(t(lang, "header_all"));
 
   if (!topLevelItems.length) {
-    lines.push(`${t(lang, "workflow")}: ${t(lang, "no_title")}`);
+    lines.push(`${t(lang, "result")}: ${t(lang, "no_clear_evidence")}`);
     return lines.join("\n");
   }
 
@@ -1075,11 +996,9 @@ function formatAllStagesOutput(topLevelItems, evaluatedItems, coverageMode, lang
     const aggregate = aggregateScope(scopeItems);
 
     lines.push(
-      t(lang, "line_stage_all", {
+      t(lang, "stage_line", {
         code: stage.code,
-        status: formatStatusForHuman(aggregate.status, lang),
-        checks: `${aggregate.passedChecks}/${aggregate.totalChecks}`,
-        items: aggregate.totalItems,
+        status: humanStatus(aggregate.status, lang),
       })
     );
   }
@@ -1087,11 +1006,10 @@ function formatAllStagesOutput(topLevelItems, evaluatedItems, coverageMode, lang
   return lines.join("\n");
 }
 
-function formatCurrentOutput(topLevelItems, evaluatedItems, coverageMode, lang) {
+function formatCurrentOutput(topLevelItems, evaluatedItems, lang) {
   const lines = [];
 
-  lines.push(t(lang, "current_header"));
-  lines.push(`${t(lang, "coverage")}: ${coverageMode}`);
+  lines.push(t(lang, "header_current"));
 
   for (const stage of topLevelItems) {
     const scopeItems = getSubtreeItems(stage.code, evaluatedItems);
@@ -1099,15 +1017,13 @@ function formatCurrentOutput(topLevelItems, evaluatedItems, coverageMode, lang) 
 
     if (aggregate.status !== "COMPLETE") {
       lines.push(`${t(lang, "current_stage")}: ${stage.code}`);
-      lines.push(`${t(lang, "title")}: ${stage.title || t(lang, "no_title")}`);
-      lines.push(`${t(lang, "status")}: ${formatStatusForHuman(aggregate.status, lang)}`);
-      lines.push(`${t(lang, "scope_items")}: ${aggregate.totalItems}`);
-      lines.push(`${t(lang, "checks")}: ${aggregate.passedChecks}/${aggregate.totalChecks}`);
+      lines.push(`${t(lang, "title")}: ${stage.title || "-"}`);
+      lines.push(`${t(lang, "status")}: ${humanStatus(aggregate.status, lang)}`);
       return lines.join("\n");
     }
   }
 
-  lines.push(t(lang, "result_all_complete"));
+  lines.push(t(lang, "all_complete"));
   return lines.join("\n");
 }
 
@@ -1120,7 +1036,7 @@ export async function handleStageCheck(ctx = {}) {
       ? ctx.reply
       : async (text) => ctx.bot.sendMessage(ctx.chatId, String(text ?? ""));
 
-  const lang = detectLanguage(`${ctx.command || ""} ${ctx.rest || ""}`);
+  const lang = detectLanguageFromContext(ctx);
 
   const source = new RepoSource({
     repo: process.env.GITHUB_REPO,
@@ -1177,21 +1093,14 @@ export async function handleStageCheck(ctx = {}) {
   try {
     evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
   } catch {
-    await reply(
-      `${t(lang, "runtime_failed")}\n${t(lang, "coverage")}: ${String(
-        rulesJson?.coverage || "workflow_tree_semantic_auto_signals"
-      ).trim()}`
-    );
+    await reply(t(lang, "runtime_failed"));
     return;
   }
 
   const topLevelStages = workflowItems.filter((item) => item.kind === "stage");
 
-  const coverageMode =
-    String(rulesJson?.coverage || "").trim() || "workflow_tree_semantic_auto_signals";
-
   if (modeInfo.mode === "all") {
-    await reply(formatAllStagesOutput(topLevelStages, evaluatedItems, coverageMode, lang), {
+    await reply(formatAllStagesOutput(topLevelStages, evaluatedItems, lang), {
       cmd: "/stage_check",
       handler: "stageCheck",
       event: "stage_check_all",
@@ -1200,7 +1109,7 @@ export async function handleStageCheck(ctx = {}) {
   }
 
   if (modeInfo.mode === "current") {
-    await reply(formatCurrentOutput(topLevelStages, evaluatedItems, coverageMode, lang), {
+    await reply(formatCurrentOutput(topLevelStages, evaluatedItems, lang), {
       cmd: "/stage_check",
       handler: "stageCheck",
       event: "stage_check_current",
@@ -1213,7 +1122,7 @@ export async function handleStageCheck(ctx = {}) {
 
   if (!baseItem) {
     await reply(
-      `${t(lang, "single_header", { code: itemCode })}\n${t(lang, "status")}: ${t(lang, "item_not_found")}\n${t(lang, "coverage")}: ${coverageMode}`
+      `${t(lang, "header_single", { code: itemCode })}\n${t(lang, "status")}: ${t(lang, "item_not_found")}`
     );
     return;
   }
@@ -1222,7 +1131,7 @@ export async function handleStageCheck(ctx = {}) {
   const aggregate = aggregateScope(scopeItems);
 
   await reply(
-    formatSingleItemOutput(baseItem, scopeItems, aggregate, coverageMode, lang),
+    formatSingleItemOutput(baseItem, scopeItems, aggregate, lang),
     {
       cmd: "/stage_check",
       handler: "stageCheck",

@@ -198,6 +198,36 @@ function isAllowedUppercaseAcronym(token, config) {
   return config.uppercaseAcronymAllowlist.has(raw.toLowerCase());
 }
 
+function isWeakGenericToken(token) {
+  const lower = String(token || "").trim().toLowerCase();
+  return new Set([
+    "context",
+    "contexts",
+    "read",
+    "write",
+    "recent",
+    "run",
+    "fail",
+    "ack",
+    "enqueue",
+    "user",
+    "users",
+    "action",
+    "actions",
+    "access",
+    "permission",
+    "permissions",
+    "denied",
+    "allowed",
+    "interface",
+    "interfaces",
+    "contract",
+    "contracts",
+    "minimal",
+    "minimals",
+  ]).has(lower);
+}
+
 export function isUsefulToken(token, config) {
   const raw = String(token || "").trim();
   if (!raw) return false;
@@ -648,6 +678,34 @@ function extractDefinitionUsageSignals(text, config) {
   return uniq(out).filter((token) => isUsefulToken(token, config));
 }
 
+function classifyItemSemantics(item) {
+  const ownText = `${item.title}\n${item.body || ""}`;
+  const title = String(item.title || "");
+  const lowerTitle = title.toLowerCase();
+
+  const fnTokens = extractFunctionLikeTokens(ownText);
+  const hasExplicitSignature = fnTokens.some((x) => String(x).includes("(") && String(x).includes(")"));
+  const hasFunctionName = fnTokens.some((x) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(x || "")));
+  const hasInterfaceWord =
+    lowerTitle.includes("interface") ||
+    lowerTitle.includes("contract") ||
+    lowerTitle.includes("methods");
+
+  const slashList = extractSlashListItems(ownText);
+  const hasSlashList = slashList.length > 0;
+
+  let semanticType = "generic";
+  if (hasInterfaceWord && hasSlashList) semanticType = "interface_like";
+  else if (hasExplicitSignature || hasFunctionName) semanticType = "signature_like";
+
+  return {
+    semanticType,
+    functionTokens: fnTokens,
+    hasInterfaceWord,
+    hasSlashList,
+  };
+}
+
 export function collectOwnSignals(item, config) {
   const ownText = `${item.title}\n${item.body || ""}`;
   const ownPaths = extractExplicitPaths(ownText);
@@ -657,6 +715,7 @@ export function collectOwnSignals(item, config) {
   const ownIdentifiers = extractIdentifiers(ownText, config);
   const ownPhraseSignals = buildPhraseSemanticSignals(ownText, config);
   const ownDefinitionSignals = extractDefinitionUsageSignals(ownText, config);
+  const semantics = classifyItemSemantics(item);
 
   const ownBacktickPaths = ownBackticked.filter((x) => x.includes("/") && x.includes("."));
   const ownBacktickCommands = ownBackticked.filter((x) => x.startsWith("/"));
@@ -679,6 +738,7 @@ export function collectOwnSignals(item, config) {
       ...ownPhraseSignals,
       ...ownDefinitionSignals,
     ]).filter((token) => isUsefulToken(token, config)),
+    semantics,
   };
 }
 
@@ -893,7 +953,7 @@ function normalizeClusterToken(token, config, sourceType = "signal") {
   if (!value) return "";
 
   if (sourceType === "command") {
-    if (!(value.includes("_") || value.length >= 5 || value.includes("("))) return "";
+    return "";
   }
 
   if (!isUsefulToken(value, config)) return "";
@@ -920,6 +980,7 @@ function rankClusterToken(token) {
   if (lower === "can" || lower.startsWith("can(")) score += 5;
   if (lower.includes("permission")) score += 3;
   if (lower.includes("access")) score += 2;
+  if (isWeakGenericToken(lower)) score -= 4;
 
   score += Math.min(raw.length, 20) * 0.05;
 
@@ -974,6 +1035,7 @@ function buildFunctionContractChecks(item, own, inheritedSignals) {
   const checks = [];
   const ownText = `${item.title}\n${item.body || ""}`;
   const fnTokens = extractFunctionLikeTokens(ownText);
+  const semantics = own.semantics || { semanticType: "generic" };
 
   const seen = new Set();
 
@@ -984,49 +1046,72 @@ function buildFunctionContractChecks(item, own, inheritedSignals) {
     checks.push(check);
   }
 
-  for (const token of fnTokens) {
-    const raw = String(token || "").trim();
-    if (!raw) continue;
+  if (semantics.semanticType === "signature_like") {
+    for (const token of fnTokens) {
+      const raw = String(token || "").trim();
+      if (!raw) continue;
 
-    if (raw.endsWith("(")) {
+      if (raw.endsWith("(")) {
+        push({
+          type: "text_exists",
+          token: raw,
+          label: `function call token: ${raw}`,
+          evidenceClass: "signature_anchor",
+        });
+        continue;
+      }
+
+      if (raw.includes("(")) {
+        push({
+          type: "text_exists",
+          token: raw,
+          label: `function signature token: ${raw}`,
+          evidenceClass: "signature_anchor",
+        });
+        continue;
+      }
+
       push({
         type: "text_exists",
         token: raw,
-        label: `function-like token: ${raw}`,
+        label: `function token: ${raw}`,
+        evidenceClass: isWeakGenericToken(raw) ? "generic_support" : "function_name",
       });
-      continue;
-    }
 
-    if (raw.includes("(")) {
       push({
         type: "text_exists",
-        token: raw,
-        label: `function signature token: ${raw}`,
+        token: `${raw}(`,
+        label: `function call token: ${raw}(`,
+        evidenceClass: "signature_anchor",
       });
-      continue;
     }
-
-    push({
-      type: "text_exists",
-      token: raw,
-      label: `function token: ${raw}`,
-    });
-
-    push({
-      type: "text_exists",
-      token: `${raw}(`,
-      label: `function call token: ${raw}(`,
-    });
   }
 
-  const mergedSignals = uniq([...(own.signals || []), ...(inheritedSignals || [])]);
+  if (semantics.semanticType === "interface_like") {
+    const mergedSignals = uniq([...(own.signals || []), ...(inheritedSignals || [])]);
 
-  if (mergedSignals.includes("can") || mergedSignals.includes("can(")) {
-    push({
-      type: "text_exists",
-      token: "can(",
-      label: "function call token: can(",
-    });
+    for (const token of mergedSignals) {
+      const raw = String(token || "").trim();
+      if (!raw) continue;
+
+      const lower = raw.toLowerCase();
+
+      if (
+        lower === "memoryservice" ||
+        lower === "jobrunner" ||
+        lower === "interface" ||
+        lower === "interfaces" ||
+        lower === "contract" ||
+        lower === "contracts"
+      ) {
+        push({
+          type: "text_exists",
+          token: raw,
+          label: `contract carrier token: ${raw}`,
+          evidenceClass: "carrier_anchor",
+        });
+      }
+    }
   }
 
   return checks;
@@ -1061,7 +1146,7 @@ export function buildAutoChecksForItem(item, itemMap, config) {
                   strongMatchedTokens: Number(check.strongMatchedTokens || 0),
                   strongDistinctFiles: Number(check.strongDistinctFiles || 0),
                 })}`
-              : `text:${String(check.token || "").toLowerCase()}`;
+              : `text:${String(check.token || "").toLowerCase()}:${String(check.evidenceClass || "")}`;
 
     if (seen.has(key)) return;
     seen.add(key);
@@ -1082,6 +1167,7 @@ export function buildAutoChecksForItem(item, itemMap, config) {
         type: "text_exists",
         token: cmd,
         label: `command token: ${cmd}`,
+        evidenceClass: "command_surface",
       });
     }
 
@@ -1107,6 +1193,7 @@ export function buildAutoChecksForItem(item, itemMap, config) {
       type: "file_exists",
       path,
       label: `file path: ${path}`,
+      evidenceClass: "explicit_file",
     });
   }
 
@@ -1115,6 +1202,7 @@ export function buildAutoChecksForItem(item, itemMap, config) {
       type: "text_exists",
       token: cmd,
       label: `command token: ${cmd}`,
+      evidenceClass: "command_surface",
     });
   }
 
@@ -1123,6 +1211,7 @@ export function buildAutoChecksForItem(item, itemMap, config) {
       type: "text_exists",
       token,
       label: `signal token: ${token}`,
+      evidenceClass: isWeakGenericToken(token) ? "generic_support" : "semantic_support",
     });
 
     if (canGenerateBasenameFromSignal(token, config)) {
@@ -1131,6 +1220,7 @@ export function buildAutoChecksForItem(item, itemMap, config) {
           type: "basename_exists",
           basename,
           label: `basename for signal: ${basename}`,
+          evidenceClass: "basename_anchor",
         });
       }
     }
@@ -1141,6 +1231,7 @@ export function buildAutoChecksForItem(item, itemMap, config) {
       type: "text_exists",
       token,
       label: `inherited signal: ${token}`,
+      evidenceClass: isWeakGenericToken(token) ? "generic_support" : "semantic_support",
     });
 
     if (canGenerateBasenameFromSignal(token, config)) {
@@ -1149,6 +1240,7 @@ export function buildAutoChecksForItem(item, itemMap, config) {
           type: "basename_exists",
           basename,
           label: `basename for inherited signal: ${basename}`,
+          evidenceClass: "basename_anchor",
         });
       }
     }

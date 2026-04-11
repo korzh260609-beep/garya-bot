@@ -266,6 +266,29 @@ function indexSpecMatchesPattern(spec, pattern) {
   return true;
 }
 
+async function getParsedMigrationIndex(ctx) {
+  if (ctx.migrationIndexCache) {
+    return ctx.migrationIndexCache;
+  }
+
+  const migrationFiles = ctx.searchableFiles.filter((path) => path.startsWith("migrations/"));
+  const parsed = [];
+
+  for (const path of migrationFiles) {
+    const content = await safeFetchTextFile(path, ctx);
+    if (!content) continue;
+
+    const specs = extractCreateIndexSpecsFromContent(content);
+    parsed.push({
+      path,
+      specs,
+    });
+  }
+
+  ctx.migrationIndexCache = parsed;
+  return parsed;
+}
+
 export async function findStructuredIndexInMigrations(pattern, ctx) {
   const cacheKey = JSON.stringify({
     type: "structured_index_exists",
@@ -278,18 +301,14 @@ export async function findStructuredIndexInMigrations(pattern, ctx) {
     return ctx.structuredCache.get(cacheKey);
   }
 
-  const migrationFiles = ctx.searchableFiles.filter((path) => path.startsWith("migrations/"));
+  const parsedMigrations = await getParsedMigrationIndex(ctx);
 
-  for (const path of migrationFiles) {
-    const content = await safeFetchTextFile(path, ctx);
-    if (!content) continue;
-
-    const specs = extractCreateIndexSpecsFromContent(content);
-    for (const spec of specs) {
+  for (const entry of parsedMigrations) {
+    for (const spec of entry.specs) {
       if (indexSpecMatchesPattern(spec, pattern)) {
         const result = {
           ok: true,
-          details: `structured_match_in: ${path}${spec.tableName ? ` @ ${spec.tableName}` : ""}`,
+          details: `structured_match_in: ${entry.path}${spec.tableName ? ` @ ${spec.tableName}` : ""}`,
         };
         ctx.structuredCache.set(cacheKey, result);
         return result;

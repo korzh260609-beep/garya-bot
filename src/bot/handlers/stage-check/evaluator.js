@@ -7,6 +7,7 @@ import {
   findBasenameInRepo,
   searchTokenInRepo,
   findStructuredIndexInMigrations,
+  findSignalClusterInRepo,
 } from "./repoUtils.js";
 
 export async function evaluateCheck(check, ctx) {
@@ -19,6 +20,7 @@ export async function evaluateCheck(check, ctx) {
       type: check.type,
       label: check.label || path || "file_exists",
       details: path || "missing_path",
+      strength: ok ? "strong" : "none",
     };
   }
 
@@ -32,6 +34,7 @@ export async function evaluateCheck(check, ctx) {
       type: check.type,
       label: check.label || basename || "basename_exists",
       details: ok ? `found_as: ${foundPath}` : "basename_not_found",
+      strength: ok ? "strong" : "none",
     };
   }
 
@@ -44,6 +47,7 @@ export async function evaluateCheck(check, ctx) {
       type: check.type,
       label: check.label || token || "text_exists",
       details: searchResult.details,
+      strength: searchResult.ok ? "weak" : "none",
     };
   }
 
@@ -55,6 +59,21 @@ export async function evaluateCheck(check, ctx) {
       type: check.type,
       label: check.label || "structured_index_exists",
       details: searchResult.details,
+      strength: searchResult.ok ? "strong" : "none",
+    };
+  }
+
+  if (check.type === "signal_cluster_exists") {
+    const searchResult = await findSignalClusterInRepo(check, ctx);
+
+    return {
+      ok: searchResult.ok,
+      type: check.type,
+      label: check.label || "signal_cluster_exists",
+      details: searchResult.details,
+      strength: searchResult.ok ? searchResult.strength || "weak" : "none",
+      matchedTokens: searchResult.matchedTokens ?? 0,
+      distinctFiles: searchResult.distinctFiles ?? 0,
     };
   }
 
@@ -63,10 +82,11 @@ export async function evaluateCheck(check, ctx) {
     type: String(check.type || "unknown"),
     label: String(check.label || "unsupported_check"),
     details: "unsupported_check_type",
+    strength: "none",
   };
 }
 
-function isStrongCheckType(type) {
+function isExplicitStrongCheckType(type) {
   return (
     type === "file_exists" ||
     type === "basename_exists" ||
@@ -90,25 +110,39 @@ export async function evaluateSingleItem(item, ctx) {
   const passedChecks = results.filter((x) => x.ok).length;
   const failedChecks = results.filter((x) => !x.ok).length;
 
-  const strongEntries = entries.filter((entry) =>
-    isStrongCheckType(entry.check?.type)
+  const explicitStrongEntries = entries.filter((entry) =>
+    isExplicitStrongCheckType(entry.check?.type)
+  );
+  const clusterEntries = entries.filter(
+    (entry) => entry.check?.type === "signal_cluster_exists"
   );
   const weakEntries = entries.filter(
-    (entry) => !isStrongCheckType(entry.check?.type)
+    (entry) =>
+      !isExplicitStrongCheckType(entry.check?.type) &&
+      entry.check?.type !== "signal_cluster_exists"
   );
 
-  const hasStrongChecks = strongEntries.length > 0;
-  const hasPassedStrongCheck = strongEntries.some((entry) => entry.result?.ok);
+  const hasExplicitStrongChecks = explicitStrongEntries.length > 0;
+  const hasPassedExplicitStrong = explicitStrongEntries.some((entry) => entry.result?.ok);
+
+  const hasClusterChecks = clusterEntries.length > 0;
+  const hasPassedStrongCluster = clusterEntries.some(
+    (entry) => entry.result?.ok && entry.result?.strength === "strong"
+  );
+  const hasPassedWeakCluster = clusterEntries.some(
+    (entry) => entry.result?.ok && entry.result?.strength === "weak"
+  );
+
   const hasPassedWeakCheck = weakEntries.some((entry) => entry.result?.ok);
 
   let status = "NO_SIGNALS";
 
   if (autoChecks.length === 0) {
     status = "NO_SIGNALS";
-  } else if (hasPassedStrongCheck) {
+  } else if (hasPassedExplicitStrong || hasPassedStrongCluster) {
     status = "COMPLETE";
-  } else if (hasStrongChecks) {
-    status = hasPassedWeakCheck ? "PARTIAL" : "OPEN";
+  } else if (hasExplicitStrongChecks || hasClusterChecks) {
+    status = hasPassedWeakCluster || hasPassedWeakCheck ? "PARTIAL" : "OPEN";
   } else if (failedChecks === 0) {
     status = "COMPLETE";
   } else if (passedChecks > 0) {

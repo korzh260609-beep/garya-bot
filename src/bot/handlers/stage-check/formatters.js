@@ -240,10 +240,18 @@ function sortCodes(a, b) {
   });
 }
 
+function hasDescendantsInScope(item, scopeItems) {
+  return scopeItems.some(
+    (other) => other.code !== item.code && other.code.startsWith(`${item.code}.`)
+  );
+}
+
+function getLeafScopeItems(scopeItems) {
+  return scopeItems.filter((item) => !hasDescendantsInScope(item, scopeItems));
+}
+
 function formatChildLines(scopeItems, humanStatus) {
-  const childItems = scopeItems
-    .filter((item) => item.kind !== "stage")
-    .sort(sortCodes);
+  const childItems = getLeafScopeItems(scopeItems).sort(sortCodes);
 
   if (!childItems.length) return [];
 

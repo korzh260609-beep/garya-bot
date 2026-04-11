@@ -66,6 +66,14 @@ export async function evaluateCheck(check, ctx) {
   };
 }
 
+function isStrongCheckType(type) {
+  return (
+    type === "file_exists" ||
+    type === "basename_exists" ||
+    type === "structured_index_exists"
+  );
+}
+
 export async function evaluateSingleItem(item, ctx) {
   const autoChecks = buildAutoChecksForItem(item, ctx.itemMap, ctx.config);
 
@@ -82,18 +90,25 @@ export async function evaluateSingleItem(item, ctx) {
   const passedChecks = results.filter((x) => x.ok).length;
   const failedChecks = results.filter((x) => !x.ok).length;
 
-  const structuredEntries = entries.filter(
-    (entry) => entry.check?.type === "structured_index_exists"
+  const strongEntries = entries.filter((entry) =>
+    isStrongCheckType(entry.check?.type)
   );
-  const hasStructuredChecks = structuredEntries.length > 0;
-  const hasPassedStructuredCheck = structuredEntries.some((entry) => entry.result?.ok);
+  const weakEntries = entries.filter(
+    (entry) => !isStrongCheckType(entry.check?.type)
+  );
+
+  const hasStrongChecks = strongEntries.length > 0;
+  const hasPassedStrongCheck = strongEntries.some((entry) => entry.result?.ok);
+  const hasPassedWeakCheck = weakEntries.some((entry) => entry.result?.ok);
 
   let status = "NO_SIGNALS";
 
   if (autoChecks.length === 0) {
     status = "NO_SIGNALS";
-  } else if (hasStructuredChecks) {
-    status = hasPassedStructuredCheck ? "COMPLETE" : "OPEN";
+  } else if (hasPassedStrongCheck) {
+    status = "COMPLETE";
+  } else if (hasStrongChecks) {
+    status = hasPassedWeakCheck ? "PARTIAL" : "OPEN";
   } else if (failedChecks === 0) {
     status = "COMPLETE";
   } else if (passedChecks > 0) {

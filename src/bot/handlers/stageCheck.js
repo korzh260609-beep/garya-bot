@@ -85,6 +85,27 @@ async function buildItemDiag(item, evaluationCtx) {
   };
 }
 
+function createEvaluationCtx({
+  source,
+  config,
+  fileSet,
+  searchableFiles,
+  itemMap,
+}) {
+  return {
+    source,
+    config,
+    fileSet,
+    searchableFiles,
+    contentCache: new Map(),
+    searchCache: new Map(),
+    structuredCache: new Map(),
+    fetchStats: { used: 0 },
+    errorStats: { fetchFailures: 0 },
+    itemMap,
+  };
+}
+
 export async function handleStageCheck(ctx = {}) {
   const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
@@ -140,19 +161,6 @@ export async function handleStageCheck(ctx = {}) {
     config
   );
 
-  const evaluationCtx = {
-    source,
-    config,
-    fileSet,
-    searchableFiles,
-    contentCache: new Map(),
-    searchCache: new Map(),
-    structuredCache: new Map(),
-    fetchStats: { used: 0 },
-    errorStats: { fetchFailures: 0 },
-    itemMap,
-  };
-
   const topLevelStages = workflowItems.filter((item) => item.kind === "stage");
   const targetItem =
     modeInfo.mode === "item"
@@ -160,6 +168,14 @@ export async function handleStageCheck(ctx = {}) {
       : null;
 
   if (modeInfo.diag) {
+    const evaluationCtx = createEvaluationCtx({
+      source,
+      config,
+      fileSet,
+      searchableFiles,
+      itemMap,
+    });
+
     const itemDiag = targetItem
       ? await buildItemDiag(targetItem, evaluationCtx)
       : null;
@@ -185,15 +201,23 @@ export async function handleStageCheck(ctx = {}) {
     return;
   }
 
-  let evaluatedItems;
-  try {
-    evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
-  } catch {
-    await reply(t("runtime_failed"));
-    return;
-  }
-
   if (modeInfo.mode === "all") {
+    const evaluationCtx = createEvaluationCtx({
+      source,
+      config,
+      fileSet,
+      searchableFiles,
+      itemMap,
+    });
+
+    let evaluatedItems;
+    try {
+      evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
+    } catch {
+      await reply(t("runtime_failed"));
+      return;
+    }
+
     await reply(
       formatAllStagesOutput({
         topLevelItems: topLevelStages,
@@ -211,6 +235,22 @@ export async function handleStageCheck(ctx = {}) {
   }
 
   if (modeInfo.mode === "current") {
+    const evaluationCtx = createEvaluationCtx({
+      source,
+      config,
+      fileSet,
+      searchableFiles,
+      itemMap,
+    });
+
+    let evaluatedItems;
+    try {
+      evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
+    } catch {
+      await reply(t("runtime_failed"));
+      return;
+    }
+
     await reply(
       formatCurrentOutput({
         topLevelItems: topLevelStages,
@@ -237,7 +277,23 @@ export async function handleStageCheck(ctx = {}) {
     return;
   }
 
-  const scopeItems = getSubtreeItems(itemCode, evaluatedItems);
+  const scopeWorkflowItems = getSubtreeItems(itemCode, workflowItems);
+  const evaluationCtx = createEvaluationCtx({
+    source,
+    config,
+    fileSet,
+    searchableFiles,
+    itemMap,
+  });
+
+  let scopeItems;
+  try {
+    scopeItems = await buildEvaluatedItems(scopeWorkflowItems, evaluationCtx);
+  } catch {
+    await reply(t("runtime_failed"));
+    return;
+  }
+
   const aggregate = aggregateScope(scopeItems);
 
   await reply(

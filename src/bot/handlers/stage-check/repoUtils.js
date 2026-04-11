@@ -4,6 +4,10 @@
 
 import { escapeRegExp, uniq } from "./common.js";
 
+const SELF_EVIDENCE_PREFIXES = [
+  "src/bot/handlers/stage-check/",
+];
+
 export function findBasenameInRepo(basename, fileSet) {
   const target = String(basename || "").toLowerCase();
 
@@ -15,6 +19,11 @@ export function findBasenameInRepo(basename, fileSet) {
   }
 
   return null;
+}
+
+function isSelfEvidencePath(path) {
+  const value = String(path || "").toLowerCase();
+  return SELF_EVIDENCE_PREFIXES.some((prefix) => value.startsWith(prefix));
 }
 
 export async function safeFetchTextFile(path, ctx) {
@@ -52,8 +61,8 @@ function makeLooseTokenRegex(token) {
   const raw = String(token || "").trim();
   if (!raw) return null;
 
-  const normalized = raw
-    .replace(/[-\s]+/g, "[_\\-\\s]?")
+  const normalized = escapeRegExp(raw)
+    .replace(/\\[-\s]+/g, "[_\\-\\s]?")
     .replace(/_/g, "[_\\-\\s]?");
 
   return new RegExp(
@@ -85,6 +94,15 @@ function buildPathTokenVariants(token) {
     out.add(lower.replace(/\s+/g, ""));
   }
 
+  if (lower.endsWith("(")) {
+    out.add(lower.slice(0, -1));
+  }
+
+  if (lower.includes("(")) {
+    const prefix = lower.split("(")[0]?.trim();
+    if (prefix) out.add(prefix);
+  }
+
   return Array.from(out);
 }
 
@@ -92,6 +110,14 @@ function filePathLooksRelevant(path, token) {
   const lowerPath = String(path || "").toLowerCase();
   const variants = buildPathTokenVariants(token);
   return variants.some((variant) => variant && lowerPath.includes(variant));
+}
+
+function normalizeSearchToken(token) {
+  const raw = String(token || "").trim();
+  if (!raw) return "";
+
+  if (raw.endsWith("(")) return raw;
+  return raw;
 }
 
 async function ensureSearchCaches(ctx) {
@@ -116,8 +142,29 @@ async function ensureSearchCaches(ctx) {
   ctx.fileSearchPrepared = true;
 }
 
+function contentMatchesToken(content, token, exactRegex, looseRegex) {
+  const raw = String(token || "").trim();
+  if (!raw) return false;
+
+  if (raw.endsWith("(")) {
+    return content.includes(raw);
+  }
+
+  if (raw.includes("(")) {
+    return content.includes(raw);
+  }
+
+  return content.includes(raw) || exactRegex.test(content) || (looseRegex ? looseRegex.test(content) : false);
+}
+
+function preferNonSelfEvidence(paths) {
+  const nonSelf = paths.filter((p) => !isSelfEvidencePath(p));
+  if (nonSelf.length > 0) return nonSelf;
+  return paths;
+}
+
 async function collectTokenHitPaths(token, ctx) {
-  const normalizedToken = String(token || "").trim();
+  const normalizedToken = normalizeSearchToken(token);
   if (!normalizedToken) {
     return { ok: false, details: "missing_token", paths: [] };
   }
@@ -129,8 +176,8 @@ async function collectTokenHitPaths(token, ctx) {
     return ctx.tokenHitsCache.get(cacheKey);
   }
 
-  const exactRegex = makeTokenRegex(normalizedToken);
-  const looseRegex = makeLooseTokenRegex(normalizedToken);
+  const exactRegex = makeTokenRegex(normalizedToken.replace(/\($/, ""));
+  const looseRegex = makeLooseTokenRegex(normalizedToken.replace(/\($/, ""));
   const matchedPaths = [];
 
   const candidatePaths = Array.isArray(ctx.preloadedPaths) ? ctx.preloadedPaths : [];
@@ -140,28 +187,36 @@ async function collectTokenHitPaths(token, ctx) {
     if (!content) continue;
 
     const fastPathHit = filePathLooksRelevant(path, normalizedToken);
-    const exactHit = content.includes(normalizedToken) || exactRegex.test(content);
-    const looseHit = looseRegex ? looseRegex.test(content) : false;
+    const exactHit = contentMatchesToken(content, normalizedToken, exactRegex, looseRegex);
 
-    if (fastPathHit || exactHit || looseHit) {
+    if (fastPathHit || exactHit) {
       matchedPaths.push(path);
       if (matchedPaths.length >= 20) break;
     }
   }
 
+  const preferredPaths = preferNonSelfEvidence(matchedPaths);
+
+  const hadBudgetToSearch =
+    Array.isArray(candidatePaths) && candidatePaths.length > 0;
+
   const budgetExhausted =
+    !preferredPaths.length &&
     ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand &&
     (!Array.isArray(ctx.availableSearchFiles) ||
-      candidatePaths.length < ctx.availableSearchFiles.length);
+      candidatePaths.length < ctx.availableSearchFiles.length) &&
+    !hadBudgetToSearch;
 
   const result =
-    matchedPaths.length > 0
-      ? { ok: true, details: `found_in: ${matchedPaths[0]}`, paths: matchedPaths }
-      : ctx.errorStats.fetchFailures > 0
-        ? { ok: false, details: "search_unavailable_or_not_found", paths: [] }
-        : budgetExhausted
-          ? { ok: false, details: "search_budget_exhausted", paths: [] }
-          : { ok: false, details: "not_found_in_repo_text", paths: [] };
+    preferredPaths.length > 0
+      ? { ok: true, details: `found_in: ${preferredPaths[0]}`, paths: preferredPaths }
+      : matchedPaths.length > 0
+        ? { ok: true, details: `found_only_in_self_checker: ${matchedPaths[0]}`, paths: matchedPaths }
+        : ctx.errorStats.fetchFailures > 0
+          ? { ok: false, details: "search_unavailable_or_not_found", paths: [] }
+          : budgetExhausted
+            ? { ok: false, details: "search_budget_exhausted", paths: [] }
+            : { ok: false, details: "not_found_in_repo_text", paths: [] };
 
   ctx.tokenHitsCache.set(cacheKey, result);
   return result;
@@ -208,6 +263,7 @@ export async function findSignalClusterInRepo(check, ctx) {
 
   const tokenHits = [];
   const fileHitSet = new Set();
+  const nonSelfFileHitSet = new Set();
   let exhaustedCount = 0;
 
   for (const token of tokens) {
@@ -226,32 +282,45 @@ export async function findSignalClusterInRepo(check, ctx) {
 
     for (const p of hit.paths) {
       fileHitSet.add(p);
+      if (!isSelfEvidencePath(p)) {
+        nonSelfFileHitSet.add(p);
+      }
     }
   }
 
   const matchedTokens = tokenHits.length;
   const distinctFiles = fileHitSet.size;
-  const ok = matchedTokens >= minMatchedTokens && distinctFiles >= minDistinctFiles;
+  const distinctNonSelfFiles = nonSelfFileHitSet.size;
+
+  const effectiveDistinctFiles =
+    distinctNonSelfFiles > 0 ? distinctNonSelfFiles : distinctFiles;
+
+  const ok = matchedTokens >= minMatchedTokens && effectiveDistinctFiles >= minDistinctFiles;
 
   let strength = "none";
   if (ok) {
     strength =
-      matchedTokens >= strongMatchedTokens && distinctFiles >= strongDistinctFiles
+      matchedTokens >= strongMatchedTokens && effectiveDistinctFiles >= strongDistinctFiles
         ? "strong"
         : "weak";
   }
 
   if (ok) {
-    const filesPreview = Array.from(fileHitSet).slice(0, 4).join(", ");
+    const filesPreview = Array.from(
+      nonSelfFileHitSet.size > 0 ? nonSelfFileHitSet : fileHitSet
+    )
+      .slice(0, 4)
+      .join(", ");
     const tokensPreview = tokenHits.slice(0, 4).map((x) => x.token).join(", ");
+
     return {
       ok: true,
       details:
         `cluster_match strength:${strength} ` +
-        `tokens:${matchedTokens}/${tokens.length}, files:${distinctFiles}; ` +
+        `tokens:${matchedTokens}/${tokens.length}, files:${effectiveDistinctFiles}; ` +
         `tokens=[${tokensPreview}] files=[${filesPreview}]`,
       matchedTokens,
-      distinctFiles,
+      distinctFiles: effectiveDistinctFiles,
       strength,
     };
   }
@@ -265,9 +334,9 @@ export async function findSignalClusterInRepo(check, ctx) {
 
   return {
     ok: false,
-    details: `${reason} tokens:${matchedTokens}/${tokens.length}, files:${distinctFiles}`,
+    details: `${reason} tokens:${matchedTokens}/${tokens.length}, files:${effectiveDistinctFiles}`,
     matchedTokens,
-    distinctFiles,
+    distinctFiles: effectiveDistinctFiles,
     strength,
   };
 }

@@ -26,6 +26,11 @@ export function buildConfig(rulesJson) {
         ? cfg.stop_tokens.map((x) => String(x || "").toLowerCase()).filter(Boolean)
         : []
     ),
+    uppercaseAcronymAllowlist: new Set(
+      Array.isArray(cfg.uppercase_acronym_allowlist)
+        ? cfg.uppercase_acronym_allowlist.map((x) => String(x || "").toLowerCase()).filter(Boolean)
+        : ["api", "rss", "jwt", "ocr", "tts", "sbt", "dao", "rpc", "dlq"]
+    ),
     basenameSignalSuffixes: Array.isArray(cfg.basename_signal_suffixes)
       ? cfg.basename_signal_suffixes.map((x) => String(x || ""))
       : [
@@ -144,6 +149,12 @@ function isAllUppercaseWord(token) {
   return /^[A-Z][A-Z0-9_-]+$/.test(String(token || ""));
 }
 
+function isAllowedUppercaseAcronym(token, config) {
+  const raw = String(token || "").trim();
+  if (!raw || !isAllUppercaseWord(raw) || raw.includes("_")) return false;
+  return config.uppercaseAcronymAllowlist.has(raw.toLowerCase());
+}
+
 export function isUsefulToken(token, config) {
   const raw = String(token || "").trim();
   if (!raw) return false;
@@ -159,10 +170,70 @@ export function isUsefulToken(token, config) {
   if (/^[ivxlcdm]+$/i.test(lower)) return false;
 
   if (isAllUppercaseWord(raw) && !raw.includes("_")) {
-    return false;
+    return isAllowedUppercaseAcronym(raw, config);
   }
 
   return true;
+}
+
+function buildConceptualVariants(token, config) {
+  const raw = String(token || "").trim();
+  if (!raw) return [];
+
+  const out = new Set();
+  const lower = raw.toLowerCase();
+
+  function add(value) {
+    const text = String(value || "").trim();
+    if (!text) return;
+    if (isUsefulToken(text, config)) out.add(text);
+  }
+
+  add(raw);
+  add(lower);
+
+  if (raw.includes("-")) {
+    add(raw.replace(/-/g, "_"));
+    add(raw.replace(/-/g, ""));
+    add(raw.replace(/-/g, " "));
+  }
+
+  if (raw.includes("_")) {
+    add(raw.replace(/_/g, "-"));
+    add(raw.replace(/_/g, ""));
+  }
+
+  if (lower.endsWith("ies") && lower.length > 4) {
+    add(lower.slice(0, -3) + "y");
+  }
+
+  if (lower.endsWith("s") && lower.length > 3) {
+    add(lower.slice(0, -1));
+  } else {
+    add(`${lower}s`);
+  }
+
+  if (lower.includes("retries")) {
+    add(lower.replace(/retries/g, "retry"));
+  }
+  if (lower.includes("retry")) {
+    add(lower.replace(/retry/g, "retries"));
+    add("retry_at");
+    add("max_retries");
+  }
+
+  if (lower.includes("fail")) {
+    add("fail_reason");
+    add("fail_code");
+    add("failed_at");
+    add("last_error_at");
+  }
+
+  if (lower.includes("reason")) {
+    add("fail_reason");
+  }
+
+  return uniq(Array.from(out));
 }
 
 export function extractIdentifiers(text, config) {
@@ -174,9 +245,16 @@ export function extractIdentifiers(text, config) {
   const pascal = source.match(/\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b/g) || [];
   const kebab = source.match(/\b[a-z0-9]+(?:-[a-z0-9]+)+\b/g) || [];
 
-  return uniq([...snake, ...upper, ...camel, ...pascal, ...kebab]).filter((token) =>
+  const base = uniq([...snake, ...upper, ...camel, ...pascal, ...kebab]).filter((token) =>
     isUsefulToken(token, config)
   );
+
+  const expanded = [];
+  for (const token of base) {
+    expanded.push(...buildConceptualVariants(token, config));
+  }
+
+  return uniq(expanded).filter((token) => isUsefulToken(token, config));
 }
 
 function isPascalCaseToken(token) {
@@ -231,13 +309,18 @@ export function collectOwnSignals(item, config) {
     (x) => !x.startsWith("/") && !(x.includes("/") && x.includes("."))
   );
 
+  const expandedBackticks = [];
+  for (const token of ownBacktickIdentifiers) {
+    expandedBackticks.push(...buildConceptualVariants(token, config));
+  }
+
   return {
     explicitPaths: uniq([...ownPaths, ...ownBacktickPaths]),
     commands: uniq([...ownCommands, ...ownBacktickCommands.map((x) => x.toLowerCase())]),
     signals: uniq([
       ...ownIdentifiers,
       ...ownSlashList,
-      ...ownBacktickIdentifiers,
+      ...expandedBackticks,
     ]).filter((token) => isUsefulToken(token, config)),
   };
 }
@@ -255,8 +338,10 @@ export function collectInheritedSignals(item, itemMap, config) {
     ]);
 
     for (const token of tokens) {
-      if (canGenerateBasenameFromSignal(token, config) || isUsefulToken(token, config)) {
-        ancestorSignals.push(token);
+      for (const variant of buildConceptualVariants(token, config)) {
+        if (canGenerateBasenameFromSignal(variant, config) || isUsefulToken(variant, config)) {
+          ancestorSignals.push(variant);
+        }
       }
     }
   }

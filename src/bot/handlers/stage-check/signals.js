@@ -13,6 +13,7 @@ export function buildConfig(rulesJson) {
     minIdentifierLength: Number(cfg.min_identifier_length || 3),
     maxSearchFilesPerToken: Number(cfg.max_search_files_per_token || 300),
     maxInheritedSignals: Number(cfg.max_inherited_signals || 6),
+    maxDescendantSignals: Number(cfg.max_descendant_signals || 4),
     maxFileFetchesPerCommand: Number(cfg.max_file_fetches_per_command || 120),
     preferredPathPrefixes: Array.isArray(cfg.preferred_path_prefixes)
       ? cfg.preferred_path_prefixes.map((x) => String(x || ""))
@@ -61,6 +62,11 @@ export function buildConfig(rulesJson) {
     minPascalCaseBasenameLength: Number(
       cfg.min_pascal_case_basename_length || 6
     ),
+    clusterMaxTokens: Number(cfg.cluster_max_tokens || 8),
+    clusterMinMatchedTokens: Number(cfg.cluster_min_matched_tokens || 2),
+    clusterMinDistinctFiles: Number(cfg.cluster_min_distinct_files || 2),
+    clusterStrongMatchedTokens: Number(cfg.cluster_strong_matched_tokens || 3),
+    clusterStrongDistinctFiles: Number(cfg.cluster_strong_distinct_files || 2),
   };
 }
 
@@ -435,6 +441,63 @@ export function buildStructuredChecksForItem(item, itemMap) {
   return [];
 }
 
+function normalizeClusterToken(token, config, sourceType = "signal") {
+  const raw = String(token || "").trim();
+  if (!raw) return "";
+
+  const value = raw.startsWith("/") ? raw.slice(1) : raw;
+  if (!value) return "";
+
+  if (sourceType === "command") {
+    if (!(value.includes("_") || value.length >= 5)) return "";
+  }
+
+  if (!isUsefulToken(value, config)) return "";
+  return value;
+}
+
+function buildClusterTokens({ own, inheritedSignals, config }) {
+  const out = [];
+
+  for (const cmd of own.commands || []) {
+    const normalized = normalizeClusterToken(cmd, config, "command");
+    if (normalized) out.push(normalized);
+  }
+
+  for (const token of own.signals || []) {
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized) out.push(normalized);
+  }
+
+  for (const token of inheritedSignals || []) {
+    const normalized = normalizeClusterToken(token, config, "inherited");
+    if (normalized) out.push(normalized);
+  }
+
+  return uniq(out).slice(0, Math.max(1, config.clusterMaxTokens));
+}
+
+function buildClusterCheck({ own, inheritedSignals, config }) {
+  const tokens = buildClusterTokens({ own, inheritedSignals, config });
+  if (tokens.length < Math.max(3, config.clusterMinMatchedTokens)) return null;
+
+  return {
+    type: "signal_cluster_exists",
+    tokens,
+    minMatchedTokens: Math.max(1, config.clusterMinMatchedTokens),
+    minDistinctFiles: Math.max(1, config.clusterMinDistinctFiles),
+    strongMatchedTokens: Math.max(
+      Math.max(1, config.clusterMinMatchedTokens),
+      config.clusterStrongMatchedTokens
+    ),
+    strongDistinctFiles: Math.max(
+      Math.max(1, config.clusterMinDistinctFiles),
+      config.clusterStrongDistinctFiles
+    ),
+    label: `signal cluster: ${tokens.join(", ")}`,
+  };
+}
+
 export function buildAutoChecksForItem(item, itemMap, config) {
   const own = collectOwnSignals(item, config);
   const inheritedSignals = collectInheritedSignals(item, itemMap, config);
@@ -456,7 +519,15 @@ export function buildAutoChecksForItem(item, itemMap, config) {
                 unique: !!check.unique,
                 fields: check.fields || [],
               })}`
-            : `text:${String(check.token || "").toLowerCase()}`;
+            : check.type === "signal_cluster_exists"
+              ? `cluster:${JSON.stringify({
+                  tokens: check.tokens || [],
+                  minMatchedTokens: Number(check.minMatchedTokens || 0),
+                  minDistinctFiles: Number(check.minDistinctFiles || 0),
+                  strongMatchedTokens: Number(check.strongMatchedTokens || 0),
+                  strongDistinctFiles: Number(check.strongDistinctFiles || 0),
+                })}`
+              : `text:${String(check.token || "").toLowerCase()}`;
 
     if (seen.has(key)) return;
     seen.add(key);
@@ -485,6 +556,11 @@ export function buildAutoChecksForItem(item, itemMap, config) {
 
   for (const structuredCheck of structuredChecks) {
     pushCheck(priorityChecks, structuredCheck);
+  }
+
+  const clusterCheck = buildClusterCheck({ own, inheritedSignals, config });
+  if (clusterCheck) {
+    pushCheck(priorityChecks, clusterCheck);
   }
 
   for (const path of own.explicitPaths) {

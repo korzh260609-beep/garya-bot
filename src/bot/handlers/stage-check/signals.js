@@ -56,6 +56,11 @@ export function buildConfig(rulesJson) {
         ? cfg.generic_uppercase_words.map((x) => String(x || "").toLowerCase()).filter(Boolean)
         : []
     ),
+    allowPascalCaseBasenameSignals:
+      cfg.allow_pascal_case_basename_signals !== false,
+    minPascalCaseBasenameLength: Number(
+      cfg.min_pascal_case_basename_length || 6
+    ),
   };
 }
 
@@ -180,7 +185,16 @@ export function canGenerateBasenameFromSignal(token, config) {
   if (!isPascalCaseToken(raw)) return false;
   if (config.basenameBlocklist.has(lower)) return false;
 
-  return config.basenameSignalSuffixes.some((suffix) => raw.endsWith(suffix));
+  const hasKnownSuffix = config.basenameSignalSuffixes.some((suffix) =>
+    raw.endsWith(suffix)
+  );
+
+  if (hasKnownSuffix) return true;
+
+  if (!config.allowPascalCaseBasenameSignals) return false;
+  if (raw.length < config.minPascalCaseBasenameLength) return false;
+
+  return true;
 }
 
 export function buildCandidateBasenamesFromToken(token) {

@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "coverage": "workflow_tree_semantic_auto_signals",
   "notes": [
     "Universal stage_check engine config",
@@ -9,7 +9,7 @@
     "Signals include file paths, slash commands, snake_case, UPPER_CASE, camelCase, PascalCase, kebab-case, backticked tokens, and slash-list interfaces",
     "Strong parent signals are inherited by child points and substages",
     "Strong descendant signals can help abstract parent containers",
-    "Basename checks are allowed only for service-like PascalCase signals",
+    "Basename checks are allowed for explicit service-like suffixes and for general PascalCase module/class names",
     "Input stage codes may contain visually similar Cyrillic letters and must still resolve correctly",
     "Repo text search must degrade softly on GitHub/API fetch failures or fetch-budget exhaustion"
   ],
@@ -61,6 +61,8 @@
       "Guard",
       "Policy"
     ],
+    "allow_pascal_case_basename_signals": true,
+    "min_pascal_case_basename_length": 6,
     "basename_blocklist": [
       "wired",
       "future",

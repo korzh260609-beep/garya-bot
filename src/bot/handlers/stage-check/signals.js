@@ -176,6 +176,156 @@ export function isUsefulToken(token, config) {
   return true;
 }
 
+function splitPhraseWords(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[`"'()[\]{}:;,.!?]/g, " ")
+    .replace(/[\/\\]/g, " ")
+    .replace(/-/g, " ")
+    .split(/\s+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function toPascalCase(words) {
+  return words
+    .map((word) => word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : "")
+    .join("");
+}
+
+function addMorphVariants(base, add) {
+  const lower = String(base || "").toLowerCase();
+  if (!lower) return;
+
+  add(lower);
+
+  if (lower.endsWith("ies") && lower.length > 4) {
+    add(lower.slice(0, -3) + "y");
+  }
+
+  if (lower.endsWith("s") && lower.length > 3) {
+    add(lower.slice(0, -1));
+  } else {
+    add(`${lower}s`);
+  }
+
+  if (lower.endsWith("ed") && lower.length > 4) {
+    add(lower.slice(0, -2));
+  }
+
+  if (lower.endsWith("ing") && lower.length > 5) {
+    add(lower.slice(0, -3));
+  }
+}
+
+function addDelimiterVariants(parts, add) {
+  const tokens = parts.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean);
+  if (!tokens.length) return;
+
+  add(tokens.join("_"));
+  add(tokens.join("-"));
+  add(tokens.join(""));
+  add(tokens.join(" "));
+  add(toPascalCase(tokens));
+}
+
+function addConceptFamilies(token, add) {
+  const lower = String(token || "").toLowerCase();
+  if (!lower) return;
+
+  if (lower === "retry" || lower === "retries" || lower === "retried" || lower === "retrying") {
+    [
+      "retry",
+      "retries",
+      "retry_policy",
+      "max_retries",
+      "retry_count",
+      "retry_at",
+      "next_retry_at",
+      "backoff",
+      "jitter",
+      "retryable",
+      "retried_at",
+    ].forEach(add);
+  }
+
+  if (
+    lower === "fail" ||
+    lower === "failed" ||
+    lower === "failure" ||
+    lower === "failures" ||
+    lower === "failing"
+  ) {
+    [
+      "fail",
+      "failed",
+      "failure",
+      "failures",
+      "fail_reason",
+      "fail_reasons",
+      "fail_code",
+      "failure_reason",
+      "error_reason",
+      "failed_at",
+      "last_error_at",
+      "error_code",
+    ].forEach(add);
+  }
+
+  if (lower === "reason" || lower === "reasons") {
+    [
+      "reason",
+      "reasons",
+      "fail_reason",
+      "fail_reasons",
+      "failure_reason",
+      "error_reason",
+    ].forEach(add);
+  }
+
+  if (lower === "error" || lower === "errors") {
+    [
+      "error",
+      "errors",
+      "error_code",
+      "last_error_at",
+      "failure_reason",
+      "fail_reason",
+    ].forEach(add);
+  }
+
+  if (lower === "dlq") {
+    [
+      "dlq",
+      "dlqs",
+      "dead_letter",
+      "dead_letter_queue",
+      "dead-letter",
+      "dead-letter-queue",
+      "dead_letter_queue_enabled",
+      "move_to_dlq",
+      "moveToDlq",
+      "dlq_jobs",
+      "DlqRepo",
+      "JOB_DLQ_ENABLED",
+    ].forEach(add);
+  }
+
+  if (lower === "dead" || lower === "letter" || lower === "queue") {
+    [
+      "dead_letter",
+      "dead_letter_queue",
+      "dead-letter",
+      "dead-letter-queue",
+      "dlq",
+      "dlq_jobs",
+      "move_to_dlq",
+      "moveToDlq",
+      "DlqRepo",
+    ].forEach(add);
+  }
+}
+
 function buildConceptualVariants(token, config) {
   const raw = String(token || "").trim();
   if (!raw) return [];
@@ -201,17 +351,10 @@ function buildConceptualVariants(token, config) {
   if (raw.includes("_")) {
     add(raw.replace(/_/g, "-"));
     add(raw.replace(/_/g, ""));
+    add(raw.replace(/_/g, " "));
   }
 
-  if (lower.endsWith("ies") && lower.length > 4) {
-    add(lower.slice(0, -3) + "y");
-  }
-
-  if (lower.endsWith("s") && lower.length > 3) {
-    add(lower.slice(0, -1));
-  } else {
-    add(`${lower}s`);
-  }
+  addMorphVariants(lower, add);
 
   if (lower.includes("retries")) {
     add(lower.replace(/retries/g, "retry"));
@@ -220,17 +363,96 @@ function buildConceptualVariants(token, config) {
     add(lower.replace(/retry/g, "retries"));
     add("retry_at");
     add("max_retries");
+    add("retry_policy");
+    add("retry_count");
   }
 
   if (lower.includes("fail")) {
     add("fail_reason");
+    add("fail_reasons");
     add("fail_code");
     add("failed_at");
     add("last_error_at");
+    add("failure_reason");
+    add("error_code");
   }
 
   if (lower.includes("reason")) {
     add("fail_reason");
+    add("fail_reasons");
+    add("failure_reason");
+    add("error_reason");
+  }
+
+  if (lower === "dlq" || lower.includes("dead_letter") || lower.includes("dead-letter")) {
+    [
+      "dead_letter",
+      "dead_letter_queue",
+      "dead-letter",
+      "dead-letter-queue",
+      "move_to_dlq",
+      "moveToDlq",
+      "dlq_jobs",
+      "DlqRepo",
+      "JOB_DLQ_ENABLED",
+    ].forEach(add);
+  }
+
+  addConceptFamilies(lower, add);
+
+  return uniq(Array.from(out));
+}
+
+function buildPhraseSemanticSignals(text, config) {
+  const source = String(text || "");
+  const out = new Set();
+
+  function add(value) {
+    const token = String(value || "").trim();
+    if (!token) return;
+    if (isUsefulToken(token, config)) out.add(token);
+  }
+
+  function addExpanded(value) {
+    for (const variant of buildConceptualVariants(value, config)) {
+      add(variant);
+    }
+  }
+
+  const words = splitPhraseWords(source);
+
+  for (const word of words) {
+    addExpanded(word);
+  }
+
+  for (let i = 0; i < words.length; i += 1) {
+    const one = words[i];
+    const two = words.slice(i, i + 2);
+    const three = words.slice(i, i + 3);
+
+    if (two.length === 2) {
+      addDelimiterVariants(two, addExpanded);
+    }
+
+    if (three.length === 3) {
+      addDelimiterVariants(three, addExpanded);
+    }
+
+    if (one === "dead" && words[i + 1] === "letter") {
+      addExpanded("dead_letter");
+      addExpanded("dead_letter_queue");
+      addExpanded("dlq");
+    }
+
+    if (one === "fail" && words[i + 1] === "reasons") {
+      addExpanded("fail_reasons");
+      addExpanded("fail_reason");
+    }
+
+    if (one === "retry" && words[i + 1] === "policy") {
+      addExpanded("retry_policy");
+      addExpanded("max_retries");
+    }
   }
 
   return uniq(Array.from(out));
@@ -302,6 +524,7 @@ export function collectOwnSignals(item, config) {
   const ownBackticked = extractBackticked(ownText);
   const ownSlashList = extractSlashListItems(ownText);
   const ownIdentifiers = extractIdentifiers(ownText, config);
+  const ownPhraseSignals = buildPhraseSemanticSignals(ownText, config);
 
   const ownBacktickPaths = ownBackticked.filter((x) => x.includes("/") && x.includes("."));
   const ownBacktickCommands = ownBackticked.filter((x) => x.startsWith("/"));
@@ -321,6 +544,7 @@ export function collectOwnSignals(item, config) {
       ...ownIdentifiers,
       ...ownSlashList,
       ...expandedBackticks,
+      ...ownPhraseSignals,
     ]).filter((token) => isUsefulToken(token, config)),
   };
 }
@@ -335,6 +559,7 @@ export function collectInheritedSignals(item, itemMap, config) {
       ...extractIdentifiers(parentText, config),
       ...extractBackticked(parentText),
       ...extractSlashListItems(parentText),
+      ...buildPhraseSemanticSignals(parentText, config),
     ]);
 
     for (const token of tokens) {
@@ -541,6 +766,28 @@ function normalizeClusterToken(token, config, sourceType = "signal") {
   return value;
 }
 
+function rankClusterToken(token) {
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+
+  let score = 0;
+
+  if (/[A-Z]/.test(raw) && /[a-z]/.test(raw)) score += 4;
+  if (raw.includes("_")) score += 3;
+  if (raw.includes("-")) score += 2;
+  if (/^[A-Z0-9_]+$/.test(raw) && raw.length >= 3) score += 2;
+  if (lower.includes("retry")) score += 3;
+  if (lower.includes("fail")) score += 3;
+  if (lower.includes("reason")) score += 2;
+  if (lower.includes("dlq")) score += 4;
+  if (lower.includes("dead_letter")) score += 4;
+  if (lower.includes("dead-letter")) score += 4;
+
+  score += Math.min(raw.length, 20) * 0.05;
+
+  return score;
+}
+
 function buildClusterTokens({ own, inheritedSignals, config }) {
   const out = [];
 
@@ -559,7 +806,9 @@ function buildClusterTokens({ own, inheritedSignals, config }) {
     if (normalized) out.push(normalized);
   }
 
-  return uniq(out).slice(0, Math.max(1, config.clusterMaxTokens));
+  return uniq(out)
+    .sort((a, b) => rankClusterToken(b) - rankClusterToken(a))
+    .slice(0, Math.max(1, config.clusterMaxTokens));
 }
 
 function buildClusterCheck({ own, inheritedSignals, config }) {

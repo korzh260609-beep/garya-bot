@@ -145,6 +145,49 @@ export function extractSlashListItems(text) {
   return uniq(out);
 }
 
+function extractFunctionLikeTokens(text) {
+  const source = String(text || "");
+  const out = [];
+
+  const functionPatterns = [
+    /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(([^()]*)\)/g,
+  ];
+
+  for (const re of functionPatterns) {
+    let hit;
+    while ((hit = re.exec(source))) {
+      const fnName = String(hit[1] || "").trim();
+      const argsRaw = String(hit[2] || "").trim();
+
+      if (fnName) out.push(fnName);
+      if (fnName) out.push(`${fnName}(`);
+
+      if (fnName && argsRaw) {
+        out.push(`${fnName}(${argsRaw})`);
+      }
+
+      const args = argsRaw
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+
+      for (const arg of args) {
+        out.push(arg);
+      }
+
+      if (fnName && args.length >= 1) {
+        out.push(`${fnName}(${args[0]}`);
+      }
+
+      if (fnName && args.length >= 2) {
+        out.push(`${fnName}(${args[0]}, ${args[1]})`);
+      }
+    }
+  }
+
+  return uniq(out);
+}
+
 function isAllUppercaseWord(token) {
   return /^[A-Z][A-Z0-9_-]+$/.test(String(token || ""));
 }
@@ -163,7 +206,14 @@ export function isUsefulToken(token, config) {
   if (config.stopTokens.has(lower)) return false;
   if (config.basenameBlocklist.has(lower)) return false;
   if (config.genericUppercaseWords.has(lower)) return false;
-  if (lower.length < config.minIdentifierLength) return false;
+
+  if (
+    !raw.endsWith("(") &&
+    !raw.includes("(") &&
+    lower.length < config.minIdentifierLength
+  ) {
+    return false;
+  }
 
   if (/^[0-9.]+$/.test(lower)) return false;
   if (/^[a-z]$/.test(lower)) return false;
@@ -291,6 +341,70 @@ function addConceptFamilies(token, add) {
       "last_error_at",
       "failure_reason",
       "fail_reason",
+    ].forEach(add);
+  }
+
+  if (lower === "permission" || lower === "permissions") {
+    [
+      "permission",
+      "permissions",
+      "allowed",
+      "denied",
+      "access",
+      "can",
+      "can(",
+      "permission_denied",
+    ].forEach(add);
+  }
+
+  if (lower === "access") {
+    [
+      "access",
+      "allowed",
+      "denied",
+      "permission",
+      "permissions",
+      "can",
+      "can(",
+    ].forEach(add);
+  }
+
+  if (lower === "can") {
+    [
+      "can",
+      "can(",
+      "allowed",
+      "denied",
+      "permission",
+      "permissions",
+      "access",
+    ].forEach(add);
+  }
+
+  if (lower === "enqueue" || lower === "run" || lower === "ack" || lower === "fail") {
+    [
+      "enqueue",
+      "run",
+      "ack",
+      "fail",
+      "JobRunner",
+      "enqueue(",
+      "run(",
+      "ack(",
+      "fail(",
+    ].forEach(add);
+  }
+
+  if (lower === "write" || lower === "read" || lower === "context" || lower === "recent") {
+    [
+      "write",
+      "read",
+      "context",
+      "recent",
+      "write(",
+      "read(",
+      "context(",
+      "recent(",
     ].forEach(add);
   }
 
@@ -429,6 +543,7 @@ function buildPhraseSemanticSignals(text, config) {
     const one = words[i];
     const two = words.slice(i, i + 2);
     const three = words.slice(i, i + 3);
+    const four = words.slice(i, i + 4);
 
     if (two.length === 2) {
       addDelimiterVariants(two, addExpanded);
@@ -436,6 +551,10 @@ function buildPhraseSemanticSignals(text, config) {
 
     if (three.length === 3) {
       addDelimiterVariants(three, addExpanded);
+    }
+
+    if (four.length === 4) {
+      addDelimiterVariants(four, addExpanded);
     }
 
     if (one === "dead" && words[i + 1] === "letter") {
@@ -517,6 +636,18 @@ export function buildCandidateBasenamesFromToken(token) {
   ]);
 }
 
+function extractDefinitionUsageSignals(text, config) {
+  const out = [];
+  const fnTokens = extractFunctionLikeTokens(text);
+
+  for (const token of fnTokens) {
+    out.push(token);
+    out.push(...buildConceptualVariants(token, config));
+  }
+
+  return uniq(out).filter((token) => isUsefulToken(token, config));
+}
+
 export function collectOwnSignals(item, config) {
   const ownText = `${item.title}\n${item.body || ""}`;
   const ownPaths = extractExplicitPaths(ownText);
@@ -525,6 +656,7 @@ export function collectOwnSignals(item, config) {
   const ownSlashList = extractSlashListItems(ownText);
   const ownIdentifiers = extractIdentifiers(ownText, config);
   const ownPhraseSignals = buildPhraseSemanticSignals(ownText, config);
+  const ownDefinitionSignals = extractDefinitionUsageSignals(ownText, config);
 
   const ownBacktickPaths = ownBackticked.filter((x) => x.includes("/") && x.includes("."));
   const ownBacktickCommands = ownBackticked.filter((x) => x.startsWith("/"));
@@ -545,6 +677,7 @@ export function collectOwnSignals(item, config) {
       ...ownSlashList,
       ...expandedBackticks,
       ...ownPhraseSignals,
+      ...ownDefinitionSignals,
     ]).filter((token) => isUsefulToken(token, config)),
   };
 }
@@ -560,6 +693,7 @@ export function collectInheritedSignals(item, itemMap, config) {
       ...extractBackticked(parentText),
       ...extractSlashListItems(parentText),
       ...buildPhraseSemanticSignals(parentText, config),
+      ...extractDefinitionUsageSignals(parentText, config),
     ]);
 
     for (const token of tokens) {
@@ -759,7 +893,7 @@ function normalizeClusterToken(token, config, sourceType = "signal") {
   if (!value) return "";
 
   if (sourceType === "command") {
-    if (!(value.includes("_") || value.length >= 5)) return "";
+    if (!(value.includes("_") || value.length >= 5 || value.includes("("))) return "";
   }
 
   if (!isUsefulToken(value, config)) return "";
@@ -775,6 +909,7 @@ function rankClusterToken(token) {
   if (/[A-Z]/.test(raw) && /[a-z]/.test(raw)) score += 4;
   if (raw.includes("_")) score += 3;
   if (raw.includes("-")) score += 2;
+  if (raw.includes("(")) score += 5;
   if (/^[A-Z0-9_]+$/.test(raw) && raw.length >= 3) score += 2;
   if (lower.includes("retry")) score += 3;
   if (lower.includes("fail")) score += 3;
@@ -782,6 +917,9 @@ function rankClusterToken(token) {
   if (lower.includes("dlq")) score += 4;
   if (lower.includes("dead_letter")) score += 4;
   if (lower.includes("dead-letter")) score += 4;
+  if (lower === "can" || lower.startsWith("can(")) score += 5;
+  if (lower.includes("permission")) score += 3;
+  if (lower.includes("access")) score += 2;
 
   score += Math.min(raw.length, 20) * 0.05;
 
@@ -830,6 +968,68 @@ function buildClusterCheck({ own, inheritedSignals, config }) {
     ),
     label: `signal cluster: ${tokens.join(", ")}`,
   };
+}
+
+function buildFunctionContractChecks(item, own, inheritedSignals) {
+  const checks = [];
+  const ownText = `${item.title}\n${item.body || ""}`;
+  const fnTokens = extractFunctionLikeTokens(ownText);
+
+  const seen = new Set();
+
+  function push(check) {
+    const key = JSON.stringify(check);
+    if (seen.has(key)) return;
+    seen.add(key);
+    checks.push(check);
+  }
+
+  for (const token of fnTokens) {
+    const raw = String(token || "").trim();
+    if (!raw) continue;
+
+    if (raw.endsWith("(")) {
+      push({
+        type: "text_exists",
+        token: raw,
+        label: `function-like token: ${raw}`,
+      });
+      continue;
+    }
+
+    if (raw.includes("(")) {
+      push({
+        type: "text_exists",
+        token: raw,
+        label: `function signature token: ${raw}`,
+      });
+      continue;
+    }
+
+    push({
+      type: "text_exists",
+      token: raw,
+      label: `function token: ${raw}`,
+    });
+
+    push({
+      type: "text_exists",
+      token: `${raw}(`,
+      label: `function call token: ${raw}(`,
+    });
+  }
+
+  const mergedSignals = uniq([...(own.signals || []), ...(inheritedSignals || [])]);
+
+  if (mergedSignals.includes("can") || mergedSignals.includes("can(")) {
+    push({
+      type: "text_exists",
+      token: "can(",
+      label: "function call token: can(",
+    });
+  }
+
+  return checks;
 }
 
 export function buildAutoChecksForItem(item, itemMap, config) {
@@ -895,6 +1095,11 @@ export function buildAutoChecksForItem(item, itemMap, config) {
   const clusterCheck = buildClusterCheck({ own, inheritedSignals, config });
   if (clusterCheck) {
     pushCheck(priorityChecks, clusterCheck);
+  }
+
+  const functionContractChecks = buildFunctionContractChecks(item, own, inheritedSignals);
+  for (const check of functionContractChecks) {
+    pushCheck(priorityChecks, check);
   }
 
   for (const path of own.explicitPaths) {

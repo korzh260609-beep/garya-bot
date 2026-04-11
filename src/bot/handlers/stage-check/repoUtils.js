@@ -2,7 +2,7 @@
 // === src/bot/handlers/stage-check/repoUtils.js
 // ============================================================================
 
-import { escapeRegExp } from "./common.js";
+import { escapeRegExp, uniq } from "./common.js";
 
 export function findBasenameInRepo(basename, fileSet) {
   const target = String(basename || "").toLowerCase();
@@ -41,46 +41,152 @@ export async function safeFetchTextFile(path, ctx) {
   }
 }
 
-export async function searchTokenInRepo(token, ctx) {
+function makeTokenRegex(token) {
+  return new RegExp(
+    `(^|[^A-Za-z0-9_])${escapeRegExp(String(token || "").trim())}([^A-Za-z0-9_]|$)`,
+    "i"
+  );
+}
+
+async function collectTokenHitPaths(token, ctx) {
   const normalizedToken = String(token || "").trim();
-  if (!normalizedToken) return { ok: false, details: "missing_token" };
+  if (!normalizedToken) {
+    return { ok: false, details: "missing_token", paths: [] };
+  }
+
+  if (!ctx.tokenHitsCache) ctx.tokenHitsCache = new Map();
 
   const cacheKey = normalizedToken.toLowerCase();
-  if (ctx.searchCache.has(cacheKey)) {
-    return ctx.searchCache.get(cacheKey);
+  if (ctx.tokenHitsCache.has(cacheKey)) {
+    return ctx.tokenHitsCache.get(cacheKey);
   }
 
   if (ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand) {
-    const limited = { ok: false, details: "search_budget_exhausted" };
-    ctx.searchCache.set(cacheKey, limited);
+    const limited = { ok: false, details: "search_budget_exhausted", paths: [] };
+    ctx.tokenHitsCache.set(cacheKey, limited);
     return limited;
   }
 
-  const regex = new RegExp(
-    `(^|[^A-Za-z0-9_])${escapeRegExp(normalizedToken)}([^A-Za-z0-9_]|$)`,
-    "i"
-  );
-
+  const regex = makeTokenRegex(normalizedToken);
   const limitedFiles = ctx.searchableFiles.slice(0, ctx.config.maxSearchFilesPerToken);
+  const matchedPaths = [];
 
   for (const path of limitedFiles) {
     const content = await safeFetchTextFile(path, ctx);
     if (!content) continue;
 
     if (content.includes(normalizedToken) || regex.test(content)) {
-      const result = { ok: true, details: `found_in: ${path}` };
-      ctx.searchCache.set(cacheKey, result);
-      return result;
+      matchedPaths.push(path);
+      if (matchedPaths.length >= 20) break;
     }
   }
 
-  const miss =
-    ctx.errorStats.fetchFailures > 0
-      ? { ok: false, details: "search_unavailable_or_not_found" }
-      : { ok: false, details: "not_found_in_repo_text" };
+  const result =
+    matchedPaths.length > 0
+      ? { ok: true, details: `found_in: ${matchedPaths[0]}`, paths: matchedPaths }
+      : ctx.errorStats.fetchFailures > 0
+        ? { ok: false, details: "search_unavailable_or_not_found", paths: [] }
+        : { ok: false, details: "not_found_in_repo_text", paths: [] };
 
-  ctx.searchCache.set(cacheKey, miss);
-  return miss;
+  ctx.tokenHitsCache.set(cacheKey, result);
+  return result;
+}
+
+export async function searchTokenInRepo(token, ctx) {
+  const result = await collectTokenHitPaths(token, ctx);
+  return {
+    ok: result.ok,
+    details: result.details,
+  };
+}
+
+function normalizeClusterTokens(tokens) {
+  return uniq(
+    (Array.isArray(tokens) ? tokens : [])
+      .map((x) => String(x || "").trim())
+      .filter(Boolean)
+  );
+}
+
+export async function findSignalClusterInRepo(check, ctx) {
+  const tokens = normalizeClusterTokens(check?.tokens);
+  if (!tokens.length) {
+    return {
+      ok: false,
+      details: "cluster_missing_tokens",
+      matchedTokens: 0,
+      distinctFiles: 0,
+      strength: "none",
+    };
+  }
+
+  const minMatchedTokens = Math.max(1, Number(check?.minMatchedTokens || 2));
+  const minDistinctFiles = Math.max(1, Number(check?.minDistinctFiles || 2));
+  const strongMatchedTokens = Math.max(
+    minMatchedTokens,
+    Number(check?.strongMatchedTokens || Math.max(3, minMatchedTokens + 1))
+  );
+  const strongDistinctFiles = Math.max(
+    minDistinctFiles,
+    Number(check?.strongDistinctFiles || minDistinctFiles)
+  );
+
+  const tokenHits = [];
+  const fileHitSet = new Set();
+
+  for (const token of tokens) {
+    const hit = await collectTokenHitPaths(token, ctx);
+    if (!hit.ok || !Array.isArray(hit.paths) || hit.paths.length === 0) continue;
+
+    tokenHits.push({
+      token,
+      paths: hit.paths.slice(0, 5),
+    });
+
+    for (const p of hit.paths) {
+      fileHitSet.add(p);
+    }
+  }
+
+  const matchedTokens = tokenHits.length;
+  const distinctFiles = fileHitSet.size;
+  const ok = matchedTokens >= minMatchedTokens && distinctFiles >= minDistinctFiles;
+
+  let strength = "none";
+  if (ok) {
+    strength =
+      matchedTokens >= strongMatchedTokens && distinctFiles >= strongDistinctFiles
+        ? "strong"
+        : "weak";
+  }
+
+  if (ok) {
+    const filesPreview = Array.from(fileHitSet).slice(0, 4).join(", ");
+    const tokensPreview = tokenHits.slice(0, 4).map((x) => x.token).join(", ");
+    return {
+      ok: true,
+      details:
+        `cluster_match strength:${strength} ` +
+        `tokens:${matchedTokens}/${tokens.length}, files:${distinctFiles}; ` +
+        `tokens=[${tokensPreview}] files=[${filesPreview}]`,
+      matchedTokens,
+      distinctFiles,
+      strength,
+    };
+  }
+
+  const reason =
+    ctx.errorStats.fetchFailures > 0
+      ? "cluster_search_unavailable_or_insufficient_evidence"
+      : "cluster_insufficient_evidence";
+
+  return {
+    ok: false,
+    details: `${reason} tokens:${matchedTokens}/${tokens.length}, files:${distinctFiles}`,
+    matchedTokens,
+    distinctFiles,
+    strength,
+  };
 }
 
 function splitTopLevelCommaItems(input) {

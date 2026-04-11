@@ -1,25 +1,26 @@
 {
-  "version": 10,
+  "version": 11,
   "coverage": "workflow_tree_semantic_auto_signals",
   "notes": [
     "Universal stage_check engine config",
     "No hard-coded workflow item ids",
     "No hard-coded semantic bindings to specific stages",
     "The checker extracts semantic technical signals directly from WORKFLOW item text",
-    "Signals include file paths, slash commands, snake_case, UPPER_CASE, camelCase, PascalCase, kebab-case, backticked tokens, and slash-list interfaces",
+    "Signals include file paths, slash commands, snake_case, UPPER_CASE, camelCase, PascalCase, kebab-case, backticked tokens, slash-list interfaces, and phrase-derived semantic variants",
     "Strong parent signals are inherited by child points and substages",
     "Strong descendant signals can help abstract parent containers",
     "Basename checks are allowed for explicit service-like suffixes and for general PascalCase module/class names",
     "Input stage codes may contain visually similar Cyrillic letters and must still resolve correctly",
-    "Repo text search must degrade softly on GitHub/API fetch failures or fetch-budget exhaustion"
+    "Repo text search must degrade softly on GitHub/API fetch failures or fetch-budget exhaustion",
+    "Repository search is file-centric and reuses fetched file content across tokens and cluster checks"
   ],
   "engine": {
-    "max_checks_per_item": 12,
+    "max_checks_per_item": 14,
     "min_identifier_length": 3,
-    "max_search_files_per_token": 300,
-    "max_inherited_signals": 6,
+    "max_search_files_per_token": 500,
+    "max_inherited_signals": 10,
     "max_descendant_signals": 4,
-    "max_file_fetches_per_command": 120,
+    "max_file_fetches_per_command": 260,
     "preferred_path_prefixes": [
       "src/",
       "core/",
@@ -171,6 +172,11 @@
       "show",
       "shown",
       "wired"
-    ]
+    ],
+    "cluster_max_tokens": 12,
+    "cluster_min_matched_tokens": 2,
+    "cluster_min_distinct_files": 2,
+    "cluster_strong_matched_tokens": 3,
+    "cluster_strong_distinct_files": 2
   }
 }

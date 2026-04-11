@@ -124,23 +124,39 @@ export async function buildEvaluatedItems(workflowItems, ctx) {
   return output;
 }
 
-export function aggregateScope(scopeItems) {
-  const configuredItems = scopeItems.filter((x) => x.totalChecks > 0);
-  const completeItems = configuredItems.filter((x) => x.status === "COMPLETE");
-  const partialItems = configuredItems.filter((x) => x.status === "PARTIAL");
-  const openItems = configuredItems.filter((x) => x.status === "OPEN");
-  const noSignalItems = scopeItems.filter((x) => x.status === "NO_SIGNALS");
+function hasDescendantsInScope(item, scopeItems) {
+  return scopeItems.some(
+    (other) => other.code !== item.code && other.code.startsWith(`${item.code}.`)
+  );
+}
 
-  const totalChecks = scopeItems.reduce((sum, x) => sum + x.totalChecks, 0);
-  const passedChecks = scopeItems.reduce((sum, x) => sum + x.passedChecks, 0);
-  const failedChecks = scopeItems.reduce((sum, x) => sum + x.failedChecks, 0);
+function getLeafScopeItems(scopeItems) {
+  return scopeItems.filter((item) => !hasDescendantsInScope(item, scopeItems));
+}
+
+export function aggregateScope(scopeItems) {
+  const leafItems = getLeafScopeItems(scopeItems);
+  const configuredLeafItems = leafItems.filter((x) => x.totalChecks > 0);
+
+  const completeItems = configuredLeafItems.filter((x) => x.status === "COMPLETE");
+  const partialItems = configuredLeafItems.filter((x) => x.status === "PARTIAL");
+  const openItems = configuredLeafItems.filter((x) => x.status === "OPEN");
+  const noSignalItems = leafItems.filter((x) => x.status === "NO_SIGNALS");
+
+  const totalChecks = leafItems.reduce((sum, x) => sum + x.totalChecks, 0);
+  const passedChecks = leafItems.reduce((sum, x) => sum + x.passedChecks, 0);
+  const failedChecks = leafItems.reduce((sum, x) => sum + x.failedChecks, 0);
 
   let status = "NO_SIGNALS";
-  if (configuredItems.length === 0) {
+  if (configuredLeafItems.length === 0) {
     status = "NO_SIGNALS";
-  } else if (failedChecks === 0 && passedChecks > 0) {
+  } else if (
+    completeItems.length === configuredLeafItems.length &&
+    partialItems.length === 0 &&
+    openItems.length === 0
+  ) {
     status = "COMPLETE";
-  } else if (passedChecks > 0) {
+  } else if (completeItems.length > 0 || partialItems.length > 0) {
     status = "PARTIAL";
   } else {
     status = "OPEN";
@@ -149,7 +165,7 @@ export function aggregateScope(scopeItems) {
   const passedEntries = [];
   const failedEntries = [];
 
-  for (const item of scopeItems) {
+  for (const item of leafItems) {
     item.results.forEach((result, index) => {
       const entry = {
         code: item.code,
@@ -166,14 +182,13 @@ export function aggregateScope(scopeItems) {
     });
   }
 
-  const configuredChildItems = configuredItems.filter((x) => x.kind !== "stage");
-  const childItems = scopeItems.filter((x) => x.kind !== "stage");
-
   return {
     totalItems: scopeItems.length,
-    childItemsCount: childItems.length,
-    configuredItems: configuredItems.length,
-    configuredChildItems: configuredChildItems.length,
+    leafItemsCount: leafItems.length,
+    childItemsCount: leafItems.length,
+    configuredItems: configuredLeafItems.length,
+    configuredChildItems: configuredLeafItems.length,
+    configuredLeafItems: configuredLeafItems.length,
     completeItems: completeItems.length,
     partialItems: partialItems.length,
     openItems: openItems.length,

@@ -103,7 +103,7 @@ function buildPathTokenVariants(token) {
     if (prefix) out.add(prefix);
   }
 
-  return Array.from(out);
+  return Array.from(out).filter(Boolean);
 }
 
 function filePathLooksRelevant(path, token) {
@@ -115,31 +115,7 @@ function filePathLooksRelevant(path, token) {
 function normalizeSearchToken(token) {
   const raw = String(token || "").trim();
   if (!raw) return "";
-
-  if (raw.endsWith("(")) return raw;
   return raw;
-}
-
-async function ensureSearchCaches(ctx) {
-  if (!ctx.tokenHitsCache) ctx.tokenHitsCache = new Map();
-  if (!ctx.fileSearchPrepared) ctx.fileSearchPrepared = false;
-  if (!ctx.availableSearchFiles) {
-    ctx.availableSearchFiles = ctx.searchableFiles.slice(0, ctx.config.maxSearchFilesPerToken);
-  }
-
-  if (ctx.fileSearchPrepared) return;
-
-  ctx.preloadedPaths = [];
-
-  for (const path of ctx.availableSearchFiles) {
-    if (ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand) break;
-    const content = await safeFetchTextFile(path, ctx);
-    if (typeof content === "string" && content.length > 0) {
-      ctx.preloadedPaths.push(path);
-    }
-  }
-
-  ctx.fileSearchPrepared = true;
 }
 
 function contentMatchesToken(content, token, exactRegex, looseRegex) {
@@ -154,7 +130,11 @@ function contentMatchesToken(content, token, exactRegex, looseRegex) {
     return content.includes(raw);
   }
 
-  return content.includes(raw) || exactRegex.test(content) || (looseRegex ? looseRegex.test(content) : false);
+  return (
+    content.includes(raw) ||
+    exactRegex.test(content) ||
+    (looseRegex ? looseRegex.test(content) : false)
+  );
 }
 
 function preferNonSelfEvidence(paths) {
@@ -163,27 +143,137 @@ function preferNonSelfEvidence(paths) {
   return paths;
 }
 
-async function collectTokenHitPaths(token, ctx) {
-  const normalizedToken = normalizeSearchToken(token);
-  if (!normalizedToken) {
-    return { ok: false, details: "missing_token", paths: [] };
+function getSearchState(ctx) {
+  if (!ctx.tokenHitsCache) ctx.tokenHitsCache = new Map();
+  if (!ctx.searchState) {
+    ctx.searchState = {
+      prepared: false,
+      relevantPathCache: new Map(),
+      broadCursor: 0,
+    };
+  }
+  return ctx.searchState;
+}
+
+function splitPascalCase(text) {
+  return String(text || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/\s+/)
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function expandTokenVariants(token) {
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return [];
+
+  const out = new Set([raw, lower]);
+
+  for (const item of buildPathTokenVariants(raw)) out.add(item);
+
+  if (/^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw)) {
+    const parts = splitPascalCase(raw);
+    if (parts.length > 1) {
+      out.add(parts.join("_"));
+      out.add(parts.join("-"));
+      out.add(parts.join(""));
+      out.add(parts.join(" "));
+    }
   }
 
-  await ensureSearchCaches(ctx);
+  if (lower.includes("retries")) out.add(lower.replace(/retries/g, "retry"));
+  if (lower.includes("retry")) out.add(lower.replace(/retry/g, "retries"));
 
-  const cacheKey = normalizedToken.toLowerCase();
-  if (ctx.tokenHitsCache.has(cacheKey)) {
-    return ctx.tokenHitsCache.get(cacheKey);
+  if (lower === "dlq") {
+    out.add("dead_letter");
+    out.add("dead_letter_queue");
+    out.add("dead-letter");
+    out.add("dead-letter-queue");
+    out.add("move_to_dlq");
+    out.add("movetodlq");
+    out.add("dlqrepo");
+    out.add("job_dlq_enabled");
+  }
+
+  if (lower.includes("dead_letter") || lower.includes("dead-letter")) {
+    out.add("dlq");
+  }
+
+  if (lower.includes("fail_reason")) out.add("failure_reason");
+  if (lower.includes("failure_reason")) out.add("fail_reason");
+
+  return Array.from(out).filter(Boolean);
+}
+
+function rankPathForToken(path, token) {
+  const lowerPath = String(path || "").toLowerCase();
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+
+  let score = 0;
+
+  if (isSelfEvidencePath(path)) score -= 50;
+
+  if (filePathLooksRelevant(path, raw)) score += 40;
+
+  if (lowerPath.startsWith("src/")) score += 10;
+  if (lowerPath.startsWith("migrations/")) score += 8;
+  if (lowerPath.startsWith("pillars/")) score -= 4;
+
+  if (lower.includes("retry") && lowerPath.includes("retry")) score += 25;
+  if (lower.includes("fail") && lowerPath.includes("fail")) score += 25;
+  if (lower.includes("error") && lowerPath.includes("error")) score += 20;
+  if (lower.includes("reason") && lowerPath.includes("reason")) score += 20;
+  if (lower.includes("dlq") && lowerPath.includes("dlq")) score += 30;
+  if (lower.includes("dead_letter") && lowerPath.includes("dlq")) score += 20;
+  if (lower.includes("(") && lowerPath.includes("handlers")) score -= 2;
+
+  score -= Math.min(lowerPath.length, 120) * 0.01;
+
+  return score;
+}
+
+function getRelevantCandidatePaths(token, ctx) {
+  const state = getSearchState(ctx);
+  const cacheKey = String(token || "").toLowerCase();
+
+  if (state.relevantPathCache.has(cacheKey)) {
+    return state.relevantPathCache.get(cacheKey);
+  }
+
+  const variants = expandTokenVariants(token);
+  const ranked = (Array.isArray(ctx.searchableFiles) ? ctx.searchableFiles : [])
+    .map((path) => {
+      let score = 0;
+      for (const variant of variants) {
+        score = Math.max(score, rankPathForToken(path, variant));
+      }
+      return { path, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.path);
+
+  const limited = ranked.slice(0, Math.max(20, ctx.config.maxSearchFilesPerToken));
+  state.relevantPathCache.set(cacheKey, limited);
+  return limited;
+}
+
+async function searchInPaths(paths, token, ctx, options = {}) {
+  const normalizedToken = normalizeSearchToken(token);
+  if (!normalizedToken) {
+    return { matchedPaths: [], exhausted: false };
   }
 
   const exactRegex = makeTokenRegex(normalizedToken.replace(/\($/, ""));
   const looseRegex = makeLooseTokenRegex(normalizedToken.replace(/\($/, ""));
   const matchedPaths = [];
+  const maxMatches = Number(options.maxMatches || 20);
 
-  const candidatePaths = Array.isArray(ctx.preloadedPaths) ? ctx.preloadedPaths : [];
+  for (const path of paths) {
+    const alreadyCached = ctx.contentCache.has(path);
+    const content = alreadyCached ? ctx.contentCache.get(path) : await safeFetchTextFile(path, ctx);
 
-  for (const path of candidatePaths) {
-    const content = ctx.contentCache.get(path);
     if (!content) continue;
 
     const fastPathHit = filePathLooksRelevant(path, normalizedToken);
@@ -191,32 +281,102 @@ async function collectTokenHitPaths(token, ctx) {
 
     if (fastPathHit || exactHit) {
       matchedPaths.push(path);
-      if (matchedPaths.length >= 20) break;
+      if (matchedPaths.length >= maxMatches) {
+        return { matchedPaths, exhausted: false };
+      }
+    }
+
+    if (ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand) {
+      return { matchedPaths, exhausted: true };
     }
   }
 
-  const preferredPaths = preferNonSelfEvidence(matchedPaths);
+  return { matchedPaths, exhausted: false };
+}
 
-  const hadBudgetToSearch =
-    Array.isArray(candidatePaths) && candidatePaths.length > 0;
+async function collectTokenHitPaths(token, ctx) {
+  const normalizedToken = normalizeSearchToken(token);
+  if (!normalizedToken) {
+    return { ok: false, details: "missing_token", paths: [] };
+  }
 
-  const budgetExhausted =
-    !preferredPaths.length &&
-    ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand &&
-    (!Array.isArray(ctx.availableSearchFiles) ||
-      candidatePaths.length < ctx.availableSearchFiles.length) &&
-    !hadBudgetToSearch;
+  const state = getSearchState(ctx);
+  const cacheKey = normalizedToken.toLowerCase();
 
-  const result =
-    preferredPaths.length > 0
-      ? { ok: true, details: `found_in: ${preferredPaths[0]}`, paths: preferredPaths }
-      : matchedPaths.length > 0
-        ? { ok: true, details: `found_only_in_self_checker: ${matchedPaths[0]}`, paths: matchedPaths }
-        : ctx.errorStats.fetchFailures > 0
-          ? { ok: false, details: "search_unavailable_or_not_found", paths: [] }
-          : budgetExhausted
-            ? { ok: false, details: "search_budget_exhausted", paths: [] }
-            : { ok: false, details: "not_found_in_repo_text", paths: [] };
+  if (ctx.tokenHitsCache.has(cacheKey)) {
+    return ctx.tokenHitsCache.get(cacheKey);
+  }
+
+  const matchedPaths = [];
+  let exhausted = false;
+
+  const relevantPaths = getRelevantCandidatePaths(normalizedToken, ctx);
+  const phase1Paths = relevantPaths.slice(0, 12);
+  const phase2Paths = relevantPaths.slice(12, 36);
+
+  const phase1 = await searchInPaths(phase1Paths, normalizedToken, ctx, { maxMatches: 20 });
+  matchedPaths.push(...phase1.matchedPaths);
+  exhausted = exhausted || phase1.exhausted;
+
+  if (!matchedPaths.length && !exhausted) {
+    const phase2 = await searchInPaths(
+      phase2Paths.filter((p) => !phase1Paths.includes(p)),
+      normalizedToken,
+      ctx,
+      { maxMatches: 20 }
+    );
+    matchedPaths.push(...phase2.matchedPaths);
+    exhausted = exhausted || phase2.exhausted;
+  }
+
+  if (!matchedPaths.length && !exhausted) {
+    const broadLimit = Math.max(20, Math.min(80, ctx.config.maxSearchFilesPerToken));
+    const broadCandidates = (Array.isArray(ctx.searchableFiles) ? ctx.searchableFiles : [])
+      .filter((p) => !relevantPaths.includes(p))
+      .slice(state.broadCursor, state.broadCursor + broadLimit);
+
+    const broad = await searchInPaths(broadCandidates, normalizedToken, ctx, { maxMatches: 20 });
+    matchedPaths.push(...broad.matchedPaths);
+    exhausted = exhausted || broad.exhausted;
+    state.broadCursor += broadCandidates.length;
+  }
+
+  const uniqueMatched = uniq(matchedPaths);
+  const preferredPaths = preferNonSelfEvidence(uniqueMatched);
+
+  let result;
+
+  if (preferredPaths.length > 0) {
+    result = {
+      ok: true,
+      details: `found_in: ${preferredPaths[0]}`,
+      paths: preferredPaths,
+    };
+  } else if (uniqueMatched.length > 0) {
+    result = {
+      ok: true,
+      details: `found_only_in_self_checker: ${uniqueMatched[0]}`,
+      paths: uniqueMatched,
+    };
+  } else if (ctx.errorStats.fetchFailures > 0) {
+    result = {
+      ok: false,
+      details: "search_unavailable_or_not_found",
+      paths: [],
+    };
+  } else if (exhausted || ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand) {
+    result = {
+      ok: false,
+      details: "search_budget_exhausted",
+      paths: [],
+    };
+  } else {
+    result = {
+      ok: false,
+      details: "not_found_in_repo_text",
+      paths: [],
+    };
+  }
 
   ctx.tokenHitsCache.set(cacheKey, result);
   return result;
@@ -291,7 +451,6 @@ export async function findSignalClusterInRepo(check, ctx) {
   const matchedTokens = tokenHits.length;
   const distinctFiles = fileHitSet.size;
   const distinctNonSelfFiles = nonSelfFileHitSet.size;
-
   const effectiveDistinctFiles =
     distinctNonSelfFiles > 0 ? distinctNonSelfFiles : distinctFiles;
 

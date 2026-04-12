@@ -145,44 +145,58 @@ export function extractSlashListItems(text) {
   return uniq(out);
 }
 
+function looksLikeCodeishArgument(arg) {
+  const raw = String(arg || "").trim();
+  if (!raw) return true;
+
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return true;
+  if (/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return true;
+  if (/^["'`].*["'`]$/.test(raw)) return true;
+  if (/^\d+$/.test(raw)) return true;
+  if (/^[A-Za-z_][A-Za-z0-9_]*\s*=\s*.+$/.test(raw)) return true;
+  if (/[{}\[\]."'`=_:-]/.test(raw)) return true;
+
+  return false;
+}
+
 function extractFunctionLikeTokens(text) {
   const source = String(text || "");
   const out = [];
+  const re = /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(([^()]*)\)/g;
 
-  const functionPatterns = [
-    /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(([^()]*)\)/g,
-  ];
+  let hit;
+  while ((hit = re.exec(source))) {
+    const fnName = String(hit[1] || "").trim();
+    const argsRaw = String(hit[2] || "").trim();
 
-  for (const re of functionPatterns) {
-    let hit;
-    while ((hit = re.exec(source))) {
-      const fnName = String(hit[1] || "").trim();
-      const argsRaw = String(hit[2] || "").trim();
+    if (!fnName) continue;
 
-      if (fnName) out.push(fnName);
-      if (fnName) out.push(`${fnName}(`);
-
-      if (fnName && argsRaw) {
-        out.push(`${fnName}(${argsRaw})`);
-      }
-
-      const args = argsRaw
+    if (argsRaw) {
+      const parts = argsRaw
         .split(",")
         .map((x) => x.trim())
         .filter(Boolean);
 
-      for (const arg of args) {
-        out.push(arg);
-      }
-
-      if (fnName && args.length >= 1) {
-        out.push(`${fnName}(${args[0]}`);
-      }
-
-      if (fnName && args.length >= 2) {
-        out.push(`${fnName}(${args[0]}, ${args[1]})`);
-      }
+      const allCodeish = parts.length > 0 && parts.every(looksLikeCodeishArgument);
+      if (!allCodeish) continue;
     }
+
+    out.push(fnName);
+    out.push(`${fnName}(`);
+
+    if (argsRaw) {
+      out.push(`${fnName}(${argsRaw})`);
+    }
+
+    const args = argsRaw
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    for (const arg of args) out.push(arg);
+
+    if (fnName && args.length >= 1) out.push(`${fnName}(${args[0]}`);
+    if (fnName && args.length >= 2) out.push(`${fnName}(${args[0]}, ${args[1]})`);
   }
 
   return uniq(out);
@@ -298,15 +312,35 @@ function addMorphVariants(base, add) {
   }
 }
 
+function isTechnicalPhraseWord(word) {
+  const lower = String(word || "").toLowerCase();
+  if (!lower) return false;
+
+  if (["retry", "retries", "fail", "failed", "failure", "failures", "reason", "reasons", "error", "errors", "queue", "dead", "letter", "dlq", "status", "attempt", "attempts", "count", "counts", "backoff", "jitter", "lock", "dedupe", "run", "runs"].includes(lower)) {
+    return true;
+  }
+
+  if (lower.includes("_") || lower.includes("-")) return true;
+  if (/^[a-z]+[0-9]+$/.test(lower)) return true;
+
+  return false;
+}
+
 function addDelimiterVariants(parts, add) {
   const tokens = parts.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean);
   if (!tokens.length) return;
+
+  const allTechnical = tokens.every(isTechnicalPhraseWord);
+  if (!allTechnical) return;
 
   add(tokens.join("_"));
   add(tokens.join("-"));
   add(tokens.join(""));
   add(tokens.join(" "));
-  add(toPascalCase(tokens));
+
+  if (tokens.length <= 2) {
+    add(toPascalCase(tokens));
+  }
 }
 
 function addConceptFamilies(token, add) {
@@ -330,9 +364,6 @@ function addConceptFamilies(token, add) {
       "shouldRetry",
       "getRetryPolicy",
       "maxRetries",
-      "baseDelayMs",
-      "maxDelayMs",
-      "jitterRatio",
     ].forEach(add);
   }
 
@@ -624,10 +655,8 @@ function buildPhraseSemanticSignals(text, config) {
   }
 
   for (let i = 0; i < words.length; i += 1) {
-    const one = words[i];
     const two = words.slice(i, i + 2);
     const three = words.slice(i, i + 3);
-    const four = words.slice(i, i + 4);
 
     if (two.length === 2) {
       addDelimiterVariants(two, addExpanded);
@@ -637,9 +666,7 @@ function buildPhraseSemanticSignals(text, config) {
       addDelimiterVariants(three, addExpanded);
     }
 
-    if (four.length === 4) {
-      addDelimiterVariants(four, addExpanded);
-    }
+    const one = words[i];
 
     if (one === "dead" && words[i + 1] === "letter") {
       addExpanded("dead_letter");
@@ -661,9 +688,26 @@ function buildPhraseSemanticSignals(text, config) {
 
     if (one === "retries" && words[i + 1] === "fail") {
       addExpanded("retry");
+      addExpanded("retries");
       addExpanded("fail");
       addExpanded("retry_at");
+      addExpanded("max_retries");
       addExpanded("fail_reason");
+      addExpanded("fail_code");
+      addExpanded("last_error_at");
+    }
+
+    if (one === "retries" && words[i + 1] === "fail" && words[i + 2] === "reasons") {
+      addExpanded("retry");
+      addExpanded("retries");
+      addExpanded("fail_reason");
+      addExpanded("fail_reasons");
+      addExpanded("retry_at");
+      addExpanded("max_retries");
+      addExpanded("fail_code");
+      addExpanded("last_error_at");
+      addExpanded("computeBackoffDelayMs");
+      addExpanded("shouldRetry");
     }
   }
 
@@ -796,7 +840,11 @@ function classifySignalEvidence(token) {
   if (
     lower.includes("retry") ||
     lower.includes("backoff") ||
-    lower.includes("jitter")
+    lower.includes("jitter") ||
+    lower.includes("dlq") ||
+    lower.includes("dead_letter") ||
+    lower.includes("dead-letter") ||
+    lower.includes("queue")
   ) {
     return "behavioral";
   }
@@ -811,15 +859,6 @@ function classifySignalEvidence(token) {
     lower.includes("count")
   ) {
     return "observational";
-  }
-
-  if (
-    lower.includes("dlq") ||
-    lower.includes("dead_letter") ||
-    lower.includes("dead-letter") ||
-    lower.includes("queue")
-  ) {
-    return "behavioral";
   }
 
   if (
@@ -1127,26 +1166,51 @@ function normalizeClusterToken(token, config, sourceType = "signal") {
   return value;
 }
 
+function isAtomicClusterToken(token) {
+  const raw = String(token || "").trim();
+  if (!raw) return false;
+
+  if (raw.includes(" ")) return false;
+  if (raw.length > 32) return false;
+
+  return true;
+}
+
 function rankClusterToken(token) {
   const raw = String(token || "").trim();
   const lower = raw.toLowerCase();
 
   let score = 0;
 
-  if (/[A-Z]/.test(raw) && /[a-z]/.test(raw)) score += 4;
-  if (raw.includes("_")) score += 3;
+  if (!isAtomicClusterToken(raw)) score -= 12;
+  if (/[A-Z]/.test(raw) && /[a-z]/.test(raw)) score += 3;
+  if (raw.includes("_")) score += 4;
   if (raw.includes("-")) score += 2;
   if (raw.includes("(")) score += 5;
   if (/^[A-Z0-9_]+$/.test(raw) && raw.length >= 3) score += 2;
-  if (lower.includes("retry")) score += 4;
-  if (lower.includes("fail")) score += 4;
-  if (lower.includes("reason")) score += 3;
-  if (lower.includes("error")) score += 3;
-  if (lower.includes("dlq")) score += 5;
-  if (lower.includes("dead_letter")) score += 5;
-  if (lower.includes("dead-letter")) score += 5;
-  if (lower.includes("_at")) score += 3;
-  if (lower.includes("count")) score += 2;
+
+  if (lower === "retry") score += 5;
+  if (lower === "retries") score += 5;
+  if (lower.includes("retry_at")) score += 7;
+  if (lower.includes("max_retries")) score += 7;
+  if (lower.includes("next_retry_at")) score += 6;
+  if (lower.includes("shouldretry")) score += 5;
+  if (lower.includes("computebackoffdelayms")) score += 5;
+
+  if (lower.includes("fail_reason")) score += 8;
+  if (lower.includes("fail_code")) score += 8;
+  if (lower.includes("last_error_at")) score += 8;
+  if (lower.includes("failed_at")) score += 7;
+  if (lower.includes("failure_reason")) score += 6;
+  if (lower.includes("error_code")) score += 6;
+
+  if (lower.includes("dlq")) score += 8;
+  if (lower.includes("dead_letter")) score += 7;
+  if (lower.includes("dead-letter")) score += 7;
+  if (lower.includes("movetodlq")) score += 6;
+  if (lower.includes("enabledlq")) score += 6;
+  if (lower.includes("_movetodlq")) score += 6;
+
   if (lower === "can" || lower.startsWith("can(")) score += 5;
   if (lower.includes("permission")) score += 3;
   if (lower.includes("access")) score += 2;
@@ -1159,6 +1223,7 @@ function rankClusterToken(token) {
 
 function takeTopTokens(tokens, limit) {
   return uniq(tokens)
+    .filter(isAtomicClusterToken)
     .sort((a, b) => rankClusterToken(b) - rankClusterToken(a))
     .slice(0, Math.max(0, limit));
 }
@@ -1180,34 +1245,18 @@ function buildClusterBuckets({ own, inheritedSignals, config }) {
     generic: [],
   };
 
-  for (const token of profile.structural) {
-    const normalized = normalizeClusterToken(token, config, "signal");
-    if (normalized) buckets.structural.push(normalized);
-  }
+  for (const bucketName of Object.keys(profile)) {
+    for (const token of profile[bucketName] || []) {
+      const normalized = normalizeClusterToken(token, config, "signal");
+      if (!normalized) continue;
 
-  for (const token of profile.behavioral) {
-    const normalized = normalizeClusterToken(token, config, "signal");
-    if (normalized) buckets.behavioral.push(normalized);
-  }
-
-  for (const token of profile.observational) {
-    const normalized = normalizeClusterToken(token, config, "signal");
-    if (normalized) buckets.observational.push(normalized);
-  }
-
-  for (const token of profile.interface) {
-    const normalized = normalizeClusterToken(token, config, "signal");
-    if (normalized) buckets.interface.push(normalized);
-  }
-
-  for (const token of profile.relational) {
-    const normalized = normalizeClusterToken(token, config, "signal");
-    if (normalized) buckets.relational.push(normalized);
-  }
-
-  for (const token of profile.generic) {
-    const normalized = normalizeClusterToken(token, config, "signal");
-    if (normalized) buckets.generic.push(normalized);
+      if (bucketName === "structural") buckets.structural.push(normalized);
+      else if (bucketName === "behavioral") buckets.behavioral.push(normalized);
+      else if (bucketName === "observational") buckets.observational.push(normalized);
+      else if (bucketName === "interface") buckets.interface.push(normalized);
+      else if (bucketName === "relational") buckets.relational.push(normalized);
+      else buckets.generic.push(normalized);
+    }
   }
 
   return buckets;
@@ -1229,8 +1278,8 @@ function buildClusterTokens({ own, inheritedSignals, config }) {
 
   const bucketLimits = {
     structural: 2,
-    behavioral: 3,
-    observational: 3,
+    behavioral: 4,
+    observational: 4,
     interface: 2,
     relational: 1,
     generic: 1,
@@ -1250,7 +1299,7 @@ function buildClusterTokens({ own, inheritedSignals, config }) {
       merged.push(...(buckets[bucketName] || []));
     }
 
-    for (const token of takeTopTokens(merged, maxTokens * 2)) {
+    for (const token of takeTopTokens(merged, maxTokens * 3)) {
       if (result.length >= maxTokens) break;
       if (!result.includes(token)) result.push(token);
     }

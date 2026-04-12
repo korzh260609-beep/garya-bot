@@ -239,7 +239,56 @@ function isWeakGenericToken(token) {
     "contracts",
     "minimal",
     "minimals",
+    "job",
+    "jobs",
+    "queue",
+    "queues",
+    "skeleton",
+    "skeletons",
+    "exists",
+    "disabled",
+    "enabled",
   ]).has(lower);
+}
+
+function isWeakInheritedToken(token) {
+  const lower = String(token || "").trim().toLowerCase();
+  if (!lower) return true;
+
+  if (isWeakGenericToken(lower)) return true;
+  if (lower.length <= 4 && !lower.includes("_") && !lower.includes("-")) return true;
+
+  return false;
+}
+
+function isStrongTechnicalToken(token) {
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return false;
+
+  if (raw.includes("(")) return true;
+  if (raw.includes("_")) return true;
+  if (raw.includes("-")) return true;
+  if (/^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw)) return true;
+  if (/^[A-Z0-9_]{3,}$/.test(raw)) return true;
+
+  if (
+    lower.includes("retry") ||
+    lower.includes("fail") ||
+    lower.includes("error") ||
+    lower.includes("reason") ||
+    lower.includes("dlq") ||
+    lower.includes("dead_letter") ||
+    lower.includes("dead-letter") ||
+    lower.includes("_at") ||
+    lower.includes("backoff") ||
+    lower.includes("jitter") ||
+    lower.includes("attempt")
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export function isUsefulToken(token, config) {
@@ -316,7 +365,30 @@ function isTechnicalPhraseWord(word) {
   const lower = String(word || "").toLowerCase();
   if (!lower) return false;
 
-  if (["retry", "retries", "fail", "failed", "failure", "failures", "reason", "reasons", "error", "errors", "queue", "dead", "letter", "dlq", "status", "attempt", "attempts", "count", "counts", "backoff", "jitter", "lock", "dedupe", "run", "runs"].includes(lower)) {
+  if ([
+    "retry",
+    "retries",
+    "fail",
+    "failed",
+    "failure",
+    "failures",
+    "reason",
+    "reasons",
+    "error",
+    "errors",
+    "dlq",
+    "dead",
+    "letter",
+    "backoff",
+    "jitter",
+    "attempt",
+    "attempts",
+    "status",
+    "count",
+    "counts",
+    "lock",
+    "dedupe",
+  ].includes(lower)) {
     return true;
   }
 
@@ -335,10 +407,10 @@ function addDelimiterVariants(parts, add) {
 
   add(tokens.join("_"));
   add(tokens.join("-"));
-  add(tokens.join(""));
-  add(tokens.join(" "));
 
   if (tokens.length <= 2) {
+    add(tokens.join(""));
+    add(tokens.join(" "));
     add(toPascalCase(tokens));
   }
 }
@@ -500,7 +572,7 @@ function addConceptFamilies(token, add) {
     ].forEach(add);
   }
 
-  if (lower === "dead" || lower === "letter" || lower === "queue") {
+  if (lower === "dead" || lower === "letter") {
     [
       "dead_letter",
       "dead_letter_queue",
@@ -843,8 +915,7 @@ function classifySignalEvidence(token) {
     lower.includes("jitter") ||
     lower.includes("dlq") ||
     lower.includes("dead_letter") ||
-    lower.includes("dead-letter") ||
-    lower.includes("queue")
+    lower.includes("dead-letter")
   ) {
     return "behavioral";
   }
@@ -964,6 +1035,9 @@ export function collectInheritedSignals(item, itemMap, config) {
 
     for (const token of tokens) {
       for (const variant of buildConceptualVariants(token, config)) {
+        if (!isUsefulToken(variant, config)) continue;
+        if (isWeakInheritedToken(variant) && !isStrongTechnicalToken(variant)) continue;
+
         if (canGenerateBasenameFromSignal(variant, config) || isUsefulToken(variant, config)) {
           ancestorSignals.push(variant);
         }
@@ -1176,6 +1250,38 @@ function isAtomicClusterToken(token) {
   return true;
 }
 
+function shouldKeepClusterToken(token, sourceKind = "own") {
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return false;
+  if (!isAtomicClusterToken(raw)) return false;
+
+  const strong =
+    raw.includes("(") ||
+    raw.includes("_") ||
+    raw.includes("-") ||
+    /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw) ||
+    /^[A-Z0-9_]{3,}$/.test(raw) ||
+    lower.includes("retry") ||
+    lower.includes("fail") ||
+    lower.includes("error") ||
+    lower.includes("reason") ||
+    lower.includes("dlq") ||
+    lower.includes("dead_letter") ||
+    lower.includes("dead-letter") ||
+    lower.includes("_at") ||
+    lower.includes("backoff") ||
+    lower.includes("jitter") ||
+    lower.includes("attempt");
+
+  if (strong) return true;
+
+  if (sourceKind === "inherited") return false;
+  if (isWeakGenericToken(lower)) return false;
+
+  return raw.length >= 6;
+}
+
 function rankClusterToken(token) {
   const raw = String(token || "").trim();
   const lower = raw.toLowerCase();
@@ -1214,7 +1320,7 @@ function rankClusterToken(token) {
   if (lower === "can" || lower.startsWith("can(")) score += 5;
   if (lower.includes("permission")) score += 3;
   if (lower.includes("access")) score += 2;
-  if (isWeakGenericToken(lower)) score -= 4;
+  if (isWeakGenericToken(lower)) score -= 8;
 
   score += Math.min(raw.length, 20) * 0.05;
 
@@ -1245,17 +1351,50 @@ function buildClusterBuckets({ own, inheritedSignals, config }) {
     generic: [],
   };
 
-  for (const bucketName of Object.keys(profile)) {
-    for (const token of profile[bucketName] || []) {
-      const normalized = normalizeClusterToken(token, config, "signal");
-      if (!normalized) continue;
+  for (const token of profile.structural || []) {
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized && shouldKeepClusterToken(normalized, "own")) {
+      buckets.structural.push(normalized);
+    }
+  }
 
-      if (bucketName === "structural") buckets.structural.push(normalized);
-      else if (bucketName === "behavioral") buckets.behavioral.push(normalized);
-      else if (bucketName === "observational") buckets.observational.push(normalized);
-      else if (bucketName === "interface") buckets.interface.push(normalized);
-      else if (bucketName === "relational") buckets.relational.push(normalized);
-      else buckets.generic.push(normalized);
+  for (const token of profile.behavioral || []) {
+    const sourceKind = inheritedSignals.includes(token) ? "inherited" : "own";
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized && shouldKeepClusterToken(normalized, sourceKind)) {
+      buckets.behavioral.push(normalized);
+    }
+  }
+
+  for (const token of profile.observational || []) {
+    const sourceKind = inheritedSignals.includes(token) ? "inherited" : "own";
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized && shouldKeepClusterToken(normalized, sourceKind)) {
+      buckets.observational.push(normalized);
+    }
+  }
+
+  for (const token of profile.interface || []) {
+    const sourceKind = inheritedSignals.includes(token) ? "inherited" : "own";
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized && shouldKeepClusterToken(normalized, sourceKind)) {
+      buckets.interface.push(normalized);
+    }
+  }
+
+  for (const token of profile.relational || []) {
+    const sourceKind = inheritedSignals.includes(token) ? "inherited" : "own";
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized && shouldKeepClusterToken(normalized, sourceKind)) {
+      buckets.relational.push(normalized);
+    }
+  }
+
+  for (const token of profile.generic || []) {
+    const sourceKind = inheritedSignals.includes(token) ? "inherited" : "own";
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized && shouldKeepClusterToken(normalized, sourceKind)) {
+      buckets.generic.push(normalized);
     }
   }
 

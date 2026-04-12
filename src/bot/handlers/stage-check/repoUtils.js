@@ -138,16 +138,13 @@ function contentMatchesToken(content, token, exactRegex, looseRegex) {
 }
 
 function preferNonSelfEvidence(paths) {
-  const nonSelf = paths.filter((p) => !isSelfEvidencePath(p));
-  if (nonSelf.length > 0) return nonSelf;
-  return paths;
+  return paths.filter((p) => !isSelfEvidencePath(p));
 }
 
 function getSearchState(ctx) {
   if (!ctx.tokenHitsCache) ctx.tokenHitsCache = new Map();
   if (!ctx.searchState) {
     ctx.searchState = {
-      prepared: false,
       relevantPathCache: new Map(),
       broadCursor: 0,
     };
@@ -213,7 +210,7 @@ function rankPathForToken(path, token) {
 
   let score = 0;
 
-  if (isSelfEvidencePath(path)) score -= 50;
+  if (isSelfEvidencePath(path)) score -= 100;
 
   if (filePathLooksRelevant(path, raw)) score += 40;
 
@@ -227,7 +224,6 @@ function rankPathForToken(path, token) {
   if (lower.includes("reason") && lowerPath.includes("reason")) score += 20;
   if (lower.includes("dlq") && lowerPath.includes("dlq")) score += 30;
   if (lower.includes("dead_letter") && lowerPath.includes("dlq")) score += 20;
-  if (lower.includes("(") && lowerPath.includes("handlers")) score -= 2;
 
   score -= Math.min(lowerPath.length, 120) * 0.01;
 
@@ -271,8 +267,9 @@ async function searchInPaths(paths, token, ctx, options = {}) {
   const maxMatches = Number(options.maxMatches || 20);
 
   for (const path of paths) {
-    const alreadyCached = ctx.contentCache.has(path);
-    const content = alreadyCached ? ctx.contentCache.get(path) : await safeFetchTextFile(path, ctx);
+    const content = ctx.contentCache.has(path)
+      ? ctx.contentCache.get(path)
+      : await safeFetchTextFile(path, ctx);
 
     if (!content) continue;
 
@@ -342,39 +339,44 @@ async function collectTokenHitPaths(token, ctx) {
   }
 
   const uniqueMatched = uniq(matchedPaths);
-  const preferredPaths = preferNonSelfEvidence(uniqueMatched);
+  const nonSelfMatched = preferNonSelfEvidence(uniqueMatched);
 
   let result;
 
-  if (preferredPaths.length > 0) {
+  if (nonSelfMatched.length > 0) {
     result = {
       ok: true,
-      details: `found_in: ${preferredPaths[0]}`,
-      paths: preferredPaths,
+      details: `found_in: ${nonSelfMatched[0]}`,
+      paths: nonSelfMatched,
+      selfOnly: false,
     };
   } else if (uniqueMatched.length > 0) {
     result = {
-      ok: true,
+      ok: false,
       details: `found_only_in_self_checker: ${uniqueMatched[0]}`,
-      paths: uniqueMatched,
+      paths: [],
+      selfOnly: true,
     };
   } else if (ctx.errorStats.fetchFailures > 0) {
     result = {
       ok: false,
       details: "search_unavailable_or_not_found",
       paths: [],
+      selfOnly: false,
     };
   } else if (exhausted || ctx.fetchStats.used >= ctx.config.maxFileFetchesPerCommand) {
     result = {
       ok: false,
       details: "search_budget_exhausted",
       paths: [],
+      selfOnly: false,
     };
   } else {
     result = {
       ok: false,
       details: "not_found_in_repo_text",
       paths: [],
+      selfOnly: false,
     };
   }
 
@@ -425,12 +427,17 @@ export async function findSignalClusterInRepo(check, ctx) {
   const fileHitSet = new Set();
   const nonSelfFileHitSet = new Set();
   let exhaustedCount = 0;
+  let selfOnlyCount = 0;
 
   for (const token of tokens) {
     const hit = await collectTokenHitPaths(token, ctx);
 
     if (hit.details === "search_budget_exhausted") {
       exhaustedCount += 1;
+    }
+
+    if (hit.selfOnly) {
+      selfOnlyCount += 1;
     }
 
     if (!hit.ok || !Array.isArray(hit.paths) || hit.paths.length === 0) continue;
@@ -489,7 +496,9 @@ export async function findSignalClusterInRepo(check, ctx) {
       ? "cluster_search_unavailable_or_insufficient_evidence"
       : exhaustedCount > 0
         ? "cluster_budget_limited_or_insufficient_evidence"
-        : "cluster_insufficient_evidence";
+        : selfOnlyCount > 0
+          ? "cluster_self_evidence_filtered_or_insufficient_evidence"
+          : "cluster_insufficient_evidence";
 
   return {
     ok: false,

@@ -326,6 +326,13 @@ function addConceptFamilies(token, add) {
       "jitter",
       "retryable",
       "retried_at",
+      "computeBackoffDelayMs",
+      "shouldRetry",
+      "getRetryPolicy",
+      "maxRetries",
+      "baseDelayMs",
+      "maxDelayMs",
+      "jitterRatio",
     ].forEach(add);
   }
 
@@ -349,6 +356,8 @@ function addConceptFamilies(token, add) {
       "failed_at",
       "last_error_at",
       "error_code",
+      "markTaskRunFailed",
+      "normalizeFailCode",
     ].forEach(add);
   }
 
@@ -371,6 +380,7 @@ function addConceptFamilies(token, add) {
       "last_error_at",
       "failure_reason",
       "fail_reason",
+      "fail_code",
     ].forEach(add);
   }
 
@@ -452,6 +462,10 @@ function addConceptFamilies(token, add) {
       "dlq_jobs",
       "DlqRepo",
       "JOB_DLQ_ENABLED",
+      "_moveToDLQ",
+      "getDLQ",
+      "enableDLQ",
+      "_dlqEnabled",
     ].forEach(add);
   }
 
@@ -466,6 +480,30 @@ function addConceptFamilies(token, add) {
       "move_to_dlq",
       "moveToDlq",
       "DlqRepo",
+      "_moveToDLQ",
+    ].forEach(add);
+  }
+
+  if (lower === "count" || lower === "counts") {
+    [
+      "count",
+      "counts",
+      "total",
+      "hits",
+      "attempts",
+    ].forEach(add);
+  }
+
+  if (lower === "status" || lower === "statuses") {
+    [
+      "status",
+      "statuses",
+      "state",
+      "states",
+      "completed",
+      "failed",
+      "running",
+      "queued",
     ].forEach(add);
   }
 }
@@ -509,6 +547,9 @@ function buildConceptualVariants(token, config) {
     add("max_retries");
     add("retry_policy");
     add("retry_count");
+    add("maxRetries");
+    add("computeBackoffDelayMs");
+    add("shouldRetry");
   }
 
   if (lower.includes("fail")) {
@@ -519,6 +560,8 @@ function buildConceptualVariants(token, config) {
     add("last_error_at");
     add("failure_reason");
     add("error_code");
+    add("markTaskRunFailed");
+    add("normalizeFailCode");
   }
 
   if (lower.includes("reason")) {
@@ -526,6 +569,13 @@ function buildConceptualVariants(token, config) {
     add("fail_reasons");
     add("failure_reason");
     add("error_reason");
+  }
+
+  if (lower.includes("error")) {
+    add("error_code");
+    add("last_error_at");
+    add("fail_reason");
+    add("fail_code");
   }
 
   if (lower === "dlq" || lower.includes("dead_letter") || lower.includes("dead-letter")) {
@@ -539,6 +589,10 @@ function buildConceptualVariants(token, config) {
       "dlq_jobs",
       "DlqRepo",
       "JOB_DLQ_ENABLED",
+      "_moveToDLQ",
+      "getDLQ",
+      "enableDLQ",
+      "_dlqEnabled",
     ].forEach(add);
   }
 
@@ -601,6 +655,15 @@ function buildPhraseSemanticSignals(text, config) {
     if (one === "retry" && words[i + 1] === "policy") {
       addExpanded("retry_policy");
       addExpanded("max_retries");
+      addExpanded("computeBackoffDelayMs");
+      addExpanded("shouldRetry");
+    }
+
+    if (one === "retries" && words[i + 1] === "fail") {
+      addExpanded("retry");
+      addExpanded("fail");
+      addExpanded("retry_at");
+      addExpanded("fail_reason");
     }
   }
 
@@ -706,6 +769,102 @@ function classifyItemSemantics(item) {
   };
 }
 
+function classifySignalEvidence(token) {
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+
+  if (!raw) return "generic";
+
+  if (
+    raw.includes("/") ||
+    raw.endsWith(".js") ||
+    raw.endsWith(".ts") ||
+    raw.endsWith(".sql") ||
+    raw.endsWith(".json") ||
+    raw.endsWith(".md")
+  ) {
+    return "structural";
+  }
+
+  if (
+    raw.includes("(") ||
+    /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw)
+  ) {
+    return "interface";
+  }
+
+  if (
+    lower.includes("retry") ||
+    lower.includes("backoff") ||
+    lower.includes("jitter")
+  ) {
+    return "behavioral";
+  }
+
+  if (
+    lower.includes("fail") ||
+    lower.includes("error") ||
+    lower.includes("reason") ||
+    lower.includes("status") ||
+    lower.includes("attempt") ||
+    lower.includes("_at") ||
+    lower.includes("count")
+  ) {
+    return "observational";
+  }
+
+  if (
+    lower.includes("dlq") ||
+    lower.includes("dead_letter") ||
+    lower.includes("dead-letter") ||
+    lower.includes("queue")
+  ) {
+    return "behavioral";
+  }
+
+  if (
+    lower.includes("access") ||
+    lower.includes("permission") ||
+    lower.startsWith("can")
+  ) {
+    return "relational";
+  }
+
+  return "generic";
+}
+
+function buildEvidenceProfile({ own, inheritedSignals, explicitPaths, commands }) {
+  const structural = new Set();
+  const behavioral = new Set();
+  const observational = new Set();
+  const interfaceLike = new Set();
+  const relational = new Set();
+  const generic = new Set();
+
+  for (const path of explicitPaths || []) structural.add(path);
+  for (const cmd of commands || []) interfaceLike.add(cmd);
+
+  for (const token of [...(own || []), ...(inheritedSignals || [])]) {
+    const klass = classifySignalEvidence(token);
+
+    if (klass === "structural") structural.add(token);
+    else if (klass === "behavioral") behavioral.add(token);
+    else if (klass === "observational") observational.add(token);
+    else if (klass === "interface") interfaceLike.add(token);
+    else if (klass === "relational") relational.add(token);
+    else generic.add(token);
+  }
+
+  return {
+    structural: Array.from(structural),
+    behavioral: Array.from(behavioral),
+    observational: Array.from(observational),
+    interface: Array.from(interfaceLike),
+    relational: Array.from(relational),
+    generic: Array.from(generic),
+  };
+}
+
 export function collectOwnSignals(item, config) {
   const ownText = `${item.title}\n${item.body || ""}`;
   const ownPaths = extractExplicitPaths(ownText);
@@ -728,17 +887,25 @@ export function collectOwnSignals(item, config) {
     expandedBackticks.push(...buildConceptualVariants(token, config));
   }
 
+  const signals = uniq([
+    ...ownIdentifiers,
+    ...ownSlashList,
+    ...expandedBackticks,
+    ...ownPhraseSignals,
+    ...ownDefinitionSignals,
+  ]).filter((token) => isUsefulToken(token, config));
+
   return {
     explicitPaths: uniq([...ownPaths, ...ownBacktickPaths]),
     commands: uniq([...ownCommands, ...ownBacktickCommands.map((x) => x.toLowerCase())]),
-    signals: uniq([
-      ...ownIdentifiers,
-      ...ownSlashList,
-      ...expandedBackticks,
-      ...ownPhraseSignals,
-      ...ownDefinitionSignals,
-    ]).filter((token) => isUsefulToken(token, config)),
+    signals,
     semantics,
+    evidenceProfile: buildEvidenceProfile({
+      own: signals,
+      inheritedSignals: [],
+      explicitPaths: uniq([...ownPaths, ...ownBacktickPaths]),
+      commands: uniq([...ownCommands, ...ownBacktickCommands.map((x) => x.toLowerCase())]),
+    }),
   };
 }
 
@@ -971,12 +1138,15 @@ function rankClusterToken(token) {
   if (raw.includes("-")) score += 2;
   if (raw.includes("(")) score += 5;
   if (/^[A-Z0-9_]+$/.test(raw) && raw.length >= 3) score += 2;
-  if (lower.includes("retry")) score += 3;
-  if (lower.includes("fail")) score += 3;
-  if (lower.includes("reason")) score += 2;
-  if (lower.includes("dlq")) score += 4;
-  if (lower.includes("dead_letter")) score += 4;
-  if (lower.includes("dead-letter")) score += 4;
+  if (lower.includes("retry")) score += 4;
+  if (lower.includes("fail")) score += 4;
+  if (lower.includes("reason")) score += 3;
+  if (lower.includes("error")) score += 3;
+  if (lower.includes("dlq")) score += 5;
+  if (lower.includes("dead_letter")) score += 5;
+  if (lower.includes("dead-letter")) score += 5;
+  if (lower.includes("_at")) score += 3;
+  if (lower.includes("count")) score += 2;
   if (lower === "can" || lower.startsWith("can(")) score += 5;
   if (lower.includes("permission")) score += 3;
   if (lower.includes("access")) score += 2;
@@ -987,27 +1157,106 @@ function rankClusterToken(token) {
   return score;
 }
 
-function buildClusterTokens({ own, inheritedSignals, config }) {
-  const out = [];
-
-  for (const cmd of own.commands || []) {
-    const normalized = normalizeClusterToken(cmd, config, "command");
-    if (normalized) out.push(normalized);
-  }
-
-  for (const token of own.signals || []) {
-    const normalized = normalizeClusterToken(token, config, "signal");
-    if (normalized) out.push(normalized);
-  }
-
-  for (const token of inheritedSignals || []) {
-    const normalized = normalizeClusterToken(token, config, "inherited");
-    if (normalized) out.push(normalized);
-  }
-
-  return uniq(out)
+function takeTopTokens(tokens, limit) {
+  return uniq(tokens)
     .sort((a, b) => rankClusterToken(b) - rankClusterToken(a))
-    .slice(0, Math.max(1, config.clusterMaxTokens));
+    .slice(0, Math.max(0, limit));
+}
+
+function buildClusterBuckets({ own, inheritedSignals, config }) {
+  const profile = buildEvidenceProfile({
+    own: own.signals || [],
+    inheritedSignals: inheritedSignals || [],
+    explicitPaths: own.explicitPaths || [],
+    commands: own.commands || [],
+  });
+
+  const buckets = {
+    structural: [],
+    behavioral: [],
+    observational: [],
+    interface: [],
+    relational: [],
+    generic: [],
+  };
+
+  for (const token of profile.structural) {
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized) buckets.structural.push(normalized);
+  }
+
+  for (const token of profile.behavioral) {
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized) buckets.behavioral.push(normalized);
+  }
+
+  for (const token of profile.observational) {
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized) buckets.observational.push(normalized);
+  }
+
+  for (const token of profile.interface) {
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized) buckets.interface.push(normalized);
+  }
+
+  for (const token of profile.relational) {
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized) buckets.relational.push(normalized);
+  }
+
+  for (const token of profile.generic) {
+    const normalized = normalizeClusterToken(token, config, "signal");
+    if (normalized) buckets.generic.push(normalized);
+  }
+
+  return buckets;
+}
+
+function buildClusterTokens({ own, inheritedSignals, config }) {
+  const buckets = buildClusterBuckets({ own, inheritedSignals, config });
+  const maxTokens = Math.max(1, config.clusterMaxTokens);
+
+  const result = [];
+  const bucketOrder = [
+    "structural",
+    "behavioral",
+    "observational",
+    "interface",
+    "relational",
+    "generic",
+  ];
+
+  const bucketLimits = {
+    structural: 2,
+    behavioral: 3,
+    observational: 3,
+    interface: 2,
+    relational: 1,
+    generic: 1,
+  };
+
+  for (const bucketName of bucketOrder) {
+    const picked = takeTopTokens(
+      buckets[bucketName] || [],
+      bucketLimits[bucketName] || 1
+    );
+    result.push(...picked);
+  }
+
+  if (uniq(result).length < maxTokens) {
+    const merged = [];
+    for (const bucketName of bucketOrder) {
+      merged.push(...(buckets[bucketName] || []));
+    }
+
+    for (const token of takeTopTokens(merged, maxTokens * 2)) {
+      if (result.length >= maxTokens) break;
+      if (!result.includes(token)) result.push(token);
+    }
+  }
+
+  return uniq(result).slice(0, maxTokens);
 }
 
 function buildClusterCheck({ own, inheritedSignals, config }) {

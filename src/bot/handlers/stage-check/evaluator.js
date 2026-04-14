@@ -122,10 +122,7 @@ function getItemSemanticType(item, autoChecks) {
   );
 
   const hasCarrier = labels.some(
-    (x) =>
-      x.includes("contract carrier token:") ||
-      x.includes("interface") ||
-      x.includes("contract")
+    (x) => x.includes("contract carrier token:")
   );
 
   if (hasCarrier) return "interface_like";
@@ -137,15 +134,12 @@ function countBy(entries, predicate) {
   return entries.filter(predicate).length;
 }
 
-function hasStrongAnchor(entries) {
+function hasExplicitAnchor(entries) {
   return entries.some(
     (entry) =>
       entry.result?.ok &&
       (
         isExplicitStrongCheckType(entry.check?.type) ||
-        entry.result?.strength === "strong" ||
-        entry.result?.evidenceClass === "signature_anchor" ||
-        entry.result?.evidenceClass === "carrier_anchor" ||
         entry.result?.evidenceClass === "basename_anchor" ||
         entry.result?.evidenceClass === "explicit_file" ||
         entry.result?.evidenceClass === "structured_anchor"
@@ -159,7 +153,8 @@ function countSupportingEvidence(entries) {
     (entry) =>
       entry.result?.ok &&
       entry.result?.evidenceClass !== "generic_support" &&
-      entry.result?.evidenceClass !== "command_surface"
+      entry.result?.evidenceClass !== "command_surface" &&
+      entry.result?.evidenceClass !== "cluster_anchor"
   );
 }
 
@@ -171,6 +166,45 @@ function countGenericOnlyEvidence(entries) {
       (
         entry.result?.evidenceClass === "generic_support" ||
         entry.result?.evidenceClass === "command_surface"
+      )
+  );
+}
+
+function hasSignatureAnchor(entries) {
+  return entries.some(
+    (entry) =>
+      entry.result?.ok &&
+      (
+        entry.result?.evidenceClass === "signature_anchor" ||
+        entry.result?.evidenceClass === "basename_anchor" ||
+        entry.result?.evidenceClass === "explicit_file"
+      )
+  );
+}
+
+function hasCarrierAnchor(entries) {
+  return entries.some(
+    (entry) =>
+      entry.result?.ok &&
+      (
+        entry.result?.evidenceClass === "carrier_anchor" ||
+        entry.result?.evidenceClass === "basename_anchor" ||
+        entry.result?.evidenceClass === "explicit_file"
+      )
+  );
+}
+
+function countRealMethodEvidence(entries) {
+  return countBy(
+    entries,
+    (entry) =>
+      entry.result?.ok &&
+      (
+        entry.result?.evidenceClass === "signature_anchor" ||
+        entry.result?.evidenceClass === "function_name" ||
+        entry.result?.evidenceClass === "carrier_anchor" ||
+        entry.result?.evidenceClass === "basename_anchor" ||
+        entry.result?.evidenceClass === "explicit_file"
       )
   );
 }
@@ -217,7 +251,7 @@ export async function evaluateSingleItem(item, ctx) {
   const hasPassedWeakCheck = weakEntries.some((entry) => entry.result?.ok);
 
   const semanticType = getItemSemanticType(item, autoChecks);
-  const strongAnchor = hasStrongAnchor(entries);
+  const explicitAnchor = hasExplicitAnchor(entries);
   const supportingEvidence = countSupportingEvidence(entries);
   const genericOnlyEvidence = countGenericOnlyEvidence(entries);
 
@@ -226,57 +260,35 @@ export async function evaluateSingleItem(item, ctx) {
   if (autoChecks.length === 0) {
     status = "NO_SIGNALS";
   } else if (semanticType === "signature_like") {
-    const hasSignatureAnchor = entries.some(
-      (entry) =>
-        entry.result?.ok &&
-        (
-          entry.result?.evidenceClass === "signature_anchor" ||
-          entry.result?.evidenceClass === "basename_anchor" ||
-          entry.result?.evidenceClass === "explicit_file"
-        )
-    );
+    const signatureAnchor = hasSignatureAnchor(entries);
+    const realMethodEvidence = countRealMethodEvidence(entries);
 
-    if (hasSignatureAnchor && supportingEvidence >= 2) {
+    if (signatureAnchor && realMethodEvidence >= 2) {
       status = "COMPLETE";
-    } else if (hasSignatureAnchor || supportingEvidence >= 1 || genericOnlyEvidence > 0) {
+    } else if (signatureAnchor || realMethodEvidence >= 1 || genericOnlyEvidence > 0) {
       status = "PARTIAL";
     } else {
       status = "OPEN";
     }
   } else if (semanticType === "interface_like") {
-    const hasCarrierAnchor = entries.some(
-      (entry) =>
-        entry.result?.ok &&
-        (
-          entry.result?.evidenceClass === "carrier_anchor" ||
-          entry.result?.evidenceClass === "basename_anchor" ||
-          entry.result?.evidenceClass === "explicit_file"
-        )
-    );
+    const carrierAnchor = hasCarrierAnchor(entries);
+    const realMethodEvidence = countRealMethodEvidence(entries);
 
-    const nonGenericMethodEvidence = countBy(
-      entries,
-      (entry) =>
-        entry.result?.ok &&
-        entry.result?.evidenceClass !== "generic_support" &&
-        entry.result?.evidenceClass !== "command_surface"
-    );
-
-    if (hasCarrierAnchor && nonGenericMethodEvidence >= 3) {
+    if (carrierAnchor && realMethodEvidence >= 3) {
       status = "COMPLETE";
-    } else if (hasCarrierAnchor || nonGenericMethodEvidence >= 2 || genericOnlyEvidence > 0) {
+    } else if (carrierAnchor || realMethodEvidence >= 2 || genericOnlyEvidence > 0) {
       status = "PARTIAL";
     } else {
       status = "OPEN";
     }
-  } else if (hasPassedExplicitStrong || hasPassedStrongCluster) {
+  } else if (hasPassedExplicitStrong) {
     status = "COMPLETE";
   } else if (hasExplicitStrongChecks || hasClusterChecks) {
     status = hasPassedWeakCluster || hasPassedWeakCheck ? "PARTIAL" : "OPEN";
   } else if (failedChecks === 0) {
     status = "COMPLETE";
   } else if (passedChecks > 0) {
-    status = strongAnchor ? "PARTIAL" : "PARTIAL";
+    status = explicitAnchor || supportingEvidence > 0 ? "PARTIAL" : "OPEN";
   } else {
     status = "OPEN";
   }

@@ -134,6 +134,27 @@ function countBy(entries, predicate) {
   return entries.filter(predicate).length;
 }
 
+function parseFoundPath(details) {
+  const text = String(details || "").trim();
+  if (!text) return "";
+
+  const foundIn = text.match(/^found_in:\s+(.+)$/i);
+  if (foundIn) return String(foundIn[1] || "").trim();
+
+  const foundAs = text.match(/^found_as:\s+(.+)$/i);
+  if (foundAs) return String(foundAs[1] || "").trim();
+
+  const structuredIn = text.match(/^structured_match_in:\s+(.+?)(?:\s+@.+)?$/i);
+  if (structuredIn) return String(structuredIn[1] || "").trim();
+
+  return "";
+}
+
+function isSelfCheckerPath(path) {
+  const value = String(path || "").toLowerCase();
+  return value.startsWith("src/bot/handlers/stage-check/");
+}
+
 function hasExplicitAnchor(entries) {
   return entries.some(
     (entry) =>
@@ -209,6 +230,93 @@ function countRealMethodEvidence(entries) {
   );
 }
 
+function getOkEntriesByEvidenceClass(entries, allowedClasses) {
+  return entries.filter(
+    (entry) =>
+      entry.result?.ok &&
+      allowedClasses.has(String(entry.result?.evidenceClass || ""))
+  );
+}
+
+function hasIndependentCorroboration(entries) {
+  const signatureEntries = getOkEntriesByEvidenceClass(
+    entries,
+    new Set(["signature_anchor"])
+  );
+
+  if (signatureEntries.length === 0) return false;
+
+  const corroboratingEntries = getOkEntriesByEvidenceClass(
+    entries,
+    new Set(["explicit_file", "basename_anchor", "function_name"])
+  );
+
+  if (corroboratingEntries.length === 0) return false;
+
+  const signaturePaths = new Set(
+    signatureEntries
+      .map((entry) => parseFoundPath(entry.result?.details))
+      .filter(Boolean)
+  );
+
+  if (signaturePaths.size === 0) {
+    return corroboratingEntries.length > 0;
+  }
+
+  for (const entry of corroboratingEntries) {
+    const path = parseFoundPath(entry.result?.details);
+    if (!path) return true;
+    if (!signaturePaths.has(path)) return true;
+    if (entry.result?.evidenceClass !== "signature_anchor") return true;
+  }
+
+  return false;
+}
+
+function getCarrierAnchorPaths(entries) {
+  const carrierEntries = getOkEntriesByEvidenceClass(
+    entries,
+    new Set(["carrier_anchor", "basename_anchor", "explicit_file"])
+  );
+
+  return new Set(
+    carrierEntries
+      .map((entry) => parseFoundPath(entry.result?.details))
+      .filter((path) => path && !isSelfCheckerPath(path))
+  );
+}
+
+function countLocalInterfaceMethodEvidence(entries) {
+  const carrierPaths = getCarrierAnchorPaths(entries);
+  if (carrierPaths.size === 0) return 0;
+
+  let count = 0;
+
+  for (const entry of entries) {
+    if (!entry.result?.ok) continue;
+
+    const evidenceClass = String(entry.result?.evidenceClass || "");
+    if (
+      evidenceClass !== "signature_anchor" &&
+      evidenceClass !== "function_name" &&
+      evidenceClass !== "basename_anchor" &&
+      evidenceClass !== "explicit_file"
+    ) {
+      continue;
+    }
+
+    const path = parseFoundPath(entry.result?.details);
+    if (!path) continue;
+    if (isSelfCheckerPath(path)) continue;
+
+    if (carrierPaths.has(path)) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
 export async function evaluateSingleItem(item, ctx) {
   const autoChecks = buildAutoChecksForItem(item, ctx.itemMap, ctx.config);
 
@@ -260,35 +368,44 @@ export async function evaluateSingleItem(item, ctx) {
   if (autoChecks.length === 0) {
     status = "NO_SIGNALS";
   } else if (semanticType === "signature_like") {
+    const hasExactSignatureHit = entries.some(
+      (entry) =>
+        entry.result?.ok &&
+        entry.result?.evidenceClass === "signature_anchor"
+    );
+
+    const independentCorroboration = hasIndependentCorroboration(entries);
     const signatureAnchor = hasSignatureAnchor(entries);
     const realMethodEvidence = countRealMethodEvidence(entries);
 
-    if (signatureAnchor && realMethodEvidence >= 2) {
+    if (hasExactSignatureHit && independentCorroboration) {
       status = "COMPLETE";
-    } else if (signatureAnchor || realMethodEvidence >= 1 || genericOnlyEvidence > 0) {
+    } else if (hasExactSignatureHit || signatureAnchor) {
+      status = "PARTIAL";
+    } else if (realMethodEvidence >= 1 || genericOnlyEvidence > 0) {
       status = "PARTIAL";
     } else {
       status = "OPEN";
     }
   } else if (semanticType === "interface_like") {
     const carrierAnchor = hasCarrierAnchor(entries);
-    const realMethodEvidence = countRealMethodEvidence(entries);
+    const localMethodEvidence = countLocalInterfaceMethodEvidence(entries);
 
-    if (carrierAnchor && realMethodEvidence >= 3) {
+    if (carrierAnchor && localMethodEvidence >= 3) {
       status = "COMPLETE";
-    } else if (carrierAnchor || realMethodEvidence >= 2 || genericOnlyEvidence > 0) {
+    } else if (carrierAnchor || localMethodEvidence >= 2 || genericOnlyEvidence > 0) {
       status = "PARTIAL";
     } else {
       status = "OPEN";
     }
   } else if (hasPassedExplicitStrong) {
     status = "COMPLETE";
-  } else if (hasExplicitStrongChecks || hasClusterChecks) {
-    status = hasPassedWeakCluster || hasPassedWeakCheck ? "PARTIAL" : "OPEN";
-  } else if (failedChecks === 0) {
-    status = "COMPLETE";
+  } else if (hasPassedStrongCluster || hasPassedWeakCluster) {
+    status = "PARTIAL";
+  } else if (hasExplicitStrongChecks) {
+    status = hasPassedWeakCheck ? "PARTIAL" : "OPEN";
   } else if (passedChecks > 0) {
-    status = explicitAnchor || supportingEvidence > 0 ? "PARTIAL" : "OPEN";
+    status = explicitAnchor ? "PARTIAL" : "OPEN";
   } else {
     status = "OPEN";
   }

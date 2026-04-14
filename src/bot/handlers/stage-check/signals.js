@@ -5,6 +5,48 @@
 import { uniq, normalizeItemCode } from "./common.js";
 import { getAncestorChain } from "./workflowParser.js";
 
+const MORPH_SINGULAR_BLOCKLIST = new Set([
+  "access",
+  "process",
+  "class",
+  "ress",
+  "ness",
+  "ous",
+  "iss",
+  "ass",
+  "ess",
+]);
+
+const FUNCTION_NAME_BLOCKLIST = new Set([
+  "RULES",
+  "NOTES",
+  "IMPORTANT",
+  "STATUS",
+  "STAGE",
+  "WORKFLOW",
+  "RESULT",
+  "RESULTS",
+]);
+
+const SIMPLE_ARG_BLOCKLIST = new Set([
+  "user",
+  "users",
+  "action",
+  "actions",
+  "context",
+  "contexts",
+  "data",
+  "item",
+  "items",
+  "value",
+  "values",
+  "message",
+  "messages",
+  "chat",
+  "result",
+  "results",
+]);
+
 export function buildConfig(rulesJson) {
   const cfg = rulesJson?.engine || {};
 
@@ -16,7 +58,7 @@ export function buildConfig(rulesJson) {
     maxDescendantSignals: Number(cfg.max_descendant_signals || 4),
     maxFileFetchesPerCommand: Number(cfg.max_file_fetches_per_command || 120),
     preferredPathPrefixes: Array.isArray(cfg.preferred_path_prefixes)
-      ? cfg.preferred_path_prefixes.map((x) => String(x || ""))
+      ? cfg.preferredPathPrefixes?.map((x) => String(x || "")) || cfg.preferred_path_prefixes.map((x) => String(x || ""))
       : [],
     searchableExtensions: Array.isArray(cfg.searchable_extensions)
       ? cfg.searchable_extensions.map((x) => String(x || "").toLowerCase())
@@ -159,6 +201,31 @@ function looksLikeCodeishArgument(arg) {
   return false;
 }
 
+function isTechnicalFunctionArgToken(arg) {
+  const raw = String(arg || "").trim();
+  if (!raw) return false;
+
+  const lower = raw.toLowerCase();
+
+  if (SIMPLE_ARG_BLOCKLIST.has(lower)) return false;
+  if (raw.includes("_")) return true;
+  if (raw.includes("-")) return true;
+  if (/^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw)) return true;
+  if (/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return true;
+
+  return false;
+}
+
+function isLikelyFunctionName(fnName) {
+  const raw = String(fnName || "").trim();
+  if (!raw) return false;
+  if (FUNCTION_NAME_BLOCKLIST.has(raw)) return false;
+  if (/^[A-Z0-9_]+$/.test(raw) && !/^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw)) {
+    return false;
+  }
+  return true;
+}
+
 function extractFunctionLikeTokens(text) {
   const source = String(text || "");
   const out = [];
@@ -169,7 +236,7 @@ function extractFunctionLikeTokens(text) {
     const fnName = String(hit[1] || "").trim();
     const argsRaw = String(hit[2] || "").trim();
 
-    if (!fnName) continue;
+    if (!fnName || !isLikelyFunctionName(fnName)) continue;
 
     if (argsRaw) {
       const parts = argsRaw
@@ -193,10 +260,11 @@ function extractFunctionLikeTokens(text) {
       .map((x) => x.trim())
       .filter(Boolean);
 
-    for (const arg of args) out.push(arg);
-
-    if (fnName && args.length >= 1) out.push(`${fnName}(${args[0]}`);
-    if (fnName && args.length >= 2) out.push(`${fnName}(${args[0]}, ${args[1]})`);
+    for (const arg of args) {
+      if (isTechnicalFunctionArgToken(arg)) {
+        out.push(arg);
+      }
+    }
   }
 
   return uniq(out);
@@ -344,9 +412,12 @@ function addMorphVariants(base, add) {
     add(lower.slice(0, -3) + "y");
   }
 
-  if (lower.endsWith("s") && lower.length > 3) {
-    add(lower.slice(0, -1));
-  } else {
+  if (lower.endsWith("s") && lower.length > 4) {
+    const stem = lower.slice(0, -1);
+    if (stem.length >= 3 && !MORPH_SINGULAR_BLOCKLIST.has(lower)) {
+      add(stem);
+    }
+  } else if (!lower.endsWith("ss")) {
     add(`${lower}s`);
   }
 
@@ -883,6 +954,64 @@ function classifyItemSemantics(item) {
   };
 }
 
+function classifySignalEvidence(token) {
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+
+  if (!raw) return "generic";
+
+  if (
+    raw.includes("/") ||
+    raw.endsWith(".js") ||
+    raw.endsWith(".ts") ||
+    raw.endsWith(".sql") ||
+    raw.endsWith(".json") ||
+    raw.endsWith(".md")
+  ) {
+    return "structural";
+  }
+
+  if (
+    raw.includes("(") ||
+    /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw)
+  ) {
+    return "interface";
+  }
+
+  if (
+    lower.includes("retry") ||
+    lower.includes("backoff") ||
+    lower.includes("jitter") ||
+    lower.includes("dlq") ||
+    lower.includes("dead_letter") ||
+    lower.includes("dead-letter")
+  ) {
+    return "behavioral";
+  }
+
+  if (
+    lower.includes("fail") ||
+    lower.includes("error") ||
+    lower.includes("reason") ||
+    lower.includes("status") ||
+    lower.includes("attempt") ||
+    lower.includes("_at") ||
+    lower.includes("count")
+  ) {
+    return "observational";
+  }
+
+  if (
+    lower.includes("access") ||
+    lower.includes("permission") ||
+    lower.startsWith("can")
+  ) {
+    return "relational";
+  }
+
+  return "generic";
+}
+
 export function collectOwnSignals(item, config) {
   const ownText = `${item.title}\n${item.body || ""}`;
   const ownPaths = extractExplicitPaths(ownText);
@@ -1145,10 +1274,8 @@ function normalizeClusterToken(token, config, sourceType = "signal") {
 function isAtomicClusterToken(token) {
   const raw = String(token || "").trim();
   if (!raw) return false;
-
   if (raw.includes(" ")) return false;
   if (raw.length > 32) return false;
-
   return true;
 }
 

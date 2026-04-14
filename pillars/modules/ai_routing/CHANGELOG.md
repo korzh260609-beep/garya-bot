@@ -27,3 +27,19 @@ Scope: AI Routing / Model Control module local evolution
 - This changelog tracks meaningful AI Routing / Model Control module evolution
 - It is not a replacement for git history
 - Root-level architectural decisions still belong in `pillars/DECISIONS.md`
+
+---
+
+## 2026-04-14 — runtime/doc honesty update
+
+### Updated
+- `RISKS.md` now explicitly acknowledges that current runtime is only partially aligned with the documented AI Routing target state
+
+### Why
+- current repository state still contains scattered direct AI calls outside the ideal central routing boundary
+- current shared AI entry behaves more like a wrapper/fallback layer than a fully mature router with complete policy/governance logic
+- this divergence must be documented honestly
+
+### Meaning
+- AI Routing docs still describe the correct target architecture
+- but risks now state clearly that runtime is only partially aligned with that target

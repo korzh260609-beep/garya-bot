@@ -27,3 +27,19 @@ Scope: Tasks module local evolution
 - This changelog tracks meaningful Tasks module evolution
 - It is not a replacement for git history
 - Root-level architectural decisions still belong in `pillars/DECISIONS.md`
+
+---
+
+## 2026-04-14 — runtime/doc honesty update
+
+### Updated
+- `RISKS.md` now explicitly acknowledges current direct AI invocation inside task execution code
+
+### Why
+- current repository state shows Tasks still calling shared AI entry directly
+- this blurs the Tasks boundary with AI Routing
+- this is technical debt, not canonical target design
+
+### Meaning
+- Tasks docs still describe the correct target boundary
+- but risks now state clearly that runtime is not fully aligned yet

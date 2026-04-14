@@ -151,7 +151,7 @@ function looksLikeCodeishArgument(arg) {
 
   if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return true;
   if (/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return true;
-  if (/^["'`].*["'`]$/.test(raw)) return true;
+  if (/^[\"'`].*[\"'`]$/.test(raw)) return true;
   if (/^\d+$/.test(raw)) return true;
   if (/^[A-Za-z_][A-Za-z0-9_]*\s*=\s*.+$/.test(raw)) return true;
   if (/[{}\[\]."'`=_:-]/.test(raw)) return true;
@@ -254,10 +254,8 @@ function isWeakGenericToken(token) {
 function isWeakInheritedToken(token) {
   const lower = String(token || "").trim().toLowerCase();
   if (!lower) return true;
-
   if (isWeakGenericToken(lower)) return true;
   if (lower.length <= 4 && !lower.includes("_") && !lower.includes("-")) return true;
-
   return false;
 }
 
@@ -885,96 +883,6 @@ function classifyItemSemantics(item) {
   };
 }
 
-function classifySignalEvidence(token) {
-  const raw = String(token || "").trim();
-  const lower = raw.toLowerCase();
-
-  if (!raw) return "generic";
-
-  if (
-    raw.includes("/") ||
-    raw.endsWith(".js") ||
-    raw.endsWith(".ts") ||
-    raw.endsWith(".sql") ||
-    raw.endsWith(".json") ||
-    raw.endsWith(".md")
-  ) {
-    return "structural";
-  }
-
-  if (
-    raw.includes("(") ||
-    /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw)
-  ) {
-    return "interface";
-  }
-
-  if (
-    lower.includes("retry") ||
-    lower.includes("backoff") ||
-    lower.includes("jitter") ||
-    lower.includes("dlq") ||
-    lower.includes("dead_letter") ||
-    lower.includes("dead-letter")
-  ) {
-    return "behavioral";
-  }
-
-  if (
-    lower.includes("fail") ||
-    lower.includes("error") ||
-    lower.includes("reason") ||
-    lower.includes("status") ||
-    lower.includes("attempt") ||
-    lower.includes("_at") ||
-    lower.includes("count")
-  ) {
-    return "observational";
-  }
-
-  if (
-    lower.includes("access") ||
-    lower.includes("permission") ||
-    lower.startsWith("can")
-  ) {
-    return "relational";
-  }
-
-  return "generic";
-}
-
-function buildEvidenceProfile({ own, inheritedSignals, explicitPaths, commands }) {
-  const structural = new Set();
-  const behavioral = new Set();
-  const observational = new Set();
-  const interfaceLike = new Set();
-  const relational = new Set();
-  const generic = new Set();
-
-  for (const path of explicitPaths || []) structural.add(path);
-  for (const cmd of commands || []) interfaceLike.add(cmd);
-
-  for (const token of [...(own || []), ...(inheritedSignals || [])]) {
-    const klass = classifySignalEvidence(token);
-
-    if (klass === "structural") structural.add(token);
-    else if (klass === "behavioral") behavioral.add(token);
-    else if (klass === "observational") observational.add(token);
-    else if (klass === "interface") interfaceLike.add(token);
-    else if (klass === "relational") relational.add(token);
-    else generic.add(token);
-  }
-
-  return {
-    structural: Array.from(structural),
-    behavioral: Array.from(behavioral),
-    observational: Array.from(observational),
-    interface: Array.from(interfaceLike),
-    relational: Array.from(relational),
-    generic: Array.from(generic),
-  };
-}
-
 export function collectOwnSignals(item, config) {
   const ownText = `${item.title}\n${item.body || ""}`;
   const ownPaths = extractExplicitPaths(ownText);
@@ -1010,12 +918,6 @@ export function collectOwnSignals(item, config) {
     commands: uniq([...ownCommands, ...ownBacktickCommands.map((x) => x.toLowerCase())]),
     signals,
     semantics,
-    evidenceProfile: buildEvidenceProfile({
-      own: signals,
-      inheritedSignals: [],
-      explicitPaths: uniq([...ownPaths, ...ownBacktickPaths]),
-      commands: uniq([...ownCommands, ...ownBacktickCommands.map((x) => x.toLowerCase())]),
-    }),
   };
 }
 
@@ -1334,6 +1236,96 @@ function takeTopTokens(tokens, limit) {
     .slice(0, Math.max(0, limit));
 }
 
+function classifySignalEvidence(token) {
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+
+  if (!raw) return "generic";
+
+  if (
+    raw.includes("/") ||
+    raw.endsWith(".js") ||
+    raw.endsWith(".ts") ||
+    raw.endsWith(".sql") ||
+    raw.endsWith(".json") ||
+    raw.endsWith(".md")
+  ) {
+    return "structural";
+  }
+
+  if (
+    raw.includes("(") ||
+    /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw)
+  ) {
+    return "interface";
+  }
+
+  if (
+    lower.includes("retry") ||
+    lower.includes("backoff") ||
+    lower.includes("jitter") ||
+    lower.includes("dlq") ||
+    lower.includes("dead_letter") ||
+    lower.includes("dead-letter")
+  ) {
+    return "behavioral";
+  }
+
+  if (
+    lower.includes("fail") ||
+    lower.includes("error") ||
+    lower.includes("reason") ||
+    lower.includes("status") ||
+    lower.includes("attempt") ||
+    lower.includes("_at") ||
+    lower.includes("count")
+  ) {
+    return "observational";
+  }
+
+  if (
+    lower.includes("access") ||
+    lower.includes("permission") ||
+    lower.startsWith("can")
+  ) {
+    return "relational";
+  }
+
+  return "generic";
+}
+
+function buildEvidenceProfile({ own, inheritedSignals, explicitPaths, commands }) {
+  const structural = new Set();
+  const behavioral = new Set();
+  const observational = new Set();
+  const interfaceLike = new Set();
+  const relational = new Set();
+  const generic = new Set();
+
+  for (const path of explicitPaths || []) structural.add(path);
+  for (const cmd of commands || []) interfaceLike.add(cmd);
+
+  for (const token of [...(own || []), ...(inheritedSignals || [])]) {
+    const klass = classifySignalEvidence(token);
+
+    if (klass === "structural") structural.add(token);
+    else if (klass === "behavioral") behavioral.add(token);
+    else if (klass === "observational") observational.add(token);
+    else if (klass === "interface") interfaceLike.add(token);
+    else if (klass === "relational") relational.add(token);
+    else generic.add(token);
+  }
+
+  return {
+    structural: Array.from(structural),
+    behavioral: Array.from(behavioral),
+    observational: Array.from(observational),
+    interface: Array.from(interfaceLike),
+    relational: Array.from(relational),
+    generic: Array.from(generic),
+  };
+}
+
 function buildClusterBuckets({ own, inheritedSignals, config }) {
   const profile = buildEvidenceProfile({
     own: own.signals || [],
@@ -1535,11 +1527,7 @@ function buildFunctionContractChecks(item, own, inheritedSignals) {
 
       if (
         lower === "memoryservice" ||
-        lower === "jobrunner" ||
-        lower === "interface" ||
-        lower === "interfaces" ||
-        lower === "contract" ||
-        lower === "contracts"
+        lower === "jobrunner"
       ) {
         push({
           type: "text_exists",

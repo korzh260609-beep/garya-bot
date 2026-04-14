@@ -58,7 +58,7 @@ export function buildConfig(rulesJson) {
     maxDescendantSignals: Number(cfg.max_descendant_signals || 4),
     maxFileFetchesPerCommand: Number(cfg.max_file_fetches_per_command || 120),
     preferredPathPrefixes: Array.isArray(cfg.preferred_path_prefixes)
-      ? cfg.preferredPathPrefixes?.map((x) => String(x || "")) || cfg.preferred_path_prefixes.map((x) => String(x || ""))
+      ? cfg.preferred_path_prefixes.map((x) => String(x || ""))
       : [],
     searchableExtensions: Array.isArray(cfg.searchable_extensions)
       ? cfg.searchable_extensions.map((x) => String(x || "").toLowerCase())
@@ -193,7 +193,7 @@ function looksLikeCodeishArgument(arg) {
 
   if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return true;
   if (/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return true;
-  if (/^[\"'`].*[\"'`]$/.test(raw)) return true;
+  if (/^["'`].*["'`]$/.test(raw)) return true;
   if (/^\d+$/.test(raw)) return true;
   if (/^[A-Za-z_][A-Za-z0-9_]*\s*=\s*.+$/.test(raw)) return true;
   if (/[{}\[\]."'`=_:-]/.test(raw)) return true;
@@ -1361,64 +1361,6 @@ function takeTopTokens(tokens, limit) {
     .filter(isAtomicClusterToken)
     .sort((a, b) => rankClusterToken(b) - rankClusterToken(a))
     .slice(0, Math.max(0, limit));
-}
-
-function classifySignalEvidence(token) {
-  const raw = String(token || "").trim();
-  const lower = raw.toLowerCase();
-
-  if (!raw) return "generic";
-
-  if (
-    raw.includes("/") ||
-    raw.endsWith(".js") ||
-    raw.endsWith(".ts") ||
-    raw.endsWith(".sql") ||
-    raw.endsWith(".json") ||
-    raw.endsWith(".md")
-  ) {
-    return "structural";
-  }
-
-  if (
-    raw.includes("(") ||
-    /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(raw)
-  ) {
-    return "interface";
-  }
-
-  if (
-    lower.includes("retry") ||
-    lower.includes("backoff") ||
-    lower.includes("jitter") ||
-    lower.includes("dlq") ||
-    lower.includes("dead_letter") ||
-    lower.includes("dead-letter")
-  ) {
-    return "behavioral";
-  }
-
-  if (
-    lower.includes("fail") ||
-    lower.includes("error") ||
-    lower.includes("reason") ||
-    lower.includes("status") ||
-    lower.includes("attempt") ||
-    lower.includes("_at") ||
-    lower.includes("count")
-  ) {
-    return "observational";
-  }
-
-  if (
-    lower.includes("access") ||
-    lower.includes("permission") ||
-    lower.startsWith("can")
-  ) {
-    return "relational";
-  }
-
-  return "generic";
 }
 
 function buildEvidenceProfile({ own, inheritedSignals, explicitPaths, commands }) {

@@ -3,7 +3,7 @@
 Purpose:
 - Define the canonical logical modules of SG.
 - Show where responsibilities belong.
-- Reduce confusion between workflow stages and module boundaries.
+- Reduce confusion between workflow stages, module boundaries, and runtime maturity.
 
 Status: CANONICAL
 Scope: repository logical architecture
@@ -12,7 +12,7 @@ Scope: repository logical architecture
 
 ## 0) Why this file exists
 
-`WORKFLOW.md` defines execution order.
+`WORKFLOW.md` defines execution order.  
 `REPOINDEX.md` defines repository structure and responsibility zones.
 
 This file exists to define the stable logical module map between them:
@@ -21,35 +21,65 @@ This file exists to define the stable logical module map between them:
 - what each module is responsible for
 - what each module must NOT do
 - how modules relate to each other
+- how mature each module currently is conceptually
 
 This file is not a roadmap and not a directory dump.
 
 ---
 
-## 1) Canonical module list
+## 1) Maturity labels used in this file
 
-Current canonical modules for SG:
+### `active`
+Meaning:
+- module is clearly part of current runtime/code reality
+- changes to this module likely have immediate operational impact
 
-1. Transport
-2. Bot
-3. Users / Access
-4. Memory
-5. Tasks
-6. Sources
-7. Repo
-8. Logging / Diagnostics
-9. Project Memory
-10. File-Intake
-11. AI Routing / Model Control
+### `partial runtime`
+Meaning:
+- module exists conceptually and has some real runtime/code presence
+- but ownership, placement, or implementation is still mixed/incomplete
 
-Not every module is equally mature in runtime.
-But these are the canonical responsibility domains.
+### `future-facing`
+Meaning:
+- module is canonical in architecture
+- but implementation remains mostly skeletal, limited, or preparatory
+
+Important rule:
+- these labels are architecture guidance only
+- verified repository/runtime state still wins if a mismatch is found
+- if mismatch is found, this file and `MODULE_INDEX.md` should be updated
 
 ---
 
-## 2) Module descriptions
+## 2) Canonical module list
 
-### 2.1 Transport
+Current canonical modules for SG:
+
+1. Transport — `partial runtime`
+2. Bot — `active`
+3. Users / Access — `active`
+4. Memory — `active`
+5. Tasks — `active`
+6. Sources — `active`
+7. Repo — `active`
+8. Logging / Diagnostics — `active`
+9. Project Memory — `partial runtime`
+10. File-Intake — `future-facing`
+11. AI Routing / Model Control — `partial runtime`
+
+These are the canonical responsibility domains.
+
+They are not equally mature in runtime.
+That distinction matters.
+
+---
+
+## 3) Module descriptions
+
+### 3.1 Transport
+Maturity:
+- `partial runtime`
+
 Purpose:
 - receive platform input
 - normalize platform-specific events
@@ -74,7 +104,10 @@ Examples:
 
 ---
 
-### 2.2 Bot
+### 3.2 Bot
+Maturity:
+- `active`
+
 Purpose:
 - command parsing
 - handler dispatch
@@ -92,7 +125,10 @@ Must NOT do:
 
 ---
 
-### 2.3 Users / Access
+### 3.3 Users / Access
+Maturity:
+- `active`
+
 Purpose:
 - user identification
 - role resolution
@@ -111,7 +147,10 @@ Must NOT do:
 
 ---
 
-### 2.4 Memory
+### 3.4 Memory
+Maturity:
+- `active`
+
 Purpose:
 - manage long-term memory
 - context retrieval
@@ -130,7 +169,10 @@ Must NOT do:
 
 ---
 
-### 2.5 Tasks
+### 3.5 Tasks
+Maturity:
+- `active`
+
 Purpose:
 - task definition
 - task execution policy
@@ -147,7 +189,10 @@ Must NOT do:
 
 ---
 
-### 2.6 Sources
+### 3.6 Sources
+Maturity:
+- `active`
+
 Purpose:
 - fetch external/internal sources
 - normalize source payloads
@@ -164,7 +209,10 @@ Must NOT do:
 
 ---
 
-### 2.7 Repo
+### 3.7 Repo
+Maturity:
+- `active`
+
 Purpose:
 - repository reading
 - repo structure indexing
@@ -183,7 +231,10 @@ Must NOT do:
 
 ---
 
-### 2.8 Logging / Diagnostics
+### 3.8 Logging / Diagnostics
+Maturity:
+- `active`
+
 Purpose:
 - observability
 - event logging
@@ -200,7 +251,10 @@ Must NOT do:
 
 ---
 
-### 2.9 Project Memory
+### 3.9 Project Memory
+Maturity:
+- `partial runtime`
+
 Purpose:
 - store project-level persistent context
 - support project restoration and continuity
@@ -216,7 +270,10 @@ Must NOT do:
 
 ---
 
-### 2.10 File-Intake
+### 3.10 File-Intake
+Maturity:
+- `future-facing`
+
 Purpose:
 - handle incoming files/media
 - detect type
@@ -233,7 +290,10 @@ Must NOT do:
 
 ---
 
-### 2.11 AI Routing / Model Control
+### 3.11 AI Routing / Model Control
+Maturity:
+- `partial runtime`
+
 Purpose:
 - centralize model selection
 - enforce routing policy
@@ -250,7 +310,7 @@ Must NOT do:
 
 ---
 
-## 3) Dependency direction (high-level)
+## 4) Dependency direction (high-level)
 
 Preferred high-level flow:
 
@@ -275,7 +335,7 @@ Hard rule:
 
 ---
 
-## 4) Workflow vs modules
+## 5) Workflow vs modules
 
 Important distinction:
 
@@ -290,7 +350,28 @@ Example:
 
 ---
 
-## 5) Module documentation requirement
+## 6) Runtime maturity warning
+
+This file is not a claim that every module is already cleanly isolated in code.
+
+Some modules are:
+
+- active and clearly present
+- partially present but still mixed
+- future-facing and mostly architectural for now
+
+Therefore:
+
+- do not assume all modules are equally implemented
+- do not treat conceptual module clarity as proof of clean runtime separation
+- always cross-check with:
+  - `pillars/REPOINDEX.md`
+  - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
+  - verified repository/runtime state
+
+---
+
+## 7) Module documentation requirement
 
 Each canonical module should eventually have a folder under:
 
@@ -302,12 +383,15 @@ Recommended minimum:
 - `RISKS.md`
 - `CHANGELOG.md`
 
+Entry file:
+- `pillars/modules/MODULE_INDEX.md`
+
 First module to use as reference:
 - `pillars/modules/memory/`
 
 ---
 
-## 6) Anti-chaos rule
+## 8) Anti-chaos rule
 
 Do NOT create pillar folders by:
 - every workflow step
@@ -316,12 +400,15 @@ Do NOT create pillar folders by:
 
 Create module docs by stable responsibility domain.
 
-Otherwise documentation becomes fragmented and misleading.
+Do NOT pretend all modules are equally mature if they are not.
+
+Otherwise documentation becomes both fragmented and misleading.
 
 ---
 
-## 7) Final rule
+## 9) Final rule
 
 SG must evolve by modules, not by documentation chaos.
 
-The purpose of this map is to keep future code and future AI work aligned with stable ownership boundaries.
+The purpose of this map is to keep future code and future AI work aligned with stable ownership boundaries,
+while staying honest about actual runtime maturity.

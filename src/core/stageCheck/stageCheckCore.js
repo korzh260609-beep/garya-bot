@@ -89,7 +89,13 @@ async function buildItemDiag(item, evaluationCtx) {
     label: check?.label || "-",
     ok: !!evaluated.results[index]?.ok,
     details: evaluated.results[index]?.details || "-",
+    evidenceClass: evaluated.results[index]?.evidenceClass || "-",
+    strength: evaluated.results[index]?.strength || "-",
   }));
+
+  const subtreeWorkflowItems = getSubtreeItems(item.code, Array.from(evaluationCtx.itemMap.values()));
+  const scopeItems = await buildEvaluatedItems(subtreeWorkflowItems, evaluationCtx);
+  const scopeAggregate = aggregateScope(scopeItems);
 
   return {
     explicitPaths,
@@ -100,8 +106,12 @@ async function buildItemDiag(item, evaluationCtx) {
     checkResults,
     directFileReads,
     itemStatus: evaluated.status,
+    itemSemanticType: evaluated.semanticType,
+    itemAggregationFlags: evaluated.aggregationFlags || {},
     passedChecks: evaluated.passedChecks,
     failedChecks: evaluated.failedChecks,
+    scopeAggregateStatus: scopeAggregate.status,
+    scopeAggregationDebug: scopeAggregate.aggregationDebug || null,
   };
 }
 

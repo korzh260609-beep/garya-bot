@@ -32,35 +32,150 @@ import { buildStructuredChecksForItem } from "./structuredChecks.js";
 import { buildClusterCheck } from "./cluster.js";
 import { getAncestorChain } from "./workflowParser.js";
 
+function isPolicyLikeText(text) {
+  const lower = String(text || "").toLowerCase();
+
+  if (!lower) return false;
+
+  return (
+    lower.includes("safety rules") ||
+    lower.includes("safe_policies") ||
+    lower.includes("privacy-first") ||
+    lower.includes("retention minimal") ||
+    lower.includes("retention-policy") ||
+    lower.includes("policy") ||
+    lower.includes("policies") ||
+    lower.includes("rules") ||
+    lower.includes("hard ban") ||
+    lower.includes("no diagnosis") ||
+    lower.includes("no labels") ||
+    lower.includes("no therapy") ||
+    lower.includes("no therapy replacement") ||
+    lower.includes("must not ") ||
+    lower.includes("forbidden") ||
+    lower.includes("privacy")
+  );
+}
+
+function isInterfaceLikeTitle(title) {
+  const lowerTitle = String(title || "").toLowerCase();
+  return (
+    lowerTitle.includes("interface") ||
+    lowerTitle.includes("contract") ||
+    lowerTitle.includes("methods")
+  );
+}
+
+function isLikelyRealFunctionToken(token) {
+  const raw = String(token || "").trim();
+  if (!raw) return false;
+
+  const lower = raw.toLowerCase();
+
+  // policy / prose / pseudo-markers must never look like implementation
+  if (
+    lower === "hard" ||
+    lower === "soft" ||
+    lower === "rules" ||
+    lower === "rule" ||
+    lower === "policy" ||
+    lower === "policies" ||
+    lower === "safety" ||
+    lower === "privacy" ||
+    lower === "diagnosis" ||
+    lower === "labels" ||
+    lower === "therapy" ||
+    lower === "claims" ||
+    lower === "support" ||
+    lower === "mode"
+  ) {
+    return false;
+  }
+
+  if (
+    raw.includes("/") ||
+    raw.includes(":") ||
+    raw.includes(",") ||
+    raw.includes(";") ||
+    raw.includes("—") ||
+    raw.includes("–")
+  ) {
+    return false;
+  }
+
+  if (raw.startsWith("(") || raw.endsWith(")")) {
+    return false;
+  }
+
+  if (raw.includes(" ") || raw.length < 3) {
+    return false;
+  }
+
+  if (/^[A-Za-z_][A-Za-z0-9_]*\($/.test(raw)) {
+    return true;
+  }
+
+  if (/^[A-Za-z_][A-Za-z0-9_]*\([^()]*\)$/.test(raw)) {
+    return true;
+  }
+
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) {
+    return true;
+  }
+
+  return false;
+}
+
+function sanitizeFunctionLikeTokens(tokens) {
+  return uniq(
+    (tokens || [])
+      .map((x) => String(x || "").trim())
+      .filter(Boolean)
+      .filter(isLikelyRealFunctionToken)
+  );
+}
+
 function classifyItemSemantics(item) {
   const ownText = `${item.title}\n${item.body || ""}`;
   const title = String(item.title || "");
   const lowerTitle = title.toLowerCase();
 
-  const fnTokens = extractFunctionLikeTokens(ownText);
+  const policyLike = isPolicyLikeText(ownText);
+
+  const rawFnTokens = extractFunctionLikeTokens(ownText);
+  const fnTokens = sanitizeFunctionLikeTokens(rawFnTokens);
+
   const hasExplicitSignature = fnTokens.some(
-    (x) => String(x).includes("(") && String(x).includes(")")
+    (x) =>
+      /^[A-Za-z_][A-Za-z0-9_]*\($/.test(String(x || "").trim()) ||
+      /^[A-Za-z_][A-Za-z0-9_]*\([^()]*\)$/.test(String(x || "").trim())
   );
+
   const hasFunctionName = fnTokens.some((x) =>
-    /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(x || ""))
+    /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(x || "").trim())
   );
-  const hasInterfaceWord =
-    lowerTitle.includes("interface") ||
-    lowerTitle.includes("contract") ||
-    lowerTitle.includes("methods");
+
+  const hasInterfaceWord = isInterfaceLikeTitle(lowerTitle);
 
   const slashList = extractSlashListItems(ownText);
   const hasSlashList = slashList.length > 0;
 
   let semanticType = "generic";
-  if (hasInterfaceWord && hasSlashList) semanticType = "interface_like";
-  else if (hasExplicitSignature || hasFunctionName) semanticType = "signature_like";
+
+  if (policyLike) {
+    semanticType = "policy_like";
+  } else if (hasInterfaceWord && hasSlashList) {
+    semanticType = "interface_like";
+  } else if (hasExplicitSignature || hasFunctionName) {
+    semanticType = "signature_like";
+  }
 
   return {
     semanticType,
     functionTokens: fnTokens,
     hasInterfaceWord,
     hasSlashList,
+    isPolicyLike: policyLike,
   };
 }
 
@@ -120,13 +235,24 @@ export function collectOwnSignals(item, config) {
     expandedBackticks.push(...buildConceptualVariants(token, config));
   }
 
-  const signals = uniq([
+  let signals = uniq([
     ...ownIdentifiers,
     ...ownSlashList,
     ...expandedBackticks,
     ...ownPhraseSignals,
     ...ownDefinitionSignals,
   ]).filter((token) => isUsefulToken(token, config));
+
+  // Policy-like points should still have text signals,
+  // but function-like garbage must not sneak in as implementation hints.
+  if (semantics.isPolicyLike) {
+    signals = signals.filter((token) => {
+      const raw = String(token || "").trim();
+      if (!raw) return false;
+      if (isLikelyRealFunctionToken(raw) && raw.includes("(")) return false;
+      return true;
+    });
+  }
 
   return {
     explicitPaths: uniq([...ownPaths, ...ownBacktickPaths]),
@@ -167,9 +293,8 @@ export function collectInheritedSignals(item, itemMap, config) {
 
 function buildFunctionContractChecks(item, own, inheritedSignals) {
   const checks = [];
-  const ownText = `${item.title}\n${item.body || ""}`;
-  const fnTokens = extractFunctionLikeTokens(ownText);
-  const semantics = own.semantics || { semanticType: "generic" };
+  const semantics = own.semantics || { semanticType: "generic", functionTokens: [] };
+  const fnTokens = sanitizeFunctionLikeTokens(semantics.functionTokens || []);
 
   const seen = new Set();
 
@@ -180,12 +305,18 @@ function buildFunctionContractChecks(item, own, inheritedSignals) {
     checks.push(check);
   }
 
+  // Universal hard guard:
+  // policy-like points must never generate function/contract implementation checks
+  if (semantics.semanticType === "policy_like") {
+    return checks;
+  }
+
   if (semantics.semanticType === "signature_like") {
     for (const token of fnTokens) {
       const raw = String(token || "").trim();
       if (!raw) continue;
 
-      if (raw.endsWith("(")) {
+      if (/^[A-Za-z_][A-Za-z0-9_]*\($/.test(raw)) {
         push({
           type: "text_exists",
           token: raw,
@@ -195,7 +326,7 @@ function buildFunctionContractChecks(item, own, inheritedSignals) {
         continue;
       }
 
-      if (raw.includes("(")) {
+      if (/^[A-Za-z_][A-Za-z0-9_]*\([^()]*\)$/.test(raw)) {
         push({
           type: "text_exists",
           token: raw,
@@ -205,19 +336,21 @@ function buildFunctionContractChecks(item, own, inheritedSignals) {
         continue;
       }
 
-      push({
-        type: "text_exists",
-        token: raw,
-        label: `function token: ${raw}`,
-        evidenceClass: isWeakGenericToken(raw) ? "generic_support" : "function_name",
-      });
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) {
+        push({
+          type: "text_exists",
+          token: raw,
+          label: `function token: ${raw}`,
+          evidenceClass: isWeakGenericToken(raw) ? "generic_support" : "function_name",
+        });
 
-      push({
-        type: "text_exists",
-        token: `${raw}(`,
-        label: `function call token: ${raw}(`,
-        evidenceClass: "signature_anchor",
-      });
+        push({
+          type: "text_exists",
+          token: `${raw}(`,
+          label: `function call token: ${raw}(`,
+          evidenceClass: "signature_anchor",
+        });
+      }
     }
   }
 

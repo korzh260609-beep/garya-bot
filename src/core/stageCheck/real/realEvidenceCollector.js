@@ -59,6 +59,42 @@ function parseNodeScriptEntrypoints(scriptText) {
   return uniq(matches);
 }
 
+function getExtension(path) {
+  const value = String(path || "").trim().toLowerCase();
+  const index = value.lastIndexOf(".");
+  return index >= 0 ? value.slice(index) : "";
+}
+
+function isLikelyDescriptiveFile(path) {
+  const filePath = String(path || "").trim().toLowerCase();
+  const ext = getExtension(filePath);
+
+  if (filePath.startsWith("pillars/")) return true;
+  if (filePath.includes("/docs/")) return true;
+  if (filePath.includes("/doc/")) return true;
+
+  return (
+    ext === ".md" ||
+    ext === ".txt" ||
+    ext === ".yaml" ||
+    ext === ".yml"
+  );
+}
+
+function isLikelyRuntimeProofFile(path) {
+  const ext = getExtension(path);
+  return (
+    ext === ".js" ||
+    ext === ".mjs" ||
+    ext === ".cjs" ||
+    ext === ".ts" ||
+    ext === ".mts" ||
+    ext === ".cts" ||
+    ext === ".sql" ||
+    ext === ".json"
+  );
+}
+
 async function safeReadJson(path, evaluationCtx) {
   try {
     const text = await safeFetchTextFile(path, evaluationCtx);
@@ -201,6 +237,8 @@ async function findRepoReferenceMatches({
     : [];
 
   for (const filePath of searchable) {
+    if (isLikelyDescriptiveFile(filePath)) continue;
+
     const content = await safeFetchTextFile(filePath, evaluationCtx);
     if (!content) continue;
 
@@ -513,6 +551,7 @@ async function collectRuntimeFoundationEvidence({
         file: def.file,
         strength: def.strength,
         tags: def.tags,
+        proofRole: "implementation",
         details: def.details,
       });
     } catch (_) {}
@@ -521,14 +560,22 @@ async function collectRuntimeFoundationEvidence({
   return passed;
 }
 
-async function repoFilesContainingAnyTokens(evaluationCtx, tokens = [], limit = 12) {
+async function repoFilesContainingAnyTokens(
+  evaluationCtx,
+  tokens = [],
+  limit = 12,
+  options = {}
+) {
   const hits = [];
+  const includeDescriptive = !!options.includeDescriptive;
   const searchable = Array.isArray(evaluationCtx.searchableFiles)
     ? evaluationCtx.searchableFiles.slice(0, 240)
     : [];
 
   for (const filePath of searchable) {
     if (hits.length >= limit) break;
+    if (!includeDescriptive && !isLikelyRuntimeProofFile(filePath)) continue;
+
     const text = await safeFetchTextFile(filePath, evaluationCtx);
     if (!text) continue;
     if (includesAny(text, tokens)) {
@@ -542,15 +589,19 @@ async function repoFilesContainingAnyTokens(evaluationCtx, tokens = [], limit = 
 async function repoFilesContainingAllTokenGroups(
   evaluationCtx,
   tokenGroups = [],
-  limit = 12
+  limit = 12,
+  options = {}
 ) {
   const hits = [];
+  const includeDescriptive = !!options.includeDescriptive;
   const searchable = Array.isArray(evaluationCtx.searchableFiles)
     ? evaluationCtx.searchableFiles.slice(0, 240)
     : [];
 
   for (const filePath of searchable) {
     if (hits.length >= limit) break;
+    if (!includeDescriptive && !isLikelyRuntimeProofFile(filePath)) continue;
+
     const text = await safeFetchTextFile(filePath, evaluationCtx);
     if (!text) continue;
 
@@ -568,7 +619,7 @@ function buildDomainEvidenceDefs() {
     {
       key: "database_pg_dependency",
       kind: "domain_evidence",
-      strength: "strong",
+      strength: "medium",
       tags: ["database"],
       details: "postgres driver dependency exists",
       collect: async ({ evaluationCtx }) => {
@@ -620,7 +671,7 @@ function buildDomainEvidenceDefs() {
       collect: async ({ evaluationCtx }) => {
         const files = await repoFilesContainingAnyTokens(
           evaluationCtx,
-          ["pool.query(", "new Pool(", "from \"pg\"", "node-pg-migrate", "migrations"],
+          ["pool.query(", "new Pool(", 'from "pg"', "node-pg-migrate", "migrations"],
           8
         );
 
@@ -652,7 +703,7 @@ function buildDomainEvidenceDefs() {
     {
       key: "tasks_runtime_files",
       kind: "domain_evidence",
-      strength: "strong",
+      strength: "medium",
       tags: ["tasks"],
       details: "task runtime files exist",
       collect: async ({ evaluationCtx }) => {
@@ -700,7 +751,7 @@ function buildDomainEvidenceDefs() {
     {
       key: "access_guard_files",
       kind: "domain_evidence",
-      strength: "strong",
+      strength: "medium",
       tags: ["access"],
       details: "access-related files exist",
       collect: async ({ evaluationCtx }) => {
@@ -747,7 +798,7 @@ function buildDomainEvidenceDefs() {
     {
       key: "identity_strong_pair",
       kind: "domain_evidence",
-      strength: "strong",
+      strength: "medium",
       tags: ["identity"],
       details: "repository contains linked identity model signals",
       collect: async ({ evaluationCtx }) => {
@@ -785,14 +836,21 @@ async function collectDomainEvidence({
       if (!Array.isArray(hits) || hits.length === 0) continue;
 
       for (const hit of hits.slice(0, 8)) {
+        const file = String(hit?.file || "").trim();
+        if (!file) continue;
+
+        const descriptive = isLikelyDescriptiveFile(file);
+
         passed.push({
           side: "real",
           kind: def.kind,
           subkind: def.key,
-          file: String(hit?.file || ""),
+          file,
           strength: def.strength,
           tags: def.tags,
           matched: Array.isArray(hit?.matched) ? hit.matched : [],
+          proofRole: "context",
+          proofClass: descriptive ? "descriptive" : "runtime_surface",
           details: def.details,
         });
       }
@@ -815,6 +873,7 @@ function buildRealEvidence({
       side: "real",
       kind: "candidate_file",
       file: path,
+      proofRole: "implementation",
       details: "candidate_file_exists_in_repo",
     });
   }
@@ -830,6 +889,7 @@ function buildRealEvidence({
         kind: "entrypoint_wiring",
         file: match.candidate,
         entrypoint: match.entrypoint,
+        proofRole: "implementation",
         details: "candidate_referenced_from_entrypoint",
       });
     }
@@ -841,6 +901,7 @@ function buildRealEvidence({
       kind: "repo_reference",
       file: match.file,
       candidate: match.candidate,
+      proofRole: "implementation",
       details: "candidate_referenced_elsewhere_in_repo",
     });
   }
@@ -849,7 +910,7 @@ function buildRealEvidence({
     evidence.push(item);
   }
 
-  for (const item of (domainEvidence || []).slice(0, 16)) {
+  for (const item of (domainEvidence || []).slice(0, 12)) {
     evidence.push(item);
   }
 

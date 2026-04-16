@@ -120,6 +120,43 @@ function sanitizeProjectContextForAi(projectCtx = "") {
   ].join("\n");
 }
 
+function normalizeQuestionText(value = "") {
+  return safeText(value).trim().toLowerCase();
+}
+
+export function isCurrentActivityQuestion(text = "") {
+  const q = normalizeQuestionText(text);
+  if (!q) return false;
+
+  const patterns = [
+    "что мы сейчас делаем",
+    "что мы делаем сейчас",
+    "что мы сейчас делали",
+    "над чем мы сейчас работаем",
+    "что мы сейчас обсуждаем",
+    "о чем мы сейчас говорим",
+    "на чем мы сейчас остановились",
+    "чем мы сейчас занимаемся",
+
+    "що ми зараз робимо",
+    "що ми робимо зараз",
+    "над чим ми зараз працюємо",
+    "що ми зараз обговорюємо",
+    "про що ми зараз говоримо",
+    "на чому ми зараз зупинилися",
+    "чим ми зараз займаємося",
+
+    "what are we doing now",
+    "what are we working on now",
+    "what are we discussing now",
+    "where did we stop",
+    "what are we doing at the moment",
+    "what are we working on at the moment",
+  ];
+
+  return patterns.some((p) => q.includes(p));
+}
+
 export const CHAT_AI_INPUT_LIMITS = {
   projectCtxChars: 500,
   recallCtxChars: 400,
@@ -127,8 +164,14 @@ export const CHAT_AI_INPUT_LIMITS = {
   historyMessagesMax: 2,
   historyMessagesMaxGroup: 4,
 
+  historyMessagesMaxCurrentActivity: 6,
+  historyMessagesMaxCurrentActivityGroup: 6,
+
   historyMessageChars: 300,
   historyMessageCharsGroup: 220,
+
+  historyMessageCharsCurrentActivity: 420,
+  historyMessageCharsCurrentActivityGroup: 260,
 
   userTextChars: 6000,
   systemMessageChars: 900,
@@ -158,14 +201,23 @@ export function guardRecallContext(recallCtx = "") {
 export function guardHistoryMessages(history = [], opts = {}) {
   const list = Array.isArray(history) ? history : [];
   const sharedChat = isSharedChatType(opts?.chatType);
+  const currentActivityMode = isCurrentActivityQuestion(opts?.userText || "");
 
-  const maxMessages = sharedChat
-    ? CHAT_AI_INPUT_LIMITS.historyMessagesMaxGroup
-    : CHAT_AI_INPUT_LIMITS.historyMessagesMax;
+  const maxMessages = currentActivityMode
+    ? sharedChat
+      ? CHAT_AI_INPUT_LIMITS.historyMessagesMaxCurrentActivityGroup
+      : CHAT_AI_INPUT_LIMITS.historyMessagesMaxCurrentActivity
+    : sharedChat
+      ? CHAT_AI_INPUT_LIMITS.historyMessagesMaxGroup
+      : CHAT_AI_INPUT_LIMITS.historyMessagesMax;
 
-  const maxCharsPerMessage = sharedChat
-    ? CHAT_AI_INPUT_LIMITS.historyMessageCharsGroup
-    : CHAT_AI_INPUT_LIMITS.historyMessageChars;
+  const maxCharsPerMessage = currentActivityMode
+    ? sharedChat
+      ? CHAT_AI_INPUT_LIMITS.historyMessageCharsCurrentActivityGroup
+      : CHAT_AI_INPUT_LIMITS.historyMessageCharsCurrentActivity
+    : sharedChat
+      ? CHAT_AI_INPUT_LIMITS.historyMessageCharsGroup
+      : CHAT_AI_INPUT_LIMITS.historyMessageChars;
 
   const trimmed = list.slice(-maxMessages);
 
@@ -225,6 +277,7 @@ export function buildChatInputGuardMeta({
   guardedRecallCtx = "",
   guardedHistory = [],
   guardedMessages = [],
+  userText = "",
 }) {
   const rawHistoryCount = Array.isArray(rawHistory) ? rawHistory.length : 0;
   const guardedHistoryCount = Array.isArray(guardedHistory)
@@ -237,7 +290,7 @@ export function buildChatInputGuardMeta({
     : 0;
 
   return {
-    aiInputGuardVersion: "v5-project-context-safe",
+    aiInputGuardVersion: "v6-current-activity-aware",
     rawProjectCtxChars: safeText(rawProjectCtx).length,
     guardedProjectCtxChars: safeText(guardedProjectCtx).length,
     rawRecallCtxChars: safeText(rawRecallCtx).length,
@@ -246,6 +299,7 @@ export function buildChatInputGuardMeta({
     guardedHistoryCount,
     rawMessageCount,
     guardedMessageCount,
+    currentActivityQuestionDetected: isCurrentActivityQuestion(userText),
     projectCtxTrimmed:
       safeText(guardedProjectCtx).length < safeText(rawProjectCtx).length,
     recallCtxTrimmed:
@@ -274,4 +328,5 @@ export default {
   guardChatMessages,
   buildChatInputGuardMeta,
   guardDocumentPartText,
+  isCurrentActivityQuestion,
 };

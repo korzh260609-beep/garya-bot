@@ -18,6 +18,30 @@ function countStrongRuntimeFoundationEvidence(realEvidence) {
   ).filter((x) => String(x?.strength || "") === "strong").length;
 }
 
+function countDomainEvidence(realEvidence) {
+  return Array.isArray(realEvidence?.domainEvidence)
+    ? realEvidence.domainEvidence.length
+    : 0;
+}
+
+function countStrongDomainEvidence(realEvidence) {
+  return (Array.isArray(realEvidence?.domainEvidence)
+    ? realEvidence.domainEvidence
+    : []
+  ).filter((x) => String(x?.strength || "") === "strong").length;
+}
+
+function countDistinctDomainFiles(realEvidence) {
+  const files = (Array.isArray(realEvidence?.domainEvidence)
+    ? realEvidence.domainEvidence
+    : []
+  )
+    .map((x) => String(x?.file || "").trim())
+    .filter(Boolean);
+
+  return new Set(files).size;
+}
+
 function buildRealReason({
   status,
   candidateCount,
@@ -25,6 +49,8 @@ function buildRealReason({
   repoRefFiles,
   runtimeFoundationCount,
   strongRuntimeFoundationCount,
+  domainEvidenceCount,
+  strongDomainEvidenceCount,
 }) {
   if (status === "COMPLETE") {
     if (directEntrypointCount > 0) {
@@ -35,12 +61,20 @@ function buildRealReason({
       return "runtime_foundation_strongly_proven";
     }
 
+    if (strongDomainEvidenceCount >= 3) {
+      return "domain_evidence_strongly_proven";
+    }
+
     return "real_runtime_and_repository_connectedness_proven";
   }
 
   if (status === "PARTIAL") {
     if (candidateCount > 0 && directEntrypointCount === 0) {
       return "implementation_exists_but_runtime_connectedness_is_incomplete";
+    }
+
+    if (domainEvidenceCount > 0) {
+      return "domain_evidence_partially_proven";
     }
 
     if (runtimeFoundationCount > 0) {
@@ -57,7 +91,8 @@ function buildRealReason({
   if (
     candidateCount === 0 &&
     repoRefFiles === 0 &&
-    runtimeFoundationCount === 0
+    runtimeFoundationCount === 0 &&
+    domainEvidenceCount === 0
   ) {
     return "insufficient_real_evidence";
   }
@@ -81,20 +116,36 @@ export function evaluateRealStatus({
   const strongRuntimeFoundationCount =
     countStrongRuntimeFoundationEvidence(realEvidence);
 
+  const domainEvidenceCount = countDomainEvidence(realEvidence);
+  const strongDomainEvidenceCount = countStrongDomainEvidence(realEvidence);
+  const distinctDomainFiles = countDistinctDomainFiles(realEvidence);
+
   let status = "UNKNOWN";
 
   if (candidateCount > 0 && directEntrypointCount > 0) {
     status = "COMPLETE";
-  } else if (
-    candidateCount > 0 &&
-    (repoRefFiles >= 1 || runtimeFoundationCount >= 1)
-  ) {
-    status = "PARTIAL";
   } else if (strongRuntimeFoundationCount >= 4) {
     status = "COMPLETE";
-  } else if (runtimeFoundationCount >= 2) {
+  } else if (
+    strongDomainEvidenceCount >= 2 &&
+    distinctDomainFiles >= 2
+  ) {
     status = "PARTIAL";
-  } else if (candidateCount > 0 || runtimeFoundationCount === 1) {
+  } else if (
+    candidateCount > 0 &&
+    (repoRefFiles >= 1 || runtimeFoundationCount >= 1 || domainEvidenceCount >= 1)
+  ) {
+    status = "PARTIAL";
+  } else if (
+    runtimeFoundationCount >= 2 ||
+    domainEvidenceCount >= 2
+  ) {
+    status = "PARTIAL";
+  } else if (
+    candidateCount > 0 ||
+    runtimeFoundationCount === 1 ||
+    domainEvidenceCount === 1
+  ) {
     status = "OPEN";
   } else if (repoRefFiles > 0 || directEntrypointCount > 0) {
     status = "PARTIAL";
@@ -111,6 +162,8 @@ export function evaluateRealStatus({
       repoRefFiles,
       runtimeFoundationCount,
       strongRuntimeFoundationCount,
+      domainEvidenceCount,
+      strongDomainEvidenceCount,
     }),
     evidence: realEvidence?.evidence || [],
     connectedness,

@@ -1,6 +1,7 @@
 // ============================================================================
 // === src/core/stageCheck/real/realEvidenceCollector.js
-// === universal real-evidence collector (repo wiring / connectedness / runtime)
+// === universal real-evidence collector
+// === repo wiring / connectedness / runtime foundation with semantic relevance
 // ============================================================================
 
 import {
@@ -196,13 +197,156 @@ async function findRepoReferenceMatches({
   return matches;
 }
 
-function buildRuntimeFoundationTokens() {
+function addTagsFromPatterns(tags, text, patterns, tag) {
+  if (patterns.some((x) => text.includes(x))) {
+    tags.add(tag);
+  }
+}
+
+function buildScopeSemanticProfile(scopeWorkflowItems) {
+  const text = (scopeWorkflowItems || [])
+    .map((item) => `${item?.title || ""}\n${item?.body || ""}`)
+    .join("\n")
+    .toLowerCase();
+
+  const tags = new Set();
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    [
+      "base infrastructure",
+      "node.js",
+      "express",
+      "webhook",
+      "render",
+      "runtime",
+      "bootstrap",
+      "entrypoint",
+      "server",
+      "http",
+      "transport adapter concept",
+      "unified context",
+      "handlemessage",
+    ],
+    "runtime"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["telegram", "webhook", "process update", "adapter", "transport", "delivery"],
+    "transport"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["postgresql", "database", "db", "migrations", "schema", "table", "storage"],
+    "database"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["task", "tasks", "queue", "worker", "jobrunner", "cron", "retry", "dlq"],
+    "tasks"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["access", "roles", "permissions", "guest", "monarch", "citizen", "can("],
+    "access"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["identity", "global_user_id", "user_links", "linking flow", "platform_user_id", "multi-channel"],
+    "identity"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["observability", "/health", "error_events", "logs", "metrics", "alerts", "diagnostics"],
+    "observability"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["memory", "chat_memory", "context", "recent", "long-term", "recall"],
+    "memory"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["sources", "rss", "html", "coingecko", "source cache", "fetch", "api"],
+    "sources"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["file-intake", "ocr", "pdf", "docx", "audio transcript", "vision", "file"],
+    "file_intake"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["capability", "diagram", "document generation", "code/repo analysis", "automation/webhook"],
+    "capability"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["billing", "legal", "tariffs", "plans", "ai-credits", "privacy", "license"],
+    "billing"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["risk", "market", "btc", "alerts", "rotation", "reenter", "exit_now"],
+    "risk"
+  );
+
+  addTagsFromPatterns(
+    tags,
+    text,
+    ["psych", "mood", "technique", "safe_policies", "therapy", "diagnosis"],
+    "psycho"
+  );
+
+  if (tags.size === 0) {
+    tags.add("generic");
+  }
+
+  return {
+    tags: Array.from(tags),
+    rawText: text,
+  };
+}
+
+function hasSemanticOverlap(defTags, scopeTags) {
+  const left = Array.isArray(defTags) ? defTags : [];
+  const right = new Set(Array.isArray(scopeTags) ? scopeTags : []);
+  return left.some((tag) => right.has(tag));
+}
+
+function buildRuntimeFoundationDefs() {
   return [
     {
       key: "package_main",
       file: "package.json",
       kind: "runtime_foundation",
       strength: "strong",
+      tags: ["runtime"],
       test: async ({ evaluationCtx }) => {
         const pkg = await safeReadJson("package.json", evaluationCtx);
         return !!String(pkg?.main || "").trim();
@@ -214,6 +358,7 @@ function buildRuntimeFoundationTokens() {
       file: "package.json",
       kind: "runtime_foundation",
       strength: "strong",
+      tags: ["runtime"],
       test: async ({ evaluationCtx }) => {
         const pkg = await safeReadJson("package.json", evaluationCtx);
         const startScript = String(pkg?.scripts?.start || "").trim();
@@ -226,6 +371,7 @@ function buildRuntimeFoundationTokens() {
       file: "index.js",
       kind: "runtime_foundation",
       strength: "strong",
+      tags: ["runtime"],
       test: async ({ evaluationCtx }) => {
         return evaluationCtx.fileSet.has("index.js");
       },
@@ -236,6 +382,7 @@ function buildRuntimeFoundationTokens() {
       file: "index.js",
       kind: "runtime_foundation",
       strength: "medium",
+      tags: ["runtime"],
       test: async ({ evaluationCtx }) => {
         const text = await safeFetchTextFile("index.js", evaluationCtx);
         if (!text) return false;
@@ -251,6 +398,7 @@ function buildRuntimeFoundationTokens() {
       file: "index.js",
       kind: "runtime_foundation",
       strength: "strong",
+      tags: ["runtime", "transport"],
       test: async ({ evaluationCtx }) => {
         const text = await safeFetchTextFile("index.js", evaluationCtx);
         if (!text) return false;
@@ -266,13 +414,11 @@ function buildRuntimeFoundationTokens() {
       file: "index.js",
       kind: "runtime_foundation",
       strength: "strong",
+      tags: ["runtime", "transport"],
       test: async ({ evaluationCtx }) => {
         const text = await safeFetchTextFile("index.js", evaluationCtx);
         if (!text) return false;
-        return (
-          text.includes("TelegramAdapter") &&
-          text.includes(".attach(")
-        );
+        return text.includes("TelegramAdapter") && text.includes(".attach(");
       },
       details: "entrypoint wires transport adapter attach",
     },
@@ -281,6 +427,7 @@ function buildRuntimeFoundationTokens() {
       file: "index.js",
       kind: "runtime_foundation",
       strength: "medium",
+      tags: ["runtime", "transport"],
       test: async ({ evaluationCtx }) => {
         const text = await safeFetchTextFile("index.js", evaluationCtx);
         if (!text) return false;
@@ -296,13 +443,14 @@ function buildRuntimeFoundationTokens() {
       file: "src/bot/telegramTransport.js",
       kind: "runtime_foundation",
       strength: "strong",
+      tags: ["transport"],
       test: async ({ evaluationCtx }) => {
-        const text = await safeFetchTextFile("src/bot/telegramTransport.js", evaluationCtx);
-        if (!text) return false;
-        return (
-          text.includes("setWebHook") ||
-          text.includes("setWebhook")
+        const text = await safeFetchTextFile(
+          "src/bot/telegramTransport.js",
+          evaluationCtx
         );
+        if (!text) return false;
+        return text.includes("setWebHook") || text.includes("setWebhook");
       },
       details: "telegram transport sets webhook",
     },
@@ -311,8 +459,12 @@ function buildRuntimeFoundationTokens() {
       file: "src/bot/telegramTransport.js",
       kind: "runtime_foundation",
       strength: "strong",
+      tags: ["transport"],
       test: async ({ evaluationCtx }) => {
-        const text = await safeFetchTextFile("src/bot/telegramTransport.js", evaluationCtx);
+        const text = await safeFetchTextFile(
+          "src/bot/telegramTransport.js",
+          evaluationCtx
+        );
         if (!text) return false;
         return text.includes("processUpdate");
       },
@@ -321,11 +473,17 @@ function buildRuntimeFoundationTokens() {
   ];
 }
 
-async function collectRuntimeFoundationEvidence(evaluationCtx) {
-  const defs = buildRuntimeFoundationTokens();
+async function collectRuntimeFoundationEvidence({
+  evaluationCtx,
+  scopeSemanticProfile,
+}) {
+  const defs = buildRuntimeFoundationDefs();
+  const scopeTags = scopeSemanticProfile?.tags || [];
   const passed = [];
 
   for (const def of defs) {
+    if (!hasSemanticOverlap(def.tags, scopeTags)) continue;
+
     try {
       const ok = await def.test({ evaluationCtx });
       if (!ok) continue;
@@ -336,6 +494,7 @@ async function collectRuntimeFoundationEvidence(evaluationCtx) {
         subkind: def.key,
         file: def.file,
         strength: def.strength,
+        tags: def.tags,
         details: def.details,
       });
     } catch (_) {}
@@ -397,6 +556,8 @@ export async function collectRealEvidence({
   scopeWorkflowItems,
   evaluationCtx,
 } = {}) {
+  const scopeSemanticProfile = buildScopeSemanticProfile(scopeWorkflowItems);
+
   const entrypoints = await discoverEntrypoints(evaluationCtx);
   const candidateFiles = collectCandidateFilesFromScope(
     scopeWorkflowItems,
@@ -421,9 +582,10 @@ export async function collectRealEvidence({
     repoReferenceMatches,
   });
 
-  const runtimeFoundationEvidence = await collectRuntimeFoundationEvidence(
-    evaluationCtx
-  );
+  const runtimeFoundationEvidence = await collectRuntimeFoundationEvidence({
+    evaluationCtx,
+    scopeSemanticProfile,
+  });
 
   const evidence = buildRealEvidence({
     candidateFiles,
@@ -432,6 +594,7 @@ export async function collectRealEvidence({
   });
 
   return {
+    scopeSemanticProfile,
     entrypoints,
     candidateFiles,
     directEntrypointMatches,

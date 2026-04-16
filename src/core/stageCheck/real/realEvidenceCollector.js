@@ -202,23 +202,20 @@ function buildRealEvidence({
     });
   }
 
-  for (const path of entrypoints.slice(0, 6)) {
-    evidence.push({
-      side: "real",
-      kind: "entrypoint",
-      file: path,
-      details: "discovered_runtime_entrypoint",
-    });
-  }
+  const directMatches = Array.isArray(connectedness?.directEntrypointMatches)
+    ? connectedness.directEntrypointMatches
+    : [];
 
-  for (const match of (connectedness?.directEntrypointMatches || []).slice(0, 8)) {
-    evidence.push({
-      side: "real",
-      kind: "entrypoint_wiring",
-      file: match.candidate,
-      entrypoint: match.entrypoint,
-      details: "candidate_referenced_from_entrypoint",
-    });
+  if (directMatches.length > 0) {
+    for (const match of directMatches.slice(0, 8)) {
+      evidence.push({
+        side: "real",
+        kind: "entrypoint_wiring",
+        file: match.candidate,
+        entrypoint: match.entrypoint,
+        details: "candidate_referenced_from_entrypoint",
+      });
+    }
   }
 
   for (const match of (connectedness?.repoReferenceMatches || []).slice(0, 8)) {

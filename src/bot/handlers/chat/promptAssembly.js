@@ -14,6 +14,7 @@ import {
   sumMessageChars,
   sumMessageCharsByRole,
 } from "./chatPromptMetrics.js";
+import { isCurrentActivityQuestion } from "./aiInputGuard.js";
 
 export function buildModeInstruction(answerMode) {
   if (answerMode === "short") {
@@ -44,6 +45,25 @@ function buildProjectContextPolicySystemMessage(projectCtx = "") {
       "If the user asks what stage is current now, what is implemented now, or what you based the answer on, do not rely on project memory as proof.",
       "For current implementation/status claims, repository checks, runtime checks, stage_check output, or explicit user confirmation are required.",
       "If such proof is missing, say that the background context may be outdated and that current status is not confirmed.",
+    ].join("\n"),
+  };
+}
+
+function buildCurrentActivityPrioritySystemMessage(userText = "") {
+  if (!isCurrentActivityQuestion(userText)) {
+    return null;
+  }
+
+  return {
+    role: "system",
+    content: [
+      "CURRENT SESSION PRIORITY POLICY:",
+      "The user is asking about what we are doing NOW in the current conversation/session.",
+      "Answer from the latest dialog history and the immediate local conversation context first.",
+      "Prefer recent messages over roadmap/workflow/project-memory background.",
+      "Do not replace a session-level answer with stage names, roles, roadmap status, or project-memory claims unless the user explicitly asked about stages/roadmap/status.",
+      "If the recent dialog clearly shows the current task, answer by summarizing that recent task in plain words.",
+      "If the recent dialog is insufficient, say that the current session context is unclear instead of inventing a project stage/state.",
     ].join("\n"),
   };
 }
@@ -107,9 +127,13 @@ export function buildChatMessages({
   const projectContextPolicySystemMessage =
     buildProjectContextPolicySystemMessage(projectCtx);
 
+  const currentActivityPrioritySystemMessage =
+    buildCurrentActivityPrioritySystemMessage(effective);
+
   const messages = [
     { role: "system", content: systemPrompt },
     projectContextPolicySystemMessage,
+    currentActivityPrioritySystemMessage,
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
     longTermMemorySystemMessage,
@@ -122,6 +146,7 @@ export function buildChatMessages({
   const promptBlockDiagnostics = {
     promptBlockSystemPromptChars: countChars(systemPrompt),
     promptBlockProjectContextPolicyChars: countChars(projectContextPolicySystemMessage?.content),
+    promptBlockCurrentActivityPolicyChars: countChars(currentActivityPrioritySystemMessage?.content),
     promptBlockSourceServiceChars: countChars(sourceServiceSystemMessage?.content),
     promptBlockSourceResultChars: countChars(sourceResultSystemMessage?.content),
     promptBlockLongTermMemoryChars: countChars(longTermMemorySystemMessage?.content),

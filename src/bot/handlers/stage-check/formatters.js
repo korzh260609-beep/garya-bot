@@ -306,7 +306,6 @@ function summarizeRealEvidence(entries, t) {
   for (const entry of entries) {
     const kind = String(entry?.kind || "");
     if (kind === "entrypoint_wiring") kinds.add("runtime");
-    else if (kind === "entrypoint") kinds.add("entrypoint");
     else if (kind === "candidate_file") kinds.add("file");
     else if (kind === "repo_reference") kinds.add("reference");
   }
@@ -315,30 +314,58 @@ function summarizeRealEvidence(entries, t) {
   return Array.from(kinds).slice(0, 4).join(", ");
 }
 
-function describeFormalState(formal, t) {
-  const status = String(formal?.status || "NO_SIGNALS");
+export function formatSingleItemOutput({
+  review,
+  t,
+  humanStatus,
+  humanGapReason,
+}) {
+  const lines = [];
 
-  if (status === "COMPLETE") return t("formal_complete");
-  if (status === "PARTIAL") return t("formal_partial");
-  if (status === "OPEN") return t("formal_open");
-  return t("formal_no_signals");
-}
+  lines.push(t("header_single", { code: review?.item?.code || "-" }));
+  lines.push(`${t("formal_status")}: ${humanStatus(review?.formal?.status)}`);
+  lines.push(`${t("real_status")}: ${humanStatus(review?.real?.status)}`);
+  lines.push(`${t("status_gap")}: ${review?.gap?.exists ? t("yes") : t("no")}`);
+  lines.push(`${t("gap_reason")}: ${humanGapReason(review?.gap?.reason)}`);
 
-function describeRealState(real, t) {
-  const status = String(real?.status || "UNKNOWN");
-
-  if (status === "COMPLETE") return t("real_complete");
-  if (status === "PARTIAL") return t("real_partial");
-  if (status === "OPEN") return t("real_open");
-  return t("real_unknown");
+  return lines.join("\n");
 }
 
 function buildStageLineStatus(review, humanStatus, humanGapReason) {
   const formal = humanStatus(review?.formal?.status);
   const real = humanStatus(review?.real?.status);
-  const gap = review?.gap?.exists ? humanGapReason(review?.gap?.reason) : humanGapReason("aligned");
+  const gap = review?.gap?.exists
+    ? humanGapReason(review?.gap?.reason)
+    : humanGapReason("aligned");
 
   return `formal: ${formal} | real: ${real} | gap: ${gap}`;
+}
+
+export function formatAllStagesOutput({
+  stageReviews,
+  t,
+  humanStatus,
+  humanGapReason,
+}) {
+  const lines = [];
+  lines.push(t("header_all"));
+
+  const list = Array.isArray(stageReviews) ? stageReviews : [];
+  if (list.length === 0) {
+    lines.push(`${t("result")}: ${t("no_clear_evidence")}`);
+    return lines.join("\n");
+  }
+
+  for (const review of list) {
+    lines.push(
+      t("stage_line", {
+        code: review?.item?.code || "-",
+        status: buildStageLineStatus(review, humanStatus, humanGapReason),
+      })
+    );
+  }
+
+  return lines.join("\n");
 }
 
 function chooseCurrentStageReview(stageReviews) {
@@ -378,59 +405,6 @@ function chooseCurrentStageReview(stageReviews) {
   return list[list.length - 1] || null;
 }
 
-export function formatSingleItemOutput({
-  review,
-  t,
-  humanStatus,
-  humanGapReason,
-}) {
-  const lines = [];
-
-  lines.push(t("header_single", { code: review?.item?.code || "-" }));
-  lines.push(`${t("workflow")}: ${review?.item?.title || "-"}`);
-  lines.push(`${t("formal_status")}: ${humanStatus(review?.formal?.status)}`);
-  lines.push(`${t("real_status")}: ${humanStatus(review?.real?.status)}`);
-  lines.push(
-    `${t("status_gap")}: ${review?.gap?.exists ? t("yes") : t("no")}`
-  );
-  lines.push(`${t("gap_reason")}: ${humanGapReason(review?.gap?.reason)}`);
-  lines.push(`${t("formal_found")}: ${summarizeFormalEvidence(review?.formal?.evidence || [], t)}`);
-  lines.push(`${t("real_found")}: ${summarizeRealEvidence(review?.real?.evidence || [], t)}`);
-  lines.push(`${t("summary")}: ${describeFormalState(review?.formal, t)} | ${describeRealState(review?.real, t)}`);
-  lines.push(
-    `${t("result")}: formal=${humanStatus(review?.formal?.status)}, real=${humanStatus(review?.real?.status)}`
-  );
-
-  return lines.join("\n");
-}
-
-export function formatAllStagesOutput({
-  stageReviews,
-  t,
-  humanStatus,
-  humanGapReason,
-}) {
-  const lines = [];
-  lines.push(t("header_all"));
-
-  const list = Array.isArray(stageReviews) ? stageReviews : [];
-  if (list.length === 0) {
-    lines.push(`${t("result")}: ${t("no_clear_evidence")}`);
-    return lines.join("\n");
-  }
-
-  for (const review of list) {
-    lines.push(
-      t("stage_line", {
-        code: review?.item?.code || "-",
-        status: buildStageLineStatus(review, humanStatus, humanGapReason),
-      })
-    );
-  }
-
-  return lines.join("\n");
-}
-
 export function formatCurrentOutput({
   stageReviews,
   t,
@@ -447,13 +421,9 @@ export function formatCurrentOutput({
   }
 
   lines.push(`${t("current_stage")}: ${chosen?.item?.code || "-"}`);
-  lines.push(`${t("title")}: ${chosen?.item?.title || "-"}`);
   lines.push(`${t("formal_status")}: ${humanStatus(chosen?.formal?.status)}`);
   lines.push(`${t("real_status")}: ${humanStatus(chosen?.real?.status)}`);
-  lines.push(
-    `${t("status_gap")}: ${chosen?.gap?.exists ? t("yes") : t("no")}`
-  );
-  lines.push(`${t("gap_reason")}: ${humanGapReason(chosen?.gap?.reason)}`);
+  lines.push(`${t("status_gap")}: ${chosen?.gap?.exists ? t("yes") : t("no")}`);
 
   return lines.join("\n");
 }

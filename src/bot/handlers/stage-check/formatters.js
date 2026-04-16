@@ -89,6 +89,7 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       basename_signal: "Наличие файла/модуля по имени",
       structured_index: "Наличие структурного индекса/unique в миграциях",
       no_clear_evidence: "Явного подтверждения в репозитории не найдено",
+      insufficient_evidence: "Есть сигналы, но их недостаточно для подтверждения",
       aggregated_scope: "Агрегированная проверка дочерних пунктов",
       exact_point: "Проверка точечного пункта",
       stage_line: "{code} — {status}",
@@ -126,6 +127,7 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       basename_signal: "Наявність файлу/модуля за назвою",
       structured_index: "Наявність структурного індексу/unique у міграціях",
       no_clear_evidence: "Явного підтвердження в репозиторії не знайдено",
+      insufficient_evidence: "Є сигнали, але їх недостатньо для підтвердження",
       aggregated_scope: "Агрегована перевірка дочірніх пунктів",
       exact_point: "Перевірка точкового пункту",
       stage_line: "{code} — {status}",
@@ -163,6 +165,7 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       basename_signal: "File/module exists by name",
       structured_index: "Structured index/unique exists in migrations",
       no_clear_evidence: "No clear evidence found in repository",
+      insufficient_evidence: "There are signals, but not enough to confirm the item",
       aggregated_scope: "Aggregated check of child items",
       exact_point: "Exact point check",
       stage_line: "{code} — {status}",
@@ -214,6 +217,17 @@ function summarizeEvidence(entries, t) {
   if (!entries.length) return t("no_clear_evidence");
   const kinds = new Set(entries.map((e) => describeCheckShort(e, t)));
   return Array.from(kinds).slice(0, 3).join(", ");
+}
+
+function describeFoundState(aggregate, t) {
+  if (!aggregate) return t("no_clear_evidence");
+  if (aggregate.status === "NO_SIGNALS") return t("no_signals");
+  if (aggregate.status === "OPEN") {
+    return aggregate.passedEntries?.length > 0
+      ? t("insufficient_evidence")
+      : t("no_clear_evidence");
+  }
+  return summarizeEvidence(aggregate.passedEntries || [], t);
 }
 
 function buildTopLevelAggregates(topLevelItems, evaluatedItems) {
@@ -299,15 +313,7 @@ export function formatSingleItemOutput({
     lines.push(`${t("checked")}: ${t("exact_point")}`);
   }
 
-  if (aggregate.status === "COMPLETE") {
-    lines.push(`${t("found")}: ${summarizeEvidence(aggregate.passedEntries, t)}`);
-  } else if (aggregate.status === "PARTIAL") {
-    lines.push(`${t("found")}: ${summarizeEvidence(aggregate.passedEntries, t)}`);
-  } else if (aggregate.status === "NO_SIGNALS") {
-    lines.push(`${t("found")}: ${t("no_signals")}`);
-  } else {
-    lines.push(`${t("found")}: ${summarizeEvidence(aggregate.passedEntries, t)}`);
-  }
+  lines.push(`${t("found")}: ${describeFoundState(aggregate, t)}`);
 
   lines.push(
     `${t("summary")}: ${t("completed_count")} ${aggregate.completeItems}, ` +

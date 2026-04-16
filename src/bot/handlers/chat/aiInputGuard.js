@@ -30,6 +30,96 @@ function isSharedChatType(chatType = "") {
   return v === "group" || v === "supergroup";
 }
 
+function normalizeLines(text = "") {
+  return safeText(text)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trimEnd());
+}
+
+function isProjectContextStatusLikeLine(line = "") {
+  const text = safeText(line).trim().toLowerCase();
+  if (!text) return false;
+
+  const patterns = [
+    "current stage",
+    "текущий этап",
+    "поточний етап",
+    "current focus",
+    "текущий фокус",
+    "поточний фокус",
+    "completed",
+    "done",
+    "implemented",
+    "started",
+    "in progress",
+    "partially completed",
+    "partially implemented",
+    "выполнен",
+    "выполнено",
+    "реализован",
+    "реализовано",
+    "начат",
+    "начато",
+    "в процессе",
+    "частично",
+    "підтверджено",
+    "виконано",
+    "реалізовано",
+    "розпочато",
+    "у процесі",
+  ];
+
+  if (patterns.some((p) => text.includes(p))) {
+    return true;
+  }
+
+  if (/^stage\s*\d+/i.test(text)) return true;
+  if (/^этап\s*\d+/i.test(text)) return true;
+  if (/^етап\s*\d+/i.test(text)) return true;
+
+  return false;
+}
+
+function sanitizeProjectContextForAi(projectCtx = "") {
+  const lines = normalizeLines(projectCtx);
+  const kept = [];
+
+  for (const line of lines) {
+    const trimmed = String(line || "").trim();
+
+    if (!trimmed) {
+      if (kept.length > 0 && kept[kept.length - 1] !== "") {
+        kept.push("");
+      }
+      continue;
+    }
+
+    if (isProjectContextStatusLikeLine(trimmed)) {
+      continue;
+    }
+
+    kept.push(trimmed);
+  }
+
+  const collapsed = [];
+  for (const line of kept) {
+    if (line === "" && collapsed[collapsed.length - 1] === "") continue;
+    collapsed.push(line);
+  }
+
+  const sanitizedBody = collapsed.join("\n").trim();
+  if (!sanitizedBody) return "";
+
+  return [
+    "UNVERIFIED PROJECT MEMORY BACKGROUND:",
+    "This block is background only.",
+    "Do not use it as proof of current stage/status/implementation.",
+    sanitizedBody,
+  ].join("\n");
+}
+
 export const CHAT_AI_INPUT_LIMITS = {
   projectCtxChars: 500,
   recallCtxChars: 400,
@@ -48,8 +138,10 @@ export const CHAT_AI_INPUT_LIMITS = {
 };
 
 export function guardProjectContext(projectCtx = "") {
+  const sanitized = sanitizeProjectContextForAi(projectCtx);
+
   return truncateText(
-    projectCtx,
+    sanitized,
     CHAT_AI_INPUT_LIMITS.projectCtxChars,
     "\n...[project context truncated]"
   );
@@ -145,7 +237,7 @@ export function buildChatInputGuardMeta({
     : 0;
 
   return {
-    aiInputGuardVersion: "v4-group-aware",
+    aiInputGuardVersion: "v5-project-context-safe",
     rawProjectCtxChars: safeText(rawProjectCtx).length,
     guardedProjectCtxChars: safeText(guardedProjectCtx).length,
     rawRecallCtxChars: safeText(rawRecallCtx).length,

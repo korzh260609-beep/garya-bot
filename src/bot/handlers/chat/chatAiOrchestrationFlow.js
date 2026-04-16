@@ -130,6 +130,7 @@ export async function runChatAiOrchestration({
   const guardedRecallCtx = guardRecallContext(recallCtx || "");
   const guardedHistory = guardHistoryMessages(history, {
     chatType: currentChatType,
+    userText: effective,
   });
 
   const answerMode = getAnswerMode(chatIdStr, {
@@ -173,6 +174,7 @@ export async function runChatAiOrchestration({
     guardedRecallCtx,
     guardedHistory,
     guardedMessages,
+    userText: effective,
   });
 
   const aiMetaBase = {

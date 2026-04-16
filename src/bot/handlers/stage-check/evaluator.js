@@ -360,13 +360,12 @@ function isPolicyLikeSemanticType(semanticType) {
   return semanticType === "policy_like";
 }
 
-function isImplementationLikeSemanticType(semanticType) {
-  return (
-    semanticType === "signature_like" ||
-    semanticType === "interface_like" ||
-    semanticType === "architecture_like" ||
-    semanticType === "generic"
-  );
+function isArchitectureLikeSemanticType(semanticType) {
+  return semanticType === "architecture_like";
+}
+
+function isExecutableSemanticType(semanticType) {
+  return semanticType === "signature_like" || semanticType === "interface_like";
 }
 
 function getRootScopeItem(scopeItems) {
@@ -375,32 +374,101 @@ function getRootScopeItem(scopeItems) {
   ) || scopeItems[0] || null;
 }
 
-function isModuleLikeStage(rootItem) {
-  const title = String(rootItem?.title || "").toLowerCase();
-  if (!rootItem || rootItem.kind !== "stage") return false;
-
-  return (
-    title.includes("module") ||
-    title.includes("модуль") ||
-    title.includes("capability") ||
-    title.includes("integration") ||
-    title.includes("integrations") ||
-    title.includes("source-first") ||
-    title.includes("voice") ||
-    title.includes("ui / api") ||
-    title.includes("web ui") ||
-    title.includes("discord") ||
-    title.includes("billing") ||
-    title.includes("support mode")
+function hasDescendantsInScope(item, scopeItems) {
+  return scopeItems.some(
+    (other) => other.code !== item.code && other.code.startsWith(`${item.code}.`)
   );
 }
 
-function hasImplementationPositiveLeaf(configuredLeafItems) {
-  return configuredLeafItems.some(
-    (item) =>
-      isImplementationLikeSemanticType(item.semanticType) &&
-      (item.status === "COMPLETE" || item.status === "PARTIAL")
+function getLeafScopeItems(scopeItems) {
+  return scopeItems.filter((item) => !hasDescendantsInScope(item, scopeItems));
+}
+
+function isModuleLikeTitle(title) {
+  const lower = String(title || "").toLowerCase();
+
+  return (
+    lower.includes("module") ||
+    lower.includes("модуль") ||
+    lower.includes("capability") ||
+    lower.includes("integration") ||
+    lower.includes("integrations") ||
+    lower.includes("source-first") ||
+    lower.includes("voice") ||
+    lower.includes("ui / api") ||
+    lower.includes("web ui") ||
+    lower.includes("discord") ||
+    lower.includes("billing") ||
+    lower.includes("support mode")
   );
+}
+
+function isModuleLikeStage(rootItem, scopeItems) {
+  if (!rootItem || rootItem.kind !== "stage") return false;
+  if (isModuleLikeTitle(rootItem.title)) return true;
+
+  const leafItems = getLeafScopeItems(scopeItems).filter((x) => x.totalChecks > 0);
+  if (leafItems.length === 0) return false;
+
+  const policyLeaves = leafItems.filter((x) => isPolicyLikeSemanticType(x.semanticType)).length;
+  const executableLeaves = leafItems.filter((x) => isExecutableSemanticType(x.semanticType)).length;
+  const architectureLeaves = leafItems.filter((x) => isArchitectureLikeSemanticType(x.semanticType)).length;
+
+  if (policyLeaves > 0 && executableLeaves > 0) return true;
+  if (executableLeaves >= 2) return true;
+  if (architectureLeaves > 0 && executableLeaves > 0) return true;
+
+  return false;
+}
+
+function hasStrongExplicitImplementationEvidence(item) {
+  return (item.results || []).some(
+    (result) =>
+      result?.ok &&
+      (
+        result?.evidenceClass === "explicit_file" ||
+        result?.evidenceClass === "basename_anchor" ||
+        result?.evidenceClass === "structured_anchor" ||
+        result?.evidenceClass === "signature_anchor" ||
+        result?.evidenceClass === "carrier_anchor" ||
+        result?.evidenceClass === "function_name"
+      )
+  );
+}
+
+function hasNonPolicySupportingEvidence(item) {
+  return (item.results || []).some(
+    (result) =>
+      result?.ok &&
+      result?.evidenceClass !== "generic_support" &&
+      result?.evidenceClass !== "command_surface"
+  );
+}
+
+function contributesToCapabilityAggregation(item) {
+  const semanticType = String(item?.semanticType || "generic");
+  const positive = item?.status === "COMPLETE" || item?.status === "PARTIAL";
+  if (!positive) return false;
+
+  if (isPolicyLikeSemanticType(semanticType)) return false;
+  if (isArchitectureLikeSemanticType(semanticType)) return false;
+
+  if (isExecutableSemanticType(semanticType)) {
+    return hasStrongExplicitImplementationEvidence(item);
+  }
+
+  if (semanticType === "generic") {
+    return (
+      hasStrongExplicitImplementationEvidence(item) &&
+      hasNonPolicySupportingEvidence(item)
+    );
+  }
+
+  return false;
+}
+
+function hasImplementationPositiveLeaf(configuredLeafItems) {
+  return configuredLeafItems.some((item) => contributesToCapabilityAggregation(item));
 }
 
 function hasPolicyPositiveLeaf(configuredLeafItems) {
@@ -409,6 +477,17 @@ function hasPolicyPositiveLeaf(configuredLeafItems) {
       isPolicyLikeSemanticType(item.semanticType) &&
       (item.status === "COMPLETE" || item.status === "PARTIAL")
   );
+}
+
+function buildAggregationFlags(item, entries) {
+  return {
+    hasStrongExplicitImplementationEvidence: hasStrongExplicitImplementationEvidence(item),
+    hasNonPolicySupportingEvidence: hasNonPolicySupportingEvidence(item),
+    contributesToCapabilityAggregation: contributesToCapabilityAggregation(item),
+    okEvidenceClasses: entries
+      .filter((entry) => entry.result?.ok)
+      .map((entry) => String(entry.result?.evidenceClass || "")),
+  };
 }
 
 export async function evaluateSingleItem(item, ctx) {
@@ -439,7 +518,6 @@ export async function evaluateSingleItem(item, ctx) {
       entry.check?.type !== "signal_cluster_exists"
   );
 
-  const hasExplicitStrongChecks = explicitStrongEntries.length > 0;
   const hasPassedExplicitStrong = explicitStrongEntries.some((entry) => entry.result?.ok);
 
   const hasPassedStrongCluster = clusterEntries.some(
@@ -512,17 +590,15 @@ export async function evaluateSingleItem(item, ctx) {
     status = "PARTIAL";
   } else if (hasPassedStrongCluster && supportingEvidence >= 1) {
     status = "PARTIAL";
-  } else if (hasExplicitStrongChecks) {
+  } else if (autoChecks.length > 0) {
     status = explicitAnchor && hasPassedWeakCheck ? "PARTIAL" : "OPEN";
-  } else if (passedChecks > 0) {
-    status = explicitAnchor && supportingEvidence > 0 ? "PARTIAL" : "OPEN";
   } else if (genericOnlyEvidence > 0) {
     status = "OPEN";
   } else {
     status = "OPEN";
   }
 
-  return {
+  const evaluatedItem = {
     code: item.code,
     title: item.title,
     kind: item.kind,
@@ -535,6 +611,11 @@ export async function evaluateSingleItem(item, ctx) {
     checks: autoChecks,
     results,
   };
+
+  return {
+    ...evaluatedItem,
+    aggregationFlags: buildAggregationFlags(evaluatedItem, entries),
+  };
 }
 
 export async function buildEvaluatedItems(workflowItems, ctx) {
@@ -543,16 +624,6 @@ export async function buildEvaluatedItems(workflowItems, ctx) {
     output.push(await evaluateSingleItem(item, ctx));
   }
   return output;
-}
-
-function hasDescendantsInScope(item, scopeItems) {
-  return scopeItems.some(
-    (other) => other.code !== item.code && other.code.startsWith(`${item.code}.`)
-  );
-}
-
-function getLeafScopeItems(scopeItems) {
-  return scopeItems.filter((item) => !hasDescendantsInScope(item, scopeItems));
 }
 
 export function aggregateScope(scopeItems) {
@@ -569,7 +640,7 @@ export function aggregateScope(scopeItems) {
   const failedChecks = leafItems.reduce((sum, x) => sum + x.failedChecks, 0);
 
   const rootItem = getRootScopeItem(scopeItems);
-  const moduleLikeStage = isModuleLikeStage(rootItem);
+  const moduleLikeStage = isModuleLikeStage(rootItem, scopeItems);
 
   const implementationPositiveLeaf = hasImplementationPositiveLeaf(configuredLeafItems);
   const policyPositiveLeaf = hasPolicyPositiveLeaf(configuredLeafItems);
@@ -580,6 +651,8 @@ export function aggregateScope(scopeItems) {
   let status = "NO_SIGNALS";
   if (configuredLeafItems.length === 0) {
     status = "NO_SIGNALS";
+  } else if (moduleLikeStage && !implementationPositiveLeaf) {
+    status = "OPEN";
   } else if (moduleLikeStage && positiveOnlyFromPolicy) {
     status = "OPEN";
   } else if (
@@ -605,6 +678,7 @@ export function aggregateScope(scopeItems) {
         kind: item.kind,
         status: item.status,
         semanticType: item.semanticType || "generic",
+        aggregationFlags: item.aggregationFlags || {},
         details: result.details,
         type: result.type,
         check: item.checks[index],
@@ -632,5 +706,27 @@ export function aggregateScope(scopeItems) {
     status,
     passedEntries,
     failedEntries,
+    aggregationDebug: {
+      rootCode: rootItem?.code || null,
+      rootKind: rootItem?.kind || null,
+      rootTitle: rootItem?.title || null,
+      moduleLikeStage,
+      implementationPositiveLeaf,
+      policyPositiveLeaf,
+      positiveOnlyFromPolicy,
+      positiveLeafs: configuredLeafItems
+        .filter((item) => item.status === "COMPLETE" || item.status === "PARTIAL")
+        .map((item) => ({
+          code: item.code,
+          status: item.status,
+          semanticType: item.semanticType || "generic",
+          contributesToCapabilityAggregation:
+            !!item?.aggregationFlags?.contributesToCapabilityAggregation,
+          hasStrongExplicitImplementationEvidence:
+            !!item?.aggregationFlags?.hasStrongExplicitImplementationEvidence,
+          hasNonPolicySupportingEvidence:
+            !!item?.aggregationFlags?.hasNonPolicySupportingEvidence,
+        })),
+    },
   };
 }

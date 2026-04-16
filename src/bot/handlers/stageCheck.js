@@ -27,7 +27,7 @@ export async function handleStageCheck(ctx = {}) {
       : async (text) => ctx.bot.sendMessage(ctx.chatId, String(text ?? ""));
 
   const lang = detectLanguageFromContext(ctx);
-  const { t, humanStatus } = createTranslator({
+  const { t, humanStatus, humanGapReason } = createTranslator({
     lang,
     workflowPath: WORKFLOW_PATH,
     rulesPath: RULES_PATH,
@@ -88,10 +88,10 @@ export async function handleStageCheck(ctx = {}) {
   if (result.kind === "all") {
     await reply(
       formatAllStagesOutput({
-        topLevelItems: result.topLevelStages,
-        evaluatedItems: result.evaluatedItems,
+        stageReviews: result.stageReviews,
         t,
         humanStatus,
+        humanGapReason,
       }),
       {
         cmd: "/stage_check",
@@ -105,10 +105,10 @@ export async function handleStageCheck(ctx = {}) {
   if (result.kind === "current") {
     await reply(
       formatCurrentOutput({
-        topLevelItems: result.topLevelStages,
-        evaluatedItems: result.evaluatedItems,
+        stageReviews: result.stageReviews,
         t,
         humanStatus,
+        humanGapReason,
       }),
       {
         cmd: "/stage_check",
@@ -121,11 +121,10 @@ export async function handleStageCheck(ctx = {}) {
 
   await reply(
     formatSingleItemOutput({
-      baseItem: result.baseItem,
-      scopeItems: result.scopeItems,
-      aggregate: result.aggregate,
+      review: result.review,
       t,
       humanStatus,
+      humanGapReason,
     }),
     {
       cmd: "/stage_check",

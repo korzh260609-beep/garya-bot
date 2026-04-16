@@ -126,25 +126,45 @@ function getItemSemanticType(item, autoChecks) {
     (x) => x.includes("contract carrier token:")
   );
 
-  const looksArchitectureLike =
+  const looksPolicyLike =
     !hasSignature &&
     !hasCarrier &&
     (
+      title.includes("safety rules") ||
+      title.includes("privacy-first") ||
+      title.includes("retention minimal") ||
+      title.includes("retention-policy") ||
+      title.includes("policy") ||
+      title.includes("policies") ||
+      title.includes("rules") ||
+      title.includes("hard ban") ||
+      title.includes("no diagnosis") ||
+      title.includes("no labels") ||
+      title.includes("no therapy") ||
+      title.includes("must not ") ||
+      title.includes("forbidden") ||
+      title.includes("privacy")
+    );
+
+  const looksArchitectureLike =
+    !hasSignature &&
+    !hasCarrier &&
+    !looksPolicyLike &&
+    (
       title.includes(" unified") ||
       title.includes("transport thin") ||
-      title.includes("must not ") ||
       title.includes("continues ") ||
       title.includes("channel switch") ||
       title.includes(" = ") ||
       title.includes(" ≠ ") ||
       title.includes("core/") ||
       title.includes("memory/") ||
-      title.includes("access/") ||
-      (title.includes(",") && title.includes("transport"))
+      title.includes("access/")
     );
 
   if (hasCarrier) return "interface_like";
   if (hasSignature) return "signature_like";
+  if (looksPolicyLike) return "policy_like";
   if (looksArchitectureLike) return "architecture_like";
   return "generic";
 }
@@ -336,6 +356,18 @@ function countLocalInterfaceMethodEvidence(entries) {
   return count;
 }
 
+function isPolicyLikeSemanticType(semanticType) {
+  return semanticType === "policy_like";
+}
+
+function hasNonPolicyPositiveLeaf(configuredLeafItems) {
+  return configuredLeafItems.some(
+    (item) =>
+      !isPolicyLikeSemanticType(item.semanticType) &&
+      (item.status === "COMPLETE" || item.status === "PARTIAL")
+  );
+}
+
 export async function evaluateSingleItem(item, ctx) {
   const autoChecks = buildAutoChecksForItem(item, ctx.itemMap, ctx.config);
 
@@ -421,6 +453,14 @@ export async function evaluateSingleItem(item, ctx) {
     } else {
       status = "OPEN";
     }
+  } else if (semanticType === "policy_like") {
+    if (hasPassedExplicitStrong && supportingEvidence >= 2) {
+      status = "COMPLETE";
+    } else if (explicitAnchor && supportingEvidence >= 1) {
+      status = "PARTIAL";
+    } else {
+      status = "OPEN";
+    }
   } else if (hasPassedExplicitStrong && supportingEvidence >= 2) {
     status = "COMPLETE";
   } else if (hasPassedExplicitStrong) {
@@ -448,6 +488,7 @@ export async function evaluateSingleItem(item, ctx) {
     passedChecks,
     failedChecks,
     status,
+    semanticType,
     checks: autoChecks,
     results,
   };
@@ -484,9 +525,19 @@ export function aggregateScope(scopeItems) {
   const passedChecks = leafItems.reduce((sum, x) => sum + x.passedChecks, 0);
   const failedChecks = leafItems.reduce((sum, x) => sum + x.failedChecks, 0);
 
+  const positiveOnlyFromPolicy =
+    !hasNonPolicyPositiveLeaf(configuredLeafItems) &&
+    configuredLeafItems.some(
+      (x) =>
+        isPolicyLikeSemanticType(x.semanticType) &&
+        (x.status === "COMPLETE" || x.status === "PARTIAL")
+    );
+
   let status = "NO_SIGNALS";
   if (configuredLeafItems.length === 0) {
     status = "NO_SIGNALS";
+  } else if (positiveOnlyFromPolicy) {
+    status = "OPEN";
   } else if (
     completeItems.length === configuredLeafItems.length &&
     partialItems.length === 0 &&
@@ -509,6 +560,7 @@ export function aggregateScope(scopeItems) {
         title: item.title,
         kind: item.kind,
         status: item.status,
+        semanticType: item.semanticType || "generic",
         details: result.details,
         type: result.type,
         check: item.checks[index],

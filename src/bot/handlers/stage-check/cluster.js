@@ -32,11 +32,35 @@ function isAtomicClusterToken(token) {
   return true;
 }
 
+function isLowValueRelationalToken(token) {
+  const raw = String(token || "").trim();
+  const lower = raw.toLowerCase();
+
+  if (!raw) return false;
+  if (classifySignalEvidence(raw) !== "relational") return false;
+
+  if (
+    lower === "can" ||
+    lower.startsWith("can(") ||
+    lower === "access" ||
+    lower === "permission" ||
+    lower === "permissions" ||
+    lower === "allowed" ||
+    lower === "denied"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function shouldKeepClusterToken(token, sourceKind = "own") {
   const raw = String(token || "").trim();
   const lower = raw.toLowerCase();
   if (!raw) return false;
   if (!isAtomicClusterToken(raw)) return false;
+
+  if (isLowValueRelationalToken(raw)) return false;
 
   const strong =
     raw.includes("(") ||
@@ -99,10 +123,8 @@ function rankClusterToken(token) {
   if (lower.includes("enabledlq")) score += 6;
   if (lower.includes("_movetodlq")) score += 6;
 
-  if (lower === "can" || lower.startsWith("can(")) score += 5;
-  if (lower.includes("permission")) score += 3;
-  if (lower.includes("access")) score += 2;
   if (isWeakGenericToken(lower)) score -= 8;
+  if (isLowValueRelationalToken(raw)) score -= 20;
 
   score += Math.min(raw.length, 20) * 0.05;
 

@@ -114,6 +114,7 @@ function isExplicitStrongCheckType(type) {
 
 function getItemSemanticType(item, autoChecks) {
   const labels = autoChecks.map((x) => String(x?.label || "").toLowerCase());
+  const title = String(item?.title || "").toLowerCase();
 
   const hasSignature = labels.some(
     (x) =>
@@ -125,8 +126,26 @@ function getItemSemanticType(item, autoChecks) {
     (x) => x.includes("contract carrier token:")
   );
 
+  const looksArchitectureLike =
+    !hasSignature &&
+    !hasCarrier &&
+    (
+      title.includes(" unified") ||
+      title.includes("transport thin") ||
+      title.includes("must not ") ||
+      title.includes("continues ") ||
+      title.includes("channel switch") ||
+      title.includes(" = ") ||
+      title.includes(" ≠ ") ||
+      title.includes("core/") ||
+      title.includes("memory/") ||
+      title.includes("access/") ||
+      (title.includes(",") && title.includes("transport"))
+    );
+
   if (hasCarrier) return "interface_like";
   if (hasSignature) return "signature_like";
+  if (looksArchitectureLike) return "architecture_like";
   return "generic";
 }
 
@@ -348,12 +367,8 @@ export async function evaluateSingleItem(item, ctx) {
   const hasExplicitStrongChecks = explicitStrongEntries.length > 0;
   const hasPassedExplicitStrong = explicitStrongEntries.some((entry) => entry.result?.ok);
 
-  const hasClusterChecks = clusterEntries.length > 0;
   const hasPassedStrongCluster = clusterEntries.some(
     (entry) => entry.result?.ok && entry.result?.strength === "strong"
-  );
-  const hasPassedWeakCluster = clusterEntries.some(
-    (entry) => entry.result?.ok && entry.result?.strength === "weak"
   );
 
   const hasPassedWeakCheck = weakEntries.some((entry) => entry.result?.ok);
@@ -398,6 +413,14 @@ export async function evaluateSingleItem(item, ctx) {
     } else {
       status = "OPEN";
     }
+  } else if (semanticType === "architecture_like") {
+    if (hasPassedExplicitStrong && supportingEvidence >= 2) {
+      status = "COMPLETE";
+    } else if (explicitAnchor && supportingEvidence >= 1) {
+      status = "PARTIAL";
+    } else {
+      status = "OPEN";
+    }
   } else if (hasPassedExplicitStrong && supportingEvidence >= 2) {
     status = "COMPLETE";
   } else if (hasPassedExplicitStrong) {
@@ -410,6 +433,8 @@ export async function evaluateSingleItem(item, ctx) {
     status = explicitAnchor && hasPassedWeakCheck ? "PARTIAL" : "OPEN";
   } else if (passedChecks > 0) {
     status = explicitAnchor && supportingEvidence > 0 ? "PARTIAL" : "OPEN";
+  } else if (genericOnlyEvidence > 0) {
+    status = "OPEN";
   } else {
     status = "OPEN";
   }

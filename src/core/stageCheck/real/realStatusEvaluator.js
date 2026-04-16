@@ -48,16 +48,16 @@ export function evaluateRealStatus({
 
   let status = "UNKNOWN";
 
-  if (candidateCount === 0 && directEntrypointCount === 0 && repoRefFiles === 0) {
-    status = "UNKNOWN";
-  } else if (candidateCount > 0 && directEntrypointCount > 0) {
+  if (candidateCount > 0 && directEntrypointCount > 0) {
     status = "COMPLETE";
-  } else if (candidateCount > 0 && repoRefFiles >= 2) {
-    status = "PARTIAL";
   } else if (candidateCount > 0 && repoRefFiles >= 1) {
     status = "PARTIAL";
   } else if (candidateCount > 0) {
     status = "OPEN";
+  } else if (repoRefFiles > 0 || directEntrypointCount > 0) {
+    status = "PARTIAL";
+  } else {
+    status = "UNKNOWN";
   }
 
   return createRealReview({

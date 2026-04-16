@@ -360,10 +360,53 @@ function isPolicyLikeSemanticType(semanticType) {
   return semanticType === "policy_like";
 }
 
-function hasNonPolicyPositiveLeaf(configuredLeafItems) {
+function isImplementationLikeSemanticType(semanticType) {
+  return (
+    semanticType === "signature_like" ||
+    semanticType === "interface_like" ||
+    semanticType === "architecture_like" ||
+    semanticType === "generic"
+  );
+}
+
+function getRootScopeItem(scopeItems) {
+  return scopeItems.find(
+    (item) => !scopeItems.some((other) => other.code === item.parentCode)
+  ) || scopeItems[0] || null;
+}
+
+function isModuleLikeStage(rootItem) {
+  const title = String(rootItem?.title || "").toLowerCase();
+  if (!rootItem || rootItem.kind !== "stage") return false;
+
+  return (
+    title.includes("module") ||
+    title.includes("модуль") ||
+    title.includes("capability") ||
+    title.includes("integration") ||
+    title.includes("integrations") ||
+    title.includes("source-first") ||
+    title.includes("voice") ||
+    title.includes("ui / api") ||
+    title.includes("web ui") ||
+    title.includes("discord") ||
+    title.includes("billing") ||
+    title.includes("support mode")
+  );
+}
+
+function hasImplementationPositiveLeaf(configuredLeafItems) {
   return configuredLeafItems.some(
     (item) =>
-      !isPolicyLikeSemanticType(item.semanticType) &&
+      isImplementationLikeSemanticType(item.semanticType) &&
+      (item.status === "COMPLETE" || item.status === "PARTIAL")
+  );
+}
+
+function hasPolicyPositiveLeaf(configuredLeafItems) {
+  return configuredLeafItems.some(
+    (item) =>
+      isPolicyLikeSemanticType(item.semanticType) &&
       (item.status === "COMPLETE" || item.status === "PARTIAL")
   );
 }
@@ -525,18 +568,19 @@ export function aggregateScope(scopeItems) {
   const passedChecks = leafItems.reduce((sum, x) => sum + x.passedChecks, 0);
   const failedChecks = leafItems.reduce((sum, x) => sum + x.failedChecks, 0);
 
+  const rootItem = getRootScopeItem(scopeItems);
+  const moduleLikeStage = isModuleLikeStage(rootItem);
+
+  const implementationPositiveLeaf = hasImplementationPositiveLeaf(configuredLeafItems);
+  const policyPositiveLeaf = hasPolicyPositiveLeaf(configuredLeafItems);
+
   const positiveOnlyFromPolicy =
-    !hasNonPolicyPositiveLeaf(configuredLeafItems) &&
-    configuredLeafItems.some(
-      (x) =>
-        isPolicyLikeSemanticType(x.semanticType) &&
-        (x.status === "COMPLETE" || x.status === "PARTIAL")
-    );
+    policyPositiveLeaf && !implementationPositiveLeaf;
 
   let status = "NO_SIGNALS";
   if (configuredLeafItems.length === 0) {
     status = "NO_SIGNALS";
-  } else if (positiveOnlyFromPolicy) {
+  } else if (moduleLikeStage && positiveOnlyFromPolicy) {
     status = "OPEN";
   } else if (
     completeItems.length === configuredLeafItems.length &&

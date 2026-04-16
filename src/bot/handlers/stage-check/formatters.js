@@ -258,6 +258,28 @@ function formatChildLines(scopeItems, humanStatus) {
   return childItems.slice(0, 30).map((item) => `${item.code} — ${humanStatus(item.status)}`);
 }
 
+function buildStageSummarySuffix(aggregate) {
+  if (!aggregate || aggregate.configuredItems <= 0) return "";
+
+  const configured = Number(aggregate.configuredItems || 0);
+  const complete = Number(aggregate.completeItems || 0);
+  const partial = Number(aggregate.partialItems || 0);
+
+  if (aggregate.status === "COMPLETE") {
+    return ` (${complete}/${configured})`;
+  }
+
+  if (aggregate.status === "PARTIAL") {
+    return ` (${complete + partial}/${configured})`;
+  }
+
+  if (aggregate.status === "OPEN") {
+    return ` (0/${configured})`;
+  }
+
+  return "";
+}
+
 export function formatSingleItemOutput({
   baseItem,
   scopeItems,
@@ -319,10 +341,7 @@ export function formatAllStagesOutput({
   }
 
   for (const { stage, aggregate } of buildTopLevelAggregates(topLevelItems, evaluatedItems)) {
-    const summary =
-      aggregate.configuredItems > 0
-        ? ` (${aggregate.completeItems}/${aggregate.configuredItems})`
-        : "";
+    const summary = buildStageSummarySuffix(aggregate);
 
     lines.push(
       t("stage_line", {

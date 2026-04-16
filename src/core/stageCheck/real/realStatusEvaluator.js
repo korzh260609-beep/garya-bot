@@ -5,105 +5,64 @@
 
 import { createRealReview } from "../contracts/stageCheckTypes.js";
 
+function toArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function countRuntimeFoundationEvidence(realEvidence) {
-  return Array.isArray(realEvidence?.runtimeFoundationEvidence)
-    ? realEvidence.runtimeFoundationEvidence.length
-    : 0;
+  return toArray(realEvidence?.runtimeFoundationEvidence).length;
 }
 
 function countStrongRuntimeFoundationEvidence(realEvidence) {
-  return (Array.isArray(realEvidence?.runtimeFoundationEvidence)
-    ? realEvidence.runtimeFoundationEvidence
-    : []
-  ).filter((x) => String(x?.strength || "") === "strong").length;
+  return toArray(realEvidence?.runtimeFoundationEvidence).filter(
+    (x) => String(x?.strength || "") === "strong"
+  ).length;
 }
 
 function countDomainEvidence(realEvidence) {
-  return Array.isArray(realEvidence?.domainEvidence)
-    ? realEvidence.domainEvidence.length
-    : 0;
+  return toArray(realEvidence?.domainEvidence).length;
 }
 
 function countStrongDomainEvidence(realEvidence) {
-  return (Array.isArray(realEvidence?.domainEvidence)
-    ? realEvidence.domainEvidence
-    : []
-  ).filter((x) => String(x?.strength || "") === "strong").length;
+  return toArray(realEvidence?.domainEvidence).filter(
+    (x) => String(x?.strength || "") === "strong"
+  ).length;
 }
 
 function countDistinctDomainFiles(realEvidence) {
-  const files = (Array.isArray(realEvidence?.domainEvidence)
-    ? realEvidence.domainEvidence
-    : []
-  )
+  const files = toArray(realEvidence?.domainEvidence)
     .map((x) => String(x?.file || "").trim())
     .filter(Boolean);
 
   return new Set(files).size;
 }
 
-function buildRealReason({
-  status,
-  candidateCount,
-  directEntrypointCount,
-  repoRefFiles,
-  runtimeFoundationCount,
-  strongRuntimeFoundationCount,
-  domainEvidenceCount,
-  strongDomainEvidenceCount,
-}) {
-  if (status === "COMPLETE") {
-    if (directEntrypointCount > 0) {
-      return "reachable_implementation_connected_to_runtime";
-    }
+function countNonDescriptiveDomainFiles(realEvidence) {
+  const files = toArray(realEvidence?.domainEvidence)
+    .filter((x) => String(x?.proofClass || "") !== "descriptive")
+    .map((x) => String(x?.file || "").trim())
+    .filter(Boolean);
 
-    if (strongRuntimeFoundationCount >= 3) {
-      return "runtime_foundation_strongly_proven";
-    }
-
-    if (strongDomainEvidenceCount >= 3) {
-      return "domain_evidence_strongly_proven";
-    }
-
-    return "real_runtime_and_repository_connectedness_proven";
-  }
-
-  if (status === "PARTIAL") {
-    if (candidateCount > 0 && directEntrypointCount === 0) {
-      return "implementation_exists_but_runtime_connectedness_is_incomplete";
-    }
-
-    if (domainEvidenceCount > 0) {
-      return "domain_evidence_partially_proven";
-    }
-
-    if (runtimeFoundationCount > 0) {
-      return "runtime_foundation_partially_proven";
-    }
-
-    return "some_real_connectedness_detected";
-  }
-
-  if (status === "OPEN") {
-    return "implementation_artifacts_not_connected_to_runtime";
-  }
-
-  if (
-    candidateCount === 0 &&
-    repoRefFiles === 0 &&
-    runtimeFoundationCount === 0 &&
-    domainEvidenceCount === 0
-  ) {
-    return "insufficient_real_evidence";
-  }
-
-  return "real_status_unknown";
+  return new Set(files).size;
 }
 
-export function evaluateRealStatus({
-  realEvidence,
-} = {}) {
+function hasScopeTag(realEvidence, tag) {
+  const tags = Array.isArray(realEvidence?.scopeSemanticProfile?.tags)
+    ? realEvidence.scopeSemanticProfile.tags
+    : [];
+  return tags.includes(tag);
+}
+
+function isRuntimeFoundationScope(realEvidence) {
+  return (
+    hasScopeTag(realEvidence, "runtime") ||
+    hasScopeTag(realEvidence, "transport")
+  );
+}
+
+function buildImplementationSummary(realEvidence) {
   const connectedness = realEvidence?.connectedness || {};
+
   const candidateCount = Number(
     Array.isArray(connectedness.candidateFiles)
       ? connectedness.candidateFiles.length
@@ -119,36 +78,170 @@ export function evaluateRealStatus({
   const domainEvidenceCount = countDomainEvidence(realEvidence);
   const strongDomainEvidenceCount = countStrongDomainEvidence(realEvidence);
   const distinctDomainFiles = countDistinctDomainFiles(realEvidence);
+  const nonDescriptiveDomainFiles = countNonDescriptiveDomainFiles(realEvidence);
+
+  const hasCandidateAnchor = candidateCount > 0;
+  const hasRuntimeReachability = directEntrypointCount > 0;
+  const hasRepoReachability = repoRefFiles > 0;
+
+  const hasImplementationEvidence =
+    hasCandidateAnchor ||
+    hasRuntimeReachability ||
+    hasRepoReachability ||
+    runtimeFoundationCount > 0;
+
+  const hasContextOnlyEvidence =
+    !hasCandidateAnchor &&
+    !hasRuntimeReachability &&
+    !hasRepoReachability &&
+    runtimeFoundationCount === 0 &&
+    domainEvidenceCount > 0;
+
+  return {
+    connectedness,
+    candidateCount,
+    directEntrypointCount,
+    repoRefFiles,
+    runtimeFoundationCount,
+    strongRuntimeFoundationCount,
+    domainEvidenceCount,
+    strongDomainEvidenceCount,
+    distinctDomainFiles,
+    nonDescriptiveDomainFiles,
+    hasCandidateAnchor,
+    hasRuntimeReachability,
+    hasRepoReachability,
+    hasImplementationEvidence,
+    hasContextOnlyEvidence,
+  };
+}
+
+function buildRealReason({
+  status,
+  summary,
+  realEvidence,
+}) {
+  if (status === "COMPLETE") {
+    if (summary.hasCandidateAnchor && summary.hasRuntimeReachability) {
+      return "reachable_implementation_connected_to_runtime";
+    }
+
+    if (
+      isRuntimeFoundationScope(realEvidence) &&
+      summary.strongRuntimeFoundationCount >= 5
+    ) {
+      return "runtime_foundation_strongly_proven";
+    }
+
+    return "real_runtime_and_repository_connectedness_proven";
+  }
+
+  if (status === "PARTIAL") {
+    if (
+      summary.hasCandidateAnchor &&
+      (summary.hasRepoReachability || summary.runtimeFoundationCount > 0)
+    ) {
+      return "implementation_exists_but_runtime_connectedness_is_incomplete";
+    }
+
+    if (
+      isRuntimeFoundationScope(realEvidence) &&
+      summary.strongRuntimeFoundationCount >= 3
+    ) {
+      return "runtime_foundation_partially_proven";
+    }
+
+    return "some_real_connectedness_detected";
+  }
+
+  if (status === "OPEN") {
+    if (summary.hasContextOnlyEvidence) {
+      return "domain_evidence_partially_proven";
+    }
+
+    if (
+      summary.hasCandidateAnchor ||
+      summary.runtimeFoundationCount > 0 ||
+      summary.hasRepoReachability
+    ) {
+      return "implementation_artifacts_not_connected_to_runtime";
+    }
+
+    return "insufficient_real_evidence";
+  }
+
+  if (
+    summary.candidateCount === 0 &&
+    summary.repoRefFiles === 0 &&
+    summary.runtimeFoundationCount === 0 &&
+    summary.domainEvidenceCount === 0
+  ) {
+    return "insufficient_real_evidence";
+  }
+
+  return "real_status_unknown";
+}
+
+export function evaluateRealStatus({
+  realEvidence,
+} = {}) {
+  const summary = buildImplementationSummary(realEvidence);
+  const connectedness = summary.connectedness;
 
   let status = "UNKNOWN";
 
-  if (candidateCount > 0 && directEntrypointCount > 0) {
+  // COMPLETE:
+  // only real implementation reachability can prove it.
+  if (summary.hasCandidateAnchor && summary.hasRuntimeReachability) {
     status = "COMPLETE";
-  } else if (strongRuntimeFoundationCount >= 4) {
+  } else if (
+    !summary.hasCandidateAnchor &&
+    !summary.hasRepoReachability &&
+    isRuntimeFoundationScope(realEvidence) &&
+    summary.strongRuntimeFoundationCount >= 5
+  ) {
+    // strict fallback only for foundational runtime/transport scopes
     status = "COMPLETE";
-  } else if (
-    strongDomainEvidenceCount >= 2 &&
-    distinctDomainFiles >= 2
+  }
+
+  // PARTIAL:
+  // needs implementation-side evidence, not domain-only context.
+  else if (
+    summary.hasCandidateAnchor &&
+    (summary.hasRepoReachability || summary.runtimeFoundationCount > 0)
   ) {
     status = "PARTIAL";
   } else if (
-    candidateCount > 0 &&
-    (repoRefFiles >= 1 || runtimeFoundationCount >= 1 || domainEvidenceCount >= 1)
+    summary.hasCandidateAnchor &&
+    summary.directEntrypointCount === 0 &&
+    summary.repoRefFiles >= 2
   ) {
     status = "PARTIAL";
   } else if (
-    runtimeFoundationCount >= 2 ||
-    domainEvidenceCount >= 2
+    !summary.hasCandidateAnchor &&
+    !summary.hasRepoReachability &&
+    isRuntimeFoundationScope(realEvidence) &&
+    summary.strongRuntimeFoundationCount >= 3 &&
+    summary.runtimeFoundationCount >= 4
   ) {
     status = "PARTIAL";
+  }
+
+  // OPEN:
+  // weak implementation hints or pure domain context stay OPEN.
+  else if (summary.hasCandidateAnchor) {
+    status = "OPEN";
+  } else if (summary.hasRepoReachability) {
+    status = "OPEN";
+  } else if (summary.runtimeFoundationCount > 0) {
+    status = "OPEN";
   } else if (
-    candidateCount > 0 ||
-    runtimeFoundationCount === 1 ||
-    domainEvidenceCount === 1
+    summary.domainEvidenceCount > 0 &&
+    summary.nonDescriptiveDomainFiles > 0
   ) {
     status = "OPEN";
-  } else if (repoRefFiles > 0 || directEntrypointCount > 0) {
-    status = "PARTIAL";
+  } else if (summary.domainEvidenceCount > 0) {
+    status = "OPEN";
   } else {
     status = "UNKNOWN";
   }
@@ -157,13 +250,8 @@ export function evaluateRealStatus({
     status,
     reason: buildRealReason({
       status,
-      candidateCount,
-      directEntrypointCount,
-      repoRefFiles,
-      runtimeFoundationCount,
-      strongRuntimeFoundationCount,
-      domainEvidenceCount,
-      strongDomainEvidenceCount,
+      summary,
+      realEvidence,
     }),
     evidence: realEvidence?.evidence || [],
     connectedness,

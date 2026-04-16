@@ -83,15 +83,16 @@ export function evaluateRealStatus({
 
   let status = "UNKNOWN";
 
-  if (
-    (candidateCount > 0 && directEntrypointCount > 0) ||
-    strongRuntimeFoundationCount >= 4
-  ) {
+  if (candidateCount > 0 && directEntrypointCount > 0) {
     status = "COMPLETE";
   } else if (
-    (candidateCount > 0 && repoRefFiles >= 1) ||
-    runtimeFoundationCount >= 2
+    candidateCount > 0 &&
+    (repoRefFiles >= 1 || runtimeFoundationCount >= 1)
   ) {
+    status = "PARTIAL";
+  } else if (strongRuntimeFoundationCount >= 4) {
+    status = "COMPLETE";
+  } else if (runtimeFoundationCount >= 2) {
     status = "PARTIAL";
   } else if (candidateCount > 0 || runtimeFoundationCount === 1) {
     status = "OPEN";

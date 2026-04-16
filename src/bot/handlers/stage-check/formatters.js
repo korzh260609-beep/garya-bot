@@ -435,6 +435,10 @@ export function formatDiagOutput({
   lines.push(`inheritedSignals=${JSON.stringify(itemDiag?.inheritedSignals || [])}`);
   lines.push(`checksCount=${itemDiag?.checksCount ?? 0}`);
   lines.push(`itemStatus=${itemDiag?.itemStatus || "-"}`);
+  lines.push(`itemSemanticType=${itemDiag?.itemSemanticType || "-"}`);
+  lines.push(`itemAggregationFlags=${JSON.stringify(itemDiag?.itemAggregationFlags || {})}`);
+  lines.push(`scopeAggregateStatus=${itemDiag?.scopeAggregateStatus || "-"}`);
+  lines.push(`scopeAggregationDebug=${JSON.stringify(itemDiag?.scopeAggregationDebug || {})}`);
   lines.push(`passedChecks=${itemDiag?.passedChecks ?? 0}`);
   lines.push(`failedChecks=${itemDiag?.failedChecks ?? 0}`);
   lines.push(`directFileReads=${JSON.stringify(itemDiag?.directFileReads || [])}`);
@@ -448,6 +452,8 @@ export function formatDiagOutput({
           label: entry.label,
           ok: entry.ok,
           details: entry.details,
+          evidenceClass: entry.evidenceClass,
+          strength: entry.strength,
         })}`
       );
     }

@@ -1,7 +1,7 @@
 // ============================================================================
 // === src/core/stageCheck/real/realEvidenceCollector.js
 // === universal real-evidence collector
-// === repo wiring / connectedness / runtime foundation with semantic relevance
+// === repo wiring / connectedness / runtime foundation / domain evidence
 // ============================================================================
 
 import {
@@ -26,6 +26,24 @@ function stripQuotes(value) {
     .trim()
     .replace(/^['"]+/, "")
     .replace(/['"]+$/, "");
+}
+
+function lower(value) {
+  return String(value || "").toLowerCase();
+}
+
+function includesAny(text, tokens = []) {
+  const hay = lower(text);
+  return (tokens || []).some((x) => hay.includes(lower(x)));
+}
+
+function includesAll(text, tokens = []) {
+  const hay = lower(text);
+  return (tokens || []).every((x) => hay.includes(lower(x)));
+}
+
+function hasAnyPath(fileSet, paths = []) {
+  return (paths || []).some((path) => fileSet.has(path));
 }
 
 function parseNodeScriptEntrypoints(scriptText) {
@@ -503,10 +521,292 @@ async function collectRuntimeFoundationEvidence({
   return passed;
 }
 
+async function repoFilesContainingAnyTokens(evaluationCtx, tokens = [], limit = 12) {
+  const hits = [];
+  const searchable = Array.isArray(evaluationCtx.searchableFiles)
+    ? evaluationCtx.searchableFiles.slice(0, 240)
+    : [];
+
+  for (const filePath of searchable) {
+    if (hits.length >= limit) break;
+    const text = await safeFetchTextFile(filePath, evaluationCtx);
+    if (!text) continue;
+    if (includesAny(text, tokens)) {
+      hits.push(filePath);
+    }
+  }
+
+  return uniq(hits);
+}
+
+async function repoFilesContainingAllTokenGroups(
+  evaluationCtx,
+  tokenGroups = [],
+  limit = 12
+) {
+  const hits = [];
+  const searchable = Array.isArray(evaluationCtx.searchableFiles)
+    ? evaluationCtx.searchableFiles.slice(0, 240)
+    : [];
+
+  for (const filePath of searchable) {
+    if (hits.length >= limit) break;
+    const text = await safeFetchTextFile(filePath, evaluationCtx);
+    if (!text) continue;
+
+    const ok = (tokenGroups || []).every((group) => includesAny(text, group));
+    if (ok) {
+      hits.push(filePath);
+    }
+  }
+
+  return uniq(hits);
+}
+
+function buildDomainEvidenceDefs() {
+  return [
+    {
+      key: "database_pg_dependency",
+      kind: "domain_evidence",
+      strength: "strong",
+      tags: ["database"],
+      details: "postgres driver dependency exists",
+      collect: async ({ evaluationCtx }) => {
+        const pkg = await safeReadJson("package.json", evaluationCtx);
+        const deps = {
+          ...(pkg?.dependencies || {}),
+          ...(pkg?.devDependencies || {}),
+        };
+
+        if (!deps.pg && !deps["node-pg-migrate"]) return [];
+        return [
+          {
+            file: "package.json",
+            matched: deps.pg ? ["pg"] : ["node-pg-migrate"],
+          },
+        ];
+      },
+    },
+    {
+      key: "database_runtime_files",
+      kind: "domain_evidence",
+      strength: "medium",
+      tags: ["database"],
+      details: "database runtime files exist",
+      collect: async ({ evaluationCtx }) => {
+        const candidates = [
+          "db.js",
+          "src/db.js",
+          "src/db/index.js",
+          "migrations",
+        ];
+
+        const hits = [];
+        for (const path of candidates) {
+          if (evaluationCtx.fileSet.has(path)) {
+            hits.push({ file: path, matched: ["path_exists"] });
+          }
+        }
+
+        return hits;
+      },
+    },
+    {
+      key: "database_repo_usage",
+      kind: "domain_evidence",
+      strength: "medium",
+      tags: ["database"],
+      details: "repository contains database usage signals",
+      collect: async ({ evaluationCtx }) => {
+        const files = await repoFilesContainingAnyTokens(
+          evaluationCtx,
+          ["pool.query(", "new Pool(", "from \"pg\"", "node-pg-migrate", "migrations"],
+          8
+        );
+
+        return files.map((file) => ({
+          file,
+          matched: ["database_usage_signal"],
+        }));
+      },
+    },
+    {
+      key: "tasks_runner_surface",
+      kind: "domain_evidence",
+      strength: "medium",
+      tags: ["tasks"],
+      details: "repository contains task runner / jobs signals",
+      collect: async ({ evaluationCtx }) => {
+        const files = await repoFilesContainingAnyTokens(
+          evaluationCtx,
+          ["JobRunner", "jobRunner", "enqueue(", "retry", "dlq", "cron", "/tasks", "/run", "/newtask"],
+          8
+        );
+
+        return files.map((file) => ({
+          file,
+          matched: ["tasks_signal"],
+        }));
+      },
+    },
+    {
+      key: "tasks_runtime_files",
+      kind: "domain_evidence",
+      strength: "strong",
+      tags: ["tasks"],
+      details: "task runtime files exist",
+      collect: async ({ evaluationCtx }) => {
+        const hits = [];
+        for (const path of [
+          "src/jobs/jobRunnerInstance.js",
+          "src/jobs",
+          "src/tasks",
+        ]) {
+          if (evaluationCtx.fileSet.has(path)) {
+            hits.push({ file: path, matched: ["path_exists"] });
+          }
+        }
+        return hits;
+      },
+    },
+    {
+      key: "access_guard_usage",
+      kind: "domain_evidence",
+      strength: "medium",
+      tags: ["access"],
+      details: "repository contains access/permission guards",
+      collect: async ({ evaluationCtx }) => {
+        const files = await repoFilesContainingAnyTokens(
+          evaluationCtx,
+          [
+            "requireMonarchPrivateAccess",
+            "permission",
+            "permissions",
+            "can(",
+            "role",
+            "roles",
+            "guest",
+            "monarch",
+          ],
+          8
+        );
+
+        return files.map((file) => ({
+          file,
+          matched: ["access_signal"],
+        }));
+      },
+    },
+    {
+      key: "access_guard_files",
+      kind: "domain_evidence",
+      strength: "strong",
+      tags: ["access"],
+      details: "access-related files exist",
+      collect: async ({ evaluationCtx }) => {
+        const hits = [];
+        for (const path of [
+          "src/bot/handlers/handlerAccess.js",
+          "src/users/userAccess.js",
+          "src/access",
+        ]) {
+          if (evaluationCtx.fileSet.has(path)) {
+            hits.push({ file: path, matched: ["path_exists"] });
+          }
+        }
+        return hits;
+      },
+    },
+    {
+      key: "identity_repo_usage",
+      kind: "domain_evidence",
+      strength: "medium",
+      tags: ["identity"],
+      details: "repository contains identity/linking signals",
+      collect: async ({ evaluationCtx }) => {
+        const files = await repoFilesContainingAnyTokens(
+          evaluationCtx,
+          [
+            "global_user_id",
+            "platform_user_id",
+            "user_links",
+            "user_identities",
+            "linking flow",
+            "link code",
+            "confirm link",
+          ],
+          8
+        );
+
+        return files.map((file) => ({
+          file,
+          matched: ["identity_signal"],
+        }));
+      },
+    },
+    {
+      key: "identity_strong_pair",
+      kind: "domain_evidence",
+      strength: "strong",
+      tags: ["identity"],
+      details: "repository contains linked identity model signals",
+      collect: async ({ evaluationCtx }) => {
+        const files = await repoFilesContainingAllTokenGroups(
+          evaluationCtx,
+          [
+            ["global_user_id", "platform_user_id"],
+            ["user_links", "user_identities", "linking"],
+          ],
+          6
+        );
+
+        return files.map((file) => ({
+          file,
+          matched: ["identity_pair_signal"],
+        }));
+      },
+    },
+  ];
+}
+
+async function collectDomainEvidence({
+  evaluationCtx,
+  scopeSemanticProfile,
+}) {
+  const defs = buildDomainEvidenceDefs();
+  const scopeTags = scopeSemanticProfile?.tags || [];
+  const passed = [];
+
+  for (const def of defs) {
+    if (!hasSemanticOverlap(def.tags, scopeTags)) continue;
+
+    try {
+      const hits = await def.collect({ evaluationCtx });
+      if (!Array.isArray(hits) || hits.length === 0) continue;
+
+      for (const hit of hits.slice(0, 8)) {
+        passed.push({
+          side: "real",
+          kind: def.kind,
+          subkind: def.key,
+          file: String(hit?.file || ""),
+          strength: def.strength,
+          tags: def.tags,
+          matched: Array.isArray(hit?.matched) ? hit.matched : [],
+          details: def.details,
+        });
+      }
+    } catch (_) {}
+  }
+
+  return passed;
+}
+
 function buildRealEvidence({
   candidateFiles,
   connectedness,
   runtimeFoundationEvidence,
+  domainEvidence,
 }) {
   const evidence = [];
 
@@ -549,6 +849,10 @@ function buildRealEvidence({
     evidence.push(item);
   }
 
+  for (const item of (domainEvidence || []).slice(0, 16)) {
+    evidence.push(item);
+  }
+
   return evidence;
 }
 
@@ -587,10 +891,16 @@ export async function collectRealEvidence({
     scopeSemanticProfile,
   });
 
+  const domainEvidence = await collectDomainEvidence({
+    evaluationCtx,
+    scopeSemanticProfile,
+  });
+
   const evidence = buildRealEvidence({
     candidateFiles,
     connectedness,
     runtimeFoundationEvidence,
+    domainEvidence,
   });
 
   return {
@@ -601,6 +911,7 @@ export async function collectRealEvidence({
     repoReferenceMatches,
     connectedness,
     runtimeFoundationEvidence,
+    domainEvidence,
     evidence,
   };
 }

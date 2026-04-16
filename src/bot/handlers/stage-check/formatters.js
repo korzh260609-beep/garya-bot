@@ -111,14 +111,6 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       partial_count: "Частично",
       open_count: "Не выполнено",
       no_signals_count: "Без сигналов",
-      real_complete: "реально подключено и достижимо из runtime",
-      real_partial: "реализовано частично / подключение неполное",
-      real_open: "артефакты есть, но подключение не доказано",
-      real_unknown: "недостаточно real-evidence",
-      formal_complete: "формально подтверждено",
-      formal_partial: "формально подтверждено частично",
-      formal_open: "формально не подтверждено",
-      formal_no_signals: "формальных сигналов нет",
     },
     uk: {
       header_single: "Перевірка етапу: {code}",
@@ -170,14 +162,6 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       partial_count: "Частково",
       open_count: "Не виконано",
       no_signals_count: "Без сигналів",
-      real_complete: "реально підключено і досяжно з runtime",
-      real_partial: "реалізовано частково / підключення неповне",
-      real_open: "артефакти є, але підключення не доведено",
-      real_unknown: "недостатньо real-evidence",
-      formal_complete: "формально підтверджено",
-      formal_partial: "формально підтверджено частково",
-      formal_open: "формально не підтверджено",
-      formal_no_signals: "формальних сигналів немає",
     },
     en: {
       header_single: "Stage check: {code}",
@@ -229,14 +213,6 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       partial_count: "Partial",
       open_count: "Open",
       no_signals_count: "No signals",
-      real_complete: "really wired and reachable from runtime",
-      real_partial: "partially implemented / wiring incomplete",
-      real_open: "artifacts exist but runtime connectedness is not proven",
-      real_unknown: "insufficient real evidence",
-      formal_complete: "formally confirmed",
-      formal_partial: "formally partially confirmed",
-      formal_open: "formally not confirmed",
-      formal_no_signals: "no formal signals",
     },
   };
 
@@ -264,54 +240,6 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
   }
 
   return { t, humanStatus, humanGapReason };
-}
-
-function describeCheckShort(entry, t) {
-  const type = String(entry?.type || "");
-  const label = String(entry?.label || "");
-
-  if (type === "file_exists") return t("explicit_file");
-  if (type === "basename_exists") return t("basename_signal");
-  if (type === "structured_index_exists") return t("structured_index");
-  if (type === "text_exists") {
-    if (label.startsWith("command token:")) {
-      return t("command_surface");
-    }
-    return t("repo_token");
-  }
-
-  return t("repo_token");
-}
-
-function summarizeFormalEvidence(entries, t) {
-  if (!entries.length) return t("no_clear_evidence");
-
-  const kinds = new Set(
-    entries
-      .filter((e) => e?.ok !== false)
-      .map((e) => describeCheckShort(e, t))
-  );
-
-  if (kinds.size === 0) return t("insufficient_evidence");
-  return Array.from(kinds).slice(0, 3).join(", ");
-}
-
-function summarizeRealEvidence(entries, t) {
-  if (!Array.isArray(entries) || entries.length === 0) {
-    return t("real_unknown");
-  }
-
-  const kinds = new Set();
-
-  for (const entry of entries) {
-    const kind = String(entry?.kind || "");
-    if (kind === "entrypoint_wiring") kinds.add("runtime");
-    else if (kind === "candidate_file") kinds.add("file");
-    else if (kind === "repo_reference") kinds.add("reference");
-  }
-
-  if (kinds.size === 0) return t("real_unknown");
-  return Array.from(kinds).slice(0, 4).join(", ");
 }
 
 export function formatSingleItemOutput({

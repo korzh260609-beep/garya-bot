@@ -31,6 +31,23 @@ export function buildModeInstruction(answerMode) {
   return "";
 }
 
+function buildProjectContextPolicySystemMessage(projectCtx = "") {
+  const hasProjectCtx = String(projectCtx || "").trim().length > 0;
+  if (!hasProjectCtx) return null;
+
+  return {
+    role: "system",
+    content: [
+      "PROJECT CONTEXT POLICY:",
+      "Project context from memory is background only and may be stale or incomplete.",
+      "Never present project-memory stage/state/focus as a verified fact.",
+      "If the user asks what stage is current now, what is implemented now, or what you based the answer on, do not rely on project memory as proof.",
+      "For current implementation/status claims, repository checks, runtime checks, stage_check output, or explicit user confirmation are required.",
+      "If such proof is missing, say that the background context may be outdated and that current status is not confirmed.",
+    ].join("\n"),
+  };
+}
+
 export function buildChatMessages({
   buildSystemPrompt,
   answerMode,
@@ -87,8 +104,12 @@ export function buildChatMessages({
     mediaResponseMode,
   });
 
+  const projectContextPolicySystemMessage =
+    buildProjectContextPolicySystemMessage(projectCtx);
+
   const messages = [
     { role: "system", content: systemPrompt },
+    projectContextPolicySystemMessage,
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
     longTermMemorySystemMessage,
@@ -100,6 +121,7 @@ export function buildChatMessages({
 
   const promptBlockDiagnostics = {
     promptBlockSystemPromptChars: countChars(systemPrompt),
+    promptBlockProjectContextPolicyChars: countChars(projectContextPolicySystemMessage?.content),
     promptBlockSourceServiceChars: countChars(sourceServiceSystemMessage?.content),
     promptBlockSourceResultChars: countChars(sourceResultSystemMessage?.content),
     promptBlockLongTermMemoryChars: countChars(longTermMemorySystemMessage?.content),

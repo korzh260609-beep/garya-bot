@@ -380,9 +380,9 @@ export async function evaluateSingleItem(item, ctx) {
 
     if (hasExactSignatureHit && independentCorroboration) {
       status = "COMPLETE";
-    } else if (hasExactSignatureHit || signatureAnchor) {
+    } else if (signatureAnchor && (independentCorroboration || realMethodEvidence >= 2)) {
       status = "PARTIAL";
-    } else if (realMethodEvidence >= 1 || genericOnlyEvidence > 0) {
+    } else if (realMethodEvidence >= 2) {
       status = "PARTIAL";
     } else {
       status = "OPEN";
@@ -393,19 +393,23 @@ export async function evaluateSingleItem(item, ctx) {
 
     if (carrierAnchor && localMethodEvidence >= 3) {
       status = "COMPLETE";
-    } else if (carrierAnchor || localMethodEvidence >= 2 || genericOnlyEvidence > 0) {
+    } else if ((carrierAnchor && localMethodEvidence >= 1) || localMethodEvidence >= 3) {
       status = "PARTIAL";
     } else {
       status = "OPEN";
     }
-  } else if (hasPassedExplicitStrong) {
+  } else if (hasPassedExplicitStrong && supportingEvidence >= 2) {
     status = "COMPLETE";
-  } else if (hasPassedStrongCluster || hasPassedWeakCluster) {
+  } else if (hasPassedExplicitStrong) {
+    status = "PARTIAL";
+  } else if (explicitAnchor && supportingEvidence >= 1) {
+    status = "PARTIAL";
+  } else if (hasPassedStrongCluster && supportingEvidence >= 1) {
     status = "PARTIAL";
   } else if (hasExplicitStrongChecks) {
-    status = hasPassedWeakCheck ? "PARTIAL" : "OPEN";
+    status = explicitAnchor && hasPassedWeakCheck ? "PARTIAL" : "OPEN";
   } else if (passedChecks > 0) {
-    status = explicitAnchor ? "PARTIAL" : "OPEN";
+    status = explicitAnchor && supportingEvidence > 0 ? "PARTIAL" : "OPEN";
   } else {
     status = "OPEN";
   }

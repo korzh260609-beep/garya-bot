@@ -1,6 +1,6 @@
 // ============================================================================
 // === src/core/stageCheck/stageCheckCore.js
-// === platform-agnostic core for workflow stage checking
+// === platform-agnostic core for workflow stage checking (dual-status)
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -30,6 +30,11 @@ import {
   RULES_PATH,
 } from "../../bot/handlers/stage-check/formatters.js";
 
+import { runFormalReview } from "./formal/formalReviewService.js";
+import { collectRealEvidence } from "./real/realEvidenceCollector.js";
+import { evaluateRealStatus } from "./real/realStatusEvaluator.js";
+import { evaluateStatusGap } from "./gap/statusGapEvaluator.js";
+
 function createRepoSource() {
   return new RepoSource({
     repo: process.env.GITHUB_REPO,
@@ -57,6 +62,62 @@ function createEvaluationCtx({
     errorStats: { fetchFailures: 0 },
     itemMap,
   };
+}
+
+function buildDualReviewObject({
+  baseItem,
+  scopeWorkflowItems,
+  formalResult,
+  realReview,
+  gapReview,
+} = {}) {
+  return {
+    item: {
+      code: baseItem?.code || "",
+      title: baseItem?.title || "",
+      kind: baseItem?.kind || "",
+      parentCode: baseItem?.parentCode || null,
+      scopeSize: Array.isArray(scopeWorkflowItems) ? scopeWorkflowItems.length : 0,
+    },
+    formal: formalResult?.review || null,
+    real: realReview || null,
+    gap: gapReview || null,
+    scopeItems: formalResult?.scopeItems || [],
+    aggregate: formalResult?.aggregate || null,
+  };
+}
+
+async function buildSingleDualReview({
+  baseItem,
+  scopeWorkflowItems,
+  evaluationCtx,
+}) {
+  const formalResult = await runFormalReview({
+    scopeWorkflowItems,
+    evaluationCtx,
+  });
+
+  const realEvidence = await collectRealEvidence({
+    scopeWorkflowItems,
+    evaluationCtx,
+  });
+
+  const realReview = evaluateRealStatus({
+    realEvidence,
+  });
+
+  const gapReview = evaluateStatusGap({
+    formalReview: formalResult.review,
+    realReview,
+  });
+
+  return buildDualReviewObject({
+    baseItem,
+    scopeWorkflowItems,
+    formalResult,
+    realReview,
+    gapReview,
+  });
 }
 
 async function buildItemDiag(item, evaluationCtx) {
@@ -93,7 +154,10 @@ async function buildItemDiag(item, evaluationCtx) {
     strength: evaluated.results[index]?.strength || "-",
   }));
 
-  const subtreeWorkflowItems = getSubtreeItems(item.code, Array.from(evaluationCtx.itemMap.values()));
+  const subtreeWorkflowItems = getSubtreeItems(
+    item.code,
+    Array.from(evaluationCtx.itemMap.values())
+  );
   const scopeItems = await buildEvaluatedItems(subtreeWorkflowItems, evaluationCtx);
   const scopeAggregate = aggregateScope(scopeItems);
 
@@ -238,14 +302,25 @@ export async function runStageCheckCore({
 
   if (modeInfo?.mode === "all") {
     try {
-      const evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
+      const stageReviews = [];
+
+      for (const stage of topLevelStages) {
+        const scopeWorkflowItems = getSubtreeItems(stage.code, workflowItems);
+        const review = await buildSingleDualReview({
+          baseItem: stage,
+          scopeWorkflowItems,
+          evaluationCtx,
+        });
+
+        stageReviews.push(review);
+      }
 
       return {
         ok: true,
         kind: "all",
         modeInfo,
         topLevelStages,
-        evaluatedItems,
+        stageReviews,
       };
     } catch {
       return {
@@ -257,14 +332,25 @@ export async function runStageCheckCore({
 
   if (modeInfo?.mode === "current") {
     try {
-      const evaluatedItems = await buildEvaluatedItems(workflowItems, evaluationCtx);
+      const stageReviews = [];
+
+      for (const stage of topLevelStages) {
+        const scopeWorkflowItems = getSubtreeItems(stage.code, workflowItems);
+        const review = await buildSingleDualReview({
+          baseItem: stage,
+          scopeWorkflowItems,
+          evaluationCtx,
+        });
+
+        stageReviews.push(review);
+      }
 
       return {
         ok: true,
         kind: "current",
         modeInfo,
         topLevelStages,
-        evaluatedItems,
+        stageReviews,
       };
     } catch {
       return {
@@ -288,8 +374,11 @@ export async function runStageCheckCore({
   const scopeWorkflowItems = getSubtreeItems(itemCode, workflowItems);
 
   try {
-    const scopeItems = await buildEvaluatedItems(scopeWorkflowItems, evaluationCtx);
-    const aggregate = aggregateScope(scopeItems);
+    const review = await buildSingleDualReview({
+      baseItem,
+      scopeWorkflowItems,
+      evaluationCtx,
+    });
 
     return {
       ok: true,
@@ -297,8 +386,7 @@ export async function runStageCheckCore({
       modeInfo,
       itemCode,
       baseItem,
-      scopeItems,
-      aggregate,
+      review,
     };
   } catch {
     return {

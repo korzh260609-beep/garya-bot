@@ -9,6 +9,10 @@ import {
   findStructuredIndexInMigrations,
   findSignalClusterInRepo,
 } from "./repoUtils.js";
+import {
+  determineSemanticTypeFromChecks,
+  isModuleLikeTitle,
+} from "./semantics.js";
 
 export async function evaluateCheck(check, ctx) {
   if (check.type === "file_exists") {
@@ -110,63 +114,6 @@ function isExplicitStrongCheckType(type) {
     type === "basename_exists" ||
     type === "structured_index_exists"
   );
-}
-
-function getItemSemanticType(item, autoChecks) {
-  const labels = autoChecks.map((x) => String(x?.label || "").toLowerCase());
-  const title = String(item?.title || "").toLowerCase();
-
-  const hasSignature = labels.some(
-    (x) =>
-      x.includes("function signature token:") ||
-      x.includes("function call token:")
-  );
-
-  const hasCarrier = labels.some(
-    (x) => x.includes("contract carrier token:")
-  );
-
-  const looksPolicyLike =
-    !hasSignature &&
-    !hasCarrier &&
-    (
-      title.includes("safety rules") ||
-      title.includes("privacy-first") ||
-      title.includes("retention minimal") ||
-      title.includes("retention-policy") ||
-      title.includes("policy") ||
-      title.includes("policies") ||
-      title.includes("rules") ||
-      title.includes("hard ban") ||
-      title.includes("no diagnosis") ||
-      title.includes("no labels") ||
-      title.includes("no therapy") ||
-      title.includes("must not ") ||
-      title.includes("forbidden") ||
-      title.includes("privacy")
-    );
-
-  const looksArchitectureLike =
-    !hasSignature &&
-    !hasCarrier &&
-    !looksPolicyLike &&
-    (
-      title.includes(" unified") ||
-      title.includes("transport thin") ||
-      title.includes("continues ") ||
-      title.includes("channel switch") ||
-      title.includes(" = ") ||
-      title.includes(" ≠ ") ||
-      title.includes("core/") ||
-      title.includes("memory/") ||
-      title.includes("access/")
-    );
-
-  if (hasCarrier) return "interface_like";
-  if (hasSignature) return "signature_like";
-  if (looksPolicyLike) return "policy_like";
-  if (looksArchitectureLike) return "architecture_like";
-  return "generic";
 }
 
 function countBy(entries, predicate) {
@@ -384,25 +331,6 @@ function getLeafScopeItems(scopeItems) {
   return scopeItems.filter((item) => !hasDescendantsInScope(item, scopeItems));
 }
 
-function isModuleLikeTitle(title) {
-  const lower = String(title || "").toLowerCase();
-
-  return (
-    lower.includes("module") ||
-    lower.includes("модуль") ||
-    lower.includes("capability") ||
-    lower.includes("integration") ||
-    lower.includes("integrations") ||
-    lower.includes("source-first") ||
-    lower.includes("voice") ||
-    lower.includes("ui / api") ||
-    lower.includes("web ui") ||
-    lower.includes("discord") ||
-    lower.includes("billing") ||
-    lower.includes("support mode")
-  );
-}
-
 function isModuleLikeStage(rootItem, scopeItems) {
   if (!rootItem || rootItem.kind !== "stage") return false;
   if (isModuleLikeTitle(rootItem.title)) return true;
@@ -526,7 +454,9 @@ export async function evaluateSingleItem(item, ctx) {
 
   const hasPassedWeakCheck = weakEntries.some((entry) => entry.result?.ok);
 
-  const semanticType = getItemSemanticType(item, autoChecks);
+  const semanticInfo = determineSemanticTypeFromChecks(item, autoChecks);
+  const semanticType = semanticInfo.semanticType || "generic";
+
   const explicitAnchor = hasExplicitAnchor(entries);
   const supportingEvidence = countSupportingEvidence(entries);
   const genericOnlyEvidence = countGenericOnlyEvidence(entries);

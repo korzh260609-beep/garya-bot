@@ -31,8 +31,8 @@ import {
 } from "../../bot/handlers/stage-check/formatters.js";
 
 import { runFormalReview } from "./formal/formalReviewService.js";
-import { collectRealEvidence } from "./real/realEvidenceCollector.js";
-import { evaluateRealStatus } from "./real/realStatusEvaluator.js";
+import { buildSubtreeItemRealReviews } from "./real/realItemReviewService.js";
+import { buildAggregatedRealReview } from "./real/realAggregateEvaluator.js";
 import { evaluateStatusGap } from "./gap/statusGapEvaluator.js";
 
 function createRepoSource() {
@@ -97,13 +97,15 @@ async function buildSingleDualReview({
     evaluationCtx,
   });
 
-  const realEvidence = await collectRealEvidence({
+  const itemRealReviews = await buildSubtreeItemRealReviews({
     scopeWorkflowItems,
     evaluationCtx,
   });
 
-  const realReview = evaluateRealStatus({
-    realEvidence,
+  const realReview = buildAggregatedRealReview({
+    baseItem,
+    scopeWorkflowItems,
+    itemRealReviews,
   });
 
   const gapReview = evaluateStatusGap({

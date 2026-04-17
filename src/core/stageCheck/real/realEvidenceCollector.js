@@ -22,13 +22,17 @@ export async function collectRealEvidence({
   scopeWorkflowItems,
   evaluationCtx,
 } = {}) {
-  const scopeSemanticProfile = buildScopeSemanticProfile(scopeWorkflowItems);
-  const scopeStats = buildScopeStats(scopeWorkflowItems);
+  const normalizedScopeItems = Array.isArray(scopeWorkflowItems)
+    ? scopeWorkflowItems
+    : [];
+
+  const scopeSemanticProfile = buildScopeSemanticProfile(normalizedScopeItems);
+  const scopeStats = buildScopeStats(normalizedScopeItems);
 
   const entrypoints = await discoverEntrypoints(evaluationCtx);
 
   const candidateFiles = collectCandidateFilesFromScope(
-    scopeWorkflowItems,
+    normalizedScopeItems,
     evaluationCtx
   );
 
@@ -53,11 +57,13 @@ export async function collectRealEvidence({
   const runtimeFoundationEvidence = await collectRuntimeFoundationEvidence({
     evaluationCtx,
     scopeSemanticProfile,
+    scopeWorkflowItems: normalizedScopeItems,
   });
 
   const domainEvidence = await collectDomainEvidence({
     evaluationCtx,
     scopeSemanticProfile,
+    scopeWorkflowItems: normalizedScopeItems,
   });
 
   const evidence = buildRealEvidence({

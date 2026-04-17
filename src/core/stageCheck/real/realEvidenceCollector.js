@@ -42,10 +42,6 @@ function includesAll(text, tokens = []) {
   return (tokens || []).every((x) => hay.includes(lower(x)));
 }
 
-function hasAnyPath(fileSet, paths = []) {
-  return (paths || []).some((path) => fileSet.has(path));
-}
-
 function parseNodeScriptEntrypoints(scriptText) {
   const text = String(scriptText || "");
   const matches = [];
@@ -860,6 +856,26 @@ async function collectDomainEvidence({
   return passed;
 }
 
+function buildScopeStats(scopeWorkflowItems) {
+  const items = Array.isArray(scopeWorkflowItems) ? scopeWorkflowItems : [];
+  const exactItems = items.filter(
+    (item) => String(item?.kind || "").toLowerCase() === "item"
+  ).length;
+  const stageItems = items.filter(
+    (item) =>
+      String(item?.kind || "").toLowerCase() === "stage" ||
+      String(item?.kind || "").toLowerCase() === "substage"
+  ).length;
+
+  return {
+    scopeItemCount: items.length,
+    exactItems,
+    stageItems,
+    isLargeScope: items.length >= 8,
+    isVeryLargeScope: items.length >= 14,
+  };
+}
+
 function buildRealEvidence({
   candidateFiles,
   connectedness,
@@ -922,6 +938,7 @@ export async function collectRealEvidence({
   evaluationCtx,
 } = {}) {
   const scopeSemanticProfile = buildScopeSemanticProfile(scopeWorkflowItems);
+  const scopeStats = buildScopeStats(scopeWorkflowItems);
 
   const entrypoints = await discoverEntrypoints(evaluationCtx);
   const candidateFiles = collectCandidateFilesFromScope(
@@ -966,6 +983,7 @@ export async function collectRealEvidence({
 
   return {
     scopeSemanticProfile,
+    scopeStats,
     entrypoints,
     candidateFiles,
     directEntrypointMatches,

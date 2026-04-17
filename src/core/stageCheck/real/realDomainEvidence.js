@@ -101,20 +101,6 @@ async function collectPathExistsHits(evaluationCtx, paths = []) {
   return hits;
 }
 
-async function collectTableSignals(evaluationCtx, tokens = [], limit = 8) {
-  const files = await repoFilesContainingAnyTokens(
-    evaluationCtx,
-    tokens,
-    limit,
-    { includeDescriptive: false }
-  );
-
-  return files.map((file) => ({
-    file,
-    matched: ["table_signal"],
-  }));
-}
-
 export function buildDomainEvidenceDefs() {
   return [
     {
@@ -135,6 +121,8 @@ export function buildDomainEvidenceDefs() {
           {
             file: "package.json",
             matched: deps.pg ? ["pg"] : ["node-pg-migrate"],
+            proofRole: "implementation",
+            proofClass: "runtime_surface",
           },
         ];
       },
@@ -154,6 +142,8 @@ export function buildDomainEvidenceDefs() {
           "migrations",
         ]);
       },
+      proofRole: "implementation",
+      proofClass: "runtime_surface",
     },
     {
       key: "database_repo_usage",
@@ -171,8 +161,12 @@ export function buildDomainEvidenceDefs() {
         return files.map((file) => ({
           file,
           matched: ["database_usage_signal"],
+          proofRole: "implementation",
+          proofClass: "runtime_surface",
         }));
       },
+      proofRole: "implementation",
+      proofClass: "runtime_surface",
     },
     {
       key: "database_schema_tables",
@@ -190,11 +184,12 @@ export function buildDomainEvidenceDefs() {
           "project_memory",
           "postgresql",
           "database",
+          "tables",
         ]);
 
         if (!wantsCoreTables) return [];
 
-        return collectTableSignals(
+        const files = await repoFilesContainingAnyTokens(
           evaluationCtx,
           [
             "create table users",
@@ -206,7 +201,16 @@ export function buildDomainEvidenceDefs() {
           ],
           10
         );
+
+        return files.map((file) => ({
+          file,
+          matched: ["database_table_signal"],
+          proofRole: "implementation",
+          proofClass: "runtime_surface",
+        }));
       },
+      proofRole: "implementation",
+      proofClass: "runtime_surface",
     },
     {
       key: "database_migrations_framework",
@@ -240,8 +244,12 @@ export function buildDomainEvidenceDefs() {
         return files.map((file) => ({
           file,
           matched: ["migration_framework_signal"],
+          proofRole: "implementation",
+          proofClass: "runtime_surface",
         }));
       },
+      proofRole: "implementation",
+      proofClass: "runtime_surface",
     },
     {
       key: "tasks_runner_surface",
@@ -269,8 +277,12 @@ export function buildDomainEvidenceDefs() {
         return files.map((file) => ({
           file,
           matched: ["tasks_signal"],
+          proofRole: "implementation",
+          proofClass: "runtime_surface",
         }));
       },
+      proofRole: "implementation",
+      proofClass: "runtime_surface",
     },
     {
       key: "tasks_runtime_files",
@@ -285,6 +297,8 @@ export function buildDomainEvidenceDefs() {
           "src/tasks",
         ]);
       },
+      proofRole: "implementation",
+      proofClass: "runtime_surface",
     },
     {
       key: "tasks_execution_safety",
@@ -325,8 +339,12 @@ export function buildDomainEvidenceDefs() {
         return files.map((file) => ({
           file,
           matched: ["tasks_execution_safety_signal"],
+          proofRole: "implementation",
+          proofClass: "runtime_surface",
         }));
       },
+      proofRole: "implementation",
+      proofClass: "runtime_surface",
     },
     {
       key: "access_guard_usage",
@@ -353,6 +371,8 @@ export function buildDomainEvidenceDefs() {
         return files.map((file) => ({
           file,
           matched: ["access_signal"],
+          proofRole: "context",
+          proofClass: "runtime_surface",
         }));
       },
     },
@@ -363,11 +383,17 @@ export function buildDomainEvidenceDefs() {
       tags: ["access"],
       details: "access-related files exist",
       collect: async ({ evaluationCtx }) => {
-        return collectPathExistsHits(evaluationCtx, [
+        const hits = await collectPathExistsHits(evaluationCtx, [
           "src/bot/handlers/handlerAccess.js",
           "src/users/userAccess.js",
           "src/access",
         ]);
+
+        return hits.map((hit) => ({
+          ...hit,
+          proofRole: "context",
+          proofClass: "runtime_surface",
+        }));
       },
     },
     {
@@ -394,6 +420,8 @@ export function buildDomainEvidenceDefs() {
         return files.map((file) => ({
           file,
           matched: ["identity_signal"],
+          proofRole: "context",
+          proofClass: "runtime_surface",
         }));
       },
     },
@@ -416,6 +444,8 @@ export function buildDomainEvidenceDefs() {
         return files.map((file) => ({
           file,
           matched: ["identity_pair_signal"],
+          proofRole: "context",
+          proofClass: "runtime_surface",
         }));
       },
     },
@@ -447,19 +477,20 @@ export async function collectDomainEvidence({
         const file = String(hit?.file || "").trim();
         if (!file) continue;
 
-        const descriptive = isLikelyDescriptiveFile(file);
+        const proofClass =
+          hit?.proofClass ||
+          (isLikelyDescriptiveFile(file) ? "descriptive" : "runtime_surface");
 
         passed.push({
           side: "real",
           kind: def.kind,
           subkind: def.key,
           file,
-          strength: def.strength,
+          strength: hit?.strength || def.strength,
           tags: def.tags,
           matched: Array.isArray(hit?.matched) ? hit.matched : [],
-          proofRole:
-            def.strength === "strong" ? "implementation" : "context",
-          proofClass: descriptive ? "descriptive" : "runtime_surface",
+          proofRole: hit?.proofRole || def.proofRole || "context",
+          proofClass,
           details: def.details,
         });
       }

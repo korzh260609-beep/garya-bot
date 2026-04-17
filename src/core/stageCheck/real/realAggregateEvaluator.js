@@ -28,7 +28,8 @@ function isFoundationDomainTags(tags = []) {
     hasTag(tags, "access") ||
     hasTag(tags, "identity") ||
     hasTag(tags, "memory") ||
-    hasTag(tags, "sources")
+    hasTag(tags, "sources") ||
+    hasTag(tags, "tasks")
   );
 }
 
@@ -53,6 +54,7 @@ function summarizeChildReviews(childEntries = []) {
   let activeChildren = 0;
   let reachabilityChildren = 0;
   let strongFoundationChildren = 0;
+  let partialFoundationChildren = 0;
 
   const evidence = [];
 
@@ -77,6 +79,13 @@ function summarizeChildReviews(childEntries = []) {
       strongFoundationChildren += 1;
     }
 
+    if (
+      status === "PARTIAL" &&
+      Number(connectedness.foundationSignalScore || 0) >= 2.3
+    ) {
+      partialFoundationChildren += 1;
+    }
+
     for (const ev of toArray(entry?.review?.evidence).slice(0, 4)) {
       evidence.push(ev);
     }
@@ -97,6 +106,7 @@ function summarizeChildReviews(childEntries = []) {
     activeRatio,
     reachabilityChildren,
     strongFoundationChildren,
+    partialFoundationChildren,
     evidence: evidence.slice(0, 24),
   };
 }
@@ -177,10 +187,7 @@ function buildAggregateReason({
   if (status === "PARTIAL") {
     if (
       foundationDomain &&
-      (
-        ownMetrics.ownStrongFoundation ||
-        summary.strongFoundationChildren > 0
-      )
+      (ownMetrics.ownStrongFoundation || summary.strongFoundationChildren > 0)
     ) {
       return "runtime_foundation_partially_proven";
     }
@@ -225,7 +232,7 @@ function buildAggregateDiagnostics({
   childEntries,
 }) {
   return {
-    evaluator: "aggregate_real_status_v2_explain",
+    evaluator: "aggregate_real_status_v3_guard_non_foundation",
     scopeTags: toArray(tags),
     foundationDomain: !!foundationDomain,
     metrics: {
@@ -239,6 +246,7 @@ function buildAggregateDiagnostics({
       activeRatio: round3(summary.activeRatio),
       reachabilityChildren: summary.reachabilityChildren,
       strongFoundationChildren: summary.strongFoundationChildren,
+      partialFoundationChildren: summary.partialFoundationChildren,
 
       ownExactStatus: ownMetrics.ownStatus,
       ownProbabilityScore: round3(ownMetrics.ownProbabilityScore),
@@ -297,7 +305,7 @@ export function buildAggregatedRealReview({
           aggregateMode: "exact_fallback",
         },
         diagnostics: {
-          evaluator: "aggregate_real_status_v2_explain",
+          evaluator: "aggregate_real_status_v3_guard_non_foundation",
           chosenRule: "exact_fallback",
           rules: [],
         },
@@ -372,10 +380,19 @@ export function buildAggregatedRealReview({
       requiredActiveRatio: 0.08,
     });
 
+    // IMPORTANT GUARD:
+    // non-foundation stages must not become PARTIAL only because children
+    // carry foundation-like partials. Require either own proof or runtime reachability.
     const partialByGeneralChildren =
       !foundationDomain &&
       summary.partialOrBetterCount >= 2 &&
-      summary.activeRatio >= 0.18;
+      summary.activeRatio >= 0.18 &&
+      (
+        ownMetrics.ownStatus === "PARTIAL" ||
+        ownMetrics.ownStatus === "COMPLETE" ||
+        ownMetrics.ownHasMeaningfulSignals ||
+        summary.reachabilityChildren >= 1
+      );
 
     pushRule(diagnostics, "partial_by_general_children", partialByGeneralChildren, {
       foundationDomain,
@@ -383,8 +400,9 @@ export function buildAggregatedRealReview({
       requiredPartialOrBetterCount: 2,
       activeRatio: round3(summary.activeRatio),
       requiredActiveRatio: 0.18,
-      warning:
-        "this rule is the main suspect for false-positive aggregate PARTIAL on non-foundation stages",
+      ownStatus: ownMetrics.ownStatus,
+      ownHasMeaningfulSignals: ownMetrics.ownHasMeaningfulSignals,
+      reachabilityChildren: summary.reachabilityChildren,
     });
 
     const partialByOwnNonFoundation =
@@ -444,7 +462,7 @@ export function buildAggregatedRealReview({
     reason,
     evidence: aggregateEvidence,
     connectedness: {
-      aggregateMode: "own_plus_child_real_aggregation_v2",
+      aggregateMode: "own_plus_child_real_aggregation_v3_guard_non_foundation",
       foundationDomain,
       totalChildren: summary.totalChildren,
       completeCount: summary.completeCount,
@@ -456,6 +474,7 @@ export function buildAggregatedRealReview({
       activeRatio: round3(summary.activeRatio),
       reachabilityChildren: summary.reachabilityChildren,
       strongFoundationChildren: summary.strongFoundationChildren,
+      partialFoundationChildren: summary.partialFoundationChildren,
 
       ownExactStatus: ownMetrics.ownStatus,
       ownProbabilityScore: round3(ownMetrics.ownProbabilityScore),

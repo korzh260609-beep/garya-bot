@@ -128,6 +128,16 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       partial_or_better_count: "partialOrBetterCount",
       reachability_children: "reachabilityChildren",
       strong_foundation_children: "strongFoundationChildren",
+      own_exact_status: "ownExactStatus",
+      own_probability_score: "ownProbabilityScore",
+      own_foundation_signal_score: "ownFoundationSignalScore",
+      own_coverage_score: "ownCoverageScore",
+      own_direct_entrypoint_count: "ownDirectEntrypointCount",
+      own_candidate_count: "ownCandidateCount",
+      own_repo_ref_files: "ownRepoRefFiles",
+      own_impl_anchors: "ownImplementationAnchors",
+      own_has_meaningful_signals: "ownHasMeaningfulSignals",
+      own_strong_foundation: "ownStrongFoundation",
       no_diag: "diagnostics отсутствуют",
     },
     uk: {
@@ -197,6 +207,16 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       partial_or_better_count: "partialOrBetterCount",
       reachability_children: "reachabilityChildren",
       strong_foundation_children: "strongFoundationChildren",
+      own_exact_status: "ownExactStatus",
+      own_probability_score: "ownProbabilityScore",
+      own_foundation_signal_score: "ownFoundationSignalScore",
+      own_coverage_score: "ownCoverageScore",
+      own_direct_entrypoint_count: "ownDirectEntrypointCount",
+      own_candidate_count: "ownCandidateCount",
+      own_repo_ref_files: "ownRepoRefFiles",
+      own_impl_anchors: "ownImplementationAnchors",
+      own_has_meaningful_signals: "ownHasMeaningfulSignals",
+      own_strong_foundation: "ownStrongFoundation",
       no_diag: "diagnostics відсутні",
     },
     en: {
@@ -266,6 +286,16 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       partial_or_better_count: "partialOrBetterCount",
       reachability_children: "reachabilityChildren",
       strong_foundation_children: "strongFoundationChildren",
+      own_exact_status: "ownExactStatus",
+      own_probability_score: "ownProbabilityScore",
+      own_foundation_signal_score: "ownFoundationSignalScore",
+      own_coverage_score: "ownCoverageScore",
+      own_direct_entrypoint_count: "ownDirectEntrypointCount",
+      own_candidate_count: "ownCandidateCount",
+      own_repo_ref_files: "ownRepoRefFiles",
+      own_impl_anchors: "ownImplementationAnchors",
+      own_has_meaningful_signals: "ownHasMeaningfulSignals",
+      own_strong_foundation: "ownStrongFoundation",
       no_diag: "diagnostics missing",
     },
   };
@@ -311,17 +341,55 @@ function buildMetricsLines(realDiag, t) {
     return lines;
   }
 
+  const hasExactMetrics =
+    m.probabilityScore !== undefined ||
+    m.foundationSignalScore !== undefined ||
+    m.coverageScore !== undefined ||
+    m.candidateCount !== undefined ||
+    m.directEntrypointCount !== undefined ||
+    m.repoRefFiles !== undefined ||
+    m.distinctImplementationAnchors !== undefined ||
+    m.runtimeFoundationCount !== undefined;
+
+  const hasAggregateOwnMetrics =
+    m.ownExactStatus !== undefined ||
+    m.ownProbabilityScore !== undefined ||
+    m.ownFoundationSignalScore !== undefined ||
+    m.ownCoverageScore !== undefined ||
+    m.ownDirectEntrypointCount !== undefined ||
+    m.ownCandidateCount !== undefined ||
+    m.ownRepoRefFiles !== undefined ||
+    m.ownImplementationAnchors !== undefined ||
+    m.ownHasMeaningfulSignals !== undefined ||
+    m.ownStrongFoundation !== undefined;
+
   lines.push(`${t("real_diag_header")}:`);
   lines.push(`- ${t("chosen_rule")}: ${realDiag?.chosenRule || "-"}`);
   lines.push(`- ${t("metrics")}:`);
-  pushLine(lines, `  • ${t("probability_score")}: ${m.probabilityScore ?? "-"}`);
-  pushLine(lines, `  • ${t("foundation_signal_score")}: ${m.foundationSignalScore ?? "-"}`);
-  pushLine(lines, `  • ${t("coverage_score")}: ${m.coverageScore ?? "-"}`);
-  pushLine(lines, `  • ${t("candidate_count")}: ${m.candidateCount ?? "-"}`);
-  pushLine(lines, `  • ${t("direct_entrypoint_count")}: ${m.directEntrypointCount ?? "-"}`);
-  pushLine(lines, `  • ${t("repo_ref_files")}: ${m.repoRefFiles ?? "-"}`);
-  pushLine(lines, `  • ${t("impl_anchors")}: ${m.distinctImplementationAnchors ?? "-"}`);
-  pushLine(lines, `  • ${t("runtime_foundation_count")}: ${m.runtimeFoundationCount ?? "-"}`);
+
+  if (hasExactMetrics) {
+    pushLine(lines, `  • ${t("probability_score")}: ${m.probabilityScore ?? "-"}`);
+    pushLine(lines, `  • ${t("foundation_signal_score")}: ${m.foundationSignalScore ?? "-"}`);
+    pushLine(lines, `  • ${t("coverage_score")}: ${m.coverageScore ?? "-"}`);
+    pushLine(lines, `  • ${t("candidate_count")}: ${m.candidateCount ?? "-"}`);
+    pushLine(lines, `  • ${t("direct_entrypoint_count")}: ${m.directEntrypointCount ?? "-"}`);
+    pushLine(lines, `  • ${t("repo_ref_files")}: ${m.repoRefFiles ?? "-"}`);
+    pushLine(lines, `  • ${t("impl_anchors")}: ${m.distinctImplementationAnchors ?? "-"}`);
+    pushLine(lines, `  • ${t("runtime_foundation_count")}: ${m.runtimeFoundationCount ?? "-"}`);
+  }
+
+  if (hasAggregateOwnMetrics) {
+    pushLine(lines, `  • ${t("own_exact_status")}: ${m.ownExactStatus ?? "-"}`);
+    pushLine(lines, `  • ${t("own_probability_score")}: ${m.ownProbabilityScore ?? "-"}`);
+    pushLine(lines, `  • ${t("own_foundation_signal_score")}: ${m.ownFoundationSignalScore ?? "-"}`);
+    pushLine(lines, `  • ${t("own_coverage_score")}: ${m.ownCoverageScore ?? "-"}`);
+    pushLine(lines, `  • ${t("own_direct_entrypoint_count")}: ${m.ownDirectEntrypointCount ?? "-"}`);
+    pushLine(lines, `  • ${t("own_candidate_count")}: ${m.ownCandidateCount ?? "-"}`);
+    pushLine(lines, `  • ${t("own_repo_ref_files")}: ${m.ownRepoRefFiles ?? "-"}`);
+    pushLine(lines, `  • ${t("own_impl_anchors")}: ${m.ownImplementationAnchors ?? "-"}`);
+    pushLine(lines, `  • ${t("own_has_meaningful_signals")}: ${m.ownHasMeaningfulSignals ?? "-"}`);
+    pushLine(lines, `  • ${t("own_strong_foundation")}: ${m.ownStrongFoundation ?? "-"}`);
+  }
 
   if (m.activeRatio !== undefined) {
     pushLine(lines, `  • ${t("active_ratio")}: ${m.activeRatio}`);

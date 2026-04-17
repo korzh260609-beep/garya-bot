@@ -70,6 +70,8 @@ function buildDualReviewObject({
   formalResult,
   realReview,
   gapReview,
+  itemRealReviews = [],
+  techDiag = null,
 } = {}) {
   return {
     item: {
@@ -84,6 +86,8 @@ function buildDualReviewObject({
     gap: gapReview || null,
     scopeItems: formalResult?.scopeItems || [],
     aggregate: formalResult?.aggregate || null,
+    itemRealReviews: Array.isArray(itemRealReviews) ? itemRealReviews : [],
+    techDiag,
   };
 }
 
@@ -91,7 +95,8 @@ async function buildSingleDualReview({
   baseItem,
   scopeWorkflowItems,
   evaluationCtx,
-}) {
+  includeTechDiag = false,
+} = {}) {
   const formalResult = await runFormalReview({
     scopeWorkflowItems,
     evaluationCtx,
@@ -113,12 +118,18 @@ async function buildSingleDualReview({
     realReview,
   });
 
+  const techDiag = includeTechDiag
+    ? await buildItemDiag(baseItem, evaluationCtx)
+    : null;
+
   return buildDualReviewObject({
     baseItem,
     scopeWorkflowItems,
     formalResult,
     realReview,
     gapReview,
+    itemRealReviews,
+    techDiag,
   });
 }
 
@@ -250,6 +261,29 @@ async function loadStageCheckEnvironment() {
   };
 }
 
+async function buildStageReviews({
+  topLevelStages,
+  workflowItems,
+  evaluationCtx,
+  includeTechDiag = false,
+}) {
+  const stageReviews = [];
+
+  for (const stage of topLevelStages) {
+    const scopeWorkflowItems = getSubtreeItems(stage.code, workflowItems);
+    const review = await buildSingleDualReview({
+      baseItem: stage,
+      scopeWorkflowItems,
+      evaluationCtx,
+      includeTechDiag,
+    });
+
+    stageReviews.push(review);
+  }
+
+  return stageReviews;
+}
+
 export async function runStageCheckCore({
   modeInfo,
 } = {}) {
@@ -277,45 +311,21 @@ export async function runStageCheckCore({
     itemMap,
   });
 
+  const includeTechDiag = modeInfo?.diag === true;
+
   const targetItem =
     modeInfo?.mode === "item"
       ? workflowItems.find((x) => x.code === modeInfo.value) || null
       : null;
 
-  if (modeInfo?.diag) {
-    const itemDiag = targetItem
-      ? await buildItemDiag(targetItem, evaluationCtx)
-      : null;
-
-    return {
-      ok: true,
-      kind: "diag",
-      modeInfo,
-      source,
-      repoFiles,
-      searchableFiles,
-      workflowItems,
-      topLevelStages,
-      evaluationCtx,
-      targetItem,
-      itemDiag,
-    };
-  }
-
   if (modeInfo?.mode === "all") {
     try {
-      const stageReviews = [];
-
-      for (const stage of topLevelStages) {
-        const scopeWorkflowItems = getSubtreeItems(stage.code, workflowItems);
-        const review = await buildSingleDualReview({
-          baseItem: stage,
-          scopeWorkflowItems,
-          evaluationCtx,
-        });
-
-        stageReviews.push(review);
-      }
+      const stageReviews = await buildStageReviews({
+        topLevelStages,
+        workflowItems,
+        evaluationCtx,
+        includeTechDiag,
+      });
 
       return {
         ok: true,
@@ -323,6 +333,11 @@ export async function runStageCheckCore({
         modeInfo,
         topLevelStages,
         stageReviews,
+        source,
+        repoFiles,
+        searchableFiles,
+        workflowItems,
+        evaluationCtx,
       };
     } catch {
       return {
@@ -334,18 +349,12 @@ export async function runStageCheckCore({
 
   if (modeInfo?.mode === "current") {
     try {
-      const stageReviews = [];
-
-      for (const stage of topLevelStages) {
-        const scopeWorkflowItems = getSubtreeItems(stage.code, workflowItems);
-        const review = await buildSingleDualReview({
-          baseItem: stage,
-          scopeWorkflowItems,
-          evaluationCtx,
-        });
-
-        stageReviews.push(review);
-      }
+      const stageReviews = await buildStageReviews({
+        topLevelStages,
+        workflowItems,
+        evaluationCtx,
+        includeTechDiag,
+      });
 
       return {
         ok: true,
@@ -353,6 +362,11 @@ export async function runStageCheckCore({
         modeInfo,
         topLevelStages,
         stageReviews,
+        source,
+        repoFiles,
+        searchableFiles,
+        workflowItems,
+        evaluationCtx,
       };
     } catch {
       return {
@@ -380,6 +394,7 @@ export async function runStageCheckCore({
       baseItem,
       scopeWorkflowItems,
       evaluationCtx,
+      includeTechDiag,
     });
 
     return {
@@ -389,6 +404,12 @@ export async function runStageCheckCore({
       itemCode,
       baseItem,
       review,
+      source,
+      repoFiles,
+      searchableFiles,
+      workflowItems,
+      evaluationCtx,
+      targetItem,
     };
   } catch {
     return {

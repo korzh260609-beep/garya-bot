@@ -14,7 +14,6 @@ import {
   formatSingleItemOutput,
   formatAllStagesOutput,
   formatCurrentOutput,
-  formatDiagOutput,
 } from "./stage-check/formatters.js";
 
 export async function handleStageCheck(ctx = {}) {
@@ -63,27 +62,7 @@ export async function handleStageCheck(ctx = {}) {
     return;
   }
 
-  if (result.kind === "diag") {
-    await reply(
-      formatDiagOutput({
-        modeInfo: result.modeInfo,
-        source: result.source,
-        repoFiles: result.repoFiles,
-        searchableFiles: result.searchableFiles,
-        workflowItems: result.workflowItems,
-        topLevelStages: result.topLevelStages,
-        evaluationCtx: result.evaluationCtx,
-        targetItem: result.targetItem,
-        itemDiag: result.itemDiag,
-      }),
-      {
-        cmd: "/stage_check",
-        handler: "stageCheck",
-        event: "stage_check_diag",
-      }
-    );
-    return;
-  }
+  const includeDiagnostics = modeInfo?.diag === true;
 
   if (result.kind === "all") {
     await reply(
@@ -92,11 +71,14 @@ export async function handleStageCheck(ctx = {}) {
         t,
         humanStatus,
         humanGapReason,
+        includeDiagnostics,
       }),
       {
         cmd: "/stage_check",
         handler: "stageCheck",
-        event: "stage_check_all",
+        event: includeDiagnostics
+          ? "stage_check_all_diag"
+          : "stage_check_all",
       }
     );
     return;
@@ -109,11 +91,14 @@ export async function handleStageCheck(ctx = {}) {
         t,
         humanStatus,
         humanGapReason,
+        includeDiagnostics,
       }),
       {
         cmd: "/stage_check",
         handler: "stageCheck",
-        event: "stage_check_current",
+        event: includeDiagnostics
+          ? "stage_check_current_diag"
+          : "stage_check_current",
       }
     );
     return;
@@ -125,11 +110,14 @@ export async function handleStageCheck(ctx = {}) {
       t,
       humanStatus,
       humanGapReason,
+      includeDiagnostics,
     }),
     {
       cmd: "/stage_check",
       handler: "stageCheck",
-      event: "stage_check_single",
+      event: includeDiagnostics
+        ? "stage_check_single_diag"
+        : "stage_check_single",
     }
   );
 }

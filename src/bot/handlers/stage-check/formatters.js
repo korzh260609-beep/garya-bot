@@ -111,6 +111,24 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       partial_count: "Частично",
       open_count: "Не выполнено",
       no_signals_count: "Без сигналов",
+      real_diag_header: "Real diagnostics",
+      chosen_rule: "Сработавшее правило",
+      metrics: "Метрики",
+      child_statuses: "Дочерние статусы",
+      own_exact_rule: "Правило exact-review",
+      probability_score: "probabilityScore",
+      foundation_signal_score: "foundationSignalScore",
+      coverage_score: "coverageScore",
+      candidate_count: "candidateCount",
+      direct_entrypoint_count: "directEntrypointCount",
+      repo_ref_files: "repoRefFiles",
+      impl_anchors: "distinctImplementationAnchors",
+      runtime_foundation_count: "runtimeFoundationCount",
+      active_ratio: "activeRatio",
+      partial_or_better_count: "partialOrBetterCount",
+      reachability_children: "reachabilityChildren",
+      strong_foundation_children: "strongFoundationChildren",
+      no_diag: "diagnostics отсутствуют",
     },
     uk: {
       header_single: "Перевірка етапу: {code}",
@@ -162,6 +180,24 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       partial_count: "Частково",
       open_count: "Не виконано",
       no_signals_count: "Без сигналів",
+      real_diag_header: "Real diagnostics",
+      chosen_rule: "Правило, що спрацювало",
+      metrics: "Метрики",
+      child_statuses: "Дочірні статуси",
+      own_exact_rule: "Правило exact-review",
+      probability_score: "probabilityScore",
+      foundation_signal_score: "foundationSignalScore",
+      coverage_score: "coverageScore",
+      candidate_count: "candidateCount",
+      direct_entrypoint_count: "directEntrypointCount",
+      repo_ref_files: "repoRefFiles",
+      impl_anchors: "distinctImplementationAnchors",
+      runtime_foundation_count: "runtimeFoundationCount",
+      active_ratio: "activeRatio",
+      partial_or_better_count: "partialOrBetterCount",
+      reachability_children: "reachabilityChildren",
+      strong_foundation_children: "strongFoundationChildren",
+      no_diag: "diagnostics відсутні",
     },
     en: {
       header_single: "Stage check: {code}",
@@ -213,6 +249,24 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       partial_count: "Partial",
       open_count: "Open",
       no_signals_count: "No signals",
+      real_diag_header: "Real diagnostics",
+      chosen_rule: "Chosen rule",
+      metrics: "Metrics",
+      child_statuses: "Child statuses",
+      own_exact_rule: "Exact-review rule",
+      probability_score: "probabilityScore",
+      foundation_signal_score: "foundationSignalScore",
+      coverage_score: "coverageScore",
+      candidate_count: "candidateCount",
+      direct_entrypoint_count: "directEntrypointCount",
+      repo_ref_files: "repoRefFiles",
+      impl_anchors: "distinctImplementationAnchors",
+      runtime_foundation_count: "runtimeFoundationCount",
+      active_ratio: "activeRatio",
+      partial_or_better_count: "partialOrBetterCount",
+      reachability_children: "reachabilityChildren",
+      strong_foundation_children: "strongFoundationChildren",
+      no_diag: "diagnostics missing",
     },
   };
 
@@ -242,11 +296,82 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
   return { t, humanStatus, humanGapReason };
 }
 
+function pushLine(lines, value) {
+  if (value !== null && value !== undefined && String(value).trim() !== "") {
+    lines.push(String(value));
+  }
+}
+
+function buildMetricsLines(realDiag, t) {
+  const m = realDiag?.metrics || {};
+  const lines = [];
+
+  if (!realDiag) {
+    lines.push(`${t("real_diag_header")}: ${t("no_diag")}`);
+    return lines;
+  }
+
+  lines.push(`${t("real_diag_header")}:`);
+  lines.push(`- ${t("chosen_rule")}: ${realDiag?.chosenRule || "-"}`);
+  lines.push(`- ${t("metrics")}:`);
+  pushLine(lines, `  • ${t("probability_score")}: ${m.probabilityScore ?? "-"}`);
+  pushLine(lines, `  • ${t("foundation_signal_score")}: ${m.foundationSignalScore ?? "-"}`);
+  pushLine(lines, `  • ${t("coverage_score")}: ${m.coverageScore ?? "-"}`);
+  pushLine(lines, `  • ${t("candidate_count")}: ${m.candidateCount ?? "-"}`);
+  pushLine(lines, `  • ${t("direct_entrypoint_count")}: ${m.directEntrypointCount ?? "-"}`);
+  pushLine(lines, `  • ${t("repo_ref_files")}: ${m.repoRefFiles ?? "-"}`);
+  pushLine(lines, `  • ${t("impl_anchors")}: ${m.distinctImplementationAnchors ?? "-"}`);
+  pushLine(lines, `  • ${t("runtime_foundation_count")}: ${m.runtimeFoundationCount ?? "-"}`);
+
+  if (m.activeRatio !== undefined) {
+    pushLine(lines, `  • ${t("active_ratio")}: ${m.activeRatio}`);
+  }
+  if (m.partialOrBetterCount !== undefined) {
+    pushLine(lines, `  • ${t("partial_or_better_count")}: ${m.partialOrBetterCount}`);
+  }
+  if (m.reachabilityChildren !== undefined) {
+    pushLine(lines, `  • ${t("reachability_children")}: ${m.reachabilityChildren}`);
+  }
+  if (m.strongFoundationChildren !== undefined) {
+    pushLine(lines, `  • ${t("strong_foundation_children")}: ${m.strongFoundationChildren}`);
+  }
+
+  return lines;
+}
+
+function buildChildStatusesLines(realDiag, t) {
+  const childStatuses = Array.isArray(realDiag?.childStatuses)
+    ? realDiag.childStatuses
+    : [];
+
+  if (childStatuses.length === 0) {
+    return [];
+  }
+
+  const lines = [];
+  lines.push(`- ${t("child_statuses")}:`);
+
+  for (const child of childStatuses.slice(0, 8)) {
+    lines.push(
+      `  • ${child.code || "-"}: ${child.status || "-"} | ${t("chosen_rule")}: ${child.chosenRule || "-"}`
+    );
+  }
+
+  return lines;
+}
+
+function buildOwnExactRuleLines(realDiag, t) {
+  const ownExactRule = realDiag?.ownExactDiagnostics?.chosenRule || null;
+  if (!ownExactRule) return [];
+  return [`- ${t("own_exact_rule")}: ${ownExactRule}`];
+}
+
 export function formatSingleItemOutput({
   review,
   t,
   humanStatus,
   humanGapReason,
+  includeDiagnostics = false,
 }) {
   const lines = [];
 
@@ -255,6 +380,13 @@ export function formatSingleItemOutput({
   lines.push(`${t("real_status")}: ${humanStatus(review?.real?.status)}`);
   lines.push(`${t("status_gap")}: ${review?.gap?.exists ? t("yes") : t("no")}`);
   lines.push(`${t("gap_reason")}: ${humanGapReason(review?.gap?.reason)}`);
+
+  if (includeDiagnostics) {
+    lines.push("");
+    lines.push(...buildMetricsLines(review?.real?.diagnostics, t));
+    lines.push(...buildOwnExactRuleLines(review?.real?.diagnostics, t));
+    lines.push(...buildChildStatusesLines(review?.real?.diagnostics, t));
+  }
 
   return lines.join("\n");
 }
@@ -274,6 +406,7 @@ export function formatAllStagesOutput({
   t,
   humanStatus,
   humanGapReason,
+  includeDiagnostics = false,
 }) {
   const lines = [];
   lines.push(t("header_all"));
@@ -291,6 +424,11 @@ export function formatAllStagesOutput({
         status: buildStageLineStatus(review, humanStatus, humanGapReason),
       })
     );
+
+    if (includeDiagnostics) {
+      const chosenRule = review?.real?.diagnostics?.chosenRule || "-";
+      lines.push(`  ${t("chosen_rule")}: ${chosenRule}`);
+    }
   }
 
   return lines.join("\n");
@@ -338,6 +476,7 @@ export function formatCurrentOutput({
   t,
   humanStatus,
   humanGapReason,
+  includeDiagnostics = false,
 }) {
   const lines = [];
   lines.push(t("header_current"));
@@ -352,6 +491,13 @@ export function formatCurrentOutput({
   lines.push(`${t("formal_status")}: ${humanStatus(chosen?.formal?.status)}`);
   lines.push(`${t("real_status")}: ${humanStatus(chosen?.real?.status)}`);
   lines.push(`${t("status_gap")}: ${chosen?.gap?.exists ? t("yes") : t("no")}`);
+
+  if (includeDiagnostics) {
+    lines.push("");
+    lines.push(...buildMetricsLines(chosen?.real?.diagnostics, t));
+    lines.push(...buildOwnExactRuleLines(chosen?.real?.diagnostics, t));
+    lines.push(...buildChildStatusesLines(chosen?.real?.diagnostics, t));
+  }
 
   return lines.join("\n");
 }

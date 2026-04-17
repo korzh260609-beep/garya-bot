@@ -58,12 +58,15 @@ export function createRealReview({
   reason = "",
   evidence = [],
   connectedness = null,
+  diagnostics = null,
 } = {}) {
   return {
     status: normalizeRealStatus(status),
     reason: String(reason || ""),
     evidence: Array.isArray(evidence) ? evidence : [],
     connectedness,
+    diagnostics:
+      diagnostics && typeof diagnostics === "object" ? diagnostics : null,
   };
 }
 

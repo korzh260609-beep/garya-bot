@@ -13,6 +13,22 @@ import {
 } from "./realEvidenceUtils.js";
 import { hasSemanticOverlap } from "./realScopeProfile.js";
 
+function normalizeScopeItems(scopeWorkflowItems = []) {
+  return Array.isArray(scopeWorkflowItems) ? scopeWorkflowItems : [];
+}
+
+function extractScopeText(scopeWorkflowItems = []) {
+  return normalizeScopeItems(scopeWorkflowItems)
+    .map((item) => `${item?.code || ""} ${item?.title || ""}`.trim())
+    .join(" ")
+    .toLowerCase();
+}
+
+function scopeIncludesAny(scopeWorkflowItems = [], tokens = []) {
+  const text = extractScopeText(scopeWorkflowItems);
+  return tokens.some((token) => text.includes(String(token || "").toLowerCase()));
+}
+
 export async function repoFilesContainingAnyTokens(
   evaluationCtx,
   tokens = [],
@@ -70,6 +86,35 @@ export async function repoFilesContainingAllTokenGroups(
   return uniq(hits);
 }
 
+async function collectPathExistsHits(evaluationCtx, paths = []) {
+  const hits = [];
+
+  for (const path of paths) {
+    if (evaluationCtx.fileSet.has(path)) {
+      hits.push({
+        file: path,
+        matched: ["path_exists"],
+      });
+    }
+  }
+
+  return hits;
+}
+
+async function collectTableSignals(evaluationCtx, tokens = [], limit = 8) {
+  const files = await repoFilesContainingAnyTokens(
+    evaluationCtx,
+    tokens,
+    limit,
+    { includeDescriptive: false }
+  );
+
+  return files.map((file) => ({
+    file,
+    matched: ["table_signal"],
+  }));
+}
+
 export function buildDomainEvidenceDefs() {
   return [
     {
@@ -97,31 +142,23 @@ export function buildDomainEvidenceDefs() {
     {
       key: "database_runtime_files",
       kind: "domain_evidence",
-      strength: "medium",
+      strength: "strong",
       tags: ["database"],
       details: "database runtime files exist",
       collect: async ({ evaluationCtx }) => {
-        const candidates = [
+        return collectPathExistsHits(evaluationCtx, [
           "db.js",
           "src/db.js",
           "src/db/index.js",
+          "src/db",
           "migrations",
-        ];
-
-        const hits = [];
-        for (const path of candidates) {
-          if (evaluationCtx.fileSet.has(path)) {
-            hits.push({ file: path, matched: ["path_exists"] });
-          }
-        }
-
-        return hits;
+        ]);
       },
     },
     {
       key: "database_repo_usage",
       kind: "domain_evidence",
-      strength: "medium",
+      strength: "strong",
       tags: ["database"],
       details: "repository contains database usage signals",
       collect: async ({ evaluationCtx }) => {
@@ -138,15 +175,94 @@ export function buildDomainEvidenceDefs() {
       },
     },
     {
+      key: "database_schema_tables",
+      kind: "domain_evidence",
+      strength: "strong",
+      tags: ["database"],
+      details: "repository contains workflow-required database tables",
+      collect: async ({ evaluationCtx, scopeWorkflowItems }) => {
+        const wantsCoreTables = scopeIncludesAny(scopeWorkflowItems, [
+          "users",
+          "chat_memory",
+          "tasks",
+          "sources",
+          "logs",
+          "project_memory",
+          "postgresql",
+          "database",
+        ]);
+
+        if (!wantsCoreTables) return [];
+
+        return collectTableSignals(
+          evaluationCtx,
+          [
+            "create table users",
+            "create table chat_memory",
+            "create table tasks",
+            "create table sources",
+            "create table logs",
+            "create table project_memory",
+          ],
+          10
+        );
+      },
+    },
+    {
+      key: "database_migrations_framework",
+      kind: "domain_evidence",
+      strength: "strong",
+      tags: ["database"],
+      details: "repository contains migration framework / schema version signals",
+      collect: async ({ evaluationCtx, scopeWorkflowItems }) => {
+        const wantsMigrations = scopeIncludesAny(scopeWorkflowItems, [
+          "migration",
+          "migrations",
+          "schema_version",
+          "forward-only",
+        ]);
+
+        if (!wantsMigrations) return [];
+
+        const files = await repoFilesContainingAnyTokens(
+          evaluationCtx,
+          [
+            "node-pg-migrate",
+            "knex",
+            "schema_version",
+            "forward-only",
+            "migration",
+            "migrations",
+          ],
+          10
+        );
+
+        return files.map((file) => ({
+          file,
+          matched: ["migration_framework_signal"],
+        }));
+      },
+    },
+    {
       key: "tasks_runner_surface",
       kind: "domain_evidence",
-      strength: "medium",
+      strength: "strong",
       tags: ["tasks"],
       details: "repository contains task runner / jobs signals",
       collect: async ({ evaluationCtx }) => {
         const files = await repoFilesContainingAnyTokens(
           evaluationCtx,
-          ["JobRunner", "jobRunner", "enqueue(", "retry", "dlq", "cron", "/tasks", "/run", "/newtask"],
+          [
+            "JobRunner",
+            "jobRunner",
+            "enqueue(",
+            "retry",
+            "dlq",
+            "cron",
+            "/tasks",
+            "/run",
+            "/newtask",
+          ],
           8
         );
 
@@ -159,21 +275,57 @@ export function buildDomainEvidenceDefs() {
     {
       key: "tasks_runtime_files",
       kind: "domain_evidence",
-      strength: "medium",
+      strength: "strong",
       tags: ["tasks"],
       details: "task runtime files exist",
       collect: async ({ evaluationCtx }) => {
-        const hits = [];
-        for (const path of [
+        return collectPathExistsHits(evaluationCtx, [
           "src/jobs/jobRunnerInstance.js",
           "src/jobs",
           "src/tasks",
-        ]) {
-          if (evaluationCtx.fileSet.has(path)) {
-            hits.push({ file: path, matched: ["path_exists"] });
-          }
-        }
-        return hits;
+        ]);
+      },
+    },
+    {
+      key: "tasks_execution_safety",
+      kind: "domain_evidence",
+      strength: "strong",
+      tags: ["tasks"],
+      details: "repository contains idempotency / retry / dlq / lock signals",
+      collect: async ({ evaluationCtx, scopeWorkflowItems }) => {
+        const wantsExecutionSafety = scopeIncludesAny(scopeWorkflowItems, [
+          "idempotency",
+          "retry",
+          "dlq",
+          "lock",
+          "advisory",
+          "exactly one run",
+          "restart dedupe",
+        ]);
+
+        if (!wantsExecutionSafety) return [];
+
+        const files = await repoFilesContainingAnyTokens(
+          evaluationCtx,
+          [
+            "idempotency",
+            "idempotency_key",
+            "task_run_key",
+            "retry",
+            "max_retries",
+            "dlq",
+            "advisory lock",
+            "lock",
+            "exactly one run",
+            "restart dedupe",
+          ],
+          10
+        );
+
+        return files.map((file) => ({
+          file,
+          matched: ["tasks_execution_safety_signal"],
+        }));
       },
     },
     {
@@ -211,17 +363,11 @@ export function buildDomainEvidenceDefs() {
       tags: ["access"],
       details: "access-related files exist",
       collect: async ({ evaluationCtx }) => {
-        const hits = [];
-        for (const path of [
+        return collectPathExistsHits(evaluationCtx, [
           "src/bot/handlers/handlerAccess.js",
           "src/users/userAccess.js",
           "src/access",
-        ]) {
-          if (evaluationCtx.fileSet.has(path)) {
-            hits.push({ file: path, matched: ["path_exists"] });
-          }
-        }
-        return hits;
+        ]);
       },
     },
     {
@@ -279,6 +425,7 @@ export function buildDomainEvidenceDefs() {
 export async function collectDomainEvidence({
   evaluationCtx,
   scopeSemanticProfile,
+  scopeWorkflowItems,
 }) {
   const defs = buildDomainEvidenceDefs();
   const scopeTags = scopeSemanticProfile?.tags || [];
@@ -288,7 +435,12 @@ export async function collectDomainEvidence({
     if (!hasSemanticOverlap(def.tags, scopeTags)) continue;
 
     try {
-      const hits = await def.collect({ evaluationCtx });
+      const hits = await def.collect({
+        evaluationCtx,
+        scopeSemanticProfile,
+        scopeWorkflowItems: normalizeScopeItems(scopeWorkflowItems),
+      });
+
       if (!Array.isArray(hits) || hits.length === 0) continue;
 
       for (const hit of hits.slice(0, 8)) {
@@ -305,7 +457,8 @@ export async function collectDomainEvidence({
           strength: def.strength,
           tags: def.tags,
           matched: Array.isArray(hit?.matched) ? hit.matched : [],
-          proofRole: "context",
+          proofRole:
+            def.strength === "strong" ? "implementation" : "context",
           proofClass: descriptive ? "descriptive" : "runtime_surface",
           details: def.details,
         });

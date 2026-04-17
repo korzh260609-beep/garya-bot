@@ -2,6 +2,7 @@
 // === src/core/stageCheck/real/realAggregateEvaluator.js
 // === aggregates item-level real reviews upward for stages/substages
 // === final status = own exact review + child aggregation
+// === with explain/diagnostic output for aggregate review
 // ============================================================================
 
 import { createRealReview } from "../contracts/stageCheckTypes.js";
@@ -159,6 +160,7 @@ function getOwnExactMetrics(baseOwnReview) {
     ownImplementationAnchors,
     ownHasMeaningfulSignals,
     ownStrongFoundation,
+    ownDiagnostics: review?.diagnostics || null,
   };
 }
 
@@ -207,6 +209,60 @@ function buildAggregateReason({
   return "insufficient_real_evidence";
 }
 
+function pushRule(diag, name, passed, details = {}) {
+  diag.rules.push({
+    name,
+    passed: !!passed,
+    details,
+  });
+}
+
+function buildAggregateDiagnostics({
+  tags,
+  foundationDomain,
+  summary,
+  ownMetrics,
+  childEntries,
+}) {
+  return {
+    evaluator: "aggregate_real_status_v2_explain",
+    scopeTags: toArray(tags),
+    foundationDomain: !!foundationDomain,
+    metrics: {
+      totalChildren: summary.totalChildren,
+      completeCount: summary.completeCount,
+      partialCount: summary.partialCount,
+      partialOrBetterCount: summary.partialOrBetterCount,
+      openCount: summary.openCount,
+      unknownCount: summary.unknownCount,
+      activeChildren: summary.activeChildren,
+      activeRatio: round3(summary.activeRatio),
+      reachabilityChildren: summary.reachabilityChildren,
+      strongFoundationChildren: summary.strongFoundationChildren,
+
+      ownExactStatus: ownMetrics.ownStatus,
+      ownProbabilityScore: round3(ownMetrics.ownProbabilityScore),
+      ownFoundationSignalScore: round3(ownMetrics.ownFoundationSignalScore),
+      ownCoverageScore: round3(ownMetrics.ownCoverageScore),
+      ownDirectEntrypointCount: ownMetrics.ownDirectEntrypointCount,
+      ownCandidateCount: ownMetrics.ownCandidateCount,
+      ownRepoRefFiles: ownMetrics.ownRepoRefFiles,
+      ownImplementationAnchors: ownMetrics.ownImplementationAnchors,
+      ownHasMeaningfulSignals: ownMetrics.ownHasMeaningfulSignals,
+      ownStrongFoundation: ownMetrics.ownStrongFoundation,
+    },
+    childStatuses: childEntries.slice(0, 20).map((entry) => ({
+      code: String(entry?.item?.code || ""),
+      status: String(entry?.review?.status || "UNKNOWN"),
+      reason: String(entry?.review?.reason || ""),
+      chosenRule: entry?.review?.diagnostics?.chosenRule || null,
+    })),
+    rules: [],
+    chosenRule: null,
+    ownExactDiagnostics: ownMetrics.ownDiagnostics || null,
+  };
+}
+
 export function buildAggregatedRealReview({
   baseItem,
   scopeWorkflowItems,
@@ -231,7 +287,7 @@ export function buildAggregatedRealReview({
     String(baseItem?.kind || "").toLowerCase() === "item" ||
     childEntries.length === 0
   ) {
-    return (
+    const fallback =
       baseOwnReview?.review ||
       createRealReview({
         status: "UNKNOWN",
@@ -240,14 +296,27 @@ export function buildAggregatedRealReview({
         connectedness: {
           aggregateMode: "exact_fallback",
         },
-      })
-    );
+        diagnostics: {
+          evaluator: "aggregate_real_status_v2_explain",
+          chosenRule: "exact_fallback",
+          rules: [],
+        },
+      });
+
+    return fallback;
   }
 
   const tags = buildScopeSemanticProfile(scopeWorkflowItems)?.tags || [];
   const foundationDomain = isFoundationDomainTags(tags);
   const summary = summarizeChildReviews(childEntries);
   const ownMetrics = getOwnExactMetrics(baseOwnReview);
+  const diagnostics = buildAggregateDiagnostics({
+    tags,
+    foundationDomain,
+    summary,
+    ownMetrics,
+    childEntries,
+  });
 
   const total = summary.totalChildren;
 
@@ -259,18 +328,31 @@ export function buildAggregatedRealReview({
       ownMetrics.ownDirectEntrypointCount > 0
     );
 
+  pushRule(diagnostics, "complete_by_broad_children", completeByBroadChildren, {
+    completeCount: summary.completeCount,
+    requiredCompleteCount: Math.max(2, Math.ceil(total * 0.45)),
+    partialOrBetterCount: summary.partialOrBetterCount,
+    requiredPartialOrBetterCount: Math.max(2, Math.ceil(total * 0.35)),
+    reachabilityChildren: summary.reachabilityChildren,
+    ownDirectEntrypointCount: ownMetrics.ownDirectEntrypointCount,
+  });
+
   let status = "UNKNOWN";
 
   if (completeByBroadChildren) {
     status = "COMPLETE";
+    diagnostics.chosenRule = "complete_by_broad_children";
   } else {
-    // FOUNDATION DOMAINS:
-    // allow PARTIAL when base item itself already has meaningful own proof,
-    // even if child coverage is still narrow.
     const partialByOwnFoundation =
       foundationDomain &&
       ownMetrics.ownHasMeaningfulSignals &&
       ownMetrics.ownStrongFoundation;
+
+    pushRule(diagnostics, "partial_by_own_foundation", partialByOwnFoundation, {
+      foundationDomain,
+      ownHasMeaningfulSignals: ownMetrics.ownHasMeaningfulSignals,
+      ownStrongFoundation: ownMetrics.ownStrongFoundation,
+    });
 
     const partialByChildFoundation =
       foundationDomain &&
@@ -281,17 +363,44 @@ export function buildAggregatedRealReview({
       ) &&
       summary.activeRatio >= 0.08;
 
-    // For non-foundation domains stay stricter to avoid false positives like 5/14A.
+    pushRule(diagnostics, "partial_by_child_foundation", partialByChildFoundation, {
+      foundationDomain,
+      partialOrBetterCount: summary.partialOrBetterCount,
+      reachabilityChildren: summary.reachabilityChildren,
+      strongFoundationChildren: summary.strongFoundationChildren,
+      activeRatio: round3(summary.activeRatio),
+      requiredActiveRatio: 0.08,
+    });
+
     const partialByGeneralChildren =
       !foundationDomain &&
       summary.partialOrBetterCount >= 2 &&
       summary.activeRatio >= 0.18;
+
+    pushRule(diagnostics, "partial_by_general_children", partialByGeneralChildren, {
+      foundationDomain,
+      partialOrBetterCount: summary.partialOrBetterCount,
+      requiredPartialOrBetterCount: 2,
+      activeRatio: round3(summary.activeRatio),
+      requiredActiveRatio: 0.18,
+      warning:
+        "this rule is the main suspect for false-positive aggregate PARTIAL on non-foundation stages",
+    });
 
     const partialByOwnNonFoundation =
       !foundationDomain &&
       ownMetrics.ownStatus === "PARTIAL" &&
       ownMetrics.ownProbabilityScore >= 0.44 &&
       ownMetrics.ownDirectEntrypointCount > 0;
+
+    pushRule(diagnostics, "partial_by_own_non_foundation", partialByOwnNonFoundation, {
+      foundationDomain,
+      ownStatus: ownMetrics.ownStatus,
+      ownProbabilityScore: round3(ownMetrics.ownProbabilityScore),
+      requiredOwnProbabilityScore: 0.44,
+      ownDirectEntrypointCount: ownMetrics.ownDirectEntrypointCount,
+      requiredOwnDirectEntrypointCount: 1,
+    });
 
     if (
       partialByOwnFoundation ||
@@ -300,14 +409,23 @@ export function buildAggregatedRealReview({
       partialByOwnNonFoundation
     ) {
       status = "PARTIAL";
+      diagnostics.chosenRule = partialByOwnFoundation
+        ? "partial_by_own_foundation"
+        : partialByChildFoundation
+          ? "partial_by_child_foundation"
+          : partialByGeneralChildren
+            ? "partial_by_general_children"
+            : "partial_by_own_non_foundation";
     } else if (
       summary.openCount > 0 ||
       ownMetrics.ownStatus === "OPEN" ||
       ownMetrics.ownHasMeaningfulSignals
     ) {
       status = "OPEN";
+      diagnostics.chosenRule = "fallback_open_by_some_real_signals";
     } else {
       status = "UNKNOWN";
+      diagnostics.chosenRule = "fallback_unknown_no_meaningful_signals";
     }
   }
 
@@ -350,6 +468,7 @@ export function buildAggregatedRealReview({
       ownHasMeaningfulSignals: ownMetrics.ownHasMeaningfulSignals,
       ownStrongFoundation: ownMetrics.ownStrongFoundation,
     },
+    diagnostics,
   });
 }
 

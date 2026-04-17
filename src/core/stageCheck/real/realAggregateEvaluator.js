@@ -232,7 +232,7 @@ function buildAggregateDiagnostics({
   childEntries,
 }) {
   return {
-    evaluator: "aggregate_real_status_v3_guard_non_foundation",
+    evaluator: "aggregate_real_status_v4_require_non_unknown_base_for_child_foundation",
     scopeTags: toArray(tags),
     foundationDomain: !!foundationDomain,
     metrics: {
@@ -305,7 +305,7 @@ export function buildAggregatedRealReview({
           aggregateMode: "exact_fallback",
         },
         diagnostics: {
-          evaluator: "aggregate_real_status_v3_guard_non_foundation",
+          evaluator: "aggregate_real_status_v4_require_non_unknown_base_for_child_foundation",
           chosenRule: "exact_fallback",
           rules: [],
         },
@@ -362,6 +362,9 @@ export function buildAggregatedRealReview({
       ownStrongFoundation: ownMetrics.ownStrongFoundation,
     });
 
+    // KEY FIX:
+    // child-foundation can lift a stage only if the base stage itself is not UNKNOWN
+    // OR there is reachability from children/base.
     const partialByChildFoundation =
       foundationDomain &&
       (
@@ -369,7 +372,12 @@ export function buildAggregatedRealReview({
         summary.reachabilityChildren >= 1 ||
         summary.strongFoundationChildren >= 1
       ) &&
-      summary.activeRatio >= 0.08;
+      summary.activeRatio >= 0.08 &&
+      (
+        ownMetrics.ownStatus !== "UNKNOWN" ||
+        ownMetrics.ownHasMeaningfulSignals ||
+        summary.reachabilityChildren >= 1
+      );
 
     pushRule(diagnostics, "partial_by_child_foundation", partialByChildFoundation, {
       foundationDomain,
@@ -378,11 +386,11 @@ export function buildAggregatedRealReview({
       strongFoundationChildren: summary.strongFoundationChildren,
       activeRatio: round3(summary.activeRatio),
       requiredActiveRatio: 0.08,
+      ownStatus: ownMetrics.ownStatus,
+      ownHasMeaningfulSignals: ownMetrics.ownHasMeaningfulSignals,
+      requiresNonUnknownBaseOrReachability: true,
     });
 
-    // IMPORTANT GUARD:
-    // non-foundation stages must not become PARTIAL only because children
-    // carry foundation-like partials. Require either own proof or runtime reachability.
     const partialByGeneralChildren =
       !foundationDomain &&
       summary.partialOrBetterCount >= 2 &&
@@ -462,7 +470,7 @@ export function buildAggregatedRealReview({
     reason,
     evidence: aggregateEvidence,
     connectedness: {
-      aggregateMode: "own_plus_child_real_aggregation_v3_guard_non_foundation",
+      aggregateMode: "own_plus_child_real_aggregation_v4_require_non_unknown_base_for_child_foundation",
       foundationDomain,
       totalChildren: summary.totalChildren,
       completeCount: summary.completeCount,

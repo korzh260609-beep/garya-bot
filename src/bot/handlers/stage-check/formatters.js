@@ -470,23 +470,26 @@ export function formatAllStagesOutput({
   return lines.join("\n");
 }
 
+function isStageReviewComplete(review) {
+  const formalStatus = String(review?.formal?.status || "NO_SIGNALS");
+  const realStatus = String(review?.real?.status || "UNKNOWN");
+
+  return formalStatus === "COMPLETE" && realStatus === "COMPLETE";
+}
+
 function chooseCurrentStageReview(stageReviews) {
   const list = Array.isArray(stageReviews) ? stageReviews : [];
 
-  const active = list.filter((review) => {
-    const formal = String(review?.formal?.status || "NO_SIGNALS");
-    const real = String(review?.real?.status || "UNKNOWN");
+  if (list.length === 0) {
+    return null;
+  }
 
-    return (
-      formal === "PARTIAL" ||
-      formal === "OPEN" ||
-      real === "PARTIAL" ||
-      real === "OPEN"
-    );
-  });
-
-  if (active.length > 0) {
-    return active[active.length - 1];
+  // Canonical current stage rule:
+  // choose the FIRST top-level stage from the top that is not fully complete yet.
+  for (const review of list) {
+    if (!isStageReviewComplete(review)) {
+      return review;
+    }
   }
 
   const withAnyEvidence = list.filter((review) => {

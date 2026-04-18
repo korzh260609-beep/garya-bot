@@ -104,9 +104,11 @@ function buildMetrics({ path, code, lines }) {
     reTest("\\bfetch\\(", code) || reTest("\\baxios\\b", code) || reTest("\\brequest\\b", code);
   const hasFsWrite =
     reTest("\\bfs\\.", code) &&
-    (reTest("\\bwriteFile\\(", code) ||
+    (
+      reTest("\\bwriteFile\\(", code) ||
       reTest("\\bappendFile\\(", code) ||
-      reTest("\\bcreateWriteStream\\(", code));
+      reTest("\\bcreateWriteStream\\(", code)
+    );
   const hasChildProc =
     reTest("\\bchild_process\\b", code) ||
     reTest("\\bexec\\(", code) ||

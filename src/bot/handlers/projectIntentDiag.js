@@ -3,13 +3,14 @@
 // === 12A.0 intent guard diagnostics (READ-ONLY, monarch-only, private-only)
 // Purpose:
 // - inspect how SG classifies free-text project intent
-// - show target scope separately from action mode
+// - show classifier result separately from route result
 // - diagnostic only, no side effects
 // ============================================================================
 
 import { requireProjectMonarchPrivateAccess } from "./projectAccessGuard.js";
 import { PROJECT_ONLY_FEATURES } from "./projectAccessScope.js";
 import { resolveProjectIntentMatch } from "../../core/projectIntent/projectIntentScope.js";
+import { resolveProjectIntentRoute } from "../../core/projectIntent/projectIntentRoute.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -24,6 +25,44 @@ function formatList(label, arr) {
   const items = Array.isArray(arr) ? arr : [];
   if (!items.length) return `${label}: []`;
   return `${label}: [${items.join(", ")}]`;
+}
+
+function buildPolicyPreview(route) {
+  if (!route || typeof route !== "object") {
+    return "- result: UNKNOWN";
+  }
+
+  if (route.routeKey === "sg_core_internal_write_denied") {
+    return "- result: BLOCK (sg_core_internal write-intent denied)";
+  }
+
+  if (route.routeKey === "sg_core_internal_read_allowed") {
+    return "- result: SG CORE INTERNAL READ-ONLY ALLOWED";
+  }
+
+  if (route.routeKey === "sg_core_internal_read_denied") {
+    return "- result: SG CORE INTERNAL READ-ONLY DENIED";
+  }
+
+  if (
+    route.routeKey === "user_project_read" ||
+    route.routeKey === "user_project_write" ||
+    route.routeKey === "user_project_mixed" ||
+    route.routeKey === "user_project_unknown"
+  ) {
+    return "- result: USER PROJECT PATH";
+  }
+
+  if (
+    route.routeKey === "generic_external_read" ||
+    route.routeKey === "generic_external_write" ||
+    route.routeKey === "generic_external_mixed" ||
+    route.routeKey === "generic_external_unknown"
+  ) {
+    return "- result: GENERIC EXTERNAL PATH";
+  }
+
+  return "- result: UNKNOWN";
 }
 
 export async function handleProjectIntentDiag(ctx = {}) {
@@ -52,6 +91,11 @@ export async function handleProjectIntentDiag(ctx = {}) {
   }
 
   const match = resolveProjectIntentMatch(input);
+  const route = resolveProjectIntentRoute({
+    text: input,
+    isMonarchUser: true,
+    isPrivateChat: true,
+  });
 
   await ctx.bot.sendMessage(
     ctx.chatId,
@@ -76,6 +120,7 @@ export async function handleProjectIntentDiag(ctx = {}) {
       formatList("internalActionHits", match.internalActionHits),
       formatList("writeActionHits", match.writeActionHits),
       "",
+      "Classifier:",
       `targetScope: ${match.targetScope}`,
       `targetDomain: ${match.targetDomain}`,
       `actionMode: ${match.actionMode}`,
@@ -83,16 +128,17 @@ export async function handleProjectIntentDiag(ctx = {}) {
       `isProjectWriteIntent: ${String(match.isProjectWriteIntent)}`,
       `confidence: ${match.confidence}`,
       "",
+      "Route:",
+      `routeKey: ${route.routeKey}`,
+      `policy: ${route.policy}`,
+      `allowed: ${String(route.allowed)}`,
+      `blocked: ${String(route.blocked)}`,
+      `requiresMonarch: ${String(route.requiresMonarch)}`,
+      `requiresPrivate: ${String(route.requiresPrivate)}`,
+      `readOnly: ${String(route.readOnly)}`,
+      "",
       "Policy preview:",
-      match.targetScope === "sg_core_internal" && match.isProjectWriteIntent
-        ? "- result: BLOCK (sg_core_internal write-intent denied)"
-        : match.targetScope === "sg_core_internal"
-          ? "- result: SG CORE INTERNAL READ-ONLY PATH"
-          : match.targetScope === "user_project"
-            ? "- result: USER PROJECT PATH"
-            : match.targetScope === "generic_external"
-              ? "- result: GENERIC EXTERNAL PATH"
-              : "- result: UNKNOWN",
+      buildPolicyPreview(route),
     ].join("\n")
   );
 }

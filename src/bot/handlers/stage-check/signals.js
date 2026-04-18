@@ -243,6 +243,165 @@ function buildFunctionContractChecks(item, own, inheritedSignals) {
   return checks;
 }
 
+function hasSignalFragment(tokens, fragments) {
+  const list = Array.isArray(tokens) ? tokens : [];
+  const probes = Array.isArray(fragments) ? fragments : [];
+
+  return list.some((token) => {
+    const lower = String(token || "").toLowerCase();
+    if (!lower) return false;
+    return probes.some((fragment) => lower.includes(String(fragment || "").toLowerCase()));
+  });
+}
+
+function buildFoundationRuntimeChecks(item, own, inheritedSignals) {
+  const checks = [];
+  const semantics = own.semantics || {
+    semanticType: "generic",
+  };
+
+  if (semantics.semanticType !== "foundation_runtime_like") {
+    return checks;
+  }
+
+  const mergedSignals = uniq([...(own.signals || []), ...(inheritedSignals || [])]);
+  const text = `${item.title}\n${item.body || ""}`.toLowerCase();
+  const tokens = uniq([
+    ...mergedSignals,
+    ...text.split(/\s+/).map((x) => String(x || "").trim()).filter(Boolean),
+  ]);
+
+  const seen = new Set();
+
+  function push(check) {
+    const key = JSON.stringify(check);
+    if (seen.has(key)) return;
+    seen.add(key);
+    checks.push(check);
+  }
+
+  function pushFile(path, label = null) {
+    push({
+      type: "file_exists",
+      path,
+      label: label || `runtime foundation file: ${path}`,
+      evidenceClass: "explicit_file",
+    });
+  }
+
+  function pushBasename(basename, label = null) {
+    push({
+      type: "basename_exists",
+      basename,
+      label: label || `runtime foundation basename: ${basename}`,
+      evidenceClass: "basename_anchor",
+    });
+  }
+
+  function pushText(token, label = null, evidenceClass = "semantic_support") {
+    push({
+      type: "text_exists",
+      token,
+      label: label || `runtime foundation token: ${token}`,
+      evidenceClass,
+    });
+  }
+
+  const hasRuntimeConcept =
+    hasSignalFragment(tokens, [
+      "runtime",
+      "bootstrap",
+      "entrypoint",
+      "server",
+      "http",
+      "node",
+      "express",
+      "render",
+      "webhook",
+      "transport",
+      "adapter",
+      "reply",
+      "respond",
+      "message",
+      "bot",
+    ]);
+
+  const hasTransportConcept =
+    hasSignalFragment(tokens, [
+      "transport",
+      "adapter",
+      "webhook",
+      "message",
+      "reply",
+      "respond",
+      "bot",
+      "telegram",
+    ]);
+
+  const hasTelegramConcept =
+    hasSignalFragment(tokens, [
+      "telegram",
+      "telegrambot",
+      "node-telegram-bot-api",
+      "tg",
+    ]);
+
+  const hasReplyConcept =
+    hasSignalFragment(tokens, [
+      "reply",
+      "respond",
+      "send message",
+      "sendmessage",
+      "message flow",
+      "bot reply",
+    ]);
+
+  const hasWebhookConcept =
+    hasSignalFragment(tokens, [
+      "webhook",
+      "process update",
+      "processupdate",
+      "incoming message",
+      "outgoing message",
+      "update",
+    ]);
+
+  if (hasRuntimeConcept) {
+    pushFile("package.json");
+    pushFile("index.js");
+    pushText("express", "runtime foundation token: express", "semantic_support");
+    pushText("createApp(", "runtime bootstrap token: createApp(", "signature_anchor");
+  }
+
+  if (hasTransportConcept) {
+    pushBasename("telegramTransport.js");
+    pushBasename("TelegramAdapter.js");
+    pushText("handleMessage(", "transport handoff token: handleMessage(", "signature_anchor");
+    pushText("reply(", "transport reply token: reply(", "signature_anchor");
+  }
+
+  if (hasTelegramConcept) {
+    pushText("node-telegram-bot-api", "telegram dependency token: node-telegram-bot-api", "carrier_anchor");
+    pushText("TelegramBot", "telegram carrier token: TelegramBot", "carrier_anchor");
+    pushText("TelegramAdapter", "telegram adapter token: TelegramAdapter", "carrier_anchor");
+    pushText("initTelegramTransport", "telegram bootstrap token: initTelegramTransport", "function_name");
+    pushText("telegramTransport", "telegram transport token: telegramTransport", "carrier_anchor");
+  }
+
+  if (hasWebhookConcept) {
+    pushText("setWebhook", "webhook token: setWebhook", "function_name");
+    pushText("setWebHook", "webhook token: setWebHook", "function_name");
+    pushText("processUpdate", "update processing token: processUpdate", "function_name");
+  }
+
+  if (hasReplyConcept || hasTransportConcept || hasTelegramConcept) {
+    pushText("sendMessage(", "reply surface token: sendMessage(", "signature_anchor");
+    pushText("finalizeChatReply", "reply finalization token: finalizeChatReply", "function_name");
+  }
+
+  return checks;
+}
+
 export function buildAutoChecksForItem(item, itemMap, config) {
   const own = collectOwnSignals(item, config);
   const inheritedSignals = collectInheritedSignals(item, itemMap, config);
@@ -307,6 +466,11 @@ export function buildAutoChecksForItem(item, itemMap, config) {
   const clusterCheck = buildClusterCheck({ own, inheritedSignals, config });
   if (clusterCheck) {
     pushCheck(priorityChecks, clusterCheck);
+  }
+
+  const foundationRuntimeChecks = buildFoundationRuntimeChecks(item, own, inheritedSignals);
+  for (const check of foundationRuntimeChecks) {
+    pushCheck(priorityChecks, check);
   }
 
   const functionContractChecks = buildFunctionContractChecks(item, own, inheritedSignals);

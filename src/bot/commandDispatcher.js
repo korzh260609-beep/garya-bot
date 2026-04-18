@@ -67,6 +67,13 @@ import { dispatchMetaDebugCommands } from "./dispatchers/dispatchMetaDebugComman
 // ✅ PRICE dispatcher (extracted 1:1 block)
 import { dispatchPriceCommands } from "./dispatchers/dispatchPriceCommands.js";
 
+// ✅ SG project-only repo/github access guard
+import {
+  isProjectOnlyCommand,
+  resolveProjectFeatureByCommand,
+} from "./handlers/projectAccessScope.js";
+import { requireProjectMonarchPrivateAccess } from "./handlers/projectAccessGuard.js";
+
 /**
  * Backward-compatible dispatcher.
  *
@@ -275,6 +282,34 @@ export async function dispatchCommand(cmd, ctx) {
     );
 
     return { handled: true };
+  }
+
+  // ===========================================================================
+  // SG PROJECT-ONLY GUARD
+  // - repo/github/project internal work is monarch-only
+  // - private chat only
+  // - read-only repo access only
+  // ===========================================================================
+  if (isProjectOnlyCommand(cmd0)) {
+    const feature = resolveProjectFeatureByCommand(cmd0);
+
+    const allowed = await requireProjectMonarchPrivateAccess(
+      {
+        ...ctx,
+        bot,
+        chatId,
+        reply,
+        command: cmd0,
+      },
+      {
+        feature,
+        command: cmd0,
+      }
+    );
+
+    if (!allowed) {
+      return { handled: true };
+    }
   }
 
   const cryptoHandled = await dispatchCryptoDevCommands({

@@ -5,6 +5,7 @@
 // - convert internal SG read-plan into a normalized repo bridge plan
 // - prepare future human-text -> repo command/handler execution
 // - keep this layer semantic and read-only
+// - respect canonical SG governance layer first: pillars/*
 // IMPORTANT:
 // - NO command execution
 // - NO repo writes
@@ -30,9 +31,20 @@ function buildCommandText(command, arg = "") {
   return `${cmd} ${rest}`;
 }
 
+function resolveCanonicalPillarPath(readPlan = {}) {
+  return safeString(readPlan.canonicalPillarPath);
+}
+
 function resolveSearchArg(readPlan = {}) {
+  const canonicalPillarPath = resolveCanonicalPillarPath(readPlan);
+  if (canonicalPillarPath) return canonicalPillarPath;
+
   const primaryPathHint = safeString(readPlan.primaryPathHint);
   if (primaryPathHint) return primaryPathHint;
+
+  if (readPlan.hasPillarsRootSignal === true) {
+    return "pillars/";
+  }
 
   const hints = Array.isArray(readPlan.queryHints) ? readPlan.queryHints : [];
   const filtered = hints
@@ -44,12 +56,18 @@ function resolveSearchArg(readPlan = {}) {
 }
 
 function resolveFileArg(readPlan = {}) {
+  const canonicalPillarPath = resolveCanonicalPillarPath(readPlan);
+  if (canonicalPillarPath) return canonicalPillarPath;
+
   return safeString(readPlan.primaryPathHint);
 }
 
 function resolveAnalyzeArg(readPlan = {}) {
   // IMPORTANT:
   // current /repo_analyze handler expects PATH first, not generic search text
+  const canonicalPillarPath = resolveCanonicalPillarPath(readPlan);
+  if (canonicalPillarPath) return canonicalPillarPath;
+
   return safeString(readPlan.primaryPathHint);
 }
 
@@ -57,6 +75,7 @@ function resolveWorkflowArg(readPlan = {}) {
   // Future:
   // workflow free-text may later parse concrete step code
   // Right now we do not guess step IDs.
+  void readPlan;
   return "";
 }
 
@@ -83,6 +102,8 @@ export function resolveProjectIntentRepoBridge({
   const routeAllowsInternalRead = routeKey === "sg_core_internal_read_allowed";
 
   const planKey = safeString(readPlan?.planKey);
+  const canonicalPillarPath = resolveCanonicalPillarPath(readPlan);
+
   let handlerKey = "repoSearch";
   let recommendedCommand = "/repo_search";
   let commandArg = "";
@@ -114,6 +135,7 @@ export function resolveProjectIntentRepoBridge({
     recommendedCommand = "/repo_file";
     commandArg = resolveFileArg(readPlan);
     basis = ["repo_file_bridge"];
+    if (canonicalPillarPath) basis.push("canonical_pillar_path");
     if (!commandArg) {
       confidence = "low";
       basis.push("missing_path_hint");
@@ -131,6 +153,7 @@ export function resolveProjectIntentRepoBridge({
     recommendedCommand = "/repo_analyze";
     commandArg = resolveAnalyzeArg(readPlan);
     basis = ["repo_analyze_bridge"];
+    if (canonicalPillarPath) basis.push("canonical_pillar_path");
     if (!commandArg) {
       confidence = "low";
       basis.push("missing_analyze_path");
@@ -140,6 +163,10 @@ export function resolveProjectIntentRepoBridge({
     recommendedCommand = "/repo_search";
     commandArg = resolveSearchArg(readPlan);
     basis = ["repo_search_bridge"];
+    if (canonicalPillarPath) basis.push("canonical_pillar_path");
+    if (readPlan?.hasPillarsRootSignal === true && !canonicalPillarPath) {
+      basis.push("pillars_root_scope");
+    }
     if (!commandArg) {
       confidence = "low";
       basis.push("missing_search_arg");
@@ -149,6 +176,7 @@ export function resolveProjectIntentRepoBridge({
     recommendedCommand = "/repo_search";
     commandArg = resolveSearchArg(readPlan);
     basis = ["generic_internal_repo_bridge"];
+    if (canonicalPillarPath) basis.push("canonical_pillar_path");
     if (!commandArg) {
       confidence = "low";
       basis.push("missing_generic_search_arg");
@@ -181,6 +209,8 @@ export function resolveProjectIntentRepoBridge({
     canAutoExecute,
     confidence,
     basis,
+
+    canonicalPillarPath,
 
     preview: resolveBridgePreview({
       handlerKey,

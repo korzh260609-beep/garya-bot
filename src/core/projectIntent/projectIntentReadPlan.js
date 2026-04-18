@@ -1,11 +1,11 @@
 // src/core/projectIntent/projectIntentReadPlan.js
 // ============================================================================
-// STAGE 12A.0 — project read-plan resolver (SKELETON, semantic-first)
+// STAGE 12A.0 — project read-plan resolver (SKELETON, semantic-first + follow-up)
 // Purpose:
 // - turn internal SG free-text read requests into a normalized semantic read-plan
 // - separate INTENT from TARGET
+// - support repo-followup continuity ("explain this", "translate this", etc.)
 // - keep planning read-only
-// - preserve current command bridge compatibility without brittle first-word logic
 // IMPORTANT:
 // - NO command execution
 // - NO repo writes
@@ -281,6 +281,81 @@ const ENTITY_RULES = Object.freeze([
 ]);
 
 // ----------------------------------------------------------------------------
+// SEMANTIC STEMS / FAMILIES
+// ----------------------------------------------------------------------------
+
+const SEARCH_STEM_PREFIXES = Object.freeze([
+  "найд",
+  "ищ",
+  "поиск",
+  "find",
+  "search",
+  "where",
+  "locat",
+]);
+
+const ANALYZE_STEM_PREFIXES = Object.freeze([
+  "анализ",
+  "проанализ",
+  "разбор",
+  "объяс",
+  "опис",
+  "смысл",
+  "review",
+  "inspect",
+  "analy",
+  "explain",
+]);
+
+const READ_STEM_PREFIXES = Object.freeze([
+  "отк",
+  "покаж",
+  "прочит",
+  "show",
+  "open",
+  "read",
+  "display",
+]);
+
+const CHECK_STEM_PREFIXES = Object.freeze([
+  "пров",
+  "стат",
+  "check",
+  "state",
+  "status",
+]);
+
+const TRANSLATE_STEM_PREFIXES = Object.freeze([
+  "перев",
+  "русск",
+  "english",
+  "украин",
+  "translate",
+]);
+
+const SUMMARIZE_STEM_PREFIXES = Object.freeze([
+  "кратк",
+  "коротк",
+  "прощ",
+  "summary",
+  "brief",
+  "short",
+  "simple",
+]);
+
+const FOLLOWUP_REFERENCE_TOKENS = Object.freeze([
+  "это",
+  "этот",
+  "эту",
+  "эти",
+  "this",
+  "it",
+  "that",
+  "теперь",
+  "now",
+]);
+
+// ----------------------------------------------------------------------------
 // GENERIC INTENT SIGNALS
 // ----------------------------------------------------------------------------
 
@@ -336,6 +411,7 @@ const ANALYZE_PHRASES = Object.freeze([
   "analyze repo",
   "analyze file",
   "проанализируй",
+  "проанализировать",
   "анализ файла",
   "проверь логику",
   "проверь ошибку",
@@ -345,6 +421,8 @@ const ANALYZE_PHRASES = Object.freeze([
   "review code",
   "объясни",
   "дай описание",
+  "объясни это",
+  "explain this",
 ]);
 
 const DIFF_PHRASES = Object.freeze([
@@ -370,6 +448,7 @@ const READ_DOC_PHRASES = Object.freeze([
 
 const ANALYZE_DOC_PHRASES = Object.freeze([
   "проанализируй",
+  "проанализировать",
   "analyze",
   "review",
   "inspect",
@@ -377,6 +456,11 @@ const ANALYZE_DOC_PHRASES = Object.freeze([
   "объясни",
   "дай описание",
   "опиши",
+  "переведи",
+  "на русском",
+  "по-русски",
+  "кратко",
+  "проще",
 ]);
 
 const CHECK_ACTION_PHRASES = Object.freeze([
@@ -490,6 +574,10 @@ const ANALYZE_TOKENS = Object.freeze([
   "разбор",
   "объясни",
   "описание",
+  "переведи",
+  "русском",
+  "кратко",
+  "проще",
 ]);
 
 const TREE_TOKENS = Object.freeze([
@@ -541,19 +629,30 @@ function resolvePillarFileMatch(normalized) {
 function looksLikeReadDocumentIntent(normalized, tokens) {
   const phraseHits = collectPhraseHits(normalized, READ_DOC_PHRASES);
   const tokenHits = collectTokenHits(tokens, ["open", "show", "read", "открой", "покажи", "прочитай"]);
-  return phraseHits.length > 0 || tokenHits.length > 0;
+  const prefixHits = collectPrefixHits(tokens, READ_STEM_PREFIXES);
+  return phraseHits.length > 0 || tokenHits.length > 0 || prefixHits.length > 0;
 }
 
 function looksLikeAnalyzeDocumentIntent(normalized, tokens) {
   const phraseHits = collectPhraseHits(normalized, ANALYZE_DOC_PHRASES);
   const tokenHits = collectTokenHits(tokens, ["analyze", "review", "inspect", "проанализируй", "разбери", "объясни"]);
-  return phraseHits.length > 0 || tokenHits.length > 0;
+  const analyzePrefixHits = collectPrefixHits(tokens, ANALYZE_STEM_PREFIXES);
+  const translatePrefixHits = collectPrefixHits(tokens, TRANSLATE_STEM_PREFIXES);
+  const summarizePrefixHits = collectPrefixHits(tokens, SUMMARIZE_STEM_PREFIXES);
+  return (
+    phraseHits.length > 0 ||
+    tokenHits.length > 0 ||
+    analyzePrefixHits.length > 0 ||
+    translatePrefixHits.length > 0 ||
+    summarizePrefixHits.length > 0
+  );
 }
 
 function looksLikeCheckIntent(normalized, tokens) {
   const phraseHits = collectPhraseHits(normalized, CHECK_ACTION_PHRASES);
   const tokenHits = collectTokenHits(tokens, ["check", "status", "state", "проверь", "статус"]);
-  return phraseHits.length > 0 || tokenHits.length > 0;
+  const prefixHits = collectPrefixHits(tokens, CHECK_STEM_PREFIXES);
+  return phraseHits.length > 0 || tokenHits.length > 0 || prefixHits.length > 0;
 }
 
 function looksLikeRepoAccessMetaIntent(normalized, tokens) {
@@ -588,6 +687,7 @@ function resolveSemanticTarget({
   hasPillarsRootSignal,
   canonicalPillarPath,
   canonicalPillarEntity,
+  followupContext = null,
 }) {
   if (canonicalPillarPath) {
     return {
@@ -628,12 +728,31 @@ function resolveSemanticTarget({
     }
   }
 
+  if (followupContext?.isActive) {
+    return {
+      targetKind: safeTargetKind(followupContext.targetKind),
+      targetEntity: String(followupContext.targetEntity || "").trim(),
+      targetPath: String(followupContext.targetPath || "").trim(),
+      targetBasis: ["followup_repo_context"],
+    };
+  }
+
   return {
     targetKind: "unknown",
     targetEntity: "",
     targetPath: "",
     targetBasis: [],
   };
+}
+
+function safeTargetKind(value) {
+  const v = String(value || "").trim();
+  if (!v) return "unknown";
+  return v;
+}
+
+function hasAnyPrefix(tokens, prefixes) {
+  return collectPrefixHits(tokens, prefixes).length > 0;
 }
 
 function resolveIntentType({
@@ -649,11 +768,22 @@ function resolveIntentType({
   isCheckIntent,
   targetKind,
   targetEntity,
+  tokens,
+  followupContext = null,
 }) {
+  const hasSearchStem = hasAnyPrefix(tokens, SEARCH_STEM_PREFIXES);
+  const hasAnalyzeStem = hasAnyPrefix(tokens, ANALYZE_STEM_PREFIXES);
+  const hasTranslateStem = hasAnyPrefix(tokens, TRANSLATE_STEM_PREFIXES);
+  const hasSummarizeStem = hasAnyPrefix(tokens, SUMMARIZE_STEM_PREFIXES);
+
   if (hasRepoAccessMetaSignal) return "repo_status_check";
   if (hasStatusSignal) return "repo_status_check";
   if (hasTreeSignal) return "browse_tree";
   if (hasDiffSignal) return "compare_diff";
+
+  if ((hasSearchSignal || hasSearchStem) && (hasAnalyzeSignal || hasAnalyzeStem || hasTranslateStem || hasSummarizeStem) && (targetEntity || targetKind !== "unknown")) {
+    return "find_and_analyze";
+  }
 
   if (targetEntity === "workflow" && isCheckIntent) {
     return "workflow_check";
@@ -663,7 +793,11 @@ function resolveIntentType({
     return "stage_check";
   }
 
-  if (isAnalyzeDocumentIntent && (targetKind === "canonical_doc" || targetKind === "path")) {
+  if ((hasTranslateStem || hasSummarizeStem) && (targetKind === "canonical_doc" || targetKind === "path" || followupContext?.isActive)) {
+    return "read_and_explain";
+  }
+
+  if (isAnalyzeDocumentIntent && (targetKind === "canonical_doc" || targetKind === "path" || followupContext?.isActive)) {
     return "read_and_explain";
   }
 
@@ -671,9 +805,9 @@ function resolveIntentType({
     return "read_file";
   }
 
-  if (hasAnalyzeSignal) return "analyze_target";
+  if (hasAnalyzeSignal || hasAnalyzeStem || hasTranslateStem || hasSummarizeStem) return "analyze_target";
   if (hasFileSignal) return "read_file";
-  if (hasSearchSignal) return "find_target";
+  if (hasSearchSignal || hasSearchStem) return "find_target";
 
   return "generic_internal_read";
 }
@@ -692,6 +826,10 @@ function resolvePlanKey({
 
   if (intentType === "read_file") return "repo_file";
   if (intentType === "read_and_explain") return "repo_analyze";
+  if (intentType === "find_and_analyze") {
+    if (targetPath) return "repo_analyze";
+    return "repo_search";
+  }
   if (intentType === "analyze_target") {
     if (targetPath) return "repo_analyze";
     return "repo_search";
@@ -763,9 +901,11 @@ function resolveConfidence({
   targetEntity,
   intentType,
   needsClarification,
+  followupContext = null,
 }) {
   if (needsClarification) return "low";
   if (hasRepoAccessMetaSignal) return "high";
+  if (followupContext?.isActive && targetPath) return "high";
   if (targetKind === "canonical_doc" && targetPath) return "high";
   if (targetKind === "path" && targetPath) return "high";
   if (intentType === "workflow_check" && targetEntity === "workflow") return "high";
@@ -773,9 +913,28 @@ function resolveConfidence({
   return "low";
 }
 
+function resolveAnalyzeQuestion({ text, intentType, planKey, targetPath }) {
+  const original = String(text || "").trim();
+  if (!original) return "";
+
+  if (planKey !== "repo_analyze") return "";
+  if (!targetPath) return "";
+
+  if (
+    intentType === "read_and_explain" ||
+    intentType === "find_and_analyze" ||
+    intentType === "analyze_target"
+  ) {
+    return original;
+  }
+
+  return "";
+}
+
 export function resolveProjectIntentReadPlan({
   text,
   route = null,
+  followupContext = null,
 } = {}) {
   const normalized = normalizeText(text);
   const tokens = tokenizeText(text);
@@ -835,6 +994,7 @@ export function resolveProjectIntentReadPlan({
     hasPillarsRootSignal,
     canonicalPillarPath,
     canonicalPillarEntity,
+    followupContext,
   });
 
   const intentType = resolveIntentType({
@@ -850,6 +1010,8 @@ export function resolveProjectIntentReadPlan({
     isCheckIntent,
     targetKind: semanticTarget.targetKind,
     targetEntity: semanticTarget.targetEntity,
+    tokens,
+    followupContext,
   });
 
   const planKey = resolvePlanKey({
@@ -876,11 +1038,20 @@ export function resolveProjectIntentReadPlan({
     targetEntity: semanticTarget.targetEntity,
     intentType,
     needsClarification: clarification.needsClarification,
+    followupContext,
+  });
+
+  const analyzeQuestion = resolveAnalyzeQuestion({
+    text,
+    intentType,
+    planKey,
+    targetPath: semanticTarget.targetPath,
   });
 
   const basis = unique([
     ...semanticTarget.targetBasis,
     canonicalPillarBasis,
+    followupContext?.isActive ? "followup_context_active" : "",
     hasRepoAccessMetaSignal ? "repo_access_meta" : "",
     hasSearchSignal ? "search_signal" : "",
     hasAnalyzeSignal ? "analyze_signal" : "",
@@ -899,6 +1070,8 @@ export function resolveProjectIntentReadPlan({
     semanticTarget.targetPath,
     canonicalPillarPath,
     hasPillarsRootSignal ? "pillars/" : "",
+    followupContext?.targetEntity || "",
+    followupContext?.targetPath || "",
   ]);
 
   const queryHints = unique([
@@ -968,8 +1141,12 @@ export function resolveProjectIntentReadPlan({
     targetKind: semanticTarget.targetKind,
     targetEntity: semanticTarget.targetEntity,
     targetPath: semanticTarget.targetPath,
+    analyzeQuestion,
     needsClarification: clarification.needsClarification,
     clarificationQuestion: clarification.clarificationQuestion,
+
+    followupContextActive: followupContext?.isActive === true,
+    followupSourceHandler: String(followupContext?.handlerKey || "").trim(),
 
     planKey,
     recommendedCommand,

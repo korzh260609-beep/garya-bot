@@ -2,8 +2,8 @@
 // === src/bot/handlers/projectIntentDiag.js
 // === 12A.0 intent guard diagnostics (READ-ONLY, monarch-only, private-only)
 // Purpose:
-// - inspect how SG classifies free-text internal project intent
-// - show exact classification basis without guessing
+// - inspect how SG classifies free-text project intent
+// - show target scope separately from action mode
 // - diagnostic only, no side effects
 // ============================================================================
 
@@ -45,7 +45,7 @@ export async function handleProjectIntentDiag(ctx = {}) {
         "/project_intent_diag <free-text>",
         "",
         "Example:",
-        "/project_intent_diag analyze SG project architecture",
+        "/project_intent_diag сделай деплой sg",
       ].join("\n")
     );
     return;
@@ -61,9 +61,13 @@ export async function handleProjectIntentDiag(ctx = {}) {
       `input: ${quoteBlock(input)}`,
       `normalized: ${quoteBlock(match.normalized)}`,
       "",
-      formatList("strongAnchorHits", match.strongAnchorHits),
-      formatList("identityTokenHits", match.identityTokenHits),
-      formatList("objectHits", match.objectHits),
+      formatList("sgCoreStrongAnchorHits", match.sgCoreStrongAnchorHits),
+      formatList("sgCoreIdentityPhraseHits", match.sgCoreIdentityPhraseHits),
+      formatList("sgCoreIdentityTokenHits", match.sgCoreIdentityTokenHits),
+      formatList("strongObjectHits", match.strongObjectHits),
+      formatList("weakObjectHits", match.weakObjectHits),
+      formatList("userProjectPhraseHits", match.userProjectPhraseHits),
+      formatList("userProjectTokenHits", match.userProjectTokenHits),
       formatList("readHits", match.readHits),
       formatList("writeHits", match.writeHits),
       formatList("classificationBasis", match.classificationBasis),
@@ -72,6 +76,7 @@ export async function handleProjectIntentDiag(ctx = {}) {
       formatList("internalActionHits", match.internalActionHits),
       formatList("writeActionHits", match.writeActionHits),
       "",
+      `targetScope: ${match.targetScope}`,
       `targetDomain: ${match.targetDomain}`,
       `actionMode: ${match.actionMode}`,
       `isProjectInternal: ${String(match.isProjectInternal)}`,
@@ -79,11 +84,15 @@ export async function handleProjectIntentDiag(ctx = {}) {
       `confidence: ${match.confidence}`,
       "",
       "Policy preview:",
-      match.isProjectWriteIntent
-        ? "- result: BLOCK (write-intent denied)"
-        : match.isProjectInternal
-          ? "- result: INTERNAL READ-ONLY PATH"
-          : "- result: NOT PROJECT INTENT",
+      match.targetScope === "sg_core_internal" && match.isProjectWriteIntent
+        ? "- result: BLOCK (sg_core_internal write-intent denied)"
+        : match.targetScope === "sg_core_internal"
+          ? "- result: SG CORE INTERNAL READ-ONLY PATH"
+          : match.targetScope === "user_project"
+            ? "- result: USER PROJECT PATH"
+            : match.targetScope === "generic_external"
+              ? "- result: GENERIC EXTERNAL PATH"
+              : "- result: UNKNOWN",
     ].join("\n")
   );
 }

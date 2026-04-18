@@ -4,6 +4,7 @@
 // Purpose:
 // - inspect how SG classifies free-text project intent
 // - show classifier result separately from route result
+// - show normalized read-plan for future repo bridge
 // - diagnostic only, no side effects
 // ============================================================================
 
@@ -12,6 +13,7 @@ import { PROJECT_ONLY_FEATURES } from "./projectAccessScope.js";
 import { resolveProjectIntentMatch } from "../../core/projectIntent/projectIntentScope.js";
 import { resolveProjectIntentRoute } from "../../core/projectIntent/projectIntentRoute.js";
 import { buildProjectIntentRoutePreview } from "../../core/projectIntent/projectIntentRoutePreview.js";
+import { resolveProjectIntentReadPlan } from "../../core/projectIntent/projectIntentReadPlan.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -47,7 +49,7 @@ export async function handleProjectIntentDiag(ctx = {}) {
         "/project_intent_diag <free-text>",
         "",
         "Example:",
-        "/project_intent_diag сделай деплой sg",
+        "/project_intent_diag покажи где используется handlerAccess в sg",
       ].join("\n")
     );
     return;
@@ -60,6 +62,10 @@ export async function handleProjectIntentDiag(ctx = {}) {
     isPrivateChat: true,
   });
   const routePreview = buildProjectIntentRoutePreview(route);
+  const readPlan = resolveProjectIntentReadPlan({
+    text: input,
+    route,
+  });
 
   await ctx.bot.sendMessage(
     ctx.chatId,
@@ -103,6 +109,17 @@ export async function handleProjectIntentDiag(ctx = {}) {
       "",
       "Policy preview:",
       routePreview.text,
+      "",
+      "Read plan:",
+      `planKey: ${readPlan.planKey}`,
+      `recommendedCommand: ${readPlan.recommendedCommand}`,
+      `planConfidence: ${readPlan.confidence}`,
+      `routeAllowsInternalRead: ${String(readPlan.routeAllowsInternalRead)}`,
+      `primaryPathHint: ${quoteBlock(readPlan.primaryPathHint)}`,
+      `preview: ${readPlan.preview}`,
+      formatList("planBasis", readPlan.basis),
+      formatList("pathHints", readPlan.pathHints),
+      formatList("queryHints", readPlan.queryHints),
     ].join("\n")
   );
 }

@@ -3,7 +3,7 @@
 // === 12A.0.10 /code_output_status (READ-ONLY, monarch-only)
 // ============================================================================
 
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function normalizeMode(raw) {
   const value = String(raw || "").trim().toUpperCase();
@@ -13,7 +13,7 @@ function normalizeMode(raw) {
 }
 
 export async function handleCodeOutputStatus(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const mode = normalizeMode(process.env.CODE_OUTPUT_MODE);

@@ -80,13 +80,37 @@ export function isModuleLikeTitle(title) {
   );
 }
 
+export function isFoundationRuntimeLikeText(text) {
+  const lower = String(text || "").toLowerCase();
+
+  if (!lower) return false;
+
+  return (
+    lower.includes("telegram-bot") ||
+    lower.includes("telegram bot") ||
+    lower.includes("basic bot reply") ||
+    lower.includes("bot reply") ||
+    lower.includes("respond to messages") ||
+    lower.includes("reply to messages") ||
+    lower.includes("reply") ||
+    lower.includes("webhook") ||
+    lower.includes("render") ||
+    lower.includes("node.js") ||
+    lower.includes("express") ||
+    lower.includes("base infrastructure") ||
+    lower.includes("bootstrap") ||
+    lower.includes("entrypoint") ||
+    lower.includes("transport") ||
+    lower.includes("runtime")
+  );
+}
+
 export function isLikelyRealFunctionToken(token) {
   const raw = String(token || "").trim();
   if (!raw) return false;
 
   const lower = raw.toLowerCase();
 
-  // prose / policy / pseudo-markers must not be treated as implementation
   if (
     lower === "hard" ||
     lower === "soft" ||
@@ -149,6 +173,10 @@ export function classifyWorkflowItemSemantics(item) {
 
   const policyLike = isPolicyLikeText(ownText);
   const architectureLike = !policyLike && isArchitectureLikeText(ownText);
+  const foundationRuntimeLike =
+    !policyLike &&
+    !architectureLike &&
+    isFoundationRuntimeLikeText(ownText);
 
   const rawFnTokens = extractFunctionLikeTokens(ownText);
   const fnTokens = sanitizeFunctionLikeTokens(rawFnTokens);
@@ -177,6 +205,8 @@ export function classifyWorkflowItemSemantics(item) {
     semanticType = "interface_like";
   } else if (hasExplicitSignature || hasFunctionName) {
     semanticType = "signature_like";
+  } else if (foundationRuntimeLike) {
+    semanticType = "foundation_runtime_like";
   }
 
   return {
@@ -186,13 +216,13 @@ export function classifyWorkflowItemSemantics(item) {
     hasSlashList,
     isPolicyLike: policyLike,
     isArchitectureLike: architectureLike,
+    isFoundationRuntimeLike: foundationRuntimeLike,
   };
 }
 
 export function determineSemanticTypeFromChecks(item, autoChecks = []) {
   const base = classifyWorkflowItemSemantics(item);
 
-  // policy / architecture must stay stable and must not be overridden by noisy check labels
   if (
     base.semanticType === "policy_like" ||
     base.semanticType === "architecture_like"

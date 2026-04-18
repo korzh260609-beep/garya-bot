@@ -3,15 +3,8 @@
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
-// ---------------------------------------------------------------------------
-// Small arg parser (no dependencies)
-// Usage examples:
-// /repo_review
-// /repo_review 30
-// /repo_review --limit=40
-// ---------------------------------------------------------------------------
 function parseArgs(rest) {
   const raw = String(rest || "").trim();
   const tokens = raw ? raw.split(/\s+/g) : [];
@@ -24,7 +17,7 @@ function parseArgs(rest) {
     if (m?.[1]) limit = Number(m[1]);
   }
 
-  limit = Math.max(5, Math.min(limit || 30, 60)); // safety caps
+  limit = Math.max(5, Math.min(limit || 30, 60));
   return { limit };
 }
 
@@ -44,22 +37,12 @@ function applyHeuristicPolicy(issue, filePath) {
     p === "classifier.js";
 
   if (allowed) {
-    // User decision: heuristic / non-blocking / aggregate-only
     issue.severity = "low";
   }
 }
 
-// =========================
-// B5.0 (Skeleton): zone-aware architecture review (DISABLED by default)
-// Enable via env: SG_REPO_REVIEW_B5=1
-// =========================
 const B5_ENABLED = String(process.env.SG_REPO_REVIEW_B5 || "") === "1";
 
-// =========================
-// B5.1 (Config): token / regex matchers
-// =========================
-
-// Direct AI calls must go via router
 const B5_DIRECT_AI_PATTERNS = [
   /\bopenai\b/i,
   /\bchat\.completions\b/i,
@@ -68,16 +51,15 @@ const B5_DIRECT_AI_PATTERNS = [
   /\bcreateChatCompletion\b/i,
 ];
 
-// Privileged actions must have permission checks
 const B5_PERMISSION_TOKENS = [
   "can(",
   "requireMonarch",
+  "requireMonarchPrivateAccess",
   "requirePermission",
   "assertAccess",
   "ensureAccess",
 ];
 
-// Memory policy risks: raw or direct writes
 const B5_MEMORY_WRITE_PATTERNS = [
   /\bchat_memory\b/i,
   /\bproject_memory\b/i,
@@ -87,7 +69,6 @@ const B5_MEMORY_WRITE_PATTERNS = [
   /\binsert\s+into\s+chat_memory\b/i,
 ];
 
-// Boundary heuristics (handlers / transport must stay thin)
 const B5_BOUNDARY_RISK_PATTERNS = {
   db: [
     /\bpool\.query\b/i,
@@ -99,7 +80,6 @@ const B5_BOUNDARY_RISK_PATTERNS = {
   ai: B5_DIRECT_AI_PATTERNS,
 };
 
-// Observability expectations (AI cost + reason)
 const B5_LOGGING_TOKENS = [
   "logAi",
   "ai_usage",
@@ -108,7 +88,6 @@ const B5_LOGGING_TOKENS = [
   "reason",
 ];
 
-// Helper
 function b5ContainsAny(code, tokens) {
   const s = String(code || "");
   return tokens.some((t) => (typeof t === "string" ? s.includes(t) : t.test(s)));
@@ -126,19 +105,11 @@ function classifyZone(filePath) {
   return "other";
 }
 
-// =========================
-// B5.3 (Config): allowlist / suppressions (config-only)
-// =========================
-
-// UNREACHABLE_CODE — suppress paths where it is expected noise
 const B5_UNREACHABLE_SUPPRESS_PATHS = [
   /^classifier\.js$/i,
   /^src\/bot\/handlers\/.+\.js$/i,
-  // If you later want sources too, add:
-  // /^src\/sources\/.+\.js$/i,
 ];
 
-// DECISION_VIOLATION — suppress only for specific files (keep it narrow)
 const B5_DECISION_SUPPRESS_PATHS = [
   /^src\/bootstrap\/initSystem\.js$/i,
 ];
@@ -152,23 +123,16 @@ function b5PathMatches(path, rules) {
   return rules.some((r) => r.test(p));
 }
 
-// =========================
-// B5.2 (Logic): detections (READ-ONLY)
-// =========================
-
-// Remove strings and comments to reduce false positives
 function b5Sanitize(code) {
   let s = String(code || "");
-  s = s.replace(/\/\*[\s\S]*?\*\//g, " "); // block comments
-  s = s.replace(/\/\/.*$/gm, " "); // line comments
-  s = s.replace(/`[\s\S]*?`/g, " "); // template strings
-  s = s.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, " "); // double strings
-  s = s.replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, " "); // single strings
+  s = s.replace(/\/\*[\s\S]*?\*\//g, " ");
+  s = s.replace(/\/\/.*$/gm, " ");
+  s = s.replace(/`[\s\S]*?`/g, " ");
+  s = s.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, " ");
+  s = s.replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, " ");
   return s;
 }
 
-// B5: DIRECT_AI_CALL (high) — heuristic
-// We flag when code mentions OpenAI SDK style tokens AND does not use callAI/router wrapper.
 function detectDirectAiCallRisk(code, path) {
   const issues = [];
   const zone = classifyZone(path);
@@ -177,7 +141,6 @@ function detectDirectAiCallRisk(code, path) {
   const mentionsDirectAi = b5ContainsAny(s, B5_DIRECT_AI_PATTERNS);
   if (!mentionsDirectAi) return issues;
 
-  // allowlist heuristic: if file uses wrapper callAI, treat as not direct call
   const usesWrapper =
     /\bcallAI\s*\(/.test(s) ||
     /\baiRouter\b/i.test(s) ||
@@ -194,7 +157,6 @@ function detectDirectAiCallRisk(code, path) {
   return issues;
 }
 
-// B5: PERMISSION_BYPASS_RISK (high) — heuristic on privileged commands/handlers
 function detectPermissionBypassRisk(code, path) {
   const issues = [];
   const p = String(path || "");
@@ -206,7 +168,9 @@ function detectPermissionBypassRisk(code, path) {
     /start_/i.test(p) ||
     /pm_set/i.test(p) ||
     /reindex/i.test(p) ||
-    /repo_/i.test(p);
+    /repo_/i.test(p) ||
+    /workflow_check/i.test(p) ||
+    /stage_check/i.test(p);
 
   if (!privilegedByName) return issues;
 
@@ -223,7 +187,6 @@ function detectPermissionBypassRisk(code, path) {
   return issues;
 }
 
-// B5: MEMORY_POLICY_RISK (high/medium) — writing memory outside memory_core zone
 function detectMemoryPolicyRisk(code, path) {
   const issues = [];
   const zone = classifyZone(path);
@@ -243,7 +206,6 @@ function detectMemoryPolicyRisk(code, path) {
   return issues;
 }
 
-// B5: CORE_BOUNDARY_VIOLATION (medium/high) — heavy responsibilities in thin zones
 function detectCoreBoundaryViolations(code, path) {
   const issues = [];
   const zone = classifyZone(path);
@@ -276,7 +238,6 @@ function detectCoreBoundaryViolations(code, path) {
   }
 
   if (zone === "sources") {
-    // sources often do HTTP; DB/AI inside sources is suspicious
     if (dbRisk || aiRisk) {
       issues.push({
         code: "CORE_BOUNDARY_VIOLATION",
@@ -284,22 +245,18 @@ function detectCoreBoundaryViolations(code, path) {
         message: "Sources should not contain DB/AI responsibility (verify Sources layer boundaries).",
       });
     }
-    // httpRisk is not flagged in sources (normal)
     return issues;
   }
 
-  // other zones: no boundary verdicts (avoid noise)
   void httpRisk;
   return issues;
 }
 
-// B5: OBSERVABILITY_GAP (medium) — AI usage without obvious logging tokens nearby (heuristic)
 function detectObservabilityGap(code, path) {
   const issues = [];
   const zone = classifyZone(path);
   const s = b5Sanitize(code);
 
-  // If wrapper is used, expect some logging token around.
   const usesAiWrapper = /\bcallAI\s*\(/.test(s);
   if (!usesAiWrapper) return issues;
 
@@ -324,11 +281,6 @@ function collectB5Issues(code, path) {
     ...detectObservabilityGap(code, path),
   ];
 }
-
-/* =========================
-   Minimal checks (copied logic style from repoCheck.js)
-   Keep READ-ONLY. No AST.
-   ========================= */
 
 function extractImportedNames(code) {
   const imported = new Set();
@@ -462,10 +414,6 @@ function checkDecisionsViolations(code) {
   return issues;
 }
 
-/* =========================
-   Suggestions (READ-ONLY) — STRICT GATE (B3.9) at repo-level
-   ========================= */
-
 function buildSuggestionsFromAggregated(agg) {
   const map = {
     MISSING_IMPORT: {
@@ -480,8 +428,6 @@ function buildSuggestionsFromAggregated(agg) {
       category: "workflow",
       reason: "Align code with DECISIONS.md rules.",
     },
-
-    // B5 (architecture/security) suggestions
     DIRECT_AI_CALL: {
       category: "security",
       reason: "Remove direct AI/SDK calls — route all AI usage via the approved router/wrapper.",
@@ -526,7 +472,7 @@ function buildSuggestionsFromAggregated(agg) {
 }
 
 export async function handleRepoReview(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const { bot, chatId, rest } = ctx;
@@ -575,18 +521,13 @@ export async function handleRepoReview(ctx = {}) {
     for (const it of issues) {
       applyHeuristicPolicy(it, path);
 
-      // =========================
-      // B5.3 suppressions (config-only)
-      // =========================
       if (it.code === "UNREACHABLE_CODE") {
-        // suppress only where it is expected noise
         if (b5PathMatches(path, B5_UNREACHABLE_SUPPRESS_PATHS)) {
           continue;
         }
       }
 
       if (it.code === "DECISION_VIOLATION") {
-        // keep it narrow: only suppress in explicitly allowed files
         if (b5PathMatches(path, B5_DECISION_SUPPRESS_PATHS)) {
           const raw = String(code || "");
           if (B5_DECISION_SUPPRESS_TOKENS.some((rx) => rx.test(raw))) {
@@ -625,7 +566,6 @@ export async function handleRepoReview(ctx = {}) {
   out.push("");
   out.push(`issues: high=${bySev.high}, medium=${bySev.medium}, low=${bySev.low}`);
 
-  // Top issue buckets (helpful when B5 is enabled)
   const buckets = Object.values(agg)
     .sort((a, b) => {
       const d = severityRank(b.severity) - severityRank(a.severity);

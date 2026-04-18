@@ -38,6 +38,8 @@ export const PROJECT_ONLY_COMMAND_TO_FEATURE = Object.freeze({
 
   "/repo_diff": PROJECT_ONLY_FEATURES.PROJECT_PATCH_GENERATION,
   "/code_output_status": PROJECT_ONLY_FEATURES.PROJECT_PATCH_GENERATION,
+
+  "/project_intent_diag": PROJECT_ONLY_FEATURES.PROJECT_ARCHITECTURE_ACCESS,
 });
 
 export const PROJECT_ONLY_COMMANDS = Object.freeze(
@@ -71,8 +73,11 @@ export function isProjectReadOnlyFeature(feature) {
   return PROJECT_READ_ONLY_FEATURES.has(String(feature || "").trim());
 }
 
-// Skeleton helper for future intent-level guard in free text chat.
-// NOT wired yet into chat flow here.
+// Legacy helper kept only as a lightweight compatibility helper.
+// Real free-text classification now lives in:
+// src/core/projectIntent/projectIntentScope.js
+// and is enforced in:
+// src/core/projectIntent/projectIntentGuard.js
 export function isLikelyProjectInternalText(text) {
   const lower = String(text || "").trim().toLowerCase();
   if (!lower) return false;

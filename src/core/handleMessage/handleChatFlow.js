@@ -10,7 +10,8 @@ import { truncateForDb } from "./shared.js";
 import { handleExplicitRemember } from "./handleExplicitRemember.js";
 import { buildChatHandlerContext } from "./contextBuilders.js";
 
-// ✅ STAGE 12A.0 — future intent-level guard for internal SG project requests
+// ✅ STAGE 12A.0 — future intent-level routing + guard for internal SG project requests
+import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.js";
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
 
 export async function handleChatFlow({
@@ -59,16 +60,23 @@ export async function handleChatFlow({
     };
 
     // =========================================================================
-    // STAGE 12A.0 — FREE-TEXT INTERNAL PROJECT INTENT GUARD
-    // - protects internal SG project/repo/workflow requests in plain chat
-    // - monarch-only + private-only
-    // - read-only policy only
+    // STAGE 12A.0 — FREE-TEXT INTERNAL PROJECT INTENT ROUTE + GUARD
+    // - route decision is resolved once
+    // - guard enforces SG core internal access policy
+    // - future layers may reuse route semantics safely
     // =========================================================================
+    const projectIntentRoute = resolveProjectIntentRoute({
+      text: trimmed,
+      isMonarchUser: !!isMonarchUser,
+      isPrivateChat: !!isPrivateChat,
+    });
+
     const projectIntentAccess = await requireProjectIntentAccess({
       text: trimmed,
       isMonarchUser: !!isMonarchUser,
       isPrivateChat: !!isPrivateChat,
       replyAndLog,
+      resolvedRoute: projectIntentRoute,
     });
 
     if (!projectIntentAccess.allowed) {
@@ -122,6 +130,14 @@ export async function handleChatFlow({
             messageId: Number(messageId),
             hasBinaryAttachment: inboundStorage.hasBinaryAttachment,
             attachmentKinds: inboundStorage.attachmentKinds,
+
+            // STAGE 12A.0 route snapshot (diagnostic-safe, no side effects)
+            projectIntentScope: projectIntentRoute.targetScope,
+            projectIntentDomain: projectIntentRoute.targetDomain,
+            projectIntentActionMode: projectIntentRoute.actionMode,
+            projectIntentRouteKey: projectIntentRoute.routeKey,
+            projectIntentPolicy: projectIntentRoute.policy,
+            projectIntentConfidence: projectIntentRoute.confidence,
           },
           raw: buildRawMeta(raw || {}),
           schemaVersion: 1,

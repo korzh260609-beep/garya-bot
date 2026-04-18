@@ -1,12 +1,11 @@
 // src/core/projectIntent/projectIntentReadPlan.js
 // ============================================================================
-// STAGE 12A.0 — project read-plan resolver (SKELETON)
+// STAGE 12A.0 — project read-plan resolver (SKELETON, semantic-first)
 // Purpose:
-// - turn internal SG free-text read requests into a normalized read-plan
-// - keep plan semantic and read-only
-// - prepare future bridge: human text -> repo read/search/analyze action
-// - respect canonical SG governance layer first: pillars/*
-// - route meta-questions about repo/GitHub access to real repo status surfaces
+// - turn internal SG free-text read requests into a normalized semantic read-plan
+// - separate INTENT from TARGET
+// - keep planning read-only
+// - preserve current command bridge compatibility without brittle first-word logic
 // IMPORTANT:
 // - NO command execution
 // - NO repo writes
@@ -23,7 +22,7 @@ function normalizeText(value) {
 
 function tokenizeText(value) {
   const normalized = normalizeText(value)
-    .replace(/[.,!?;:()[\]{}<>\\|"'\`~@#$%^&*+=]+/g, " ")
+    .replace(/[.,!?;:()[\]{}<>\\|"'`~@#$%^&*+=]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -130,33 +129,23 @@ const PILLAR_FILE_RULES = Object.freeze([
       "workflow.md",
       "документ workflow",
       "файл workflow",
-      "открой workflow md",
-      "покажи workflow md",
-      "прочитай workflow md",
-      "открой документ workflow",
-      "покажи документ workflow",
-      "проанализируй workflow md",
-      "проанализируй workflow",
-      "открой workflow",
+      "workflow файл",
+      "workflow document",
     ],
-    tokens: [],
     basis: "pillar_workflow",
+    entity: "workflow",
   },
   {
     path: "pillars/DECISIONS.md",
     phrases: [
       "decisions.md",
       "decision log",
-      "журнал решений sg",
+      "журнал решений",
       "документ decisions",
       "файл decisions",
-      "открой decisions",
-      "покажи decisions",
-      "прочитай decisions",
-      "проанализируй decisions",
     ],
-    tokens: [],
     basis: "pillar_decisions",
+    entity: "decisions",
   },
   {
     path: "pillars/ROADMAP.md",
@@ -164,14 +153,10 @@ const PILLAR_FILE_RULES = Object.freeze([
       "roadmap.md",
       "документ roadmap",
       "файл roadmap",
-      "открой roadmap",
-      "покажи roadmap",
-      "прочитай roadmap",
-      "проанализируй roadmap",
-      "дорожная карта документ",
+      "дорожная карта",
     ],
-    tokens: [],
     basis: "pillar_roadmap",
+    entity: "roadmap",
   },
   {
     path: "pillars/PROJECT.md",
@@ -179,14 +164,10 @@ const PILLAR_FILE_RULES = Object.freeze([
       "project.md",
       "документ project",
       "файл project md",
-      "открой project md",
-      "покажи project md",
-      "прочитай project md",
-      "проанализируй project md",
-      "документ описания проекта",
+      "описание проекта",
     ],
-    tokens: [],
     basis: "pillar_project",
+    entity: "project",
   },
   {
     path: "pillars/KINGDOM.md",
@@ -194,43 +175,31 @@ const PILLAR_FILE_RULES = Object.freeze([
       "kingdom.md",
       "документ kingdom",
       "файл kingdom",
-      "открой kingdom",
-      "покажи kingdom",
-      "прочитай kingdom",
-      "проанализируй kingdom",
     ],
-    tokens: [],
     basis: "pillar_kingdom",
+    entity: "kingdom",
   },
   {
     path: "pillars/SG_BEHAVIOR.md",
     phrases: [
       "sg_behavior.md",
       "sg behavior md",
+      "поведение sg",
       "документ поведения sg",
-      "файл поведения sg",
-      "открой поведение sg",
-      "покажи поведение sg",
-      "прочитай поведение sg",
-      "проанализируй поведение sg",
     ],
-    tokens: [],
     basis: "pillar_behavior",
+    entity: "sg_behavior",
   },
   {
     path: "pillars/SG_ENTITY.md",
     phrases: [
       "sg_entity.md",
       "sg entity md",
+      "сущность sg",
       "документ сущности sg",
-      "файл сущности sg",
-      "открой сущность sg",
-      "покажи сущность sg",
-      "прочитай сущность sg",
-      "проанализируй сущность sg",
     ],
-    tokens: [],
     basis: "pillar_entity",
+    entity: "sg_entity",
   },
   {
     path: "pillars/REPOINDEX.md",
@@ -238,56 +207,82 @@ const PILLAR_FILE_RULES = Object.freeze([
       "repoindex.md",
       "документ repoindex",
       "файл repoindex",
-      "открой repoindex",
-      "покажи repoindex",
-      "прочитай repoindex",
-      "проанализируй repoindex",
     ],
-    tokens: [],
     basis: "pillar_repoindex",
+    entity: "repoindex",
   },
   {
     path: "pillars/CODE_INSERT_RULES.md",
     phrases: [
       "code_insert_rules.md",
       "code insert rules",
-      "документ правил вставки кода",
-      "файл правил вставки кода",
-      "открой правила вставки кода",
-      "покажи правила вставки кода",
-      "прочитай правила вставки кода",
-      "проанализируй правила вставки кода",
+      "правила вставки кода",
     ],
-    tokens: [],
     basis: "pillar_code_insert_rules",
+    entity: "code_insert_rules",
+  },
+]);
+
+const ENTITY_RULES = Object.freeze([
+  {
+    entity: "workflow",
+    targetKind: "canonical_doc",
+    phrases: ["workflow", "воркфлоу", "workflow.md"],
+    path: "pillars/WORKFLOW.md",
+  },
+  {
+    entity: "decisions",
+    targetKind: "canonical_doc",
+    phrases: ["decisions", "decisions.md", "decision log", "журнал решений"],
+    path: "pillars/DECISIONS.md",
+  },
+  {
+    entity: "roadmap",
+    targetKind: "canonical_doc",
+    phrases: ["roadmap", "roadmap.md", "дорожная карта"],
+    path: "pillars/ROADMAP.md",
+  },
+  {
+    entity: "project",
+    targetKind: "canonical_doc",
+    phrases: ["project.md", "описание проекта"],
+    path: "pillars/PROJECT.md",
+  },
+  {
+    entity: "kingdom",
+    targetKind: "canonical_doc",
+    phrases: ["kingdom.md", "kingdom"],
+    path: "pillars/KINGDOM.md",
+  },
+  {
+    entity: "repoindex",
+    targetKind: "canonical_doc",
+    phrases: ["repoindex", "repoindex.md"],
+    path: "pillars/REPOINDEX.md",
+  },
+  {
+    entity: "pillars",
+    targetKind: "repo_scope",
+    phrases: ["pillars", "pillars/", "пилларс", "пиллары"],
+    path: "pillars/",
+  },
+  {
+    entity: "architecture",
+    targetKind: "concept",
+    phrases: ["architecture", "архитектура"],
+    path: "",
+  },
+  {
+    entity: "stage",
+    targetKind: "stage",
+    phrases: ["stage", "стадия", "этап"],
+    path: "",
   },
 ]);
 
 // ----------------------------------------------------------------------------
 // GENERIC INTENT SIGNALS
 // ----------------------------------------------------------------------------
-
-const WORKFLOW_PHRASES = Object.freeze([
-  "workflow",
-  "workflow.md",
-  "воркфлоу",
-  "workflow check",
-  "check workflow",
-  "проверь workflow",
-  "покажи workflow статус",
-  "статус workflow",
-]);
-
-const STAGE_PHRASES = Object.freeze([
-  "stage check",
-  "stage-check",
-  "check stage",
-  "проверь stage",
-  "стадия",
-  "этап",
-  "этап проекта",
-  "статус этапа",
-]);
 
 const STATUS_PHRASES = Object.freeze([
   "repo status",
@@ -297,6 +292,8 @@ const STATUS_PHRASES = Object.freeze([
   "статус репозитория",
   "статус проекта",
   "состояние проекта",
+  "есть доступ к репозиторию",
+  "доступ к github",
 ]);
 
 const TREE_PHRASES = Object.freeze([
@@ -306,7 +303,6 @@ const TREE_PHRASES = Object.freeze([
   "структура проекта",
   "дерево проекта",
   "дерево репозитория",
-  "покажи структуру",
   "show tree",
 ]);
 
@@ -320,6 +316,9 @@ const SEARCH_PHRASES = Object.freeze([
   "где находится",
   "where is",
   "find in repo",
+  "найди",
+  "find",
+  "search",
 ]);
 
 const FILE_PHRASES = Object.freeze([
@@ -330,9 +329,6 @@ const FILE_PHRASES = Object.freeze([
   "открой файл",
   "покажи файл",
   "прочитай файл",
-  "файл ",
-  "path ",
-  "путь ",
 ]);
 
 const ANALYZE_PHRASES = Object.freeze([
@@ -347,6 +343,8 @@ const ANALYZE_PHRASES = Object.freeze([
   "где ошибка",
   "architecture review",
   "review code",
+  "объясни",
+  "дай описание",
 ]);
 
 const DIFF_PHRASES = Object.freeze([
@@ -368,9 +366,6 @@ const READ_DOC_PHRASES = Object.freeze([
   "read",
   "display",
   "show me",
-  "open file",
-  "show file",
-  "read file",
 ]);
 
 const ANALYZE_DOC_PHRASES = Object.freeze([
@@ -379,8 +374,9 @@ const ANALYZE_DOC_PHRASES = Object.freeze([
   "review",
   "inspect",
   "разбери",
-  "проверь логику",
-  "проверь документ",
+  "объясни",
+  "дай описание",
+  "опиши",
 ]);
 
 const CHECK_ACTION_PHRASES = Object.freeze([
@@ -492,6 +488,8 @@ const ANALYZE_TOKENS = Object.freeze([
   "проблема",
   "логика",
   "разбор",
+  "объясни",
+  "описание",
 ]);
 
 const TREE_TOKENS = Object.freeze([
@@ -510,17 +508,6 @@ const STATUS_TOKENS = Object.freeze([
   "состояние",
 ]);
 
-const WORKFLOW_TOKENS = Object.freeze([
-  "workflow",
-  "воркфлоу",
-]);
-
-const STAGE_TOKENS = Object.freeze([
-  "stage",
-  "стадия",
-  "этап",
-]);
-
 const DIFF_TOKENS = Object.freeze([
   "diff",
   "patch",
@@ -528,17 +515,16 @@ const DIFF_TOKENS = Object.freeze([
   "патч",
 ]);
 
-function resolvePillarFileMatch(normalized, tokens) {
+function resolvePillarFileMatch(normalized) {
   for (const rule of PILLAR_FILE_RULES) {
     const phraseHits = collectPhraseHits(normalized, rule.phrases || []);
-    const tokenHits = collectTokenHits(tokens, rule.tokens || []);
-
-    if (phraseHits.length || tokenHits.length) {
+    if (phraseHits.length) {
       return {
         canonicalPillarPath: rule.path,
         canonicalPillarBasis: rule.basis,
         canonicalPillarPhraseHits: phraseHits,
-        canonicalPillarTokenHits: tokenHits,
+        canonicalPillarTokenHits: [],
+        canonicalPillarEntity: rule.entity,
       };
     }
   }
@@ -548,6 +534,7 @@ function resolvePillarFileMatch(normalized, tokens) {
     canonicalPillarBasis: "",
     canonicalPillarPhraseHits: [],
     canonicalPillarTokenHits: [],
+    canonicalPillarEntity: "",
   };
 }
 
@@ -559,7 +546,7 @@ function looksLikeReadDocumentIntent(normalized, tokens) {
 
 function looksLikeAnalyzeDocumentIntent(normalized, tokens) {
   const phraseHits = collectPhraseHits(normalized, ANALYZE_DOC_PHRASES);
-  const tokenHits = collectTokenHits(tokens, ["analyze", "review", "inspect", "проанализируй", "разбери"]);
+  const tokenHits = collectTokenHits(tokens, ["analyze", "review", "inspect", "проанализируй", "разбери", "объясни"]);
   return phraseHits.length > 0 || tokenHits.length > 0;
 }
 
@@ -595,6 +582,197 @@ function looksLikeRepoAccessMetaIntent(normalized, tokens) {
   };
 }
 
+function resolveSemanticTarget({
+  normalized,
+  pathHints,
+  hasPillarsRootSignal,
+  canonicalPillarPath,
+  canonicalPillarEntity,
+}) {
+  if (canonicalPillarPath) {
+    return {
+      targetKind: "canonical_doc",
+      targetEntity: canonicalPillarEntity || canonicalPillarPath,
+      targetPath: canonicalPillarPath,
+      targetBasis: ["canonical_pillar_exact"],
+    };
+  }
+
+  if (pathHints.length > 0) {
+    return {
+      targetKind: "path",
+      targetEntity: pathHints[0],
+      targetPath: pathHints[0],
+      targetBasis: ["explicit_path_hint"],
+    };
+  }
+
+  if (hasPillarsRootSignal) {
+    return {
+      targetKind: "repo_scope",
+      targetEntity: "pillars",
+      targetPath: "pillars/",
+      targetBasis: ["pillars_root_scope"],
+    };
+  }
+
+  for (const rule of ENTITY_RULES) {
+    const phraseHits = collectPhraseHits(normalized, rule.phrases || []);
+    if (phraseHits.length > 0) {
+      return {
+        targetKind: rule.targetKind,
+        targetEntity: rule.entity,
+        targetPath: rule.path || "",
+        targetBasis: [`entity:${rule.entity}`],
+      };
+    }
+  }
+
+  return {
+    targetKind: "unknown",
+    targetEntity: "",
+    targetPath: "",
+    targetBasis: [],
+  };
+}
+
+function resolveIntentType({
+  hasRepoAccessMetaSignal,
+  hasStatusSignal,
+  hasTreeSignal,
+  hasDiffSignal,
+  hasAnalyzeSignal,
+  hasSearchSignal,
+  hasFileSignal,
+  isReadDocumentIntent,
+  isAnalyzeDocumentIntent,
+  isCheckIntent,
+  targetKind,
+  targetEntity,
+}) {
+  if (hasRepoAccessMetaSignal) return "repo_status_check";
+  if (hasStatusSignal) return "repo_status_check";
+  if (hasTreeSignal) return "browse_tree";
+  if (hasDiffSignal) return "compare_diff";
+
+  if (targetEntity === "workflow" && isCheckIntent) {
+    return "workflow_check";
+  }
+
+  if (targetEntity === "stage" && isCheckIntent) {
+    return "stage_check";
+  }
+
+  if (isAnalyzeDocumentIntent && (targetKind === "canonical_doc" || targetKind === "path")) {
+    return "read_and_explain";
+  }
+
+  if (isReadDocumentIntent && (targetKind === "canonical_doc" || targetKind === "path")) {
+    return "read_file";
+  }
+
+  if (hasAnalyzeSignal) return "analyze_target";
+  if (hasFileSignal) return "read_file";
+  if (hasSearchSignal) return "find_target";
+
+  return "generic_internal_read";
+}
+
+function resolvePlanKey({
+  intentType,
+  targetEntity,
+  targetKind,
+  targetPath,
+}) {
+  if (intentType === "repo_status_check") return "repo_status";
+  if (intentType === "browse_tree") return "repo_tree";
+  if (intentType === "compare_diff") return "repo_diff";
+  if (intentType === "workflow_check") return "workflow_check";
+  if (intentType === "stage_check") return "stage_check";
+
+  if (intentType === "read_file") return "repo_file";
+  if (intentType === "read_and_explain") return "repo_analyze";
+  if (intentType === "analyze_target") {
+    if (targetPath) return "repo_analyze";
+    return "repo_search";
+  }
+  if (intentType === "find_target") return "repo_search";
+
+  if (targetKind === "canonical_doc" && targetPath) return "repo_file";
+  if (targetKind === "path" && targetPath) return "repo_file";
+  if (targetEntity) return "repo_search";
+
+  return "generic_internal_read";
+}
+
+function resolveRecommendedCommand(planKey) {
+  if (planKey === "workflow_check") return "/workflow_check";
+  if (planKey === "stage_check") return "/stage_check";
+  if (planKey === "repo_status") return "/repo_status";
+  if (planKey === "repo_tree") return "/repo_tree";
+  if (planKey === "repo_file") return "/repo_file";
+  if (planKey === "repo_search") return "/repo_search";
+  if (planKey === "repo_analyze") return "/repo_analyze";
+  if (planKey === "repo_diff") return "/repo_diff";
+  return "/repo_search";
+}
+
+function resolveNeedsClarification({
+  intentType,
+  planKey,
+  targetEntity,
+  targetPath,
+  targetKind,
+}) {
+  if (intentType === "repo_status_check") {
+    return { needsClarification: false, clarificationQuestion: "" };
+  }
+
+  if (planKey === "workflow_check") {
+    return { needsClarification: false, clarificationQuestion: "" };
+  }
+
+  if (planKey === "stage_check" && !targetEntity && !targetPath) {
+    return {
+      needsClarification: true,
+      clarificationQuestion: "Какой именно stage нужно проверить?",
+    };
+  }
+
+  if ((planKey === "repo_file" || planKey === "repo_analyze") && !targetPath) {
+    return {
+      needsClarification: true,
+      clarificationQuestion: "Какой именно файл или документ открыть?",
+    };
+  }
+
+  if (planKey === "repo_search" && !targetEntity && targetKind === "unknown") {
+    return {
+      needsClarification: true,
+      clarificationQuestion: "Что именно искать в репозитории?",
+    };
+  }
+
+  return { needsClarification: false, clarificationQuestion: "" };
+}
+
+function resolveConfidence({
+  hasRepoAccessMetaSignal,
+  targetKind,
+  targetPath,
+  targetEntity,
+  intentType,
+  needsClarification,
+}) {
+  if (needsClarification) return "low";
+  if (hasRepoAccessMetaSignal) return "high";
+  if (targetKind === "canonical_doc" && targetPath) return "high";
+  if (targetKind === "path" && targetPath) return "high";
+  if (intentType === "workflow_check" && targetEntity === "workflow") return "high";
+  if (targetEntity) return "medium";
+  return "low";
+}
+
 export function resolveProjectIntentReadPlan({
   text,
   route = null,
@@ -602,8 +780,6 @@ export function resolveProjectIntentReadPlan({
   const normalized = normalizeText(text);
   const tokens = tokenizeText(text);
 
-  const workflowPhraseHits = collectPhraseHits(normalized, WORKFLOW_PHRASES);
-  const stagePhraseHits = collectPhraseHits(normalized, STAGE_PHRASES);
   const statusPhraseHits = collectPhraseHits(normalized, STATUS_PHRASES);
   const treePhraseHits = collectPhraseHits(normalized, TREE_PHRASES);
   const searchPhraseHits = collectPhraseHits(normalized, SEARCH_PHRASES);
@@ -616,8 +792,6 @@ export function resolveProjectIntentReadPlan({
   const analyzeTokenHits = collectTokenHits(tokens, ANALYZE_TOKENS);
   const treeTokenHits = collectTokenHits(tokens, TREE_TOKENS);
   const statusTokenHits = collectTokenHits(tokens, STATUS_TOKENS);
-  const workflowTokenHits = collectTokenHits(tokens, WORKFLOW_TOKENS);
-  const stageTokenHits = collectTokenHits(tokens, STAGE_TOKENS);
   const diffTokenHits = collectTokenHits(tokens, DIFF_TOKENS);
 
   const pillarsRootPhraseHits = collectPhraseHits(normalized, PILLARS_ROOT_PHRASES);
@@ -628,7 +802,8 @@ export function resolveProjectIntentReadPlan({
     canonicalPillarBasis,
     canonicalPillarPhraseHits,
     canonicalPillarTokenHits,
-  } = resolvePillarFileMatch(normalized, tokens);
+    canonicalPillarEntity,
+  } = resolvePillarFileMatch(normalized);
 
   const {
     phraseHits: repoAccessMetaPhraseHits,
@@ -640,20 +815,12 @@ export function resolveProjectIntentReadPlan({
 
   const pathHints = extractPathHints(text);
 
-  const basis = [];
-  let planKey = "generic_internal_read";
-  let recommendedCommand = "/repo_search";
-  let confidence = "low";
-
   const hasPillarsRootSignal =
     pillarsRootPhraseHits.length >= 1 || pillarsRootTokenHits.length >= 1;
 
-  const hasCanonicalPillarMatch = !!canonicalPillarPath;
   const hasAnalyzeSignal = analyzePhraseHits.length > 0 || analyzeTokenHits.length > 0;
   const hasFileSignal = filePhraseHits.length > 0 || fileTokenHits.length > 0;
   const hasSearchSignal = searchPhraseHits.length > 0 || searchTokenHits.length > 0;
-  const hasWorkflowSignal = workflowPhraseHits.length > 0 || workflowTokenHits.length > 0;
-  const hasStageSignal = stagePhraseHits.length > 0 || stageTokenHits.length > 0;
   const hasTreeSignal = treePhraseHits.length > 0 || treeTokenHits.length > 0;
   const hasStatusSignal = statusPhraseHits.length > 0 || statusTokenHits.length > 0;
   const hasDiffSignal = diffPhraseHits.length > 0 || diffTokenHits.length > 0;
@@ -662,112 +829,77 @@ export function resolveProjectIntentReadPlan({
   const isAnalyzeDocumentIntent = looksLikeAnalyzeDocumentIntent(normalized, tokens);
   const isCheckIntent = looksLikeCheckIntent(normalized, tokens);
 
-  // --------------------------------------------------------------------------
-  // 1) META / CAPABILITY QUESTIONS ABOUT REPO ACCESS
-  // --------------------------------------------------------------------------
-  if (hasRepoAccessMetaSignal) {
-    planKey = "repo_status";
-    recommendedCommand = "/repo_status";
-    confidence = repoAccessMetaPhraseHits.length > 0 ? "high" : "medium";
-    basis.push("repo_access_meta");
-  }
+  const semanticTarget = resolveSemanticTarget({
+    normalized,
+    pathHints,
+    hasPillarsRootSignal,
+    canonicalPillarPath,
+    canonicalPillarEntity,
+  });
 
-  // --------------------------------------------------------------------------
-  // 2) SEMANTIC ACTIONS FIRST
-  // --------------------------------------------------------------------------
-  else if (hasWorkflowSignal && isCheckIntent && !pathHints.length) {
-    planKey = "workflow_check";
-    recommendedCommand = "/workflow_check";
-    confidence = workflowPhraseHits.length > 0 ? "high" : "medium";
-    basis.push("workflow_check_semantic");
-  } else if (hasStageSignal && isCheckIntent && !pathHints.length) {
-    planKey = "stage_check";
-    recommendedCommand = "/stage_check";
-    confidence = stagePhraseHits.length > 0 ? "high" : "medium";
-    basis.push("stage_check_semantic");
-  } else if (hasStatusSignal) {
-    planKey = "repo_status";
-    recommendedCommand = "/repo_status";
-    confidence = statusPhraseHits.length > 0 ? "high" : "medium";
-    basis.push("status_signal");
-  } else if (hasTreeSignal) {
-    planKey = "repo_tree";
-    recommendedCommand = "/repo_tree";
-    confidence = treePhraseHits.length > 0 ? "high" : "medium";
-    basis.push("tree_signal");
-  }
+  const intentType = resolveIntentType({
+    hasRepoAccessMetaSignal,
+    hasStatusSignal,
+    hasTreeSignal,
+    hasDiffSignal,
+    hasAnalyzeSignal,
+    hasSearchSignal,
+    hasFileSignal,
+    isReadDocumentIntent,
+    isAnalyzeDocumentIntent,
+    isCheckIntent,
+    targetKind: semanticTarget.targetKind,
+    targetEntity: semanticTarget.targetEntity,
+  });
 
-  // --------------------------------------------------------------------------
-  // 3) CANONICAL PILLAR DOCUMENT ACCESS
-  // --------------------------------------------------------------------------
-  else if (hasCanonicalPillarMatch && isAnalyzeDocumentIntent) {
-    planKey = "repo_analyze";
-    recommendedCommand = "/repo_analyze";
-    confidence = "high";
-    basis.push("canonical_pillar_analyze");
-    basis.push(canonicalPillarBasis);
-  } else if (hasCanonicalPillarMatch && isReadDocumentIntent) {
-    planKey = "repo_file";
-    recommendedCommand = "/repo_file";
-    confidence = "high";
-    basis.push("canonical_pillar_file");
-    basis.push(canonicalPillarBasis);
-  } else if (hasPillarsRootSignal && hasSearchSignal) {
-    planKey = "repo_search";
-    recommendedCommand = "/repo_search";
-    confidence = "high";
-    basis.push("pillars_root_search");
-  } else if (hasPillarsRootSignal && hasTreeSignal) {
-    planKey = "repo_search";
-    recommendedCommand = "/repo_search";
-    confidence = "high";
-    basis.push("pillars_root_tree_like");
-  } else if (hasPillarsRootSignal && isReadDocumentIntent) {
-    planKey = "repo_search";
-    recommendedCommand = "/repo_search";
-    confidence = "medium";
-    basis.push("pillars_root_browse");
-  }
+  const planKey = resolvePlanKey({
+    intentType,
+    targetEntity: semanticTarget.targetEntity,
+    targetKind: semanticTarget.targetKind,
+    targetPath: semanticTarget.targetPath,
+  });
 
-  // --------------------------------------------------------------------------
-  // 4) EXPLICIT PATHS / GENERIC FILE OPS
-  // --------------------------------------------------------------------------
-  else if (pathHints.length > 0 || hasFileSignal) {
-    planKey = "repo_file";
-    recommendedCommand = "/repo_file";
-    confidence = pathHints.length > 0 ? "high" : "medium";
-    basis.push(pathHints.length > 0 ? "path_hint" : "file_signal");
-  } else if (hasDiffSignal) {
-    planKey = "repo_diff";
-    recommendedCommand = "/repo_diff";
-    confidence = diffPhraseHits.length > 0 ? "high" : "medium";
-    basis.push("diff_signal");
-  } else if (hasAnalyzeSignal) {
-    planKey = "repo_analyze";
-    recommendedCommand = "/repo_analyze";
-    confidence = analyzePhraseHits.length > 0 ? "high" : "medium";
-    basis.push("analyze_signal");
-  } else if (hasSearchSignal) {
-    planKey = "repo_search";
-    recommendedCommand = "/repo_search";
-    confidence = searchPhraseHits.length > 0 ? "high" : "medium";
-    basis.push("search_signal");
-  }
+  const recommendedCommand = resolveRecommendedCommand(planKey);
 
-  // --------------------------------------------------------------------------
-  // 5) GENERIC FALLBACKS FOR MEANING
-  // --------------------------------------------------------------------------
-  else if (hasWorkflowSignal) {
-    planKey = "workflow_check";
-    recommendedCommand = "/workflow_check";
-    confidence = workflowPhraseHits.length > 0 ? "medium" : "low";
-    basis.push("workflow_fallback_semantic");
-  } else if (hasStageSignal) {
-    planKey = "stage_check";
-    recommendedCommand = "/stage_check";
-    confidence = stagePhraseHits.length > 0 ? "medium" : "low";
-    basis.push("stage_fallback_semantic");
-  }
+  const clarification = resolveNeedsClarification({
+    intentType,
+    planKey,
+    targetEntity: semanticTarget.targetEntity,
+    targetPath: semanticTarget.targetPath,
+    targetKind: semanticTarget.targetKind,
+  });
+
+  const confidence = resolveConfidence({
+    hasRepoAccessMetaSignal,
+    targetKind: semanticTarget.targetKind,
+    targetPath: semanticTarget.targetPath,
+    targetEntity: semanticTarget.targetEntity,
+    intentType,
+    needsClarification: clarification.needsClarification,
+  });
+
+  const basis = unique([
+    ...semanticTarget.targetBasis,
+    canonicalPillarBasis,
+    hasRepoAccessMetaSignal ? "repo_access_meta" : "",
+    hasSearchSignal ? "search_signal" : "",
+    hasAnalyzeSignal ? "analyze_signal" : "",
+    hasFileSignal ? "file_signal" : "",
+    hasTreeSignal ? "tree_signal" : "",
+    hasStatusSignal ? "status_signal" : "",
+    hasDiffSignal ? "diff_signal" : "",
+    isReadDocumentIntent ? "read_document_intent" : "",
+    isAnalyzeDocumentIntent ? "analyze_document_intent" : "",
+    isCheckIntent ? "check_intent" : "",
+    intentType ? `intent:${intentType}` : "",
+  ]);
+
+  const searchEntityHints = unique([
+    semanticTarget.targetEntity,
+    semanticTarget.targetPath,
+    canonicalPillarPath,
+    hasPillarsRootSignal ? "pillars/" : "",
+  ]);
 
   const queryHints = unique([
     ...searchPhraseHits,
@@ -784,9 +916,6 @@ export function resolveProjectIntentReadPlan({
     ...repoTargetHits,
   ]);
 
-  const primaryPathHint =
-    pickFirstNonEmpty(pathHints) || pickFirstNonEmpty([canonicalPillarPath]);
-
   const routeKey = String(route?.routeKey || "").trim();
   const routeAllowsInternalRead =
     routeKey === "sg_core_internal_read_allowed";
@@ -795,8 +924,6 @@ export function resolveProjectIntentReadPlan({
     normalized,
     tokens,
 
-    workflowPhraseHits,
-    stagePhraseHits,
     statusPhraseHits,
     treePhraseHits,
     searchPhraseHits,
@@ -804,8 +931,6 @@ export function resolveProjectIntentReadPlan({
     analyzePhraseHits,
     diffPhraseHits,
 
-    workflowTokenHits,
-    stageTokenHits,
     statusTokenHits,
     treeTokenHits,
     searchTokenHits,
@@ -826,21 +951,30 @@ export function resolveProjectIntentReadPlan({
 
     canonicalPillarPath,
     canonicalPillarBasis,
+    canonicalPillarEntity,
     hasPillarsRootSignal,
-    hasCanonicalPillarMatch,
 
     isReadDocumentIntent,
     isAnalyzeDocumentIntent,
     isCheckIntent,
 
     pathHints,
-    primaryPathHint,
+    primaryPathHint: pickFirstNonEmpty(pathHints) || pickFirstNonEmpty([canonicalPillarPath]),
     queryHints,
+    searchEntityHints,
+
+    // semantic model
+    intentType,
+    targetKind: semanticTarget.targetKind,
+    targetEntity: semanticTarget.targetEntity,
+    targetPath: semanticTarget.targetPath,
+    needsClarification: clarification.needsClarification,
+    clarificationQuestion: clarification.clarificationQuestion,
 
     planKey,
     recommendedCommand,
     confidence,
-    basis: unique(basis),
+    basis,
 
     routeKey,
     routeAllowsInternalRead,

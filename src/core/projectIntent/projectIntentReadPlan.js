@@ -46,6 +46,22 @@ function collectTokenHits(tokens, markers) {
   return unique(markers.filter((marker) => tokenSet.has(marker)));
 }
 
+function collectPrefixHits(tokens, prefixes) {
+  if (!tokens.length) return [];
+  const hits = [];
+
+  for (const token of tokens) {
+    for (const prefix of prefixes) {
+      if (token.startsWith(prefix)) {
+        hits.push(token);
+        break;
+      }
+    }
+  }
+
+  return unique(hits);
+}
+
 function pickFirstNonEmpty(values = []) {
   for (const value of values) {
     const trimmed = String(value || "").trim();
@@ -120,6 +136,8 @@ const PILLAR_FILE_RULES = Object.freeze([
       "открой документ workflow",
       "покажи документ workflow",
       "проанализируй workflow md",
+      "проанализируй workflow",
+      "открой workflow",
     ],
     tokens: [],
     basis: "pillar_workflow",
@@ -413,6 +431,26 @@ const REPO_ACCESS_META_TOKENS = Object.freeze([
   "see",
 ]);
 
+const REPO_ACCESS_META_PREFIXES = Object.freeze([
+  "доступ",
+  "подключ",
+  "вид",
+  "чит",
+  "access",
+  "connect",
+  "read",
+  "see",
+]);
+
+const REPO_TARGET_PREFIXES = Object.freeze([
+  "репозитор",
+  "репо",
+  "github",
+  "гитхаб",
+  "repo",
+  "repositor",
+]);
+
 const PATH_HINT_PATTERNS = [
   /(?:^|\s)(src\/[^\s]+)/i,
   /(?:^|\s)(pillars\/[^\s]+)/i,
@@ -534,11 +572,26 @@ function looksLikeCheckIntent(normalized, tokens) {
 function looksLikeRepoAccessMetaIntent(normalized, tokens) {
   const phraseHits = collectPhraseHits(normalized, REPO_ACCESS_META_PHRASES);
   const tokenHits = collectTokenHits(tokens, REPO_ACCESS_META_TOKENS);
+  const prefixHits = collectPrefixHits(tokens, REPO_ACCESS_META_PREFIXES);
+  const repoTargetHits = collectPrefixHits(tokens, REPO_TARGET_PREFIXES);
+
+  const hasRepoAccessMetaSignal =
+    phraseHits.length > 0 ||
+    (
+      prefixHits.length > 0 &&
+      repoTargetHits.length > 0
+    ) ||
+    (
+      tokenHits.length > 0 &&
+      repoTargetHits.length > 0
+    );
 
   return {
     phraseHits,
     tokenHits,
-    hasRepoAccessMetaSignal: phraseHits.length > 0 || tokenHits.length > 0,
+    prefixHits,
+    repoTargetHits,
+    hasRepoAccessMetaSignal,
   };
 }
 
@@ -580,6 +633,8 @@ export function resolveProjectIntentReadPlan({
   const {
     phraseHits: repoAccessMetaPhraseHits,
     tokenHits: repoAccessMetaTokenHits,
+    prefixHits: repoAccessMetaPrefixHits,
+    repoTargetHits,
     hasRepoAccessMetaSignal,
   } = looksLikeRepoAccessMetaIntent(normalized, tokens);
 
@@ -725,6 +780,8 @@ export function resolveProjectIntentReadPlan({
     ...canonicalPillarTokenHits,
     ...repoAccessMetaPhraseHits,
     ...repoAccessMetaTokenHits,
+    ...repoAccessMetaPrefixHits,
+    ...repoTargetHits,
   ]);
 
   const primaryPathHint =
@@ -763,6 +820,8 @@ export function resolveProjectIntentReadPlan({
 
     repoAccessMetaPhraseHits,
     repoAccessMetaTokenHits,
+    repoAccessMetaPrefixHits,
+    repoTargetHits,
     hasRepoAccessMetaSignal,
 
     canonicalPillarPath,

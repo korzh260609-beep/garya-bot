@@ -534,8 +534,8 @@ export async function evaluateSingleItem(item, ctx) {
 
     if (
       (hasPassedExplicitStrong && nonPolicyCorroboration) ||
-      (hasPassedStrongCluster && denseDistributedEvidence) ||
-      (supportingEvidence >= 4)
+      (hasPassedStrongCluster && supportingEvidence >= 2) ||
+      (supportingEvidence >= 3)
     ) {
       status = "COMPLETE";
     } else if (

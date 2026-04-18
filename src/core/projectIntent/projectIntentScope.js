@@ -5,11 +5,7 @@
 // - classify free-text requests by TARGET SCOPE first, not just by keywords
 // - separate SG core internal project from future user-owned projects
 // - distinguish action mode: read / write / mixed / unknown
-// - move closer to semantic intent classification:
-//   * capability/meta question about SG repo access
-//   * internal SG repo/project request
-//   * canonical pillar document request
-//   * user-owned project request
+// - work by semantic signal groups, not brittle exact phrases only
 // IMPORTANT:
 // - NO command execution here
 // - NO repo writes here
@@ -64,6 +60,14 @@ function collectPrefixHits(tokens, prefixes) {
   return unique(hits);
 }
 
+function countHits(...groups) {
+  let count = 0;
+  for (const group of groups) {
+    count += Array.isArray(group) ? group.length : 0;
+  }
+  return count;
+}
+
 // ----------------------------------------------------------------------------
 // SG CORE — INTERNAL IDENTITY / STRONG ANCHORS
 // ----------------------------------------------------------------------------
@@ -92,11 +96,7 @@ export const SG_CORE_STRONG_ANCHORS = Object.freeze([
   "repo_tree",
   "repo_file",
   "repo_search",
-  "repo_get",
   "repo_analyze",
-  "repo_check",
-  "repo_review",
-  "repo_review2",
   "code_output_status",
 ]);
 
@@ -130,21 +130,7 @@ export const SG_CANONICAL_PILLAR_PHRASES = Object.freeze([
   "sg_behavior.md",
   "sg_entity.md",
   "code_insert_rules.md",
-
-  "workflow",
-  "roadmap",
-  "decisions",
-  "repoindex",
-  "pillars",
   "pillars/",
-  "pillar",
-  "пилларс",
-  "пиллары",
-
-  "канонические документы",
-  "основные документы",
-  "законодательная база",
-  "база правил",
 ]);
 
 export const SG_CANONICAL_PILLAR_TOKENS = Object.freeze([
@@ -159,7 +145,7 @@ export const SG_CANONICAL_PILLAR_TOKENS = Object.freeze([
 ]);
 
 // ----------------------------------------------------------------------------
-// SG INTERNAL OBJECTS / SUBJECTS
+// OBJECT / DOMAIN SIGNALS
 // ----------------------------------------------------------------------------
 
 export const SG_CORE_OBJECT_PHRASES = Object.freeze([
@@ -174,13 +160,7 @@ export const SG_CORE_OBJECT_PHRASES = Object.freeze([
   "repo sg",
   "github sg",
   "репозиторий проекта sg",
-  "репозиторий проекта",
-  "репозиторий sg",
-  "github проекта",
-  "github репозиторий",
-  "доступ к репозиторию проекта",
-  "доступ к github проекта",
-  "подключение к github проекта",
+  "github проекта sg",
 ]);
 
 export const SG_CORE_OBJECT_TOKENS_STRONG = Object.freeze([
@@ -212,10 +192,12 @@ export const SG_CORE_OBJECT_TOKENS_WEAK = Object.freeze([
 export const SG_CORE_OBJECT_PREFIXES = Object.freeze([
   "репозитор",
   "архитектур",
+  "гитхаб",
+  "воркфлоу",
 ]);
 
 // ----------------------------------------------------------------------------
-// META / CAPABILITY QUESTIONS ABOUT ACCESS / CONNECTION / VISIBILITY
+// REPO ACCESS / VISIBILITY / CONNECTION META SIGNALS
 // ----------------------------------------------------------------------------
 
 export const SG_REPO_META_ACCESS_PHRASES = Object.freeze([
@@ -257,6 +239,26 @@ export const SG_REPO_META_ACCESS_TOKENS = Object.freeze([
   "читать",
   "read",
   "see",
+]);
+
+export const SG_REPO_META_ACCESS_PREFIXES = Object.freeze([
+  "доступ",
+  "подключ",
+  "вид",
+  "чит",
+  "access",
+  "connect",
+  "read",
+  "see",
+]);
+
+export const SG_REPO_TARGET_PREFIXES = Object.freeze([
+  "репозитор",
+  "репо",
+  "github",
+  "гитхаб",
+  "repo",
+  "repositor",
 ]);
 
 // ----------------------------------------------------------------------------
@@ -429,12 +431,14 @@ function resolveSemanticIntentKind({
 }) {
   const accessMetaPhraseHits = collectPhraseHits(normalized, SG_REPO_META_ACCESS_PHRASES);
   const accessMetaTokenHits = collectTokenHits(tokens, SG_REPO_META_ACCESS_TOKENS);
+  const accessMetaPrefixHits = collectPrefixHits(tokens, SG_REPO_META_ACCESS_PREFIXES);
+  const repoTargetPrefixHits = collectPrefixHits(tokens, SG_REPO_TARGET_PREFIXES);
 
   const hasAccessMetaSignal =
     accessMetaPhraseHits.length >= 1 ||
     (
-      accessMetaTokenHits.length >= 1 &&
-      (hasStrongObject || hasWeakObject || hasCanonicalPillarSignal)
+      (accessMetaTokenHits.length >= 1 || accessMetaPrefixHits.length >= 1) &&
+      (repoTargetPrefixHits.length >= 1 || hasStrongObject || hasWeakObject || hasCanonicalPillarSignal)
     );
 
   let semanticIntentKind = "unknown";
@@ -465,6 +469,8 @@ function resolveSemanticIntentKind({
     semanticBasis,
     accessMetaPhraseHits,
     accessMetaTokenHits,
+    accessMetaPrefixHits,
+    repoTargetPrefixHits,
     hasAccessMetaSignal,
   };
 }
@@ -612,6 +618,8 @@ export function resolveProjectIntentMatch(text) {
       semanticBasis: [],
       accessMetaPhraseHits: [],
       accessMetaTokenHits: [],
+      accessMetaPrefixHits: [],
+      repoTargetPrefixHits: [],
       hasAccessMetaSignal: false,
     };
   }
@@ -651,6 +659,8 @@ export function resolveProjectIntentMatch(text) {
     semanticBasis,
     accessMetaPhraseHits,
     accessMetaTokenHits,
+    accessMetaPrefixHits,
+    repoTargetPrefixHits,
     hasAccessMetaSignal,
   } = resolveSemanticIntentKind({
     normalized,
@@ -671,7 +681,7 @@ export function resolveProjectIntentMatch(text) {
   if (hasStrongAnchor) {
     targetScope = "sg_core_internal";
     classificationBasis.push("sg_core_strong_anchor");
-  } else if (hasAccessMetaSignal && (hasStrongObject || hasWeakObject || hasCanonicalPillarSignal || hasIdentityToken)) {
+  } else if (hasAccessMetaSignal && (repoTargetPrefixHits.length >= 1 || hasStrongObject || hasCanonicalPillarSignal || hasIdentityToken)) {
     targetScope = "sg_core_internal";
     classificationBasis.push("repo_access_meta_internal");
   } else if (hasCanonicalPillarSignal && (hasReadAction || hasWriteAction || semanticIntentKind !== "unknown")) {
@@ -692,9 +702,9 @@ export function resolveProjectIntentMatch(text) {
   } else if (hasStrongObject && hasReadAction) {
     targetScope = "sg_core_internal";
     classificationBasis.push("sg_core_strong_object_plus_read");
-  } else if (hasStrongObject && semanticIntentKind === "internal_repo_read") {
+  } else if (countHits(accessMetaPrefixHits, repoTargetPrefixHits) >= 2 && hasIdentityToken) {
     targetScope = "sg_core_internal";
-    classificationBasis.push("sg_core_semantic_internal_read");
+    classificationBasis.push("sg_core_prefix_meta_read");
   }
 
   // --------------------------------------------------------------------------
@@ -746,7 +756,7 @@ export function resolveProjectIntentMatch(text) {
     confidence = "none";
   } else if (targetScope === "sg_core_internal") {
     if (hasStrongAnchor) confidence = "high";
-    else if (hasAccessMetaSignal && (hasStrongObject || hasCanonicalPillarSignal)) confidence = "high";
+    else if (hasAccessMetaSignal && repoTargetPrefixHits.length >= 1) confidence = "high";
     else if (hasCanonicalPillarSignal && hasReadAction) confidence = "high";
     else if (hasIdentityPhrase) confidence = "high";
     else if (hasIdentityToken && (hasWriteAction || hasStrongObject)) confidence = "high";
@@ -792,6 +802,8 @@ export function resolveProjectIntentMatch(text) {
     semanticBasis,
     accessMetaPhraseHits,
     accessMetaTokenHits,
+    accessMetaPrefixHits,
+    repoTargetPrefixHits,
     hasAccessMetaSignal,
   };
 }
@@ -808,6 +820,8 @@ export default {
   SG_CORE_OBJECT_PREFIXES,
   SG_REPO_META_ACCESS_PHRASES,
   SG_REPO_META_ACCESS_TOKENS,
+  SG_REPO_META_ACCESS_PREFIXES,
+  SG_REPO_TARGET_PREFIXES,
   USER_PROJECT_PHRASES,
   USER_PROJECT_TOKENS,
   PROJECT_READ_ACTION_PHRASES,

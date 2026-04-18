@@ -14,6 +14,7 @@ import { buildChatHandlerContext } from "./contextBuilders.js";
 import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.js";
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
 import { resolveProjectIntentReadPlan } from "../projectIntent/projectIntentReadPlan.js";
+import { resolveProjectIntentRepoBridge } from "../projectIntent/projectIntentRepoBridge.js";
 
 export async function handleChatFlow({
   context,
@@ -65,6 +66,7 @@ export async function handleChatFlow({
     // - route decision is resolved once
     // - guard enforces SG core internal access policy
     // - read plan prepares future bridge to repo read/search/analyze
+    // - repo bridge normalizes future handler/command target
     // =========================================================================
     const projectIntentRoute = resolveProjectIntentRoute({
       text: trimmed,
@@ -91,6 +93,11 @@ export async function handleChatFlow({
     const projectIntentReadPlan = resolveProjectIntentReadPlan({
       text: trimmed,
       route: projectIntentRoute,
+    });
+
+    const projectIntentRepoBridge = resolveProjectIntentRepoBridge({
+      route: projectIntentRoute,
+      readPlan: projectIntentReadPlan,
     });
 
     const explicitRememberResult = await handleExplicitRemember({
@@ -151,6 +158,14 @@ export async function handleChatFlow({
             projectIntentPlanConfidence: projectIntentReadPlan.confidence,
             projectIntentPrimaryPathHint: projectIntentReadPlan.primaryPathHint,
             projectIntentRouteAllowsInternalRead: projectIntentReadPlan.routeAllowsInternalRead,
+
+            // STAGE 12A.0 repo-bridge snapshot
+            projectIntentBridgeHandlerKey: projectIntentRepoBridge.handlerKey,
+            projectIntentBridgeCommand: projectIntentRepoBridge.recommendedCommand,
+            projectIntentBridgeCommandArg: projectIntentRepoBridge.commandArg,
+            projectIntentBridgeCommandText: projectIntentRepoBridge.commandText,
+            projectIntentBridgeCanAutoExecute: projectIntentRepoBridge.canAutoExecute,
+            projectIntentBridgeConfidence: projectIntentRepoBridge.confidence,
           },
           raw: buildRawMeta(raw || {}),
           schemaVersion: 1,

@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function denySensitivePath(path) {
   const lower = String(path || "").toLowerCase();
@@ -22,7 +22,6 @@ function denySensitivePath(path) {
 function extractImportedNames(code) {
   const imported = new Set();
 
-  // import { a, b as c } from "..."
   const reNamed = /import\s*\{\s*([^}]+)\s*\}\s*from\s*["'][^"']+["'];/g;
   let m;
   while ((m = reNamed.exec(code))) {
@@ -38,13 +37,11 @@ function extractImportedNames(code) {
       });
   }
 
-  // import X from "..."
   const reDefault = /import\s+([A-Za-z0-9_$]+)\s+from\s+["'][^"']+["'];/g;
   while ((m = reDefault.exec(code))) {
     if (m[1]) imported.add(m[1]);
   }
 
-  // import * as X from "..."
   const reStar = /import\s+\*\s+as\s+([A-Za-z0-9_$]+)\s+from\s+["'][^"']+["'];/g;
   while ((m = reStar.exec(code))) {
     if (m[1]) imported.add(m[1]);
@@ -65,8 +62,6 @@ function extractUsedIdentifiers(code) {
 
 function findUsedHandles(code) {
   const used = new Set();
-  // ignore property access like "ctx.handleX" or "obj.handleX"
-  // NOTE: negative lookbehind requires Node 16+ (Render should be OK)
   const re = /(?<!\.)\b(handle[A-Z][A-Za-z0-9_$]*)\b/g;
   let m;
   while ((m = re.exec(code))) {
@@ -87,7 +82,6 @@ function findUndefinedRestBug(code) {
     !/const\s*\{[^}]*\brest\b[^}]*\}\s*=\s*ctx\s*;/.test(code);
 
   if (hasCtxDestructureNoRest) {
-    // If file uses "rest" token-like, but doesn't define it as local const
     if (/\brest\b/.test(code) && !/\bconst\s+rest\s*=/.test(code)) {
       issues.push({
         code: "POSSIBLE_UNDEFINED_REST",
@@ -140,17 +134,6 @@ function findUnusedImports(code) {
   return issues;
 }
 
-/**
- * UNREACHABLE_CODE (V2, conservative)
- * We only flag a "return" if there's obvious same-block code after it.
- *
- * IMPORTANT: We avoid false positives for:
- * - switch/case blocks
- * - early returns in guard clauses
- * - "return ... }" followed by "case ..."
- *
- * This is NOT an AST parser by design (keep V2 simple).
- */
 function findUnreachableCode(code) {
   const issues = [];
   const lines = code.split("\n");
@@ -159,7 +142,6 @@ function findUnreachableCode(code) {
     const cur = lines[i] || "";
     const curTrim = cur.trim();
 
-    // Skip comments (V2 heuristic, avoids false positives)
     if (
       curTrim.startsWith("//") ||
       curTrim.startsWith("/*") ||
@@ -169,7 +151,6 @@ function findUnreachableCode(code) {
       continue;
     }
 
-    // Skip obvious string literals to reduce false positives ("return" inside text)
     if (
       (curTrim.startsWith('"') && curTrim.endsWith('"')) ||
       (curTrim.startsWith("'") && curTrim.endsWith("'")) ||
@@ -180,8 +161,6 @@ function findUnreachableCode(code) {
 
     if (!/\breturn\b/.test(cur)) continue;
 
-    // If "return" is inside a switch/case style flow, skip.
-    // Heuristic: look back a few lines for "case" or "switch"
     const back1 = lines[i - 1] || "";
     const back2 = lines[i - 2] || "";
     const back3 = lines[i - 3] || "";
@@ -193,7 +172,6 @@ function findUnreachableCode(code) {
       continue;
     }
 
-    // Look ahead up to 3 lines (to allow: return -> } -> case)
     const next1 = lines[i + 1] || "";
     const next2 = lines[i + 2] || "";
     const next3 = lines[i + 3] || "";
@@ -209,8 +187,6 @@ function findUnreachableCode(code) {
       return false;
     };
 
-    // If immediate next is boundary, we assume no unreachable.
-    // Also allow: boundary -> boundary (like: "}" then "case").
     if (isBoundary(next1)) {
       if (isBoundary(next2) || isBoundary(next3)) {
         continue;
@@ -218,8 +194,6 @@ function findUnreachableCode(code) {
       continue;
     }
 
-    // If next line starts a new block/case, it's boundary anyway.
-    // Otherwise it's suspicious.
     issues.push({
       code: "UNREACHABLE_CODE",
       severity: "medium",
@@ -230,28 +204,17 @@ function findUnreachableCode(code) {
   return issues;
 }
 
-/* =========================
-   DECISIONS.md RULES (V1)
-   ========================= */
-
 function checkDecisionsViolations(code) {
   const issues = [];
 
-  // V1: sanitize comments + string literals to reduce false positives
   let sanitized = String(code || "");
 
-  // remove // line comments
   sanitized = sanitized.replace(/\/\/.*$/gm, "");
-
-  // remove /* block comments */
   sanitized = sanitized.replace(/\/\*[\s\S]*?\*\//g, "");
-
-  // remove string literals (rough, V1 heuristic)
   sanitized = sanitized.replace(/`[\s\S]*?`/g, "");
   sanitized = sanitized.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, "");
   sanitized = sanitized.replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, "");
 
-  // Simple rule example: no console.log in production code
   if (/\bconsole\.log\b/.test(sanitized)) {
     issues.push({
       code: "DECISION_VIOLATION",
@@ -262,15 +225,6 @@ function checkDecisionsViolations(code) {
 
   return issues;
 }
-
-/* =========================
-   SUGGESTIONS (READ-ONLY) — V1
-   Rules:
-   - Suggestions are derived ONLY from detected issues + rules
-   - No code patches, no "insert this"
-   - Max 7 items
-   - Format: severity + category + reason
-   ========================= */
 
 function buildSuggestionsFromIssues(issues) {
   const map = {
@@ -308,7 +262,6 @@ function buildSuggestionsFromIssues(issues) {
 
   const rankSev = (s) => (s === "high" ? 3 : s === "medium" ? 2 : 1);
 
-  // Deduplicate by issue.code to avoid spamming; keep highest severity occurrence.
   const byCode = new Map();
   for (const it of issues || []) {
     if (!it?.code) continue;
@@ -320,7 +273,6 @@ function buildSuggestionsFromIssues(issues) {
 
   const unique = Array.from(byCode.values());
 
-  // Sort by severity desc, then stable by code
   unique.sort((a, b) => {
     const d = rankSev(b.severity) - rankSev(a.severity);
     if (d !== 0) return d;
@@ -343,16 +295,10 @@ function buildSuggestionsFromIssues(issues) {
   return suggestions;
 }
 
-/* =========================
-   B3.5 HOOK — apply DECISIONS D-021 rules (noise filtering + aggregation)
-   ========================= */
-
 function applySuggestionRules({ issues, suggestions }) {
   const list = Array.isArray(suggestions) ? suggestions : [];
   const issueList = Array.isArray(issues) ? issues : [];
 
-  // D-021: One suggestion per issue type is already handled by dedup in buildSuggestionsFromIssues,
-  // but we enforce safety here too.
   const seen = new Set();
   let unique = [];
   for (const s of list) {
@@ -363,16 +309,13 @@ function applySuggestionRules({ issues, suggestions }) {
     unique.push(s);
   }
 
-  // D-021: Max 7
   if (unique.length > 7) unique = unique.slice(0, 7);
 
-  // D-021: Heuristic-only noise rule for UNREACHABLE_CODE
   const onlyUnreachable =
     issueList.length > 0 &&
     issueList.every((it) => String(it?.code) === "UNREACHABLE_CODE");
 
   if (onlyUnreachable) {
-    // Lower severity + only one item
     const base =
       unique.find((s) => String(s?.issueCode) === "UNREACHABLE_CODE") ||
       unique[0] || {
@@ -392,21 +335,12 @@ function applySuggestionRules({ issues, suggestions }) {
     ];
   }
 
-  // D-021: If there are no high-severity issues, do not alarm.
-  // (We keep severity values but do not escalate; output text remains calm by design in reasons.)
   return unique.map((s) => ({
     severity: s.severity || "low",
     category: s.category || "maintainability",
     reason: s.reason,
   }));
 }
-
-/* =========================
-   B3.6 — aggregate issues for display (collapse noise)
-   - keep raw issues for Suggestions logic
-   - collapse display list by (code + severity)
-   - add xN to message
-   ========================= */
 
 function aggregateIssuesForDisplay(issues) {
   const list = Array.isArray(issues) ? issues : [];
@@ -415,8 +349,8 @@ function aggregateIssuesForDisplay(issues) {
   const map = new Map();
   const order = [];
 
-  const VIS_HIDE_DETAILS_N = 10; // B3.7
-  const VIS_HIDE_EXAMPLES_N = 50; // B3.7
+  const VIS_HIDE_DETAILS_N = 10;
+  const VIS_HIDE_EXAMPLES_N = 50;
 
   const pickLine = (msg) => {
     const m = String(msg || "").match(/\bline\s+(\d+)\b/i);
@@ -457,16 +391,12 @@ function aggregateIssuesForDisplay(issues) {
       e.lines && e.lines.length > 0 ? ` (e.g. lines ${e.lines.join(", ")})` : "";
     const suffixCount = e.count > 1 ? ` (x${e.count})` : "";
 
-    // B3.7 visibility thresholds
     let msg;
     if (e.count >= VIS_HIDE_EXAMPLES_N) {
-      // only summary
       msg = `${e.code} detected${suffixCount}`;
     } else if (e.count >= VIS_HIDE_DETAILS_N) {
-      // short summary + examples
       msg = `${e.code} detected${suffixCount}${suffixLines}`;
     } else {
-      // normal (detailed) message
       msg = `${e.message}${suffixCount}${suffixLines}`;
     }
 
@@ -478,12 +408,8 @@ function aggregateIssuesForDisplay(issues) {
   return { total, collapsed, display };
 }
 
-/* =========================
-   MAIN HANDLER
-   ========================= */
-
 export async function handleRepoCheck(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const { bot, chatId, rest } = ctx;
@@ -516,7 +442,6 @@ export async function handleRepoCheck(ctx = {}) {
   const code = file.content;
   const issues = [];
 
-  // V1: missing handler imports (only for bare identifiers, not ctx.handleX)
   const imported = extractImportedNames(code);
   const usedHandles = findUsedHandles(code);
 
@@ -525,10 +450,7 @@ export async function handleRepoCheck(ctx = {}) {
       `\\bfunction\\s+${h}\\b|\\bconst\\s+${h}\\b|\\blet\\s+${h}\\b|\\bvar\\s+${h}\\b|\\bexport\\s+(async\\s+)?function\\s+${h}\\b`
     ).test(code);
 
-    // Allow "ctx.handleX" style usage (already excluded by regex, but keep safe)
-    const asProperty = new RegExp(`\\b[A-Za-z_$][A-Za-z0-9_$]*\\.${h}\\b`).test(
-      code
-    );
+    const asProperty = new RegExp(`\\b[A-Za-z_$][A-Za-z0-9_$]*\\.${h}\\b`).test(code);
 
     if (!selfDefined && !imported.has(h) && !asProperty) {
       issues.push({
@@ -541,34 +463,25 @@ export async function handleRepoCheck(ctx = {}) {
 
   issues.push(...findUndefinedRestBug(code));
   issues.push(...findDuplicateCases(code));
-
-  // V2
   issues.push(...findUnusedImports(code));
   issues.push(...findUnreachableCode(code));
   issues.push(...checkDecisionsViolations(code));
 
-  // B3.6/B3.7: collapse issues for display only (keep raw issues for Suggestions logic)
   const displayAgg = aggregateIssuesForDisplay(issues);
   const displayIssues = displayAgg.display;
 
-  // Output
   const out = [];
   out.push(`repo_check: ${path}`);
 
   out.push("");
   out.push("Suggestions (READ-ONLY):");
 
-  // B3.5 — Suggestions enabled with D-021 filtering
   const rawSuggestions = buildSuggestionsFromIssues(issues);
   const suggestionsPreGate = applySuggestionRules({
     issues,
     suggestions: rawSuggestions,
   });
 
-  // B3.9 — STRICT GATE:
-  // Show Suggestions ONLY if:
-  // - has at least one HIGH issue, OR
-  // - has 2+ different issue types (codes)
   const hasHigh = (issues || []).some((it) => String(it?.severity) === "high");
   const typeSet = new Set((issues || []).map((it) => String(it?.code || "")));
   const hasMultipleTypes = typeSet.size >= 2;
@@ -605,9 +518,7 @@ export async function handleRepoCheck(ctx = {}) {
       : "";
 
   out.push(
-    `issues: ${displayIssues.length} (high=${bySevDisplay.high || 0}, medium=${
-      bySevDisplay.medium || 0
-    }, low=${bySevDisplay.low || 0})${collapsedNote}`
+    `issues: ${displayIssues.length} (high=${bySevDisplay.high || 0}, medium=${bySevDisplay.medium || 0}, low=${bySevDisplay.low || 0})${collapsedNote}`
   );
 
   displayIssues.slice(0, 15).forEach((it, i) => {

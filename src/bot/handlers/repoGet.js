@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
-import { resolveHandlerAccess, requireMonarchAccess } from "./handlerAccess.js";
+import { resolveHandlerAccess, requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 // --- Config (safe defaults) ---
 // You can override allowed roots via env: REPO_ALLOWED_ROOTS="src/,core/,pillars/,docs/,README.md,index.js,package.json"
@@ -69,6 +69,9 @@ function isAllowedRoot(p, allowedRoots) {
 }
 
 export async function handleRepoGet(ctx = {}) {
+  const ok = await requireMonarchPrivateAccess(ctx);
+  if (!ok) return;
+
   const { bot, chatId, rest } = ctx;
 
   const rawPath = (rest || "").trim();
@@ -101,10 +104,10 @@ export async function handleRepoGet(ctx = {}) {
   const access = resolveHandlerAccess(ctx);
   const wantsMonarchExtra = isAllowedRoot(path, MONARCH_EXTRA_ROOTS);
 
-  // For extra roots, require explicit monarch access via shared helper.
-  if (wantsMonarchExtra) {
-    const ok = await requireMonarchAccess(ctx);
-    if (!ok) return;
+  // Extra roots remain monarch-only, but now private-only is already enforced above too.
+  if (wantsMonarchExtra && !access.isMonarchUser) {
+    await bot.sendMessage(chatId, "⛔ Недостаточно прав (monarch-only).");
+    return;
   }
 
   // Allowlist roots (default) OR monarch-extra roots
@@ -129,8 +132,8 @@ export async function handleRepoGet(ctx = {}) {
   // Optional: if RepoSource supports snapshot-based path validation, use it (won't break if absent)
   try {
     if (typeof source.pathInSnapshot === "function") {
-      const ok = await source.pathInSnapshot(path);
-      if (!ok) {
+      const snapshotOk = await source.pathInSnapshot(path);
+      if (!snapshotOk) {
         await bot.sendMessage(chatId, `File blocked (path not in snapshot): ${path}`);
         return;
       }

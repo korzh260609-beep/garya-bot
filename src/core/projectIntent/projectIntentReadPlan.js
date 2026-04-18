@@ -5,6 +5,7 @@
 // - turn internal SG free-text read requests into a normalized read-plan
 // - keep plan semantic and read-only
 // - prepare future bridge: human text -> repo read/search/analyze action
+// - respect canonical SG governance layer first: pillars/*
 // IMPORTANT:
 // - NO command execution
 // - NO repo writes
@@ -21,7 +22,7 @@ function normalizeText(value) {
 
 function tokenizeText(value) {
   const normalized = normalizeText(value)
-    .replace(/[.,!?;:()[\]{}<>\\|"'`~@#$%^&*+=]+/g, " ")
+    .replace(/[.,!?;:()[\]{}<>\\|"'\`~@#$%^&*+=]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -51,6 +52,150 @@ function pickFirstNonEmpty(values = []) {
   }
   return "";
 }
+
+// ----------------------------------------------------------------------------
+// CANONICAL SG GOVERNANCE LAYER — PILLARS
+// ----------------------------------------------------------------------------
+
+const PILLARS_ROOT_PHRASES = Object.freeze([
+  "pillars",
+  "pillars/",
+  "pillar",
+  "пилларс",
+  "пиллары",
+  "законодательная база sg",
+  "база проекта sg",
+  "канонические документы sg",
+  "основные документы sg",
+]);
+
+const PILLARS_ROOT_TOKENS = Object.freeze([
+  "pillars",
+  "pillar",
+  "пилларс",
+  "пиллары",
+]);
+
+const PILLAR_FILE_RULES = Object.freeze([
+  {
+    path: "pillars/WORKFLOW.md",
+    phrases: [
+      "workflow.md",
+      "workflow",
+      "воркфлоу",
+      "check workflow",
+      "workflow sg",
+      "workflow проекта sg",
+      "проверь workflow",
+      "покажи workflow",
+    ],
+    tokens: ["workflow", "воркфлоу"],
+    basis: "pillar_workflow",
+  },
+  {
+    path: "pillars/DECISIONS.md",
+    phrases: [
+      "decisions.md",
+      "decisions",
+      "решения проекта sg",
+      "решения sg",
+      "decision log",
+      "покажи decisions",
+      "покажи решения проекта",
+    ],
+    tokens: ["decisions"],
+    basis: "pillar_decisions",
+  },
+  {
+    path: "pillars/ROADMAP.md",
+    phrases: [
+      "roadmap.md",
+      "roadmap",
+      "роадмап",
+      "дорожная карта sg",
+      "покажи roadmap",
+      "покажи роадмап",
+    ],
+    tokens: ["roadmap", "роадмап"],
+    basis: "pillar_roadmap",
+  },
+  {
+    path: "pillars/PROJECT.md",
+    phrases: [
+      "project.md",
+      "project sg",
+      "описание проекта sg",
+      "документ проекта sg",
+      "покажи project md",
+    ],
+    tokens: ["project"],
+    basis: "pillar_project",
+  },
+  {
+    path: "pillars/KINGDOM.md",
+    phrases: [
+      "kingdom.md",
+      "kingdom",
+      "королевство garya",
+      "документ королевства",
+      "покажи kingdom",
+    ],
+    tokens: ["kingdom"],
+    basis: "pillar_kingdom",
+  },
+  {
+    path: "pillars/SG_BEHAVIOR.md",
+    phrases: [
+      "sg_behavior.md",
+      "sg behavior",
+      "поведение sg",
+      "правила поведения sg",
+      "как должен вести себя sg",
+    ],
+    tokens: ["behavior"],
+    basis: "pillar_behavior",
+  },
+  {
+    path: "pillars/SG_ENTITY.md",
+    phrases: [
+      "sg_entity.md",
+      "sg entity",
+      "сущность sg",
+      "роль sg",
+      "кто такой sg",
+    ],
+    tokens: ["entity"],
+    basis: "pillar_entity",
+  },
+  {
+    path: "pillars/REPOINDEX.md",
+    phrases: [
+      "repoindex.md",
+      "repoindex",
+      "индекс репозитория sg",
+      "карта репозитория sg",
+      "покажи repoindex",
+    ],
+    tokens: ["repoindex"],
+    basis: "pillar_repoindex",
+  },
+  {
+    path: "pillars/CODE_INSERT_RULES.md",
+    phrases: [
+      "code_insert_rules.md",
+      "code insert rules",
+      "правила вставки кода",
+      "правила внесения кода",
+      "покажи code insert rules",
+    ],
+    tokens: ["insert"],
+    basis: "pillar_code_insert_rules",
+  },
+]);
+
+// ----------------------------------------------------------------------------
+// GENERIC INTENT SIGNALS
+// ----------------------------------------------------------------------------
 
 const WORKFLOW_PHRASES = Object.freeze([
   "workflow",
@@ -227,6 +372,29 @@ function extractPathHints(text) {
   return unique(hits);
 }
 
+function resolvePillarFileMatch(normalized, tokens) {
+  for (const rule of PILLAR_FILE_RULES) {
+    const phraseHits = collectPhraseHits(normalized, rule.phrases || []);
+    const tokenHits = collectTokenHits(tokens, rule.tokens || []);
+
+    if (phraseHits.length || tokenHits.length) {
+      return {
+        canonicalPillarPath: rule.path,
+        canonicalPillarBasis: rule.basis,
+        canonicalPillarPhraseHits: phraseHits,
+        canonicalPillarTokenHits: tokenHits,
+      };
+    }
+  }
+
+  return {
+    canonicalPillarPath: "",
+    canonicalPillarBasis: "",
+    canonicalPillarPhraseHits: [],
+    canonicalPillarTokenHits: [],
+  };
+}
+
 function resolvePlanPreview(plan) {
   const key = String(plan?.planKey || "").trim();
 
@@ -267,6 +435,16 @@ export function resolveProjectIntentReadPlan({
   const stageTokenHits = collectTokenHits(tokens, STAGE_TOKENS);
   const diffTokenHits = collectTokenHits(tokens, DIFF_TOKENS);
 
+  const pillarsRootPhraseHits = collectPhraseHits(normalized, PILLARS_ROOT_PHRASES);
+  const pillarsRootTokenHits = collectTokenHits(tokens, PILLARS_ROOT_TOKENS);
+
+  const {
+    canonicalPillarPath,
+    canonicalPillarBasis,
+    canonicalPillarPhraseHits,
+    canonicalPillarTokenHits,
+  } = resolvePillarFileMatch(normalized, tokens);
+
   const pathHints = extractPathHints(text);
 
   const basis = [];
@@ -274,42 +452,85 @@ export function resolveProjectIntentReadPlan({
   let recommendedCommand = "/repo_search";
   let confidence = "low";
 
-  if (workflowPhraseHits.length || workflowTokenHits.length) {
+  const hasPillarsRootSignal =
+    pillarsRootPhraseHits.length >= 1 || pillarsRootTokenHits.length >= 1;
+
+  const hasCanonicalPillarMatch = !!canonicalPillarPath;
+  const hasAnalyzeSignal = analyzePhraseHits.length || analyzeTokenHits.length;
+  const hasFileSignal = filePhraseHits.length || fileTokenHits.length;
+  const hasSearchSignal = searchPhraseHits.length || searchTokenHits.length;
+  const hasWorkflowSignal = workflowPhraseHits.length || workflowTokenHits.length;
+  const hasStageSignal = stagePhraseHits.length || stageTokenHits.length;
+  const hasTreeSignal = treePhraseHits.length || treeTokenHits.length;
+  const hasStatusSignal = statusPhraseHits.length || statusTokenHits.length;
+  const hasDiffSignal = diffPhraseHits.length || diffTokenHits.length;
+
+  // --------------------------------------------------------------------------
+  // CANONICAL PILLARS FIRST
+  // --------------------------------------------------------------------------
+  if (hasCanonicalPillarMatch && hasAnalyzeSignal) {
+    planKey = "repo_analyze";
+    recommendedCommand = "/repo_analyze";
+    confidence = "high";
+    basis.push("canonical_pillar_analyze");
+    basis.push(canonicalPillarBasis);
+  } else if (hasCanonicalPillarMatch && (hasFileSignal || pathHints.length === 0)) {
+    planKey = "repo_file";
+    recommendedCommand = "/repo_file";
+    confidence = "high";
+    basis.push("canonical_pillar_file");
+    basis.push(canonicalPillarBasis);
+  } else if (hasPillarsRootSignal && hasTreeSignal) {
+    planKey = "repo_search";
+    recommendedCommand = "/repo_search";
+    confidence = "high";
+    basis.push("pillars_root_tree_like");
+  } else if (hasPillarsRootSignal && hasSearchSignal) {
+    planKey = "repo_search";
+    recommendedCommand = "/repo_search";
+    confidence = "high";
+    basis.push("pillars_root_search");
+  }
+
+  // --------------------------------------------------------------------------
+  // EXISTING GENERIC ORDER (keep conservative)
+  // --------------------------------------------------------------------------
+  else if (hasWorkflowSignal) {
     planKey = "workflow_check";
     recommendedCommand = "/workflow_check";
     confidence = workflowPhraseHits.length ? "high" : "medium";
     basis.push("workflow_signal");
-  } else if (stagePhraseHits.length || stageTokenHits.length) {
+  } else if (hasStageSignal) {
     planKey = "stage_check";
     recommendedCommand = "/stage_check";
     confidence = stagePhraseHits.length ? "high" : "medium";
     basis.push("stage_signal");
-  } else if (statusPhraseHits.length || statusTokenHits.length) {
+  } else if (hasStatusSignal) {
     planKey = "repo_status";
     recommendedCommand = "/repo_status";
     confidence = statusPhraseHits.length ? "high" : "medium";
     basis.push("status_signal");
-  } else if (treePhraseHits.length || treeTokenHits.length) {
+  } else if (hasTreeSignal) {
     planKey = "repo_tree";
     recommendedCommand = "/repo_tree";
     confidence = treePhraseHits.length ? "high" : "medium";
     basis.push("tree_signal");
-  } else if (pathHints.length || filePhraseHits.length || fileTokenHits.length) {
+  } else if (pathHints.length || hasFileSignal) {
     planKey = "repo_file";
     recommendedCommand = "/repo_file";
     confidence = pathHints.length ? "high" : "medium";
     basis.push(pathHints.length ? "path_hint" : "file_signal");
-  } else if (diffPhraseHits.length || diffTokenHits.length) {
+  } else if (hasDiffSignal) {
     planKey = "repo_diff";
     recommendedCommand = "/repo_diff";
     confidence = diffPhraseHits.length ? "high" : "medium";
     basis.push("diff_signal");
-  } else if (analyzePhraseHits.length || analyzeTokenHits.length) {
+  } else if (hasAnalyzeSignal) {
     planKey = "repo_analyze";
     recommendedCommand = "/repo_analyze";
     confidence = analyzePhraseHits.length ? "high" : "medium";
     basis.push("analyze_signal");
-  } else if (searchPhraseHits.length || searchTokenHits.length) {
+  } else if (hasSearchSignal) {
     planKey = "repo_search";
     recommendedCommand = "/repo_search";
     confidence = searchPhraseHits.length ? "high" : "medium";
@@ -321,9 +542,14 @@ export function resolveProjectIntentReadPlan({
     ...searchTokenHits,
     ...analyzePhraseHits,
     ...analyzeTokenHits,
+    ...pillarsRootPhraseHits,
+    ...pillarsRootTokenHits,
+    ...canonicalPillarPhraseHits,
+    ...canonicalPillarTokenHits,
   ]);
 
-  const primaryPathHint = pickFirstNonEmpty(pathHints);
+  const primaryPathHint =
+    pickFirstNonEmpty(pathHints) || pickFirstNonEmpty([canonicalPillarPath]);
 
   const routeKey = String(route?.routeKey || "").trim();
   const routeAllowsInternalRead =
@@ -350,6 +576,16 @@ export function resolveProjectIntentReadPlan({
     fileTokenHits,
     analyzeTokenHits,
     diffTokenHits,
+
+    pillarsRootPhraseHits,
+    pillarsRootTokenHits,
+    canonicalPillarPhraseHits,
+    canonicalPillarTokenHits,
+
+    canonicalPillarPath,
+    canonicalPillarBasis,
+    hasPillarsRootSignal,
+    hasCanonicalPillarMatch,
 
     pathHints,
     primaryPathHint,

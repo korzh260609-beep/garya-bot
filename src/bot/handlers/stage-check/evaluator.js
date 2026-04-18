@@ -527,15 +527,11 @@ export async function evaluateSingleItem(item, ctx) {
       supportingEvidence >= 2 ||
       (supportingEvidence >= 1 && hasPassedStrongCluster);
 
-    const denseDistributedEvidence =
-      supportingEvidence >= 3 ||
-      (supportingEvidence >= 2 && hasPassedWeakCheck) ||
-      (hasPassedStrongCluster && supportingEvidence >= 2);
-
     if (
       (hasPassedExplicitStrong && nonPolicyCorroboration) ||
       (hasPassedStrongCluster && supportingEvidence >= 2) ||
-      (supportingEvidence >= 3)
+      (supportingEvidence >= 3) ||
+      (supportingEvidence >= 2 && hasPassedWeakCheck)
     ) {
       status = "COMPLETE";
     } else if (

@@ -12,6 +12,7 @@
 // ============================================================================
 
 import { resolveProjectIntentRoute } from "./projectIntentRoute.js";
+import { buildProjectIntentRoutePreview } from "./projectIntentRoutePreview.js";
 
 function buildAccessDeniedText() {
   return [
@@ -43,6 +44,7 @@ export async function requireProjectIntentAccess({
     });
 
   const match = route.match;
+  const routePreview = buildProjectIntentRoutePreview(route);
 
   // Pass-through for anything that is NOT SG core internal.
   // This is critical because future users must be able to work with THEIR projects.
@@ -52,6 +54,7 @@ export async function requireProjectIntentAccess({
       blocked: false,
       reason: "not_sg_core_internal",
       route,
+      routePreview,
       match,
     };
   }
@@ -69,6 +72,7 @@ export async function requireProjectIntentAccess({
         project_intent_confidence: match.confidence,
         project_intent_route_key: route.routeKey,
         project_intent_policy: route.policy,
+        project_intent_route_preview: routePreview.text,
         project_intent_anchor_hits: match.anchorHits,
         project_intent_internal_action_hits: match.internalActionHits,
         project_intent_write_action_hits: match.writeActionHits,
@@ -81,6 +85,7 @@ export async function requireProjectIntentAccess({
       blocked: true,
       reason: "project_write_intent_denied",
       route,
+      routePreview,
       match,
     };
   }
@@ -93,6 +98,7 @@ export async function requireProjectIntentAccess({
       blocked: false,
       reason: "project_read_only_allowed",
       route,
+      routePreview,
       match,
     };
   }
@@ -107,6 +113,7 @@ export async function requireProjectIntentAccess({
       project_intent_confidence: match.confidence,
       project_intent_route_key: route.routeKey,
       project_intent_policy: route.policy,
+      project_intent_route_preview: routePreview.text,
       project_intent_anchor_hits: match.anchorHits,
       project_intent_internal_action_hits: match.internalActionHits,
       project_intent_write_action_hits: match.writeActionHits,
@@ -119,6 +126,7 @@ export async function requireProjectIntentAccess({
     blocked: true,
     reason: "project_intent_denied",
     route,
+    routePreview,
     match,
   };
 }

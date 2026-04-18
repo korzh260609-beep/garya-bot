@@ -4,7 +4,7 @@
 
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function normalizeQuery(raw) {
   let q = String(raw || "").trim();
@@ -19,7 +19,7 @@ function normalizeQuery(raw) {
 }
 
 export async function handleRepoSearch(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const { bot, chatId, rest } = ctx;

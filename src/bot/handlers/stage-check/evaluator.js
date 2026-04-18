@@ -315,10 +315,16 @@ function isExecutableSemanticType(semanticType) {
   return semanticType === "signature_like" || semanticType === "interface_like";
 }
 
+function isFoundationRuntimeLikeSemanticType(semanticType) {
+  return semanticType === "foundation_runtime_like";
+}
+
 function getRootScopeItem(scopeItems) {
-  return scopeItems.find(
-    (item) => !scopeItems.some((other) => other.code === item.parentCode)
-  ) || scopeItems[0] || null;
+  return (
+    scopeItems.find(
+      (item) => !scopeItems.some((other) => other.code === item.parentCode)
+    ) || scopeItems[0] || null
+  );
 }
 
 function hasDescendantsInScope(item, scopeItems) {
@@ -383,6 +389,10 @@ function contributesToCapabilityAggregation(item) {
 
   if (isExecutableSemanticType(semanticType)) {
     return hasStrongExplicitImplementationEvidence(item);
+  }
+
+  if (isFoundationRuntimeLikeSemanticType(semanticType)) {
+    return hasNonPolicySupportingEvidence(item);
   }
 
   if (semanticType === "generic") {
@@ -508,6 +518,32 @@ export async function evaluateSingleItem(item, ctx) {
     if (hasPassedExplicitStrong && supportingEvidence >= 2) {
       status = "COMPLETE";
     } else if (explicitAnchor && supportingEvidence >= 1) {
+      status = "PARTIAL";
+    } else {
+      status = "OPEN";
+    }
+  } else if (semanticType === "foundation_runtime_like") {
+    const nonPolicyCorroboration =
+      supportingEvidence >= 2 ||
+      (supportingEvidence >= 1 && hasPassedStrongCluster);
+
+    const denseDistributedEvidence =
+      supportingEvidence >= 3 ||
+      (supportingEvidence >= 2 && hasPassedWeakCheck) ||
+      (hasPassedStrongCluster && supportingEvidence >= 2);
+
+    if (
+      (hasPassedExplicitStrong && nonPolicyCorroboration) ||
+      (hasPassedStrongCluster && denseDistributedEvidence) ||
+      (supportingEvidence >= 4)
+    ) {
+      status = "COMPLETE";
+    } else if (
+      explicitAnchor ||
+      hasPassedStrongCluster ||
+      supportingEvidence >= 2 ||
+      (supportingEvidence >= 1 && hasPassedWeakCheck)
+    ) {
       status = "PARTIAL";
     } else {
       status = "OPEN";

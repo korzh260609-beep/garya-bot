@@ -5,7 +5,7 @@
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 import { fetchWithTimeout } from "../../core/fetchWithTimeout.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 // ---------------------------------------------------------------------------
 // Fallback: fetch HEAD commit SHA for (repo, branch) from GitHub API
@@ -52,7 +52,7 @@ async function fetchHeadCommitSha({ repo, branch }) {
 }
 
 export async function handleRepoStatus(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const { bot, chatId } = ctx;

@@ -1,14 +1,14 @@
 // src/core/projectIntent/projectIntentScope.js
 // ============================================================================
-// STAGE 12A.0 — project free-text intent scope (SKELETON, refined)
+// STAGE 12A.0 — project free-text intent scope (SKELETON, classifier v2)
 // Purpose:
-// - detect likely INTERNAL SG project/repo/workflow requests in free text
-// - distinguish read-only internal intent vs write-intent
-// - reduce false positives on generic words like repo/github/workflow
+// - classify INTERNAL SG project intent from free text using multi-signal rules
+// - distinguish target domain from action mode
+// - reduce dependence on exact phrases
 // IMPORTANT:
 // - NO command execution here
 // - NO repo writes here
-// - scope file only classifies text signals
+// - this file only classifies text intent
 // ============================================================================
 
 function normalizeText(value) {
@@ -18,24 +18,64 @@ function normalizeText(value) {
     .replace(/\s+/g, " ");
 }
 
-export const PROJECT_INTENT_ANCHORS = Object.freeze([
+function tokenizeText(value) {
+  const normalized = normalizeText(value)
+    .replace(/[.,!?;:()[\]{}<>/\\|"'`~@#$%^&*+=-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return [];
+  return normalized.split(" ").filter(Boolean);
+}
+
+function unique(values) {
+  return [...new Set((Array.isArray(values) ? values : []).filter(Boolean))];
+}
+
+function collectPhraseHits(normalized, markers) {
+  if (!normalized) return [];
+  return unique(markers.filter((marker) => normalized.includes(marker)));
+}
+
+function collectTokenHits(tokens, markers) {
+  if (!tokens.length) return [];
+  const tokenSet = new Set(tokens);
+  return unique(markers.filter((marker) => tokenSet.has(marker)));
+}
+
+function collectPrefixHits(tokens, prefixes) {
+  if (!tokens.length) return [];
+  const hits = [];
+
+  for (const token of tokens) {
+    for (const prefix of prefixes) {
+      if (token.startsWith(prefix)) {
+        hits.push(token);
+        break;
+      }
+    }
+  }
+
+  return unique(hits);
+}
+
+export const PROJECT_INTENT_STRONG_ANCHORS = Object.freeze([
   "garya-bot",
   "советник garya",
-  "проект sg",
   "sg project",
-  "мой проект sg",
+  "проект sg",
   "my sg project",
-  "мой репозиторий sg",
+  "мой проект sg",
   "my sg repo",
-  "pillars/",
+  "мой репозиторий sg",
   "workflow.md",
   "roadmap.md",
   "decisions.md",
-  "code_output_status",
-  "workflow_check",
-  "stage_check",
+  "pillars/",
   "/workflow_check",
   "/stage_check",
+  "workflow_check",
+  "stage_check",
   "repo_status",
   "repo_tree",
   "repo_file",
@@ -45,28 +85,62 @@ export const PROJECT_INTENT_ANCHORS = Object.freeze([
   "repo_check",
   "repo_review",
   "repo_review2",
+  "code_output_status",
 ]);
 
-export const PROJECT_INTENT_INTERNAL_ACTIONS = Object.freeze([
+export const PROJECT_INTENT_IDENTITY_TOKENS = Object.freeze([
+  "sg",
+  "сг",
+  "garya",
+  "советник",
+]);
+
+export const PROJECT_INTENT_OBJECT_PHRASES = Object.freeze([
+  "sg project",
+  "проект sg",
+  "my project",
+  "мой проект",
+  "my repo",
+  "мой репозиторий",
+  "project architecture",
+  "архитектура проекта",
+  "код проекта",
+]);
+
+export const PROJECT_INTENT_OBJECT_TOKENS = Object.freeze([
   "repo",
   "repository",
   "github",
   "workflow",
   "roadmap",
   "pillars",
-  "stage check",
-  "stage-check",
   "architecture",
   "architectural",
+  "stage",
+  "stages",
+  "code",
+  "project",
+  "projects",
+  "repofile",
+  "репозиторий",
+  "репо",
   "архитектура",
-  "архитектур",
+  "архитектуры",
+  "код",
+  "проект",
+  "проекта",
+  "проекту",
+  "этап",
+  "этапы",
+  "воркфлоу",
+]);
+
+export const PROJECT_INTENT_OBJECT_PREFIXES = Object.freeze([
   "репозитор",
-  "код проекта",
-  "проверь код",
-  "проверь репо",
-  "проверь репозиторий",
-  "посмотри репо",
-  "посмотри репозиторий",
+  "архитектур",
+]);
+
+export const PROJECT_INTENT_READ_ACTION_PHRASES = Object.freeze([
   "check repo",
   "check my repo",
   "look into my repo",
@@ -75,14 +149,44 @@ export const PROJECT_INTENT_INTERNAL_ACTIONS = Object.freeze([
   "check sg architecture",
   "check workflow",
   "check stage",
+  "проверь код",
+  "проверь репо",
+  "проверь репозиторий",
+  "посмотри репо",
+  "посмотри репозиторий",
   "проверь workflow",
   "проверь архитектуру",
 ]);
 
-export const PROJECT_INTENT_WRITE_ACTIONS = Object.freeze([
-  "commit",
-  "push",
-  "merge",
+export const PROJECT_INTENT_READ_ACTION_TOKENS = Object.freeze([
+  "check",
+  "analyze",
+  "inspect",
+  "review",
+  "read",
+  "show",
+  "look",
+  "compare",
+  "verify",
+  "scan",
+  "find",
+  "open",
+  "посмотри",
+  "проверь",
+  "проверить",
+  "проверка",
+  "показать",
+  "открой",
+  "сравни",
+  "сравнить",
+  "найди",
+  "прочитай",
+  "провести",
+  "анализ",
+  "проанализируй",
+]);
+
+export const PROJECT_INTENT_WRITE_ACTION_PHRASES = Object.freeze([
   "open pr",
   "create pr",
   "pull request",
@@ -98,40 +202,137 @@ export const PROJECT_INTENT_WRITE_ACTIONS = Object.freeze([
   "create file",
   "apply patch",
   "apply diff",
-  "deploy",
   "auto deploy",
-  "release",
+  "сделай коммит",
+  "создай pr",
+  "создай пулл реквест",
   "измени файл",
   "измени код",
   "запиши в репо",
-  "закоммить",
-  "сделай коммит",
-  "запушь",
-  "смёрджи",
-  "смерджи",
-  "создай pr",
-  "создай пулл реквест",
   "удали файл",
   "перепиши файл",
   "обнови файл",
-  "задеплой",
   "сделай деплой",
 ]);
 
-function collectHits(normalized, markers) {
-  if (!normalized) return [];
-  return markers.filter((marker) => normalized.includes(marker));
-}
+export const PROJECT_INTENT_WRITE_ACTION_TOKENS = Object.freeze([
+  "commit",
+  "push",
+  "merge",
+  "deploy",
+  "release",
+  "edit",
+  "modify",
+  "change",
+  "rewrite",
+  "replace",
+  "delete",
+  "remove",
+  "update",
+  "create",
+  "write",
+  "apply",
+  "patch",
+  "diff",
+  "pr",
+  "закоммить",
+  "запушь",
+  "смёрджи",
+  "смерджи",
+  "задеплой",
+  "деплой",
+  "обнови",
+  "измени",
+  "удали",
+  "создай",
+  "запиши",
+  "перепиши",
+]);
 
 export function collectProjectIntentSignals(text) {
   const normalized = normalizeText(text);
+  const tokens = tokenizeText(text);
 
-  const anchorHits = collectHits(normalized, PROJECT_INTENT_ANCHORS);
-  const internalActionHits = collectHits(normalized, PROJECT_INTENT_INTERNAL_ACTIONS);
-  const writeActionHits = collectHits(normalized, PROJECT_INTENT_WRITE_ACTIONS);
+  const strongAnchorHits = collectPhraseHits(
+    normalized,
+    PROJECT_INTENT_STRONG_ANCHORS
+  );
+
+  const identityTokenHits = collectTokenHits(
+    tokens,
+    PROJECT_INTENT_IDENTITY_TOKENS
+  );
+
+  const objectPhraseHits = collectPhraseHits(
+    normalized,
+    PROJECT_INTENT_OBJECT_PHRASES
+  );
+
+  const objectTokenHits = collectTokenHits(
+    tokens,
+    PROJECT_INTENT_OBJECT_TOKENS
+  );
+
+  const objectPrefixHits = collectPrefixHits(
+    tokens,
+    PROJECT_INTENT_OBJECT_PREFIXES
+  );
+
+  const readActionPhraseHits = collectPhraseHits(
+    normalized,
+    PROJECT_INTENT_READ_ACTION_PHRASES
+  );
+
+  const readActionTokenHits = collectTokenHits(
+    tokens,
+    PROJECT_INTENT_READ_ACTION_TOKENS
+  );
+
+  const writeActionPhraseHits = collectPhraseHits(
+    normalized,
+    PROJECT_INTENT_WRITE_ACTION_PHRASES
+  );
+
+  const writeActionTokenHits = collectTokenHits(
+    tokens,
+    PROJECT_INTENT_WRITE_ACTION_TOKENS
+  );
+
+  const anchorHits = unique([
+    ...strongAnchorHits,
+    ...objectPhraseHits,
+  ]);
+
+  const internalActionHits = unique([
+    ...objectPhraseHits,
+    ...objectTokenHits,
+    ...objectPrefixHits,
+    ...readActionPhraseHits,
+    ...readActionTokenHits,
+  ]);
+
+  const writeActionHits = unique([
+    ...writeActionPhraseHits,
+    ...writeActionTokenHits,
+  ]);
 
   return {
     normalized,
+    tokens,
+
+    strongAnchorHits,
+    identityTokenHits,
+
+    objectPhraseHits,
+    objectTokenHits,
+    objectPrefixHits,
+
+    readActionPhraseHits,
+    readActionTokenHits,
+
+    writeActionPhraseHits,
+    writeActionTokenHits,
+
     anchorHits,
     internalActionHits,
     writeActionHits,
@@ -139,48 +340,123 @@ export function collectProjectIntentSignals(text) {
 }
 
 export function resolveProjectIntentMatch(text) {
-  const { normalized, anchorHits, internalActionHits, writeActionHits } =
-    collectProjectIntentSignals(text);
+  const signals = collectProjectIntentSignals(text);
+
+  const {
+    normalized,
+    strongAnchorHits,
+    identityTokenHits,
+    objectPhraseHits,
+    objectTokenHits,
+    objectPrefixHits,
+    readActionPhraseHits,
+    readActionTokenHits,
+    writeActionPhraseHits,
+    writeActionTokenHits,
+    anchorHits,
+    internalActionHits,
+    writeActionHits,
+  } = signals;
 
   if (!normalized) {
     return {
+      ...signals,
+      targetDomain: "unknown",
+      actionMode: "unknown",
       isProjectInternal: false,
       isProjectWriteIntent: false,
       confidence: "none",
-      anchorHits,
-      internalActionHits,
-      writeActionHits,
+      classificationBasis: [],
     };
   }
 
-  const hasAnchor = anchorHits.length >= 1;
-  const hasInternalAction = internalActionHits.length >= 1;
-  const hasWriteAction = writeActionHits.length >= 1;
+  const hasStrongAnchor = strongAnchorHits.length >= 1;
+  const hasIdentityToken = identityTokenHits.length >= 1;
 
-  // Internal SG project intent:
-  // 1) direct anchor is enough
-  // 2) OR >=2 internal action markers (still likely project/repo request)
-  const internalByAnchor = hasAnchor;
-  const internalByActionCombo = internalActionHits.length >= 2;
+  const objectHits = unique([
+    ...objectPhraseHits,
+    ...objectTokenHits,
+    ...objectPrefixHits,
+  ]);
 
-  const isProjectInternal = internalByAnchor || internalByActionCombo;
+  const readHits = unique([
+    ...readActionPhraseHits,
+    ...readActionTokenHits,
+  ]);
 
-  // Write intent:
-  // classify as write-intent only when there is some project/internal signal too.
+  const writeHits = unique([
+    ...writeActionPhraseHits,
+    ...writeActionTokenHits,
+  ]);
+
+  const hasProjectObject = objectHits.length >= 1;
+  const hasReadAction = readHits.length >= 1;
+  const hasWriteAction = writeHits.length >= 1;
+
+  const classificationBasis = [];
+
+  let targetDomain = "unknown";
+
+  if (hasStrongAnchor) {
+    targetDomain = "sg_internal_project";
+    classificationBasis.push("strong_anchor");
+  } else if (hasIdentityToken && (hasProjectObject || hasReadAction || hasWriteAction)) {
+    targetDomain = "sg_internal_project";
+    classificationBasis.push("identity_plus_action_or_object");
+  } else if (hasProjectObject && (hasReadAction || hasWriteAction)) {
+    targetDomain = "sg_internal_project";
+    classificationBasis.push("project_object_plus_action");
+  } else if (objectHits.length >= 2) {
+    targetDomain = "sg_internal_project";
+    classificationBasis.push("multiple_project_objects");
+  }
+
+  let actionMode = "unknown";
+  if (hasReadAction && hasWriteAction) {
+    actionMode = "mixed";
+  } else if (hasWriteAction) {
+    actionMode = "write";
+  } else if (hasReadAction) {
+    actionMode = "read";
+  }
+
+  const isProjectInternal = targetDomain === "sg_internal_project";
   const isProjectWriteIntent =
-    hasWriteAction && (hasAnchor || hasInternalAction || isProjectInternal);
+    isProjectInternal && (actionMode === "write" || actionMode === "mixed");
 
   let confidence = "low";
-  if (hasAnchor && hasWriteAction) confidence = "high";
-  else if (hasAnchor) confidence = "high";
-  else if (internalActionHits.length >= 2) confidence = "medium";
-  else if (hasInternalAction || hasWriteAction) confidence = "low";
-  else confidence = "none";
+
+  if (!isProjectInternal && !hasReadAction && !hasWriteAction && !hasProjectObject) {
+    confidence = "none";
+  } else if (hasStrongAnchor && hasWriteAction) {
+    confidence = "high";
+  } else if (hasStrongAnchor) {
+    confidence = "high";
+  } else if (hasIdentityToken && hasWriteAction) {
+    confidence = "high";
+  } else if (hasIdentityToken && hasProjectObject) {
+    confidence = "high";
+  } else if (hasProjectObject && (hasReadAction || hasWriteAction)) {
+    confidence = "medium";
+  } else if (objectHits.length >= 2) {
+    confidence = "medium";
+  } else if (hasReadAction || hasWriteAction || hasProjectObject) {
+    confidence = "low";
+  } else {
+    confidence = "none";
+  }
 
   return {
+    ...signals,
+    targetDomain,
+    actionMode,
     isProjectInternal,
     isProjectWriteIntent,
     confidence,
+    classificationBasis: unique(classificationBasis),
+    objectHits,
+    readHits,
+    writeHits,
     anchorHits,
     internalActionHits,
     writeActionHits,
@@ -188,9 +464,15 @@ export function resolveProjectIntentMatch(text) {
 }
 
 export default {
-  PROJECT_INTENT_ANCHORS,
-  PROJECT_INTENT_INTERNAL_ACTIONS,
-  PROJECT_INTENT_WRITE_ACTIONS,
+  PROJECT_INTENT_STRONG_ANCHORS,
+  PROJECT_INTENT_IDENTITY_TOKENS,
+  PROJECT_INTENT_OBJECT_PHRASES,
+  PROJECT_INTENT_OBJECT_TOKENS,
+  PROJECT_INTENT_OBJECT_PREFIXES,
+  PROJECT_INTENT_READ_ACTION_PHRASES,
+  PROJECT_INTENT_READ_ACTION_TOKENS,
+  PROJECT_INTENT_WRITE_ACTION_PHRASES,
+  PROJECT_INTENT_WRITE_ACTION_TOKENS,
   collectProjectIntentSignals,
   resolveProjectIntentMatch,
 };

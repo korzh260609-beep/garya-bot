@@ -8,7 +8,7 @@ import fs from "fs";
 import path from "path";
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function loadWorkflowHints() {
   const filePath = path.resolve("pillars/WORKFLOW_HINTS.json");
@@ -166,7 +166,7 @@ function buildReply({
 }
 
 export async function handleWorkflowCheck(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const { bot, chatId, rest } = ctx;

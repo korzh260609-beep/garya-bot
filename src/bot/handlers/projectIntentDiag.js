@@ -5,6 +5,7 @@
 // - inspect how SG classifies free-text project intent
 // - show classifier result separately from route result
 // - show normalized read-plan for future repo bridge
+// - show normalized repo bridge plan
 // - diagnostic only, no side effects
 // ============================================================================
 
@@ -14,6 +15,7 @@ import { resolveProjectIntentMatch } from "../../core/projectIntent/projectInten
 import { resolveProjectIntentRoute } from "../../core/projectIntent/projectIntentRoute.js";
 import { buildProjectIntentRoutePreview } from "../../core/projectIntent/projectIntentRoutePreview.js";
 import { resolveProjectIntentReadPlan } from "../../core/projectIntent/projectIntentReadPlan.js";
+import { resolveProjectIntentRepoBridge } from "../../core/projectIntent/projectIntentRepoBridge.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -65,6 +67,10 @@ export async function handleProjectIntentDiag(ctx = {}) {
   const readPlan = resolveProjectIntentReadPlan({
     text: input,
     route,
+  });
+  const repoBridge = resolveProjectIntentRepoBridge({
+    route,
+    readPlan,
   });
 
   await ctx.bot.sendMessage(
@@ -120,6 +126,16 @@ export async function handleProjectIntentDiag(ctx = {}) {
       formatList("planBasis", readPlan.basis),
       formatList("pathHints", readPlan.pathHints),
       formatList("queryHints", readPlan.queryHints),
+      "",
+      "Repo bridge:",
+      `handlerKey: ${repoBridge.handlerKey}`,
+      `recommendedCommand: ${repoBridge.recommendedCommand}`,
+      `commandArg: ${quoteBlock(repoBridge.commandArg)}`,
+      `commandText: ${quoteBlock(repoBridge.commandText)}`,
+      `canAutoExecute: ${String(repoBridge.canAutoExecute)}`,
+      `bridgeConfidence: ${repoBridge.confidence}`,
+      `preview: ${repoBridge.preview}`,
+      formatList("bridgeBasis", repoBridge.basis),
     ].join("\n")
   );
 }

@@ -1,14 +1,14 @@
 // src/core/projectIntent/projectIntentScope.js
 // ============================================================================
-// STAGE 12A.0 — project free-text intent scope (SKELETON, classifier v2)
+// STAGE 12A.0 — project free-text intent scope (SKELETON, classifier v3)
 // Purpose:
-// - classify INTERNAL SG project intent from free text using multi-signal rules
-// - distinguish target domain from action mode
-// - reduce dependence on exact phrases
+// - classify free-text requests by TARGET SCOPE first, not just by keywords
+// - separate SG core internal project from future user-owned projects
+// - distinguish action mode: read / write / mixed / unknown
 // IMPORTANT:
 // - NO command execution here
 // - NO repo writes here
-// - this file only classifies text intent
+// - classification only
 // ============================================================================
 
 function normalizeText(value) {
@@ -59,15 +59,22 @@ function collectPrefixHits(tokens, prefixes) {
   return unique(hits);
 }
 
-export const PROJECT_INTENT_STRONG_ANCHORS = Object.freeze([
+// ----------------------------------------------------------------------------
+// SG CORE — STRONG INTERNAL SIGNALS
+// ----------------------------------------------------------------------------
+
+export const SG_CORE_STRONG_ANCHORS = Object.freeze([
   "garya-bot",
   "советник garya",
-  "sg project",
+  "sg core",
+  "core sg",
+  "core project sg",
   "проект sg",
-  "my sg project",
+  "sg project",
   "мой проект sg",
-  "my sg repo",
+  "my sg project",
   "мой репозиторий sg",
+  "my sg repo",
   "workflow.md",
   "roadmap.md",
   "decisions.md",
@@ -88,65 +95,99 @@ export const PROJECT_INTENT_STRONG_ANCHORS = Object.freeze([
   "code_output_status",
 ]);
 
-export const PROJECT_INTENT_IDENTITY_TOKENS = Object.freeze([
+export const SG_CORE_IDENTITY_TOKENS = Object.freeze([
   "sg",
   "сг",
-  "garya",
-  "советник",
 ]);
 
-export const PROJECT_INTENT_OBJECT_PHRASES = Object.freeze([
+export const SG_CORE_IDENTITY_PHRASES = Object.freeze([
+  "project sg",
   "sg project",
   "проект sg",
-  "my project",
-  "мой проект",
-  "my repo",
-  "мой репозиторий",
-  "project architecture",
-  "архитектура проекта",
-  "код проекта",
+  "sg repo",
+  "repo sg",
+  "репо sg",
 ]);
 
-export const PROJECT_INTENT_OBJECT_TOKENS = Object.freeze([
-  "repo",
-  "repository",
-  "github",
+export const SG_CORE_OBJECT_PHRASES = Object.freeze([
+  "workflow sg",
+  "roadmap sg",
+  "architecture sg",
+  "sg architecture",
+  "core architecture",
+  "архитектура sg",
+  "архитектура советника garya",
+  "код sg",
+  "repo sg",
+  "github sg",
+]);
+
+export const SG_CORE_OBJECT_TOKENS_STRONG = Object.freeze([
   "workflow",
   "roadmap",
-  "pillars",
   "architecture",
-  "architectural",
-  "stage",
-  "stages",
-  "code",
+  "github",
+  "repository",
+  "repo",
+  "pillars",
+  "decisions",
+]);
+
+export const SG_CORE_OBJECT_TOKENS_WEAK = Object.freeze([
   "project",
   "projects",
-  "repofile",
-  "репозиторий",
-  "репо",
-  "архитектура",
-  "архитектуры",
-  "код",
+  "code",
   "проект",
   "проекта",
   "проекту",
-  "этап",
-  "этапы",
+  "код",
+  "репо",
+  "репозиторий",
+  "архитектура",
   "воркфлоу",
 ]);
 
-export const PROJECT_INTENT_OBJECT_PREFIXES = Object.freeze([
+export const SG_CORE_OBJECT_PREFIXES = Object.freeze([
   "репозитор",
   "архитектур",
 ]);
 
-export const PROJECT_INTENT_READ_ACTION_PHRASES = Object.freeze([
+// ----------------------------------------------------------------------------
+// USER PROJECT SIGNALS
+// ----------------------------------------------------------------------------
+
+export const USER_PROJECT_PHRASES = Object.freeze([
+  "my project",
+  "мой проект",
+  "мой бот",
+  "my bot",
+  "my repo",
+  "мой репозиторий",
+  "мой github",
+  "my github",
+  "мой код",
+  "my code",
+  "мой сервис",
+  "my service",
+]);
+
+export const USER_PROJECT_TOKENS = Object.freeze([
+  "my",
+  "мой",
+  "моя",
+  "моё",
+  "мои",
+]);
+
+// ----------------------------------------------------------------------------
+// ACTIONS
+// ----------------------------------------------------------------------------
+
+export const PROJECT_READ_ACTION_PHRASES = Object.freeze([
   "check repo",
   "check my repo",
   "look into my repo",
   "analyze my repo",
-  "analyze sg project",
-  "check sg architecture",
   "check workflow",
   "check stage",
   "проверь код",
@@ -158,7 +199,7 @@ export const PROJECT_INTENT_READ_ACTION_PHRASES = Object.freeze([
   "проверь архитектуру",
 ]);
 
-export const PROJECT_INTENT_READ_ACTION_TOKENS = Object.freeze([
+export const PROJECT_READ_ACTION_TOKENS = Object.freeze([
   "check",
   "analyze",
   "inspect",
@@ -181,12 +222,11 @@ export const PROJECT_INTENT_READ_ACTION_TOKENS = Object.freeze([
   "сравнить",
   "найди",
   "прочитай",
-  "провести",
   "анализ",
   "проанализируй",
 ]);
 
-export const PROJECT_INTENT_WRITE_ACTION_PHRASES = Object.freeze([
+export const PROJECT_WRITE_ACTION_PHRASES = Object.freeze([
   "open pr",
   "create pr",
   "pull request",
@@ -215,7 +255,7 @@ export const PROJECT_INTENT_WRITE_ACTION_PHRASES = Object.freeze([
   "сделай деплой",
 ]);
 
-export const PROJECT_INTENT_WRITE_ACTION_TOKENS = Object.freeze([
+export const PROJECT_WRITE_ACTION_TOKENS = Object.freeze([
   "commit",
   "push",
   "merge",
@@ -253,85 +293,82 @@ export function collectProjectIntentSignals(text) {
   const normalized = normalizeText(text);
   const tokens = tokenizeText(text);
 
-  const strongAnchorHits = collectPhraseHits(
-    normalized,
-    PROJECT_INTENT_STRONG_ANCHORS
-  );
+  const sgCoreStrongAnchorHits = collectPhraseHits(normalized, SG_CORE_STRONG_ANCHORS);
+  const sgCoreIdentityPhraseHits = collectPhraseHits(normalized, SG_CORE_IDENTITY_PHRASES);
+  const sgCoreIdentityTokenHits = collectTokenHits(tokens, SG_CORE_IDENTITY_TOKENS);
+  const sgCoreObjectPhraseHits = collectPhraseHits(normalized, SG_CORE_OBJECT_PHRASES);
+  const sgCoreObjectTokenStrongHits = collectTokenHits(tokens, SG_CORE_OBJECT_TOKENS_STRONG);
+  const sgCoreObjectTokenWeakHits = collectTokenHits(tokens, SG_CORE_OBJECT_TOKENS_WEAK);
+  const sgCoreObjectPrefixHits = collectPrefixHits(tokens, SG_CORE_OBJECT_PREFIXES);
 
-  const identityTokenHits = collectTokenHits(
-    tokens,
-    PROJECT_INTENT_IDENTITY_TOKENS
-  );
+  const userProjectPhraseHits = collectPhraseHits(normalized, USER_PROJECT_PHRASES);
+  const userProjectTokenHits = collectTokenHits(tokens, USER_PROJECT_TOKENS);
 
-  const objectPhraseHits = collectPhraseHits(
-    normalized,
-    PROJECT_INTENT_OBJECT_PHRASES
-  );
+  const readActionPhraseHits = collectPhraseHits(normalized, PROJECT_READ_ACTION_PHRASES);
+  const readActionTokenHits = collectTokenHits(tokens, PROJECT_READ_ACTION_TOKENS);
 
-  const objectTokenHits = collectTokenHits(
-    tokens,
-    PROJECT_INTENT_OBJECT_TOKENS
-  );
+  const writeActionPhraseHits = collectPhraseHits(normalized, PROJECT_WRITE_ACTION_PHRASES);
+  const writeActionTokenHits = collectTokenHits(tokens, PROJECT_WRITE_ACTION_TOKENS);
 
-  const objectPrefixHits = collectPrefixHits(
-    tokens,
-    PROJECT_INTENT_OBJECT_PREFIXES
-  );
-
-  const readActionPhraseHits = collectPhraseHits(
-    normalized,
-    PROJECT_INTENT_READ_ACTION_PHRASES
-  );
-
-  const readActionTokenHits = collectTokenHits(
-    tokens,
-    PROJECT_INTENT_READ_ACTION_TOKENS
-  );
-
-  const writeActionPhraseHits = collectPhraseHits(
-    normalized,
-    PROJECT_INTENT_WRITE_ACTION_PHRASES
-  );
-
-  const writeActionTokenHits = collectTokenHits(
-    tokens,
-    PROJECT_INTENT_WRITE_ACTION_TOKENS
-  );
-
-  const anchorHits = unique([
-    ...strongAnchorHits,
-    ...objectPhraseHits,
-  ]);
-
-  const internalActionHits = unique([
-    ...objectPhraseHits,
-    ...objectTokenHits,
-    ...objectPrefixHits,
+  const readHits = unique([
     ...readActionPhraseHits,
     ...readActionTokenHits,
   ]);
 
-  const writeActionHits = unique([
+  const writeHits = unique([
     ...writeActionPhraseHits,
     ...writeActionTokenHits,
   ]);
+
+  const sgCoreObjectHits = unique([
+    ...sgCoreObjectPhraseHits,
+    ...sgCoreObjectTokenStrongHits,
+    ...sgCoreObjectTokenWeakHits,
+    ...sgCoreObjectPrefixHits,
+  ]);
+
+  const userProjectHits = unique([
+    ...userProjectPhraseHits,
+    ...userProjectTokenHits,
+  ]);
+
+  const anchorHits = unique([
+    ...sgCoreStrongAnchorHits,
+    ...sgCoreIdentityPhraseHits,
+    ...sgCoreObjectPhraseHits,
+  ]);
+
+  const internalActionHits = unique([
+    ...sgCoreObjectHits,
+    ...readHits,
+  ]);
+
+  const writeActionHits = unique(writeHits);
 
   return {
     normalized,
     tokens,
 
-    strongAnchorHits,
-    identityTokenHits,
+    sgCoreStrongAnchorHits,
+    sgCoreIdentityPhraseHits,
+    sgCoreIdentityTokenHits,
+    sgCoreObjectPhraseHits,
+    sgCoreObjectTokenStrongHits,
+    sgCoreObjectTokenWeakHits,
+    sgCoreObjectPrefixHits,
 
-    objectPhraseHits,
-    objectTokenHits,
-    objectPrefixHits,
+    userProjectPhraseHits,
+    userProjectTokenHits,
 
     readActionPhraseHits,
     readActionTokenHits,
-
     writeActionPhraseHits,
     writeActionTokenHits,
+
+    sgCoreObjectHits,
+    userProjectHits,
+    readHits,
+    writeHits,
 
     anchorHits,
     internalActionHits,
@@ -344,15 +381,21 @@ export function resolveProjectIntentMatch(text) {
 
   const {
     normalized,
-    strongAnchorHits,
-    identityTokenHits,
-    objectPhraseHits,
-    objectTokenHits,
-    objectPrefixHits,
-    readActionPhraseHits,
-    readActionTokenHits,
-    writeActionPhraseHits,
-    writeActionTokenHits,
+
+    sgCoreStrongAnchorHits,
+    sgCoreIdentityPhraseHits,
+    sgCoreIdentityTokenHits,
+    sgCoreObjectPhraseHits,
+    sgCoreObjectTokenStrongHits,
+    sgCoreObjectTokenWeakHits,
+    sgCoreObjectPrefixHits,
+
+    userProjectPhraseHits,
+    userProjectTokenHits,
+
+    readHits,
+    writeHits,
+
     anchorHits,
     internalActionHits,
     writeActionHits,
@@ -361,6 +404,7 @@ export function resolveProjectIntentMatch(text) {
   if (!normalized) {
     return {
       ...signals,
+      targetScope: "unknown",
       targetDomain: "unknown",
       actionMode: "unknown",
       isProjectInternal: false,
@@ -370,45 +414,83 @@ export function resolveProjectIntentMatch(text) {
     };
   }
 
-  const hasStrongAnchor = strongAnchorHits.length >= 1;
-  const hasIdentityToken = identityTokenHits.length >= 1;
+  const hasStrongAnchor = sgCoreStrongAnchorHits.length >= 1;
+  const hasIdentityPhrase = sgCoreIdentityPhraseHits.length >= 1;
+  const hasIdentityToken = sgCoreIdentityTokenHits.length >= 1;
 
-  const objectHits = unique([
-    ...objectPhraseHits,
-    ...objectTokenHits,
-    ...objectPrefixHits,
+  const strongObjectHits = unique([
+    ...sgCoreObjectPhraseHits,
+    ...sgCoreObjectTokenStrongHits,
+    ...sgCoreObjectPrefixHits,
   ]);
 
-  const readHits = unique([
-    ...readActionPhraseHits,
-    ...readActionTokenHits,
+  const weakObjectHits = unique([
+    ...sgCoreObjectTokenWeakHits,
   ]);
 
-  const writeHits = unique([
-    ...writeActionPhraseHits,
-    ...writeActionTokenHits,
-  ]);
+  const hasStrongObject = strongObjectHits.length >= 1;
+  const weakObjectCount = weakObjectHits.length;
+  const hasWeakObject = weakObjectCount >= 1;
 
-  const hasProjectObject = objectHits.length >= 1;
+  const hasUserProjectPhrase = userProjectPhraseHits.length >= 1;
+  const hasUserProjectToken = userProjectTokenHits.length >= 1;
+
   const hasReadAction = readHits.length >= 1;
   const hasWriteAction = writeHits.length >= 1;
 
   const classificationBasis = [];
+  let targetScope = "unknown";
 
-  let targetDomain = "unknown";
-
+  // --------------------------------------------------------------------------
+  // 1) SG CORE INTERNAL
+  // --------------------------------------------------------------------------
   if (hasStrongAnchor) {
-    targetDomain = "sg_internal_project";
-    classificationBasis.push("strong_anchor");
-  } else if (hasIdentityToken && (hasProjectObject || hasReadAction || hasWriteAction)) {
-    targetDomain = "sg_internal_project";
-    classificationBasis.push("identity_plus_action_or_object");
-  } else if (hasProjectObject && (hasReadAction || hasWriteAction)) {
-    targetDomain = "sg_internal_project";
-    classificationBasis.push("project_object_plus_action");
-  } else if (objectHits.length >= 2) {
-    targetDomain = "sg_internal_project";
-    classificationBasis.push("multiple_project_objects");
+    targetScope = "sg_core_internal";
+    classificationBasis.push("sg_core_strong_anchor");
+  } else if (hasIdentityPhrase && (hasReadAction || hasWriteAction || hasStrongObject || hasWeakObject)) {
+    targetScope = "sg_core_internal";
+    classificationBasis.push("sg_core_identity_phrase");
+  } else if (hasIdentityToken && hasWriteAction) {
+    targetScope = "sg_core_internal";
+    classificationBasis.push("sg_core_identity_token_plus_write");
+  } else if (hasIdentityToken && hasStrongObject) {
+    targetScope = "sg_core_internal";
+    classificationBasis.push("sg_core_identity_token_plus_strong_object");
+  } else if (hasStrongObject && hasWriteAction) {
+    targetScope = "sg_core_internal";
+    classificationBasis.push("sg_core_strong_object_plus_write");
+  } else if (hasStrongObject && hasReadAction && hasIdentityToken) {
+    targetScope = "sg_core_internal";
+    classificationBasis.push("sg_core_strong_object_plus_read_plus_identity");
+  }
+
+  // --------------------------------------------------------------------------
+  // 2) USER PROJECT
+  // --------------------------------------------------------------------------
+  if (targetScope === "unknown") {
+    if (hasUserProjectPhrase) {
+      targetScope = "user_project";
+      classificationBasis.push("user_project_phrase");
+    } else if (hasUserProjectToken && (hasReadAction || hasWriteAction || hasStrongObject || hasWeakObject)) {
+      targetScope = "user_project";
+      classificationBasis.push("user_project_token_plus_action_or_object");
+    } else if (hasWriteAction && hasWeakObject) {
+      targetScope = "user_project";
+      classificationBasis.push("generic_project_write");
+    } else if (hasReadAction && weakObjectCount >= 2) {
+      targetScope = "user_project";
+      classificationBasis.push("generic_project_read_with_multiple_objects");
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 3) GENERIC EXTERNAL
+  // --------------------------------------------------------------------------
+  if (targetScope === "unknown") {
+    if (hasReadAction || hasWriteAction || hasStrongObject || hasWeakObject) {
+      targetScope = "generic_external";
+      classificationBasis.push("generic_project_like_request");
+    }
   }
 
   let actionMode = "unknown";
@@ -420,41 +502,50 @@ export function resolveProjectIntentMatch(text) {
     actionMode = "read";
   }
 
-  const isProjectInternal = targetDomain === "sg_internal_project";
+  const isProjectInternal = targetScope === "sg_core_internal";
   const isProjectWriteIntent =
-    isProjectInternal && (actionMode === "write" || actionMode === "mixed");
+    targetScope === "sg_core_internal" &&
+    (actionMode === "write" || actionMode === "mixed");
 
   let confidence = "low";
 
-  if (!isProjectInternal && !hasReadAction && !hasWriteAction && !hasProjectObject) {
+  if (targetScope === "unknown") {
     confidence = "none";
-  } else if (hasStrongAnchor && hasWriteAction) {
-    confidence = "high";
-  } else if (hasStrongAnchor) {
-    confidence = "high";
-  } else if (hasIdentityToken && hasWriteAction) {
-    confidence = "high";
-  } else if (hasIdentityToken && hasProjectObject) {
-    confidence = "high";
-  } else if (hasProjectObject && (hasReadAction || hasWriteAction)) {
-    confidence = "medium";
-  } else if (objectHits.length >= 2) {
-    confidence = "medium";
-  } else if (hasReadAction || hasWriteAction || hasProjectObject) {
+  } else if (targetScope === "sg_core_internal") {
+    if (hasStrongAnchor) confidence = "high";
+    else if (hasIdentityPhrase) confidence = "high";
+    else if (hasIdentityToken && (hasWriteAction || hasStrongObject)) confidence = "high";
+    else if (hasStrongObject && hasWriteAction) confidence = "medium";
+    else confidence = "medium";
+  } else if (targetScope === "user_project") {
+    if (hasUserProjectPhrase) confidence = "high";
+    else if (hasUserProjectToken && (hasReadAction || hasWriteAction)) confidence = "medium";
+    else confidence = "medium";
+  } else if (targetScope === "generic_external") {
     confidence = "low";
-  } else {
-    confidence = "none";
   }
+
+  const targetDomain =
+    targetScope === "sg_core_internal"
+      ? "sg_internal_project"
+      : targetScope === "user_project"
+        ? "user_project"
+        : targetScope === "generic_external"
+          ? "generic_external"
+          : "unknown";
 
   return {
     ...signals,
+    targetScope,
     targetDomain,
     actionMode,
     isProjectInternal,
     isProjectWriteIntent,
     confidence,
     classificationBasis: unique(classificationBasis),
-    objectHits,
+    strongObjectHits,
+    weakObjectHits,
+    objectHits: unique([...strongObjectHits, ...weakObjectHits]),
     readHits,
     writeHits,
     anchorHits,
@@ -464,15 +555,19 @@ export function resolveProjectIntentMatch(text) {
 }
 
 export default {
-  PROJECT_INTENT_STRONG_ANCHORS,
-  PROJECT_INTENT_IDENTITY_TOKENS,
-  PROJECT_INTENT_OBJECT_PHRASES,
-  PROJECT_INTENT_OBJECT_TOKENS,
-  PROJECT_INTENT_OBJECT_PREFIXES,
-  PROJECT_INTENT_READ_ACTION_PHRASES,
-  PROJECT_INTENT_READ_ACTION_TOKENS,
-  PROJECT_INTENT_WRITE_ACTION_PHRASES,
-  PROJECT_INTENT_WRITE_ACTION_TOKENS,
+  SG_CORE_STRONG_ANCHORS,
+  SG_CORE_IDENTITY_TOKENS,
+  SG_CORE_IDENTITY_PHRASES,
+  SG_CORE_OBJECT_PHRASES,
+  SG_CORE_OBJECT_TOKENS_STRONG,
+  SG_CORE_OBJECT_TOKENS_WEAK,
+  SG_CORE_OBJECT_PREFIXES,
+  USER_PROJECT_PHRASES,
+  USER_PROJECT_TOKENS,
+  PROJECT_READ_ACTION_PHRASES,
+  PROJECT_READ_ACTION_TOKENS,
+  PROJECT_WRITE_ACTION_PHRASES,
+  PROJECT_WRITE_ACTION_TOKENS,
   collectProjectIntentSignals,
   resolveProjectIntentMatch,
 };

@@ -15,6 +15,7 @@ import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.j
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
 import { resolveProjectIntentReadPlan } from "../projectIntent/projectIntentReadPlan.js";
 import { resolveProjectIntentRepoBridge } from "../projectIntent/projectIntentRepoBridge.js";
+import { executeProjectIntentRepoBridge } from "../../bot/handlers/projectIntentRepoExecutor.js";
 
 export async function handleChatFlow({
   context,
@@ -152,7 +153,7 @@ export async function handleChatFlow({
             projectIntentPolicy: projectIntentRoute.policy,
             projectIntentConfidence: projectIntentRoute.confidence,
 
-            // STAGE 12A.0 read-plan snapshot (future free-text repo bridge)
+            // STAGE 12A.0 read-plan snapshot
             projectIntentPlanKey: projectIntentReadPlan.planKey,
             projectIntentRecommendedCommand: projectIntentReadPlan.recommendedCommand,
             projectIntentPlanConfidence: projectIntentReadPlan.confidence,
@@ -220,6 +221,38 @@ export async function handleChatFlow({
       } catch (e) {
         console.error("ERROR STAGE 7B.7 core chat insert-first failed (fail-open):", e);
       }
+    }
+
+    // =========================================================================
+    // STAGE 12A.0 — SAFE AUTO-EXECUTION FOR INTERNAL SG READ-ONLY REPO REQUESTS
+    // - only after route/guard/read-plan/bridge
+    // - only for bridge.canAutoExecute === true
+    // - only existing read-only handlers
+    // =========================================================================
+    const projectIntentRepoExec = await executeProjectIntentRepoBridge(
+      {
+        ...context,
+        ...deps,
+        transport,
+        chatId: chatIdNum,
+        chatIdStr,
+        chatType,
+        globalUserId,
+        senderId,
+        userRole,
+        isMonarchUser: !!isMonarchUser,
+        isPrivateChat: !!isPrivateChat,
+        reply: typeof replyAndLog === "function" ? replyAndLog : undefined,
+      },
+      projectIntentRepoBridge
+    );
+
+    if (projectIntentRepoExec?.executed) {
+      return {
+        ok: true,
+        stage: "12A.0.repo_bridge_execute",
+        result: projectIntentRepoExec.reason || "repo_bridge_executed",
+      };
     }
 
     const chatHandlerCtx = buildChatHandlerContext({

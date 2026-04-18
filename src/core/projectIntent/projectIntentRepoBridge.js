@@ -1,10 +1,10 @@
 // src/core/projectIntent/projectIntentRepoBridge.js
 // ============================================================================
-// STAGE 12A.0 — project repo bridge plan (SKELETON, semantic-first)
+// STAGE 12A.0 — project repo bridge plan (SKELETON, semantic-first + follow-up)
 // Purpose:
 // - convert internal SG read-plan into a normalized repo bridge plan
 // - use semantic target fields first, not noisy query words
-// - keep bridge read-only and deterministic
+// - support repo_analyze <path> [question...]
 // IMPORTANT:
 // - NO command execution
 // - NO repo writes
@@ -79,27 +79,23 @@ function resolveFileArg(readPlan = {}) {
 
 function resolveAnalyzeArg(readPlan = {}) {
   // IMPORTANT:
-  // current /repo_analyze handler expects PATH first, not generic search text
+  // current /repo_analyze handler expects PATH first, optional question after it
   const canonicalPillarPath = resolveCanonicalPillarPath(readPlan);
-  if (canonicalPillarPath) return canonicalPillarPath;
+  const targetPath = canonicalPillarPath || safeString(readPlan.targetPath) || safeString(readPlan.primaryPathHint);
+  const question = safeString(readPlan.analyzeQuestion);
 
-  const targetPath = safeString(readPlan.targetPath);
-  if (targetPath) return targetPath;
+  if (!targetPath) return "";
+  if (!question) return targetPath;
 
-  return safeString(readPlan.primaryPathHint);
+  return `${targetPath} ${question}`;
 }
 
 function resolveWorkflowArg(readPlan = {}) {
-  // Future:
-  // workflow free-text may later parse concrete step code.
-  // Right now keep it empty unless explicit step parsing is added.
   void readPlan;
   return "";
 }
 
 function resolveDiffArg(_readPlan = {}) {
-  // Future:
-  // /repo_diff may require explicit base/head or target parsing.
   return "";
 }
 
@@ -172,6 +168,7 @@ export function resolveProjectIntentRepoBridge({
     commandArg = resolveAnalyzeArg(readPlan);
     basis = ["repo_analyze_bridge", "semantic_target_path"];
     if (canonicalPillarPath) basis.push("canonical_pillar_path");
+    if (safeString(readPlan?.analyzeQuestion)) basis.push("analyze_question_attached");
     if (!commandArg) {
       confidence = "low";
       basis.push("missing_analyze_path");

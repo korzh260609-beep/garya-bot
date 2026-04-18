@@ -1,6 +1,6 @@
 // src/core/projectIntent/projectIntentGuard.js
 // ============================================================================
-// STAGE 12A.0 — project free-text intent guard (SKELETON, scope-aware)
+// STAGE 12A.0 — project free-text intent guard (SKELETON, route-aware)
 // Purpose:
 // - protect SG CORE internal project work only
 // - DO NOT block future user-owned project work here
@@ -11,7 +11,7 @@
 // - command-level and handler-level guards remain mandatory
 // ============================================================================
 
-import { resolveProjectIntentMatch } from "./projectIntentScope.js";
+import { resolveProjectIntentRoute } from "./projectIntentRoute.js";
 
 function buildAccessDeniedText() {
   return [
@@ -32,29 +32,43 @@ export async function requireProjectIntentAccess({
   isMonarchUser = false,
   isPrivateChat = false,
   replyAndLog,
+  resolvedRoute = null,
 } = {}) {
-  const match = resolveProjectIntentMatch(text);
+  const route =
+    resolvedRoute ||
+    resolveProjectIntentRoute({
+      text,
+      isMonarchUser,
+      isPrivateChat,
+    });
+
+  const match = route.match;
 
   // Pass-through for anything that is NOT SG core internal.
   // This is critical because future users must be able to work with THEIR projects.
-  if (match.targetScope !== "sg_core_internal") {
+  if (route.targetScope !== "sg_core_internal") {
     return {
       allowed: true,
       blocked: false,
       reason: "not_sg_core_internal",
+      route,
       match,
     };
   }
 
   // Hard policy for SG core internal write-intent:
   // always deny free-text write-like actions for SG core.
-  if (match.isProjectWriteIntent) {
+  if (route.routeKey === "sg_core_internal_write_denied") {
     if (typeof replyAndLog === "function") {
       await replyAndLog(buildWriteDeniedText(), {
         handler: "projectIntentGuard",
         event: "project_write_intent_denied",
         project_intent_scope: match.targetScope,
+        project_intent_domain: match.targetDomain,
+        project_intent_action_mode: match.actionMode,
         project_intent_confidence: match.confidence,
+        project_intent_route_key: route.routeKey,
+        project_intent_policy: route.policy,
         project_intent_anchor_hits: match.anchorHits,
         project_intent_internal_action_hits: match.internalActionHits,
         project_intent_write_action_hits: match.writeActionHits,
@@ -66,17 +80,19 @@ export async function requireProjectIntentAccess({
       allowed: false,
       blocked: true,
       reason: "project_write_intent_denied",
+      route,
       match,
     };
   }
 
   // SG core internal read-only access:
   // monarch + private only
-  if (isMonarchUser && isPrivateChat) {
+  if (route.routeKey === "sg_core_internal_read_allowed") {
     return {
       allowed: true,
       blocked: false,
       reason: "project_read_only_allowed",
+      route,
       match,
     };
   }
@@ -86,7 +102,11 @@ export async function requireProjectIntentAccess({
       handler: "projectIntentGuard",
       event: "project_intent_denied",
       project_intent_scope: match.targetScope,
+      project_intent_domain: match.targetDomain,
+      project_intent_action_mode: match.actionMode,
       project_intent_confidence: match.confidence,
+      project_intent_route_key: route.routeKey,
+      project_intent_policy: route.policy,
       project_intent_anchor_hits: match.anchorHits,
       project_intent_internal_action_hits: match.internalActionHits,
       project_intent_write_action_hits: match.writeActionHits,
@@ -98,6 +118,7 @@ export async function requireProjectIntentAccess({
     allowed: false,
     blocked: true,
     reason: "project_intent_denied",
+    route,
     match,
   };
 }

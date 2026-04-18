@@ -17,6 +17,7 @@ import { handleRepoCheck } from "./handlers/repoCheck.js";
 import { handleRepoReview } from "./handlers/repoReview.js";
 import { handleRepoReview2 } from "./handlers/repoReview2.js";
 import { handleCodeOutputStatus } from "./handlers/codeOutputStatus.js";
+import { handleProjectIntentDiag } from "./handlers/projectIntentDiag.js";
 import {
   handleCapabilitiesRegistry,
   handleCapabilityLookup,
@@ -260,6 +261,7 @@ export async function dispatchCommand(cmd, ctx) {
     "/workflow_check",
     "/stage_check",
     "/code_output_status",
+    "/project_intent_diag",
 
     "/capabilities",
     "/capability",
@@ -778,6 +780,35 @@ export async function dispatchCommand(cmd, ctx) {
         chatId,
         chatIdStr: ctx.chatIdStr,
         senderIdStr: ctx.senderIdStr,
+        user: ctx.user,
+        userRole: ctx.userRole,
+        userPlan: ctx.userPlan,
+        globalUserId: ctx.globalUserId ?? ctx?.user?.global_user_id ?? null,
+        isMonarchUser:
+          typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx.bypass,
+        isPrivateChat:
+          typeof ctx.isPrivateChat === "boolean"
+            ? ctx.isPrivateChat
+            : ctx?.identityCtx?.isPrivateChat === true,
+        transport: ctx?.identityCtx?.transport || ctx.transport || "telegram",
+        chatType:
+          ctx.chatType ||
+          ctx?.identityCtx?.chatType ||
+          ctx?.identityCtx?.chat_type ||
+          null,
+        identityCtx: ctx.identityCtx,
+        reply,
+      });
+      return { handled: true };
+    }
+
+    case "/project_intent_diag": {
+      await handleProjectIntentDiag({
+        bot,
+        chatId,
+        chatIdStr: ctx.chatIdStr,
+        senderIdStr: ctx.senderIdStr,
+        rest: ctx.rest,
         user: ctx.user,
         userRole: ctx.userRole,
         userPlan: ctx.userPlan,

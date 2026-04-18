@@ -228,20 +228,25 @@ export async function handleChatFlow({
     // - only after route/guard/read-plan/bridge
     // - only for bridge.canAutoExecute === true
     // - only existing read-only handlers
+    // IMPORTANT:
+    // - pass senderIdStr / identityCtx / bot / chatId explicitly
+    // - do not rely on loose context merge only
     // =========================================================================
     const projectIntentRepoExec = await executeProjectIntentRepoBridge(
       {
-        ...context,
-        ...deps,
-        transport,
+        ...(context || {}),
+        bot: context?.bot || deps?.bot || null,
         chatId: chatIdNum,
         chatIdStr,
         chatType,
+        transport,
         globalUserId,
-        senderId,
         userRole,
+        senderId,
+        senderIdStr: String(senderId ?? ""),
         isMonarchUser: !!isMonarchUser,
         isPrivateChat: !!isPrivateChat,
+        identityCtx: context?.identityCtx || null,
         reply: typeof replyAndLog === "function" ? replyAndLog : undefined,
       },
       projectIntentRepoBridge

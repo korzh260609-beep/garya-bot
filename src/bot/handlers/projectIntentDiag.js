@@ -11,6 +11,7 @@ import { requireProjectMonarchPrivateAccess } from "./projectAccessGuard.js";
 import { PROJECT_ONLY_FEATURES } from "./projectAccessScope.js";
 import { resolveProjectIntentMatch } from "../../core/projectIntent/projectIntentScope.js";
 import { resolveProjectIntentRoute } from "../../core/projectIntent/projectIntentRoute.js";
+import { buildProjectIntentRoutePreview } from "../../core/projectIntent/projectIntentRoutePreview.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -25,44 +26,6 @@ function formatList(label, arr) {
   const items = Array.isArray(arr) ? arr : [];
   if (!items.length) return `${label}: []`;
   return `${label}: [${items.join(", ")}]`;
-}
-
-function buildPolicyPreview(route) {
-  if (!route || typeof route !== "object") {
-    return "- result: UNKNOWN";
-  }
-
-  if (route.routeKey === "sg_core_internal_write_denied") {
-    return "- result: BLOCK (sg_core_internal write-intent denied)";
-  }
-
-  if (route.routeKey === "sg_core_internal_read_allowed") {
-    return "- result: SG CORE INTERNAL READ-ONLY ALLOWED";
-  }
-
-  if (route.routeKey === "sg_core_internal_read_denied") {
-    return "- result: SG CORE INTERNAL READ-ONLY DENIED";
-  }
-
-  if (
-    route.routeKey === "user_project_read" ||
-    route.routeKey === "user_project_write" ||
-    route.routeKey === "user_project_mixed" ||
-    route.routeKey === "user_project_unknown"
-  ) {
-    return "- result: USER PROJECT PATH";
-  }
-
-  if (
-    route.routeKey === "generic_external_read" ||
-    route.routeKey === "generic_external_write" ||
-    route.routeKey === "generic_external_mixed" ||
-    route.routeKey === "generic_external_unknown"
-  ) {
-    return "- result: GENERIC EXTERNAL PATH";
-  }
-
-  return "- result: UNKNOWN";
 }
 
 export async function handleProjectIntentDiag(ctx = {}) {
@@ -96,6 +59,7 @@ export async function handleProjectIntentDiag(ctx = {}) {
     isMonarchUser: true,
     isPrivateChat: true,
   });
+  const routePreview = buildProjectIntentRoutePreview(route);
 
   await ctx.bot.sendMessage(
     ctx.chatId,
@@ -138,7 +102,7 @@ export async function handleProjectIntentDiag(ctx = {}) {
       `readOnly: ${String(route.readOnly)}`,
       "",
       "Policy preview:",
-      buildPolicyPreview(route),
+      routePreview.text,
     ].join("\n")
   );
 }

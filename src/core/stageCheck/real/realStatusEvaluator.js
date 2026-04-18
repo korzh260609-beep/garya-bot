@@ -404,7 +404,7 @@ function pushRule(diag, name, passed, details = {}) {
 
 function buildDiagnosticsBase(summary, probability, realEvidence) {
   return {
-    evaluator: "exact_item_real_status_v3_foundation_domain_impl",
+    evaluator: "exact_item_real_status_v4_universal_foundation_runtime",
     scopeTags: Array.isArray(realEvidence?.scopeSemanticProfile?.tags)
       ? realEvidence.scopeSemanticProfile.tags
       : [],
@@ -515,17 +515,55 @@ export function evaluateRealStatus({
     requiredProbabilityScore: 0.8,
   });
 
+  const completeByUniversalFoundationSmallScope =
+    runtimeFoundationScope &&
+    smallOrMediumScope &&
+    !summary.hasRuntimeReachability &&
+    !summary.hasCandidateAnchor &&
+    !summary.hasRepoReachability &&
+    summary.runtimeFoundationCount >= 5 &&
+    summary.strongRuntimeFoundationCount >= 3 &&
+    summary.foundationSignalScore >= 5.0 &&
+    summary.distinctImplementationAnchors >= 2 &&
+    probability.score >= 0.72;
+
+  pushRule(
+    diagnostics,
+    "complete_by_universal_foundation_small_scope",
+    completeByUniversalFoundationSmallScope,
+    {
+      runtimeFoundationScope,
+      smallOrMediumScope,
+      hasRuntimeReachability: summary.hasRuntimeReachability,
+      hasCandidateAnchor: summary.hasCandidateAnchor,
+      hasRepoReachability: summary.hasRepoReachability,
+      runtimeFoundationCount: summary.runtimeFoundationCount,
+      requiredRuntimeFoundationCount: 5,
+      strongRuntimeFoundationCount: summary.strongRuntimeFoundationCount,
+      requiredStrongRuntimeFoundationCount: 3,
+      foundationSignalScore: round3(summary.foundationSignalScore),
+      requiredFoundationSignalScore: 5.0,
+      distinctImplementationAnchors: summary.distinctImplementationAnchors,
+      requiredDistinctImplementationAnchors: 2,
+      probabilityScore: probability.score,
+      requiredProbabilityScore: 0.72,
+    }
+  );
+
   if (
     completeByReachabilitySmallScope ||
     completeByReachabilityLargeScope ||
-    completeByFoundationOnly
+    completeByFoundationOnly ||
+    completeByUniversalFoundationSmallScope
   ) {
     status = "COMPLETE";
     diagnostics.chosenRule = completeByReachabilitySmallScope
       ? "complete_by_reachability_small_scope"
       : completeByReachabilityLargeScope
         ? "complete_by_reachability_large_scope"
-        : "complete_by_foundation_only";
+        : completeByFoundationOnly
+          ? "complete_by_foundation_only"
+          : "complete_by_universal_foundation_small_scope";
   } else {
     const partialByImplementation =
       summary.hasCandidateAnchor &&

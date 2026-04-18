@@ -1,9 +1,7 @@
 // src/core/handleMessage/handleChatFlow.js
 
 import { getMemoryService } from "../memoryServiceFactory.js";
-import {
-  insertWebhookDedupeEvent,
-} from "../../db/chatMessagesRepo.js";
+import { insertWebhookDedupeEvent } from "../../db/chatMessagesRepo.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
 import { guardIncomingChatMessage } from "../../services/chatMemory/guardIncomingChatMessage.js";
 import { redactText, sha256Text, buildRawMeta } from "../redaction.js";
@@ -11,6 +9,9 @@ import { buildInboundStorageText } from "./inboundBinary.js";
 import { truncateForDb } from "./shared.js";
 import { handleExplicitRemember } from "./handleExplicitRemember.js";
 import { buildChatHandlerContext } from "./contextBuilders.js";
+
+// ✅ STAGE 12A.0 — future intent-level guard for internal SG project requests
+import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
 
 export async function handleChatFlow({
   context,
@@ -25,6 +26,8 @@ export async function handleChatFlow({
   raw,
   trimmed,
   userRole,
+  isMonarchUser,
+  isPrivateChat,
   replyAndLog,
 }) {
   try {
@@ -54,6 +57,27 @@ export async function handleChatFlow({
         schemaVersion: opts?.schemaVersion ?? 2,
       });
     };
+
+    // =========================================================================
+    // STAGE 12A.0 — FREE-TEXT INTERNAL PROJECT INTENT GUARD
+    // - protects internal SG project/repo/workflow requests in plain chat
+    // - monarch-only + private-only
+    // - read-only policy only
+    // =========================================================================
+    const projectIntentAccess = await requireProjectIntentAccess({
+      text: trimmed,
+      isMonarchUser: !!isMonarchUser,
+      isPrivateChat: !!isPrivateChat,
+      replyAndLog,
+    });
+
+    if (!projectIntentAccess.allowed) {
+      return {
+        ok: true,
+        stage: "12A.0.intent_guard",
+        result: "project_intent_blocked",
+      };
+    }
 
     const explicitRememberResult = await handleExplicitRemember({
       trimmed,

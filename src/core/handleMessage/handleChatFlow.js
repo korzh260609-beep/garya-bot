@@ -13,6 +13,7 @@ import { buildChatHandlerContext } from "./contextBuilders.js";
 // ✅ STAGE 12A.0 — future intent-level routing + guard for internal SG project requests
 import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.js";
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
+import { resolveProjectIntentReadPlan } from "../projectIntent/projectIntentReadPlan.js";
 
 export async function handleChatFlow({
   context,
@@ -60,10 +61,10 @@ export async function handleChatFlow({
     };
 
     // =========================================================================
-    // STAGE 12A.0 — FREE-TEXT INTERNAL PROJECT INTENT ROUTE + GUARD
+    // STAGE 12A.0 — FREE-TEXT INTERNAL PROJECT INTENT ROUTE + GUARD + READ PLAN
     // - route decision is resolved once
     // - guard enforces SG core internal access policy
-    // - future layers may reuse route semantics safely
+    // - read plan prepares future bridge to repo read/search/analyze
     // =========================================================================
     const projectIntentRoute = resolveProjectIntentRoute({
       text: trimmed,
@@ -86,6 +87,11 @@ export async function handleChatFlow({
         result: "project_intent_blocked",
       };
     }
+
+    const projectIntentReadPlan = resolveProjectIntentReadPlan({
+      text: trimmed,
+      route: projectIntentRoute,
+    });
 
     const explicitRememberResult = await handleExplicitRemember({
       trimmed,
@@ -138,6 +144,13 @@ export async function handleChatFlow({
             projectIntentRouteKey: projectIntentRoute.routeKey,
             projectIntentPolicy: projectIntentRoute.policy,
             projectIntentConfidence: projectIntentRoute.confidence,
+
+            // STAGE 12A.0 read-plan snapshot (future free-text repo bridge)
+            projectIntentPlanKey: projectIntentReadPlan.planKey,
+            projectIntentRecommendedCommand: projectIntentReadPlan.recommendedCommand,
+            projectIntentPlanConfidence: projectIntentReadPlan.confidence,
+            projectIntentPrimaryPathHint: projectIntentReadPlan.primaryPathHint,
+            projectIntentRouteAllowsInternalRead: projectIntentReadPlan.routeAllowsInternalRead,
           },
           raw: buildRawMeta(raw || {}),
           schemaVersion: 1,

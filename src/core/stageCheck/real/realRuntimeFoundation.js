@@ -62,6 +62,22 @@ export function buildRuntimeFoundationDefs() {
       details: "entrypoint bootstraps express/http app",
     },
     {
+      key: "telegram_bot_dependency",
+      file: "package.json",
+      kind: "runtime_foundation",
+      strength: "strong",
+      tags: ["transport"],
+      test: async ({ evaluationCtx }) => {
+        const pkg = await safeReadJson("package.json", evaluationCtx);
+        const deps = {
+          ...(pkg?.dependencies || {}),
+          ...(pkg?.devDependencies || {}),
+        };
+        return !!deps["node-telegram-bot-api"];
+      },
+      details: "telegram bot dependency exists",
+    },
+    {
       key: "telegram_transport_bootstrap",
       file: "index.js",
       kind: "runtime_foundation",
@@ -107,6 +123,25 @@ export function buildRuntimeFoundationDefs() {
       details: "entrypoint wires core deps into adapter",
     },
     {
+      key: "telegram_bot_instantiation",
+      file: "src/bot/telegramTransport.js",
+      kind: "runtime_foundation",
+      strength: "strong",
+      tags: ["transport"],
+      test: async ({ evaluationCtx }) => {
+        const text = await safeFetchTextFile(
+          "src/bot/telegramTransport.js",
+          evaluationCtx
+        );
+        if (!text) return false;
+        return (
+          text.includes("new TelegramBot(") &&
+          text.includes("polling: false")
+        );
+      },
+      details: "telegram transport instantiates TelegramBot",
+    },
+    {
       key: "webhook_setup",
       file: "src/bot/telegramTransport.js",
       kind: "runtime_foundation",
@@ -137,6 +172,82 @@ export function buildRuntimeFoundationDefs() {
         return text.includes("processUpdate");
       },
       details: "telegram transport processes updates",
+    },
+    {
+      key: "telegram_message_listener",
+      file: "src/transport/telegramAdapter.js",
+      kind: "runtime_foundation",
+      strength: "strong",
+      tags: ["transport"],
+      test: async ({ evaluationCtx }) => {
+        const text = await safeFetchTextFile(
+          "src/transport/telegramAdapter.js",
+          evaluationCtx
+        );
+        if (!text) return false;
+        return (
+          text.includes('this.bot.on("message"') &&
+          text.includes("handleMessage(")
+        );
+      },
+      details: "telegram adapter listens to incoming messages and forwards to core",
+    },
+    {
+      key: "chat_message_router",
+      file: "src/bot/messageRouter.js",
+      kind: "runtime_foundation",
+      strength: "medium",
+      tags: ["runtime", "transport"],
+      test: async ({ evaluationCtx }) => {
+        const text = await safeFetchTextFile(
+          "src/bot/messageRouter.js",
+          evaluationCtx
+        );
+        if (!text) return false;
+        return (
+          text.includes('bot.on("message"') &&
+          text.includes("handleChatMessage(")
+        );
+      },
+      details: "router accepts message updates and routes chat flow",
+    },
+    {
+      key: "basic_reply_pipeline",
+      file: "src/bot/handlers/chat/postReplyFlow.js",
+      kind: "runtime_foundation",
+      strength: "strong",
+      tags: ["runtime", "transport"],
+      test: async ({ evaluationCtx }) => {
+        const text = await safeFetchTextFile(
+          "src/bot/handlers/chat/postReplyFlow.js",
+          evaluationCtx
+        );
+        if (!text) return false;
+        return (
+          text.includes("finalizeChatReply") &&
+          text.includes("bot.sendMessage(")
+        );
+      },
+      details: "chat flow finalizes and sends a telegram reply",
+    },
+    {
+      key: "adapter_reply_surface",
+      file: "src/transport/telegramAdapter.js",
+      kind: "runtime_foundation",
+      strength: "medium",
+      tags: ["transport"],
+      test: async ({ evaluationCtx }) => {
+        const text = await safeFetchTextFile(
+          "src/transport/telegramAdapter.js",
+          evaluationCtx
+        );
+        if (!text) return false;
+        return (
+          text.includes("async reply(") &&
+          text.includes("this.bot.sendMessage(")
+        );
+      },
+      details: "transport adapter exposes reply surface via sendMessage",
     },
   ];
 }

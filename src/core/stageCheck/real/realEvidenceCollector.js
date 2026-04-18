@@ -17,7 +17,6 @@ import {
 } from "./realScopeProfile.js";
 import { collectRuntimeFoundationEvidence } from "./realRuntimeFoundation.js";
 import { collectDomainEvidence } from "./realDomainEvidence.js";
-import { resolveRealNodeProfile } from "./realNodeProfileResolver.js";
 
 export async function collectRealEvidence({
   scopeWorkflowItems,
@@ -29,10 +28,6 @@ export async function collectRealEvidence({
 
   const scopeSemanticProfile = buildScopeSemanticProfile(normalizedScopeItems);
   const scopeStats = buildScopeStats(normalizedScopeItems);
-  const nodeProfile = resolveRealNodeProfile({
-    scopeWorkflowItems: normalizedScopeItems,
-    scopeSemanticProfile,
-  });
 
   const entrypoints = await discoverEntrypoints(evaluationCtx);
 
@@ -63,14 +58,12 @@ export async function collectRealEvidence({
     evaluationCtx,
     scopeSemanticProfile,
     scopeWorkflowItems: normalizedScopeItems,
-    nodeProfile,
   });
 
   const domainEvidence = await collectDomainEvidence({
     evaluationCtx,
     scopeSemanticProfile,
     scopeWorkflowItems: normalizedScopeItems,
-    nodeProfile,
   });
 
   const evidence = buildRealEvidence({
@@ -83,7 +76,6 @@ export async function collectRealEvidence({
   return {
     scopeSemanticProfile,
     scopeStats,
-    nodeProfile,
     entrypoints,
     candidateFiles,
     directEntrypointMatches,

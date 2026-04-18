@@ -6,6 +6,7 @@
 // - show classifier result separately from route result
 // - show normalized read-plan for future repo bridge
 // - show normalized repo bridge plan
+// - show executor readiness
 // - diagnostic only, no side effects
 // ============================================================================
 
@@ -136,6 +137,10 @@ export async function handleProjectIntentDiag(ctx = {}) {
       `bridgeConfidence: ${repoBridge.confidence}`,
       `preview: ${repoBridge.preview}`,
       formatList("bridgeBasis", repoBridge.basis),
+      "",
+      "Executor:",
+      "executorReady: true",
+      `wouldExecuteNow: ${String(repoBridge.canAutoExecute)}`,
     ].join("\n")
   );
 }

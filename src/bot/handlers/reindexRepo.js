@@ -5,7 +5,7 @@
 import pool from "../../../db.js";
 import { RepoIndexService } from "../../repo/RepoIndexService.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function formatCandidatesPreview(preview, limit = 10) {
   if (!preview || !Array.isArray(preview.items) || preview.items.length === 0) {
@@ -45,7 +45,7 @@ function formatCandidatesPreview(preview, limit = 10) {
 }
 
 export async function handleReindexRepo(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const { bot, chatId } = ctx;

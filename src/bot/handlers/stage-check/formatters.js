@@ -65,20 +65,10 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       header_single: "Проверка этапа: {code}",
       header_all: "Проверка этапов: все",
       header_current: "Проверка этапов: текущий",
-      workflow: "Пункт workflow",
-      status: "Статус",
       formal_status: "Формальный статус",
       real_status: "Реальный статус",
       status_gap: "Разрыв статусов",
       gap_reason: "Причина разрыва",
-      checked: "Что проверялось",
-      found: "Что найдено",
-      formal_found: "Что найдено формально",
-      real_found: "Что найдено реально",
-      result: "Итог",
-      current_stage: "Текущий этап",
-      title: "Название",
-      all_complete: "Все верхние этапы подтверждены",
       confirmed: "подтверждено",
       partially_confirmed: "частично подтверждено",
       not_confirmed: "не подтверждено",
@@ -95,22 +85,10 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       cannot_read_rules: `Ошибка stage_check: не удалось прочитать ${rulesPath}`,
       invalid_rules: `Ошибка stage_check: неверный JSON в ${rulesPath}`,
       runtime_failed: "Ошибка stage_check: не удалось выполнить проверку",
-      explicit_file: "Наличие явного файла",
-      command_surface: "Наличие команды",
-      repo_token: "Наличие технического признака в репозитории",
-      basename_signal: "Наличие файла/модуля по имени",
-      structured_index: "Наличие структурного индекса/unique в миграциях",
+      result: "Итог",
       no_clear_evidence: "Явного подтверждения в репозитории не найдено",
-      insufficient_evidence: "Есть сигналы, но их недостаточно для подтверждения",
-      aggregated_scope: "Агрегированная проверка дочерних пунктов",
-      exact_point: "Проверка точечного пункта",
-      stage_line: "{code} — {status}",
-      child_points: "Пункты",
-      summary: "Сводка",
-      completed_count: "Завершено",
-      partial_count: "Частично",
-      open_count: "Не выполнено",
-      no_signals_count: "Без сигналов",
+      current_stage: "Текущий этап",
+      all_complete: "Все верхние этапы подтверждены",
       real_diag_header: "Real diagnostics",
       chosen_rule: "Сработавшее правило",
       metrics: "Метрики",
@@ -139,25 +117,20 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       own_has_meaningful_signals: "ownHasMeaningfulSignals",
       own_strong_foundation: "ownStrongFoundation",
       no_diag: "diagnostics отсутствуют",
+      draft_profile_header: "Draft profile diagnostics",
+      draft_profile_key: "draftProfileKey",
+      draft_profile_family: "draftProfileFamily",
+      draft_profile_score: "draftProfileScore",
+      draft_profile_tags: "draftSemanticTags",
     },
     uk: {
       header_single: "Перевірка етапу: {code}",
       header_all: "Перевірка етапів: усі",
       header_current: "Перевірка етапів: поточний",
-      workflow: "Пункт workflow",
-      status: "Статус",
       formal_status: "Формальний статус",
       real_status: "Реальний статус",
       status_gap: "Розрив статусів",
       gap_reason: "Причина розриву",
-      checked: "Що перевірялось",
-      found: "Що знайдено",
-      formal_found: "Що знайдено формально",
-      real_found: "Що знайдено реально",
-      result: "Підсумок",
-      current_stage: "Поточний етап",
-      title: "Назва",
-      all_complete: "Усі верхні етапи підтверджені",
       confirmed: "підтверджено",
       partially_confirmed: "частково підтверджено",
       not_confirmed: "не підтверджено",
@@ -174,22 +147,10 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       cannot_read_rules: `Помилка stage_check: не вдалося прочитати ${rulesPath}`,
       invalid_rules: `Помилка stage_check: некоректний JSON у ${rulesPath}`,
       runtime_failed: "Помилка stage_check: не вдалося виконати перевірку",
-      explicit_file: "Наявність явного файлу",
-      command_surface: "Наявність команди",
-      repo_token: "Наявність технічної ознаки в репозиторії",
-      basename_signal: "Наявність файлу/модуля за назвою",
-      structured_index: "Наявність структурного індексу/unique у міграціях",
+      result: "Підсумок",
       no_clear_evidence: "Явного підтвердження в репозиторії не знайдено",
-      insufficient_evidence: "Є сигнали, але їх недостатньо для підтвердження",
-      aggregated_scope: "Агрегована перевірка дочірніх пунктів",
-      exact_point: "Перевірка точкового пункту",
-      stage_line: "{code} — {status}",
-      child_points: "Пункти",
-      summary: "Зведення",
-      completed_count: "Завершено",
-      partial_count: "Частково",
-      open_count: "Не виконано",
-      no_signals_count: "Без сигналів",
+      current_stage: "Поточний етап",
+      all_complete: "Усі верхні етапи підтверджені",
       real_diag_header: "Real diagnostics",
       chosen_rule: "Правило, що спрацювало",
       metrics: "Метрики",
@@ -218,25 +179,20 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       own_has_meaningful_signals: "ownHasMeaningfulSignals",
       own_strong_foundation: "ownStrongFoundation",
       no_diag: "diagnostics відсутні",
+      draft_profile_header: "Draft profile diagnostics",
+      draft_profile_key: "draftProfileKey",
+      draft_profile_family: "draftProfileFamily",
+      draft_profile_score: "draftProfileScore",
+      draft_profile_tags: "draftSemanticTags",
     },
     en: {
       header_single: "Stage check: {code}",
       header_all: "Stage check: all",
       header_current: "Stage check: current",
-      workflow: "Workflow item",
-      status: "Status",
       formal_status: "Formal status",
       real_status: "Real status",
       status_gap: "Status gap",
       gap_reason: "Gap reason",
-      checked: "What was checked",
-      found: "What was found",
-      formal_found: "What was found formally",
-      real_found: "What was found really",
-      result: "Result",
-      current_stage: "Current stage",
-      title: "Title",
-      all_complete: "All top-level stages are confirmed",
       confirmed: "confirmed",
       partially_confirmed: "partially confirmed",
       not_confirmed: "not confirmed",
@@ -253,22 +209,10 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       cannot_read_rules: `stage_check error: cannot read ${rulesPath}`,
       invalid_rules: `stage_check error: invalid JSON in ${rulesPath}`,
       runtime_failed: "stage_check error: runtime evaluation failed",
-      explicit_file: "Explicit file exists",
-      command_surface: "Command exists",
-      repo_token: "Technical evidence exists in repository",
-      basename_signal: "File/module exists by name",
-      structured_index: "Structured index/unique exists in migrations",
+      result: "Result",
       no_clear_evidence: "No clear evidence found in repository",
-      insufficient_evidence: "There are signals, but not enough to confirm the item",
-      aggregated_scope: "Aggregated check of child items",
-      exact_point: "Exact point check",
-      stage_line: "{code} — {status}",
-      child_points: "Items",
-      summary: "Summary",
-      completed_count: "Completed",
-      partial_count: "Partial",
-      open_count: "Open",
-      no_signals_count: "No signals",
+      current_stage: "Current stage",
+      all_complete: "All top-level stages are confirmed",
       real_diag_header: "Real diagnostics",
       chosen_rule: "Chosen rule",
       metrics: "Metrics",
@@ -297,6 +241,11 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       own_has_meaningful_signals: "ownHasMeaningfulSignals",
       own_strong_foundation: "ownStrongFoundation",
       no_diag: "diagnostics missing",
+      draft_profile_header: "Draft profile diagnostics",
+      draft_profile_key: "draftProfileKey",
+      draft_profile_family: "draftProfileFamily",
+      draft_profile_score: "draftProfileScore",
+      draft_profile_tags: "draftSemanticTags",
     },
   };
 
@@ -434,6 +383,22 @@ function buildOwnExactRuleLines(realDiag, t) {
   return [`- ${t("own_exact_rule")}: ${ownExactRule}`];
 }
 
+function buildDraftProfileLines(draftProfileDiag, t) {
+  if (!draftProfileDiag) return [];
+
+  const tags = Array.isArray(draftProfileDiag?.semanticTags)
+    ? draftProfileDiag.semanticTags
+    : [];
+
+  return [
+    `${t("draft_profile_header")}:`,
+    `- ${t("draft_profile_key")}: ${draftProfileDiag?.profileKey || "generic.default"}`,
+    `- ${t("draft_profile_family")}: ${draftProfileDiag?.family || "generic"}`,
+    `- ${t("draft_profile_score")}: ${Number(draftProfileDiag?.score || 0)}`,
+    `- ${t("draft_profile_tags")}: ${tags.length > 0 ? tags.join(", ") : "-"}`,
+  ];
+}
+
 export function formatSingleItemOutput({
   review,
   t,
@@ -454,6 +419,8 @@ export function formatSingleItemOutput({
     lines.push(...buildMetricsLines(review?.real?.diagnostics, t));
     lines.push(...buildOwnExactRuleLines(review?.real?.diagnostics, t));
     lines.push(...buildChildStatusesLines(review?.real?.diagnostics, t));
+    lines.push("");
+    lines.push(...buildDraftProfileLines(review?.draftProfileDiag, t));
   }
 
   return lines.join("\n");
@@ -487,15 +454,16 @@ export function formatAllStagesOutput({
 
   for (const review of list) {
     lines.push(
-      t("stage_line", {
-        code: review?.item?.code || "-",
-        status: buildStageLineStatus(review, humanStatus, humanGapReason),
-      })
+      `${review?.item?.code || "-"} — ${buildStageLineStatus(review, humanStatus, humanGapReason)}`
     );
 
     if (includeDiagnostics) {
       const chosenRule = review?.real?.diagnostics?.chosenRule || "-";
+      const profileKey = review?.draftProfileDiag?.profileKey || "generic.default";
+      const profileFamily = review?.draftProfileDiag?.family || "generic";
       lines.push(`  ${t("chosen_rule")}: ${chosenRule}`);
+      lines.push(`  ${t("draft_profile_key")}: ${profileKey}`);
+      lines.push(`  ${t("draft_profile_family")}: ${profileFamily}`);
     }
   }
 
@@ -565,6 +533,8 @@ export function formatCurrentOutput({
     lines.push(...buildMetricsLines(chosen?.real?.diagnostics, t));
     lines.push(...buildOwnExactRuleLines(chosen?.real?.diagnostics, t));
     lines.push(...buildChildStatusesLines(chosen?.real?.diagnostics, t));
+    lines.push("");
+    lines.push(...buildDraftProfileLines(chosen?.draftProfileDiag, t));
   }
 
   return lines.join("\n");

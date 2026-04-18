@@ -5,7 +5,7 @@
 
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function dirOf(path) {
   const p = String(path || "");
@@ -22,7 +22,6 @@ function topN(obj, n = 8) {
 function isSuspicious(path) {
   const lower = String(path || "").toLowerCase();
 
-  // snapshot должен быть чистым: в нем не должно быть env/keys
   const bad = [
     ".env",
     "secret",
@@ -44,7 +43,7 @@ function isSuspicious(path) {
 }
 
 export async function handleRepoReview2(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const { bot, chatId } = ctx;
@@ -69,14 +68,12 @@ export async function handleRepoReview2(ctx = {}) {
 
   const filesCount = paths.length;
 
-  // Folder breakdown
   const byDir = {};
   for (const p of paths) {
     const d = dirOf(p);
     byDir[d] = (byDir[d] || 0) + 1;
   }
 
-  // Required pillars (strict, based on your screenshot list)
   const requiredPillars = [
     "pillars/CODE_INSERT_RULES.md",
     "pillars/DECISIONS.md",
@@ -92,10 +89,8 @@ export async function handleRepoReview2(ctx = {}) {
   const present = new Set(paths);
   const missingPillars = requiredPillars.filter((p) => !present.has(p));
 
-  // Suspicious paths (should be none)
   const suspicious = paths.filter(isSuspicious);
 
-  // Key capability presence (minimal sanity)
   const expectedKeyFiles = [
     "db.js",
     "index.js",

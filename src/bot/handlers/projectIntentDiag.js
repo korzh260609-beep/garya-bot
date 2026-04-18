@@ -3,16 +3,13 @@
 // === 12A.0 intent guard diagnostics (READ-ONLY, monarch-only, private-only)
 // Purpose:
 // - inspect how SG classifies free-text internal project intent
-// - show exact matched signals without guessing
+// - show exact classification basis without guessing
 // - diagnostic only, no side effects
 // ============================================================================
 
 import { requireProjectMonarchPrivateAccess } from "./projectAccessGuard.js";
 import { PROJECT_ONLY_FEATURES } from "./projectAccessScope.js";
-import {
-  collectProjectIntentSignals,
-  resolveProjectIntentMatch,
-} from "../../core/projectIntent/projectIntentScope.js";
+import { resolveProjectIntentMatch } from "../../core/projectIntent/projectIntentScope.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -48,13 +45,12 @@ export async function handleProjectIntentDiag(ctx = {}) {
         "/project_intent_diag <free-text>",
         "",
         "Example:",
-        '/project_intent_diag analyze SG project architecture',
+        "/project_intent_diag analyze SG project architecture",
       ].join("\n")
     );
     return;
   }
 
-  const signals = collectProjectIntentSignals(input);
   const match = resolveProjectIntentMatch(input);
 
   await ctx.bot.sendMessage(
@@ -63,12 +59,21 @@ export async function handleProjectIntentDiag(ctx = {}) {
       "PROJECT INTENT DIAG",
       "",
       `input: ${quoteBlock(input)}`,
-      `normalized: ${quoteBlock(signals.normalized)}`,
+      `normalized: ${quoteBlock(match.normalized)}`,
+      "",
+      formatList("strongAnchorHits", match.strongAnchorHits),
+      formatList("identityTokenHits", match.identityTokenHits),
+      formatList("objectHits", match.objectHits),
+      formatList("readHits", match.readHits),
+      formatList("writeHits", match.writeHits),
+      formatList("classificationBasis", match.classificationBasis),
       "",
       formatList("anchorHits", match.anchorHits),
       formatList("internalActionHits", match.internalActionHits),
       formatList("writeActionHits", match.writeActionHits),
       "",
+      `targetDomain: ${match.targetDomain}`,
+      `actionMode: ${match.actionMode}`,
       `isProjectInternal: ${String(match.isProjectInternal)}`,
       `isProjectWriteIntent: ${String(match.isProjectWriteIntent)}`,
       `confidence: ${match.confidence}`,

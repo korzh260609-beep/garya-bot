@@ -354,6 +354,11 @@ function buildFoundationRuntimeChecks(item, own, inheritedSignals) {
       "sendmessage",
       "message flow",
       "bot reply",
+      "basic bot reply",
+      "reply to messages",
+      "respond to messages",
+      "outgoing message",
+      "incoming message",
     ]);
 
   const hasWebhookConcept =
@@ -396,7 +401,13 @@ function buildFoundationRuntimeChecks(item, own, inheritedSignals) {
 
   if (hasReplyConcept || hasTransportConcept || hasTelegramConcept) {
     pushText("sendMessage(", "reply surface token: sendMessage(", "signature_anchor");
+    pushText("bot.sendMessage(", "reply surface token: bot.sendMessage(", "signature_anchor");
     pushText("finalizeChatReply", "reply finalization token: finalizeChatReply", "function_name");
+    pushText("handleChatMessage(", "chat flow token: handleChatMessage(", "signature_anchor");
+    pushText("outgoing message", "reply/output semantic token: outgoing message", "semantic_support");
+    pushText("incoming message", "reply/input semantic token: incoming message", "semantic_support");
+    pushBasename("postReplyFlow.js", "reply surface basename: postReplyFlow.js");
+    pushBasename("messageRouter.js", "reply surface basename: messageRouter.js");
   }
 
   return checks;

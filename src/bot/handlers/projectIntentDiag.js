@@ -6,7 +6,7 @@
 // - show classifier result separately from route result
 // - show normalized read-plan for future repo bridge
 // - show normalized repo bridge plan
-// - show executor readiness
+// - show executor readiness and current core auto-run policy
 // - diagnostic only, no side effects
 // ============================================================================
 
@@ -140,6 +140,7 @@ export async function handleProjectIntentDiag(ctx = {}) {
       "",
       "Executor:",
       "executorReady: true",
+      "coreAutoRunWired: true",
       `wouldExecuteNow: ${String(repoBridge.canAutoExecute)}`,
     ].join("\n")
   );

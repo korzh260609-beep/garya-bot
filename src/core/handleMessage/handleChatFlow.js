@@ -10,7 +10,6 @@ import { truncateForDb } from "./shared.js";
 import { handleExplicitRemember } from "./handleExplicitRemember.js";
 import { buildChatHandlerContext } from "./contextBuilders.js";
 
-// ✅ STAGE 12A.0 — future intent-level routing + guard for internal SG project requests
 import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.js";
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
 import { resolveProjectIntentReadPlan } from "../projectIntent/projectIntentReadPlan.js";
@@ -21,11 +20,177 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function normalizeLite(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function tokenizeLite(value) {
+  const normalized = normalizeLite(value)
+    .replace(/[.,!?;:()[\]{}<>\\|"'`~@#$%^&*+=]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return [];
+  return normalized.split(" ").filter(Boolean);
+}
+
+function tokenStartsWithAny(token, prefixes = []) {
+  for (const prefix of prefixes) {
+    if (token.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
+function collectPrefixHitsLite(tokens, prefixes) {
+  const hits = [];
+  for (const token of tokens) {
+    if (tokenStartsWithAny(token, prefixes)) {
+      hits.push(token);
+    }
+  }
+  return [...new Set(hits)];
+}
+
+const REPO_FOLLOWUP_INTENT_PREFIXES = Object.freeze([
+  "объяс",
+  "опис",
+  "анализ",
+  "проанализ",
+  "перев",
+  "русск",
+  "кратк",
+  "коротк",
+  "прощ",
+  "summary",
+  "brief",
+  "short",
+  "simple",
+  "explain",
+  "analy",
+  "translat",
+]);
+
+const REPO_FOLLOWUP_REFERENCE_TOKENS = Object.freeze([
+  "это",
+  "этот",
+  "эту",
+  "эти",
+  "this",
+  "it",
+  "that",
+  "теперь",
+  "now",
+]);
+
+function looksLikeRepoFollowupRequest(text = "") {
+  const normalized = normalizeLite(text);
+  const tokens = tokenizeLite(text);
+
+  if (!normalized) return false;
+
+  const hasReferenceToken = tokens.some((token) => REPO_FOLLOWUP_REFERENCE_TOKENS.includes(token));
+  const hasIntentStem = collectPrefixHitsLite(tokens, REPO_FOLLOWUP_INTENT_PREFIXES).length > 0;
+
+  if (normalized.includes("на русском")) return true;
+  if (normalized.includes("по-русски")) return true;
+  if (normalized.includes("explain this")) return true;
+  if (normalized.includes("translate this")) return true;
+
+  return hasReferenceToken || hasIntentStem;
+}
+
+function buildProjectIntentRoutingText(trimmed, followupContext = null) {
+  const base = safeText(trimmed);
+  if (!followupContext?.isActive) return base;
+
+  if (!looksLikeRepoFollowupRequest(base)) return base;
+
+  const path = safeText(followupContext.targetPath);
+  const entity = safeText(followupContext.targetEntity);
+  const scope = safeText(followupContext.targetKind);
+
+  const additions = [
+    "repo sg",
+    path,
+    entity,
+    scope,
+  ].filter(Boolean);
+
+  return `${base} ${additions.join(" ")}`.trim();
+}
+
+async function getLatestRepoFollowupContext(memory, {
+  chatIdStr,
+  globalUserId,
+  chatType,
+}) {
+  try {
+    const recent = await memory.recent({
+      chatId: chatIdStr,
+      globalUserId: globalUserId || null,
+      chatType,
+      limit: 20,
+    });
+
+    const rows = Array.isArray(recent) ? recent : [];
+
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      const item = rows[i] || {};
+      const meta = item?.metadata || {};
+
+      if (meta?.projectIntentRepoContextActive === true) {
+        return {
+          isActive: true,
+          handlerKey: safeText(meta.projectIntentBridgeHandlerKey),
+          planKey: safeText(meta.projectIntentPlanKey),
+          targetKind: safeText(meta.projectIntentTargetKind),
+          targetEntity: safeText(meta.projectIntentTargetEntity),
+          targetPath: safeText(meta.projectIntentTargetPath),
+          canonicalPillarPath: safeText(meta.projectIntentCanonicalPillarPath),
+          commandArg: safeText(meta.projectIntentBridgeCommandArg),
+          sourceText: safeText(meta.projectIntentSourceText),
+        };
+      }
+    }
+
+    return {
+      isActive: false,
+      handlerKey: "",
+      planKey: "",
+      targetKind: "",
+      targetEntity: "",
+      targetPath: "",
+      canonicalPillarPath: "",
+      commandArg: "",
+      sourceText: "",
+    };
+  } catch (_) {
+    return {
+      isActive: false,
+      handlerKey: "",
+      planKey: "",
+      targetKind: "",
+      targetEntity: "",
+      targetPath: "",
+      canonicalPillarPath: "",
+      commandArg: "",
+      sourceText: "",
+    };
+  }
+}
+
 function buildInternalProjectFallbackReply({
   route,
   readPlan,
   repoBridge,
 }) {
+  if (readPlan?.needsClarification === true) {
+    return safeText(readPlan?.clarificationQuestion) || "Что именно нужно открыть или объяснить?";
+  }
+
   const routeKey = safeText(route?.routeKey) || "unknown";
   const planKey = safeText(readPlan?.planKey) || "unknown";
   const recommendedCommand = safeText(repoBridge?.recommendedCommand);
@@ -143,21 +308,22 @@ export async function handleChatFlow({
       });
     };
 
-    // =========================================================================
-    // STAGE 12A.0 — FREE-TEXT INTERNAL PROJECT INTENT ROUTE + GUARD + READ PLAN
-    // - route decision is resolved once
-    // - guard enforces SG core internal access policy
-    // - read plan prepares future bridge to repo read/search/analyze
-    // - repo bridge normalizes future handler/command target
-    // =========================================================================
+    const repoFollowupContext = await getLatestRepoFollowupContext(memory, {
+      chatIdStr,
+      globalUserId,
+      chatType,
+    });
+
+    const projectIntentRoutingText = buildProjectIntentRoutingText(trimmed, repoFollowupContext);
+
     const projectIntentRoute = resolveProjectIntentRoute({
-      text: trimmed,
+      text: projectIntentRoutingText,
       isMonarchUser: !!isMonarchUser,
       isPrivateChat: !!isPrivateChat,
     });
 
     const projectIntentAccess = await requireProjectIntentAccess({
-      text: trimmed,
+      text: projectIntentRoutingText,
       isMonarchUser: !!isMonarchUser,
       isPrivateChat: !!isPrivateChat,
       replyAndLog,
@@ -175,6 +341,7 @@ export async function handleChatFlow({
     const projectIntentReadPlan = resolveProjectIntentReadPlan({
       text: trimmed,
       route: projectIntentRoute,
+      followupContext: repoFollowupContext,
     });
 
     const projectIntentRepoBridge = resolveProjectIntentRepoBridge({
@@ -226,7 +393,6 @@ export async function handleChatFlow({
             hasBinaryAttachment: inboundStorage.hasBinaryAttachment,
             attachmentKinds: inboundStorage.attachmentKinds,
 
-            // STAGE 12A.0 route snapshot (diagnostic-safe, no side effects)
             projectIntentScope: projectIntentRoute.targetScope,
             projectIntentDomain: projectIntentRoute.targetDomain,
             projectIntentActionMode: projectIntentRoute.actionMode,
@@ -234,15 +400,17 @@ export async function handleChatFlow({
             projectIntentPolicy: projectIntentRoute.policy,
             projectIntentConfidence: projectIntentRoute.confidence,
 
-            // STAGE 12A.0 read-plan snapshot
             projectIntentPlanKey: projectIntentReadPlan.planKey,
             projectIntentRecommendedCommand: projectIntentReadPlan.recommendedCommand,
             projectIntentPlanConfidence: projectIntentReadPlan.confidence,
             projectIntentPrimaryPathHint: projectIntentReadPlan.primaryPathHint,
             projectIntentRouteAllowsInternalRead: projectIntentReadPlan.routeAllowsInternalRead,
             projectIntentCanonicalPillarPath: projectIntentReadPlan.canonicalPillarPath || "",
+            projectIntentTargetKind: projectIntentReadPlan.targetKind || "",
+            projectIntentTargetEntity: projectIntentReadPlan.targetEntity || "",
+            projectIntentTargetPath: projectIntentReadPlan.targetPath || "",
+            projectIntentFollowupContextActive: projectIntentReadPlan.followupContextActive === true,
 
-            // STAGE 12A.0 repo-bridge snapshot
             projectIntentBridgeHandlerKey: projectIntentRepoBridge.handlerKey,
             projectIntentBridgeCommand: projectIntentRepoBridge.recommendedCommand,
             projectIntentBridgeCommandArg: projectIntentRepoBridge.commandArg,
@@ -305,15 +473,6 @@ export async function handleChatFlow({
       }
     }
 
-    // =========================================================================
-    // STAGE 12A.0 — SAFE AUTO-EXECUTION FOR INTERNAL SG READ-ONLY REPO REQUESTS
-    // - only after route/guard/read-plan/bridge
-    // - only for bridge.canAutoExecute === true
-    // - only existing read-only handlers
-    // IMPORTANT:
-    // - pass senderIdStr / identityCtx / bot / chatId explicitly
-    // - do not rely on loose context merge only
-    // =========================================================================
     const projectIntentRepoExec = await executeProjectIntentRepoBridge(
       {
         ...(context || {}),
@@ -335,6 +494,34 @@ export async function handleChatFlow({
     );
 
     if (projectIntentRepoExec?.executed) {
+      try {
+        await memory.write({
+          chatId: chatIdStr,
+          globalUserId: globalUserId || null,
+          role: "assistant",
+          content: [
+            "[repo_context]",
+            `handler=${safeText(projectIntentRepoBridge.handlerKey)}`,
+            `path=${safeText(projectIntentReadPlan.targetPath || projectIntentReadPlan.canonicalPillarPath)}`,
+            `entity=${safeText(projectIntentReadPlan.targetEntity)}`,
+          ].join(" "),
+          transport,
+          metadata: {
+            projectIntentRepoContextActive: true,
+            projectIntentPlanKey: projectIntentReadPlan.planKey,
+            projectIntentBridgeHandlerKey: projectIntentRepoBridge.handlerKey,
+            projectIntentBridgeCommandArg: projectIntentRepoBridge.commandArg,
+            projectIntentCanonicalPillarPath: projectIntentReadPlan.canonicalPillarPath || "",
+            projectIntentTargetKind: projectIntentReadPlan.targetKind || "",
+            projectIntentTargetEntity: projectIntentReadPlan.targetEntity || "",
+            projectIntentTargetPath: projectIntentReadPlan.targetPath || "",
+            projectIntentSourceText: safeText(trimmed),
+            read_only: true,
+          },
+          schemaVersion: 2,
+        });
+      } catch (_) {}
+
       return {
         ok: true,
         stage: "12A.0.repo_bridge_execute",
@@ -342,13 +529,6 @@ export async function handleChatFlow({
       };
     }
 
-    // =========================================================================
-    // STAGE 12A.0 — HARD STOP FOR INTERNAL SG PROJECT REQUESTS
-    // IMPORTANT:
-    // - if request is recognized as SG internal and allowed,
-    //   but repo bridge did not execute, DO NOT fall back into generic AI chat
-    // - otherwise AI may hallucinate that there is no repo access
-    // =========================================================================
     if (projectIntentRoute?.targetScope === "sg_core_internal") {
       const internalReply = buildInternalProjectFallbackReply({
         route: projectIntentRoute,
@@ -372,6 +552,11 @@ export async function handleChatFlow({
           project_intent_plan_confidence: projectIntentReadPlan.confidence,
           project_intent_primary_path_hint: projectIntentReadPlan.primaryPathHint || "",
           project_intent_canonical_pillar_path: projectIntentReadPlan.canonicalPillarPath || "",
+          project_intent_target_kind: projectIntentReadPlan.targetKind || "",
+          project_intent_target_entity: projectIntentReadPlan.targetEntity || "",
+          project_intent_target_path: projectIntentReadPlan.targetPath || "",
+          project_intent_followup_context_active: projectIntentReadPlan.followupContextActive === true,
+          project_intent_needs_clarification: projectIntentReadPlan.needsClarification === true,
 
           project_intent_bridge_handler_key: projectIntentRepoBridge.handlerKey,
           project_intent_bridge_command: projectIntentRepoBridge.recommendedCommand,

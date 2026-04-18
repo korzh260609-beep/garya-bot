@@ -6,6 +6,7 @@
 // - keep plan semantic and read-only
 // - prepare future bridge: human text -> repo read/search/analyze action
 // - respect canonical SG governance layer first: pillars/*
+// - route meta-questions about repo/GitHub access to real repo status surfaces
 // IMPORTANT:
 // - NO command execution
 // - NO repo writes
@@ -106,12 +107,6 @@ const PILLARS_ROOT_TOKENS = Object.freeze([
   "пиллары",
 ]);
 
-// NOTE:
-// Keep these mappings conservative.
-// We map to canonical files only when the request semantically looks like:
-// - open/show/read document
-// - analyze that canonical document
-// We do NOT want broad generic words to hijack the whole repo flow.
 const PILLAR_FILE_RULES = Object.freeze([
   {
     path: "pillars/WORKFLOW.md",
@@ -124,6 +119,7 @@ const PILLAR_FILE_RULES = Object.freeze([
       "прочитай workflow md",
       "открой документ workflow",
       "покажи документ workflow",
+      "проанализируй workflow md",
     ],
     tokens: [],
     basis: "pillar_workflow",
@@ -139,6 +135,7 @@ const PILLAR_FILE_RULES = Object.freeze([
       "открой decisions",
       "покажи decisions",
       "прочитай decisions",
+      "проанализируй decisions",
     ],
     tokens: [],
     basis: "pillar_decisions",
@@ -152,6 +149,7 @@ const PILLAR_FILE_RULES = Object.freeze([
       "открой roadmap",
       "покажи roadmap",
       "прочитай roadmap",
+      "проанализируй roadmap",
       "дорожная карта документ",
     ],
     tokens: [],
@@ -166,6 +164,7 @@ const PILLAR_FILE_RULES = Object.freeze([
       "открой project md",
       "покажи project md",
       "прочитай project md",
+      "проанализируй project md",
       "документ описания проекта",
     ],
     tokens: [],
@@ -180,6 +179,7 @@ const PILLAR_FILE_RULES = Object.freeze([
       "открой kingdom",
       "покажи kingdom",
       "прочитай kingdom",
+      "проанализируй kingdom",
     ],
     tokens: [],
     basis: "pillar_kingdom",
@@ -194,6 +194,7 @@ const PILLAR_FILE_RULES = Object.freeze([
       "открой поведение sg",
       "покажи поведение sg",
       "прочитай поведение sg",
+      "проанализируй поведение sg",
     ],
     tokens: [],
     basis: "pillar_behavior",
@@ -208,6 +209,7 @@ const PILLAR_FILE_RULES = Object.freeze([
       "открой сущность sg",
       "покажи сущность sg",
       "прочитай сущность sg",
+      "проанализируй сущность sg",
     ],
     tokens: [],
     basis: "pillar_entity",
@@ -221,6 +223,7 @@ const PILLAR_FILE_RULES = Object.freeze([
       "открой repoindex",
       "покажи repoindex",
       "прочитай repoindex",
+      "проанализируй repoindex",
     ],
     tokens: [],
     basis: "pillar_repoindex",
@@ -235,6 +238,7 @@ const PILLAR_FILE_RULES = Object.freeze([
       "открой правила вставки кода",
       "покажи правила вставки кода",
       "прочитай правила вставки кода",
+      "проанализируй правила вставки кода",
     ],
     tokens: [],
     basis: "pillar_code_insert_rules",
@@ -370,6 +374,45 @@ const CHECK_ACTION_PHRASES = Object.freeze([
   "проверка",
 ]);
 
+const REPO_ACCESS_META_PHRASES = Object.freeze([
+  "do you have access to the repo",
+  "do you have access to repository",
+  "do you have access to github",
+  "can you read the repo",
+  "can you see the repo",
+  "can you access github",
+  "repo access",
+  "repository access",
+  "github access",
+
+  "у тебя есть доступ к репозиторию",
+  "у тебя есть доступ к github",
+  "ты видишь репозиторий",
+  "ты видишь github",
+  "ты можешь читать репозиторий",
+  "ты можешь открыть репозиторий",
+  "ты подключен к github",
+  "есть доступ к репозиторию",
+  "есть доступ к github",
+  "доступ к репозиторию",
+  "доступ к github",
+  "подключение к github",
+  "подключение к репозиторию",
+]);
+
+const REPO_ACCESS_META_TOKENS = Object.freeze([
+  "access",
+  "connected",
+  "connection",
+  "видишь",
+  "доступ",
+  "подключение",
+  "подключен",
+  "читать",
+  "read",
+  "see",
+]);
+
 const PATH_HINT_PATTERNS = [
   /(?:^|\s)(src\/[^\s]+)/i,
   /(?:^|\s)(pillars\/[^\s]+)/i,
@@ -488,6 +531,17 @@ function looksLikeCheckIntent(normalized, tokens) {
   return phraseHits.length > 0 || tokenHits.length > 0;
 }
 
+function looksLikeRepoAccessMetaIntent(normalized, tokens) {
+  const phraseHits = collectPhraseHits(normalized, REPO_ACCESS_META_PHRASES);
+  const tokenHits = collectTokenHits(tokens, REPO_ACCESS_META_TOKENS);
+
+  return {
+    phraseHits,
+    tokenHits,
+    hasRepoAccessMetaSignal: phraseHits.length > 0 || tokenHits.length > 0,
+  };
+}
+
 export function resolveProjectIntentReadPlan({
   text,
   route = null,
@@ -523,6 +577,12 @@ export function resolveProjectIntentReadPlan({
     canonicalPillarTokenHits,
   } = resolvePillarFileMatch(normalized, tokens);
 
+  const {
+    phraseHits: repoAccessMetaPhraseHits,
+    tokenHits: repoAccessMetaTokenHits,
+    hasRepoAccessMetaSignal,
+  } = looksLikeRepoAccessMetaIntent(normalized, tokens);
+
   const pathHints = extractPathHints(text);
 
   const basis = [];
@@ -548,35 +608,42 @@ export function resolveProjectIntentReadPlan({
   const isCheckIntent = looksLikeCheckIntent(normalized, tokens);
 
   // --------------------------------------------------------------------------
-  // 1) SEMANTIC ACTIONS FIRST
+  // 1) META / CAPABILITY QUESTIONS ABOUT REPO ACCESS
   // --------------------------------------------------------------------------
-  // Universal rule:
-  // if the user asks to CHECK workflow/stage/status, we should not hijack
-  // that into opening a canonical document.
-  if (hasWorkflowSignal && isCheckIntent && !pathHints.length) {
+  if (hasRepoAccessMetaSignal) {
+    planKey = "repo_status";
+    recommendedCommand = "/repo_status";
+    confidence = repoAccessMetaPhraseHits.length > 0 ? "high" : "medium";
+    basis.push("repo_access_meta");
+  }
+
+  // --------------------------------------------------------------------------
+  // 2) SEMANTIC ACTIONS FIRST
+  // --------------------------------------------------------------------------
+  else if (hasWorkflowSignal && isCheckIntent && !pathHints.length) {
     planKey = "workflow_check";
     recommendedCommand = "/workflow_check";
-    confidence = workflowPhraseHits.length ? "high" : "medium";
+    confidence = workflowPhraseHits.length > 0 ? "high" : "medium";
     basis.push("workflow_check_semantic");
   } else if (hasStageSignal && isCheckIntent && !pathHints.length) {
     planKey = "stage_check";
     recommendedCommand = "/stage_check";
-    confidence = stagePhraseHits.length ? "high" : "medium";
+    confidence = stagePhraseHits.length > 0 ? "high" : "medium";
     basis.push("stage_check_semantic");
   } else if (hasStatusSignal) {
     planKey = "repo_status";
     recommendedCommand = "/repo_status";
-    confidence = statusPhraseHits.length ? "high" : "medium";
+    confidence = statusPhraseHits.length > 0 ? "high" : "medium";
     basis.push("status_signal");
   } else if (hasTreeSignal) {
     planKey = "repo_tree";
     recommendedCommand = "/repo_tree";
-    confidence = treePhraseHits.length ? "high" : "medium";
+    confidence = treePhraseHits.length > 0 ? "high" : "medium";
     basis.push("tree_signal");
   }
 
   // --------------------------------------------------------------------------
-  // 2) CANONICAL PILLAR DOCUMENT ACCESS
+  // 3) CANONICAL PILLAR DOCUMENT ACCESS
   // --------------------------------------------------------------------------
   else if (hasCanonicalPillarMatch && isAnalyzeDocumentIntent) {
     planKey = "repo_analyze";
@@ -596,8 +663,6 @@ export function resolveProjectIntentReadPlan({
     confidence = "high";
     basis.push("pillars_root_search");
   } else if (hasPillarsRootSignal && hasTreeSignal) {
-    // repo_tree cannot scope to pillars/ only,
-    // so search is more semantically useful here.
     planKey = "repo_search";
     recommendedCommand = "/repo_search";
     confidence = "high";
@@ -610,44 +675,42 @@ export function resolveProjectIntentReadPlan({
   }
 
   // --------------------------------------------------------------------------
-  // 3) EXPLICIT PATHS / GENERIC FILE OPS
+  // 4) EXPLICIT PATHS / GENERIC FILE OPS
   // --------------------------------------------------------------------------
-  else if (pathHints.length || hasFileSignal) {
+  else if (pathHints.length > 0 || hasFileSignal) {
     planKey = "repo_file";
     recommendedCommand = "/repo_file";
-    confidence = pathHints.length ? "high" : "medium";
-    basis.push(pathHints.length ? "path_hint" : "file_signal");
+    confidence = pathHints.length > 0 ? "high" : "medium";
+    basis.push(pathHints.length > 0 ? "path_hint" : "file_signal");
   } else if (hasDiffSignal) {
     planKey = "repo_diff";
     recommendedCommand = "/repo_diff";
-    confidence = diffPhraseHits.length ? "high" : "medium";
+    confidence = diffPhraseHits.length > 0 ? "high" : "medium";
     basis.push("diff_signal");
   } else if (hasAnalyzeSignal) {
     planKey = "repo_analyze";
     recommendedCommand = "/repo_analyze";
-    confidence = analyzePhraseHits.length ? "high" : "medium";
+    confidence = analyzePhraseHits.length > 0 ? "high" : "medium";
     basis.push("analyze_signal");
   } else if (hasSearchSignal) {
     planKey = "repo_search";
     recommendedCommand = "/repo_search";
-    confidence = searchPhraseHits.length ? "high" : "medium";
+    confidence = searchPhraseHits.length > 0 ? "high" : "medium";
     basis.push("search_signal");
   }
 
   // --------------------------------------------------------------------------
-  // 4) GENERIC FALLBACKS FOR MEANING
+  // 5) GENERIC FALLBACKS FOR MEANING
   // --------------------------------------------------------------------------
   else if (hasWorkflowSignal) {
-    // No explicit check/document intent. Stay conservative.
-    // Workflow is more often a semantic state question than a file-open request.
     planKey = "workflow_check";
     recommendedCommand = "/workflow_check";
-    confidence = workflowPhraseHits.length ? "medium" : "low";
+    confidence = workflowPhraseHits.length > 0 ? "medium" : "low";
     basis.push("workflow_fallback_semantic");
   } else if (hasStageSignal) {
     planKey = "stage_check";
     recommendedCommand = "/stage_check";
-    confidence = stagePhraseHits.length ? "medium" : "low";
+    confidence = stagePhraseHits.length > 0 ? "medium" : "low";
     basis.push("stage_fallback_semantic");
   }
 
@@ -660,6 +723,8 @@ export function resolveProjectIntentReadPlan({
     ...pillarsRootTokenHits,
     ...canonicalPillarPhraseHits,
     ...canonicalPillarTokenHits,
+    ...repoAccessMetaPhraseHits,
+    ...repoAccessMetaTokenHits,
   ]);
 
   const primaryPathHint =
@@ -695,6 +760,10 @@ export function resolveProjectIntentReadPlan({
     pillarsRootTokenHits,
     canonicalPillarPhraseHits,
     canonicalPillarTokenHits,
+
+    repoAccessMetaPhraseHits,
+    repoAccessMetaTokenHits,
+    hasRepoAccessMetaSignal,
 
     canonicalPillarPath,
     canonicalPillarBasis,

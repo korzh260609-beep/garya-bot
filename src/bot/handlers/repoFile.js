@@ -5,7 +5,7 @@
 import { RepoSource } from "../../repo/RepoSource.js";
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function normalizePath(raw) {
   const p = String(raw || "").trim().replace(/^\/+/, "");
@@ -16,7 +16,7 @@ function normalizePath(raw) {
 }
 
 export async function handleRepoFile(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const { bot, chatId, rest } = ctx;

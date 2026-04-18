@@ -35,6 +35,9 @@ import { buildSubtreeItemRealReviews } from "./real/realItemReviewService.js";
 import { buildAggregatedRealReview } from "./real/realAggregateEvaluator.js";
 import { evaluateStatusGap } from "./gap/statusGapEvaluator.js";
 
+import { buildScopeSemanticProfile } from "./real/realScopeProfile.js";
+import { resolveProfileDraft } from "./real/profileSkeleton/profileResolverDraft.js";
+
 function createRepoSource() {
   return new RepoSource({
     repo: process.env.GITHUB_REPO,
@@ -64,6 +67,23 @@ function createEvaluationCtx({
   };
 }
 
+function buildDraftProfileDiagnostics(scopeWorkflowItems = []) {
+  const scopeSemanticProfile = buildScopeSemanticProfile(scopeWorkflowItems);
+  const draft = resolveProfileDraft({
+    scopeWorkflowItems,
+    scopeSemanticProfile,
+  });
+
+  return {
+    profileKey: draft?.profileKey || "generic.default",
+    family: draft?.family || "generic",
+    score: Number(draft?.score || 0),
+    semanticTags: Array.isArray(scopeSemanticProfile?.tags)
+      ? scopeSemanticProfile.tags
+      : [],
+  };
+}
+
 function buildDualReviewObject({
   baseItem,
   scopeWorkflowItems,
@@ -72,6 +92,7 @@ function buildDualReviewObject({
   gapReview,
   itemRealReviews = [],
   techDiag = null,
+  draftProfileDiag = null,
 } = {}) {
   return {
     item: {
@@ -88,6 +109,7 @@ function buildDualReviewObject({
     aggregate: formalResult?.aggregate || null,
     itemRealReviews: Array.isArray(itemRealReviews) ? itemRealReviews : [],
     techDiag,
+    draftProfileDiag,
   };
 }
 
@@ -96,6 +118,7 @@ async function buildSingleDualReview({
   scopeWorkflowItems,
   evaluationCtx,
   includeTechDiag = false,
+  includeDraftProfileDiag = false,
 } = {}) {
   const formalResult = await runFormalReview({
     scopeWorkflowItems,
@@ -122,6 +145,10 @@ async function buildSingleDualReview({
     ? await buildItemDiag(baseItem, evaluationCtx)
     : null;
 
+  const draftProfileDiag = includeDraftProfileDiag
+    ? buildDraftProfileDiagnostics(scopeWorkflowItems)
+    : null;
+
   return buildDualReviewObject({
     baseItem,
     scopeWorkflowItems,
@@ -130,6 +157,7 @@ async function buildSingleDualReview({
     gapReview,
     itemRealReviews,
     techDiag,
+    draftProfileDiag,
   });
 }
 
@@ -266,6 +294,7 @@ async function buildStageReviews({
   workflowItems,
   evaluationCtx,
   includeTechDiag = false,
+  includeDraftProfileDiag = false,
 }) {
   const stageReviews = [];
 
@@ -276,6 +305,7 @@ async function buildStageReviews({
       scopeWorkflowItems,
       evaluationCtx,
       includeTechDiag,
+      includeDraftProfileDiag,
     });
 
     stageReviews.push(review);
@@ -312,6 +342,7 @@ export async function runStageCheckCore({
   });
 
   const includeTechDiag = modeInfo?.diag === true;
+  const includeDraftProfileDiag = modeInfo?.diag === true;
 
   const targetItem =
     modeInfo?.mode === "item"
@@ -325,6 +356,7 @@ export async function runStageCheckCore({
         workflowItems,
         evaluationCtx,
         includeTechDiag,
+        includeDraftProfileDiag,
       });
 
       return {
@@ -354,6 +386,7 @@ export async function runStageCheckCore({
         workflowItems,
         evaluationCtx,
         includeTechDiag,
+        includeDraftProfileDiag,
       });
 
       return {
@@ -395,6 +428,7 @@ export async function runStageCheckCore({
       scopeWorkflowItems,
       evaluationCtx,
       includeTechDiag,
+      includeDraftProfileDiag,
     });
 
     return {

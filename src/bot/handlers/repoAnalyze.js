@@ -6,7 +6,7 @@
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 import { RepoSource } from "../../repo/RepoSource.js";
-import { requireMonarchAccess } from "./handlerAccess.js";
+import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 function normalizePath(raw) {
   const p = String(raw || "").trim().replace(/^\/+/, "");
@@ -36,7 +36,7 @@ function denySensitivePath(path) {
     "id_rsa",
   ];
 
-  // блокируем конфиги окружений/деплоя (чтобы никто не “анализировал” их содержимое)
+  // блокируем конфиги окружений/деплоя
   const bannedExact = [
     "render.yaml",
     "dockerfile",
@@ -76,7 +76,6 @@ function parsePathAndQuestion(rest) {
   const raw = String(rest || "").trim();
   if (!raw) return { path: "", question: "" };
 
-  // формат: /repo_analyze path/to/file.js [question...]
   const firstSpace = raw.indexOf(" ");
   if (firstSpace === -1) return { path: raw, question: "" };
 
@@ -86,7 +85,6 @@ function parsePathAndQuestion(rest) {
 }
 
 function buildMetrics({ path, code, lines }) {
-  // Без вывода кода: только метрики/флаги
   const imports =
     countMatches("^\\s*import\\s+", code) +
     countMatches("^\\s*const\\s+\\w+\\s*=\\s*require\\(", code);
@@ -144,43 +142,36 @@ function buildFindings({ metrics, code }) {
 
   const lines = metrics.lines;
 
-  // размер
   if (lines >= 300) {
     notes.push(`Большой файл (${lines} строк): повышен риск ошибок и сложность поддержки.`);
     suggestions.push("Разбей файл на модули (правило проекта: 200–300 строк = пора выносить ответственность).");
   }
 
-  // env
   if (metrics.flags.hasEnv) {
     notes.push("Используются переменные окружения (process.env): убедись, что секреты не логируются.");
     suggestions.push("Не выводи значения process.env в чат/логи; логируй только факт наличия/отсутствия.");
   }
 
-  // child_process
   if (metrics.flags.hasChildProc) {
     risks.push("Используется child_process/exec/spawn: риск RCE/инъекций при неверной фильтрации ввода.");
     suggestions.push("Только allowlist команд и жёсткая валидация; запрет пользовательских строк без фильтра.");
   }
 
-  // fs write
   if (metrics.flags.hasFsWrite) {
     risks.push("Есть запись в файловую систему: риск побочных эффектов/утечек/нестабильности на Render.");
     suggestions.push("Данные/логи — предпочтительно в БД/безопасное хранилище; запись на диск только осознанно.");
   }
 
-  // network
   if (metrics.flags.hasNet) {
     notes.push("Есть сетевые запросы: проверь timeout/retry/rate-limit и обработку ошибок.");
     suggestions.push("Добавь таймауты и обработку 429/5xx, чтобы не зависать и не спамить источники.");
   }
 
-  // boundary checks
   if ((metrics.flags.isBootstrap || metrics.flags.isHandler) && metrics.flags.touchesDb) {
     risks.push("DB/SQL в bootstrap/handlers: вероятное нарушение границ ответственности (CORE_BOUNDARY_VIOLATION).");
     suggestions.push("Вынеси DB-операции в service слой; handlers/bootstrap держи тонкими.");
   }
 
-  // privileged commands inside handler check (heuristic)
   if (
     metrics.flags.isHandler &&
     (reTest("\\/reindex\\b", code) ||
@@ -188,13 +179,17 @@ function buildFindings({ metrics, code }) {
       reTest("\\/repo_diff\\b", code) ||
       reTest("\\/repo_", code))
   ) {
-    if (!reTest("MONARCH_USER_ID", code) && !reTest("requirePerm", code) && !reTest("perm", code)) {
+    if (
+      !reTest("MONARCH_USER_ID", code) &&
+      !reTest("requirePerm", code) &&
+      !reTest("perm", code) &&
+      !reTest("requireMonarchPrivateAccess", code)
+    ) {
       risks.push("Похоже на привилегированную команду без явного permission-guard в handler (PERMISSION_BYPASS_RISK).");
       suggestions.push("Добавь явный guard внутри handler (даже если guard есть на уровне router).");
     }
   }
 
-  // unreachable heuristic (non-blocking)
   if (reTest("\\breturn\\b[\\s\\S]{0,400}\\breturn\\b", code)) {
     notes.push("Есть паттерны с ранними return: возможен UNREACHABLE_CODE (эвристика, non-blocking).");
   }
@@ -206,12 +201,11 @@ function buildQuestionFocus(question) {
   const q = String(question || "").trim();
   if (!q) return null;
 
-  // очень простой “фокус”, чтобы ответ был точечным без ИИ
   return `Фокус-вопрос: ${q}`;
 }
 
 export async function handleRepoAnalyze(ctx = {}) {
-  const ok = await requireMonarchAccess(ctx);
+  const ok = await requireMonarchPrivateAccess(ctx);
   if (!ok) return;
 
   const { bot, chatId, rest } = ctx;
@@ -230,7 +224,6 @@ export async function handleRepoAnalyze(ctx = {}) {
     return;
   }
 
-  // Snapshot gate: анализируем только то, что есть в текущем snapshot
   const repo = process.env.GITHUB_REPO;
   const branch = process.env.GITHUB_BRANCH;
 
@@ -275,7 +268,6 @@ export async function handleRepoAnalyze(ctx = {}) {
   const code = file.content;
   const lines = countLines(code);
 
-  // Метрики + эвристики (без вывода кода)
   const metrics = buildMetrics({ path, code, lines });
   const { notes, risks, suggestions } = buildFindings({ metrics, code });
 
@@ -307,7 +299,6 @@ export async function handleRepoAnalyze(ctx = {}) {
   if (!suggestions.length) out.push("- (none)");
   else suggestions.slice(0, 12).forEach((s) => out.push(`- ${s}`));
 
-  // Если задан вопрос — добавим “минимально достаточные” подсказки по фокусу (без ИИ)
   if (question) {
     out.push("");
     out.push("Focus hints:");

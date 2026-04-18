@@ -34,6 +34,13 @@ export function buildScopeSemanticProfile(scopeWorkflowItems) {
       "transport adapter concept",
       "unified context",
       "handlemessage",
+      "bot reply",
+      "basic bot reply",
+      "respond to messages",
+      "receive message",
+      "reply to message",
+      "send message",
+      "message flow",
     ],
     "runtime"
   );
@@ -41,14 +48,38 @@ export function buildScopeSemanticProfile(scopeWorkflowItems) {
   addTagsFromPatterns(
     tags,
     text,
-    ["telegram", "webhook", "process update", "adapter", "transport", "delivery"],
+    [
+      "telegram",
+      "webhook",
+      "process update",
+      "adapter",
+      "transport",
+      "delivery",
+      "bot reply",
+      "basic bot reply",
+      "reply",
+      "respond",
+      "send message",
+      "message handler",
+      "message routing",
+      "incoming message",
+      "outgoing message",
+    ],
     "transport"
   );
 
   addTagsFromPatterns(
     tags,
     text,
-    ["postgresql", "database", "db", "migrations", "schema", "table", "storage"],
+    [
+      "postgresql",
+      "database",
+      "db",
+      "migrations",
+      "schema",
+      "table",
+      "storage",
+    ],
     "database"
   );
 
@@ -69,14 +100,21 @@ export function buildScopeSemanticProfile(scopeWorkflowItems) {
   addTagsFromPatterns(
     tags,
     text,
-    ["identity", "global_user_id", "user_links", "linking flow", "platform_user_id", "multi-channel"],
+    [
+      "identity",
+      "global_user_id",
+      "user_links",
+      "linking flow",
+      "platform_user_id",
+      "multi-channel",
+    ],
     "identity"
   );
 
   addTagsFromPatterns(
     tags,
     text,
-    ["observability", "/health", "error_events", "logs", "metrics", "alerts", "diagnostics"],
+    ["/health", "error_events", "logs", "metrics", "alerts", "diagnostics", "observability"],
     "observability"
   );
 
@@ -144,12 +182,10 @@ export function buildScopeStats(scopeWorkflowItems) {
   const exactItems = items.filter(
     (item) => String(item?.kind || "").toLowerCase() === "item"
   ).length;
-  const stageItems = items.filter(
-    (item) => {
-      const kind = String(item?.kind || "").toLowerCase();
-      return kind === "stage" || kind === "substage";
-    }
-  ).length;
+  const stageItems = items.filter((item) => {
+    const kind = String(item?.kind || "").toLowerCase();
+    return kind === "stage" || kind === "substage";
+  }).length;
 
   return {
     scopeItemCount: items.length,

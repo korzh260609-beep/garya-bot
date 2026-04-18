@@ -1,8 +1,7 @@
 // ============================================================================
 // === src/core/stageCheck/real/realStatusEvaluator.js
 // === evaluates universal real_status from collected real evidence
-// === rule-based statuses + probability/confidence layer
-// === with explain/diagnostic output for exact item review
+// === profile-aware exact evaluation
 // ============================================================================
 
 import { createRealReview } from "../contracts/stageCheckTypes.js";
@@ -42,20 +41,20 @@ function countDomainEvidence(realEvidence) {
 }
 
 function countDistinctDomainFiles(realEvidence) {
-  const files = toArray(realEvidence?.domainEvidence)
-    .map((x) => String(x?.file || "").trim())
-    .filter(Boolean);
-
-  return new Set(files).size;
+  return new Set(
+    toArray(realEvidence?.domainEvidence)
+      .map((x) => String(x?.file || "").trim())
+      .filter(Boolean)
+  ).size;
 }
 
 function countNonDescriptiveDomainFiles(realEvidence) {
-  const files = toArray(realEvidence?.domainEvidence)
-    .filter((x) => String(x?.proofClass || "") !== "descriptive")
-    .map((x) => String(x?.file || "").trim())
-    .filter(Boolean);
-
-  return new Set(files).size;
+  return new Set(
+    toArray(realEvidence?.domainEvidence)
+      .filter((x) => String(x?.proofClass || "") !== "descriptive")
+      .map((x) => String(x?.file || "").trim())
+      .filter(Boolean)
+  ).size;
 }
 
 function countStrongDomainImplementationEvidence(realEvidence) {
@@ -68,35 +67,33 @@ function countStrongDomainImplementationEvidence(realEvidence) {
 }
 
 function countStrongDomainImplementationFiles(realEvidence) {
-  const files = toArray(realEvidence?.domainEvidence)
-    .filter(
-      (x) =>
-        String(x?.strength || "") === "strong" &&
-        String(x?.proofRole || "") === "implementation" &&
-        String(x?.proofClass || "") !== "descriptive"
-    )
-    .map((x) => String(x?.file || "").trim())
-    .filter(Boolean);
-
-  return new Set(files).size;
+  return new Set(
+    toArray(realEvidence?.domainEvidence)
+      .filter(
+        (x) =>
+          String(x?.strength || "") === "strong" &&
+          String(x?.proofRole || "") === "implementation" &&
+          String(x?.proofClass || "") !== "descriptive"
+      )
+      .map((x) => String(x?.file || "").trim())
+      .filter(Boolean)
+  ).size;
 }
 
 function countDistinctDirectCandidates(realEvidence) {
-  const matches = toArray(realEvidence?.connectedness?.directEntrypointMatches);
-  const candidates = matches
-    .map((x) => String(x?.candidate || "").trim())
-    .filter(Boolean);
-
-  return new Set(candidates).size;
+  return new Set(
+    toArray(realEvidence?.connectedness?.directEntrypointMatches)
+      .map((x) => String(x?.candidate || "").trim())
+      .filter(Boolean)
+  ).size;
 }
 
 function countDistinctRepoReferencedCandidates(realEvidence) {
-  const matches = toArray(realEvidence?.connectedness?.repoReferenceMatches);
-  const candidates = matches
-    .map((x) => String(x?.candidate || "").trim())
-    .filter(Boolean);
-
-  return new Set(candidates).size;
+  return new Set(
+    toArray(realEvidence?.connectedness?.repoReferenceMatches)
+      .map((x) => String(x?.candidate || "").trim())
+      .filter(Boolean)
+  ).size;
 }
 
 function countDistinctImplementationAnchors(realEvidence) {
@@ -148,24 +145,20 @@ function getScopeStats(realEvidence) {
   };
 }
 
-function isRuntimeFoundationScope(realEvidence) {
-  return (
-    hasScopeTag(realEvidence, "runtime") ||
-    hasScopeTag(realEvidence, "transport")
-  );
+function getProfile(realEvidence) {
+  return realEvidence?.nodeProfile?.profile || null;
+}
+
+function getProfileFamily(realEvidence) {
+  return String(getProfile(realEvidence)?.family || "");
 }
 
 function isFoundationDomainScope(realEvidence) {
-  return (
-    hasScopeTag(realEvidence, "runtime") ||
-    hasScopeTag(realEvidence, "transport") ||
-    hasScopeTag(realEvidence, "database") ||
-    hasScopeTag(realEvidence, "access") ||
-    hasScopeTag(realEvidence, "identity") ||
-    hasScopeTag(realEvidence, "memory") ||
-    hasScopeTag(realEvidence, "sources") ||
-    hasScopeTag(realEvidence, "tasks")
-  );
+  return getProfileFamily(realEvidence) === "foundation";
+}
+
+function isRuntimeFoundationScope(realEvidence) {
+  return String(realEvidence?.nodeProfile?.profileKey || "") === "foundation.runtime";
 }
 
 function buildImplementationSummary(realEvidence) {
@@ -317,12 +310,7 @@ function buildProbabilityLayer(summary, realEvidence) {
   };
 }
 
-function buildRealReason({
-  status,
-  summary,
-  realEvidence,
-  probability,
-}) {
+function buildRealReason({ status, summary, realEvidence, probability }) {
   if (status === "COMPLETE") {
     if (summary.hasRuntimeReachability) {
       return "reachable_implementation_connected_to_runtime";
@@ -404,12 +392,12 @@ function pushRule(diag, name, passed, details = {}) {
 
 function buildDiagnosticsBase(summary, probability, realEvidence) {
   return {
-    evaluator: "exact_item_real_status_v3_foundation_domain_impl",
+    evaluator: "exact_item_real_status_v4_profile_based",
     scopeTags: Array.isArray(realEvidence?.scopeSemanticProfile?.tags)
       ? realEvidence.scopeSemanticProfile.tags
       : [],
-    isFoundationDomain: isFoundationDomainScope(realEvidence),
-    isRuntimeFoundation: isRuntimeFoundationScope(realEvidence),
+    nodeProfileKey: realEvidence?.nodeProfile?.profileKey || "feature.generic",
+    nodeProfileFamily: getProfileFamily(realEvidence),
     metrics: {
       scopeItemCount: Number(summary.scopeStats.scopeItemCount || 0),
       exactItems: Number(summary.scopeStats.exactItems || 0),
@@ -472,7 +460,6 @@ export function evaluateRealStatus({
     hasCandidateAnchor: summary.hasCandidateAnchor,
     hasRuntimeReachability: summary.hasRuntimeReachability,
     probabilityScore: probability.score,
-    requiredProbabilityScore: 0.72,
   });
 
   const completeByReachabilityLargeScope =
@@ -488,11 +475,8 @@ export function evaluateRealStatus({
     hasCandidateAnchor: summary.hasCandidateAnchor,
     hasRuntimeReachability: summary.hasRuntimeReachability,
     distinctDirectCandidates: summary.distinctDirectCandidates,
-    requiredDistinctDirectCandidates: 2,
     coverageScore: round3(summary.coverageScore),
-    requiredCoverageScore: 0.32,
     probabilityScore: probability.score,
-    requiredProbabilityScore: 0.74,
   });
 
   const completeByFoundationOnly =
@@ -504,15 +488,10 @@ export function evaluateRealStatus({
     probability.score >= 0.8;
 
   pushRule(diagnostics, "complete_by_foundation_only", completeByFoundationOnly, {
-    hasCandidateAnchor: summary.hasCandidateAnchor,
-    hasRepoReachability: summary.hasRepoReachability,
     runtimeFoundationScope,
     strongRuntimeFoundationCount: summary.strongRuntimeFoundationCount,
-    requiredStrongRuntimeFoundationCount: 5,
     runtimeFoundationCount: summary.runtimeFoundationCount,
-    requiredRuntimeFoundationCount: 6,
     probabilityScore: probability.score,
-    requiredProbabilityScore: 0.8,
   });
 
   if (
@@ -537,7 +516,6 @@ export function evaluateRealStatus({
       hasRepoReachability: summary.hasRepoReachability,
       runtimeFoundationCount: summary.runtimeFoundationCount,
       probabilityScore: probability.score,
-      requiredProbabilityScore: 0.36,
     });
 
     const partialByLargeScopeReachability =
@@ -550,9 +528,7 @@ export function evaluateRealStatus({
       largeScope,
       hasRuntimeReachability: summary.hasRuntimeReachability,
       distinctDirectCandidates: summary.distinctDirectCandidates,
-      requiredDistinctDirectCandidates: 1,
       probabilityScore: probability.score,
-      requiredProbabilityScore: 0.4,
     });
 
     const partialByFoundation =
@@ -561,7 +537,7 @@ export function evaluateRealStatus({
       (
         (
           summary.foundationSignalScore >= 2.3 &&
-          summary.runtimeFoundationCount >= 2
+          summary.runtimeFoundationCount >= 0
         ) ||
         summary.strongDomainImplementationEvidence >= 2 ||
         (
@@ -573,13 +549,30 @@ export function evaluateRealStatus({
 
     pushRule(diagnostics, "partial_by_foundation", partialByFoundation, {
       foundationDomain,
-      hasRuntimeReachability: summary.hasRuntimeReachability,
       foundationSignalScore: round3(summary.foundationSignalScore),
       runtimeFoundationCount: summary.runtimeFoundationCount,
       strongDomainImplementationEvidence: summary.strongDomainImplementationEvidence,
       distinctImplementationAnchors: summary.distinctImplementationAnchors,
       probabilityScore: probability.score,
-      requiredProbabilityScore: 0.18,
+    });
+
+    const partialByFeatureImplementation =
+      !foundationDomain &&
+      summary.strongDomainImplementationEvidence >= 2 &&
+      (
+        summary.distinctImplementationAnchors >= 2 ||
+        summary.hasRuntimeReachability ||
+        summary.hasRepoReachability
+      ) &&
+      probability.score >= 0.24;
+
+    pushRule(diagnostics, "partial_by_feature_implementation", partialByFeatureImplementation, {
+      foundationDomain,
+      strongDomainImplementationEvidence: summary.strongDomainImplementationEvidence,
+      distinctImplementationAnchors: summary.distinctImplementationAnchors,
+      hasRuntimeReachability: summary.hasRuntimeReachability,
+      hasRepoReachability: summary.hasRepoReachability,
+      probabilityScore: probability.score,
     });
 
     const partialByImplementedButNarrowScope =
@@ -596,9 +589,7 @@ export function evaluateRealStatus({
         hasImplementationEvidence: summary.hasImplementationEvidence,
         hasRuntimeReachability: summary.hasRuntimeReachability,
         distinctImplementationAnchors: summary.distinctImplementationAnchors,
-        requiredDistinctImplementationAnchors: 2,
         probabilityScore: probability.score,
-        requiredProbabilityScore: 0.34,
       }
     );
 
@@ -606,6 +597,7 @@ export function evaluateRealStatus({
       partialByImplementation ||
       partialByLargeScopeReachability ||
       partialByFoundation ||
+      partialByFeatureImplementation ||
       partialByImplementedButNarrowScope
     ) {
       status = "PARTIAL";
@@ -615,7 +607,9 @@ export function evaluateRealStatus({
           ? "partial_by_large_scope_reachability"
           : partialByFoundation
             ? "partial_by_foundation"
-            : "partial_by_implemented_but_narrow_scope";
+            : partialByFeatureImplementation
+              ? "partial_by_feature_implementation"
+              : "partial_by_implemented_but_narrow_scope";
     } else if (
       summary.hasCandidateAnchor ||
       summary.hasRepoReachability ||

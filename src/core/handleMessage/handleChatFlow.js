@@ -17,6 +17,87 @@ import { resolveProjectIntentReadPlan } from "../projectIntent/projectIntentRead
 import { resolveProjectIntentRepoBridge } from "../projectIntent/projectIntentRepoBridge.js";
 import { executeProjectIntentRepoBridge } from "../../bot/handlers/projectIntentRepoExecutor.js";
 
+function safeText(value) {
+  return String(value ?? "").trim();
+}
+
+function buildInternalProjectFallbackReply({
+  route,
+  readPlan,
+  repoBridge,
+}) {
+  const routeKey = safeText(route?.routeKey) || "unknown";
+  const planKey = safeText(readPlan?.planKey) || "unknown";
+  const recommendedCommand = safeText(repoBridge?.recommendedCommand);
+  const commandText = safeText(repoBridge?.commandText);
+  const commandArg = safeText(repoBridge?.commandArg);
+  const primaryPathHint = safeText(readPlan?.primaryPathHint);
+  const canonicalPillarPath = safeText(readPlan?.canonicalPillarPath);
+  const confidence = safeText(repoBridge?.confidence || readPlan?.confidence || route?.confidence) || "low";
+
+  const lines = [
+    "INTERNAL PROJECT REQUEST DETECTED",
+    "",
+    "Я распознал внутренний запрос к проекту SG и НЕ передал его в обычный AI-чат, чтобы не дать ложный ответ.",
+    "",
+    `route: ${routeKey}`,
+    `plan: ${planKey}`,
+    `confidence: ${confidence}`,
+  ];
+
+  if (recommendedCommand) {
+    lines.push(`recommended_command: ${recommendedCommand}`);
+  }
+
+  if (commandText) {
+    lines.push(`command_text: ${commandText}`);
+  }
+
+  if (commandArg) {
+    lines.push(`command_arg: ${commandArg}`);
+  }
+
+  if (primaryPathHint) {
+    lines.push(`path_hint: ${primaryPathHint}`);
+  }
+
+  if (canonicalPillarPath) {
+    lines.push(`canonical_pillar: ${canonicalPillarPath}`);
+  }
+
+  lines.push("");
+  lines.push("Автовыполнение сейчас не произошло.");
+
+  const hints = [];
+
+  if (planKey === "workflow_check") {
+    hints.push("- Для workflow_check нужен конкретный step.");
+    hints.push("- Либо укажи step явно, либо попроси открыть сам документ workflow.");
+    hints.push("- Примеры: /workflow_check 12A.0  |  открой workflow md");
+  } else if (planKey === "stage_check") {
+    hints.push("- Для stage_check лучше указывать конкретную стадию или профиль проверки.");
+  } else if (planKey === "repo_file" && !commandArg) {
+    hints.push("- Нужен конкретный path к файлу.");
+  } else if (planKey === "repo_analyze" && !commandArg) {
+    hints.push("- Для repo_analyze нужен path к файлу или каноническому документу.");
+  } else if (planKey === "repo_search" && !commandArg) {
+    hints.push("- Нужен поисковый аргумент: path, имя файла, ключевой термин или pillars/.");
+  } else if (planKey === "repo_diff") {
+    hints.push("- Для repo_diff нужна явно указанная цель сравнения.");
+  }
+
+  if (hints.length === 0) {
+    hints.push("- Уточни step / path / документ / цель проверки.");
+  }
+
+  lines.push("Что уточнить:");
+  for (const hint of hints) {
+    lines.push(hint);
+  }
+
+  return lines.join("\n").slice(0, 3900);
+}
+
 export async function handleChatFlow({
   context,
   deps,
@@ -159,6 +240,7 @@ export async function handleChatFlow({
             projectIntentPlanConfidence: projectIntentReadPlan.confidence,
             projectIntentPrimaryPathHint: projectIntentReadPlan.primaryPathHint,
             projectIntentRouteAllowsInternalRead: projectIntentReadPlan.routeAllowsInternalRead,
+            projectIntentCanonicalPillarPath: projectIntentReadPlan.canonicalPillarPath || "",
 
             // STAGE 12A.0 repo-bridge snapshot
             projectIntentBridgeHandlerKey: projectIntentRepoBridge.handlerKey,
@@ -257,6 +339,57 @@ export async function handleChatFlow({
         ok: true,
         stage: "12A.0.repo_bridge_execute",
         result: projectIntentRepoExec.reason || "repo_bridge_executed",
+      };
+    }
+
+    // =========================================================================
+    // STAGE 12A.0 — HARD STOP FOR INTERNAL SG PROJECT REQUESTS
+    // IMPORTANT:
+    // - if request is recognized as SG internal and allowed,
+    //   but repo bridge did not execute, DO NOT fall back into generic AI chat
+    // - otherwise AI may hallucinate that there is no repo access
+    // =========================================================================
+    if (projectIntentRoute?.targetScope === "sg_core_internal") {
+      const internalReply = buildInternalProjectFallbackReply({
+        route: projectIntentRoute,
+        readPlan: projectIntentReadPlan,
+        repoBridge: projectIntentRepoBridge,
+      });
+
+      if (typeof replyAndLog === "function") {
+        await replyAndLog(internalReply, {
+          handler: "handleChatFlow",
+          event: "internal_project_request_not_auto_executed",
+          project_intent_scope: projectIntentRoute.targetScope,
+          project_intent_domain: projectIntentRoute.targetDomain,
+          project_intent_action_mode: projectIntentRoute.actionMode,
+          project_intent_confidence: projectIntentRoute.confidence,
+          project_intent_route_key: projectIntentRoute.routeKey,
+          project_intent_policy: projectIntentRoute.policy,
+
+          project_intent_plan_key: projectIntentReadPlan.planKey,
+          project_intent_recommended_command: projectIntentReadPlan.recommendedCommand,
+          project_intent_plan_confidence: projectIntentReadPlan.confidence,
+          project_intent_primary_path_hint: projectIntentReadPlan.primaryPathHint || "",
+          project_intent_canonical_pillar_path: projectIntentReadPlan.canonicalPillarPath || "",
+
+          project_intent_bridge_handler_key: projectIntentRepoBridge.handlerKey,
+          project_intent_bridge_command: projectIntentRepoBridge.recommendedCommand,
+          project_intent_bridge_command_arg: projectIntentRepoBridge.commandArg,
+          project_intent_bridge_command_text: projectIntentRepoBridge.commandText,
+          project_intent_bridge_can_auto_execute: projectIntentRepoBridge.canAutoExecute === true,
+          project_intent_bridge_confidence: projectIntentRepoBridge.confidence,
+          project_intent_bridge_basis: Array.isArray(projectIntentRepoBridge.basis)
+            ? projectIntentRepoBridge.basis
+            : [],
+          read_only: true,
+        });
+      }
+
+      return {
+        ok: true,
+        stage: "12A.0.internal_no_generic_fallback",
+        result: "internal_project_request_not_auto_executed",
       };
     }
 

@@ -102,13 +102,14 @@ function buildMetrics({ path, code, lines }) {
   const hasEnv = reTest("\\bprocess\\.env\\.", code);
   const hasNet =
     reTest("\\bfetch\\(", code) || reTest("\\baxios\\b", code) || reTest("\\brequest\\b", code);
-  const hasFsWrite =
+  const hasFsWrite = Boolean(
     reTest("\\bfs\\.", code) &&
-    (
-      reTest("\\bwriteFile\\(", code) ||
-      reTest("\\bappendFile\\(", code) ||
-      reTest("\\bcreateWriteStream\\(", code)
-    );
+      (
+        reTest("\\bwriteFile\\(", code) ||
+        reTest("\\bappendFile\\(", code) ||
+        reTest("\\bcreateWriteStream\\(", code)
+      )
+  );
   const hasChildProc =
     reTest("\\bchild_process\\b", code) ||
     reTest("\\bexec\\(", code) ||

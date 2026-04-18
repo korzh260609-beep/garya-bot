@@ -658,6 +658,23 @@ Code Output V0 allowed under strict monarch-only + manual-apply policy.
 
 ---
 
+## Stage-check profiles skeleton (factual notes)
+
+- A non-runtime skeleton for future universal stage-check profiles was added under `src/core/stageCheck/real/profileSkeleton/`.
+- Current skeleton includes:
+  - `README.md`
+  - `profileFamilies.js`
+  - `profileContracts.js`
+  - `defaultProfiles.js`
+  - `profileResolverDraft.js`
+  - `profileMigrationPlan.md`
+- This skeleton is intentionally NOT connected to runtime evaluator/collector yet.
+- Current stable runtime checkpoint remains:
+  - Stage 2 → real PARTIAL
+  - Stage 5 → real OPEN
+  - Stage 14A → real OPEN
+- Universalization must continue in shadow/diagnostics mode first, without replacing current runtime rules.
+
 # STAGE 13 — V8 INITIATIVE
 
 - 13.1 improvements

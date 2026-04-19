@@ -87,6 +87,8 @@ export const SG_CORE_STRONG_ANCHORS = Object.freeze([
   "workflow.md",
   "roadmap.md",
   "decisions.md",
+  "sg_behavior.md",
+  "sg_entity.md",
   "pillars/",
   "/workflow_check",
   "/stage_check",
@@ -161,6 +163,8 @@ export const SG_CORE_OBJECT_PHRASES = Object.freeze([
   "github sg",
   "репозиторий проекта sg",
   "github проекта sg",
+  "дерево репозитория sg",
+  "структура репозитория sg",
 ]);
 
 export const SG_CORE_OBJECT_TOKENS_STRONG = Object.freeze([
@@ -172,6 +176,9 @@ export const SG_CORE_OBJECT_TOKENS_STRONG = Object.freeze([
   "repo",
   "pillars",
   "decisions",
+  "root",
+  "tree",
+  "structure",
 ]);
 
 export const SG_CORE_OBJECT_TOKENS_WEAK = Object.freeze([
@@ -187,6 +194,11 @@ export const SG_CORE_OBJECT_TOKENS_WEAK = Object.freeze([
   "архитектура",
   "воркфлоу",
   "гитхаб",
+  "корень",
+  "дерево",
+  "структура",
+  "файлы",
+  "папки",
 ]);
 
 export const SG_CORE_OBJECT_PREFIXES = Object.freeze([
@@ -194,6 +206,11 @@ export const SG_CORE_OBJECT_PREFIXES = Object.freeze([
   "архитектур",
   "гитхаб",
   "воркфлоу",
+  "структур",
+  "дерев",
+  "корен",
+  "файл",
+  "папк",
 ]);
 
 // ----------------------------------------------------------------------------
@@ -262,6 +279,52 @@ export const SG_REPO_TARGET_PREFIXES = Object.freeze([
 ]);
 
 // ----------------------------------------------------------------------------
+// REPO STRUCTURE / TREE SIGNALS
+// ----------------------------------------------------------------------------
+
+export const SG_REPO_STRUCTURE_PHRASES = Object.freeze([
+  "repo tree",
+  "repository tree",
+  "repo root",
+  "repository root",
+  "root of repository",
+  "root of repo",
+  "show repo tree",
+  "show repository tree",
+
+  "дерево репозитория",
+  "структура репозитория",
+  "корень репозитория",
+  "какие папки в корне репозитория",
+  "какие файлы в корне репозитория",
+  "покажи корень репозитория",
+  "покажи дерево репозитория",
+  "покажи структуру репозитория",
+]);
+
+export const SG_REPO_STRUCTURE_TOKENS = Object.freeze([
+  "tree",
+  "root",
+  "structure",
+  "корень",
+  "дерево",
+  "структура",
+  "файлы",
+  "папки",
+]);
+
+export const SG_REPO_STRUCTURE_PREFIXES = Object.freeze([
+  "tree",
+  "root",
+  "struct",
+  "корен",
+  "дерев",
+  "структур",
+  "файл",
+  "папк",
+]);
+
+// ----------------------------------------------------------------------------
 // USER PROJECT SIGNALS
 // ----------------------------------------------------------------------------
 
@@ -308,6 +371,10 @@ export const PROJECT_READ_ACTION_PHRASES = Object.freeze([
   "read workflow",
   "read decisions",
   "read roadmap",
+  "show repo tree",
+  "show repository tree",
+  "show repo root",
+  "open repo file",
 
   "проверь код",
   "проверь репо",
@@ -325,6 +392,9 @@ export const PROJECT_READ_ACTION_PHRASES = Object.freeze([
   "прочитай workflow",
   "прочитай decisions",
   "прочитай roadmap",
+  "покажи дерево репозитория",
+  "покажи корень репозитория",
+  "открой файл из репозитория",
 ]);
 
 export const PROJECT_READ_ACTION_TOKENS = Object.freeze([
@@ -428,6 +498,7 @@ function resolveSemanticIntentKind({
   hasCanonicalPillarSignal,
   hasStrongObject,
   hasWeakObject,
+  hasRepoStructureSignal,
 }) {
   const accessMetaPhraseHits = collectPhraseHits(normalized, SG_REPO_META_ACCESS_PHRASES);
   const accessMetaTokenHits = collectTokenHits(tokens, SG_REPO_META_ACCESS_TOKENS);
@@ -447,6 +518,9 @@ function resolveSemanticIntentKind({
   if (hasAccessMetaSignal) {
     semanticIntentKind = "repo_access_meta";
     semanticBasis.push("repo_access_meta");
+  } else if (hasRepoStructureSignal) {
+    semanticIntentKind = "repo_structure_read";
+    semanticBasis.push("repo_structure_read");
   } else if (hasCanonicalPillarSignal && hasWriteAction) {
     semanticIntentKind = "canonical_pillar_write";
     semanticBasis.push("canonical_pillar_write");
@@ -490,6 +564,10 @@ export function collectProjectIntentSignals(text) {
   const canonicalPillarPhraseHits = collectPhraseHits(normalized, SG_CANONICAL_PILLAR_PHRASES);
   const canonicalPillarTokenHits = collectTokenHits(tokens, SG_CANONICAL_PILLAR_TOKENS);
 
+  const repoStructurePhraseHits = collectPhraseHits(normalized, SG_REPO_STRUCTURE_PHRASES);
+  const repoStructureTokenHits = collectTokenHits(tokens, SG_REPO_STRUCTURE_TOKENS);
+  const repoStructurePrefixHits = collectPrefixHits(tokens, SG_REPO_STRUCTURE_PREFIXES);
+
   const userProjectPhraseHits = collectPhraseHits(normalized, USER_PROJECT_PHRASES);
   const userProjectTokenHits = collectTokenHits(tokens, USER_PROJECT_TOKENS);
 
@@ -521,6 +599,12 @@ export function collectProjectIntentSignals(text) {
     ...canonicalPillarTokenHits,
   ]);
 
+  const repoStructureHits = unique([
+    ...repoStructurePhraseHits,
+    ...repoStructureTokenHits,
+    ...repoStructurePrefixHits,
+  ]);
+
   const userProjectHits = unique([
     ...userProjectPhraseHits,
     ...userProjectTokenHits,
@@ -536,6 +620,7 @@ export function collectProjectIntentSignals(text) {
   const internalActionHits = unique([
     ...sgCoreObjectHits,
     ...canonicalPillarHits,
+    ...repoStructureHits,
     ...readHits,
   ]);
 
@@ -556,6 +641,10 @@ export function collectProjectIntentSignals(text) {
     canonicalPillarPhraseHits,
     canonicalPillarTokenHits,
 
+    repoStructurePhraseHits,
+    repoStructureTokenHits,
+    repoStructurePrefixHits,
+
     userProjectPhraseHits,
     userProjectTokenHits,
 
@@ -566,6 +655,7 @@ export function collectProjectIntentSignals(text) {
 
     sgCoreObjectHits,
     canonicalPillarHits,
+    repoStructureHits,
     userProjectHits,
     readHits,
     writeHits,
@@ -592,6 +682,10 @@ export function resolveProjectIntentMatch(text) {
 
     canonicalPillarPhraseHits,
     canonicalPillarTokenHits,
+
+    repoStructurePhraseHits,
+    repoStructureTokenHits,
+    repoStructurePrefixHits,
 
     userProjectPhraseHits,
     userProjectTokenHits,
@@ -648,6 +742,13 @@ export function resolveProjectIntentMatch(text) {
   ]);
   const hasCanonicalPillarSignal = canonicalPillarHits.length >= 1;
 
+  const repoStructureHits = unique([
+    ...repoStructurePhraseHits,
+    ...repoStructureTokenHits,
+    ...repoStructurePrefixHits,
+  ]);
+  const hasRepoStructureSignal = repoStructureHits.length >= 1;
+
   const hasUserProjectPhrase = userProjectPhraseHits.length >= 1;
   const hasUserProjectToken = userProjectTokenHits.length >= 1;
 
@@ -670,6 +771,7 @@ export function resolveProjectIntentMatch(text) {
     hasCanonicalPillarSignal,
     hasStrongObject,
     hasWeakObject,
+    hasRepoStructureSignal,
   });
 
   const classificationBasis = [];
@@ -684,6 +786,9 @@ export function resolveProjectIntentMatch(text) {
   } else if (hasAccessMetaSignal && (repoTargetPrefixHits.length >= 1 || hasStrongObject || hasCanonicalPillarSignal || hasIdentityToken)) {
     targetScope = "sg_core_internal";
     classificationBasis.push("repo_access_meta_internal");
+  } else if (hasRepoStructureSignal && (repoTargetPrefixHits.length >= 1 || hasCanonicalPillarSignal || hasIdentityToken || hasWeakObject)) {
+    targetScope = "sg_core_internal";
+    classificationBasis.push("repo_structure_internal");
   } else if (hasCanonicalPillarSignal && (hasReadAction || hasWriteAction || semanticIntentKind !== "unknown")) {
     targetScope = "sg_core_internal";
     classificationBasis.push("canonical_pillar_internal");
@@ -730,7 +835,7 @@ export function resolveProjectIntentMatch(text) {
   // 3) GENERIC EXTERNAL
   // --------------------------------------------------------------------------
   if (targetScope === "unknown") {
-    if (hasReadAction || hasWriteAction || hasStrongObject || hasWeakObject) {
+    if (hasReadAction || hasWriteAction || hasStrongObject || hasWeakObject || hasRepoStructureSignal) {
       targetScope = "generic_external";
       classificationBasis.push("generic_project_like_request");
     }
@@ -741,7 +846,7 @@ export function resolveProjectIntentMatch(text) {
     actionMode = "mixed";
   } else if (hasWriteAction) {
     actionMode = "write";
-  } else if (hasReadAction || hasAccessMetaSignal || hasCanonicalPillarSignal) {
+  } else if (hasReadAction || hasAccessMetaSignal || hasCanonicalPillarSignal || hasRepoStructureSignal) {
     actionMode = "read";
   }
 
@@ -757,6 +862,7 @@ export function resolveProjectIntentMatch(text) {
   } else if (targetScope === "sg_core_internal") {
     if (hasStrongAnchor) confidence = "high";
     else if (hasAccessMetaSignal && repoTargetPrefixHits.length >= 1) confidence = "high";
+    else if (hasRepoStructureSignal && repoTargetPrefixHits.length >= 1) confidence = "high";
     else if (hasCanonicalPillarSignal && hasReadAction) confidence = "high";
     else if (hasIdentityPhrase) confidence = "high";
     else if (hasIdentityToken && (hasWriteAction || hasStrongObject)) confidence = "high";
@@ -791,7 +897,8 @@ export function resolveProjectIntentMatch(text) {
     strongObjectHits,
     weakObjectHits,
     canonicalPillarHits,
-    objectHits: unique([...strongObjectHits, ...weakObjectHits, ...canonicalPillarHits]),
+    repoStructureHits,
+    objectHits: unique([...strongObjectHits, ...weakObjectHits, ...canonicalPillarHits, ...repoStructureHits]),
     readHits,
     writeHits,
     anchorHits,
@@ -805,6 +912,7 @@ export function resolveProjectIntentMatch(text) {
     accessMetaPrefixHits,
     repoTargetPrefixHits,
     hasAccessMetaSignal,
+    hasRepoStructureSignal,
   };
 }
 
@@ -822,6 +930,9 @@ export default {
   SG_REPO_META_ACCESS_TOKENS,
   SG_REPO_META_ACCESS_PREFIXES,
   SG_REPO_TARGET_PREFIXES,
+  SG_REPO_STRUCTURE_PHRASES,
+  SG_REPO_STRUCTURE_TOKENS,
+  SG_REPO_STRUCTURE_PREFIXES,
   USER_PROJECT_PHRASES,
   USER_PROJECT_TOKENS,
   PROJECT_READ_ACTION_PHRASES,

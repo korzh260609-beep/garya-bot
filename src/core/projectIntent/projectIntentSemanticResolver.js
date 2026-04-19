@@ -181,6 +181,7 @@ const CONTINUE_PREFIXES = Object.freeze([
   "продол",
   "continue",
   "next",
+  "ещ",
 ]);
 
 const FIRST_PART_PREFIXES = Object.freeze([
@@ -204,6 +205,8 @@ const PRONOUN_FOLLOWUP_PREFIXES = Object.freeze([
   "it",
   "this",
   "that",
+  "там",
+  "тут",
 ]);
 
 const FOLDER_PREFIXES = Object.freeze([
@@ -213,6 +216,8 @@ const FOLDER_PREFIXES = Object.freeze([
   "folder",
   "director",
   "dir",
+  "module",
+  "architect",
 ]);
 
 const LISTING_PREFIXES = Object.freeze([
@@ -225,6 +230,7 @@ const LISTING_PREFIXES = Object.freeze([
   "list",
   "content",
   "inside",
+  "покаж",
 ]);
 
 const GENERIC_TARGET_WORDS = new Set([
@@ -524,6 +530,39 @@ function isFolderBrowseMeaning({ normalized, tokens, extractedTarget }) {
   return false;
 }
 
+function isFolderFollowupMeaning({ normalized, tokens, followupContext }) {
+  if (followupContext?.isActive !== true) return false;
+  if (safeText(followupContext?.actionKind) !== "browse_folder") return false;
+
+  const pronounHits = collectPrefixHits(tokens, PRONOUN_FOLLOWUP_PREFIXES);
+  const continueHits = collectPrefixHits(tokens, CONTINUE_PREFIXES);
+  const folderHits = collectPrefixHits(tokens, FOLDER_PREFIXES);
+  const listingHits = collectPrefixHits(tokens, LISTING_PREFIXES);
+  const openHits = collectPrefixHits(tokens, OPEN_PREFIXES);
+
+  const hasImplicitContinuation =
+    pronounHits.length > 0 ||
+    continueHits.length > 0 ||
+    normalized.includes("ещё") ||
+    normalized.includes("еще") ||
+    normalized.includes("там") ||
+    normalized.includes("тут");
+
+  const hasFolderMeaning =
+    folderHits.length > 0 ||
+    normalized.includes("папк") ||
+    normalized.includes("folder") ||
+    normalized.includes("directory");
+
+  const hasShowMeaning =
+    listingHits.length > 0 ||
+    openHits.length > 0 ||
+    normalized.includes("покажи") ||
+    normalized.includes("показать");
+
+  return hasImplicitContinuation && (hasFolderMeaning || hasShowMeaning);
+}
+
 function isShortFollowupLike(text = "") {
   const tokens = tokenizeText(text);
   if (tokens.length === 0) return false;
@@ -619,6 +658,25 @@ function heuristicFallback({
         confidence: "high",
       };
     }
+  }
+
+  if (isFolderFollowupMeaning({ normalized, tokens, followupContext })) {
+    const folderTarget = normalizeFolderTarget(
+      followupContext?.targetPath ||
+      followupContext?.treePrefix ||
+      followupContext?.targetEntity
+    );
+
+    return {
+      intent: "browse_folder",
+      targetEntity: safeText(followupContext?.targetEntity || extractedTarget),
+      targetPath: folderTarget,
+      displayMode: "raw",
+      treePrefix: folderTarget,
+      clarifyNeeded: !folderTarget,
+      clarifyQuestion: folderTarget ? "" : "Какую именно папку продолжить показывать?",
+      confidence: folderTarget ? "high" : "medium",
+    };
   }
 
   if (followupContext?.isActive && isShortFollowupLike(text)) {
@@ -819,6 +877,7 @@ function buildSemanticMessages({
     `active_repo_target_entity: ${safeText(followupContext?.targetEntity)}`,
     `active_repo_target_path: ${safeText(followupContext?.targetPath)}`,
     `active_repo_display_mode: ${safeText(followupContext?.displayMode)}`,
+    `active_repo_action_kind: ${safeText(followupContext?.actionKind)}`,
     `pending_choice_active: ${pendingChoiceContext?.isActive === true ? "yes" : "no"}`,
     `pending_choice_target_entity: ${safeText(pendingChoiceContext?.targetEntity)}`,
     `pending_choice_target_path: ${safeText(pendingChoiceContext?.targetPath)}`,
@@ -836,19 +895,20 @@ function buildSemanticMessages({
         "Do not hallucinate files.\n" +
         "Prefer active repo context and pending choice context.\n" +
         "Follow-up phrases like 'коротко', 'о чём он', 'на русском', 'первую часть', 'общую информацию' usually continue current repo context.\n" +
+        "If active repo action is browse_folder and user says things like 'там', 'ещё папки', 'покажи', 'что внутри', prefer browse_folder continuation.\n" +
         "If user asks to show repository tree, default to root-first.\n" +
         "If user asks what is inside a folder / directory / папка, prefer browse_folder instead of generic search.\n" +
         "browse_folder means: user wants folder contents, immediate children, or top-level items inside a folder.\n" +
         "JSON shape:\n" +
         "{\n" +
-        '  "intent": "repo_status|show_tree|browse_folder|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|unknown",\n' +
-        '  "targetEntity": "string",\n' +
-        '  "targetPath": "string",\n' +
-        '  "displayMode": "raw|raw_first_part|summary|explain|translate_ru",\n' +
-        '  "treePrefix": "string",\n' +
-        '  "clarifyNeeded": true,\n' +
-        '  "clarifyQuestion": "string",\n' +
-        '  "confidence": "low|medium|high"\n' +
+        "  \"intent\": \"repo_status|show_tree|browse_folder|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|unknown\",\n" +
+        "  \"targetEntity\": \"string\",\n" +
+        "  \"targetPath\": \"string\",\n" +
+        "  \"displayMode\": \"raw|raw_first_part|summary|explain|translate_ru\",\n" +
+        "  \"treePrefix\": \"string\",\n" +
+        "  \"clarifyNeeded\": true,\n" +
+        "  \"clarifyQuestion\": \"string\",\n" +
+        "  \"confidence\": \"low|medium|high\"\n" +
         "}",
     },
     {

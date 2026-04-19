@@ -12,12 +12,10 @@ import { buildChatHandlerContext } from "./contextBuilders.js";
 
 import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.js";
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
-import { resolveProjectIntentReadPlan } from "../projectIntent/projectIntentReadPlan.js";
-import { resolveProjectIntentRepoBridge } from "../projectIntent/projectIntentRepoBridge.js";
-import { executeProjectIntentRepoBridge } from "../../bot/handlers/projectIntentRepoExecutor.js";
 import {
   buildProjectIntentRoutingText,
   getLatestProjectIntentRepoContext,
+  getLatestProjectIntentPendingChoice,
   runProjectIntentConversationFlow,
 } from "../projectIntent/projectIntentConversationService.js";
 
@@ -25,20 +23,8 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
-function buildInternalProjectFallbackReply({ readPlan }) {
-  if (readPlan?.needsClarification === true) {
-    return safeText(readPlan?.clarificationQuestion) || "Уточни, что именно нужно сделать с репозиторием.";
-  }
-
-  if (readPlan?.planKey === "repo_diff") {
-    return "Уточни, что именно нужно сравнить.";
-  }
-
-  if (readPlan?.planKey === "stage_check") {
-    return "Напиши, какой именно stage нужно проверить.";
-  }
-
-  return "Я понял, что это запрос к репозиторию проекта, но мне пока не хватает ясности: нужно найти, открыть, объяснить или сравнить?";
+function buildInternalProjectFallbackReply() {
+  return "Я понял, что это запрос к репозиторию проекта, но пока не могу уверенно определить, что именно нужно: найти, открыть, показать дерево или объяснить.";
 }
 
 export async function handleChatFlow({
@@ -92,7 +78,17 @@ export async function handleChatFlow({
       chatType,
     });
 
-    const projectIntentRoutingText = buildProjectIntentRoutingText(trimmed, repoFollowupContext);
+    const pendingChoiceContext = await getLatestProjectIntentPendingChoice(memory, {
+      chatIdStr,
+      globalUserId,
+      chatType,
+    });
+
+    const projectIntentRoutingText = buildProjectIntentRoutingText(
+      trimmed,
+      repoFollowupContext,
+      pendingChoiceContext
+    );
 
     const projectIntentRoute = resolveProjectIntentRoute({
       text: projectIntentRoutingText,
@@ -115,17 +111,6 @@ export async function handleChatFlow({
         result: "project_intent_blocked",
       };
     }
-
-    const projectIntentReadPlan = resolveProjectIntentReadPlan({
-      text: trimmed,
-      route: projectIntentRoute,
-      followupContext: repoFollowupContext,
-    });
-
-    const projectIntentRepoBridge = resolveProjectIntentRepoBridge({
-      route: projectIntentRoute,
-      readPlan: projectIntentReadPlan,
-    });
 
     const explicitRememberResult = await handleExplicitRemember({
       trimmed,
@@ -171,32 +156,16 @@ export async function handleChatFlow({
             hasBinaryAttachment: inboundStorage.hasBinaryAttachment,
             attachmentKinds: inboundStorage.attachmentKinds,
 
-            projectIntentScope: projectIntentRoute.targetScope,
-            projectIntentDomain: projectIntentRoute.targetDomain,
-            projectIntentActionMode: projectIntentRoute.actionMode,
             projectIntentRouteKey: projectIntentRoute.routeKey,
             projectIntentPolicy: projectIntentRoute.policy,
             projectIntentConfidence: projectIntentRoute.confidence,
+            projectIntentScope: projectIntentRoute.targetScope,
+            projectIntentDomain: projectIntentRoute.targetDomain,
+            projectIntentActionMode: projectIntentRoute.actionMode,
 
-            projectIntentPlanKey: projectIntentReadPlan.planKey,
-            projectIntentRecommendedCommand: projectIntentReadPlan.recommendedCommand,
-            projectIntentPlanConfidence: projectIntentReadPlan.confidence,
-            projectIntentPrimaryPathHint: projectIntentReadPlan.primaryPathHint,
-            projectIntentRouteAllowsInternalRead: projectIntentReadPlan.routeAllowsInternalRead,
-            projectIntentCanonicalPillarPath: projectIntentReadPlan.canonicalPillarPath || "",
-            projectIntentTargetKind: projectIntentReadPlan.targetKind || "",
-            projectIntentTargetEntity: projectIntentReadPlan.targetEntity || "",
-            projectIntentTargetPath: projectIntentReadPlan.targetPath || "",
-            projectIntentDisplayMode: projectIntentReadPlan.displayMode || "",
-            projectIntentFollowupContextActive: projectIntentReadPlan.followupContextActive === true,
-            projectIntentNeedsClarification: projectIntentReadPlan.needsClarification === true,
-
-            projectIntentBridgeHandlerKey: projectIntentRepoBridge.handlerKey,
-            projectIntentBridgeCommand: projectIntentRepoBridge.recommendedCommand,
-            projectIntentBridgeCommandArg: projectIntentRepoBridge.commandArg,
-            projectIntentBridgeCommandText: projectIntentRepoBridge.commandText,
-            projectIntentBridgeCanAutoExecute: projectIntentRepoBridge.canAutoExecute,
-            projectIntentBridgeConfidence: projectIntentRepoBridge.confidence,
+            projectIntentFollowupContextActive: repoFollowupContext?.isActive === true,
+            projectIntentPendingChoiceActive: pendingChoiceContext?.isActive === true,
+            projectIntentRoutingText: projectIntentRoutingText,
           },
           raw: buildRawMeta(raw || {}),
           schemaVersion: 1,
@@ -253,19 +222,38 @@ export async function handleChatFlow({
       }
     }
 
-    // =========================================================================
-    // HUMAN-FIRST repo conversation layer
-    // =========================================================================
     const repoConversationResult = await runProjectIntentConversationFlow({
       trimmed,
       route: projectIntentRoute,
-      readPlan: projectIntentReadPlan,
       followupContext: repoFollowupContext,
+      pendingChoiceContext,
       replyAndLog,
       callAI: deps.callAI,
     });
 
     if (repoConversationResult?.handled) {
+      if (repoConversationResult?.contextMeta) {
+        try {
+          await memory.write({
+            chatId: chatIdStr,
+            globalUserId: globalUserId || null,
+            role: "assistant",
+            content: [
+              "[repo_context]",
+              `path=${safeText(repoConversationResult.contextMeta.projectIntentTargetPath)}`,
+              `entity=${safeText(repoConversationResult.contextMeta.projectIntentTargetEntity)}`,
+              `mode=${safeText(repoConversationResult.contextMeta.projectIntentDisplayMode)}`,
+            ].join(" "),
+            transport,
+            metadata: {
+              ...repoConversationResult.contextMeta,
+              read_only: true,
+            },
+            schemaVersion: 2,
+          });
+        } catch (_) {}
+      }
+
       return {
         ok: true,
         stage: "12A.0.repo_conversation",
@@ -273,70 +261,8 @@ export async function handleChatFlow({
       };
     }
 
-    // =========================================================================
-    // Thin bridge fallback for explicit/legacy internal repo actions
-    // =========================================================================
-    const projectIntentRepoExec = await executeProjectIntentRepoBridge(
-      {
-        ...(context || {}),
-        bot: context?.bot || deps?.bot || null,
-        chatId: chatIdNum,
-        chatIdStr,
-        chatType,
-        transport,
-        globalUserId,
-        userRole,
-        senderId,
-        senderIdStr: String(senderId ?? ""),
-        isMonarchUser: !!isMonarchUser,
-        isPrivateChat: !!isPrivateChat,
-        identityCtx: context?.identityCtx || null,
-        reply: typeof replyAndLog === "function" ? replyAndLog : undefined,
-      },
-      projectIntentRepoBridge
-    );
-
-    if (projectIntentRepoExec?.executed) {
-      try {
-        await memory.write({
-          chatId: chatIdStr,
-          globalUserId: globalUserId || null,
-          role: "assistant",
-          content: [
-            "[repo_context]",
-            `handler=${safeText(projectIntentRepoBridge.handlerKey)}`,
-            `path=${safeText(projectIntentReadPlan.targetPath || projectIntentReadPlan.canonicalPillarPath)}`,
-            `entity=${safeText(projectIntentReadPlan.targetEntity)}`,
-          ].join(" "),
-          transport,
-          metadata: {
-            projectIntentRepoContextActive: true,
-            projectIntentPlanKey: projectIntentReadPlan.planKey,
-            projectIntentBridgeHandlerKey: projectIntentRepoBridge.handlerKey,
-            projectIntentBridgeCommandArg: projectIntentRepoBridge.commandArg,
-            projectIntentCanonicalPillarPath: projectIntentReadPlan.canonicalPillarPath || "",
-            projectIntentTargetKind: projectIntentReadPlan.targetKind || "",
-            projectIntentTargetEntity: projectIntentReadPlan.targetEntity || "",
-            projectIntentTargetPath: projectIntentReadPlan.targetPath || "",
-            projectIntentDisplayMode: projectIntentReadPlan.displayMode || "",
-            projectIntentSourceText: safeText(trimmed),
-            read_only: true,
-          },
-          schemaVersion: 2,
-        });
-      } catch (_) {}
-
-      return {
-        ok: true,
-        stage: "12A.0.repo_bridge_execute",
-        result: projectIntentRepoExec.reason || "repo_bridge_executed",
-      };
-    }
-
     if (projectIntentRoute?.targetScope === "sg_core_internal") {
-      const internalReply = buildInternalProjectFallbackReply({
-        readPlan: projectIntentReadPlan,
-      });
+      const internalReply = buildInternalProjectFallbackReply();
 
       if (typeof replyAndLog === "function") {
         await replyAndLog(internalReply, {
@@ -348,28 +274,6 @@ export async function handleChatFlow({
           project_intent_confidence: projectIntentRoute.confidence,
           project_intent_route_key: projectIntentRoute.routeKey,
           project_intent_policy: projectIntentRoute.policy,
-
-          project_intent_plan_key: projectIntentReadPlan.planKey,
-          project_intent_recommended_command: projectIntentReadPlan.recommendedCommand,
-          project_intent_plan_confidence: projectIntentReadPlan.confidence,
-          project_intent_primary_path_hint: projectIntentReadPlan.primaryPathHint || "",
-          project_intent_canonical_pillar_path: projectIntentReadPlan.canonicalPillarPath || "",
-          project_intent_target_kind: projectIntentReadPlan.targetKind || "",
-          project_intent_target_entity: projectIntentReadPlan.targetEntity || "",
-          project_intent_target_path: projectIntentReadPlan.targetPath || "",
-          project_intent_display_mode: projectIntentReadPlan.displayMode || "",
-          project_intent_followup_context_active: projectIntentReadPlan.followupContextActive === true,
-          project_intent_needs_clarification: projectIntentReadPlan.needsClarification === true,
-
-          project_intent_bridge_handler_key: projectIntentRepoBridge.handlerKey,
-          project_intent_bridge_command: projectIntentRepoBridge.recommendedCommand,
-          project_intent_bridge_command_arg: projectIntentRepoBridge.commandArg,
-          project_intent_bridge_command_text: projectIntentRepoBridge.commandText,
-          project_intent_bridge_can_auto_execute: projectIntentRepoBridge.canAutoExecute === true,
-          project_intent_bridge_confidence: projectIntentRepoBridge.confidence,
-          project_intent_bridge_basis: Array.isArray(projectIntentRepoBridge.basis)
-            ? projectIntentRepoBridge.basis
-            : [],
           read_only: true,
         });
       }

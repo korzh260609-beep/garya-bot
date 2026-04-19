@@ -15,252 +15,30 @@ import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.
 import { resolveProjectIntentReadPlan } from "../projectIntent/projectIntentReadPlan.js";
 import { resolveProjectIntentRepoBridge } from "../projectIntent/projectIntentRepoBridge.js";
 import { executeProjectIntentRepoBridge } from "../../bot/handlers/projectIntentRepoExecutor.js";
+import {
+  buildProjectIntentRoutingText,
+  getLatestProjectIntentRepoContext,
+  runProjectIntentConversationFlow,
+} from "../projectIntent/projectIntentConversationService.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
 }
 
-function normalizeLite(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
-function tokenizeLite(value) {
-  const normalized = normalizeLite(value)
-    .replace(/[.,!?;:()[\]{}<>\\|"'`~@#$%^&*+=]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!normalized) return [];
-  return normalized.split(" ").filter(Boolean);
-}
-
-function tokenStartsWithAny(token, prefixes = []) {
-  for (const prefix of prefixes) {
-    if (token.startsWith(prefix)) return true;
-  }
-  return false;
-}
-
-function collectPrefixHitsLite(tokens, prefixes) {
-  const hits = [];
-  for (const token of tokens) {
-    if (tokenStartsWithAny(token, prefixes)) {
-      hits.push(token);
-    }
-  }
-  return [...new Set(hits)];
-}
-
-const REPO_FOLLOWUP_INTENT_PREFIXES = Object.freeze([
-  "объяс",
-  "опис",
-  "анализ",
-  "проанализ",
-  "перев",
-  "русск",
-  "кратк",
-  "коротк",
-  "прощ",
-  "summary",
-  "brief",
-  "short",
-  "simple",
-  "explain",
-  "analy",
-  "translat",
-]);
-
-const REPO_FOLLOWUP_REFERENCE_TOKENS = Object.freeze([
-  "это",
-  "этот",
-  "эту",
-  "эти",
-  "this",
-  "it",
-  "that",
-  "теперь",
-  "now",
-]);
-
-function looksLikeRepoFollowupRequest(text = "") {
-  const normalized = normalizeLite(text);
-  const tokens = tokenizeLite(text);
-
-  if (!normalized) return false;
-
-  const hasReferenceToken = tokens.some((token) => REPO_FOLLOWUP_REFERENCE_TOKENS.includes(token));
-  const hasIntentStem = collectPrefixHitsLite(tokens, REPO_FOLLOWUP_INTENT_PREFIXES).length > 0;
-
-  if (normalized.includes("на русском")) return true;
-  if (normalized.includes("по-русски")) return true;
-  if (normalized.includes("explain this")) return true;
-  if (normalized.includes("translate this")) return true;
-
-  return hasReferenceToken || hasIntentStem;
-}
-
-function buildProjectIntentRoutingText(trimmed, followupContext = null) {
-  const base = safeText(trimmed);
-  if (!followupContext?.isActive) return base;
-
-  if (!looksLikeRepoFollowupRequest(base)) return base;
-
-  const path = safeText(followupContext.targetPath);
-  const entity = safeText(followupContext.targetEntity);
-  const scope = safeText(followupContext.targetKind);
-
-  const additions = [
-    "repo sg",
-    path,
-    entity,
-    scope,
-  ].filter(Boolean);
-
-  return `${base} ${additions.join(" ")}`.trim();
-}
-
-async function getLatestRepoFollowupContext(memory, {
-  chatIdStr,
-  globalUserId,
-  chatType,
-}) {
-  try {
-    const recent = await memory.recent({
-      chatId: chatIdStr,
-      globalUserId: globalUserId || null,
-      chatType,
-      limit: 20,
-    });
-
-    const rows = Array.isArray(recent) ? recent : [];
-
-    for (let i = rows.length - 1; i >= 0; i -= 1) {
-      const item = rows[i] || {};
-      const meta = item?.metadata || {};
-
-      if (meta?.projectIntentRepoContextActive === true) {
-        return {
-          isActive: true,
-          handlerKey: safeText(meta.projectIntentBridgeHandlerKey),
-          planKey: safeText(meta.projectIntentPlanKey),
-          targetKind: safeText(meta.projectIntentTargetKind),
-          targetEntity: safeText(meta.projectIntentTargetEntity),
-          targetPath: safeText(meta.projectIntentTargetPath),
-          canonicalPillarPath: safeText(meta.projectIntentCanonicalPillarPath),
-          commandArg: safeText(meta.projectIntentBridgeCommandArg),
-          sourceText: safeText(meta.projectIntentSourceText),
-        };
-      }
-    }
-
-    return {
-      isActive: false,
-      handlerKey: "",
-      planKey: "",
-      targetKind: "",
-      targetEntity: "",
-      targetPath: "",
-      canonicalPillarPath: "",
-      commandArg: "",
-      sourceText: "",
-    };
-  } catch (_) {
-    return {
-      isActive: false,
-      handlerKey: "",
-      planKey: "",
-      targetKind: "",
-      targetEntity: "",
-      targetPath: "",
-      canonicalPillarPath: "",
-      commandArg: "",
-      sourceText: "",
-    };
-  }
-}
-
-function buildInternalProjectFallbackReply({
-  route,
-  readPlan,
-  repoBridge,
-}) {
+function buildInternalProjectFallbackReply({ readPlan }) {
   if (readPlan?.needsClarification === true) {
-    return safeText(readPlan?.clarificationQuestion) || "Что именно нужно открыть или объяснить?";
+    return safeText(readPlan?.clarificationQuestion) || "Уточни, что именно нужно сделать с репозиторием.";
   }
 
-  const routeKey = safeText(route?.routeKey) || "unknown";
-  const planKey = safeText(readPlan?.planKey) || "unknown";
-  const recommendedCommand = safeText(repoBridge?.recommendedCommand);
-  const commandText = safeText(repoBridge?.commandText);
-  const commandArg = safeText(repoBridge?.commandArg);
-  const primaryPathHint = safeText(readPlan?.primaryPathHint);
-  const canonicalPillarPath = safeText(readPlan?.canonicalPillarPath);
-  const confidence = safeText(repoBridge?.confidence || readPlan?.confidence || route?.confidence) || "low";
-
-  const lines = [
-    "INTERNAL PROJECT REQUEST DETECTED",
-    "",
-    "Я распознал внутренний запрос к проекту SG и НЕ передал его в обычный AI-чат, чтобы не дать ложный ответ.",
-    "",
-    `route: ${routeKey}`,
-    `plan: ${planKey}`,
-    `confidence: ${confidence}`,
-  ];
-
-  if (recommendedCommand) {
-    lines.push(`recommended_command: ${recommendedCommand}`);
+  if (readPlan?.planKey === "repo_diff") {
+    return "Уточни, что именно нужно сравнить.";
   }
 
-  if (commandText) {
-    lines.push(`command_text: ${commandText}`);
+  if (readPlan?.planKey === "stage_check") {
+    return "Напиши, какой именно stage нужно проверить.";
   }
 
-  if (commandArg) {
-    lines.push(`command_arg: ${commandArg}`);
-  }
-
-  if (primaryPathHint) {
-    lines.push(`path_hint: ${primaryPathHint}`);
-  }
-
-  if (canonicalPillarPath) {
-    lines.push(`canonical_pillar: ${canonicalPillarPath}`);
-  }
-
-  lines.push("");
-  lines.push("Автовыполнение сейчас не произошло.");
-
-  const hints = [];
-
-  if (planKey === "workflow_check") {
-    hints.push("- Для workflow_check нужен конкретный step.");
-    hints.push("- Либо укажи step явно, либо попроси открыть сам документ workflow.");
-    hints.push("- Примеры: /workflow_check 12A.0  |  открой workflow md");
-  } else if (planKey === "stage_check") {
-    hints.push("- Для stage_check лучше указывать конкретную стадию или профиль проверки.");
-  } else if (planKey === "repo_file" && !commandArg) {
-    hints.push("- Нужен конкретный path к файлу.");
-  } else if (planKey === "repo_analyze" && !commandArg) {
-    hints.push("- Для repo_analyze нужен path к файлу или каноническому документу.");
-  } else if (planKey === "repo_search" && !commandArg) {
-    hints.push("- Нужен поисковый аргумент: path, имя файла, ключевой термин или pillars/.");
-  } else if (planKey === "repo_diff") {
-    hints.push("- Для repo_diff нужна явно указанная цель сравнения.");
-  }
-
-  if (hints.length === 0) {
-    hints.push("- Уточни step / path / документ / цель проверки.");
-  }
-
-  lines.push("Что уточнить:");
-  for (const hint of hints) {
-    lines.push(hint);
-  }
-
-  return lines.join("\n").slice(0, 3900);
+  return "Я понял, что это запрос к репозиторию проекта, но мне пока не хватает ясности: нужно найти, открыть, объяснить или сравнить?";
 }
 
 export async function handleChatFlow({
@@ -308,7 +86,7 @@ export async function handleChatFlow({
       });
     };
 
-    const repoFollowupContext = await getLatestRepoFollowupContext(memory, {
+    const repoFollowupContext = await getLatestProjectIntentRepoContext(memory, {
       chatIdStr,
       globalUserId,
       chatType,
@@ -409,7 +187,9 @@ export async function handleChatFlow({
             projectIntentTargetKind: projectIntentReadPlan.targetKind || "",
             projectIntentTargetEntity: projectIntentReadPlan.targetEntity || "",
             projectIntentTargetPath: projectIntentReadPlan.targetPath || "",
+            projectIntentDisplayMode: projectIntentReadPlan.displayMode || "",
             projectIntentFollowupContextActive: projectIntentReadPlan.followupContextActive === true,
+            projectIntentNeedsClarification: projectIntentReadPlan.needsClarification === true,
 
             projectIntentBridgeHandlerKey: projectIntentRepoBridge.handlerKey,
             projectIntentBridgeCommand: projectIntentRepoBridge.recommendedCommand,
@@ -473,6 +253,29 @@ export async function handleChatFlow({
       }
     }
 
+    // =========================================================================
+    // HUMAN-FIRST repo conversation layer
+    // =========================================================================
+    const repoConversationResult = await runProjectIntentConversationFlow({
+      trimmed,
+      route: projectIntentRoute,
+      readPlan: projectIntentReadPlan,
+      followupContext: repoFollowupContext,
+      replyAndLog,
+      callAI: deps.callAI,
+    });
+
+    if (repoConversationResult?.handled) {
+      return {
+        ok: true,
+        stage: "12A.0.repo_conversation",
+        result: repoConversationResult.reason || "repo_conversation_handled",
+      };
+    }
+
+    // =========================================================================
+    // Thin bridge fallback for explicit/legacy internal repo actions
+    // =========================================================================
     const projectIntentRepoExec = await executeProjectIntentRepoBridge(
       {
         ...(context || {}),
@@ -515,6 +318,7 @@ export async function handleChatFlow({
             projectIntentTargetKind: projectIntentReadPlan.targetKind || "",
             projectIntentTargetEntity: projectIntentReadPlan.targetEntity || "",
             projectIntentTargetPath: projectIntentReadPlan.targetPath || "",
+            projectIntentDisplayMode: projectIntentReadPlan.displayMode || "",
             projectIntentSourceText: safeText(trimmed),
             read_only: true,
           },
@@ -531,9 +335,7 @@ export async function handleChatFlow({
 
     if (projectIntentRoute?.targetScope === "sg_core_internal") {
       const internalReply = buildInternalProjectFallbackReply({
-        route: projectIntentRoute,
         readPlan: projectIntentReadPlan,
-        repoBridge: projectIntentRepoBridge,
       });
 
       if (typeof replyAndLog === "function") {
@@ -555,6 +357,7 @@ export async function handleChatFlow({
           project_intent_target_kind: projectIntentReadPlan.targetKind || "",
           project_intent_target_entity: projectIntentReadPlan.targetEntity || "",
           project_intent_target_path: projectIntentReadPlan.targetPath || "",
+          project_intent_display_mode: projectIntentReadPlan.displayMode || "",
           project_intent_followup_context_active: projectIntentReadPlan.followupContextActive === true,
           project_intent_needs_clarification: projectIntentReadPlan.needsClarification === true,
 

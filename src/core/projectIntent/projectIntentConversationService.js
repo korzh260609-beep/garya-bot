@@ -40,6 +40,7 @@ import {
 import {
   getReplyLimitFromReplyAndLog,
   buildPackedExplainText,
+  buildContinuationChunkReply,
 } from "./projectIntentResponsePacker.js";
 
 export {
@@ -47,6 +48,8 @@ export {
   getLatestProjectIntentRepoContext,
   getLatestProjectIntentPendingChoice,
 };
+
+const LARGE_DOC_AI_THRESHOLD = 12000;
 
 function normalizeFolderPrefix(value = "") {
   const v = normalizePath(value);
@@ -63,32 +66,12 @@ function joinFolderWithBasename(folderPath = "", basename = "") {
   return `${folder}${file}`;
 }
 
-function looksLikeFolderPath(value = "") {
-  const v = safeText(value);
-  if (!v) return false;
-  if (/\.[a-z0-9]{1,8}$/i.test(v)) return false;
-  return v.includes("/") || /^[a-z0-9_.-]+$/i.test(v);
-}
-
-function isLikelyDirectFolderBrowseRequest(trimmed = "", semanticPlan = null) {
-  const text = safeText(trimmed).toLowerCase();
-  const target = safeText(semanticPlan?.targetPath || semanticPlan?.targetEntity);
-
-  if (!target) return false;
-
-  return (
-    looksLikeFolderPath(target) &&
-    (
-      text.includes("папк") ||
-      text.includes("folder") ||
-      text.includes("directory") ||
-      text.includes("что в ней") ||
-      text.includes("что внутри") ||
-      text.includes("содержимое") ||
-      text.includes("просмотри эту папку") ||
-      text.includes("покажи папку")
-    )
-  );
+function inferObjectKindFromPath(path = "") {
+  const value = safeText(path);
+  if (!value) return "unknown";
+  if (/\.[a-z0-9]{1,8}$/i.test(value)) return "file";
+  if (value.endsWith("/") || value.includes("/")) return "folder";
+  return "unknown";
 }
 
 async function replyPackedExplain({
@@ -100,6 +83,7 @@ async function replyPackedExplain({
   sourceText,
   semanticConfidence,
   actionKind,
+  objectKind,
   event,
 }) {
   const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
@@ -120,7 +104,10 @@ async function replyPackedExplain({
     pendingChoice: packed.pendingChoice,
     semanticConfidence,
     actionKind,
+    continuationState: packed.continuationState,
   });
+
+  contextMeta.projectIntentObjectKind = safeText(objectKind || inferObjectKindFromPath(targetPath));
 
   await replyHuman(
     replyAndLog,
@@ -132,6 +119,88 @@ async function replyPackedExplain({
   );
 
   return contextMeta;
+}
+
+async function replyContinuation({
+  replyAndLog,
+  followupContext,
+  sourceText,
+  semanticConfidence,
+  actionKind,
+  event,
+}) {
+  const continuation = followupContext?.continuation || {};
+  const continuationReply = buildContinuationChunkReply({
+    continuationState: continuation,
+  });
+
+  if (!continuationReply.ok) {
+    await replyHuman(
+      replyAndLog,
+      "Продолжения больше нет. Могу заново кратко пересказать файл или объяснить его смысл.",
+      {
+        event: "repo_conversation_no_more_continuation",
+        read_only: true,
+      }
+    );
+
+    return {
+      handled: true,
+      reason: "no_more_continuation",
+      contextMeta: buildRepoContextMeta({
+        targetEntity: followupContext?.targetEntity,
+        targetPath: followupContext?.targetPath,
+        displayMode: followupContext?.displayMode,
+        sourceText,
+        largeDocument: false,
+        pendingChoice: null,
+        treePrefix: followupContext?.treePrefix,
+        semanticConfidence,
+        actionKind,
+        continuationState: continuationReply.nextState,
+      }),
+    };
+  }
+
+  const contextMeta = buildRepoContextMeta({
+    targetEntity: followupContext?.targetEntity,
+    targetPath: followupContext?.targetPath || continuation?.targetPath,
+    displayMode: continuation?.displayMode || followupContext?.displayMode,
+    sourceText,
+    largeDocument: continuationReply.hasMore,
+    pendingChoice: continuationReply.hasMore
+      ? {
+          isActive: true,
+          kind: "large_doc_action",
+          targetEntity: followupContext?.targetEntity,
+          targetPath: followupContext?.targetPath || continuation?.targetPath,
+          displayMode: continuation?.displayMode || followupContext?.displayMode,
+        }
+      : null,
+    treePrefix: followupContext?.treePrefix,
+    semanticConfidence,
+    actionKind,
+    continuationState: continuationReply.nextState,
+  });
+
+  contextMeta.projectIntentObjectKind = safeText(
+    followupContext?.objectKind || inferObjectKindFromPath(followupContext?.targetPath || continuation?.targetPath)
+  );
+
+  await replyHuman(
+    replyAndLog,
+    continuationReply.text,
+    {
+      event,
+      ...contextMeta,
+    }
+  );
+
+  return {
+    handled: true,
+    reason: "continuation_replied",
+    contextMeta,
+  };
 }
 
 export async function runProjectIntentConversationFlow({
@@ -182,6 +251,8 @@ export async function runProjectIntentConversationFlow({
       actionKind: semanticPlan?.intent,
     });
 
+    contextMeta.projectIntentObjectKind = safeText(semanticPlan?.objectKind);
+
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_clarification",
       ...contextMeta,
@@ -192,6 +263,17 @@ export async function runProjectIntentConversationFlow({
       reason: "clarification_replied",
       contextMeta,
     };
+  }
+
+  if (semanticPlan.intent === "continue_active") {
+    return replyContinuation({
+      replyAndLog,
+      followupContext,
+      sourceText: trimmed,
+      semanticConfidence: semanticPlan?.confidence,
+      actionKind: "continue_active",
+      event: "repo_conversation_continue_active",
+    });
   }
 
   if (semanticPlan.intent === "repo_status") {
@@ -208,6 +290,8 @@ export async function runProjectIntentConversationFlow({
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "repo_status",
     });
+
+    contextMeta.projectIntentObjectKind = "repo";
 
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_status",
@@ -241,13 +325,15 @@ export async function runProjectIntentConversationFlow({
 
     const contextMeta = buildRepoContextMeta({
       targetEntity: "",
-      targetPath: "",
+      targetPath: prefix,
       displayMode: "raw",
       sourceText: trimmed,
       treePrefix: prefix,
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "show_tree",
     });
+
+    contextMeta.projectIntentObjectKind = prefix ? "folder" : "root";
 
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_tree",
@@ -261,7 +347,7 @@ export async function runProjectIntentConversationFlow({
     };
   }
 
-  if (semanticPlan.intent === "browse_folder" || isLikelyDirectFolderBrowseRequest(trimmed, semanticPlan)) {
+  if (semanticPlan.intent === "browse_folder") {
     const requestedFolder = normalizeFolderPrefix(
       safeText(semanticPlan?.targetPath || semanticPlan?.treePrefix || semanticPlan?.targetEntity) ||
       safeText(followupContext?.targetPath || followupContext?.treePrefix)
@@ -280,27 +366,32 @@ export async function runProjectIntentConversationFlow({
     const { directories, files } = computeImmediateChildren(allPaths, requestedFolder);
 
     if (directories.length === 0 && files.length === 0) {
+      const contextMeta = buildRepoContextMeta({
+        targetEntity: semanticPlan?.targetEntity || followupContext?.targetEntity,
+        targetPath: requestedFolder,
+        displayMode: "raw",
+        sourceText: trimmed,
+        treePrefix: requestedFolder,
+        semanticConfidence: semanticPlan?.confidence,
+        actionKind: "browse_folder",
+      });
+
+      contextMeta.projectIntentObjectKind = "folder";
+
       await replyHuman(
         replyAndLog,
         `Я понял, что нужно показать содержимое папки \`${requestedFolder}\`, но в текущем снимке репозитория не нашёл у неё вложенных элементов.`,
         {
           event: "repo_conversation_browse_folder_empty",
           read_only: true,
+          ...contextMeta,
         }
       );
 
       return {
         handled: true,
         reason: "browse_folder_empty",
-        contextMeta: buildRepoContextMeta({
-          targetEntity: semanticPlan?.targetEntity || followupContext?.targetEntity,
-          targetPath: requestedFolder,
-          displayMode: "raw",
-          sourceText: trimmed,
-          treePrefix: requestedFolder,
-          semanticConfidence: semanticPlan?.confidence,
-          actionKind: "browse_folder",
-        }),
+        contextMeta,
       };
     }
 
@@ -327,6 +418,8 @@ export async function runProjectIntentConversationFlow({
       actionKind: "browse_folder",
     });
 
+    contextMeta.projectIntentObjectKind = "folder";
+
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_browse_folder",
       ...contextMeta,
@@ -348,14 +441,20 @@ export async function runProjectIntentConversationFlow({
       matches,
     });
 
+    const chosenPath = matches.length === 1 ? matches[0] : "";
+
     const contextMeta = buildRepoContextMeta({
       targetEntity: query,
-      targetPath: matches.length === 1 ? matches[0] : "",
+      targetPath: chosenPath,
       displayMode: "raw",
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "find_target",
     });
+
+    contextMeta.projectIntentObjectKind = chosenPath
+      ? inferObjectKindFromPath(chosenPath)
+      : safeText(semanticPlan?.objectKind || "unknown");
 
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_search",
@@ -394,6 +493,8 @@ export async function runProjectIntentConversationFlow({
         semanticConfidence: semanticPlan?.confidence,
         actionKind: "find_and_explain",
       });
+
+      contextMeta.projectIntentObjectKind = safeText(semanticPlan?.objectKind || "unknown");
 
       await replyHuman(replyAndLog, text, {
         event: "repo_conversation_find_and_explain_search_only",
@@ -434,7 +535,7 @@ export async function runProjectIntentConversationFlow({
       };
     }
 
-    if (content.length > 12000) {
+    if (content.length > LARGE_DOC_AI_THRESHOLD) {
       const text = humanLargeDocumentReply({ path: targetPath });
 
       const contextMeta = buildRepoContextMeta({
@@ -453,6 +554,8 @@ export async function runProjectIntentConversationFlow({
         semanticConfidence: semanticPlan?.confidence,
         actionKind: "find_and_explain",
       });
+
+      contextMeta.projectIntentObjectKind = "file";
 
       await replyHuman(replyAndLog, text, {
         event: "repo_conversation_find_and_explain_large_doc",
@@ -475,7 +578,7 @@ export async function runProjectIntentConversationFlow({
       }),
       "high",
       {
-        max_completion_tokens: 550,
+        max_completion_tokens: 900,
         temperature: 0.35,
       }
     );
@@ -489,6 +592,7 @@ export async function runProjectIntentConversationFlow({
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "find_and_explain",
+      objectKind: "file",
       event: "repo_conversation_find_and_explain_ai",
     });
 
@@ -572,6 +676,8 @@ export async function runProjectIntentConversationFlow({
         actionKind: "open_target",
       });
 
+      contextMeta.projectIntentObjectKind = "file";
+
       await replyHuman(replyAndLog, text, {
         event: "repo_conversation_open_large_doc",
         ...contextMeta,
@@ -594,6 +700,8 @@ export async function runProjectIntentConversationFlow({
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "open_target",
     });
+
+    contextMeta.projectIntentObjectKind = "file";
 
     await replyHuman(
       replyAndLog,
@@ -689,6 +797,8 @@ export async function runProjectIntentConversationFlow({
         actionKind: semanticPlan.intent,
       });
 
+      contextMeta.projectIntentObjectKind = "file";
+
       await replyHuman(
         replyAndLog,
         humanFirstPartDocumentReply({
@@ -709,7 +819,7 @@ export async function runProjectIntentConversationFlow({
       };
     }
 
-    if (content.length > 12000) {
+    if (content.length > LARGE_DOC_AI_THRESHOLD) {
       const text = humanLargeDocumentReply({ path: targetPath });
 
       const contextMeta = buildRepoContextMeta({
@@ -728,6 +838,8 @@ export async function runProjectIntentConversationFlow({
         semanticConfidence: semanticPlan?.confidence,
         actionKind: semanticPlan.intent,
       });
+
+      contextMeta.projectIntentObjectKind = "file";
 
       await replyHuman(replyAndLog, text, {
         event: "repo_conversation_explain_large_doc",
@@ -750,7 +862,7 @@ export async function runProjectIntentConversationFlow({
       }),
       "high",
       {
-        max_completion_tokens: 550,
+        max_completion_tokens: 900,
         temperature: 0.35,
       }
     );
@@ -764,6 +876,7 @@ export async function runProjectIntentConversationFlow({
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
       actionKind: semanticPlan.intent,
+      objectKind: "file",
       event: "repo_conversation_explain_ai",
     });
 

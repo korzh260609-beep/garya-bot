@@ -2,46 +2,59 @@
 
 import { safeText } from "./projectIntentConversationShared.js";
 
+function formatObjectLabel(path = "", objectKind = "unknown") {
+  const p = safeText(path);
+  if (!p) return "Объект репозитория";
+  if (objectKind === "folder") return `\`${p}\` — папка репозитория.`;
+  if (objectKind === "file") return `\`${p}\` — файл репозитория.`;
+  if (objectKind === "root") return "Корень репозитория.";
+  if (objectKind === "repo") return "Репозиторий проекта.";
+  return `\`${p}\` — объект репозитория.`;
+}
+
 export function humanRepoStatusReply({ snapshot, filesCount }) {
   return [
-    "Я вижу репозиторий проекта и могу читать его в режиме только чтения.",
-    `Сейчас у меня есть доступ к актуальному снимку репозитория ${safeText(snapshot?.repo)} на ветке ${safeText(snapshot?.branch)}.`,
-    `В индексе сейчас примерно ${filesCount} файлов.`,
-    "Можешь попросить меня показать корень репозитория, показать содержимое любой папки, найти файл, открыть документ, кратко пересказать его или объяснить смысл.",
+    "Репозиторий доступен в режиме только чтения.",
+    `Актуальный снимок: ${safeText(snapshot?.repo)} / ветка ${safeText(snapshot?.branch)}.`,
+    `В индексе примерно ${filesCount} файлов.`,
+    "Доступные действия: показать корень, раскрыть папку, найти объект, открыть файл, кратко пересказать или объяснить смысл.",
   ].join("\n");
 }
 
-export function humanSearchReply({ targetEntity, matches }) {
+export function humanSearchReply({ targetEntity, matches, objectKind = "unknown" }) {
   const target = safeText(targetEntity) || "нужный объект";
 
   if (!Array.isArray(matches) || matches.length === 0) {
-    return `Я поискал в репозитории ${target}, но ничего подходящего не нашёл. Попробуй уточнить имя файла, путь или смысловой ориентир.`;
+    return `Для запроса "${target}" совпадений не найдено. Нужен более точный путь, имя файла или смысловой ориентир.`;
   }
 
   if (matches.length === 1) {
+    const only = safeText(matches[0]);
+    const label =
+      objectKind === "folder"
+        ? `\`${only}\` — папка репозитория.`
+        : objectKind === "file"
+          ? `\`${only}\` — файл репозитория.`
+          : `\`${only}\` — найденный объект репозитория.`;
+
     return [
-      "Я нашёл точное совпадение.",
-      `Это файл \`${matches[0]}\`.`,
-      "Могу сразу открыть его, кратко пересказать или объяснить смысл простыми словами.",
+      label,
+      "Следующее действие можно выбрать сразу: открыть, раскрыть, кратко пересказать или объяснить смысл.",
     ].join("\n");
   }
 
   const lines = matches.slice(0, 6).map((path) => `- \`${path}\``);
   return [
-    `Я нашёл несколько вариантов для запроса "${target}":`,
+    `Для запроса "${target}" найдено несколько совпадений:`,
     ...lines,
     "",
-    "Скажи, какой открыть, или напиши: «открой первый», «объясни первый», «кратко первый».",
+    "Нужен выбор одного варианта: например, «открой первый», «объясни второй», «раскрой третий».",
   ].join("\n");
 }
 
 export function humanTreeReply({ prefix, directories, files, hiddenCount }) {
   const isRoot = !safeText(prefix);
-  const title = isRoot
-    ? "Я показал корень репозитория."
-    : `Я показал верхний уровень папки \`${safeText(prefix)}\`.`;
-
-  const lines = [title];
+  const lines = [isRoot ? "Корень репозитория." : `\`${safeText(prefix)}\` — верхний уровень папки.`];
 
   if (directories.length > 0) {
     lines.push("");
@@ -61,23 +74,23 @@ export function humanTreeReply({ prefix, directories, files, hiddenCount }) {
 
   lines.push("");
   if (hiddenCount > 0) {
-    lines.push(`Я показал только верхний уровень, а ещё ${hiddenCount} элементов глубже не раскрывал, чтобы не перегружать ответ.`);
+    lines.push(`Показан только верхний уровень. Глубже внутри есть ещё ${hiddenCount} элементов.`);
   } else {
-    lines.push("Я специально показал только верхний уровень, чтобы было удобно углубляться дальше по папкам.");
+    lines.push("Показан только верхний уровень без углубления дальше.");
   }
 
-  lines.push("Можешь написать, какую папку раскрыть дальше, например: `покажи src/` или `раскрой src/core/`.");
+  lines.push("Следующий шаг: раскрыть конкретную папку или открыть нужный файл.");
 
   return lines.join("\n");
 }
 
 export function humanFolderBrowseReply({ folderPath, directories, files, hiddenCount }) {
   const folder = safeText(folderPath) || "/";
-  const lines = [`Я показал содержимое папки \`${folder}\`.`];
+  const lines = [`\`${folder}\` — папка репозитория.`];
 
   if (directories.length > 0) {
     lines.push("");
-    lines.push("Папки:");
+    lines.push("Подпапки:");
     for (const dir of directories) {
       lines.push(`- ${dir}/`);
     }
@@ -93,42 +106,40 @@ export function humanFolderBrowseReply({ folderPath, directories, files, hiddenC
 
   if (directories.length === 0 && files.length === 0) {
     lines.push("");
-    lines.push("Похоже, в текущем снимке у этой папки нет элементов на верхнем уровне.");
+    lines.push("На верхнем уровне элементов не видно.");
   }
 
   lines.push("");
   if (hiddenCount > 0) {
-    lines.push(`Я показал только прямое содержимое папки. Глубже внутри есть ещё ${hiddenCount} элементов.`);
+    lines.push(`Показано только прямое содержимое. Глубже внутри есть ещё ${hiddenCount} элементов.`);
   } else {
-    lines.push("Я показал только прямое содержимое папки без углубления дальше.");
+    lines.push("Показано только прямое содержимое без углубления дальше.");
   }
 
-  lines.push("Можешь написать, что делать дальше: `открой файл`, `раскрой подпапку`, `объясни файл` или `покажи корень репозитория`.");
+  lines.push("Следующий шаг: раскрыть подпапку, открыть файл или объяснить конкретный объект внутри.");
 
   return lines.join("\n");
 }
 
 export function humanLargeDocumentReply({ path }) {
-  const name = safeText(path).split("/").pop() || safeText(path) || "этот документ";
+  const name = safeText(path).split("/").pop() || safeText(path) || "документ";
   return [
-    `Я нашёл документ ${name}.`,
-    "Он большой, поэтому не буду молча вставлять длинную простыню целиком.",
-    "Как поступить дальше?",
-    "- кратко пересказать",
-    "- объяснить простыми словами",
-    "- показать первую часть",
-    "- перевести на русский",
-    "- разобрать конкретный раздел",
+    `\`${name}\` — большой файл.`,
+    "Полный вывод целиком сейчас не нужен.",
+    "Доступные варианты:",
+    "- краткое содержание",
+    "- объяснение простыми словами",
+    "- первая часть",
+    "- перевод на русский",
+    "- разбор конкретного раздела",
   ].join("\n");
 }
 
 export function humanSmallDocumentReply({ path, content, wasTrimmed }) {
-  const name = safeText(path).split("/").pop() || safeText(path) || "документ";
-  const lines = [`Я открыл ${name}.`];
+  const lines = [formatObjectLabel(path, "file")];
 
   if (wasTrimmed) {
-    lines.push("Документ длинный, поэтому здесь только первая часть.");
-    lines.push("Могу продолжить дальше, кратко пересказать или объяснить смысл.");
+    lines.push("Показана первая часть. Дальше можно продолжить, кратко пересказать или объяснить смысл.");
   }
 
   lines.push("");
@@ -140,22 +151,21 @@ export function humanSmallDocumentReply({ path, content, wasTrimmed }) {
 }
 
 export function humanFirstPartDocumentReply({ path, content, maxChars = 2600 }) {
-  const name = safeText(path).split("/").pop() || safeText(path) || "документ";
   const preview = safeText(content).slice(0, maxChars);
 
   return [
-    `Я показываю первую часть файла ${name}.`,
+    formatObjectLabel(path, "file"),
     "",
     "```",
     preview,
     "```",
     "",
-    "Могу показать следующую часть, кратко пересказать или объяснить смысл.",
+    "Следующий шаг: показать продолжение, кратко пересказать или объяснить смысл.",
   ].join("\n");
 }
 
 export function humanClarificationReply(question) {
-  return safeText(question) || "Уточни, что именно нужно сделать с репозиторием.";
+  return safeText(question) || "Нужно уточнение по объекту или действию внутри репозитория.";
 }
 
 export function buildAiMessages({
@@ -179,17 +189,18 @@ export function buildAiMessages({
       role: "system",
       content:
         "Ты — SG, помощник по репозиторию проекта.\n" +
-        "Говори нормальным человеческим языком.\n" +
-        "Не упоминай route, handler, bridge, snapshotId, команды и другую техничку.\n" +
+        "Отвечай по логике и смыслу, без шаблонных фраз о себе.\n" +
+        "Не используй самонарратив вроде: «я понял», «я нашёл», «я показал», «я специально».\n" +
+        "Начинай ответ сразу с факта, объекта, роли и смысла.\n" +
+        "Не упоминай route, handler, bridge, snapshotId и внутреннюю техничку, если этого нет в тексте файла как сути.\n" +
         "Опирайся только на текст файла.\n" +
-        "Если данных не хватает — честно скажи.\n" +
-        "Не придумывай того, чего нет в документе.\n" +
-        "Нельзя просить пользователя прислать полный текст файла или его части, потому что текст файла уже передан тебе системой.\n" +
-        "Нельзя писать общие догадки о файле только по его названию.\n" +
-        "Если файл найден в репозитории, нужно отвечать только по его реальному содержимому.\n" +
+        "Если данных не хватает — скажи это прямо.\n" +
+        "Нельзя придумывать факты, которых нет в файле.\n" +
+        "Нельзя просить прислать текст файла, потому что он уже передан.\n" +
+        "Нельзя делать выводы только по имени файла.\n" +
         "Если ответ длинный, первая часть должна быть смыслово законченной.\n" +
-        "Нельзя обрывать ответ на полуслове или на полфразы.\n" +
-        "Если файл описывает проект, объясняй именно проект, а не абстрактные догадки.",
+        "Нельзя обрывать ответ на полуслове.\n" +
+        "Если файл описывает проект или модуль, объясняй именно его реальную роль по содержимому.",
     },
     {
       role: "user",
@@ -220,7 +231,6 @@ export function buildRepoContextMeta({
   treePrefix = "",
   semanticConfidence = "low",
   actionKind = "",
-
   continuationState = null,
 }) {
   const chunks = Array.isArray(continuationState?.chunks)

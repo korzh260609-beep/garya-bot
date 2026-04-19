@@ -96,6 +96,7 @@ export async function runProjectIntentConversationFlow({
       displayMode: semanticPlan?.displayMode,
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
+      actionKind: semanticPlan?.intent,
     });
 
     await replyHuman(replyAndLog, text, {
@@ -122,6 +123,7 @@ export async function runProjectIntentConversationFlow({
       displayMode: "raw",
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
+      actionKind: "repo_status",
     });
 
     await replyHuman(replyAndLog, text, {
@@ -161,6 +163,7 @@ export async function runProjectIntentConversationFlow({
       sourceText: trimmed,
       treePrefix: prefix,
       semanticConfidence: semanticPlan?.confidence,
+      actionKind: "show_tree",
     });
 
     await replyHuman(replyAndLog, text, {
@@ -179,6 +182,8 @@ export async function runProjectIntentConversationFlow({
     const requestedFolder = normalizeFolderPrefix(
       semanticPlan.targetPath ||
       semanticPlan.treePrefix ||
+      followupContext?.targetPath ||
+      followupContext?.treePrefix ||
       semanticPlan.targetEntity
     );
 
@@ -208,12 +213,13 @@ export async function runProjectIntentConversationFlow({
         handled: true,
         reason: "browse_folder_empty",
         contextMeta: buildRepoContextMeta({
-          targetEntity: semanticPlan?.targetEntity,
+          targetEntity: semanticPlan?.targetEntity || followupContext?.targetEntity,
           targetPath: requestedFolder,
           displayMode: "raw",
           sourceText: trimmed,
           treePrefix: requestedFolder,
           semanticConfidence: semanticPlan?.confidence,
+          actionKind: "browse_folder",
         }),
       };
     }
@@ -232,12 +238,13 @@ export async function runProjectIntentConversationFlow({
     });
 
     const contextMeta = buildRepoContextMeta({
-      targetEntity: semanticPlan?.targetEntity,
+      targetEntity: semanticPlan?.targetEntity || followupContext?.targetEntity,
       targetPath: requestedFolder,
       displayMode: "raw",
       sourceText: trimmed,
       treePrefix: requestedFolder,
       semanticConfidence: semanticPlan?.confidence,
+      actionKind: "browse_folder",
     });
 
     await replyHuman(replyAndLog, text, {
@@ -267,6 +274,7 @@ export async function runProjectIntentConversationFlow({
       displayMode: "raw",
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
+      actionKind: "find_target",
     });
 
     await replyHuman(replyAndLog, text, {
@@ -304,6 +312,7 @@ export async function runProjectIntentConversationFlow({
         displayMode: semanticPlan.displayMode || "summary",
         sourceText: trimmed,
         semanticConfidence: semanticPlan?.confidence,
+        actionKind: "find_and_explain",
       });
 
       await replyHuman(replyAndLog, text, {
@@ -362,6 +371,7 @@ export async function runProjectIntentConversationFlow({
           displayMode: semanticPlan.displayMode || "summary",
         },
         semanticConfidence: semanticPlan?.confidence,
+        actionKind: "find_and_explain",
       });
 
       await replyHuman(replyAndLog, text, {
@@ -397,6 +407,7 @@ export async function runProjectIntentConversationFlow({
       sourceText: trimmed,
       largeDocument: false,
       semanticConfidence: semanticPlan?.confidence,
+      actionKind: "find_and_explain",
     });
 
     await replyHuman(
@@ -475,6 +486,7 @@ export async function runProjectIntentConversationFlow({
           displayMode: "summary",
         },
         semanticConfidence: semanticPlan?.confidence,
+        actionKind: "open_target",
       });
 
       await replyHuman(replyAndLog, text, {
@@ -497,6 +509,7 @@ export async function runProjectIntentConversationFlow({
       sourceText: trimmed,
       largeDocument: false,
       semanticConfidence: semanticPlan?.confidence,
+      actionKind: "open_target",
     });
 
     await replyHuman(
@@ -580,6 +593,7 @@ export async function runProjectIntentConversationFlow({
         sourceText: trimmed,
         largeDocument: content.length > 2600,
         semanticConfidence: semanticPlan?.confidence,
+        actionKind: semanticPlan.intent,
       });
 
       await replyHuman(
@@ -619,6 +633,7 @@ export async function runProjectIntentConversationFlow({
           displayMode: effectiveDisplayMode,
         },
         semanticConfidence: semanticPlan?.confidence,
+        actionKind: semanticPlan.intent,
       });
 
       await replyHuman(replyAndLog, text, {
@@ -654,6 +669,7 @@ export async function runProjectIntentConversationFlow({
       sourceText: trimmed,
       largeDocument: false,
       semanticConfidence: semanticPlan?.confidence,
+      actionKind: semanticPlan.intent,
     });
 
     await replyHuman(

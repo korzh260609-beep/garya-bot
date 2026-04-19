@@ -1,11 +1,11 @@
 // src/core/projectIntent/projectIntentScope.js
 // ============================================================================
-// STAGE 12A.0 — project free-text intent scope (SKELETON, semantic classifier)
+// STAGE 12A.0 — project free-text intent scope (meaning-first classifier)
 // Purpose:
-// - classify free-text requests by TARGET SCOPE first, not just by keywords
+// - classify free-text requests by TARGET SCOPE first
+// - allow repo-object understanding without brittle dependency on SG-only anchors
 // - separate SG core internal project from future user-owned projects
 // - distinguish action mode: read / write / mixed / unknown
-// - work by semantic signal groups, not brittle exact phrases only
 // IMPORTANT:
 // - NO command execution here
 // - NO repo writes here
@@ -66,6 +66,35 @@ function countHits(...groups) {
     count += Array.isArray(group) ? group.length : 0;
   }
   return count;
+}
+
+function extractPathLikeObjects(text = "") {
+  const raw = String(text || "");
+  const hits = [];
+
+  const rx = /\b([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\/?|[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,8})\b/g;
+  let m;
+
+  while ((m = rx.exec(raw)) !== null) {
+    const value = String(m[1] || "").trim();
+    if (!value) continue;
+    if (value.length < 2) continue;
+    hits.push(value);
+  }
+
+  return unique(hits);
+}
+
+function looksLikeRepoPath(value = "") {
+  const v = String(value || "").trim();
+  if (!v) return false;
+  if (v.includes("/")) return true;
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return true;
+  return false;
+}
+
+function hasLikelyRepoPath(values = []) {
+  return (Array.isArray(values) ? values : []).some((v) => looksLikeRepoPath(v));
 }
 
 // ----------------------------------------------------------------------------
@@ -211,6 +240,9 @@ export const SG_CORE_OBJECT_PREFIXES = Object.freeze([
   "корен",
   "файл",
   "папк",
+  "src",
+  "module",
+  "handler",
 ]);
 
 // ----------------------------------------------------------------------------
@@ -423,6 +455,8 @@ export const PROJECT_READ_ACTION_TOKENS = Object.freeze([
   "прочитай",
   "анализ",
   "проанализируй",
+  "объясни",
+  "поясни",
 ]);
 
 export const PROJECT_WRITE_ACTION_PHRASES = Object.freeze([
@@ -499,6 +533,7 @@ function resolveSemanticIntentKind({
   hasStrongObject,
   hasWeakObject,
   hasRepoStructureSignal,
+  hasRepoPathSignal,
 }) {
   const accessMetaPhraseHits = collectPhraseHits(normalized, SG_REPO_META_ACCESS_PHRASES);
   const accessMetaTokenHits = collectTokenHits(tokens, SG_REPO_META_ACCESS_TOKENS);
@@ -509,7 +544,7 @@ function resolveSemanticIntentKind({
     accessMetaPhraseHits.length >= 1 ||
     (
       (accessMetaTokenHits.length >= 1 || accessMetaPrefixHits.length >= 1) &&
-      (repoTargetPrefixHits.length >= 1 || hasStrongObject || hasWeakObject || hasCanonicalPillarSignal)
+      (repoTargetPrefixHits.length >= 1 || hasStrongObject || hasWeakObject || hasCanonicalPillarSignal || hasRepoPathSignal)
     );
 
   let semanticIntentKind = "unknown";
@@ -530,6 +565,12 @@ function resolveSemanticIntentKind({
   } else if (hasCanonicalPillarSignal) {
     semanticIntentKind = "canonical_pillar_reference";
     semanticBasis.push("canonical_pillar_reference");
+  } else if (hasRepoPathSignal && hasWriteAction) {
+    semanticIntentKind = "repo_path_write";
+    semanticBasis.push("repo_path_write");
+  } else if (hasRepoPathSignal && hasReadAction) {
+    semanticIntentKind = "repo_path_read";
+    semanticBasis.push("repo_path_read");
   } else if ((hasStrongObject || hasWeakObject) && hasWriteAction) {
     semanticIntentKind = "internal_repo_write";
     semanticBasis.push("internal_repo_write");
@@ -552,6 +593,7 @@ function resolveSemanticIntentKind({
 export function collectProjectIntentSignals(text) {
   const normalized = normalizeText(text);
   const tokens = tokenizeText(text);
+  const pathLikeObjects = extractPathLikeObjects(text);
 
   const sgCoreStrongAnchorHits = collectPhraseHits(normalized, SG_CORE_STRONG_ANCHORS);
   const sgCoreIdentityPhraseHits = collectPhraseHits(normalized, SG_CORE_IDENTITY_PHRASES);
@@ -577,6 +619,8 @@ export function collectProjectIntentSignals(text) {
   const writeActionPhraseHits = collectPhraseHits(normalized, PROJECT_WRITE_ACTION_PHRASES);
   const writeActionTokenHits = collectTokenHits(tokens, PROJECT_WRITE_ACTION_TOKENS);
 
+  const repoPathHits = pathLikeObjects.filter((v) => looksLikeRepoPath(v));
+
   const readHits = unique([
     ...readActionPhraseHits,
     ...readActionTokenHits,
@@ -592,6 +636,7 @@ export function collectProjectIntentSignals(text) {
     ...sgCoreObjectTokenStrongHits,
     ...sgCoreObjectTokenWeakHits,
     ...sgCoreObjectPrefixHits,
+    ...repoPathHits,
   ]);
 
   const canonicalPillarHits = unique([
@@ -615,6 +660,7 @@ export function collectProjectIntentSignals(text) {
     ...sgCoreIdentityPhraseHits,
     ...sgCoreObjectPhraseHits,
     ...canonicalPillarPhraseHits,
+    ...repoPathHits,
   ]);
 
   const internalActionHits = unique([
@@ -629,6 +675,8 @@ export function collectProjectIntentSignals(text) {
   return {
     normalized,
     tokens,
+    pathLikeObjects,
+    repoPathHits,
 
     sgCoreStrongAnchorHits,
     sgCoreIdentityPhraseHits,
@@ -671,6 +719,8 @@ export function resolveProjectIntentMatch(text) {
 
   const {
     normalized,
+    tokens,
+    repoPathHits,
 
     sgCoreStrongAnchorHits,
     sgCoreIdentityPhraseHits,
@@ -715,6 +765,7 @@ export function resolveProjectIntentMatch(text) {
       accessMetaPrefixHits: [],
       repoTargetPrefixHits: [],
       hasAccessMetaSignal: false,
+      hasRepoPathSignal: false,
     };
   }
 
@@ -726,6 +777,7 @@ export function resolveProjectIntentMatch(text) {
     ...sgCoreObjectPhraseHits,
     ...sgCoreObjectTokenStrongHits,
     ...sgCoreObjectPrefixHits,
+    ...repoPathHits,
   ]);
 
   const weakObjectHits = unique([
@@ -749,6 +801,8 @@ export function resolveProjectIntentMatch(text) {
   ]);
   const hasRepoStructureSignal = repoStructureHits.length >= 1;
 
+  const hasRepoPathSignal = repoPathHits.length >= 1;
+
   const hasUserProjectPhrase = userProjectPhraseHits.length >= 1;
   const hasUserProjectToken = userProjectTokenHits.length >= 1;
 
@@ -765,13 +819,14 @@ export function resolveProjectIntentMatch(text) {
     hasAccessMetaSignal,
   } = resolveSemanticIntentKind({
     normalized,
-    tokens: signals.tokens,
+    tokens,
     hasReadAction,
     hasWriteAction,
     hasCanonicalPillarSignal,
     hasStrongObject,
     hasWeakObject,
     hasRepoStructureSignal,
+    hasRepoPathSignal,
   });
 
   const classificationBasis = [];
@@ -783,24 +838,30 @@ export function resolveProjectIntentMatch(text) {
   if (hasStrongAnchor) {
     targetScope = "sg_core_internal";
     classificationBasis.push("sg_core_strong_anchor");
-  } else if (hasAccessMetaSignal && (repoTargetPrefixHits.length >= 1 || hasStrongObject || hasCanonicalPillarSignal || hasIdentityToken)) {
+  } else if (hasAccessMetaSignal && (repoTargetPrefixHits.length >= 1 || hasStrongObject || hasCanonicalPillarSignal || hasIdentityToken || hasRepoPathSignal)) {
     targetScope = "sg_core_internal";
     classificationBasis.push("repo_access_meta_internal");
-  } else if (hasRepoStructureSignal && (repoTargetPrefixHits.length >= 1 || hasCanonicalPillarSignal || hasIdentityToken || hasWeakObject)) {
+  } else if (hasRepoStructureSignal && (repoTargetPrefixHits.length >= 1 || hasCanonicalPillarSignal || hasIdentityToken || hasWeakObject || hasRepoPathSignal)) {
     targetScope = "sg_core_internal";
     classificationBasis.push("repo_structure_internal");
   } else if (hasCanonicalPillarSignal && (hasReadAction || hasWriteAction || semanticIntentKind !== "unknown")) {
     targetScope = "sg_core_internal";
     classificationBasis.push("canonical_pillar_internal");
-  } else if (hasIdentityPhrase && (hasReadAction || hasWriteAction || hasStrongObject || hasWeakObject)) {
+  } else if (hasIdentityPhrase && (hasReadAction || hasWriteAction || hasStrongObject || hasWeakObject || hasRepoPathSignal)) {
     targetScope = "sg_core_internal";
     classificationBasis.push("sg_core_identity_phrase");
   } else if (hasIdentityToken && hasWriteAction) {
     targetScope = "sg_core_internal";
     classificationBasis.push("sg_core_identity_token_plus_write");
-  } else if (hasIdentityToken && hasStrongObject) {
+  } else if (hasIdentityToken && (hasStrongObject || hasRepoPathSignal)) {
     targetScope = "sg_core_internal";
     classificationBasis.push("sg_core_identity_token_plus_strong_object");
+  } else if (hasRepoPathSignal && hasReadAction) {
+    targetScope = "sg_core_internal";
+    classificationBasis.push("repo_path_plus_read");
+  } else if (hasRepoPathSignal && hasWriteAction) {
+    targetScope = "sg_core_internal";
+    classificationBasis.push("repo_path_plus_write");
   } else if (hasStrongObject && hasWriteAction) {
     targetScope = "sg_core_internal";
     classificationBasis.push("sg_core_strong_object_plus_write");
@@ -835,7 +896,7 @@ export function resolveProjectIntentMatch(text) {
   // 3) GENERIC EXTERNAL
   // --------------------------------------------------------------------------
   if (targetScope === "unknown") {
-    if (hasReadAction || hasWriteAction || hasStrongObject || hasWeakObject || hasRepoStructureSignal) {
+    if (hasReadAction || hasWriteAction || hasStrongObject || hasWeakObject || hasRepoStructureSignal || hasRepoPathSignal) {
       targetScope = "generic_external";
       classificationBasis.push("generic_project_like_request");
     }
@@ -846,7 +907,7 @@ export function resolveProjectIntentMatch(text) {
     actionMode = "mixed";
   } else if (hasWriteAction) {
     actionMode = "write";
-  } else if (hasReadAction || hasAccessMetaSignal || hasCanonicalPillarSignal || hasRepoStructureSignal) {
+  } else if (hasReadAction || hasAccessMetaSignal || hasCanonicalPillarSignal || hasRepoStructureSignal || hasRepoPathSignal) {
     actionMode = "read";
   }
 
@@ -861,11 +922,13 @@ export function resolveProjectIntentMatch(text) {
     confidence = "none";
   } else if (targetScope === "sg_core_internal") {
     if (hasStrongAnchor) confidence = "high";
+    else if (hasRepoPathSignal && hasReadAction) confidence = "high";
+    else if (hasRepoPathSignal && hasWriteAction) confidence = "high";
     else if (hasAccessMetaSignal && repoTargetPrefixHits.length >= 1) confidence = "high";
     else if (hasRepoStructureSignal && repoTargetPrefixHits.length >= 1) confidence = "high";
     else if (hasCanonicalPillarSignal && hasReadAction) confidence = "high";
     else if (hasIdentityPhrase) confidence = "high";
-    else if (hasIdentityToken && (hasWriteAction || hasStrongObject)) confidence = "high";
+    else if (hasIdentityToken && (hasWriteAction || hasStrongObject || hasRepoPathSignal)) confidence = "high";
     else if (hasStrongObject && (hasReadAction || hasWriteAction)) confidence = "medium";
     else confidence = "medium";
   } else if (targetScope === "user_project") {
@@ -913,6 +976,7 @@ export function resolveProjectIntentMatch(text) {
     repoTargetPrefixHits,
     hasAccessMetaSignal,
     hasRepoStructureSignal,
+    hasRepoPathSignal,
   };
 }
 

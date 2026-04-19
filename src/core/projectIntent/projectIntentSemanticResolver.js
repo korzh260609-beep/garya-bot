@@ -24,7 +24,7 @@ function normalizeText(value) {
 
 function tokenizeText(value) {
   const normalized = normalizeText(value)
-    .replace(/[.,!?;:()[\]{}<>\\|"'`~@#$%^&*+=]+/g, " ")
+    .replace(/[.,!?;:()[\]{}<>\\|"\'`~@#$%^&*+=]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -206,16 +206,39 @@ const PRONOUN_FOLLOWUP_PREFIXES = Object.freeze([
   "that",
 ]);
 
+const FOLDER_PREFIXES = Object.freeze([
+  "папк",
+  "директор",
+  "каталог",
+  "folder",
+  "director",
+  "dir",
+]);
+
+const LISTING_PREFIXES = Object.freeze([
+  "спис",
+  "содерж",
+  "внутр",
+  "внутри",
+  "что",
+  "какие",
+  "list",
+  "content",
+  "inside",
+]);
+
 const GENERIC_TARGET_WORDS = new Set([
   "файл",
   "файла",
   "файле",
+  "файлы",
   "документ",
   "документа",
   "документе",
   "папка",
   "папку",
   "папке",
+  "папки",
   "раздел",
   "раздела",
   "разделе",
@@ -225,9 +248,13 @@ const GENERIC_TARGET_WORDS = new Set([
   "project",
   "repo",
   "file",
+  "files",
   "folder",
+  "directory",
   "document",
   "section",
+  "contents",
+  "content",
 ]);
 
 function sanitizeTargetText(value) {
@@ -291,8 +318,9 @@ function extractNamedTargetByMarker(text = "") {
   const raw = safeText(text);
 
   const patterns = [
-    /(?:файл|документ|раздел|папк[ауеи]?|file|document|section|folder)\s+([A-Za-z0-9_.\-\/]{3,120})/i,
-    /(?:про|about)\s+([A-Za-z0-9_.\-\/]{3,120})/i,
+    /(?:файл|документ|раздел|папк[ауеи]?|директори[яиюе]?|каталог|file|document|section|folder|directory)\s+([A-Za-z0-9_.\-\/]{3,120})/i,
+    /(?:про|about|inside)\s+([A-Za-z0-9_.\-\/]{3,120})/i,
+    /(?:внутри|в)\s+([A-Za-z0-9_.\-\/]{3,120}\/?)/i,
   ];
 
   for (const rx of patterns) {
@@ -437,6 +465,65 @@ function extractTreePrefix(text = "") {
   return "";
 }
 
+function normalizeFolderTarget(target = "") {
+  const v = sanitizeTargetText(target).replace(/^\/+/, "");
+  if (!v) return "";
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return v;
+  return v.endsWith("/") ? v : `${v}/`;
+}
+
+function isFolderBrowseMeaning({ normalized, tokens, extractedTarget }) {
+  const folderHits = collectPrefixHits(tokens, FOLDER_PREFIXES);
+  const listingHits = collectPrefixHits(tokens, LISTING_PREFIXES);
+  const treeHits = collectPrefixHits(tokens, TREE_PREFIXES);
+  const searchHits = collectPrefixHits(tokens, SEARCH_PREFIXES);
+  const openHits = collectPrefixHits(tokens, OPEN_PREFIXES);
+
+  const hasFolderWord =
+    folderHits.length > 0 ||
+    normalized.includes("folder") ||
+    normalized.includes("directory") ||
+    normalized.includes("папк") ||
+    normalized.includes("каталог") ||
+    normalized.includes("директори");
+
+  const hasListMeaning =
+    listingHits.length > 0 ||
+    normalized.includes("список файлов") ||
+    normalized.includes("список папок") ||
+    normalized.includes("что внутри") ||
+    normalized.includes("что в") ||
+    normalized.includes("содержимое") ||
+    normalized.includes("contents") ||
+    normalized.includes("inside");
+
+  const targetLooksFolder =
+    !!safeText(extractedTarget) &&
+    !/\.[a-z0-9]{1,8}$/i.test(safeText(extractedTarget)) &&
+    (
+      safeText(extractedTarget).endsWith("/") ||
+      /^[A-Za-z0-9_.\-\/]{2,120}$/.test(safeText(extractedTarget))
+    );
+
+  if (hasFolderWord && (hasListMeaning || openHits.length > 0 || searchHits.length > 0)) {
+    return true;
+  }
+
+  if (targetLooksFolder && hasListMeaning) {
+    return true;
+  }
+
+  if (
+    targetLooksFolder &&
+    hasFolderWord &&
+    (searchHits.length > 0 || openHits.length > 0 || treeHits.length > 0)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function isShortFollowupLike(text = "") {
   const tokens = tokenizeText(text);
   if (tokens.length === 0) return false;
@@ -544,6 +631,23 @@ function heuristicFallback({
       clarifyNeeded: !targetPath,
       clarifyQuestion: targetPath ? "" : "Что именно из последнего результата нужно продолжить или объяснить?",
       confidence: targetPath ? "high" : "medium",
+    };
+  }
+
+  if (isFolderBrowseMeaning({ normalized, tokens, extractedTarget })) {
+    const folderTarget = normalizeFolderTarget(
+      extractedTarget || targetPath || targetEntity || treePrefix
+    );
+
+    return {
+      intent: "browse_folder",
+      targetEntity: safeText(extractedTarget || targetEntity),
+      targetPath: folderTarget,
+      displayMode: "raw",
+      treePrefix: folderTarget,
+      clarifyNeeded: !folderTarget,
+      clarifyQuestion: folderTarget ? "" : "Какую именно папку показать?",
+      confidence: folderTarget ? "high" : "medium",
     };
   }
 
@@ -660,6 +764,7 @@ function sanitizeSemanticResult(raw, fallback) {
   const allowedIntents = new Set([
     "repo_status",
     "show_tree",
+    "browse_folder",
     "find_target",
     "find_and_explain",
     "open_target",
@@ -732,9 +837,11 @@ function buildSemanticMessages({
         "Prefer active repo context and pending choice context.\n" +
         "Follow-up phrases like 'коротко', 'о чём он', 'на русском', 'первую часть', 'общую информацию' usually continue current repo context.\n" +
         "If user asks to show repository tree, default to root-first.\n" +
+        "If user asks what is inside a folder / directory / папка, prefer browse_folder instead of generic search.\n" +
+        "browse_folder means: user wants folder contents, immediate children, or top-level items inside a folder.\n" +
         "JSON shape:\n" +
         "{\n" +
-        '  "intent": "repo_status|show_tree|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|unknown",\n' +
+        '  "intent": "repo_status|show_tree|browse_folder|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|unknown",\n' +
         '  "targetEntity": "string",\n' +
         '  "targetPath": "string",\n' +
         '  "displayMode": "raw|raw_first_part|summary|explain|translate_ru",\n' +

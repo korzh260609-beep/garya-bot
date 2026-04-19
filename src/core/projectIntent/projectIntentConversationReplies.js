@@ -71,6 +71,43 @@ export function humanTreeReply({ prefix, directories, files, hiddenCount }) {
   return lines.join("\n");
 }
 
+export function humanFolderBrowseReply({ folderPath, directories, files, hiddenCount }) {
+  const folder = safeText(folderPath) || "/";
+  const lines = [`Я показал содержимое папки \`${folder}\`.`];
+
+  if (directories.length > 0) {
+    lines.push("");
+    lines.push("Папки:");
+    for (const dir of directories) {
+      lines.push(`- ${dir}/`);
+    }
+  }
+
+  if (files.length > 0) {
+    lines.push("");
+    lines.push("Файлы:");
+    for (const file of files) {
+      lines.push(`- ${file}`);
+    }
+  }
+
+  if (directories.length === 0 && files.length === 0) {
+    lines.push("");
+    lines.push("Похоже, в текущем снимке у этой папки нет элементов на верхнем уровне.");
+  }
+
+  lines.push("");
+  if (hiddenCount > 0) {
+    lines.push(`Я показал только прямое содержимое папки. Глубже внутри есть ещё ${hiddenCount} элементов.`);
+  } else {
+    lines.push("Я показал только прямое содержимое папки без углубления дальше.");
+  }
+
+  lines.push("Можешь написать, что делать дальше: `открой файл`, `раскрой подпапку` или `покажи корень репозитория`.");
+
+  return lines.join("\n");
+}
+
 export function humanLargeDocumentReply({ path }) {
   const name = safeText(path).split("/").pop() || safeText(path) || "этот документ";
   return [
@@ -201,6 +238,7 @@ export default {
   humanRepoStatusReply,
   humanSearchReply,
   humanTreeReply,
+  humanFolderBrowseReply,
   humanLargeDocumentReply,
   humanSmallDocumentReply,
   humanFirstPartDocumentReply,

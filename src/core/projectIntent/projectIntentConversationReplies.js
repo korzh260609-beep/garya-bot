@@ -220,7 +220,13 @@ export function buildRepoContextMeta({
   treePrefix = "",
   semanticConfidence = "low",
   actionKind = "",
+
+  continuationState = null,
 }) {
+  const chunks = Array.isArray(continuationState?.chunks)
+    ? continuationState.chunks.filter(Boolean)
+    : [];
+
   return {
     projectIntentRepoContextActive: true,
     projectIntentTargetEntity: safeText(targetEntity),
@@ -237,6 +243,15 @@ export function buildRepoContextMeta({
     projectIntentPendingChoiceTargetEntity: safeText(pendingChoice?.targetEntity),
     projectIntentPendingChoiceTargetPath: safeText(pendingChoice?.targetPath),
     projectIntentPendingChoiceDisplayMode: safeText(pendingChoice?.displayMode),
+
+    projectIntentContinuationActive: continuationState?.isActive === true,
+    projectIntentContinuationSourceKind: safeText(continuationState?.sourceKind),
+    projectIntentContinuationTargetPath: safeText(continuationState?.targetPath),
+    projectIntentContinuationDisplayMode: safeText(continuationState?.displayMode),
+    projectIntentContinuationChunkIndex: Number(continuationState?.chunkIndex || 1),
+    projectIntentContinuationChunkCount: Number(continuationState?.chunkCount || chunks.length || 0),
+    projectIntentContinuationChunksJson: chunks.length > 0 ? JSON.stringify(chunks) : "",
+    projectIntentContinuationRemainingText: safeText(continuationState?.remainingText),
   };
 }
 

@@ -18,6 +18,7 @@ import {
   humanRepoStatusReply,
   humanSearchReply,
   humanTreeReply,
+  humanFolderBrowseReply,
   humanLargeDocumentReply,
   humanSmallDocumentReply,
   humanFirstPartDocumentReply,
@@ -42,6 +43,14 @@ export {
   getLatestProjectIntentRepoContext,
   getLatestProjectIntentPendingChoice,
 };
+
+function normalizeFolderPrefix(value = "") {
+  const v = normalizePath(value);
+  if (!v) return "";
+  if (v.endsWith("/")) return v;
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return v;
+  return `${v}/`;
+}
 
 export async function runProjectIntentConversationFlow({
   trimmed,
@@ -162,6 +171,83 @@ export async function runProjectIntentConversationFlow({
     return {
       handled: true,
       reason: "repo_tree_human",
+      contextMeta,
+    };
+  }
+
+  if (semanticPlan.intent === "browse_folder") {
+    const requestedFolder = normalizeFolderPrefix(
+      semanticPlan.targetPath ||
+      semanticPlan.treePrefix ||
+      semanticPlan.targetEntity
+    );
+
+    if (!requestedFolder) {
+      await replyHuman(
+        replyAndLog,
+        humanClarificationReply("Какую именно папку показать?"),
+        { event: "repo_conversation_browse_folder_clarification" }
+      );
+      return { handled: true, reason: "browse_folder_clarification" };
+    }
+
+    const allPaths = await fetchPathsByPrefix(latest.id, requestedFolder);
+    const { directories, files } = computeImmediateChildren(allPaths, requestedFolder);
+
+    if (directories.length === 0 && files.length === 0) {
+      await replyHuman(
+        replyAndLog,
+        `Я понял, что нужно показать содержимое папки \`${requestedFolder}\`, но в текущем снимке репозитория не нашёл у неё вложенных элементов.`,
+        {
+          event: "repo_conversation_browse_folder_empty",
+          read_only: true,
+        }
+      );
+
+      return {
+        handled: true,
+        reason: "browse_folder_empty",
+        contextMeta: buildRepoContextMeta({
+          targetEntity: semanticPlan?.targetEntity,
+          targetPath: requestedFolder,
+          displayMode: "raw",
+          sourceText: trimmed,
+          treePrefix: requestedFolder,
+          semanticConfidence: semanticPlan?.confidence,
+        }),
+      };
+    }
+
+    const shownDirectories = directories.slice(0, 30);
+    const shownFiles = files.slice(0, 30);
+    const hiddenCount =
+      Math.max(0, directories.length - shownDirectories.length) +
+      Math.max(0, files.length - shownFiles.length);
+
+    const text = humanFolderBrowseReply({
+      folderPath: requestedFolder,
+      directories: shownDirectories,
+      files: shownFiles,
+      hiddenCount,
+    });
+
+    const contextMeta = buildRepoContextMeta({
+      targetEntity: semanticPlan?.targetEntity,
+      targetPath: requestedFolder,
+      displayMode: "raw",
+      sourceText: trimmed,
+      treePrefix: requestedFolder,
+      semanticConfidence: semanticPlan?.confidence,
+    });
+
+    await replyHuman(replyAndLog, text, {
+      event: "repo_conversation_browse_folder",
+      ...contextMeta,
+    });
+
+    return {
+      handled: true,
+      reason: "browse_folder_human",
       contextMeta,
     };
   }

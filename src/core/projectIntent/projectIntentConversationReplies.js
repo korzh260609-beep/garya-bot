@@ -215,6 +215,7 @@ export function buildRepoContextMeta({
   pendingChoice = null,
   treePrefix = "",
   semanticConfidence = "low",
+  actionKind = "",
 }) {
   return {
     projectIntentRepoContextActive: true,
@@ -225,6 +226,7 @@ export function buildRepoContextMeta({
     projectIntentLargeDocument: largeDocument === true,
     projectIntentTreePrefix: safeText(treePrefix),
     projectIntentSemanticConfidence: safeText(semanticConfidence),
+    projectIntentActionKind: safeText(actionKind),
 
     projectIntentPendingChoiceActive: !!pendingChoice?.isActive,
     projectIntentPendingChoiceKind: safeText(pendingChoice?.kind),

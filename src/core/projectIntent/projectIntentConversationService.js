@@ -38,7 +38,7 @@ function normalizePath(raw) {
   return p;
 }
 
-function buildProjectIntentRoutingText(trimmed, followupContext = null, pendingChoiceContext = null) {
+export function buildProjectIntentRoutingText(trimmed, followupContext = null, pendingChoiceContext = null) {
   const base = safeText(trimmed);
 
   const parts = [base];

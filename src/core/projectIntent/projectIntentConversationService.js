@@ -2,12 +2,14 @@
 // ============================================================================
 // STAGE 12A.0 — human-first repo conversation layer
 // Orchestrator only
+// Meaning → intent → decision → action → response
 // ============================================================================
 
 import { resolveProjectIntentSemanticPlan } from "./projectIntentSemanticResolver.js";
 import {
   loadLatestSnapshot,
   pathExistsInSnapshot,
+  pathKindInSnapshot,
   fetchPathsByPrefix,
   computeImmediateChildren,
   searchSnapshotPaths,
@@ -111,7 +113,7 @@ async function replyPackedExplain({
 
   await replyHuman(
     replyAndLog,
-    safeText(packed.text) || "Я прочитал документ, но не смог нормально сформулировать объяснение.",
+    safeText(packed.text) || "Я прочитал объект репозитория, но не смог нормально сформулировать объяснение.",
     {
       event,
       ...contextMeta,
@@ -137,7 +139,7 @@ async function replyContinuation({
   if (!continuationReply.ok) {
     await replyHuman(
       replyAndLog,
-      "Продолжения больше нет. Могу заново кратко пересказать файл или объяснить его смысл.",
+      "Продолжения больше нет. Могу заново кратко пересказать объект репозитория или объяснить его смысл.",
       {
         event: "repo_conversation_no_more_continuation",
         read_only: true,
@@ -203,6 +205,530 @@ async function replyContinuation({
   };
 }
 
+async function resolveTargetObject({
+  latestSnapshotId,
+  semanticPlan,
+  followupContext,
+  pendingChoiceContext,
+  rawTarget,
+  searchMatches,
+}) {
+  const targetPath = pickLikelyTargetPath({
+    semanticPlan,
+    searchMatches,
+    followupContext,
+    pendingChoiceContext,
+  });
+
+  if (!targetPath) {
+    return {
+      ok: false,
+      targetPath: "",
+      objectKind: "unknown",
+      exists: false,
+    };
+  }
+
+  const exists = await pathExistsInSnapshot(latestSnapshotId, targetPath);
+  if (!exists) {
+    return {
+      ok: false,
+      targetPath,
+      objectKind: "unknown",
+      exists: false,
+    };
+  }
+
+  const snapshotKind = await pathKindInSnapshot(latestSnapshotId, targetPath);
+  const objectKind =
+    safeText(snapshotKind) ||
+    safeText(semanticPlan?.objectKind) ||
+    inferObjectKindFromPath(targetPath) ||
+    inferObjectKindFromPath(rawTarget);
+
+  return {
+    ok: true,
+    targetPath,
+    objectKind: safeText(objectKind || "unknown"),
+    exists: true,
+  };
+}
+
+async function replyFolderBrowseFromPath({
+  replyAndLog,
+  folderPath,
+  targetEntity,
+  sourceText,
+  semanticConfidence,
+  actionKind,
+  latestSnapshotId,
+  event,
+}) {
+  const requestedFolder = normalizeFolderPrefix(folderPath);
+
+  if (!requestedFolder) {
+    await replyHuman(
+      replyAndLog,
+      humanClarificationReply("Какую именно папку показать?"),
+      { event: `${event}_clarification` }
+    );
+    return {
+      handled: true,
+      reason: "browse_folder_clarification",
+    };
+  }
+
+  const allPaths = await fetchPathsByPrefix(latestSnapshotId, requestedFolder);
+  const { directories, files } = computeImmediateChildren(allPaths, requestedFolder);
+
+  if (directories.length === 0 && files.length === 0) {
+    const contextMeta = buildRepoContextMeta({
+      targetEntity,
+      targetPath: requestedFolder,
+      displayMode: "raw",
+      sourceText,
+      treePrefix: requestedFolder,
+      semanticConfidence,
+      actionKind,
+    });
+
+    contextMeta.projectIntentObjectKind = "folder";
+
+    await replyHuman(
+      replyAndLog,
+      `Я понял, что это папка \`${requestedFolder}\`, но в текущем снимке репозитория не нашёл у неё вложенных элементов.`,
+      {
+        event: `${event}_empty`,
+        read_only: true,
+        ...contextMeta,
+      }
+    );
+
+    return {
+      handled: true,
+      reason: "browse_folder_empty",
+      contextMeta,
+    };
+  }
+
+  const shownDirectories = directories.slice(0, 30);
+  const shownFiles = files.slice(0, 30);
+  const hiddenCount =
+    Math.max(0, directories.length - shownDirectories.length) +
+    Math.max(0, files.length - shownFiles.length);
+
+  const text = humanFolderBrowseReply({
+    folderPath: requestedFolder,
+    directories: shownDirectories,
+    files: shownFiles,
+    hiddenCount,
+  });
+
+  const contextMeta = buildRepoContextMeta({
+    targetEntity,
+    targetPath: requestedFolder,
+    displayMode: "raw",
+    sourceText,
+    treePrefix: requestedFolder,
+    semanticConfidence,
+    actionKind,
+  });
+
+  contextMeta.projectIntentObjectKind = "folder";
+
+  await replyHuman(replyAndLog, text, {
+    event,
+    ...contextMeta,
+  });
+
+  return {
+    handled: true,
+    reason: "browse_folder_human",
+    contextMeta,
+  };
+}
+
+async function replyExplainFolderFromPath({
+  replyAndLog,
+  folderPath,
+  targetEntity,
+  sourceText,
+  semanticConfidence,
+  actionKind,
+  latestSnapshotId,
+  event,
+}) {
+  const requestedFolder = normalizeFolderPrefix(folderPath);
+
+  if (!requestedFolder) {
+    await replyHuman(
+      replyAndLog,
+      humanClarificationReply("Какую именно папку нужно объяснить?"),
+      { event: `${event}_clarification` }
+    );
+    return {
+      handled: true,
+      reason: "explain_folder_clarification",
+    };
+  }
+
+  const allPaths = await fetchPathsByPrefix(latestSnapshotId, requestedFolder);
+  const { directories, files } = computeImmediateChildren(allPaths, requestedFolder);
+
+  if (directories.length === 0 && files.length === 0) {
+    const contextMeta = buildRepoContextMeta({
+      targetEntity,
+      targetPath: requestedFolder,
+      displayMode: "summary",
+      sourceText,
+      treePrefix: requestedFolder,
+      semanticConfidence,
+      actionKind,
+    });
+
+    contextMeta.projectIntentObjectKind = "folder";
+
+    await replyHuman(
+      replyAndLog,
+      `Я понял, что нужно объяснить папку \`${requestedFolder}\`, но в текущем снимке не вижу у неё содержимого, по которому можно сделать надёжный вывод.`,
+      {
+        event: `${event}_empty`,
+        read_only: true,
+        ...contextMeta,
+      }
+    );
+
+    return {
+      handled: true,
+      reason: "explain_folder_empty",
+      contextMeta,
+    };
+  }
+
+  const shownDirectories = directories.slice(0, 20);
+  const shownFiles = files.slice(0, 20);
+  const hiddenCount =
+    Math.max(0, directories.length - shownDirectories.length) +
+    Math.max(0, files.length - shownFiles.length);
+
+  const lines = [
+    `Я понял, что \`${requestedFolder}\` — это папка репозитория.`,
+    "",
+  ];
+
+  if (shownDirectories.length > 0) {
+    lines.push("Верхние подпапки:");
+    for (const dir of shownDirectories) {
+      lines.push(`- ${dir}/`);
+    }
+    lines.push("");
+  }
+
+  if (shownFiles.length > 0) {
+    lines.push("Верхние файлы:");
+    for (const file of shownFiles) {
+      lines.push(`- ${file}`);
+    }
+    lines.push("");
+  }
+
+  lines.push(
+    "По смыслу эта папка отвечает за ту часть системы, которая выражена её содержимым и структурой."
+  );
+
+  if (shownDirectories.length > 0 && shownFiles.length > 0) {
+    lines.push(
+      "То есть здесь, похоже, собраны и вложенные части модуля, и конкретные файлы реализации этого направления."
+    );
+  } else if (shownDirectories.length > 0) {
+    lines.push(
+      "То есть здесь акцент больше на структурировании подмодулей, а не на одном-двух отдельных файлах."
+    );
+  } else if (shownFiles.length > 0) {
+    lines.push(
+      "То есть здесь акцент больше на наборе файлов реализации без сильного дробления на подпапки."
+    );
+  }
+
+  if (hiddenCount > 0) {
+    lines.push(
+      `Глубже внутри есть ещё ${hiddenCount} элементов, поэтому для точного объяснения роли папки лучше открыть 1–2 ключевых файла или подпапки.`
+    );
+  } else {
+    lines.push(
+      "Текущего верхнего уровня уже достаточно, чтобы безопасно понимать её как отдельный объект структуры."
+    );
+  }
+
+  lines.push("");
+  lines.push("Дальше могу:");
+  lines.push("- раскрыть эту папку");
+  lines.push("- открыть один из файлов");
+  lines.push("- объяснить конкретный файл внутри неё");
+
+  const contextMeta = buildRepoContextMeta({
+    targetEntity,
+    targetPath: requestedFolder,
+    displayMode: "summary",
+    sourceText,
+    treePrefix: requestedFolder,
+    semanticConfidence,
+    actionKind,
+  });
+
+  contextMeta.projectIntentObjectKind = "folder";
+
+  await replyHuman(replyAndLog, lines.join("\n"), {
+    event,
+    ...contextMeta,
+  });
+
+  return {
+    handled: true,
+    reason: "explain_folder_human",
+    contextMeta,
+  };
+}
+
+async function replyOpenFileFromPath({
+  replyAndLog,
+  targetPath,
+  targetEntity,
+  sourceText,
+  semanticConfidence,
+  actionKind,
+  repo,
+  branch,
+  token,
+  event,
+}) {
+  const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
+  const content = await fetchRepoFileText({ path: targetPath, repo, branch, token });
+
+  if (!content) {
+    await replyHuman(
+      replyAndLog,
+      `Я нашёл путь \`${targetPath}\`, но не смог прочитать содержимое файла.`,
+      { event: `${event}_fetch_failed` }
+    );
+    return { handled: true, reason: "open_fetch_failed" };
+  }
+
+  if (content.length > replyLimit) {
+    const text = humanLargeDocumentReply({ path: targetPath });
+
+    const contextMeta = buildRepoContextMeta({
+      targetEntity,
+      targetPath,
+      displayMode: "raw",
+      sourceText,
+      largeDocument: true,
+      pendingChoice: {
+        isActive: true,
+        kind: "large_doc_action",
+        targetEntity,
+        targetPath,
+        displayMode: "summary",
+      },
+      semanticConfidence,
+      actionKind,
+    });
+
+    contextMeta.projectIntentObjectKind = "file";
+
+    await replyHuman(replyAndLog, text, {
+      event,
+      ...contextMeta,
+    });
+
+    return {
+      handled: true,
+      reason: "open_large_doc",
+      contextMeta,
+    };
+  }
+
+  const preview = content.slice(0, replyLimit);
+  const contextMeta = buildRepoContextMeta({
+    targetEntity,
+    targetPath,
+    displayMode: "raw",
+    sourceText,
+    largeDocument: false,
+    semanticConfidence,
+    actionKind,
+  });
+
+  contextMeta.projectIntentObjectKind = "file";
+
+  await replyHuman(
+    replyAndLog,
+    humanSmallDocumentReply({
+      path: targetPath,
+      content: preview,
+      wasTrimmed: content.length > replyLimit,
+    }),
+    {
+      event,
+      ...contextMeta,
+    }
+  );
+
+  return {
+    handled: true,
+    reason: "open_small_doc",
+    contextMeta,
+  };
+}
+
+async function replyExplainFileFromPath({
+  replyAndLog,
+  trimmed,
+  targetPath,
+  targetEntity,
+  displayMode,
+  sourceText,
+  semanticConfidence,
+  actionKind,
+  repo,
+  branch,
+  token,
+  event,
+  forceFirstPart = false,
+}) {
+  const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
+  const content = await fetchRepoFileText({ path: targetPath, repo, branch, token });
+
+  if (!content) {
+    await replyHuman(
+      replyAndLog,
+      `Я нашёл путь \`${targetPath}\`, но не смог прочитать сам файл.`,
+      { event: `${event}_fetch_failed` }
+    );
+    return { handled: true, reason: "explain_fetch_failed" };
+  }
+
+  if (forceFirstPart || displayMode === "raw_first_part") {
+    const contextMeta = buildRepoContextMeta({
+      targetEntity,
+      targetPath,
+      displayMode: "raw_first_part",
+      sourceText,
+      largeDocument: content.length > replyLimit,
+      semanticConfidence,
+      actionKind,
+    });
+
+    contextMeta.projectIntentObjectKind = "file";
+
+    await replyHuman(
+      replyAndLog,
+      humanFirstPartDocumentReply({
+        path: targetPath,
+        content,
+        maxChars: replyLimit,
+      }),
+      {
+        event,
+        ...contextMeta,
+      }
+    );
+
+    return {
+      handled: true,
+      reason: "first_part_shown",
+      contextMeta,
+    };
+  }
+
+  if (content.length > LARGE_DOC_AI_THRESHOLD) {
+    const text = humanLargeDocumentReply({ path: targetPath });
+
+    const contextMeta = buildRepoContextMeta({
+      targetEntity,
+      targetPath,
+      displayMode,
+      sourceText,
+      largeDocument: true,
+      pendingChoice: {
+        isActive: true,
+        kind: "large_doc_action",
+        targetEntity,
+        targetPath,
+        displayMode,
+      },
+      semanticConfidence,
+      actionKind,
+    });
+
+    contextMeta.projectIntentObjectKind = "file";
+
+    await replyHuman(replyAndLog, text, {
+      event,
+      ...contextMeta,
+    });
+
+    return {
+      handled: true,
+      reason: "explain_large_doc",
+      contextMeta,
+    };
+  }
+
+  const aiReply = await callAIForExplain({
+    trimmed,
+    targetPath,
+    content,
+    displayMode,
+    replyAndLog,
+    semanticConfidence,
+  });
+
+  const contextMeta = await replyPackedExplain({
+    replyAndLog,
+    aiReply,
+    targetEntity,
+    targetPath,
+    displayMode,
+    sourceText,
+    semanticConfidence,
+    actionKind,
+    objectKind: "file",
+    event,
+  });
+
+  return {
+    handled: true,
+    reason: "explain_ai",
+    contextMeta,
+  };
+}
+
+async function callAIForExplain({
+  trimmed,
+  targetPath,
+  content,
+  displayMode,
+  replyAndLog,
+  semanticConfidence,
+}) {
+  void replyAndLog;
+  void semanticConfidence;
+  return globalThis.__projectIntentConversationServiceCallAI__(
+    buildAiMessages({
+      userText: trimmed,
+      path: targetPath,
+      content,
+      displayMode,
+    }),
+    "high",
+    {
+      max_completion_tokens: 900,
+      temperature: 0.35,
+    }
+  );
+}
+
 export async function runProjectIntentConversationFlow({
   trimmed,
   route,
@@ -211,6 +737,8 @@ export async function runProjectIntentConversationFlow({
   replyAndLog,
   callAI,
 }) {
+  globalThis.__projectIntentConversationServiceCallAI__ = callAI;
+
   if (route?.routeKey !== "sg_core_internal_read_allowed") {
     return { handled: false, reason: "not_internal_repo_read" };
   }
@@ -231,7 +759,6 @@ export async function runProjectIntentConversationFlow({
   const repo = snapshotState.repo;
   const branch = snapshotState.branch;
   const token = process.env.GITHUB_TOKEN;
-  const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
 
   const semanticPlan = await resolveProjectIntentSemanticPlan({
     text: trimmed,
@@ -353,88 +880,26 @@ export async function runProjectIntentConversationFlow({
       safeText(followupContext?.targetPath || followupContext?.treePrefix)
     );
 
-    if (!requestedFolder) {
-      await replyHuman(
-        replyAndLog,
-        humanClarificationReply("Какую именно папку показать?"),
-        { event: "repo_conversation_browse_folder_clarification" }
-      );
-      return { handled: true, reason: "browse_folder_clarification" };
-    }
-
-    const allPaths = await fetchPathsByPrefix(latest.id, requestedFolder);
-    const { directories, files } = computeImmediateChildren(allPaths, requestedFolder);
-
-    if (directories.length === 0 && files.length === 0) {
-      const contextMeta = buildRepoContextMeta({
-        targetEntity: semanticPlan?.targetEntity || followupContext?.targetEntity,
-        targetPath: requestedFolder,
-        displayMode: "raw",
-        sourceText: trimmed,
-        treePrefix: requestedFolder,
-        semanticConfidence: semanticPlan?.confidence,
-        actionKind: "browse_folder",
-      });
-
-      contextMeta.projectIntentObjectKind = "folder";
-
-      await replyHuman(
-        replyAndLog,
-        `Я понял, что нужно показать содержимое папки \`${requestedFolder}\`, но в текущем снимке репозитория не нашёл у неё вложенных элементов.`,
-        {
-          event: "repo_conversation_browse_folder_empty",
-          read_only: true,
-          ...contextMeta,
-        }
-      );
-
-      return {
-        handled: true,
-        reason: "browse_folder_empty",
-        contextMeta,
-      };
-    }
-
-    const shownDirectories = directories.slice(0, 30);
-    const shownFiles = files.slice(0, 30);
-    const hiddenCount =
-      Math.max(0, directories.length - shownDirectories.length) +
-      Math.max(0, files.length - shownFiles.length);
-
-    const text = humanFolderBrowseReply({
+    return replyFolderBrowseFromPath({
+      replyAndLog,
       folderPath: requestedFolder,
-      directories: shownDirectories,
-      files: shownFiles,
-      hiddenCount,
-    });
-
-    const contextMeta = buildRepoContextMeta({
       targetEntity: semanticPlan?.targetEntity || followupContext?.targetEntity,
-      targetPath: requestedFolder,
-      displayMode: "raw",
       sourceText: trimmed,
-      treePrefix: requestedFolder,
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "browse_folder",
-    });
-
-    contextMeta.projectIntentObjectKind = "folder";
-
-    await replyHuman(replyAndLog, text, {
+      latestSnapshotId: latest.id,
       event: "repo_conversation_browse_folder",
-      ...contextMeta,
     });
-
-    return {
-      handled: true,
-      reason: "browse_folder_human",
-      contextMeta,
-    };
   }
 
   if (semanticPlan.intent === "find_target") {
     const query = sanitizeEntity(semanticPlan.targetEntity || semanticPlan.targetPath);
-    const matches = await searchSnapshotPaths(latest.id, query, 8);
+    const matches = await searchSnapshotPaths(
+      latest.id,
+      query,
+      8,
+      { objectKind: semanticPlan?.objectKind || "unknown" }
+    );
 
     const text = humanSearchReply({
       targetEntity: query,
@@ -442,6 +907,9 @@ export async function runProjectIntentConversationFlow({
     });
 
     const chosenPath = matches.length === 1 ? matches[0] : "";
+    const chosenKind = chosenPath
+      ? await pathKindInSnapshot(latest.id, chosenPath)
+      : safeText(semanticPlan?.objectKind || "unknown");
 
     const contextMeta = buildRepoContextMeta({
       targetEntity: query,
@@ -452,9 +920,7 @@ export async function runProjectIntentConversationFlow({
       actionKind: "find_target",
     });
 
-    contextMeta.projectIntentObjectKind = chosenPath
-      ? inferObjectKindFromPath(chosenPath)
-      : safeText(semanticPlan?.objectKind || "unknown");
+    contextMeta.projectIntentObjectKind = safeText(chosenKind || "unknown");
 
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_search",
@@ -470,16 +936,23 @@ export async function runProjectIntentConversationFlow({
 
   if (semanticPlan.intent === "find_and_explain") {
     const query = sanitizeEntity(semanticPlan.targetEntity || semanticPlan.targetPath);
-    const matches = await searchSnapshotPaths(latest.id, query, 8);
+    const matches = await searchSnapshotPaths(
+      latest.id,
+      query,
+      8,
+      { objectKind: semanticPlan?.objectKind || "unknown" }
+    );
 
-    const targetPath = pickLikelyTargetPath({
+    const resolved = await resolveTargetObject({
+      latestSnapshotId: latest.id,
       semanticPlan,
-      searchMatches: matches,
       followupContext,
       pendingChoiceContext,
+      rawTarget: query,
+      searchMatches: matches,
     });
 
-    if (!targetPath) {
+    if (!resolved.ok) {
       const text = humanSearchReply({
         targetEntity: query,
         matches,
@@ -487,14 +960,14 @@ export async function runProjectIntentConversationFlow({
 
       const contextMeta = buildRepoContextMeta({
         targetEntity: query,
-        targetPath: "",
+        targetPath: resolved.targetPath || "",
         displayMode: semanticPlan.displayMode || "summary",
         sourceText: trimmed,
         semanticConfidence: semanticPlan?.confidence,
         actionKind: "find_and_explain",
       });
 
-      contextMeta.projectIntentObjectKind = safeText(semanticPlan?.objectKind || "unknown");
+      contextMeta.projectIntentObjectKind = safeText(resolved.objectKind || semanticPlan?.objectKind || "unknown");
 
       await replyHuman(replyAndLog, text, {
         event: "repo_conversation_find_and_explain_search_only",
@@ -508,98 +981,45 @@ export async function runProjectIntentConversationFlow({
       };
     }
 
-    const exists = await pathExistsInSnapshot(latest.id, targetPath);
-    if (!exists) {
-      await replyHuman(
+    if (resolved.objectKind === "folder") {
+      return replyExplainFolderFromPath({
         replyAndLog,
-        `Я понял, что нужно найти и объяснить "${query || targetPath}", но не смог безопасно подтвердить этот путь в текущем индексе репозитория.`,
-        { event: "repo_conversation_find_and_explain_missing" }
-      );
-
-      return {
-        handled: true,
-        reason: "find_and_explain_missing",
-      };
-    }
-
-    const content = await fetchRepoFileText({ path: targetPath, repo, branch, token });
-    if (!content) {
-      await replyHuman(
-        replyAndLog,
-        `Я нашёл файл \`${targetPath}\`, но не смог прочитать его содержимое.`,
-        { event: "repo_conversation_find_and_explain_fetch_failed" }
-      );
-      return {
-        handled: true,
-        reason: "find_and_explain_fetch_failed",
-      };
-    }
-
-    if (content.length > LARGE_DOC_AI_THRESHOLD) {
-      const text = humanLargeDocumentReply({ path: targetPath });
-
-      const contextMeta = buildRepoContextMeta({
+        folderPath: resolved.targetPath,
         targetEntity: query,
-        targetPath,
-        displayMode: semanticPlan.displayMode || "summary",
         sourceText: trimmed,
-        largeDocument: true,
-        pendingChoice: {
-          isActive: true,
-          kind: "large_doc_action",
-          targetEntity: query,
-          targetPath,
-          displayMode: semanticPlan.displayMode || "summary",
-        },
         semanticConfidence: semanticPlan?.confidence,
         actionKind: "find_and_explain",
+        latestSnapshotId: latest.id,
+        event: "repo_conversation_find_and_explain_folder",
       });
-
-      contextMeta.projectIntentObjectKind = "file";
-
-      await replyHuman(replyAndLog, text, {
-        event: "repo_conversation_find_and_explain_large_doc",
-        ...contextMeta,
-      });
-
-      return {
-        handled: true,
-        reason: "find_and_explain_large_doc",
-        contextMeta,
-      };
     }
 
-    const aiReply = await callAI(
-      buildAiMessages({
-        userText: trimmed,
-        path: targetPath,
-        content,
+    if (resolved.objectKind === "file") {
+      return replyExplainFileFromPath({
+        replyAndLog,
+        trimmed,
+        targetPath: resolved.targetPath,
+        targetEntity: query,
         displayMode: semanticPlan.displayMode || "summary",
-      }),
-      "high",
-      {
-        max_completion_tokens: 900,
-        temperature: 0.35,
-      }
-    );
+        sourceText: trimmed,
+        semanticConfidence: semanticPlan?.confidence,
+        actionKind: "find_and_explain",
+        repo,
+        branch,
+        token,
+        event: "repo_conversation_find_and_explain_ai",
+      });
+    }
 
-    const contextMeta = await replyPackedExplain({
+    await replyHuman(
       replyAndLog,
-      aiReply,
-      targetEntity: query,
-      targetPath,
-      displayMode: semanticPlan.displayMode || "summary",
-      sourceText: trimmed,
-      semanticConfidence: semanticPlan?.confidence,
-      actionKind: "find_and_explain",
-      objectKind: "file",
-      event: "repo_conversation_find_and_explain_ai",
-    });
+      `Я нашёл кандидат \`${resolved.targetPath}\`, но пока не смог надёжно определить, это файл или папка в текущем снимке репозитория.`,
+      { event: "repo_conversation_find_and_explain_unknown_kind" }
+    );
 
     return {
       handled: true,
-      reason: "find_and_explain_ai",
-      contextMeta,
+      reason: "find_and_explain_unknown_kind",
     };
   }
 
@@ -615,112 +1035,69 @@ export async function runProjectIntentConversationFlow({
 
     const matches = candidateFromFolder
       ? [candidateFromFolder]
-      : await searchSnapshotPaths(latest.id, rawTarget, 8);
+      : await searchSnapshotPaths(
+          latest.id,
+          rawTarget,
+          8,
+          { objectKind: semanticPlan?.objectKind || "unknown" }
+        );
 
-    const targetPath = pickLikelyTargetPath({
+    const resolved = await resolveTargetObject({
+      latestSnapshotId: latest.id,
       semanticPlan: {
         ...semanticPlan,
         targetPath: candidateFromFolder || semanticPlan.targetPath,
       },
-      searchMatches: matches,
       followupContext,
       pendingChoiceContext,
+      rawTarget,
+      searchMatches: matches,
     });
 
-    if (!targetPath) {
+    if (!resolved.ok) {
       await replyHuman(
         replyAndLog,
-        humanClarificationReply("Какой именно файл или документ открыть?"),
+        humanClarificationReply("Какой именно объект репозитория открыть: файл или папку?"),
         { event: "repo_conversation_open_clarification" }
       );
       return { handled: true, reason: "open_clarification" };
     }
 
-    const exists = await pathExistsInSnapshot(latest.id, targetPath);
-    if (!exists) {
-      await replyHuman(
+    if (resolved.objectKind === "folder") {
+      return replyFolderBrowseFromPath({
         replyAndLog,
-        `Я понял, какой файл ты имеешь в виду, но не нашёл его в текущем индексе репозитория: \`${targetPath}\`.`,
-        { event: "repo_conversation_open_missing" }
-      );
-      return { handled: true, reason: "open_missing" };
-    }
-
-    const content = await fetchRepoFileText({ path: targetPath, repo, branch, token });
-    if (!content) {
-      await replyHuman(
-        replyAndLog,
-        `Я нашёл путь \`${targetPath}\`, но не смог прочитать содержимое файла.`,
-        { event: "repo_conversation_open_fetch_failed" }
-      );
-      return { handled: true, reason: "open_fetch_failed" };
-    }
-
-    if (content.length > replyLimit) {
-      const text = humanLargeDocumentReply({ path: targetPath });
-
-      const contextMeta = buildRepoContextMeta({
-        targetEntity: semanticPlan.targetEntity,
-        targetPath,
-        displayMode: "raw",
+        folderPath: resolved.targetPath,
+        targetEntity: semanticPlan.targetEntity || rawTarget,
         sourceText: trimmed,
-        largeDocument: true,
-        pendingChoice: {
-          isActive: true,
-          kind: "large_doc_action",
-          targetEntity: semanticPlan.targetEntity,
-          targetPath,
-          displayMode: "summary",
-        },
         semanticConfidence: semanticPlan?.confidence,
         actionKind: "open_target",
+        latestSnapshotId: latest.id,
+        event: "repo_conversation_open_folder",
       });
-
-      contextMeta.projectIntentObjectKind = "file";
-
-      await replyHuman(replyAndLog, text, {
-        event: "repo_conversation_open_large_doc",
-        ...contextMeta,
-      });
-
-      return {
-        handled: true,
-        reason: "open_large_doc",
-        contextMeta,
-      };
     }
 
-    const preview = content.slice(0, replyLimit);
-    const contextMeta = buildRepoContextMeta({
-      targetEntity: semanticPlan.targetEntity,
-      targetPath,
-      displayMode: "raw",
-      sourceText: trimmed,
-      largeDocument: false,
-      semanticConfidence: semanticPlan?.confidence,
-      actionKind: "open_target",
-    });
-
-    contextMeta.projectIntentObjectKind = "file";
+    if (resolved.objectKind === "file") {
+      return replyOpenFileFromPath({
+        replyAndLog,
+        targetPath: resolved.targetPath,
+        targetEntity: semanticPlan.targetEntity || rawTarget,
+        sourceText: trimmed,
+        semanticConfidence: semanticPlan?.confidence,
+        actionKind: "open_target",
+        repo,
+        branch,
+        token,
+        event: "repo_conversation_open_file",
+      });
+    }
 
     await replyHuman(
       replyAndLog,
-      humanSmallDocumentReply({
-        path: targetPath,
-        content: preview,
-        wasTrimmed: content.length > replyLimit,
-      }),
-      {
-        event: "repo_conversation_open_small_doc",
-        ...contextMeta,
-      }
+      `Я нашёл путь \`${resolved.targetPath}\`, но пока не смог надёжно определить тип этого объекта.`,
+      { event: "repo_conversation_open_unknown_kind" }
     );
 
-    return {
-      handled: true,
-      reason: "open_small_doc",
-      contextMeta,
-    };
+    return { handled: true, reason: "open_unknown_kind" };
   }
 
   if (
@@ -745,146 +1122,80 @@ export async function runProjectIntentConversationFlow({
 
     const matches = candidateFromFolder
       ? [candidateFromFolder]
-      : await searchSnapshotPaths(latest.id, rawTarget, 8);
+      : await searchSnapshotPaths(
+          latest.id,
+          rawTarget,
+          8,
+          { objectKind: semanticPlan?.objectKind || "unknown" }
+        );
 
-    const targetPath = pickLikelyTargetPath({
+    const resolved = await resolveTargetObject({
+      latestSnapshotId: latest.id,
       semanticPlan: {
         ...semanticPlan,
         targetPath: candidateFromFolder || semanticPlan.targetPath,
       },
-      searchMatches: matches,
       followupContext,
       pendingChoiceContext,
+      rawTarget,
+      searchMatches: matches,
     });
 
-    if (!targetPath) {
+    if (!resolved.ok) {
       await replyHuman(
         replyAndLog,
-        humanClarificationReply("Что именно нужно объяснить?"),
+        humanClarificationReply("Что именно нужно объяснить: файл или папку?"),
         { event: "repo_conversation_explain_clarification" }
       );
       return { handled: true, reason: "explain_clarification" };
     }
 
-    const exists = await pathExistsInSnapshot(latest.id, targetPath);
-    if (!exists) {
-      await replyHuman(
+    if (resolved.objectKind === "folder") {
+      return replyExplainFolderFromPath({
         replyAndLog,
-        `Я понял, что нужно объяснить файл \`${targetPath}\`, но не нашёл его в текущем индексе репозитория.`,
-        { event: "repo_conversation_explain_missing" }
-      );
-      return { handled: true, reason: "explain_missing" };
-    }
-
-    const content = await fetchRepoFileText({ path: targetPath, repo, branch, token });
-    if (!content) {
-      await replyHuman(
-        replyAndLog,
-        `Я нашёл путь \`${targetPath}\`, но не смог прочитать сам файл.`,
-        { event: "repo_conversation_explain_fetch_failed" }
-      );
-      return { handled: true, reason: "explain_fetch_failed" };
-    }
-
-    if (effectiveDisplayMode === "raw_first_part") {
-      const contextMeta = buildRepoContextMeta({
-        targetEntity: semanticPlan.targetEntity || followupContext?.targetEntity || pendingChoiceContext?.targetEntity,
-        targetPath,
-        displayMode: effectiveDisplayMode,
+        folderPath: resolved.targetPath,
+        targetEntity:
+          semanticPlan.targetEntity ||
+          followupContext?.targetEntity ||
+          pendingChoiceContext?.targetEntity ||
+          rawTarget,
         sourceText: trimmed,
-        largeDocument: content.length > replyLimit,
         semanticConfidence: semanticPlan?.confidence,
         actionKind: semanticPlan.intent,
+        latestSnapshotId: latest.id,
+        event: "repo_conversation_explain_folder",
       });
-
-      contextMeta.projectIntentObjectKind = "file";
-
-      await replyHuman(
-        replyAndLog,
-        humanFirstPartDocumentReply({
-          path: targetPath,
-          content,
-          maxChars: replyLimit,
-        }),
-        {
-          event: "repo_conversation_first_part",
-          ...contextMeta,
-        }
-      );
-
-      return {
-        handled: true,
-        reason: "first_part_shown",
-        contextMeta,
-      };
     }
 
-    if (content.length > LARGE_DOC_AI_THRESHOLD) {
-      const text = humanLargeDocumentReply({ path: targetPath });
-
-      const contextMeta = buildRepoContextMeta({
-        targetEntity: semanticPlan.targetEntity || followupContext?.targetEntity || pendingChoiceContext?.targetEntity,
-        targetPath,
+    if (resolved.objectKind === "file") {
+      return replyExplainFileFromPath({
+        replyAndLog,
+        trimmed,
+        targetPath: resolved.targetPath,
+        targetEntity:
+          semanticPlan.targetEntity ||
+          followupContext?.targetEntity ||
+          pendingChoiceContext?.targetEntity ||
+          rawTarget,
         displayMode: effectiveDisplayMode,
         sourceText: trimmed,
-        largeDocument: true,
-        pendingChoice: {
-          isActive: true,
-          kind: "large_doc_action",
-          targetEntity: semanticPlan.targetEntity || followupContext?.targetEntity || pendingChoiceContext?.targetEntity,
-          targetPath,
-          displayMode: effectiveDisplayMode,
-        },
         semanticConfidence: semanticPlan?.confidence,
         actionKind: semanticPlan.intent,
+        repo,
+        branch,
+        token,
+        event: "repo_conversation_explain_ai",
+        forceFirstPart: effectiveDisplayMode === "raw_first_part",
       });
-
-      contextMeta.projectIntentObjectKind = "file";
-
-      await replyHuman(replyAndLog, text, {
-        event: "repo_conversation_explain_large_doc",
-        ...contextMeta,
-      });
-
-      return {
-        handled: true,
-        reason: "explain_large_doc",
-        contextMeta,
-      };
     }
 
-    const aiReply = await callAI(
-      buildAiMessages({
-        userText: trimmed,
-        path: targetPath,
-        content,
-        displayMode: effectiveDisplayMode,
-      }),
-      "high",
-      {
-        max_completion_tokens: 900,
-        temperature: 0.35,
-      }
+    await replyHuman(
+      replyAndLog,
+      `Я нашёл путь \`${resolved.targetPath}\`, но пока не смог надёжно определить, это файл или папка.`,
+      { event: "repo_conversation_explain_unknown_kind" }
     );
 
-    const contextMeta = await replyPackedExplain({
-      replyAndLog,
-      aiReply,
-      targetEntity: semanticPlan.targetEntity || followupContext?.targetEntity || pendingChoiceContext?.targetEntity,
-      targetPath,
-      displayMode: effectiveDisplayMode,
-      sourceText: trimmed,
-      semanticConfidence: semanticPlan?.confidence,
-      actionKind: semanticPlan.intent,
-      objectKind: "file",
-      event: "repo_conversation_explain_ai",
-    });
-
-    return {
-      handled: true,
-      reason: "explain_ai",
-      contextMeta,
-    };
+    return { handled: true, reason: "explain_unknown_kind" };
   }
 
   return {

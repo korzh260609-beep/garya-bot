@@ -1,6 +1,6 @@
 // src/core/projectIntent/projectIntentGuard.js
 // ============================================================================
-// STAGE 12A.0 — project free-text intent guard (SKELETON, route-aware)
+// STAGE 12A.0 — project free-text intent guard (route-aware)
 // Purpose:
 // - protect SG CORE internal project work only
 // - DO NOT block future user-owned project work here
@@ -46,8 +46,6 @@ export async function requireProjectIntentAccess({
   const match = route.match;
   const routePreview = buildProjectIntentRoutePreview(route);
 
-  // Pass-through for anything that is NOT SG core internal.
-  // This is critical because future users must be able to work with THEIR projects.
   if (route.targetScope !== "sg_core_internal") {
     return {
       allowed: true,
@@ -59,8 +57,6 @@ export async function requireProjectIntentAccess({
     };
   }
 
-  // Hard policy for SG core internal write-intent:
-  // always deny free-text write-like actions for SG core.
   if (route.routeKey === "sg_core_internal_write_denied") {
     if (typeof replyAndLog === "function") {
       await replyAndLog(buildWriteDeniedText(), {
@@ -90,8 +86,6 @@ export async function requireProjectIntentAccess({
     };
   }
 
-  // SG core internal read-only access:
-  // monarch + private only
   if (route.routeKey === "sg_core_internal_read_allowed") {
     return {
       allowed: true,

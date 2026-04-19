@@ -27,6 +27,16 @@ function normalizeText(value) {
     .replace(/\s+/g, " ");
 }
 
+function tokenizeText(value) {
+  const normalized = normalizeText(value)
+    .replace(/[.,!?;:()[\]{}<>\\|"'`~@#$%^&*+=]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return [];
+  return normalized.split(" ").filter(Boolean);
+}
+
 function unique(values) {
   return [...new Set((Array.isArray(values) ? values : []).filter(Boolean))];
 }
@@ -36,6 +46,43 @@ function normalizePath(raw) {
   if (!p) return "";
   if (p.includes("..")) return "";
   return p;
+}
+
+function sanitizeEntity(value) {
+  return safeText(value)
+    .replace(/^[`"'«“„]+/, "")
+    .replace(/[`"'»”„]+$/, "")
+    .replace(/[.,!?;:]+$/g, "")
+    .trim();
+}
+
+function confidenceToWeight(value) {
+  const v = safeText(value).toLowerCase();
+  if (v === "high") return 1.0;
+  if (v === "medium") return 0.7;
+  return 0.4;
+}
+
+function isGenericEntity(value) {
+  const v = sanitizeEntity(value).toLowerCase();
+  if (!v) return true;
+
+  const generic = new Set([
+    "файл",
+    "документ",
+    "папка",
+    "раздел",
+    "репозиторий",
+    "репо",
+    "project",
+    "repo",
+    "file",
+    "document",
+    "folder",
+    "section",
+  ]);
+
+  return generic.has(v);
 }
 
 export function buildProjectIntentRoutingText(trimmed, followupContext = null, pendingChoiceContext = null) {
@@ -115,6 +162,14 @@ async function fetchPathsByPrefix(snapshotId, prefix = "") {
   return Array.isArray(res?.rows) ? res.rows.map((r) => safeText(r.path)).filter(Boolean) : [];
 }
 
+async function fetchAllSnapshotPaths(snapshotId) {
+  const res = await pool.query(
+    `SELECT path FROM repo_index_files WHERE snapshot_id = $1 ORDER BY path ASC`,
+    [snapshotId]
+  );
+  return Array.isArray(res?.rows) ? res.rows.map((r) => safeText(r.path)).filter(Boolean) : [];
+}
+
 function computeImmediateChildren(paths = [], prefix = "") {
   const normalizedPrefix = safeText(prefix)
     ? (safeText(prefix).endsWith("/") ? safeText(prefix) : `${safeText(prefix)}/`)
@@ -151,24 +206,73 @@ function computeImmediateChildren(paths = [], prefix = "") {
   };
 }
 
+function rankPathCandidate(path = "", query = "") {
+  const p = safeText(path);
+  const q = normalizeText(query);
+  const pathLower = p.toLowerCase();
+  const base = p.split("/").pop()?.toLowerCase() || "";
+  const baseNoExt = base.replace(/\.[^.]+$/i, "");
+  const tokens = tokenizeText(query).filter((t) => t.length >= 2);
+
+  let score = 0;
+
+  if (!p || !q) return 0;
+
+  if (pathLower === q) score += 200;
+  if (base === q) score += 190;
+  if (baseNoExt === q) score += 180;
+
+  if (pathLower.includes(q)) score += 90;
+  if (base.includes(q)) score += 80;
+  if (baseNoExt.includes(q)) score += 70;
+
+  for (const token of tokens) {
+    const t = token.toLowerCase();
+    if (pathLower.includes(t)) score += 18;
+    if (base.includes(t)) score += 12;
+    if (baseNoExt.includes(t)) score += 10;
+  }
+
+  if (
+    (q.includes("описан") || q.includes("проект")) &&
+    pathLower === "readme.md"
+  ) {
+    score += 120;
+  }
+
+  if (
+    (q.includes("decision") || q.includes("decisions") || q.includes("решени")) &&
+    pathLower === "pillars/decisions.md"
+  ) {
+    score += 120;
+  }
+
+  if (
+    q.includes("workflow") &&
+    pathLower === "pillars/workflow.md"
+  ) {
+    score += 120;
+  }
+
+  return score;
+}
+
 async function searchSnapshotPaths(snapshotId, query, limit = 8) {
-  const q = safeText(query);
+  const q = sanitizeEntity(query);
   if (!q) return [];
 
-  const like = `%${q}%`;
-  const res = await pool.query(
-    `
-      SELECT path
-      FROM repo_index_files
-      WHERE snapshot_id = $1
-        AND path ILIKE $2
-      ORDER BY path ASC
-      LIMIT $3
-    `,
-    [snapshotId, like, limit]
-  );
+  const allPaths = await fetchAllSnapshotPaths(snapshotId);
+  const ranked = allPaths
+    .map((path) => ({
+      path,
+      score: rankPathCandidate(path, q),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))
+    .slice(0, limit)
+    .map((item) => item.path);
 
-  return Array.isArray(res?.rows) ? res.rows.map((row) => safeText(row.path)).filter(Boolean) : [];
+  return unique(ranked);
 }
 
 async function fetchRepoFileText({ path, repo, branch, token }) {
@@ -181,12 +285,12 @@ async function fetchRepoFileText({ path, repo, branch, token }) {
 }
 
 function pickLikelyTargetPathFromKnownEntity(entity = "") {
-  const e = safeText(entity).toLowerCase();
+  const e = sanitizeEntity(entity).toLowerCase();
 
   if (!e) return "";
 
   if (e === "workflow") return "pillars/WORKFLOW.md";
-  if (e === "decisions") return "pillars/DECISIONS.md";
+  if (e === "decisions" || e === "decision") return "pillars/DECISIONS.md";
   if (e === "roadmap") return "pillars/ROADMAP.md";
   if (e === "project") return "pillars/PROJECT.md";
   if (e === "kingdom") return "pillars/KINGDOM.md";
@@ -194,11 +298,20 @@ function pickLikelyTargetPathFromKnownEntity(entity = "") {
   if (e === "sg_entity") return "pillars/SG_ENTITY.md";
   if (e === "repoindex") return "pillars/REPOINDEX.md";
   if (e === "code_insert_rules") return "pillars/CODE_INSERT_RULES.md";
+  if (e === "readme" || e === "project_description") return "README.md";
+
+  if (/^[a-z0-9_.\-\/]+\.[a-z0-9]{1,8}$/i.test(e)) return e;
+  if (/^[a-z0-9_.\-\/]{3,}$/i.test(e) && e.includes("/")) return e;
 
   return "";
 }
 
-function pickLikelyTargetPath({ semanticPlan, searchMatches = [], followupContext = null, pendingChoiceContext = null }) {
+function pickLikelyTargetPath({
+  semanticPlan,
+  searchMatches = [],
+  followupContext = null,
+  pendingChoiceContext = null,
+}) {
   const directPath = normalizePath(semanticPlan?.targetPath);
   if (directPath) return directPath;
 
@@ -223,31 +336,31 @@ function humanRepoStatusReply({ snapshot, filesCount }) {
     "Я вижу репозиторий проекта и могу читать его в режиме только чтения.",
     `Сейчас у меня есть доступ к актуальному снимку репозитория ${safeText(snapshot?.repo)} на ветке ${safeText(snapshot?.branch)}.`,
     `В индексе сейчас примерно ${filesCount} файлов.`,
-    "Можешь попросить меня найти файл, открыть документ, объяснить его смысл, показать дерево или разобрать конкретный раздел.",
+    "Можешь попросить меня показать корень репозитория, найти файл, открыть документ, кратко пересказать его или объяснить смысл.",
   ].join("\n");
 }
 
 function humanSearchReply({ targetEntity, matches }) {
-  const target = safeText(targetEntity) || "нужный объект";
+  const target = sanitizeEntity(targetEntity) || "нужный объект";
 
   if (!Array.isArray(matches) || matches.length === 0) {
-    return `Я поискал ${target} в репозитории, но ничего подходящего не нашёл. Попробуй уточнить название файла или раздел.`;
+    return `Я поискал в репозитории ${target}, но ничего подходящего не нашёл. Попробуй уточнить имя файла, путь или смысловой ориентир.`;
   }
 
   if (matches.length === 1) {
     return [
-      `Я нашёл ${target}.`,
+      `Я нашёл точное совпадение.`,
       `Это файл \`${matches[0]}\`.`,
-      "Могу открыть его, кратко пересказать или объяснить простыми словами.",
+      "Могу сразу открыть его, кратко пересказать или объяснить смысл простыми словами.",
     ].join("\n");
   }
 
   const lines = matches.slice(0, 6).map((path) => `- \`${path}\``);
   return [
-    `Я нашёл несколько вариантов для ${target}:`,
+    `Я нашёл несколько вариантов для запроса "${target}":`,
     ...lines,
     "",
-    "Скажи, какой открыть, или напиши: «открой первый» / «объясни первый».",
+    "Скажи, какой открыть, или напиши: «открой первый», «объясни первый», «кратко первый».",
   ].join("\n");
 }
 
@@ -277,7 +390,7 @@ function humanTreeReply({ prefix, directories, files, hiddenCount }) {
 
   lines.push("");
   if (hiddenCount > 0) {
-    lines.push(`Я показал только верхний уровень, а ещё ${hiddenCount} элементов глубже не раскрывал, чтобы не завалить тебя длинной простынёй.`);
+    lines.push(`Я показал только верхний уровень, а ещё ${hiddenCount} элементов глубже не раскрывал, чтобы не перегружать ответ.`);
   } else {
     lines.push("Я специально показал только верхний уровень, чтобы было удобно углубляться дальше по папкам.");
   }
@@ -291,11 +404,12 @@ function humanLargeDocumentReply({ path }) {
   const name = safeText(path).split("/").pop() || safeText(path) || "этот документ";
   return [
     `Я нашёл документ ${name}.`,
-    "Он большой и целиком в одно сообщение нормально не поместится.",
+    "Он большой, поэтому не буду молча вставлять длинную простыню целиком.",
     "Как поступить дальше?",
     "- кратко пересказать",
     "- объяснить простыми словами",
     "- показать первую часть",
+    "- перевести на русский",
     "- разобрать конкретный раздел",
   ].join("\n");
 }
@@ -317,6 +431,21 @@ function humanSmallDocumentReply({ path, content, wasTrimmed }) {
   lines.push("```");
 
   return lines.join("\n");
+}
+
+function humanFirstPartDocumentReply({ path, content, maxChars = 2600 }) {
+  const name = safeText(path).split("/").pop() || safeText(path) || "документ";
+  const preview = safeText(content).slice(0, maxChars);
+
+  return [
+    `Я показываю первую часть файла ${name}.`,
+    "",
+    "```",
+    preview,
+    "```",
+    "",
+    "Могу показать следующую часть, кратко пересказать или объяснить смысл.",
+  ].join("\n");
 }
 
 function humanClarificationReply(question) {
@@ -347,7 +476,10 @@ function buildAiMessages({
         "Не упоминай route, handler, bridge, snapshotId, команды и другую техничку.\n" +
         "Опирайся только на текст файла.\n" +
         "Если данных не хватает — честно скажи.\n" +
-        "Не придумывай того, чего нет в документе.",
+        "Не придумывай того, чего нет в документе.\n" +
+        "Нельзя просить пользователя прислать полный текст файла или его части, потому что текст файла уже передан тебе системой.\n" +
+        "Нельзя писать 'скорее всего', если это не подтверждено самим текстом файла.\n" +
+        "Если файл описывает проект, объясняй именно проект, а не абстрактные догадки.",
     },
     {
       role: "user",
@@ -376,6 +508,7 @@ function buildRepoContextMeta({
   largeDocument = false,
   pendingChoice = null,
   treePrefix = "",
+  semanticConfidence = "low",
 }) {
   return {
     projectIntentRepoContextActive: true,
@@ -385,6 +518,7 @@ function buildRepoContextMeta({
     projectIntentSourceText: safeText(sourceText),
     projectIntentLargeDocument: largeDocument === true,
     projectIntentTreePrefix: safeText(treePrefix),
+    projectIntentSemanticConfidence: safeText(semanticConfidence),
 
     projectIntentPendingChoiceActive: !!pendingChoice?.isActive,
     projectIntentPendingChoiceKind: safeText(pendingChoice?.kind),
@@ -422,6 +556,7 @@ export async function getLatestProjectIntentRepoContext(memory, {
           sourceText: safeText(meta.projectIntentSourceText),
           largeDocument: meta?.projectIntentLargeDocument === true,
           treePrefix: safeText(meta.projectIntentTreePrefix),
+          semanticConfidence: safeText(meta.projectIntentSemanticConfidence),
         };
       }
     }
@@ -435,6 +570,7 @@ export async function getLatestProjectIntentRepoContext(memory, {
     sourceText: "",
     largeDocument: false,
     treePrefix: "",
+    semanticConfidence: "",
   };
 }
 
@@ -516,24 +652,23 @@ export async function runProjectIntentConversationFlow({
 
   if (semanticPlan?.clarifyNeeded === true) {
     const text = humanClarificationReply(semanticPlan?.clarifyQuestion);
+    const contextMeta = buildRepoContextMeta({
+      targetEntity: semanticPlan?.targetEntity,
+      targetPath: semanticPlan?.targetPath,
+      displayMode: semanticPlan?.displayMode,
+      sourceText: trimmed,
+      semanticConfidence: semanticPlan?.confidence,
+    });
+
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_clarification",
-      ...buildRepoContextMeta({
-        targetEntity: semanticPlan?.targetEntity,
-        targetPath: semanticPlan?.targetPath,
-        displayMode: semanticPlan?.displayMode,
-        sourceText: trimmed,
-      }),
+      ...contextMeta,
     });
+
     return {
       handled: true,
       reason: "clarification_replied",
-      contextMeta: buildRepoContextMeta({
-        targetEntity: semanticPlan?.targetEntity,
-        targetPath: semanticPlan?.targetPath,
-        displayMode: semanticPlan?.displayMode,
-        sourceText: trimmed,
-      }),
+      contextMeta,
     };
   }
 
@@ -543,25 +678,23 @@ export async function runProjectIntentConversationFlow({
       filesCount: snapshotState.filesCount,
     });
 
+    const contextMeta = buildRepoContextMeta({
+      targetEntity: "",
+      targetPath: "",
+      displayMode: "raw",
+      sourceText: trimmed,
+      semanticConfidence: semanticPlan?.confidence,
+    });
+
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_status",
-      ...buildRepoContextMeta({
-        targetEntity: "",
-        targetPath: "",
-        displayMode: "raw",
-        sourceText: trimmed,
-      }),
+      ...contextMeta,
     });
 
     return {
       handled: true,
       reason: "repo_status_human",
-      contextMeta: buildRepoContextMeta({
-        targetEntity: "",
-        targetPath: "",
-        displayMode: "raw",
-        sourceText: trimmed,
-      }),
+      contextMeta,
     };
   }
 
@@ -586,34 +719,30 @@ export async function runProjectIntentConversationFlow({
       hiddenCount,
     });
 
+    const contextMeta = buildRepoContextMeta({
+      targetEntity: "",
+      targetPath: "",
+      displayMode: "raw",
+      sourceText: trimmed,
+      treePrefix: prefix,
+      semanticConfidence: semanticPlan?.confidence,
+    });
+
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_tree",
-      ...buildRepoContextMeta({
-        targetEntity: "",
-        targetPath: "",
-        displayMode: "raw",
-        sourceText: trimmed,
-        treePrefix: prefix,
-      }),
+      ...contextMeta,
     });
 
     return {
       handled: true,
       reason: "repo_tree_human",
-      contextMeta: buildRepoContextMeta({
-        targetEntity: "",
-        targetPath: "",
-        displayMode: "raw",
-        sourceText: trimmed,
-        treePrefix: prefix,
-      }),
+      contextMeta,
     };
   }
 
   if (semanticPlan.intent === "find_target") {
-    const query = safeText(semanticPlan.targetEntity || semanticPlan.targetPath);
+    const query = sanitizeEntity(semanticPlan.targetEntity || semanticPlan.targetPath);
     const matches = await searchSnapshotPaths(latest.id, query, 8);
-
     const text = humanSearchReply({
       targetEntity: query,
       matches,
@@ -621,30 +750,28 @@ export async function runProjectIntentConversationFlow({
 
     const singlePath = matches.length === 1 ? matches[0] : "";
 
+    const contextMeta = buildRepoContextMeta({
+      targetEntity: query,
+      targetPath: singlePath,
+      displayMode: "raw",
+      sourceText: trimmed,
+      semanticConfidence: semanticPlan?.confidence,
+    });
+
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_search",
-      ...buildRepoContextMeta({
-        targetEntity: semanticPlan.targetEntity || query,
-        targetPath: singlePath,
-        displayMode: "raw",
-        sourceText: trimmed,
-      }),
+      ...contextMeta,
     });
 
     return {
       handled: true,
       reason: "repo_search_human",
-      contextMeta: buildRepoContextMeta({
-        targetEntity: semanticPlan.targetEntity || query,
-        targetPath: singlePath,
-        displayMode: "raw",
-        sourceText: trimmed,
-      }),
+      contextMeta,
     };
   }
 
   if (semanticPlan.intent === "find_and_explain") {
-    const query = safeText(semanticPlan.targetEntity || semanticPlan.targetPath);
+    const query = sanitizeEntity(semanticPlan.targetEntity || semanticPlan.targetPath);
     const matches = await searchSnapshotPaths(latest.id, query, 8);
     const targetPath = pickLikelyTargetPath({
       semanticPlan,
@@ -659,25 +786,23 @@ export async function runProjectIntentConversationFlow({
         matches,
       });
 
+      const contextMeta = buildRepoContextMeta({
+        targetEntity: query,
+        targetPath: "",
+        displayMode: semanticPlan.displayMode || "summary",
+        sourceText: trimmed,
+        semanticConfidence: semanticPlan?.confidence,
+      });
+
       await replyHuman(replyAndLog, text, {
         event: "repo_conversation_find_and_explain_search_only",
-        ...buildRepoContextMeta({
-          targetEntity: semanticPlan.targetEntity || query,
-          targetPath: "",
-          displayMode: semanticPlan.displayMode,
-          sourceText: trimmed,
-        }),
+        ...contextMeta,
       });
 
       return {
         handled: true,
         reason: "find_and_explain_search_only",
-        contextMeta: buildRepoContextMeta({
-          targetEntity: semanticPlan.targetEntity || query,
-          targetPath: "",
-          displayMode: semanticPlan.displayMode,
-          sourceText: trimmed,
-        }),
+        contextMeta,
       };
     }
 
@@ -685,7 +810,7 @@ export async function runProjectIntentConversationFlow({
     if (!exists) {
       await replyHuman(
         replyAndLog,
-        `Я понял, что нужно найти и объяснить \`${query || targetPath}\`, но не смог безопасно подтвердить путь в текущем индексе репозитория.`,
+        `Я понял, что нужно найти и объяснить "${query || targetPath}", но не смог безопасно подтвердить этот путь в текущем индексе репозитория.`,
         {
           event: "repo_conversation_find_and_explain_missing",
         }
@@ -717,18 +842,19 @@ export async function runProjectIntentConversationFlow({
       const text = humanLargeDocumentReply({ path: targetPath });
 
       const contextMeta = buildRepoContextMeta({
-        targetEntity: semanticPlan.targetEntity || query,
+        targetEntity: query,
         targetPath,
-        displayMode: semanticPlan.displayMode,
+        displayMode: semanticPlan.displayMode || "summary",
         sourceText: trimmed,
         largeDocument: true,
         pendingChoice: {
           isActive: true,
           kind: "large_doc_action",
-          targetEntity: semanticPlan.targetEntity || query,
+          targetEntity: query,
           targetPath,
-          displayMode: semanticPlan.displayMode,
+          displayMode: semanticPlan.displayMode || "summary",
         },
+        semanticConfidence: semanticPlan?.confidence,
       });
 
       await replyHuman(replyAndLog, text, {
@@ -748,7 +874,7 @@ export async function runProjectIntentConversationFlow({
         userText: trimmed,
         path: targetPath,
         content,
-        displayMode: semanticPlan.displayMode || "explain",
+        displayMode: semanticPlan.displayMode || "summary",
       }),
       "high",
       {
@@ -758,11 +884,12 @@ export async function runProjectIntentConversationFlow({
     );
 
     const contextMeta = buildRepoContextMeta({
-      targetEntity: semanticPlan.targetEntity || query,
+      targetEntity: query,
       targetPath,
-      displayMode: semanticPlan.displayMode || "explain",
+      displayMode: semanticPlan.displayMode || "summary",
       sourceText: trimmed,
       largeDocument: false,
+      semanticConfidence: semanticPlan?.confidence,
     });
 
     await replyHuman(
@@ -782,8 +909,15 @@ export async function runProjectIntentConversationFlow({
   }
 
   if (semanticPlan.intent === "open_target") {
+    const matches = await searchSnapshotPaths(
+      latest.id,
+      sanitizeEntity(semanticPlan.targetPath || semanticPlan.targetEntity),
+      8
+    );
+
     const targetPath = pickLikelyTargetPath({
       semanticPlan,
+      searchMatches: matches,
       followupContext,
       pendingChoiceContext,
     });
@@ -837,6 +971,7 @@ export async function runProjectIntentConversationFlow({
           targetPath,
           displayMode: "summary",
         },
+        semanticConfidence: semanticPlan?.confidence,
       });
 
       await replyHuman(replyAndLog, text, {
@@ -851,7 +986,7 @@ export async function runProjectIntentConversationFlow({
       };
     }
 
-    const preview = content.length > INLINE_LIMIT ? content.slice(0, INLINE_LIMIT) : content;
+    const preview = content.slice(0, INLINE_LIMIT);
     const wasTrimmed = content.length > INLINE_LIMIT;
 
     const contextMeta = buildRepoContextMeta({
@@ -860,6 +995,7 @@ export async function runProjectIntentConversationFlow({
       displayMode: "raw",
       sourceText: trimmed,
       largeDocument: false,
+      semanticConfidence: semanticPlan?.confidence,
     });
 
     await replyHuman(
@@ -893,8 +1029,15 @@ export async function runProjectIntentConversationFlow({
       safeText(followupContext?.displayMode) ||
       "explain";
 
+    const matches = await searchSnapshotPaths(
+      latest.id,
+      sanitizeEntity(semanticPlan.targetPath || semanticPlan.targetEntity),
+      8
+    );
+
     const targetPath = pickLikelyTargetPath({
       semanticPlan,
+      searchMatches: matches,
       followupContext,
       pendingChoiceContext,
     });
@@ -931,6 +1074,36 @@ export async function runProjectIntentConversationFlow({
       return { handled: true, reason: "explain_fetch_failed" };
     }
 
+    if (effectiveDisplayMode === "raw_first_part") {
+      const contextMeta = buildRepoContextMeta({
+        targetEntity: semanticPlan.targetEntity || followupContext?.targetEntity || pendingChoiceContext?.targetEntity,
+        targetPath,
+        displayMode: effectiveDisplayMode,
+        sourceText: trimmed,
+        largeDocument: content.length > 2600,
+        semanticConfidence: semanticPlan?.confidence,
+      });
+
+      await replyHuman(
+        replyAndLog,
+        humanFirstPartDocumentReply({
+          path: targetPath,
+          content,
+          maxChars: 2600,
+        }),
+        {
+          event: "repo_conversation_first_part",
+          ...contextMeta,
+        }
+      );
+
+      return {
+        handled: true,
+        reason: "first_part_shown",
+        contextMeta,
+      };
+    }
+
     const AI_SAFE_DOC_CHARS = 12000;
     if (content.length > AI_SAFE_DOC_CHARS) {
       const text = humanLargeDocumentReply({ path: targetPath });
@@ -948,6 +1121,7 @@ export async function runProjectIntentConversationFlow({
           targetPath,
           displayMode: effectiveDisplayMode,
         },
+        semanticConfidence: semanticPlan?.confidence,
       });
 
       await replyHuman(replyAndLog, text, {
@@ -982,6 +1156,7 @@ export async function runProjectIntentConversationFlow({
       displayMode: effectiveDisplayMode,
       sourceText: trimmed,
       largeDocument: false,
+      semanticConfidence: semanticPlan?.confidence,
     });
 
     await replyHuman(

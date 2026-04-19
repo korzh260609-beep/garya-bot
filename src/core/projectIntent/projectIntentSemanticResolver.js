@@ -1,15 +1,6 @@
 // src/core/projectIntent/projectIntentSemanticResolver.js
 // ============================================================================
 // STAGE 12A.0 — semantic resolver for internal repo dialogue
-// Purpose:
-// - parse HUMAN meaning first using AI + strong heuristics
-// - avoid binding live dialogue to raw command words
-// - support active repo context + pending choice context
-// - support honest repo follow-ups without hallucination
-// IMPORTANT:
-// - READ-ONLY only
-// - NO repo writes
-// - no direct handler execution here
 // ============================================================================
 
 function safeText(value) {
@@ -126,6 +117,7 @@ const OPEN_PREFIXES = Object.freeze([
   "open",
   "read",
   "display",
+  "просмотр",
 ]);
 
 const EXPLAIN_PREFIXES = Object.freeze([
@@ -138,6 +130,9 @@ const EXPLAIN_PREFIXES = Object.freeze([
   "analy",
   "review",
   "inspect",
+  "описан",
+  "зачем",
+  "о",
 ]);
 
 const TRANSLATE_PREFIXES = Object.freeze([
@@ -207,6 +202,9 @@ const PRONOUN_FOLLOWUP_PREFIXES = Object.freeze([
   "that",
   "там",
   "тут",
+  "этот",
+  "эта",
+  "это",
 ]);
 
 const FOLDER_PREFIXES = Object.freeze([
@@ -216,8 +214,13 @@ const FOLDER_PREFIXES = Object.freeze([
   "folder",
   "director",
   "dir",
-  "module",
-  "architect",
+]);
+
+const FILE_PREFIXES = Object.freeze([
+  "файл",
+  "документ",
+  "file",
+  "doc",
 ]);
 
 const LISTING_PREFIXES = Object.freeze([
@@ -278,6 +281,11 @@ function isLikelyPathOrFileToken(value) {
   if (/\.[a-z0-9]{1,8}$/i.test(v)) return true;
   if (/^[a-z0-9_.-]+$/i.test(v) && v.length >= 3) return true;
   return false;
+}
+
+function isLikelyBasename(value) {
+  const v = sanitizeTargetText(value);
+  return /\.[a-z0-9]{1,8}$/i.test(v) && !v.includes("/");
 }
 
 function extractQuotedTargets(text = "") {
@@ -563,6 +571,47 @@ function isFolderFollowupMeaning({ normalized, tokens, followupContext }) {
   return hasImplicitContinuation && (hasFolderMeaning || hasShowMeaning);
 }
 
+function isFileExplainMeaning({ normalized, tokens, extractedTarget, followupContext }) {
+  const fileHits = collectPrefixHits(tokens, FILE_PREFIXES);
+  const explainHits = collectPrefixHits(tokens, EXPLAIN_PREFIXES);
+  const summaryHits = collectPrefixHits(tokens, SUMMARY_PREFIXES);
+  const openHits = collectPrefixHits(tokens, OPEN_PREFIXES);
+  const pronounHits = collectPrefixHits(tokens, PRONOUN_FOLLOWUP_PREFIXES);
+
+  const hasExplainWord =
+    explainHits.length > 0 ||
+    summaryHits.length > 0 ||
+    normalized.includes("что это за файл") ||
+    normalized.includes("о чём он") ||
+    normalized.includes("о чем он") ||
+    normalized.includes("зачем он") ||
+    normalized.includes("короткое описание") ||
+    normalized.includes("описание") ||
+    normalized.includes("смысл");
+
+  const hasFileWord =
+    fileHits.length > 0 ||
+    normalized.includes("файл") ||
+    normalized.includes("документ") ||
+    normalized.includes("file") ||
+    normalized.includes("document");
+
+  if (isLikelyBasename(extractedTarget) && (hasExplainWord || openHits.length > 0)) {
+    return true;
+  }
+
+  if (
+    followupContext?.isActive === true &&
+    (safeText(followupContext?.actionKind) === "browse_folder" || safeText(followupContext?.actionKind) === "open_target") &&
+    pronounHits.length > 0 &&
+    hasExplainWord
+  ) {
+    return true;
+  }
+
+  return hasFileWord && hasExplainWord && !!safeText(extractedTarget);
+}
+
 function isShortFollowupLike(text = "") {
   const tokens = tokenizeText(text);
   if (tokens.length === 0) return false;
@@ -628,7 +677,7 @@ function heuristicFallback({
     displayMode = "translate_ru";
   } else if (summaryHits.length > 0) {
     displayMode = "summary";
-  } else if (explainHits.length > 0) {
+  } else if (explainHits.length > 0 || normalized.includes("что это за файл") || normalized.includes("о чём он") || normalized.includes("о чем он")) {
     displayMode = "explain";
   }
 
@@ -676,6 +725,19 @@ function heuristicFallback({
       clarifyNeeded: !folderTarget,
       clarifyQuestion: folderTarget ? "" : "Какую именно папку продолжить показывать?",
       confidence: folderTarget ? "high" : "medium",
+    };
+  }
+
+  if (isFileExplainMeaning({ normalized, tokens, extractedTarget, followupContext })) {
+    return {
+      intent: "explain_target",
+      targetEntity: safeText(extractedTarget || targetEntity),
+      targetPath: safeText(extractedTarget || targetPath),
+      displayMode: displayMode === "raw" ? "explain" : displayMode,
+      treePrefix: "",
+      clarifyNeeded: !safeText(extractedTarget || targetPath || targetEntity),
+      clarifyQuestion: !safeText(extractedTarget || targetPath || targetEntity) ? "Какой именно файл нужно объяснить?" : "",
+      confidence: safeText(extractedTarget || targetPath || targetEntity) ? "high" : "medium",
     };
   }
 
@@ -790,7 +852,8 @@ function heuristicFallback({
     translateHits.length > 0 ||
     summaryHits.length > 0 ||
     normalized.includes("о чем он") ||
-    normalized.includes("о чём он")
+    normalized.includes("о чём он") ||
+    normalized.includes("что это за файл")
   ) {
     return {
       intent: "explain_target",
@@ -894,11 +957,11 @@ function buildSemanticMessages({
         "Do not explain.\n" +
         "Do not hallucinate files.\n" +
         "Prefer active repo context and pending choice context.\n" +
-        "Follow-up phrases like 'коротко', 'о чём он', 'на русском', 'первую часть', 'общую информацию' usually continue current repo context.\n" +
+        "If active repo action is browse_folder and user mentions a basename like DOCS_GOVERNANCE.md, treat it as a file inside that active folder.\n" +
         "If active repo action is browse_folder and user says things like 'там', 'ещё папки', 'покажи', 'что внутри', prefer browse_folder continuation.\n" +
+        "If user asks what a file is about, prefer explain_target, not generic world knowledge.\n" +
         "If user asks to show repository tree, default to root-first.\n" +
         "If user asks what is inside a folder / directory / папка, prefer browse_folder instead of generic search.\n" +
-        "browse_folder means: user wants folder contents, immediate children, or top-level items inside a folder.\n" +
         "JSON shape:\n" +
         "{\n" +
         "  \"intent\": \"repo_status|show_tree|browse_folder|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|unknown\",\n" +

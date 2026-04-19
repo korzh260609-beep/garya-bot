@@ -2,9 +2,10 @@
 // ============================================================================
 // STAGE 12A.0 — semantic resolver for internal repo dialogue
 // Purpose:
-// - parse HUMAN meaning first using AI
+// - parse HUMAN meaning first using AI + strong heuristics
 // - avoid binding live dialogue to raw command words
 // - support active repo context + pending choice context
+// - support honest repo follow-ups without hallucination
 // IMPORTANT:
 // - READ-ONLY only
 // - NO repo writes
@@ -23,7 +24,7 @@ function normalizeText(value) {
 
 function tokenizeText(value) {
   const normalized = normalizeText(value)
-    .replace(/[.,!?;:()[\]{}<>\\|"'`~@#$%^&*+=/]+/g, " ")
+    .replace(/[.,!?;:()[\]{}<>\\|"'`~@#$%^&*+=]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -95,6 +96,7 @@ function levenshtein(a, b) {
 const KNOWN_CANONICAL_TARGETS = Object.freeze([
   { entity: "workflow", path: "pillars/WORKFLOW.md" },
   { entity: "decisions", path: "pillars/DECISIONS.md" },
+  { entity: "decision", path: "pillars/DECISIONS.md" },
   { entity: "roadmap", path: "pillars/ROADMAP.md" },
   { entity: "project", path: "pillars/PROJECT.md" },
   { entity: "kingdom", path: "pillars/KINGDOM.md" },
@@ -102,6 +104,8 @@ const KNOWN_CANONICAL_TARGETS = Object.freeze([
   { entity: "sg_entity", path: "pillars/SG_ENTITY.md" },
   { entity: "repoindex", path: "pillars/REPOINDEX.md" },
   { entity: "code_insert_rules", path: "pillars/CODE_INSERT_RULES.md" },
+  { entity: "readme", path: "README.md" },
+  { entity: "project_description", path: "README.md" },
 ]);
 
 const SEARCH_PREFIXES = Object.freeze([
@@ -160,6 +164,7 @@ const TREE_PREFIXES = Object.freeze([
   "ветк",
   "tree",
   "root",
+  "корен",
 ]);
 
 const STATUS_PREFIXES = Object.freeze([
@@ -178,14 +183,180 @@ const CONTINUE_PREFIXES = Object.freeze([
   "next",
 ]);
 
+const FIRST_PART_PREFIXES = Object.freeze([
+  "перв",
+  "част",
+  "начал",
+  "first",
+  "part",
+  "begin",
+]);
+
+const PRONOUN_FOLLOWUP_PREFIXES = Object.freeze([
+  "он",
+  "она",
+  "оно",
+  "это",
+  "его",
+  "её",
+  "ее",
+  "them",
+  "it",
+  "this",
+  "that",
+]);
+
+const GENERIC_TARGET_WORDS = new Set([
+  "файл",
+  "файла",
+  "файле",
+  "документ",
+  "документа",
+  "документе",
+  "папка",
+  "папку",
+  "папке",
+  "раздел",
+  "раздела",
+  "разделе",
+  "репозиторий",
+  "репозитории",
+  "репо",
+  "project",
+  "repo",
+  "file",
+  "folder",
+  "document",
+  "section",
+]);
+
+function sanitizeTargetText(value) {
+  return safeText(value)
+    .replace(/^[`"'«“„]+/, "")
+    .replace(/[`"'»”„]+$/, "")
+    .replace(/[.,!?;:]+$/g, "")
+    .trim();
+}
+
+function isLikelyPathOrFileToken(value) {
+  const v = sanitizeTargetText(value);
+  if (!v) return false;
+  if (v.includes("/")) return true;
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return true;
+  if (/^[a-z0-9_.-]+$/i.test(v) && v.length >= 3) return true;
+  return false;
+}
+
+function extractQuotedTargets(text = "") {
+  const raw = safeText(text);
+  const matches = [];
+
+  const regexes = [
+    /`([^`]{2,120})`/g,
+    /"([^"]{2,120})"/g,
+    /«([^»]{2,120})»/g,
+  ];
+
+  for (const rx of regexes) {
+    let m;
+    while ((m = rx.exec(raw)) !== null) {
+      const candidate = sanitizeTargetText(m[1]);
+      if (candidate) matches.push(candidate);
+    }
+  }
+
+  return unique(matches);
+}
+
+function extractPathLikeTargets(text = "") {
+  const raw = safeText(text);
+  const matches = [];
+
+  const rx = /\b([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\/?|[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,8})\b/g;
+  let m;
+  while ((m = rx.exec(raw)) !== null) {
+    const candidate = sanitizeTargetText(m[1]);
+    if (!candidate) continue;
+    if (GENERIC_TARGET_WORDS.has(candidate.toLowerCase())) continue;
+    if (candidate.length < 3) continue;
+    if (isLikelyPathOrFileToken(candidate)) {
+      matches.push(candidate);
+    }
+  }
+
+  return unique(matches);
+}
+
+function extractNamedTargetByMarker(text = "") {
+  const raw = safeText(text);
+
+  const patterns = [
+    /(?:файл|документ|раздел|папк[ауеи]?|file|document|section|folder)\s+([A-Za-z0-9_.\-\/]{3,120})/i,
+    /(?:про|about)\s+([A-Za-z0-9_.\-\/]{3,120})/i,
+  ];
+
+  for (const rx of patterns) {
+    const m = raw.match(rx);
+    if (!m) continue;
+    const candidate = sanitizeTargetText(m[1]);
+    if (!candidate) continue;
+    if (GENERIC_TARGET_WORDS.has(candidate.toLowerCase())) continue;
+    return candidate;
+  }
+
+  return "";
+}
+
+function inferSemanticAlias(text = "") {
+  const normalized = normalizeText(text);
+
+  if (
+    (normalized.includes("описан") || normalized.includes("что это за проект") || normalized.includes("about project")) &&
+    normalized.includes("проект")
+  ) {
+    return { entity: "project_description", path: "README.md", confidence: "high" };
+  }
+
+  if (normalized.includes("readme")) {
+    return { entity: "readme", path: "README.md", confidence: "high" };
+  }
+
+  if (
+    normalized.includes("decision") ||
+    normalized.includes("decisions") ||
+    normalized.includes("решени")
+  ) {
+    return { entity: "decisions", path: "pillars/DECISIONS.md", confidence: "medium" };
+  }
+
+  if (normalized.includes("workflow")) {
+    return { entity: "workflow", path: "pillars/WORKFLOW.md", confidence: "high" };
+  }
+
+  if (normalized.includes("roadmap")) {
+    return { entity: "roadmap", path: "pillars/ROADMAP.md", confidence: "high" };
+  }
+
+  if (normalized.includes("project.md")) {
+    return { entity: "project", path: "pillars/PROJECT.md", confidence: "high" };
+  }
+
+  return { entity: "", path: "", confidence: "low" };
+}
+
 function fuzzyCanonicalMatch(text = "") {
   const normalized = normalizeText(text);
   const tokens = tokenizeText(text);
 
+  const alias = inferSemanticAlias(normalized);
+  if (alias.path) {
+    return alias;
+  }
+
   const candidates = [];
 
   for (const token of tokens) {
-    const clean = token.replace(/[^a-zа-я0-9_]/gi, "");
+    const clean = token.replace(/[^a-zа-я0-9_./-]/gi, "");
     if (!clean || clean.length < 3) continue;
 
     for (const item of KNOWN_CANONICAL_TARGETS) {
@@ -197,7 +368,7 @@ function fuzzyCanonicalMatch(text = "") {
         });
       }
 
-      const fileBase = item.path.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() || "";
+      const fileBase = item.path.split("/").pop()?.replace(/\.[^.]+$/i, "").toLowerCase() || "";
       const fileDist = levenshtein(clean, fileBase);
       if (fileDist <= 2 || fileBase.includes(clean) || clean.includes(fileBase)) {
         candidates.push({
@@ -226,6 +397,68 @@ function fuzzyCanonicalMatch(text = "") {
   };
 }
 
+function extractTargetPhrase(text = "") {
+  const quoted = extractQuotedTargets(text);
+  if (quoted.length > 0) return quoted[0];
+
+  const named = extractNamedTargetByMarker(text);
+  if (named) return named;
+
+  const pathLike = extractPathLikeTargets(text);
+  if (pathLike.length > 0) return pathLike[0];
+
+  return "";
+}
+
+function extractTreePrefix(text = "") {
+  const normalized = normalizeText(text);
+  if (!normalized) return "";
+
+  if (
+    normalized.includes("корне") ||
+    normalized.includes("в корне") ||
+    normalized.includes("root")
+  ) {
+    return "";
+  }
+
+  const pathLike = extractPathLikeTargets(text);
+  for (const item of pathLike) {
+    if (item.includes("/") || /^[A-Za-z0-9_.-]+$/.test(item)) {
+      return sanitizeTargetText(item).replace(/^\/+/, "");
+    }
+  }
+
+  const m = safeText(text).match(/(?:покажи|раскрой|открой|show|open)\s+([A-Za-z0-9_.\-\/]{2,120}\/?)/i);
+  if (m?.[1]) {
+    return sanitizeTargetText(m[1]).replace(/^\/+/, "");
+  }
+
+  return "";
+}
+
+function isShortFollowupLike(text = "") {
+  const tokens = tokenizeText(text);
+  if (tokens.length === 0) return false;
+  if (tokens.length > 8) return false;
+
+  const pronounHits = collectPrefixHits(tokens, PRONOUN_FOLLOWUP_PREFIXES);
+  const explainHits = collectPrefixHits(tokens, EXPLAIN_PREFIXES);
+  const summaryHits = collectPrefixHits(tokens, SUMMARY_PREFIXES);
+  const translateHits = collectPrefixHits(tokens, TRANSLATE_PREFIXES);
+  const firstPartHits = collectPrefixHits(tokens, FIRST_PART_PREFIXES);
+  const continueHits = collectPrefixHits(tokens, CONTINUE_PREFIXES);
+
+  return (
+    pronounHits.length > 0 ||
+    explainHits.length > 0 ||
+    summaryHits.length > 0 ||
+    translateHits.length > 0 ||
+    firstPartHits.length > 0 ||
+    continueHits.length > 0
+  );
+}
+
 function heuristicFallback({
   text,
   followupContext = null,
@@ -242,23 +475,30 @@ function heuristicFallback({
   const treeHits = collectPrefixHits(tokens, TREE_PREFIXES);
   const statusHits = collectPrefixHits(tokens, STATUS_PREFIXES);
   const continueHits = collectPrefixHits(tokens, CONTINUE_PREFIXES);
+  const firstPartHits = collectPrefixHits(tokens, FIRST_PART_PREFIXES);
 
   const fuzzy = fuzzyCanonicalMatch(text);
+  const extractedTarget = extractTargetPhrase(text);
+  const treePrefix = extractTreePrefix(text);
 
   const targetEntity = pickFirstNonEmpty([
+    extractedTarget,
     fuzzy.entity,
     followupContext?.targetEntity,
     pendingChoiceContext?.targetEntity,
   ]);
 
   const targetPath = pickFirstNonEmpty([
+    isLikelyPathOrFileToken(extractedTarget) ? extractedTarget : "",
     fuzzy.path,
     followupContext?.targetPath,
     pendingChoiceContext?.targetPath,
   ]);
 
   let displayMode = "raw";
-  if (normalized.includes("на русском") || normalized.includes("по-русски") || translateHits.length > 0) {
+  if (firstPartHits.length > 0 && normalized.includes("част")) {
+    displayMode = "raw_first_part";
+  } else if (normalized.includes("на русском") || normalized.includes("по-русски") || translateHits.length > 0) {
     displayMode = "translate_ru";
   } else if (summaryHits.length > 0) {
     displayMode = "summary";
@@ -267,20 +507,7 @@ function heuristicFallback({
   }
 
   if (pendingChoiceContext?.isActive) {
-    if (summaryHits.length > 0) {
-      return {
-        intent: "answer_pending_choice",
-        targetEntity,
-        targetPath,
-        displayMode: "summary",
-        treePrefix: "",
-        clarifyNeeded: false,
-        clarifyQuestion: "",
-        confidence: "medium",
-      };
-    }
-
-    if (explainHits.length > 0 || translateHits.length > 0) {
+    if (displayMode === "raw_first_part") {
       return {
         intent: "answer_pending_choice",
         targetEntity,
@@ -289,38 +516,55 @@ function heuristicFallback({
         treePrefix: "",
         clarifyNeeded: false,
         clarifyQuestion: "",
-        confidence: "medium",
+        confidence: "high",
       };
     }
 
-    if (continueHits.length > 0) {
+    if (summaryHits.length > 0 || explainHits.length > 0 || translateHits.length > 0 || continueHits.length > 0) {
       return {
         intent: "answer_pending_choice",
         targetEntity,
         targetPath,
-        displayMode: safeText(pendingChoiceContext?.displayMode) || "summary",
+        displayMode: displayMode === "raw" ? (safeText(pendingChoiceContext?.displayMode) || "summary") : displayMode,
         treePrefix: "",
         clarifyNeeded: false,
         clarifyQuestion: "",
-        confidence: "medium",
+        confidence: "high",
       };
     }
   }
 
-  if (treeHits.length > 0) {
+  if (followupContext?.isActive && isShortFollowupLike(text)) {
+    return {
+      intent: "explain_active",
+      targetEntity,
+      targetPath,
+      displayMode: displayMode === "raw" ? (safeText(followupContext?.displayMode) || "explain") : displayMode,
+      treePrefix: "",
+      clarifyNeeded: !targetPath,
+      clarifyQuestion: targetPath ? "" : "Что именно из последнего результата нужно продолжить или объяснить?",
+      confidence: targetPath ? "high" : "medium",
+    };
+  }
+
+  if (treeHits.length > 0 || normalized.includes("какие папки в корне") || normalized.includes("дерево репозитория")) {
     return {
       intent: "show_tree",
       targetEntity: "",
       targetPath: "",
       displayMode: "raw",
-      treePrefix: "",
+      treePrefix,
       clarifyNeeded: false,
       clarifyQuestion: "",
-      confidence: "medium",
+      confidence: treePrefix ? "high" : "medium",
     };
   }
 
-  if (statusHits.length > 0 && normalized.includes("репозитор")) {
+  if (
+    (statusHits.length > 0 && normalized.includes("репозитор")) ||
+    normalized.includes("видишь репозиторий") ||
+    normalized.includes("есть доступ к репозиторию")
+  ) {
     return {
       intent: "repo_status",
       targetEntity: "",
@@ -333,33 +577,27 @@ function heuristicFallback({
     };
   }
 
-  if (followupContext?.isActive && (explainHits.length > 0 || translateHits.length > 0 || summaryHits.length > 0 || continueHits.length > 0)) {
-    return {
-      intent: "explain_active",
-      targetEntity,
-      targetPath,
-      displayMode,
-      treePrefix: "",
-      clarifyNeeded: !targetPath,
-      clarifyQuestion: targetPath ? "" : "Что именно из последнего результата нужно объяснить?",
-      confidence: targetPath ? "medium" : "low",
-    };
-  }
-
-  if (searchHits.length > 0 && (explainHits.length > 0 || translateHits.length > 0 || summaryHits.length > 0)) {
+  if (
+    searchHits.length > 0 &&
+    (explainHits.length > 0 || translateHits.length > 0 || summaryHits.length > 0 || normalized.includes("коротко о чем"))
+  ) {
     return {
       intent: "find_and_explain",
       targetEntity,
       targetPath,
-      displayMode,
+      displayMode: displayMode === "raw" ? "summary" : displayMode,
       treePrefix: "",
       clarifyNeeded: !targetEntity && !targetPath,
       clarifyQuestion: (!targetEntity && !targetPath) ? "Что именно искать и объяснить в репозитории?" : "",
-      confidence: (targetEntity || targetPath) ? "medium" : "low",
+      confidence: (targetEntity || targetPath) ? "high" : "low",
     };
   }
 
-  if (searchHits.length > 0) {
+  if (
+    searchHits.length > 0 ||
+    normalized.includes("найди файл") ||
+    normalized.includes("найди в репозитории")
+  ) {
     return {
       intent: "find_target",
       targetEntity,
@@ -368,7 +606,7 @@ function heuristicFallback({
       treePrefix: "",
       clarifyNeeded: !targetEntity && !targetPath,
       clarifyQuestion: (!targetEntity && !targetPath) ? "Что именно искать в репозитории?" : "",
-      confidence: (targetEntity || targetPath) ? "medium" : "low",
+      confidence: (targetEntity || targetPath) ? "high" : "low",
     };
   }
 
@@ -381,20 +619,26 @@ function heuristicFallback({
       treePrefix: "",
       clarifyNeeded: !targetPath && !targetEntity,
       clarifyQuestion: (!targetPath && !targetEntity) ? "Какой именно файл или документ открыть?" : "",
-      confidence: (targetEntity || targetPath) ? "medium" : "low",
+      confidence: (targetEntity || targetPath) ? "high" : "low",
     };
   }
 
-  if (explainHits.length > 0 || translateHits.length > 0 || summaryHits.length > 0) {
+  if (
+    explainHits.length > 0 ||
+    translateHits.length > 0 ||
+    summaryHits.length > 0 ||
+    normalized.includes("о чем он") ||
+    normalized.includes("о чём он")
+  ) {
     return {
       intent: "explain_target",
       targetEntity,
       targetPath,
-      displayMode,
+      displayMode: displayMode === "raw" ? "explain" : displayMode,
       treePrefix: "",
-      clarifyNeeded: !targetPath && !targetEntity,
-      clarifyQuestion: (!targetPath && !targetEntity) ? "Что именно нужно объяснить?" : "",
-      confidence: (targetEntity || targetPath || followupContext?.isActive) ? "medium" : "low",
+      clarifyNeeded: !targetPath && !targetEntity && !followupContext?.isActive,
+      clarifyQuestion: (!targetPath && !targetEntity && !followupContext?.isActive) ? "Что именно нужно объяснить?" : "",
+      confidence: (targetEntity || targetPath || followupContext?.isActive) ? "high" : "low",
     };
   }
 
@@ -406,7 +650,7 @@ function heuristicFallback({
     treePrefix: "",
     clarifyNeeded: false,
     clarifyQuestion: "",
-    confidence: "low",
+    confidence: targetEntity || targetPath ? "medium" : "low",
   };
 }
 
@@ -425,6 +669,20 @@ function sanitizeSemanticResult(raw, fallback) {
     "unknown",
   ]);
 
+  const allowedDisplayModes = new Set([
+    "raw",
+    "raw_first_part",
+    "summary",
+    "explain",
+    "translate_ru",
+  ]);
+
+  const allowedConfidence = new Set([
+    "low",
+    "medium",
+    "high",
+  ]);
+
   const intent = allowedIntents.has(result.intent)
     ? result.intent
     : fallback.intent;
@@ -433,11 +691,15 @@ function sanitizeSemanticResult(raw, fallback) {
     intent,
     targetEntity: safeText(result.targetEntity || fallback.targetEntity),
     targetPath: safeText(result.targetPath || fallback.targetPath),
-    displayMode: safeText(result.displayMode || fallback.displayMode || "raw"),
-    treePrefix: safeText(result.treePrefix || ""),
+    displayMode: allowedDisplayModes.has(safeText(result.displayMode))
+      ? safeText(result.displayMode)
+      : safeText(fallback.displayMode || "raw"),
+    treePrefix: safeText(result.treePrefix || fallback.treePrefix || ""),
     clarifyNeeded: result.clarifyNeeded === true ? true : fallback.clarifyNeeded === true,
     clarifyQuestion: safeText(result.clarifyQuestion || fallback.clarifyQuestion),
-    confidence: safeText(result.confidence || fallback.confidence || "low"),
+    confidence: allowedConfidence.has(safeText(result.confidence))
+      ? safeText(result.confidence)
+      : safeText(fallback.confidence || "low"),
   };
 }
 
@@ -463,20 +725,19 @@ function buildSemanticMessages({
       role: "system",
       content:
         "You are a semantic parser for INTERNAL REPO DIALOGUE.\n" +
-        "Task: understand USER MEANING, not commands.\n" +
-        "The user speaks naturally.\n" +
+        "Task: understand USER MEANING, not command words.\n" +
         "Return ONLY strict JSON.\n" +
         "Do not explain.\n" +
         "Do not hallucinate files.\n" +
-        "Prefer active repo context and pending choice context over reopening raw files.\n" +
-        "If user replies to a previous question like 'общую информацию', 'простыми словами', 'первую часть', this is answer_pending_choice, not a new unrelated topic.\n" +
-        "If user asks to show repository tree, default to root level first.\n" +
+        "Prefer active repo context and pending choice context.\n" +
+        "Follow-up phrases like 'коротко', 'о чём он', 'на русском', 'первую часть', 'общую информацию' usually continue current repo context.\n" +
+        "If user asks to show repository tree, default to root-first.\n" +
         "JSON shape:\n" +
         "{\n" +
         '  "intent": "repo_status|show_tree|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|unknown",\n' +
         '  "targetEntity": "string",\n' +
         '  "targetPath": "string",\n' +
-        '  "displayMode": "raw|summary|explain|translate_ru",\n' +
+        '  "displayMode": "raw|raw_first_part|summary|explain|translate_ru",\n' +
         '  "treePrefix": "string",\n' +
         '  "clarifyNeeded": true,\n' +
         '  "clarifyQuestion": "string",\n' +

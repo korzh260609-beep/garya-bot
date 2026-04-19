@@ -2,9 +2,17 @@
 
 import { safeText } from "./projectIntentConversationShared.js";
 
+function safeParseJsonArray(value) {
+  try {
+    const parsed = JSON.parse(String(value ?? ""));
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function buildProjectIntentRoutingText(trimmed, followupContext = null, pendingChoiceContext = null) {
   const base = safeText(trimmed);
-
   const parts = [base];
 
   if (followupContext?.isActive) {
@@ -16,7 +24,12 @@ export function buildProjectIntentRoutingText(trimmed, followupContext = null, p
     parts.push(safeText(followupContext.displayMode));
     parts.push(safeText(followupContext.actionKind));
 
-    if (followupContext.actionKind === "browse_folder") {
+    if (followupContext.objectKind) {
+      parts.push("object_kind");
+      parts.push(safeText(followupContext.objectKind));
+    }
+
+    if (followupContext.actionKind === "browse_folder" || followupContext.objectKind === "folder") {
       parts.push("active_folder");
       parts.push("folder_context");
       parts.push("folder");
@@ -26,10 +39,23 @@ export function buildProjectIntentRoutingText(trimmed, followupContext = null, p
       parts.push(safeText(followupContext.treePrefix));
     }
 
-    if (followupContext.actionKind === "open_target" || followupContext.actionKind === "find_and_explain" || followupContext.actionKind === "explain_target") {
+    if (
+      followupContext.actionKind === "open_target" ||
+      followupContext.actionKind === "find_and_explain" ||
+      followupContext.actionKind === "explain_target" ||
+      followupContext.objectKind === "file"
+    ) {
       parts.push("active_file");
       parts.push("file_context");
       parts.push("document_context");
+    }
+
+    if (followupContext.continuation?.isActive === true) {
+      parts.push("repo_continuation_active");
+      parts.push("continuation");
+      parts.push("next_part_available");
+      parts.push(safeText(followupContext.continuation.targetPath));
+      parts.push(safeText(followupContext.continuation.displayMode));
     }
   }
 
@@ -73,6 +99,19 @@ export async function getLatestProjectIntentRepoContext(memory, {
           treePrefix: safeText(meta.projectIntentTreePrefix),
           semanticConfidence: safeText(meta.projectIntentSemanticConfidence),
           actionKind: safeText(meta.projectIntentActionKind),
+
+          objectKind: safeText(meta.projectIntentObjectKind),
+
+          continuation: {
+            isActive: meta?.projectIntentContinuationActive === true,
+            sourceKind: safeText(meta.projectIntentContinuationSourceKind),
+            targetPath: safeText(meta.projectIntentContinuationTargetPath),
+            displayMode: safeText(meta.projectIntentContinuationDisplayMode),
+            chunkIndex: Number(meta.projectIntentContinuationChunkIndex || 1),
+            chunkCount: Number(meta.projectIntentContinuationChunkCount || 0),
+            chunks: safeParseJsonArray(meta.projectIntentContinuationChunksJson),
+            remainingText: safeText(meta.projectIntentContinuationRemainingText),
+          },
         };
       }
     }
@@ -88,6 +127,17 @@ export async function getLatestProjectIntentRepoContext(memory, {
     treePrefix: "",
     semanticConfidence: "",
     actionKind: "",
+    objectKind: "",
+    continuation: {
+      isActive: false,
+      sourceKind: "",
+      targetPath: "",
+      displayMode: "",
+      chunkIndex: 1,
+      chunkCount: 0,
+      chunks: [],
+      remainingText: "",
+    },
   };
 }
 

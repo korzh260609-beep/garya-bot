@@ -9,12 +9,26 @@ export function buildProjectIntentRoutingText(trimmed, followupContext = null, p
 
   if (followupContext?.isActive) {
     parts.push("repo");
+    parts.push("repo_active_context");
     parts.push(safeText(followupContext.targetEntity));
     parts.push(safeText(followupContext.targetPath));
+    parts.push(safeText(followupContext.treePrefix));
+    parts.push(safeText(followupContext.displayMode));
+    parts.push(safeText(followupContext.actionKind));
+
+    if (followupContext.actionKind === "browse_folder") {
+      parts.push("active_folder");
+      parts.push("folder_context");
+      parts.push("folder");
+      parts.push("directory");
+      parts.push(safeText(followupContext.targetPath));
+      parts.push(safeText(followupContext.treePrefix));
+    }
   }
 
   if (pendingChoiceContext?.isActive) {
     parts.push("repo_pending_choice");
+    parts.push(safeText(pendingChoiceContext.kind));
     parts.push(safeText(pendingChoiceContext.targetEntity));
     parts.push(safeText(pendingChoiceContext.targetPath));
   }
@@ -51,6 +65,7 @@ export async function getLatestProjectIntentRepoContext(memory, {
           largeDocument: meta?.projectIntentLargeDocument === true,
           treePrefix: safeText(meta.projectIntentTreePrefix),
           semanticConfidence: safeText(meta.projectIntentSemanticConfidence),
+          actionKind: safeText(meta.projectIntentActionKind),
         };
       }
     }
@@ -65,6 +80,7 @@ export async function getLatestProjectIntentRepoContext(memory, {
     largeDocument: false,
     treePrefix: "",
     semanticConfidence: "",
+    actionKind: "",
   };
 }
 

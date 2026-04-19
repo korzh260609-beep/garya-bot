@@ -21,8 +21,15 @@ export function buildProjectIntentRoutingText(trimmed, followupContext = null, p
       parts.push("folder_context");
       parts.push("folder");
       parts.push("directory");
+      parts.push("inside_folder");
       parts.push(safeText(followupContext.targetPath));
       parts.push(safeText(followupContext.treePrefix));
+    }
+
+    if (followupContext.actionKind === "open_target" || followupContext.actionKind === "find_and_explain" || followupContext.actionKind === "explain_target") {
+      parts.push("active_file");
+      parts.push("file_context");
+      parts.push("document_context");
     }
   }
 

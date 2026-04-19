@@ -1,6 +1,11 @@
 // src/core/projectIntent/projectIntentSemanticResolver.js
 // ============================================================================
 // STAGE 12A.0 — semantic resolver for internal repo dialogue
+// Purpose:
+// - meaning-first
+// - object-first where possible
+// - minimize keyword reflex fallback
+// - preserve universal repo object understanding
 // ============================================================================
 
 function safeText(value) {
@@ -132,7 +137,6 @@ const EXPLAIN_PREFIXES = Object.freeze([
   "inspect",
   "описан",
   "зачем",
-  "о",
 ]);
 
 const TRANSLATE_PREFIXES = Object.freeze([
@@ -286,6 +290,21 @@ function isLikelyPathOrFileToken(value) {
 function isLikelyBasename(value) {
   const v = sanitizeTargetText(value);
   return /\.[a-z0-9]{1,8}$/i.test(v) && !v.includes("/");
+}
+
+function looksLikeFolderTarget(value) {
+  const v = sanitizeTargetText(value);
+  if (!v) return false;
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return false;
+  return v.includes("/") || /^[A-Za-z0-9_.-]+$/.test(v);
+}
+
+function inferObjectKindFromTarget(value = "") {
+  const v = sanitizeTargetText(value);
+  if (!v) return "unknown";
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return "file";
+  if (looksLikeFolderTarget(v)) return "folder";
+  return "unknown";
 }
 
 function extractQuotedTargets(text = "") {
@@ -467,181 +486,26 @@ function extractTreePrefix(text = "") {
   const pathLike = extractPathLikeTargets(text);
   for (const item of pathLike) {
     if (item.includes("/") || /^[A-Za-z0-9_.-]+$/.test(item)) {
-      return sanitizeTargetText(item).replace(/^\/+/, "");
+      return sanitizeTargetText(item).replace(/^\//, "");
     }
   }
 
   const m = safeText(text).match(/(?:покажи|раскрой|открой|show|open)\s+([A-Za-z0-9_.\-\/]{2,120}\/?)/i);
   if (m?.[1]) {
-    return sanitizeTargetText(m[1]).replace(/^\/+/, "");
+    return sanitizeTargetText(m[1]).replace(/^\//, "");
   }
 
   return "";
 }
 
 function normalizeFolderTarget(target = "") {
-  const v = sanitizeTargetText(target).replace(/^\/+/, "");
+  const v = sanitizeTargetText(target).replace(/^\//, "");
   if (!v) return "";
   if (/\.[a-z0-9]{1,8}$/i.test(v)) return v;
   return v.endsWith("/") ? v : `${v}/`;
 }
 
-function isFolderBrowseMeaning({ normalized, tokens, extractedTarget }) {
-  const folderHits = collectPrefixHits(tokens, FOLDER_PREFIXES);
-  const listingHits = collectPrefixHits(tokens, LISTING_PREFIXES);
-  const treeHits = collectPrefixHits(tokens, TREE_PREFIXES);
-  const searchHits = collectPrefixHits(tokens, SEARCH_PREFIXES);
-  const openHits = collectPrefixHits(tokens, OPEN_PREFIXES);
-
-  const hasFolderWord =
-    folderHits.length > 0 ||
-    normalized.includes("folder") ||
-    normalized.includes("directory") ||
-    normalized.includes("папк") ||
-    normalized.includes("каталог") ||
-    normalized.includes("директори");
-
-  const hasListMeaning =
-    listingHits.length > 0 ||
-    normalized.includes("список файлов") ||
-    normalized.includes("список папок") ||
-    normalized.includes("что внутри") ||
-    normalized.includes("что в") ||
-    normalized.includes("содержимое") ||
-    normalized.includes("contents") ||
-    normalized.includes("inside");
-
-  const targetLooksFolder =
-    !!safeText(extractedTarget) &&
-    !/\.[a-z0-9]{1,8}$/i.test(safeText(extractedTarget)) &&
-    (
-      safeText(extractedTarget).endsWith("/") ||
-      /^[A-Za-z0-9_.\-\/]{2,120}$/.test(safeText(extractedTarget))
-    );
-
-  if (hasFolderWord && (hasListMeaning || openHits.length > 0 || searchHits.length > 0)) {
-    return true;
-  }
-
-  if (targetLooksFolder && hasListMeaning) {
-    return true;
-  }
-
-  if (
-    targetLooksFolder &&
-    hasFolderWord &&
-    (searchHits.length > 0 || openHits.length > 0 || treeHits.length > 0)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-function isFolderFollowupMeaning({ normalized, tokens, followupContext }) {
-  if (followupContext?.isActive !== true) return false;
-  if (safeText(followupContext?.actionKind) !== "browse_folder") return false;
-
-  const pronounHits = collectPrefixHits(tokens, PRONOUN_FOLLOWUP_PREFIXES);
-  const continueHits = collectPrefixHits(tokens, CONTINUE_PREFIXES);
-  const folderHits = collectPrefixHits(tokens, FOLDER_PREFIXES);
-  const listingHits = collectPrefixHits(tokens, LISTING_PREFIXES);
-  const openHits = collectPrefixHits(tokens, OPEN_PREFIXES);
-
-  const hasImplicitContinuation =
-    pronounHits.length > 0 ||
-    continueHits.length > 0 ||
-    normalized.includes("ещё") ||
-    normalized.includes("еще") ||
-    normalized.includes("там") ||
-    normalized.includes("тут");
-
-  const hasFolderMeaning =
-    folderHits.length > 0 ||
-    normalized.includes("папк") ||
-    normalized.includes("folder") ||
-    normalized.includes("directory");
-
-  const hasShowMeaning =
-    listingHits.length > 0 ||
-    openHits.length > 0 ||
-    normalized.includes("покажи") ||
-    normalized.includes("показать");
-
-  return hasImplicitContinuation && (hasFolderMeaning || hasShowMeaning);
-}
-
-function isFileExplainMeaning({ normalized, tokens, extractedTarget, followupContext }) {
-  const fileHits = collectPrefixHits(tokens, FILE_PREFIXES);
-  const explainHits = collectPrefixHits(tokens, EXPLAIN_PREFIXES);
-  const summaryHits = collectPrefixHits(tokens, SUMMARY_PREFIXES);
-  const openHits = collectPrefixHits(tokens, OPEN_PREFIXES);
-  const pronounHits = collectPrefixHits(tokens, PRONOUN_FOLLOWUP_PREFIXES);
-
-  const hasExplainWord =
-    explainHits.length > 0 ||
-    summaryHits.length > 0 ||
-    normalized.includes("что это за файл") ||
-    normalized.includes("о чём он") ||
-    normalized.includes("о чем он") ||
-    normalized.includes("зачем он") ||
-    normalized.includes("короткое описание") ||
-    normalized.includes("описание") ||
-    normalized.includes("смысл");
-
-  const hasFileWord =
-    fileHits.length > 0 ||
-    normalized.includes("файл") ||
-    normalized.includes("документ") ||
-    normalized.includes("file") ||
-    normalized.includes("document");
-
-  if (isLikelyBasename(extractedTarget) && (hasExplainWord || openHits.length > 0)) {
-    return true;
-  }
-
-  if (
-    followupContext?.isActive === true &&
-    (safeText(followupContext?.actionKind) === "browse_folder" || safeText(followupContext?.actionKind) === "open_target") &&
-    pronounHits.length > 0 &&
-    hasExplainWord
-  ) {
-    return true;
-  }
-
-  return hasFileWord && hasExplainWord && !!safeText(extractedTarget);
-}
-
-function isShortFollowupLike(text = "") {
-  const tokens = tokenizeText(text);
-  if (tokens.length === 0) return false;
-  if (tokens.length > 8) return false;
-
-  const pronounHits = collectPrefixHits(tokens, PRONOUN_FOLLOWUP_PREFIXES);
-  const explainHits = collectPrefixHits(tokens, EXPLAIN_PREFIXES);
-  const summaryHits = collectPrefixHits(tokens, SUMMARY_PREFIXES);
-  const translateHits = collectPrefixHits(tokens, TRANSLATE_PREFIXES);
-  const firstPartHits = collectPrefixHits(tokens, FIRST_PART_PREFIXES);
-  const continueHits = collectPrefixHits(tokens, CONTINUE_PREFIXES);
-
-  return (
-    pronounHits.length > 0 ||
-    explainHits.length > 0 ||
-    summaryHits.length > 0 ||
-    translateHits.length > 0 ||
-    firstPartHits.length > 0 ||
-    continueHits.length > 0
-  );
-}
-
-function heuristicFallback({
-  text,
-  followupContext = null,
-  pendingChoiceContext = null,
-}) {
-  const normalized = normalizeText(text);
-  const tokens = tokenizeText(text);
-
+function detectActionMeaning({ normalized, tokens, followupContext, pendingChoiceContext }) {
   const searchHits = collectPrefixHits(tokens, SEARCH_PREFIXES);
   const openHits = collectPrefixHits(tokens, OPEN_PREFIXES);
   const explainHits = collectPrefixHits(tokens, EXPLAIN_PREFIXES);
@@ -651,6 +515,138 @@ function heuristicFallback({
   const statusHits = collectPrefixHits(tokens, STATUS_PREFIXES);
   const continueHits = collectPrefixHits(tokens, CONTINUE_PREFIXES);
   const firstPartHits = collectPrefixHits(tokens, FIRST_PART_PREFIXES);
+  const folderHits = collectPrefixHits(tokens, FOLDER_PREFIXES);
+  const fileHits = collectPrefixHits(tokens, FILE_PREFIXES);
+  const listingHits = collectPrefixHits(tokens, LISTING_PREFIXES);
+  const pronounHits = collectPrefixHits(tokens, PRONOUN_FOLLOWUP_PREFIXES);
+
+  const wantsContinuation =
+    continueHits.length > 0 ||
+    normalized.includes("следующ") ||
+    normalized.includes("ещё") ||
+    normalized.includes("еще") ||
+    normalized.includes("дальше");
+
+  const wantsTree =
+    treeHits.length > 0 ||
+    normalized.includes("дерево репозитория") ||
+    normalized.includes("какие папки в корне");
+
+  const wantsStatus =
+    (statusHits.length > 0 && normalized.includes("репозитор")) ||
+    normalized.includes("видишь репозиторий") ||
+    normalized.includes("есть доступ к репозиторию");
+
+  const wantsSummary = summaryHits.length > 0 || normalized.includes("кратко");
+  const wantsTranslate = translateHits.length > 0 || normalized.includes("на русском") || normalized.includes("по-русски");
+  const wantsExplain =
+    explainHits.length > 0 ||
+    normalized.includes("о чем") ||
+    normalized.includes("о чём") ||
+    normalized.includes("что это за файл") ||
+    normalized.includes("в чем смысл") ||
+    normalized.includes("зачем он");
+
+  const wantsOpen = openHits.length > 0;
+  const wantsSearch = searchHits.length > 0;
+  const wantsFolderListing =
+    folderHits.length > 0 ||
+    listingHits.length > 0 ||
+    normalized.includes("что внутри") ||
+    normalized.includes("содержимое папки") ||
+    normalized.includes("inside folder") ||
+    normalized.includes("contents");
+
+  const wantsFirstPart =
+    firstPartHits.length > 0 && normalized.includes("част");
+
+  if (followupContext?.continuation?.isActive === true && wantsContinuation) {
+    return {
+      intent: "continue_active",
+      confidence: "high",
+    };
+  }
+
+  if (pendingChoiceContext?.isActive === true && (wantsSummary || wantsExplain || wantsTranslate || wantsFirstPart || wantsContinuation)) {
+    return {
+      intent: "answer_pending_choice",
+      confidence: "high",
+    };
+  }
+
+  if (wantsTree) {
+    return {
+      intent: "show_tree",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsStatus) {
+    return {
+      intent: "repo_status",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsFolderListing) {
+    return {
+      intent: "browse_folder",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsSearch && (wantsExplain || wantsSummary || wantsTranslate)) {
+    return {
+      intent: "find_and_explain",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsSearch) {
+    return {
+      intent: "find_target",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsExplain || wantsTranslate || wantsSummary || wantsFirstPart) {
+    return {
+      intent: "explain_target",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsOpen) {
+    return {
+      intent: "open_target",
+      confidence: "medium",
+    };
+  }
+
+  if (
+    followupContext?.isActive === true &&
+    pronounHits.length > 0 &&
+    (wantsExplain || wantsSummary || wantsTranslate || wantsOpen)
+  ) {
+    return {
+      intent: "explain_active",
+      confidence: "medium",
+    };
+  }
+
+  return {
+    intent: "unknown",
+    confidence: "low",
+  };
+}
+
+function heuristicFallback({
+  text,
+  followupContext = null,
+  pendingChoiceContext = null,
+}) {
+  const normalized = normalizeText(text);
+  const tokens = tokenizeText(text);
 
   const fuzzy = fuzzyCanonicalMatch(text);
   const extractedTarget = extractTargetPhrase(text);
@@ -670,197 +666,181 @@ function heuristicFallback({
     pendingChoiceContext?.targetPath,
   ]);
 
+  const actionMeaning = detectActionMeaning({
+    normalized,
+    tokens,
+    followupContext,
+    pendingChoiceContext,
+  });
+
   let displayMode = "raw";
-  if (firstPartHits.length > 0 && normalized.includes("част")) {
-    displayMode = "raw_first_part";
-  } else if (normalized.includes("на русском") || normalized.includes("по-русски") || translateHits.length > 0) {
+  if (normalized.includes("на русском") || normalized.includes("по-русски")) {
     displayMode = "translate_ru";
-  } else if (summaryHits.length > 0) {
+  } else if (normalized.includes("кратко")) {
     displayMode = "summary";
-  } else if (explainHits.length > 0 || normalized.includes("что это за файл") || normalized.includes("о чём он") || normalized.includes("о чем он")) {
+  } else if (
+    normalized.includes("объяс") ||
+    normalized.includes("о чем") ||
+    normalized.includes("о чём") ||
+    normalized.includes("смысл")
+  ) {
     displayMode = "explain";
   }
 
-  if (pendingChoiceContext?.isActive) {
-    if (displayMode === "raw_first_part") {
-      return {
-        intent: "answer_pending_choice",
-        targetEntity,
-        targetPath,
-        displayMode,
-        treePrefix: "",
-        clarifyNeeded: false,
-        clarifyQuestion: "",
-        confidence: "high",
-      };
-    }
-
-    if (summaryHits.length > 0 || explainHits.length > 0 || translateHits.length > 0 || continueHits.length > 0) {
-      return {
-        intent: "answer_pending_choice",
-        targetEntity,
-        targetPath,
-        displayMode: displayMode === "raw" ? (safeText(pendingChoiceContext?.displayMode) || "summary") : displayMode,
-        treePrefix: "",
-        clarifyNeeded: false,
-        clarifyQuestion: "",
-        confidence: "high",
-      };
-    }
+  if (normalized.includes("первая часть") || normalized.includes("покажи первую часть")) {
+    displayMode = "raw_first_part";
   }
 
-  if (isFolderFollowupMeaning({ normalized, tokens, followupContext })) {
-    const folderTarget = normalizeFolderTarget(
-      followupContext?.targetPath ||
-      followupContext?.treePrefix ||
-      followupContext?.targetEntity
-    );
+  const inferredObjectKind = inferObjectKindFromTarget(
+    pickFirstNonEmpty([
+      extractedTarget,
+      targetPath,
+      followupContext?.targetPath,
+      followupContext?.targetEntity,
+    ])
+  );
 
+  if (actionMeaning.intent === "continue_active") {
     return {
-      intent: "browse_folder",
-      targetEntity: safeText(followupContext?.targetEntity || extractedTarget),
-      targetPath: folderTarget,
-      displayMode: "raw",
-      treePrefix: folderTarget,
-      clarifyNeeded: !folderTarget,
-      clarifyQuestion: folderTarget ? "" : "Какую именно папку продолжить показывать?",
-      confidence: folderTarget ? "high" : "medium",
+      intent: "continue_active",
+      targetEntity: safeText(followupContext?.targetEntity),
+      targetPath: safeText(followupContext?.continuation?.targetPath || followupContext?.targetPath),
+      displayMode: safeText(followupContext?.continuation?.displayMode || followupContext?.displayMode || "explain"),
+      treePrefix: safeText(followupContext?.treePrefix),
+      objectKind: safeText(followupContext?.objectKind || inferredObjectKind),
+      clarifyNeeded: false,
+      clarifyQuestion: "",
+      confidence: "high",
     };
   }
 
-  if (isFileExplainMeaning({ normalized, tokens, extractedTarget, followupContext })) {
+  if (actionMeaning.intent === "answer_pending_choice") {
     return {
-      intent: "explain_target",
-      targetEntity: safeText(extractedTarget || targetEntity),
-      targetPath: safeText(extractedTarget || targetPath),
-      displayMode: displayMode === "raw" ? "explain" : displayMode,
-      treePrefix: "",
-      clarifyNeeded: !safeText(extractedTarget || targetPath || targetEntity),
-      clarifyQuestion: !safeText(extractedTarget || targetPath || targetEntity) ? "Какой именно файл нужно объяснить?" : "",
-      confidence: safeText(extractedTarget || targetPath || targetEntity) ? "high" : "medium",
-    };
-  }
-
-  if (followupContext?.isActive && isShortFollowupLike(text)) {
-    return {
-      intent: "explain_active",
+      intent: "answer_pending_choice",
       targetEntity,
       targetPath,
-      displayMode: displayMode === "raw" ? (safeText(followupContext?.displayMode) || "explain") : displayMode,
+      displayMode:
+        displayMode === "raw"
+          ? safeText(pendingChoiceContext?.displayMode || "summary")
+          : displayMode,
       treePrefix: "",
-      clarifyNeeded: !targetPath,
-      clarifyQuestion: targetPath ? "" : "Что именно из последнего результата нужно продолжить или объяснить?",
-      confidence: targetPath ? "high" : "medium",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
+      clarifyNeeded: false,
+      clarifyQuestion: "",
+      confidence: "high",
     };
   }
 
-  if (isFolderBrowseMeaning({ normalized, tokens, extractedTarget })) {
-    const folderTarget = normalizeFolderTarget(
-      extractedTarget || targetPath || targetEntity || treePrefix
-    );
-
-    return {
-      intent: "browse_folder",
-      targetEntity: safeText(extractedTarget || targetEntity),
-      targetPath: folderTarget,
-      displayMode: "raw",
-      treePrefix: folderTarget,
-      clarifyNeeded: !folderTarget,
-      clarifyQuestion: folderTarget ? "" : "Какую именно папку показать?",
-      confidence: folderTarget ? "high" : "medium",
-    };
-  }
-
-  if (treeHits.length > 0 || normalized.includes("какие папки в корне") || normalized.includes("дерево репозитория")) {
+  if (actionMeaning.intent === "show_tree") {
     return {
       intent: "show_tree",
       targetEntity: "",
       targetPath: "",
       displayMode: "raw",
       treePrefix,
+      objectKind: treePrefix ? "folder" : "root",
       clarifyNeeded: false,
       clarifyQuestion: "",
-      confidence: treePrefix ? "high" : "medium",
+      confidence: actionMeaning.confidence,
     };
   }
 
-  if (
-    (statusHits.length > 0 && normalized.includes("репозитор")) ||
-    normalized.includes("видишь репозиторий") ||
-    normalized.includes("есть доступ к репозиторию")
-  ) {
+  if (actionMeaning.intent === "repo_status") {
     return {
       intent: "repo_status",
       targetEntity: "",
       targetPath: "",
       displayMode: "raw",
       treePrefix: "",
+      objectKind: "repo",
       clarifyNeeded: false,
       clarifyQuestion: "",
-      confidence: "medium",
+      confidence: actionMeaning.confidence,
     };
   }
 
-  if (
-    searchHits.length > 0 &&
-    (explainHits.length > 0 || translateHits.length > 0 || summaryHits.length > 0 || normalized.includes("коротко о чем"))
-  ) {
+  if (actionMeaning.intent === "browse_folder") {
+    const folderTarget = normalizeFolderTarget(
+      extractedTarget || targetPath || targetEntity || treePrefix || followupContext?.targetPath || followupContext?.treePrefix
+    );
+
+    return {
+      intent: "browse_folder",
+      targetEntity: safeText(extractedTarget || targetEntity || folderTarget),
+      targetPath: folderTarget,
+      displayMode: "raw",
+      treePrefix: folderTarget,
+      objectKind: folderTarget ? "folder" : "unknown",
+      clarifyNeeded: !folderTarget,
+      clarifyQuestion: folderTarget ? "" : "Какую именно папку показать?",
+      confidence: folderTarget ? "high" : "medium",
+    };
+  }
+
+  if (actionMeaning.intent === "find_and_explain") {
     return {
       intent: "find_and_explain",
       targetEntity,
       targetPath,
       displayMode: displayMode === "raw" ? "summary" : displayMode,
       treePrefix: "",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
       clarifyNeeded: !targetEntity && !targetPath,
       clarifyQuestion: (!targetEntity && !targetPath) ? "Что именно искать и объяснить в репозитории?" : "",
       confidence: (targetEntity || targetPath) ? "high" : "low",
     };
   }
 
-  if (
-    searchHits.length > 0 ||
-    normalized.includes("найди файл") ||
-    normalized.includes("найди в репозитории")
-  ) {
+  if (actionMeaning.intent === "find_target") {
     return {
       intent: "find_target",
       targetEntity,
       targetPath,
       displayMode: "raw",
       treePrefix: "",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
       clarifyNeeded: !targetEntity && !targetPath,
       clarifyQuestion: (!targetEntity && !targetPath) ? "Что именно искать в репозитории?" : "",
       confidence: (targetEntity || targetPath) ? "high" : "low",
     };
   }
 
-  if (openHits.length > 0) {
+  if (actionMeaning.intent === "open_target") {
     return {
       intent: "open_target",
       targetEntity,
       targetPath,
       displayMode: "raw",
       treePrefix: "",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
       clarifyNeeded: !targetPath && !targetEntity,
       clarifyQuestion: (!targetPath && !targetEntity) ? "Какой именно файл или документ открыть?" : "",
       confidence: (targetEntity || targetPath) ? "high" : "low",
     };
   }
 
-  if (
-    explainHits.length > 0 ||
-    translateHits.length > 0 ||
-    summaryHits.length > 0 ||
-    normalized.includes("о чем он") ||
-    normalized.includes("о чём он") ||
-    normalized.includes("что это за файл")
-  ) {
+  if (actionMeaning.intent === "explain_active") {
+    return {
+      intent: "explain_active",
+      targetEntity,
+      targetPath,
+      displayMode: displayMode === "raw" ? (safeText(followupContext?.displayMode) || "explain") : displayMode,
+      treePrefix: "",
+      objectKind: safeText(followupContext?.objectKind || inferObjectKindFromTarget(targetPath || targetEntity)),
+      clarifyNeeded: !targetPath && !followupContext?.isActive,
+      clarifyQuestion: (!targetPath && !followupContext?.isActive) ? "Что именно нужно объяснить?" : "",
+      confidence: (targetPath || followupContext?.isActive) ? "high" : "medium",
+    };
+  }
+
+  if (actionMeaning.intent === "explain_target") {
     return {
       intent: "explain_target",
       targetEntity,
       targetPath,
       displayMode: displayMode === "raw" ? "explain" : displayMode,
       treePrefix: "",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
       clarifyNeeded: !targetPath && !targetEntity && !followupContext?.isActive,
       clarifyQuestion: (!targetPath && !targetEntity && !followupContext?.isActive) ? "Что именно нужно объяснить?" : "",
       confidence: (targetEntity || targetPath || followupContext?.isActive) ? "high" : "low",
@@ -873,6 +853,7 @@ function heuristicFallback({
     targetPath,
     displayMode,
     treePrefix: "",
+    objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
     clarifyNeeded: false,
     clarifyQuestion: "",
     confidence: targetEntity || targetPath ? "medium" : "low",
@@ -892,6 +873,7 @@ function sanitizeSemanticResult(raw, fallback) {
     "explain_target",
     "explain_active",
     "answer_pending_choice",
+    "continue_active",
     "unknown",
   ]);
 
@@ -909,6 +891,14 @@ function sanitizeSemanticResult(raw, fallback) {
     "high",
   ]);
 
+  const allowedObjectKinds = new Set([
+    "repo",
+    "root",
+    "folder",
+    "file",
+    "unknown",
+  ]);
+
   const intent = allowedIntents.has(result.intent)
     ? result.intent
     : fallback.intent;
@@ -921,6 +911,9 @@ function sanitizeSemanticResult(raw, fallback) {
       ? safeText(result.displayMode)
       : safeText(fallback.displayMode || "raw"),
     treePrefix: safeText(result.treePrefix || fallback.treePrefix || ""),
+    objectKind: allowedObjectKinds.has(safeText(result.objectKind))
+      ? safeText(result.objectKind)
+      : safeText(fallback.objectKind || "unknown"),
     clarifyNeeded: result.clarifyNeeded === true ? true : fallback.clarifyNeeded === true,
     clarifyQuestion: safeText(result.clarifyQuestion || fallback.clarifyQuestion),
     confidence: allowedConfidence.has(safeText(result.confidence))
@@ -941,6 +934,10 @@ function buildSemanticMessages({
     `active_repo_target_path: ${safeText(followupContext?.targetPath)}`,
     `active_repo_display_mode: ${safeText(followupContext?.displayMode)}`,
     `active_repo_action_kind: ${safeText(followupContext?.actionKind)}`,
+    `active_repo_object_kind: ${safeText(followupContext?.objectKind)}`,
+    `active_repo_continuation: ${followupContext?.continuation?.isActive === true ? "yes" : "no"}`,
+    `active_repo_continuation_target_path: ${safeText(followupContext?.continuation?.targetPath)}`,
+    `active_repo_continuation_display_mode: ${safeText(followupContext?.continuation?.displayMode)}`,
     `pending_choice_active: ${pendingChoiceContext?.isActive === true ? "yes" : "no"}`,
     `pending_choice_target_entity: ${safeText(pendingChoiceContext?.targetEntity)}`,
     `pending_choice_target_path: ${safeText(pendingChoiceContext?.targetPath)}`,
@@ -957,21 +954,23 @@ function buildSemanticMessages({
         "Do not explain.\n" +
         "Do not hallucinate files.\n" +
         "Prefer active repo context and pending choice context.\n" +
+        "Prefer object understanding: repo root, folder, file, continuation.\n" +
+        "If active repo continuation exists and user asks to continue, use continue_active.\n" +
         "If active repo action is browse_folder and user mentions a basename like DOCS_GOVERNANCE.md, treat it as a file inside that active folder.\n" +
-        "If active repo action is browse_folder and user says things like 'там', 'ещё папки', 'покажи', 'что внутри', prefer browse_folder continuation.\n" +
-        "If user asks what a file is about, prefer explain_target, not generic world knowledge.\n" +
+        "If user asks what is inside a folder, prefer browse_folder.\n" +
+        "If user asks what a file is about, prefer explain_target.\n" +
         "If user asks to show repository tree, default to root-first.\n" +
-        "If user asks what is inside a folder / directory / папка, prefer browse_folder instead of generic search.\n" +
         "JSON shape:\n" +
         "{\n" +
-        "  \"intent\": \"repo_status|show_tree|browse_folder|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|unknown\",\n" +
-        "  \"targetEntity\": \"string\",\n" +
-        "  \"targetPath\": \"string\",\n" +
-        "  \"displayMode\": \"raw|raw_first_part|summary|explain|translate_ru\",\n" +
-        "  \"treePrefix\": \"string\",\n" +
-        "  \"clarifyNeeded\": true,\n" +
-        "  \"clarifyQuestion\": \"string\",\n" +
-        "  \"confidence\": \"low|medium|high\"\n" +
+        '  "intent": "repo_status|show_tree|browse_folder|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|continue_active|unknown",\n' +
+        '  "targetEntity": "string",\n' +
+        '  "targetPath": "string",\n' +
+        '  "displayMode": "raw|raw_first_part|summary|explain|translate_ru",\n' +
+        '  "treePrefix": "string",\n' +
+        '  "objectKind": "repo|root|folder|file|unknown",\n' +
+        '  "clarifyNeeded": true,\n' +
+        '  "clarifyQuestion": "string",\n' +
+        '  "confidence": "low|medium|high"\n' +
         "}",
     },
     {
@@ -1006,7 +1005,7 @@ export async function resolveProjectIntentSemanticPlan({
       }),
       "high",
       {
-        max_completion_tokens: 220,
+        max_completion_tokens: 260,
         temperature: 0.1,
       }
     );

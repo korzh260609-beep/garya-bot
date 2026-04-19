@@ -38,7 +38,6 @@ import {
   sanitizeEntity,
 } from "./projectIntentConversationShared.js";
 import {
-  DEFAULT_TRANSPORT_REPLY_LIMIT,
   getReplyLimitFromReplyAndLog,
   buildPackedExplainText,
 } from "./projectIntentResponsePacker.js";

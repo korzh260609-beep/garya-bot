@@ -52,6 +52,13 @@ function normalizeFolderPrefix(value = "") {
   return `${v}/`;
 }
 
+function joinFolderWithBasename(folderPath = "", basename = "") {
+  const folder = normalizeFolderPrefix(folderPath);
+  const file = safeText(basename).replace(/^\/+/, "");
+  if (!folder || !file) return "";
+  return `${folder}${file}`;
+}
+
 export async function runProjectIntentConversationFlow({
   trimmed,
   route,
@@ -427,14 +434,24 @@ export async function runProjectIntentConversationFlow({
   }
 
   if (semanticPlan.intent === "open_target") {
-    const matches = await searchSnapshotPaths(
-      latest.id,
-      sanitizeEntity(semanticPlan.targetPath || semanticPlan.targetEntity),
-      8
-    );
+    const rawTarget = sanitizeEntity(semanticPlan.targetPath || semanticPlan.targetEntity);
+    const candidateFromFolder =
+      followupContext?.isActive === true &&
+      safeText(followupContext?.actionKind) === "browse_folder" &&
+      /\.[a-z0-9]{1,8}$/i.test(rawTarget) &&
+      !rawTarget.includes("/")
+        ? joinFolderWithBasename(followupContext?.targetPath || followupContext?.treePrefix, rawTarget)
+        : "";
+
+    const matches = candidateFromFolder
+      ? [candidateFromFolder]
+      : await searchSnapshotPaths(latest.id, rawTarget, 8);
 
     const targetPath = pickLikelyTargetPath({
-      semanticPlan,
+      semanticPlan: {
+        ...semanticPlan,
+        targetPath: candidateFromFolder || semanticPlan.targetPath,
+      },
       searchMatches: matches,
       followupContext,
       pendingChoiceContext,
@@ -543,14 +560,24 @@ export async function runProjectIntentConversationFlow({
       safeText(followupContext?.displayMode) ||
       "explain";
 
-    const matches = await searchSnapshotPaths(
-      latest.id,
-      sanitizeEntity(semanticPlan.targetPath || semanticPlan.targetEntity),
-      8
-    );
+    const rawTarget = sanitizeEntity(semanticPlan.targetPath || semanticPlan.targetEntity);
+    const candidateFromFolder =
+      followupContext?.isActive === true &&
+      safeText(followupContext?.actionKind) === "browse_folder" &&
+      /\.[a-z0-9]{1,8}$/i.test(rawTarget) &&
+      !rawTarget.includes("/")
+        ? joinFolderWithBasename(followupContext?.targetPath || followupContext?.treePrefix, rawTarget)
+        : "";
+
+    const matches = candidateFromFolder
+      ? [candidateFromFolder]
+      : await searchSnapshotPaths(latest.id, rawTarget, 8);
 
     const targetPath = pickLikelyTargetPath({
-      semanticPlan,
+      semanticPlan: {
+        ...semanticPlan,
+        targetPath: candidateFromFolder || semanticPlan.targetPath,
+      },
       searchMatches: matches,
       followupContext,
       pendingChoiceContext,

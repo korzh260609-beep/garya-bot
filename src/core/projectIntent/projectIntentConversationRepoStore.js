@@ -38,6 +38,20 @@ function isFileLike(value = "") {
   return /\.[a-z0-9]{1,8}$/i.test(safeText(value));
 }
 
+function isFolderLike(value = "") {
+  const v = safeText(value);
+  if (!v) return false;
+  if (isFileLike(v)) return false;
+  return v.includes("/") || /^[a-z0-9_.-]+$/i.test(v);
+}
+
+function normalizeFolderPath(value = "") {
+  const v = normalizePath(value);
+  if (!v) return "";
+  if (isFileLike(v)) return v;
+  return v.endsWith("/") ? v : `${v}/`;
+}
+
 function isBareBasenameLike(value = "") {
   const v = safeText(value);
   return !!v && !hasPathSeparator(v) && isFileLike(v);
@@ -102,15 +116,61 @@ export async function pathExistsInSnapshot(snapshotId, path) {
   const normalized = normalizePath(path);
   if (!normalized) return false;
 
-  const res = await pool.query(
+  const fileRes = await pool.query(
     `SELECT 1 FROM repo_index_files WHERE snapshot_id = $1 AND path = $2 LIMIT 1`,
     [snapshotId, normalized]
   );
-  return Array.isArray(res?.rows) && res.rows.length > 0;
+
+  if (Array.isArray(fileRes?.rows) && fileRes.rows.length > 0) {
+    return true;
+  }
+
+  if (!isFileLike(normalized)) {
+    const folderPrefix = normalizeFolderPath(normalized);
+    if (!folderPrefix) return false;
+
+    const folderRes = await pool.query(
+      `SELECT 1 FROM repo_index_files WHERE snapshot_id = $1 AND path ILIKE $2 LIMIT 1`,
+      [snapshotId, `${folderPrefix}%`]
+    );
+
+    return Array.isArray(folderRes?.rows) && folderRes.rows.length > 0;
+  }
+
+  return false;
+}
+
+export async function pathKindInSnapshot(snapshotId, path) {
+  const normalized = normalizePath(path);
+  if (!normalized) return "unknown";
+
+  const fileRes = await pool.query(
+    `SELECT 1 FROM repo_index_files WHERE snapshot_id = $1 AND path = $2 LIMIT 1`,
+    [snapshotId, normalized]
+  );
+
+  if (Array.isArray(fileRes?.rows) && fileRes.rows.length > 0) {
+    return "file";
+  }
+
+  if (!isFileLike(normalized)) {
+    const folderPrefix = normalizeFolderPath(normalized);
+    const folderRes = await pool.query(
+      `SELECT 1 FROM repo_index_files WHERE snapshot_id = $1 AND path ILIKE $2 LIMIT 1`,
+      [snapshotId, `${folderPrefix}%`]
+    );
+
+    if (Array.isArray(folderRes?.rows) && folderRes.rows.length > 0) {
+      return "folder";
+    }
+  }
+
+  return "unknown";
 }
 
 export async function fetchPathsByPrefix(snapshotId, prefix = "") {
-  const p = safeText(prefix);
+  const p = normalizePath(prefix);
+
   if (!p) {
     const res = await pool.query(
       `SELECT path FROM repo_index_files WHERE snapshot_id = $1 ORDER BY path ASC`,
@@ -119,11 +179,23 @@ export async function fetchPathsByPrefix(snapshotId, prefix = "") {
     return Array.isArray(res?.rows) ? res.rows.map((r) => safeText(r.path)).filter(Boolean) : [];
   }
 
-  const prefixLike = p.endsWith("/") ? `${p}%` : `${p}/%`;
+  const normalizedFolder = normalizeFolderPath(p);
+  const exactLike = p;
+  const prefixLike = normalizedFolder ? `${normalizedFolder}%` : `${p}%`;
+
   const res = await pool.query(
-    `SELECT path FROM repo_index_files WHERE snapshot_id = $1 AND path ILIKE $2 ORDER BY path ASC`,
-    [snapshotId, prefixLike]
+    `SELECT path
+       FROM repo_index_files
+      WHERE snapshot_id = $1
+        AND (
+          path ILIKE $2
+          OR path ILIKE $3
+          OR path = $4
+        )
+      ORDER BY path ASC`,
+    [snapshotId, prefixLike, `${p}%`, exactLike]
   );
+
   return Array.isArray(res?.rows) ? res.rows.map((r) => safeText(r.path)).filter(Boolean) : [];
 }
 
@@ -171,7 +243,7 @@ export function computeImmediateChildren(paths = [], prefix = "") {
   };
 }
 
-function rankPathCandidate(path = "", query = "") {
+function rankPathCandidate(path = "", query = "", objectKind = "unknown") {
   const p = safeText(path);
   const q = normalizeText(query);
   const pathLower = p.toLowerCase();
@@ -198,6 +270,14 @@ function rankPathCandidate(path = "", query = "") {
     if (baseNoExt.includes(t)) score += 10;
   }
 
+  if (objectKind === "folder" && !isFileLike(p)) {
+    score += 35;
+  }
+
+  if (objectKind === "file" && isFileLike(p)) {
+    score += 35;
+  }
+
   if ((q.includes("описан") || q.includes("проект")) && pathLower === "readme.md") {
     score += 140;
   }
@@ -221,16 +301,17 @@ function rankPathCandidate(path = "", query = "") {
   return score;
 }
 
-export async function searchSnapshotPaths(snapshotId, query, limit = 8) {
+export async function searchSnapshotPaths(snapshotId, query, limit = 8, options = {}) {
   const q = sanitizeEntity(query);
   if (!q) return [];
 
+  const objectKind = safeText(options?.objectKind || "unknown");
   const canonicalPath = resolveCanonicalPathFromBasename(q);
   const allPaths = await fetchAllSnapshotPaths(snapshotId);
 
   const ranked = allPaths
     .map((path) => {
-      let score = rankPathCandidate(path, q);
+      let score = rankPathCandidate(path, q, objectKind);
 
       if (canonicalPath && safeText(path) === canonicalPath) {
         score += 400;
@@ -242,6 +323,16 @@ export async function searchSnapshotPaths(snapshotId, query, limit = 8) {
     })
     .filter((item) => item.score > 0);
 
+  const directFolderPrefix = !isFileLike(q) ? normalizeFolderPath(q) : "";
+  if (directFolderPrefix) {
+    const prefixed = allPaths
+      .filter((path) => safeText(path).toLowerCase().startsWith(directFolderPrefix.toLowerCase()))
+      .slice(0, limit)
+      .map((path) => ({ path, score: 260 }));
+
+    ranked.push(...prefixed);
+  }
+
   return unique(
     sortByScoreThenPath(ranked)
       .slice(0, limit)
@@ -252,6 +343,7 @@ export async function searchSnapshotPaths(snapshotId, query, limit = 8) {
 export async function fetchRepoFileText({ path, repo, branch, token }) {
   const normalized = normalizePath(path);
   if (!normalized) return null;
+  if (!isFileLike(normalized)) return null;
 
   const source = new RepoSource({ repo, branch, token });
   const item = await source.fetchTextFile(normalized);
@@ -286,12 +378,20 @@ export function pickLikelyTargetPathFromKnownEntity(entity = "") {
   return "";
 }
 
-function pickBestSearchMatch(searchMatches = [], candidate = "") {
+function pickBestSearchMatch(searchMatches = [], candidate = "", objectKind = "unknown") {
   const matches = Array.isArray(searchMatches) ? searchMatches.filter(Boolean) : [];
   if (!matches.length) return "";
 
   const normalizedCandidate = safeText(candidate).toLowerCase();
   if (!normalizedCandidate) return normalizePath(matches[0]);
+
+  if (objectKind === "folder") {
+    const exactFolder = matches.find((path) => normalizeFolderPath(path).toLowerCase() === normalizeFolderPath(normalizedCandidate).toLowerCase());
+    if (exactFolder) return normalizeFolderPath(exactFolder);
+
+    const prefixFolder = matches.find((path) => safeText(path).toLowerCase().startsWith(normalizeFolderPath(normalizedCandidate).toLowerCase()));
+    if (prefixFolder) return normalizeFolderPath(normalizedCandidate);
+  }
 
   const exactBase = matches.find((path) => basenameOf(path).toLowerCase() === normalizedCandidate);
   if (exactBase) return normalizePath(exactBase);
@@ -308,16 +408,24 @@ export function pickLikelyTargetPath({
   followupContext = null,
   pendingChoiceContext = null,
 }) {
+  const objectKind = safeText(semanticPlan?.objectKind || "unknown");
+
   const directPath = normalizePath(semanticPlan?.targetPath);
   const directPathLooksFull = hasPathSeparator(directPath);
   const directPathLooksBasename = isBareBasenameLike(directPath);
+  const directPathLooksFolder = !!directPath && !isFileLike(directPath);
 
   const searchBest = pickBestSearchMatch(
     searchMatches,
-    directPath || semanticPlan?.targetEntity || ""
+    directPath || semanticPlan?.targetEntity || "",
+    objectKind
   );
 
-  if (directPathLooksFull) {
+  if (objectKind === "folder" && directPathLooksFolder) {
+    return normalizeFolderPath(directPath);
+  }
+
+  if (directPathLooksFull && objectKind !== "folder") {
     return directPath;
   }
 
@@ -328,17 +436,42 @@ export function pickLikelyTargetPath({
   }
 
   const knownPath = pickLikelyTargetPathFromKnownEntity(semanticPlan?.targetEntity);
-  if (knownPath) return knownPath;
+  if (knownPath) {
+    if (objectKind === "folder" && !isFileLike(knownPath)) {
+      return normalizeFolderPath(knownPath);
+    }
+    return knownPath;
+  }
 
-  if (searchBest) return searchBest;
+  if (searchBest) {
+    if (objectKind === "folder" && !isFileLike(searchBest)) {
+      return normalizeFolderPath(searchBest);
+    }
+    return searchBest;
+  }
 
   const followupPath = normalizePath(followupContext?.targetPath);
-  if (followupPath) return followupPath;
+  if (followupPath) {
+    if (objectKind === "folder" && !isFileLike(followupPath)) {
+      return normalizeFolderPath(followupPath);
+    }
+    return followupPath;
+  }
 
   const pendingPath = normalizePath(pendingChoiceContext?.targetPath);
-  if (pendingPath) return pendingPath;
+  if (pendingPath) {
+    if (objectKind === "folder" && !isFileLike(pendingPath)) {
+      return normalizeFolderPath(pendingPath);
+    }
+    return pendingPath;
+  }
 
-  if (directPath) return directPath;
+  if (directPath) {
+    if (objectKind === "folder" && !isFileLike(directPath)) {
+      return normalizeFolderPath(directPath);
+    }
+    return directPath;
+  }
 
   return "";
 }
@@ -346,6 +479,7 @@ export function pickLikelyTargetPath({
 export default {
   loadLatestSnapshot,
   pathExistsInSnapshot,
+  pathKindInSnapshot,
   fetchPathsByPrefix,
   fetchAllSnapshotPaths,
   computeImmediateChildren,

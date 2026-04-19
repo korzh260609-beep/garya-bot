@@ -113,7 +113,7 @@ async function replyPackedExplain({
 
   await replyHuman(
     replyAndLog,
-    safeText(packed.text) || "Я прочитал объект репозитория, но не смог нормально сформулировать объяснение.",
+    safeText(packed.text) || "Объяснение не удалось сформировать достаточно надёжно.",
     {
       event,
       ...contextMeta,
@@ -139,7 +139,7 @@ async function replyContinuation({
   if (!continuationReply.ok) {
     await replyHuman(
       replyAndLog,
-      "Продолжения больше нет. Могу заново кратко пересказать объект репозитория или объяснить его смысл.",
+      "Продолжения больше нет. Доступные действия: заново кратко пересказать объект или объяснить его смысл.",
       {
         event: "repo_conversation_no_more_continuation",
         read_only: true,
@@ -269,7 +269,7 @@ async function replyFolderBrowseFromPath({
   if (!requestedFolder) {
     await replyHuman(
       replyAndLog,
-      humanClarificationReply("Какую именно папку показать?"),
+      humanClarificationReply("Нужен точный путь папки."),
       { event: `${event}_clarification` }
     );
     return {
@@ -296,7 +296,7 @@ async function replyFolderBrowseFromPath({
 
     await replyHuman(
       replyAndLog,
-      `Я понял, что это папка \`${requestedFolder}\`, но в текущем снимке репозитория не нашёл у неё вложенных элементов.`,
+      `\`${requestedFolder}\` — папка репозитория без видимых вложенных элементов в текущем снимке.`,
       {
         event: `${event}_empty`,
         read_only: true,
@@ -363,7 +363,7 @@ async function replyExplainFolderFromPath({
   if (!requestedFolder) {
     await replyHuman(
       replyAndLog,
-      humanClarificationReply("Какую именно папку нужно объяснить?"),
+      humanClarificationReply("Нужен точный путь папки для объяснения."),
       { event: `${event}_clarification` }
     );
     return {
@@ -390,7 +390,7 @@ async function replyExplainFolderFromPath({
 
     await replyHuman(
       replyAndLog,
-      `Я понял, что нужно объяснить папку \`${requestedFolder}\`, но в текущем снимке не вижу у неё содержимого, по которому можно сделать надёжный вывод.`,
+      `\`${requestedFolder}\` — папка без видимого содержимого в текущем снимке. Этого недостаточно для надёжного объяснения роли.`,
       {
         event: `${event}_empty`,
         read_only: true,
@@ -411,10 +411,7 @@ async function replyExplainFolderFromPath({
     Math.max(0, directories.length - shownDirectories.length) +
     Math.max(0, files.length - shownFiles.length);
 
-  const lines = [
-    `Я понял, что \`${requestedFolder}\` — это папка репозитория.`,
-    "",
-  ];
+  const lines = [`\`${requestedFolder}\` — папка репозитория.`, ""];
 
   if (shownDirectories.length > 0) {
     lines.push("Верхние подпапки:");
@@ -432,39 +429,24 @@ async function replyExplainFolderFromPath({
     lines.push("");
   }
 
-  lines.push(
-    "По смыслу эта папка отвечает за ту часть системы, которая выражена её содержимым и структурой."
-  );
+  lines.push("Роль этой папки определяется её содержимым и структурой.");
 
   if (shownDirectories.length > 0 && shownFiles.length > 0) {
-    lines.push(
-      "То есть здесь, похоже, собраны и вложенные части модуля, и конкретные файлы реализации этого направления."
-    );
+    lines.push("Внутри сочетаются вложенные части модуля и отдельные файлы реализации.");
   } else if (shownDirectories.length > 0) {
-    lines.push(
-      "То есть здесь акцент больше на структурировании подмодулей, а не на одном-двух отдельных файлах."
-    );
+    lines.push("Структура указывает на организацию подмодулей или отдельных направлений логики.");
   } else if (shownFiles.length > 0) {
-    lines.push(
-      "То есть здесь акцент больше на наборе файлов реализации без сильного дробления на подпапки."
-    );
+    lines.push("Структура указывает на набор файлов реализации без выраженного дробления на подпапки.");
   }
 
   if (hiddenCount > 0) {
-    lines.push(
-      `Глубже внутри есть ещё ${hiddenCount} элементов, поэтому для точного объяснения роли папки лучше открыть 1–2 ключевых файла или подпапки.`
-    );
+    lines.push(`Глубже внутри есть ещё ${hiddenCount} элементов, поэтому для точного вывода лучше открыть 1–2 ключевых объекта внутри.`);
   } else {
-    lines.push(
-      "Текущего верхнего уровня уже достаточно, чтобы безопасно понимать её как отдельный объект структуры."
-    );
+    lines.push("Текущего верхнего уровня уже достаточно для базового понимания её роли как отдельного объекта структуры.");
   }
 
   lines.push("");
-  lines.push("Дальше могу:");
-  lines.push("- раскрыть эту папку");
-  lines.push("- открыть один из файлов");
-  lines.push("- объяснить конкретный файл внутри неё");
+  lines.push("Следующий шаг: раскрыть папку глубже, открыть файл внутри или объяснить конкретный файл.");
 
   const contextMeta = buildRepoContextMeta({
     targetEntity,
@@ -508,7 +490,7 @@ async function replyOpenFileFromPath({
   if (!content) {
     await replyHuman(
       replyAndLog,
-      `Я нашёл путь \`${targetPath}\`, но не смог прочитать содержимое файла.`,
+      `\`${targetPath}\` найден, но содержимое файла прочитать не удалось.`,
       { event: `${event}_fetch_failed` }
     );
     return { handled: true, reason: "open_fetch_failed" };
@@ -593,6 +575,7 @@ async function replyExplainFileFromPath({
   repo,
   branch,
   token,
+  callAI,
   event,
   forceFirstPart = false,
 }) {
@@ -602,7 +585,7 @@ async function replyExplainFileFromPath({
   if (!content) {
     await replyHuman(
       replyAndLog,
-      `Я нашёл путь \`${targetPath}\`, но не смог прочитать сам файл.`,
+      `\`${targetPath}\` найден, но сам файл прочитать не удалось.`,
       { event: `${event}_fetch_failed` }
     );
     return { handled: true, reason: "explain_fetch_failed" };
@@ -675,14 +658,19 @@ async function replyExplainFileFromPath({
     };
   }
 
-  const aiReply = await callAIForExplain({
-    trimmed,
-    targetPath,
-    content,
-    displayMode,
-    replyAndLog,
-    semanticConfidence,
-  });
+  const aiReply = await callAI(
+    buildAiMessages({
+      userText: trimmed,
+      path: targetPath,
+      content,
+      displayMode,
+    }),
+    "high",
+    {
+      max_completion_tokens: 900,
+      temperature: 0.35,
+    }
+  );
 
   const contextMeta = await replyPackedExplain({
     replyAndLog,
@@ -704,31 +692,6 @@ async function replyExplainFileFromPath({
   };
 }
 
-async function callAIForExplain({
-  trimmed,
-  targetPath,
-  content,
-  displayMode,
-  replyAndLog,
-  semanticConfidence,
-}) {
-  void replyAndLog;
-  void semanticConfidence;
-  return globalThis.__projectIntentConversationServiceCallAI__(
-    buildAiMessages({
-      userText: trimmed,
-      path: targetPath,
-      content,
-      displayMode,
-    }),
-    "high",
-    {
-      max_completion_tokens: 900,
-      temperature: 0.35,
-    }
-  );
-}
-
 export async function runProjectIntentConversationFlow({
   trimmed,
   route,
@@ -737,8 +700,6 @@ export async function runProjectIntentConversationFlow({
   replyAndLog,
   callAI,
 }) {
-  globalThis.__projectIntentConversationServiceCallAI__ = callAI;
-
   if (route?.routeKey !== "sg_core_internal_read_allowed") {
     return { handled: false, reason: "not_internal_repo_read" };
   }
@@ -747,7 +708,7 @@ export async function runProjectIntentConversationFlow({
   if (!snapshotState.ok || !snapshotState.latest) {
     await replyHuman(
       replyAndLog,
-      "Я пока не могу читать репозиторий, потому что индекс ещё не подготовлен. Сначала нужен актуальный снимок репозитория.",
+      "Индекс репозитория пока не готов. Нужен актуальный снимок репозитория.",
       {
         event: "repo_conversation_no_snapshot",
       }
@@ -901,15 +862,18 @@ export async function runProjectIntentConversationFlow({
       { objectKind: semanticPlan?.objectKind || "unknown" }
     );
 
+    const singleKind =
+      matches.length === 1
+        ? await pathKindInSnapshot(latest.id, matches[0])
+        : safeText(semanticPlan?.objectKind || "unknown");
+
     const text = humanSearchReply({
       targetEntity: query,
       matches,
+      objectKind: singleKind,
     });
 
     const chosenPath = matches.length === 1 ? matches[0] : "";
-    const chosenKind = chosenPath
-      ? await pathKindInSnapshot(latest.id, chosenPath)
-      : safeText(semanticPlan?.objectKind || "unknown");
 
     const contextMeta = buildRepoContextMeta({
       targetEntity: query,
@@ -920,7 +884,7 @@ export async function runProjectIntentConversationFlow({
       actionKind: "find_target",
     });
 
-    contextMeta.projectIntentObjectKind = safeText(chosenKind || "unknown");
+    contextMeta.projectIntentObjectKind = safeText(singleKind || "unknown");
 
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_search",
@@ -956,6 +920,7 @@ export async function runProjectIntentConversationFlow({
       const text = humanSearchReply({
         targetEntity: query,
         matches,
+        objectKind: safeText(semanticPlan?.objectKind || "unknown"),
       });
 
       const contextMeta = buildRepoContextMeta({
@@ -1007,13 +972,14 @@ export async function runProjectIntentConversationFlow({
         repo,
         branch,
         token,
+        callAI,
         event: "repo_conversation_find_and_explain_ai",
       });
     }
 
     await replyHuman(
       replyAndLog,
-      `Я нашёл кандидат \`${resolved.targetPath}\`, но пока не смог надёжно определить, это файл или папка в текущем снимке репозитория.`,
+      `\`${resolved.targetPath}\` найден, но тип объекта пока не определён надёжно.`,
       { event: "repo_conversation_find_and_explain_unknown_kind" }
     );
 
@@ -1057,7 +1023,7 @@ export async function runProjectIntentConversationFlow({
     if (!resolved.ok) {
       await replyHuman(
         replyAndLog,
-        humanClarificationReply("Какой именно объект репозитория открыть: файл или папку?"),
+        humanClarificationReply("Нужен более точный объект репозитория: файл или папка."),
         { event: "repo_conversation_open_clarification" }
       );
       return { handled: true, reason: "open_clarification" };
@@ -1093,7 +1059,7 @@ export async function runProjectIntentConversationFlow({
 
     await replyHuman(
       replyAndLog,
-      `Я нашёл путь \`${resolved.targetPath}\`, но пока не смог надёжно определить тип этого объекта.`,
+      `\`${resolved.targetPath}\` найден, но тип объекта определить не удалось.`,
       { event: "repo_conversation_open_unknown_kind" }
     );
 
@@ -1144,7 +1110,7 @@ export async function runProjectIntentConversationFlow({
     if (!resolved.ok) {
       await replyHuman(
         replyAndLog,
-        humanClarificationReply("Что именно нужно объяснить: файл или папку?"),
+        humanClarificationReply("Нужен более точный объект для объяснения: файл или папка."),
         { event: "repo_conversation_explain_clarification" }
       );
       return { handled: true, reason: "explain_clarification" };
@@ -1184,6 +1150,7 @@ export async function runProjectIntentConversationFlow({
         repo,
         branch,
         token,
+        callAI,
         event: "repo_conversation_explain_ai",
         forceFirstPart: effectiveDisplayMode === "raw_first_part",
       });
@@ -1191,7 +1158,7 @@ export async function runProjectIntentConversationFlow({
 
     await replyHuman(
       replyAndLog,
-      `Я нашёл путь \`${resolved.targetPath}\`, но пока не смог надёжно определить, это файл или папка.`,
+      `\`${resolved.targetPath}\` найден, но пока неясно, это файл или папка.`,
       { event: "repo_conversation_explain_unknown_kind" }
     );
 

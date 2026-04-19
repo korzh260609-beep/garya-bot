@@ -1,6 +1,6 @@
 // src/core/projectIntent/projectIntentRoute.js
 // ============================================================================
-// STAGE 12A.0 — project free-text route resolver (SKELETON)
+// STAGE 12A.0 — project free-text route resolver (meaning-first)
 // Purpose:
 // - build ONE universal route decision above scope-aware classifier
 // - separate classification from access decision from future routing
@@ -66,9 +66,6 @@ export function resolveProjectIntentRoute({
   let requiresPrivate = false;
   let readOnly = false;
 
-  // ===========================================================================
-  // 1) SG CORE INTERNAL
-  // ===========================================================================
   if (match.targetScope === "sg_core_internal") {
     requiresMonarch = true;
     requiresPrivate = true;
@@ -90,12 +87,7 @@ export function resolveProjectIntentRoute({
       allowed = false;
       blocked = true;
     }
-  }
-
-  // ===========================================================================
-  // 2) USER PROJECT
-  // ===========================================================================
-  else if (match.targetScope === "user_project") {
+  } else if (match.targetScope === "user_project") {
     policy = PROJECT_INTENT_ROUTE_POLICIES.USER_PROJECT_FUTURE;
 
     if (match.actionMode === "read") {
@@ -111,12 +103,7 @@ export function resolveProjectIntentRoute({
     allowed = true;
     blocked = false;
     readOnly = false;
-  }
-
-  // ===========================================================================
-  // 3) GENERIC EXTERNAL
-  // ===========================================================================
-  else if (match.targetScope === "generic_external") {
+  } else if (match.targetScope === "generic_external") {
     policy = PROJECT_INTENT_ROUTE_POLICIES.GENERIC_EXTERNAL_PASS;
 
     if (match.actionMode === "read") {

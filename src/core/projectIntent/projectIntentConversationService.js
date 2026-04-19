@@ -37,29 +37,17 @@ import {
   normalizePath,
   sanitizeEntity,
 } from "./projectIntentConversationShared.js";
+import {
+  DEFAULT_TRANSPORT_REPLY_LIMIT,
+  getReplyLimitFromReplyAndLog,
+  buildPackedExplainText,
+} from "./projectIntentResponsePacker.js";
 
 export {
   buildProjectIntentRoutingText,
   getLatestProjectIntentRepoContext,
   getLatestProjectIntentPendingChoice,
 };
-
-const DEFAULT_TRANSPORT_REPLY_LIMIT = 3200;
-const TRANSPORT_REPLY_LIMITS = Object.freeze({
-  telegram: 3200,
-  discord: 3500,
-  web: 6000,
-  api: 8000,
-  unknown: DEFAULT_TRANSPORT_REPLY_LIMIT,
-});
-
-function getReplyLimitFromMeta(replyAndLog) {
-  const transportName = safeText(replyAndLog?.transport || replyAndLog?.transportName).toLowerCase();
-  if (transportName && TRANSPORT_REPLY_LIMITS[transportName]) {
-    return TRANSPORT_REPLY_LIMITS[transportName];
-  }
-  return DEFAULT_TRANSPORT_REPLY_LIMIT;
-}
 
 function normalizeFolderPrefix(value = "") {
   const v = normalizePath(value);
@@ -76,123 +64,32 @@ function joinFolderWithBasename(folderPath = "", basename = "") {
   return `${folder}${file}`;
 }
 
-function isLikelySentenceBoundaryChar(ch = "") {
-  return [".", "!", "?", "…"].includes(ch);
+function looksLikeFolderPath(value = "") {
+  const v = safeText(value);
+  if (!v) return false;
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return false;
+  return v.includes("/") || /^[a-z0-9_.-]+$/i.test(v);
 }
 
-function cutAtSemanticBoundary(text = "", limit = DEFAULT_TRANSPORT_REPLY_LIMIT) {
-  const raw = safeText(text);
-  if (!raw) {
-    return {
-      head: "",
-      tail: "",
-      wasSplit: false,
-      endedCleanly: true,
-    };
-  }
+function isLikelyDirectFolderBrowseRequest(trimmed = "", semanticPlan = null) {
+  const text = safeText(trimmed).toLowerCase();
+  const target = safeText(semanticPlan?.targetPath || semanticPlan?.targetEntity);
 
-  if (raw.length <= limit) {
-    return {
-      head: raw,
-      tail: "",
-      wasSplit: false,
-      endedCleanly: true,
-    };
-  }
+  if (!target) return false;
 
-  const slice = raw.slice(0, limit);
-
-  let bestIndex = -1;
-
-  for (let i = slice.length - 1; i >= Math.floor(limit * 0.55); i -= 1) {
-    const ch = slice[i];
-    const next = slice[i + 1] || "";
-
-    if (isLikelySentenceBoundaryChar(ch) && (next === " " || next === "\n" || next === "")) {
-      bestIndex = i + 1;
-      break;
-    }
-
-    if (ch === "\n" && slice[i - 1] === "\n") {
-      bestIndex = i + 1;
-      break;
-    }
-  }
-
-  if (bestIndex === -1) {
-    for (let i = slice.length - 1; i >= Math.floor(limit * 0.7); i -= 1) {
-      if (slice[i] === " ") {
-        bestIndex = i;
-        break;
-      }
-    }
-  }
-
-  if (bestIndex === -1) {
-    bestIndex = limit;
-  }
-
-  const head = slice.slice(0, bestIndex).trim();
-  const tail = raw.slice(bestIndex).trim();
-
-  return {
-    head,
-    tail,
-    wasSplit: true,
-    endedCleanly: /[.!?…]$/.test(head),
-  };
-}
-
-function buildExplainDeliveryPlan({
-  aiReply,
-  targetPath,
-  displayMode,
-  replyLimit,
-}) {
-  const text = safeText(aiReply);
-
-  const split = cutAtSemanticBoundary(text, replyLimit);
-
-  if (!split.wasSplit) {
-    return {
-      text,
-      largeDocument: false,
-      pendingChoice: null,
-    };
-  }
-
-  const name = safeText(targetPath).split("/").pop() || safeText(targetPath) || "документ";
-
-  const intro =
-    displayMode === "summary"
-      ? `Я даю первую часть краткого объяснения файла ${name}.`
-      : `Я даю первую часть объяснения файла ${name}.`;
-
-  const statusBlock = split.endedCleanly
-    ? [
-        "",
-        "Ответ длиннее одного сообщения.",
-        "Есть продолжение.",
-        "Напиши: `продолжай` или `покажи следующую часть`.",
-      ].join("\n")
-    : [
-        "",
-        "Ответ пришлось остановить на границе допустимого объёма.",
-        "Есть продолжение.",
-        "Напиши: `продолжай` или `покажи следующую часть`.",
-      ].join("\n");
-
-  return {
-    text: [intro, "", split.head, statusBlock].join("\n"),
-    largeDocument: true,
-    pendingChoice: {
-      isActive: true,
-      kind: "large_doc_action",
-      targetEntity: name,
-      targetPath: safeText(targetPath),
-      displayMode,
-    },
-  };
+  return (
+    looksLikeFolderPath(target) &&
+    (
+      text.includes("папк") ||
+      text.includes("folder") ||
+      text.includes("directory") ||
+      text.includes("что в ней") ||
+      text.includes("что внутри") ||
+      text.includes("содержимое") ||
+      text.includes("просмотри эту папку") ||
+      text.includes("покажи папку")
+    )
+  );
 }
 
 async function replyPackedExplain({
@@ -206,9 +103,9 @@ async function replyPackedExplain({
   actionKind,
   event,
 }) {
-  const replyLimit = getReplyLimitFromMeta(replyAndLog);
+  const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
 
-  const plan = buildExplainDeliveryPlan({
+  const packed = buildPackedExplainText({
     aiReply,
     targetPath,
     displayMode,
@@ -220,15 +117,15 @@ async function replyPackedExplain({
     targetPath,
     displayMode,
     sourceText,
-    largeDocument: plan.largeDocument === true,
-    pendingChoice: plan.pendingChoice,
+    largeDocument: packed.largeDocument === true,
+    pendingChoice: packed.pendingChoice,
     semanticConfidence,
     actionKind,
   });
 
   await replyHuman(
     replyAndLog,
-    safeText(plan.text) || "Я прочитал документ, но не смог нормально сформулировать объяснение.",
+    safeText(packed.text) || "Я прочитал документ, но не смог нормально сформулировать объяснение.",
     {
       event,
       ...contextMeta,
@@ -266,7 +163,7 @@ export async function runProjectIntentConversationFlow({
   const repo = snapshotState.repo;
   const branch = snapshotState.branch;
   const token = process.env.GITHUB_TOKEN;
-  const replyLimit = getReplyLimitFromMeta(replyAndLog);
+  const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
 
   const semanticPlan = await resolveProjectIntentSemanticPlan({
     text: trimmed,
@@ -365,13 +262,10 @@ export async function runProjectIntentConversationFlow({
     };
   }
 
-  if (semanticPlan.intent === "browse_folder") {
+  if (semanticPlan.intent === "browse_folder" || isLikelyDirectFolderBrowseRequest(trimmed, semanticPlan)) {
     const requestedFolder = normalizeFolderPrefix(
-      semanticPlan.targetPath ||
-      semanticPlan.treePrefix ||
-      followupContext?.targetPath ||
-      followupContext?.treePrefix ||
-      semanticPlan.targetEntity
+      safeText(semanticPlan?.targetPath || semanticPlan?.treePrefix || semanticPlan?.targetEntity) ||
+      safeText(followupContext?.targetPath || followupContext?.treePrefix)
     );
 
     if (!requestedFolder) {

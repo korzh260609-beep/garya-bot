@@ -34,6 +34,7 @@ import {
   getProjectMemoryList,
   upsertProjectSection,
   recordProjectWorkSession,
+  updateProjectWorkSession,
 } from "../../projectMemory.js";
 
 // ✅ SOURCES — required for enforced command path
@@ -89,6 +90,7 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     getProjectMemoryList,
     upsertProjectSection,
     recordProjectWorkSession,
+    updateProjectWorkSession,
 
     // ✅ SOURCES — make source commands available in enforced path
     runSourceDiagnosticsOnce,

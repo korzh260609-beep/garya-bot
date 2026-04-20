@@ -1,6 +1,6 @@
 // src/core/projectIntent/repoStore/projectIntentRepoStoreSnapshot.js
 
-import pool from "../../../db.js";
+import pool from "../../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 import {
   safeText,

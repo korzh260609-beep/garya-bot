@@ -10,6 +10,7 @@ import { handlePmSet } from "../handlers/pmSet.js";
 import { handlePmShow } from "../handlers/pmShow.js";
 import { handlePmList } from "../handlers/pmList.js";
 import { handlePmSession } from "../handlers/pmSession.js";
+import { handlePmSessionUpdate } from "../handlers/pmSessionUpdate.js";
 import { handlePmDigest } from "../handlers/pmDigest.js";
 import { handlePmLatest } from "../handlers/pmLatest.js";
 import { handlePmFind } from "../handlers/pmFind.js";
@@ -85,6 +86,22 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
         rest: ctx.rest,
         bypass: !!ctx.bypass,
         recordProjectWorkSession: ctx.recordProjectWorkSession,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_session_update": {
+      if (typeof ctx.updateProjectWorkSession !== "function") {
+        await reply("⛔ updateProjectWorkSession недоступен (ошибка wiring).", { cmd: cmd0 });
+        return { handled: true };
+      }
+
+      await handlePmSessionUpdate({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        updateProjectWorkSession: ctx.updateProjectWorkSession,
       });
 
       return { handled: true };

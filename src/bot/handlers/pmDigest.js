@@ -7,6 +7,7 @@
 // - no auto-capture
 // - no auto-analysis
 // - no DB writes
+// - supports filters: module:<key> stage:<key>
 // ============================================================================
 
 import { getUserTimezone } from "../../db/userSettings.js";
@@ -22,6 +23,39 @@ function toPositiveInt(value, def = 5, min = 1, max = 20) {
   if (n < min) return min;
   if (n > max) return max;
   return n;
+}
+
+function parseDigestArgs(rest = "") {
+  const tokens = safeText(rest).split(/\s+/).filter(Boolean);
+
+  let limit = 5;
+  let moduleKey = "";
+  let stageKey = "";
+
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+
+    if (/^\d+$/.test(token)) {
+      limit = toPositiveInt(token, 5, 1, 20);
+      continue;
+    }
+
+    if (lower.startsWith("module:")) {
+      moduleKey = safeText(token.slice(7));
+      continue;
+    }
+
+    if (lower.startsWith("stage:")) {
+      stageKey = safeText(token.slice(6));
+      continue;
+    }
+  }
+
+  return {
+    limit,
+    moduleKey,
+    stageKey,
+  };
 }
 
 async function resolveDisplayTimezone(globalUserId) {
@@ -116,15 +150,40 @@ function firstOrEmpty(arr) {
   return Array.isArray(arr) && arr.length ? safeText(arr[0]) : "";
 }
 
-function buildDigestMessage(rows, limit, timezone) {
+function filterSessions(rows, { moduleKey, stageKey }) {
+  return rows.filter((row) => {
+    if (moduleKey && safeText(row.module_key) !== moduleKey) {
+      return false;
+    }
+
+    if (stageKey && safeText(row.stage_key) !== stageKey) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function buildFilterLabel({ moduleKey, stageKey }) {
+  const parts = [];
+
+  if (moduleKey) parts.push(`module=${moduleKey}`);
+  if (stageKey) parts.push(`stage=${stageKey}`);
+
+  return parts.length ? ` [${parts.join(", ")}]` : "";
+}
+
+function buildDigestMessage(rows, limit, timezone, filters) {
+  const filterLabel = buildFilterLabel(filters);
+
   if (!rows.length) {
-    return "🧠 Project Memory digest: записей пока нет.";
+    return `🧠 Project Memory digest${filterLabel}: записей пока нет.`;
   }
 
   const slice = rows.slice(0, limit);
 
   const lines = [
-    `🧠 Project Memory digest (последние ${slice.length}):`,
+    `🧠 Project Memory digest${filterLabel} (последние ${slice.length}):`,
     "",
   ];
 
@@ -181,14 +240,15 @@ export async function handlePmDigest({
 
   try {
     const timezone = await resolveDisplayTimezone(globalUserId);
-    const limit = raw ? toPositiveInt(raw, 5, 1, 20) : 5;
+    const args = parseDigestArgs(raw);
 
     const rows = await getProjectMemoryList(undefined, "work_sessions");
     const sessions = Array.isArray(rows)
       ? rows.filter((row) => String(row.entry_type || "") === "session_summary")
       : [];
 
-    const message = buildDigestMessage(sessions, limit, timezone);
+    const filtered = filterSessions(sessions, args);
+    const message = buildDigestMessage(filtered, args.limit, timezone, args);
     await bot.sendMessage(chatId, message);
   } catch (e) {
     console.error("❌ /pm_digest error:", e);

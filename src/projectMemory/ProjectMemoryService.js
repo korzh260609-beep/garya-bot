@@ -509,29 +509,6 @@ export class ProjectMemoryService {
       );
     }
 
-    const mergedStructuredInput = {
-      content:
-        Object.prototype.hasOwnProperty.call(patch, "content")
-          ? patch.content
-          : existing.content,
-
-      goal: Object.prototype.hasOwnProperty.call(patch, "goal") ? patch.goal : undefined,
-      checked: Object.prototype.hasOwnProperty.call(patch, "checked") ? patch.checked : undefined,
-      changed: Object.prototype.hasOwnProperty.call(patch, "changed") ? patch.changed : undefined,
-      decisions: Object.prototype.hasOwnProperty.call(patch, "decisions")
-        ? patch.decisions
-        : undefined,
-      risks: Object.prototype.hasOwnProperty.call(patch, "risks") ? patch.risks : undefined,
-      nextSteps: Object.prototype.hasOwnProperty.call(patch, "nextSteps")
-        ? patch.nextSteps
-        : undefined,
-      notes: Object.prototype.hasOwnProperty.call(patch, "notes") ? patch.notes : undefined,
-    };
-
-    let resolvedContent = normalizeText(
-      Object.prototype.hasOwnProperty.call(patch, "content") ? patch.content : existing.content
-    );
-
     const hasStructuredPatch =
       Object.prototype.hasOwnProperty.call(patch, "goal") ||
       Object.prototype.hasOwnProperty.call(patch, "checked") ||
@@ -541,8 +518,36 @@ export class ProjectMemoryService {
       Object.prototype.hasOwnProperty.call(patch, "nextSteps") ||
       Object.prototype.hasOwnProperty.call(patch, "notes");
 
+    let resolvedContent = normalizeText(
+      Object.prototype.hasOwnProperty.call(patch, "content")
+        ? patch.content
+        : existing.content
+    );
+
     if (hasStructuredPatch) {
-      resolvedContent = this.buildSessionSummaryContentFromInput(mergedStructuredInput);
+      resolvedContent = this.buildSessionSummaryContentFromInput({
+        goal: Object.prototype.hasOwnProperty.call(patch, "goal")
+          ? patch.goal
+          : "",
+        checked: Object.prototype.hasOwnProperty.call(patch, "checked")
+          ? patch.checked
+          : [],
+        changed: Object.prototype.hasOwnProperty.call(patch, "changed")
+          ? patch.changed
+          : [],
+        decisions: Object.prototype.hasOwnProperty.call(patch, "decisions")
+          ? patch.decisions
+          : [],
+        risks: Object.prototype.hasOwnProperty.call(patch, "risks")
+          ? patch.risks
+          : [],
+        nextSteps: Object.prototype.hasOwnProperty.call(patch, "nextSteps")
+          ? patch.nextSteps
+          : [],
+        notes: Object.prototype.hasOwnProperty.call(patch, "notes")
+          ? patch.notes
+          : [],
+      });
     }
 
     if (!resolvedContent) {

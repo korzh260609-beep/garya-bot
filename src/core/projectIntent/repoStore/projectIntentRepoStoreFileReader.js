@@ -1,6 +1,6 @@
 // src/core/projectIntent/repoStore/projectIntentRepoStoreFileReader.js
 
-import { RepoSource } from "../../repo/RepoSource.js";
+import { RepoSource } from "../../../repo/RepoSource.js";
 import { normalizePath } from "../projectIntentConversationShared.js";
 import { isFileLike } from "./projectIntentRepoStorePathUtils.js";
 

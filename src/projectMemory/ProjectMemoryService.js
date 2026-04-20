@@ -20,6 +20,51 @@ import {
 
 export const DEFAULT_PROJECT_KEY = "garya_ai";
 
+function extractSessionSummaryBlockLines(content = "", blockName = "") {
+  const lines = String(content ?? "").split(/\r?\n/);
+  const target = String(blockName ?? "").trim().toUpperCase() + ":";
+
+  let inBlock = false;
+  const out = [];
+
+  for (const rawLine of lines) {
+    const line = String(rawLine ?? "");
+    const trimmed = line.trim();
+
+    if (!inBlock) {
+      if (trimmed.toUpperCase() === target) {
+        inBlock = true;
+      }
+      continue;
+    }
+
+    if (!trimmed) continue;
+
+    if (/^[A-Z_ ]+:$/.test(trimmed)) {
+      break;
+    }
+
+    const cleaned = trimmed.replace(/^[-*•]\s*/, "").trim();
+    if (cleaned) out.push(cleaned);
+  }
+
+  return out;
+}
+
+function parseSessionSummaryContent(content = "") {
+  const goalItems = extractSessionSummaryBlockLines(content, "GOAL");
+
+  return {
+    goal: goalItems[0] || "",
+    checked: extractSessionSummaryBlockLines(content, "CHECKED"),
+    changed: extractSessionSummaryBlockLines(content, "CHANGED"),
+    decisions: extractSessionSummaryBlockLines(content, "DECISIONS"),
+    risks: extractSessionSummaryBlockLines(content, "RISKS"),
+    nextSteps: extractSessionSummaryBlockLines(content, "NEXT"),
+    notes: extractSessionSummaryBlockLines(content, "NOTES"),
+  };
+}
+
 export class ProjectMemoryService {
   constructor({ dbPool = pool, defaultProjectKey = DEFAULT_PROJECT_KEY } = {}) {
     this.pool = dbPool;
@@ -525,28 +570,30 @@ export class ProjectMemoryService {
     );
 
     if (hasStructuredPatch) {
+      const previousStructured = parseSessionSummaryContent(existing.content);
+
       resolvedContent = this.buildSessionSummaryContentFromInput({
         goal: Object.prototype.hasOwnProperty.call(patch, "goal")
           ? patch.goal
-          : "",
+          : previousStructured.goal,
         checked: Object.prototype.hasOwnProperty.call(patch, "checked")
           ? patch.checked
-          : [],
+          : previousStructured.checked,
         changed: Object.prototype.hasOwnProperty.call(patch, "changed")
           ? patch.changed
-          : [],
+          : previousStructured.changed,
         decisions: Object.prototype.hasOwnProperty.call(patch, "decisions")
           ? patch.decisions
-          : [],
+          : previousStructured.decisions,
         risks: Object.prototype.hasOwnProperty.call(patch, "risks")
           ? patch.risks
-          : [],
+          : previousStructured.risks,
         nextSteps: Object.prototype.hasOwnProperty.call(patch, "nextSteps")
           ? patch.nextSteps
-          : [],
+          : previousStructured.nextSteps,
         notes: Object.prototype.hasOwnProperty.call(patch, "notes")
           ? patch.notes
-          : [],
+          : previousStructured.notes,
       });
     }
 

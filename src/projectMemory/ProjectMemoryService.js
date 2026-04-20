@@ -13,6 +13,10 @@ import {
   normalizeText,
   normalizeStringArray,
 } from "./projectMemorySchema.js";
+import {
+  buildSessionSummaryContent,
+  isStructuredSessionSummaryInput,
+} from "./sessionSummaryContent.js";
 
 export const DEFAULT_PROJECT_KEY = "garya_ai";
 
@@ -373,11 +377,40 @@ export class ProjectMemoryService {
     return res.rowCount || 0;
   }
 
+  buildSessionSummaryContentFromInput(input = {}) {
+    const explicitContent = normalizeText(input.content);
+
+    if (explicitContent) {
+      return explicitContent;
+    }
+
+    if (!isStructuredSessionSummaryInput(input)) {
+      return "";
+    }
+
+    return buildSessionSummaryContent({
+      goal: input.goal,
+      checked: input.checked,
+      changed: input.changed,
+      decisions: input.decisions,
+      risks: input.risks,
+      nextSteps: input.nextSteps,
+      notes: input.notes,
+    });
+  }
+
   async appendSessionSummary({
     projectKey = this.defaultProjectKey,
     section = "work_sessions",
     title = null,
     content,
+    goal = "",
+    checked = [],
+    changed = [],
+    decisions = [],
+    risks = [],
+    nextSteps = [],
+    notes = [],
     tags = [],
     meta = {},
     sourceType = "chat_session",
@@ -387,11 +420,22 @@ export class ProjectMemoryService {
     stageKey = null,
     confidence = 0.8,
   } = {}) {
+    const resolvedContent = this.buildSessionSummaryContentFromInput({
+      content,
+      goal,
+      checked,
+      changed,
+      decisions,
+      risks,
+      nextSteps,
+      notes,
+    });
+
     return this.appendEntry({
       projectKey,
       section,
       title,
-      content,
+      content: resolvedContent,
       tags,
       meta,
       schemaVersion: 2,
@@ -405,6 +449,224 @@ export class ProjectMemoryService {
       confidence,
       isActive: true,
     });
+  }
+
+  async updateSessionSummaryById({
+    id,
+    projectKey = this.defaultProjectKey,
+    section = "work_sessions",
+    patch = {},
+  } = {}) {
+    const resolvedId = Number(id);
+    const resolvedProjectKey = this.resolveProjectKey(projectKey);
+    const resolvedSection = normalizeText(section) || "work_sessions";
+
+    if (!Number.isInteger(resolvedId) || resolvedId <= 0) {
+      throw new Error("ProjectMemoryService.updateSessionSummaryById: valid id is required");
+    }
+
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new Error("ProjectMemoryService.updateSessionSummaryById: patch object is required");
+    }
+
+    const existingRes = await this.pool.query(
+      `
+        SELECT
+          id,
+          project_key,
+          section,
+          title,
+          content,
+          tags,
+          meta,
+          schema_version,
+          created_at,
+          updated_at,
+          entry_type,
+          status,
+          source_type,
+          source_ref,
+          related_paths,
+          module_key,
+          stage_key,
+          confidence,
+          is_active
+        FROM project_memory
+        WHERE id = $1
+          AND project_key = $2
+          AND section = $3
+          AND entry_type = 'session_summary'
+        LIMIT 1
+      `,
+      [resolvedId, resolvedProjectKey, resolvedSection]
+    );
+
+    const existing = existingRes.rows?.[0] || null;
+
+    if (!existing) {
+      throw new Error(
+        `ProjectMemoryService.updateSessionSummaryById: session_summary id=${resolvedId} not found`
+      );
+    }
+
+    const mergedStructuredInput = {
+      content:
+        Object.prototype.hasOwnProperty.call(patch, "content")
+          ? patch.content
+          : existing.content,
+
+      goal: Object.prototype.hasOwnProperty.call(patch, "goal") ? patch.goal : undefined,
+      checked: Object.prototype.hasOwnProperty.call(patch, "checked") ? patch.checked : undefined,
+      changed: Object.prototype.hasOwnProperty.call(patch, "changed") ? patch.changed : undefined,
+      decisions: Object.prototype.hasOwnProperty.call(patch, "decisions")
+        ? patch.decisions
+        : undefined,
+      risks: Object.prototype.hasOwnProperty.call(patch, "risks") ? patch.risks : undefined,
+      nextSteps: Object.prototype.hasOwnProperty.call(patch, "nextSteps")
+        ? patch.nextSteps
+        : undefined,
+      notes: Object.prototype.hasOwnProperty.call(patch, "notes") ? patch.notes : undefined,
+    };
+
+    let resolvedContent = normalizeText(
+      Object.prototype.hasOwnProperty.call(patch, "content") ? patch.content : existing.content
+    );
+
+    const hasStructuredPatch =
+      Object.prototype.hasOwnProperty.call(patch, "goal") ||
+      Object.prototype.hasOwnProperty.call(patch, "checked") ||
+      Object.prototype.hasOwnProperty.call(patch, "changed") ||
+      Object.prototype.hasOwnProperty.call(patch, "decisions") ||
+      Object.prototype.hasOwnProperty.call(patch, "risks") ||
+      Object.prototype.hasOwnProperty.call(patch, "nextSteps") ||
+      Object.prototype.hasOwnProperty.call(patch, "notes");
+
+    if (hasStructuredPatch) {
+      resolvedContent = this.buildSessionSummaryContentFromInput(mergedStructuredInput);
+    }
+
+    if (!resolvedContent) {
+      throw new Error(
+        "ProjectMemoryService.updateSessionSummaryById: content cannot be empty for session_summary"
+      );
+    }
+
+    const normalized = buildNormalizedProjectMemoryInput({
+      projectKey: existing.project_key,
+      section: existing.section,
+      title:
+        Object.prototype.hasOwnProperty.call(patch, "title")
+          ? patch.title
+          : existing.title,
+      content: resolvedContent,
+      tags:
+        Object.prototype.hasOwnProperty.call(patch, "tags")
+          ? patch.tags
+          : existing.tags,
+      meta:
+        Object.prototype.hasOwnProperty.call(patch, "meta")
+          ? patch.meta
+          : existing.meta,
+      schemaVersion: existing.schema_version,
+      entryType: existing.entry_type,
+      status:
+        Object.prototype.hasOwnProperty.call(patch, "status")
+          ? patch.status
+          : existing.status,
+      sourceType:
+        Object.prototype.hasOwnProperty.call(patch, "sourceType")
+          ? patch.sourceType
+          : existing.source_type,
+      sourceRef:
+        Object.prototype.hasOwnProperty.call(patch, "sourceRef")
+          ? patch.sourceRef
+          : existing.source_ref,
+      relatedPaths:
+        Object.prototype.hasOwnProperty.call(patch, "relatedPaths")
+          ? patch.relatedPaths
+          : existing.related_paths,
+      moduleKey:
+        Object.prototype.hasOwnProperty.call(patch, "moduleKey")
+          ? patch.moduleKey
+          : existing.module_key,
+      stageKey:
+        Object.prototype.hasOwnProperty.call(patch, "stageKey")
+          ? patch.stageKey
+          : existing.stage_key,
+      confidence:
+        Object.prototype.hasOwnProperty.call(patch, "confidence")
+          ? patch.confidence
+          : existing.confidence,
+      isActive:
+        Object.prototype.hasOwnProperty.call(patch, "isActive")
+          ? patch.isActive
+          : existing.is_active,
+    });
+
+    const res = await this.pool.query(
+      `
+        UPDATE project_memory
+        SET
+          title = $1,
+          content = $2,
+          tags = $3,
+          meta = $4,
+          schema_version = $5,
+          updated_at = NOW(),
+          status = $6,
+          source_type = $7,
+          source_ref = $8,
+          related_paths = $9,
+          module_key = $10,
+          stage_key = $11,
+          confidence = $12,
+          is_active = $13
+        WHERE id = $14
+          AND project_key = $15
+          AND section = $16
+          AND entry_type = 'session_summary'
+        RETURNING
+          id,
+          project_key,
+          section,
+          title,
+          content,
+          tags,
+          meta,
+          schema_version,
+          created_at,
+          updated_at,
+          entry_type,
+          status,
+          source_type,
+          source_ref,
+          related_paths,
+          module_key,
+          stage_key,
+          confidence,
+          is_active
+      `,
+      [
+        normalized.title,
+        normalized.content,
+        normalized.tags,
+        normalized.meta,
+        normalized.schemaVersion,
+        normalized.status,
+        normalized.sourceType,
+        normalized.sourceRef,
+        normalized.relatedPaths,
+        normalized.moduleKey,
+        normalized.stageKey,
+        normalized.confidence,
+        normalized.isActive,
+        resolvedId,
+        resolvedProjectKey,
+        resolvedSection,
+      ]
+    );
+
+    return res.rows?.[0] || null;
   }
 }
 

@@ -33,6 +33,7 @@ import {
   getProjectSection,
   getProjectMemoryList,
   upsertProjectSection,
+  recordProjectWorkSession,
 } from "../../projectMemory.js";
 
 // ✅ SOURCES — required for enforced command path
@@ -83,10 +84,11 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     createManualTask,
     createTestPriceMonitorTask,
 
-    // ✅ STAGE 7A — make /pm_set /pm_show available in enforced path
+    // ✅ STAGE 7A — make Project Memory commands available in enforced path
     getProjectSection,
     getProjectMemoryList,
     upsertProjectSection,
+    recordProjectWorkSession,
 
     // ✅ SOURCES — make source commands available in enforced path
     runSourceDiagnosticsOnce,

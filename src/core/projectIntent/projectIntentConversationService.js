@@ -1,1282 +1,1125 @@
-// src/core/projectIntent/projectIntentConversationService.js
+// src/core/projectIntent/projectIntentSemanticResolver.js
 // ============================================================================
-// STAGE 12A.0 — human-first repo conversation layer
-// Orchestrator only
-// Meaning → intent → decision → action → response
+// STAGE 12A.0 — semantic resolver for internal repo dialogue
+// Purpose:
+// - meaning-first
+// - object-first where possible
+// - minimize keyword reflex fallback
+// - preserve universal repo object understanding
 // ============================================================================
 
-import { resolveProjectIntentSemanticPlan } from "./projectIntentSemanticResolver.js";
-import {
-  loadLatestSnapshot,
-  pathExistsInSnapshot,
-  pathKindInSnapshot,
-  fetchPathsByPrefix,
-  computeImmediateChildren,
-  searchSnapshotPaths,
-  fetchRepoFileText,
-  pickLikelyTargetPath,
-} from "./projectIntentConversationRepoStore.js";
-import {
-  humanRepoStatusReply,
-  humanSearchReply,
-  humanTreeReply,
-  humanFolderBrowseReply,
-  humanLargeDocumentReply,
-  humanSmallDocumentReply,
-  humanFirstPartDocumentReply,
-  humanClarificationReply,
-  buildAiMessages,
-  replyHuman,
-  buildRepoContextMeta,
-} from "./projectIntentConversationReplies.js";
-import {
-  buildProjectIntentRoutingText,
-  getLatestProjectIntentRepoContext,
-  getLatestProjectIntentPendingChoice,
-} from "./projectIntentConversationContext.js";
-import {
-  safeText,
-  normalizePath,
-  sanitizeEntity,
-} from "./projectIntentConversationShared.js";
-import {
-  getReplyLimitFromReplyAndLog,
-  buildPackedExplainText,
-  buildContinuationChunkReply,
-} from "./projectIntentResponsePacker.js";
-
-export {
-  buildProjectIntentRoutingText,
-  getLatestProjectIntentRepoContext,
-  getLatestProjectIntentPendingChoice,
-};
-
-const LARGE_DOC_AI_THRESHOLD = 12000;
-
-function normalizeFolderPrefix(value = "") {
-  const v = normalizePath(value);
-  if (!v) return "";
-  if (v.endsWith("/")) return v;
-  if (/\.[a-z0-9]{1,8}$/i.test(v)) return v;
-  return `${v}/`;
+function safeText(value) {
+  return String(value ?? "").trim();
 }
 
-function joinFolderWithBasename(folderPath = "", basename = "") {
-  const folder = normalizeFolderPrefix(folderPath);
-  const file = safeText(basename).replace(/^\/+/, "");
-  if (!folder || !file) return "";
-  return `${folder}${file}`;
+function normalizeText(value) {
+  return safeText(value)
+    .toLowerCase()
+    .replace(/\s+/g, " ");
 }
 
-function inferObjectKindFromPath(path = "") {
-  const value = safeText(path);
-  if (!value) return "unknown";
-  if (/\.[a-z0-9]{1,8}$/i.test(value)) return "file";
-  if (value.endsWith("/") || value.includes("/")) return "folder";
-  return "unknown";
+function tokenizeText(value) {
+  const normalized = normalizeText(value)
+    .replace(/[.,!?;:()[\]{}<>\\|\"\'`~@#$%^&*+=]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return [];
+  return normalized.split(" ").filter(Boolean);
 }
 
-function basenameNoExt(value = "") {
-  const v = safeText(value).split("/").pop() || "";
-  return v.replace(/\.[^.]+$/i, "");
+function unique(values) {
+  return [...new Set((Array.isArray(values) ? values : []).filter(Boolean))];
 }
 
-function classifyChildName(name = "") {
-  const n = basenameNoExt(name).toLowerCase();
+function collectPrefixHits(tokens, prefixes) {
+  const hits = [];
 
-  if (!n) return "";
-  if (n.includes("config")) return "конфигурация";
-  if (n.includes("state")) return "состояние";
-  if (n.includes("store")) return "хранение данных или состояния";
-  if (n.includes("normalizer") || n.includes("normalize")) return "нормализация данных";
-  if (n.includes("validator") || n.includes("validate")) return "проверка данных";
-  if (n.includes("parser") || n.includes("parse")) return "разбор входных данных";
-  if (n.includes("service")) return "сервисная логика";
-  if (n.includes("controller")) return "управляющая логика";
-  if (n.includes("adapter")) return "адаптация между частями системы";
-  if (n.includes("bridge")) return "связующий слой между частями системы";
-  if (n.includes("client")) return "клиент для внешнего источника или сервиса";
-  if (n.includes("repo")) return "слой доступа к данным";
-  if (n.includes("memory")) return "память или хранение контекста";
-  if (n.includes("handler")) return "обработка входящего события или действия";
-  if (n.includes("router")) return "маршрутизация";
-  if (n.includes("prompt")) return "правила или шаблон работы ИИ";
-  if (n.includes("command")) return "обработка команд";
-  if (n.includes("dispatch")) return "распределение действий по нужным обработчикам";
+  for (const token of tokens) {
+    for (const prefix of prefixes) {
+      if (token.startsWith(prefix)) {
+        hits.push(token);
+        break;
+      }
+    }
+  }
+
+  return unique(hits);
+}
+
+function safeJsonParse(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function pickFirstNonEmpty(values = []) {
+  for (const value of values) {
+    const v = safeText(value);
+    if (v) return v;
+  }
   return "";
 }
 
-function buildFolderMeaningFromChildren({ folderPath, directories, files, hiddenCount }) {
-  const lines = [`\`${folderPath}\` — папка репозитория.`, ""];
-
-  if (directories.length > 0) {
-    lines.push("Верхние подпапки:");
-    for (const dir of directories) {
-      lines.push(`- ${dir}/`);
-    }
-    lines.push("");
-  }
-
-  if (files.length > 0) {
-    lines.push("Верхние файлы:");
-    for (const file of files) {
-      lines.push(`- ${file}`);
-    }
-    lines.push("");
-  }
-
-  const fileHints = files
-    .map((file) => ({
-      file,
-      hint: classifyChildName(file),
-    }))
-    .filter((item) => item.hint);
-
-  if (fileHints.length > 0) {
-    lines.push("По именам верхних файлов здесь видны такие роли:");
-    for (const item of fileHints.slice(0, 6)) {
-      lines.push(`- ${item.file} → ${item.hint}`);
-    }
-    lines.push("");
-  }
-
-  if (directories.length > 0 && fileHints.length > 0) {
-    lines.push("По текущему верхнему уровню это похоже на модуль, где есть и внутренняя структура по подпапкам, и отдельные файлы реализации ключевых ролей.");
-  } else if (directories.length > 0 && files.length > 0) {
-    lines.push("По текущему верхнему уровню это похоже на модуль с несколькими уровнями структуры и набором основных файлов.");
-  } else if (directories.length > 0) {
-    lines.push("По текущему верхнему уровню это похоже на структурный раздел, где логика разнесена по подпапкам.");
-  } else if (fileHints.length > 0) {
-    lines.push("По текущему верхнему уровню это похоже на компактный модуль, где роли файлов читаются по их именам.");
-  } else if (files.length > 0) {
-    lines.push("По текущему верхнему уровню это похоже на компактный модуль без сильного дробления на подпапки.");
-  } else {
-    lines.push("По текущему снимку содержимого недостаточно для уверенного вывода о роли папки.");
-  }
-
-  if (hiddenCount > 0) {
-    lines.push(`Глубже внутри есть ещё ${hiddenCount} элементов. Более точное объяснение даст открытие 1–2 ключевых файлов.`);
-  }
-
-  return lines.join("\n");
-}
-
-function looksLikeFileInnerQuestion(text = "") {
-  const t = safeText(text).toLowerCase();
-  if (!t) return false;
-
-  return (
-    t.includes("из этого файла") ||
-    t.includes("в этом файле") ||
-    t.includes("из файла") ||
-    t.includes("внутри файла") ||
-    t.includes("одну команд") ||
-    t.includes("какую нибудь команд") ||
-    t.includes("какую-нибудь команд") ||
-    t.includes("про команд") ||
-    t.includes("про функцию") ||
-    t.includes("про метод") ||
-    t.includes("про участок") ||
-    t.includes("про часть") ||
-    t.includes("расскажи про") ||
-    t.includes("объясни команд") ||
-    t.includes("объясни функцию") ||
-    t.includes("что делает команд") ||
-    t.includes("что делает функция")
-  );
-}
-
-async function replyPackedExplain({
-  replyAndLog,
-  aiReply,
-  targetEntity,
-  targetPath,
-  displayMode,
-  sourceText,
-  semanticConfidence,
-  actionKind,
-  objectKind,
-  event,
-}) {
-  const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
-
-  const packed = buildPackedExplainText({
-    aiReply,
-    targetPath,
-    displayMode,
-    replyLimit,
-  });
-
-  const contextMeta = buildRepoContextMeta({
-    targetEntity,
-    targetPath,
-    displayMode,
-    sourceText,
-    largeDocument: packed.largeDocument === true,
-    pendingChoice: packed.pendingChoice,
-    semanticConfidence,
-    actionKind,
-    continuationState: packed.continuationState,
-  });
-
-  contextMeta.projectIntentObjectKind = safeText(objectKind || inferObjectKindFromPath(targetPath));
-
-  await replyHuman(
-    replyAndLog,
-    safeText(packed.text) || "Объяснение не удалось сформировать достаточно надёжно.",
-    {
-      event,
-      ...contextMeta,
-    }
-  );
-
-  return contextMeta;
-}
-
-async function replyContinuation({
-  replyAndLog,
-  followupContext,
-  sourceText,
-  semanticConfidence,
-  actionKind,
-  event,
-}) {
-  const continuation = followupContext?.continuation || {};
-  const continuationReply = buildContinuationChunkReply({
-    continuationState: continuation,
-  });
-
-  if (!continuationReply.ok) {
-    await replyHuman(
-      replyAndLog,
-      "Продолжения больше нет. Дальше можно заново кратко пересказать объект или объяснить его смысл.",
-      {
-        event: "repo_conversation_no_more_continuation",
-        read_only: true,
-      }
-    );
-
-    return {
-      handled: true,
-      reason: "no_more_continuation",
-      contextMeta: buildRepoContextMeta({
-        targetEntity: followupContext?.targetEntity,
-        targetPath: followupContext?.targetPath,
-        displayMode: followupContext?.displayMode,
-        sourceText,
-        largeDocument: false,
-        pendingChoice: null,
-        treePrefix: followupContext?.treePrefix,
-        semanticConfidence,
-        actionKind,
-        continuationState: continuationReply.nextState,
-      }),
-    };
-  }
-
-  const contextMeta = buildRepoContextMeta({
-    targetEntity: followupContext?.targetEntity,
-    targetPath: followupContext?.targetPath || continuation?.targetPath,
-    displayMode: continuation?.displayMode || followupContext?.displayMode,
-    sourceText,
-    largeDocument: continuationReply.hasMore,
-    pendingChoice: continuationReply.hasMore
-      ? {
-          isActive: true,
-          kind: "large_doc_action",
-          targetEntity: followupContext?.targetEntity,
-          targetPath: followupContext?.targetPath || continuation?.targetPath,
-          displayMode: continuation?.displayMode || followupContext?.displayMode,
-        }
-      : null,
-    treePrefix: followupContext?.treePrefix,
-    semanticConfidence,
-    actionKind,
-    continuationState: continuationReply.nextState,
-  });
-
-  contextMeta.projectIntentObjectKind = safeText(
-    followupContext?.objectKind || inferObjectKindFromPath(followupContext?.targetPath || continuation?.targetPath)
-  );
-
-  await replyHuman(
-    replyAndLog,
-    continuationReply.text,
-    {
-      event,
-      ...contextMeta,
-    }
-  );
-
-  return {
-    handled: true,
-    reason: "continuation_replied",
-    contextMeta,
-  };
-}
-
-async function resolveTargetObject({
-  latestSnapshotId,
-  semanticPlan,
-  followupContext,
-  pendingChoiceContext,
-  rawTarget,
-  searchMatches,
-}) {
-  const targetPath = pickLikelyTargetPath({
-    semanticPlan,
-    searchMatches,
-    followupContext,
-    pendingChoiceContext,
-  });
-
-  if (!targetPath) {
-    return {
-      ok: false,
-      targetPath: "",
-      objectKind: "unknown",
-      exists: false,
-    };
-  }
-
-  const exists = await pathExistsInSnapshot(latestSnapshotId, targetPath);
-  if (!exists) {
-    return {
-      ok: false,
-      targetPath,
-      objectKind: "unknown",
-      exists: false,
-    };
-  }
-
-  const snapshotKind = await pathKindInSnapshot(latestSnapshotId, targetPath);
-  const objectKind =
-    safeText(snapshotKind) ||
-    safeText(semanticPlan?.objectKind) ||
-    inferObjectKindFromPath(targetPath) ||
-    inferObjectKindFromPath(rawTarget);
-
-  return {
-    ok: true,
-    targetPath,
-    objectKind: safeText(objectKind || "unknown"),
-    exists: true,
-  };
-}
-
-async function replyFolderBrowseFromPath({
-  replyAndLog,
-  folderPath,
-  targetEntity,
-  sourceText,
-  semanticConfidence,
-  actionKind,
-  latestSnapshotId,
-  event,
-}) {
-  const requestedFolder = normalizeFolderPrefix(folderPath);
-
-  if (!requestedFolder) {
-    await replyHuman(
-      replyAndLog,
-      humanClarificationReply("Нужен точный путь папки."),
-      { event: `${event}_clarification` }
-    );
-    return {
-      handled: true,
-      reason: "browse_folder_clarification",
-    };
-  }
-
-  const allPaths = await fetchPathsByPrefix(latestSnapshotId, requestedFolder);
-  const { directories, files } = computeImmediateChildren(allPaths, requestedFolder);
-
-  if (directories.length === 0 && files.length === 0) {
-    const contextMeta = buildRepoContextMeta({
-      targetEntity,
-      targetPath: requestedFolder,
-      displayMode: "raw",
-      sourceText,
-      treePrefix: requestedFolder,
-      semanticConfidence,
-      actionKind,
-    });
-
-    contextMeta.projectIntentObjectKind = "folder";
-
-    await replyHuman(
-      replyAndLog,
-      `\`${requestedFolder}\` — папка репозитория без видимых вложенных элементов в текущем снимке.`,
-      {
-        event: `${event}_empty`,
-        read_only: true,
-        ...contextMeta,
-      }
-    );
-
-    return {
-      handled: true,
-      reason: "browse_folder_empty",
-      contextMeta,
-    };
-  }
-
-  const shownDirectories = directories.slice(0, 30);
-  const shownFiles = files.slice(0, 30);
-  const hiddenCount =
-    Math.max(0, directories.length - shownDirectories.length) +
-    Math.max(0, files.length - shownFiles.length);
-
-  const text = humanFolderBrowseReply({
-    folderPath: requestedFolder,
-    directories: shownDirectories,
-    files: shownFiles,
-    hiddenCount,
-  });
-
-  const contextMeta = buildRepoContextMeta({
-    targetEntity,
-    targetPath: requestedFolder,
-    displayMode: "raw",
-    sourceText,
-    treePrefix: requestedFolder,
-    semanticConfidence,
-    actionKind,
-  });
-
-  contextMeta.projectIntentObjectKind = "folder";
-
-  await replyHuman(replyAndLog, text, {
-    event,
-    ...contextMeta,
-  });
-
-  return {
-    handled: true,
-    reason: "browse_folder_human",
-    contextMeta,
-  };
-}
-
-async function replyExplainFolderFromPath({
-  replyAndLog,
-  folderPath,
-  targetEntity,
-  sourceText,
-  semanticConfidence,
-  actionKind,
-  latestSnapshotId,
-  event,
-}) {
-  const requestedFolder = normalizeFolderPrefix(folderPath);
-
-  if (!requestedFolder) {
-    await replyHuman(
-      replyAndLog,
-      humanClarificationReply("Нужен точный путь папки для объяснения."),
-      { event: `${event}_clarification` }
-    );
-    return {
-      handled: true,
-      reason: "explain_folder_clarification",
-    };
-  }
-
-  const allPaths = await fetchPathsByPrefix(latestSnapshotId, requestedFolder);
-  const { directories, files } = computeImmediateChildren(allPaths, requestedFolder);
-
-  if (directories.length === 0 && files.length === 0) {
-    const contextMeta = buildRepoContextMeta({
-      targetEntity,
-      targetPath: requestedFolder,
-      displayMode: "summary",
-      sourceText,
-      treePrefix: requestedFolder,
-      semanticConfidence,
-      actionKind,
-    });
-
-    contextMeta.projectIntentObjectKind = "folder";
-
-    await replyHuman(
-      replyAndLog,
-      `\`${requestedFolder}\` — папка без видимого содержимого в текущем снимке. Этого недостаточно для надёжного объяснения роли.`,
-      {
-        event: `${event}_empty`,
-        read_only: true,
-        ...contextMeta,
-      }
-    );
-
-    return {
-      handled: true,
-      reason: "explain_folder_empty",
-      contextMeta,
-    };
-  }
-
-  const shownDirectories = directories.slice(0, 20);
-  const shownFiles = files.slice(0, 20);
-  const hiddenCount =
-    Math.max(0, directories.length - shownDirectories.length) +
-    Math.max(0, files.length - shownFiles.length);
-
-  const text = buildFolderMeaningFromChildren({
-    folderPath: requestedFolder,
-    directories: shownDirectories,
-    files: shownFiles,
-    hiddenCount,
-  });
-
-  const contextMeta = buildRepoContextMeta({
-    targetEntity,
-    targetPath: requestedFolder,
-    displayMode: "summary",
-    sourceText,
-    treePrefix: requestedFolder,
-    semanticConfidence,
-    actionKind,
-  });
-
-  contextMeta.projectIntentObjectKind = "folder";
-
-  await replyHuman(replyAndLog, text, {
-    event,
-    ...contextMeta,
-  });
-
-  return {
-    handled: true,
-    reason: "explain_folder_human",
-    contextMeta,
-  };
-}
-
-async function replyOpenFileFromPath({
-  replyAndLog,
-  targetPath,
-  targetEntity,
-  sourceText,
-  semanticConfidence,
-  actionKind,
-  repo,
-  branch,
-  token,
-  event,
-}) {
-  const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
-  const content = await fetchRepoFileText({ path: targetPath, repo, branch, token });
-
-  if (!content) {
-    await replyHuman(
-      replyAndLog,
-      `\`${targetPath}\` найден, но содержимое файла прочитать не удалось.`,
-      { event: `${event}_fetch_failed` }
-    );
-    return { handled: true, reason: "open_fetch_failed" };
-  }
-
-  if (content.length > replyLimit) {
-    const text = humanLargeDocumentReply({ path: targetPath });
-
-    const contextMeta = buildRepoContextMeta({
-      targetEntity,
-      targetPath,
-      displayMode: "raw",
-      sourceText,
-      largeDocument: true,
-      pendingChoice: {
-        isActive: true,
-        kind: "large_doc_action",
-        targetEntity,
-        targetPath,
-        displayMode: "summary",
-      },
-      semanticConfidence,
-      actionKind,
-    });
-
-    contextMeta.projectIntentObjectKind = "file";
-
-    await replyHuman(replyAndLog, text, {
-      event,
-      ...contextMeta,
-    });
-
-    return {
-      handled: true,
-      reason: "open_large_doc",
-      contextMeta,
-    };
-  }
-
-  const preview = content.slice(0, replyLimit);
-  const contextMeta = buildRepoContextMeta({
-    targetEntity,
-    targetPath,
-    displayMode: "raw",
-    sourceText,
-    largeDocument: false,
-    semanticConfidence,
-    actionKind,
-  });
-
-  contextMeta.projectIntentObjectKind = "file";
-
-  await replyHuman(
-    replyAndLog,
-    humanSmallDocumentReply({
-      path: targetPath,
-      content: preview,
-      wasTrimmed: content.length > replyLimit,
-    }),
-    {
-      event,
-      ...contextMeta,
-    }
-  );
-
-  return {
-    handled: true,
-    reason: "open_small_doc",
-    contextMeta,
-  };
-}
-
-async function replyExplainFileFromPath({
-  replyAndLog,
-  trimmed,
-  targetPath,
-  targetEntity,
-  displayMode,
-  sourceText,
-  semanticConfidence,
-  actionKind,
-  repo,
-  branch,
-  token,
-  callAI,
-  event,
-  forceFirstPart = false,
-}) {
-  const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
-  const content = await fetchRepoFileText({ path: targetPath, repo, branch, token });
-
-  if (!content) {
-    await replyHuman(
-      replyAndLog,
-      `\`${targetPath}\` найден, но сам файл прочитать не удалось.`,
-      { event: `${event}_fetch_failed` }
-    );
-    return { handled: true, reason: "explain_fetch_failed" };
-  }
-
-  if (forceFirstPart || displayMode === "raw_first_part") {
-    const contextMeta = buildRepoContextMeta({
-      targetEntity,
-      targetPath,
-      displayMode: "raw_first_part",
-      sourceText,
-      largeDocument: content.length > replyLimit,
-      semanticConfidence,
-      actionKind,
-    });
-
-    contextMeta.projectIntentObjectKind = "file";
-
-    await replyHuman(
-      replyAndLog,
-      humanFirstPartDocumentReply({
-        path: targetPath,
-        content,
-        maxChars: replyLimit,
-      }),
-      {
-        event,
-        ...contextMeta,
-      }
-    );
-
-    return {
-      handled: true,
-      reason: "first_part_shown",
-      contextMeta,
-    };
-  }
-
-  if (content.length > LARGE_DOC_AI_THRESHOLD) {
-    const text = humanLargeDocumentReply({ path: targetPath });
-
-    const contextMeta = buildRepoContextMeta({
-      targetEntity,
-      targetPath,
-      displayMode,
-      sourceText,
-      largeDocument: true,
-      pendingChoice: {
-        isActive: true,
-        kind: "large_doc_action",
-        targetEntity,
-        targetPath,
-        displayMode,
-      },
-      semanticConfidence,
-      actionKind,
-    });
-
-    contextMeta.projectIntentObjectKind = "file";
-
-    await replyHuman(replyAndLog, text, {
-      event,
-      ...contextMeta,
-    });
-
-    return {
-      handled: true,
-      reason: "explain_large_doc",
-      contextMeta,
-    };
-  }
-
-  const aiReply = await callAI(
-    buildAiMessages({
-      userText: trimmed,
-      path: targetPath,
-      content,
-      displayMode,
-    }),
-    "high",
-    {
-      max_completion_tokens: 900,
-      temperature: 0.15,
-    }
-  );
-
-  const contextMeta = await replyPackedExplain({
-    replyAndLog,
-    aiReply,
-    targetEntity,
-    targetPath,
-    displayMode,
-    sourceText,
-    semanticConfidence,
-    actionKind,
-    objectKind: "file",
-    event,
-  });
-
-  return {
-    handled: true,
-    reason: "explain_ai",
-    contextMeta,
-  };
-}
-
-export async function runProjectIntentConversationFlow({
-  trimmed,
-  route,
-  followupContext,
-  pendingChoiceContext,
-  replyAndLog,
-  callAI,
-}) {
-  if (route?.routeKey !== "sg_core_internal_read_allowed") {
-    return { handled: false, reason: "not_internal_repo_read" };
-  }
-
-  const snapshotState = await loadLatestSnapshot();
-  if (!snapshotState.ok || !snapshotState.latest) {
-    await replyHuman(
-      replyAndLog,
-      "Индекс репозитория пока не готов. Нужен актуальный снимок репозитория.",
-      {
-        event: "repo_conversation_no_snapshot",
-      }
-    );
-    return { handled: true, reason: "no_snapshot" };
-  }
-
-  const latest = snapshotState.latest;
-  const repo = snapshotState.repo;
-  const branch = snapshotState.branch;
-  const token = process.env.GITHUB_TOKEN;
-
-  const semanticPlan = await resolveProjectIntentSemanticPlan({
-    text: trimmed,
-    callAI,
-    followupContext,
-    pendingChoiceContext,
-  });
-
-  const activeFileFollowup =
-    followupContext?.isActive === true &&
-    safeText(followupContext?.objectKind) === "file" &&
-    looksLikeFileInnerQuestion(trimmed);
-
-  if (activeFileFollowup) {
-    return replyExplainFileFromPath({
-      replyAndLog,
-      trimmed,
-      targetPath: followupContext?.targetPath,
-      targetEntity: followupContext?.targetEntity || basenameNoExt(followupContext?.targetPath),
-      displayMode: safeText(followupContext?.displayMode) || "explain",
-      sourceText: trimmed,
-      semanticConfidence: "high",
-      actionKind: "explain_active",
-      repo,
-      branch,
-      token,
-      callAI,
-      event: "repo_conversation_explain_active_file_followup",
-    });
-  }
-
-  if (semanticPlan?.clarifyNeeded === true) {
-    const text = humanClarificationReply(semanticPlan?.clarifyQuestion);
-    const contextMeta = buildRepoContextMeta({
-      targetEntity: semanticPlan?.targetEntity,
-      targetPath: semanticPlan?.targetPath,
-      displayMode: semanticPlan?.displayMode,
-      sourceText: trimmed,
-      semanticConfidence: semanticPlan?.confidence,
-      actionKind: semanticPlan?.intent,
-    });
-
-    contextMeta.projectIntentObjectKind = safeText(semanticPlan?.objectKind);
-
-    await replyHuman(replyAndLog, text, {
-      event: "repo_conversation_clarification",
-      ...contextMeta,
-    });
-
-    return {
-      handled: true,
-      reason: "clarification_replied",
-      contextMeta,
-    };
-  }
-
-  if (semanticPlan.intent === "continue_active") {
-    return replyContinuation({
-      replyAndLog,
-      followupContext,
-      sourceText: trimmed,
-      semanticConfidence: semanticPlan?.confidence,
-      actionKind: "continue_active",
-      event: "repo_conversation_continue_active",
-    });
-  }
-
-  if (semanticPlan.intent === "repo_status") {
-    const text = humanRepoStatusReply({
-      snapshot: latest,
-      filesCount: snapshotState.filesCount,
-    });
-
-    const contextMeta = buildRepoContextMeta({
-      targetEntity: "",
-      targetPath: "",
-      displayMode: "raw",
-      sourceText: trimmed,
-      semanticConfidence: semanticPlan?.confidence,
-      actionKind: "repo_status",
-    });
-
-    contextMeta.projectIntentObjectKind = "repo";
-
-    await replyHuman(replyAndLog, text, {
-      event: "repo_conversation_status",
-      ...contextMeta,
-    });
-
-    return {
-      handled: true,
-      reason: "repo_status_human",
-      contextMeta,
-    };
-  }
-
-  if (semanticPlan.intent === "show_tree") {
-    const prefix = normalizePath(semanticPlan.treePrefix || followupContext?.treePrefix || "");
-    const allPaths = await fetchPathsByPrefix(latest.id, prefix);
-    const { directories, files } = computeImmediateChildren(allPaths, prefix);
-
-    const shownDirectories = directories.slice(0, 20);
-    const shownFiles = files.slice(0, 20);
-    const hiddenCount =
-      Math.max(0, directories.length - shownDirectories.length) +
-      Math.max(0, files.length - shownFiles.length);
-
-    const text = humanTreeReply({
-      prefix,
-      directories: shownDirectories,
-      files: shownFiles,
-      hiddenCount,
-    });
-
-    const contextMeta = buildRepoContextMeta({
-      targetEntity: "",
-      targetPath: prefix,
-      displayMode: "raw",
-      sourceText: trimmed,
-      treePrefix: prefix,
-      semanticConfidence: semanticPlan?.confidence,
-      actionKind: "show_tree",
-    });
-
-    contextMeta.projectIntentObjectKind = prefix ? "folder" : "root";
-
-    await replyHuman(replyAndLog, text, {
-      event: "repo_conversation_tree",
-      ...contextMeta,
-    });
-
-    return {
-      handled: true,
-      reason: "repo_tree_human",
-      contextMeta,
-    };
-  }
-
-  if (semanticPlan.intent === "browse_folder") {
-    const requestedFolder = normalizeFolderPrefix(
-      safeText(semanticPlan?.targetPath || semanticPlan?.treePrefix || semanticPlan?.targetEntity) ||
-      safeText(followupContext?.targetPath || followupContext?.treePrefix)
-    );
-
-    return replyFolderBrowseFromPath({
-      replyAndLog,
-      folderPath: requestedFolder,
-      targetEntity: semanticPlan?.targetEntity || followupContext?.targetEntity,
-      sourceText: trimmed,
-      semanticConfidence: semanticPlan?.confidence,
-      actionKind: "browse_folder",
-      latestSnapshotId: latest.id,
-      event: "repo_conversation_browse_folder",
-    });
-  }
-
-  if (semanticPlan.intent === "find_target") {
-    const query = sanitizeEntity(semanticPlan.targetEntity || semanticPlan.targetPath);
-    const matches = await searchSnapshotPaths(
-      latest.id,
-      query,
-      8,
-      { objectKind: semanticPlan?.objectKind || "unknown" }
-    );
-
-    const singleKind =
-      matches.length === 1
-        ? await pathKindInSnapshot(latest.id, matches[0])
-        : safeText(semanticPlan?.objectKind || "unknown");
-
-    const text = humanSearchReply({
-      targetEntity: query,
-      matches,
-      objectKind: singleKind,
-    });
-
-    const chosenPath = matches.length === 1 ? matches[0] : "";
-
-    const contextMeta = buildRepoContextMeta({
-      targetEntity: query,
-      targetPath: chosenPath,
-      displayMode: "raw",
-      sourceText: trimmed,
-      semanticConfidence: semanticPlan?.confidence,
-      actionKind: "find_target",
-    });
-
-    contextMeta.projectIntentObjectKind = safeText(singleKind || "unknown");
-
-    await replyHuman(replyAndLog, text, {
-      event: "repo_conversation_search",
-      ...contextMeta,
-    });
-
-    return {
-      handled: true,
-      reason: "repo_search_human",
-      contextMeta,
-    };
-  }
-
-  if (semanticPlan.intent === "find_and_explain") {
-    const query = sanitizeEntity(semanticPlan.targetEntity || semanticPlan.targetPath);
-    const matches = await searchSnapshotPaths(
-      latest.id,
-      query,
-      8,
-      { objectKind: semanticPlan?.objectKind || "unknown" }
-    );
-
-    const resolved = await resolveTargetObject({
-      latestSnapshotId: latest.id,
-      semanticPlan,
-      followupContext,
-      pendingChoiceContext,
-      rawTarget: query,
-      searchMatches: matches,
-    });
-
-    if (!resolved.ok) {
-      const text = humanSearchReply({
-        targetEntity: query,
-        matches,
-        objectKind: safeText(semanticPlan?.objectKind || "unknown"),
-      });
-
-      const contextMeta = buildRepoContextMeta({
-        targetEntity: query,
-        targetPath: resolved.targetPath || "",
-        displayMode: semanticPlan.displayMode || "summary",
-        sourceText: trimmed,
-        semanticConfidence: semanticPlan?.confidence,
-        actionKind: "find_and_explain",
-      });
-
-      contextMeta.projectIntentObjectKind = safeText(resolved.objectKind || semanticPlan?.objectKind || "unknown");
-
-      await replyHuman(replyAndLog, text, {
-        event: "repo_conversation_find_and_explain_search_only",
-        ...contextMeta,
-      });
-
-      return {
-        handled: true,
-        reason: "find_and_explain_search_only",
-        contextMeta,
-      };
-    }
-
-    if (resolved.objectKind === "folder") {
-      return replyExplainFolderFromPath({
-        replyAndLog,
-        folderPath: resolved.targetPath,
-        targetEntity: query,
-        sourceText: trimmed,
-        semanticConfidence: semanticPlan?.confidence,
-        actionKind: "find_and_explain",
-        latestSnapshotId: latest.id,
-        event: "repo_conversation_find_and_explain_folder",
-      });
-    }
-
-    if (resolved.objectKind === "file") {
-      return replyExplainFileFromPath({
-        replyAndLog,
-        trimmed,
-        targetPath: resolved.targetPath,
-        targetEntity: query,
-        displayMode: semanticPlan.displayMode || "summary",
-        sourceText: trimmed,
-        semanticConfidence: semanticPlan?.confidence,
-        actionKind: "find_and_explain",
-        repo,
-        branch,
-        token,
-        callAI,
-        event: "repo_conversation_find_and_explain_ai",
-      });
-    }
-
-    await replyHuman(
-      replyAndLog,
-      `\`${resolved.targetPath}\` найден, но тип объекта пока не определён надёжно.`,
-      { event: "repo_conversation_find_and_explain_unknown_kind" }
-    );
-
-    return {
-      handled: true,
-      reason: "find_and_explain_unknown_kind",
-    };
-  }
-
-  if (semanticPlan.intent === "open_target") {
-    const rawTarget = sanitizeEntity(semanticPlan.targetPath || semanticPlan.targetEntity);
-    const candidateFromFolder =
-      followupContext?.isActive === true &&
-      safeText(followupContext?.actionKind) === "browse_folder" &&
-      /\.[a-z0-9]{1,8}$/i.test(rawTarget) &&
-      !rawTarget.includes("/")
-        ? joinFolderWithBasename(followupContext?.targetPath || followupContext?.treePrefix, rawTarget)
-        : "";
-
-    const matches = candidateFromFolder
-      ? [candidateFromFolder]
-      : await searchSnapshotPaths(
-          latest.id,
-          rawTarget,
-          8,
-          { objectKind: semanticPlan?.objectKind || "unknown" }
-        );
-
-    const resolved = await resolveTargetObject({
-      latestSnapshotId: latest.id,
-      semanticPlan: {
-        ...semanticPlan,
-        targetPath: candidateFromFolder || semanticPlan.targetPath,
-      },
-      followupContext,
-      pendingChoiceContext,
-      rawTarget,
-      searchMatches: matches,
-    });
-
-    if (!resolved.ok) {
-      await replyHuman(
-        replyAndLog,
-        humanClarificationReply("Нужен более точный объект репозитория: файл или папка."),
-        { event: "repo_conversation_open_clarification" }
+function levenshtein(a, b) {
+  const s = safeText(a).toLowerCase();
+  const t = safeText(b).toLowerCase();
+
+  if (!s) return t.length;
+  if (!t) return s.length;
+
+  const dp = Array.from({ length: s.length + 1 }, () => new Array(t.length + 1).fill(0));
+
+  for (let i = 0; i <= s.length; i += 1) dp[i][0] = i;
+  for (let j = 0; j <= t.length; j += 1) dp[0][j] = j;
+
+  for (let i = 1; i <= s.length; i += 1) {
+    for (let j = 1; j <= t.length; j += 1) {
+      const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
       );
-      return { handled: true, reason: "open_clarification" };
     }
+  }
 
-    if (resolved.objectKind === "folder") {
-      return replyFolderBrowseFromPath({
-        replyAndLog,
-        folderPath: resolved.targetPath,
-        targetEntity: semanticPlan.targetEntity || rawTarget,
-        sourceText: trimmed,
-        semanticConfidence: semanticPlan?.confidence,
-        actionKind: "open_target",
-        latestSnapshotId: latest.id,
-        event: "repo_conversation_open_folder",
-      });
+  return dp[s.length][t.length];
+}
+
+const KNOWN_CANONICAL_TARGETS = Object.freeze([
+  { entity: "workflow", path: "pillars/WORKFLOW.md" },
+  { entity: "decisions", path: "pillars/DECISIONS.md" },
+  { entity: "decision", path: "pillars/DECISIONS.md" },
+  { entity: "roadmap", path: "pillars/ROADMAP.md" },
+  { entity: "project", path: "pillars/PROJECT.md" },
+  { entity: "kingdom", path: "pillars/KINGDOM.md" },
+  { entity: "sg_behavior", path: "pillars/SG_BEHAVIOR.md" },
+  { entity: "sg_entity", path: "pillars/SG_ENTITY.md" },
+  { entity: "repoindex", path: "pillars/REPOINDEX.md" },
+  { entity: "code_insert_rules", path: "pillars/CODE_INSERT_RULES.md" },
+  { entity: "readme", path: "README.md" },
+  { entity: "project_description", path: "README.md" },
+]);
+
+const SEARCH_PREFIXES = Object.freeze([
+  "найд",
+  "ищ",
+  "поиск",
+  "find",
+  "search",
+  "locat",
+  "where",
+]);
+
+const OPEN_PREFIXES = Object.freeze([
+  "отк",
+  "покаж",
+  "прочит",
+  "show",
+  "open",
+  "read",
+  "display",
+  "просмотр",
+]);
+
+const EXPLAIN_PREFIXES = Object.freeze([
+  "объяс",
+  "смысл",
+  "разбор",
+  "проанализ",
+  "анализ",
+  "explain",
+  "analy",
+  "review",
+  "inspect",
+  "описан",
+  "зачем",
+]);
+
+const TRANSLATE_PREFIXES = Object.freeze([
+  "перев",
+  "русск",
+  "англ",
+  "translate",
+]);
+
+const SUMMARY_PREFIXES = Object.freeze([
+  "общ",
+  "кратк",
+  "коротк",
+  "прост",
+  "summary",
+  "brief",
+  "short",
+  "simple",
+]);
+
+const TREE_PREFIXES = Object.freeze([
+  "дерев",
+  "структур",
+  "ветк",
+  "tree",
+  "root",
+  "корен",
+]);
+
+const STATUS_PREFIXES = Object.freeze([
+  "доступ",
+  "стат",
+  "состоя",
+  "status",
+  "access",
+  "connected",
+]);
+
+const CONTINUE_PREFIXES = Object.freeze([
+  "дальш",
+  "продол",
+  "continue",
+  "next",
+  "ещ",
+]);
+
+const FIRST_PART_PREFIXES = Object.freeze([
+  "перв",
+  "част",
+  "начал",
+  "first",
+  "part",
+  "begin",
+]);
+
+const PRONOUN_FOLLOWUP_PREFIXES = Object.freeze([
+  "он",
+  "она",
+  "оно",
+  "это",
+  "его",
+  "её",
+  "ее",
+  "them",
+  "it",
+  "this",
+  "that",
+  "там",
+  "тут",
+  "этот",
+  "эта",
+  "это",
+]);
+
+const FOLDER_PREFIXES = Object.freeze([
+  "папк",
+  "директор",
+  "каталог",
+  "folder",
+  "director",
+  "dir",
+]);
+
+const FILE_PREFIXES = Object.freeze([
+  "файл",
+  "документ",
+  "file",
+  "doc",
+]);
+
+const LISTING_PREFIXES = Object.freeze([
+  "спис",
+  "содерж",
+  "внутр",
+  "внутри",
+  "что",
+  "какие",
+  "list",
+  "content",
+  "inside",
+  "покаж",
+]);
+
+const GENERIC_TARGET_WORDS = new Set([
+  "файл",
+  "файла",
+  "файле",
+  "файлы",
+  "документ",
+  "документа",
+  "документе",
+  "папка",
+  "папку",
+  "папке",
+  "папки",
+  "раздел",
+  "раздела",
+  "разделе",
+  "репозиторий",
+  "репозитории",
+  "репо",
+  "project",
+  "repo",
+  "file",
+  "files",
+  "folder",
+  "directory",
+  "document",
+  "section",
+  "contents",
+  "content",
+]);
+
+function sanitizeTargetText(value) {
+  return safeText(value)
+    .replace(/^[`\"'«“„]+/, "")
+    .replace(/[`\"'»”„]+$/, "")
+    .replace(/[.,!?;:]+$/g, "")
+    .trim();
+}
+
+function isLikelyPathOrFileToken(value) {
+  const v = sanitizeTargetText(value);
+  if (!v) return false;
+  if (v.includes("/")) return true;
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return true;
+  if (/^[a-z0-9_.-]+$/i.test(v) && v.length >= 3) return true;
+  return false;
+}
+
+function isLikelyBasename(value) {
+  const v = sanitizeTargetText(value);
+  return /\.[a-z0-9]{1,8}$/i.test(v) && !v.includes("/");
+}
+
+function looksLikeFolderTarget(value) {
+  const v = sanitizeTargetText(value);
+  if (!v) return false;
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return false;
+  return v.includes("/") || /^[A-Za-z0-9_.-]+$/.test(v);
+}
+
+function inferObjectKindFromTarget(value = "") {
+  const v = sanitizeTargetText(value);
+  if (!v) return "unknown";
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return "file";
+  if (looksLikeFolderTarget(v)) return "folder";
+  return "unknown";
+}
+
+function extractQuotedTargets(text = "") {
+  const raw = safeText(text);
+  const matches = [];
+
+  const regexes = [
+    /`([^`]{2,120})`/g,
+    /\"([^\"]{2,120})\"/g,
+    /«([^»]{2,120})»/g,
+  ];
+
+  for (const rx of regexes) {
+    let m;
+    while ((m = rx.exec(raw)) !== null) {
+      const candidate = sanitizeTargetText(m[1]);
+      if (candidate) matches.push(candidate);
     }
+  }
 
-    if (resolved.objectKind === "file") {
-      return replyOpenFileFromPath({
-        replyAndLog,
-        targetPath: resolved.targetPath,
-        targetEntity: semanticPlan.targetEntity || rawTarget,
-        sourceText: trimmed,
-        semanticConfidence: semanticPlan?.confidence,
-        actionKind: "open_target",
-        repo,
-        branch,
-        token,
-        event: "repo_conversation_open_file",
-      });
+  return unique(matches);
+}
+
+function extractPathLikeTargets(text = "") {
+  const raw = safeText(text);
+  const matches = [];
+
+  const rx = /\b([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\/?|[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,8})\b/g;
+  let m;
+  while ((m = rx.exec(raw)) !== null) {
+    const candidate = sanitizeTargetText(m[1]);
+    if (!candidate) continue;
+    if (GENERIC_TARGET_WORDS.has(candidate.toLowerCase())) continue;
+    if (candidate.length < 3) continue;
+    if (isLikelyPathOrFileToken(candidate)) {
+      matches.push(candidate);
     }
+  }
 
-    await replyHuman(
-      replyAndLog,
-      `\`${resolved.targetPath}\` найден, но тип объекта определить не удалось.`,
-      { event: "repo_conversation_open_unknown_kind" }
-    );
+  return unique(matches);
+}
 
-    return { handled: true, reason: "open_unknown_kind" };
+function extractNamedTargetByMarker(text = "") {
+  const raw = safeText(text);
+
+  const patterns = [
+    /(?:файл|документ|раздел|папк[ауеи]?|директори[яиюе]?|каталог|file|document|section|folder|directory)\s+([A-Za-z0-9_.\-\/]{3,120})/i,
+    /(?:про|about|inside)\s+([A-Za-z0-9_.\-\/]{3,120})/i,
+    /(?:внутри|в)\s+([A-Za-z0-9_.\-\/]{3,120}\/?)/i,
+  ];
+
+  for (const rx of patterns) {
+    const m = raw.match(rx);
+    if (!m) continue;
+    const candidate = sanitizeTargetText(m[1]);
+    if (!candidate) continue;
+    if (GENERIC_TARGET_WORDS.has(candidate.toLowerCase())) continue;
+    return candidate;
+  }
+
+  return "";
+}
+
+function inferSemanticAlias(text = "") {
+  const normalized = normalizeText(text);
+
+  if (
+    (normalized.includes("описан") || normalized.includes("что это за проект") || normalized.includes("about project")) &&
+    normalized.includes("проект")
+  ) {
+    return { entity: "project_description", path: "README.md", confidence: "high" };
+  }
+
+  if (normalized.includes("readme")) {
+    return { entity: "readme", path: "README.md", confidence: "high" };
   }
 
   if (
-    semanticPlan.intent === "explain_target" ||
-    semanticPlan.intent === "explain_active" ||
-    semanticPlan.intent === "answer_pending_choice"
+    normalized.includes("decision") ||
+    normalized.includes("decisions") ||
+    normalized.includes("решени")
   ) {
-    const effectiveDisplayMode =
-      safeText(semanticPlan.displayMode) ||
-      safeText(pendingChoiceContext?.displayMode) ||
-      safeText(followupContext?.displayMode) ||
-      "explain";
-
-    const rawTarget = sanitizeEntity(semanticPlan.targetPath || semanticPlan.targetEntity);
-    const candidateFromFolder =
-      followupContext?.isActive === true &&
-      safeText(followupContext?.actionKind) === "browse_folder" &&
-      /\.[a-z0-9]{1,8}$/i.test(rawTarget) &&
-      !rawTarget.includes("/")
-        ? joinFolderWithBasename(followupContext?.targetPath || followupContext?.treePrefix, rawTarget)
-        : "";
-
-    const matches = candidateFromFolder
-      ? [candidateFromFolder]
-      : await searchSnapshotPaths(
-          latest.id,
-          rawTarget,
-          8,
-          { objectKind: semanticPlan?.objectKind || "unknown" }
-        );
-
-    const resolved = await resolveTargetObject({
-      latestSnapshotId: latest.id,
-      semanticPlan: {
-        ...semanticPlan,
-        targetPath: candidateFromFolder || semanticPlan.targetPath,
-      },
-      followupContext,
-      pendingChoiceContext,
-      rawTarget,
-      searchMatches: matches,
-    });
-
-    if (!resolved.ok) {
-      await replyHuman(
-        replyAndLog,
-        humanClarificationReply("Нужен более точный объект для объяснения: файл или папка."),
-        { event: "repo_conversation_explain_clarification" }
-      );
-      return { handled: true, reason: "explain_clarification" };
-    }
-
-    if (resolved.objectKind === "folder") {
-      return replyExplainFolderFromPath({
-        replyAndLog,
-        folderPath: resolved.targetPath,
-        targetEntity:
-          semanticPlan.targetEntity ||
-          followupContext?.targetEntity ||
-          pendingChoiceContext?.targetEntity ||
-          rawTarget,
-        sourceText: trimmed,
-        semanticConfidence: semanticPlan?.confidence,
-        actionKind: semanticPlan.intent,
-        latestSnapshotId: latest.id,
-        event: "repo_conversation_explain_folder",
-      });
-    }
-
-    if (resolved.objectKind === "file") {
-      return replyExplainFileFromPath({
-        replyAndLog,
-        trimmed,
-        targetPath: resolved.targetPath,
-        targetEntity:
-          semanticPlan.targetEntity ||
-          followupContext?.targetEntity ||
-          pendingChoiceContext?.targetEntity ||
-          rawTarget,
-        displayMode: effectiveDisplayMode,
-        sourceText: trimmed,
-        semanticConfidence: semanticPlan?.confidence,
-        actionKind: semanticPlan.intent,
-        repo,
-        branch,
-        token,
-        callAI,
-        event: "repo_conversation_explain_ai",
-        forceFirstPart: effectiveDisplayMode === "raw_first_part",
-      });
-    }
-
-    await replyHuman(
-      replyAndLog,
-      `\`${resolved.targetPath}\` найден, но пока неясно, это файл или папка.`,
-      { event: "repo_conversation_explain_unknown_kind" }
-    );
-
-    return { handled: true, reason: "explain_unknown_kind" };
+    return { entity: "decisions", path: "pillars/DECISIONS.md", confidence: "medium" };
   }
 
+  if (normalized.includes("workflow")) {
+    return { entity: "workflow", path: "pillars/WORKFLOW.md", confidence: "high" };
+  }
+
+  if (normalized.includes("roadmap")) {
+    return { entity: "roadmap", path: "pillars/ROADMAP.md", confidence: "high" };
+  }
+
+  if (normalized.includes("project.md")) {
+    return { entity: "project", path: "pillars/PROJECT.md", confidence: "high" };
+  }
+
+  return { entity: "", path: "", confidence: "low" };
+}
+
+function fuzzyCanonicalMatch(text = "") {
+  const normalized = normalizeText(text);
+  const tokens = tokenizeText(text);
+
+  const alias = inferSemanticAlias(normalized);
+  if (alias.path) {
+    return alias;
+  }
+
+  const candidates = [];
+
+  for (const token of tokens) {
+    const clean = token.replace(/[^a-zа-я0-9_./-]/gi, "");
+    if (!clean || clean.length < 3) continue;
+
+    for (const item of KNOWN_CANONICAL_TARGETS) {
+      const dist = levenshtein(clean, item.entity);
+      if (dist <= 2 || item.entity.includes(clean) || clean.includes(item.entity)) {
+        candidates.push({
+          ...item,
+          score: dist,
+        });
+      }
+
+      const fileBase = item.path.split("/").pop()?.replace(/\.[^.]+$/i, "").toLowerCase() || "";
+      const fileDist = levenshtein(clean, fileBase);
+      if (fileDist <= 2 || fileBase.includes(clean) || clean.includes(fileBase)) {
+        candidates.push({
+          ...item,
+          score: Math.min(dist, fileDist),
+        });
+      }
+    }
+  }
+
+  if (!candidates.length) {
+    return {
+      entity: "",
+      path: "",
+      confidence: "low",
+    };
+  }
+
+  candidates.sort((a, b) => a.score - b.score);
+  const best = candidates[0];
+
   return {
-    handled: false,
-    reason: "conversation_layer_skipped",
+    entity: safeText(best.entity),
+    path: safeText(best.path),
+    confidence: best.score === 0 ? "high" : "medium",
   };
 }
 
+function extractTargetPhrase(text = "") {
+  const quoted = extractQuotedTargets(text);
+  if (quoted.length > 0) return quoted[0];
+
+  const named = extractNamedTargetByMarker(text);
+  if (named) return named;
+
+  const pathLike = extractPathLikeTargets(text);
+  if (pathLike.length > 0) return pathLike[0];
+
+  return "";
+}
+
+function extractTreePrefix(text = "") {
+  const normalized = normalizeText(text);
+  if (!normalized) return "";
+
+  if (
+    normalized.includes("корне") ||
+    normalized.includes("в корне") ||
+    normalized.includes("root")
+  ) {
+    return "";
+  }
+
+  const pathLike = extractPathLikeTargets(text);
+  for (const item of pathLike) {
+    if (item.includes("/") || /^[A-Za-z0-9_.-]+$/.test(item)) {
+      return sanitizeTargetText(item).replace(/^\//, "");
+    }
+  }
+
+  const m = safeText(text).match(/(?:покажи|раскрой|открой|show|open)\s+([A-Za-z0-9_.\-\/]{2,120}\/?)/i);
+  if (m?.[1]) {
+    return sanitizeTargetText(m[1]).replace(/^\//, "");
+  }
+
+  return "";
+}
+
+function normalizeFolderTarget(target = "") {
+  const v = sanitizeTargetText(target).replace(/^\//, "");
+  if (!v) return "";
+  if (/\.[a-z0-9]{1,8}$/i.test(v)) return v;
+  return v.endsWith("/") ? v : `${v}/`;
+}
+
+function mentionsInnerFileSubject(normalized = "") {
+  return (
+    normalized.includes("команд") ||
+    normalized.includes("функц") ||
+    normalized.includes("метод") ||
+    normalized.includes("участ") ||
+    normalized.includes("часть") ||
+    normalized.includes("главн") ||
+    normalized.includes("важн") ||
+    normalized.includes("рандом") ||
+    normalized.includes("случайн") ||
+    normalized.includes("section") ||
+    normalized.includes("function") ||
+    normalized.includes("method") ||
+    normalized.includes("command") ||
+    normalized.includes("piece") ||
+    normalized.includes("part") ||
+    normalized.includes("important") ||
+    normalized.includes("main") ||
+    normalized.includes("random")
+  );
+}
+
+function mentionsCurrentContextAnchor(normalized = "") {
+  return (
+    normalized.includes("здесь") ||
+    normalized.includes("тут") ||
+    normalized.includes("в этом") ||
+    normalized.includes("из этого") ||
+    normalized.includes("этого файла") ||
+    normalized.includes("в файле") ||
+    normalized.includes("внутри файла") ||
+    normalized.includes("inside this") ||
+    normalized.includes("in this") ||
+    normalized.includes("here")
+  );
+}
+
+function hasExplicitDifferentTarget(text = "", followupContext = null, pendingChoiceContext = null) {
+  const extractedTarget = extractTargetPhrase(text);
+  const normalizedExtracted = sanitizeTargetText(extractedTarget).toLowerCase();
+  if (!normalizedExtracted) return false;
+
+  const activePath = safeText(followupContext?.targetPath).toLowerCase();
+  const activeEntity = safeText(followupContext?.targetEntity).toLowerCase();
+  const pendingPath = safeText(pendingChoiceContext?.targetPath).toLowerCase();
+  const pendingEntity = safeText(pendingChoiceContext?.targetEntity).toLowerCase();
+
+  if (
+    normalizedExtracted === activePath ||
+    normalizedExtracted === activeEntity ||
+    normalizedExtracted === pendingPath ||
+    normalizedExtracted === pendingEntity
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function shouldPreferActiveFile({
+  text,
+  normalized,
+  followupContext = null,
+  pendingChoiceContext = null,
+}) {
+  if (followupContext?.isActive !== true) return false;
+  if (safeText(followupContext?.objectKind) !== "file") return false;
+  if (hasExplicitDifferentTarget(text, followupContext, pendingChoiceContext)) return false;
+
+  const shortFollowup = tokenizeText(text).length <= 10;
+  const innerSubject = mentionsInnerFileSubject(normalized);
+  const currentAnchor = mentionsCurrentContextAnchor(normalized);
+  const asksMeaning =
+    normalized.includes("что делает") ||
+    normalized.includes("что здесь") ||
+    normalized.includes("расскажи") ||
+    normalized.includes("объясни") ||
+    normalized.includes("дай информацию") ||
+    normalized.includes("покажи") ||
+    normalized.includes("какая") ||
+    normalized.includes("какой");
+
+  return (innerSubject && (currentAnchor || shortFollowup || asksMeaning)) || (currentAnchor && shortFollowup);
+}
+
+function detectActionMeaning({ normalized, tokens, text, followupContext, pendingChoiceContext }) {
+  const searchHits = collectPrefixHits(tokens, SEARCH_PREFIXES);
+  const openHits = collectPrefixHits(tokens, OPEN_PREFIXES);
+  const explainHits = collectPrefixHits(tokens, EXPLAIN_PREFIXES);
+  const translateHits = collectPrefixHits(tokens, TRANSLATE_PREFIXES);
+  const summaryHits = collectPrefixHits(tokens, SUMMARY_PREFIXES);
+  const treeHits = collectPrefixHits(tokens, TREE_PREFIXES);
+  const statusHits = collectPrefixHits(tokens, STATUS_PREFIXES);
+  const continueHits = collectPrefixHits(tokens, CONTINUE_PREFIXES);
+  const firstPartHits = collectPrefixHits(tokens, FIRST_PART_PREFIXES);
+  const folderHits = collectPrefixHits(tokens, FOLDER_PREFIXES);
+  const fileHits = collectPrefixHits(tokens, FILE_PREFIXES);
+  const listingHits = collectPrefixHits(tokens, LISTING_PREFIXES);
+  const pronounHits = collectPrefixHits(tokens, PRONOUN_FOLLOWUP_PREFIXES);
+
+  const wantsContinuation =
+    continueHits.length > 0 ||
+    normalized.includes("следующ") ||
+    normalized.includes("ещё") ||
+    normalized.includes("еще") ||
+    normalized.includes("дальше");
+
+  const wantsTree =
+    treeHits.length > 0 ||
+    normalized.includes("дерево репозитория") ||
+    normalized.includes("какие папки в корне");
+
+  const wantsStatus =
+    (statusHits.length > 0 && normalized.includes("репозитор")) ||
+    normalized.includes("видишь репозиторий") ||
+    normalized.includes("есть доступ к репозиторию");
+
+  const wantsSummary = summaryHits.length > 0 || normalized.includes("кратко");
+  const wantsTranslate = translateHits.length > 0 || normalized.includes("на русском") || normalized.includes("по-русски");
+  const wantsExplain =
+    explainHits.length > 0 ||
+    normalized.includes("о чем") ||
+    normalized.includes("о чём") ||
+    normalized.includes("что это за файл") ||
+    normalized.includes("в чем смысл") ||
+    normalized.includes("зачем он");
+
+  const wantsOpen = openHits.length > 0;
+  const wantsSearch = searchHits.length > 0;
+  const wantsFolderListing =
+    folderHits.length > 0 ||
+    listingHits.length > 0 ||
+    normalized.includes("что внутри") ||
+    normalized.includes("содержимое папки") ||
+    normalized.includes("inside folder") ||
+    normalized.includes("contents");
+
+  const wantsFirstPart =
+    firstPartHits.length > 0 && normalized.includes("част");
+
+  if (followupContext?.continuation?.isActive === true && wantsContinuation) {
+    return {
+      intent: "continue_active",
+      confidence: "high",
+    };
+  }
+
+  if (pendingChoiceContext?.isActive === true && (wantsSummary || wantsExplain || wantsTranslate || wantsFirstPart || wantsContinuation)) {
+    return {
+      intent: "answer_pending_choice",
+      confidence: "high",
+    };
+  }
+
+  if (shouldPreferActiveFile({ text, normalized, followupContext, pendingChoiceContext })) {
+    return {
+      intent: "explain_active",
+      confidence: "high",
+    };
+  }
+
+  if (wantsTree) {
+    return {
+      intent: "show_tree",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsStatus) {
+    return {
+      intent: "repo_status",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsFolderListing) {
+    return {
+      intent: "browse_folder",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsSearch && (wantsExplain || wantsSummary || wantsTranslate)) {
+    return {
+      intent: "find_and_explain",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsSearch) {
+    return {
+      intent: "find_target",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsExplain || wantsTranslate || wantsSummary || wantsFirstPart) {
+    return {
+      intent: "explain_target",
+      confidence: "medium",
+    };
+  }
+
+  if (wantsOpen) {
+    return {
+      intent: "open_target",
+      confidence: "medium",
+    };
+  }
+
+  if (
+    followupContext?.isActive === true &&
+    pronounHits.length > 0 &&
+    (wantsExplain || wantsSummary || wantsTranslate || wantsOpen)
+  ) {
+    return {
+      intent: "explain_active",
+      confidence: "medium",
+    };
+  }
+
+  return {
+    intent: "unknown",
+    confidence: "low",
+  };
+}
+
+function heuristicFallback({
+  text,
+  followupContext = null,
+  pendingChoiceContext = null,
+}) {
+  const normalized = normalizeText(text);
+  const tokens = tokenizeText(text);
+
+  const fuzzy = fuzzyCanonicalMatch(text);
+  const extractedTarget = extractTargetPhrase(text);
+  const treePrefix = extractTreePrefix(text);
+
+  const targetEntity = pickFirstNonEmpty([
+    extractedTarget,
+    fuzzy.entity,
+    followupContext?.targetEntity,
+    pendingChoiceContext?.targetEntity,
+  ]);
+
+  const targetPath = pickFirstNonEmpty([
+    isLikelyPathOrFileToken(extractedTarget) ? extractedTarget : "",
+    fuzzy.path,
+    followupContext?.targetPath,
+    pendingChoiceContext?.targetPath,
+  ]);
+
+  const actionMeaning = detectActionMeaning({
+    normalized,
+    tokens,
+    text,
+    followupContext,
+    pendingChoiceContext,
+  });
+
+  let displayMode = "raw";
+  if (normalized.includes("на русском") || normalized.includes("по-русски")) {
+    displayMode = "translate_ru";
+  } else if (normalized.includes("кратко")) {
+    displayMode = "summary";
+  } else if (
+    normalized.includes("объяс") ||
+    normalized.includes("о чем") ||
+    normalized.includes("о чём") ||
+    normalized.includes("смысл")
+  ) {
+    displayMode = "explain";
+  }
+
+  if (normalized.includes("первая часть") || normalized.includes("покажи первую часть")) {
+    displayMode = "raw_first_part";
+  }
+
+  if (
+    displayMode === "raw" &&
+    shouldPreferActiveFile({ text, normalized, followupContext, pendingChoiceContext })
+  ) {
+    displayMode = safeText(followupContext?.displayMode) || "explain";
+  }
+
+  const inferredObjectKind = inferObjectKindFromTarget(
+    pickFirstNonEmpty([
+      extractedTarget,
+      targetPath,
+      followupContext?.targetPath,
+      followupContext?.targetEntity,
+    ])
+  );
+
+  if (actionMeaning.intent === "continue_active") {
+    return {
+      intent: "continue_active",
+      targetEntity: safeText(followupContext?.targetEntity),
+      targetPath: safeText(followupContext?.continuation?.targetPath || followupContext?.targetPath),
+      displayMode: safeText(followupContext?.continuation?.displayMode || followupContext?.displayMode || "explain"),
+      treePrefix: safeText(followupContext?.treePrefix),
+      objectKind: safeText(followupContext?.objectKind || inferredObjectKind),
+      clarifyNeeded: false,
+      clarifyQuestion: "",
+      confidence: "high",
+    };
+  }
+
+  if (actionMeaning.intent === "answer_pending_choice") {
+    return {
+      intent: "answer_pending_choice",
+      targetEntity,
+      targetPath,
+      displayMode:
+        displayMode === "raw"
+          ? safeText(pendingChoiceContext?.displayMode || "summary")
+          : displayMode,
+      treePrefix: "",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
+      clarifyNeeded: false,
+      clarifyQuestion: "",
+      confidence: "high",
+    };
+  }
+
+  if (actionMeaning.intent === "show_tree") {
+    return {
+      intent: "show_tree",
+      targetEntity: "",
+      targetPath: "",
+      displayMode: "raw",
+      treePrefix,
+      objectKind: treePrefix ? "folder" : "root",
+      clarifyNeeded: false,
+      clarifyQuestion: "",
+      confidence: actionMeaning.confidence,
+    };
+  }
+
+  if (actionMeaning.intent === "repo_status") {
+    return {
+      intent: "repo_status",
+      targetEntity: "",
+      targetPath: "",
+      displayMode: "raw",
+      treePrefix: "",
+      objectKind: "repo",
+      clarifyNeeded: false,
+      clarifyQuestion: "",
+      confidence: actionMeaning.confidence,
+    };
+  }
+
+  if (actionMeaning.intent === "browse_folder") {
+    const folderTarget = normalizeFolderTarget(
+      extractedTarget || targetPath || targetEntity || treePrefix || followupContext?.targetPath || followupContext?.treePrefix
+    );
+
+    return {
+      intent: "browse_folder",
+      targetEntity: safeText(extractedTarget || targetEntity || folderTarget),
+      targetPath: folderTarget,
+      displayMode: "raw",
+      treePrefix: folderTarget,
+      objectKind: folderTarget ? "folder" : "unknown",
+      clarifyNeeded: !folderTarget,
+      clarifyQuestion: folderTarget ? "" : "Какую именно папку показать?",
+      confidence: folderTarget ? "high" : "medium",
+    };
+  }
+
+  if (actionMeaning.intent === "find_and_explain") {
+    return {
+      intent: "find_and_explain",
+      targetEntity,
+      targetPath,
+      displayMode: displayMode === "raw" ? "summary" : displayMode,
+      treePrefix: "",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
+      clarifyNeeded: !targetEntity && !targetPath,
+      clarifyQuestion: (!targetEntity && !targetPath) ? "Что именно искать и объяснить в репозитории?" : "",
+      confidence: (targetEntity || targetPath) ? "high" : "low",
+    };
+  }
+
+  if (actionMeaning.intent === "find_target") {
+    return {
+      intent: "find_target",
+      targetEntity,
+      targetPath,
+      displayMode: "raw",
+      treePrefix: "",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
+      clarifyNeeded: !targetEntity && !targetPath,
+      clarifyQuestion: (!targetEntity && !targetPath) ? "Что именно искать в репозитории?" : "",
+      confidence: (targetEntity || targetPath) ? "high" : "low",
+    };
+  }
+
+  if (actionMeaning.intent === "open_target") {
+    return {
+      intent: "open_target",
+      targetEntity,
+      targetPath,
+      displayMode: "raw",
+      treePrefix: "",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
+      clarifyNeeded: !targetPath && !targetEntity,
+      clarifyQuestion: (!targetPath && !targetEntity) ? "Какой именно файл или документ открыть?" : "",
+      confidence: (targetEntity || targetPath) ? "high" : "low",
+    };
+  }
+
+  if (actionMeaning.intent === "explain_active") {
+    return {
+      intent: "explain_active",
+      targetEntity: safeText(followupContext?.targetEntity || targetEntity),
+      targetPath: safeText(followupContext?.targetPath || targetPath),
+      displayMode: displayMode === "raw" ? (safeText(followupContext?.displayMode) || "explain") : displayMode,
+      treePrefix: "",
+      objectKind: safeText(followupContext?.objectKind || inferObjectKindFromTarget(targetPath || targetEntity)),
+      clarifyNeeded: !targetPath && !followupContext?.isActive,
+      clarifyQuestion: (!targetPath && !followupContext?.isActive) ? "Что именно нужно объяснить?" : "",
+      confidence: (targetPath || followupContext?.isActive) ? "high" : "medium",
+    };
+  }
+
+  if (actionMeaning.intent === "explain_target") {
+    return {
+      intent: "explain_target",
+      targetEntity,
+      targetPath,
+      displayMode: displayMode === "raw" ? "explain" : displayMode,
+      treePrefix: "",
+      objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
+      clarifyNeeded: !targetPath && !targetEntity && !followupContext?.isActive,
+      clarifyQuestion: (!targetPath && !targetEntity && !followupContext?.isActive) ? "Что именно нужно объяснить?" : "",
+      confidence: (targetEntity || targetPath || followupContext?.isActive) ? "high" : "low",
+    };
+  }
+
+  return {
+    intent: "unknown",
+    targetEntity,
+    targetPath,
+    displayMode,
+    treePrefix: "",
+    objectKind: inferObjectKindFromTarget(targetPath || targetEntity),
+    clarifyNeeded: false,
+    clarifyQuestion: "",
+    confidence: targetEntity || targetPath ? "medium" : "low",
+  };
+}
+
+function sanitizeSemanticResult(raw, fallback) {
+  const result = raw && typeof raw === "object" ? raw : {};
+
+  const allowedIntents = new Set([
+    "repo_status",
+    "show_tree",
+    "browse_folder",
+    "find_target",
+    "find_and_explain",
+    "open_target",
+    "explain_target",
+    "explain_active",
+    "answer_pending_choice",
+    "continue_active",
+    "unknown",
+  ]);
+
+  const allowedDisplayModes = new Set([
+    "raw",
+    "raw_first_part",
+    "summary",
+    "explain",
+    "translate_ru",
+  ]);
+
+  const allowedConfidence = new Set([
+    "low",
+    "medium",
+    "high",
+  ]);
+
+  const allowedObjectKinds = new Set([
+    "repo",
+    "root",
+    "folder",
+    "file",
+    "unknown",
+  ]);
+
+  const intent = allowedIntents.has(result.intent)
+    ? result.intent
+    : fallback.intent;
+
+  return {
+    intent,
+    targetEntity: safeText(result.targetEntity || fallback.targetEntity),
+    targetPath: safeText(result.targetPath || fallback.targetPath),
+    displayMode: allowedDisplayModes.has(safeText(result.displayMode))
+      ? safeText(result.displayMode)
+      : safeText(fallback.displayMode || "raw"),
+    treePrefix: safeText(result.treePrefix || fallback.treePrefix || ""),
+    objectKind: allowedObjectKinds.has(safeText(result.objectKind))
+      ? safeText(result.objectKind)
+      : safeText(fallback.objectKind || "unknown"),
+    clarifyNeeded: result.clarifyNeeded === true ? true : fallback.clarifyNeeded === true,
+    clarifyQuestion: safeText(result.clarifyQuestion || fallback.clarifyQuestion),
+    confidence: allowedConfidence.has(safeText(result.confidence))
+      ? safeText(result.confidence)
+      : safeText(fallback.confidence || "low"),
+  };
+}
+
+function buildSemanticMessages({
+  text,
+  followupContext = null,
+  pendingChoiceContext = null,
+}) {
+  const contextLines = [
+    `current_user_message: ${safeText(text)}`,
+    `active_repo_context: ${followupContext?.isActive === true ? "yes" : "no"}`,
+    `active_repo_target_entity: ${safeText(followupContext?.targetEntity)}`,
+    `active_repo_target_path: ${safeText(followupContext?.targetPath)}`,
+    `active_repo_display_mode: ${safeText(followupContext?.displayMode)}`,
+    `active_repo_action_kind: ${safeText(followupContext?.actionKind)}`,
+    `active_repo_object_kind: ${safeText(followupContext?.objectKind)}`,
+    `active_repo_continuation: ${followupContext?.continuation?.isActive === true ? "yes" : "no"}`,
+    `active_repo_continuation_target_path: ${safeText(followupContext?.continuation?.targetPath)}`,
+    `active_repo_continuation_display_mode: ${safeText(followupContext?.continuation?.displayMode)}`,
+    `pending_choice_active: ${pendingChoiceContext?.isActive === true ? "yes" : "no"}`,
+    `pending_choice_target_entity: ${safeText(pendingChoiceContext?.targetEntity)}`,
+    `pending_choice_target_path: ${safeText(pendingChoiceContext?.targetPath)}`,
+    `pending_choice_display_mode: ${safeText(pendingChoiceContext?.displayMode)}`,
+  ].join("\n");
+
+  return [
+    {
+      role: "system",
+      content:
+        "You are a semantic parser for INTERNAL REPO DIALOGUE.\n" +
+        "Task: understand USER MEANING, not command words.\n" +
+        "Return ONLY strict JSON.\n" +
+        "Do not explain.\n" +
+        "Do not hallucinate files.\n" +
+        "Prefer active repo context and pending choice context.\n" +
+        "Prefer object understanding: repo root, folder, file, continuation.\n" +
+        "If active repo continuation exists and user asks to continue, use continue_active.\n" +
+        "If active repo action is browse_folder and user mentions a basename like DOCS_GOVERNANCE.md, treat it as a file inside that active folder.\n" +
+        "If active repo object is file and user asks about a command, function, method, important part, random part, section, or says 'здесь/в этом файле', prefer explain_active.\n" +
+        "Do not ask for a new target when active file context already answers the question.\n" +
+        "If user asks what is inside a folder, prefer browse_folder.\n" +
+        "If user asks what a file is about, prefer explain_target.\n" +
+        "If user asks to show repository tree, default to root-first.\n" +
+        "JSON shape:\n" +
+        "{\n" +
+        '  \"intent\": \"repo_status|show_tree|browse_folder|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|continue_active|unknown\",\n' +
+        '  \"targetEntity\": \"string\",\n' +
+        '  \"targetPath\": \"string\",\n' +
+        '  \"displayMode\": \"raw|raw_first_part|summary|explain|translate_ru\",\n' +
+        '  \"treePrefix\": \"string\",\n' +
+        '  \"objectKind\": \"repo|root|folder|file|unknown\",\n' +
+        '  \"clarifyNeeded\": true,\n' +
+        '  \"clarifyQuestion\": \"string\",\n' +
+        '  \"confidence\": \"low|medium|high\"\n' +
+        "}",
+    },
+    {
+      role: "user",
+      content: contextLines,
+    },
+  ];
+}
+
+export async function resolveProjectIntentSemanticPlan({
+  text,
+  callAI,
+  followupContext = null,
+  pendingChoiceContext = null,
+}) {
+  const fallback = heuristicFallback({
+    text,
+    followupContext,
+    pendingChoiceContext,
+  });
+
+  if (typeof callAI !== "function") {
+    return fallback;
+  }
+
+  try {
+    const aiReply = await callAI(
+      buildSemanticMessages({
+        text,
+        followupContext,
+        pendingChoiceContext,
+      }),
+      "high",
+      {
+        max_completion_tokens: 260,
+        temperature: 0.1,
+      }
+    );
+
+    const parsed = safeJsonParse(aiReply);
+    return sanitizeSemanticResult(parsed, fallback);
+  } catch {
+    return fallback;
+  }
+}
+
 export default {
-  buildProjectIntentRoutingText,
-  getLatestProjectIntentRepoContext,
-  getLatestProjectIntentPendingChoice,
-  runProjectIntentConversationFlow,
+  resolveProjectIntentSemanticPlan,
 };

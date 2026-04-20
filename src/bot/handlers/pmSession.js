@@ -1,245 +1,185 @@
-// src/bot/handlers/pmSessions.js
+// src/bot/handlers/pmSession.js
 // ============================================================================
-// Project Memory work-session read flow
+// Project Memory work-session write flow
 // Purpose:
-// - safe/manual read access for saved work sessions
-// - no automatic chat capture or auto-analysis
-// - uses existing project memory facade only
+// - manual controlled save of work-session summaries
+// - no auto-capture
+// - no auto-analysis
+// - uses Project Memory V2 recorder facade only
 // ============================================================================
 
 function safeText(value) {
   return String(value ?? "").trim();
 }
 
-function toPositiveInt(value, def = 5, min = 1, max = 20) {
-  const n = Number.parseInt(String(value ?? "").trim(), 10);
-  if (!Number.isInteger(n)) return def;
-  if (n < min) return min;
-  if (n > max) return max;
-  return n;
+function splitItems(value = "") {
+  return String(value ?? "")
+    .split(/\s*\|\s*/)
+    .map((item) => safeText(item))
+    .filter(Boolean);
 }
 
-function formatDateTime(value) {
-  if (!value) return "unknown";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-
-  return `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
-}
-
-function extractFirstBlockLine(content = "", blockName = "") {
-  const lines = String(content ?? "").split(/\r?\n/);
-  const target = safeText(blockName).toUpperCase() + ":";
-
-  let inBlock = false;
-  for (const rawLine of lines) {
-    const line = String(rawLine ?? "");
-    const trimmed = line.trim();
-
-    if (!inBlock) {
-      if (trimmed.toUpperCase() === target) {
-        inBlock = true;
-      }
-      continue;
-    }
-
-    if (!trimmed) continue;
-
-    if (/^[A-Z_ ]+:$/.test(trimmed)) {
-      break;
-    }
-
-    return trimmed.replace(/^[-*•]\s*/, "");
+function pickLine(map, ...keys) {
+  for (const key of keys) {
+    if (safeText(map[key])) return safeText(map[key]);
   }
-
   return "";
 }
 
-function buildListMessage(rows, limit) {
-  if (!rows.length) {
-    return "🧠 Work sessions: записей пока нет.";
-  }
-
-  const lines = [
-    `🧠 Work sessions (последние ${Math.min(limit, rows.length)}):`,
-    "",
-  ];
-
-  for (const row of rows.slice(0, limit)) {
-    const title = safeText(row.title) || "untitled session";
-    const goal = extractFirstBlockLine(row.content, "GOAL");
-    const changed = extractFirstBlockLine(row.content, "CHANGED");
-    const dateText = formatDateTime(row.updated_at || row.created_at);
-
-    lines.push(`• id=${row.id} | ${title}`);
-    lines.push(`  date: ${dateText}`);
-
-    if (goal) {
-      lines.push(`  goal: ${goal}`);
-    }
-
-    if (changed) {
-      lines.push(`  changed: ${changed}`);
-    }
-
-    lines.push("");
-  }
-
-  lines.push("Используй: /pm_session_show <id>");
-
-  return lines.join("\n").trim();
-}
-
-function buildShowMessage(row) {
-  const header = [
-    "🧠 Work session",
-    `id: ${row.id}`,
-    `title: ${safeText(row.title) || "untitled session"}`,
-    `date: ${formatDateTime(row.updated_at || row.created_at)}`,
-    `module_key: ${safeText(row.module_key) || "-"}`,
-    `stage_key: ${safeText(row.stage_key) || "-"}`,
-    `source_ref: ${safeText(row.source_ref) || "-"}`,
-    "",
-  ].join("\n");
-
-  return header + String(row.content || "");
-}
-
-async function sendChunked(bot, chatId, title, content) {
-  const SAFE_LIMIT = 3800;
-  const text = String(content ?? "");
-  const header = String(title ?? "").trim();
+function parseSessionInput(rest = "") {
+  const text = safeText(rest);
 
   if (!text) {
-    await bot.sendMessage(chatId, header || "Пусто.");
-    return;
+    return null;
   }
 
-  if ((header.length + 2 + text.length) <= SAFE_LIMIT) {
-    await bot.sendMessage(chatId, header ? `${header}\n\n${text}` : text);
-    return;
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => String(line ?? ""))
+    .filter((line) => line.trim().length > 0);
+
+  const map = {};
+  const freeform = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_ ]*?)\s*:\s*(.*)$/);
+
+    if (!match) {
+      freeform.push(line);
+      continue;
+    }
+
+    const rawKey = safeText(match[1]).toLowerCase().replace(/\s+/g, "_");
+    const rawValue = safeText(match[2]);
+
+    map[rawKey] = rawValue;
   }
 
-  const parts = [];
-  let cursor = 0;
+  const title =
+    pickLine(map, "title", "session", "name") || "Work session";
 
-  while (cursor < text.length) {
-    parts.push(text.slice(cursor, cursor + 3000));
-    cursor += 3000;
-  }
+  const goal =
+    pickLine(map, "goal", "summary", "task", "what") ||
+    freeform.join(" ");
 
-  for (let i = 0; i < parts.length; i++) {
-    const prefix = header
-      ? `${header}\nчасть ${i + 1}/${parts.length}\n\n`
-      : `часть ${i + 1}/${parts.length}\n\n`;
+  const checked = splitItems(pickLine(map, "checked", "checked_items"));
+  const changed = splitItems(pickLine(map, "changed", "changes"));
+  const decisions = splitItems(pickLine(map, "decisions", "decision"));
+  const risks = splitItems(pickLine(map, "risks", "risk"));
+  const nextSteps = splitItems(pickLine(map, "next", "next_steps", "todo"));
+  const notes = splitItems(pickLine(map, "notes", "note"));
+  const tags = splitItems(pickLine(map, "tags", "tag"));
+  const relatedPaths = splitItems(
+    pickLine(map, "paths", "related_paths", "files")
+  );
 
-    const available = Math.max(500, SAFE_LIMIT - prefix.length);
-    const body = parts[i].slice(0, available);
-    await bot.sendMessage(chatId, prefix + body);
-  }
+  const moduleKey = pickLine(map, "module", "module_key");
+  const stageKey = pickLine(map, "stage", "stage_key");
+  const sourceRef = pickLine(map, "source", "source_ref");
+
+  return {
+    title,
+    goal,
+    checked,
+    changed,
+    decisions,
+    risks,
+    nextSteps,
+    notes,
+    tags,
+    relatedPaths,
+    moduleKey,
+    stageKey,
+    sourceRef,
+  };
 }
 
-export async function handlePmSessions({
-  bot,
-  chatId,
-  rest,
-  getProjectMemoryList,
-}) {
-  const raw = safeText(rest);
-
-  try {
-    const rows = await getProjectMemoryList(undefined, "work_sessions");
-    const sessions = Array.isArray(rows)
-      ? rows.filter((row) => String(row.entry_type || "") === "session_summary")
-      : [];
-
-    if (!raw || raw.toLowerCase() === "list") {
-      const limit = 5;
-      const message = buildListMessage(sessions, limit);
-      await bot.sendMessage(chatId, message);
-      return;
-    }
-
-    const parts = raw.split(/\s+/).filter(Boolean);
-    const mode = safeText(parts[0]).toLowerCase();
-
-    if (mode === "list") {
-      const limit = toPositiveInt(parts[1], 5, 1, 20);
-      const message = buildListMessage(sessions, limit);
-      await bot.sendMessage(chatId, message);
-      return;
-    }
-
-    if (mode === "show") {
-      const id = Number.parseInt(parts[1] || "", 10);
-
-      if (!Number.isInteger(id)) {
-        await bot.sendMessage(chatId, "Использование: /pm_sessions show <id>");
-        return;
-      }
-
-      const row = sessions.find((item) => Number(item.id) === id);
-
-      if (!row) {
-        await bot.sendMessage(chatId, `Work-session id=${id} не найден.`);
-        return;
-      }
-
-      const full = buildShowMessage(row);
-      await sendChunked(bot, chatId, "🧠 Project Memory: work_session", full);
-      return;
-    }
-
-    const fallbackLimit = toPositiveInt(parts[0], 5, 1, 20);
-    const message = buildListMessage(sessions, fallbackLimit);
-    await bot.sendMessage(chatId, message);
-  } catch (e) {
-    console.error("❌ /pm_sessions error:", e);
-    await bot.sendMessage(chatId, "⚠️ Ошибка чтения work sessions из Project Memory.");
-  }
+function buildUsage() {
+  return [
+    "Использование: /pm_session",
+    "",
+    "Минимум:",
+    "goal: что было сделано",
+    "",
+    "Рекомендуемый формат:",
+    "title: Stage 7A deploy fix",
+    "goal: восстановили write/read flow Project Memory",
+    "checked: dispatchProjectMemoryCommands.js | contextBuilders.js",
+    "changed: восстановлен pmSession.js | создан pmSessions.js",
+    "decisions: сначала чиним deploy, потом slicing",
+    "risks: возможен импортный конфликт если файл не закоммитить",
+    "next: redeploy | test /pm_session | test /pm_sessions",
+    "notes: ручная запись без auto-capture",
+    "module: project_memory",
+    "stage: 7A",
+    "source: telegram_manual",
+    "tags: pm | work_session",
+    "paths: src/bot/handlers/pmSession.js | src/bot/handlers/pmSessions.js",
+    "",
+    "Разделитель в списках: |",
+  ].join("\n");
 }
 
-export async function handlePmSessionShow({
+export async function handlePmSession({
   bot,
   chatId,
+  chatIdStr,
   rest,
-  getProjectMemoryList,
+  bypass,
+  recordProjectWorkSession,
 }) {
-  const id = Number.parseInt(safeText(rest), 10);
+  if (typeof recordProjectWorkSession !== "function") {
+    await bot.sendMessage(chatId, "⛔ recordProjectWorkSession недоступен.");
+    return;
+  }
 
-  if (!Number.isInteger(id)) {
-    await bot.sendMessage(chatId, "Использование: /pm_session_show <id>");
+  const parsed = parseSessionInput(rest);
+
+  if (!parsed || !safeText(parsed.goal)) {
+    await bot.sendMessage(chatId, buildUsage());
     return;
   }
 
   try {
-    const rows = await getProjectMemoryList(undefined, "work_sessions");
-    const sessions = Array.isArray(rows)
-      ? rows.filter((row) => String(row.entry_type || "") === "session_summary")
-      : [];
+    const saved = await recordProjectWorkSession({
+      title: parsed.title,
+      goal: parsed.goal,
+      checked: parsed.checked,
+      changed: parsed.changed,
+      decisions: parsed.decisions,
+      risks: parsed.risks,
+      nextSteps: parsed.nextSteps,
+      notes: parsed.notes,
+      tags: parsed.tags,
+      sourceType: "chat_session",
+      sourceRef: parsed.sourceRef || `telegram:${safeText(chatIdStr || chatId)}`,
+      relatedPaths: parsed.relatedPaths,
+      moduleKey: parsed.moduleKey || "project_memory",
+      stageKey: parsed.stageKey || "7A",
+      meta: {
+        transport: "telegram",
+        manual: true,
+        bypass: !!bypass,
+        chatId: safeText(chatIdStr || chatId),
+      },
+    });
 
-    const row = sessions.find((item) => Number(item.id) === id);
-
-    if (!row) {
-      await bot.sendMessage(chatId, `Work-session id=${id} не найден.`);
-      return;
-    }
-
-    const full = buildShowMessage(row);
-    await sendChunked(bot, chatId, "🧠 Project Memory: work_session", full);
+    await bot.sendMessage(
+      chatId,
+      [
+        "✅ Work-session сохранён в Project Memory.",
+        `id: ${saved?.id ?? "-"}`,
+        `section: ${saved?.section ?? "work_sessions"}`,
+        `entry_type: ${saved?.entry_type ?? "session_summary"}`,
+      ].join("\n")
+    );
   } catch (e) {
-    console.error("❌ /pm_session_show error:", e);
-    await bot.sendMessage(chatId, "⚠️ Ошибка чтения work-session из Project Memory.");
+    console.error("❌ /pm_session error:", e);
+    await bot.sendMessage(chatId, "⚠️ Ошибка сохранения work-session в Project Memory.");
   }
 }
 
 export default {
-  handlePmSessions,
-  handlePmSessionShow,
+  handlePmSession,
 };

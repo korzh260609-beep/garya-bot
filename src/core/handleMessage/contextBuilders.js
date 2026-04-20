@@ -68,6 +68,7 @@ export function buildDispatchCommandContext({
     getProjectMemoryList: deps.getProjectMemoryList,
     upsertProjectSection: deps.upsertProjectSection,
     recordProjectWorkSession: deps.recordProjectWorkSession,
+    updateProjectWorkSession: deps.updateProjectWorkSession,
 
     runSourceDiagnosticsOnce: deps.runSourceDiagnosticsOnce,
     getAllSourcesSafe: deps.getAllSourcesSafe,

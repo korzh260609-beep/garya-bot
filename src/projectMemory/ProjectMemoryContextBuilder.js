@@ -18,11 +18,6 @@ function compactText(text, maxChars = 1200) {
   return s.slice(0, maxChars) + "\n...[TRUNCATED]...";
 }
 
-function uniquePush(arr, value) {
-  if (!value) return;
-  if (!arr.includes(value)) arr.push(value);
-}
-
 export class ProjectMemoryContextBuilder {
   constructor({ service }) {
     this.service = service;
@@ -119,28 +114,28 @@ export class ProjectMemoryContextBuilder {
       limit: 200,
     });
 
-    const sections = new Set();
     const entryTypes = new Set();
     const moduleKeys = new Set();
     const stageKeys = new Set();
     const relatedPaths = new Set();
+    const sections = new Set();
 
     for (const item of entries) {
-      uniquePush([...sections], item.section);
-      entryTypes.add(item.entry_type);
+      if (item.section) sections.add(item.section);
+      if (item.entry_type) entryTypes.add(item.entry_type);
       if (item.module_key) moduleKeys.add(item.module_key);
       if (item.stage_key) stageKeys.add(item.stage_key);
 
       if (Array.isArray(item.related_paths)) {
-        for (const path of item.related_paths) {
-          if (path) relatedPaths.add(path);
+        for (const relatedPath of item.related_paths) {
+          if (relatedPath) relatedPaths.add(relatedPath);
         }
       }
     }
 
     return {
       totalEntries: entries.length,
-      sections: Array.from(new Set(entries.map((x) => x.section).filter(Boolean))).sort(),
+      sections: Array.from(sections).sort(),
       entryTypes: Array.from(entryTypes).sort(),
       moduleKeys: Array.from(moduleKeys).sort(),
       stageKeys: Array.from(stageKeys).sort(),

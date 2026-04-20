@@ -231,6 +231,8 @@ export async function dispatchCommand(cmd, ctx) {
     "/pm_set",
     "/pm_list",
     "/pm_session",
+    "/pm_sessions",
+    "/pm_session_show",
 
     "/render_diag",
     "/render_log_set",

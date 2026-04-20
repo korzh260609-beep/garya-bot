@@ -10,6 +10,10 @@ import { handlePmSet } from "../handlers/pmSet.js";
 import { handlePmShow } from "../handlers/pmShow.js";
 import { handlePmList } from "../handlers/pmList.js";
 import { handlePmSession } from "../handlers/pmSession.js";
+import {
+  handlePmSessions,
+  handlePmSessionShow,
+} from "../handlers/pmSessions.js";
 
 export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
   const { bot, chatId, chatIdStr } = ctx;
@@ -78,6 +82,38 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
         rest: ctx.rest,
         bypass: !!ctx.bypass,
         recordProjectWorkSession: ctx.recordProjectWorkSession,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_sessions": {
+      if (typeof ctx.getProjectMemoryList !== "function") {
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
+        return { handled: true };
+      }
+
+      await handlePmSessions({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        getProjectMemoryList: ctx.getProjectMemoryList,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_session_show": {
+      if (typeof ctx.getProjectMemoryList !== "function") {
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
+        return { handled: true };
+      }
+
+      await handlePmSessionShow({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        getProjectMemoryList: ctx.getProjectMemoryList,
       });
 
       return { handled: true };

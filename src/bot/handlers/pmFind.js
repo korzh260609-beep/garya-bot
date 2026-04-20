@@ -7,6 +7,7 @@
 // - no auto-capture
 // - no auto-analysis
 // - no DB writes
+// - supports filters: module:<key> stage:<key>
 // ============================================================================
 
 import { getUserTimezone } from "../../db/userSettings.js";
@@ -18,6 +19,36 @@ function safeText(value) {
 
 function normalizeSearchText(value) {
   return safeText(value).toLowerCase();
+}
+
+function parseFindArgs(rest = "") {
+  const tokens = safeText(rest).split(/\s+/).filter(Boolean);
+
+  let moduleKey = "";
+  let stageKey = "";
+  const queryTokens = [];
+
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+
+    if (lower.startsWith("module:")) {
+      moduleKey = safeText(token.slice(7));
+      continue;
+    }
+
+    if (lower.startsWith("stage:")) {
+      stageKey = safeText(token.slice(6));
+      continue;
+    }
+
+    queryTokens.push(token);
+  }
+
+  return {
+    query: safeText(queryTokens.join(" ")),
+    moduleKey,
+    stageKey,
+  };
 }
 
 async function resolveDisplayTimezone(globalUserId) {
@@ -113,13 +144,38 @@ function matchesQuery(row, q) {
   return title.includes(q) || content.includes(q);
 }
 
-function buildFindMessage(rows, q, timezone) {
+function filterSessions(rows, { moduleKey, stageKey }) {
+  return rows.filter((row) => {
+    if (moduleKey && safeText(row.module_key) !== moduleKey) {
+      return false;
+    }
+
+    if (stageKey && safeText(row.stage_key) !== stageKey) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function buildFilterLabel({ moduleKey, stageKey }) {
+  const parts = [];
+
+  if (moduleKey) parts.push(`module=${moduleKey}`);
+  if (stageKey) parts.push(`stage=${stageKey}`);
+
+  return parts.length ? ` [${parts.join(", ")}]` : "";
+}
+
+function buildFindMessage(rows, query, timezone, filters) {
+  const filterLabel = buildFilterLabel(filters);
+
   if (!rows.length) {
-    return `🧠 Project Memory find: ничего не найдено по запросу "${q}".`;
+    return `🧠 Project Memory find${filterLabel}: ничего не найдено по запросу "${query}".`;
   }
 
   const lines = [
-    `🧠 Project Memory find: "${q}"`,
+    `🧠 Project Memory find${filterLabel}: "${query}"`,
     "",
   ];
 
@@ -156,10 +212,10 @@ export async function handlePmFind({
   globalUserId = null,
   getProjectMemoryList,
 }) {
-  const query = safeText(rest);
+  const args = parseFindArgs(rest);
 
-  if (!query) {
-    await bot.sendMessage(chatId, "Использование: /pm_find <текст>");
+  if (!args.query) {
+    await bot.sendMessage(chatId, "Использование: /pm_find <текст> [module:<key>] [stage:<key>]");
     return;
   }
 
@@ -171,10 +227,11 @@ export async function handlePmFind({
       ? rows.filter((row) => String(row.entry_type || "") === "session_summary")
       : [];
 
-    const q = normalizeSearchText(query);
-    const matched = sessions.filter((row) => matchesQuery(row, q));
+    const filtered = filterSessions(sessions, args);
+    const q = normalizeSearchText(args.query);
+    const matched = filtered.filter((row) => matchesQuery(row, q));
 
-    const message = buildFindMessage(matched, query, timezone);
+    const message = buildFindMessage(matched, args.query, timezone, args);
     await bot.sendMessage(chatId, message);
   } catch (e) {
     console.error("❌ /pm_find error:", e);

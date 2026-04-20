@@ -12,6 +12,7 @@ import { ProjectMemoryService, DEFAULT_PROJECT_KEY } from "./src/projectMemory/P
 import { ProjectMemoryContextBuilder } from "./src/projectMemory/ProjectMemoryContextBuilder.js";
 import { ProjectMemorySourceSync } from "./src/projectMemory/ProjectMemorySourceSync.js";
 import { ProjectMemorySessionRecorder } from "./src/projectMemory/ProjectMemorySessionRecorder.js";
+import { ProjectMemorySessionUpdater } from "./src/projectMemory/ProjectMemorySessionUpdater.js";
 
 const service = new ProjectMemoryService({
   dbPool: pool,
@@ -21,6 +22,7 @@ const service = new ProjectMemoryService({
 const contextBuilder = new ProjectMemoryContextBuilder({ service });
 const sourceSync = new ProjectMemorySourceSync({ service });
 const sessionRecorder = new ProjectMemorySessionRecorder({ service });
+const sessionUpdater = new ProjectMemorySessionUpdater({ service });
 
 // ============================================================================
 // Backward-compatible API
@@ -97,11 +99,16 @@ export async function recordProjectWorkSession(input = {}) {
   return sessionRecorder.recordSession(input);
 }
 
+export async function updateProjectWorkSession(input = {}) {
+  return sessionUpdater.updateSession(input);
+}
+
 export {
   service as projectMemoryService,
   contextBuilder as projectMemoryContextBuilder,
   sourceSync as projectMemorySourceSync,
   sessionRecorder as projectMemorySessionRecorder,
+  sessionUpdater as projectMemorySessionUpdater,
   DEFAULT_PROJECT_KEY,
 };
 
@@ -115,9 +122,11 @@ export default {
   buildProjectMemoryDigest,
   syncProjectMemorySources,
   recordProjectWorkSession,
+  updateProjectWorkSession,
   projectMemoryService: service,
   projectMemoryContextBuilder: contextBuilder,
   projectMemorySourceSync: sourceSync,
   projectMemorySessionRecorder: sessionRecorder,
+  projectMemorySessionUpdater: sessionUpdater,
   DEFAULT_PROJECT_KEY,
 };

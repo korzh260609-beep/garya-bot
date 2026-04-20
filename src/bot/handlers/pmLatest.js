@@ -7,6 +7,7 @@
 // - no auto-capture
 // - no auto-analysis
 // - no DB writes
+// - supports filters: module:<key> stage:<key>
 // ============================================================================
 
 import { getUserTimezone } from "../../db/userSettings.js";
@@ -14,6 +15,32 @@ import { resolveUserTimezone } from "../../core/time/timezoneResolver.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
+}
+
+function parseLatestArgs(rest = "") {
+  const tokens = safeText(rest).split(/\s+/).filter(Boolean);
+
+  let moduleKey = "";
+  let stageKey = "";
+
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+
+    if (lower.startsWith("module:")) {
+      moduleKey = safeText(token.slice(7));
+      continue;
+    }
+
+    if (lower.startsWith("stage:")) {
+      stageKey = safeText(token.slice(6));
+      continue;
+    }
+  }
+
+  return {
+    moduleKey,
+    stageKey,
+  };
 }
 
 async function resolveDisplayTimezone(globalUserId) {
@@ -108,7 +135,30 @@ function firstOrEmpty(arr) {
   return Array.isArray(arr) && arr.length ? safeText(arr[0]) : "";
 }
 
-function buildLatestMessage(row, timezone) {
+function filterSessions(rows, { moduleKey, stageKey }) {
+  return rows.filter((row) => {
+    if (moduleKey && safeText(row.module_key) !== moduleKey) {
+      return false;
+    }
+
+    if (stageKey && safeText(row.stage_key) !== stageKey) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function buildFilterLabel({ moduleKey, stageKey }) {
+  const parts = [];
+
+  if (moduleKey) parts.push(`module=${moduleKey}`);
+  if (stageKey) parts.push(`stage=${stageKey}`);
+
+  return parts.length ? ` [${parts.join(", ")}]` : "";
+}
+
+function buildLatestMessage(row, timezone, filters) {
   const title = safeText(row.title) || "untitled session";
   const dateText = formatDateTime(row.updated_at || row.created_at, timezone);
 
@@ -117,9 +167,10 @@ function buildLatestMessage(row, timezone) {
   const decisions = extractBlockLines(row.content, "DECISIONS").slice(0, 2);
   const risks = extractBlockLines(row.content, "RISKS").slice(0, 2);
   const nextSteps = extractBlockLines(row.content, "NEXT").slice(0, 2);
+  const filterLabel = buildFilterLabel(filters);
 
   const lines = [
-    "🧠 Project Memory latest:",
+    `🧠 Project Memory latest${filterLabel}:`,
     "",
     `id: ${row.id}`,
     `title: ${title}`,
@@ -155,24 +206,29 @@ function buildLatestMessage(row, timezone) {
 export async function handlePmLatest({
   bot,
   chatId,
+  rest = "",
   globalUserId = null,
   getProjectMemoryList,
 }) {
   try {
     const timezone = await resolveDisplayTimezone(globalUserId);
+    const args = parseLatestArgs(rest);
 
     const rows = await getProjectMemoryList(undefined, "work_sessions");
     const sessions = Array.isArray(rows)
       ? rows.filter((row) => String(row.entry_type || "") === "session_summary")
       : [];
 
-    if (!sessions.length) {
-      await bot.sendMessage(chatId, "🧠 Project Memory latest: записей пока нет.");
+    const filtered = filterSessions(sessions, args);
+
+    if (!filtered.length) {
+      const filterLabel = buildFilterLabel(args);
+      await bot.sendMessage(chatId, `🧠 Project Memory latest${filterLabel}: записей пока нет.`);
       return;
     }
 
-    const latest = sessions[0];
-    const message = buildLatestMessage(latest, timezone);
+    const latest = filtered[0];
+    const message = buildLatestMessage(latest, timezone, args);
     await bot.sendMessage(chatId, message);
   } catch (e) {
     console.error("❌ /pm_latest error:", e);

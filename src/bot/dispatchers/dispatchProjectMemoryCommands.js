@@ -97,6 +97,7 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
         bot,
         chatId,
         rest: ctx.rest,
+        globalUserId: ctx.globalUserId ?? null,
         getProjectMemoryList: ctx.getProjectMemoryList,
       });
 
@@ -113,6 +114,7 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
         bot,
         chatId,
         rest: ctx.rest,
+        globalUserId: ctx.globalUserId ?? null,
         getProjectMemoryList: ctx.getProjectMemoryList,
       });
 

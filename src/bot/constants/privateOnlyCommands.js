@@ -87,6 +87,7 @@ export const PRIVATE_ONLY_COMMANDS = new Set([
   "/pm_session",
   "/pm_latest",
   "/pm_digest",
+  "/pm_find",
   "/pm_sessions",
   "/pm_session_show",
 

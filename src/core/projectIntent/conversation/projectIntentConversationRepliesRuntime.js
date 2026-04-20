@@ -26,6 +26,7 @@ import {
   inferObjectKindFromPath,
   buildFolderMeaningFromChildren,
 } from "./projectIntentConversationHelpers.js";
+import { detectRepoExplainGroundingFailure } from "./projectIntentConversationAiGuard.js";
 
 const LARGE_DOC_AI_THRESHOLD = 12000;
 
@@ -545,6 +546,60 @@ export async function replyExplainFileFromPath({
       temperature: 0.15,
     }
   );
+
+  const groundingFailure = detectRepoExplainGroundingFailure({
+    aiReply,
+    content,
+  });
+
+  if (groundingFailure.failed) {
+    const fallbackIntro =
+      `\`${targetPath}\` прочитан напрямую, ` +
+      "но автоматическое объяснение было отброшено, потому что оно противоречило реально доступному содержимому объекта.";
+
+    const reservedIntroSpace = Math.max(220, fallbackIntro.length + 40);
+    const safePreviewLimit = Math.max(900, replyLimit - reservedIntroSpace);
+
+    const contextMeta = buildRepoContextMeta({
+      targetEntity,
+      targetPath,
+      displayMode: "raw_first_part",
+      sourceText,
+      largeDocument: content.length > safePreviewLimit,
+      semanticConfidence,
+      actionKind: `${safeText(actionKind)}_grounding_rejected`,
+    });
+
+    contextMeta.projectIntentObjectKind = "file";
+    contextMeta.projectIntentAiGuardReason = groundingFailure.reason;
+    contextMeta.projectIntentAiGuardPatternsJson =
+      groundingFailure.matchedPatterns.length > 0
+        ? JSON.stringify(groundingFailure.matchedPatterns)
+        : "";
+
+    await replyHuman(
+      replyAndLog,
+      [
+        fallbackIntro,
+        "",
+        humanFirstPartDocumentReply({
+          path: targetPath,
+          content,
+          maxChars: safePreviewLimit,
+        }),
+      ].join("\n"),
+      {
+        event: `${event}_grounding_rejected`,
+        ...contextMeta,
+      }
+    );
+
+    return {
+      handled: true,
+      reason: "explain_ai_grounding_rejected",
+      contextMeta,
+    };
+  }
 
   const contextMeta = await replyPackedExplain({
     replyAndLog,

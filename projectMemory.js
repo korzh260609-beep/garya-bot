@@ -1,71 +1,45 @@
-// projectMemory.js — сервис для работы с долговременной памятью проекта GARYA AI
+// projectMemory.js
+// ============================================================================
+// Backward-compatible facade for Project Memory
+// Purpose:
+// - keep old imports working
+// - route all project memory access through ProjectMemoryService
+// - prepare universal project memory logic for multiple transports / UI
+// ============================================================================
+
 import pool from "./db.js";
+import { ProjectMemoryService, DEFAULT_PROJECT_KEY } from "./src/projectMemory/ProjectMemoryService.js";
+import { ProjectMemoryContextBuilder } from "./src/projectMemory/ProjectMemoryContextBuilder.js";
+import { ProjectMemorySourceSync } from "./src/projectMemory/ProjectMemorySourceSync.js";
+import { ProjectMemorySessionRecorder } from "./src/projectMemory/ProjectMemorySessionRecorder.js";
 
-const DEFAULT_PROJECT_KEY = "garya_ai";
+const service = new ProjectMemoryService({
+  dbPool: pool,
+  defaultProjectKey: DEFAULT_PROJECT_KEY,
+});
 
-/**
- * Получить одну актуальную запись проектной памяти по project_key + section.
- * Например: section = 'roadmap', 'workflow', 'tz', 'notes'
- */
+const contextBuilder = new ProjectMemoryContextBuilder({ service });
+const sourceSync = new ProjectMemorySourceSync({ service });
+const sessionRecorder = new ProjectMemorySessionRecorder({ service });
+
+// ============================================================================
+// Backward-compatible API
+// ============================================================================
+
 export async function getProjectSection(
   projectKey = DEFAULT_PROJECT_KEY,
   section
 ) {
-  if (!section) {
-    throw new Error("getProjectSection: section is required");
-  }
-
-  const res = await pool.query(
-    `
-      SELECT id, project_key, section, title, content, tags, meta, schema_version, created_at, updated_at
-      FROM project_memory
-      WHERE project_key = $1 AND section = $2
-      ORDER BY updated_at DESC NULLS LAST, id DESC
-      LIMIT 1
-    `,
-    [projectKey, section]
-  );
-
-  if (res.rows.length === 0) return null;
-  return res.rows[0];
+  return service.getLatestSection(projectKey, section);
 }
 
-/**
- * Получить все записи для проекта (опционально отфильтровав по section).
- * Это пригодится позже для отладки и dashboard'а.
- */
 export async function getProjectMemoryList(
   projectKey = DEFAULT_PROJECT_KEY,
   section = null
 ) {
-  const params = [projectKey];
-  let where = "project_key = $1";
-
-  if (section) {
-    params.push(section);
-    where += " AND section = $2";
-  }
-
-  const res = await pool.query(
-    `
-      SELECT id, project_key, section, title, content, tags, meta, schema_version, created_at, updated_at
-      FROM project_memory
-      WHERE ${where}
-      ORDER BY created_at ASC
-    `,
-    params
-  );
-
-  return res.rows;
+  return service.listSections(projectKey, section);
 }
 
-/**
- * Upsert одной секции проектной памяти:
- * - если уже есть запись для (project_key, section) — обновляем последнюю
- * - если нет — создаём новую.
- *
- * Это удобно для хранения "текущей версии" roadmap/workflow/ТЗ.
- */
 export async function upsertProjectSection({
   projectKey = DEFAULT_PROJECT_KEY,
   section,
@@ -75,59 +49,75 @@ export async function upsertProjectSection({
   meta = {},
   schemaVersion = 1,
 }) {
-  if (!section) {
-    throw new Error("upsertProjectSection: section is required");
-  }
-  if (!content || !content.trim()) {
-    throw new Error("upsertProjectSection: content is required");
-  }
-
-  // Ищем последнюю запись по этой секции (по updated_at, чтобы обновлялась реально актуальная)
-  const existingRes = await pool.query(
-    `
-      SELECT id
-      FROM project_memory
-      WHERE project_key = $1 AND section = $2
-      ORDER BY updated_at DESC NULLS LAST, id DESC
-      LIMIT 1
-    `,
-    [projectKey, section]
-  );
-
-  if (existingRes.rows.length === 0) {
-    // Нет записи — создаём новую
-    const insertRes = await pool.query(
-      `
-        INSERT INTO project_memory
-          (project_key, section, title, content, tags, meta, schema_version, created_at, updated_at)
-        VALUES
-          ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-        RETURNING id, project_key, section, title, content, tags, meta, schema_version, created_at, updated_at
-      `,
-      [projectKey, section, title, content, tags, meta, schemaVersion]
-    );
-
-    return insertRes.rows[0];
-  } else {
-    // Есть запись — обновляем последнюю
-    const id = existingRes.rows[0].id;
-
-    const updateRes = await pool.query(
-      `
-        UPDATE project_memory
-        SET
-          title = $1,
-          content = $2,
-          tags = $3,
-          meta = $4,
-          schema_version = $5,
-          updated_at = NOW()
-        WHERE id = $6
-        RETURNING id, project_key, section, title, content, tags, meta, schema_version, created_at, updated_at
-      `,
-      [title, content, tags, meta, schemaVersion, id]
-    );
-
-    return updateRes.rows[0];
-  }
+  return service.upsertSectionState({
+    projectKey,
+    section,
+    title,
+    content,
+    tags,
+    meta,
+    schemaVersion,
+    entryType: "section_state",
+    status: "active",
+    sourceType: "manual",
+    sourceRef: null,
+    relatedPaths: [],
+    moduleKey: "project_memory",
+    stageKey: "7A",
+    confidence: 0.9,
+    isActive: true,
+  });
 }
+
+// ============================================================================
+// V2 API
+// ============================================================================
+
+export async function appendProjectMemoryEntry(input = {}) {
+  return service.appendEntry(input);
+}
+
+export async function archiveProjectMemoryEntries(input = {}) {
+  return service.archiveActiveEntries(input);
+}
+
+export async function buildProjectMemoryContext(input = {}) {
+  return contextBuilder.buildSoftContext(input);
+}
+
+export async function buildProjectMemoryDigest(input = {}) {
+  return contextBuilder.buildProjectDigest(input);
+}
+
+export async function syncProjectMemorySources(input = {}) {
+  return sourceSync.syncCanonicalSections(input);
+}
+
+export async function recordProjectWorkSession(input = {}) {
+  return sessionRecorder.recordSession(input);
+}
+
+export {
+  service as projectMemoryService,
+  contextBuilder as projectMemoryContextBuilder,
+  sourceSync as projectMemorySourceSync,
+  sessionRecorder as projectMemorySessionRecorder,
+  DEFAULT_PROJECT_KEY,
+};
+
+export default {
+  getProjectSection,
+  getProjectMemoryList,
+  upsertProjectSection,
+  appendProjectMemoryEntry,
+  archiveProjectMemoryEntries,
+  buildProjectMemoryContext,
+  buildProjectMemoryDigest,
+  syncProjectMemorySources,
+  recordProjectWorkSession,
+  projectMemoryService: service,
+  projectMemoryContextBuilder: contextBuilder,
+  projectMemorySourceSync: sourceSync,
+  projectMemorySessionRecorder: sessionRecorder,
+  DEFAULT_PROJECT_KEY,
+};

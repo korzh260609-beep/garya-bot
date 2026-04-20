@@ -5,7 +5,11 @@
 // - safe/manual read access for saved work sessions
 // - no automatic chat capture or auto-analysis
 // - uses existing project memory facade only
+// - display time is formatted in resolved user timezone when available
 // ============================================================================
+
+import { getUserTimezone } from "../../db/userSettings.js";
+import { resolveUserTimezone } from "../../core/time/timezoneResolver.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -19,7 +23,28 @@ function toPositiveInt(value, def = 5, min = 1, max = 20) {
   return n;
 }
 
-function formatDateTime(value) {
+async function resolveDisplayTimezone(globalUserId) {
+  let userTimezoneFromDb = null;
+
+  try {
+    if (globalUserId) {
+      const tzInfo = await getUserTimezone(globalUserId);
+      if (tzInfo?.isSet === true && safeText(tzInfo.timezone)) {
+        userTimezoneFromDb = safeText(tzInfo.timezone);
+      }
+    }
+  } catch (_) {
+    // fail-open
+  }
+
+  try {
+    return resolveUserTimezone({ userTimezoneFromDb });
+  } catch (_) {
+    return "UTC";
+  }
+}
+
+function formatDateTimeLegacy(value) {
   if (!value) return "unknown";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
@@ -31,6 +56,29 @@ function formatDateTime(value) {
   const mi = String(d.getMinutes()).padStart(2, "0");
 
   return `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+}
+
+function formatDateTime(value, timezone = "UTC") {
+  if (!value) return "unknown";
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+
+  try {
+    return new Intl.DateTimeFormat("uk-UA", {
+      timeZone: timezone || "UTC",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+      .format(d)
+      .replace(",", "");
+  } catch (_) {
+    return formatDateTimeLegacy(d);
+  }
 }
 
 function extractFirstBlockLine(content = "", blockName = "") {
@@ -61,7 +109,7 @@ function extractFirstBlockLine(content = "", blockName = "") {
   return "";
 }
 
-function buildListMessage(rows, limit) {
+function buildListMessage(rows, limit, timezone) {
   if (!rows.length) {
     return "🧠 Work sessions: записей пока нет.";
   }
@@ -75,7 +123,7 @@ function buildListMessage(rows, limit) {
     const title = safeText(row.title) || "untitled session";
     const goal = extractFirstBlockLine(row.content, "GOAL");
     const changed = extractFirstBlockLine(row.content, "CHANGED");
-    const dateText = formatDateTime(row.updated_at || row.created_at);
+    const dateText = formatDateTime(row.updated_at || row.created_at, timezone);
 
     lines.push(`• id=${row.id} | ${title}`);
     lines.push(`  date: ${dateText}`);
@@ -96,12 +144,12 @@ function buildListMessage(rows, limit) {
   return lines.join("\n").trim();
 }
 
-function buildShowMessage(row) {
+function buildShowMessage(row, timezone) {
   const header = [
     "🧠 Work session",
     `id: ${row.id}`,
     `title: ${safeText(row.title) || "untitled session"}`,
-    `date: ${formatDateTime(row.updated_at || row.created_at)}`,
+    `date: ${formatDateTime(row.updated_at || row.created_at, timezone)}`,
     `module_key: ${safeText(row.module_key) || "-"}`,
     `stage_key: ${safeText(row.stage_key) || "-"}`,
     `source_ref: ${safeText(row.source_ref) || "-"}`,
@@ -149,11 +197,14 @@ export async function handlePmSessions({
   bot,
   chatId,
   rest,
+  globalUserId = null,
   getProjectMemoryList,
 }) {
   const raw = safeText(rest);
 
   try {
+    const timezone = await resolveDisplayTimezone(globalUserId);
+
     const rows = await getProjectMemoryList(undefined, "work_sessions");
     const sessions = Array.isArray(rows)
       ? rows.filter((row) => String(row.entry_type || "") === "session_summary")
@@ -161,7 +212,7 @@ export async function handlePmSessions({
 
     if (!raw || raw.toLowerCase() === "list") {
       const limit = 5;
-      const message = buildListMessage(sessions, limit);
+      const message = buildListMessage(sessions, limit, timezone);
       await bot.sendMessage(chatId, message);
       return;
     }
@@ -171,7 +222,7 @@ export async function handlePmSessions({
 
     if (mode === "list") {
       const limit = toPositiveInt(parts[1], 5, 1, 20);
-      const message = buildListMessage(sessions, limit);
+      const message = buildListMessage(sessions, limit, timezone);
       await bot.sendMessage(chatId, message);
       return;
     }
@@ -191,13 +242,13 @@ export async function handlePmSessions({
         return;
       }
 
-      const full = buildShowMessage(row);
+      const full = buildShowMessage(row, timezone);
       await sendChunked(bot, chatId, "🧠 Project Memory: work_session", full);
       return;
     }
 
     const fallbackLimit = toPositiveInt(parts[0], 5, 1, 20);
-    const message = buildListMessage(sessions, fallbackLimit);
+    const message = buildListMessage(sessions, fallbackLimit, timezone);
     await bot.sendMessage(chatId, message);
   } catch (e) {
     console.error("❌ /pm_sessions error:", e);
@@ -209,6 +260,7 @@ export async function handlePmSessionShow({
   bot,
   chatId,
   rest,
+  globalUserId = null,
   getProjectMemoryList,
 }) {
   const id = Number.parseInt(safeText(rest), 10);
@@ -219,6 +271,8 @@ export async function handlePmSessionShow({
   }
 
   try {
+    const timezone = await resolveDisplayTimezone(globalUserId);
+
     const rows = await getProjectMemoryList(undefined, "work_sessions");
     const sessions = Array.isArray(rows)
       ? rows.filter((row) => String(row.entry_type || "") === "session_summary")
@@ -231,7 +285,7 @@ export async function handlePmSessionShow({
       return;
     }
 
-    const full = buildShowMessage(row);
+    const full = buildShowMessage(row, timezone);
     await sendChunked(bot, chatId, "🧠 Project Memory: work_session", full);
   } catch (e) {
     console.error("❌ /pm_session_show error:", e);

@@ -27,6 +27,7 @@ import {
   buildFolderMeaningFromChildren,
 } from "./projectIntentConversationHelpers.js";
 import { detectRepoExplainGroundingFailure } from "./projectIntentConversationAiGuard.js";
+import { resolveStructuredRepoFileAnswer } from "./projectIntentConversationStructuredRead.js";
 
 const LARGE_DOC_AI_THRESHOLD = 12000;
 
@@ -464,6 +465,45 @@ export async function replyExplainFileFromPath({
       { event: `${event}_fetch_failed` }
     );
     return { handled: true, reason: "explain_fetch_failed" };
+  }
+
+  if (!forceFirstPart && displayMode !== "raw_first_part") {
+    const structuredAnswer = resolveStructuredRepoFileAnswer({
+      text: trimmed,
+      targetPath,
+      content,
+      replyLimit,
+    });
+
+    if (structuredAnswer.ok) {
+      const contextMeta = buildRepoContextMeta({
+        targetEntity,
+        targetPath,
+        displayMode: "summary",
+        sourceText,
+        largeDocument: false,
+        semanticConfidence,
+        actionKind: `${safeText(actionKind)}_${safeText(structuredAnswer.kind)}`,
+      });
+
+      contextMeta.projectIntentObjectKind = "file";
+      contextMeta.projectIntentStructuredReadKind = safeText(structuredAnswer.kind);
+
+      await replyHuman(
+        replyAndLog,
+        structuredAnswer.text,
+        {
+          event: `${event}_structured_read`,
+          ...contextMeta,
+        }
+      );
+
+      return {
+        handled: true,
+        reason: `structured_${safeText(structuredAnswer.kind)}`,
+        contextMeta,
+      };
+    }
   }
 
   if (forceFirstPart || displayMode === "raw_first_part") {

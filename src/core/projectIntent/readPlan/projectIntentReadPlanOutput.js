@@ -1,7 +1,7 @@
 // src/core/projectIntent/readPlan/projectIntentReadPlanOutput.js
 
-export function resolvePlanPreview(plan) {
-  const key = String(plan?.planKey || "").trim();
+export function resolvePlanPreview({ planKey } = {}) {
+  const key = String(planKey || "").trim();
 
   if (key === "workflow_check") return "workflow/state reading path";
   if (key === "stage_check") return "stage reading path";

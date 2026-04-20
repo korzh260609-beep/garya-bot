@@ -101,6 +101,8 @@ function classifyChildName(name = "") {
   if (n.includes("handler")) return "обработка входящего события или действия";
   if (n.includes("router")) return "маршрутизация";
   if (n.includes("prompt")) return "правила или шаблон работы ИИ";
+  if (n.includes("command")) return "обработка команд";
+  if (n.includes("dispatch")) return "распределение действий по нужным обработчикам";
   return "";
 }
 
@@ -157,6 +159,31 @@ function buildFolderMeaningFromChildren({ folderPath, directories, files, hidden
   }
 
   return lines.join("\n");
+}
+
+function looksLikeFileInnerQuestion(text = "") {
+  const t = safeText(text).toLowerCase();
+  if (!t) return false;
+
+  return (
+    t.includes("из этого файла") ||
+    t.includes("в этом файле") ||
+    t.includes("из файла") ||
+    t.includes("внутри файла") ||
+    t.includes("одну команд") ||
+    t.includes("какую нибудь команд") ||
+    t.includes("какую-нибудь команд") ||
+    t.includes("про команд") ||
+    t.includes("про функцию") ||
+    t.includes("про метод") ||
+    t.includes("про участок") ||
+    t.includes("про часть") ||
+    t.includes("расскажи про") ||
+    t.includes("объясни команд") ||
+    t.includes("объясни функцию") ||
+    t.includes("что делает команд") ||
+    t.includes("что делает функция")
+  );
 }
 
 async function replyPackedExplain({
@@ -780,6 +807,29 @@ export async function runProjectIntentConversationFlow({
     followupContext,
     pendingChoiceContext,
   });
+
+  const activeFileFollowup =
+    followupContext?.isActive === true &&
+    safeText(followupContext?.objectKind) === "file" &&
+    looksLikeFileInnerQuestion(trimmed);
+
+  if (activeFileFollowup) {
+    return replyExplainFileFromPath({
+      replyAndLog,
+      trimmed,
+      targetPath: followupContext?.targetPath,
+      targetEntity: followupContext?.targetEntity || basenameNoExt(followupContext?.targetPath),
+      displayMode: safeText(followupContext?.displayMode) || "explain",
+      sourceText: trimmed,
+      semanticConfidence: "high",
+      actionKind: "explain_active",
+      repo,
+      branch,
+      token,
+      callAI,
+      event: "repo_conversation_explain_active_file_followup",
+    });
+  }
 
   if (semanticPlan?.clarifyNeeded === true) {
     const text = humanClarificationReply(semanticPlan?.clarifyQuestion);

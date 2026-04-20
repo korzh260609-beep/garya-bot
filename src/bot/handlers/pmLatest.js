@@ -1,14 +1,12 @@
 // src/bot/handlers/pmLatest.js
 // ============================================================================
 // Project Memory latest work-session (read-only)
-// TEMP DIAGNOSTIC VERSION
 // Purpose:
 // - show latest saved work session
 // - safe/manual read access only
 // - no auto-capture
 // - no auto-analysis
 // - no DB writes
-// - temporary debug markers to detect silent runtime path
 // ============================================================================
 
 import { getUserTimezone } from "../../db/userSettings.js";
@@ -161,25 +159,12 @@ export async function handlePmLatest({
   getProjectMemoryList,
 }) {
   try {
-    await bot.sendMessage(chatId, "🧪 /pm_latest debug: handler entered");
-
     const timezone = await resolveDisplayTimezone(globalUserId);
 
-    await bot.sendMessage(
-      chatId,
-      `🧪 /pm_latest debug: timezone resolved = ${safeText(timezone) || "UTC"}`
-    );
-
     const rows = await getProjectMemoryList(undefined, "work_sessions");
-
     const sessions = Array.isArray(rows)
       ? rows.filter((row) => String(row.entry_type || "") === "session_summary")
       : [];
-
-    await bot.sendMessage(
-      chatId,
-      `🧪 /pm_latest debug: rows=${Array.isArray(rows) ? rows.length : 0}, sessions=${sessions.length}`
-    );
 
     if (!sessions.length) {
       await bot.sendMessage(chatId, "🧠 Project Memory latest: записей пока нет.");
@@ -187,26 +172,11 @@ export async function handlePmLatest({
     }
 
     const latest = sessions[0];
-
-    await bot.sendMessage(
-      chatId,
-      `🧪 /pm_latest debug: latest id=${safeText(latest?.id) || "-"}`
-    );
-
     const message = buildLatestMessage(latest, timezone);
     await bot.sendMessage(chatId, message);
   } catch (e) {
     console.error("❌ /pm_latest error:", e);
-
-    const details =
-      e && typeof e === "object"
-        ? `${safeText(e.name)}: ${safeText(e.message)}`
-        : safeText(e);
-
-    await bot.sendMessage(
-      chatId,
-      `⚠️ Ошибка чтения последней Project Memory session.\n${details || "unknown error"}`
-    );
+    await bot.sendMessage(chatId, "⚠️ Ошибка чтения последней Project Memory session.");
   }
 }
 

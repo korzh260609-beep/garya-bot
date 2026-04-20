@@ -20,7 +20,7 @@ function normalizeText(value) {
 
 function tokenizeText(value) {
   const normalized = normalizeText(value)
-    .replace(/[.,!?;:()[\]{}<>\\|"\'`~@#$%^&*+=]+/g, " ")
+    .replace(/[.,!?;:()[\]{}<>\\|\"\'`~@#$%^&*+=]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -272,8 +272,8 @@ const GENERIC_TARGET_WORDS = new Set([
 
 function sanitizeTargetText(value) {
   return safeText(value)
-    .replace(/^[`"'«“„]+/, "")
-    .replace(/[`"'»”„]+$/, "")
+    .replace(/^[`\"'«“„]+/, "")
+    .replace(/[`\"'»”„]+$/, "")
     .replace(/[.,!?;:]+$/g, "")
     .trim();
 }
@@ -313,7 +313,7 @@ function extractQuotedTargets(text = "") {
 
   const regexes = [
     /`([^`]{2,120})`/g,
-    /"([^"]{2,120})"/g,
+    /\"([^\"]{2,120})\"/g,
     /«([^»]{2,120})»/g,
   ];
 
@@ -505,7 +505,93 @@ function normalizeFolderTarget(target = "") {
   return v.endsWith("/") ? v : `${v}/`;
 }
 
-function detectActionMeaning({ normalized, tokens, followupContext, pendingChoiceContext }) {
+function mentionsInnerFileSubject(normalized = "") {
+  return (
+    normalized.includes("команд") ||
+    normalized.includes("функц") ||
+    normalized.includes("метод") ||
+    normalized.includes("участ") ||
+    normalized.includes("часть") ||
+    normalized.includes("главн") ||
+    normalized.includes("важн") ||
+    normalized.includes("рандом") ||
+    normalized.includes("случайн") ||
+    normalized.includes("section") ||
+    normalized.includes("function") ||
+    normalized.includes("method") ||
+    normalized.includes("command") ||
+    normalized.includes("piece") ||
+    normalized.includes("part") ||
+    normalized.includes("important") ||
+    normalized.includes("main") ||
+    normalized.includes("random")
+  );
+}
+
+function mentionsCurrentContextAnchor(normalized = "") {
+  return (
+    normalized.includes("здесь") ||
+    normalized.includes("тут") ||
+    normalized.includes("в этом") ||
+    normalized.includes("из этого") ||
+    normalized.includes("этого файла") ||
+    normalized.includes("в файле") ||
+    normalized.includes("внутри файла") ||
+    normalized.includes("inside this") ||
+    normalized.includes("in this") ||
+    normalized.includes("here")
+  );
+}
+
+function hasExplicitDifferentTarget(text = "", followupContext = null, pendingChoiceContext = null) {
+  const extractedTarget = extractTargetPhrase(text);
+  const normalizedExtracted = sanitizeTargetText(extractedTarget).toLowerCase();
+  if (!normalizedExtracted) return false;
+
+  const activePath = safeText(followupContext?.targetPath).toLowerCase();
+  const activeEntity = safeText(followupContext?.targetEntity).toLowerCase();
+  const pendingPath = safeText(pendingChoiceContext?.targetPath).toLowerCase();
+  const pendingEntity = safeText(pendingChoiceContext?.targetEntity).toLowerCase();
+
+  if (
+    normalizedExtracted === activePath ||
+    normalizedExtracted === activeEntity ||
+    normalizedExtracted === pendingPath ||
+    normalizedExtracted === pendingEntity
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function shouldPreferActiveFile({
+  text,
+  normalized,
+  followupContext = null,
+  pendingChoiceContext = null,
+}) {
+  if (followupContext?.isActive !== true) return false;
+  if (safeText(followupContext?.objectKind) !== "file") return false;
+  if (hasExplicitDifferentTarget(text, followupContext, pendingChoiceContext)) return false;
+
+  const shortFollowup = tokenizeText(text).length <= 10;
+  const innerSubject = mentionsInnerFileSubject(normalized);
+  const currentAnchor = mentionsCurrentContextAnchor(normalized);
+  const asksMeaning =
+    normalized.includes("что делает") ||
+    normalized.includes("что здесь") ||
+    normalized.includes("расскажи") ||
+    normalized.includes("объясни") ||
+    normalized.includes("дай информацию") ||
+    normalized.includes("покажи") ||
+    normalized.includes("какая") ||
+    normalized.includes("какой");
+
+  return (innerSubject && (currentAnchor || shortFollowup || asksMeaning)) || (currentAnchor && shortFollowup);
+}
+
+function detectActionMeaning({ normalized, tokens, text, followupContext, pendingChoiceContext }) {
   const searchHits = collectPrefixHits(tokens, SEARCH_PREFIXES);
   const openHits = collectPrefixHits(tokens, OPEN_PREFIXES);
   const explainHits = collectPrefixHits(tokens, EXPLAIN_PREFIXES);
@@ -570,6 +656,13 @@ function detectActionMeaning({ normalized, tokens, followupContext, pendingChoic
   if (pendingChoiceContext?.isActive === true && (wantsSummary || wantsExplain || wantsTranslate || wantsFirstPart || wantsContinuation)) {
     return {
       intent: "answer_pending_choice",
+      confidence: "high",
+    };
+  }
+
+  if (shouldPreferActiveFile({ text, normalized, followupContext, pendingChoiceContext })) {
+    return {
+      intent: "explain_active",
       confidence: "high",
     };
   }
@@ -669,6 +762,7 @@ function heuristicFallback({
   const actionMeaning = detectActionMeaning({
     normalized,
     tokens,
+    text,
     followupContext,
     pendingChoiceContext,
   });
@@ -689,6 +783,13 @@ function heuristicFallback({
 
   if (normalized.includes("первая часть") || normalized.includes("покажи первую часть")) {
     displayMode = "raw_first_part";
+  }
+
+  if (
+    displayMode === "raw" &&
+    shouldPreferActiveFile({ text, normalized, followupContext, pendingChoiceContext })
+  ) {
+    displayMode = safeText(followupContext?.displayMode) || "explain";
   }
 
   const inferredObjectKind = inferObjectKindFromTarget(
@@ -822,8 +923,8 @@ function heuristicFallback({
   if (actionMeaning.intent === "explain_active") {
     return {
       intent: "explain_active",
-      targetEntity,
-      targetPath,
+      targetEntity: safeText(followupContext?.targetEntity || targetEntity),
+      targetPath: safeText(followupContext?.targetPath || targetPath),
       displayMode: displayMode === "raw" ? (safeText(followupContext?.displayMode) || "explain") : displayMode,
       treePrefix: "",
       objectKind: safeText(followupContext?.objectKind || inferObjectKindFromTarget(targetPath || targetEntity)),
@@ -957,20 +1058,22 @@ function buildSemanticMessages({
         "Prefer object understanding: repo root, folder, file, continuation.\n" +
         "If active repo continuation exists and user asks to continue, use continue_active.\n" +
         "If active repo action is browse_folder and user mentions a basename like DOCS_GOVERNANCE.md, treat it as a file inside that active folder.\n" +
+        "If active repo object is file and user asks about a command, function, method, important part, random part, section, or says 'здесь/в этом файле', prefer explain_active.\n" +
+        "Do not ask for a new target when active file context already answers the question.\n" +
         "If user asks what is inside a folder, prefer browse_folder.\n" +
         "If user asks what a file is about, prefer explain_target.\n" +
         "If user asks to show repository tree, default to root-first.\n" +
         "JSON shape:\n" +
         "{\n" +
-        '  "intent": "repo_status|show_tree|browse_folder|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|continue_active|unknown",\n' +
-        '  "targetEntity": "string",\n' +
-        '  "targetPath": "string",\n' +
-        '  "displayMode": "raw|raw_first_part|summary|explain|translate_ru",\n' +
-        '  "treePrefix": "string",\n' +
-        '  "objectKind": "repo|root|folder|file|unknown",\n' +
-        '  "clarifyNeeded": true,\n' +
-        '  "clarifyQuestion": "string",\n' +
-        '  "confidence": "low|medium|high"\n' +
+        '  \"intent\": \"repo_status|show_tree|browse_folder|find_target|find_and_explain|open_target|explain_target|explain_active|answer_pending_choice|continue_active|unknown\",\n' +
+        '  \"targetEntity\": \"string\",\n' +
+        '  \"targetPath\": \"string\",\n' +
+        '  \"displayMode\": \"raw|raw_first_part|summary|explain|translate_ru\",\n' +
+        '  \"treePrefix\": \"string\",\n' +
+        '  \"objectKind\": \"repo|root|folder|file|unknown\",\n' +
+        '  \"clarifyNeeded\": true,\n' +
+        '  \"clarifyQuestion\": \"string\",\n' +
+        '  \"confidence\": \"low|medium|high\"\n' +
         "}",
     },
     {

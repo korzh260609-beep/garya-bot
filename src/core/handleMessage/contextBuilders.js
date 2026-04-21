@@ -76,6 +76,10 @@ export function buildDispatchCommandContext({
     appendConfirmedProjectNextStep: deps.appendConfirmedProjectNextStep,
     writeConfirmedProjectMemory: deps.writeConfirmedProjectMemory,
 
+    listConfirmedProjectMemoryEntries: deps.listConfirmedProjectMemoryEntries,
+    getLatestConfirmedProjectMemoryEntry: deps.getLatestConfirmedProjectMemoryEntry,
+    buildConfirmedProjectMemoryDigest: deps.buildConfirmedProjectMemoryDigest,
+
     runSourceDiagnosticsOnce: deps.runSourceDiagnosticsOnce,
     getAllSourcesSafe: deps.getAllSourcesSafe,
     fetchFromSourceKey: deps.fetchFromSourceKey,

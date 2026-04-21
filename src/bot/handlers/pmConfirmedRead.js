@@ -72,6 +72,83 @@ function compactText(text, maxChars = 220) {
   return s.slice(0, maxChars) + "...";
 }
 
+async function sendChunked(bot, chatId, title, content) {
+  const SAFE_LIMIT = 3800;
+  const header = safeText(title);
+  const text = String(content ?? "");
+
+  if (!text) {
+    await bot.sendMessage(chatId, header || "Пусто.");
+    return;
+  }
+
+  const full = header ? `${header}\n\n${text}` : text;
+
+  if (full.length <= SAFE_LIMIT) {
+    await bot.sendMessage(chatId, full);
+    return;
+  }
+
+  const parts = [];
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    parts.push(text.slice(cursor, cursor + 3000));
+    cursor += 3000;
+  }
+
+  for (let i = 0; i < parts.length; i++) {
+    const prefix = header
+      ? `${header}\nчасть ${i + 1}/${parts.length}\n\n`
+      : `часть ${i + 1}/${parts.length}\n\n`;
+
+    const available = Math.max(500, SAFE_LIMIT - prefix.length);
+    const body = parts[i].slice(0, available);
+
+    await bot.sendMessage(chatId, prefix + body);
+  }
+}
+
+function buildListMessage(rows, args = {}) {
+  const filterLabel = buildFilterLabel(args);
+
+  if (!rows.length) {
+    return `🧠 Confirmed memory${filterLabel}: записей нет.`;
+  }
+
+  const lines = [`🧠 Confirmed memory${filterLabel} (последние ${rows.length}):`, ""];
+
+  for (const row of rows) {
+    lines.push(`• id=${row.id} | ${safeText(row.entry_type)} | ${safeText(row.section) || "-"}`);
+
+    if (safeText(row.title)) {
+      lines.push(`  title: ${safeText(row.title)}`);
+    }
+
+    lines.push(`  text: ${compactText(row.content)}`);
+    lines.push("");
+  }
+
+  return lines.join("\n").trim();
+}
+
+function buildLatestMessage(row, args = {}) {
+  const filterLabel = buildFilterLabel(args);
+
+  return [
+    `🧠 Confirmed latest${filterLabel}:`,
+    "",
+    `id: ${row.id}`,
+    `entry_type: ${safeText(row.entry_type) || "-"}`,
+    `section: ${safeText(row.section) || "-"}`,
+    `title: ${safeText(row.title) || "-"}`,
+    `module_key: ${safeText(row.module_key) || "-"}`,
+    `stage_key: ${safeText(row.stage_key) || "-"}`,
+    "",
+    safeText(row.content) || "-",
+  ].join("\n");
+}
+
 export async function handlePmConfirmedList({
   bot,
   chatId,
@@ -95,25 +172,7 @@ export async function handlePmConfirmedList({
       entryType: args.entryType,
     });
 
-    const filterLabel = buildFilterLabel(args);
-
-    if (!rows.length) {
-      await bot.sendMessage(chatId, `🧠 Confirmed memory${filterLabel}: записей нет.`);
-      return;
-    }
-
-    const lines = [`🧠 Confirmed memory${filterLabel} (последние ${rows.length}):`, ""];
-
-    for (const row of rows) {
-      lines.push(`• id=${row.id} | ${safeText(row.entry_type)} | ${safeText(row.section) || "-"}`);
-      if (safeText(row.title)) {
-        lines.push(`  title: ${safeText(row.title)}`);
-      }
-      lines.push(`  text: ${compactText(row.content)}`);
-      lines.push("");
-    }
-
-    await bot.sendMessage(chatId, lines.join("\n").trim());
+    await bot.sendMessage(chatId, buildListMessage(rows, args));
   } catch (e) {
     console.error("❌ /pm_confirmed_list error:", e);
     await bot.sendMessage(chatId, "⚠️ Ошибка чтения confirmed project memory.");
@@ -148,20 +207,8 @@ export async function handlePmConfirmedLatest({
       return;
     }
 
-    const lines = [
-      `🧠 Confirmed latest${filterLabel}:`,
-      "",
-      `id: ${row.id}`,
-      `entry_type: ${safeText(row.entry_type) || "-"}`,
-      `section: ${safeText(row.section) || "-"}`,
-      `title: ${safeText(row.title) || "-"}`,
-      `module_key: ${safeText(row.module_key) || "-"}`,
-      `stage_key: ${safeText(row.stage_key) || "-"}`,
-      "",
-      safeText(row.content) || "-",
-    ];
-
-    await bot.sendMessage(chatId, lines.join("\n"));
+    const text = buildLatestMessage(row, args);
+    await sendChunked(bot, chatId, "", text);
   } catch (e) {
     console.error("❌ /pm_confirmed_latest error:", e);
     await bot.sendMessage(chatId, "⚠️ Ошибка чтения latest confirmed memory.");

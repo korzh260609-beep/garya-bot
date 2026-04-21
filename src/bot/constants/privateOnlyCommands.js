@@ -85,11 +85,17 @@ export const PRIVATE_ONLY_COMMANDS = new Set([
   "/pm_set",
   "/pm_list",
   "/pm_session",
+  "/pm_session_update",
   "/pm_latest",
   "/pm_digest",
   "/pm_find",
   "/pm_sessions",
   "/pm_session_show",
+
+  "/pm_confirmed_write",
+  "/pm_confirmed_list",
+  "/pm_confirmed_latest",
+  "/pm_confirmed_digest",
 
   "/render_diag",
   "/render_log_set",

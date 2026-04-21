@@ -70,6 +70,12 @@ export function buildDispatchCommandContext({
     recordProjectWorkSession: deps.recordProjectWorkSession,
     updateProjectWorkSession: deps.updateProjectWorkSession,
 
+    upsertConfirmedProjectSectionState: deps.upsertConfirmedProjectSectionState,
+    appendConfirmedProjectDecision: deps.appendConfirmedProjectDecision,
+    appendConfirmedProjectConstraint: deps.appendConfirmedProjectConstraint,
+    appendConfirmedProjectNextStep: deps.appendConfirmedProjectNextStep,
+    writeConfirmedProjectMemory: deps.writeConfirmedProjectMemory,
+
     runSourceDiagnosticsOnce: deps.runSourceDiagnosticsOnce,
     getAllSourcesSafe: deps.getAllSourcesSafe,
     fetchFromSourceKey: deps.fetchFromSourceKey,

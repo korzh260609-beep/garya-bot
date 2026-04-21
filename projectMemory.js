@@ -14,6 +14,7 @@ import { ProjectMemorySourceSync } from "./src/projectMemory/ProjectMemorySource
 import { ProjectMemorySessionRecorder } from "./src/projectMemory/ProjectMemorySessionRecorder.js";
 import { ProjectMemorySessionUpdater } from "./src/projectMemory/ProjectMemorySessionUpdater.js";
 import { ProjectMemoryConfirmedWriter } from "./src/projectMemory/ProjectMemoryConfirmedWriter.js";
+import { ProjectMemoryConfirmedReader } from "./src/projectMemory/ProjectMemoryConfirmedReader.js";
 
 const service = new ProjectMemoryService({
   dbPool: pool,
@@ -25,6 +26,7 @@ const sourceSync = new ProjectMemorySourceSync({ service });
 const sessionRecorder = new ProjectMemorySessionRecorder({ service });
 const sessionUpdater = new ProjectMemorySessionUpdater({ service });
 const confirmedWriter = new ProjectMemoryConfirmedWriter({ service });
+const confirmedReader = new ProjectMemoryConfirmedReader({ service });
 
 // ============================================================================
 // Backward-compatible API
@@ -135,6 +137,22 @@ export async function writeConfirmedProjectMemory(input = {}) {
   return confirmedWriter.writeConfirmedEntry(input);
 }
 
+// ============================================================================
+// Confirmed project memory read API (transport-agnostic)
+// ============================================================================
+
+export async function listConfirmedProjectMemoryEntries(input = {}) {
+  return confirmedReader.listEntries(input);
+}
+
+export async function getLatestConfirmedProjectMemoryEntry(input = {}) {
+  return confirmedReader.getLatestEntry(input);
+}
+
+export async function buildConfirmedProjectMemoryDigest(input = {}) {
+  return confirmedReader.buildDigest(input);
+}
+
 export {
   service as projectMemoryService,
   contextBuilder as projectMemoryContextBuilder,
@@ -142,6 +160,7 @@ export {
   sessionRecorder as projectMemorySessionRecorder,
   sessionUpdater as projectMemorySessionUpdater,
   confirmedWriter as projectMemoryConfirmedWriter,
+  confirmedReader as projectMemoryConfirmedReader,
   DEFAULT_PROJECT_KEY,
 };
 
@@ -164,11 +183,16 @@ export default {
   appendConfirmedProjectNextStep,
   writeConfirmedProjectMemory,
 
+  listConfirmedProjectMemoryEntries,
+  getLatestConfirmedProjectMemoryEntry,
+  buildConfirmedProjectMemoryDigest,
+
   projectMemoryService: service,
   projectMemoryContextBuilder: contextBuilder,
   projectMemorySourceSync: sourceSync,
   projectMemorySessionRecorder: sessionRecorder,
   projectMemorySessionUpdater: sessionUpdater,
   projectMemoryConfirmedWriter: confirmedWriter,
+  projectMemoryConfirmedReader: confirmedReader,
   DEFAULT_PROJECT_KEY,
 };

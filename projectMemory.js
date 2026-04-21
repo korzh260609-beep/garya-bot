@@ -83,8 +83,14 @@ export async function archiveProjectMemoryEntries(input = {}) {
   return service.archiveActiveEntries(input);
 }
 
+export async function buildConfirmedProjectMemoryContext(input = {}) {
+  return contextBuilder.buildConfirmedContext(input);
+}
+
 export async function buildProjectMemoryContext(input = {}) {
-  return contextBuilder.buildSoftContext(input);
+  // Backward-compatible alias.
+  // Current policy: project background context is confirmed curated memory only.
+  return contextBuilder.buildConfirmedContext(input);
 }
 
 export async function buildProjectMemoryDigest(input = {}) {
@@ -118,6 +124,7 @@ export default {
   upsertProjectSection,
   appendProjectMemoryEntry,
   archiveProjectMemoryEntries,
+  buildConfirmedProjectMemoryContext,
   buildProjectMemoryContext,
   buildProjectMemoryDigest,
   syncProjectMemorySources,

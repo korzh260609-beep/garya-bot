@@ -13,6 +13,7 @@ import { ProjectMemoryContextBuilder } from "./src/projectMemory/ProjectMemoryCo
 import { ProjectMemorySourceSync } from "./src/projectMemory/ProjectMemorySourceSync.js";
 import { ProjectMemorySessionRecorder } from "./src/projectMemory/ProjectMemorySessionRecorder.js";
 import { ProjectMemorySessionUpdater } from "./src/projectMemory/ProjectMemorySessionUpdater.js";
+import { ProjectMemoryConfirmedWriter } from "./src/projectMemory/ProjectMemoryConfirmedWriter.js";
 
 const service = new ProjectMemoryService({
   dbPool: pool,
@@ -23,6 +24,7 @@ const contextBuilder = new ProjectMemoryContextBuilder({ service });
 const sourceSync = new ProjectMemorySourceSync({ service });
 const sessionRecorder = new ProjectMemorySessionRecorder({ service });
 const sessionUpdater = new ProjectMemorySessionUpdater({ service });
+const confirmedWriter = new ProjectMemoryConfirmedWriter({ service });
 
 // ============================================================================
 // Backward-compatible API
@@ -109,12 +111,37 @@ export async function updateProjectWorkSession(input = {}) {
   return sessionUpdater.updateSession(input);
 }
 
+// ============================================================================
+// Confirmed project memory write API (transport-agnostic)
+// ============================================================================
+
+export async function upsertConfirmedProjectSectionState(input = {}) {
+  return confirmedWriter.upsertSectionState(input);
+}
+
+export async function appendConfirmedProjectDecision(input = {}) {
+  return confirmedWriter.appendDecision(input);
+}
+
+export async function appendConfirmedProjectConstraint(input = {}) {
+  return confirmedWriter.appendConstraint(input);
+}
+
+export async function appendConfirmedProjectNextStep(input = {}) {
+  return confirmedWriter.appendNextStep(input);
+}
+
+export async function writeConfirmedProjectMemory(input = {}) {
+  return confirmedWriter.writeConfirmedEntry(input);
+}
+
 export {
   service as projectMemoryService,
   contextBuilder as projectMemoryContextBuilder,
   sourceSync as projectMemorySourceSync,
   sessionRecorder as projectMemorySessionRecorder,
   sessionUpdater as projectMemorySessionUpdater,
+  confirmedWriter as projectMemoryConfirmedWriter,
   DEFAULT_PROJECT_KEY,
 };
 
@@ -130,10 +157,18 @@ export default {
   syncProjectMemorySources,
   recordProjectWorkSession,
   updateProjectWorkSession,
+
+  upsertConfirmedProjectSectionState,
+  appendConfirmedProjectDecision,
+  appendConfirmedProjectConstraint,
+  appendConfirmedProjectNextStep,
+  writeConfirmedProjectMemory,
+
   projectMemoryService: service,
   projectMemoryContextBuilder: contextBuilder,
   projectMemorySourceSync: sourceSync,
   projectMemorySessionRecorder: sessionRecorder,
   projectMemorySessionUpdater: sessionUpdater,
+  projectMemoryConfirmedWriter: confirmedWriter,
   DEFAULT_PROJECT_KEY,
 };

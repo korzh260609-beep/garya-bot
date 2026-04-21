@@ -5,6 +5,7 @@
 // - build universal AI context from structured project memory
 // - avoid transport-specific assumptions
 // - avoid hard coupling to exact phrases/templates
+// - keep project memory as soft background, not runtime proof
 // ============================================================================
 
 function safeText(value) {
@@ -18,94 +19,166 @@ function compactText(text, maxChars = 1200) {
   return s.slice(0, maxChars) + "\n...[TRUNCATED]...";
 }
 
+export const PROJECT_MEMORY_CONTEXT_SCOPES = Object.freeze({
+  CONFIRMED: "confirmed",
+  SOFT: "soft",
+});
+
+const CONFIRMED_ENTRY_TYPES = new Set([
+  "section_state",
+  "decision",
+  "constraint",
+  "next_step",
+]);
+
+function isConfirmedContextEntry(entry) {
+  if (!entry || typeof entry !== "object") return false;
+  if (entry.is_active !== true) return false;
+
+  const entryType = safeText(entry.entry_type).trim();
+  if (!entryType) return false;
+
+  return CONFIRMED_ENTRY_TYPES.has(entryType);
+}
+
+function splitConfirmedEntries(entries = []) {
+  const out = {
+    sectionStates: [],
+    decisions: [],
+    constraints: [],
+    nextSteps: [],
+  };
+
+  for (const item of entries) {
+    if (!isConfirmedContextEntry(item)) {
+      continue;
+    }
+
+    switch (String(item.entry_type)) {
+      case "section_state":
+        out.sectionStates.push(item);
+        break;
+      case "decision":
+        out.decisions.push(item);
+        break;
+      case "constraint":
+        out.constraints.push(item);
+        break;
+      case "next_step":
+        out.nextSteps.push(item);
+        break;
+      default:
+        break;
+    }
+  }
+
+  return out;
+}
+
+function buildConfirmedBlocks({
+  sectionStates = [],
+  decisions = [],
+  constraints = [],
+  nextSteps = [],
+}) {
+  const blocks = [];
+
+  if (sectionStates.length) {
+    const lines = [];
+
+    for (const item of sectionStates.slice(0, 8)) {
+      const title = item.title || item.section || "section_state";
+      const body = compactText(item.content, 500);
+      lines.push(`- ${title}\n${body}`);
+    }
+
+    if (lines.length) {
+      blocks.push(["SECTION STATE:", ...lines].join("\n"));
+    }
+  }
+
+  if (decisions.length) {
+    const lines = [];
+
+    for (const item of decisions.slice(0, 8)) {
+      const title = item.title || item.section || "decision";
+      const body = compactText(item.content, 400);
+      lines.push(`- ${title}\n${body}`);
+    }
+
+    if (lines.length) {
+      blocks.push(["DECISIONS:", ...lines].join("\n"));
+    }
+  }
+
+  if (constraints.length) {
+    const lines = [];
+
+    for (const item of constraints.slice(0, 8)) {
+      const body = compactText(item.content, 300);
+      lines.push(`- ${body}`);
+    }
+
+    if (lines.length) {
+      blocks.push(["CONSTRAINTS:", ...lines].join("\n"));
+    }
+  }
+
+  if (nextSteps.length) {
+    const lines = [];
+
+    for (const item of nextSteps.slice(0, 8)) {
+      const body = compactText(item.content, 300);
+      lines.push(`- ${body}`);
+    }
+
+    if (lines.length) {
+      blocks.push(["NEXT STEPS:", ...lines].join("\n"));
+    }
+  }
+
+  return blocks;
+}
+
 export class ProjectMemoryContextBuilder {
   constructor({ service }) {
     this.service = service;
   }
 
-  async buildSoftContext({ projectKey } = {}) {
-    const blocks = [];
-
-    const sectionStateCandidates = await this.service.listEntries(projectKey, {
-      entryType: "section_state",
+  async listConfirmedEntries({ projectKey } = {}) {
+    const entries = await this.service.listEntries(projectKey, {
       isActive: true,
-      limit: 50,
+      limit: 200,
     });
 
-    const decisions = await this.service.listEntries(projectKey, {
-      entryType: "decision",
-      isActive: true,
-      limit: 20,
-    });
+    return Array.isArray(entries)
+      ? entries.filter((item) => isConfirmedContextEntry(item))
+      : [];
+  }
 
-    const constraints = await this.service.listEntries(projectKey, {
-      entryType: "constraint",
-      isActive: true,
-      limit: 20,
-    });
-
-    const nextSteps = await this.service.listEntries(projectKey, {
-      entryType: "next_step",
-      isActive: true,
-      limit: 20,
-    });
-
-    if (sectionStateCandidates.length) {
-      const lines = [];
-      for (const item of sectionStateCandidates.slice(0, 8)) {
-        const title = item.title || item.section;
-        const body = compactText(item.content, 500);
-        lines.push(`- ${title}\n${body}`);
-      }
-      if (lines.length) {
-        blocks.push(["SECTION STATE:", ...lines].join("\n"));
-      }
-    }
-
-    if (decisions.length) {
-      const lines = [];
-      for (const item of decisions.slice(0, 8)) {
-        const title = item.title || item.section || "decision";
-        const body = compactText(item.content, 400);
-        lines.push(`- ${title}\n${body}`);
-      }
-      if (lines.length) {
-        blocks.push(["DECISIONS:", ...lines].join("\n"));
-      }
-    }
-
-    if (constraints.length) {
-      const lines = [];
-      for (const item of constraints.slice(0, 8)) {
-        const body = compactText(item.content, 300);
-        lines.push(`- ${body}`);
-      }
-      if (lines.length) {
-        blocks.push(["CONSTRAINTS:", ...lines].join("\n"));
-      }
-    }
-
-    if (nextSteps.length) {
-      const lines = [];
-      for (const item of nextSteps.slice(0, 8)) {
-        const body = compactText(item.content, 300);
-        lines.push(`- ${body}`);
-      }
-      if (lines.length) {
-        blocks.push(["NEXT STEPS:", ...lines].join("\n"));
-      }
-    }
+  async buildConfirmedContext({ projectKey } = {}) {
+    const confirmedEntries = await this.listConfirmedEntries({ projectKey });
+    const grouped = splitConfirmedEntries(confirmedEntries);
+    const blocks = buildConfirmedBlocks(grouped);
 
     if (!blocks.length) return "";
 
     return [
-      "PROJECT BACKGROUND CONTEXT (SOFT MEMORY, NOT RUNTIME PROOF):",
-      "Use as context, not as proof of current runtime implementation.",
+      "PROJECT BACKGROUND CONTEXT (CONFIRMED MEMORY, NOT RUNTIME PROOF):",
+      "Use as confirmed background context.",
+      "Do not treat this as proof of current runtime implementation state.",
+      "Current implementation status must be verified from runtime/repository/pillars.",
       "",
       blocks.join("\n\n"),
     ]
       .join("\n")
       .slice(0, 4000);
+  }
+
+  async buildSoftContext({ projectKey } = {}) {
+    // Backward-compatible alias:
+    // current soft context is intentionally narrowed to confirmed curated memory only.
+    return this.buildConfirmedContext({ projectKey });
   }
 
   async buildProjectDigest({ projectKey } = {}) {
@@ -140,6 +213,7 @@ export class ProjectMemoryContextBuilder {
       moduleKeys: Array.from(moduleKeys).sort(),
       stageKeys: Array.from(stageKeys).sort(),
       relatedPaths: Array.from(relatedPaths).sort(),
+      confirmedEntryTypes: Array.from(CONFIRMED_ENTRY_TYPES).sort(),
     };
   }
 }

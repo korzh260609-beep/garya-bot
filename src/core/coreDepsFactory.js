@@ -40,6 +40,9 @@ import {
   appendConfirmedProjectConstraint,
   appendConfirmedProjectNextStep,
   writeConfirmedProjectMemory,
+  listConfirmedProjectMemoryEntries,
+  getLatestConfirmedProjectMemoryEntry,
+  buildConfirmedProjectMemoryDigest,
 } from "../../projectMemory.js";
 
 // ✅ SOURCES — required for enforced command path
@@ -102,6 +105,10 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     appendConfirmedProjectConstraint,
     appendConfirmedProjectNextStep,
     writeConfirmedProjectMemory,
+
+    listConfirmedProjectMemoryEntries,
+    getLatestConfirmedProjectMemoryEntry,
+    buildConfirmedProjectMemoryDigest,
 
     // ✅ SOURCES — make source commands available in enforced path
     runSourceDiagnosticsOnce,

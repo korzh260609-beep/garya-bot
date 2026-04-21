@@ -28,13 +28,18 @@ import {
   updateTaskStatus,
 } from "../tasks/taskEngine.js";
 
-// ✅ STAGE 7A — Project Memory wiring for enforced pipeline
+// ✅ Project Memory wiring for enforced pipeline
 import {
   getProjectSection,
   getProjectMemoryList,
   upsertProjectSection,
   recordProjectWorkSession,
   updateProjectWorkSession,
+  upsertConfirmedProjectSectionState,
+  appendConfirmedProjectDecision,
+  appendConfirmedProjectConstraint,
+  appendConfirmedProjectNextStep,
+  writeConfirmedProjectMemory,
 } from "../../projectMemory.js";
 
 // ✅ SOURCES — required for enforced command path
@@ -85,12 +90,18 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     createManualTask,
     createTestPriceMonitorTask,
 
-    // ✅ STAGE 7A — make Project Memory commands available in enforced path
+    // ✅ Project Memory
     getProjectSection,
     getProjectMemoryList,
     upsertProjectSection,
     recordProjectWorkSession,
     updateProjectWorkSession,
+
+    upsertConfirmedProjectSectionState,
+    appendConfirmedProjectDecision,
+    appendConfirmedProjectConstraint,
+    appendConfirmedProjectNextStep,
+    writeConfirmedProjectMemory,
 
     // ✅ SOURCES — make source commands available in enforced path
     runSourceDiagnosticsOnce,

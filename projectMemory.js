@@ -16,6 +16,10 @@ import { ProjectMemorySessionUpdater } from "./src/projectMemory/ProjectMemorySe
 import { ProjectMemoryConfirmedWriter } from "./src/projectMemory/ProjectMemoryConfirmedWriter.js";
 import { ProjectMemoryConfirmedReader } from "./src/projectMemory/ProjectMemoryConfirmedReader.js";
 import { ProjectMemoryConfirmedUpdater } from "./src/projectMemory/ProjectMemoryConfirmedUpdater.js";
+import {
+  PROJECT_MEMORY_AREAS,
+  PROJECT_MEMORY_REPO_SCOPES,
+} from "./src/projectMemory/projectMemoryScopes.js";
 
 const service = new ProjectMemoryService({
   dbPool: pool,
@@ -170,6 +174,8 @@ export {
   confirmedWriter as projectMemoryConfirmedWriter,
   confirmedReader as projectMemoryConfirmedReader,
   confirmedUpdater as projectMemoryConfirmedUpdater,
+  PROJECT_MEMORY_AREAS,
+  PROJECT_MEMORY_REPO_SCOPES,
   DEFAULT_PROJECT_KEY,
 };
 
@@ -206,5 +212,7 @@ export default {
   projectMemoryConfirmedWriter: confirmedWriter,
   projectMemoryConfirmedReader: confirmedReader,
   projectMemoryConfirmedUpdater: confirmedUpdater,
+  PROJECT_MEMORY_AREAS,
+  PROJECT_MEMORY_REPO_SCOPES,
   DEFAULT_PROJECT_KEY,
 };

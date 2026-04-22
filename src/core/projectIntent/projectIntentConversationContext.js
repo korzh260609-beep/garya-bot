@@ -1,6 +1,7 @@
 // src/core/projectIntent/projectIntentConversationContext.js
 
 import { safeText } from "./projectIntentConversationShared.js";
+import { buildProjectContextScopeFromRepoContext } from "./projectIntentProjectContextScope.js";
 
 function safeParseJsonArray(value) {
   try {
@@ -11,7 +12,15 @@ function safeParseJsonArray(value) {
   }
 }
 
-export function buildProjectIntentRoutingText(trimmed, followupContext = null, pendingChoiceContext = null) {
+function safeObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+export function buildProjectIntentRoutingText(
+  trimmed,
+  followupContext = null,
+  pendingChoiceContext = null
+) {
   const base = safeText(trimmed);
   const parts = [base];
 
@@ -29,7 +38,10 @@ export function buildProjectIntentRoutingText(trimmed, followupContext = null, p
       parts.push(safeText(followupContext.objectKind));
     }
 
-    if (followupContext.actionKind === "browse_folder" || followupContext.objectKind === "folder") {
+    if (
+      followupContext.actionKind === "browse_folder" ||
+      followupContext.objectKind === "folder"
+    ) {
       parts.push("active_folder");
       parts.push("folder_context");
       parts.push("folder");
@@ -69,11 +81,14 @@ export function buildProjectIntentRoutingText(trimmed, followupContext = null, p
   return parts.filter(Boolean).join(" ").trim();
 }
 
-export async function getLatestProjectIntentRepoContext(memory, {
-  chatIdStr,
-  globalUserId,
-  chatType,
-}) {
+export async function getLatestProjectIntentRepoContext(
+  memory,
+  {
+    chatIdStr,
+    globalUserId,
+    chatType,
+  }
+) {
   try {
     const recent = await memory.recent({
       chatId: chatIdStr,
@@ -89,6 +104,13 @@ export async function getLatestProjectIntentRepoContext(memory, {
       const meta = item?.metadata || {};
 
       if (meta?.projectIntentRepoContextActive === true) {
+        const explicitScope = safeObject(meta.projectContextScope);
+        const fallbackScope = buildProjectContextScopeFromRepoContext({
+          isActive: true,
+          targetEntity: safeText(meta.projectIntentTargetEntity),
+          targetPath: safeText(meta.projectIntentTargetPath),
+        });
+
         return {
           isActive: true,
           targetEntity: safeText(meta.projectIntentTargetEntity),
@@ -112,6 +134,9 @@ export async function getLatestProjectIntentRepoContext(memory, {
             chunks: safeParseJsonArray(meta.projectIntentContinuationChunksJson),
             remainingText: safeText(meta.projectIntentContinuationRemainingText),
           },
+
+          projectContextScope:
+            Object.keys(explicitScope).length > 0 ? explicitScope : fallbackScope,
         };
       }
     }
@@ -138,14 +163,18 @@ export async function getLatestProjectIntentRepoContext(memory, {
       chunks: [],
       remainingText: "",
     },
+    projectContextScope: {},
   };
 }
 
-export async function getLatestProjectIntentPendingChoice(memory, {
-  chatIdStr,
-  globalUserId,
-  chatType,
-}) {
+export async function getLatestProjectIntentPendingChoice(
+  memory,
+  {
+    chatIdStr,
+    globalUserId,
+    chatType,
+  }
+) {
   try {
     const recent = await memory.recent({
       chatId: chatIdStr,

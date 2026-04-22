@@ -28,7 +28,6 @@ import {
   updateTaskStatus,
 } from "../tasks/taskEngine.js";
 
-// ✅ Project Memory wiring for enforced pipeline
 import {
   getProjectSection,
   getProjectMemoryList,
@@ -43,9 +42,9 @@ import {
   listConfirmedProjectMemoryEntries,
   getLatestConfirmedProjectMemoryEntry,
   buildConfirmedProjectMemoryDigest,
+  updateConfirmedProjectMemoryEntry,
 } from "../../projectMemory.js";
 
-// ✅ SOURCES — required for enforced command path
 import {
   runSourceDiagnosticsOnce,
   getAllSourcesSafe,
@@ -78,8 +77,6 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
 
     FileIntake,
 
-    // ✅ CRITICAL FIX — make Telegram file download token available
-    // for enforced transport/core path -> chat.js -> fileIntakeDecision.js
     telegramBotToken: envStr("TELEGRAM_BOT_TOKEN", ""),
 
     getCoinGeckoSimplePriceById,
@@ -93,7 +90,6 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     createManualTask,
     createTestPriceMonitorTask,
 
-    // ✅ Project Memory
     getProjectSection,
     getProjectMemoryList,
     upsertProjectSection,
@@ -109,8 +105,8 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     listConfirmedProjectMemoryEntries,
     getLatestConfirmedProjectMemoryEntry,
     buildConfirmedProjectMemoryDigest,
+    updateConfirmedProjectMemoryEntry,
 
-    // ✅ SOURCES — make source commands available in enforced path
     runSourceDiagnosticsOnce,
     getAllSourcesSafe,
     fetchFromSourceKey,

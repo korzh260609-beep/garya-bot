@@ -6,6 +6,7 @@
 // - keep policy separate from transport, reader, and writer logic
 // - fix "what should be scoped?" before tightening write-path
 // - preserve backward compatibility for legacy unscoped confirmed rows
+// - avoid fake repo assumptions about specific global section names
 // ============================================================================
 
 import {
@@ -38,7 +39,7 @@ function normalizeSection(value) {
   return safeText(value);
 }
 
-export const CONFIRMED_SCOPE_POLICY_VERSION = 1;
+export const CONFIRMED_SCOPE_POLICY_VERSION = 2;
 
 export const CONFIRMED_ENTRY_TYPES = Object.freeze({
   SECTION_STATE: "section_state",
@@ -49,7 +50,7 @@ export const CONFIRMED_ENTRY_TYPES = Object.freeze({
 
 export const CONFIRMED_SCOPE_CLASSES = Object.freeze({
   LEGACY_UNSCOPED: "legacy_unscoped",
-  GLOBAL_UNSCOPED: "global_unscoped",
+  GLOBAL_UNSCOPED_CANDIDATE: "global_unscoped_candidate",
   SCOPED_LOCAL: "scoped_local",
   SCOPED_SHARED: "scoped_shared",
   INVALID: "invalid",
@@ -60,15 +61,6 @@ export const CONFIRMED_SCOPE_REQUIREMENTS = Object.freeze({
   REQUIRE_EXPLICIT_SCOPE: "require_explicit_scope",
 });
 
-export const GLOBAL_UNSCOPED_SECTION_STATES = Object.freeze(
-  new Set([
-    "canonical_project_summary",
-    "project_summary",
-    "canonical_summary",
-    "global_summary",
-  ])
-);
-
 export const EXPLICIT_SCOPE_REQUIRED_ENTRY_TYPES = Object.freeze(
   new Set([
     CONFIRMED_ENTRY_TYPES.DECISION,
@@ -77,7 +69,7 @@ export const EXPLICIT_SCOPE_REQUIRED_ENTRY_TYPES = Object.freeze(
   ])
 );
 
-export const UNscoped_ALLOWED_ENTRY_TYPES = Object.freeze(
+export const UNSCOPED_ALLOWED_ENTRY_TYPES = Object.freeze(
   new Set([
     CONFIRMED_ENTRY_TYPES.SECTION_STATE,
   ])
@@ -119,19 +111,27 @@ export function isScopedLocal(meta = {}) {
   const scope = readScopeSignature(meta);
 
   return (
-    (
-      isNonEmpty(scope.projectArea) ||
-      isNonEmpty(scope.repoScope)
-    ) &&
+    (isNonEmpty(scope.projectArea) || isNonEmpty(scope.repoScope)) &&
     scope.crossRepo !== true
   );
+}
+
+export function isGlobalUnscopedCandidate({ entryType, meta = {} } = {}) {
+  const normalizedEntryType = normalizeEntryType(entryType);
+
+  if (normalizedEntryType !== CONFIRMED_ENTRY_TYPES.SECTION_STATE) {
+    return false;
+  }
+
+  return !hasAnyExplicitScope(meta);
 }
 
 export function classifyConfirmedScope({ entryType, section = null, meta = {} } = {}) {
   const normalizedEntryType = normalizeEntryType(entryType);
   const normalizedSection = normalizeSection(section);
   const scope = readScopeSignature(meta);
-  const hasExplicit = hasAnyExplicitScope(meta);
+
+  void normalizedSection;
 
   if (!normalizedEntryType) {
     return {
@@ -141,14 +141,11 @@ export function classifyConfirmedScope({ entryType, section = null, meta = {} } 
     };
   }
 
-  if (!hasExplicit) {
-    if (
-      normalizedEntryType === CONFIRMED_ENTRY_TYPES.SECTION_STATE &&
-      GLOBAL_UNSCOPED_SECTION_STATES.has(normalizedSection)
-    ) {
+  if (!hasAnyExplicitScope(meta)) {
+    if (isGlobalUnscopedCandidate({ entryType: normalizedEntryType, meta })) {
       return {
-        scopeClass: CONFIRMED_SCOPE_CLASSES.GLOBAL_UNSCOPED,
-        reason: "global_unscoped_section_state",
+        scopeClass: CONFIRMED_SCOPE_CLASSES.GLOBAL_UNSCOPED_CANDIDATE,
+        reason: "unscoped_section_state_without_repo_verified_global_name",
         scope,
       };
     }
@@ -187,6 +184,8 @@ export function getConfirmedScopeRequirement({ entryType, section = null } = {})
   const normalizedEntryType = normalizeEntryType(entryType);
   const normalizedSection = normalizeSection(section);
 
+  void normalizedSection;
+
   if (EXPLICIT_SCOPE_REQUIRED_ENTRY_TYPES.has(normalizedEntryType)) {
     return {
       requirement: CONFIRMED_SCOPE_REQUIREMENTS.REQUIRE_EXPLICIT_SCOPE,
@@ -194,17 +193,10 @@ export function getConfirmedScopeRequirement({ entryType, section = null } = {})
     };
   }
 
-  if (normalizedEntryType === CONFIRMED_ENTRY_TYPES.SECTION_STATE) {
-    if (GLOBAL_UNSCOPED_SECTION_STATES.has(normalizedSection)) {
-      return {
-        requirement: CONFIRMED_SCOPE_REQUIREMENTS.ALLOW_UNSCOPED,
-        reason: "global_section_state_may_remain_unscoped",
-      };
-    }
-
+  if (UNSCOPED_ALLOWED_ENTRY_TYPES.has(normalizedEntryType)) {
     return {
-      requirement: CONFIRMED_SCOPE_REQUIREMENTS.REQUIRE_EXPLICIT_SCOPE,
-      reason: "section_state_defaults_to_explicit_scope_unless_global",
+      requirement: CONFIRMED_SCOPE_REQUIREMENTS.ALLOW_UNSCOPED,
+      reason: "section_state_unscoped_allowed_for_legacy_or_global_candidate",
     };
   }
 
@@ -219,7 +211,7 @@ export function shouldAllowLegacyUnscopedRead({ entryType, section = null, meta 
 
   return (
     classification.scopeClass === CONFIRMED_SCOPE_CLASSES.LEGACY_UNSCOPED ||
-    classification.scopeClass === CONFIRMED_SCOPE_CLASSES.GLOBAL_UNSCOPED
+    classification.scopeClass === CONFIRMED_SCOPE_CLASSES.GLOBAL_UNSCOPED_CANDIDATE
   );
 }
 
@@ -235,33 +227,20 @@ export function shouldIncludeInScopedContext({ entryType, section = null, meta =
 export function shouldMigrateLegacyUnscopedLater({ entryType, section = null, meta = {} } = {}) {
   const classification = classifyConfirmedScope({ entryType, section, meta });
 
-  if (classification.scopeClass !== CONFIRMED_SCOPE_CLASSES.LEGACY_UNSCOPED) {
-    return false;
-  }
-
-  const normalizedEntryType = normalizeEntryType(entryType);
-  const normalizedSection = normalizeSection(section);
-
-  if (
-    normalizedEntryType === CONFIRMED_ENTRY_TYPES.SECTION_STATE &&
-    GLOBAL_UNSCOPED_SECTION_STATES.has(normalizedSection)
-  ) {
-    return false;
-  }
-
-  return true;
+  return (
+    classification.scopeClass === CONFIRMED_SCOPE_CLASSES.LEGACY_UNSCOPED ||
+    classification.scopeClass === CONFIRMED_SCOPE_CLASSES.GLOBAL_UNSCOPED_CANDIDATE
+  );
 }
 
 export function validateConfirmedScopeForWrite({ entryType, section = null, meta = {} } = {}) {
   const requirement = getConfirmedScopeRequirement({ entryType, section });
   const classification = classifyConfirmedScope({ entryType, section, meta });
 
-  if (
-    requirement.requirement === CONFIRMED_SCOPE_REQUIREMENTS.ALLOW_UNSCOPED
-  ) {
+  if (requirement.requirement === CONFIRMED_SCOPE_REQUIREMENTS.ALLOW_UNSCOPED) {
     return {
       ok:
-        classification.scopeClass === CONFIRMED_SCOPE_CLASSES.GLOBAL_UNSCOPED ||
+        classification.scopeClass === CONFIRMED_SCOPE_CLASSES.GLOBAL_UNSCOPED_CANDIDATE ||
         classification.scopeClass === CONFIRMED_SCOPE_CLASSES.SCOPED_LOCAL ||
         classification.scopeClass === CONFIRMED_SCOPE_CLASSES.SCOPED_SHARED,
       requirement,
@@ -311,13 +290,13 @@ export default {
   CONFIRMED_ENTRY_TYPES,
   CONFIRMED_SCOPE_CLASSES,
   CONFIRMED_SCOPE_REQUIREMENTS,
-  GLOBAL_UNSCOPED_SECTION_STATES,
   EXPLICIT_SCOPE_REQUIRED_ENTRY_TYPES,
-  UNscoped_ALLOWED_ENTRY_TYPES,
+  UNSCOPED_ALLOWED_ENTRY_TYPES,
   readScopeSignature,
   hasAnyExplicitScope,
   isSharedSharedCrossRepo,
   isScopedLocal,
+  isGlobalUnscopedCandidate,
   classifyConfirmedScope,
   getConfirmedScopeRequirement,
   shouldAllowLegacyUnscopedRead,

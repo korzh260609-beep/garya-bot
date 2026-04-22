@@ -101,6 +101,7 @@ export function buildChatHandlerContext({
   trimmed,
   saveMessageToMemory,
   saveChatPair,
+  projectIntentRepoContext = null,
 }) {
   return {
     bot: deps.bot,
@@ -126,6 +127,8 @@ export function buildChatHandlerContext({
     resolveProjectContextScope: deps.resolveProjectContextScope,
     getAnswerMode: deps.getAnswerMode,
     buildSystemPrompt: deps.buildSystemPrompt,
+
+    projectIntentRepoContext,
 
     isMonarch: (id) => String(id || "") === envStr("MONARCH_USER_ID", ""),
 

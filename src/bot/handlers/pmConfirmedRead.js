@@ -33,6 +33,8 @@ function parseArgs(rest = "") {
     aiContext: undefined,
     projectArea: null,
     repoScope: null,
+    linkedArea: null,
+    linkedRepo: null,
     crossRepo: undefined,
   };
 
@@ -79,6 +81,16 @@ function parseArgs(rest = "") {
       continue;
     }
 
+    if (lower.startsWith("linked_area:")) {
+      out.linkedArea = safeText(token.slice(12));
+      continue;
+    }
+
+    if (lower.startsWith("linked_repo:")) {
+      out.linkedRepo = safeText(token.slice(12));
+      continue;
+    }
+
     if (lower.startsWith("cross_repo:")) {
       out.crossRepo = parseBooleanLike(token.slice(11), undefined);
       continue;
@@ -97,6 +109,8 @@ function buildFilterLabel(args = {}) {
   if (args.entryType) parts.push(`type=${args.entryType}`);
   if (args.projectArea) parts.push(`area=${args.projectArea}`);
   if (args.repoScope) parts.push(`repo=${args.repoScope}`);
+  if (args.linkedArea) parts.push(`linked_area=${args.linkedArea}`);
+  if (args.linkedRepo) parts.push(`linked_repo=${args.linkedRepo}`);
   if (typeof args.crossRepo === "boolean") {
     parts.push(`cross_repo=${args.crossRepo ? "yes" : "no"}`);
   }
@@ -158,6 +172,8 @@ function getRowScope(row) {
   return {
     area: safeText(meta.projectArea) || "-",
     repo: safeText(meta.repoScope) || "-",
+    linkedAreas: Array.isArray(meta.linkedAreas) ? meta.linkedAreas.filter(Boolean) : [],
+    linkedRepos: Array.isArray(meta.linkedRepoScopes) ? meta.linkedRepoScopes.filter(Boolean) : [],
     crossRepo: meta.crossRepo === true ? "yes" : "no",
     aiContext: meta.aiContext === true ? "yes" : "no",
   };
@@ -178,6 +194,8 @@ function buildListMessage(rows, args = {}) {
     lines.push(`• id=${row.id} | ${safeText(row.entry_type)} | ${safeText(row.section) || "-"}`);
     lines.push(`  area: ${scope.area}`);
     lines.push(`  repo: ${scope.repo}`);
+    lines.push(`  linked_areas: ${scope.linkedAreas.join(", ") || "-"}`);
+    lines.push(`  linked_repos: ${scope.linkedRepos.join(", ") || "-"}`);
     lines.push(`  cross_repo: ${scope.crossRepo}`);
     lines.push(`  context: ${scope.aiContext}`);
 
@@ -207,6 +225,8 @@ function buildLatestMessage(row, args = {}) {
     `stage_key: ${safeText(row.stage_key) || "-"}`,
     `area: ${scope.area}`,
     `repo: ${scope.repo}`,
+    `linked_areas: ${scope.linkedAreas.join(", ") || "-"}`,
+    `linked_repos: ${scope.linkedRepos.join(", ") || "-"}`,
     `cross_repo: ${scope.crossRepo}`,
     `ai_context: ${scope.aiContext}`,
     "",
@@ -238,6 +258,8 @@ export async function handlePmConfirmedList({
       aiContext: args.aiContext,
       projectArea: args.projectArea,
       repoScope: args.repoScope,
+      linkedArea: args.linkedArea,
+      linkedRepo: args.linkedRepo,
       crossRepo: args.crossRepo,
     });
 
@@ -270,6 +292,8 @@ export async function handlePmConfirmedLatest({
       aiContext: args.aiContext,
       projectArea: args.projectArea,
       repoScope: args.repoScope,
+      linkedArea: args.linkedArea,
+      linkedRepo: args.linkedRepo,
       crossRepo: args.crossRepo,
     });
 
@@ -311,6 +335,8 @@ export async function handlePmConfirmedDigest({
       aiContext: args.aiContext,
       projectArea: args.projectArea,
       repoScope: args.repoScope,
+      linkedArea: args.linkedArea,
+      linkedRepo: args.linkedRepo,
       crossRepo: args.crossRepo,
     });
 
@@ -322,6 +348,8 @@ export async function handlePmConfirmedDigest({
       `cross_repo_total: ${digest.crossRepoTotal}`,
       `areas: ${(digest.projectAreas || []).join(", ") || "-"}`,
       `repos: ${(digest.repoScopes || []).join(", ") || "-"}`,
+      `linked_areas: ${(digest.linkedAreas || []).join(", ") || "-"}`,
+      `linked_repos: ${(digest.linkedRepoScopes || []).join(", ") || "-"}`,
       `sections: ${(digest.sections || []).join(", ") || "-"}`,
       `types: ${(digest.entryTypes || []).join(", ") || "-"}`,
       `modules: ${(digest.moduleKeys || []).join(", ") || "-"}`,

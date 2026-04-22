@@ -91,6 +91,26 @@ function normalizePatch(patch = {}) {
     out.aiContext = parseBooleanLike(patch.aiContext, undefined);
   }
 
+  if (Object.prototype.hasOwnProperty.call(patch, "projectArea")) {
+    out.projectArea = patch.projectArea;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(patch, "repoScope")) {
+    out.repoScope = patch.repoScope;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(patch, "linkedAreas")) {
+    out.linkedAreas = ensureArray(patch.linkedAreas);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(patch, "linkedRepoScopes")) {
+    out.linkedRepoScopes = ensureArray(patch.linkedRepoScopes);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(patch, "crossRepo")) {
+    out.crossRepo = parseBooleanLike(patch.crossRepo, undefined);
+  }
+
   return out;
 }
 

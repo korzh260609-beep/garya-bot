@@ -102,6 +102,7 @@ export async function runProjectIntentConversationFlow({
       token,
       callAI,
       event: "repo_conversation_explain_active_file_followup",
+      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
     });
   }
 
@@ -115,6 +116,7 @@ export async function runProjectIntentConversationFlow({
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
       actionKind: semanticPlan?.intent,
+      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
     });
 
     contextMeta.projectIntentObjectKind = safeText(semanticPlan?.objectKind);
@@ -139,6 +141,7 @@ export async function runProjectIntentConversationFlow({
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "continue_active",
       event: "repo_conversation_continue_active",
+      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
     });
   }
 

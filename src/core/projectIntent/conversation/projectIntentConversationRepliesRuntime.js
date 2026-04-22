@@ -31,6 +31,21 @@ import { resolveStructuredRepoFileAnswer } from "./projectIntentConversationStru
 
 const LARGE_DOC_AI_THRESHOLD = 12000;
 
+function pickProjectContextScope(...candidates) {
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      !Array.isArray(candidate) &&
+      Object.keys(candidate).length > 0
+    ) {
+      return candidate;
+    }
+  }
+
+  return {};
+}
+
 export async function replyPackedExplain({
   replyAndLog,
   aiReply,
@@ -64,7 +79,7 @@ export async function replyPackedExplain({
     actionKind,
     continuationState: packed.continuationState,
     objectKind: safeText(objectKind || inferObjectKindFromPath(targetPath)),
-    projectContextScope,
+    projectContextScope: pickProjectContextScope(projectContextScope),
   });
 
   await replyHuman(
@@ -121,7 +136,10 @@ export async function replyContinuation({
           followupContext?.objectKind ||
           inferObjectKindFromPath(followupContext?.targetPath)
         ),
-        projectContextScope: projectContextScope || followupContext?.projectContextScope || {},
+        projectContextScope: pickProjectContextScope(
+          projectContextScope,
+          followupContext?.projectContextScope
+        ),
       }),
     };
   }
@@ -149,7 +167,10 @@ export async function replyContinuation({
       followupContext?.objectKind ||
       inferObjectKindFromPath(followupContext?.targetPath || continuation?.targetPath)
     ),
-    projectContextScope: projectContextScope || followupContext?.projectContextScope || {},
+    projectContextScope: pickProjectContextScope(
+      projectContextScope,
+      followupContext?.projectContextScope
+    ),
   });
 
   await replyHuman(
@@ -206,7 +227,7 @@ export async function replyFolderBrowseFromPath({
       semanticConfidence,
       actionKind,
       objectKind: "folder",
-      projectContextScope,
+      projectContextScope: pickProjectContextScope(projectContextScope),
     });
 
     await replyHuman(
@@ -248,7 +269,7 @@ export async function replyFolderBrowseFromPath({
     semanticConfidence,
     actionKind,
     objectKind: "folder",
-    projectContextScope,
+    projectContextScope: pickProjectContextScope(projectContextScope),
   });
 
   await replyHuman(replyAndLog, text, {
@@ -301,7 +322,7 @@ export async function replyExplainFolderFromPath({
       semanticConfidence,
       actionKind,
       objectKind: "folder",
-      projectContextScope,
+      projectContextScope: pickProjectContextScope(projectContextScope),
     });
 
     await replyHuman(
@@ -343,7 +364,7 @@ export async function replyExplainFolderFromPath({
     semanticConfidence,
     actionKind,
     objectKind: "folder",
-    projectContextScope,
+    projectContextScope: pickProjectContextScope(projectContextScope),
   });
 
   await replyHuman(replyAndLog, text, {
@@ -402,7 +423,7 @@ export async function replyOpenFileFromPath({
       semanticConfidence,
       actionKind,
       objectKind: "file",
-      projectContextScope,
+      projectContextScope: pickProjectContextScope(projectContextScope),
     });
 
     await replyHuman(replyAndLog, text, {
@@ -427,7 +448,7 @@ export async function replyOpenFileFromPath({
     semanticConfidence,
     actionKind,
     objectKind: "file",
-    projectContextScope,
+    projectContextScope: pickProjectContextScope(projectContextScope),
   });
 
   await replyHuman(
@@ -497,7 +518,7 @@ export async function replyExplainFileFromPath({
         semanticConfidence,
         actionKind: `${safeText(actionKind)}_${safeText(structuredAnswer.kind)}`,
         objectKind: "file",
-        projectContextScope,
+        projectContextScope: pickProjectContextScope(projectContextScope),
       });
 
       contextMeta.projectIntentStructuredReadKind = safeText(structuredAnswer.kind);
@@ -529,7 +550,7 @@ export async function replyExplainFileFromPath({
       semanticConfidence,
       actionKind,
       objectKind: "file",
-      projectContextScope,
+      projectContextScope: pickProjectContextScope(projectContextScope),
     });
 
     await replyHuman(
@@ -571,7 +592,7 @@ export async function replyExplainFileFromPath({
       semanticConfidence,
       actionKind,
       objectKind: "file",
-      projectContextScope,
+      projectContextScope: pickProjectContextScope(projectContextScope),
     });
 
     await replyHuman(replyAndLog, text, {
@@ -622,7 +643,7 @@ export async function replyExplainFileFromPath({
       semanticConfidence,
       actionKind: `${safeText(actionKind)}_grounding_rejected`,
       objectKind: "file",
-      projectContextScope,
+      projectContextScope: pickProjectContextScope(projectContextScope),
     });
 
     contextMeta.projectIntentAiGuardReason = groundingFailure.reason;
@@ -666,7 +687,7 @@ export async function replyExplainFileFromPath({
     actionKind,
     objectKind: "file",
     event,
-    projectContextScope,
+    projectContextScope: pickProjectContextScope(projectContextScope),
   });
 
   return {

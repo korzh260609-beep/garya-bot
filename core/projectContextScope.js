@@ -53,6 +53,9 @@ function pickCandidateScope(input = {}) {
     source.projectContextScope,
     source.contextScope,
     source.scope,
+
+    source.projectIntentRepoContext?.projectContextScope,
+
     source.sourceCtx?.projectContextScope,
     source.runtimeCtx?.projectContextScope,
     source.meta?.projectContextScope,

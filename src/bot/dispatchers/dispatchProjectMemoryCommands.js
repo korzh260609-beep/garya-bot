@@ -19,6 +19,7 @@ import {
   handlePmConfirmedDigest,
 } from "../handlers/pmConfirmedRead.js";
 import { handlePmConfirmedContext } from "../handlers/pmConfirmedContext.js";
+import { handlePmConfirmedScopeDebug } from "../handlers/pmConfirmedScopeDebug.js";
 import { handlePmDigest } from "../handlers/pmDigest.js";
 import { handlePmLatest } from "../handlers/pmLatest.js";
 import { handlePmFind } from "../handlers/pmFind.js";
@@ -208,6 +209,22 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
         chatId,
         rest: ctx.rest,
         buildConfirmedProjectMemoryContext: ctx.buildConfirmedProjectMemoryContext,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_confirmed_scope_debug": {
+      if (typeof ctx.listConfirmedProjectMemoryEntries !== "function") {
+        await reply("⛔ listConfirmedProjectMemoryEntries недоступен (ошибка wiring).", { cmd: cmd0 });
+        return { handled: true };
+      }
+
+      await handlePmConfirmedScopeDebug({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        listConfirmedProjectMemoryEntries: ctx.listConfirmedProjectMemoryEntries,
       });
 
       return { handled: true };

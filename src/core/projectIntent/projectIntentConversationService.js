@@ -116,10 +116,9 @@ export async function runProjectIntentConversationFlow({
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
       actionKind: semanticPlan?.intent,
+      objectKind: semanticPlan?.objectKind,
       projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
     });
-
-    contextMeta.projectIntentObjectKind = safeText(semanticPlan?.objectKind);
 
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_clarification",

@@ -1,6 +1,7 @@
 // src/core/projectIntent/conversation/projectIntentConversationContextMeta.js
 
 import { safeText } from "../projectIntentConversationShared.js";
+import { buildProjectContextScopeFromRepoContext } from "../projectIntentProjectContextScope.js";
 
 export async function replyHuman(replyAndLog, text, meta = {}) {
   if (typeof replyAndLog !== "function") return;
@@ -26,6 +27,12 @@ export function buildRepoContextMeta({
     ? continuationState.chunks.filter(Boolean)
     : [];
 
+  const projectContextScope = buildProjectContextScopeFromRepoContext({
+    isActive: true,
+    targetEntity: safeText(targetEntity),
+    targetPath: safeText(targetPath),
+  });
+
   return {
     projectIntentRepoContextActive: true,
     projectIntentTargetEntity: safeText(targetEntity),
@@ -48,9 +55,15 @@ export function buildRepoContextMeta({
     projectIntentContinuationTargetPath: safeText(continuationState?.targetPath),
     projectIntentContinuationDisplayMode: safeText(continuationState?.displayMode),
     projectIntentContinuationChunkIndex: Number(continuationState?.chunkIndex || 1),
-    projectIntentContinuationChunkCount: Number(continuationState?.chunkCount || chunks.length || 0),
+    projectIntentContinuationChunkCount: Number(
+      continuationState?.chunkCount || chunks.length || 0
+    ),
     projectIntentContinuationChunksJson: chunks.length > 0 ? JSON.stringify(chunks) : "",
-    projectIntentContinuationRemainingText: safeText(continuationState?.remainingText),
+    projectIntentContinuationRemainingText: safeText(
+      continuationState?.remainingText
+    ),
+
+    projectContextScope,
   };
 }
 

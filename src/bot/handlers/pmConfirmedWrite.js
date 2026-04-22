@@ -80,6 +80,12 @@ function parseConfirmedWriteInput(rest = "") {
     undefined
   );
 
+  const projectArea = pickLine(map, "area", "project_area");
+  const repoScope = pickLine(map, "repo", "repo_scope");
+  const linkedAreas = splitItems(pickLine(map, "linked_areas", "areas"));
+  const linkedRepoScopes = splitItems(pickLine(map, "linked_repos", "linked_repo_scopes"));
+  const crossRepo = parseBooleanLike(pickLine(map, "cross_repo"), undefined);
+
   return {
     kind,
     section,
@@ -91,6 +97,11 @@ function parseConfirmedWriteInput(rest = "") {
     tags,
     relatedPaths,
     aiContext,
+    projectArea,
+    repoScope,
+    linkedAreas,
+    linkedRepoScopes,
+    crossRepo,
   };
 }
 
@@ -102,28 +113,32 @@ function buildUsage() {
     "kind: section_state | decision | constraint | next_step",
     "content: текст записи",
     "",
-    "Необязательное поле для AI context:",
+    "Multi-repo поля:",
+    "area: core | client | shared | infra | docs | connectors | kingdom_overlay",
+    "repo: core | client | shared",
+    "cross_repo: yes | no",
+    "linked_areas: core | client",
+    "linked_repos: core | client",
+    "",
+    "AI context:",
     "context: yes | no",
     "",
     "Правило:",
     "- section_state по умолчанию НЕ идёт в AI context",
     "- decision / constraint / next_step по умолчанию идут в AI context",
     "",
-    "Пример 1:",
+    "Пример:",
     "kind: decision",
-    "title: Confirmed memory rule",
-    "content: Project background context must use confirmed curated memory only.",
-    "module: project_memory",
-    "stage: 7A",
-    "tags: confirmed | decision",
-    "paths: projectMemory.js | core/projectContext.js",
-    "",
-    "Пример 2:",
-    "kind: section_state",
-    "section: project",
-    "title: PROJECT",
-    "content: Canonical project description for AI background context.",
+    "title: Cross-repo API contract",
+    "content: Core and client must keep one stable task payload contract.",
+    "area: shared",
+    "repo: shared",
+    "cross_repo: yes",
+    "linked_areas: core | client",
+    "linked_repos: core | client",
     "context: yes",
+    "module: task_engine",
+    "stage: 7A",
     "",
     "Разделитель списков: |",
   ].join("\n");
@@ -162,6 +177,13 @@ export async function handlePmConfirmedWrite({
       moduleKey: parsed.moduleKey || null,
       stageKey: parsed.stageKey || null,
       aiContext: parsed.aiContext,
+
+      projectArea: parsed.projectArea || null,
+      repoScope: parsed.repoScope || null,
+      linkedAreas: parsed.linkedAreas,
+      linkedRepoScopes: parsed.linkedRepoScopes,
+      crossRepo: parsed.crossRepo,
+
       meta: {
         transport: "telegram",
         manual: true,
@@ -170,6 +192,26 @@ export async function handlePmConfirmedWrite({
       },
     });
 
+    const aiContext =
+      saved?.meta && typeof saved.meta === "object" && saved.meta.aiContext === true
+        ? "yes"
+        : "no";
+
+    const area =
+      saved?.meta && typeof saved.meta === "object" && saved.meta.projectArea
+        ? String(saved.meta.projectArea)
+        : "-";
+
+    const repo =
+      saved?.meta && typeof saved.meta === "object" && saved.meta.repoScope
+        ? String(saved.meta.repoScope)
+        : "-";
+
+    const crossRepo =
+      saved?.meta && typeof saved.meta === "object" && saved.meta.crossRepo === true
+        ? "yes"
+        : "no";
+
     await bot.sendMessage(
       chatId,
       [
@@ -177,11 +219,10 @@ export async function handlePmConfirmedWrite({
         `id: ${saved?.id ?? "-"}`,
         `section: ${saved?.section ?? "-"}`,
         `entry_type: ${saved?.entry_type ?? "-"}`,
-        `ai_context: ${
-          saved?.meta && typeof saved.meta === "object" && saved.meta.aiContext === true
-            ? "yes"
-            : "no"
-        }`,
+        `area: ${area}`,
+        `repo: ${repo}`,
+        `cross_repo: ${crossRepo}`,
+        `ai_context: ${aiContext}`,
       ].join("\n")
     );
   } catch (e) {

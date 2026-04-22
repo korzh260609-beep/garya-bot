@@ -22,6 +22,21 @@ import {
   replyExplainFileFromPath,
 } from "./projectIntentConversationRepliesRuntime.js";
 
+function pickProjectContextScope(...candidates) {
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      !Array.isArray(candidate) &&
+      Object.keys(candidate).length > 0
+    ) {
+      return candidate;
+    }
+  }
+
+  return {};
+}
+
 export async function handleOpenTargetIntent({
   replyAndLog,
   trimmed,
@@ -83,7 +98,10 @@ export async function handleOpenTargetIntent({
       actionKind: "open_target",
       latestSnapshotId: latest.id,
       event: "repo_conversation_open_folder",
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
   }
 
@@ -99,7 +117,10 @@ export async function handleOpenTargetIntent({
       branch,
       token,
       event: "repo_conversation_open_file",
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
   }
 
@@ -184,7 +205,10 @@ export async function handleExplainLikeIntent({
       actionKind: semanticPlan.intent,
       latestSnapshotId: latest.id,
       event: "repo_conversation_explain_folder",
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
   }
 
@@ -208,7 +232,10 @@ export async function handleExplainLikeIntent({
       callAI,
       event: "repo_conversation_explain_ai",
       forceFirstPart: effectiveDisplayMode === "raw_first_part",
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
   }
 

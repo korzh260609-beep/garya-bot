@@ -20,6 +20,18 @@ function normalizeMeta(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function normalizeBoolean(value, def = false) {
+  if (typeof value === "boolean") return value;
+  return def;
+}
+
+function withAiContext(meta, aiContext, def = false) {
+  return {
+    ...normalizeMeta(meta),
+    aiContext: normalizeBoolean(aiContext, def),
+  };
+}
+
 function normalizeCommonInput(input = {}) {
   return {
     projectKey: input.projectKey,
@@ -36,6 +48,7 @@ function normalizeCommonInput(input = {}) {
       typeof input.confidence === "number" && Number.isFinite(input.confidence)
         ? input.confidence
         : 0.9,
+    aiContext: input.aiContext,
   };
 }
 
@@ -57,6 +70,7 @@ export class ProjectMemoryConfirmedWriter {
     moduleKey = null,
     stageKey = null,
     confidence = 0.9,
+    aiContext = false,
   } = {}) {
     const resolvedSection = safeText(section);
 
@@ -70,7 +84,7 @@ export class ProjectMemoryConfirmedWriter {
       title,
       content,
       tags,
-      meta,
+      meta: withAiContext(meta, aiContext, false),
       schemaVersion: 2,
       entryType: "section_state",
       status: "active",
@@ -93,7 +107,7 @@ export class ProjectMemoryConfirmedWriter {
       title: normalized.title,
       content: normalized.content,
       tags: normalized.tags,
-      meta: normalized.meta,
+      meta: withAiContext(normalized.meta, normalized.aiContext, true),
       schemaVersion: 2,
       entryType: "decision",
       status: "active",
@@ -116,7 +130,7 @@ export class ProjectMemoryConfirmedWriter {
       title: normalized.title,
       content: normalized.content,
       tags: normalized.tags,
-      meta: normalized.meta,
+      meta: withAiContext(normalized.meta, normalized.aiContext, true),
       schemaVersion: 2,
       entryType: "constraint",
       status: "active",
@@ -139,7 +153,7 @@ export class ProjectMemoryConfirmedWriter {
       title: normalized.title,
       content: normalized.content,
       tags: normalized.tags,
-      meta: normalized.meta,
+      meta: withAiContext(normalized.meta, normalized.aiContext, true),
       schemaVersion: 2,
       entryType: "next_step",
       status: "active",

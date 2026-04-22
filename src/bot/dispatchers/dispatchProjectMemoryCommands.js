@@ -18,6 +18,7 @@ import {
   handlePmConfirmedLatest,
   handlePmConfirmedDigest,
 } from "../handlers/pmConfirmedRead.js";
+import { handlePmConfirmedContext } from "../handlers/pmConfirmedContext.js";
 import { handlePmDigest } from "../handlers/pmDigest.js";
 import { handlePmLatest } from "../handlers/pmLatest.js";
 import { handlePmFind } from "../handlers/pmFind.js";
@@ -191,6 +192,22 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
         chatId,
         rest: ctx.rest,
         buildConfirmedProjectMemoryDigest: ctx.buildConfirmedProjectMemoryDigest,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_confirmed_context": {
+      if (typeof ctx.buildConfirmedProjectMemoryContext !== "function") {
+        await reply("⛔ buildConfirmedProjectMemoryContext недоступен (ошибка wiring).", { cmd: cmd0 });
+        return { handled: true };
+      }
+
+      await handlePmConfirmedContext({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        buildConfirmedProjectMemoryContext: ctx.buildConfirmedProjectMemoryContext,
       });
 
       return { handled: true };

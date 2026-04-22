@@ -39,7 +39,7 @@ export function normalizeStringArray(value = []) {
     .filter(Boolean);
 }
 
-export function normalizeProjectArea(value, fallback = DEFAULT_PROJECT_MEMORY_AREA) {
+export function normalizeProjectArea(value, fallback = null) {
   const normalized = safeText(value).toLowerCase();
   return normalized || fallback;
 }
@@ -95,7 +95,7 @@ export function normalizeProjectMemoryMeta(meta = {}, extra = {}) {
 }
 
 export function readProjectAreaFromMeta(meta = {}) {
-  return normalizeProjectArea(meta?.projectArea, DEFAULT_PROJECT_MEMORY_AREA);
+  return normalizeProjectArea(meta?.projectArea, null);
 }
 
 export function readRepoScopeFromMeta(meta = {}) {

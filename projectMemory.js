@@ -15,6 +15,7 @@ import { ProjectMemorySessionRecorder } from "./src/projectMemory/ProjectMemoryS
 import { ProjectMemorySessionUpdater } from "./src/projectMemory/ProjectMemorySessionUpdater.js";
 import { ProjectMemoryConfirmedWriter } from "./src/projectMemory/ProjectMemoryConfirmedWriter.js";
 import { ProjectMemoryConfirmedReader } from "./src/projectMemory/ProjectMemoryConfirmedReader.js";
+import { ProjectMemoryConfirmedUpdater } from "./src/projectMemory/ProjectMemoryConfirmedUpdater.js";
 
 const service = new ProjectMemoryService({
   dbPool: pool,
@@ -27,6 +28,7 @@ const sessionRecorder = new ProjectMemorySessionRecorder({ service });
 const sessionUpdater = new ProjectMemorySessionUpdater({ service });
 const confirmedWriter = new ProjectMemoryConfirmedWriter({ service });
 const confirmedReader = new ProjectMemoryConfirmedReader({ service });
+const confirmedUpdater = new ProjectMemoryConfirmedUpdater({ service });
 
 // ============================================================================
 // Backward-compatible API
@@ -151,6 +153,14 @@ export async function buildConfirmedProjectMemoryDigest(input = {}) {
   return confirmedReader.buildDigest(input);
 }
 
+// ============================================================================
+// Confirmed project memory update API (transport-agnostic)
+// ============================================================================
+
+export async function updateConfirmedProjectMemoryEntry(input = {}) {
+  return confirmedUpdater.updateEntry(input);
+}
+
 export {
   service as projectMemoryService,
   contextBuilder as projectMemoryContextBuilder,
@@ -159,6 +169,7 @@ export {
   sessionUpdater as projectMemorySessionUpdater,
   confirmedWriter as projectMemoryConfirmedWriter,
   confirmedReader as projectMemoryConfirmedReader,
+  confirmedUpdater as projectMemoryConfirmedUpdater,
   DEFAULT_PROJECT_KEY,
 };
 
@@ -185,6 +196,8 @@ export default {
   getLatestConfirmedProjectMemoryEntry,
   buildConfirmedProjectMemoryDigest,
 
+  updateConfirmedProjectMemoryEntry,
+
   projectMemoryService: service,
   projectMemoryContextBuilder: contextBuilder,
   projectMemorySourceSync: sourceSync,
@@ -192,5 +205,6 @@ export default {
   projectMemorySessionUpdater: sessionUpdater,
   projectMemoryConfirmedWriter: confirmedWriter,
   projectMemoryConfirmedReader: confirmedReader,
+  projectMemoryConfirmedUpdater: confirmedUpdater,
   DEFAULT_PROJECT_KEY,
 };

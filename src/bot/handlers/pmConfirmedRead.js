@@ -11,6 +11,16 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function parseBooleanLike(value, def = undefined) {
+  const s = safeText(value).toLowerCase();
+
+  if (!s) return def;
+  if (["1", "true", "yes", "y", "on", "enabled"].includes(s)) return true;
+  if (["0", "false", "no", "n", "off", "disabled"].includes(s)) return false;
+
+  return def;
+}
+
 function parseArgs(rest = "") {
   const tokens = safeText(rest).split(/\s+/).filter(Boolean);
 
@@ -20,6 +30,7 @@ function parseArgs(rest = "") {
     stageKey: null,
     section: null,
     entryType: null,
+    aiContext: undefined,
   };
 
   for (const token of tokens) {
@@ -49,6 +60,11 @@ function parseArgs(rest = "") {
       out.entryType = safeText(token.slice(5));
       continue;
     }
+
+    if (lower.startsWith("context:")) {
+      out.aiContext = parseBooleanLike(token.slice(8), undefined);
+      continue;
+    }
   }
 
   return out;
@@ -61,8 +77,11 @@ function buildFilterLabel(args = {}) {
   if (args.stageKey) parts.push(`stage=${args.stageKey}`);
   if (args.section) parts.push(`section=${args.section}`);
   if (args.entryType) parts.push(`type=${args.entryType}`);
+  if (typeof args.aiContext === "boolean") {
+    parts.push(`context=${args.aiContext ? "yes" : "no"}`);
+  }
 
-  return parts.length ? ` [${parts.join(", ")}]` : "";
+  return parts.length ? `[${parts.join(", ")}]` : "";
 }
 
 function compactText(text, maxChars = 220) {
@@ -113,13 +132,19 @@ function buildListMessage(rows, args = {}) {
   const filterLabel = buildFilterLabel(args);
 
   if (!rows.length) {
-    return `🧠 Confirmed memory${filterLabel}: записей нет.`;
+    return `🧠 Confirmed memory ${filterLabel || ""}: записей нет.`.trim();
   }
 
-  const lines = [`🧠 Confirmed memory${filterLabel} (последние ${rows.length}):`, ""];
+  const lines = [`🧠 Confirmed memory ${filterLabel || ""} (последние ${rows.length}):`.trim(), ""];
 
   for (const row of rows) {
+    const aiContext =
+      row?.meta && typeof row.meta === "object" && row.meta.aiContext === true
+        ? "yes"
+        : "no";
+
     lines.push(`• id=${row.id} | ${safeText(row.entry_type)} | ${safeText(row.section) || "-"}`);
+    lines.push(`  context: ${aiContext}`);
 
     if (safeText(row.title)) {
       lines.push(`  title: ${safeText(row.title)}`);
@@ -134,9 +159,13 @@ function buildListMessage(rows, args = {}) {
 
 function buildLatestMessage(row, args = {}) {
   const filterLabel = buildFilterLabel(args);
+  const aiContext =
+    row?.meta && typeof row.meta === "object" && row.meta.aiContext === true
+      ? "yes"
+      : "no";
 
   return [
-    `🧠 Confirmed latest${filterLabel}:`,
+    `🧠 Confirmed latest ${filterLabel || ""}:`.trim(),
     "",
     `id: ${row.id}`,
     `entry_type: ${safeText(row.entry_type) || "-"}`,
@@ -144,6 +173,7 @@ function buildLatestMessage(row, args = {}) {
     `title: ${safeText(row.title) || "-"}`,
     `module_key: ${safeText(row.module_key) || "-"}`,
     `stage_key: ${safeText(row.stage_key) || "-"}`,
+    `ai_context: ${aiContext}`,
     "",
     safeText(row.content) || "-",
   ].join("\n");
@@ -170,6 +200,7 @@ export async function handlePmConfirmedList({
       stageKey: args.stageKey,
       section: args.section,
       entryType: args.entryType,
+      aiContext: args.aiContext,
     });
 
     await bot.sendMessage(chatId, buildListMessage(rows, args));
@@ -198,12 +229,13 @@ export async function handlePmConfirmedLatest({
       stageKey: args.stageKey,
       section: args.section,
       entryType: args.entryType,
+      aiContext: args.aiContext,
     });
 
     const filterLabel = buildFilterLabel(args);
 
     if (!row) {
-      await bot.sendMessage(chatId, `🧠 Confirmed latest${filterLabel}: записей нет.`);
+      await bot.sendMessage(chatId, `🧠 Confirmed latest ${filterLabel || ""}: записей нет.`.trim());
       return;
     }
 
@@ -235,12 +267,14 @@ export async function handlePmConfirmedDigest({
       stageKey: args.stageKey,
       section: args.section,
       entryType: args.entryType,
+      aiContext: args.aiContext,
     });
 
     const lines = [
-      `🧠 Confirmed digest${buildFilterLabel(args)}:`,
+      `🧠 Confirmed digest ${buildFilterLabel(args) || ""}:`.trim(),
       "",
       `total: ${digest.totalEntries}`,
+      `ai_context_total: ${digest.aiContextEligibleTotal}`,
       `sections: ${(digest.sections || []).join(", ") || "-"}`,
       `types: ${(digest.entryTypes || []).join(", ") || "-"}`,
       `modules: ${(digest.moduleKeys || []).join(", ") || "-"}`,

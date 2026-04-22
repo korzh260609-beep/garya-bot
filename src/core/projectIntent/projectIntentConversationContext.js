@@ -223,12 +223,26 @@ export async function getLatestProjectIntentPendingChoice(
       const meta = item?.metadata || {};
 
       if (meta?.projectIntentPendingChoiceActive === true) {
+        const explicitScope = normalizeProjectContextScope(meta.projectContextScope);
+        const fallbackScope = buildProjectContextScopeFromRepoContext({
+          isActive: true,
+          targetEntity: safeText(meta.projectIntentPendingChoiceTargetEntity),
+          targetPath: safeText(meta.projectIntentPendingChoiceTargetPath),
+          objectKind: safeText(meta.projectIntentObjectKind),
+        });
+
+        const mergedScope = {
+          ...fallbackScope,
+          ...explicitScope,
+        };
+
         return {
           isActive: true,
           kind: safeText(meta.projectIntentPendingChoiceKind),
           targetEntity: safeText(meta.projectIntentPendingChoiceTargetEntity),
           targetPath: safeText(meta.projectIntentPendingChoiceTargetPath),
           displayMode: safeText(meta.projectIntentPendingChoiceDisplayMode),
+          projectContextScope: mergedScope,
         };
       }
     }
@@ -240,6 +254,7 @@ export async function getLatestProjectIntentPendingChoice(
     targetEntity: "",
     targetPath: "",
     displayMode: "",
+    projectContextScope: {},
   };
 }
 

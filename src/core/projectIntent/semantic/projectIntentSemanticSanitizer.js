@@ -2,6 +2,38 @@
 
 import { safeText } from "./projectIntentSemanticText.js";
 
+function safeObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeOptionalText(value) {
+  const s = safeText(value).toLowerCase();
+  return s || "";
+}
+
+function normalizeProjectContextScope(value) {
+  const source = safeObject(value);
+  const out = {};
+
+  const projectArea = normalizeOptionalText(source.projectArea);
+  if (projectArea) out.projectArea = projectArea;
+
+  const repoScope = normalizeOptionalText(source.repoScope);
+  if (repoScope) out.repoScope = repoScope;
+
+  const linkedArea = normalizeOptionalText(source.linkedArea);
+  if (linkedArea) out.linkedArea = linkedArea;
+
+  const linkedRepo = normalizeOptionalText(source.linkedRepo);
+  if (linkedRepo) out.linkedRepo = linkedRepo;
+
+  if (typeof source.crossRepo === "boolean") {
+    out.crossRepo = source.crossRepo;
+  }
+
+  return out;
+}
+
 export function sanitizeSemanticResult(raw, fallback) {
   const result = raw && typeof raw === "object" ? raw : {};
 
@@ -45,6 +77,14 @@ export function sanitizeSemanticResult(raw, fallback) {
     ? result.intent
     : fallback.intent;
 
+  const fallbackScope = normalizeProjectContextScope(fallback?.projectContextScope);
+  const resultScope = normalizeProjectContextScope(result?.projectContextScope);
+
+  const mergedScope = {
+    ...fallbackScope,
+    ...resultScope,
+  };
+
   return {
     intent,
     targetEntity: safeText(result.targetEntity || fallback.targetEntity),
@@ -61,5 +101,6 @@ export function sanitizeSemanticResult(raw, fallback) {
     confidence: allowedConfidence.has(safeText(result.confidence))
       ? safeText(result.confidence)
       : safeText(fallback.confidence || "low"),
+    projectContextScope: mergedScope,
   };
 }

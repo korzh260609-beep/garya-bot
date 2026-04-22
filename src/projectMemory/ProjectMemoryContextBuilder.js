@@ -6,7 +6,14 @@
 // - avoid transport-specific assumptions
 // - avoid hard coupling to exact phrases/templates
 // - keep project memory as soft background, not runtime proof
+// - support one project memory across multiple project areas / repos
 // ============================================================================
+
+import {
+  readCrossRepoFromMeta,
+  readProjectAreaFromMeta,
+  readRepoScopeFromMeta,
+} from "./projectMemoryScopes.js";
 
 function safeText(value) {
   return String(value ?? "");
@@ -53,14 +60,10 @@ function isAiContextEligible(entry) {
   const meta = normalizeMeta(entry.meta);
   const entryType = safeText(entry.entry_type).trim();
 
-  // section_state is too broad for automatic background context.
-  // It must be explicitly curated for AI context.
   if (entryType === "section_state") {
     return meta.aiContext === true;
   }
 
-  // decisions / constraints / next_steps are generally suitable
-  // unless explicitly disabled.
   if (
     entryType === "decision" ||
     entryType === "constraint" ||
@@ -70,6 +73,14 @@ function isAiContextEligible(entry) {
   }
 
   return false;
+}
+
+function matchOptional(value, filterValue) {
+  const a = safeText(value).toLowerCase();
+  const b = safeText(filterValue).toLowerCase();
+
+  if (!b) return true;
+  return a === b;
 }
 
 function splitConfirmedEntries(entries = []) {
@@ -106,6 +117,15 @@ function splitConfirmedEntries(entries = []) {
   return out;
 }
 
+function buildHeader(item) {
+  const area = readProjectAreaFromMeta(item.meta);
+  const repo = readRepoScopeFromMeta(item.meta) || "-";
+  const crossRepo = readCrossRepoFromMeta(item.meta) === true ? "yes" : "no";
+  const title = item.title || item.section || item.entry_type || "entry";
+
+  return `${title} [area=${area}, repo=${repo}, cross_repo=${crossRepo}]`;
+}
+
 function buildConfirmedBlocks({
   sectionStates = [],
   decisions = [],
@@ -118,9 +138,9 @@ function buildConfirmedBlocks({
     const lines = [];
 
     for (const item of sectionStates.slice(0, 8)) {
-      const title = item.title || item.section || "section_state";
+      const header = buildHeader(item);
       const body = compactText(item.content, 500);
-      lines.push(`- ${title}\n${body}`);
+      lines.push(`- ${header}\n${body}`);
     }
 
     if (lines.length) {
@@ -132,9 +152,9 @@ function buildConfirmedBlocks({
     const lines = [];
 
     for (const item of decisions.slice(0, 8)) {
-      const title = item.title || item.section || "decision";
+      const header = buildHeader(item);
       const body = compactText(item.content, 400);
-      lines.push(`- ${title}\n${body}`);
+      lines.push(`- ${header}\n${body}`);
     }
 
     if (lines.length) {
@@ -146,8 +166,9 @@ function buildConfirmedBlocks({
     const lines = [];
 
     for (const item of constraints.slice(0, 8)) {
+      const header = buildHeader(item);
       const body = compactText(item.content, 300);
-      lines.push(`- ${body}`);
+      lines.push(`- ${header}\n${body}`);
     }
 
     if (lines.length) {
@@ -159,8 +180,9 @@ function buildConfirmedBlocks({
     const lines = [];
 
     for (const item of nextSteps.slice(0, 8)) {
+      const header = buildHeader(item);
       const body = compactText(item.content, 300);
-      lines.push(`- ${body}`);
+      lines.push(`- ${header}\n${body}`);
     }
 
     if (lines.length) {
@@ -187,20 +209,62 @@ export class ProjectMemoryContextBuilder {
       : [];
   }
 
-  async listAiContextEligibleEntries({ projectKey } = {}) {
+  async listAiContextEligibleEntries({
+    projectKey,
+    projectArea = null,
+    repoScope = null,
+    crossRepo = undefined,
+  } = {}) {
     const entries = await this.listConfirmedEntries({ projectKey });
-    return entries.filter((item) => isAiContextEligible(item));
+
+    return entries.filter((item) => {
+      if (!isAiContextEligible(item)) return false;
+
+      if (!matchOptional(readProjectAreaFromMeta(item.meta), projectArea)) {
+        return false;
+      }
+
+      if (!matchOptional(readRepoScopeFromMeta(item.meta), repoScope)) {
+        return false;
+      }
+
+      if (typeof crossRepo === "boolean") {
+        return readCrossRepoFromMeta(item.meta) === crossRepo;
+      }
+
+      return true;
+    });
   }
 
-  async buildConfirmedContext({ projectKey } = {}) {
-    const confirmedEntries = await this.listAiContextEligibleEntries({ projectKey });
+  async buildConfirmedContext({
+    projectKey,
+    projectArea = null,
+    repoScope = null,
+    crossRepo = undefined,
+  } = {}) {
+    const confirmedEntries = await this.listAiContextEligibleEntries({
+      projectKey,
+      projectArea,
+      repoScope,
+      crossRepo,
+    });
+
     const grouped = splitConfirmedEntries(confirmedEntries);
     const blocks = buildConfirmedBlocks(grouped);
 
     if (!blocks.length) return "";
 
+    const scopeBits = [];
+    if (projectArea) scopeBits.push(`area=${projectArea}`);
+    if (repoScope) scopeBits.push(`repo=${repoScope}`);
+    if (typeof crossRepo === "boolean") {
+      scopeBits.push(`cross_repo=${crossRepo ? "yes" : "no"}`);
+    }
+
+    const scopeLabel = scopeBits.length ? ` [${scopeBits.join(", ")}]` : "";
+
     return [
-      "PROJECT BACKGROUND CONTEXT (CONFIRMED MEMORY, NOT RUNTIME PROOF):",
+      `PROJECT BACKGROUND CONTEXT${scopeLabel} (CONFIRMED MEMORY, NOT RUNTIME PROOF):`,
       "Use as confirmed background context.",
       "Do not treat this as proof of current runtime implementation state.",
       "Current implementation status must be verified from runtime/repository/pillars.",
@@ -211,10 +275,8 @@ export class ProjectMemoryContextBuilder {
       .slice(0, 4000);
   }
 
-  async buildSoftContext({ projectKey } = {}) {
-    // Backward-compatible alias:
-    // current soft context is intentionally narrowed to AI-context-eligible confirmed memory only.
-    return this.buildConfirmedContext({ projectKey });
+  async buildSoftContext(input = {}) {
+    return this.buildConfirmedContext(input);
   }
 
   async buildProjectDigest({ projectKey } = {}) {
@@ -228,14 +290,26 @@ export class ProjectMemoryContextBuilder {
     const stageKeys = new Set();
     const relatedPaths = new Set();
     const sections = new Set();
+    const projectAreas = new Set();
+    const repoScopes = new Set();
 
     let aiContextEligibleTotal = 0;
+    let crossRepoTotal = 0;
 
     for (const item of entries) {
       if (item.section) sections.add(item.section);
       if (item.entry_type) entryTypes.add(item.entry_type);
       if (item.module_key) moduleKeys.add(item.module_key);
       if (item.stage_key) stageKeys.add(item.stage_key);
+
+      projectAreas.add(readProjectAreaFromMeta(item.meta));
+      if (readRepoScopeFromMeta(item.meta)) {
+        repoScopes.add(readRepoScopeFromMeta(item.meta));
+      }
+
+      if (readCrossRepoFromMeta(item.meta) === true) {
+        crossRepoTotal += 1;
+      }
 
       if (isAiContextEligible(item)) {
         aiContextEligibleTotal += 1;
@@ -251,10 +325,13 @@ export class ProjectMemoryContextBuilder {
     return {
       totalEntries: entries.length,
       aiContextEligibleTotal,
+      crossRepoTotal,
       sections: Array.from(sections).sort(),
       entryTypes: Array.from(entryTypes).sort(),
       moduleKeys: Array.from(moduleKeys).sort(),
       stageKeys: Array.from(stageKeys).sort(),
+      projectAreas: Array.from(projectAreas).sort(),
+      repoScopes: Array.from(repoScopes).sort(),
       relatedPaths: Array.from(relatedPaths).sort(),
       confirmedEntryTypes: Array.from(CONFIRMED_ENTRY_TYPES).sort(),
     };

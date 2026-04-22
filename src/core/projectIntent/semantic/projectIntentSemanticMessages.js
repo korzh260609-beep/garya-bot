@@ -20,6 +20,7 @@ export function buildSemanticMessages({
     `active_repo_continuation: ${followupContext?.continuation?.isActive === true ? "yes" : "no"}`,
     `active_repo_continuation_target_path: ${safeText(followupContext?.continuation?.targetPath)}`,
     `active_repo_continuation_display_mode: ${safeText(followupContext?.continuation?.displayMode)}`,
+    `active_repo_scope_project_key: ${safeText(activeScope?.projectKey)}`,
     `active_repo_scope_project_area: ${safeText(activeScope?.projectArea)}`,
     `active_repo_scope_repo: ${safeText(activeScope?.repoScope)}`,
     `active_repo_scope_linked_area: ${safeText(activeScope?.linkedArea)}`,
@@ -68,6 +69,7 @@ export function buildSemanticMessages({
         '  "clarifyQuestion": "string",\n' +
         '  "confidence": "low|medium|high",\n' +
         '  "projectContextScope": {\n' +
+        '    "projectKey": "string",\n' +
         '    "projectArea": "string",\n' +
         '    "repoScope": "string",\n' +
         '    "linkedArea": "string",\n' +

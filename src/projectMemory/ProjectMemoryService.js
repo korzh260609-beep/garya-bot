@@ -17,6 +17,10 @@ import {
   buildSessionSummaryContent,
   isStructuredSessionSummaryInput,
 } from "./sessionSummaryContent.js";
+import {
+  getProjectMemoryScopeSignature,
+  normalizeProjectMemoryMeta,
+} from "./projectMemoryScopes.js";
 
 export const DEFAULT_PROJECT_KEY = "garya_ai";
 
@@ -73,6 +77,62 @@ function parseSessionSummaryContent(content = "") {
     risks: extractSessionSummaryBlockLines(content, "RISKS"),
     nextSteps: extractSessionSummaryBlockLines(content, "NEXT"),
     notes: extractSessionSummaryBlockLines(content, "NOTES"),
+  };
+}
+
+function isConfirmedScopedSectionState(normalized = {}) {
+  if (normalizeText(normalized.entryType) !== "section_state") {
+    return false;
+  }
+
+  const signature = getProjectMemoryScopeSignature(normalized.meta);
+  return (
+    !!signature.projectArea ||
+    !!signature.repoScope ||
+    signature.linkedAreas.length > 0 ||
+    signature.linkedRepoScopes.length > 0 ||
+    signature.crossRepo === true
+  );
+}
+
+function buildScopedSectionStateLookup({
+  projectKey,
+  section,
+  entryType,
+  scopeSignature,
+}) {
+  const where = [
+    "project_key = $1",
+    "section = $2",
+    "entry_type = $3",
+    "is_active = true",
+    "COALESCE(meta->>'projectArea', '') = $4",
+    "COALESCE(meta->>'repoScope', '') = $5",
+    "COALESCE(meta->'linkedAreas', '[]'::jsonb) = $6::jsonb",
+    "COALESCE(meta->'linkedRepoScopes', '[]'::jsonb) = $7::jsonb",
+    "COALESCE((meta->>'crossRepo')::boolean, false) = $8",
+  ];
+
+  const params = [
+    projectKey,
+    section,
+    entryType,
+    scopeSignature.projectArea || "",
+    scopeSignature.repoScope || "",
+    JSON.stringify(scopeSignature.linkedAreas || []),
+    JSON.stringify(scopeSignature.linkedRepoScopes || []),
+    scopeSignature.crossRepo === true,
+  ];
+
+  return {
+    sql: `
+      SELECT id
+      FROM project_memory
+      WHERE ${where.join(" AND ")}
+      ORDER BY updated_at DESC NULLS LAST, id DESC
+      LIMIT 1
+    `,
+    params,
   };
 }
 
@@ -317,19 +377,33 @@ export class ProjectMemoryService {
       throw new Error("ProjectMemoryService.upsertSectionState: content is required");
     }
 
-    const existingRes = await this.pool.query(
-      `
-        SELECT id
-        FROM project_memory
-        WHERE project_key = $1
-          AND section = $2
-          AND entry_type = $3
-          AND is_active = true
-        ORDER BY updated_at DESC NULLS LAST, id DESC
-        LIMIT 1
-      `,
-      [normalized.projectKey, normalized.section, normalized.entryType]
-    );
+    let existingRes;
+
+    if (isConfirmedScopedSectionState(normalized)) {
+      const scopeSignature = getProjectMemoryScopeSignature(normalized.meta);
+      const scopedLookup = buildScopedSectionStateLookup({
+        projectKey: normalized.projectKey,
+        section: normalized.section,
+        entryType: normalized.entryType,
+        scopeSignature,
+      });
+
+      existingRes = await this.pool.query(scopedLookup.sql, scopedLookup.params);
+    } else {
+      existingRes = await this.pool.query(
+        `
+          SELECT id
+          FROM project_memory
+          WHERE project_key = $1
+            AND section = $2
+            AND entry_type = $3
+            AND is_active = true
+          ORDER BY updated_at DESC NULLS LAST, id DESC
+          LIMIT 1
+        `,
+        [normalized.projectKey, normalized.section, normalized.entryType]
+      );
+    }
 
     if (!existingRes.rows?.length) {
       return this.appendEntry(normalized);
@@ -567,15 +641,44 @@ export class ProjectMemoryService {
       );
     }
 
-    const nextMeta = normalizeMeta(
-      Object.prototype.hasOwnProperty.call(patch, "meta")
-        ? patch.meta
-        : existing.meta
-    );
+    const nextMetaBase = {
+      ...normalizeMeta(existing.meta),
+      ...(
+        Object.prototype.hasOwnProperty.call(patch, "meta")
+          ? normalizeMeta(patch.meta)
+          : {}
+      ),
+    };
 
     if (Object.prototype.hasOwnProperty.call(patch, "aiContext")) {
-      nextMeta.aiContext = patch.aiContext;
+      nextMetaBase.aiContext = patch.aiContext;
     }
+
+    const nextMeta = normalizeProjectMemoryMeta(
+      nextMetaBase,
+      {
+        projectArea: Object.prototype.hasOwnProperty.call(patch, "projectArea")
+          ? patch.projectArea
+          : nextMetaBase.projectArea,
+        repoScope: Object.prototype.hasOwnProperty.call(patch, "repoScope")
+          ? patch.repoScope
+          : nextMetaBase.repoScope,
+        linkedAreas: Object.prototype.hasOwnProperty.call(patch, "linkedAreas")
+          ? patch.linkedAreas
+          : nextMetaBase.linkedAreas,
+        linkedRepoScopes: Object.prototype.hasOwnProperty.call(patch, "linkedRepoScopes")
+          ? patch.linkedRepoScopes
+          : nextMetaBase.linkedRepoScopes,
+        crossRepo: Object.prototype.hasOwnProperty.call(patch, "crossRepo")
+          ? patch.crossRepo
+          : nextMetaBase.crossRepo,
+      },
+      {
+        defaultProjectArea: null,
+        defaultRepoScope: null,
+        defaultCrossRepo: false,
+      }
+    );
 
     const normalized = buildNormalizedProjectMemoryInput({
       projectKey: existing.project_key,

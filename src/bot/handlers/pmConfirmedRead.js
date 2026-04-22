@@ -31,6 +31,9 @@ function parseArgs(rest = "") {
     section: null,
     entryType: null,
     aiContext: undefined,
+    projectArea: null,
+    repoScope: null,
+    crossRepo: undefined,
   };
 
   for (const token of tokens) {
@@ -65,6 +68,21 @@ function parseArgs(rest = "") {
       out.aiContext = parseBooleanLike(token.slice(8), undefined);
       continue;
     }
+
+    if (lower.startsWith("area:")) {
+      out.projectArea = safeText(token.slice(5));
+      continue;
+    }
+
+    if (lower.startsWith("repo:")) {
+      out.repoScope = safeText(token.slice(5));
+      continue;
+    }
+
+    if (lower.startsWith("cross_repo:")) {
+      out.crossRepo = parseBooleanLike(token.slice(11), undefined);
+      continue;
+    }
   }
 
   return out;
@@ -77,6 +95,11 @@ function buildFilterLabel(args = {}) {
   if (args.stageKey) parts.push(`stage=${args.stageKey}`);
   if (args.section) parts.push(`section=${args.section}`);
   if (args.entryType) parts.push(`type=${args.entryType}`);
+  if (args.projectArea) parts.push(`area=${args.projectArea}`);
+  if (args.repoScope) parts.push(`repo=${args.repoScope}`);
+  if (typeof args.crossRepo === "boolean") {
+    parts.push(`cross_repo=${args.crossRepo ? "yes" : "no"}`);
+  }
   if (typeof args.aiContext === "boolean") {
     parts.push(`context=${args.aiContext ? "yes" : "no"}`);
   }
@@ -128,6 +151,18 @@ async function sendChunked(bot, chatId, title, content) {
   }
 }
 
+function getRowScope(row) {
+  const meta =
+    row?.meta && typeof row.meta === "object" ? row.meta : {};
+
+  return {
+    area: safeText(meta.projectArea) || "-",
+    repo: safeText(meta.repoScope) || "-",
+    crossRepo: meta.crossRepo === true ? "yes" : "no",
+    aiContext: meta.aiContext === true ? "yes" : "no",
+  };
+}
+
 function buildListMessage(rows, args = {}) {
   const filterLabel = buildFilterLabel(args);
 
@@ -138,13 +173,13 @@ function buildListMessage(rows, args = {}) {
   const lines = [`🧠 Confirmed memory ${filterLabel || ""} (последние ${rows.length}):`.trim(), ""];
 
   for (const row of rows) {
-    const aiContext =
-      row?.meta && typeof row.meta === "object" && row.meta.aiContext === true
-        ? "yes"
-        : "no";
+    const scope = getRowScope(row);
 
     lines.push(`• id=${row.id} | ${safeText(row.entry_type)} | ${safeText(row.section) || "-"}`);
-    lines.push(`  context: ${aiContext}`);
+    lines.push(`  area: ${scope.area}`);
+    lines.push(`  repo: ${scope.repo}`);
+    lines.push(`  cross_repo: ${scope.crossRepo}`);
+    lines.push(`  context: ${scope.aiContext}`);
 
     if (safeText(row.title)) {
       lines.push(`  title: ${safeText(row.title)}`);
@@ -159,10 +194,7 @@ function buildListMessage(rows, args = {}) {
 
 function buildLatestMessage(row, args = {}) {
   const filterLabel = buildFilterLabel(args);
-  const aiContext =
-    row?.meta && typeof row.meta === "object" && row.meta.aiContext === true
-      ? "yes"
-      : "no";
+  const scope = getRowScope(row);
 
   return [
     `🧠 Confirmed latest ${filterLabel || ""}:`.trim(),
@@ -173,7 +205,10 @@ function buildLatestMessage(row, args = {}) {
     `title: ${safeText(row.title) || "-"}`,
     `module_key: ${safeText(row.module_key) || "-"}`,
     `stage_key: ${safeText(row.stage_key) || "-"}`,
-    `ai_context: ${aiContext}`,
+    `area: ${scope.area}`,
+    `repo: ${scope.repo}`,
+    `cross_repo: ${scope.crossRepo}`,
+    `ai_context: ${scope.aiContext}`,
     "",
     safeText(row.content) || "-",
   ].join("\n");
@@ -201,6 +236,9 @@ export async function handlePmConfirmedList({
       section: args.section,
       entryType: args.entryType,
       aiContext: args.aiContext,
+      projectArea: args.projectArea,
+      repoScope: args.repoScope,
+      crossRepo: args.crossRepo,
     });
 
     await bot.sendMessage(chatId, buildListMessage(rows, args));
@@ -230,6 +268,9 @@ export async function handlePmConfirmedLatest({
       section: args.section,
       entryType: args.entryType,
       aiContext: args.aiContext,
+      projectArea: args.projectArea,
+      repoScope: args.repoScope,
+      crossRepo: args.crossRepo,
     });
 
     const filterLabel = buildFilterLabel(args);
@@ -268,6 +309,9 @@ export async function handlePmConfirmedDigest({
       section: args.section,
       entryType: args.entryType,
       aiContext: args.aiContext,
+      projectArea: args.projectArea,
+      repoScope: args.repoScope,
+      crossRepo: args.crossRepo,
     });
 
     const lines = [
@@ -275,6 +319,9 @@ export async function handlePmConfirmedDigest({
       "",
       `total: ${digest.totalEntries}`,
       `ai_context_total: ${digest.aiContextEligibleTotal}`,
+      `cross_repo_total: ${digest.crossRepoTotal}`,
+      `areas: ${(digest.projectAreas || []).join(", ") || "-"}`,
+      `repos: ${(digest.repoScopes || []).join(", ") || "-"}`,
       `sections: ${(digest.sections || []).join(", ") || "-"}`,
       `types: ${(digest.entryTypes || []).join(", ") || "-"}`,
       `modules: ${(digest.moduleKeys || []).join(", ") || "-"}`,

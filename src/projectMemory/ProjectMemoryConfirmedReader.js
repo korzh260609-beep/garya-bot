@@ -11,6 +11,8 @@
 
 import {
   readCrossRepoFromMeta,
+  readLinkedAreasFromMeta,
+  readLinkedRepoScopesFromMeta,
   readProjectAreaFromMeta,
   readRepoScopeFromMeta,
 } from "./projectMemoryScopes.js";
@@ -77,6 +79,14 @@ function normalizeBooleanFilter(value) {
   return undefined;
 }
 
+function includesNormalized(list = [], needle = "") {
+  const target = safeText(needle).toLowerCase();
+  if (!target) return true;
+  return Array.isArray(list)
+    ? list.some((item) => safeText(item).toLowerCase() === target)
+    : false;
+}
+
 function applyConfirmedFilters(entries = [], filters = {}) {
   const moduleKey = safeText(filters.moduleKey);
   const stageKey = safeText(filters.stageKey);
@@ -84,6 +94,8 @@ function applyConfirmedFilters(entries = [], filters = {}) {
   const entryType = safeText(filters.entryType);
   const projectArea = safeText(filters.projectArea).toLowerCase();
   const repoScope = safeText(filters.repoScope).toLowerCase();
+  const linkedArea = safeText(filters.linkedArea).toLowerCase();
+  const linkedRepo = safeText(filters.linkedRepo).toLowerCase();
   const aiContext = normalizeAiContextFilter(filters.aiContext);
   const crossRepo = normalizeBooleanFilter(filters.crossRepo);
 
@@ -96,10 +108,14 @@ function applyConfirmedFilters(entries = [], filters = {}) {
 
     const area = readProjectAreaFromMeta(item.meta);
     const repo = readRepoScopeFromMeta(item.meta);
+    const linkedAreas = readLinkedAreasFromMeta(item.meta);
+    const linkedRepoScopes = readLinkedRepoScopesFromMeta(item.meta);
     const isCrossRepo = readCrossRepoFromMeta(item.meta);
 
     if (projectArea && area !== projectArea) return false;
     if (repoScope && repo !== repoScope) return false;
+    if (linkedArea && !includesNormalized(linkedAreas, linkedArea)) return false;
+    if (linkedRepo && !includesNormalized(linkedRepoScopes, linkedRepo)) return false;
     if (crossRepo === true && isCrossRepo !== true) return false;
     if (crossRepo === false && isCrossRepo === true) return false;
 
@@ -123,6 +139,8 @@ export class ProjectMemoryConfirmedReader {
     entryType = null,
     projectArea = null,
     repoScope = null,
+    linkedArea = null,
+    linkedRepo = null,
     crossRepo = undefined,
     aiContext = undefined,
     limit = 50,
@@ -141,6 +159,8 @@ export class ProjectMemoryConfirmedReader {
       entryType,
       projectArea,
       repoScope,
+      linkedArea,
+      linkedRepo,
       crossRepo,
       aiContext,
     });
@@ -156,6 +176,8 @@ export class ProjectMemoryConfirmedReader {
     entryType = null,
     projectArea = null,
     repoScope = null,
+    linkedArea = null,
+    linkedRepo = null,
     crossRepo = undefined,
     aiContext = undefined,
   } = {}) {
@@ -167,6 +189,8 @@ export class ProjectMemoryConfirmedReader {
       entryType,
       projectArea,
       repoScope,
+      linkedArea,
+      linkedRepo,
       crossRepo,
       aiContext,
       limit: 1,
@@ -183,6 +207,8 @@ export class ProjectMemoryConfirmedReader {
     entryType = null,
     projectArea = null,
     repoScope = null,
+    linkedArea = null,
+    linkedRepo = null,
     crossRepo = undefined,
     aiContext = undefined,
     limit = 50,
@@ -195,6 +221,8 @@ export class ProjectMemoryConfirmedReader {
       entryType,
       projectArea,
       repoScope,
+      linkedArea,
+      linkedRepo,
       crossRepo,
       aiContext,
       limit,
@@ -207,6 +235,8 @@ export class ProjectMemoryConfirmedReader {
     const relatedPaths = new Set();
     const projectAreas = new Set();
     const repoScopes = new Set();
+    const linkedAreas = new Set();
+    const linkedRepoScopes = new Set();
 
     let aiContextEligibleTotal = 0;
     let crossRepoTotal = 0;
@@ -218,8 +248,16 @@ export class ProjectMemoryConfirmedReader {
       if (item.stage_key) stageKeys.add(item.stage_key);
 
       projectAreas.add(readProjectAreaFromMeta(item.meta));
-      if (readRepoScopeFromMeta(item.meta)) {
-        repoScopes.add(readRepoScopeFromMeta(item.meta));
+
+      const repo = readRepoScopeFromMeta(item.meta);
+      if (repo) repoScopes.add(repo);
+
+      for (const area of readLinkedAreasFromMeta(item.meta)) {
+        if (area) linkedAreas.add(area);
+      }
+
+      for (const scope of readLinkedRepoScopesFromMeta(item.meta)) {
+        if (scope) linkedRepoScopes.add(scope);
       }
 
       if (isAiContextEligible(item)) aiContextEligibleTotal += 1;
@@ -242,6 +280,8 @@ export class ProjectMemoryConfirmedReader {
       stageKeys: Array.from(stageKeys).sort(),
       projectAreas: Array.from(projectAreas).sort(),
       repoScopes: Array.from(repoScopes).sort(),
+      linkedAreas: Array.from(linkedAreas).sort(),
+      linkedRepoScopes: Array.from(linkedRepoScopes).sort(),
       relatedPaths: Array.from(relatedPaths).sort(),
       filters: {
         moduleKey: moduleKey || null,
@@ -250,6 +290,8 @@ export class ProjectMemoryConfirmedReader {
         entryType: entryType || null,
         projectArea: projectArea || null,
         repoScope: repoScope || null,
+        linkedArea: linkedArea || null,
+        linkedRepo: linkedRepo || null,
         crossRepo:
           typeof crossRepo === "boolean"
             ? crossRepo

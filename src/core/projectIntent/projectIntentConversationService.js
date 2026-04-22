@@ -179,6 +179,7 @@ export async function runProjectIntentConversationFlow({
       replyAndLog,
       trimmed,
       semanticPlan,
+      followupContext,
       latest,
     });
   }

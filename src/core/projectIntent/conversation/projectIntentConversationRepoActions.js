@@ -44,6 +44,7 @@ export async function handleRepoStatusIntent({
     sourceText: trimmed,
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "repo_status",
+    projectContextScope: semanticPlan?.projectContextScope || {},
   });
 
   contextMeta.projectIntentObjectKind = "repo";
@@ -92,6 +93,7 @@ export async function handleShowTreeIntent({
     treePrefix: prefix,
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "show_tree",
+    projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
   });
 
   contextMeta.projectIntentObjectKind = prefix ? "folder" : "root";
@@ -129,6 +131,7 @@ export async function handleBrowseFolderIntent({
     actionKind: "browse_folder",
     latestSnapshotId: latest.id,
     event: "repo_conversation_browse_folder",
+    projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
   });
 }
 
@@ -166,6 +169,7 @@ export async function handleFindTargetIntent({
     sourceText: trimmed,
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "find_target",
+    projectContextScope: semanticPlan?.projectContextScope || {},
   });
 
   contextMeta.projectIntentObjectKind = safeText(singleKind || "unknown");
@@ -225,6 +229,7 @@ export async function handleFindAndExplainIntent({
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "find_and_explain",
+      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
     });
 
     contextMeta.projectIntentObjectKind = safeText(
@@ -253,6 +258,7 @@ export async function handleFindAndExplainIntent({
       actionKind: "find_and_explain",
       latestSnapshotId: latest.id,
       event: "repo_conversation_find_and_explain_folder",
+      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
     });
   }
 
@@ -272,6 +278,7 @@ export async function handleFindAndExplainIntent({
       token,
       callAI,
       event: "repo_conversation_find_and_explain_ai",
+      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
     });
   }
 

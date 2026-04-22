@@ -25,6 +25,16 @@ function pickLine(map, ...keys) {
   return "";
 }
 
+function parseBooleanLike(value, def = undefined) {
+  const s = safeText(value).toLowerCase();
+
+  if (!s) return def;
+  if (["1", "true", "yes", "y", "on", "enabled"].includes(s)) return true;
+  if (["0", "false", "no", "n", "off", "disabled"].includes(s)) return false;
+
+  return def;
+}
+
 function parseConfirmedWriteInput(rest = "") {
   const text = safeText(rest);
 
@@ -65,6 +75,10 @@ function parseConfirmedWriteInput(rest = "") {
 
   const tags = splitItems(pickLine(map, "tags", "tag"));
   const relatedPaths = splitItems(pickLine(map, "paths", "related_paths", "files"));
+  const aiContext = parseBooleanLike(
+    pickLine(map, "context", "ai_context", "use_in_context"),
+    undefined
+  );
 
   return {
     kind,
@@ -76,6 +90,7 @@ function parseConfirmedWriteInput(rest = "") {
     sourceRef,
     tags,
     relatedPaths,
+    aiContext,
   };
 }
 
@@ -87,7 +102,14 @@ function buildUsage() {
     "kind: section_state | decision | constraint | next_step",
     "content: текст записи",
     "",
-    "Пример:",
+    "Необязательное поле для AI context:",
+    "context: yes | no",
+    "",
+    "Правило:",
+    "- section_state по умолчанию НЕ идёт в AI context",
+    "- decision / constraint / next_step по умолчанию идут в AI context",
+    "",
+    "Пример 1:",
     "kind: decision",
     "title: Confirmed memory rule",
     "content: Project background context must use confirmed curated memory only.",
@@ -95,6 +117,13 @@ function buildUsage() {
     "stage: 7A",
     "tags: confirmed | decision",
     "paths: projectMemory.js | core/projectContext.js",
+    "",
+    "Пример 2:",
+    "kind: section_state",
+    "section: project",
+    "title: PROJECT",
+    "content: Canonical project description for AI background context.",
+    "context: yes",
     "",
     "Разделитель списков: |",
   ].join("\n");
@@ -132,6 +161,7 @@ export async function handlePmConfirmedWrite({
       relatedPaths: parsed.relatedPaths,
       moduleKey: parsed.moduleKey || null,
       stageKey: parsed.stageKey || null,
+      aiContext: parsed.aiContext,
       meta: {
         transport: "telegram",
         manual: true,
@@ -147,6 +177,11 @@ export async function handlePmConfirmedWrite({
         `id: ${saved?.id ?? "-"}`,
         `section: ${saved?.section ?? "-"}`,
         `entry_type: ${saved?.entry_type ?? "-"}`,
+        `ai_context: ${
+          saved?.meta && typeof saved.meta === "object" && saved.meta.aiContext === true
+            ? "yes"
+            : "no"
+        }`,
       ].join("\n")
     );
   } catch (e) {

@@ -20,6 +20,17 @@ import {
 
 export const DEFAULT_PROJECT_KEY = "garya_ai";
 
+const CONFIRMED_ENTRY_TYPES = new Set([
+  "section_state",
+  "decision",
+  "constraint",
+  "next_step",
+]);
+
+function normalizeMeta(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 function extractSessionSummaryBlockLines(content = "", blockName = "") {
   const lines = String(content ?? "").split(/\r?\n/);
   const target = String(blockName ?? "").trim().toUpperCase() + ":";
@@ -494,6 +505,191 @@ export class ProjectMemoryService {
       confidence,
       isActive: true,
     });
+  }
+
+  async updateConfirmedEntryById({
+    id,
+    projectKey = this.defaultProjectKey,
+    patch = {},
+  } = {}) {
+    const resolvedId = Number(id);
+    const resolvedProjectKey = this.resolveProjectKey(projectKey);
+
+    if (!Number.isInteger(resolvedId) || resolvedId <= 0) {
+      throw new Error("ProjectMemoryService.updateConfirmedEntryById: valid id is required");
+    }
+
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new Error("ProjectMemoryService.updateConfirmedEntryById: patch object is required");
+    }
+
+    const existingRes = await this.pool.query(
+      `
+        SELECT
+          id,
+          project_key,
+          section,
+          title,
+          content,
+          tags,
+          meta,
+          schema_version,
+          created_at,
+          updated_at,
+          entry_type,
+          status,
+          source_type,
+          source_ref,
+          related_paths,
+          module_key,
+          stage_key,
+          confidence,
+          is_active
+        FROM project_memory
+        WHERE id = $1
+          AND project_key = $2
+        LIMIT 1
+      `,
+      [resolvedId, resolvedProjectKey]
+    );
+
+    const existing = existingRes.rows?.[0] || null;
+
+    if (!existing) {
+      throw new Error(
+        `ProjectMemoryService.updateConfirmedEntryById: entry id=${resolvedId} not found`
+      );
+    }
+
+    if (!CONFIRMED_ENTRY_TYPES.has(normalizeText(existing.entry_type))) {
+      throw new Error(
+        "ProjectMemoryService.updateConfirmedEntryById: entry is not a confirmed-memory type"
+      );
+    }
+
+    const nextMeta = normalizeMeta(
+      Object.prototype.hasOwnProperty.call(patch, "meta")
+        ? patch.meta
+        : existing.meta
+    );
+
+    if (Object.prototype.hasOwnProperty.call(patch, "aiContext")) {
+      nextMeta.aiContext = patch.aiContext;
+    }
+
+    const normalized = buildNormalizedProjectMemoryInput({
+      projectKey: existing.project_key,
+      section: existing.section,
+      title:
+        Object.prototype.hasOwnProperty.call(patch, "title")
+          ? patch.title
+          : existing.title,
+      content:
+        Object.prototype.hasOwnProperty.call(patch, "content")
+          ? patch.content
+          : existing.content,
+      tags:
+        Object.prototype.hasOwnProperty.call(patch, "tags")
+          ? patch.tags
+          : existing.tags,
+      meta: nextMeta,
+      schemaVersion: existing.schema_version,
+      entryType: existing.entry_type,
+      status:
+        Object.prototype.hasOwnProperty.call(patch, "status")
+          ? patch.status
+          : existing.status,
+      sourceType:
+        Object.prototype.hasOwnProperty.call(patch, "sourceType")
+          ? patch.sourceType
+          : existing.source_type,
+      sourceRef:
+        Object.prototype.hasOwnProperty.call(patch, "sourceRef")
+          ? patch.sourceRef
+          : existing.source_ref,
+      relatedPaths:
+        Object.prototype.hasOwnProperty.call(patch, "relatedPaths")
+          ? patch.relatedPaths
+          : existing.related_paths,
+      moduleKey:
+        Object.prototype.hasOwnProperty.call(patch, "moduleKey")
+          ? patch.moduleKey
+          : existing.module_key,
+      stageKey:
+        Object.prototype.hasOwnProperty.call(patch, "stageKey")
+          ? patch.stageKey
+          : existing.stage_key,
+      confidence:
+        Object.prototype.hasOwnProperty.call(patch, "confidence")
+          ? patch.confidence
+          : existing.confidence,
+      isActive:
+        Object.prototype.hasOwnProperty.call(patch, "isActive")
+          ? patch.isActive
+          : existing.is_active,
+    });
+
+    const res = await this.pool.query(
+      `
+        UPDATE project_memory
+        SET
+          title = $1,
+          content = $2,
+          tags = $3,
+          meta = $4,
+          schema_version = $5,
+          updated_at = NOW(),
+          status = $6,
+          source_type = $7,
+          source_ref = $8,
+          related_paths = $9,
+          module_key = $10,
+          stage_key = $11,
+          confidence = $12,
+          is_active = $13
+        WHERE id = $14
+          AND project_key = $15
+        RETURNING
+          id,
+          project_key,
+          section,
+          title,
+          content,
+          tags,
+          meta,
+          schema_version,
+          created_at,
+          updated_at,
+          entry_type,
+          status,
+          source_type,
+          source_ref,
+          related_paths,
+          module_key,
+          stage_key,
+          confidence,
+          is_active
+      `,
+      [
+        normalized.title,
+        normalized.content,
+        normalized.tags,
+        normalized.meta,
+        normalized.schemaVersion,
+        normalized.status,
+        normalized.sourceType,
+        normalized.sourceRef,
+        normalized.relatedPaths,
+        normalized.moduleKey,
+        normalized.stageKey,
+        normalized.confidence,
+        normalized.isActive,
+        resolvedId,
+        resolvedProjectKey,
+      ]
+    );
+
+    return res.rows?.[0] || null;
   }
 
   async updateSessionSummaryById({

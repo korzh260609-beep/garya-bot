@@ -34,9 +34,18 @@ export function ensureArray(value) {
 }
 
 export function normalizeStringArray(value = []) {
-  return ensureArray(value)
-    .map((item) => safeText(item))
-    .filter(Boolean);
+  const out = [];
+  const seen = new Set();
+
+  for (const item of ensureArray(value)) {
+    const normalized = safeText(item);
+    if (!normalized) continue;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+
+  return out;
 }
 
 export function normalizeProjectArea(value, fallback = null) {
@@ -54,17 +63,34 @@ export function normalizeBoolean(value, fallback = false) {
   return fallback;
 }
 
-export function normalizeProjectMemoryMeta(meta = {}, extra = {}) {
+export function normalizeProjectMemoryMeta(meta = {}, extra = {}, options = {}) {
   const base = meta && typeof meta === "object" && !Array.isArray(meta) ? meta : {};
+  const opts =
+    options && typeof options === "object" && !Array.isArray(options) ? options : {};
+
+  const projectAreaFallback =
+    Object.prototype.hasOwnProperty.call(opts, "defaultProjectArea")
+      ? opts.defaultProjectArea
+      : DEFAULT_PROJECT_MEMORY_AREA;
+
+  const repoScopeFallback =
+    Object.prototype.hasOwnProperty.call(opts, "defaultRepoScope")
+      ? opts.defaultRepoScope
+      : null;
+
+  const crossRepoFallback =
+    Object.prototype.hasOwnProperty.call(opts, "defaultCrossRepo")
+      ? opts.defaultCrossRepo
+      : false;
 
   const projectArea = normalizeProjectArea(
     extra.projectArea ?? base.projectArea,
-    DEFAULT_PROJECT_MEMORY_AREA
+    projectAreaFallback
   );
 
   const repoScope = normalizeRepoScope(
     extra.repoScope ?? base.repoScope,
-    null
+    repoScopeFallback
   );
 
   const linkedAreas = normalizeStringArray(
@@ -81,17 +107,30 @@ export function normalizeProjectMemoryMeta(meta = {}, extra = {}) {
 
   const crossRepo = normalizeBoolean(
     extra.crossRepo ?? base.crossRepo,
-    false
+    crossRepoFallback
   );
 
-  return {
+  const out = {
     ...base,
-    projectArea,
     repoScope,
     linkedAreas,
     linkedRepoScopes,
     crossRepo,
   };
+
+  if (projectArea) {
+    out.projectArea = projectArea;
+  } else {
+    delete out.projectArea;
+  }
+
+  if (repoScope) {
+    out.repoScope = repoScope;
+  } else {
+    delete out.repoScope;
+  }
+
+  return out;
 }
 
 export function readProjectAreaFromMeta(meta = {}) {
@@ -118,6 +157,16 @@ export function readCrossRepoFromMeta(meta = {}) {
   return normalizeBoolean(meta?.crossRepo, false);
 }
 
+export function getProjectMemoryScopeSignature(meta = {}) {
+  return {
+    projectArea: readProjectAreaFromMeta(meta),
+    repoScope: readRepoScopeFromMeta(meta),
+    linkedAreas: readLinkedAreasFromMeta(meta),
+    linkedRepoScopes: readLinkedRepoScopesFromMeta(meta),
+    crossRepo: readCrossRepoFromMeta(meta),
+  };
+}
+
 export default {
   PROJECT_MEMORY_AREAS,
   PROJECT_MEMORY_REPO_SCOPES,
@@ -130,4 +179,5 @@ export default {
   readLinkedAreasFromMeta,
   readLinkedRepoScopesFromMeta,
   readCrossRepoFromMeta,
+  getProjectMemoryScopeSignature,
 };

@@ -55,6 +55,8 @@ export async function runChatAiOrchestration({
   sanitizeNonMonarchReply,
   monarchNow,
   MAX_HISTORY_MESSAGES = 20,
+
+  projectIntentRepoContext = null,
 }) {
   const chatIntent = resolveChatIntent({
     text: effective,
@@ -136,6 +138,7 @@ export async function runChatAiOrchestration({
           sourceCtx,
           chatIntent,
           classification,
+          projectIntentRepoContext,
         })
       );
     }
@@ -215,6 +218,12 @@ export async function runChatAiOrchestration({
 
     historyRequestedLimit: historyLimit,
     historyChatType: currentChatType,
+
+    projectIntentRepoContextActive: projectIntentRepoContext?.isActive === true,
+    projectIntentRepoContextTargetEntity:
+      projectIntentRepoContext?.targetEntity || "",
+    projectIntentRepoContextTargetPath:
+      projectIntentRepoContext?.targetPath || "",
 
     projectContextScopeProjectArea: projectContextScope?.projectArea || "",
     projectContextScopeRepo: projectContextScope?.repoScope || "",

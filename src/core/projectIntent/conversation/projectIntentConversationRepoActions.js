@@ -25,6 +25,21 @@ import {
 } from "./projectIntentConversationRepliesRuntime.js";
 import { resolveTargetObject } from "./projectIntentConversationTargetResolver.js";
 
+function pickProjectContextScope(...candidates) {
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      !Array.isArray(candidate) &&
+      Object.keys(candidate).length > 0
+    ) {
+      return candidate;
+    }
+  }
+
+  return {};
+}
+
 export async function handleRepoStatusIntent({
   replyAndLog,
   trimmed,
@@ -45,7 +60,9 @@ export async function handleRepoStatusIntent({
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "repo_status",
     objectKind: "repo",
-    projectContextScope: semanticPlan?.projectContextScope || {},
+    projectContextScope: pickProjectContextScope(
+      semanticPlan?.projectContextScope
+    ),
   });
 
   await replyHuman(replyAndLog, text, {
@@ -93,7 +110,10 @@ export async function handleShowTreeIntent({
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "show_tree",
     objectKind: prefix ? "folder" : "root",
-    projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+    projectContextScope: pickProjectContextScope(
+      semanticPlan?.projectContextScope,
+      followupContext?.projectContextScope
+    ),
   });
 
   await replyHuman(replyAndLog, text, {
@@ -129,7 +149,10 @@ export async function handleBrowseFolderIntent({
     actionKind: "browse_folder",
     latestSnapshotId: latest.id,
     event: "repo_conversation_browse_folder",
-    projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+    projectContextScope: pickProjectContextScope(
+      semanticPlan?.projectContextScope,
+      followupContext?.projectContextScope
+    ),
   });
 }
 
@@ -169,7 +192,10 @@ export async function handleFindTargetIntent({
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "find_target",
     objectKind: safeText(singleKind || "unknown"),
-    projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+    projectContextScope: pickProjectContextScope(
+      semanticPlan?.projectContextScope,
+      followupContext?.projectContextScope
+    ),
   });
 
   await replyHuman(replyAndLog, text, {
@@ -230,7 +256,10 @@ export async function handleFindAndExplainIntent({
       objectKind: safeText(
         resolved.objectKind || semanticPlan?.objectKind || "unknown"
       ),
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
 
     await replyHuman(replyAndLog, text, {
@@ -255,7 +284,10 @@ export async function handleFindAndExplainIntent({
       actionKind: "find_and_explain",
       latestSnapshotId: latest.id,
       event: "repo_conversation_find_and_explain_folder",
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
   }
 
@@ -275,7 +307,10 @@ export async function handleFindAndExplainIntent({
       token,
       callAI,
       event: "repo_conversation_find_and_explain_ai",
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
   }
 

@@ -13,6 +13,14 @@
 // - it must not read Telegram-specific fields
 // ============================================================================
 
+import {
+  PROJECT_CONTEXT_SCOPE_PROJECT_AREA_RULES,
+  PROJECT_CONTEXT_SCOPE_REPO_SCOPE_RULES,
+  PROJECT_CONTEXT_SCOPE_LINKED_REPO_RULES,
+  PROJECT_CONTEXT_SCOPE_LINKED_AREA_RULES,
+  PROJECT_CONTEXT_SCOPE_CROSS_REPO_RULES,
+} from "./projectContextScopePolicyRules.js";
+
 function safeText(value) {
   return String(value ?? "").trim();
 }
@@ -60,144 +68,73 @@ function includesAny(value = "", markers = []) {
   return markers.some((marker) => v.includes(String(marker).toLowerCase()));
 }
 
-function resolveRepoScopeFromStructuredRepoObject({
-  targetEntity,
-  targetPath,
-} = {}) {
-  const entity = safeText(targetEntity).toLowerCase();
-  const path = safeText(targetPath).toLowerCase();
-
-  // Explicit linked repo: client
-  if (
-    entity === "client" ||
-    entity === "repo:client" ||
-    entity === "linked_repo:client" ||
-    startsWithAny(path, [
-      "client/",
-      "apps/client/",
-      "packages/client/",
-    ])
-  ) {
-    return "client";
-  }
-
-  // Explicit shared/core repo markers if they appear in structured object context
-  if (
-    entity === "shared" ||
-    entity === "repo:shared" ||
-    entity === "linked_repo:shared" ||
-    startsWithAny(path, [
-      "shared/",
-      "packages/shared/",
-    ])
-  ) {
-    return "shared";
-  }
-
-  if (
-    entity === "core" ||
-    entity === "repo:core" ||
-    entity === "linked_repo:core"
-  ) {
-    return "core";
-  }
-
-  // Main SG repository object context is treated as shared by default.
-  if (path || entity) {
-    return "shared";
-  }
-
-  return null;
+function equalsAny(value = "", markers = []) {
+  const v = safeText(value).toLowerCase();
+  return markers.some((marker) => v === String(marker).toLowerCase());
 }
 
-function resolveProjectAreaFromStructuredRepoObject({
-  targetEntity,
-  targetPath,
-  objectKind,
-} = {}) {
+function matchesRule(rule = {}, { targetEntity, targetPath } = {}) {
   const entity = safeText(targetEntity).toLowerCase();
   const path = safeText(targetPath).toLowerCase();
-  const kind = safeText(objectKind).toLowerCase();
 
-  if (!entity && !path && !kind) {
-    return null;
+  const hasEntityEquals =
+    Array.isArray(rule.entityEquals) && rule.entityEquals.length > 0;
+  const hasPathPrefixes =
+    Array.isArray(rule.pathPrefixes) && rule.pathPrefixes.length > 0;
+  const hasPathIncludes =
+    Array.isArray(rule.pathIncludes) && rule.pathIncludes.length > 0;
+
+  if (
+    hasEntityEquals &&
+    equalsAny(entity, rule.entityEquals)
+  ) {
+    return true;
   }
 
   if (
-    entity === "client" ||
-    startsWithAny(path, [
-      "client/",
-      "apps/client/",
-      "packages/client/",
-    ])
+    hasPathPrefixes &&
+    startsWithAny(path, rule.pathPrefixes)
   ) {
-    return "client";
+    return true;
   }
 
   if (
-    startsWithAny(path, [
-      "pillars/",
-      "docs/",
-    ])
+    hasPathIncludes &&
+    includesAny(path, rule.pathIncludes)
   ) {
-    return "docs";
+    return true;
   }
 
-  if (
-    startsWithAny(path, [
-      "src/core/",
-      "core/",
-      "src/bot/",
-      "src/tasks/",
-      "src/users/",
-      "src/services/",
-      "src/db/",
-      "src/projectmemory/",
-    ])
-  ) {
-    return "core";
+  return false;
+}
+
+function resolveValueByRules(rules = [], fieldName, { targetEntity, targetPath } = {}) {
+  for (const rule of Array.isArray(rules) ? rules : []) {
+    if (!rule || typeof rule !== "object") continue;
+    if (!matchesRule(rule, { targetEntity, targetPath })) continue;
+
+    const value = rule[fieldName];
+    if (fieldName === "crossRepo") {
+      if (typeof value === "boolean") return value;
+      continue;
+    }
+
+    const normalized = normalizeOptionalText(value);
+    if (normalized) return normalized;
   }
 
-  if (
-    startsWithAny(path, [
-      "src/sources/",
-      "src/connectors/",
-    ])
-  ) {
-    return "connectors";
-  }
-
-  if (
-    startsWithAny(path, [
-      "shared/",
-      "packages/shared/",
-    ]) ||
-    entity === "shared"
-  ) {
-    return "shared";
-  }
-
-  if (
-    includesAny(path, [
-      "render.yaml",
-      "dockerfile",
-      ".github/",
-      "infra/",
-      "deploy/",
-      "deployment/",
-    ])
-  ) {
-    return "infra";
-  }
-
-  return null;
+  return fieldName === "crossRepo" ? undefined : null;
 }
 
 export function resolveProjectContextScopeByRepoObject(input = {}) {
   const source =
     input && typeof input === "object" && !Array.isArray(input) ? input : {};
 
-  if (source.projectContextScope && typeof source.projectContextScope === "object") {
+  if (
+    source.projectContextScope &&
+    typeof source.projectContextScope === "object" &&
+    !Array.isArray(source.projectContextScope)
+  ) {
     return normalizeScope(source.projectContextScope);
   }
 
@@ -210,21 +147,56 @@ export function resolveProjectContextScopeByRepoObject(input = {}) {
     return {};
   }
 
-  const repoScope = resolveRepoScopeFromStructuredRepoObject({
-    targetEntity,
-    targetPath,
-  });
+  const projectArea = resolveValueByRules(
+    PROJECT_CONTEXT_SCOPE_PROJECT_AREA_RULES,
+    "projectArea",
+    { targetEntity, targetPath }
+  );
 
-  const projectArea = resolveProjectAreaFromStructuredRepoObject({
-    targetEntity,
-    targetPath,
-    objectKind,
-  });
+  let repoScope = resolveValueByRules(
+    PROJECT_CONTEXT_SCOPE_REPO_SCOPE_RULES,
+    "repoScope",
+    { targetEntity, targetPath }
+  );
+
+  const linkedRepo = resolveValueByRules(
+    PROJECT_CONTEXT_SCOPE_LINKED_REPO_RULES,
+    "linkedRepo",
+    { targetEntity, targetPath }
+  );
+
+  const linkedArea = resolveValueByRules(
+    PROJECT_CONTEXT_SCOPE_LINKED_AREA_RULES,
+    "linkedArea",
+    { targetEntity, targetPath }
+  );
+
+  let crossRepo = resolveValueByRules(
+    PROJECT_CONTEXT_SCOPE_CROSS_REPO_RULES,
+    "crossRepo",
+    { targetEntity, targetPath }
+  );
+
+  // Safe default:
+  // if we only know this is some repo object in current SG project, but no explicit
+  // repo tag exists, current main SG repo remains shared.
+  if (!repoScope && (targetEntity || targetPath || objectKind)) {
+    repoScope = "shared";
+  }
+
+  // Safe normalization:
+  // explicit linked repo implies cross-repo context.
+  if (typeof crossRepo !== "boolean" && linkedRepo) {
+    crossRepo = true;
+  }
 
   const out = {};
 
   if (projectArea) out.projectArea = projectArea;
   if (repoScope) out.repoScope = repoScope;
+  if (linkedArea) out.linkedArea = linkedArea;
+  if (linkedRepo) out.linkedRepo = linkedRepo;
+  if (typeof crossRepo === "boolean") out.crossRepo = crossRepo;
 
   return normalizeScope(out);
 }

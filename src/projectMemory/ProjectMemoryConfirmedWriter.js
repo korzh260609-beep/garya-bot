@@ -6,7 +6,10 @@
 // - transport-agnostic
 // - no Telegram/Discord/Web assumptions
 // - write curated memory by entry semantics, not by chat phrasing
+// - support one project_memory across multiple repos / project areas
 // ============================================================================
+
+import { normalizeProjectMemoryMeta } from "./projectMemoryScopes.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -49,7 +52,20 @@ function normalizeCommonInput(input = {}) {
         ? input.confidence
         : 0.9,
     aiContext: input.aiContext,
+
+    projectArea: input.projectArea,
+    repoScope: input.repoScope,
+    linkedAreas: input.linkedAreas,
+    linkedRepoScopes: input.linkedRepoScopes,
+    crossRepo: input.crossRepo,
   };
+}
+
+function buildMemoryMeta(inputMeta = {}, extra = {}, aiContext, aiContextDefault) {
+  return normalizeProjectMemoryMeta(
+    withAiContext(inputMeta, aiContext, aiContextDefault),
+    extra
+  );
 }
 
 export class ProjectMemoryConfirmedWriter {
@@ -71,6 +87,12 @@ export class ProjectMemoryConfirmedWriter {
     stageKey = null,
     confidence = 0.9,
     aiContext = false,
+
+    projectArea = null,
+    repoScope = null,
+    linkedAreas = [],
+    linkedRepoScopes = [],
+    crossRepo = false,
   } = {}) {
     const resolvedSection = safeText(section);
 
@@ -84,7 +106,18 @@ export class ProjectMemoryConfirmedWriter {
       title,
       content,
       tags,
-      meta: withAiContext(meta, aiContext, false),
+      meta: buildMemoryMeta(
+        meta,
+        {
+          projectArea,
+          repoScope,
+          linkedAreas,
+          linkedRepoScopes,
+          crossRepo,
+        },
+        aiContext,
+        false
+      ),
       schemaVersion: 2,
       entryType: "section_state",
       status: "active",
@@ -107,7 +140,18 @@ export class ProjectMemoryConfirmedWriter {
       title: normalized.title,
       content: normalized.content,
       tags: normalized.tags,
-      meta: withAiContext(normalized.meta, normalized.aiContext, true),
+      meta: buildMemoryMeta(
+        normalized.meta,
+        {
+          projectArea: normalized.projectArea,
+          repoScope: normalized.repoScope,
+          linkedAreas: normalized.linkedAreas,
+          linkedRepoScopes: normalized.linkedRepoScopes,
+          crossRepo: normalized.crossRepo,
+        },
+        normalized.aiContext,
+        true
+      ),
       schemaVersion: 2,
       entryType: "decision",
       status: "active",
@@ -130,7 +174,18 @@ export class ProjectMemoryConfirmedWriter {
       title: normalized.title,
       content: normalized.content,
       tags: normalized.tags,
-      meta: withAiContext(normalized.meta, normalized.aiContext, true),
+      meta: buildMemoryMeta(
+        normalized.meta,
+        {
+          projectArea: normalized.projectArea,
+          repoScope: normalized.repoScope,
+          linkedAreas: normalized.linkedAreas,
+          linkedRepoScopes: normalized.linkedRepoScopes,
+          crossRepo: normalized.crossRepo,
+        },
+        normalized.aiContext,
+        true
+      ),
       schemaVersion: 2,
       entryType: "constraint",
       status: "active",
@@ -153,7 +208,18 @@ export class ProjectMemoryConfirmedWriter {
       title: normalized.title,
       content: normalized.content,
       tags: normalized.tags,
-      meta: withAiContext(normalized.meta, normalized.aiContext, true),
+      meta: buildMemoryMeta(
+        normalized.meta,
+        {
+          projectArea: normalized.projectArea,
+          repoScope: normalized.repoScope,
+          linkedAreas: normalized.linkedAreas,
+          linkedRepoScopes: normalized.linkedRepoScopes,
+          crossRepo: normalized.crossRepo,
+        },
+        normalized.aiContext,
+        true
+      ),
       schemaVersion: 2,
       entryType: "next_step",
       status: "active",

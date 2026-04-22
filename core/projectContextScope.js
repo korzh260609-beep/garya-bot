@@ -45,6 +45,15 @@ function normalizeScope(input = {}) {
   return out;
 }
 
+function hasScopeFields(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const normalized = normalizeScope(value);
+  return Object.keys(normalized).length > 0;
+}
+
 function pickCandidateScope(input = {}) {
   const source =
     input && typeof input === "object" && !Array.isArray(input) ? input : {};
@@ -62,7 +71,7 @@ function pickCandidateScope(input = {}) {
   ];
 
   for (const candidate of candidates) {
-    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+    if (hasScopeFields(candidate)) {
       return candidate;
     }
   }

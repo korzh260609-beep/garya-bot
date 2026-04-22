@@ -7,10 +7,13 @@
 // - avoid hard coupling to exact phrases/templates
 // - keep project memory as soft background, not runtime proof
 // - support one project memory across multiple project areas / repos
+// - support scoped AI context loading for multi-repo project memory
 // ============================================================================
 
 import {
   readCrossRepoFromMeta,
+  readLinkedAreasFromMeta,
+  readLinkedRepoScopesFromMeta,
   readProjectAreaFromMeta,
   readRepoScopeFromMeta,
 } from "./projectMemoryScopes.js";
@@ -28,6 +31,30 @@ function compactText(text, maxChars = 1200) {
 
 function normalizeMeta(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeOptionalText(value) {
+  const s = safeText(value).trim().toLowerCase();
+  return s || null;
+}
+
+function normalizeOptionalBoolean(value) {
+  if (typeof value === "boolean") return value;
+  return undefined;
+}
+
+export function normalizeProjectContextScope(input = {}) {
+  const source =
+    input && typeof input === "object" && !Array.isArray(input) ? input : {};
+
+  return {
+    projectKey: source.projectKey,
+    projectArea: normalizeOptionalText(source.projectArea),
+    repoScope: normalizeOptionalText(source.repoScope),
+    linkedArea: normalizeOptionalText(source.linkedArea),
+    linkedRepo: normalizeOptionalText(source.linkedRepo),
+    crossRepo: normalizeOptionalBoolean(source.crossRepo),
+  };
 }
 
 export const PROJECT_MEMORY_CONTEXT_SCOPES = Object.freeze({
@@ -83,6 +110,47 @@ function matchOptional(value, filterValue) {
   return a === b;
 }
 
+function includesNormalized(list = [], needle = "") {
+  const target = safeText(needle).toLowerCase();
+  if (!target) return true;
+
+  return Array.isArray(list)
+    ? list.some((item) => safeText(item).toLowerCase() === target)
+    : false;
+}
+
+function matchesContextScope(entry, scope = {}) {
+  if (!isAiContextEligible(entry)) return false;
+
+  const area = readProjectAreaFromMeta(entry.meta);
+  const repo = readRepoScopeFromMeta(entry.meta);
+  const linkedAreas = readLinkedAreasFromMeta(entry.meta);
+  const linkedRepoScopes = readLinkedRepoScopesFromMeta(entry.meta);
+  const isCrossRepo = readCrossRepoFromMeta(entry.meta);
+
+  if (!matchOptional(area, scope.projectArea)) {
+    return false;
+  }
+
+  if (!matchOptional(repo, scope.repoScope)) {
+    return false;
+  }
+
+  if (scope.linkedArea && !includesNormalized(linkedAreas, scope.linkedArea)) {
+    return false;
+  }
+
+  if (scope.linkedRepo && !includesNormalized(linkedRepoScopes, scope.linkedRepo)) {
+    return false;
+  }
+
+  if (typeof scope.crossRepo === "boolean") {
+    return isCrossRepo === scope.crossRepo;
+  }
+
+  return true;
+}
+
 function splitConfirmedEntries(entries = []) {
   const out = {
     sectionStates: [],
@@ -120,10 +188,26 @@ function splitConfirmedEntries(entries = []) {
 function buildHeader(item) {
   const area = readProjectAreaFromMeta(item.meta);
   const repo = readRepoScopeFromMeta(item.meta) || "-";
+  const linkedAreas = readLinkedAreasFromMeta(item.meta);
+  const linkedRepos = readLinkedRepoScopesFromMeta(item.meta);
   const crossRepo = readCrossRepoFromMeta(item.meta) === true ? "yes" : "no";
   const title = item.title || item.section || item.entry_type || "entry";
 
-  return `${title} [area=${area}, repo=${repo}, cross_repo=${crossRepo}]`;
+  const headerBits = [
+    `area=${area}`,
+    `repo=${repo}`,
+    `cross_repo=${crossRepo}`,
+  ];
+
+  if (linkedAreas.length) {
+    headerBits.push(`linked_areas=${linkedAreas.join("|")}`);
+  }
+
+  if (linkedRepos.length) {
+    headerBits.push(`linked_repos=${linkedRepos.join("|")}`);
+  }
+
+  return `${title} [${headerBits.join(", ")}]`;
 }
 
 function buildConfirmedBlocks({
@@ -193,6 +277,20 @@ function buildConfirmedBlocks({
   return blocks;
 }
 
+function buildScopeLabel(scope = {}) {
+  const bits = [];
+
+  if (scope.projectArea) bits.push(`area=${scope.projectArea}`);
+  if (scope.repoScope) bits.push(`repo=${scope.repoScope}`);
+  if (scope.linkedArea) bits.push(`linked_area=${scope.linkedArea}`);
+  if (scope.linkedRepo) bits.push(`linked_repo=${scope.linkedRepo}`);
+  if (typeof scope.crossRepo === "boolean") {
+    bits.push(`cross_repo=${scope.crossRepo ? "yes" : "no"}`);
+  }
+
+  return bits.length ? ` [${bits.join(", ")}]` : "";
+}
+
 export class ProjectMemoryContextBuilder {
   constructor({ service }) {
     this.service = service;
@@ -209,59 +307,25 @@ export class ProjectMemoryContextBuilder {
       : [];
   }
 
-  async listAiContextEligibleEntries({
-    projectKey,
-    projectArea = null,
-    repoScope = null,
-    crossRepo = undefined,
-  } = {}) {
-    const entries = await this.listConfirmedEntries({ projectKey });
-
-    return entries.filter((item) => {
-      if (!isAiContextEligible(item)) return false;
-
-      if (!matchOptional(readProjectAreaFromMeta(item.meta), projectArea)) {
-        return false;
-      }
-
-      if (!matchOptional(readRepoScopeFromMeta(item.meta), repoScope)) {
-        return false;
-      }
-
-      if (typeof crossRepo === "boolean") {
-        return readCrossRepoFromMeta(item.meta) === crossRepo;
-      }
-
-      return true;
+  async listAiContextEligibleEntries(input = {}) {
+    const scope = normalizeProjectContextScope(input);
+    const entries = await this.listConfirmedEntries({
+      projectKey: scope.projectKey,
     });
+
+    return entries.filter((item) => matchesContextScope(item, scope));
   }
 
-  async buildConfirmedContext({
-    projectKey,
-    projectArea = null,
-    repoScope = null,
-    crossRepo = undefined,
-  } = {}) {
-    const confirmedEntries = await this.listAiContextEligibleEntries({
-      projectKey,
-      projectArea,
-      repoScope,
-      crossRepo,
-    });
+  async buildConfirmedContext(input = {}) {
+    const scope = normalizeProjectContextScope(input);
 
+    const confirmedEntries = await this.listAiContextEligibleEntries(scope);
     const grouped = splitConfirmedEntries(confirmedEntries);
     const blocks = buildConfirmedBlocks(grouped);
 
     if (!blocks.length) return "";
 
-    const scopeBits = [];
-    if (projectArea) scopeBits.push(`area=${projectArea}`);
-    if (repoScope) scopeBits.push(`repo=${repoScope}`);
-    if (typeof crossRepo === "boolean") {
-      scopeBits.push(`cross_repo=${crossRepo ? "yes" : "no"}`);
-    }
-
-    const scopeLabel = scopeBits.length ? ` [${scopeBits.join(", ")}]` : "";
+    const scopeLabel = buildScopeLabel(scope);
 
     return [
       `PROJECT BACKGROUND CONTEXT${scopeLabel} (CONFIRMED MEMORY, NOT RUNTIME PROOF):`,
@@ -292,6 +356,8 @@ export class ProjectMemoryContextBuilder {
     const sections = new Set();
     const projectAreas = new Set();
     const repoScopes = new Set();
+    const linkedAreas = new Set();
+    const linkedRepoScopes = new Set();
 
     let aiContextEligibleTotal = 0;
     let crossRepoTotal = 0;
@@ -303,8 +369,17 @@ export class ProjectMemoryContextBuilder {
       if (item.stage_key) stageKeys.add(item.stage_key);
 
       projectAreas.add(readProjectAreaFromMeta(item.meta));
+
       if (readRepoScopeFromMeta(item.meta)) {
         repoScopes.add(readRepoScopeFromMeta(item.meta));
+      }
+
+      for (const area of readLinkedAreasFromMeta(item.meta)) {
+        if (area) linkedAreas.add(area);
+      }
+
+      for (const repo of readLinkedRepoScopesFromMeta(item.meta)) {
+        if (repo) linkedRepoScopes.add(repo);
       }
 
       if (readCrossRepoFromMeta(item.meta) === true) {
@@ -332,6 +407,8 @@ export class ProjectMemoryContextBuilder {
       stageKeys: Array.from(stageKeys).sort(),
       projectAreas: Array.from(projectAreas).sort(),
       repoScopes: Array.from(repoScopes).sort(),
+      linkedAreas: Array.from(linkedAreas).sort(),
+      linkedRepoScopes: Array.from(linkedRepoScopes).sort(),
       relatedPaths: Array.from(relatedPaths).sort(),
       confirmedEntryTypes: Array.from(CONFIRMED_ENTRY_TYPES).sort(),
     };

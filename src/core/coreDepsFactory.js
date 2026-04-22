@@ -7,6 +7,7 @@ import { getChatHistory } from "../bot/memory/memoryBridge.js";
 
 import { getAnswerMode, setAnswerMode } from "../../core/answerMode.js";
 import { loadProjectContext } from "../../core/projectContext.js";
+import { resolveProjectContextScope } from "../../core/projectContextScope.js";
 import { buildSystemPrompt } from "../../systemPrompt.js";
 import { logInteraction } from "../logging/interactionLogs.js";
 import { sanitizeNonMonarchReply } from "../../core/helpers.js";
@@ -70,6 +71,7 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     setAnswerMode,
 
     loadProjectContext,
+    resolveProjectContextScope,
     buildSystemPrompt,
 
     logInteraction,

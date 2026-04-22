@@ -54,6 +54,7 @@ export function buildRepoContextMeta({
   semanticConfidence = "low",
   actionKind = "",
   continuationState = null,
+  objectKind = "",
   projectContextScope = null,
 }) {
   const chunks = Array.isArray(continuationState?.chunks)
@@ -65,6 +66,7 @@ export function buildRepoContextMeta({
     isActive: true,
     targetEntity: safeText(targetEntity),
     targetPath: safeText(targetPath),
+    objectKind: safeText(objectKind),
   });
 
   const mergedScope = {
@@ -82,6 +84,7 @@ export function buildRepoContextMeta({
     projectIntentTreePrefix: safeText(treePrefix),
     projectIntentSemanticConfidence: safeText(semanticConfidence),
     projectIntentActionKind: safeText(actionKind),
+    projectIntentObjectKind: safeText(objectKind),
 
     projectIntentPendingChoiceActive: !!pendingChoice?.isActive,
     projectIntentPendingChoiceKind: safeText(pendingChoice?.kind),
@@ -94,9 +97,13 @@ export function buildRepoContextMeta({
     projectIntentContinuationTargetPath: safeText(continuationState?.targetPath),
     projectIntentContinuationDisplayMode: safeText(continuationState?.displayMode),
     projectIntentContinuationChunkIndex: Number(continuationState?.chunkIndex || 1),
-    projectIntentContinuationChunkCount: Number(continuationState?.chunkCount || chunks.length || 0),
+    projectIntentContinuationChunkCount: Number(
+      continuationState?.chunkCount || chunks.length || 0
+    ),
     projectIntentContinuationChunksJson: chunks.length > 0 ? JSON.stringify(chunks) : "",
-    projectIntentContinuationRemainingText: safeText(continuationState?.remainingText),
+    projectIntentContinuationRemainingText: safeText(
+      continuationState?.remainingText
+    ),
 
     projectContextScope: mergedScope,
   };

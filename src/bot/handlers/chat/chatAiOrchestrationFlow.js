@@ -24,6 +24,10 @@ import {
 import { runChatAiMemoryPrep } from "./chatAiMemoryPrepFlow.js";
 import { runChatAiPostProcessing } from "./chatAiPostProcessingFlow.js";
 
+function normalizeResolvedScope(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 export async function runChatAiOrchestration({
   bot,
   msg,
@@ -44,6 +48,7 @@ export async function runChatAiOrchestration({
 
   logInteraction,
   loadProjectContext,
+  resolveProjectContextScope,
   getAnswerMode,
   buildSystemPrompt,
   callAI,
@@ -121,9 +126,24 @@ export async function runChatAiOrchestration({
 
   await logInteraction(chatIdStr, classification);
 
+  let projectContextScope = {};
+  try {
+    if (typeof resolveProjectContextScope === "function") {
+      projectContextScope = normalizeResolvedScope(
+        await resolveProjectContextScope({
+          msg,
+          effective,
+          sourceCtx,
+          chatIntent,
+          classification,
+        })
+      );
+    }
+  } catch {}
+
   let projectCtx = "";
   try {
-    projectCtx = await loadProjectContext();
+    projectCtx = await loadProjectContext(projectContextScope);
   } catch {}
 
   const guardedProjectCtx = guardProjectContext(projectCtx);
@@ -195,6 +215,15 @@ export async function runChatAiOrchestration({
 
     historyRequestedLimit: historyLimit,
     historyChatType: currentChatType,
+
+    projectContextScopeProjectArea: projectContextScope?.projectArea || "",
+    projectContextScopeRepo: projectContextScope?.repoScope || "",
+    projectContextScopeLinkedArea: projectContextScope?.linkedArea || "",
+    projectContextScopeLinkedRepo: projectContextScope?.linkedRepo || "",
+    projectContextScopeCrossRepo:
+      typeof projectContextScope?.crossRepo === "boolean"
+        ? projectContextScope.crossRepo
+        : null,
 
     ...behaviorSnapshot,
     ...inputGuardMeta,

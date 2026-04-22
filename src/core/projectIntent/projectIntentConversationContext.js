@@ -16,6 +16,34 @@ function safeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function normalizeOptionalText(value) {
+  const s = safeText(value).toLowerCase();
+  return s || "";
+}
+
+function normalizeProjectContextScope(value) {
+  const source = safeObject(value);
+  const out = {};
+
+  const projectArea = normalizeOptionalText(source.projectArea);
+  if (projectArea) out.projectArea = projectArea;
+
+  const repoScope = normalizeOptionalText(source.repoScope);
+  if (repoScope) out.repoScope = repoScope;
+
+  const linkedArea = normalizeOptionalText(source.linkedArea);
+  if (linkedArea) out.linkedArea = linkedArea;
+
+  const linkedRepo = normalizeOptionalText(source.linkedRepo);
+  if (linkedRepo) out.linkedRepo = linkedRepo;
+
+  if (typeof source.crossRepo === "boolean") {
+    out.crossRepo = source.crossRepo;
+  }
+
+  return out;
+}
+
 export function buildProjectIntentRoutingText(
   trimmed,
   followupContext = null,
@@ -38,10 +66,7 @@ export function buildProjectIntentRoutingText(
       parts.push(safeText(followupContext.objectKind));
     }
 
-    if (
-      followupContext.actionKind === "browse_folder" ||
-      followupContext.objectKind === "folder"
-    ) {
+    if (followupContext.actionKind === "browse_folder" || followupContext.objectKind === "folder") {
       parts.push("active_folder");
       parts.push("folder_context");
       parts.push("folder");
@@ -104,12 +129,18 @@ export async function getLatestProjectIntentRepoContext(
       const meta = item?.metadata || {};
 
       if (meta?.projectIntentRepoContextActive === true) {
-        const explicitScope = safeObject(meta.projectContextScope);
+        const explicitScope = normalizeProjectContextScope(meta.projectContextScope);
         const fallbackScope = buildProjectContextScopeFromRepoContext({
           isActive: true,
           targetEntity: safeText(meta.projectIntentTargetEntity),
           targetPath: safeText(meta.projectIntentTargetPath),
+          objectKind: safeText(meta.projectIntentObjectKind),
         });
+
+        const mergedScope = {
+          ...fallbackScope,
+          ...explicitScope,
+        };
 
         return {
           isActive: true,
@@ -135,8 +166,7 @@ export async function getLatestProjectIntentRepoContext(
             remainingText: safeText(meta.projectIntentContinuationRemainingText),
           },
 
-          projectContextScope:
-            Object.keys(explicitScope).length > 0 ? explicitScope : fallbackScope,
+          projectContextScope: mergedScope,
         };
       }
     }

@@ -137,6 +137,7 @@ export async function handleFindTargetIntent({
   replyAndLog,
   trimmed,
   semanticPlan,
+  followupContext,
   latest,
 }) {
   const query = sanitizeEntity(semanticPlan.targetEntity || semanticPlan.targetPath);
@@ -168,7 +169,7 @@ export async function handleFindTargetIntent({
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "find_target",
     objectKind: safeText(singleKind || "unknown"),
-    projectContextScope: semanticPlan?.projectContextScope || {},
+    projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
   });
 
   await replyHuman(replyAndLog, text, {

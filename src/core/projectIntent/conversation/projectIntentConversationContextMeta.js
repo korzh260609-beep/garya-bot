@@ -3,6 +3,38 @@
 import { safeText } from "../projectIntentConversationShared.js";
 import { buildProjectContextScopeFromRepoContext } from "../projectIntentProjectContextScope.js";
 
+function safeObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeOptionalText(value) {
+  const s = safeText(value).toLowerCase();
+  return s || "";
+}
+
+function normalizeProjectContextScope(value) {
+  const source = safeObject(value);
+  const out = {};
+
+  const projectArea = normalizeOptionalText(source.projectArea);
+  if (projectArea) out.projectArea = projectArea;
+
+  const repoScope = normalizeOptionalText(source.repoScope);
+  if (repoScope) out.repoScope = repoScope;
+
+  const linkedArea = normalizeOptionalText(source.linkedArea);
+  if (linkedArea) out.linkedArea = linkedArea;
+
+  const linkedRepo = normalizeOptionalText(source.linkedRepo);
+  if (linkedRepo) out.linkedRepo = linkedRepo;
+
+  if (typeof source.crossRepo === "boolean") {
+    out.crossRepo = source.crossRepo;
+  }
+
+  return out;
+}
+
 export async function replyHuman(replyAndLog, text, meta = {}) {
   if (typeof replyAndLog !== "function") return;
   await replyAndLog(text, {
@@ -22,16 +54,23 @@ export function buildRepoContextMeta({
   semanticConfidence = "low",
   actionKind = "",
   continuationState = null,
+  projectContextScope = null,
 }) {
   const chunks = Array.isArray(continuationState?.chunks)
     ? continuationState.chunks.filter(Boolean)
     : [];
 
-  const projectContextScope = buildProjectContextScopeFromRepoContext({
+  const explicitScope = normalizeProjectContextScope(projectContextScope);
+  const fallbackScope = buildProjectContextScopeFromRepoContext({
     isActive: true,
     targetEntity: safeText(targetEntity),
     targetPath: safeText(targetPath),
   });
+
+  const mergedScope = {
+    ...fallbackScope,
+    ...explicitScope,
+  };
 
   return {
     projectIntentRepoContextActive: true,
@@ -55,15 +94,11 @@ export function buildRepoContextMeta({
     projectIntentContinuationTargetPath: safeText(continuationState?.targetPath),
     projectIntentContinuationDisplayMode: safeText(continuationState?.displayMode),
     projectIntentContinuationChunkIndex: Number(continuationState?.chunkIndex || 1),
-    projectIntentContinuationChunkCount: Number(
-      continuationState?.chunkCount || chunks.length || 0
-    ),
+    projectIntentContinuationChunkCount: Number(continuationState?.chunkCount || chunks.length || 0),
     projectIntentContinuationChunksJson: chunks.length > 0 ? JSON.stringify(chunks) : "",
-    projectIntentContinuationRemainingText: safeText(
-      continuationState?.remainingText
-    ),
+    projectIntentContinuationRemainingText: safeText(continuationState?.remainingText),
 
-    projectContextScope,
+    projectContextScope: mergedScope,
   };
 }
 

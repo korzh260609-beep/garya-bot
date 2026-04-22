@@ -46,6 +46,7 @@ export async function handleChatMessage({
   isMonarch,
   callAI,
   sanitizeNonMonarchReply,
+  projectIntentRepoContext = null,
 }) {
   const {
     messageId,
@@ -110,6 +111,8 @@ export async function handleChatMessage({
     sanitizeNonMonarchReply,
     monarchNow,
     MAX_HISTORY_MESSAGES,
+
+    projectIntentRepoContext,
   });
 }
 

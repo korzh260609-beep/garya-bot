@@ -42,6 +42,7 @@ export async function replyPackedExplain({
   actionKind,
   objectKind,
   event,
+  projectContextScope = null,
 }) {
   const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
 
@@ -62,6 +63,7 @@ export async function replyPackedExplain({
     semanticConfidence,
     actionKind,
     continuationState: packed.continuationState,
+    projectContextScope,
   });
 
   contextMeta.projectIntentObjectKind = safeText(objectKind || inferObjectKindFromPath(targetPath));
@@ -85,6 +87,7 @@ export async function replyContinuation({
   semanticConfidence,
   actionKind,
   event,
+  projectContextScope = null,
 }) {
   const continuation = followupContext?.continuation || {};
   const continuationReply = buildContinuationChunkReply({
@@ -115,6 +118,7 @@ export async function replyContinuation({
         semanticConfidence,
         actionKind,
         continuationState: continuationReply.nextState,
+        projectContextScope: projectContextScope || followupContext?.projectContextScope || {},
       }),
     };
   }
@@ -138,6 +142,7 @@ export async function replyContinuation({
     semanticConfidence,
     actionKind,
     continuationState: continuationReply.nextState,
+    projectContextScope: projectContextScope || followupContext?.projectContextScope || {},
   });
 
   contextMeta.projectIntentObjectKind = safeText(
@@ -169,6 +174,7 @@ export async function replyFolderBrowseFromPath({
   actionKind,
   latestSnapshotId,
   event,
+  projectContextScope = null,
 }) {
   const requestedFolder = normalizeFolderPrefix(folderPath);
 
@@ -196,6 +202,7 @@ export async function replyFolderBrowseFromPath({
       treePrefix: requestedFolder,
       semanticConfidence,
       actionKind,
+      projectContextScope,
     });
 
     contextMeta.projectIntentObjectKind = "folder";
@@ -238,6 +245,7 @@ export async function replyFolderBrowseFromPath({
     treePrefix: requestedFolder,
     semanticConfidence,
     actionKind,
+    projectContextScope,
   });
 
   contextMeta.projectIntentObjectKind = "folder";
@@ -263,6 +271,7 @@ export async function replyExplainFolderFromPath({
   actionKind,
   latestSnapshotId,
   event,
+  projectContextScope = null,
 }) {
   const requestedFolder = normalizeFolderPrefix(folderPath);
 
@@ -290,6 +299,7 @@ export async function replyExplainFolderFromPath({
       treePrefix: requestedFolder,
       semanticConfidence,
       actionKind,
+      projectContextScope,
     });
 
     contextMeta.projectIntentObjectKind = "folder";
@@ -332,6 +342,7 @@ export async function replyExplainFolderFromPath({
     treePrefix: requestedFolder,
     semanticConfidence,
     actionKind,
+    projectContextScope,
   });
 
   contextMeta.projectIntentObjectKind = "folder";
@@ -359,6 +370,7 @@ export async function replyOpenFileFromPath({
   branch,
   token,
   event,
+  projectContextScope = null,
 }) {
   const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
   const content = await fetchRepoFileText({ path: targetPath, repo, branch, token });
@@ -390,6 +402,7 @@ export async function replyOpenFileFromPath({
       },
       semanticConfidence,
       actionKind,
+      projectContextScope,
     });
 
     contextMeta.projectIntentObjectKind = "file";
@@ -415,6 +428,7 @@ export async function replyOpenFileFromPath({
     largeDocument: false,
     semanticConfidence,
     actionKind,
+    projectContextScope,
   });
 
   contextMeta.projectIntentObjectKind = "file";
@@ -454,6 +468,7 @@ export async function replyExplainFileFromPath({
   callAI,
   event,
   forceFirstPart = false,
+  projectContextScope = null,
 }) {
   const replyLimit = getReplyLimitFromReplyAndLog(replyAndLog);
   const content = await fetchRepoFileText({ path: targetPath, repo, branch, token });
@@ -484,6 +499,7 @@ export async function replyExplainFileFromPath({
         largeDocument: false,
         semanticConfidence,
         actionKind: `${safeText(actionKind)}_${safeText(structuredAnswer.kind)}`,
+        projectContextScope,
       });
 
       contextMeta.projectIntentObjectKind = "file";
@@ -515,6 +531,7 @@ export async function replyExplainFileFromPath({
       largeDocument: content.length > replyLimit,
       semanticConfidence,
       actionKind,
+      projectContextScope,
     });
 
     contextMeta.projectIntentObjectKind = "file";
@@ -557,6 +574,7 @@ export async function replyExplainFileFromPath({
       },
       semanticConfidence,
       actionKind,
+      projectContextScope,
     });
 
     contextMeta.projectIntentObjectKind = "file";
@@ -608,6 +626,7 @@ export async function replyExplainFileFromPath({
       largeDocument: content.length > safePreviewLimit,
       semanticConfidence,
       actionKind: `${safeText(actionKind)}_grounding_rejected`,
+      projectContextScope,
     });
 
     contextMeta.projectIntentObjectKind = "file";
@@ -652,6 +671,7 @@ export async function replyExplainFileFromPath({
     actionKind,
     objectKind: "file",
     event,
+    projectContextScope,
   });
 
   return {

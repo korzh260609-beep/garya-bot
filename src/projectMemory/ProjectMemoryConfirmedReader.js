@@ -6,7 +6,14 @@
 // - transport-agnostic
 // - no Telegram/Discord/Web assumptions
 // - expose curated memory as structured data, not transport formatting
+// - support one project memory across multiple repos / project areas
 // ============================================================================
+
+import {
+  readCrossRepoFromMeta,
+  readProjectAreaFromMeta,
+  readRepoScopeFromMeta,
+} from "./projectMemoryScopes.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -64,12 +71,21 @@ function normalizeAiContextFilter(value) {
   return undefined;
 }
 
+function normalizeBooleanFilter(value) {
+  if (typeof value === "boolean") return value;
+  if (value === null) return null;
+  return undefined;
+}
+
 function applyConfirmedFilters(entries = [], filters = {}) {
   const moduleKey = safeText(filters.moduleKey);
   const stageKey = safeText(filters.stageKey);
   const section = safeText(filters.section);
   const entryType = safeText(filters.entryType);
+  const projectArea = safeText(filters.projectArea).toLowerCase();
+  const repoScope = safeText(filters.repoScope).toLowerCase();
   const aiContext = normalizeAiContextFilter(filters.aiContext);
+  const crossRepo = normalizeBooleanFilter(filters.crossRepo);
 
   return entries.filter((item) => {
     if (!isConfirmedEntry(item)) return false;
@@ -77,6 +93,15 @@ function applyConfirmedFilters(entries = [], filters = {}) {
     if (stageKey && safeText(item.stage_key) !== stageKey) return false;
     if (section && safeText(item.section) !== section) return false;
     if (entryType && safeText(item.entry_type) !== entryType) return false;
+
+    const area = readProjectAreaFromMeta(item.meta);
+    const repo = readRepoScopeFromMeta(item.meta);
+    const isCrossRepo = readCrossRepoFromMeta(item.meta);
+
+    if (projectArea && area !== projectArea) return false;
+    if (repoScope && repo !== repoScope) return false;
+    if (crossRepo === true && isCrossRepo !== true) return false;
+    if (crossRepo === false && isCrossRepo === true) return false;
 
     if (aiContext === true && !isAiContextEligible(item)) return false;
     if (aiContext === false && isAiContextEligible(item)) return false;
@@ -96,6 +121,9 @@ export class ProjectMemoryConfirmedReader {
     stageKey = null,
     section = null,
     entryType = null,
+    projectArea = null,
+    repoScope = null,
+    crossRepo = undefined,
     aiContext = undefined,
     limit = 50,
   } = {}) {
@@ -111,6 +139,9 @@ export class ProjectMemoryConfirmedReader {
       stageKey,
       section,
       entryType,
+      projectArea,
+      repoScope,
+      crossRepo,
       aiContext,
     });
 
@@ -123,6 +154,9 @@ export class ProjectMemoryConfirmedReader {
     stageKey = null,
     section = null,
     entryType = null,
+    projectArea = null,
+    repoScope = null,
+    crossRepo = undefined,
     aiContext = undefined,
   } = {}) {
     const items = await this.listEntries({
@@ -131,6 +165,9 @@ export class ProjectMemoryConfirmedReader {
       stageKey,
       section,
       entryType,
+      projectArea,
+      repoScope,
+      crossRepo,
       aiContext,
       limit: 1,
     });
@@ -144,6 +181,9 @@ export class ProjectMemoryConfirmedReader {
     stageKey = null,
     section = null,
     entryType = null,
+    projectArea = null,
+    repoScope = null,
+    crossRepo = undefined,
     aiContext = undefined,
     limit = 50,
   } = {}) {
@@ -153,6 +193,9 @@ export class ProjectMemoryConfirmedReader {
       stageKey,
       section,
       entryType,
+      projectArea,
+      repoScope,
+      crossRepo,
       aiContext,
       limit,
     });
@@ -162,15 +205,25 @@ export class ProjectMemoryConfirmedReader {
     const moduleKeys = new Set();
     const stageKeys = new Set();
     const relatedPaths = new Set();
+    const projectAreas = new Set();
+    const repoScopes = new Set();
 
     let aiContextEligibleTotal = 0;
+    let crossRepoTotal = 0;
 
     for (const item of entries) {
       if (item.section) sections.add(item.section);
       if (item.entry_type) entryTypes.add(item.entry_type);
       if (item.module_key) moduleKeys.add(item.module_key);
       if (item.stage_key) stageKeys.add(item.stage_key);
+
+      projectAreas.add(readProjectAreaFromMeta(item.meta));
+      if (readRepoScopeFromMeta(item.meta)) {
+        repoScopes.add(readRepoScopeFromMeta(item.meta));
+      }
+
       if (isAiContextEligible(item)) aiContextEligibleTotal += 1;
+      if (readCrossRepoFromMeta(item.meta) === true) crossRepoTotal += 1;
 
       if (Array.isArray(item.related_paths)) {
         for (const relatedPath of item.related_paths) {
@@ -182,16 +235,25 @@ export class ProjectMemoryConfirmedReader {
     return {
       totalEntries: entries.length,
       aiContextEligibleTotal,
+      crossRepoTotal,
       sections: Array.from(sections).sort(),
       entryTypes: Array.from(entryTypes).sort(),
       moduleKeys: Array.from(moduleKeys).sort(),
       stageKeys: Array.from(stageKeys).sort(),
+      projectAreas: Array.from(projectAreas).sort(),
+      repoScopes: Array.from(repoScopes).sort(),
       relatedPaths: Array.from(relatedPaths).sort(),
       filters: {
         moduleKey: moduleKey || null,
         stageKey: stageKey || null,
         section: section || null,
         entryType: entryType || null,
+        projectArea: projectArea || null,
+        repoScope: repoScope || null,
+        crossRepo:
+          typeof crossRepo === "boolean"
+            ? crossRepo
+            : null,
         aiContext:
           typeof aiContext === "boolean"
             ? aiContext

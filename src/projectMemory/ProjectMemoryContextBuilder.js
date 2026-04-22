@@ -186,7 +186,7 @@ function splitConfirmedEntries(entries = []) {
 }
 
 function buildHeader(item) {
-  const area = readProjectAreaFromMeta(item.meta);
+  const area = readProjectAreaFromMeta(item.meta) || "-";
   const repo = readRepoScopeFromMeta(item.meta) || "-";
   const linkedAreas = readLinkedAreasFromMeta(item.meta);
   const linkedRepos = readLinkedRepoScopesFromMeta(item.meta);
@@ -368,18 +368,20 @@ export class ProjectMemoryContextBuilder {
       if (item.module_key) moduleKeys.add(item.module_key);
       if (item.stage_key) stageKeys.add(item.stage_key);
 
-      projectAreas.add(readProjectAreaFromMeta(item.meta));
-
-      if (readRepoScopeFromMeta(item.meta)) {
-        repoScopes.add(readRepoScopeFromMeta(item.meta));
+      const area = readProjectAreaFromMeta(item.meta);
+      if (area) {
+        projectAreas.add(area);
       }
 
-      for (const area of readLinkedAreasFromMeta(item.meta)) {
-        if (area) linkedAreas.add(area);
+      const repo = readRepoScopeFromMeta(item.meta);
+      if (repo) repoScopes.add(repo);
+
+      for (const areaItem of readLinkedAreasFromMeta(item.meta)) {
+        if (areaItem) linkedAreas.add(areaItem);
       }
 
-      for (const repo of readLinkedRepoScopesFromMeta(item.meta)) {
-        if (repo) linkedRepoScopes.add(repo);
+      for (const repoItem of readLinkedRepoScopesFromMeta(item.meta)) {
+        if (repoItem) linkedRepoScopes.add(repoItem);
       }
 
       if (readCrossRepoFromMeta(item.meta) === true) {

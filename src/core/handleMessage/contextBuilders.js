@@ -123,6 +123,7 @@ export function buildChatHandlerContext({
 
     logInteraction: deps.logInteraction,
     loadProjectContext: deps.loadProjectContext,
+    resolveProjectContextScope: deps.resolveProjectContextScope,
     getAnswerMode: deps.getAnswerMode,
     buildSystemPrompt: deps.buildSystemPrompt,
 

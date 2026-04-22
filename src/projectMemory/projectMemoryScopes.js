@@ -69,11 +69,15 @@ export function normalizeProjectMemoryMeta(meta = {}, extra = {}) {
 
   const linkedAreas = normalizeStringArray(
     extra.linkedAreas ?? base.linkedAreas ?? []
-  ).map((item) => normalizeProjectArea(item, "")).filter(Boolean);
+  )
+    .map((item) => normalizeProjectArea(item, ""))
+    .filter(Boolean);
 
   const linkedRepoScopes = normalizeStringArray(
     extra.linkedRepoScopes ?? base.linkedRepoScopes ?? []
-  ).map((item) => normalizeRepoScope(item, "")).filter(Boolean);
+  )
+    .map((item) => normalizeRepoScope(item, ""))
+    .filter(Boolean);
 
   const crossRepo = normalizeBoolean(
     extra.crossRepo ?? base.crossRepo,
@@ -98,6 +102,18 @@ export function readRepoScopeFromMeta(meta = {}) {
   return normalizeRepoScope(meta?.repoScope, null);
 }
 
+export function readLinkedAreasFromMeta(meta = {}) {
+  return normalizeStringArray(meta?.linkedAreas ?? [])
+    .map((item) => normalizeProjectArea(item, ""))
+    .filter(Boolean);
+}
+
+export function readLinkedRepoScopesFromMeta(meta = {}) {
+  return normalizeStringArray(meta?.linkedRepoScopes ?? [])
+    .map((item) => normalizeRepoScope(item, ""))
+    .filter(Boolean);
+}
+
 export function readCrossRepoFromMeta(meta = {}) {
   return normalizeBoolean(meta?.crossRepo, false);
 }
@@ -111,5 +127,7 @@ export default {
   normalizeRepoScope,
   readProjectAreaFromMeta,
   readRepoScopeFromMeta,
+  readLinkedAreasFromMeta,
+  readLinkedRepoScopesFromMeta,
   readCrossRepoFromMeta,
 };

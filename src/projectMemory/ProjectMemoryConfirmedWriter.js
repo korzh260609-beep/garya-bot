@@ -64,7 +64,12 @@ function normalizeCommonInput(input = {}) {
 function buildMemoryMeta(inputMeta = {}, extra = {}, aiContext, aiContextDefault) {
   return normalizeProjectMemoryMeta(
     withAiContext(inputMeta, aiContext, aiContextDefault),
-    extra
+    extra,
+    {
+      defaultProjectArea: null,
+      defaultRepoScope: null,
+      defaultCrossRepo: false,
+    }
   );
 }
 

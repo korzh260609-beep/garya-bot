@@ -79,6 +79,7 @@ export function buildDispatchCommandContext({
     listConfirmedProjectMemoryEntries: deps.listConfirmedProjectMemoryEntries,
     getLatestConfirmedProjectMemoryEntry: deps.getLatestConfirmedProjectMemoryEntry,
     buildConfirmedProjectMemoryDigest: deps.buildConfirmedProjectMemoryDigest,
+    buildConfirmedProjectMemoryContext: deps.buildConfirmedProjectMemoryContext,
     updateConfirmedProjectMemoryEntry: deps.updateConfirmedProjectMemoryEntry,
 
     runSourceDiagnosticsOnce: deps.runSourceDiagnosticsOnce,

@@ -19,6 +19,10 @@ function compactText(text, maxChars = 1200) {
   return s.slice(0, maxChars) + "\n...[TRUNCATED]...";
 }
 
+function normalizeMeta(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 export const PROJECT_MEMORY_CONTEXT_SCOPES = Object.freeze({
   CONFIRMED: "confirmed",
   SOFT: "soft",
@@ -41,6 +45,33 @@ function isConfirmedContextEntry(entry) {
   return CONFIRMED_ENTRY_TYPES.has(entryType);
 }
 
+function isAiContextEligible(entry) {
+  if (!isConfirmedContextEntry(entry)) {
+    return false;
+  }
+
+  const meta = normalizeMeta(entry.meta);
+  const entryType = safeText(entry.entry_type).trim();
+
+  // section_state is too broad for automatic background context.
+  // It must be explicitly curated for AI context.
+  if (entryType === "section_state") {
+    return meta.aiContext === true;
+  }
+
+  // decisions / constraints / next_steps are generally suitable
+  // unless explicitly disabled.
+  if (
+    entryType === "decision" ||
+    entryType === "constraint" ||
+    entryType === "next_step"
+  ) {
+    return meta.aiContext !== false;
+  }
+
+  return false;
+}
+
 function splitConfirmedEntries(entries = []) {
   const out = {
     sectionStates: [],
@@ -50,7 +81,7 @@ function splitConfirmedEntries(entries = []) {
   };
 
   for (const item of entries) {
-    if (!isConfirmedContextEntry(item)) {
+    if (!isAiContextEligible(item)) {
       continue;
     }
 
@@ -156,8 +187,13 @@ export class ProjectMemoryContextBuilder {
       : [];
   }
 
+  async listAiContextEligibleEntries({ projectKey } = {}) {
+    const entries = await this.listConfirmedEntries({ projectKey });
+    return entries.filter((item) => isAiContextEligible(item));
+  }
+
   async buildConfirmedContext({ projectKey } = {}) {
-    const confirmedEntries = await this.listConfirmedEntries({ projectKey });
+    const confirmedEntries = await this.listAiContextEligibleEntries({ projectKey });
     const grouped = splitConfirmedEntries(confirmedEntries);
     const blocks = buildConfirmedBlocks(grouped);
 
@@ -177,7 +213,7 @@ export class ProjectMemoryContextBuilder {
 
   async buildSoftContext({ projectKey } = {}) {
     // Backward-compatible alias:
-    // current soft context is intentionally narrowed to confirmed curated memory only.
+    // current soft context is intentionally narrowed to AI-context-eligible confirmed memory only.
     return this.buildConfirmedContext({ projectKey });
   }
 
@@ -193,11 +229,17 @@ export class ProjectMemoryContextBuilder {
     const relatedPaths = new Set();
     const sections = new Set();
 
+    let aiContextEligibleTotal = 0;
+
     for (const item of entries) {
       if (item.section) sections.add(item.section);
       if (item.entry_type) entryTypes.add(item.entry_type);
       if (item.module_key) moduleKeys.add(item.module_key);
       if (item.stage_key) stageKeys.add(item.stage_key);
+
+      if (isAiContextEligible(item)) {
+        aiContextEligibleTotal += 1;
+      }
 
       if (Array.isArray(item.related_paths)) {
         for (const relatedPath of item.related_paths) {
@@ -208,6 +250,7 @@ export class ProjectMemoryContextBuilder {
 
     return {
       totalEntries: entries.length,
+      aiContextEligibleTotal,
       sections: Array.from(sections).sort(),
       entryTypes: Array.from(entryTypes).sort(),
       moduleKeys: Array.from(moduleKeys).sort(),

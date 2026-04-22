@@ -247,13 +247,16 @@ export class ProjectMemoryConfirmedReader {
       if (item.module_key) moduleKeys.add(item.module_key);
       if (item.stage_key) stageKeys.add(item.stage_key);
 
-      projectAreas.add(readProjectAreaFromMeta(item.meta));
+      const area = readProjectAreaFromMeta(item.meta);
+      if (area) {
+        projectAreas.add(area);
+      }
 
       const repo = readRepoScopeFromMeta(item.meta);
       if (repo) repoScopes.add(repo);
 
-      for (const area of readLinkedAreasFromMeta(item.meta)) {
-        if (area) linkedAreas.add(area);
+      for (const areaItem of readLinkedAreasFromMeta(item.meta)) {
+        if (areaItem) linkedAreas.add(areaItem);
       }
 
       for (const scope of readLinkedRepoScopesFromMeta(item.meta)) {

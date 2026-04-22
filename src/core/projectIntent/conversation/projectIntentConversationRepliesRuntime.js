@@ -63,10 +63,9 @@ export async function replyPackedExplain({
     semanticConfidence,
     actionKind,
     continuationState: packed.continuationState,
+    objectKind: safeText(objectKind || inferObjectKindFromPath(targetPath)),
     projectContextScope,
   });
-
-  contextMeta.projectIntentObjectKind = safeText(objectKind || inferObjectKindFromPath(targetPath));
 
   await replyHuman(
     replyAndLog,
@@ -118,6 +117,10 @@ export async function replyContinuation({
         semanticConfidence,
         actionKind,
         continuationState: continuationReply.nextState,
+        objectKind: safeText(
+          followupContext?.objectKind ||
+          inferObjectKindFromPath(followupContext?.targetPath)
+        ),
         projectContextScope: projectContextScope || followupContext?.projectContextScope || {},
       }),
     };
@@ -142,12 +145,12 @@ export async function replyContinuation({
     semanticConfidence,
     actionKind,
     continuationState: continuationReply.nextState,
+    objectKind: safeText(
+      followupContext?.objectKind ||
+      inferObjectKindFromPath(followupContext?.targetPath || continuation?.targetPath)
+    ),
     projectContextScope: projectContextScope || followupContext?.projectContextScope || {},
   });
-
-  contextMeta.projectIntentObjectKind = safeText(
-    followupContext?.objectKind || inferObjectKindFromPath(followupContext?.targetPath || continuation?.targetPath)
-  );
 
   await replyHuman(
     replyAndLog,
@@ -202,10 +205,9 @@ export async function replyFolderBrowseFromPath({
       treePrefix: requestedFolder,
       semanticConfidence,
       actionKind,
+      objectKind: "folder",
       projectContextScope,
     });
-
-    contextMeta.projectIntentObjectKind = "folder";
 
     await replyHuman(
       replyAndLog,
@@ -245,10 +247,9 @@ export async function replyFolderBrowseFromPath({
     treePrefix: requestedFolder,
     semanticConfidence,
     actionKind,
+    objectKind: "folder",
     projectContextScope,
   });
-
-  contextMeta.projectIntentObjectKind = "folder";
 
   await replyHuman(replyAndLog, text, {
     event,
@@ -299,10 +300,9 @@ export async function replyExplainFolderFromPath({
       treePrefix: requestedFolder,
       semanticConfidence,
       actionKind,
+      objectKind: "folder",
       projectContextScope,
     });
-
-    contextMeta.projectIntentObjectKind = "folder";
 
     await replyHuman(
       replyAndLog,
@@ -342,10 +342,9 @@ export async function replyExplainFolderFromPath({
     treePrefix: requestedFolder,
     semanticConfidence,
     actionKind,
+    objectKind: "folder",
     projectContextScope,
   });
-
-  contextMeta.projectIntentObjectKind = "folder";
 
   await replyHuman(replyAndLog, text, {
     event,
@@ -402,10 +401,9 @@ export async function replyOpenFileFromPath({
       },
       semanticConfidence,
       actionKind,
+      objectKind: "file",
       projectContextScope,
     });
-
-    contextMeta.projectIntentObjectKind = "file";
 
     await replyHuman(replyAndLog, text, {
       event,
@@ -428,10 +426,9 @@ export async function replyOpenFileFromPath({
     largeDocument: false,
     semanticConfidence,
     actionKind,
+    objectKind: "file",
     projectContextScope,
   });
-
-  contextMeta.projectIntentObjectKind = "file";
 
   await replyHuman(
     replyAndLog,
@@ -499,10 +496,10 @@ export async function replyExplainFileFromPath({
         largeDocument: false,
         semanticConfidence,
         actionKind: `${safeText(actionKind)}_${safeText(structuredAnswer.kind)}`,
+        objectKind: "file",
         projectContextScope,
       });
 
-      contextMeta.projectIntentObjectKind = "file";
       contextMeta.projectIntentStructuredReadKind = safeText(structuredAnswer.kind);
 
       await replyHuman(
@@ -531,10 +528,9 @@ export async function replyExplainFileFromPath({
       largeDocument: content.length > replyLimit,
       semanticConfidence,
       actionKind,
+      objectKind: "file",
       projectContextScope,
     });
-
-    contextMeta.projectIntentObjectKind = "file";
 
     await replyHuman(
       replyAndLog,
@@ -574,10 +570,9 @@ export async function replyExplainFileFromPath({
       },
       semanticConfidence,
       actionKind,
+      objectKind: "file",
       projectContextScope,
     });
-
-    contextMeta.projectIntentObjectKind = "file";
 
     await replyHuman(replyAndLog, text, {
       event,
@@ -626,10 +621,10 @@ export async function replyExplainFileFromPath({
       largeDocument: content.length > safePreviewLimit,
       semanticConfidence,
       actionKind: `${safeText(actionKind)}_grounding_rejected`,
+      objectKind: "file",
       projectContextScope,
     });
 
-    contextMeta.projectIntentObjectKind = "file";
     contextMeta.projectIntentAiGuardReason = groundingFailure.reason;
     contextMeta.projectIntentAiGuardPatternsJson =
       groundingFailure.matchedPatterns.length > 0

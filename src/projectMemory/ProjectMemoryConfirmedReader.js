@@ -12,6 +12,10 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function normalizeMeta(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 const CONFIRMED_ENTRY_TYPES = new Set([
   "section_state",
   "decision",
@@ -25,6 +29,27 @@ function isConfirmedEntry(entry) {
   return CONFIRMED_ENTRY_TYPES.has(safeText(entry.entry_type));
 }
 
+function isAiContextEligible(entry) {
+  if (!isConfirmedEntry(entry)) return false;
+
+  const meta = normalizeMeta(entry.meta);
+  const entryType = safeText(entry.entry_type);
+
+  if (entryType === "section_state") {
+    return meta.aiContext === true;
+  }
+
+  if (
+    entryType === "decision" ||
+    entryType === "constraint" ||
+    entryType === "next_step"
+  ) {
+    return meta.aiContext !== false;
+  }
+
+  return false;
+}
+
 function normalizeLimit(value, def = 50, min = 1, max = 200) {
   const n = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isInteger(n)) return def;
@@ -33,11 +58,18 @@ function normalizeLimit(value, def = 50, min = 1, max = 200) {
   return n;
 }
 
+function normalizeAiContextFilter(value) {
+  if (typeof value === "boolean") return value;
+  if (value === null) return null;
+  return undefined;
+}
+
 function applyConfirmedFilters(entries = [], filters = {}) {
   const moduleKey = safeText(filters.moduleKey);
   const stageKey = safeText(filters.stageKey);
   const section = safeText(filters.section);
   const entryType = safeText(filters.entryType);
+  const aiContext = normalizeAiContextFilter(filters.aiContext);
 
   return entries.filter((item) => {
     if (!isConfirmedEntry(item)) return false;
@@ -45,6 +77,10 @@ function applyConfirmedFilters(entries = [], filters = {}) {
     if (stageKey && safeText(item.stage_key) !== stageKey) return false;
     if (section && safeText(item.section) !== section) return false;
     if (entryType && safeText(item.entry_type) !== entryType) return false;
+
+    if (aiContext === true && !isAiContextEligible(item)) return false;
+    if (aiContext === false && isAiContextEligible(item)) return false;
+
     return true;
   });
 }
@@ -60,11 +96,14 @@ export class ProjectMemoryConfirmedReader {
     stageKey = null,
     section = null,
     entryType = null,
+    aiContext = undefined,
     limit = 50,
   } = {}) {
+    const targetLimit = normalizeLimit(limit, 50, 1, 200);
+
     const rawEntries = await this.service.listEntries(projectKey, {
       isActive: true,
-      limit: Math.max(200, normalizeLimit(limit, 50, 1, 500)),
+      limit: Math.max(200, targetLimit),
     });
 
     const filtered = applyConfirmedFilters(rawEntries, {
@@ -72,9 +111,10 @@ export class ProjectMemoryConfirmedReader {
       stageKey,
       section,
       entryType,
+      aiContext,
     });
 
-    return filtered.slice(0, normalizeLimit(limit, 50, 1, 200));
+    return filtered.slice(0, targetLimit);
   }
 
   async getLatestEntry({
@@ -83,6 +123,7 @@ export class ProjectMemoryConfirmedReader {
     stageKey = null,
     section = null,
     entryType = null,
+    aiContext = undefined,
   } = {}) {
     const items = await this.listEntries({
       projectKey,
@@ -90,6 +131,7 @@ export class ProjectMemoryConfirmedReader {
       stageKey,
       section,
       entryType,
+      aiContext,
       limit: 1,
     });
 
@@ -102,6 +144,7 @@ export class ProjectMemoryConfirmedReader {
     stageKey = null,
     section = null,
     entryType = null,
+    aiContext = undefined,
     limit = 50,
   } = {}) {
     const entries = await this.listEntries({
@@ -110,6 +153,7 @@ export class ProjectMemoryConfirmedReader {
       stageKey,
       section,
       entryType,
+      aiContext,
       limit,
     });
 
@@ -119,11 +163,14 @@ export class ProjectMemoryConfirmedReader {
     const stageKeys = new Set();
     const relatedPaths = new Set();
 
+    let aiContextEligibleTotal = 0;
+
     for (const item of entries) {
       if (item.section) sections.add(item.section);
       if (item.entry_type) entryTypes.add(item.entry_type);
       if (item.module_key) moduleKeys.add(item.module_key);
       if (item.stage_key) stageKeys.add(item.stage_key);
+      if (isAiContextEligible(item)) aiContextEligibleTotal += 1;
 
       if (Array.isArray(item.related_paths)) {
         for (const relatedPath of item.related_paths) {
@@ -134,6 +181,7 @@ export class ProjectMemoryConfirmedReader {
 
     return {
       totalEntries: entries.length,
+      aiContextEligibleTotal,
       sections: Array.from(sections).sort(),
       entryTypes: Array.from(entryTypes).sort(),
       moduleKeys: Array.from(moduleKeys).sort(),
@@ -144,6 +192,10 @@ export class ProjectMemoryConfirmedReader {
         stageKey: stageKey || null,
         section: section || null,
         entryType: entryType || null,
+        aiContext:
+          typeof aiContext === "boolean"
+            ? aiContext
+            : null,
       },
     };
   }

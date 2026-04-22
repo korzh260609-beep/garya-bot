@@ -43,6 +43,7 @@ import {
   listConfirmedProjectMemoryEntries,
   getLatestConfirmedProjectMemoryEntry,
   buildConfirmedProjectMemoryDigest,
+  buildConfirmedProjectMemoryContext,
   updateConfirmedProjectMemoryEntry,
 } from "../../projectMemory.js";
 
@@ -107,6 +108,7 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     listConfirmedProjectMemoryEntries,
     getLatestConfirmedProjectMemoryEntry,
     buildConfirmedProjectMemoryDigest,
+    buildConfirmedProjectMemoryContext,
     updateConfirmedProjectMemoryEntry,
 
     runSourceDiagnosticsOnce,

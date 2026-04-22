@@ -12,6 +12,7 @@ import { handlePmList } from "../handlers/pmList.js";
 import { handlePmSession } from "../handlers/pmSession.js";
 import { handlePmSessionUpdate } from "../handlers/pmSessionUpdate.js";
 import { handlePmConfirmedWrite } from "../handlers/pmConfirmedWrite.js";
+import { handlePmConfirmedUpdate } from "../handlers/pmConfirmedUpdate.js";
 import {
   handlePmConfirmedList,
   handlePmConfirmedLatest,
@@ -126,6 +127,22 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
         rest: ctx.rest,
         bypass: !!ctx.bypass,
         writeConfirmedProjectMemory: ctx.writeConfirmedProjectMemory,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_confirmed_update": {
+      if (typeof ctx.updateConfirmedProjectMemoryEntry !== "function") {
+        await reply("⛔ updateConfirmedProjectMemoryEntry недоступен (ошибка wiring).", { cmd: cmd0 });
+        return { handled: true };
+      }
+
+      await handlePmConfirmedUpdate({
+        bot,
+        chatId,
+        rest: ctx.rest,
+        updateConfirmedProjectMemoryEntry: ctx.updateConfirmedProjectMemoryEntry,
       });
 
       return { handled: true };

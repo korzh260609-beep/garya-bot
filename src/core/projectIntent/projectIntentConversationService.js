@@ -40,6 +40,21 @@ import {
   handleExplainLikeIntent,
 } from "./conversation/projectIntentConversationObjectActions.js";
 
+function pickProjectContextScope(...candidates) {
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      !Array.isArray(candidate) &&
+      Object.keys(candidate).length > 0
+    ) {
+      return candidate;
+    }
+  }
+
+  return {};
+}
+
 export {
   buildProjectIntentRoutingText,
   getLatestProjectIntentRepoContext,
@@ -102,7 +117,10 @@ export async function runProjectIntentConversationFlow({
       token,
       callAI,
       event: "repo_conversation_explain_active_file_followup",
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
   }
 
@@ -117,7 +135,10 @@ export async function runProjectIntentConversationFlow({
       semanticConfidence: semanticPlan?.confidence,
       actionKind: semanticPlan?.intent,
       objectKind: semanticPlan?.objectKind,
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
 
     await replyHuman(replyAndLog, text, {
@@ -140,7 +161,10 @@ export async function runProjectIntentConversationFlow({
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "continue_active",
       event: "repo_conversation_continue_active",
-      projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
+      projectContextScope: pickProjectContextScope(
+        semanticPlan?.projectContextScope,
+        followupContext?.projectContextScope
+      ),
     });
   }
 

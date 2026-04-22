@@ -44,10 +44,9 @@ export async function handleRepoStatusIntent({
     sourceText: trimmed,
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "repo_status",
+    objectKind: "repo",
     projectContextScope: semanticPlan?.projectContextScope || {},
   });
-
-  contextMeta.projectIntentObjectKind = "repo";
 
   await replyHuman(replyAndLog, text, {
     event: "repo_conversation_status",
@@ -93,10 +92,9 @@ export async function handleShowTreeIntent({
     treePrefix: prefix,
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "show_tree",
+    objectKind: prefix ? "folder" : "root",
     projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
   });
-
-  contextMeta.projectIntentObjectKind = prefix ? "folder" : "root";
 
   await replyHuman(replyAndLog, text, {
     event: "repo_conversation_tree",
@@ -169,10 +167,9 @@ export async function handleFindTargetIntent({
     sourceText: trimmed,
     semanticConfidence: semanticPlan?.confidence,
     actionKind: "find_target",
+    objectKind: safeText(singleKind || "unknown"),
     projectContextScope: semanticPlan?.projectContextScope || {},
   });
-
-  contextMeta.projectIntentObjectKind = safeText(singleKind || "unknown");
 
   await replyHuman(replyAndLog, text, {
     event: "repo_conversation_search",
@@ -229,12 +226,11 @@ export async function handleFindAndExplainIntent({
       sourceText: trimmed,
       semanticConfidence: semanticPlan?.confidence,
       actionKind: "find_and_explain",
+      objectKind: safeText(
+        resolved.objectKind || semanticPlan?.objectKind || "unknown"
+      ),
       projectContextScope: semanticPlan?.projectContextScope || followupContext?.projectContextScope || {},
     });
-
-    contextMeta.projectIntentObjectKind = safeText(
-      resolved.objectKind || semanticPlan?.objectKind || "unknown"
-    );
 
     await replyHuman(replyAndLog, text, {
       event: "repo_conversation_find_and_explain_search_only",

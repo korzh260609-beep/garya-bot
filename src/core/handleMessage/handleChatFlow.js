@@ -296,6 +296,7 @@ export async function handleChatFlow({
       trimmed,
       saveMessageToMemory,
       saveChatPair,
+      projectIntentRepoContext: repoFollowupContext,
     });
 
     await deps.handleChatMessage(chatHandlerCtx);

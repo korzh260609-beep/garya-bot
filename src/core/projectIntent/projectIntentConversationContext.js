@@ -25,6 +25,9 @@ function normalizeProjectContextScope(value) {
   const source = safeObject(value);
   const out = {};
 
+  const projectKey = safeText(source.projectKey);
+  if (projectKey) out.projectKey = projectKey;
+
   const projectArea = normalizeOptionalText(source.projectArea);
   if (projectArea) out.projectArea = projectArea;
 

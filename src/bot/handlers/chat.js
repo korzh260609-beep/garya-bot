@@ -40,6 +40,7 @@ export async function handleChatMessage({
   saveChatPair,
   logInteraction,
   loadProjectContext,
+  resolveProjectContextScope,
   getAnswerMode,
   buildSystemPrompt,
   isMonarch,
@@ -102,6 +103,7 @@ export async function handleChatMessage({
 
     logInteraction,
     loadProjectContext,
+    resolveProjectContextScope,
     getAnswerMode,
     buildSystemPrompt,
     callAI,

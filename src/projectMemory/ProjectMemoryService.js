@@ -21,6 +21,7 @@ import {
   getProjectMemoryScopeSignature,
   normalizeProjectMemoryMeta,
 } from "./projectMemoryScopes.js";
+import { annotateConfirmedScopePolicyMeta } from "./projectMemoryConfirmedScopePolicy.js";
 
 export const DEFAULT_PROJECT_KEY = "garya_ai";
 
@@ -134,6 +135,20 @@ function buildScopedSectionStateLookup({
     `,
     params,
   };
+}
+
+function annotateConfirmedEntryMetaForUpdate({
+  entryType,
+  section,
+  meta,
+} = {}) {
+  return annotateConfirmedScopePolicyMeta({
+    entryType,
+    section,
+    meta,
+    warn: true,
+    warningPrefix: "⚠️ ProjectMemoryService soft scope warning on confirmed update",
+  });
 }
 
 export class ProjectMemoryService {
@@ -680,6 +695,12 @@ export class ProjectMemoryService {
       }
     );
 
+    const nextMetaWithDiagnostics = annotateConfirmedEntryMetaForUpdate({
+      entryType: existing.entry_type,
+      section: existing.section,
+      meta: nextMeta,
+    });
+
     const normalized = buildNormalizedProjectMemoryInput({
       projectKey: existing.project_key,
       section: existing.section,
@@ -695,7 +716,7 @@ export class ProjectMemoryService {
         Object.prototype.hasOwnProperty.call(patch, "tags")
           ? patch.tags
           : existing.tags,
-      meta: nextMeta,
+      meta: nextMetaWithDiagnostics,
       schemaVersion: existing.schema_version,
       entryType: existing.entry_type,
       status:

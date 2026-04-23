@@ -7,6 +7,7 @@
 // - no Telegram/Discord/Web assumptions
 // - expose curated memory as structured data, not transport formatting
 // - support one project memory across multiple repos / project areas
+// - expose additive policy diagnostics for confirmed-memory scope handling
 // ============================================================================
 
 import {
@@ -87,6 +88,64 @@ function includesNormalized(list = [], needle = "") {
     : false;
 }
 
+function normalizeOptionalTextOrNull(value) {
+  const s = safeText(value);
+  return s || null;
+}
+
+function normalizeOptionalBooleanOrNull(value) {
+  if (typeof value === "boolean") return value;
+  return null;
+}
+
+function buildPolicyDiagnostics(meta = {}) {
+  const normalizedMeta = normalizeMeta(meta);
+
+  return {
+    policyVersion:
+      typeof normalizedMeta.confirmedScopePolicyVersion === "number"
+        ? normalizedMeta.confirmedScopePolicyVersion
+        : null,
+
+    requirement: normalizeOptionalTextOrNull(
+      normalizedMeta.confirmedScopeRequirement
+    ),
+    requirementReason: normalizeOptionalTextOrNull(
+      normalizedMeta.confirmedScopeRequirementReason
+    ),
+
+    scopeClass: normalizeOptionalTextOrNull(
+      normalizedMeta.confirmedScopeClass
+    ),
+    scopeClassReason: normalizeOptionalTextOrNull(
+      normalizedMeta.confirmedScopeClassReason
+    ),
+
+    validForWrite: normalizeOptionalBooleanOrNull(
+      normalizedMeta.confirmedScopeValidForWrite
+    ),
+    includeInScopedContext: normalizeOptionalBooleanOrNull(
+      normalizedMeta.confirmedScopeIncludeInScopedContext
+    ),
+    allowLegacyUnscopedRead: normalizeOptionalBooleanOrNull(
+      normalizedMeta.confirmedScopeAllowLegacyUnscopedRead
+    ),
+    migrateLegacyLater: normalizeOptionalBooleanOrNull(
+      normalizedMeta.confirmedScopeMigrateLegacyLater
+    ),
+  };
+}
+
+function withDerivedConfirmedFields(entry) {
+  const meta = normalizeMeta(entry?.meta);
+
+  return {
+    ...entry,
+    meta,
+    policyDiagnostics: buildPolicyDiagnostics(meta),
+  };
+}
+
 function applyConfirmedFilters(entries = [], filters = {}) {
   const moduleKey = safeText(filters.moduleKey);
   const stageKey = safeText(filters.stageKey);
@@ -165,7 +224,9 @@ export class ProjectMemoryConfirmedReader {
       aiContext,
     });
 
-    return filtered.slice(0, targetLimit);
+    return filtered
+      .slice(0, targetLimit)
+      .map((item) => withDerivedConfirmedFields(item));
   }
 
   async getLatestEntry({
@@ -238,8 +299,19 @@ export class ProjectMemoryConfirmedReader {
     const linkedAreas = new Set();
     const linkedRepoScopes = new Set();
 
+    const policyVersions = new Set();
+    const policyRequirements = new Set();
+    const policyScopeClasses = new Set();
+
     let aiContextEligibleTotal = 0;
     let crossRepoTotal = 0;
+
+    let policyDiagnosticsTotal = 0;
+    let policyValidForWriteTrueTotal = 0;
+    let policyValidForWriteFalseTotal = 0;
+    let policyIncludeInScopedContextTrueTotal = 0;
+    let policyAllowLegacyUnscopedReadTrueTotal = 0;
+    let policyMigrateLegacyLaterTrueTotal = 0;
 
     for (const item of entries) {
       if (item.section) sections.add(item.section);
@@ -271,6 +343,60 @@ export class ProjectMemoryConfirmedReader {
           if (relatedPath) relatedPaths.add(relatedPath);
         }
       }
+
+      const diagnostics =
+        item?.policyDiagnostics && typeof item.policyDiagnostics === "object"
+          ? item.policyDiagnostics
+          : null;
+
+      if (diagnostics) {
+        const hasAnyPolicyField =
+          diagnostics.policyVersion !== null ||
+          diagnostics.requirement !== null ||
+          diagnostics.requirementReason !== null ||
+          diagnostics.scopeClass !== null ||
+          diagnostics.scopeClassReason !== null ||
+          diagnostics.validForWrite !== null ||
+          diagnostics.includeInScopedContext !== null ||
+          diagnostics.allowLegacyUnscopedRead !== null ||
+          diagnostics.migrateLegacyLater !== null;
+
+        if (hasAnyPolicyField) {
+          policyDiagnosticsTotal += 1;
+        }
+
+        if (diagnostics.policyVersion !== null) {
+          policyVersions.add(String(diagnostics.policyVersion));
+        }
+
+        if (diagnostics.requirement) {
+          policyRequirements.add(diagnostics.requirement);
+        }
+
+        if (diagnostics.scopeClass) {
+          policyScopeClasses.add(diagnostics.scopeClass);
+        }
+
+        if (diagnostics.validForWrite === true) {
+          policyValidForWriteTrueTotal += 1;
+        }
+
+        if (diagnostics.validForWrite === false) {
+          policyValidForWriteFalseTotal += 1;
+        }
+
+        if (diagnostics.includeInScopedContext === true) {
+          policyIncludeInScopedContextTrueTotal += 1;
+        }
+
+        if (diagnostics.allowLegacyUnscopedRead === true) {
+          policyAllowLegacyUnscopedReadTrueTotal += 1;
+        }
+
+        if (diagnostics.migrateLegacyLater === true) {
+          policyMigrateLegacyLaterTrueTotal += 1;
+        }
+      }
     }
 
     return {
@@ -286,6 +412,17 @@ export class ProjectMemoryConfirmedReader {
       linkedAreas: Array.from(linkedAreas).sort(),
       linkedRepoScopes: Array.from(linkedRepoScopes).sort(),
       relatedPaths: Array.from(relatedPaths).sort(),
+
+      policyDiagnosticsTotal,
+      policyValidForWriteTrueTotal,
+      policyValidForWriteFalseTotal,
+      policyIncludeInScopedContextTrueTotal,
+      policyAllowLegacyUnscopedReadTrueTotal,
+      policyMigrateLegacyLaterTrueTotal,
+      policyVersions: Array.from(policyVersions).sort(),
+      policyRequirements: Array.from(policyRequirements).sort(),
+      policyScopeClasses: Array.from(policyScopeClasses).sort(),
+
       filters: {
         moduleKey: moduleKey || null,
         stageKey: stageKey || null,

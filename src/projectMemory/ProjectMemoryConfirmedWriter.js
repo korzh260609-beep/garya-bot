@@ -7,6 +7,7 @@
 // - no Telegram/Discord/Web assumptions
 // - write curated memory by entry semantics, not by chat phrasing
 // - support one project_memory across multiple repos / project areas
+// - soft-integrate confirmed scope policy without breaking legacy DB state
 // ============================================================================
 
 import { normalizeProjectMemoryMeta } from "./projectMemoryScopes.js";
@@ -74,36 +75,41 @@ function buildMemoryMeta(inputMeta = {}, extra = {}, aiContext, aiContextDefault
   );
 }
 
-function applyConfirmedScopeDiagnostics({
-  entryType,
-  section = null,
-  meta = {},
-}) {
-  const normalizedMeta = normalizeMeta(meta);
+function addConfirmedScopeDiagnostics({ entryType, section = null, meta = {} } = {}) {
+  const baseMeta = normalizeMeta(meta);
+
   const snapshot = buildConfirmedScopePolicySnapshot({
     entryType,
     section,
-    meta: normalizedMeta,
+    meta: baseMeta,
   });
 
+  const isValidForWrite =
+    snapshot?.classification?.scopeClass === "scoped_local" ||
+    snapshot?.classification?.scopeClass === "scoped_shared" ||
+    (
+      snapshot?.classification?.scopeClass === "global_unscoped_candidate" &&
+      snapshot?.requirement?.requirement === "allow_unscoped"
+    );
+
   const nextMeta = {
-    ...normalizedMeta,
-    confirmedScopePolicyVersion: snapshot.policyVersion,
-    confirmedScopeRequirement: snapshot.requirement?.requirement || null,
-    confirmedScopeRequirementReason: snapshot.requirement?.reason || null,
-    confirmedScopeClass: snapshot.classification?.scopeClass || null,
-    confirmedScopeClassReason: snapshot.classification?.reason || null,
-    confirmedScopeValidForWrite: snapshot.classification
-      ? snapshot.classification.scopeClass === "scoped_local" ||
-        snapshot.classification.scopeClass === "scoped_shared" ||
-        (
-          snapshot.classification.scopeClass === "global_unscoped_candidate" &&
-          snapshot.requirement?.requirement === "allow_unscoped"
-        )
-      : false,
-    confirmedScopeIncludeInScopedContext: snapshot.shouldIncludeInScopedContext === true,
-    confirmedScopeAllowLegacyUnscopedRead: snapshot.shouldAllowLegacyUnscopedRead === true,
-    confirmedScopeMigrateLegacyLater: snapshot.shouldMigrateLegacyUnscopedLater === true,
+    ...baseMeta,
+
+    confirmedScopePolicyVersion: snapshot?.policyVersion ?? null,
+
+    confirmedScopeRequirement: snapshot?.requirement?.requirement ?? null,
+    confirmedScopeRequirementReason: snapshot?.requirement?.reason ?? null,
+
+    confirmedScopeClass: snapshot?.classification?.scopeClass ?? null,
+    confirmedScopeClassReason: snapshot?.classification?.reason ?? null,
+
+    confirmedScopeValidForWrite: isValidForWrite === true,
+    confirmedScopeIncludeInScopedContext:
+      snapshot?.shouldIncludeInScopedContext === true,
+    confirmedScopeAllowLegacyUnscopedRead:
+      snapshot?.shouldAllowLegacyUnscopedRead === true,
+    confirmedScopeMigrateLegacyLater:
+      snapshot?.shouldMigrateLegacyUnscopedLater === true,
   };
 
   if (nextMeta.confirmedScopeValidForWrite !== true) {
@@ -165,7 +171,7 @@ export class ProjectMemoryConfirmedWriter {
       false
     );
 
-    const metaWithDiagnostics = applyConfirmedScopeDiagnostics({
+    const metaWithDiagnostics = addConfirmedScopeDiagnostics({
       entryType: "section_state",
       section: resolvedSection,
       meta: preparedMeta,
@@ -208,7 +214,7 @@ export class ProjectMemoryConfirmedWriter {
       true
     );
 
-    const metaWithDiagnostics = applyConfirmedScopeDiagnostics({
+    const metaWithDiagnostics = addConfirmedScopeDiagnostics({
       entryType: "decision",
       section: resolvedSection,
       meta: preparedMeta,
@@ -251,7 +257,7 @@ export class ProjectMemoryConfirmedWriter {
       true
     );
 
-    const metaWithDiagnostics = applyConfirmedScopeDiagnostics({
+    const metaWithDiagnostics = addConfirmedScopeDiagnostics({
       entryType: "constraint",
       section: resolvedSection,
       meta: preparedMeta,
@@ -294,7 +300,7 @@ export class ProjectMemoryConfirmedWriter {
       true
     );
 
-    const metaWithDiagnostics = applyConfirmedScopeDiagnostics({
+    const metaWithDiagnostics = addConfirmedScopeDiagnostics({
       entryType: "next_step",
       section: resolvedSection,
       meta: preparedMeta,

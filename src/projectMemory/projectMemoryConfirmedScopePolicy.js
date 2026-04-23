@@ -7,6 +7,7 @@
 // - fix "what should be scoped?" before tightening write-path
 // - preserve backward compatibility for legacy unscoped confirmed rows
 // - avoid fake repo assumptions about specific global section names
+// - expose reusable diagnostics annotator for write/update paths
 // ============================================================================
 
 import {
@@ -37,6 +38,10 @@ function normalizeEntryType(value) {
 
 function normalizeSection(value) {
   return safeText(value);
+}
+
+function normalizeMeta(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 export const CONFIRMED_SCOPE_POLICY_VERSION = 2;
@@ -285,6 +290,63 @@ export function buildConfirmedScopePolicySnapshot({ entryType, section = null, m
   };
 }
 
+export function annotateConfirmedScopePolicyMeta({
+  entryType,
+  section = null,
+  meta = {},
+  warn = true,
+  warningPrefix = "⚠️ Confirmed scope policy warning",
+} = {}) {
+  const baseMeta = normalizeMeta(meta);
+
+  const snapshot = buildConfirmedScopePolicySnapshot({
+    entryType,
+    section,
+    meta: baseMeta,
+  });
+
+  const isValidForWrite =
+    snapshot?.classification?.scopeClass === CONFIRMED_SCOPE_CLASSES.SCOPED_LOCAL ||
+    snapshot?.classification?.scopeClass === CONFIRMED_SCOPE_CLASSES.SCOPED_SHARED ||
+    (
+      snapshot?.classification?.scopeClass === CONFIRMED_SCOPE_CLASSES.GLOBAL_UNSCOPED_CANDIDATE &&
+      snapshot?.requirement?.requirement === CONFIRMED_SCOPE_REQUIREMENTS.ALLOW_UNSCOPED
+    );
+
+  const nextMeta = {
+    ...baseMeta,
+
+    confirmedScopePolicyVersion: snapshot?.policyVersion ?? null,
+
+    confirmedScopeRequirement: snapshot?.requirement?.requirement ?? null,
+    confirmedScopeRequirementReason: snapshot?.requirement?.reason ?? null,
+
+    confirmedScopeClass: snapshot?.classification?.scopeClass ?? null,
+    confirmedScopeClassReason: snapshot?.classification?.reason ?? null,
+
+    confirmedScopeValidForWrite: isValidForWrite === true,
+    confirmedScopeIncludeInScopedContext:
+      snapshot?.shouldIncludeInScopedContext === true,
+    confirmedScopeAllowLegacyUnscopedRead:
+      snapshot?.shouldAllowLegacyUnscopedRead === true,
+    confirmedScopeMigrateLegacyLater:
+      snapshot?.shouldMigrateLegacyUnscopedLater === true,
+  };
+
+  if (warn === true && nextMeta.confirmedScopeValidForWrite !== true) {
+    console.warn(warningPrefix, {
+      entryType: normalizeEntryType(entryType) || null,
+      section: normalizeSection(section) || null,
+      confirmedScopeRequirement: nextMeta.confirmedScopeRequirement,
+      confirmedScopeRequirementReason: nextMeta.confirmedScopeRequirementReason,
+      confirmedScopeClass: nextMeta.confirmedScopeClass,
+      confirmedScopeClassReason: nextMeta.confirmedScopeClassReason,
+    });
+  }
+
+  return nextMeta;
+}
+
 export default {
   CONFIRMED_SCOPE_POLICY_VERSION,
   CONFIRMED_ENTRY_TYPES,
@@ -304,4 +366,5 @@ export default {
   shouldMigrateLegacyUnscopedLater,
   validateConfirmedScopeForWrite,
   buildConfirmedScopePolicySnapshot,
+  annotateConfirmedScopePolicyMeta,
 };

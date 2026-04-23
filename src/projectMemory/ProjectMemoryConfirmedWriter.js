@@ -10,6 +10,7 @@
 // ============================================================================
 
 import { normalizeProjectMemoryMeta } from "./projectMemoryScopes.js";
+import { buildConfirmedScopePolicySnapshot } from "./projectMemoryConfirmedScopePolicy.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -73,6 +74,52 @@ function buildMemoryMeta(inputMeta = {}, extra = {}, aiContext, aiContextDefault
   );
 }
 
+function applyConfirmedScopeDiagnostics({
+  entryType,
+  section = null,
+  meta = {},
+}) {
+  const normalizedMeta = normalizeMeta(meta);
+  const snapshot = buildConfirmedScopePolicySnapshot({
+    entryType,
+    section,
+    meta: normalizedMeta,
+  });
+
+  const nextMeta = {
+    ...normalizedMeta,
+    confirmedScopePolicyVersion: snapshot.policyVersion,
+    confirmedScopeRequirement: snapshot.requirement?.requirement || null,
+    confirmedScopeRequirementReason: snapshot.requirement?.reason || null,
+    confirmedScopeClass: snapshot.classification?.scopeClass || null,
+    confirmedScopeClassReason: snapshot.classification?.reason || null,
+    confirmedScopeValidForWrite: snapshot.classification
+      ? snapshot.classification.scopeClass === "scoped_local" ||
+        snapshot.classification.scopeClass === "scoped_shared" ||
+        (
+          snapshot.classification.scopeClass === "global_unscoped_candidate" &&
+          snapshot.requirement?.requirement === "allow_unscoped"
+        )
+      : false,
+    confirmedScopeIncludeInScopedContext: snapshot.shouldIncludeInScopedContext === true,
+    confirmedScopeAllowLegacyUnscopedRead: snapshot.shouldAllowLegacyUnscopedRead === true,
+    confirmedScopeMigrateLegacyLater: snapshot.shouldMigrateLegacyUnscopedLater === true,
+  };
+
+  if (nextMeta.confirmedScopeValidForWrite !== true) {
+    console.warn("⚠️ ProjectMemoryConfirmedWriter soft scope warning", {
+      entryType: safeText(entryType) || null,
+      section: safeText(section) || null,
+      confirmedScopeRequirement: nextMeta.confirmedScopeRequirement,
+      confirmedScopeRequirementReason: nextMeta.confirmedScopeRequirementReason,
+      confirmedScopeClass: nextMeta.confirmedScopeClass,
+      confirmedScopeClassReason: nextMeta.confirmedScopeClassReason,
+    });
+  }
+
+  return nextMeta;
+}
+
 export class ProjectMemoryConfirmedWriter {
   constructor({ service }) {
     this.service = service;
@@ -105,24 +152,32 @@ export class ProjectMemoryConfirmedWriter {
       throw new Error("ProjectMemoryConfirmedWriter.upsertSectionState: section is required");
     }
 
+    const preparedMeta = buildMemoryMeta(
+      meta,
+      {
+        projectArea,
+        repoScope,
+        linkedAreas,
+        linkedRepoScopes,
+        crossRepo,
+      },
+      aiContext,
+      false
+    );
+
+    const metaWithDiagnostics = applyConfirmedScopeDiagnostics({
+      entryType: "section_state",
+      section: resolvedSection,
+      meta: preparedMeta,
+    });
+
     return this.service.upsertSectionState({
       projectKey,
       section: resolvedSection,
       title,
       content,
       tags,
-      meta: buildMemoryMeta(
-        meta,
-        {
-          projectArea,
-          repoScope,
-          linkedAreas,
-          linkedRepoScopes,
-          crossRepo,
-        },
-        aiContext,
-        false
-      ),
+      meta: metaWithDiagnostics,
       schemaVersion: 2,
       entryType: "section_state",
       status: "active",
@@ -138,25 +193,34 @@ export class ProjectMemoryConfirmedWriter {
 
   async appendDecision(input = {}) {
     const normalized = normalizeCommonInput(input);
+    const resolvedSection = safeText(input.section) || "decisions";
+
+    const preparedMeta = buildMemoryMeta(
+      normalized.meta,
+      {
+        projectArea: normalized.projectArea,
+        repoScope: normalized.repoScope,
+        linkedAreas: normalized.linkedAreas,
+        linkedRepoScopes: normalized.linkedRepoScopes,
+        crossRepo: normalized.crossRepo,
+      },
+      normalized.aiContext,
+      true
+    );
+
+    const metaWithDiagnostics = applyConfirmedScopeDiagnostics({
+      entryType: "decision",
+      section: resolvedSection,
+      meta: preparedMeta,
+    });
 
     return this.service.appendEntry({
       projectKey: normalized.projectKey,
-      section: safeText(input.section) || "decisions",
+      section: resolvedSection,
       title: normalized.title,
       content: normalized.content,
       tags: normalized.tags,
-      meta: buildMemoryMeta(
-        normalized.meta,
-        {
-          projectArea: normalized.projectArea,
-          repoScope: normalized.repoScope,
-          linkedAreas: normalized.linkedAreas,
-          linkedRepoScopes: normalized.linkedRepoScopes,
-          crossRepo: normalized.crossRepo,
-        },
-        normalized.aiContext,
-        true
-      ),
+      meta: metaWithDiagnostics,
       schemaVersion: 2,
       entryType: "decision",
       status: "active",
@@ -172,25 +236,34 @@ export class ProjectMemoryConfirmedWriter {
 
   async appendConstraint(input = {}) {
     const normalized = normalizeCommonInput(input);
+    const resolvedSection = safeText(input.section) || "constraints";
+
+    const preparedMeta = buildMemoryMeta(
+      normalized.meta,
+      {
+        projectArea: normalized.projectArea,
+        repoScope: normalized.repoScope,
+        linkedAreas: normalized.linkedAreas,
+        linkedRepoScopes: normalized.linkedRepoScopes,
+        crossRepo: normalized.crossRepo,
+      },
+      normalized.aiContext,
+      true
+    );
+
+    const metaWithDiagnostics = applyConfirmedScopeDiagnostics({
+      entryType: "constraint",
+      section: resolvedSection,
+      meta: preparedMeta,
+    });
 
     return this.service.appendEntry({
       projectKey: normalized.projectKey,
-      section: safeText(input.section) || "constraints",
+      section: resolvedSection,
       title: normalized.title,
       content: normalized.content,
       tags: normalized.tags,
-      meta: buildMemoryMeta(
-        normalized.meta,
-        {
-          projectArea: normalized.projectArea,
-          repoScope: normalized.repoScope,
-          linkedAreas: normalized.linkedAreas,
-          linkedRepoScopes: normalized.linkedRepoScopes,
-          crossRepo: normalized.crossRepo,
-        },
-        normalized.aiContext,
-        true
-      ),
+      meta: metaWithDiagnostics,
       schemaVersion: 2,
       entryType: "constraint",
       status: "active",
@@ -206,25 +279,34 @@ export class ProjectMemoryConfirmedWriter {
 
   async appendNextStep(input = {}) {
     const normalized = normalizeCommonInput(input);
+    const resolvedSection = safeText(input.section) || "next_steps";
+
+    const preparedMeta = buildMemoryMeta(
+      normalized.meta,
+      {
+        projectArea: normalized.projectArea,
+        repoScope: normalized.repoScope,
+        linkedAreas: normalized.linkedAreas,
+        linkedRepoScopes: normalized.linkedRepoScopes,
+        crossRepo: normalized.crossRepo,
+      },
+      normalized.aiContext,
+      true
+    );
+
+    const metaWithDiagnostics = applyConfirmedScopeDiagnostics({
+      entryType: "next_step",
+      section: resolvedSection,
+      meta: preparedMeta,
+    });
 
     return this.service.appendEntry({
       projectKey: normalized.projectKey,
-      section: safeText(input.section) || "next_steps",
+      section: resolvedSection,
       title: normalized.title,
       content: normalized.content,
       tags: normalized.tags,
-      meta: buildMemoryMeta(
-        normalized.meta,
-        {
-          projectArea: normalized.projectArea,
-          repoScope: normalized.repoScope,
-          linkedAreas: normalized.linkedAreas,
-          linkedRepoScopes: normalized.linkedRepoScopes,
-          crossRepo: normalized.crossRepo,
-        },
-        normalized.aiContext,
-        true
-      ),
+      meta: metaWithDiagnostics,
       schemaVersion: 2,
       entryType: "next_step",
       status: "active",

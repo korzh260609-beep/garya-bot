@@ -11,7 +11,7 @@
 // ============================================================================
 
 import { normalizeProjectMemoryMeta } from "./projectMemoryScopes.js";
-import { buildConfirmedScopePolicySnapshot } from "./projectMemoryConfirmedScopePolicy.js";
+import { annotateConfirmedScopePolicyMeta } from "./projectMemoryConfirmedScopePolicy.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -76,54 +76,13 @@ function buildMemoryMeta(inputMeta = {}, extra = {}, aiContext, aiContextDefault
 }
 
 function addConfirmedScopeDiagnostics({ entryType, section = null, meta = {} } = {}) {
-  const baseMeta = normalizeMeta(meta);
-
-  const snapshot = buildConfirmedScopePolicySnapshot({
+  return annotateConfirmedScopePolicyMeta({
     entryType,
     section,
-    meta: baseMeta,
+    meta,
+    warn: true,
+    warningPrefix: "⚠️ ProjectMemoryConfirmedWriter soft scope warning",
   });
-
-  const isValidForWrite =
-    snapshot?.classification?.scopeClass === "scoped_local" ||
-    snapshot?.classification?.scopeClass === "scoped_shared" ||
-    (
-      snapshot?.classification?.scopeClass === "global_unscoped_candidate" &&
-      snapshot?.requirement?.requirement === "allow_unscoped"
-    );
-
-  const nextMeta = {
-    ...baseMeta,
-
-    confirmedScopePolicyVersion: snapshot?.policyVersion ?? null,
-
-    confirmedScopeRequirement: snapshot?.requirement?.requirement ?? null,
-    confirmedScopeRequirementReason: snapshot?.requirement?.reason ?? null,
-
-    confirmedScopeClass: snapshot?.classification?.scopeClass ?? null,
-    confirmedScopeClassReason: snapshot?.classification?.reason ?? null,
-
-    confirmedScopeValidForWrite: isValidForWrite === true,
-    confirmedScopeIncludeInScopedContext:
-      snapshot?.shouldIncludeInScopedContext === true,
-    confirmedScopeAllowLegacyUnscopedRead:
-      snapshot?.shouldAllowLegacyUnscopedRead === true,
-    confirmedScopeMigrateLegacyLater:
-      snapshot?.shouldMigrateLegacyUnscopedLater === true,
-  };
-
-  if (nextMeta.confirmedScopeValidForWrite !== true) {
-    console.warn("⚠️ ProjectMemoryConfirmedWriter soft scope warning", {
-      entryType: safeText(entryType) || null,
-      section: safeText(section) || null,
-      confirmedScopeRequirement: nextMeta.confirmedScopeRequirement,
-      confirmedScopeRequirementReason: nextMeta.confirmedScopeRequirementReason,
-      confirmedScopeClass: nextMeta.confirmedScopeClass,
-      confirmedScopeClassReason: nextMeta.confirmedScopeClassReason,
-    });
-  }
-
-  return nextMeta;
 }
 
 export class ProjectMemoryConfirmedWriter {

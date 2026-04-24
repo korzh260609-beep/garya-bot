@@ -6,6 +6,7 @@
 // - no business logic here
 // - no policy decisions here
 // - render metadata already returned by universal core/service layer
+// - support both confirmed read rows and write/update rows
 // ============================================================================
 
 function safeText(value) {
@@ -33,6 +34,14 @@ function getMeta(row) {
     : {};
 }
 
+function getPolicyDiagnostics(row) {
+  return row?.policyDiagnostics &&
+    typeof row.policyDiagnostics === "object" &&
+    !Array.isArray(row.policyDiagnostics)
+    ? row.policyDiagnostics
+    : {};
+}
+
 function getScopeView(row) {
   const meta = getMeta(row);
 
@@ -48,49 +57,104 @@ function getScopeView(row) {
 
 function getPolicyView(row) {
   const meta = getMeta(row);
+  const diagnostics = getPolicyDiagnostics(row);
 
   return {
     policyVersion:
-      typeof meta.confirmedScopePolicyVersion === "number"
-        ? String(meta.confirmedScopePolicyVersion)
-        : "-",
+      typeof diagnostics.policyVersion === "number"
+        ? String(diagnostics.policyVersion)
+        : typeof meta.confirmedScopePolicyVersion === "number"
+          ? String(meta.confirmedScopePolicyVersion)
+          : "-",
 
-    requirement: safeText(meta.confirmedScopeRequirement) || "-",
-    requirementReason: safeText(meta.confirmedScopeRequirementReason) || "-",
+    requirement:
+      safeText(diagnostics.requirement) ||
+      safeText(meta.confirmedScopeRequirement) ||
+      "-",
 
-    scopeClass: safeText(meta.confirmedScopeClass) || "-",
-    scopeClassReason: safeText(meta.confirmedScopeClassReason) || "-",
+    requirementReason:
+      safeText(diagnostics.requirementReason) ||
+      safeText(meta.confirmedScopeRequirementReason) ||
+      "-",
 
-    validForWrite: boolLabel(meta.confirmedScopeValidForWrite),
-    includeInScopedContext: boolLabel(meta.confirmedScopeIncludeInScopedContext),
-    allowLegacyUnscopedRead: boolLabel(meta.confirmedScopeAllowLegacyUnscopedRead),
-    migrateLegacyLater: boolLabel(meta.confirmedScopeMigrateLegacyLater),
+    scopeClass:
+      safeText(diagnostics.scopeClass) ||
+      safeText(meta.confirmedScopeClass) ||
+      "-",
+
+    scopeClassReason:
+      safeText(diagnostics.scopeClassReason) ||
+      safeText(meta.confirmedScopeClassReason) ||
+      "-",
+
+    validForWrite:
+      typeof diagnostics.validForWrite === "boolean"
+        ? boolLabel(diagnostics.validForWrite)
+        : boolLabel(meta.confirmedScopeValidForWrite),
+
+    includeInScopedContext:
+      typeof diagnostics.includeInScopedContext === "boolean"
+        ? boolLabel(diagnostics.includeInScopedContext)
+        : boolLabel(meta.confirmedScopeIncludeInScopedContext),
+
+    allowLegacyUnscopedRead:
+      typeof diagnostics.allowLegacyUnscopedRead === "boolean"
+        ? boolLabel(diagnostics.allowLegacyUnscopedRead)
+        : boolLabel(meta.confirmedScopeAllowLegacyUnscopedRead),
+
+    migrateLegacyLater:
+      typeof diagnostics.migrateLegacyLater === "boolean"
+        ? boolLabel(diagnostics.migrateLegacyLater)
+        : boolLabel(meta.confirmedScopeMigrateLegacyLater),
   };
 }
 
-export function appendConfirmedScopeLines(lines, row) {
-  const scope = getScopeView(row);
-
-  lines.push(`area: ${scope.area}`);
-  lines.push(`repo: ${scope.repo}`);
-  lines.push(`linked_areas: ${scope.linkedAreas}`);
-  lines.push(`linked_repos: ${scope.linkedRepos}`);
-  lines.push(`cross_repo: ${scope.crossRepo}`);
-  lines.push(`ai_context: ${scope.aiContext}`);
-}
-
-export function appendConfirmedPolicyLines(lines, row) {
+export function hasConfirmedPolicyDiagnostics(row) {
   const policy = getPolicyView(row);
 
-  lines.push(`policy_version: ${policy.policyVersion}`);
-  lines.push(`policy_requirement: ${policy.requirement}`);
-  lines.push(`policy_requirement_reason: ${policy.requirementReason}`);
-  lines.push(`policy_scope_class: ${policy.scopeClass}`);
-  lines.push(`policy_scope_class_reason: ${policy.scopeClassReason}`);
-  lines.push(`policy_valid_for_write: ${policy.validForWrite}`);
-  lines.push(`policy_include_in_scoped_context: ${policy.includeInScopedContext}`);
-  lines.push(`policy_allow_legacy_unscoped_read: ${policy.allowLegacyUnscopedRead}`);
-  lines.push(`policy_migrate_legacy_later: ${policy.migrateLegacyLater}`);
+  return (
+    policy.policyVersion !== "-" ||
+    policy.requirement !== "-" ||
+    policy.requirementReason !== "-" ||
+    policy.scopeClass !== "-" ||
+    policy.scopeClassReason !== "-" ||
+    policy.validForWrite !== "-" ||
+    policy.includeInScopedContext !== "-" ||
+    policy.allowLegacyUnscopedRead !== "-" ||
+    policy.migrateLegacyLater !== "-"
+  );
+}
+
+export function appendConfirmedScopeLines(lines, row, options = {}) {
+  const scope = getScopeView(row);
+  const prefix = safeText(options.prefix);
+  const contextLabel = safeText(options.contextLabel) || "ai_context";
+
+  lines.push(`${prefix}area: ${scope.area}`);
+  lines.push(`${prefix}repo: ${scope.repo}`);
+  lines.push(`${prefix}linked_areas: ${scope.linkedAreas}`);
+  lines.push(`${prefix}linked_repos: ${scope.linkedRepos}`);
+  lines.push(`${prefix}cross_repo: ${scope.crossRepo}`);
+  lines.push(`${prefix}${contextLabel}: ${scope.aiContext}`);
+}
+
+export function appendConfirmedPolicyLines(lines, row, options = {}) {
+  const policy = getPolicyView(row);
+  const prefix = safeText(options.prefix);
+
+  if (options.skipEmpty === true && !hasConfirmedPolicyDiagnostics(row)) {
+    return;
+  }
+
+  lines.push(`${prefix}policy_version: ${policy.policyVersion}`);
+  lines.push(`${prefix}policy_requirement: ${policy.requirement}`);
+  lines.push(`${prefix}policy_requirement_reason: ${policy.requirementReason}`);
+  lines.push(`${prefix}policy_scope_class: ${policy.scopeClass}`);
+  lines.push(`${prefix}policy_scope_class_reason: ${policy.scopeClassReason}`);
+  lines.push(`${prefix}policy_valid_for_write: ${policy.validForWrite}`);
+  lines.push(`${prefix}policy_include_in_scoped_context: ${policy.includeInScopedContext}`);
+  lines.push(`${prefix}policy_allow_legacy_unscoped_read: ${policy.allowLegacyUnscopedRead}`);
+  lines.push(`${prefix}policy_migrate_legacy_later: ${policy.migrateLegacyLater}`);
 }
 
 export function buildConfirmedMemorySavedMessage(saved) {
@@ -130,6 +194,7 @@ export function buildConfirmedMemoryUpdatedMessage(updated, fallbackId = null) {
 export default {
   appendConfirmedScopeLines,
   appendConfirmedPolicyLines,
+  hasConfirmedPolicyDiagnostics,
   buildConfirmedMemorySavedMessage,
   buildConfirmedMemoryUpdatedMessage,
 };

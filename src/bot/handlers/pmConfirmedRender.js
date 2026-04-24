@@ -125,6 +125,13 @@ export function hasConfirmedPolicyDiagnostics(row) {
   );
 }
 
+export function appendConfirmedStateLines(lines, row, options = {}) {
+  const prefix = safeText(options.prefix);
+
+  lines.push(`${prefix}status: ${safeText(row?.status) || "-"}`);
+  lines.push(`${prefix}is_active: ${boolLabel(row?.is_active)}`);
+}
+
 export function appendConfirmedScopeLines(lines, row, options = {}) {
   const scope = getScopeView(row);
   const prefix = safeText(options.prefix);
@@ -168,6 +175,7 @@ export function buildConfirmedMemorySavedMessage(saved) {
     `stage_key: ${safeText(saved?.stage_key) || "-"}`,
   ];
 
+  appendConfirmedStateLines(lines, saved);
   appendConfirmedScopeLines(lines, saved);
   appendConfirmedPolicyLines(lines, saved);
 
@@ -185,6 +193,7 @@ export function buildConfirmedMemoryUpdatedMessage(updated, fallbackId = null) {
     `stage_key: ${safeText(updated?.stage_key) || "-"}`,
   ];
 
+  appendConfirmedStateLines(lines, updated);
   appendConfirmedScopeLines(lines, updated);
   appendConfirmedPolicyLines(lines, updated);
 
@@ -192,6 +201,7 @@ export function buildConfirmedMemoryUpdatedMessage(updated, fallbackId = null) {
 }
 
 export default {
+  appendConfirmedStateLines,
   appendConfirmedScopeLines,
   appendConfirmedPolicyLines,
   hasConfirmedPolicyDiagnostics,

@@ -7,6 +7,7 @@
 // - call transport-agnostic context builder and render text
 // - read-only diagnostic path for scoped Project Memory context
 // - default Telegram output is compact; full output remains available
+// - normalize Telegram display without changing core context-builder logic
 // ============================================================================
 
 function safeText(value) {
@@ -30,6 +31,31 @@ function compactText(value, maxLength = 220) {
   if (text.length <= maxLength) return text;
 
   return `${text.slice(0, maxLength)}...`;
+}
+
+function normalizeContextTextForTelegram(value = "") {
+  const text = String(value ?? "");
+
+  if (!text.trim()) {
+    return "";
+  }
+
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/(PROJECT BACKGROUND CONTEXT)/g, "\n$1")
+    .replace(/(Use as confirmed background context\.)/g, "\n$1")
+    .replace(/(Do not treat this as proof of current runtime implementation state\.)/g, "\n$1")
+    .replace(/(Current implementation status must be verified from runtime\/repository\/pillars\.)/g, "\n$1")
+    .replace(/(SECTION STATE:)/g, "\n\n$1")
+    .replace(/(DECISIONS:)/g, "\n\n$1")
+    .replace(/(CONSTRAINTS:)/g, "\n\n$1")
+    .replace(/(NEXT STEPS:)/g, "\n\n$1")
+    .replace(/(\s)- ([A-ZА-Я0-9])/g, "\n- $2")
+    .replace(/(\])([A-ZА-Я])/g, "$1\n$2")
+    .replace(/(\.)([A-ZА-Я])/g, "$1\n$2")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function parseArgs(rest = "") {
@@ -132,7 +158,8 @@ function buildUsage() {
 }
 
 function splitContextSections(contextText = "") {
-  const lines = String(contextText ?? "").split(/\r?\n/);
+  const normalizedText = normalizeContextTextForTelegram(contextText);
+  const lines = String(normalizedText ?? "").split(/\n/);
 
   const sections = {
     sectionState: [],
@@ -197,7 +224,8 @@ function formatPreviewItem(item = "") {
 
 function buildCompactContextPreview(contextText = "", args = {}) {
   const filterLabel = buildFilterLabel(args);
-  const sections = splitContextSections(contextText);
+  const normalizedText = normalizeContextTextForTelegram(contextText);
+  const sections = splitContextSections(normalizedText);
 
   const lines = [
     `🧠 Confirmed context preview ${filterLabel || ""}`.trim(),
@@ -223,10 +251,10 @@ function buildCompactContextPreview(contextText = "", args = {}) {
 
   if (!total) {
     lines.push("");
-    lines.push(compactText(contextText, 900));
+    lines.push(compactText(normalizedText, 900));
     lines.push("");
     lines.push("Для полного вывода: /pm_confirmed_context full ...");
-    return lines.join("\n");
+    return normalizeContextTextForTelegram(lines.join("\n"));
   }
 
   if (decisionItems.length) {
@@ -264,13 +292,13 @@ function buildCompactContextPreview(contextText = "", args = {}) {
   lines.push("");
   lines.push("Для полного вывода: /pm_confirmed_context full ...");
 
-  return lines.join("\n");
+  return normalizeContextTextForTelegram(lines.join("\n"));
 }
 
 async function sendChunked(bot, chatId, title, content) {
   const SAFE_LIMIT = 3800;
   const header = safeText(title);
-  const text = String(content ?? "");
+  const text = normalizeContextTextForTelegram(content);
 
   if (!text) {
     await bot.sendMessage(chatId, header || "Пусто.");
@@ -334,8 +362,9 @@ export async function handlePmConfirmedContext({
     });
 
     const filterLabel = buildFilterLabel(args);
+    const normalizedContextText = normalizeContextTextForTelegram(contextText);
 
-    if (!safeText(contextText)) {
+    if (!safeText(normalizedContextText)) {
       await bot.sendMessage(
         chatId,
         `🧠 Confirmed context preview ${filterLabel || ""}: пусто.`.trim()
@@ -345,11 +374,11 @@ export async function handlePmConfirmedContext({
 
     if (args.full === true) {
       const title = `🧠 Confirmed context preview ${filterLabel || ""} full`.trim();
-      await sendChunked(bot, chatId, title, contextText);
+      await sendChunked(bot, chatId, title, normalizedContextText);
       return;
     }
 
-    const compactPreview = buildCompactContextPreview(contextText, args);
+    const compactPreview = buildCompactContextPreview(normalizedContextText, args);
     await sendChunked(bot, chatId, "", compactPreview);
   } catch (e) {
     console.error("❌ /pm_confirmed_context error:", e);

@@ -1,9 +1,11 @@
 // src/bot/dispatchers/dispatchProjectMemoryCommands.js
 // ============================================================================
 // PROJECT MEMORY COMMANDS DISPATCHER
-// - extracted 1:1 from commandDispatcher
-// - NO logic changes
-// - ONLY routing isolation
+// Purpose:
+// - route Project Memory command groups
+// - keep Telegram transport thin
+// - keep business logic inside handlers/services, not dispatcher
+// - confirmed commands are delegated to dedicated confirmed dispatcher
 // ============================================================================
 
 import { handlePmSet } from "../handlers/pmSet.js";
@@ -11,15 +13,6 @@ import { handlePmShow } from "../handlers/pmShow.js";
 import { handlePmList } from "../handlers/pmList.js";
 import { handlePmSession } from "../handlers/pmSession.js";
 import { handlePmSessionUpdate } from "../handlers/pmSessionUpdate.js";
-import { handlePmConfirmedWrite } from "../handlers/pmConfirmedWrite.js";
-import { handlePmConfirmedUpdate } from "../handlers/pmConfirmedUpdate.js";
-import {
-  handlePmConfirmedList,
-  handlePmConfirmedLatest,
-  handlePmConfirmedDigest,
-} from "../handlers/pmConfirmedRead.js";
-import { handlePmConfirmedContext } from "../handlers/pmConfirmedContext.js";
-import { handlePmConfirmedScopeDebug } from "../handlers/pmConfirmedScopeDebug.js";
 import { handlePmDigest } from "../handlers/pmDigest.js";
 import { handlePmLatest } from "../handlers/pmLatest.js";
 import { handlePmFind } from "../handlers/pmFind.js";
@@ -28,13 +21,27 @@ import {
   handlePmSessionShow,
 } from "../handlers/pmSessions.js";
 
+import { dispatchProjectMemoryConfirmedCommands } from "./dispatchProjectMemoryConfirmedCommands.js";
+
 export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
   const { bot, chatId, chatIdStr } = ctx;
+
+  const confirmedHandled = await dispatchProjectMemoryConfirmedCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (confirmedHandled?.handled) {
+    return confirmedHandled;
+  }
 
   switch (cmd0) {
     case "/pm_show": {
       if (typeof ctx.getProjectSection !== "function") {
-        await reply("⛔ getProjectSection недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ getProjectSection недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 
@@ -50,7 +57,9 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
 
     case "/pm_set": {
       if (typeof ctx.upsertProjectSection !== "function") {
-        await reply("⛔ upsertProjectSection недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ upsertProjectSection недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 
@@ -68,7 +77,9 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
 
     case "/pm_list": {
       if (typeof ctx.getProjectMemoryList !== "function") {
-        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 
@@ -84,7 +95,9 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
 
     case "/pm_session": {
       if (typeof ctx.recordProjectWorkSession !== "function") {
-        await reply("⛔ recordProjectWorkSession недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ recordProjectWorkSession недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 
@@ -102,7 +115,9 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
 
     case "/pm_session_update": {
       if (typeof ctx.updateProjectWorkSession !== "function") {
-        await reply("⛔ updateProjectWorkSession недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ updateProjectWorkSession недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 
@@ -116,123 +131,11 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
       return { handled: true };
     }
 
-    case "/pm_confirmed_write": {
-      if (typeof ctx.writeConfirmedProjectMemory !== "function") {
-        await reply("⛔ writeConfirmedProjectMemory недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmConfirmedWrite({
-        bot,
-        chatId,
-        chatIdStr,
-        rest: ctx.rest,
-        bypass: !!ctx.bypass,
-        writeConfirmedProjectMemory: ctx.writeConfirmedProjectMemory,
-      });
-
-      return { handled: true };
-    }
-
-    case "/pm_confirmed_update": {
-      if (typeof ctx.updateConfirmedProjectMemoryEntry !== "function") {
-        await reply("⛔ updateConfirmedProjectMemoryEntry недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmConfirmedUpdate({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        updateConfirmedProjectMemoryEntry: ctx.updateConfirmedProjectMemoryEntry,
-      });
-
-      return { handled: true };
-    }
-
-    case "/pm_confirmed_list": {
-      if (typeof ctx.listConfirmedProjectMemoryEntries !== "function") {
-        await reply("⛔ listConfirmedProjectMemoryEntries недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmConfirmedList({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        listConfirmedProjectMemoryEntries: ctx.listConfirmedProjectMemoryEntries,
-      });
-
-      return { handled: true };
-    }
-
-    case "/pm_confirmed_latest": {
-      if (typeof ctx.getLatestConfirmedProjectMemoryEntry !== "function") {
-        await reply("⛔ getLatestConfirmedProjectMemoryEntry недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmConfirmedLatest({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        getLatestConfirmedProjectMemoryEntry: ctx.getLatestConfirmedProjectMemoryEntry,
-      });
-
-      return { handled: true };
-    }
-
-    case "/pm_confirmed_digest": {
-      if (typeof ctx.buildConfirmedProjectMemoryDigest !== "function") {
-        await reply("⛔ buildConfirmedProjectMemoryDigest недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmConfirmedDigest({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        buildConfirmedProjectMemoryDigest: ctx.buildConfirmedProjectMemoryDigest,
-      });
-
-      return { handled: true };
-    }
-
-    case "/pm_confirmed_context": {
-      if (typeof ctx.buildConfirmedProjectMemoryContext !== "function") {
-        await reply("⛔ buildConfirmedProjectMemoryContext недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmConfirmedContext({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        buildConfirmedProjectMemoryContext: ctx.buildConfirmedProjectMemoryContext,
-      });
-
-      return { handled: true };
-    }
-
-    case "/pm_confirmed_scope_debug": {
-      if (typeof ctx.listConfirmedProjectMemoryEntries !== "function") {
-        await reply("⛔ listConfirmedProjectMemoryEntries недоступен (ошибка wiring).", { cmd: cmd0 });
-        return { handled: true };
-      }
-
-      await handlePmConfirmedScopeDebug({
-        bot,
-        chatId,
-        rest: ctx.rest,
-        listConfirmedProjectMemoryEntries: ctx.listConfirmedProjectMemoryEntries,
-      });
-
-      return { handled: true };
-    }
-
     case "/pm_latest": {
       if (typeof ctx.getProjectMemoryList !== "function") {
-        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 
@@ -248,7 +151,9 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
 
     case "/pm_digest": {
       if (typeof ctx.getProjectMemoryList !== "function") {
-        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 
@@ -265,7 +170,9 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
 
     case "/pm_find": {
       if (typeof ctx.getProjectMemoryList !== "function") {
-        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 
@@ -282,7 +189,9 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
 
     case "/pm_sessions": {
       if (typeof ctx.getProjectMemoryList !== "function") {
-        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 
@@ -299,7 +208,9 @@ export async function dispatchProjectMemoryCommands({ cmd0, ctx, reply }) {
 
     case "/pm_session_show": {
       if (typeof ctx.getProjectMemoryList !== "function") {
-        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", { cmd: cmd0 });
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
         return { handled: true };
       }
 

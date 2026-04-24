@@ -4,8 +4,9 @@
 // Purpose:
 // - thin Telegram adapter for previewing final confirmed AI context
 // - no business logic here
-// - call transport-agnostic context builder and render full text
+// - call transport-agnostic context builder and render text
 // - read-only diagnostic path for scoped Project Memory context
+// - default Telegram output is compact; full output remains available
 // ============================================================================
 
 function safeText(value) {
@@ -22,6 +23,15 @@ function parseBooleanLike(value, def = undefined) {
   return def;
 }
 
+function compactText(value, maxLength = 220) {
+  const text = safeText(value).replace(/\s+/g, " ");
+
+  if (!text) return "-";
+  if (text.length <= maxLength) return text;
+
+  return `${text.slice(0, maxLength)}...`;
+}
+
 function parseArgs(rest = "") {
   const tokens = safeText(rest).split(/\s+/).filter(Boolean);
 
@@ -31,10 +41,21 @@ function parseArgs(rest = "") {
     linkedArea: null,
     linkedRepo: null,
     crossRepo: undefined,
+    full: false,
   };
 
   for (const token of tokens) {
     const lower = token.toLowerCase();
+
+    if (lower === "full" || lower === "--full") {
+      out.full = true;
+      continue;
+    }
+
+    if (lower === "compact" || lower === "--compact") {
+      out.full = false;
+      continue;
+    }
 
     if (lower.startsWith("area:")) {
       out.projectArea = safeText(token.slice(5));
@@ -83,8 +104,12 @@ function buildUsage() {
   return [
     "Использование: /pm_confirmed_context",
     "",
-    "Показывает финальный confirmed AI-context, который собирается из Project Memory.",
-    "Это read-only diagnostic preview.",
+    "Показывает preview confirmed AI-context из Project Memory.",
+    "Это read-only diagnostic команда.",
+    "",
+    "Режимы:",
+    "compact / --compact = короткий preview по умолчанию",
+    "full / --full = полный AI-context как раньше",
     "",
     "Поддерживаемые фильтры:",
     "area:<value>",
@@ -94,16 +119,152 @@ function buildUsage() {
     "cross_repo:true|false",
     "",
     "Примеры:",
-    "/pm_confirmed_context",
-    "/pm_confirmed_context area:core repo:core",
-    "/pm_confirmed_context area:client repo:client cross_repo:false",
+    "/pm_confirmed_context area:shared repo:shared cross_repo:true",
+    "/pm_confirmed_context full area:shared repo:shared cross_repo:true",
     "/pm_confirmed_context linked_area:infra linked_repo:core cross_repo:true",
     "",
     "Важно:",
     "- команда ничего не записывает",
     "- команда ничего не обновляет",
-    "- это preview финального AI-context блока",
+    "- compact меняет только Telegram-отображение",
+    "- полный AI-context строит core/context-builder",
   ].join("\n");
+}
+
+function splitContextSections(contextText = "") {
+  const lines = String(contextText ?? "").split(/\r?\n/);
+
+  const sections = {
+    sectionState: [],
+    decisions: [],
+    constraints: [],
+    nextSteps: [],
+  };
+
+  let current = null;
+
+  for (const rawLine of lines) {
+    const line = String(rawLine ?? "").trim();
+
+    if (!line) continue;
+
+    if (line === "SECTION STATE:") {
+      current = "sectionState";
+      continue;
+    }
+
+    if (line === "DECISIONS:") {
+      current = "decisions";
+      continue;
+    }
+
+    if (line === "CONSTRAINTS:") {
+      current = "constraints";
+      continue;
+    }
+
+    if (line === "NEXT STEPS:") {
+      current = "nextSteps";
+      continue;
+    }
+
+    if (!current) continue;
+
+    if (line.startsWith("- ")) {
+      sections[current].push(line.slice(2));
+      continue;
+    }
+
+    if (sections[current].length) {
+      const lastIndex = sections[current].length - 1;
+      sections[current][lastIndex] = `${sections[current][lastIndex]} ${line}`;
+    }
+  }
+
+  return sections;
+}
+
+function formatPreviewItem(item = "") {
+  const text = safeText(item);
+
+  if (!text) return "-";
+
+  const scopeStart = text.indexOf(" [");
+  const title = scopeStart >= 0 ? text.slice(0, scopeStart) : text;
+
+  return compactText(title, 180);
+}
+
+function buildCompactContextPreview(contextText = "", args = {}) {
+  const filterLabel = buildFilterLabel(args);
+  const sections = splitContextSections(contextText);
+
+  const lines = [
+    `🧠 Confirmed context preview ${filterLabel || ""}`.trim(),
+    "mode=compact transport=telegram",
+    "note=preview only; full AI-context unchanged",
+    "",
+  ];
+
+  const decisionItems = sections.decisions.slice(0, 8);
+  const constraintItems = sections.constraints.slice(0, 8);
+  const nextStepItems = sections.nextSteps.slice(0, 8);
+  const sectionStateItems = sections.sectionState.slice(0, 5);
+
+  const total =
+    decisionItems.length +
+    constraintItems.length +
+    nextStepItems.length +
+    sectionStateItems.length;
+
+  lines.push(
+    `items: decisions=${sections.decisions.length} constraints=${sections.constraints.length} next_steps=${sections.nextSteps.length} section_state=${sections.sectionState.length}`
+  );
+
+  if (!total) {
+    lines.push("");
+    lines.push(compactText(contextText, 900));
+    lines.push("");
+    lines.push("Для полного вывода: /pm_confirmed_context full ...");
+    return lines.join("\n");
+  }
+
+  if (decisionItems.length) {
+    lines.push("");
+    lines.push("DECISIONS:");
+    for (const item of decisionItems) {
+      lines.push(`- ${formatPreviewItem(item)}`);
+    }
+  }
+
+  if (constraintItems.length) {
+    lines.push("");
+    lines.push("CONSTRAINTS:");
+    for (const item of constraintItems) {
+      lines.push(`- ${formatPreviewItem(item)}`);
+    }
+  }
+
+  if (nextStepItems.length) {
+    lines.push("");
+    lines.push("NEXT:");
+    for (const item of nextStepItems) {
+      lines.push(`- ${formatPreviewItem(item)}`);
+    }
+  }
+
+  if (sectionStateItems.length) {
+    lines.push("");
+    lines.push("SECTION STATE:");
+    for (const item of sectionStateItems) {
+      lines.push(`- ${formatPreviewItem(item)}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("Для полного вывода: /pm_confirmed_context full ...");
+
+  return lines.join("\n");
 }
 
 async function sendChunked(bot, chatId, title, content) {
@@ -182,8 +343,14 @@ export async function handlePmConfirmedContext({
       return;
     }
 
-    const title = `🧠 Confirmed context preview ${filterLabel || ""}`.trim();
-    await sendChunked(bot, chatId, title, contextText);
+    if (args.full === true) {
+      const title = `🧠 Confirmed context preview ${filterLabel || ""} full`.trim();
+      await sendChunked(bot, chatId, title, contextText);
+      return;
+    }
+
+    const compactPreview = buildCompactContextPreview(contextText, args);
+    await sendChunked(bot, chatId, "", compactPreview);
   } catch (e) {
     console.error("❌ /pm_confirmed_context error:", e);
     await bot.sendMessage(chatId, "⚠️ Ошибка построения confirmed context preview.");

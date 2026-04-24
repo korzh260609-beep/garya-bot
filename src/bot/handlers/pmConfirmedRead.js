@@ -8,6 +8,11 @@
 // - render additive policy diagnostics already prepared by core reader
 // ============================================================================
 
+import {
+  appendConfirmedScopeLines,
+  appendConfirmedPolicyLines,
+} from "./pmConfirmedRender.js";
+
 function safeText(value) {
   return String(value ?? "").trim();
 }
@@ -166,92 +171,6 @@ async function sendChunked(bot, chatId, title, content) {
   }
 }
 
-function getRowScope(row) {
-  const meta =
-    row?.meta && typeof row.meta === "object" ? row.meta : {};
-
-  return {
-    area: safeText(meta.projectArea) || "-",
-    repo: safeText(meta.repoScope) || "-",
-    linkedAreas: Array.isArray(meta.linkedAreas) ? meta.linkedAreas.filter(Boolean) : [],
-    linkedRepos: Array.isArray(meta.linkedRepoScopes) ? meta.linkedRepoScopes.filter(Boolean) : [],
-    crossRepo: meta.crossRepo === true ? "yes" : "no",
-    aiContext: meta.aiContext === true ? "yes" : "no",
-  };
-}
-
-function getPolicyDiagnostics(row) {
-  const diagnostics =
-    row?.policyDiagnostics && typeof row.policyDiagnostics === "object"
-      ? row.policyDiagnostics
-      : {};
-
-  return {
-    policyVersion:
-      typeof diagnostics.policyVersion === "number"
-        ? String(diagnostics.policyVersion)
-        : "-",
-
-    requirement: safeText(diagnostics.requirement) || "-",
-    requirementReason: safeText(diagnostics.requirementReason) || "-",
-
-    scopeClass: safeText(diagnostics.scopeClass) || "-",
-    scopeClassReason: safeText(diagnostics.scopeClassReason) || "-",
-
-    validForWrite:
-      typeof diagnostics.validForWrite === "boolean"
-        ? (diagnostics.validForWrite ? "yes" : "no")
-        : "-",
-
-    includeInScopedContext:
-      typeof diagnostics.includeInScopedContext === "boolean"
-        ? (diagnostics.includeInScopedContext ? "yes" : "no")
-        : "-",
-
-    allowLegacyUnscopedRead:
-      typeof diagnostics.allowLegacyUnscopedRead === "boolean"
-        ? (diagnostics.allowLegacyUnscopedRead ? "yes" : "no")
-        : "-",
-
-    migrateLegacyLater:
-      typeof diagnostics.migrateLegacyLater === "boolean"
-        ? (diagnostics.migrateLegacyLater ? "yes" : "no")
-        : "-",
-  };
-}
-
-function hasAnyPolicyDiagnostics(policy = {}) {
-  return (
-    policy.policyVersion !== "-" ||
-    policy.requirement !== "-" ||
-    policy.requirementReason !== "-" ||
-    policy.scopeClass !== "-" ||
-    policy.scopeClassReason !== "-" ||
-    policy.validForWrite !== "-" ||
-    policy.includeInScopedContext !== "-" ||
-    policy.allowLegacyUnscopedRead !== "-" ||
-    policy.migrateLegacyLater !== "-"
-  );
-}
-
-function appendPolicyLines(lines, row) {
-  const policy = getPolicyDiagnostics(row);
-
-  if (!hasAnyPolicyDiagnostics(policy)) {
-    return;
-  }
-
-  lines.push(`  policy_version: ${policy.policyVersion}`);
-  lines.push(`  policy_requirement: ${policy.requirement}`);
-  lines.push(`  policy_requirement_reason: ${policy.requirementReason}`);
-  lines.push(`  policy_scope_class: ${policy.scopeClass}`);
-  lines.push(`  policy_scope_class_reason: ${policy.scopeClassReason}`);
-  lines.push(`  policy_valid_for_write: ${policy.validForWrite}`);
-  lines.push(`  policy_include_in_scoped_context: ${policy.includeInScopedContext}`);
-  lines.push(`  policy_allow_legacy_unscoped_read: ${policy.allowLegacyUnscopedRead}`);
-  lines.push(`  policy_migrate_legacy_later: ${policy.migrateLegacyLater}`);
-}
-
 function buildListMessage(rows, args = {}) {
   const filterLabel = buildFilterLabel(args);
 
@@ -262,17 +181,17 @@ function buildListMessage(rows, args = {}) {
   const lines = [`🧠 Confirmed memory ${filterLabel || ""} (последние ${rows.length}):`.trim(), ""];
 
   for (const row of rows) {
-    const scope = getRowScope(row);
-
     lines.push(`• id=${row.id} | ${safeText(row.entry_type)} | ${safeText(row.section) || "-"}`);
-    lines.push(`  area: ${scope.area}`);
-    lines.push(`  repo: ${scope.repo}`);
-    lines.push(`  linked_areas: ${scope.linkedAreas.join(", ") || "-"}`);
-    lines.push(`  linked_repos: ${scope.linkedRepos.join(", ") || "-"}`);
-    lines.push(`  cross_repo: ${scope.crossRepo}`);
-    lines.push(`  context: ${scope.aiContext}`);
 
-    appendPolicyLines(lines, row);
+    appendConfirmedScopeLines(lines, row, {
+      prefix: "  ",
+      contextLabel: "context",
+    });
+
+    appendConfirmedPolicyLines(lines, row, {
+      prefix: "  ",
+      skipEmpty: true,
+    });
 
     if (safeText(row.title)) {
       lines.push(`  title: ${safeText(row.title)}`);
@@ -287,7 +206,7 @@ function buildListMessage(rows, args = {}) {
 
 function buildLatestMessage(row, args = {}) {
   const filterLabel = buildFilterLabel(args);
-  const scope = getRowScope(row);
+
   const lines = [
     `🧠 Confirmed latest ${filterLabel || ""}:`.trim(),
     "",
@@ -297,26 +216,17 @@ function buildLatestMessage(row, args = {}) {
     `title: ${safeText(row.title) || "-"}`,
     `module_key: ${safeText(row.module_key) || "-"}`,
     `stage_key: ${safeText(row.stage_key) || "-"}`,
-    `area: ${scope.area}`,
-    `repo: ${scope.repo}`,
-    `linked_areas: ${scope.linkedAreas.join(", ") || "-"}`,
-    `linked_repos: ${scope.linkedRepos.join(", ") || "-"}`,
-    `cross_repo: ${scope.crossRepo}`,
-    `ai_context: ${scope.aiContext}`,
   ];
 
-  const policy = getPolicyDiagnostics(row);
-  if (hasAnyPolicyDiagnostics(policy)) {
-    lines.push(`policy_version: ${policy.policyVersion}`);
-    lines.push(`policy_requirement: ${policy.requirement}`);
-    lines.push(`policy_requirement_reason: ${policy.requirementReason}`);
-    lines.push(`policy_scope_class: ${policy.scopeClass}`);
-    lines.push(`policy_scope_class_reason: ${policy.scopeClassReason}`);
-    lines.push(`policy_valid_for_write: ${policy.validForWrite}`);
-    lines.push(`policy_include_in_scoped_context: ${policy.includeInScopedContext}`);
-    lines.push(`policy_allow_legacy_unscoped_read: ${policy.allowLegacyUnscopedRead}`);
-    lines.push(`policy_migrate_legacy_later: ${policy.migrateLegacyLater}`);
-  }
+  appendConfirmedScopeLines(lines, row, {
+    prefix: "",
+    contextLabel: "ai_context",
+  });
+
+  appendConfirmedPolicyLines(lines, row, {
+    prefix: "",
+    skipEmpty: true,
+  });
 
   lines.push("");
   lines.push(safeText(row.content) || "-");

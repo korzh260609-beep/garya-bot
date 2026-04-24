@@ -104,6 +104,24 @@ function parseConfirmedUpdateInput(rest = "") {
   const status = pickLine(map, "status");
   if (status) patch.status = status;
 
+  const isActive = parseBooleanLike(
+    pickLine(map, "is_active", "active", "enabled"),
+    undefined
+  );
+
+  const disabled = parseBooleanLike(
+    pickLine(map, "disabled", "archived"),
+    undefined
+  );
+
+  if (typeof isActive === "boolean") {
+    patch.isActive = isActive;
+  }
+
+  if (typeof disabled === "boolean") {
+    patch.isActive = !disabled;
+  }
+
   const tags = splitItems(pickLine(map, "tags", "tag"));
   if (tags.length) patch.tags = tags;
 
@@ -160,6 +178,14 @@ function buildUsage() {
     "context: yes",
     "module: project_memory",
     "stage: 7A",
+    "",
+    "Архивация / деактивация:",
+    "status: archived",
+    "active: no",
+    "",
+    "Повторная активация:",
+    "status: active",
+    "active: yes",
     "",
     "Разделитель списков: |",
   ].join("\n");

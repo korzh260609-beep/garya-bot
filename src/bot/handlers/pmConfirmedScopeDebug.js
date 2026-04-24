@@ -173,7 +173,9 @@ function buildFilterLabel(args = {}) {
 }
 
 function getMeta(row) {
-  return row?.meta && typeof row.meta === "object" ? row.meta : {};
+  return row?.meta && typeof row.meta === "object" && !Array.isArray(row.meta)
+    ? row.meta
+    : {};
 }
 
 function getScopeSignature(row) {
@@ -268,6 +270,16 @@ function buildScopeMap(rows = []) {
   });
 }
 
+function hasRequestedScopeFilter(args = {}) {
+  return (
+    !!args.projectArea ||
+    !!args.repoScope ||
+    !!args.linkedArea ||
+    !!args.linkedRepo ||
+    typeof args.crossRepo === "boolean"
+  );
+}
+
 function buildMessage(rows, args = {}) {
   const filterLabel = buildFilterLabel(args);
   const scopeMap = buildScopeMap(rows);
@@ -294,13 +306,7 @@ function buildMessage(rows, args = {}) {
 
   lines.push("");
 
-  if (
-    args.projectArea ||
-    args.repoScope ||
-    args.linkedArea ||
-    args.linkedRepo ||
-    typeof args.crossRepo === "boolean"
-  ) {
+  if (hasRequestedScopeFilter(args)) {
     lines.push("MATCHING ROWS FOR REQUESTED SCOPE:");
 
     if (!matchingRows.length) {
@@ -403,6 +409,11 @@ export async function handlePmConfirmedScopeDebug({
       section: args.section,
       entryType: args.entryType,
       aiContext: args.aiContext,
+      projectArea: args.projectArea,
+      repoScope: args.repoScope,
+      linkedArea: args.linkedArea,
+      linkedRepo: args.linkedRepo,
+      crossRepo: args.crossRepo,
     });
 
     const message = buildMessage(rows, args);

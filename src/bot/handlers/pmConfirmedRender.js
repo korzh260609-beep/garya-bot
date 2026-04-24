@@ -7,6 +7,7 @@
 // - no policy decisions here
 // - render metadata already returned by universal core/service layer
 // - support both confirmed read rows and write/update rows
+// - keep Telegram output compact and readable
 // ============================================================================
 
 function safeText(value) {
@@ -26,6 +27,15 @@ function listLabel(value) {
     .filter(Boolean);
 
   return items.length ? items.join(", ") : "-";
+}
+
+function compactText(value, maxLength = 120) {
+  const text = safeText(value);
+
+  if (!text) return "-";
+  if (text.length <= maxLength) return text;
+
+  return `${text.slice(0, maxLength)}...`;
 }
 
 function getMeta(row) {
@@ -128,8 +138,9 @@ export function hasConfirmedPolicyDiagnostics(row) {
 export function appendConfirmedStateLines(lines, row, options = {}) {
   const prefix = safeText(options.prefix);
 
-  lines.push(`${prefix}status: ${safeText(row?.status) || "-"}`);
-  lines.push(`${prefix}is_active: ${boolLabel(row?.is_active)}`);
+  lines.push(
+    `${prefix}state: status=${safeText(row?.status) || "-"}, active=${boolLabel(row?.is_active)}`
+  );
 }
 
 export function appendConfirmedScopeLines(lines, row, options = {}) {
@@ -137,12 +148,17 @@ export function appendConfirmedScopeLines(lines, row, options = {}) {
   const prefix = safeText(options.prefix);
   const contextLabel = safeText(options.contextLabel) || "ai_context";
 
-  lines.push(`${prefix}area: ${scope.area}`);
-  lines.push(`${prefix}repo: ${scope.repo}`);
-  lines.push(`${prefix}linked_areas: ${scope.linkedAreas}`);
-  lines.push(`${prefix}linked_repos: ${scope.linkedRepos}`);
-  lines.push(`${prefix}cross_repo: ${scope.crossRepo}`);
-  lines.push(`${prefix}${contextLabel}: ${scope.aiContext}`);
+  lines.push(
+    [
+      `${prefix}scope:`,
+      `area=${scope.area}`,
+      `repo=${scope.repo}`,
+      `cross_repo=${scope.crossRepo}`,
+      `${contextLabel}=${scope.aiContext}`,
+      `linked_areas=${scope.linkedAreas}`,
+      `linked_repos=${scope.linkedRepos}`,
+    ].join(" ")
+  );
 }
 
 export function appendConfirmedPolicyLines(lines, row, options = {}) {
@@ -153,15 +169,23 @@ export function appendConfirmedPolicyLines(lines, row, options = {}) {
     return;
   }
 
-  lines.push(`${prefix}policy_version: ${policy.policyVersion}`);
-  lines.push(`${prefix}policy_requirement: ${policy.requirement}`);
-  lines.push(`${prefix}policy_requirement_reason: ${policy.requirementReason}`);
-  lines.push(`${prefix}policy_scope_class: ${policy.scopeClass}`);
-  lines.push(`${prefix}policy_scope_class_reason: ${policy.scopeClassReason}`);
-  lines.push(`${prefix}policy_valid_for_write: ${policy.validForWrite}`);
-  lines.push(`${prefix}policy_include_in_scoped_context: ${policy.includeInScopedContext}`);
-  lines.push(`${prefix}policy_allow_legacy_unscoped_read: ${policy.allowLegacyUnscopedRead}`);
-  lines.push(`${prefix}policy_migrate_legacy_later: ${policy.migrateLegacyLater}`);
+  lines.push(
+    [
+      `${prefix}policy:`,
+      `v=${policy.policyVersion}`,
+      `req=${compactText(policy.requirement, 60)}`,
+      `class=${compactText(policy.scopeClass, 60)}`,
+      `write=${policy.validForWrite}`,
+      `ctx=${policy.includeInScopedContext}`,
+      `legacy_read=${policy.allowLegacyUnscopedRead}`,
+      `migrate=${policy.migrateLegacyLater}`,
+    ].join(" ")
+  );
+
+  if (options.verbose === true) {
+    lines.push(`${prefix}policy_requirement_reason: ${compactText(policy.requirementReason, 160)}`);
+    lines.push(`${prefix}policy_scope_class_reason: ${compactText(policy.scopeClassReason, 160)}`);
+  }
 }
 
 export function buildConfirmedMemorySavedMessage(saved) {
@@ -169,10 +193,10 @@ export function buildConfirmedMemorySavedMessage(saved) {
     "✅ Confirmed project memory записана.",
     `id: ${saved?.id ?? "-"}`,
     `section: ${saved?.section ?? "-"}`,
-    `entry_type: ${saved?.entry_type ?? "-"}`,
+    `type: ${saved?.entry_type ?? "-"}`,
     `title: ${safeText(saved?.title) || "-"}`,
-    `module_key: ${safeText(saved?.module_key) || "-"}`,
-    `stage_key: ${safeText(saved?.stage_key) || "-"}`,
+    `module: ${safeText(saved?.module_key) || "-"}`,
+    `stage: ${safeText(saved?.stage_key) || "-"}`,
   ];
 
   appendConfirmedStateLines(lines, saved);
@@ -187,10 +211,10 @@ export function buildConfirmedMemoryUpdatedMessage(updated, fallbackId = null) {
     "✅ Confirmed project memory обновлена.",
     `id: ${updated?.id ?? fallbackId ?? "-"}`,
     `section: ${updated?.section ?? "-"}`,
-    `entry_type: ${updated?.entry_type ?? "-"}`,
+    `type: ${updated?.entry_type ?? "-"}`,
     `title: ${safeText(updated?.title) || "-"}`,
-    `module_key: ${safeText(updated?.module_key) || "-"}`,
-    `stage_key: ${safeText(updated?.stage_key) || "-"}`,
+    `module: ${safeText(updated?.module_key) || "-"}`,
+    `stage: ${safeText(updated?.stage_key) || "-"}`,
   ];
 
   appendConfirmedStateLines(lines, updated);

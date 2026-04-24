@@ -7,7 +7,7 @@
 // - no policy decisions here
 // - render metadata already returned by universal core/service layer
 // - support both confirmed read rows and write/update rows
-// - keep Telegram output compact and readable
+// - keep Telegram output very compact and readable
 // ============================================================================
 
 function safeText(value) {
@@ -26,10 +26,10 @@ function listLabel(value) {
     .map((item) => safeText(item))
     .filter(Boolean);
 
-  return items.length ? items.join(", ") : "-";
+  return items.length ? items.join(",") : "-";
 }
 
-function compactText(value, maxLength = 120) {
+function compactText(value, maxLength = 90) {
   const text = safeText(value);
 
   if (!text) return "-";
@@ -139,26 +139,24 @@ export function appendConfirmedStateLines(lines, row, options = {}) {
   const prefix = safeText(options.prefix);
 
   lines.push(
-    `${prefix}state: status=${safeText(row?.status) || "-"}, active=${boolLabel(row?.is_active)}`
+    `${prefix}status=${safeText(row?.status) || "-"} active=${boolLabel(row?.is_active)}`
   );
 }
 
 export function appendConfirmedScopeLines(lines, row, options = {}) {
   const scope = getScopeView(row);
   const prefix = safeText(options.prefix);
-  const contextLabel = safeText(options.contextLabel) || "ai_context";
+  const contextLabel = safeText(options.contextLabel) || "ctx";
 
   lines.push(
-    [
-      `${prefix}scope:`,
-      `area=${scope.area}`,
-      `repo=${scope.repo}`,
-      `cross_repo=${scope.crossRepo}`,
-      `${contextLabel}=${scope.aiContext}`,
-      `linked_areas=${scope.linkedAreas}`,
-      `linked_repos=${scope.linkedRepos}`,
-    ].join(" ")
+    `${prefix}scope=${scope.area}/${scope.repo} cross=${scope.crossRepo} ${contextLabel}=${scope.aiContext}`
   );
+
+  if (scope.linkedAreas !== "-" || scope.linkedRepos !== "-") {
+    lines.push(
+      `${prefix}links=areas:${scope.linkedAreas} repos:${scope.linkedRepos}`
+    );
+  }
 }
 
 export function appendConfirmedPolicyLines(lines, row, options = {}) {
@@ -170,33 +168,28 @@ export function appendConfirmedPolicyLines(lines, row, options = {}) {
   }
 
   lines.push(
-    [
-      `${prefix}policy:`,
-      `v=${policy.policyVersion}`,
-      `req=${compactText(policy.requirement, 60)}`,
-      `class=${compactText(policy.scopeClass, 60)}`,
-      `write=${policy.validForWrite}`,
-      `ctx=${policy.includeInScopedContext}`,
-      `legacy_read=${policy.allowLegacyUnscopedRead}`,
-      `migrate=${policy.migrateLegacyLater}`,
-    ].join(" ")
+    `${prefix}policy=${compactText(policy.scopeClass, 60)} write=${policy.validForWrite} ctx=${policy.includeInScopedContext} legacy=${policy.allowLegacyUnscopedRead} migrate=${policy.migrateLegacyLater}`
   );
 
   if (options.verbose === true) {
-    lines.push(`${prefix}policy_requirement_reason: ${compactText(policy.requirementReason, 160)}`);
-    lines.push(`${prefix}policy_scope_class_reason: ${compactText(policy.scopeClassReason, 160)}`);
+    lines.push(
+      `${prefix}policy_req=${compactText(policy.requirement, 90)} v=${policy.policyVersion}`
+    );
+    lines.push(
+      `${prefix}policy_reason=${compactText(policy.requirementReason, 160)}`
+    );
+    lines.push(
+      `${prefix}policy_class_reason=${compactText(policy.scopeClassReason, 160)}`
+    );
   }
 }
 
 export function buildConfirmedMemorySavedMessage(saved) {
   const lines = [
-    "✅ Confirmed project memory записана.",
-    `id: ${saved?.id ?? "-"}`,
-    `section: ${saved?.section ?? "-"}`,
-    `type: ${saved?.entry_type ?? "-"}`,
-    `title: ${safeText(saved?.title) || "-"}`,
-    `module: ${safeText(saved?.module_key) || "-"}`,
-    `stage: ${safeText(saved?.stage_key) || "-"}`,
+    "✅ Saved confirmed memory",
+    `id=${saved?.id ?? "-"} type=${saved?.entry_type ?? "-"} section=${saved?.section ?? "-"}`,
+    `title=${compactText(saved?.title, 100)}`,
+    `module=${safeText(saved?.module_key) || "-"} stage=${safeText(saved?.stage_key) || "-"}`,
   ];
 
   appendConfirmedStateLines(lines, saved);
@@ -208,13 +201,10 @@ export function buildConfirmedMemorySavedMessage(saved) {
 
 export function buildConfirmedMemoryUpdatedMessage(updated, fallbackId = null) {
   const lines = [
-    "✅ Confirmed project memory обновлена.",
-    `id: ${updated?.id ?? fallbackId ?? "-"}`,
-    `section: ${updated?.section ?? "-"}`,
-    `type: ${updated?.entry_type ?? "-"}`,
-    `title: ${safeText(updated?.title) || "-"}`,
-    `module: ${safeText(updated?.module_key) || "-"}`,
-    `stage: ${safeText(updated?.stage_key) || "-"}`,
+    "✅ Updated confirmed memory",
+    `id=${updated?.id ?? fallbackId ?? "-"} type=${updated?.entry_type ?? "-"} section=${updated?.section ?? "-"}`,
+    `title=${compactText(updated?.title, 100)}`,
+    `module=${safeText(updated?.module_key) || "-"} stage=${safeText(updated?.stage_key) || "-"}`,
   ];
 
   appendConfirmedStateLines(lines, updated);

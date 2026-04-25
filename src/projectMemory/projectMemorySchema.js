@@ -2,10 +2,18 @@
 // ============================================================================
 // Project Memory V2 schema helpers
 // Purpose:
-// - normalize entry types / statuses / source types
+// - normalize entry types / statuses / source types / layers
 // - keep project memory universal across Telegram / Discord / Web UI / API
 // - avoid tying logic to specific phrases or transport-specific assumptions
+// - keep layer resolution based on structured entry semantics, not message text
 // ============================================================================
+
+import {
+  PROJECT_MEMORY_LAYERS,
+  PROJECT_MEMORY_LAYER_VALUES,
+  normalizeProjectMemoryLayer,
+  resolveProjectMemoryLayerByEntryType,
+} from "./projectMemoryLayers.js";
 
 export const PROJECT_MEMORY_ENTRY_TYPES = Object.freeze({
   SECTION_STATE: "section_state",
@@ -100,7 +108,20 @@ export function normalizeProjectMemoryMeta(value) {
   return value;
 }
 
+export function normalizeLayerForEntry({ layer, entryType } = {}) {
+  const normalizedEntryType = normalizeEntryType(entryType);
+  const fallbackLayer = resolveProjectMemoryLayerByEntryType(normalizedEntryType);
+
+  return normalizeProjectMemoryLayer(layer, fallbackLayer);
+}
+
 export function buildNormalizedProjectMemoryInput(input = {}) {
+  const entryType = normalizeEntryType(input.entryType);
+  const layer = normalizeLayerForEntry({
+    layer: input.layer,
+    entryType,
+  });
+
   return {
     projectKey: normalizeText(input.projectKey) || "garya_ai",
     section: normalizeText(input.section),
@@ -110,7 +131,8 @@ export function buildNormalizedProjectMemoryInput(input = {}) {
     meta: normalizeProjectMemoryMeta(input.meta),
     schemaVersion: Number.isInteger(input.schemaVersion) ? input.schemaVersion : 2,
 
-    entryType: normalizeEntryType(input.entryType),
+    layer,
+    entryType,
     status: normalizeStatus(input.status),
     sourceType: normalizeSourceType(input.sourceType),
     sourceRef: normalizeNullableText(input.sourceRef),
@@ -126,6 +148,8 @@ export default {
   PROJECT_MEMORY_ENTRY_TYPES,
   PROJECT_MEMORY_STATUSES,
   PROJECT_MEMORY_SOURCE_TYPES,
+  PROJECT_MEMORY_LAYERS,
+  PROJECT_MEMORY_LAYER_VALUES,
   buildNormalizedProjectMemoryInput,
   normalizeText,
   normalizeNullableText,
@@ -136,4 +160,5 @@ export default {
   normalizeConfidence,
   normalizeBoolean,
   normalizeProjectMemoryMeta,
+  normalizeLayerForEntry,
 };

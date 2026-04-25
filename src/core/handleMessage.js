@@ -16,6 +16,7 @@ import { ProjectEvidenceTriggerPolicy } from "../projectExperience/ProjectEviden
 import { buildProjectLightEvidencePack } from "../projectExperience/ProjectLightEvidencePackBuilder.js";
 import { getCachedSeed, setCachedSeed } from "../projectExperience/ProjectEvidenceSeedCache.js";
 import { understandMeaning } from "./meaning/MeaningEngine.js";
+import { selectToolsForMeaning } from "./meaning/ToolSelectionEngine.js";
 
 function hasProjectEvidenceSeed(value = {}) {
   return Boolean(
@@ -182,6 +183,8 @@ export async function handleMessage(context = {}) {
     previousContext: buildMeaningPreviousContextHint(context, deps),
   });
 
+  const toolSelection = selectToolsForMeaning({ meaning: coreMeaning });
+
   const projectContextAllowedByMeaning = shouldAllowProjectContextFromMeaning(coreMeaning);
 
   const projectContextEngine = new ProjectContextEngine();
@@ -221,6 +224,7 @@ export async function handleMessage(context = {}) {
   let enrichedContext = {
     ...context,
     coreMeaning,
+    toolSelection,
     projectContextAllowedByMeaning,
     projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
     projectMemoryEvidenceTriggerDecision: triggerDecision,
@@ -271,9 +275,6 @@ export async function handleMessage(context = {}) {
     projectEvidenceDiagnostics,
   };
 
-  // =========================================================================
-  // STAGE 6.8 — Enforced guard: no processing without dedupe key/messageId
-  // =========================================================================
   if (isEnforced) {
     const dedupeKey = enrichedContext?.dedupeKey || null;
     if (!dedupeKey || !messageId) {
@@ -291,9 +292,6 @@ export async function handleMessage(context = {}) {
       return { ok: false, reason: "missing_dedupeKey", stage: "6.8" };
     }
 
-    // =========================================================================
-    // STAGE 8D — In-memory dedupe drop
-    // =========================================================================
     try {
       if (!bypassParsed.isBypass) {
         const now = Date.now();
@@ -321,9 +319,6 @@ export async function handleMessage(context = {}) {
     }
   }
 
-  // =========================================================================
-  // STAGE 6 LOGIC STEP 1 — Identity + Access
-  // =========================================================================
   const identity = await resolveIdentityAndAccess({
     transport,
     senderId,
@@ -341,9 +336,6 @@ export async function handleMessage(context = {}) {
     isMonarchUser,
   } = identity;
 
-  // =========================================================================
-  // STAGE 6 LOGIC STEP 2 — Routing parse
-  // =========================================================================
   const routing = parseCommandAccess({
     trimmed,
     user,
@@ -358,9 +350,6 @@ export async function handleMessage(context = {}) {
     canProceed,
   } = routing;
 
-  // =========================================================================
-  // Trace log
-  // =========================================================================
   try {
     if (isTransportTraceEnabled()) {
       console.log("📨 handleMessage(core)", {
@@ -384,6 +373,8 @@ export async function handleMessage(context = {}) {
         contextContinuityStrength: enrichedContext?.coreMeaning?.contextContinuity?.contextStrength,
         contextContinuityCanUsePreviousTarget: enrichedContext?.coreMeaning?.contextContinuity?.canUsePreviousTarget,
         contextContinuityShouldAskClarification: enrichedContext?.coreMeaning?.contextContinuity?.shouldAskClarification,
+        toolSelectionStatus: enrichedContext?.toolSelection?.status,
+        toolSelectionTools: enrichedContext?.toolSelection?.selectedTools,
         projectContextAllowedByMeaning: enrichedContext?.projectContextAllowedByMeaning,
         projectContextDepth: enrichedContext?.projectContextDecision?.depth,
         projectContextTrigger: enrichedContext?.projectContextDecision?.trigger,
@@ -397,13 +388,8 @@ export async function handleMessage(context = {}) {
         projectEvidenceTriggerReasons: projectEvidenceDiagnostics.projectEvidenceTriggerReasons,
       });
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
-  // =========================================================================
-  // STAGE CORE MEANING — Natural clarification guard
-  // =========================================================================
   if (isEnforced && coreMeaning?.suggestedAction === "clarify" && !isCommand) {
     const chatIdNumForClarify = chatId ? Number(chatId) : null;
     const chatIdStrForClarify = chatId || "";
@@ -448,9 +434,6 @@ export async function handleMessage(context = {}) {
     };
   }
 
-  // =========================================================================
-  // STAGE 7.1 — Memory shadow write (OFF by default)
-  // =========================================================================
   try {
     const memory = getMemoryService();
     const enabled = Boolean(memory?.config?.enabled);
@@ -476,9 +459,6 @@ export async function handleMessage(context = {}) {
     console.error("handleMessage(memory shadow) failed:", e);
   }
 
-  // =========================================================================
-  // Shadow mode: compute routing but don't act
-  // =========================================================================
   if (!isEnforced) {
     return {
       ok: true,
@@ -491,15 +471,13 @@ export async function handleMessage(context = {}) {
       cmdBase,
       canProceed,
       coreMeaning: enrichedContext?.coreMeaning || null,
+      toolSelection: enrichedContext?.toolSelection || null,
       projectContextDecision: enrichedContext?.projectContextDecision || null,
       projectMemoryEvidenceTriggerDecision: enrichedContext?.projectMemoryEvidenceTriggerDecision || null,
       projectEvidenceDiagnostics,
     };
   }
 
-  // =========================================================================
-  // ENFORCED MODE — real routing + reply
-  // =========================================================================
   const chatIdNum = chatId ? Number(chatId) : null;
   const chatIdStr = chatId || "";
 

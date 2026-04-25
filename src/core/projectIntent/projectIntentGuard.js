@@ -1,16 +1,11 @@
 // src/core/projectIntent/projectIntentGuard.js
 // ============================================================================
 // STAGE 12A.0 — project free-text intent guard (route-aware)
-// Purpose:
-// - protect SG CORE internal project work only
-// - DO NOT block future user-owned project work here
-// - always block SG-core write intent in free text (read-only policy)
-// - allow SG-core read-only only for monarch + private
-// - for monarch write intent: require explicit confirmation
 // ============================================================================
 
 import { resolveProjectIntentRoute } from "./projectIntentRoute.js";
 import { buildProjectIntentRoutePreview } from "./projectIntentRoutePreview.js";
+import { savePendingProjectIntent } from "./projectIntentPendingStore.js";
 
 function buildAccessDeniedText() {
   return [
@@ -51,6 +46,9 @@ export async function requireProjectIntentAccess({
   isPrivateChat = false,
   replyAndLog,
   resolvedRoute = null,
+  globalUserId = null,
+  chatId = null,
+  transport = "unknown",
 } = {}) {
   const route =
     resolvedRoute ||
@@ -75,19 +73,20 @@ export async function requireProjectIntentAccess({
   }
 
   if (route.routeKey === "sg_core_internal_write_needs_confirmation") {
+    savePendingProjectIntent({
+      globalUserId,
+      chatId,
+      transport,
+      text,
+      route,
+      routePreview,
+      match,
+    });
+
     if (typeof replyAndLog === "function") {
       await replyAndLog(buildConfirmationText(routePreview.text), {
         handler: "projectIntentGuard",
         event: "project_write_intent_needs_confirmation",
-        project_intent_scope: match.targetScope,
-        project_intent_domain: match.targetDomain,
-        project_intent_action_mode: match.actionMode,
-        project_intent_confidence: match.confidence,
-        project_intent_route_key: route.routeKey,
-        project_intent_policy: route.policy,
-        project_intent_route_preview: routePreview.text,
-        read_only: false,
-        needs_confirmation: true,
       });
     }
 
@@ -106,14 +105,6 @@ export async function requireProjectIntentAccess({
       await replyAndLog(buildWriteDeniedText(), {
         handler: "projectIntentGuard",
         event: "project_write_intent_denied",
-        project_intent_scope: match.targetScope,
-        project_intent_domain: match.targetDomain,
-        project_intent_action_mode: match.actionMode,
-        project_intent_confidence: match.confidence,
-        project_intent_route_key: route.routeKey,
-        project_intent_policy: route.policy,
-        project_intent_route_preview: routePreview.text,
-        read_only: true,
       });
     }
 
@@ -142,14 +133,6 @@ export async function requireProjectIntentAccess({
     await replyAndLog(buildAccessDeniedText(), {
       handler: "projectIntentGuard",
       event: "project_intent_denied",
-      project_intent_scope: match.targetScope,
-      project_intent_domain: match.targetDomain,
-      project_intent_action_mode: match.actionMode,
-      project_intent_confidence: match.confidence,
-      project_intent_route_key: route.routeKey,
-      project_intent_policy: route.policy,
-      project_intent_route_preview: routePreview.text,
-      read_only: true,
     });
   }
 

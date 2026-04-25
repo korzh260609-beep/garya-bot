@@ -247,7 +247,7 @@ export async function handleChatFlow({
       pendingChoiceContext
     );
 
-    const projectContextDecision = projectContextEngine.classifyProjectContextNeed({
+    const projectContextDecision = context?.projectContextDecision || projectContextEngine.classifyProjectContextNeed({
       text: projectIntentRoutingText,
       hasActiveProjectSession: repoFollowupContext?.isActive === true,
     });

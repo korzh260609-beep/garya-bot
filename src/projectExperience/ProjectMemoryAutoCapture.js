@@ -2,6 +2,7 @@
 // ============================================================================
 // STAGE C.7 — Project Memory Auto Capture (SKELETON / DRY-RUN)
 // UPDATED: user/monarch statements are treated as CLAIMS, not facts
+// UPDATED: claim records are immediately passed through ProjectClaimVerifier
 // ============================================================================
 
 import {
@@ -13,6 +14,7 @@ import {
   EXPERIENCE_MEMORY_SOURCE_TYPES,
   EXPERIENCE_MEMORY_TRUST_LEVELS,
 } from "./ProjectExperienceMemorySchema.js";
+import { ProjectClaimVerifier } from "./ProjectClaimVerifier.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -55,13 +57,31 @@ function detectStageStateSignal(text = "") {
   return /этап|stage|статус|заверш|готов|blocked|partial|verified/.test(s);
 }
 
+function withVerification(record, verification) {
+  return {
+    ...record,
+    meta: {
+      ...(record?.meta && typeof record.meta === "object" ? record.meta : {}),
+      verification,
+      verifiedFact: false,
+    },
+  };
+}
+
 export class ProjectMemoryAutoCapture {
+  constructor({ claimVerifier = new ProjectClaimVerifier() } = {}) {
+    this.claimVerifier = claimVerifier;
+  }
+
   prepareFromUserMessage({
     text = "",
     projectKey = "garya-bot",
     sourceRef = null,
     isMonarchUser = false,
     projectContextDecision = null,
+    repoEvidences = [],
+    pillarContext = null,
+    memoryEvidences = [],
   } = {}) {
     const sourceText = safeText(text);
     const stageKey = extractStageKey(sourceText) || safeText(projectContextDecision?.stageKey) || null;
@@ -76,102 +96,128 @@ export class ProjectMemoryAutoCapture {
       };
     }
 
-    // ВСЁ от пользователя = CLAIM
-    records.push(
-      createClaimRecord({
-        projectKey,
-        stageKey,
-        title: "User/Monarch project statement",
-        summary: sourceText,
-        sourceType: isMonarchUser
-          ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
-          : EXPERIENCE_MEMORY_SOURCE_TYPES.USER_CLAIM,
-        sourceRef,
-        reason: "User-provided statement; must be verified against repo/pillars before becoming fact.",
-      })
-    );
+    const claimRecord = createClaimRecord({
+      projectKey,
+      stageKey,
+      title: "User/Monarch project statement",
+      summary: sourceText,
+      sourceType: isMonarchUser
+        ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
+        : EXPERIENCE_MEMORY_SOURCE_TYPES.USER_CLAIM,
+      sourceRef,
+      reason: "User-provided statement; must be verified against repo/pillars before becoming fact.",
+    });
+
+    const verification = this.claimVerifier.verifyClaim({
+      claimRecord,
+      repoEvidences,
+      pillarContext,
+      memoryEvidences,
+    });
+
+    records.push(withVerification(claimRecord, verification));
     reasons.push("user_claim");
 
     if (detectDecisionSignal(sourceText)) {
       records.push(
-        createDecisionRecord({
-          projectKey,
-          stageKey,
-          title: "Project decision candidate",
-          summary: sourceText,
-          sourceType: EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM,
-          sourceRef,
-          trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
-          reason: "Decision detected from user statement; requires verification/context linking.",
-          meta: {
-            autoCapture: true,
-            captureKind: "decision_candidate",
-            requiresVerification: true,
-          },
-        })
+        withVerification(
+          createDecisionRecord({
+            projectKey,
+            stageKey,
+            title: "Project decision candidate",
+            summary: sourceText,
+            sourceType: isMonarchUser
+              ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
+              : EXPERIENCE_MEMORY_SOURCE_TYPES.USER_CLAIM,
+            sourceRef,
+            trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
+            reason: "Decision detected from user statement; requires verification/context linking.",
+            meta: {
+              autoCapture: true,
+              captureKind: "decision_candidate",
+              requiresVerification: true,
+            },
+          }),
+          verification
+        )
       );
       reasons.push("decision_signal");
     }
 
     if (detectRiskSignal(sourceText)) {
       records.push(
-        createTimelineEventRecord({
-          projectKey,
-          stageKey,
-          title: "Project risk candidate",
-          summary: sourceText,
-          sourceType: EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM,
-          sourceRef,
-          trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
-          risks: [sourceText],
-          meta: {
-            autoCapture: true,
-            captureKind: "risk_candidate",
-            requiresVerification: true,
-          },
-        })
+        withVerification(
+          createTimelineEventRecord({
+            projectKey,
+            stageKey,
+            title: "Project risk candidate",
+            summary: sourceText,
+            sourceType: isMonarchUser
+              ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
+              : EXPERIENCE_MEMORY_SOURCE_TYPES.USER_CLAIM,
+            sourceRef,
+            trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
+            risks: [sourceText],
+            meta: {
+              autoCapture: true,
+              captureKind: "risk_candidate",
+              requiresVerification: true,
+            },
+          }),
+          verification
+        )
       );
       reasons.push("risk_signal");
     }
 
     if (detectRevisionSignal(sourceText)) {
       records.push(
-        createRevisionRecord({
-          projectKey,
-          stageKey,
-          title: "Revision candidate",
-          summary: sourceText,
-          sourceType: EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM,
-          sourceRef,
-          trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
-          reason: "Revision detected; requires validation.",
-          meta: {
-            autoCapture: true,
-            captureKind: "revision_candidate",
-            requiresVerification: true,
-          },
-        })
+        withVerification(
+          createRevisionRecord({
+            projectKey,
+            stageKey,
+            title: "Revision candidate",
+            summary: sourceText,
+            sourceType: isMonarchUser
+              ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
+              : EXPERIENCE_MEMORY_SOURCE_TYPES.USER_CLAIM,
+            sourceRef,
+            trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
+            reason: "Revision detected; requires validation.",
+            meta: {
+              autoCapture: true,
+              captureKind: "revision_candidate",
+              requiresVerification: true,
+            },
+          }),
+          verification
+        )
       );
       reasons.push("revision_signal");
     }
 
     if (detectStageStateSignal(sourceText)) {
       records.push(
-        createStageStateRecord({
-          projectKey,
-          stageKey,
-          title: stageKey ? `Stage ${stageKey} state candidate` : "Stage state candidate",
-          summary: sourceText,
-          sourceType: EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM,
-          sourceRef,
-          trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
-          reason: "Stage/state claimed by user; must be verified via repo/pillars.",
-          meta: {
-            autoCapture: true,
-            captureKind: "stage_state_candidate",
-            requiresVerification: true,
-          },
-        })
+        withVerification(
+          createStageStateRecord({
+            projectKey,
+            stageKey,
+            title: stageKey ? `Stage ${stageKey} state candidate` : "Stage state candidate",
+            summary: sourceText,
+            sourceType: isMonarchUser
+              ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
+              : EXPERIENCE_MEMORY_SOURCE_TYPES.USER_CLAIM,
+            sourceRef,
+            trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
+            reason: "Stage/state claimed by user; must be verified via repo/pillars.",
+            meta: {
+              autoCapture: true,
+              captureKind: "stage_state_candidate",
+              requiresVerification: true,
+            },
+          }),
+          verification
+        )
       );
       reasons.push("stage_state_signal");
     }
@@ -181,6 +227,7 @@ export class ProjectMemoryAutoCapture {
       records,
       reasons: unique(reasons),
       dryRun: true,
+      verification,
       warning: "User statements stored as CLAIMS only. No verified facts recorded.",
     };
   }

@@ -3,6 +3,7 @@
 // STAGE C.7 — Project Memory Auto Capture (SKELETON / DRY-RUN)
 // UPDATED: user/monarch statements are treated as CLAIMS, not facts
 // UPDATED: claim records are immediately passed through ProjectClaimVerifier
+// UPDATED: prepared records are evaluated by ProjectMemoryWritePolicy
 // ============================================================================
 
 import {
@@ -15,6 +16,7 @@ import {
   EXPERIENCE_MEMORY_TRUST_LEVELS,
 } from "./ProjectExperienceMemorySchema.js";
 import { ProjectClaimVerifier } from "./ProjectClaimVerifier.js";
+import { ProjectMemoryWritePolicy } from "./ProjectMemoryWritePolicy.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -68,9 +70,37 @@ function withVerification(record, verification) {
   };
 }
 
+function buildPolicySummary(policyResults = []) {
+  const items = ensureArray(policyResults);
+  const summary = {
+    total: items.length,
+    write: 0,
+    skip: 0,
+    needsVerification: 0,
+    byLayer: {},
+  };
+
+  for (const item of items) {
+    const decision = safeText(item?.policy?.decision);
+    const layer = safeText(item?.policy?.targetLayer) || "none";
+
+    if (decision === "write") summary.write += 1;
+    if (decision === "skip") summary.skip += 1;
+    if (decision === "needs_verification") summary.needsVerification += 1;
+
+    summary.byLayer[layer] = (summary.byLayer[layer] || 0) + 1;
+  }
+
+  return summary;
+}
+
 export class ProjectMemoryAutoCapture {
-  constructor({ claimVerifier = new ProjectClaimVerifier() } = {}) {
+  constructor({
+    claimVerifier = new ProjectClaimVerifier(),
+    writePolicy = new ProjectMemoryWritePolicy(),
+  } = {}) {
     this.claimVerifier = claimVerifier;
+    this.writePolicy = writePolicy;
   }
 
   prepareFromUserMessage({
@@ -92,6 +122,8 @@ export class ProjectMemoryAutoCapture {
       return {
         shouldCapture: false,
         records: [],
+        policyResults: [],
+        policySummary: buildPolicySummary([]),
         reasons: ["empty_text"],
       };
     }
@@ -222,34 +254,42 @@ export class ProjectMemoryAutoCapture {
       reasons.push("stage_state_signal");
     }
 
+    const policyResults = this.writePolicy.evaluateRecords(records);
+
     return {
       shouldCapture: true,
       records,
+      policyResults,
+      policySummary: buildPolicySummary(policyResults),
       reasons: unique(reasons),
       dryRun: true,
       verification,
-      warning: "User statements stored as CLAIMS only. No verified facts recorded.",
+      warning: "User statements stored as CLAIMS only. No verified facts recorded. WritePolicy evaluated only; no DB write performed.",
     };
   }
 
   prepareFromExperienceResult({ experienceResult = null, projectKey = "garya-bot" } = {}) {
     const prepared = ensureArray(experienceResult?.preparedMemoryRecords);
+    const records = prepared.map((record) => ({
+      ...record,
+      projectKey: safeText(record?.projectKey) || projectKey,
+      meta: {
+        ...(record?.meta && typeof record.meta === "object" ? record.meta : {}),
+        autoCapture: true,
+        source: "project_experience_result",
+      },
+    }));
+    const policyResults = this.writePolicy.evaluateRecords(records);
 
     return {
-      shouldCapture: prepared.length > 0,
-      records: prepared.map((record) => ({
-        ...record,
-        projectKey: safeText(record?.projectKey) || projectKey,
-        meta: {
-          ...(record?.meta && typeof record.meta === "object" ? record.meta : {}),
-          autoCapture: true,
-          source: "project_experience_result",
-        },
-      })),
-      reasons: prepared.length > 0 ? ["experience_prepared_records"] : [],
+      shouldCapture: records.length > 0,
+      records,
+      policyResults,
+      policySummary: buildPolicySummary(policyResults),
+      reasons: records.length > 0 ? ["experience_prepared_records"] : [],
       dryRun: true,
-      warning: prepared.length > 0
-        ? "Prepared experience memory records only; no Project Memory write performed."
+      warning: records.length > 0
+        ? "Prepared experience memory records and evaluated WritePolicy only; no Project Memory write performed."
         : null,
     };
   }

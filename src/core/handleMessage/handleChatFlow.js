@@ -27,6 +27,10 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function ensureArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function buildInternalProjectFallbackReply() {
   return "Я понял, что это запрос к репозиторию проекта, но пока не могу уверенно определить, что именно нужно: найти, открыть, показать дерево или объяснить.";
 }
@@ -35,7 +39,22 @@ function buildAutoCaptureSourceRef({ transport, chatIdStr, messageId } = {}) {
   return `${safeText(transport) || "unknown"}:${safeText(chatIdStr) || "unknown"}:${messageId ?? "no-message-id"}`;
 }
 
-function buildProjectMemoryAutoCaptureMetadata(result = null) {
+function resolveProjectMemoryEvidenceInputs({ context = {}, deps = {} } = {}) {
+  const fromContext = context?.projectMemoryEvidencePack || context?.projectEvidencePack || null;
+  const fromDeps = deps?.projectMemoryEvidencePack || deps?.projectEvidencePack || null;
+  const evidencePack = fromContext || fromDeps || null;
+
+  return {
+    repoEvidences: ensureArray(evidencePack?.repoEvidences),
+    pillarContext: evidencePack?.pillarContext || null,
+    memoryEvidences: ensureArray(evidencePack?.memoryEvidences),
+    evidenceSummary: evidencePack?.summary || null,
+  };
+}
+
+function buildProjectMemoryAutoCaptureMetadata(result = null, evidenceInputs = null) {
+  const evidenceSummary = evidenceInputs?.evidenceSummary || null;
+
   if (!result || typeof result !== "object") {
     return {
       projectMemoryAutoCaptureShouldCapture: false,
@@ -43,6 +62,7 @@ function buildProjectMemoryAutoCaptureMetadata(result = null) {
       projectMemoryAutoCapturePolicySummary: null,
       projectMemoryAutoCaptureVerificationStatus: null,
       projectMemoryAutoCaptureDryRun: true,
+      projectMemoryAutoCaptureEvidenceSummary: evidenceSummary,
     };
   }
 
@@ -52,6 +72,7 @@ function buildProjectMemoryAutoCaptureMetadata(result = null) {
     projectMemoryAutoCapturePolicySummary: result?.policySummary || null,
     projectMemoryAutoCaptureVerificationStatus: safeText(result?.verification?.status) || null,
     projectMemoryAutoCaptureDryRun: result?.dryRun !== false,
+    projectMemoryAutoCaptureEvidenceSummary: evidenceSummary,
   };
 }
 
@@ -231,8 +252,9 @@ export async function handleChatFlow({
       hasActiveProjectSession: repoFollowupContext?.isActive === true,
     });
 
+    const projectMemoryEvidenceInputs = resolveProjectMemoryEvidenceInputs({ context, deps });
     let projectMemoryAutoCaptureResult = null;
-    let projectMemoryAutoCaptureMeta = buildProjectMemoryAutoCaptureMetadata(null);
+    let projectMemoryAutoCaptureMeta = buildProjectMemoryAutoCaptureMetadata(null, projectMemoryEvidenceInputs);
 
     try {
       projectMemoryAutoCaptureResult = projectMemoryAutoCapture.prepareFromUserMessage({
@@ -241,16 +263,19 @@ export async function handleChatFlow({
         sourceRef: buildAutoCaptureSourceRef({ transport, chatIdStr, messageId }),
         isMonarchUser: !!isMonarchUser,
         projectContextDecision,
-        repoEvidences: [],
-        pillarContext: null,
-        memoryEvidences: [],
+        repoEvidences: projectMemoryEvidenceInputs.repoEvidences,
+        pillarContext: projectMemoryEvidenceInputs.pillarContext,
+        memoryEvidences: projectMemoryEvidenceInputs.memoryEvidences,
       });
 
-      projectMemoryAutoCaptureMeta = buildProjectMemoryAutoCaptureMetadata(projectMemoryAutoCaptureResult);
+      projectMemoryAutoCaptureMeta = buildProjectMemoryAutoCaptureMetadata(
+        projectMemoryAutoCaptureResult,
+        projectMemoryEvidenceInputs
+      );
     } catch (e) {
       console.error("ERROR project memory auto-capture dry-run failed (fail-open):", e);
       projectMemoryAutoCaptureMeta = {
-        ...buildProjectMemoryAutoCaptureMetadata(null),
+        ...buildProjectMemoryAutoCaptureMetadata(null, projectMemoryEvidenceInputs),
         projectMemoryAutoCaptureError: true,
       };
     }

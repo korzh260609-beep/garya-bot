@@ -36,6 +36,7 @@ const CONFIRMED_ENTRY_TYPES = new Set([
 function isConfirmedEntry(entry) {
   if (!entry || typeof entry !== "object") return false;
   if (entry.is_active !== true) return false;
+  if (safeText(entry.layer) !== "confirmed") return false;
   return CONFIRMED_ENTRY_TYPES.has(safeText(entry.entry_type));
 }
 
@@ -207,6 +208,7 @@ export class ProjectMemoryConfirmedReader {
     const targetLimit = normalizeLimit(limit, 50, 1, 200);
 
     const rawEntries = await this.service.listEntries(projectKey, {
+      layer: "confirmed",
       isActive: true,
       limit: Math.max(200, targetLimit),
     });

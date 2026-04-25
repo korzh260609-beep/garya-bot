@@ -12,6 +12,7 @@
 
 import { getUserTimezone } from "../../db/userSettings.js";
 import { resolveUserTimezone } from "../../core/time/timezoneResolver.js";
+import { truncateTelegramText } from "../telegram/telegramTextUtils.js";
 import {
   safeText,
   formatDateTime,
@@ -135,8 +136,7 @@ function buildDigestMessage(rows, limit, timezone, filters) {
 
   lines.push("Используй: /pm_session_show <id>");
 
-  const text = lines.join("\n").trim();
-  return text.length > 3800 ? text.slice(0, 3800) + "\n…(обрезано)" : text;
+  return truncateTelegramText(lines.join("\n").trim());
 }
 
 export async function handlePmDigest({

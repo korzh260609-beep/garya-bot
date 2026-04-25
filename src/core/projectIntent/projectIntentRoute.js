@@ -22,6 +22,7 @@ function toBool(value) {
 export const PROJECT_INTENT_ROUTE_KEYS = Object.freeze({
   SG_CORE_INTERNAL_READ_ALLOWED: "sg_core_internal_read_allowed",
   SG_CORE_INTERNAL_READ_DENIED: "sg_core_internal_read_denied",
+  SG_CORE_INTERNAL_WRITE_NEEDS_CONFIRMATION: "sg_core_internal_write_needs_confirmation",
   SG_CORE_INTERNAL_WRITE_DENIED: "sg_core_internal_write_denied",
 
   USER_PROJECT_READ: "user_project_read",
@@ -39,6 +40,7 @@ export const PROJECT_INTENT_ROUTE_KEYS = Object.freeze({
 
 export const PROJECT_INTENT_ROUTE_POLICIES = Object.freeze({
   SG_CORE_READ_ONLY: "sg_core_read_only",
+  SG_CORE_CONFIRM_BEFORE_WRITE: "sg_core_confirm_before_write",
   SG_CORE_DENY: "sg_core_deny",
 
   USER_PROJECT_FUTURE: "user_project_future",
@@ -65,27 +67,39 @@ export function resolveProjectIntentRoute({
   let requiresMonarch = false;
   let requiresPrivate = false;
   let readOnly = false;
+  let needsConfirmation = false;
 
   if (match.targetScope === "sg_core_internal") {
     requiresMonarch = true;
     requiresPrivate = true;
-    readOnly = true;
 
     if (match.isProjectWriteIntent) {
-      routeKey = PROJECT_INTENT_ROUTE_KEYS.SG_CORE_INTERNAL_WRITE_DENIED;
-      policy = PROJECT_INTENT_ROUTE_POLICIES.SG_CORE_DENY;
-      allowed = false;
-      blocked = true;
+      readOnly = false;
+
+      if (monarch && priv) {
+        routeKey = PROJECT_INTENT_ROUTE_KEYS.SG_CORE_INTERNAL_WRITE_NEEDS_CONFIRMATION;
+        policy = PROJECT_INTENT_ROUTE_POLICIES.SG_CORE_CONFIRM_BEFORE_WRITE;
+        allowed = false;
+        blocked = true;
+        needsConfirmation = true;
+      } else {
+        routeKey = PROJECT_INTENT_ROUTE_KEYS.SG_CORE_INTERNAL_WRITE_DENIED;
+        policy = PROJECT_INTENT_ROUTE_POLICIES.SG_CORE_DENY;
+        allowed = false;
+        blocked = true;
+      }
     } else if (monarch && priv) {
       routeKey = PROJECT_INTENT_ROUTE_KEYS.SG_CORE_INTERNAL_READ_ALLOWED;
       policy = PROJECT_INTENT_ROUTE_POLICIES.SG_CORE_READ_ONLY;
       allowed = true;
       blocked = false;
+      readOnly = true;
     } else {
       routeKey = PROJECT_INTENT_ROUTE_KEYS.SG_CORE_INTERNAL_READ_DENIED;
       policy = PROJECT_INTENT_ROUTE_POLICIES.SG_CORE_DENY;
       allowed = false;
       blocked = true;
+      readOnly = true;
     }
   } else if (match.targetScope === "user_project") {
     policy = PROJECT_INTENT_ROUTE_POLICIES.USER_PROJECT_FUTURE;
@@ -133,6 +147,7 @@ export function resolveProjectIntentRoute({
     requiresMonarch,
     requiresPrivate,
     readOnly,
+    needsConfirmation,
 
     targetScope: match.targetScope,
     targetDomain: match.targetDomain,

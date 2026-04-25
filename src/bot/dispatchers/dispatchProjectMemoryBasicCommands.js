@@ -90,6 +90,7 @@ export async function dispatchProjectMemoryBasicCommands({
       await handlePmLatest({
         bot,
         chatId,
+        rest: ctx.rest,
         globalUserId: ctx.globalUserId ?? null,
         getProjectMemoryList: ctx.getProjectMemoryList,
       });

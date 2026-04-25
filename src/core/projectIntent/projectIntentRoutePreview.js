@@ -25,6 +25,17 @@ export function buildProjectIntentRoutePreview(route = {}) {
     };
   }
 
+  if (routeKey === "sg_core_internal_write_needs_confirmation") {
+    return {
+      text: [
+        "- действие: подготовка изменения ядра проекта SG",
+        "- режим: требуется подтверждение монарха",
+        "- выполнение: не выполняется до /confirm_project_action",
+      ].join("\n"),
+      kind: "sg_core_internal_write_needs_confirmation",
+    };
+  }
+
   if (routeKey === "sg_core_internal_write_denied") {
     return {
       text: "- result: BLOCK (sg_core_internal write-intent denied)",

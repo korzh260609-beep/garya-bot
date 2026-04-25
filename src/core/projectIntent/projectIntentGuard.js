@@ -6,9 +6,7 @@
 // - DO NOT block future user-owned project work here
 // - always block SG-core write intent in free text (read-only policy)
 // - allow SG-core read-only only for monarch + private
-// IMPORTANT:
-// - this guard protects free-text chat entry only
-// - command-level and handler-level guards remain mandatory
+// - for monarch write intent: require explicit confirmation
 // ============================================================================
 
 import { resolveProjectIntentRoute } from "./projectIntentRoute.js";
@@ -26,6 +24,25 @@ function buildWriteDeniedText() {
     "⛔ Free-text действия записи для ядра проекта SG заблокированы.",
     "Разрешён только read-only режим: чтение, поиск, проверка, анализ, сравнение, подготовка изменений вручную.",
   ].join("\n");
+}
+
+function buildConfirmationText(routePreviewText = "") {
+  return [
+    "⚠️ Требуется подтверждение монарха.",
+    "",
+    "Я распознал попытку изменения ядра проекта SG.",
+    "",
+    routePreviewText ? `Что будет сделано:\n${routePreviewText}` : "",
+    "",
+    "К чему это приведёт:",
+    "- изменение внутренней памяти проекта",
+    "- влияние на поведение SG",
+    "",
+    "Подтвердить выполнение?",
+    "Ответь: /confirm_project_action",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export async function requireProjectIntentAccess({
@@ -57,6 +74,33 @@ export async function requireProjectIntentAccess({
     };
   }
 
+  if (route.routeKey === "sg_core_internal_write_needs_confirmation") {
+    if (typeof replyAndLog === "function") {
+      await replyAndLog(buildConfirmationText(routePreview.text), {
+        handler: "projectIntentGuard",
+        event: "project_write_intent_needs_confirmation",
+        project_intent_scope: match.targetScope,
+        project_intent_domain: match.targetDomain,
+        project_intent_action_mode: match.actionMode,
+        project_intent_confidence: match.confidence,
+        project_intent_route_key: route.routeKey,
+        project_intent_policy: route.policy,
+        project_intent_route_preview: routePreview.text,
+        read_only: false,
+        needs_confirmation: true,
+      });
+    }
+
+    return {
+      allowed: false,
+      blocked: true,
+      reason: "project_write_intent_needs_confirmation",
+      route,
+      routePreview,
+      match,
+    };
+  }
+
   if (route.routeKey === "sg_core_internal_write_denied") {
     if (typeof replyAndLog === "function") {
       await replyAndLog(buildWriteDeniedText(), {
@@ -69,9 +113,6 @@ export async function requireProjectIntentAccess({
         project_intent_route_key: route.routeKey,
         project_intent_policy: route.policy,
         project_intent_route_preview: routePreview.text,
-        project_intent_anchor_hits: match.anchorHits,
-        project_intent_internal_action_hits: match.internalActionHits,
-        project_intent_write_action_hits: match.writeActionHits,
         read_only: true,
       });
     }
@@ -108,9 +149,6 @@ export async function requireProjectIntentAccess({
       project_intent_route_key: route.routeKey,
       project_intent_policy: route.policy,
       project_intent_route_preview: routePreview.text,
-      project_intent_anchor_hits: match.anchorHits,
-      project_intent_internal_action_hits: match.internalActionHits,
-      project_intent_write_action_hits: match.writeActionHits,
       read_only: true,
     });
   }

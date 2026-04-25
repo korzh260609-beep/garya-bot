@@ -102,6 +102,9 @@ export async function handleChatFlow({
       isPrivateChat: !!isPrivateChat,
       replyAndLog,
       resolvedRoute: projectIntentRoute,
+      globalUserId,
+      chatId: chatIdStr,
+      transport,
     });
 
     if (!projectIntentAccess.allowed) {

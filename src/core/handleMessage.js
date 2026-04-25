@@ -15,6 +15,8 @@ import { ProjectContextEngine } from "../projectExperience/ProjectContextEngine.
 import { ProjectEvidenceTriggerPolicy } from "../projectExperience/ProjectEvidenceTriggerPolicy.js";
 import { buildProjectLightEvidencePack } from "../projectExperience/ProjectLightEvidencePackBuilder.js";
 import { understandProjectMeaning } from "../projectExperience/ProjectMeaningLayer.js";
+import { getCachedSeed, setCachedSeed } from "../projectExperience/ProjectEvidenceSeedCache.js";
+import { understandMeaning } from "./meaning/MeaningEngine.js";
 
 function hasProjectEvidenceSeed(value = {}) {
   return Boolean(
@@ -38,16 +40,34 @@ async function buildProjectEvidenceSeedIfAvailable(context = {}, deps = {}, trig
     return null;
   }
 
-  if (typeof deps?.buildProjectEvidenceSeed !== "function") {
-    return null;
-  }
-
-  return deps.buildProjectEvidenceSeed({
+  const seedInput = {
     projectKey: context?.projectKey || "garya-bot",
     repository: context?.repository || "korzh260609-beep/garya-bot",
     ref: context?.ref || "main",
     commitLimit: context?.commitLimit ?? 5,
-  });
+  };
+
+  const cached = getCachedSeed(seedInput, { ttlMs: deps?.projectEvidenceSeedCacheTtlMs ?? 60_000 });
+  if (cached) {
+    return {
+      ...cached,
+      cacheHit: true,
+    };
+  }
+
+  if (typeof deps?.buildProjectEvidenceSeed !== "function") {
+    return null;
+  }
+
+  const seed = await deps.buildProjectEvidenceSeed(seedInput);
+  if (seed) {
+    return setCachedSeed(seedInput, {
+      ...seed,
+      cacheHit: false,
+    });
+  }
+
+  return null;
 }
 
 function buildProjectMemoryEvidencePackIfAvailable(context = {}, deps = {}) {
@@ -94,6 +114,14 @@ export async function handleMessage(context = {}) {
 
   let globalUserId = initialGlobalUserId;
 
+  const coreMeaning = understandMeaning({
+    text: trimmed,
+    hasActiveProjectSession: Boolean(
+      context?.hasActiveProjectSession ||
+      deps?.hasActiveProjectSession
+    ),
+  });
+
   const projectMeaning = understandProjectMeaning({
     text: trimmed,
     hasActiveProjectSession: Boolean(
@@ -124,6 +152,7 @@ export async function handleMessage(context = {}) {
   let evidenceSeedBuilt = false;
   let enrichedContext = {
     ...context,
+    coreMeaning,
     projectMeaning,
     projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
     projectMemoryEvidenceTriggerDecision: triggerDecision,
@@ -160,6 +189,7 @@ export async function handleMessage(context = {}) {
     projectEvidenceSeedPresent: Boolean(
       enrichedContext?.projectMemoryEvidenceSeed || deps?.projectMemoryEvidenceSeed
     ),
+    projectEvidenceSeedCacheHit: enrichedContext?.projectMemoryEvidenceSeed?.cacheHit === true,
     projectEvidencePackPresent: Boolean(
       enrichedContext?.projectMemoryEvidencePack ||
       enrichedContext?.projectEvidencePack
@@ -278,6 +308,11 @@ export async function handleMessage(context = {}) {
         cmdBase,
         canProceed,
         isEnforced,
+        coreMeaningDomain: enrichedContext?.coreMeaning?.domain,
+        coreMeaningIntent: enrichedContext?.coreMeaning?.intent,
+        coreMeaningSuggestedAction: enrichedContext?.coreMeaning?.suggestedAction,
+        coreMeaningEnoughInformation: enrichedContext?.coreMeaning?.enoughInformation,
+        coreMeaningMissingInformation: enrichedContext?.coreMeaning?.missingInformation,
         projectMeaningIntent: enrichedContext?.projectMeaning?.intent,
         projectMeaningConfidence: enrichedContext?.projectMeaning?.confidence,
         projectMeaningEnoughInformation: enrichedContext?.projectMeaning?.enoughInformation,
@@ -288,6 +323,7 @@ export async function handleMessage(context = {}) {
         projectEvidenceSeedBuilt: projectEvidenceDiagnostics.projectEvidenceSeedBuilt,
         projectEvidencePackBuilt: projectEvidenceDiagnostics.projectEvidencePackBuilt,
         projectEvidenceSeedPresent: projectEvidenceDiagnostics.projectEvidenceSeedPresent,
+        projectEvidenceSeedCacheHit: projectEvidenceDiagnostics.projectEvidenceSeedCacheHit,
         projectEvidencePackPresent: projectEvidenceDiagnostics.projectEvidencePackPresent,
         projectEvidencePackSource: projectEvidenceDiagnostics.projectEvidencePackSource,
         projectEvidenceTriggerReasons: projectEvidenceDiagnostics.projectEvidenceTriggerReasons,
@@ -339,6 +375,7 @@ export async function handleMessage(context = {}) {
       isCommand,
       cmdBase,
       canProceed,
+      coreMeaning: enrichedContext?.coreMeaning || null,
       projectMeaning: enrichedContext?.projectMeaning || null,
       projectContextDecision: enrichedContext?.projectContextDecision || null,
       projectMemoryEvidenceTriggerDecision: enrichedContext?.projectMemoryEvidenceTriggerDecision || null,

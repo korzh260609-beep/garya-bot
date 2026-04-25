@@ -34,6 +34,17 @@ function buildMeaningPreviousContextHint(context = {}, deps = {}) {
   };
 }
 
+function shouldAllowProjectContextFromMeaning(coreMeaning = {}) {
+  if (!coreMeaning || typeof coreMeaning !== "object") return false;
+  if (coreMeaning.suggestedAction === "clarify") return false;
+  if (coreMeaning.domain !== "project") return false;
+  return Boolean(
+    coreMeaning.suggestedAction === "use_tool" ||
+    coreMeaning.intent === "project_message" ||
+    coreMeaning.contextContinuity?.canUsePreviousTarget === true
+  );
+}
+
 async function buildNaturalClarificationReply({ deps = {}, text = "", coreMeaning = {} } = {}) {
   const fallback = "Уточни, пожалуйста, какой именно объект нужно проверить.";
 
@@ -171,29 +182,46 @@ export async function handleMessage(context = {}) {
     previousContext: buildMeaningPreviousContextHint(context, deps),
   });
 
-  const projectContextEngine = new ProjectContextEngine();
-  const preProjectContextDecision = projectContextEngine.classifyProjectContextNeed({
-    text: trimmed,
-    hasActiveProjectSession: Boolean(
-      context?.hasActiveProjectSession ||
-      deps?.hasActiveProjectSession
-    ),
-  });
+  const projectContextAllowedByMeaning = shouldAllowProjectContextFromMeaning(coreMeaning);
 
-  const triggerDecision = new ProjectEvidenceTriggerPolicy().shouldBuildEvidence({
-    projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
-    hasExistingEvidencePack: Boolean(
-      context?.projectMemoryEvidencePack ||
-      context?.projectEvidencePack
-    ),
-    force: Boolean(context?.forceProjectEvidence || deps?.forceProjectEvidence),
-  });
+  const projectContextEngine = new ProjectContextEngine();
+  const preProjectContextDecision = projectContextAllowedByMeaning
+    ? projectContextEngine.classifyProjectContextNeed({
+        text: trimmed,
+        hasActiveProjectSession: Boolean(
+          context?.hasActiveProjectSession ||
+          deps?.hasActiveProjectSession
+        ),
+      })
+    : {
+        depth: "none",
+        trigger: "unknown",
+        stageKey: null,
+        reasons: ["blocked_by_core_meaning"],
+      };
+
+  const triggerDecision = projectContextAllowedByMeaning
+    ? new ProjectEvidenceTriggerPolicy().shouldBuildEvidence({
+        projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
+        hasExistingEvidencePack: Boolean(
+          context?.projectMemoryEvidencePack ||
+          context?.projectEvidencePack
+        ),
+        force: Boolean(context?.forceProjectEvidence || deps?.forceProjectEvidence),
+      })
+    : {
+        shouldBuild: false,
+        depth: "none",
+        trigger: "unknown",
+        reasons: ["blocked_by_core_meaning"],
+      };
 
   let evidencePackBuilt = false;
   let evidenceSeedBuilt = false;
   let enrichedContext = {
     ...context,
     coreMeaning,
+    projectContextAllowedByMeaning,
     projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
     projectMemoryEvidenceTriggerDecision: triggerDecision,
   };
@@ -356,6 +384,7 @@ export async function handleMessage(context = {}) {
         contextContinuityStrength: enrichedContext?.coreMeaning?.contextContinuity?.contextStrength,
         contextContinuityCanUsePreviousTarget: enrichedContext?.coreMeaning?.contextContinuity?.canUsePreviousTarget,
         contextContinuityShouldAskClarification: enrichedContext?.coreMeaning?.contextContinuity?.shouldAskClarification,
+        projectContextAllowedByMeaning: enrichedContext?.projectContextAllowedByMeaning,
         projectContextDepth: enrichedContext?.projectContextDecision?.depth,
         projectContextTrigger: enrichedContext?.projectContextDecision?.trigger,
         projectEvidenceTriggered: projectEvidenceDiagnostics.projectEvidenceTriggered,

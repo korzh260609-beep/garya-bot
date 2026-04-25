@@ -10,6 +10,8 @@ import { truncateForDb } from "./shared.js";
 import { handleExplicitRemember } from "./handleExplicitRemember.js";
 import { buildChatHandlerContext } from "./contextBuilders.js";
 import { ProjectContextEngine } from "../../projectExperience/ProjectContextEngine.js";
+import { ConfirmationIntentClassifier, CONFIRMATION_INTENT } from "../../projectExperience/ConfirmationIntentClassifier.js";
+import { getPendingProjectAction, consumePendingProjectAction, clearPendingProjectAction } from "../../projectExperience/PendingProjectActionStore.js";
 
 import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.js";
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
@@ -26,6 +28,28 @@ function safeText(value) {
 
 function buildInternalProjectFallbackReply() {
   return "Я понял, что это запрос к репозиторию проекта, но пока не могу уверенно определить, что именно нужно: найти, открыть, показать дерево или объяснить.";
+}
+
+function buildPendingActionClarification(pendingAction = {}) {
+  const impact = pendingAction?.impact?.impact || pendingAction?.impact || {};
+  const risks = Array.isArray(impact?.risks) ? impact.risks.slice(0, 5) : [];
+  const checks = Array.isArray(impact?.requiredChecks) ? impact.requiredChecks.slice(0, 5) : [];
+
+  return [
+    "Уточнение по ожидающему действию:",
+    `Тип: ${safeText(pendingAction?.actionType) || "unknown"}`,
+    `Риск: ${safeText(impact?.riskLevel) || "unknown"}`,
+    risks.length ? "" : null,
+    risks.length ? "Основные риски:" : null,
+    ...risks.map((item) => `- ${item}`),
+    checks.length ? "" : null,
+    checks.length ? "Что лучше проверить:" : null,
+    ...checks.map((item) => `- ${item}`),
+    "",
+    "Можно подтвердить, отменить или попросить ещё уточнить.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export async function handleChatFlow({
@@ -48,6 +72,90 @@ export async function handleChatFlow({
   try {
     const memory = getMemoryService();
     const projectContextEngine = new ProjectContextEngine();
+    const confirmationIntentClassifier = new ConfirmationIntentClassifier();
+
+    const pendingProjectAction = getPendingProjectAction({
+      transport,
+      chatId: chatIdStr,
+      globalUserId,
+    });
+
+    if (pendingProjectAction) {
+      const confirmationIntent = confirmationIntentClassifier.classify({
+        text: trimmed,
+        pendingAction: pendingProjectAction,
+      });
+
+      if (confirmationIntent.intent === CONFIRMATION_INTENT.CANCEL) {
+        clearPendingProjectAction({ transport, chatId: chatIdStr, globalUserId });
+
+        if (typeof replyAndLog === "function") {
+          await replyAndLog("Ок. Действие отменено, ничего не выполняю.", {
+            handler: "handleChatFlow",
+            event: "pending_project_action_cancelled",
+            action_type: pendingProjectAction.actionType,
+            confirmation_reason: confirmationIntent.reason,
+            transport_agnostic: true,
+          });
+        }
+
+        return {
+          ok: true,
+          stage: "C.6D.pending_project_action",
+          result: "cancelled",
+        };
+      }
+
+      if (confirmationIntent.intent === CONFIRMATION_INTENT.CLARIFY) {
+        if (typeof replyAndLog === "function") {
+          await replyAndLog(buildPendingActionClarification(pendingProjectAction), {
+            handler: "handleChatFlow",
+            event: "pending_project_action_clarify",
+            action_type: pendingProjectAction.actionType,
+            confirmation_reason: confirmationIntent.reason,
+            transport_agnostic: true,
+          });
+        }
+
+        return {
+          ok: true,
+          stage: "C.6D.pending_project_action",
+          result: "clarified",
+        };
+      }
+
+      if (confirmationIntent.intent === CONFIRMATION_INTENT.CONFIRM) {
+        const consumed = consumePendingProjectAction({
+          transport,
+          chatId: chatIdStr,
+          globalUserId,
+        });
+
+        if (typeof replyAndLog === "function") {
+          await replyAndLog(
+            [
+              "Подтверждение принято.",
+              "На этом этапе действие НЕ выполняется автоматически: executor ещё не подключён.",
+              `Тип ожидающего действия: ${safeText(consumed?.actionType) || "unknown"}`,
+              "Следующий безопасный шаг — подключить executor для конкретного actionType.",
+            ].join("\n"),
+            {
+              handler: "handleChatFlow",
+              event: "pending_project_action_confirmed_no_executor",
+              action_type: consumed?.actionType,
+              confirmation_reason: confirmationIntent.reason,
+              transport_agnostic: true,
+            }
+          );
+        }
+
+        return {
+          ok: true,
+          stage: "C.6D.pending_project_action",
+          result: "confirmed_no_executor",
+        };
+      }
+    }
 
     const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
       return memory.write({

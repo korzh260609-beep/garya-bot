@@ -13,6 +13,7 @@
 // ============================================================================
 
 import { ProjectExperienceOrchestrator } from "./ProjectExperienceOrchestrator.js";
+import { PreChangeImpactAnalyzer } from "./PreChangeImpactAnalyzer.js";
 
 export const PROJECT_CONTEXT_DEPTH = Object.freeze({
   NONE: "none",
@@ -58,6 +59,7 @@ export class ProjectContextEngine {
     this.repository = repository;
     this.ref = ref;
     this.orchestrator = new ProjectExperienceOrchestrator({ projectKey, repository, ref });
+    this.preChangeImpactAnalyzer = new PreChangeImpactAnalyzer();
   }
 
   classifyProjectContextNeed({ text = "", hasActiveProjectSession = false } = {}) {
@@ -160,6 +162,20 @@ export class ProjectContextEngine {
       stageKey,
       reasons: ["no_project_context_required"],
     };
+  }
+
+  analyzePlannedChange({
+    changeTitle = "",
+    changeReason = "",
+    targetFiles = [],
+    intendedEffects = [],
+  } = {}) {
+    return this.preChangeImpactAnalyzer.analyzeChangePlan({
+      changeTitle,
+      changeReason,
+      targetFiles,
+      intendedEffects,
+    });
   }
 
   buildWorkingContext({

@@ -1,6 +1,8 @@
 // src/bot/handlers/pmList.js
 // ✅ STAGE 7A — Project Memory: list sections
 
+import { truncateTelegramText } from "../telegram/telegramTextUtils.js";
+
 export async function handlePmList({ bot, chatId, rest, getProjectMemoryList }) {
   const raw = String(rest || "").trim();
   const sectionFilter = raw ? raw.split(/\s+/)[0].trim() : null;
@@ -39,10 +41,7 @@ export async function handlePmList({ bot, chatId, rest, getProjectMemoryList }) 
 
   const msg = ["🧠 Project Memory sections:", "", ...sections.map((s) => `• ${s}`)].join("\n");
 
-  // Telegram limit safety (4096) — режем мягко
-  const out = msg.length > 3800 ? msg.slice(0, 3800) + "\n…(обрезано)" : msg;
-
-  await bot.sendMessage(chatId, out);
+  await bot.sendMessage(chatId, truncateTelegramText(msg));
 }
 
 export default handlePmList;

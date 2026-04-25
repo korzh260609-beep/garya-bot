@@ -14,7 +14,6 @@ import { handleChatFlow } from "./handleMessage/handleChatFlow.js";
 import { ProjectContextEngine } from "../projectExperience/ProjectContextEngine.js";
 import { ProjectEvidenceTriggerPolicy } from "../projectExperience/ProjectEvidenceTriggerPolicy.js";
 import { buildProjectLightEvidencePack } from "../projectExperience/ProjectLightEvidencePackBuilder.js";
-import { understandProjectMeaning } from "../projectExperience/ProjectMeaningLayer.js";
 import { getCachedSeed, setCachedSeed } from "../projectExperience/ProjectEvidenceSeedCache.js";
 import { understandMeaning } from "./meaning/MeaningEngine.js";
 
@@ -172,14 +171,6 @@ export async function handleMessage(context = {}) {
     previousContext: buildMeaningPreviousContextHint(context, deps),
   });
 
-  const projectMeaning = understandProjectMeaning({
-    text: trimmed,
-    hasActiveProjectSession: Boolean(
-      context?.hasActiveProjectSession ||
-      deps?.hasActiveProjectSession
-    ),
-  });
-
   const projectContextEngine = new ProjectContextEngine();
   const preProjectContextDecision = projectContextEngine.classifyProjectContextNeed({
     text: trimmed,
@@ -203,7 +194,6 @@ export async function handleMessage(context = {}) {
   let enrichedContext = {
     ...context,
     coreMeaning,
-    projectMeaning,
     projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
     projectMemoryEvidenceTriggerDecision: triggerDecision,
   };
@@ -366,10 +356,6 @@ export async function handleMessage(context = {}) {
         contextContinuityStrength: enrichedContext?.coreMeaning?.contextContinuity?.contextStrength,
         contextContinuityCanUsePreviousTarget: enrichedContext?.coreMeaning?.contextContinuity?.canUsePreviousTarget,
         contextContinuityShouldAskClarification: enrichedContext?.coreMeaning?.contextContinuity?.shouldAskClarification,
-        projectMeaningIntent: enrichedContext?.projectMeaning?.intent,
-        projectMeaningConfidence: enrichedContext?.projectMeaning?.confidence,
-        projectMeaningEnoughInformation: enrichedContext?.projectMeaning?.enoughInformation,
-        projectMeaningMissingInformation: enrichedContext?.projectMeaning?.missingInformation,
         projectContextDepth: enrichedContext?.projectContextDecision?.depth,
         projectContextTrigger: enrichedContext?.projectContextDecision?.trigger,
         projectEvidenceTriggered: projectEvidenceDiagnostics.projectEvidenceTriggered,
@@ -476,7 +462,6 @@ export async function handleMessage(context = {}) {
       cmdBase,
       canProceed,
       coreMeaning: enrichedContext?.coreMeaning || null,
-      projectMeaning: enrichedContext?.projectMeaning || null,
       projectContextDecision: enrichedContext?.projectContextDecision || null,
       projectMemoryEvidenceTriggerDecision: enrichedContext?.projectMemoryEvidenceTriggerDecision || null,
       projectEvidenceDiagnostics,

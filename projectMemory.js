@@ -16,6 +16,7 @@ import { ProjectMemorySessionUpdater } from "./src/projectMemory/ProjectMemorySe
 import { ProjectMemoryConfirmedWriter } from "./src/projectMemory/ProjectMemoryConfirmedWriter.js";
 import { ProjectMemoryConfirmedReader } from "./src/projectMemory/ProjectMemoryConfirmedReader.js";
 import { ProjectMemoryConfirmedUpdater } from "./src/projectMemory/ProjectMemoryConfirmedUpdater.js";
+import { ProjectMemoryTopicDigestReader } from "./src/projectMemory/ProjectMemoryTopicDigestReader.js";
 import {
   PROJECT_MEMORY_AREAS,
   PROJECT_MEMORY_REPO_SCOPES,
@@ -33,6 +34,7 @@ const sessionUpdater = new ProjectMemorySessionUpdater({ service });
 const confirmedWriter = new ProjectMemoryConfirmedWriter({ service });
 const confirmedReader = new ProjectMemoryConfirmedReader({ service });
 const confirmedUpdater = new ProjectMemoryConfirmedUpdater({ service });
+const topicDigestReader = new ProjectMemoryTopicDigestReader({ service });
 
 // ============================================================================
 // Backward-compatible API
@@ -158,6 +160,22 @@ export async function buildConfirmedProjectMemoryDigest(input = {}) {
 }
 
 // ============================================================================
+// Topic digest project memory read API (transport-agnostic)
+// ============================================================================
+
+export async function listTopicDigestProjectMemoryEntries(input = {}) {
+  return topicDigestReader.listEntries(input);
+}
+
+export async function buildTopicDigestProjectMemoryContext(input = {}) {
+  return topicDigestReader.buildContext(input);
+}
+
+export async function buildTopicDigestProjectMemoryDigest(input = {}) {
+  return topicDigestReader.buildDigest(input);
+}
+
+// ============================================================================
 // Confirmed project memory update API (transport-agnostic)
 // ============================================================================
 
@@ -174,6 +192,7 @@ export {
   confirmedWriter as projectMemoryConfirmedWriter,
   confirmedReader as projectMemoryConfirmedReader,
   confirmedUpdater as projectMemoryConfirmedUpdater,
+  topicDigestReader as projectMemoryTopicDigestReader,
   PROJECT_MEMORY_AREAS,
   PROJECT_MEMORY_REPO_SCOPES,
   DEFAULT_PROJECT_KEY,
@@ -202,6 +221,10 @@ export default {
   getLatestConfirmedProjectMemoryEntry,
   buildConfirmedProjectMemoryDigest,
 
+  listTopicDigestProjectMemoryEntries,
+  buildTopicDigestProjectMemoryContext,
+  buildTopicDigestProjectMemoryDigest,
+
   updateConfirmedProjectMemoryEntry,
 
   projectMemoryService: service,
@@ -212,6 +235,7 @@ export default {
   projectMemoryConfirmedWriter: confirmedWriter,
   projectMemoryConfirmedReader: confirmedReader,
   projectMemoryConfirmedUpdater: confirmedUpdater,
+  projectMemoryTopicDigestReader: topicDigestReader,
   PROJECT_MEMORY_AREAS,
   PROJECT_MEMORY_REPO_SCOPES,
   DEFAULT_PROJECT_KEY,

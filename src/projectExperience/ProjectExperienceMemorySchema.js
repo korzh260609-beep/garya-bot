@@ -5,6 +5,7 @@
 // - define structured memory records for SG project experience
 // - prevent Project Memory from becoming an unstructured pile of notes
 // - keep chronology, evidence, decisions, modules and revisions connected
+// - separate user/monarch claims from verified technical facts
 // IMPORTANT:
 // - NO DB writes
 // - NO migrations here
@@ -21,6 +22,7 @@ export const EXPERIENCE_MEMORY_RECORD_TYPES = Object.freeze({
   RISK_RECORD: "risk_record",
   REVISION_RECORD: "revision_record",
   LESSON_RECORD: "lesson_record",
+  CLAIM_RECORD: "claim_record",
 });
 
 export const EXPERIENCE_MEMORY_SOURCE_TYPES = Object.freeze({
@@ -31,6 +33,7 @@ export const EXPERIENCE_MEMORY_SOURCE_TYPES = Object.freeze({
   PILLAR_DECISION: "pillar_decision",
   PROJECT_MEMORY: "project_memory",
   MONARCH_CLAIM: "monarch_claim",
+  USER_CLAIM: "user_claim",
   SYSTEM_ANALYSIS: "system_analysis",
 });
 
@@ -125,6 +128,19 @@ export function createRevisionRecord(input = {}) {
   });
 }
 
+export function createClaimRecord(input = {}) {
+  return createExperienceMemoryRecord({
+    ...input,
+    recordType: EXPERIENCE_MEMORY_RECORD_TYPES.CLAIM_RECORD,
+    trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
+    meta: {
+      ...(input?.meta && typeof input.meta === "object" && !Array.isArray(input.meta) ? input.meta : {}),
+      isClaim: true,
+      requiresVerification: input?.meta?.requiresVerification !== false,
+    },
+  });
+}
+
 export default {
   EXPERIENCE_MEMORY_RECORD_TYPES,
   EXPERIENCE_MEMORY_SOURCE_TYPES,
@@ -134,4 +150,5 @@ export default {
   createTimelineEventRecord,
   createDecisionRecord,
   createRevisionRecord,
+  createClaimRecord,
 };

@@ -14,6 +14,7 @@ import { handleChatFlow } from "./handleMessage/handleChatFlow.js";
 import { ProjectContextEngine } from "../projectExperience/ProjectContextEngine.js";
 import { ProjectEvidenceTriggerPolicy } from "../projectExperience/ProjectEvidenceTriggerPolicy.js";
 import { buildProjectLightEvidencePack } from "../projectExperience/ProjectLightEvidencePackBuilder.js";
+import { understandProjectMeaning } from "../projectExperience/ProjectMeaningLayer.js";
 
 function hasProjectEvidenceSeed(value = {}) {
   return Boolean(
@@ -93,6 +94,14 @@ export async function handleMessage(context = {}) {
 
   let globalUserId = initialGlobalUserId;
 
+  const projectMeaning = understandProjectMeaning({
+    text: trimmed,
+    hasActiveProjectSession: Boolean(
+      context?.hasActiveProjectSession ||
+      deps?.hasActiveProjectSession
+    ),
+  });
+
   const projectContextEngine = new ProjectContextEngine();
   const preProjectContextDecision = projectContextEngine.classifyProjectContextNeed({
     text: trimmed,
@@ -115,6 +124,7 @@ export async function handleMessage(context = {}) {
   let evidenceSeedBuilt = false;
   let enrichedContext = {
     ...context,
+    projectMeaning,
     projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
     projectMemoryEvidenceTriggerDecision: triggerDecision,
   };
@@ -268,6 +278,10 @@ export async function handleMessage(context = {}) {
         cmdBase,
         canProceed,
         isEnforced,
+        projectMeaningIntent: enrichedContext?.projectMeaning?.intent,
+        projectMeaningConfidence: enrichedContext?.projectMeaning?.confidence,
+        projectMeaningEnoughInformation: enrichedContext?.projectMeaning?.enoughInformation,
+        projectMeaningMissingInformation: enrichedContext?.projectMeaning?.missingInformation,
         projectContextDepth: enrichedContext?.projectContextDecision?.depth,
         projectContextTrigger: enrichedContext?.projectContextDecision?.trigger,
         projectEvidenceTriggered: projectEvidenceDiagnostics.projectEvidenceTriggered,
@@ -325,6 +339,7 @@ export async function handleMessage(context = {}) {
       isCommand,
       cmdBase,
       canProceed,
+      projectMeaning: enrichedContext?.projectMeaning || null,
       projectContextDecision: enrichedContext?.projectContextDecision || null,
       projectMemoryEvidenceTriggerDecision: enrichedContext?.projectMemoryEvidenceTriggerDecision || null,
       projectEvidenceDiagnostics,

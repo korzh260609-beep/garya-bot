@@ -85,6 +85,7 @@ export async function handleMessage(context = {}) {
     force: Boolean(context?.forceProjectEvidence || deps?.forceProjectEvidence),
   });
 
+  let evidencePackBuilt = false;
   let enrichedContext = {
     ...context,
     projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
@@ -95,6 +96,7 @@ export async function handleMessage(context = {}) {
     if (triggerDecision.shouldBuild) {
       const evidencePack = buildProjectMemoryEvidencePackIfAvailable(enrichedContext, deps);
       if (evidencePack) {
+        evidencePackBuilt = true;
         enrichedContext = {
           ...enrichedContext,
           projectMemoryEvidencePack: evidencePack,
@@ -104,6 +106,22 @@ export async function handleMessage(context = {}) {
   } catch (e) {
     console.error("project memory evidence build failed (fail-open):", e);
   }
+
+  const projectEvidenceDiagnostics = {
+    projectEvidenceTriggered: triggerDecision.shouldBuild === true,
+    projectEvidencePackBuilt: evidencePackBuilt,
+    projectEvidencePackPresent: Boolean(
+      enrichedContext?.projectMemoryEvidencePack ||
+      enrichedContext?.projectEvidencePack
+    ),
+    projectEvidencePackSource: enrichedContext?.projectMemoryEvidencePack?.source || enrichedContext?.projectEvidencePack?.source || null,
+    projectEvidenceTriggerReasons: Array.isArray(triggerDecision?.reasons) ? triggerDecision.reasons : [],
+  };
+
+  enrichedContext = {
+    ...enrichedContext,
+    projectEvidenceDiagnostics,
+  };
 
   // =========================================================================
   // STAGE 6.8 — Enforced guard: no processing without dedupe key/messageId
@@ -212,7 +230,11 @@ export async function handleMessage(context = {}) {
         isEnforced,
         projectContextDepth: enrichedContext?.projectContextDecision?.depth,
         projectContextTrigger: enrichedContext?.projectContextDecision?.trigger,
-        projectEvidenceTriggered: enrichedContext?.projectMemoryEvidenceTriggerDecision?.shouldBuild,
+        projectEvidenceTriggered: projectEvidenceDiagnostics.projectEvidenceTriggered,
+        projectEvidencePackBuilt: projectEvidenceDiagnostics.projectEvidencePackBuilt,
+        projectEvidencePackPresent: projectEvidenceDiagnostics.projectEvidencePackPresent,
+        projectEvidencePackSource: projectEvidenceDiagnostics.projectEvidencePackSource,
+        projectEvidenceTriggerReasons: projectEvidenceDiagnostics.projectEvidenceTriggerReasons,
       });
     }
   } catch {
@@ -263,6 +285,7 @@ export async function handleMessage(context = {}) {
       canProceed,
       projectContextDecision: enrichedContext?.projectContextDecision || null,
       projectMemoryEvidenceTriggerDecision: enrichedContext?.projectMemoryEvidenceTriggerDecision || null,
+      projectEvidenceDiagnostics,
     };
   }
 

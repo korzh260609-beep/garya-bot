@@ -11,6 +11,38 @@ import { parseCommandAccess } from "./handleMessage/commandParsing.js";
 import { buildReplyAndLog } from "./handleMessage/buildReplyAndLog.js";
 import { handleCommandFlow } from "./handleMessage/handleCommandFlow.js";
 import { handleChatFlow } from "./handleMessage/handleChatFlow.js";
+import { ProjectContextEngine } from "../projectExperience/ProjectContextEngine.js";
+import { ProjectEvidenceTriggerPolicy } from "../projectExperience/ProjectEvidenceTriggerPolicy.js";
+import { buildProjectLightEvidencePack } from "../projectExperience/ProjectLightEvidencePackBuilder.js";
+
+function hasProjectEvidenceSeed(value = {}) {
+  return Boolean(
+    Array.isArray(value?.commits) ||
+    value?.pillars ||
+    Array.isArray(value?.memoryEvidences)
+  );
+}
+
+function buildProjectMemoryEvidencePackIfAvailable(context = {}, deps = {}) {
+  if (context?.projectMemoryEvidencePack || context?.projectEvidencePack) {
+    return null;
+  }
+
+  const seed = context?.projectMemoryEvidenceSeed || deps?.projectMemoryEvidenceSeed || null;
+  if (!seed || !hasProjectEvidenceSeed(seed)) {
+    return null;
+  }
+
+  return buildProjectLightEvidencePack({
+    commits: Array.isArray(seed?.commits) ? seed.commits : [],
+    pillars: seed?.pillars || {},
+    memoryEvidences: Array.isArray(seed?.memoryEvidences) ? seed.memoryEvidences : [],
+    commitLimit: seed?.commitLimit ?? 5,
+    projectKey: seed?.projectKey || "garya-bot",
+    repository: seed?.repository || "korzh260609-beep/garya-bot",
+    ref: seed?.ref || "main",
+  });
+}
 
 export async function handleMessage(context = {}) {
   const normalized = normalizeContext(context);
@@ -35,11 +67,49 @@ export async function handleMessage(context = {}) {
 
   let globalUserId = initialGlobalUserId;
 
+  const projectContextEngine = new ProjectContextEngine();
+  const preProjectContextDecision = projectContextEngine.classifyProjectContextNeed({
+    text: trimmed,
+    hasActiveProjectSession: Boolean(
+      context?.hasActiveProjectSession ||
+      deps?.hasActiveProjectSession
+    ),
+  });
+
+  const triggerDecision = new ProjectEvidenceTriggerPolicy().shouldBuildEvidence({
+    projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
+    hasExistingEvidencePack: Boolean(
+      context?.projectMemoryEvidencePack ||
+      context?.projectEvidencePack
+    ),
+    force: Boolean(context?.forceProjectEvidence || deps?.forceProjectEvidence),
+  });
+
+  let enrichedContext = {
+    ...context,
+    projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
+    projectMemoryEvidenceTriggerDecision: triggerDecision,
+  };
+
+  try {
+    if (triggerDecision.shouldBuild) {
+      const evidencePack = buildProjectMemoryEvidencePackIfAvailable(enrichedContext, deps);
+      if (evidencePack) {
+        enrichedContext = {
+          ...enrichedContext,
+          projectMemoryEvidencePack: evidencePack,
+        };
+      }
+    }
+  } catch (e) {
+    console.error("project memory evidence build failed (fail-open):", e);
+  }
+
   // =========================================================================
   // STAGE 6.8 — Enforced guard: no processing without dedupe key/messageId
   // =========================================================================
   if (isEnforced) {
-    const dedupeKey = context?.dedupeKey || null;
+    const dedupeKey = enrichedContext?.dedupeKey || null;
     if (!dedupeKey || !messageId) {
       try {
         if (isTransportTraceEnabled()) {
@@ -140,6 +210,9 @@ export async function handleMessage(context = {}) {
         cmdBase,
         canProceed,
         isEnforced,
+        projectContextDepth: enrichedContext?.projectContextDecision?.depth,
+        projectContextTrigger: enrichedContext?.projectContextDecision?.trigger,
+        projectEvidenceTriggered: enrichedContext?.projectMemoryEvidenceTriggerDecision?.shouldBuild,
       });
     }
   } catch {
@@ -188,6 +261,8 @@ export async function handleMessage(context = {}) {
       isCommand,
       cmdBase,
       canProceed,
+      projectContextDecision: enrichedContext?.projectContextDecision || null,
+      projectMemoryEvidenceTriggerDecision: enrichedContext?.projectMemoryEvidenceTriggerDecision || null,
     };
   }
 
@@ -203,7 +278,7 @@ export async function handleMessage(context = {}) {
 
   const replyAndLog = buildReplyAndLog({
     deps,
-    context,
+    context: enrichedContext,
     transport,
     chatIdStr,
     chatType,
@@ -214,7 +289,7 @@ export async function handleMessage(context = {}) {
 
   if (isCommand && cmdBase) {
     return handleCommandFlow({
-      context,
+      context: enrichedContext,
       deps,
       transport,
       chatIdStr,
@@ -241,7 +316,7 @@ export async function handleMessage(context = {}) {
 
   if (typeof deps?.handleChatMessage === "function") {
     return handleChatFlow({
-      context,
+      context: enrichedContext,
       deps,
       transport,
       chatIdStr,

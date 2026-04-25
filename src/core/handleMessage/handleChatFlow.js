@@ -10,6 +10,7 @@ import { truncateForDb } from "./shared.js";
 import { handleExplicitRemember } from "./handleExplicitRemember.js";
 import { buildChatHandlerContext } from "./contextBuilders.js";
 import { ProjectContextEngine } from "../../projectExperience/ProjectContextEngine.js";
+import { ProjectMemoryAutoCapture } from "../../projectExperience/ProjectMemoryAutoCapture.js";
 import { ConfirmationIntentClassifier, CONFIRMATION_INTENT } from "../../projectExperience/ConfirmationIntentClassifier.js";
 import { getPendingProjectAction, consumePendingProjectAction, clearPendingProjectAction } from "../../projectExperience/PendingProjectActionStore.js";
 
@@ -28,6 +29,30 @@ function safeText(value) {
 
 function buildInternalProjectFallbackReply() {
   return "Я понял, что это запрос к репозиторию проекта, но пока не могу уверенно определить, что именно нужно: найти, открыть, показать дерево или объяснить.";
+}
+
+function buildAutoCaptureSourceRef({ transport, chatIdStr, messageId } = {}) {
+  return `${safeText(transport) || "unknown"}:${safeText(chatIdStr) || "unknown"}:${messageId ?? "no-message-id"}`;
+}
+
+function buildProjectMemoryAutoCaptureMetadata(result = null) {
+  if (!result || typeof result !== "object") {
+    return {
+      projectMemoryAutoCaptureShouldCapture: false,
+      projectMemoryAutoCaptureReasons: [],
+      projectMemoryAutoCapturePolicySummary: null,
+      projectMemoryAutoCaptureVerificationStatus: null,
+      projectMemoryAutoCaptureDryRun: true,
+    };
+  }
+
+  return {
+    projectMemoryAutoCaptureShouldCapture: result?.shouldCapture === true,
+    projectMemoryAutoCaptureReasons: Array.isArray(result?.reasons) ? result.reasons : [],
+    projectMemoryAutoCapturePolicySummary: result?.policySummary || null,
+    projectMemoryAutoCaptureVerificationStatus: safeText(result?.verification?.status) || null,
+    projectMemoryAutoCaptureDryRun: result?.dryRun !== false,
+  };
 }
 
 function buildPendingActionClarification(pendingAction = {}) {
@@ -72,6 +97,7 @@ export async function handleChatFlow({
   try {
     const memory = getMemoryService();
     const projectContextEngine = new ProjectContextEngine();
+    const projectMemoryAutoCapture = new ProjectMemoryAutoCapture();
     const confirmationIntentClassifier = new ConfirmationIntentClassifier();
 
     const pendingProjectAction = getPendingProjectAction({
@@ -176,7 +202,7 @@ export async function handleChatFlow({
         globalUserId: opts?.globalUserId ?? globalUserId ?? null,
         role: "assistant",
         content: String(assistantText ?? ""),
-        transport: opts?.transport ?? transport,
+        transport,
         metadata: meta,
         schemaVersion: opts?.schemaVersion ?? 2,
       });
@@ -205,6 +231,30 @@ export async function handleChatFlow({
       hasActiveProjectSession: repoFollowupContext?.isActive === true,
     });
 
+    let projectMemoryAutoCaptureResult = null;
+    let projectMemoryAutoCaptureMeta = buildProjectMemoryAutoCaptureMetadata(null);
+
+    try {
+      projectMemoryAutoCaptureResult = projectMemoryAutoCapture.prepareFromUserMessage({
+        text: projectIntentRoutingText,
+        projectKey: "garya-bot",
+        sourceRef: buildAutoCaptureSourceRef({ transport, chatIdStr, messageId }),
+        isMonarchUser: !!isMonarchUser,
+        projectContextDecision,
+        repoEvidences: [],
+        pillarContext: null,
+        memoryEvidences: [],
+      });
+
+      projectMemoryAutoCaptureMeta = buildProjectMemoryAutoCaptureMetadata(projectMemoryAutoCaptureResult);
+    } catch (e) {
+      console.error("ERROR project memory auto-capture dry-run failed (fail-open):", e);
+      projectMemoryAutoCaptureMeta = {
+        ...buildProjectMemoryAutoCaptureMetadata(null),
+        projectMemoryAutoCaptureError: true,
+      };
+    }
+
     const projectIntentRoute = resolveProjectIntentRoute({
       text: projectIntentRoutingText,
       isMonarchUser: !!isMonarchUser,
@@ -228,6 +278,7 @@ export async function handleChatFlow({
         stage: "12A.0.intent_guard",
         result: "project_intent_blocked",
         projectContextDecision,
+        projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
       };
     }
 
@@ -291,6 +342,8 @@ export async function handleChatFlow({
             projectContextTrigger: projectContextDecision?.trigger,
             projectContextStageKey: projectContextDecision?.stageKey,
             projectContextReasons: projectContextDecision?.reasons,
+
+            ...projectMemoryAutoCaptureMeta,
           },
           raw: buildRawMeta(raw || {}),
           schemaVersion: 1,
@@ -330,7 +383,7 @@ export async function handleChatFlow({
             });
           } catch (_) {}
 
-          return { ok: true, stage: "7B.7", result: "dup_chat_drop" };
+          return { ok: true, stage: "7B.7", result: "dup_chat_drop", projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta };
         }
 
         try {
@@ -373,6 +426,7 @@ export async function handleChatFlow({
             metadata: {
               ...repoConversationResult.contextMeta,
               projectContextDecision,
+              projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
               read_only: true,
             },
             schemaVersion: 2,
@@ -385,6 +439,7 @@ export async function handleChatFlow({
         stage: "12A.0.repo_conversation",
         result: repoConversationResult.reason || "repo_conversation_handled",
         projectContextDecision,
+        projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
       };
     }
 
@@ -404,6 +459,7 @@ export async function handleChatFlow({
           project_context_depth: projectContextDecision?.depth,
           project_context_trigger: projectContextDecision?.trigger,
           project_context_stage_key: projectContextDecision?.stageKey,
+          project_memory_auto_capture_summary: projectMemoryAutoCaptureMeta,
           read_only: true,
         });
       }
@@ -413,6 +469,7 @@ export async function handleChatFlow({
         stage: "12A.0.internal_no_generic_fallback",
         result: "internal_project_request_not_auto_executed",
         projectContextDecision,
+        projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
       };
     }
 
@@ -432,7 +489,13 @@ export async function handleChatFlow({
 
     await deps.handleChatMessage(chatHandlerCtx);
 
-    return { ok: true, stage: "6.logic.2", result: "chat_handled", projectContextDecision };
+    return {
+      ok: true,
+      stage: "6.logic.2",
+      result: "chat_handled",
+      projectContextDecision,
+      projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
+    };
   } catch (e) {
     console.error("handleMessage(handleChatMessage) failed:", e);
     return { ok: false, reason: "chat_error" };

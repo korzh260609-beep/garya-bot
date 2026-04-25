@@ -9,7 +9,8 @@
 // - NO DB writes here
 // - NO command execution here
 // - NO AI hallucinated content here
-// - if confidence is low, return unsupported and ask for structured input
+// - NO stage completion claims without repository/workflow verification
+// - if confidence is low or verification is required, return unsupported
 // ============================================================================
 
 function safeText(value) {
@@ -20,7 +21,7 @@ function normalizeText(value) {
   return safeText(value).toLowerCase().replace(/ё/g, "е");
 }
 
-function extractCompletedStage(text = "") {
+function extractStageCompletionClaim(text = "") {
   const raw = safeText(text);
   const normalized = normalizeText(raw);
 
@@ -61,36 +62,17 @@ export function buildConfirmedProjectIntentAction(pending = {}) {
     };
   }
 
-  const completedStage = extractCompletedStage(text);
+  const stageCompletionClaim = extractStageCompletionClaim(text);
 
-  if (completedStage) {
+  if (stageCompletionClaim) {
     return {
-      ok: true,
-      reason: "stage_completed_work_session",
-      action: {
-        type: "record_project_work_session",
-        title: `Stage ${completedStage} completed`,
-        goal: `Этап ${completedStage} завершён.`,
-        checked: [],
-        changed: [],
-        decisions: [`Зафиксировано завершение этапа ${completedStage}.`],
-        risks: [
-          "Запись создана из подтверждённого free-text intent; детали этапа не восстановлены автоматически.",
-        ],
-        nextSteps: [],
-        notes: [`Исходный запрос: ${text}`],
-        tags: ["confirmed_intent", "stage_completed", `stage_${completedStage.toLowerCase()}`],
-        sourceType: "confirmed_project_intent",
-        sourceRef: null,
-        relatedPaths: [],
-        moduleKey: "project_memory",
-        stageKey: completedStage,
-        meta: {
-          confirmedProjectIntent: true,
-          builder: "projectIntentConfirmedActionBuilder",
-          builderReason: "stage_completed_work_session",
-          originalText: text,
-        },
+      ok: false,
+      reason: "stage_completion_requires_repo_verification",
+      action: null,
+      verificationRequired: {
+        type: "stage_completion",
+        stageKey: stageCompletionClaim,
+        originalText: text,
       },
     };
   }

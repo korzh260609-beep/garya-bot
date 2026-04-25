@@ -1,15 +1,7 @@
 // src/projectExperience/ProjectMemoryAutoCapture.js
 // ============================================================================
 // STAGE C.7 — Project Memory Auto Capture (SKELETON / DRY-RUN)
-// Purpose:
-// - automatically decide which project events should become structured memory records
-// - reduce the need for users/monarch to manually say "save this to memory"
-// - keep project memory structured, evidence-linked and trust-aware
-// IMPORTANT:
-// - NO DB writes
-// - NO Project Memory writes
-// - NO GitHub calls
-// - prepares records only; writer must be explicit and guarded
+// UPDATED: user/monarch statements are treated as CLAIMS, not facts
 // ============================================================================
 
 import {
@@ -17,6 +9,7 @@ import {
   createDecisionRecord,
   createRevisionRecord,
   createStageStateRecord,
+  createClaimRecord,
   EXPERIENCE_MEMORY_SOURCE_TYPES,
   EXPERIENCE_MEMORY_TRUST_LEVELS,
 } from "./ProjectExperienceMemorySchema.js";
@@ -83,9 +76,21 @@ export class ProjectMemoryAutoCapture {
       };
     }
 
-    const trustLevel = isMonarchUser
-      ? EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED
-      : EXPERIENCE_MEMORY_TRUST_LEVELS.UNKNOWN;
+    // ВСЁ от пользователя = CLAIM
+    records.push(
+      createClaimRecord({
+        projectKey,
+        stageKey,
+        title: "User/Monarch project statement",
+        summary: sourceText,
+        sourceType: isMonarchUser
+          ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
+          : EXPERIENCE_MEMORY_SOURCE_TYPES.USER_CLAIM,
+        sourceRef,
+        reason: "User-provided statement; must be verified against repo/pillars before becoming fact.",
+      })
+    );
+    reasons.push("user_claim");
 
     if (detectDecisionSignal(sourceText)) {
       records.push(
@@ -94,16 +99,14 @@ export class ProjectMemoryAutoCapture {
           stageKey,
           title: "Project decision candidate",
           summary: sourceText,
-          sourceType: isMonarchUser
-            ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
-            : EXPERIENCE_MEMORY_SOURCE_TYPES.SYSTEM_ANALYSIS,
+          sourceType: EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM,
           sourceRef,
-          trustLevel,
-          reason: "Detected decision-like project statement.",
+          trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
+          reason: "Decision detected from user statement; requires verification/context linking.",
           meta: {
             autoCapture: true,
-            classifier: "ProjectMemoryAutoCapture",
             captureKind: "decision_candidate",
+            requiresVerification: true,
           },
         })
       );
@@ -115,18 +118,16 @@ export class ProjectMemoryAutoCapture {
         createTimelineEventRecord({
           projectKey,
           stageKey,
-          title: "Project risk/concern candidate",
+          title: "Project risk candidate",
           summary: sourceText,
-          sourceType: isMonarchUser
-            ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
-            : EXPERIENCE_MEMORY_SOURCE_TYPES.SYSTEM_ANALYSIS,
+          sourceType: EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM,
           sourceRef,
-          trustLevel,
+          trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
           risks: [sourceText],
           meta: {
             autoCapture: true,
-            classifier: "ProjectMemoryAutoCapture",
             captureKind: "risk_candidate",
+            requiresVerification: true,
           },
         })
       );
@@ -138,18 +139,16 @@ export class ProjectMemoryAutoCapture {
         createRevisionRecord({
           projectKey,
           stageKey,
-          title: "Project understanding revision candidate",
+          title: "Revision candidate",
           summary: sourceText,
-          sourceType: isMonarchUser
-            ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
-            : EXPERIENCE_MEMORY_SOURCE_TYPES.SYSTEM_ANALYSIS,
+          sourceType: EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM,
           sourceRef,
-          trustLevel,
-          reason: "Detected project understanding revision signal.",
+          trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
+          reason: "Revision detected; requires validation.",
           meta: {
             autoCapture: true,
-            classifier: "ProjectMemoryAutoCapture",
             captureKind: "revision_candidate",
+            requiresVerification: true,
           },
         })
       );
@@ -163,15 +162,12 @@ export class ProjectMemoryAutoCapture {
           stageKey,
           title: stageKey ? `Stage ${stageKey} state candidate` : "Stage state candidate",
           summary: sourceText,
-          sourceType: isMonarchUser
-            ? EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM
-            : EXPERIENCE_MEMORY_SOURCE_TYPES.SYSTEM_ANALYSIS,
+          sourceType: EXPERIENCE_MEMORY_SOURCE_TYPES.MONARCH_CLAIM,
           sourceRef,
-          trustLevel,
-          reason: "Detected stage/status-related statement; requires repo/pillars verification before confirmed fact.",
+          trustLevel: EXPERIENCE_MEMORY_TRUST_LEVELS.CLAIMED,
+          reason: "Stage/state claimed by user; must be verified via repo/pillars.",
           meta: {
             autoCapture: true,
-            classifier: "ProjectMemoryAutoCapture",
             captureKind: "stage_state_candidate",
             requiresVerification: true,
           },
@@ -181,13 +177,11 @@ export class ProjectMemoryAutoCapture {
     }
 
     return {
-      shouldCapture: records.length > 0,
+      shouldCapture: true,
       records,
       reasons: unique(reasons),
       dryRun: true,
-      warning: records.length > 0
-        ? "Prepared memory records only; no Project Memory write performed."
-        : null,
+      warning: "User statements stored as CLAIMS only. No verified facts recorded.",
     };
   }
 

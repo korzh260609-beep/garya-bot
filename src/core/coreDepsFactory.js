@@ -56,9 +56,13 @@ import {
   testSource,
 } from "../sources/sources.js";
 
+import { ProjectEvidenceSeedService } from "../projectExperience/ProjectEvidenceSeedService.js";
+
 import { envStr } from "../core/config.js";
 
 export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } = {}) {
+  const projectEvidenceSeedService = new ProjectEvidenceSeedService();
+
   return {
     reply,
     callAI,
@@ -117,6 +121,9 @@ export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } 
     formatSourcesList,
     diagnoseSource,
     testSource,
+
+    projectEvidenceSeedService,
+    buildProjectEvidenceSeed: (input = {}) => projectEvidenceSeedService.buildSeed(input),
 
     MAX_HISTORY_MESSAGES,
   };

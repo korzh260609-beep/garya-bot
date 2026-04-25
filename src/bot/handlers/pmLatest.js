@@ -10,8 +10,7 @@
 // - supports filters: module:<key> stage:<key>
 // ============================================================================
 
-import { getUserTimezone } from "../../db/userSettings.js";
-import { resolveUserTimezone } from "../../core/time/timezoneResolver.js";
+import { resolveProjectMemoryDisplayTimezone } from "./projectMemoryTimezoneUtils.js";
 import {
   safeText,
   formatDateTime,
@@ -45,27 +44,6 @@ function parseLatestArgs(rest = "") {
     moduleKey,
     stageKey,
   };
-}
-
-async function resolveDisplayTimezone(globalUserId) {
-  let userTimezoneFromDb = null;
-
-  try {
-    if (globalUserId) {
-      const tzInfo = await getUserTimezone(globalUserId);
-      if (tzInfo?.isSet === true && safeText(tzInfo.timezone)) {
-        userTimezoneFromDb = safeText(tzInfo.timezone);
-      }
-    }
-  } catch (_) {
-    // fail-open
-  }
-
-  try {
-    return resolveUserTimezone({ userTimezoneFromDb });
-  } catch (_) {
-    return "UTC";
-  }
 }
 
 function buildLatestMessage(row, timezone, filters) {
@@ -121,7 +99,7 @@ export async function handlePmLatest({
   getProjectMemoryList,
 }) {
   try {
-    const timezone = await resolveDisplayTimezone(globalUserId);
+    const timezone = await resolveProjectMemoryDisplayTimezone(globalUserId);
     const args = parseLatestArgs(rest);
 
     const rows = await getProjectMemoryList(undefined, "work_sessions");

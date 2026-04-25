@@ -19,6 +19,23 @@ function toBool(value) {
   return value === true;
 }
 
+function hasUserProjectSignal(match = {}) {
+  return (
+    Array.isArray(match.userProjectPhraseHits) && match.userProjectPhraseHits.length > 0
+  ) || (
+    Array.isArray(match.userProjectTokenHits) && match.userProjectTokenHits.length > 0
+  );
+}
+
+function shouldRouteMonarchPrivateWriteToSgCore({ match, monarch, priv } = {}) {
+  if (!monarch || !priv) return false;
+  if (!match || typeof match !== "object") return false;
+  if (match.targetScope === "sg_core_internal") return false;
+  if (match.actionMode !== "write" && match.actionMode !== "mixed") return false;
+  if (hasUserProjectSignal(match)) return false;
+  return true;
+}
+
 export const PROJECT_INTENT_ROUTE_KEYS = Object.freeze({
   SG_CORE_INTERNAL_READ_ALLOWED: "sg_core_internal_read_allowed",
   SG_CORE_INTERNAL_READ_DENIED: "sg_core_internal_read_denied",
@@ -58,6 +75,11 @@ export function resolveProjectIntentRoute({
 
   const monarch = toBool(isMonarchUser);
   const priv = toBool(isPrivateChat);
+  const forceSgCoreWriteConfirmation = shouldRouteMonarchPrivateWriteToSgCore({
+    match,
+    monarch,
+    priv,
+  });
 
   let routeKey = PROJECT_INTENT_ROUTE_KEYS.UNKNOWN;
   let policy = PROJECT_INTENT_ROUTE_POLICIES.UNKNOWN_PASS;
@@ -69,11 +91,11 @@ export function resolveProjectIntentRoute({
   let readOnly = false;
   let needsConfirmation = false;
 
-  if (match.targetScope === "sg_core_internal") {
+  if (match.targetScope === "sg_core_internal" || forceSgCoreWriteConfirmation) {
     requiresMonarch = true;
     requiresPrivate = true;
 
-    if (match.isProjectWriteIntent) {
+    if (match.isProjectWriteIntent || forceSgCoreWriteConfirmation) {
       readOnly = false;
 
       if (monarch && priv) {
@@ -148,11 +170,12 @@ export function resolveProjectIntentRoute({
     requiresPrivate,
     readOnly,
     needsConfirmation,
+    forceSgCoreWriteConfirmation,
 
-    targetScope: match.targetScope,
-    targetDomain: match.targetDomain,
+    targetScope: forceSgCoreWriteConfirmation ? "sg_core_internal" : match.targetScope,
+    targetDomain: forceSgCoreWriteConfirmation ? "sg_internal_project" : match.targetDomain,
     actionMode: match.actionMode,
-    confidence: match.confidence,
+    confidence: forceSgCoreWriteConfirmation ? "medium" : match.confidence,
   };
 }
 

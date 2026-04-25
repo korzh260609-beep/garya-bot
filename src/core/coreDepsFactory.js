@@ -60,8 +60,31 @@ import { ProjectEvidenceSeedService } from "../projectExperience/ProjectEvidence
 
 import { envStr } from "../core/config.js";
 
+async function fetchMockProjectEvidenceCommits({ repository, ref, limit } = {}) {
+  return [
+    {
+      sha: "mock-project-evidence-seed",
+      message: "Mock project evidence seed is wired for pipeline verification",
+      repository: repository || "korzh260609-beep/garya-bot",
+      ref: ref || "main",
+      source: "mock_project_evidence_seed",
+    },
+  ].slice(0, Number.isFinite(Number(limit)) ? Number(limit) : 1);
+}
+
+async function fetchMockProjectEvidencePillars() {
+  return {
+    roadmap: "Mock ROADMAP evidence: Project Evidence Seed pipeline is being verified before real GitHub fetchers.",
+    workflow: "Mock WORKFLOW evidence: trigger-policy -> seed -> light pack -> auto-capture dry-run.",
+    decisions: "Mock DECISIONS evidence: no direct GitHub connector import, no DB writes, no pillar edits.",
+  };
+}
+
 export function buildCoreDeps({ bot, callAI, reply, MAX_HISTORY_MESSAGES = 20 } = {}) {
-  const projectEvidenceSeedService = new ProjectEvidenceSeedService();
+  const projectEvidenceSeedService = new ProjectEvidenceSeedService({
+    fetchRecentCommits: fetchMockProjectEvidenceCommits,
+    fetchPillars: fetchMockProjectEvidencePillars,
+  });
 
   return {
     reply,

@@ -182,6 +182,7 @@ export class ProjectMemoryService {
           schema_version,
           created_at,
           updated_at,
+          layer,
           entry_type,
           status,
           source_type,
@@ -214,6 +215,11 @@ export class ProjectMemoryService {
     if (filters.section) {
       where.push(`section = $${idx++}`);
       params.push(normalizeText(filters.section));
+    }
+
+    if (filters.layer) {
+      where.push(`layer = $${idx++}`);
+      params.push(normalizeText(filters.layer));
     }
 
     if (filters.entryType) {
@@ -261,6 +267,7 @@ export class ProjectMemoryService {
           schema_version,
           created_at,
           updated_at,
+          layer,
           entry_type,
           status,
           source_type,
@@ -316,6 +323,7 @@ export class ProjectMemoryService {
           schema_version,
           created_at,
           updated_at,
+          layer,
           entry_type,
           status,
           source_type,
@@ -329,7 +337,7 @@ export class ProjectMemoryService {
         VALUES (
           $1, $2, $3, $4, $5, $6, $7,
           NOW(), NOW(),
-          $8, $9, $10, $11, $12, $13, $14, $15, $16
+          $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
         )
         RETURNING
           id,
@@ -342,6 +350,7 @@ export class ProjectMemoryService {
           schema_version,
           created_at,
           updated_at,
+          layer,
           entry_type,
           status,
           source_type,
@@ -360,6 +369,7 @@ export class ProjectMemoryService {
         normalized.tags,
         normalized.meta,
         normalized.schemaVersion,
+        normalized.layer,
         normalized.entryType,
         normalized.status,
         normalized.sourceType,
@@ -436,15 +446,16 @@ export class ProjectMemoryService {
           meta = $4,
           schema_version = $5,
           updated_at = NOW(),
-          status = $6,
-          source_type = $7,
-          source_ref = $8,
-          related_paths = $9,
-          module_key = $10,
-          stage_key = $11,
-          confidence = $12,
-          is_active = $13
-        WHERE id = $14
+          layer = $6,
+          status = $7,
+          source_type = $8,
+          source_ref = $9,
+          related_paths = $10,
+          module_key = $11,
+          stage_key = $12,
+          confidence = $13,
+          is_active = $14
+        WHERE id = $15
         RETURNING
           id,
           project_key,
@@ -456,6 +467,7 @@ export class ProjectMemoryService {
           schema_version,
           created_at,
           updated_at,
+          layer,
           entry_type,
           status,
           source_type,
@@ -472,6 +484,7 @@ export class ProjectMemoryService {
         normalized.tags,
         normalized.meta,
         normalized.schemaVersion,
+        normalized.layer,
         normalized.status,
         normalized.sourceType,
         normalized.sourceRef,
@@ -625,6 +638,7 @@ export class ProjectMemoryService {
           schema_version,
           created_at,
           updated_at,
+          layer,
           entry_type,
           status,
           source_type,
@@ -718,6 +732,10 @@ export class ProjectMemoryService {
           : existing.tags,
       meta: nextMetaWithDiagnostics,
       schemaVersion: existing.schema_version,
+      layer:
+        Object.prototype.hasOwnProperty.call(patch, "layer")
+          ? patch.layer
+          : existing.layer,
       entryType: existing.entry_type,
       status:
         Object.prototype.hasOwnProperty.call(patch, "status")
@@ -763,16 +781,17 @@ export class ProjectMemoryService {
           meta = $4,
           schema_version = $5,
           updated_at = NOW(),
-          status = $6,
-          source_type = $7,
-          source_ref = $8,
-          related_paths = $9,
-          module_key = $10,
-          stage_key = $11,
-          confidence = $12,
-          is_active = $13
-        WHERE id = $14
-          AND project_key = $15
+          layer = $6,
+          status = $7,
+          source_type = $8,
+          source_ref = $9,
+          related_paths = $10,
+          module_key = $11,
+          stage_key = $12,
+          confidence = $13,
+          is_active = $14
+        WHERE id = $15
+          AND project_key = $16
         RETURNING
           id,
           project_key,
@@ -784,6 +803,7 @@ export class ProjectMemoryService {
           schema_version,
           created_at,
           updated_at,
+          layer,
           entry_type,
           status,
           source_type,
@@ -800,6 +820,7 @@ export class ProjectMemoryService {
         normalized.tags,
         normalized.meta,
         normalized.schemaVersion,
+        normalized.layer,
         normalized.status,
         normalized.sourceType,
         normalized.sourceRef,
@@ -847,6 +868,7 @@ export class ProjectMemoryService {
           schema_version,
           created_at,
           updated_at,
+          layer,
           entry_type,
           status,
           source_type,
@@ -940,6 +962,10 @@ export class ProjectMemoryService {
           ? patch.meta
           : existing.meta,
       schemaVersion: existing.schema_version,
+      layer:
+        Object.prototype.hasOwnProperty.call(patch, "layer")
+          ? patch.layer
+          : existing.layer,
       entryType: existing.entry_type,
       status:
         Object.prototype.hasOwnProperty.call(patch, "status")
@@ -985,17 +1011,18 @@ export class ProjectMemoryService {
           meta = $4,
           schema_version = $5,
           updated_at = NOW(),
-          status = $6,
-          source_type = $7,
-          source_ref = $8,
-          related_paths = $9,
-          module_key = $10,
-          stage_key = $11,
-          confidence = $12,
-          is_active = $13
-        WHERE id = $14
-          AND project_key = $15
-          AND section = $16
+          layer = $6,
+          status = $7,
+          source_type = $8,
+          source_ref = $9,
+          related_paths = $10,
+          module_key = $11,
+          stage_key = $12,
+          confidence = $13,
+          is_active = $14
+        WHERE id = $15
+          AND project_key = $16
+          AND section = $17
           AND entry_type = 'session_summary'
         RETURNING
           id,
@@ -1008,6 +1035,7 @@ export class ProjectMemoryService {
           schema_version,
           created_at,
           updated_at,
+          layer,
           entry_type,
           status,
           source_type,
@@ -1024,6 +1052,7 @@ export class ProjectMemoryService {
         normalized.tags,
         normalized.meta,
         normalized.schemaVersion,
+        normalized.layer,
         normalized.status,
         normalized.sourceType,
         normalized.sourceRef,

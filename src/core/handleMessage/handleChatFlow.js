@@ -9,6 +9,7 @@ import { buildInboundStorageText } from "./inboundBinary.js";
 import { truncateForDb } from "./shared.js";
 import { handleExplicitRemember } from "./handleExplicitRemember.js";
 import { buildChatHandlerContext } from "./contextBuilders.js";
+import { ProjectContextEngine } from "../../projectExperience/ProjectContextEngine.js";
 
 import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.js";
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
@@ -46,6 +47,7 @@ export async function handleChatFlow({
 }) {
   try {
     const memory = getMemoryService();
+    const projectContextEngine = new ProjectContextEngine();
 
     const saveMessageToMemory = async (chatIdStr2, role, content, opts = {}) => {
       return memory.write({
@@ -90,6 +92,11 @@ export async function handleChatFlow({
       pendingChoiceContext
     );
 
+    const projectContextDecision = projectContextEngine.classifyProjectContextNeed({
+      text: projectIntentRoutingText,
+      hasActiveProjectSession: repoFollowupContext?.isActive === true,
+    });
+
     const projectIntentRoute = resolveProjectIntentRoute({
       text: projectIntentRoutingText,
       isMonarchUser: !!isMonarchUser,
@@ -112,6 +119,7 @@ export async function handleChatFlow({
         ok: true,
         stage: "12A.0.intent_guard",
         result: "project_intent_blocked",
+        projectContextDecision,
       };
     }
 
@@ -169,6 +177,12 @@ export async function handleChatFlow({
             projectIntentFollowupContextActive: repoFollowupContext?.isActive === true,
             projectIntentPendingChoiceActive: pendingChoiceContext?.isActive === true,
             projectIntentRoutingText: projectIntentRoutingText,
+
+            projectContextNeeded: projectContextDecision?.depth !== "none",
+            projectContextDepth: projectContextDecision?.depth,
+            projectContextTrigger: projectContextDecision?.trigger,
+            projectContextStageKey: projectContextDecision?.stageKey,
+            projectContextReasons: projectContextDecision?.reasons,
           },
           raw: buildRawMeta(raw || {}),
           schemaVersion: 1,
@@ -250,6 +264,7 @@ export async function handleChatFlow({
             transport,
             metadata: {
               ...repoConversationResult.contextMeta,
+              projectContextDecision,
               read_only: true,
             },
             schemaVersion: 2,
@@ -261,6 +276,7 @@ export async function handleChatFlow({
         ok: true,
         stage: "12A.0.repo_conversation",
         result: repoConversationResult.reason || "repo_conversation_handled",
+        projectContextDecision,
       };
     }
 
@@ -277,6 +293,9 @@ export async function handleChatFlow({
           project_intent_confidence: projectIntentRoute.confidence,
           project_intent_route_key: projectIntentRoute.routeKey,
           project_intent_policy: projectIntentRoute.policy,
+          project_context_depth: projectContextDecision?.depth,
+          project_context_trigger: projectContextDecision?.trigger,
+          project_context_stage_key: projectContextDecision?.stageKey,
           read_only: true,
         });
       }
@@ -285,6 +304,7 @@ export async function handleChatFlow({
         ok: true,
         stage: "12A.0.internal_no_generic_fallback",
         result: "internal_project_request_not_auto_executed",
+        projectContextDecision,
       };
     }
 
@@ -304,7 +324,7 @@ export async function handleChatFlow({
 
     await deps.handleChatMessage(chatHandlerCtx);
 
-    return { ok: true, stage: "6.logic.2", result: "chat_handled" };
+    return { ok: true, stage: "6.logic.2", result: "chat_handled", projectContextDecision };
   } catch (e) {
     console.error("handleMessage(handleChatMessage) failed:", e);
     return { ok: false, reason: "chat_error" };

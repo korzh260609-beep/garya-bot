@@ -23,6 +23,32 @@ function hasProjectEvidenceSeed(value = {}) {
   );
 }
 
+async function buildProjectEvidenceSeedIfAvailable(context = {}, deps = {}, triggerDecision = {}) {
+  if (!triggerDecision?.shouldBuild) {
+    return null;
+  }
+
+  if (
+    context?.projectMemoryEvidenceSeed ||
+    deps?.projectMemoryEvidenceSeed ||
+    context?.projectMemoryEvidencePack ||
+    context?.projectEvidencePack
+  ) {
+    return null;
+  }
+
+  if (typeof deps?.buildProjectEvidenceSeed !== "function") {
+    return null;
+  }
+
+  return deps.buildProjectEvidenceSeed({
+    projectKey: context?.projectKey || "garya-bot",
+    repository: context?.repository || "korzh260609-beep/garya-bot",
+    ref: context?.ref || "main",
+    commitLimit: context?.commitLimit ?? 5,
+  });
+}
+
 function buildProjectMemoryEvidencePackIfAvailable(context = {}, deps = {}) {
   if (context?.projectMemoryEvidencePack || context?.projectEvidencePack) {
     return null;
@@ -86,6 +112,7 @@ export async function handleMessage(context = {}) {
   });
 
   let evidencePackBuilt = false;
+  let evidenceSeedBuilt = false;
   let enrichedContext = {
     ...context,
     projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
@@ -94,6 +121,15 @@ export async function handleMessage(context = {}) {
 
   try {
     if (triggerDecision.shouldBuild) {
+      const evidenceSeed = await buildProjectEvidenceSeedIfAvailable(enrichedContext, deps, triggerDecision);
+      if (evidenceSeed) {
+        evidenceSeedBuilt = true;
+        enrichedContext = {
+          ...enrichedContext,
+          projectMemoryEvidenceSeed: evidenceSeed,
+        };
+      }
+
       const evidencePack = buildProjectMemoryEvidencePackIfAvailable(enrichedContext, deps);
       if (evidencePack) {
         evidencePackBuilt = true;
@@ -109,7 +145,11 @@ export async function handleMessage(context = {}) {
 
   const projectEvidenceDiagnostics = {
     projectEvidenceTriggered: triggerDecision.shouldBuild === true,
+    projectEvidenceSeedBuilt: evidenceSeedBuilt,
     projectEvidencePackBuilt: evidencePackBuilt,
+    projectEvidenceSeedPresent: Boolean(
+      enrichedContext?.projectMemoryEvidenceSeed || deps?.projectMemoryEvidenceSeed
+    ),
     projectEvidencePackPresent: Boolean(
       enrichedContext?.projectMemoryEvidencePack ||
       enrichedContext?.projectEvidencePack
@@ -231,7 +271,9 @@ export async function handleMessage(context = {}) {
         projectContextDepth: enrichedContext?.projectContextDecision?.depth,
         projectContextTrigger: enrichedContext?.projectContextDecision?.trigger,
         projectEvidenceTriggered: projectEvidenceDiagnostics.projectEvidenceTriggered,
+        projectEvidenceSeedBuilt: projectEvidenceDiagnostics.projectEvidenceSeedBuilt,
         projectEvidencePackBuilt: projectEvidenceDiagnostics.projectEvidencePackBuilt,
+        projectEvidenceSeedPresent: projectEvidenceDiagnostics.projectEvidenceSeedPresent,
         projectEvidencePackPresent: projectEvidenceDiagnostics.projectEvidencePackPresent,
         projectEvidencePackSource: projectEvidenceDiagnostics.projectEvidencePackSource,
         projectEvidenceTriggerReasons: projectEvidenceDiagnostics.projectEvidenceTriggerReasons,

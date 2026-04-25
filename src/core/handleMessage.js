@@ -26,6 +26,15 @@ function hasProjectEvidenceSeed(value = {}) {
   );
 }
 
+function buildMeaningPreviousContextHint(context = {}, deps = {}) {
+  return {
+    projectContextDecision: context?.projectContextDecision || null,
+    projectMemoryEvidencePack: context?.projectMemoryEvidencePack || context?.projectEvidencePack || null,
+    projectMemoryEvidenceSeed: context?.projectMemoryEvidenceSeed || deps?.projectMemoryEvidenceSeed || null,
+    hasActiveProjectSession: Boolean(context?.hasActiveProjectSession || deps?.hasActiveProjectSession),
+  };
+}
+
 async function buildNaturalClarificationReply({ deps = {}, text = "", coreMeaning = {} } = {}) {
   const fallback = "Уточни, пожалуйста, какой именно объект нужно проверить.";
 
@@ -53,6 +62,7 @@ async function buildNaturalClarificationReply({ deps = {}, text = "", coreMeanin
             intent: coreMeaning?.intent,
             userMeaning: coreMeaning?.userMeaning,
             missingInformation: coreMeaning?.missingInformation,
+            contextContinuity: coreMeaning?.contextContinuity,
           },
         }),
       },
@@ -159,6 +169,7 @@ export async function handleMessage(context = {}) {
       context?.hasActiveProjectSession ||
       deps?.hasActiveProjectSession
     ),
+    previousContext: buildMeaningPreviousContextHint(context, deps),
   });
 
   const projectMeaning = understandProjectMeaning({
@@ -352,6 +363,9 @@ export async function handleMessage(context = {}) {
         coreMeaningSuggestedAction: enrichedContext?.coreMeaning?.suggestedAction,
         coreMeaningEnoughInformation: enrichedContext?.coreMeaning?.enoughInformation,
         coreMeaningMissingInformation: enrichedContext?.coreMeaning?.missingInformation,
+        contextContinuityStrength: enrichedContext?.coreMeaning?.contextContinuity?.contextStrength,
+        contextContinuityCanUsePreviousTarget: enrichedContext?.coreMeaning?.contextContinuity?.canUsePreviousTarget,
+        contextContinuityShouldAskClarification: enrichedContext?.coreMeaning?.contextContinuity?.shouldAskClarification,
         projectMeaningIntent: enrichedContext?.projectMeaning?.intent,
         projectMeaningConfidence: enrichedContext?.projectMeaning?.confidence,
         projectMeaningEnoughInformation: enrichedContext?.projectMeaning?.enoughInformation,
@@ -406,6 +420,7 @@ export async function handleMessage(context = {}) {
         event: "core_meaning_clarification",
         core_meaning_intent: coreMeaning?.intent,
         core_meaning_missing_information: coreMeaning?.missingInformation,
+        core_meaning_context_continuity: coreMeaning?.contextContinuity,
         transport_agnostic: true,
       });
     }

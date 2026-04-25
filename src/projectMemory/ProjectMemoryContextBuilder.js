@@ -72,6 +72,7 @@ const CONFIRMED_ENTRY_TYPES = new Set([
 function isConfirmedContextEntry(entry) {
   if (!entry || typeof entry !== "object") return false;
   if (entry.is_active !== true) return false;
+  if (safeText(entry.layer).trim() !== "confirmed") return false;
 
   const entryType = safeText(entry.entry_type).trim();
   if (!entryType) return false;
@@ -298,6 +299,7 @@ export class ProjectMemoryContextBuilder {
 
   async listConfirmedEntries({ projectKey } = {}) {
     const entries = await this.service.listEntries(projectKey, {
+      layer: "confirmed",
       isActive: true,
       limit: 200,
     });

@@ -5,6 +5,7 @@
 // - automatically run pre-change impact analysis before known change commands
 // - keep the guard advisory/dry-run at this stage
 // - prevent blind architecture/code changes later when enforcement is enabled
+// - warn monarch critically when a planned change is risky
 // IMPORTANT:
 // - NO DB writes
 // - NO Project Memory writes
@@ -30,12 +31,50 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function ensureArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function inferTargetFilesFromText(text = "") {
   const source = safeText(text);
   if (!source) return [];
 
   const matches = source.match(/(?:src|core|migrations|pillars|db)\/[A-Za-z0-9_./-]+\.(?:js|md|sql|json)/g);
   return Array.isArray(matches) ? [...new Set(matches)] : [];
+}
+
+function formatList(title = "", items = [], limit = 6) {
+  const normalized = ensureArray(items).map(safeText).filter(Boolean).slice(0, limit);
+  if (normalized.length === 0) return "";
+  return [title, ...normalized.map((item) => `- ${item}`)].join("\n");
+}
+
+export function buildImpactWarningText(impactResult = {}) {
+  const impact = impactResult?.impact || impactResult;
+  if (!impact || typeof impact !== "object") return "";
+
+  const riskLevel = safeText(impact.riskLevel) || "unknown";
+  const isHigh = riskLevel === "high";
+  const header = isHigh
+    ? "⚠️ ВНИМАНИЕ: изменение может затронуть критичную архитектуру."
+    : "ℹ️ Предварительная проверка изменения.";
+
+  return [
+    header,
+    "",
+    `Команда/изменение: ${safeText(impact.changeTitle) || safeText(impactResult?.cmd) || "unknown"}`,
+    `Риск: ${riskLevel}`,
+    "",
+    formatList("Затронутые модули:", impact.affectedModules),
+    "",
+    formatList("Что может пойти не так:", impact.risks),
+    "",
+    formatList("Что проверить после изменения:", impact.requiredChecks),
+    "",
+    `Рекомендация: ${safeText(impact.recommendation) || "Сначала проверить вручную."}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export class ProjectChangeImpactGuard {
@@ -56,6 +95,7 @@ export class ProjectChangeImpactGuard {
         needed: false,
         cmd: cmd0,
         impact: null,
+        warningText: "",
       };
     }
 
@@ -69,11 +109,16 @@ export class ProjectChangeImpactGuard {
       intendedEffects: [`Execute ${cmd0}`],
     });
 
-    return {
+    const result = {
       needed: true,
       cmd: cmd0,
       impact,
       advisoryOnly: true,
+    };
+
+    return {
+      ...result,
+      warningText: buildImpactWarningText(result),
     };
   }
 }
@@ -81,4 +126,5 @@ export class ProjectChangeImpactGuard {
 export default {
   CHANGE_COMMANDS,
   ProjectChangeImpactGuard,
+  buildImpactWarningText,
 };

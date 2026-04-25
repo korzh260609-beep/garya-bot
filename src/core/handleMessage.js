@@ -26,6 +26,45 @@ function hasProjectEvidenceSeed(value = {}) {
   );
 }
 
+async function buildNaturalClarificationReply({ deps = {}, text = "", coreMeaning = {} } = {}) {
+  const fallback = "Уточни, пожалуйста, какой именно объект нужно проверить.";
+
+  if (typeof deps?.callAI !== "function") {
+    return fallback;
+  }
+
+  try {
+    const reply = await deps.callAI([
+      {
+        role: "system",
+        content: [
+          "You are SG, a concise project assistant.",
+          "Generate a short natural clarification question in the user's language.",
+          "Do not use a fixed template.",
+          "Do not invent missing information.",
+          "Do not execute the task.",
+        ].join(" "),
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          userMessage: text,
+          meaning: {
+            intent: coreMeaning?.intent,
+            userMeaning: coreMeaning?.userMeaning,
+            missingInformation: coreMeaning?.missingInformation,
+          },
+        }),
+      },
+    ]);
+
+    return String(reply || "").trim() || fallback;
+  } catch (e) {
+    console.error("core meaning clarification AI failed (fail-open):", e);
+    return fallback;
+  }
+}
+
 async function buildProjectEvidenceSeedIfAvailable(context = {}, deps = {}, triggerDecision = {}) {
   if (!triggerDecision?.shouldBuild) {
     return null;
@@ -159,7 +198,7 @@ export async function handleMessage(context = {}) {
   };
 
   try {
-    if (triggerDecision.shouldBuild) {
+    if (triggerDecision.shouldBuild && coreMeaning?.suggestedAction !== "clarify") {
       const evidenceSeed = await buildProjectEvidenceSeedIfAvailable(enrichedContext, deps, triggerDecision);
       if (evidenceSeed) {
         evidenceSeedBuilt = true;
@@ -331,6 +370,52 @@ export async function handleMessage(context = {}) {
     }
   } catch {
     // ignore
+  }
+
+  // =========================================================================
+  // STAGE CORE MEANING — Natural clarification guard
+  // =========================================================================
+  if (isEnforced && coreMeaning?.suggestedAction === "clarify" && !isCommand) {
+    const chatIdNumForClarify = chatId ? Number(chatId) : null;
+    const chatIdStrForClarify = chatId || "";
+
+    if (!chatIdNumForClarify) {
+      return { ok: false, reason: "missing_chatId" };
+    }
+
+    const replyAndLog = buildReplyAndLog({
+      deps,
+      context: enrichedContext,
+      transport,
+      chatIdStr: chatIdStrForClarify,
+      chatType,
+      globalUserId,
+      senderId,
+      messageId,
+    });
+
+    const clarificationReply = await buildNaturalClarificationReply({
+      deps,
+      text: trimmed,
+      coreMeaning,
+    });
+
+    if (typeof replyAndLog === "function") {
+      await replyAndLog(clarificationReply, {
+        handler: "handleMessage",
+        event: "core_meaning_clarification",
+        core_meaning_intent: coreMeaning?.intent,
+        core_meaning_missing_information: coreMeaning?.missingInformation,
+        transport_agnostic: true,
+      });
+    }
+
+    return {
+      ok: true,
+      stage: "core.meaning.clarify",
+      result: "clarification_requested",
+      coreMeaning,
+    };
   }
 
   // =========================================================================

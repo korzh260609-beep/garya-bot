@@ -11,37 +11,6 @@ import { parseCommandAccess } from "./handleMessage/commandParsing.js";
 import { buildReplyAndLog } from "./handleMessage/buildReplyAndLog.js";
 import { handleCommandFlow } from "./handleMessage/handleCommandFlow.js";
 import { handleChatFlow } from "./handleMessage/handleChatFlow.js";
-import { buildProjectLightEvidencePack } from "../projectExperience/ProjectLightEvidencePackBuilder.js";
-import { ProjectEvidenceTriggerPolicy } from "../projectExperience/ProjectEvidenceTriggerPolicy.js";
-
-function hasProjectEvidenceSeed(value = {}) {
-  return Boolean(
-    Array.isArray(value?.commits) ||
-    value?.pillars ||
-    Array.isArray(value?.memoryEvidences)
-  );
-}
-
-function buildProjectMemoryEvidencePackIfAvailable(context = {}, deps = {}) {
-  if (context?.projectMemoryEvidencePack || context?.projectEvidencePack) {
-    return null;
-  }
-
-  const seed = context?.projectMemoryEvidenceSeed || deps?.projectMemoryEvidenceSeed || null;
-  if (!seed || !hasProjectEvidenceSeed(seed)) {
-    return null;
-  }
-
-  return buildProjectLightEvidencePack({
-    commits: Array.isArray(seed?.commits) ? seed.commits : [],
-    pillars: seed?.pillars || {},
-    memoryEvidences: Array.isArray(seed?.memoryEvidences) ? seed.memoryEvidences : [],
-    commitLimit: seed?.commitLimit ?? 5,
-    projectKey: seed?.projectKey || "garya-bot",
-    repository: seed?.repository || "korzh260609-beep/garya-bot",
-    ref: seed?.ref || "main",
-  });
-}
 
 export async function handleMessage(context = {}) {
   const normalized = normalizeContext(context);
@@ -66,76 +35,175 @@ export async function handleMessage(context = {}) {
 
   let globalUserId = initialGlobalUserId;
 
-  // TRIGGER POLICY
-  const triggerPolicy = new ProjectEvidenceTriggerPolicy();
-  const triggerDecision = triggerPolicy.shouldBuildEvidence({
-    projectContextDecision: context?.projectContextDecision,
-    hasExistingEvidencePack: Boolean(context?.projectMemoryEvidencePack),
-    force: Boolean(context?.forceProjectEvidence),
-  });
-
-  // EVIDENCE BUILD
-  let enrichedContext = context;
-  try {
-    if (triggerDecision.shouldBuild) {
-      const evidencePack = buildProjectMemoryEvidencePackIfAvailable(context, deps);
-      if (evidencePack) {
-        enrichedContext = {
-          ...context,
-          projectMemoryEvidencePack: evidencePack,
-        };
-      }
-    }
-  } catch (e) {
-    console.error("project memory evidence build failed (fail-open):", e);
-  }
-
+  // =========================================================================
+  // STAGE 6.8 — Enforced guard: no processing without dedupe key/messageId
+  // =========================================================================
   if (isEnforced) {
-    const dedupeKey = enrichedContext?.dedupeKey || null;
+    const dedupeKey = context?.dedupeKey || null;
     if (!dedupeKey || !messageId) {
+      try {
+        if (isTransportTraceEnabled()) {
+          console.warn("ENFORCED_DROP_NO_DEDUPE", {
+            transport,
+            chatId,
+            senderId,
+            messageId,
+            dedupeKey,
+          });
+        }
+      } catch (_) {}
       return { ok: false, reason: "missing_dedupeKey", stage: "6.8" };
     }
 
+    // =========================================================================
+    // STAGE 8D — In-memory dedupe drop
+    // =========================================================================
     try {
       if (!bypassParsed.isBypass) {
         const now = Date.now();
         const key = String(dedupeKey);
 
         if (dedupeSeenHasFresh(key, now)) {
+          if (isTransportTraceEnabled()) {
+            console.warn("ENFORCED_DROP_DUPLICATE", {
+              transport,
+              chatId,
+              senderId,
+              messageId,
+              dedupeKey: key,
+            });
+          }
           return { ok: true, stage: "8D", result: "dup_drop" };
         }
 
         dedupeRemember(key, now);
       }
     } catch (e) {
-      console.error("dedupe guard failed:", e);
+      try {
+        console.error("dedupe guard failed (fail-open):", e);
+      } catch (_) {}
     }
   }
 
-  const identity = await resolveIdentityAndAccess({ transport, senderId, raw, globalUserId });
+  // =========================================================================
+  // STAGE 6 LOGIC STEP 1 — Identity + Access
+  // =========================================================================
+  const identity = await resolveIdentityAndAccess({
+    transport,
+    senderId,
+    raw,
+    globalUserId,
+  });
+
   globalUserId = identity.globalUserId;
 
-  const { userRole, userPlan, user, isMonarchUser } = identity;
+  const {
+    accessPack,
+    userRole,
+    userPlan,
+    user,
+    isMonarchUser,
+  } = identity;
 
-  const routing = parseCommandAccess({ trimmed, user, isMonarchUser });
-  const { isCommand, cmdBase, rest, canProceed } = routing;
+  // =========================================================================
+  // STAGE 6 LOGIC STEP 2 — Routing parse
+  // =========================================================================
+  const routing = parseCommandAccess({
+    trimmed,
+    user,
+    isMonarchUser,
+  });
 
+  const {
+    isCommand,
+    parsed,
+    cmdBase,
+    rest,
+    canProceed,
+  } = routing;
+
+  // =========================================================================
+  // Trace log
+  // =========================================================================
+  try {
+    if (isTransportTraceEnabled()) {
+      console.log("📨 handleMessage(core)", {
+        transport,
+        chatId,
+        senderId,
+        globalUserId,
+        chatType,
+        isPrivateChat,
+        isMonarchUser,
+        userRole,
+        isCommand,
+        cmdBase,
+        canProceed,
+        isEnforced,
+      });
+    }
+  } catch {
+    // ignore
+  }
+
+  // =========================================================================
+  // STAGE 7.1 — Memory shadow write (OFF by default)
+  // =========================================================================
+  try {
+    const memory = getMemoryService();
+    const enabled = Boolean(memory?.config?.enabled);
+    const shadowWriteEnabled = envBool("MEMORY_SHADOW_WRITE", false);
+
+    if (!isEnforced && enabled && shadowWriteEnabled && chatId && messageId && text) {
+      await memory.write({
+        chatId,
+        globalUserId: globalUserId || null,
+        role: "user",
+        content: text,
+        transport,
+        metadata: {
+          messageId,
+          source: "core.handleMessage.shadow",
+          chatType,
+          isPrivateChat,
+        },
+        schemaVersion: 2,
+      });
+    }
+  } catch (e) {
+    console.error("handleMessage(memory shadow) failed:", e);
+  }
+
+  // =========================================================================
+  // Shadow mode: compute routing but don't act
+  // =========================================================================
   if (!isEnforced) {
     return {
       ok: true,
       stage: "6.shadow",
-      projectMemoryEvidenceTriggered: triggerDecision.shouldBuild,
+      note: "routing computed (shadow). deps not provided — no reply.",
+      transport,
+      userRole,
+      isMonarchUser,
+      isCommand,
+      cmdBase,
+      canProceed,
     };
   }
 
+  // =========================================================================
+  // ENFORCED MODE — real routing + reply
+  // =========================================================================
   const chatIdNum = chatId ? Number(chatId) : null;
   const chatIdStr = chatId || "";
 
-  if (!chatIdNum) return { ok: false, reason: "missing_chatId" };
+  if (!chatIdNum) {
+    return { ok: false, reason: "missing_chatId" };
+  }
 
   const replyAndLog = buildReplyAndLog({
     deps,
-    context: enrichedContext,
+    context,
     transport,
     chatIdStr,
     chatType,
@@ -146,7 +214,7 @@ export async function handleMessage(context = {}) {
 
   if (isCommand && cmdBase) {
     return handleCommandFlow({
-      context: enrichedContext,
+      context,
       deps,
       transport,
       chatIdStr,
@@ -166,12 +234,14 @@ export async function handleMessage(context = {}) {
       isPrivateChat,
       canProceed,
       replyAndLog,
+      accessPack,
+      parsed,
     });
   }
 
   if (typeof deps?.handleChatMessage === "function") {
     return handleChatFlow({
-      context: enrichedContext,
+      context,
       deps,
       transport,
       chatIdStr,

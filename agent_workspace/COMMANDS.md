@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PROJECT-MEMORY-7A-WIRING-DIAG-003`
-STATUS: `DONE`
+COMMAND_ID: `PROJECT-MEMORY-7A-PM-SHOW-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `project-memory-7a-wiring-core-dispatcher-diagnostic`
-WORKFLOW_POINT: `project-memory-core-command-wiring-check`
+TASK_ID: `project-memory-7a-pm-show-readonly-runtime-diagnostic`
+WORKFLOW_POINT: `project-memory-core-pm-show-read-path-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-26T19:11:54.872Z`
+UPDATED_AT: `2026-04-26T00:00:00.000Z`
 
 ---
 
 ## Payload
 
-/pm_wiring_diag
+/pm_show_diag workflow
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: project-memory-7a-wiring-core-dispatcher-diagnostic
-Workflow point: project-memory-core-command-wiring-check
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending runtime diagnostic.
 
 ---
 

@@ -110,6 +110,7 @@ ${resultText || "-"}
 ## Allowed statuses
 
 - \`EMPTY\`
+- \`WAITING_DEPLOY\`
 - \`PENDING\`
 - \`RUNNING\`
 - \`DONE\`
@@ -123,6 +124,7 @@ ${buildAllowedActionsMarkdown()}
 ## Hard limits
 
 - SG runs only \`STATUS: PENDING\` commands.
+- \`WAITING_DEPLOY\` commands are visible but never executed.
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
 - SG updates only allowlisted files in \`agent_workspace/\`.

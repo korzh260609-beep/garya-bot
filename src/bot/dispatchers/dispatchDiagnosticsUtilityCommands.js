@@ -13,6 +13,7 @@ import { handleRenderErrorsLast } from "../handlers/renderErrorsLast.js";
 import { handleRenderDeploysLast } from "../handlers/renderDeploysLast.js";
 import { formatCommandPolicyCoverageReport } from "../diagnostics/commandPolicyCoverage.js";
 import { formatCommandPolicySelfTestReport } from "../diagnostics/commandPolicySelfTest.js";
+import { formatCommandPolicyShadowLast } from "../../core/commandPolicy/CommandPolicyShadowStore.js";
 
 // ✅ STAGE 12A — capability skeleton handlers
 import {
@@ -58,6 +59,11 @@ export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
 
     case "/command_policy_selftest": {
       await bot.sendMessage(chatId, formatCommandPolicySelfTestReport());
+      return { handled: true };
+    }
+
+    case "/command_policy_shadow_last": {
+      await bot.sendMessage(chatId, formatCommandPolicyShadowLast());
       return { handled: true };
     }
 

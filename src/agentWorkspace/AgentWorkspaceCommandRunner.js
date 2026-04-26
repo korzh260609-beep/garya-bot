@@ -14,6 +14,7 @@ import {
   parseAgentWorkspaceCommand,
   buildAgentWorkspaceCommandMarkdown,
 } from "./AgentWorkspaceCommandParser.js";
+import { executeAgentWorkspaceChatCommand } from "./AgentWorkspaceChatCommandExecutor.js";
 import renderBridge from "../integrations/render/RenderBridge.js";
 import renderBridgeStateStore from "../integrations/render/RenderBridgeStateStore.js";
 import { getRenderBridgeConfig } from "../integrations/render/RenderBridgeConfig.js";
@@ -76,13 +77,20 @@ function parseDiagnosticCommandLines(payload = "") {
 
 function buildDiagnosticTestReport({ command, results, collectedAt }) {
   const executed = results.map((item) => `${item.command}: ${item.ok ? "OK" : "FAILED"}`).join("\n") || "-";
+  const chatOutput = results.map((item) => {
+    return [
+      `## ${item.command}`,
+      item.outputText || "-",
+    ].join("\n");
+  }).join("\n\n");
   const raw = results.map((item) => {
     return [
       `## ${item.command}`,
       `ok=${String(item.ok)}`,
+      item.handler ? `handler=${item.handler}` : "handler=-",
       item.error ? `error=${item.error}` : "error=-",
       "```json",
-      safeJson(item.data || item.output || {}, 6000),
+      safeJson(item.data || item.output || item.messages || {}, 6000),
       "```",
     ].join("\n");
   }).join("\n\n");
@@ -109,7 +117,7 @@ ${parseDiagnosticCommandLines(command.payload).join("\n") || "-"}
 
 ## Expected answers
 
-Only allowlisted diagnostic commands are executed. Non-allowlisted commands are rejected.
+The runner must execute allowlisted SG diagnostic chat commands and capture the same text SG would send to chat.
 
 ## Actual answers
 
@@ -120,7 +128,7 @@ ${executed}
 ## Chat response logs
 
 \`\`\`text
-No Telegram chat messages were sent. Commands were executed internally by the workspace runner.
+${chatOutput || "-"}
 \`\`\`
 
 ## Render logs during test
@@ -264,6 +272,10 @@ export class AgentWorkspaceCommandRunner {
     }
 
     try {
+      if (commandName === "/pm_capabilities_diag") {
+        return executeAgentWorkspaceChatCommand(commandName);
+      }
+
       if (commandName === "/agent_workspace_diag") {
         return { command: commandName, ok: true, data: getAgentWorkspaceDiag() };
       }

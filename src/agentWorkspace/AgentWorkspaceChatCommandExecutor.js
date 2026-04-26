@@ -6,6 +6,7 @@
 
 import { handlePmCapabilitiesDiag } from "../bot/handlers/pmCapabilitiesDiag.js";
 import { handlePmWiringDiag } from "../bot/handlers/pmWiringDiag.js";
+import { handlePmShowDiag } from "../bot/handlers/pmShowDiag.js";
 import { handleMemoryRememberGuardDiag } from "../bot/handlers/memoryRememberGuardDiag.js";
 import { handleMemoryLongTermReadDiag } from "../bot/handlers/memoryLongTermReadDiag.js";
 import { handleMemoryConfirmedRestoreDiag } from "../bot/handlers/memoryConfirmedRestoreDiag.js";
@@ -92,6 +93,7 @@ async function executeDispatcherCommand({ cmd0, fakeBot, fakeChatId }) {
 export async function executeAgentWorkspaceChatCommand(commandLine = "") {
   const raw = normalizeString(commandLine);
   const cmd0 = raw.split(/\s+/)[0];
+  const rest = raw.split(/\s+/).slice(1).join(" ").trim();
   const fakeChatId = "agent_workspace_capture";
   const fakeBot = makeFakeBot();
 
@@ -146,6 +148,35 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
         handler: "handlePmWiringDiag",
         data: {
           validationOk,
+        },
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/pm_show_diag") {
+      const result = await handlePmShowDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        rest,
+        getProjectSection,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+      const validationOk =
+        result?.ok === true &&
+        outputText.includes("readOnly: yes") &&
+        outputText.includes("dbWrites: no") &&
+        outputText.includes("getProjectSection: OK") &&
+        outputText.includes("Result: OK");
+
+      return {
+        command: cmd0,
+        ok: validationOk,
+        handler: "handlePmShowDiag",
+        data: {
+          validationOk,
+          diag: result?.diag || null,
         },
         messages: fakeBot.messages,
         outputText,

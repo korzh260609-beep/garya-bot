@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { handlePmCapabilitiesDiag } from "../bot/handlers/pmCapabilitiesDiag.js";
+import { handlePmWiringDiag } from "../bot/handlers/pmWiringDiag.js";
 import { handleMemoryRememberGuardDiag } from "../bot/handlers/memoryRememberGuardDiag.js";
 import { handleMemoryLongTermReadDiag } from "../bot/handlers/memoryLongTermReadDiag.js";
 import { handleMemoryConfirmedRestoreDiag } from "../bot/handlers/memoryConfirmedRestoreDiag.js";
@@ -12,6 +13,15 @@ import { handleMemoryArchiveWriteDiag } from "../bot/handlers/memoryArchiveWrite
 import { handleMemoryTopicDigestDiag } from "../bot/handlers/memoryTopicDigestDiag.js";
 import { handleMemoryRestoreBeforeAnswerDiag } from "../bot/handlers/memoryRestoreBeforeAnswerDiag.js";
 import { dispatchMemoryDiagnosticsCommands } from "../bot/dispatchers/dispatchMemoryDiagnosticsCommands.js";
+import {
+  getProjectSection,
+  getProjectMemoryList,
+  upsertProjectSection,
+  recordProjectWorkSession,
+  updateProjectWorkSession,
+  listConfirmedProjectMemoryEntries,
+  writeConfirmedProjectMemory,
+} from "../../projectMemory.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -35,6 +45,26 @@ function makeFakeBot() {
         text: String(text ?? ""),
       };
     },
+  };
+}
+
+function buildFakeProjectMemoryCtx({ fakeChatId } = {}) {
+  return {
+    bot: null,
+    chatId: fakeChatId,
+    chatIdStr: fakeChatId,
+    transport: "agent_workspace",
+    chatType: "private",
+    isPrivateChat: true,
+    bypass: true,
+    isMonarchUser: true,
+    getProjectSection,
+    upsertProjectSection,
+    getProjectMemoryList,
+    recordProjectWorkSession,
+    updateProjectWorkSession,
+    listConfirmedProjectMemoryEntries,
+    writeConfirmedProjectMemory,
   };
 }
 
@@ -88,6 +118,35 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
         command: cmd0,
         ok: true,
         handler: "handlePmCapabilitiesDiag",
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/pm_wiring_diag") {
+      await handlePmWiringDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        ctx: buildFakeProjectMemoryCtx({ fakeChatId }),
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+      const validationOk =
+        outputText.includes("getProjectSection: OK") &&
+        outputText.includes("upsertProjectSection: OK") &&
+        outputText.includes("getProjectMemoryList: OK") &&
+        outputText.includes("recordProjectWorkSession: OK") &&
+        outputText.includes("updateProjectWorkSession: OK") &&
+        outputText.includes("listConfirmedProjectMemoryEntries: OK") &&
+        outputText.includes("writeConfirmedProjectMemory: OK");
+
+      return {
+        command: cmd0,
+        ok: validationOk,
+        handler: "handlePmWiringDiag",
+        data: {
+          validationOk,
+        },
         messages: fakeBot.messages,
         outputText,
       };

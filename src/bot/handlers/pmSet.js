@@ -10,7 +10,12 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function safeTransport(value) {
+  return safeText(value) || "telegram";
+}
+
 function tracePmSetAttempt({
+  transport,
   chatId,
   chatIdStr,
   bypass,
@@ -20,7 +25,7 @@ function tracePmSetAttempt({
   hasContent,
 } = {}) {
   console.log("🧠 PROJECT_MEMORY_PM_SET_ATTEMPT", {
-    transport: "telegram",
+    transport: safeTransport(transport),
     command: "/pm_set",
     legacy: true,
     entryType: "section_state",
@@ -37,11 +42,15 @@ export async function handlePmSet({
   bot,
   chatId,
   chatIdStr,
+  transport,
   rest,
   bypass,
   upsertProjectSection,
 }) {
+  const transportName = safeTransport(transport);
+
   tracePmSetAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,
@@ -50,6 +59,7 @@ export async function handlePmSet({
 
   if (!bypass) {
     tracePmSetAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -67,6 +77,7 @@ export async function handlePmSet({
 
   if (!section || !content) {
     tracePmSetAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -84,6 +95,7 @@ export async function handlePmSet({
   }
 
   tracePmSetAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,
@@ -100,6 +112,7 @@ export async function handlePmSet({
       tags: [],
       meta: {
         setBy: chatIdStr,
+        transport: transportName,
         command: "/pm_set",
         legacy: true,
         entryType: "section_state",

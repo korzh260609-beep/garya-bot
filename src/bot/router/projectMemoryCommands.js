@@ -9,6 +9,7 @@ export async function handleProjectMemoryCommands({
   getProjectSection,
   upsertProjectSection,
   getProjectMemoryList,
+  bypass = false,
 }) {
   if (cmdBase === "/pm_show") {
     const section = (rest || "").trim();
@@ -83,8 +84,6 @@ export async function handleProjectMemoryCommands({
   }
 
   if (cmdBase === "/pm_set") {
-    const bypass = true;
-
     if (!bypass) {
       await bot.sendMessage(chatId, "Только монарх может менять Project Memory.");
       return true;

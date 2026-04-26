@@ -14,6 +14,7 @@ import { handlePmList } from "../handlers/pmList.js";
 import { handlePmDigest } from "../handlers/pmDigest.js";
 import { handlePmLatest } from "../handlers/pmLatest.js";
 import { handlePmFind } from "../handlers/pmFind.js";
+import { handlePmWiringDiag } from "../handlers/pmWiringDiag.js";
 
 export async function dispatchProjectMemoryBasicCommands({
   cmd0,
@@ -23,6 +24,16 @@ export async function dispatchProjectMemoryBasicCommands({
   const { bot, chatId, chatIdStr } = ctx;
 
   switch (cmd0) {
+    case "/pm_wiring_diag": {
+      await handlePmWiringDiag({
+        bot,
+        chatId,
+        ctx,
+      });
+
+      return { handled: true };
+    }
+
     case "/pm_show": {
       if (typeof ctx.getProjectSection !== "function") {
         await reply("⛔ getProjectSection недоступен (ошибка wiring).", {

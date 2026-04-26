@@ -126,6 +126,7 @@ export const PRIVATE_ONLY_COMMANDS = new Set([
   "/render_bridge_diag",
 
   "/agent_workspace_diag",
+  "/agent_workspace_run",
   "/agent_workspace_render_report",
   "/agent_workspace_test_note",
 

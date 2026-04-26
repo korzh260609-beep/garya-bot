@@ -14,6 +14,7 @@ import { handleRenderDeploysLast } from "../handlers/renderDeploysLast.js";
 import { formatCommandPolicyCoverageReport } from "../diagnostics/commandPolicyCoverage.js";
 import { formatCommandPolicySelfTestReport } from "../diagnostics/commandPolicySelfTest.js";
 import { formatIntentActionRouterSelfTestReport } from "../diagnostics/intentActionRouterSelfTest.js";
+import { formatMeaningIntentBoundarySelfTestReport } from "../diagnostics/meaningIntentBoundarySelfTest.js";
 import { formatCommandPolicyShadowLast } from "../../core/commandPolicy/CommandPolicyShadowStore.js";
 
 // ✅ STAGE 12A — capability skeleton handlers
@@ -70,6 +71,11 @@ export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
 
     case "/intent_action_selftest": {
       await bot.sendMessage(chatId, formatIntentActionRouterSelfTestReport());
+      return { handled: true };
+    }
+
+    case "/meaning_intent_selftest": {
+      await bot.sendMessage(chatId, formatMeaningIntentBoundarySelfTestReport());
       return { handled: true };
     }
 

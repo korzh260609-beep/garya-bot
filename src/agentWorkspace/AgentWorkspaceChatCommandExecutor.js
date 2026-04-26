@@ -9,6 +9,7 @@ import { handleMemoryRememberGuardDiag } from "../bot/handlers/memoryRememberGua
 import { handleMemoryLongTermReadDiag } from "../bot/handlers/memoryLongTermReadDiag.js";
 import { handleMemoryConfirmedRestoreDiag } from "../bot/handlers/memoryConfirmedRestoreDiag.js";
 import { handleMemoryArchiveWriteDiag } from "../bot/handlers/memoryArchiveWriteDiag.js";
+import { handleMemoryTopicDigestDiag } from "../bot/handlers/memoryTopicDigestDiag.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -239,6 +240,33 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
             size: result?.archive?.size ?? null,
             truncated: result?.archive?.truncated === true,
           },
+          context: result?.context || {},
+          checks: result?.checks || {},
+        },
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/memory_topic_digest_diag") {
+      const result = await handleMemoryTopicDigestDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        chatIdStr: fakeChatId,
+        globalUserId: null,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+
+      return {
+        command: cmd0,
+        ok: result?.ok === true,
+        handler: "handleMemoryTopicDigestDiag",
+        data: {
+          topicKey: result?.topicKey || null,
+          needle: result?.needle || null,
+          selected: result?.selected || {},
+          listed: result?.listed || {},
           context: result?.context || {},
           checks: result?.checks || {},
         },

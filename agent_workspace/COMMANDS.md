@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `MEMORY-7-9-1-RUNTIME-DIAG-001`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `7.9.1`
 WORKFLOW_POINT: `confirmed-facts-write-path-runtime-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T16:25:00Z`
-UPDATED_AT: `2026-04-26T16:21:42.048Z`
+UPDATED_AT: `2026-04-26T16:22:14.921Z`
 
 ---
 
@@ -28,7 +28,16 @@ UPDATED_AT: `2026-04-26T16:21:42.048Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T16:21:42.047Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: 7.9.1
+Workflow point: confirmed-facts-write-path-runtime-check
+Deploy ID: -
+Commit: -
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 3
+Diagnostics OK: 2
+Diagnostics failed: 1
 
 ---
 

@@ -6,15 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PROJECT-MEMORY-7A-READ-SURFACE-DIAG-001`
-STATUS: `FAILED`
+COMMAND_ID: `PROJECT-MEMORY-7A-READ-SURFACE-DIAG-002`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `project-memory-7a-read-surface-runtime-diagnostic`
+TASK_ID: `project-memory-7a-read-surface-runtime-diagnostic-rerun`
 WORKFLOW_POINT: `project-memory-core-read-surface-check`
 DEPLOY_ID: `-`
+REQUIRES_COMMIT: `c6d4eea233998d2fedb7b157e4915368e6c84544`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-26T20:07:45.511Z`
+UPDATED_AT: `2026-04-26T00:00:00.000Z`
 
 ---
 
@@ -26,22 +27,14 @@ UPDATED_AT: `2026-04-26T20:07:45.511Z`
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: project-memory-7a-read-surface-runtime-diagnostic
-Workflow point: project-memory-core-read-surface-check
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 0
-Diagnostics failed: 1
+Pending read-only runtime diagnostic for /pm_list, /pm_latest, /pm_digest. Guarded by REQUIRES_COMMIT.
 
 ---
 
 ## Allowed statuses
 
 - `EMPTY`
+- `WAITING_DEPLOY`
 - `PENDING`
 - `RUNNING`
 - `DONE`
@@ -62,6 +55,8 @@ Diagnostics failed: 1
 ## Hard limits
 
 - SG runs only `STATUS: PENDING` commands.
+- `WAITING_DEPLOY` commands are visible but never executed.
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
 - SG updates only allowlisted files in `agent_workspace/`.
+- If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.

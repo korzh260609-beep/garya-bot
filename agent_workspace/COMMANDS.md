@@ -6,39 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `RENDER-CONTROL-V1-LOGS-001`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_LOGS`
-TASK_ID: `agent-workspace-render-control-v1`
-WORKFLOW_POINT: `render-error-logs-check-after-status-and-deploys-ok`
+COMMAND_ID: `MEMORY-7-9-2-LONG-TERM-READ-001`
+STATUS: `PENDING`
+ACTION: `RUN_DIAGNOSTIC_COMMANDS`
+TASK_ID: `memory-7-9-2-long-term-read`
+WORKFLOW_POINT: `confirmed-memory-read-path-runtime-diagnostic`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T17:10:00Z`
-UPDATED_AT: `2026-04-26T16:58:59.770Z`
+CREATED_AT: `2026-04-26T17:15:00Z`
+UPDATED_AT: `2026-04-26T17:15:00Z`
 
 ---
 
 ## Payload
 
-level=error
-minutes=360
-limit=100
-maxLineChars=700
+/memory_long_term_read_diag
 
 ---
 
 ## Last result
 
-Action completed: COLLECT_RENDER_LOGS
-Task ID: agent-workspace-render-control-v1
-Workflow point: render-error-logs-check-after-status-and-deploys-ok
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending 7.9.2 confirmed long-term memory read path runtime diagnostic.
 
 ---
 

@@ -28,6 +28,26 @@ function pickLine(map, ...keys) {
   return "";
 }
 
+function traceWriteAttempt({
+  chatId,
+  chatIdStr,
+  bypass,
+  phase,
+  reason,
+  kind,
+  hasContent,
+} = {}) {
+  console.log("🧠 PROJECT_MEMORY_CONFIRMED_WRITE_ATTEMPT", {
+    transport: "telegram",
+    chatId: safeText(chatIdStr || chatId),
+    bypass: !!bypass,
+    phase: safeText(phase) || "unknown",
+    reason: safeText(reason) || null,
+    kind: safeText(kind) || null,
+    hasContent: !!hasContent,
+  });
+}
+
 function parseBooleanLike(value, def = undefined) {
   const s = safeText(value).toLowerCase();
 
@@ -155,17 +175,67 @@ export async function handlePmConfirmedWrite({
   bypass,
   writeConfirmedProjectMemory,
 }) {
+  traceWriteAttempt({
+    chatId,
+    chatIdStr,
+    bypass,
+    phase: "received",
+  });
+
   if (typeof writeConfirmedProjectMemory !== "function") {
+    traceWriteAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "writer_unavailable",
+    });
+
     await bot.sendMessage(chatId, "⛔ writeConfirmedProjectMemory недоступен.");
+    return;
+  }
+
+  if (!bypass) {
+    traceWriteAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "not_trusted_path",
+    });
+
+    await bot.sendMessage(
+      chatId,
+      "⛔ Durable Project Memory write доступен только монарху / trusted path."
+    );
     return;
   }
 
   const parsed = parseConfirmedWriteInput(rest);
 
   if (!parsed || !parsed.kind || !parsed.content) {
+    traceWriteAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "invalid_input",
+      kind: parsed?.kind,
+      hasContent: !!parsed?.content,
+    });
+
     await bot.sendMessage(chatId, buildUsage());
     return;
   }
+
+  traceWriteAttempt({
+    chatId,
+    chatIdStr,
+    bypass,
+    phase: "accepted",
+    kind: parsed.kind,
+    hasContent: true,
+  });
 
   try {
     const saved = await writeConfirmedProjectMemory({

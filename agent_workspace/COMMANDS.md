@@ -6,36 +6,29 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PM-CAPABILITIES-DIAG-004`
-STATUS: `DONE`
+COMMAND_ID: `MEMORY-7-9-1-RUNTIME-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `7A.13`
-WORKFLOW_POINT: `pm-capabilities-diag-chat-capture-check`
+TASK_ID: `7.9.1`
+WORKFLOW_POINT: `confirmed-facts-write-path-runtime-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T15:15:00Z`
-UPDATED_AT: `2026-04-26T15:10:36.434Z`
+CREATED_AT: `2026-04-26T16:25:00Z`
+UPDATED_AT: `2026-04-26T16:25:00Z`
 
 ---
 
 ## Payload
 
-/pm_capabilities_diag
+/render_bridge_logs
+/render_bridge_diagnose
+/agent_workspace_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: 7A.13
-Workflow point: pm-capabilities-diag-chat-capture-check
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending runtime diagnostics for 7.9.1 confirmed facts write path.
 
 ---
 
@@ -53,6 +46,7 @@ Diagnostics failed: 0
 - `VERIFY_DEPLOY`
 - `COLLECT_RENDER_REPORT`
 - `WRITE_TEST_NOTE`
+- `RUN_DIAGNOSTIC_COMMANDS`
 
 ## Hard limits
 

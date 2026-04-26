@@ -16,6 +16,11 @@
 // - Archive is NOT prompt-facing by default.
 // - NO schema changes. NO automatic raw dialogue prompt injection.
 //
+// STAGE 7.8.2 — Topic Digest skeleton:
+// - Digest facade is restore-capable by contract.
+// - Digest is NOT prompt-facing by default.
+// - NO schema changes. NO AI digest generation.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
@@ -26,6 +31,10 @@
 // - archivePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
 // - selectArchiveForRestore({ chatId, globalUserId, topicKey, limit })
 // - archiveStatus() -> archive diag info
+// - upsertTopicDigest({ chatId, globalUserId, topicKey, summary, sourceRefs, metadata, schemaVersion })
+// - selectTopicDigestForRestore({ chatId, globalUserId, topicKey, limit })
+// - listTopicDigests({ chatId, globalUserId, limit })
+// - topicDigestStatus() -> digest diag info
 // - status() -> diag info
 //
 // STAGE 11+ transitional universal read layer:
@@ -48,6 +57,7 @@ import MemoryLongTermReadService from "./memory/MemoryLongTermReadService.js";
 import MemoryWriteService from "./memory/MemoryWriteService.js";
 import MemoryBufferService from "./memory/MemoryBufferService.js";
 import MemoryArchiveService from "./memory/MemoryArchiveService.js";
+import MemoryTopicDigestService from "./memory/MemoryTopicDigestService.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -139,6 +149,13 @@ export class MemoryService {
       contractVersion: MemoryService.CONTRACT_VERSION,
     });
 
+    // Topic digest skeleton service (not prompt-facing, no AI generation here)
+    this.topicDigestService = new MemoryTopicDigestService({
+      logger: this.logger,
+      getEnabled: () => this._enabled,
+      contractVersion: MemoryService.CONTRACT_VERSION,
+    });
+
     // ==========================================================
     // STAGE 7.7+ — micro-batch buffering (optional)
     // ==========================================================
@@ -178,6 +195,7 @@ export class MemoryService {
       contractVersion: MemoryService.CONTRACT_VERSION,
       buffer: this.bufferService.status(),
       archive: this.archiveService.status(),
+      topicDigest: this.topicDigestService.status(),
     };
   }
 
@@ -281,6 +299,25 @@ export class MemoryService {
 
   async archiveStatus() {
     return this.archiveService.status();
+  }
+
+  // ========================================================================
+  // TOPIC DIGEST FACADE — restore-capable, not prompt-facing
+  // ========================================================================
+  async upsertTopicDigest(args = {}) {
+    return this.topicDigestService.upsertTopicDigest(args);
+  }
+
+  async selectTopicDigestForRestore(args = {}) {
+    return this.topicDigestService.selectTopicDigestForRestore(args);
+  }
+
+  async listTopicDigests(args = {}) {
+    return this.topicDigestService.listTopicDigests(args);
+  }
+
+  async topicDigestStatus() {
+    return this.topicDigestService.status();
   }
 
   // ========================================================================
@@ -436,10 +473,12 @@ export class MemoryService {
       hasLongTermRead: !!this.longTermRead,
       hasWriteService: !!this.writeService,
       hasArchiveService: !!this.archiveService,
+      hasTopicDigestService: !!this.topicDigestService,
       hasBufferService: !!this.bufferService,
       configKeys: Object.keys(this.config || {}),
       contractVersion: MemoryService.CONTRACT_VERSION,
       archive: this.archiveService.status(),
+      topicDigest: this.topicDigestService.status(),
       buffer: this.bufferService.status(),
     };
   }

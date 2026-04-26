@@ -11,6 +11,10 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function safeTransport(value) {
+  return safeText(value) || "telegram";
+}
+
 function splitItems(value = "") {
   return String(value ?? "")
     .split(/\s*\|\s*/)
@@ -26,6 +30,7 @@ function pickLine(map, ...keys) {
 }
 
 function traceSessionUpdateAttempt({
+  transport,
   chatId,
   chatIdStr,
   bypass,
@@ -35,7 +40,7 @@ function traceSessionUpdateAttempt({
   patchKeys,
 } = {}) {
   console.log("🧠 PROJECT_MEMORY_SESSION_UPDATE_ATTEMPT", {
-    transport: "telegram",
+    transport: safeTransport(transport),
     chatId: safeText(chatIdStr || chatId),
     bypass: !!bypass,
     phase: safeText(phase) || "unknown",
@@ -174,11 +179,15 @@ export async function handlePmSessionUpdate({
   bot,
   chatId,
   chatIdStr,
+  transport,
   rest,
   bypass,
   updateProjectWorkSession,
 }) {
+  const transportName = safeTransport(transport);
+
   traceSessionUpdateAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,
@@ -187,6 +196,7 @@ export async function handlePmSessionUpdate({
 
   if (typeof updateProjectWorkSession !== "function") {
     traceSessionUpdateAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -200,6 +210,7 @@ export async function handlePmSessionUpdate({
 
   if (!bypass) {
     traceSessionUpdateAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -218,6 +229,7 @@ export async function handlePmSessionUpdate({
 
   if (!parsed) {
     traceSessionUpdateAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -233,6 +245,7 @@ export async function handlePmSessionUpdate({
 
   if (!patchKeys.length) {
     traceSessionUpdateAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -247,6 +260,7 @@ export async function handlePmSessionUpdate({
   }
 
   traceSessionUpdateAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,

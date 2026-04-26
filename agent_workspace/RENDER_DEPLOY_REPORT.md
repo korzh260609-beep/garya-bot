@@ -4,8 +4,8 @@ Reset before current command run.
 
 ---
 
-Task ID: `memory-7-9-6-monarch-memory-diagnostics`
-Updated at: `2026-04-26T18:37:43.474Z`
+Task ID: `memory-7-9-7-no-uncontrolled-raw-dialogue-prompt-injection`
+Updated at: `2026-04-26T18:51:25.446Z`
 Reason: `reset_before_command_run`
 
 ---

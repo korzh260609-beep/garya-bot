@@ -55,6 +55,8 @@ import { dispatchCapabilitiesCommands } from "./dispatchers/dispatchCapabilities
 import { dispatchLegacyLocalCommands } from "./dispatchers/dispatchLegacyLocalCommands.js";
 
 import { PRIVATE_ONLY_COMMANDS } from "./constants/privateOnlyCommands.js";
+import { CommandPolicyService } from "../core/commandPolicy/CommandPolicyService.js";
+import { COMMAND_POLICIES } from "../core/commandPolicy/commandPolicies.js";
 
 // ✅ SG project-only repo/github access guard
 import {
@@ -62,6 +64,42 @@ import {
   resolveProjectFeatureByCommand,
 } from "./handlers/projectAccessScope.js";
 import { requireProjectMonarchPrivateAccess } from "./handlers/projectAccessGuard.js";
+
+const commandPolicyShadowService = new CommandPolicyService({
+  policies: COMMAND_POLICIES,
+});
+
+function traceCommandPolicyShadow({
+  cmd0,
+  transport,
+  chatType,
+  isPrivate,
+  isMonarch,
+  bypass,
+  legacyPrivateOnly,
+  legacyPrivateBlocked,
+  policyDecision,
+} = {}) {
+  try {
+    console.log("🛡️ COMMAND_POLICY_SHADOW", {
+      cmd: cmd0,
+      transport: transport || "telegram",
+      chatType: chatType || "unknown",
+      isPrivate: !!isPrivate,
+      isMonarch: !!isMonarch,
+      bypass: !!bypass,
+      legacyPrivateOnly: !!legacyPrivateOnly,
+      legacyPrivateBlocked: !!legacyPrivateBlocked,
+      policyAllowed: policyDecision?.allowed === true,
+      policyBlocked: policyDecision?.blocked === true,
+      policyReason: policyDecision?.reason || null,
+      policyScope: policyDecision?.policy?.scope || null,
+      shadowOnly: true,
+    });
+  } catch (e) {
+    console.error("⚠️ COMMAND_POLICY_SHADOW_LOG_ERROR", e);
+  }
+}
 
 /**
  * Backward-compatible dispatcher.
@@ -138,6 +176,32 @@ export async function dispatchCommand(cmd, ctx) {
     (effectiveChatIdStr &&
       effectiveFromIdStr &&
       effectiveChatIdStr === effectiveFromIdStr);
+
+  const transport = ctx?.identityCtx?.transport || ctx?.transport || "telegram";
+  const isMonarch =
+    typeof ctx.isMonarchUser === "boolean" ? ctx.isMonarchUser : !!ctx?.bypass;
+  const legacyPrivateOnly = PRIVATE_ONLY_COMMANDS.has(cmd0);
+  const legacyPrivateBlocked = !isPrivate && legacyPrivateOnly;
+
+  const policyDecision = commandPolicyShadowService.evaluate({
+    command: cmd0,
+    transport,
+    isPrivate,
+    isMonarch,
+    bypass: !!ctx?.bypass,
+  });
+
+  traceCommandPolicyShadow({
+    cmd0,
+    transport,
+    chatType,
+    isPrivate,
+    isMonarch,
+    bypass: !!ctx?.bypass,
+    legacyPrivateOnly,
+    legacyPrivateBlocked,
+    policyDecision,
+  });
 
   if (!isPrivate && PRIVATE_ONLY_COMMANDS.has(cmd0)) {
     await reply(

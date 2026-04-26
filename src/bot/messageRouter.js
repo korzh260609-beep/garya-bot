@@ -435,6 +435,7 @@ export function attachMessageRouter({
             getProjectSection,
             upsertProjectSection,
             getProjectMemoryList,
+            bypass: isMonarchUser,
           });
 
           if (handledProjectMemory) {

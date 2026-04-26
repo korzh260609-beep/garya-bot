@@ -125,9 +125,6 @@ export const SYSTEM_COMMAND_POLICIES = Object.freeze([
 
   privateCommand("/behavior_events_last", COMMAND_POLICY_SCOPES.SYSTEM),
   monarchPrivateCommand("/be_emit", COMMAND_POLICY_SCOPES.SYSTEM),
-
-  privateCommand("/profile", COMMAND_POLICY_SCOPES.SYSTEM),
-  privateCommand("/mode", COMMAND_POLICY_SCOPES.SYSTEM),
 ]);
 
 export const DEV_COMMAND_POLICIES = Object.freeze([

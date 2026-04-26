@@ -21,6 +21,11 @@
 // - Digest is NOT prompt-facing by default.
 // - NO schema changes. NO AI digest generation.
 //
+// STAGE 7.8.3 — Confirmed Memory separation policy:
+// - Confirmed memory, raw archive, and topic digest have explicit boundaries.
+// - Policy is deterministic/read-only.
+// - NO schema changes. NO writes. NO AI logic.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
@@ -35,6 +40,8 @@
 // - selectTopicDigestForRestore({ chatId, globalUserId, topicKey, limit })
 // - listTopicDigests({ chatId, globalUserId, limit })
 // - topicDigestStatus() -> digest diag info
+// - getMemoryLayerPolicy() -> layer separation policy
+// - assertMemoryLayerSeparation(metadata) -> metadata policy check
 // - status() -> diag info
 //
 // STAGE 11+ transitional universal read layer:
@@ -58,6 +65,10 @@ import MemoryWriteService from "./memory/MemoryWriteService.js";
 import MemoryBufferService from "./memory/MemoryBufferService.js";
 import MemoryArchiveService from "./memory/MemoryArchiveService.js";
 import MemoryTopicDigestService from "./memory/MemoryTopicDigestService.js";
+import {
+  getMemoryLayerPolicy,
+  assertMemoryLayerSeparation,
+} from "./memory/MemoryLayerPolicy.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -196,6 +207,7 @@ export class MemoryService {
       buffer: this.bufferService.status(),
       archive: this.archiveService.status(),
       topicDigest: this.topicDigestService.status(),
+      layerPolicy: getMemoryLayerPolicy(),
     };
   }
 
@@ -318,6 +330,17 @@ export class MemoryService {
 
   async topicDigestStatus() {
     return this.topicDigestService.status();
+  }
+
+  // ========================================================================
+  // MEMORY LAYER POLICY FACADE — read-only diagnostics
+  // ========================================================================
+  getMemoryLayerPolicy() {
+    return getMemoryLayerPolicy();
+  }
+
+  assertMemoryLayerSeparation(metadata = {}) {
+    return assertMemoryLayerSeparation(metadata);
   }
 
   // ========================================================================
@@ -479,6 +502,7 @@ export class MemoryService {
       contractVersion: MemoryService.CONTRACT_VERSION,
       archive: this.archiveService.status(),
       topicDigest: this.topicDigestService.status(),
+      layerPolicy: getMemoryLayerPolicy(),
       buffer: this.bufferService.status(),
     };
   }

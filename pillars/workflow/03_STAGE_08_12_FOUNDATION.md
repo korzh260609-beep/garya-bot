@@ -285,6 +285,39 @@
 - 12A.4 Automation/Webhook capability
 - 12A.5 Capability registry
 
+## 12A.6 CAPABILITY STATUS REGISTRY
+
+- 12A.6.1 CapabilityStatusCollector skeleton
+- 12A.6.2 collect commands from dispatcher/private command lists
+- 12A.6.3 collect connected handlers and modules from repo/code facts
+- 12A.6.4 infer capability status from implementation facts:
+  - skeleton
+  - diagnostic
+  - partial
+  - active
+  - blocked
+  - internal_only
+- 12A.6.5 map capabilities to audience:
+  - monarch
+  - admin
+  - guest
+  - citizen
+  - developer
+  - business_user
+- 12A.6.6 generate user-facing benefit cards:
+  - what SG can do
+  - why it is useful
+  - how user should ask
+  - current limits
+  - access requirements
+- 12A.6.7 diagnostic command: /capability_status_selftest
+- 12A.6.8 future user commands:
+  - /what_can_you_do
+  - /how_can_you_help_me
+- 12A.6.9 capability status must be derived from repo/code/runtime facts, not manual notes
+- 12A.6.10 project_memory may store generated snapshots only
+- 12A.6.11 generated capability snapshots must not override repo/code/runtime facts
+
 ## (SKELETON) 12A.0 REPOSITORY INDEXING (READ-ONLY FOUNDATION)
 
 - 12A.0.1 GitHub access (fine-grained, read-only)

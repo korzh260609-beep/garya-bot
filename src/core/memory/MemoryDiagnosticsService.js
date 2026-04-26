@@ -30,7 +30,7 @@ function _hasUnsafeTrue(obj, keys = []) {
 }
 
 export const MEMORY_DIAGNOSTICS_SERVICE_VERSION =
-  "memory-diagnostics-service-7.8.9-001";
+  "memory-diagnostics-service-7.8.9-002";
 
 export class MemoryDiagnosticsService {
   constructor({ logger = console, getEnabled = () => false, contractVersion = 1 } = {}) {
@@ -59,6 +59,8 @@ export class MemoryDiagnosticsService {
     archiveStatus = null,
     topicDigestStatus = null,
     topicRecallStatus = null,
+    rawPromptGuardStatus = null,
+    confirmedGuardStatus = null,
     layerPolicy = null,
     periodicReviewPolicy = null,
     topicGroupingPolicy = null,
@@ -72,6 +74,8 @@ export class MemoryDiagnosticsService {
     const archive = _safeObj(archiveStatus);
     const digest = _safeObj(topicDigestStatus);
     const recall = _safeObj(topicRecallStatus);
+    const rawPromptGuard = _safeObj(rawPromptGuardStatus);
+    const confirmedGuard = _safeObj(confirmedGuardStatus);
     const layer = _safeObj(layerPolicy);
     const periodic = _safeObj(periodicReviewPolicy);
     const grouping = _safeObj(topicGroupingPolicy);
@@ -81,6 +85,8 @@ export class MemoryDiagnosticsService {
     if (!archive.service) errors.push("missing_archive_status");
     if (!digest.service) errors.push("missing_topic_digest_status");
     if (!recall.service) errors.push("missing_topic_recall_status");
+    if (!rawPromptGuard.service) errors.push("missing_raw_prompt_guard_status");
+    if (!confirmedGuard.service) errors.push("missing_confirmed_guard_status");
     if (!layer.version) errors.push("missing_layer_policy");
     if (!periodic.version) errors.push("missing_periodic_review_policy");
     if (!grouping.version) errors.push("missing_topic_grouping_policy");
@@ -118,6 +124,27 @@ export class MemoryDiagnosticsService {
     ]);
     if (recallUnsafe.length) {
       errors.push(`topic_recall_unsafe_flags:${recallUnsafe.join(",")}`);
+    }
+
+    const rawPromptGuardUnsafe = _hasUnsafeTrue(rawPromptGuard, [
+      "rawDialoguePromptAllowedByDefault",
+      "promptConstruction",
+      "dbWrites",
+      "dbReads",
+      "aiLogic",
+    ]);
+    if (rawPromptGuardUnsafe.length) {
+      errors.push(`raw_prompt_guard_unsafe_flags:${rawPromptGuardUnsafe.join(",")}`);
+    }
+
+    const confirmedGuardUnsafe = _hasUnsafeTrue(confirmedGuard, [
+      "dbReads",
+      "dbWrites",
+      "aiLogic",
+      "automaticWrites",
+    ]);
+    if (confirmedGuardUnsafe.length) {
+      errors.push(`confirmed_guard_unsafe_flags:${confirmedGuardUnsafe.join(",")}`);
     }
 
     const periodicDefaults = _safeObj(periodic.defaults);
@@ -170,6 +197,8 @@ export class MemoryDiagnosticsService {
     checks.push({ name: "archive_status_present", ok: !!archive.service });
     checks.push({ name: "topic_digest_status_present", ok: !!digest.service });
     checks.push({ name: "topic_recall_status_present", ok: !!recall.service });
+    checks.push({ name: "raw_prompt_guard_status_present", ok: !!rawPromptGuard.service });
+    checks.push({ name: "confirmed_guard_status_present", ok: !!confirmedGuard.service });
     checks.push({ name: "layer_policy_present", ok: !!layer.version });
     checks.push({ name: "periodic_review_policy_present", ok: !!periodic.version });
     checks.push({ name: "topic_grouping_policy_present", ok: !!grouping.version });

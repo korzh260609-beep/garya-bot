@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `RENDER-CONTROL-V1-STATUS-003`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_STATUS`
+COMMAND_ID: `RENDER-CONTROL-V1-DEPLOYS-001`
+STATUS: `PENDING`
+ACTION: `COLLECT_RENDER_DEPLOYS`
 TASK_ID: `agent-workspace-render-control-v1`
-WORKFLOW_POINT: `render-status-check-after-github-client-write-fix`
+WORKFLOW_POINT: `render-deploys-history-check-after-status-ok`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T16:55:00Z`
-UPDATED_AT: `2026-04-26T16:54:52.376Z`
+CREATED_AT: `2026-04-26T17:05:00Z`
+UPDATED_AT: `2026-04-26T17:05:00Z`
 
 ---
 
 ## Payload
 
--
+limit=20
 
 ---
 
 ## Last result
 
-Action completed: COLLECT_RENDER_STATUS
-Task ID: agent-workspace-render-control-v1
-Workflow point: render-status-check-after-github-client-write-fix
-Deploy ID: -
-Commit: fd1a5e17edf638074419f31f333425e2e06b4275
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending Render deploys history report after successful Render status control check.
 
 ---
 

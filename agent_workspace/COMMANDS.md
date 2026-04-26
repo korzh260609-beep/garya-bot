@@ -6,15 +6,15 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PROJECT-MEMORY-7A-CONTROLLED-WRITE-DIAG-001`
-STATUS: `FAILED`
+COMMAND_ID: `PROJECT-MEMORY-7A-CONTROLLED-WRITE-DIAG-002`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `project-memory-7a-controlled-write-runtime-diagnostic`
+TASK_ID: `project-memory-7a-controlled-write-runtime-diagnostic-rerun`
 WORKFLOW_POINT: `project-memory-core-controlled-write-path-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-26T19:58:38.352Z`
+UPDATED_AT: `2026-04-26T00:00:00.000Z`
 
 ---
 
@@ -26,16 +26,7 @@ UPDATED_AT: `2026-04-26T19:58:38.352Z`
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: project-memory-7a-controlled-write-runtime-diagnostic
-Workflow point: project-memory-core-controlled-write-path-check
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 0
-Diagnostics failed: 1
+Pending controlled runtime diagnostic rerun. This command writes only the diagnostic section `diag_pm_set_runtime_probe`.
 
 ---
 

@@ -11,6 +11,8 @@ import {
   parseAgentWorkspaceCommand,
   buildAgentWorkspaceCommandMarkdown,
 } from "./AgentWorkspaceCommandParser.js";
+import renderBridge from "../integrations/render/RenderBridge.js";
+import renderBridgeStateStore from "../integrations/render/RenderBridgeStateStore.js";
 
 let inMemoryRunLock = false;
 const completedCommands = new Set();
@@ -38,6 +40,12 @@ Reason: \`${reason}\`
 
 -
 `;
+}
+
+function serviceMatchesGaryaBot(service = {}) {
+  const name = String(service?.name || "").toLowerCase();
+  const slug = String(service?.slug || "").toLowerCase();
+  return name === "garya-bot" || slug === "garya-bot";
 }
 
 export class AgentWorkspaceCommandRunner {
@@ -116,6 +124,28 @@ export class AgentWorkspaceCommandRunner {
     return writes;
   }
 
+  async ensureGlobalRenderServiceSelected() {
+    const current = await renderBridgeStateStore.getState("global");
+    if (current?.selected_service_id) {
+      return current;
+    }
+
+    const services = await renderBridge.listServices();
+    const selected = services.find(serviceMatchesGaryaBot) || (services.length === 1 ? services[0] : null);
+
+    if (!selected?.id) {
+      throw new Error("agent_workspace_no_render_service_available_for_global_runner");
+    }
+
+    return renderBridgeStateStore.setSelectedService({
+      ownerKey: "global",
+      serviceId: selected.id,
+      serviceName: selected.name || selected.slug || "garya-bot",
+      serviceSlug: selected.slug || selected.name || "garya-bot",
+      ownerId: selected.ownerId || selected.owner?.id || selected.owner_id || null,
+    });
+  }
+
   buildRestForRenderReport(command) {
     return [
       command.taskId || "manual",
@@ -133,6 +163,7 @@ export class AgentWorkspaceCommandRunner {
     const action = String(command.action || "").toUpperCase();
 
     if (action === "VERIFY_DEPLOY" || action === "COLLECT_RENDER_REPORT") {
+      await this.ensureGlobalRenderServiceSelected();
       return this.reportService.collectRenderReport(
         this.buildRestForRenderReport(command),
         "global"
@@ -147,6 +178,8 @@ export class AgentWorkspaceCommandRunner {
   }
 
   async runOnce({ source = "manual" } = {}) {
+    let activeCommand = null;
+
     if (inMemoryRunLock) {
       return {
         ok: false,
@@ -159,6 +192,7 @@ export class AgentWorkspaceCommandRunner {
 
     try {
       const { command } = await this.readCommand();
+      activeCommand = command;
       const commandId = command.commandId || "NONE";
       const status = String(command.status || "").toUpperCase();
       const action = String(command.action || "").toUpperCase();
@@ -235,8 +269,22 @@ export class AgentWorkspaceCommandRunner {
         result,
       };
     } catch (error) {
+      if (activeCommand?.commandId && activeCommand.commandId !== "NONE") {
+        try {
+          await this.markCommand(
+            activeCommand,
+            "FAILED",
+            `Runner failed: ${error?.message || "unknown_error"}`
+          );
+        } catch (markError) {
+          console.error("AgentWorkspace failed to mark command FAILED:", markError);
+        }
+      }
+
       return {
         ok: false,
+        commandId: activeCommand?.commandId || null,
+        action: activeCommand?.action || null,
         error: error?.message || "unknown_error",
       };
     } finally {

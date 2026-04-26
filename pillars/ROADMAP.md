@@ -1,3 +1,27 @@
+# ⚠️ LEGACY / INACTIVE ROADMAP — DO NOT USE
+
+This file is **LEGACY** and **INACTIVE**.
+
+Hard rules:
+- DO NOT USE THIS FILE FOR WORK.
+- DO NOT USE THIS FILE AS ACTIVE ROADMAP.
+- DO NOT USE THIS FILE FOR STAGE ORDER.
+- DO NOT USE THIS FILE FOR CURRENT PROJECT PLANNING.
+- DO NOT UPDATE THIS FILE FOR ACTIVE PLANNING.
+- DO NOT RESOLVE CONFLICTS IN FAVOR OF THIS FILE.
+
+Active roadmap source of truth is now split under:
+- `pillars/roadmap/00_RULES_AND_ORDER.md`
+- `pillars/roadmap/01_STAGE_01_06_CORE.md`
+- `pillars/roadmap/02_STAGE_07_MEMORY.md`
+- `pillars/roadmap/03_STAGE_08_12_FOUNDATION.md`
+- `pillars/roadmap/04_STAGE_13_20_ADVANCED.md`
+
+If this file conflicts with `pillars/roadmap/*`, the split roadmap wins.
+This file remains only as historical archive.
+
+---
+
 # SG AI SYSTEM — ROADMAP (ORDER OF SYSTEM EVOLUTION)
 > Назначение: этот файл задаёт **единственно допустимый порядок развития СГ**.  
 > Он нужен, чтобы СГ и люди **не принимали преждевременных решений**, не трогали запрещённые зоны и не «ломали скелет» ради удобства.

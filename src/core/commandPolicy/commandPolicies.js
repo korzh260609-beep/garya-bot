@@ -98,6 +98,7 @@ export const MEMORY_DIAGNOSTIC_COMMAND_POLICIES = Object.freeze([
   privateCommand("/command_policy_shadow_last", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
   privateCommand("/intent_action_selftest", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
   privateCommand("/meaning_intent_selftest", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
+  privateCommand("/meaning_router_selftest", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
 ]);
 
 export const SOURCE_COMMAND_POLICIES = Object.freeze([

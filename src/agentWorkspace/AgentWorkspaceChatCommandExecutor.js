@@ -6,6 +6,7 @@
 
 import { handlePmCapabilitiesDiag } from "../bot/handlers/pmCapabilitiesDiag.js";
 import { handleMemoryRememberGuardDiag } from "../bot/handlers/memoryRememberGuardDiag.js";
+import { handleMemoryLongTermReadDiag } from "../bot/handlers/memoryLongTermReadDiag.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -104,6 +105,68 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
             ok: result?.fetch?.ok === true,
             total: result?.fetch?.total ?? null,
             reason: result?.fetch?.reason || null,
+          },
+        },
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/memory_long_term_read_diag") {
+      const result = await handleMemoryLongTermReadDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        chatIdStr: fakeChatId,
+        globalUserId: null,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+
+      return {
+        command: cmd0,
+        ok: result?.ok === true,
+        handler: "handleMemoryLongTermReadDiag",
+        data: {
+          key: result?.key || null,
+          remember: {
+            ok: result?.remember?.ok === true,
+            stored: result?.remember?.stored === true,
+            reason: result?.remember?.reason || null,
+            guardDecision: result?.remember?.guardDecision || null,
+          },
+          byKey: {
+            ok: result?.byKey?.ok === true,
+            total: result?.byKey?.total ?? null,
+            reason: result?.byKey?.reason || null,
+          },
+          byType: {
+            ok: result?.byType?.ok === true,
+            total: result?.byType?.total ?? null,
+            reason: result?.byType?.reason || null,
+          },
+          byDomain: {
+            ok: result?.byDomain?.ok === true,
+            total: result?.byDomain?.total ?? null,
+            reason: result?.byDomain?.reason || null,
+          },
+          bySlot: {
+            ok: result?.bySlot?.ok === true,
+            total: result?.bySlot?.total ?? null,
+            reason: result?.bySlot?.reason || null,
+          },
+          byDomainSlot: {
+            ok: result?.byDomainSlot?.ok === true,
+            total: result?.byDomainSlot?.total ?? null,
+            reason: result?.byDomainSlot?.reason || null,
+          },
+          summary: {
+            ok: result?.summary?.ok === true,
+            reason: result?.summary?.reason || null,
+          },
+          selected: {
+            ok: result?.selected?.ok === true,
+            total: result?.selected?.total ?? null,
+            reason: result?.selected?.reason || null,
           },
         },
         messages: fakeBot.messages,

@@ -6,13 +6,17 @@
 
 import AgentWorkspaceGitHubClient from "./AgentWorkspaceGitHubClient.js";
 import agentWorkspaceReportService from "./AgentWorkspaceReportService.js";
-import { getAgentWorkspaceConfig } from "./AgentWorkspaceConfig.js";
+import {
+  getAgentWorkspaceConfig,
+  getAgentWorkspaceDiag,
+} from "./AgentWorkspaceConfig.js";
 import {
   parseAgentWorkspaceCommand,
   buildAgentWorkspaceCommandMarkdown,
 } from "./AgentWorkspaceCommandParser.js";
 import renderBridge from "../integrations/render/RenderBridge.js";
 import renderBridgeStateStore from "../integrations/render/RenderBridgeStateStore.js";
+import { getRenderBridgeConfig } from "../integrations/render/RenderBridgeConfig.js";
 
 let inMemoryRunLock = false;
 const completedCommands = new Set();
@@ -23,6 +27,18 @@ function normalizeString(value) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function safeJson(value, max = 4000) {
+  let text = "";
+  try {
+    text = JSON.stringify(value, null, 2);
+  } catch {
+    text = String(value || "");
+  }
+
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
 }
 
 function emptyReport(title, taskId, reason = "reset_before_command_run") {
@@ -48,6 +64,81 @@ function serviceMatchesGaryaBot(service = {}) {
   return name === "garya-bot" || slug === "garya-bot";
 }
 
+function parseDiagnosticCommandLines(payload = "") {
+  const lines = String(payload || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => line.startsWith("/"));
+
+  return Array.from(new Set(lines.map((line) => line.split(/\s+/)[0])));
+}
+
+function buildDiagnosticTestReport({ command, results, collectedAt }) {
+  const executed = results.map((item) => `${item.command}: ${item.ok ? "OK" : "FAILED"}`).join("\n") || "-";
+  const raw = results.map((item) => {
+    return [
+      `## ${item.command}`,
+      `ok=${String(item.ok)}`,
+      item.error ? `error=${item.error}` : "error=-",
+      "```json",
+      safeJson(item.data || item.output || {}, 6000),
+      "```",
+    ].join("\n");
+  }).join("\n\n");
+
+  return `# TEST_REPORT
+
+SG diagnostic command results after workspace command execution.
+
+---
+
+Task ID: \`${command.taskId || "manual"}\`
+Deploy ID: \`${command.deployId || "-"}\`
+Commit: \`-\`
+Tested at: \`${collectedAt}\`
+Tested by: \`SG AgentWorkspaceCommandRunner\`
+
+---
+
+## Test commands
+
+\`\`\`text
+${parseDiagnosticCommandLines(command.payload).join("\n") || "-"}
+\`\`\`
+
+## Expected answers
+
+Only allowlisted diagnostic commands are executed. Non-allowlisted commands are rejected.
+
+## Actual answers
+
+\`\`\`text
+${executed}
+\`\`\`
+
+## Chat response logs
+
+\`\`\`text
+No Telegram chat messages were sent. Commands were executed internally by the workspace runner.
+\`\`\`
+
+## Render logs during test
+
+\`\`\`text
+Use RENDER_REPORT.md for RenderBridge logs collected by verify actions.
+\`\`\`
+
+## Result
+
+- \`${results.every((item) => item.ok) ? "DIAGNOSTICS_OK" : "DIAGNOSTICS_FAILED"}\`
+
+## Notes
+
+${raw || "-"}
+`;
+}
+
 export class AgentWorkspaceCommandRunner {
   constructor({ config, client, reportService } = {}) {
     this.config = config || getAgentWorkspaceConfig();
@@ -57,6 +148,10 @@ export class AgentWorkspaceCommandRunner {
 
   isAllowedAction(action) {
     return this.config.allowedActions.includes(String(action || "").toUpperCase());
+  }
+
+  isAllowedDiagnosticCommand(command) {
+    return this.config.allowedDiagnosticCommands.includes(String(command || ""));
   }
 
   async readCommand() {
@@ -159,6 +254,114 @@ export class AgentWorkspaceCommandRunner {
     return `${command.taskId || "manual"} ${body}`;
   }
 
+  async executeDiagnosticCommand(commandName) {
+    if (!this.isAllowedDiagnosticCommand(commandName)) {
+      return {
+        command: commandName,
+        ok: false,
+        error: "diagnostic_command_not_allowed",
+      };
+    }
+
+    try {
+      if (commandName === "/agent_workspace_diag") {
+        return { command: commandName, ok: true, data: getAgentWorkspaceDiag() };
+      }
+
+      if (commandName === "/render_bridge_diag") {
+        return { command: commandName, ok: true, data: renderBridge.getDiag() };
+      }
+
+      if (commandName === "/render_bridge_services") {
+        return {
+          command: commandName,
+          ok: true,
+          data: await renderBridge.listServices(),
+        };
+      }
+
+      if (commandName === "/render_bridge_deploys") {
+        const state = await this.ensureGlobalRenderServiceSelected();
+        return {
+          command: commandName,
+          ok: true,
+          data: await renderBridge.listDeploys({
+            serviceId: state.selected_service_id,
+            limit: getRenderBridgeConfig().defaultDeployLimit,
+          }),
+        };
+      }
+
+      if (commandName === "/render_bridge_logs") {
+        const state = await this.ensureGlobalRenderServiceSelected();
+        const cfg = getRenderBridgeConfig();
+        return {
+          command: commandName,
+          ok: true,
+          data: await renderBridge.listRecentLogs({
+            ownerId: state.selected_owner_id,
+            serviceId: state.selected_service_id,
+            level: cfg.defaultLogLevel,
+            minutes: cfg.defaultLogWindowMinutes,
+            limit: cfg.defaultLogLimit,
+          }),
+        };
+      }
+
+      if (commandName === "/render_bridge_diagnose") {
+        await this.ensureGlobalRenderServiceSelected();
+        const result = await this.reportService.collectRenderReport("diagnostic render-bridge-diagnose", "global");
+        return {
+          command: commandName,
+          ok: true,
+          data: result,
+        };
+      }
+
+      return {
+        command: commandName,
+        ok: false,
+        error: "diagnostic_command_not_implemented",
+      };
+    } catch (error) {
+      return {
+        command: commandName,
+        ok: false,
+        error: error?.message || "unknown_error",
+      };
+    }
+  }
+
+  async runDiagnosticCommands(command) {
+    const requested = parseDiagnosticCommandLines(command.payload);
+
+    if (!requested.length) {
+      throw new Error("agent_workspace_no_diagnostic_commands_in_payload");
+    }
+
+    const results = [];
+    for (const cmd of requested) {
+      results.push(await this.executeDiagnosticCommand(cmd));
+    }
+
+    const collectedAt = nowIso();
+    await this.reportService.writeMarkdown(
+      "TEST_REPORT.md",
+      buildDiagnosticTestReport({ command, results, collectedAt }),
+      `write diagnostic command results for ${command.taskId || "manual"}`
+    );
+
+    return {
+      ok: results.every((item) => item.ok),
+      taskId: command.taskId || "manual",
+      workflowPoint: command.workflowPoint || "-",
+      diagnosticCommands: results.length,
+      diagnosticsOk: results.filter((item) => item.ok).length,
+      diagnosticsFailed: results.filter((item) => !item.ok).length,
+      results,
+    };
+  }
+
   async executeCommand(command) {
     const action = String(command.action || "").toUpperCase();
 
@@ -172,6 +375,10 @@ export class AgentWorkspaceCommandRunner {
 
     if (action === "WRITE_TEST_NOTE") {
       return this.reportService.writeTestNote(this.buildRestForTestNote(command));
+    }
+
+    if (action === "RUN_DIAGNOSTIC_COMMANDS") {
+      return this.runDiagnosticCommands(command);
     }
 
     throw new Error(`agent_workspace_action_not_supported:${action}`);
@@ -248,7 +455,7 @@ export class AgentWorkspaceCommandRunner {
 
       await this.markCommand(
         command,
-        "DONE",
+        result?.ok === false ? "FAILED" : "DONE",
         [
           `Action completed: ${action}`,
           `Task ID: ${command.taskId || "manual"}`,
@@ -257,11 +464,14 @@ export class AgentWorkspaceCommandRunner {
           `Commit: ${result?.commit || "-"}`,
           `Logs: ${Number(result?.logs || 0)}`,
           `Diagnosis: ${String(Boolean(result?.diagnosis))}`,
+          `Diagnostic commands: ${Number(result?.diagnosticCommands || 0)}`,
+          `Diagnostics OK: ${Number(result?.diagnosticsOk || 0)}`,
+          `Diagnostics failed: ${Number(result?.diagnosticsFailed || 0)}`,
         ].join("\n")
       );
 
       return {
-        ok: true,
+        ok: result?.ok !== false,
         commandId,
         action,
         taskId: command.taskId,

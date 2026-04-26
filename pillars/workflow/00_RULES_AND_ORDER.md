@@ -10,6 +10,9 @@
 - Статусы намеренно убраны
 - Порядок и структура являются источником истины
 - Факт выполнения определяется анализом репозитория и системы, а не маркерами
+- Ручные отметки выполнения, галочки, done/complete/status-маркеры в pillars запрещены
+- Pillars фиксируют порядок, правила, архитектурные решения и фактические примечания, но не используются как ручной чеклист
+- Любой статус выполнения должен выводиться из repo/runtime/тестов или автоматического status snapshot, а не проставляться вручную
 
 ---
 
@@ -67,6 +70,7 @@ Hard rule:
 13. If a step references a later stage, it is forbidden (stage gate).
 14. Before continuing repository development, SG must restore current project memory context.
 15. Project Memory Core and Long-Term Memory Core are early foundation, not optional future enhancements.
+16. Do not manually mark pillars items as done/complete; completion evidence must come from repo/runtime verification or generated status snapshots.
 
 ---
 
@@ -93,7 +97,7 @@ For each roadmap item:
 5) Add **safety** (idempotency, rate limits, permissions)  
 6) Manual test in Telegram + Render logs  
 7) Commit + push + deploy  
-8) Update WORKFLOW.md factual notes if needed (no status markers)
+8) Add factual notes only if needed; do not add manual status markers/checkmarks to pillars
 
 For memory-related work:
 9) Verify memory read/write path from actual runtime

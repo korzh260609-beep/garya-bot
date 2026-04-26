@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `RENDER-CONTROL-V1-LOGS-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `agent-workspace-render-control-v1`
 WORKFLOW_POINT: `render-error-logs-check-after-status-and-deploys-ok`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T17:10:00Z`
-UPDATED_AT: `2026-04-26T16:58:49.202Z`
+UPDATED_AT: `2026-04-26T16:58:59.770Z`
 
 ---
 
@@ -29,7 +29,16 @@ maxLineChars=700
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T16:58:49.202Z.
+Action completed: COLLECT_RENDER_LOGS
+Task ID: agent-workspace-render-control-v1
+Workflow point: render-error-logs-check-after-status-and-deploys-ok
+Deploy ID: -
+Commit: -
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

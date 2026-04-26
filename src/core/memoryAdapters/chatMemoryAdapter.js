@@ -14,6 +14,7 @@
 // STAGE 7.9.3 safety:
 // - normal chat history reads must exclude raw_dialogue_archive rows when metadata exists.
 // - raw archive is storage-only and never part of uncontrolled prompt context.
+// - archive writes may require metadata support and fail closed if metadata is absent.
 
 import pool from "../../../db.js";
 
@@ -174,6 +175,10 @@ export class ChatMemoryAdapter {
   constructor({ logger = null, config = {} } = {}) {
     this.logger = logger;
     this.config = config;
+  }
+
+  async supportsMetadata() {
+    return _columnExists("chat_memory", "metadata");
   }
 
   // ========================================================================

@@ -45,6 +45,48 @@ Authoritative sources remain:
 
 ---
 
+## Runtime commands
+
+- `/agent_workspace_diag` — check workspace config readiness.
+- `/agent_workspace_render_report <taskId> <workflowPoint> [deployId]` — collect RenderBridge deploy/log data and write reports.
+- `/agent_workspace_test_note <taskId> <text>` — write a manual SG chat-test note into `TEST_REPORT.md`.
+
+---
+
+## Required ENV names on Render
+
+Agent workspace:
+
+```text
+AGENT_WORKSPACE_ENABLED
+AGENT_WORKSPACE_GITHUB_TOKEN
+AGENT_WORKSPACE_REPO_FULL_NAME
+AGENT_WORKSPACE_BRANCH
+AGENT_WORKSPACE_BASE_PATH
+```
+
+Optional:
+
+```text
+AGENT_WORKSPACE_DRY_RUN
+AGENT_WORKSPACE_COMMIT_PREFIX
+AGENT_WORKSPACE_GITHUB_API_BASE_URL
+```
+
+RenderBridge must also be ready for live Render collection:
+
+```text
+RENDER_BRIDGE_ENABLED
+RENDER_API_KEY
+```
+
+Security note:
+- the GitHub credential must be as narrow as practical;
+- SG logic writes only allowlisted files in `agent_workspace/`;
+- SG still must not write code, pillars, env, deploy config, or production settings.
+
+---
+
 ## Workspace files
 
 - `INBOX.md` — current requested work item.

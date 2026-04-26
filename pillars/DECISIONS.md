@@ -479,6 +479,8 @@ Consequences:
 - Без `chat_mode=assistant` инициативные ответы SG запрещены.
 - Атрибуция контекста всегда должна использовать `global_user_id`.
 
+---
+
 ## D-031: SG Self-Reflection — проактивный самоанализ с согласованием монарха
 
 Status: ACCEPTED  
@@ -517,6 +519,8 @@ Consequences:
 - D-001 не нарушается: AI предлагает, монарх решает
 - D-017 не нарушается: вывод advisory only
 
+---
+
 ## D-032: Агентная система — архитектура и интеграция с СГ
 
 Status: ACCEPTED  
@@ -553,6 +557,8 @@ Consequences:
 - D-001 не нарушается: агенты предлагают, монарх решает
 - D-017 не нарушается: вывод advisory only
 - Смена модели агента не требует изменения логики
+
+---
 
 ## D-033: Binance is the primary market microstructure source for SG trading analytics
 
@@ -852,3 +858,73 @@ Consequences:
 - monarch has a fixed minimal Render toolkit for routine work
 - command confusion is reduced without breaking existing tooling
 - advanced Render commands remain available but are no longer the default first-choice path
+
+---
+
+## D-038: Project Memory Core and Long-Term Memory Core are early foundation
+
+Status: ACCEPTED  
+Date: 2026-04-26  
+Scope: Memory / Project Development / Workflow Order
+
+Decision:
+
+SG requires fully implemented project memory and long-term memory as early foundation for reliable project development.
+
+The following are considered **memory core** and must be handled in early memory stages:
+
+1. Project Memory Core
+- current project state
+- current workflow position
+- confirmed decisions
+- confirmed constraints
+- active risks
+- next safe step
+- work session summaries
+- project auto-restore before repo/code work
+
+2. Long-Term Memory Core
+- confirmed facts
+- user/project preferences and rules
+- raw dialogue archive with strict limits
+- topic digest layer
+- confirmed memory layer
+- local recall for the current user/project
+- safe restoration of relevant context
+
+3. Controlled Memory Write
+- SG must not write raw uncontrolled chat into durable memory
+- SG writes durable memory only for confirmed facts, decisions, constraints, next steps, and session summaries
+- ambiguous write intent must fail closed or ask one clarification
+
+4. Controlled Memory Read / Restore
+- before project work, SG should restore current project memory context
+- restored context is a working hint, not absolute truth
+- current user instruction and repo facts can override memory when verified
+
+The following are **not memory core** and remain in their later workflow stages:
+
+- real GitHub/repo indexing
+- memoryCandidates generated from repository indexing
+- cross-group recall
+- group-source memory features
+- risk module project_memory integration
+- billing/memory dashboard
+- legal export/delete/anonymization
+- market/risk modules that consume memory
+
+Hard rules:
+
+1. Do not delay Project Memory Core until late feature stages.
+2. Do not move later integrations earlier only because they mention memory.
+3. Project Memory Core must be completed enough for SG to continue project development safely across chats.
+4. Long-Term Memory Core must separate archive, digest, and confirmed memory.
+5. Raw dialogue and raw code must not become uncontrolled prompt memory.
+6. Real external integrations remain gated by their original stages.
+
+Consequences:
+
+- WORKFLOW.md must distinguish memory core from memory consumers.
+- Project work should prioritize memory reliability before broad new feature expansion.
+- Repo evidence, real GitHub integration, dashboards, billing, risk integration, and cross-group recall remain later feature layers.
+- This decision refines stage ordering without deleting existing stage gates.

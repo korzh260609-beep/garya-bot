@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PROJECT-MEMORY-7A-PM-SHOW-DIAG-002`
-STATUS: `DONE`
+COMMAND_ID: `PROJECT-MEMORY-7A-CONTROLLED-WRITE-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `project-memory-7a-pm-show-readonly-runtime-diagnostic-rerun`
-WORKFLOW_POINT: `project-memory-core-pm-show-read-path-check`
+TASK_ID: `project-memory-7a-controlled-write-runtime-diagnostic`
+WORKFLOW_POINT: `project-memory-core-controlled-write-path-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-26T19:48:36.099Z`
+UPDATED_AT: `2026-04-26T00:00:00.000Z`
 
 ---
 
 ## Payload
 
-/pm_show_diag workflow
+/pm_controlled_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: project-memory-7a-pm-show-readonly-runtime-diagnostic-rerun
-Workflow point: project-memory-core-pm-show-read-path-check
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending controlled runtime diagnostic. This command writes only the diagnostic section `diag_pm_set_runtime_probe`.
 
 ---
 

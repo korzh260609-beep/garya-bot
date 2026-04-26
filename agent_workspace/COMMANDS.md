@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `MEMORY-7-9-3-ARCHIVE-WRITE-001`
-STATUS: `DONE`
+COMMAND_ID: `MEMORY-7-9-4-TOPIC-DIGEST-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `memory-7-9-3-archive-write`
-WORKFLOW_POINT: `archive-write-path-with-limits-runtime-diagnostic`
+TASK_ID: `memory-7-9-4-topic-digest`
+WORKFLOW_POINT: `topic-digest-skeleton-runtime-diagnostic`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T18:00:00Z`
-UPDATED_AT: `2026-04-26T17:54:09.131Z`
+CREATED_AT: `2026-04-26T18:10:00Z`
+UPDATED_AT: `2026-04-26T18:10:00Z`
 
 ---
 
 ## Payload
 
-/memory_archive_write_diag
+/memory_topic_digest_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: memory-7-9-3-archive-write
-Workflow point: archive-write-path-with-limits-runtime-diagnostic
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending runtime diagnostic for Stage 7.9.4 topic digest skeleton.
 
 ---
 

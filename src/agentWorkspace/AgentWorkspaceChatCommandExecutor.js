@@ -10,6 +10,7 @@ import { handleMemoryLongTermReadDiag } from "../bot/handlers/memoryLongTermRead
 import { handleMemoryConfirmedRestoreDiag } from "../bot/handlers/memoryConfirmedRestoreDiag.js";
 import { handleMemoryArchiveWriteDiag } from "../bot/handlers/memoryArchiveWriteDiag.js";
 import { handleMemoryTopicDigestDiag } from "../bot/handlers/memoryTopicDigestDiag.js";
+import { handleMemoryRestoreBeforeAnswerDiag } from "../bot/handlers/memoryRestoreBeforeAnswerDiag.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -268,6 +269,36 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
           selected: result?.selected || {},
           listed: result?.listed || {},
           context: result?.context || {},
+          checks: result?.checks || {},
+        },
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/memory_restore_before_answer_diag") {
+      const result = await handleMemoryRestoreBeforeAnswerDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        chatIdStr: fakeChatId,
+        globalUserId: null,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+
+      return {
+        command: cmd0,
+        ok: result?.ok === true,
+        handler: "handleMemoryRestoreBeforeAnswerDiag",
+        data: {
+          isolatedChatId: result?.isolatedChatId || null,
+          confirmedNeedle: result?.confirmedNeedle || null,
+          archiveNeedle: result?.archiveNeedle || null,
+          digestNeedle: result?.digestNeedle || null,
+          remember: result?.remember || {},
+          archive: result?.archive || {},
+          digest: result?.digest || {},
+          bridge: result?.bridge || {},
           checks: result?.checks || {},
         },
         messages: fakeBot.messages,

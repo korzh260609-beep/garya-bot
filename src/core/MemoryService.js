@@ -51,6 +51,10 @@
 // - Diagnostics are read-only and advisory.
 // - NO DB reads/writes. NO AI logic. NO prompt injection.
 //
+// STAGE 7.8.10 — Raw prompt guard:
+// - Raw dialogue is blocked from prompts unless bounded approved restore path exists.
+// - Guard is deterministic/read-only. NO prompt construction.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
@@ -85,6 +89,9 @@
 // - classifyMemoryPrivacyScope(args) -> memory privacy scope
 // - buildMemoryAttribution(args) -> speaker/owner attribution object
 // - assertMemoryPrivacyAllowed(args) -> privacy policy check
+// - getMemoryRawPromptGuardPolicy() -> raw prompt guard policy
+// - assertRawPromptAllowed(args) -> raw prompt guard check
+// - rawPromptGuardStatus() -> raw prompt guard status
 // - runMemoryDiagnostics() -> memory safety diagnostic summary
 // - memoryDiagnosticsStatus() -> diagnostics service status
 // - status() -> diag info
@@ -112,6 +119,7 @@ import MemoryArchiveService from "./memory/MemoryArchiveService.js";
 import MemoryTopicDigestService from "./memory/MemoryTopicDigestService.js";
 import MemoryTopicRecallService from "./memory/MemoryTopicRecallService.js";
 import MemoryDiagnosticsService from "./memory/MemoryDiagnosticsService.js";
+import MemoryRawPromptGuard from "./memory/MemoryRawPromptGuard.js";
 import {
   getMemoryLayerPolicy,
   assertMemoryLayerSeparation,
@@ -245,6 +253,13 @@ export class MemoryService {
       contractVersion: MemoryService.CONTRACT_VERSION,
     });
 
+    // Raw prompt guard (read-only, blocks uncontrolled raw dialogue prompt path)
+    this.rawPromptGuard = new MemoryRawPromptGuard({
+      logger: this.logger,
+      getEnabled: () => this._enabled,
+      contractVersion: MemoryService.CONTRACT_VERSION,
+    });
+
     // Memory diagnostics service (read-only, advisory only)
     this.memoryDiagnosticsService = new MemoryDiagnosticsService({
       logger: this.logger,
@@ -294,6 +309,7 @@ export class MemoryService {
       archive: this.archiveService.status(),
       topicDigest: this.topicDigestService.status(),
       topicRecall: this.topicRecallService.status(),
+      rawPromptGuard: this.rawPromptGuard.status(),
       layerPolicy: getMemoryLayerPolicy(),
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
@@ -523,6 +539,21 @@ export class MemoryService {
   }
 
   // ========================================================================
+  // RAW PROMPT GUARD FACADE — read-only guard
+  // ========================================================================
+  getMemoryRawPromptGuardPolicy() {
+    return this.rawPromptGuard.getPolicy();
+  }
+
+  assertRawPromptAllowed(args = {}) {
+    return this.rawPromptGuard.assertRawPromptAllowed(args);
+  }
+
+  async rawPromptGuardStatus() {
+    return this.rawPromptGuard.status();
+  }
+
+  // ========================================================================
   // MEMORY DIAGNOSTICS FACADE — read-only diagnostics
   // ========================================================================
   runMemoryDiagnostics() {
@@ -698,6 +729,7 @@ export class MemoryService {
       hasArchiveService: !!this.archiveService,
       hasTopicDigestService: !!this.topicDigestService,
       hasTopicRecallService: !!this.topicRecallService,
+      hasRawPromptGuard: !!this.rawPromptGuard,
       hasMemoryDiagnosticsService: !!this.memoryDiagnosticsService,
       hasBufferService: !!this.bufferService,
       configKeys: Object.keys(this.config || {}),
@@ -705,6 +737,7 @@ export class MemoryService {
       archive: this.archiveService.status(),
       topicDigest: this.topicDigestService.status(),
       topicRecall: this.topicRecallService.status(),
+      rawPromptGuard: this.rawPromptGuard.status(),
       layerPolicy: getMemoryLayerPolicy(),
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),

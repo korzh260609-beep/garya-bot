@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `VERIFY-TEST-003`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `VERIFY_DEPLOY`
 TASK_ID: `TEST-003`
 WORKFLOW_POINT: `webhook-auto-check-after-fix`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T14:40:00Z`
-UPDATED_AT: `2026-04-26T14:29:47.848Z`
+UPDATED_AT: `2026-04-26T14:30:02.578Z`
 
 ---
 
@@ -26,7 +26,13 @@ UPDATED_AT: `2026-04-26T14:29:47.848Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T14:29:47.848Z.
+Action completed: VERIFY_DEPLOY
+Task ID: TEST-003
+Workflow point: webhook-auto-check-after-fix
+Deploy ID: dep-d7n20vbeo5us73f2otsg
+Commit: f9346eeb35f6b4bca7945b4a3b5e01fa1acff41c
+Logs: 0
+Diagnosis: false
 
 ---
 

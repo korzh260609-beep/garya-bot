@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `MEMORY-7-9-1-REMEMBER-GUARD-002`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `7.9.1`
 WORKFLOW_POINT: `confirmed-facts-write-path-remember-guard-check-after-deploy`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T16:45:00Z`
-UPDATED_AT: `2026-04-26T16:45:00Z`
+UPDATED_AT: `2026-04-26T16:30:35.579Z`
 
 ---
 
@@ -26,7 +26,7 @@ UPDATED_AT: `2026-04-26T16:45:00Z`
 
 ## Last result
 
-Retry after Render deploy. Expected: new fact stored, duplicate NOOP, conflict blocked, fetch total=1.
+Started by github_webhook at 2026-04-26T16:30:35.579Z.
 
 ---
 
@@ -44,7 +44,6 @@ Retry after Render deploy. Expected: new fact stored, duplicate NOOP, conflict b
 - `VERIFY_DEPLOY`
 - `COLLECT_RENDER_REPORT`
 - `WRITE_TEST_NOTE`
-- `RUN_DIAGNOSTIC_COMMANDS`
 
 ## Hard limits
 

@@ -14,6 +14,10 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function safeTransport(value) {
+  return safeText(value) || "telegram";
+}
+
 function splitItems(value = "") {
   return String(value ?? "")
     .split(/\s*\|\s*/)
@@ -29,6 +33,7 @@ function pickLine(map, ...keys) {
 }
 
 function traceUpdateAttempt({
+  transport,
   chatId,
   chatIdStr,
   bypass,
@@ -38,7 +43,7 @@ function traceUpdateAttempt({
   patchKeys,
 } = {}) {
   console.log("🧠 PROJECT_MEMORY_CONFIRMED_UPDATE_ATTEMPT", {
-    transport: "telegram",
+    transport: safeTransport(transport),
     chatId: safeText(chatIdStr || chatId),
     bypass: !!bypass,
     phase: safeText(phase) || "unknown",
@@ -215,11 +220,15 @@ export async function handlePmConfirmedUpdate({
   bot,
   chatId,
   chatIdStr,
+  transport,
   rest,
   bypass,
   updateConfirmedProjectMemoryEntry,
 }) {
+  const transportName = safeTransport(transport);
+
   traceUpdateAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,
@@ -228,6 +237,7 @@ export async function handlePmConfirmedUpdate({
 
   if (typeof updateConfirmedProjectMemoryEntry !== "function") {
     traceUpdateAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -241,6 +251,7 @@ export async function handlePmConfirmedUpdate({
 
   if (!bypass) {
     traceUpdateAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -259,6 +270,7 @@ export async function handlePmConfirmedUpdate({
 
   if (!parsed) {
     traceUpdateAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -274,6 +286,7 @@ export async function handlePmConfirmedUpdate({
 
   if (!patchKeys.length) {
     traceUpdateAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -288,6 +301,7 @@ export async function handlePmConfirmedUpdate({
   }
 
   traceUpdateAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,

@@ -6,6 +6,7 @@
 // - keep Telegram transport thin
 // - keep core/service logic outside transport layer
 // - preserve existing behavior 1:1
+// - expose Stage 7A.12 short test-surface aliases without duplicating logic
 // ============================================================================
 
 import { handlePmConfirmedWrite } from "../handlers/pmConfirmedWrite.js";
@@ -46,7 +47,8 @@ export async function dispatchProjectMemoryConfirmedCommands({
       return { handled: true };
     }
 
-    case "/pm_confirmed_update": {
+    case "/pm_confirmed_update":
+    case "/pm_update": {
       if (typeof ctx.updateConfirmedProjectMemoryEntry !== "function") {
         await reply("⛔ updateConfirmedProjectMemoryEntry недоступен (ошибка wiring).", {
           cmd: cmd0,
@@ -82,7 +84,8 @@ export async function dispatchProjectMemoryConfirmedCommands({
       return { handled: true };
     }
 
-    case "/pm_confirmed_latest": {
+    case "/pm_confirmed_latest":
+    case "/pm_last": {
       if (typeof ctx.getLatestConfirmedProjectMemoryEntry !== "function") {
         await reply("⛔ getLatestConfirmedProjectMemoryEntry недоступен (ошибка wiring).", {
           cmd: cmd0,
@@ -118,7 +121,8 @@ export async function dispatchProjectMemoryConfirmedCommands({
       return { handled: true };
     }
 
-    case "/pm_confirmed_context": {
+    case "/pm_confirmed_context":
+    case "/pm_context": {
       if (typeof ctx.buildConfirmedProjectMemoryContext !== "function") {
         await reply("⛔ buildConfirmedProjectMemoryContext недоступен (ошибка wiring).", {
           cmd: cmd0,

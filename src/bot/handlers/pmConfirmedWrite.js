@@ -14,6 +14,10 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function safeTransport(value) {
+  return safeText(value) || "telegram";
+}
+
 function splitItems(value = "") {
   return String(value ?? "")
     .split(/\s*\|\s*/)
@@ -29,6 +33,7 @@ function pickLine(map, ...keys) {
 }
 
 function traceWriteAttempt({
+  transport,
   chatId,
   chatIdStr,
   bypass,
@@ -38,7 +43,7 @@ function traceWriteAttempt({
   hasContent,
 } = {}) {
   console.log("🧠 PROJECT_MEMORY_CONFIRMED_WRITE_ATTEMPT", {
-    transport: "telegram",
+    transport: safeTransport(transport),
     chatId: safeText(chatIdStr || chatId),
     bypass: !!bypass,
     phase: safeText(phase) || "unknown",
@@ -171,11 +176,15 @@ export async function handlePmConfirmedWrite({
   bot,
   chatId,
   chatIdStr,
+  transport,
   rest,
   bypass,
   writeConfirmedProjectMemory,
 }) {
+  const transportName = safeTransport(transport);
+
   traceWriteAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,
@@ -184,6 +193,7 @@ export async function handlePmConfirmedWrite({
 
   if (typeof writeConfirmedProjectMemory !== "function") {
     traceWriteAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -197,6 +207,7 @@ export async function handlePmConfirmedWrite({
 
   if (!bypass) {
     traceWriteAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -215,6 +226,7 @@ export async function handlePmConfirmedWrite({
 
   if (!parsed || !parsed.kind || !parsed.content) {
     traceWriteAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -229,6 +241,7 @@ export async function handlePmConfirmedWrite({
   }
 
   traceWriteAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,
@@ -245,7 +258,7 @@ export async function handlePmConfirmedWrite({
       content: parsed.content,
       tags: parsed.tags,
       sourceType: "manual",
-      sourceRef: parsed.sourceRef || `telegram:${safeText(chatIdStr || chatId)}`,
+      sourceRef: parsed.sourceRef || `${transportName}:${safeText(chatIdStr || chatId)}`,
       relatedPaths: parsed.relatedPaths,
       moduleKey: parsed.moduleKey || null,
       stageKey: parsed.stageKey || null,
@@ -258,7 +271,7 @@ export async function handlePmConfirmedWrite({
       crossRepo: parsed.crossRepo,
 
       meta: {
-        transport: "telegram",
+        transport: transportName,
         manual: true,
         bypass: !!bypass,
         chatId: safeText(chatIdStr || chatId),

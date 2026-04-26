@@ -98,6 +98,10 @@ export const PRIVATE_ONLY_COMMANDS = new Set([
   "/pm_confirmed_latest",
   "/pm_confirmed_digest",
 
+  "/pm_context",
+  "/pm_last",
+  "/pm_update",
+
   "/render_diag",
   "/render_log_set",
   "/render_diag_last",

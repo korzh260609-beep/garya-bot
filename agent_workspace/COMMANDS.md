@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `MEMORY-7-9-3-CONFIRMED-RESTORE-002`
-STATUS: `DONE`
+COMMAND_ID: `MEMORY-7-9-3-ARCHIVE-WRITE-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `memory-7-9-3-confirmed-restore`
-WORKFLOW_POINT: `controlled-confirmed-memory-restore-skeleton-runtime-diagnostic-rerun-after-deploy`
+TASK_ID: `memory-7-9-3-archive-write`
+WORKFLOW_POINT: `archive-write-path-with-limits-runtime-diagnostic`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T17:50:00Z`
-UPDATED_AT: `2026-04-26T17:33:00.482Z`
+CREATED_AT: `2026-04-26T18:00:00Z`
+UPDATED_AT: `2026-04-26T18:00:00Z`
 
 ---
 
 ## Payload
 
-/memory_confirmed_restore_diag
+/memory_archive_write_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: memory-7-9-3-confirmed-restore
-Workflow point: controlled-confirmed-memory-restore-skeleton-runtime-diagnostic-rerun-after-deploy
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending runtime diagnostic for Stage 7.9.3 archive write path with limits.
 
 ---
 

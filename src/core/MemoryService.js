@@ -47,6 +47,10 @@
 // - Privacy policy is deterministic/read-only.
 // - NO cross-user/group leakage. NO unattributed group recall.
 //
+// STAGE 7.8.9 — Memory diagnostics service:
+// - Diagnostics are read-only and advisory.
+// - NO DB reads/writes. NO AI logic. NO prompt injection.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
@@ -81,6 +85,8 @@
 // - classifyMemoryPrivacyScope(args) -> memory privacy scope
 // - buildMemoryAttribution(args) -> speaker/owner attribution object
 // - assertMemoryPrivacyAllowed(args) -> privacy policy check
+// - runMemoryDiagnostics() -> memory safety diagnostic summary
+// - memoryDiagnosticsStatus() -> diagnostics service status
 // - status() -> diag info
 //
 // STAGE 11+ transitional universal read layer:
@@ -105,6 +111,7 @@ import MemoryBufferService from "./memory/MemoryBufferService.js";
 import MemoryArchiveService from "./memory/MemoryArchiveService.js";
 import MemoryTopicDigestService from "./memory/MemoryTopicDigestService.js";
 import MemoryTopicRecallService from "./memory/MemoryTopicRecallService.js";
+import MemoryDiagnosticsService from "./memory/MemoryDiagnosticsService.js";
 import {
   getMemoryLayerPolicy,
   assertMemoryLayerSeparation,
@@ -238,6 +245,13 @@ export class MemoryService {
       contractVersion: MemoryService.CONTRACT_VERSION,
     });
 
+    // Memory diagnostics service (read-only, advisory only)
+    this.memoryDiagnosticsService = new MemoryDiagnosticsService({
+      logger: this.logger,
+      getEnabled: () => this._enabled,
+      contractVersion: MemoryService.CONTRACT_VERSION,
+    });
+
     // ==========================================================
     // STAGE 7.7+ — micro-batch buffering (optional)
     // ==========================================================
@@ -269,6 +283,7 @@ export class MemoryService {
 
   async init() {
     this._enabled = !!this.config.enabled;
+    const diagnostics = this.runMemoryDiagnostics();
     return {
       ok: true,
       enabled: this._enabled,
@@ -284,6 +299,7 @@ export class MemoryService {
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
       digestGenerationPolicy: getMemoryDigestGenerationPolicy(),
       privacyAttributionPolicy: getMemoryPrivacyAttributionPolicy(),
+      diagnostics,
     };
   }
 
@@ -507,6 +523,26 @@ export class MemoryService {
   }
 
   // ========================================================================
+  // MEMORY DIAGNOSTICS FACADE — read-only diagnostics
+  // ========================================================================
+  runMemoryDiagnostics() {
+    return this.memoryDiagnosticsService.runSafetyDiagnostics({
+      archiveStatus: this.archiveService.status(),
+      topicDigestStatus: this.topicDigestService.status(),
+      topicRecallStatus: this.topicRecallService.status(),
+      layerPolicy: getMemoryLayerPolicy(),
+      periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
+      topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
+      digestGenerationPolicy: getMemoryDigestGenerationPolicy(),
+      privacyAttributionPolicy: getMemoryPrivacyAttributionPolicy(),
+    });
+  }
+
+  async memoryDiagnosticsStatus() {
+    return this.memoryDiagnosticsService.status();
+  }
+
+  // ========================================================================
   // WRITE FACADE
   // ========================================================================
   async write({
@@ -648,6 +684,7 @@ export class MemoryService {
   }
 
   async status() {
+    const diagnostics = this.runMemoryDiagnostics();
     return {
       ok: true,
       enabled: this._enabled,
@@ -661,6 +698,7 @@ export class MemoryService {
       hasArchiveService: !!this.archiveService,
       hasTopicDigestService: !!this.topicDigestService,
       hasTopicRecallService: !!this.topicRecallService,
+      hasMemoryDiagnosticsService: !!this.memoryDiagnosticsService,
       hasBufferService: !!this.bufferService,
       configKeys: Object.keys(this.config || {}),
       contractVersion: MemoryService.CONTRACT_VERSION,
@@ -672,6 +710,7 @@ export class MemoryService {
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
       digestGenerationPolicy: getMemoryDigestGenerationPolicy(),
       privacyAttributionPolicy: getMemoryPrivacyAttributionPolicy(),
+      diagnostics,
       buffer: this.bufferService.status(),
     };
   }

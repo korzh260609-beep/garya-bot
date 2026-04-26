@@ -39,6 +39,10 @@
 // - Digest generation policy is deterministic/read-only.
 // - NO AI calls. NO digest writes. NO confirmed-memory writes.
 //
+// STAGE 7.8.7 — Topic recall / conversation restoration interface:
+// - Recall interface is deterministic/service-only.
+// - NO DB reads in skeleton. NO raw archive prompt injection.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
@@ -65,6 +69,10 @@
 // - getMemoryDigestGenerationPolicy() -> digest generation policy
 // - buildDigestGenerationRequest(args) -> safe digest generation request object
 // - assertDigestGenerationAllowed(request) -> digest generation policy check
+// - getMemoryTopicRecallPolicy() -> topic recall policy/status
+// - buildTopicRecallRequest(args) -> safe recall request object
+// - selectTopicRestoreContext(request) -> skeleton restore context
+// - topicRecallStatus() -> recall diag info
 // - status() -> diag info
 //
 // STAGE 11+ transitional universal read layer:
@@ -88,6 +96,7 @@ import MemoryWriteService from "./memory/MemoryWriteService.js";
 import MemoryBufferService from "./memory/MemoryBufferService.js";
 import MemoryArchiveService from "./memory/MemoryArchiveService.js";
 import MemoryTopicDigestService from "./memory/MemoryTopicDigestService.js";
+import MemoryTopicRecallService from "./memory/MemoryTopicRecallService.js";
 import {
   getMemoryLayerPolicy,
   assertMemoryLayerSeparation,
@@ -206,6 +215,15 @@ export class MemoryService {
       contractVersion: MemoryService.CONTRACT_VERSION,
     });
 
+    // Topic recall skeleton service (not prompt-facing, no runtime DB reads here)
+    this.topicRecallService = new MemoryTopicRecallService({
+      logger: this.logger,
+      getEnabled: () => this._enabled,
+      normalizeTopicKey,
+      assertTopicGroupingAllowed,
+      contractVersion: MemoryService.CONTRACT_VERSION,
+    });
+
     // ==========================================================
     // STAGE 7.7+ — micro-batch buffering (optional)
     // ==========================================================
@@ -246,6 +264,7 @@ export class MemoryService {
       buffer: this.bufferService.status(),
       archive: this.archiveService.status(),
       topicDigest: this.topicDigestService.status(),
+      topicRecall: this.topicRecallService.status(),
       layerPolicy: getMemoryLayerPolicy(),
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
@@ -372,6 +391,25 @@ export class MemoryService {
 
   async topicDigestStatus() {
     return this.topicDigestService.status();
+  }
+
+  // ========================================================================
+  // TOPIC RECALL FACADE — restore request interface, not prompt-facing
+  // ========================================================================
+  getMemoryTopicRecallPolicy() {
+    return this.topicRecallService.getPolicy();
+  }
+
+  buildTopicRecallRequest(args = {}) {
+    return this.topicRecallService.buildTopicRecallRequest(args);
+  }
+
+  selectTopicRestoreContext(request = {}) {
+    return this.topicRecallService.selectTopicRestoreContext(request);
+  }
+
+  async topicRecallStatus() {
+    return this.topicRecallService.status();
   }
 
   // ========================================================================
@@ -588,11 +626,13 @@ export class MemoryService {
       hasWriteService: !!this.writeService,
       hasArchiveService: !!this.archiveService,
       hasTopicDigestService: !!this.topicDigestService,
+      hasTopicRecallService: !!this.topicRecallService,
       hasBufferService: !!this.bufferService,
       configKeys: Object.keys(this.config || {}),
       contractVersion: MemoryService.CONTRACT_VERSION,
       archive: this.archiveService.status(),
       topicDigest: this.topicDigestService.status(),
+      topicRecall: this.topicRecallService.status(),
       layerPolicy: getMemoryLayerPolicy(),
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),

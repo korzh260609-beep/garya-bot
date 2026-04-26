@@ -26,6 +26,24 @@ function pickLine(map, ...keys) {
   return "";
 }
 
+function traceSessionWriteAttempt({
+  chatId,
+  chatIdStr,
+  bypass,
+  phase,
+  reason,
+  hasGoal,
+} = {}) {
+  console.log("🧠 PROJECT_MEMORY_SESSION_WRITE_ATTEMPT", {
+    transport: "telegram",
+    chatId: safeText(chatIdStr || chatId),
+    bypass: !!bypass,
+    phase: safeText(phase) || "unknown",
+    reason: safeText(reason) || null,
+    hasGoal: !!hasGoal,
+  });
+}
+
 function parseSessionInput(rest = "") {
   const text = safeText(rest);
 
@@ -129,17 +147,65 @@ export async function handlePmSession({
   bypass,
   recordProjectWorkSession,
 }) {
+  traceSessionWriteAttempt({
+    chatId,
+    chatIdStr,
+    bypass,
+    phase: "received",
+  });
+
   if (typeof recordProjectWorkSession !== "function") {
+    traceSessionWriteAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "recorder_unavailable",
+    });
+
     await bot.sendMessage(chatId, "⛔ recordProjectWorkSession недоступен.");
+    return;
+  }
+
+  if (!bypass) {
+    traceSessionWriteAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "not_trusted_path",
+    });
+
+    await bot.sendMessage(
+      chatId,
+      "⛔ Durable Project Memory session write доступен только монарху / trusted path."
+    );
     return;
   }
 
   const parsed = parseSessionInput(rest);
 
   if (!parsed || !safeText(parsed.goal)) {
+    traceSessionWriteAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "invalid_input",
+      hasGoal: !!parsed?.goal,
+    });
+
     await bot.sendMessage(chatId, buildUsage());
     return;
   }
+
+  traceSessionWriteAttempt({
+    chatId,
+    chatIdStr,
+    bypass,
+    phase: "accepted",
+    hasGoal: true,
+  });
 
   try {
     const saved = await recordProjectWorkSession({

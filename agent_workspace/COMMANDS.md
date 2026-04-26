@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `MEMORY-7-9-1-REMEMBER-GUARD-003`
-STATUS: `DONE`
-ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `7.9.1`
-WORKFLOW_POINT: `confirmed-facts-write-path-remember-guard-check-after-runner-fix`
+COMMAND_ID: `RENDER-CONTROL-V1-STATUS-001`
+STATUS: `PENDING`
+ACTION: `COLLECT_RENDER_STATUS`
+TASK_ID: `agent-workspace-render-control-v1`
+WORKFLOW_POINT: `render-status-check-after-deploy`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T16:55:00Z`
-UPDATED_AT: `2026-04-26T16:34:04.138Z`
+CREATED_AT: `2026-04-26T17:05:00Z`
+UPDATED_AT: `2026-04-26T17:05:00Z`
 
 ---
 
 ## Payload
 
-/memory_remember_guard_diag
+-
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: 7.9.1
-Workflow point: confirmed-facts-write-path-remember-guard-check-after-runner-fix
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending Render status report test after deploying AgentWorkspace Render Control v1.
 
 ---
 
@@ -52,7 +43,12 @@ Diagnostics failed: 0
 
 - `VERIFY_DEPLOY`
 - `COLLECT_RENDER_REPORT`
+- `COLLECT_RENDER_LOGS`
+- `COLLECT_RENDER_DEPLOYS`
+- `COLLECT_RENDER_DEPLOY`
+- `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
+- `RUN_DIAGNOSTIC_COMMANDS`
 
 ## Hard limits
 

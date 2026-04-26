@@ -11,6 +11,7 @@
 import { handlePmSet } from "../handlers/pmSet.js";
 import { handlePmShow } from "../handlers/pmShow.js";
 import { handlePmShowDiag } from "../handlers/pmShowDiag.js";
+import { handlePmControlledWriteDiag } from "../handlers/pmControlledWriteDiag.js";
 import { handlePmList } from "../handlers/pmList.js";
 import { handlePmDigest } from "../handlers/pmDigest.js";
 import { handlePmLatest } from "../handlers/pmLatest.js";
@@ -50,6 +51,34 @@ export async function dispatchProjectMemoryBasicCommands({
         bot,
         chatId,
         rest: ctx.rest,
+        getProjectSection: ctx.getProjectSection,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_controlled_diag": {
+      if (typeof ctx.upsertProjectSection !== "function") {
+        await reply("⛔ upsertProjectSection недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      if (typeof ctx.getProjectSection !== "function") {
+        await reply("⛔ getProjectSection недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      await handlePmControlledWriteDiag({
+        bot,
+        chatId,
+        chatIdStr,
+        transport: ctx.transport,
+        bypass: !!ctx.bypass,
+        upsertProjectSection: ctx.upsertProjectSection,
         getProjectSection: ctx.getProjectSection,
       });
 

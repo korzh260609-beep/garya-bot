@@ -85,6 +85,7 @@ export const PRIVATE_ONLY_COMMANDS = new Set([
   "/command_policy_diag",
   "/command_policy_selftest",
   "/command_policy_shadow_last",
+  "/intent_action_selftest",
 
   "/pm_set",
   "/pm_list",

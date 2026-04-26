@@ -59,7 +59,9 @@ export async function dispatchProjectMemoryConfirmedCommands({
       await handlePmConfirmedUpdate({
         bot,
         chatId,
+        chatIdStr,
         rest: ctx.rest,
+        bypass: !!ctx.bypass,
         updateConfirmedProjectMemoryEntry: ctx.updateConfirmedProjectMemoryEntry,
       });
 

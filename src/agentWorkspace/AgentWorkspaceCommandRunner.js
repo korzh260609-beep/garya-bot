@@ -6,6 +6,7 @@
 
 import AgentWorkspaceGitHubClient from "./AgentWorkspaceGitHubClient.js";
 import agentWorkspaceReportService from "./AgentWorkspaceReportService.js";
+import agentWorkspaceRenderControlService from "./AgentWorkspaceRenderControlService.js";
 import {
   getAgentWorkspaceConfig,
   getAgentWorkspaceDiag,
@@ -148,10 +149,11 @@ ${raw || "-"}
 }
 
 export class AgentWorkspaceCommandRunner {
-  constructor({ config, client, reportService } = {}) {
+  constructor({ config, client, reportService, renderControlService } = {}) {
     this.config = config || getAgentWorkspaceConfig();
     this.client = client || new AgentWorkspaceGitHubClient({ config: this.config });
     this.reportService = reportService || agentWorkspaceReportService;
+    this.renderControlService = renderControlService || agentWorkspaceRenderControlService;
   }
 
   isAllowedAction(action) {
@@ -204,6 +206,30 @@ export class AgentWorkspaceCommandRunner {
       "RENDER_REPORT.md",
       emptyReport("RENDER_REPORT", taskId),
       `reset render report for ${taskId}`
+    ));
+
+    writes.push(await this.reportService.writeMarkdown(
+      "RENDER_LOGS_REPORT.md",
+      emptyReport("RENDER_LOGS_REPORT", taskId),
+      `reset render logs report for ${taskId}`
+    ));
+
+    writes.push(await this.reportService.writeMarkdown(
+      "RENDER_DEPLOYS_REPORT.md",
+      emptyReport("RENDER_DEPLOYS_REPORT", taskId),
+      `reset render deploys report for ${taskId}`
+    ));
+
+    writes.push(await this.reportService.writeMarkdown(
+      "RENDER_DEPLOY_REPORT.md",
+      emptyReport("RENDER_DEPLOY_REPORT", taskId),
+      `reset render deploy report for ${taskId}`
+    ));
+
+    writes.push(await this.reportService.writeMarkdown(
+      "RENDER_STATUS_REPORT.md",
+      emptyReport("RENDER_STATUS_REPORT", taskId),
+      `reset render status report for ${taskId}`
     ));
 
     writes.push(await this.reportService.writeMarkdown(
@@ -388,6 +414,22 @@ export class AgentWorkspaceCommandRunner {
       );
     }
 
+    if (action === "COLLECT_RENDER_LOGS") {
+      return this.renderControlService.collectLogs(command);
+    }
+
+    if (action === "COLLECT_RENDER_DEPLOYS") {
+      return this.renderControlService.collectDeploys(command);
+    }
+
+    if (action === "COLLECT_RENDER_DEPLOY") {
+      return this.renderControlService.collectDeploy(command);
+    }
+
+    if (action === "COLLECT_RENDER_STATUS") {
+      return this.renderControlService.collectStatus(command);
+    }
+
     if (action === "WRITE_TEST_NOTE") {
       return this.reportService.writeTestNote(this.buildRestForTestNote(command));
     }
@@ -476,7 +518,7 @@ export class AgentWorkspaceCommandRunner {
           `Task ID: ${command.taskId || "manual"}`,
           `Workflow point: ${command.workflowPoint || "-"}`,
           `Deploy ID: ${result?.deployId || command.deployId || "-"}`,
-          `Commit: ${result?.commit || "-"}`,
+          `Commit: ${result?.commit || result?.latestCommit || "-"}`,
           `Logs: ${Number(result?.logs || 0)}`,
           `Diagnosis: ${String(Boolean(result?.diagnosis))}`,
           `Diagnostic commands: ${Number(result?.diagnosticCommands || 0)}`,

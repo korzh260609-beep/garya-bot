@@ -4,14 +4,15 @@ Finite control state for the development loop.
 
 ---
 
-Task ID: `-`
-State: `EMPTY`
-Attempt: `0`
+Task ID: `TEST-001`
+State: `DEPLOY_CHECKED`
+Attempt: `1`
 Max attempts: `3`
-Last approved by Monarch: `false`
-Last commit: `-`
-Last deploy ID: `-`
-Last verification result: `-`
+Last approved by Monarch: `true`
+Last commit: `d16ec23f0224346ae33be4d2ec89364c1bbc8130`
+Last deploy ID: `dep-d7n0kor7uimc73b62alg`
+Last verification result: `NO_RENDER_ERRORS_FOUND`
+Updated at: `2026-04-26T12:54:24.416Z`
 
 ---
 

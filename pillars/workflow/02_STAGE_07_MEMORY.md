@@ -107,6 +107,16 @@
 - 7A.12.6 /pm_update verifies controlled update path
 - 7A.12.7 /pm_session verifies session summary path
 
+## 7A.13 PROJECT CAPABILITY SNAPSHOT
+
+- 7A.13.1 project_memory may store generated capability/status snapshots
+- 7A.13.2 capability snapshots are not source of truth
+- 7A.13.3 capability snapshots must be regenerated from repo/code/runtime facts
+- 7A.13.4 SG uses snapshots to explain current abilities to monarch/users
+- 7A.13.5 user-facing output must explain practical benefit, not internal modules
+- 7A.13.6 snapshot writes must go through ProjectMemoryService only
+- 7A.13.7 snapshot generation must be traceable and refreshable
+
 ## 7A.V1 Speech→Text (STT skeleton, provider-agnostic)
 
 - 7A.V1.1 STT input skeleton only

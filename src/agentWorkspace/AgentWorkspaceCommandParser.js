@@ -51,6 +51,7 @@ export function parseAgentWorkspaceCommand(markdown = "") {
   const taskId = readField(markdown, "TASK_ID");
   const workflowPoint = readField(markdown, "WORKFLOW_POINT");
   const deployId = readField(markdown, "DEPLOY_ID");
+  const requiresCommit = readField(markdown, "REQUIRES_COMMIT");
   const createdBy = readField(markdown, "CREATED_BY");
   const createdAt = readField(markdown, "CREATED_AT");
   const updatedAt = readField(markdown, "UPDATED_AT");
@@ -63,6 +64,7 @@ export function parseAgentWorkspaceCommand(markdown = "") {
     taskId: taskId || "manual",
     workflowPoint: workflowPoint || "-",
     deployId: deployId === "-" ? "" : deployId,
+    requiresCommit: requiresCommit === "-" ? "" : requiresCommit,
     createdBy: createdBy || "-",
     createdAt: createdAt || "-",
     updatedAt: updatedAt || "-",
@@ -86,6 +88,7 @@ ACTION: \`${command.action || "NONE"}\`
 TASK_ID: \`${command.taskId || "-"}\`
 WORKFLOW_POINT: \`${command.workflowPoint || "-"}\`
 DEPLOY_ID: \`${command.deployId || "-"}\`
+REQUIRES_COMMIT: \`${command.requiresCommit || "-"}\`
 CREATED_BY: \`${command.createdBy || "-"}\`
 CREATED_AT: \`${command.createdAt || "-"}\`
 UPDATED_AT: \`${now}\`
@@ -123,6 +126,7 @@ ${buildAllowedActionsMarkdown()}
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
 - SG updates only allowlisted files in \`agent_workspace/\`.
+- If \`REQUIRES_COMMIT\` is set, SG must skip execution until runtime commit matches it.
 `;
 }
 

@@ -6,15 +6,15 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PM-CAPABILITIES-DIAG-003`
-STATUS: `DONE`
+COMMAND_ID: `PM-CAPABILITIES-DIAG-004`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `7A.13`
 WORKFLOW_POINT: `pm-capabilities-diag-chat-capture-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T15:10:00Z`
-UPDATED_AT: `2026-04-26T15:07:59.632Z`
+CREATED_AT: `2026-04-26T15:15:00Z`
+UPDATED_AT: `-`
 
 ---
 
@@ -26,16 +26,7 @@ UPDATED_AT: `2026-04-26T15:07:59.632Z`
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: 7A.13
-Workflow point: pm-capabilities-diag-chat-capture-check
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+-
 
 ---
 
@@ -53,6 +44,7 @@ Diagnostics failed: 0
 - `VERIFY_DEPLOY`
 - `COLLECT_RENDER_REPORT`
 - `WRITE_TEST_NOTE`
+- `RUN_DIAGNOSTIC_COMMANDS`
 
 ## Hard limits
 

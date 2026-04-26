@@ -24,6 +24,10 @@ function safePathPart(value) {
   return s.replace(/^\/+/, "").replace(/\/+/g, "/");
 }
 
+function isGithubNotFoundError(error) {
+  return String(error?.message || "").startsWith("github_http_404:");
+}
+
 export class AgentWorkspaceGitHubClient {
   constructor({ config } = {}) {
     this.config = config || getAgentWorkspaceConfig();
@@ -104,9 +108,28 @@ export class AgentWorkspaceGitHubClient {
     };
   }
 
+  async getCurrentFileForWrite(fileName) {
+    try {
+      return await this.readFile(fileName);
+    } catch (error) {
+      if (!isGithubNotFoundError(error)) {
+        throw error;
+      }
+
+      return {
+        ok: false,
+        missing: true,
+        fileName,
+        path: this.buildFilePath(fileName),
+        sha: null,
+        content: "",
+      };
+    }
+  }
+
   async writeFile(fileName, content, message) {
     const url = this.buildContentsUrl(fileName);
-    const current = await this.readFile(fileName);
+    const current = await this.getCurrentFileForWrite(fileName);
 
     if (this.config.dryRun) {
       return {
@@ -115,15 +138,19 @@ export class AgentWorkspaceGitHubClient {
         fileName,
         path: current.path,
         sha: current.sha,
+        created: Boolean(current.missing),
       };
     }
 
     const body = {
       message: `${this.config.commitPrefix} ${message || `update ${fileName}`}`,
       content: toBase64Utf8(content),
-      sha: current.sha,
       branch: this.config.branch,
     };
+
+    if (current.sha) {
+      body.sha = current.sha;
+    }
 
     const result = await this.request(url, {
       method: "PUT",
@@ -139,6 +166,7 @@ export class AgentWorkspaceGitHubClient {
       fileName,
       path: result?.content?.path || current.path,
       commitSha: result?.commit?.sha || null,
+      created: Boolean(current.missing),
     };
   }
 }

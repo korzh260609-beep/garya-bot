@@ -300,7 +300,8 @@ export class AgentWorkspaceCommandRunner {
     try {
       if (
         commandName === "/pm_capabilities_diag" ||
-        commandName === "/memory_remember_guard_diag"
+        commandName === "/memory_remember_guard_diag" ||
+        commandName === "/memory_long_term_read_diag"
       ) {
         return executeAgentWorkspaceChatCommand(commandName);
       }

@@ -5,6 +5,7 @@
 // - allow SG to write diagnostic markdown reports only into agent_workspace/
 // - fail closed by default
 // - never write source code, pillars, env, or arbitrary paths
+// - allow broad read-only diagnostics without allowing mutations
 // ============================================================================
 
 function normalizeString(value) {
@@ -15,6 +16,12 @@ function envBool(name, fallback = false) {
   const raw = normalizeString(process.env[name] || "").toLowerCase();
   if (!raw) return fallback;
   return ["1", "true", "yes", "y", "on"].includes(raw);
+}
+
+function normalizeCommandName(value) {
+  const raw = normalizeString(value).split(/\s+/)[0];
+  if (!raw.startsWith("/")) return "";
+  return raw.split("@")[0];
 }
 
 export const AGENT_WORKSPACE_ALLOWED_FILES = Object.freeze([
@@ -52,14 +59,67 @@ export const AGENT_WORKSPACE_ALLOWED_DIAGNOSTIC_COMMANDS = Object.freeze([
   "/render_bridge_logs",
   "/render_bridge_diagnose",
   "/pm_capabilities_diag",
-  "/memory_remember_guard_diag",
-  "/memory_long_term_read_diag",
-  "/memory_confirmed_restore_diag",
-  "/memory_archive_write_diag",
-  "/memory_topic_digest_diag",
-  "/memory_restore_before_answer_diag",
+  "/pm_wiring_diag",
   "/memory_monarch_diag",
 ]);
+
+export const AGENT_WORKSPACE_DIAGNOSTIC_DENY_TOKENS = Object.freeze([
+  "write",
+  "set",
+  "update",
+  "delete",
+  "remove",
+  "archive",
+  "remember",
+  "restore",
+  "backfill",
+  "reclassify",
+  "run",
+  "stop",
+  "new",
+  "confirm",
+  "link",
+  "release",
+  "refund",
+  "clear",
+  "reset",
+  "sync",
+  "upsert",
+  "create",
+]);
+
+export function isAgentWorkspaceReadOnlyDiagnosticCommand(value) {
+  const cmd = normalizeCommandName(value);
+  if (!cmd) return false;
+
+  const lower = cmd.toLowerCase();
+
+  const hasDeniedToken = AGENT_WORKSPACE_DIAGNOSTIC_DENY_TOKENS.some((token) => {
+    return lower.includes(`_${token}`) || lower.includes(`${token}_`) || lower.endsWith(`_${token}`);
+  });
+
+  if (hasDeniedToken) {
+    return false;
+  }
+
+  if (AGENT_WORKSPACE_ALLOWED_DIAGNOSTIC_COMMANDS.includes(cmd)) {
+    return true;
+  }
+
+  if (lower.endsWith("_diag")) {
+    return true;
+  }
+
+  if (lower.startsWith("/diag_")) {
+    return true;
+  }
+
+  if (lower.startsWith("/diagnose_")) {
+    return true;
+  }
+
+  return false;
+}
 
 export function getAgentWorkspaceConfig() {
   const repoFullName =
@@ -101,6 +161,7 @@ export function getAgentWorkspaceConfig() {
     allowedFiles: AGENT_WORKSPACE_ALLOWED_FILES,
     allowedActions: AGENT_WORKSPACE_ALLOWED_ACTIONS,
     allowedDiagnosticCommands: AGENT_WORKSPACE_ALLOWED_DIAGNOSTIC_COMMANDS,
+    diagnosticDenyTokens: AGENT_WORKSPACE_DIAGNOSTIC_DENY_TOKENS,
     ready: Boolean(enabled && repoFullName && branch && basePath && githubToken),
     webhookReady: Boolean(
       enabled && webhookEnabled && webhookToken && repoFullName && branch && basePath && githubToken
@@ -124,10 +185,12 @@ export function getAgentWorkspaceDiag() {
     allowedFiles: cfg.allowedFiles,
     allowedActions: cfg.allowedActions,
     allowedDiagnosticCommands: cfg.allowedDiagnosticCommands,
+    diagnosticDenyTokens: cfg.diagnosticDenyTokens,
   };
 }
 
 export default {
   getAgentWorkspaceConfig,
   getAgentWorkspaceDiag,
+  isAgentWorkspaceReadOnlyDiagnosticCommand,
 };

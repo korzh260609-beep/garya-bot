@@ -6,33 +6,40 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `VERIFY-TEST-003`
-STATUS: `DONE`
-ACTION: `VERIFY_DEPLOY`
-TASK_ID: `TEST-003`
-WORKFLOW_POINT: `webhook-auto-check-after-fix`
+COMMAND_ID: `VERIFY-PM-CAPABILITIES-DIAG-001`
+STATUS: `PENDING`
+ACTION: `WRITE_TEST_NOTE`
+TASK_ID: `7A.13`
+WORKFLOW_POINT: `pm-capabilities-diag-runtime-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T14:40:00Z`
-UPDATED_AT: `2026-04-26T14:30:02.578Z`
+CREATED_AT: `2026-04-26T14:45:00Z`
+UPDATED_AT: `-`
 
 ---
 
 ## Payload
 
-Проверка полной event-driven схемы после фикса runner: advisor writes COMMANDS.md → GitHub webhook → SG reads command → SG resets stale reports → SG collects RenderBridge data → SG writes fresh workspace reports → SG marks COMMANDS.md DONE or FAILED.
+Requested command test: `/pm_capabilities_diag`
+
+Expected diagnostic output:
+- validation: OK
+- dbWrites: no
+- advisoryOnly: yes
+- sourceOfTruth: repo/runtime/tests
+- capabilities: 3
+- commands: 10
+- files: 12
+- errors: none
+- Result: read-only path active.
+
+Important limitation: current AgentWorkspace runner action is WRITE_TEST_NOTE. It records this requested test into TEST_REPORT.md. It does not yet execute Telegram command handlers directly.
 
 ---
 
 ## Last result
 
-Action completed: VERIFY_DEPLOY
-Task ID: TEST-003
-Workflow point: webhook-auto-check-after-fix
-Deploy ID: dep-d7n20vbeo5us73f2otsg
-Commit: f9346eeb35f6b4bca7945b4a3b5e01fa1acff41c
-Logs: 0
-Diagnosis: false
+-
 
 ---
 

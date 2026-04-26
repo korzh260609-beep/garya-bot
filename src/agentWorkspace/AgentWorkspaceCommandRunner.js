@@ -77,6 +77,31 @@ function parseDiagnosticCommandLines(payload = "") {
   return Array.from(new Set(lines.map((line) => line.split(/\s+/)[0])));
 }
 
+function normalizeCommitSha(value) {
+  return normalizeString(value).toLowerCase();
+}
+
+function getRuntimeCommitSha() {
+  return normalizeCommitSha(
+    process.env.RENDER_GIT_COMMIT ||
+    process.env.RENDER_GIT_COMMIT_SHA ||
+    process.env.GIT_COMMIT ||
+    process.env.COMMIT_SHA ||
+    process.env.SOURCE_VERSION ||
+    ""
+  );
+}
+
+function isCommitSatisfied({ runtimeCommit, requiredCommit }) {
+  const runtime = normalizeCommitSha(runtimeCommit);
+  const required = normalizeCommitSha(requiredCommit);
+
+  if (!required) return true;
+  if (!runtime) return false;
+
+  return runtime === required || runtime.startsWith(required) || required.startsWith(runtime);
+}
+
 function buildDiagnosticTestReport({ command, results, collectedAt }) {
   const executed = results.map((item) => `${item.command}: ${item.ok ? "OK" : "FAILED"}`).join("\n") || "-";
   const chatOutput = results.map((item) => {
@@ -458,6 +483,8 @@ export class AgentWorkspaceCommandRunner {
       const commandId = command.commandId || "NONE";
       const status = String(command.status || "").toUpperCase();
       const action = String(command.action || "").toUpperCase();
+      const requiredCommit = normalizeCommitSha(command.requiresCommit || "");
+      const runtimeCommit = getRuntimeCommitSha();
 
       if (status !== "PENDING") {
         return {
@@ -478,6 +505,20 @@ export class AgentWorkspaceCommandRunner {
           commandId,
           action,
           reason: "missing_command_id",
+        };
+      }
+
+      if (requiredCommit && !isCommitSatisfied({ runtimeCommit, requiredCommit })) {
+        return {
+          ok: true,
+          skipped: true,
+          reason: "required_commit_not_active_yet",
+          commandId,
+          status,
+          action,
+          source,
+          requiredCommit,
+          runtimeCommit: runtimeCommit || null,
         };
       }
 
@@ -516,7 +557,9 @@ export class AgentWorkspaceCommandRunner {
           `Task ID: ${command.taskId || "manual"}`,
           `Workflow point: ${command.workflowPoint || "-"}`,
           `Deploy ID: ${result?.deployId || command.deployId || "-"}`,
-          `Commit: ${result?.commit || result?.latestCommit || "-"}`,
+          `Commit: ${result?.commit || result?.latestCommit || runtimeCommit || "-"}`,
+          `Required commit: ${requiredCommit || "-"}`,
+          `Runtime commit: ${runtimeCommit || "-"}`,
           `Logs: ${Number(result?.logs || 0)}`,
           `Diagnosis: ${String(Boolean(result?.diagnosis))}`,
           `Diagnostic commands: ${Number(result?.diagnosticCommands || 0)}`,
@@ -531,6 +574,8 @@ export class AgentWorkspaceCommandRunner {
         action,
         taskId: command.taskId,
         workflowPoint: command.workflowPoint,
+        requiredCommit,
+        runtimeCommit,
         result,
       };
     } catch (error) {

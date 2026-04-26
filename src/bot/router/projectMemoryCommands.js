@@ -11,6 +11,50 @@ export async function handleProjectMemoryCommands({
   getProjectMemoryList,
   bypass = false,
 }) {
+  if (cmdBase === "/pm_wiring_diag") {
+    if (!bypass) {
+      await bot.sendMessage(chatId, "Только монарх может смотреть Project Memory diagnostics.");
+      return true;
+    }
+
+    const diag = {
+      command: "/pm_wiring_diag",
+      router: "src/bot/router/projectMemoryCommands.js",
+      earlyRouter: true,
+      bypass: !!bypass,
+      chatId: String(chatIdStr || chatId || ""),
+      functions: {
+        getProjectSection: typeof getProjectSection === "function",
+        upsertProjectSection: typeof upsertProjectSection === "function",
+        getProjectMemoryList: typeof getProjectMemoryList === "function",
+      },
+      handledHere: ["/pm_show", "/pm_set", "/pm_list", "/pm_wiring_diag"],
+      warning:
+        "Confirmed/session Project Memory commands are handled by commandDispatcher and require ctx wiring there.",
+    };
+
+    const lines = [
+      "🧠 Project Memory wiring diag",
+      "",
+      `earlyRouter: ${diag.earlyRouter ? "yes" : "no"}`,
+      `bypass: ${diag.bypass ? "yes" : "no"}`,
+      "",
+      "Functions:",
+      `- getProjectSection: ${diag.functions.getProjectSection ? "OK" : "MISSING"}`,
+      `- upsertProjectSection: ${diag.functions.upsertProjectSection ? "OK" : "MISSING"}`,
+      `- getProjectMemoryList: ${diag.functions.getProjectMemoryList ? "OK" : "MISSING"}`,
+      "",
+      "Handled here:",
+      ...diag.handledHere.map((cmd) => `- ${cmd}`),
+      "",
+      "Warning:",
+      diag.warning,
+    ];
+
+    await bot.sendMessage(chatId, lines.join("\n"));
+    return true;
+  }
+
   if (cmdBase === "/pm_show") {
     const section = (rest || "").trim();
     if (!section) {

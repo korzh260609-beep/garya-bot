@@ -3,6 +3,17 @@
 // Parses agent_workspace/COMMANDS.md key/value command blocks.
 // ============================================================================
 
+const COMMAND_MARKDOWN_ALLOWED_ACTIONS = Object.freeze([
+  "VERIFY_DEPLOY",
+  "COLLECT_RENDER_REPORT",
+  "COLLECT_RENDER_LOGS",
+  "COLLECT_RENDER_DEPLOYS",
+  "COLLECT_RENDER_DEPLOY",
+  "COLLECT_RENDER_STATUS",
+  "WRITE_TEST_NOTE",
+  "RUN_DIAGNOSTIC_COMMANDS",
+]);
+
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -27,6 +38,10 @@ function readPayload(text) {
   const next = rest.indexOf("\n---");
   const payload = next >= 0 ? rest.slice(0, next) : rest;
   return payload.trim().replace(/^-\s*$/m, "").trim();
+}
+
+function buildAllowedActionsMarkdown() {
+  return COMMAND_MARKDOWN_ALLOWED_ACTIONS.map((action) => `- \`${action}\``).join("\n");
 }
 
 export function parseAgentWorkspaceCommand(markdown = "") {
@@ -100,9 +115,7 @@ ${resultText || "-"}
 
 ## Allowed actions
 
-- \`VERIFY_DEPLOY\`
-- \`COLLECT_RENDER_REPORT\`
-- \`WRITE_TEST_NOTE\`
+${buildAllowedActionsMarkdown()}
 
 ## Hard limits
 

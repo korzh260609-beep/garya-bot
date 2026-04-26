@@ -46,6 +46,10 @@ function shouldAllowProjectContextFromMeaning(coreMeaning = {}) {
   );
 }
 
+function shouldAllowProjectContextFromToolSelection(toolSelection = {}) {
+  return toolSelection?.status === "ready";
+}
+
 async function buildNaturalClarificationReply({ deps = {}, text = "", coreMeaning = {} } = {}) {
   const fallback = "Уточни, пожалуйста, какой именно объект нужно проверить.";
 
@@ -192,12 +196,14 @@ export async function handleMessage(context = {}) {
   const toolSelection = selectToolsForMeaning({ meaning: coreMeaning });
 
   const projectContextAllowedByMeaning = shouldAllowProjectContextFromMeaning(coreMeaning);
+  const projectContextAllowedByToolSelection = shouldAllowProjectContextFromToolSelection(toolSelection);
+  const projectContextAllowed = projectContextAllowedByMeaning && projectContextAllowedByToolSelection;
 
   // =========================================================================
-  // PROJECT CONTEXT — Controlled by structured core meaning
+  // PROJECT CONTEXT — Controlled by structured core meaning + ToolSelection
   // =========================================================================
   const projectContextEngine = new ProjectContextEngine();
-  const preProjectContextDecision = projectContextAllowedByMeaning
+  const preProjectContextDecision = projectContextAllowed
     ? projectContextEngine.classifyProjectContextNeed({
         text: trimmed,
         hasActiveProjectSession: Boolean(
@@ -209,13 +215,13 @@ export async function handleMessage(context = {}) {
         depth: "none",
         trigger: "unknown",
         stageKey: null,
-        reasons: ["blocked_by_core_meaning"],
+        reasons: projectContextAllowedByMeaning ? ["blocked_by_tool_selection"] : ["blocked_by_core_meaning"],
       };
 
   // =========================================================================
   // PROJECT EVIDENCE — Trigger policy only, no DB writes
   // =========================================================================
-  const triggerDecision = projectContextAllowedByMeaning
+  const triggerDecision = projectContextAllowed
     ? new ProjectEvidenceTriggerPolicy().shouldBuildEvidence({
         projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
         hasExistingEvidencePack: Boolean(
@@ -228,7 +234,7 @@ export async function handleMessage(context = {}) {
         shouldBuild: false,
         depth: "none",
         trigger: "unknown",
-        reasons: ["blocked_by_core_meaning"],
+        reasons: projectContextAllowedByMeaning ? ["blocked_by_tool_selection"] : ["blocked_by_core_meaning"],
       };
 
   let evidencePackBuilt = false;
@@ -238,6 +244,8 @@ export async function handleMessage(context = {}) {
     coreMeaning,
     toolSelection,
     projectContextAllowedByMeaning,
+    projectContextAllowedByToolSelection,
+    projectContextAllowed,
     projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
     projectMemoryEvidenceTriggerDecision: triggerDecision,
   };
@@ -406,6 +414,8 @@ export async function handleMessage(context = {}) {
         toolSelectionStatus: enrichedContext?.toolSelection?.status,
         toolSelectionTools: enrichedContext?.toolSelection?.selectedTools,
         projectContextAllowedByMeaning: enrichedContext?.projectContextAllowedByMeaning,
+        projectContextAllowedByToolSelection: enrichedContext?.projectContextAllowedByToolSelection,
+        projectContextAllowed: enrichedContext?.projectContextAllowed,
         projectContextDepth: enrichedContext?.projectContextDecision?.depth,
         projectContextTrigger: enrichedContext?.projectContextDecision?.trigger,
         projectEvidenceTriggered: projectEvidenceDiagnostics.projectEvidenceTriggered,
@@ -513,6 +523,9 @@ export async function handleMessage(context = {}) {
       canProceed,
       coreMeaning: enrichedContext?.coreMeaning || null,
       toolSelection: enrichedContext?.toolSelection || null,
+      projectContextAllowedByMeaning: enrichedContext?.projectContextAllowedByMeaning,
+      projectContextAllowedByToolSelection: enrichedContext?.projectContextAllowedByToolSelection,
+      projectContextAllowed: enrichedContext?.projectContextAllowed,
       projectContextDecision: enrichedContext?.projectContextDecision || null,
       projectMemoryEvidenceTriggerDecision: enrichedContext?.projectMemoryEvidenceTriggerDecision || null,
       projectEvidenceDiagnostics,

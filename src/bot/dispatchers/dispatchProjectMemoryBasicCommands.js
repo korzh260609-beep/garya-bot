@@ -53,6 +53,7 @@ export async function dispatchProjectMemoryBasicCommands({
         bot,
         chatId,
         chatIdStr,
+        transport: ctx.transport,
         rest: ctx.rest,
         bypass: !!ctx.bypass,
         upsertProjectSection: ctx.upsertProjectSection,

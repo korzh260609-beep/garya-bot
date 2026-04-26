@@ -15,13 +15,19 @@
 // - Caller must supply verified repo/runtime/test facts.
 // ============================================================================
 
+import {
+  PROJECT_CAPABILITY_ADVISORY_ONLY,
+  PROJECT_CAPABILITY_DEFAULT_PROJECT,
+  PROJECT_CAPABILITY_DEFAULT_REPO_REF,
+  PROJECT_CAPABILITY_SNAPSHOT_NOTICE,
+  PROJECT_CAPABILITY_SNAPSHOT_SCHEMA_VERSION,
+  PROJECT_CAPABILITY_SNAPSHOT_TYPE,
+  PROJECT_CAPABILITY_SOURCE_OF_TRUTH,
+  PROJECT_CAPABILITY_STATUS,
+} from "./ProjectCapabilitySnapshotShape.js";
+
 export const PROJECT_CAPABILITY_SNAPSHOT_BUILDER_VERSION =
-  "project-capability-snapshot-builder-7A13-skeleton-2026-04-26-01";
-
-export const PROJECT_CAPABILITY_SOURCE_OF_TRUTH = "repo/runtime/tests";
-
-export const PROJECT_CAPABILITY_SNAPSHOT_NOTICE =
-  "Generated capability snapshots are advisory status views, not authoritative source of truth.";
+  "project-capability-snapshot-builder-7A13-shape-2026-04-26-01";
 
 function normalizeString(value, fallback = "") {
   if (value === null || value === undefined) return fallback;
@@ -53,23 +59,29 @@ export function buildProjectCapabilitySnapshot(input = {}) {
     : [];
 
   return {
-    schemaVersion: 1,
+    schemaVersion: PROJECT_CAPABILITY_SNAPSHOT_SCHEMA_VERSION,
     builderVersion: PROJECT_CAPABILITY_SNAPSHOT_BUILDER_VERSION,
-    snapshotType: "project_capability_snapshot",
+    snapshotType: PROJECT_CAPABILITY_SNAPSHOT_TYPE,
     generatedAt: normalizeString(input.generatedAt, new Date().toISOString()),
 
     sourceOfTruth: PROJECT_CAPABILITY_SOURCE_OF_TRUTH,
-    advisoryOnly: true,
+    advisoryOnly: PROJECT_CAPABILITY_ADVISORY_ONLY,
     notice: PROJECT_CAPABILITY_SNAPSHOT_NOTICE,
 
     project: {
-      key: normalizeString(input.projectKey, "SG"),
-      name: normalizeString(input.projectName, "Советник GARYA"),
-      stageKey: normalizeString(input.stageKey, "7A.13"),
+      key: normalizeString(input.projectKey, PROJECT_CAPABILITY_DEFAULT_PROJECT.key),
+      name: normalizeString(
+        input.projectName,
+        PROJECT_CAPABILITY_DEFAULT_PROJECT.name
+      ),
+      stageKey: normalizeString(
+        input.stageKey,
+        PROJECT_CAPABILITY_DEFAULT_PROJECT.stageKey
+      ),
     },
 
     evidence: {
-      repoRef: normalizeString(input.repoRef, "main"),
+      repoRef: normalizeString(input.repoRef, PROJECT_CAPABILITY_DEFAULT_REPO_REF),
       verifiedFiles: normalizeStringArray(input.verifiedFiles),
       verifiedCommands: normalizeStringArray(input.verifiedCommands),
       verifiedCommits: normalizeStringArray(input.verifiedCommits),
@@ -81,7 +93,10 @@ export function buildProjectCapabilitySnapshot(input = {}) {
     capabilities: capabilities.map((capability) => ({
       key: normalizeString(capability?.key, "unknown"),
       title: normalizeString(capability?.title, "Unknown capability"),
-      status: normalizeString(capability?.status, "unknown"),
+      status: normalizeString(
+        capability?.status,
+        PROJECT_CAPABILITY_STATUS.UNKNOWN
+      ),
       userBenefit: normalizeString(capability?.userBenefit),
       evidenceRefs: normalizeStringArray(capability?.evidenceRefs),
       limitations: normalizeStringArray(capability?.limitations),
@@ -94,7 +109,5 @@ export function buildProjectCapabilitySnapshot(input = {}) {
 
 export default {
   PROJECT_CAPABILITY_SNAPSHOT_BUILDER_VERSION,
-  PROJECT_CAPABILITY_SOURCE_OF_TRUTH,
-  PROJECT_CAPABILITY_SNAPSHOT_NOTICE,
   buildProjectCapabilitySnapshot,
 };

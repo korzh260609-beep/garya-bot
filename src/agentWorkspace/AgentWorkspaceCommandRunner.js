@@ -304,7 +304,8 @@ export class AgentWorkspaceCommandRunner {
         commandName === "/memory_long_term_read_diag" ||
         commandName === "/memory_confirmed_restore_diag" ||
         commandName === "/memory_archive_write_diag" ||
-        commandName === "/memory_topic_digest_diag"
+        commandName === "/memory_topic_digest_diag" ||
+        commandName === "/memory_restore_before_answer_diag"
       ) {
         return executeAgentWorkspaceChatCommand(commandName);
       }

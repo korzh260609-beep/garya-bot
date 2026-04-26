@@ -6,36 +6,30 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `RENDER-CONTROL-V1-DEPLOYS-001`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_DEPLOYS`
+COMMAND_ID: `RENDER-CONTROL-V1-LOGS-001`
+STATUS: `PENDING`
+ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `agent-workspace-render-control-v1`
-WORKFLOW_POINT: `render-deploys-history-check-after-status-ok`
+WORKFLOW_POINT: `render-error-logs-check-after-status-and-deploys-ok`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T17:05:00Z`
-UPDATED_AT: `2026-04-26T16:57:21.140Z`
+CREATED_AT: `2026-04-26T17:10:00Z`
+UPDATED_AT: `2026-04-26T17:10:00Z`
 
 ---
 
 ## Payload
 
-limit=20
+level=error
+minutes=360
+limit=100
+maxLineChars=700
 
 ---
 
 ## Last result
 
-Action completed: COLLECT_RENDER_DEPLOYS
-Task ID: agent-workspace-render-control-v1
-Workflow point: render-deploys-history-check-after-status-ok
-Deploy ID: -
-Commit: fd1a5e17edf638074419f31f333425e2e06b4275
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending Render error logs report after successful Render status and deploys control checks.
 
 ---
 

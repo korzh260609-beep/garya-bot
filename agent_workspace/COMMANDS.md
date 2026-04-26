@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `RENDER-CONTROL-V1-DEPLOYS-001`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `COLLECT_RENDER_DEPLOYS`
 TASK_ID: `agent-workspace-render-control-v1`
 WORKFLOW_POINT: `render-deploys-history-check-after-status-ok`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T17:05:00Z`
-UPDATED_AT: `2026-04-26T17:05:00Z`
+UPDATED_AT: `2026-04-26T16:57:07.739Z`
 
 ---
 
@@ -26,7 +26,7 @@ limit=20
 
 ## Last result
 
-Pending Render deploys history report after successful Render status control check.
+Started by github_webhook at 2026-04-26T16:57:07.739Z.
 
 ---
 

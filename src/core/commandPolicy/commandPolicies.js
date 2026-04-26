@@ -7,6 +7,11 @@
 // - keep runtime behavior unchanged until dispatcher explicitly adopts this layer
 // - do NOT import Telegram bot code here
 // - do NOT execute handlers here
+//
+// Boundary:
+// - slash commands are only explicit system/admin/diagnostic controls
+// - normal SG conversation must remain natural-language driven
+// - do NOT bind ordinary user intent to fixed phrases, words, or templates here
 // ============================================================================
 
 import { COMMAND_POLICY_SCOPES } from "./CommandPolicyService.js";
@@ -89,6 +94,7 @@ export const MEMORY_DIAGNOSTIC_COMMAND_POLICIES = Object.freeze([
   privateCommand("/diag_decision_window", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
   privateCommand("/diag_decision_promotion", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
   privateCommand("/command_policy_diag", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
+  privateCommand("/command_policy_selftest", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
 ]);
 
 export const SOURCE_COMMAND_POLICIES = Object.freeze([

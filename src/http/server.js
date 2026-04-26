@@ -2,7 +2,13 @@ import express from "express";
 
 export function createApp() {
   const app = express();
-  app.use(express.json());
+
+  app.use(express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = Buffer.from(buf || "");
+    },
+  }));
+
   return app;
 }
 

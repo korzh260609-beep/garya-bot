@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PROJECT-MEMORY-7A-READ-SURFACE-DIAG-002`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `project-memory-7a-read-surface-runtime-diagnostic-rerun`
 WORKFLOW_POINT: `project-memory-core-read-surface-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `c6d4eea233998d2fedb7b157e4915368e6c84544`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-26T00:00:00.000Z`
+UPDATED_AT: `2026-04-26T20:35:18.546Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-26T00:00:00.000Z`
 
 ## Last result
 
-Pending read-only runtime diagnostic for /pm_list, /pm_latest, /pm_digest. Guarded by REQUIRES_COMMIT.
+Started by github_webhook at 2026-04-26T20:35:18.546Z.
 
 ---
 

@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PROJECT-MEMORY-7A-CONTROLLED-WRITE-DIAG-002`
-STATUS: `DONE`
+COMMAND_ID: `PROJECT-MEMORY-7A-READ-SURFACE-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `project-memory-7a-controlled-write-runtime-diagnostic-rerun`
-WORKFLOW_POINT: `project-memory-core-controlled-write-path-check`
+TASK_ID: `project-memory-7a-read-surface-runtime-diagnostic`
+WORKFLOW_POINT: `project-memory-core-read-surface-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-26T20:03:44.911Z`
+UPDATED_AT: `2026-04-26T00:00:00.000Z`
 
 ---
 
 ## Payload
 
-/pm_controlled_diag
+/pm_surface_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: project-memory-7a-controlled-write-runtime-diagnostic-rerun
-Workflow point: project-memory-core-controlled-write-path-check
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending read-only runtime diagnostic for /pm_list, /pm_latest, /pm_digest.
 
 ---
 

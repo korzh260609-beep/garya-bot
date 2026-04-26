@@ -16,6 +16,7 @@ import { handlePmLatest } from "../handlers/pmLatest.js";
 import { handlePmFind } from "../handlers/pmFind.js";
 import { handlePmWiringDiag } from "../handlers/pmWiringDiag.js";
 import { handlePmCapabilities } from "../handlers/pmCapabilities.js";
+import { handlePmCapabilitiesDiag } from "../handlers/pmCapabilitiesDiag.js";
 import { getProjectCapabilitySnapshotFacts } from "../../projectMemory/ProjectCapabilitySnapshotFactsProvider.js";
 
 export async function dispatchProjectMemoryBasicCommands({
@@ -41,6 +42,15 @@ export async function dispatchProjectMemoryBasicCommands({
         bot,
         chatId,
         input: getProjectCapabilitySnapshotFacts(),
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_capabilities_diag": {
+      await handlePmCapabilitiesDiag({
+        bot,
+        chatId,
       });
 
       return { handled: true };

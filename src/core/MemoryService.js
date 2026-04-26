@@ -592,6 +592,8 @@ export class MemoryService {
       archiveStatus: this.archiveService.status(),
       topicDigestStatus: this.topicDigestService.status(),
       topicRecallStatus: this.topicRecallService.status(),
+      rawPromptGuardStatus: this.rawPromptGuard.status(),
+      confirmedGuardStatus: this.confirmedGuard.status(),
       layerPolicy: getMemoryLayerPolicy(),
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),

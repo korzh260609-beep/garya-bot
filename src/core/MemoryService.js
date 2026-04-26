@@ -35,6 +35,10 @@
 // - Topic grouping policy is deterministic/read-only.
 // - NO AI clustering. NO vector search. NO cross-user/group grouping.
 //
+// STAGE 7.8.6 — Digest generation policy:
+// - Digest generation policy is deterministic/read-only.
+// - NO AI calls. NO digest writes. NO confirmed-memory writes.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
@@ -58,6 +62,9 @@
 // - normalizeMemoryTopicKey(value) -> normalized topic key
 // - buildTopicGroupRequest(args) -> safe topic group request object
 // - assertTopicGroupingAllowed(request) -> topic grouping policy check
+// - getMemoryDigestGenerationPolicy() -> digest generation policy
+// - buildDigestGenerationRequest(args) -> safe digest generation request object
+// - assertDigestGenerationAllowed(request) -> digest generation policy check
 // - status() -> diag info
 //
 // STAGE 11+ transitional universal read layer:
@@ -96,6 +103,11 @@ import {
   buildTopicGroupRequest,
   assertTopicGroupingAllowed,
 } from "./memory/MemoryTopicGroupingPolicy.js";
+import {
+  getMemoryDigestGenerationPolicy,
+  buildDigestGenerationRequest,
+  assertDigestGenerationAllowed,
+} from "./memory/MemoryDigestGenerationPolicy.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -237,6 +249,7 @@ export class MemoryService {
       layerPolicy: getMemoryLayerPolicy(),
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
+      digestGenerationPolicy: getMemoryDigestGenerationPolicy(),
     };
   }
 
@@ -407,6 +420,21 @@ export class MemoryService {
   }
 
   // ========================================================================
+  // DIGEST GENERATION POLICY FACADE — read-only diagnostics
+  // ========================================================================
+  getMemoryDigestGenerationPolicy() {
+    return getMemoryDigestGenerationPolicy();
+  }
+
+  buildDigestGenerationRequest(args = {}) {
+    return buildDigestGenerationRequest(args);
+  }
+
+  assertDigestGenerationAllowed(request = {}) {
+    return assertDigestGenerationAllowed(request);
+  }
+
+  // ========================================================================
   // WRITE FACADE
   // ========================================================================
   async write({
@@ -568,6 +596,7 @@ export class MemoryService {
       layerPolicy: getMemoryLayerPolicy(),
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
+      digestGenerationPolicy: getMemoryDigestGenerationPolicy(),
       buffer: this.bufferService.status(),
     };
   }

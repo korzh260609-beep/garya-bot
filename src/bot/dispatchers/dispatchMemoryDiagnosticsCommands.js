@@ -170,13 +170,27 @@ function buildMonarchMemoryDiagText({
   const recallOk =
     recall.ok === true &&
     recall.promptFacing === false &&
-    recall.rawPromptInjectionAllowed === false;
+    recall.rawArchivePromptAllowed === false &&
+    recall.crossUserRecallAllowed === false &&
+    recall.crossGroupRecallAllowed === false;
 
   const guardOk =
     rawGuard.ok === true &&
     confirmedGuard.ok === true;
 
-  const diagnosticsOk = diagnostics.ok !== false && diagnosticsStatus.ok !== false;
+  const diagnosticsServiceOk =
+    diagnosticsStatus.ok !== false &&
+    diagnosticsStatus.dbWrites === false &&
+    diagnosticsStatus.dbReads === false &&
+    diagnosticsStatus.aiLogic === false &&
+    diagnosticsStatus.promptInjection === false;
+
+  const diagnosticsAdvisoryOk =
+    diagnostics &&
+    diagnostics.summary &&
+    diagnostics.summary.advisoryOnly === true;
+
+  const diagnosticsOk = diagnosticsServiceOk && diagnosticsAdvisoryOk;
   const validationOk = dbColumnsOk && coreOk && archiveOk && digestOk && recallOk && guardOk && diagnosticsOk;
 
   const lines = [];
@@ -231,15 +245,18 @@ function buildMonarchMemoryDiagText({
 
   lines.push("5) recall / guards:");
   lines.push(`topicRecallPromptFacing: ${okMark(recall.promptFacing === true)}`);
-  lines.push(`topicRecallRawPromptInjectionAllowed: ${okMark(recall.rawPromptInjectionAllowed === true)}`);
+  lines.push(`topicRecallRawArchivePromptAllowed: ${okMark(recall.rawArchivePromptAllowed === true)}`);
+  lines.push(`topicRecallCrossUserAllowed: ${okMark(recall.crossUserRecallAllowed === true)}`);
+  lines.push(`topicRecallCrossGroupAllowed: ${okMark(recall.crossGroupRecallAllowed === true)}`);
   lines.push(`rawPromptGuard: ${okMark(rawGuard.ok === true)}`);
   lines.push(`confirmedGuard: ${okMark(confirmedGuard.ok === true)}`);
   lines.push(`check: ${okMark(recallOk && guardOk)}`);
   lines.push("");
 
   lines.push("6) diagnostics / buffer:");
-  lines.push(`diagnosticsService: ${okMark(diagnosticsStatus.ok !== false)}`);
-  lines.push(`safetyDiagnostics: ${okMark(diagnostics.ok !== false)}`);
+  lines.push(`diagnosticsService: ${okMark(diagnosticsServiceOk)}`);
+  lines.push(`safetyDiagnosticsAdvisory: ${okMark(diagnosticsAdvisoryOk)}`);
+  lines.push(`safetyDiagnosticsValidation: ${diagnostics?.summary?.validation || "—"}`);
   lines.push(`bufferEnabled: ${String(buffer.enabled === true)}`);
   lines.push(`bufferQueueSize: ${buffer.queueSize ?? buffer.size ?? "—"}`);
   lines.push("");

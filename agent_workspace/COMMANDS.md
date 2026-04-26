@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `MEMORY-7-9-2-LONG-TERM-READ-001`
-STATUS: `DONE`
+COMMAND_ID: `MEMORY-7-9-3-CONFIRMED-RESTORE-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `memory-7-9-2-long-term-read`
-WORKFLOW_POINT: `confirmed-memory-read-path-runtime-diagnostic`
+TASK_ID: `memory-7-9-3-confirmed-restore`
+WORKFLOW_POINT: `controlled-confirmed-memory-restore-skeleton-runtime-diagnostic`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T17:15:00Z`
-UPDATED_AT: `2026-04-26T17:12:03.771Z`
+CREATED_AT: `2026-04-26T17:40:00Z`
+UPDATED_AT: `2026-04-26T17:40:00Z`
 
 ---
 
 ## Payload
 
-/memory_long_term_read_diag
+/memory_confirmed_restore_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: memory-7-9-2-long-term-read
-Workflow point: confirmed-memory-read-path-runtime-diagnostic
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending runtime diagnostic for controlled confirmed memory restore skeleton.
 
 ---
 

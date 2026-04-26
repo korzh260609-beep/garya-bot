@@ -82,6 +82,8 @@ export const PRIVATE_ONLY_COMMANDS = new Set([
   "/diag_decision_window",
   "/diag_decision_promotion",
 
+  "/command_policy_diag",
+
   "/pm_set",
   "/pm_list",
   "/pm_session",

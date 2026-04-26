@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PROJECT-MEMORY-7A-READ-SURFACE-DIAG-001`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `project-memory-7a-read-surface-runtime-diagnostic`
 WORKFLOW_POINT: `project-memory-core-read-surface-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-26T20:07:35.028Z`
+UPDATED_AT: `2026-04-26T20:07:45.511Z`
 
 ---
 
@@ -26,7 +26,16 @@ UPDATED_AT: `2026-04-26T20:07:35.028Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T20:07:35.028Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: project-memory-7a-read-surface-runtime-diagnostic
+Workflow point: project-memory-core-read-surface-check
+Deploy ID: -
+Commit: -
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 0
+Diagnostics failed: 1
 
 ---
 

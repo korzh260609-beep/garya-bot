@@ -6,15 +6,15 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `RENDER-CONTROL-V1-STATUS-001`
-STATUS: `FAILED`
+COMMAND_ID: `RENDER-CONTROL-V1-STATUS-002`
+STATUS: `PENDING`
 ACTION: `COLLECT_RENDER_STATUS`
 TASK_ID: `agent-workspace-render-control-v1`
-WORKFLOW_POINT: `render-status-check-after-deploy`
+WORKFLOW_POINT: `render-status-check-after-config-runtime-update`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T17:05:00Z`
-UPDATED_AT: `2026-04-26T16:42:03.583Z`
+CREATED_AT: `2026-04-26T12:00:00Z`
+UPDATED_AT: `2026-04-26T12:00:00Z`
 
 ---
 
@@ -26,7 +26,7 @@ UPDATED_AT: `2026-04-26T16:42:03.583Z`
 
 ## Last result
 
-Action is not allowed: COLLECT_RENDER_STATUS
+Pending Render status report test after redeploying latest AgentWorkspace Render Control v1.
 
 ---
 
@@ -43,7 +43,12 @@ Action is not allowed: COLLECT_RENDER_STATUS
 
 - `VERIFY_DEPLOY`
 - `COLLECT_RENDER_REPORT`
+- `COLLECT_RENDER_LOGS`
+- `COLLECT_RENDER_DEPLOYS`
+- `COLLECT_RENDER_DEPLOY`
+- `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
+- `RUN_DIAGNOSTIC_COMMANDS`
 
 ## Hard limits
 

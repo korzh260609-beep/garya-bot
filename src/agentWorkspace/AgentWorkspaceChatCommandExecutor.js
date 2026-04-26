@@ -7,6 +7,7 @@
 import { handlePmCapabilitiesDiag } from "../bot/handlers/pmCapabilitiesDiag.js";
 import { handleMemoryRememberGuardDiag } from "../bot/handlers/memoryRememberGuardDiag.js";
 import { handleMemoryLongTermReadDiag } from "../bot/handlers/memoryLongTermReadDiag.js";
+import { handleMemoryConfirmedRestoreDiag } from "../bot/handlers/memoryConfirmedRestoreDiag.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -168,6 +169,46 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
             total: result?.selected?.total ?? null,
             reason: result?.selected?.reason || null,
           },
+        },
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/memory_confirmed_restore_diag") {
+      const result = await handleMemoryConfirmedRestoreDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        chatIdStr: fakeChatId,
+        globalUserId: null,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+
+      return {
+        command: cmd0,
+        ok: result?.ok === true,
+        handler: "handleMemoryConfirmedRestoreDiag",
+        data: {
+          key: result?.key || null,
+          remember: {
+            ok: result?.remember?.ok === true,
+            stored: result?.remember?.stored === true,
+            reason: result?.remember?.reason || null,
+            guardDecision: result?.remember?.guardDecision || null,
+          },
+          emptySelector: {
+            ok: result?.emptySelector?.ok === true,
+            total: result?.emptySelector?.total ?? null,
+            reason: result?.emptySelector?.reason || null,
+          },
+          selected: {
+            ok: result?.selected?.ok === true,
+            total: result?.selected?.total ?? null,
+            reason: result?.selected?.reason || null,
+            warnings: result?.selected?.warnings || [],
+          },
+          checks: result?.checks || {},
         },
         messages: fakeBot.messages,
         outputText,

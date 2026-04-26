@@ -81,6 +81,30 @@ export class ToolSelectionEngine {
       };
     }
 
+    if (intent === "project_message") {
+      return {
+        ok: true,
+        dryRun: true,
+        source: "ToolSelectionEngine",
+        status: TOOL_SELECTION_STATUS.READY,
+        selectedTools: [
+          {
+            tool: "project_context_engine",
+            mode: "project_message_context",
+            requiredInputs: [],
+            extractedInputs: {},
+          },
+          {
+            tool: "project_evidence_pipeline",
+            mode: "light_evidence_pack",
+            requiredInputs: ["project_context_decision"],
+            extractedInputs: {},
+          },
+        ],
+        reasons: ["project_message_intent"],
+      };
+    }
+
     if (ensureArray(meaning?.toolHints).length > 0) {
       return {
         ok: true,

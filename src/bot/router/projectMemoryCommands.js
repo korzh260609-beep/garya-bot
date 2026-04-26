@@ -1,4 +1,13 @@
 // src/bot/router/projectMemoryCommands.js
+// ============================================================================
+// LEGACY PROJECT MEMORY ROUTER
+// IMPORTANT:
+// - This file is kept for backward compatibility with the old messageRouter path.
+// - Current Telegram runtime uses the core dispatcher path when TRANSPORT_ENFORCED=true:
+//   TelegramAdapter -> handleMessage -> commandDispatcher -> dispatchProjectMemoryBasicCommands
+// - Do not use this file as proof of live Telegram Project Memory behavior.
+// - Do not delete/archive without a separate architecture cleanup decision.
+// ============================================================================
 
 const PROJECT_MEMORY_ROUTER_BUILD = "pm-router-diag-2026-04-26-01";
 

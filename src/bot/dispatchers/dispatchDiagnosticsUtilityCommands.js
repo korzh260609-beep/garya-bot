@@ -12,6 +12,7 @@ import { handleRenderLogShow } from "../handlers/renderLogShow.js";
 import { handleRenderErrorsLast } from "../handlers/renderErrorsLast.js";
 import { handleRenderDeploysLast } from "../handlers/renderDeploysLast.js";
 import { formatCommandPolicyCoverageReport } from "../diagnostics/commandPolicyCoverage.js";
+import { formatCommandPolicySelfTestReport } from "../diagnostics/commandPolicySelfTest.js";
 
 // ✅ STAGE 12A — capability skeleton handlers
 import {
@@ -52,6 +53,11 @@ export async function dispatchDiagnosticsUtilityCommands({ cmd0, ctx }) {
 
     case "/command_policy_diag": {
       await bot.sendMessage(chatId, formatCommandPolicyCoverageReport());
+      return { handled: true };
+    }
+
+    case "/command_policy_selftest": {
+      await bot.sendMessage(chatId, formatCommandPolicySelfTestReport());
       return { handled: true };
     }
 

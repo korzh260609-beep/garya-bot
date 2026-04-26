@@ -31,6 +31,10 @@
 // - Review policy is bounded by count/size/time.
 // - NO cron. NO AI review. NO automatic confirmed-memory writes.
 //
+// STAGE 7.8.5 — Topic grouping / clustering policy:
+// - Topic grouping policy is deterministic/read-only.
+// - NO AI clustering. NO vector search. NO cross-user/group grouping.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
@@ -50,6 +54,10 @@
 // - getMemoryPeriodicReviewPolicy() -> bounded review policy
 // - buildPeriodicReviewRequest(args) -> safe review request object
 // - assertPeriodicReviewAllowed(request) -> bounded review policy check
+// - getMemoryTopicGroupingPolicy() -> topic grouping policy
+// - normalizeMemoryTopicKey(value) -> normalized topic key
+// - buildTopicGroupRequest(args) -> safe topic group request object
+// - assertTopicGroupingAllowed(request) -> topic grouping policy check
 // - status() -> diag info
 //
 // STAGE 11+ transitional universal read layer:
@@ -82,6 +90,12 @@ import {
   buildPeriodicReviewRequest,
   assertPeriodicReviewAllowed,
 } from "./memory/MemoryPeriodicReviewPolicy.js";
+import {
+  getMemoryTopicGroupingPolicy,
+  normalizeTopicKey,
+  buildTopicGroupRequest,
+  assertTopicGroupingAllowed,
+} from "./memory/MemoryTopicGroupingPolicy.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -222,6 +236,7 @@ export class MemoryService {
       topicDigest: this.topicDigestService.status(),
       layerPolicy: getMemoryLayerPolicy(),
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
+      topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
     };
   }
 
@@ -370,6 +385,25 @@ export class MemoryService {
 
   assertPeriodicReviewAllowed(request = {}) {
     return assertPeriodicReviewAllowed(request);
+  }
+
+  // ========================================================================
+  // TOPIC GROUPING POLICY FACADE — read-only diagnostics
+  // ========================================================================
+  getMemoryTopicGroupingPolicy() {
+    return getMemoryTopicGroupingPolicy();
+  }
+
+  normalizeMemoryTopicKey(value = null) {
+    return normalizeTopicKey(value);
+  }
+
+  buildTopicGroupRequest(args = {}) {
+    return buildTopicGroupRequest(args);
+  }
+
+  assertTopicGroupingAllowed(request = {}) {
+    return assertTopicGroupingAllowed(request);
   }
 
   // ========================================================================
@@ -533,6 +567,7 @@ export class MemoryService {
       topicDigest: this.topicDigestService.status(),
       layerPolicy: getMemoryLayerPolicy(),
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
+      topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
       buffer: this.bufferService.status(),
     };
   }

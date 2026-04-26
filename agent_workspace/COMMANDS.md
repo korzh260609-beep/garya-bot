@@ -6,46 +6,21 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `VERIFY-PM-CAPABILITIES-DIAG-001`
-STATUS: `DONE`
-ACTION: `WRITE_TEST_NOTE`
+COMMAND_ID: `PM-CAPABILITIES-DIAG-002`
+STATUS: `PENDING`
+ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `7A.13`
 WORKFLOW_POINT: `pm-capabilities-diag-runtime-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T14:45:00Z`
-UPDATED_AT: `2026-04-26T14:39:36.223Z`
+CREATED_AT: `2026-04-26T14:55:00Z`
+UPDATED_AT: `2026-04-26T14:55:00Z`
 
 ---
 
 ## Payload
 
-Requested command test: `/pm_capabilities_diag`
-
-Expected diagnostic output:
-- validation: OK
-- dbWrites: no
-- advisoryOnly: yes
-- sourceOfTruth: repo/runtime/tests
-- capabilities: 3
-- commands: 10
-- files: 12
-- errors: none
-- Result: read-only path active.
-
-Important limitation: current AgentWorkspace runner action is WRITE_TEST_NOTE. It records this requested test into TEST_REPORT.md. It does not yet execute Telegram command handlers directly.
-
----
-
-## Last result
-
-Action completed: WRITE_TEST_NOTE
-Task ID: 7A.13
-Workflow point: pm-capabilities-diag-runtime-check
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
+/pm_capabilities_diag
 
 ---
 
@@ -63,6 +38,7 @@ Diagnosis: false
 - `VERIFY_DEPLOY`
 - `COLLECT_RENDER_REPORT`
 - `WRITE_TEST_NOTE`
+- `RUN_DIAGNOSTIC_COMMANDS`
 
 ## Hard limits
 

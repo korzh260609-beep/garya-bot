@@ -11,12 +11,21 @@
 // - NO schema changes. NO new modules.
 // - Fail-open: if buffered flush fails, falls back to direct adapter call.
 //
+// STAGE 7.8.1 — Raw Dialogue Archive skeleton:
+// - Archive facade is restore-capable by contract.
+// - Archive is NOT prompt-facing by default.
+// - NO schema changes. NO automatic raw dialogue prompt injection.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
 // - recent({ chatId, globalUserId, limit, chatType }) -> [{role, content}, ...]
 // - context({ chatId, globalUserId, limit, chatType }) -> { enabled, chatId, globalUserId, memories: [...] }
 // - remember({ key, value, chatId, globalUserId, transport, metadata, schemaVersion })
+// - archiveMessage({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
+// - archivePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
+// - selectArchiveForRestore({ chatId, globalUserId, topicKey, limit })
+// - archiveStatus() -> archive diag info
 // - status() -> diag info
 //
 // STAGE 11+ transitional universal read layer:
@@ -38,6 +47,7 @@ import ChatMemoryAdapter from "./memoryAdapters/chatMemoryAdapter.js";
 import MemoryLongTermReadService from "./memory/MemoryLongTermReadService.js";
 import MemoryWriteService from "./memory/MemoryWriteService.js";
 import MemoryBufferService from "./memory/MemoryBufferService.js";
+import MemoryArchiveService from "./memory/MemoryArchiveService.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -122,6 +132,13 @@ export class MemoryService {
       contractVersion: MemoryService.CONTRACT_VERSION,
     });
 
+    // Raw dialogue archive skeleton service (not prompt-facing)
+    this.archiveService = new MemoryArchiveService({
+      logger: this.logger,
+      getEnabled: () => this._enabled,
+      contractVersion: MemoryService.CONTRACT_VERSION,
+    });
+
     // ==========================================================
     // STAGE 7.7+ — micro-batch buffering (optional)
     // ==========================================================
@@ -160,6 +177,7 @@ export class MemoryService {
       backend: "chat_memory",
       contractVersion: MemoryService.CONTRACT_VERSION,
       buffer: this.bufferService.status(),
+      archive: this.archiveService.status(),
     };
   }
 
@@ -244,6 +262,25 @@ export class MemoryService {
 
   async selectLongTermContext(args = {}) {
     return this.longTermRead.selectLongTermContext(args);
+  }
+
+  // ========================================================================
+  // RAW ARCHIVE FACADE — restore-capable, not prompt-facing
+  // ========================================================================
+  async archiveMessage(args = {}) {
+    return this.archiveService.archiveMessage(args);
+  }
+
+  async archivePair(args = {}) {
+    return this.archiveService.archivePair(args);
+  }
+
+  async selectArchiveForRestore(args = {}) {
+    return this.archiveService.selectArchiveForRestore(args);
+  }
+
+  async archiveStatus() {
+    return this.archiveService.status();
   }
 
   // ========================================================================
@@ -398,9 +435,11 @@ export class MemoryService {
       hasChatAdapter: !!this.chatAdapter,
       hasLongTermRead: !!this.longTermRead,
       hasWriteService: !!this.writeService,
+      hasArchiveService: !!this.archiveService,
       hasBufferService: !!this.bufferService,
       configKeys: Object.keys(this.config || {}),
       contractVersion: MemoryService.CONTRACT_VERSION,
+      archive: this.archiveService.status(),
       buffer: this.bufferService.status(),
     };
   }

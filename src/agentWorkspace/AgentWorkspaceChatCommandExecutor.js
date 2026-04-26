@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { handlePmCapabilitiesDiag } from "../bot/handlers/pmCapabilitiesDiag.js";
+import { handleMemoryRememberGuardDiag } from "../bot/handlers/memoryRememberGuardDiag.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -60,6 +61,51 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
         command: cmd0,
         ok: true,
         handler: "handlePmCapabilitiesDiag",
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/memory_remember_guard_diag") {
+      const result = await handleMemoryRememberGuardDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        chatIdStr: fakeChatId,
+        globalUserId: null,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+
+      return {
+        command: cmd0,
+        ok: result?.ok === true,
+        handler: "handleMemoryRememberGuardDiag",
+        data: {
+          key: result?.key || null,
+          first: {
+            ok: result?.first?.ok === true,
+            stored: result?.first?.stored === true,
+            reason: result?.first?.reason || null,
+            guardDecision: result?.first?.guardDecision || null,
+          },
+          duplicate: {
+            ok: result?.duplicate?.ok === true,
+            stored: result?.duplicate?.stored === true,
+            reason: result?.duplicate?.reason || null,
+            guardDecision: result?.duplicate?.guardDecision || null,
+          },
+          conflict: {
+            ok: result?.conflict?.ok === true,
+            stored: result?.conflict?.stored === true,
+            reason: result?.conflict?.reason || null,
+            guardDecision: result?.conflict?.guardDecision || null,
+          },
+          fetch: {
+            ok: result?.fetch?.ok === true,
+            total: result?.fetch?.total ?? null,
+            reason: result?.fetch?.reason || null,
+          },
+        },
         messages: fakeBot.messages,
         outputText,
       };

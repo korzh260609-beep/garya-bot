@@ -238,8 +238,9 @@ export class MemoryService {
       contractVersion: MemoryService.CONTRACT_VERSION,
     });
 
-    // Raw dialogue archive skeleton service (not prompt-facing)
+    // Raw dialogue archive service (bounded write path, not prompt-facing)
     this.archiveService = new MemoryArchiveService({
+      chatAdapter: this.chatAdapter,
       logger: this.logger,
       getEnabled: () => this._enabled,
       contractVersion: MemoryService.CONTRACT_VERSION,

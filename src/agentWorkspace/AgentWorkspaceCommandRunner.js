@@ -10,6 +10,7 @@ import agentWorkspaceRenderControlService from "./AgentWorkspaceRenderControlSer
 import {
   getAgentWorkspaceConfig,
   getAgentWorkspaceDiag,
+  isAgentWorkspaceReadOnlyDiagnosticCommand,
 } from "./AgentWorkspaceConfig.js";
 import {
   parseAgentWorkspaceCommand,
@@ -118,7 +119,7 @@ ${parseDiagnosticCommandLines(command.payload).join("\n") || "-"}
 
 ## Expected answers
 
-The runner must execute allowlisted SG diagnostic chat commands and capture the same text SG would send to chat.
+The runner must execute read-only SG diagnostic chat commands and capture the same text SG would send to chat.
 
 ## Actual answers
 
@@ -161,7 +162,7 @@ export class AgentWorkspaceCommandRunner {
   }
 
   isAllowedDiagnosticCommand(command) {
-    return this.config.allowedDiagnosticCommands.includes(String(command || ""));
+    return isAgentWorkspaceReadOnlyDiagnosticCommand(command);
   }
 
   async readCommand() {
@@ -293,19 +294,14 @@ export class AgentWorkspaceCommandRunner {
       return {
         command: commandName,
         ok: false,
-        error: "diagnostic_command_not_allowed",
+        error: "diagnostic_command_not_allowed_or_not_read_only",
       };
     }
 
     try {
       if (
         commandName === "/pm_capabilities_diag" ||
-        commandName === "/memory_remember_guard_diag" ||
-        commandName === "/memory_long_term_read_diag" ||
-        commandName === "/memory_confirmed_restore_diag" ||
-        commandName === "/memory_archive_write_diag" ||
-        commandName === "/memory_topic_digest_diag" ||
-        commandName === "/memory_restore_before_answer_diag" ||
+        commandName === "/pm_wiring_diag" ||
         commandName === "/memory_monarch_diag"
       ) {
         return executeAgentWorkspaceChatCommand(commandName);
@@ -365,11 +361,7 @@ export class AgentWorkspaceCommandRunner {
         };
       }
 
-      return {
-        command: commandName,
-        ok: false,
-        error: "diagnostic_command_not_implemented",
-      };
+      return executeAgentWorkspaceChatCommand(commandName);
     } catch (error) {
       return {
         command: commandName,

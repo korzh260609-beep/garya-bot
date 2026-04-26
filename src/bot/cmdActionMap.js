@@ -27,6 +27,8 @@ export const CMD_ACTION = {
   "/workflow_check": "cmd.admin.workflow_check",
   "/stage_check": "cmd.admin.stage_check",
 
+  "/memory_monarch_diag": "cmd.admin.memory_monarch_diag",
+
   "/tasks": "cmd.tasks.list",
   "/run": "cmd.task.run",
   "/run_task": "cmd.task.run",

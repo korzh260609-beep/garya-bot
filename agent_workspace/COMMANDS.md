@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `RENDER-CONTROL-V1-STATUS-002`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `COLLECT_RENDER_STATUS`
 TASK_ID: `agent-workspace-render-control-v1`
 WORKFLOW_POINT: `render-status-check-after-config-runtime-update`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T12:00:00Z`
-UPDATED_AT: `2026-04-26T16:49:39.317Z`
+UPDATED_AT: `2026-04-26T16:49:43.566Z`
 
 ---
 
@@ -26,7 +26,7 @@ UPDATED_AT: `2026-04-26T16:49:39.317Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T16:49:39.317Z.
+Runner failed: github_http_404: {"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/contents#get-repository-content","status":"404"}
 
 ---
 

@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PROJECT-MEMORY-7A-PM-SHOW-DIAG-002`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `project-memory-7a-pm-show-readonly-runtime-diagnostic-rerun`
 WORKFLOW_POINT: `project-memory-core-pm-show-read-path-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-26T00:00:00.000Z`
+UPDATED_AT: `2026-04-26T19:48:25.051Z`
 
 ---
 
@@ -26,7 +26,7 @@ UPDATED_AT: `2026-04-26T00:00:00.000Z`
 
 ## Last result
 
-Pending runtime diagnostic rerun after deploy.
+Started by github_webhook at 2026-04-26T19:48:25.050Z.
 
 ---
 

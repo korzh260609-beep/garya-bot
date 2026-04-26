@@ -54,7 +54,9 @@ export async function dispatchProjectMemorySessionCommands({
       await handlePmSessionUpdate({
         bot,
         chatId,
+        chatIdStr,
         rest: ctx.rest,
+        bypass: !!ctx.bypass,
         updateProjectWorkSession: ctx.updateProjectWorkSession,
       });
 

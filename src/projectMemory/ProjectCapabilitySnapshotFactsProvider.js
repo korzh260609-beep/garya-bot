@@ -16,7 +16,7 @@
 // ============================================================================
 
 export const PROJECT_CAPABILITY_SNAPSHOT_FACTS_PROVIDER_VERSION =
-  "project-capability-snapshot-facts-provider-7A13-2026-04-26-01";
+  "project-capability-snapshot-facts-provider-7A13-2026-04-26-02";
 
 export function getProjectCapabilitySnapshotFacts() {
   return {
@@ -31,6 +31,7 @@ export function getProjectCapabilitySnapshotFacts() {
       "src/bot/handlers/pmWiringDiag.js",
       "src/bot/handlers/pmList.js",
       "src/bot/handlers/pmCapabilities.js",
+      "src/bot/handlers/pmCapabilitiesDiag.js",
       "src/projectMemory/ProjectCapabilitySnapshotShape.js",
       "src/projectMemory/ProjectCapabilitySnapshotBuilder.js",
       "src/projectMemory/ProjectCapabilitySnapshotValidator.js",
@@ -47,6 +48,7 @@ export function getProjectCapabilitySnapshotFacts() {
       "/pm_session",
       "/pm_sessions",
       "/pm_capabilities",
+      "/pm_capabilities_diag",
     ],
     verifiedCommits: [
       "adfed4d7dd091e39f89c5dd9b8721d95553dd171",
@@ -61,6 +63,11 @@ export function getProjectCapabilitySnapshotFacts() {
       "a68860f61460c0bd8bf04e26ab933f5fcee77c96",
       "2bf9d5fad55df321a42d1e88f509de4e70486964",
       "a66db196f54b9dd8ec2f9400e6359869d93e2fb1",
+      "cd6a3fd7794597804edd3217786a864cf65c6fc4",
+      "2627c83917c496d10c0fd2732fbacd84a82d5801",
+      "a2cb2b509cbcb6db8b63836b5ded92d3382f2424",
+      "ed6452f371f9560d9e203bbe6c7334f4e6eee953",
+      "fbfca10658c5946d42c5467e196e484a9a3c349b",
     ],
     facts: {
       sourceOfTruth: "repo/runtime/tests",
@@ -74,6 +81,7 @@ export function getProjectCapabilitySnapshotFacts() {
       transportEnforced: true,
       dispatcherPath: "src/bot/dispatchers/dispatchProjectMemoryBasicCommands.js",
       handlerPath: "src/bot/handlers/pmCapabilities.js",
+      diagnosticHandlerPath: "src/bot/handlers/pmCapabilitiesDiag.js",
       factsProviderPath:
         "src/projectMemory/ProjectCapabilitySnapshotFactsProvider.js",
       dbWrites: false,
@@ -81,6 +89,7 @@ export function getProjectCapabilitySnapshotFacts() {
     tests: {
       projectMemoryReadWriteCommandsManualTelegramVerified: true,
       pmCapabilitiesRuntimeVerified: true,
+      pmCapabilitiesDiagRuntimeVerified: true,
     },
     capabilities: [
       {
@@ -116,6 +125,22 @@ export function getProjectCapabilitySnapshotFacts() {
           "Facts provider нужно обновлять только после repo/runtime/test-проверки.",
         ],
       },
+      {
+        key: "capability_snapshot_diagnostic_read_only",
+        title: "Project Capability Snapshot diagnostic read-only path",
+        status: "runtime_verified",
+        userBenefit:
+          "Монарх может быстро проверить validation, DB-write safety flags и размер snapshot без записи в память.",
+        evidenceRefs: [
+          "src/bot/handlers/pmCapabilitiesDiag.js",
+          "src/projectMemory/ProjectCapabilitySnapshotValidator.js",
+          "/pm_capabilities_diag",
+        ],
+        limitations: [
+          "Diagnostic output справочный и не заменяет repo/runtime/tests.",
+          "Команда не создаёт durable snapshot в project_memory.",
+        ],
+      },
     ],
     limitations: [
       "Capability snapshot advisory only.",
@@ -124,7 +149,7 @@ export function getProjectCapabilitySnapshotFacts() {
       "No raw chat as uncontrolled prompt memory.",
     ],
     nextSafeStep:
-      "Verify /pm_capabilities after facts-provider refactor, then consider optional ProjectMemoryService-only snapshot write later.",
+      "After deploy, verify /pm_capabilities and /pm_capabilities_diag, then decide whether to stop 7A.13 read-only or later add ProjectMemoryService-only snapshot write with Monarch approval.",
   };
 }
 

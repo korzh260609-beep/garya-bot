@@ -57,6 +57,7 @@ export const AGENT_WORKSPACE_ALLOWED_DIAGNOSTIC_COMMANDS = Object.freeze([
   "/memory_confirmed_restore_diag",
   "/memory_archive_write_diag",
   "/memory_topic_digest_diag",
+  "/memory_restore_before_answer_diag",
 ]);
 
 export function getAgentWorkspaceConfig() {

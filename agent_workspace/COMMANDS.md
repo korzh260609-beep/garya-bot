@@ -6,15 +6,15 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `MEMORY-7-9-1-REMEMBER-GUARD-002`
-STATUS: `FAILED`
+COMMAND_ID: `MEMORY-7-9-1-REMEMBER-GUARD-003`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `7.9.1`
-WORKFLOW_POINT: `confirmed-facts-write-path-remember-guard-check-after-deploy`
+WORKFLOW_POINT: `confirmed-facts-write-path-remember-guard-check-after-runner-fix`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T16:45:00Z`
-UPDATED_AT: `2026-04-26T16:30:42.986Z`
+CREATED_AT: `2026-04-26T16:55:00Z`
+UPDATED_AT: `2026-04-26T16:55:00Z`
 
 ---
 
@@ -26,16 +26,7 @@ UPDATED_AT: `2026-04-26T16:30:42.986Z`
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: 7.9.1
-Workflow point: confirmed-facts-write-path-remember-guard-check-after-deploy
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 0
-Diagnostics failed: 1
+Retry after runner routing fix. Expected: new fact stored, duplicate NOOP, conflict blocked, fetch total=1.
 
 ---
 
@@ -53,6 +44,7 @@ Diagnostics failed: 1
 - `VERIFY_DEPLOY`
 - `COLLECT_RENDER_REPORT`
 - `WRITE_TEST_NOTE`
+- `RUN_DIAGNOSTIC_COMMANDS`
 
 ## Hard limits
 

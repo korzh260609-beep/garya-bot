@@ -26,6 +26,11 @@
 // - Policy is deterministic/read-only.
 // - NO schema changes. NO writes. NO AI logic.
 //
+// STAGE 7.8.4 — Bounded periodic dialogue review policy:
+// - Periodic review is disabled by default.
+// - Review policy is bounded by count/size/time.
+// - NO cron. NO AI review. NO automatic confirmed-memory writes.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
@@ -42,6 +47,9 @@
 // - topicDigestStatus() -> digest diag info
 // - getMemoryLayerPolicy() -> layer separation policy
 // - assertMemoryLayerSeparation(metadata) -> metadata policy check
+// - getMemoryPeriodicReviewPolicy() -> bounded review policy
+// - buildPeriodicReviewRequest(args) -> safe review request object
+// - assertPeriodicReviewAllowed(request) -> bounded review policy check
 // - status() -> diag info
 //
 // STAGE 11+ transitional universal read layer:
@@ -69,6 +77,11 @@ import {
   getMemoryLayerPolicy,
   assertMemoryLayerSeparation,
 } from "./memory/MemoryLayerPolicy.js";
+import {
+  getMemoryPeriodicReviewPolicy,
+  buildPeriodicReviewRequest,
+  assertPeriodicReviewAllowed,
+} from "./memory/MemoryPeriodicReviewPolicy.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -208,6 +221,7 @@ export class MemoryService {
       archive: this.archiveService.status(),
       topicDigest: this.topicDigestService.status(),
       layerPolicy: getMemoryLayerPolicy(),
+      periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
     };
   }
 
@@ -341,6 +355,21 @@ export class MemoryService {
 
   assertMemoryLayerSeparation(metadata = {}) {
     return assertMemoryLayerSeparation(metadata);
+  }
+
+  // ========================================================================
+  // PERIODIC REVIEW POLICY FACADE — read-only diagnostics
+  // ========================================================================
+  getMemoryPeriodicReviewPolicy() {
+    return getMemoryPeriodicReviewPolicy();
+  }
+
+  buildPeriodicReviewRequest(args = {}) {
+    return buildPeriodicReviewRequest(args);
+  }
+
+  assertPeriodicReviewAllowed(request = {}) {
+    return assertPeriodicReviewAllowed(request);
   }
 
   // ========================================================================
@@ -503,6 +532,7 @@ export class MemoryService {
       archive: this.archiveService.status(),
       topicDigest: this.topicDigestService.status(),
       layerPolicy: getMemoryLayerPolicy(),
+      periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       buffer: this.bufferService.status(),
     };
   }

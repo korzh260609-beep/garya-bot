@@ -83,6 +83,7 @@ export const PRIVATE_ONLY_COMMANDS = new Set([
   "/diag_decision_promotion",
 
   "/command_policy_diag",
+  "/command_policy_selftest",
 
   "/pm_set",
   "/pm_list",

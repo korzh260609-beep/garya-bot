@@ -25,6 +25,7 @@ import { createDebugCryptoNewsRssRoute } from "./src/http/debugCryptoNewsRssRout
 import { createDebugRenderLogDiagnosisRoute } from "./src/http/debugRenderLogDiagnosisRoute.js";
 import { createRenderLogIngestRoute } from "./src/http/renderLogIngestRoute.js";
 import { createDebugRenderLogIngestTestRoute } from "./src/http/debugRenderLogIngestTestRoute.js";
+import { createAgentWorkspaceWebhookRoute } from "./src/http/agentWorkspaceWebhookRoute.js";
 import { initSystem } from "./src/bootstrap/initSystem.js";
 
 import { getSystemHealth } from "./core/helpers.js";
@@ -80,6 +81,7 @@ app.use(createDebugCryptoNewsRssRoute());
 app.use(createDebugRenderLogDiagnosisRoute());
 app.use(createRenderLogIngestRoute());
 app.use(createDebugRenderLogIngestTestRoute());
+app.use(createAgentWorkspaceWebhookRoute());
 
 // ============================================================================
 // START SERVER

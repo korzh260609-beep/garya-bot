@@ -69,6 +69,31 @@ const commandPolicyShadowService = new CommandPolicyService({
   policies: COMMAND_POLICIES,
 });
 
+function buildCommandPolicyShadowComparison({
+  legacyPrivateBlocked,
+  legacyPrivateOnly,
+  policyDecision,
+} = {}) {
+  const policyBlocked = policyDecision?.blocked === true;
+  const policyReason = policyDecision?.reason || null;
+  const policyScope = policyDecision?.policy?.scope || null;
+
+  const privateGateMatches = legacyPrivateBlocked
+    ? policyBlocked && policyReason === "private_only"
+    : true;
+
+  return {
+    privateGateMatches,
+    policyHasKnownCommand: policyReason !== "allowed_by_default",
+    policyBlocked,
+    policyReason,
+    policyScope,
+    legacyPrivateOnly: !!legacyPrivateOnly,
+    legacyPrivateBlocked: !!legacyPrivateBlocked,
+    shadowMismatch: !privateGateMatches,
+  };
+}
+
 function traceCommandPolicyShadow({
   cmd0,
   transport,
@@ -81,6 +106,12 @@ function traceCommandPolicyShadow({
   policyDecision,
 } = {}) {
   try {
+    const comparison = buildCommandPolicyShadowComparison({
+      legacyPrivateOnly,
+      legacyPrivateBlocked,
+      policyDecision,
+    });
+
     console.log("🛡️ COMMAND_POLICY_SHADOW", {
       cmd: cmd0,
       transport: transport || "telegram",
@@ -91,9 +122,12 @@ function traceCommandPolicyShadow({
       legacyPrivateOnly: !!legacyPrivateOnly,
       legacyPrivateBlocked: !!legacyPrivateBlocked,
       policyAllowed: policyDecision?.allowed === true,
-      policyBlocked: policyDecision?.blocked === true,
-      policyReason: policyDecision?.reason || null,
-      policyScope: policyDecision?.policy?.scope || null,
+      policyBlocked: comparison.policyBlocked,
+      policyReason: comparison.policyReason,
+      policyScope: comparison.policyScope,
+      privateGateMatches: comparison.privateGateMatches,
+      policyHasKnownCommand: comparison.policyHasKnownCommand,
+      shadowMismatch: comparison.shadowMismatch,
       shadowOnly: true,
     });
   } catch (e) {

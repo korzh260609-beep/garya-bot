@@ -2,8 +2,12 @@
 // ============================================================================
 // GitHub webhook route for agent_workspace/COMMANDS.md changes.
 // Event-driven: no cron, no polling.
+// Supports both:
+// - GitHub standard Secret signature (preferred)
+// - legacy query/header token fallback
 // ============================================================================
 
+import crypto from "crypto";
 import express from "express";
 import { getAgentWorkspaceConfig } from "../agentWorkspace/AgentWorkspaceConfig.js";
 import agentWorkspaceCommandRunner from "../agentWorkspace/AgentWorkspaceCommandRunner.js";
@@ -16,6 +20,37 @@ function getProvidedToken(req) {
   const headerToken = normalizeString(req.headers["x-agent-workspace-token"]);
   const queryToken = normalizeString(req.query.token);
   return headerToken || queryToken;
+}
+
+function safeEqual(a, b) {
+  const aa = Buffer.from(String(a || ""));
+  const bb = Buffer.from(String(b || ""));
+  if (aa.length !== bb.length) return false;
+  return crypto.timingSafeEqual(aa, bb);
+}
+
+function verifyGitHubSignature(req, secret) {
+  const signature = normalizeString(req.headers["x-hub-signature-256"] || "");
+  if (!signature || !signature.startsWith("sha256=")) return false;
+
+  const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
+  const expected = `sha256=${crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("hex")}`;
+
+  return safeEqual(signature, expected);
+}
+
+function isAuthorized(req, cfg) {
+  if (!cfg.webhookReady) return false;
+
+  if (verifyGitHubSignature(req, cfg.webhookToken)) {
+    return true;
+  }
+
+  const providedToken = getProvidedToken(req);
+  return Boolean(providedToken && providedToken === cfg.webhookToken);
 }
 
 function changedFilesFromPayload(payload = {}) {
@@ -51,13 +86,14 @@ export function createAgentWorkspaceWebhookRoute() {
 
   router.post("/agent-workspace/github-webhook", async (req, res) => {
     const cfg = getAgentWorkspaceConfig();
-    const providedToken = getProvidedToken(req);
 
-    if (!cfg.webhookReady || !providedToken || providedToken !== cfg.webhookToken) {
+    if (!isAuthorized(req, cfg)) {
       return res.status(403).json({
         ok: false,
         error: "forbidden",
         webhookReady: cfg.webhookReady,
+        hasSignature: Boolean(req.headers["x-hub-signature-256"]),
+        hasLegacyToken: Boolean(getProvidedToken(req)),
       });
     }
 

@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `MEMORY-7-9-3-CONFIRMED-RESTORE-001`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `memory-7-9-3-confirmed-restore`
 WORKFLOW_POINT: `controlled-confirmed-memory-restore-skeleton-runtime-diagnostic`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T17:40:00Z`
-UPDATED_AT: `2026-04-26T17:25:27.178Z`
+UPDATED_AT: `2026-04-26T17:25:37.728Z`
 
 ---
 
@@ -26,7 +26,16 @@ UPDATED_AT: `2026-04-26T17:25:27.178Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T17:25:27.178Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: memory-7-9-3-confirmed-restore
+Workflow point: controlled-confirmed-memory-restore-skeleton-runtime-diagnostic
+Deploy ID: -
+Commit: -
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 0
+Diagnostics failed: 1
 
 ---
 

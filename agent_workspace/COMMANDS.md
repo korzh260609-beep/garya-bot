@@ -6,21 +6,21 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `NONE`
-STATUS: `EMPTY`
-ACTION: `NONE`
-TASK_ID: `-`
-WORKFLOW_POINT: `-`
+COMMAND_ID: `VERIFY-TEST-002`
+STATUS: `PENDING`
+ACTION: `VERIFY_DEPLOY`
+TASK_ID: `TEST-002`
+WORKFLOW_POINT: `webhook-auto-check`
 DEPLOY_ID: `-`
-CREATED_BY: `-`
-CREATED_AT: `-`
-UPDATED_AT: `-`
+CREATED_BY: `advisor`
+CREATED_AT: `2026-04-26T14:22:00Z`
+UPDATED_AT: `2026-04-26T14:22:00Z`
 
 ---
 
 ## Payload
 
--
+Проверка полной event-driven схемы: advisor writes COMMANDS.md → GitHub webhook → SG reads command → SG resets stale reports → SG collects RenderBridge data → SG writes fresh workspace reports → advisor reads result.
 
 ---
 

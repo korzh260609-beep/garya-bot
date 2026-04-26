@@ -28,6 +28,26 @@ function pickLine(map, ...keys) {
   return "";
 }
 
+function traceUpdateAttempt({
+  chatId,
+  chatIdStr,
+  bypass,
+  phase,
+  reason,
+  id,
+  patchKeys,
+} = {}) {
+  console.log("🧠 PROJECT_MEMORY_CONFIRMED_UPDATE_ATTEMPT", {
+    transport: "telegram",
+    chatId: safeText(chatIdStr || chatId),
+    bypass: !!bypass,
+    phase: safeText(phase) || "unknown",
+    reason: safeText(reason) || null,
+    id: Number.isInteger(id) ? id : null,
+    patchKeys: Array.isArray(patchKeys) ? patchKeys : [],
+  });
+}
+
 function parseBooleanLike(value, def = undefined) {
   const s = safeText(value).toLowerCase();
 
@@ -194,25 +214,87 @@ function buildUsage() {
 export async function handlePmConfirmedUpdate({
   bot,
   chatId,
+  chatIdStr,
   rest,
+  bypass,
   updateConfirmedProjectMemoryEntry,
 }) {
+  traceUpdateAttempt({
+    chatId,
+    chatIdStr,
+    bypass,
+    phase: "received",
+  });
+
   if (typeof updateConfirmedProjectMemoryEntry !== "function") {
+    traceUpdateAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "updater_unavailable",
+    });
+
     await bot.sendMessage(chatId, "⛔ updateConfirmedProjectMemoryEntry недоступен.");
+    return;
+  }
+
+  if (!bypass) {
+    traceUpdateAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "not_trusted_path",
+    });
+
+    await bot.sendMessage(
+      chatId,
+      "⛔ Durable Project Memory update доступен только монарху / trusted path."
+    );
     return;
   }
 
   const parsed = parseConfirmedUpdateInput(rest);
 
   if (!parsed) {
+    traceUpdateAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "invalid_input",
+    });
+
     await bot.sendMessage(chatId, buildUsage());
     return;
   }
 
-  if (!Object.keys(parsed.patch || {}).length) {
+  const patchKeys = Object.keys(parsed.patch || {});
+
+  if (!patchKeys.length) {
+    traceUpdateAttempt({
+      chatId,
+      chatIdStr,
+      bypass,
+      phase: "rejected",
+      reason: "empty_patch",
+      id: parsed.id,
+      patchKeys,
+    });
+
     await bot.sendMessage(chatId, "⚠️ Не указано ни одного поля для обновления.\n\n" + buildUsage());
     return;
   }
+
+  traceUpdateAttempt({
+    chatId,
+    chatIdStr,
+    bypass,
+    phase: "accepted",
+    id: parsed.id,
+    patchKeys,
+  });
 
   try {
     const updated = await updateConfirmedProjectMemoryEntry({

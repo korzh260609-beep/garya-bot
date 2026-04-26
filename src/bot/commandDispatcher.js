@@ -39,6 +39,9 @@ import { dispatchDiagnosticsUtilityCommands } from "./dispatchers/dispatchDiagno
 // ✅ RENDER BRIDGE dispatcher
 import { dispatchRenderBridgeCommands } from "./dispatchers/dispatchRenderBridgeCommands.js";
 
+// ✅ AGENT WORKSPACE dispatcher
+import { dispatchAgentWorkspaceCommands } from "./dispatchers/dispatchAgentWorkspaceCommands.js";
+
 // ✅ META DEBUG dispatcher (extracted 1:1 block)
 import { dispatchMetaDebugCommands } from "./dispatchers/dispatchMetaDebugCommands.js";
 
@@ -403,6 +406,16 @@ export async function dispatchCommand(cmd, ctx) {
 
   if (renderBridgeHandled?.handled) {
     return renderBridgeHandled;
+  }
+
+  const agentWorkspaceHandled = await dispatchAgentWorkspaceCommands({
+    cmd0,
+    ctx,
+    reply,
+  });
+
+  if (agentWorkspaceHandled?.handled) {
+    return agentWorkspaceHandled;
   }
 
   const metaDebugHandled = await dispatchMetaDebugCommands({

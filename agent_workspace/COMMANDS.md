@@ -7,20 +7,26 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PM-CAPABILITIES-DIAG-002`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `7A.13`
 WORKFLOW_POINT: `pm-capabilities-diag-runtime-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T14:55:00Z`
-UPDATED_AT: `2026-04-26T14:55:00Z`
+UPDATED_AT: `2026-04-26T14:51:21.816Z`
 
 ---
 
 ## Payload
 
 /pm_capabilities_diag
+
+---
+
+## Last result
+
+Started by github_webhook at 2026-04-26T14:51:21.816Z.
 
 ---
 
@@ -38,7 +44,6 @@ UPDATED_AT: `2026-04-26T14:55:00Z`
 - `VERIFY_DEPLOY`
 - `COLLECT_RENDER_REPORT`
 - `WRITE_TEST_NOTE`
-- `RUN_DIAGNOSTIC_COMMANDS`
 
 ## Hard limits
 

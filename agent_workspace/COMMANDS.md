@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PROJECT-MEMORY-7A-PM-SHOW-DIAG-001`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `project-memory-7a-pm-show-readonly-runtime-diagnostic`
 WORKFLOW_POINT: `project-memory-core-pm-show-read-path-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-26T19:43:52.814Z`
+UPDATED_AT: `2026-04-26T19:44:03.415Z`
 
 ---
 
@@ -26,7 +26,16 @@ UPDATED_AT: `2026-04-26T19:43:52.814Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T19:43:52.814Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: project-memory-7a-pm-show-readonly-runtime-diagnostic
+Workflow point: project-memory-core-pm-show-read-path-check
+Deploy ID: -
+Commit: -
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 0
+Diagnostics failed: 1
 
 ---
 

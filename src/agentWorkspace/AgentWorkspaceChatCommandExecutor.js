@@ -11,6 +11,7 @@ import { handleMemoryConfirmedRestoreDiag } from "../bot/handlers/memoryConfirme
 import { handleMemoryArchiveWriteDiag } from "../bot/handlers/memoryArchiveWriteDiag.js";
 import { handleMemoryTopicDigestDiag } from "../bot/handlers/memoryTopicDigestDiag.js";
 import { handleMemoryRestoreBeforeAnswerDiag } from "../bot/handlers/memoryRestoreBeforeAnswerDiag.js";
+import { dispatchMemoryDiagnosticsCommands } from "../bot/dispatchers/dispatchMemoryDiagnosticsCommands.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -35,6 +36,27 @@ function makeFakeBot() {
       };
     },
   };
+}
+
+async function executeDispatcherCommand({ cmd0, fakeBot, fakeChatId }) {
+  const reply = async (text, options = {}) => fakeBot.sendMessage(fakeChatId, text, options);
+
+  return dispatchMemoryDiagnosticsCommands({
+    cmd0,
+    ctx: {
+      chatId: fakeChatId,
+      chatIdStr: fakeChatId,
+      rest: "",
+      user: {
+        role: "monarch",
+        plan: "admin",
+        global_user_id: null,
+      },
+      bypass: true,
+      isMonarchUser: true,
+    },
+    reply,
+  });
 }
 
 export async function executeAgentWorkspaceChatCommand(commandLine = "") {
@@ -66,6 +88,37 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
         command: cmd0,
         ok: true,
         handler: "handlePmCapabilitiesDiag",
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/memory_monarch_diag") {
+      const result = await executeDispatcherCommand({
+        cmd0,
+        fakeBot,
+        fakeChatId,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+      const validationOk = outputText.includes("validation: OK") &&
+        outputText.includes("core=true") &&
+        outputText.includes("db=true") &&
+        outputText.includes("archive=true") &&
+        outputText.includes("digest=true") &&
+        outputText.includes("recall=true") &&
+        outputText.includes("guards=true") &&
+        outputText.includes("diagnostics=true");
+
+      return {
+        command: cmd0,
+        ok: result?.handled === true && validationOk,
+        handler: "dispatchMemoryDiagnosticsCommands",
+        data: {
+          handled: result?.handled === true,
+          validationOk,
+          checksLine: (outputText.match(/checks: .*/)?.[0]) || null,
+        },
         messages: fakeBot.messages,
         outputText,
       };

@@ -16,13 +16,10 @@
 
 import { truncateTelegramText } from "../telegram/telegramTextUtils.js";
 import { createProjectCapabilitySnapshot } from "../../projectMemory/ProjectCapabilitySnapshotFactory.js";
-import {
-  PROJECT_CAPABILITY_SNAPSHOT_FACTS_PROVIDER_VERSION,
-  getProjectCapabilitySnapshotFacts,
-} from "../../projectMemory/ProjectCapabilitySnapshotFactsProvider.js";
+import { getProjectCapabilitySnapshotFacts } from "../../projectMemory/ProjectCapabilitySnapshotFactsProvider.js";
 
 export const PM_CAPABILITIES_DIAG_HANDLER_BUILD =
-  "pm-capabilities-diag-handler-7A13-2026-04-26-01";
+  "pm-capabilities-diag-handler-7A13-compact-2026-04-26-01";
 
 export const PM_CAPABILITIES_DIAG_HANDLER_PATH =
   "src/bot/handlers/pmCapabilitiesDiag.js";
@@ -36,26 +33,20 @@ export async function handlePmCapabilitiesDiag({ bot, chatId }) {
     : [];
 
   const lines = [
-    "🧪 Project Capability Snapshot diag",
+    "🧪 PM Capabilities diag",
     "",
-    `handlerBuild: ${PM_CAPABILITIES_DIAG_HANDLER_BUILD}`,
-    `handlerPath: ${PM_CAPABILITIES_DIAG_HANDLER_PATH}`,
-    `providerVersion: ${PROJECT_CAPABILITY_SNAPSHOT_FACTS_PROVIDER_VERSION}`,
-    `factoryVersion: ${result.factoryVersion}`,
-    "",
-    `sourceOfTruth: ${snapshot.sourceOfTruth}`,
-    `advisoryOnly: ${snapshot.advisoryOnly ? "yes" : "no"}`,
-    `dbWrites: ${snapshot.evidence?.runtime?.dbWrites ? "yes" : "no"}`,
     `validation: ${result.validation?.ok ? "OK" : "FAILED"}`,
+    `dbWrites: ${snapshot.evidence?.runtime?.dbWrites ? "yes" : "no"}`,
+    `advisoryOnly: ${snapshot.advisoryOnly ? "yes" : "no"}`,
+    `sourceOfTruth: ${snapshot.sourceOfTruth}`,
     `capabilities: ${Array.isArray(snapshot.capabilities) ? snapshot.capabilities.length : 0}`,
-    `verifiedCommands: ${Array.isArray(snapshot.evidence?.verifiedCommands) ? snapshot.evidence.verifiedCommands.length : 0}`,
-    `verifiedFiles: ${Array.isArray(snapshot.evidence?.verifiedFiles) ? snapshot.evidence.verifiedFiles.length : 0}`,
-    "",
+    `commands: ${Array.isArray(snapshot.evidence?.verifiedCommands) ? snapshot.evidence.verifiedCommands.length : 0}`,
+    `files: ${Array.isArray(snapshot.evidence?.verifiedFiles) ? snapshot.evidence.verifiedFiles.length : 0}`,
     validationErrors.length > 0
       ? `firstError: ${validationErrors[0]}`
       : "errors: none",
     "",
-    "Result: read-only diagnostic path is active.",
+    "Result: read-only path active.",
   ];
 
   await bot.sendMessage(chatId, truncateTelegramText(lines.join("\n")));

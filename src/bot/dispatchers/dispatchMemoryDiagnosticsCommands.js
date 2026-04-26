@@ -4,10 +4,12 @@
 
 // ✅ STAGE 7 — Memory diagnostics (enforced pipeline)
 import { MemoryDiagnosticsService } from "../../core/MemoryDiagnosticsService.js";
+import MemoryService from "../../core/MemoryService.js";
 import { ExplicitRememberCleanupService } from "../../core/ExplicitRememberCleanupService.js";
 
 // ✅ Singleton service (safe: no side-effects)
 const memoryDiagSvc = new MemoryDiagnosticsService();
+const memoryService = new MemoryService();
 const explicitRememberCleanupSvc = new ExplicitRememberCleanupService();
 
 function parseSelectorArgs(restRaw = "") {
@@ -103,10 +105,174 @@ function parseSelectorArgs(restRaw = "") {
   };
 }
 
+function okMark(value) {
+  return value ? "true ✅" : "false ⛔";
+}
+
+function safeReason(value) {
+  const text = String(value || "—").replace(/\s+/g, " ").trim();
+  return text.slice(0, 120) || "—";
+}
+
+function buildMonarchMemoryDiagText({
+  chatIdStr,
+  globalUserId = null,
+  cols = {},
+  status = {},
+  diagnosticsStatus = {},
+} = {}) {
+  const archive = status?.archive || {};
+  const digest = status?.topicDigest || {};
+  const recall = status?.topicRecall || {};
+  const rawGuard = status?.rawPromptGuard || {};
+  const confirmedGuard = status?.confirmedGuard || {};
+  const diagnostics = status?.diagnostics || {};
+  const buffer = status?.buffer || {};
+
+  const dbColumnsOk =
+    cols.global_user_id === true &&
+    cols.transport === true &&
+    cols.metadata === true &&
+    cols.schema_version === true;
+
+  const coreOk =
+    status.ok === true &&
+    status.enabled === true &&
+    status.hasDb === true &&
+    status.hasChatAdapter === true &&
+    status.hasLongTermRead === true &&
+    status.hasWriteService === true &&
+    status.hasArchiveService === true &&
+    status.hasTopicDigestService === true &&
+    status.hasRawPromptGuard === true &&
+    status.hasConfirmedGuard === true &&
+    status.hasMemoryDiagnosticsService === true;
+
+  const archiveOk =
+    archive.ok === true &&
+    archive.storageActive === true &&
+    archive.restoreCapable === true &&
+    archive.promptFacing === false &&
+    archive.rawPromptInjectionAllowed === false &&
+    archive.confirmedMemory === false &&
+    archive.digestMemory === false;
+
+  const digestOk =
+    digest.ok === true &&
+    digest.storageActive === false &&
+    digest.aiGenerationActive === false &&
+    digest.restoreCapable === true &&
+    digest.promptFacing === false &&
+    digest.rawPromptInjectionAllowed === false &&
+    digest.confirmedMemory === false &&
+    digest.archiveMemory === false;
+
+  const recallOk =
+    recall.ok === true &&
+    recall.promptFacing === false &&
+    recall.rawPromptInjectionAllowed === false;
+
+  const guardOk =
+    rawGuard.ok === true &&
+    confirmedGuard.ok === true;
+
+  const diagnosticsOk = diagnostics.ok !== false && diagnosticsStatus.ok !== false;
+  const validationOk = dbColumnsOk && coreOk && archiveOk && digestOk && recallOk && guardOk && diagnosticsOk;
+
+  const lines = [];
+  lines.push("🧠 MEMORY MONARCH DIAG");
+  lines.push(`validation: ${validationOk ? "OK" : "FAILED"}`);
+  lines.push(`chat_id: ${chatIdStr || "—"}`);
+  lines.push(`globalUserId: ${globalUserId || "NULL"}`);
+  lines.push("");
+
+  lines.push("1) core:");
+  lines.push(`enabled: ${okMark(status.enabled === true)}`);
+  lines.push(`mode: ${status.mode || "—"}`);
+  lines.push(`backend: ${status.backend || "—"}`);
+  lines.push(`contractVersion: ${status.contractVersion ?? "—"}`);
+  lines.push(`hasDb: ${okMark(status.hasDb === true)}`);
+  lines.push(`hasChatAdapter: ${okMark(status.hasChatAdapter === true)}`);
+  lines.push(`hasLongTermRead: ${okMark(status.hasLongTermRead === true)}`);
+  lines.push(`hasWriteService: ${okMark(status.hasWriteService === true)}`);
+  lines.push(`hasArchiveService: ${okMark(status.hasArchiveService === true)}`);
+  lines.push(`hasTopicDigestService: ${okMark(status.hasTopicDigestService === true)}`);
+  lines.push(`hasRawPromptGuard: ${okMark(status.hasRawPromptGuard === true)}`);
+  lines.push(`hasConfirmedGuard: ${okMark(status.hasConfirmedGuard === true)}`);
+  lines.push(`check: ${okMark(coreOk)}`);
+  lines.push("");
+
+  lines.push("2) DB columns:");
+  lines.push(`global_user_id: ${okMark(cols.global_user_id === true)}`);
+  lines.push(`transport: ${okMark(cols.transport === true)}`);
+  lines.push(`metadata: ${okMark(cols.metadata === true)}`);
+  lines.push(`schema_version: ${okMark(cols.schema_version === true)}`);
+  lines.push(`check: ${okMark(dbColumnsOk)}`);
+  lines.push("");
+
+  lines.push("3) archive layer:");
+  lines.push(`storageActive: ${okMark(archive.storageActive === true)}`);
+  lines.push(`restoreCapable: ${okMark(archive.restoreCapable === true)}`);
+  lines.push(`promptFacing: ${okMark(archive.promptFacing === true)}`);
+  lines.push(`rawPromptInjectionAllowed: ${okMark(archive.rawPromptInjectionAllowed === true)}`);
+  lines.push(`reason: ${safeReason(archive.reason)}`);
+  lines.push(`check: ${okMark(archiveOk)}`);
+  lines.push("");
+
+  lines.push("4) topic digest layer:");
+  lines.push(`storageActive: ${okMark(digest.storageActive === true)}`);
+  lines.push(`aiGenerationActive: ${okMark(digest.aiGenerationActive === true)}`);
+  lines.push(`restoreCapable: ${okMark(digest.restoreCapable === true)}`);
+  lines.push(`promptFacing: ${okMark(digest.promptFacing === true)}`);
+  lines.push(`rawPromptInjectionAllowed: ${okMark(digest.rawPromptInjectionAllowed === true)}`);
+  lines.push(`reason: ${safeReason(digest.reason)}`);
+  lines.push(`check: ${okMark(digestOk)}`);
+  lines.push("");
+
+  lines.push("5) recall / guards:");
+  lines.push(`topicRecallPromptFacing: ${okMark(recall.promptFacing === true)}`);
+  lines.push(`topicRecallRawPromptInjectionAllowed: ${okMark(recall.rawPromptInjectionAllowed === true)}`);
+  lines.push(`rawPromptGuard: ${okMark(rawGuard.ok === true)}`);
+  lines.push(`confirmedGuard: ${okMark(confirmedGuard.ok === true)}`);
+  lines.push(`check: ${okMark(recallOk && guardOk)}`);
+  lines.push("");
+
+  lines.push("6) diagnostics / buffer:");
+  lines.push(`diagnosticsService: ${okMark(diagnosticsStatus.ok !== false)}`);
+  lines.push(`safetyDiagnostics: ${okMark(diagnostics.ok !== false)}`);
+  lines.push(`bufferEnabled: ${String(buffer.enabled === true)}`);
+  lines.push(`bufferQueueSize: ${buffer.queueSize ?? buffer.size ?? "—"}`);
+  lines.push("");
+
+  lines.push(
+    `checks: core=${String(coreOk)} db=${String(dbColumnsOk)} archive=${String(archiveOk)} digest=${String(digestOk)} recall=${String(recallOk)} guards=${String(guardOk)} diagnostics=${String(diagnosticsOk)}`
+  );
+
+  return lines.join("\n").slice(0, 3800);
+}
+
 export async function dispatchMemoryDiagnosticsCommands({ cmd0, ctx, reply }) {
   const { chatIdStr } = ctx;
 
   switch (cmd0) {
+    case "/memory_monarch_diag": {
+      const globalUserId = ctx?.user?.global_user_id ?? null;
+      const cols = await memoryDiagSvc.getChatMemoryV2Columns();
+      const status = await memoryService.status();
+      const diagnosticsStatus = await memoryService.memoryDiagnosticsStatus();
+
+      const text = buildMonarchMemoryDiagText({
+        chatIdStr,
+        globalUserId,
+        cols,
+        status,
+        diagnosticsStatus,
+      });
+
+      await reply(text, { cmd: cmd0, handler: "commandDispatcher" });
+      return { handled: true };
+    }
+
     case "/memory_status": {
       const cols = await memoryDiagSvc.getChatMemoryV2Columns();
       await reply(

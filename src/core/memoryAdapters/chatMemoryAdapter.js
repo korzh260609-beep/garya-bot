@@ -10,6 +10,10 @@
 // - schema_version (int)
 //
 // Fail-safe: если v2 колонок нет — пишем/читаем по старой схеме (chat_id, role, content).
+//
+// STAGE 7.9.3 safety:
+// - normal chat history reads must exclude raw_dialogue_archive rows when metadata exists.
+// - raw archive is storage-only and never part of uncontrolled prompt context.
 
 import pool from "../../../db.js";
 
@@ -184,6 +188,9 @@ export class ChatMemoryAdapter {
 
     const hasGlobal = await _columnExists("chat_memory", "global_user_id");
     const hasMeta = await _columnExists("chat_memory", "metadata");
+    const rawArchiveFilter = hasMeta
+      ? "AND COALESCE(metadata->>'memoryLayer', '') <> 'raw_dialogue_archive'"
+      : "";
 
     try {
       const useSharedChatHistory = _isSharedChatType(normalizedChatType);
@@ -196,6 +203,7 @@ export class ChatMemoryAdapter {
           FROM chat_memory
           WHERE chat_id = $1
             AND global_user_id = $2
+            ${rawArchiveFilter}
           ORDER BY id DESC
           LIMIT $3
           `,
@@ -221,6 +229,7 @@ export class ChatMemoryAdapter {
         SELECT role, content, ${hasMeta ? "metadata" : "'{}'::jsonb AS metadata"}
         FROM chat_memory
         WHERE chat_id = $1
+          ${rawArchiveFilter}
         ORDER BY id DESC
         LIMIT $2
         `,

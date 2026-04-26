@@ -53,6 +53,7 @@ export const AGENT_WORKSPACE_ALLOWED_DIAGNOSTIC_COMMANDS = Object.freeze([
   "/render_bridge_diagnose",
   "/pm_capabilities_diag",
   "/memory_remember_guard_diag",
+  "/memory_long_term_read_diag",
 ]);
 
 export function getAgentWorkspaceConfig() {

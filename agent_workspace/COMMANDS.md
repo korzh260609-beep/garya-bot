@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `MEMORY-7-9-1-REMEMBER-GUARD-002`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `7.9.1`
 WORKFLOW_POINT: `confirmed-facts-write-path-remember-guard-check-after-deploy`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T16:45:00Z`
-UPDATED_AT: `2026-04-26T16:30:35.579Z`
+UPDATED_AT: `2026-04-26T16:30:42.986Z`
 
 ---
 
@@ -26,7 +26,16 @@ UPDATED_AT: `2026-04-26T16:30:35.579Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T16:30:35.579Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: 7.9.1
+Workflow point: confirmed-facts-write-path-remember-guard-check-after-deploy
+Deploy ID: -
+Commit: -
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 0
+Diagnostics failed: 1
 
 ---
 

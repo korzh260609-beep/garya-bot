@@ -18,6 +18,7 @@ function envBool(name, fallback = false) {
 }
 
 export const AGENT_WORKSPACE_ALLOWED_FILES = Object.freeze([
+  "COMMANDS.md",
   "INBOX.md",
   "STATUS.md",
   "LOOP_STATE.md",
@@ -26,6 +27,12 @@ export const AGENT_WORKSPACE_ALLOWED_FILES = Object.freeze([
   "DIAGNOSIS.md",
   "TEST_REPORT.md",
   "PATCH_REQUESTS.md",
+]);
+
+export const AGENT_WORKSPACE_ALLOWED_ACTIONS = Object.freeze([
+  "VERIFY_DEPLOY",
+  "COLLECT_RENDER_REPORT",
+  "WRITE_TEST_NOTE",
 ]);
 
 export function getAgentWorkspaceConfig() {
@@ -47,10 +54,14 @@ export function getAgentWorkspaceConfig() {
 
   const enabled = envBool("AGENT_WORKSPACE_ENABLED", false);
   const dryRun = envBool("AGENT_WORKSPACE_DRY_RUN", false);
+  const webhookEnabled = envBool("AGENT_WORKSPACE_WEBHOOK_ENABLED", false);
+  const webhookToken = normalizeString(process.env.AGENT_WORKSPACE_WEBHOOK_TOKEN || "");
 
   return {
     enabled,
     dryRun,
+    webhookEnabled,
+    webhookToken,
     repoFullName,
     branch,
     basePath,
@@ -62,7 +73,11 @@ export function getAgentWorkspaceConfig() {
       normalizeString(process.env.AGENT_WORKSPACE_COMMIT_PREFIX || "") ||
       "agent_workspace:",
     allowedFiles: AGENT_WORKSPACE_ALLOWED_FILES,
+    allowedActions: AGENT_WORKSPACE_ALLOWED_ACTIONS,
     ready: Boolean(enabled && repoFullName && branch && basePath && githubToken),
+    webhookReady: Boolean(
+      enabled && webhookEnabled && webhookToken && repoFullName && branch && basePath && githubToken
+    ),
   };
 }
 
@@ -71,12 +86,16 @@ export function getAgentWorkspaceDiag() {
   return {
     enabled: cfg.enabled,
     dryRun: cfg.dryRun,
+    webhookEnabled: cfg.webhookEnabled,
+    webhookReady: cfg.webhookReady,
     repoFullName: cfg.repoFullName,
     branch: cfg.branch,
     basePath: cfg.basePath,
     hasGithubToken: Boolean(cfg.githubToken),
+    hasWebhookToken: Boolean(cfg.webhookToken),
     ready: cfg.ready,
     allowedFiles: cfg.allowedFiles,
+    allowedActions: cfg.allowedActions,
   };
 }
 

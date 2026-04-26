@@ -183,6 +183,11 @@ export const DEV_COMMAND_POLICIES = Object.freeze([
   monarchPrivateCommand("/render_bridge_deploy", COMMAND_POLICY_SCOPES.DEV),
   privateCommand("/render_bridge_diag", COMMAND_POLICY_SCOPES.DEV),
 
+  monarchPrivateCommand("/agent_workspace_diag", COMMAND_POLICY_SCOPES.DEV),
+  monarchPrivateCommand("/agent_workspace_run", COMMAND_POLICY_SCOPES.DEV),
+  monarchPrivateCommand("/agent_workspace_render_report", COMMAND_POLICY_SCOPES.DEV),
+  monarchPrivateCommand("/agent_workspace_test_note", COMMAND_POLICY_SCOPES.DEV),
+
   privateCommand("/capabilities", COMMAND_POLICY_SCOPES.DEV),
   privateCommand("/capability", COMMAND_POLICY_SCOPES.DEV),
   privateCommand("/cap_diagram", COMMAND_POLICY_SCOPES.DEV),

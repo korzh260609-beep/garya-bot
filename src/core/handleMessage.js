@@ -174,6 +174,9 @@ export async function handleMessage(context = {}) {
 
   let globalUserId = initialGlobalUserId;
 
+  // =========================================================================
+  // CORE MEANING — Understand message intent before project/evidence logic
+  // =========================================================================
   const coreMeaning = understandMeaning({
     text: trimmed,
     hasActiveProjectSession: Boolean(
@@ -183,10 +186,16 @@ export async function handleMessage(context = {}) {
     previousContext: buildMeaningPreviousContextHint(context, deps),
   });
 
+  // =========================================================================
+  // CORE MEANING — ToolSelection dry-run planner, no execution
+  // =========================================================================
   const toolSelection = selectToolsForMeaning({ meaning: coreMeaning });
 
   const projectContextAllowedByMeaning = shouldAllowProjectContextFromMeaning(coreMeaning);
 
+  // =========================================================================
+  // PROJECT CONTEXT — Controlled by structured core meaning
+  // =========================================================================
   const projectContextEngine = new ProjectContextEngine();
   const preProjectContextDecision = projectContextAllowedByMeaning
     ? projectContextEngine.classifyProjectContextNeed({
@@ -203,6 +212,9 @@ export async function handleMessage(context = {}) {
         reasons: ["blocked_by_core_meaning"],
       };
 
+  // =========================================================================
+  // PROJECT EVIDENCE — Trigger policy only, no DB writes
+  // =========================================================================
   const triggerDecision = projectContextAllowedByMeaning
     ? new ProjectEvidenceTriggerPolicy().shouldBuildEvidence({
         projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
@@ -230,6 +242,9 @@ export async function handleMessage(context = {}) {
     projectMemoryEvidenceTriggerDecision: triggerDecision,
   };
 
+  // =========================================================================
+  // PROJECT EVIDENCE — Seed/cache/light-pack build, fail-open
+  // =========================================================================
   try {
     if (triggerDecision.shouldBuild && coreMeaning?.suggestedAction !== "clarify") {
       const evidenceSeed = await buildProjectEvidenceSeedIfAvailable(enrichedContext, deps, triggerDecision);
@@ -275,6 +290,9 @@ export async function handleMessage(context = {}) {
     projectEvidenceDiagnostics,
   };
 
+  // =========================================================================
+  // STAGE 6.8 — Enforced guard: no processing without dedupe key/messageId
+  // =========================================================================
   if (isEnforced) {
     const dedupeKey = enrichedContext?.dedupeKey || null;
     if (!dedupeKey || !messageId) {
@@ -292,6 +310,9 @@ export async function handleMessage(context = {}) {
       return { ok: false, reason: "missing_dedupeKey", stage: "6.8" };
     }
 
+    // =========================================================================
+    // STAGE 8D — In-memory dedupe drop
+    // =========================================================================
     try {
       if (!bypassParsed.isBypass) {
         const now = Date.now();
@@ -319,6 +340,9 @@ export async function handleMessage(context = {}) {
     }
   }
 
+  // =========================================================================
+  // STAGE 6 LOGIC STEP 1 — Identity + Access
+  // =========================================================================
   const identity = await resolveIdentityAndAccess({
     transport,
     senderId,
@@ -336,6 +360,9 @@ export async function handleMessage(context = {}) {
     isMonarchUser,
   } = identity;
 
+  // =========================================================================
+  // STAGE 6 LOGIC STEP 2 — Routing parse
+  // =========================================================================
   const routing = parseCommandAccess({
     trimmed,
     user,
@@ -350,6 +377,9 @@ export async function handleMessage(context = {}) {
     canProceed,
   } = routing;
 
+  // =========================================================================
+  // Trace log
+  // =========================================================================
   try {
     if (isTransportTraceEnabled()) {
       console.log("📨 handleMessage(core)", {
@@ -388,8 +418,13 @@ export async function handleMessage(context = {}) {
         projectEvidenceTriggerReasons: projectEvidenceDiagnostics.projectEvidenceTriggerReasons,
       });
     }
-  } catch {}
+  } catch {
+    // ignore
+  }
 
+  // =========================================================================
+  // STAGE CORE MEANING — Natural clarification guard
+  // =========================================================================
   if (isEnforced && coreMeaning?.suggestedAction === "clarify" && !isCommand) {
     const chatIdNumForClarify = chatId ? Number(chatId) : null;
     const chatIdStrForClarify = chatId || "";
@@ -434,6 +469,9 @@ export async function handleMessage(context = {}) {
     };
   }
 
+  // =========================================================================
+  // STAGE 7.1 — Memory shadow write (OFF by default)
+  // =========================================================================
   try {
     const memory = getMemoryService();
     const enabled = Boolean(memory?.config?.enabled);
@@ -459,6 +497,9 @@ export async function handleMessage(context = {}) {
     console.error("handleMessage(memory shadow) failed:", e);
   }
 
+  // =========================================================================
+  // Shadow mode: compute routing but don't act
+  // =========================================================================
   if (!isEnforced) {
     return {
       ok: true,
@@ -478,6 +519,9 @@ export async function handleMessage(context = {}) {
     };
   }
 
+  // =========================================================================
+  // ENFORCED MODE — real routing + reply
+  // =========================================================================
   const chatIdNum = chatId ? Number(chatId) : null;
   const chatIdStr = chatId || "";
 

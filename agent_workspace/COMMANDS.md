@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PM-CAPABILITIES-DIAG-003`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `7A.13`
 WORKFLOW_POINT: `pm-capabilities-diag-chat-capture-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T15:10:00Z`
-UPDATED_AT: `2026-04-26T15:07:52.153Z`
+UPDATED_AT: `2026-04-26T15:07:59.632Z`
 
 ---
 
@@ -26,7 +26,16 @@ UPDATED_AT: `2026-04-26T15:07:52.153Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T15:07:52.153Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: 7A.13
+Workflow point: pm-capabilities-diag-chat-capture-check
+Deploy ID: -
+Commit: -
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 1
+Diagnostics failed: 0
 
 ---
 

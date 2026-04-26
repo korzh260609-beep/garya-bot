@@ -12,6 +12,10 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function safeTransport(value) {
+  return safeText(value) || "telegram";
+}
+
 function splitItems(value = "") {
   return String(value ?? "")
     .split(/\s*\|\s*/)
@@ -27,6 +31,7 @@ function pickLine(map, ...keys) {
 }
 
 function traceSessionWriteAttempt({
+  transport,
   chatId,
   chatIdStr,
   bypass,
@@ -35,7 +40,7 @@ function traceSessionWriteAttempt({
   hasGoal,
 } = {}) {
   console.log("🧠 PROJECT_MEMORY_SESSION_WRITE_ATTEMPT", {
-    transport: "telegram",
+    transport: safeTransport(transport),
     chatId: safeText(chatIdStr || chatId),
     bypass: !!bypass,
     phase: safeText(phase) || "unknown",
@@ -143,11 +148,15 @@ export async function handlePmSession({
   bot,
   chatId,
   chatIdStr,
+  transport,
   rest,
   bypass,
   recordProjectWorkSession,
 }) {
+  const transportName = safeTransport(transport);
+
   traceSessionWriteAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,
@@ -156,6 +165,7 @@ export async function handlePmSession({
 
   if (typeof recordProjectWorkSession !== "function") {
     traceSessionWriteAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -169,6 +179,7 @@ export async function handlePmSession({
 
   if (!bypass) {
     traceSessionWriteAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -187,6 +198,7 @@ export async function handlePmSession({
 
   if (!parsed || !safeText(parsed.goal)) {
     traceSessionWriteAttempt({
+      transport: transportName,
       chatId,
       chatIdStr,
       bypass,
@@ -200,6 +212,7 @@ export async function handlePmSession({
   }
 
   traceSessionWriteAttempt({
+    transport: transportName,
     chatId,
     chatIdStr,
     bypass,
@@ -219,12 +232,12 @@ export async function handlePmSession({
       notes: parsed.notes,
       tags: parsed.tags,
       sourceType: "chat_session",
-      sourceRef: parsed.sourceRef || `telegram:${safeText(chatIdStr || chatId)}`,
+      sourceRef: parsed.sourceRef || `${transportName}:${safeText(chatIdStr || chatId)}`,
       relatedPaths: parsed.relatedPaths,
       moduleKey: parsed.moduleKey || "project_memory",
       stageKey: parsed.stageKey || "7A",
       meta: {
-        transport: "telegram",
+        transport: transportName,
         manual: true,
         bypass: !!bypass,
         chatId: safeText(chatIdStr || chatId),

@@ -1,46 +1,13 @@
 # DIAGNOSIS
 
-SG diagnosis based on Render logs, deploy metadata, and test evidence.
+Reset before current command run.
 
 ---
 
-Task ID: `-`
-Deploy ID: `-`
-Commit: `-`
-Diagnosis version: `-`
-Created at: `-`
-Created by: `SG`
+Task ID: `TEST-002`
+Updated at: `2026-04-26T14:21:44.592Z`
+Reason: `reset_before_command_run_no_diagnosis_yet`
 
 ---
 
-## Short diagnosis
-
 -
-
-## Error kind
-
--
-
-## Candidate file
-
--
-
-## Candidate line/window
-
--
-
-## Likely cause
-
--
-
-## Confidence
-
-- `UNKNOWN`
-
-## First check
-
--
-
-## Advisor decision
-
-- `PENDING_REVIEW`

@@ -57,6 +57,7 @@ import { dispatchLegacyLocalCommands } from "./dispatchers/dispatchLegacyLocalCo
 import { PRIVATE_ONLY_COMMANDS } from "./constants/privateOnlyCommands.js";
 import { CommandPolicyService } from "../core/commandPolicy/CommandPolicyService.js";
 import { COMMAND_POLICIES } from "../core/commandPolicy/commandPolicies.js";
+import { recordCommandPolicyShadow } from "../core/commandPolicy/CommandPolicyShadowStore.js";
 
 // ✅ SG project-only repo/github access guard
 import {
@@ -112,7 +113,7 @@ function traceCommandPolicyShadow({
       policyDecision,
     });
 
-    console.log("🛡️ COMMAND_POLICY_SHADOW", {
+    const entry = {
       cmd: cmd0,
       transport: transport || "telegram",
       chatType: chatType || "unknown",
@@ -129,7 +130,10 @@ function traceCommandPolicyShadow({
       policyHasKnownCommand: comparison.policyHasKnownCommand,
       shadowMismatch: comparison.shadowMismatch,
       shadowOnly: true,
-    });
+    };
+
+    recordCommandPolicyShadow(entry);
+    console.log("🛡️ COMMAND_POLICY_SHADOW", entry);
   } catch (e) {
     console.error("⚠️ COMMAND_POLICY_SHADOW_LOG_ERROR", e);
   }

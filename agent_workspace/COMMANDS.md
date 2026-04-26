@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `MEMORY-7-9-5-RESTORE-BEFORE-ANSWER-001`
-STATUS: `DONE`
+COMMAND_ID: `MEMORY-7-9-6-MONARCH-MEMORY-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `memory-7-9-5-restore-before-answer`
-WORKFLOW_POINT: `restore-current-user-project-context-before-ai-answer-runtime-diagnostic`
+TASK_ID: `memory-7-9-6-monarch-memory-diagnostics`
+WORKFLOW_POINT: `monarch-memory-diagnostics-runtime-command`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T18:18:38.238Z`
-UPDATED_AT: `2026-04-26T18:19:16.709Z`
+CREATED_AT: `2026-04-26T18:32:14.000Z`
+UPDATED_AT: `2026-04-26T18:32:14.000Z`
 
 ---
 
 ## Payload
 
-/memory_restore_before_answer_diag
+/memory_monarch_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: memory-7-9-5-restore-before-answer
-Workflow point: restore-current-user-project-context-before-ai-answer-runtime-diagnostic
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+-
 
 ---
 

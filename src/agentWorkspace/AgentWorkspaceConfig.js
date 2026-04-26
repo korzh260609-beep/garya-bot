@@ -33,6 +33,16 @@ export const AGENT_WORKSPACE_ALLOWED_ACTIONS = Object.freeze([
   "VERIFY_DEPLOY",
   "COLLECT_RENDER_REPORT",
   "WRITE_TEST_NOTE",
+  "RUN_DIAGNOSTIC_COMMANDS",
+]);
+
+export const AGENT_WORKSPACE_ALLOWED_DIAGNOSTIC_COMMANDS = Object.freeze([
+  "/agent_workspace_diag",
+  "/render_bridge_diag",
+  "/render_bridge_services",
+  "/render_bridge_deploys",
+  "/render_bridge_logs",
+  "/render_bridge_diagnose",
 ]);
 
 export function getAgentWorkspaceConfig() {
@@ -74,6 +84,7 @@ export function getAgentWorkspaceConfig() {
       "agent_workspace:",
     allowedFiles: AGENT_WORKSPACE_ALLOWED_FILES,
     allowedActions: AGENT_WORKSPACE_ALLOWED_ACTIONS,
+    allowedDiagnosticCommands: AGENT_WORKSPACE_ALLOWED_DIAGNOSTIC_COMMANDS,
     ready: Boolean(enabled && repoFullName && branch && basePath && githubToken),
     webhookReady: Boolean(
       enabled && webhookEnabled && webhookToken && repoFullName && branch && basePath && githubToken
@@ -96,6 +107,7 @@ export function getAgentWorkspaceDiag() {
     ready: cfg.ready,
     allowedFiles: cfg.allowedFiles,
     allowedActions: cfg.allowedActions,
+    allowedDiagnosticCommands: cfg.allowedDiagnosticCommands,
   };
 }
 

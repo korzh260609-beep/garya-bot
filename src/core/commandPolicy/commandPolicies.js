@@ -88,6 +88,7 @@ export const MEMORY_DIAGNOSTIC_COMMAND_POLICIES = Object.freeze([
   privateCommand("/diag_decision_last_db", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
   privateCommand("/diag_decision_window", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
   privateCommand("/diag_decision_promotion", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
+  privateCommand("/command_policy_diag", COMMAND_POLICY_SCOPES.MEMORY_DIAGNOSTICS),
 ]);
 
 export const SOURCE_COMMAND_POLICIES = Object.freeze([

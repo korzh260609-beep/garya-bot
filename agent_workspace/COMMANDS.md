@@ -7,14 +7,14 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PM-CAPABILITIES-DIAG-002`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `7A.13`
 WORKFLOW_POINT: `pm-capabilities-diag-runtime-check`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T14:55:00Z`
-UPDATED_AT: `2026-04-26T14:51:21.816Z`
+UPDATED_AT: `2026-04-26T14:51:29.229Z`
 
 ---
 
@@ -26,7 +26,16 @@ UPDATED_AT: `2026-04-26T14:51:21.816Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-26T14:51:21.816Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: 7A.13
+Workflow point: pm-capabilities-diag-runtime-check
+Deploy ID: -
+Commit: -
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 0
+Diagnostics failed: 1
 
 ---
 

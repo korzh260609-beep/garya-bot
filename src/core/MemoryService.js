@@ -43,6 +43,10 @@
 // - Recall interface is deterministic/service-only.
 // - NO DB reads in skeleton. NO raw archive prompt injection.
 //
+// STAGE 7.8.8 — Privacy / attribution / group-safety policy:
+// - Privacy policy is deterministic/read-only.
+// - NO cross-user/group leakage. NO unattributed group recall.
+//
 // Contract methods (V1):
 // - write({ chatId, globalUserId, role, content, transport, metadata, schemaVersion })
 // - writePair({ chatId, globalUserId, userText, assistantText, transport, metadata, schemaVersion })
@@ -73,6 +77,10 @@
 // - buildTopicRecallRequest(args) -> safe recall request object
 // - selectTopicRestoreContext(request) -> skeleton restore context
 // - topicRecallStatus() -> recall diag info
+// - getMemoryPrivacyAttributionPolicy() -> privacy/attribution policy
+// - classifyMemoryPrivacyScope(args) -> memory privacy scope
+// - buildMemoryAttribution(args) -> speaker/owner attribution object
+// - assertMemoryPrivacyAllowed(args) -> privacy policy check
 // - status() -> diag info
 //
 // STAGE 11+ transitional universal read layer:
@@ -117,6 +125,12 @@ import {
   buildDigestGenerationRequest,
   assertDigestGenerationAllowed,
 } from "./memory/MemoryDigestGenerationPolicy.js";
+import {
+  getMemoryPrivacyAttributionPolicy,
+  classifyMemoryPrivacyScope,
+  buildMemoryAttribution,
+  assertMemoryPrivacyAllowed,
+} from "./memory/MemoryPrivacyAttributionPolicy.js";
 import pool from "../../db.js";
 
 // Минимальный базовый logger (можно заменить внешним)
@@ -269,6 +283,7 @@ export class MemoryService {
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
       digestGenerationPolicy: getMemoryDigestGenerationPolicy(),
+      privacyAttributionPolicy: getMemoryPrivacyAttributionPolicy(),
     };
   }
 
@@ -473,6 +488,25 @@ export class MemoryService {
   }
 
   // ========================================================================
+  // PRIVACY / ATTRIBUTION POLICY FACADE — read-only diagnostics
+  // ========================================================================
+  getMemoryPrivacyAttributionPolicy() {
+    return getMemoryPrivacyAttributionPolicy();
+  }
+
+  classifyMemoryPrivacyScope(args = {}) {
+    return classifyMemoryPrivacyScope(args);
+  }
+
+  buildMemoryAttribution(args = {}) {
+    return buildMemoryAttribution(args);
+  }
+
+  assertMemoryPrivacyAllowed(args = {}) {
+    return assertMemoryPrivacyAllowed(args);
+  }
+
+  // ========================================================================
   // WRITE FACADE
   // ========================================================================
   async write({
@@ -637,6 +671,7 @@ export class MemoryService {
       periodicReviewPolicy: getMemoryPeriodicReviewPolicy(),
       topicGroupingPolicy: getMemoryTopicGroupingPolicy(),
       digestGenerationPolicy: getMemoryDigestGenerationPolicy(),
+      privacyAttributionPolicy: getMemoryPrivacyAttributionPolicy(),
       buffer: this.bufferService.status(),
     };
   }

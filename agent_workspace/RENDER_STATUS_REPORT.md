@@ -4,8 +4,8 @@ Reset before current command run.
 
 ---
 
-Task ID: `agent-workspace-render-control-v1`
-Updated at: `2026-04-26T16:58:55.615Z`
+Task ID: `memory-7-9-2-long-term-read`
+Updated at: `2026-04-26T17:11:59.559Z`
 Reason: `reset_before_command_run`
 
 ---

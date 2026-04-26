@@ -6,36 +6,27 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `MEMORY-7-9-4-TOPIC-DIGEST-001`
-STATUS: `DONE`
+COMMAND_ID: `MEMORY-7-9-5-RESTORE-BEFORE-ANSWER-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `memory-7-9-4-topic-digest`
-WORKFLOW_POINT: `topic-digest-skeleton-runtime-diagnostic`
+TASK_ID: `memory-7-9-5-restore-before-answer`
+WORKFLOW_POINT: `restore-current-user-project-context-before-ai-answer-runtime-diagnostic`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T18:10:00Z`
-UPDATED_AT: `2026-04-26T18:02:19.918Z`
+CREATED_AT: `2026-04-26T18:18:38.238Z`
+UPDATED_AT: `2026-04-26T18:18:38.238Z`
 
 ---
 
 ## Payload
 
-/memory_topic_digest_diag
+/memory_restore_before_answer_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: memory-7-9-4-topic-digest
-Workflow point: topic-digest-skeleton-runtime-diagnostic
-Deploy ID: -
-Commit: -
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+-
 
 ---
 

@@ -1,5 +1,7 @@
 // src/bot/router/projectMemoryCommands.js
 
+const PROJECT_MEMORY_ROUTER_BUILD = "pm-router-diag-2026-04-26-01";
+
 export async function handleProjectMemoryCommands({
   cmdBase,
   bot,
@@ -17,6 +19,7 @@ export async function handleProjectMemoryCommands({
         cmdBase: String(cmdBase || ""),
         chatId: String(chatIdStr || chatId || ""),
         bypass: !!bypass,
+        routerBuild: PROJECT_MEMORY_ROUTER_BUILD,
         hasGetProjectSection: typeof getProjectSection === "function",
         hasUpsertProjectSection: typeof upsertProjectSection === "function",
         hasGetProjectMemoryList: typeof getProjectMemoryList === "function",
@@ -28,6 +31,7 @@ export async function handleProjectMemoryCommands({
     console.log("🧠 PROJECT_MEMORY_WIRING_DIAG_RECEIVED", {
       chatId: String(chatIdStr || chatId || ""),
       bypass: !!bypass,
+      routerBuild: PROJECT_MEMORY_ROUTER_BUILD,
     });
 
     if (!bypass) {
@@ -38,6 +42,7 @@ export async function handleProjectMemoryCommands({
     const diag = {
       command: "/pm_wiring_diag",
       router: "src/bot/router/projectMemoryCommands.js",
+      routerBuild: PROJECT_MEMORY_ROUTER_BUILD,
       earlyRouter: true,
       bypass: !!bypass,
       chatId: String(chatIdStr || chatId || ""),
@@ -54,6 +59,7 @@ export async function handleProjectMemoryCommands({
     const lines = [
       "🧠 Project Memory wiring diag",
       "",
+      `routerBuild: ${diag.routerBuild}`,
       `earlyRouter: ${diag.earlyRouter ? "yes" : "no"}`,
       `bypass: ${diag.bypass ? "yes" : "no"}`,
       "",
@@ -196,8 +202,16 @@ export async function handleProjectMemoryCommands({
 
       if (!rows || rows.length === 0) {
         const msg = sectionFilter
-          ? `🧠 Project Memory: секция "${sectionFilter}" не найдена.`
-          : "🧠 Project Memory: секций пока нет.";
+          ? [
+              `🧠 Project Memory: секция "${sectionFilter}" не найдена.`,
+              "",
+              `routerBuild: ${PROJECT_MEMORY_ROUTER_BUILD}`,
+            ].join("\n")
+          : [
+              "🧠 Project Memory: секций пока нет.",
+              "",
+              `routerBuild: ${PROJECT_MEMORY_ROUTER_BUILD}`,
+            ].join("\n");
         await bot.sendMessage(chatId, msg);
         return true;
       }
@@ -218,12 +232,20 @@ export async function handleProjectMemoryCommands({
           `🧠 Project Memory: "${sectionFilter}"`,
           "",
           "✅ Есть записи (используй /pm_show " + sectionFilter + ")",
+          "",
+          `routerBuild: ${PROJECT_MEMORY_ROUTER_BUILD}`,
         ].join("\n");
         await bot.sendMessage(chatId, msg);
         return true;
       }
 
-      const msg = ["🧠 Project Memory sections:", "", ...sections.map((s) => `• ${s}`)].join("\n");
+      const msg = [
+        "🧠 Project Memory sections:",
+        "",
+        ...sections.map((s) => `• ${s}`),
+        "",
+        `routerBuild: ${PROJECT_MEMORY_ROUTER_BUILD}`,
+      ].join("\n");
       const out = msg.length > 3800 ? msg.slice(0, 3800) + "\n…(обрезано)" : msg;
 
       await bot.sendMessage(chatId, out);

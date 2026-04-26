@@ -11,7 +11,25 @@ export async function handleProjectMemoryCommands({
   getProjectMemoryList,
   bypass = false,
 }) {
+  try {
+    if (String(cmdBase || "").startsWith("/pm")) {
+      console.log("🧠 PROJECT_MEMORY_ROUTER_ENTER", {
+        cmdBase: String(cmdBase || ""),
+        chatId: String(chatIdStr || chatId || ""),
+        bypass: !!bypass,
+        hasGetProjectSection: typeof getProjectSection === "function",
+        hasUpsertProjectSection: typeof upsertProjectSection === "function",
+        hasGetProjectMemoryList: typeof getProjectMemoryList === "function",
+      });
+    }
+  } catch (_) {}
+
   if (cmdBase === "/pm_wiring_diag") {
+    console.log("🧠 PROJECT_MEMORY_WIRING_DIAG_RECEIVED", {
+      chatId: String(chatIdStr || chatId || ""),
+      bypass: !!bypass,
+    });
+
     if (!bypass) {
       await bot.sendMessage(chatId, "Только монарх может смотреть Project Memory diagnostics.");
       return true;

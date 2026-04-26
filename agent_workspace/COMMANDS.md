@@ -7,20 +7,26 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `VERIFY-TEST-003`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `VERIFY_DEPLOY`
 TASK_ID: `TEST-003`
 WORKFLOW_POINT: `webhook-auto-check-after-fix`
 DEPLOY_ID: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T14:40:00Z`
-UPDATED_AT: `2026-04-26T14:40:00Z`
+UPDATED_AT: `2026-04-26T14:29:47.848Z`
 
 ---
 
 ## Payload
 
 Проверка полной event-driven схемы после фикса runner: advisor writes COMMANDS.md → GitHub webhook → SG reads command → SG resets stale reports → SG collects RenderBridge data → SG writes fresh workspace reports → SG marks COMMANDS.md DONE or FAILED.
+
+---
+
+## Last result
+
+Started by github_webhook at 2026-04-26T14:29:47.848Z.
 
 ---
 

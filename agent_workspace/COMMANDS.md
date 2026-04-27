@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-STATUS-008`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `COLLECT_RENDER_STATUS`
 TASK_ID: `render-status-after-workspace-signature-filter-deploy`
 WORKFLOW_POINT: `repo-state-agent-workspace-signature-filter-runtime-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `7218fe969f1ec03400446c3cf727ac5382eb7e03`
 CREATED_BY: `-`
 CREATED_AT: `-`
-UPDATED_AT: `2026-04-27T18:17:50.876Z`
+UPDATED_AT: `2026-04-27T18:18:11.284Z`
 
 ---
 
@@ -27,7 +27,18 @@ status
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T18:17:50.876Z.
+Action completed: COLLECT_RENDER_STATUS
+Task ID: render-status-after-workspace-signature-filter-deploy
+Workflow point: repo-state-agent-workspace-signature-filter-runtime-check
+Deploy ID: -
+Commit: 7218fe969f1ec03400446c3cf727ac5382eb7e03
+Required commit: 7218fe969f1ec03400446c3cf727ac5382eb7e03
+Runtime commit: 7218fe969f1ec03400446c3cf727ac5382eb7e03
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

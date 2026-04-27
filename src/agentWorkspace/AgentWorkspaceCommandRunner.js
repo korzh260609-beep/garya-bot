@@ -338,14 +338,30 @@ export class AgentWorkspaceCommandRunner {
         return { command: commandName, ok: true, data: getAgentWorkspaceDiag() };
       }
 
-      if (commandName === "/agent_bootstrap_diag") {
+      if (commandName === "/agent_bootstrap_diag" || commandName === "/agent_bootstrap_strict_diag") {
         const data = await buildAgentWorkspaceBootstrapSnapshot({ config: this.config });
+        const strictChecks = commandName === "/agent_bootstrap_strict_diag"
+          ? {
+              readOnly: data?.readOnly === true,
+              noDbWrites: data?.dbWrites === false,
+              noAiCalls: data?.aiCalls === false,
+              noPillarsTouch: data?.touchesPillars === false,
+              noRuntimePromptChange: data?.runtimePromptChanged === false,
+              allBootstrapFilesReadable: data?.ok === true,
+            }
+          : null;
+        const strictOk = strictChecks
+          ? Object.values(strictChecks).every((value) => value === true)
+          : data?.ok === true;
+
         return {
           command: commandName,
-          ok: data?.ok === true,
-          data,
+          ok: strictOk,
+          data: strictChecks ? { ...data, strictChecks } : data,
           outputText: [
-            "🧭 AgentWorkspace bootstrap diag",
+            commandName === "/agent_bootstrap_strict_diag"
+              ? "🧭 AgentWorkspace bootstrap strict diag"
+              : "🧭 AgentWorkspace bootstrap diag",
             "",
             `readOnly: ${data?.readOnly ? "yes" : "no"}`,
             `dbWrites: ${data?.dbWrites ? "yes" : "no"}`,
@@ -363,9 +379,14 @@ export class AgentWorkspaceCommandRunner {
               return `${item.ok ? "OK" : "FAILED"}: ${item.path} chars=${item.chars} hash=${item.hash || "-"}`;
             }) : ["files: -"]),
             "",
+            ...(strictChecks ? [
+              "Strict checks:",
+              ...Object.entries(strictChecks).map(([key, value]) => `${key}: ${value ? "yes" : "no"}`),
+              "",
+            ] : []),
             `warnings: ${Array.isArray(data?.warnings) && data.warnings.length ? data.warnings.join(", ") : "-"}`,
             "",
-            `Result: ${data?.ok === true ? "OK" : "FAILED"}`,
+            `Result: ${strictOk ? "OK" : "FAILED"}`,
           ].join("\n"),
         };
       }

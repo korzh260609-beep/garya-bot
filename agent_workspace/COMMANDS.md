@@ -6,39 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PROJECT-MEMORY-7A-PM-SHADOW-FILL-DIAG-001`
-STATUS: `DONE`
+COMMAND_ID: `AGENTWORKSPACE-BOOTSTRAP-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `project-memory-7a-shadow-fill-diagnostic`
-WORKFLOW_POINT: `project-memory-core-shadow-fill-check`
+TASK_ID: `agentworkspace-bootstrap-reader`
+WORKFLOW_POINT: `agentworkspace-bootstrap-read-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `63c36122af847e2cf9f2b5beeb263ba8ab8f84f7`
+REQUIRES_COMMIT: `ab4ebdca34ea18368c87a0f9e07607bf1fd3f22d`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T03:16:15.972Z`
+UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ---
 
 ## Payload
 
-/pm_shadow_fill_diag
+/agent_bootstrap_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: project-memory-7a-shadow-fill-diagnostic
-Workflow point: project-memory-core-shadow-fill-check
-Deploy ID: -
-Commit: caa4768463cf19b21dd355af261e52735bf2df44
-Required commit: 63c36122af847e2cf9f2b5beeb263ba8ab8f84f7
-Runtime commit: caa4768463cf19b21dd355af261e52735bf2df44
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending execution after required commit is active in runtime.
 
 ---
 

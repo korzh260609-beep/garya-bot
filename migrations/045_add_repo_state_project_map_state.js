@@ -11,6 +11,7 @@ export const up = (pgm) => {
       onDelete: "SET NULL",
     },
     project_map_signature: { type: "text", notNull: true },
+    project_map_hash: { type: "text", notNull: true },
     project_map: { type: "jsonb", notNull: true },
     ai_enabled: { type: "boolean", notNull: true, default: false },
     status: { type: "text", notNull: true, default: "active" },
@@ -19,7 +20,7 @@ export const up = (pgm) => {
   });
 
   pgm.createIndex("repo_state_project_map_state", ["repo_full_name", "branch", "created_at"]);
-  pgm.createIndex("repo_state_project_map_state", ["project_map_signature"]);
+  pgm.createIndex("repo_state_project_map_state", ["project_map_hash"]);
 };
 
 export const down = (pgm) => {

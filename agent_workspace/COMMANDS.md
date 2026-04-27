@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-LATEST-DEPLOY-LOGS-003`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `latest-deploy-after-normalizer-fix-check`
 WORKFLOW_POINT: `render-deploy-after-normalizer-fix-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `818bb8b55399387645bf955cf9217ec706fa70d8`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T16:15:00.000Z`
-UPDATED_AT: `2026-04-27T16:15:00.000Z`
+UPDATED_AT: `2026-04-27T15:56:21.153Z`
 
 ---
 
@@ -30,7 +30,7 @@ maxLineChars=1200
 
 ## Last result
 
-Fresh command created after RenderBridgeNormalizer syntax fix. Workspace reports must be reset by SG runner before execution.
+Started by github_webhook at 2026-04-27T15:56:21.153Z.
 
 ---
 
@@ -61,4 +61,5 @@ Fresh command created after RenderBridgeNormalizer syntax fix. Workspace reports
 - `WAITING_DEPLOY` commands are visible but never executed.
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
+- SG updates only allowlisted files in `agent_workspace/`.
 - If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.

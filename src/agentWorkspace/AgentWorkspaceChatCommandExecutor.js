@@ -10,6 +10,7 @@ import { handlePmShowDiag } from "../bot/handlers/pmShowDiag.js";
 import { handlePmControlledWriteDiag } from "../bot/handlers/pmControlledWriteDiag.js";
 import { handlePmContextDiag } from "../bot/handlers/pmContextDiag.js";
 import { handlePmShadowContextDiag } from "../bot/handlers/pmShadowContextDiag.js";
+import { handlePmShadowRestoreControlledDiag } from "../bot/handlers/pmShadowRestoreControlledDiag.js";
 import { handlePmReadSurfaceDiag } from "../bot/handlers/pmReadSurfaceDiag.js";
 import { handlePmFindDiag } from "../bot/handlers/pmFindDiag.js";
 import { handlePmSessionControlledDiag } from "../bot/handlers/pmSessionControlledDiag.js";
@@ -256,6 +257,52 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
         command: cmd0,
         ok: validationOk,
         handler: "handlePmShadowContextDiag",
+        data: {
+          validationOk,
+          diag: result?.diag || null,
+        },
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/pm_shadow_fill_diag") {
+      const result = await handlePmShadowRestoreControlledDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        chatIdStr: fakeChatId,
+        transport: "agent_workspace",
+        bypass: true,
+        writeConfirmedProjectMemory,
+        listConfirmedProjectMemoryEntries,
+        buildProjectMemoryContext,
+        buildProjectMemoryDigest,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+      const validationOk =
+        result?.ok === true &&
+        outputText.includes("controlledWrite: yes") &&
+        outputText.includes("trustedPath: yes") &&
+        outputText.includes("dbWrites: yes") &&
+        outputText.includes("touchesPillars: no") &&
+        outputText.includes("touchesRawChatMemory: no") &&
+        outputText.includes("aiCalls: no") &&
+        outputText.includes("runtimePromptChanged: no") &&
+        outputText.includes("writeConfirmedProjectMemory: OK") &&
+        outputText.includes("listConfirmedProjectMemoryEntries: OK") &&
+        outputText.includes("buildProjectMemoryContext: OK") &&
+        outputText.includes("buildProjectMemoryDigest: OK") &&
+        outputText.includes("constraintWriteOk: yes") &&
+        outputText.includes("nextStepWriteOk: yes") &&
+        outputText.includes("constraintVisible: yes") &&
+        outputText.includes("nextStepVisible: yes") &&
+        outputText.includes("Result: OK");
+
+      return {
+        command: cmd0,
+        ok: validationOk,
+        handler: "handlePmShadowRestoreControlledDiag",
         data: {
           validationOk,
           diag: result?.diag || null,

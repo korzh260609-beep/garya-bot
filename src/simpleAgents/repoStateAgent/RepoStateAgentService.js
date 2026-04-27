@@ -3,6 +3,10 @@ import { buildRepoStateProjectMap } from "./RepoStateProjectMapBuilder.js";
 import { analyzeRepoStateProjectMap } from "./RepoStateAgentAiAnalyzer.js";
 import { detectRepoStateAiNeed } from "./RepoStateAgentChangeDetector.js";
 import { getLatestAiAnalysis, saveAiAnalysis } from "./RepoStateAgentAiRepository.js";
+import {
+  getLatestProjectMapState,
+  saveProjectMapState,
+} from "./RepoStateProjectMapStateRepository.js";
 
 export class RepoStateAgentService {
   constructor() {
@@ -18,12 +22,15 @@ export class RepoStateAgentService {
     const repoFullName = result?.repoFullName || "";
     const branch = result?.branch || "";
 
-    const previous = await getLatestAiAnalysis(repoFullName, branch);
+    // NEW: project map state (works even when AI disabled)
+    const previousState = await getLatestProjectMapState(repoFullName, branch);
+
+    const previousSignature = previousState?.project_map_signature || null;
 
     const changeDecision = detectRepoStateAiNeed({
       projectMap,
-      previousAiState: previous
-        ? { projectMapSignature: previous.project_map_signature }
+      previousAiState: previousSignature
+        ? { projectMapSignature: previousSignature }
         : null,
     });
 
@@ -32,6 +39,8 @@ export class RepoStateAgentService {
       skipped: true,
       reason: changeDecision.reason,
     };
+
+    const previousAi = await getLatestAiAnalysis(repoFullName, branch);
 
     if (changeDecision.shouldAnalyze) {
       const aiResult = await analyzeRepoStateProjectMap(projectMap);
@@ -48,14 +57,24 @@ export class RepoStateAgentService {
 
         aiAnalysis = aiResult;
       }
-    } else if (previous) {
+    } else if (previousAi) {
       aiAnalysis = {
         enabled: true,
         skipped: true,
         reused: true,
-        analysis: previous.analysis,
+        analysis: previousAi.analysis,
       };
     }
+
+    // NEW: always persist project map state (even when AI disabled)
+    await saveProjectMapState({
+      repoFullName,
+      branch,
+      scanRunId: result?.persistence?.scanRunId || null,
+      projectMapSignature: changeDecision.projectMapSignature,
+      projectMap,
+      aiEnabled: aiAnalysis?.enabled === true,
+    });
 
     return {
       ...result,

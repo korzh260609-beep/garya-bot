@@ -20,6 +20,7 @@ import {
 } from "./AgentWorkspaceCommandParser.js";
 import { executeAgentWorkspaceChatCommand } from "./AgentWorkspaceChatCommandExecutor.js";
 import { createRepoStateCollector } from "../repoStateCollector/RepoStateCollectorFactory.js";
+import RepoStateAgentService from "../simpleAgents/repoStateAgent/RepoStateAgentService.js";
 import renderBridge from "../integrations/render/RenderBridge.js";
 import renderBridgeStateStore from "../integrations/render/RenderBridgeStateStore.js";
 import { getRenderBridgeConfig } from "../integrations/render/RenderBridgeConfig.js";
@@ -130,6 +131,24 @@ function buildDiagnosticTestReport({ command, results, collectedAt }) {
 
 function buildRepoStateScanTestReport({ command, snapshot, collectedAt }) {
   return `# TEST_REPORT\n\nSG repo state scan result after workspace command execution.\n\n---\n\nTask ID: \`${command.taskId || "manual"}\`\nDeploy ID: \`${command.deployId || "-"}\`\nCommit: \`-\`\nTested at: \`${collectedAt}\`\nTested by: \`SG AgentWorkspaceCommandRunner\`\n\n---\n\n## Test command\n\n\`\`\`text\nRUN_REPO_STATE_SCAN\n\`\`\`\n\n## Result\n\n- \`${snapshot?.ok === true && snapshot?.persisted === true ? "REPO_STATE_SCAN_OK" : "REPO_STATE_SCAN_FAILED"}\`\n\n## Repo State\n\n\`\`\`text\nok: ${snapshot?.ok === true ? "yes" : "no"}\npersisted: ${snapshot?.persisted === true ? "yes" : "no"}\nrepo: ${snapshot?.repoFullName || "-"}\nbranch: ${snapshot?.branch || "-"}\nfiles: ${snapshot?.filesCount ?? "-"}\nmodules: ${snapshot?.modulesCount ?? "-"}\ndependencies: ${snapshot?.dependenciesCount ?? "-"}\ncontentLoaded: ${snapshot?.tree?.contentFilesLoaded ?? "-"}\ncontentSkipped: ${snapshot?.tree?.contentFilesSkipped ?? "-"}\nstructureComplete: ${snapshot?.tree?.structureComplete === true ? "yes" : "no"}\nhiddenFiles: ${snapshot?.tree?.hiddenFilesCount ?? "-"}\nscanRunId: ${snapshot?.persistence?.scanRunId || "-"}\nerror: ${snapshot?.error || snapshot?.persistence?.error || "-"}\n\`\`\`\n\n## Raw\n\n\`\`\`json\n${safeJson(snapshot || {}, 6000)}\n\`\`\`\n`;
+}
+
+function buildRepoStateAgentTestReport({ command, result, collectedAt }) {
+  const ai = result?.aiAnalysis || {};
+  const meta = result?.aiMeta || {};
+  const projectMap = result?.projectMap || {};
+  return `# TEST_REPORT\n\nSG full repo state agent result after workspace command execution.\n\n---\n\nTask ID: \`${command.taskId || "manual"}\`\nDeploy ID: \`${command.deployId || "-"}\`\nCommit: \`-\`\nTested at: \`${collectedAt}\`\nTested by: \`SG AgentWorkspaceCommandRunner\`\n\n---\n\n## Test command\n\n\`\`\`text\nRUN_REPO_STATE_AGENT\n\`\`\`\n\n## Result\n\n- \`${result?.ok === true && result?.persisted === true && projectMap ? "REPO_STATE_AGENT_OK" : "REPO_STATE_AGENT_FAILED"}\`\n\n## Technical map\n\n\`\`\`text\nok: ${result?.ok === true ? "yes" : "no"}\npersisted: ${result?.persisted === true ? "yes" : "no"}\nrepo: ${result?.repoFullName || "-"}\nbranch: ${result?.branch || "-"}\nfiles: ${result?.filesCount ?? "-"}\nmodules: ${result?.modulesCount ?? "-"}\ndependencies: ${result?.dependenciesCount ?? "-"}\nprojectMap: ${projectMap ? "yes" : "no"}\nprojectMapModules: ${Array.isArray(projectMap?.modules) ? projectMap.modules.length : "-"}\nprojectMapLinks: ${Array.isArray(projectMap?.moduleLinks) ? projectMap.moduleLinks.length : "-"}\nscanRunId: ${result?.persistence?.scanRunId || "-"}\nerror: ${result?.error || result?.persistence?.error || "-"}\n\`\`\`\n\n## Semantic AI map\n\n\`\`\`text\naiEnabled: ${ai?.enabled === true ? "yes" : "no"}\naiSkipped: ${ai?.skipped === true ? "yes" : "no"}\naiReused: ${ai?.reused === true ? "yes" : "no"}\naiReason: ${ai?.reason || meta?.reason || "-"}\nshouldAnalyze: ${meta?.shouldAnalyze === true ? "yes" : "no"}\nsignatureLength: ${meta?.projectMapSignature ? String(meta.projectMapSignature.length) : "-"}\nhasAnalysis: ${ai?.analysis ? "yes" : "no"}\n\`\`\`\n\n## Raw compact\n\n\`\`\`json\n${safeJson({
+    ok: result?.ok,
+    persisted: result?.persisted,
+    repoFullName: result?.repoFullName,
+    branch: result?.branch,
+    filesCount: result?.filesCount,
+    modulesCount: result?.modulesCount,
+    dependenciesCount: result?.dependenciesCount,
+    scanRunId: result?.persistence?.scanRunId || null,
+    aiAnalysis: result?.aiAnalysis || null,
+    aiMeta: result?.aiMeta || null,
+  }, 6000)}\n\`\`\`\n`;
 }
 
 export class AgentWorkspaceCommandRunner {
@@ -562,6 +581,35 @@ export class AgentWorkspaceCommandRunner {
     };
   }
 
+  async runRepoStateAgent(command) {
+    const service = new RepoStateAgentService();
+    const result = await service.run();
+    const collectedAt = nowIso();
+
+    await this.reportService.writeMarkdown(
+      "TEST_REPORT.md",
+      buildRepoStateAgentTestReport({ command, result, collectedAt }),
+      `write full repo state agent results for ${command.taskId || "manual"}`
+    );
+
+    return {
+      ok: result?.ok === true && result?.persisted === true,
+      taskId: command.taskId || "manual",
+      workflowPoint: command.workflowPoint || "-",
+      repoStateAgent: true,
+      filesCount: result?.filesCount || 0,
+      modulesCount: result?.modulesCount || 0,
+      dependenciesCount: result?.dependenciesCount || 0,
+      persisted: result?.persisted === true,
+      scanRunId: result?.persistence?.scanRunId || null,
+      aiEnabled: result?.aiAnalysis?.enabled === true,
+      aiSkipped: result?.aiAnalysis?.skipped === true,
+      aiReused: result?.aiAnalysis?.reused === true,
+      aiReason: result?.aiAnalysis?.reason || result?.aiMeta?.reason || null,
+      result,
+    };
+  }
+
   async executeCommand(command) {
     const action = String(command.action || "").toUpperCase();
 
@@ -599,6 +647,10 @@ export class AgentWorkspaceCommandRunner {
 
     if (action === "RUN_REPO_STATE_SCAN") {
       return this.runRepoStateScan(command);
+    }
+
+    if (action === "RUN_REPO_STATE_AGENT") {
+      return this.runRepoStateAgent(command);
     }
 
     throw new Error(`agent_workspace_action_not_supported:${action}`);

@@ -2,8 +2,7 @@ import { createRepoStateCollector } from "../../repoStateCollector/RepoStateColl
 import { buildRepoStateProjectMap } from "./RepoStateProjectMapBuilder.js";
 import { analyzeRepoStateProjectMap } from "./RepoStateAgentAiAnalyzer.js";
 import { detectRepoStateAiNeed } from "./RepoStateAgentChangeDetector.js";
-
-let inMemoryAiState = null;
+import { getLatestAiAnalysis, saveAiAnalysis } from "./RepoStateAgentAiRepository.js";
 
 export class RepoStateAgentService {
   constructor() {
@@ -16,9 +15,16 @@ export class RepoStateAgentService {
 
     const projectMap = buildRepoStateProjectMap(result?.snapshot || result);
 
+    const repoFullName = result?.repoFullName || "";
+    const branch = result?.branch || "";
+
+    const previous = await getLatestAiAnalysis(repoFullName, branch);
+
     const changeDecision = detectRepoStateAiNeed({
       projectMap,
-      previousAiState: inMemoryAiState,
+      previousAiState: previous
+        ? { projectMapSignature: previous.project_map_signature }
+        : null,
     });
 
     let aiAnalysis = {
@@ -28,20 +34,26 @@ export class RepoStateAgentService {
     };
 
     if (changeDecision.shouldAnalyze) {
-      aiAnalysis = await analyzeRepoStateProjectMap(projectMap);
+      const aiResult = await analyzeRepoStateProjectMap(projectMap);
 
-      if (aiAnalysis?.enabled && !aiAnalysis?.skipped) {
-        inMemoryAiState = {
+      if (aiResult?.enabled && !aiResult?.skipped) {
+        await saveAiAnalysis({
+          repoFullName,
+          branch,
+          scanRunId: result?.persistence?.scanRunId || null,
           projectMapSignature: changeDecision.projectMapSignature,
-          analysis: aiAnalysis.analysis,
-        };
+          projectMap,
+          analysis: aiResult.analysis,
+        });
+
+        aiAnalysis = aiResult;
       }
-    } else if (inMemoryAiState) {
+    } else if (previous) {
       aiAnalysis = {
         enabled: true,
         skipped: true,
         reused: true,
-        analysis: inMemoryAiState.analysis,
+        analysis: previous.analysis,
       };
     }
 

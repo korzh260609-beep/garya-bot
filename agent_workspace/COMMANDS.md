@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-REPORT-001`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `COLLECT_RENDER_REPORT`
 TASK_ID: `render-deploy-startup-lines-check`
 WORKFLOW_POINT: `repo-state-agent-deploy-startup-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T15:40:00.000Z`
-UPDATED_AT: `2026-04-27T15:40:00.000Z`
+UPDATED_AT: `2026-04-27T15:28:49.996Z`
 
 ---
 
@@ -27,7 +27,7 @@ Collect full Render report for garya-bot after latest deploy. Need startup/deplo
 
 ## Last result
 
-Fresh command created. Workspace reports must be reset by SG runner before execution.
+Started by github_webhook at 2026-04-27T15:28:49.996Z.
 
 ---
 

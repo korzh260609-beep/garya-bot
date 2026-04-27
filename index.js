@@ -26,6 +26,7 @@ import { createDebugRenderLogDiagnosisRoute } from "./src/http/debugRenderLogDia
 import { createRenderLogIngestRoute } from "./src/http/renderLogIngestRoute.js";
 import { createDebugRenderLogIngestTestRoute } from "./src/http/debugRenderLogIngestTestRoute.js";
 import { createAgentWorkspaceWebhookRoute } from "./src/http/agentWorkspaceWebhookRoute.js";
+import { createRepoStateAgentRoute } from "./src/http/repoStateAgentRoute.js";
 import { initSystem } from "./src/bootstrap/initSystem.js";
 
 import { getSystemHealth } from "./core/helpers.js";
@@ -82,6 +83,7 @@ app.use(createDebugRenderLogDiagnosisRoute());
 app.use(createRenderLogIngestRoute());
 app.use(createDebugRenderLogIngestTestRoute());
 app.use(createAgentWorkspaceWebhookRoute());
+app.use(createRepoStateAgentRoute());
 
 // ============================================================================
 // START SERVER

@@ -28,7 +28,7 @@ export function getRepoStateConfig() {
     readContent: envBool("REPO_STATE_READ_CONTENT", true),
     maxFileSize: envInt("REPO_STATE_MAX_FILE_SIZE", 200_000),
     maxContentFiles: envInt("REPO_STATE_MAX_CONTENT_FILES", 500),
-    includePatterns: [""],
+    includePatterns: [],
     excludePatterns: ["node_modules", ".git", "dist", "build", ".cache"],
     contentExtensions: [".js", ".mjs", ".cjs", ".json", ".md", ".sql", ".yml", ".yaml"],
   };

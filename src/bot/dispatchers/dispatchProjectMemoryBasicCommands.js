@@ -14,6 +14,7 @@ import { handlePmShowDiag } from "../handlers/pmShowDiag.js";
 import { handlePmControlledWriteDiag } from "../handlers/pmControlledWriteDiag.js";
 import { handlePmContextDiag } from "../handlers/pmContextDiag.js";
 import { handlePmShadowContextDiag } from "../handlers/pmShadowContextDiag.js";
+import { handlePmShadowRestoreControlledDiag } from "../handlers/pmShadowRestoreControlledDiag.js";
 import { handlePmReadSurfaceDiag } from "../handlers/pmReadSurfaceDiag.js";
 import { handlePmFindDiag } from "../handlers/pmFindDiag.js";
 import { handlePmList } from "../handlers/pmList.js";
@@ -124,6 +125,60 @@ export async function dispatchProjectMemoryBasicCommands({
         buildProjectMemoryContext,
         buildProjectMemoryDigest,
         listConfirmedProjectMemoryEntries: ctx.listConfirmedProjectMemoryEntries,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_shadow_restore_controlled_diag": {
+      const buildProjectMemoryContext =
+        typeof ctx.buildProjectMemoryContext === "function"
+          ? ctx.buildProjectMemoryContext
+          : ctx.buildConfirmedProjectMemoryContext;
+
+      const buildProjectMemoryDigest =
+        typeof ctx.buildProjectMemoryDigest === "function"
+          ? ctx.buildProjectMemoryDigest
+          : ctx.buildConfirmedProjectMemoryDigest;
+
+      if (typeof ctx.writeConfirmedProjectMemory !== "function") {
+        await reply("⛔ writeConfirmedProjectMemory недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      if (typeof ctx.listConfirmedProjectMemoryEntries !== "function") {
+        await reply("⛔ listConfirmedProjectMemoryEntries недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      if (typeof buildProjectMemoryContext !== "function") {
+        await reply("⛔ buildProjectMemoryContext недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      if (typeof buildProjectMemoryDigest !== "function") {
+        await reply("⛔ buildProjectMemoryDigest недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      await handlePmShadowRestoreControlledDiag({
+        bot,
+        chatId,
+        chatIdStr,
+        transport: ctx.transport,
+        bypass: !!ctx.bypass,
+        writeConfirmedProjectMemory: ctx.writeConfirmedProjectMemory,
+        listConfirmedProjectMemoryEntries: ctx.listConfirmedProjectMemoryEntries,
+        buildProjectMemoryContext,
+        buildProjectMemoryDigest,
       });
 
       return { handled: true };

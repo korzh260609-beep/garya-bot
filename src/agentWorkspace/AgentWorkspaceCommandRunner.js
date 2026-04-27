@@ -231,6 +231,56 @@ export class AgentWorkspaceCommandRunner {
     return writes;
   }
 
+  async ensureDiagnosticBootstrapReady(command) {
+    const action = String(command?.action || "").toUpperCase();
+
+    if (action !== "RUN_DIAGNOSTIC_COMMANDS") {
+      return {
+        ok: true,
+        skipped: true,
+        reason: "not_diagnostic_test_action",
+      };
+    }
+
+    const snapshot = await buildAgentWorkspaceBootstrapSnapshot({ config: this.config });
+
+    if (snapshot?.ok === true) {
+      return {
+        ok: true,
+        skipped: false,
+        snapshot,
+      };
+    }
+
+    const failedFiles = Array.isArray(snapshot?.files)
+      ? snapshot.files.filter((item) => !item.ok).map((item) => item.path).join(", ")
+      : "-";
+    const warnings = Array.isArray(snapshot?.warnings) && snapshot.warnings.length
+      ? snapshot.warnings.join(", ")
+      : "-";
+
+    return {
+      ok: false,
+      skipped: false,
+      snapshot,
+      resultText: [
+        "AgentWorkspace diagnostic bootstrap safety gate failed.",
+        "Action blocked before diagnostics/tests execution.",
+        `readOnly: ${snapshot?.readOnly ? "yes" : "no"}`,
+        `dbWrites: ${snapshot?.dbWrites ? "yes" : "no"}`,
+        `aiCalls: ${snapshot?.aiCalls ? "yes" : "no"}`,
+        `touchesPillars: ${snapshot?.touchesPillars ? "yes" : "no"}`,
+        `runtimePromptChanged: ${snapshot?.runtimePromptChanged ? "yes" : "no"}`,
+        `filesExpected: ${snapshot?.filesExpected ?? "-"}`,
+        `filesOk: ${snapshot?.filesOk ?? "-"}`,
+        `filesFailed: ${snapshot?.filesFailed ?? "-"}`,
+        `failedFiles: ${failedFiles || "-"}`,
+        `warnings: ${warnings}`,
+        "Result: FAILED",
+      ].join("\n"),
+    };
+  }
+
   async ensureGlobalRenderServiceSelected() {
     const current = await renderBridgeStateStore.getState("global");
     if (current?.selected_service_id) {
@@ -530,6 +580,18 @@ export class AgentWorkspaceCommandRunner {
           commandId,
           action,
           reason: "action_not_allowed",
+        };
+      }
+
+      const bootstrapGate = await this.ensureDiagnosticBootstrapReady(command);
+      if (!bootstrapGate.ok) {
+        await this.markCommand(command, "FAILED", bootstrapGate.resultText || "AgentWorkspace diagnostic bootstrap safety gate failed.");
+        return {
+          ok: false,
+          commandId,
+          action,
+          reason: "diagnostic_bootstrap_safety_gate_failed",
+          bootstrapGate,
         };
       }
 

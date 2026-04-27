@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-STATUS-004`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `COLLECT_RENDER_STATUS`
 TASK_ID: `render-status-after-marker-deploy-check`
 WORKFLOW_POINT: `repo-state-agent-runtime-handler-after-marker-deploy`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `-`
 CREATED_AT: `-`
-UPDATED_AT: `2026-04-27T16:36:21.066Z`
+UPDATED_AT: `2026-04-27T16:36:50.564Z`
 
 ---
 
@@ -27,7 +27,18 @@ status
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T16:36:21.066Z.
+Action completed: COLLECT_RENDER_STATUS
+Task ID: render-status-after-marker-deploy-check
+Workflow point: repo-state-agent-runtime-handler-after-marker-deploy
+Deploy ID: -
+Commit: 16f041dc548cb90c3d491b7fce5d1b50f71bffe4
+Required commit: -
+Runtime commit: 16f041dc548cb90c3d491b7fce5d1b50f71bffe4
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

@@ -4,7 +4,7 @@
 // PostgreSQL storage for AI analysis
 // ============================================================================
 
-import { pool } from "../../db/db.js";
+import pool from "../../../db.js";
 
 export async function getLatestAiAnalysis(repoFullName, branch) {
   const { rows } = await pool.query(

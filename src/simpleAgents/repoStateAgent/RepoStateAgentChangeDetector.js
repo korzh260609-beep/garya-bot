@@ -23,15 +23,26 @@ function stableStringify(value) {
   return JSON.stringify(sortDeep(value || {}));
 }
 
+function isAgentWorkspaceMarkdownFile(item = {}) {
+  const path = String(item?.path || "");
+  return path.startsWith("agent_workspace/") && path.endsWith(".md");
+}
+
+function stableFiles(files) {
+  return Array.isArray(files)
+    ? files.filter((item) => !isAgentWorkspaceMarkdownFile(item))
+    : [];
+}
+
 function buildMapSignature(projectMap = {}) {
   return stableStringify({
     schemaVersion: projectMap.schemaVersion,
     totals: projectMap.totals,
     modules: projectMap.modules,
     moduleLinks: projectMap.moduleLinks,
-    entrypoints: projectMap.entrypoints,
-    criticalFiles: projectMap.criticalFiles,
-    commandLikeFiles: projectMap.commandLikeFiles,
+    entrypoints: stableFiles(projectMap.entrypoints),
+    criticalFiles: stableFiles(projectMap.criticalFiles),
+    commandLikeFiles: stableFiles(projectMap.commandLikeFiles),
   });
 }
 

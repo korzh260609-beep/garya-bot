@@ -6,39 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PROJECT-MEMORY-7A-PM-SESSION-CONTROLLED-DIAG-001`
-STATUS: `DONE`
+COMMAND_ID: `PROJECT-MEMORY-7A-PM-CONTEXT-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `project-memory-7a-pm-session-controlled-diagnostic`
-WORKFLOW_POINT: `project-memory-core-pm-session-controlled-update-check`
+TASK_ID: `project-memory-7a-pm-context-diagnostic`
+WORKFLOW_POINT: `project-memory-core-context-restore-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `5350039139a41f71b3013030ed024e373d5626e1`
+REQUIRES_COMMIT: `b2c3435e573d3343109f4ccda19d1da03d1e239c`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T02:40:40.574Z`
+UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ---
 
 ## Payload
 
-/pm_session_controlled_diag
+/pm_context_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: project-memory-7a-pm-session-controlled-diagnostic
-Workflow point: project-memory-core-pm-session-controlled-update-check
-Deploy ID: -
-Commit: 5350039139a41f71b3013030ed024e373d5626e1
-Required commit: 5350039139a41f71b3013030ed024e373d5626e1
-Runtime commit: 5350039139a41f71b3013030ed024e373d5626e1
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Prepared after deploy. Read-only diagnostic for Project Memory context and digest builders.
 
 ---
 
@@ -70,4 +59,4 @@ Diagnostics failed: 0
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
 - SG updates only allowlisted files in `agent_workspace/`.
-- If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.
+- If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit includes it in deployed code history.

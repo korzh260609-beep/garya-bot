@@ -4,8 +4,8 @@ Reset before current command run.
 
 ---
 
-Task ID: `render-logs-after-project-map-hash-migration`
-Updated at: `2026-04-27T18:00:34.627Z`
+Task ID: `repo-state-agent-after-hash-migration-check-6`
+Updated at: `2026-04-27T18:03:57.669Z`
 Reason: `reset_before_command_run`
 
 ---

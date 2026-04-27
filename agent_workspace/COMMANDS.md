@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PROJECT-MEMORY-7A-PM-SHADOW-CONTEXT-DIAG-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `project-memory-7a-shadow-restore-diagnostic`
 WORKFLOW_POINT: `project-memory-core-shadow-context-restore-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `602536f7cb6c7e86c80957bacf33dc666c876734`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T03:01:58.335Z`
+UPDATED_AT: `2026-04-27T03:02:09.390Z`
 
 ---
 
@@ -27,7 +27,18 @@ UPDATED_AT: `2026-04-27T03:01:58.335Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T03:01:58.335Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: project-memory-7a-shadow-restore-diagnostic
+Workflow point: project-memory-core-shadow-context-restore-check
+Deploy ID: -
+Commit: ef12b104575ef2d95ca0797c3b1347855b503d41
+Required commit: 602536f7cb6c7e86c80957bacf33dc666c876734
+Runtime commit: ef12b104575ef2d95ca0797c3b1347855b503d41
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 1
+Diagnostics failed: 0
 
 ---
 

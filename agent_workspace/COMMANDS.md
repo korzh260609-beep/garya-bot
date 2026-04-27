@@ -6,39 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `PROJECT-MEMORY-7A-PM-FIND-DIAG-001`
-STATUS: `DONE`
+COMMAND_ID: `PROJECT-MEMORY-7A-PM-SESSIONS-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `project-memory-7a-pm-find-runtime-diagnostic`
-WORKFLOW_POINT: `project-memory-core-pm-find-readonly-check`
+TASK_ID: `project-memory-7a-pm-sessions-read-diagnostic`
+WORKFLOW_POINT: `project-memory-core-pm-sessions-readonly-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `60ad2a30b2df7e96340055d483dd998b27b62391`
+REQUIRES_COMMIT: `cb5a4f7f9551a03c22b1b2776d5da6d2c5015327`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T02:23:17.645Z`
+CREATED_AT: `2026-04-27T00:00:00.000Z`
+UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ---
 
 ## Payload
 
-/pm_find_diag Runtime
+/pm_sessions_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: project-memory-7a-pm-find-runtime-diagnostic
-Workflow point: project-memory-core-pm-find-readonly-check
-Deploy ID: -
-Commit: 5602534fbc137efc2b0d7d1cce011077bb91d8e7
-Required commit: 60ad2a30b2df7e96340055d483dd998b27b62391
-Runtime commit: 5602534fbc137efc2b0d7d1cce011077bb91d8e7
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Prepared after deploy. Guarded by REQUIRES_COMMIT ancestry check.
 
 ---
 
@@ -70,4 +59,4 @@ Diagnostics failed: 0
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
 - SG updates only allowlisted files in `agent_workspace/`.
-- If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.
+- If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit includes it in deployed code history.

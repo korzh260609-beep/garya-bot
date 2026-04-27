@@ -26,6 +26,9 @@ export function getRepoStateAgentConfig() {
     webhookReady: Boolean(webhookToken || githubWebhookSecret),
     githubWebhookSecret,
     requireGithubSignature: envBool("REPO_STATE_AGENT_REQUIRE_GITHUB_SIGNATURE", true),
+
+    // AI layer
+    aiEnabled: envBool("REPO_STATE_AGENT_AI_ENABLED", false),
   };
 }
 

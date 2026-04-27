@@ -1,5 +1,6 @@
 import { createRepoStateCollector } from "../../repoStateCollector/RepoStateCollectorFactory.js";
 import { buildRepoStateProjectMap } from "./RepoStateProjectMapBuilder.js";
+import { analyzeRepoStateProjectMap } from "./RepoStateAgentAiAnalyzer.js";
 
 export class RepoStateAgentService {
   constructor() {
@@ -10,12 +11,14 @@ export class RepoStateAgentService {
   async run() {
     const result = await this.collector.runScan();
 
-    // Build agent-readable project map
     const projectMap = buildRepoStateProjectMap(result?.snapshot || result);
+
+    const aiAnalysis = await analyzeRepoStateProjectMap(projectMap);
 
     return {
       ...result,
       projectMap,
+      aiAnalysis,
     };
   }
 }

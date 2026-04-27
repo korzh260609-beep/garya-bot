@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-BOOTSTRAP-DIAG-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `agentworkspace-bootstrap-reader`
 WORKFLOW_POINT: `agentworkspace-bootstrap-read-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `ab4ebdca34ea18368c87a0f9e07607bf1fd3f22d`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T05:15:49.123Z`
+UPDATED_AT: `2026-04-27T05:16:00.820Z`
 
 ---
 
@@ -27,7 +27,18 @@ UPDATED_AT: `2026-04-27T05:15:49.123Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T05:15:49.123Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: agentworkspace-bootstrap-reader
+Workflow point: agentworkspace-bootstrap-read-check
+Deploy ID: -
+Commit: ab4ebdca34ea18368c87a0f9e07607bf1fd3f22d
+Required commit: ab4ebdca34ea18368c87a0f9e07607bf1fd3f22d
+Runtime commit: ab4ebdca34ea18368c87a0f9e07607bf1fd3f22d
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 1
+Diagnostics failed: 0
 
 ---
 

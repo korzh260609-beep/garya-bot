@@ -6,44 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-CHAOS-GATE-DIAG-001`
-STATUS: `FAILED`
+COMMAND_ID: `AGENTWORKSPACE-REPO-STATE-SCAN-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `agentworkspace-chaos-gate-check`
-WORKFLOW_POINT: `agentworkspace-chaos-gate-v1-check`
+TASK_ID: `repo-state-scan-runtime-check`
+WORKFLOW_POINT: `repo-state-scan-command-runtime-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `a973093eeb6e15701b67e5a821653065c38ae47a`
+REQUIRES_COMMIT: `77181f830ef9b57b06c44c13918448132a71e577`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T06:21:44.735Z`
+UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ---
 
 ## Payload
 
-/agent_bootstrap_chaos_gate_diag
+/repo_state_scan
 
 ---
 
 ## Last result
 
-AgentWorkspace diagnostic bootstrap chaos gate blocked execution as expected.
-Action blocked before diagnostics/tests execution.
-readOnly: yes
-dbWrites: no
-aiCalls: no
-touchesPillars: no
-runtimePromptChanged: no
-chaosMode: yes
-controlledSimulation: yes
-scenario: missing_file
-simulatedFailure: required_bootstrap_file_missing
-filesExpected: 5
-filesOk: 4
-filesFailed: 1
-failedFiles: AGENTS.md
-warnings: chaos_simulated_required_bootstrap_file_missing
-Result: FAILED
+Pending repo state scan runtime check.
 
 ---
 

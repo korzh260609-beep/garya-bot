@@ -76,7 +76,8 @@ function firstNonEmpty(...values) {
     if (s) return s;
   }
   return "";
-}\n
+}
+
 function extractOwnerId(item) {
   const base = unwrapEntity(item, ["service", "resource", "item", "data", "result"]);
   return firstNonEmpty(

@@ -59,7 +59,12 @@ console.log("🧩 JobRunner initialized (singleton).");
 // ============================================================================
 const app = createApp();
 
-app.use(express.json({ limit: "256kb" }));
+app.use(express.json({
+  limit: "256kb",
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 
 const bot = initTelegramTransport(app);
 

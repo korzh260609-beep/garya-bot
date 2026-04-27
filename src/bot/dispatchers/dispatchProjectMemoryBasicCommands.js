@@ -13,6 +13,7 @@ import { handlePmShow } from "../handlers/pmShow.js";
 import { handlePmShowDiag } from "../handlers/pmShowDiag.js";
 import { handlePmControlledWriteDiag } from "../handlers/pmControlledWriteDiag.js";
 import { handlePmContextDiag } from "../handlers/pmContextDiag.js";
+import { handlePmShadowContextDiag } from "../handlers/pmShadowContextDiag.js";
 import { handlePmReadSurfaceDiag } from "../handlers/pmReadSurfaceDiag.js";
 import { handlePmFindDiag } from "../handlers/pmFindDiag.js";
 import { handlePmList } from "../handlers/pmList.js";
@@ -80,6 +81,49 @@ export async function dispatchProjectMemoryBasicCommands({
         chatId,
         buildProjectMemoryContext: ctx.buildProjectMemoryContext,
         buildProjectMemoryDigest: ctx.buildProjectMemoryDigest,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_shadow_context_diag": {
+      const buildProjectMemoryContext =
+        typeof ctx.buildProjectMemoryContext === "function"
+          ? ctx.buildProjectMemoryContext
+          : ctx.buildConfirmedProjectMemoryContext;
+
+      const buildProjectMemoryDigest =
+        typeof ctx.buildProjectMemoryDigest === "function"
+          ? ctx.buildProjectMemoryDigest
+          : ctx.buildConfirmedProjectMemoryDigest;
+
+      if (typeof buildProjectMemoryContext !== "function") {
+        await reply("⛔ buildProjectMemoryContext недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      if (typeof buildProjectMemoryDigest !== "function") {
+        await reply("⛔ buildProjectMemoryDigest недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      if (typeof ctx.listConfirmedProjectMemoryEntries !== "function") {
+        await reply("⛔ listConfirmedProjectMemoryEntries недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      await handlePmShadowContextDiag({
+        bot,
+        chatId,
+        buildProjectMemoryContext,
+        buildProjectMemoryDigest,
+        listConfirmedProjectMemoryEntries: ctx.listConfirmedProjectMemoryEntries,
       });
 
       return { handled: true };

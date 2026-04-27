@@ -8,6 +8,7 @@ import { handlePmCapabilitiesDiag } from "../bot/handlers/pmCapabilitiesDiag.js"
 import { handlePmWiringDiag } from "../bot/handlers/pmWiringDiag.js";
 import { handlePmShowDiag } from "../bot/handlers/pmShowDiag.js";
 import { handlePmControlledWriteDiag } from "../bot/handlers/pmControlledWriteDiag.js";
+import { handlePmContextDiag } from "../bot/handlers/pmContextDiag.js";
 import { handlePmReadSurfaceDiag } from "../bot/handlers/pmReadSurfaceDiag.js";
 import { handlePmFindDiag } from "../bot/handlers/pmFindDiag.js";
 import { handlePmSessionControlledDiag } from "../bot/handlers/pmSessionControlledDiag.js";
@@ -20,6 +21,8 @@ import { handleMemoryTopicDigestDiag } from "../bot/handlers/memoryTopicDigestDi
 import { handleMemoryRestoreBeforeAnswerDiag } from "../bot/handlers/memoryRestoreBeforeAnswerDiag.js";
 import { dispatchMemoryDiagnosticsCommands } from "../bot/dispatchers/dispatchMemoryDiagnosticsCommands.js";
 import {
+  buildProjectMemoryContext,
+  buildProjectMemoryDigest,
   getProjectSection,
   getProjectMemoryList,
   upsertProjectSection,
@@ -64,6 +67,8 @@ function buildFakeProjectMemoryCtx({ fakeChatId } = {}) {
     isPrivateChat: true,
     bypass: true,
     isMonarchUser: true,
+    buildProjectMemoryContext,
+    buildProjectMemoryDigest,
     getProjectSection,
     upsertProjectSection,
     getProjectMemoryList,
@@ -179,6 +184,38 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
         command: cmd0,
         ok: validationOk,
         handler: "handlePmShowDiag",
+        data: {
+          validationOk,
+          diag: result?.diag || null,
+        },
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/pm_context_diag") {
+      const result = await handlePmContextDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        buildProjectMemoryContext,
+        buildProjectMemoryDigest,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+      const validationOk =
+        result?.ok === true &&
+        outputText.includes("readOnly: yes") &&
+        outputText.includes("dbWrites: no") &&
+        outputText.includes("buildProjectMemoryContext: OK") &&
+        outputText.includes("buildProjectMemoryDigest: OK") &&
+        outputText.includes("contextOk: yes") &&
+        outputText.includes("digestOk: yes") &&
+        outputText.includes("Result: OK");
+
+      return {
+        command: cmd0,
+        ok: validationOk,
+        handler: "handlePmContextDiag",
         data: {
           validationOk,
           diag: result?.diag || null,

@@ -12,7 +12,7 @@ import {
   getAgentWorkspaceDiag,
   isAgentWorkspaceReadOnlyDiagnosticCommand,
 } from "./AgentWorkspaceConfig.js";
-import { buildAgentWorkspaceBootstrapSnapshot } from "./AgentWorkspaceBootstrapReader.js";
+import { buildAgentWorkspaceBootstrapSnapshot, buildAgentWorkspaceBootstrapChaosSnapshot } from "./AgentWorkspaceBootstrapReader.js";
 import {
   parseAgentWorkspaceCommand,
   buildAgentWorkspaceCommandMarkdown,
@@ -336,6 +336,37 @@ export class AgentWorkspaceCommandRunner {
 
       if (commandName === "/agent_workspace_diag") {
         return { command: commandName, ok: true, data: getAgentWorkspaceDiag() };
+      }
+
+      if (commandName === "/agent_bootstrap_chaos_pillars_diag") {
+        const data = await buildAgentWorkspaceBootstrapChaosSnapshot({ scenario: "pillars_fail", config: this.config });
+        return {
+          command: commandName,
+          ok: data?.ok === true,
+          data,
+          outputText: [
+            "🧪 AgentWorkspace bootstrap chaos diag",
+            "",
+            `scenario: ${data?.scenario}`,
+            "controlledSimulation: yes",
+            "",
+            `realReadOnly: ${data?.realReadOnly ? "yes" : "no"}`,
+            `realDbWrites: ${data?.realDbWrites ? "yes" : "no"}`,
+            `realAiCalls: ${data?.realAiCalls ? "yes" : "no"}`,
+            `realTouchesPillars: ${data?.realTouchesPillars ? "yes" : "no"}`,
+            `realRuntimePromptChanged: ${data?.realRuntimePromptChanged ? "yes" : "no"}`,
+            "",
+            `simulatedTouchesPillars: ${data?.simulatedTouchesPillars ? "yes" : "no"}`,
+            `simulatedResult: ${data?.simulatedResult}`,
+            "",
+            "Expected gate behavior:",
+            data?.expectedGateBehavior || "-",
+            "",
+            `warnings: ${Array.isArray(data?.warnings) && data.warnings.length ? data.warnings.join(", ") : "-"}`,
+            "",
+            `Result: ${data?.ok === true ? "OK" : "FAILED"}`,
+          ].join("\n"),
+        };
       }
 
       if (commandName === "/agent_bootstrap_diag" || commandName === "/agent_bootstrap_strict_diag") {

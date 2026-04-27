@@ -76,8 +76,7 @@ function firstNonEmpty(...values) {
     if (s) return s;
   }
   return "";
-}
-
+}\n
 function extractOwnerId(item) {
   const base = unwrapEntity(item, ["service", "resource", "item", "data", "result"]);
   return firstNonEmpty(
@@ -319,7 +318,7 @@ export function filterLogsForService(logs, serviceId) {
 
 export function filterLogsByLevel(logs, level = "error") {
   const normalizedLevel = normalizeString(level).toLowerCase();
-  if (!normalizedLevel) return logs;
+  if (!normalizedLevel || normalizedLevel === "all" || normalizedLevel === "*") return logs;
 
   const strictLevelMatched = logs.filter((item) => {
     const lvl = normalizeString(item.level).toLowerCase();

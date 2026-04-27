@@ -6,39 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-REPO-STATE-SCAN-DIAG-001`
-STATUS: `FAILED`
-ACTION: `RUN_DIAGNOSTIC_COMMANDS`
+COMMAND_ID: `AGENTWORKSPACE-REPO-STATE-SCAN-001`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_SCAN`
 TASK_ID: `repo-state-scan-runtime-check`
 WORKFLOW_POINT: `repo-state-scan-command-runtime-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `77181f830ef9b57b06c44c13918448132a71e577`
+REQUIRES_COMMIT: `1cf4a28a392513fb1d88b29db4966bc55d400942`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T13:13:45.649Z`
+UPDATED_AT: `2026-04-27T13:30:00.000Z`
 
 ---
 
 ## Payload
 
-/repo_state_scan
+-
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: repo-state-scan-runtime-check
-Workflow point: repo-state-scan-command-runtime-check
-Deploy ID: -
-Commit: 77181f830ef9b57b06c44c13918448132a71e577
-Required commit: 77181f830ef9b57b06c44c13918448132a71e577
-Runtime commit: 77181f830ef9b57b06c44c13918448132a71e577
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 0
-Diagnostics failed: 1
+Queued repo state scan via explicit AgentWorkspace action.
 
 ---
 
@@ -62,6 +51,7 @@ Diagnostics failed: 1
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
+- `RUN_REPO_STATE_SCAN`
 
 ## Hard limits
 

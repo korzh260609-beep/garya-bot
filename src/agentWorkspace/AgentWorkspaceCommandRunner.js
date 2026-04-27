@@ -359,6 +359,26 @@ export class AgentWorkspaceCommandRunner {
         };
       }
 
+      if (commandName === "/agent_bootstrap_chaos_github_diag") {
+        const data = await buildAgentWorkspaceBootstrapChaosSnapshot({ scenario: "github_fail", config: this.config });
+        return {
+          command: commandName,
+          ok: data?.ok === true,
+          data,
+          outputText: buildAgentWorkspaceChaosDiagOutput({ data }),
+        };
+      }
+
+      if (commandName === "/agent_bootstrap_chaos_missing_diag") {
+        const data = await buildAgentWorkspaceBootstrapChaosSnapshot({ scenario: "missing_file", config: this.config });
+        return {
+          command: commandName,
+          ok: data?.ok === true,
+          data,
+          outputText: buildAgentWorkspaceChaosDiagOutput({ data }),
+        };
+      }
+
       if (commandName === "/agent_bootstrap_chaos_gate_diag") {
         const data = await buildAgentWorkspaceBootstrapChaosSnapshot({ scenario: "missing_file", config: this.config });
         return {

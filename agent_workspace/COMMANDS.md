@@ -1,13 +1,13 @@
 # COMMANDS
 
-COMMAND_ID: `AGENTWORKSPACE-DEPLOY-MARKER-REPO-STATE-AGENT-001`
-STATUS: `WAITING_DEPLOY`
+COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-STATUS-004`
+STATUS: `PENDING`
 ACTION: `COLLECT_RENDER_STATUS`
-TASK_ID: `deploy-marker-repo-state-agent-handler`
-WORKFLOW_POINT: `repo-state-agent-runtime-handler-deploy-marker`
+TASK_ID: `render-status-after-marker-deploy-check`
+WORKFLOW_POINT: `repo-state-agent-runtime-handler-after-marker-deploy`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 
 ## Payload
 
-Deploy marker only. Manual Render deploy should use this latest main commit. After deploy, replace with PENDING COLLECT_RENDER_STATUS.
+status

@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-LOGS-006`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `render-logs-after-project-map-hash-migration`
 WORKFLOW_POINT: `repo-state-agent-hash-migration-log-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `ae8eab1ac2c7fae1da15a88afbcf3e5f9163f0f0`
 CREATED_BY: `-`
 CREATED_AT: `-`
-UPDATED_AT: `2026-04-27T18:00:31.461Z`
+UPDATED_AT: `2026-04-27T18:00:46.040Z`
 
 ---
 
@@ -27,7 +27,18 @@ target=latest_deploy level=all limit=120 minutes=60
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T18:00:31.461Z.
+Action completed: COLLECT_RENDER_LOGS
+Task ID: render-logs-after-project-map-hash-migration
+Workflow point: repo-state-agent-hash-migration-log-check
+Deploy ID: -
+Commit: ae8eab1ac2c7fae1da15a88afbcf3e5f9163f0f0
+Required commit: ae8eab1ac2c7fae1da15a88afbcf3e5f9163f0f0
+Runtime commit: ae8eab1ac2c7fae1da15a88afbcf3e5f9163f0f0
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

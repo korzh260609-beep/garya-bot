@@ -23,23 +23,74 @@ function stableStringify(value) {
   return JSON.stringify(sortDeep(value || {}));
 }
 
-function isAgentWorkspaceMarkdownFile(item = {}) {
-  const path = String(item?.path || "");
-  return path.startsWith("agent_workspace/") && path.endsWith(".md");
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isAgentLayerPath(path) {
+  const normalized = normalizeString(path);
+
+  return normalized.startsWith("agent_workspace/") ||
+    normalized.startsWith("src/agentWorkspace/") ||
+    normalized.startsWith("src/simpleAgents/");
+}
+
+function getItemPath(item = {}) {
+  return normalizeString(item?.path || item?.filePath || item?.sourcePath || "");
+}
+
+function getModuleKey(item = {}) {
+  return normalizeString(item?.moduleKey || item?.key || item?.name || item?.id || "");
+}
+
+function isAgentLayerItem(item = {}) {
+  const path = getItemPath(item);
+  const moduleKey = getModuleKey(item);
+
+  return isAgentLayerPath(path) ||
+    moduleKey === "agent_workspace" ||
+    moduleKey === "src/agentWorkspace" ||
+    moduleKey === "src/simpleAgents" ||
+    moduleKey.startsWith("src/simpleAgents/");
 }
 
 function stableFiles(files) {
   return Array.isArray(files)
-    ? files.filter((item) => !isAgentWorkspaceMarkdownFile(item))
+    ? files.filter((item) => !isAgentLayerItem(item))
+    : [];
+}
+
+function stableModules(modules) {
+  return Array.isArray(modules)
+    ? modules.filter((item) => !isAgentLayerItem(item))
+    : [];
+}
+
+function stableModuleLinks(moduleLinks) {
+  return Array.isArray(moduleLinks)
+    ? moduleLinks.filter((link) => {
+        const from = normalizeString(link?.from || link?.fromModule || link?.source || "");
+        const to = normalizeString(link?.to || link?.toModule || link?.target || "");
+
+        return !isAgentLayerPath(from) &&
+          !isAgentLayerPath(to) &&
+          from !== "agent_workspace" &&
+          to !== "agent_workspace" &&
+          from !== "src/agentWorkspace" &&
+          to !== "src/agentWorkspace" &&
+          from !== "src/simpleAgents" &&
+          to !== "src/simpleAgents" &&
+          !from.startsWith("src/simpleAgents/") &&
+          !to.startsWith("src/simpleAgents/");
+      })
     : [];
 }
 
 function buildMapSignature(projectMap = {}) {
   return stableStringify({
     schemaVersion: projectMap.schemaVersion,
-    totals: projectMap.totals,
-    modules: projectMap.modules,
-    moduleLinks: projectMap.moduleLinks,
+    modules: stableModules(projectMap.modules),
+    moduleLinks: stableModuleLinks(projectMap.moduleLinks),
     entrypoints: stableFiles(projectMap.entrypoints),
     criticalFiles: stableFiles(projectMap.criticalFiles),
     commandLikeFiles: stableFiles(projectMap.commandLikeFiles),

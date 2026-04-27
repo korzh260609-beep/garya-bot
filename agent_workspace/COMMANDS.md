@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-005`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-agent-hash-fix-check-5`
 WORKFLOW_POINT: `repo-state-agent-project-map-hash-state-check-5`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `299bfba73165dfb32020cc36145784da2f64170e`
 CREATED_BY: `-`
 CREATED_AT: `-`
-UPDATED_AT: `2026-04-27T17:37:42.262Z`
+UPDATED_AT: `2026-04-27T17:39:28.132Z`
 
 ---
 
@@ -27,7 +27,7 @@ run
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T17:37:42.262Z.
+Runner failed: column "project_map_hash" of relation "repo_state_project_map_state" does not exist
 
 ---
 

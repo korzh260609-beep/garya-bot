@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-AUTO-CHAOS-DIAG-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `agentworkspace-auto-chaos-suite`
 WORKFLOW_POINT: `agentworkspace-auto-chaos-v1-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `a973093eeb6e15701b67e5a821653065c38ae47a`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T06:18:54.125Z`
+UPDATED_AT: `2026-04-27T06:19:09.062Z`
 
 ---
 
@@ -31,7 +31,18 @@ UPDATED_AT: `2026-04-27T06:18:54.125Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T06:18:54.125Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: agentworkspace-auto-chaos-suite
+Workflow point: agentworkspace-auto-chaos-v1-check
+Deploy ID: -
+Commit: a973093eeb6e15701b67e5a821653065c38ae47a
+Required commit: a973093eeb6e15701b67e5a821653065c38ae47a
+Runtime commit: a973093eeb6e15701b67e5a821653065c38ae47a
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 5
+Diagnostics OK: 5
+Diagnostics failed: 0
 
 ---
 

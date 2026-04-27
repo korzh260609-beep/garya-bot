@@ -9,6 +9,7 @@ import { handlePmWiringDiag } from "../bot/handlers/pmWiringDiag.js";
 import { handlePmShowDiag } from "../bot/handlers/pmShowDiag.js";
 import { handlePmControlledWriteDiag } from "../bot/handlers/pmControlledWriteDiag.js";
 import { handlePmContextDiag } from "../bot/handlers/pmContextDiag.js";
+import { handlePmShadowContextDiag } from "../bot/handlers/pmShadowContextDiag.js";
 import { handlePmReadSurfaceDiag } from "../bot/handlers/pmReadSurfaceDiag.js";
 import { handlePmFindDiag } from "../bot/handlers/pmFindDiag.js";
 import { handlePmSessionControlledDiag } from "../bot/handlers/pmSessionControlledDiag.js";
@@ -216,6 +217,45 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
         command: cmd0,
         ok: validationOk,
         handler: "handlePmContextDiag",
+        data: {
+          validationOk,
+          diag: result?.diag || null,
+        },
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/pm_shadow_context_diag") {
+      const result = await handlePmShadowContextDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        buildProjectMemoryContext,
+        buildProjectMemoryDigest,
+        listConfirmedProjectMemoryEntries,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+      const validationOk =
+        result?.ok === true &&
+        outputText.includes("readOnly: yes") &&
+        outputText.includes("dbWrites: no") &&
+        outputText.includes("aiCalls: no") &&
+        outputText.includes("shadowMode: yes") &&
+        outputText.includes("runtimePromptChanged: no") &&
+        outputText.includes("buildProjectMemoryContext: OK") &&
+        outputText.includes("buildProjectMemoryDigest: OK") &&
+        outputText.includes("listConfirmedProjectMemoryEntries: OK") &&
+        outputText.includes("contextOk: yes") &&
+        outputText.includes("digestOk: yes") &&
+        outputText.includes("confirmedReaderOk: yes") &&
+        outputText.includes("confirmedVsChatSeparated: yes") &&
+        outputText.includes("Result: OK");
+
+      return {
+        command: cmd0,
+        ok: validationOk,
+        handler: "handlePmShadowContextDiag",
         data: {
           validationOk,
           diag: result?.diag || null,

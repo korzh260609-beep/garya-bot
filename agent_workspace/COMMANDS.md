@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-CHAOS-GATE-DIAG-001`
-STATUS: `PENDING`
+STATUS: `FAILED`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `agentworkspace-chaos-gate-check`
 WORKFLOW_POINT: `agentworkspace-chaos-gate-v1-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `a973093eeb6e15701b67e5a821653065c38ae47a`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T00:00:00.000Z`
+UPDATED_AT: `2026-04-27T06:21:44.735Z`
 
 ---
 
@@ -27,7 +27,23 @@ UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ## Last result
 
-Pending chaos gate diagnostic test. Expected final status: FAILED, because the gate must block execution before diagnostics run.
+AgentWorkspace diagnostic bootstrap chaos gate blocked execution as expected.
+Action blocked before diagnostics/tests execution.
+readOnly: yes
+dbWrites: no
+aiCalls: no
+touchesPillars: no
+runtimePromptChanged: no
+chaosMode: yes
+controlledSimulation: yes
+scenario: missing_file
+simulatedFailure: required_bootstrap_file_missing
+filesExpected: 5
+filesOk: 4
+filesFailed: 1
+failedFiles: AGENTS.md
+warnings: chaos_simulated_required_bootstrap_file_missing
+Result: FAILED
 
 ---
 

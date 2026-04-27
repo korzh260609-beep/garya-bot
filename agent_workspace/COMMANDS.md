@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-004`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-agent-project-map-state-check-4`
 WORKFLOW_POINT: `repo-state-agent-project-map-state-first-check-4`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `96226a0715fb2013fbb90cbb9c056166f40fa8e4`
 CREATED_BY: `-`
 CREATED_AT: `-`
-UPDATED_AT: `2026-04-27T17:24:13.542Z`
+UPDATED_AT: `2026-04-27T17:25:59.713Z`
 
 ---
 
@@ -27,7 +27,7 @@ run
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T17:24:13.542Z.
+Runner failed: index row requires 37488 bytes, maximum size is 8191
 
 ---
 

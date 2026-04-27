@@ -1,13 +1,14 @@
 // src/simpleAgents/repoStateAgent/RepoStateProjectMapStateRepository.js
-// ============================================================================
-// Repo State Project Map State Repository
-// Stores project map signatures independently from optional AI analysis.
-// ============================================================================
 
+import crypto from "crypto";
 import pool from "../../../db.js";
 
 function toJson(value) {
   return JSON.stringify(value || {});
+}
+
+function hashSignature(signature) {
+  return crypto.createHash("sha256").update(signature).digest("hex");
 }
 
 export async function getLatestProjectMapState(repoFullName, branch) {
@@ -34,14 +35,25 @@ export async function saveProjectMapState({
   aiEnabled = false,
   metadata = {},
 }) {
+  const projectMapHash = hashSignature(projectMapSignature);
+
   const { rows } = await pool.query(
     `
       INSERT INTO repo_state_project_map_state
-      (repo_full_name, branch, scan_run_id, project_map_signature, project_map, ai_enabled, metadata)
-      VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb)
+      (repo_full_name, branch, scan_run_id, project_map_signature, project_map_hash, project_map, ai_enabled, metadata)
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::jsonb)
       RETURNING id
     `,
-    [repoFullName, branch, scanRunId, projectMapSignature, toJson(projectMap), Boolean(aiEnabled), toJson(metadata)]
+    [
+      repoFullName,
+      branch,
+      scanRunId,
+      projectMapSignature,
+      projectMapHash,
+      toJson(projectMap),
+      Boolean(aiEnabled),
+      toJson(metadata),
+    ]
   );
 
   return rows[0];

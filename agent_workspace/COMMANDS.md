@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-STATUS-011`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `COLLECT_RENDER_STATUS`
 TASK_ID: `render-status-after-normalized-signature-deploy`
 WORKFLOW_POINT: `repo-state-agent-normalized-signature-runtime-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `49fb0cc634858c73424c4749757450e3e0c41775`
 CREATED_BY: `-`
 CREATED_AT: `-`
-UPDATED_AT: `2026-04-27T18:55:04.635Z`
+UPDATED_AT: `2026-04-27T18:55:24.177Z`
 
 ---
 
@@ -27,7 +27,18 @@ status
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T18:55:04.635Z.
+Action completed: COLLECT_RENDER_STATUS
+Task ID: render-status-after-normalized-signature-deploy
+Workflow point: repo-state-agent-normalized-signature-runtime-check
+Deploy ID: -
+Commit: 49fb0cc634858c73424c4749757450e3e0c41775
+Required commit: 49fb0cc634858c73424c4749757450e3e0c41775
+Runtime commit: 49fb0cc634858c73424c4749757450e3e0c41775
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

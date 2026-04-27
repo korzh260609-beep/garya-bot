@@ -6,28 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-REPO-STATE-SCAN-002`
+COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-LOGS-001`
 STATUS: `PENDING`
-ACTION: `RUN_REPO_STATE_SCAN`
-TASK_ID: `repo-state-scan-runtime-check`
-WORKFLOW_POINT: `repo-state-scan-command-runtime-check`
+ACTION: `COLLECT_RENDER_LOGS`
+TASK_ID: `render-logs-after-deploy-check`
+WORKFLOW_POINT: `repo-state-agent-deploy-log-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `7d0e0fc39ec59522b1332f8b280abeeda63e6640`
+REQUIRES_COMMIT: `-`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T13:45:00.000Z`
+CREATED_AT: `2026-04-27T15:30:00.000Z`
+UPDATED_AT: `2026-04-27T15:30:00.000Z`
 
 ---
 
 ## Payload
 
--
+Collect latest Render logs for garya-bot after the latest deploy. Return recent errors, warnings, startup lines, and deploy-related log lines.
 
 ---
 
 ## Last result
 
-Re-run after includePatterns fix.
+Fresh command created. Workspace reports must be reset by SG runner before execution.
 
 ---
 

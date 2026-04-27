@@ -17,6 +17,9 @@ import { handleDiagRetention } from "./diagRetention.js";
 // 7B.8
 import { handleDiagChatMeta } from "./diagChatMeta.js";
 
+// Repo State
+import { handleRepoStateScanDiag } from "./repoStateScanDiag.js";
+
 const DIAGNOSTIC_HANDLERS = {
 
   // chat history
@@ -41,6 +44,9 @@ const DIAGNOSTIC_HANDLERS = {
 
   // chat registry
   "/diag_chat_meta": handleDiagChatMeta,
+
+  // repo state
+  "/repo_state_scan": handleRepoStateScanDiag,
 };
 
 export async function dispatchDiagnosticCommand(ctx = {}) {

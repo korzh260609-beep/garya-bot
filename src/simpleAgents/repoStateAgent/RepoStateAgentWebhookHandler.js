@@ -1,10 +1,25 @@
 // src/simpleAgents/repoStateAgent/RepoStateAgentWebhookHandler.js
 // ============================================================================
-// Repo State Agent Webhook Handler
+// Repo State Agent Webhook Handler (secure)
 // ============================================================================
 
+import crypto from "crypto";
 import RepoStateAgentService from "./RepoStateAgentService.js";
 import { getRepoStateAgentConfig } from "./RepoStateAgentConfig.js";
+
+function verifyGithubSignature(req, secret) {
+  const signature = req.headers["x-hub-signature-256"] || "";
+  if (!signature || !secret) return false;
+
+  const body = JSON.stringify(req.body);
+  const expected = "sha256=" + crypto.createHmac("sha256", secret).update(body).digest("hex");
+
+  try {
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
 
 export async function handleRepoStateAgentWebhook(req, res) {
   const config = getRepoStateAgentConfig();
@@ -13,11 +28,11 @@ export async function handleRepoStateAgentWebhook(req, res) {
     return res.status(503).json({ ok: false, error: "repo_state_agent_disabled" });
   }
 
-  if (config.webhookEnabled) {
-    const token = req.headers["x-repo-state-agent-token"] || "";
+  if (config.requireGithubSignature) {
+    const valid = verifyGithubSignature(req, config.githubWebhookSecret);
 
-    if (!config.webhookReady || token !== config.webhookToken) {
-      return res.status(403).json({ ok: false, error: "invalid_webhook_token" });
+    if (!valid) {
+      return res.status(403).json({ ok: false, error: "invalid_github_signature" });
     }
   }
 

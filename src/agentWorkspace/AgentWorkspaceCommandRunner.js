@@ -13,6 +13,7 @@ import {
   isAgentWorkspaceReadOnlyDiagnosticCommand,
 } from "./AgentWorkspaceConfig.js";
 import { buildAgentWorkspaceBootstrapSnapshot, buildAgentWorkspaceBootstrapChaosSnapshot } from "./AgentWorkspaceBootstrapReader.js";
+import { buildAgentWorkspaceChaosDiagOutput } from "./AgentWorkspaceChaosDiagFormatter.js";
 import {
   parseAgentWorkspaceCommand,
   buildAgentWorkspaceCommandMarkdown,
@@ -354,28 +355,7 @@ export class AgentWorkspaceCommandRunner {
           command: commandName,
           ok: data?.ok === true,
           data,
-          outputText: [
-            "🧪 AgentWorkspace bootstrap chaos diag",
-            "",
-            `scenario: ${data?.scenario}`,
-            "controlledSimulation: yes",
-            "",
-            `realReadOnly: ${data?.realReadOnly ? "yes" : "no"}`,
-            `realDbWrites: ${data?.realDbWrites ? "yes" : "no"}`,
-            `realAiCalls: ${data?.realAiCalls ? "yes" : "no"}`,
-            `realTouchesPillars: ${data?.realTouchesPillars ? "yes" : "no"}`,
-            `realRuntimePromptChanged: ${data?.realRuntimePromptChanged ? "yes" : "no"}`,
-            "",
-            `simulatedTouchesPillars: ${data?.simulatedTouchesPillars ? "yes" : "no"}`,
-            `simulatedResult: ${data?.simulatedResult}`,
-            "",
-            "Expected gate behavior:",
-            data?.expectedGateBehavior || "-",
-            "",
-            `warnings: ${Array.isArray(data?.warnings) && data.warnings.length ? data.warnings.join(", ") : "-"}`,
-            "",
-            `Result: ${data?.ok === true ? "OK" : "FAILED"}`,
-          ].join("\n"),
+          outputText: buildAgentWorkspaceChaosDiagOutput({ data }),
         };
       }
 
@@ -385,15 +365,7 @@ export class AgentWorkspaceCommandRunner {
           command: commandName,
           ok: false,
           data,
-          outputText: [
-            "🧪 AgentWorkspace bootstrap chaos gate diag",
-            "",
-            "This command should be blocked by ensureDiagnosticBootstrapReady before execution.",
-            `scenario: ${data?.scenario}`,
-            `simulatedFailure: ${data?.simulatedFailure}`,
-            "",
-            "Result: FAILED",
-          ].join("\n"),
+          outputText: buildAgentWorkspaceChaosDiagOutput({ data, title: "AgentWorkspace bootstrap chaos gate diag" }),
         };
       }
 

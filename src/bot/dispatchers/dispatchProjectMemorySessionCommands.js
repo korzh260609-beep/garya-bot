@@ -10,6 +10,7 @@
 
 import { handlePmSession } from "../handlers/pmSession.js";
 import { handlePmSessionUpdate } from "../handlers/pmSessionUpdate.js";
+import { handlePmSessionControlledDiag } from "../handlers/pmSessionControlledDiag.js";
 import { handlePmSessionsDiag } from "../handlers/pmSessionsDiag.js";
 import {
   handlePmSessions,
@@ -61,6 +62,42 @@ export async function dispatchProjectMemorySessionCommands({
         rest: ctx.rest,
         bypass: !!ctx.bypass,
         updateProjectWorkSession: ctx.updateProjectWorkSession,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_session_controlled_diag": {
+      if (typeof ctx.recordProjectWorkSession !== "function") {
+        await reply("⛔ recordProjectWorkSession недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      if (typeof ctx.updateProjectWorkSession !== "function") {
+        await reply("⛔ updateProjectWorkSession недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      if (typeof ctx.getProjectMemoryList !== "function") {
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      await handlePmSessionControlledDiag({
+        bot,
+        chatId,
+        chatIdStr,
+        transport: ctx.transport,
+        bypass: !!ctx.bypass,
+        recordProjectWorkSession: ctx.recordProjectWorkSession,
+        updateProjectWorkSession: ctx.updateProjectWorkSession,
+        getProjectMemoryList: ctx.getProjectMemoryList,
       });
 
       return { handled: true };

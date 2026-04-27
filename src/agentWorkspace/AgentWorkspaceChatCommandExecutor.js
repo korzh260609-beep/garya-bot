@@ -10,6 +10,7 @@ import { handlePmShowDiag } from "../bot/handlers/pmShowDiag.js";
 import { handlePmControlledWriteDiag } from "../bot/handlers/pmControlledWriteDiag.js";
 import { handlePmReadSurfaceDiag } from "../bot/handlers/pmReadSurfaceDiag.js";
 import { handlePmFindDiag } from "../bot/handlers/pmFindDiag.js";
+import { handlePmSessionControlledDiag } from "../bot/handlers/pmSessionControlledDiag.js";
 import { handlePmSessionsDiag } from "../bot/handlers/pmSessionsDiag.js";
 import { handleMemoryRememberGuardDiag } from "../bot/handlers/memoryRememberGuardDiag.js";
 import { handleMemoryLongTermReadDiag } from "../bot/handlers/memoryLongTermReadDiag.js";
@@ -241,6 +242,44 @@ export async function executeAgentWorkspaceChatCommand(commandLine = "") {
         command: cmd0,
         ok: validationOk,
         handler: "handlePmFindDiag",
+        data: {
+          validationOk,
+          diag: result?.diag || null,
+        },
+        messages: fakeBot.messages,
+        outputText,
+      };
+    }
+
+    if (cmd0 === "/pm_session_controlled_diag") {
+      const result = await handlePmSessionControlledDiag({
+        bot: fakeBot,
+        chatId: fakeChatId,
+        chatIdStr: fakeChatId,
+        transport: "agent_workspace",
+        bypass: true,
+        recordProjectWorkSession,
+        updateProjectWorkSession,
+        getProjectMemoryList,
+      });
+
+      const outputText = fakeBot.messages.map((item) => item.text).join("\n---\n");
+      const validationOk =
+        result?.ok === true &&
+        outputText.includes("controlledWrite: yes") &&
+        outputText.includes("dbWrites: yes") &&
+        outputText.includes("touchesRealProjectSections: no") &&
+        outputText.includes("trustedPath: yes") &&
+        outputText.includes("createOk: yes") &&
+        outputText.includes("updateOk: yes") &&
+        outputText.includes("readBackOk: yes") &&
+        outputText.includes("contentUpdated: yes") &&
+        outputText.includes("Result: OK");
+
+      return {
+        command: cmd0,
+        ok: validationOk,
+        handler: "handlePmSessionControlledDiag",
         data: {
           validationOk,
           diag: result?.diag || null,

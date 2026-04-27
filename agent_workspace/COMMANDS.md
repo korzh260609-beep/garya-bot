@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PROJECT-MEMORY-7A-PM-SHADOW-CONTEXT-DIAG-001`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `project-memory-7a-shadow-restore-diagnostic`
 WORKFLOW_POINT: `project-memory-core-shadow-context-restore-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `602536f7cb6c7e86c80957bacf33dc666c876734`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T14:00:00.000Z`
+UPDATED_AT: `2026-04-27T03:01:58.335Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-27T14:00:00.000Z`
 
 ## Last result
 
-Manual GitHub trigger requested after deploy.
+Started by github_webhook at 2026-04-27T03:01:58.335Z.
 
 ---
 
@@ -58,4 +58,5 @@ Manual GitHub trigger requested after deploy.
 - `WAITING_DEPLOY` commands are visible but never executed.
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
+- SG updates only allowlisted files in `agent_workspace/`.
 - If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.

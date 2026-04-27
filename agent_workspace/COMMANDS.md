@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `602536f7cb6c7e86c80957bacf33dc666c876734`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T00:00:00.000Z`
+UPDATED_AT: `2026-04-27T14:00:00.000Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ## Last result
 
-Pending execution after required commit is active in runtime.
+Manual GitHub trigger requested after deploy.
 
 ---
 
@@ -58,5 +58,4 @@ Pending execution after required commit is active in runtime.
 - `WAITING_DEPLOY` commands are visible but never executed.
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
-- SG updates only allowlisted files in `agent_workspace/`.
 - If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.

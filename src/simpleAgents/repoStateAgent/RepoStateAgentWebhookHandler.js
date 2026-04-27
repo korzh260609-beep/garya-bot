@@ -11,7 +11,7 @@ function verifyGithubSignature(req, secret) {
   const signature = req.headers["x-hub-signature-256"] || "";
   if (!signature || !secret) return false;
 
-  const body = JSON.stringify(req.body);
+  const body = req.rawBody || Buffer.from(JSON.stringify(req.body));
   const expected = "sha256=" + crypto.createHmac("sha256", secret).update(body).digest("hex");
 
   try {

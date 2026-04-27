@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-REPO-STATE-SCAN-001`
-STATUS: `DONE`
+COMMAND_ID: `AGENTWORKSPACE-REPO-STATE-SCAN-002`
+STATUS: `PENDING`
 ACTION: `RUN_REPO_STATE_SCAN`
 TASK_ID: `repo-state-scan-runtime-check`
 WORKFLOW_POINT: `repo-state-scan-command-runtime-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `1cf4a28a392513fb1d88b29db4966bc55d400942`
+REQUIRES_COMMIT: `7d0e0fc39ec59522b1332f8b280abeeda63e6640`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T13:38:51.487Z`
+UPDATED_AT: `2026-04-27T13:45:00.000Z`
 
 ---
 
@@ -27,18 +27,7 @@ UPDATED_AT: `2026-04-27T13:38:51.487Z`
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_SCAN
-Task ID: repo-state-scan-runtime-check
-Workflow point: repo-state-scan-command-runtime-check
-Deploy ID: -
-Commit: 1cf4a28a392513fb1d88b29db4966bc55d400942
-Required commit: 1cf4a28a392513fb1d88b29db4966bc55d400942
-Runtime commit: 1cf4a28a392513fb1d88b29db4966bc55d400942
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Re-run after includePatterns fix.
 
 ---
 
@@ -62,6 +51,7 @@ Diagnostics failed: 0
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
+- `RUN_REPO_STATE_SCAN`
 
 ## Hard limits
 

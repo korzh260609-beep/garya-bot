@@ -28,6 +28,10 @@ function isGithubNotFoundError(error) {
   return String(error?.message || "").startsWith("github_http_404:");
 }
 
+function encodeCompareRef(value) {
+  return encodeURIComponent(normalizeString(value));
+}
+
 export class AgentWorkspaceGitHubClient {
   constructor({ config } = {}) {
     this.config = config || getAgentWorkspaceConfig();
@@ -60,6 +64,10 @@ export class AgentWorkspaceGitHubClient {
       .join("/");
 
     return `${this.config.githubApiBaseUrl}/repos/${this.config.repoFullName}/contents/${path}`;
+  }
+
+  buildCompareUrl(base, head) {
+    return `${this.config.githubApiBaseUrl}/repos/${this.config.repoFullName}/compare/${encodeCompareRef(base)}...${encodeCompareRef(head)}`;
   }
 
   async request(url, options = {}) {
@@ -105,6 +113,36 @@ export class AgentWorkspaceGitHubClient {
       path: result?.path || this.buildFilePath(fileName),
       sha: result?.sha || null,
       content: result?.content ? fromBase64Utf8(result.content) : "",
+    };
+  }
+
+  async compareCommits(base, head) {
+    const normalizedBase = normalizeString(base);
+    const normalizedHead = normalizeString(head);
+
+    if (!normalizedBase || !normalizedHead) {
+      return {
+        ok: false,
+        base: normalizedBase,
+        head: normalizedHead,
+        status: "missing_ref",
+        aheadBy: null,
+        behindBy: null,
+      };
+    }
+
+    const result = await this.request(this.buildCompareUrl(normalizedBase, normalizedHead));
+
+    return {
+      ok: true,
+      base: normalizedBase,
+      head: normalizedHead,
+      status: result?.status || "unknown",
+      aheadBy: Number.isFinite(Number(result?.ahead_by)) ? Number(result.ahead_by) : null,
+      behindBy: Number.isFinite(Number(result?.behind_by)) ? Number(result.behind_by) : null,
+      totalCommits: Number.isFinite(Number(result?.total_commits)) ? Number(result.total_commits) : null,
+      mergeBaseCommit: result?.merge_base_commit?.sha || null,
+      baseCommit: result?.base_commit?.sha || null,
     };
   }
 

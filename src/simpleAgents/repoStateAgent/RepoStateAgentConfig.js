@@ -17,12 +17,15 @@ function envBool(name, fallback = false) {
 
 export function getRepoStateAgentConfig() {
   const webhookToken = normalizeString(envStr("REPO_STATE_AGENT_WEBHOOK_TOKEN", ""));
+  const githubWebhookSecret = normalizeString(envStr("REPO_STATE_AGENT_GITHUB_WEBHOOK_SECRET", webhookToken));
 
   return {
     enabled: envBool("REPO_STATE_AGENT_ENABLED", true),
     webhookEnabled: envBool("REPO_STATE_AGENT_WEBHOOK_ENABLED", false),
     webhookToken,
-    webhookReady: Boolean(webhookToken),
+    webhookReady: Boolean(webhookToken || githubWebhookSecret),
+    githubWebhookSecret,
+    requireGithubSignature: envBool("REPO_STATE_AGENT_REQUIRE_GITHUB_SIGNATURE", true),
   };
 }
 

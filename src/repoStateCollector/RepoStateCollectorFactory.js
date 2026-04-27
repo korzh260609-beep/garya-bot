@@ -11,12 +11,20 @@ import RepoModuleScanner from "./RepoModuleScanner.js";
 import RepoDependencyScanner from "./RepoDependencyScanner.js";
 import RepoStateRepository from "./RepoStateRepository.js";
 import RepoStateCollectorService from "./RepoStateCollectorService.js";
+import RepoStateGitHubClient from "./RepoStateGitHubClient.js";
 
 export function createRepoStateCollector({ githubClient } = {}) {
   const config = getRepoStateConfig();
 
+  const resolvedGithubClient =
+    githubClient ||
+    new RepoStateGitHubClient({
+      token: config.githubToken,
+      apiBaseUrl: config.githubApiBaseUrl,
+    });
+
   const treeReader = new RepoTreeReader({
-    githubClient,
+    githubClient: resolvedGithubClient,
     config,
   });
 
@@ -38,6 +46,7 @@ export function createRepoStateCollector({ githubClient } = {}) {
   return {
     collector,
     config,
+    githubClient: resolvedGithubClient,
   };
 }
 

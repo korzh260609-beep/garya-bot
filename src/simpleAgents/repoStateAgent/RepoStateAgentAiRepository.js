@@ -6,6 +6,10 @@
 
 import pool from "../../../db.js";
 
+function toJson(value) {
+  return JSON.stringify(value || {});
+}
+
 export async function getLatestAiAnalysis(repoFullName, branch) {
   const { rows } = await pool.query(
     `
@@ -33,10 +37,10 @@ export async function saveAiAnalysis({
     `
       INSERT INTO repo_state_ai_analysis
       (repo_full_name, branch, scan_run_id, project_map_signature, project_map, analysis)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)
       RETURNING id
     `,
-    [repoFullName, branch, scanRunId, projectMapSignature, projectMap, analysis]
+    [repoFullName, branch, scanRunId, projectMapSignature, toJson(projectMap), toJson(analysis)]
   );
 
   return rows[0];

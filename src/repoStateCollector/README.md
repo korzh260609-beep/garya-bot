@@ -4,9 +4,9 @@ Read-only project state collector for SG / Советник GARYA.
 
 ## Purpose
 
-This module is responsible only for collecting the current state of the repository.
+This module is responsible only for collecting the current state and structure of the repository.
 
-It must help agents understand:
+It helps agents understand:
 
 - what has already been implemented;
 - which modules exist;
@@ -22,8 +22,9 @@ This module must not change repository files.
 Allowed:
 
 - read repository metadata;
-- read file paths and file contents when required;
-- calculate hashes, line counts, sizes;
+- read all repository file paths;
+- read bounded text file contents when required;
+- calculate file metadata such as size, extension and sha;
 - detect imports/exports/requires;
 - build an in-memory project map;
 - later save collected state to PostgreSQL through an explicit repository layer.
@@ -39,17 +40,30 @@ Forbidden:
 - change runtime prompts;
 - call AI automatically without an explicit approved AI layer.
 
-## V1 skeleton
+## Current V1 files
 
-Files:
-
-- `RepoStateCollectorService.js` — orchestration entry point.
-- `RepoTreeReader.js` — reads repository tree metadata.
-- `RepoModuleScanner.js` — groups files into modules.
-- `RepoDependencyScanner.js` — detects static dependencies.
-- `RepoStateRepository.js` — future PostgreSQL persistence boundary.
-- `RepoStateConfig.js` — configuration and limits.
+- `RepoStateCollectorService.js` — orchestration entry point. Implemented: read tree, scan modules, scan dependencies, return snapshot.
+- `RepoTreeReader.js` — implemented: reads full repository structure and bounded text content. Files are never hidden from the repo map.
+- `RepoModuleScanner.js` — implemented: groups files into logical modules.
+- `RepoDependencyScanner.js` — implemented: detects static dependencies from loaded file content.
+- `RepoStateRepository.js` — skeleton persistence boundary. PostgreSQL persistence is not implemented yet.
+- `RepoStateConfig.js` — implemented base config and safe limits.
 
 ## Current status
 
-Skeleton only. Not connected to runtime, commands, cron, database, or AI.
+Repo State Collector V1 core is partially implemented.
+
+Implemented:
+
+- full file tree visibility;
+- module grouping;
+- static dependency scan from loaded content;
+- unified collector snapshot.
+
+Not implemented yet:
+
+- PostgreSQL persistence;
+- runtime command;
+- cron/background scan;
+- AI summarizer;
+- Project Memory bridge.

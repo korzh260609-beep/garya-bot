@@ -13,6 +13,7 @@ import { handlePmShow } from "../handlers/pmShow.js";
 import { handlePmShowDiag } from "../handlers/pmShowDiag.js";
 import { handlePmControlledWriteDiag } from "../handlers/pmControlledWriteDiag.js";
 import { handlePmReadSurfaceDiag } from "../handlers/pmReadSurfaceDiag.js";
+import { handlePmFindDiag } from "../handlers/pmFindDiag.js";
 import { handlePmList } from "../handlers/pmList.js";
 import { handlePmDigest } from "../handlers/pmDigest.js";
 import { handlePmLatest } from "../handlers/pmLatest.js";
@@ -69,6 +70,25 @@ export async function dispatchProjectMemoryBasicCommands({
       await handlePmReadSurfaceDiag({
         bot,
         chatId,
+        globalUserId: ctx.globalUserId ?? null,
+        getProjectMemoryList: ctx.getProjectMemoryList,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_find_diag": {
+      if (typeof ctx.getProjectMemoryList !== "function") {
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      await handlePmFindDiag({
+        bot,
+        chatId,
+        rest: ctx.rest,
         globalUserId: ctx.globalUserId ?? null,
         getProjectMemoryList: ctx.getProjectMemoryList,
       });

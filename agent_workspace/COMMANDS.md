@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-DIAG-RUNTIME-CONFIG-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `runtime-agent-workspace-config-diag`
 WORKFLOW_POINT: `repo-state-agent-runtime-allowed-actions-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `16f041dc548cb90c3d491b7fce5d1b50f71bffe4`
 CREATED_BY: `-`
 CREATED_AT: `-`
-UPDATED_AT: `2026-04-27T17:06:39.835Z`
+UPDATED_AT: `2026-04-27T17:06:56.027Z`
 
 ---
 
@@ -27,7 +27,18 @@ UPDATED_AT: `2026-04-27T17:06:39.835Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T17:06:39.835Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: runtime-agent-workspace-config-diag
+Workflow point: repo-state-agent-runtime-allowed-actions-check
+Deploy ID: -
+Commit: 16f041dc548cb90c3d491b7fce5d1b50f71bffe4
+Required commit: 16f041dc548cb90c3d491b7fce5d1b50f71bffe4
+Runtime commit: 16f041dc548cb90c3d491b7fce5d1b50f71bffe4
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 1
+Diagnostics failed: 0
 
 ---
 

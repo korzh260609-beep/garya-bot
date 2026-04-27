@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-STATUS-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `COLLECT_RENDER_STATUS`
 TASK_ID: `render-status-before-repo-state-agent-retry`
 WORKFLOW_POINT: `repo-state-agent-deploy-readiness-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T16:55:00.000Z`
-UPDATED_AT: `2026-04-27T16:20:51.354Z`
+UPDATED_AT: `2026-04-27T16:21:13.619Z`
 
 ---
 
@@ -27,7 +27,18 @@ Collect Render status and latest deploy before retrying RUN_REPO_STATE_AGENT. Ne
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T16:20:51.354Z.
+Action completed: COLLECT_RENDER_STATUS
+Task ID: render-status-before-repo-state-agent-retry
+Workflow point: repo-state-agent-deploy-readiness-check
+Deploy ID: -
+Commit: b60647ebfaaec5de15354f0cc7b782f14469678a
+Required commit: -
+Runtime commit: 2f64df21bfeda8a0b9ccf7b4831b592b16ec0d1f
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

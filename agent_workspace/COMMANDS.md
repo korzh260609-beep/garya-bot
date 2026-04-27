@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-STATUS-005`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `COLLECT_RENDER_STATUS`
 TASK_ID: `render-status-after-hash-fix-deploy-check`
 WORKFLOW_POINT: `repo-state-agent-hash-fix-runtime-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `299bfba73165dfb32020cc36145784da2f64170e`
 CREATED_BY: `-`
 CREATED_AT: `-`
-UPDATED_AT: `2026-04-27T17:34:27.179Z`
+UPDATED_AT: `2026-04-27T17:34:53.889Z`
 
 ---
 
@@ -27,7 +27,18 @@ status
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T17:34:27.179Z.
+Action completed: COLLECT_RENDER_STATUS
+Task ID: render-status-after-hash-fix-deploy-check
+Workflow point: repo-state-agent-hash-fix-runtime-check
+Deploy ID: -
+Commit: 299bfba73165dfb32020cc36145784da2f64170e
+Required commit: 299bfba73165dfb32020cc36145784da2f64170e
+Runtime commit: 299bfba73165dfb32020cc36145784da2f64170e
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

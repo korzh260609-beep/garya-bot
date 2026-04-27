@@ -4,8 +4,23 @@
 // Decides whether AI analysis is needed.
 // ============================================================================
 
+function sortDeep(value) {
+  if (Array.isArray(value)) return value.map(sortDeep);
+
+  if (value && typeof value === "object") {
+    return Object.keys(value)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = sortDeep(value[key]);
+        return acc;
+      }, {});
+  }
+
+  return value;
+}
+
 function stableStringify(value) {
-  return JSON.stringify(value || {}, Object.keys(value || {}).sort());
+  return JSON.stringify(sortDeep(value || {}));
 }
 
 function buildMapSignature(projectMap = {}) {

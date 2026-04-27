@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PROJECT-MEMORY-7A-PM-CONTEXT-DIAG-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `project-memory-7a-pm-context-diagnostic`
 WORKFLOW_POINT: `project-memory-core-context-restore-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `b2c3435e573d3343109f4ccda19d1da03d1e239c`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T02:46:47.731Z`
+UPDATED_AT: `2026-04-27T02:46:58.728Z`
 
 ---
 
@@ -27,7 +27,18 @@ UPDATED_AT: `2026-04-27T02:46:47.731Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T02:46:47.731Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: project-memory-7a-pm-context-diagnostic
+Workflow point: project-memory-core-context-restore-check
+Deploy ID: -
+Commit: b2c3435e573d3343109f4ccda19d1da03d1e239c
+Required commit: b2c3435e573d3343109f4ccda19d1da03d1e239c
+Runtime commit: b2c3435e573d3343109f4ccda19d1da03d1e239c
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 1
+Diagnostics failed: 0
 
 ---
 

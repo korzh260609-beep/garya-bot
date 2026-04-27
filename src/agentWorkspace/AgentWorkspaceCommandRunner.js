@@ -233,6 +233,8 @@ export class AgentWorkspaceCommandRunner {
 
   async ensureDiagnosticBootstrapReady(command) {
     const action = String(command?.action || "").toUpperCase();
+    const payloadCommands = parseDiagnosticCommandLines(command?.payload || "");
+    const chaosGateCommand = payloadCommands.find((cmd) => cmd === "/agent_bootstrap_chaos_gate_diag");
 
     if (action !== "RUN_DIAGNOSTIC_COMMANDS") {
       return {
@@ -242,9 +244,11 @@ export class AgentWorkspaceCommandRunner {
       };
     }
 
-    const snapshot = await buildAgentWorkspaceBootstrapSnapshot({ config: this.config });
+    const snapshot = chaosGateCommand
+      ? await buildAgentWorkspaceBootstrapChaosSnapshot({ scenario: "missing_file", config: this.config })
+      : await buildAgentWorkspaceBootstrapSnapshot({ config: this.config });
 
-    if (snapshot?.ok === true) {
+    if (!chaosGateCommand && snapshot?.ok === true) {
       return {
         ok: true,
         skipped: false,
@@ -264,13 +268,19 @@ export class AgentWorkspaceCommandRunner {
       skipped: false,
       snapshot,
       resultText: [
-        "AgentWorkspace diagnostic bootstrap safety gate failed.",
+        chaosGateCommand
+          ? "AgentWorkspace diagnostic bootstrap chaos gate blocked execution as expected."
+          : "AgentWorkspace diagnostic bootstrap safety gate failed.",
         "Action blocked before diagnostics/tests execution.",
         `readOnly: ${snapshot?.readOnly ? "yes" : "no"}`,
         `dbWrites: ${snapshot?.dbWrites ? "yes" : "no"}`,
         `aiCalls: ${snapshot?.aiCalls ? "yes" : "no"}`,
         `touchesPillars: ${snapshot?.touchesPillars ? "yes" : "no"}`,
         `runtimePromptChanged: ${snapshot?.runtimePromptChanged ? "yes" : "no"}`,
+        `chaosMode: ${snapshot?.chaosMode ? "yes" : "no"}`,
+        `controlledSimulation: ${snapshot?.controlledSimulation ? "yes" : "no"}`,
+        `scenario: ${snapshot?.scenario || "-"}`,
+        `simulatedFailure: ${snapshot?.simulatedFailure || "-"}`,
         `filesExpected: ${snapshot?.filesExpected ?? "-"}`,
         `filesOk: ${snapshot?.filesOk ?? "-"}`,
         `filesFailed: ${snapshot?.filesFailed ?? "-"}`,
@@ -365,6 +375,24 @@ export class AgentWorkspaceCommandRunner {
             `warnings: ${Array.isArray(data?.warnings) && data.warnings.length ? data.warnings.join(", ") : "-"}`,
             "",
             `Result: ${data?.ok === true ? "OK" : "FAILED"}`,
+          ].join("\n"),
+        };
+      }
+
+      if (commandName === "/agent_bootstrap_chaos_gate_diag") {
+        const data = await buildAgentWorkspaceBootstrapChaosSnapshot({ scenario: "missing_file", config: this.config });
+        return {
+          command: commandName,
+          ok: false,
+          data,
+          outputText: [
+            "🧪 AgentWorkspace bootstrap chaos gate diag",
+            "",
+            "This command should be blocked by ensureDiagnosticBootstrapReady before execution.",
+            `scenario: ${data?.scenario}`,
+            `simulatedFailure: ${data?.simulatedFailure}`,
+            "",
+            "Result: FAILED",
           ].join("\n"),
         };
       }

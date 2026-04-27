@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-SCAN-004`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `RUN_REPO_STATE_SCAN`
 TASK_ID: `repo-state-agent-runtime-scan-check-2`
 WORKFLOW_POINT: `repo-state-agent-map-runtime-check-2`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `4512d6b4cf15ab87f6fb7d54a098498df7b212d1`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T16:35:00.000Z`
-UPDATED_AT: `2026-04-27T16:04:32.159Z`
+UPDATED_AT: `2026-04-27T16:06:24.725Z`
 
 ---
 
@@ -27,7 +27,18 @@ Run RepoStateCollector runtime scan after RUN_REPO_STATE_SCAN allowlist deploy. 
 
 ## Last result
 
-Started by github_webhook at 2026-04-27T16:04:32.159Z.
+Action completed: RUN_REPO_STATE_SCAN
+Task ID: repo-state-agent-runtime-scan-check-2
+Workflow point: repo-state-agent-map-runtime-check-2
+Deploy ID: -
+Commit: 4512d6b4cf15ab87f6fb7d54a098498df7b212d1
+Required commit: 4512d6b4cf15ab87f6fb7d54a098498df7b212d1
+Runtime commit: 4512d6b4cf15ab87f6fb7d54a098498df7b212d1
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

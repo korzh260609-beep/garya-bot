@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PROJECT-MEMORY-7A-PM-SESSIONS-DIAG-001`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `project-memory-7a-pm-sessions-read-diagnostic`
 WORKFLOW_POINT: `project-memory-core-pm-sessions-readonly-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `cb5a4f7f9551a03c22b1b2776d5da6d2c5015327`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T00:00:00.000Z`
+UPDATED_AT: `2026-04-27T02:33:03.048Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ## Last result
 
-Prepared after deploy. Guarded by REQUIRES_COMMIT ancestry check.
+Started by github_webhook at 2026-04-27T02:33:03.048Z.
 
 ---
 
@@ -59,4 +59,4 @@ Prepared after deploy. Guarded by REQUIRES_COMMIT ancestry check.
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
 - SG updates only allowlisted files in `agent_workspace/`.
-- If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit includes it in deployed code history.
+- If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.

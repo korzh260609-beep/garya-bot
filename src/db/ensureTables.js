@@ -55,4 +55,11 @@ export async function ensureTables() {
 
   // Command idempotency (Stage 6.8.2)
   await assertTableExists("command_invocations");
+
+  // Repo State Collector (new)
+  await assertTableExists("repo_state_scan_runs");
+  await assertTableExists("repo_state_snapshots");
+  await assertTableExists("repo_state_modules");
+  await assertTableExists("repo_state_files");
+  await assertTableExists("repo_state_dependencies");
 }

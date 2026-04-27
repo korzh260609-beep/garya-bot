@@ -4,8 +4,8 @@ Reset before current command run.
 
 ---
 
-Task ID: `repo-state-agent-runtime-scan-check-2`
-Updated at: `2026-04-27T16:04:40.469Z`
+Task ID: `repo-state-agent-full-runtime-check`
+Updated at: `2026-04-27T16:15:53.870Z`
 Reason: `reset_before_command_run`
 
 ---

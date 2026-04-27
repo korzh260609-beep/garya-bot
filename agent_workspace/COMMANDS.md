@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-REPO-STATE-SCAN-DIAG-001`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `repo-state-scan-runtime-check`
 WORKFLOW_POINT: `repo-state-scan-command-runtime-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `77181f830ef9b57b06c44c13918448132a71e577`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T00:00:00.000Z`
+UPDATED_AT: `2026-04-27T13:13:31.866Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ## Last result
 
-Pending repo state scan runtime check.
+Started by github_webhook at 2026-04-27T13:13:31.866Z.
 
 ---
 

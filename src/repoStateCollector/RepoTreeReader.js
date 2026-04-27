@@ -1,7 +1,7 @@
 // src/repoStateCollector/RepoTreeReader.js
 // ============================================================================
 // Repo Tree Reader
-// Reads repository structure and bounded text file content (read-only).
+// Reads complete repository structure and bounded text file content (read-only).
 // ============================================================================
 
 function normalizeString(value) {
@@ -92,7 +92,6 @@ export class RepoTreeReader {
     const includePatterns = Array.isArray(this.config.includePatterns) ? this.config.includePatterns : [];
     const excludePatterns = Array.isArray(this.config.excludePatterns) ? this.config.excludePatterns : [];
     const contentExtensions = Array.isArray(this.config.contentExtensions) ? this.config.contentExtensions : [];
-    const maxFiles = Number.isFinite(Number(this.config.maxFiles)) ? Number(this.config.maxFiles) : 5000;
     const maxFileSize = Number.isFinite(Number(this.config.maxFileSize)) ? Number(this.config.maxFileSize) : 200_000;
     const maxContentFiles = Number.isFinite(Number(this.config.maxContentFiles)) ? Number(this.config.maxContentFiles) : 500;
     const readContent = this.config.readContent === true;
@@ -120,11 +119,11 @@ export class RepoTreeReader {
         contentLoaded: false,
         contentSkipped: true,
         contentSkipReason: "content_read_disabled",
+        visibleInRepoMap: true,
       }))
       .filter((item) => item.path)
       .filter((item) => includePatterns.length === 0 || matchesAnyPrefix(item.path, includePatterns))
-      .filter((item) => !isExcluded(item.path, excludePatterns))
-      .slice(0, maxFiles);
+      .filter((item) => !isExcluded(item.path, excludePatterns));
 
     if (readContent) {
       let loaded = 0;
@@ -174,9 +173,13 @@ export class RepoTreeReader {
       branch,
       files,
       filesCount: files.length,
+      rawFilesCount: rawFiles.length,
       contentFilesLoaded: files.filter((item) => item.contentLoaded).length,
       contentFilesSkipped: files.filter((item) => item.contentSkipped).length,
-      truncated: rawFiles.length > files.length && files.length >= maxFiles,
+      structureComplete: true,
+      contentComplete: files.every((item) => item.contentLoaded || item.contentSkipped),
+      hiddenFilesCount: 0,
+      truncated: false,
     };
   }
 }

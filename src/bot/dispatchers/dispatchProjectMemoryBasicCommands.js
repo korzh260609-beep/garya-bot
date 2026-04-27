@@ -12,6 +12,7 @@ import { handlePmSet } from "../handlers/pmSet.js";
 import { handlePmShow } from "../handlers/pmShow.js";
 import { handlePmShowDiag } from "../handlers/pmShowDiag.js";
 import { handlePmControlledWriteDiag } from "../handlers/pmControlledWriteDiag.js";
+import { handlePmContextDiag } from "../handlers/pmContextDiag.js";
 import { handlePmReadSurfaceDiag } from "../handlers/pmReadSurfaceDiag.js";
 import { handlePmFindDiag } from "../handlers/pmFindDiag.js";
 import { handlePmList } from "../handlers/pmList.js";
@@ -54,6 +55,31 @@ export async function dispatchProjectMemoryBasicCommands({
         chatId,
         rest: ctx.rest,
         getProjectSection: ctx.getProjectSection,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_context_diag": {
+      if (typeof ctx.buildProjectMemoryContext !== "function") {
+        await reply("⛔ buildProjectMemoryContext недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      if (typeof ctx.buildProjectMemoryDigest !== "function") {
+        await reply("⛔ buildProjectMemoryDigest недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      await handlePmContextDiag({
+        bot,
+        chatId,
+        buildProjectMemoryContext: ctx.buildProjectMemoryContext,
+        buildProjectMemoryDigest: ctx.buildProjectMemoryDigest,
       });
 
       return { handled: true };

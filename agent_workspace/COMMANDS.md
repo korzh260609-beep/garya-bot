@@ -6,39 +6,29 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-BOOTSTRAP-DIAG-001`
-STATUS: `DONE`
+COMMAND_ID: `AGENTWORKSPACE-BOOTSTRAP-SAFETY-DIAG-002`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `agentworkspace-bootstrap-reader`
-WORKFLOW_POINT: `agentworkspace-bootstrap-read-check`
+TASK_ID: `agentworkspace-bootstrap-safety-check`
+WORKFLOW_POINT: `agentworkspace-post-deploy-bootstrap-safety-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `ab4ebdca34ea18368c87a0f9e07607bf1fd3f22d`
+REQUIRES_COMMIT: `b15bb1f381d1ac96d0bb6ee7e0453148cfde710e`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T05:16:00.820Z`
+UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ---
 
 ## Payload
 
 /agent_bootstrap_diag
+/agent_bootstrap_strict_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: agentworkspace-bootstrap-reader
-Workflow point: agentworkspace-bootstrap-read-check
-Deploy ID: -
-Commit: ab4ebdca34ea18368c87a0f9e07607bf1fd3f22d
-Required commit: ab4ebdca34ea18368c87a0f9e07607bf1fd3f22d
-Runtime commit: ab4ebdca34ea18368c87a0f9e07607bf1fd3f22d
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+Pending post-deploy bootstrap safety diagnostics.
 
 ---
 

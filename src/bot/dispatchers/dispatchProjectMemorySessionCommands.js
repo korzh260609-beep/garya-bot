@@ -10,6 +10,7 @@
 
 import { handlePmSession } from "../handlers/pmSession.js";
 import { handlePmSessionUpdate } from "../handlers/pmSessionUpdate.js";
+import { handlePmSessionsDiag } from "../handlers/pmSessionsDiag.js";
 import {
   handlePmSessions,
   handlePmSessionShow,
@@ -60,6 +61,24 @@ export async function dispatchProjectMemorySessionCommands({
         rest: ctx.rest,
         bypass: !!ctx.bypass,
         updateProjectWorkSession: ctx.updateProjectWorkSession,
+      });
+
+      return { handled: true };
+    }
+
+    case "/pm_sessions_diag": {
+      if (typeof ctx.getProjectMemoryList !== "function") {
+        await reply("⛔ getProjectMemoryList недоступен (ошибка wiring).", {
+          cmd: cmd0,
+        });
+        return { handled: true };
+      }
+
+      await handlePmSessionsDiag({
+        bot,
+        chatId,
+        globalUserId: ctx.globalUserId ?? null,
+        getProjectMemoryList: ctx.getProjectMemoryList,
       });
 
       return { handled: true };

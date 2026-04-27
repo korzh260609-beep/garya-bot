@@ -5,6 +5,7 @@
 // Supports both:
 // - GitHub standard Secret signature (preferred)
 // - legacy query/header token fallback
+// Also exposes a protected manual run-once endpoint for recovery/diagnostics.
 // ============================================================================
 
 import crypto from "crypto";
@@ -81,6 +82,22 @@ function shouldRunForPayload(payload = {}) {
   return files.includes("agent_workspace/COMMANDS.md");
 }
 
+function buildForbiddenResponse(req, cfg) {
+  return {
+    ok: false,
+    error: "forbidden",
+    webhookReady: cfg.webhookReady,
+    hasSignature: Boolean(req.headers["x-hub-signature-256"]),
+    hasLegacyToken: Boolean(getProvidedToken(req)),
+  };
+}
+
+async function runWorkspaceCommandOnce(source) {
+  return agentWorkspaceCommandRunner.runOnce({
+    source,
+  });
+}
+
 export function createAgentWorkspaceWebhookRoute() {
   const router = express.Router();
 
@@ -88,13 +105,7 @@ export function createAgentWorkspaceWebhookRoute() {
     const cfg = getAgentWorkspaceConfig();
 
     if (!isAuthorized(req, cfg)) {
-      return res.status(403).json({
-        ok: false,
-        error: "forbidden",
-        webhookReady: cfg.webhookReady,
-        hasSignature: Boolean(req.headers["x-hub-signature-256"]),
-        hasLegacyToken: Boolean(getProvidedToken(req)),
-      });
+      return res.status(403).json(buildForbiddenResponse(req, cfg));
     }
 
     const event = normalizeString(req.headers["x-github-event"] || "");
@@ -117,9 +128,37 @@ export function createAgentWorkspaceWebhookRoute() {
       });
     }
 
-    const result = await agentWorkspaceCommandRunner.runOnce({
-      source: "github_webhook",
+    const result = await runWorkspaceCommandOnce("github_webhook");
+
+    return res.status(result.ok ? 200 : 500).json({
+      ok: result.ok,
+      result,
     });
+  });
+
+  router.post("/agent-workspace/run-once", async (req, res) => {
+    const cfg = getAgentWorkspaceConfig();
+
+    if (!isAuthorized(req, cfg)) {
+      return res.status(403).json(buildForbiddenResponse(req, cfg));
+    }
+
+    const result = await runWorkspaceCommandOnce("manual_http_trigger");
+
+    return res.status(result.ok ? 200 : 500).json({
+      ok: result.ok,
+      result,
+    });
+  });
+
+  router.get("/agent-workspace/run-once", async (req, res) => {
+    const cfg = getAgentWorkspaceConfig();
+
+    if (!isAuthorized(req, cfg)) {
+      return res.status(403).json(buildForbiddenResponse(req, cfg));
+    }
+
+    const result = await runWorkspaceCommandOnce("manual_http_trigger");
 
     return res.status(result.ok ? 200 : 500).json({
       ok: result.ok,

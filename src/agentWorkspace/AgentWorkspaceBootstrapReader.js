@@ -133,6 +133,47 @@ export async function buildAgentWorkspaceBootstrapSnapshot({ config } = {}) {
   return snapshot;
 }
 
+export async function buildAgentWorkspaceBootstrapChaosSnapshot({ scenario = "pillars_fail", config } = {}) {
+  const base = await buildAgentWorkspaceBootstrapSnapshot({ config });
+  const normalizedScenario = normalizeString(scenario) || "pillars_fail";
+  const simulated = {
+    ...base,
+    chaosMode: true,
+    controlledSimulation: true,
+    realReadOnly: base.readOnly === true,
+    realDbWrites: base.dbWrites === true,
+    realAiCalls: base.aiCalls === true,
+    realTouchesPillars: base.touchesPillars === true,
+    realRuntimePromptChanged: base.runtimePromptChanged === true,
+    realFilesChanged: false,
+    scenario: normalizedScenario,
+    simulatedResult: "FAILED",
+    expectedGateBehavior: "diagnostic bootstrap safety gate must block execution",
+    warnings: Array.isArray(base.warnings) ? [...base.warnings] : [],
+  };
+
+  if (normalizedScenario === "pillars_fail") {
+    simulated.simulatedTouchesPillars = true;
+    simulated.simulatedFailure = "pillars_touch_attempt_detected";
+    simulated.warnings.push("chaos_simulated_pillars_touch_attempt");
+  } else {
+    simulated.simulatedFailure = "unknown_chaos_scenario";
+    simulated.warnings.push("chaos_unknown_scenario");
+  }
+
+  simulated.ok = simulated.controlledSimulation === true &&
+    simulated.realReadOnly === true &&
+    simulated.realDbWrites === false &&
+    simulated.realAiCalls === false &&
+    simulated.realTouchesPillars === false &&
+    simulated.realRuntimePromptChanged === false &&
+    simulated.realFilesChanged === false &&
+    simulated.simulatedResult === "FAILED";
+
+  return simulated;
+}
+
 export default {
   buildAgentWorkspaceBootstrapSnapshot,
+  buildAgentWorkspaceBootstrapChaosSnapshot,
 };

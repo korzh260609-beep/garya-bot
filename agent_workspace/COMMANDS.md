@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-REPO-STATE-SCAN-001`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_REPO_STATE_SCAN`
 TASK_ID: `repo-state-scan-runtime-check`
 WORKFLOW_POINT: `repo-state-scan-command-runtime-check`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `1cf4a28a392513fb1d88b29db4966bc55d400942`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T13:30:00.000Z`
+UPDATED_AT: `2026-04-27T13:38:36.476Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-27T13:30:00.000Z`
 
 ## Last result
 
-Queued repo state scan via explicit AgentWorkspace action.
+Started by github_webhook at 2026-04-27T13:38:36.476Z.
 
 ---
 
@@ -51,7 +51,6 @@ Queued repo state scan via explicit AgentWorkspace action.
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
-- `RUN_REPO_STATE_SCAN`
 
 ## Hard limits
 

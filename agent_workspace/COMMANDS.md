@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-BOOTSTRAP-SAFETY-DIAG-002`
-STATUS: `DONE`
+COMMAND_ID: `AGENTWORKSPACE-AUTO-CHAOS-DIAG-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `agentworkspace-bootstrap-safety-check`
-WORKFLOW_POINT: `agentworkspace-post-deploy-bootstrap-safety-check`
+TASK_ID: `agentworkspace-auto-chaos-suite`
+WORKFLOW_POINT: `agentworkspace-auto-chaos-v1-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `b15bb1f381d1ac96d0bb6ee7e0453148cfde710e`
+REQUIRES_COMMIT: `a973093eeb6e15701b67e5a821653065c38ae47a`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-27T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T06:07:37.808Z`
+UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ---
 
@@ -23,23 +23,15 @@ UPDATED_AT: `2026-04-27T06:07:37.808Z`
 
 /agent_bootstrap_diag
 /agent_bootstrap_strict_diag
+/agent_bootstrap_chaos_pillars_diag
+/agent_bootstrap_chaos_github_diag
+/agent_bootstrap_chaos_missing_diag
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: agentworkspace-bootstrap-safety-check
-Workflow point: agentworkspace-post-deploy-bootstrap-safety-check
-Deploy ID: -
-Commit: b15bb1f381d1ac96d0bb6ee7e0453148cfde710e
-Required commit: b15bb1f381d1ac96d0bb6ee7e0453148cfde710e
-Runtime commit: b15bb1f381d1ac96d0bb6ee7e0453148cfde710e
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 2
-Diagnostics OK: 2
-Diagnostics failed: 0
+Pending auto-chaos diagnostic suite.
 
 ---
 

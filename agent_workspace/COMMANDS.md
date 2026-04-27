@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `60ad2a30b2df7e96340055d483dd998b27b62391`
 CREATED_BY: `advisor`
 CREATED_AT: `2026-04-26T00:00:00.000Z`
-UPDATED_AT: `2026-04-27T00:00:00.000Z`
+UPDATED_AT: `2026-04-27T00:10:00.000Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-27T00:00:00.000Z`
 
 ## Last result
 
-Pending after deploy. Guarded by REQUIRES_COMMIT. Re-triggered by advisor to fire AgentWorkspace GitHub webhook.
+Pending after deploy. Guarded by REQUIRES_COMMIT ancestry check. Re-triggered after deploy of runner stability fix.
 
 ---
 
@@ -59,4 +59,4 @@ Pending after deploy. Guarded by REQUIRES_COMMIT. Re-triggered by advisor to fir
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
 - SG updates only allowlisted files in `agent_workspace/`.
-- If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.
+- If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit includes it in deployed code history.

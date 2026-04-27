@@ -6,42 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-LATEST-DEPLOY-LOGS-003`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_LOGS`
-TASK_ID: `latest-deploy-after-normalizer-fix-check`
-WORKFLOW_POINT: `render-deploy-after-normalizer-fix-check`
+COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-SCAN-003`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_SCAN`
+TASK_ID: `repo-state-agent-runtime-scan-check`
+WORKFLOW_POINT: `repo-state-agent-map-runtime-check`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `818bb8b55399387645bf955cf9217ec706fa70d8`
 CREATED_BY: `advisor`
-CREATED_AT: `2026-04-27T16:15:00.000Z`
-UPDATED_AT: `2026-04-27T15:56:52.086Z`
+CREATED_AT: `2026-04-27T16:25:00.000Z`
+UPDATED_AT: `2026-04-27T16:25:00.000Z`
 
 ---
 
 ## Payload
 
-target=latest_deploy
-level=all
-limit=300
-maxLineChars=1200
+Run RepoStateCollector runtime scan and persist the technical project map evidence. Verify files/modules/dependencies counts, persistence, scanRunId, and error field.
 
 ---
 
 ## Last result
 
-Action completed: COLLECT_RENDER_LOGS
-Task ID: latest-deploy-after-normalizer-fix-check
-Workflow point: render-deploy-after-normalizer-fix-check
-Deploy ID: dep-d7nod7n7f7vs73ftscp0
-Commit: 818bb8b55399387645bf955cf9217ec706fa70d8
-Required commit: 818bb8b55399387645bf955cf9217ec706fa70d8
-Runtime commit: 818bb8b55399387645bf955cf9217ec706fa70d8
-Logs: 20
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Fresh command created. Workspace reports must be reset by SG runner before execution.
 
 ---
 
@@ -65,6 +51,7 @@ Diagnostics failed: 0
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
+- `RUN_REPO_STATE_SCAN`
 
 ## Hard limits
 
@@ -72,5 +59,4 @@ Diagnostics failed: 0
 - `WAITING_DEPLOY` commands are visible but never executed.
 - SG ignores already completed commands.
 - SG never writes code or pillars from this command file.
-- SG updates only allowlisted files in `agent_workspace/`.
 - If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.

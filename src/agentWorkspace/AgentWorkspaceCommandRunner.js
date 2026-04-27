@@ -12,6 +12,7 @@ import {
   getAgentWorkspaceDiag,
   isAgentWorkspaceReadOnlyDiagnosticCommand,
 } from "./AgentWorkspaceConfig.js";
+import { buildAgentWorkspaceBootstrapSnapshot } from "./AgentWorkspaceBootstrapReader.js";
 import {
   parseAgentWorkspaceCommand,
   buildAgentWorkspaceCommandMarkdown,
@@ -45,20 +46,7 @@ function safeJson(value, max = 4000) {
 }
 
 function emptyReport(title, taskId, reason = "reset_before_command_run") {
-  return `# ${title}
-
-Reset before current command run.
-
----
-
-Task ID: \`${taskId || "-"}\`
-Updated at: \`${nowIso()}\`
-Reason: \`${reason}\`
-
----
-
--
-`;
+  return `# ${title}\n\nReset before current command run.\n\n---\n\nTask ID: \`${taskId || "-"}\`\nUpdated at: \`${nowIso()}\`\nReason: \`${reason}\`\n\n---\n\n-\n`;
 }
 
 function serviceMatchesGaryaBot(service = {}) {
@@ -135,56 +123,7 @@ function buildDiagnosticTestReport({ command, results, collectedAt }) {
     ].join("\n");
   }).join("\n\n");
 
-  return `# TEST_REPORT
-
-SG diagnostic command results after workspace command execution.
-
----
-
-Task ID: \`${command.taskId || "manual"}\`
-Deploy ID: \`${command.deployId || "-"}\`
-Commit: \`-\`
-Tested at: \`${collectedAt}\`
-Tested by: \`SG AgentWorkspaceCommandRunner\`
-
----
-
-## Test commands
-
-\`\`\`text
-${parseDiagnosticCommandLines(command.payload).join("\n") || "-"}
-\`\`\`
-
-## Expected answers
-
-The runner must execute read-only SG diagnostic chat commands and capture the same text SG would send to chat.
-
-## Actual answers
-
-\`\`\`text
-${executed}
-\`\`\`
-
-## Chat response logs
-
-\`\`\`text
-${chatOutput || "-"}
-\`\`\`
-
-## Render logs during test
-
-\`\`\`text
-Use RENDER_REPORT.md for RenderBridge logs collected by verify actions.
-\`\`\`
-
-## Result
-
-- \`${results.every((item) => item.ok) ? "DIAGNOSTICS_OK" : "DIAGNOSTICS_FAILED"}\`
-
-## Notes
-
-${raw || "-"}
-`;
+  return `# TEST_REPORT\n\nSG diagnostic command results after workspace command execution.\n\n---\n\nTask ID: \`${command.taskId || "manual"}\`\nDeploy ID: \`${command.deployId || "-"}\`\nCommit: \`-\`\nTested at: \`${collectedAt}\`\nTested by: \`SG AgentWorkspaceCommandRunner\`\n\n---\n\n## Test commands\n\n\`\`\`text\n${parseDiagnosticCommandLines(command.payload).join("\n") || "-"}\n\`\`\`\n\n## Expected answers\n\nThe runner must execute read-only SG diagnostic chat commands and capture the same text SG would send to chat.\n\n## Actual answers\n\n\`\`\`text\n${executed}\n\`\`\`\n\n## Chat response logs\n\n\`\`\`text\n${chatOutput || "-"}\n\`\`\`\n\n## Render logs during test\n\n\`\`\`text\nUse RENDER_REPORT.md for RenderBridge logs collected by verify actions.\n\`\`\`\n\n## Result\n\n- \`${results.every((item) => item.ok) ? "DIAGNOSTICS_OK" : "DIAGNOSTICS_FAILED"}\`\n\n## Notes\n\n${raw || "-"}\n`;
 }
 
 export class AgentWorkspaceCommandRunner {
@@ -347,6 +286,38 @@ export class AgentWorkspaceCommandRunner {
 
       if (commandName === "/agent_workspace_diag") {
         return { command: commandName, ok: true, data: getAgentWorkspaceDiag() };
+      }
+
+      if (commandName === "/agent_bootstrap_diag") {
+        const data = await buildAgentWorkspaceBootstrapSnapshot({ config: this.config });
+        return {
+          command: commandName,
+          ok: data?.ok === true,
+          data,
+          outputText: [
+            "🧭 AgentWorkspace bootstrap diag",
+            "",
+            `readOnly: ${data?.readOnly ? "yes" : "no"}`,
+            `dbWrites: ${data?.dbWrites ? "yes" : "no"}`,
+            `aiCalls: ${data?.aiCalls ? "yes" : "no"}`,
+            `touchesPillars: ${data?.touchesPillars ? "yes" : "no"}`,
+            `runtimePromptChanged: ${data?.runtimePromptChanged ? "yes" : "no"}`,
+            "",
+            `repoFullName: ${data?.repoFullName || "-"}`,
+            `branch: ${data?.branch || "-"}`,
+            `filesExpected: ${data?.filesExpected ?? "-"}`,
+            `filesOk: ${data?.filesOk ?? "-"}`,
+            `filesFailed: ${data?.filesFailed ?? "-"}`,
+            "",
+            ...(Array.isArray(data?.files) ? data.files.map((item) => {
+              return `${item.ok ? "OK" : "FAILED"}: ${item.path} chars=${item.chars} hash=${item.hash || "-"}`;
+            }) : ["files: -"]),
+            "",
+            `warnings: ${Array.isArray(data?.warnings) && data.warnings.length ? data.warnings.join(", ") : "-"}`,
+            "",
+            `Result: ${data?.ok === true ? "OK" : "FAILED"}`,
+          ].join("\n"),
+        };
       }
 
       if (commandName === "/render_bridge_diag") {

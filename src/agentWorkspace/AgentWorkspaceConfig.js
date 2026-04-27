@@ -24,6 +24,10 @@ function normalizeCommandName(value) {
   return raw.split("@")[0];
 }
 
+function isChaosDiagnosticCommand(cmd) {
+  return normalizeString(cmd).toLowerCase().startsWith("/agent_bootstrap_chaos_");
+}
+
 export const AGENT_WORKSPACE_ALLOWED_FILES = Object.freeze([
   "COMMANDS.md",
   "INBOX.md",
@@ -94,6 +98,10 @@ export function isAgentWorkspaceReadOnlyDiagnosticCommand(value) {
 
   const lower = cmd.toLowerCase();
 
+  if (isChaosDiagnosticCommand(cmd) && !envBool("AGENT_WORKSPACE_CHAOS_DIAG_ENABLED", false)) {
+    return false;
+  }
+
   const hasDeniedToken = AGENT_WORKSPACE_DIAGNOSTIC_DENY_TOKENS.some((token) => {
     return lower.includes(`_${token}`) || lower.includes(`${token}_`) || lower.endsWith(`_${token}`);
   });
@@ -141,12 +149,14 @@ export function getAgentWorkspaceConfig() {
   const enabled = envBool("AGENT_WORKSPACE_ENABLED", false);
   const dryRun = envBool("AGENT_WORKSPACE_DRY_RUN", false);
   const webhookEnabled = envBool("AGENT_WORKSPACE_WEBHOOK_ENABLED", false);
+  const chaosDiagEnabled = envBool("AGENT_WORKSPACE_CHAOS_DIAG_ENABLED", false);
   const webhookToken = normalizeString(process.env.AGENT_WORKSPACE_WEBHOOK_TOKEN || "");
 
   return {
     enabled,
     dryRun,
     webhookEnabled,
+    chaosDiagEnabled,
     webhookToken,
     repoFullName,
     branch,
@@ -176,6 +186,7 @@ export function getAgentWorkspaceDiag() {
     dryRun: cfg.dryRun,
     webhookEnabled: cfg.webhookEnabled,
     webhookReady: cfg.webhookReady,
+    chaosDiagEnabled: cfg.chaosDiagEnabled,
     repoFullName: cfg.repoFullName,
     branch: cfg.branch,
     basePath: cfg.basePath,

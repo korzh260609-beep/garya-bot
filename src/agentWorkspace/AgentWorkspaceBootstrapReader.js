@@ -156,6 +156,49 @@ export async function buildAgentWorkspaceBootstrapChaosSnapshot({ scenario = "pi
     simulated.simulatedTouchesPillars = true;
     simulated.simulatedFailure = "pillars_touch_attempt_detected";
     simulated.warnings.push("chaos_simulated_pillars_touch_attempt");
+  } else if (normalizedScenario === "github_fail") {
+    simulated.simulatedGithubApiAvailable = false;
+    simulated.simulatedFailure = "github_api_unavailable";
+    simulated.filesOk = 0;
+    simulated.filesFailed = simulated.filesExpected;
+    simulated.files = BOOTSTRAP_FILES.map((path) => ({
+      path,
+      ok: false,
+      status: 503,
+      error: "chaos_simulated_github_api_unavailable",
+      chars: 0,
+      sha: null,
+      hash: null,
+      required: true,
+    }));
+    simulated.warnings.push("chaos_simulated_github_api_unavailable");
+  } else if (normalizedScenario === "missing_file") {
+    const missingPath = "AGENTS.md";
+    simulated.simulatedMissingFile = missingPath;
+    simulated.simulatedFailure = "required_bootstrap_file_missing";
+    simulated.files = Array.isArray(base.files) && base.files.length
+      ? base.files.map((item) => item.path === missingPath ? {
+          ...item,
+          ok: false,
+          status: 404,
+          error: "chaos_simulated_required_bootstrap_file_missing",
+          chars: 0,
+          sha: null,
+          hash: null,
+        } : item)
+      : BOOTSTRAP_FILES.map((path) => ({
+          path,
+          ok: path !== missingPath,
+          status: path === missingPath ? 404 : 200,
+          error: path === missingPath ? "chaos_simulated_required_bootstrap_file_missing" : null,
+          chars: 0,
+          sha: null,
+          hash: null,
+          required: true,
+        }));
+    simulated.filesOk = simulated.files.filter((item) => item.ok).length;
+    simulated.filesFailed = simulated.files.filter((item) => !item.ok).length;
+    simulated.warnings.push("chaos_simulated_required_bootstrap_file_missing");
   } else {
     simulated.simulatedFailure = "unknown_chaos_scenario";
     simulated.warnings.push("chaos_unknown_scenario");

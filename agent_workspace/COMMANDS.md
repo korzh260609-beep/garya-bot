@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `PROJECT-MEMORY-7A-PM-FIND-DIAG-001`
-STATUS: `WAITING_DEPLOY`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `project-memory-7a-pm-find-runtime-diagnostic`
 WORKFLOW_POINT: `project-memory-core-pm-find-readonly-check`
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-26T00:00:00.000Z`
 
 ## Last result
 
-Waiting for deploy. After deploy, change STATUS from WAITING_DEPLOY to PENDING.
+Pending after deploy. Guarded by REQUIRES_COMMIT.
 
 ---
 

@@ -92,14 +92,27 @@ function getRuntimeCommitSha() {
   );
 }
 
-function isCommitSatisfied({ runtimeCommit, requiredCommit }) {
+async function isCommitSatisfied({ runtimeCommit, requiredCommit, client }) {
   const runtime = normalizeCommitSha(runtimeCommit);
   const required = normalizeCommitSha(requiredCommit);
 
   if (!required) return true;
   if (!runtime) return false;
+  if (runtime === required || runtime.startsWith(required) || required.startsWith(runtime)) return true;
 
-  return runtime === required || runtime.startsWith(required) || required.startsWith(runtime);
+  if (!client || typeof client.compareCommits !== "function") return false;
+
+  try {
+    const compare = await client.compareCommits(required, runtime);
+
+    return compare?.ok === true && (
+      compare.status === "identical" ||
+      compare.status === "ahead"
+    );
+  } catch (error) {
+    console.error("AgentWorkspace commit ancestry check failed:", error?.message || error);
+    return false;
+  }
 }
 
 function buildDiagnosticTestReport({ command, results, collectedAt }) {
@@ -508,7 +521,13 @@ export class AgentWorkspaceCommandRunner {
         };
       }
 
-      if (requiredCommit && !isCommitSatisfied({ runtimeCommit, requiredCommit })) {
+      const commitSatisfied = await isCommitSatisfied({
+        runtimeCommit,
+        requiredCommit,
+        client: this.client,
+      });
+
+      if (requiredCommit && !commitSatisfied) {
         return {
           ok: true,
           skipped: true,

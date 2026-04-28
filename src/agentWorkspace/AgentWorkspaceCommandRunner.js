@@ -19,6 +19,26 @@ import {
   buildAgentWorkspaceCommandMarkdown,
 } from "./AgentWorkspaceCommandParser.js";
 import { executeAgentWorkspaceChatCommand } from "./AgentWorkspaceChatCommandExecutor.js";
+import {
+  normalizeString,
+  parseDiagnosticCommandLines,
+  parseRepoStateAgentOptions,
+} from "./AgentWorkspacePayloadParser.js";
+import {
+  nowIso,
+  emptyReport,
+  buildDiagnosticTestReport,
+  buildRepoStateScanTestReport,
+  buildRepoStateAgentTestReport,
+} from "./AgentWorkspaceReportBuilders.js";
+import {
+  normalizeCommitSha,
+  getRuntimeCommitSha,
+  isCommitSatisfied,
+} from "./AgentWorkspaceRuntimeGuard.js";
+import {
+  ensureGlobalRenderServiceSelected as selectGlobalRenderService,
+} from "./AgentWorkspaceServiceSelector.js";
 import { createRepoStateCollector } from "../repoStateCollector/RepoStateCollectorFactory.js";
 import RepoStateAgentService from "../simpleAgents/repoStateAgent/RepoStateAgentService.js";
 import renderBridge from "../integrations/render/RenderBridge.js";
@@ -27,129 +47,6 @@ import { getRenderBridgeConfig } from "../integrations/render/RenderBridgeConfig
 
 let inMemoryRunLock = false;
 const completedCommands = new Set();
-
-function normalizeString(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function safeJson(value, max = 4000) {
-  let text = "";
-  try {
-    text = JSON.stringify(value, null, 2);
-  } catch {
-    text = String(value || "");
-  }
-
-  if (text.length <= max) return text;
-  return `${text.slice(0, max - 1)}…`;
-}
-
-function emptyReport(title, taskId, reason = "reset_before_command_run") {
-  return `# ${title}\n\nReset before current command run.\n\n---\n\nTask ID: \`${taskId || "-"}\`\nUpdated at: \`${nowIso()}\`\nReason: \`${reason}\`\n\n---\n\n-\n`;
-}
-
-function serviceMatchesGaryaBot(service = {}) {
-  const name = String(service?.name || "").toLowerCase();
-  const slug = String(service?.slug || "").toLowerCase();
-  return name === "garya-bot" || slug === "garya-bot";
-}
-
-function parseDiagnosticCommandLines(payload = "") {
-  const lines = String(payload || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => line.startsWith("/"));
-
-  return Array.from(new Set(lines.map((line) => line.split(/\s+/)[0])));
-}
-
-function normalizeCommitSha(value) {
-  return normalizeString(value).toLowerCase();
-}
-
-function getRuntimeCommitSha() {
-  return normalizeCommitSha(
-    process.env.RENDER_GIT_COMMIT ||
-    process.env.RENDER_GIT_COMMIT_SHA ||
-    process.env.GIT_COMMIT ||
-    process.env.COMMIT_SHA ||
-    process.env.SOURCE_VERSION ||
-    ""
-  );
-}
-
-async function isCommitSatisfied({ runtimeCommit, requiredCommit, client }) {
-  const runtime = normalizeCommitSha(runtimeCommit);
-  const required = normalizeCommitSha(requiredCommit);
-
-  if (!required) return true;
-  if (!runtime) return false;
-  if (runtime === required || runtime.startsWith(required) || required.startsWith(runtime)) return true;
-
-  if (!client || typeof client.compareCommits !== "function") return false;
-
-  try {
-    const compare = await client.compareCommits(required, runtime);
-
-    return compare?.ok === true && (
-      compare.status === "identical" ||
-      compare.status === "ahead"
-    );
-  } catch (error) {
-    console.error("AgentWorkspace commit ancestry check failed:", error?.message || error);
-    return false;
-  }
-}
-
-function buildDiagnosticTestReport({ command, results, collectedAt }) {
-  const executed = results.map((item) => `${item.command}: ${item.ok ? "OK" : "FAILED"}`).join("\n") || "-";
-  const chatOutput = results.map((item) => {
-    return [
-      `## ${item.command}`,
-      item.outputText || "-",
-    ].join("\n");
-  }).join("\n\n");
-  const raw = results.map((item) => {
-    return [
-      `## ${item.command}`,
-      `ok=${String(item.ok)}`,
-      item.handler ? `handler=${item.handler}` : "handler=-",
-      item.error ? `error=${item.error}` : "error=-",
-      "```json",
-      safeJson(item.data || item.output || item.messages || {}, 6000),
-      "```",
-    ].join("\n");
-  }).join("\n\n");
-
-  return `# TEST_REPORT\n\nSG diagnostic command results after workspace command execution.\n\n---\n\nTask ID: \`${command.taskId || "manual"}\`\nDeploy ID: \`${command.deployId || "-"}\`\nCommit: \`-\`\nTested at: \`${collectedAt}\`\nTested by: \`SG AgentWorkspaceCommandRunner\`\n\n---\n\n## Test commands\n\n\`\`\`text\n${parseDiagnosticCommandLines(command.payload).join("\n") || "-"}\n\`\`\`\n\n## Expected answers\n\nThe runner must execute read-only SG diagnostic chat commands and capture the same text SG would send to chat.\n\n## Actual answers\n\n\`\`\`text\n${executed}\n\`\`\`\n\n## Chat response logs\n\n\`\`\`text\n${chatOutput || "-"}\n\`\`\`\n\n## Render logs during test\n\n\`\`\`text\nUse RENDER_REPORT.md for RenderBridge logs collected by verify actions.\n\`\`\`\n\n## Result\n\n- \`${results.every((item) => item.ok) ? "DIAGNOSTICS_OK" : "DIAGNOSTICS_FAILED"}\`\n\n## Notes\n\n${raw || "-"}\n`;
-}
-
-function buildRepoStateScanTestReport({ command, snapshot, collectedAt }) {
-  return `# TEST_REPORT\n\nSG repo state scan result after workspace command execution.\n\n---\n\nTask ID: \`${command.taskId || "manual"}\`\nDeploy ID: \`${command.deployId || "-"}\`\nCommit: \`-\`\nTested at: \`${collectedAt}\`\nTested by: \`SG AgentWorkspaceCommandRunner\`\n\n---\n\n## Test command\n\n\`\`\`text\nRUN_REPO_STATE_SCAN\n\`\`\`\n\n## Result\n\n- \`${snapshot?.ok === true && snapshot?.persisted === true ? "REPO_STATE_SCAN_OK" : "REPO_STATE_SCAN_FAILED"}\`\n\n## Repo State\n\n\`\`\`text\nok: ${snapshot?.ok === true ? "yes" : "no"}\npersisted: ${snapshot?.persisted === true ? "yes" : "no"}\nrepo: ${snapshot?.repoFullName || "-"}\nbranch: ${snapshot?.branch || "-"}\nfiles: ${snapshot?.filesCount ?? "-"}\nmodules: ${snapshot?.modulesCount ?? "-"}\ndependencies: ${snapshot?.dependenciesCount ?? "-"}\ncontentLoaded: ${snapshot?.tree?.contentFilesLoaded ?? "-"}\ncontentSkipped: ${snapshot?.tree?.contentFilesSkipped ?? "-"}\nstructureComplete: ${snapshot?.tree?.structureComplete === true ? "yes" : "no"}\nhiddenFiles: ${snapshot?.tree?.hiddenFilesCount ?? "-"}\nscanRunId: ${snapshot?.persistence?.scanRunId || "-"}\nerror: ${snapshot?.error || snapshot?.persistence?.error || "-"}\n\`\`\`\n\n## Raw\n\n\`\`\`json\n${safeJson(snapshot || {}, 6000)}\n\`\`\`\n`;
-}
-
-function buildRepoStateAgentTestReport({ command, result, collectedAt }) {
-  const ai = result?.aiAnalysis || {};
-  const meta = result?.aiMeta || {};
-  const projectMap = result?.projectMap || {};
-  return `# TEST_REPORT\n\nSG full repo state agent result after workspace command execution.\n\n---\n\nTask ID: \`${command.taskId || "manual"}\`\nDeploy ID: \`${command.deployId || "-"}\`\nCommit: \`-\`\nTested at: \`${collectedAt}\`\nTested by: \`SG AgentWorkspaceCommandRunner\`\n\n---\n\n## Test command\n\n\`\`\`text\nRUN_REPO_STATE_AGENT\n\`\`\`\n\n## Result\n\n- \`${result?.ok === true && result?.persisted === true && projectMap ? "REPO_STATE_AGENT_OK" : "REPO_STATE_AGENT_FAILED"}\`\n\n## Technical map\n\n\`\`\`text\nok: ${result?.ok === true ? "yes" : "no"}\npersisted: ${result?.persisted === true ? "yes" : "no"}\nrepo: ${result?.repoFullName || "-"}\nbranch: ${result?.branch || "-"}\nfiles: ${result?.filesCount ?? "-"}\nmodules: ${result?.modulesCount ?? "-"}\ndependencies: ${result?.dependenciesCount ?? "-"}\nprojectMap: ${projectMap ? "yes" : "no"}\nprojectMapModules: ${Array.isArray(projectMap?.modules) ? projectMap.modules.length : "-"}\nprojectMapLinks: ${Array.isArray(projectMap?.moduleLinks) ? projectMap.moduleLinks.length : "-"}\nscanRunId: ${result?.persistence?.scanRunId || "-"}\nerror: ${result?.error || result?.persistence?.error || "-"}\n\`\`\`\n\n## Semantic AI map\n\n\`\`\`text\naiEnabled: ${ai?.enabled === true ? "yes" : "no"}\naiSkipped: ${ai?.skipped === true ? "yes" : "no"}\naiReused: ${ai?.reused === true ? "yes" : "no"}\naiReason: ${ai?.reason || meta?.reason || "-"}\nshouldAnalyze: ${meta?.shouldAnalyze === true ? "yes" : "no"}\nsignatureLength: ${meta?.projectMapSignature ? String(meta.projectMapSignature.length) : "-"}\nhasAnalysis: ${ai?.analysis ? "yes" : "no"}\n\`\`\`\n\n## Raw compact\n\n\`\`\`json\n${safeJson({
-    ok: result?.ok,
-    persisted: result?.persisted,
-    repoFullName: result?.repoFullName,
-    branch: result?.branch,
-    filesCount: result?.filesCount,
-    modulesCount: result?.modulesCount,
-    dependenciesCount: result?.dependenciesCount,
-    scanRunId: result?.persistence?.scanRunId || null,
-    aiAnalysis: result?.aiAnalysis || null,
-    aiMeta: result?.aiMeta || null,
-  }, 6000)}\n\`\`\`\n`;
-}
 
 export class AgentWorkspaceCommandRunner {
   constructor({ config, client, reportService, renderControlService } = {}) {
@@ -317,24 +214,9 @@ export class AgentWorkspaceCommandRunner {
   }
 
   async ensureGlobalRenderServiceSelected() {
-    const current = await renderBridgeStateStore.getState("global");
-    if (current?.selected_service_id) {
-      return current;
-    }
-
-    const services = await renderBridge.listServices();
-    const selected = services.find(serviceMatchesGaryaBot) || (services.length === 1 ? services[0] : null);
-
-    if (!selected?.id) {
-      throw new Error("agent_workspace_no_render_service_available_for_global_runner");
-    }
-
-    return renderBridgeStateStore.setSelectedService({
-      ownerKey: "global",
-      serviceId: selected.id,
-      serviceName: selected.name || selected.slug || "garya-bot",
-      serviceSlug: selected.slug || selected.name || "garya-bot",
-      ownerId: selected.ownerId || selected.owner?.id || selected.owner_id || null,
+    return selectGlobalRenderService({
+      renderBridge,
+      renderBridgeStateStore,
     });
   }
 
@@ -583,7 +465,8 @@ export class AgentWorkspaceCommandRunner {
 
   async runRepoStateAgent(command) {
     const service = new RepoStateAgentService();
-    const result = await service.run();
+    const options = parseRepoStateAgentOptions(command.payload);
+    const result = await service.run(options);
     const collectedAt = nowIso();
 
     await this.reportService.writeMarkdown(
@@ -606,6 +489,8 @@ export class AgentWorkspaceCommandRunner {
       aiSkipped: result?.aiAnalysis?.skipped === true,
       aiReused: result?.aiAnalysis?.reused === true,
       aiReason: result?.aiAnalysis?.reason || result?.aiMeta?.reason || null,
+      aiForceAnalysis: result?.aiMeta?.forceAiAnalysis === true ||
+        result?.aiAnalysis?.forceAiAnalysis === true,
       result,
     };
   }

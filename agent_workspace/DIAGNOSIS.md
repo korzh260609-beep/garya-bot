@@ -4,8 +4,8 @@ Reset before current command run.
 
 ---
 
-Task ID: `repo-state-agent-migration-latest-deploy-logs-check-30`
-Updated at: `2026-04-28T08:24:07.299Z`
+Task ID: `repo-state-agent-real-ai-retry-after-signature-index-fix-31`
+Updated at: `2026-04-28T08:29:30.270Z`
 Reason: `reset_before_command_run_no_diagnosis_yet`
 
 ---

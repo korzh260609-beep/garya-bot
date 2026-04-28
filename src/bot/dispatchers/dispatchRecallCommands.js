@@ -1,6 +1,13 @@
 // src/bot/dispatchers/dispatchRecallCommands.js
 // Extracted 1:1 from commandDispatcher.js
 // Purpose: keep commandDispatcher smaller without changing behavior.
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for recall/manual memory lookup.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode recall must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 
 import { handleRecall, handleRecallMore } from "../handlers/recall.js";
 

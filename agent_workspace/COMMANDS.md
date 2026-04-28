@@ -6,28 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-AI-DRY-RUN-019`
-STATUS: `FAILED`
-ACTION: `RUN_REPO_STATE_AGENT`
-TASK_ID: `repo-state-agent-force-ai-dry-run-19`
-WORKFLOW_POINT: `repo-state-agent-ai-dry-run-force-check-19`
+COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-020`
+STATUS: `PENDING`
+ACTION: `VERIFY_DEPLOY`
+TASK_ID: `agent-workspace-command-timeout-240s-deploy-verify-20`
+WORKFLOW_POINT: `agent-workspace-command-timeout-240s-deploy-check-20`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `82b44cf4e0ff699268c462833ea2d3fa40b21b0c`
+REQUIRES_COMMIT: `e07174db425ae51ae9e4b621fb343d362bfe1d1b`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:00:00.000Z`
-UPDATED_AT: `2026-04-28T06:56:55.155Z`
+UPDATED_AT: `2026-04-28T08:00:00.000Z`
 
 ---
 
 ## Payload
 
-forceAiAnalysis=true
+-
 
 ---
 
 ## Last result
 
-Runner failed: agent_workspace_command_run_repo_state_agent_timeout_after_90000ms
+Pending deploy verification for AgentWorkspace command timeout 240s default.
 
 ---
 

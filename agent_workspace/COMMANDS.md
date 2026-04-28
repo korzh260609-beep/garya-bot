@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-055`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-semantic-map-check-55`
 WORKFLOW_POINT: `repo-state-semantic-map-check-55`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `32e263c8e9dc284cdbb99ea0f1dfa7662ae63e2d`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T11:15:00.000Z`
-UPDATED_AT: `2026-04-28T11:15:00.000Z`
+UPDATED_AT: `2026-04-28T11:02:47.228Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-28T11:15:00.000Z`
 
 ## Last result
 
-Waiting for SG AgentWorkspaceCommandRunner to verify deterministic semanticMap fields without real AI spending.
+Started by github_webhook at 2026-04-28T11:02:47.228Z.
 
 ---
 

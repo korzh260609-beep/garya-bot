@@ -6,39 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-REAL-AI-031`
-STATUS: `DONE`
-ACTION: `RUN_REPO_STATE_AGENT`
-TASK_ID: `repo-state-agent-real-ai-retry-after-signature-index-fix-31`
-WORKFLOW_POINT: `repo-state-agent-real-ai-signature-index-fix-check-31`
+COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-032`
+STATUS: `PENDING`
+ACTION: `VERIFY_DEPLOY`
+TASK_ID: `repo-state-agent-ai-dry-run-env-redeploy-verify-32`
+WORKFLOW_POINT: `repo-state-agent-ai-dry-run-env-redeploy-check-32`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `dbfd67d90da5f24b05db3b8bf6630d90d271a7ad`
+REQUIRES_COMMIT: `30ec8407d59806282aeed679f5d1c94fc2105781`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:00:00.000Z`
-UPDATED_AT: `2026-04-28T08:31:31.785Z`
+UPDATED_AT: `2026-04-28T08:00:00.000Z`
 
 ---
 
 ## Payload
 
-forceAiAnalysis=true
+-
 
 ---
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_AGENT
-Task ID: repo-state-agent-real-ai-retry-after-signature-index-fix-31
-Workflow point: repo-state-agent-real-ai-signature-index-fix-check-31
-Deploy ID: -
-Commit: 30ec8407d59806282aeed679f5d1c94fc2105781
-Required commit: dbfd67d90da5f24b05db3b8bf6630d90d271a7ad
-Runtime commit: 30ec8407d59806282aeed679f5d1c94fc2105781
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending deploy verification after setting RepoStateAgent AI dry-run ENV back to true.
 
 ---
 

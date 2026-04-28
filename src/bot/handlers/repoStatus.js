@@ -1,5 +1,10 @@
 // ============================================================================
-// === src/bot/handlers/repoStatus.js — show latest repo snapshot from PostgreSQL
+// === src/bot/handlers/repoStatus.js — LEGACY RepoIndex snapshot status
+// ============================================================================
+// LEGACY WARNING:
+// - This command reads old repo_index_* snapshots only.
+// - It is NOT the factual current repository state.
+// - Factual repo/project state must come from RepoStateAgent.
 // ============================================================================
 
 import pool from "../../../db.js";
@@ -69,7 +74,14 @@ export async function handleRepoStatus(ctx = {}) {
     latest = await store.getLatestSnapshot({ repo, branch });
 
     if (!latest) {
-      await bot.sendMessage(chatId, "RepoStatus: no snapshots yet");
+      await bot.sendMessage(
+        chatId,
+        [
+          "RepoStatus: LEGACY snapshot only",
+          "Status: no legacy snapshots yet",
+          "Truth: use RepoStateAgent for factual current repo/project state.",
+        ].join("\n")
+      );
       return;
     }
 
@@ -87,7 +99,11 @@ export async function handleRepoStatus(ctx = {}) {
     ) {
       await bot.sendMessage(
         chatId,
-        "RepoStatus: таблица не инициализирована, запусти /reindex сначала"
+        [
+          "RepoStatus: LEGACY snapshot only",
+          "Status: legacy repo_index_snapshots table is not initialized.",
+          "Truth: use RepoStateAgent for factual current repo/project state.",
+        ].join("\n")
       );
       return;
     }
@@ -98,12 +114,23 @@ export async function handleRepoStatus(ctx = {}) {
     ) {
       await bot.sendMessage(
         chatId,
-        "RepoStatus: файловый индекс не инициализирован, запусти /reindex сначала"
+        [
+          "RepoStatus: LEGACY snapshot only",
+          "Status: legacy repo_index_files table is not initialized.",
+          "Truth: use RepoStateAgent for factual current repo/project state.",
+        ].join("\n")
       );
       return;
     }
 
-    await bot.sendMessage(chatId, "RepoStatus: DB error while reading snapshot");
+    await bot.sendMessage(
+      chatId,
+      [
+        "RepoStatus: LEGACY snapshot only",
+        "Status: DB error while reading legacy snapshot.",
+        "Truth: use RepoStateAgent for factual current repo/project state.",
+      ].join("\n")
+    );
     return;
   }
 
@@ -116,13 +143,16 @@ export async function handleRepoStatus(ctx = {}) {
   await bot.sendMessage(
     chatId,
     [
-      "RepoStatus: ok",
-      `snapshotId: ${latest.id}`,
+      "RepoStatus: LEGACY snapshot only",
+      "Warning: this is not factual current repo/project state.",
+      "Truth: use RepoStateAgent.",
+      "",
+      `legacySnapshotId: ${latest.id}`,
       `repo: ${latest.repo || "?"}`,
       `branch: ${latest.branch || "?"}`,
       `commitSha: ${commitSha || "null"}`,
       `createdAt: ${latest.created_at || "?"}`,
-      `filesCount: ${filesCount}`,
+      `legacyFilesCount: ${filesCount}`,
     ].join("\n")
   );
 }

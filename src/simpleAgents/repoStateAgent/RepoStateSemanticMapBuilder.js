@@ -275,6 +275,65 @@ function buildTaskRoutingHints() {
   ];
 }
 
+function buildTaskSafetyGates() {
+  return [
+    {
+      gate: "confirm_before_real_ai",
+      appliesTo: ["ai_model_or_cost_change", "agent_workspace_or_repo_state_change"],
+      rule: "Any real AI analysis or token-spending action must require explicit Monarch approval.",
+    },
+    {
+      gate: "protect_pillars",
+      appliesTo: ["docs_or_architecture_orientation"],
+      rule: "Pillars are read-only orientation sources unless Monarch explicitly permits a pillars edit.",
+    },
+    {
+      gate: "preserve_multitransport_boundary",
+      appliesTo: ["transport_or_user_command_change"],
+      rule: "Transport work must not hard-bind SG to Telegram; Telegram remains one adapter among future transports.",
+    },
+    {
+      gate: "preserve_memory_boundaries",
+      appliesTo: ["memory_or_project_memory_change"],
+      rule: "Personal, group, project, and SG global memory must remain separate unless a task explicitly changes that design.",
+    },
+    {
+      gate: "source_first_boundary",
+      appliesTo: ["source_or_external_data_change"],
+      rule: "External data access belongs in sources/integrations adapters, not hardcoded into core orchestration.",
+    },
+    {
+      gate: "migration_safety",
+      appliesTo: ["database_or_migration_change"],
+      rule: "Database changes require migration order, idempotency, and rollback-risk review before deployment.",
+    },
+  ];
+}
+
+function buildRecommendedReadOrder() {
+  return [
+    "agent_workspace/COMMANDS.md",
+    "agent_workspace/TEST_REPORT.md",
+    "agent_workspace/SEMANTIC_MAP_REPORT.md",
+    "src/simpleAgents/repoStateAgent/RepoStateProjectMapBuilder.js",
+    "src/simpleAgents/repoStateAgent/RepoStateSemanticMapBuilder.js",
+    "src/agentWorkspace/AgentWorkspaceRepoStateActions.js",
+    "src/agentWorkspace/AgentWorkspaceReportBuilders.js",
+    "src/agentWorkspace/AgentWorkspaceCommandRunner.js",
+    "src/agentWorkspace/AgentWorkspaceConfig.js",
+    "ai.js",
+    "modelConfig.js",
+    "db.js",
+    "src/transport/",
+    "src/bot/",
+    "src/memory/",
+    "src/projectMemory/",
+    "src/sources/",
+    "src/tasks/",
+    "pillars/",
+  ];
+}
+
 export function buildRepoStateSemanticMap(projectMap = {}) {
   const modules = asArray(projectMap?.modules);
   const entrypoints = asArray(projectMap?.entrypoints);
@@ -282,10 +341,10 @@ export function buildRepoStateSemanticMap(projectMap = {}) {
   const commandLikeFiles = asArray(projectMap?.commandLikeFiles);
 
   return {
-    schemaVersion: 4,
-    generatedBy: "deterministic_semantic_map_v4",
+    schemaVersion: 5,
+    generatedBy: "deterministic_semantic_map_v5",
     tokensSpent: false,
-    purpose: "No-AI semantic layer that helps SG and external coding tools understand module purposes, boundaries, and task routing.",
+    purpose: "No-AI semantic layer that helps SG and external coding tools understand module purposes, boundaries, task routing, and safety gates.",
     layerDescriptions: Object.keys(projectMap?.layers || {}).reduce((acc, layer) => {
       acc[layer] = describeLayer(layer);
       return acc;
@@ -297,6 +356,8 @@ export function buildRepoStateSemanticMap(projectMap = {}) {
       commandLikeFiles: commandLikeFiles.slice(0, 80).map(inferFilePurpose),
     },
     taskRoutingHints: buildTaskRoutingHints(),
+    taskSafetyGates: buildTaskSafetyGates(),
+    recommendedReadOrder: buildRecommendedReadOrder(),
     boundaryRules: buildBoundaryRules(),
     riskHints: buildRiskHints(projectMap),
   };

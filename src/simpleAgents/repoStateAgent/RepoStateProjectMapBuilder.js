@@ -4,6 +4,8 @@
 // Builds compact agent-readable project map from collector snapshot.
 // ============================================================================
 
+import { buildRepoStateSemanticMap } from "./RepoStateSemanticMapBuilder.js";
+
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -149,8 +151,8 @@ export function buildRepoStateProjectMap(snapshot = {}) {
 
   const moduleLinks = buildModuleLinks(dependencies);
 
-  return {
-    schemaVersion: 2,
+  const projectMap = {
+    schemaVersion: 3,
     generatedAt: new Date().toISOString(),
     repo: {
       fullName: snapshot?.repoFullName || null,
@@ -195,6 +197,11 @@ export function buildRepoStateProjectMap(snapshot = {}) {
         "Do not edit pillars unless explicitly allowed by Monarch.",
       ],
     },
+  };
+
+  return {
+    ...projectMap,
+    semanticMap: buildRepoStateSemanticMap(projectMap),
   };
 }
 

@@ -26,6 +26,30 @@ function envTrue(name, def = "false") {
   return envStr(name, def).trim().toLowerCase() === "true";
 }
 
+function summarizeProjectMemoryAutoRestore(result) {
+  const results = Array.isArray(result?.results) ? result.results : [];
+
+  if (!results.length) {
+    return {
+      ok: Boolean(result?.ok),
+      checked: 0,
+      synced: 0,
+      alreadyExists: 0,
+      skipped: Boolean(result?.skipped),
+      reason: result?.reason || "no_results",
+    };
+  }
+
+  return {
+    ok: Boolean(result?.ok),
+    checked: results.length,
+    synced: results.filter((item) => item?.synced === true).length,
+    alreadyExists: results.filter((item) => item?.reason === "already_exists").length,
+    skipped: results.filter((item) => item?.synced !== true && item?.reason !== "already_exists").length,
+    sections: results.map((item) => item?.section).filter(Boolean).join(", ") || "-",
+  };
+}
+
 export async function initSystem({ bot }) {
   // ✅ Run diagnostics once on boot/deploy (do not loop)
   try {
@@ -53,7 +77,7 @@ export async function initSystem({ bot }) {
     if (r?.skipped) {
       console.log("🧩 Project Memory auto-restore: skipped");
     } else {
-      console.log("🧩 Project Memory auto-restore:", r?.results || r);
+      console.log("🧩 Project Memory auto-restore:", summarizeProjectMemoryAutoRestore(r));
     }
   } catch (e) {
     console.error("⚠️ Project Memory auto-restore failed:", e?.message || e);

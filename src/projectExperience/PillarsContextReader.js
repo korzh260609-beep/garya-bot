@@ -1,15 +1,15 @@
 // src/projectExperience/PillarsContextReader.js
 // ============================================================================
-// STAGE C.1 — Pillars Context Reader (SKELETON)
+// STAGE C.1 — Pillars Context Reader
 // Purpose:
 // - define a single read-only layer for project pillars context
-// - keep SG aligned with ROADMAP / WORKFLOW / DECISIONS
-// - prepare reconciliation between repo evidence, project memory and pillars
+// - keep SG aligned with roadmap / workflow / decisions / architecture
+// - support universal folder/file pillars structure through PillarsResolver
 // IMPORTANT:
 // - READ-ONLY contract
 // - NO pillar edits
 // - NO DB writes
-// - NO GitHub calls here; caller supplies file contents
+// - NO GitHub calls here; resolver reads local deployed repo files only
 // ============================================================================
 
 import {
@@ -17,11 +17,14 @@ import {
   PROJECT_EXPERIENCE_EVIDENCE_TYPES,
   PROJECT_EXPERIENCE_CONFIDENCE,
 } from "./projectExperienceTypes.js";
+import { PillarsResolver } from "./PillarsResolver.js";
 
 export const PROJECT_PILLAR_FILES = Object.freeze({
-  ROADMAP: "pillars/ROADMAP.md",
-  WORKFLOW: "pillars/WORKFLOW.md",
+  ROADMAP: "pillars/roadmap/",
+  WORKFLOW: "pillars/workflow/",
   DECISIONS: "pillars/DECISIONS.md",
+  PROJECT: "pillars/PROJECT.md",
+  ARCHITECTURE: "pillars/architecture/",
 });
 
 function safeText(value) {
@@ -53,7 +56,7 @@ function findStageMentions(content = "") {
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = String(lines[index] || "");
-    const matches = line.matchAll(/(?:stage|этап)\s+([0-9]+[a-zа-я]?(?:\.[0-9]+)?)/gi);
+    const matches = line.matchAll(/(?:stage|этап|етап)\s+([0-9]+[a-zа-я]?(?:\.[0-9]+)?)/gi);
 
     for (const match of matches) {
       mentions.push({
@@ -67,70 +70,108 @@ function findStageMentions(content = "") {
   return mentions;
 }
 
+function sectionToEvidenceType(sectionKey) {
+  if (sectionKey === "decisions") {
+    return PROJECT_EXPERIENCE_EVIDENCE_TYPES.DECISION_ENTRY;
+  }
+  return PROJECT_EXPERIENCE_EVIDENCE_TYPES.WORKFLOW_ENTRY;
+}
+
+function buildPillarItem({ key, path, content }) {
+  const normalizedContent = safeText(content);
+  return {
+    key,
+    path,
+    available: normalizedContent.length > 0,
+    headings: extractHeadings(normalizedContent),
+    stageMentions: findStageMentions(normalizedContent),
+  };
+}
+
+function buildContextFromItems(items = []) {
+  const pillars = items.map(buildPillarItem);
+
+  const evidences = pillars.map((pillar) =>
+    createProjectEvidence({
+      type: sectionToEvidenceType(pillar.key),
+      source: "pillar",
+      ref: pillar.path,
+      title: `Pillar: ${pillar.key}`,
+      summary: pillar.available
+        ? `Pillar available: ${pillar.path}; headings=${pillar.headings.length}; stageMentions=${pillar.stageMentions.length}`
+        : `Pillar missing or empty: ${pillar.path}`,
+      details: {
+        key: pillar.key,
+        path: pillar.path,
+        available: pillar.available,
+        headingsCount: pillar.headings.length,
+        stageMentionsCount: pillar.stageMentions.length,
+      },
+      confidence: pillar.available
+        ? PROJECT_EXPERIENCE_CONFIDENCE.HIGH
+        : PROJECT_EXPERIENCE_CONFIDENCE.LOW,
+    })
+  );
+
+  return {
+    pillars,
+    evidences,
+  };
+}
+
+function findSection(resolved, key) {
+  return (resolved?.sections || []).find((section) => section.section === key) || null;
+}
+
 export class PillarsContextReader {
-  constructor({ pillarFiles = PROJECT_PILLAR_FILES } = {}) {
+  constructor({ pillarFiles = PROJECT_PILLAR_FILES, resolver = null } = {}) {
     this.pillarFiles = pillarFiles;
+    this.resolver = resolver || new PillarsResolver();
   }
 
-  buildPillarContext({ roadmap = "", workflow = "", decisions = "" } = {}) {
+  buildPillarContext({ roadmap = "", workflow = "", decisions = "", project = "", architecture = "" } = {}) {
     const items = [
-      {
-        key: "roadmap",
-        path: this.pillarFiles.ROADMAP,
-        content: roadmap,
-      },
-      {
-        key: "workflow",
-        path: this.pillarFiles.WORKFLOW,
-        content: workflow,
-      },
-      {
-        key: "decisions",
-        path: this.pillarFiles.DECISIONS,
-        content: decisions,
-      },
+      { key: "roadmap", path: this.pillarFiles.ROADMAP, content: roadmap },
+      { key: "workflow", path: this.pillarFiles.WORKFLOW, content: workflow },
+      { key: "decisions", path: this.pillarFiles.DECISIONS, content: decisions },
+      { key: "project", path: this.pillarFiles.PROJECT, content: project },
+      { key: "architecture", path: this.pillarFiles.ARCHITECTURE, content: architecture },
     ];
 
-    const pillars = items.map((item) => {
-      const content = safeText(item.content);
+    return buildContextFromItems(items);
+  }
 
+  async buildResolvedPillarContext() {
+    const resolved = await this.resolver.resolve();
+
+    if (!resolved?.ok) {
       return {
-        key: item.key,
-        path: item.path,
-        available: content.length > 0,
-        headings: extractHeadings(content),
-        stageMentions: findStageMentions(content),
+        pillars: [],
+        evidences: [],
+        resolver: resolved,
       };
-    });
+    }
 
-    const evidences = pillars.map((pillar) =>
-      createProjectEvidence({
-        type:
-          pillar.key === "decisions"
-            ? PROJECT_EXPERIENCE_EVIDENCE_TYPES.DECISION_ENTRY
-            : PROJECT_EXPERIENCE_EVIDENCE_TYPES.WORKFLOW_ENTRY,
-        source: "pillar",
-        ref: pillar.path,
-        title: `Pillar: ${pillar.key}`,
-        summary: pillar.available
-          ? `Pillar available: ${pillar.path}; headings=${pillar.headings.length}; stageMentions=${pillar.stageMentions.length}`
-          : `Pillar missing or empty: ${pillar.path}`,
-        details: {
-          key: pillar.key,
-          path: pillar.path,
-          available: pillar.available,
-          headingsCount: pillar.headings.length,
-          stageMentionsCount: pillar.stageMentions.length,
-        },
-        confidence: pillar.available
-          ? PROJECT_EXPERIENCE_CONFIDENCE.HIGH
-          : PROJECT_EXPERIENCE_CONFIDENCE.LOW,
-      })
-    );
+    const preferredOrder = ["project", "workflow", "roadmap", "decisions", "architecture"];
+    const orderedSections = [
+      ...preferredOrder.map((key) => findSection(resolved, key)).filter(Boolean),
+      ...(resolved.sections || []).filter((section) => !preferredOrder.includes(section.section)),
+    ];
+
+    const items = orderedSections.map((section) => ({
+      key: section.section,
+      path: section.sourceRef || section.section,
+      content: section.content,
+    }));
 
     return {
-      pillars,
-      evidences,
+      ...buildContextFromItems(items),
+      resolver: {
+        ok: true,
+        totalMarkdownFiles: resolved.totalMarkdownFiles,
+        activeMarkdownFiles: resolved.activeMarkdownFiles,
+        archivedMarkdownFiles: resolved.archivedMarkdownFiles,
+      },
     };
   }
 

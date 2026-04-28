@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-CHECK-042`
-STATUS: `DONE`
-ACTION: `RUN_REPO_STATE_AGENT_REAL_AI`
-TASK_ID: `repo-state-agent-check-42`
-WORKFLOW_POINT: `repo-state-agent-check-42`
+COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-043`
+STATUS: `PENDING`
+ACTION: `VERIFY_DEPLOY`
+TASK_ID: `commands-allowed-actions-markdown-deploy-43`
+WORKFLOW_POINT: `commands-allowed-actions-markdown-deploy-check-43`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `e3b37723c1906390119c8e211c4426a9735e402c`
+REQUIRES_COMMIT: `7db30b2092979a00e7e3b3fbdc244d0c9b212cce`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T10:05:00.000Z`
-UPDATED_AT: `2026-04-28T09:45:51.495Z`
+CREATED_AT: `2026-04-28T10:15:00.000Z`
+UPDATED_AT: `2026-04-28T10:15:00.000Z`
 
 ---
 
@@ -27,18 +27,7 @@ UPDATED_AT: `2026-04-28T09:45:51.495Z`
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_AGENT_REAL_AI
-Task ID: repo-state-agent-check-42
-Workflow point: repo-state-agent-check-42
-Deploy ID: -
-Commit: 23c53d941288f5a1de4b90b02540fddafbc72b41
-Required commit: e3b37723c1906390119c8e211c4426a9735e402c
-Runtime commit: 23c53d941288f5a1de4b90b02540fddafbc72b41
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+-
 
 ---
 
@@ -62,6 +51,9 @@ Diagnostics failed: 0
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
+- `RUN_REPO_STATE_SCAN`
+- `RUN_REPO_STATE_AGENT`
+- `RUN_REPO_STATE_AGENT_REAL_AI`
 
 ## Hard limits
 

@@ -1,13 +1,39 @@
 # RENDER_REPORT
 
-Reset before current command run.
+Render runtime logs, snapshots, and operational evidence.
 
 ---
 
 Task ID: `repo-state-agent-ai-dry-run-env-redeploy-verify-32`
-Updated at: `2026-04-28T08:43:19.633Z`
-Reason: `reset_before_command_run`
+Deploy ID: `dep-d7o73uugvqtc73b9d7e0`
+Commit: `1796c6febcbd4395ef6f7245e60f474687a46d08`
+Source key: `render_primary`
+Service ID: `srv-d4fnv8je5dus7397mgcg`
+Collected at: `2026-04-28T08:43:27.452Z`
+Collected by: `SG RenderBridge`
 
 ---
 
+## Logs summary
+
+- Collected error-level logs from selected Render service.
+- Error log lines found: `0`.
+
+## Errors found
+
+- No error logs found in selected window
+
+## Error snapshots
+
+```text
 -
+```
+
+## Runtime observations
+
+- No code changes were made by SG.
+- This report is diagnostic evidence only.
+
+## Risk flags
+
+- No immediate Render error signal in collected window.

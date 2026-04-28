@@ -39,6 +39,11 @@ import renderBridgeStateStore from "../integrations/render/RenderBridgeStateStor
 let inMemoryRunLock = false;
 const completedCommands = new Set();
 
+function formatUsd(value) {
+  if (!Number.isFinite(value)) return "-";
+  return value.toFixed(8);
+}
+
 function buildCommandResultLines({ action, command, result, requiredCommit, runtimeCommit }) {
   const lines = [
     `Action completed: ${action}`,
@@ -69,6 +74,34 @@ function buildCommandResultLines({ action, command, result, requiredCommit, runt
 
   if (typeof result?.tokensSpent === "boolean") {
     lines.push(`Tokens spent: ${result.tokensSpent ? "yes" : "no"}`);
+  }
+
+  if (result?.aiModel) {
+    lines.push(`AI model: ${result.aiModel}`);
+  }
+
+  if (typeof result?.aiUsedFallback === "boolean") {
+    lines.push(`AI fallback used: ${result.aiUsedFallback ? "yes" : "no"}`);
+  }
+
+  if (Number.isFinite(result?.aiInputTokens)) {
+    lines.push(`AI input tokens: ${result.aiInputTokens}`);
+  }
+
+  if (Number.isFinite(result?.aiOutputTokens)) {
+    lines.push(`AI output tokens: ${result.aiOutputTokens}`);
+  }
+
+  if (Number.isFinite(result?.aiTotalTokens)) {
+    lines.push(`AI total tokens: ${result.aiTotalTokens}`);
+  }
+
+  if (typeof result?.aiPricingConfigured === "boolean") {
+    lines.push(`AI pricing configured: ${result.aiPricingConfigured ? "yes" : "no"}`);
+  }
+
+  if (Number.isFinite(result?.aiEstimatedUsd)) {
+    lines.push(`AI estimated cost USD: ${formatUsd(result.aiEstimatedUsd)}`);
   }
 
   if (result?.result?.aiAnalysis?.aiSource) {

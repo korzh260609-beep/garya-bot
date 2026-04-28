@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-LATEST-DEPLOY-LOGS-072`
-STATUS: `FAILED`
+COMMAND_ID: `AGENTWORKSPACE-COLLECT-LATEST-DEPLOY-LOGS-073`
+STATUS: `PENDING`
 ACTION: `COLLECT_RENDER_LOGS`
-TASK_ID: `render-latest-deploy-logs-72`
-WORKFLOW_POINT: `render-latest-deploy-logs-72`
+TASK_ID: `render-latest-deploy-logs-73`
+WORKFLOW_POINT: `render-latest-deploy-logs-73`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `-`
+REQUIRES_COMMIT: `7f3f6dd8e425908cd6b73c629e3252254c9f509a`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T13:45:00.000Z`
-UPDATED_AT: `2026-04-28T13:35:41.120Z`
+CREATED_AT: `2026-04-28T13:50:00.000Z`
+UPDATED_AT: `2026-04-28T13:50:00.000Z`
 
 ---
 
@@ -25,13 +25,13 @@ target=latest_deploy
 level=all
 limit=50
 maxLineChars=900
-reason=user_requested_plain_latest_deploy_logs
+reason=test_improved_latest_deploy_log_window_and_fallback
 
 ---
 
 ## Last result
 
-Runner failed: The operation was aborted.
+Pending test of improved Render logs agent: target=latest_deploy, level=all, limit=50. Expected: exact deploy window, fallback if needed, no abort.
 
 ---
 

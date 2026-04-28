@@ -12,9 +12,16 @@
 // - NO real AI spending.
 // - NO repo writes.
 // - NO pillars edits.
+//
+// IMPORTANT:
+// - This bridge is a temporary capability adapter for RepoStateAgent.
+// - It must not use phrase-bound command hacks as the factual routing base.
+// - It routes by the existing projectIntent route/match object.
 // ============================================================================
 
 import { RepoStateAgentService } from "../../simpleAgents/repoStateAgent/RepoStateAgentService.js";
+
+const REPO_STATE_DIAGNOSTIC_CAPABILITY = "repo_state_diagnostic";
 
 function normalizeText(value) {
   return String(value || "")
@@ -27,16 +34,12 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function hasAny(text, markers = []) {
-  return markers.some((marker) => text.includes(marker));
-}
-
 function safeNumber(value, fallback = "-") {
   return Number.isFinite(value) ? String(value) : fallback;
 }
 
 function boolText(value) {
-  return value === true ? "так" : "ні";
+  return value === true ? "да" : "нет";
 }
 
 function countBySeverity(findings = [], severity) {
@@ -45,45 +48,45 @@ function countBySeverity(findings = [], severity) {
 
 function humanStatus(status) {
   const map = {
-    high_risk: "підвищений ризик",
-    needs_attention: "потребує уваги",
-    watch: "під контролем",
+    high_risk: "повышенный риск",
+    needs_attention: "требует внимания",
+    watch: "под контролем",
     ok: "нормально",
   };
 
-  return map[String(status || "").trim()] || "невідомо";
+  return map[String(status || "").trim()] || "неизвестно";
 }
 
 function humanFinding(item = {}) {
   const id = String(item?.id || "").trim();
 
   const map = {
-    large_repo_requires_maps: "Репозиторій вже великий, тому СГ має спочатку користуватись картою проекту, а не читати все підряд.",
-    unresolved_internal_dependencies_present: "Є невирішені внутрішні залежності. Перед рефакторингом треба перевіряти імпорти.",
-    pillars_are_present_and_protected: "Файли pillars знайдені й захищені. Їх не можна змінювати без прямого дозволу Монарха.",
-    transport_must_remain_multitransport: "Транспорт має залишатися універсальним. Telegram — лише один адаптер, не основа архітектури.",
-    legacy_root_artifacts_need_review: "У корені є старі/службові артефакти. Їх треба спочатку розібрати, а не видаляти одразу.",
-    unexpected_semantic_map_token_spend: "Увага: карта проекту не повинна витрачати AI-токени без дозволу.",
+    large_repo_requires_maps: "Репозиторий уже большой: СГ должен сначала пользоваться картой проекта, а не читать всё подряд.",
+    unresolved_internal_dependencies_present: "Есть нерешённые внутренние зависимости. Перед рефакторингом надо проверять импорты.",
+    pillars_are_present_and_protected: "Файлы pillars найдены и защищены. Их нельзя менять без прямого разрешения Монарха.",
+    transport_must_remain_multitransport: "Транспорт должен оставаться универсальным. Telegram — только один адаптер, не основа архитектуры.",
+    legacy_root_artifacts_need_review: "В корне есть старые/служебные артефакты. Их надо сначала разобрать, а не удалять сразу.",
+    unexpected_semantic_map_token_spend: "Внимание: карта проекта не должна тратить AI-токены без разрешения.",
   };
 
   if (map[id]) return map[id];
   if (item?.title) return String(item.title);
-  return "Виявлено архітектурний пункт для перевірки.";
+  return "Найден архитектурный пункт для проверки.";
 }
 
 function humanNextStep(item = {}) {
   const id = String(item?.id || "").trim();
 
   const map = {
-    wire_safety_gates_into_reports: "Перед вибором файлів для задачі використовувати правила безпеки.",
-    use_recommended_read_order_for_context_restore: "Для швидкого відновлення контексту читати файли у рекомендованому порядку.",
-    review_legacy_root_artifacts: "Перевірити старі файли в корені проекту без видалення.",
-    snapshot_after_verified_green_check: "Після успішної перевірки зробити snapshot/точку відкату.",
+    wire_safety_gates_into_reports: "Перед выбором файлов для задачи использовать правила безопасности.",
+    use_recommended_read_order_for_context_restore: "Для быстрого восстановления контекста читать файлы в рекомендованном порядке.",
+    review_legacy_root_artifacts: "Проверить старые файлы в корне проекта без удаления.",
+    snapshot_after_verified_green_check: "После успешной проверки сделать snapshot/точку отката.",
   };
 
   if (map[id]) return map[id];
   if (item?.title) return String(item.title);
-  return "Виконати наступний безпечний крок за планом.";
+  return "Выполнить следующий безопасный шаг по плану.";
 }
 
 function buildTopFindingsText(findings = [], limit = 3) {
@@ -91,143 +94,129 @@ function buildTopFindingsText(findings = [], limit = 3) {
     .filter((item) => ["critical", "high", "medium"].includes(item?.severity))
     .slice(0, limit);
 
-  if (!top.length) return "- явних критичних пунктів не знайдено";
+  if (!top.length) return "- явных критичных пунктов не найдено";
 
-  return top
-    .map((item) => `- ${humanFinding(item)}`)
-    .join("\n");
+  return top.map((item) => `- ${humanFinding(item)}`).join("\n");
 }
 
 function buildNextStepsText(steps = [], limit = 3) {
   const top = asArray(steps).slice(0, limit);
-  if (!top.length) return "- наступний крок не визначений";
+  if (!top.length) return "- следующий шаг не определён";
 
-  return top
-    .map((item) => `- ${humanNextStep(item)}`)
-    .join("\n");
+  return top.map((item) => `- ${humanNextStep(item)}`).join("\n");
 }
 
-function classifyDiagnosticNeed({ text, route } = {}) {
+function hasAnyArrayValue(...values) {
+  return values.some((value) => asArray(value).length > 0);
+}
+
+function hasRepoLikeRouteSignal(match = {}) {
+  const semanticIntentKind = String(match?.semanticIntentKind || "").trim();
+
+  if (
+    [
+      "repo_access_meta",
+      "repo_structure_read",
+      "repo_path_read",
+      "internal_repo_read",
+      "canonical_pillar_read",
+      "canonical_pillar_reference",
+    ].includes(semanticIntentKind)
+  ) {
+    return true;
+  }
+
+  if (match?.hasAccessMetaSignal === true || match?.hasRepoPathSignal === true) {
+    return true;
+  }
+
+  return hasAnyArrayValue(
+    match?.repoTargetPrefixHits,
+    match?.repoStructureHits,
+    match?.repoPathHits,
+    match?.canonicalPillarHits,
+    match?.strongObjectHits,
+    match?.sgCoreObjectPrefixHits,
+    match?.sgCoreObjectTokenStrongHits,
+    match?.sgCoreStrongAnchorHits
+  );
+}
+
+function hasUserProjectRouteSignal(match = {}) {
+  return hasAnyArrayValue(match?.userProjectPhraseHits, match?.userProjectTokenHits);
+}
+
+function resolveRepoStateDiagnosticCapability({ text, route } = {}) {
   const normalized = normalizeText(text);
   if (!normalized) {
-    return { shouldHandle: false, reason: "empty_text", mode: "none" };
+    return {
+      shouldHandle: false,
+      reason: "empty_text",
+      mode: "none",
+      capability: null,
+    };
   }
 
+  const match = route?.match || {};
   const routeTarget = route?.targetScope || "unknown";
   const routeAction = route?.actionMode || "unknown";
-  const routeReadAllowed = routeTarget === "sg_core_internal" && routeAction !== "write" && routeAction !== "mixed";
+  const readOnlyRequest = routeAction !== "write" && routeAction !== "mixed";
+  const repoLike = hasRepoLikeRouteSignal(match);
+  const userProjectLike = hasUserProjectRouteSignal(match);
 
-  const projectStateSignals = [
-    "состояние проекта",
-    "стан проекту",
-    "стан проекта",
-    "проект сейчас",
-    "що з проектом",
-    "что с проектом",
-    "project state",
-    "project status",
-    "state of project",
-  ];
+  const allowedSgCoreRead = routeTarget === "sg_core_internal" && readOnlyRequest;
+  const allowedGenericRepoRead = routeTarget === "generic_external" && readOnlyRequest && repoLike && !userProjectLike;
 
-  const architectureSignals = [
-    "архитектур",
-    "architecture",
-    "architectural",
-    "структура проекта",
-    "структура проєкту",
-    "структура сг",
-    "структура sg",
-  ];
-
-  const riskSignals = [
-    "риск",
-    "ризик",
-    "опасн",
-    "небезп",
-    "слабые места",
-    "слабкі місця",
-    "проблем",
-    "что сломано",
-    "що зламано",
-    "risk",
-    "risks",
-    "problem",
-    "problems",
-  ];
-
-  const nextStepSignals = [
-    "куда дальше",
-    "куди далі",
-    "что дальше",
-    "що далі",
-    "следующий шаг",
-    "наступний крок",
-    "next step",
-    "next action",
-    "road ahead",
-  ];
-
-  const selfCheckSignals = [
-    "проверь себя",
-    "перевір себе",
-    "самодиагност",
-    "самодіагност",
-    "диагностик",
-    "діагностик",
-    "проверь сг",
-    "перевір сг",
-    "check sg",
-    "self check",
-    "selfcheck",
-  ];
-
-  const repoStateSignals = [
-    "репозитор",
-    "repo",
-    "repository",
-    "github",
-    "код проекта",
-    "код проєкту",
-    "garya-bot",
-  ];
-
-  const wantsProjectState = hasAny(normalized, projectStateSignals);
-  const wantsArchitecture = hasAny(normalized, architectureSignals);
-  const wantsRisks = hasAny(normalized, riskSignals);
-  const wantsNextStep = hasAny(normalized, nextStepSignals);
-  const wantsSelfCheck = hasAny(normalized, selfCheckSignals);
-  const wantsRepoState = hasAny(normalized, repoStateSignals) && (
-    normalized.includes("проверь") ||
-    normalized.includes("перевір") ||
-    normalized.includes("check") ||
-    normalized.includes("анализ") ||
-    normalized.includes("аналіз") ||
-    normalized.includes("состояние") ||
-    normalized.includes("стан")
-  );
-
-  if (!(wantsProjectState || wantsArchitecture || wantsRisks || wantsNextStep || wantsSelfCheck || wantsRepoState)) {
-    return { shouldHandle: false, reason: "no_diagnostic_meaning", mode: "none" };
+  if (!repoLike) {
+    return {
+      shouldHandle: false,
+      reason: "no_repo_state_capability_signal",
+      mode: "none",
+      capability: null,
+    };
   }
 
-  if (routeTarget !== "sg_core_internal" && !wantsSelfCheck && !wantsProjectState && !wantsArchitecture) {
-    return { shouldHandle: false, reason: "not_sg_project_scope", mode: "none" };
+  if (!allowedSgCoreRead && !allowedGenericRepoRead) {
+    return {
+      shouldHandle: false,
+      reason: "not_repo_state_read_capability_scope",
+      mode: "none",
+      capability: null,
+    };
   }
-
-  if (!routeReadAllowed && routeTarget === "sg_core_internal") {
-    return { shouldHandle: false, reason: "not_read_only", mode: "none" };
-  }
-
-  let mode = "summary";
-  if (wantsArchitecture || wantsRisks || wantsSelfCheck) mode = "architecture_health";
-  if (wantsNextStep) mode = "next_action_plan";
-  if (wantsProjectState || wantsRepoState) mode = "project_state";
 
   return {
     shouldHandle: true,
-    reason: "project_diagnostic_natural_language",
-    mode,
+    reason: "repo_state_diagnostic_capability_route",
+    mode: "project_state",
+    capability: REPO_STATE_DIAGNOSTIC_CAPABILITY,
   };
+}
+
+function buildMainPartsText(projectMap = {}) {
+  const semanticMap = projectMap?.semanticMap || {};
+  const modulePurposes = asArray(semanticMap?.modulePurposes);
+  const important = [
+    ["СГ core", ["core", "services", "decision"]],
+    ["Агенты", ["simple_agents", "agent_workspace", "repo_state_collector"]],
+    ["Память", ["memory", "project_memory", "project_experience"]],
+    ["Источники", ["sources", "integrations"]],
+    ["Транспорты", ["transport", "http"]],
+  ];
+
+  const lines = [];
+
+  for (const [title, layers] of important) {
+    const found = modulePurposes
+      .filter((item) => layers.includes(item?.layer))
+      .map((item) => item?.rootPath || item?.moduleKey)
+      .filter(Boolean)
+      .slice(0, 5);
+
+    lines.push(`- ${title}: ${found.length ? found.join(", ") : "не найдено в краткой карте"}`);
+  }
+
+  return lines.join("\n");
 }
 
 function buildHumanDiagnosticReply({ result, mode } = {}) {
@@ -246,49 +235,50 @@ function buildHumanDiagnosticReply({ result, mode } = {}) {
     architectureHealth?.tokensSpent === true;
 
   const base = [
-    "Перевірив СГ по репозиторію.",
+    "Проверил репозиторий через RepoStateAgent.",
     "",
-    `Стан: ${humanStatus(architectureHealth?.status)}`,
-    `Оцінка архітектури: ${safeNumber(architectureHealth?.score)}/100`,
-    `Файлів: ${result?.filesCount ?? "-"}`,
-    `Модулів: ${result?.modulesCount ?? "-"}`,
-    `Залежностей: ${result?.dependenciesCount ?? "-"}`,
-    `Токени витрачені: ${boolText(tokensSpent)}`,
+    "Что СГ понял о проекте:",
+    "- Это SG / Советник GARYA: мультислойный проект, где Telegram сейчас только один транспорт.",
+    "- Фактическая карта репозитория должна идти через RepoStateAgent, а не через старый RepoIndex.",
+    "",
+    "Главные части проекта:",
+    buildMainPartsText(projectMap),
+    "",
+    `Состояние: ${humanStatus(architectureHealth?.status)}`,
+    `Оценка архитектуры: ${safeNumber(architectureHealth?.score)}/100`,
+    `Файлов: ${result?.filesCount ?? projectMap?.totals?.files ?? "-"}`,
+    `Модулей: ${result?.modulesCount ?? projectMap?.totals?.modules ?? "-"}`,
+    `Зависимостей: ${result?.dependenciesCount ?? projectMap?.totals?.dependencies ?? "-"}`,
+    `Токены потрачены: ${boolText(tokensSpent)}`,
   ];
 
-  if (mode === "next_action_plan") {
-    return [
-      ...base,
-      "",
-      "Найкращі наступні кроки:",
-      buildNextStepsText(steps, 4),
-      "",
-      "Важливо: pillars не чіпати, real AI не запускати без дозволу.",
-    ].join("\n");
-  }
+  const riskBlock = [
+    `Риски: высокие=${countBySeverity(findings, "high")}, средние=${countBySeverity(findings, "medium")}, критичные=${countBySeverity(findings, "critical")}`,
+    "",
+    "Главные риски:",
+    buildTopFindingsText(findings, 5),
+  ];
+
+  const nextBlock = [
+    "Что делать дальше:",
+    buildNextStepsText(steps, 4),
+    "",
+    "Как Монарх может использовать это через СГ:",
+    "- просить состояние проекта обычным языком;",
+    "- просить риски по репозиторию;",
+    "- просить следующий безопасный шаг;",
+    "- не использовать старый RepoIndex как правду.",
+  ];
 
   if (mode === "architecture_health") {
-    return [
-      ...base,
-      "",
-      `Ризики: високі=${countBySeverity(findings, "high")}, середні=${countBySeverity(findings, "medium")}, критичні=${countBySeverity(findings, "critical")}`,
-      "",
-      "Головні пункти:",
-      buildTopFindingsText(findings, 5),
-      "",
-      "Висновок: це діагностика, не зміна коду.",
-    ].join("\n");
+    return [...base, "", ...riskBlock, "", "Вывод: это диагностика, код не менялся."].join("\n");
   }
 
-  return [
-    ...base,
-    "",
-    "Коротко:",
-    buildTopFindingsText(findings, 3),
-    "",
-    "Далі:",
-    buildNextStepsText(steps, 3),
-  ].join("\n");
+  if (mode === "next_action_plan") {
+    return [...base, "", ...nextBlock].join("\n");
+  }
+
+  return [...base, "", ...riskBlock, "", ...nextBlock].join("\n");
 }
 
 export async function maybeHandleProjectDiagnosticNaturalBridge({
@@ -301,7 +291,7 @@ export async function maybeHandleProjectDiagnosticNaturalBridge({
   chatId = null,
   globalUserId = null,
 } = {}) {
-  const diagnostic = classifyDiagnosticNeed({ text, route });
+  const diagnostic = resolveRepoStateDiagnosticCapability({ text, route });
 
   if (!diagnostic.shouldHandle) {
     return {
@@ -313,10 +303,11 @@ export async function maybeHandleProjectDiagnosticNaturalBridge({
   if (!isMonarchUser || !isPrivateChat) {
     if (typeof replyAndLog === "function") {
       await replyAndLog(
-        "Це внутрішня діагностика СГ. Вона доступна тільки Монарху в приватному/довіреному контексті.",
+        "Это внутренняя диагностика СГ. Она доступна только Монарху в приватном/доверенном контексте.",
         {
           handler: "projectDiagnosticNaturalBridge",
           event: "project_diagnostic_access_denied",
+          capability: diagnostic.capability,
           transport_agnostic: true,
           read_only: true,
           transport,
@@ -333,9 +324,10 @@ export async function maybeHandleProjectDiagnosticNaturalBridge({
   }
 
   if (typeof replyAndLog === "function") {
-    await replyAndLog("Прийняв. Технічно перевіряю стан СГ без витрати real AI токенів.", {
+    await replyAndLog("Принял. Проверяю репозиторий через RepoStateAgent без real AI токенов.", {
       handler: "projectDiagnosticNaturalBridge",
       event: "project_diagnostic_started",
+      capability: diagnostic.capability,
       mode: diagnostic.mode,
       transport_agnostic: true,
       read_only: true,
@@ -358,6 +350,7 @@ export async function maybeHandleProjectDiagnosticNaturalBridge({
     await replyAndLog(reply, {
       handler: "projectDiagnosticNaturalBridge",
       event: "project_diagnostic_completed",
+      capability: diagnostic.capability,
       mode: diagnostic.mode,
       transport_agnostic: true,
       read_only: true,
@@ -372,6 +365,7 @@ export async function maybeHandleProjectDiagnosticNaturalBridge({
     handled: true,
     reason: "project_diagnostic_completed",
     mode: diagnostic.mode,
+    capability: diagnostic.capability,
     result,
   };
 }

@@ -201,6 +201,22 @@ function validIsoOrEmpty(value) {
   return new Date(ms).toISOString();
 }
 
+function normalizeLogItems(raw, { serviceId, level, limit, fallbackLimit = 100 } = {}) {
+  const normalizedServiceId = normalizeString(serviceId);
+  const maxItems = Math.max(
+    1,
+    Math.min(Number(limit) || fallbackLimit, 500)
+  );
+  const requestedLevel = normalizeString(level || "all");
+
+  let items = normalizeLogs(raw);
+  items = filterLogsForService(items, normalizedServiceId);
+  items = filterLogsByLevel(items, requestedLevel);
+  items = sortLogsNewestFirst(items).slice(0, maxItems);
+
+  return items;
+}
+
 class RenderBridge {
   constructor() {
     this.config = getRenderBridgeConfig();
@@ -401,6 +417,7 @@ class RenderBridge {
     serviceId,
     startTime,
     endTime,
+    limit,
   }) {
     const attempts = [
       {
@@ -410,6 +427,7 @@ class RenderBridge {
           resource: serviceId,
           startTime,
           endTime,
+          limit,
         },
       },
       {
@@ -419,6 +437,7 @@ class RenderBridge {
           resources: [serviceId],
           startTime,
           endTime,
+          limit,
         },
       },
       {
@@ -428,6 +447,7 @@ class RenderBridge {
           resourceId: serviceId,
           startTime,
           endTime,
+          limit,
         },
       },
       {
@@ -437,6 +457,7 @@ class RenderBridge {
           resourceIds: [serviceId],
           startTime,
           endTime,
+          limit,
         },
       },
       {
@@ -446,6 +467,7 @@ class RenderBridge {
           serviceId,
           startTime,
           endTime,
+          limit,
         },
       },
       {
@@ -455,6 +477,7 @@ class RenderBridge {
           "filters[resource]": serviceId,
           startTime,
           endTime,
+          limit,
         },
       },
       {
@@ -464,6 +487,7 @@ class RenderBridge {
           "filters[resources]": [serviceId],
           startTime,
           endTime,
+          limit,
         },
       },
       {
@@ -473,6 +497,7 @@ class RenderBridge {
           "filters[resourceId]": serviceId,
           startTime,
           endTime,
+          limit,
         },
       },
       {
@@ -482,6 +507,7 @@ class RenderBridge {
           "filters[resourceIds]": [serviceId],
           startTime,
           endTime,
+          limit,
         },
       },
     ];
@@ -519,6 +545,41 @@ class RenderBridge {
     throw new Error(
       `${lastError?.message || "render_logs_request_failed"}${suffix}`
     );
+  }
+
+  async listLogsByCount({
+    ownerId,
+    serviceId,
+    level = "all",
+    limit,
+  } = {}) {
+    const normalizedOwnerId = normalizeString(ownerId);
+    if (!normalizedOwnerId) {
+      throw new Error("render_owner_id_missing");
+    }
+
+    const normalizedServiceId = normalizeString(serviceId);
+    if (!normalizedServiceId) {
+      throw new Error("render_service_id_missing");
+    }
+
+    const maxItems = Math.max(
+      1,
+      Math.min(Number(limit) || this.config.defaultLogLimit, 500)
+    );
+
+    const raw = await this.requestLogsWithFallbacks({
+      ownerId: normalizedOwnerId,
+      serviceId: normalizedServiceId,
+      limit: maxItems,
+    });
+
+    return normalizeLogItems(raw, {
+      serviceId: normalizedServiceId,
+      level,
+      limit: maxItems,
+      fallbackLimit: this.config.defaultLogLimit,
+    });
   }
 
   async listRecentLogs({
@@ -570,14 +631,15 @@ class RenderBridge {
       serviceId: normalizedServiceId,
       startTime: start.toISOString(),
       endTime: end.toISOString(),
+      limit: maxItems,
     });
 
-    let items = normalizeLogs(raw);
-    items = filterLogsForService(items, normalizedServiceId);
-    items = filterLogsByLevel(items, requestedLevel);
-    items = sortLogsNewestFirst(items).slice(0, maxItems);
-
-    return items;
+    return normalizeLogItems(raw, {
+      serviceId: normalizedServiceId,
+      level: requestedLevel,
+      limit: maxItems,
+      fallbackLimit: this.config.defaultLogLimit,
+    });
   }
 }
 

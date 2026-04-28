@@ -3,8 +3,6 @@
 import renderBridge from "../../integrations/render/RenderBridge.js";
 import renderBridgeStateStore from "../../integrations/render/RenderBridgeStateStore.js";
 
-const DEFAULT_LATEST_LOOKBACK_MINUTES = 1440;
-
 function clampInt(value, fallback, min, max) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -21,13 +19,12 @@ function parseArgs(rest, defaults = {}) {
   const first = String(parts[0] || "").toLowerCase();
 
   // /render_bridge_logs 50
-  // Meaning for the user: return the last 50 logs by count.
-  // Internal note: Render API still needs a bounded lookback window.
+  // Meaning: return the last 50 logs by count, not by time.
   if (!first || Number.isFinite(Number(first))) {
     return {
       target: "latest_count",
       deployId: "",
-      minutes: DEFAULT_LATEST_LOOKBACK_MINUTES,
+      minutes: defaults.minutes ?? 60,
       limit: clampInt(first, defaults.limit ?? 50, 1, 300),
       userMode: "last_logs_by_count",
     };
@@ -38,7 +35,7 @@ function parseArgs(rest, defaults = {}) {
     return {
       target: "latest_count",
       deployId: "",
-      minutes: DEFAULT_LATEST_LOOKBACK_MINUTES,
+      minutes: defaults.minutes ?? 60,
       limit: clampInt(parts[1], defaults.limit ?? 50, 1, 300),
       userMode: "last_logs_by_count",
     };
@@ -92,7 +89,7 @@ function parseArgs(rest, defaults = {}) {
   return {
     target: "latest_count",
     deployId: "",
-    minutes: DEFAULT_LATEST_LOOKBACK_MINUTES,
+    minutes: defaults.minutes ?? 60,
     limit: defaults.limit ?? 50,
     userMode: "last_logs_by_count",
   };
@@ -155,6 +152,27 @@ async function resolveDeploy({ serviceId, args }) {
   }
 
   return null;
+}
+
+async function collectLogs({ state, args, explicitWindow }) {
+  if (args.target === "latest_count") {
+    return renderBridge.listLogsByCount({
+      ownerId: state.selected_owner_id,
+      serviceId: state.selected_service_id,
+      level: "all",
+      limit: args.limit,
+    });
+  }
+
+  return renderBridge.listRecentLogs({
+    ownerId: state.selected_owner_id,
+    serviceId: state.selected_service_id,
+    level: "all",
+    minutes: args.minutes,
+    limit: args.limit,
+    startTime: explicitWindow?.startTime || "",
+    endTime: explicitWindow?.endTime || "",
+  });
 }
 
 async function sendLongMessage(bot, chatId, text) {
@@ -230,17 +248,7 @@ export async function handleRenderBridgeLogs({
       args,
     });
     const explicitWindow = deploy ? buildDeployLogWindow(deploy) : null;
-
-    const logs = await renderBridge.listRecentLogs({
-      ownerId: state.selected_owner_id,
-      serviceId: state.selected_service_id,
-      level: "all",
-      minutes: args.minutes,
-      limit: args.limit,
-      startTime: explicitWindow?.startTime || "",
-      endTime: explicitWindow?.endTime || "",
-    });
-
+    const logs = await collectLogs({ state, args, explicitWindow });
     const lines = logs.map((item, index) => formatRawLogLine(item, index));
 
     const output = [
@@ -254,7 +262,8 @@ export async function handleRenderBridgeLogs({
       `deployCommit=${deploy?.commit || "-"}`,
       `deployCreatedAt=${deploy?.createdAt || "-"}`,
       `deployFinishedAt=${deploy?.finishedAt || "-"}`,
-      `internalLookbackMinutes=${args.minutes}`,
+      `timeFilter=${args.target === "latest_count" ? "none" : "enabled"}`,
+      `windowMinutes=${args.target === "latest_count" ? "-" : args.minutes}`,
       `startTime=${explicitWindow?.startTime || "-"}`,
       `endTime=${explicitWindow?.endTime || "-"}`,
       `requested=${args.limit}`,

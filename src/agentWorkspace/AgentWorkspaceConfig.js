@@ -41,6 +41,7 @@ export const AGENT_WORKSPACE_ALLOWED_FILES = Object.freeze([
   "RENDER_STATUS_REPORT.md",
   "DIAGNOSIS.md",
   "TEST_REPORT.md",
+  "SEMANTIC_MAP_REPORT.md",
   "PATCH_REQUESTS.md",
 ]);
 

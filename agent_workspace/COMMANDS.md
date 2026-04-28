@@ -6,41 +6,30 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-035`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_DEPLOYS`
-TASK_ID: `check-render-deploys-after-ai-execution-metadata-35`
-WORKFLOW_POINT: `render-deploys-check-after-command-034-pending-35`
+COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-036`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_AGENT`
+TASK_ID: `repo-state-agent-check-36`
+WORKFLOW_POINT: `repo-state-agent-check-36`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `-`
+REQUIRES_COMMIT: `645ab3f26875545ba12a7b797f1923143abd085e`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T09:12:00.000Z`
-UPDATED_AT: `2026-04-28T09:07:04.396Z`
+CREATED_AT: `2026-04-28T09:18:00.000Z`
+UPDATED_AT: `2026-04-28T09:18:00.000Z`
 
 ---
 
 ## Payload
 
 ```text
-limit=10
+forceAiAnalysis=true
 ```
 
 ---
 
 ## Last result
 
-Action completed: COLLECT_RENDER_DEPLOYS
-Task ID: check-render-deploys-after-ai-execution-metadata-35
-Workflow point: render-deploys-check-after-command-034-pending-35
-Deploy ID: -
-Commit: 645ab3f26875545ba12a7b797f1923143abd085e
-Required commit: -
-Runtime commit: 645ab3f26875545ba12a7b797f1923143abd085e
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+-
 
 ---
 
@@ -64,6 +53,8 @@ Diagnostics failed: 0
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
+- `RUN_REPO_STATE_SCAN`
+- `RUN_REPO_STATE_AGENT`
 
 ## Hard limits
 

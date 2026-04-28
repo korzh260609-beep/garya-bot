@@ -56,6 +56,21 @@ function enrichAiExecution(aiAnalysis = {}) {
   };
 }
 
+function buildForcedDryRunAnalysis({ reason, forceAiAnalysis, allowRealAi }) {
+  return {
+    enabled: true,
+    skipped: true,
+    reason,
+    forceAiAnalysis,
+    allowRealAi,
+    analysis: {
+      dryRun: true,
+      safetyGate: true,
+      summary: "Real AI blocked by safety gate. No tokens were spent.",
+    },
+  };
+}
+
 export class RepoStateAgentService {
   constructor() {
     const { collector } = createRepoStateCollector();
@@ -64,6 +79,7 @@ export class RepoStateAgentService {
 
   async run(options = {}) {
     const forceAiAnalysis = options.forceAiAnalysis === true;
+    const allowRealAi = options.allowRealAi === true;
 
     const result = await this.collector.runScan();
 
@@ -84,9 +100,14 @@ export class RepoStateAgentService {
         : null,
     });
 
+    const shouldRunAi = changeDecision.shouldAnalyze || forceAiAnalysis;
+    const realAiBlocked = shouldRunAi && !allowRealAi;
+
     const aiMeta = {
       ...changeDecision,
       forceAiAnalysis,
+      allowRealAi,
+      realAiBlocked,
       originalShouldAnalyze: changeDecision.shouldAnalyze === true,
     };
 
@@ -98,7 +119,13 @@ export class RepoStateAgentService {
 
     const previousAi = await getLatestAiAnalysis(repoFullName, branch);
 
-    if (changeDecision.shouldAnalyze || forceAiAnalysis) {
+    if (realAiBlocked) {
+      aiAnalysis = buildForcedDryRunAnalysis({
+        reason: "repo_state_agent_real_ai_blocked_without_allow_real_ai",
+        forceAiAnalysis,
+        allowRealAi,
+      });
+    } else if (shouldRunAi) {
       const aiResult = await analyzeRepoStateProjectMap(projectMap);
 
       aiAnalysis = aiResult;
@@ -107,6 +134,7 @@ export class RepoStateAgentService {
         aiAnalysis = {
           ...aiResult,
           forceAiAnalysis: true,
+          allowRealAi,
           originalShouldAnalyze: changeDecision.shouldAnalyze === true,
         };
       }
@@ -142,6 +170,8 @@ export class RepoStateAgentService {
       aiEnabled: aiAnalysis?.enabled === true,
       metadata: {
         forceAiAnalysis,
+        allowRealAi,
+        realAiBlocked,
         originalShouldAnalyze: changeDecision.shouldAnalyze === true,
         aiReason: aiAnalysis?.reason || changeDecision.reason,
         aiDryRun: aiAnalysis?.aiDryRun === true,

@@ -1,6 +1,13 @@
 // src/bot/dispatchers/dispatchPriceCommands.js
 // Extracted 1:1 from commandDispatcher.js
 // Purpose: keep commandDispatcher smaller without changing behavior.
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for manual price lookups.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode price/currency/market access must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 
 import { handlePrice } from "../handlers/price.js";
 import { handlePrices } from "../handlers/prices.js";

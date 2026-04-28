@@ -13,12 +13,19 @@ function formatObjectLabel(path = "", objectKind = "unknown") {
 }
 
 export function humanRepoStatusReply({ snapshot, filesCount }) {
+  const repo = safeText(snapshot?.repo) || "korzh260609-beep/garya-bot";
+  const branch = safeText(snapshot?.branch) || "main";
+  const countText = Number.isFinite(Number(filesCount))
+    ? `${filesCount}`
+    : "неизвестно";
+
   return [
-    "Репозиторий доступен в режиме только чтения.",
-    `Старый индекс: ${safeText(snapshot?.repo)} / ветка ${safeText(snapshot?.branch)}.`,
-    `Ориентировочно в старом индексе: ${filesCount} файлов.`,
-    "Для точных текущих цифр СГ должен запускать внутреннюю проверку RepoStateAgent.",
-    "Доступны действия: показать корень, раскрыть папку, найти объект, открыть файл, кратко пересказать или объяснить смысл.",
+    "Да, репозиторий доступен в режиме только чтения.",
+    `Legacy snapshot: ${repo} / ветка ${branch}.`,
+    `В legacy snapshot ориентировочно: ${countText} файлов.`,
+    "Это НЕ полноценная карта проекта и НЕ смысловая карта.",
+    "Для актуальной project map / semantic map нужно запускать RepoStateAgent и строить отдельный отчёт по текущему состоянию репозитория.",
+    "Доступные read-only действия snapshot-слоя: показать корень, раскрыть папку, найти объект, открыть файл, кратко пересказать или объяснить смысл.",
   ].join("\n");
 }
 

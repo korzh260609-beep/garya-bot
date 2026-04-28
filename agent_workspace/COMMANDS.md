@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-LATEST-DEPLOY-LOGS-073`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `render-latest-deploy-logs-73`
 WORKFLOW_POINT: `render-latest-deploy-logs-73`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `7f3f6dd8e425908cd6b73c629e3252254c9f509a`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T13:50:00.000Z`
-UPDATED_AT: `2026-04-28T13:50:00.000Z`
+UPDATED_AT: `2026-04-28T14:06:56.203Z`
 
 ---
 
@@ -31,7 +31,7 @@ reason=test_improved_latest_deploy_log_window_and_fallback
 
 ## Last result
 
-Pending test of improved Render logs agent: target=latest_deploy, level=all, limit=50. Expected: exact deploy window, fallback if needed, no abort.
+Started by github_webhook at 2026-04-28T14:06:56.203Z.
 
 ---
 

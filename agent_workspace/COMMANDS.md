@@ -6,22 +6,24 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-038`
+COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-039`
 STATUS: `PENDING`
-ACTION: `VERIFY_DEPLOY`
-TASK_ID: `repo-state-agent-real-ai-gate-deploy-38`
-WORKFLOW_POINT: `repo-state-agent-real-ai-gate-deploy-check-38`
+ACTION: `COLLECT_RENDER_DEPLOYS`
+TASK_ID: `check-render-deploys-after-real-ai-gate-39`
+WORKFLOW_POINT: `render-deploys-check-after-real-ai-gate-39`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `9b42fec52f2d42f1f8ec4ed0d5d07ad756124e55`
+REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T09:35:00.000Z`
-UPDATED_AT: `2026-04-28T09:35:00.000Z`
+CREATED_AT: `2026-04-28T09:40:00.000Z`
+UPDATED_AT: `2026-04-28T09:40:00.000Z`
 
 ---
 
 ## Payload
 
--
+```text
+limit=10
+```
 
 ---
 

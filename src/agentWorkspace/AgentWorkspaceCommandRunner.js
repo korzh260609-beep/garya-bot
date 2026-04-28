@@ -126,10 +126,11 @@ export class AgentWorkspaceCommandRunner {
     });
   }
 
-  async runRepoStateAgent(command) {
+  async runRepoStateAgent(command, options = {}) {
     return runRepoStateAgentAction({
       command,
       reportService: this.reportService,
+      ...options,
     });
   }
 
@@ -174,6 +175,10 @@ export class AgentWorkspaceCommandRunner {
 
     if (action === "RUN_REPO_STATE_AGENT") {
       return this.runRepoStateAgent(command);
+    }
+
+    if (action === "RUN_REPO_STATE_AGENT_REAL_AI") {
+      return this.runRepoStateAgent(command, { forceRealAi: true });
     }
 
     throw new Error(`agent_workspace_action_not_supported:${action}`);

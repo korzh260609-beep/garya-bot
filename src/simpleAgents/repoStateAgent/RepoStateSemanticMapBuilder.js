@@ -38,7 +38,7 @@ function describeLayer(layer = "") {
     fix_artifacts: "Temporary or historical fix artifacts kept for reference and cleanup decisions.",
     runtime_logs: "Runtime log artifacts and syslog-style operational output kept outside source layers.",
     bootstrap: "System initialization, startup safety checks, and boot-time wiring.",
-    transport: "Telegram/chat transport, command routing, and user-facing handlers.",
+    transport: "Multitransport messaging layer: current Telegram/chat adapters, command routing, and user-facing handlers.",
     core: "Core orchestration, message handling, memory and shared runtime services.",
     http: "HTTP server, webhooks, and external request boundaries.",
     integrations: "External service integrations such as Render, GitHub, APIs, and providers.",
@@ -97,7 +97,7 @@ function classifyResponsibility(path = "", layer = "") {
     return "configuration_or_policy";
   }
 
-  if (includesAny(normalizedPath, ["render", "github", "openai", "telegram", "api", "integration"])) {
+  if (includesAny(normalizedPath, ["render", "github", "openai", "telegram", "discord", "api", "integration"])) {
     return "external_integration";
   }
 
@@ -238,11 +238,11 @@ function buildTaskRoutingHints() {
       warning: "Verify migration order and rollback safety before changing persistence logic.",
     },
     {
-      taskType: "telegram_or_user_command_change",
+      taskType: "transport_or_user_command_change",
       primaryLayers: ["transport"],
       secondaryLayers: ["core", "access_control", "users"],
-      startFiles: ["src/bot/", "src/transport/"],
-      warning: "Keep group/private chat boundaries and Monarch access rules intact.",
+      startFiles: ["src/transport/", "src/bot/"],
+      warning: "Keep SG multitransport boundaries intact; Telegram is only the current adapter, not the project dependency.",
     },
     {
       taskType: "memory_or_project_memory_change",

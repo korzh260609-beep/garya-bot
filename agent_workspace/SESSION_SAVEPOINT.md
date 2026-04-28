@@ -4,17 +4,17 @@ Checkpoint for current SG / Советник GARYA development block.
 
 ---
 
-Saved at: `2026-04-28T09:35:00Z`
+Saved at: `2026-04-28T09:55:00Z`
 Saved by: `SG-advisor`
-Scope: `RepoStateAgent AI execution safety gate`
+Scope: `RepoStateAgent explicit real-AI action and safety gate`
 
 ---
 
 ## Current confirmed runtime
 
 ```text
-Render live deploy: dep-d7o7r1ipmmbs73cvrdh0
-Render live commit: ec5e97664a429f06fa9516842f01fe92c9cd2850
+Render live deploy: dep-d7o854q8qa3s73al90v0
+Render live commit: 0f89ec7bd239807fd0d6882c37e5a286dfba62b3
 Service: garya-bot
 ```
 
@@ -30,6 +30,15 @@ a9fc945147c8dfc7ab814319ed0f4ecc1b5985ec
 
 9b42fec52f2d42f1f8ec4ed0d5d07ad756124e55
 - Added allowRealAi and realAiBlocked fields to RepoStateAgent TEST_REPORT output.
+
+e3b37723c1906390119c8e211c4426a9735e402c
+- Added explicit workspace action RUN_REPO_STATE_AGENT_REAL_AI.
+- Action is routed through AgentWorkspaceCommandRunner.
+- Real AI still requires allowRealAi=true.
+
+7db30b2092979a00e7e3b3fbdc244d0c9b212cce
+- Updated COMMANDS.md markdown allowed-actions list.
+- COMMANDS output now shows RUN_REPO_STATE_SCAN, RUN_REPO_STATE_AGENT, RUN_REPO_STATE_AGENT_REAL_AI.
 ```
 
 ## Verified behavior
@@ -75,18 +84,68 @@ Meaning:
 - `forceAiAnalysis=true` alone cannot trigger paid real AI.
 - Real AI requires explicit payload flag `allowRealAi=true`.
 
+### Test 042
+
+```text
+COMMAND_ID: AGENTWORKSPACE-CHECK-042
+STATUS: DONE
+ACTION: RUN_REPO_STATE_AGENT_REAL_AI
+Result: REPO_STATE_AGENT_OK
+scanRunId: 29
+aiSkipped: yes
+aiDryRun: yes
+tokensSpent: no
+aiSource: dry_run
+aiReason: repo_state_agent_real_ai_blocked_without_allow_real_ai
+allowRealAi: no
+realAiBlocked: yes
+```
+
+Meaning:
+- Explicit action RUN_REPO_STATE_AGENT_REAL_AI works.
+- Without allowRealAi=true it is blocked.
+- No tokens were spent.
+
+### Deploy/report check 044
+
+```text
+COMMAND_ID: AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-044
+STATUS: DONE
+Render live deploy: dep-d7o854q8qa3s73al90v0
+Render live commit: 0f89ec7bd239807fd0d6882c37e5a286dfba62b3
+```
+
+Meaning:
+- Latest runtime includes cosmetic COMMANDS allowed-actions markdown fix.
+- COMMANDS.md now displays current actions correctly.
+
 ## Current safety rule
 
 ```text
-forceAiAnalysis=true
+RUN_REPO_STATE_AGENT
+=> safe ordinary action
+
+RUN_REPO_STATE_AGENT_REAL_AI
 allowRealAi missing/false
 => real AI blocked
 => tokensSpent: no
 => aiSource: dry_run
 => realAiBlocked: yes
+
+RUN_REPO_STATE_AGENT_REAL_AI
+allowRealAi=true
+=> real AI may run only after explicit Monarch approval
 ```
 
 Real paid AI may only be triggered by an explicit Monarch-approved command with:
+
+```text
+ACTION: RUN_REPO_STATE_AGENT_REAL_AI
+Payload:
+allowRealAi=true
+```
+
+Optional payload:
 
 ```text
 forceAiAnalysis=true
@@ -103,11 +162,11 @@ allowRealAi=true
 
 ## Next recommended step
 
-Design controlled real-AI trigger UX/rules for RepoStateAgent:
+Continue with RepoStateAgent hardening:
 
 ```text
-RUN_REPO_STATE_AGENT          => safe by default
-RUN_REPO_STATE_AGENT_REAL_AI  => future explicit paid path, optional
-allowRealAi=true             => explicit payload-level confirmation
-Report fields required       => aiDryRun, tokensSpent, aiSource, allowRealAi, realAiBlocked
+1. Add clearer result summary in COMMANDS.md Last result:
+   tokensSpent, aiSource, allowRealAi, realAiBlocked.
+
+2. Or start the next module only after explicit Monarch choice.
 ```

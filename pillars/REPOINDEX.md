@@ -1,26 +1,37 @@
-# REPOINDEX.md — Repository Structure (Source of Truth)
+# REPOINDEX.md — Legacy Repository Structure Notes
 
 Purpose:
-- Define the repository structure, Core boundaries, and responsibility zones.
-- Provide a stable map for repo-level review (/repo_review) and future code writing-by-command.
-- Reduce “guessing” and prevent architectural drift.
+- Historical/legacy notes about repository structure, Core boundaries, and responsibility zones.
+- Provide migration reference for old repo-level review flows.
+- Preserve old context while RepoStateAgent becomes the factual repo-state source.
 
-Status: CANONICAL
-Scope: garya-bot repository (Telegram SG)
+Status: LEGACY / DEPRECATED AS FACTUAL SOURCE
+Scope: historical repository notes for garya-bot
+
+Current factual source of truth:
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+- `RepoStateAgent -> RepoStateCollector -> RepoStateProjectMapBuilder -> RepoStateSemanticMapBuilder`
+
+Important:
+- This file is NOT the factual current repository map.
+- This file is NOT the semantic map.
+- This file is NOT the module grouping truth.
+- Old RepoIndex logic must be adapted to RepoStateAgent, downgraded to fallback, or carefully removed after replacement.
 
 ---
 
 ## 0) Hard constraints (inherited from Pillars)
 
-- Pillars are source of truth; chat logs are never authoritative.
-- RepoIndex stores structure + hashes only; NEVER store full source bodies in memory/index.
+- Pillars are source of truth for governance rules; chat logs are never authoritative.
+- RepoIndex is legacy and must not be used as current factual repo state.
+- Current factual repo state must come from RepoStateAgent.
 - SG Code-AI is READ-ONLY in current stage: analysis + suggestions only (no patches/diffs).
 
-(See: DECISIONS.md + WORKFLOW.md)
+(See: DECISIONS.md + WORKFLOW.md + architecture/REPO_MAP_SOURCE_POLICY.md)
 
 ---
 
-## 1) Top-level layout (high-level)
+## 1) Top-level layout (legacy high-level notes)
 
 Repository root contains two “layers”:
 
@@ -47,16 +58,16 @@ B) Modularized “src/” layer (preferred structure)
 - src/robot/*
 - src/media/*
 
-C) Canonical documents (Pillars)
+C) Governance documents (Pillars)
 - pillars/*.md (DECISIONS, WORKFLOW, PROJECT, SG_BEHAVIOR, etc.)
 
-D) Repository meta / ops (not indexed by content by default)
+D) Repository meta / ops
 - migrations/*
 - .github/*
 
 ---
 
-## 2) Core definition (what is “Core”)
+## 2) Core definition (legacy notes)
 
 Core = “things that must remain predictable and stable, because everything depends on them”.
 
@@ -127,70 +138,52 @@ Critical invariants:
 - Logging must not change execution results.
 - Errors must be observable.
 
-### 2.6 Core: Repo integration (read-only indexing + analysis)
+### 2.6 Legacy Repo integration
 - src/repo/RepoSource.js
 - src/repo/githubApi.js
 - src/repo/textFilters.js
 - src/repo/RepoIndexSnapshot.js
 - src/repo/RepoIndexService.js
 
-Responsibilities:
-- Read repository structure + selected file contents on-demand.
-- Enforce secret/path filtering.
-- Build normalized snapshot for repo-level review.
-
-Critical invariants:
-- Read-only only (no writes, no commits).
-- Index is structural (paths, hashes, metadata), not archival.
+Status:
+- Legacy / compatibility.
+- Must not be used as current factual project map.
+- Must be adapted to RepoStateAgent or removed after replacement.
 
 ---
 
-## 2.7 RepoIndex model (Contours A/B/C) — CURRENT IMPLEMENTATION
+## 2.7 RepoIndex model (Contours A/B/C) — LEGACY IMPLEMENTATION
 
-Repo access is split into three contours to avoid “partial repo visibility” and to keep content exposure bounded.
+This section describes old behavior only.
+It must not be used as factual current repo-state truth.
+
+Repo access was split into three contours to avoid “partial repo visibility” and to keep content exposure bounded.
 
 ### Contour A — Full Tree Snapshot (paths-only)
 Goal:
-- 100% visibility of repository structure (all file paths).
-Safety:
-- Stores metadata only (paths; hashes later). No content.
-Implementation:
-- RepoSource.listFiles() uses GitHub Tree API (recursive) to list all blob paths.
-- RepoIndexService persists the FULL tree paths into PostgreSQL snapshot.
-
-Expected behavior:
-- /reindex prints:
-  - fullTreePersistedFiles = total tree paths
-  - filesListed = total tree paths
+- Intended 100% visibility of repository structure.
+Limitation:
+- Old implementation may filter/limit paths and must not be treated as factual truth.
 
 ### Contour B — Content Index (allowlist only)
 Goal:
 - Provide limited, safe content for search/review without scanning everything.
-Safety:
-- Fetch content only for allowlisted prefixes + required files.
-Implementation:
-- RepoIndexService fetches content only for ALLOWED_PREFIXES + REQUIRED_FILES (bounded by REPOINDEX_MAX_FILES).
-Expected behavior:
-- /reindex prints:
-  - snapshotFiles = number of fetched content files (allowlist)
+Limitation:
+- Allowlist and batch limits make it incomplete.
 
 ### Contour C — On-demand file fetch (guarded)
 Goal:
 - Allow reading specific files outside allowlist when explicitly requested.
-Safety:
-- Strong guards: deny traversal, deny sensitive patterns, role-gated extra roots.
-Implementation:
-- /repo_get enforces:
-  - deny traversal
-  - deny “sensitive file” patterns
-  - default allowed roots (src/, core/, pillars/, docs/, README.md, index.js, package.json)
-  - monarch-only extra roots:
-    - migrations/
-    - .github/
+Limitation:
+- Compatibility only until RepoStateAgent-backed access replaces it.
 
 ---
 
-## 3) Responsibility zones (what goes where)
+## 3) Responsibility zones (legacy guidance)
+
+This section is historical guidance.
+For factual current repo grouping, use RepoStateAgent outputs.
+For architecture governance, use current pillars and `REPO_MAP_SOURCE_POLICY.md`.
 
 ### 3.1 “Bot/UI” zone (src/bot/*)
 Allowed:
@@ -213,15 +206,16 @@ Forbidden:
 
 ### 3.3 “Pillars” zone (pillars/*)
 Allowed:
-- Canonical rules, definitions, roadmap, constraints
+- Governance rules, definitions, roadmap, constraints
 Forbidden:
-- TODO dumps and speculative ideas (pillars are governance)
+- TODO dumps and speculative ideas
 
 ---
 
-## 4) Critical files (highest blast radius)
+## 4) Critical files (legacy guidance)
 
-If these break, the system becomes unpredictable:
+This list is historical guidance only.
+RepoStateAgent and current architecture policies must be used before making current-state claims.
 
 Tier A (highest):
 - pillars/DECISIONS.md
@@ -241,29 +235,18 @@ Tier B:
 
 Tier C:
 - src/bot/handlers/*
-- src/sources/* (providers can fail without killing core)
+- src/sources/*
 
 ---
 
-## 5) Repo-review expectations (B4)
+## 5) Repo-review expectations (legacy)
 
-When /repo_review runs, it MUST:
-- Treat Pillars as the governance baseline (DECISIONS + WORKFLOW are primary constraints).
-- Evaluate repository by zones:
-  - Core stability risks
-  - Access/permission bypass risks
-  - Memory policy violations risks
-  - Repo indexing / secret leaks risks
-  - Maintainability issues (lower priority)
-
-Output rules (current stage):
-- READ-ONLY suggestions only (no code, no diffs).
-- Aggregate by issue type; avoid noise.
-- Heuristic checks (like unreachable-code) must be treated as “potential noise” and never escalated alone.
+Old `/repo_review` expectations are legacy.
+Any future repo review must be rebuilt on RepoStateAgent outputs.
 
 ---
 
-## 6) Where to add new code (safe extension points)
+## 6) Where to add new code (legacy guidance)
 
 Preferred:
 - Add new functionality as a module under src/<domain>/...
@@ -284,15 +267,15 @@ Sensitive paths must be denied for repo fetch/check/review:
 
 Repo analysis tools must treat “leak potential” as high priority.
 
-NOTE (risk / known limitation):
-- Current denylist is substring-based (e.g., matches "token", "key", "secret").
-  This can cause false positives (blocking benign filenames) and may miss other secret patterns.
-  Any refinement must be deliberate and reviewed, not “improved casually”.
+NOTE:
+- Old denylist behavior is legacy and may contain false positives/false negatives.
+- Any refinement must be deliberate and reviewed.
 
 ---
 
 ## 8) Change governance
 
 If repository structure changes materially:
-- Update this file (REPOINDEX.md) in the same commit.
-- If the change alters architecture rules, also update DECISIONS.md (explicit decision record).
+- Do not update this file as factual source.
+- Update RepoStateAgent logic/reports if the generated map is wrong.
+- Update architecture policies only when the governance rule changes.

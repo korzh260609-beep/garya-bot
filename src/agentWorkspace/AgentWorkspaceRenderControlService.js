@@ -99,7 +99,29 @@ function parseIsoMs(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function buildLogWindowSummary(args = {}, selectedDeploy = null, effectiveMinutes = null) {
+function isoFromMs(ms) {
+  return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : "";
+}
+
+function buildDeployLogWindow(selectedDeploy = null) {
+  if (!selectedDeploy?.createdAt) {
+    return { startTime: "", endTime: "" };
+  }
+
+  const createdMs = parseIsoMs(selectedDeploy.createdAt);
+  const finishedMs = parseIsoMs(selectedDeploy.finishedAt);
+  if (!createdMs) return { startTime: "", endTime: "" };
+
+  const startMs = Math.max(0, createdMs - 30_000);
+  const endMs = Math.max(finishedMs || Date.now(), createdMs + 60_000) + 30_000;
+
+  return {
+    startTime: isoFromMs(startMs),
+    endTime: isoFromMs(endMs),
+  };
+}
+
+function buildLogWindowSummary(args = {}, selectedDeploy = null, effectiveMinutes = null, explicitWindow = null, levelUsed = null, fallbackUsed = false) {
   return [
     `target=${args.target || "time"}`,
     `deployId=${selectedDeploy?.id || args.deployId || "-"}`,
@@ -107,11 +129,15 @@ function buildLogWindowSummary(args = {}, selectedDeploy = null, effectiveMinute
     `deployCommit=${selectedDeploy?.commit || "-"}`,
     `deployCreatedAt=${selectedDeploy?.createdAt || "-"}`,
     `deployFinishedAt=${selectedDeploy?.finishedAt || "-"}`,
+    `startTime=${explicitWindow?.startTime || "-"}`,
+    `endTime=${explicitWindow?.endTime || "-"}`,
     `effectiveMinutes=${effectiveMinutes || args.minutes || "-"}`,
+    `levelUsed=${levelUsed || args.level || "-"}`,
+    `fallbackUsed=${fallbackUsed ? "yes" : "no"}`,
   ].join("\n");
 }
 
-function buildLogsReport({ taskId, workflowPoint, state, logs, args, selectedDeploy, effectiveMinutes, collectedAt }) {
+function buildLogsReport({ taskId, workflowPoint, state, logs, args, selectedDeploy, effectiveMinutes, explicitWindow, levelUsed, fallbackUsed, collectedAt }) {
   return `# RENDER_LOGS_REPORT
 
 Controlled Render logs report collected by AgentWorkspace Render Control v1.
@@ -132,7 +158,7 @@ level=${args.level}
 minutes=${args.minutes}
 limit=${args.limit}
 maxLineChars=${args.maxLineChars}
-${buildLogWindowSummary(args, selectedDeploy, effectiveMinutes)}
+${buildLogWindowSummary(args, selectedDeploy, effectiveMinutes, explicitWindow, levelUsed, fallbackUsed)}
 \`\`\`
 
 ## Selected service
@@ -326,7 +352,7 @@ export class AgentWorkspaceRenderControlService {
 
   async resolveLogTarget({ state, args }) {
     if (!["latest_deploy", "previous_deploy", "deploy"].includes(args.target) && !args.deployId) {
-      return { selectedDeploy: null, effectiveMinutes: args.minutes };
+      return { selectedDeploy: null, effectiveMinutes: args.minutes, explicitWindow: null };
     }
 
     const deploys = await renderBridge.listDeploys({
@@ -351,33 +377,65 @@ export class AgentWorkspaceRenderControlService {
     }
 
     if (!selectedDeploy?.createdAt) {
-      return { selectedDeploy, effectiveMinutes: args.minutes };
+      return { selectedDeploy, effectiveMinutes: args.minutes, explicitWindow: null };
     }
 
     const startMs = parseIsoMs(selectedDeploy.createdAt);
     const endMs = parseIsoMs(selectedDeploy.finishedAt) || Date.now();
     const safeEndMs = Math.max(endMs, startMs + 60_000);
-    const effectiveMinutes = clampInt(Math.ceil((Date.now() - startMs) / 60000), args.minutes, 1, 1440);
     const deployDurationMinutes = clampInt(Math.ceil((safeEndMs - startMs) / 60000), 1, 1, 1440);
+    const explicitWindow = buildDeployLogWindow(selectedDeploy);
 
     return {
       selectedDeploy,
-      effectiveMinutes: Math.max(effectiveMinutes, deployDurationMinutes, 5),
+      effectiveMinutes: Math.max(deployDurationMinutes, 5),
+      explicitWindow,
     };
+  }
+
+  async collectLogsWithFallbacks({ state, args, effectiveMinutes, explicitWindow }) {
+    const requested = args.level;
+    const fallbackLevels = requested === "all" || requested === "*"
+      ? ["all", "info", "warn", "error"]
+      : [requested];
+
+    let lastError = null;
+
+    for (const level of fallbackLevels) {
+      try {
+        const logs = await renderBridge.listRecentLogs({
+          ownerId: state.selected_owner_id,
+          serviceId: state.selected_service_id,
+          level,
+          minutes: effectiveMinutes || args.minutes,
+          limit: args.limit,
+          startTime: explicitWindow?.startTime || "",
+          endTime: explicitWindow?.endTime || "",
+        });
+
+        return {
+          logs,
+          levelUsed: level,
+          fallbackUsed: level !== requested,
+        };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error("render_logs_collection_failed");
   }
 
   async collectLogs(command = {}) {
     const args = this.buildArgs(command);
     const collectedAt = nowIso();
     const state = await this.ensureServiceSelected("global");
-    const { selectedDeploy, effectiveMinutes } = await this.resolveLogTarget({ state, args });
-
-    const logs = await renderBridge.listRecentLogs({
-      ownerId: state.selected_owner_id,
-      serviceId: state.selected_service_id,
-      level: args.level,
-      minutes: effectiveMinutes || args.minutes,
-      limit: args.limit,
+    const { selectedDeploy, effectiveMinutes, explicitWindow } = await this.resolveLogTarget({ state, args });
+    const { logs, levelUsed, fallbackUsed } = await this.collectLogsWithFallbacks({
+      state,
+      args,
+      effectiveMinutes,
+      explicitWindow,
     });
 
     const write = await this.writeMarkdown(
@@ -390,6 +448,9 @@ export class AgentWorkspaceRenderControlService {
         args,
         selectedDeploy,
         effectiveMinutes,
+        explicitWindow,
+        levelUsed,
+        fallbackUsed,
         collectedAt,
       }),
       `update render logs report for ${args.taskId}`
@@ -402,6 +463,8 @@ export class AgentWorkspaceRenderControlService {
       deployId: selectedDeploy?.id || args.deployId || null,
       commit: selectedDeploy?.commit || null,
       target: args.target,
+      levelUsed,
+      fallbackUsed,
       logs: logs.length,
       write,
     };

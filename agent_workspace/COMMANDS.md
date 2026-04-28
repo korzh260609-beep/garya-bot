@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-020`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `VERIFY_DEPLOY`
 TASK_ID: `agent-workspace-command-timeout-240s-deploy-verify-20`
 WORKFLOW_POINT: `agent-workspace-command-timeout-240s-deploy-check-20`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `e07174db425ae51ae9e4b621fb343d362bfe1d1b`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:00:00.000Z`
-UPDATED_AT: `2026-04-28T07:03:49.132Z`
+UPDATED_AT: `2026-04-28T07:04:09.821Z`
 
 ---
 
@@ -27,7 +27,18 @@ UPDATED_AT: `2026-04-28T07:03:49.132Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-28T07:03:49.132Z.
+Action completed: VERIFY_DEPLOY
+Task ID: agent-workspace-command-timeout-240s-deploy-verify-20
+Workflow point: agent-workspace-command-timeout-240s-deploy-check-20
+Deploy ID: dep-d7o5mm9j2pic739l4lrg
+Commit: e07174db425ae51ae9e4b621fb343d362bfe1d1b
+Required commit: e07174db425ae51ae9e4b621fb343d362bfe1d1b
+Runtime commit: e07174db425ae51ae9e4b621fb343d362bfe1d1b
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

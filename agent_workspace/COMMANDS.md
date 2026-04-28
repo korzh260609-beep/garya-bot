@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-AI-DRY-RUN-016`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-agent-force-ai-dry-run-16`
 WORKFLOW_POINT: `repo-state-agent-ai-dry-run-force-check-16`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T00:00:00.000Z`
-UPDATED_AT: `2026-04-28T00:00:00.000Z`
+UPDATED_AT: `2026-04-28T06:44:57.264Z`
 
 ---
 
@@ -27,7 +27,7 @@ forceAiAnalysis=true
 
 ## Last result
 
-Pending repo state agent forced dry run.
+Started by github_webhook at 2026-04-28T06:44:57.264Z.
 
 ---
 
@@ -51,8 +51,6 @@ Pending repo state agent forced dry run.
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
-- `RUN_REPO_STATE_SCAN`
-- `RUN_REPO_STATE_AGENT`
 
 ## Hard limits
 

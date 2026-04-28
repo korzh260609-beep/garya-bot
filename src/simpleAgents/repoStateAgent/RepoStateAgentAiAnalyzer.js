@@ -4,7 +4,7 @@
 // Optional AI layer over project map.
 // ============================================================================
 
-import { callAI } from "../../../ai.js";
+import { callAIWithUsage } from "../../../ai.js";
 import { getRepoStateAgentConfig } from "./RepoStateAgentConfig.js";
 
 function compactArray(items, limit, mapper) {
@@ -110,6 +110,20 @@ function buildDryRunAnalysis({ promptChars, config }) {
   };
 }
 
+function buildUsageMeta(aiUsage = {}) {
+  return {
+    model: aiUsage.model || null,
+    usedFallback: aiUsage.usedFallback === true,
+    inputTokens: Number.isFinite(aiUsage.inputTokens) ? aiUsage.inputTokens : null,
+    outputTokens: Number.isFinite(aiUsage.outputTokens) ? aiUsage.outputTokens : null,
+    totalTokens: Number.isFinite(aiUsage.totalTokens) ? aiUsage.totalTokens : null,
+    estimatedUsd: Number.isFinite(aiUsage.estimatedUsd) ? aiUsage.estimatedUsd : null,
+    pricingConfigured: aiUsage.pricingConfigured === true,
+    inputUsdPer1M: Number.isFinite(aiUsage.inputUsdPer1M) ? aiUsage.inputUsdPer1M : null,
+    outputUsdPer1M: Number.isFinite(aiUsage.outputUsdPer1M) ? aiUsage.outputUsdPer1M : null,
+  };
+}
+
 export async function analyzeRepoStateProjectMap(projectMap = {}) {
   const config = getRepoStateAgentConfig();
 
@@ -143,7 +157,8 @@ export async function analyzeRepoStateProjectMap(projectMap = {}) {
     };
   }
 
-  const raw = await callAI(messages, config.aiCostLevel);
+  const aiUsage = await callAIWithUsage(messages, config.aiCostLevel);
+  const raw = aiUsage.text;
 
   let parsed = null;
   try {
@@ -160,6 +175,7 @@ export async function analyzeRepoStateProjectMap(projectMap = {}) {
     skipped: false,
     promptChars,
     analysis: parsed,
+    usage: buildUsageMeta(aiUsage),
   };
 }
 

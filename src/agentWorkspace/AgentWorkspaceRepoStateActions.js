@@ -61,6 +61,22 @@ function readAiUsageFields(result = {}) {
   };
 }
 
+function buildRepoStateAgentResultStatus({ result, realAiBlocked, forceRealAi }) {
+  if (forceRealAi === true && realAiBlocked === true) {
+    return "REAL_AI_BLOCKED";
+  }
+
+  if (result?.ok === true && result?.persisted === true) {
+    if (result?.aiAnalysis?.aiDryRun === true) {
+      return "REPO_STATE_AGENT_OK_DRY_RUN";
+    }
+
+    return "REPO_STATE_AGENT_OK";
+  }
+
+  return "REPO_STATE_AGENT_FAILED";
+}
+
 export async function runRepoStateAgentAction({ command, reportService, forceRealAi = false } = {}) {
   const service = new RepoStateAgentService();
   const parsedOptions = parseRepoStateAgentOptions(command.payload);
@@ -73,11 +89,11 @@ export async function runRepoStateAgentAction({ command, reportService, forceRea
   const result = await service.run(options);
   const collectedAt = nowIso();
   const realAiBlocked = result?.aiMeta?.realAiBlocked === true;
-  const resultStatus = realAiBlocked
-    ? "REAL_AI_BLOCKED"
-    : result?.ok === true && result?.persisted === true
-      ? "REPO_STATE_AGENT_OK"
-      : "REPO_STATE_AGENT_FAILED";
+  const resultStatus = buildRepoStateAgentResultStatus({
+    result,
+    realAiBlocked,
+    forceRealAi,
+  });
   const aiUsageFields = readAiUsageFields(result);
 
   await reportService.writeMarkdown(
@@ -89,8 +105,8 @@ export async function runRepoStateAgentAction({ command, reportService, forceRea
   return {
     ok: result?.ok === true && result?.persisted === true,
     resultStatus,
-    blocked: realAiBlocked,
-    blockReason: realAiBlocked ? "missing_allow_real_ai" : null,
+    blocked: forceRealAi === true && realAiBlocked === true,
+    blockReason: forceRealAi === true && realAiBlocked === true ? "missing_allow_real_ai" : null,
     taskId: command.taskId || "manual",
     workflowPoint: command.workflowPoint || "-",
     repoStateAgent: true,

@@ -14,7 +14,9 @@ export class RepoStateAgentService {
     this.collector = collector;
   }
 
-  async run() {
+  async run(options = {}) {
+    const forceAiAnalysis = options.forceAiAnalysis === true;
+
     const result = await this.collector.runScan();
 
     const projectMap = buildRepoStateProjectMap(result?.snapshot || result);
@@ -34,6 +36,12 @@ export class RepoStateAgentService {
         : null,
     });
 
+    const aiMeta = {
+      ...changeDecision,
+      forceAiAnalysis,
+      originalShouldAnalyze: changeDecision.shouldAnalyze === true,
+    };
+
     let aiAnalysis = {
       enabled: false,
       skipped: true,
@@ -42,10 +50,20 @@ export class RepoStateAgentService {
 
     const previousAi = await getLatestAiAnalysis(repoFullName, branch);
 
-    if (changeDecision.shouldAnalyze) {
+    if (changeDecision.shouldAnalyze || forceAiAnalysis) {
       const aiResult = await analyzeRepoStateProjectMap(projectMap);
 
-      if (aiResult?.enabled && !aiResult?.skipped) {
+      aiAnalysis = aiResult;
+
+      if (forceAiAnalysis) {
+        aiAnalysis = {
+          ...aiResult,
+          forceAiAnalysis: true,
+          originalShouldAnalyze: changeDecision.shouldAnalyze === true,
+        };
+      }
+
+      if (aiResult?.enabled && aiResult?.skipped !== true) {
         await saveAiAnalysis({
           repoFullName,
           branch,
@@ -54,8 +72,6 @@ export class RepoStateAgentService {
           projectMap,
           analysis: aiResult.analysis,
         });
-
-        aiAnalysis = aiResult;
       }
     } else if (previousAi) {
       aiAnalysis = {
@@ -74,13 +90,18 @@ export class RepoStateAgentService {
       projectMapSignature: changeDecision.projectMapSignature,
       projectMap,
       aiEnabled: aiAnalysis?.enabled === true,
+      metadata: {
+        forceAiAnalysis,
+        originalShouldAnalyze: changeDecision.shouldAnalyze === true,
+        aiReason: aiAnalysis?.reason || changeDecision.reason,
+      },
     });
 
     return {
       ...result,
       projectMap,
       aiAnalysis,
-      aiMeta: changeDecision,
+      aiMeta,
     };
   }
 }

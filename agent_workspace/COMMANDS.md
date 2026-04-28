@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-CHECK-051`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_REPO_STATE_AGENT_REAL_AI`
 TASK_ID: `repo-state-agent-check-51`
 WORKFLOW_POINT: `repo-state-agent-check-51`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `84b4fee65b8862acaabddc95fbe48a8129d53e05`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T10:40:00.000Z`
-UPDATED_AT: `2026-04-28T10:40:00.000Z`
+UPDATED_AT: `2026-04-28T10:31:41.006Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-28T10:40:00.000Z`
 
 ## Last result
 
-Waiting for SG AgentWorkspaceCommandRunner to verify COMMANDS Last result blocked fields without allowRealAi=true.
+Started by github_webhook at 2026-04-28T10:31:41.006Z.
 
 ---
 

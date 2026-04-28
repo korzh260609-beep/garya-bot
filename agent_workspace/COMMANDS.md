@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-036`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-agent-check-36`
 WORKFLOW_POINT: `repo-state-agent-check-36`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `645ab3f26875545ba12a7b797f1923143abd085e`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T09:18:00.000Z`
-UPDATED_AT: `2026-04-28T09:18:00.000Z`
+UPDATED_AT: `2026-04-28T09:08:45.587Z`
 
 ---
 
@@ -29,7 +29,7 @@ forceAiAnalysis=true
 
 ## Last result
 
--
+Started by github_webhook at 2026-04-28T09:08:45.587Z.
 
 ---
 
@@ -53,8 +53,6 @@ forceAiAnalysis=true
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
-- `RUN_REPO_STATE_SCAN`
-- `RUN_REPO_STATE_AGENT`
 
 ## Hard limits
 

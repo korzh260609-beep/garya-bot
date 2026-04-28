@@ -1,4 +1,13 @@
 // src/bot/dispatchers/dispatchRenderBridgeCommands.js
+// ============================================================================
+// RENDER BRIDGE COMMANDS DISPATCHER
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for Render diagnostics/ops.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Keep temporarily for diagnostics/backward compatibility.
+// ============================================================================
 
 import { handleRenderBridgeService } from "../handlers/renderBridgeService.js";
 import { handleRenderBridgeServices } from "../handlers/renderBridgeServices.js";

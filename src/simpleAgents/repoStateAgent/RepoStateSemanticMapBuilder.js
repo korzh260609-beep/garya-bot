@@ -23,16 +23,40 @@ function describeLayer(layer = "") {
 
   const descriptions = {
     entrypoint: "Application boot entrypoints and startup wiring.",
+    bootstrap: "System initialization, startup safety checks, and boot-time wiring.",
     transport: "Telegram/chat transport, command routing, and user-facing handlers.",
     core: "Core orchestration, message handling, memory and shared runtime services.",
     http: "HTTP server, webhooks, and external request boundaries.",
     integrations: "External service integrations such as Render, GitHub, APIs, and providers.",
     jobs: "Background jobs, scheduled work, and worker-like execution.",
     database: "Database migrations, persistence, repositories, and storage schema.",
+    access_control: "Access rules, group policies, permissions, and authorization boundaries.",
+    capabilities: "Capability registry and feature availability surfaces.",
+    code_output: "Code response formatting and code-output helpers.",
+    decision: "Decision logic, diagnostics, and intent/action decision flows.",
+    documents: "Document intake, parsing, estimation, and document-related services.",
+    logging: "Logging, diagnostics, observability adapters, and error analysis utilities.",
+    media: "Media and attachment processing utilities.",
+    memory: "Memory storage, recall, context, and user/project memory helpers.",
+    observability: "Runtime metrics, diagnostics, and operational visibility.",
+    project_experience: "Project experience memory, lessons, and accumulated project knowledge.",
+    project_memory: "Project memory storage, confirmation, restore, and retrieval services.",
+    repository_access: "Repository access helpers and source-code retrieval utilities.",
+    robot_layer: "Deterministic robot-layer logic that should work without AI token spending.",
+    services: "Shared service layer used by transports, tasks, and core workflows.",
+    sources: "Source adapters and external data-source layer.",
+    tasks: "Task engine entities, scheduling, execution, and task lifecycle logic.",
+    users: "User identity, roles, profiles, and user-level settings.",
+    vision: "Vision, image, and visual-analysis related processing.",
     repo_state_collector: "Repository scanning, file tree collection, dependency extraction, and project state snapshots.",
-    agent_workspace: "File-based bridge for controlled SG workspace commands and reports.",
+    agent_workspace: "Runtime code for the controlled workspace command bridge and report writing.",
+    agent_workspace_reports: "Markdown command/report files used as the controlled bridge between Advisor and SG.",
     simple_agents: "Small focused agents and analysis services built around the project state.",
     pillars: "Project governance and architecture source-of-truth documents. Read-only unless Monarch explicitly allows edits.",
+    devops: "Development operations, CI, GitHub workflows, scripts, and deployment helpers.",
+    diagnostics: "Repository-level diagnostic scripts and checks outside the runtime app.",
+    docs: "Documentation and legacy notes outside pillars governance.",
+    archive: "Archived or unused materials kept for reference.",
     other: "Unclassified or supporting files outside the main architectural layers.",
   };
 
@@ -72,10 +96,15 @@ function classifyResponsibility(path = "", layer = "") {
   }
 
   if (normalizedLayer === "entrypoint") return "startup";
+  if (normalizedLayer === "bootstrap") return "startup";
   if (normalizedLayer === "database") return "persistence";
   if (normalizedLayer === "transport") return "user_interaction";
   if (normalizedLayer === "agent_workspace") return "workspace_bridge";
+  if (normalizedLayer === "agent_workspace_reports") return "workspace_report";
   if (normalizedLayer === "simple_agents") return "agent_analysis";
+  if (normalizedLayer === "sources") return "source_adapter";
+  if (normalizedLayer === "tasks") return "task_lifecycle";
+  if (normalizedLayer === "users") return "user_management";
 
   return "supporting_code";
 }
@@ -171,8 +200,8 @@ export function buildRepoStateSemanticMap(projectMap = {}) {
   const commandLikeFiles = asArray(projectMap?.commandLikeFiles);
 
   return {
-    schemaVersion: 1,
-    generatedBy: "deterministic_semantic_map_v1",
+    schemaVersion: 2,
+    generatedBy: "deterministic_semantic_map_v2",
     tokensSpent: false,
     purpose: "No-AI semantic layer that helps SG and external coding tools understand module purposes and boundaries.",
     layerDescriptions: Object.keys(projectMap?.layers || {}).reduce((acc, layer) => {

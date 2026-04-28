@@ -9,6 +9,7 @@ import {
   nowIso,
   buildRepoStateScanTestReport,
   buildRepoStateAgentTestReport,
+  buildRepoStateSemanticMapReport,
 } from "./AgentWorkspaceReportBuilders.js";
 import { createRepoStateCollector } from "../repoStateCollector/RepoStateCollectorFactory.js";
 import RepoStateAgentService from "../simpleAgents/repoStateAgent/RepoStateAgentService.js";
@@ -117,6 +118,12 @@ export async function runRepoStateAgentAction({ command, reportService, forceRea
     "TEST_REPORT.md",
     buildRepoStateAgentTestReport({ command, result, collectedAt, resultStatus }),
     `write full repo state agent results for ${command.taskId || "manual"}`
+  );
+
+  await reportService.writeMarkdown(
+    "SEMANTIC_MAP_REPORT.md",
+    buildRepoStateSemanticMapReport({ command, result, collectedAt }),
+    `write semantic map report for ${command.taskId || "manual"}`
   );
 
   return {

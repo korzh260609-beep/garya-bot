@@ -26,20 +26,52 @@ function isCommandLikePath(path = "") {
   );
 }
 
-function classifyLayer(path = "") {
-  const normalized = String(path || "").toLowerCase();
+function pathIsOrStartsWith(normalizedPath, prefix) {
+  const normalizedPrefix = String(prefix || "").toLowerCase().replace(/\/$/, "");
+  return normalizedPath === normalizedPrefix || normalizedPath.startsWith(`${normalizedPrefix}/`);
+}
 
-  if (normalized.startsWith("src/simpleagents/")) return "simple_agents";
-  if (normalized.startsWith("src/agentworkspace/")) return "agent_workspace";
-  if (normalized.startsWith("src/core/")) return "core";
-  if (normalized.startsWith("src/bot/") || normalized.startsWith("src/transport/")) return "transport";
-  if (normalized.startsWith("src/http/")) return "http";
-  if (normalized.startsWith("src/integrations/")) return "integrations";
-  if (normalized.startsWith("src/jobs/")) return "jobs";
-  if (normalized.startsWith("src/db/") || normalized.startsWith("migrations/")) return "database";
-  if (normalized.startsWith("src/repostatecollector/")) return "repo_state_collector";
-  if (normalized.startsWith("pillars/")) return "pillars";
+function classifyLayer(path = "") {
+  const normalized = String(path || "").toLowerCase().replace(/\/$/, "");
+
   if (normalized === "index.js" || normalized.endsWith("/index.js")) return "entrypoint";
+  if (pathIsOrStartsWith(normalized, "migrations")) return "database";
+  if (pathIsOrStartsWith(normalized, "pillars")) return "pillars";
+  if (pathIsOrStartsWith(normalized, "agent_workspace")) return "agent_workspace_reports";
+  if (pathIsOrStartsWith(normalized, ".github")) return "devops";
+  if (pathIsOrStartsWith(normalized, "scripts")) return "devops";
+  if (pathIsOrStartsWith(normalized, "diagnostics")) return "diagnostics";
+  if (pathIsOrStartsWith(normalized, "docs")) return "docs";
+  if (pathIsOrStartsWith(normalized, "archive")) return "archive";
+
+  if (pathIsOrStartsWith(normalized, "src/simpleagents")) return "simple_agents";
+  if (pathIsOrStartsWith(normalized, "src/agentworkspace")) return "agent_workspace";
+  if (pathIsOrStartsWith(normalized, "src/repostatecollector")) return "repo_state_collector";
+  if (pathIsOrStartsWith(normalized, "src/core")) return "core";
+  if (pathIsOrStartsWith(normalized, "src/bot") || pathIsOrStartsWith(normalized, "src/transport")) return "transport";
+  if (pathIsOrStartsWith(normalized, "src/http")) return "http";
+  if (pathIsOrStartsWith(normalized, "src/integrations")) return "integrations";
+  if (pathIsOrStartsWith(normalized, "src/jobs")) return "jobs";
+  if (pathIsOrStartsWith(normalized, "src/db")) return "database";
+  if (pathIsOrStartsWith(normalized, "src/access")) return "access_control";
+  if (pathIsOrStartsWith(normalized, "src/bootstrap")) return "bootstrap";
+  if (pathIsOrStartsWith(normalized, "src/capabilities")) return "capabilities";
+  if (pathIsOrStartsWith(normalized, "src/codeoutput")) return "code_output";
+  if (pathIsOrStartsWith(normalized, "src/decision")) return "decision";
+  if (pathIsOrStartsWith(normalized, "src/documents")) return "documents";
+  if (pathIsOrStartsWith(normalized, "src/logging")) return "logging";
+  if (pathIsOrStartsWith(normalized, "src/media")) return "media";
+  if (pathIsOrStartsWith(normalized, "src/memory")) return "memory";
+  if (pathIsOrStartsWith(normalized, "src/observability")) return "observability";
+  if (pathIsOrStartsWith(normalized, "src/projectexperience")) return "project_experience";
+  if (pathIsOrStartsWith(normalized, "src/projectmemory")) return "project_memory";
+  if (pathIsOrStartsWith(normalized, "src/repo")) return "repository_access";
+  if (pathIsOrStartsWith(normalized, "src/robot")) return "robot_layer";
+  if (pathIsOrStartsWith(normalized, "src/services")) return "services";
+  if (pathIsOrStartsWith(normalized, "src/sources")) return "sources";
+  if (pathIsOrStartsWith(normalized, "src/tasks")) return "tasks";
+  if (pathIsOrStartsWith(normalized, "src/users")) return "users";
+  if (pathIsOrStartsWith(normalized, "src/vision")) return "vision";
 
   return "other";
 }
@@ -152,7 +184,7 @@ export function buildRepoStateProjectMap(snapshot = {}) {
   const moduleLinks = buildModuleLinks(dependencies);
 
   const projectMap = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     generatedAt: new Date().toISOString(),
     repo: {
       fullName: snapshot?.repoFullName || null,

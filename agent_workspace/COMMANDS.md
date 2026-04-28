@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `RAW-RENDER-LAST-50-002`
-STATUS: `DONE`
+COMMAND_ID: `RAW-RENDER-LAST-50-COUNT-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `raw-render-last-50-002`
-WORKFLOW_POINT: `raw-render-last-50-002`
+TASK_ID: `raw-render-last-50-count-001`
+WORKFLOW_POINT: `raw-render-last-50-count-001`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `2635de6fd07de262d636fca2591ce129b2c3e4d9`
+REQUIRES_COMMIT: `b000e0bbfbf3f3a80be41ef00f7d41956377505f`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T14:55:00.000Z`
-UPDATED_AT: `2026-04-28T14:45:25.919Z`
+CREATED_AT: `2026-04-28T15:10:00.000Z`
+UPDATED_AT: `2026-04-28T15:10:00.000Z`
 
 ---
 
@@ -27,18 +27,7 @@ UPDATED_AT: `2026-04-28T14:45:25.919Z`
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: raw-render-last-50-002
-Workflow point: raw-render-last-50-002
-Deploy ID: -
-Commit: 2635de6fd07de262d636fca2591ce129b2c3e4d9
-Required commit: 2635de6fd07de262d636fca2591ce129b2c3e4d9
-Runtime commit: 2635de6fd07de262d636fca2591ce129b2c3e4d9
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+-
 
 ---
 

@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-041`
-STATUS: `DONE`
-ACTION: `VERIFY_DEPLOY`
-TASK_ID: `repo-state-agent-explicit-real-ai-action-deploy-41`
-WORKFLOW_POINT: `repo-state-agent-explicit-real-ai-action-deploy-check-41`
+COMMAND_ID: `AGENTWORKSPACE-CHECK-042`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_AGENT_REAL_AI`
+TASK_ID: `repo-state-agent-check-42`
+WORKFLOW_POINT: `repo-state-agent-check-42`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `e3b37723c1906390119c8e211c4426a9735e402c`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T09:55:00.000Z`
-UPDATED_AT: `2026-04-28T09:39:01.019Z`
+CREATED_AT: `2026-04-28T10:05:00.000Z`
+UPDATED_AT: `2026-04-28T10:05:00.000Z`
 
 ---
 
@@ -27,18 +27,7 @@ UPDATED_AT: `2026-04-28T09:39:01.019Z`
 
 ## Last result
 
-Action completed: VERIFY_DEPLOY
-Task ID: repo-state-agent-explicit-real-ai-action-deploy-41
-Workflow point: repo-state-agent-explicit-real-ai-action-deploy-check-41
-Deploy ID: dep-d7o7vmtckfvc73femv90
-Commit: e3b37723c1906390119c8e211c4426a9735e402c
-Required commit: e3b37723c1906390119c8e211c4426a9735e402c
-Runtime commit: e3b37723c1906390119c8e211c4426a9735e402c
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+-
 
 ---
 
@@ -62,6 +51,9 @@ Diagnostics failed: 0
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
+- `RUN_REPO_STATE_SCAN`
+- `RUN_REPO_STATE_AGENT`
+- `RUN_REPO_STATE_AGENT_REAL_AI`
 
 ## Hard limits
 

@@ -1,6 +1,13 @@
 // src/bot/dispatchers/dispatchDecisionDiagnosticsCommands.js
 // Extracted 1:1 from commandDispatcher.js
 // Purpose: keep commandDispatcher smaller without changing behavior.
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for decision diagnostics.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode decision diagnostics must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 
 import { handleDecisionDiag } from "../handlers/decisionDiag.js";
 import { handleDecisionDiagLast } from "../handlers/decisionDiagLast.js";

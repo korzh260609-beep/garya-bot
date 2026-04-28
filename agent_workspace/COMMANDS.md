@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-056`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_DEPLOYS`
-TASK_ID: `repo-state-status-semantics-deploy-check-56`
-WORKFLOW_POINT: `repo-state-status-semantics-deploy-check-56`
+COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-057`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_AGENT`
+TASK_ID: `repo-state-status-semantics-check-57`
+WORKFLOW_POINT: `repo-state-status-semantics-check-57`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `706bb8e1cec419fbfc495a546a7a241140322f39`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T11:20:00.000Z`
-UPDATED_AT: `2026-04-28T11:09:32.105Z`
+CREATED_AT: `2026-04-28T11:25:00.000Z`
+UPDATED_AT: `2026-04-28T11:25:00.000Z`
 
 ---
 
@@ -27,18 +27,7 @@ UPDATED_AT: `2026-04-28T11:09:32.105Z`
 
 ## Last result
 
-Action completed: COLLECT_RENDER_DEPLOYS
-Task ID: repo-state-status-semantics-deploy-check-56
-Workflow point: repo-state-status-semantics-deploy-check-56
-Deploy ID: -
-Commit: 706bb8e1cec419fbfc495a546a7a241140322f39
-Required commit: 706bb8e1cec419fbfc495a546a7a241140322f39
-Runtime commit: 706bb8e1cec419fbfc495a546a7a241140322f39
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Waiting for SG AgentWorkspaceCommandRunner to verify ordinary RUN_REPO_STATE_AGENT dry-run status semantics without token spending.
 
 ---
 

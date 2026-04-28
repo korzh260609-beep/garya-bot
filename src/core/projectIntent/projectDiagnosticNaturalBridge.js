@@ -43,6 +43,49 @@ function countBySeverity(findings = [], severity) {
   return asArray(findings).filter((item) => item?.severity === severity).length;
 }
 
+function humanStatus(status) {
+  const map = {
+    high_risk: "підвищений ризик",
+    needs_attention: "потребує уваги",
+    watch: "під контролем",
+    ok: "нормально",
+  };
+
+  return map[String(status || "").trim()] || "невідомо";
+}
+
+function humanFinding(item = {}) {
+  const id = String(item?.id || "").trim();
+
+  const map = {
+    large_repo_requires_maps: "Репозиторій вже великий, тому СГ має спочатку користуватись картою проекту, а не читати все підряд.",
+    unresolved_internal_dependencies_present: "Є невирішені внутрішні залежності. Перед рефакторингом треба перевіряти імпорти.",
+    pillars_are_present_and_protected: "Файли pillars знайдені й захищені. Їх не можна змінювати без прямого дозволу Монарха.",
+    transport_must_remain_multitransport: "Транспорт має залишатися універсальним. Telegram — лише один адаптер, не основа архітектури.",
+    legacy_root_artifacts_need_review: "У корені є старі/службові артефакти. Їх треба спочатку розібрати, а не видаляти одразу.",
+    unexpected_semantic_map_token_spend: "Увага: карта проекту не повинна витрачати AI-токени без дозволу.",
+  };
+
+  if (map[id]) return map[id];
+  if (item?.title) return String(item.title);
+  return "Виявлено архітектурний пункт для перевірки.";
+}
+
+function humanNextStep(item = {}) {
+  const id = String(item?.id || "").trim();
+
+  const map = {
+    wire_safety_gates_into_reports: "Перед вибором файлів для задачі використовувати правила безпеки.",
+    use_recommended_read_order_for_context_restore: "Для швидкого відновлення контексту читати файли у рекомендованому порядку.",
+    review_legacy_root_artifacts: "Перевірити старі файли в корені проекту без видалення.",
+    snapshot_after_verified_green_check: "Після успішної перевірки зробити snapshot/точку відкату.",
+  };
+
+  if (map[id]) return map[id];
+  if (item?.title) return String(item.title);
+  return "Виконати наступний безпечний крок за планом.";
+}
+
 function buildTopFindingsText(findings = [], limit = 3) {
   const top = asArray(findings)
     .filter((item) => ["critical", "high", "medium"].includes(item?.severity))
@@ -51,7 +94,7 @@ function buildTopFindingsText(findings = [], limit = 3) {
   if (!top.length) return "- явних критичних пунктів не знайдено";
 
   return top
-    .map((item) => `- ${item.title || item.id || "risk"}`)
+    .map((item) => `- ${humanFinding(item)}`)
     .join("\n");
 }
 
@@ -60,7 +103,7 @@ function buildNextStepsText(steps = [], limit = 3) {
   if (!top.length) return "- наступний крок не визначений";
 
   return top
-    .map((item) => `- ${item.title || item.id || "next step"}`)
+    .map((item) => `- ${humanNextStep(item)}`)
     .join("\n");
 }
 
@@ -205,7 +248,7 @@ function buildHumanDiagnosticReply({ result, mode } = {}) {
   const base = [
     "Перевірив СГ по репозиторію.",
     "",
-    `Стан: ${architectureHealth?.status || "unknown"}`,
+    `Стан: ${humanStatus(architectureHealth?.status)}`,
     `Оцінка архітектури: ${safeNumber(architectureHealth?.score)}/100`,
     `Файлів: ${result?.filesCount ?? "-"}`,
     `Модулів: ${result?.modulesCount ?? "-"}`,
@@ -228,7 +271,7 @@ function buildHumanDiagnosticReply({ result, mode } = {}) {
     return [
       ...base,
       "",
-      `Ризики: high=${countBySeverity(findings, "high")}, medium=${countBySeverity(findings, "medium")}, critical=${countBySeverity(findings, "critical")}`,
+      `Ризики: високі=${countBySeverity(findings, "high")}, середні=${countBySeverity(findings, "medium")}, критичні=${countBySeverity(findings, "critical")}`,
       "",
       "Головні пункти:",
       buildTopFindingsText(findings, 5),

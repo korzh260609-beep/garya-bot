@@ -1,4 +1,14 @@
 // src/bot/dispatchers/dispatchAgentWorkspaceCommands.js
+// ============================================================================
+// AGENT WORKSPACE COMMANDS DISPATCHER
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for AgentWorkspace diagnostics/actions.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - AgentWorkspace remains a controlled command/report bridge.
+// - Keep temporarily for diagnostics/backward compatibility.
+// ============================================================================
 
 import { handleAgentWorkspaceDiag } from "../handlers/agentWorkspaceDiag.js";
 import { handleAgentWorkspaceRenderReport } from "../handlers/agentWorkspaceRenderReport.js";

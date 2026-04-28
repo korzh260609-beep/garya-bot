@@ -39,6 +39,7 @@ import {
 import {
   ensureGlobalRenderServiceSelected as selectGlobalRenderService,
 } from "./AgentWorkspaceServiceSelector.js";
+import { runWithAgentWorkspaceTimeout } from "./AgentWorkspaceCommandTimeout.js";
 import { createRepoStateCollector } from "../repoStateCollector/RepoStateCollectorFactory.js";
 import RepoStateAgentService from "../simpleAgents/repoStateAgent/RepoStateAgentService.js";
 import renderBridge from "../integrations/render/RenderBridge.js";
@@ -641,7 +642,12 @@ export class AgentWorkspaceCommandRunner {
       await this.markCommand(command, "RUNNING", `Started by ${source} at ${nowIso()}.`);
       await this.resetWorkspaceForCommand(command);
 
-      const result = await this.executeCommand(command);
+      const result = await runWithAgentWorkspaceTimeout(
+        this.executeCommand(command),
+        {
+          label: `agent_workspace_command_${action.toLowerCase()}`,
+        }
+      );
       completedCommands.add(commandId);
 
       await this.markCommand(

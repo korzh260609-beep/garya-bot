@@ -55,6 +55,18 @@ function buildCommandResultLines({ action, command, result, requiredCommit, runt
     `Diagnostics failed: ${Number(result?.diagnosticsFailed || 0)}`,
   ];
 
+  if (result?.resultStatus) {
+    lines.push(`Result status: ${result.resultStatus}`);
+  }
+
+  if (typeof result?.blocked === "boolean") {
+    lines.push(`Blocked: ${result.blocked ? "yes" : "no"}`);
+  }
+
+  if (result?.blockReason) {
+    lines.push(`Block reason: ${result.blockReason}`);
+  }
+
   if (typeof result?.tokensSpent === "boolean") {
     lines.push(`Tokens spent: ${result.tokensSpent ? "yes" : "no"}`);
   }

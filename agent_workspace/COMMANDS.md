@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `RAW-RENDER-LAST-50-COUNT-001`
-STATUS: `DONE`
+COMMAND_ID: `VERIFY-LEGACY-SNAPSHOT-REPLY-001`
+STATUS: `PENDING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `raw-render-last-50-count-001`
-WORKFLOW_POINT: `raw-render-last-50-count-001`
+TASK_ID: `verify-legacy-snapshot-reply-001`
+WORKFLOW_POINT: `verify-legacy-snapshot-reply-001`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `b000e0bbfbf3f3a80be41ef00f7d41956377505f`
+REQUIRES_COMMIT: `e166930f4896ffa1d27b3553061e335fa4658726`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T15:10:00.000Z`
-UPDATED_AT: `2026-04-28T15:04:22.296Z`
+CREATED_AT: `2026-04-28T15:30:00.000Z`
+UPDATED_AT: `2026-04-28T15:30:00.000Z`
 
 ---
 
@@ -27,18 +27,7 @@ UPDATED_AT: `2026-04-28T15:04:22.296Z`
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: raw-render-last-50-count-001
-Workflow point: raw-render-last-50-count-001
-Deploy ID: -
-Commit: b000e0bbfbf3f3a80be41ef00f7d41956377505f
-Required commit: b000e0bbfbf3f3a80be41ef00f7d41956377505f
-Runtime commit: b000e0bbfbf3f3a80be41ef00f7d41956377505f
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+-
 
 ---
 

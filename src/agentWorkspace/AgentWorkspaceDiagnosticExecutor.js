@@ -19,6 +19,8 @@ import {
 import renderBridge from "../integrations/render/RenderBridge.js";
 import { getRenderBridgeConfig } from "../integrations/render/RenderBridgeConfig.js";
 
+const DEFAULT_LATEST_LOOKBACK_MINUTES = 1440;
+
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -46,26 +48,72 @@ function parseRenderLogsArgs(rest = "", defaults = {}) {
   const parts = raw ? raw.split(/\s+/) : [];
   const first = String(parts[0] || "").toLowerCase();
 
-  if (first === "latest" || first === "latest_deploy") {
+  if (!first || Number.isFinite(Number(first))) {
     return {
-      target: "latest_deploy",
-      minutes: defaults.minutes ?? 60,
-      limit: clampInt(parts[1], defaults.limit ?? 50, 1, 300),
+      target: "latest_count",
+      deployId: "",
+      minutes: DEFAULT_LATEST_LOOKBACK_MINUTES,
+      limit: clampInt(first, defaults.limit ?? 50, 1, 300),
+      userMode: "last_logs_by_count",
     };
   }
 
-  if (parts.length === 1 && Number.isFinite(Number(parts[0]))) {
+  if (first === "latest" || first === "last") {
     return {
-      target: "time",
+      target: "latest_count",
+      deployId: "",
+      minutes: DEFAULT_LATEST_LOOKBACK_MINUTES,
+      limit: clampInt(parts[1], defaults.limit ?? 50, 1, 300),
+      userMode: "last_logs_by_count",
+    };
+  }
+
+  if (first === "time" || first === "minutes" || first === "window") {
+    return {
+      target: "time_window",
+      deployId: "",
+      minutes: clampInt(parts[1], defaults.minutes ?? 60, 1, 1440),
+      limit: clampInt(parts[2], defaults.limit ?? 50, 1, 300),
+      userMode: "logs_by_time_window",
+    };
+  }
+
+  if (/^\d+m$/i.test(first)) {
+    return {
+      target: "time_window",
+      deployId: "",
+      minutes: clampInt(first.replace(/m$/i, ""), defaults.minutes ?? 60, 1, 1440),
+      limit: clampInt(parts[1], defaults.limit ?? 50, 1, 300),
+      userMode: "logs_by_time_window",
+    };
+  }
+
+  if (first === "latest_deploy" || first === "deploy_latest") {
+    return {
+      target: "latest_deploy",
+      deployId: "",
       minutes: defaults.minutes ?? 60,
-      limit: clampInt(parts[0], defaults.limit ?? 50, 1, 300),
+      limit: clampInt(parts[1], defaults.limit ?? 50, 1, 300),
+      userMode: "logs_from_latest_deploy",
+    };
+  }
+
+  if (first === "deploy") {
+    return {
+      target: "deploy",
+      deployId: normalizeString(parts[1] || ""),
+      minutes: defaults.minutes ?? 60,
+      limit: clampInt(parts[2], defaults.limit ?? 50, 1, 300),
+      userMode: "logs_from_specific_deploy",
     };
   }
 
   return {
-    target: "time",
-    minutes: clampInt(parts[0], defaults.minutes ?? 60, 1, 1440),
-    limit: clampInt(parts[1], defaults.limit ?? 50, 1, 300),
+    target: "latest_count",
+    deployId: "",
+    minutes: DEFAULT_LATEST_LOOKBACK_MINUTES,
+    limit: defaults.limit ?? 50,
+    userMode: "last_logs_by_count",
   };
 }
 
@@ -90,6 +138,29 @@ function buildDeployLogWindow(deploy = null) {
     startTime: isoFromMs(startMs),
     endTime: isoFromMs(endMs),
   };
+}
+
+async function resolveDeploy({ serviceId, args }) {
+  if (args.target === "latest_deploy") {
+    const deploys = await renderBridge.listDeploys({
+      serviceId,
+      limit: 1,
+    });
+    return deploys[0] || null;
+  }
+
+  if (args.target === "deploy") {
+    if (!args.deployId) {
+      throw new Error("render_bridge_deploy_id_required");
+    }
+
+    return renderBridge.getDeploy({
+      serviceId,
+      deployId: args.deployId,
+    });
+  }
+
+  return null;
 }
 
 function formatDeployLine(item, index) {
@@ -340,17 +411,11 @@ export async function executeDiagnosticCommand({ commandName, config, reportServ
         limit: cfg.defaultLogLimit || 50,
       });
 
-      let deploy = null;
-      let explicitWindow = null;
-
-      if (args.target === "latest_deploy") {
-        const deploys = await renderBridge.listDeploys({
-          serviceId: state.selected_service_id,
-          limit: 1,
-        });
-        deploy = deploys[0] || null;
-        explicitWindow = buildDeployLogWindow(deploy);
-      }
+      const deploy = await resolveDeploy({
+        serviceId: state.selected_service_id,
+        args,
+      });
+      const explicitWindow = deploy ? buildDeployLogWindow(deploy) : null;
 
       const logs = await renderBridge.listRecentLogs({
         ownerId: state.selected_owner_id,
@@ -370,16 +435,17 @@ export async function executeDiagnosticCommand({ commandName, config, reportServ
           "✅ RAW RENDER LOGS",
           `ownerId=${state.selected_owner_id}`,
           `serviceId=${state.selected_service_id}`,
+          `mode=${args.userMode}`,
           `target=${args.target}`,
-          `deployId=${deploy?.id || "-"}`,
+          `deployId=${deploy?.id || args.deployId || "-"}`,
           `deployStatus=${deploy?.status || "-"}`,
           `deployCommit=${deploy?.commit || "-"}`,
           `deployCreatedAt=${deploy?.createdAt || "-"}`,
           `deployFinishedAt=${deploy?.finishedAt || "-"}`,
-          `windowMinutes=${args.minutes}`,
+          `internalLookbackMinutes=${args.minutes}`,
           `startTime=${explicitWindow?.startTime || "-"}`,
           `endTime=${explicitWindow?.endTime || "-"}`,
-          `limit=${args.limit}`,
+          `requested=${args.limit}`,
           `returned=${logs.length}`,
           "",
           ...logs.map((item, index) => formatRawLogLine(item, index)),

@@ -7,26 +7,66 @@
 import { callAI } from "../../../ai.js";
 import { getRepoStateAgentConfig } from "./RepoStateAgentConfig.js";
 
+function compactArray(items, limit, mapper) {
+  if (!Array.isArray(items)) return [];
+  return items.slice(0, limit).map(mapper);
+}
+
+function compactModule(module = {}) {
+  return {
+    key: module.key || module.moduleKey || module.name || "-",
+    layer: module.layer || "-",
+    files: module.filesCount ?? module.fileCount ?? (Array.isArray(module.files) ? module.files.length : 0),
+    mainFiles: Array.isArray(module.files)
+      ? module.files.slice(0, 5).map((file) => typeof file === "string" ? file : file?.path).filter(Boolean)
+      : [],
+  };
+}
+
+function compactModuleLink(link = {}) {
+  return {
+    from: link.from || link.source || link.sourceModule || "-",
+    to: link.to || link.target || link.targetModule || "-",
+    type: link.type || link.reason || "-",
+  };
+}
+
+function compactFile(file = {}) {
+  if (typeof file === "string") {
+    return file;
+  }
+
+  return {
+    path: file.path || "-",
+    layer: file.layer || "-",
+    module: file.moduleKey || file.module || "-",
+  };
+}
+
+function compactDependencies(dependencies = {}) {
+  if (!dependencies || typeof dependencies !== "object") return {};
+
+  return {
+    dependenciesCount: dependencies.dependenciesCount ?? dependencies.count ?? undefined,
+    packageDependencies: Array.isArray(dependencies.packageDependencies)
+      ? dependencies.packageDependencies.slice(0, 40)
+      : undefined,
+    importsCount: dependencies.importsCount ?? undefined,
+  };
+}
+
 function compactProjectMap(projectMap = {}, config = {}) {
   return {
     schemaVersion: projectMap.schemaVersion,
     repo: projectMap.repo,
     totals: projectMap.totals,
     layers: projectMap.layers,
-    modules: Array.isArray(projectMap.modules)
-      ? projectMap.modules.slice(0, config.aiMaxModules)
-      : [],
-    moduleLinks: Array.isArray(projectMap.moduleLinks)
-      ? projectMap.moduleLinks.slice(0, config.aiMaxModuleLinks)
-      : [],
-    entrypoints: projectMap.entrypoints || [],
-    criticalFiles: Array.isArray(projectMap.criticalFiles)
-      ? projectMap.criticalFiles.slice(0, config.aiMaxCriticalFiles)
-      : [],
-    commandLikeFiles: Array.isArray(projectMap.commandLikeFiles)
-      ? projectMap.commandLikeFiles.slice(0, config.aiMaxCommandLikeFiles)
-      : [],
-    dependencies: projectMap.dependencies,
+    modules: compactArray(projectMap.modules, config.aiMaxModules, compactModule),
+    moduleLinks: compactArray(projectMap.moduleLinks, config.aiMaxModuleLinks, compactModuleLink),
+    entrypoints: compactArray(projectMap.entrypoints, 20, compactFile),
+    criticalFiles: compactArray(projectMap.criticalFiles, config.aiMaxCriticalFiles, compactFile),
+    commandLikeFiles: compactArray(projectMap.commandLikeFiles, config.aiMaxCommandLikeFiles, compactFile),
+    dependencies: compactDependencies(projectMap.dependencies),
   };
 }
 

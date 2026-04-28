@@ -7,6 +7,13 @@
 // - keep core/service logic outside transport layer
 // - preserve existing behavior 1:1
 // - expose Stage 7A.12 short test-surface aliases without duplicating logic
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for confirmed Project Memory operations.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode confirmed project memory access must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 // ============================================================================
 
 import { handlePmConfirmedWrite } from "../handlers/pmConfirmedWrite.js";

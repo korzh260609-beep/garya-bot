@@ -31,6 +31,42 @@ keyword/phrase
 
 ---
 
+## 1A) Universal input rule
+
+All user input must pass through the same meaning-first principle.
+
+There must not be two different SG personalities:
+
+```text
+normal chat = semantic conversation
+commands/actions = phrase-bound robot
+```
+
+Forbidden split:
+
+```text
+casual chat understands meaning,
+but commands, repo work, memory, agents or reports depend on exact wording.
+```
+
+Required unified behavior:
+
+```text
+any input from user
+→ understand meaning
+→ check context
+→ check role/permissions
+→ select source/tool/action
+→ answer or execute safely
+```
+
+Slash commands, buttons and aliases are allowed only as interface shortcuts.
+They do not replace semantic validation.
+
+The same user meaning should route to the same intent even when expressed with different wording.
+
+---
+
 ## 2) Global scope
 
 This rule applies to:

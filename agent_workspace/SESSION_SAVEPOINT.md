@@ -4,17 +4,19 @@ Checkpoint for current SG / Советник GARYA development block.
 
 ---
 
-Saved at: `2026-04-28T10:15:00Z`
+Saved at: `2026-04-28T10:30:00Z`
 Saved by: `SG-advisor`
-Scope: `RepoStateAgent explicit real-AI action, safety gate, and COMMANDS AI result fields`
+Scope: `RepoStateAgent explicit REAL_AI_BLOCKED reporting verified after deploy`
 
 ---
 
 ## Current confirmed runtime
 
 ```text
-Render live commit for deploy check before 047: f7cc2a04f58368a20f72c7fd52e182a35f990e55
+Render live commit: c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1
+Render live deploy: dep-d7o8j58k1i2s73a4b900
 Service: garya-bot
+Verified by: AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-048
 ```
 
 ## Important code commits in this block
@@ -42,6 +44,14 @@ e3b37723c1906390119c8e211c4426a9735e402c
 0b137258d0e8d34412a808d6e10ac3efd373f7a7
 - Added AI gate fields to COMMANDS.md Last result.
 - Last result now can show Tokens spent, AI source, Allow real AI, Real AI blocked.
+
+abc67f70cdf7b3931bb436e271088399b05c6699
+- Added explicit resultStatus, blocked, and blockReason fields for RepoStateAgent workspace results.
+- REAL_AI_BLOCKED is now represented as a semantic result while technical ok can remain true.
+
+c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1
+- Updated TEST_REPORT builder to display REAL_AI_BLOCKED.
+- Added blockReason: missing_allow_real_ai to Semantic AI map and Raw compact.
 ```
 
 ## Verified behavior
@@ -109,31 +119,6 @@ Meaning:
 - Without allowRealAi=true it is blocked.
 - No tokens were spent.
 
-### Deploy/report check 044
-
-```text
-COMMAND_ID: AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-044
-STATUS: DONE
-Render live deploy: dep-d7o854q8qa3s73al90v0
-Render live commit: 0f89ec7bd239807fd0d6882c37e5a286dfba62b3
-```
-
-Meaning:
-- Runtime included cosmetic COMMANDS allowed-actions markdown fix.
-- COMMANDS.md displays current actions correctly.
-
-### Deploy/report check 046
-
-```text
-COMMAND_ID: AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-046
-STATUS: DONE
-Render live deploy: dep-d7o8cgu8bjmc7399c0a0
-Render live commit: f7cc2a04f58368a20f72c7fd52e182a35f990e55
-```
-
-Meaning:
-- Runtime included COMMANDS Last result AI fields code after workspace commit moved HEAD forward.
-
 ### Test 047
 
 ```text
@@ -148,20 +133,43 @@ Allow real AI: no
 Real AI blocked: yes
 ```
 
-TEST_REPORT confirmed:
+Meaning:
+- Before explicit blocked semantics, action remained safe but reported OK.
+- No tokens were spent.
+
+### Deploy/report check 048
 
 ```text
+COMMAND_ID: AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-048
+STATUS: DONE
+Runtime commit: c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1
+Render live deploy: dep-d7o8j58k1i2s73a4b900
+Render live commit: c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1
+```
+
+Meaning:
+- Runtime includes explicit REAL_AI_BLOCKED reporting patch.
+
+### Test 049
+
+```text
+COMMAND_ID: AGENTWORKSPACE-CHECK-049
+STATUS: DONE
+ACTION: RUN_REPO_STATE_AGENT_REAL_AI
+Runtime commit: c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1
+Result: REAL_AI_BLOCKED
+scanRunId: 31
 aiDryRun: yes
 tokensSpent: no
 aiSource: dry_run
 allowRealAi: no
 realAiBlocked: yes
-aiReason: repo_state_agent_real_ai_blocked_without_allow_real_ai
+blockReason: missing_allow_real_ai
 ```
 
 Meaning:
-- COMMANDS.md Last result now exposes key AI spending/safety fields directly.
-- TEST_REPORT remains the detailed source.
+- Explicit REAL_AI_BLOCKED reporting works after deploy.
+- Safety gate works.
 - No tokens were spent.
 
 ## Current safety rule
@@ -173,6 +181,8 @@ RUN_REPO_STATE_AGENT
 RUN_REPO_STATE_AGENT_REAL_AI
 allowRealAi missing/false
 => real AI blocked
+=> resultStatus: REAL_AI_BLOCKED
+=> blockReason: missing_allow_real_ai
 => tokensSpent: no
 => aiSource: dry_run
 => realAiBlocked: yes
@@ -205,19 +215,29 @@ allowRealAi=true
 - Use repo state as source of truth.
 - After future code changes, verify Render deploy and run controlled dry-run tests.
 
-## Next recommended step
-
-Continue with RepoStateAgent hardening or move to next approved module.
-
-Recommended next hardening option:
+## Current completed block
 
 ```text
-Add explicit refusal/failure behavior for RUN_REPO_STATE_AGENT_REAL_AI when allowRealAi=true is missing,
-instead of treating blocked dry-run as REPO_STATE_AGENT_OK.
+RepoStateAgent real-AI safety and reporting hardening is complete.
+```
+
+## Next recommended step
+
+Continue RepoStateAgent hardening with one of these micro-steps:
+
+```text
+Option A: Add COMMANDS.md Last result fields for Result status / Blocked / Block reason.
+Option B: Add a dedicated BLOCKED command status later, but only after architecture approval.
+Option C: Move to the next module after Monarch approval.
+```
+
+Recommended next micro-step:
+
+```text
+Option A — add Result status / Blocked / Block reason to COMMANDS.md Last result.
 ```
 
 Reason:
-- Current behavior is safe.
-- But action named REAL_AI returning OK while blocking real AI may be semantically confusing.
-- Better future UX may be: `ok: false` or `status: blocked` for explicit real-AI action without approval.
-```
+- TEST_REPORT already shows REAL_AI_BLOCKED.
+- COMMANDS.md still shows tokens/source/block flag but not resultStatus or blockReason.
+- This is a small reporting-only improvement, no architecture change.

@@ -6,40 +6,29 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-070`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_DEPLOYS`
-TASK_ID: `render-latest-deploys-check-70`
-WORKFLOW_POINT: `render-latest-deploys-check-70`
-DEPLOY_ID: `-`
+COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOY-071`
+STATUS: `PENDING`
+ACTION: `COLLECT_RENDER_DEPLOY`
+TASK_ID: `render-latest-deploy-log-check-71`
+WORKFLOW_POINT: `render-latest-deploy-log-check-71`
+DEPLOY_ID: `dep-d7ob9ipo3t8c73f6mnog`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T13:35:00.000Z`
-UPDATED_AT: `2026-04-28T13:31:22.265Z`
+CREATED_AT: `2026-04-28T13:40:00.000Z`
+UPDATED_AT: `2026-04-28T13:40:00.000Z`
 
 ---
 
 ## Payload
 
-limit: 5
-reason: user_requested_latest_deploy_log_last_50_lines_step_1_get_latest_deploy_id
+lastLines: 50
+reason: user_requested_latest_deploy_log_last_50_lines_step_2_collect_latest_deploy
 
 ---
 
 ## Last result
 
-Action completed: COLLECT_RENDER_DEPLOYS
-Task ID: render-latest-deploys-check-70
-Workflow point: render-latest-deploys-check-70
-Deploy ID: -
-Commit: 58bd75d426b16fb43865eebffbb23a8c225cbd32
-Required commit: -
-Runtime commit: 58bd75d426b16fb43865eebffbb23a8c225cbd32
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending collection of latest Render deploy details/log for deploy dep-d7ob9ipo3t8c73f6mnog.
 
 ---
 

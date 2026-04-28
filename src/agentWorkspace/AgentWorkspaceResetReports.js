@@ -71,6 +71,12 @@ export async function resetWorkspaceReportsForCommand({ command, reportService }
   ));
 
   writes.push(await reportService.writeMarkdown(
+    "SEMANTIC_MAP_REPORT.md",
+    emptyReport("SEMANTIC_MAP_REPORT", taskId, "reset_before_command_run_no_semantic_map_yet"),
+    `reset semantic map report for ${taskId}`
+  ));
+
+  writes.push(await reportService.writeMarkdown(
     "PATCH_REQUESTS.md",
     emptyReport("PATCH_REQUESTS", taskId, "reset_before_command_run_no_patch_requested"),
     `reset patch requests for ${taskId}`

@@ -1,6 +1,12 @@
 // ============================================================================
-// === src/bot/handlers/repoReview2.js — repo health check from snapshot (DB-only)
+// === src/bot/handlers/repoReview2.js — LEGACY repo snapshot review
 // === READ-ONLY, no GitHub fetch
+// ============================================================================
+// LEGACY WARNING:
+// - This command reviews old repo_index_* snapshots only.
+// - It is NOT the factual current repository state.
+// - It is NOT the factual architecture health source.
+// - Factual repo/project state must come from RepoStateAgent.
 // ============================================================================
 
 import pool from "../../../db.js";
@@ -55,7 +61,14 @@ export async function handleRepoReview2(ctx = {}) {
   const latest = await store.getLatestSnapshot({ repo, branch });
 
   if (!latest) {
-    await bot.sendMessage(chatId, "RepoReview2: no snapshots yet (run /reindex first)");
+    await bot.sendMessage(
+      chatId,
+      [
+        "RepoReview2: LEGACY snapshot only",
+        "Status: no legacy snapshots yet",
+        "Truth: use RepoStateAgent for factual current repo/project state.",
+      ].join("\n")
+    );
     return;
   }
 
@@ -113,40 +126,39 @@ export async function handleRepoReview2(ctx = {}) {
   const topDirs = topN(byDir, 10).map(([d, c]) => `- ${d}: ${c}`);
 
   const out = [];
-  out.push("RepoReview2: ok");
-  out.push(`snapshotId: ${latest.id}`);
+  out.push("RepoReview2: LEGACY snapshot review only");
+  out.push("Warning: this is not factual current repo/project state or architecture health.");
+  out.push("Truth: use RepoStateAgent.");
+  out.push("");
+  out.push(`legacySnapshotId: ${latest.id}`);
   out.push(`repo: ${latest.repo || repo || "?"}`);
   out.push(`branch: ${latest.branch || branch || "?"}`);
   out.push(`createdAt: ${latest.created_at || latest.createdAt || "?"}`);
-  out.push(`filesCount: ${filesCount}`);
+  out.push(`legacyFilesCount: ${filesCount}`);
   out.push("");
 
-  out.push("Top folders (by files):");
+  out.push("Top folders in legacy snapshot:");
   if (!topDirs.length) out.push("- (none)");
   else out.push(...topDirs);
 
   out.push("");
-  out.push(`Pillars: missing=${missingPillars.length}/${requiredPillars.length}`);
-  if (missingPillars.length) missingPillars.forEach((p) => out.push(`- MISSING: ${p}`));
-  else out.push("- OK (all required pillars present)");
+  out.push(`Legacy pillars check: missing=${missingPillars.length}/${requiredPillars.length}`);
+  if (missingPillars.length) missingPillars.forEach((p) => out.push(`- MISSING IN LEGACY SNAPSHOT: ${p}`));
+  else out.push("- OK in legacy snapshot only");
 
   out.push("");
-  out.push(`Key files: missing=${missingKeyFiles.length}/${expectedKeyFiles.length}`);
-  if (missingKeyFiles.length) missingKeyFiles.forEach((p) => out.push(`- MISSING: ${p}`));
-  else out.push("- OK (all key files present)");
+  out.push(`Legacy key files check: missing=${missingKeyFiles.length}/${expectedKeyFiles.length}`);
+  if (missingKeyFiles.length) missingKeyFiles.forEach((p) => out.push(`- MISSING IN LEGACY SNAPSHOT: ${p}`));
+  else out.push("- OK in legacy snapshot only");
 
   out.push("");
-  out.push(`Security scan (paths): suspicious=${suspicious.length}`);
-  if (suspicious.length) suspicious.slice(0, 15).forEach((p) => out.push(`- SUSPICIOUS: ${p}`));
-  else out.push("- OK (no suspicious paths in snapshot)");
+  out.push(`Legacy security path scan: suspicious=${suspicious.length}`);
+  if (suspicious.length) suspicious.slice(0, 15).forEach((p) => out.push(`- SUSPICIOUS IN LEGACY SNAPSHOT: ${p}`));
+  else out.push("- OK in legacy snapshot only");
 
   out.push("");
   out.push("Result:");
-  if (missingPillars.length || missingKeyFiles.length || suspicious.length) {
-    out.push("- NOT CLEAN: fix missing/suspicious items, then /reindex");
-  } else {
-    out.push("- CLEAN: snapshot structure looks consistent ✅");
-  }
+  out.push("- LEGACY ONLY: do not use this result as factual repo state.");
 
   await bot.sendMessage(chatId, out.join("\n"));
 }

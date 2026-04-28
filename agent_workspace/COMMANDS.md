@@ -6,39 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-013`
-STATUS: `DONE`
-ACTION: `RUN_REPO_STATE_AGENT`
-TASK_ID: `repo-state-agent-ai-dry-run-check-13`
-WORKFLOW_POINT: `repo-state-agent-ai-safety-dry-run-check-13`
+COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-014`
+STATUS: `PENDING`
+ACTION: `VERIFY_DEPLOY`
+TASK_ID: `agent-workspace-refactor-deploy-verify-14`
+WORKFLOW_POINT: `agent-workspace-helper-refactor-deploy-check-14`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `f18aca1bd33ffd4a9ae643d90d85ab85065a3bf3`
-CREATED_BY: `-`
-CREATED_AT: `-`
-UPDATED_AT: `2026-04-28T05:33:18.468Z`
+REQUIRES_COMMIT: `fdb3412b00475c4f4dde316972d6e0971cad053f`
+CREATED_BY: `SG-advisor`
+CREATED_AT: `2026-04-28T00:00:00.000Z`
+UPDATED_AT: `2026-04-28T00:00:00.000Z`
 
 ---
 
 ## Payload
 
-run
+verify deployed commit after AgentWorkspace helper refactor preparation
 
 ---
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_AGENT
-Task ID: repo-state-agent-ai-dry-run-check-13
-Workflow point: repo-state-agent-ai-safety-dry-run-check-13
-Deploy ID: -
-Commit: f18aca1bd33ffd4a9ae643d90d85ab85065a3bf3
-Required commit: f18aca1bd33ffd4a9ae643d90d85ab85065a3bf3
-Runtime commit: f18aca1bd33ffd4a9ae643d90d85ab85065a3bf3
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending deploy verification.
 
 ---
 

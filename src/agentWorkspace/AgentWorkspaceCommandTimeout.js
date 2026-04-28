@@ -4,7 +4,7 @@
 // Prevents a workspace command from keeping COMMANDS.md in RUNNING forever.
 // ============================================================================
 
-const DEFAULT_AGENT_WORKSPACE_COMMAND_TIMEOUT_MS = 90000;
+const DEFAULT_AGENT_WORKSPACE_COMMAND_TIMEOUT_MS = 240000;
 
 export function getAgentWorkspaceCommandTimeoutMs() {
   const raw = Number(process.env.AGENT_WORKSPACE_COMMAND_TIMEOUT_MS || 0);

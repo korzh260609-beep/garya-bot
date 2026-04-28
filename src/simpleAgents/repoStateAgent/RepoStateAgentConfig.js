@@ -15,6 +15,12 @@ function envBool(name, fallback = false) {
   return ["1", "true", "yes", "y", "on"].includes(raw);
 }
 
+function envInt(name, fallback) {
+  const raw = normalizeString(envStr(name, String(fallback)));
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 export function getRepoStateAgentConfig() {
   const webhookToken = normalizeString(envStr("REPO_STATE_AGENT_WEBHOOK_TOKEN", ""));
   const githubWebhookSecret = normalizeString(envStr("REPO_STATE_AGENT_GITHUB_WEBHOOK_SECRET", webhookToken));
@@ -29,6 +35,13 @@ export function getRepoStateAgentConfig() {
 
     // AI layer
     aiEnabled: envBool("REPO_STATE_AGENT_AI_ENABLED", false),
+    aiDryRun: envBool("REPO_STATE_AGENT_AI_DRY_RUN", true),
+    aiMaxPromptChars: envInt("REPO_STATE_AGENT_AI_MAX_PROMPT_CHARS", 30000),
+    aiMaxModules: envInt("REPO_STATE_AGENT_AI_MAX_MODULES", 60),
+    aiMaxModuleLinks: envInt("REPO_STATE_AGENT_AI_MAX_MODULE_LINKS", 60),
+    aiMaxCommandLikeFiles: envInt("REPO_STATE_AGENT_AI_MAX_COMMAND_LIKE_FILES", 40),
+    aiMaxCriticalFiles: envInt("REPO_STATE_AGENT_AI_MAX_CRITICAL_FILES", 40),
+    aiCostLevel: normalizeString(envStr("REPO_STATE_AGENT_AI_COST_LEVEL", "high")) || "high",
   };
 }
 

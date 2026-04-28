@@ -193,6 +193,14 @@ function dedupeServices(items) {
   return [...map.values()];
 }
 
+function validIsoOrEmpty(value) {
+  const text = normalizeString(value);
+  if (!text) return "";
+  const ms = Date.parse(text);
+  if (!Number.isFinite(ms)) return "";
+  return new Date(ms).toISOString();
+}
+
 class RenderBridge {
   constructor() {
     this.config = getRenderBridgeConfig();
@@ -519,6 +527,8 @@ class RenderBridge {
     level,
     minutes,
     limit,
+    startTime = "",
+    endTime = "",
   } = {}) {
     const normalizedOwnerId = normalizeString(ownerId);
     if (!normalizedOwnerId) {
@@ -547,8 +557,13 @@ class RenderBridge {
       level || this.config.defaultLogLevel
     );
 
-    const end = new Date();
-    const start = new Date(Date.now() - windowMinutes * 60 * 1000);
+    const explicitStartTime = validIsoOrEmpty(startTime);
+    const explicitEndTime = validIsoOrEmpty(endTime);
+
+    const end = explicitEndTime ? new Date(explicitEndTime) : new Date();
+    const start = explicitStartTime
+      ? new Date(explicitStartTime)
+      : new Date(Date.now() - windowMinutes * 60 * 1000);
 
     const raw = await this.requestLogsWithFallbacks({
       ownerId: normalizedOwnerId,

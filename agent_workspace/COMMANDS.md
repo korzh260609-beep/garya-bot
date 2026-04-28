@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-050`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_DEPLOYS`
-TASK_ID: `repo-state-agent-deploy-check-50`
-WORKFLOW_POINT: `repo-state-agent-deploy-check-50`
+COMMAND_ID: `AGENTWORKSPACE-CHECK-051`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_AGENT_REAL_AI`
+TASK_ID: `repo-state-agent-check-51`
+WORKFLOW_POINT: `repo-state-agent-check-51`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `84b4fee65b8862acaabddc95fbe48a8129d53e05`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T10:35:00.000Z`
-UPDATED_AT: `2026-04-28T10:30:33.121Z`
+CREATED_AT: `2026-04-28T10:40:00.000Z`
+UPDATED_AT: `2026-04-28T10:40:00.000Z`
 
 ---
 
@@ -27,18 +27,7 @@ UPDATED_AT: `2026-04-28T10:30:33.121Z`
 
 ## Last result
 
-Action completed: COLLECT_RENDER_DEPLOYS
-Task ID: repo-state-agent-deploy-check-50
-Workflow point: repo-state-agent-deploy-check-50
-Deploy ID: -
-Commit: 84b4fee65b8862acaabddc95fbe48a8129d53e05
-Required commit: 84b4fee65b8862acaabddc95fbe48a8129d53e05
-Runtime commit: 84b4fee65b8862acaabddc95fbe48a8129d53e05
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Waiting for SG AgentWorkspaceCommandRunner to verify COMMANDS Last result blocked fields without allowRealAi=true.
 
 ---
 

@@ -1,4 +1,14 @@
 // src/core/projectIntent/readPlan/projectIntentReadPlanSignals.js
+// ============================================================================
+// LEGACY PHRASE/TOKEN/PREFIX SIGNALS MARKER
+//
+// INTERFACE MODE NOTE:
+// - This file provides deterministic phrase/token/prefix matching helpers.
+// - Under hard Human Mode / Technical Mode separation, this is NOT full Human Mode.
+// - Treat this as legacy Technical Mode support until a clean structured meaning
+//   layer replaces it.
+// - Do not add new phrase-bound hacks here.
+// ============================================================================
 
 import { unique } from "./projectIntentReadPlanText.js";
 

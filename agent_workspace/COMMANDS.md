@@ -6,39 +6,29 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `VERIFY-LEGACY-SNAPSHOT-REPLY-001`
-STATUS: `DONE`
-ACTION: `RUN_DIAGNOSTIC_COMMANDS`
-TASK_ID: `verify-legacy-snapshot-reply-001`
-WORKFLOW_POINT: `verify-legacy-snapshot-reply-001`
+COMMAND_ID: `RUN-PROJECT-SEMANTIC-MAP-001`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_AGENT`
+TASK_ID: `run-project-semantic-map-001`
+WORKFLOW_POINT: `project-map-semantic-map-agent-check`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `e166930f4896ffa1d27b3553061e335fa4658726`
+REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T15:30:00.000Z`
-UPDATED_AT: `2026-04-28T15:28:56.304Z`
+CREATED_AT: `2026-04-28T17:05:00.000Z`
+UPDATED_AT: `2026-04-28T17:05:00.000Z`
 
 ---
 
 ## Payload
 
-/render_bridge_logs 50
+forceAiAnalysis=false
+allowRealAi=false
 
 ---
 
 ## Last result
 
-Action completed: RUN_DIAGNOSTIC_COMMANDS
-Task ID: verify-legacy-snapshot-reply-001
-Workflow point: verify-legacy-snapshot-reply-001
-Deploy ID: -
-Commit: e166930f4896ffa1d27b3553061e335fa4658726
-Required commit: e166930f4896ffa1d27b3553061e335fa4658726
-Runtime commit: e166930f4896ffa1d27b3553061e335fa4658726
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 1
-Diagnostics OK: 1
-Diagnostics failed: 0
+-
 
 ---
 

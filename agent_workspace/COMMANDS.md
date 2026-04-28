@@ -6,39 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-AI-DRY-RUN-016`
-STATUS: `DONE`
-ACTION: `RUN_REPO_STATE_AGENT`
-TASK_ID: `repo-state-agent-force-ai-dry-run-16`
-WORKFLOW_POINT: `repo-state-agent-ai-dry-run-force-check-16`
+COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-018`
+STATUS: `PENDING`
+ACTION: `VERIFY_DEPLOY`
+TASK_ID: `agent-workspace-command-timeout-deploy-verify-18`
+WORKFLOW_POINT: `agent-workspace-command-timeout-deploy-check-18`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded`
+REQUIRES_COMMIT: `82b44cf4e0ff699268c462833ea2d3fa40b21b0c`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T00:00:00.000Z`
-UPDATED_AT: `2026-04-28T06:46:37.829Z`
+CREATED_AT: `2026-04-28T08:00:00.000Z`
+UPDATED_AT: `2026-04-28T08:00:00.000Z`
 
 ---
 
 ## Payload
 
-forceAiAnalysis=true
+-
 
 ---
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_AGENT
-Task ID: repo-state-agent-force-ai-dry-run-16
-Workflow point: repo-state-agent-ai-dry-run-force-check-16
-Deploy ID: -
-Commit: a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded
-Required commit: a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded
-Runtime commit: a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending deploy verification for AgentWorkspace command timeout commit.
 
 ---
 

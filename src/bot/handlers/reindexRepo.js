@@ -1,5 +1,10 @@
 // ============================================================================
-// === src/bot/handlers/reindexRepo.js — DRY-RUN + Postgres snapshot persist
+// === src/bot/handlers/reindexRepo.js — LEGACY RepoIndex snapshot builder
+// ============================================================================
+// LEGACY WARNING:
+// - This command builds old RepoIndex snapshots only.
+// - It is NOT the factual current repository state pipeline.
+// - Factual repo/project state must come from RepoStateAgent.
 // ============================================================================
 
 import pool from "../../../db.js";
@@ -61,7 +66,7 @@ export async function handleReindexRepo(ctx = {}) {
     store,
   });
 
-  // === Run index ===
+  // === Run legacy index ===
   const { snapshot, persisted } = await service.runIndex();
 
   const summary = snapshot.getSummary
@@ -84,20 +89,23 @@ export async function handleReindexRepo(ctx = {}) {
   await bot.sendMessage(
     chatId,
     [
-      `RepoIndex: ${persisted?.snapshotId ? "persisted" : "dry-run"}`,
-      persisted?.snapshotId ? `snapshotId: ${persisted.snapshotId}` : `snapshotId: none`,
+      `RepoIndex: LEGACY ${persisted?.snapshotId ? "persisted" : "dry-run"}`,
+      "Warning: this is not factual current repo/project state.",
+      "Truth: use RepoStateAgent.",
+      "",
+      persisted?.snapshotId ? `legacySnapshotId: ${persisted.snapshotId}` : `legacySnapshotId: none`,
       `repo: ${summary.repo || "?"}`,
       `branch: ${summary.branch || "?"}`,
       `createdAt: ${summary.createdAt || "?"}`,
 
       // Contour A: full tree (persisted)
-      `fullTreePersistedFiles: ${fullTreePersistedFiles}`,
+      `legacyFullTreePersistedFiles: ${fullTreePersistedFiles}`,
 
       // Contour B: content index (allowlist)
-      `filesListed: ${summary.stats?.filesListed ?? "?"}`,
-      `filesFetched: ${summary.stats?.filesFetched ?? "?"}`,
-      `filesSkipped: ${summary.stats?.filesSkipped ?? "?"}`,
-      `snapshotFiles: ${summary.snapshotFiles ?? "?"}`,
+      `legacyFilesListed: ${summary.stats?.filesListed ?? "?"}`,
+      `legacyFilesFetched: ${summary.stats?.filesFetched ?? "?"}`,
+      `legacyFilesSkipped: ${summary.stats?.filesSkipped ?? "?"}`,
+      `legacySnapshotFiles: ${summary.snapshotFiles ?? "?"}`,
 
       `memoryCandidates: ${summary.memoryCandidates ?? "?"}`,
       ``,

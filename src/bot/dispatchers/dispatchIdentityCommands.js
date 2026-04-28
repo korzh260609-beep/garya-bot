@@ -1,6 +1,13 @@
 // src/bot/dispatchers/dispatchIdentityCommands.js
 // Extracted 1:1 from commandDispatcher.js
 // Purpose: keep commandDispatcher smaller without changing behavior.
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for identity/access/group-source controls.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode identity/access behavior must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 
 import { handleLinkStart } from "../handlers/linkStart.js";
 import { handleLinkConfirm } from "../handlers/linkConfirm.js";

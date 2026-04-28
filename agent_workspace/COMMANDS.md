@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `VERIFY-LEGACY-SNAPSHOT-REPLY-001`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `verify-legacy-snapshot-reply-001`
 WORKFLOW_POINT: `verify-legacy-snapshot-reply-001`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `e166930f4896ffa1d27b3553061e335fa4658726`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T15:30:00.000Z`
-UPDATED_AT: `2026-04-28T15:30:00.000Z`
+UPDATED_AT: `2026-04-28T15:28:40.250Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-28T15:30:00.000Z`
 
 ## Last result
 
--
+Started by github_webhook at 2026-04-28T15:28:40.250Z.
 
 ---
 

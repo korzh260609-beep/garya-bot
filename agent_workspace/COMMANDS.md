@@ -6,41 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-040`
-STATUS: `DONE`
-ACTION: `RUN_REPO_STATE_AGENT`
-TASK_ID: `repo-state-agent-real-ai-gate-check-40`
-WORKFLOW_POINT: `repo-state-agent-real-ai-gate-check-40`
+COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-041`
+STATUS: `PENDING`
+ACTION: `VERIFY_DEPLOY`
+TASK_ID: `repo-state-agent-explicit-real-ai-action-deploy-41`
+WORKFLOW_POINT: `repo-state-agent-explicit-real-ai-action-deploy-check-41`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `ec5e97664a429f06fa9516842f01fe92c9cd2850`
+REQUIRES_COMMIT: `e3b37723c1906390119c8e211c4426a9735e402c`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T09:45:00.000Z`
-UPDATED_AT: `2026-04-28T09:32:40.456Z`
+CREATED_AT: `2026-04-28T09:55:00.000Z`
+UPDATED_AT: `2026-04-28T09:55:00.000Z`
 
 ---
 
 ## Payload
 
-```text
-forceAiAnalysis=true
-```
+-
 
 ---
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_AGENT
-Task ID: repo-state-agent-real-ai-gate-check-40
-Workflow point: repo-state-agent-real-ai-gate-check-40
-Deploy ID: -
-Commit: ec5e97664a429f06fa9516842f01fe92c9cd2850
-Required commit: ec5e97664a429f06fa9516842f01fe92c9cd2850
-Runtime commit: ec5e97664a429f06fa9516842f01fe92c9cd2850
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+-
 
 ---
 
@@ -64,6 +51,9 @@ Diagnostics failed: 0
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
+- `RUN_REPO_STATE_SCAN`
+- `RUN_REPO_STATE_AGENT`
+- `RUN_REPO_STATE_AGENT_REAL_AI`
 
 ## Hard limits
 

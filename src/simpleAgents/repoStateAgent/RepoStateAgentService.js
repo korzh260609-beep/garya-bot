@@ -1,5 +1,6 @@
 import { createRepoStateCollector } from "../../repoStateCollector/RepoStateCollectorFactory.js";
 import { buildRepoStateProjectMap } from "./RepoStateProjectMapBuilder.js";
+import { buildRepoStateNextActionPlan } from "./RepoStateNextActionPlanBuilder.js";
 import { analyzeRepoStateProjectMap } from "./RepoStateAgentAiAnalyzer.js";
 import { detectRepoStateAiNeed } from "./RepoStateAgentChangeDetector.js";
 import { getLatestAiAnalysis, saveAiAnalysis } from "./RepoStateAgentAiRepository.js";
@@ -100,6 +101,7 @@ export class RepoStateAgentService {
     const result = await this.collector.runScan();
 
     const projectMap = buildRepoStateProjectMap(result?.snapshot || result);
+    const nextActionPlan = buildRepoStateNextActionPlan(projectMap);
 
     const repoFullName = result?.repoFullName || "";
     const branch = result?.branch || "";
@@ -194,6 +196,9 @@ export class RepoStateAgentService {
         aiDryRun: aiAnalysis?.aiDryRun === true,
         tokensSpent: aiAnalysis?.tokensSpent === true,
         aiSource: aiAnalysis?.aiSource || "unknown",
+        nextActionPlanSchemaVersion: nextActionPlan?.schemaVersion || null,
+        nextActionPlanGeneratedBy: nextActionPlan?.generatedBy || null,
+        nextActionPlanTokensSpent: nextActionPlan?.tokensSpent === true,
         ...aiUsageMetadata,
       },
     });
@@ -201,6 +206,7 @@ export class RepoStateAgentService {
     return {
       ...result,
       projectMap,
+      nextActionPlan,
       aiAnalysis,
       aiMeta: {
         ...aiMeta,

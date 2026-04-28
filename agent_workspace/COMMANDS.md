@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-CHECK-049`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `RUN_REPO_STATE_AGENT_REAL_AI`
 TASK_ID: `repo-state-agent-check-49`
 WORKFLOW_POINT: `repo-state-agent-check-49`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T11:25:00.000Z`
-UPDATED_AT: `2026-04-28T10:23:01.567Z`
+UPDATED_AT: `2026-04-28T10:24:46.149Z`
 
 ---
 
@@ -27,7 +27,22 @@ UPDATED_AT: `2026-04-28T10:23:01.567Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-28T10:23:01.567Z.
+Action completed: RUN_REPO_STATE_AGENT_REAL_AI
+Task ID: repo-state-agent-check-49
+Workflow point: repo-state-agent-check-49
+Deploy ID: -
+Commit: c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1
+Required commit: c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1
+Runtime commit: c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
+Tokens spent: no
+AI source: dry_run
+Allow real AI: no
+Real AI blocked: yes
 
 ---
 

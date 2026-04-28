@@ -29,9 +29,14 @@ function describeLayer(layer = "") {
     root_project_memory_adapter: "Root-level project memory adapter kept for compatibility with memory workflows.",
     root_sources_adapter: "Root-level sources adapter kept for compatibility with source access workflows.",
     root_prompt_config: "Root-level prompt configuration and system prompt material.",
+    root_classifier_adapter: "Root-level classifier adapter kept for legacy or compatibility classification flows.",
     root_package_config: "Root-level package/dependency configuration and npm script metadata.",
     root_docs: "Root-level repository documentation for humans and coding agents.",
     root_env_template: "Root-level environment variable template for deployment/configuration setup.",
+    root_git_config: "Root-level Git ignore/configuration metadata.",
+    legacy_core: "Legacy root-level core helpers kept separate from src/core to avoid boundary confusion.",
+    fix_artifacts: "Temporary or historical fix artifacts kept for reference and cleanup decisions.",
+    runtime_logs: "Runtime log artifacts and syslog-style operational output kept outside source layers.",
     bootstrap: "System initialization, startup safety checks, and boot-time wiring.",
     transport: "Telegram/chat transport, command routing, and user-facing handlers.",
     core: "Core orchestration, message handling, memory and shared runtime services.",
@@ -113,9 +118,14 @@ function classifyResponsibility(path = "", layer = "") {
   if (normalizedLayer === "root_project_memory_adapter") return "memory";
   if (normalizedLayer === "root_sources_adapter") return "source_adapter";
   if (normalizedLayer === "root_prompt_config") return "configuration_or_policy";
+  if (normalizedLayer === "root_classifier_adapter") return "classification";
   if (normalizedLayer === "root_package_config") return "configuration_or_policy";
   if (normalizedLayer === "root_docs") return "documentation";
   if (normalizedLayer === "root_env_template") return "configuration_or_policy";
+  if (normalizedLayer === "root_git_config") return "configuration_or_policy";
+  if (normalizedLayer === "legacy_core") return "legacy_support";
+  if (normalizedLayer === "fix_artifacts") return "maintenance_artifact";
+  if (normalizedLayer === "runtime_logs") return "observability";
   if (normalizedLayer === "transport") return "user_interaction";
   if (normalizedLayer === "agent_workspace") return "workspace_bridge";
   if (normalizedLayer === "agent_workspace_reports") return "workspace_report";
@@ -211,6 +221,60 @@ function buildRiskHints(projectMap = {}) {
   return hints;
 }
 
+function buildTaskRoutingHints() {
+  return [
+    {
+      taskType: "ai_model_or_cost_change",
+      primaryLayers: ["root_ai_adapter", "root_model_config"],
+      secondaryLayers: ["services", "observability", "agent_workspace"],
+      startFiles: ["ai.js", "modelConfig.js"],
+      warning: "Do not run real AI or spend tokens unless Monarch explicitly approves allowRealAi=true.",
+    },
+    {
+      taskType: "database_or_migration_change",
+      primaryLayers: ["database", "root_database_adapter"],
+      secondaryLayers: ["services", "memory", "tasks"],
+      startFiles: ["db.js", "migrations/"],
+      warning: "Verify migration order and rollback safety before changing persistence logic.",
+    },
+    {
+      taskType: "telegram_or_user_command_change",
+      primaryLayers: ["transport"],
+      secondaryLayers: ["core", "access_control", "users"],
+      startFiles: ["src/bot/", "src/transport/"],
+      warning: "Keep group/private chat boundaries and Monarch access rules intact.",
+    },
+    {
+      taskType: "memory_or_project_memory_change",
+      primaryLayers: ["memory", "project_memory", "root_project_memory_adapter"],
+      secondaryLayers: ["core", "services", "database"],
+      startFiles: ["src/memory/", "src/projectMemory/", "projectMemory.js"],
+      warning: "Do not mix personal, group, project, and SG global memory boundaries.",
+    },
+    {
+      taskType: "source_or_external_data_change",
+      primaryLayers: ["sources", "root_sources_adapter", "integrations"],
+      secondaryLayers: ["services", "tasks", "observability"],
+      startFiles: ["src/sources/", "sources.js", "src/integrations/"],
+      warning: "Keep source-first behavior and adapter boundaries; avoid hardcoding provider logic into core.",
+    },
+    {
+      taskType: "agent_workspace_or_repo_state_change",
+      primaryLayers: ["agent_workspace", "agent_workspace_reports", "repo_state_collector", "simple_agents"],
+      secondaryLayers: ["root_git_config", "runtime_logs", "diagnostics"],
+      startFiles: ["src/agentWorkspace/", "agent_workspace/", "src/repoStateCollector/", "src/simpleAgents/"],
+      warning: "Workspace commands may write only allowlisted agent_workspace markdown reports.",
+    },
+    {
+      taskType: "docs_or_architecture_orientation",
+      primaryLayers: ["pillars", "root_docs", "docs"],
+      secondaryLayers: ["archive", "legacy_core"],
+      startFiles: ["pillars/", "README.md", "AGENTS.md", "docs/"],
+      warning: "Read pillars for orientation only; never edit pillars without explicit Monarch permission.",
+    },
+  ];
+}
+
 export function buildRepoStateSemanticMap(projectMap = {}) {
   const modules = asArray(projectMap?.modules);
   const entrypoints = asArray(projectMap?.entrypoints);
@@ -218,10 +282,10 @@ export function buildRepoStateSemanticMap(projectMap = {}) {
   const commandLikeFiles = asArray(projectMap?.commandLikeFiles);
 
   return {
-    schemaVersion: 3,
-    generatedBy: "deterministic_semantic_map_v3",
+    schemaVersion: 4,
+    generatedBy: "deterministic_semantic_map_v4",
     tokensSpent: false,
-    purpose: "No-AI semantic layer that helps SG and external coding tools understand module purposes and boundaries.",
+    purpose: "No-AI semantic layer that helps SG and external coding tools understand module purposes, boundaries, and task routing.",
     layerDescriptions: Object.keys(projectMap?.layers || {}).reduce((acc, layer) => {
       acc[layer] = describeLayer(layer);
       return acc;
@@ -232,6 +296,7 @@ export function buildRepoStateSemanticMap(projectMap = {}) {
       criticalFiles: criticalFiles.map(inferFilePurpose),
       commandLikeFiles: commandLikeFiles.slice(0, 80).map(inferFilePurpose),
     },
+    taskRoutingHints: buildTaskRoutingHints(),
     boundaryRules: buildBoundaryRules(),
     riskHints: buildRiskHints(projectMap),
   };

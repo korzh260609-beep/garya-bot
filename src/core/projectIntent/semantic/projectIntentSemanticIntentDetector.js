@@ -1,4 +1,14 @@
 // src/core/projectIntent/semantic/projectIntentSemanticIntentDetector.js
+// ============================================================================
+// LEGACY PHRASE/PREFIX INTENT DETECTOR MARKER
+//
+// INTERFACE MODE NOTE:
+// - This file detects intent using deterministic phrase/prefix/keyword signals.
+// - Under hard Human Mode / Technical Mode separation, this is NOT full Human Mode.
+// - Treat this as legacy Technical Mode support until a clean structured meaning
+//   layer replaces it.
+// - Do not add new phrase-bound hacks here.
+// ============================================================================
 
 import {
   SEARCH_PREFIXES,

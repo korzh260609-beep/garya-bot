@@ -6,28 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-AI-DRY-RUN-016`
-STATUS: `RUNNING`
-ACTION: `RUN_REPO_STATE_AGENT`
-TASK_ID: `repo-state-agent-force-ai-dry-run-16`
-WORKFLOW_POINT: `repo-state-agent-ai-dry-run-force-check-16`
+COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-REPORT-017`
+STATUS: `PENDING`
+ACTION: `COLLECT_RENDER_REPORT`
+TASK_ID: `repo-state-agent-force-ai-dry-run-diagnose-17`
+WORKFLOW_POINT: `repo-state-agent-force-ai-dry-run-render-check-17`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T00:00:00.000Z`
-UPDATED_AT: `2026-04-28T06:44:57.264Z`
+UPDATED_AT: `2026-04-28T00:00:00.000Z`
 
 ---
 
 ## Payload
 
-forceAiAnalysis=true
+collect render report after repo state agent run
 
 ---
 
 ## Last result
 
-Started by github_webhook at 2026-04-28T06:44:57.264Z.
+Pending render diagnostics.
 
 ---
 

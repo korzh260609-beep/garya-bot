@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-032`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `VERIFY_DEPLOY`
 TASK_ID: `repo-state-agent-ai-dry-run-env-redeploy-verify-32`
 WORKFLOW_POINT: `repo-state-agent-ai-dry-run-env-redeploy-check-32`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `30ec8407d59806282aeed679f5d1c94fc2105781`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:00:00.000Z`
-UPDATED_AT: `2026-04-28T08:43:15.547Z`
+UPDATED_AT: `2026-04-28T08:43:37.153Z`
 
 ---
 
@@ -27,7 +27,18 @@ UPDATED_AT: `2026-04-28T08:43:15.547Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-28T08:43:15.546Z.
+Action completed: VERIFY_DEPLOY
+Task ID: repo-state-agent-ai-dry-run-env-redeploy-verify-32
+Workflow point: repo-state-agent-ai-dry-run-env-redeploy-check-32
+Deploy ID: dep-d7o73uugvqtc73b9d7e0
+Commit: 1796c6febcbd4395ef6f7245e60f474687a46d08
+Required commit: 30ec8407d59806282aeed679f5d1c94fc2105781
+Runtime commit: 1796c6febcbd4395ef6f7245e60f474687a46d08
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-REAL-AI-031`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-agent-real-ai-retry-after-signature-index-fix-31`
 WORKFLOW_POINT: `repo-state-agent-real-ai-signature-index-fix-check-31`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `dbfd67d90da5f24b05db3b8bf6630d90d271a7ad`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:00:00.000Z`
-UPDATED_AT: `2026-04-28T08:00:00.000Z`
+UPDATED_AT: `2026-04-28T08:29:21.329Z`
 
 ---
 
@@ -27,7 +27,7 @@ forceAiAnalysis=true
 
 ## Last result
 
-Pending real RepoStateAgent AI retry after signature hash index migration/code fix.
+Started by github_webhook at 2026-04-28T08:29:21.328Z.
 
 ---
 

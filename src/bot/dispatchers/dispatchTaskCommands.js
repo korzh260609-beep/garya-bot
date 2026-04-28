@@ -1,6 +1,13 @@
 // src/bot/dispatchers/dispatchTaskCommands.js
 // Extracted 1:1 from commandDispatcher.js
 // Purpose: keep commandDispatcher smaller without changing behavior.
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for task engine control/manual execution.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode task creation/control must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 
 import pool from "../../../db.js";
 

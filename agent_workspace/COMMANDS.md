@@ -6,39 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-AI-DRY-RUN-023`
-STATUS: `DONE`
-ACTION: `RUN_REPO_STATE_AGENT`
-TASK_ID: `repo-state-agent-compact-ai-prompt-dry-run-23`
-WORKFLOW_POINT: `repo-state-agent-compact-ai-prompt-force-check-23`
+COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-024`
+STATUS: `PENDING`
+ACTION: `VERIFY_DEPLOY`
+TASK_ID: `agent-workspace-runner-refactor-deploy-verify-24`
+WORKFLOW_POINT: `agent-workspace-runner-refactor-deploy-check-24`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `69fdec9fe312fc850004910869b9e59e42798687`
+REQUIRES_COMMIT: `7e6ac5f628def62a9f3095627519f382cf94e275`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:00:00.000Z`
-UPDATED_AT: `2026-04-28T07:25:57.530Z`
+UPDATED_AT: `2026-04-28T08:00:00.000Z`
 
 ---
 
 ## Payload
 
-forceAiAnalysis=true
+-
 
 ---
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_AGENT
-Task ID: repo-state-agent-compact-ai-prompt-dry-run-23
-Workflow point: repo-state-agent-compact-ai-prompt-force-check-23
-Deploy ID: -
-Commit: 17cf995acb0f024888807455b5e9512b91ca71d0
-Required commit: 69fdec9fe312fc850004910869b9e59e42798687
-Runtime commit: 17cf995acb0f024888807455b5e9512b91ca71d0
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending deploy verification for AgentWorkspaceCommandRunner modular refactor.
 
 ---
 

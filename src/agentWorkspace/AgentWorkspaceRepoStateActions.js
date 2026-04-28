@@ -38,9 +38,15 @@ export async function runRepoStateScanAction({ command, reportService }) {
   };
 }
 
-export async function runRepoStateAgentAction({ command, reportService }) {
+export async function runRepoStateAgentAction({ command, reportService, forceRealAi = false } = {}) {
   const service = new RepoStateAgentService();
-  const options = parseRepoStateAgentOptions(command.payload);
+  const parsedOptions = parseRepoStateAgentOptions(command.payload);
+  const options = forceRealAi
+    ? {
+        ...parsedOptions,
+        forceAiAnalysis: true,
+      }
+    : parsedOptions;
   const result = await service.run(options);
   const collectedAt = nowIso();
 
@@ -55,6 +61,7 @@ export async function runRepoStateAgentAction({ command, reportService }) {
     taskId: command.taskId || "manual",
     workflowPoint: command.workflowPoint || "-",
     repoStateAgent: true,
+    repoStateAgentRealAiAction: forceRealAi === true,
     filesCount: result?.filesCount || 0,
     modulesCount: result?.modulesCount || 0,
     dependenciesCount: result?.dependenciesCount || 0,
@@ -66,6 +73,10 @@ export async function runRepoStateAgentAction({ command, reportService }) {
     aiReason: result?.aiAnalysis?.reason || result?.aiMeta?.reason || null,
     aiForceAnalysis: result?.aiMeta?.forceAiAnalysis === true ||
       result?.aiAnalysis?.forceAiAnalysis === true,
+    allowRealAi: result?.aiMeta?.allowRealAi === true ||
+      result?.aiAnalysis?.allowRealAi === true,
+    realAiBlocked: result?.aiMeta?.realAiBlocked === true,
+    tokensSpent: result?.aiAnalysis?.tokensSpent === true,
     result,
   };
 }

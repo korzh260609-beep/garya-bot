@@ -1,6 +1,7 @@
 import { createRepoStateCollector } from "../../repoStateCollector/RepoStateCollectorFactory.js";
 import { buildRepoStateProjectMap } from "./RepoStateProjectMapBuilder.js";
 import { buildRepoStateNextActionPlan } from "./RepoStateNextActionPlanBuilder.js";
+import { buildRepoStateArchitectureHealth } from "./RepoStateArchitectureHealthBuilder.js";
 import { analyzeRepoStateProjectMap } from "./RepoStateAgentAiAnalyzer.js";
 import { detectRepoStateAiNeed } from "./RepoStateAgentChangeDetector.js";
 import { getLatestAiAnalysis, saveAiAnalysis } from "./RepoStateAgentAiRepository.js";
@@ -102,6 +103,7 @@ export class RepoStateAgentService {
 
     const projectMap = buildRepoStateProjectMap(result?.snapshot || result);
     const nextActionPlan = buildRepoStateNextActionPlan(projectMap);
+    const architectureHealth = buildRepoStateArchitectureHealth(projectMap);
 
     const repoFullName = result?.repoFullName || "";
     const branch = result?.branch || "";
@@ -199,6 +201,11 @@ export class RepoStateAgentService {
         nextActionPlanSchemaVersion: nextActionPlan?.schemaVersion || null,
         nextActionPlanGeneratedBy: nextActionPlan?.generatedBy || null,
         nextActionPlanTokensSpent: nextActionPlan?.tokensSpent === true,
+        architectureHealthSchemaVersion: architectureHealth?.schemaVersion || null,
+        architectureHealthGeneratedBy: architectureHealth?.generatedBy || null,
+        architectureHealthTokensSpent: architectureHealth?.tokensSpent === true,
+        architectureHealthScore: architectureHealth?.score || null,
+        architectureHealthStatus: architectureHealth?.status || null,
         ...aiUsageMetadata,
       },
     });
@@ -207,6 +214,7 @@ export class RepoStateAgentService {
       ...result,
       projectMap,
       nextActionPlan,
+      architectureHealth,
       aiAnalysis,
       aiMeta: {
         ...aiMeta,

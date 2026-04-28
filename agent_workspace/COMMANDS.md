@@ -6,39 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-027`
-STATUS: `DONE`
-ACTION: `VERIFY_DEPLOY`
-TASK_ID: `repo-state-agent-real-ai-env-redeploy-verify-27`
-WORKFLOW_POINT: `repo-state-agent-real-ai-env-redeploy-check-27`
+COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-REAL-AI-028`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_AGENT`
+TASK_ID: `repo-state-agent-real-ai-first-run-28`
+WORKFLOW_POINT: `repo-state-agent-real-ai-first-run-check-28`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `7e6ac5f628def62a9f3095627519f382cf94e275`
+REQUIRES_COMMIT: `ff02516003390a6b80ee88248ab9b57586597f72`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:00:00.000Z`
-UPDATED_AT: `2026-04-28T07:59:13.238Z`
+UPDATED_AT: `2026-04-28T08:00:00.000Z`
 
 ---
 
 ## Payload
 
--
+forceAiAnalysis=true
 
 ---
 
 ## Last result
 
-Action completed: VERIFY_DEPLOY
-Task ID: repo-state-agent-real-ai-env-redeploy-verify-27
-Workflow point: repo-state-agent-real-ai-env-redeploy-check-27
-Deploy ID: dep-d7o6fnu47okc73epa9s0
-Commit: ff02516003390a6b80ee88248ab9b57586597f72
-Required commit: 7e6ac5f628def62a9f3095627519f382cf94e275
-Runtime commit: ff02516003390a6b80ee88248ab9b57586597f72
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending first real RepoStateAgent AI run after enabling real AI ENV.
 
 ---
 

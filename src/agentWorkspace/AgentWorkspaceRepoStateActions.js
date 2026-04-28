@@ -49,15 +49,24 @@ export async function runRepoStateAgentAction({ command, reportService, forceRea
     : parsedOptions;
   const result = await service.run(options);
   const collectedAt = nowIso();
+  const realAiBlocked = result?.aiMeta?.realAiBlocked === true;
+  const resultStatus = realAiBlocked
+    ? "REAL_AI_BLOCKED"
+    : result?.ok === true && result?.persisted === true
+      ? "REPO_STATE_AGENT_OK"
+      : "REPO_STATE_AGENT_FAILED";
 
   await reportService.writeMarkdown(
     "TEST_REPORT.md",
-    buildRepoStateAgentTestReport({ command, result, collectedAt }),
+    buildRepoStateAgentTestReport({ command, result, collectedAt, resultStatus }),
     `write full repo state agent results for ${command.taskId || "manual"}`
   );
 
   return {
     ok: result?.ok === true && result?.persisted === true,
+    resultStatus,
+    blocked: realAiBlocked,
+    blockReason: realAiBlocked ? "missing_allow_real_ai" : null,
     taskId: command.taskId || "manual",
     workflowPoint: command.workflowPoint || "-",
     repoStateAgent: true,
@@ -75,7 +84,7 @@ export async function runRepoStateAgentAction({ command, reportService, forceRea
       result?.aiAnalysis?.forceAiAnalysis === true,
     allowRealAi: result?.aiMeta?.allowRealAi === true ||
       result?.aiAnalysis?.allowRealAi === true,
-    realAiBlocked: result?.aiMeta?.realAiBlocked === true,
+    realAiBlocked,
     tokensSpent: result?.aiAnalysis?.tokensSpent === true,
     result,
   };

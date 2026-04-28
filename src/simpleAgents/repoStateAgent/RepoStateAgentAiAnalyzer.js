@@ -7,22 +7,30 @@
 import { callAI } from "../../../ai.js";
 import { getRepoStateAgentConfig } from "./RepoStateAgentConfig.js";
 
-function compactProjectMap(projectMap = {}) {
+function compactProjectMap(projectMap = {}, config = {}) {
   return {
     schemaVersion: projectMap.schemaVersion,
     repo: projectMap.repo,
     totals: projectMap.totals,
     layers: projectMap.layers,
-    modules: Array.isArray(projectMap.modules) ? projectMap.modules.slice(0, 80) : [],
-    moduleLinks: Array.isArray(projectMap.moduleLinks) ? projectMap.moduleLinks.slice(0, 80) : [],
+    modules: Array.isArray(projectMap.modules)
+      ? projectMap.modules.slice(0, config.aiMaxModules)
+      : [],
+    moduleLinks: Array.isArray(projectMap.moduleLinks)
+      ? projectMap.moduleLinks.slice(0, config.aiMaxModuleLinks)
+      : [],
     entrypoints: projectMap.entrypoints || [],
-    criticalFiles: projectMap.criticalFiles || [],
-    commandLikeFiles: Array.isArray(projectMap.commandLikeFiles) ? projectMap.commandLikeFiles.slice(0, 80) : [],
+    criticalFiles: Array.isArray(projectMap.criticalFiles)
+      ? projectMap.criticalFiles.slice(0, config.aiMaxCriticalFiles)
+      : [],
+    commandLikeFiles: Array.isArray(projectMap.commandLikeFiles)
+      ? projectMap.commandLikeFiles.slice(0, config.aiMaxCommandLikeFiles)
+      : [],
     dependencies: projectMap.dependencies,
   };
 }
 
-function buildPrompt(projectMap = {}) {
+function buildPrompt(projectMap = {}, config = {}) {
   return [
     {
       role: "system",
@@ -37,9 +45,29 @@ function buildPrompt(projectMap = {}) {
     },
     {
       role: "user",
-      content: JSON.stringify(compactProjectMap(projectMap)),
+      content: JSON.stringify(compactProjectMap(projectMap, config)),
     },
   ];
+}
+
+function measurePromptChars(messages = []) {
+  return messages.reduce((sum, message) => sum + String(message?.content || "").length, 0);
+}
+
+function buildDryRunAnalysis({ promptChars, config }) {
+  return {
+    dryRun: true,
+    promptChars,
+    limits: {
+      aiMaxPromptChars: config.aiMaxPromptChars,
+      aiMaxModules: config.aiMaxModules,
+      aiMaxModuleLinks: config.aiMaxModuleLinks,
+      aiMaxCommandLikeFiles: config.aiMaxCommandLikeFiles,
+      aiMaxCriticalFiles: config.aiMaxCriticalFiles,
+      aiCostLevel: config.aiCostLevel,
+    },
+    summary: "AI analyzer dry-run completed. No tokens were spent.",
+  };
 }
 
 export async function analyzeRepoStateProjectMap(projectMap = {}) {
@@ -53,8 +81,29 @@ export async function analyzeRepoStateProjectMap(projectMap = {}) {
     };
   }
 
-  const messages = buildPrompt(projectMap);
-  const raw = await callAI(messages, "high");
+  const messages = buildPrompt(projectMap, config);
+  const promptChars = measurePromptChars(messages);
+
+  if (promptChars > config.aiMaxPromptChars) {
+    return {
+      enabled: true,
+      skipped: true,
+      reason: "repo_state_agent_prompt_too_large",
+      promptChars,
+      maxPromptChars: config.aiMaxPromptChars,
+    };
+  }
+
+  if (config.aiDryRun) {
+    return {
+      enabled: true,
+      skipped: true,
+      reason: "repo_state_agent_ai_dry_run",
+      analysis: buildDryRunAnalysis({ promptChars, config }),
+    };
+  }
+
+  const raw = await callAI(messages, config.aiCostLevel);
 
   let parsed = null;
   try {
@@ -69,6 +118,7 @@ export async function analyzeRepoStateProjectMap(projectMap = {}) {
   return {
     enabled: true,
     skipped: false,
+    promptChars,
     analysis: parsed,
   };
 }

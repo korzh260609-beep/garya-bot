@@ -4,6 +4,13 @@
 // - extracted 1:1 from commandDispatcher
 // - NO logic changes
 // - ONLY routing isolation
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for capability inspection.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode capability access must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 // ============================================================================
 
 import {

@@ -4,17 +4,16 @@ Checkpoint for current SG / Советник GARYA development block.
 
 ---
 
-Saved at: `2026-04-28T09:55:00Z`
+Saved at: `2026-04-28T10:15:00Z`
 Saved by: `SG-advisor`
-Scope: `RepoStateAgent explicit real-AI action and safety gate`
+Scope: `RepoStateAgent explicit real-AI action, safety gate, and COMMANDS AI result fields`
 
 ---
 
 ## Current confirmed runtime
 
 ```text
-Render live deploy: dep-d7o854q8qa3s73al90v0
-Render live commit: 0f89ec7bd239807fd0d6882c37e5a286dfba62b3
+Render live commit for deploy check before 047: f7cc2a04f58368a20f72c7fd52e182a35f990e55
 Service: garya-bot
 ```
 
@@ -39,6 +38,10 @@ e3b37723c1906390119c8e211c4426a9735e402c
 7db30b2092979a00e7e3b3fbdc244d0c9b212cce
 - Updated COMMANDS.md markdown allowed-actions list.
 - COMMANDS output now shows RUN_REPO_STATE_SCAN, RUN_REPO_STATE_AGENT, RUN_REPO_STATE_AGENT_REAL_AI.
+
+0b137258d0e8d34412a808d6e10ac3efd373f7a7
+- Added AI gate fields to COMMANDS.md Last result.
+- Last result now can show Tokens spent, AI source, Allow real AI, Real AI blocked.
 ```
 
 ## Verified behavior
@@ -116,8 +119,50 @@ Render live commit: 0f89ec7bd239807fd0d6882c37e5a286dfba62b3
 ```
 
 Meaning:
-- Latest runtime includes cosmetic COMMANDS allowed-actions markdown fix.
-- COMMANDS.md now displays current actions correctly.
+- Runtime included cosmetic COMMANDS allowed-actions markdown fix.
+- COMMANDS.md displays current actions correctly.
+
+### Deploy/report check 046
+
+```text
+COMMAND_ID: AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-046
+STATUS: DONE
+Render live deploy: dep-d7o8cgu8bjmc7399c0a0
+Render live commit: f7cc2a04f58368a20f72c7fd52e182a35f990e55
+```
+
+Meaning:
+- Runtime included COMMANDS Last result AI fields code after workspace commit moved HEAD forward.
+
+### Test 047
+
+```text
+COMMAND_ID: AGENTWORKSPACE-CHECK-047
+STATUS: DONE
+ACTION: RUN_REPO_STATE_AGENT_REAL_AI
+Result: REPO_STATE_AGENT_OK
+scanRunId: 30
+Tokens spent: no
+AI source: dry_run
+Allow real AI: no
+Real AI blocked: yes
+```
+
+TEST_REPORT confirmed:
+
+```text
+aiDryRun: yes
+tokensSpent: no
+aiSource: dry_run
+allowRealAi: no
+realAiBlocked: yes
+aiReason: repo_state_agent_real_ai_blocked_without_allow_real_ai
+```
+
+Meaning:
+- COMMANDS.md Last result now exposes key AI spending/safety fields directly.
+- TEST_REPORT remains the detailed source.
+- No tokens were spent.
 
 ## Current safety rule
 
@@ -162,11 +207,17 @@ allowRealAi=true
 
 ## Next recommended step
 
-Continue with RepoStateAgent hardening:
+Continue with RepoStateAgent hardening or move to next approved module.
+
+Recommended next hardening option:
 
 ```text
-1. Add clearer result summary in COMMANDS.md Last result:
-   tokensSpent, aiSource, allowRealAi, realAiBlocked.
+Add explicit refusal/failure behavior for RUN_REPO_STATE_AGENT_REAL_AI when allowRealAi=true is missing,
+instead of treating blocked dry-run as REPO_STATE_AGENT_OK.
+```
 
-2. Or start the next module only after explicit Monarch choice.
+Reason:
+- Current behavior is safe.
+- But action named REAL_AI returning OK while blocking real AI may be semantically confusing.
+- Better future UX may be: `ok: false` or `status: blocked` for explicit real-AI action without approval.
 ```

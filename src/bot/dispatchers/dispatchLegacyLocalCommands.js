@@ -4,6 +4,12 @@
 // - extracted 1:1 from commandDispatcher
 // - NO logic changes
 // - ONLY routing isolation
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit legacy/local slash commands.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Keep temporarily for diagnostics/backward compatibility.
 // ============================================================================
 
 import { handleArList } from "../handlers/arList.js";

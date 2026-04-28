@@ -4,6 +4,13 @@
 // - extracted 1:1 from commandDispatcher
 // - NO logic changes
 // - ONLY routing isolation
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands only.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Factual repo/project state must move toward RepoStateAgent-backed answers.
+// - Keep temporarily for diagnostics/backward compatibility.
 // ============================================================================
 
 import { handleRepoStatus } from "../handlers/repoStatus.js";

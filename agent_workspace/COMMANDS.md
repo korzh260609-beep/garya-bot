@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `RAW-RENDER-LAST-50-COUNT-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `raw-render-last-50-count-001`
 WORKFLOW_POINT: `raw-render-last-50-count-001`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `b000e0bbfbf3f3a80be41ef00f7d41956377505f`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T15:10:00.000Z`
-UPDATED_AT: `2026-04-28T15:04:05.989Z`
+UPDATED_AT: `2026-04-28T15:04:22.296Z`
 
 ---
 
@@ -27,7 +27,18 @@ UPDATED_AT: `2026-04-28T15:04:05.989Z`
 
 ## Last result
 
-Started by github_webhook at 2026-04-28T15:04:05.989Z.
+Action completed: RUN_DIAGNOSTIC_COMMANDS
+Task ID: raw-render-last-50-count-001
+Workflow point: raw-render-last-50-count-001
+Deploy ID: -
+Commit: b000e0bbfbf3f3a80be41ef00f7d41956377505f
+Required commit: b000e0bbfbf3f3a80be41ef00f7d41956377505f
+Runtime commit: b000e0bbfbf3f3a80be41ef00f7d41956377505f
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 1
+Diagnostics OK: 1
+Diagnostics failed: 0
 
 ---
 

@@ -6,42 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-LOGS-030`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_LOGS`
-TASK_ID: `repo-state-agent-migration-latest-deploy-logs-check-30`
-WORKFLOW_POINT: `repo-state-agent-signature-hash-migration-latest-deploy-logs-check-30`
+COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-REAL-AI-031`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_AGENT`
+TASK_ID: `repo-state-agent-real-ai-retry-after-signature-index-fix-31`
+WORKFLOW_POINT: `repo-state-agent-real-ai-signature-index-fix-check-31`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `-`
+REQUIRES_COMMIT: `dbfd67d90da5f24b05db3b8bf6630d90d271a7ad`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:00:00.000Z`
-UPDATED_AT: `2026-04-28T08:24:14.587Z`
+UPDATED_AT: `2026-04-28T08:00:00.000Z`
 
 ---
 
 ## Payload
 
-level=info
-target=latest_deploy
-limit=200
-maxLineChars=1000
+forceAiAnalysis=true
 
 ---
 
 ## Last result
 
-Action completed: COLLECT_RENDER_LOGS
-Task ID: repo-state-agent-migration-latest-deploy-logs-check-30
-Workflow point: repo-state-agent-signature-hash-migration-latest-deploy-logs-check-30
-Deploy ID: dep-d7o6o99j2pic739lojc0
-Commit: dbfd67d90da5f24b05db3b8bf6630d90d271a7ad
-Required commit: -
-Runtime commit: dbfd67d90da5f24b05db3b8bf6630d90d271a7ad
-Logs: 20
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending real RepoStateAgent AI retry after signature hash index migration/code fix.
 
 ---
 

@@ -39,6 +39,41 @@ import renderBridgeStateStore from "../integrations/render/RenderBridgeStateStor
 let inMemoryRunLock = false;
 const completedCommands = new Set();
 
+function buildCommandResultLines({ action, command, result, requiredCommit, runtimeCommit }) {
+  const lines = [
+    `Action completed: ${action}`,
+    `Task ID: ${command.taskId || "manual"}`,
+    `Workflow point: ${command.workflowPoint || "-"}`,
+    `Deploy ID: ${result?.deployId || command.deployId || "-"}`,
+    `Commit: ${result?.commit || result?.latestCommit || runtimeCommit || "-"}`,
+    `Required commit: ${requiredCommit || "-"}`,
+    `Runtime commit: ${runtimeCommit || "-"}`,
+    `Logs: ${Number(result?.logs || 0)}`,
+    `Diagnosis: ${String(Boolean(result?.diagnosis))}`,
+    `Diagnostic commands: ${Number(result?.diagnosticCommands || 0)}`,
+    `Diagnostics OK: ${Number(result?.diagnosticsOk || 0)}`,
+    `Diagnostics failed: ${Number(result?.diagnosticsFailed || 0)}`,
+  ];
+
+  if (typeof result?.tokensSpent === "boolean") {
+    lines.push(`Tokens spent: ${result.tokensSpent ? "yes" : "no"}`);
+  }
+
+  if (result?.result?.aiAnalysis?.aiSource) {
+    lines.push(`AI source: ${result.result.aiAnalysis.aiSource}`);
+  }
+
+  if (typeof result?.allowRealAi === "boolean") {
+    lines.push(`Allow real AI: ${result.allowRealAi ? "yes" : "no"}`);
+  }
+
+  if (typeof result?.realAiBlocked === "boolean") {
+    lines.push(`Real AI blocked: ${result.realAiBlocked ? "yes" : "no"}`);
+  }
+
+  return lines.join("\n");
+}
+
 export class AgentWorkspaceCommandRunner {
   constructor({ config, client, reportService, renderControlService } = {}) {
     this.config = config || getAgentWorkspaceConfig();
@@ -295,20 +330,13 @@ export class AgentWorkspaceCommandRunner {
       await this.markCommand(
         command,
         result?.ok === false ? "FAILED" : "DONE",
-        [
-          `Action completed: ${action}`,
-          `Task ID: ${command.taskId || "manual"}`,
-          `Workflow point: ${command.workflowPoint || "-"}`,
-          `Deploy ID: ${result?.deployId || command.deployId || "-"}`,
-          `Commit: ${result?.commit || result?.latestCommit || runtimeCommit || "-"}`,
-          `Required commit: ${requiredCommit || "-"}`,
-          `Runtime commit: ${runtimeCommit || "-"}`,
-          `Logs: ${Number(result?.logs || 0)}`,
-          `Diagnosis: ${String(Boolean(result?.diagnosis))}`,
-          `Diagnostic commands: ${Number(result?.diagnosticCommands || 0)}`,
-          `Diagnostics OK: ${Number(result?.diagnosticsOk || 0)}`,
-          `Diagnostics failed: ${Number(result?.diagnosticsFailed || 0)}`,
-        ].join("\n")
+        buildCommandResultLines({
+          action,
+          command,
+          result,
+          requiredCommit,
+          runtimeCommit,
+        })
       );
 
       return {

@@ -1,6 +1,13 @@
 // src/bot/dispatchers/dispatchMetaDebugCommands.js
 // Extracted 1:1 from commandDispatcher.js
 // Purpose: keep commandDispatcher smaller without changing behavior.
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for meta/debug/webhook/behavior diagnostics.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode meta/debug access must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 
 import { handleChatMetaDebug } from "../handlers/chatMetaDebug.js";
 import { handleWebhookInfo } from "../handlers/webhookInfo.js";

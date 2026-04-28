@@ -8,6 +8,54 @@ import {
   saveProjectMapState,
 } from "./RepoStateProjectMapStateRepository.js";
 
+function enrichAiExecution(aiAnalysis = {}) {
+  if (aiAnalysis?.enabled !== true) {
+    return {
+      ...aiAnalysis,
+      aiDryRun: false,
+      tokensSpent: false,
+      aiSource: "disabled",
+    };
+  }
+
+  if (aiAnalysis?.reused === true) {
+    return {
+      ...aiAnalysis,
+      aiDryRun: false,
+      tokensSpent: false,
+      aiSource: "reused_previous",
+    };
+  }
+
+  if (
+    aiAnalysis?.reason === "repo_state_agent_ai_dry_run" ||
+    aiAnalysis?.analysis?.dryRun === true
+  ) {
+    return {
+      ...aiAnalysis,
+      aiDryRun: true,
+      tokensSpent: false,
+      aiSource: "dry_run",
+    };
+  }
+
+  if (aiAnalysis?.skipped === true) {
+    return {
+      ...aiAnalysis,
+      aiDryRun: false,
+      tokensSpent: false,
+      aiSource: "skipped_no_tokens",
+    };
+  }
+
+  return {
+    ...aiAnalysis,
+    aiDryRun: false,
+    tokensSpent: true,
+    aiSource: "real_ai",
+  };
+}
+
 export class RepoStateAgentService {
   constructor() {
     const { collector } = createRepoStateCollector();
@@ -82,6 +130,8 @@ export class RepoStateAgentService {
       };
     }
 
+    aiAnalysis = enrichAiExecution(aiAnalysis);
+
     // NEW: always persist project map state (even when AI disabled)
     await saveProjectMapState({
       repoFullName,
@@ -94,6 +144,9 @@ export class RepoStateAgentService {
         forceAiAnalysis,
         originalShouldAnalyze: changeDecision.shouldAnalyze === true,
         aiReason: aiAnalysis?.reason || changeDecision.reason,
+        aiDryRun: aiAnalysis?.aiDryRun === true,
+        tokensSpent: aiAnalysis?.tokensSpent === true,
+        aiSource: aiAnalysis?.aiSource || "unknown",
       },
     });
 

@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-CHECK-047`
-STATUS: `DONE`
-ACTION: `RUN_REPO_STATE_AGENT_REAL_AI`
-TASK_ID: `repo-state-agent-check-47`
-WORKFLOW_POINT: `repo-state-agent-check-47`
+COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-048`
+STATUS: `PENDING`
+ACTION: `COLLECT_RENDER_DEPLOYS`
+TASK_ID: `repo-state-agent-deploy-check-48`
+WORKFLOW_POINT: `repo-state-agent-deploy-check-48`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `f7cc2a04f58368a20f72c7fd52e182a35f990e55`
+REQUIRES_COMMIT: `c5eedec9fa8c03978ceb84c2d958ba06d9ffb6c1`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T10:55:00.000Z`
-UPDATED_AT: `2026-04-28T10:11:26.487Z`
+CREATED_AT: `2026-04-28T11:00:00.000Z`
+UPDATED_AT: `2026-04-28T11:00:00.000Z`
 
 ---
 
@@ -27,22 +27,7 @@ UPDATED_AT: `2026-04-28T10:11:26.487Z`
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_AGENT_REAL_AI
-Task ID: repo-state-agent-check-47
-Workflow point: repo-state-agent-check-47
-Deploy ID: -
-Commit: f7cc2a04f58368a20f72c7fd52e182a35f990e55
-Required commit: f7cc2a04f58368a20f72c7fd52e182a35f990e55
-Runtime commit: f7cc2a04f58368a20f72c7fd52e182a35f990e55
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
-Tokens spent: no
-AI source: dry_run
-Allow real AI: no
-Real AI blocked: yes
+Waiting for SG AgentWorkspaceCommandRunner to collect Render deploy state for the latest code commit.
 
 ---
 

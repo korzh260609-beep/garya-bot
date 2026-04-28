@@ -1,5 +1,11 @@
 // ============================================================================
-// === src/bot/handlers/repoTree.js — show repo tree from PostgreSQL snapshot
+// === src/bot/handlers/repoTree.js — LEGACY tree browsing from RepoIndex snapshot
+// ============================================================================
+// LEGACY WARNING:
+// - This command reads old repo_index_* snapshots only.
+// - It is useful only for temporary file browsing.
+// - It is NOT the factual current repository map.
+// - Factual repo/project state must come from RepoStateAgent.
 // ============================================================================
 
 import pool from "../../../db.js";
@@ -19,7 +25,14 @@ export async function handleRepoTree(ctx = {}) {
 
   const latest = await store.getLatestSnapshot({ repo, branch });
   if (!latest) {
-    await bot.sendMessage(chatId, `RepoTree: no snapshots yet`);
+    await bot.sendMessage(
+      chatId,
+      [
+        `RepoTree: LEGACY snapshot only`,
+        `Status: no legacy snapshots yet`,
+        `Truth: use RepoStateAgent for factual current repo/project state.`,
+      ].join("\n")
+    );
     return;
   }
 
@@ -34,8 +47,11 @@ export async function handleRepoTree(ctx = {}) {
     await bot.sendMessage(
       chatId,
       [
-        `RepoTree: empty`,
-        `snapshotId: ${latest.id}`,
+        `RepoTree: LEGACY snapshot only`,
+        `Status: empty`,
+        `Warning: this is not factual current repo/project state.`,
+        `Truth: use RepoStateAgent.`,
+        `legacySnapshotId: ${latest.id}`,
         `prefix: ${prefix || "(root)"}`,
       ].join("\n")
     );
@@ -48,10 +64,13 @@ export async function handleRepoTree(ctx = {}) {
   await bot.sendMessage(
     chatId,
     [
-      `RepoTree: ok`,
-      `snapshotId: ${latest.id}`,
+      `RepoTree: LEGACY snapshot only`,
+      `Warning: file browsing only; not factual project map.`,
+      `Truth: use RepoStateAgent.`,
+      ``,
+      `legacySnapshotId: ${latest.id}`,
       `prefix: ${prefix || "(root)"}`,
-      `files: ${rows.length}`,
+      `legacyFiles: ${rows.length}`,
       `showing: ${Math.min(rows.length, MAX_LINES)}`,
       ``,
       ...lines,

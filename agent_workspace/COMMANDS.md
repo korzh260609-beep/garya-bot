@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-VERIFY-DEPLOY-041`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `VERIFY_DEPLOY`
 TASK_ID: `repo-state-agent-explicit-real-ai-action-deploy-41`
 WORKFLOW_POINT: `repo-state-agent-explicit-real-ai-action-deploy-check-41`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `e3b37723c1906390119c8e211c4426a9735e402c`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T09:55:00.000Z`
-UPDATED_AT: `2026-04-28T09:55:00.000Z`
+UPDATED_AT: `2026-04-28T09:38:39.045Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-28T09:55:00.000Z`
 
 ## Last result
 
--
+Started by github_webhook at 2026-04-28T09:38:39.045Z.
 
 ---
 
@@ -51,9 +51,6 @@ UPDATED_AT: `2026-04-28T09:55:00.000Z`
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
-- `RUN_REPO_STATE_SCAN`
-- `RUN_REPO_STATE_AGENT`
-- `RUN_REPO_STATE_AGENT_REAL_AI`
 
 ## Hard limits
 

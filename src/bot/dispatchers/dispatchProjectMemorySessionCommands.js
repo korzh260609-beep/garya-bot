@@ -6,6 +6,13 @@
 // - keep Telegram transport thin
 // - keep business logic inside handlers/services, not dispatcher
 // - preserve existing behavior 1:1
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for Project Memory work sessions.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode project memory sessions must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 // ============================================================================
 
 import { handlePmSession } from "../handlers/pmSession.js";

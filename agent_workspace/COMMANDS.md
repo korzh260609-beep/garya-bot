@@ -6,28 +6,39 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-REPORT-017`
-STATUS: `PENDING`
-ACTION: `COLLECT_RENDER_REPORT`
-TASK_ID: `repo-state-agent-force-ai-dry-run-diagnose-17`
-WORKFLOW_POINT: `repo-state-agent-force-ai-dry-run-render-check-17`
+COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-AI-DRY-RUN-016`
+STATUS: `DONE`
+ACTION: `RUN_REPO_STATE_AGENT`
+TASK_ID: `repo-state-agent-force-ai-dry-run-16`
+WORKFLOW_POINT: `repo-state-agent-ai-dry-run-force-check-16`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T00:00:00.000Z`
-UPDATED_AT: `2026-04-28T00:00:00.000Z`
+UPDATED_AT: `2026-04-28T06:46:37.829Z`
 
 ---
 
 ## Payload
 
-collect render report after repo state agent run
+forceAiAnalysis=true
 
 ---
 
 ## Last result
 
-Pending render diagnostics.
+Action completed: RUN_REPO_STATE_AGENT
+Task ID: repo-state-agent-force-ai-dry-run-16
+Workflow point: repo-state-agent-ai-dry-run-force-check-16
+Deploy ID: -
+Commit: a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded
+Required commit: a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded
+Runtime commit: a31e47e52df3bad2de3f25a7f78fd3d8bdba6ded
+Logs: 0
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

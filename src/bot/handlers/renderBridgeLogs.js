@@ -3,102 +3,106 @@
 import renderBridge from "../../integrations/render/RenderBridge.js";
 import renderBridgeStateStore from "../../integrations/render/RenderBridgeStateStore.js";
 
+function clampInt(value, fallback, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
+
 function parseArgs(rest, defaults = {}) {
   const raw = typeof rest === "string" ? rest.trim() : "";
   const parts = raw ? raw.split(/\s+/) : [];
+  const first = String(parts[0] || "").toLowerCase();
 
-  const minutesRaw = Number(parts[0]);
-  const limitRaw = Number(parts[1]);
-
-  const minutes = Number.isFinite(minutesRaw)
-    ? Math.max(1, Math.min(Math.trunc(minutesRaw), 1440))
-    : defaults.minutes ?? 60;
-
-  const limit = Number.isFinite(limitRaw)
-    ? Math.max(1, Math.min(Math.trunc(limitRaw), 10))
-    : defaults.limit ?? 5;
-
-  return { minutes, limit };
-}
-
-function normalizePreviewMessage(value) {
-  const rawMessage = typeof value === "string" ? value.trim() : "";
-  return rawMessage.replace(/\s+/g, " ").trim();
-}
-
-function stripPreviewPrefix(message) {
-  const msg = normalizePreviewMessage(message);
-  if (!msg) return "";
-
-  return msg
-    .replace(/^(==>|=>)\s*/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function isNoiseLogMessage(message) {
-  const msg = normalizePreviewMessage(message);
-  if (!msg) return true;
-
-  const lower = msg.toLowerCase();
-
-  if (lower === "==>" || lower === "=>") {
-    return true;
+  if (first === "latest" || first === "latest_deploy") {
+    return {
+      target: "latest_deploy",
+      minutes: defaults.minutes ?? 60,
+      limit: clampInt(parts[1], defaults.limit ?? 50, 1, 300),
+    };
   }
 
-  if (/^[=/\\\-_|. ]+$/.test(msg)) {
-    return true;
-  }
-
-  if (/^==>\s*[=/\\\-_|. ]+$/.test(msg)) {
-    return true;
-  }
-
-  return false;
-}
-
-function selectRenderableLogs(logs, limit) {
-  const cleaned = [];
-  let skippedNoise = 0;
-
-  for (const item of logs) {
-    const normalized = normalizePreviewMessage(item?.message);
-
-    if (isNoiseLogMessage(normalized)) {
-      skippedNoise += 1;
-      continue;
-    }
-
-    const message = stripPreviewPrefix(normalized);
-    if (!message) {
-      skippedNoise += 1;
-      continue;
-    }
-
-    cleaned.push({
-      ...item,
-      message,
-    });
-
-    if (cleaned.length >= limit) {
-      break;
-    }
+  if (parts.length === 1 && Number.isFinite(Number(parts[0]))) {
+    return {
+      target: "time",
+      minutes: defaults.minutes ?? 60,
+      limit: clampInt(parts[0], defaults.limit ?? 50, 1, 300),
+    };
   }
 
   return {
-    cleaned,
-    skippedNoise,
+    target: "time",
+    minutes: clampInt(parts[0], defaults.minutes ?? 60, 1, 1440),
+    limit: clampInt(parts[1], defaults.limit ?? 50, 1, 300),
   };
 }
 
-function compactLogLine(item, index, maxLen = 220) {
+function normalizeLogMessage(value) {
+  return typeof value === "string" ? value.replace(/\r/g, "").trim() : "";
+}
+
+function formatRawLogLine(item, index) {
   const ts = item?.timestamp || "-";
   const lvl = item?.level || "-";
-  const message = stripPreviewPrefix(item?.message);
-  const compact =
-    message.length > maxLen ? `${message.slice(0, maxLen)}…` : message || "-";
+  const message = normalizeLogMessage(item?.message) || "-";
+  return `${index + 1}) [${ts}] [${lvl}] ${message}`;
+}
 
-  return `${index + 1}) [${ts}] [${lvl}] ${compact}`;
+function parseIsoMs(value) {
+  const n = Date.parse(typeof value === "string" ? value.trim() : "");
+  return Number.isFinite(n) ? n : 0;
+}
+
+function isoFromMs(ms) {
+  return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : "";
+}
+
+function buildDeployLogWindow(deploy = null) {
+  const createdMs = parseIsoMs(deploy?.createdAt);
+  if (!createdMs) {
+    return { startTime: "", endTime: "" };
+  }
+
+  const finishedMs = parseIsoMs(deploy?.finishedAt);
+  const startMs = Math.max(0, createdMs - 30_000);
+  const endMs = Math.max(finishedMs || Date.now(), createdMs + 60_000) + 30_000;
+
+  return {
+    startTime: isoFromMs(startMs),
+    endTime: isoFromMs(endMs),
+  };
+}
+
+async function sendLongMessage(bot, chatId, text) {
+  const max = 3600;
+  const lines = String(text || "").split("\n");
+  let chunk = "";
+
+  for (const line of lines) {
+    const next = chunk ? `${chunk}\n${line}` : line;
+    if (next.length <= max) {
+      chunk = next;
+      continue;
+    }
+
+    if (chunk) {
+      await bot.sendMessage(chatId, chunk);
+      chunk = "";
+    }
+
+    if (line.length <= max) {
+      chunk = line;
+      continue;
+    }
+
+    for (let i = 0; i < line.length; i += max) {
+      await bot.sendMessage(chatId, line.slice(i, i + max));
+    }
+  }
+
+  if (chunk) {
+    await bot.sendMessage(chatId, chunk);
+  }
 }
 
 export async function handleRenderBridgeLogs({
@@ -132,69 +136,57 @@ export async function handleRenderBridgeLogs({
       return;
     }
 
-    const { minutes, limit } = parseArgs(rest, {
+    const args = parseArgs(rest, {
       minutes: 60,
-      limit: 5,
+      limit: 50,
     });
 
-    const fetchLimit = Math.max(limit * 3, 15);
+    let deploy = null;
+    let explicitWindow = null;
+
+    if (args.target === "latest_deploy") {
+      const deploys = await renderBridge.listDeploys({
+        serviceId: state.selected_service_id,
+        limit: 1,
+      });
+      deploy = deploys[0] || null;
+      explicitWindow = buildDeployLogWindow(deploy);
+    }
 
     const logs = await renderBridge.listRecentLogs({
       ownerId: state.selected_owner_id,
       serviceId: state.selected_service_id,
       level: "all",
-      minutes,
-      limit: fetchLimit,
+      minutes: args.minutes,
+      limit: args.limit,
+      startTime: explicitWindow?.startTime || "",
+      endTime: explicitWindow?.endTime || "",
     });
 
-    if (!logs.length) {
-      await bot.sendMessage(
-        chatId,
-        [
-          "Render logs не найдены.",
-          `ownerId=${state.selected_owner_id}`,
-          `serviceId=${state.selected_service_id}`,
-          `windowMinutes=${minutes}`,
-          `limit=${limit}`,
-        ].join("\n")
-      );
-      return;
-    }
+    const lines = logs.map((item, index) => formatRawLogLine(item, index));
 
-    const { cleaned, skippedNoise } = selectRenderableLogs(logs, limit);
+    const output = [
+      "✅ RAW RENDER LOGS",
+      `ownerId=${state.selected_owner_id}`,
+      `serviceId=${state.selected_service_id}`,
+      `target=${args.target}`,
+      `deployId=${deploy?.id || "-"}`,
+      `deployStatus=${deploy?.status || "-"}`,
+      `deployCommit=${deploy?.commit || "-"}`,
+      `deployCreatedAt=${deploy?.createdAt || "-"}`,
+      `deployFinishedAt=${deploy?.finishedAt || "-"}`,
+      `windowMinutes=${args.minutes}`,
+      `startTime=${explicitWindow?.startTime || "-"}`,
+      `endTime=${explicitWindow?.endTime || "-"}`,
+      `limit=${args.limit}`,
+      `returned=${logs.length}`,
+      "",
+      "```text",
+      lines.length ? lines.join("\n") : "-",
+      "```",
+    ].join("\n");
 
-    if (!cleaned.length) {
-      await bot.sendMessage(
-        chatId,
-        [
-          "Render logs получены, но это только шумные runtime-строки.",
-          `ownerId=${state.selected_owner_id}`,
-          `serviceId=${state.selected_service_id}`,
-          `windowMinutes=${minutes}`,
-          `fetched=${logs.length}`,
-          `skippedNoise=${skippedNoise}`,
-        ].join("\n")
-      );
-      return;
-    }
-
-    const previewLines = cleaned.map((item, index) =>
-      compactLogLine(item, index, 220)
-    );
-
-    await bot.sendMessage(
-      chatId,
-      [
-        "✅ Render logs получены.",
-        `ownerId=${state.selected_owner_id}`,
-        `serviceId=${state.selected_service_id}`,
-        `windowMinutes=${minutes}`,
-        `fetched=${logs.length}`,
-        `shown=${cleaned.length}`,
-        `skippedNoise=${skippedNoise}`,
-        ...previewLines,
-      ].join("\n")
-    );
+    await sendLongMessage(bot, chatId, output);
   } catch (error) {
     await bot.sendMessage(
       chatId,

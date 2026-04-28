@@ -35,6 +35,15 @@ function classifyLayer(path = "") {
   const normalized = String(path || "").toLowerCase().replace(/\/$/, "");
 
   if (normalized === "index.js" || normalized.endsWith("/index.js")) return "entrypoint";
+  if (normalized === "ai.js") return "root_ai_adapter";
+  if (normalized === "db.js") return "root_database_adapter";
+  if (normalized === "modelconfig.js") return "root_model_config";
+  if (normalized === "projectmemory.js") return "root_project_memory_adapter";
+  if (normalized === "sources.js") return "root_sources_adapter";
+  if (normalized === "systemprompt.js") return "root_prompt_config";
+  if (normalized === "package.json" || normalized === "package-lock.json") return "root_package_config";
+  if (normalized === "readme.md" || normalized === "agents.md") return "root_docs";
+  if (normalized === ".env.example") return "root_env_template";
   if (pathIsOrStartsWith(normalized, "migrations")) return "database";
   if (pathIsOrStartsWith(normalized, "pillars")) return "pillars";
   if (pathIsOrStartsWith(normalized, "agent_workspace")) return "agent_workspace_reports";
@@ -184,7 +193,7 @@ export function buildRepoStateProjectMap(snapshot = {}) {
   const moduleLinks = buildModuleLinks(dependencies);
 
   const projectMap = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     generatedAt: new Date().toISOString(),
     repo: {
       fullName: snapshot?.repoFullName || null,

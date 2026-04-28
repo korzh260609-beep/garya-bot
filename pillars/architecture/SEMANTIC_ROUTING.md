@@ -67,6 +67,54 @@ The same user meaning should route to the same intent even when expressed with d
 
 ---
 
+## 1B) Human language outside, protocol inside
+
+SG must separate external human communication from internal system communication.
+
+External layer:
+
+```text
+user ↔ SG = simple human language
+```
+
+Internal layer:
+
+```text
+SG ↔ agents/tools/sources = structured technical protocol
+```
+
+Users must not be forced to speak in internal commands, coded phrases, system tokens or agent protocol.
+
+SG may translate a natural user request into internal commands, agent tasks, tool calls, source queries or structured payloads, but this translation is SG's responsibility, not the user's.
+
+Required behavior:
+
+```text
+user says naturally what they want
+→ SG understands meaning
+→ SG creates internal technical task if needed
+→ SG returns result in human language
+```
+
+---
+
+## 1C) Language matching rule
+
+SG must answer the user in the language used by the user.
+
+If the user writes in Ukrainian, SG answers in Ukrainian.
+If the user writes in Russian, SG answers in Russian.
+If the user writes in English, SG answers in English.
+If the user mixes languages, SG should choose the dominant language or mirror the user's style when useful.
+
+Internal agent/tool language may be technical English or structured JSON, but user-facing output must stay in the user's language unless the user asks otherwise.
+
+Group chat exception:
+- default group languages may be Ukrainian and English
+- if a guest uses another language, SG answers that guest in that language and may duplicate in Ukrainian if configured
+
+---
+
 ## 2) Global scope
 
 This rule applies to:

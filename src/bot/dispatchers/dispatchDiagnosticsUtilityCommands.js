@@ -1,6 +1,13 @@
 // src/bot/dispatchers/dispatchDiagnosticsUtilityCommands.js
 // Extracted 1:1 from commandDispatcher.js
 // Purpose: keep commandDispatcher smaller without changing behavior.
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for diagnostics/utilities/capability inspection.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode diagnostics/capability access must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 
 import { handleLastErrors } from "../handlers/lastErrors.js";
 import { handleTaskStatus } from "../handlers/taskStatus.js";

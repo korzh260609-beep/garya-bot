@@ -3,6 +3,13 @@
 // SOURCES COMMANDS DISPATCHER
 // - extracted 1:1 from commandDispatcher
 // - updated wiring for mature Sources Layer handlers
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash commands for source diagnostics/manual source access.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode source usage must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 // ============================================================================
 
 import { handleSourcesList } from "../handlers/sourcesList.js";

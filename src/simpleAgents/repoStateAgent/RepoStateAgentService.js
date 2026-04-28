@@ -71,6 +71,22 @@ function buildForcedDryRunAnalysis({ reason, forceAiAnalysis, allowRealAi }) {
   };
 }
 
+function buildAiUsageMetadata(aiAnalysis = {}) {
+  const usage = aiAnalysis?.usage || {};
+
+  return {
+    aiModel: usage.model || null,
+    aiUsedFallback: usage.usedFallback === true,
+    aiInputTokens: Number.isFinite(usage.inputTokens) ? usage.inputTokens : null,
+    aiOutputTokens: Number.isFinite(usage.outputTokens) ? usage.outputTokens : null,
+    aiTotalTokens: Number.isFinite(usage.totalTokens) ? usage.totalTokens : null,
+    aiEstimatedUsd: Number.isFinite(usage.estimatedUsd) ? usage.estimatedUsd : null,
+    aiPricingConfigured: usage.pricingConfigured === true,
+    aiInputUsdPer1M: Number.isFinite(usage.inputUsdPer1M) ? usage.inputUsdPer1M : null,
+    aiOutputUsdPer1M: Number.isFinite(usage.outputUsdPer1M) ? usage.outputUsdPer1M : null,
+  };
+}
+
 export class RepoStateAgentService {
   constructor() {
     const { collector } = createRepoStateCollector();
@@ -159,6 +175,7 @@ export class RepoStateAgentService {
     }
 
     aiAnalysis = enrichAiExecution(aiAnalysis);
+    const aiUsageMetadata = buildAiUsageMetadata(aiAnalysis);
 
     // NEW: always persist project map state (even when AI disabled)
     await saveProjectMapState({
@@ -177,6 +194,7 @@ export class RepoStateAgentService {
         aiDryRun: aiAnalysis?.aiDryRun === true,
         tokensSpent: aiAnalysis?.tokensSpent === true,
         aiSource: aiAnalysis?.aiSource || "unknown",
+        ...aiUsageMetadata,
       },
     });
 
@@ -184,7 +202,10 @@ export class RepoStateAgentService {
       ...result,
       projectMap,
       aiAnalysis,
-      aiMeta,
+      aiMeta: {
+        ...aiMeta,
+        ...aiUsageMetadata,
+      },
     };
   }
 }

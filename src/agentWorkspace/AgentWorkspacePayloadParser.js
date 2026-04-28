@@ -15,7 +15,11 @@ export function parseDiagnosticCommandLines(payload = "") {
     .filter(Boolean)
     .filter((line) => line.startsWith("/"));
 
-  return Array.from(new Set(lines.map((line) => line.split(/\s+/)[0])));
+  // IMPORTANT:
+  // Keep the full command line with arguments.
+  // Example: "/render_bridge_logs latest 100" must not be reduced to
+  // only "/render_bridge_logs", otherwise SG cannot return requested logs.
+  return Array.from(new Set(lines));
 }
 
 export function parseBooleanPayloadFlag(payload = "", names = []) {
@@ -33,7 +37,8 @@ export function parseBooleanPayloadFlag(payload = "", names = []) {
 
     return normalizedNames.some((name) => {
       const normalizedName = name.replace(/\s+/g, "");
-      return normalizedLine === `${normalizedName}=true` ||
+      return line === name ||
+        normalizedLine === `${normalizedName}=true` ||
         normalizedLine === `${normalizedName}:true` ||
         normalizedLine === `${normalizedName}yes` ||
         normalizedLine === `${normalizedName}=yes` ||

@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `RAW-RENDER-LOGS-SMOKE-001`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_DIAGNOSTIC_COMMANDS`
 TASK_ID: `raw-render-logs-smoke-001`
 WORKFLOW_POINT: `raw-render-logs-smoke-001`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `37beb889d9302c95a6d2fb27134d788f41226aa9`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T14:20:00.000Z`
-UPDATED_AT: `2026-04-28T14:20:00.000Z`
+UPDATED_AT: `2026-04-28T14:31:38.027Z`
 
 ---
 
@@ -29,7 +29,7 @@ UPDATED_AT: `2026-04-28T14:20:00.000Z`
 
 ## Last result
 
--
+Started by github_webhook at 2026-04-28T14:31:38.027Z.
 
 ---
 

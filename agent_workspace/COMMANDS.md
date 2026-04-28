@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-058`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `COLLECT_RENDER_DEPLOYS`
 TASK_ID: `repo-state-semantic-map-command-output-deploy-check-58`
 WORKFLOW_POINT: `repo-state-semantic-map-command-output-deploy-check-58`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `17c9d90fd1dda58f561d2b05df269a90ca15c0ba`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T11:30:00.000Z`
-UPDATED_AT: `2026-04-28T11:30:00.000Z`
+UPDATED_AT: `2026-04-28T11:19:33.950Z`
 
 ---
 
@@ -27,7 +27,7 @@ UPDATED_AT: `2026-04-28T11:30:00.000Z`
 
 ## Last result
 
-Waiting for SG AgentWorkspaceCommandRunner to collect Render deploy state for semanticMap COMMANDS output patch.
+Started by github_webhook at 2026-04-28T11:19:33.949Z.
 
 ---
 

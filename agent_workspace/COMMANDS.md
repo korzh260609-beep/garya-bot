@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-057`
-STATUS: `DONE`
-ACTION: `RUN_REPO_STATE_AGENT`
-TASK_ID: `repo-state-status-semantics-check-57`
-WORKFLOW_POINT: `repo-state-status-semantics-check-57`
+COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-058`
+STATUS: `PENDING`
+ACTION: `COLLECT_RENDER_DEPLOYS`
+TASK_ID: `repo-state-semantic-map-command-output-deploy-check-58`
+WORKFLOW_POINT: `repo-state-semantic-map-command-output-deploy-check-58`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `706bb8e1cec419fbfc495a546a7a241140322f39`
+REQUIRES_COMMIT: `17c9d90fd1dda58f561d2b05df269a90ca15c0ba`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T11:25:00.000Z`
-UPDATED_AT: `2026-04-28T11:12:35.178Z`
+CREATED_AT: `2026-04-28T11:30:00.000Z`
+UPDATED_AT: `2026-04-28T11:30:00.000Z`
 
 ---
 
@@ -27,26 +27,7 @@ UPDATED_AT: `2026-04-28T11:12:35.178Z`
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_AGENT
-Task ID: repo-state-status-semantics-check-57
-Workflow point: repo-state-status-semantics-check-57
-Deploy ID: -
-Commit: 706bb8e1cec419fbfc495a546a7a241140322f39
-Required commit: 706bb8e1cec419fbfc495a546a7a241140322f39
-Runtime commit: 706bb8e1cec419fbfc495a546a7a241140322f39
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
-Result status: REPO_STATE_AGENT_OK
-Blocked: no
-Tokens spent: no
-AI fallback used: no
-AI pricing configured: no
-AI source: reused_previous
-Allow real AI: no
-Real AI blocked: no
+Waiting for SG AgentWorkspaceCommandRunner to collect Render deploy state for semanticMap COMMANDS output patch.
 
 ---
 

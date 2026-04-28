@@ -1,6 +1,12 @@
 // ============================================================================
-// === src/bot/handlers/repoAnalyze.js — READ-ONLY file analysis (NO CODE OUTPUT)
-// === B6: /repo_analyze <path> [question...]
+// === src/bot/handlers/repoAnalyze.js — LEGACY guarded file analysis
+// === READ-ONLY, NO CODE OUTPUT
+// ============================================================================
+// LEGACY WARNING:
+// - This command verifies paths against old repo_index_* snapshots.
+// - It is useful only for temporary guarded file analysis.
+// - It is NOT the factual current repository map or architecture health source.
+// - Factual repo/project state must come from RepoStateAgent.
 // ============================================================================
 
 import pool from "../../../db.js";
@@ -11,7 +17,6 @@ import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 function normalizePath(raw) {
   const p = String(raw || "").trim().replace(/^\/+/, "");
   if (!p) return "";
-  // block traversal
   if (p.includes("..")) return "";
   return p;
 }
@@ -19,7 +24,6 @@ function normalizePath(raw) {
 function denySensitivePath(path) {
   const lower = String(path || "").toLowerCase();
 
-  // блокируем очевидно чувствительное
   const bannedParts = [
     ".env",
     "secret",
@@ -36,7 +40,6 @@ function denySensitivePath(path) {
     "id_rsa",
   ];
 
-  // блокируем конфиги окружений/деплоя
   const bannedExact = [
     "render.yaml",
     "dockerfile",
@@ -218,7 +221,7 @@ export async function handleRepoAnalyze(ctx = {}) {
   const question = parsed.question;
 
   if (!path) {
-    await bot.sendMessage(chatId, "Usage: /repo_analyze <path/to/file.js> [question...]");
+    await bot.sendMessage(chatId, "Usage: /repo_analyze <path/to/file.js> [question...] — LEGACY guarded analysis only");
     return;
   }
 
@@ -234,7 +237,14 @@ export async function handleRepoAnalyze(ctx = {}) {
   const latest = await store.getLatestSnapshot({ repo, branch });
 
   if (!latest) {
-    await bot.sendMessage(chatId, "RepoAnalyze: no snapshots yet (run /reindex first)");
+    await bot.sendMessage(
+      chatId,
+      [
+        "RepoAnalyze: LEGACY snapshot only",
+        "Status: no legacy snapshots yet",
+        "Truth: use RepoStateAgent for factual current repo/project state.",
+      ].join("\n")
+    );
     return;
   }
 
@@ -247,10 +257,12 @@ export async function handleRepoAnalyze(ctx = {}) {
     await bot.sendMessage(
       chatId,
       [
-        `RepoAnalyze: blocked (path not in snapshot)`,
-        `snapshotId: ${latest.id}`,
+        `RepoAnalyze: LEGACY snapshot only`,
+        `Status: blocked because path is not in legacy snapshot`,
+        `Warning: legacy snapshot may be incomplete.`,
+        `Truth: use RepoStateAgent for factual current repo/project state.`,
+        `legacySnapshotId: ${latest.id}`,
         `path: ${path}`,
-        `Tip: use /repo_tree or /reindex`,
       ].join("\n")
     );
     return;
@@ -275,8 +287,11 @@ export async function handleRepoAnalyze(ctx = {}) {
   const { notes, risks, suggestions } = buildFindings({ metrics, code });
 
   const out = [];
-  out.push(`repo_analyze: ${path}`);
-  out.push(`snapshotId: ${latest.id}`);
+  out.push(`RepoAnalyze: LEGACY guarded file analysis`);
+  out.push(`Warning: not factual current project map or architecture health.`);
+  out.push(`Truth: use RepoStateAgent.`);
+  out.push(`legacySnapshotId: ${latest.id}`);
+  out.push(`path: ${path}`);
   out.push(`lines: ${metrics.lines}`);
   out.push(
     `metrics: imports=${metrics.imports}, exports=${metrics.exportsCount}, functions=${metrics.funcs + metrics.arrowFns}, classes=${metrics.classes}`

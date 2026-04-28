@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-040`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-agent-real-ai-gate-check-40`
 WORKFLOW_POINT: `repo-state-agent-real-ai-gate-check-40`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `ec5e97664a429f06fa9516842f01fe92c9cd2850`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T09:45:00.000Z`
-UPDATED_AT: `2026-04-28T09:45:00.000Z`
+UPDATED_AT: `2026-04-28T09:30:49.437Z`
 
 ---
 
@@ -29,7 +29,7 @@ forceAiAnalysis=true
 
 ## Last result
 
--
+Started by github_webhook at 2026-04-28T09:30:49.437Z.
 
 ---
 
@@ -53,8 +53,6 @@ forceAiAnalysis=true
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
-- `RUN_REPO_STATE_SCAN`
-- `RUN_REPO_STATE_AGENT`
 
 ## Hard limits
 

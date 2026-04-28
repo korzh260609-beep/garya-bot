@@ -1,5 +1,11 @@
 // ============================================================================
-// === src/bot/handlers/repoFile.js — fetch file ONLY if it exists in snapshot
+// === src/bot/handlers/repoFile.js — LEGACY guarded file fetch from RepoIndex snapshot
+// ============================================================================
+// LEGACY WARNING:
+// - This command verifies paths against old repo_index_* snapshots.
+// - It is useful only for temporary guarded file browsing.
+// - It is NOT the factual current repository map.
+// - Factual repo/project state must come from RepoStateAgent.
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
@@ -10,7 +16,6 @@ import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 function normalizePath(raw) {
   const p = String(raw || "").trim().replace(/^\/+/, "");
   if (!p) return "";
-  // block traversal
   if (p.includes("..")) return "";
   return p;
 }
@@ -23,7 +28,7 @@ export async function handleRepoFile(ctx = {}) {
 
   const path = normalizePath(rest);
   if (!path) {
-    await bot.sendMessage(chatId, `Usage: /repo_file <path>`);
+    await bot.sendMessage(chatId, `Usage: /repo_file <path> — LEGACY snapshot guarded fetch only`);
     return;
   }
 
@@ -35,11 +40,17 @@ export async function handleRepoFile(ctx = {}) {
   const latest = await store.getLatestSnapshot({ repo, branch });
 
   if (!latest) {
-    await bot.sendMessage(chatId, `RepoFile: no snapshots yet (run /reindex first)`);
+    await bot.sendMessage(
+      chatId,
+      [
+        `RepoFile: LEGACY snapshot only`,
+        `Status: no legacy snapshots yet`,
+        `Truth: use RepoStateAgent for factual current repo/project state.`,
+      ].join("\n")
+    );
     return;
   }
 
-  // Verify path exists in snapshot (security + correctness)
   const existsRes = await pool.query(
     `SELECT 1 FROM repo_index_files WHERE snapshot_id = $1 AND path = $2 LIMIT 1`,
     [latest.id, path]
@@ -49,10 +60,12 @@ export async function handleRepoFile(ctx = {}) {
     await bot.sendMessage(
       chatId,
       [
-        `RepoFile: blocked (path not in snapshot)`,
-        `snapshotId: ${latest.id}`,
+        `RepoFile: LEGACY snapshot only`,
+        `Status: blocked because path is not in legacy snapshot`,
+        `Warning: legacy snapshot may be incomplete.`,
+        `Truth: use RepoStateAgent for factual current repo/project state.`,
+        `legacySnapshotId: ${latest.id}`,
         `path: ${path}`,
-        `Tip: use /repo_tree or reindex`,
       ].join("\n")
     );
     return;
@@ -65,15 +78,17 @@ export async function handleRepoFile(ctx = {}) {
     await bot.sendMessage(
       chatId,
       [
-        `RepoFile: fetch failed`,
-        `snapshotId: ${latest.id}`,
+        `RepoFile: LEGACY snapshot only`,
+        `Status: fetch failed`,
+        `Warning: this is not factual current repo/project state.`,
+        `Truth: use RepoStateAgent.`,
+        `legacySnapshotId: ${latest.id}`,
         `path: ${path}`,
       ].join("\n")
     );
     return;
   }
 
-  // Telegram message size guard
   const MAX_CHARS = 3500;
   const content =
     item.content.length > MAX_CHARS
@@ -83,8 +98,10 @@ export async function handleRepoFile(ctx = {}) {
   await bot.sendMessage(
     chatId,
     [
-      `RepoFile: ok`,
-      `snapshotId: ${latest.id}`,
+      `RepoFile: LEGACY snapshot guarded fetch`,
+      `Warning: file browsing only; not factual project map.`,
+      `Truth: use RepoStateAgent.`,
+      `legacySnapshotId: ${latest.id}`,
       `path: ${path}`,
       ``,
       "```",

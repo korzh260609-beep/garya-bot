@@ -6,41 +6,28 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-RENDER-DEPLOYS-046`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_DEPLOYS`
-TASK_ID: `check-render-deploys-after-command-45`
-WORKFLOW_POINT: `render-deploys-check-after-command-45`
+COMMAND_ID: `AGENTWORKSPACE-CHECK-047`
+STATUS: `PENDING`
+ACTION: `RUN_REPO_STATE_AGENT_REAL_AI`
+TASK_ID: `repo-state-agent-check-47`
+WORKFLOW_POINT: `repo-state-agent-check-47`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `-`
+REQUIRES_COMMIT: `f7cc2a04f58368a20f72c7fd52e182a35f990e55`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T10:45:00.000Z`
-UPDATED_AT: `2026-04-28T10:08:16.731Z`
+CREATED_AT: `2026-04-28T10:55:00.000Z`
+UPDATED_AT: `2026-04-28T10:55:00.000Z`
 
 ---
 
 ## Payload
 
-```text
-limit=10
-```
+-
 
 ---
 
 ## Last result
 
-Action completed: COLLECT_RENDER_DEPLOYS
-Task ID: check-render-deploys-after-command-45
-Workflow point: render-deploys-check-after-command-45
-Deploy ID: -
-Commit: f7cc2a04f58368a20f72c7fd52e182a35f990e55
-Required commit: -
-Runtime commit: f7cc2a04f58368a20f72c7fd52e182a35f990e55
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+-
 
 ---
 

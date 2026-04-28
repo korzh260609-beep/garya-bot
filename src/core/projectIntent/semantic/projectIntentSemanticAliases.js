@@ -1,4 +1,14 @@
 // src/core/projectIntent/semantic/projectIntentSemanticAliases.js
+// ============================================================================
+// LEGACY PHRASE-BOUND ROUTING MARKER
+//
+// INTERFACE MODE NOTE:
+// - This file uses deterministic phrase/keyword alias checks.
+// - Under hard Human Mode / Technical Mode separation, this is NOT full Human Mode.
+// - Treat this as legacy Technical Mode support until a clean structured meaning
+//   layer replaces it.
+// - Do not add new phrase-bound hacks here.
+// ============================================================================
 
 import { KNOWN_CANONICAL_TARGETS } from "./projectIntentSemanticConstants.js";
 import { normalizeText, tokenizeText, safeText, levenshtein } from "./projectIntentSemanticText.js";

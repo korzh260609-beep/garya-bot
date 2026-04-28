@@ -38,6 +38,29 @@ export async function runRepoStateScanAction({ command, reportService }) {
   };
 }
 
+function readAiUsageFields(result = {}) {
+  const meta = result?.aiMeta || {};
+  const usage = result?.aiAnalysis?.usage || {};
+
+  return {
+    aiModel: meta.aiModel || usage.model || null,
+    aiUsedFallback: meta.aiUsedFallback === true || usage.usedFallback === true,
+    aiInputTokens: Number.isFinite(meta.aiInputTokens) ? meta.aiInputTokens :
+      Number.isFinite(usage.inputTokens) ? usage.inputTokens : null,
+    aiOutputTokens: Number.isFinite(meta.aiOutputTokens) ? meta.aiOutputTokens :
+      Number.isFinite(usage.outputTokens) ? usage.outputTokens : null,
+    aiTotalTokens: Number.isFinite(meta.aiTotalTokens) ? meta.aiTotalTokens :
+      Number.isFinite(usage.totalTokens) ? usage.totalTokens : null,
+    aiEstimatedUsd: Number.isFinite(meta.aiEstimatedUsd) ? meta.aiEstimatedUsd :
+      Number.isFinite(usage.estimatedUsd) ? usage.estimatedUsd : null,
+    aiPricingConfigured: meta.aiPricingConfigured === true || usage.pricingConfigured === true,
+    aiInputUsdPer1M: Number.isFinite(meta.aiInputUsdPer1M) ? meta.aiInputUsdPer1M :
+      Number.isFinite(usage.inputUsdPer1M) ? usage.inputUsdPer1M : null,
+    aiOutputUsdPer1M: Number.isFinite(meta.aiOutputUsdPer1M) ? meta.aiOutputUsdPer1M :
+      Number.isFinite(usage.outputUsdPer1M) ? usage.outputUsdPer1M : null,
+  };
+}
+
 export async function runRepoStateAgentAction({ command, reportService, forceRealAi = false } = {}) {
   const service = new RepoStateAgentService();
   const parsedOptions = parseRepoStateAgentOptions(command.payload);
@@ -55,6 +78,7 @@ export async function runRepoStateAgentAction({ command, reportService, forceRea
     : result?.ok === true && result?.persisted === true
       ? "REPO_STATE_AGENT_OK"
       : "REPO_STATE_AGENT_FAILED";
+  const aiUsageFields = readAiUsageFields(result);
 
   await reportService.writeMarkdown(
     "TEST_REPORT.md",
@@ -86,6 +110,7 @@ export async function runRepoStateAgentAction({ command, reportService, forceRea
       result?.aiAnalysis?.allowRealAi === true,
     realAiBlocked,
     tokensSpent: result?.aiAnalysis?.tokensSpent === true,
+    ...aiUsageFields,
     result,
   };
 }

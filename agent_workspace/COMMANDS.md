@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-036`
-STATUS: `DONE`
+COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-037`
+STATUS: `PENDING`
 ACTION: `RUN_REPO_STATE_AGENT`
-TASK_ID: `repo-state-agent-check-36`
-WORKFLOW_POINT: `repo-state-agent-check-36`
+TASK_ID: `repo-state-agent-check-37`
+WORKFLOW_POINT: `repo-state-agent-check-37`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `645ab3f26875545ba12a7b797f1923143abd085e`
+REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T09:18:00.000Z`
-UPDATED_AT: `2026-04-28T09:10:59.286Z`
+CREATED_AT: `2026-04-28T09:25:00.000Z`
+UPDATED_AT: `2026-04-28T09:25:00.000Z`
 
 ---
 
@@ -29,18 +29,7 @@ forceAiAnalysis=true
 
 ## Last result
 
-Action completed: RUN_REPO_STATE_AGENT
-Task ID: repo-state-agent-check-36
-Workflow point: repo-state-agent-check-36
-Deploy ID: -
-Commit: 645ab3f26875545ba12a7b797f1923143abd085e
-Required commit: 645ab3f26875545ba12a7b797f1923143abd085e
-Runtime commit: 645ab3f26875545ba12a7b797f1923143abd085e
-Logs: 0
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+-
 
 ---
 
@@ -64,6 +53,8 @@ Diagnostics failed: 0
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
+- `RUN_REPO_STATE_SCAN`
+- `RUN_REPO_STATE_AGENT`
 
 ## Hard limits
 

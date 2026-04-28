@@ -61,6 +61,22 @@ function readAiUsageFields(result = {}) {
   };
 }
 
+function readSemanticMapFields(result = {}) {
+  const projectMap = result?.projectMap || {};
+  const semanticMap = projectMap?.semanticMap || null;
+
+  return {
+    projectMapSchemaVersion: projectMap?.schemaVersion || null,
+    semanticMapEnabled: Boolean(semanticMap),
+    semanticMapSchemaVersion: semanticMap?.schemaVersion || null,
+    semanticMapGeneratedBy: semanticMap?.generatedBy || null,
+    semanticMapTokensSpent: semanticMap?.tokensSpent === true,
+    semanticMapModules: Array.isArray(semanticMap?.modulePurposes) ? semanticMap.modulePurposes.length : null,
+    semanticMapBoundaryRules: Array.isArray(semanticMap?.boundaryRules) ? semanticMap.boundaryRules.length : null,
+    semanticMapRiskHints: Array.isArray(semanticMap?.riskHints) ? semanticMap.riskHints.length : null,
+  };
+}
+
 function buildRepoStateAgentResultStatus({ result, realAiBlocked, forceRealAi }) {
   if (forceRealAi === true && realAiBlocked === true) {
     return "REAL_AI_BLOCKED";
@@ -95,6 +111,7 @@ export async function runRepoStateAgentAction({ command, reportService, forceRea
     forceRealAi,
   });
   const aiUsageFields = readAiUsageFields(result);
+  const semanticMapFields = readSemanticMapFields(result);
 
   await reportService.writeMarkdown(
     "TEST_REPORT.md",
@@ -127,6 +144,7 @@ export async function runRepoStateAgentAction({ command, reportService, forceRea
     realAiBlocked,
     tokensSpent: result?.aiAnalysis?.tokensSpent === true,
     ...aiUsageFields,
+    ...semanticMapFields,
     result,
   };
 }

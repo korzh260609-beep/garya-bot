@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-067`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-next-action-plan-check-67`
 WORKFLOW_POINT: `repo-state-next-action-plan-check-67`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `f883f00816034780eb6e6078d19e033e9347aacb`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T12:00:00.000Z`
-UPDATED_AT: `2026-04-28T12:00:00.000Z`
+UPDATED_AT: `2026-04-28T12:27:01.384Z`
 
 ---
 
@@ -27,17 +27,7 @@ UPDATED_AT: `2026-04-28T12:00:00.000Z`
 
 ## Last result
 
-Pending safe dry-run repo-state agent check for deterministic nextActionPlan.
-Expected:
-nextActionPlan: yes
-nextActionPlanSchemaVersion: 1
-nextActionPlanImmediateChecks: 4
-nextActionPlanSuggestedNextSteps: 4
-nextActionPlanBlockedActions: 4
-nextActionPlanRecommendedReadOrder: 19
-tokensSpent: no
-allowRealAi: no
-real AI should not run.
+Started by github_webhook at 2026-04-28T12:27:01.384Z.
 
 ---
 

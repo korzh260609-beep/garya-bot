@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-AI-DRY-RUN-033`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-agent-ai-dry-run-after-real-ai-rollback-33`
 WORKFLOW_POINT: `repo-state-agent-ai-dry-run-safe-env-check-33`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `1796c6febcbd4395ef6f7245e60f474687a46d08`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:50:00.000Z`
-UPDATED_AT: `2026-04-28T08:50:00.000Z`
+UPDATED_AT: `2026-04-28T08:48:39.675Z`
 
 ---
 
@@ -29,7 +29,7 @@ forceAiAnalysis=true
 
 ## Last result
 
--
+Started by github_webhook at 2026-04-28T08:48:39.675Z.
 
 ---
 
@@ -53,8 +53,6 @@ forceAiAnalysis=true
 - `COLLECT_RENDER_STATUS`
 - `WRITE_TEST_NOTE`
 - `RUN_DIAGNOSTIC_COMMANDS`
-- `RUN_REPO_STATE_SCAN`
-- `RUN_REPO_STATE_AGENT`
 
 ## Hard limits
 

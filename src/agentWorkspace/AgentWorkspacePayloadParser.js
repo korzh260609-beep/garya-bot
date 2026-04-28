@@ -48,6 +48,10 @@ export function parseRepoStateAgentOptions(payload = "") {
       "forceAiAnalysis",
       "force_ai_analysis",
     ]),
+    allowRealAi: parseBooleanPayloadFlag(payload, [
+      "allowRealAi",
+      "allow_real_ai",
+    ]),
   };
 }
 

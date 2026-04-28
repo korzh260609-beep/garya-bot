@@ -41,9 +41,14 @@ function classifyLayer(path = "") {
   if (normalized === "projectmemory.js") return "root_project_memory_adapter";
   if (normalized === "sources.js") return "root_sources_adapter";
   if (normalized === "systemprompt.js") return "root_prompt_config";
+  if (normalized === "classifier.js") return "root_classifier_adapter";
   if (normalized === "package.json" || normalized === "package-lock.json") return "root_package_config";
   if (normalized === "readme.md" || normalized === "agents.md") return "root_docs";
   if (normalized === ".env.example") return "root_env_template";
+  if (normalized === ".gitignore") return "root_git_config";
+  if (pathIsOrStartsWith(normalized, "core")) return "legacy_core";
+  if (pathIsOrStartsWith(normalized, "fix")) return "fix_artifacts";
+  if (pathIsOrStartsWith(normalized, "syslog")) return "runtime_logs";
   if (pathIsOrStartsWith(normalized, "migrations")) return "database";
   if (pathIsOrStartsWith(normalized, "pillars")) return "pillars";
   if (pathIsOrStartsWith(normalized, "agent_workspace")) return "agent_workspace_reports";
@@ -193,7 +198,7 @@ export function buildRepoStateProjectMap(snapshot = {}) {
   const moduleLinks = buildModuleLinks(dependencies);
 
   const projectMap = {
-    schemaVersion: 5,
+    schemaVersion: 6,
     generatedAt: new Date().toISOString(),
     repo: {
       fullName: snapshot?.repoFullName || null,
@@ -235,6 +240,7 @@ export function buildRepoStateProjectMap(snapshot = {}) {
         "Use layers to understand responsibility boundaries.",
         "Use modules and moduleLinks before editing code.",
         "Check criticalFiles before architectural changes.",
+        "Use semanticMap.taskRoutingHints to choose target modules before reading many files.",
         "Do not edit pillars unless explicitly allowed by Monarch.",
       ],
     },

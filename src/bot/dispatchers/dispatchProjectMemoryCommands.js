@@ -6,6 +6,13 @@
 // - keep Telegram transport thin
 // - keep business logic inside handlers/services, not dispatcher
 // - delegate basic/session/confirmed command groups to dedicated dispatchers
+//
+// INTERFACE MODE MARKER:
+// - This file belongs to Technical Mode.
+// - It routes explicit slash-command groups for Project Memory.
+// - It must not be treated as Human Mode / normal SG intelligence.
+// - Human Mode project memory access must go through meaning/context/capability selection.
+// - Keep temporarily for diagnostics/backward compatibility.
 // ============================================================================
 
 import { dispatchProjectMemoryBasicCommands } from "./dispatchProjectMemoryBasicCommands.js";

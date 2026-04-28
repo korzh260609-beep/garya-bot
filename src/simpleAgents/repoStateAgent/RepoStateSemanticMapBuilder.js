@@ -23,6 +23,15 @@ function describeLayer(layer = "") {
 
   const descriptions = {
     entrypoint: "Application boot entrypoints and startup wiring.",
+    root_ai_adapter: "Root-level AI adapter that wraps model calls and AI usage accounting for the app.",
+    root_database_adapter: "Root-level database adapter that exposes shared persistence access for runtime code.",
+    root_model_config: "Root-level model configuration for AI routing defaults and cost-level model selection.",
+    root_project_memory_adapter: "Root-level project memory adapter kept for compatibility with memory workflows.",
+    root_sources_adapter: "Root-level sources adapter kept for compatibility with source access workflows.",
+    root_prompt_config: "Root-level prompt configuration and system prompt material.",
+    root_package_config: "Root-level package/dependency configuration and npm script metadata.",
+    root_docs: "Root-level repository documentation for humans and coding agents.",
+    root_env_template: "Root-level environment variable template for deployment/configuration setup.",
     bootstrap: "System initialization, startup safety checks, and boot-time wiring.",
     transport: "Telegram/chat transport, command routing, and user-facing handlers.",
     core: "Core orchestration, message handling, memory and shared runtime services.",
@@ -98,6 +107,15 @@ function classifyResponsibility(path = "", layer = "") {
   if (normalizedLayer === "entrypoint") return "startup";
   if (normalizedLayer === "bootstrap") return "startup";
   if (normalizedLayer === "database") return "persistence";
+  if (normalizedLayer === "root_ai_adapter") return "external_integration";
+  if (normalizedLayer === "root_database_adapter") return "persistence";
+  if (normalizedLayer === "root_model_config") return "configuration_or_policy";
+  if (normalizedLayer === "root_project_memory_adapter") return "memory";
+  if (normalizedLayer === "root_sources_adapter") return "source_adapter";
+  if (normalizedLayer === "root_prompt_config") return "configuration_or_policy";
+  if (normalizedLayer === "root_package_config") return "configuration_or_policy";
+  if (normalizedLayer === "root_docs") return "documentation";
+  if (normalizedLayer === "root_env_template") return "configuration_or_policy";
   if (normalizedLayer === "transport") return "user_interaction";
   if (normalizedLayer === "agent_workspace") return "workspace_bridge";
   if (normalizedLayer === "agent_workspace_reports") return "workspace_report";
@@ -200,8 +218,8 @@ export function buildRepoStateSemanticMap(projectMap = {}) {
   const commandLikeFiles = asArray(projectMap?.commandLikeFiles);
 
   return {
-    schemaVersion: 2,
-    generatedBy: "deterministic_semantic_map_v2",
+    schemaVersion: 3,
+    generatedBy: "deterministic_semantic_map_v3",
     tokensSpent: false,
     purpose: "No-AI semantic layer that helps SG and external coding tools understand module purposes and boundaries.",
     layerDescriptions: Object.keys(projectMap?.layers || {}).reduce((acc, layer) => {

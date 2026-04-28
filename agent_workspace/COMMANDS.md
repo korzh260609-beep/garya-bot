@@ -6,43 +6,30 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `AGENTWORKSPACE-COLLECT-LATEST-DEPLOY-LOGS-073`
-STATUS: `DONE`
-ACTION: `COLLECT_RENDER_LOGS`
-TASK_ID: `render-latest-deploy-logs-73`
-WORKFLOW_POINT: `render-latest-deploy-logs-73`
+COMMAND_ID: `RAW-RENDER-LOGS-SMOKE-001`
+STATUS: `PENDING`
+ACTION: `RUN_DIAGNOSTIC_COMMANDS`
+TASK_ID: `raw-render-logs-smoke-001`
+WORKFLOW_POINT: `raw-render-logs-smoke-001`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `7f3f6dd8e425908cd6b73c629e3252254c9f509a`
+REQUIRES_COMMIT: `37beb889d9302c95a6d2fb27134d788f41226aa9`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-28T13:50:00.000Z`
-UPDATED_AT: `2026-04-28T14:07:29.030Z`
+CREATED_AT: `2026-04-28T14:20:00.000Z`
+UPDATED_AT: `2026-04-28T14:20:00.000Z`
 
 ---
 
 ## Payload
 
-target=latest_deploy
-level=all
-limit=50
-maxLineChars=900
-reason=test_improved_latest_deploy_log_window_and_fallback
+/render_bridge_deploys 5
+/render_bridge_logs 20
+/render_bridge_logs latest 50
 
 ---
 
 ## Last result
 
-Action completed: COLLECT_RENDER_LOGS
-Task ID: render-latest-deploy-logs-73
-Workflow point: render-latest-deploy-logs-73
-Deploy ID: dep-d7obt6lckfvc73dbm9dg
-Commit: 7f3f6dd8e425908cd6b73c629e3252254c9f509a
-Required commit: 7f3f6dd8e425908cd6b73c629e3252254c9f509a
-Runtime commit: 7f3f6dd8e425908cd6b73c629e3252254c9f509a
-Logs: 20
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+-
 
 ---
 

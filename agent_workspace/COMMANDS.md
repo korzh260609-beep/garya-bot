@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-RUN-REPO-STATE-AGENT-REAL-AI-028`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `RUN_REPO_STATE_AGENT`
 TASK_ID: `repo-state-agent-real-ai-first-run-28`
 WORKFLOW_POINT: `repo-state-agent-real-ai-first-run-check-28`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `ff02516003390a6b80ee88248ab9b57586597f72`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T08:00:00.000Z`
-UPDATED_AT: `2026-04-28T08:00:58.987Z`
+UPDATED_AT: `2026-04-28T08:03:05.319Z`
 
 ---
 
@@ -27,7 +27,7 @@ forceAiAnalysis=true
 
 ## Last result
 
-Started by github_webhook at 2026-04-28T08:00:58.986Z.
+Runner failed: index row size 3152 exceeds btree version 4 maximum 2704 for index "repo_state_ai_analysis_project_map_signature_index"
 
 ---
 

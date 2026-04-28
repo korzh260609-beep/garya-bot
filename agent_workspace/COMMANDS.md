@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `AGENTWORKSPACE-COLLECT-LATEST-DEPLOY-LOGS-072`
-STATUS: `RUNNING`
+STATUS: `FAILED`
 ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `render-latest-deploy-logs-72`
 WORKFLOW_POINT: `render-latest-deploy-logs-72`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-28T13:45:00.000Z`
-UPDATED_AT: `2026-04-28T13:35:04.573Z`
+UPDATED_AT: `2026-04-28T13:35:41.120Z`
 
 ---
 
@@ -31,7 +31,7 @@ reason=user_requested_plain_latest_deploy_logs
 
 ## Last result
 
-Started by github_webhook at 2026-04-28T13:35:04.573Z.
+Runner failed: The operation was aborted.
 
 ---
 

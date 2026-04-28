@@ -15,8 +15,9 @@ function formatObjectLabel(path = "", objectKind = "unknown") {
 export function humanRepoStatusReply({ snapshot, filesCount }) {
   return [
     "Репозиторий доступен в режиме только чтения.",
-    `Актуальный снимок: ${safeText(snapshot?.repo)} / ветка ${safeText(snapshot?.branch)}.`,
-    `В индексе примерно ${filesCount} файлов.`,
+    `Старый индекс: ${safeText(snapshot?.repo)} / ветка ${safeText(snapshot?.branch)}.`,
+    `Ориентировочно в старом индексе: ${filesCount} файлов.`,
+    "Для точных текущих цифр СГ должен запускать внутреннюю проверку RepoStateAgent.",
     "Доступны действия: показать корень, раскрыть папку, найти объект, открыть файл, кратко пересказать или объяснить смысл.",
   ].join("\n");
 }

@@ -16,6 +16,7 @@ import { getPendingProjectAction, consumePendingProjectAction, clearPendingProje
 
 import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.js";
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
+import { maybeHandleProjectDiagnosticNaturalBridge } from "../projectIntent/projectDiagnosticNaturalBridge.js";
 import {
   buildProjectIntentRoutingText,
   getLatestProjectIntentRepoContext,
@@ -302,6 +303,27 @@ export async function handleChatFlow({
         ok: true,
         stage: "12A.0.intent_guard",
         result: "project_intent_blocked",
+        projectContextDecision,
+        projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
+      };
+    }
+
+    const projectDiagnosticNaturalBridgeResult = await maybeHandleProjectDiagnosticNaturalBridge({
+      text: projectIntentRoutingText,
+      route: projectIntentRoute,
+      replyAndLog,
+      isMonarchUser: !!isMonarchUser,
+      isPrivateChat: !!isPrivateChat,
+      transport,
+      chatId: chatIdStr,
+      globalUserId,
+    });
+
+    if (projectDiagnosticNaturalBridgeResult?.handled) {
+      return {
+        ok: true,
+        stage: "12A.1.project_diagnostic_natural_bridge",
+        result: projectDiagnosticNaturalBridgeResult.reason || "project_diagnostic_natural_bridge_handled",
         projectContextDecision,
         projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
       };

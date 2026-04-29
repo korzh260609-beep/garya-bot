@@ -9,7 +9,8 @@ Purpose:
 - keep workflow readable and editable in smaller parts;
 - preserve Stage 20 and EOF critical fixation;
 - support the updated priority: Project Memory Core + Long-Term Memory Core first;
-- preserve SG entity integrity during development.
+- preserve SG entity integrity during development;
+- preserve semantic routing and capability access gates.
 
 This workflow must be interpreted together with:
 
@@ -19,6 +20,8 @@ This workflow must be interpreted together with:
 - `pillars/DECISIONS.md`
 - `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/README.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 
 ## Files
 
@@ -26,6 +29,7 @@ This workflow must be interpreted together with:
    - legend
    - memory order clarification
    - SG entity / component alignment
+   - semantic routing / capability access gate alignment
    - hard rules
    - stage gates
    - execution protocol
@@ -66,6 +70,22 @@ external AI operators = temporary helpers, not SG itself
 
 Human Mode, Technical Mode, RepoStateAgent, agents, tools, transports, memory and sources are components/instruments of SG.
 They must not be developed as separate SG entities.
+
+## Semantic routing / capability access rule
+
+Workflow work must preserve:
+
+```text
+Human Mode skeleton first.
+Global SemanticRouter later, only after explicit accepted gate.
+Capability access != authority to redefine SG.
+```
+
+No workflow step may silently authorize:
+- connecting Human Mode runtime without gate;
+- building a global SemanticRouter now;
+- converting old phrase/keyword/regex routes into Human Mode intelligence;
+- treating capability access as governance authority.
 
 ## Memory priority
 

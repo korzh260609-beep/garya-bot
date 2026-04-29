@@ -11,6 +11,8 @@ This workflow must be interpreted together with:
 - `pillars/DECISIONS.md`
 - `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/README.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 
 ---
 
@@ -49,7 +51,27 @@ Hard rules:
 
 ---
 
-## 0.2 MEMORY ORDER CLARIFICATION
+## 0.2 SEMANTIC ROUTING / CAPABILITY ACCESS GATES
+
+Workflow execution must preserve:
+
+```text
+Human Mode skeleton first.
+Global SemanticRouter later, only after explicit accepted gate.
+Capability access != authority to redefine SG.
+```
+
+Hard rules:
+- Do not connect Human Mode runtime without explicit gate.
+- Do not build a global SemanticRouter now.
+- Do not convert old phrase/keyword/regex routes into Human Mode intelligence now.
+- Do not treat Technical Mode legacy routes as SG’s normal intelligence layer.
+- Do not treat capability access as governance authority.
+- Do not treat code-output, diagnostics, AgentWorkspace, RepoStateAgent, or external AI tools as independent SG entities.
+
+---
+
+## 0.3 MEMORY ORDER CLARIFICATION
 
 Memory-related items are split into two groups:
 
@@ -105,6 +127,8 @@ Hard rule:
 15. Project Memory Core and Long-Term Memory Core are early foundation, not optional future enhancements.
 16. Do not manually mark pillars items as done/complete; completion evidence must come from repo/runtime verification or generated status snapshots.
 17. Do not treat a mode, agent, tool, transport, source, memory layer, or repository subsystem as SG itself.
+18. Do not use semantic-routing language to bypass the current Human Mode skeleton gate.
+19. Do not use capability-access language to bypass permission/governance gates.
 
 ---
 
@@ -120,6 +144,9 @@ Memory gate rule:
 
 Entity gate rule:
 - No feature may introduce a second SG identity or let a component/tool/agent behave as independent SG.
+
+Semantic/capability gate rule:
+- No feature may create Global SemanticRouter, connect Human Mode runtime, or expose sensitive capabilities without the explicit accepted gate defined in architecture/decisions.
 
 ---
 
@@ -146,6 +173,11 @@ For entity-sensitive work:
 13) Verify the changed component remains a component/instrument of SG
 14) Verify prompts/docs do not describe external AI operators as SG itself
 15) Verify Human Mode / Technical Mode / RepoStateAgent remain separated according to architecture
+
+For semantic/capability-sensitive work:
+16) Verify Human Mode runtime remains gated unless explicitly approved
+17) Verify Global SemanticRouter is not introduced before accepted gate
+18) Verify capability access does not become governance authority
 
 ---
 

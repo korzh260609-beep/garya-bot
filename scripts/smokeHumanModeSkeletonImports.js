@@ -44,7 +44,7 @@ assertFunction("selectHumanProjectCapability", selectHumanProjectCapability);
 assertFunction("buildHumanProjectIntentResponse", buildHumanProjectIntentResponse);
 assertFunction("createHumanRepoStateAgentRunner", createHumanRepoStateAgentRunner);
 
-const rawTextMeaning = classifyHumanProjectIntentMeaning({
+const rawTextMeaning = await classifyHumanProjectIntentMeaning({
   text: "проверь архитектуру проекта",
 });
 
@@ -52,7 +52,54 @@ if (rawTextMeaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.UNKNOWN) {
   throw new Error("Human Mode skeleton smoke check failed: raw text must not be classified yet");
 }
 
-const structuredMeaning = classifyHumanProjectIntentMeaning({
+let blockedMeaningProviderCallCount = 0;
+const blockedProviderMeaning = await classifyHumanProjectIntentMeaning({
+  text: "проверь архитектуру проекта",
+  context: {
+    humanProjectIntentMeaningProvider: async () => {
+      blockedMeaningProviderCallCount += 1;
+      throw new Error("humanProjectIntentMeaningProvider must not be called without allowHumanMeaningProviderRun=true");
+    },
+  },
+});
+
+if (blockedMeaningProviderCallCount !== 0) {
+  throw new Error("Human Mode skeleton smoke check failed: blocked meaning provider must not be called");
+}
+
+if (blockedProviderMeaning?.reason !== "human_meaning_provider_present_but_not_allowed") {
+  throw new Error("Human Mode skeleton smoke check failed: blocked meaning provider reason mismatch");
+}
+
+let allowedMeaningProviderCallCount = 0;
+const providerMeaning = await classifyHumanProjectIntentMeaning({
+  text: "проверь архитектуру проекта",
+  context: {
+    allowHumanMeaningProviderRun: true,
+    humanProjectIntentMeaningProvider: async (providerContext) => {
+      allowedMeaningProviderCallCount += 1;
+
+      if (providerContext?.mode !== "human") {
+        throw new Error("Human Mode skeleton smoke check failed: meaning provider mode mismatch");
+      }
+
+      return {
+        intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+        confidence: "provider-test",
+      };
+    },
+  },
+});
+
+if (allowedMeaningProviderCallCount !== 1) {
+  throw new Error("Human Mode skeleton smoke check failed: allowed meaning provider must be called once");
+}
+
+if (providerMeaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION) {
+  throw new Error("Human Mode skeleton smoke check failed: allowed meaning provider result mismatch");
+}
+
+const structuredMeaning = await classifyHumanProjectIntentMeaning({
   context: {
     humanProjectIntentMeaning: {
       intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
@@ -361,6 +408,37 @@ if (fullPipelineWithAdapterRunner?.handled !== true) {
 
 if (fullPipelineWithAdapterRunner?.repoFacts?.ok !== true) {
   throw new Error("Human Mode skeleton smoke check failed: full pipeline with adapter runner repo facts must be ok=true");
+}
+
+let fullPipelineMeaningProviderCallCount = 0;
+const fullPipelineWithMeaningProvider = await handleHumanProjectIntent({
+  text: "проверь архитектуру проекта",
+  isMonarchUser: true,
+  isPrivateChat: true,
+  context: {
+    allowHumanMeaningProviderRun: true,
+    allowHumanRepoStateAgentRun: true,
+    humanProjectIntentMeaningProvider: async () => {
+      fullPipelineMeaningProviderCallCount += 1;
+      return {
+        intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+        confidence: "provider-test",
+      };
+    },
+    repoStateAgentResult: sampleRepoStateAgentResult,
+  },
+});
+
+if (fullPipelineMeaningProviderCallCount !== 1) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline meaning provider must be called once");
+}
+
+if (fullPipelineWithMeaningProvider?.handled !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline with meaning provider must be handled");
+}
+
+if (fullPipelineWithMeaningProvider?.meaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline with meaning provider meaning mismatch");
 }
 
 console.log("OK: Human Mode skeleton imports and basic skeleton contract are valid.");

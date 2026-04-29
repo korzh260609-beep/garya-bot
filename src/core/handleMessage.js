@@ -10,6 +10,7 @@ import { parseCommandAccess } from "./handleMessage/commandParsing.js";
 import { buildReplyAndLog } from "./handleMessage/buildReplyAndLog.js";
 import { handleCommandFlow } from "./handleMessage/handleCommandFlow.js";
 import { handleChatFlow } from "./handleMessage/handleChatFlow.js";
+import { resolveActiveProjectContext } from "./projectContext/ActiveProjectContextResolver.js";
 import { ProjectContextEngine } from "../projectExperience/ProjectContextEngine.js";
 import { ProjectEvidenceTriggerPolicy } from "../projectExperience/ProjectEvidenceTriggerPolicy.js";
 import { buildProjectLightEvidencePack } from "../projectExperience/ProjectLightEvidencePackBuilder.js";
@@ -37,6 +38,7 @@ function buildMeaningPreviousContextHint(context = {}, deps = {}) {
     projectMemoryEvidencePack: context?.projectMemoryEvidencePack || context?.projectEvidencePack || null,
     projectMemoryEvidenceSeed: context?.projectMemoryEvidenceSeed || deps?.projectMemoryEvidenceSeed || null,
     hasActiveProjectSession: Boolean(context?.hasActiveProjectSession || deps?.hasActiveProjectSession),
+    activeProjectContext: context?.activeProjectContext || deps?.activeProjectContext || null,
   };
 }
 
@@ -110,9 +112,9 @@ async function buildProjectEvidenceSeedIfAvailable(context = {}, deps = {}, trig
   }
 
   const seedInput = {
-    projectKey: context?.projectKey || "garya-bot",
-    repository: context?.repository || "korzh260609-beep/garya-bot",
-    ref: context?.ref || "main",
+    projectKey: context?.projectKey || context?.activeProjectContext?.projectKey || "garya-bot",
+    repository: context?.repository || context?.activeProjectContext?.repository || "korzh260609-beep/garya-bot",
+    ref: context?.ref || context?.activeProjectContext?.ref || "main",
     commitLimit: context?.commitLimit ?? 5,
   };
 
@@ -154,9 +156,9 @@ function buildProjectMemoryEvidencePackIfAvailable(context = {}, deps = {}) {
     pillars: seed?.pillars || {},
     memoryEvidences: Array.isArray(seed?.memoryEvidences) ? seed.memoryEvidences : [],
     commitLimit: seed?.commitLimit ?? 5,
-    projectKey: seed?.projectKey || "garya-bot",
-    repository: seed?.repository || "korzh260609-beep/garya-bot",
-    ref: seed?.ref || "main",
+    projectKey: seed?.projectKey || context?.activeProjectContext?.projectKey || "garya-bot",
+    repository: seed?.repository || context?.activeProjectContext?.repository || "korzh260609-beep/garya-bot",
+    ref: seed?.ref || context?.activeProjectContext?.ref || "main",
   });
 }
 
@@ -188,6 +190,9 @@ async function runHumanModeProjectRepoDryRunHook({
   if (isTransportTraceEnabled()) {
     console.log("HUMAN_MODE_DRY_RUN_START", {
       hasRepoStateAgentRunner: isMonarchUser && isPrivateChat,
+      activeProjectContextActive: enrichedContext?.activeProjectContext?.active === true,
+      activeProjectContextSource: enrichedContext?.activeProjectContext?.source || null,
+      activeProjectRepository: enrichedContext?.activeProjectContext?.repository || null,
       timeoutMs: HUMAN_MODE_PROJECT_REPO_DRY_RUN_TIMEOUT_MS,
     });
   }
@@ -290,13 +295,45 @@ export async function handleMessage(context = {}) {
 
   let globalUserId = initialGlobalUserId;
 
+  const identity = await resolveIdentityAndAccess({
+    transport,
+    senderId,
+    raw,
+    globalUserId,
+  });
+
+  globalUserId = identity.globalUserId;
+
+  const {
+    accessPack,
+    userRole,
+    userPlan,
+    user,
+    isMonarchUser,
+  } = identity;
+
+  const activeProjectContext = resolveActiveProjectContext({
+    isMonarchUser,
+    isPrivateChat,
+    context,
+    deps,
+  });
+
+  const hasActiveProjectSession = activeProjectContext?.active === true;
+
+  const meaningContext = {
+    ...context,
+    activeProjectContext,
+    hasActiveProjectSession,
+    projectKey: context?.projectKey || activeProjectContext?.projectKey || null,
+    repository: context?.repository || activeProjectContext?.repository || null,
+    ref: context?.ref || activeProjectContext?.ref || null,
+  };
+
   const coreMeaning = understandMeaning({
     text: trimmed,
-    hasActiveProjectSession: Boolean(
-      context?.hasActiveProjectSession ||
-      deps?.hasActiveProjectSession
-    ),
-    previousContext: buildMeaningPreviousContextHint(context, deps),
+    hasActiveProjectSession,
+    previousContext: buildMeaningPreviousContextHint(meaningContext, deps),
   });
 
   const toolSelection = selectToolsForMeaning({ meaning: coreMeaning });
@@ -309,10 +346,7 @@ export async function handleMessage(context = {}) {
   const preProjectContextDecision = projectContextAllowed
     ? projectContextEngine.classifyProjectContextNeed({
         text: trimmed,
-        hasActiveProjectSession: Boolean(
-          context?.hasActiveProjectSession ||
-          deps?.hasActiveProjectSession
-        ),
+        hasActiveProjectSession,
       })
     : {
         depth: "none",
@@ -341,6 +375,11 @@ export async function handleMessage(context = {}) {
   let evidenceSeedBuilt = false;
   let enrichedContext = {
     ...context,
+    activeProjectContext,
+    hasActiveProjectSession,
+    projectKey: context?.projectKey || activeProjectContext?.projectKey || null,
+    repository: context?.repository || activeProjectContext?.repository || null,
+    ref: context?.ref || activeProjectContext?.ref || null,
     coreMeaning,
     toolSelection,
     projectContextAllowedByMeaning,
@@ -439,23 +478,6 @@ export async function handleMessage(context = {}) {
     }
   }
 
-  const identity = await resolveIdentityAndAccess({
-    transport,
-    senderId,
-    raw,
-    globalUserId,
-  });
-
-  globalUserId = identity.globalUserId;
-
-  const {
-    accessPack,
-    userRole,
-    userPlan,
-    user,
-    isMonarchUser,
-  } = identity;
-
   const humanModeProjectRepoDryRun = await runHumanModeProjectRepoDryRunHook({
     enrichedContext,
     trimmed,
@@ -506,6 +528,11 @@ export async function handleMessage(context = {}) {
         cmdBase,
         canProceed,
         isEnforced,
+        activeProjectContextActive: enrichedContext?.activeProjectContext?.active === true,
+        activeProjectContextSource: enrichedContext?.activeProjectContext?.source || null,
+        activeProjectKey: enrichedContext?.activeProjectContext?.projectKey || null,
+        activeProjectRepository: enrichedContext?.activeProjectContext?.repository || null,
+        activeProjectRef: enrichedContext?.activeProjectContext?.ref || null,
         coreMeaningDomain: enrichedContext?.coreMeaning?.domain,
         coreMeaningIntent: enrichedContext?.coreMeaning?.intent,
         coreMeaningSuggestedAction: enrichedContext?.coreMeaning?.suggestedAction,
@@ -621,6 +648,8 @@ export async function handleMessage(context = {}) {
       isCommand,
       cmdBase,
       canProceed,
+      activeProjectContext: enrichedContext?.activeProjectContext || null,
+      hasActiveProjectSession: enrichedContext?.hasActiveProjectSession === true,
       coreMeaning: enrichedContext?.coreMeaning || null,
       toolSelection: enrichedContext?.toolSelection || null,
       projectContextAllowedByMeaning: enrichedContext?.projectContextAllowedByMeaning,

@@ -1,7 +1,7 @@
 # SG_BEHAVIOR.md — SG Behavior Core (PILLAR)
 
 > This document defines how SG behaves in chats and tasks.
-> It MUST be consistent with: DECISIONS.md, WORKFLOW.md, PROJECT.md, SG_ENTITY.md.
+> It MUST be consistent with: DECISIONS.md, active workflow files under `pillars/workflow/`, PROJECT.md, SG_ENTITY.md.
 > If any code or prompt contradicts this file — it is incorrect.
 
 This document must also be interpreted together with:
@@ -21,7 +21,7 @@ This file defines:
 This file does NOT define:
 - project architecture (see PROJECT.md)
 - “what SG is” (see SG_ENTITY.md)
-- stage order (see WORKFLOW.md)
+- stage order (see `pillars/workflow/00_RULES_AND_ORDER.md` and active workflow files under `pillars/workflow/`)
 - final system decisions (see DECISIONS.md)
 
 ---
@@ -315,7 +315,7 @@ End format:
 ## 14) Failure Mode (When SG must stop)
 
 SG must STOP and request instruction if:
-- a request would violate DECISIONS / WORKFLOW stage gates
+- a request would violate DECISIONS / active workflow stage gates
 - a request requires architecture changes but user didn’t command it
 - required data is missing and assumptions would be dangerous
 

@@ -11,6 +11,7 @@ import { buildHumanProjectContextPack } from "./projectIntentHumanContextPackBui
 import { loadHumanProjectOfficialArchitecture } from "./projectIntentHumanOfficialArchitectureLoader.js";
 import { selectHumanProjectCapability } from "./projectIntentHumanCapabilitySelector.js";
 import { buildHumanProjectIntentResponse } from "./projectIntentHumanResponseBuilder.js";
+import { buildHumanProjectDecisionTrace } from "./projectIntentHumanDecisionTraceBuilder.js";
 
 export async function handleHumanProjectIntent({
   text = "",
@@ -69,6 +70,14 @@ export async function handleHumanProjectIntent({
     contextPack,
   });
 
+  const decisionTrace = buildHumanProjectDecisionTrace({
+    contextPack,
+    meaning,
+    capability,
+    repoFacts,
+    response,
+  });
+
   return {
     mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
     handled: response.ok === true,
@@ -81,6 +90,7 @@ export async function handleHumanProjectIntent({
     contextPack,
     capability,
     response,
+    decisionTrace,
   };
 }
 

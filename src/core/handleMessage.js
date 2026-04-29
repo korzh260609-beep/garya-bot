@@ -19,6 +19,7 @@ import { understandMeaning } from "./meaning/MeaningEngine.js";
 import { selectToolsForMeaning } from "./meaning/ToolSelectionEngine.js";
 import { isHumanModeProjectRepoRuntimeEnabled } from "./projectIntent/modes/human/projectIntentHumanRuntimeGateConfig.js";
 import { handleHumanProjectIntent } from "./projectIntent/modes/human/projectIntentHumanEntry.js";
+import { createHumanRepoStateAgentRunner } from "./projectIntent/modes/human/projectIntentHumanRepoStateAgentRunner.js";
 
 function hasProjectEvidenceSeed(value = {}) {
   return Boolean(
@@ -167,12 +168,25 @@ async function runHumanModeProjectRepoDryRunHook({
     return null;
   }
 
+  const humanContext = isMonarchUser && isPrivateChat
+    ? {
+        ...enrichedContext,
+        allowHumanRepoStateAgentRun: true,
+        repoStateAgentRunner: createHumanRepoStateAgentRunner({
+          defaultOptions: {
+            forceAiAnalysis: false,
+            allowRealAi: false,
+          },
+        }),
+      }
+    : enrichedContext;
+
   try {
     const result = await handleHumanProjectIntent({
       text: trimmed,
       isMonarchUser,
       isPrivateChat,
-      context: enrichedContext,
+      context: humanContext,
     });
 
     return {

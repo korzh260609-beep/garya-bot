@@ -37,6 +37,7 @@ export function createHumanRepoStateAgentRunner({
     const ServiceClass = RepoStateAgentServiceClass || await loadDefaultRepoStateAgentServiceClass();
     const service = new ServiceClass();
     const options = {
+      fastReadOnly: true,
       ...(defaultOptions || {}),
       ...(runnerContext?.options || {}),
     };

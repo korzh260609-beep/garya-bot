@@ -1,4 +1,14 @@
 // src/core/projectIntent/semantic/projectIntentSemanticFallback.js
+// ============================================================================
+// LEGACY SEMANTIC FALLBACK HEURISTICS MARKER
+//
+// INTERFACE MODE NOTE:
+// - This file uses deterministic heuristic fallback behavior for old routing.
+// - Under hard Human Mode / Technical Mode separation, this is NOT full Human Mode.
+// - Treat this as legacy Technical Mode support until a clean structured meaning
+//   layer replaces it.
+// - Do not add new phrase-bound hacks here.
+// ============================================================================
 
 import { safeText, normalizeText, tokenizeText, pickFirstNonEmpty } from "./projectIntentSemanticText.js";
 import {

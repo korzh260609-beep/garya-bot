@@ -92,7 +92,7 @@ if (allowed?.allowed !== true) {
 }
 
 if (allowed?.handled !== false) {
-  throw new Error("Human Mode skeleton smoke check failed: skeleton must not handle runtime yet");
+  throw new Error("Human Mode skeleton smoke check failed: skeleton must not handle runtime yet without repo facts");
 }
 
 const missingRepoFacts = loadHumanProjectRepoFacts();
@@ -128,7 +128,7 @@ if (capabilityWithoutFacts?.capability !== HUMAN_PROJECT_CAPABILITIES.NONE) {
   throw new Error("Human Mode skeleton smoke check failed: capability without repo facts must be none");
 }
 
-const sampleRepoFacts = buildHumanProjectRepoFactsFromRepoStateAgentResult({
+const sampleRepoStateAgentResult = {
   repoFullName: "korzh260609-beep/garya-bot",
   branch: "main",
   filesCount: 10,
@@ -145,7 +145,9 @@ const sampleRepoFacts = buildHumanProjectRepoFactsFromRepoStateAgentResult({
       dependencies: 3,
     },
   },
-});
+};
+
+const sampleRepoFacts = buildHumanProjectRepoFactsFromRepoStateAgentResult(sampleRepoStateAgentResult);
 
 if (sampleRepoFacts?.ok !== true) {
   throw new Error("Human Mode skeleton smoke check failed: sample repo facts must be ok=true");
@@ -195,6 +197,31 @@ const riskResponse = buildHumanProjectIntentResponse({
 
 if (riskResponse?.ok !== true) {
   throw new Error("Human Mode skeleton smoke check failed: risk response must be ok=true");
+}
+
+const fullPipeline = await handleHumanProjectIntent({
+  text: "проверь архитектуру проекта",
+  isMonarchUser: true,
+  isPrivateChat: true,
+  context: {
+    humanProjectIntentMeaning: {
+      intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+      confidence: "test",
+    },
+    repoStateAgentResult: sampleRepoStateAgentResult,
+  },
+});
+
+if (fullPipeline?.handled !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full context pipeline must be handled");
+}
+
+if (fullPipeline?.capability?.capability !== HUMAN_PROJECT_CAPABILITIES.SUMMARIZE_ARCHITECTURE) {
+  throw new Error("Human Mode skeleton smoke check failed: full context pipeline capability mismatch");
+}
+
+if (fullPipeline?.response?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full context pipeline response must be ok=true");
 }
 
 console.log("OK: Human Mode skeleton imports and basic skeleton contract are valid.");

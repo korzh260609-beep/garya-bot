@@ -11,6 +11,7 @@
 // - safe contract only.
 // - not wired into runtime.
 // - accepts structured meaning from context when provided.
+// - can use an explicitly injected meaning provider only when explicitly allowed.
 // - does not classify raw text by keywords/regex.
 // ============================================================================
 
@@ -45,13 +46,49 @@ function normalizeHumanProjectIntentMeaning(value = null) {
   };
 }
 
-export function classifyHumanProjectIntentMeaning({ context = null } = {}) {
+async function runInjectedHumanMeaningProvider({ text = "", context = null } = {}) {
+  const provider = context?.humanProjectIntentMeaningProvider || context?.humanMeaningProvider;
+
+  if (typeof provider !== "function") {
+    return null;
+  }
+
+  if (context?.allowHumanMeaningProviderRun !== true) {
+    return {
+      mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
+      intentKind: HUMAN_PROJECT_INTENT_KINDS.UNKNOWN,
+      confidence: "none",
+      reason: "human_meaning_provider_present_but_not_allowed",
+    };
+  }
+
+  const providedMeaning = await provider({
+    mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
+    text,
+    context,
+  });
+
+  return normalizeHumanProjectIntentMeaning(providedMeaning) || {
+    mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
+    intentKind: HUMAN_PROJECT_INTENT_KINDS.UNKNOWN,
+    confidence: "none",
+    reason: "human_meaning_provider_returned_invalid_meaning",
+  };
+}
+
+export async function classifyHumanProjectIntentMeaning({ text = "", context = null } = {}) {
   const structuredMeaning = normalizeHumanProjectIntentMeaning(
     context?.humanProjectIntentMeaning || context?.humanMeaning || null
   );
 
   if (structuredMeaning) {
     return structuredMeaning;
+  }
+
+  const injectedProviderMeaning = await runInjectedHumanMeaningProvider({ text, context });
+
+  if (injectedProviderMeaning) {
+    return injectedProviderMeaning;
   }
 
   return {

@@ -1,18 +1,31 @@
 # WORKFLOW SPLIT INDEX — SG AI SYSTEM
 
-This directory contains the split version of `pillars/WORKFLOW.md`.
+This directory contains the active split workflow structure for SG.
+
+It replaces reliance on one large flat workflow file for active work.
 
 Purpose:
 - avoid connector/output limits on one very large file;
 - keep workflow readable and editable in smaller parts;
 - preserve Stage 20 and EOF critical fixation;
-- support the updated priority: Project Memory Core + Long-Term Memory Core first.
+- support the updated priority: Project Memory Core + Long-Term Memory Core first;
+- preserve SG entity integrity during development.
+
+This workflow must be interpreted together with:
+
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
+- `pillars/PROJECT.md`
+- `pillars/DECISIONS.md`
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/architecture/README.md`
 
 ## Files
 
 1. `00_RULES_AND_ORDER.md`
    - legend
    - memory order clarification
+   - SG entity / component alignment
    - hard rules
    - stage gates
    - execution protocol
@@ -36,6 +49,23 @@ Purpose:
 
 The old `pillars/WORKFLOW.md` is not deleted or overwritten by this split.
 The split files are the safer editable working structure until the old large file is manually replaced or converted with full SHA visibility.
+
+Current active workflow truth must come from this split structure unless a future accepted decision changes it.
+
+Archived or old workflow files must not be treated as current workflow truth.
+
+## SG entity rule
+
+Workflow work must preserve:
+
+```text
+SG = global project entity
+components = organs / channels / instruments / subsystems of SG
+external AI operators = temporary helpers, not SG itself
+```
+
+Human Mode, Technical Mode, RepoStateAgent, agents, tools, transports, memory and sources are components/instruments of SG.
+They must not be developed as separate SG entities.
 
 ## Memory priority
 

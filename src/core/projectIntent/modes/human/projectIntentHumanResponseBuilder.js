@@ -37,6 +37,20 @@ function readNextActionPlan(repoFacts = {}) {
   return repoFacts?.facts?.nextActionPlan || {};
 }
 
+function readContextPackRepoFacts(contextPack = {}) {
+  return contextPack?.repoFacts || {};
+}
+
+function hasValue(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === "object") return Object.keys(value).length > 0;
+  return Boolean(value);
+}
+
+function formatAvailability(value) {
+  return hasValue(value) ? "доступна" : "не найдена";
+}
+
 function readRisks(repoFacts = {}) {
   const health = readArchitectureHealth(repoFacts);
   const directRisks = health?.risks || health?.riskHints || health?.topRisks || [];
@@ -83,21 +97,43 @@ function buildRepoStateResponse({ repoFacts }) {
   ].join("\n");
 }
 
-function buildArchitectureResponse({ repoFacts }) {
+function buildArchitectureResponse({ repoFacts, contextPack }) {
   const repoLabel = readRepoLabel(repoFacts);
   const totals = readTotals(repoFacts);
   const health = readArchitectureHealth(repoFacts);
-  const summary = health?.summary || "Архитектурная сводка есть только на уровне RepoStateAgent facts; детальный AI-анализ не запускался.";
-  const status = health?.status || "не определён";
-  const score = Number.isFinite(health?.score) ? `${health.score}/100` : "нет оценки";
+  const contextRepoFacts = readContextPackRepoFacts(contextPack);
+  const layers = contextRepoFacts?.layers;
+  const semanticMap = contextRepoFacts?.semanticMap;
+  const architectureHealth = contextRepoFacts?.architectureHealth || health;
+  const summary = architectureHealth?.summary || "Архитектурная сводка есть только на уровне RepoStateAgent facts; детальный AI-анализ не запускался.";
+  const status = architectureHealth?.status || "не определён";
+  const score = Number.isFinite(architectureHealth?.score) ? `${architectureHealth.score}/100` : "нет оценки";
+  const officialArchitectureStatus = contextPack?.officialArchitecture?.available === true
+    ? "доступна"
+    : "ещё не подключена";
+  const projectMemoryStatus = contextPack?.projectMemory?.available === true
+    ? "доступна"
+    : "ещё не подключена";
 
   return [
     `Архитектура проекта ${repoLabel}:`,
     "",
-    summary,
+    "Факт из RepoStateAgent:",
+    `- Статус: ${status}. Оценка: ${score}.`,
+    `- ${buildTotalsLine(totals)}`,
+    "- Токены real AI: не тратились.",
     "",
-    `Статус: ${status}. Оценка: ${score}.`,
-    buildTotalsLine(totals),
+    "Слои/карта:",
+    `- layers: ${formatAvailability(layers)}.`,
+    `- semanticMap: ${formatAvailability(semanticMap)}.`,
+    `- architectureHealth: ${formatAvailability(architectureHealth)}.`,
+    "",
+    "Источники:",
+    `- repoFacts: ${contextRepoFacts?.available === true ? "доступны" : "не доступны"}.`,
+    `- officialArchitecture: ${officialArchitectureStatus}.`,
+    `- projectMemory: ${projectMemoryStatus}.`,
+    "",
+    summary,
     "",
     "Ключевой принцип: SG остаётся глобальной сущностью проекта; Telegram, Human Mode, RepoStateAgent и другие части — только компоненты/инструменты SG.",
   ].join("\n");
@@ -168,13 +204,13 @@ function buildClarificationResponse() {
   return "Уточни область проекта: архитектура, риски, следующий шаг, модуль или общее состояние репозитория.";
 }
 
-function buildResponseTextForCapability({ capability, repoFacts }) {
+function buildResponseTextForCapability({ capability, repoFacts, contextPack }) {
   switch (capability) {
     case HUMAN_PROJECT_CAPABILITIES.ANSWER_FROM_REPO_STATE:
       return buildRepoStateResponse({ repoFacts });
 
     case HUMAN_PROJECT_CAPABILITIES.SUMMARIZE_ARCHITECTURE:
-      return buildArchitectureResponse({ repoFacts });
+      return buildArchitectureResponse({ repoFacts, contextPack });
 
     case HUMAN_PROJECT_CAPABILITIES.IDENTIFY_RISK:
       return buildRiskResponse({ repoFacts });
@@ -194,7 +230,7 @@ function buildResponseTextForCapability({ capability, repoFacts }) {
   }
 }
 
-export function buildHumanProjectIntentResponse({ repoFacts, capability } = {}) {
+export function buildHumanProjectIntentResponse({ repoFacts, capability, contextPack } = {}) {
   if (repoFacts?.ok !== true) {
     return {
       mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
@@ -219,6 +255,7 @@ export function buildHumanProjectIntentResponse({ repoFacts, capability } = {}) 
     text: buildResponseTextForCapability({
       capability: capability.capability,
       repoFacts,
+      contextPack,
     }),
     reason: "human_response_built_from_repo_facts_and_capability",
   };

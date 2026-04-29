@@ -680,33 +680,9 @@ export async function handleMessage(context = {}) {
     messageId,
   });
 
-  if (
-    humanModeProjectRepoDryRun?.handled === true &&
-    humanModeProjectRepoDryRun?.hasResponseText === true &&
-    humanModeProjectRepoDryRun?.timedOut !== true &&
-    isMonarchUser === true &&
-    isPrivateChat === true &&
-    typeof replyAndLog === "function"
-  ) {
-    await replyAndLog(humanModeProjectRepoDryRun.responseText, {
-      handler: "handleMessage",
-      event: "human_mode_project_repo_response",
-      human_mode_intent_kind: humanModeProjectRepoDryRun.meaningIntentKind,
-      human_mode_capability: humanModeProjectRepoDryRun.capability,
-      human_mode_duration_ms: humanModeProjectRepoDryRun.durationMs,
-      transport_agnostic: true,
-    });
-
-    return {
-      ok: true,
-      stage: "human_mode.project_repo.response",
-      result: "handled",
-      humanModeProjectRepoDryRun: {
-        ...humanModeProjectRepoDryRun,
-        responseText: "[sent]",
-      },
-    };
-  }
+  // Human Mode / RepoStateAgent is diagnostic-only here.
+  // RepoStateAgent must provide project-map / semantic-map facts only.
+  // It must never bypass command/chat routing or answer ordinary dialogue directly.
 
   if (isCommand && cmdBase) {
     return handleCommandFlow({

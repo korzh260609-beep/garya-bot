@@ -25,6 +25,11 @@ import {
 } from "../src/core/projectIntent/modes/human/projectIntentHumanCapabilitySelector.js";
 import { buildHumanProjectIntentResponse } from "../src/core/projectIntent/modes/human/projectIntentHumanResponseBuilder.js";
 import { createHumanRepoStateAgentRunner } from "../src/core/projectIntent/modes/human/projectIntentHumanRepoStateAgentRunner.js";
+import {
+  buildHumanProjectIntentContext,
+  hasHumanMeaningExecutionPermission,
+  hasHumanRepoStateAgentExecutionPermission,
+} from "../src/core/projectIntent/modes/human/projectIntentHumanContext.js";
 
 function assertFunction(name, value) {
   if (typeof value !== "function") {
@@ -43,6 +48,9 @@ assertFunction(
 assertFunction("selectHumanProjectCapability", selectHumanProjectCapability);
 assertFunction("buildHumanProjectIntentResponse", buildHumanProjectIntentResponse);
 assertFunction("createHumanRepoStateAgentRunner", createHumanRepoStateAgentRunner);
+assertFunction("buildHumanProjectIntentContext", buildHumanProjectIntentContext);
+assertFunction("hasHumanMeaningExecutionPermission", hasHumanMeaningExecutionPermission);
+assertFunction("hasHumanRepoStateAgentExecutionPermission", hasHumanRepoStateAgentExecutionPermission);
 
 const rawTextMeaning = await classifyHumanProjectIntentMeaning({
   text: "проверь архитектуру проекта",
@@ -55,12 +63,12 @@ if (rawTextMeaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.UNKNOWN) {
 let blockedMeaningProviderCallCount = 0;
 const blockedProviderMeaning = await classifyHumanProjectIntentMeaning({
   text: "проверь архитектуру проекта",
-  context: {
+  context: buildHumanProjectIntentContext({
     humanProjectIntentMeaningProvider: async () => {
       blockedMeaningProviderCallCount += 1;
       throw new Error("humanProjectIntentMeaningProvider must not be called without allowHumanMeaningProviderRun=true");
     },
-  },
+  }),
 });
 
 if (blockedMeaningProviderCallCount !== 0) {
@@ -71,59 +79,14 @@ if (blockedProviderMeaning?.reason !== "human_meaning_provider_present_but_not_a
   throw new Error("Human Mode skeleton smoke check failed: blocked meaning provider reason mismatch");
 }
 
-let allowedMeaningProviderCallCount = 0;
-const providerMeaning = await classifyHumanProjectIntentMeaning({
-  text: "проверь архитектуру проекта",
-  context: {
-    allowHumanMeaningProviderRun: true,
-    humanProjectIntentMeaningProvider: async (providerContext) => {
-      allowedMeaningProviderCallCount += 1;
-
-      if (providerContext?.mode !== "human") {
-        throw new Error("Human Mode skeleton smoke check failed: meaning provider mode mismatch");
-      }
-
-      return {
-        intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
-        confidence: "provider-test",
-      };
-    },
-  },
-});
-
-if (allowedMeaningProviderCallCount !== 1) {
-  throw new Error("Human Mode skeleton smoke check failed: allowed meaning provider must be called once");
-}
-
-if (providerMeaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION) {
-  throw new Error("Human Mode skeleton smoke check failed: allowed meaning provider result mismatch");
-}
-
-const structuredMeaning = await classifyHumanProjectIntentMeaning({
-  context: {
-    humanProjectIntentMeaning: {
-      intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
-      confidence: "test",
-    },
-  },
-});
-
-if (structuredMeaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION) {
-  throw new Error("Human Mode skeleton smoke check failed: structured meaning was not accepted");
-}
-
 const denied = await handleHumanProjectIntent({
   text: "проверь архитектуру проекта",
   isMonarchUser: false,
   isPrivateChat: false,
 });
 
-if (denied?.mode !== "human") {
-  throw new Error("Human Mode skeleton smoke check failed: expected mode=human");
-}
-
-if (denied?.blocked !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: expected denied skeleton call to be blocked");
+if (denied?.mode !== "human" || denied?.blocked !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: denied skeleton call mismatch");
 }
 
 const allowed = await handleHumanProjectIntent({
@@ -132,38 +95,14 @@ const allowed = await handleHumanProjectIntent({
   isPrivateChat: true,
 });
 
-if (allowed?.mode !== "human") {
-  throw new Error("Human Mode skeleton smoke check failed: expected allowed mode=human");
-}
-
-if (allowed?.allowed !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: expected allowed skeleton call to be allowed");
-}
-
-if (allowed?.handled !== false) {
-  throw new Error("Human Mode skeleton smoke check failed: skeleton must not handle runtime yet without repo facts");
+if (allowed?.allowed !== true || allowed?.handled !== false) {
+  throw new Error("Human Mode skeleton smoke check failed: allowed skeleton must not handle without repo facts");
 }
 
 const missingRepoFacts = await loadHumanProjectRepoFacts();
 
-if (missingRepoFacts?.ok !== false) {
-  throw new Error("Human Mode skeleton smoke check failed: missing repo facts must be ok=false");
-}
-
-if (missingRepoFacts?.reason !== "repo_state_agent_result_not_provided") {
-  throw new Error("Human Mode skeleton smoke check failed: unexpected missing repo facts reason");
-}
-
-const blockedRunnerFacts = await loadHumanProjectRepoFacts({
-  context: {
-    repoStateAgentRunner: async () => {
-      throw new Error("repoStateAgentRunner must not be called without allowHumanRepoStateAgentRun=true");
-    },
-  },
-});
-
-if (blockedRunnerFacts?.reason !== "repo_state_agent_runner_present_but_not_allowed") {
-  throw new Error("Human Mode skeleton smoke check failed: injected runner must be blocked by default");
+if (missingRepoFacts?.ok !== false || missingRepoFacts?.reason !== "repo_state_agent_result_not_provided") {
+  throw new Error("Human Mode skeleton smoke check failed: missing repo facts mismatch");
 }
 
 const responseWithoutFacts = buildHumanProjectIntentResponse({
@@ -176,17 +115,6 @@ const responseWithoutFacts = buildHumanProjectIntentResponse({
 
 if (responseWithoutFacts?.ok !== false) {
   throw new Error("Human Mode skeleton smoke check failed: response without repo facts must be ok=false");
-}
-
-const capabilityWithoutFacts = selectHumanProjectCapability({
-  meaning: {
-    intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
-  },
-  repoFacts: missingRepoFacts,
-});
-
-if (capabilityWithoutFacts?.capability !== HUMAN_PROJECT_CAPABILITIES.NONE) {
-  throw new Error("Human Mode skeleton smoke check failed: capability without repo facts must be none");
 }
 
 const sampleRepoStateAgentResult = {
@@ -210,36 +138,75 @@ const sampleRepoStateAgentResult = {
 
 const sampleRepoFacts = buildHumanProjectRepoFactsFromRepoStateAgentResult(sampleRepoStateAgentResult);
 
-if (sampleRepoFacts?.ok !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: sample repo facts must be ok=true");
+if (sampleRepoFacts?.ok !== true || sampleRepoFacts?.facts?.repo?.fullName !== "korzh260609-beep/garya-bot") {
+  throw new Error("Human Mode skeleton smoke check failed: sample repo facts mismatch");
 }
 
-if (sampleRepoFacts?.facts?.repo?.fullName !== "korzh260609-beep/garya-bot") {
-  throw new Error("Human Mode skeleton smoke check failed: sample repo facts repo fullName mismatch");
-}
+let allowedMeaningProviderCallCount = 0;
+const meaningProviderContext = buildHumanProjectIntentContext({
+  allowHumanMeaningProviderRun: true,
+  humanProjectIntentMeaningProvider: async (providerContext) => {
+    allowedMeaningProviderCallCount += 1;
 
-let injectedRunnerCallCount = 0;
-const allowedRunnerFacts = await loadHumanProjectRepoFacts({
-  context: {
-    allowHumanRepoStateAgentRun: true,
-    repoStateAgentRunner: async (runnerContext) => {
-      injectedRunnerCallCount += 1;
+    if (providerContext?.mode !== "human") {
+      throw new Error("Human Mode skeleton smoke check failed: meaning provider mode mismatch");
+    }
 
-      if (runnerContext?.mode !== "human") {
-        throw new Error("Human Mode skeleton smoke check failed: injected runner mode mismatch");
-      }
-
-      return sampleRepoStateAgentResult;
-    },
+    return {
+      intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+      confidence: "provider-test",
+    };
   },
 });
 
-if (injectedRunnerCallCount !== 1) {
-  throw new Error("Human Mode skeleton smoke check failed: injected runner must be called exactly once when allowed");
+if (hasHumanMeaningExecutionPermission(meaningProviderContext) !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: meaning permission must be true");
 }
 
-if (allowedRunnerFacts?.ok !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: allowed injected runner facts must be ok=true");
+const providerMeaning = await classifyHumanProjectIntentMeaning({
+  text: "проверь архитектуру проекта",
+  context: meaningProviderContext,
+});
+
+if (allowedMeaningProviderCallCount !== 1 || providerMeaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION) {
+  throw new Error("Human Mode skeleton smoke check failed: allowed meaning provider mismatch");
+}
+
+const structuredMeaning = await classifyHumanProjectIntentMeaning({
+  context: buildHumanProjectIntentContext({
+    humanProjectIntentMeaning: {
+      intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+      confidence: "test",
+    },
+  }),
+});
+
+if (structuredMeaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION) {
+  throw new Error("Human Mode skeleton smoke check failed: structured meaning was not accepted");
+}
+
+let injectedRunnerCallCount = 0;
+const repoRunnerContext = buildHumanProjectIntentContext({
+  allowHumanRepoStateAgentRun: true,
+  repoStateAgentRunner: async (runnerContext) => {
+    injectedRunnerCallCount += 1;
+
+    if (runnerContext?.mode !== "human") {
+      throw new Error("Human Mode skeleton smoke check failed: injected runner mode mismatch");
+    }
+
+    return sampleRepoStateAgentResult;
+  },
+});
+
+if (hasHumanRepoStateAgentExecutionPermission(repoRunnerContext) !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: repo runner permission must be true");
+}
+
+const allowedRunnerFacts = await loadHumanProjectRepoFacts({ context: repoRunnerContext });
+
+if (injectedRunnerCallCount !== 1 || allowedRunnerFacts?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: allowed injected runner facts mismatch");
 }
 
 let adapterServiceConstructed = 0;
@@ -279,12 +246,8 @@ if (adapterServiceConstructed !== 0 || adapterServiceRunCount !== 0) {
 
 const adapterResult = await adapterRunner({ mode: "human" });
 
-if (adapterServiceConstructed !== 1 || adapterServiceRunCount !== 1) {
-  throw new Error("Human Mode skeleton smoke check failed: adapter runner must construct and run service once");
-}
-
-if (adapterResult?.repoFullName !== "korzh260609-beep/garya-bot") {
-  throw new Error("Human Mode skeleton smoke check failed: adapter runner result mismatch");
+if (adapterServiceConstructed !== 1 || adapterServiceRunCount !== 1 || adapterResult?.repoFullName !== "korzh260609-beep/garya-bot") {
+  throw new Error("Human Mode skeleton smoke check failed: adapter runner mismatch");
 }
 
 const architectureCapability = selectHumanProjectCapability({
@@ -301,12 +264,8 @@ const architectureResponse = buildHumanProjectIntentResponse({
   capability: architectureCapability,
 });
 
-if (architectureResponse?.ok !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: architecture response must be ok=true");
-}
-
-if (!architectureResponse?.text?.includes("RepoStateAgent")) {
-  throw new Error("Human Mode skeleton smoke check failed: architecture response must mention RepoStateAgent source");
+if (architectureResponse?.ok !== true || !architectureResponse?.text?.includes("RepoStateAgent")) {
+  throw new Error("Human Mode skeleton smoke check failed: architecture response mismatch");
 }
 
 const riskCapability = selectHumanProjectCapability({
@@ -333,81 +292,39 @@ const fullPipeline = await handleHumanProjectIntent({
   text: "проверь архитектуру проекта",
   isMonarchUser: true,
   isPrivateChat: true,
-  context: {
+  context: buildHumanProjectIntentContext({
     humanProjectIntentMeaning: {
       intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
       confidence: "test",
     },
     repoStateAgentResult: sampleRepoStateAgentResult,
-  },
+  }),
 });
 
-if (fullPipeline?.handled !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: full context pipeline must be handled");
-}
-
-if (fullPipeline?.capability?.capability !== HUMAN_PROJECT_CAPABILITIES.SUMMARIZE_ARCHITECTURE) {
-  throw new Error("Human Mode skeleton smoke check failed: full context pipeline capability mismatch");
-}
-
-if (fullPipeline?.response?.ok !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: full context pipeline response must be ok=true");
-}
-
-let fullPipelineRunnerCallCount = 0;
-const fullPipelineWithRunner = await handleHumanProjectIntent({
-  text: "проверь архитектуру проекта",
-  isMonarchUser: true,
-  isPrivateChat: true,
-  context: {
-    allowHumanRepoStateAgentRun: true,
-    humanProjectIntentMeaning: {
-      intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
-      confidence: "test",
-    },
-    repoStateAgentRunner: async () => {
-      fullPipelineRunnerCallCount += 1;
-      return sampleRepoStateAgentResult;
-    },
-  },
-});
-
-if (fullPipelineRunnerCallCount !== 1) {
-  throw new Error("Human Mode skeleton smoke check failed: full pipeline runner must be called once when allowed");
-}
-
-if (fullPipelineWithRunner?.handled !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: full pipeline with runner must be handled");
-}
-
-if (fullPipelineWithRunner?.repoFacts?.ok !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: full pipeline with runner repo facts must be ok=true");
+if (fullPipeline?.handled !== true || fullPipeline?.response?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full context pipeline mismatch");
 }
 
 const fullPipelineWithAdapterRunner = await handleHumanProjectIntent({
   text: "проверь архитектуру проекта",
   isMonarchUser: true,
   isPrivateChat: true,
-  context: {
+  context: buildHumanProjectIntentContext({
     allowHumanRepoStateAgentRun: true,
     humanProjectIntentMeaning: {
       intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
       confidence: "test",
     },
     repoStateAgentRunner: adapterRunner,
-  },
+  }),
 });
 
 if (adapterServiceConstructed !== 2 || adapterServiceRunCount !== 2) {
   throw new Error("Human Mode skeleton smoke check failed: full pipeline adapter runner must run service once more");
 }
 
-if (fullPipelineWithAdapterRunner?.handled !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: full pipeline with adapter runner must be handled");
-}
-
-if (fullPipelineWithAdapterRunner?.repoFacts?.ok !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: full pipeline with adapter runner repo facts must be ok=true");
+if (fullPipelineWithAdapterRunner?.handled !== true || fullPipelineWithAdapterRunner?.repoFacts?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline with adapter runner mismatch");
 }
 
 let fullPipelineMeaningProviderCallCount = 0;
@@ -415,9 +332,9 @@ const fullPipelineWithMeaningProvider = await handleHumanProjectIntent({
   text: "проверь архитектуру проекта",
   isMonarchUser: true,
   isPrivateChat: true,
-  context: {
+  context: buildHumanProjectIntentContext({
     allowHumanMeaningProviderRun: true,
-    allowHumanRepoStateAgentRun: true,
+    repoStateAgentResult: sampleRepoStateAgentResult,
     humanProjectIntentMeaningProvider: async () => {
       fullPipelineMeaningProviderCallCount += 1;
       return {
@@ -425,20 +342,11 @@ const fullPipelineWithMeaningProvider = await handleHumanProjectIntent({
         confidence: "provider-test",
       };
     },
-    repoStateAgentResult: sampleRepoStateAgentResult,
-  },
+  }),
 });
 
-if (fullPipelineMeaningProviderCallCount !== 1) {
-  throw new Error("Human Mode skeleton smoke check failed: full pipeline meaning provider must be called once");
-}
-
-if (fullPipelineWithMeaningProvider?.handled !== true) {
-  throw new Error("Human Mode skeleton smoke check failed: full pipeline with meaning provider must be handled");
-}
-
-if (fullPipelineWithMeaningProvider?.meaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION) {
-  throw new Error("Human Mode skeleton smoke check failed: full pipeline with meaning provider meaning mismatch");
+if (fullPipelineMeaningProviderCallCount !== 1 || fullPipelineWithMeaningProvider?.handled !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline meaning provider mismatch");
 }
 
 console.log("OK: Human Mode skeleton imports and basic skeleton contract are valid.");

@@ -337,4 +337,30 @@ if (fullPipelineWithRunner?.repoFacts?.ok !== true) {
   throw new Error("Human Mode skeleton smoke check failed: full pipeline with runner repo facts must be ok=true");
 }
 
+const fullPipelineWithAdapterRunner = await handleHumanProjectIntent({
+  text: "проверь архитектуру проекта",
+  isMonarchUser: true,
+  isPrivateChat: true,
+  context: {
+    allowHumanRepoStateAgentRun: true,
+    humanProjectIntentMeaning: {
+      intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+      confidence: "test",
+    },
+    repoStateAgentRunner: adapterRunner,
+  },
+});
+
+if (adapterServiceConstructed !== 2 || adapterServiceRunCount !== 2) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline adapter runner must run service once more");
+}
+
+if (fullPipelineWithAdapterRunner?.handled !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline with adapter runner must be handled");
+}
+
+if (fullPipelineWithAdapterRunner?.repoFacts?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline with adapter runner repo facts must be ok=true");
+}
+
 console.log("OK: Human Mode skeleton imports and basic skeleton contract are valid.");

@@ -44,7 +44,7 @@ export async function handleHumanProjectIntent({
   }
 
   const meaning = classifyHumanProjectIntentMeaning({ text, context });
-  const repoFacts = loadHumanProjectRepoFacts({ text, context, meaning });
+  const repoFacts = await loadHumanProjectRepoFacts({ text, context, meaning });
   const capability = selectHumanProjectCapability({ text, context, meaning, repoFacts });
   const response = buildHumanProjectIntentResponse({
     text,

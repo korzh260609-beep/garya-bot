@@ -8,15 +8,28 @@ Purpose:
 Status: CANONICAL
 Scope: repository code ownership at a high level
 
+This file must be interpreted together with:
+
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
+- `pillars/PROJECT.md`
+- `pillars/DECISIONS.md`
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/architecture/README.md`
+- `pillars/architecture/MODULE_MAP.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+
 ---
 
 ## 0) Why this file exists
 
 `MODULE_MAP.md` defines logical modules.
 
-`REPOINDEX.md` defines repository structure and responsibility zones.
+Verified repository/runtime state defines actual current implementation.
 
-This file exists to connect those two:
+`REPO_MAP_SOURCE_POLICY.md` defines how current factual repository state must be established.
+
+This file exists to connect:
 
 - module meaning
 - real code locations
@@ -33,6 +46,32 @@ This file reduces that ambiguity.
 
 ---
 
+## 0.1) SG entity rule for code ownership
+
+SG is the global project entity.
+
+Code ownership means responsibility ownership inside SG.
+It does not mean ownership of SG itself.
+
+Correct model:
+
+```text
+SG = global project entity
+code area = implementation surface of one or more SG components
+code ownership = responsibility boundary, not SG identity ownership
+```
+
+Incorrect model:
+
+```text
+file/module owner = owner of SG identity
+repo tool = SG itself
+external coding AI = SG itself
+code ownership = permission to redefine SG architecture/governance
+```
+
+---
+
 ## 1) Core principle
 
 Code ownership must follow responsibility,
@@ -44,6 +83,7 @@ That means:
 - mixed-responsibility files are architectural debt
 - legacy placement does not automatically define correct ownership
 - future refactors should move code toward clearer ownership, not away from it
+- code ownership must preserve SG entity integrity
 
 Important rule:
 - this file maps ownership at a practical high level
@@ -84,18 +124,22 @@ When deciding where code belongs, use this priority:
 
 1. real responsibility of the code
 2. canonical module boundaries in `MODULE_MAP.md`
-3. actual repository placement
-4. historical convenience
+3. verified repository/runtime state
+4. actual repository placement
+5. historical convenience
 
 If repository placement and responsibility conflict,
 responsibility wins conceptually,
 and the mismatch should be treated as debt or transition.
 
+Current factual repo state must not be inferred from old/deprecated maps.
+It must follow `REPO_MAP_SOURCE_POLICY.md`.
+
 ---
 
 ## 4) Root-level files vs modularized `src/`
 
-Current repository has two broad structural layers already described in `REPOINDEX.md`:
+Current repository has two broad structural layers:
 
 - root-level legacy/runtime entry files
 - modularized `src/` structure
@@ -116,6 +160,7 @@ Treat as:
 
 Important rule:
 - do not copy root-level mixed-responsibility style into new code by default
+- do not treat legacy/root placement as ownership proof
 
 ---
 
@@ -146,6 +191,7 @@ Important rule:
 Ownership rule:
 - Transport owns input normalization and handoff
 - if a file contains transport + business logic, it is mixed debt, not a valid target pattern
+- transport code must not become SG identity or governance authority
 
 ---
 
@@ -174,6 +220,7 @@ Ownership rule:
 Ownership rule:
 - Bot owns user-facing routing and thin handlers
 - if a handler owns deep feature logic, the file is mixed and should be treated critically
+- Bot is an interface/dispatch component of SG, not SG itself
 
 ---
 
@@ -201,6 +248,7 @@ Ownership rule:
 Ownership rule:
 - Users / Access owns who may do what
 - local ad hoc role checks elsewhere are not true ownership, only debt
+- access code must not grant component users authority to redefine SG itself
 
 ---
 
@@ -228,6 +276,7 @@ Ownership rule:
 Ownership rule:
 - Memory owns long-term reusable context boundaries
 - if memory semantics appear in handlers or random services, that is ownership drift
+- memory supports SG continuity, but does not replace SG pillars/decisions
 
 ---
 
@@ -256,6 +305,7 @@ Ownership rule:
 Ownership rule:
 - Tasks owns explicit units of work and their lifecycle
 - repeated work without task identity is not a valid target pattern
+- task automation must not become autonomous SG governance
 
 ---
 
@@ -284,6 +334,7 @@ Ownership rule:
 Ownership rule:
 - Sources owns data acquisition and normalization
 - if provider-specific logic appears outside Sources, that is architectural leakage
+- source code provides facts/data to SG, not SG identity
 
 ---
 
@@ -295,15 +346,18 @@ Ownership rule:
 - `src/repo/textFilters.js`
 - `src/repo/RepoIndexSnapshot.js`
 - `src/repo/RepoIndexService.js`
+- `src/simpleAgents/repoStateAgent/*` for RepoStateAgent factual observation pipeline, where present
 
 ### SHARED
 - repo-review or code-output surfaces that consume repo results
 - admin commands exposing repo inspection
 - logging/diagnostics for repo indexing/fetching
+- Human Mode repo/project facts surfaces that consume RepoStateAgent facts
 
 ### LEGACY
 - any repo access outside guarded repo boundary
 - any direct connector usage bypassing repo abstraction
+- old RepoIndex / old map surfaces when used as current factual truth
 
 ### FUTURE
 - richer repo diagnostics
@@ -312,7 +366,9 @@ Ownership rule:
 
 Ownership rule:
 - Repo owns guarded repository understanding
-- repo review/output features consume Repo, but do not own repo access itself
+- RepoStateAgent is the factual repository observation subsystem of SG
+- repo review/output features consume Repo/RepoStateAgent, but do not own repo access itself
+- repo tooling must not become SG itself or autonomous architecture owner
 
 ---
 
@@ -341,6 +397,7 @@ Ownership rule:
 Ownership rule:
 - Logging / Diagnostics owns visibility, not business decisions
 - if a file changes behavior because of logging internals, ownership is already wrong
+- diagnostics must not become autonomous SG decision authority
 
 ---
 
@@ -368,6 +425,7 @@ Ownership rule:
 Ownership rule:
 - Project Memory owns persistent project working context
 - canonical governance still belongs to pillars, not to code-side project memory
+- SG project experience belongs to SG as global entity, not to external AI/helper tools
 
 ---
 
@@ -426,6 +484,7 @@ Ownership rule:
 Ownership rule:
 - AI Routing owns centralized AI invocation discipline
 - if model choice is made ad hoc elsewhere, that is not true ownership, only drift
+- external AI/model/provider is an instrument of SG, not SG itself
 
 ---
 
@@ -484,7 +543,8 @@ When a file seems to belong to multiple modules:
 2. check `MODULE_MAP.md`
 3. check `DATA_FLOW.md`
 4. check `PERMISSIONS_MAP.md` if access is involved
-5. treat mixed ownership as architectural risk, not as proof that “everything is flexible”
+5. check `REPO_MAP_SOURCE_POLICY.md` if repo truth/current state is involved
+6. treat mixed ownership as architectural risk, not as proof that “everything is flexible”
 
 If still ambiguous:
 - document the ambiguity
@@ -501,6 +561,8 @@ Update this file when:
 - a new major module gets real code presence
 - an important mixed-responsibility file is split
 - a previously assumed ownership mapping is proven wrong
+- RepoStateAgent / factual repo ownership changes
+- code ownership affects SG entity/governance boundaries
 
 Do not update this file for every tiny refactor.
 
@@ -515,7 +577,7 @@ Read:
 - this file
 - that module’s `README.md`
 - that module’s `CONTRACTS.md`
-- `REPOINDEX.md` if file placement matters
+- `REPO_MAP_SOURCE_POLICY.md` if file placement/current repo truth matters
 
 ### If reviewing a large file
 Ask:
@@ -523,12 +585,14 @@ Ask:
 - is the current file mixed?
 - is this file legacy/transitional?
 - should new logic be added here at all?
+- does the file preserve SG entity/component boundaries?
 
 ### If planning refactor
 Use this file to decide:
 - what should move
 - what should stay
 - what is real ownership vs historical placement
+- how to avoid turning a component into a second SG identity
 
 ---
 
@@ -541,3 +605,4 @@ It becomes modular when:
 - mixed files are treated critically
 - legacy placement is not mistaken for correct architecture
 - new code follows responsibility, not convenience
+- code ownership remains component ownership inside SG, not ownership over SG itself

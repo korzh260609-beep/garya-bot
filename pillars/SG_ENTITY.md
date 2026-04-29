@@ -1,7 +1,7 @@
 # SG_ENTITY.md — SG as Entity (PILLAR)
 
 > This document defines what SG is as a system entity.
-> It MUST be consistent with: SG_BEHAVIOR.md, PROJECT.md, WORKFLOW.md, DECISIONS.md.
+> It MUST be consistent with: SG_BEHAVIOR.md, PROJECT.md, active workflow files under `pillars/workflow/`, DECISIONS.md.
 > If any code, prompt, module, or policy contradicts this file — it is incorrect.
 
 This document must also be interpreted together with:
@@ -22,7 +22,7 @@ This file defines:
 This file does NOT define:
 - detailed behavior rules in chats/tasks (see SG_BEHAVIOR.md)
 - architecture implementation details (see PROJECT.md)
-- stage order (see WORKFLOW.md)
+- stage order (see `pillars/workflow/00_RULES_AND_ORDER.md` and active workflow files under `pillars/workflow/`)
 - final project decisions (see DECISIONS.md)
 
 ---

@@ -4,8 +4,8 @@ Reset before current command run.
 
 ---
 
-Task ID: `run-project-semantic-map-001`
-Updated at: `2026-04-28T18:29:54.648Z`
+Task ID: `collect-render-logs-human-mode-gate-001`
+Updated at: `2026-04-29T07:16:38.248Z`
 Reason: `reset_before_command_run`
 
 ---

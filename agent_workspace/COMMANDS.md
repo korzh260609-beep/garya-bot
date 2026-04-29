@@ -6,23 +6,23 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `COLLECT-RENDER-LOGS-HUMAN-MODE-HANDOFF-001`
-STATUS: `DONE`
+COMMAND_ID: `COLLECT-RENDER-LOGS-LATEST-100-20260429-001`
+STATUS: `PENDING`
 ACTION: `COLLECT_RENDER_LOGS`
-TASK_ID: `collect-render-logs-human-mode-handoff-001`
-WORKFLOW_POINT: `human-mode-project-repo-response-handoff-diagnosis`
+TASK_ID: `collect-render-logs-latest-100-20260429-001`
+WORKFLOW_POINT: `manual-render-latest-logs-request`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `12b1d24c9195cfa5096f88b7d64365260b1a39a2`
+REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-29T17:10:00.000Z`
-UPDATED_AT: `2026-04-29T14:12:34.284Z`
+CREATED_AT: `2026-04-29T15:30:00.000Z`
+UPDATED_AT: `2026-04-29T15:30:00.000Z`
 
 ---
 
 ## Payload
 
-minutes=30
-limit=300
+minutes=60
+limit=100
 maxLineChars=1600
 level=all
 writeTo=agent_workspace/RENDER_LOGS_REPORT.md
@@ -31,18 +31,7 @@ writeTo=agent_workspace/RENDER_LOGS_REPORT.md
 
 ## Last result
 
-Action completed: COLLECT_RENDER_LOGS
-Task ID: collect-render-logs-human-mode-handoff-001
-Workflow point: human-mode-project-repo-response-handoff-diagnosis
-Deploy ID: -
-Commit: 12b1d24c9195cfa5096f88b7d64365260b1a39a2
-Required commit: 12b1d24c9195cfa5096f88b7d64365260b1a39a2
-Runtime commit: 12b1d24c9195cfa5096f88b7d64365260b1a39a2
-Logs: 300
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending: collect latest 100 Render logs through AgentWorkspace Render Control.
 
 ---
 

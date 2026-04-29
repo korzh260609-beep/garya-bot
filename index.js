@@ -14,7 +14,8 @@ import { TelegramAdapter } from "./src/transport/telegramAdapter.js";
 import { buildCoreDeps } from "./src/core/coreDepsFactory.js";
 
 // ✅ Stage 6 — transport enforced flag
-import { isTransportEnforced } from "./src/transport/transportConfig.js";
+import { isTransportEnforced, isTransportTraceEnabled } from "./src/transport/transportConfig.js";
+import { isHumanModeProjectRepoRuntimeEnabled } from "./src/core/projectIntent/modes/human/projectIntentHumanRuntimeGateConfig.js";
 
 import { createApp, startHttpServer } from "./src/http/server.js";
 import { createDebugCoingeckoMarketChartRoute } from "./src/http/debugCoingeckoMarketChartRoute.js";
@@ -48,6 +49,15 @@ import { envInt } from "./src/core/config.js";
 // CONFIG
 // ============================================================================
 const MAX_HISTORY_MESSAGES = 20;
+
+console.log("HUMAN_MODE_GATE_STATUS", {
+  TRANSPORT_ENFORCED: isTransportEnforced(),
+  TRANSPORT_TRACE: isTransportTraceEnabled(),
+  HUMAN_MODE_PROJECT_REPO_ENABLED: isHumanModeProjectRepoRuntimeEnabled(),
+  RENDER_GIT_COMMIT: process.env.RENDER_GIT_COMMIT || null,
+  GIT_COMMIT: process.env.GIT_COMMIT || null,
+  NODE_ENV: process.env.NODE_ENV || null,
+});
 
 // ============================================================================
 // JOB RUNNER

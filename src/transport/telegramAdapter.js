@@ -4,7 +4,7 @@
 import { TransportAdapter } from "./TransportAdapter.js";
 import { createUnifiedContext } from "./unifiedContext.js";
 import { toCoreContextFromUnified } from "./toCoreContext.js";
-import { isTransportEnforced } from "./transportConfig.js";
+import { isTransportEnforced, isTransportTraceEnabled } from "./transportConfig.js";
 
 import { handleMessage } from "../core/handleMessage.js";
 
@@ -77,6 +77,15 @@ export class TelegramAdapter extends TransportAdapter {
 
     this.bot.on("message", async (msg) => {
       try {
+
+        if (isTransportTraceEnabled()) {
+          console.log("TELEGRAM_ADAPTER_MESSAGE_RECEIVED", {
+            messageId: msg?.message_id || null,
+            hasText: typeof msg?.text === "string",
+            chatType: msg?.chat?.type || null,
+            fromId: msg?.from?.id || null,
+          });
+        }
 
         const unified = this.toContext(msg);
 

@@ -3,16 +3,18 @@
 // HUMAN MODE CAPABILITY SELECTOR SKELETON
 //
 // Purpose:
-// - future capability/action selection boundary for Human Mode repo/project work.
+// - capability/action selection boundary for Human Mode repo/project work.
 // - selects what SG should do after permissions, meaning and factual repo state.
 // - must not use slash commands, exact phrases, keywords or regex routing.
 //
 // Current status:
-// - skeleton only.
+// - safe contract only.
 // - not wired into runtime.
+// - relies on structured meaning/repoFacts, not raw text routing.
 // ============================================================================
 
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
+import { HUMAN_PROJECT_INTENT_KINDS } from "./projectIntentHumanMeaning.js";
 
 export const HUMAN_PROJECT_CAPABILITIES = Object.freeze({
   ANSWER_FROM_REPO_STATE: "answer_from_repo_state",
@@ -24,11 +26,43 @@ export const HUMAN_PROJECT_CAPABILITIES = Object.freeze({
   NONE: "none",
 });
 
-export function selectHumanProjectCapability() {
+function selectCapabilityForIntentKind(intentKind) {
+  switch (intentKind) {
+    case HUMAN_PROJECT_INTENT_KINDS.REPO_STATUS_QUESTION:
+      return HUMAN_PROJECT_CAPABILITIES.ANSWER_FROM_REPO_STATE;
+    case HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION:
+      return HUMAN_PROJECT_CAPABILITIES.SUMMARIZE_ARCHITECTURE;
+    case HUMAN_PROJECT_INTENT_KINDS.MODULE_QUESTION:
+    case HUMAN_PROJECT_INTENT_KINDS.FILE_OR_AREA_QUESTION:
+      return HUMAN_PROJECT_CAPABILITIES.EXPLAIN_MODULE;
+    case HUMAN_PROJECT_INTENT_KINDS.RISK_QUESTION:
+      return HUMAN_PROJECT_CAPABILITIES.IDENTIFY_RISK;
+    case HUMAN_PROJECT_INTENT_KINDS.NEXT_STEP_QUESTION:
+      return HUMAN_PROJECT_CAPABILITIES.SUGGEST_NEXT_STEP;
+    case HUMAN_PROJECT_INTENT_KINDS.UNKNOWN:
+    default:
+      return HUMAN_PROJECT_CAPABILITIES.ASK_CLARIFICATION;
+  }
+}
+
+export function selectHumanProjectCapability({ meaning = null, repoFacts = null } = {}) {
+  if (repoFacts?.ok !== true) {
+    return {
+      mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
+      capability: HUMAN_PROJECT_CAPABILITIES.NONE,
+      ready: false,
+      reason: "repo_facts_required_before_capability_selection",
+    };
+  }
+
+  const intentKind = meaning?.intentKind || HUMAN_PROJECT_INTENT_KINDS.UNKNOWN;
+  const capability = selectCapabilityForIntentKind(intentKind);
+
   return {
     mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
-    capability: HUMAN_PROJECT_CAPABILITIES.NONE,
-    reason: "human_capability_selector_not_implemented",
+    capability,
+    ready: capability !== HUMAN_PROJECT_CAPABILITIES.NONE,
+    reason: "human_capability_selected_from_structured_meaning",
   };
 }
 

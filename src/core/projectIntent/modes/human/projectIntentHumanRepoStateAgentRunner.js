@@ -12,13 +12,18 @@
 // - safe adapter contract only.
 // - not wired into runtime.
 // - no work is executed unless the returned runner is explicitly called.
+// - real RepoStateAgentService is lazy-imported only when needed.
 // ============================================================================
 
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
-import RepoStateAgentService from "../../../../simpleAgents/repoStateAgent/RepoStateAgentService.js";
+
+async function loadDefaultRepoStateAgentServiceClass() {
+  const module = await import("../../../../simpleAgents/repoStateAgent/RepoStateAgentService.js");
+  return module.default || module.RepoStateAgentService;
+}
 
 export function createHumanRepoStateAgentRunner({
-  RepoStateAgentServiceClass = RepoStateAgentService,
+  RepoStateAgentServiceClass = null,
   defaultOptions = null,
 } = {}) {
   return async function humanRepoStateAgentRunner(runnerContext = {}) {
@@ -29,7 +34,8 @@ export function createHumanRepoStateAgentRunner({
       };
     }
 
-    const service = new RepoStateAgentServiceClass();
+    const ServiceClass = RepoStateAgentServiceClass || await loadDefaultRepoStateAgentServiceClass();
+    const service = new ServiceClass();
     const options = {
       ...(defaultOptions || {}),
       ...(runnerContext?.options || {}),

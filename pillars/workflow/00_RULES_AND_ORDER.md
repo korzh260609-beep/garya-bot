@@ -1,4 +1,4 @@
-# WORKFLOW.md — SG AI SYSTEM (Strict Roadmap Execution)
+# 00_RULES_AND_ORDER.md — SG AI SYSTEM (Strict Roadmap Execution)
 
 > Single source of truth for development order.  
 > Purpose: prevent premature decisions, keep skeleton intact, make errors early + cheap.

@@ -42,6 +42,27 @@ assertFunction(
 assertFunction("selectHumanProjectCapability", selectHumanProjectCapability);
 assertFunction("buildHumanProjectIntentResponse", buildHumanProjectIntentResponse);
 
+const rawTextMeaning = classifyHumanProjectIntentMeaning({
+  text: "проверь архитектуру проекта",
+});
+
+if (rawTextMeaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.UNKNOWN) {
+  throw new Error("Human Mode skeleton smoke check failed: raw text must not be classified yet");
+}
+
+const structuredMeaning = classifyHumanProjectIntentMeaning({
+  context: {
+    humanProjectIntentMeaning: {
+      intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+      confidence: "test",
+    },
+  },
+});
+
+if (structuredMeaning?.intentKind !== HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION) {
+  throw new Error("Human Mode skeleton smoke check failed: structured meaning was not accepted");
+}
+
 const denied = await handleHumanProjectIntent({
   text: "проверь архитектуру проекта",
   isMonarchUser: false,
@@ -135,9 +156,7 @@ if (sampleRepoFacts?.facts?.repo?.fullName !== "korzh260609-beep/garya-bot") {
 }
 
 const architectureCapability = selectHumanProjectCapability({
-  meaning: {
-    intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
-  },
+  meaning: structuredMeaning,
   repoFacts: sampleRepoFacts,
 });
 

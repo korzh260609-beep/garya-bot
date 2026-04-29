@@ -4,8 +4,8 @@ Reset before current command run.
 
 ---
 
-Task ID: `collect-render-logs-human-mode-gate-002`
-Updated at: `2026-04-29T07:18:34.487Z`
+Task ID: `collect-render-logs-human-mode-handoff-001`
+Updated at: `2026-04-29T14:12:29.478Z`
 Reason: `reset_before_command_run_no_test_yet`
 
 ---

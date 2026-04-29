@@ -17,6 +17,7 @@ import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.j
 import { checkHumanProjectIntentPermissions } from "./projectIntentHumanPermissions.js";
 import { classifyHumanProjectIntentMeaning } from "./projectIntentHumanMeaning.js";
 import { loadHumanProjectRepoFacts } from "./projectIntentHumanRepoFacts.js";
+import { buildHumanProjectContextPack } from "./projectIntentHumanContextPackBuilder.js";
 import { selectHumanProjectCapability } from "./projectIntentHumanCapabilitySelector.js";
 import { buildHumanProjectIntentResponse } from "./projectIntentHumanResponseBuilder.js";
 
@@ -45,7 +46,18 @@ export async function handleHumanProjectIntent({
 
   const meaning = await classifyHumanProjectIntentMeaning({ text, context });
   const repoFacts = await loadHumanProjectRepoFacts({ text, context, meaning });
-  const capability = selectHumanProjectCapability({ text, context, meaning, repoFacts });
+  const contextPack = buildHumanProjectContextPack({
+    context,
+    repoFacts,
+    meaning,
+  });
+  const capability = selectHumanProjectCapability({
+    text,
+    context,
+    meaning,
+    repoFacts,
+    contextPack,
+  });
   const response = buildHumanProjectIntentResponse({
     text,
     context,
@@ -53,6 +65,7 @@ export async function handleHumanProjectIntent({
     meaning,
     repoFacts,
     capability,
+    contextPack,
   });
 
   return {
@@ -64,6 +77,7 @@ export async function handleHumanProjectIntent({
     permissions,
     meaning,
     repoFacts,
+    contextPack,
     capability,
     response,
   };

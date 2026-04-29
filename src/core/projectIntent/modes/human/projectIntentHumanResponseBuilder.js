@@ -39,14 +39,27 @@ function readNextActionPlan(repoFacts = {}) {
 
 function readRisks(repoFacts = {}) {
   const health = readArchitectureHealth(repoFacts);
-  const risks = health?.risks || health?.riskHints || health?.topRisks || [];
-  return Array.isArray(risks) ? risks.slice(0, 4) : [];
+  const directRisks = health?.risks || health?.riskHints || health?.topRisks || [];
+
+  if (Array.isArray(directRisks) && directRisks.length) {
+    return directRisks.slice(0, 4);
+  }
+
+  if (Array.isArray(health?.findings) && health.findings.length) {
+    return health.findings.slice(0, 4);
+  }
+
+  if (Array.isArray(health?.recommendedFocus) && health.recommendedFocus.length) {
+    return health.recommendedFocus.slice(0, 4);
+  }
+
+  return [];
 }
 
 function formatRiskLine(risk) {
   if (typeof risk === "string") return `- ${risk}`;
   const title = risk?.title || risk?.risk || risk?.message || risk?.summary || "Risk item";
-  const severity = risk?.severity ? ` (${risk.severity})` : "";
+  const severity = risk?.severity || risk?.priority ? ` (${risk.severity || risk.priority})` : "";
   return `- ${title}${severity}`;
 }
 

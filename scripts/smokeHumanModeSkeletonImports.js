@@ -24,6 +24,7 @@ import {
   selectHumanProjectCapability,
 } from "../src/core/projectIntent/modes/human/projectIntentHumanCapabilitySelector.js";
 import { buildHumanProjectIntentResponse } from "../src/core/projectIntent/modes/human/projectIntentHumanResponseBuilder.js";
+import { createHumanRepoStateAgentRunner } from "../src/core/projectIntent/modes/human/projectIntentHumanRepoStateAgentRunner.js";
 
 function assertFunction(name, value) {
   if (typeof value !== "function") {
@@ -41,6 +42,7 @@ assertFunction(
 );
 assertFunction("selectHumanProjectCapability", selectHumanProjectCapability);
 assertFunction("buildHumanProjectIntentResponse", buildHumanProjectIntentResponse);
+assertFunction("createHumanRepoStateAgentRunner", createHumanRepoStateAgentRunner);
 
 const rawTextMeaning = classifyHumanProjectIntentMeaning({
   text: "проверь архитектуру проекта",
@@ -191,6 +193,51 @@ if (injectedRunnerCallCount !== 1) {
 
 if (allowedRunnerFacts?.ok !== true) {
   throw new Error("Human Mode skeleton smoke check failed: allowed injected runner facts must be ok=true");
+}
+
+let adapterServiceConstructed = 0;
+let adapterServiceRunCount = 0;
+class MockRepoStateAgentService {
+  constructor() {
+    adapterServiceConstructed += 1;
+  }
+
+  async run(options = {}) {
+    adapterServiceRunCount += 1;
+
+    if (options?.dryRun !== true) {
+      throw new Error("Human Mode skeleton smoke check failed: adapter default options mismatch");
+    }
+
+    return sampleRepoStateAgentResult;
+  }
+}
+
+const adapterRunner = createHumanRepoStateAgentRunner({
+  RepoStateAgentServiceClass: MockRepoStateAgentService,
+  defaultOptions: {
+    dryRun: true,
+  },
+});
+
+const blockedAdapterResult = await adapterRunner({ mode: "technical" });
+
+if (blockedAdapterResult?.reason !== "human_repo_state_agent_runner_requires_human_mode") {
+  throw new Error("Human Mode skeleton smoke check failed: adapter runner must require human mode");
+}
+
+if (adapterServiceConstructed !== 0 || adapterServiceRunCount !== 0) {
+  throw new Error("Human Mode skeleton smoke check failed: blocked adapter runner must not construct service");
+}
+
+const adapterResult = await adapterRunner({ mode: "human" });
+
+if (adapterServiceConstructed !== 1 || adapterServiceRunCount !== 1) {
+  throw new Error("Human Mode skeleton smoke check failed: adapter runner must construct and run service once");
+}
+
+if (adapterResult?.repoFullName !== "korzh260609-beep/garya-bot") {
+  throw new Error("Human Mode skeleton smoke check failed: adapter runner result mismatch");
 }
 
 const architectureCapability = selectHumanProjectCapability({

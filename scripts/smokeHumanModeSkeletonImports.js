@@ -95,7 +95,7 @@ if (allowed?.handled !== false) {
   throw new Error("Human Mode skeleton smoke check failed: skeleton must not handle runtime yet without repo facts");
 }
 
-const missingRepoFacts = loadHumanProjectRepoFacts();
+const missingRepoFacts = await loadHumanProjectRepoFacts();
 
 if (missingRepoFacts?.ok !== false) {
   throw new Error("Human Mode skeleton smoke check failed: missing repo facts must be ok=false");
@@ -103,6 +103,18 @@ if (missingRepoFacts?.ok !== false) {
 
 if (missingRepoFacts?.reason !== "repo_state_agent_result_not_provided") {
   throw new Error("Human Mode skeleton smoke check failed: unexpected missing repo facts reason");
+}
+
+const blockedRunnerFacts = await loadHumanProjectRepoFacts({
+  context: {
+    repoStateAgentRunner: async () => {
+      throw new Error("repoStateAgentRunner must not be called without allowHumanRepoStateAgentRun=true");
+    },
+  },
+});
+
+if (blockedRunnerFacts?.reason !== "repo_state_agent_runner_present_but_not_allowed") {
+  throw new Error("Human Mode skeleton smoke check failed: injected runner must be blocked by default");
 }
 
 const responseWithoutFacts = buildHumanProjectIntentResponse({
@@ -155,6 +167,30 @@ if (sampleRepoFacts?.ok !== true) {
 
 if (sampleRepoFacts?.facts?.repo?.fullName !== "korzh260609-beep/garya-bot") {
   throw new Error("Human Mode skeleton smoke check failed: sample repo facts repo fullName mismatch");
+}
+
+let injectedRunnerCallCount = 0;
+const allowedRunnerFacts = await loadHumanProjectRepoFacts({
+  context: {
+    allowHumanRepoStateAgentRun: true,
+    repoStateAgentRunner: async (runnerContext) => {
+      injectedRunnerCallCount += 1;
+
+      if (runnerContext?.mode !== "human") {
+        throw new Error("Human Mode skeleton smoke check failed: injected runner mode mismatch");
+      }
+
+      return sampleRepoStateAgentResult;
+    },
+  },
+});
+
+if (injectedRunnerCallCount !== 1) {
+  throw new Error("Human Mode skeleton smoke check failed: injected runner must be called exactly once when allowed");
+}
+
+if (allowedRunnerFacts?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: allowed injected runner facts must be ok=true");
 }
 
 const architectureCapability = selectHumanProjectCapability({

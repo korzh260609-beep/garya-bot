@@ -185,6 +185,7 @@ Purpose:
 Read together with:
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/DECISIONS.md`
 
@@ -209,6 +210,8 @@ Read together with:
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+- `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`
 
@@ -260,6 +263,8 @@ Purpose:
 Read together with:
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
@@ -284,6 +289,7 @@ Purpose:
 Read together with:
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/DATA_FLOW.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - active workflow files under `pillars/workflow/`
 
@@ -308,6 +314,7 @@ Read together with:
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 
 ---
@@ -354,6 +361,7 @@ Purpose:
 Read together with:
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/DATA_FLOW.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - active workflow files under `pillars/workflow/`
 
@@ -378,6 +386,8 @@ Read together with:
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/DECISIONS.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/CODE_OUTPUT.md`
 
@@ -391,6 +401,9 @@ Read:
 - `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
+- `pillars/architecture/SG_INTERFACE_LAYERS.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - module `README.md`
 - module `RISKS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
@@ -415,6 +428,7 @@ Read:
 - `pillars/DOCS_GOVERNANCE.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/MODULE_MAP.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - this file
 - then create new module folder with standard file set
@@ -431,6 +445,7 @@ Do NOT add random files into `pillars/modules/` without deciding:
 - does this duplicate an existing module doc?
 - what maturity/status will this module realistically have?
 - does this module remain a component of SG instead of becoming a separate SG entity?
+- how will this capability be exposed through SG if it is useful to users/Monarch?
 
 Otherwise the module-doc system will decay quickly.
 

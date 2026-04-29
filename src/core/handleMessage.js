@@ -17,6 +17,8 @@ import { buildProjectLightEvidencePack } from "../projectExperience/ProjectLight
 import { getCachedSeed, setCachedSeed } from "../projectExperience/ProjectEvidenceSeedCache.js";
 import { understandMeaning } from "./meaning/MeaningEngine.js";
 import { selectToolsForMeaning } from "./meaning/ToolSelectionEngine.js";
+import { isHumanModeProjectRepoRuntimeEnabled } from "./projectIntent/modes/human/projectIntentHumanRuntimeGateConfig.js";
+import { handleHumanProjectIntent } from "./projectIntent/modes/human/projectIntentHumanEntry.js";
 
 function hasProjectEvidenceSeed(value = {}) {
   return Boolean(
@@ -153,6 +155,47 @@ function buildProjectMemoryEvidencePackIfAvailable(context = {}, deps = {}) {
     repository: seed?.repository || "korzh260609-beep/garya-bot",
     ref: seed?.ref || "main",
   });
+}
+
+async function runHumanModeProjectRepoDryRunHook({
+  enrichedContext = {},
+  trimmed = "",
+  isMonarchUser = false,
+  isPrivateChat = false,
+} = {}) {
+  if (!isHumanModeProjectRepoRuntimeEnabled()) {
+    return null;
+  }
+
+  try {
+    const result = await handleHumanProjectIntent({
+      text: trimmed,
+      isMonarchUser,
+      isPrivateChat,
+      context: enrichedContext,
+    });
+
+    return {
+      enabled: true,
+      mode: result?.mode || "human",
+      handled: result?.handled === true,
+      allowed: result?.allowed === true,
+      blocked: result?.blocked === true,
+      reason: result?.reason || null,
+      meaningIntentKind: result?.meaning?.intentKind || null,
+      repoFactsOk: result?.repoFacts?.ok === true,
+      capability: result?.capability?.capability || null,
+    };
+  } catch (e) {
+    console.error("human mode project/repo dry-run hook failed (fail-open):", e);
+    return {
+      enabled: true,
+      handled: false,
+      allowed: false,
+      blocked: true,
+      reason: "human_mode_project_repo_dry_run_failed",
+    };
+  }
 }
 
 export async function handleMessage(context = {}) {
@@ -369,6 +412,27 @@ export async function handleMessage(context = {}) {
   } = identity;
 
   // =========================================================================
+  // HUMAN MODE PROJECT/REPO — gated dry-run hook only, no user response
+  // =========================================================================
+  const humanModeProjectRepoDryRun = await runHumanModeProjectRepoDryRunHook({
+    enrichedContext,
+    trimmed,
+    isMonarchUser,
+    isPrivateChat,
+  });
+
+  if (humanModeProjectRepoDryRun && isTransportTraceEnabled()) {
+    console.log("HUMAN_MODE_PROJECT_REPO_DRY_RUN", humanModeProjectRepoDryRun);
+  }
+
+  if (humanModeProjectRepoDryRun) {
+    enrichedContext = {
+      ...enrichedContext,
+      humanModeProjectRepoDryRun,
+    };
+  }
+
+  // =========================================================================
   // STAGE 6 LOGIC STEP 2 — Routing parse
   // =========================================================================
   const routing = parseCommandAccess({
@@ -426,6 +490,7 @@ export async function handleMessage(context = {}) {
         projectEvidencePackPresent: projectEvidenceDiagnostics.projectEvidencePackPresent,
         projectEvidencePackSource: projectEvidenceDiagnostics.projectEvidencePackSource,
         projectEvidenceTriggerReasons: projectEvidenceDiagnostics.projectEvidenceTriggerReasons,
+        humanModeProjectRepoDryRun,
       });
     }
   } catch {
@@ -529,6 +594,7 @@ export async function handleMessage(context = {}) {
       projectContextDecision: enrichedContext?.projectContextDecision || null,
       projectMemoryEvidenceTriggerDecision: enrichedContext?.projectMemoryEvidenceTriggerDecision || null,
       projectEvidenceDiagnostics,
+      humanModeProjectRepoDryRun,
     };
   }
 

@@ -1,17 +1,5 @@
 // src/core/projectIntent/modes/human/projectIntentHumanCapabilitySelector.js
 // ============================================================================
-// HUMAN MODE CAPABILITY SELECTOR SKELETON
-//
-// Purpose:
-// - capability/action selection boundary for Human Mode repo/project work.
-// - selects what SG should do after permissions, meaning and factual repo state.
-// - must not use slash commands, exact phrases, keywords or regex routing.
-//
-// Current status:
-// - safe contract only.
-// - not wired into runtime.
-// - relies on structured meaning/repoFacts, not raw text routing.
-// ============================================================================
 
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
 import { HUMAN_PROJECT_INTENT_KINDS } from "./projectIntentHumanMeaning.js";
@@ -22,12 +10,15 @@ export const HUMAN_PROJECT_CAPABILITIES = Object.freeze({
   SUMMARIZE_ARCHITECTURE: "summarize_architecture",
   IDENTIFY_RISK: "identify_risk",
   SUGGEST_NEXT_STEP: "suggest_next_step",
+  EXPLAIN_SOURCES: "explain_sources",
   ASK_CLARIFICATION: "ask_clarification",
   NONE: "none",
 });
 
 function selectCapabilityForIntentKind(intentKind) {
   switch (intentKind) {
+    case HUMAN_PROJECT_INTENT_KINDS.SOURCE_QUESTION:
+      return HUMAN_PROJECT_CAPABILITIES.EXPLAIN_SOURCES;
     case HUMAN_PROJECT_INTENT_KINDS.REPO_STATUS_QUESTION:
     case HUMAN_PROJECT_INTENT_KINDS.PROJECT_ANALYSIS:
       return HUMAN_PROJECT_CAPABILITIES.ANSWER_FROM_REPO_STATE;

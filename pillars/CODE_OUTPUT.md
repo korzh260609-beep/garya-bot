@@ -11,6 +11,9 @@ This document must be interpreted together with:
 - `pillars/DECISIONS.md`
 - `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/DOCS_GOVERNANCE.md`
+- `pillars/architecture/README.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 
 ---
 
@@ -50,6 +53,28 @@ Monarch = final executor / approval source
 
 ---
 
+## Capability and semantic boundary
+
+Code-output is a controlled capability surface of SG.
+
+It is not:
+- Human Mode runtime connection;
+- Global SemanticRouter implementation;
+- autonomous repo mutation;
+- independent developer agent;
+- authority to redefine SG architecture/governance.
+
+Code-output must respect:
+
+```text
+Human Mode / Technical Mode separation
+semantic routing gates
+capability access gates
+permissions/governance boundaries
+```
+
+---
+
 ## Принципиальные ограничения
 
 - SG **не является автономным разработчиком**
@@ -57,6 +82,8 @@ Monarch = final executor / approval source
 - SG **не делает автозамен, автокоммитов или автодеплоя**
 - SG **не улучшает и не оптимизирует код по собственной инициативе**
 - SG **не позволяет внешним AI-операторам владеть архитектурой, памятью, решениями или проектным опытом SG**
+- SG **не использует code-output как обход Human Mode / Technical Mode gates**
+- SG **не использует code-output как разрешение на Global SemanticRouter**
 
 SG — исполнитель и контролёр, не автономный архитектор.
 
@@ -73,6 +100,8 @@ SG может генерировать код **только при одновр
 5. Отсутствуют противоречия с `DECISIONS.md`, accepted decision-файлами и другими pillars
 6. Изменение не нарушает принцип skeleton -> config -> logic
 7. Изменение не делает компонент/tool/mode/agent отдельной сущностью SG
+8. Изменение не нарушает semantic routing gates
+9. Изменение не превращает capability access в governance authority
 
 ---
 
@@ -108,6 +137,9 @@ SG **запрещено**:
 - Использовать deprecated/archived docs as active truth
 - Использовать old RepoIndex / old maps as current factual repo state
 - Представлять внешние AI coding tools как SG itself
+- Использовать кодогенерацию как скрытый runtime connect
+- Использовать кодогенерацию как способ создать Global SemanticRouter без accepted gate
+- Использовать capability access как право менять сущность SG
 
 ---
 
@@ -136,6 +168,8 @@ SG **запрещено**:
 - `pillars/README.md`
 - `pillars/DOCS_GOVERNANCE.md`
 - `pillars/architecture/README.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
 - active workflow files under `pillars/`
 - `CODE_INSERT_RULES.md` if present and active

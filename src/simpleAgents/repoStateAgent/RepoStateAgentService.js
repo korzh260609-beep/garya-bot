@@ -10,6 +10,9 @@ import {
   saveProjectMapState,
 } from "./RepoStateProjectMapStateRepository.js";
 
+const DEFAULT_REPO_FULL_NAME = "korzh260609-beep/garya-bot";
+const DEFAULT_BRANCH = "main";
+
 function enrichAiExecution(aiAnalysis = {}) {
   if (aiAnalysis?.enabled !== true) {
     return {
@@ -89,6 +92,48 @@ function buildAiUsageMetadata(aiAnalysis = {}) {
   };
 }
 
+function normalizeProjectMapFromState(state = null) {
+  if (!state?.project_map || typeof state.project_map !== "object") {
+    return null;
+  }
+
+  return state.project_map;
+}
+
+function buildFastReadOnlyResult({ repoFullName, branch, state, projectMap }) {
+  const nextActionPlan = buildRepoStateNextActionPlan(projectMap);
+  const architectureHealth = buildRepoStateArchitectureHealth(projectMap);
+
+  return {
+    ok: true,
+    source: "repo_state_agent_fast_read_only",
+    fastReadOnly: true,
+    repoFullName,
+    branch,
+    snapshot: null,
+    persistence: {
+      scanRunId: state?.scan_run_id || null,
+      reusedProjectMapStateId: state?.id || null,
+      readOnly: true,
+      writesSkipped: true,
+    },
+    projectMap,
+    nextActionPlan,
+    architectureHealth,
+    aiAnalysis: enrichAiExecution({
+      enabled: false,
+      skipped: true,
+      reason: "fast_read_only_reused_project_map_state",
+    }),
+    aiMeta: {
+      fastReadOnly: true,
+      reusedProjectMapState: true,
+      tokensSpent: false,
+      aiSource: "disabled",
+    },
+  };
+}
+
 export class RepoStateAgentService {
   constructor() {
     const { collector } = createRepoStateCollector();
@@ -98,6 +143,23 @@ export class RepoStateAgentService {
   async run(options = {}) {
     const forceAiAnalysis = options.forceAiAnalysis === true;
     const allowRealAi = options.allowRealAi === true;
+    const fastReadOnly = options.fastReadOnly === true;
+    const repoFullNameForFastRead = options.repoFullName || DEFAULT_REPO_FULL_NAME;
+    const branchForFastRead = options.branch || DEFAULT_BRANCH;
+
+    if (fastReadOnly) {
+      const latestProjectMapState = await getLatestProjectMapState(repoFullNameForFastRead, branchForFastRead);
+      const cachedProjectMap = normalizeProjectMapFromState(latestProjectMapState);
+
+      if (cachedProjectMap) {
+        return buildFastReadOnlyResult({
+          repoFullName: repoFullNameForFastRead,
+          branch: branchForFastRead,
+          state: latestProjectMapState,
+          projectMap: cachedProjectMap,
+        });
+      }
+    }
 
     const result = await this.collector.runScan();
 

@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `COLLECT-RENDER-LOGS-HUMAN-MODE-HANDOFF-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `collect-render-logs-human-mode-handoff-001`
 WORKFLOW_POINT: `human-mode-project-repo-response-handoff-diagnosis`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `12b1d24c9195cfa5096f88b7d64365260b1a39a2`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-04-29T17:10:00.000Z`
-UPDATED_AT: `2026-04-29T14:12:18.997Z`
+UPDATED_AT: `2026-04-29T14:12:34.284Z`
 
 ---
 
@@ -31,7 +31,18 @@ writeTo=agent_workspace/RENDER_LOGS_REPORT.md
 
 ## Last result
 
-Started by github_webhook at 2026-04-29T14:12:18.997Z.
+Action completed: COLLECT_RENDER_LOGS
+Task ID: collect-render-logs-human-mode-handoff-001
+Workflow point: human-mode-project-repo-response-handoff-diagnosis
+Deploy ID: -
+Commit: 12b1d24c9195cfa5096f88b7d64365260b1a39a2
+Required commit: 12b1d24c9195cfa5096f88b7d64365260b1a39a2
+Runtime commit: 12b1d24c9195cfa5096f88b7d64365260b1a39a2
+Logs: 300
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

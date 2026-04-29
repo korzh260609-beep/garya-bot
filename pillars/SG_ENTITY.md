@@ -4,6 +4,10 @@
 > It MUST be consistent with: SG_BEHAVIOR.md, PROJECT.md, WORKFLOW.md, DECISIONS.md.
 > If any code, prompt, module, or policy contradicts this file — it is incorrect.
 
+This document must also be interpreted together with:
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/architecture/SG_INTERFACE_LAYERS.md`
+
 ---
 
 ## 0) Scope (What this file is / is not)
@@ -46,6 +50,10 @@ SG is intended as a universal core.
 SG is not one internal bot, one module, one agent, one prompt, one interface, or one implementation file.
 
 SG is the global project entity itself.
+
+This principle is accepted as a formal architectural decision in:
+
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 
 All technical parts of the system are parts, organs, channels, instruments, or subsystems of SG, including:
 - Telegram bot

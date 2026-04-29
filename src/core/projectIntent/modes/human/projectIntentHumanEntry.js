@@ -5,6 +5,7 @@
 
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
 import { checkHumanProjectIntentPermissions } from "./projectIntentHumanPermissions.js";
+import { resolveHumanProjectFollowUp } from "./projectIntentHumanFollowUpResolver.js";
 import { classifyHumanProjectIntentMeaning } from "./projectIntentHumanMeaning.js";
 import { loadHumanProjectRepoFacts } from "./projectIntentHumanRepoFacts.js";
 import { buildHumanProjectContextPack } from "./projectIntentHumanContextPackBuilder.js";
@@ -35,6 +36,11 @@ export async function handleHumanProjectIntent({
       permissions,
     };
   }
+
+  const followUp = resolveHumanProjectFollowUp({
+    context,
+    previousDecisionTrace: context?.previousHumanProjectDecisionTrace || null,
+  });
 
   const meaning = await classifyHumanProjectIntentMeaning({ text, context });
   const repoFacts = await loadHumanProjectRepoFacts({ text, context, meaning });
@@ -85,6 +91,7 @@ export async function handleHumanProjectIntent({
     blocked: false,
     reason: response.reason,
     permissions,
+    followUp,
     meaning,
     repoFacts,
     contextPack,

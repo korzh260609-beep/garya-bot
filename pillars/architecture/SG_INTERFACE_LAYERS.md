@@ -9,6 +9,37 @@ SG has two strictly separated interface modes:
 
 These modes must not be mixed.
 
+This file is an architecture-level implementation of the following pillars:
+
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
+- `pillars/PROJECT.md`
+- `pillars/DECISIONS.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+
+---
+
+## 0) Entity alignment
+
+SG is the global project entity.
+
+Human Mode and Technical Mode are interface modes of SG, not separate SG entities.
+
+Human Mode, Technical Mode, RepoStateAgent, diagnostics, commands, transports, memory, modules, sources, task engine, external agents, and future interfaces are components or instruments of SG.
+
+They must not be treated as independent replacements for SG itself.
+
+The purpose of interface separation is to protect SG’s entity integrity:
+
+```text
+SG = global project entity
+Human Mode = natural meaning-first interface of SG
+Technical Mode = explicit diagnostics / commands / legacy interface of SG
+RepoStateAgent = factual repo observation subsystem of SG
+```
+
+Any implementation that makes a mode, command route, bot, model, or agent behave as a separate “SG” is architecturally wrong.
+
 ---
 
 ## 1) Human Mode
@@ -30,6 +61,20 @@ user says naturally what they want
 ```
 
 Human Mode must not require slash commands, coded phrases, exact keywords or internal protocol.
+
+Human Mode is not a separate agent. It is SG’s normal meaning-first user interface.
+
+This follows the Meaning-First rule from `SG_ENTITY.md` and `SG_BEHAVIOR.md`:
+
+```text
+meaning -> intent -> decision -> action -> response
+```
+
+Forbidden simplification:
+
+```text
+keyword -> reflex response
+```
 
 ---
 
@@ -59,6 +104,8 @@ Technical Mode exists for:
 
 Technical Mode may require exact syntax.
 That is acceptable because it is a technical interface.
+
+Technical Mode is not SG’s intelligence layer. It is SG’s explicit technical/control interface.
 
 ---
 
@@ -124,8 +171,13 @@ RepoStateAgent
 -> RepoStateSemanticMapBuilder
 ```
 
-See:
+RepoStateAgent is not a separate SG. It is one factual observation subsystem of SG.
+
+This follows:
+
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+- `pillars/SG_ENTITY.md`
+- `pillars/PROJECT.md`
 
 ---
 
@@ -141,13 +193,18 @@ Allowed actions later:
 2. adapt to call new agents internally while remaining Technical Mode;
 3. remove carefully only after replacement is verified and Monarch approves.
 
+This follows `DECISIONS.md` and the behavior rule that SG must not change architecture or delete logic without explicit instruction.
+
 ---
 
 ## 7) Final formula
 
 ```text
+SG = global project entity.
 Human Mode = normal SG conversation by meaning.
 Technical Mode = explicit commands/tests/debug/legacy routes.
+RepoStateAgent = factual repo observation subsystem of SG.
 No mixing.
 No deletion now.
+No component replaces SG itself.
 ```

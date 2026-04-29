@@ -223,9 +223,14 @@ async function runHumanModeProjectRepoDryRunHook({
         meaning: null,
         repoFacts: null,
         capability: null,
+        response: null,
         timedOut: true,
       }
     );
+
+    const responseText = typeof result?.response?.text === "string"
+      ? result.response.text.trim()
+      : "";
 
     const summary = {
       enabled: true,
@@ -237,12 +242,17 @@ async function runHumanModeProjectRepoDryRunHook({
       meaningIntentKind: result?.meaning?.intentKind || null,
       repoFactsOk: result?.repoFacts?.ok === true,
       capability: result?.capability?.capability || null,
+      responseText: responseText || null,
+      hasResponseText: Boolean(responseText),
       timedOut: result?.timedOut === true,
       durationMs: Date.now() - startedAt,
     };
 
     if (isTransportTraceEnabled()) {
-      console.log(summary.timedOut ? "HUMAN_MODE_DRY_RUN_TIMEOUT" : "HUMAN_MODE_DRY_RUN_DONE", summary);
+      console.log(summary.timedOut ? "HUMAN_MODE_DRY_RUN_TIMEOUT" : "HUMAN_MODE_DRY_RUN_DONE", {
+        ...summary,
+        responseText: summary.hasResponseText ? "[present]" : null,
+      });
     }
 
     return summary;
@@ -454,7 +464,10 @@ export async function handleMessage(context = {}) {
   });
 
   if (humanModeProjectRepoDryRun && isTransportTraceEnabled()) {
-    console.log("HUMAN_MODE_PROJECT_REPO_DRY_RUN", humanModeProjectRepoDryRun);
+    console.log("HUMAN_MODE_PROJECT_REPO_DRY_RUN", {
+      ...humanModeProjectRepoDryRun,
+      responseText: humanModeProjectRepoDryRun.hasResponseText ? "[present]" : null,
+    });
   }
 
   if (humanModeProjectRepoDryRun) {
@@ -516,7 +529,12 @@ export async function handleMessage(context = {}) {
         projectEvidencePackPresent: projectEvidenceDiagnostics.projectEvidencePackPresent,
         projectEvidencePackSource: projectEvidenceDiagnostics.projectEvidencePackSource,
         projectEvidenceTriggerReasons: projectEvidenceDiagnostics.projectEvidenceTriggerReasons,
-        humanModeProjectRepoDryRun,
+        humanModeProjectRepoDryRun: humanModeProjectRepoDryRun
+          ? {
+              ...humanModeProjectRepoDryRun,
+              responseText: humanModeProjectRepoDryRun.hasResponseText ? "[present]" : null,
+            }
+          : null,
       });
     }
   } catch {
@@ -632,6 +650,34 @@ export async function handleMessage(context = {}) {
     senderId,
     messageId,
   });
+
+  if (
+    humanModeProjectRepoDryRun?.handled === true &&
+    humanModeProjectRepoDryRun?.hasResponseText === true &&
+    humanModeProjectRepoDryRun?.timedOut !== true &&
+    isMonarchUser === true &&
+    isPrivateChat === true &&
+    typeof replyAndLog === "function"
+  ) {
+    await replyAndLog(humanModeProjectRepoDryRun.responseText, {
+      handler: "handleMessage",
+      event: "human_mode_project_repo_response",
+      human_mode_intent_kind: humanModeProjectRepoDryRun.meaningIntentKind,
+      human_mode_capability: humanModeProjectRepoDryRun.capability,
+      human_mode_duration_ms: humanModeProjectRepoDryRun.durationMs,
+      transport_agnostic: true,
+    });
+
+    return {
+      ok: true,
+      stage: "human_mode.project_repo.response",
+      result: "handled",
+      humanModeProjectRepoDryRun: {
+        ...humanModeProjectRepoDryRun,
+        responseText: "[sent]",
+      },
+    };
+  }
 
   if (isCommand && cmdBase) {
     return handleCommandFlow({

@@ -8,12 +8,25 @@ Purpose:
 Status: CANONICAL
 Scope: repository logical architecture
 
+This file must be interpreted together with:
+
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
+- `pillars/PROJECT.md`
+- `pillars/DECISIONS.md`
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/architecture/README.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+
 ---
 
 ## 0) Why this file exists
 
-`WORKFLOW.md` defines execution order.  
-`REPOINDEX.md` defines repository structure and responsibility zones.
+Active workflow files define execution order.
+
+Repository/runtime verification defines factual current implementation state.
+
+RepoStateAgent is the factual source for current repository/project-map claims according to `REPO_MAP_SOURCE_POLICY.md`.
 
 This file exists to define the stable logical module map between them:
 
@@ -24,6 +37,31 @@ This file exists to define the stable logical module map between them:
 - how mature each module currently is conceptually
 
 This file is not a roadmap and not a directory dump.
+
+---
+
+## 0.1) SG entity rule for modules
+
+SG is the global project entity.
+
+Modules are bounded responsibility areas and components/instruments of SG.
+
+A module must never be treated as a separate independent SG.
+
+Correct model:
+
+```text
+SG = global project entity
+module = component / subsystem / responsibility domain of SG
+```
+
+Incorrect model:
+
+```text
+module = SG itself
+module = autonomous SG identity
+module = owner of SG decisions / identity / memory / experience
+```
 
 ---
 
@@ -95,6 +133,7 @@ Must NOT do:
 - memory decisions
 - permission logic
 - long-term storage decisions
+- become SG identity
 
 Examples:
 - Telegram adapter
@@ -117,11 +156,13 @@ Purpose:
 Must do:
 - connect input to the right handler/service
 - keep handlers small
+- respect Human Mode / Technical Mode separation
 
 Must NOT do:
 - become the business logic center
 - perform direct storage spaghetti
 - duplicate module logic
+- act as SG itself
 
 ---
 
@@ -144,6 +185,7 @@ Must NOT do:
 - own transport logic
 - own repository structure
 - own memory selection logic
+- override SG entity/governance rules
 
 ---
 
@@ -161,11 +203,13 @@ Must do:
 - centralize memory access
 - preserve memory boundaries
 - prevent uncontrolled memory pollution
+- support SG continuity and project experience
 
 Must NOT do:
 - act as raw chat dump
 - store forbidden artifacts such as raw repo source bodies
 - be bypassed by handlers
+- replace pillars or accepted decisions
 
 ---
 
@@ -186,6 +230,7 @@ Must do:
 Must NOT do:
 - absorb unrelated module responsibilities
 - contain hidden AI routing rules without explicit ownership
+- act autonomously outside SG governance
 
 ---
 
@@ -206,6 +251,7 @@ Must do:
 Must NOT do:
 - push raw uncontrolled payloads directly into AI decisions
 - hide source failures
+- replace SG reasoning or governance
 
 ---
 
@@ -223,11 +269,14 @@ Must do:
 - stay read-only in current governance
 - respect secret/path filtering
 - preserve structural indexing rules
+- follow `REPO_MAP_SOURCE_POLICY.md`
 
 Must NOT do:
 - auto-apply changes
 - bypass human approval
 - silently expand access scope
+- present old RepoIndex / old maps as current factual repo truth
+- become SG itself
 
 ---
 
@@ -248,6 +297,7 @@ Must do:
 Must NOT do:
 - change business results
 - become hidden control logic
+- act as autonomous decision maker
 
 ---
 
@@ -259,14 +309,17 @@ Purpose:
 - store project-level persistent context
 - support project restoration and continuity
 - separate project context from user chat memory
+- preserve SG project experience
 
 Must do:
 - preserve structured project knowledge
 - remain distinct from ordinary dialogue memory
+- remain subordinate to verified repo/runtime facts and canonical pillars
 
 Must NOT do:
 - replace canonical pillars
 - become a dumping ground
+- override accepted decisions
 
 ---
 
@@ -287,6 +340,7 @@ Must do:
 Must NOT do:
 - perform uncontrolled reasoning on raw media payloads
 - skip specialized routing rules
+- bypass source-first / safety rules
 
 ---
 
@@ -307,6 +361,7 @@ Must do:
 Must NOT do:
 - allow hidden direct model calls
 - make policy decisions outside governance
+- let external AI models/tools become SG itself
 
 ---
 
@@ -332,6 +387,7 @@ Hard rule:
 - Transport must not become the center of system logic
 - Bot handlers must not become god-objects
 - Storage/policy responsibilities must remain in their owning modules
+- No module may become a second SG identity
 
 ---
 
@@ -339,7 +395,7 @@ Hard rule:
 
 Important distinction:
 
-- `WORKFLOW.md` = when something is built
+- active workflow files under `pillars/workflow/` = when something is built
 - `MODULE_MAP.md` = where responsibility belongs
 
 Do not confuse stage order with module ownership.
@@ -365,9 +421,11 @@ Therefore:
 - do not assume all modules are equally implemented
 - do not treat conceptual module clarity as proof of clean runtime separation
 - always cross-check with:
-  - `pillars/REPOINDEX.md`
-  - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
   - verified repository/runtime state
+  - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+  - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
+
+If old `REPOINDEX.md` is marked legacy/deprecated, it must not be used as factual current repo state.
 
 ---
 
@@ -402,6 +460,8 @@ Create module docs by stable responsibility domain.
 
 Do NOT pretend all modules are equally mature if they are not.
 
+Do NOT describe a module as SG itself.
+
 Otherwise documentation becomes both fragmented and misleading.
 
 ---
@@ -409,6 +469,8 @@ Otherwise documentation becomes both fragmented and misleading.
 ## 9) Final rule
 
 SG must evolve by modules, not by documentation chaos.
+
+Modules are components of SG, not independent SG entities.
 
 The purpose of this map is to keep future code and future AI work aligned with stable ownership boundaries,
 while staying honest about actual runtime maturity.

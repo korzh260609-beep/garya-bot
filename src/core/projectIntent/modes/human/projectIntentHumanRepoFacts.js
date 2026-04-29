@@ -12,6 +12,7 @@
 // - safe contract only.
 // - not wired into runtime.
 // - does not call RepoStateAgent by itself.
+// - can use an explicitly injected runner only when explicitly allowed.
 // ============================================================================
 
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
@@ -77,11 +78,42 @@ export function buildHumanProjectRepoFactsFromRepoStateAgentResult(repoStateAgen
   };
 }
 
-export function loadHumanProjectRepoFacts({ context = null } = {}) {
+async function runInjectedRepoStateAgent({ context = null } = {}) {
+  const runner = context?.repoStateAgentRunner;
+
+  if (typeof runner !== "function") {
+    return null;
+  }
+
+  if (context?.allowHumanRepoStateAgentRun !== true) {
+    return {
+      mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
+      ok: false,
+      source: HUMAN_REPO_FACTS_SOURCES.REPO_STATE_AGENT,
+      facts: null,
+      reason: "repo_state_agent_runner_present_but_not_allowed",
+    };
+  }
+
+  const result = await runner({
+    mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
+    source: HUMAN_REPO_FACTS_SOURCES.REPO_STATE_AGENT,
+  });
+
+  return buildHumanProjectRepoFactsFromRepoStateAgentResult(result);
+}
+
+export async function loadHumanProjectRepoFacts({ context = null } = {}) {
   const repoStateAgentResult = context?.repoStateAgentResult || null;
 
   if (repoStateAgentResult) {
     return buildHumanProjectRepoFactsFromRepoStateAgentResult(repoStateAgentResult);
+  }
+
+  const injectedRunnerResult = await runInjectedRepoStateAgent({ context });
+
+  if (injectedRunnerResult) {
+    return injectedRunnerResult;
   }
 
   return {

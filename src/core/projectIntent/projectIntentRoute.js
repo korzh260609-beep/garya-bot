@@ -1,5 +1,17 @@
 // src/core/projectIntent/projectIntentRoute.js
 // ============================================================================
+// LEGACY PROJECT INTENT ROUTE BOUNDARY MARKER
+//
+// INTERFACE MODE NOTE:
+// - This file routes based on projectIntent scope classification results.
+// - The current scope classifier is still driven by deterministic phrase/token/
+//   prefix/path signals.
+// - Under hard Human Mode / Technical Mode separation, this is NOT a global
+//   Human Mode semantic router.
+// - Treat this as legacy Technical Mode boundary support until a clean structured
+//   meaning layer replaces it.
+// - Do not add new phrase-bound hacks here.
+// ============================================================================
 // STAGE 12A.0 — project free-text route resolver (meaning-first)
 // Purpose:
 // - build ONE universal route decision above scope-aware classifier

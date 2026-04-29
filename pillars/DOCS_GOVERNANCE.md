@@ -46,6 +46,8 @@ Any meaningful change affecting one or more of the following:
 - accepted decisions
 - source-of-truth policy
 - Human Mode / Technical Mode boundaries
+- semantic routing boundaries
+- capability access boundaries
 - component identity and ownership
 
 MUST be reflected in the corresponding pillar file
@@ -195,6 +197,8 @@ Required entry file:
 Use architecture docs for:
 - global technical boundaries
 - interface modes
+- semantic routing principles and gates
+- capability access rules
 - source-of-truth policies
 - data flow
 - permission maps
@@ -209,6 +213,13 @@ SG = global project entity
 components = organs / channels / instruments / subsystems of SG
 external AI operators = temporary helpers, not SG itself
 ```
+
+Current sensitive architecture docs include:
+- `pillars/architecture/SG_INTERFACE_LAYERS.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+- `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 
 ---
 
@@ -283,6 +294,8 @@ Documentation update is mandatory when any of the following happens:
 13. Human Mode / Technical Mode boundaries change
 14. Source-of-truth policy changes
 15. A previously active doc becomes archived/deprecated
+16. Semantic routing gate changes
+17. Capability access/governance boundary changes
 
 ---
 
@@ -323,6 +336,8 @@ AI must not treat:
 - old RepoIndex as current repo state
 - external AI tools as SG itself
 - Human Mode / Technical Mode / RepoStateAgent as separate SG entities
+- SemanticRouter as authorized current implementation before explicit gate
+- capability access as authority to redefine SG
 
 ---
 
@@ -361,6 +376,7 @@ A change is meaningful if it affects at least one of:
 - what must not be broken
 - how future code should be written
 - how future AI operators should understand the project
+- how semantic routing or capability access is gated
 
 If yes — docs must be updated.
 
@@ -379,6 +395,8 @@ Document what future work depends on:
 - risks
 - accepted decisions
 - source-of-truth policy
+- semantic routing gates
+- capability access gates
 - component ownership
 - SG entity integrity
 

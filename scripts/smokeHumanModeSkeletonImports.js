@@ -84,6 +84,18 @@ if (missingRepoFacts?.reason !== "repo_state_agent_result_not_provided") {
   throw new Error("Human Mode skeleton smoke check failed: unexpected missing repo facts reason");
 }
 
+const responseWithoutFacts = buildHumanProjectIntentResponse({
+  repoFacts: missingRepoFacts,
+  capability: {
+    ready: true,
+    capability: HUMAN_PROJECT_CAPABILITIES.SUMMARIZE_ARCHITECTURE,
+  },
+});
+
+if (responseWithoutFacts?.ok !== false) {
+  throw new Error("Human Mode skeleton smoke check failed: response without repo facts must be ok=false");
+}
+
 const capabilityWithoutFacts = selectHumanProjectCapability({
   meaning: {
     intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
@@ -133,6 +145,19 @@ if (architectureCapability?.capability !== HUMAN_PROJECT_CAPABILITIES.SUMMARIZE_
   throw new Error("Human Mode skeleton smoke check failed: architecture capability mismatch");
 }
 
+const architectureResponse = buildHumanProjectIntentResponse({
+  repoFacts: sampleRepoFacts,
+  capability: architectureCapability,
+});
+
+if (architectureResponse?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: architecture response must be ok=true");
+}
+
+if (!architectureResponse?.text?.includes("RepoStateAgent")) {
+  throw new Error("Human Mode skeleton smoke check failed: architecture response must mention RepoStateAgent source");
+}
+
 const riskCapability = selectHumanProjectCapability({
   meaning: {
     intentKind: HUMAN_PROJECT_INTENT_KINDS.RISK_QUESTION,
@@ -142,6 +167,15 @@ const riskCapability = selectHumanProjectCapability({
 
 if (riskCapability?.capability !== HUMAN_PROJECT_CAPABILITIES.IDENTIFY_RISK) {
   throw new Error("Human Mode skeleton smoke check failed: risk capability mismatch");
+}
+
+const riskResponse = buildHumanProjectIntentResponse({
+  repoFacts: sampleRepoFacts,
+  capability: riskCapability,
+});
+
+if (riskResponse?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: risk response must be ok=true");
 }
 
 console.log("OK: Human Mode skeleton imports and basic skeleton contract are valid.");

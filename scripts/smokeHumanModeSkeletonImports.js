@@ -260,4 +260,34 @@ if (fullPipeline?.response?.ok !== true) {
   throw new Error("Human Mode skeleton smoke check failed: full context pipeline response must be ok=true");
 }
 
+let fullPipelineRunnerCallCount = 0;
+const fullPipelineWithRunner = await handleHumanProjectIntent({
+  text: "проверь архитектуру проекта",
+  isMonarchUser: true,
+  isPrivateChat: true,
+  context: {
+    allowHumanRepoStateAgentRun: true,
+    humanProjectIntentMeaning: {
+      intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+      confidence: "test",
+    },
+    repoStateAgentRunner: async () => {
+      fullPipelineRunnerCallCount += 1;
+      return sampleRepoStateAgentResult;
+    },
+  },
+});
+
+if (fullPipelineRunnerCallCount !== 1) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline runner must be called once when allowed");
+}
+
+if (fullPipelineWithRunner?.handled !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline with runner must be handled");
+}
+
+if (fullPipelineWithRunner?.repoFacts?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: full pipeline with runner repo facts must be ok=true");
+}
+
 console.log("OK: Human Mode skeleton imports and basic skeleton contract are valid.");

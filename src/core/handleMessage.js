@@ -17,12 +17,7 @@ import { buildProjectLightEvidencePack } from "../projectExperience/ProjectLight
 import { getCachedSeed, setCachedSeed } from "../projectExperience/ProjectEvidenceSeedCache.js";
 import { understandMeaning } from "./meaning/MeaningEngine.js";
 import { selectToolsForMeaning } from "./meaning/ToolSelectionEngine.js";
-import { isHumanModeProjectRepoRuntimeEnabled } from "./projectIntent/modes/human/projectIntentHumanRuntimeGateConfig.js";
-import { handleHumanProjectIntent } from "./projectIntent/modes/human/projectIntentHumanEntry.js";
-import { createHumanRepoStateAgentRunner } from "./projectIntent/modes/human/projectIntentHumanRepoStateAgentRunner.js";
 import { dedupeSeenHasFresh, dedupeRemember } from "./handleMessage/dedupeMemory.js";
-
-const HUMAN_MODE_PROJECT_REPO_DRY_RUN_TIMEOUT_MS = 5000;
 
 function hasProjectEvidenceSeed(value = {}) {
   return Boolean(
@@ -160,118 +155,6 @@ function buildProjectMemoryEvidencePackIfAvailable(context = {}, deps = {}) {
     repository: seed?.repository || context?.activeProjectContext?.repository || "korzh260609-beep/garya-bot",
     ref: seed?.ref || context?.activeProjectContext?.ref || "main",
   });
-}
-
-function withTimeout(promise, ms, fallbackValue) {
-  let timer = null;
-
-  return Promise.race([
-    promise.finally(() => {
-      if (timer) clearTimeout(timer);
-    }),
-    new Promise((resolve) => {
-      timer = setTimeout(() => resolve(fallbackValue), ms);
-    }),
-  ]);
-}
-
-async function runHumanModeProjectRepoDryRunHook({
-  enrichedContext = {},
-  trimmed = "",
-  isMonarchUser = false,
-  isPrivateChat = false,
-} = {}) {
-  if (!isHumanModeProjectRepoRuntimeEnabled()) {
-    return null;
-  }
-
-  const startedAt = Date.now();
-
-  if (isTransportTraceEnabled()) {
-    console.log("HUMAN_MODE_DRY_RUN_START", {
-      hasRepoStateAgentRunner: isMonarchUser && isPrivateChat,
-      activeProjectContextActive: enrichedContext?.activeProjectContext?.active === true,
-      activeProjectContextSource: enrichedContext?.activeProjectContext?.source || null,
-      activeProjectRepository: enrichedContext?.activeProjectContext?.repository || null,
-      timeoutMs: HUMAN_MODE_PROJECT_REPO_DRY_RUN_TIMEOUT_MS,
-    });
-  }
-
-  const humanContext = isMonarchUser && isPrivateChat
-    ? {
-        ...enrichedContext,
-        allowHumanRepoStateAgentRun: true,
-        repoStateAgentRunner: createHumanRepoStateAgentRunner({
-          defaultOptions: {
-            forceAiAnalysis: false,
-            allowRealAi: false,
-          },
-        }),
-      }
-    : enrichedContext;
-
-  try {
-    const result = await withTimeout(
-      handleHumanProjectIntent({
-        text: trimmed,
-        isMonarchUser,
-        isPrivateChat,
-        context: humanContext,
-      }),
-      HUMAN_MODE_PROJECT_REPO_DRY_RUN_TIMEOUT_MS,
-      {
-        mode: "human",
-        handled: false,
-        allowed: true,
-        blocked: true,
-        reason: "human_mode_project_repo_dry_run_timeout",
-        meaning: null,
-        repoFacts: null,
-        capability: null,
-        response: null,
-        timedOut: true,
-      }
-    );
-
-    const responseText = typeof result?.response?.text === "string"
-      ? result.response.text.trim()
-      : "";
-
-    const summary = {
-      enabled: true,
-      mode: result?.mode || "human",
-      handled: result?.handled === true,
-      allowed: result?.allowed === true,
-      blocked: result?.blocked === true,
-      reason: result?.reason || null,
-      meaningIntentKind: result?.meaning?.intentKind || null,
-      repoFactsOk: result?.repoFacts?.ok === true,
-      capability: result?.capability?.capability || null,
-      responseText: responseText || null,
-      hasResponseText: Boolean(responseText),
-      timedOut: result?.timedOut === true,
-      durationMs: Date.now() - startedAt,
-    };
-
-    if (isTransportTraceEnabled()) {
-      console.log(summary.timedOut ? "HUMAN_MODE_DRY_RUN_TIMEOUT" : "HUMAN_MODE_DRY_RUN_DONE", {
-        ...summary,
-        responseText: summary.hasResponseText ? "[present]" : null,
-      });
-    }
-
-    return summary;
-  } catch (e) {
-    console.error("human mode project/repo dry-run hook failed (fail-open):", e);
-    return {
-      enabled: true,
-      handled: false,
-      allowed: false,
-      blocked: true,
-      reason: "human_mode_project_repo_dry_run_failed",
-      durationMs: Date.now() - startedAt,
-    };
-  }
 }
 
 export async function handleMessage(context = {}) {
@@ -478,27 +361,6 @@ export async function handleMessage(context = {}) {
     }
   }
 
-  const humanModeProjectRepoDryRun = await runHumanModeProjectRepoDryRunHook({
-    enrichedContext,
-    trimmed,
-    isMonarchUser,
-    isPrivateChat,
-  });
-
-  if (humanModeProjectRepoDryRun && isTransportTraceEnabled()) {
-    console.log("HUMAN_MODE_PROJECT_REPO_DRY_RUN", {
-      ...humanModeProjectRepoDryRun,
-      responseText: humanModeProjectRepoDryRun.hasResponseText ? "[present]" : null,
-    });
-  }
-
-  if (humanModeProjectRepoDryRun) {
-    enrichedContext = {
-      ...enrichedContext,
-      humanModeProjectRepoDryRun,
-    };
-  }
-
   const routing = parseCommandAccess({
     trimmed,
     user,
@@ -556,12 +418,6 @@ export async function handleMessage(context = {}) {
         projectEvidencePackPresent: projectEvidenceDiagnostics.projectEvidencePackPresent,
         projectEvidencePackSource: projectEvidenceDiagnostics.projectEvidencePackSource,
         projectEvidenceTriggerReasons: projectEvidenceDiagnostics.projectEvidenceTriggerReasons,
-        humanModeProjectRepoDryRun: humanModeProjectRepoDryRun
-          ? {
-              ...humanModeProjectRepoDryRun,
-              responseText: humanModeProjectRepoDryRun.hasResponseText ? "[present]" : null,
-            }
-          : null,
       });
     }
   } catch {
@@ -658,7 +514,6 @@ export async function handleMessage(context = {}) {
       projectContextDecision: enrichedContext?.projectContextDecision || null,
       projectMemoryEvidenceTriggerDecision: enrichedContext?.projectMemoryEvidenceTriggerDecision || null,
       projectEvidenceDiagnostics,
-      humanModeProjectRepoDryRun,
     };
   }
 
@@ -680,9 +535,8 @@ export async function handleMessage(context = {}) {
     messageId,
   });
 
-  // Human Mode / RepoStateAgent is diagnostic-only here.
-  // RepoStateAgent must provide project-map / semantic-map facts only.
-  // It must never bypass command/chat routing or answer ordinary dialogue directly.
+  // RepoStateAgent is not part of general chat routing.
+  // It must be reached only through explicit repository/project-map commands or future gated project-map flow.
 
   if (isCommand && cmdBase) {
     return handleCommandFlow({

@@ -55,9 +55,10 @@ When information conflicts, the hierarchy is:
 
 1. verified repository/runtime reality
 2. canonical pillars
-3. project memory / bounded working context
-4. ordinary memory / chat-derived supporting context
-5. temporary chat discussion
+3. accepted decision files
+4. project memory / bounded working context
+5. ordinary memory / chat-derived supporting context
+6. temporary chat discussion
 
 Important rule:
 - lower layers must not silently override higher layers
@@ -66,6 +67,7 @@ Examples:
 - chat does not override pillars
 - project memory does not override canonical architecture rules
 - convenience does not override documented governance
+- deprecated repo maps do not override RepoStateAgent/source policy
 
 ---
 
@@ -195,6 +197,13 @@ Use for:
 - no mixing rule
 - interface modes as components of SG
 
+#### `SEMANTIC_ROUTING.md`
+Use for:
+- meaning-first routing principle
+- current ban on building global SemanticRouter now
+- Human Mode skeleton first rule
+- Technical Mode legacy/command boundary
+
 #### `HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
 Use for:
 - Human Mode repo/project-work skeleton
@@ -208,6 +217,12 @@ Use for:
 - factual source of current repository state
 - RepoStateAgent as factual repo observation subsystem
 - old RepoIndex / old maps / old snapshots as legacy only
+
+#### `SG_CAPABILITY_ACCESS.md`
+Use for:
+- capability exposure through SG
+- difference between capability access and SG governance authority
+- Human Mode / Technical Mode capability access flows
 
 #### `MODULE_MAP.md`
 Use for:
@@ -226,6 +241,12 @@ Use for:
 - high-level access-control map
 - where permission decisions belong
 - permission categories and protected surfaces
+
+#### `CODE_OWNERSHIP_MAP.md`
+Use for:
+- mapping logical modules to real code areas
+- ownership boundaries
+- legacy/shared/future code areas
 
 ---
 
@@ -313,9 +334,11 @@ Read in this order:
 4. active workflow files under `pillars/`
 5. `pillars/architecture/README.md`
 6. `pillars/architecture/SG_INTERFACE_LAYERS.md`
-7. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
-8. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
-9. affected module docs
+7. `pillars/architecture/SEMANTIC_ROUTING.md`
+8. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+9. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+10. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+11. affected module docs
 
 ---
 
@@ -379,6 +402,8 @@ The following patterns are dangerous:
 - treating archived workflow files as current workflow truth
 - treating old RepoIndex / old maps as current repo facts
 - treating a component/tool/mode/agent as SG itself
+- treating capability access as authority to redefine SG
+- treating semantic routing as permission to build a global SemanticRouter before the explicit gate
 
 If a file does not clearly belong somewhere,
 do not add it blindly.

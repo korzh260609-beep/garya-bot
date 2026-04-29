@@ -1,4 +1,14 @@
 // src/core/projectIntent/semantic/projectIntentSemanticActiveFile.js
+// ============================================================================
+// LEGACY ACTIVE-FILE HEURISTICS MARKER
+//
+// INTERFACE MODE NOTE:
+// - This file uses deterministic phrase heuristics for active-file follow-ups.
+// - Under hard Human Mode / Technical Mode separation, this is NOT full Human Mode.
+// - Treat this as legacy Technical Mode support until a clean structured meaning
+//   layer replaces it.
+// - Do not add new phrase-bound hacks here.
+// ============================================================================
 
 import { safeText, tokenizeText } from "./projectIntentSemanticText.js";
 import { extractTargetPhrase, sanitizeTargetText } from "./projectIntentSemanticTargetExtractors.js";

@@ -1,4 +1,14 @@
 // src/core/projectIntent/semantic/projectIntentSemanticTargetExtractors.js
+// ============================================================================
+// LEGACY TARGET EXTRACTION MARKER
+//
+// INTERFACE MODE NOTE:
+// - This file uses deterministic regex/marker/path extraction for old routing.
+// - Under hard Human Mode / Technical Mode separation, this is NOT full Human Mode.
+// - Treat this as legacy Technical Mode support until a clean structured meaning
+//   layer replaces it.
+// - Do not add new phrase-bound hacks here.
+// ============================================================================
 
 import { GENERIC_TARGET_WORDS } from "./projectIntentSemanticConstants.js";
 import { safeText, normalizeText, unique } from "./projectIntentSemanticText.js";

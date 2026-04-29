@@ -3,13 +3,15 @@
 // HUMAN MODE MEANING SKELETON
 //
 // Purpose:
-// - future meaning classification boundary for natural SG project/repo requests.
+// - meaning classification boundary for natural SG project/repo requests.
 // - must not become a phrase router.
 // - must not import Technical Mode legacy heuristics.
 //
 // Current status:
-// - skeleton only.
+// - safe contract only.
 // - not wired into runtime.
+// - accepts structured meaning from context when provided.
+// - does not classify raw text by keywords/regex.
 // ============================================================================
 
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
@@ -24,7 +26,34 @@ export const HUMAN_PROJECT_INTENT_KINDS = Object.freeze({
   UNKNOWN: "unknown",
 });
 
-export function classifyHumanProjectIntentMeaning() {
+function isKnownHumanProjectIntentKind(intentKind) {
+  return Object.values(HUMAN_PROJECT_INTENT_KINDS).includes(intentKind);
+}
+
+function normalizeHumanProjectIntentMeaning(value = null) {
+  const intentKind = value?.intentKind;
+
+  if (!isKnownHumanProjectIntentKind(intentKind)) {
+    return null;
+  }
+
+  return {
+    mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
+    intentKind,
+    confidence: value?.confidence || "structured",
+    reason: value?.reason || "human_meaning_loaded_from_context",
+  };
+}
+
+export function classifyHumanProjectIntentMeaning({ context = null } = {}) {
+  const structuredMeaning = normalizeHumanProjectIntentMeaning(
+    context?.humanProjectIntentMeaning || context?.humanMeaning || null
+  );
+
+  if (structuredMeaning) {
+    return structuredMeaning;
+  }
+
   return {
     mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
     intentKind: HUMAN_PROJECT_INTENT_KINDS.UNKNOWN,

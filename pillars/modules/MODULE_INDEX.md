@@ -8,6 +8,15 @@ Purpose:
 Status: CANONICAL
 Scope: `pillars/modules/`
 
+This file must be interpreted together with:
+
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
+- `pillars/PROJECT.md`
+- `pillars/DECISIONS.md`
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/architecture/README.md`
+
 ---
 
 ## 0) Why this file exists
@@ -24,6 +33,31 @@ This index exists to solve that.
 
 ---
 
+## 0.1) SG entity rule for modules
+
+SG is the global project entity.
+
+Modules are components/instruments of SG.
+
+A module must never be documented, implemented, or operated as a separate independent SG.
+
+Correct model:
+
+```text
+SG = global project entity
+module = bounded responsibility area / component of SG
+```
+
+Incorrect model:
+
+```text
+module = SG itself
+module = autonomous project entity
+module = owner of SG decisions / identity / memory
+```
+
+---
+
 ## 1) How to use this folder
 
 When working on a module:
@@ -36,7 +70,7 @@ When working on a module:
 
 Suggested read order:
 - module local docs first
-- then root `DECISIONS.md`, `WORKFLOW.md`, `REPOINDEX.md` as needed
+- then `pillars/SG_ENTITY.md`, accepted decisions, active workflow files and architecture docs as needed
 
 ---
 
@@ -100,7 +134,10 @@ Purpose:
 - memory risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
 - `pillars/DECISIONS.md`
+- `pillars/architecture/README.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 
@@ -122,9 +159,11 @@ Purpose:
 - transport risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
+- `pillars/architecture/README.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
-- `pillars/REPOINDEX.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
 
 ---
 
@@ -144,6 +183,7 @@ Purpose:
 - privilege risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/DECISIONS.md`
@@ -166,9 +206,15 @@ Purpose:
 - repo safety risk model
 
 Read together with:
-- `pillars/REPOINDEX.md`
+- `pillars/SG_ENTITY.md`
+- `pillars/architecture/README.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`
+
+Important:
+- old `REPOINDEX.md` / old maps must not be treated as factual current repo state if marked legacy/deprecated.
+- current factual repo state must follow `REPO_MAP_SOURCE_POLICY.md`.
 
 ---
 
@@ -188,6 +234,8 @@ Purpose:
 - source-first risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/DECISIONS.md`
@@ -210,9 +258,11 @@ Purpose:
 - handler bloat risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
+- `pillars/architecture/SG_INTERFACE_LAYERS.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
-- `pillars/REPOINDEX.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
 
 ---
 
@@ -232,9 +282,10 @@ Purpose:
 - duplicate-run/lifecycle risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
-- `pillars/WORKFLOW.md`
+- active workflow files under `pillars/workflow/`
 
 ---
 
@@ -254,6 +305,7 @@ Purpose:
 - false-visibility risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
@@ -276,7 +328,9 @@ Purpose:
 - pillar/project-memory conflict risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
 - `pillars/README.md`
+- `pillars/DOCS_GOVERNANCE.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 
@@ -298,9 +352,10 @@ Purpose:
 - modality risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
-- `pillars/WORKFLOW.md`
+- active workflow files under `pillars/workflow/`
 
 ---
 
@@ -320,6 +375,8 @@ Purpose:
 - scattered-AI-call risk model
 
 Read together with:
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
 - `pillars/DECISIONS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/CODE_OUTPUT.md`
@@ -330,14 +387,17 @@ Read together with:
 
 ### If changing architecture boundaries
 Read:
+- `pillars/SG_ENTITY.md`
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/DECISIONS.md`
+- `pillars/architecture/README.md`
 - module `README.md`
 - module `RISKS.md`
-- root `DECISIONS.md`
-- root `REPOINDEX.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 
 ### If changing public behavior/interface of a module
 Read:
+- `pillars/SG_BEHAVIOR.md`
 - module `CONTRACTS.md`
 - module `README.md`
 - module `CHANGELOG.md`
@@ -351,7 +411,9 @@ Read:
 
 ### If introducing a new module
 Read:
+- `pillars/SG_ENTITY.md`
 - `pillars/DOCS_GOVERNANCE.md`
+- `pillars/architecture/README.md`
 - `pillars/architecture/MODULE_MAP.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - this file
@@ -368,6 +430,7 @@ Do NOT add random files into `pillars/modules/` without deciding:
 - should this be inside one module folder instead?
 - does this duplicate an existing module doc?
 - what maturity/status will this module realistically have?
+- does this module remain a component of SG instead of becoming a separate SG entity?
 
 Otherwise the module-doc system will decay quickly.
 
@@ -391,6 +454,8 @@ discoverability and trust in the whole module-doc system degrades.
 `pillars/modules/` exists to reduce guessing.
 
 `MODULE_INDEX.md` exists to reduce search cost and false confidence.
+
+Modules are components of SG, not independent SG entities.
 
 If people cannot quickly find the right module docs
 or cannot tell how mature a module really is,

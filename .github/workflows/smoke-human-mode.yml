@@ -1,5 +1,6 @@
 name: Smoke Human Mode
 
+# Verifies Human Mode skeleton imports without connecting runtime.
 on:
   workflow_dispatch:
   push:

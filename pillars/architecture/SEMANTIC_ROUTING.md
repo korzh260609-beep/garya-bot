@@ -1,14 +1,61 @@
 # SEMANTIC_ROUTING.md — SG Semantic Routing Architecture
 
-> This document defines the global semantic routing rule for SG.
-> It applies to all SG communication, commands, actions, tools, reports and agents.
+> This document defines the semantic routing principle for SG.
+> It applies to SG communication, commands, actions, tools, reports and agents.
 > If code or prompts contradict this file, the code/prompt is wrong.
+
+This file must be interpreted together with:
+
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
+- `pillars/PROJECT.md`
+- `pillars/DECISIONS.md`
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/architecture/SG_INTERFACE_LAYERS.md`
+- `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+
+Current stage warning:
+
+```text
+Do NOT build a global SemanticRouter yet.
+```
+
+Current safe path:
+
+```text
+Human Mode skeleton
+-> gated meaning provider contract
+-> gated RepoStateAgent facts contract
+-> capability selection
+-> response builder
+```
+
+---
+
+## 0) SG entity rule
+
+SG is the global project entity.
+
+Semantic routing is an intelligence/routing capability of SG.
+It is not SG itself.
+
+A SemanticRouter, MeaningEngine, ToolSelectionEngine, external AI model, or agent must never become a separate SG identity.
+
+Correct model:
+
+```text
+SG = global project entity
+semantic routing = future routing capability/component of SG
+Human Mode = current meaning-first interface skeleton
+Technical Mode = explicit commands/tests/debug/legacy interface
+```
 
 ---
 
 ## 1) Core principle
 
-SG must not work by hardcoded words or fixed phrases.
+SG must not work by hardcoded words or fixed phrases as the foundation of intelligence.
 
 Correct order:
 
@@ -31,43 +78,55 @@ keyword/phrase
 
 ---
 
-## 1A) Universal input rule
+## 1A) Human Mode / Technical Mode boundary
 
-All user input must pass through the same meaning-first principle.
-
-There must not be two different SG personalities:
+SG has two separated interface modes:
 
 ```text
-normal chat = semantic conversation
-commands/actions = phrase-bound robot
+Human Mode = normal SG conversation by meaning
+Technical Mode = explicit commands/tests/debug/legacy routes
 ```
 
-Forbidden split:
+Do not mix them.
+
+Technical Mode may contain slash commands, exact phrases, regex routes and legacy command surfaces.
+
+Human Mode must be built by meaning/context/permissions/capabilities, not by copying Technical Mode phrase logic.
+
+Current rule:
 
 ```text
-casual chat understands meaning,
-but commands, repo work, memory, agents or reports depend on exact wording.
+old slash/word/phrase/regex logic = Technical Mode
 ```
 
-Required unified behavior:
+Forbidden current-stage shortcut:
 
 ```text
-any input from user
-→ understand meaning
-→ check context
-→ check role/permissions
-→ select source/tool/action
-→ answer or execute safely
+old phrase detector
+→ renamed semantic router
+→ treated as Human Mode intelligence
 ```
+
+---
+
+## 1B) Universal input rule
+
+All user input should eventually follow the same meaning-first principle.
+
+However, current implementation must respect the Human/Technical split:
+
+- Human Mode is being built separately as a clean meaning-first path.
+- Technical Mode keeps explicit commands, tests, debug routes, and legacy behavior.
+- A global SemanticRouter is future architecture, not the current implementation step.
 
 Slash commands, buttons and aliases are allowed only as interface shortcuts.
 They do not replace semantic validation.
 
-The same user meaning should route to the same intent even when expressed with different wording.
+The same user meaning should eventually route to the same intent even when expressed with different wording.
 
 ---
 
-## 1B) Human language outside, protocol inside
+## 1C) Human language outside, protocol inside
 
 SG must separate external human communication from internal system communication.
 
@@ -98,7 +157,7 @@ user says naturally what they want
 
 ---
 
-## 1C) Language matching rule
+## 1D) Language matching rule
 
 SG must answer the user in the language used by the user.
 
@@ -117,7 +176,7 @@ Group chat exception:
 
 ## 2) Global scope
 
-This rule applies to:
+This rule applies as a principle to:
 
 - normal chat
 - commands
@@ -131,6 +190,8 @@ This rule applies to:
 - task creation
 - future UI/client interactions
 
+But implementation must follow stage gates.
+
 This is not only a RepoStateAgent rule.
 This is a global SG behavior and architecture rule.
 
@@ -138,11 +199,11 @@ This is a global SG behavior and architecture rule.
 
 ## 3) Lexical signals are weak signals only
 
-Words, prefixes, regex, phrases and command aliases may exist only as weak diagnostic signals.
+Words, prefixes, regex, phrases and command aliases may exist only as weak diagnostic signals or Technical Mode routes.
 
-They may help SG guess candidates, but they must not be the final decision engine.
+They may help SG guess candidates in future semantic layers, but they must not be the final decision engine for Human Mode.
 
-Allowed:
+Allowed future semantic pattern:
 
 ```text
 text contains a useful signal
@@ -154,16 +215,16 @@ Forbidden:
 
 ```text
 text contains phrase X
-→ answer Y immediately
+→ answer Y immediately as Human Mode intelligence
 ```
 
 ---
 
 ## 4) Meaning object contract
 
-Every serious request should be reduced to a meaning object before action.
+Every serious Human Mode request should eventually be reduced to a meaning object before action.
 
-Minimum shape:
+Minimum future shape:
 
 ```text
 meaning = {
@@ -180,6 +241,16 @@ meaning = {
   missing_information
 }
 ```
+
+Current Human Mode skeleton uses a narrower safe contract:
+
+```text
+intentKind
+confidence
+reason
+```
+
+This current contract must not be expanded into a global SemanticRouter until explicitly approved.
 
 If meaning is weak or ambiguous, SG should either:
 - ask one concise clarification, or
@@ -204,18 +275,29 @@ If a source/tool can provide a more exact answer, SG must not answer from an old
 
 If exact source/tool is unavailable, SG must say so.
 
+For current repo/project truth:
+
+```text
+RepoStateAgent
+-> RepoStateCollector
+-> RepoStateProjectMapBuilder
+-> RepoStateSemanticMapBuilder
+```
+
+Old RepoIndex / old maps / old snapshots must not be used as current factual repo truth.
+
 ---
 
 ## 6) Legacy layers
 
-Old keyword/phrase systems must be adapted into fallback layers only.
+Old keyword/phrase systems must be treated as Technical Mode or fallback/support layers only.
 
 Examples:
 
 ```text
-old phrase detector → LexicalSignalExtractor
-old repo index → LegacySnapshotBrowser
-old fixed reply → fallback human-readable explanation
+old phrase detector → Technical Mode / legacy route
+old repo index → legacy/fallback browser, not current project truth
+old fixed reply → fallback human-readable explanation, not SG intelligence
 ```
 
 Legacy layers must never pretend to be the main intelligence or project truth.
@@ -224,15 +306,19 @@ Legacy layers must never pretend to be the main intelligence or project truth.
 
 ## 7) Project/repo rule
 
-For project and repo questions:
+For Human Mode project and repo questions:
 
 ```text
-repo/project-state question
-→ RepoStateAgent or ProjectMap/SemanticMap agent
-→ exact answer
+natural project/repo request
+→ HumanModeEntry
+→ permissions
+→ meaning
+→ RepoStateAgent-backed facts
+→ capability selection
+→ SG answer
 ```
 
-Legacy snapshot may be used only for quick browsing:
+Legacy snapshot may be used only for explicit Technical Mode browsing if allowed:
 
 ```text
 show folder
@@ -252,7 +338,7 @@ Legacy snapshot must not be presented as:
 
 ## 8) Commands
 
-Commands must not be rigid phrases only.
+Commands must be understood as Technical Mode or explicit UI shortcuts.
 
 A slash command is allowed as an explicit user interface shortcut, but SG must still validate:
 
@@ -263,7 +349,7 @@ A slash command is allowed as an explicit user interface shortcut, but SG must s
 - risk
 - expected action
 
-The same meaning expressed without slash command should be routable when safe.
+The same meaning expressed without slash command should become routable in Human Mode only after the Human Mode path is explicitly connected and verified.
 
 ---
 
@@ -271,7 +357,7 @@ The same meaning expressed without slash command should be routable when safe.
 
 SG replies must not be template-reflexes.
 
-A reply must show what it is based on:
+A reply must show what it is based on when relevant:
 
 - exact source
 - active context
@@ -286,20 +372,32 @@ If SG cannot verify, it must not sound certain.
 
 Do not delete old code blindly.
 
-Correct migration path:
+Current safe path:
 
-1. Create SemanticRouter skeleton.
-2. Add MeaningEngineV2 contract.
-3. Add ToolSelectionEngineV2 contract.
-4. Convert hardcoded phrase logic into weak signal extraction.
-5. Route exact questions to exact agents/sources.
-6. Add tests with different wording but same meaning.
+1. Keep Human Mode and Technical Mode separated.
+2. Keep old slash/word/phrase/regex logic in Technical Mode.
+3. Build Human Mode skeleton separately.
+4. Add gated meaning provider contract.
+5. Add gated RepoStateAgent facts/runner contract.
+6. Add capability selector and response builder contracts.
+7. Add smoke-checks for contracts.
+8. Only later connect HumanModeEntry behind explicit runtime gate.
+9. Only after that consider broader semantic routing architecture.
+10. Build global SemanticRouter only after explicit Monarch approval and accepted architecture update.
+
+Forbidden current path:
+
+```text
+create global SemanticRouter now
+convert old phrase routes into weak Human Mode semantic signals now
+connect Human Mode runtime without gate
+```
 
 ---
 
 ## 11) Test rule
 
-For every semantic route, test at least 3 different phrasings with the same meaning.
+For every future semantic route, test at least 3 different phrasings with the same meaning.
 
 Example:
 
@@ -312,10 +410,21 @@ Example:
 These must not depend on exact words.
 They must route by meaning.
 
+Current Human Mode smoke-checks are contract checks, not full semantic routing tests.
+
 ---
 
 ## 12) Canonical formula
 
 ```text
 meaning → logic → context → source/tool → verified answer/action
+```
+
+Current implementation guardrail:
+
+```text
+Human Mode skeleton first.
+Global SemanticRouter later.
+No phrase-bound hacks.
+No runtime connection without explicit gate.
 ```

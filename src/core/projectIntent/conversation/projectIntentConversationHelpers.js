@@ -1,4 +1,13 @@
 // src/core/projectIntent/conversation/projectIntentConversationHelpers.js
+// ============================================================================
+// CONVERSATION SHARED HELPERS + LEGACY TECHNICAL FOLLOW-UP FACADE
+//
+// INTERFACE MODE NOTE:
+// - Path/folder helper utilities remain shared here.
+// - Legacy phrase/includes active-file follow-up helpers are re-exported from
+//   Technical Mode.
+// - This file must not become a Human Mode semantic router.
+// ============================================================================
 
 import {
   safeText,
@@ -113,68 +122,7 @@ export function buildFolderMeaningFromChildren({ folderPath, directories, files,
   return lines.join("\n");
 }
 
-export function looksLikeFileInnerQuestion(text = "") {
-  const t = safeText(text).toLowerCase();
-  if (!t) return false;
-
-  const mentionsInnerSubject =
-    t.includes("команд") ||
-    t.includes("функц") ||
-    t.includes("метод") ||
-    t.includes("участ") ||
-    t.includes("часть") ||
-    t.includes("главн") ||
-    t.includes("важн") ||
-    t.includes("рандом") ||
-    t.includes("случайн") ||
-    t.includes("section") ||
-    t.includes("function") ||
-    t.includes("method") ||
-    t.includes("command") ||
-    t.includes("part") ||
-    t.includes("important") ||
-    t.includes("main") ||
-    t.includes("random");
-
-  const mentionsCurrentFile =
-    t.includes("из этого файла") ||
-    t.includes("в этом файле") ||
-    t.includes("из файла") ||
-    t.includes("внутри файла") ||
-    t.includes("здесь") ||
-    t.includes("тут") ||
-    t.includes("в этом") ||
-    t.includes("inside this") ||
-    t.includes("in this") ||
-    t.includes("here");
-
-  const asksForInnerExplanation =
-    t.includes("расскажи") ||
-    t.includes("объясни") ||
-    t.includes("что делает") ||
-    t.includes("что здесь") ||
-    t.includes("дай информацию") ||
-    t.includes("какая") ||
-    t.includes("какой");
-
-  const shortFollowup = t.split(/\s+/).filter(Boolean).length <= 10;
-
-  return (
-    (mentionsInnerSubject && (mentionsCurrentFile || asksForInnerExplanation || shortFollowup)) ||
-    (mentionsCurrentFile && shortFollowup)
-  );
-}
-
-export function shouldForceActiveFileExplain({ trimmed, followupContext, semanticPlan }) {
-  if (followupContext?.isActive !== true) return false;
-  if (safeText(followupContext?.objectKind) !== "file") return false;
-  if (!looksLikeFileInnerQuestion(trimmed)) return false;
-
-  const intent = safeText(semanticPlan?.intent);
-  return (
-    !intent ||
-    intent === "unknown" ||
-    intent === "explain_active" ||
-    intent === "explain_target"
-  );
-}
+export {
+  looksLikeFileInnerQuestion,
+  shouldForceActiveFileExplain,
+} from "../modes/technical/conversation/projectIntentTechnicalConversationHelpers.js";

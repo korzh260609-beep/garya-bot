@@ -8,6 +8,12 @@ Purpose:
 Status: CANONICAL
 Scope: all files under `pillars/`
 
+This document must be interpreted together with:
+- `pillars/README.md`
+- `pillars/SG_ENTITY.md`
+- `pillars/decisions/README.md`
+- `pillars/architecture/README.md`
+
 ---
 
 ## 0) Core principle
@@ -26,6 +32,7 @@ If code changes but pillars are not updated, project context becomes stale and u
 
 Any meaningful change affecting one or more of the following:
 
+- SG identity / entity definition
 - architecture
 - module boundaries
 - contracts
@@ -36,6 +43,10 @@ Any meaningful change affecting one or more of the following:
 - safety rules
 - operational commands
 - data model / storage responsibilities
+- accepted decisions
+- source-of-truth policy
+- Human Mode / Technical Mode boundaries
+- component identity and ownership
 
 MUST be reflected in the corresponding pillar file
 in the same work block or immediately after it.
@@ -65,10 +76,14 @@ Priority of truth:
 
 1. Runtime / repository actual state
 2. Pillars as canonical documented truth
-3. Chat discussion / temporary explanations
+3. Active accepted decision files
+4. Project memory / bounded working context
+5. Chat discussion / temporary explanations
 
 Rules:
 - Chat never overrides pillars
+- Archived files do not override active pillars
+- Project memory does not override accepted decisions
 - Pillars must converge toward verified repository/runtime reality
 - If divergence is found, it must be fixed explicitly
 
@@ -78,17 +93,40 @@ Rules:
 
 ### 4.1 Global files
 
-#### `pillars/WORKFLOW.md`
+#### `pillars/README.md`
 Use for:
-- development order
-- stage gates
-- allowed / forbidden-by-stage behavior
-- factual execution notes
+- entry point into the pillars system
+- reading order
+- source hierarchy
+- file group map
+- anti-chaos rules
+
+#### `pillars/SG_ENTITY.md`
+Use for:
+- what SG is as a system entity
+- SG as the global project entity
+- relation between SG and components/tools/interfaces
+- SG project experience and continuity
 
 Do NOT use for:
-- local module contracts
-- speculative design dumps
-- detailed technical internals of one module
+- local implementation details
+- stage-specific task lists
+- module-local contracts
+
+#### `pillars/PROJECT.md`
+Use for:
+- high-level project identity
+- mission / product framing
+- major strategic context
+- SG relationship with Kingdom GARYA, users, memory, sources and scaling
+
+#### `pillars/SG_BEHAVIOR.md`
+Use for:
+- assistant behavior rules
+- interaction norms
+- communication constraints
+- meaning-first / source-first behavior
+- entity-aware behavior rules
 
 #### `pillars/DECISIONS.md`
 Use for:
@@ -102,36 +140,75 @@ Do NOT use for:
 - TODOs
 - drafts
 
+#### `pillars/decisions/`
+Use for:
+- accepted decision extensions
+- small active decision files that are safer to review separately than editing the large `DECISIONS.md`
+
+Rules:
+- files here must not be drafts
+- accepted files must include `Status: ACCEPTED`
+- this folder must have an index at `pillars/decisions/README.md`
+- conflicts with `pillars/DECISIONS.md` must be resolved explicitly
+
+#### Active workflow files under `pillars/`
+Use for:
+- development order
+- stage gates
+- allowed / forbidden-by-stage behavior
+- factual execution notes
+
+Important:
+- Do not assume an old flat `pillars/WORKFLOW.md` is the active workflow source.
+- If workflow is split into folder/files, use the active workflow structure.
+- Archived workflow files must not be treated as current stage truth.
+
 #### `pillars/REPOINDEX.md`
 Use for:
-- repository map
+- repository map only if it is explicitly marked current
 - structural boundaries
 - core zones
 - responsibility areas
 - critical files / blast radius
 
-Do NOT use for:
-- workflow order
-- speculative future architecture
-- local module decision history
-
-#### `pillars/PROJECT.md`
-Use for:
-- high-level project identity
-- mission / product framing
-- major strategic context
-
-#### `pillars/SG_BEHAVIOR.md`
-Use for:
-- assistant behavior rules
-- interaction norms
-- communication constraints
+Important:
+- If `REPOINDEX.md` is marked legacy/deprecated, it must not be used as factual current repo state.
+- Current factual repository state must follow `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`.
 
 #### `pillars/CODE_OUTPUT.md`
 Use for:
 - code-output policy
 - output modes
 - formatting / delivery rules for code work
+
+---
+
+### 4.2 Architecture files
+
+Located under:
+
+`pillars/architecture/`
+
+Required entry file:
+- `pillars/architecture/README.md`
+
+Use architecture docs for:
+- global technical boundaries
+- interface modes
+- source-of-truth policies
+- data flow
+- permission maps
+- module maps
+- skeleton contracts
+- guardrails for future implementation
+
+Architecture files must preserve:
+
+```text
+SG = global project entity
+components = organs / channels / instruments / subsystems of SG
+external AI operators = temporary helpers, not SG itself
+```
 
 ---
 
@@ -182,7 +259,7 @@ Use only when:
 - these decisions are too detailed/noisy for global `pillars/DECISIONS.md`
 
 Rule:
-- global architectural decisions stay in root `pillars/DECISIONS.md`
+- global architectural decisions stay in root `pillars/DECISIONS.md` or accepted files under `pillars/decisions/`
 - module-local accepted decisions may live in module-local `DECISIONS.md`
 
 ---
@@ -201,6 +278,11 @@ Documentation update is mandatory when any of the following happens:
 8. Runtime limitations become known
 9. A temporary implementation becomes permanent
 10. A previous assumption becomes invalid
+11. A new accepted decision is added
+12. SG identity/entity rules change
+13. Human Mode / Technical Mode boundaries change
+14. Source-of-truth policy changes
+15. A previously active doc becomes archived/deprecated
 
 ---
 
@@ -216,7 +298,9 @@ For meaningful work blocks:
 
 Recommended order:
 - module docs first for local changes
+- architecture docs for global technical boundary changes
 - root pillars if the change affects system-level rules
+- decision files when an architectural/system decision is accepted
 
 ---
 
@@ -225,13 +309,20 @@ Recommended order:
 Before serious AI/code work, the operator or AI must:
 
 1. read relevant root pillars
-2. read relevant module docs
-3. verify that the planned work does not contradict accepted decisions
-4. flag stale documentation when detected
+2. read relevant architecture docs
+3. read relevant module docs
+4. verify that the planned work does not contradict accepted decisions
+5. flag stale documentation when detected
 
 AI must not silently “guess around” missing or stale pillar context.
 
 If critical ambiguity exists, it should be surfaced explicitly.
+
+AI must not treat:
+- archived workflow files as current workflow truth
+- old RepoIndex as current repo state
+- external AI tools as SG itself
+- Human Mode / Technical Mode / RepoStateAgent as separate SG entities
 
 ---
 
@@ -244,6 +335,8 @@ Pillar files must prefer:
 - accepted decisions
 - concrete responsibilities
 - non-ambiguous wording
+- current source-of-truth declarations
+- clear relation between global SG entity and its components
 
 Avoid:
 
@@ -252,6 +345,7 @@ Avoid:
 - hidden assumptions
 - large mixed-purpose files
 - speculative notes in canonical files
+- stale references to archived docs as active truth
 
 ---
 
@@ -260,11 +354,13 @@ Avoid:
 A change is meaningful if it affects at least one of:
 
 - what the system does
+- what SG is or is not
 - where responsibility lives
 - who can do something
 - how data flows
 - what must not be broken
 - how future code should be written
+- how future AI operators should understand the project
 
 If yes — docs must be updated.
 
@@ -282,6 +378,9 @@ Document what future work depends on:
 - permissions
 - risks
 - accepted decisions
+- source-of-truth policy
+- component ownership
+- SG entity integrity
 
 The goal is not “more docs”.
 The goal is “less guessing and fewer wrong changes”.

@@ -6,24 +6,24 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `COLLECT-RENDER-LOGS-HUMAN-MODE-GATE-002`
-STATUS: `DONE`
+COMMAND_ID: `COLLECT-RENDER-LOGS-HUMAN-MODE-HANDOFF-001`
+STATUS: `PENDING`
 ACTION: `COLLECT_RENDER_LOGS`
-TASK_ID: `collect-render-logs-human-mode-gate-002`
-WORKFLOW_POINT: `human-mode-project-repo-gate-diagnosis-unfiltered`
+TASK_ID: `collect-render-logs-human-mode-handoff-001`
+WORKFLOW_POINT: `human-mode-project-repo-response-handoff-diagnosis`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `4516dd382a209775d72c0ced2c3e94235ba2a12f`
+REQUIRES_COMMIT: `12b1d24c9195cfa5096f88b7d64365260b1a39a2`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-04-29T09:25:00.000Z`
-UPDATED_AT: `2026-04-29T07:18:38.707Z`
+CREATED_AT: `2026-04-29T17:10:00.000Z`
+UPDATED_AT: `2026-04-29T17:10:00.000Z`
 
 ---
 
 ## Payload
 
-minutes=120
-limit=500
-maxLineChars=1200
+minutes=30
+limit=300
+maxLineChars=1600
 level=all
 writeTo=agent_workspace/RENDER_LOGS_REPORT.md
 
@@ -31,18 +31,7 @@ writeTo=agent_workspace/RENDER_LOGS_REPORT.md
 
 ## Last result
 
-Action completed: COLLECT_RENDER_LOGS
-Task ID: collect-render-logs-human-mode-gate-002
-Workflow point: human-mode-project-repo-gate-diagnosis-unfiltered
-Deploy ID: -
-Commit: 4516dd382a209775d72c0ced2c3e94235ba2a12f
-Required commit: 4516dd382a209775d72c0ced2c3e94235ba2a12f
-Runtime commit: 4516dd382a209775d72c0ced2c3e94235ba2a12f
-Logs: 237
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending: collect latest logs for Human Mode response handoff diagnosis.
 
 ---
 

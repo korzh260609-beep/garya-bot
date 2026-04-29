@@ -22,6 +22,7 @@ export const HUMAN_PROJECT_INTENT_KINDS = Object.freeze({
   MODULE_QUESTION: "module_question",
   RISK_QUESTION: "risk_question",
   NEXT_STEP_QUESTION: "next_step_question",
+  SOURCE_QUESTION: "source_question",
   FILE_OR_AREA_QUESTION: "file_or_area_question",
   PROJECT_ANALYSIS: "project_analysis",
   UNKNOWN: "unknown",
@@ -69,6 +70,16 @@ function deriveIntentFromCoreMeaning(context = null) {
   const asksRisk = combined.includes("risk") || combined.includes("риск") || combined.includes("опасн");
   const asksNext = combined.includes("next") || combined.includes("дальше") || combined.includes("следующ");
   const asksModule = combined.includes("module") || combined.includes("модул");
+  const asksSource = combined.includes("source") || combined.includes("источник");
+
+  if (asksSource) {
+    return {
+      mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
+      intentKind: HUMAN_PROJECT_INTENT_KINDS.SOURCE_QUESTION,
+      confidence: isProjectContext ? "medium" : "low",
+      reason: "derived_from_core_meaning_source_focus",
+    };
+  }
 
   if (asksArchitecture) {
     return {

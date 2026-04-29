@@ -1,50 +1,16 @@
 // src/core/projectIntent/conversation/projectIntentConversationBootstrap.js
+// ============================================================================
+// LEGACY TECHNICAL MODE CONVERSATION BOOTSTRAP FACADE MARKER
+//
+// INTERFACE MODE NOTE:
+// - This public compatibility facade now points explicitly to Technical Mode.
+// - Legacy repo conversation bootstrap depends on Technical routeKey and legacy
+//   snapshot availability.
+// - Public exports are kept compatible.
+// - Runtime bootstrap logic is unchanged; this file only re-exports the same
+//   legacy logic through the Technical Mode boundary.
+// - This is NOT full Human Mode.
+// ============================================================================
 
-import { loadLatestSnapshot } from "../projectIntentConversationRepoStore.js";
-import { replyHuman } from "../projectIntentConversationReplies.js";
-
-export async function prepareRepoConversationRuntime({
-  route,
-  replyAndLog,
-}) {
-  if (route?.routeKey !== "sg_core_internal_read_allowed") {
-    return {
-      ok: false,
-      handled: false,
-      reason: "not_internal_repo_read",
-    };
-  }
-
-  const snapshotState = await loadLatestSnapshot();
-
-  if (!snapshotState.ok || !snapshotState.latest) {
-    await replyHuman(
-      replyAndLog,
-      "Индекс репозитория пока не готов. Нужен актуальный снимок репозитория.",
-      {
-        event: "repo_conversation_no_snapshot",
-      }
-    );
-
-    return {
-      ok: false,
-      handled: true,
-      reason: "no_snapshot",
-    };
-  }
-
-  return {
-    ok: true,
-    handled: false,
-    reason: "runtime_ready",
-    snapshotState,
-    latest: snapshotState.latest,
-    repo: snapshotState.repo,
-    branch: snapshotState.branch,
-    token: process.env.GITHUB_TOKEN,
-  };
-}
-
-export default {
-  prepareRepoConversationRuntime,
-};
+export * from "../modes/technical/conversation/projectIntentTechnicalBootstrap.js";
+export { default } from "../modes/technical/conversation/projectIntentTechnicalBootstrap.js";

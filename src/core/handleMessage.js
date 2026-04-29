@@ -4,7 +4,6 @@
 import { isTransportTraceEnabled } from "../transport/transportConfig.js";
 import { getMemoryService } from "./memoryServiceFactory.js";
 import { envBool } from "./handleMessage/shared.js";
-import { dedupeSeenHasFresh, dedupeRemember } from "./handleMessage/dedupeMemory.js";
 import { normalizeContext } from "./handleMessage/normalizeContext.js";
 import { resolveIdentityAndAccess } from "./handleMessage/resolveIdentityAndAccess.js";
 import { parseCommandAccess } from "./handleMessage/commandParsing.js";
@@ -20,6 +19,9 @@ import { selectToolsForMeaning } from "./meaning/ToolSelectionEngine.js";
 import { isHumanModeProjectRepoRuntimeEnabled } from "./projectIntent/modes/human/projectIntentHumanRuntimeGateConfig.js";
 import { handleHumanProjectIntent } from "./projectIntent/modes/human/projectIntentHumanEntry.js";
 import { createHumanRepoStateAgentRunner } from "./projectIntent/modes/human/projectIntentHumanRepoStateAgentRunner.js";
+import { dedupeSeenHasFresh, dedupeRemember } from "./handleMessage/dedupeMemory.js";
+
+const HUMAN_MODE_PROJECT_REPO_DRY_RUN_TIMEOUT_MS = 5000;
 
 function hasProjectEvidenceSeed(value = {}) {
   return Boolean(
@@ -158,6 +160,19 @@ function buildProjectMemoryEvidencePackIfAvailable(context = {}, deps = {}) {
   });
 }
 
+function withTimeout(promise, ms, fallbackValue) {
+  let timer = null;
+
+  return Promise.race([
+    promise.finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    new Promise((resolve) => {
+      timer = setTimeout(() => resolve(fallbackValue), ms);
+    }),
+  ]);
+}
+
 async function runHumanModeProjectRepoDryRunHook({
   enrichedContext = {},
   trimmed = "",
@@ -166,6 +181,15 @@ async function runHumanModeProjectRepoDryRunHook({
 } = {}) {
   if (!isHumanModeProjectRepoRuntimeEnabled()) {
     return null;
+  }
+
+  const startedAt = Date.now();
+
+  if (isTransportTraceEnabled()) {
+    console.log("HUMAN_MODE_DRY_RUN_START", {
+      hasRepoStateAgentRunner: isMonarchUser && isPrivateChat,
+      timeoutMs: HUMAN_MODE_PROJECT_REPO_DRY_RUN_TIMEOUT_MS,
+    });
   }
 
   const humanContext = isMonarchUser && isPrivateChat
@@ -182,14 +206,28 @@ async function runHumanModeProjectRepoDryRunHook({
     : enrichedContext;
 
   try {
-    const result = await handleHumanProjectIntent({
-      text: trimmed,
-      isMonarchUser,
-      isPrivateChat,
-      context: humanContext,
-    });
+    const result = await withTimeout(
+      handleHumanProjectIntent({
+        text: trimmed,
+        isMonarchUser,
+        isPrivateChat,
+        context: humanContext,
+      }),
+      HUMAN_MODE_PROJECT_REPO_DRY_RUN_TIMEOUT_MS,
+      {
+        mode: "human",
+        handled: false,
+        allowed: true,
+        blocked: true,
+        reason: "human_mode_project_repo_dry_run_timeout",
+        meaning: null,
+        repoFacts: null,
+        capability: null,
+        timedOut: true,
+      }
+    );
 
-    return {
+    const summary = {
       enabled: true,
       mode: result?.mode || "human",
       handled: result?.handled === true,
@@ -199,7 +237,15 @@ async function runHumanModeProjectRepoDryRunHook({
       meaningIntentKind: result?.meaning?.intentKind || null,
       repoFactsOk: result?.repoFacts?.ok === true,
       capability: result?.capability?.capability || null,
+      timedOut: result?.timedOut === true,
+      durationMs: Date.now() - startedAt,
     };
+
+    if (isTransportTraceEnabled()) {
+      console.log(summary.timedOut ? "HUMAN_MODE_DRY_RUN_TIMEOUT" : "HUMAN_MODE_DRY_RUN_DONE", summary);
+    }
+
+    return summary;
   } catch (e) {
     console.error("human mode project/repo dry-run hook failed (fail-open):", e);
     return {
@@ -208,6 +254,7 @@ async function runHumanModeProjectRepoDryRunHook({
       allowed: false,
       blocked: true,
       reason: "human_mode_project_repo_dry_run_failed",
+      durationMs: Date.now() - startedAt,
     };
   }
 }
@@ -223,8 +270,6 @@ export async function handleMessage(context = {}) {
     messageId,
     raw,
     deps,
-    hasReply,
-    hasCallAI,
     isEnforced,
     globalUserId: initialGlobalUserId,
     chatType,
@@ -235,9 +280,6 @@ export async function handleMessage(context = {}) {
 
   let globalUserId = initialGlobalUserId;
 
-  // =========================================================================
-  // CORE MEANING — Understand message intent before project/evidence logic
-  // =========================================================================
   const coreMeaning = understandMeaning({
     text: trimmed,
     hasActiveProjectSession: Boolean(
@@ -247,18 +289,12 @@ export async function handleMessage(context = {}) {
     previousContext: buildMeaningPreviousContextHint(context, deps),
   });
 
-  // =========================================================================
-  // CORE MEANING — ToolSelection dry-run planner, no execution
-  // =========================================================================
   const toolSelection = selectToolsForMeaning({ meaning: coreMeaning });
 
   const projectContextAllowedByMeaning = shouldAllowProjectContextFromMeaning(coreMeaning);
   const projectContextAllowedByToolSelection = shouldAllowProjectContextFromToolSelection(toolSelection);
   const projectContextAllowed = projectContextAllowedByMeaning && projectContextAllowedByToolSelection;
 
-  // =========================================================================
-  // PROJECT CONTEXT — Controlled by structured core meaning + ToolSelection
-  // =========================================================================
   const projectContextEngine = new ProjectContextEngine();
   const preProjectContextDecision = projectContextAllowed
     ? projectContextEngine.classifyProjectContextNeed({
@@ -275,9 +311,6 @@ export async function handleMessage(context = {}) {
         reasons: projectContextAllowedByMeaning ? ["blocked_by_tool_selection"] : ["blocked_by_core_meaning"],
       };
 
-  // =========================================================================
-  // PROJECT EVIDENCE — Trigger policy only, no DB writes
-  // =========================================================================
   const triggerDecision = projectContextAllowed
     ? new ProjectEvidenceTriggerPolicy().shouldBuildEvidence({
         projectContextDecision: context?.projectContextDecision || preProjectContextDecision,
@@ -307,9 +340,6 @@ export async function handleMessage(context = {}) {
     projectMemoryEvidenceTriggerDecision: triggerDecision,
   };
 
-  // =========================================================================
-  // PROJECT EVIDENCE — Seed/cache/light-pack build, fail-open
-  // =========================================================================
   try {
     if (triggerDecision.shouldBuild && coreMeaning?.suggestedAction !== "clarify") {
       const evidenceSeed = await buildProjectEvidenceSeedIfAvailable(enrichedContext, deps, triggerDecision);
@@ -355,9 +385,6 @@ export async function handleMessage(context = {}) {
     projectEvidenceDiagnostics,
   };
 
-  // =========================================================================
-  // STAGE 6.8 — Enforced guard: no processing without dedupe key/messageId
-  // =========================================================================
   if (isEnforced) {
     const dedupeKey = enrichedContext?.dedupeKey || null;
     if (!dedupeKey || !messageId) {
@@ -375,9 +402,6 @@ export async function handleMessage(context = {}) {
       return { ok: false, reason: "missing_dedupeKey", stage: "6.8" };
     }
 
-    // =========================================================================
-    // STAGE 8D — In-memory dedupe drop
-    // =========================================================================
     try {
       if (!bypassParsed.isBypass) {
         const now = Date.now();
@@ -405,9 +429,6 @@ export async function handleMessage(context = {}) {
     }
   }
 
-  // =========================================================================
-  // STAGE 6 LOGIC STEP 1 — Identity + Access
-  // =========================================================================
   const identity = await resolveIdentityAndAccess({
     transport,
     senderId,
@@ -425,9 +446,6 @@ export async function handleMessage(context = {}) {
     isMonarchUser,
   } = identity;
 
-  // =========================================================================
-  // HUMAN MODE PROJECT/REPO — gated dry-run hook only, no user response
-  // =========================================================================
   const humanModeProjectRepoDryRun = await runHumanModeProjectRepoDryRunHook({
     enrichedContext,
     trimmed,
@@ -446,9 +464,6 @@ export async function handleMessage(context = {}) {
     };
   }
 
-  // =========================================================================
-  // STAGE 6 LOGIC STEP 2 — Routing parse
-  // =========================================================================
   const routing = parseCommandAccess({
     trimmed,
     user,
@@ -463,9 +478,6 @@ export async function handleMessage(context = {}) {
     canProceed,
   } = routing;
 
-  // =========================================================================
-  // Trace log
-  // =========================================================================
   try {
     if (isTransportTraceEnabled()) {
       console.log("📨 handleMessage(core)", {
@@ -511,9 +523,6 @@ export async function handleMessage(context = {}) {
     // ignore
   }
 
-  // =========================================================================
-  // STAGE CORE MEANING — Natural clarification guard
-  // =========================================================================
   if (isEnforced && coreMeaning?.suggestedAction === "clarify" && !isCommand) {
     const chatIdNumForClarify = chatId ? Number(chatId) : null;
     const chatIdStrForClarify = chatId || "";
@@ -558,9 +567,6 @@ export async function handleMessage(context = {}) {
     };
   }
 
-  // =========================================================================
-  // STAGE 7.1 — Memory shadow write (OFF by default)
-  // =========================================================================
   try {
     const memory = getMemoryService();
     const enabled = Boolean(memory?.config?.enabled);
@@ -586,9 +592,6 @@ export async function handleMessage(context = {}) {
     console.error("handleMessage(memory shadow) failed:", e);
   }
 
-  // =========================================================================
-  // Shadow mode: compute routing but don't act
-  // =========================================================================
   if (!isEnforced) {
     return {
       ok: true,
@@ -612,9 +615,6 @@ export async function handleMessage(context = {}) {
     };
   }
 
-  // =========================================================================
-  // ENFORCED MODE — real routing + reply
-  // =========================================================================
   const chatIdNum = chatId ? Number(chatId) : null;
   const chatIdStr = chatId || "";
 

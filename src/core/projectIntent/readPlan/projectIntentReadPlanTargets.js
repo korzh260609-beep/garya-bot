@@ -1,4 +1,14 @@
 // src/core/projectIntent/readPlan/projectIntentReadPlanTargets.js
+// ============================================================================
+// LEGACY READ-PLAN TARGET RESOLUTION MARKER
+//
+// INTERFACE MODE NOTE:
+// - This file resolves targets through deterministic phrase/path/regex signals.
+// - Under hard Human Mode / Technical Mode separation, this is NOT full Human Mode.
+// - Treat this as legacy Technical Mode support until a clean structured meaning
+//   layer replaces it.
+// - Do not add new phrase-bound hacks here.
+// ============================================================================
 
 import {
   PILLAR_FILE_RULES,

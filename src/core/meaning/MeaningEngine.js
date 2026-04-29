@@ -21,6 +21,14 @@ function extractStageId(text = "") {
   return m ? m[1].toUpperCase() : null;
 }
 
+function hasResolvedProjectTarget({ hasActiveProjectSession = false, previousContext = null } = {}) {
+  return Boolean(
+    hasActiveProjectSession === true ||
+    previousContext?.activeProjectContext?.active === true ||
+    previousContext?.hasActiveProjectSession === true
+  );
+}
+
 export class MeaningEngine {
   understand({ text = "", hasActiveProjectSession = false, previousContext = null } = {}) {
     const meaning = createEmptyMeaning({ source: "MeaningEngine" });
@@ -35,8 +43,12 @@ export class MeaningEngine {
 
     if (domain === MEANING_DOMAIN.PROJECT) {
       const stageId = extractStageId(text);
+      const projectTargetResolved = hasResolvedProjectTarget({
+        hasActiveProjectSession,
+        previousContext,
+      });
 
-      if (!stageId) {
+      if (!stageId && !projectTargetResolved) {
         if (continuity.shouldAskClarification) {
           meaning.intent = "clarify_project_target";
           meaning.enoughInformation = false;
@@ -59,7 +71,9 @@ export class MeaningEngine {
       meaning.intent = "project_message";
       meaning.enoughInformation = true;
       meaning.suggestedAction = MEANING_ACTION.ANSWER;
-      meaning.userMeaning = "project-related message";
+      meaning.userMeaning = projectTargetResolved
+        ? "project-related message with resolved active project target"
+        : "project-related message";
       return meaning;
     }
 

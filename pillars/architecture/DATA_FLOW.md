@@ -8,6 +8,17 @@ Purpose:
 Status: CANONICAL
 Scope: high-level logical data flows across SG modules
 
+This file must be interpreted together with:
+
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
+- `pillars/PROJECT.md`
+- `pillars/DECISIONS.md`
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/architecture/README.md`
+- `pillars/architecture/SG_INTERFACE_LAYERS.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+
 ---
 
 ## 0) Why this file exists
@@ -26,6 +37,31 @@ but real runtime behavior can drift into shortcut-based architecture.
 
 ---
 
+## 0.1) SG entity rule for data flow
+
+SG is the global project entity.
+
+Data flows connect SG components.
+
+A data flow must not turn a component, mode, agent, tool, model, transport, or subsystem into a separate independent SG.
+
+Correct model:
+
+```text
+SG = global project entity
+flow = bounded movement between SG components
+component = instrument/subsystem of SG
+```
+
+Incorrect model:
+
+```text
+flow -> isolated component -> separate SG identity
+external AI/tool -> owns SG decision/memory/experience
+```
+
+---
+
 ## 1) Core principle
 
 SG must prefer explicit bounded flows.
@@ -36,6 +72,7 @@ This means:
 - modules exchange only what they should exchange
 - ownership is preserved during handoff
 - shortcuts are treated as risk, not convenience
+- component identity remains subordinate to SG entity integrity
 
 A working shortcut is not automatically an acceptable architecture path.
 
@@ -57,6 +94,13 @@ Important note:
 - not every module appears in every request
 - but random bypass paths are not acceptable by default
 
+For project/repository work, Human Mode must follow the RepoStateAgent factual-source policy:
+
+Human Mode
+→ permission / meaning / capability boundary
+→ RepoStateAgent-backed facts
+→ SG response/action
+
 ---
 
 ## 3) Main flow types
@@ -69,6 +113,7 @@ Transport
 → normalized context
 → Bot dispatch
 → Users / Access check as needed
+→ Human Mode or Technical Mode boundary
 → relevant feature/module
 → Logging / Diagnostics
 → Bot response formatting
@@ -81,10 +126,58 @@ Hard rule:
 - Transport does not own business meaning
 - Bot does not own deep module logic
 - output remains bounded and reviewable
+- Human Mode and Technical Mode must not be mixed
 
 ---
 
-### 3.2 Memory-aware flow
+### 3.2 Human Mode project/repo flow
+
+Canonical flow:
+
+User natural request
+→ Transport/Bot normalized context
+→ HumanModeEntry
+→ Users / Access / permission check
+→ meaning classification
+→ RepoStateAgent-backed factual read
+→ capability/action selection
+→ response builder
+→ Logging / Diagnostics
+→ user-facing output
+
+Purpose:
+- preserve meaning-first project/repo interaction without legacy phrase routing
+
+Hard rule:
+- raw text must not be treated as exact command routing
+- old RepoIndex / old maps / old snapshots must not be used as current factual truth
+- RepoStateAgent is a factual observation subsystem of SG, not a separate SG
+- Human Mode runtime must stay gated until explicitly approved
+
+---
+
+### 3.3 Technical Mode flow
+
+Canonical flow:
+
+Explicit command/debug/test input
+→ Transport/Bot normalized context
+→ Technical Mode route
+→ relevant command/diagnostic/legacy surface
+→ Logging / Diagnostics
+→ explicit technical output
+
+Purpose:
+- preserve commands, diagnostics, tests, and legacy routes without contaminating Human Mode
+
+Hard rule:
+- Technical Mode may require exact syntax
+- Technical Mode is not SG’s intelligence layer
+- old phrase/keyword/regex logic remains Technical Mode unless replaced by verified Human Mode architecture
+
+---
+
+### 3.4 Memory-aware flow
 
 Canonical flow:
 
@@ -104,10 +197,11 @@ Important distinction:
 Hard rule:
 - memory must not be bypassed by ad hoc direct handler logic
 - memory context must be selected, not dumped
+- project memory supports SG continuity, but does not replace pillars or verified repo/runtime facts
 
 ---
 
-### 3.3 Source-first flow
+### 3.5 Source-first flow
 
 Canonical flow:
 
@@ -125,10 +219,11 @@ Purpose:
 Hard rule:
 - unavailable source data must not be silently invented
 - raw source payload must not bypass normalization where normalized shape is required
+- AI/model memory must not replace real source data
 
 ---
 
-### 3.4 File/media intake flow
+### 3.6 File/media intake flow
 
 Canonical flow:
 
@@ -150,7 +245,7 @@ Hard rule:
 
 ---
 
-### 3.5 AI-assisted flow
+### 3.7 AI-assisted flow
 
 Canonical flow:
 
@@ -168,10 +263,11 @@ Purpose:
 Hard rule:
 - direct scattered model calls are forbidden
 - AI routing must not steal feature ownership
+- external AI/model/provider is an instrument, not SG itself
 
 ---
 
-### 3.6 Task execution flow
+### 3.8 Task execution flow
 
 Canonical flow:
 
@@ -190,16 +286,17 @@ Purpose:
 Hard rule:
 - task-like work must not become invisible ad hoc execution
 - duplicate-run/idempotency concerns must stay visible where relevant
+- task engine must not act autonomously outside SG governance
 
 ---
 
-### 3.7 Repo inspection flow
+### 3.9 Repo inspection flow
 
 Canonical flow:
 
 authorized request
 → Users / Access
-→ Repo guarded fetch/list/index path
+→ Repo guarded fetch/list/index path or RepoStateAgent factual path
 → bounded repo review/inspection
 → Logging / Diagnostics
 → output
@@ -210,10 +307,11 @@ Purpose:
 Hard rule:
 - repo inspection does not imply repo mutation
 - guarded path rules remain explicit
+- current project-map/status/architecture-health claims must follow `REPO_MAP_SOURCE_POLICY.md`
 
 ---
 
-### 3.8 Project continuity flow
+### 3.10 Project continuity flow
 
 Canonical flow:
 
@@ -226,10 +324,12 @@ project-aware request/session
 
 Purpose:
 - preserve project continuity without replacing canonical pillars
+- preserve SG project experience across sessions and tools
 
 Hard rule:
 - project memory does not override pillars
 - restored project context must remain bounded
+- external AI helpers may read project experience, but do not own it
 
 ---
 
@@ -241,6 +341,7 @@ Allowed:
 
 Forbidden:
 - business logic embedded into transport handoff
+- transport becoming SG identity
 
 ---
 
@@ -250,6 +351,7 @@ Allowed:
 
 Forbidden:
 - deep business logic accumulation in handlers
+- bot becoming SG identity
 
 ---
 
@@ -291,6 +393,7 @@ Allowed:
 
 Forbidden:
 - routing layer taking over feature meaning
+- AI routing or model provider acting as SG itself
 
 ---
 
@@ -301,6 +404,7 @@ Allowed:
 
 Forbidden:
 - logging becoming hidden control-plane logic
+- diagnostics becoming autonomous decision authority
 
 ---
 
@@ -315,6 +419,10 @@ The following flow shortcuts are dangerous by default:
 - handler → direct memory semantics bypass
 - source failure → guessed data without explicit source state
 - file/media input → direct reasoning without proper intake/extraction path
+- Human Mode → old phrase/keyword/regex routing
+- Human Mode → old RepoIndex / stale snapshot as current repo truth
+- external AI/tool → owns SG decision/memory/project experience
+- component/mode/agent/tool → behaves as separate SG
 
 These patterns may still produce output,
 but they damage architecture.
@@ -330,6 +438,7 @@ Every flow should stay bounded in at least these dimensions:
 - ownership
 - reviewability
 - failure visibility
+- entity integrity
 
 If a flow becomes too broad or too implicit,
 it stops being safe even if it still functions.
@@ -349,6 +458,8 @@ Important examples:
 - task duplicated/blocked
 - AI route unavailable
 - repo path denied
+- RepoStateAgent facts unavailable
+- Human Mode runtime gate closed
 
 Hiding these failures creates false confidence.
 
@@ -360,8 +471,9 @@ When flows conflict, source hierarchy remains:
 
 1. verified repository/runtime behavior
 2. canonical pillars
-3. project memory / bounded working context
-4. ordinary memory / chat-derived supporting context
+3. accepted decision files
+4. project memory / bounded working context
+5. ordinary memory / chat-derived supporting context
 
 No lower layer may silently override a higher canonical layer.
 
@@ -376,6 +488,9 @@ Update this file when:
 - a new cross-module dependency becomes canonical
 - a dangerous bypass becomes intentionally formalized
 - a previously assumed flow is proven wrong
+- Human Mode / Technical Mode boundaries change
+- RepoStateAgent factual source flow changes
+- a component identity rule changes
 
 Do not update this file for tiny local refactors.
 
@@ -388,6 +503,9 @@ This file maps canonical flow shape, not every implementation detail.
 Architecture is not only “what modules exist”.
 
 Architecture is also “how data is allowed to move”.
+
+Data flows connect SG components.
+They must not create separate SG identities.
 
 If the flow map becomes implicit,
 the module map alone will not save the system.

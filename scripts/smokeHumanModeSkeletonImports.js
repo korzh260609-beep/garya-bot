@@ -11,12 +11,18 @@
 
 import { handleHumanProjectIntent } from "../src/core/projectIntent/modes/human/projectIntentHumanEntry.js";
 import { checkHumanProjectIntentPermissions } from "../src/core/projectIntent/modes/human/projectIntentHumanPermissions.js";
-import { classifyHumanProjectIntentMeaning } from "../src/core/projectIntent/modes/human/projectIntentHumanMeaning.js";
+import {
+  classifyHumanProjectIntentMeaning,
+  HUMAN_PROJECT_INTENT_KINDS,
+} from "../src/core/projectIntent/modes/human/projectIntentHumanMeaning.js";
 import {
   buildHumanProjectRepoFactsFromRepoStateAgentResult,
   loadHumanProjectRepoFacts,
 } from "../src/core/projectIntent/modes/human/projectIntentHumanRepoFacts.js";
-import { selectHumanProjectCapability } from "../src/core/projectIntent/modes/human/projectIntentHumanCapabilitySelector.js";
+import {
+  HUMAN_PROJECT_CAPABILITIES,
+  selectHumanProjectCapability,
+} from "../src/core/projectIntent/modes/human/projectIntentHumanCapabilitySelector.js";
 import { buildHumanProjectIntentResponse } from "../src/core/projectIntent/modes/human/projectIntentHumanResponseBuilder.js";
 
 function assertFunction(name, value) {
@@ -78,6 +84,17 @@ if (missingRepoFacts?.reason !== "repo_state_agent_result_not_provided") {
   throw new Error("Human Mode skeleton smoke check failed: unexpected missing repo facts reason");
 }
 
+const capabilityWithoutFacts = selectHumanProjectCapability({
+  meaning: {
+    intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+  },
+  repoFacts: missingRepoFacts,
+});
+
+if (capabilityWithoutFacts?.capability !== HUMAN_PROJECT_CAPABILITIES.NONE) {
+  throw new Error("Human Mode skeleton smoke check failed: capability without repo facts must be none");
+}
+
 const sampleRepoFacts = buildHumanProjectRepoFactsFromRepoStateAgentResult({
   repoFullName: "korzh260609-beep/garya-bot",
   branch: "main",
@@ -103,6 +120,28 @@ if (sampleRepoFacts?.ok !== true) {
 
 if (sampleRepoFacts?.facts?.repo?.fullName !== "korzh260609-beep/garya-bot") {
   throw new Error("Human Mode skeleton smoke check failed: sample repo facts repo fullName mismatch");
+}
+
+const architectureCapability = selectHumanProjectCapability({
+  meaning: {
+    intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
+  },
+  repoFacts: sampleRepoFacts,
+});
+
+if (architectureCapability?.capability !== HUMAN_PROJECT_CAPABILITIES.SUMMARIZE_ARCHITECTURE) {
+  throw new Error("Human Mode skeleton smoke check failed: architecture capability mismatch");
+}
+
+const riskCapability = selectHumanProjectCapability({
+  meaning: {
+    intentKind: HUMAN_PROJECT_INTENT_KINDS.RISK_QUESTION,
+  },
+  repoFacts: sampleRepoFacts,
+});
+
+if (riskCapability?.capability !== HUMAN_PROJECT_CAPABILITIES.IDENTIFY_RISK) {
+  throw new Error("Human Mode skeleton smoke check failed: risk capability mismatch");
 }
 
 console.log("OK: Human Mode skeleton imports and basic skeleton contract are valid.");

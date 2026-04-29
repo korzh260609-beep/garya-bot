@@ -40,9 +40,6 @@ on:
         default: false
         type: boolean
 
-  schedule:
-    - cron: "*/15 * * * *"
-
 jobs:
   source-bridge:
     runs-on: ubuntu-latest

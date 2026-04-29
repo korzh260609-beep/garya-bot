@@ -98,12 +98,27 @@ Examples:
 
 ### 4.1 Root-level canonical files
 
-#### `pillars/WORKFLOW.md`
+#### `pillars/SG_ENTITY.md`
 Use for:
-- development order
-- stage gates
-- allowed/forbidden-by-stage rules
-- factual notes about what is already verified
+- what SG is as a system entity
+- SG as the global project entity
+- relation between SG and components/tools/interfaces
+- SG project experience and continuity
+
+#### `pillars/PROJECT.md`
+Use for:
+- high-level project identity
+- project framing
+- broad strategic context
+- relationship between SG, Kingdom GARYA, users, sources, memory, and scaling
+
+#### `pillars/SG_BEHAVIOR.md`
+Use for:
+- SG behavior rules
+- interaction style constraints
+- assistant-side behavior boundaries
+- meaning-first / source-first behavior
+- entity-aware behavior rules
 
 #### `pillars/DECISIONS.md`
 Use for:
@@ -111,25 +126,36 @@ Use for:
 - non-negotiable rules
 - explicit fixation of important choices
 
+#### `pillars/decisions/`
+Use for:
+- accepted decision extensions that should stay small and safe to review
+- decision files linked from architecture and root pillars
+
+Current active decision extension:
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+
+#### Workflow files under `pillars/`
+Use for:
+- active development order
+- stage gates
+- allowed/forbidden-by-stage rules
+- factual notes about what is already verified
+
+Important:
+- Do not assume an old flat `WORKFLOW.md` is the active workflow source.
+- If workflow is split into folder/files, use the active workflow structure, not archived files.
+- Archived workflow files must not be treated as current stage truth.
+
 #### `pillars/REPOINDEX.md`
 Use for:
-- repository map
+- legacy/supportive repository map only if marked current
 - responsibility zones
 - core boundaries
-- critical files / blast radius
 - repository structure understanding
 
-#### `pillars/PROJECT.md`
-Use for:
-- high-level project identity
-- project framing
-- broad strategic context
-
-#### `pillars/SG_BEHAVIOR.md`
-Use for:
-- SG behavior rules
-- interaction style constraints
-- assistant-side behavior boundaries
+Important:
+- If `REPOINDEX.md` is marked legacy/deprecated, it must not be used as factual current repo state.
+- Current repo/project factual state must follow `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`.
 
 #### `pillars/CODE_OUTPUT.md`
 Use for:
@@ -152,7 +178,36 @@ Located under:
 
 `pillars/architecture/`
 
+Entry file:
+
+#### `pillars/architecture/README.md`
+Use for:
+- architecture reading order
+- cross-pillar alignment
+- active architecture map
+- Human Mode / Technical Mode / RepoStateAgent guardrails
+
 Current architecture-level files include:
+
+#### `SG_INTERFACE_LAYERS.md`
+Use for:
+- Human Mode vs Technical Mode separation
+- no mixing rule
+- interface modes as components of SG
+
+#### `HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+Use for:
+- Human Mode repo/project-work skeleton
+- gated meaning provider contract
+- gated RepoStateAgent runner contract
+- HumanEntry pipeline contract
+- current runtime-not-connected status
+
+#### `REPO_MAP_SOURCE_POLICY.md`
+Use for:
+- factual source of current repository state
+- RepoStateAgent as factual repo observation subsystem
+- old RepoIndex / old maps / old snapshots as legacy only
 
 #### `MODULE_MAP.md`
 Use for:
@@ -217,21 +272,24 @@ Current documented modules include:
 Read in this order:
 
 1. `pillars/README.md`
-2. `pillars/DOCS_GOVERNANCE.md`
-3. `pillars/WORKFLOW.md`
-4. `pillars/DECISIONS.md`
-5. `pillars/REPOINDEX.md`
-6. `pillars/architecture/MODULE_MAP.md`
-7. `pillars/modules/MODULE_INDEX.md`
+2. `pillars/SG_ENTITY.md`
+3. `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+4. `pillars/SG_BEHAVIOR.md`
+5. `pillars/PROJECT.md`
+6. `pillars/DECISIONS.md`
+7. active workflow files under `pillars/`
+8. `pillars/architecture/README.md`
+9. `pillars/modules/MODULE_INDEX.md`
 
 This gives:
-- what the system is
-- how docs work
-- what the roadmap order is
+- what SG is
+- who/what SG is not
+- how SG behaves
+- what the project is
 - what is already decided
-- how the repo is shaped
+- what the active work order is
+- how architecture files connect
 - what modules exist
-- where to find module docs
 
 ---
 
@@ -249,13 +307,15 @@ Read in this order:
 ### 5.3 If you are changing architecture boundaries
 Read in this order:
 
-1. `pillars/DECISIONS.md`
-2. `pillars/WORKFLOW.md`
-3. `pillars/REPOINDEX.md`
-4. `pillars/architecture/MODULE_MAP.md`
-5. `pillars/architecture/DATA_FLOW.md`
-6. `pillars/architecture/PERMISSIONS_MAP.md`
-7. then affected module docs
+1. `pillars/SG_ENTITY.md`
+2. `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+3. `pillars/DECISIONS.md`
+4. active workflow files under `pillars/`
+5. `pillars/architecture/README.md`
+6. `pillars/architecture/SG_INTERFACE_LAYERS.md`
+7. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+8. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+9. affected module docs
 
 ---
 
@@ -265,8 +325,9 @@ Read in this order:
 1. relevant module `RISKS.md`
 2. relevant module `README.md`
 3. relevant module `CONTRACTS.md`
-4. `pillars/architecture/DATA_FLOW.md`
-5. diagnostics/logging-related docs if needed
+4. `pillars/SG_BEHAVIOR.md`
+5. `pillars/architecture/DATA_FLOW.md`
+6. diagnostics/logging-related docs if needed
 
 ---
 
@@ -278,9 +339,12 @@ Important distinction:
 These define accepted truth and boundaries.
 
 Examples:
-- `WORKFLOW.md`
+- `SG_ENTITY.md`
+- `SG_BEHAVIOR.md`
+- `PROJECT.md`
 - `DECISIONS.md`
-- `REPOINDEX.md`
+- `pillars/decisions/*.md` with `Status: ACCEPTED`
+- active workflow files
 - `DOCS_GOVERNANCE.md`
 - architecture files
 - module `README.md` / `CONTRACTS.md` / `RISKS.md` / `CHANGELOG.md`
@@ -293,6 +357,8 @@ Examples:
 - bounded working summaries
 - task-specific notes outside canonical docs
 - chat explanations
+- archived workflow files
+- deprecated repo maps
 
 Rule:
 - supportive docs help
@@ -310,6 +376,9 @@ The following patterns are dangerous:
 - mixing global rules with local module details
 - leaving canonical docs stale after meaningful changes
 - using chat as if it were a source of truth
+- treating archived workflow files as current workflow truth
+- treating old RepoIndex / old maps as current repo facts
+- treating a component/tool/mode/agent as SG itself
 
 If a file does not clearly belong somewhere,
 do not add it blindly.

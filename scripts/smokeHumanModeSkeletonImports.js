@@ -12,7 +12,10 @@
 import { handleHumanProjectIntent } from "../src/core/projectIntent/modes/human/projectIntentHumanEntry.js";
 import { checkHumanProjectIntentPermissions } from "../src/core/projectIntent/modes/human/projectIntentHumanPermissions.js";
 import { classifyHumanProjectIntentMeaning } from "../src/core/projectIntent/modes/human/projectIntentHumanMeaning.js";
-import { loadHumanProjectRepoFacts } from "../src/core/projectIntent/modes/human/projectIntentHumanRepoFacts.js";
+import {
+  buildHumanProjectRepoFactsFromRepoStateAgentResult,
+  loadHumanProjectRepoFacts,
+} from "../src/core/projectIntent/modes/human/projectIntentHumanRepoFacts.js";
 import { selectHumanProjectCapability } from "../src/core/projectIntent/modes/human/projectIntentHumanCapabilitySelector.js";
 import { buildHumanProjectIntentResponse } from "../src/core/projectIntent/modes/human/projectIntentHumanResponseBuilder.js";
 
@@ -26,6 +29,10 @@ assertFunction("handleHumanProjectIntent", handleHumanProjectIntent);
 assertFunction("checkHumanProjectIntentPermissions", checkHumanProjectIntentPermissions);
 assertFunction("classifyHumanProjectIntentMeaning", classifyHumanProjectIntentMeaning);
 assertFunction("loadHumanProjectRepoFacts", loadHumanProjectRepoFacts);
+assertFunction(
+  "buildHumanProjectRepoFactsFromRepoStateAgentResult",
+  buildHumanProjectRepoFactsFromRepoStateAgentResult
+);
 assertFunction("selectHumanProjectCapability", selectHumanProjectCapability);
 assertFunction("buildHumanProjectIntentResponse", buildHumanProjectIntentResponse);
 
@@ -59,6 +66,43 @@ if (allowed?.allowed !== true) {
 
 if (allowed?.handled !== false) {
   throw new Error("Human Mode skeleton smoke check failed: skeleton must not handle runtime yet");
+}
+
+const missingRepoFacts = loadHumanProjectRepoFacts();
+
+if (missingRepoFacts?.ok !== false) {
+  throw new Error("Human Mode skeleton smoke check failed: missing repo facts must be ok=false");
+}
+
+if (missingRepoFacts?.reason !== "repo_state_agent_result_not_provided") {
+  throw new Error("Human Mode skeleton smoke check failed: unexpected missing repo facts reason");
+}
+
+const sampleRepoFacts = buildHumanProjectRepoFactsFromRepoStateAgentResult({
+  repoFullName: "korzh260609-beep/garya-bot",
+  branch: "main",
+  filesCount: 10,
+  modulesCount: 2,
+  dependenciesCount: 3,
+  projectMap: {
+    repo: {
+      fullName: "korzh260609-beep/garya-bot",
+      branch: "main",
+    },
+    totals: {
+      files: 10,
+      modules: 2,
+      dependencies: 3,
+    },
+  },
+});
+
+if (sampleRepoFacts?.ok !== true) {
+  throw new Error("Human Mode skeleton smoke check failed: sample repo facts must be ok=true");
+}
+
+if (sampleRepoFacts?.facts?.repo?.fullName !== "korzh260609-beep/garya-bot") {
+  throw new Error("Human Mode skeleton smoke check failed: sample repo facts repo fullName mismatch");
 }
 
 console.log("OK: Human Mode skeleton imports and basic skeleton contract are valid.");

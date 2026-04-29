@@ -25,7 +25,7 @@ components = organs / channels / instruments / subsystems of SG
 external AI operators = temporary helpers, not SG itself
 ```
 
-No architecture document may redefine a component, mode, agent, transport, model, or tool as an independent SG.
+No architecture document may redefine a component, mode, agent, transport, model, capability, route, or tool as an independent SG.
 
 ---
 
@@ -44,6 +44,19 @@ Hard rule:
 
 ```text
 No mixing.
+```
+
+### SEMANTIC_ROUTING.md
+
+Defines the meaning-first routing principle for SG.
+
+Current guardrail:
+
+```text
+Global SemanticRouter is future architecture.
+Do not build it now.
+Human Mode skeleton comes first.
+Old phrase/keyword/regex logic remains Technical Mode unless replaced by verified Human Mode architecture.
 ```
 
 ### HUMAN_MODE_REPOSTATEAGENT_SKELETON.md
@@ -81,6 +94,59 @@ RepoStateAgent is the only factual source for current repository state, project 
 ```
 
 RepoStateAgent is a factual observation subsystem of SG, not a separate SG.
+
+### SG_CAPABILITY_ACCESS.md
+
+Defines how useful capabilities become accessible through SG.
+
+Hard rule:
+
+```text
+capability access != authority to redefine SG.
+external helper != final user interface.
+```
+
+Capabilities must be exposed through Human Mode and/or Technical Mode according to permissions, gates, and stage rules.
+
+### MODULE_MAP.md
+
+Defines logical SG modules and their responsibility domains.
+
+Hard rule:
+
+```text
+modules = components of SG, not separate SG entities.
+```
+
+### DATA_FLOW.md
+
+Defines canonical high-level data flows between SG components.
+
+Hard rule:
+
+```text
+data flow connects SG components; it must not create separate SG identities.
+```
+
+### PERMISSIONS_MAP.md
+
+Defines high-level permissions and access-control architecture.
+
+Hard rule:
+
+```text
+component access != authority over SG identity/governance.
+```
+
+### CODE_OWNERSHIP_MAP.md
+
+Defines high-level code ownership boundaries.
+
+Hard rule:
+
+```text
+code ownership = responsibility boundary, not SG identity ownership.
+```
 
 ---
 
@@ -142,8 +208,9 @@ Current Human Mode architecture work must keep these guardrails:
 4. Do not use old RepoIndex as current factual truth.
 5. Do not treat RepoStateAgent as a separate SG.
 6. Do not let external AI operators own SG decisions, identity, memory, or project experience.
-7. Keep smoke-checks green after every contract change.
-8. Create snapshots after verified green states.
+7. Do not treat capability access as governance authority.
+8. Keep smoke-checks green after every contract change.
+9. Create snapshots after verified green states.
 
 ---
 
@@ -156,6 +223,10 @@ For architecture work, read in this order:
 3. `pillars/SG_BEHAVIOR.md`
 4. `pillars/PROJECT.md`
 5. `pillars/DECISIONS.md`
-6. `pillars/architecture/SG_INTERFACE_LAYERS.md`
-7. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
-8. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+6. `pillars/architecture/README.md`
+7. `pillars/architecture/SG_INTERFACE_LAYERS.md`
+8. `pillars/architecture/SEMANTIC_ROUTING.md`
+9. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+10. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+11. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+12. relevant architecture maps: `MODULE_MAP.md`, `DATA_FLOW.md`, `PERMISSIONS_MAP.md`, `CODE_OWNERSHIP_MAP.md`

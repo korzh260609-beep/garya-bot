@@ -3,6 +3,15 @@
 > Single source of truth for development order.  
 > Purpose: prevent premature decisions, keep skeleton intact, make errors early + cheap.
 
+This workflow must be interpreted together with:
+
+- `pillars/SG_ENTITY.md`
+- `pillars/SG_BEHAVIOR.md`
+- `pillars/PROJECT.md`
+- `pillars/DECISIONS.md`
+- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/architecture/README.md`
+
 ---
 
 ## 0) LEGEND
@@ -16,7 +25,31 @@
 
 ---
 
-## 0.1 MEMORY ORDER CLARIFICATION
+## 0.1 SG ENTITY / COMPONENT ALIGNMENT
+
+SG is the global project entity.
+
+Workflow execution must preserve this model:
+
+```text
+SG = global project entity
+components = organs / channels / instruments / subsystems of SG
+external AI operators = temporary helpers, not SG itself
+```
+
+Human Mode, Technical Mode, RepoStateAgent, agents, tools, transports, memory, sources, diagnostics and future interfaces are components or instruments of SG.
+
+They must not be planned, implemented, documented or tested as separate independent SG entities.
+
+Hard rules:
+- A component may support SG, but must not replace SG.
+- External AI operators may help analyze or generate suggestions, but they do not own SG decisions, identity, memory, or project experience.
+- SG project experience must remain preserved through pillars, decisions, architecture, code, memory, verified repo state, snapshots and recoverable history.
+- Any workflow step that would make a component act as a separate SG is architecturally invalid.
+
+---
+
+## 0.2 MEMORY ORDER CLARIFICATION
 
 Memory-related items are split into two groups:
 
@@ -65,12 +98,13 @@ Hard rule:
 
 9. Work order for ANY new capability: **skeleton → config → logic**
 10. One change block = one commit (small, reversible).
-11. No architecture changes “on the fly”. Architecture changes require explicit revision note in DECISIONS.md.
-12. If something is ambiguous, STOP and add a note to DECISIONS.md before implementing.
+11. No architecture changes “on the fly”. Architecture changes require explicit revision note in DECISIONS.md or accepted decision file under `pillars/decisions/`.
+12. If something is ambiguous, STOP and add a note to DECISIONS.md or accepted decision file before implementing.
 13. If a step references a later stage, it is forbidden (stage gate).
 14. Before continuing repository development, SG must restore current project memory context.
 15. Project Memory Core and Long-Term Memory Core are early foundation, not optional future enhancements.
 16. Do not manually mark pillars items as done/complete; completion evidence must come from repo/runtime verification or generated status snapshots.
+17. Do not treat a mode, agent, tool, transport, source, memory layer, or repository subsystem as SG itself.
 
 ---
 
@@ -83,6 +117,9 @@ Core → DB/TaskEngine → Access V0 → Multi-Channel Identity → DB Migration
 
 Memory gate rule:
 - No major new feature work should continue until Project Memory Core and Long-Term Memory Core are reliable enough for SG to restore current project state, decisions, constraints, risks, and next steps.
+
+Entity gate rule:
+- No feature may introduce a second SG identity or let a component/tool/agent behave as independent SG.
 
 ---
 
@@ -104,6 +141,11 @@ For memory-related work:
 10) Verify no raw uncontrolled chat/code is injected into prompts
 11) Verify confirmed facts are separated from archive/digest
 12) Verify memory restore works before repo/code work begins
+
+For entity-sensitive work:
+13) Verify the changed component remains a component/instrument of SG
+14) Verify prompts/docs do not describe external AI operators as SG itself
+15) Verify Human Mode / Technical Mode / RepoStateAgent remain separated according to architecture
 
 ---
 

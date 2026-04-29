@@ -13,6 +13,7 @@ import { ErrorEventsRepo } from "../db/errorEventsRepo.js";
 
 // ✅ Stage 3.6 — centralized env access (no direct process.env here)
 import { envStr, envIntRange } from "../core/config.js";
+import { isTransportTraceEnabled } from "../transport/transportConfig.js";
 
 export function initTelegramTransport(app) {
   const token = envStr("TELEGRAM_BOT_TOKEN", "").trim();
@@ -132,6 +133,18 @@ export function initTelegramTransport(app) {
 
   app.post(webhookPath, async (req, res) => {
     try {
+      if (isTransportTraceEnabled()) {
+        console.log("TELEGRAM_WEBHOOK_UPDATE_RECEIVED", {
+          hasBody: Boolean(req.body),
+          updateId: req.body?.update_id || null,
+          hasMessage: Boolean(req.body?.message),
+          hasEditedMessage: Boolean(req.body?.edited_message),
+          hasCallbackQuery: Boolean(req.body?.callback_query),
+          messageTextPresent: typeof req.body?.message?.text === "string",
+          messageChatType: req.body?.message?.chat?.type || null,
+        });
+      }
+
       await bot.processUpdate(req.body);
       res.sendStatus(200);
     } catch (err) {

@@ -10,6 +10,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { PillarsResolver } from "../projectExperience/PillarsResolver.js";
+import { getLegacyPillarPath } from "../projectExperience/PillarTargetResolver.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,20 +24,23 @@ function normalizeString(value) {
 }
 
 function legacyFallbackItems() {
+  const roadmapLegacyPath = getLegacyPillarPath("roadmap");
+  const workflowLegacyPath = getLegacyPillarPath("workflow");
+
   return [
     {
       section: "roadmap",
       title: "ROADMAP",
-      relPath: "pillars/ROADMAP.md",
+      relPath: roadmapLegacyPath,
       tags: ["roadmap", "canonical", "legacy_path"],
-      sourceRef: "pillars/ROADMAP.md",
+      sourceRef: roadmapLegacyPath,
     },
     {
       section: "workflow",
       title: "WORKFLOW",
-      relPath: "pillars/WORKFLOW.md",
+      relPath: workflowLegacyPath,
       tags: ["workflow", "canonical", "legacy_path"],
-      sourceRef: "pillars/WORKFLOW.md",
+      sourceRef: workflowLegacyPath,
     },
     {
       section: "decisions",
@@ -52,7 +56,7 @@ function legacyFallbackItems() {
       tags: ["project", "canonical", "legacy_path"],
       sourceRef: "pillars/PROJECT.md",
     },
-  ];
+  ].filter((item) => item.relPath);
 }
 
 async function buildResolvedPillarItems({ root, sources }) {

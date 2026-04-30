@@ -11,24 +11,37 @@ Human Mode
 Technical Mode
 legacy phrase/keyword/regex routing
 old repo snapshot commands
+heavy SemanticRouter-as-brain design
 ```
 
 Human Mode must be built separately from legacy Technical Mode.
 
+The goal is not to create a heavy Global SemanticRouter.
+The goal is a safe Human Mode path where:
+
+```text
+reasoning model / meaning provider understands meaning
+minimal controller/gate checks scope, permissions, capability, source/tool, risk, cost, confirmation
+SG answers or performs only the permitted action
+```
+
 This document is an architecture-level implementation of:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
 ## Entity alignment
 
-SG is the global project entity.
+SG is the global project entity and global intellectual system.
 
 Human Mode is not a separate agent and not a separate “SG”.
 It is SG’s normal meaning-first interface for natural user communication.
@@ -36,13 +49,18 @@ It is SG’s normal meaning-first interface for natural user communication.
 RepoStateAgent is not a separate SG either.
 It is SG’s factual repository observation subsystem.
 
+Minimal controller/gate is not a separate SG brain.
+It is only an action protection and capability-selection layer.
+
 The Human Mode RepoStateAgent skeleton must therefore be interpreted as:
 
 ```text
-SG global entity
+SG global entity / global intellectual system
 -> Human Mode interface
--> RepoStateAgent factual observation
--> SG response / action
+-> reasoning model / meaning provider
+-> minimal controller/gate
+-> RepoStateAgent factual observation when repo facts are needed
+-> SG response / permitted action
 ```
 
 External AI operators, coding assistants, or temporary tools may help implement or verify this skeleton, but they do not become SG and do not own SG’s project experience.
@@ -51,7 +69,7 @@ External AI operators, coding assistants, or temporary tools may help implement 
 
 ## Core rule
 
-Human Mode repository/project work must use RepoStateAgent-backed facts.
+Human Mode repository/project work must use RepoStateAgent-backed facts when current repo/project facts are required.
 
 Current factual chain:
 
@@ -98,18 +116,20 @@ Required flow:
 ```text
 User natural request
 -> HumanModeEntry
--> role / permission check
--> intent meaning classification
--> RepoStateAgent factual read
+-> meaning / intent / context
+-> role / scope / permission check
+-> capability selection
+-> source/tool need check
+-> RepoStateAgent factual read when repo facts are needed
 -> project/context reasoning
--> capability/action selection
--> human-readable answer
+-> risk / cost / confirmation check
+-> human-readable answer or permitted action
 ```
 
 Canonical SG formula:
 
 ```text
-meaning -> intent -> decision -> action -> response
+meaning -> intent -> context -> capability -> permission -> source/tool -> action/answer
 ```
 
 Forbidden simplification:
@@ -139,8 +159,9 @@ Also forbidden:
 ```text
 copying Technical Mode heuristics into Human Mode
 renaming old phrase logic as semantic intelligence
-building a global SemanticRouter before the skeleton is stable
-making RepoStateAgent, Human Mode, or any helper act as a separate SG
+building a heavy router that replaces reasoning model intelligence
+making RepoStateAgent, Human Mode, controller/gate, or any helper act as a separate SG
+bypassing permissions, source checks, risk checks, or confirmations
 ```
 
 ---
@@ -183,21 +204,21 @@ Responsibilities:
 ```text
 accept user text
 accept user role/context
-call permission layer
 call meaning layer
-call repo facts layer
+call permission/scope layer
+call repo facts layer when needed
 call capability selector
 call response builder
 return structured Human Mode result
 ```
 
 Current implementation rule:
-- not wired into runtime
+- not wired into runtime unless explicitly approved
 - may be tested only through explicit smoke-check or controlled caller
 
 ### projectIntentHumanPermissions.js
 
-Checks whether the user can access SG project/repo facts.
+Checks whether the user can access SG project/repo facts or perform the requested capability.
 
 For now:
 
@@ -212,7 +233,12 @@ citizen/project-specific permissions
 guest limits
 paid plans
 workspace-level access
+personal SG scope
+project scope
 ```
+
+Permissions protect actions and private data.
+They must not limit SG’s ability to think, analyze, explain, or prepare non-applied plans.
 
 ### projectIntentHumanMeaning.js
 
@@ -231,10 +257,11 @@ unknown
 ```
 
 This layer must not become a phrase router.
+It must not duplicate the reasoning model’s thinking with large hardcoded logic.
 
 Current safe contract:
 - raw text is not classified by keywords/regex
-- structured meaning may be accepted from context
+- structured meaning may be accepted from context or a gated meaning provider
 - a meaning provider may be used only when explicitly gated
 
 Gated provider rule:
@@ -245,7 +272,7 @@ humanProjectIntentMeaningProvider may run only if allowHumanMeaningProviderRun =
 
 ### projectIntentHumanRepoFacts.js
 
-Loads RepoStateAgent-backed facts.
+Loads RepoStateAgent-backed facts when repo/project facts are required.
 
 Must not use old RepoIndex as factual current state.
 
@@ -280,12 +307,15 @@ summarize_architecture
 identify_risk
 suggest_next_step
 ask_clarification
+prepare_non_applied_plan
 ```
 
 Rules:
-- selects from structured meaning and repo facts
+- selects from structured meaning, permissions, repo facts, context, and risk
 - must not inspect raw text as keyword routing
-- must not select project capabilities without repo facts
+- must not select project capabilities without required repo facts when facts are needed
+- must be aware of permission/risk/confirmation needs
+- must not perform the action itself
 
 ### projectIntentHumanResponseBuilder.js
 
@@ -293,8 +323,10 @@ Builds final human-readable answer.
 
 Rules:
 - no debug protocol unless explicitly requested
-- uses repo facts + capability
+- uses repo facts + capability where relevant
 - does not use old Technical Mode template replies as Human Mode intelligence
+- states uncertainty or missing facts when needed
+- may prepare a non-applied plan when action is not permitted
 
 ---
 
@@ -311,29 +343,30 @@ HumanRepoStateAgentRunner adapter exists with lazy import.
 CapabilitySelector contract exists.
 ResponseBuilder contract exists.
 Smoke-check covers the contracts.
-Runtime SG is not connected to Human Mode yet.
-Raw text is not classified into intent yet.
-Global SemanticRouter is not created.
-Phrase/keyword/regex logic is not added.
+Runtime SG is not connected to Human Mode unless explicitly gated.
+Raw text is not classified into intent by keyword/regex.
+Heavy SemanticRouter is not created and is not the target.
+Phrase/keyword/regex logic is not added to Human Mode.
 ```
 
 ---
 
 ## First safe implementation steps
 
-Do not implement full Human Mode router immediately.
+Do not implement a full Human Mode router immediately.
 
 Safe staged path:
 
-1. Create Human Mode module skeletons.
-2. Wire nothing into runtime.
+1. Create/maintain Human Mode module skeletons.
+2. Wire nothing into runtime without explicit gate.
 3. Add smoke checks for imports and contracts.
 4. Add gated meaning provider contract.
 5. Add gated RepoStateAgent facts contract.
 6. Add runner adapter with lazy import.
-7. Verify full pipeline through explicit controlled calls.
-8. Only later connect HumanModeEntry behind an explicit controlled runtime gate.
-9. Only after that allow selected natural repo/project questions to use Human Mode.
+7. Add minimal controller/gate checks only where there is a real scope/permission/capability/source/risk/confirmation need.
+8. Verify full pipeline through explicit controlled calls.
+9. Only later connect HumanModeEntry behind an explicit controlled runtime gate.
+10. Only after that allow selected natural repo/project questions to use Human Mode.
 
 ---
 
@@ -344,9 +377,9 @@ Current status:
 ```text
 Technical Mode split: in progress / mostly done for projectIntent conversation layer
 Human Mode: boundary and safe contracts exist
-Human Mode runtime connection: not started
-Real natural-language understanding provider: not connected
-Global SemanticRouter: not created
+Human Mode runtime connection: not started unless explicitly gated
+Real natural-language understanding provider: not connected unless explicitly gated
+Heavy SemanticRouter: not created and not target
 ```
 
 This file is the skeleton contract for the next phase.

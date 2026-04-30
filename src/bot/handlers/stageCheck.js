@@ -6,7 +6,7 @@ import { requireMonarchPrivateAccess } from "./handlerAccess.js";
 
 import { runStageCheckCore } from "../../core/stageCheck/stageCheckCore.js";
 import {
-  WORKFLOW_PATH,
+  WORKFLOW_SOURCE_PATH,
   RULES_PATH,
   detectLanguageFromContext,
   parseMode,
@@ -28,7 +28,7 @@ export async function handleStageCheck(ctx = {}) {
   const lang = detectLanguageFromContext(ctx);
   const { t, humanStatus, humanGapReason } = createTranslator({
     lang,
-    workflowPath: WORKFLOW_PATH,
+    workflowPath: WORKFLOW_SOURCE_PATH,
     rulesPath: RULES_PATH,
   });
 

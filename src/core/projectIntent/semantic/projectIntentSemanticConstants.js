@@ -1,16 +1,18 @@
 // src/core/projectIntent/semantic/projectIntentSemanticConstants.js
 
+import { getPreferredPillarPath } from "../../../projectExperience/PillarTargetResolver.js";
+
 export const KNOWN_CANONICAL_TARGETS = Object.freeze([
-  { entity: "workflow", path: "pillars/WORKFLOW.md" },
-  { entity: "decisions", path: "pillars/DECISIONS.md" },
-  { entity: "decision", path: "pillars/DECISIONS.md" },
-  { entity: "roadmap", path: "pillars/ROADMAP.md" },
-  { entity: "project", path: "pillars/PROJECT.md" },
-  { entity: "kingdom", path: "pillars/KINGDOM.md" },
-  { entity: "sg_behavior", path: "pillars/SG_BEHAVIOR.md" },
-  { entity: "sg_entity", path: "pillars/SG_ENTITY.md" },
-  { entity: "repoindex", path: "pillars/REPOINDEX.md" },
-  { entity: "code_insert_rules", path: "pillars/CODE_INSERT_RULES.md" },
+  { entity: "workflow", path: getPreferredPillarPath("workflow") },
+  { entity: "decisions", path: getPreferredPillarPath("decisions") },
+  { entity: "decision", path: getPreferredPillarPath("decisions") },
+  { entity: "roadmap", path: getPreferredPillarPath("roadmap") },
+  { entity: "project", path: getPreferredPillarPath("project") },
+  { entity: "kingdom", path: getPreferredPillarPath("kingdom") },
+  { entity: "sg_behavior", path: getPreferredPillarPath("sg_behavior") },
+  { entity: "sg_entity", path: getPreferredPillarPath("sg_entity") },
+  { entity: "repoindex", path: getPreferredPillarPath("repoindex") },
+  { entity: "code_insert_rules", path: getPreferredPillarPath("code_insert_rules") },
   { entity: "readme", path: "README.md" },
   { entity: "project_description", path: "README.md" },
 ]);

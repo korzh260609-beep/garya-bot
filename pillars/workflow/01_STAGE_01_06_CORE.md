@@ -51,7 +51,7 @@
 - 3.3 Minimal can(user, action)
 - 3.4 Ban auto-tasks and admin commands for guest
 - 3.5 Rate-limit commands
-- 3.6 Controlled-action distinction: permissions protect actions/data/scopes, not SG thinking, analysis, explanation, or non-applied planning
+- 3.5A Controlled-action distinction: permissions protect actions/data/scopes, not SG thinking, analysis, explanation, or non-applied planning
 
 ## (SKELETON) 3.6 CONFIG / SECRETS HYGIENE
 

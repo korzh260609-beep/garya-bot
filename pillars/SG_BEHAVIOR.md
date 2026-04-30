@@ -5,7 +5,7 @@
 > If any code or prompt contradicts this file — it is incorrect.
 
 This document must also be interpreted together with:
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/DECISIONS.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 
 ---

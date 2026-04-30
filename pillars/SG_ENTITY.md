@@ -5,7 +5,7 @@
 > If any code, prompt, module, or policy contradicts this file — it is incorrect.
 
 This document must also be interpreted together with:
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/DECISIONS.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 
 ---
@@ -53,7 +53,7 @@ SG is the global project entity itself.
 
 This principle is accepted as a formal architectural decision in:
 
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+- `pillars/DECISIONS.md`
 
 All technical parts of the system are parts, organs, channels, instruments, or subsystems of SG, including:
 - Telegram bot

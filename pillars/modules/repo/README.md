@@ -4,9 +4,21 @@ Purpose:
 - Define the Repo module as a stable responsibility domain.
 - Fix what belongs to repository access, indexing, and guarded file reading.
 - Prevent repository tooling from becoming uncontrolled or over-privileged.
+- Keep repo work aligned with `pillars/DECISIONS.md` and `REPO_MAP_SOURCE_POLICY.md`.
 
 Status: CANONICAL
 Scope: Repo logical module
+
+This file must be interpreted together with:
+
+- `pillars/DECISIONS.md`
+- `pillars/SG_ENTITY.md`
+- `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+- `pillars/architecture/PERMISSIONS_MAP.md`
+- `pillars/architecture/CODE_OWNERSHIP_MAP.md`
+- `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
@@ -19,8 +31,11 @@ The Repo module is responsible for:
 - indexing repository metadata/content within approved limits
 - guarded on-demand file access
 - enabling repo diagnostics/review support
+- supporting RepoStateAgent factual observation where applicable
 
 This module exists to let SG understand the repository without turning repo access into uncontrolled archival or auto-modification behavior.
+
+Repo is a component/instrument of SG, not SG itself and not SG philosophy source.
 
 ---
 
@@ -35,6 +50,7 @@ Repo includes responsibilities such as:
 - repository review support
 - repository access filtering
 - repository-related diagnostics
+- read-only factual repo observation
 
 Typical related code areas may include:
 - repo source access
@@ -42,6 +58,7 @@ Typical related code areas may include:
 - file filters
 - repo snapshot/index logic
 - repo review helpers
+- RepoStateAgent factual observation pipeline where present
 
 ---
 
@@ -57,10 +74,12 @@ The Repo module must NOT own:
 - transport parsing
 - memory semantics
 - external source-fetching beyond repository scope
+- SG philosophy, identity, governance, or accepted decisions
 
 Also out of scope:
 - acting as a full code archive in long-term memory
 - bypassing governance or human approval
+- treating repo facts as permission to mutate code/pillars/workflow
 
 ---
 
@@ -76,6 +95,8 @@ That means:
 Repo is read/inspect first.
 Not write/control first.
 
+RepoStateAgent observes and structures repo facts. SG/reasoning interprets them. User/monarch decides where decision is required.
+
 ---
 
 ## 4) Core responsibilities
@@ -88,6 +109,7 @@ The Repo module is responsible for:
 4. building structural repo snapshots
 5. supporting repo review/read-only analysis
 6. preserving repository access boundaries
+7. supporting factual repo observation without becoming decision authority
 
 ---
 
@@ -101,10 +123,33 @@ The following invariants must hold:
 - sensitive paths must not be exposed casually
 - repo tooling must not silently escalate from reading to modifying
 - repository visibility must remain policy-bounded
+- repo facts must not override `DECISIONS.md` or root pillars for SG philosophy
+- repo inspection permission does not imply repo mutation permission
 
 ---
 
-## 6) Relationship to indexing
+## 6) Controlled-action rule
+
+Repo operations must distinguish:
+
+```text
+read-only inspection
+analysis-only review
+prepare-only diff/patch proposal
+state-changing repo mutation
+external-action deploy/publish/push
+private/sensitive file access
+```
+
+Rules:
+- read-only inspection may support analysis within allowed scope;
+- prepare-only diffs/patches are not applied changes;
+- repo mutation, deploy, push or production changes require explicit permission and confirmation;
+- denied mutation may still allow explanation, audit, or non-applied proposal.
+
+---
+
+## 7) Relationship to indexing
 
 Repo indexing is part of this module,
 but indexing is not the same thing as full repository storage.
@@ -119,7 +164,7 @@ This distinction must remain hard.
 
 ---
 
-## 7) Relationship to adjacent modules
+## 8) Relationship to adjacent modules
 
 Repo is closely related to:
 
@@ -128,6 +173,8 @@ Repo is closely related to:
 - Memory
 - Bot
 - Code-output/review surfaces
+- Project Memory
+- AI Routing
 
 But Repo does not own those modules.
 
@@ -135,7 +182,7 @@ It only owns repository-facing logic and boundaries.
 
 ---
 
-## 8) Examples of what Repo may do
+## 9) Examples of what Repo may do
 
 Allowed examples:
 
@@ -145,12 +192,13 @@ Allowed examples:
 - filter sensitive path access
 - support repo review diagnostics
 - expose bounded repo search/review helpers
+- provide RepoStateAgent-backed factual repo observations
 
 These are repo responsibilities.
 
 ---
 
-## 9) Examples of what Repo must not do
+## 10) Examples of what Repo must not do
 
 Forbidden examples:
 
@@ -160,12 +208,14 @@ Forbidden examples:
 - bypass access/safety restrictions
 - behave like a deployment engine
 - treat “can read” as “can modify”
+- use repo facts to redefine SG philosophy
+- make RepoStateAgent an autonomous architect or decision maker
 
 These would break governance and safety.
 
 ---
 
-## 10) Ownership rule
+## 11) Ownership rule
 
 If the question is:
 - how to inspect repository structure
@@ -179,14 +229,18 @@ If the question is:
 - who is allowed to do it
 - how generated code should be applied
 - whether architecture may change
+- what SG is meant to be
 
 then it belongs elsewhere or must be shared with governance modules.
 
 ---
 
-## 11) Final rule
+## 12) Final rule
 
 Repo exists to make repository understanding possible without turning SG into an uncontrolled code operator.
 
 If repo access quietly expands into write/control behavior,
 the governance model is broken.
+
+If RepoStateAgent becomes SG brain,
+the architecture is wrong.

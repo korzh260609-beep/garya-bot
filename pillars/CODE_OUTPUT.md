@@ -9,11 +9,15 @@ This document must be interpreted together with:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/DOCS_GOVERNANCE.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SEMANTIC_ROUTING.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+
+Important:
+- `pillars/DECISIONS.md` is the single root decisions file.
+- `pillars/decisions/` is not an active root decisions folder.
+- Deleted decision-extension files must not be referenced as active truth.
 
 ---
 
@@ -97,7 +101,7 @@ SG может генерировать код **только при одновр
 2. Чётко определённый формат вывода
 3. Работа ведётся в личном чате монарха
 4. Код относится к текущему verified/snapshot состоянию репозитория
-5. Отсутствуют противоречия с `DECISIONS.md`, accepted decision-файлами и другими pillars
+5. Отсутствуют противоречия с `DECISIONS.md` и другими pillars
 6. Изменение не нарушает принцип skeleton -> config -> logic
 7. Изменение не делает компонент/tool/mode/agent отдельной сущностью SG
 8. Изменение не нарушает semantic routing gates
@@ -128,7 +132,7 @@ SG может генерировать код **только в одном из 
 SG **запрещено**:
 
 - Генерировать код без явного разрешения
-- Менять архитектуру без фиксации в pillars/decisions
+- Менять архитектуру без фиксации в `pillars/DECISIONS.md`
 - Удалять существующий код без явной команды
 - Делать предположения вместо указаний
 - Объединять несколько шагов в один
@@ -140,6 +144,7 @@ SG **запрещено**:
 - Использовать кодогенерацию как скрытый runtime connect
 - Использовать кодогенерацию как способ создать Global SemanticRouter без accepted gate
 - Использовать capability access как право менять сущность SG
+- Использовать удалённые `pillars/decisions/` файлы как active truth
 
 ---
 
@@ -163,8 +168,6 @@ SG **запрещено**:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/README.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/README.md`
 - `pillars/DOCS_GOVERNANCE.md`
 - `pillars/architecture/README.md`

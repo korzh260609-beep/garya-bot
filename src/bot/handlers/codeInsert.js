@@ -11,6 +11,7 @@ import { logCodeOutputRefuse } from "../../codeOutput/codeOutputLogger.js";
 import { validateInsert } from "../../codeOutput/codeOutputContract.js";
 import { getCodeOutputMode, CODE_OUTPUT_MODES } from "../../codeOutput/codeOutputMode.js";
 import { PillarsResolver } from "../../projectExperience/PillarsResolver.js";
+import { getLegacyPillarPath } from "../../projectExperience/PillarTargetResolver.js";
 
 const MAX_INSERT_CHARS = 2000; // ✅ B8 approved
 
@@ -108,11 +109,12 @@ async function resolveWorkflowContextFallback(source) {
     }
   } catch (_) {}
 
-  const legacy = await safeFetchText(source, "pillars/WORKFLOW.md");
+  const legacyPath = getLegacyPillarPath("workflow");
+  const legacy = legacyPath ? await safeFetchText(source, legacyPath) : "";
   return {
     label: "WORKFLOW_LEGACY",
     content: legacy || "",
-    sourceRef: "pillars/WORKFLOW.md",
+    sourceRef: legacyPath || "legacy workflow fallback",
   };
 }
 

@@ -3,8 +3,13 @@
 // ============================================================================
 
 import { normalizeItemCode } from "./common.js";
+import {
+  getLegacyPillarPath,
+  getPreferredPillarPath,
+} from "../../../projectExperience/PillarTargetResolver.js";
 
-export const WORKFLOW_PATH = "pillars/WORKFLOW.md";
+export const WORKFLOW_SOURCE_PATH = getPreferredPillarPath("workflow");
+export const WORKFLOW_LEGACY_PATH = getLegacyPillarPath("workflow");
 export const RULES_PATH = "pillars/STAGE_CHECK_RULES.json";
 
 export function detectLanguageFromContext(ctx = {}) {
@@ -80,8 +85,8 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       under_detected_by_checker: "checker недооценивает",
       overestimated_by_checker: "checker переоценивает",
       insufficient_real_evidence: "недостаточно real-evidence",
-      item_not_found: "пункт не найден в WORKFLOW",
-      cannot_read_workflow: `Ошибка stage_check: не удалось прочитать ${workflowPath}`,
+      item_not_found: "пункт не найден в активном workflow source",
+      cannot_read_workflow: `Ошибка stage_check: не удалось прочитать активный workflow source (${workflowPath})`,
       cannot_read_rules: `Ошибка stage_check: не удалось прочитать ${rulesPath}`,
       invalid_rules: `Ошибка stage_check: неверный JSON в ${rulesPath}`,
       runtime_failed: "Ошибка stage_check: не удалось выполнить проверку",
@@ -142,8 +147,8 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       under_detected_by_checker: "checker недооцінює",
       overestimated_by_checker: "checker переоцінює",
       insufficient_real_evidence: "недостатньо real-evidence",
-      item_not_found: "пункт не знайдено у WORKFLOW",
-      cannot_read_workflow: `Помилка stage_check: не вдалося прочитати ${workflowPath}`,
+      item_not_found: "пункт не знайдено в активному workflow source",
+      cannot_read_workflow: `Помилка stage_check: не вдалося прочитати активний workflow source (${workflowPath})`,
       cannot_read_rules: `Помилка stage_check: не вдалося прочитати ${rulesPath}`,
       invalid_rules: `Помилка stage_check: некоректний JSON у ${rulesPath}`,
       runtime_failed: "Помилка stage_check: не вдалося виконати перевірку",
@@ -204,8 +209,8 @@ export function createTranslator({ lang, workflowPath, rulesPath }) {
       under_detected_by_checker: "checker under-detects",
       overestimated_by_checker: "checker overestimates",
       insufficient_real_evidence: "insufficient real evidence",
-      item_not_found: "item not found in WORKFLOW",
-      cannot_read_workflow: `stage_check error: cannot read ${workflowPath}`,
+      item_not_found: "item not found in active workflow source",
+      cannot_read_workflow: `stage_check error: cannot read active workflow source (${workflowPath})`,
       cannot_read_rules: `stage_check error: cannot read ${rulesPath}`,
       invalid_rules: `stage_check error: invalid JSON in ${rulesPath}`,
       runtime_failed: "stage_check error: runtime evaluation failed",

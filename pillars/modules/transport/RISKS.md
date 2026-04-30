@@ -2,8 +2,8 @@
 
 Purpose:
 - Document the main risk surface of the Transport module.
-- Prevent adapter creep and platform-driven architecture damage.
-- Keep channel integration predictable.
+- Prevent adapter creep, channel identity confusion and platform-driven architecture damage.
+- Keep channel integration predictable and aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Transport module risk model
@@ -23,6 +23,9 @@ Then over time Transport begins to absorb:
 At that point architecture stops being layered.
 
 This file exists to make that risk visible.
+
+Transport is a channel adapter boundary.
+It is not SG itself, not SG brain and not a second core.
 
 ---
 
@@ -120,21 +123,63 @@ Signal:
 
 ---
 
+### R-07: Transport is mistaken for SG
+Description:
+- Telegram/Discord/Web adapter is treated as the system identity or capability boundary
+
+Consequence:
+- SG gets reduced to one channel
+- multi-transport architecture becomes harder
+- “no command in this channel” is wrongly treated as “SG cannot do it”
+
+Signal:
+- docs/code imply Bot/Telegram/channel = SG
+
+---
+
+### R-08: Platform identity is mistaken for global identity
+Description:
+- Telegram ID / Discord ID / chat ID is treated as full global identity or authorization
+
+Consequence:
+- user isolation weakens
+- cross-transport identity linking becomes unsafe
+- permissions become channel-dependent
+
+Signal:
+- platform user id directly grants long-term/project permissions without identity/access boundary
+
+---
+
+### R-09: Transport starts calling AI/sources/tasks directly
+Description:
+- adapter layer initiates AI calls, source fetches or task execution instead of handing off to core/owning modules
+
+Consequence:
+- hidden business behavior
+- inconsistent governance
+- harder diagnostics
+
+Signal:
+- webhook/controller code calls AI/source/task modules directly for feature behavior
+
+---
+
 ## 2) Secondary risks
 
-### R-07: Hidden payload assumptions
+### R-10: Hidden payload assumptions
 Consequence:
 - malformed events crash or misroute handling
 
-### R-08: Silent field dropping
+### R-11: Silent field dropping
 Consequence:
 - important context disappears without trace
 
-### R-09: Over-normalization
+### R-12: Over-normalization
 Consequence:
 - channel-specific useful metadata is lost too early
 
-### R-10: Under-normalization
+### R-13: Under-normalization
 Consequence:
 - raw platform mess leaks into core
 
@@ -150,6 +195,9 @@ The following assumptions are dangerous:
 - “we will unify later”
 - “this platform is special”
 - “thin transport is optional”
+- “Telegram is basically SG for now”
+- “platform user id is enough identity”
+- “calling AI directly from adapter is faster and fine”
 
 These assumptions must be treated as early warning signs.
 
@@ -166,6 +214,9 @@ After any meaningful Transport change, verify:
 5. retry/duplicate conditions remain bounded
 6. unified context shape remains stable
 7. docs still match actual transport behavior
+8. transport/channel is not treated as SG itself
+9. platform identity is not treated as full authorization
+10. transport does not call AI/sources/tasks directly for feature behavior
 
 ---
 
@@ -178,12 +229,15 @@ Preferred defenses:
 - clear handoff into core
 - bounded transport responsibility
 - transport diagnostics/logging
+- identity-linking discipline
 - early detection of adapter growth
 
 Avoid fake safety:
 - channel exceptions hidden in transport
 - silent “temporary” branching
 - undocumented transport-specific behavior
+- treating Telegram/Bot constraints as SG constraints
+- platform-id shortcuts around global identity/access
 
 ---
 
@@ -195,3 +249,6 @@ The most dangerous bug is:
 “the channel still works, but now business logic lives in the adapter.”
 
 That silently destroys layered architecture.
+
+A second critical bug is:
+“a transport/channel is treated as SG itself instead of a delivery surface.”

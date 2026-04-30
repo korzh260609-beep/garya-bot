@@ -6,11 +6,13 @@
 - 8A.4 Keyword filter (ILIKE) within window
 - 8A.5 Paging (/recall_more cursor)
 - 8A.6 /recall [keyword] (MVP)
+- 8A.6A Recall output is context/source material, not automatically confirmed truth
 
 ## 8A.7 RecallService CONTRACT
 
 - 8A.7.1 recallByDate/Range/Keyword/paging
 - 8A.7.2 strict output limits + safe truncation
+- 8A.7.3 recall must respect user/chat/project scope and private-data boundaries
 
 ## 8A.8 LOCAL RECALL SAFETY
 
@@ -19,6 +21,7 @@
 - 8A.8.3 no uncontrolled raw output
 - 8A.8.4 no false recall when query is future-oriented
 - 8A.8.5 show uncertainty when memory is incomplete
+- 8A.8.6 recalled history must be labeled as context, not verified source of truth unless confirmed elsewhere
 
 ## 8A.9 CROSS-CHAT RECALL (groups as sources) — later consumer, not memory core
 
@@ -57,6 +60,7 @@
 - 8B.4 Cooldown (e.g., 10 min)
 - 8B.5 Output format (1–2 lines with date)
 - 8B.6 Role-based depth (config)
+- 8B.6A Already-Seen hints are context hints, not confirmed memory or source-of-truth claims
 
 ## 8B.7 CROSS-GROUP HINT (anon, source alias only)
 
@@ -78,6 +82,7 @@
 - 9.8 Soft style ask skeleton
 - 9.9 Criticality levels V1 skeleton
 - 9.10 No-Nodding rule (hard)
+- 9.11 AnswerMode changes length only; it must not weaken controlled-action boundaries
 
 ### Notes (factual)
 
@@ -106,18 +111,21 @@
 - 10.12 Source-permissions
 - 10.13 Source-rate-limits
 - 10.14 Source-logs
+- 10.14A Source access must not bypass permissions, source normalization, failure visibility, or private/source scope boundaries
 
 ## (SKELETON) 10.15 SOURCE CACHE (cache-first)
 
 - 10.15.1 source_cache (key, payload, fetched_at, ttl_sec)
 - 10.15.2 hit/miss metrics → Stage 5
 - 10.15.3 default no cron (on-demand + TTL)
+- 10.15.4 cached source payloads must preserve source metadata, TTL, and uncertainty/failure state
 
 ## (SKELETON) 10.16 GROUPS AS SOURCES (unify with Sources)
 
 - 10.16.1 source_type=telegram_group_history (key=tg_group:)
 - 10.16.2 resolve alias via chat_meta
 - 10.16.3 access via Stage 11 policy
+- 10.16.4 group-source use must pass privacy/redaction gates before user-facing output
 
 ## 10.17 BINANCE SOURCE POLICY (HARD)
 
@@ -127,6 +135,7 @@
 - 10.17.4 Spot and Futures data must be normalized separately
 - 10.17.5 robot-layer computes, AI-layer explains
 - 10.17.6 rate-limit strategy is mandatory before broad Binance expansion
+- 10.17.7 AI must not consume raw exchange payload directly without normalization and source metadata
 
 ---
 
@@ -210,6 +219,8 @@
 - 11.8 permissions-layer can(user, action)
 - 11.9 access rules for sources
 - 11.10 access rules for tasks
+- 11.10A controlled action categories: read-only / analysis-only / prepare-only / state-changing / external-action / private-data / expensive-costly
+- 11.10B permissions protect actions, data, scope and surfaces; they do not block SG thinking, analysis, explanation, or non-applied planning
 
 ## Access Request system V1 (11.11)
 
@@ -228,6 +239,7 @@
 - 11.12.3 /grant /revoke /grants
 - 11.12.4 hard ban: project/admin grants
 - 11.12.5 audit/logs
+- 11.12.6 grant/revoke are state-changing privileged actions and require audit
 
 - 11.13 access rules for /recall (role limits)
 - 11.14 rate-limit for /recall
@@ -243,6 +255,7 @@
 - 11.17.1 visibility rules by role
 - 11.17.2 ban author identity output
 - 11.17.3 ban quotes
+- 11.17.4 group-source recall must never leak personal identity or raw private context
 
 ## (monarch-only) 11.18 Admin commands for group-sources
 
@@ -272,6 +285,8 @@
   - 11F.10.1 soft-UX without Vision (text fallback mandatory)
 - 11F.11 DATA LIFECYCLE skeleton (meta/links only + retention hooks)
 - 11F.12 AI routing rule: file-type → specialized AI only
+- 11F.13 file processing may be private, sensitive, or expensive and must pass scope/cost gates where configured
+- 11F.14 file extraction output is bounded source material, not automatically verified truth
 
 ---
 
@@ -282,8 +297,10 @@
 - 12A.3 Code/Repo analysis capability (CODE-AI skeleton)
   - 12A.3.1 Code-AI = analysis + diff only (no deploy)
   - 12A.3.2 Code-AI output = suggestions, not actions
+  - 12A.3.3 Code-AI must not apply patches, mutate repo, deploy, or change runtime without explicit permission/confirmation
 - 12A.4 Automation/Webhook capability
 - 12A.5 Capability registry
+- 12A.5A Every exposed capability must declare action type, permission need, source/tool need, and confirmation policy where relevant
 
 ## 12A.6 CAPABILITY STATUS REGISTRY
 
@@ -317,6 +334,7 @@
 - 12A.6.9 capability status must be derived from repo/code/runtime facts, not manual notes
 - 12A.6.10 project_memory may store generated snapshots only
 - 12A.6.11 generated capability snapshots must not override repo/code/runtime facts
+- 12A.6.12 capability snapshots must not redefine SG philosophy or bypass `DECISIONS.md`
 
 ## (SKELETON) 12A.0 REPOSITORY INDEXING (READ-ONLY FOUNDATION)
 
@@ -330,6 +348,7 @@
 - 12A.0.8 /reindex dry-run diagnostics
 - 12A.0.9 memoryCandidates preview (NO persistence)
 - 12A.0.10 /code_output_status (reports ENV: CODE_OUTPUT_MODE = DISABLED|DRY_RUN|ENABLED)
+- 12A.0.11 repository indexing is read-only and must not imply repo mutation permission
 
 Notes:
 - Read-only only
@@ -358,6 +377,7 @@ Code Output V0 allowed under strict monarch-only + manual-apply policy.
 - 12.11 vision analysis (fact extraction only)
 - 12.12 tags
 - 12.13 vision→structured JSON (no free text)
+- 12.14 file/media interpretation must stay separate from extraction and must respect privacy/cost gates
 
 ---
 

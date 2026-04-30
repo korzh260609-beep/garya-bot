@@ -17,6 +17,7 @@ Important:
 - This file is NOT the semantic map.
 - This file is NOT the module grouping truth.
 - Old RepoIndex logic must be adapted to RepoStateAgent, downgraded to fallback, or carefully removed after replacement.
+- Active workflow truth must come from the split workflow structure under `pillars/workflow/`, not from an old flat `pillars/WORKFLOW.md` file.
 
 ---
 
@@ -25,9 +26,9 @@ Important:
 - Pillars are source of truth for governance rules; chat logs are never authoritative.
 - RepoIndex is legacy and must not be used as current factual repo state.
 - Current factual repo state must come from RepoStateAgent.
-- SG Code-AI is READ-ONLY in current stage: analysis + suggestions only (no patches/diffs).
+- SG Code-AI is READ-ONLY in current stage: analysis + suggestions only (no patches/diffs unless explicitly approved by current governance and active code-output rules).
 
-(See: DECISIONS.md + WORKFLOW.md + architecture/REPO_MAP_SOURCE_POLICY.md)
+(See: `pillars/DECISIONS.md` + active workflow files under `pillars/workflow/` + `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`.)
 
 ---
 
@@ -59,7 +60,7 @@ B) Modularized “src/” layer (preferred structure)
 - src/media/*
 
 C) Governance documents (Pillars)
-- pillars/*.md (DECISIONS, WORKFLOW, PROJECT, SG_BEHAVIOR, etc.)
+- pillars/*.md (DECISIONS, PROJECT, SG_BEHAVIOR, active workflow files under `pillars/workflow/`, etc.)
 
 D) Repository meta / ops
 - migrations/*
@@ -219,7 +220,7 @@ RepoStateAgent and current architecture policies must be used before making curr
 
 Tier A (highest):
 - pillars/DECISIONS.md
-- pillars/WORKFLOW.md
+- active workflow files under `pillars/workflow/`
 - src/http/server.js
 - src/bootstrap/initSystem.js
 - src/bot/commandDispatcher.js

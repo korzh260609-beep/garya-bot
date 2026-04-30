@@ -14,7 +14,6 @@ This file must be interpreted together with:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
@@ -471,7 +470,7 @@ When flows conflict, source hierarchy remains:
 
 1. verified repository/runtime behavior
 2. canonical pillars
-3. accepted decision files
+3. `pillars/DECISIONS.md` as the single root decisions file
 4. project memory / bounded working context
 5. ordinary memory / chat-derived supporting context
 

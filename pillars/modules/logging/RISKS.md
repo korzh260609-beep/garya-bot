@@ -2,8 +2,8 @@
 
 Purpose:
 - Document the main risk surface of the Logging / Diagnostics module.
-- Prevent silent failure, fake visibility, and hidden control-plane drift.
-- Keep observability honest and bounded.
+- Prevent silent failure, fake visibility, hidden control-plane drift and false operational confidence.
+- Keep observability honest, bounded and aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Logging / Diagnostics module risk model
@@ -23,6 +23,9 @@ A system that “logs a lot” is not automatically observable.
 A system that “has diagnostics” is not automatically diagnosable.
 
 This file exists to keep that visible.
+
+Logging / Diagnostics is an observability component of SG.
+It is not SG itself, not SG brain and not a hidden action controller.
 
 ---
 
@@ -110,21 +113,63 @@ Signal:
 
 ---
 
+### R-07: Diagnostics are mistaken for decision authority
+Description:
+- diagnostic summaries start deciding what must be done instead of showing evidence, status and risks
+
+Consequence:
+- final decision boundary erodes
+- operators may confuse diagnostic suggestions with approved actions
+- SG controlled-action model weakens
+
+Signal:
+- diagnostic output triggers action or governance changes without explicit permission/confirmation
+
+---
+
+### R-08: Logging is mistaken for source-of-truth
+Description:
+- logs are treated as complete factual reality even when instrumentation is partial, missing or stale
+
+Consequence:
+- false debugging conclusions
+- hidden gaps remain invisible
+- bad architectural decisions follow
+
+Signal:
+- “logs do not show it, therefore it did not happen” without checking instrumentation coverage
+
+---
+
+### R-09: Audit gaps on protected actions
+Description:
+- state-changing, external, private-data, repo, cost or permission-sensitive actions happen without sufficient audit visibility
+
+Consequence:
+- impossible accountability
+- harder incident review
+- loss of trust in action control
+
+Signal:
+- action occurred, but no clear who/what/why/when/scope trail exists
+
+---
+
 ## 2) Secondary risks
 
-### R-07: Event taxonomy is inconsistent
+### R-10: Event taxonomy is inconsistent
 Consequence:
 - poor filtering and trend review
 
-### R-08: Failure categories collapse together
+### R-11: Failure categories collapse together
 Consequence:
 - config/runtime/logic issues become harder to distinguish
 
-### R-09: Diagnostics are too expensive/heavy by default
+### R-12: Diagnostics are too expensive/heavy by default
 Consequence:
 - operational friction rises
 
-### R-10: Missing boundedness
+### R-13: Missing boundedness
 Consequence:
 - observability itself becomes noisy or costly
 
@@ -140,6 +185,9 @@ The following assumptions are dangerous:
 - “operators do not need exact failure classes”
 - “logging is not part of correctness”
 - “temporary missing visibility is okay”
+- “diagnostics can decide the next action”
+- “if logs are silent, nothing happened”
+- “audit trails are optional for internal tools”
 
 These assumptions must be treated as risk factors.
 
@@ -155,6 +203,9 @@ After any meaningful Logging / Diagnostics change, verify:
 4. observability did not turn into hidden control logic
 5. sensitive/internal diagnostics remain bounded appropriately
 6. docs still match actual observability surfaces
+7. diagnostics are not treated as SG/final decision authority
+8. logs are not treated as complete source-of-truth without coverage review
+9. protected actions have appropriate audit visibility
 
 ---
 
@@ -167,6 +218,8 @@ Preferred defenses:
 - strong failure visibility
 - separation between observability and control
 - access-aware diagnostic surfaces
+- audit events for protected actions
+- instrumentation coverage awareness
 - stale-doc detection
 
 Avoid fake safety:
@@ -174,6 +227,7 @@ Avoid fake safety:
 - polished summaries that hide issues
 - silent missing telemetry
 - hidden side-effect dependencies on logging code
+- diagnostics that quietly become operators
 
 ---
 
@@ -185,3 +239,6 @@ The most dangerous bug is:
 “operators think they can see the system, but the visibility is incomplete, misleading, or softened.”
 
 That creates false confidence.
+
+A second critical bug is:
+“logging/diagnostics becomes a hidden control plane instead of observability.”

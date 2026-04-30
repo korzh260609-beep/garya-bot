@@ -9,6 +9,7 @@
 13.3 architecture audit  
 13.4 UX audit  
 13.5 module improvements  
+13.5A V8 initiative is audit/proposal mode only; it must not apply code, config, workflow, or architecture changes by itself  
 
 ## 13.6 COMFORT-BY-DEFAULT SKELETON
 
@@ -31,6 +32,8 @@ Purpose:
 14.3 explanations  
 14.4 suggestions  
 14.5 human approval mandatory  
+14.6 PR/DIFF is prepare-only until explicit approval  
+14.7 no merge / no deploy / no apply / no production mutation without explicit permission and confirmation  
 
 Gate:
 - SG proposes only.
@@ -55,6 +58,7 @@ Purpose:
 14A.6.2 all channels must resolve global_user_id and share memory  
 14A.6.3 ban separate “Discord memory” / separate Discord limits  
 14A.6.4 Discord continues Telegram context through same global_user_id  
+14A.6.5 external integrations are external/private action surfaces and must pass scope, permission, source/tool, risk and confirmation gates where applicable  
 
 Gate:
 - Real GitHub/repo integration remains here, not in early Project Memory Core.
@@ -72,9 +76,11 @@ Purpose:
 15.4 modality detection: text / vision / speech / code  
 15.5 fallback policy  
 15.6 cost tier tagging per model  
+15.7 AI Router is model/cost/control wrapper, not SG brain and not heavy SemanticRouter  
 
 Purpose:
 - route tasks to correct models without hard-coded model strings.
+- keep model routing centralized without turning it into SG identity.
 
 ---
 
@@ -85,9 +91,11 @@ Purpose:
 16.3 reasoning-AI only by explicit need  
 16.4 parallel specialized AI allowed  
 16.5 AI usage explanation log  
+16.6 smart routing must not replace permissions, source checks, risk checks, cost checks or confirmations  
 
 Purpose:
 - reduce costs and improve reliability through smarter routing.
+- keep routing as model/cost control, not SG brain.
 
 ---
 
@@ -98,9 +106,11 @@ Purpose:
 17.3 reasoning as validator, not extractor  
 17.4 auto-orchestrator with safety caps  
 17.5 AI-budget governor per user/per role  
+17.6 auto-orchestrator may prepare and coordinate, but must not perform state-changing/external actions without gate and confirmation  
 
 Purpose:
 - make SG an orchestrator, not just a chat model wrapper.
+- keep orchestration controlled and non-autonomous for protected actions.
 
 ---
 
@@ -114,11 +124,13 @@ Purpose:
 18.6 license  
 18.7 privacy  
 18.8 model-level audit  
+18.8A expensive AI or heavy processing requires user-visible cost warning and confirmation when configured  
 
 ## 18.9 DATA RETENTION & EXPORT SKELETON
 
 18.9.1 export user data  
 18.9.2 delete/anonymize hooks  
+18.9.3 export/delete/anonymize are sensitive/private actions and require strict identity/scope/permission handling  
 
 Notes:
 - billing/memory dashboard and legal export/delete remain later consumers over memory.
@@ -143,10 +155,12 @@ Purpose:
 19.10 simulations  
 19.11 Risk V1  
 19.12 Risk V2/V3  
+19.13 /exit_now and /reenter are high-risk action surfaces; simulation and analysis are allowed separately, but real action requires explicit mode, permission, confirmation and logging  
 
 Notes:
 - risk module project_memory integration remains here because it is a risk-module consumer of memory.
 - it is not Project Memory Core.
+- simulations must be clearly labeled as simulations and must not trigger real market/project actions.
 
 Purpose:
 - protect users and monarch from market/risk exposure.
@@ -166,6 +180,7 @@ Purpose:
 20.9 psych_events skeleton  
 20.10 retention minimal, privacy-first  
 20.11 safety rules: no diagnosis / no labels / no therapy claims  
+20.12 support mode only; no diagnosis, no therapy replacement, no sensitive psych-data storage without explicit policy and privacy gate  
 
 Purpose:
 - provide safe support-mode psychology features without pretending to replace professionals.
@@ -178,3 +193,7 @@ Purpose:
 2. RULE — removing specialized AI must not break tasks  
 3. RULE — expensive AI requires confirmation  
 4. RULE — system correctness > AI intelligence  
+5. RULE — SG is free in thinking and controlled in actions  
+6. RULE — user/monarch remains the decision source  
+7. RULE — no heavy router/controller/AI wrapper may become SG brain  
+8. RULE — simulations/proposals/diffs are not real-world actions until explicitly approved  

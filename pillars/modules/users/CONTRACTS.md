@@ -3,7 +3,7 @@
 Purpose:
 - Define the public contract expectations of the Users / Access module.
 - Fix the access-check boundary.
-- Reduce guessing during future security/permission work.
+- Keep permissions aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Users / Access logical interfaces
@@ -12,7 +12,29 @@ Scope: Users / Access logical interfaces
 
 ## 0) Contract philosophy
 
-Users / Access contracts define how identity/access decisions are obtained and enforced.
+Users / Access contracts define how identity, scope, roles, permissions and confirmations are obtained and enforced.
+
+This module is not SG itself.
+It is not SG governance authority by itself.
+It is a control boundary for actions, data, scopes and surfaces.
+
+Canonical rule:
+
+```text
+SG is free in thinking.
+SG is controlled in actions.
+```
+
+Therefore access policy must protect:
+- state-changing actions;
+- private data;
+- cross-user scope;
+- external actions;
+- repository/runtime changes;
+- costly operations;
+- privileged admin/monarch surfaces.
+
+Access policy must not block SG from non-applied thinking, analysis, comparison, planning, critique or advisory output when no protected action/data exposure occurs.
 
 This file does not require exact current implementation names.
 It defines the contract shape that future work must preserve.
@@ -27,8 +49,11 @@ Access-related decisions must go through an explicit access boundary.
 
 Canonical logical boundary examples:
 - user resolution
+- global identity resolution
 - role resolution
-- `can(user, action)`
+- scope/project resolution
+- `can(user, action, context?)`
+- confirmation requirement resolution
 - access request handling
 - privilege enforcement
 
@@ -59,6 +84,7 @@ Postconditions:
 Must NOT do:
 - silently grant elevated authority
 - invent access state without rules
+- treat platform identity alone as full authorization
 
 ---
 
@@ -79,12 +105,13 @@ Postconditions:
 Must NOT do:
 - hide special-case privilege branches
 - silently mix unrelated policy sources
+- confuse role with project ownership or data access scope
 
 ---
 
 ### 2.3 `can(user, action, context?)`
 Purpose:
-- answer whether a given user may perform a given action
+- answer whether a given user may perform a given action in a given scope
 
 Expected input:
 - user/access subject
@@ -94,6 +121,7 @@ Expected input:
 Preconditions:
 - action is explicit
 - user is resolved enough for policy evaluation
+- protected surface/data/scope is explicit where relevant
 
 Postconditions:
 - returns allow/deny result or equivalent explicit access result
@@ -104,6 +132,7 @@ Must NOT do:
 - rely on hidden handler-local exceptions
 - allow privilege by omission
 - bypass centralized access policy
+- treat thinking/advice as the same as applying an action
 
 ---
 
@@ -127,10 +156,33 @@ Postconditions:
 Must NOT do:
 - partially execute protected logic before access result
 - hide denial in ambiguous fallback behavior
+- perform external/state-changing work before confirmation where confirmation is required
 
 ---
 
-### 2.5 `requestAccess(...)`
+### 2.5 `requiresConfirmation(user, action, context?)`
+Purpose:
+- determine whether an allowed action still requires explicit user/monarch confirmation before execution
+
+Expected input:
+- user/access subject
+- action identifier
+- optional risk/cost/scope context
+
+Preconditions:
+- action and scope are explicit enough
+
+Postconditions:
+- returns confirmation requirement in a reviewable way
+- protected actions do not execute only because role permission exists
+
+Must NOT do:
+- treat permission as automatic execution approval for high-risk actions
+- hide cost/risk confirmation needs
+
+---
+
+### 2.6 `requestAccess(...)`
 Purpose:
 - handle a formal access request or promotion-related flow where applicable
 
@@ -159,6 +211,7 @@ Any caller using Users / Access must:
 
 - resolve access through the explicit boundary
 - provide explicit action names for checks
+- provide explicit scope/project/data context where relevant
 - avoid handler-local hidden privilege logic
 - treat denial as part of correct behavior, not as an error to bypass
 
@@ -166,6 +219,7 @@ Caller must NOT:
 - assume access by default
 - embed duplicate policy branches ad hoc
 - treat “worked once” as authorization
+- expose private user/project data by convenience
 
 ---
 
@@ -175,6 +229,7 @@ Users / Access operations may have side effects such as:
 
 - role lookup
 - permission evaluation
+- confirmation requirement evaluation
 - audit/logging hooks
 - request persistence
 - access-denied telemetry
@@ -192,7 +247,9 @@ Users / Access operations should fail in a controlled way when:
 - identity is unresolved
 - role is ambiguous
 - action is missing/unknown
+- scope/project/data target is ambiguous
 - policy blocks access
+- confirmation is required but absent
 - request is invalid
 - caller attempts to bypass access flow
 
@@ -205,6 +262,7 @@ Forbidden behavior:
 - silent privilege escalation
 - fallback into permissive behavior
 - partial execution before deny
+- action execution before required confirmation
 
 ---
 
@@ -217,6 +275,8 @@ The following patterns are explicitly forbidden:
 - role checks duplicated inconsistently across modules
 - granting access implicitly by context guess
 - bypassing `can(...)`-style policy boundary for sensitive actions
+- blocking SG advisory thinking as if it were an applied action
+- treating Users / Access as owner of SG philosophy or final governance decisions
 
 ---
 
@@ -230,12 +290,15 @@ Future additions may include contracts for:
 - audit event integration
 - temporary access windows
 - multi-channel identity-linked access decisions
+- user/project isolation checks
+- cost-based confirmation checks
 
 These additions must preserve the same principles:
 - explicit
 - centralized
 - reviewable
 - deny-safe
+- action/data/scope focused
 
 ---
 
@@ -245,3 +308,6 @@ Users / Access contracts exist to make privilege and permission predictable.
 
 If access decisions become scattered or implicit,
 the system becomes unsafe even when it still “works”.
+
+Permissions control actions and protected data.
+They do not replace SG thinking.

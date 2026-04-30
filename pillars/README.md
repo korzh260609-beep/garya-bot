@@ -8,6 +8,11 @@ Purpose:
 Status: CANONICAL
 Scope: all documentation under `pillars/`
 
+Current root rule:
+- `pillars/DECISIONS.md` is the upper philosophical and architectural foundation for SG.
+- All other pillar files must be interpreted through the new SG philosophy fixed in `DECISIONS.md`.
+- If another pillar contradicts `DECISIONS.md`, that pillar must be corrected.
+
 ---
 
 ## 0) What `pillars/` is
@@ -19,11 +24,13 @@ It is not:
 - a random notes folder
 - a dump of ideas
 - a substitute for the repository
+- a replacement for SG itself
 
 It is:
 - the documented control system of the project
 - the place where rules, boundaries, flows, and accepted decisions are fixed
 - the main anti-guessing layer for future work
+- the alignment layer that keeps implementation close to the intended SG philosophy
 
 ---
 
@@ -38,6 +45,7 @@ Without a canonical doc system, the same problems appear repeatedly:
 - old assumptions survive too long
 - AI tools guess instead of following boundaries
 - humans forget why earlier decisions were made
+- the current bot implementation starts being mistaken for the full SG vision
 
 `pillars/` exists to reduce that.
 
@@ -46,6 +54,7 @@ Main goal:
 - make mistakes earlier
 - reduce wrong changes
 - preserve architecture and governance
+- keep SG aligned with the monarch's intended philosophy
 
 ---
 
@@ -53,21 +62,23 @@ Main goal:
 
 When information conflicts, the hierarchy is:
 
-1. verified repository/runtime reality
-2. canonical pillars
-3. `pillars/DECISIONS.md` as the single root decisions file
+1. verified repository/runtime reality for factual implementation state
+2. `pillars/DECISIONS.md` as the upper philosophical and architectural root
+3. canonical pillars interpreted through `DECISIONS.md`
 4. project memory / bounded working context
 5. ordinary memory / chat-derived supporting context
 6. temporary chat discussion
 
 Important rule:
 - lower layers must not silently override higher layers
+- runtime reality shows what currently exists, but it does not redefine what SG is meant to become
 
 Examples:
 - chat does not override pillars
 - project memory does not override canonical architecture rules
 - convenience does not override documented governance
 - deprecated repo maps do not override RepoStateAgent/source policy
+- old command-based behavior does not override the new SG philosophy in `DECISIONS.md`
 
 ---
 
@@ -85,6 +96,7 @@ Examples:
 - data-flow map
 - permissions map
 - documentation governance rules
+- philosophy and implementation boundaries that future work depends on
 
 `pillars/` should NOT contain:
 
@@ -93,12 +105,27 @@ Examples:
 - duplicated truth across many files without reason
 - implementation trivia that belongs only in code/comments
 - uncontrolled temporary drafts mixed with canonical docs
+- old assumptions preserved as truth after `DECISIONS.md` has replaced them
 
 ---
 
 ## 4) Main file groups
 
 ### 4.1 Root-level canonical files
+
+#### `pillars/DECISIONS.md`
+Use for:
+- final accepted architectural/system decisions
+- non-negotiable rules
+- explicit fixation of important choices
+- the single root decisions file for global SG decisions
+- the upper SG philosophy that all other pillars must follow
+
+Important:
+- `pillars/DECISIONS.md` is the first conceptual source to check after factual repo/runtime reality.
+- `pillars/decisions/` is not an active root decisions folder.
+- Deleted decision-extension files must not be referenced as current truth.
+- New global decisions are discussed first, then added to `pillars/DECISIONS.md` only after explicit monarch approval.
 
 #### `pillars/SG_ENTITY.md`
 Use for:
@@ -122,18 +149,6 @@ Use for:
 - meaning-first / source-first behavior
 - entity-aware behavior rules
 
-#### `pillars/DECISIONS.md`
-Use for:
-- final accepted architectural/system decisions
-- non-negotiable rules
-- explicit fixation of important choices
-- the single root decisions file for global SG decisions
-
-Important:
-- `pillars/decisions/` is not an active root decisions folder.
-- Deleted decision-extension files must not be referenced as current truth.
-- New global decisions are discussed first, then added to `pillars/DECISIONS.md` only after explicit monarch approval.
-
 #### Workflow files under `pillars/`
 Use for:
 - active development order
@@ -145,6 +160,7 @@ Important:
 - Do not assume an old flat `WORKFLOW.md` is the active workflow source.
 - If workflow is split into folder/files, use the active workflow structure, not archived files.
 - Archived workflow files must not be treated as current stage truth.
+- Workflow must describe the path toward the intended SG, not freeze the project inside the current bot implementation.
 
 #### `pillars/REPOINDEX.md`
 Use for:
@@ -185,7 +201,7 @@ Use for:
 - architecture reading order
 - cross-pillar alignment
 - active architecture map
-- Human Mode / Technical Mode / RepoStateAgent guardrails
+- Human Mode / Technical Mode / capability / source guardrails
 
 Current architecture-level files include:
 
@@ -198,8 +214,8 @@ Use for:
 #### `SEMANTIC_ROUTING.md`
 Use for:
 - meaning-first routing principle
-- current ban on building global SemanticRouter now
-- Human Mode skeleton first rule
+- semantic routing as a minimal controller/gate layer
+- explicit rule that routing must not replace reasoning model intelligence
 - Technical Mode legacy/command boundary
 
 #### `HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
@@ -208,7 +224,7 @@ Use for:
 - gated meaning provider contract
 - gated RepoStateAgent runner contract
 - HumanEntry pipeline contract
-- current runtime-not-connected status
+- current runtime connection rules
 
 #### `REPO_MAP_SOURCE_POLICY.md`
 Use for:
@@ -344,9 +360,10 @@ Read in this order:
 1. relevant module `RISKS.md`
 2. relevant module `README.md`
 3. relevant module `CONTRACTS.md`
-4. `pillars/SG_BEHAVIOR.md`
-5. `pillars/architecture/DATA_FLOW.md`
-6. diagnostics/logging-related docs if needed
+4. `pillars/DECISIONS.md`
+5. `pillars/SG_BEHAVIOR.md`
+6. `pillars/architecture/DATA_FLOW.md`
+7. diagnostics/logging-related docs if needed
 
 ---
 
@@ -358,10 +375,10 @@ Important distinction:
 These define accepted truth and boundaries.
 
 Examples:
+- `DECISIONS.md`
 - `SG_ENTITY.md`
 - `SG_BEHAVIOR.md`
 - `PROJECT.md`
-- `DECISIONS.md`
 - active workflow files
 - `DOCS_GOVERNANCE.md`
 - architecture files
@@ -381,6 +398,7 @@ Examples:
 Rule:
 - supportive docs help
 - canonical docs govern
+- `DECISIONS.md` governs the philosophy and global boundaries of all canonical docs
 
 ---
 
@@ -398,7 +416,9 @@ The following patterns are dangerous:
 - treating old RepoIndex / old maps as current repo facts
 - treating a component/tool/mode/agent as SG itself
 - treating capability access as authority to redefine SG
-- treating semantic routing as permission to build a global SemanticRouter before the explicit gate
+- building a heavy router that duplicates reasoning model intelligence
+- treating semantic routing as a separate SG brain instead of a minimal controller/gate layer
+- preserving old command/regex logic as if it were Human Mode intelligence
 - referencing deleted `pillars/decisions/` files as active truth
 
 If a file does not clearly belong somewhere,
@@ -416,6 +436,7 @@ That means:
 - stale docs are a real project issue
 - module docs must evolve with the module
 - root docs must evolve when global rules or structure change
+- old pillar wording must be corrected when it contradicts `DECISIONS.md`
 
 Primary reference for documentation maintenance:
 - `pillars/DOCS_GOVERNANCE.md`
@@ -438,6 +459,7 @@ The point is to document what future work depends on:
 - accepted decisions
 - flow shape
 - permission shape
+- SG philosophy and component identity
 
 When docs grow without discipline,
 they become another source of confusion.
@@ -448,13 +470,13 @@ they become another source of confusion.
 
 Before meaningful work:
 
-1. read the relevant pillars first
+1. read `pillars/DECISIONS.md` and the relevant pillars first
 2. check whether docs still match repo/runtime reality
 3. do the work
 4. update docs in the same work block if needed
 
 Preferred mindset:
-- first understand boundaries
+- first understand the SG philosophy and boundaries
 - then change code/docs
 - then re-check consistency
 
@@ -469,6 +491,7 @@ If this folder remains:
 - bounded
 - structured
 - canonical
+- aligned with `DECISIONS.md`
 
 then future humans and AI tools can work with the project much more safely.
 

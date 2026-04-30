@@ -4,18 +4,21 @@ Purpose:
 - Define the canonical logical modules of SG.
 - Show where responsibilities belong.
 - Reduce confusion between workflow stages, module boundaries, and runtime maturity.
+- Prevent any module, bot surface, AI router, or controller from being mistaken for SG itself.
 
 Status: CANONICAL
 Scope: repository logical architecture
 
 This file must be interpreted together with:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
@@ -41,7 +44,7 @@ This file is not a roadmap and not a directory dump.
 
 ## 0.1) SG entity rule for modules
 
-SG is the global project entity.
+SG is the global project entity and global intellectual system.
 
 Modules are bounded responsibility areas and components/instruments of SG.
 
@@ -50,8 +53,11 @@ A module must never be treated as a separate independent SG.
 Correct model:
 
 ```text
-SG = global project entity
+SG = global project entity / global intellectual system
 module = component / subsystem / responsibility domain of SG
+bot = access/runtime surface, not SG itself
+AI routing = model/cost wrapper, not SG brain
+minimal controller/gate = action protection boundary, not separate SG brain
 ```
 
 Incorrect model:
@@ -59,6 +65,9 @@ Incorrect model:
 ```text
 module = SG itself
 module = autonomous SG identity
+bot = SG itself
+AI router = SG brain
+controller/gate = independent SG brain
 module = owner of SG decisions / identity / memory / experience
 ```
 
@@ -83,7 +92,8 @@ Meaning:
 
 Important rule:
 - these labels are architecture guidance only
-- verified repository/runtime state still wins if a mismatch is found
+- verified repository/runtime state still wins for factual implementation status
+- `pillars/DECISIONS.md` still wins for SG philosophy and global direction
 - if mismatch is found, this file and `MODULE_INDEX.md` should be updated
 
 ---
@@ -103,6 +113,10 @@ Current canonical modules for SG:
 9. Project Memory — `partial runtime`
 10. File-Intake — `future-facing`
 11. AI Routing / Model Control — `partial runtime`
+
+Cross-cutting architectural boundary:
+
+- Capability / Minimal Controller / Gate Boundary — not a separate SG brain and not necessarily a standalone heavy module now.
 
 These are the canonical responsibility domains.
 
@@ -151,17 +165,20 @@ Purpose:
 - handler dispatch
 - response formatting
 - conversational entry surface
+- current practical runtime access to SG
 
 Must do:
 - connect input to the right handler/service
 - keep handlers small
 - respect Human Mode / Technical Mode separation
+- remain an access/runtime surface of SG
 
 Must NOT do:
 - become the business logic center
 - perform direct storage spaghetti
 - duplicate module logic
 - act as SG itself
+- become the default identity of SG
 
 ---
 
@@ -174,17 +191,21 @@ Purpose:
 - role resolution
 - permissions / gates
 - access request flow
+- action and private-data protection
 
 Must do:
 - enforce role-based restrictions
 - protect privileged operations
 - define who can do what
+- protect user/project/private scopes
+- distinguish thinking/analysis from state-changing action
 
 Must NOT do:
 - own transport logic
 - own repository structure
 - own memory selection logic
 - override SG entity/governance rules
+- restrict SG thinking when only action/private access must be restricted
 
 ---
 
@@ -225,11 +246,13 @@ Purpose:
 Must do:
 - keep execution structured and observable
 - support task-oriented workflows
+- respect permissions, confirmations, and action type
 
 Must NOT do:
 - absorb unrelated module responsibilities
 - contain hidden AI routing rules without explicit ownership
 - act autonomously outside SG governance
+- perform state-changing actions without permission
 
 ---
 
@@ -265,7 +288,7 @@ Purpose:
 - safe on-demand file access
 
 Must do:
-- stay read-only in current governance
+- stay read-only in current governance unless explicit approval changes scope
 - respect secret/path filtering
 - preserve structural indexing rules
 - follow `REPO_MAP_SOURCE_POLICY.md`
@@ -349,18 +372,51 @@ Maturity:
 
 Purpose:
 - centralize model selection
-- enforce routing policy
+- enforce model/cost policy
 - preserve model-agnostic architecture
+- prevent hidden direct AI calls
 
 Must do:
 - control direct AI access
 - preserve cost/routing policy
 - support future multi-model logic
+- log model usage where applicable
 
 Must NOT do:
 - allow hidden direct model calls
 - make policy decisions outside governance
 - let external AI models/tools become SG itself
+- become a heavy SemanticRouter
+- replace reasoning model intelligence with hardcoded routing logic
+- become SG brain
+
+---
+
+## 3.12) Capability / Minimal Controller / Gate Boundary
+
+Status:
+- cross-cutting architectural boundary, not a standalone heavy module by default
+
+Purpose:
+- protect actions
+- select allowed capability path
+- check permissions/scope
+- check source/tool needs
+- check read-only vs state-changing action type
+- check risk/cost/confirmation needs
+
+Must do:
+- remain minimal
+- protect state-changing and sensitive actions
+- support Human Mode and Technical Mode where needed
+- stay subordinate to SG philosophy and accepted decisions
+
+Must NOT do:
+- become a separate SG brain
+- duplicate reasoning model thinking with large hardcoded logic
+- bypass user permissions
+- bypass source-first policy
+- bypass confirmations for protected actions
 
 ---
 
@@ -373,6 +429,14 @@ Transport
 → Users / Access
 → relevant module/service
 → Logging / Diagnostics
+
+Human Mode control flow may include:
+
+Human input
+→ Meaning / reasoning model
+→ Capability / Minimal Controller / Gate Boundary
+→ relevant module/service
+→ ResponseBuilder / Delivery
 
 Common module interactions:
 - Bot may call Users / Access
@@ -387,6 +451,7 @@ Hard rule:
 - Bot handlers must not become god-objects
 - Storage/policy responsibilities must remain in their owning modules
 - No module may become a second SG identity
+- Controller/gate must protect actions, not replace reasoning
 
 ---
 
@@ -421,6 +486,7 @@ Therefore:
 - do not treat conceptual module clarity as proof of clean runtime separation
 - always cross-check with:
   - verified repository/runtime state
+  - `pillars/DECISIONS.md` for philosophy/global direction
   - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
   - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 
@@ -454,12 +520,15 @@ Do NOT create pillar folders by:
 - every workflow step
 - every tiny command
 - every temporary experiment
+- every small controller condition
 
 Create module docs by stable responsibility domain.
 
 Do NOT pretend all modules are equally mature if they are not.
 
 Do NOT describe a module as SG itself.
+
+Do NOT split minimal controller/gate into a heavy module unless a real architectural need appears and is approved.
 
 Otherwise documentation becomes both fragmented and misleading.
 
@@ -471,5 +540,7 @@ SG must evolve by modules, not by documentation chaos.
 
 Modules are components of SG, not independent SG entities.
 
+Bot, AI routing, RepoStateAgent, and controller/gate layers are not SG itself.
+
 The purpose of this map is to keep future code and future AI work aligned with stable ownership boundaries,
-while staying honest about actual runtime maturity.
+while staying honest about actual runtime maturity and the intended SG philosophy.

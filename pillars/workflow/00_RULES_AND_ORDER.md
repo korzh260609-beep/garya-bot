@@ -5,16 +5,18 @@
 
 This workflow must be interpreted together with:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SEMANTIC_ROUTING.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+- `pillars/architecture/PERMISSIONS_MAP.md`
 
 Important:
 - `pillars/DECISIONS.md` is the single root decisions file.
+- `pillars/DECISIONS.md` is the upper philosophical and architectural foundation for SG.
 - `pillars/decisions/` is not an active root decisions folder.
 - New global architecture/system decisions are fixed only in `pillars/DECISIONS.md` after explicit monarch approval.
 
@@ -33,17 +35,18 @@ Important:
 
 ## 0.1 SG ENTITY / COMPONENT ALIGNMENT
 
-SG is the global project entity.
+SG is the global project entity and global intellectual system.
 
 Workflow execution must preserve this model:
 
 ```text
-SG = global project entity
+SG = global project entity / global intellectual system
 components = organs / channels / instruments / subsystems of SG
 external AI operators = temporary helpers, not SG itself
+minimal controller/gate = action protection layer, not SG brain
 ```
 
-Human Mode, Technical Mode, RepoStateAgent, agents, tools, transports, memory, sources, diagnostics and future interfaces are components or instruments of SG.
+Human Mode, Technical Mode, RepoStateAgent, agents, tools, transports, memory, sources, diagnostics, capability selectors, controller/gate layers and future interfaces are components or instruments of SG.
 
 They must not be planned, implemented, documented or tested as separate independent SG entities.
 
@@ -52,24 +55,28 @@ Hard rules:
 - External AI operators may help analyze or generate suggestions, but they do not own SG decisions, identity, memory, or project experience.
 - SG project experience must remain preserved through pillars, decisions, architecture, code, memory, verified repo state, snapshots and recoverable history.
 - Any workflow step that would make a component act as a separate SG is architecturally invalid.
+- Any workflow step that would turn a router/controller/AI wrapper into SG brain is architecturally invalid.
 
 ---
 
-## 0.2 SEMANTIC ROUTING / CAPABILITY ACCESS GATES
+## 0.2 MINIMAL CONTROLLER / CAPABILITY ACCESS GATES
 
 Workflow execution must preserve:
 
 ```text
-Human Mode skeleton first.
-Global SemanticRouter later, only after explicit accepted gate.
+Reasoning model / meaning provider understands meaning.
+Minimal controller/gate protects actions, permissions, scope, sources, risks, costs and confirmations.
+Heavy SemanticRouter as a separate SG brain is not the goal.
 Capability access != authority to redefine SG.
 ```
 
 Hard rules:
 - Do not connect Human Mode runtime without explicit gate.
-- Do not build a global SemanticRouter now.
-- Do not convert old phrase/keyword/regex routes into Human Mode intelligence now.
+- Do not build a heavy router that replaces reasoning model intelligence.
+- Do not treat controller/gate as a separate SG brain.
+- Do not convert old phrase/keyword/regex routes into Human Mode intelligence.
 - Do not treat Technical Mode legacy routes as SG’s normal intelligence layer.
+- Do not bypass permissions, source checks, risk checks, cost checks or confirmations for protected actions.
 - Do not treat capability access as governance authority.
 - Do not treat code-output, diagnostics, AgentWorkspace, RepoStateAgent, or external AI tools as independent SG entities.
 
@@ -111,28 +118,31 @@ Hard rule:
 
 ### 1.1 Global behavior rules
 
-1. AI is execution only, SG is decision maker
-2. Specialized AI first, reasoning AI last
-3. No direct AI calls — only via router
-4. Every AI call is logged with cost + reason
-5. BehaviorCore is independent from AnswerMode (length ≠ style)
-6. short/normal/long preserve the same SG personality
-7. Unclear intent → max 1 soft clarifying question
-8. Soft form / hard essence (risk-first, no “ты неправ”)
+1. SG reasons, advises, coordinates and prepares; user/monarch makes final decisions.
+2. External AI operators are tools of SG, not SG itself.
+3. Specialized AI first, reasoning AI last where that saves cost and preserves quality.
+4. No direct AI calls — only via router/wrapper.
+5. Every AI call is logged with cost + reason where supported.
+6. BehaviorCore is independent from AnswerMode (length ≠ style).
+7. short/normal/long preserve the same SG personality.
+8. Unclear intent → max 1 soft clarifying question.
+9. Soft form / hard essence (risk-first, no “ты неправ”).
+10. SG is free in thinking and controlled in actions.
 
 ### 1.2 Workflow enforcement rules (how to work)
 
-9. Work order for ANY new capability: **skeleton → config → logic**
-10. One change block = one commit (small, reversible).
-11. No architecture changes “on the fly”. Architecture changes require explicit revision note in `pillars/DECISIONS.md` after monarch approval.
-12. If something is ambiguous, STOP and add a note to `pillars/DECISIONS.md` before implementing.
-13. If a step references a later stage, it is forbidden (stage gate).
-14. Before continuing repository development, SG must restore current project memory context.
-15. Project Memory Core and Long-Term Memory Core are early foundation, not optional future enhancements.
-16. Do not manually mark pillars items as done/complete; completion evidence must come from repo/runtime verification or generated status snapshots.
-17. Do not treat a mode, agent, tool, transport, source, memory layer, or repository subsystem as SG itself.
-18. Do not use semantic-routing language to bypass the current Human Mode skeleton gate.
-19. Do not use capability-access language to bypass permission/governance gates.
+11. Work order for ANY new capability: **skeleton → config → logic**.
+12. One change block = one commit (small, reversible).
+13. No architecture changes “on the fly”. Architecture changes require explicit revision note in `pillars/DECISIONS.md` after monarch approval.
+14. If something is ambiguous, STOP before protected/state-changing implementation and add a note to `pillars/DECISIONS.md` before implementing.
+15. If a step references a later stage implementation, it is forbidden unless explicitly approved (stage gate).
+16. Before continuing repository development, SG must restore current project memory context.
+17. Project Memory Core and Long-Term Memory Core are early foundation, not optional future enhancements.
+18. Do not manually mark pillars items as done/complete; completion evidence must come from repo/runtime verification or generated status snapshots.
+19. Do not treat a mode, agent, tool, transport, source, memory layer, repository subsystem, controller/gate, or AI wrapper as SG itself.
+20. Do not use semantic-routing language to bypass the current Human Mode gate.
+21. Do not use capability-access language to bypass permission/governance gates.
+22. Protected actions require action-type, permission, source/scope, risk/cost and confirmation checks where applicable.
 
 ---
 
@@ -141,7 +151,7 @@ Hard rule:
 **Canonical order (must not be reordered):**  
 Core → DB/TaskEngine → Access V0 → Multi-Channel Identity → DB Migrations → Observability → Transport → Memory V1 → Project Memory Core → Long-Term Memory Core → Chat History → Recall Engine → Already-Seen → Answer Modes → Sources → File-Intake → Capability Extensions → V8 Initiative → V9 PR/DIFF → Real Integrations → Multi-Model → Hybrid Intelligence → Legal & Billing → Risk & Market Protection → ПСИХО-МОДУЛЬ
 
-**Gate rule:** Stage N cannot consume features from Stage N+1.
+**Gate rule:** Stage N cannot consume implementation features from Stage N+1 without explicit accepted approval.
 
 Memory gate rule:
 - No major new feature work should continue until Project Memory Core and Long-Term Memory Core are reliable enough for SG to restore current project state, decisions, constraints, risks, and next steps.
@@ -150,7 +160,7 @@ Entity gate rule:
 - No feature may introduce a second SG identity or let a component/tool/agent behave as independent SG.
 
 Semantic/capability gate rule:
-- No feature may create Global SemanticRouter, connect Human Mode runtime, or expose sensitive capabilities without the explicit accepted gate defined in architecture/decisions.
+- No feature may connect Human Mode runtime, build a heavy router, or expose sensitive capabilities without explicit gate, permissions, source checks, risk checks and confirmations where required.
 
 ---
 
@@ -177,11 +187,13 @@ For entity-sensitive work:
 13) Verify the changed component remains a component/instrument of SG
 14) Verify prompts/docs do not describe external AI operators as SG itself
 15) Verify Human Mode / Technical Mode / RepoStateAgent remain separated according to architecture
+16) Verify no controller/router/AI wrapper behaves as SG brain
 
 For semantic/capability-sensitive work:
-16) Verify Human Mode runtime remains gated unless explicitly approved
-17) Verify Global SemanticRouter is not introduced before accepted gate
-18) Verify capability access does not become governance authority
+17) Verify Human Mode runtime remains gated unless explicitly approved
+18) Verify no heavy router replaces reasoning model intelligence
+19) Verify capability access does not become governance authority
+20) Verify protected actions do not bypass controller/gate, permissions, source checks, risk checks, cost checks or confirmations
 
 ---
 

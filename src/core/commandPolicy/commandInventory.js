@@ -19,6 +19,7 @@
 // ============================================================================
 
 import { MEMORY_COMMAND_INVENTORY } from "./commandInventoryMemory.js";
+import { OPS_CRYPTO_COMMAND_INVENTORY } from "./commandInventoryOpsCrypto.js";
 import { SYSTEM_COMMAND_INVENTORY } from "./commandInventorySystem.js";
 
 export const COMMAND_MODES = Object.freeze({
@@ -341,6 +342,12 @@ export const COMMAND_INVENTORY = Object.freeze([
   // Split into a separate data-only file to keep this registry readable.
   // --------------------------------------------------------------------------
   ...SYSTEM_COMMAND_INVENTORY,
+
+  // --------------------------------------------------------------------------
+  // Ops / Render Bridge / Agent Workspace / Crypto Dev Technical Mode entries.
+  // Split into a separate data-only file to keep this registry readable.
+  // --------------------------------------------------------------------------
+  ...OPS_CRYPTO_COMMAND_INVENTORY,
 ]);
 
 export function getCommandInventoryEntry(command) {

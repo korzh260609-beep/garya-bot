@@ -4,9 +4,20 @@ Purpose:
 - Define the AI Routing / Model Control module as a stable responsibility domain.
 - Fix what belongs to model selection, routing policy, and direct-AI-call discipline.
 - Prevent AI usage from being decided ad hoc across the system.
+- Prevent AI Routing from becoming SG brain or heavy SemanticRouter.
 
 Status: CANONICAL
 Scope: AI Routing / Model Control logical module
+
+This file must be interpreted together with:
+
+- `pillars/DECISIONS.md`
+- `pillars/SG_ENTITY.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+- `pillars/architecture/CODE_OWNERSHIP_MAP.md`
+- `pillars/architecture/PERMISSIONS_MAP.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
@@ -19,8 +30,11 @@ The AI Routing / Model Control module is responsible for:
 - preserving model/provider abstraction
 - keeping AI usage explicit and reviewable
 - supporting future multi-model evolution without breaking system boundaries
+- supporting cost/reason logging where available
 
 This module exists so SG can use AI predictably rather than by scattered local choices.
+
+AI Routing is a model/cost/control wrapper. It is not SG brain, not SG identity, and not a heavy SemanticRouter.
 
 ---
 
@@ -34,6 +48,7 @@ AI Routing / Model Control includes responsibilities such as:
 - provider/model abstraction
 - cost/reason-aware routing hooks
 - fallback routing policy where explicitly allowed
+- enforcing no direct hidden model calls
 
 Typical related code areas may include:
 - AI router/service entry
@@ -56,10 +71,13 @@ The AI Routing / Model Control module must NOT own:
 - file/media extraction logic
 - user-facing command routing
 - hidden prompt/governance authority
+- SG philosophy, identity, or accepted decisions
 
 Also out of scope:
 - direct local feature ownership just because AI is involved
 - architecture decisions by model convenience
+- replacing reasoning/model meaning with hardcoded router logic
+- acting as an autonomous multi-agent brain
 
 ---
 
@@ -76,6 +94,7 @@ It must not answer:
 - what the feature itself means
 - who is allowed to use it
 - what non-AI modules should do internally
+- what SG is or what SG may become
 
 That distinction must remain hard.
 
@@ -91,6 +110,7 @@ The AI Routing / Model Control module is responsible for:
 4. exposing routing reason/cost hooks where required
 5. preventing hidden direct model calls
 6. supporting future routing evolution without scattering AI decisions
+7. keeping AI calls compatible with controlled-action boundaries
 
 ---
 
@@ -104,10 +124,33 @@ The following invariants must hold:
 - provider/model abstraction must be preserved
 - hidden AI-call side paths are forbidden
 - routing policy must remain explicit enough to debug
+- AI Routing must not become SG brain
+- AI Routing must not bypass source-first, permission, risk, cost, or confirmation policies
 
 ---
 
-## 6) Relationship to adjacent modules
+## 6) Controlled-action rule
+
+AI calls may support:
+
+```text
+analysis-only
+prepare-only
+read-only explanation
+expensive/costly processing
+private-data processing
+```
+
+Rules:
+- AI output is not automatically source of truth;
+- expensive/costly AI usage may require warning/confirmation where configured;
+- private-data AI usage must respect user/project/scope boundaries;
+- AI may prepare drafts, diffs or plans without applying them;
+- AI Routing must not perform external or state-changing actions by itself.
+
+---
+
+## 7) Relationship to adjacent modules
 
 AI Routing / Model Control is closely related to:
 
@@ -117,6 +160,7 @@ AI Routing / Model Control is closely related to:
 - Memory
 - Logging / Diagnostics
 - Tasks
+- Users / Access
 
 But AI Routing does not own those modules.
 
@@ -124,7 +168,7 @@ It owns AI-call discipline and routing boundaries.
 
 ---
 
-## 7) Examples of what AI Routing may do
+## 8) Examples of what AI Routing may do
 
 Allowed examples:
 
@@ -134,12 +178,13 @@ Allowed examples:
 - provide provider abstraction/fallback policy
 - record reason/cost-oriented routing metadata hooks
 - prevent direct local model invocation patterns
+- reject or downgrade expensive calls according to policy
 
 These are AI Routing responsibilities.
 
 ---
 
-## 8) Examples of what AI Routing must not do
+## 9) Examples of what AI Routing must not do
 
 Forbidden examples:
 
@@ -148,18 +193,21 @@ Forbidden examples:
 - replacing file extraction with generic AI guesses where extraction discipline is required
 - embedding business logic into routing policy
 - silently changing governance because a model is more convenient
+- becoming a heavy SemanticRouter or SG brain
+- treating model output as verified fact when source-first data is required
 
 These break architectural control.
 
 ---
 
-## 9) Ownership rule
+## 10) Ownership rule
 
 If the question is:
 - whether AI should be called
 - which model/provider tier should be used
 - how to keep model usage centralized
 - how to preserve provider abstraction
+- how to log cost/reason metadata
 
 it belongs here.
 
@@ -169,14 +217,18 @@ If the question is:
 - what file extractor should run
 - who is allowed to use the feature
 - how user-facing output is routed
+- whether an action should be applied
 
 then it belongs elsewhere.
 
 ---
 
-## 10) Final rule
+## 11) Final rule
 
 AI Routing exists so SG uses AI deliberately, not impulsively.
 
 If AI choices become scattered,
 the whole system becomes harder to govern, debug, and price.
+
+If AI Routing becomes SG brain,
+the architecture is wrong.

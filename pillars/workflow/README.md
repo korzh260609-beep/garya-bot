@@ -18,10 +18,14 @@ This workflow must be interpreted together with:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SEMANTIC_ROUTING.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+
+Important:
+- `pillars/DECISIONS.md` is the single root decisions file.
+- `pillars/decisions/` is not an active root decisions folder.
+- Deleted decision-extension files must not be referenced as active workflow truth.
 
 ## Files
 

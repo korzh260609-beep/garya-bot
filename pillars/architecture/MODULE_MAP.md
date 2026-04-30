@@ -14,7 +14,6 @@ This file must be interpreted together with:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
 
@@ -209,7 +208,7 @@ Must NOT do:
 - act as raw chat dump
 - store forbidden artifacts such as raw repo source bodies
 - be bypassed by handlers
-- replace pillars or accepted decisions
+- replace pillars or `pillars/DECISIONS.md`
 
 ---
 
@@ -319,7 +318,7 @@ Must do:
 Must NOT do:
 - replace canonical pillars
 - become a dumping ground
-- override accepted decisions
+- override `pillars/DECISIONS.md`
 
 ---
 

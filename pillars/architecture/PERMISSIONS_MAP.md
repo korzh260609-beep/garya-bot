@@ -14,7 +14,6 @@ This file must be interpreted together with:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 
@@ -137,7 +136,7 @@ Even for monarch operations, implementation must remain explicit, logged where a
 
 Non-monarch roles may receive bounded access to SG features or components.
 
-They must not receive authority to modify SG identity, architecture, core decisions, source-of-truth policies, or project governance unless a future accepted decision explicitly defines such delegation.
+They must not receive authority to modify SG identity, architecture, core decisions, source-of-truth policies, or project governance unless a future accepted decision in `pillars/DECISIONS.md` explicitly defines such delegation.
 
 ---
 
@@ -211,7 +210,7 @@ Examples:
 
 Expectation:
 - monarch-only by default
-- must be fixed in pillars/decisions when architectural
+- must be fixed in `pillars/DECISIONS.md` when architectural
 - cannot be inferred from ordinary feature/admin access
 
 ---

@@ -4,18 +4,20 @@ Purpose:
 - Define how project documentation in `pillars/` must be maintained.
 - Prevent stale context, contradictory docs, and AI guessing.
 - Make project knowledge explicit, reviewable, and current.
+- Keep all pillar documentation aligned with the new SG philosophy fixed in `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: all files under `pillars/`
 
 This document must be interpreted together with:
+- `pillars/DECISIONS.md`
 - `pillars/README.md`
 - `pillars/SG_ENTITY.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
 
 Important:
 - `pillars/DECISIONS.md` is the single root decisions file.
+- `pillars/DECISIONS.md` is the upper philosophical and architectural foundation for SG.
 - `pillars/decisions/` is not an active root decisions folder.
 - Deleted decision-extension files must not be referenced as active truth.
 
@@ -31,6 +33,8 @@ Any meaningful evolution of the project must be reflected in the relevant pillar
 
 If code changes but pillars are not updated, project context becomes stale and unsafe.
 
+If SG philosophy changes but pillars are not aligned, documentation becomes misleading even if it still describes the old runtime correctly.
+
 ---
 
 ## 1) Hard rule
@@ -38,6 +42,9 @@ If code changes but pillars are not updated, project context becomes stale and u
 Any meaningful change affecting one or more of the following:
 
 - SG identity / entity definition
+- SG philosophy
+- personal SG model
+- controlled action boundaries
 - architecture
 - module boundaries
 - contracts
@@ -52,6 +59,7 @@ Any meaningful change affecting one or more of the following:
 - source-of-truth policy
 - Human Mode / Technical Mode boundaries
 - semantic routing boundaries
+- minimal controller / gate boundaries
 - capability access boundaries
 - component identity and ownership
 
@@ -67,11 +75,17 @@ The following state is invalid:
 - repository/runtime behavior changed
 - but related pillar files were not updated
 
+The following state is also invalid:
+
+- `pillars/DECISIONS.md` changes SG philosophy or global rules
+- but related root, architecture, workflow, or module docs still preserve the old logic as current truth
+
 This means:
 - documentation is stale
 - AI context is partially false
 - future code generation becomes less reliable
 - review quality drops
+- old bot/runtime assumptions can be mistaken for the intended SG vision
 
 Such divergence must be treated as a real project issue.
 
@@ -79,19 +93,37 @@ Such divergence must be treated as a real project issue.
 
 ## 3) Source hierarchy
 
-Priority of truth:
+Priority of truth must distinguish current facts from intended philosophy.
+
+### 3.1 Factual implementation state
+
+For what currently exists in code/runtime:
 
 1. Runtime / repository actual state
-2. Pillars as canonical documented truth
-3. `pillars/DECISIONS.md` as the single root decisions file
+2. RepoStateAgent / verified repo observation, where available
+3. Active architecture/module docs
 4. Project memory / bounded working context
 5. Chat discussion / temporary explanations
+
+### 3.2 Philosophical and architectural direction
+
+For what SG is meant to be and how the system must evolve:
+
+1. `pillars/DECISIONS.md`
+2. `pillars/SG_ENTITY.md`
+3. `pillars/PROJECT.md`
+4. `pillars/SG_BEHAVIOR.md`
+5. Active architecture/workflow/module docs aligned with the above
+6. Project memory / bounded working context
+7. Chat discussion / temporary explanations
 
 Rules:
 - Chat never overrides pillars
 - Archived files do not override active pillars
 - Project memory does not override accepted decisions
-- Pillars must converge toward verified repository/runtime reality
+- Runtime reality shows what exists now, but it does not redefine SG philosophy
+- Pillars must converge toward verified repository/runtime reality for factual state
+- Pillars must converge toward `DECISIONS.md` for philosophy and global boundaries
 - If divergence is found, it must be fixed explicitly
 
 ---
@@ -107,6 +139,26 @@ Use for:
 - source hierarchy
 - file group map
 - anti-chaos rules
+
+#### `pillars/DECISIONS.md`
+Use for:
+- final accepted global decisions
+- non-negotiable architectural/system rules
+- high-level policy fixation
+- the single root decisions file for global SG decisions
+- the upper philosophical and architectural foundation for SG
+
+Do NOT use for:
+- module-local implementation trivia
+- temporary ideas
+- TODOs
+- drafts
+
+Rules:
+- new global decisions are discussed first
+- new global decisions are added only after explicit monarch approval
+- global decisions must be added to `pillars/DECISIONS.md`
+- old/deleted `pillars/decisions/` files must not be referenced as active truth
 
 #### `pillars/SG_ENTITY.md`
 Use for:
@@ -134,25 +186,7 @@ Use for:
 - communication constraints
 - meaning-first / source-first behavior
 - entity-aware behavior rules
-
-#### `pillars/DECISIONS.md`
-Use for:
-- final accepted global decisions
-- non-negotiable architectural/system rules
-- high-level policy fixation
-- the single root decisions file for global SG decisions
-
-Do NOT use for:
-- module-local implementation trivia
-- temporary ideas
-- TODOs
-- drafts
-
-Rules:
-- new global decisions are discussed first
-- new global decisions are added only after explicit monarch approval
-- global decisions must be added to `pillars/DECISIONS.md`
-- old/deleted `pillars/decisions/` files must not be referenced as active truth
+- controlled action boundaries
 
 #### Active workflow files under `pillars/`
 Use for:
@@ -165,6 +199,7 @@ Important:
 - Do not assume an old flat `pillars/WORKFLOW.md` is the active workflow source.
 - If workflow is split into folder/files, use the active workflow structure.
 - Archived workflow files must not be treated as current stage truth.
+- Workflow must describe the route toward the intended SG, not freeze the project inside the current Telegram/runtime implementation.
 
 #### `pillars/REPOINDEX.md`
 Use for:
@@ -199,6 +234,7 @@ Use architecture docs for:
 - global technical boundaries
 - interface modes
 - semantic routing principles and gates
+- minimal controller boundaries
 - capability access rules
 - source-of-truth policies
 - data flow
@@ -213,6 +249,7 @@ Architecture files must preserve:
 SG = global project entity
 components = organs / channels / instruments / subsystems of SG
 external AI operators = temporary helpers, not SG itself
+routing/controller = minimal protection layer, not SG brain
 ```
 
 Current sensitive architecture docs include:
@@ -293,11 +330,14 @@ Documentation update is mandatory when any of the following happens:
 10. A previous assumption becomes invalid
 11. A new accepted decision is added
 12. SG identity/entity rules change
-13. Human Mode / Technical Mode boundaries change
-14. Source-of-truth policy changes
-15. A previously active doc becomes archived/deprecated
-16. Semantic routing gate changes
-17. Capability access/governance boundary changes
+13. SG philosophy changes
+14. Personal SG / multi-user identity rules change
+15. Controlled action boundaries change
+16. Human Mode / Technical Mode boundaries change
+17. Source-of-truth policy changes
+18. A previously active doc becomes archived/deprecated
+19. Semantic routing / minimal controller gate changes
+20. Capability access/governance boundary changes
 
 ---
 
@@ -305,11 +345,12 @@ Documentation update is mandatory when any of the following happens:
 
 For meaningful work blocks:
 
-1. Read relevant pillar files first
-2. Check if they still match repository/runtime state
-3. Perform the code/document change
-4. Update the relevant pillar file(s)
-5. Treat documentation update as part of completion
+1. Read `pillars/DECISIONS.md` first for global philosophy and accepted decisions
+2. Read relevant pillar files
+3. Check if they still match repository/runtime state and SG philosophy
+4. Perform the code/document change
+5. Update the relevant pillar file(s)
+6. Treat documentation update as part of completion
 
 Recommended order:
 - module docs first for local changes
@@ -323,11 +364,12 @@ Recommended order:
 
 Before serious AI/code work, the operator or AI must:
 
-1. read relevant root pillars
-2. read relevant architecture docs
-3. read relevant module docs
-4. verify that the planned work does not contradict accepted decisions
-5. flag stale documentation when detected
+1. read `pillars/DECISIONS.md`
+2. read relevant root pillars
+3. read relevant architecture docs
+4. read relevant module docs
+5. verify that the planned work does not contradict accepted decisions
+6. flag stale documentation when detected
 
 AI must not silently “guess around” missing or stale pillar context.
 
@@ -338,7 +380,8 @@ AI must not treat:
 - old RepoIndex as current repo state
 - external AI tools as SG itself
 - Human Mode / Technical Mode / RepoStateAgent as separate SG entities
-- SemanticRouter as authorized current implementation before explicit gate
+- heavy SemanticRouter as a replacement for reasoning model intelligence
+- routing/controller layer as SG’s separate brain
 - capability access as authority to redefine SG
 - deleted `pillars/decisions/` files as active decisions truth
 
@@ -355,6 +398,7 @@ Pillar files must prefer:
 - non-ambiguous wording
 - current source-of-truth declarations
 - clear relation between global SG entity and its components
+- clear distinction between current runtime and intended SG direction
 
 Avoid:
 
@@ -365,6 +409,7 @@ Avoid:
 - speculative notes in canonical files
 - stale references to archived docs as active truth
 - stale references to deleted decision-extension files
+- describing the current bot as if it were the full intended SG
 
 ---
 
@@ -374,13 +419,16 @@ A change is meaningful if it affects at least one of:
 
 - what the system does
 - what SG is or is not
+- SG philosophy
+- personal SG / multi-user identity model
+- controlled action boundaries
 - where responsibility lives
 - who can do something
 - how data flows
 - what must not be broken
 - how future code should be written
 - how future AI operators should understand the project
-- how semantic routing or capability access is gated
+- how semantic routing/minimal controller or capability access is gated
 
 If yes — docs must be updated.
 
@@ -399,10 +447,12 @@ Document what future work depends on:
 - risks
 - accepted decisions
 - source-of-truth policy
-- semantic routing gates
+- semantic routing/minimal controller gates
 - capability access gates
 - component ownership
 - SG entity integrity
+- SG philosophy
+- personal SG boundaries
 
 The goal is not “more docs”.
 The goal is “less guessing and fewer wrong changes”.
@@ -413,8 +463,15 @@ The goal is “less guessing and fewer wrong changes”.
 
 Pillars exist to keep SG predictable while the project evolves.
 
+Pillars must describe both:
+- what currently exists in repo/runtime;
+- what SG is intended to become according to `pillars/DECISIONS.md`.
+
 If the project evolves but pillars do not,
 then pillars stop being a control system
 and become a source of false confidence.
+
+If pillars preserve old bot/runtime assumptions after `DECISIONS.md` changes the philosophy,
+then pillars also become a source of false confidence.
 
 That is forbidden.

@@ -3,7 +3,7 @@
 Purpose:
 - Document the main risk surface of the Tasks module.
 - Prevent hidden execution, duplicate runs, lifecycle confusion, and boundary drift.
-- Keep task-engine behavior explicit and reviewable.
+- Keep task-engine behavior explicit, reviewable and aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Tasks module risk model
@@ -21,6 +21,9 @@ Common failure pattern:
 - one chat flow secretly executes task logic outside the task model
 
 This file exists to make those risks explicit early.
+
+Tasks are execution/lifecycle components of SG.
+They are not SG itself and not autonomous decision makers.
 
 Important current note:
 - Tasks documentation describes the target boundary correctly
@@ -135,21 +138,50 @@ Signal:
 
 ---
 
+### R-08: Tasks bypass controlled-action model
+Description:
+- task execution performs state-changing, external, private-data or costly work without explicit permission/cost/confirmation checks
+
+Consequence:
+- accidental actions
+- unexpected costs
+- governance erosion
+- loss of user/monarch control
+
+Signal:
+- scheduled/manual task runs immediately because it exists, not because the action is allowed and confirmed
+
+---
+
+### R-09: Tasks become autonomous agents
+Description:
+- task definitions start acting like independent decision-making agents rather than bounded execution units
+
+Consequence:
+- SG identity and action control blur
+- final decision boundary weakens
+- tasks begin to change system state beyond intended scope
+
+Signal:
+- a task decides new goals, modifies scope, or triggers new actions without explicit governing flow
+
+---
+
 ## 2) Secondary risks
 
-### R-08: Over-modeling trivial flows as tasks
+### R-10: Over-modeling trivial flows as tasks
 Consequence:
 - unnecessary complexity
 
-### R-09: Under-modeling real tasks
+### R-11: Under-modeling real tasks
 Consequence:
 - hidden automation behavior
 
-### R-10: Scheduling metadata is mistaken for execution control
+### R-12: Scheduling metadata is mistaken for execution control
 Consequence:
 - tasks appear planned but are operationally weak
 
-### R-11: Task ownership is unclear
+### R-13: Task ownership is unclear
 Consequence:
 - no one module clearly owns execution discipline
 
@@ -166,6 +198,8 @@ The following assumptions are dangerous:
 - “if it succeeded once, the execution model is fine”
 - “manual and scheduled runs do not need the same discipline”
 - “direct `callAI` inside Tasks is acceptable because it is convenient”
+- “scheduled task means user already approved every future action”
+- “a task can decide the next action by itself”
 
 These assumptions must be treated as risk factors.
 
@@ -197,6 +231,8 @@ After any meaningful Tasks change, verify:
 5. run failures remain traceable
 6. direct AI invocation in Tasks did not spread further
 7. docs still match actual task behavior
+8. risky/state-changing/external/private/costly task actions still use gate/permission/confirmation where needed
+9. task logic did not start acting as an autonomous SG/agent brain
 
 ---
 
@@ -209,6 +245,7 @@ Preferred defenses:
 - clear lifecycle states
 - bounded retry/idempotency policy
 - strong observability
+- permission/cost/confirmation checks for protected execution
 - stale-doc detection
 - gradual removal of direct AI invocation from task-engine ownership
 
@@ -218,6 +255,7 @@ Avoid fake safety:
 - silent failure swallowing
 - ambiguous state transitions
 - treating current direct AI use in Tasks as acceptable steady-state design
+- confusing scheduled existence with execution approval
 
 ---
 
@@ -229,3 +267,6 @@ The most dangerous bug is:
 “the system keeps doing work, but nobody can clearly explain what ran, why it ran, whether it ran twice, and who really owns the AI call.”
 
 That destroys operational trust and architectural clarity.
+
+A second critical bug is:
+“a task starts acting like an autonomous SG instead of a bounded execution unit.”

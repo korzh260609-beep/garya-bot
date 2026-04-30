@@ -10,20 +10,22 @@ Purpose:
 - preserve Stage 20 and EOF critical fixation;
 - support the updated priority: Project Memory Core + Long-Term Memory Core first;
 - preserve SG entity integrity during development;
-- preserve semantic routing and capability access gates.
+- preserve minimal controller/gate and capability access boundaries.
 
 This workflow must be interpreted together with:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SEMANTIC_ROUTING.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+- `pillars/architecture/PERMISSIONS_MAP.md`
 
 Important:
 - `pillars/DECISIONS.md` is the single root decisions file.
+- `pillars/DECISIONS.md` is the upper philosophical and architectural foundation for SG.
 - `pillars/decisions/` is not an active root decisions folder.
 - Deleted decision-extension files must not be referenced as active workflow truth.
 
@@ -33,7 +35,7 @@ Important:
    - legend
    - memory order clarification
    - SG entity / component alignment
-   - semantic routing / capability access gate alignment
+   - minimal controller/gate and capability access alignment
    - hard rules
    - stage gates
    - execution protocol
@@ -67,12 +69,13 @@ Archived or old workflow files must not be treated as current workflow truth.
 Workflow work must preserve:
 
 ```text
-SG = global project entity
+SG = global project entity / global intellectual system
 components = organs / channels / instruments / subsystems of SG
 external AI operators = temporary helpers, not SG itself
+minimal controller/gate = action protection layer, not SG brain
 ```
 
-Human Mode, Technical Mode, RepoStateAgent, agents, tools, transports, memory and sources are components/instruments of SG.
+Human Mode, Technical Mode, RepoStateAgent, agents, tools, transports, memory, sources, capability selectors and controller/gate layers are components/instruments of SG.
 They must not be developed as separate SG entities.
 
 ## Semantic routing / capability access rule
@@ -80,15 +83,18 @@ They must not be developed as separate SG entities.
 Workflow work must preserve:
 
 ```text
-Human Mode skeleton first.
-Global SemanticRouter later, only after explicit accepted gate.
+Reasoning model / meaning provider understands meaning.
+Minimal controller/gate protects actions, permissions, scope, sources, risks, costs and confirmations.
+Heavy SemanticRouter as a separate SG brain is not the goal.
 Capability access != authority to redefine SG.
 ```
 
 No workflow step may silently authorize:
 - connecting Human Mode runtime without gate;
-- building a global SemanticRouter now;
+- building a heavy router that replaces reasoning model intelligence;
+- treating controller/gate as a separate SG brain;
 - converting old phrase/keyword/regex routes into Human Mode intelligence;
+- bypassing permissions, source checks, risk checks or confirmations;
 - treating capability access as governance authority.
 
 ## Memory priority

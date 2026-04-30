@@ -14,7 +14,6 @@ This file must be interpreted together with:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/README.md`
 
 ---
@@ -70,7 +69,7 @@ When working on a module:
 
 Suggested read order:
 - module local docs first
-- then `pillars/SG_ENTITY.md`, accepted decisions, active workflow files and architecture docs as needed
+- then `pillars/SG_ENTITY.md`, `pillars/DECISIONS.md`, active workflow files and architecture docs as needed
 
 ---
 
@@ -398,7 +397,6 @@ Read together with:
 ### If changing architecture boundaries
 Read:
 - `pillars/SG_ENTITY.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`

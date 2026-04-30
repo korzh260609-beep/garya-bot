@@ -4,23 +4,27 @@ import {
   safeText,
   normalizePath,
 } from "../projectIntentConversationShared.js";
+import {
+  getPillarTargetFromBasename,
+  getPreferredPillarPath,
+} from "../../../projectExperience/PillarTargetResolver.js";
 
 const CANONICAL_BASENAME_TO_PATH = Object.freeze({
-  "workflow.md": "pillars/WORKFLOW.md",
-  "decisions.md": "pillars/DECISIONS.md",
-  "decision.md": "pillars/DECISIONS.md",
-  "roadmap.md": "pillars/ROADMAP.md",
-  "project.md": "pillars/PROJECT.md",
-  "kingdom.md": "pillars/KINGDOM.md",
-  "sg_behavior.md": "pillars/SG_BEHAVIOR.md",
-  "sg_entity.md": "pillars/SG_ENTITY.md",
-  "repoindex.md": "pillars/REPOINDEX.md",
-  "code_insert_rules.md": "pillars/CODE_INSERT_RULES.md",
+  "workflow.md": getPreferredPillarPath("workflow"),
+  "decisions.md": getPreferredPillarPath("decisions"),
+  "decision.md": getPreferredPillarPath("decisions"),
+  "roadmap.md": getPreferredPillarPath("roadmap"),
+  "project.md": getPreferredPillarPath("project"),
+  "kingdom.md": getPreferredPillarPath("kingdom"),
+  "sg_behavior.md": getPreferredPillarPath("sg_behavior"),
+  "sg_entity.md": getPreferredPillarPath("sg_entity"),
+  "repoindex.md": getPreferredPillarPath("repoindex"),
+  "code_insert_rules.md": getPreferredPillarPath("code_insert_rules"),
   "readme.md": "README.md",
 });
 
 export function basenameOf(path = "") {
-  return safeText(path).split("/").pop() || "";
+  return safeText(path).split("/").filter(Boolean).pop() || "";
 }
 
 export function hasPathSeparator(value = "") {
@@ -52,6 +56,8 @@ export function isBareBasenameLike(value = "") {
 
 export function resolveCanonicalPathFromBasename(value = "") {
   const key = safeText(value).toLowerCase();
+  const target = getPillarTargetFromBasename(key);
+  if (target?.preferredPath) return target.preferredPath;
   return CANONICAL_BASENAME_TO_PATH[key] || "";
 }
 

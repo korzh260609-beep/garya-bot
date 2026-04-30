@@ -3,7 +3,7 @@
 Purpose:
 - Define the public contract expectations of the Repo module.
 - Fix the repository-access boundary.
-- Reduce guessing during future repo tooling and review work.
+- Keep repo work aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Repo logical interfaces
@@ -13,6 +13,19 @@ Scope: Repo logical interfaces
 ## 0) Contract philosophy
 
 Repo contracts define how SG may inspect repository state safely.
+
+The Repo module is not SG itself.
+It is not SG brain and not final decision maker.
+It is a factual/diagnostic repository boundary.
+
+Canonical rule:
+
+```text
+SG may read, analyze, diagnose and prepare proposals.
+SG may not mutate repo without explicit permission/confirmation.
+```
+
+Repo work must remain source-first, bounded, guard-aware and advisory unless an explicit approved mutation path exists.
 
 This file does not require exact current implementation names.
 It defines the contract shape that future repo work must preserve.
@@ -32,6 +45,7 @@ Canonical logical capabilities may include:
 - build repo snapshot/index
 - apply repo filters/guards
 - support repo review in read-only mode
+- prepare diff/patch proposals without applying them
 
 The exact file/function names may evolve.
 The boundary itself must remain explicit.
@@ -153,6 +167,31 @@ Must NOT do:
 - mutate repository state
 - auto-apply fixes
 - bypass code-output governance
+- act as final decision maker instead of advisor/observer
+
+---
+
+### 2.6 `preparePatch(...)`
+Purpose:
+- prepare proposed diff/patch content for review where policy allows
+
+Expected input:
+- explicit target files/scope
+- requested change intent
+- current verified file content
+
+Preconditions:
+- repo state is verified from current source
+- patch preparation is allowed as proposal
+- applying the patch is not implied
+
+Postconditions:
+- returns advisory patch/diff proposal
+- no repository mutation occurs
+
+Must NOT do:
+- apply patch under preparation cover
+- commit, PR, deploy or delete code without explicit approved action path
 
 ---
 
@@ -163,12 +202,14 @@ Any caller using Repo must:
 - go through the repo boundary
 - provide explicit repository targets/paths
 - respect read-only and guard policies
-- distinguish between structure listing and content fetching
+- distinguish between structure listing, content fetching, analysis, and mutation
+- verify current repo state before factual claims or patch proposals
 
 Caller must NOT:
 - assume repo read implies repo write
 - use repo access as a shortcut around governance
 - bypass sensitive-path restrictions
+- treat RepoStateAgent/repo tooling as SG or final decision maker
 
 ---
 
@@ -185,6 +226,8 @@ These side effects must remain explicit and predictable.
 
 Hidden side effects are dangerous.
 
+Repo mutation side effects are not allowed unless a separate explicit approved write path exists.
+
 ---
 
 ## 5) Error behavior
@@ -197,6 +240,7 @@ Repo operations should fail in a controlled way when:
 - connector/source fails
 - indexing scope is invalid
 - sensitive-path rules trigger
+- repo state cannot be verified strongly enough for the requested conclusion
 
 Preferred behavior:
 - explicit deny/fail result
@@ -207,6 +251,7 @@ Forbidden behavior:
 - silent fallback to broader access
 - hidden traversal or filter bypass
 - accidental repository mutation
+- confident repo claims from stale memory/project-memory without verification
 
 ---
 
@@ -219,6 +264,8 @@ The following patterns are explicitly forbidden:
 - silent expansion from read to write behavior
 - treating repo review as permission to change code automatically
 - storing raw full repository code in memory by default
+- treating RepoStateAgent / repo tooling as SG itself
+- applying code changes without explicit user/monarch approval
 
 ---
 
@@ -232,11 +279,13 @@ Future additions may include contracts for:
 - path classification
 - limited repo search helpers
 - better policy-driven fetch scopes
+- PR/patch proposal workflows
 
 These additions must preserve the same principles:
 - explicit
 - bounded
 - guard-aware
+- source-first
 - read-oriented unless governance changes explicitly
 
 ---
@@ -247,3 +296,5 @@ Repo contracts exist to let SG inspect code safely.
 
 If repository access becomes broader than its documented contract,
 the system becomes unsafe even before any actual code change is applied.
+
+Repo tooling observes and proposes; it does not rule SG.

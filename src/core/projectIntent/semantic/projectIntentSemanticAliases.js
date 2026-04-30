@@ -12,6 +12,7 @@
 
 import { KNOWN_CANONICAL_TARGETS } from "./projectIntentSemanticConstants.js";
 import { normalizeText, tokenizeText, safeText, levenshtein } from "./projectIntentSemanticText.js";
+import { getPreferredPillarPath } from "../../../projectExperience/PillarTargetResolver.js";
 
 export function inferSemanticAlias(text = "") {
   const normalized = normalizeText(text);
@@ -32,19 +33,19 @@ export function inferSemanticAlias(text = "") {
     normalized.includes("decisions") ||
     normalized.includes("решени")
   ) {
-    return { entity: "decisions", path: "pillars/DECISIONS.md", confidence: "medium" };
+    return { entity: "decisions", path: getPreferredPillarPath("decisions"), confidence: "medium" };
   }
 
   if (normalized.includes("workflow")) {
-    return { entity: "workflow", path: "pillars/WORKFLOW.md", confidence: "high" };
+    return { entity: "workflow", path: getPreferredPillarPath("workflow"), confidence: "high" };
   }
 
   if (normalized.includes("roadmap")) {
-    return { entity: "roadmap", path: "pillars/ROADMAP.md", confidence: "high" };
+    return { entity: "roadmap", path: getPreferredPillarPath("roadmap"), confidence: "high" };
   }
 
   if (normalized.includes("project.md")) {
-    return { entity: "project", path: "pillars/PROJECT.md", confidence: "high" };
+    return { entity: "project", path: getPreferredPillarPath("project"), confidence: "high" };
   }
 
   return { entity: "", path: "", confidence: "low" };
@@ -74,7 +75,7 @@ export function fuzzyCanonicalMatch(text = "") {
         });
       }
 
-      const fileBase = item.path.split("/").pop()?.replace(/\.[^.]+$/i, "").toLowerCase() || "";
+      const fileBase = item.path.split("/").filter(Boolean).pop()?.replace(/\.[^.]+$/i, "").toLowerCase() || "";
       const fileDist = levenshtein(clean, fileBase);
       if (fileDist <= 2 || fileBase.includes(clean) || clean.includes(fileBase)) {
         candidates.push({

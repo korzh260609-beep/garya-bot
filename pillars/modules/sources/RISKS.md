@@ -26,6 +26,9 @@ That is exactly how trust degrades.
 
 This file exists to make those risks explicit.
 
+Sources are evidence providers for SG.
+They are not SG itself, and AI is not a replacement for missing evidence.
+
 ---
 
 ## 1) Primary risks
@@ -116,21 +119,63 @@ Signal:
 
 ---
 
+### R-07: AI output is mistaken for source evidence
+Description:
+- AI-generated explanation, memory recall or inference is presented as if it came from a real source
+
+Consequence:
+- factual reliability collapses
+- user cannot verify claims
+- source-first principle is broken
+
+Signal:
+- no source lineage exists, but output sounds source-backed
+
+---
+
+### R-08: Source lineage disappears
+Description:
+- data is fetched/normalized, but downstream layers lose where it came from
+
+Consequence:
+- trust review becomes difficult
+- conflicting sources cannot be compared
+- debugging factual errors becomes harder
+
+Signal:
+- result has values but no provider/source/run identity when it matters
+
+---
+
+### R-09: Source access crosses user/project scope
+Description:
+- one user's/project's configured source is used in another scope
+
+Consequence:
+- privacy/security breach
+- wrong data in output
+- multiuser trust damage
+
+Signal:
+- ordinary user receives Gary/project/private source data without explicit authorization
+
+---
+
 ## 2) Secondary risks
 
-### R-07: Over-tight source policy
+### R-10: Over-tight source policy
 Consequence:
 - useful source functionality becomes unnecessarily hard to use
 
-### R-08: Over-loose source policy
+### R-11: Over-loose source policy
 Consequence:
 - chaotic source growth and poor reviewability
 
-### R-09: Hidden fallback provider switching
+### R-12: Hidden fallback provider switching
 Consequence:
 - data lineage becomes unclear
 
-### R-10: Diagnostics are too vague
+### R-13: Diagnostics are too vague
 Consequence:
 - source problems cannot be separated into config/runtime/provider classes
 
@@ -146,6 +191,9 @@ The following assumptions are dangerous:
 - “we can normalize later”
 - “provider failures are mostly temporary noise”
 - “if one provider is blocked, we can silently pretend another is equivalent”
+- “AI can fill the missing facts”
+- “source lineage is optional”
+- “project source data is safe to reuse anywhere”
 
 These assumptions must be treated as risk factors.
 
@@ -161,6 +209,9 @@ After any meaningful Sources change, verify:
 4. normalized-vs-raw boundaries still hold
 5. runtime/provider restrictions remain visible
 6. docs still match actual source behavior and limitations
+7. AI/memory output is not presented as source evidence
+8. source lineage remains available where factual confidence matters
+9. source access respects user/project scope
 
 ---
 
@@ -173,6 +224,8 @@ Preferred defenses:
 - strong diagnostics
 - visible runtime/provider limitations
 - bounded source outputs
+- source lineage/provenance
+- user/project scope enforcement
 - stale-doc detection
 
 Avoid fake safety:
@@ -180,6 +233,7 @@ Avoid fake safety:
 - undocumented provider substitution
 - generic “all good” messaging when source is down
 - hidden raw-payload coupling
+- using AI as evidence substitute
 
 ---
 
@@ -191,3 +245,6 @@ The most dangerous bug is:
 “the source is unreliable or unavailable, but the system still talks as if it knows.”
 
 That destroys trust faster than a visible failure.
+
+A second critical bug is:
+“AI output is presented as source-backed fact.”

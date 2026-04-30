@@ -4,6 +4,7 @@
 
 import { RepoSource } from "./RepoSource.js";
 import { RepoIndexSnapshot } from "./RepoIndexSnapshot.js";
+import { getActivePillarPaths } from "../projectExperience/PillarTargetResolver.js";
 
 /**
  * Pillars are canonical sources for SG behavior and workflow.
@@ -15,10 +16,12 @@ const PILLARS = [
   "pillars/KINGDOM.md",
   "pillars/PROJECT.md",
   "pillars/REPOINDEX.md",
-  "pillars/ROADMAP.md",
+  ...getActivePillarPaths("roadmap"),
+  "pillars/ROADMAP.md", // legacy compatibility fallback
   "pillars/SG_BEHAVIOR.md",
   "pillars/SG_ENTITY.md",
-  "pillars/WORKFLOW.md",
+  ...getActivePillarPaths("workflow"),
+  "pillars/WORKFLOW.md", // legacy compatibility fallback
 ];
 
 // ✅ Allowed prefixes for snapshot indexing (keep tight to avoid huge scans)

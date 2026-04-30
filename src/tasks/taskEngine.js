@@ -315,9 +315,9 @@ ${promptText}
   let reply = "";
 
   try {
-    // ВНИМАНИЕ: твой callAI в проекте уже обёрнут; оставляю текущий вызов как был,
-    // чтобы ничего не сломать по сигнатуре.
-    reply = await callAI(messages, {
+    // callAI(messages, costLevel, opts): costLevel передаём отдельно,
+    // чтобы max_output_tokens/temperature попали в opts.
+    reply = await callAI(messages, "medium", {
       max_output_tokens: 900,
       temperature: 0.3,
     });

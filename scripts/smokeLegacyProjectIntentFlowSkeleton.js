@@ -1,16 +1,18 @@
 // scripts/smokeLegacyProjectIntentFlowSkeleton.js
 // ============================================================================
-// LEGACY PROJECT INTENT FLOW SKELETON SMOKE CHECK
+// LEGACY PROJECT INTENT FLOW BOUNDARY SMOKE CHECK
 //
 // Purpose:
-// - verify the disconnected legacyProjectIntentFlow skeleton imports;
-// - verify it does not handle, execute, write, or add diagnostics;
-// - verify it remains a migration boundary, not a new Technical Mode layer.
+// - verify legacyProjectIntentFlow boundary imports;
+// - verify input normalization;
+// - verify the safe continue-phase failure path without external calls;
+// - verify this remains an isolation boundary, not a new Technical Mode layer.
 // ============================================================================
 
 import {
   createLegacyProjectIntentFlowInput,
   handleLegacyProjectIntentFlow,
+  LEGACY_PROJECT_INTENT_FLOW_PHASE,
   LEGACY_PROJECT_INTENT_FLOW_STATUS,
 } from "../src/core/handleMessage/legacyProjectIntentFlow.js";
 
@@ -29,7 +31,15 @@ function assertEqual(name, actual, expected) {
 assertFunction("createLegacyProjectIntentFlowInput", createLegacyProjectIntentFlowInput);
 assertFunction("handleLegacyProjectIntentFlow", handleLegacyProjectIntentFlow);
 
+assertEqual("phase.prepare", LEGACY_PROJECT_INTENT_FLOW_PHASE.PREPARE, "prepare");
+assertEqual("phase.continue", LEGACY_PROJECT_INTENT_FLOW_PHASE.CONTINUE, "continue");
+assertEqual("status.prepared", LEGACY_PROJECT_INTENT_FLOW_STATUS.PREPARED, "prepared");
+assertEqual("status.handled", LEGACY_PROJECT_INTENT_FLOW_STATUS.HANDLED, "handled");
+assertEqual("status.not_handled", LEGACY_PROJECT_INTENT_FLOW_STATUS.NOT_HANDLED, "not_handled");
+assertEqual("status.blocked", LEGACY_PROJECT_INTENT_FLOW_STATUS.BLOCKED, "blocked");
+
 const normalized = createLegacyProjectIntentFlowInput({
+  phase: LEGACY_PROJECT_INTENT_FLOW_PHASE.CONTINUE,
   trimmed: "проверь репозиторий",
   transport: "telegram",
   chatIdStr: "123",
@@ -42,26 +52,23 @@ const normalized = createLegacyProjectIntentFlowInput({
   userRole: "monarch",
 });
 
+assertEqual("normalized.phase", normalized.phase, LEGACY_PROJECT_INTENT_FLOW_PHASE.CONTINUE);
 assertEqual("normalized.text", normalized.text, "проверь репозиторий");
 assertEqual("normalized.transport", normalized.transport, "telegram");
 assertEqual("normalized.chatId", normalized.chatId, "123");
+assertEqual("normalized.chatIdStr", normalized.chatIdStr, "123");
 assertEqual("normalized.isPrivateChat", normalized.isPrivateChat, true);
 assertEqual("normalized.isMonarchUser", normalized.isMonarchUser, true);
 
-const result = await handleLegacyProjectIntentFlow(normalized);
+const safeMissingPreparedResult = await handleLegacyProjectIntentFlow(normalized);
 
-assertEqual("result.ok", result.ok, true);
-assertEqual("result.handled", result.handled, false);
-assertEqual("result.dryRun", result.dryRun, true);
-assertEqual("result.status", result.status, LEGACY_PROJECT_INTENT_FLOW_STATUS.DISCONNECTED);
-assertEqual("result.metadata.noRuntimeConnection", result.metadata.noRuntimeConnection, true);
-assertEqual("result.metadata.noSlashCommandsAdded", result.metadata.noSlashCommandsAdded, true);
-assertEqual("result.metadata.noTechnicalModeExpansion", result.metadata.noTechnicalModeExpansion, true);
-assertEqual("result.metadata.noDiagnosticBridgeAdded", result.metadata.noDiagnosticBridgeAdded, true);
-assertEqual("result.metadata.noProjectIntentExecution", result.metadata.noProjectIntentExecution, true);
-assertEqual("result.metadata.noStateChange", result.metadata.noStateChange, true);
-assertEqual("result.projectIntentRepoContext", result.projectIntentRepoContext, null);
-assertEqual("result.projectContextDecision", result.projectContextDecision, null);
-assertEqual("result.projectMemoryAutoCaptureSummary", result.projectMemoryAutoCaptureSummary, null);
+assertEqual("safeMissingPreparedResult.ok", safeMissingPreparedResult.ok, false);
+assertEqual("safeMissingPreparedResult.handled", safeMissingPreparedResult.handled, false);
+assertEqual("safeMissingPreparedResult.status", safeMissingPreparedResult.status, LEGACY_PROJECT_INTENT_FLOW_STATUS.BLOCKED);
+assertEqual(
+  "safeMissingPreparedResult.reason",
+  safeMissingPreparedResult.reason,
+  "missing_prepared_legacy_project_intent_flow"
+);
 
-console.log("OK: legacyProjectIntentFlow disconnected skeleton contract is valid.");
+console.log("OK: legacyProjectIntentFlow boundary imports and safe contract are valid.");

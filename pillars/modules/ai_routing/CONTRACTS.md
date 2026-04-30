@@ -3,7 +3,7 @@
 Purpose:
 - Define the public contract expectations of the AI Routing / Model Control module.
 - Fix the centralized AI-call and model-selection boundary.
-- Reduce guessing during future AI/provider expansion.
+- Keep AI usage aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: AI Routing / Model Control logical interfaces
@@ -12,7 +12,23 @@ Scope: AI Routing / Model Control logical interfaces
 
 ## 0) Contract philosophy
 
-AI Routing contracts define how AI usage is entered, selected, and controlled centrally.
+AI Routing contracts define how AI usage is entered, selected, costed, observed and controlled centrally.
+
+AI Routing is not SG itself.
+It is not SG brain.
+It is not a heavy Global SemanticRouter.
+It is a model/cost/control wrapper and AI-call governance boundary.
+
+Canonical rule:
+
+```text
+reasoning model understands meaning
+minimal controller/gate protects actions, scope, permissions, sources, risks, costs and confirmations
+AI Routing controls model/provider/cost/telemetry
+```
+
+AI operators are instruments of SG.
+They do not own SG identity, memory, architecture, decisions or governance.
 
 This file does not require exact current implementation names.
 It defines the contract shape that future AI-routing work must preserve.
@@ -23,7 +39,7 @@ If implementation diverges, that divergence must be made explicit.
 
 ## 1) Canonical boundary
 
-AI-related execution must go through an explicit routing boundary.
+AI-related execution must go through an explicit routing/control boundary.
 
 Canonical logical capabilities may include:
 
@@ -32,6 +48,7 @@ Canonical logical capabilities may include:
 - execute call through centralized entry
 - record routing reason/cost metadata
 - apply bounded fallback policy where explicitly allowed
+- expose cost/risk/trace metadata where governance requires it
 
 The exact file/function names may evolve.
 The boundary itself must remain explicit.
@@ -59,6 +76,7 @@ Postconditions:
 Must NOT do:
 - hide automatic AI invocation under unrelated code paths
 - pretend AI is mandatory for everything
+- replace source fetching/extraction/permission checks
 
 ---
 
@@ -82,6 +100,7 @@ Postconditions:
 Must NOT do:
 - allow arbitrary local model choice by convenience
 - hide unavailable model/provider state
+- treat model choice as SG identity or final decision authority
 
 ---
 
@@ -98,6 +117,7 @@ Preconditions:
 - routing choice exists
 - payload is bounded enough
 - AI call is permitted by current architecture/policy
+- source/private/action/cost gates have been handled by owning layers where relevant
 
 Postconditions:
 - AI result or controlled failure is returned
@@ -107,6 +127,7 @@ Must NOT do:
 - bypass centralized routing policy
 - silently change provider/model path without explicit policy
 - mutate architecture rules because one model is convenient
+- present AI output as source evidence
 
 ---
 
@@ -151,6 +172,7 @@ Postconditions:
 Must NOT do:
 - invent unapproved fallback models/providers
 - hide significant degradation in capability/quality
+- bypass source/permission/cost requirements through fallback
 
 ---
 
@@ -162,11 +184,14 @@ Any caller using AI Routing must:
 - provide explicit task/request context
 - keep payloads bounded
 - treat routing decisions as policy-bound rather than arbitrary
+- preserve source-first distinction between data and AI analysis
 
 Caller must NOT:
 - call models directly from local feature code
 - hardcode provider choice ad hoc
 - confuse extraction/routing/permissions with AI selection
+- treat AI Routing as a semantic brain replacing the reasoning model
+- treat AI operator output as SG's final decision
 
 ---
 
@@ -196,6 +221,7 @@ AI Routing operations should fail in a controlled way when:
 - payload is malformed/unbounded
 - provider/model call fails
 - fallback is unavailable or forbidden
+- cost/risk constraints block the call
 
 Preferred behavior:
 - explicit failure/degradation
@@ -206,6 +232,7 @@ Forbidden behavior:
 - arbitrary local model choice on failure
 - silent provider switching without policy
 - hidden direct AI invocation outside routing boundary
+- using AI failure fallback to fabricate source-backed facts
 
 ---
 
@@ -218,6 +245,8 @@ The following patterns are explicitly forbidden:
 - using AI routing to smuggle in feature logic ownership
 - hiding major fallback degradation
 - treating AI convenience as architecture authority
+- turning AI Routing into a heavy SG brain / Global SemanticRouter
+- treating GPT/Codex/DeepSeek/Gemini as SG itself
 
 ---
 
@@ -231,12 +260,14 @@ Future additions may include contracts for:
 - provider capability registry
 - routing diagnostics
 - AI budget governance hooks
+- model/provider performance comparison
 
 These additions must preserve the same principles:
 - centralized
 - explicit
 - reviewable
 - provider-agnostic enough to evolve safely
+- model/cost/control wrapper, not SG brain
 
 ---
 
@@ -246,3 +277,5 @@ AI Routing contracts exist so SG can use AI under control.
 
 If AI-call boundaries become vague,
 the system loses cost, safety, and architectural discipline.
+
+AI Routing controls AI usage; it does not become SG.

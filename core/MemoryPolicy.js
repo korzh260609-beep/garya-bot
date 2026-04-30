@@ -14,8 +14,25 @@ const ALLOWED_PILLARS_FILES = new Set([
   "pillars/PROJECT.md",
   "pillars/ROADMAP.md",
   "pillars/SG_BEHAVIOR.md",
+  "pillars/SG_ENTITY.md",
   "pillars/WORKFLOW.md",
 ]);
+
+const ALLOWED_PILLARS_DIR_PREFIXES = Object.freeze([
+  "pillars/workflow/",
+  "pillars/roadmap/",
+]);
+
+function isAllowedPillarPath(path) {
+  if (ALLOWED_PILLARS_FILES.has(path)) return true;
+
+  return ALLOWED_PILLARS_DIR_PREFIXES.some((prefix) => {
+    if (!path.startsWith(prefix)) return false;
+    if (!path.endsWith(".md")) return false;
+    if (path.includes("/old/") || path.includes("/archive/") || path.includes("/archived/")) return false;
+    return true;
+  });
+}
 
 export const MemoryPolicy = {
   /**
@@ -39,7 +56,7 @@ export const MemoryPolicy = {
 
     // 1) Pillars — всегда кандидаты (НО НЕ АВТОЗАПИСЬ)
     if (path.startsWith(ALLOWED_PILLARS_PREFIX)) {
-      return ALLOWED_PILLARS_FILES.has(path);
+      return isAllowedPillarPath(path);
     }
 
     // 2) Любой код — НИКОГДА

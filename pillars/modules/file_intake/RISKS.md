@@ -2,7 +2,7 @@
 
 Purpose:
 - Document the main risk surface of the File-Intake module.
-- Prevent modality confusion, fake extraction confidence, and scattered parser logic.
+- Prevent modality confusion, fake extraction confidence, scattered parser logic and AI-filled extraction gaps.
 - Keep file/media processing explicit and trustworthy.
 
 Status: CANONICAL
@@ -23,6 +23,8 @@ File/media processing fails in subtle ways:
 These failures are dangerous because the system may still sound confident.
 
 This file exists to make those risks explicit.
+
+File-Intake is an extraction boundary, not SG itself and not a substitute for source discipline.
 
 ---
 
@@ -111,21 +113,63 @@ Signal:
 
 ---
 
+### R-07: AI is used as a hidden extractor
+Description:
+- reasoning AI is asked to infer file contents instead of using explicit extraction/parsing, without marking uncertainty
+
+Consequence:
+- hallucinated file content
+- wrong factual conclusions
+- source-first discipline breaks
+
+Signal:
+- answer claims file facts that were not present in extracted payload or extraction metadata
+
+---
+
+### R-08: Extraction confidence/limitations are lost
+Description:
+- extraction result reaches downstream layers without confidence, loss, truncation, unsupported-format or parser-failure metadata
+
+Consequence:
+- downstream analysis over-trusts weak input
+- users are not warned about limitations
+- debugging becomes harder
+
+Signal:
+- extracted text exists, but no one knows if it is complete/reliable
+
+---
+
+### R-09: File scope leaks across users/projects
+Description:
+- file references or extracted content from one scope are reused in another
+
+Consequence:
+- privacy breach
+- wrong context
+- multiuser trust damage
+
+Signal:
+- user receives content or analysis from another user's file/project without explicit authorization
+
+---
+
 ## 2) Secondary risks
 
-### R-07: Over-processing simple files
+### R-10: Over-processing simple files
 Consequence:
 - unnecessary complexity/cost
 
-### R-08: Under-processing rich files
+### R-11: Under-processing rich files
 Consequence:
 - useful structure is lost
 
-### R-09: Unsupported format handling is vague
+### R-12: Unsupported format handling is vague
 Consequence:
 - bad operator/user visibility
 
-### R-10: Extracted payloads are unbounded
+### R-13: Extracted payloads are unbounded
 Consequence:
 - noisy downstream behavior
 
@@ -141,6 +185,9 @@ The following assumptions are dangerous:
 - “one small parser shortcut is harmless”
 - “users do not need to know extraction quality was weak”
 - “raw file and extracted content are basically the same”
+- “AI can read what extraction did not extract”
+- “extraction confidence metadata is optional”
+- “file content is safe to reuse across project scope”
 
 These assumptions must be treated as risk factors.
 
@@ -156,6 +203,9 @@ After any meaningful File-Intake change, verify:
 4. parsing logic did not spread across unrelated modules
 5. unsupported/unknown formats remain explicit
 6. docs still match actual file-intake behavior
+7. AI is not silently replacing extraction
+8. extraction confidence/limitations remain visible downstream where needed
+9. file/user/project scope remains protected
 
 ---
 
@@ -168,6 +218,8 @@ Preferred defenses:
 - visible extraction limits/failures
 - clear raw-vs-extracted distinction
 - bounded extracted payloads
+- extraction confidence/limitation metadata
+- file/user/project scope checks
 - stale-doc detection
 
 Avoid fake safety:
@@ -175,6 +227,7 @@ Avoid fake safety:
 - hidden parser fallback guessing
 - modality shortcuts scattered in handlers
 - pretending unsupported formats are “close enough”
+- AI inventing missing file content
 
 ---
 
@@ -186,3 +239,6 @@ The most dangerous bug is:
 “file parsing was weak or wrong, but the system still speaks as if extraction was solid.”
 
 That quietly destroys reliability.
+
+A second critical bug is:
+“AI fills gaps in the file as if it actually extracted them.”

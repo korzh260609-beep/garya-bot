@@ -11,8 +11,13 @@ Scope: all files under `pillars/`
 This document must be interpreted together with:
 - `pillars/README.md`
 - `pillars/SG_ENTITY.md`
-- `pillars/decisions/README.md`
+- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
+
+Important:
+- `pillars/DECISIONS.md` is the single root decisions file.
+- `pillars/decisions/` is not an active root decisions folder.
+- Deleted decision-extension files must not be referenced as active truth.
 
 ---
 
@@ -78,7 +83,7 @@ Priority of truth:
 
 1. Runtime / repository actual state
 2. Pillars as canonical documented truth
-3. Active accepted decision files
+3. `pillars/DECISIONS.md` as the single root decisions file
 4. Project memory / bounded working context
 5. Chat discussion / temporary explanations
 
@@ -135,6 +140,7 @@ Use for:
 - final accepted global decisions
 - non-negotiable architectural/system rules
 - high-level policy fixation
+- the single root decisions file for global SG decisions
 
 Do NOT use for:
 - module-local implementation trivia
@@ -142,16 +148,11 @@ Do NOT use for:
 - TODOs
 - drafts
 
-#### `pillars/decisions/`
-Use for:
-- accepted decision extensions
-- small active decision files that are safer to review separately than editing the large `DECISIONS.md`
-
 Rules:
-- files here must not be drafts
-- accepted files must include `Status: ACCEPTED`
-- this folder must have an index at `pillars/decisions/README.md`
-- conflicts with `pillars/DECISIONS.md` must be resolved explicitly
+- new global decisions are discussed first
+- new global decisions are added only after explicit monarch approval
+- global decisions must be added to `pillars/DECISIONS.md`
+- old/deleted `pillars/decisions/` files must not be referenced as active truth
 
 #### Active workflow files under `pillars/`
 Use for:
@@ -270,8 +271,9 @@ Use only when:
 - these decisions are too detailed/noisy for global `pillars/DECISIONS.md`
 
 Rule:
-- global architectural decisions stay in root `pillars/DECISIONS.md` or accepted files under `pillars/decisions/`
+- global architectural decisions stay in root `pillars/DECISIONS.md`
 - module-local accepted decisions may live in module-local `DECISIONS.md`
+- module-local decisions must not override root `pillars/DECISIONS.md`
 
 ---
 
@@ -313,7 +315,7 @@ Recommended order:
 - module docs first for local changes
 - architecture docs for global technical boundary changes
 - root pillars if the change affects system-level rules
-- decision files when an architectural/system decision is accepted
+- `pillars/DECISIONS.md` when a global architectural/system decision is accepted
 
 ---
 
@@ -338,6 +340,7 @@ AI must not treat:
 - Human Mode / Technical Mode / RepoStateAgent as separate SG entities
 - SemanticRouter as authorized current implementation before explicit gate
 - capability access as authority to redefine SG
+- deleted `pillars/decisions/` files as active decisions truth
 
 ---
 
@@ -361,6 +364,7 @@ Avoid:
 - large mixed-purpose files
 - speculative notes in canonical files
 - stale references to archived docs as active truth
+- stale references to deleted decision-extension files
 
 ---
 

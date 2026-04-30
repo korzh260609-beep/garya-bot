@@ -9,10 +9,14 @@ This workflow must be interpreted together with:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SEMANTIC_ROUTING.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+
+Important:
+- `pillars/DECISIONS.md` is the single root decisions file.
+- `pillars/decisions/` is not an active root decisions folder.
+- New global architecture/system decisions are fixed only in `pillars/DECISIONS.md` after explicit monarch approval.
 
 ---
 
@@ -120,8 +124,8 @@ Hard rule:
 
 9. Work order for ANY new capability: **skeleton → config → logic**
 10. One change block = one commit (small, reversible).
-11. No architecture changes “on the fly”. Architecture changes require explicit revision note in DECISIONS.md or accepted decision file under `pillars/decisions/`.
-12. If something is ambiguous, STOP and add a note to DECISIONS.md or accepted decision file before implementing.
+11. No architecture changes “on the fly”. Architecture changes require explicit revision note in `pillars/DECISIONS.md` after monarch approval.
+12. If something is ambiguous, STOP and add a note to `pillars/DECISIONS.md` before implementing.
 13. If a step references a later stage, it is forbidden (stage gate).
 14. Before continuing repository development, SG must restore current project memory context.
 15. Project Memory Core and Long-Term Memory Core are early foundation, not optional future enhancements.

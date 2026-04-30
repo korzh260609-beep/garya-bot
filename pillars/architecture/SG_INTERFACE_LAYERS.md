@@ -7,38 +7,41 @@ SG has two strictly separated interface modes:
 1. Human Mode — the main user-facing SG mode.
 2. Technical Mode — explicit slash commands, exact phrase/word routes, debug commands and system diagnostics.
 
-These modes must not be mixed.
+These modes must not be mixed as identities.
 
 This file is an architecture-level implementation of the following pillars:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
 ## 0) Entity alignment
 
-SG is the global project entity.
+SG is the global project entity and global intellectual system.
 
 Human Mode and Technical Mode are interface modes of SG, not separate SG entities.
 
-Human Mode, Technical Mode, RepoStateAgent, diagnostics, commands, transports, memory, modules, sources, task engine, external agents, and future interfaces are components or instruments of SG.
+Human Mode, Technical Mode, RepoStateAgent, diagnostics, commands, transports, memory, modules, sources, task engine, external agents, future interfaces, and controller/gate layers are components or instruments of SG.
 
 They must not be treated as independent replacements for SG itself.
 
 The purpose of interface separation is to protect SG’s entity integrity:
 
 ```text
-SG = global project entity
+SG = global project entity / global intellectual system
 Human Mode = natural meaning-first interface of SG
 Technical Mode = explicit diagnostics / commands / legacy interface of SG
 RepoStateAgent = factual repo observation subsystem of SG
+minimal controller/gate = action protection layer, not SG brain
 ```
 
-Any implementation that makes a mode, command route, bot, model, or agent behave as a separate “SG” is architecturally wrong.
+Any implementation that makes a mode, command route, bot, model, controller, or agent behave as a separate “SG” is architecturally wrong.
 
 ---
 
@@ -53,10 +56,11 @@ Required flow:
 
 ```text
 user says naturally what they want
--> SG understands meaning
--> SG checks context and permissions
--> SG selects internal capability
--> SG executes or answers
+-> reasoning model / meaning provider understands meaning
+-> SG determines intent and context
+-> minimal controller checks scope, permissions, capability, source/tool needs and risk
+-> SG asks confirmation if the action is state-changing, expensive, or sensitive
+-> SG answers or performs only the permitted action
 -> SG replies in human language
 ```
 
@@ -64,10 +68,10 @@ Human Mode must not require slash commands, coded phrases, exact keywords or int
 
 Human Mode is not a separate agent. It is SG’s normal meaning-first user interface.
 
-This follows the Meaning-First rule from `SG_ENTITY.md` and `SG_BEHAVIOR.md`:
+This follows the Meaning-First rule from `SG_ENTITY.md`, `SG_BEHAVIOR.md`, and `DECISIONS.md`:
 
 ```text
-meaning -> intent -> decision -> action -> response
+meaning -> intent -> context -> capability -> permission -> source/tool -> action/answer
 ```
 
 Forbidden simplification:
@@ -131,16 +135,16 @@ Required:
 ```text
 normal human request
 -> Human Mode
--> meaning/context/permissions
--> correct internal capability
+-> meaning/context/capability/permissions/source/risk
+-> correct internal capability or answer
 -> human answer
 ```
 
 ---
 
-## 4) No soft mixing for now
+## 4) No false Human Mode mixing
 
-Do not convert old word/phrase routes into weak semantic signals at this stage.
+Old word/phrase/regex routes must not be presented as Human Mode intelligence.
 
 Current rule:
 
@@ -152,13 +156,19 @@ Human Mode must be built separately and clearly.
 
 This prevents confusion between legacy command behavior and real SG communication.
 
+Future minimal controller layers may use weak lexical signals only as auxiliary hints, but:
+- they must remain subordinate to reasoning/model meaning understanding;
+- they must not become the source of SG intelligence;
+- they must not bypass permissions, capability checks, source checks, risk checks, or confirmations;
+- they must not turn legacy routes into fake Human Mode.
+
 ---
 
 ## 5) Repository/project work
 
 For repo/project work:
 
-Human Mode must use RepoStateAgent as the factual source of current repository state.
+Human Mode must use RepoStateAgent as the factual source of current repository state when RepoStateAgent is available and verified.
 
 Technical Mode may still expose old repo commands for compatibility and diagnostics, but old RepoIndex and old handlers must not be presented as current factual truth.
 
@@ -200,11 +210,12 @@ This follows `DECISIONS.md` and the behavior rule that SG must not change archit
 ## 7) Final formula
 
 ```text
-SG = global project entity.
+SG = global project entity / global intellectual system.
 Human Mode = normal SG conversation by meaning.
 Technical Mode = explicit commands/tests/debug/legacy routes.
 RepoStateAgent = factual repo observation subsystem of SG.
-No mixing.
+Minimal controller/gate = action protection layer, not SG brain.
+No identity mixing.
 No deletion now.
 No component replaces SG itself.
 ```

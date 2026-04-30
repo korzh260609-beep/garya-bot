@@ -2,8 +2,8 @@
 
 Purpose:
 - Document the main risk surface of the Memory module.
-- Help future work avoid silent corruption and architectural drift.
-- Make likely failure modes explicit.
+- Help future work avoid silent corruption, privacy leakage and architectural drift.
+- Make likely failure modes explicit and aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Memory module risk model
@@ -21,6 +21,10 @@ The system may appear “smarter” while actually becoming:
 - harder to debug
 
 This file exists to keep that visible.
+
+Memory is not canonical truth.
+Memory is not SG identity.
+Memory is not a replacement for sources, pillars, repo/runtime verification or user/monarch decisions.
 
 ---
 
@@ -116,21 +120,63 @@ Signal:
 
 ---
 
+### R-07: Memory competes with sources/pillars
+Description:
+- remembered context is treated as more authoritative than verified sources, `DECISIONS.md`, pillars, repo or runtime state
+
+Consequence:
+- wrong decisions
+- stale assumptions survive
+- source-first principle breaks
+
+Signal:
+- answer says “memory says X” even when current verified source says Y or no source was checked
+
+---
+
+### R-08: Cross-user or cross-project memory leak
+Description:
+- memory from one user/project/group appears in another user's context
+
+Consequence:
+- privacy breach
+- wrong personalization
+- loss of multiuser trust
+
+Signal:
+- user receives context, source, project state or preferences that belong to another identity/scope
+
+---
+
+### R-09: Memory is mistaken for SG's full experience
+Description:
+- stored memory records are treated as the whole identity/experience of SG instead of scoped support context
+
+Consequence:
+- identity confusion
+- module overreach
+- bad restoration behavior
+
+Signal:
+- module docs or code imply Memory itself is SG's mind or final decision source
+
+---
+
 ## 2) Secondary risks
 
-### R-07: Dedupe is too weak
+### R-10: Dedupe is too weak
 Consequence:
 - repeated memory clutter
 
-### R-08: Dedupe is too aggressive
+### R-11: Dedupe is too aggressive
 Consequence:
 - useful memory lost or blocked
 
-### R-09: Scope leaks
+### R-12: Scope leaks
 Consequence:
 - unrelated memory appears in wrong context
 
-### R-10: Hidden fallback behavior
+### R-13: Hidden fallback behavior
 Consequence:
 - failures are masked
 - corruption spreads quietly
@@ -147,6 +193,9 @@ The following assumptions are dangerous:
 - “temporary helper storage can later be cleaned up”
 - “small bypasses are harmless”
 - “AI will figure out what is important”
+- “memory can replace checking the source”
+- “project/user scope is obvious”
+- “remembered decisions are canonical even if pillars differ”
 
 These assumptions must be treated as risk factors.
 
@@ -162,6 +211,9 @@ After any meaningful Memory change, verify:
 4. unrelated scopes are not mixed
 5. duplicate pressure did not increase unexpectedly
 6. docs/contracts still match real behavior
+7. memory does not outrank sources, pillars, repo/runtime or `DECISIONS.md`
+8. cross-user/cross-project isolation remains intact
+9. Memory is not documented or implemented as SG itself
 
 ---
 
@@ -173,6 +225,8 @@ Preferred defenses:
 - explicit contracts
 - bounded context
 - policy checks
+- user/project scope checks
+- source hierarchy checks
 - observability/logging
 - docs kept current
 
@@ -180,6 +234,8 @@ Avoid fake safety:
 - silent fallback behavior
 - undocumented heuristics
 - ad hoc caller exceptions
+- treating memory as verified fact
+- restoring stale memory without source hierarchy review
 
 ---
 
@@ -190,4 +246,7 @@ The most dangerous memory bug is not always a crash.
 The most dangerous memory bug is:
 “the system still works, but now reasons from wrong or noisy context.”
 
-That must be treated as a serious architectural risk.
+A second critical bug is:
+“memory starts competing with sources and pillars as the truth source.”
+
+Both must be treated as serious architectural risks.

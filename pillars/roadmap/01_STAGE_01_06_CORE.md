@@ -11,6 +11,7 @@
 
 Purpose:
 - establish minimal always-on bot runtime.
+- keep current bot as an access/runtime surface of SG, not SG itself.
 
 ---
 
@@ -48,6 +49,7 @@ Purpose:
 
 Purpose:
 - create the first persistent runtime foundation.
+- ensure tasks and DB writes are observable and controllable before automation expands.
 
 ---
 
@@ -58,6 +60,7 @@ Purpose:
 3.3 can(user, action) minimum gate  
 3.4 block guest auto-tasks and admin commands  
 3.5 command rate-limit  
+3.5A Controlled-action distinction: permissions protect actions/data/scopes, not SG thinking, analysis, explanation, or non-applied planning  
 
 ## 3.6 CONFIG / SECRETS HYGIENE SKELETON
 
@@ -67,6 +70,7 @@ Purpose:
 
 Purpose:
 - prevent uncontrolled access before complex features exist.
+- keep protected actions, private data, admin commands and state changes behind access gates.
 
 ---
 
@@ -81,6 +85,7 @@ Purpose:
 
 Purpose:
 - make memory and permissions user-based, not Telegram-only.
+- prepare personal SG boundaries through global_user_id without mixing users.
 
 ---
 
@@ -121,9 +126,13 @@ Purpose:
 5.16.F1 clarification_asked  
 5.16.F2 answer_mode_changed  
 5.16.F3 style_axis_used  
+5.16.F4 protected_action_blocked  
+5.16.F5 confirmation_required  
+5.16.F6 controller_gate_used  
 
 Purpose:
 - make runtime behavior inspectable before adding bigger modules.
+- make protected-action blocks, confirmations and controller/gate usage observable.
 
 ---
 
@@ -136,6 +145,8 @@ Purpose:
 6.5 Discord Adapter  
 6.6 Web / API Adapter  
 6.7 Email Adapter  
+6.8 Transport is an access channel to SG, not SG identity and not a business-logic owner  
 
 Purpose:
 - keep Telegram thin and move logic into core.
+- keep transports as channels, not separate SG entities.

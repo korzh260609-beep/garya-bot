@@ -3,7 +3,7 @@
 Purpose:
 - Define the public contract expectations of the Logging / Diagnostics module.
 - Fix the event-recording and diagnostics boundary.
-- Reduce guessing during future observability work.
+- Keep observability aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Logging / Diagnostics logical interfaces
@@ -13,6 +13,19 @@ Scope: Logging / Diagnostics logical interfaces
 ## 0) Contract philosophy
 
 Logging contracts define how meaningful system visibility is recorded and surfaced.
+
+Logging / Diagnostics is not SG itself.
+It is not SG brain and not an action controller.
+It is an observability boundary for events, failures, diagnostics and audit visibility.
+
+Canonical rule:
+
+```text
+logging observes and explains system behavior
+logging must not secretly control system behavior
+```
+
+Logging must make actions, failures, access decisions, source failures, AI calls and risky execution paths reviewable where policy requires it.
 
 This file does not require exact current implementation names.
 It defines the contract shape that future logging/diagnostics work must preserve.
@@ -32,6 +45,7 @@ Canonical logical capabilities may include:
 - query recent failures/status
 - expose bounded diagnostics
 - render operator-facing diagnostic summaries
+- support audit visibility for protected actions
 
 The exact file/function names may evolve.
 The observability boundary itself must remain explicit.
@@ -60,6 +74,7 @@ Postconditions:
 Must NOT do:
 - hide critical context by over-collapsing everything into one vague event
 - become a hidden trigger for unrelated business logic
+- mutate system state outside explicit logging responsibilities
 
 ---
 
@@ -149,6 +164,7 @@ Postconditions:
 Must NOT do:
 - guess wildly without available visibility
 - quietly control runtime behavior instead of only describing it
+- present incomplete visibility as complete certainty
 
 ---
 
@@ -160,11 +176,13 @@ Any caller using Logging / Diagnostics must:
 - keep payloads bounded
 - avoid using logs as hidden business-state replacement
 - preserve operator reviewability
+- respect privacy/scope rules for sensitive diagnostics
 
 Caller must NOT:
 - rely on logging side effects for core feature correctness
 - bury important failures behind vague messages
 - assume observability is optional for risky actions
+- treat diagnostics as decision authority instead of evidence
 
 ---
 
@@ -181,6 +199,8 @@ Logging / Diagnostics operations may have side effects such as:
 These side effects must remain explicit and predictable.
 
 Hidden side effects are dangerous.
+
+Logging must not become a hidden control plane.
 
 ---
 
@@ -215,6 +235,7 @@ The following patterns are explicitly forbidden:
 - unbounded diagnostic dumps by default
 - vague event taxonomy that destroys reviewability
 - silent observability gaps on high-risk actions
+- treating Logging / Diagnostics as SG itself, SG brain or final decision authority
 
 ---
 
@@ -228,12 +249,14 @@ Future additions may include contracts for:
 - alerts
 - audit event integration
 - trend summaries
+- AI/source/cost diagnostic summaries
 
 These additions must preserve the same principles:
 - explicit
 - bounded
 - reviewable
 - non-controlling
+- scope-aware
 
 ---
 
@@ -243,3 +266,5 @@ Logging contracts exist so SG failures and actions can be seen clearly.
 
 If observability loses clear boundaries,
 operators stop seeing the real system.
+
+Logging reveals system state; it does not become SG.

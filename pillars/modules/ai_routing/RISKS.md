@@ -2,7 +2,7 @@
 
 Purpose:
 - Document the main risk surface of the AI Routing / Model Control module.
-- Prevent scattered model calls, hidden fallback behavior, governance drift, and false documentation confidence.
+- Prevent scattered model calls, hidden fallback behavior, governance drift, false documentation confidence and brain-substitution drift.
 - Keep AI usage explicit and controllable.
 
 Status: CANONICAL
@@ -22,6 +22,9 @@ Typical drift pattern:
 - then nobody knows the real AI policy anymore
 
 This file exists to stop that drift.
+
+AI Routing is a model/cost/control wrapper.
+It is not SG itself, not SG brain, not a heavy Global SemanticRouter and not a replacement for the reasoning model.
 
 Important current note:
 - AI Routing docs describe the canonical target architecture
@@ -139,21 +142,64 @@ Signal:
 
 ---
 
+### R-08: AI Routing is mistaken for SG brain
+Description:
+- model routing/control code is treated as the place where SG identity, meaning, decisions or philosophy live
+
+Consequence:
+- SG identity is reduced to a technical wrapper
+- architecture contradicts `DECISIONS.md`
+- reasoning model and minimal gate model get replaced by a brittle pseudo-brain
+
+Signal:
+- docs/code imply AI Routing decides what SG is or replaces SG thinking
+
+---
+
+### R-09: Heavy SemanticRouter creep
+Description:
+- routing grows into a large artificial brain that duplicates reasoning-model understanding
+
+Consequence:
+- unnecessary complexity
+- brittle keyword/regex/branch logic
+- slower iteration
+- more places for semantic bugs
+
+Signal:
+- routing layer starts encoding broad meaning understanding instead of controlling model/cost/provider/gates
+
+---
+
+### R-10: AI output is mistaken for source-backed truth
+Description:
+- model response is treated as factual source evidence instead of analysis/synthesis
+
+Consequence:
+- source-first principle breaks
+- hallucinations become system facts
+- reports lose trustworthiness
+
+Signal:
+- model answer is stored or presented as verified data without source lineage
+
+---
+
 ## 2) Secondary risks
 
-### R-08: Over-centralization with poor flexibility
+### R-11: Over-centralization with poor flexibility
 Consequence:
 - valid routing evolution becomes too hard
 
-### R-09: Under-centralization
+### R-12: Under-centralization
 Consequence:
 - scattered policy and call paths
 
-### R-10: Cost reasoning is weak
+### R-13: Cost reasoning is weak
 Consequence:
 - expensive paths spread unnoticed
 
-### R-11: Provider abstraction is thin or fake
+### R-14: Provider abstraction is thin or fake
 Consequence:
 - future switching becomes painful
 
@@ -170,6 +216,9 @@ The following assumptions are dangerous:
 - “model choice is an implementation detail only”
 - “cost/safety/governance can be reviewed later”
 - “shared AI wrapper = full router”
+- “AI Routing is where SG thinks”
+- “we need a huge router because GPT cannot understand intent”
+- “model output is good enough as a factual source”
 
 These assumptions must be treated as risk factors.
 
@@ -202,6 +251,9 @@ After any meaningful AI Routing change, verify:
 5. provider abstraction still holds
 6. docs still match actual AI-routing behavior
 7. scattered direct calls did not spread further
+8. AI Routing is not described or implemented as SG brain
+9. routing does not become a heavy SemanticRouter duplicating model reasoning
+10. AI output is not presented as source-backed fact without source lineage
 
 ---
 
@@ -214,8 +266,10 @@ Preferred defenses:
 - bounded fallback policy
 - provider abstraction
 - routing observability
+- cost/risk metadata
 - stale-doc detection
 - honest acknowledgement of partial runtime maturity
+- minimal controller/gate instead of heavy pseudo-brain
 
 Avoid fake safety:
 - undocumented direct calls
@@ -223,6 +277,7 @@ Avoid fake safety:
 - hidden fallback degradation
 - routing logic secretly owning feature policy
 - pretending current wrapper-level reality is already a fully mature router
+- treating AI Routing as SG identity/thinking
 
 ---
 
@@ -234,3 +289,6 @@ The most dangerous bug is:
 “AI behavior keeps changing through scattered local calls and hidden fallbacks, while docs imply stronger centralized control than runtime actually has.”
 
 That destroys architectural control and creates false confidence.
+
+A second critical bug is:
+“AI Routing is mistaken for SG brain instead of remaining a model/cost/control wrapper.”

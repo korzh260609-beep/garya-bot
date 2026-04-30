@@ -5,7 +5,8 @@
 // Purpose:
 // - isolate existing projectIntent/repo/diagnostic legacy logic that was mixed
 //   directly into handleChatFlow;
-// - preserve existing behavior during the first migration step;
+// - preserve existing projectIntent/repo behavior during migration;
+// - keep diagnostic natural bridge disabled by default;
 // - do not add slash-commands;
 // - do not create or expand Technical Mode;
 // - do not create new diagnostic bridges.
@@ -92,6 +93,12 @@ export const LEGACY_PROJECT_INTENT_FLOW_PHASE = Object.freeze({
   CONTINUE: "continue",
 });
 
+export function isDiagnosticNaturalBridgeAllowed(input = {}) {
+  return input?.allowDiagnosticNaturalBridge === true ||
+    input?.context?.allowDiagnosticNaturalBridge === true ||
+    input?.deps?.allowDiagnosticNaturalBridge === true;
+}
+
 export function createLegacyProjectIntentFlowInput(input = {}) {
   return {
     phase: safeText(input.phase) || LEGACY_PROJECT_INTENT_FLOW_PHASE.PREPARE,
@@ -112,6 +119,7 @@ export function createLegacyProjectIntentFlowInput(input = {}) {
     replyAndLog: input.replyAndLog || null,
     memory: input.memory || null,
     prepared: input.prepared || null,
+    allowDiagnosticNaturalBridge: isDiagnosticNaturalBridgeAllowed(input),
   };
 }
 
@@ -129,6 +137,7 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
     isMonarchUser,
     isPrivateChat,
     replyAndLog,
+    allowDiagnosticNaturalBridge,
   } = normalized;
 
   const projectContextEngine = new ProjectContextEngine();
@@ -219,32 +228,34 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
     };
   }
 
-  const projectDiagnosticNaturalBridgeResult = await maybeHandleProjectDiagnosticNaturalBridge({
-    text: projectIntentRoutingText,
-    route: projectIntentRoute,
-    replyAndLog,
-    isMonarchUser: !!isMonarchUser,
-    isPrivateChat: !!isPrivateChat,
-    transport,
-    chatId: chatIdStr,
-    globalUserId,
-  });
+  if (allowDiagnosticNaturalBridge === true) {
+    const projectDiagnosticNaturalBridgeResult = await maybeHandleProjectDiagnosticNaturalBridge({
+      text: projectIntentRoutingText,
+      route: projectIntentRoute,
+      replyAndLog,
+      isMonarchUser: !!isMonarchUser,
+      isPrivateChat: !!isPrivateChat,
+      transport,
+      chatId: chatIdStr,
+      globalUserId,
+    });
 
-  if (projectDiagnosticNaturalBridgeResult?.handled) {
-    return {
-      ok: true,
-      handled: true,
-      source: "legacyProjectIntentFlow",
-      status: LEGACY_PROJECT_INTENT_FLOW_STATUS.HANDLED,
-      reason: projectDiagnosticNaturalBridgeResult.reason || "project_diagnostic_natural_bridge_handled",
-      response: {
+    if (projectDiagnosticNaturalBridgeResult?.handled) {
+      return {
         ok: true,
-        stage: "12A.1.project_diagnostic_natural_bridge",
-        result: projectDiagnosticNaturalBridgeResult.reason || "project_diagnostic_natural_bridge_handled",
-        projectContextDecision,
-        projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
-      },
-    };
+        handled: true,
+        source: "legacyProjectIntentFlow",
+        status: LEGACY_PROJECT_INTENT_FLOW_STATUS.HANDLED,
+        reason: projectDiagnosticNaturalBridgeResult.reason || "project_diagnostic_natural_bridge_handled",
+        response: {
+          ok: true,
+          stage: "12A.1.project_diagnostic_natural_bridge",
+          result: projectDiagnosticNaturalBridgeResult.reason || "project_diagnostic_natural_bridge_handled",
+          projectContextDecision,
+          projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
+        },
+      };
+    }
   }
 
   const prepared = {
@@ -254,6 +265,7 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
     projectContextDecision,
     projectMemoryAutoCaptureMeta,
     projectIntentRoute,
+    diagnosticNaturalBridgeAllowed: allowDiagnosticNaturalBridge === true,
   };
 
   return {
@@ -269,6 +281,7 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
     projectIntentRoute,
     projectContextDecision,
     projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
+    diagnosticNaturalBridgeAllowed: allowDiagnosticNaturalBridge === true,
   };
 }
 
@@ -414,6 +427,7 @@ export async function handleLegacyProjectIntentFlow(input = {}) {
 export default {
   LEGACY_PROJECT_INTENT_FLOW_STATUS,
   LEGACY_PROJECT_INTENT_FLOW_PHASE,
+  isDiagnosticNaturalBridgeAllowed,
   createLegacyProjectIntentFlowInput,
   handleLegacyProjectIntentFlow,
 };

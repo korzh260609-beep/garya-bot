@@ -265,7 +265,7 @@ export async function handleChatFlow({
     const projectContextDecision = legacyProjectIntentPrepare?.projectContextDecision || null;
     const projectMemoryAutoCaptureMeta = legacyProjectIntentPrepare?.projectMemoryAutoCaptureSummary || null;
 
-    buildLivingSGShadowPlan({
+    const livingSGPlan = buildLivingSGShadowPlan({
       context,
       transport,
       chatIdStr,
@@ -426,6 +426,7 @@ export async function handleChatFlow({
       saveMessageToMemory,
       saveChatPair,
       projectIntentRepoContext: repoFollowupContext,
+      livingSGPlan,
     });
 
     await deps.handleChatMessage(chatHandlerCtx);

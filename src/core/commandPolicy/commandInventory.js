@@ -18,6 +18,8 @@
 //   meaning -> intent -> capability -> permission -> risk -> confirmation.
 // ============================================================================
 
+import { MEMORY_COMMAND_INVENTORY } from "./commandInventoryMemory.js";
+
 export const COMMAND_MODES = Object.freeze({
   TECHNICAL: "technical_mode",
   USER_SHORTCUT: "user_shortcut",
@@ -326,6 +328,12 @@ export const COMMAND_INVENTORY = Object.freeze([
     riskLevel: COMMAND_RISK_LEVELS.LOW,
     dispatcher: "dispatchSourcesCommands",
   }),
+
+  // --------------------------------------------------------------------------
+  // Memory / Project Memory Technical Mode inventory entries.
+  // Split into a separate data-only file to keep this registry readable.
+  // --------------------------------------------------------------------------
+  ...MEMORY_COMMAND_INVENTORY,
 ]);
 
 export function getCommandInventoryEntry(command) {

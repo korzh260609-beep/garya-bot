@@ -98,7 +98,87 @@ User B -> SG Instance B -> memory B -> projects B -> repos B -> settings B
 
 User contexts must not cross.
 
-## 5. global_user_id is the root
+## 5. User isolation as a system rule
+
+In a free living SG system, there must still be user-interaction boundaries.
+
+The first hard user-system boundary is complete separation between users.
+
+For each user, SG must behave as their own personal SG entity.
+
+A user's SG instance must not know, reveal, depend on, or interact with another user's SG instance by default.
+
+Correct model:
+
+```text
+For User A: SG appears as User A's own SG.
+For User B: SG appears as User B's own SG.
+User A's SG does not expose User B's existence, memory, projects, settings, or interactions.
+User B's SG does not expose User A's existence, memory, projects, settings, or interactions.
+```
+
+This means:
+
+- no cross-user memory leakage;
+- no cross-user project context;
+- no cross-user repository context;
+- no cross-user settings leakage;
+- no cross-user prompt contamination;
+- no shared personal context between users;
+- no user-visible knowledge about other users' SG instances by default.
+
+The user experience must be:
+
+```text
+Each user interacts with their own SG.
+```
+
+Not:
+
+```text
+All users interact with one shared visible SG mind.
+```
+
+## 6. Monarch oversight boundary
+
+The monarch's SG and monarch project are the governance and development control layer for the whole SG system.
+
+The monarch must be able to control, inspect, manage, develop, configure, and improve the SG system and its architecture.
+
+However, this does not mean unrestricted access to private personal memory of other users.
+
+Correct boundary:
+
+```text
+Monarch may control the system.
+Monarch may control architecture, code, config, roles, capabilities, access, billing, modules, sources, and system health.
+Monarch may see operational/system diagnostics needed to run SG.
+Monarch must not freely read private personal memory of other users by default.
+```
+
+Allowed for monarch/system oversight:
+
+- system architecture control;
+- code and repo control;
+- deployment/config control;
+- role/capability/access control;
+- aggregate diagnostics;
+- error logs needed for safety and maintenance;
+- abuse/security investigation paths;
+- project-level administration where explicitly permitted by product policy.
+
+Protected from default monarch visibility:
+
+- private personal user memory;
+- private user conversations;
+- private user project memory;
+- private user documents/sources;
+- private user repositories unless connected/authorized under that user's scope;
+- private user settings that are not needed for system administration.
+
+If exceptional access is ever needed for safety, legal, abuse, debugging, or user-requested support, it must be explicit, auditable, limited, and policy-controlled.
+
+## 7. global_user_id is the root
 
 The project already has `global_user_id` and the identity-first model:
 
@@ -119,7 +199,7 @@ Not:
 
 These are transport/channel identities only.
 
-## 6. Transports are channels
+## 8. Transports are channels
 
 One user may interact with SG through:
 
@@ -142,7 +222,7 @@ github_user_id   /
 email/login      /
 ```
 
-## 7. chat_id is not identity
+## 9. chat_id is not identity
 
 ```text
 chat_id = conversation/place context
@@ -152,7 +232,7 @@ global_user_id = real SG user identity
 
 `chat_id` must not be the root for memory, projects, permissions, or long-term identity.
 
-## 8. Personal SG entity
+## 10. Personal SG entity
 
 For each user, SG must have an isolated personal context:
 
@@ -171,7 +251,7 @@ global_user_id
 
 SG for one user must not load, use, or leak another user's context.
 
-## 9. User projects
+## 11. User projects
 
 Each user may have their own:
 
@@ -187,7 +267,7 @@ Each user may have their own:
 
 SG must help each user in their own world, not only in Gary's project.
 
-## 10. Gary's project is not default for everyone
+## 12. Gary's project is not default for everyone
 
 `garya-bot` and `korzh260609-beep/garya-bot` are the monarch/internal SG development project.
 
@@ -204,7 +284,7 @@ For ordinary users, SG must not automatically load:
 
 If a user has no active project, SG works as a neutral universal assistant without another user's project context.
 
-## 11. Memory
+## 13. Memory
 
 SG memory must have levels:
 
@@ -230,7 +310,7 @@ Preferred future scope:
 global_user_id + sg_instance_id + workspace_id + project_id
 ```
 
-## 12. Project Memory is not a manual database
+## 14. Project Memory is not a manual database
 
 Project Memory must not be only a manual table filled by commands.
 
@@ -250,7 +330,7 @@ Rules:
 
 Manual `/pm_*` commands are diagnostics/admin tools, not the normal user workflow.
 
-## 13. Workflow is not a file or folder
+## 15. Workflow is not a file or folder
 
 Workflow is not inherently `pillars/workflow`.
 
@@ -280,7 +360,7 @@ Correct model:
 workflow = source resolved by provider
 ```
 
-## 14. Sources must be flexible
+## 16. Sources must be flexible
 
 SG must not hardcode where knowledge lives.
 
@@ -311,7 +391,7 @@ It must not automatically mean:
 read pillars/workflow
 ```
 
-## 15. Capabilities instead of rigid restrictions
+## 17. Capabilities instead of rigid restrictions
 
 SG must not be reduced to permanent allowlists/blacklists.
 
@@ -336,7 +416,7 @@ deploy = explicit permission only
 delete_data = explicit permission only
 ```
 
-## 16. User can strengthen or weaken SG
+## 18. User can strengthen or weaken SG
 
 Users may configure SG by enabling, weakening, strengthening, or disabling capabilities.
 
@@ -355,7 +435,7 @@ The permanent rule remains:
 final decisions and external/state-changing actions require user authority.
 ```
 
-## 17. Commands are not SG's essence
+## 19. Commands are not SG's essence
 
 Commands such as:
 
@@ -387,7 +467,7 @@ SG asks permission if state-changing action is needed
 SG acts only after permission
 ```
 
-## 18. SG must not be trapped by regex logic
+## 20. SG must not be trapped by regex logic
 
 SG meaning must not depend only on keyword/regex checks such as:
 
@@ -399,7 +479,7 @@ if "code" -> code
 
 SG must understand user meaning, not just keywords.
 
-## 19. Correct work model
+## 21. Correct work model
 
 ```text
 1. User writes naturally.
@@ -414,7 +494,7 @@ SG must understand user meaning, not just keywords.
 10. Important experience is written to memory only through controlled capture.
 ```
 
-## 20. Target hierarchy
+## 22. Target hierarchy
 
 ```text
 global_user_id
@@ -433,7 +513,7 @@ global_user_id
         -> Project Capabilities
 ```
 
-## 21. Development rule
+## 23. Development rule
 
 New modules must not hard-bind SG to:
 
@@ -455,7 +535,7 @@ If such binding appears, use:
 - source resolver/provider;
 - permissioned action boundary.
 
-## 22. Question before every module
+## 24. Question before every module
 
 Before creating or changing a module, ask:
 
@@ -466,7 +546,7 @@ Or does it cage SG into one current case?
 
 If it cages SG, redesign it.
 
-## 23. Known current pressure points
+## 25. Known current pressure points
 
 Current code areas to review later:
 
@@ -481,13 +561,18 @@ Current code areas to review later:
 
 These are not necessarily immediate runtime bugs, but they restrict future SG development.
 
-## 24. Final formula
+## 26. Final formula
 
 ```text
 SG is a free-thinking multiuser entity.
 
 For each user, SG appears as a separate personal entity linked through global_user_id,
 with its own memory, projects, sources, settings, and capabilities.
+
+Each user's SG instance is isolated from other users' SG instances.
+
+The monarch controls the SG system and monarch project,
+but private memory of other users is protected from default visibility.
 
 SG must not be caged by one repository, workflow, file, folder, command, or transport.
 

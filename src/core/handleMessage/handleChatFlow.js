@@ -1,5 +1,6 @@
 // src/core/handleMessage/handleChatFlow.js
 
+import { isTransportTraceEnabled } from "../../transport/transportConfig.js";
 import { getMemoryService } from "../memoryServiceFactory.js";
 import { insertWebhookDedupeEvent } from "../../db/chatMessagesRepo.js";
 import { touchChatMeta } from "../../db/chatMeta.js";
@@ -11,6 +12,7 @@ import { handleExplicitRemember } from "./handleExplicitRemember.js";
 import { buildChatHandlerContext } from "./contextBuilders.js";
 import { ConfirmationIntentClassifier, CONFIRMATION_INTENT } from "../../projectExperience/ConfirmationIntentClassifier.js";
 import { getPendingProjectAction, consumePendingProjectAction, clearPendingProjectAction } from "../../projectExperience/PendingProjectActionStore.js";
+import { createLivingSGBoundary } from "../living-sg/LivingSGBoundary.js";
 import {
   handleLegacyProjectIntentFlow,
   LEGACY_PROJECT_INTENT_FLOW_PHASE,
@@ -18,6 +20,67 @@ import {
 
 function safeText(value) {
   return String(value ?? "").trim();
+}
+
+function buildLivingSGShadowPlan({
+  context,
+  transport,
+  chatIdStr,
+  globalUserId,
+  senderId,
+  trimmed,
+  userRole,
+  isMonarchUser,
+  isPrivateChat,
+  repoFollowupContext,
+  projectContextDecision,
+  projectMemoryAutoCaptureMeta,
+} = {}) {
+  try {
+    const shadowPlan = createLivingSGBoundary({
+      text: trimmed,
+      trimmed,
+      transport,
+      chatIdStr,
+      globalUserId,
+      senderId,
+      userRole,
+      isMonarchUser,
+      isPrivateChat,
+      hasActiveProjectSession: repoFollowupContext?.isActive === true,
+      activeProjectContext: context?.activeProjectContext || null,
+      coreMeaning: context?.coreMeaning || null,
+      context: {
+        activeProjectContext: context?.activeProjectContext || null,
+        projectContextDecision: projectContextDecision || context?.projectContextDecision || null,
+        projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta || null,
+      },
+    });
+
+    if (isTransportTraceEnabled()) {
+      console.log("LIVING_SG_SHADOW_PLAN", {
+        source: shadowPlan?.source,
+        ok: shadowPlan?.ok,
+        dryRun: shadowPlan?.dryRun,
+        connectedToRuntime: shadowPlan?.connectedToRuntime,
+        intentKind: shadowPlan?.intentPlan?.intentKind,
+        capabilityActionType: shadowPlan?.capabilityPlan?.actionType,
+        gateStatus: shadowPlan?.gate?.status,
+        responseKind: shadowPlan?.responsePlan?.responseKind,
+        shouldCallAI: shadowPlan?.responsePlan?.shouldCallAI,
+        shouldExecuteTool: shadowPlan?.responsePlan?.shouldExecuteTool,
+        noStateChange: shadowPlan?.metadata?.noStateChange,
+        noProjectIntentExecution: shadowPlan?.metadata?.noProjectIntentExecution,
+      });
+    }
+
+    return shadowPlan;
+  } catch (e) {
+    try {
+      console.error("Living SG shadow plan failed (fail-open):", e);
+    } catch (_) {}
+    return null;
+  }
 }
 
 function buildPendingActionClarification(pendingAction = {}) {
@@ -200,6 +263,21 @@ export async function handleChatFlow({
     const projectIntentRoute = legacyProjectIntentPrepared?.projectIntentRoute || {};
     const projectContextDecision = legacyProjectIntentPrepare?.projectContextDecision || null;
     const projectMemoryAutoCaptureMeta = legacyProjectIntentPrepare?.projectMemoryAutoCaptureSummary || null;
+
+    buildLivingSGShadowPlan({
+      context,
+      transport,
+      chatIdStr,
+      globalUserId,
+      senderId,
+      trimmed,
+      userRole,
+      isMonarchUser,
+      isPrivateChat,
+      repoFollowupContext,
+      projectContextDecision,
+      projectMemoryAutoCaptureMeta,
+    });
 
     const explicitRememberResult = await handleExplicitRemember({
       trimmed,

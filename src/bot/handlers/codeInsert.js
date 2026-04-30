@@ -10,6 +10,7 @@ import { RepoSource } from "../../repo/RepoSource.js";
 import { logCodeOutputRefuse } from "../../codeOutput/codeOutputLogger.js";
 import { validateInsert } from "../../codeOutput/codeOutputContract.js";
 import { getCodeOutputMode, CODE_OUTPUT_MODES } from "../../codeOutput/codeOutputMode.js";
+import { PillarsResolver } from "../../projectExperience/PillarsResolver.js";
 
 const MAX_INSERT_CHARS = 2000; // ✅ B8 approved
 
@@ -91,6 +92,28 @@ async function safeFetchText(source, path) {
   } catch {
     return null;
   }
+}
+
+async function resolveWorkflowContextFallback(source) {
+  try {
+    const resolver = new PillarsResolver();
+    const section = await resolver.resolveSection("workflow");
+
+    if (section?.status === "active" && section?.content) {
+      return {
+        label: "WORKFLOW_SOURCE",
+        content: section.content,
+        sourceRef: section.sourceRef || "pillars/workflow/",
+      };
+    }
+  } catch (_) {}
+
+  const legacy = await safeFetchText(source, "pillars/WORKFLOW.md");
+  return {
+    label: "WORKFLOW_LEGACY",
+    content: legacy || "",
+    sourceRef: "pillars/WORKFLOW.md",
+  };
 }
 
 function isValidMode(mode) {
@@ -445,7 +468,7 @@ export async function handleCodeInsert(ctx) {
   }
 
   const decisions = await safeFetchText(source, "pillars/DECISIONS.md");
-  const workflow = await safeFetchText(source, "pillars/WORKFLOW.md");
+  const workflowContext = await resolveWorkflowContextFallback(source);
   const behavior = await safeFetchText(source, "pillars/SG_BEHAVIOR.md");
 
   const system = [
@@ -475,7 +498,9 @@ export async function handleCodeInsert(ctx) {
     `REQUIREMENT: ${requirement || "(not provided) — minimal safe insertion only."}`,
     "",
     decisions ? `DECISIONS.md:\n${decisions}` : "DECISIONS.md: (missing)",
-    workflow ? `\nWORKFLOW.md:\n${workflow}` : "\nWORKFLOW.md: (missing)",
+    workflowContext.content
+      ? `\n${workflowContext.label} (${workflowContext.sourceRef}):\n${workflowContext.content}`
+      : "\nWORKFLOW_SOURCE: (missing)",
     behavior ? `\nSG_BEHAVIOR.md:\n${behavior}` : "\nSG_BEHAVIOR.md: (missing)",
     "",
     "CURRENT_FILE_CONTENT (for context; do not repeat this label in output):",

@@ -16,6 +16,7 @@
 // ============================================================================
 
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
+import { getPreferredPillarPath } from "../../../../projectExperience/PillarTargetResolver.js";
 
 function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
@@ -88,8 +89,8 @@ function buildProjectMemorySection(context = null) {
     source: null,
     expectedSources: [
       "project memory tables/config",
-      "pillars/WORKFLOW.md",
-      "pillars/DECISIONS.md",
+      getPreferredPillarPath("workflow"),
+      getPreferredPillarPath("decisions"),
       "agent_workspace reports",
     ],
     note: "Project memory loading is not wired yet.",

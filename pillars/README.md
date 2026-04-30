@@ -55,7 +55,7 @@ When information conflicts, the hierarchy is:
 
 1. verified repository/runtime reality
 2. canonical pillars
-3. accepted decision files
+3. `pillars/DECISIONS.md` as the single root decisions file
 4. project memory / bounded working context
 5. ordinary memory / chat-derived supporting context
 6. temporary chat discussion
@@ -127,14 +127,12 @@ Use for:
 - final accepted architectural/system decisions
 - non-negotiable rules
 - explicit fixation of important choices
+- the single root decisions file for global SG decisions
 
-#### `pillars/decisions/`
-Use for:
-- accepted decision extensions that should stay small and safe to review
-- decision files linked from architecture and root pillars
-
-Current active decision extension:
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+Important:
+- `pillars/decisions/` is not an active root decisions folder.
+- Deleted decision-extension files must not be referenced as current truth.
+- New global decisions are discussed first, then added to `pillars/DECISIONS.md` only after explicit monarch approval.
 
 #### Workflow files under `pillars/`
 Use for:
@@ -293,21 +291,20 @@ Current documented modules include:
 Read in this order:
 
 1. `pillars/README.md`
-2. `pillars/SG_ENTITY.md`
-3. `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+2. `pillars/DECISIONS.md`
+3. `pillars/SG_ENTITY.md`
 4. `pillars/SG_BEHAVIOR.md`
 5. `pillars/PROJECT.md`
-6. `pillars/DECISIONS.md`
-7. active workflow files under `pillars/`
-8. `pillars/architecture/README.md`
-9. `pillars/modules/MODULE_INDEX.md`
+6. active workflow files under `pillars/`
+7. `pillars/architecture/README.md`
+8. `pillars/modules/MODULE_INDEX.md`
 
 This gives:
+- what is already decided
 - what SG is
 - who/what SG is not
 - how SG behaves
 - what the project is
-- what is already decided
 - what the active work order is
 - how architecture files connect
 - what modules exist
@@ -328,17 +325,16 @@ Read in this order:
 ### 5.3 If you are changing architecture boundaries
 Read in this order:
 
-1. `pillars/SG_ENTITY.md`
-2. `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
-3. `pillars/DECISIONS.md`
-4. active workflow files under `pillars/`
-5. `pillars/architecture/README.md`
-6. `pillars/architecture/SG_INTERFACE_LAYERS.md`
-7. `pillars/architecture/SEMANTIC_ROUTING.md`
-8. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
-9. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
-10. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
-11. affected module docs
+1. `pillars/DECISIONS.md`
+2. `pillars/SG_ENTITY.md`
+3. active workflow files under `pillars/`
+4. `pillars/architecture/README.md`
+5. `pillars/architecture/SG_INTERFACE_LAYERS.md`
+6. `pillars/architecture/SEMANTIC_ROUTING.md`
+7. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+8. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+9. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+10. affected module docs
 
 ---
 
@@ -366,7 +362,6 @@ Examples:
 - `SG_BEHAVIOR.md`
 - `PROJECT.md`
 - `DECISIONS.md`
-- `pillars/decisions/*.md` with `Status: ACCEPTED`
 - active workflow files
 - `DOCS_GOVERNANCE.md`
 - architecture files
@@ -404,6 +399,7 @@ The following patterns are dangerous:
 - treating a component/tool/mode/agent as SG itself
 - treating capability access as authority to redefine SG
 - treating semantic routing as permission to build a global SemanticRouter before the explicit gate
+- referencing deleted `pillars/decisions/` files as active truth
 
 If a file does not clearly belong somewhere,
 do not add it blindly.

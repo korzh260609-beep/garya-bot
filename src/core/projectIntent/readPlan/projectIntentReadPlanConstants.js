@@ -30,7 +30,7 @@ export const PILLARS_ROOT_TOKENS = Object.freeze([
 export const PILLAR_FILE_RULES = Object.freeze([
   {
     path: getPreferredPillarPath("workflow"),
-    phrases: ["workflow.md", "документ workflow", "файл workflow", "workflow document"],
+    phrases: ["workflow", "документ workflow", "файл workflow", "workflow document"],
     basis: "pillar_workflow",
     entity: "workflow",
   },
@@ -42,7 +42,7 @@ export const PILLAR_FILE_RULES = Object.freeze([
   },
   {
     path: getPreferredPillarPath("roadmap"),
-    phrases: ["roadmap.md", "документ roadmap", "дорожная карта"],
+    phrases: ["roadmap", "документ roadmap", "дорожная карта"],
     basis: "pillar_roadmap",
     entity: "roadmap",
   },
@@ -88,7 +88,7 @@ export const ENTITY_RULES = Object.freeze([
   {
     entity: "workflow",
     targetKind: "canonical_doc",
-    phrases: ["workflow", "воркфлоу", "workflow.md"],
+    phrases: ["workflow", "воркфлоу"],
     path: getPreferredPillarPath("workflow"),
   },
   {
@@ -100,7 +100,7 @@ export const ENTITY_RULES = Object.freeze([
   {
     entity: "roadmap",
     targetKind: "canonical_doc",
-    phrases: ["roadmap", "roadmap.md", "дорожная карта"],
+    phrases: ["roadmap", "дорожная карта"],
     path: getPreferredPillarPath("roadmap"),
   },
   {

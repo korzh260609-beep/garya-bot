@@ -6,7 +6,6 @@ This document must be interpreted together with:
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 
 ---
@@ -266,4 +265,4 @@ SG проектируется как **Single-Project Core**, но **Multi-Proje
 - защиты архитектуры от концептуальных искажений,
 - обеспечения долгосрочной целостности проекта.
 
-Если этот документ конфликтует с `SG_ENTITY.md` или accepted decisions, приоритет имеют `SG_ENTITY.md` и `DECISIONS` / active decision-файлы.
+Если этот документ конфликтует с `SG_ENTITY.md` или `pillars/DECISIONS.md`, приоритет имеют `SG_ENTITY.md` и `pillars/DECISIONS.md`.

@@ -12,6 +12,7 @@
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 import { requireMonarchPrivateAccess } from "./handlerAccess.js";
+import { getActivePillarPaths } from "../../projectExperience/PillarTargetResolver.js";
 
 function dirOf(path) {
   const p = String(path || "");
@@ -93,10 +94,12 @@ export async function handleRepoReview2(ctx = {}) {
     "pillars/KINGDOM.md",
     "pillars/PROJECT.md",
     "pillars/REPOINDEX.md",
-    "pillars/ROADMAP.md",
+    ...getActivePillarPaths("roadmap"),
+    "pillars/ROADMAP.md", // legacy compatibility fallback
     "pillars/SG_BEHAVIOR.md",
     "pillars/SG_ENTITY.md",
-    "pillars/WORKFLOW.md",
+    ...getActivePillarPaths("workflow"),
+    "pillars/WORKFLOW.md", // legacy compatibility fallback
   ];
 
   const present = new Set(paths);

@@ -4,18 +4,22 @@ Purpose:
 - Define the canonical high-level permissions and access-control map of SG.
 - Show where permission decisions belong and how they relate to modules and actions.
 - Reduce privilege drift and scattered access logic.
+- Preserve the controlled-action philosophy from `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: high-level permissions and access-control architecture
 
 This file must be interpreted together with:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
+- `pillars/architecture/DATA_FLOW.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
@@ -30,6 +34,7 @@ This file defines:
 - what kinds of actions require access checks
 - how permission logic must stay centralized
 - how access to SG components differs from authority over SG itself
+- how permissions protect actions/data without restricting SG's reasoning ability
 
 Without this map, access control tends to spread invisibly.
 
@@ -37,18 +42,21 @@ Without this map, access control tends to spread invisibly.
 
 ## 0.1) SG entity rule for permissions
 
-SG is the global project entity.
+SG is the global project entity and global intellectual system.
 
-Permissions grant access to actions, components, surfaces, data, or operations of SG.
+Permissions grant access to actions, components, surfaces, data, private scopes, or operations of SG.
 
 Permissions must not accidentally grant ownership over SG’s identity, architecture, decisions, memory policy, or project experience.
+
+Permissions protect what SG may do or access, not what SG may think about, analyze, explain, or prepare as a non-applied plan.
 
 Correct model:
 
 ```text
-SG = global project entity
-permission = bounded right to use/control a specific SG surface or action
+SG = global project entity / global intellectual system
+permission = bounded right to use/control a specific SG surface, action, or data scope
 component access ≠ authority to redefine SG
+permission denial = action/data boundary, not thinking ban
 ```
 
 Incorrect model:
@@ -57,6 +65,7 @@ Incorrect model:
 access to component = authority over SG itself
 admin command access = right to change SG architecture
 external agent access = ownership of SG decisions/memory/identity
+permission denied = SG cannot think/analyze/explain safely
 ```
 
 ---
@@ -68,9 +77,11 @@ Permission logic must be:
 - explicit
 - centralized enough to review
 - action-oriented
-- deny-safe
+- deny-safe for protected actions
 - separated from unrelated module logic
 - compatible with SG entity integrity
+- aware of private/user/project scope
+- aware of read-only vs state-changing action type
 
 A feature working correctly is not enough.
 
@@ -79,6 +90,14 @@ It must also be clear:
 - who may not
 - where that decision is enforced
 - whether the permission affects a component only or SG governance itself
+- whether the request is read-only, analysis-only, prepare-only, state-changing, external, private, or expensive
+
+Core rule:
+
+```text
+permissions protect actions, data, scope, and surfaces.
+permissions do not block SG thinking, analysis, explanation, comparison, or non-applied planning.
+```
 
 ---
 
@@ -92,14 +111,19 @@ Canonical decision shape:
 
 - resolve user/access subject
 - resolve role/effective access state
+- resolve action type
+- resolve data/project/private scope
 - evaluate `can(user, action, context?)`
 - enforce allow/deny before protected behavior proceeds
+
+Minimal controller/gate may orchestrate the check, but it must not become a separate SG brain.
 
 Hard rule:
 - protected behavior must not rely on vague assumptions like
   “this command is obviously admin-only”
 - permission by convention is not enough
 - component-level access must not imply architecture/governance authority
+- state-changing/external/private/expensive actions must not bypass confirmation rules where configured
 
 ---
 
@@ -116,7 +140,7 @@ Current conceptual role map in SG includes:
 Important note:
 - this file is a high-level map
 - exact runtime role availability may depend on current stage and implementation
-- if runtime and docs diverge, verified runtime + canonical pillars win
+- if runtime and docs diverge, verified runtime defines factual state while canonical pillars define intended SG philosophy and governance
 
 ### 3.1 Monarch role
 
@@ -131,6 +155,8 @@ Monarch-level authority may include:
 - approving changes that affect SG identity or component boundaries
 
 Even for monarch operations, implementation must remain explicit, logged where appropriate, and compatible with pillars.
+
+Monarch authority allows governance control, but SG still must not silently perform external/state-changing actions without explicit instruction.
 
 ### 3.2 Non-monarch roles
 
@@ -215,6 +241,91 @@ Expectation:
 
 ---
 
+## 4A) Action type categories
+
+Permission checks should understand the requested action type.
+
+### `read-only`
+Examples:
+- inspect repo state
+- view a non-sensitive report
+- read allowed source output
+
+Expectation:
+- may proceed when access and source scope are valid
+- must not imply mutation permission
+
+### `analysis-only`
+Examples:
+- explain risk
+- compare options
+- analyze architecture
+- reason about a possible change
+
+Expectation:
+- normally allowed when no private/protected data is accessed
+- does not apply changes
+- does not require mutation permission
+
+### `prepare-only`
+Examples:
+- prepare a plan
+- prepare a draft
+- prepare a patch/diff without applying it
+- prepare a checklist
+
+Expectation:
+- may be allowed even when applying the result would require confirmation
+- must clearly state that nothing was applied
+
+### `state-changing`
+Examples:
+- write memory
+- update repo
+- modify config
+- change role/access
+- create/update/delete task
+
+Expectation:
+- requires explicit permission
+- may require confirmation
+- must be logged where appropriate
+
+### `external-action`
+Examples:
+- send message/email
+- deploy
+- call external mutation API
+- publish content
+
+Expectation:
+- requires explicit permission and confirmation
+- must not be hidden behind analysis language
+
+### `private-data`
+Examples:
+- read user private memory
+- read project-private files
+- inspect sensitive diagnostics
+- access user-specific source credentials
+
+Expectation:
+- requires strict user/project/workspace scope
+- cross-user leakage is a critical bug
+
+### `expensive/costly`
+Examples:
+- large AI call
+- large source crawl
+- heavy document processing
+- long diagnostics
+
+Expectation:
+- may require warning or confirmation depending on configured thresholds
+- must be observable enough for billing/cost control
+
+---
+
 ## 5) Permission-to-module map
 
 ### 5.1 Bot
@@ -251,6 +362,7 @@ Rule:
 - Memory policy and access interaction may exist
 - but core access decision ownership still stays centralized
 - memory access does not allow rewriting pillars or accepted decisions
+- memory write is state-changing unless explicitly classified otherwise
 
 ---
 
@@ -271,16 +383,19 @@ Permission questions:
 - may this user inspect this repo surface?
 - may this path/file/scope be fetched?
 - may this request use RepoStateAgent-backed factual state?
+- is the requested repo action read-only, prepare-only, or mutation?
 
 Rule:
 - Repo applies guarded path policy
 - Users / Access determines whether the actor is allowed to use the surface
 - Human Mode project/repo access must be explicitly gated
+- repo mutation is not implied by repo inspection
 
 Important distinction:
 - repo path filtering is not the same thing as user permission policy
 - repo inspection permission is not repo mutation permission
 - repo facts access is not authority to change SG architecture
+- prepare-only code proposals are not applied changes
 
 ---
 
@@ -288,6 +403,7 @@ Important distinction:
 Permission questions:
 - may this user create/run/inspect this task?
 - may recurring or sensitive tasks be triggered?
+- is the task read-only, state-changing, external, private, or expensive?
 
 Rule:
 - task execution surfaces must not assume permission by default
@@ -317,6 +433,7 @@ Rule:
 - Project Memory may hold sensitive continuity context
 - access must not be assumed implicitly
 - Project Memory cannot override pillars, decisions, or verified repo/runtime state
+- Gary's project memory must not become default context for ordinary users
 
 ---
 
@@ -324,6 +441,7 @@ Rule:
 Permission questions:
 - may this user use this intake/extraction surface?
 - are certain file-processing paths restricted?
+- is processing expensive/private/sensitive?
 
 Rule:
 - extraction modality rules are not permission rules
@@ -340,6 +458,23 @@ Rule:
 - AI Routing enforces centralized AI-call discipline
 - but user permission/governance about usage still belongs to the access layer
 - external AI/model access does not grant SG identity or decision ownership
+- AI Routing is model/cost/control wrapper, not SG brain
+
+---
+
+### 5.11 Minimal Controller / Gate
+Permission questions:
+- what capability is being requested?
+- what action type is being requested?
+- what permission/scope is needed?
+- what source/tool is needed?
+- is confirmation needed?
+
+Rule:
+- controller/gate may coordinate permission checks
+- controller/gate does not own SG identity
+- controller/gate does not replace reasoning model intelligence
+- controller/gate must not bypass Users / Access for protected actions
 
 ---
 
@@ -351,6 +486,8 @@ Examples of action shape:
 - `command.use`
 - `repo.inspect`
 - `repo.fetch_sensitive`
+- `repo.prepare_patch`
+- `repo.apply_patch`
 - `repo_state_agent.run`
 - `human_mode.project_repo.use`
 - `technical_mode.diagnostics.use`
@@ -358,12 +495,17 @@ Examples of action shape:
 - `source.manage`
 - `task.create`
 - `task.run`
+- `task.modify`
 - `diagnostics.view`
 - `grant.manage`
+- `memory.read_private`
+- `memory.write`
 - `project_memory.write`
 - `pillar.modify`
 - `decision.accept`
 - `architecture.modify`
+- `external.send`
+- `deploy.run`
 
 Important note:
 - this file does not force exact current runtime action strings
@@ -373,7 +515,7 @@ Important note:
 
 ## 7) Deny-safe rule
 
-When access is ambiguous:
+When access is ambiguous for a protected action:
 
 - do not silently allow privileged behavior
 - do not rely on “probably okay”
@@ -382,6 +524,8 @@ When access is ambiguous:
 A denied protected action is safer than a silently mis-granted one.
 
 For entity/governance-sensitive behavior, ambiguity must fail closed.
+
+For analysis-only or prepare-only behavior, SG may still explain, reason, warn, compare options, or prepare a non-applied plan when that does not access forbidden private data.
 
 ---
 
@@ -395,6 +539,7 @@ The following patterns are dangerous:
 - implicit trust because “only monarch uses this for now”
 - local feature code deciding privileged access by convenience
 - project/governance-affecting behavior without clear privileged gate
+- protected action bypassing minimal controller/gate
 - component access being treated as permission to redefine SG
 - external AI/tool access being treated as ownership of SG decisions or project experience
 - Human Mode repo/project work bypassing monarch/private or future project-level permission gates
@@ -413,14 +558,14 @@ Identity answers:
 - who is this subject?
 
 Permissions answer:
-- what may this subject do?
+- what may this subject do/access?
 
 Cross-platform identity linking does not automatically mean cross-platform permission clarity unless access logic explicitly resolves it.
 
 Do not conflate these layers.
 
 SG entity identity is also separate from user identity:
-- SG remains the global project entity.
+- SG remains the global project entity / global intellectual system.
 - Users may access SG surfaces according to permissions.
 - No user role except monarch-governed authority may change SG identity/governance.
 
@@ -435,6 +580,7 @@ That means:
 - convenience must not silently widen privilege
 - monarch-only or stage-gated restrictions are not optional implementation details
 - accepted decisions and entity rules constrain permission design
+- permission access to a surface does not redefine SG philosophy
 
 ---
 
@@ -445,11 +591,14 @@ Update this file when:
 - a new high-risk surface becomes canonical
 - role model changes materially
 - a new permission category appears
+- a new action type category appears
 - a new module gains important protected surfaces
 - a previous permission assumption is proven wrong
 - Human Mode / Technical Mode access boundaries change
 - RepoStateAgent factual runner access changes
 - a permission can affect SG entity/governance boundaries
+- minimal controller/gate boundaries change
+- private-data or state-changing action policy changes
 
 Do not update this file for every tiny command.
 
@@ -463,7 +612,10 @@ A system is not permission-safe just because it has role checks somewhere.
 
 A system is permission-safe when:
 - protected actions are explicit
+- action types are understood
 - checks are centralized enough to review
 - hidden bypasses are treated as bugs
 - privilege does not spread by convenience
 - component access does not become authority over SG itself
+- permissions protect controlled actions and private data
+- permissions do not forbid SG from thinking, analyzing, explaining, or preparing non-applied plans

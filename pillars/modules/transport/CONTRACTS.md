@@ -3,7 +3,7 @@
 Purpose:
 - Define the public contract expectations of the Transport module.
 - Fix the adapter-to-core boundary.
-- Reduce guessing during future channel integrations.
+- Keep channel integration aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Transport logical interfaces
@@ -13,6 +13,18 @@ Scope: Transport logical interfaces
 ## 0) Contract philosophy
 
 Transport contracts define how platform input enters the system.
+
+Transport is not SG itself.
+It is not SG brain and not a business-logic layer.
+It is the channel adapter boundary.
+
+Canonical rule:
+
+```text
+raw platform payload -> transport adapter -> unified context -> core/SG flow
+```
+
+Transport must not independently own permissions, memory, AI calls, sources, task execution or final action decisions.
 
 This file does not require exact current implementation names.
 It defines the contract shape future work must preserve.
@@ -27,10 +39,12 @@ Transport must expose an explicit adapter-to-core handoff boundary.
 
 Canonical logical flow:
 
+```text
 raw platform payload
-→ transport adapter
-→ unified context
-→ core message handler
+-> transport adapter
+-> unified context
+-> core message handler
+```
 
 The exact file names may evolve.
 The boundary must remain explicit.
@@ -60,6 +74,7 @@ Must NOT do:
 - call memory directly
 - decide permissions
 - call AI directly for core behavior
+- start task/repo/source actions directly
 
 ---
 
@@ -90,6 +105,7 @@ Must NOT do:
 - invent business semantics
 - attach hidden permissions
 - silently drop critical input state without explicit policy
+- treat platform user id as full `global_user_id` authorization
 
 ---
 
@@ -160,10 +176,12 @@ Callers/integrators of Transport must:
 - preserve the unified context boundary
 - avoid embedding business behavior into adapters
 - keep channel-specific logic bounded to actual transport needs
+- preserve multi-transport identity mapping discipline
 
 Must NOT:
 - use transport as a shortcut around core architecture
 - let adapters accumulate unrelated responsibilities
+- treat Telegram/Discord/Web as SG itself
 
 ---
 
@@ -186,6 +204,7 @@ Forbidden behavior:
 - silent mutation of meaning
 - uncontrolled partial execution
 - adapter-side business fallback
+- hidden channel-specific privilege behavior
 
 ---
 
@@ -199,6 +218,7 @@ The following patterns are explicitly forbidden:
 - direct AI calls from transport for core behavior
 - storing long-term business state inside transport components
 - building separate logic worlds per channel
+- treating a transport/channel as SG itself
 
 ---
 
@@ -212,12 +232,14 @@ Future additions may include contracts for:
 - richer structured input types
 - transport-level diagnostics
 - transport-level dedupe keys
+- multi-transport identity-linking handoff
 
 These additions must preserve the same principles:
 - thin
 - bounded
 - explicit
 - platform-specific only where necessary
+- core/SG flow remains above transport
 
 ---
 
@@ -227,3 +249,5 @@ Transport contracts exist to stop channel integration from damaging core archite
 
 If adapters become a second hidden core,
 the system will fragment.
+
+Transport carries input into SG; it does not become SG.

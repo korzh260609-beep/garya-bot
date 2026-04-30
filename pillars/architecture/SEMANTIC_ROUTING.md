@@ -1,53 +1,52 @@
-# SEMANTIC_ROUTING.md — SG Semantic Routing Architecture
+# SEMANTIC_ROUTING.md — SG Semantic Routing / Minimal Controller Architecture
 
-> This document defines the semantic routing principle for SG.
+> This document defines how SG understands user meaning and safely maps it to capabilities, sources, tools, answers, or permitted actions.
 > It applies to SG communication, commands, actions, tools, reports and agents.
 > If code or prompts contradict this file, the code/prompt is wrong.
 
 This file must be interpreted together with:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 - `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
 
-Current stage warning:
+Current architecture warning:
 
 ```text
-Do NOT build a global SemanticRouter yet.
+Do NOT build a heavy SemanticRouter that replaces reasoning model intelligence.
 ```
 
 Current safe path:
 
 ```text
-Human Mode skeleton
--> gated meaning provider contract
--> gated RepoStateAgent facts contract
--> capability selection
--> response builder
+reasoning model / meaning provider understands meaning
+-> minimal controller checks scope, permissions, capability, source/tool needs, risk, cost, confirmation
+-> SG answers or performs only the permitted action
 ```
 
 ---
 
 ## 0) SG entity rule
 
-SG is the global project entity.
+SG is the global project entity and global intellectual system.
 
-Semantic routing is an intelligence/routing capability of SG.
-It is not SG itself.
+Semantic routing is not a separate SG brain.
+It is a minimal control layer around meaning understanding and action safety.
 
-A SemanticRouter, MeaningEngine, ToolSelectionEngine, external AI model, or agent must never become a separate SG identity.
+A SemanticRouter, MeaningEngine, ToolSelectionEngine, controller, external AI model, or agent must never become a separate SG identity.
 
 Correct model:
 
 ```text
-SG = global project entity
-semantic routing = future routing capability/component of SG
-Human Mode = current meaning-first interface skeleton
-Technical Mode = explicit commands/tests/debug/legacy interface
+SG = global project entity / global intellectual system
+reasoning model = meaning understanding tool/operator
+minimal controller/gate = action protection layer
+Human Mode = normal meaning-first interface of SG
+Technical Mode = explicit commands/tests/debug/legacy interface of SG
 ```
 
 ---
@@ -63,6 +62,7 @@ user message
 → meaning
 → intent
 → context
+→ capability
 → permissions
 → source/tool selection
 → action or answer
@@ -75,6 +75,9 @@ keyword/phrase
 → fixed reply
 ```
 
+The reasoning model may understand the meaning.
+The controller must only protect system actions and select safe execution paths.
+
 ---
 
 ## 1A) Human Mode / Technical Mode boundary
@@ -86,11 +89,11 @@ Human Mode = normal SG conversation by meaning
 Technical Mode = explicit commands/tests/debug/legacy routes
 ```
 
-Do not mix them.
+Do not mix them as identities.
 
 Technical Mode may contain slash commands, exact phrases, regex routes and legacy command surfaces.
 
-Human Mode must be built by meaning/context/permissions/capabilities, not by copying Technical Mode phrase logic.
+Human Mode must be built by meaning/context/capabilities/permissions/source/risk, not by copying Technical Mode phrase logic.
 
 Current rule:
 
@@ -98,7 +101,7 @@ Current rule:
 old slash/word/phrase/regex logic = Technical Mode
 ```
 
-Forbidden current-stage shortcut:
+Forbidden shortcut:
 
 ```text
 old phrase detector
@@ -112,14 +115,15 @@ old phrase detector
 
 All user input should eventually follow the same meaning-first principle.
 
-However, current implementation must respect the Human/Technical split:
+However, implementation must respect the Human/Technical split:
 
-- Human Mode is being built separately as a clean meaning-first path.
+- Human Mode is the clean meaning-first path.
 - Technical Mode keeps explicit commands, tests, debug routes, and legacy behavior.
-- A global SemanticRouter is future architecture, not the current implementation step.
+- A heavy Global SemanticRouter is not the goal.
+- A minimal controller/gate is allowed and required for safe action selection.
 
 Slash commands, buttons and aliases are allowed only as interface shortcuts.
-They do not replace semantic validation.
+They do not replace semantic validation or permission checks.
 
 The same user meaning should eventually route to the same intent even when expressed with different wording.
 
@@ -151,6 +155,7 @@ Required behavior:
 user says naturally what they want
 → SG understands meaning
 → SG creates internal technical task if needed
+→ controller checks permissions/risk/scope if action is needed
 → SG returns result in human language
 ```
 
@@ -189,7 +194,7 @@ This rule applies as a principle to:
 - task creation
 - future UI/client interactions
 
-But implementation must follow stage gates.
+But implementation must follow stage gates and controlled-action rules.
 
 This is not only a RepoStateAgent rule.
 This is a global SG behavior and architecture rule.
@@ -200,14 +205,15 @@ This is a global SG behavior and architecture rule.
 
 Words, prefixes, regex, phrases and command aliases may exist only as weak diagnostic signals or Technical Mode routes.
 
-They may help SG guess candidates in future semantic layers, but they must not be the final decision engine for Human Mode.
+They may help SG identify candidate intents, but they must not be the final decision engine for Human Mode.
 
-Allowed future semantic pattern:
+Allowed support pattern:
 
 ```text
 text contains a useful signal
 → add candidate intent
-→ verify with context/source/tool
+→ reasoning/context verifies meaning
+→ controller checks permission/source/risk before action
 ```
 
 Forbidden:
@@ -217,13 +223,25 @@ text contains phrase X
 → answer Y immediately as Human Mode intelligence
 ```
 
+Lexical signals must never bypass:
+- permissions
+- capability checks
+- source/tool checks
+- privacy boundaries
+- risk checks
+- cost checks
+- confirmations for state-changing actions
+
 ---
 
-## 4) Meaning object contract
+## 4) Meaning object / structured output contract
 
-Every serious Human Mode request should eventually be reduced to a meaning object before action.
+Serious Human Mode requests may be reduced to a meaning object or structured output before action.
 
-Minimum future shape:
+This is not a requirement to build a heavy Global SemanticRouter.
+It is a compact data shape that helps the minimal controller decide safely.
+
+Useful future shape:
 
 ```text
 meaning = {
@@ -234,26 +252,38 @@ meaning = {
   context_continuity,
   required_source,
   required_tool,
+  required_capability,
   permission_level,
+  risk_level,
+  cost_level,
+  confirmation_required,
   confidence,
   uncertainty,
   missing_information
 }
 ```
 
-Current Human Mode skeleton uses a narrower safe contract:
+A smaller contract is preferred when enough:
 
 ```text
 intentKind
 confidence
 reason
+requiredCapability
+requiresSource
+requiresConfirmation
 ```
 
-This current contract must not be expanded into a global SemanticRouter until explicitly approved.
+Rule:
+- expand the structured output only when a real capability, permission, source, risk, cost, or confirmation check needs it;
+- do not expand it to duplicate the reasoning model's thinking in code;
+- do not turn it into a separate SG brain.
 
 If meaning is weak or ambiguous, SG should either:
 - ask one concise clarification, or
 - proceed with an explicit assumption when safe.
+
+If the action is state-changing, sensitive, private, expensive, or external, SG must request confirmation or block until allowed.
 
 ---
 
@@ -301,6 +331,12 @@ old fixed reply → fallback human-readable explanation, not SG intelligence
 
 Legacy layers must never pretend to be the main intelligence or project truth.
 
+Legacy layers may be reused internally only when:
+- their identity as Technical Mode/fallback is clear;
+- they do not bypass the minimal controller;
+- they do not bypass permissions or source checks;
+- they do not present template output as Human Mode intelligence.
+
 ---
 
 ## 7) Project/repo rule
@@ -310,10 +346,11 @@ For Human Mode project and repo questions:
 ```text
 natural project/repo request
 → HumanModeEntry
-→ permissions
-→ meaning
+→ meaning/intent/context
+→ permissions/scope
 → RepoStateAgent-backed facts
 → capability selection
+→ response/action risk check
 → SG answer
 ```
 
@@ -345,10 +382,12 @@ A slash command is allowed as an explicit user interface shortcut, but SG must s
 - permissions
 - target
 - required source/tool
+- required capability
 - risk
 - expected action
+- confirmation requirement
 
-The same meaning expressed without slash command should become routable in Human Mode only after the Human Mode path is explicitly connected and verified.
+The same meaning expressed without slash command should become routable in Human Mode only after the Human Mode path is explicitly connected, gated, and verified.
 
 ---
 
@@ -365,6 +404,8 @@ A reply must show what it is based on when relevant:
 
 If SG cannot verify, it must not sound certain.
 
+If SG cannot act because action is not permitted, it may still explain, analyze, warn, or prepare a non-applied plan.
+
 ---
 
 ## 10) Implementation path
@@ -375,28 +416,29 @@ Current safe path:
 
 1. Keep Human Mode and Technical Mode separated.
 2. Keep old slash/word/phrase/regex logic in Technical Mode.
-3. Build Human Mode skeleton separately.
-4. Add gated meaning provider contract.
-5. Add gated RepoStateAgent facts/runner contract.
-6. Add capability selector and response builder contracts.
-7. Add smoke-checks for contracts.
-8. Only later connect HumanModeEntry behind explicit runtime gate.
-9. Only after that consider broader semantic routing architecture.
-10. Build global SemanticRouter only after explicit Monarch approval and accepted architecture update.
+3. Build/maintain Human Mode as a meaning-first path.
+4. Use reasoning model / meaning provider for meaning understanding.
+5. Use minimal controller/gate for permissions, scope, capabilities, sources, risk, cost and confirmations.
+6. Use RepoStateAgent facts/runner contract for repo/project truth where available.
+7. Add capability selector and response builder contracts only where needed.
+8. Add smoke-checks for contracts.
+9. Connect runtime paths only behind explicit gates.
+10. Expand the controller only when a real safety/source/permission/capability need appears.
 
-Forbidden current path:
+Forbidden path:
 
 ```text
-create global SemanticRouter now
-convert old phrase routes into weak Human Mode semantic signals now
+create heavy SemanticRouter as separate brain
+convert old phrase routes into fake Human Mode semantic signals
 connect Human Mode runtime without gate
+let routing/controller bypass permissions or source checks
 ```
 
 ---
 
 ## 11) Test rule
 
-For every future semantic route, test at least 3 different phrasings with the same meaning.
+For every future semantic route or Human Mode capability, test at least 3 different phrasings with the same meaning.
 
 Example:
 
@@ -409,21 +451,22 @@ Example:
 These must not depend on exact words.
 They must route by meaning.
 
-Current Human Mode smoke-checks are contract checks, not full semantic routing tests.
+Current Human Mode smoke-checks may be contract checks, not full semantic routing tests.
 
 ---
 
 ## 12) Canonical formula
 
 ```text
-meaning → logic → context → source/tool → verified answer/action
+meaning → intent → context → capability → permission → source/tool → action/answer
 ```
 
 Current implementation guardrail:
 
 ```text
-Human Mode skeleton first.
-Global SemanticRouter later.
-No phrase-bound hacks.
+Reasoning model understands meaning.
+Minimal controller/gate protects actions.
+No heavy router as separate brain.
+No phrase-bound hacks as Human Mode intelligence.
 No runtime connection without explicit gate.
 ```

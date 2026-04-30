@@ -2,8 +2,8 @@
 
 Purpose:
 - Document the main risk surface of the Users / Access module.
-- Prevent privilege drift, hidden bypasses, and security confusion.
-- Keep access control explicit.
+- Prevent privilege drift, hidden bypasses, privacy leaks and security confusion.
+- Keep access control explicit and aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Users / Access module risk model
@@ -22,6 +22,16 @@ Access bugs are dangerous because they often look like convenience:
 Then later nobody knows the real rules.
 
 This file exists to stop that drift early.
+
+Canonical rule:
+
+```text
+SG is free in thinking.
+SG is controlled in actions.
+```
+
+The Users / Access module must protect actions, private data, scopes, costs and external surfaces.
+It must not become a censorship layer over SG thinking, analysis or advisory planning.
 
 ---
 
@@ -116,21 +126,63 @@ Signal:
 
 ---
 
+### R-07: Permissions are mistaken for control over thinking
+Description:
+- access rules are used to block SG from analysis, critique or planning even when no protected action/data exposure happens
+
+Consequence:
+- SG becomes less useful
+- reasoning gets artificially restricted
+- architecture contradicts `DECISIONS.md`
+
+Signal:
+- “not allowed to think about this” when the real issue is only “not allowed to execute/apply/access private data”
+
+---
+
+### R-08: Permission is mistaken for execution approval
+Description:
+- a user may have permission for an action, but the system skips required confirmation for risky/state-changing/external/costly execution
+
+Consequence:
+- accidental repo/runtime/data changes
+- unexpected costs
+- loss of user/monarch control
+
+Signal:
+- allowed action runs immediately without confirmation despite risk/cost/state-change
+
+---
+
+### R-09: User/project isolation weakens
+Description:
+- access logic allows one user/project context to bleed into another
+
+Consequence:
+- privacy breach
+- wrong project context
+- loss of multiuser trust
+
+Signal:
+- user receives another user's memory, repo, project state, source result or settings
+
+---
+
 ## 2) Secondary risks
 
-### R-07: Over-permissive fallback
+### R-10: Over-permissive fallback
 Consequence:
 - access is granted when data is ambiguous
 
-### R-08: Over-restrictive fallback
+### R-11: Over-restrictive fallback
 Consequence:
-- legitimate workflows fail or become brittle
+- legitimate advisory workflows fail or become brittle
 
-### R-09: Unclear action taxonomy
+### R-12: Unclear action taxonomy
 Consequence:
 - checks are inconsistent because actions are not well defined
 
-### R-10: Missing audit visibility
+### R-13: Missing audit visibility
 Consequence:
 - denies/grants cannot be reviewed properly
 
@@ -146,6 +198,9 @@ The following assumptions are dangerous:
 - “temporary exception is harmless”
 - “identity resolution automatically means authorization”
 - “it is fine because only the monarch uses it now”
+- “if permission allows it, confirmation is unnecessary”
+- “permissions should control what SG can think about”
+- “project context can be reused if it is useful”
 
 These assumptions must be treated as risk factors.
 
@@ -161,6 +216,9 @@ After any meaningful Users / Access change, verify:
 4. deny paths are explicit and safe
 5. role logic did not fragment across modules
 6. docs still match actual access behavior
+7. permissions protect actions/data/scope, not non-applied thinking
+8. confirmation still exists for risky/state-changing/external/costly actions
+9. user/project isolation remains enforced
 
 ---
 
@@ -170,7 +228,9 @@ Preferred defenses:
 
 - centralized access boundary
 - explicit action names
+- explicit user/project/data scope
 - deny-safe defaults
+- confirmation requirements for risky actions
 - reviewable role logic
 - audit/telemetry hooks
 - stale-doc detection
@@ -180,6 +240,7 @@ Avoid fake safety:
 - hidden special cases
 - handler-local privilege assumptions
 - undocumented operator shortcuts
+- confusing advisory analysis with execution permission
 
 ---
 
@@ -190,4 +251,7 @@ The most dangerous access bug is not always a visible exploit.
 The most dangerous bug is:
 “the system still feels normal, but privilege logic is now scattered and no longer reviewable.”
 
-That is how security degrades quietly.
+A second critical bug is:
+“permissions start controlling SG thinking instead of controlling protected actions and data.”
+
+Both degrade SG quietly.

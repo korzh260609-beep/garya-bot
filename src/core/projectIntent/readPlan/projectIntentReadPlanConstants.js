@@ -10,6 +10,8 @@
 // - Do not add new phrase-bound hacks here.
 // ============================================================================
 
+import { getPreferredPillarPath } from "../../../projectExperience/PillarTargetResolver.js";
+
 export const PILLARS_ROOT_PHRASES = Object.freeze([
   "pillars",
   "pillars/",
@@ -27,55 +29,55 @@ export const PILLARS_ROOT_TOKENS = Object.freeze([
 
 export const PILLAR_FILE_RULES = Object.freeze([
   {
-    path: "pillars/WORKFLOW.md",
+    path: getPreferredPillarPath("workflow"),
     phrases: ["workflow.md", "документ workflow", "файл workflow", "workflow document"],
     basis: "pillar_workflow",
     entity: "workflow",
   },
   {
-    path: "pillars/DECISIONS.md",
+    path: getPreferredPillarPath("decisions"),
     phrases: ["decisions.md", "decision log", "журнал решений", "документ decisions"],
     basis: "pillar_decisions",
     entity: "decisions",
   },
   {
-    path: "pillars/ROADMAP.md",
+    path: getPreferredPillarPath("roadmap"),
     phrases: ["roadmap.md", "документ roadmap", "дорожная карта"],
     basis: "pillar_roadmap",
     entity: "roadmap",
   },
   {
-    path: "pillars/PROJECT.md",
+    path: getPreferredPillarPath("project"),
     phrases: ["project.md", "описание проекта"],
     basis: "pillar_project",
     entity: "project",
   },
   {
-    path: "pillars/KINGDOM.md",
+    path: getPreferredPillarPath("kingdom"),
     phrases: ["kingdom.md", "документ kingdom"],
     basis: "pillar_kingdom",
     entity: "kingdom",
   },
   {
-    path: "pillars/SG_BEHAVIOR.md",
+    path: getPreferredPillarPath("sg_behavior"),
     phrases: ["sg_behavior.md", "поведение sg"],
     basis: "pillar_behavior",
     entity: "sg_behavior",
   },
   {
-    path: "pillars/SG_ENTITY.md",
+    path: getPreferredPillarPath("sg_entity"),
     phrases: ["sg_entity.md", "сущность sg"],
     basis: "pillar_entity",
     entity: "sg_entity",
   },
   {
-    path: "pillars/REPOINDEX.md",
+    path: getPreferredPillarPath("repoindex"),
     phrases: ["repoindex.md", "repoindex"],
     basis: "pillar_repoindex",
     entity: "repoindex",
   },
   {
-    path: "pillars/CODE_INSERT_RULES.md",
+    path: getPreferredPillarPath("code_insert_rules"),
     phrases: ["code_insert_rules.md", "code insert rules", "правила вставки кода"],
     basis: "pillar_code_insert_rules",
     entity: "code_insert_rules",
@@ -87,37 +89,37 @@ export const ENTITY_RULES = Object.freeze([
     entity: "workflow",
     targetKind: "canonical_doc",
     phrases: ["workflow", "воркфлоу", "workflow.md"],
-    path: "pillars/WORKFLOW.md",
+    path: getPreferredPillarPath("workflow"),
   },
   {
     entity: "decisions",
     targetKind: "canonical_doc",
     phrases: ["decisions", "decisions.md", "decision log", "журнал решений"],
-    path: "pillars/DECISIONS.md",
+    path: getPreferredPillarPath("decisions"),
   },
   {
     entity: "roadmap",
     targetKind: "canonical_doc",
     phrases: ["roadmap", "roadmap.md", "дорожная карта"],
-    path: "pillars/ROADMAP.md",
+    path: getPreferredPillarPath("roadmap"),
   },
   {
     entity: "project",
     targetKind: "canonical_doc",
     phrases: ["project.md", "описание проекта"],
-    path: "pillars/PROJECT.md",
+    path: getPreferredPillarPath("project"),
   },
   {
     entity: "kingdom",
     targetKind: "canonical_doc",
     phrases: ["kingdom.md", "kingdom"],
-    path: "pillars/KINGDOM.md",
+    path: getPreferredPillarPath("kingdom"),
   },
   {
     entity: "repoindex",
     targetKind: "canonical_doc",
     phrases: ["repoindex", "repoindex.md"],
-    path: "pillars/REPOINDEX.md",
+    path: getPreferredPillarPath("repoindex"),
   },
   {
     entity: "pillars",

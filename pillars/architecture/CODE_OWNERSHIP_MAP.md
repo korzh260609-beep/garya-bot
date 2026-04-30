@@ -4,19 +4,24 @@ Purpose:
 - Define the canonical mapping between logical modules and real repository code areas.
 - Reduce ambiguity about which files belong to which responsibility domain.
 - Help humans and AI tools understand where to work and where NOT to work.
+- Prevent bot, handler, router, controller, AI wrapper, or repo helper code from being mistaken for SG itself.
 
 Status: CANONICAL
 Scope: repository code ownership at a high level
 
 This file must be interpreted together with:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/MODULE_MAP.md`
+- `pillars/architecture/DATA_FLOW.md`
+- `pillars/architecture/PERMISSIONS_MAP.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
@@ -34,6 +39,8 @@ This file exists to connect:
 - real code locations
 - likely ownership boundaries
 - legacy vs preferred placement
+- controller/gate boundaries
+- ownership risks around mixed files
 
 Without this map, one common problem appears:
 
@@ -47,7 +54,7 @@ This file reduces that ambiguity.
 
 ## 0.1) SG entity rule for code ownership
 
-SG is the global project entity.
+SG is the global project entity and global intellectual system.
 
 Code ownership means responsibility ownership inside SG.
 It does not mean ownership of SG itself.
@@ -55,9 +62,11 @@ It does not mean ownership of SG itself.
 Correct model:
 
 ```text
-SG = global project entity
+SG = global project entity / global intellectual system
 code area = implementation surface of one or more SG components
 code ownership = responsibility boundary, not SG identity ownership
+minimal controller/gate code = action protection boundary, not SG brain
+AI routing code = model/cost wrapper, not SG brain
 ```
 
 Incorrect model:
@@ -66,7 +75,9 @@ Incorrect model:
 file/module owner = owner of SG identity
 repo tool = SG itself
 external coding AI = SG itself
-code ownership = permission to redefine SG architecture/governance
+handler/router/controller = hidden SG brain
+AI wrapper = SG brain
+code ownership = permission to redefine SG architecture/governance/philosophy
 ```
 
 ---
@@ -83,6 +94,7 @@ That means:
 - legacy placement does not automatically define correct ownership
 - future refactors should move code toward clearer ownership, not away from it
 - code ownership must preserve SG entity integrity
+- controller/gate code must protect actions, not replace reasoning model intelligence
 
 Important rule:
 - this file maps ownership at a practical high level
@@ -123,9 +135,10 @@ When deciding where code belongs, use this priority:
 
 1. real responsibility of the code
 2. canonical module boundaries in `MODULE_MAP.md`
-3. verified repository/runtime state
-4. actual repository placement
-5. historical convenience
+3. `pillars/DECISIONS.md` for SG philosophy and global boundaries
+4. verified repository/runtime state
+5. actual repository placement
+6. historical convenience
 
 If repository placement and responsibility conflict,
 responsibility wins conceptually,
@@ -160,6 +173,7 @@ Treat as:
 Important rule:
 - do not copy root-level mixed-responsibility style into new code by default
 - do not treat legacy/root placement as ownership proof
+- do not add new controller/router logic into root files unless explicitly justified
 
 ---
 
@@ -219,7 +233,8 @@ Ownership rule:
 Ownership rule:
 - Bot owns user-facing routing and thin handlers
 - if a handler owns deep feature logic, the file is mixed and should be treated critically
-- Bot is an interface/dispatch component of SG, not SG itself
+- Bot is an interface/dispatch/access component of SG, not SG itself
+- Bot must not become the default SG identity or hidden business core
 
 ---
 
@@ -233,6 +248,7 @@ Ownership rule:
 ### SHARED
 - identity-linking code if split across core/users/runtime layers
 - admin surfaces that both check and expose access behavior
+- controller/gate code that delegates permission checks to Users / Access
 
 ### LEGACY
 - scattered role checks inside handlers or runtime files
@@ -245,9 +261,10 @@ Ownership rule:
 - audit-linked access change surfaces
 
 Ownership rule:
-- Users / Access owns who may do what
+- Users / Access owns who may do or access what
 - local ad hoc role checks elsewhere are not true ownership, only debt
 - access code must not grant component users authority to redefine SG itself
+- permissions protect actions/data/scopes, not SG thinking, analysis, explanation, or non-applied planning
 
 ---
 
@@ -276,6 +293,7 @@ Ownership rule:
 - Memory owns long-term reusable context boundaries
 - if memory semantics appear in handlers or random services, that is ownership drift
 - memory supports SG continuity, but does not replace SG pillars/decisions
+- memory writes are protected/state-changing behavior unless explicitly classified otherwise
 
 ---
 
@@ -305,6 +323,7 @@ Ownership rule:
 - Tasks owns explicit units of work and their lifecycle
 - repeated work without task identity is not a valid target pattern
 - task automation must not become autonomous SG governance
+- task state-changing/external actions must respect permissions/confirmations where configured
 
 ---
 
@@ -368,6 +387,7 @@ Ownership rule:
 - RepoStateAgent is the factual repository observation subsystem of SG
 - repo review/output features consume Repo/RepoStateAgent, but do not own repo access itself
 - repo tooling must not become SG itself or autonomous architecture owner
+- repo mutation must remain separate from repo inspection and requires explicit permission/approval
 
 ---
 
@@ -425,6 +445,7 @@ Ownership rule:
 - Project Memory owns persistent project working context
 - canonical governance still belongs to pillars, not to code-side project memory
 - SG project experience belongs to SG as global entity, not to external AI/helper tools
+- Gary's project context must not become default for ordinary users
 
 ---
 
@@ -454,6 +475,7 @@ Ownership rule:
 Ownership rule:
 - File-Intake owns modality-aware extraction routing
 - downstream feature reasoning over extracted content does not change that ownership
+- private/sensitive file handling must not bypass permission/scope boundaries
 
 ---
 
@@ -484,6 +506,43 @@ Ownership rule:
 - AI Routing owns centralized AI invocation discipline
 - if model choice is made ad hoc elsewhere, that is not true ownership, only drift
 - external AI/model/provider is an instrument of SG, not SG itself
+- AI Routing is model/cost/control wrapper, not SemanticRouter and not SG brain
+- AI Routing must not replace reasoning model intelligence with hardcoded routing logic
+
+---
+
+## 5.12 Minimal Controller / Gate
+
+### PRIMARY
+- no mandatory standalone heavy module by default
+- ownership may live near the specific Human Mode / Technical Mode / capability surface that needs protection
+- central reusable helpers may appear later only if repetition proves real need
+
+### SHARED
+- Human Mode entry/controller files
+- Users / Access permission checks
+- capability selector files
+- action-type guards
+- risk/cost/confirmation helpers
+- source/tool requirement checks
+
+### LEGACY
+- handler-local gate logic hidden inside large handlers
+- command-local permission shortcuts copied many times
+- phrase/regex route acting as controller
+
+### FUTURE
+- `src/core/capabilities/*`
+- `src/core/controller/*`
+- `src/core/gates/*`
+- `src/core/actionTypes/*`
+
+Ownership rule:
+- Minimal Controller / Gate owns action protection flow, not SG thinking
+- it checks capability, permission, source/tool need, action type, risk, cost, and confirmation
+- it must stay minimal until a real architectural need requires shared extraction
+- it must not become a heavy SemanticRouter or hidden god-core
+- it must not bypass Users / Access for protected actions
 
 ---
 
@@ -507,11 +566,13 @@ Interpretation:
 ### 6.2 `src/core/handleMessage.js`
 Risk:
 - often becomes a magnet for orchestration, memory access, AI calls, and handler logic
+- may become a hidden god-core if controller/routing logic is added carelessly
 
 Interpretation:
 - treat as `SHARED`
 - useful as a coordination point
 - dangerous if it grows into a hidden god-core
+- should not become SG brain
 
 ---
 
@@ -534,16 +595,32 @@ Rule:
 
 ---
 
+### 6.4 controller/router/helper files
+Risk:
+- can become hidden routing brains
+- can bypass Users / Access
+- can accumulate feature logic from many modules
+- can turn phrase matching into fake Human Mode intelligence
+
+Interpretation:
+- treat as `SHARED + HIGH-RISK`
+- keep controller/gate logic minimal
+- extract only when repeated responsibility is clear
+- never let controller/router code redefine SG identity or governance
+
+---
+
 ## 7) What to do when ownership is unclear
 
 When a file seems to belong to multiple modules:
 
 1. ask what responsibility dominates
-2. check `MODULE_MAP.md`
-3. check `DATA_FLOW.md`
-4. check `PERMISSIONS_MAP.md` if access is involved
-5. check `REPO_MAP_SOURCE_POLICY.md` if repo truth/current state is involved
-6. treat mixed ownership as architectural risk, not as proof that “everything is flexible”
+2. check `DECISIONS.md`
+3. check `MODULE_MAP.md`
+4. check `DATA_FLOW.md`
+5. check `PERMISSIONS_MAP.md` if access/action control is involved
+6. check `REPO_MAP_SOURCE_POLICY.md` if repo truth/current state is involved
+7. treat mixed ownership as architectural risk, not as proof that “everything is flexible”
 
 If still ambiguous:
 - document the ambiguity
@@ -561,6 +638,7 @@ Update this file when:
 - an important mixed-responsibility file is split
 - a previously assumed ownership mapping is proven wrong
 - RepoStateAgent / factual repo ownership changes
+- controller/gate ownership changes
 - code ownership affects SG entity/governance boundaries
 
 Do not update this file for every tiny refactor.
@@ -585,6 +663,7 @@ Ask:
 - is this file legacy/transitional?
 - should new logic be added here at all?
 - does the file preserve SG entity/component boundaries?
+- is controller/router logic becoming hidden god-core?
 
 ### If planning refactor
 Use this file to decide:
@@ -592,6 +671,7 @@ Use this file to decide:
 - what should stay
 - what is real ownership vs historical placement
 - how to avoid turning a component into a second SG identity
+- how to avoid turning a controller/router/AI wrapper into SG brain
 
 ---
 
@@ -605,3 +685,5 @@ It becomes modular when:
 - legacy placement is not mistaken for correct architecture
 - new code follows responsibility, not convenience
 - code ownership remains component ownership inside SG, not ownership over SG itself
+- code ownership does not grant authority over SG philosophy, governance, or identity
+- controller/gate code protects actions without becoming SG brain

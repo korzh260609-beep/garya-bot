@@ -4,17 +4,23 @@ Purpose:
 - Provide one canonical entrypoint into `pillars/modules/`.
 - Show which module docs exist, what each module folder contains, and how mature each module is.
 - Reduce friction when humans or AI need to find boundaries, contracts, risks, and runtime expectations quickly.
+- Keep module documentation aligned with the SG philosophy fixed in `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: `pillars/modules/`
 
 This file must be interpreted together with:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
+- `pillars/architecture/MODULE_MAP.md`
+- `pillars/architecture/PERMISSIONS_MAP.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
@@ -34,17 +40,19 @@ This index exists to solve that.
 
 ## 0.1) SG entity rule for modules
 
-SG is the global project entity.
+SG is the global project entity and global intellectual system.
 
-Modules are components/instruments of SG.
+Modules are bounded responsibility areas, components and instruments of SG.
 
 A module must never be documented, implemented, or operated as a separate independent SG.
 
 Correct model:
 
 ```text
-SG = global project entity
-module = bounded responsibility area / component of SG
+SG = global project entity / global intellectual system
+module = bounded responsibility area / component / instrument of SG
+minimal controller/gate = action protection boundary, not SG brain
+AI routing = model/cost/control wrapper, not SG brain
 ```
 
 Incorrect model:
@@ -52,8 +60,39 @@ Incorrect model:
 ```text
 module = SG itself
 module = autonomous project entity
-module = owner of SG decisions / identity / memory
+module = owner of SG decisions / identity / memory / philosophy
+module/controller/router = SG brain
+capability access = governance authority
 ```
+
+---
+
+## 0.2) Controlled-action rule for modules
+
+Every module that exposes useful capability must preserve the controlled-action model:
+
+```text
+SG is free in thinking.
+SG is controlled in actions.
+```
+
+Module docs must distinguish:
+
+```text
+read-only
+analysis-only
+prepare-only
+state-changing
+external-action
+private-data
+expensive/costly
+```
+
+Rules:
+- permissions protect actions, data, scope and surfaces;
+- permissions do not block SG thinking, analysis, explanation, comparison, or non-applied planning;
+- state-changing, external, sensitive/private, or expensive actions require permission/risk/cost/confirmation handling where applicable;
+- module access does not grant authority to redefine SG philosophy, architecture, accepted decisions, or project governance.
 
 ---
 
@@ -69,7 +108,7 @@ When working on a module:
 
 Suggested read order:
 - module local docs first
-- then `pillars/SG_ENTITY.md`, `pillars/DECISIONS.md`, active workflow files and architecture docs as needed
+- then `pillars/DECISIONS.md`, `pillars/SG_ENTITY.md`, active workflow files and architecture docs as needed
 
 ---
 
@@ -112,6 +151,7 @@ Important rule:
 - these maturity labels are practical guidance
 - they do NOT override repository/runtime verification
 - if runtime reality and this file diverge, verified repository/runtime wins and this index must be updated
+- `pillars/DECISIONS.md` still wins for SG philosophy and global direction
 
 ---
 
@@ -133,9 +173,9 @@ Purpose:
 - memory risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
@@ -158,6 +198,7 @@ Purpose:
 - transport risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/DATA_FLOW.md`
@@ -182,11 +223,11 @@ Purpose:
 - privilege risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
-- `pillars/DECISIONS.md`
 
 ---
 
@@ -206,6 +247,7 @@ Purpose:
 - repo safety risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
@@ -217,6 +259,7 @@ Read together with:
 Important:
 - old `REPOINDEX.md` / old maps must not be treated as factual current repo state if marked legacy/deprecated.
 - current factual repo state must follow `REPO_MAP_SOURCE_POLICY.md`.
+- repo inspection is read-only/analysis-only unless explicit approved mutation path exists.
 
 ---
 
@@ -236,11 +279,11 @@ Purpose:
 - source-first risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
-- `pillars/DECISIONS.md`
 
 ---
 
@@ -260,6 +303,7 @@ Purpose:
 - handler bloat risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 - `pillars/architecture/SEMANTIC_ROUTING.md`
@@ -286,6 +330,7 @@ Purpose:
 - duplicate-run/lifecycle risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
@@ -310,6 +355,7 @@ Purpose:
 - false-visibility risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`
@@ -334,6 +380,7 @@ Purpose:
 - pillar/project-memory conflict risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/README.md`
 - `pillars/DOCS_GOVERNANCE.md`
@@ -358,6 +405,7 @@ Purpose:
 - modality risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
@@ -382,13 +430,16 @@ Purpose:
 - scattered-AI-call risk model
 
 Read together with:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/SG_BEHAVIOR.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/SEMANTIC_ROUTING.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/CODE_OUTPUT.md`
+
+Important:
+- AI Routing is a model/cost/control wrapper, not SG brain and not heavy SemanticRouter.
 
 ---
 
@@ -396,8 +447,8 @@ Read together with:
 
 ### If changing architecture boundaries
 Read:
-- `pillars/SG_ENTITY.md`
 - `pillars/DECISIONS.md`
+- `pillars/SG_ENTITY.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 - `pillars/architecture/SEMANTIC_ROUTING.md`
@@ -408,6 +459,7 @@ Read:
 
 ### If changing public behavior/interface of a module
 Read:
+- `pillars/DECISIONS.md`
 - `pillars/SG_BEHAVIOR.md`
 - module `CONTRACTS.md`
 - module `README.md`
@@ -422,6 +474,7 @@ Read:
 
 ### If introducing a new module
 Read:
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/DOCS_GOVERNANCE.md`
 - `pillars/architecture/README.md`
@@ -444,6 +497,7 @@ Do NOT add random files into `pillars/modules/` without deciding:
 - what maturity/status will this module realistically have?
 - does this module remain a component of SG instead of becoming a separate SG entity?
 - how will this capability be exposed through SG if it is useful to users/Monarch?
+- what action type / permission / confirmation boundaries apply?
 
 Otherwise the module-doc system will decay quickly.
 
@@ -469,6 +523,8 @@ discoverability and trust in the whole module-doc system degrades.
 `MODULE_INDEX.md` exists to reduce search cost and false confidence.
 
 Modules are components of SG, not independent SG entities.
+
+Module capability access is not governance authority.
 
 If people cannot quickly find the right module docs
 or cannot tell how mature a module really is,

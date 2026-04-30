@@ -12,10 +12,8 @@ const ALLOWED_PILLARS_FILES = new Set([
   "pillars/DECISIONS.md",
   "pillars/KINGDOM.md",
   "pillars/PROJECT.md",
-  "pillars/ROADMAP.md",
   "pillars/SG_BEHAVIOR.md",
   "pillars/SG_ENTITY.md",
-  "pillars/WORKFLOW.md",
 ]);
 
 const ALLOWED_PILLARS_DIR_PREFIXES = Object.freeze([
@@ -54,7 +52,9 @@ export const MemoryPolicy = {
     if (!path || typeof path !== "string") return false;
     if (!content || typeof content !== "string") return false;
 
-    // 1) Pillars — всегда кандидаты (НО НЕ АВТОЗАПИСЬ)
+    // 1) Pillars — always candidates only through active canonical files/folders.
+    // Legacy flat workflow/roadmap files are excluded here; compatibility fallback
+    // belongs to resolvers, not durable memory policy.
     if (path.startsWith(ALLOWED_PILLARS_PREFIX)) {
       return isAllowedPillarPath(path);
     }

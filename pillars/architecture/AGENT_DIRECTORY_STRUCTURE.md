@@ -11,11 +11,11 @@ Scope: future agent/module refactors and new agent creation
 This file must be interpreted together with:
 
 - `pillars/SG_ENTITY.md`
+- `pillars/DECISIONS.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/CODE_OWNERSHIP_MAP.md`
 - `pillars/architecture/MODULE_MAP.md`
 - `pillars/architecture/SG_CAPABILITY_ACCESS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 
 ---
 

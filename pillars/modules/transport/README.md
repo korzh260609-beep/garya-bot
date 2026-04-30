@@ -4,9 +4,19 @@ Purpose:
 - Define the Transport module as a stable responsibility domain.
 - Fix what Transport is allowed to do and what it must never do.
 - Prevent platform adapters from absorbing business logic.
+- Keep channels as access surfaces of SG, not separate SG entities.
 
 Status: CANONICAL
 Scope: Transport logical module
+
+This file must be interpreted together with:
+
+- `pillars/DECISIONS.md`
+- `pillars/SG_ENTITY.md`
+- `pillars/architecture/DATA_FLOW.md`
+- `pillars/architecture/SG_INTERFACE_LAYERS.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
@@ -20,6 +30,15 @@ The Transport module is responsible for:
 - passing that context into the core flow safely
 
 Transport exists to isolate platform differences from the rest of SG.
+
+Transport is not SG itself.
+
+Correct relation:
+
+```text
+SG = global project entity / global intellectual system
+Transport = channel/access adapter
+```
 
 ---
 
@@ -54,10 +73,12 @@ The Transport module must NOT own:
 - AI routing policy
 - long-term storage semantics
 - module-specific product behavior
+- SG philosophy, identity, governance, or accepted decisions
 
 Also out of scope:
 - becoming a second bot/business layer
 - platform-specific hidden rules that bypass core logic
+- creating separate SG identities per platform
 
 ---
 
@@ -86,6 +107,7 @@ The Transport module is responsible for:
 4. normalizing into unified context
 5. passing normalized context into core flow
 6. avoiding duplicate side effects where transport retries can happen
+7. preserving channel identity without owning user identity or permission policy
 
 ---
 
@@ -101,10 +123,27 @@ The following invariants must hold:
 - Transport must not call AI directly for platform parsing logic
 - Channel switch must not create a separate core architecture
 - Unified core flow must remain platform-agnostic
+- Transport must not bypass controlled-action gates
 
 ---
 
-## 6) Examples of what Transport may do
+## 6) Controlled-action rule
+
+Transport may receive requests for protected actions, but it must not execute them.
+
+Transport only passes normalized context forward.
+
+Rules:
+- permission checks belong to Users / Access and controlled gates;
+- memory writes belong to Memory / Project Memory paths;
+- AI calls belong to AI Routing;
+- source fetches belong to Sources;
+- task execution belongs to Tasks;
+- state-changing/external actions must not be hidden in platform adapters.
+
+---
+
+## 7) Examples of what Transport may do
 
 Allowed examples:
 
@@ -119,7 +158,7 @@ These are transport responsibilities.
 
 ---
 
-## 7) Examples of what Transport must not do
+## 8) Examples of what Transport must not do
 
 Forbidden examples:
 
@@ -129,12 +168,13 @@ Forbidden examples:
 - “call provider/model directly from transport”
 - “store platform-specific long-term rules in transport”
 - “implement feature behavior only for one channel when it belongs to core”
+- “perform external/state-changing action from adapter code”
 
 These create architectural drift.
 
 ---
 
-## 8) Relationship to adjacent modules
+## 9) Relationship to adjacent modules
 
 Transport is closely related to:
 
@@ -143,6 +183,7 @@ Transport is closely related to:
 - Memory
 - Logging / Diagnostics
 - Identity resolution
+- Minimal Controller / Gate boundary
 
 But Transport does not own those modules.
 
@@ -150,7 +191,7 @@ Transport only hands off normalized input.
 
 ---
 
-## 9) Future extension rule
+## 10) Future extension rule
 
 Future channels may include:
 
@@ -163,10 +204,11 @@ Adding a new channel must preserve the same rule:
 
 new channel = new adapter
 not = new business architecture
+not = new SG identity
 
 ---
 
-## 10) Ownership rule
+## 11) Ownership rule
 
 If a problem is platform-specific, it may belong to Transport.
 
@@ -176,6 +218,7 @@ If a problem is about:
 - how memory is stored
 - how AI is called
 - how tasks are executed
+- whether protected action may proceed
 
 then it does NOT belong to Transport.
 
@@ -183,9 +226,12 @@ This distinction must stay hard.
 
 ---
 
-## 11) Final rule
+## 12) Final rule
 
 Transport exists to isolate channels, not to reinvent SG per channel.
 
 If Transport becomes “smart” in the wrong way,
 core architecture becomes fragmented and unsafe.
+
+If Transport creates separate SG identities,
+the architecture is wrong.

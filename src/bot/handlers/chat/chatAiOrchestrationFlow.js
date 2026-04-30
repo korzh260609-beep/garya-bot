@@ -57,6 +57,7 @@ export async function runChatAiOrchestration({
   MAX_HISTORY_MESSAGES = 20,
 
   projectIntentRepoContext = null,
+  livingSGPlan = null,
 }) {
   const chatIntent = resolveChatIntent({
     text: effective,
@@ -224,6 +225,33 @@ export async function runChatAiOrchestration({
       projectIntentRepoContext?.targetEntity || "",
     projectIntentRepoContextTargetPath:
       projectIntentRepoContext?.targetPath || "",
+
+    livingSGPlanPresent: Boolean(livingSGPlan),
+    livingSGPlanSource: livingSGPlan?.source || "",
+    livingSGPlanOk:
+      typeof livingSGPlan?.ok === "boolean" ? livingSGPlan.ok : null,
+    livingSGPlanDryRun:
+      typeof livingSGPlan?.dryRun === "boolean" ? livingSGPlan.dryRun : null,
+    livingSGPlanConnectedToRuntime:
+      typeof livingSGPlan?.connectedToRuntime === "boolean"
+        ? livingSGPlan.connectedToRuntime
+        : null,
+    livingSGIntentKind: livingSGPlan?.intentPlan?.intentKind || "",
+    livingSGCapabilityActionType: livingSGPlan?.capabilityPlan?.actionType || "",
+    livingSGGateStatus: livingSGPlan?.gate?.status || "",
+    livingSGResponseKind: livingSGPlan?.responsePlan?.responseKind || "",
+    livingSGShouldExecuteTool:
+      typeof livingSGPlan?.responsePlan?.shouldExecuteTool === "boolean"
+        ? livingSGPlan.responsePlan.shouldExecuteTool
+        : null,
+    livingSGNoStateChange:
+      typeof livingSGPlan?.metadata?.noStateChange === "boolean"
+        ? livingSGPlan.metadata.noStateChange
+        : null,
+    livingSGNoProjectIntentExecution:
+      typeof livingSGPlan?.metadata?.noProjectIntentExecution === "boolean"
+        ? livingSGPlan.metadata.noProjectIntentExecution
+        : null,
 
     projectContextScopeProjectArea: projectContextScope?.projectArea || "",
     projectContextScopeRepo: projectContextScope?.repoScope || "",

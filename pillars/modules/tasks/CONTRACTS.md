@@ -3,7 +3,7 @@
 Purpose:
 - Define the public contract expectations of the Tasks module.
 - Fix the task lifecycle and execution boundary.
-- Reduce guessing during future task-engine work.
+- Keep task execution aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Tasks logical interfaces
@@ -13,6 +13,19 @@ Scope: Tasks logical interfaces
 ## 0) Contract philosophy
 
 Tasks contracts define how explicit units of work are represented and executed.
+
+The Tasks module is not SG itself.
+It is not an autonomous decision maker.
+It is an execution/lifecycle component used by SG.
+
+Canonical rule:
+
+```text
+SG is free in thinking.
+SG is controlled in actions.
+```
+
+Therefore task creation, updates, runs, retries and scheduled execution must remain explicit, scoped, observable and permission-aware.
 
 This file does not require exact current implementation names.
 It defines the contract shape that future task work must preserve.
@@ -32,6 +45,7 @@ Canonical logical capabilities may include:
 - track task state
 - track task run result/failure
 - enforce bounded retry/idempotency rules
+- check permission/cost/confirmation requirements before protected execution
 
 The exact file/function names may evolve.
 The boundary itself must remain explicit.
@@ -48,11 +62,13 @@ Expected input:
 - task definition/payload
 - owner/scope metadata
 - schedule or execution mode if applicable
+- cost/risk/action type metadata if relevant
 
 Preconditions:
 - task intent is explicit enough to model
 - required ownership/scope info exists
 - unsupported task types fail explicitly
+- creation path is allowed by policy
 
 Postconditions:
 - task exists in explicit state or controlled failure occurs
@@ -61,6 +77,7 @@ Postconditions:
 Must NOT do:
 - silently create ambiguous task records
 - hide missing required task metadata
+- treat vague conversation as executable automation without explicit task shape
 
 ---
 
@@ -76,6 +93,7 @@ Preconditions:
 - task exists
 - execution path is allowed
 - duplication/idempotency concerns are handled explicitly where required
+- protected actions/costly AI calls/external effects are checked through the relevant gate
 
 Postconditions:
 - exactly one bounded run attempt is initiated or controlled failure occurs
@@ -84,6 +102,7 @@ Postconditions:
 Must NOT do:
 - silently run non-existent or ambiguous tasks
 - allow hidden uncontrolled duplicate runs where idempotency matters
+- bypass AI Routing, Sources, Users/Access or Logging boundaries by convenience
 
 ---
 
@@ -129,6 +148,7 @@ Postconditions:
 Must NOT do:
 - lose failure visibility
 - silently drop critical run outcome metadata
+- make a source/model failure look like a successful factual result
 
 ---
 
@@ -163,11 +183,14 @@ Any caller using Tasks must:
 - respect lifecycle/state model
 - treat retries as policy-bound
 - keep task execution reviewable
+- preserve owner/scope/user/project boundaries
+- call other owning modules for sources, AI, memory, repo, logging and access checks
 
 Caller must NOT:
 - hide task execution in unrelated modules
 - bypass explicit task state transitions
 - assume duplicated runs are harmless
+- treat Tasks as an autonomous agent or SG brain
 
 ---
 
@@ -180,6 +203,7 @@ Task operations may have side effects such as:
 - task run logging/telemetry
 - scheduling metadata updates
 - retry metadata changes
+- approved external/action execution through delegated modules
 
 These side effects must remain explicit and predictable.
 
@@ -197,6 +221,7 @@ Tasks operations should fail in a controlled way when:
 - run is duplicated unsafely
 - retry policy blocks the action
 - execution dependency is unavailable
+- permission/cost/confirmation gate blocks execution
 
 Preferred behavior:
 - explicit failure
@@ -207,6 +232,7 @@ Forbidden behavior:
 - silent execution loss
 - hidden duplicate runs
 - ambiguous lifecycle mutation
+- unapproved state-changing/external/costly execution
 
 ---
 
@@ -219,6 +245,8 @@ The following patterns are explicitly forbidden:
 - task lifecycle mutated without explicit state handling
 - pretending idempotency is optional where duplicate execution matters
 - burying run failures so operators cannot trace what happened
+- direct AI/model/provider/source ownership inside Tasks when another module owns that boundary
+- treating scheduled execution as permission to bypass user/monarch control
 
 ---
 
@@ -232,12 +260,14 @@ Future additions may include contracts for:
 - task templates
 - recurring task governance
 - user-visible task cost estimation
+- confirmation workflows for risky/costly tasks
 
 These additions must preserve the same principles:
 - explicit
 - lifecycle-aware
 - observable
 - bounded
+- controlled in actions
 
 ---
 
@@ -247,3 +277,5 @@ Tasks contracts exist so SG execution can be understood as a system, not as a co
 
 If task execution loses explicit boundaries,
 the whole engine becomes fragile.
+
+Tasks execute bounded work for SG; they do not become SG.

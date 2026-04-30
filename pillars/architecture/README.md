@@ -8,8 +8,11 @@ Architecture documents must be interpreted together with the core pillars:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/README.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+
+Important:
+- `pillars/DECISIONS.md` is the single root decisions file.
+- `pillars/decisions/` is not an active root decisions folder.
+- Deleted decision-extension files must not be referenced as active architecture truth.
 
 ---
 
@@ -188,13 +191,23 @@ Architecture changes require explicit governance.
 
 Relevant decisions:
 
+- D-000: SG is a free-thinking multiuser entity with controlled actions
+- D-000A: SG is a multiuser system of personal entities
+- D-000B: `global_user_id` is the root of personal logic
+- D-000C: chats and groups are separate interaction places with isolated memory boundaries
+- D-000D: monarch control does not mean unrestricted default access to private user memory
+- D-000E: Gary's project is not default for ordinary users
+- D-000F: workflow and sources are meaning providers, not fixed paths
+- D-000G: capabilities replace permanent hardcoded allowlists/blacklists
+- D-000H: commands are interface shortcuts, not SG essence
+- D-000I: SG must not be trapped by regex
+- D-000J: target context hierarchy
+- D-001: SG proposes and organizes; user/monarch makes final decisions
 - D-009: skeleton -> config -> logic
-- D-010: no architecture changes on the fly
-- D-016: system correctness overrides AI intelligence
-- D-017: SG Code-AI operates in analysis/suggestion mode only
-- D-019: pillars are source of truth, not chat logs
+- D-010: no architecture changes without approval
+- D-017: Code-AI operates in analysis/suggestion mode only
+- D-019: pillars are source of system philosophy, not chat logs
 - D-038: project memory and long-term memory core are early foundation
-- D-039: SG global entity and component alignment
 
 ---
 
@@ -219,14 +232,13 @@ Current Human Mode architecture work must keep these guardrails:
 For architecture work, read in this order:
 
 1. `pillars/SG_ENTITY.md`
-2. `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
+2. `pillars/DECISIONS.md`
 3. `pillars/SG_BEHAVIOR.md`
 4. `pillars/PROJECT.md`
-5. `pillars/DECISIONS.md`
-6. `pillars/architecture/README.md`
-7. `pillars/architecture/SG_INTERFACE_LAYERS.md`
-8. `pillars/architecture/SEMANTIC_ROUTING.md`
-9. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
-10. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
-11. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
-12. relevant architecture maps: `MODULE_MAP.md`, `DATA_FLOW.md`, `PERMISSIONS_MAP.md`, `CODE_OWNERSHIP_MAP.md`
+5. `pillars/architecture/README.md`
+6. `pillars/architecture/SG_INTERFACE_LAYERS.md`
+7. `pillars/architecture/SEMANTIC_ROUTING.md`
+8. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+9. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+10. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+11. relevant architecture maps: `MODULE_MAP.md`, `DATA_FLOW.md`, `PERMISSIONS_MAP.md`, `CODE_OWNERSHIP_MAP.md`

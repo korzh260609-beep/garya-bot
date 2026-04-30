@@ -13,21 +13,22 @@ import {
   isBareBasenameLike,
   resolveCanonicalPathFromBasename,
 } from "./projectIntentRepoStorePathUtils.js";
+import { getPreferredPillarPath } from "../../../projectExperience/PillarTargetResolver.js";
 
 export function pickLikelyTargetPathFromKnownEntity(entity = "") {
   const e = sanitizeEntity(entity).toLowerCase();
 
   if (!e) return "";
 
-  if (e === "workflow") return "pillars/WORKFLOW.md";
-  if (e === "decisions" || e === "decision") return "pillars/DECISIONS.md";
-  if (e === "roadmap") return "pillars/ROADMAP.md";
-  if (e === "project") return "pillars/PROJECT.md";
-  if (e === "kingdom") return "pillars/KINGDOM.md";
-  if (e === "sg_behavior") return "pillars/SG_BEHAVIOR.md";
-  if (e === "sg_entity") return "pillars/SG_ENTITY.md";
-  if (e === "repoindex") return "pillars/REPOINDEX.md";
-  if (e === "code_insert_rules") return "pillars/CODE_INSERT_RULES.md";
+  if (e === "workflow") return getPreferredPillarPath("workflow");
+  if (e === "decisions" || e === "decision") return getPreferredPillarPath("decisions");
+  if (e === "roadmap") return getPreferredPillarPath("roadmap");
+  if (e === "project") return getPreferredPillarPath("project");
+  if (e === "kingdom") return getPreferredPillarPath("kingdom");
+  if (e === "sg_behavior") return getPreferredPillarPath("sg_behavior");
+  if (e === "sg_entity") return getPreferredPillarPath("sg_entity");
+  if (e === "repoindex") return getPreferredPillarPath("repoindex");
+  if (e === "code_insert_rules") return getPreferredPillarPath("code_insert_rules");
   if (e === "readme" || e === "project_description") return "README.md";
 
   const canonicalFromBasename = resolveCanonicalPathFromBasename(e);

@@ -27,8 +27,8 @@ export const SG_CORE_STRONG_ANCHORS = Object.freeze([
   "my sg project",
   "мой репозиторий sg",
   "my sg repo",
-  "workflow.md",
-  "roadmap.md",
+  "workflow",
+  "roadmap",
   "decisions.md",
   "sg_behavior.md",
   "sg_entity.md",
@@ -66,8 +66,8 @@ export const SG_CORE_IDENTITY_PHRASES = Object.freeze([
 // ----------------------------------------------------------------------------
 
 export const SG_CANONICAL_PILLAR_PHRASES = Object.freeze([
-  "workflow.md",
-  "roadmap.md",
+  "workflow",
+  "roadmap",
   "decisions.md",
   "repoindex.md",
   "project.md",

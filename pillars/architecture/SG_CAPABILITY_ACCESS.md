@@ -10,7 +10,6 @@ This file must be interpreted together with:
 - `pillars/SG_BEHAVIOR.md`
 - `pillars/PROJECT.md`
 - `pillars/DECISIONS.md`
-- `pillars/decisions/D-039_SG_GLOBAL_ENTITY_COMPONENT_ALIGNMENT.md`
 - `pillars/architecture/README.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`

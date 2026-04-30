@@ -9,9 +9,15 @@
 // - avoid any writes, routing changes, or normal chat interception.
 // ============================================================================
 
+import fs from "node:fs/promises";
+import path from "node:path";
+
 const DEFAULT_PROJECT_KEY = "garya_ai";
 const DEFAULT_MODE = "shadow";
-const SERVICE_VERSION = "stage-7A.9-skeleton-v1";
+const SERVICE_VERSION = "stage-7A.9-skeleton-v2-workflow-folder";
+const WORKFLOW_DIR_RELATIVE_PATH = "pillars/workflow";
+const WORKFLOW_FILE_MAX_CHARS = 2500;
+const WORKFLOW_TOTAL_MAX_CHARS = 9000;
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -116,13 +122,87 @@ function buildWarningsFromSources(sourceSummary = []) {
   return warnings;
 }
 
+function extractMarkdownTitle(content = "", fallback = "") {
+  const lines = String(content ?? "").split(/\r?\n/);
+  const firstHeading = lines.find((line) => /^#\s+/.test(String(line || "").trim()));
+
+  if (firstHeading) {
+    return firstHeading.replace(/^#\s+/, "").trim();
+  }
+
+  return fallback;
+}
+
+async function pathExists(absPath) {
+  try {
+    await fs.access(absPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function readWorkflowFolderState({ workflowDir = WORKFLOW_DIR_RELATIVE_PATH } = {}) {
+  const rootDir = process.cwd();
+  const relativeDir = safeText(workflowDir) || WORKFLOW_DIR_RELATIVE_PATH;
+  const absDir = path.resolve(rootDir, relativeDir);
+
+  if (!(await pathExists(absDir))) {
+    return {
+      items: [],
+      text: "",
+      warnings: [`workflow folder not found: ${relativeDir}`],
+    };
+  }
+
+  const dirEntries = await fs.readdir(absDir, { withFileTypes: true });
+  const mdFiles = dirEntries
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .filter((name) => name.toLowerCase().endsWith(".md"))
+    .sort((a, b) => a.localeCompare(b));
+
+  const items = [];
+  const blocks = [];
+  const warnings = [];
+
+  for (const fileName of mdFiles) {
+    const relativePath = path.posix.join(relativeDir.replace(/\\/g, "/"), fileName);
+    const absPath = path.join(absDir, fileName);
+    const rawContent = await fs.readFile(absPath, "utf-8");
+    const title = extractMarkdownTitle(rawContent, fileName);
+    const compactContent = compactText(rawContent, WORKFLOW_FILE_MAX_CHARS);
+
+    items.push({
+      path: relativePath,
+      title,
+      chars: rawContent.length,
+      truncated: rawContent.length > compactContent.length,
+    });
+
+    blocks.push([`FILE: ${relativePath}`, `TITLE: ${title}`, compactContent].join("\n"));
+  }
+
+  if (mdFiles.length === 0) {
+    warnings.push(`workflow folder has no markdown files: ${relativeDir}`);
+  }
+
+  const text = compactText(blocks.join("\n\n---\n\n"), WORKFLOW_TOTAL_MAX_CHARS);
+
+  return {
+    items,
+    text,
+    warnings,
+  };
+}
+
 export class ProjectRestoreService {
   constructor({
     projectKey = DEFAULT_PROJECT_KEY,
     buildConfirmedProjectMemoryDigest = null,
     buildConfirmedProjectMemoryContext = null,
     getChatHistory = null,
-    readWorkflowState = null,
+    readWorkflowState = readWorkflowFolderState,
     readRepoFacts = null,
     readCommitMap = null,
     readDeployHistory = null,
@@ -149,7 +229,7 @@ export class ProjectRestoreService {
       const result = await this.readWorkflowState(input);
       return buildSourceState({
         sourceKey: "workflow",
-        available: true,
+        available: safeArray(result?.items).length > 0 || Boolean(safeText(result?.text)),
         items: safeArray(result?.items),
         text: result?.text || "",
         warnings: safeArray(result?.warnings),
@@ -347,7 +427,7 @@ export class ProjectRestoreService {
 
     if (state.workflow?.text) {
       lines.push("WORKFLOW SNAPSHOT:");
-      lines.push(compactText(state.workflow.text, 900));
+      lines.push(compactText(state.workflow.text, 1600));
       lines.push("");
     }
 
@@ -417,13 +497,16 @@ export class ProjectRestoreService {
       version: SERVICE_VERSION,
       mode: state.mode || DEFAULT_MODE,
       projectKey: state.projectKey || this.projectKey,
+      workflowDir: WORKFLOW_DIR_RELATIVE_PATH,
       checkedSources,
       missingSources,
       staleSources,
       warnings,
       limits: {
         contextTextChars: 4000,
-        workflowTextChars: 900,
+        workflowFileChars: WORKFLOW_FILE_MAX_CHARS,
+        workflowTotalChars: WORKFLOW_TOTAL_MAX_CHARS,
+        workflowContextChars: 1600,
         confirmedMemoryTextChars: 1200,
         repoFactsTextChars: 900,
         commitMapTextChars: 700,

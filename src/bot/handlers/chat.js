@@ -47,6 +47,7 @@ export async function handleChatMessage({
   callAI,
   sanitizeNonMonarchReply,
   projectIntentRepoContext = null,
+  livingSGPlan = null,
 }) {
   const {
     messageId,
@@ -113,6 +114,7 @@ export async function handleChatMessage({
     MAX_HISTORY_MESSAGES,
 
     projectIntentRepoContext,
+    livingSGPlan,
   });
 }
 

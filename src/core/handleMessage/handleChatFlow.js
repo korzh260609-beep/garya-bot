@@ -22,7 +22,7 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
-function buildLivingSGShadowPlan({
+export function buildLivingSGShadowPlan({
   context,
   transport,
   chatIdStr,
@@ -35,9 +35,10 @@ function buildLivingSGShadowPlan({
   repoFollowupContext,
   projectContextDecision,
   projectMemoryAutoCaptureMeta,
+  livingSGBoundaryFactory = createLivingSGBoundary,
 } = {}) {
   try {
-    const shadowPlan = createLivingSGBoundary({
+    const shadowPlan = livingSGBoundaryFactory({
       text: trimmed,
       trimmed,
       transport,

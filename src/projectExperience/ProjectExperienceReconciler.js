@@ -17,6 +17,7 @@ import {
   PROJECT_EXPERIENCE_STATUSES,
   PROJECT_EXPERIENCE_CONFIDENCE,
 } from "./projectExperienceTypes.js";
+import { getPreferredPillarPath } from "./PillarTargetResolver.js";
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -105,13 +106,15 @@ export class ProjectExperienceReconciler {
     if (!pillarContext || ensureArray(pillarContext?.pillars).length === 0) {
       gaps.push("missing_pillars_context");
       risks.push("No pillars context was supplied; project logic may be lost.");
-      nextSteps.push("Read ROADMAP.md, WORKFLOW.md and DECISIONS.md in read-only mode.");
+      nextSteps.push(
+        `Read ${getPreferredPillarPath("roadmap")}, ${getPreferredPillarPath("workflow")} and ${getPreferredPillarPath("decisions")} in read-only mode.`
+      );
     }
 
     if (normalizedStageKey && pillarStageMatches.length === 0) {
       gaps.push("stage_not_found_in_pillars");
       risks.push(`Stage ${normalizedStageKey} is not linked to pillars context.`);
-      nextSteps.push(`Find or define Stage ${normalizedStageKey} in WORKFLOW/ROADMAP before final verification.`);
+      nextSteps.push(`Find or define Stage ${normalizedStageKey} in active workflow/roadmap source before final verification.`);
     }
 
     if (ensureArray(manualClaims).length > 0 && ensureArray(repoEvidences).length === 0) {

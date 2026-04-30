@@ -3,7 +3,7 @@
 Purpose:
 - Document the main risk surface of the Bot module.
 - Prevent handler bloat, hidden branching, and orchestration drift.
-- Keep user-entry logic predictable.
+- Keep user-entry logic predictable and aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Bot module risk model
@@ -19,9 +19,10 @@ Bot-layer damage is dangerous because it starts conveniently:
 - one provider shortcut
 - one role-specific branch
 
-Then suddenly the handlers are the real system.
+Then suddenly the handlers are treated as the real system.
 
-This file exists to stop that drift early.
+This is forbidden by the SG model.
+Bot is an interface component, not SG itself and not SG brain.
 
 Important current note:
 - Bot documentation describes the target boundary correctly
@@ -67,7 +68,7 @@ Signal:
 
 ### R-03: Bot starts owning policy
 Description:
-- access, memory, or source policy gets invented locally in handlers
+- access, memory, source, cost or confirmation policy gets invented locally in handlers
 
 Consequence:
 - hidden policy drift
@@ -138,21 +139,48 @@ Signal:
 
 ---
 
+### R-08: Bot is mistaken for SG
+Description:
+- Telegram/Bot runtime is treated as the whole SG system
+
+Consequence:
+- architecture narrows incorrectly
+- future multi-transport/client design becomes harder
+- decisions get made from channel constraints instead of SG philosophy
+
+Signal:
+- docs or code imply “Bot = SG” or “no bot command = no SG capability”
+
+---
+
+### R-09: Bot bypasses controlled-action model
+Description:
+- handler flow performs state-changing, external, private-data or costly actions without permission/gate/confirmation
+
+Consequence:
+- governance and safety boundary erode
+- user trust and project control weaken
+
+Signal:
+- action happens immediately because a handler matched a route
+
+---
+
 ## 2) Secondary risks
 
-### R-08: One command owns too much
+### R-10: One command owns too much
 Consequence:
 - blast radius increases
 
-### R-09: Group/private behavior diverges invisibly
+### R-11: Group/private behavior diverges invisibly
 Consequence:
 - inconsistent UX and hard debugging
 
-### R-10: Handler reuse is poor
+### R-12: Handler reuse is poor
 Consequence:
 - duplicate flows appear
 
-### R-11: Bot-to-module boundaries blur
+### R-13: Bot-to-module boundaries blur
 Consequence:
 - ownership confusion spreads
 
@@ -169,6 +197,8 @@ The following assumptions are dangerous:
 - “one exception will not hurt”
 - “the bot layer is the easiest place, so put it there”
 - “direct SQL in a handler is fine if it works”
+- “Bot is basically SG for now”
+- “command match means action is allowed”
 
 These assumptions must be treated as risk factors.
 
@@ -200,6 +230,8 @@ After any meaningful Bot change, verify:
 5. fallback remains bounded and reviewable
 6. direct SQL in handlers did not spread further
 7. docs still match actual route/handler behavior
+8. Bot is not documented or implemented as SG brain
+9. state-changing/external/private/costly actions still pass gate/permission/confirmation where needed
 
 ---
 
@@ -214,6 +246,7 @@ Preferred defenses:
 - visible fallbacks
 - stale-doc detection
 - stopping further spread of direct SQL in handlers
+- strict separation between Bot interface and SG identity
 
 Avoid fake safety:
 - convenient handler exceptions
@@ -221,6 +254,7 @@ Avoid fake safety:
 - feature logic stuffed into chat entry files
 - response polish masking real failures
 - treating existing mixed handlers as acceptable precedent
+- treating Telegram/Bot limitations as SG limitations
 
 ---
 
@@ -232,3 +266,5 @@ The most dangerous bug is:
 “the bot still works, but handlers have quietly become the real architecture.”
 
 Direct SQL inside handlers is one of the clearest signs of that drift.
+
+Treating Bot as SG itself is an even deeper architectural error.

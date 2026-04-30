@@ -14,8 +14,8 @@ import path from "node:path";
 
 const DEFAULT_PROJECT_KEY = "garya_ai";
 const DEFAULT_MODE = "shadow";
-const SERVICE_VERSION = "stage-7A.9-skeleton-v2-workflow-folder";
-const WORKFLOW_DIR_RELATIVE_PATH = "pillars/workflow";
+const SERVICE_VERSION = "stage-7A.9-skeleton-v3-configurable-workflow-source";
+const DEFAULT_WORKFLOW_DIR_RELATIVE_PATH = "pillars/workflow";
 const WORKFLOW_FILE_MAX_CHARS = 2500;
 const WORKFLOW_TOTAL_MAX_CHARS = 9000;
 
@@ -55,6 +55,17 @@ function normalizeProjectKey(value) {
   return safeText(value) || DEFAULT_PROJECT_KEY;
 }
 
+function normalizeRelativePath(value, fallback) {
+  const raw = safeText(value) || fallback;
+  const normalized = raw.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
+
+  if (!normalized || normalized.includes("..")) {
+    return fallback;
+  }
+
+  return normalized;
+}
+
 function buildEmptySourceState(sourceKey) {
   return {
     sourceKey,
@@ -64,10 +75,11 @@ function buildEmptySourceState(sourceKey) {
     text: "",
     warnings: [],
     error: null,
+    meta: {},
   };
 }
 
-function buildSourceState({ sourceKey, available = false, items = [], text = "", warnings = [], error = null } = {}) {
+function buildSourceState({ sourceKey, available = false, items = [], text = "", warnings = [], error = null, meta = {} } = {}) {
   return {
     sourceKey,
     ok: available && !error,
@@ -76,6 +88,7 @@ function buildSourceState({ sourceKey, available = false, items = [], text = "",
     text: safeText(text),
     warnings: safeArray(warnings).map(safeText).filter(Boolean),
     error: error ? safeText(error?.message || error) : null,
+    meta: meta && typeof meta === "object" && !Array.isArray(meta) ? meta : {},
   };
 }
 
@@ -102,6 +115,7 @@ function collectSourceSummary(state = {}) {
       hasText: Boolean(safeText(item.text)),
       warningCount: safeArray(item.warnings).length,
       error: item.error || null,
+      meta: item.meta || {},
     };
   });
 }
@@ -142,16 +156,33 @@ async function pathExists(absPath) {
   }
 }
 
-export async function readWorkflowFolderState({ workflowDir = WORKFLOW_DIR_RELATIVE_PATH } = {}) {
+export function resolveWorkflowDir(input = {}) {
+  return normalizeRelativePath(
+    input.workflowDir || process.env.SG_WORKFLOW_DIR,
+    DEFAULT_WORKFLOW_DIR_RELATIVE_PATH
+  );
+}
+
+export async function readWorkflowFolderState(input = {}) {
   const rootDir = process.cwd();
-  const relativeDir = safeText(workflowDir) || WORKFLOW_DIR_RELATIVE_PATH;
+  const relativeDir = resolveWorkflowDir(input);
   const absDir = path.resolve(rootDir, relativeDir);
+  const warnings = [];
+
+  if (relativeDir !== DEFAULT_WORKFLOW_DIR_RELATIVE_PATH) {
+    warnings.push(`workflow folder override active: ${relativeDir}`);
+  }
 
   if (!(await pathExists(absDir))) {
     return {
       items: [],
       text: "",
-      warnings: [`workflow folder not found: ${relativeDir}`],
+      warnings: [...warnings, `workflow folder not found: ${relativeDir}`],
+      meta: {
+        workflowDir: relativeDir,
+        defaultWorkflowDir: DEFAULT_WORKFLOW_DIR_RELATIVE_PATH,
+        sourceType: "folder",
+      },
     };
   }
 
@@ -164,10 +195,9 @@ export async function readWorkflowFolderState({ workflowDir = WORKFLOW_DIR_RELAT
 
   const items = [];
   const blocks = [];
-  const warnings = [];
 
   for (const fileName of mdFiles) {
-    const relativePath = path.posix.join(relativeDir.replace(/\\/g, "/"), fileName);
+    const relativePath = path.posix.join(relativeDir, fileName);
     const absPath = path.join(absDir, fileName);
     const rawContent = await fs.readFile(absPath, "utf-8");
     const title = extractMarkdownTitle(rawContent, fileName);
@@ -193,12 +223,19 @@ export async function readWorkflowFolderState({ workflowDir = WORKFLOW_DIR_RELAT
     items,
     text,
     warnings,
+    meta: {
+      workflowDir: relativeDir,
+      defaultWorkflowDir: DEFAULT_WORKFLOW_DIR_RELATIVE_PATH,
+      sourceType: "folder",
+      fileCount: mdFiles.length,
+    },
   };
 }
 
 export class ProjectRestoreService {
   constructor({
     projectKey = DEFAULT_PROJECT_KEY,
+    workflowDir = null,
     buildConfirmedProjectMemoryDigest = null,
     buildConfirmedProjectMemoryContext = null,
     getChatHistory = null,
@@ -208,6 +245,7 @@ export class ProjectRestoreService {
     readDeployHistory = null,
   } = {}) {
     this.projectKey = normalizeProjectKey(projectKey);
+    this.workflowDir = resolveWorkflowDir({ workflowDir });
     this.buildConfirmedProjectMemoryDigest = buildConfirmedProjectMemoryDigest;
     this.buildConfirmedProjectMemoryContext = buildConfirmedProjectMemoryContext;
     this.getChatHistory = getChatHistory;
@@ -221,21 +259,39 @@ export class ProjectRestoreService {
     if (!isFn(this.readWorkflowState)) {
       return buildSourceState({
         sourceKey: "workflow",
-        warnings: ["readWorkflowState is not wired; workflow must come from pillars/workflow files"],
+        warnings: ["readWorkflowState is not wired; workflow source must be configured, default is pillars/workflow"],
+        meta: {
+          workflowDir: this.workflowDir,
+          defaultWorkflowDir: DEFAULT_WORKFLOW_DIR_RELATIVE_PATH,
+        },
       });
     }
 
     try {
-      const result = await this.readWorkflowState(input);
+      const result = await this.readWorkflowState({
+        ...input,
+        workflowDir: input.workflowDir || this.workflowDir,
+      });
       return buildSourceState({
         sourceKey: "workflow",
         available: safeArray(result?.items).length > 0 || Boolean(safeText(result?.text)),
         items: safeArray(result?.items),
         text: result?.text || "",
         warnings: safeArray(result?.warnings),
+        meta: result?.meta || {
+          workflowDir: this.workflowDir,
+          defaultWorkflowDir: DEFAULT_WORKFLOW_DIR_RELATIVE_PATH,
+        },
       });
     } catch (err) {
-      return buildSourceState({ sourceKey: "workflow", error: err });
+      return buildSourceState({
+        sourceKey: "workflow",
+        error: err,
+        meta: {
+          workflowDir: this.workflowDir,
+          defaultWorkflowDir: DEFAULT_WORKFLOW_DIR_RELATIVE_PATH,
+        },
+      });
     }
   }
 
@@ -421,9 +477,15 @@ export class ProjectRestoreService {
 
     lines.push("PROJECT RESTORE CONTEXT (READ-ONLY, SHADOW-SAFE):");
     lines.push("Project Memory is background, not runtime proof.");
-    lines.push("Workflow truth must come from pillars/workflow files.");
+    lines.push("Workflow truth must come from configured pillars workflow source.");
+    lines.push("Default workflow source is pillars/workflow, but pillars structure may change.");
     lines.push("Repository/runtime facts must be verified from repo/runtime before code decisions.");
     lines.push("");
+
+    if (state.workflow?.meta?.workflowDir) {
+      lines.push(`WORKFLOW SOURCE: ${state.workflow.meta.workflowDir}`);
+      lines.push("");
+    }
 
     if (state.workflow?.text) {
       lines.push("WORKFLOW SNAPSHOT:");
@@ -490,6 +552,7 @@ export class ProjectRestoreService {
       .map((item) => item.sourceKey);
     const staleSources = [];
     const warnings = buildWarningsFromSources(sourceSummary);
+    const workflowDir = state.workflow?.meta?.workflowDir || this.workflowDir;
 
     return {
       ok: missingSources.length === 0,
@@ -497,7 +560,8 @@ export class ProjectRestoreService {
       version: SERVICE_VERSION,
       mode: state.mode || DEFAULT_MODE,
       projectKey: state.projectKey || this.projectKey,
-      workflowDir: WORKFLOW_DIR_RELATIVE_PATH,
+      workflowDir,
+      defaultWorkflowDir: DEFAULT_WORKFLOW_DIR_RELATIVE_PATH,
       checkedSources,
       missingSources,
       staleSources,
@@ -514,7 +578,7 @@ export class ProjectRestoreService {
       },
       recommendation:
         missingSources.length > 0
-          ? "Keep ProjectRestoreService in shadow mode until missing sources are wired."
+          ? "Keep ProjectRestoreService in shadow mode until missing sources are wired. If pillars workflow path changes, set workflowDir or SG_WORKFLOW_DIR."
           : "Restore sources are wired; keep read-only diagnostics before runtime integration.",
     };
   }

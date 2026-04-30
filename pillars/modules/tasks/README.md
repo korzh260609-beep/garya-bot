@@ -4,9 +4,20 @@ Purpose:
 - Define the Tasks module as a stable responsibility domain.
 - Fix what belongs to task definition, execution flow, and task lifecycle.
 - Prevent task behavior from scattering across unrelated modules.
+- Keep task execution aligned with controlled-action boundaries.
 
 Status: CANONICAL
 Scope: Tasks logical module
+
+This file must be interpreted together with:
+
+- `pillars/DECISIONS.md`
+- `pillars/SG_ENTITY.md`
+- `pillars/architecture/DATA_FLOW.md`
+- `pillars/architecture/PERMISSIONS_MAP.md`
+- `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
@@ -22,6 +33,8 @@ The Tasks module is responsible for:
 
 This module exists to keep SG task execution structured, observable, and separable from ad hoc chat behavior.
 
+Tasks are components/instruments of SG. Tasks are not autonomous SG entities.
+
 ---
 
 ## 1) In scope
@@ -35,6 +48,7 @@ Tasks includes responsibilities such as:
 - task run coordination
 - task-related observability hooks
 - bounded retry/execution policy where applicable
+- action-type awareness for task operations
 
 Typical related code areas may include:
 - task services
@@ -56,10 +70,12 @@ The Tasks module must NOT own:
 - AI routing policy
 - deep domain-specific business logic of every task payload
 - generic bot routing behavior
+- SG philosophy, identity, or governance
 
 Also out of scope:
 - becoming a hidden replacement for workflow/governance
 - silently executing things that were never modeled as tasks
+- autonomous state-changing/external actions outside SG gates
 
 ---
 
@@ -72,6 +88,7 @@ Tasks must make SG execution answerable in system terms:
 - when should it run?
 - why did it run or fail?
 - what is one run vs another run?
+- is this task read-only, prepare-only, state-changing, external, private, or expensive?
 
 This must stay explicit.
 
@@ -86,6 +103,7 @@ The Tasks module is responsible for:
 3. tracking task runs/results/failures where applicable
 4. preserving task boundaries across scheduling/manual execution
 5. making task behavior reviewable and observable
+6. coordinating with access/source/AI/logging modules without owning them
 
 ---
 
@@ -99,10 +117,34 @@ The following invariants must hold:
 - task behavior must not be hidden inside unrelated chat flows
 - scheduling metadata must not replace actual execution discipline
 - task failures must remain visible
+- protected task actions must not bypass permissions, source checks, risk/cost checks or confirmations
+- task automation must not become autonomous governance
 
 ---
 
-## 6) Relationship to adjacent modules
+## 6) Controlled-action rule
+
+Task operations must classify action type where relevant:
+
+```text
+read-only
+analysis-only
+prepare-only
+state-changing
+external-action
+private-data
+expensive/costly
+```
+
+Rules:
+- read-only/analysis-only tasks may explain or inspect within allowed scope;
+- prepare-only tasks may draft plans, reports, diffs or proposals without applying them;
+- state-changing/external/private/expensive tasks require explicit gates and confirmation where configured;
+- denied execution may still return explanation, warning, or non-applied plan.
+
+---
+
+## 7) Relationship to adjacent modules
 
 Tasks is closely related to:
 
@@ -111,6 +153,7 @@ Tasks is closely related to:
 - Users / Access
 - Logging / Diagnostics
 - AI Routing
+- Memory / Project Memory
 - domain-specific report/monitor features
 
 But Tasks does not own those modules.
@@ -119,22 +162,23 @@ It owns task structure and execution boundaries.
 
 ---
 
-## 7) Examples of what Tasks may do
+## 8) Examples of what Tasks may do
 
 Allowed examples:
 
 - create a task record
-- trigger a run
+- trigger a run after permission/gate checks
 - store run state/result metadata
 - prevent duplicate execution where required
 - expose `/tasks`-style status surfaces
 - coordinate retries according to explicit policy
+- pause or block execution when confirmation is missing
 
 These are task responsibilities.
 
 ---
 
-## 8) Examples of what Tasks must not do
+## 9) Examples of what Tasks must not do
 
 Forbidden examples:
 
@@ -144,12 +188,14 @@ Forbidden examples:
 - own provider-specific source logic
 - own permission policy
 - replace observability with guesswork
+- perform external/state-changing actions just because schedule fired
+- turn automated tasks into autonomous SG governance
 
 These damage execution integrity.
 
 ---
 
-## 9) Ownership rule
+## 10) Ownership rule
 
 If the question is:
 - what a task is
@@ -164,14 +210,18 @@ If the question is:
 - what source data the task consumes
 - how memory is selected
 - how AI explains the result
+- whether an external/state-changing action is allowed
 
 then it belongs elsewhere or must be shared with adjacent modules.
 
 ---
 
-## 10) Final rule
+## 11) Final rule
 
 Tasks exists to make execution explicit and traceable.
 
 If execution starts happening “somewhere somehow”,
 the system becomes harder to debug, trust, and scale.
+
+If tasks become autonomous authority,
+the SG controlled-action philosophy is broken.

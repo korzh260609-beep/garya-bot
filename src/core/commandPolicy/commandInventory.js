@@ -19,6 +19,7 @@
 // ============================================================================
 
 import { MEMORY_COMMAND_INVENTORY } from "./commandInventoryMemory.js";
+import { SYSTEM_COMMAND_INVENTORY } from "./commandInventorySystem.js";
 
 export const COMMAND_MODES = Object.freeze({
   TECHNICAL: "technical_mode",
@@ -334,6 +335,12 @@ export const COMMAND_INVENTORY = Object.freeze([
   // Split into a separate data-only file to keep this registry readable.
   // --------------------------------------------------------------------------
   ...MEMORY_COMMAND_INVENTORY,
+
+  // --------------------------------------------------------------------------
+  // Identity / System / Admin Technical Mode inventory entries.
+  // Split into a separate data-only file to keep this registry readable.
+  // --------------------------------------------------------------------------
+  ...SYSTEM_COMMAND_INVENTORY,
 ]);
 
 export function getCommandInventoryEntry(command) {

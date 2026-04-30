@@ -12,8 +12,12 @@ const apiKey = envStr("OPENAI_API_KEY", "").trim();
 const client = apiKey ? new OpenAI({ apiKey }) : null;
 
 function resolveModelByCostLevel(costLevel = "medium") {
+  if (costLevel === "nano") {
+    return MODEL_CONFIG.nano || MODEL_CONFIG.low || MODEL_CONFIG.default;
+  }
+
   if (costLevel === "low") {
-    return MODEL_CONFIG.low;
+    return MODEL_CONFIG.low || MODEL_CONFIG.nano || MODEL_CONFIG.default;
   }
 
   if (costLevel === "medium") {
@@ -21,10 +25,33 @@ function resolveModelByCostLevel(costLevel = "medium") {
   }
 
   if (costLevel === "high") {
-    return MODEL_CONFIG.high || MODEL_CONFIG.default;
+    return MODEL_CONFIG.high || MODEL_CONFIG.medium || MODEL_CONFIG.default;
+  }
+
+  if (costLevel === "critical") {
+    return MODEL_CONFIG.critical || MODEL_CONFIG.high || MODEL_CONFIG.default;
   }
 
   return MODEL_CONFIG.default;
+}
+
+function resolveFallbackModels({ costLevel = "medium", primaryModel = null } = {}) {
+  const chainByCostLevel = {
+    nano: [MODEL_CONFIG.low, MODEL_CONFIG.legacyFallback],
+    low: [MODEL_CONFIG.nano, MODEL_CONFIG.legacyFallback],
+    medium: [MODEL_CONFIG.low, MODEL_CONFIG.nano, MODEL_CONFIG.legacyFallback],
+    high: [MODEL_CONFIG.medium, MODEL_CONFIG.low, MODEL_CONFIG.legacyFallback],
+    critical: [MODEL_CONFIG.high, MODEL_CONFIG.medium, MODEL_CONFIG.low, MODEL_CONFIG.legacyFallback],
+  };
+
+  const chain = chainByCostLevel[costLevel] || [MODEL_CONFIG.low, MODEL_CONFIG.legacyFallback];
+  const seen = new Set([primaryModel].filter(Boolean));
+
+  return chain.filter((model) => {
+    if (!model || seen.has(model)) return false;
+    seen.add(model);
+    return true;
+  });
 }
 
 function extractOutputText(response) {
@@ -153,7 +180,7 @@ function buildInputPayload(messages, primaryModel, maxTok, temperature) {
   return { input, payload };
 }
 
-function buildAiUsageResult({ response, text, model, costLevel, usedFallback }) {
+function buildAiUsageResult({ response, text, model, costLevel, usedFallback, fallbackFromModel = null }) {
   const usage = normalizeUsage(response);
   const cost = estimateUsageCostUsd({
     model,
@@ -166,6 +193,7 @@ function buildAiUsageResult({ response, text, model, costLevel, usedFallback }) 
     model,
     costLevel,
     usedFallback: usedFallback === true,
+    fallbackFromModel,
     usage,
     inputTokens: usage.inputTokens,
     outputTokens: usage.outputTokens,
@@ -175,6 +203,24 @@ function buildAiUsageResult({ response, text, model, costLevel, usedFallback }) 
     inputUsdPer1M: cost.inputUsdPer1M,
     outputUsdPer1M: cost.outputUsdPer1M,
   };
+}
+
+async function runResponsesCreate({ model, input, maxTok, temperature }) {
+  const payload = {
+    model,
+    input,
+    ...(typeof maxTok === "number" ? { max_output_tokens: maxTok } : {}),
+    ...(typeof temperature === "number" ? { temperature } : {}),
+  };
+
+  const response = await client.responses.create(payload);
+  const text = extractOutputText(response);
+
+  if (text.trim().length) {
+    return { response, text };
+  }
+
+  throw new Error(`AI returned empty output (model=${model})`);
 }
 
 /**
@@ -187,9 +233,9 @@ function buildAiUsageResult({ response, text, model, costLevel, usedFallback }) 
  * - Стоимость считается только если заданы ENV:
  *   AI_PRICE_<MODEL>_INPUT_USD_PER_1M
  *   AI_PRICE_<MODEL>_OUTPUT_USD_PER_1M
- *   пример для gpt-4.1-mini:
- *   AI_PRICE_GPT_4_1_MINI_INPUT_USD_PER_1M
- *   AI_PRICE_GPT_4_1_MINI_OUTPUT_USD_PER_1M
+ *   пример для gpt-5-nano:
+ *   AI_PRICE_GPT_5_NANO_INPUT_USD_PER_1M
+ *   AI_PRICE_GPT_5_NANO_OUTPUT_USD_PER_1M
  */
 export async function callAIWithUsage(messages, costLevel = "medium", opts = {}) {
   if (!client) {
@@ -197,7 +243,6 @@ export async function callAIWithUsage(messages, costLevel = "medium", opts = {})
   }
 
   const primaryModel = resolveModelByCostLevel(costLevel);
-  const fallbackModel = MODEL_CONFIG.low;
 
   const maxTok =
     typeof opts.max_completion_tokens === "number"
@@ -209,24 +254,23 @@ export async function callAIWithUsage(messages, costLevel = "medium", opts = {})
   const temperature =
     typeof opts.temperature === "number" ? opts.temperature : undefined;
 
-  const { input, payload } = buildInputPayload(messages, primaryModel, maxTok, temperature);
+  const { input } = buildInputPayload(messages, primaryModel, maxTok, temperature);
 
   try {
-    const response = await client.responses.create(payload);
-    const text = extractOutputText(response);
+    const { response, text } = await runResponsesCreate({
+      model: primaryModel,
+      input,
+      maxTok,
+      temperature,
+    });
 
-    // 🚨 never return empty string silently
-    if (text.trim().length) {
-      return buildAiUsageResult({
-        response,
-        text,
-        model: primaryModel,
-        costLevel,
-        usedFallback: false,
-      });
-    }
-
-    throw new Error(`AI returned empty output (model=${primaryModel})`);
+    return buildAiUsageResult({
+      response,
+      text,
+      model: primaryModel,
+      costLevel,
+      usedFallback: false,
+    });
   } catch (e) {
     const status = e?.status || e?.statusCode || null;
     const msg = e?.message || String(e);
@@ -234,36 +278,43 @@ export async function callAIWithUsage(messages, costLevel = "medium", opts = {})
     console.error("❌ callAI primary failed:", {
       requestedCostLevel: costLevel,
       model: primaryModel,
-      fallbackModel,
       status,
       msg,
     });
 
-    if (primaryModel === fallbackModel) {
-      throw e;
+    const fallbackModels = resolveFallbackModels({ costLevel, primaryModel });
+    let lastError = e;
+
+    for (const fallbackModel of fallbackModels) {
+      try {
+        const { response, text } = await runResponsesCreate({
+          model: fallbackModel,
+          input,
+          maxTok,
+          temperature,
+        });
+
+        return buildAiUsageResult({
+          response,
+          text,
+          model: fallbackModel,
+          costLevel,
+          usedFallback: true,
+          fallbackFromModel: primaryModel,
+        });
+      } catch (fallbackError) {
+        lastError = fallbackError;
+        console.error("❌ callAI fallback failed:", {
+          requestedCostLevel: costLevel,
+          primaryModel,
+          fallbackModel,
+          status: fallbackError?.status || fallbackError?.statusCode || null,
+          msg: fallbackError?.message || String(fallbackError),
+        });
+      }
     }
 
-    const fallbackPayload = {
-      model: fallbackModel,
-      input,
-      ...(typeof maxTok === "number" ? { max_output_tokens: maxTok } : {}),
-      ...(typeof temperature === "number" ? { temperature } : {}),
-    };
-
-    const response = await client.responses.create(fallbackPayload);
-    const text = extractOutputText(response);
-
-    if (text.trim().length) {
-      return buildAiUsageResult({
-        response,
-        text,
-        model: fallbackModel,
-        costLevel,
-        usedFallback: true,
-      });
-    }
-
-    throw new Error(`AI returned empty output (fallback model=${fallbackModel})`);
+    throw lastError;
   }
 }
 

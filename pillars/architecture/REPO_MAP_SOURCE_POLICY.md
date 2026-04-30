@@ -6,31 +6,35 @@ This file defines the factual source policy for current repository state, projec
 
 It is an architecture-level implementation of:
 
+- `pillars/DECISIONS.md`
 - `pillars/SG_ENTITY.md`
 - `pillars/PROJECT.md`
-- `pillars/DECISIONS.md`
 - `pillars/architecture/SG_INTERFACE_LAYERS.md`
 - `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
+- `pillars/architecture/SEMANTIC_ROUTING.md`
+
+If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
 ---
 
 ## Entity alignment
 
-SG is the global project entity.
+SG is the global project entity and global intellectual system.
 
-RepoStateAgent is not a separate SG, not an autonomous project owner, and not an independent source of decisions.
+RepoStateAgent is not a separate SG, not an autonomous project owner, not SG’s brain, and not an independent source of decisions.
 
 RepoStateAgent is SG’s factual repository observation subsystem.
 
-Its role is to observe and structure current repository state so SG can reason and answer from verified facts.
+Its role is to observe and structure current repository state so SG can reason and answer from verified repo facts.
 
 Correct relation:
 
 ```text
-SG global project entity
+SG global project entity / global intellectual system
 -> RepoStateAgent factual observation subsystem
 -> verified repo/project/semantic map
--> SG decision-support response
+-> SG reasoning and decision-support response
+-> user/monarch decision where decision is required
 ```
 
 Incorrect relation:
@@ -39,6 +43,7 @@ Incorrect relation:
 RepoStateAgent = SG itself
 RepoStateAgent = autonomous architect
 RepoStateAgent = decision maker
+RepoStateAgent = source of SG philosophy
 old RepoIndex = current factual truth
 ```
 
@@ -46,9 +51,9 @@ old RepoIndex = current factual truth
 
 ## Core rule
 
-The only factual source of truth for the current repository state is the new RepoStateAgent pipeline.
+RepoStateAgent is the primary SG factual observation pipeline for current repository/project-map claims when it is available and verified.
 
-Current factual repository state must come from:
+Current factual repository state should come from:
 
 ```text
 RepoStateAgent
@@ -68,20 +73,59 @@ This applies to claims about:
 - project completion/status claims
 - Human Mode repo/project answers
 
+Important distinction:
+- runtime/repository reality remains the underlying factual reality;
+- RepoStateAgent observes and structures that reality for SG;
+- `pillars/DECISIONS.md` remains the philosophical and architectural foundation for what SG is meant to become;
+- RepoStateAgent facts do not override accepted SG philosophy, governance, or monarch decisions.
+
+---
+
+## RepoStateAgent role boundary
+
+RepoStateAgent observes facts.
+
+SG/reasoning interprets facts.
+
+User/monarch decides when a decision is required.
+
+Correct boundary:
+
+```text
+RepoStateAgent = factual observation
+SG = reasoning / explanation / recommendation
+Monarch/user = decision source
+```
+
+RepoStateAgent may support:
+- project map generation;
+- semantic map generation;
+- architecture health observation;
+- repo status summaries;
+- module grouping based on verified repo facts.
+
+RepoStateAgent must not:
+- redefine SG identity;
+- override `pillars/DECISIONS.md`;
+- decide architecture changes;
+- mutate code;
+- replace Human Mode reasoning;
+- replace monarch/user decision authority.
+
 ---
 
 ## Source-first alignment
 
-This policy follows the source-first principle from `PROJECT.md` and `SG_BEHAVIOR.md`.
+This policy follows the source-first principle from `PROJECT.md`, `SG_BEHAVIOR.md`, and `DECISIONS.md`.
 
 For repository/project work:
 
 ```text
-meaning resolution
+meaning / intent / context
 -> source selection
--> RepoStateAgent factual read
--> capability/action selection
--> SG answer
+-> RepoStateAgent factual read when repo facts are needed
+-> capability / permission / risk / confirmation checks
+-> SG answer or permitted action
 ```
 
 AI reasoning or model memory must not replace repository facts.
@@ -137,7 +181,7 @@ They must never be presented as current factual repository truth.
 
 ## Migration rule
 
-When old code conflicts with RepoStateAgent, RepoStateAgent wins for factual current repository state.
+When old code conflicts with RepoStateAgent observations, RepoStateAgent-backed observations should be preferred for current factual repository state when available and verified.
 
 Old code must be handled in one of three ways:
 
@@ -151,6 +195,7 @@ This migration must follow `DECISIONS.md` governance:
 - skeleton -> config -> logic
 - system correctness overrides AI intelligence
 - AI/tools may suggest, but Monarch decides
+- protected actions require permission/confirmation
 
 ---
 
@@ -160,11 +205,13 @@ Do not present old RepoIndex, old manual grouping, old hardcoded maps, or old co
 
 Do not copy old grouping/indexing logic into the new agent unless it is verified against real repository state.
 
-Do not treat RepoStateAgent as a separate SG or autonomous decision maker.
+Do not treat RepoStateAgent as a separate SG, autonomous decision maker, or source of SG philosophy.
 
 Do not let model memory, chat history, or stale snapshots override verified repo facts.
 
 Do not connect RepoStateAgent to Human Mode runtime without explicit gated architecture and smoke-check coverage.
+
+Do not use RepoStateAgent facts as permission to mutate repo, pillars, architecture, or workflow.
 
 ---
 
@@ -174,11 +221,12 @@ All future project-map and semantic-map work must move toward:
 
 ```text
 SG/user request
--> SG Human Mode meaning/context/permissions
--> RepoStateAgent
+-> SG Human Mode meaning / intent / context
+-> minimal controller/gate checks permission / scope / capability / source need / risk
+-> RepoStateAgent factual read when repo facts are needed
 -> verified project/semantic map
--> SG capability/action selection
--> SG human-language answer
+-> SG reasoning / response builder
+-> SG human-language answer or permitted action
 ```
 
 Technical Mode may expose RepoStateAgent diagnostics, but those diagnostics remain technical/control surfaces, not SG’s normal user-facing intelligence layer.
@@ -194,4 +242,5 @@ Current safe Human Mode work is aligned with this policy only if:
 - repo facts are loaded from `context.repoStateAgentResult` or gated runner only;
 - `repoStateAgentRunner` runs only when `allowHumanRepoStateAgentRun === true`;
 - real RepoStateAgentService is lazy-imported only when needed;
-- smoke-check validates the contract.
+- smoke-check validates the contract;
+- RepoStateAgent remains a factual observation subsystem, not a separate SG or heavy router brain.

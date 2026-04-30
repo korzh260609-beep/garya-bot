@@ -18,6 +18,7 @@ import {
   PROJECT_EXPERIENCE_CONFIDENCE,
   PROJECT_EXPERIENCE_STATUSES,
 } from "./projectExperienceTypes.js";
+import { getPreferredPillarPath } from "./PillarTargetResolver.js";
 
 function nowIso() {
   return new Date().toISOString();
@@ -48,14 +49,16 @@ export class ProjectExperienceSyncService {
   }
 
   async collectWorkflowStub() {
+    const workflowSource = getPreferredPillarPath("workflow");
+
     return [
       createProjectEvidence({
         type: PROJECT_EXPERIENCE_EVIDENCE_TYPES.WORKFLOW_ENTRY,
         source: "repo",
-        ref: "pillars/WORKFLOW.md",
+        ref: workflowSource,
         title: "[stub] workflow",
-        summary: "Would parse WORKFLOW.md for stages and statuses",
-        details: {},
+        summary: `Would resolve workflow source from ${workflowSource}`,
+        details: { workflowSource },
         confidence: PROJECT_EXPERIENCE_CONFIDENCE.UNKNOWN,
       }),
     ];

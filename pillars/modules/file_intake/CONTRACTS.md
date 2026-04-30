@@ -3,7 +3,7 @@
 Purpose:
 - Define the public contract expectations of the File-Intake module.
 - Fix the file/media intake and extraction-routing boundary.
-- Reduce guessing during future file-processing work.
+- Keep file processing aligned with source-first SG behavior.
 
 Status: CANONICAL
 Scope: File-Intake logical interfaces
@@ -13,6 +13,18 @@ Scope: File-Intake logical interfaces
 ## 0) Contract philosophy
 
 File-Intake contracts define how incoming files/media become bounded extracted payloads.
+
+File-Intake is not SG itself and not SG brain.
+It is a modality intake and extraction boundary.
+
+Canonical rule:
+
+```text
+file/media -> detection -> extraction -> bounded effective input -> analysis
+```
+
+Reasoning may analyze extracted content.
+Reasoning must not pretend failed/weak extraction is reliable source evidence.
 
 This file does not require exact current implementation names.
 It defines the contract shape that future file-intake work must preserve.
@@ -31,6 +43,7 @@ Canonical logical capabilities may include:
 - detect type
 - choose processing route
 - extract text/structure
+- expose extraction confidence/limitations where relevant
 - return bounded extracted result
 
 The exact file/function names may evolve.
@@ -48,10 +61,12 @@ Expected input:
 - explicit file/media reference
 - minimal metadata if available
 - origin context if needed
+- user/project/scope context where relevant
 
 Preconditions:
 - input reference is valid enough to process
 - file/media origin is known enough for bounded handling
+- access to the file is allowed for the current scope
 
 Postconditions:
 - file/media enters explicit processing path or controlled failure occurs
@@ -60,6 +75,7 @@ Postconditions:
 Must NOT do:
 - assume modality-specific meaning before detection
 - skip bounded validation of file/media reference
+- leak files across user/project scope
 
 ---
 
@@ -125,6 +141,7 @@ Preconditions:
 Postconditions:
 - returns bounded extracted result or explicit extraction failure
 - downstream layers receive extracted payload, not raw modality confusion
+- extraction limitations/confidence are visible where they affect trust
 
 Must NOT do:
 - fabricate extracted content
@@ -147,10 +164,12 @@ Preconditions:
 Postconditions:
 - downstream module receives usable bounded payload
 - extracted content remains distinguishable from original raw file/media
+- weak extraction remains marked as weak if relevant
 
 Must NOT do:
 - blur extraction uncertainty
 - silently erase critical extraction limitations
+- present guessed content as extracted content
 
 ---
 
@@ -162,11 +181,13 @@ Any caller using File-Intake must:
 - respect detection and routing steps
 - distinguish extracted payload from raw media
 - handle extraction failure honestly
+- preserve user/project/file scope boundaries
 
 Caller must NOT:
 - bypass the file-intake boundary with random modality-specific code
 - assume every file is plain text
 - treat missing extraction as permission to guess content
+- ask AI to replace disciplined extraction without visible uncertainty
 
 ---
 
@@ -196,6 +217,7 @@ File-Intake operations should fail in a controlled way when:
 - file payload is malformed/corrupted
 - extraction fails
 - resulting payload exceeds bounds
+- file access violates scope/policy
 
 Preferred behavior:
 - explicit failure/unknown result
@@ -206,6 +228,7 @@ Forbidden behavior:
 - fabricated content sold as extracted truth
 - hidden modality misclassification
 - silent fallback into uncontrolled reasoning
+- confident answer from failed extraction
 
 ---
 
@@ -218,6 +241,7 @@ The following patterns are explicitly forbidden:
 - treating raw media payload as already-interpreted text
 - hiding extraction failure behind confident output
 - using reasoning AI as a casual replacement for disciplined extraction routing
+- treating File-Intake as SG itself or as final factual authority
 
 ---
 
@@ -231,12 +255,14 @@ Future additions may include contracts for:
 - document structure extraction
 - file lifecycle/retention integration
 - multimodal extraction bundles
+- source lineage for file-derived results
 
 These additions must preserve the same principles:
 - explicit
 - modality-aware
 - bounded
 - extraction-first
+- failure-visible
 
 ---
 
@@ -246,3 +272,5 @@ File-Intake contracts exist so SG can process files/media through clear modality
 
 If extraction boundaries become vague,
 downstream reasoning becomes unreliable.
+
+File-Intake extracts inputs for SG; it does not become SG.

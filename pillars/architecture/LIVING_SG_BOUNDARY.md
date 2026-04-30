@@ -15,8 +15,9 @@
 
 ```text
 не развивать Technical Mode,
-а изолировать его,
-чтобы он не мешал созданию живого СГ.
+не создавать новый Technical Mode слой,
+а изолировать уже существующую техническую/legacy-логику,
+чтобы она не мешала созданию живого СГ.
 ```
 
 ---
@@ -25,7 +26,7 @@
 
 ```text
 Living SG = верхний смысловой слой СГ.
-Technical Mode = изолированный старый технический слой.
+Technical Mode = уже существующий старый технический слой, который нужно изолировать.
 ```
 
 Living SG должен работать через:
@@ -41,18 +42,16 @@ user message
 -> response or approved action
 ```
 
-Technical Mode должен оставаться сбоку:
-
-```text
-explicit technical access
--> legacy command / diagnostic / debug / maintenance route
-```
+Technical Mode не является направлением развития.
+Он остаётся только как существующий служебный/legacy слой для ремонта, обслуживания и совместимости.
 
 ---
 
 # 2. Запреты
 
 Запрещено добавлять новые slash-команды как путь развития СГ.
+
+Запрещено создавать новые сущности Technical Mode без отдельного решения монарха.
 
 Запрещено:
 
@@ -77,16 +76,25 @@ projectIntent legacy route = Human Mode
 
 # 3. Разрешено
 
-Разрешено изолировать Technical Mode.
+Разрешено изолировать уже существующий Technical Mode.
 
 Разрешено:
 
 ```text
-- переносить legacy/projectIntent/diagnostic bridges за отдельную boundary-грань;
-- маркировать technical routes как legacy/technical-only;
-- делать адаптеры, которые не участвуют в обычном Living SG path;
+- убрать смешение legacy/projectIntent/diagnostic bridges с обычным Living SG path;
+- маркировать существующие technical routes как legacy/technical-only;
+- переносить вызовы старой technical-логики за границу Living SG;
 - создавать Living SG слой выше старого runtime;
 - сохранять старые команды только для ремонта/обслуживания, не для развития UX.
+```
+
+Не разрешено:
+
+```text
+- создавать новый технический слой как отдельное направление разработки;
+- добавлять новые команды;
+- добавлять новые diagnostic bridges;
+- делать Technical Mode центром проекта.
 ```
 
 ---
@@ -122,7 +130,7 @@ PendingProjectActionStore
 
 # 5. Целевая структура
 
-Целевая архитектура:
+Целевая архитектура для нового слоя:
 
 ```text
 src/core/living-sg/
@@ -132,18 +140,14 @@ src/core/living-sg/
   LivingCapabilityPlan.js
   LivingActionGate.js
   LivingResponsePlan.js
-
-src/core/technical-mode/
-  TechnicalModeBoundary.js
-  legacyProjectIntentAdapter.js
-  legacyCommandAdapter.js
 ```
 
 Важно:
 
 ```text
-technical-mode/ не должен становиться новым центром проекта.
-Он нужен только как quarantine/adaptor для старого слоя.
+новую папку/слой Technical Mode не создавать.
+Существующую technical/legacy-логику не развивать.
+Её нужно только изолировать от Living SG path.
 ```
 
 ---
@@ -186,9 +190,9 @@ Living SG не может без разрешения:
 
 ---
 
-# 7. Technical Mode Boundary
+# 7. Existing Technical Mode Boundary
 
-Technical Mode Boundary отвечает только за старое техническое обслуживание:
+Technical Mode уже существует в старом runtime:
 
 ```text
 commands
@@ -198,6 +202,8 @@ legacy routes
 repo maintenance
 migration utilities
 ```
+
+Его задача теперь — не развиваться, а быть изолированным от Living SG.
 
 Technical Mode не должен перехватывать обычный пользовательский текст.
 
@@ -212,10 +218,10 @@ Technical Mode не должен расширяться новыми коман�
 Правильная миграция:
 
 ```text
-1. пометить projectIntent как legacy/technical adapter;
+1. признать projectIntent переходным legacy-мостом;
 2. убрать diagnostic natural bridge из обычного Living SG path;
-3. оставить projectIntent доступным только через Technical Mode Boundary или временный adapter;
-4. постепенно заменить его Living SG capability plan.
+3. не создавать новый Technical Mode слой ради projectIntent;
+4. постепенно заменить projectIntent живым Living SG capability plan.
 ```
 
 ---
@@ -250,9 +256,9 @@ reasoning model / structured meaning
 
 ```text
 1. создать Living SG skeleton без подключения;
-2. создать Technical Mode Boundary skeleton без новых команд;
-3. перенести projectIntent imports за legacy adapter;
-4. в handleChatFlow оставить только вызов boundary;
+2. не создавать новый Technical Mode skeleton;
+3. убрать прямое смешение projectIntent/diagnostic bridge с обычным chat flow;
+4. в handleChatFlow оставить чистый Living SG path;
 5. отключить natural diagnostic bridge из обычного chat path;
 6. проверить CI;
 7. деплой;
@@ -266,9 +272,9 @@ reasoning model / structured meaning
 Успех первого этапа:
 
 ```text
-handleChatFlow больше не содержит прямых technical/projectIntent bridge imports.
+handleChatFlow больше не смешивает обычный Living SG path с diagnostic/projectIntent bridges.
 Living SG имеет отдельную boundary-точку.
-Technical Mode находится в quarantine/adapters.
+Существующий Technical Mode не расширяется.
 Новых slash-команд нет.
 Поведение пользователя не ломается.
 ```
@@ -279,7 +285,8 @@ Technical Mode находится в quarantine/adapters.
 
 ```text
 Technical Mode не развиваем.
-Technical Mode изолируем.
+Новый технический слой не создаём.
+Существующее техническое изолируем.
 Living SG строим сверху.
 Старые команды и bridges не должны определять мышление СГ.
 ```

@@ -51,6 +51,7 @@
 - 3.3 Minimal can(user, action)
 - 3.4 Ban auto-tasks and admin commands for guest
 - 3.5 Rate-limit commands
+- 3.6 Controlled-action distinction: permissions protect actions/data/scopes, not SG thinking, analysis, explanation, or non-applied planning
 
 ## (SKELETON) 3.6 CONFIG / SECRETS HYGIENE
 
@@ -58,7 +59,7 @@
 - 3.6.2 secrets rotation hooks
 - 3.6.3 feature flags storage (table/config, no hardcode)
 
-**Gate:** Anything affecting safety policies must be behind can() and rate limits.
+**Gate:** Anything affecting protected actions, private data, safety policies, admin commands or state changes must be behind can() and rate limits.
 
 ---
 
@@ -115,6 +116,9 @@
 - 5.16.F1 clarification_asked
 - 5.16.F2 answer_mode_changed
 - 5.16.F3 style_axis_used
+- 5.16.F4 protected_action_blocked
+- 5.16.F5 confirmation_required
+- 5.16.F6 controller_gate_used
 
 ### Notes (factual)
 
@@ -145,6 +149,7 @@
 - 6.5 Discord Adapter (skeleton)
 - 6.6 Web / API Adapter (skeleton)
 - 6.7 Email Adapter (skeleton)
+- 6.8 Transport is an access channel to SG, not SG identity and not a business-logic owner
 
 ### Notes (factual)
 

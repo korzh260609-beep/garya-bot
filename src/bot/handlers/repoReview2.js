@@ -12,7 +12,10 @@
 import pool from "../../../db.js";
 import { RepoIndexStore } from "../../repo/RepoIndexStore.js";
 import { requireMonarchPrivateAccess } from "./handlerAccess.js";
-import { getActivePillarPaths } from "../../projectExperience/PillarTargetResolver.js";
+import {
+  getActivePillarPaths,
+  getLegacyPillarPath,
+} from "../../projectExperience/PillarTargetResolver.js";
 
 function dirOf(path) {
   const p = String(path || "");
@@ -95,12 +98,12 @@ export async function handleRepoReview2(ctx = {}) {
     "pillars/PROJECT.md",
     "pillars/REPOINDEX.md",
     ...getActivePillarPaths("roadmap"),
-    "pillars/ROADMAP.md", // legacy compatibility fallback
+    getLegacyPillarPath("roadmap"), // legacy compatibility fallback
     "pillars/SG_BEHAVIOR.md",
     "pillars/SG_ENTITY.md",
     ...getActivePillarPaths("workflow"),
-    "pillars/WORKFLOW.md", // legacy compatibility fallback
-  ];
+    getLegacyPillarPath("workflow"), // legacy compatibility fallback
+  ].filter(Boolean);
 
   const present = new Set(paths);
   const missingPillars = requiredPillars.filter((p) => !present.has(p));

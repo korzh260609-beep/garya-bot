@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { RepoSource } from "../../repo/RepoSource.js";
+import { PillarsResolver } from "../../projectExperience/PillarsResolver.js";
 
 import { safeJsonParse } from "../../bot/handlers/stage-check/common.js";
 import {
@@ -26,7 +27,7 @@ import {
   aggregateScope,
 } from "../../bot/handlers/stage-check/evaluator.js";
 import {
-  WORKFLOW_PATH,
+  WORKFLOW_LEGACY_PATH,
   RULES_PATH,
 } from "../../bot/handlers/stage-check/formatters.js";
 
@@ -44,6 +45,32 @@ function createRepoSource() {
     branch: process.env.GITHUB_BRANCH,
     token: process.env.GITHUB_TOKEN,
   });
+}
+
+async function resolveWorkflowForStageCheck(source) {
+  try {
+    const resolver = new PillarsResolver();
+    const section = await resolver.resolveSection("workflow");
+
+    if (section?.status === "active" && section?.content) {
+      return {
+        content: section.content,
+        sourceRef: section.sourceRef || "pillars/workflow/",
+        legacy: false,
+      };
+    }
+  } catch (_) {}
+
+  const legacyFile = await source.fetchTextFile(WORKFLOW_LEGACY_PATH);
+  if (legacyFile?.content) {
+    return {
+      ...legacyFile,
+      sourceRef: WORKFLOW_LEGACY_PATH,
+      legacy: true,
+    };
+  }
+
+  return null;
 }
 
 function createEvaluationCtx({
@@ -224,7 +251,7 @@ async function loadStageCheckEnvironment() {
   const source = createRepoSource();
 
   const [workflowFile, rulesFile, repoFiles] = await Promise.all([
-    source.fetchTextFile(WORKFLOW_PATH),
+    resolveWorkflowForStageCheck(source),
     source.fetchTextFile(RULES_PATH),
     source.listFiles(),
   ]);

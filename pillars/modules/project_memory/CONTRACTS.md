@@ -3,7 +3,7 @@
 Purpose:
 - Define the public contract expectations of the Project Memory module.
 - Fix the project-context persistence and restoration boundary.
-- Reduce guessing during future project-continuity work.
+- Keep project continuity aligned with `pillars/DECISIONS.md`.
 
 Status: CANONICAL
 Scope: Project Memory logical interfaces
@@ -13,6 +13,22 @@ Scope: Project Memory logical interfaces
 ## 0) Contract philosophy
 
 Project Memory contracts define how project-specific persistent context is stored and restored.
+
+Project Memory is a continuity layer for project work.
+It is not SG itself, not SG brain, not repository truth, and not canonical governance.
+
+Canonical hierarchy:
+
+```text
+DECISIONS.md / pillars = canonical project truth
+repo/runtime/source verification = factual current state
+Project Memory = working project continuity context
+Memory = confirmed user/system semantic context
+Chat History = raw conversation archive
+```
+
+Project Memory may help SG resume work coherently.
+It must not replace accepted decisions, pillars, verified repo state, source-first checks, or monarch approval.
 
 This file does not require exact current implementation names.
 It defines the contract shape that future project-memory work must preserve.
@@ -31,6 +47,7 @@ Canonical logical capabilities may include:
 - write/update project section
 - restore project context
 - load project-scoped continuity state
+- detect conflicts between stored project context and canonical sources
 
 The exact file/function names may evolve.
 The project-memory boundary itself must remain explicit.
@@ -50,6 +67,7 @@ Expected input:
 Preconditions:
 - section identity is explicit enough
 - caller is in a valid project-context flow
+- project scope is allowed for the current user/context
 
 Postconditions:
 - returns project section or explicit absence/failure
@@ -58,6 +76,7 @@ Postconditions:
 Must NOT do:
 - silently widen into uncontrolled project dump
 - blur section identity
+- leak one project/user context into another
 
 ---
 
@@ -74,6 +93,7 @@ Preconditions:
 - section identity is explicit
 - value is bounded and valid enough to store
 - write path is allowed by policy/workflow
+- value does not attempt to override canonical pillars silently
 
 Postconditions:
 - project section is created/updated or controlled failure occurs
@@ -82,6 +102,7 @@ Postconditions:
 Must NOT do:
 - store uncontrolled garbage by convenience
 - silently override canonical pillar rules
+- persist architectural decisions that belong in `DECISIONS.md` / pillars only
 
 ---
 
@@ -96,14 +117,17 @@ Expected input:
 Preconditions:
 - scope is explicit enough
 - restoration is requested in a real project-aware flow
+- restored content does not outrank canonical sources
 
 Postconditions:
 - returns bounded project continuity context
 - restored result is useful but not uncontrolled
+- conflicts with canonical sources are visible where detected
 
 Must NOT do:
 - dump all stored project context blindly
 - pretend project memory is equal to canonical governance
+- hide stale/conflicting project state
 
 ---
 
@@ -124,6 +148,7 @@ Postconditions:
 Must NOT do:
 - mutate project state silently under read-oriented operation
 - merge unrelated memory layers invisibly
+- treat project state as verified repo/runtime state unless verification occurred
 
 ---
 
@@ -135,11 +160,13 @@ Any caller using Project Memory must:
 - keep stored values bounded and structured
 - distinguish project continuity from canonical rules
 - avoid using project memory as a garbage bucket
+- verify repo/runtime/source facts when factual accuracy matters
 
 Caller must NOT:
 - override pillars through project-memory writes
 - treat ordinary memory/chat history as interchangeable with project memory
 - assume all project context should be restored every time
+- use Gary's project memory as default context for other users
 
 ---
 
@@ -167,16 +194,19 @@ Project Memory operations should fail in a controlled way when:
 - project context is unavailable
 - restoration scope is ambiguous
 - write path is not allowed
+- stored context conflicts with canonical sources and cannot be safely resolved
 
 Preferred behavior:
 - explicit failure or absence
 - bounded restoration
+- visible conflict/staleness when detected
 - no silent canonical-rule override
 
 Forbidden behavior:
 - uncontrolled project dumps
 - hidden replacement of pillars
 - silent mixing of project memory with unrelated storage layers
+- confident restoration of stale project facts as current truth
 
 ---
 
@@ -189,6 +219,8 @@ The following patterns are explicitly forbidden:
 - blindly restoring all project data into every future context
 - mixing project memory invisibly with ordinary chat memory
 - treating project-memory convenience as permission to bypass pillars
+- treating Project Memory as SG itself or as final architectural authority
+- applying project-memory context to unrelated users/projects by default
 
 ---
 
@@ -201,12 +233,14 @@ Future additions may include contracts for:
 - project-state diagnostics
 - project memory compaction/cleanup
 - project-context loaders by role/scope
+- conflict checks against pillars/repo/runtime
 
 These additions must preserve the same principles:
 - explicit
 - bounded
 - structured
 - subordinate to canonical pillars
+- source-first where factual state matters
 
 ---
 
@@ -216,3 +250,5 @@ Project Memory contracts exist so SG can continue project work coherently withou
 
 If project memory stops respecting pillar primacy,
 the project context becomes ambiguous.
+
+Project Memory restores working context; it does not decide truth.

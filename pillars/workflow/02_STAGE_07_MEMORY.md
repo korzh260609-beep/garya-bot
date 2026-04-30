@@ -6,11 +6,13 @@
 - 7.4 Long-term memory
 - 7.5 Anti-duplicates
 - 7.6 ROBOT mock-monitor
+- 7.6A Memory stores context and SG/project experience, but memory itself is not SG identity and not SG philosophy source
 
 ## (SKELETON) 7.7 MemoryService CONTRACT
 
 - 7.7.1 interface: write/read/context/recent
 - 7.7.2 ban direct SQL from handlers
+- 7.7.3 memory writes are controlled/state-changing actions unless explicitly classified otherwise
 
 ## 7.8 LONG-TERM MEMORY CORE (moved from future into current memory foundation)
 
@@ -24,6 +26,7 @@
 - 7.8.8 privacy / attribution / group-safety rules
 - 7.8.9 diagnostics for archive/digest generation
 - 7.8.10 strict rule: raw dialogue must not become uncontrolled prompt memory
+- 7.8.11 chat history/archive/digest must not be treated as confirmed memory without validation
 
 ## 7.9 LONG-TERM MEMORY RUNTIME MINIMUM
 
@@ -35,6 +38,7 @@
 - 7.9.6 memory diagnostics command for monarch
 - 7.9.7 no uncontrolled raw-dialogue prompt injection
 - 7.9.8 duplicate/conflict guard for confirmed memory
+- 7.9.9 project/system experience belongs to SG as global entity, not to external AI operators or temporary chats
 
 **Gate:** Any module consuming memory must call MemoryService only.  
 **Gate:** New complex feature work should not continue until 7.8 and 7.9 have a reliable runtime minimum.
@@ -50,6 +54,7 @@
 - 7A.5 getProjectSection / upsertProjectSection
 - 7A.6 Loader
 - 7A.7 Commands /pm_set /pm_show
+- 7A.7A Project Memory supports SG continuity, but does not replace `pillars/DECISIONS.md`, verified repo/runtime facts, or monarch decisions
 
 ## 7A.8 PROJECT MEMORY SERVICE COMPLETION
 
@@ -63,6 +68,7 @@
 - 7A.8.8 session summary updater
 - 7A.8.9 topic digest reader
 - 7A.8.10 project memory context builder
+- 7A.8.11 project memory write/read operations must respect user/project scope and controlled-action boundaries
 
 ## 7A.9 PROJECT WORK AUTO-RESTORE
 
@@ -74,6 +80,7 @@
 - 7A.9.6 restore next safe step
 - 7A.9.7 distinguish confirmed memory from chat context
 - 7A.9.8 expose restore diagnostics in shadow mode
+- 7A.9.9 restored context is bounded support context, not automatic source of truth over pillars
 
 ## 7A.10 PROJECT MEMORY CONTROLLED WRITE
 
@@ -85,6 +92,7 @@
 - 7A.10.6 archive/update path instead of blind overwrite
 - 7A.10.7 trace log every write attempt
 - 7A.10.8 fail closed for ambiguous write intent
+- 7A.10.9 project memory write is a state-changing action and must pass gate/confirmation policy where required
 
 ## 7A.11 PROJECT MEMORY + MEANING RUNTIME
 
@@ -96,6 +104,8 @@
 - 7A.11.6 ProjectEvidenceSeedCache prevents repeated rebuilds
 - 7A.11.7 ProjectLightEvidencePackBuilder builds compact context
 - 7A.11.8 handleMessage enriches context without direct DB write
+- 7A.11.9 MeaningEngine / ToolSelectionEngine / ProjectContextEngine are helper contracts, not SG brain and not heavy SemanticRouter
+- 7A.11.10 helper engines must stay subordinate to reasoning/model meaning, permissions, sources, and controlled-action gates
 
 ## 7A.12 PROJECT MEMORY TEST SURFACE
 
@@ -116,6 +126,7 @@
 - 7A.13.5 user-facing output must explain practical benefit, not internal modules
 - 7A.13.6 snapshot writes must go through ProjectMemoryService only
 - 7A.13.7 snapshot generation must be traceable and refreshable
+- 7A.13.8 capability snapshots must not redefine SG philosophy or bypass `DECISIONS.md`
 
 ## 7A.V1 Speech→Text (STT skeleton, provider-agnostic)
 
@@ -138,6 +149,7 @@
 # STAGE 7B — CHAT HISTORY CORE (LONG-TERM / POINT-RECALL / FREE-TIER SAFE)
 
 - 7B.1 chat_messages table (safe-limited full messages)
+- 7B.1A Chat history is archive/source material, not confirmed memory and not SG philosophy source
 - 7B.2 Indexes
   - 7B.2.1 (chat_id, created_at DESC)
   - 7B.2.2 unique (chat_id, platform_message_id)
@@ -167,6 +179,7 @@
 - 7B.8.3 compact context window builder
 - 7B.8.4 history-source diagnostics
 - 7B.8.5 role-based read limits
+- 7B.8.6 restored chat history must be bounded and labeled as context, not confirmed truth
 
 ## 7B.9 GROUP SOURCE FLAGS (feature-specific memory consumer; keep controlled)
 

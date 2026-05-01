@@ -136,6 +136,23 @@ function getNoNoddingPolicy() {
   };
 }
 
+function getLivingSGPolicy() {
+  return {
+    enabled: true,
+    promptLines: [
+      "- behave as SG: a global Advisor system, not a command bot and not a single tool",
+      "- understand the user message through conversation context, role, intent, memory and available sources before answering",
+      "- think freely: analyze, question, criticize, plan, explain and prepare proposals",
+      "- act only through governed capabilities: read/analyze may be allowed by policy; state-changing actions require explicit permission",
+      "- do not treat missing slash commands or missing handlers as missing intelligence",
+      "- do not invent source access: if a source/tool was not actually executed and returned data, say so",
+      "- do not connect or simulate private capabilities in the answer; explain the safe next step when a capability is needed",
+      "- separate current conversation context from stale project memory and from unverified assumptions",
+      "- keep Human Mode primary; Technical Mode, commands and diagnostics are support surfaces only",
+    ],
+  };
+}
+
 export function getBehaviorCore(input = {}) {
   const styleAxisResolution = resolveStyleAxis(input);
   const styleAxis = styleAxisResolution.styleAxis;
@@ -146,9 +163,10 @@ export function getBehaviorCore(input = {}) {
   const stylePolicy = getStyleAxisPolicy(styleAxis);
   const criticalityPolicy = getCriticalityPolicy(criticality);
   const noNoddingPolicy = getNoNoddingPolicy();
+  const livingSGPolicy = getLivingSGPolicy();
 
   return {
-    version: "9.10-skeleton-v5-compact",
+    version: "9.11-living-sg-core-v1",
 
     styleAxis,
     styleAxisLabel: stylePolicy.label,
@@ -161,12 +179,16 @@ export function getBehaviorCore(input = {}) {
     criticalitySource: criticalityResolution.source,
     criticalityPromptLines: criticalityPolicy.promptLines,
 
+    livingSG: true,
+    livingSGPromptLines: livingSGPolicy.promptLines,
+
     noNodding: true,
     noNoddingPromptLines: noNoddingPolicy.promptLines,
 
     maxSoftClarifyingQuestions: 1,
     behaviorIndependentFromAnswerMode: true,
 
+    supportsLivingSG: true,
     supportsStyleAxis: true,
     supportsSoftStyleAsk: true,
     supportsCriticality: true,
@@ -180,12 +202,16 @@ export function buildBehaviorCorePromptBlock(coreInput = {}) {
   return [
     "BEHAVIOR CORE:",
     `- version: ${core.version}`,
+    `- living_sg: ${core.livingSG ? "true" : "false"}`,
     `- style_axis: ${core.styleAxis}`,
     `- style_axis_source: ${core.styleAxisSource}`,
     `- criticality: ${core.criticality}`,
     `- criticality_source: ${core.criticalitySource}`,
     `- no_nodding: ${core.noNodding ? "true" : "false"}`,
     `- max_soft_clarifying_questions: ${core.maxSoftClarifyingQuestions}`,
+    "",
+    "LIVING SG:",
+    ...core.livingSGPromptLines,
     "",
     "STYLE:",
     ...core.styleAxisPromptLines,

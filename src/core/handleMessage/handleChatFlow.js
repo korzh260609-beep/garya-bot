@@ -25,17 +25,31 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
-function shouldRunHumanProjectRepoRead({
-  isMonarchUser,
-  isPrivateChat,
-  projectContextDecision,
-} = {}) {
-  if (isMonarchUser !== true || isPrivateChat !== true) {
-    return false;
-  }
+function canUseHumanProjectRepoRead({ isMonarchUser, isPrivateChat } = {}) {
+  return isMonarchUser === true && isPrivateChat === true;
+}
 
-  const depth = safeText(projectContextDecision?.depth);
-  return depth === "light" || depth === "deep";
+async function loadHumanConversationContext({
+  memory,
+  chatIdStr,
+  globalUserId,
+  chatType,
+  limit = 20,
+} = {}) {
+  try {
+    if (!memory || typeof memory.recent !== "function") {
+      return [];
+    }
+
+    return await memory.recent({
+      chatId: chatIdStr,
+      globalUserId,
+      limit,
+      chatType,
+    });
+  } catch (_) {
+    return [];
+  }
 }
 
 export function buildLivingSGShadowPlan({
@@ -430,11 +444,15 @@ export async function handleChatFlow({
       return legacyProjectIntentContinue.response;
     }
 
-    if (shouldRunHumanProjectRepoRead({
-      isMonarchUser,
-      isPrivateChat,
-      projectContextDecision,
-    })) {
+    if (canUseHumanProjectRepoRead({ isMonarchUser, isPrivateChat })) {
+      const conversationHistory = await loadHumanConversationContext({
+        memory,
+        chatIdStr,
+        globalUserId,
+        chatType,
+        limit: deps?.MAX_HISTORY_MESSAGES || 20,
+      });
+
       const humanProjectIntentResult = await handleHumanProjectIntent({
         text: trimmed,
         isMonarchUser,
@@ -449,9 +467,19 @@ export async function handleChatFlow({
           metadata: {
             source: "handleChatFlow",
             transport,
+            chatType,
+            chatIdStr,
+            globalUserId,
             capability: "repo.read",
             stateChanging: false,
             projectContextDepth: projectContextDecision?.depth || null,
+            projectContextDecision,
+            projectIntentRoute,
+            projectIntentRoutingText,
+            repoFollowupContext,
+            activeProjectContext: context?.activeProjectContext || null,
+            coreMeaning: context?.coreMeaning || null,
+            conversationHistory,
           },
         }),
       });
@@ -465,6 +493,7 @@ export async function handleChatFlow({
           read_only: true,
           state_changing: false,
           project_context_depth: projectContextDecision?.depth || null,
+          conversation_history_count: Array.isArray(conversationHistory) ? conversationHistory.length : 0,
         });
 
         return {

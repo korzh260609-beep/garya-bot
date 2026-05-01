@@ -89,6 +89,22 @@ function buildLegacyProjectIntentAuthoritySystemMessage() {
   };
 }
 
+function buildLivingSourceProofPolicySystemMessage() {
+  return {
+    role: "system",
+    content: [
+      "LIVING SG SOURCE PROOF POLICY:",
+      "Requested source facts are not verified source facts.",
+      "A source request, source plan, capability plan, metadata flag, or bridge signal cannot prove repository/source facts.",
+      "Verified repository/source claims require an actual runtime source/tool result passed into the prompt as sourceResult/system evidence.",
+      "If sourceResultSystemMessage is missing, empty, stale, or not explicitly confirmed, state that the repo/source facts are not verified in the current runtime.",
+      "Never present requested repo facts, planned repo facts, project memory, projectIntent metadata, or Living SG metadata as verified repository state.",
+      "Repository read and repository write are separate: read proof cannot authorize write, and write remains blocked without explicit permission plus executor design.",
+      "If verified proof is missing, give a source-honest answer and explain the next safe step instead of guessing.",
+    ].join("\n"),
+  };
+}
+
 function buildLivingSGPlanSystemMessage(livingSGPlan = null) {
   if (!livingSGPlan || typeof livingSGPlan !== "object") {
     return null;
@@ -186,6 +202,9 @@ export function buildChatMessages({
   const legacyProjectIntentAuthoritySystemMessage =
     buildLegacyProjectIntentAuthoritySystemMessage();
 
+  const livingSourceProofPolicySystemMessage =
+    buildLivingSourceProofPolicySystemMessage();
+
   const livingSGPlanSystemMessage = buildLivingSGPlanSystemMessage(livingSGPlan);
 
   const messages = [
@@ -193,6 +212,7 @@ export function buildChatMessages({
     projectContextPolicySystemMessage,
     currentActivityPrioritySystemMessage,
     legacyProjectIntentAuthoritySystemMessage,
+    livingSourceProofPolicySystemMessage,
     livingSGPlanSystemMessage,
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
@@ -208,6 +228,7 @@ export function buildChatMessages({
     promptBlockProjectContextPolicyChars: countChars(projectContextPolicySystemMessage?.content),
     promptBlockCurrentActivityPolicyChars: countChars(currentActivityPrioritySystemMessage?.content),
     promptBlockLegacyProjectIntentAuthorityChars: countChars(legacyProjectIntentAuthoritySystemMessage?.content),
+    promptBlockLivingSourceProofPolicyChars: countChars(livingSourceProofPolicySystemMessage?.content),
     promptBlockLivingSGPlanChars: countChars(livingSGPlanSystemMessage?.content),
     promptBlockSourceServiceChars: countChars(sourceServiceSystemMessage?.content),
     promptBlockSourceResultChars: countChars(sourceResultSystemMessage?.content),

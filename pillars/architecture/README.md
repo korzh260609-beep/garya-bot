@@ -12,7 +12,7 @@ Architecture documents must be interpreted together with the core pillars:
 Important:
 - `pillars/DECISIONS.md` is the single root decisions file.
 - `pillars/DECISIONS.md` is the upper philosophical and architectural foundation for SG.
-- `pillars/decisions/` is not an active root decisions folder.
+- `pillars/decisions/` is not an active root decisions folder unless a future accepted rule reactivates it.
 - Deleted decision-extension files must not be referenced as active architecture truth.
 
 ---
@@ -114,6 +114,47 @@ RepoStateAgent is the factual source for current repository state, project map, 
 
 RepoStateAgent is a factual observation subsystem of SG, not a separate SG.
 
+### AGENT_DIRECTORY_STRUCTURE.md
+
+Defines the future canonical directory structure for SG agents.
+
+Hard rule:
+
+```text
+agents must be grouped by meaning/responsibility
+one agent must not be hidden inside another agent folder
+agents are SG components, not separate SG entities
+```
+
+Current future groups:
+
+```text
+src/agents/repo-intelligence/repo-state-agent/
+src/agents/repo-maintenance/repo-maintenance-agent/
+src/agents/runtime-diagnostics/diagnostics-render-agent/
+src/agents/user-product/
+src/agents/shared/bridges/
+```
+
+### REPO_MAINTENANCE_AGENT_SKELETON.md
+
+Defines the future RepoMaintenanceAgent skeleton.
+
+Purpose:
+
+```text
+After repository changes, detect what else must be checked, synchronized, updated, tested, or snapshotted.
+```
+
+Hard rule:
+
+```text
+RepoMaintenanceAgent starts as a read-only auditor/planner.
+It must not replace RepoStateAgent.
+It must not become DiagnosticsRenderAgent.
+It must not auto-edit code or pillars by default.
+```
+
 ### SG_CAPABILITY_ACCESS.md
 
 Defines how useful capabilities become accessible through SG.
@@ -181,6 +222,7 @@ SG is free in thinking.
 SG is controlled in actions.
 SG is a global intellectual system, not the current bot/runtime.
 Semantic routing is a minimal controller/gate, not a replacement for model reasoning.
+Agents are tools/components of SG, not SG itself.
 ```
 
 Relevant decisions:
@@ -247,8 +289,10 @@ Current Human Mode / architecture work must keep these guardrails:
 6. Do not treat RepoStateAgent as a separate SG.
 7. Do not let external AI operators own SG decisions, identity, memory, or project experience.
 8. Do not treat capability access as governance authority.
-9. Keep smoke-checks green after every contract change.
-10. Create snapshots after verified green states.
+9. Do not hide one agent inside another agent folder.
+10. Do not make RepoMaintenanceAgent auto-edit code or pillars by default.
+11. Keep smoke-checks green after every contract change.
+12. Create snapshots after verified green states.
 
 ---
 
@@ -265,5 +309,7 @@ For architecture work, read in this order:
 7. `pillars/architecture/SEMANTIC_ROUTING.md`
 8. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
 9. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
-10. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
-11. relevant architecture maps: `MODULE_MAP.md`, `DATA_FLOW.md`, `PERMISSIONS_MAP.md`, `CODE_OWNERSHIP_MAP.md`
+10. `pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md`
+11. `pillars/architecture/REPO_MAINTENANCE_AGENT_SKELETON.md`
+12. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+13. relevant architecture maps: `MODULE_MAP.md`, `DATA_FLOW.md`, `PERMISSIONS_MAP.md`, `CODE_OWNERSHIP_MAP.md`

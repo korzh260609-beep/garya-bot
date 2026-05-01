@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `COLLECT-RENDER-LOGS-LATEST-300-20260501-001`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `collect-render-logs-latest-300-20260501-001`
 WORKFLOW_POINT: `manual-render-latest-300-logs-request`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-05-01T00:00:00.000Z`
-UPDATED_AT: `2026-05-01T00:00:00.000Z`
+UPDATED_AT: `2026-05-01T04:21:18.515Z`
 
 ---
 
@@ -29,19 +29,9 @@ writeTo=agent_workspace/RENDER_LOGS_REPORT.md
 
 ---
 
-## Expected result
+## Last result
 
-SG must collect the latest 300 Render log lines for `garya-bot`.
-
-Read-only only:
-- do not change code;
-- do not change env;
-- do not change Render configuration;
-- write the result only to `agent_workspace/RENDER_LOGS_REPORT.md`.
-
-Priority:
-1. show ERROR/400/500/OpenAI/callAI lines first;
-2. then show the general latest logs tail.
+Started by github_webhook at 2026-05-01T04:21:18.515Z.
 
 ---
 

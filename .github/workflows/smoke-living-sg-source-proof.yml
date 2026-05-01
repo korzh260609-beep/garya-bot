@@ -1,0 +1,35 @@
+name: Smoke Living SG Source Proof
+
+# Verifies Living SG distinguishes requested source facts from verified source evidence.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - sg-source-proof-boundary-01
+    paths:
+      - "src/core/living-sg/LivingSourceProofBoundary.js"
+      - "src/bot/handlers/chat/promptAssembly.js"
+      - "scripts/smokeLivingSGSourceProofBoundary.js"
+      - "systemPrompt.js"
+      - "package.json"
+      - ".github/workflows/smoke-living-sg-source-proof.yml"
+
+jobs:
+  smoke-living-sg-source-proof:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Living SG source proof smoke check
+        run: npm run smoke:living-sg-source-proof

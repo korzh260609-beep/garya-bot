@@ -22,6 +22,7 @@
     "smoke:living-sg-source-proof-envelope-input": "node ./scripts/smokeLivingSGSourceProofEnvelopeInput.js",
     "smoke:living-sg-repo-read-planner-envelope-contract": "node ./scripts/smokeLivingSGRepoReadPlannerEnvelopeContract.js",
     "smoke:prompt-source-result-envelope-guard": "node ./scripts/smokePromptAssemblySourceResultEnvelopeGuard.js",
+    "smoke:living-sg-source-result-system-message": "node ./scripts/smokeLivingSGSourceResultSystemMessage.js",
     "smoke:legacy-project-intent-flow": "node ./scripts/smokeLegacyProjectIntentFlowSkeleton.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",

@@ -13,6 +13,9 @@ import { buildChatHandlerContext } from "./contextBuilders.js";
 import { ConfirmationIntentClassifier, CONFIRMATION_INTENT } from "../../projectExperience/ConfirmationIntentClassifier.js";
 import { getPendingProjectAction, consumePendingProjectAction, clearPendingProjectAction } from "../../projectExperience/PendingProjectActionStore.js";
 import { createLivingSGBoundary } from "../living-sg/LivingSGBoundary.js";
+import { handleHumanProjectIntent } from "../projectIntent/modes/human/projectIntentHumanEntry.js";
+import { buildHumanProjectIntentContext } from "../projectIntent/modes/human/projectIntentHumanContext.js";
+import { createHumanRepoStateAgentRunner } from "../projectIntent/modes/human/projectIntentHumanRepoStateAgentRunner.js";
 import {
   handleLegacyProjectIntentFlow,
   LEGACY_PROJECT_INTENT_FLOW_PHASE,
@@ -20,6 +23,19 @@ import {
 
 function safeText(value) {
   return String(value ?? "").trim();
+}
+
+function shouldRunHumanProjectRepoRead({
+  isMonarchUser,
+  isPrivateChat,
+  projectContextDecision,
+} = {}) {
+  if (isMonarchUser !== true || isPrivateChat !== true) {
+    return false;
+  }
+
+  const depth = safeText(projectContextDecision?.depth);
+  return depth === "light" || depth === "deep";
 }
 
 export function buildLivingSGShadowPlan({
@@ -412,6 +428,53 @@ export async function handleChatFlow({
 
     if (legacyProjectIntentContinue?.handled) {
       return legacyProjectIntentContinue.response;
+    }
+
+    if (shouldRunHumanProjectRepoRead({
+      isMonarchUser,
+      isPrivateChat,
+      projectContextDecision,
+    })) {
+      const humanProjectIntentResult = await handleHumanProjectIntent({
+        text: trimmed,
+        isMonarchUser,
+        isPrivateChat,
+        context: buildHumanProjectIntentContext({
+          allowHumanRepoStateAgentRun: true,
+          repoStateAgentRunner: createHumanRepoStateAgentRunner({
+            defaultOptions: {
+              fastReadOnly: true,
+            },
+          }),
+          metadata: {
+            source: "handleChatFlow",
+            transport,
+            capability: "repo.read",
+            stateChanging: false,
+            projectContextDepth: projectContextDecision?.depth || null,
+          },
+        }),
+      });
+
+      if (humanProjectIntentResult?.handled === true && humanProjectIntentResult?.response?.text) {
+        await replyAndLog(humanProjectIntentResult.response.text, {
+          handler: "handleChatFlow",
+          event: "human_project_intent_repo_read_handled",
+          transport_agnostic: true,
+          capability: humanProjectIntentResult?.capability?.capability || "",
+          read_only: true,
+          state_changing: false,
+          project_context_depth: projectContextDecision?.depth || null,
+        });
+
+        return {
+          ok: true,
+          stage: "human.projectIntent.repoRead",
+          result: "handled",
+          projectContextDecision,
+          projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
+        };
+      }
     }
 
     const chatHandlerCtx = buildChatHandlerContext({

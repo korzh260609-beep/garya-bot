@@ -481,3 +481,114 @@ Recommended check:
 - Do not expand Technical Mode.
 - Do not add slash commands.
 - Do not deploy unless explicitly requested by Monarch.
+
+---
+
+# SESSION_SAVEPOINT — System Prompt Source Honesty CI
+
+Saved at: `2026-05-01T14:45:00Z`
+Saved by: `SG-advisor`
+Scope: `Final systemPrompt source/tool honesty smoke contract`
+
+---
+
+## Current confirmed repo state
+
+```text
+Repository: korzh260609-beep/garya-bot
+Branch: main
+Goal: Continue safe transition of SG to Living SG behavior.
+Current focus: Prompt-level protection against fake source access and unavailable capability simulation.
+```
+
+## Confirmed source/tool honesty principles
+
+```text
+source/tool is available only if it is actually connected and returned runtime data.
+if source/tool was not executed, SG must not present data as verified.
+SG must not invent source access.
+SG must not simulate private capabilities.
+state-changing actions require explicit permission.
+```
+
+Forbidden during this block:
+
+```text
+- no repo.read = true claim in prompt
+- no execute RepoStateAgent instruction in prompt
+- no commit automatically instruction in prompt
+- no simulate source access instruction in prompt
+- no source/tool access is always available instruction in prompt
+- no private capabilities are connected instruction in prompt
+- no bypass confirmation instruction in prompt
+```
+
+## Important commits in this block
+
+```text
+cc85cf6f08438d9cbe1ec6141d8fef6fa499f367
+- Added scripts/smokeSystemPromptSourceHonesty.js.
+- Contract verifies final system prompt preserves source/tool honesty and does not simulate unavailable capabilities.
+
+44200cafeaad9de72207aa1e68f160238d16c9d2
+- Added package.json script smoke:system-prompt-source-honesty.
+
+7ebec6abf38f5e477ce02efa518e2c395cbceda3
+- Added .github/workflows/smoke-system-prompt-source-honesty.yml.
+```
+
+## Verified CI behavior
+
+Monarch visually confirmed in GitHub Actions:
+
+```text
+Smoke System Prompt Source Honesty: passed
+SG Minimal CI: passed
+Smoke Living SG Meaning Logic: passed
+Smoke Human Mode: passed
+Branch: main
+Latest confirmed commit: 7ebec6abf38f5e477ce02efa518e2c395cbceda3
+```
+
+Meaning:
+- Final system prompt includes source/tool honesty guardrails.
+- Final system prompt says sources are trusted only if actually connected and returning runtime data.
+- Final system prompt does not instruct SG to simulate unavailable capabilities.
+- Repo-read runtime remains disconnected.
+- RepoStateAgent runtime remains disconnected.
+- Technical Mode was not expanded.
+- No executor was created.
+- No new slash commands were added.
+
+## Current completed microstep
+
+```text
+System Prompt Source Honesty CI contract is complete and green.
+```
+
+## Next safe microstep
+
+```text
+Add a negative smoke contract for Living SG prompt/output metadata:
+verify Living SG prompt assembly does not leak shadow/internal plans as user-facing instructions and does not turn metadata into execution authority.
+```
+
+Recommended check:
+
+```text
+- Living SG metadata can inform analysis only.
+- Living SG metadata cannot grant capability access.
+- Living SG metadata cannot override gates.
+- Living SG metadata cannot claim source/tool execution.
+- Living SG metadata cannot be treated as user-facing truth without runtime source confirmation.
+```
+
+## Warnings
+
+- Do not connect Human Meaning Provider yet.
+- Do not connect RepoStateAgent runtime yet.
+- Do not add executor.
+- Do not add repo-read runtime.
+- Do not expand Technical Mode.
+- Do not add slash commands.
+- Do not deploy unless explicitly requested by Monarch.

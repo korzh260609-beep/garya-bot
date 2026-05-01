@@ -24,6 +24,7 @@ export function evaluateLivingActionGate({ capabilityPlan = {}, confirmation = n
       source: "LivingActionGate",
       status: LIVING_GATE_STATUS.BLOCKED,
       canExecute: false,
+      canChangeState: false,
       reason: capabilityPlan?.reason || "invalid_capability_plan",
       capabilityPlan,
     };

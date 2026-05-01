@@ -9,6 +9,7 @@
     "smoke:living-sg": "node ./scripts/smokeLivingSGSkeletonImports.js",
     "smoke:living-sg-core": "node ./scripts/smokeLivingSGCoreBehavior.js",
     "smoke:system-prompt-living-sg": "node ./scripts/smokeSystemPromptLivingSGCore.js",
+    "smoke:living-sg-meaning-logic": "node ./scripts/smokeLivingSGMeaningLogicContract.js",
     "smoke:legacy-project-intent-flow": "node ./scripts/smokeLegacyProjectIntentFlowSkeleton.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",

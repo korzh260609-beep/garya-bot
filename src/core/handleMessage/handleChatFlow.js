@@ -13,9 +13,6 @@ import { buildChatHandlerContext } from "./contextBuilders.js";
 import { ConfirmationIntentClassifier, CONFIRMATION_INTENT } from "../../projectExperience/ConfirmationIntentClassifier.js";
 import { getPendingProjectAction, consumePendingProjectAction, clearPendingProjectAction } from "../../projectExperience/PendingProjectActionStore.js";
 import { createLivingSGBoundary } from "../living-sg/LivingSGBoundary.js";
-import { handleHumanProjectIntent } from "../projectIntent/modes/human/projectIntentHumanEntry.js";
-import { buildHumanProjectIntentContext } from "../projectIntent/modes/human/projectIntentHumanContext.js";
-import { createHumanRepoStateAgentRunner } from "../projectIntent/modes/human/projectIntentHumanRepoStateAgentRunner.js";
 import {
   handleLegacyProjectIntentFlow,
   LEGACY_PROJECT_INTENT_FLOW_PHASE,
@@ -23,33 +20,6 @@ import {
 
 function safeText(value) {
   return String(value ?? "").trim();
-}
-
-function canUseHumanProjectRepoRead({ isMonarchUser, isPrivateChat } = {}) {
-  return isMonarchUser === true && isPrivateChat === true;
-}
-
-async function loadHumanConversationContext({
-  memory,
-  chatIdStr,
-  globalUserId,
-  chatType,
-  limit = 20,
-} = {}) {
-  try {
-    if (!memory || typeof memory.recent !== "function") {
-      return [];
-    }
-
-    return await memory.recent({
-      chatId: chatIdStr,
-      globalUserId,
-      limit,
-      chatType,
-    });
-  } catch (_) {
-    return [];
-  }
 }
 
 export function buildLivingSGShadowPlan({
@@ -442,68 +412,6 @@ export async function handleChatFlow({
 
     if (legacyProjectIntentContinue?.handled) {
       return legacyProjectIntentContinue.response;
-    }
-
-    if (canUseHumanProjectRepoRead({ isMonarchUser, isPrivateChat })) {
-      const conversationHistory = await loadHumanConversationContext({
-        memory,
-        chatIdStr,
-        globalUserId,
-        chatType,
-        limit: deps?.MAX_HISTORY_MESSAGES || 20,
-      });
-
-      const humanProjectIntentResult = await handleHumanProjectIntent({
-        text: trimmed,
-        isMonarchUser,
-        isPrivateChat,
-        context: buildHumanProjectIntentContext({
-          allowHumanRepoStateAgentRun: true,
-          repoStateAgentRunner: createHumanRepoStateAgentRunner({
-            defaultOptions: {
-              fastReadOnly: true,
-            },
-          }),
-          metadata: {
-            source: "handleChatFlow",
-            transport,
-            chatType,
-            chatIdStr,
-            globalUserId,
-            capability: "repo.read",
-            stateChanging: false,
-            projectContextDepth: projectContextDecision?.depth || null,
-            projectContextDecision,
-            projectIntentRoute,
-            projectIntentRoutingText,
-            repoFollowupContext,
-            activeProjectContext: context?.activeProjectContext || null,
-            coreMeaning: context?.coreMeaning || null,
-            conversationHistory,
-          },
-        }),
-      });
-
-      if (humanProjectIntentResult?.handled === true && humanProjectIntentResult?.response?.text) {
-        await replyAndLog(humanProjectIntentResult.response.text, {
-          handler: "handleChatFlow",
-          event: "human_project_intent_repo_read_handled",
-          transport_agnostic: true,
-          capability: humanProjectIntentResult?.capability?.capability || "",
-          read_only: true,
-          state_changing: false,
-          project_context_depth: projectContextDecision?.depth || null,
-          conversation_history_count: Array.isArray(conversationHistory) ? conversationHistory.length : 0,
-        });
-
-        return {
-          ok: true,
-          stage: "human.projectIntent.repoRead",
-          result: "handled",
-          projectContextDecision,
-          projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
-        };
-      }
     }
 
     const chatHandlerCtx = buildChatHandlerContext({

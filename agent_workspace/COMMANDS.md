@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `COLLECT-RENDER-LOGS-FRESH-LATEST-100-20260501-004`
-STATUS: `PENDING`
+STATUS: `RUNNING`
 ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `collect-render-logs-fresh-latest-100-20260501-004`
 WORKFLOW_POINT: `manual-render-fresh-latest-100-logs-request`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-05-01T10:50:00.000Z`
-UPDATED_AT: `2026-05-01T10:50:00.000Z`
+UPDATED_AT: `2026-05-01T10:49:14.619Z`
 
 ---
 
@@ -32,7 +32,7 @@ writeTo=agent_workspace/RENDER_LOGS_REPORT.md
 
 ## Last result
 
-Pending execution by SG AgentWorkspace runner.
+Started by github_webhook at 2026-05-01T10:49:14.619Z.
 
 ---
 

@@ -75,6 +75,7 @@ function buildMissingEnvelopeMessage() {
       "Instruction: No sourceResult envelope was provided. Do not present repository/source facts as verified in the current runtime.",
       "Instruction: Use source-honest wording and explain that verified source evidence is missing if source facts are requested.",
       "Safety: This message does not execute sources, read repositories, write repositories, deploy, or authorize any state-changing action.",
+      "Safety: A confirmed read result never authorizes write actions.",
     ].join("\n"),
   };
 }

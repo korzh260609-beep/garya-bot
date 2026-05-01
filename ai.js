@@ -54,6 +54,22 @@ function resolveFallbackModels({ costLevel = "medium", primaryModel = null } = {
   });
 }
 
+function isGpt5Model(model) {
+  return /^gpt-5(?:[.-]|$)/i.test(String(model || "").trim());
+}
+
+function resolveTemperatureForModel(model, temperature) {
+  if (typeof temperature !== "number") {
+    return undefined;
+  }
+
+  if (isGpt5Model(model)) {
+    return undefined;
+  }
+
+  return temperature;
+}
+
 function extractOutputText(response) {
   if (
     typeof response?.output_text === "string" &&
@@ -170,11 +186,13 @@ function buildInputPayload(messages, primaryModel, maxTok, temperature) {
       }))
     : [];
 
+  const resolvedTemperature = resolveTemperatureForModel(primaryModel, temperature);
+
   const payload = {
     model: primaryModel,
     input,
     ...(typeof maxTok === "number" ? { max_output_tokens: maxTok } : {}),
-    ...(typeof temperature === "number" ? { temperature } : {}),
+    ...(typeof resolvedTemperature === "number" ? { temperature: resolvedTemperature } : {}),
   };
 
   return { input, payload };
@@ -206,11 +224,13 @@ function buildAiUsageResult({ response, text, model, costLevel, usedFallback, fa
 }
 
 async function runResponsesCreate({ model, input, maxTok, temperature }) {
+  const resolvedTemperature = resolveTemperatureForModel(model, temperature);
+
   const payload = {
     model,
     input,
     ...(typeof maxTok === "number" ? { max_output_tokens: maxTok } : {}),
-    ...(typeof temperature === "number" ? { temperature } : {}),
+    ...(typeof resolvedTemperature === "number" ? { temperature: resolvedTemperature } : {}),
   };
 
   const response = await client.responses.create(payload);
@@ -230,6 +250,8 @@ async function runResponsesCreate({ model, input, maxTok, temperature }) {
  * ВАЖНО:
  * - Для gpt-5.* используем Responses API + max_output_tokens.
  * - НЕ используем max_tokens (он вызывает 400 "Unsupported parameter").
+ * - Для gpt-5.* НЕ передаём temperature, потому что часть GPT-5 response-моделей
+ *   отклоняет этот параметр с 400 "Unsupported parameter".
  * - Стоимость считается только если заданы ENV:
  *   AI_PRICE_<MODEL>_INPUT_USD_PER_1M
  *   AI_PRICE_<MODEL>_OUTPUT_USD_PER_1M

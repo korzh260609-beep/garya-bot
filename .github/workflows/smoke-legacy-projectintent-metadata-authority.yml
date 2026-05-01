@@ -1,0 +1,34 @@
+name: Smoke Legacy ProjectIntent Metadata Authority
+
+# Verifies legacy projectIntent metadata stays transitional context only and cannot become proof, permission, or execution authority.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - sg-guard-01
+    paths:
+      - "scripts/smokeLegacyProjectIntentMetadataAuthority.js"
+      - "src/bot/handlers/chat/promptAssembly.js"
+      - "systemPrompt.js"
+      - "package.json"
+      - ".github/workflows/smoke-legacy-projectintent-metadata-authority.yml"
+
+jobs:
+  smoke-legacy-projectintent-metadata-authority:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run legacy projectIntent metadata authority smoke check
+        run: npm run smoke:legacy-project-intent-metadata-authority

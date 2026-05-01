@@ -6,22 +6,21 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `COLLECT-RENDER-LOGS-LATEST-300-20260501-001`
-STATUS: `DONE`
+COMMAND_ID: `COLLECT-RENDER-LOGS-LATEST-300-BY-COUNT-20260501-002`
+STATUS: `PENDING`
 ACTION: `COLLECT_RENDER_LOGS`
-TASK_ID: `collect-render-logs-latest-300-20260501-001`
-WORKFLOW_POINT: `manual-render-latest-300-logs-request`
+TASK_ID: `collect-render-logs-latest-300-by-count-20260501-002`
+WORKFLOW_POINT: `manual-render-latest-300-logs-by-count-request`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-05-01T00:00:00.000Z`
-UPDATED_AT: `2026-05-01T04:21:30.527Z`
+CREATED_AT: `2026-05-01T04:30:00.000Z`
+UPDATED_AT: `2026-05-01T04:30:00.000Z`
 
 ---
 
 ## Payload
 
-minutes=60
 limit=300
 maxLineChars=1600
 level=all
@@ -29,20 +28,25 @@ writeTo=agent_workspace/RENDER_LOGS_REPORT.md
 
 ---
 
-## Last result
+## Expected result
 
-Action completed: COLLECT_RENDER_LOGS
-Task ID: collect-render-logs-latest-300-20260501-001
-Workflow point: manual-render-latest-300-logs-request
-Deploy ID: -
-Commit: de2115d2b58fe6b576ddaf456b9dc09ac2ea05cf
-Required commit: -
-Runtime commit: de2115d2b58fe6b576ddaf456b9dc09ac2ea05cf
-Logs: 7
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+SG must collect the latest 300 Render log lines for `garya-bot` by count only.
+
+Important:
+- do NOT bind logs to a time window;
+- do NOT use minutes=60;
+- do NOT limit by last hour;
+- collect by quantity: latest 300 available log lines.
+
+Read-only only:
+- do not change code;
+- do not change env;
+- do not change Render configuration;
+- write the result only to `agent_workspace/RENDER_LOGS_REPORT.md`.
+
+Priority:
+1. show ERROR/400/500/OpenAI/callAI lines first if present in returned latest logs;
+2. then show the general latest logs tail.
 
 ---
 

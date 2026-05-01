@@ -1,0 +1,32 @@
+name: Smoke Living SG Isolation
+
+# Verifies Living SG skeleton stays isolated from legacy router/projectIntent/diagnostic/repo execution imports.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/smokeLivingSGIsolationContract.js"
+      - "src/core/living-sg/**"
+      - "package.json"
+      - ".github/workflows/smoke-living-sg-isolation.yml"
+
+jobs:
+  smoke-living-sg-isolation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Living SG isolation smoke check
+        run: npm run smoke:living-sg-isolation

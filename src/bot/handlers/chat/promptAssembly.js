@@ -15,6 +15,9 @@ import {
   sumMessageCharsByRole,
 } from "./chatPromptMetrics.js";
 import { isCurrentActivityQuestion } from "./aiInputGuard.js";
+import {
+  buildLivingSourceResultSystemMessage,
+} from "../../../core/living-sg/LivingSourceResultSystemMessage.js";
 
 export function buildModeInstruction(answerMode) {
   if (answerMode === "short") {
@@ -36,6 +39,10 @@ function safePromptValue(value, fallback = "-") {
   const text = String(value ?? "").trim();
   if (!text) return fallback;
   return text.replace(/\s+/g, " ").slice(0, 120);
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function buildProjectContextPolicySystemMessage(projectCtx = "") {
@@ -123,6 +130,42 @@ function buildSourceResultEnvelopeEvidencePolicySystemMessage() {
   };
 }
 
+function buildEffectiveSourceResultSystemMessage({
+  sourceResultSystemMessage = null,
+  sourceResultEnvelope = null,
+  sourceResult = null,
+} = {}) {
+  if (sourceResultSystemMessage) {
+    return {
+      message: sourceResultSystemMessage,
+      generated: false,
+      source: "manual_source_result_system_message",
+    };
+  }
+
+  if (isPlainObject(sourceResultEnvelope)) {
+    return {
+      message: buildLivingSourceResultSystemMessage({ sourceResultEnvelope }),
+      generated: true,
+      source: "generated_from_source_result_envelope",
+    };
+  }
+
+  if (isPlainObject(sourceResult)) {
+    return {
+      message: buildLivingSourceResultSystemMessage({ sourceResult }),
+      generated: true,
+      source: "generated_from_source_result",
+    };
+  }
+
+  return {
+    message: null,
+    generated: false,
+    source: "missing_source_result_evidence",
+  };
+}
+
 function buildLivingSGPlanSystemMessage(livingSGPlan = null) {
   if (!livingSGPlan || typeof livingSGPlan !== "object") {
     return null;
@@ -164,6 +207,8 @@ export function buildChatMessages({
   mediaResponseMode,
   sourceServiceSystemMessage,
   sourceResultSystemMessage,
+  sourceResultEnvelope,
+  sourceResult,
   longTermMemorySystemMessage,
   recallCtx,
   history,
@@ -228,6 +273,12 @@ export function buildChatMessages({
 
   const livingSGPlanSystemMessage = buildLivingSGPlanSystemMessage(livingSGPlan);
 
+  const effectiveSourceResultSystemMessage = buildEffectiveSourceResultSystemMessage({
+    sourceResultSystemMessage,
+    sourceResultEnvelope,
+    sourceResult,
+  });
+
   const messages = [
     { role: "system", content: systemPrompt },
     projectContextPolicySystemMessage,
@@ -237,7 +288,7 @@ export function buildChatMessages({
     sourceResultEnvelopeEvidencePolicySystemMessage,
     livingSGPlanSystemMessage,
     sourceServiceSystemMessage,
-    sourceResultSystemMessage,
+    effectiveSourceResultSystemMessage.message,
     longTermMemorySystemMessage,
     replyContextSystemMessage,
     auxPolicySystemMessage,
@@ -254,7 +305,9 @@ export function buildChatMessages({
     promptBlockSourceResultEnvelopeEvidencePolicyChars: countChars(sourceResultEnvelopeEvidencePolicySystemMessage?.content),
     promptBlockLivingSGPlanChars: countChars(livingSGPlanSystemMessage?.content),
     promptBlockSourceServiceChars: countChars(sourceServiceSystemMessage?.content),
-    promptBlockSourceResultChars: countChars(sourceResultSystemMessage?.content),
+    promptBlockSourceResultChars: countChars(effectiveSourceResultSystemMessage.message?.content),
+    promptBlockSourceResultGenerated: effectiveSourceResultSystemMessage.generated,
+    promptBlockSourceResultSource: effectiveSourceResultSystemMessage.source,
     promptBlockLongTermMemoryChars: countChars(longTermMemorySystemMessage?.content),
     promptBlockReplyContextChars: countChars(replyContextSystemMessage?.content),
     promptBlockAuxPolicyChars: countChars(auxPolicySystemMessage?.content),

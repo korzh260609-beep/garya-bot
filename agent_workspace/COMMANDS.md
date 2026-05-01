@@ -7,7 +7,7 @@ Only one active command is allowed at a time.
 ---
 
 COMMAND_ID: `COLLECT-RENDER-LOGS-LATEST-300-20260501-001`
-STATUS: `RUNNING`
+STATUS: `DONE`
 ACTION: `COLLECT_RENDER_LOGS`
 TASK_ID: `collect-render-logs-latest-300-20260501-001`
 WORKFLOW_POINT: `manual-render-latest-300-logs-request`
@@ -15,7 +15,7 @@ DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
 CREATED_AT: `2026-05-01T00:00:00.000Z`
-UPDATED_AT: `2026-05-01T04:21:18.515Z`
+UPDATED_AT: `2026-05-01T04:21:30.527Z`
 
 ---
 
@@ -31,7 +31,18 @@ writeTo=agent_workspace/RENDER_LOGS_REPORT.md
 
 ## Last result
 
-Started by github_webhook at 2026-05-01T04:21:18.515Z.
+Action completed: COLLECT_RENDER_LOGS
+Task ID: collect-render-logs-latest-300-20260501-001
+Workflow point: manual-render-latest-300-logs-request
+Deploy ID: -
+Commit: de2115d2b58fe6b576ddaf456b9dc09ac2ea05cf
+Required commit: -
+Runtime commit: de2115d2b58fe6b576ddaf456b9dc09ac2ea05cf
+Logs: 7
+Diagnosis: false
+Diagnostic commands: 0
+Diagnostics OK: 0
+Diagnostics failed: 0
 
 ---
 

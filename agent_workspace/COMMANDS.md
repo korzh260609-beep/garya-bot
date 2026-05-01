@@ -6,16 +6,16 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `COLLECT-RENDER-LOGS-LATEST-100-20260501-003`
-STATUS: `DONE`
+COMMAND_ID: `COLLECT-RENDER-LOGS-FRESH-LATEST-100-20260501-004`
+STATUS: `PENDING`
 ACTION: `COLLECT_RENDER_LOGS`
-TASK_ID: `collect-render-logs-latest-100-20260501-003`
-WORKFLOW_POINT: `manual-render-latest-100-logs-request`
+TASK_ID: `collect-render-logs-fresh-latest-100-20260501-004`
+WORKFLOW_POINT: `manual-render-fresh-latest-100-logs-request`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `-`
 CREATED_BY: `SG-advisor`
-CREATED_AT: `2026-05-01T10:25:00.000Z`
-UPDATED_AT: `2026-05-01T10:46:05.387Z`
+CREATED_AT: `2026-05-01T10:50:00.000Z`
+UPDATED_AT: `2026-05-01T10:50:00.000Z`
 
 ---
 
@@ -32,18 +32,7 @@ writeTo=agent_workspace/RENDER_LOGS_REPORT.md
 
 ## Last result
 
-Action completed: COLLECT_RENDER_LOGS
-Task ID: collect-render-logs-latest-100-20260501-003
-Workflow point: manual-render-latest-100-logs-request
-Deploy ID: -
-Commit: 989428ddf88ea4c1b40a853a6c387c3c53e10cf2
-Required commit: -
-Runtime commit: 989428ddf88ea4c1b40a853a6c387c3c53e10cf2
-Logs: 100
-Diagnosis: false
-Diagnostic commands: 0
-Diagnostics OK: 0
-Diagnostics failed: 0
+Pending execution by SG AgentWorkspace runner.
 
 ---
 

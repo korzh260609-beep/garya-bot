@@ -33,6 +33,12 @@ function positiveInt(value, fallback, min = 1) {
   return Math.max(min, Math.trunc(n));
 }
 
+function nonNegativeInt(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return Math.max(0, Math.trunc(Number(fallback) || 0));
+  return Math.max(0, Math.trunc(n));
+}
+
 function parsePayload(payload = "") {
   const out = {};
   const lines = String(payload || "")
@@ -237,7 +243,7 @@ export class AgentWorkspaceRenderControlService {
       level: safeLevel(payload.level || bridgeCfg.defaultLogLevel || "error"),
       limit: positiveInt(payload.limit, bridgeCfg.defaultLogLimit || 100, 1),
       partSize: positiveInt(payload.partSize, 500, 1),
-      maxLineChars: positiveInt(payload.maxLineChars, 700, 1),
+      maxLineChars: nonNegativeInt(payload.maxLineChars, 0),
       deployId: normalizeString(payload.deployId || command.deployId || ""),
       target: safeTarget(payload.target || (payload.deployId || command.deployId ? "deploy" : "latest_count")),
     };

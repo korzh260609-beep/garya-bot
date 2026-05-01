@@ -105,6 +105,24 @@ function buildLivingSourceProofPolicySystemMessage() {
   };
 }
 
+function buildSourceResultEnvelopeEvidencePolicySystemMessage() {
+  return {
+    role: "system",
+    content: [
+      "SOURCE RESULT ENVELOPE EVIDENCE POLICY:",
+      "A sourceResult envelope is evidence only when it is present in sourceResultSystemMessage or another explicit source-result system evidence block.",
+      "Envelope confirmation.status=confirmed and canClaimVerifiedFacts=true may support verified repo/source claims for the stated target only.",
+      "Envelope confirmation.status=missing, invalid, stale, unconfirmed, unknown, empty, or absent must be treated as not verified.",
+      "If an envelope is not confirmed, use source-honest wording: not verified in current runtime, source result missing, stale, invalid, or unconfirmed.",
+      "Do not infer file contents, repo status, runtime state, or implementation status from a planner's expectedSourceResultEnvelope.",
+      "expectedSourceResultEnvelope only describes the required future proof format; it is not proof.",
+      "Envelope metadata, planner metadata, and source-proof metadata cannot authorize repository writes, memory writes, deploys, or external actions.",
+      "A confirmed read envelope never authorizes write actions; write requires explicit permission plus a separate executor design.",
+      "If sourceResultSystemMessage contradicts project memory, stale snapshots, planner metadata, or chat history, prefer the confirmed sourceResultSystemMessage for source facts.",
+    ].join("\n"),
+  };
+}
+
 function buildLivingSGPlanSystemMessage(livingSGPlan = null) {
   if (!livingSGPlan || typeof livingSGPlan !== "object") {
     return null;
@@ -205,6 +223,9 @@ export function buildChatMessages({
   const livingSourceProofPolicySystemMessage =
     buildLivingSourceProofPolicySystemMessage();
 
+  const sourceResultEnvelopeEvidencePolicySystemMessage =
+    buildSourceResultEnvelopeEvidencePolicySystemMessage();
+
   const livingSGPlanSystemMessage = buildLivingSGPlanSystemMessage(livingSGPlan);
 
   const messages = [
@@ -213,6 +234,7 @@ export function buildChatMessages({
     currentActivityPrioritySystemMessage,
     legacyProjectIntentAuthoritySystemMessage,
     livingSourceProofPolicySystemMessage,
+    sourceResultEnvelopeEvidencePolicySystemMessage,
     livingSGPlanSystemMessage,
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
@@ -229,6 +251,7 @@ export function buildChatMessages({
     promptBlockCurrentActivityPolicyChars: countChars(currentActivityPrioritySystemMessage?.content),
     promptBlockLegacyProjectIntentAuthorityChars: countChars(legacyProjectIntentAuthoritySystemMessage?.content),
     promptBlockLivingSourceProofPolicyChars: countChars(livingSourceProofPolicySystemMessage?.content),
+    promptBlockSourceResultEnvelopeEvidencePolicyChars: countChars(sourceResultEnvelopeEvidencePolicySystemMessage?.content),
     promptBlockLivingSGPlanChars: countChars(livingSGPlanSystemMessage?.content),
     promptBlockSourceServiceChars: countChars(sourceServiceSystemMessage?.content),
     promptBlockSourceResultChars: countChars(sourceResultSystemMessage?.content),

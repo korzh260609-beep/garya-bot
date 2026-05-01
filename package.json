@@ -18,6 +18,7 @@
     "smoke:living-sg-repo-source-capability": "node ./scripts/smokeLivingSGRepoSourceCapabilitySkeleton.js",
     "smoke:living-sg-source-proof": "node ./scripts/smokeLivingSGSourceProofBoundary.js",
     "smoke:living-sg-repo-read-planner": "node ./scripts/smokeLivingSGRepoReadRequestPlanner.js",
+    "smoke:living-sg-source-result-envelope": "node ./scripts/smokeLivingSGSourceResultEnvelope.js",
     "smoke:legacy-project-intent-flow": "node ./scripts/smokeLegacyProjectIntentFlowSkeleton.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",

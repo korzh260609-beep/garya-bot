@@ -14,6 +14,7 @@
     "smoke:living-sg-isolation": "node ./scripts/smokeLivingSGIsolationContract.js",
     "smoke:living-sg-boundary-safety": "node ./scripts/smokeLivingSGBoundarySafetyContract.js",
     "smoke:living-sg-metadata-authority": "node ./scripts/smokeLivingSGMetadataAuthority.js",
+    "smoke:legacy-project-intent-metadata-authority": "node ./scripts/smokeLegacyProjectIntentMetadataAuthority.js",
     "smoke:legacy-project-intent-flow": "node ./scripts/smokeLegacyProjectIntentFlowSkeleton.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",

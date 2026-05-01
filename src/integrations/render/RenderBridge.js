@@ -18,6 +18,12 @@ function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function positiveInt(value, fallback, min = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return Math.max(min, Math.trunc(Number(fallback) || min));
+  return Math.max(min, Math.trunc(n));
+}
+
 function buildUrl(baseUrl, path, query = {}) {
   const url = new URL(`${baseUrl}${path}`);
 
@@ -203,10 +209,7 @@ function validIsoOrEmpty(value) {
 
 function normalizeLogItems(raw, { serviceId, level, limit, fallbackLimit = 100 } = {}) {
   const normalizedServiceId = normalizeString(serviceId);
-  const maxItems = Math.max(
-    1,
-    Math.min(Number(limit) || fallbackLimit, 500)
-  );
+  const maxItems = positiveInt(limit, fallbackLimit, 1);
   const requestedLevel = normalizeString(level || "all");
 
   let items = normalizeLogs(raw);
@@ -563,10 +566,7 @@ class RenderBridge {
       throw new Error("render_service_id_missing");
     }
 
-    const maxItems = Math.max(
-      1,
-      Math.min(Number(limit) || this.config.defaultLogLimit, 500)
-    );
+    const maxItems = positiveInt(limit, this.config.defaultLogLimit, 1);
 
     const raw = await this.requestLogsWithFallbacks({
       ownerId: normalizedOwnerId,
@@ -609,10 +609,7 @@ class RenderBridge {
       )
     );
 
-    const maxItems = Math.max(
-      1,
-      Math.min(Number(limit) || this.config.defaultLogLimit, 500)
-    );
+    const maxItems = positiveInt(limit, this.config.defaultLogLimit, 1);
 
     const requestedLevel = normalizeString(
       level || this.config.defaultLogLevel

@@ -32,6 +32,12 @@ export function buildModeInstruction(answerMode) {
   return "";
 }
 
+function safePromptValue(value, fallback = "-") {
+  const text = String(value ?? "").trim();
+  if (!text) return fallback;
+  return text.replace(/\s+/g, " ").slice(0, 120);
+}
+
 function buildProjectContextPolicySystemMessage(projectCtx = "") {
   const hasProjectCtx = String(projectCtx || "").trim().length > 0;
   if (!hasProjectCtx) return null;
@@ -68,6 +74,33 @@ function buildCurrentActivityPrioritySystemMessage(userText = "") {
   };
 }
 
+function buildLivingSGPlanSystemMessage(livingSGPlan = null) {
+  if (!livingSGPlan || typeof livingSGPlan !== "object") {
+    return null;
+  }
+
+  return {
+    role: "system",
+    content: [
+      "LIVING SG READ-ONLY PLAN:",
+      "This is a compact Living SG planning signal for answer shaping only.",
+      "Do not execute tools, change repository, change memory, deploy, or perform external actions from this plan.",
+      "If action is needed, explain the next safe step and ask for explicit confirmation.",
+      `source=${safePromptValue(livingSGPlan?.source)}`,
+      `ok=${String(livingSGPlan?.ok === true)}`,
+      `dryRun=${String(livingSGPlan?.dryRun === true)}`,
+      `connectedToRuntime=${String(livingSGPlan?.connectedToRuntime === true)}`,
+      `intentKind=${safePromptValue(livingSGPlan?.intentPlan?.intentKind)}`,
+      `capabilityActionType=${safePromptValue(livingSGPlan?.capabilityPlan?.actionType)}`,
+      `gateStatus=${safePromptValue(livingSGPlan?.gate?.status)}`,
+      `responseKind=${safePromptValue(livingSGPlan?.responsePlan?.responseKind)}`,
+      `shouldExecuteTool=${String(livingSGPlan?.responsePlan?.shouldExecuteTool === true)}`,
+      `noStateChange=${String(livingSGPlan?.metadata?.noStateChange === true)}`,
+      `noProjectIntentExecution=${String(livingSGPlan?.metadata?.noProjectIntentExecution === true)}`,
+    ].join("\n"),
+  };
+}
+
 export function buildChatMessages({
   buildSystemPrompt,
   answerMode,
@@ -82,6 +115,7 @@ export function buildChatMessages({
   recallCtx,
   history,
   replyContext,
+  livingSGPlan = null,
 }) {
   const modeInstruction = buildModeInstruction(answerMode);
 
@@ -130,10 +164,13 @@ export function buildChatMessages({
   const currentActivityPrioritySystemMessage =
     buildCurrentActivityPrioritySystemMessage(effective);
 
+  const livingSGPlanSystemMessage = buildLivingSGPlanSystemMessage(livingSGPlan);
+
   const messages = [
     { role: "system", content: systemPrompt },
     projectContextPolicySystemMessage,
     currentActivityPrioritySystemMessage,
+    livingSGPlanSystemMessage,
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
     longTermMemorySystemMessage,
@@ -147,6 +184,7 @@ export function buildChatMessages({
     promptBlockSystemPromptChars: countChars(systemPrompt),
     promptBlockProjectContextPolicyChars: countChars(projectContextPolicySystemMessage?.content),
     promptBlockCurrentActivityPolicyChars: countChars(currentActivityPrioritySystemMessage?.content),
+    promptBlockLivingSGPlanChars: countChars(livingSGPlanSystemMessage?.content),
     promptBlockSourceServiceChars: countChars(sourceServiceSystemMessage?.content),
     promptBlockSourceResultChars: countChars(sourceResultSystemMessage?.content),
     promptBlockLongTermMemoryChars: countChars(longTermMemorySystemMessage?.content),

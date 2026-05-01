@@ -1,0 +1,34 @@
+name: Smoke System Prompt Living SG
+
+# Verifies that the real system prompt receives Living SG core behavior
+# without connecting repo/tool capabilities.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/smokeSystemPromptLivingSGCore.js"
+      - "systemPrompt.js"
+      - "src/core/behaviorCore.js"
+      - "package.json"
+      - ".github/workflows/smoke-system-prompt-living-sg.yml"
+
+jobs:
+  smoke-system-prompt-living-sg:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run system prompt Living SG smoke check
+        run: npm run smoke:system-prompt-living-sg

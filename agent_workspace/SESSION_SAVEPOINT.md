@@ -350,3 +350,134 @@ Review whether current Living SG prompt wording is strong enough against:
 - Do not connect RepoStateAgent runtime yet.
 - Do not implement functions before Living SG behavior is stable.
 - Do not mark pillar roadmap items as done manually; use repo/runtime/tests or generated status snapshots as evidence.
+
+---
+
+# SESSION_SAVEPOINT — Living SG Isolation + Boundary Safety CI
+
+Saved at: `2026-05-01T14:36:00Z`
+Saved by: `SG-advisor`
+Scope: `Living SG isolation contract + boundary safety contract`
+
+---
+
+## Current confirmed repo state
+
+```text
+Repository: korzh260609-beep/garya-bot
+Branch: main
+Goal: Continue safe transition of SG to Living SG behavior.
+Current focus: Safety contracts before runtime wiring or real capabilities.
+```
+
+## Confirmed Living SG safety principles
+
+```text
+message
+→ conversation context
+→ resolved meaning
+→ intent
+→ capability need
+→ permission/gate
+→ source/tool only if actually available
+→ answer/action
+```
+
+Forbidden during this block:
+
+```text
+- no keyword-router
+- no phrase-router
+- no slash-command intelligence
+- no new slash commands
+- no Technical Mode expansion
+- no executor
+- no repo-read runtime connection
+- no Human Meaning Provider connection yet
+- no RepoStateAgent runtime connection yet
+- no memory writes from Living SG
+- no state-changing actions from Living SG skeleton
+```
+
+## Important commits in this block
+
+```text
+da35394b084bd11bb2d229fde6bcce3c5a560305
+- Added scripts/smokeLivingSGIsolationContract.js.
+- Contract verifies src/core/living-sg does not import legacy router, diagnostics, projectIntent, repo, repoState, repo services or GitHub services.
+
+43040671b1abea9b559454e5bdb6271cc86ffe2e
+- Added package.json script smoke:living-sg-isolation.
+
+2c9021d62db3ba286eab0d78f59271bfd26cd849
+- Added .github/workflows/smoke-living-sg-isolation.yml.
+
+625c71ff5d5e815293a890277f51eee7ab77ce1a
+- Added scripts/smokeLivingSGBoundarySafetyContract.js.
+- Contract verifies Living SG boundary stays dry-run, disconnected, non-state-changing and never executes tools across multiple meaning cases.
+
+0b90963087e6e86559886edcd6f3186778662da3
+- Added package.json script smoke:living-sg-boundary-safety.
+
+ce71095022deb5253534c2c519a08e6c6f5396d8
+- Added .github/workflows/smoke-living-sg-boundary-safety.yml.
+
+31bf9ec2a6d4d6a2f8cb433340d6d5e89a5a0766
+- Made LivingActionGate blocked branch explicitly return canChangeState: false.
+- This was required by the boundary safety contract and clarified that blocked actions are explicitly non-state-changing.
+```
+
+## Verified CI behavior
+
+Monarch visually confirmed in GitHub Actions:
+
+```text
+Smoke Living SG Isolation: passed
+Smoke Living SG Boundary Safety: passed
+Smoke Living SG Meaning Logic: passed
+Smoke Living SG Core: passed
+SG Minimal CI: passed
+Branch: main
+Latest confirmed commit: 31bf9ec2a6d4d6a2f8cb433340d6d5e89a5a0766
+```
+
+Meaning:
+- Living SG skeleton is protected from legacy router/projectIntent/diagnostic/repo execution imports.
+- Living SG boundary is protected against accidental tool execution or state changes.
+- Confirmed memory/write behavior remains disconnected.
+- Repo-read runtime remains disconnected.
+- Technical Mode was not expanded.
+- No executor was created.
+
+## Current completed microstep
+
+```text
+Living SG isolation and boundary safety CI contracts are complete and green.
+```
+
+## Next safe microstep
+
+```text
+Add a prompt-level smoke contract that verifies the final system prompt contains the Living SG source/tool honesty rule and does not instruct SG to simulate unavailable capabilities.
+```
+
+Recommended check:
+
+```text
+- system prompt contains: source is available only if actually connected and returned runtime data
+- system prompt contains: do not invent source/tool access
+- system prompt does not contain: repo.read = true
+- system prompt does not contain: execute RepoStateAgent
+- system prompt does not contain: commit automatically
+- system prompt does not contain: simulate private capabilities
+```
+
+## Warnings
+
+- Do not connect Human Meaning Provider yet.
+- Do not connect RepoStateAgent runtime yet.
+- Do not add executor.
+- Do not add repo-read runtime.
+- Do not expand Technical Mode.
+- Do not add slash commands.
+- Do not deploy unless explicitly requested by Monarch.

@@ -223,3 +223,130 @@ No critical runtime errors
 ```
 
 Then make a Render snapshot/backup for rollback.
+
+---
+
+# SESSION_SAVEPOINT — Living SG Core CI Coverage
+
+Saved at: `2026-05-01T13:41:49Z`
+Saved by: `SG-advisor`
+Scope: `Living SG behavior core + systemPrompt smoke coverage`
+
+---
+
+## Current confirmed repo state
+
+```text
+Repository: korzh260609-beep/garya-bot
+Branch: main
+Goal: Safe transition of SG to Living SG behavior.
+Current focus: Global Living SG behavior first, not separate function wiring.
+```
+
+## Confirmed principles for this block
+
+```text
+message
+→ conversation context
+→ meaning
+→ intent
+→ capability need
+→ permission/gate
+→ source/tool if actually available
+→ answer/action
+```
+
+Forbidden during this block:
+
+```text
+- no keyword/phrase-router intelligence
+- no костыльная логика
+- no premature repo-read runtime
+- no executor
+- no repo write without explicit monarch permission
+- no deploy actions
+- no memory changes from Living SG
+- no Technical Mode expansion
+- no diagnostic bridge expansion
+- no new slash commands unless explicitly approved
+```
+
+## Important commits in this Living SG block
+
+```text
+e90356eb16c38aa030808a113afb84878c883c8f
+- Removed premature Human Mode repo-read runtime wiring.
+
+8cac7c680488e263d585cc534d4974a7a98ea3e4
+- Added Living SG core behavior to BehaviorCore.
+
+e0bf035cb6b04a338de7dd08e623c0325ce9fbd3
+- Added scripts/smokeLivingSGCoreBehavior.js.
+
+6ae1c77663540378a959ea7580d80f168ba0f16b
+- Added package.json script: smoke:living-sg-core.
+
+ad99cfd692e7ba8ada260d91cf96e80f988affb2
+- Added .github/workflows/smoke-living-sg-core.yml.
+
+705e8274b0135a33a01d1c36516571ce7f497f12
+- Added scripts/smokeSystemPromptLivingSGCore.js.
+
+9ad2cd2bb341e2839d86ab245d2773f870a61b99
+- Added package.json script: smoke:system-prompt-living-sg.
+
+0f10843ee63d30ed7fe90976ba850ec8c26e37d7
+- Added .github/workflows/smoke-system-prompt-living-sg.yml.
+```
+
+## Verified CI behavior
+
+Monarch visually confirmed in GitHub Actions:
+
+```text
+Smoke System Prompt Living SG #1: passed
+SG Minimal CI #5744: passed
+Branch: main
+Commit: 0f10843...
+```
+
+Meaning:
+- Living SG core behavior smoke is covered by GitHub Actions.
+- systemPrompt Living SG smoke is covered by GitHub Actions.
+- The new workflow runs npm run smoke:system-prompt-living-sg.
+- The smoke coverage checks behavior/prompt wiring only.
+- It does not connect repo/tool capabilities.
+- It does not connect RepoStateAgent runtime.
+- It does not add Human Meaning Provider.
+- It does not modify memory.
+
+## Current completed microstep
+
+```text
+GitHub Actions coverage for systemPrompt Living SG smoke test is complete.
+```
+
+## Next safe microstep
+
+```text
+Continue Living SG behavior stability checks without connecting repo-read runtime.
+```
+
+Recommended next check:
+
+```text
+Review whether current Living SG prompt wording is strong enough against:
+- keyword/phrase-router fallback;
+- fake source access;
+- premature capability simulation;
+- Technical Mode leakage;
+- component/tool being treated as separate SG.
+```
+
+## Warnings
+
+- Do not return to repo-read capability yet.
+- Do not add Human Meaning Provider yet.
+- Do not connect RepoStateAgent runtime yet.
+- Do not implement functions before Living SG behavior is stable.
+- Do not mark pillar roadmap items as done manually; use repo/runtime/tests or generated status snapshots as evidence.

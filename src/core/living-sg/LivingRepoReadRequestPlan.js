@@ -6,6 +6,7 @@
 // - represent a future read-only request for repository facts;
 // - keep planning separate from repository execution;
 // - require source proof before verified repo claims;
+// - declare sourceResult envelope as the expected proof format;
 // - keep repository writes blocked.
 //
 // Hard boundaries:
@@ -26,6 +27,9 @@ import {
   LIVING_SOURCE_PROOF_KIND,
   createLivingSourceProofBoundary,
 } from "./LivingSourceProofBoundary.js";
+import {
+  LIVING_SOURCE_RESULT_KIND,
+} from "./LivingSourceResultEnvelope.js";
 
 export const LIVING_REPO_READ_REQUEST_KIND = Object.freeze({
   REPO_FACTS: "repo_facts",
@@ -40,12 +44,20 @@ export const LIVING_REPO_READ_REQUEST_STATUS = Object.freeze({
   BLOCKED_WRITE_REQUEST: "blocked_write_request",
 });
 
+export const LIVING_REPO_READ_PROOF_FORMAT = Object.freeze({
+  SOURCE_RESULT_ENVELOPE: "source_result_envelope",
+});
+
 function safeText(value) {
   return String(value ?? "").trim();
 }
 
 function safeBool(value) {
   return value === true;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeRequestKind(value) {
@@ -78,11 +90,67 @@ function capabilityForRequestKind(kind) {
   return LIVING_REPO_SOURCE_CAPABILITY.REPO_FACTS_READ;
 }
 
+function buildExpectedSourceResultEnvelope({ requestKind, target } = {}) {
+  return {
+    format: LIVING_REPO_READ_PROOF_FORMAT.SOURCE_RESULT_ENVELOPE,
+    kind: LIVING_SOURCE_RESULT_KIND.REPO,
+    requestKind,
+    target,
+    requiredFields: [
+      "kind",
+      "target",
+      "freshness.status",
+      "payload",
+      "confirmation.status",
+      "canClaimVerifiedFacts",
+      "canAuthorizeWrite",
+    ],
+    requiredConfirmationStatus: "confirmed",
+    requiresFreshnessCheck: true,
+    requiresPayload: true,
+    canAuthorizeWrite: false,
+    canExecute: false,
+    metadata: {
+      planningOnly: true,
+      noSourceCall: true,
+      noRuntimeRepoRead: true,
+      noRuntimeRepoWrite: true,
+      noExecutor: true,
+      cannotAuthorizeWrites: true,
+    },
+  };
+}
+
+function getProvidedEnvelope(input = {}) {
+  if (isPlainObject(input.sourceResultEnvelope)) return input.sourceResultEnvelope;
+  if (isPlainObject(input.sourceResult)) return input.sourceResult;
+  return null;
+}
+
+function buildBaseMetadata() {
+  return {
+    expectsSourceResultEnvelope: true,
+    noRuntimeRepoRead: true,
+    noRuntimeRepoWrite: true,
+    noSourceCall: true,
+    noExecutor: true,
+    noRepoStateAgentRuntime: true,
+    noTechnicalModeExpansion: true,
+    noSlashCommandsAdded: true,
+    cannotAuthorizeWrites: true,
+  };
+}
+
 export function createLivingRepoReadRequestPlan(input = {}) {
   const requested = safeBool(input.requested);
   const writeRequested = safeBool(input.writeRequested);
   const requestKind = normalizeRequestKind(input.requestKind);
   const target = safeText(input.target);
+  const sourceResultEnvelope = getProvidedEnvelope(input);
+  const expectedSourceResultEnvelope = buildExpectedSourceResultEnvelope({
+    requestKind,
+    target,
+  });
 
   if (writeRequested) {
     return {
@@ -95,6 +163,8 @@ export function createLivingRepoReadRequestPlan(input = {}) {
       requested: true,
       writeRequested: true,
       shouldRequestSource: false,
+      expectedSourceResultEnvelope,
+      sourceResultEnvelope,
       canReadRepo: false,
       canWriteRepo: false,
       canClaimVerifiedRepoFacts: false,
@@ -108,18 +178,11 @@ export function createLivingRepoReadRequestPlan(input = {}) {
       sourceProof: createLivingSourceProofBoundary({
         kind: LIVING_SOURCE_PROOF_KIND.REPO,
         requested: true,
+        sourceResultEnvelope,
         sourceResultConfirmed: false,
         sourcePayload: null,
       }),
-      metadata: {
-        noRuntimeRepoRead: true,
-        noRuntimeRepoWrite: true,
-        noSourceCall: true,
-        noExecutor: true,
-        noRepoStateAgentRuntime: true,
-        noTechnicalModeExpansion: true,
-        noSlashCommandsAdded: true,
-      },
+      metadata: buildBaseMetadata(),
     };
   }
 
@@ -134,6 +197,8 @@ export function createLivingRepoReadRequestPlan(input = {}) {
       requested: false,
       writeRequested: false,
       shouldRequestSource: false,
+      expectedSourceResultEnvelope,
+      sourceResultEnvelope,
       canReadRepo: false,
       canWriteRepo: false,
       canClaimVerifiedRepoFacts: false,
@@ -143,18 +208,11 @@ export function createLivingRepoReadRequestPlan(input = {}) {
       sourceProof: createLivingSourceProofBoundary({
         kind: LIVING_SOURCE_PROOF_KIND.REPO,
         requested: false,
+        sourceResultEnvelope,
         sourceResultConfirmed: false,
         sourcePayload: null,
       }),
-      metadata: {
-        noRuntimeRepoRead: true,
-        noRuntimeRepoWrite: true,
-        noSourceCall: true,
-        noExecutor: true,
-        noRepoStateAgentRuntime: true,
-        noTechnicalModeExpansion: true,
-        noSlashCommandsAdded: true,
-      },
+      metadata: buildBaseMetadata(),
     };
   }
 
@@ -167,6 +225,7 @@ export function createLivingRepoReadRequestPlan(input = {}) {
   const sourceProof = createLivingSourceProofBoundary({
     kind: LIVING_SOURCE_PROOF_KIND.REPO,
     requested: true,
+    sourceResultEnvelope,
     sourceResultConfirmed: false,
     sourcePayload: null,
   });
@@ -181,27 +240,24 @@ export function createLivingRepoReadRequestPlan(input = {}) {
     requested: true,
     writeRequested: false,
     shouldRequestSource: true,
+    expectedSourceResultEnvelope,
+    sourceResultEnvelope,
     canReadRepo: false,
     canWriteRepo: false,
-    canClaimVerifiedRepoFacts: false,
+    canClaimVerifiedRepoFacts: sourceProof?.canClaimVerifiedFacts === true,
     requiresSourceProof: true,
-    reason: "repo_read_planned_but_source_required",
+    reason: sourceProof?.canClaimVerifiedFacts === true
+      ? "repo_read_planned_with_confirmed_source_result_envelope"
+      : "repo_read_planned_but_source_required",
     capabilityPlan,
     sourceProof,
-    metadata: {
-      noRuntimeRepoRead: true,
-      noRuntimeRepoWrite: true,
-      noSourceCall: true,
-      noExecutor: true,
-      noRepoStateAgentRuntime: true,
-      noTechnicalModeExpansion: true,
-      noSlashCommandsAdded: true,
-    },
+    metadata: buildBaseMetadata(),
   };
 }
 
 export default {
   LIVING_REPO_READ_REQUEST_KIND,
   LIVING_REPO_READ_REQUEST_STATUS,
+  LIVING_REPO_READ_PROOF_FORMAT,
   createLivingRepoReadRequestPlan,
 };

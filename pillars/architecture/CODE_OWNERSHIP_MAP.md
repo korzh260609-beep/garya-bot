@@ -20,6 +20,8 @@ This file must be interpreted together with:
 - `pillars/architecture/DATA_FLOW.md`
 - `pillars/architecture/PERMISSIONS_MAP.md`
 - `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
+- `pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md`
+- `pillars/architecture/REPO_MAINTENANCE_AGENT_SKELETON.md`
 
 If this file conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
 
@@ -135,10 +137,11 @@ When deciding where code belongs, use this priority:
 
 1. real responsibility of the code
 2. canonical module boundaries in `MODULE_MAP.md`
-3. `pillars/DECISIONS.md` for SG philosophy and global boundaries
-4. verified repository/runtime state
-5. actual repository placement
-6. historical convenience
+3. canonical agent grouping in `AGENT_DIRECTORY_STRUCTURE.md` when agent boundaries are involved
+4. `pillars/DECISIONS.md` for SG philosophy and global boundaries
+5. verified repository/runtime state
+6. actual repository placement
+7. historical convenience
 
 If repository placement and responsibility conflict,
 responsibility wins conceptually,
@@ -378,6 +381,7 @@ Ownership rule:
 - old RepoIndex / old map surfaces when used as current factual truth
 
 ### FUTURE
+- `src/agents/repo-intelligence/repo-state-agent/*` for the future canonical RepoStateAgent location
 - richer repo diagnostics
 - path classification helpers
 - bounded diff prep helpers if explicitly approved later
@@ -388,6 +392,61 @@ Ownership rule:
 - repo review/output features consume Repo/RepoStateAgent, but do not own repo access itself
 - repo tooling must not become SG itself or autonomous architecture owner
 - repo mutation must remain separate from repo inspection and requires explicit permission/approval
+
+---
+
+## 5.7.1 Repo Maintenance Agents
+
+### FUTURE
+- `src/agents/repo-maintenance/repo-maintenance-agent/*`
+
+Ownership rule:
+- RepoMaintenanceAgent owns post-change repository consistency auditing and planning
+- it checks what docs, tests, snapshots, imports, module boundaries, or architecture maps may be affected after repository changes
+- it starts as read-only auditor/planner
+- it must not replace RepoStateAgent
+- it must not own runtime diagnostics
+- it must not auto-edit code or pillars by default
+
+Read together with:
+- `pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md`
+- `pillars/architecture/REPO_MAINTENANCE_AGENT_SKELETON.md`
+
+---
+
+## 5.7.2 Runtime / Diagnostics Agents
+
+### LEGACY
+- `src/agentWorkspace/*`
+- `agent_workspace/*`
+
+### FUTURE
+- `src/agents/runtime-diagnostics/diagnostics-render-agent/*`
+
+Ownership rule:
+- DiagnosticsRenderAgent owns runtime/test/Render/log visibility
+- it must not directly contain RepoStateAgent logic
+- it must not become RepoMaintenanceAgent
+- it must not own SG architecture decisions
+
+Read together with:
+- `pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md`
+
+---
+
+## 5.7.3 Shared Agent Bridges
+
+### FUTURE
+- `src/agents/shared/bridges/*`
+
+Ownership rule:
+- shared bridges are explicit adapters between agents
+- bridges must not become hidden agents
+- bridges must not own SG decisions or identity
+- agent-to-agent calls must go through bridges/adapters when boundaries matter
+
+Read together with:
+- `pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md`
 
 ---
 
@@ -617,10 +676,11 @@ When a file seems to belong to multiple modules:
 1. ask what responsibility dominates
 2. check `DECISIONS.md`
 3. check `MODULE_MAP.md`
-4. check `DATA_FLOW.md`
-5. check `PERMISSIONS_MAP.md` if access/action control is involved
-6. check `REPO_MAP_SOURCE_POLICY.md` if repo truth/current state is involved
-7. treat mixed ownership as architectural risk, not as proof that “everything is flexible”
+4. check `AGENT_DIRECTORY_STRUCTURE.md` if agent boundaries are involved
+5. check `DATA_FLOW.md`
+6. check `PERMISSIONS_MAP.md` if access/action control is involved
+7. check `REPO_MAP_SOURCE_POLICY.md` if repo truth/current state is involved
+8. treat mixed ownership as architectural risk, not as proof that “everything is flexible”
 
 If still ambiguous:
 - document the ambiguity
@@ -635,9 +695,12 @@ Update this file when:
 - a major file/path clearly changes module ownership
 - a legacy area is replaced by a cleaner modular location
 - a new major module gets real code presence
+- a new agent group or agent code area gets real code presence
 - an important mixed-responsibility file is split
 - a previously assumed ownership mapping is proven wrong
 - RepoStateAgent / factual repo ownership changes
+- RepoMaintenanceAgent / repo maintenance ownership changes
+- DiagnosticsRenderAgent / runtime diagnostics ownership changes
 - controller/gate ownership changes
 - code ownership affects SG entity/governance boundaries
 
@@ -655,6 +718,13 @@ Read:
 - that module’s `README.md`
 - that module’s `CONTRACTS.md`
 - `REPO_MAP_SOURCE_POLICY.md` if file placement/current repo truth matters
+
+### If changing or creating an agent
+Read:
+- this file
+- `pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md`
+- the relevant agent skeleton file if one exists
+- `REPO_MAP_SOURCE_POLICY.md` if repo truth/current state is involved
 
 ### If reviewing a large file
 Ask:
@@ -681,6 +751,7 @@ A project is not truly modular just because it has module docs.
 
 It becomes modular when:
 - module boundaries map to real code ownership
+- agent boundaries map to clear responsibility groups
 - mixed files are treated critically
 - legacy placement is not mistaken for correct architecture
 - new code follows responsibility, not convenience

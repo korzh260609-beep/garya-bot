@@ -232,6 +232,20 @@ Use for:
 - RepoStateAgent as factual repo observation subsystem
 - old RepoIndex / old maps / old snapshots as legacy only
 
+#### `AGENT_DIRECTORY_STRUCTURE.md`
+Use for:
+- future canonical SG agent directory structure
+- agent grouping by meaning/responsibility
+- rule that one agent must not be hidden inside another agent folder
+- relation between RepoStateAgent, RepoMaintenanceAgent, DiagnosticsRenderAgent, and SG
+
+#### `REPO_MAINTENANCE_AGENT_SKELETON.md`
+Use for:
+- future RepoMaintenanceAgent skeleton
+- read-only repository maintenance/audit responsibility
+- post-change docs/tests/snapshot planning
+- separation from RepoStateAgent and DiagnosticsRenderAgent
+
 #### `SG_CAPABILITY_ACCESS.md`
 Use for:
 - capability exposure through SG
@@ -349,8 +363,10 @@ Read in this order:
 6. `pillars/architecture/SEMANTIC_ROUTING.md`
 7. `pillars/architecture/REPO_MAP_SOURCE_POLICY.md`
 8. `pillars/architecture/HUMAN_MODE_REPOSTATEAGENT_SKELETON.md`
-9. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
-10. affected module docs
+9. `pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md`
+10. `pillars/architecture/REPO_MAINTENANCE_AGENT_SKELETON.md`
+11. `pillars/architecture/SG_CAPABILITY_ACCESS.md`
+12. affected module docs
 
 ---
 

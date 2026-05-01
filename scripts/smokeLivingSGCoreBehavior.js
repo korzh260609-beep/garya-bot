@@ -42,7 +42,7 @@ const core = getBehaviorCore({
 assertEqual("core.livingSG", core.livingSG, true);
 assertEqual("core.supportsLivingSG", core.supportsLivingSG, true);
 assertIncludes("core.version", core.version, "living-sg-core");
-assertIncludes("core.version", core.version, "v2");
+assertIncludes("core.version", core.version, "v3");
 assertEqual("core.behaviorIndependentFromAnswerMode", core.behaviorIndependentFromAnswerMode, true);
 
 const promptBlock = buildBehaviorCorePromptBlock({
@@ -55,12 +55,14 @@ assertIncludes("promptBlock", promptBlock, "not a command bot");
 assertIncludes("promptBlock", promptBlock, "conversation context");
 assertIncludes("promptBlock", promptBlock, "available sources");
 assertIncludes("promptBlock", promptBlock, "state-changing actions require explicit permission");
-assertIncludes("promptBlock", promptBlock, "keyword or phrase matching as primary intelligence");
-assertIncludes("promptBlock", promptBlock, "weak hints only");
+assertIncludes("promptBlock", promptBlock, "keyword-router and phrase-router behavior is forbidden");
+assertIncludes("promptBlock", promptBlock, "do not use keywords, phrases, slash commands or templates as routing logic");
+assertIncludes("promptBlock", promptBlock, "raw semantic input only");
 assertIncludes("promptBlock", promptBlock, "do not expand Technical Mode behavior from Living SG behavior");
 assertIncludes("promptBlock", promptBlock, "Human Mode primary");
 assertIncludes("promptBlock", promptBlock, "must not act as separate SG entities");
 
+assertNotIncludes("promptBlock", promptBlock, "weak hints only");
 assertNotIncludes("promptBlock", promptBlock, "repo.read = true");
 assertNotIncludes("promptBlock", promptBlock, "execute RepoStateAgent");
 assertNotIncludes("promptBlock", promptBlock, "commit automatically");

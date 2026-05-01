@@ -4,8 +4,8 @@ Reset before current command run.
 
 ---
 
-Task ID: `collect-render-logs-latest-100-20260429-001`
-Updated at: `2026-04-29T15:30:02.553Z`
+Task ID: `collect-render-logs-latest-300-20260501-001`
+Updated at: `2026-05-01T04:21:26.996Z`
 Reason: `reset_before_command_run_no_test_yet`
 
 ---

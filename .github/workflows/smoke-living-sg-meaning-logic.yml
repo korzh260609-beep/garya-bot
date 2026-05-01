@@ -1,0 +1,33 @@
+name: Smoke Living SG Meaning Logic
+
+# Verifies Living SG meaning -> intent -> capability -> gate -> response
+# without connecting repo/tool/runtime capabilities.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/smokeLivingSGMeaningLogicContract.js"
+      - "src/core/living-sg/**"
+      - "package.json"
+      - ".github/workflows/smoke-living-sg-meaning-logic.yml"
+
+jobs:
+  smoke-living-sg-meaning-logic:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Living SG meaning logic smoke check
+        run: npm run smoke:living-sg-meaning-logic

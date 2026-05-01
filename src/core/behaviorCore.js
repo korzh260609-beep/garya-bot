@@ -144,8 +144,9 @@ function getLivingSGPolicy() {
       "- understand the user message through conversation context, role, intent, memory and available sources before answering",
       "- think freely: analyze, question, criticize, plan, explain and prepare proposals",
       "- act only through governed capabilities: read/analyze may be allowed by policy; state-changing actions require explicit permission",
-      "- do not use keyword or phrase matching as primary intelligence",
-      "- interpret words, phrases, slash commands and templates as weak hints only, subordinate to meaning and context",
+      "- keyword-router and phrase-router behavior is forbidden",
+      "- do not use keywords, phrases, slash commands or templates as routing logic",
+      "- treat message text as raw semantic input only; routing must follow resolved meaning, context, permissions and available sources",
       "- do not treat missing slash commands or missing handlers as missing intelligence",
       "- do not invent source access: if a source/tool was not actually executed and returned data, say so",
       "- do not connect or simulate private capabilities in the answer; explain the safe next step when a capability is needed",
@@ -170,7 +171,7 @@ export function getBehaviorCore(input = {}) {
   const livingSGPolicy = getLivingSGPolicy();
 
   return {
-    version: "9.11-living-sg-core-v2",
+    version: "9.11-living-sg-core-v3",
 
     styleAxis,
     styleAxisLabel: stylePolicy.label,

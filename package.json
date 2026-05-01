@@ -20,6 +20,7 @@
     "smoke:living-sg-repo-read-planner": "node ./scripts/smokeLivingSGRepoReadRequestPlanner.js",
     "smoke:living-sg-source-result-envelope": "node ./scripts/smokeLivingSGSourceResultEnvelope.js",
     "smoke:living-sg-source-proof-envelope-input": "node ./scripts/smokeLivingSGSourceProofEnvelopeInput.js",
+    "smoke:living-sg-repo-read-planner-envelope-contract": "node ./scripts/smokeLivingSGRepoReadPlannerEnvelopeContract.js",
     "smoke:legacy-project-intent-flow": "node ./scripts/smokeLegacyProjectIntentFlowSkeleton.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",

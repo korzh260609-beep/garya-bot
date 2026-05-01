@@ -1,0 +1,33 @@
+name: Smoke Living SG Metadata Authority
+
+# Verifies Living SG prompt metadata stays read-only and cannot become execution authority.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/smokeLivingSGMetadataAuthority.js"
+      - "src/bot/handlers/chat/promptAssembly.js"
+      - "systemPrompt.js"
+      - "package.json"
+      - ".github/workflows/smoke-living-sg-metadata-authority.yml"
+
+jobs:
+  smoke-living-sg-metadata-authority:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Living SG metadata authority smoke check
+        run: npm run smoke:living-sg-metadata-authority

@@ -45,7 +45,11 @@ assertIncludes("prompt", prompt, "global Advisor system");
 assertIncludes("prompt", prompt, "not a command bot");
 assertIncludes("prompt", prompt, "conversation context");
 assertIncludes("prompt", prompt, "state-changing actions require explicit permission");
+assertIncludes("prompt", prompt, "keyword or phrase matching as primary intelligence");
+assertIncludes("prompt", prompt, "weak hints only");
+assertIncludes("prompt", prompt, "do not expand Technical Mode behavior from Living SG behavior");
 assertIncludes("prompt", prompt, "Human Mode primary");
+assertIncludes("prompt", prompt, "must not act as separate SG entities");
 
 assertNotIncludes("prompt", prompt, "repo.read = true");
 assertNotIncludes("prompt", prompt, "execute RepoStateAgent");

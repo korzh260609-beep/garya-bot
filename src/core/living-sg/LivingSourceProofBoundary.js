@@ -6,6 +6,7 @@
 // - distinguish requested source facts from verified source facts;
 // - prevent skeleton metadata from becoming proof;
 // - require explicit runtime source result before verified repo/source claims;
+// - read future sourceResult envelope status as contract input only;
 // - keep repo-read runtime disconnected until explicitly approved.
 //
 // Hard boundaries:
@@ -17,6 +18,10 @@
 // - no Technical Mode expansion;
 // - no slash-command dependency.
 // ============================================================================
+
+import {
+  LIVING_SOURCE_RESULT_CONFIRMATION_STATUS,
+} from "./LivingSourceResultEnvelope.js";
 
 export const LIVING_SOURCE_PROOF_KIND = Object.freeze({
   REPO: "repo",
@@ -41,6 +46,10 @@ function safeBool(value) {
   return value === true;
 }
 
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function normalizeKind(value) {
   const v = safeText(value);
 
@@ -52,11 +61,52 @@ function normalizeKind(value) {
   return LIVING_SOURCE_PROOF_KIND.UNKNOWN;
 }
 
+function getEnvelope(input = {}) {
+  if (isPlainObject(input.sourceResultEnvelope)) return input.sourceResultEnvelope;
+  if (isPlainObject(input.sourceResult)) return input.sourceResult;
+  return null;
+}
+
+function getEnvelopeConfirmationStatus(envelope = null) {
+  return safeText(envelope?.confirmation?.status);
+}
+
+function envelopeCanClaimVerifiedFacts(envelope = null) {
+  return (
+    isPlainObject(envelope) &&
+    envelope.canClaimVerifiedFacts === true &&
+    getEnvelopeConfirmationStatus(envelope) ===
+      LIVING_SOURCE_RESULT_CONFIRMATION_STATUS.CONFIRMED
+  );
+}
+
+function envelopeBlocksVerifiedFacts(envelope = null) {
+  if (!isPlainObject(envelope)) return false;
+  return !envelopeCanClaimVerifiedFacts(envelope);
+}
+
+function buildBaseMetadata({ hasEnvelope = false } = {}) {
+  return {
+    sourceResultEnvelopeObserved: hasEnvelope,
+    sourceResultEnvelopeIsProofInputOnly: true,
+    noSourceCall: true,
+    noRuntimeRepoRead: true,
+    noRuntimeRepoWrite: true,
+    noExecutor: true,
+    noRepoStateAgentRuntime: true,
+    noTechnicalModeExpansion: true,
+    noSlashCommandsAdded: true,
+    cannotAuthorizeWrites: true,
+  };
+}
+
 export function createLivingSourceProofBoundary(input = {}) {
   const requested = safeBool(input.requested);
+  const envelope = getEnvelope(input);
+  const hasEnvelope = Boolean(envelope);
   const sourceResultConfirmed = safeBool(input.sourceResultConfirmed);
   const hasSourcePayload = input.sourcePayload !== null && input.sourcePayload !== undefined;
-  const kind = normalizeKind(input.kind);
+  const kind = normalizeKind(input.kind || envelope?.kind);
 
   if (!requested) {
     return {
@@ -68,17 +118,47 @@ export function createLivingSourceProofBoundary(input = {}) {
       requested: false,
       verified: false,
       canClaimVerifiedFacts: false,
+      canAuthorizeWrite: false,
       requiresSourceResult: false,
       reason: "source_not_requested",
-      metadata: {
-        noSourceCall: true,
-        noRuntimeRepoRead: true,
-        noRuntimeRepoWrite: true,
-        noExecutor: true,
-        noRepoStateAgentRuntime: true,
-        noTechnicalModeExpansion: true,
-        noSlashCommandsAdded: true,
-      },
+      sourceResultEnvelope: envelope,
+      metadata: buildBaseMetadata({ hasEnvelope }),
+    };
+  }
+
+  if (hasEnvelope && envelopeBlocksVerifiedFacts(envelope)) {
+    return {
+      ok: true,
+      dryRun: true,
+      source: "LivingSourceProofBoundary",
+      kind,
+      status: LIVING_SOURCE_PROOF_STATUS.REQUESTED_NOT_VERIFIED,
+      requested: true,
+      verified: false,
+      canClaimVerifiedFacts: false,
+      canAuthorizeWrite: false,
+      requiresSourceResult: true,
+      reason: `source_result_envelope_${getEnvelopeConfirmationStatus(envelope) || "not_confirmed"}`,
+      sourceResultEnvelope: envelope,
+      metadata: buildBaseMetadata({ hasEnvelope }),
+    };
+  }
+
+  if (hasEnvelope && envelopeCanClaimVerifiedFacts(envelope)) {
+    return {
+      ok: true,
+      dryRun: true,
+      source: "LivingSourceProofBoundary",
+      kind,
+      status: LIVING_SOURCE_PROOF_STATUS.VERIFIED,
+      requested: true,
+      verified: true,
+      canClaimVerifiedFacts: true,
+      canAuthorizeWrite: false,
+      requiresSourceResult: false,
+      reason: "source_result_envelope_confirmed",
+      sourceResultEnvelope: envelope,
+      metadata: buildBaseMetadata({ hasEnvelope }),
     };
   }
 
@@ -92,17 +172,11 @@ export function createLivingSourceProofBoundary(input = {}) {
       requested: true,
       verified: false,
       canClaimVerifiedFacts: false,
+      canAuthorizeWrite: false,
       requiresSourceResult: true,
       reason: "source_requested_but_not_verified",
-      metadata: {
-        noSourceCall: true,
-        noRuntimeRepoRead: true,
-        noRuntimeRepoWrite: true,
-        noExecutor: true,
-        noRepoStateAgentRuntime: true,
-        noTechnicalModeExpansion: true,
-        noSlashCommandsAdded: true,
-      },
+      sourceResultEnvelope: envelope,
+      metadata: buildBaseMetadata({ hasEnvelope }),
     };
   }
 
@@ -115,17 +189,11 @@ export function createLivingSourceProofBoundary(input = {}) {
     requested: true,
     verified: true,
     canClaimVerifiedFacts: true,
+    canAuthorizeWrite: false,
     requiresSourceResult: false,
     reason: "source_result_confirmed_with_payload",
-    metadata: {
-      noSourceCall: true,
-      noRuntimeRepoRead: true,
-      noRuntimeRepoWrite: true,
-      noExecutor: true,
-      noRepoStateAgentRuntime: true,
-      noTechnicalModeExpansion: true,
-      noSlashCommandsAdded: true,
-    },
+    sourceResultEnvelope: envelope,
+    metadata: buildBaseMetadata({ hasEnvelope }),
   };
 }
 

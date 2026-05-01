@@ -178,6 +178,7 @@ export async function runChatAiOrchestration({
     recallCtx: guardedRecallCtx,
     history: guardedHistory,
     replyContext,
+    livingSGPlan,
   });
 
   const guardedMessages = guardChatMessages(messages);

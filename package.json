@@ -9,6 +9,7 @@
     "smoke:living-sg": "node ./scripts/smokeLivingSGSkeletonImports.js",
     "smoke:living-sg-core": "node ./scripts/smokeLivingSGCoreBehavior.js",
     "smoke:system-prompt-living-sg": "node ./scripts/smokeSystemPromptLivingSGCore.js",
+    "smoke:system-prompt-source-honesty": "node ./scripts/smokeSystemPromptSourceHonesty.js",
     "smoke:living-sg-meaning-logic": "node ./scripts/smokeLivingSGMeaningLogicContract.js",
     "smoke:living-sg-isolation": "node ./scripts/smokeLivingSGIsolationContract.js",
     "smoke:living-sg-boundary-safety": "node ./scripts/smokeLivingSGBoundarySafetyContract.js",

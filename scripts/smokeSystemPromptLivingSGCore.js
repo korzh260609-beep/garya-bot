@@ -45,12 +45,14 @@ assertIncludes("prompt", prompt, "global Advisor system");
 assertIncludes("prompt", prompt, "not a command bot");
 assertIncludes("prompt", prompt, "conversation context");
 assertIncludes("prompt", prompt, "state-changing actions require explicit permission");
-assertIncludes("prompt", prompt, "keyword or phrase matching as primary intelligence");
-assertIncludes("prompt", prompt, "weak hints only");
+assertIncludes("prompt", prompt, "keyword-router and phrase-router behavior is forbidden");
+assertIncludes("prompt", prompt, "do not use keywords, phrases, slash commands or templates as routing logic");
+assertIncludes("prompt", prompt, "raw semantic input only");
 assertIncludes("prompt", prompt, "do not expand Technical Mode behavior from Living SG behavior");
 assertIncludes("prompt", prompt, "Human Mode primary");
 assertIncludes("prompt", prompt, "must not act as separate SG entities");
 
+assertNotIncludes("prompt", prompt, "weak hints only");
 assertNotIncludes("prompt", prompt, "repo.read = true");
 assertNotIncludes("prompt", prompt, "execute RepoStateAgent");
 assertNotIncludes("prompt", prompt, "commit automatically");

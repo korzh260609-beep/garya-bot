@@ -2,10 +2,12 @@
 // ============================================================================
 // Smoke — Living RepoStateAgent Source Flow Wiring
 //
-// Verifies controlled runtime wiring:
+// Verifies controlled runtime wiring after resolver extraction:
 // - chat orchestration passes livingSGPlan into sourceFlow;
-// - sourceFlow may use RepoStateAgent only through fastReadOnly read-only path;
-// - sourceFlow adapts RepoStateAgent result through Living providerResult and
+// - sourceFlow delegates RepoStateAgent work to dedicated resolver;
+// - dedicated resolver may use RepoStateAgent only through fastReadOnly
+//   read-only path;
+// - resolver adapts RepoStateAgent result through Living providerResult and
 //   sourceResultEnvelope adapters;
 // - write/executor/Technical Mode paths remain absent.
 // ============================================================================
@@ -14,6 +16,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const sourceFlow = readFileSync("src/bot/handlers/chat/sourceFlow.js", "utf8");
+const resolver = readFileSync(
+  "src/bot/handlers/chat/livingRepoStateAgentSourceResolver.js",
+  "utf8"
+);
 const chatAiOrchestrationFlow = readFileSync(
   "src/bot/handlers/chat/chatAiOrchestrationFlow.js",
   "utf8"
@@ -25,69 +31,84 @@ assert.ok(
 );
 
 assert.ok(
-  sourceFlow.includes("import { RepoStateAgentService }"),
-  "sourceFlow must import RepoStateAgentService for controlled fastReadOnly source path"
+  sourceFlow.includes("resolveLivingRepoStateAgentEnvelope"),
+  "sourceFlow must delegate controlled RepoStateAgent source work to resolver"
 );
 assert.ok(
-  sourceFlow.includes("adaptRepoStateAgentResultToLivingProviderResult"),
-  "sourceFlow must adapt RepoStateAgent result to Living providerResult"
+  !sourceFlow.includes("RepoStateAgentService"),
+  "sourceFlow must not instantiate/import RepoStateAgentService directly after resolver extraction"
 );
 assert.ok(
-  sourceFlow.includes("adaptLivingRepoSourceProviderResult"),
-  "sourceFlow must adapt providerResult to sourceResultEnvelope"
-);
-assert.ok(
-  sourceFlow.includes("fastReadOnly: true"),
-  "RepoStateAgent must be called only in fastReadOnly mode"
-);
-assert.ok(
-  sourceFlow.includes("requireFreshProjectMap: true"),
-  "RepoStateAgent source path must require fresh project map"
-);
-assert.ok(
-  sourceFlow.includes("repoFullName: \"korzh260609-beep/garya-bot\""),
-  "RepoStateAgent source path must target the controlled project repo"
-);
-assert.ok(
-  sourceFlow.includes("branch: \"main\""),
-  "RepoStateAgent source path must target main branch for freshness check"
-);
-assert.ok(
-  sourceFlow.includes("canChangeState === false"),
-  "RepoStateAgent source path must require read-only Living gate"
-);
-assert.ok(
-  sourceFlow.includes("livingSGPlan?.intentPlan?.intentKind === \"project_thinking\""),
-  "RepoStateAgent source path must require project_thinking intent"
-);
-assert.ok(
-  sourceFlow.includes("repo_state_agent_source_result_envelope"),
-  "sourceFlow must expose RepoStateAgent source result evidence mode"
+  !sourceFlow.includes("adaptRepoStateAgentResultToLivingProviderResult"),
+  "sourceFlow must not adapt RepoStateAgent results directly after resolver extraction"
 );
 
 assert.ok(
-  !sourceFlow.includes("canAuthorizeWrite: true"),
-  "sourceFlow must not authorize repo writes"
+  resolver.includes("import { RepoStateAgentService }"),
+  "resolver must import RepoStateAgentService for controlled fastReadOnly source path"
 );
 assert.ok(
-  !sourceFlow.includes("canExecute: true"),
-  "sourceFlow must not create executable repo provider result"
+  resolver.includes("adaptRepoStateAgentResultToLivingProviderResult"),
+  "resolver must adapt RepoStateAgent result to Living providerResult"
 );
 assert.ok(
-  !sourceFlow.includes("allowRealAi: true"),
-  "sourceFlow must not enable real AI analysis"
+  resolver.includes("adaptLivingRepoSourceProviderResult"),
+  "resolver must adapt providerResult to sourceResultEnvelope"
 );
 assert.ok(
-  !sourceFlow.includes("forceAiAnalysis: true"),
-  "sourceFlow must not force AI analysis"
+  resolver.includes("fastReadOnly: true"),
+  "RepoStateAgent must be called only in fastReadOnly mode"
 );
 assert.ok(
-  !sourceFlow.includes("runScan("),
-  "sourceFlow must not call repo scan directly"
+  resolver.includes("requireFreshProjectMap: true"),
+  "RepoStateAgent source path must require fresh project map"
 );
 assert.ok(
-  !sourceFlow.includes("/" + "command"),
-  "sourceFlow must not add command/slash routing"
+  resolver.includes("repoFullName: \"korzh260609-beep/garya-bot\""),
+  "RepoStateAgent source path must target the controlled project repo"
 );
+assert.ok(
+  resolver.includes("branch: \"main\""),
+  "RepoStateAgent source path must target main branch for freshness check"
+);
+assert.ok(
+  resolver.includes("canChangeState === false"),
+  "RepoStateAgent source path must require read-only Living gate"
+);
+assert.ok(
+  resolver.includes("livingSGPlan?.intentPlan?.intentKind === \"project_thinking\""),
+  "RepoStateAgent source path must require project_thinking intent"
+);
+assert.ok(
+  resolver.includes("repo_state_agent_source_result_envelope"),
+  "resolver must expose RepoStateAgent source result evidence mode"
+);
+
+for (const checked of [sourceFlow, resolver]) {
+  assert.ok(
+    !checked.includes("canAuthorizeWrite: true"),
+    "source path must not authorize repo writes"
+  );
+  assert.ok(
+    !checked.includes("canExecute: true"),
+    "source path must not create executable repo provider result"
+  );
+  assert.ok(
+    !checked.includes("allowRealAi: true"),
+    "source path must not enable real AI analysis"
+  );
+  assert.ok(
+    !checked.includes("forceAiAnalysis: true"),
+    "source path must not force AI analysis"
+  );
+  assert.ok(
+    !checked.includes("runScan("),
+    "source path must not call repo scan directly"
+  );
+  assert.ok(
+    !checked.includes("/" + "command"),
+    "source path must not add command/slash routing"
+  );
+}
 
 console.log("Smoke Living RepoStateAgent source flow wiring — OK");

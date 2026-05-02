@@ -21,6 +21,7 @@
     "smoke:living-sg-repo-source-provider-boundary": "node ./scripts/smokeLivingSGRepoSourceProviderBoundary.js",
     "smoke:living-sg-repo-source-provider-result-adapter": "node ./scripts/smokeLivingSGRepoSourceProviderResultAdapter.js",
     "smoke:living-repo-state-agent-provider-result": "node ./scripts/smokeLivingRepoStateAgentProviderResult.js",
+    "smoke:living-repo-facts-answer-builder": "node ./scripts/smokeLivingRepoFactsAnswerBuilder.js",
     "smoke:living-repo-state-agent-source-flow-wiring": "node ./scripts/smokeLivingRepoStateAgentSourceFlowWiring.js",
     "smoke:living-legacy-snapshot-provider-result-shape": "node ./scripts/smokeLivingLegacySnapshotProviderResultShape.js",
     "smoke:living-sg-source-result-envelope": "node ./scripts/smokeLivingSGSourceResultEnvelope.js",

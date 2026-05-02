@@ -5,9 +5,11 @@
 // Purpose:
 // - keep technical source-honesty guard decisions separate from user-facing text;
 // - turn a blocked generic-AI repo facts answer into a Living SG reply;
-// - avoid leaking internal fallback/debug reasons into Telegram/user responses.
+// - avoid leaking internal fallback/debug reasons into transport-agnostic user-facing responses.
 //
 // Boundaries:
+// - transport-agnostic Living SG core text only;
+// - no Telegram-specific behavior;
 // - no repository reads;
 // - no repository writes;
 // - no source calls;
@@ -68,13 +70,13 @@ function resolveMissingDataLine(factNeed = "") {
 function resolveNextStepLine(factNeed = "") {
   switch (safeText(factNeed)) {
     case "repo_root_listing":
-      return "Следующий шаг — добавить отдельный обработчик списка корневых папок и файлов.";
+      return "Добавить отдельный обработчик списка корневых папок и файлов.";
     case "repo_file_listing":
-      return "Следующий шаг — добавить отдельный обработчик списка файлов.";
+      return "Добавить отдельный обработчик списка файлов.";
     case "repo_structure":
-      return "Следующий шаг — расширить обработчик структуры репозитория.";
+      return "Расширить обработчик структуры репозитория.";
     default:
-      return "Следующий шаг — добавить отдельный обработчик этого типа repo-данных.";
+      return "Добавить отдельный обработчик этого типа repo-данных.";
   }
 }
 
@@ -87,6 +89,7 @@ export function buildRepoFactsSourceHonestyBlockedReply({
   const repo = projectMap?.repo || {};
   const totals = projectMap?.totals || {};
   const factNeed = safeText(guardResult?.factNeed || "other_repo_fact");
+  const technicalNextStep = resolveNextStepLine(factNeed);
 
   const lines = [
     "Не буду придумывать.",
@@ -107,8 +110,6 @@ export function buildRepoFactsSourceHonestyBlockedReply({
     );
   }
 
-  lines.push("", resolveNextStepLine(factNeed));
-
   return {
     handled: true,
     source: "LivingRepoFactsSourceHonestyReplyBuilder",
@@ -117,6 +118,8 @@ export function buildRepoFactsSourceHonestyBlockedReply({
     metadata: {
       userFacingReplyBuiltSeparately: true,
       technicalGuardTextHidden: true,
+      transportAgnosticUserFacingReply: true,
+      technicalNextStep,
       factNeed,
     },
   };

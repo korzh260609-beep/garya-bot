@@ -19,9 +19,18 @@ process.env.REPO_STATE_AGENT_WEBHOOK_TOKEN = "repo-state-agent-smoke-token";
 
 const { createRepoStateAgentRoute } = await import("../src/http/repoStateAgentRoute.js");
 
+function listen(server) {
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.once("listening", resolve);
+  });
+}
+
 function request(server, path, headers = {}) {
   const address = server.address();
   const port = address?.port;
+
+  assert.equal(typeof port, "number", "smoke server must expose an assigned port");
 
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -58,6 +67,7 @@ app.use(express.json());
 app.use(createRepoStateAgentRoute());
 
 const server = app.listen(0, "127.0.0.1");
+await listen(server);
 
 try {
   const missingToken = await request(server, "/internal/repo-state-agent/status");

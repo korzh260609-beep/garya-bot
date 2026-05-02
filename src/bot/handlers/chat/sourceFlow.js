@@ -4,6 +4,9 @@ import {
   resolveSourceContext,
   buildSourceServiceDebugBlock,
 } from "../../../sources/sourceService.js";
+import {
+  adaptLegacySourceResultToEnvelope,
+} from "../../../core/living-sg/LivingSourceResultEnvelopeAdapter.js";
 
 export async function resolveChatSourceFlow({ effective }) {
   let sourceCtx = null;
@@ -75,6 +78,15 @@ export async function resolveChatSourceFlow({ effective }) {
       ? sourceCtx.sourceResult.content.trim()
       : "";
 
+  const sourceResultEnvelopeAdapterResult = adaptLegacySourceResultToEnvelope({
+    sourceCtx,
+  });
+
+  const sourceResultEnvelope =
+    sourceResultEnvelopeAdapterResult?.ok === true
+      ? sourceResultEnvelopeAdapterResult.sourceResultEnvelope
+      : null;
+
   const sourceResultSystemMessage = sourceContextText
     ? {
         role: "system",
@@ -103,6 +115,8 @@ export async function resolveChatSourceFlow({ effective }) {
     sourceCtx,
     sourceServiceDebugBlock,
     sourceContextText,
+    sourceResultEnvelope,
+    sourceResultEnvelopeAdapterResult,
     sourceResultSystemMessage,
     sourceServiceSystemMessage,
   };

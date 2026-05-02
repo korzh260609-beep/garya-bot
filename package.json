@@ -25,6 +25,7 @@
     "smoke:living-sg-source-result-system-message": "node ./scripts/smokeLivingSGSourceResultSystemMessage.js",
     "smoke:prompt-source-result-system-message-wiring": "node ./scripts/smokePromptAssemblySourceResultSystemMessageWiring.js",
     "smoke:living-sg-source-result-envelope-adapter": "node ./scripts/smokeLivingSGSourceResultEnvelopeAdapter.js",
+    "smoke:living-sg-source-result-envelope-soft-wiring": "node ./scripts/smokeLivingSGSourceResultEnvelopeSoftWiring.js",
     "smoke:legacy-project-intent-flow": "node ./scripts/smokeLegacyProjectIntentFlowSkeleton.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",

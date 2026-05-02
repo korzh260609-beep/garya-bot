@@ -78,8 +78,12 @@ export async function runChatAiOrchestration({
     defaultLimit: MAX_HISTORY_MESSAGES,
   });
 
-  const { sourceCtx, sourceResultSystemMessage, sourceServiceSystemMessage } =
-    await resolveChatSourceFlow({ effective });
+  const {
+    sourceCtx,
+    sourceResultEnvelope,
+    sourceResultSystemMessage,
+    sourceServiceSystemMessage,
+  } = await resolveChatSourceFlow({ effective });
 
   const {
     longTermMemoryBridgeResult,
@@ -174,6 +178,7 @@ export async function runChatAiOrchestration({
     mediaResponseMode,
     sourceServiceSystemMessage,
     sourceResultSystemMessage,
+    sourceResultEnvelope,
     longTermMemorySystemMessage,
     recallCtx: guardedRecallCtx,
     history: guardedHistory,

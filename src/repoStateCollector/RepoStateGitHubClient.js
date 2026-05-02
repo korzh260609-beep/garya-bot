@@ -58,7 +58,7 @@ export class RepoStateGitHubClient {
     return data;
   }
 
-  async readTree({ repoFullName, branch = "main", recursive = true } = {}) {
+  async readBranchRef({ repoFullName, branch = "main" } = {}) {
     const { owner, repo } = splitRepoFullName(repoFullName);
     if (!owner || !repo) {
       throw new Error("repo_state_github_client_invalid_repo_full_name");
@@ -66,7 +66,30 @@ export class RepoStateGitHubClient {
 
     const refUrl = `${this.apiBaseUrl}/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`;
     const ref = await this.requestJson(refUrl);
-    const treeSha = ref?.object?.sha;
+    const headCommitSha = ref?.object?.sha || null;
+
+    if (!headCommitSha) {
+      throw new Error("repo_state_github_client_missing_head_commit_sha");
+    }
+
+    return {
+      ok: true,
+      repoFullName,
+      branch,
+      refSha: headCommitSha,
+      headCommitSha,
+      refObjectType: ref?.object?.type || null,
+    };
+  }
+
+  async readTree({ repoFullName, branch = "main", recursive = true } = {}) {
+    const { owner, repo } = splitRepoFullName(repoFullName);
+    const branchRef = await this.readBranchRef({ repoFullName, branch });
+    const headCommitSha = branchRef.headCommitSha;
+
+    const commitUrl = `${this.apiBaseUrl}/repos/${owner}/${repo}/git/commits/${encodeURIComponent(headCommitSha)}`;
+    const commit = await this.requestJson(commitUrl);
+    const treeSha = commit?.tree?.sha || null;
 
     if (!treeSha) {
       throw new Error("repo_state_github_client_missing_tree_sha");
@@ -79,6 +102,9 @@ export class RepoStateGitHubClient {
       ok: true,
       repoFullName,
       branch,
+      refSha: branchRef.refSha,
+      headCommitSha,
+      commitSha: headCommitSha,
       treeSha,
       tree: Array.isArray(tree?.tree) ? tree.tree : [],
       truncated: tree?.truncated === true,

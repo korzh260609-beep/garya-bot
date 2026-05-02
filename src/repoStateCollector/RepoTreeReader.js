@@ -171,6 +171,10 @@ export class RepoTreeReader {
       ok: true,
       repoFullName,
       branch,
+      refSha: tree?.refSha || null,
+      headCommitSha: tree?.headCommitSha || null,
+      commitSha: tree?.commitSha || tree?.headCommitSha || null,
+      treeSha: tree?.treeSha || null,
       files,
       filesCount: files.length,
       rawFilesCount: rawFiles.length,
@@ -179,7 +183,7 @@ export class RepoTreeReader {
       structureComplete: true,
       contentComplete: files.every((item) => item.contentLoaded || item.contentSkipped),
       hiddenFilesCount: 0,
-      truncated: false,
+      truncated: tree?.truncated === true,
     };
   }
 }

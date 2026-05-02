@@ -203,6 +203,10 @@ export function buildRepoStateProjectMap(snapshot = {}) {
     repo: {
       fullName: snapshot?.repoFullName || null,
       branch: snapshot?.branch || null,
+      refSha: snapshot?.refSha || snapshot?.tree?.refSha || null,
+      headCommitSha: snapshot?.headCommitSha || snapshot?.tree?.headCommitSha || null,
+      commitSha: snapshot?.commitSha || snapshot?.tree?.commitSha || snapshot?.tree?.headCommitSha || null,
+      treeSha: snapshot?.treeSha || snapshot?.tree?.treeSha || null,
     },
     totals: {
       files: snapshot?.filesCount || files.length,

@@ -1,6 +1,6 @@
 # DECISIONS.md — ЕДИНЫЕ РЕШЕНИЯ ПРОЕКТА СГ
 
-Дата обновления: 2026-04-30  
+Дата обновления: 2026-05-02  
 Статус: CANONICAL  
 Владелец: Монарх Gary
 
@@ -454,6 +454,42 @@ RepoStateAgent — компонент СГ для наблюдения за со
 Он может давать карту проекта, структуру, архитектурное состояние, next action и риски.
 
 Но RepoStateAgent не является СГ, не принимает финальных решений, не меняет код и не заменяет монарха.
+
+---
+
+## D-015A: Living SG использует только RepoStateAgent для текущих repo/project facts
+
+Статус: ПРИНЯТО  
+Область: Living SG / repo facts / project map / semantic map / legacy boundary
+
+Для живого слоя СГ текущие факты о repository, карте проекта, смысловой карте, группировке модулей, архитектурном состоянии и next action должны идти только через новый путь:
+
+```text
+RepoStateAgent
+-> RepoStateCollector
+-> RepoStateProjectMapBuilder
+-> RepoStateSemanticMapBuilder / projectMap.semanticMap
+-> verified repo/project facts
+-> Living SG response
+```
+
+Старый путь `RepoIndex`, старые snapshot-команды, старые repo maps, hardcoded maps и legacy projectIntent repo outputs переводятся в Technical Mode / legacy fallback и не являются источником текущей правды для Living SG.
+
+Разрешённое использование старого пути:
+- техническая диагностика;
+- legacy compatibility;
+- временный fallback с явной пометкой `legacy / not current factual truth`;
+- миграционная справка для разработки.
+
+Запрещено:
+- объединять старый `RepoIndex` и новый `RepoStateAgent` как равные источники истины;
+- использовать старый snapshot как текущую карту проекта;
+- использовать старый snapshot как текущую смысловую карту;
+- строить Living SG repo/project ответы на старом `RepoIndex`, если доступен проверенный `RepoStateAgent` result;
+- развивать старый repo snapshot путь как основной Living SG путь;
+- подключать старый Technical Mode как живой слой под новым названием.
+
+Если `RepoStateAgent` недоступен, Living SG должен честно сказать, что текущая проверенная repo/project карта недоступна, а не подменять её старым snapshot как правдой.
 
 ---
 

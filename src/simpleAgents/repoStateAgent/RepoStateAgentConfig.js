@@ -32,6 +32,8 @@ export function getRepoStateAgentConfig() {
     webhookReady: Boolean(webhookToken || githubWebhookSecret),
     githubWebhookSecret,
     requireGithubSignature: envBool("REPO_STATE_AGENT_REQUIRE_GITHUB_SIGNATURE", true),
+    repoFullName: normalizeString(envStr("REPO_STATE_REPO_FULL_NAME", "korzh260609-beep/garya-bot")),
+    branch: normalizeString(envStr("REPO_STATE_BRANCH", "main")) || "main",
 
     // AI layer
     aiEnabled: envBool("REPO_STATE_AGENT_AI_ENABLED", false),

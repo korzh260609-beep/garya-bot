@@ -2,11 +2,12 @@
 // ============================================================================
 // Smoke — Living SG Source Result Envelope Soft Wiring
 //
-// Verifies the safe soft-wiring contract without executing source runtime:
+// Verifies the safe source-result envelope wiring contract without executing
+// source runtime:
 // - sourceFlow adapts already-existing sourceCtx.sourceResult into envelope;
 // - sourceFlow returns sourceResultEnvelope;
 // - chatAiOrchestrationFlow passes sourceResultEnvelope to buildChatMessages;
-// - old sourceResultSystemMessage remains present, preserving manual precedence.
+// - legacy sourceResultSystemMessage remains available as fallback diagnostics.
 // ============================================================================
 
 import assert from "node:assert/strict";
@@ -39,8 +40,12 @@ assert.ok(
   "sourceFlow return object must include adapter diagnostics"
 );
 assert.ok(
-  sourceFlow.includes("sourceResultSystemMessage = sourceContextText"),
-  "sourceFlow must preserve old sourceResultSystemMessage path"
+  sourceFlow.includes("legacySourceResultSystemMessage = sourceContextText"),
+  "sourceFlow must preserve legacy source result system message as fallback diagnostics"
+);
+assert.ok(
+  sourceFlow.includes("sourceResultSystemMessage = sourceResultEnvelope"),
+  "sourceFlow must control whether legacy sourceResultSystemMessage is passed forward"
 );
 
 assert.ok(
@@ -49,7 +54,7 @@ assert.ok(
 );
 assert.ok(
   chatAiOrchestrationFlow.includes("sourceResultSystemMessage,"),
-  "chatAiOrchestrationFlow must keep sourceResultSystemMessage"
+  "chatAiOrchestrationFlow must keep sourceResultSystemMessage fallback input"
 );
 assert.ok(
   chatAiOrchestrationFlow.includes("sourceResultEnvelope,\n    longTermMemorySystemMessage"),
@@ -58,19 +63,19 @@ assert.ok(
 
 assert.ok(
   !sourceFlow.includes("RepoStateAgent"),
-  "soft wiring must not connect RepoStateAgent runtime"
+  "source result envelope wiring must not connect RepoStateAgent runtime"
 );
 assert.ok(
   !sourceFlow.includes("executor"),
-  "soft wiring must not add executor logic in sourceFlow"
+  "source result envelope wiring must not add executor logic in sourceFlow"
 );
 assert.ok(
   !chatAiOrchestrationFlow.includes("RepoStateAgent"),
-  "soft wiring must not connect RepoStateAgent runtime in orchestration"
+  "source result envelope wiring must not connect RepoStateAgent runtime in orchestration"
 );
 assert.ok(
   !chatAiOrchestrationFlow.includes("executor"),
-  "soft wiring must not add executor logic in orchestration"
+  "source result envelope wiring must not add executor logic in orchestration"
 );
 
 console.log("Smoke Living SG Source Result Envelope Soft Wiring — OK");

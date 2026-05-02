@@ -1,0 +1,29 @@
+name: Smoke Living SG Source Result Envelope Soft Wiring
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - sg-source-result-envelope-soft-wiring-01
+
+jobs:
+  smoke-living-sg-source-result-envelope-soft-wiring:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Living SG source result envelope soft wiring smoke
+        run: npm run smoke:living-sg-source-result-envelope-soft-wiring

@@ -38,21 +38,16 @@ function readGithubEventName(req) {
 
 function buildPushTriggerMetadata(req) {
   const body = req.body || {};
-  const repoFullName = normalizeString(body?.repository?.full_name || "");
   const ref = normalizeString(body?.ref || "");
-  const branch = normalizeRefBranch(ref);
-  const before = normalizeString(body?.before || "") || null;
-  const after = normalizeString(body?.after || "") || null;
-  const headCommitId = normalizeString(body?.head_commit?.id || "") || null;
 
   return {
     event: readGithubEventName(req),
-    repoFullName,
+    repoFullName: normalizeString(body?.repository?.full_name || ""),
     ref,
-    branch,
-    before,
-    after,
-    headCommitId,
+    branch: normalizeRefBranch(ref),
+    before: normalizeString(body?.before || "") || null,
+    after: normalizeString(body?.after || "") || null,
+    headCommitId: normalizeString(body?.head_commit?.id || "") || null,
     pusherName: normalizeString(body?.pusher?.name || "") || null,
     senderLogin: normalizeString(body?.sender?.login || "") || null,
   };
@@ -61,12 +56,7 @@ function buildPushTriggerMetadata(req) {
 function isExpectedPush({ req, config }) {
   const event = readGithubEventName(req);
   if (event !== "push") {
-    return {
-      ok: false,
-      status: 202,
-      reason: "ignored_non_push_event",
-      event,
-    };
+    return { ok: false, status: 202, reason: "ignored_non_push_event", event };
   }
 
   const metadata = buildPushTriggerMetadata(req);
@@ -74,29 +64,37 @@ function isExpectedPush({ req, config }) {
   const expectedBranch = normalizeString(config.branch || "main") || "main";
 
   if (metadata.repoFullName !== expectedRepo) {
-    return {
-      ok: false,
-      status: 202,
-      reason: "ignored_unexpected_repo",
-      metadata,
-      expectedRepo,
-    };
+    return { ok: false, status: 202, reason: "ignored_unexpected_repo", metadata };
   }
 
   if (metadata.branch !== expectedBranch) {
-    return {
-      ok: false,
-      status: 202,
-      reason: "ignored_unexpected_branch",
-      metadata,
-      expectedBranch,
-    };
+    return { ok: false, status: 202, reason: "ignored_unexpected_branch", metadata };
   }
 
-  return {
-    ok: true,
-    metadata,
-  };
+  return { ok: true, metadata };
+}
+
+function queueRepoStateRefresh(metadata) {
+  setTimeout(async () => {
+    try {
+      const agent = new RepoStateAgentService();
+      const result = await agent.run({
+        triggerType: "github_push_webhook",
+        triggerMetadata: metadata,
+      });
+
+      console.log("REPO_STATE_AGENT_WEBHOOK_AUTO_REFRESH_DONE", {
+        ok: result?.ok === true,
+        persisted: result?.persisted === true,
+        scanRunId: result?.persistence?.scanRunId || null,
+        commitSha: result?.commitSha || result?.projectMap?.repo?.commitSha || null,
+      });
+    } catch (error) {
+      console.error("REPO_STATE_AGENT_WEBHOOK_AUTO_REFRESH_FAILED", {
+        error: error?.message || "repo_state_agent_failed",
+      });
+    }
+  }, 0);
 }
 
 export async function handleRepoStateAgentWebhook(req, res) {
@@ -131,31 +129,16 @@ export async function handleRepoStateAgentWebhook(req, res) {
     });
   }
 
-  try {
-    const agent = new RepoStateAgentService();
-    const result = await agent.run({
-      triggerType: "github_push_webhook",
-      triggerMetadata: expectedPush.metadata,
-    });
+  queueRepoStateRefresh(expectedPush.metadata);
 
-    return res.status(200).json({
-      ok: true,
-      autoRefresh: true,
-      persisted: result?.persisted === true,
-      scanRunId: result?.persistence?.scanRunId || null,
-      repoFullName: result?.repoFullName || config.repoFullName,
-      branch: result?.branch || config.branch,
-      commitSha: result?.commitSha || result?.projectMap?.repo?.commitSha || null,
-      filesCount: result?.filesCount || 0,
-      modulesCount: result?.modulesCount || 0,
-      dependenciesCount: result?.dependenciesCount || 0,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      ok: false,
-      error: error?.message || "repo_state_agent_failed",
-    });
-  }
+  return res.status(202).json({
+    ok: true,
+    accepted: true,
+    autoRefreshQueued: true,
+    repoFullName: expectedPush.metadata.repoFullName,
+    branch: expectedPush.metadata.branch,
+    after: expectedPush.metadata.after,
+  });
 }
 
 export default handleRepoStateAgentWebhook;

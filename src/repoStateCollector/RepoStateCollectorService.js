@@ -17,7 +17,7 @@ export class RepoStateCollectorService {
     this.repository = repository;
   }
 
-  async runScan() {
+  async runScan(options = {}) {
     if (!this.treeReader || typeof this.treeReader.readTree !== "function") {
       return {
         ok: false,
@@ -61,6 +61,8 @@ export class RepoStateCollectorService {
     const snapshot = {
       ok: Boolean(moduleResult?.ok && dependencyResult?.ok),
       status: "collected",
+      triggerType: options.triggerType || "manual",
+      triggerMetadata: options.triggerMetadata || {},
       startedAt,
       finishedAt,
       repoFullName: treeResult.repoFullName || this.config.repoFullName || null,

@@ -32,6 +32,7 @@
     "smoke:living-sg-source-result-envelope-controlled-switch": "node ./scripts/smokeLivingSGSourceResultEnvelopeControlledSwitch.js",
     "smoke:living-sg-source-result-evidence-path": "node ./scripts/smokeLivingSGSourceResultEvidencePath.js",
     "smoke:repo-state-agent-status-endpoint": "node ./scripts/smokeRepoStateAgentStatusEndpoint.js",
+    "smoke:human-mode-source-question-contract": "node ./scripts/smokeHumanModeSourceQuestionContract.js",
     "smoke:legacy-project-intent-flow": "node ./scripts/smokeLegacyProjectIntentFlowSkeleton.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",

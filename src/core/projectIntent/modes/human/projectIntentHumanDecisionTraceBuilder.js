@@ -20,6 +20,32 @@
 
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
 
+function readRepoFactsSourceProof(repoFacts = null) {
+  const sourceProof = repoFacts?.sourceProof || null;
+
+  if (!sourceProof || typeof sourceProof !== "object" || Array.isArray(sourceProof)) {
+    return {
+      available: false,
+      verified: false,
+      source: repoFacts?.source || null,
+      canClaimVerifiedFacts: false,
+      canAuthorizeWrite: false,
+      canExecute: false,
+      reason: "repo_facts_source_proof_missing",
+    };
+  }
+
+  return {
+    available: true,
+    verified: sourceProof.verified === true,
+    source: sourceProof.source || repoFacts?.source || null,
+    canClaimVerifiedFacts: sourceProof.canClaimVerifiedFacts === true,
+    canAuthorizeWrite: sourceProof.canAuthorizeWrite === true,
+    canExecute: sourceProof.canExecute === true,
+    reason: sourceProof.reason || null,
+  };
+}
+
 function readRepoFactsSummary(repoFacts = null) {
   const facts = repoFacts?.facts || {};
   const totals = facts?.totals || {};
@@ -28,6 +54,7 @@ function readRepoFactsSummary(repoFacts = null) {
   return {
     available: repoFacts?.ok === true,
     source: repoFacts?.source || null,
+    sourceProof: readRepoFactsSourceProof(repoFacts),
     repo: facts?.repo || null,
     files: Number.isFinite(totals?.files) ? totals.files : null,
     modules: Number.isFinite(totals?.modules) ? totals.modules : null,
@@ -98,6 +125,8 @@ export function buildHumanProjectDecisionTrace({
       noPhraseMatching: true,
       noRawTextInterpretation: true,
       noSourceMaySilentlyOverrideAnother: true,
+      sourceProofCannotAuthorizeWrites: true,
+      sourceProofCannotExecuteActions: true,
     },
   };
 }

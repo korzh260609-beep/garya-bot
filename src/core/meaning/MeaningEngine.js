@@ -29,6 +29,28 @@ function hasResolvedProjectTarget({ hasActiveProjectSession = false, previousCon
   );
 }
 
+function detectRepoFactsAnswerKind(text = "") {
+  const s = safeText(text).toLowerCase();
+  const mentionsRepo = /\b(repo|repository|github|репозитор|репо)\b/i.test(s);
+  if (!mentionsRepo) return "";
+
+  const asksFileCount = /\b(files?|file count|count files)\b/i.test(s) ||
+    /\b(сколько|количество|число|всего)\b/i.test(s) && /\b(файл|файлов|files?)\b/i.test(s);
+
+  if (asksFileCount) return "repo_file_count";
+
+  const asksStructure = /\b(structure|tree|map|modules?|layers?|directories|folders?)\b/i.test(s) ||
+    /\b(структур|дерево|карта|модул|сло[йи]|директор|папк)\b/i.test(s);
+
+  if (asksStructure) return "repo_structure";
+
+  const asksRepoAccessFacts = /\b(доступ|видишь|видеть|состояние|status|обзор|overview)\b/i.test(s);
+
+  if (asksRepoAccessFacts) return "repo_facts_summary";
+
+  return "";
+}
+
 export class MeaningEngine {
   understand({ text = "", hasActiveProjectSession = false, previousContext = null } = {}) {
     const meaning = createEmptyMeaning({ source: "MeaningEngine" });
@@ -47,6 +69,17 @@ export class MeaningEngine {
         hasActiveProjectSession,
         previousContext,
       });
+      const repoFactsAnswerKind = detectRepoFactsAnswerKind(text);
+
+      if (repoFactsAnswerKind) {
+        meaning.intent = "repo_facts_question";
+        meaning.enoughInformation = true;
+        meaning.suggestedAction = MEANING_ACTION.USE_TOOL;
+        meaning.extracted = { repoFactsAnswerKind };
+        meaning.toolHints = ["repo_state_agent_project_map"];
+        meaning.userMeaning = "user wants verified repository facts from current project map";
+        return meaning;
+      }
 
       if (!stageId && !projectTargetResolved) {
         if (continuity.shouldAskClarification) {

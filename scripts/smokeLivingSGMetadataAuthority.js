@@ -8,12 +8,17 @@
 // - verify metadata cannot override gates;
 // - verify metadata cannot prove source/tool execution;
 // - verify metadata cannot become user-facing truth;
+// - verify runtime metadata is honest about the split between source evidence,
+//   executor, and state-changing runtime;
 // - does not call AI;
 // - does not read/write repo/runtime state.
 // ============================================================================
 
+import assert from "node:assert/strict";
+
 import { buildChatMessages } from "../src/bot/handlers/chat/promptAssembly.js";
 import { buildSystemPrompt } from "../systemPrompt.js";
+import { createLivingSGBoundary } from "../src/core/living-sg/LivingSGBoundary.js";
 
 function assertIncludes(name, value, expectedPart) {
   const text = String(value || "");
@@ -36,11 +41,54 @@ function findLivingSGPlanMessage(messages = []) {
   );
 }
 
+const livingBoundaryPlan = createLivingSGBoundary({
+  text: "проверь что сейчас в репозитории",
+  trimmed: "проверь что сейчас в репозитории",
+  coreMeaning: {
+    domain: "project",
+    intentKind: "project_thinking",
+  },
+});
+
+assert.equal(
+  livingBoundaryPlan.connectedToRuntime,
+  false,
+  "Living SG global/state-changing runtime must remain disconnected"
+);
+assert.equal(
+  livingBoundaryPlan.sourceEvidenceConnectedToRuntime,
+  true,
+  "Living SG source evidence path metadata must reflect current runtime wiring"
+);
+assert.equal(
+  livingBoundaryPlan.executorConnectedToRuntime,
+  false,
+  "Living SG executor must remain disconnected"
+);
+assert.equal(
+  livingBoundaryPlan.stateChangeConnectedToRuntime,
+  false,
+  "Living SG state-changing runtime must remain disconnected"
+);
+assert.equal(
+  livingBoundaryPlan.metadata.noStateChange,
+  true,
+  "Living SG boundary must remain no-state-change"
+);
+assert.equal(
+  livingBoundaryPlan.metadata.noProjectIntentExecution,
+  true,
+  "Living SG boundary must not execute projectIntent"
+);
+
 const dangerousLookingPlan = {
   source: "LivingSGBoundary",
   ok: true,
   dryRun: false,
   connectedToRuntime: true,
+  sourceEvidenceConnectedToRuntime: true,
+  executorConnectedToRuntime: true,
+  stateChangeConnectedToRuntime: true,
   intentPlan: {
     intentKind: "project_thinking",
   },

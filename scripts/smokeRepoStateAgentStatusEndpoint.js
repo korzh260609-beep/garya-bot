@@ -26,6 +26,15 @@ function listen(server) {
   });
 }
 
+function parseJsonIfPossible(body) {
+  const trimmed = typeof body === "string" ? body.trim() : "";
+  if (!trimmed || !(trimmed.startsWith("{") || trimmed.startsWith("["))) {
+    return null;
+  }
+
+  return JSON.parse(trimmed);
+}
+
 function request(server, path, headers = {}) {
   const address = server.address();
   const port = address?.port;
@@ -51,7 +60,7 @@ function request(server, path, headers = {}) {
           resolve({
             statusCode: res.statusCode,
             body,
-            json: body ? JSON.parse(body) : null,
+            json: parseJsonIfPossible(body),
           });
         });
       }
@@ -82,6 +91,7 @@ try {
 
   const wrongPath = await request(server, "/repo_state_agent_status");
   assert.equal(wrongPath.statusCode, 404, "no slash/command-style route must be added");
+  assert.equal(wrongPath.json, null, "wrong command-like path may return non-JSON 404");
 
   console.log("Smoke RepoStateAgent status endpoint — OK");
 } finally {

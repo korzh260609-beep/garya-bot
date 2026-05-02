@@ -100,7 +100,45 @@ function normalizeProjectMapFromState(state = null) {
   return state.project_map;
 }
 
-function buildFastReadOnlyResult({ repoFullName, branch, state, projectMap }) {
+function readStateCommitSha({ state = null, projectMap = null } = {}) {
+  return projectMap?.repo?.commitSha ||
+    projectMap?.repo?.headCommitSha ||
+    state?.metadata?.commitSha ||
+    state?.metadata?.headCommitSha ||
+    null;
+}
+
+async function readCurrentRepoHead({ collector, repoFullName, branch }) {
+  const githubClient = collector?.treeReader?.githubClient;
+
+  if (!githubClient || typeof githubClient.readBranchRef !== "function") {
+    return {
+      ok: false,
+      reason: "repo_state_agent_missing_read_branch_ref",
+      headCommitSha: null,
+    };
+  }
+
+  try {
+    const ref = await githubClient.readBranchRef({ repoFullName, branch });
+
+    return {
+      ok: ref?.ok === true,
+      reason: ref?.ok === true ? "repo_head_read" : "repo_head_read_failed",
+      headCommitSha: ref?.headCommitSha || null,
+      refSha: ref?.refSha || null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: "repo_head_read_failed",
+      error: error?.message || "unknown_error",
+      headCommitSha: null,
+    };
+  }
+}
+
+function buildFastReadOnlyResult({ repoFullName, branch, state, projectMap, freshness }) {
   const nextActionPlan = buildRepoStateNextActionPlan(projectMap);
   const architectureHealth = buildRepoStateArchitectureHealth(projectMap);
 
@@ -130,6 +168,7 @@ function buildFastReadOnlyResult({ repoFullName, branch, state, projectMap }) {
       reusedProjectMapState: true,
       tokensSpent: false,
       aiSource: "disabled",
+      freshness,
     },
   };
 }
@@ -144,6 +183,7 @@ export class RepoStateAgentService {
     const forceAiAnalysis = options.forceAiAnalysis === true;
     const allowRealAi = options.allowRealAi === true;
     const fastReadOnly = options.fastReadOnly === true;
+    const requireFreshProjectMap = options.requireFreshProjectMap !== false;
     const repoFullNameForFastRead = options.repoFullName || DEFAULT_REPO_FULL_NAME;
     const branchForFastRead = options.branch || DEFAULT_BRANCH;
 
@@ -152,12 +192,41 @@ export class RepoStateAgentService {
       const cachedProjectMap = normalizeProjectMapFromState(latestProjectMapState);
 
       if (cachedProjectMap) {
-        return buildFastReadOnlyResult({
-          repoFullName: repoFullNameForFastRead,
-          branch: branchForFastRead,
+        const cachedCommitSha = readStateCommitSha({
           state: latestProjectMapState,
           projectMap: cachedProjectMap,
         });
+
+        const currentHead = requireFreshProjectMap
+          ? await readCurrentRepoHead({
+              collector: this.collector,
+              repoFullName: repoFullNameForFastRead,
+              branch: branchForFastRead,
+            })
+          : {
+              ok: true,
+              reason: "freshness_check_disabled",
+              headCommitSha: cachedCommitSha,
+            };
+
+        const freshness = {
+          checked: requireFreshProjectMap,
+          ok: currentHead?.ok === true && Boolean(cachedCommitSha) && cachedCommitSha === currentHead.headCommitSha,
+          reason: currentHead?.reason || null,
+          cachedCommitSha,
+          currentHeadCommitSha: currentHead?.headCommitSha || null,
+          headReadError: currentHead?.error || null,
+        };
+
+        if (freshness.ok || requireFreshProjectMap !== true) {
+          return buildFastReadOnlyResult({
+            repoFullName: repoFullNameForFastRead,
+            branch: branchForFastRead,
+            state: latestProjectMapState,
+            projectMap: cachedProjectMap,
+            freshness,
+          });
+        }
       }
     }
 
@@ -252,6 +321,10 @@ export class RepoStateAgentService {
       projectMap,
       aiEnabled: aiAnalysis?.enabled === true,
       metadata: {
+        commitSha: result?.commitSha || projectMap?.repo?.commitSha || null,
+        headCommitSha: result?.headCommitSha || projectMap?.repo?.headCommitSha || null,
+        refSha: result?.refSha || projectMap?.repo?.refSha || null,
+        treeSha: result?.treeSha || projectMap?.repo?.treeSha || null,
         forceAiAnalysis,
         allowRealAi,
         realAiBlocked,

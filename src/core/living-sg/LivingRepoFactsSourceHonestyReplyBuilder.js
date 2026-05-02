@@ -92,9 +92,8 @@ export function buildRepoFactsSourceHonestyBlockedReply({
   const technicalNextStep = resolveNextStepLine(factNeed);
 
   const lines = [
-    "Не буду придумывать.",
     confirmed
-      ? `Я вижу подтверждённую карту репозитория ${safeText(repo.fullName, "проекта")} на ветке ${safeText(repo.branch, "unknown")}.`
+      ? `Источник подтверждён: ${safeText(repo.fullName, "проект")} / ${safeText(repo.branch, "unknown")}.`
       : "Подтверждённый источник по текущему состоянию репозитория сейчас недоступен.",
     resolveMissingDataLine(factNeed),
   ];
@@ -102,7 +101,7 @@ export function buildRepoFactsSourceHonestyBlockedReply({
   if (projectMap) {
     lines.push(
       "",
-      "Что подтверждено сейчас:",
+      "Подтверждено сейчас:",
       `- файлов всего: ${safeNumber(totals.files)}`,
       `- модулей: ${safeNumber(totals.modules)}`,
       `- зависимостей: ${safeNumber(totals.dependencies)}`,

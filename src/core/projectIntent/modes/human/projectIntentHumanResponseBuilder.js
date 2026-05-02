@@ -11,6 +11,10 @@
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
 import { HUMAN_PROJECT_CAPABILITIES } from "./projectIntentHumanCapabilitySelector.js";
 
+function asObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
 function readRepoLabel(repoFacts = {}) {
   const repo = repoFacts?.facts?.repo || {};
   const fullName = repo.fullName || "unknown repo";
@@ -39,6 +43,34 @@ function readNextActionPlan(repoFacts = {}) {
 
 function readContextPackRepoFacts(contextPack = {}) {
   return contextPack?.repoFacts || {};
+}
+
+function readResponseSourceProof({ repoFacts = null, contextPack = null } = {}) {
+  const contextProof = asObject(contextPack?.repoFacts?.sourceProof);
+  const repoProof = asObject(repoFacts?.sourceProof);
+  const sourceProof = contextProof || repoProof;
+
+  if (!sourceProof) {
+    return {
+      available: false,
+      verified: false,
+      source: repoFacts?.source || contextPack?.repoFacts?.source || null,
+      canClaimVerifiedFacts: false,
+      canAuthorizeWrite: false,
+      canExecute: false,
+      reason: "response_source_proof_missing",
+    };
+  }
+
+  return {
+    available: sourceProof.available !== false,
+    verified: sourceProof.verified === true,
+    source: sourceProof.source || repoFacts?.source || contextPack?.repoFacts?.source || null,
+    canClaimVerifiedFacts: sourceProof.canClaimVerifiedFacts === true,
+    canAuthorizeWrite: sourceProof.canAuthorizeWrite === true,
+    canExecute: sourceProof.canExecute === true,
+    reason: sourceProof.reason || null,
+  };
 }
 
 function hasValue(value) {
@@ -201,10 +233,13 @@ function buildModuleResponse({ repoFacts }) {
 }
 
 function buildSourcesResponse({ contextPack }) {
+  const repoFactsProof = contextPack?.repoFacts?.sourceProof || {};
+  const proofStatus = repoFactsProof.verified === true ? "verified" : "not verified";
+
   return [
     "Для ответа по проекту я использую несколько источников:",
     "",
-    "1. RepoStateAgent — текущие факты кода (что реально есть в репозитории).",
+    `1. RepoStateAgent — текущие факты кода (${proofStatus}).`,
     "2. pillars/architecture — официальная архитектура проекта (как должно быть).",
     `3. projectMemory — ${contextPack?.projectMemory?.available ? "подключена" : "ещё не подключена"}.`,
     "4. userRules — правила работы и стиль взаимодействия.",
@@ -252,7 +287,12 @@ export function buildHumanProjectIntentResponse({ repoFacts, capability, context
       mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
       ok: false,
       text: "Human Mode needs RepoStateAgent facts before building a project response.",
+      sourceProof: readResponseSourceProof({ repoFacts, contextPack }),
       reason: "repo_facts_required_before_response",
+      policy: {
+        sourceProofCannotAuthorizeWrites: true,
+        sourceProofCannotExecuteActions: true,
+      },
     };
   }
 
@@ -261,7 +301,12 @@ export function buildHumanProjectIntentResponse({ repoFacts, capability, context
       mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
       ok: false,
       text: "Human Mode capability is not ready yet.",
+      sourceProof: readResponseSourceProof({ repoFacts, contextPack }),
       reason: "capability_required_before_response",
+      policy: {
+        sourceProofCannotAuthorizeWrites: true,
+        sourceProofCannotExecuteActions: true,
+      },
     };
   }
 
@@ -273,7 +318,12 @@ export function buildHumanProjectIntentResponse({ repoFacts, capability, context
       repoFacts,
       contextPack,
     }),
+    sourceProof: readResponseSourceProof({ repoFacts, contextPack }),
     reason: "human_response_built_from_repo_facts_capability_and_context_pack",
+    policy: {
+      sourceProofCannotAuthorizeWrites: true,
+      sourceProofCannotExecuteActions: true,
+    },
   };
 }
 

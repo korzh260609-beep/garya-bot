@@ -35,10 +35,37 @@ function buildActiveProjectSection(context = null) {
   };
 }
 
+function buildRepoFactsSourceProof(repoFacts = null) {
+  const sourceProof = asObject(repoFacts?.sourceProof);
+
+  if (!sourceProof) {
+    return {
+      available: false,
+      verified: false,
+      source: repoFacts?.source || null,
+      canClaimVerifiedFacts: false,
+      canAuthorizeWrite: false,
+      canExecute: false,
+      reason: "repo_facts_source_proof_missing",
+    };
+  }
+
+  return {
+    available: true,
+    verified: sourceProof.verified === true,
+    source: sourceProof.source || repoFacts?.source || null,
+    canClaimVerifiedFacts: sourceProof.canClaimVerifiedFacts === true,
+    canAuthorizeWrite: sourceProof.canAuthorizeWrite === true,
+    canExecute: sourceProof.canExecute === true,
+    reason: sourceProof.reason || null,
+  };
+}
+
 function buildRepoFactsSection(repoFacts = null) {
   return {
     available: repoFacts?.ok === true,
     source: repoFacts?.source || null,
+    sourceProof: buildRepoFactsSourceProof(repoFacts),
     repo: repoFacts?.facts?.repo || null,
     totals: repoFacts?.facts?.totals || null,
     layers: repoFacts?.facts?.layers || null,
@@ -135,6 +162,8 @@ export function buildHumanProjectContextPack({
       projectMemoryIsDecisionHistory: true,
       longTermMemoryIsUserWorkStyle: true,
       noSourceMaySilentlyOverrideAnother: true,
+      sourceProofCannotAuthorizeWrites: true,
+      sourceProofCannotExecuteActions: true,
     },
   };
 }

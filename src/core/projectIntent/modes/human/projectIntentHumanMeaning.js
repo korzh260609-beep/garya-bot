@@ -23,6 +23,7 @@ export const HUMAN_PROJECT_INTENT_KINDS = Object.freeze({
   RISK_QUESTION: "risk_question",
   NEXT_STEP_QUESTION: "next_step_question",
   FILE_OR_AREA_QUESTION: "file_or_area_question",
+  SOURCE_QUESTION: "source_question",
   PROJECT_ANALYSIS: "project_analysis",
   UNKNOWN: "unknown",
 });

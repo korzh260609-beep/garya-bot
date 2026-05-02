@@ -87,7 +87,7 @@ export async function resolveChatSourceFlow({ effective }) {
       ? sourceResultEnvelopeAdapterResult.sourceResultEnvelope
       : null;
 
-  const sourceResultSystemMessage = sourceContextText
+  const legacySourceResultSystemMessage = sourceContextText
     ? {
         role: "system",
         content:
@@ -98,6 +98,16 @@ export async function resolveChatSourceFlow({ effective }) {
           `${sourceContextText}`,
       }
     : null;
+
+  const sourceResultSystemMessage = sourceResultEnvelope
+    ? null
+    : legacySourceResultSystemMessage;
+
+  const sourceResultEvidenceMode = sourceResultEnvelope
+    ? "source_result_envelope"
+    : legacySourceResultSystemMessage
+      ? "legacy_source_result_system_message"
+      : "missing_source_result_evidence";
 
   const sourceServiceSystemMessage =
     sourceServiceDebugBlock && String(sourceServiceDebugBlock).trim()
@@ -117,7 +127,9 @@ export async function resolveChatSourceFlow({ effective }) {
     sourceContextText,
     sourceResultEnvelope,
     sourceResultEnvelopeAdapterResult,
+    sourceResultEvidenceMode,
     sourceResultSystemMessage,
+    legacySourceResultSystemMessage,
     sourceServiceSystemMessage,
   };
 }

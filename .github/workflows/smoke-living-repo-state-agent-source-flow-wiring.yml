@@ -1,0 +1,29 @@
+name: Smoke Living RepoStateAgent Source Flow Wiring
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - feat/living-repo-state-agent-runtime-wiring
+
+jobs:
+  smoke-living-repo-state-agent-source-flow-wiring:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Living RepoStateAgent source flow wiring smoke
+        run: npm run smoke:living-repo-state-agent-source-flow-wiring

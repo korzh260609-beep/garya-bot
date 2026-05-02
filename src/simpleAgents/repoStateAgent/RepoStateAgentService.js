@@ -138,6 +138,38 @@ async function readCurrentRepoHead({ collector, repoFullName, branch }) {
   }
 }
 
+function buildFastReadOnlyUnavailableResult({ repoFullName, branch, state, freshness, reason }) {
+  return {
+    ok: false,
+    source: "repo_state_agent_fast_read_only",
+    fastReadOnly: true,
+    repoFullName,
+    branch,
+    snapshot: null,
+    persistence: {
+      scanRunId: state?.scan_run_id || null,
+      reusedProjectMapStateId: state?.id || null,
+      readOnly: true,
+      writesSkipped: true,
+    },
+    projectMap: null,
+    nextActionPlan: null,
+    architectureHealth: null,
+    aiAnalysis: enrichAiExecution({
+      enabled: false,
+      skipped: true,
+      reason,
+    }),
+    aiMeta: {
+      fastReadOnly: true,
+      reusedProjectMapState: false,
+      tokensSpent: false,
+      aiSource: "disabled",
+      freshness,
+    },
+  };
+}
+
 function buildFastReadOnlyResult({ repoFullName, branch, state, projectMap, freshness }) {
   const nextActionPlan = buildRepoStateNextActionPlan(projectMap);
   const architectureHealth = buildRepoStateArchitectureHealth(projectMap);
@@ -191,43 +223,66 @@ export class RepoStateAgentService {
       const latestProjectMapState = await getLatestProjectMapState(repoFullNameForFastRead, branchForFastRead);
       const cachedProjectMap = normalizeProjectMapFromState(latestProjectMapState);
 
-      if (cachedProjectMap) {
-        const cachedCommitSha = readStateCommitSha({
+      if (!cachedProjectMap) {
+        return buildFastReadOnlyUnavailableResult({
+          repoFullName: repoFullNameForFastRead,
+          branch: branchForFastRead,
           state: latestProjectMapState,
-          projectMap: cachedProjectMap,
+          freshness: {
+            checked: false,
+            ok: false,
+            reason: "project_map_state_missing_or_invalid",
+            cachedCommitSha: null,
+            currentHeadCommitSha: null,
+            headReadError: null,
+          },
+          reason: "fast_read_only_project_map_state_missing_or_invalid",
         });
+      }
 
-        const currentHead = requireFreshProjectMap
-          ? await readCurrentRepoHead({
-              collector: this.collector,
-              repoFullName: repoFullNameForFastRead,
-              branch: branchForFastRead,
-            })
-          : {
-              ok: true,
-              reason: "freshness_check_disabled",
-              headCommitSha: cachedCommitSha,
-            };
+      const cachedCommitSha = readStateCommitSha({
+        state: latestProjectMapState,
+        projectMap: cachedProjectMap,
+      });
 
-        const freshness = {
-          checked: requireFreshProjectMap,
-          ok: currentHead?.ok === true && Boolean(cachedCommitSha) && cachedCommitSha === currentHead.headCommitSha,
-          reason: currentHead?.reason || null,
-          cachedCommitSha,
-          currentHeadCommitSha: currentHead?.headCommitSha || null,
-          headReadError: currentHead?.error || null,
-        };
-
-        if (freshness.ok || requireFreshProjectMap !== true) {
-          return buildFastReadOnlyResult({
+      const currentHead = requireFreshProjectMap
+        ? await readCurrentRepoHead({
+            collector: this.collector,
             repoFullName: repoFullNameForFastRead,
             branch: branchForFastRead,
-            state: latestProjectMapState,
-            projectMap: cachedProjectMap,
-            freshness,
-          });
-        }
+          })
+        : {
+            ok: true,
+            reason: "freshness_check_disabled",
+            headCommitSha: cachedCommitSha,
+          };
+
+      const freshness = {
+        checked: requireFreshProjectMap,
+        ok: currentHead?.ok === true && Boolean(cachedCommitSha) && cachedCommitSha === currentHead.headCommitSha,
+        reason: currentHead?.reason || null,
+        cachedCommitSha,
+        currentHeadCommitSha: currentHead?.headCommitSha || null,
+        headReadError: currentHead?.error || null,
+      };
+
+      if (!freshness.ok && requireFreshProjectMap === true) {
+        return buildFastReadOnlyUnavailableResult({
+          repoFullName: repoFullNameForFastRead,
+          branch: branchForFastRead,
+          state: latestProjectMapState,
+          freshness,
+          reason: "fast_read_only_project_map_state_stale_or_unverified",
+        });
       }
+
+      return buildFastReadOnlyResult({
+        repoFullName: repoFullNameForFastRead,
+        branch: branchForFastRead,
+        state: latestProjectMapState,
+        projectMap: cachedProjectMap,
+        freshness,
+      });
     }
 
     const result = await this.collector.runScan();

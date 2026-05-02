@@ -23,6 +23,9 @@ import {
 } from "./chatAiContextBuilders.js";
 import { runChatAiMemoryPrep } from "./chatAiMemoryPrepFlow.js";
 import { runChatAiPostProcessing } from "./chatAiPostProcessingFlow.js";
+import {
+  buildLivingRepoFactsAnswer,
+} from "../../../core/living-sg/LivingRepoFactsAnswerBuilder.js";
 
 function normalizeResolvedScope(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -88,6 +91,56 @@ export async function runChatAiOrchestration({
     effective,
     livingSGPlan,
   });
+
+  const deterministicRepoAnswer = buildLivingRepoFactsAnswer({
+    sourceResultEnvelope,
+    livingSGPlan,
+  });
+
+  if (deterministicRepoAnswer?.handled === true) {
+    await memoryWrite({
+      role: "user",
+      content: effective,
+      transport: "telegram",
+      metadata: {
+        ...senderMemoryMeta,
+      },
+      schemaVersion: 2,
+    });
+
+    await runChatAiPostProcessing({
+      aiReply: deterministicRepoAnswer.text,
+      insertAssistantReply,
+      memoryWrite,
+      assistantMemoryMeta: {
+        ...assistantMemoryMeta,
+        deterministicRepoFactsAnswer: true,
+        deterministicRepoFactsReason: deterministicRepoAnswer.reason,
+        ...deterministicRepoAnswer.metadata,
+      },
+      sanitizeNonMonarchReply,
+      monarchNow,
+      bot,
+      chatId,
+      effective,
+      senderIdStr,
+      chatIdStr,
+      messageId,
+      globalUserId,
+      sourceCtx,
+      longTermMemoryBridgeResult: null,
+      longTermMemoryInjected: false,
+      answerMode: "short",
+      mediaResponseMode,
+      FileIntake,
+    });
+
+    return {
+      handled: true,
+      aiReply: deterministicRepoAnswer.text,
+      answerMode: "deterministic_repo_facts",
+    };
+  }
 
   const {
     longTermMemoryBridgeResult,

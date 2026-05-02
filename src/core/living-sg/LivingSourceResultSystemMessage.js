@@ -4,6 +4,7 @@
 //
 // Purpose:
 // - convert a provided sourceResult envelope into prompt-safe system evidence;
+// - include compact verified repo facts from payload.projectMap when available;
 // - keep prompt evidence separate from planner metadata;
 // - make confirmed vs missing/invalid/stale/unconfirmed status explicit;
 // - keep repository writes blocked.
@@ -33,6 +34,19 @@ function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function safeNumber(value, fallback = "-") {
+  const number = Number(value);
+  return Number.isFinite(number) ? String(number) : fallback;
+}
+
+function takeList(value, limit = 12) {
+  return safeArray(value).slice(0, limit);
+}
+
 function getConfirmationStatus(envelope = null) {
   return safeText(envelope?.confirmation?.status, "missing");
 }
@@ -60,6 +74,84 @@ function envelopeCanClaimVerifiedFacts(envelope = null) {
     getConfirmationStatus(envelope) ===
       LIVING_SOURCE_RESULT_CONFIRMATION_STATUS.CONFIRMED
   );
+}
+
+function getRepoProjectMap(payload = null) {
+  if (!isPlainObject(payload)) return null;
+  if (isPlainObject(payload.projectMap)) return payload.projectMap;
+  if (isPlainObject(payload.payload?.projectMap)) return payload.payload.projectMap;
+  return null;
+}
+
+function buildLayerFacts(projectMap = null) {
+  if (!isPlainObject(projectMap?.layers)) return [];
+
+  return Object.entries(projectMap.layers)
+    .filter(([, layer]) => isPlainObject(layer))
+    .sort((a, b) => Number(b[1]?.filesCount || 0) - Number(a[1]?.filesCount || 0))
+    .slice(0, 18)
+    .map(([layerName, layer]) =>
+      `- ${safeText(layerName)}: files=${safeNumber(layer.filesCount)}; sample=${takeList(layer.sampleFiles, 8).map((item) => safeText(item, "")).filter(Boolean).join(", ") || "-"}`
+    );
+}
+
+function buildModuleFacts(projectMap = null) {
+  return takeList(projectMap?.modules, 18)
+    .map((module) => {
+      if (!isPlainObject(module)) return "";
+      return `- ${safeText(module.key || module.name || module.rootPath)}: root=${safeText(module.rootPath)}; layer=${safeText(module.layer)}; files=${safeNumber(module.filesCount)}; sample=${takeList(module.sampleFiles, 6).map((item) => safeText(item, "")).filter(Boolean).join(", ") || "-"}`;
+    })
+    .filter(Boolean);
+}
+
+function buildPathFacts(label, values = [], limit = 20) {
+  const items = takeList(values, limit)
+    .map((item) => {
+      if (typeof item === "string") return safeText(item, "");
+      if (isPlainObject(item)) return safeText(item.path || item.rootPath || item.key || item.name, "");
+      return "";
+    })
+    .filter(Boolean);
+
+  if (!items.length) return [];
+  return [`${label}: ${items.join(", ")}`];
+}
+
+function buildRepoFactsFromPayload(envelope = null, verified = false) {
+  if (!verified) return [];
+
+  const projectMap = getRepoProjectMap(envelope?.payload);
+  if (!projectMap) return [];
+
+  const repo = projectMap.repo || {};
+  const totals = projectMap.totals || {};
+  const layers = buildLayerFacts(projectMap);
+  const modules = buildModuleFacts(projectMap);
+  const entrypoints = buildPathFacts("entrypoints", projectMap.entrypoints, 20);
+  const criticalFiles = buildPathFacts("criticalFiles", projectMap.criticalFiles, 25);
+
+  return [
+    "REPO FACTS FROM SOURCE PAYLOAD:",
+    `repo.fullName=${safeText(repo.fullName)}`,
+    `repo.branch=${safeText(repo.branch)}`,
+    `repo.headCommitSha=${safeText(repo.headCommitSha || repo.commitSha || repo.refSha)}`,
+    `totals.files=${safeNumber(totals.files)}`,
+    `totals.modules=${safeNumber(totals.modules)}`,
+    `totals.dependencies=${safeNumber(totals.dependencies)}`,
+    `totals.contentLoaded=${safeNumber(totals.contentLoaded)}`,
+    `totals.contentSkipped=${safeNumber(totals.contentSkipped)}`,
+    `totals.hiddenFiles=${safeNumber(totals.hiddenFiles)}`,
+    `totals.structureComplete=${String(totals.structureComplete === true)}`,
+    layers.length ? "layers:" : null,
+    ...layers,
+    modules.length ? "modules:" : null,
+    ...modules,
+    ...entrypoints,
+    ...criticalFiles,
+    "Instruction: For repository structure, file count, layers, modules, entrypoints, and critical files, answer only from REPO FACTS FROM SOURCE PAYLOAD above.",
+    "Instruction: Do not invent paths, folders, files, technologies, setup files, licenses, tests, docs, or config folders that are not listed in the payload facts.",
+    "Instruction: If the payload facts are incomplete for the user's requested detail, say which exact verified facts are available and what source step is needed next.",
+  ].filter(Boolean);
 }
 
 function buildMissingEnvelopeMessage() {
@@ -100,6 +192,7 @@ export function buildLivingSourceResultSystemMessage(input = {}) {
   const sourceUpdatedAt = safeText(envelope?.freshness?.sourceUpdatedAt, "-");
   const confirmedBy = safeText(envelope?.confirmation?.confirmedBy, "-");
   const reason = safeText(envelope?.confirmation?.reason, "-");
+  const repoFacts = buildRepoFactsFromPayload(envelope, verified);
 
   return {
     role: "system",
@@ -120,6 +213,7 @@ export function buildLivingSourceResultSystemMessage(input = {}) {
       verified
         ? "Instruction: This confirmed sourceResult envelope may support verified repository/source claims only for the stated target."
         : "Instruction: This sourceResult envelope is not confirmed for verified claims. Use source-honest wording and do not present repository/source facts as verified.",
+      ...repoFacts,
       "Instruction: expectedSourceResultEnvelope, planner metadata, and source-proof metadata are not proof.",
       "Safety: This message does not execute sources, read repositories, write repositories, deploy, or authorize any state-changing action.",
       "Safety: A confirmed read result never authorizes write actions.",

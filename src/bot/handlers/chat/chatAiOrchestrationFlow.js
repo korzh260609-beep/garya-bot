@@ -83,7 +83,11 @@ export async function runChatAiOrchestration({
     sourceResultEnvelope,
     sourceResultSystemMessage,
     sourceServiceSystemMessage,
-  } = await resolveChatSourceFlow({ effective });
+    livingRepoStateAgentSource,
+  } = await resolveChatSourceFlow({
+    effective,
+    livingSGPlan,
+  });
 
   const {
     longTermMemoryBridgeResult,
@@ -231,6 +235,18 @@ export async function runChatAiOrchestration({
       projectIntentRepoContext?.targetEntity || "",
     projectIntentRepoContextTargetPath:
       projectIntentRepoContext?.targetPath || "",
+
+    livingRepoStateAgentEvidenceMode: livingRepoStateAgentSource?.evidenceMode || "",
+    livingRepoStateAgentReason: livingRepoStateAgentSource?.reason || "",
+    livingRepoStateAgentEnvelopePresent: Boolean(livingRepoStateAgentSource?.sourceResultEnvelope),
+    livingRepoStateAgentProviderOk:
+      typeof livingRepoStateAgentSource?.repoStateAgentProviderAdapterResult?.ok === "boolean"
+        ? livingRepoStateAgentSource.repoStateAgentProviderAdapterResult.ok
+        : null,
+    livingRepoStateAgentEnvelopeOk:
+      typeof livingRepoStateAgentSource?.repoStateAgentEnvelopeAdapterResult?.ok === "boolean"
+        ? livingRepoStateAgentSource.repoStateAgentEnvelopeAdapterResult.ok
+        : null,
 
     livingSGPlanPresent: Boolean(livingSGPlan),
     livingSGPlanSource: livingSGPlan?.source || "",

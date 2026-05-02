@@ -2,13 +2,15 @@
 // ============================================================================
 // Smoke — Living SG Source Result Envelope Controlled Switch
 //
-// Verifies Variant B source evidence switch:
+// Verifies source evidence switch:
 // - when sourceResultEnvelope exists, old legacy SOURCE RESULT system message
 //   is not passed forward;
 // - when envelope is missing, legacy sourceResultSystemMessage can still be
 //   used as fallback;
-// - no source execution, repo-read runtime, executor, or slash command path is
-//   introduced by the switch.
+// - RepoStateAgent is allowed only through the controlled fastReadOnly source
+//   path guarded by Living SG read-only planning;
+// - no executor, write authority, AI forcing, direct scan, or slash command path
+//   is introduced by the switch.
 // ============================================================================
 
 import assert from "node:assert/strict";
@@ -47,15 +49,44 @@ assert.ok(
 );
 
 assert.ok(
-  !sourceFlow.includes("RepoStateAgent"),
-  "controlled switch must not connect RepoStateAgent runtime"
+  sourceFlow.includes("RepoStateAgentService"),
+  "controlled switch may use RepoStateAgentService for the approved fastReadOnly source path"
 );
 assert.ok(
-  !sourceFlow.includes("executor"),
-  "controlled switch must not add executor logic"
+  sourceFlow.includes("fastReadOnly: true"),
+  "RepoStateAgent source path must remain fastReadOnly"
 );
 assert.ok(
-  !sourceFlow.includes("slash"),
+  sourceFlow.includes("requireFreshProjectMap: true"),
+  "RepoStateAgent source path must require fresh project map"
+);
+assert.ok(
+  sourceFlow.includes("canChangeState === false"),
+  "RepoStateAgent source path must remain behind read-only Living gate"
+);
+
+assert.ok(
+  !sourceFlow.includes("canAuthorizeWrite: true"),
+  "controlled switch must not authorize repo writes"
+);
+assert.ok(
+  !sourceFlow.includes("canExecute: true"),
+  "controlled switch must not create executable provider result"
+);
+assert.ok(
+  !sourceFlow.includes("allowRealAi: true"),
+  "controlled switch must not enable real AI"
+);
+assert.ok(
+  !sourceFlow.includes("forceAiAnalysis: true"),
+  "controlled switch must not force AI analysis"
+);
+assert.ok(
+  !sourceFlow.includes("runScan("),
+  "controlled switch must not call repo scan directly"
+);
+assert.ok(
+  !sourceFlow.includes("/" + "command"),
   "controlled switch must not add slash-command routing"
 );
 

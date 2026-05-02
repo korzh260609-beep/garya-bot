@@ -83,12 +83,20 @@ export class RepoStateGitHubClient {
   }
 
   async readTree({ repoFullName, branch = "main", recursive = true } = {}) {
+    const { owner, repo } = splitRepoFullName(repoFullName);
     const branchRef = await this.readBranchRef({ repoFullName, branch });
     const headCommitSha = branchRef.headCommitSha;
 
-    const treeUrl = `${this.apiBaseUrl}/repos/${splitRepoFullName(repoFullName).owner}/${splitRepoFullName(repoFullName).repo}/git/trees/${headCommitSha}${recursive ? "?recursive=1" : ""}`;
+    const commitUrl = `${this.apiBaseUrl}/repos/${owner}/${repo}/git/commits/${encodeURIComponent(headCommitSha)}`;
+    const commit = await this.requestJson(commitUrl);
+    const treeSha = commit?.tree?.sha || null;
+
+    if (!treeSha) {
+      throw new Error("repo_state_github_client_missing_tree_sha");
+    }
+
+    const treeUrl = `${this.apiBaseUrl}/repos/${owner}/${repo}/git/trees/${treeSha}${recursive ? "?recursive=1" : ""}`;
     const tree = await this.requestJson(treeUrl);
-    const treeSha = tree?.sha || null;
 
     return {
       ok: true,

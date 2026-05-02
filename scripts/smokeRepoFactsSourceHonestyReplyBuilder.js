@@ -45,11 +45,13 @@ const reply = buildRepoFactsSourceHonestyBlockedReply({
 
 assert.equal(reply.handled, true);
 assert.equal(reply.source, "LivingRepoFactsSourceHonestyReplyBuilder");
-assert.ok(reply.text.includes("Не буду придумывать."));
-assert.ok(reply.text.includes("Я вижу подтверждённую карту репозитория"));
+assert.ok(reply.text.includes("Источник подтверждён:"));
+assert.ok(reply.text.includes("korzh260609-beep/garya-bot"));
 assert.ok(reply.text.includes("файлов всего: 1165"));
 assert.ok(reply.text.includes("модулей: 68"));
 
+assert.ok(!reply.text.includes("Не буду придумывать."));
+assert.ok(!reply.text.includes("Я вижу"));
 assert.ok(!reply.text.includes("Следующий шаг"));
 assert.ok(!reply.text.includes("обработчик"));
 assert.ok(!reply.text.includes("Telegram"));

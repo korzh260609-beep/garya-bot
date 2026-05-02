@@ -29,6 +29,9 @@ import {
 import {
   guardRepoFactsSourceHonesty,
 } from "../../../core/living-sg/LivingRepoFactsSourceHonestyGuard.js";
+import {
+  buildRepoFactsSourceHonestyBlockedReply,
+} from "../../../core/living-sg/LivingRepoFactsSourceHonestyReplyBuilder.js";
 
 function normalizeResolvedScope(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -164,6 +167,13 @@ export async function runChatAiOrchestration({
   });
 
   if (repoFactsSourceHonestyGuard?.handled === true) {
+    const repoFactsSourceHonestyReply = buildRepoFactsSourceHonestyBlockedReply({
+      sourceResultEnvelope,
+      guardResult: repoFactsSourceHonestyGuard,
+    });
+
+    const repoFactsBlockedText = repoFactsSourceHonestyReply.text;
+
     await memoryWrite({
       role: "user",
       content: effective,
@@ -175,7 +185,7 @@ export async function runChatAiOrchestration({
     });
 
     await runChatAiPostProcessing({
-      aiReply: repoFactsSourceHonestyGuard.text,
+      aiReply: repoFactsBlockedText,
       insertAssistantReply,
       memoryWrite,
       assistantMemoryMeta: {
@@ -185,6 +195,7 @@ export async function runChatAiOrchestration({
         repoFactsSourceHonestyFactNeed: repoFactsSourceHonestyGuard.factNeed,
         repoFactsSourceHonestyConfidence: repoFactsSourceHonestyGuard.confidence,
         ...repoFactsSourceHonestyGuard.metadata,
+        ...repoFactsSourceHonestyReply.metadata,
       },
       sanitizeNonMonarchReply,
       monarchNow,
@@ -205,7 +216,7 @@ export async function runChatAiOrchestration({
 
     return {
       handled: true,
-      aiReply: repoFactsSourceHonestyGuard.text,
+      aiReply: repoFactsBlockedText,
       answerMode: "source_honesty_repo_facts_blocked",
     };
   }

@@ -44,6 +44,7 @@
     "smoke:legacy-project-intent-activation-gate": "node ./scripts/smokeLegacyProjectIntentActivationGate.js",
     "smoke:pending-clarification-continuation-gate": "node ./scripts/smokePendingClarificationContinuationGate.js",
     "smoke:pending-clarification-flow-release": "node ./scripts/smokePendingClarificationFlowRelease.js",
+    "smoke:repo-facts-source-honesty-guard": "node ./scripts/smokeRepoFactsSourceHonestyGuard.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",
     "migrate:up": "node-pg-migrate up",

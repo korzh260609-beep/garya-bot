@@ -6,7 +6,7 @@
 // - isolate existing projectIntent/repo/diagnostic legacy logic that was mixed
 //   directly into handleChatFlow;
 // - preserve existing projectIntent/repo behavior during migration;
-// - keep diagnostic natural bridge disabled by default;
+// - keep diagnostic natural bridge blocked;
 // - do not add slash-commands;
 // - do not create or expand Technical Mode;
 // - do not create new diagnostic bridges.
@@ -20,7 +20,6 @@ import { ProjectMemoryAutoCapture } from "../../projectExperience/ProjectMemoryA
 
 import { resolveProjectIntentRoute } from "../projectIntent/projectIntentRoute.js";
 import { requireProjectIntentAccess } from "../projectIntent/projectIntentGuard.js";
-import { maybeHandleProjectDiagnosticNaturalBridge } from "../projectIntent/projectDiagnosticNaturalBridge.js";
 import {
   buildProjectIntentRoutingText,
   getLatestProjectIntentRepoContext,
@@ -93,10 +92,8 @@ export const LEGACY_PROJECT_INTENT_FLOW_PHASE = Object.freeze({
   CONTINUE: "continue",
 });
 
-export function isDiagnosticNaturalBridgeAllowed(input = {}) {
-  return input?.allowDiagnosticNaturalBridge === true ||
-    input?.context?.allowDiagnosticNaturalBridge === true ||
-    input?.deps?.allowDiagnosticNaturalBridge === true;
+export function isDiagnosticNaturalBridgeAllowed() {
+  return false;
 }
 
 export function createLegacyProjectIntentFlowInput(input = {}) {
@@ -119,7 +116,8 @@ export function createLegacyProjectIntentFlowInput(input = {}) {
     replyAndLog: input.replyAndLog || null,
     memory: input.memory || null,
     prepared: input.prepared || null,
-    allowDiagnosticNaturalBridge: isDiagnosticNaturalBridgeAllowed(input),
+    allowDiagnosticNaturalBridge: false,
+    diagnosticNaturalBridgeHardBlocked: true,
   };
 }
 
@@ -137,7 +135,6 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
     isMonarchUser,
     isPrivateChat,
     replyAndLog,
-    allowDiagnosticNaturalBridge,
   } = normalized;
 
   const projectContextEngine = new ProjectContextEngine();
@@ -224,38 +221,9 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
         result: "project_intent_blocked",
         projectContextDecision,
         projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
+        diagnosticNaturalBridgeHardBlocked: true,
       },
     };
-  }
-
-  if (allowDiagnosticNaturalBridge === true) {
-    const projectDiagnosticNaturalBridgeResult = await maybeHandleProjectDiagnosticNaturalBridge({
-      text: projectIntentRoutingText,
-      route: projectIntentRoute,
-      replyAndLog,
-      isMonarchUser: !!isMonarchUser,
-      isPrivateChat: !!isPrivateChat,
-      transport,
-      chatId: chatIdStr,
-      globalUserId,
-    });
-
-    if (projectDiagnosticNaturalBridgeResult?.handled) {
-      return {
-        ok: true,
-        handled: true,
-        source: "legacyProjectIntentFlow",
-        status: LEGACY_PROJECT_INTENT_FLOW_STATUS.HANDLED,
-        reason: projectDiagnosticNaturalBridgeResult.reason || "project_diagnostic_natural_bridge_handled",
-        response: {
-          ok: true,
-          stage: "12A.1.project_diagnostic_natural_bridge",
-          result: projectDiagnosticNaturalBridgeResult.reason || "project_diagnostic_natural_bridge_handled",
-          projectContextDecision,
-          projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
-        },
-      };
-    }
   }
 
   const prepared = {
@@ -265,7 +233,8 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
     projectContextDecision,
     projectMemoryAutoCaptureMeta,
     projectIntentRoute,
-    diagnosticNaturalBridgeAllowed: allowDiagnosticNaturalBridge === true,
+    diagnosticNaturalBridgeAllowed: false,
+    diagnosticNaturalBridgeHardBlocked: true,
   };
 
   return {
@@ -281,7 +250,8 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
     projectIntentRoute,
     projectContextDecision,
     projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
-    diagnosticNaturalBridgeAllowed: allowDiagnosticNaturalBridge === true,
+    diagnosticNaturalBridgeAllowed: false,
+    diagnosticNaturalBridgeHardBlocked: true,
   };
 }
 
@@ -361,6 +331,7 @@ async function continueLegacyProjectIntentFlow(normalized = {}) {
         result: repoConversationResult.reason || "repo_conversation_handled",
         projectContextDecision,
         projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
+        diagnosticNaturalBridgeHardBlocked: true,
       },
     };
   }
@@ -382,6 +353,7 @@ async function continueLegacyProjectIntentFlow(normalized = {}) {
         project_context_trigger: projectContextDecision?.trigger,
         project_context_stage_key: projectContextDecision?.stageKey,
         project_memory_auto_capture_summary: projectMemoryAutoCaptureMeta,
+        diagnostic_natural_bridge_hard_blocked: true,
         read_only: true,
       });
     }
@@ -398,6 +370,7 @@ async function continueLegacyProjectIntentFlow(normalized = {}) {
         result: "internal_project_request_not_auto_executed",
         projectContextDecision,
         projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
+        diagnosticNaturalBridgeHardBlocked: true,
       },
     };
   }
@@ -411,6 +384,7 @@ async function continueLegacyProjectIntentFlow(normalized = {}) {
     projectIntentRepoContext: repoFollowupContext,
     projectContextDecision,
     projectMemoryAutoCaptureSummary: projectMemoryAutoCaptureMeta,
+    diagnosticNaturalBridgeHardBlocked: true,
   };
 }
 

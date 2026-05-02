@@ -5,7 +5,7 @@
 // Purpose:
 // - verify legacyProjectIntentFlow boundary imports;
 // - verify input normalization;
-// - verify diagnostic natural bridge is disabled by default;
+// - verify diagnostic natural bridge is hard-blocked;
 // - verify the safe continue-phase failure path without external calls;
 // - verify this remains an isolation boundary, not a new Technical Mode layer.
 // ============================================================================
@@ -43,19 +43,19 @@ assertEqual("status.blocked", LEGACY_PROJECT_INTENT_FLOW_STATUS.BLOCKED, "blocke
 
 assertEqual("diagnostic bridge default", isDiagnosticNaturalBridgeAllowed({}), false);
 assertEqual(
-  "diagnostic bridge direct internal flag",
+  "diagnostic bridge direct internal flag hard-blocked",
   isDiagnosticNaturalBridgeAllowed({ allowDiagnosticNaturalBridge: true }),
-  true
+  false
 );
 assertEqual(
-  "diagnostic bridge context internal flag",
+  "diagnostic bridge context internal flag hard-blocked",
   isDiagnosticNaturalBridgeAllowed({ context: { allowDiagnosticNaturalBridge: true } }),
-  true
+  false
 );
 assertEqual(
-  "diagnostic bridge deps internal flag",
+  "diagnostic bridge deps internal flag hard-blocked",
   isDiagnosticNaturalBridgeAllowed({ deps: { allowDiagnosticNaturalBridge: true } }),
-  true
+  false
 );
 
 const normalized = createLegacyProjectIntentFlowInput({
@@ -80,14 +80,18 @@ assertEqual("normalized.chatIdStr", normalized.chatIdStr, "123");
 assertEqual("normalized.isPrivateChat", normalized.isPrivateChat, true);
 assertEqual("normalized.isMonarchUser", normalized.isMonarchUser, true);
 assertEqual("normalized.allowDiagnosticNaturalBridge", normalized.allowDiagnosticNaturalBridge, false);
+assertEqual("normalized.diagnosticNaturalBridgeHardBlocked", normalized.diagnosticNaturalBridgeHardBlocked, true);
 
-const normalizedAllowed = createLegacyProjectIntentFlowInput({
+const normalizedBlocked = createLegacyProjectIntentFlowInput({
   phase: LEGACY_PROJECT_INTENT_FLOW_PHASE.CONTINUE,
   trimmed: "проверь репозиторий",
   allowDiagnosticNaturalBridge: true,
+  context: { allowDiagnosticNaturalBridge: true },
+  deps: { allowDiagnosticNaturalBridge: true },
 });
 
-assertEqual("normalizedAllowed.allowDiagnosticNaturalBridge", normalizedAllowed.allowDiagnosticNaturalBridge, true);
+assertEqual("normalizedBlocked.allowDiagnosticNaturalBridge", normalizedBlocked.allowDiagnosticNaturalBridge, false);
+assertEqual("normalizedBlocked.diagnosticNaturalBridgeHardBlocked", normalizedBlocked.diagnosticNaturalBridgeHardBlocked, true);
 
 const safeMissingPreparedResult = await handleLegacyProjectIntentFlow(normalized);
 
@@ -100,4 +104,4 @@ assertEqual(
   "missing_prepared_legacy_project_intent_flow"
 );
 
-console.log("OK: legacyProjectIntentFlow boundary imports and diagnostic bridge gate are valid.");
+console.log("OK: legacyProjectIntentFlow boundary imports and diagnostic natural bridge hard-block are valid.");

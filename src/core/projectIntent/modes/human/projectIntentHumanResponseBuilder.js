@@ -63,7 +63,7 @@ function readResponseSourceProof({ repoFacts = null, contextPack = null } = {}) 
   }
 
   return {
-    available: true,
+    available: sourceProof.available !== false,
     verified: sourceProof.verified === true,
     source: sourceProof.source || repoFacts?.source || contextPack?.repoFacts?.source || null,
     canClaimVerifiedFacts: sourceProof.canClaimVerifiedFacts === true,

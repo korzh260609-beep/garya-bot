@@ -2,8 +2,8 @@
 // ============================================================================
 // Smoke — Repo Facts Source-Honesty Reply Builder
 //
-// Verifies that blocked repo facts get a user-facing Living SG reply,
-// while technical guard reasons remain hidden from Telegram/user text.
+// Verifies that blocked repo facts get a transport-agnostic user-facing
+// Living SG reply, while technical guard reasons remain hidden from user text.
 // ============================================================================
 
 import assert from "node:assert/strict";
@@ -49,8 +49,12 @@ assert.ok(reply.text.includes("Не буду придумывать."));
 assert.ok(reply.text.includes("Я вижу подтверждённую карту репозитория"));
 assert.ok(reply.text.includes("файлов всего: 1165"));
 assert.ok(reply.text.includes("модулей: 68"));
-assert.ok(reply.text.includes("Следующий шаг"));
 
+assert.ok(!reply.text.includes("Следующий шаг"));
+assert.ok(!reply.text.includes("обработчик"));
+assert.ok(!reply.text.includes("Telegram"));
+assert.ok(!reply.text.includes("Discord"));
+assert.ok(!reply.text.includes("transport"));
 assert.ok(!reply.text.includes("deterministic verified answer"));
 assert.ok(!reply.text.includes("repo_facts_answer_kind_missing"));
 assert.ok(!reply.text.includes("Причина bypass"));
@@ -60,5 +64,7 @@ assert.ok(!reply.text.includes("requirements.txt"));
 assert.ok(!reply.text.includes("LICENSE"));
 assert.equal(reply.metadata.userFacingReplyBuiltSeparately, true);
 assert.equal(reply.metadata.technicalGuardTextHidden, true);
+assert.equal(reply.metadata.transportAgnosticUserFacingReply, true);
+assert.ok(reply.metadata.technicalNextStep.includes("обработчик"));
 
 console.log("Smoke Repo Facts Source-Honesty Reply Builder — OK");

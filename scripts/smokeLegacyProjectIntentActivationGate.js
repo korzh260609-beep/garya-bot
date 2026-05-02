@@ -8,11 +8,13 @@
 
 import assert from "node:assert/strict";
 
-import {
+process.env.DATABASE_URL = process.env.DATABASE_URL || "postgres://user:pass@localhost:5432/garya_smoke";
+
+const {
   handleLegacyProjectIntentFlow,
   shouldActivateLegacyProjectIntentFlow,
   LEGACY_PROJECT_INTENT_FLOW_STATUS,
-} from "../src/core/handleMessage/legacyProjectIntentFlow.js";
+} = await import("../src/core/handleMessage/legacyProjectIntentFlow.js");
 
 function createMemoryStub() {
   let recentCalls = 0;

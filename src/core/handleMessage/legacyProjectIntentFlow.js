@@ -96,6 +96,18 @@ export function isDiagnosticNaturalBridgeAllowed() {
   return false;
 }
 
+export function shouldActivateLegacyProjectIntentFlow({
+  projectIntentRoute = null,
+  repoFollowupContext = null,
+  pendingChoiceContext = null,
+} = {}) {
+  return (
+    projectIntentRoute?.targetScope === "sg_core_internal" ||
+    repoFollowupContext?.isActive === true ||
+    pendingChoiceContext?.isActive === true
+  );
+}
+
 export function createLegacyProjectIntentFlowInput(input = {}) {
   return {
     phase: safeText(input.phase) || LEGACY_PROJECT_INTENT_FLOW_PHASE.PREPARE,
@@ -137,9 +149,6 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
     replyAndLog,
   } = normalized;
 
-  const projectContextEngine = new ProjectContextEngine();
-  const projectMemoryAutoCapture = new ProjectMemoryAutoCapture();
-
   const repoFollowupContext = await getLatestProjectIntentRepoContext(memory, {
     chatIdStr,
     globalUserId,
@@ -157,6 +166,31 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
     repoFollowupContext,
     pendingChoiceContext
   );
+
+  const projectIntentRoute = resolveProjectIntentRoute({
+    text: projectIntentRoutingText,
+    isMonarchUser: !!isMonarchUser,
+    isPrivateChat: !!isPrivateChat,
+  });
+
+  if (!shouldActivateLegacyProjectIntentFlow({
+    projectIntentRoute,
+    repoFollowupContext,
+    pendingChoiceContext,
+  })) {
+    return {
+      ok: true,
+      handled: false,
+      source: "legacyProjectIntentFlow",
+      status: LEGACY_PROJECT_INTENT_FLOW_STATUS.NOT_HANDLED,
+      reason: "legacy_project_intent_inactive",
+      diagnosticNaturalBridgeAllowed: false,
+      diagnosticNaturalBridgeHardBlocked: true,
+    };
+  }
+
+  const projectContextEngine = new ProjectContextEngine();
+  const projectMemoryAutoCapture = new ProjectMemoryAutoCapture();
 
   const projectContextDecision = context?.projectContextDecision || projectContextEngine.classifyProjectContextNeed({
     text: projectIntentRoutingText,
@@ -190,12 +224,6 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
       projectMemoryAutoCaptureError: true,
     };
   }
-
-  const projectIntentRoute = resolveProjectIntentRoute({
-    text: projectIntentRoutingText,
-    isMonarchUser: !!isMonarchUser,
-    isPrivateChat: !!isPrivateChat,
-  });
 
   const projectIntentAccess = await requireProjectIntentAccess({
     text: projectIntentRoutingText,
@@ -402,6 +430,7 @@ export default {
   LEGACY_PROJECT_INTENT_FLOW_STATUS,
   LEGACY_PROJECT_INTENT_FLOW_PHASE,
   isDiagnosticNaturalBridgeAllowed,
+  shouldActivateLegacyProjectIntentFlow,
   createLegacyProjectIntentFlowInput,
   handleLegacyProjectIntentFlow,
 };

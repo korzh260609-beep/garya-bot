@@ -9,9 +9,9 @@
 //
 // Current status:
 // - accepts structured meaning from context when provided.
-// - can derive broad project intent from core structured meaning.
+// - can derive broad project intent only from structured core/project context.
 // - can use an explicitly injected meaning provider only when explicitly allowed.
-// - avoids old command/phrase routing.
+// - avoids old command/phrase/keyword/regex routing.
 // ============================================================================
 
 import { PROJECT_INTENT_INTERFACE_MODES } from "../projectIntentInterfaceModes.js";
@@ -28,8 +28,14 @@ export const HUMAN_PROJECT_INTENT_KINDS = Object.freeze({
   UNKNOWN: "unknown",
 });
 
+const HUMAN_PROJECT_INTENT_KIND_SET = new Set(Object.values(HUMAN_PROJECT_INTENT_KINDS));
+
 function isKnownHumanProjectIntentKind(intentKind) {
-  return Object.values(HUMAN_PROJECT_INTENT_KINDS).includes(intentKind);
+  return HUMAN_PROJECT_INTENT_KIND_SET.has(intentKind);
+}
+
+function asObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
 function normalizeHumanProjectIntentMeaning(value = null) {
@@ -47,72 +53,64 @@ function normalizeHumanProjectIntentMeaning(value = null) {
   };
 }
 
-function deriveIntentFromCoreMeaning(context = null) {
-  const coreMeaning = context?.coreMeaning || null;
-  const text = String(context?.text || context?.rawText || "").trim().toLowerCase();
-  const userMeaning = String(coreMeaning?.userMeaning || "").toLowerCase();
-  const combined = `${text} ${userMeaning}`;
+function readStructuredIntentKind(...values) {
+  for (const value of values) {
+    if (isKnownHumanProjectIntentKind(value)) {
+      return value;
+    }
+  }
 
-  if (!coreMeaning || typeof coreMeaning !== "object") {
+  return null;
+}
+
+function readProjectContextSignal(context = null) {
+  const projectContextDecision = asObject(context?.projectContextDecision);
+
+  return (
+    context?.projectContextAllowed === true ||
+    projectContextDecision?.depth === "deep" ||
+    projectContextDecision?.depth === "light"
+  );
+}
+
+function deriveIntentFromCoreMeaning(context = null) {
+  const coreMeaning = asObject(context?.coreMeaning);
+  const projectContextDecision = asObject(context?.projectContextDecision);
+
+  if (!coreMeaning) {
     return null;
+  }
+
+  const structuredIntentKind = readStructuredIntentKind(
+    coreMeaning.humanProjectIntentKind,
+    coreMeaning.projectIntentKind,
+    coreMeaning.intentKind,
+    projectContextDecision?.humanProjectIntentKind,
+    projectContextDecision?.projectIntentKind,
+    projectContextDecision?.intentKind
+  );
+
+  if (structuredIntentKind) {
+    return {
+      mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
+      intentKind: structuredIntentKind,
+      confidence: "medium",
+      reason: "derived_from_structured_core_meaning_intent_kind",
+    };
   }
 
   const isProjectContext =
     coreMeaning.domain === "project" ||
     coreMeaning.intent === "project_message" ||
     coreMeaning.intent === "inspect_project_stage" ||
-    context?.projectContextAllowed === true ||
-    context?.projectContextDecision?.depth === "deep" ||
-    context?.projectContextDecision?.depth === "light";
+    readProjectContextSignal(context);
 
-  const asksRepo = combined.includes("repo") || combined.includes("репозитор") || combined.includes("github");
-  const asksArchitecture = combined.includes("architecture") || combined.includes("архитектур");
-  const asksRisk = combined.includes("risk") || combined.includes("риск") || combined.includes("опасн");
-  const asksNext = combined.includes("next") || combined.includes("дальше") || combined.includes("следующ");
-  const asksModule = combined.includes("module") || combined.includes("модул");
-
-  if (asksArchitecture) {
-    return {
-      mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
-      intentKind: HUMAN_PROJECT_INTENT_KINDS.ARCHITECTURE_QUESTION,
-      confidence: isProjectContext ? "medium" : "low",
-      reason: "derived_from_core_meaning_architecture_focus",
-    };
-  }
-
-  if (asksRisk) {
-    return {
-      mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
-      intentKind: HUMAN_PROJECT_INTENT_KINDS.RISK_QUESTION,
-      confidence: isProjectContext ? "medium" : "low",
-      reason: "derived_from_core_meaning_risk_focus",
-    };
-  }
-
-  if (asksNext) {
-    return {
-      mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
-      intentKind: HUMAN_PROJECT_INTENT_KINDS.NEXT_STEP_QUESTION,
-      confidence: isProjectContext ? "medium" : "low",
-      reason: "derived_from_core_meaning_next_step_focus",
-    };
-  }
-
-  if (asksModule) {
-    return {
-      mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
-      intentKind: HUMAN_PROJECT_INTENT_KINDS.MODULE_QUESTION,
-      confidence: isProjectContext ? "medium" : "low",
-      reason: "derived_from_core_meaning_module_focus",
-    };
-  }
-
-  if (isProjectContext || asksRepo) {
+  if (isProjectContext) {
     return {
       mode: PROJECT_INTENT_INTERFACE_MODES.HUMAN,
       intentKind: HUMAN_PROJECT_INTENT_KINDS.PROJECT_ANALYSIS,
-      confidence: isProjectContext ? "medium" : "low",
-      reason: "derived_from_core_meaning_project_analysis",
+      confidence: "medium",
+      reason: "derived_from_structured_core_meaning_project_context",
     };
   }
 
@@ -158,10 +156,7 @@ export async function classifyHumanProjectIntentMeaning({ text = "", context = n
     return structuredMeaning;
   }
 
-  const derivedMeaning = deriveIntentFromCoreMeaning({
-    ...context,
-    text,
-  });
+  const derivedMeaning = deriveIntentFromCoreMeaning(context);
 
   if (derivedMeaning) {
     return derivedMeaning;

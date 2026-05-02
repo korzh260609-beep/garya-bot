@@ -216,6 +216,8 @@ export class RepoStateAgentService {
     const allowRealAi = options.allowRealAi === true;
     const fastReadOnly = options.fastReadOnly === true;
     const requireFreshProjectMap = options.requireFreshProjectMap !== false;
+    const triggerType = options.triggerType || "manual";
+    const triggerMetadata = options.triggerMetadata || {};
     const repoFullNameForFastRead = options.repoFullName || DEFAULT_REPO_FULL_NAME;
     const branchForFastRead = options.branch || DEFAULT_BRANCH;
 
@@ -285,7 +287,10 @@ export class RepoStateAgentService {
       });
     }
 
-    const result = await this.collector.runScan();
+    const result = await this.collector.runScan({
+      triggerType,
+      triggerMetadata,
+    });
 
     const projectMap = buildRepoStateProjectMap(result?.snapshot || result);
     const nextActionPlan = buildRepoStateNextActionPlan(projectMap);
@@ -380,6 +385,8 @@ export class RepoStateAgentService {
         headCommitSha: result?.headCommitSha || projectMap?.repo?.headCommitSha || null,
         refSha: result?.refSha || projectMap?.repo?.refSha || null,
         treeSha: result?.treeSha || projectMap?.repo?.treeSha || null,
+        triggerType,
+        triggerMetadata,
         forceAiAnalysis,
         allowRealAi,
         realAiBlocked,
@@ -409,6 +416,8 @@ export class RepoStateAgentService {
       aiMeta: {
         ...aiMeta,
         ...aiUsageMetadata,
+        triggerType,
+        triggerMetadata,
       },
     };
   }

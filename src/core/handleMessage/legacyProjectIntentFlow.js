@@ -5,7 +5,9 @@
 // Purpose:
 // - isolate existing projectIntent/repo/diagnostic legacy logic that was mixed
 //   directly into handleChatFlow;
-// - preserve existing projectIntent/repo behavior during migration;
+// - preserve existing projectIntent/repo follow-up behavior during migration;
+// - keep root SG-core natural requests in ordinary Living SG flow unless there
+//   is an active legacy follow-up/pending-choice context;
 // - keep diagnostic natural bridge blocked;
 // - do not add slash-commands;
 // - do not create or expand Technical Mode;
@@ -102,7 +104,6 @@ export function shouldActivateLegacyProjectIntentFlow({
   pendingChoiceContext = null,
 } = {}) {
   return (
-    projectIntentRoute?.targetScope === "sg_core_internal" ||
     repoFollowupContext?.isActive === true ||
     pendingChoiceContext?.isActive === true
   );
@@ -183,7 +184,9 @@ async function prepareLegacyProjectIntentFlow(normalized = {}) {
       handled: false,
       source: "legacyProjectIntentFlow",
       status: LEGACY_PROJECT_INTENT_FLOW_STATUS.NOT_HANDLED,
-      reason: "legacy_project_intent_inactive",
+      reason: projectIntentRoute?.targetScope === "sg_core_internal"
+        ? "legacy_project_intent_root_sg_core_inactive_for_living_sg"
+        : "legacy_project_intent_inactive",
       diagnosticNaturalBridgeAllowed: false,
       diagnosticNaturalBridgeHardBlocked: true,
     };

@@ -26,6 +26,25 @@ function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
+function buildHumanRepoFactsSourceProof({ verified = false, reason = "" } = {}) {
+  return {
+    verified: verified === true,
+    source: HUMAN_REPO_FACTS_SOURCES.REPO_STATE_AGENT,
+    canClaimVerifiedFacts: verified === true,
+    canAuthorizeWrite: false,
+    canExecute: false,
+    reason,
+    metadata: {
+      noSourceCall: true,
+      noRuntimeRepoRead: true,
+      noRuntimeRepoWrite: true,
+      noTechnicalModeExpansion: true,
+      noSlashCommandsAdded: true,
+      cannotAuthorizeWrites: true,
+    },
+  };
+}
+
 function normalizeRepoStateAgentFacts(repoStateAgentResult) {
   const result = asObject(repoStateAgentResult);
 
@@ -65,6 +84,10 @@ export function buildHumanProjectRepoFactsFromRepoStateAgentResult(repoStateAgen
       ok: false,
       source: HUMAN_REPO_FACTS_SOURCES.REPO_STATE_AGENT,
       facts: null,
+      sourceProof: buildHumanRepoFactsSourceProof({
+        verified: false,
+        reason: "repo_state_agent_result_missing_or_invalid",
+      }),
       reason: "repo_state_agent_result_missing_or_invalid",
     };
   }
@@ -74,6 +97,10 @@ export function buildHumanProjectRepoFactsFromRepoStateAgentResult(repoStateAgen
     ok: true,
     source: HUMAN_REPO_FACTS_SOURCES.REPO_STATE_AGENT,
     facts,
+    sourceProof: buildHumanRepoFactsSourceProof({
+      verified: true,
+      reason: "repo_state_agent_facts_loaded",
+    }),
     reason: "repo_state_agent_facts_loaded",
   };
 }
@@ -91,6 +118,10 @@ async function runInjectedRepoStateAgent({ context = null } = {}) {
       ok: false,
       source: HUMAN_REPO_FACTS_SOURCES.REPO_STATE_AGENT,
       facts: null,
+      sourceProof: buildHumanRepoFactsSourceProof({
+        verified: false,
+        reason: "repo_state_agent_runner_present_but_not_allowed",
+      }),
       reason: "repo_state_agent_runner_present_but_not_allowed",
     };
   }
@@ -121,6 +152,10 @@ export async function loadHumanProjectRepoFacts({ context = null } = {}) {
     ok: false,
     source: HUMAN_REPO_FACTS_SOURCES.REPO_STATE_AGENT,
     facts: null,
+    sourceProof: buildHumanRepoFactsSourceProof({
+      verified: false,
+      reason: "repo_state_agent_result_not_provided",
+    }),
     reason: "repo_state_agent_result_not_provided",
   };
 }

@@ -31,6 +31,14 @@ function normalizeResolvedScope(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function getRepoFactsAnswerKind(livingSGPlan = null) {
+  return String(
+    livingSGPlan?.intentPlan?.meaning?.extracted?.repoFactsAnswerKind ||
+    livingSGPlan?.request?.coreMeaning?.extracted?.repoFactsAnswerKind ||
+    ""
+  ).trim();
+}
+
 export async function runChatAiOrchestration({
   bot,
   msg,
@@ -95,6 +103,7 @@ export async function runChatAiOrchestration({
   const deterministicRepoAnswer = buildLivingRepoFactsAnswer({
     sourceResultEnvelope,
     livingSGPlan,
+    repoFactsAnswerKind: getRepoFactsAnswerKind(livingSGPlan),
   });
 
   if (deterministicRepoAnswer?.handled === true) {
@@ -116,6 +125,7 @@ export async function runChatAiOrchestration({
         ...assistantMemoryMeta,
         deterministicRepoFactsAnswer: true,
         deterministicRepoFactsReason: deterministicRepoAnswer.reason,
+        deterministicRepoFactsAnswerKind: deterministicRepoAnswer.answerKind,
         ...deterministicRepoAnswer.metadata,
       },
       sanitizeNonMonarchReply,

@@ -46,6 +46,7 @@
     "smoke:pending-clarification-flow-release": "node ./scripts/smokePendingClarificationFlowRelease.js",
     "smoke:repo-facts-source-honesty-guard": "node ./scripts/smokeRepoFactsSourceHonestyGuard.js",
     "smoke:repo-facts-source-honesty-reply": "node ./scripts/smokeRepoFactsSourceHonestyReplyBuilder.js",
+    "smoke:chat-path-no-repo-facts-technical-fallback": "node ./scripts/smokeChatPathNoRepoFactsTechnicalFallback.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",
     "migrate:up": "node-pg-migrate up",

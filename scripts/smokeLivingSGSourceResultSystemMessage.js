@@ -3,7 +3,8 @@
 // Smoke — Living SG Source Result System Message
 //
 // Verifies that the builder converts sourceResult envelopes into prompt-safe
-// system evidence without executing anything.
+// system evidence without executing anything, and that confirmed repo
+// projectMap payload facts are passed into the prompt for source-only answers.
 // ============================================================================
 
 import assert from "node:assert/strict";
@@ -73,6 +74,97 @@ assert.ok(
   confirmedMessage.content.includes("may support verified repository/source claims only for the stated target")
 );
 
+const confirmedProjectMapEnvelope = createLivingSourceResultEnvelope({
+  kind: LIVING_SOURCE_RESULT_KIND.REPO,
+  target: {
+    repository: "korzh260609-beep/garya-bot",
+    ref: "main",
+    scope: "repo_state_agent_project_map",
+  },
+  freshnessStatus: LIVING_SOURCE_RESULT_FRESHNESS_STATUS.FRESH,
+  checkedAt: "2026-05-02T13:55:00Z",
+  sourceUpdatedAt: "2026-05-02T13:54:00Z",
+  payload: {
+    projectMap: {
+      repo: {
+        fullName: "korzh260609-beep/garya-bot",
+        branch: "main",
+        headCommitSha: "abc123",
+      },
+      totals: {
+        files: 127,
+        modules: 9,
+        dependencies: 42,
+        contentLoaded: 80,
+        contentSkipped: 47,
+        hiddenFiles: 0,
+        structureComplete: true,
+      },
+      layers: {
+        core: {
+          filesCount: 33,
+          sampleFiles: [
+            "src/core/handleMessage/handleChatFlow.js",
+            "src/core/living-sg/LivingSourceResultSystemMessage.js",
+          ],
+        },
+        transport: {
+          filesCount: 12,
+          sampleFiles: ["src/bot/handlers/chat/sourceFlow.js"],
+        },
+      },
+      modules: [
+        {
+          key: "src/core",
+          rootPath: "src/core",
+          layer: "core",
+          filesCount: 33,
+          sampleFiles: ["src/core/handleMessage/legacyProjectIntentFlow.js"],
+        },
+      ],
+      entrypoints: [
+        { path: "index.js" },
+        { path: "src/http/server.js" },
+      ],
+      criticalFiles: [
+        { path: "index.js" },
+        { path: "pillars/DECISIONS.md" },
+      ],
+    },
+  },
+  valid: true,
+  confirmed: true,
+  confirmedBy: "LivingRepoSourceProviderResultAdapter",
+  reason: "provider_result_confirmed_and_adapted",
+});
+
+const projectMapMessage = buildLivingSourceResultSystemMessage({
+  sourceResultEnvelope: confirmedProjectMapEnvelope,
+});
+
+assertSystemEvidenceSafety(projectMapMessage);
+assert.ok(projectMapMessage.content.includes("REPO FACTS FROM SOURCE PAYLOAD:"));
+assert.ok(projectMapMessage.content.includes("repo.fullName=korzh260609-beep/garya-bot"));
+assert.ok(projectMapMessage.content.includes("repo.branch=main"));
+assert.ok(projectMapMessage.content.includes("repo.headCommitSha=abc123"));
+assert.ok(projectMapMessage.content.includes("totals.files=127"));
+assert.ok(projectMapMessage.content.includes("totals.modules=9"));
+assert.ok(projectMapMessage.content.includes("totals.dependencies=42"));
+assert.ok(projectMapMessage.content.includes("totals.structureComplete=true"));
+assert.ok(projectMapMessage.content.includes("layers:"));
+assert.ok(projectMapMessage.content.includes("- core: files=33"));
+assert.ok(projectMapMessage.content.includes("src/core/handleMessage/handleChatFlow.js"));
+assert.ok(projectMapMessage.content.includes("modules:"));
+assert.ok(projectMapMessage.content.includes("- src/core: root=src/core; layer=core; files=33"));
+assert.ok(projectMapMessage.content.includes("entrypoints: index.js, src/http/server.js"));
+assert.ok(projectMapMessage.content.includes("criticalFiles: index.js, pillars/DECISIONS.md"));
+assert.ok(
+  projectMapMessage.content.includes("answer only from REPO FACTS FROM SOURCE PAYLOAD above")
+);
+assert.ok(
+  projectMapMessage.content.includes("Do not invent paths, folders, files, technologies, setup files, licenses, tests, docs, or config folders")
+);
+
 const missingMessage = buildLivingSourceResultSystemMessage({});
 
 assertSystemEvidenceSafety(missingMessage);
@@ -87,7 +179,12 @@ const staleEnvelope = createLivingSourceResultEnvelope({
   kind: LIVING_SOURCE_RESULT_KIND.REPO,
   target: "package.json",
   freshnessStatus: LIVING_SOURCE_RESULT_FRESHNESS_STATUS.STALE,
-  payload: { path: "package.json" },
+  payload: {
+    projectMap: {
+      repo: { fullName: "korzh260609-beep/garya-bot", branch: "main" },
+      totals: { files: 999 },
+    },
+  },
   valid: true,
   confirmed: true,
 });
@@ -102,6 +199,14 @@ assert.ok(staleMessage.content.includes("verified=false"));
 assert.ok(staleMessage.content.includes("canClaimVerifiedFacts=false"));
 assert.ok(
   staleMessage.content.includes("not confirmed for verified claims")
+);
+assert.ok(
+  !staleMessage.content.includes("REPO FACTS FROM SOURCE PAYLOAD:"),
+  "stale/unverified projectMap payload must not be exposed as verified repo facts"
+);
+assert.ok(
+  !staleMessage.content.includes("totals.files=999"),
+  "stale/unverified totals must not be exposed as verified repo facts"
 );
 
 console.log("Smoke Living SG Source Result System Message — OK");

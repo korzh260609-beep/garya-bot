@@ -59,7 +59,7 @@ Current factual repository state should come from:
 RepoStateAgent
 -> RepoStateCollector
 -> RepoStateProjectMapBuilder
--> RepoStateSemanticMapBuilder
+-> RepoStateSemanticMapBuilder / projectMap.semanticMap
 -> reports/state saved by the new agent
 ```
 
@@ -72,12 +72,49 @@ This applies to claims about:
 - architecture health
 - project completion/status claims
 - Human Mode repo/project answers
+- Living SG repo/project answers
 
 Important distinction:
 - runtime/repository reality remains the underlying factual reality;
 - RepoStateAgent observes and structures that reality for SG;
 - `pillars/DECISIONS.md` remains the philosophical and architectural foundation for what SG is meant to become;
 - RepoStateAgent facts do not override accepted SG philosophy, governance, or monarch decisions.
+
+---
+
+## RepoStateAgent-only Living SG rule
+
+Living SG must not use old RepoIndex as its normal source of truth.
+
+Correct Living SG path:
+
+```text
+meaning / intent / context
+-> source need
+-> RepoStateAgent verified facts
+-> Living SG source/result proof
+-> SG reasoning / answer
+```
+
+Incorrect Living SG path:
+
+```text
+meaning / intent / context
+-> old RepoIndex snapshot
+-> old Technical Mode reply
+-> presented as current project truth
+```
+
+Old RepoIndex may exist only as:
+
+```text
+Technical Mode / legacy fallback / diagnostics / migration reference
+```
+
+Old RepoIndex must never be equal to RepoStateAgent for current project truth.
+
+If RepoStateAgent is unavailable, Living SG must say that current verified repo/project facts are unavailable.
+It may optionally mention old RepoIndex only as legacy fallback, with a clear warning that it is not current verified truth.
 
 ---
 
@@ -146,6 +183,8 @@ Legacy systems must not be used as factual truth for:
 - module grouping
 - architecture health
 - project completion/status claims
+- Living SG repo/project answers
+- Human Mode repo/project answers
 
 Legacy includes:
 
@@ -166,16 +205,18 @@ legacy regex routes
 
 Legacy systems may remain temporarily only for:
 
-- compatibility
-- quick file browsing
-- old command support
-- fallback read-only access
-- migration reference
-- explicit Technical Mode diagnostics
+- compatibility;
+- quick file browsing;
+- old command support;
+- fallback read-only access with explicit warning;
+- migration reference;
+- explicit Technical Mode diagnostics.
 
 They must be removed or adapted gradually.
 
 They must never be presented as current factual repository truth.
+
+They must never be developed as the main Living SG path.
 
 ---
 
@@ -186,7 +227,7 @@ When old code conflicts with RepoStateAgent observations, RepoStateAgent-backed 
 Old code must be handled in one of three ways:
 
 1. adapt it to call/use RepoStateAgent;
-2. downgrade it to explicit legacy/fallback behavior;
+2. downgrade it to explicit Technical Mode / legacy fallback behavior;
 3. remove it carefully after replacement is verified and Monarch approves.
 
 This migration must follow `DECISIONS.md` governance:
@@ -205,6 +246,10 @@ Do not present old RepoIndex, old manual grouping, old hardcoded maps, or old co
 
 Do not copy old grouping/indexing logic into the new agent unless it is verified against real repository state.
 
+Do not combine old RepoIndex and RepoStateAgent as equal sources of truth.
+
+Do not use old RepoIndex as a Living SG source when verified RepoStateAgent facts are available.
+
 Do not treat RepoStateAgent as a separate SG, autonomous decision maker, or source of SG philosophy.
 
 Do not let model memory, chat history, or stale snapshots override verified repo facts.
@@ -221,7 +266,7 @@ All future project-map and semantic-map work must move toward:
 
 ```text
 SG/user request
--> SG Human Mode meaning / intent / context
+-> SG Human Mode / Living SG meaning / intent / context
 -> minimal controller/gate checks permission / scope / capability / source need / risk
 -> RepoStateAgent factual read when repo facts are needed
 -> verified project/semantic map
@@ -235,9 +280,10 @@ Technical Mode may expose RepoStateAgent diagnostics, but those diagnostics rema
 
 ## Current implementation alignment
 
-Current safe Human Mode work is aligned with this policy only if:
+Current safe Human Mode / Living SG work is aligned with this policy only if:
 
 - Human Mode runtime is still gated or not connected;
+- Living SG repo facts use RepoStateAgent-backed facts, not old RepoIndex truth;
 - raw text is not classified through phrase/keyword/regex logic;
 - repo facts are loaded from `context.repoStateAgentResult` or gated runner only;
 - `repoStateAgentRunner` runs only when `allowHumanRepoStateAgentRun === true`;

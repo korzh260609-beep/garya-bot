@@ -4,6 +4,7 @@
 //
 // Verifies runtime enforcement of existing no-fantasy/source-first policy:
 // - current repo facts questions do not fall through to generic AI;
+// - guard stays technical and does not build user-facing fallback text;
 // - explicit imagination/hypothetical requests may still use generic AI;
 // - invalid classifier JSON fails open for non-enforcement rather than crashing.
 // ============================================================================
@@ -44,10 +45,16 @@ assert.equal(factualRootListing.handled, true);
 assert.equal(factualRootListing.shouldBlockGenericAiFacts, true);
 assert.equal(factualRootListing.shouldAllowGenericAi, false);
 assert.equal(factualRootListing.factNeed, "repo_root_listing");
-assert.ok(factualRootListing.text.includes("Не буду придумывать."));
-assert.ok(!factualRootListing.text.includes("setup.py"));
-assert.ok(!factualRootListing.text.includes("requirements.txt"));
-assert.ok(!factualRootListing.text.includes("LICENSE"));
+assert.equal(factualRootListing.text, undefined);
+assert.equal(factualRootListing.metadata.noUserFacingText, true);
+
+const guardJson = JSON.stringify(factualRootListing);
+assert.ok(!guardJson.includes("setup.py"));
+assert.ok(!guardJson.includes("requirements.txt"));
+assert.ok(!guardJson.includes("LICENSE"));
+assert.ok(!guardJson.includes("Не буду придумывать."));
+assert.ok(!guardJson.includes("deterministic verified answer"));
+assert.ok(!guardJson.includes("Причина bypass"));
 
 const explicitImagination = await guardRepoFactsSourceHonesty({
   livingSGPlan,

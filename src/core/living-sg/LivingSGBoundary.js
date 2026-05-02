@@ -4,7 +4,9 @@
 //
 // Purpose:
 // - compose the first read-only Living SG pipeline;
-// - keep it disconnected from runtime until explicitly approved;
+// - keep state-changing runtime disconnected until explicitly approved;
+// - expose honest runtime metadata for the already-connected read-only source
+//   evidence path;
 // - do not add slash-commands;
 // - do not create or expand Technical Mode;
 // - do not call projectIntent/diagnostic bridges.
@@ -43,6 +45,9 @@ export function createLivingSGBoundary(input = {}) {
     dryRun: true,
     source: "LivingSGBoundary",
     connectedToRuntime: false,
+    sourceEvidenceConnectedToRuntime: true,
+    executorConnectedToRuntime: false,
+    stateChangeConnectedToRuntime: false,
     request,
     intentPlan,
     capabilityPlan,

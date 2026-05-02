@@ -19,7 +19,8 @@ function shouldUseLivingRepoStateAgentProvider(livingSGPlan = null) {
   return (
     livingSGPlan?.intentPlan?.intentKind === "project_thinking" &&
     livingSGPlan?.capabilityPlan?.actionType === "read_only" &&
-    livingSGPlan?.gate?.canProceed === true
+    livingSGPlan?.gate?.canExecute === true &&
+    livingSGPlan?.gate?.canChangeState === false
   );
 }
 

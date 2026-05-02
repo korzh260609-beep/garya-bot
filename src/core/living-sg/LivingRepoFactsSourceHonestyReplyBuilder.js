@@ -1,14 +1,15 @@
 // src/core/living-sg/LivingRepoFactsSourceHonestyReplyBuilder.js
 // ============================================================================
-// LIVING SG — Repo Facts Source-Honesty User Reply Builder
+// LIVING SG — Repo Facts Source-State Reply Builder
 //
 // Purpose:
 // - keep technical source-honesty guard decisions separate from user-facing text;
-// - turn a blocked generic-AI repo facts answer into a Living SG reply;
+// - report source state and verified snapshot summary without factNeed phrase templates;
 // - avoid leaking internal fallback/debug reasons into transport-agnostic user-facing responses.
 //
 // Boundaries:
 // - transport-agnostic Living SG core text only;
+// - no factNeed-to-phrase mapping;
 // - no Telegram-specific behavior;
 // - no repository reads;
 // - no repository writes;
@@ -29,7 +30,7 @@ function safeText(value, fallback = "") {
   return text.replace(/\s+/g, " ").slice(0, 240);
 }
 
-function safeNumber(value, fallback = "не подтверждено") {
+function safeNumber(value, fallback = "not_confirmed") {
   const number = Number(value);
   return Number.isFinite(number) ? String(number) : fallback;
 }
@@ -50,36 +51,6 @@ function getProjectMap(sourceResultEnvelope = null) {
   return null;
 }
 
-function resolveMissingDataLine(factNeed = "") {
-  switch (safeText(factNeed)) {
-    case "repo_root_listing":
-      return "Точный список элементов в корне репозитория пока не отдан verified-источником в отдельном виде.";
-    case "repo_file_listing":
-      return "Точный список файлов пока не отдан verified-источником в отдельном виде.";
-    case "repo_structure":
-      return "Полная структура в нужном для ответа виде пока не отдана verified-источником.";
-    case "repo_count":
-      return "Нужное точное количество пока не отдано verified-источником в поддержанном виде.";
-    case "repo_status":
-      return "Точный статус репозитория пока не отдан verified-источником в поддержанном виде.";
-    default:
-      return "Нужные точные данные пока не отданы verified-источником в поддержанном виде.";
-  }
-}
-
-function resolveNextStepLine(factNeed = "") {
-  switch (safeText(factNeed)) {
-    case "repo_root_listing":
-      return "Добавить отдельный обработчик списка корневых папок и файлов.";
-    case "repo_file_listing":
-      return "Добавить отдельный обработчик списка файлов.";
-    case "repo_structure":
-      return "Расширить обработчик структуры репозитория.";
-    default:
-      return "Добавить отдельный обработчик этого типа repo-данных.";
-  }
-}
-
 export function buildRepoFactsSourceHonestyBlockedReply({
   sourceResultEnvelope = null,
   guardResult = null,
@@ -89,36 +60,34 @@ export function buildRepoFactsSourceHonestyBlockedReply({
   const repo = projectMap?.repo || {};
   const totals = projectMap?.totals || {};
   const factNeed = safeText(guardResult?.factNeed || "other_repo_fact");
-  const technicalNextStep = resolveNextStepLine(factNeed);
 
   const lines = [
-    confirmed
-      ? `Источник подтверждён: ${safeText(repo.fullName, "проект")} / ${safeText(repo.branch, "unknown")}.`
-      : "Подтверждённый источник по текущему состоянию репозитория сейчас недоступен.",
-    resolveMissingDataLine(factNeed),
+    `source_status: ${confirmed ? "confirmed" : "unavailable"}`,
+    `source_scope: ${safeText(repo.fullName, "unknown")}/${safeText(repo.branch, "unknown")}`,
+    `requested_fact: ${factNeed}`,
+    "requested_fact_status: unavailable_in_verified_snapshot",
   ];
 
   if (projectMap) {
     lines.push(
-      "",
-      "Подтверждено сейчас:",
-      `- файлов всего: ${safeNumber(totals.files)}`,
-      `- модулей: ${safeNumber(totals.modules)}`,
-      `- зависимостей: ${safeNumber(totals.dependencies)}`,
-      `- структура: ${totals.structureComplete === true ? "подтверждена" : "не подтверждена полностью"}`
+      "verified_snapshot:",
+      `- files_total: ${safeNumber(totals.files)}`,
+      `- modules_total: ${safeNumber(totals.modules)}`,
+      `- dependencies_total: ${safeNumber(totals.dependencies)}`,
+      `- structure_complete: ${totals.structureComplete === true ? "true" : "false"}`
     );
   }
 
   return {
     handled: true,
     source: "LivingRepoFactsSourceHonestyReplyBuilder",
-    reason: "human_living_reply_for_blocked_repo_facts",
+    reason: "source_state_reply_for_blocked_repo_facts",
     text: lines.filter(Boolean).join("\n"),
     metadata: {
       userFacingReplyBuiltSeparately: true,
       technicalGuardTextHidden: true,
       transportAgnosticUserFacingReply: true,
-      technicalNextStep,
+      noFactNeedPhraseTemplates: true,
       factNeed,
     },
   };

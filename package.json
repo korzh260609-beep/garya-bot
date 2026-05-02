@@ -20,6 +20,7 @@
     "smoke:living-sg-repo-read-planner": "node ./scripts/smokeLivingSGRepoReadRequestPlanner.js",
     "smoke:living-sg-repo-source-provider-boundary": "node ./scripts/smokeLivingSGRepoSourceProviderBoundary.js",
     "smoke:living-sg-repo-source-provider-result-adapter": "node ./scripts/smokeLivingSGRepoSourceProviderResultAdapter.js",
+    "smoke:living-repo-state-agent-provider-result": "node ./scripts/smokeLivingRepoStateAgentProviderResult.js",
     "smoke:living-legacy-snapshot-provider-result-shape": "node ./scripts/smokeLivingLegacySnapshotProviderResultShape.js",
     "smoke:living-sg-source-result-envelope": "node ./scripts/smokeLivingSGSourceResultEnvelope.js",
     "smoke:living-sg-source-proof-envelope-input": "node ./scripts/smokeLivingSGSourceProofEnvelopeInput.js",

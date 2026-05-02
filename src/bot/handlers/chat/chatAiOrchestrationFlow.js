@@ -26,12 +26,6 @@ import { runChatAiPostProcessing } from "./chatAiPostProcessingFlow.js";
 import {
   buildLivingRepoFactsAnswer,
 } from "../../../core/living-sg/LivingRepoFactsAnswerBuilder.js";
-import {
-  guardRepoFactsSourceHonesty,
-} from "../../../core/living-sg/LivingRepoFactsSourceHonestyGuard.js";
-import {
-  buildRepoFactsSourceHonestyBlockedReply,
-} from "../../../core/living-sg/LivingRepoFactsSourceHonestyReplyBuilder.js";
 
 function normalizeResolvedScope(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -155,69 +149,6 @@ export async function runChatAiOrchestration({
       handled: true,
       aiReply: deterministicRepoAnswer.text,
       answerMode: "deterministic_repo_facts",
-    };
-  }
-
-  const repoFactsSourceHonestyGuard = await guardRepoFactsSourceHonesty({
-    callAI,
-    userText: effective,
-    livingSGPlan,
-    sourceResultEnvelope,
-    deterministicRepoAnswer,
-  });
-
-  if (repoFactsSourceHonestyGuard?.handled === true) {
-    const repoFactsSourceHonestyReply = buildRepoFactsSourceHonestyBlockedReply({
-      sourceResultEnvelope,
-      guardResult: repoFactsSourceHonestyGuard,
-    });
-
-    const repoFactsBlockedText = repoFactsSourceHonestyReply.text;
-
-    await memoryWrite({
-      role: "user",
-      content: effective,
-      transport: "telegram",
-      metadata: {
-        ...senderMemoryMeta,
-      },
-      schemaVersion: 2,
-    });
-
-    await runChatAiPostProcessing({
-      aiReply: repoFactsBlockedText,
-      insertAssistantReply,
-      memoryWrite,
-      assistantMemoryMeta: {
-        ...assistantMemoryMeta,
-        repoFactsSourceHonestyGuard: true,
-        repoFactsSourceHonestyReason: repoFactsSourceHonestyGuard.reason,
-        repoFactsSourceHonestyFactNeed: repoFactsSourceHonestyGuard.factNeed,
-        repoFactsSourceHonestyConfidence: repoFactsSourceHonestyGuard.confidence,
-        ...repoFactsSourceHonestyGuard.metadata,
-        ...repoFactsSourceHonestyReply.metadata,
-      },
-      sanitizeNonMonarchReply,
-      monarchNow,
-      bot,
-      chatId,
-      effective,
-      senderIdStr,
-      chatIdStr,
-      messageId,
-      globalUserId,
-      sourceCtx,
-      longTermMemoryBridgeResult: null,
-      longTermMemoryInjected: false,
-      answerMode: "source_honesty_repo_facts_blocked",
-      mediaResponseMode,
-      FileIntake,
-    });
-
-    return {
-      handled: true,
-      aiReply: repoFactsBlockedText,
-      answerMode: "source_honesty_repo_facts_blocked",
     };
   }
 

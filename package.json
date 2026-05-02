@@ -35,6 +35,7 @@
     "smoke:human-mode-source-question-contract": "node ./scripts/smokeHumanModeSourceQuestionContract.js",
     "smoke:human-repo-facts-source-proof": "node ./scripts/smokeHumanRepoFactsSourceProof.js",
     "smoke:human-decision-trace-source-proof": "node ./scripts/smokeHumanDecisionTraceSourceProof.js",
+    "smoke:human-source-proof-response-package": "node ./scripts/smokeHumanSourceProofResponsePackage.js",
     "smoke:legacy-project-intent-flow": "node ./scripts/smokeLegacyProjectIntentFlowSkeleton.js",
     "smoke:living-sg-shadow": "node ./scripts/smokeLivingSGShadowContract.js",
     "smoke:ai-temperature": "node ./scripts/smokeAiTemperaturePayload.js",

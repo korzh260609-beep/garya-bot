@@ -21,6 +21,12 @@ import {
   LIVING_SOURCE_RESULT_CONFIRMATION_STATUS,
 } from "./LivingSourceResultEnvelope.js";
 
+export const LIVING_REPO_FACTS_ANSWER_KIND = Object.freeze({
+  REPO_STRUCTURE: "repo_structure",
+  REPO_FILE_COUNT: "repo_file_count",
+  REPO_FACTS_SUMMARY: "repo_facts_summary",
+});
+
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -116,14 +122,32 @@ function formatModules(projectMap = {}) {
   ];
 }
 
+function getRequestedRepoFactsAnswerKind(input = {}) {
+  const kind = safeText(input.repoFactsAnswerKind || input.answerKind, "");
+
+  if (Object.values(LIVING_REPO_FACTS_ANSWER_KIND).includes(kind)) {
+    return kind;
+  }
+
+  return "";
+}
+
 export function buildLivingRepoFactsAnswer(input = {}) {
   const envelope = input.sourceResultEnvelope || null;
   const livingSGPlan = input.livingSGPlan || null;
+  const answerKind = getRequestedRepoFactsAnswerKind(input);
 
   if (livingSGPlan?.intentPlan?.intentKind !== "project_thinking") {
     return {
       handled: false,
       reason: "not_project_thinking",
+    };
+  }
+
+  if (!answerKind) {
+    return {
+      handled: false,
+      reason: "repo_facts_answer_kind_missing",
     };
   }
 
@@ -149,6 +173,8 @@ export function buildLivingRepoFactsAnswer(input = {}) {
   const entrypointLines = formatPathList("Entrypoints", projectMap.entrypoints, 8);
   const criticalLines = formatPathList("Critical files", projectMap.criticalFiles, 10);
 
+  const includeStructure = answerKind !== LIVING_REPO_FACTS_ANSWER_KIND.REPO_FILE_COUNT;
+
   const lines = [
     `По подтверждённой projectMap репозитория ${safeText(repo.fullName)} на ветке ${safeText(repo.branch)}:`,
     `- файлов: ${safeNumber(totals.files)}`,
@@ -156,20 +182,21 @@ export function buildLivingRepoFactsAnswer(input = {}) {
     `- зависимостей: ${safeNumber(totals.dependencies)}`,
     `- структура полная: ${totals.structureComplete === true ? "да" : "нет/не подтверждено"}`,
     "",
-    ...layerLines,
-    layerLines.length ? "" : null,
-    ...moduleLines,
-    moduleLines.length ? "" : null,
-    ...entrypointLines,
-    ...criticalLines,
+    includeStructure ? layerLines : [],
+    includeStructure && layerLines.length ? "" : null,
+    includeStructure ? moduleLines : [],
+    includeStructure && moduleLines.length ? "" : null,
+    includeStructure ? entrypointLines : [],
+    includeStructure ? criticalLines : [],
     "",
     "Я не добавляю типовые папки или файлы сверх этих verified-данных.",
-  ].filter((line) => line !== null && line !== undefined);
+  ].flat().filter((line) => line !== null && line !== undefined);
 
   return {
     handled: true,
     source: "LivingRepoFactsAnswerBuilder",
     reason: "deterministic_project_map_answer",
+    answerKind,
     text: lines.join("\n"),
     metadata: {
       noAiCall: true,
@@ -183,5 +210,6 @@ export function buildLivingRepoFactsAnswer(input = {}) {
 }
 
 export default {
+  LIVING_REPO_FACTS_ANSWER_KIND,
   buildLivingRepoFactsAnswer,
 };

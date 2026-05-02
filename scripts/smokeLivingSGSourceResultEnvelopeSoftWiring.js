@@ -111,8 +111,12 @@ assert.ok(
   "source result envelope wiring must not add slash-command routing"
 );
 assert.ok(
-  !chatAiOrchestrationFlow.includes("RepoStateAgent"),
-  "orchestration must not connect RepoStateAgent directly"
+  !chatAiOrchestrationFlow.includes("RepoStateAgentService"),
+  "orchestration must not instantiate or import RepoStateAgentService directly"
+);
+assert.ok(
+  !chatAiOrchestrationFlow.includes("from \"../../../simpleAgents/repoStateAgent"),
+  "orchestration must not import RepoStateAgent modules directly"
 );
 assert.ok(
   !chatAiOrchestrationFlow.includes("executor"),

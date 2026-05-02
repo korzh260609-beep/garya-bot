@@ -9,6 +9,8 @@
 // - allow imagination only when the user explicitly asks for invention/modeling.
 //
 // Boundaries:
+// - technical guard only;
+// - no user-facing reply text;
 // - no repository reads;
 // - no repository writes;
 // - no source calls;
@@ -61,14 +63,6 @@ function hasConfirmedSourceEnvelope(sourceResultEnvelope = null) {
   );
 }
 
-function getProjectMap(sourceResultEnvelope = null) {
-  const payload = sourceResultEnvelope?.payload;
-  if (!isPlainObject(payload)) return null;
-  if (isPlainObject(payload.projectMap)) return payload.projectMap;
-  if (isPlainObject(payload.payload?.projectMap)) return payload.payload.projectMap;
-  return null;
-}
-
 function fallbackAllow(reason = "repo_facts_source_honesty_guard_not_applicable") {
   return {
     handled: false,
@@ -76,40 +70,6 @@ function fallbackAllow(reason = "repo_facts_source_honesty_guard_not_applicable"
     shouldAllowGenericAi: true,
     reason,
   };
-}
-
-function buildBlockedReply({ sourceResultEnvelope = null, deterministicRepoAnswer = null } = {}) {
-  const hasConfirmedSource = hasConfirmedSourceEnvelope(sourceResultEnvelope);
-  const projectMap = getProjectMap(sourceResultEnvelope);
-  const repo = projectMap?.repo || {};
-  const totals = projectMap?.totals || {};
-
-  const lines = [
-    "Не буду придумывать.",
-    hasConfirmedSource
-      ? `Источник repo/projectMap подтверждён для ${safeText(repo.fullName) || "репозитория"} на ветке ${safeText(repo.branch) || "unknown"}.`
-      : "Подтверждённого source-result для текущих repo facts нет.",
-    "Но для этого точного фактического ответа нет поддержанного deterministic verified answer.",
-  ];
-
-  if (projectMap) {
-    lines.push(
-      "Доступные verified summary-факты:",
-      `- файлов всего: ${Number.isFinite(Number(totals.files)) ? Number(totals.files) : "не подтверждено"}`,
-      `- модулей: ${Number.isFinite(Number(totals.modules)) ? Number(totals.modules) : "не подтверждено"}`,
-      `- dependencies: ${Number.isFinite(Number(totals.dependencies)) ? Number(totals.dependencies) : "не подтверждено"}`,
-      `- структура полная: ${totals.structureComplete === true ? "да" : "нет/не подтверждено"}`
-    );
-  }
-
-  lines.push(
-    "Чтобы ответить точнее, нужно добавить deterministic обработчик для этого типа repo facts, а не отдавать вопрос обычному AI.",
-    deterministicRepoAnswer?.reason
-      ? `Причина bypass deterministic builder: ${safeText(deterministicRepoAnswer.reason)}`
-      : ""
-  );
-
-  return lines.filter(Boolean).join("\n");
 }
 
 export async function guardRepoFactsSourceHonesty({
@@ -190,16 +150,15 @@ export async function guardRepoFactsSourceHonesty({
         reason: safeText(parsed?.reason) || "current_repo_facts_require_verified_source",
         factNeed: safeText(parsed?.factNeed) || "other_repo_fact",
         confidence,
-        text: buildBlockedReply({
-          sourceResultEnvelope,
-          deterministicRepoAnswer,
-        }),
+        sourceEnvelopeConfirmed: hasConfirmedSourceEnvelope(sourceResultEnvelope),
+        deterministicRepoAnswerReason: safeText(deterministicRepoAnswer?.reason),
         metadata: {
           noAiFactAnswer: true,
           noRepoRead: true,
           noRepoWrite: true,
           noSourceCall: true,
           noExecutor: true,
+          noUserFacingText: true,
           enforcedExistingSourceHonestyPolicy: true,
         },
       };

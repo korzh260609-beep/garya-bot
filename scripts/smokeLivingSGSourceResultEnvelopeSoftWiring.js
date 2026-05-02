@@ -2,9 +2,9 @@
 // ============================================================================
 // Smoke — Living SG Source Result Envelope Soft Wiring
 //
-// Verifies the safe source-result envelope wiring contract:
+// Verifies the safe source-result envelope wiring contract after resolver split:
 // - sourceFlow adapts already-existing sourceCtx.sourceResult into envelope;
-// - sourceFlow may also use the controlled RepoStateAgent fastReadOnly path;
+// - sourceFlow delegates controlled RepoStateAgent fastReadOnly path to resolver;
 // - sourceFlow returns sourceResultEnvelope;
 // - chatAiOrchestrationFlow passes sourceResultEnvelope to buildChatMessages;
 // - legacy sourceResultSystemMessage remains available as fallback diagnostics;
@@ -15,6 +15,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const sourceFlow = readFileSync("src/bot/handlers/chat/sourceFlow.js", "utf8");
+const resolver = readFileSync(
+  "src/bot/handlers/chat/livingRepoStateAgentSourceResolver.js",
+  "utf8"
+);
 const chatAiOrchestrationFlow = readFileSync(
   "src/bot/handlers/chat/chatAiOrchestrationFlow.js",
   "utf8"
@@ -33,23 +37,27 @@ assert.ok(
   "sourceFlow must expose legacy envelope only when adapter result is ok"
 );
 assert.ok(
-  sourceFlow.includes("adaptRepoStateAgentResultToLivingProviderResult"),
-  "sourceFlow must adapt controlled RepoStateAgent result to Living providerResult"
+  sourceFlow.includes("resolveLivingRepoStateAgentEnvelope"),
+  "sourceFlow must delegate controlled RepoStateAgent work to resolver"
 );
 assert.ok(
-  sourceFlow.includes("adaptLivingRepoSourceProviderResult"),
-  "sourceFlow must adapt controlled providerResult into sourceResultEnvelope"
+  resolver.includes("adaptRepoStateAgentResultToLivingProviderResult"),
+  "resolver must adapt controlled RepoStateAgent result to Living providerResult"
 );
 assert.ok(
-  sourceFlow.includes("fastReadOnly: true"),
+  resolver.includes("adaptLivingRepoSourceProviderResult"),
+  "resolver must adapt controlled providerResult into sourceResultEnvelope"
+);
+assert.ok(
+  resolver.includes("fastReadOnly: true"),
   "controlled RepoStateAgent path must be fastReadOnly"
 );
 assert.ok(
-  sourceFlow.includes("requireFreshProjectMap: true"),
+  resolver.includes("requireFreshProjectMap: true"),
   "controlled RepoStateAgent path must require fresh project map"
 );
 assert.ok(
-  sourceFlow.includes("canChangeState === false"),
+  resolver.includes("canChangeState === false"),
   "controlled RepoStateAgent path must require read-only Living gate"
 );
 assert.ok(
@@ -86,29 +94,35 @@ assert.ok(
   "chatAiOrchestrationFlow must expose controlled RepoStateAgent source diagnostics"
 );
 
+for (const checked of [sourceFlow, resolver]) {
+  assert.ok(
+    !checked.includes("canAuthorizeWrite: true"),
+    "source result envelope wiring must not authorize repo writes"
+  );
+  assert.ok(
+    !checked.includes("canExecute: true"),
+    "source result envelope wiring must not create executable provider result"
+  );
+  assert.ok(
+    !checked.includes("allowRealAi: true"),
+    "source result envelope wiring must not enable real AI"
+  );
+  assert.ok(
+    !checked.includes("forceAiAnalysis: true"),
+    "source result envelope wiring must not force AI analysis"
+  );
+  assert.ok(
+    !checked.includes("runScan("),
+    "source result envelope wiring must not call repo scan directly"
+  );
+  assert.ok(
+    !checked.includes("/" + "command"),
+    "source result envelope wiring must not add slash-command routing"
+  );
+}
 assert.ok(
-  !sourceFlow.includes("canAuthorizeWrite: true"),
-  "source result envelope wiring must not authorize repo writes"
-);
-assert.ok(
-  !sourceFlow.includes("canExecute: true"),
-  "source result envelope wiring must not create executable provider result"
-);
-assert.ok(
-  !sourceFlow.includes("allowRealAi: true"),
-  "source result envelope wiring must not enable real AI"
-);
-assert.ok(
-  !sourceFlow.includes("forceAiAnalysis: true"),
-  "source result envelope wiring must not force AI analysis"
-);
-assert.ok(
-  !sourceFlow.includes("runScan("),
-  "source result envelope wiring must not call repo scan directly"
-);
-assert.ok(
-  !sourceFlow.includes("/" + "command"),
-  "source result envelope wiring must not add slash-command routing"
+  !sourceFlow.includes("RepoStateAgentService"),
+  "sourceFlow must not instantiate/import RepoStateAgentService directly after resolver split"
 );
 assert.ok(
   !chatAiOrchestrationFlow.includes("RepoStateAgentService"),

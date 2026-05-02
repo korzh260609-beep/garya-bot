@@ -1,9 +1,25 @@
 // migrations/046_fix_repo_state_project_map_hash.js
 
 export const up = (pgm) => {
-  pgm.addColumn("repo_state_project_map_state", {
-    project_map_hash: { type: "text" },
-  });
+  // 045 already creates repo_state_project_map_state.project_map_hash.
+  // Keep this migration idempotent for environments where 045 is already applied.
+  // Runtime writes SHA-256 hashes before insert. For legacy rows where the column
+  // exists but is NULL, PostgreSQL md5(text) is used only as a safe short fallback
+  // to avoid index bloat from storing the full JSON signature.
+  pgm.sql(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'repo_state_project_map_state'
+          AND column_name = 'project_map_hash'
+      ) THEN
+        ALTER TABLE repo_state_project_map_state
+        ADD COLUMN project_map_hash text;
+      END IF;
+    END $$;
+  `);
 
   pgm.sql(`
     UPDATE repo_state_project_map_state
@@ -31,7 +47,5 @@ export const down = (pgm) => {
     ifExists: true,
   });
 
-  pgm.dropColumn("repo_state_project_map_state", "project_map_hash", {
-    ifExists: true,
-  });
+  // Do not drop project_map_hash here: migration 045 owns this column.
 };

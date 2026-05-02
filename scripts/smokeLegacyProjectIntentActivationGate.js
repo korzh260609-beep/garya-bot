@@ -3,7 +3,10 @@
 // Smoke — Legacy ProjectIntent Activation Gate
 //
 // Verifies that legacy projectIntent does not influence ordinary chat flow when
-// there is no SG-core route and no active legacy follow-up/pending-choice state.
+// there is no active legacy follow-up/pending-choice state.
+//
+// Root SG-core natural requests must continue into ordinary Living SG flow
+// instead of being answered by legacy snapshot Technical Mode.
 // ============================================================================
 
 import assert from "node:assert/strict";
@@ -49,8 +52,8 @@ assert.equal(
     repoFollowupContext: { isActive: false },
     pendingChoiceContext: { isActive: false },
   }),
-  true,
-  "legacy projectIntent may activate for SG-core internal route"
+  false,
+  "root SG-core natural requests must not be captured by legacy Technical Mode without active legacy context"
 );
 
 assert.equal(
@@ -119,6 +122,48 @@ assert.equal(
   Object.prototype.hasOwnProperty.call(inactiveResult, "projectContextDecision"),
   false,
   "inactive ordinary legacy flow must not classify project context"
+);
+
+const sgCoreMemory = createMemoryStub();
+let sgCoreReplyCalls = 0;
+const sgCoreRootResult = await handleLegacyProjectIntentFlow({
+  trimmed: "Советник, у тебя есть доступ к репозиторию проекта?",
+  transport: "telegram",
+  chatIdStr: "sg-core-root-chat",
+  chatType: "private",
+  globalUserId: "monarch-user",
+  isPrivateChat: true,
+  isMonarchUser: true,
+  memory: sgCoreMemory,
+  deps: {},
+  replyAndLog: async () => {
+    sgCoreReplyCalls += 1;
+  },
+});
+
+assert.equal(sgCoreRootResult.ok, true, "root SG-core legacy bypass must be ok");
+assert.equal(sgCoreRootResult.handled, false, "root SG-core request must continue into Living SG flow");
+assert.equal(
+  sgCoreRootResult.status,
+  LEGACY_PROJECT_INTENT_FLOW_STATUS.NOT_HANDLED,
+  "root SG-core request must be marked NOT_HANDLED by legacy flow"
+);
+assert.equal(
+  sgCoreRootResult.reason,
+  "legacy_project_intent_root_sg_core_inactive_for_living_sg",
+  "root SG-core request must be explicitly bypassed for Living SG"
+);
+assert.equal(sgCoreReplyCalls, 0, "root SG-core bypass must not reply from legacy Technical Mode");
+assert.equal(sgCoreMemory.recentCalls, 2, "root SG-core bypass may only read legacy context probes");
+assert.equal(
+  Object.prototype.hasOwnProperty.call(sgCoreRootResult, "projectMemoryAutoCaptureSummary"),
+  false,
+  "root SG-core bypass must not run project memory auto-capture"
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(sgCoreRootResult, "projectContextDecision"),
+  false,
+  "root SG-core bypass must not classify project context"
 );
 
 console.log("Smoke legacy projectIntent activation gate — OK");

@@ -3,8 +3,9 @@
 export const up = (pgm) => {
   // 045 already creates repo_state_project_map_state.project_map_hash.
   // Keep this migration idempotent for environments where 045 is already applied.
-  // Runtime writes SHA-256 hashes before insert; this migration must not backfill md5 values
-  // and must not depend on PostgreSQL extensions such as pgcrypto.
+  // Runtime writes SHA-256 hashes before insert. For legacy rows where the column
+  // exists but is NULL, PostgreSQL md5(text) is used only as a safe short fallback
+  // to avoid index bloat from storing the full JSON signature.
   pgm.sql(`
     DO $$
     BEGIN
@@ -22,7 +23,7 @@ export const up = (pgm) => {
 
   pgm.sql(`
     UPDATE repo_state_project_map_state
-    SET project_map_hash = project_map_signature
+    SET project_map_hash = md5(project_map_signature)
     WHERE project_map_hash IS NULL
   `);
 

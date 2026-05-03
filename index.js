@@ -1,3 +1,9 @@
+// AGENT NOTE:
+// Minimal SG 2.0 Render-compatible health server.
+// Purpose: keep dev/v2-start deployable while the real modular SG Core is designed.
+// Do not turn this file into a monolith.
+// Do not add Telegram, AI, memory, tasks, sources, or permissions here without approved module structure.
+
 import express from 'express';
 
 const app = express();

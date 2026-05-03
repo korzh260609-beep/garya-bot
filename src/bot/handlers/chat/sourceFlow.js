@@ -10,6 +10,9 @@ import {
 import {
   resolveLivingRepoStateAgentEnvelope,
 } from "./livingRepoStateAgentSourceResolver.js";
+import {
+  resolveLivingRepoFileSource,
+} from "./livingRepoFileSourceResolver.js";
 
 export async function resolveChatSourceFlow({ effective, livingSGPlan = null } = {}) {
   let sourceCtx = null;
@@ -94,6 +97,11 @@ export async function resolveChatSourceFlow({ effective, livingSGPlan = null } =
     livingSGPlan,
   });
 
+  const livingRepoFileSource = await resolveLivingRepoFileSource({
+    text: effective,
+    livingSGPlan,
+  });
+
   const sourceResultEnvelope =
     livingRepoStateAgentSource.sourceResultEnvelope || legacySourceResultEnvelope;
 
@@ -113,6 +121,9 @@ export async function resolveChatSourceFlow({ effective, livingSGPlan = null } =
     ? null
     : legacySourceResultSystemMessage;
 
+  const effectiveSourceResultSystemMessage =
+    livingRepoFileSource.sourceResultSystemMessage || sourceResultSystemMessage;
+
   const sourceResultEvidenceMode = sourceResultEnvelope
     ? livingRepoStateAgentSource.sourceResultEnvelope
       ? "repo_state_agent_source_result_envelope"
@@ -120,6 +131,10 @@ export async function resolveChatSourceFlow({ effective, livingSGPlan = null } =
     : legacySourceResultSystemMessage
       ? "legacy_source_result_system_message"
       : livingRepoStateAgentSource.evidenceMode || "missing_source_result_evidence";
+
+  const effectiveSourceResultEvidenceMode = livingRepoFileSource.sourceResultSystemMessage
+    ? "repo_file_source_system_message"
+    : sourceResultEvidenceMode;
 
   const sourceServiceSystemMessage =
     sourceServiceDebugBlock && String(sourceServiceDebugBlock).trim()
@@ -139,10 +154,11 @@ export async function resolveChatSourceFlow({ effective, livingSGPlan = null } =
     sourceContextText,
     sourceResultEnvelope,
     sourceResultEnvelopeAdapterResult,
-    sourceResultEvidenceMode,
-    sourceResultSystemMessage,
+    sourceResultEvidenceMode: effectiveSourceResultEvidenceMode,
+    sourceResultSystemMessage: effectiveSourceResultSystemMessage,
     legacySourceResultSystemMessage,
     livingRepoStateAgentSource,
+    livingRepoFileSource,
     sourceServiceSystemMessage,
   };
 }

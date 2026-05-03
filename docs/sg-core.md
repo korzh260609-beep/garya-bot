@@ -1,5 +1,10 @@
 # SG Core Skeleton
 
+> AGENT NOTE:
+> This file defines the modular SG Core foundation.
+> Core coordinates modules; it must not absorb module logic.
+> Do not add feature-specific logic into core documents or core code without explicit Monarch approval.
+
 SG Core is the central modular foundation of SG 2.0.
 
 The core must coordinate modules, not absorb them.

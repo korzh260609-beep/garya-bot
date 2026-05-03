@@ -1,4 +1,5 @@
 {
+  "_agent_note": "Minimal SG 2.0 package file. Keep Render-compatible start command. Do not add scripts, dependencies, or runtime assumptions without approved module structure and final МОЖНО.",
   "name": "garya-bot-sg2",
   "version": "2.0.0-v0",
   "type": "module",

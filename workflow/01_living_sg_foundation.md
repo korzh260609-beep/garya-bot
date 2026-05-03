@@ -1,5 +1,10 @@
 # Workflow Block 1 — Living SG Foundation
 
+> AGENT NOTE:
+> This is the first workflow block for SG 2.0.
+> It defines the external identity and interaction law of SG: living SG only, meaning-first, no technical mode, no command-first behavior.
+> Do not weaken these principles, rename them into technical mode, or replace semantic behavior with fixed commands without explicit Monarch approval.
+
 Status: created.
 Branch: `dev/v2-start`.
 

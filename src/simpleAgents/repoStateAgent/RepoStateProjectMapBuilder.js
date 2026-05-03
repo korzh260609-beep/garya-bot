@@ -271,7 +271,6 @@ export function buildRepoStateProjectMap(snapshot = {}) {
     agentBrief: {
       purpose: "Agent-readable project map for Advisor, SG, Codex, and future simple agents.",
       howToUse: [
-        "Read rootListing before answering about repository root folders or files.",
         "Read entrypoints first.",
         "Use layers to understand responsibility boundaries.",
         "Use modules and moduleLinks before editing code.",

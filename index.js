@@ -1,22 +1,27 @@
 // AGENT NOTE:
-// Minimal SG 2.0 Render-compatible health server.
-// Purpose: keep dev/v2-start deployable while the real modular SG Core is designed.
+// Minimal SG 2.0 Render-compatible startup file.
+// Purpose: start HTTP health routes and attach approved modular transports.
 // Do not turn this file into a monolith.
-// Do not add Telegram, AI, memory, tasks, sources, or permissions here without approved module structure.
+// Do not put Telegram, AI, memory, tasks, sources, or permissions logic here.
 
 import express from 'express';
+import { getRuntimeConfig } from './src/config/env.js';
+import { initTelegramTransport } from './src/transport/telegram.js';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const runtimeConfig = getRuntimeConfig();
+const port = runtimeConfig.port;
 
-app.use(express.json());
+app.use(express.json({ limit: '256kb' }));
+
+const telegramBot = initTelegramTransport(app);
 
 app.get('/', (req, res) => {
   res.status(200).json({
     ok: true,
     project: 'SG 2.0 / Советник GARYA',
     branch: process.env.RENDER_GIT_BRANCH || 'unknown',
-    stage: 'v0-foundation',
+    stage: 'v0-foundation-speaking-minimal',
   });
 });
 
@@ -25,6 +30,7 @@ app.get('/health', (req, res) => {
     ok: true,
     service: 'sg2-foundation',
     status: 'healthy',
+    telegram: Boolean(telegramBot),
   });
 });
 

@@ -49,6 +49,31 @@ export function envBool(key, fallback = false) {
   return Boolean(fallback);
 }
 
+export function requireEnv(key) {
+  const value = envStr(key, "").trim();
+
+  if (!value) {
+    throw new Error(`${key} is required`);
+  }
+
+  return value;
+}
+
+export function getPublicBaseUrl() {
+  const explicitBaseUrl = envStr("BASE_URL", "").trim();
+  if (explicitBaseUrl) return explicitBaseUrl.replace(/\/$/, "");
+
+  const renderExternalUrl = envStr("RENDER_EXTERNAL_URL", "").trim();
+  if (renderExternalUrl) return renderExternalUrl.replace(/\/$/, "");
+
+  const renderExternalHostname = envStr("RENDER_EXTERNAL_HOSTNAME", "").trim();
+  if (renderExternalHostname) {
+    return `https://${renderExternalHostname}`.replace(/\/$/, "");
+  }
+
+  return "";
+}
+
 export function getRuntimeConfig() {
   const botToken = envStr("BOT_TOKEN", "").trim();
   const monarchUserId = envStr("MONARCH_USER_ID", "").trim();
@@ -61,6 +86,7 @@ export function getRuntimeConfig() {
     monarchUserId,
     openaiApiKeyPresent: Boolean(openaiApiKey),
     openaiModel: envStr("OPENAI_MODEL", "gpt-4.1-mini").trim(),
+    baseUrlPresent: Boolean(getPublicBaseUrl()),
   };
 }
 
@@ -73,5 +99,6 @@ export function getPublicRuntimeStatus() {
     monarchConfigured: Boolean(config.monarchUserId),
     aiConfigured: config.openaiApiKeyPresent,
     openaiModel: config.openaiModel,
+    baseUrlConfigured: config.baseUrlPresent,
   };
 }

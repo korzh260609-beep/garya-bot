@@ -10,6 +10,9 @@ import {
 import {
   resolveLivingRepoStateAgentEnvelope,
 } from "./livingRepoStateAgentSourceResolver.js";
+import {
+  resolveLivingRepoFileSource,
+} from "./livingRepoFileSourceResolver.js";
 
 export async function resolveChatSourceFlow({ effective, livingSGPlan = null } = {}) {
   let sourceCtx = null;
@@ -94,6 +97,11 @@ export async function resolveChatSourceFlow({ effective, livingSGPlan = null } =
     livingSGPlan,
   });
 
+  const livingRepoFileSource = await resolveLivingRepoFileSource({
+    text: effective,
+    livingSGPlan,
+  });
+
   const sourceResultEnvelope =
     livingRepoStateAgentSource.sourceResultEnvelope || legacySourceResultEnvelope;
 
@@ -109,17 +117,21 @@ export async function resolveChatSourceFlow({ effective, livingSGPlan = null } =
       }
     : null;
 
-  const sourceResultSystemMessage = sourceResultEnvelope
-    ? null
-    : legacySourceResultSystemMessage;
+  const sourceResultSystemMessage =
+    livingRepoFileSource.sourceResultSystemMessage ||
+    (sourceResultEnvelope
+      ? null
+      : legacySourceResultSystemMessage);
 
-  const sourceResultEvidenceMode = sourceResultEnvelope
-    ? livingRepoStateAgentSource.sourceResultEnvelope
-      ? "repo_state_agent_source_result_envelope"
-      : "source_result_envelope"
-    : legacySourceResultSystemMessage
-      ? "legacy_source_result_system_message"
-      : livingRepoStateAgentSource.evidenceMode || "missing_source_result_evidence";
+  const sourceResultEvidenceMode = livingRepoFileSource.sourceResultSystemMessage
+    ? "repo_file_source_system_message"
+    : sourceResultEnvelope
+      ? livingRepoStateAgentSource.sourceResultEnvelope
+        ? "repo_state_agent_source_result_envelope"
+        : "source_result_envelope"
+      : legacySourceResultSystemMessage
+        ? "legacy_source_result_system_message"
+        : livingRepoStateAgentSource.evidenceMode || "missing_source_result_evidence";
 
   const sourceServiceSystemMessage =
     sourceServiceDebugBlock && String(sourceServiceDebugBlock).trim()
@@ -143,6 +155,7 @@ export async function resolveChatSourceFlow({ effective, livingSGPlan = null } =
     sourceResultSystemMessage,
     legacySourceResultSystemMessage,
     livingRepoStateAgentSource,
+    livingRepoFileSource,
     sourceServiceSystemMessage,
   };
 }

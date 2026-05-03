@@ -29,6 +29,7 @@ SG 2.0 must keep compatibility with:
   - `BOT_TOKEN`;
   - `DATABASE_URL`;
   - `MONARCH_USER_ID`;
+  - `NODE_ENV`;
   - `PORT`;
 - HTTP server port logic: `process.env.PORT || 3000`;
 - health endpoint;

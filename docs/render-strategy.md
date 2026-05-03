@@ -1,5 +1,10 @@
 # Render Strategy for SG 2.0
 
+> AGENT NOTE:
+> This file defines how SG 2.0 stays compatible with the existing Render service.
+> Do not change env names, start command, webhook path, database behavior, or external runtime assumptions without explicit Monarch approval.
+> This file is a safety contract, not a feature roadmap.
+
 ## Branches
 
 - `main` — stable old working project.

@@ -112,6 +112,7 @@ Must stay compatible with:
   - `BOT_TOKEN`;
   - `DATABASE_URL`;
   - `MONARCH_USER_ID`;
+  - `NODE_ENV`;
   - `PORT`;
 - health endpoint;
 - future Telegram webhook route.

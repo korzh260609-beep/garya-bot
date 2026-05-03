@@ -112,6 +112,36 @@ function moduleKeyForPath(path = "") {
   return parts[0];
 }
 
+function buildRootListing(files = []) {
+  const directories = new Set();
+  const rootFiles = [];
+
+  for (const file of files) {
+    const path = String(file?.path || "").trim();
+    if (!path) continue;
+
+    const parts = path.split("/").filter(Boolean);
+    if (parts.length > 1) {
+      directories.add(parts[0]);
+      continue;
+    }
+
+    rootFiles.push({
+      path,
+      layer: classifyLayer(path),
+      extension: file?.extension || null,
+      size: file?.size || 0,
+      contentLoaded: file?.contentLoaded === true,
+    });
+  }
+
+  return {
+    path: "/",
+    directories: Array.from(directories).sort(),
+    files: rootFiles.sort((a, b) => a.path.localeCompare(b.path)),
+  };
+}
+
 function buildLayerSummary(files = []) {
   const summary = {};
 
@@ -198,7 +228,7 @@ export function buildRepoStateProjectMap(snapshot = {}) {
   const moduleLinks = buildModuleLinks(dependencies);
 
   const projectMap = {
-    schemaVersion: 6,
+    schemaVersion: 7,
     generatedAt: new Date().toISOString(),
     repo: {
       fullName: snapshot?.repoFullName || null,
@@ -217,6 +247,7 @@ export function buildRepoStateProjectMap(snapshot = {}) {
       hiddenFiles: snapshot?.tree?.hiddenFilesCount || 0,
       structureComplete: snapshot?.tree?.structureComplete === true,
     },
+    rootListing: buildRootListing(files),
     layers: buildLayerSummary(files),
     modules: modules.map((module) => ({
       key: module.moduleKey,
@@ -240,6 +271,7 @@ export function buildRepoStateProjectMap(snapshot = {}) {
     agentBrief: {
       purpose: "Agent-readable project map for Advisor, SG, Codex, and future simple agents.",
       howToUse: [
+        "Read rootListing before answering about repository root folders or files.",
         "Read entrypoints first.",
         "Use layers to understand responsibility boundaries.",
         "Use modules and moduleLinks before editing code.",

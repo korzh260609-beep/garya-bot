@@ -4,16 +4,17 @@
 // Do not scatter direct OpenAI calls across transport/core modules.
 
 import OpenAI from "openai";
-import { envStr } from "../config/env.js";
+import { envStr, requireEnv } from "../config/env.js";
+
+let client = null;
 
 function getClient() {
-  const apiKey = envStr("OPENAI_API_KEY", "").trim();
+  if (client) return client;
 
-  if (!apiKey) {
-    return null;
-  }
+  const apiKey = requireEnv("OPENAI_API_KEY");
+  client = new OpenAI({ apiKey });
 
-  return new OpenAI({ apiKey });
+  return client;
 }
 
 function extractOutputText(response) {
@@ -38,12 +39,7 @@ function extractOutputText(response) {
 }
 
 export async function callAI(messages, options = {}) {
-  const client = getClient();
-
-  if (!client) {
-    return "СГ ещё не подключён к AI: отсутствует OPENAI_API_KEY.";
-  }
-
+  const activeClient = getClient();
   const model = options.model || envStr("OPENAI_MODEL", "gpt-4.1-mini").trim();
 
   const input = Array.isArray(messages)
@@ -53,7 +49,7 @@ export async function callAI(messages, options = {}) {
       }))
     : [];
 
-  const response = await client.responses.create({
+  const response = await activeClient.responses.create({
     model,
     input,
     max_output_tokens: options.maxOutputTokens || 500,
@@ -62,7 +58,7 @@ export async function callAI(messages, options = {}) {
   const text = extractOutputText(response);
 
   if (!text) {
-    return "СГ получил пустой ответ от AI. Нужно проверить модель или ключ.";
+    throw new Error("AI returned empty output");
   }
 
   return text;

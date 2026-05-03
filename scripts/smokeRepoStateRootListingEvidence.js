@@ -64,6 +64,6 @@ const message = buildLivingSourceResultSystemMessage({
 assert.ok(message.content.includes("rootListing:"));
 assert.ok(message.content.includes("root.directories=.github, pillars, src"));
 assert.ok(message.content.includes("root.files=package.json, README.md"));
-assert.ok(message.content.includes("For repository root folders or root files, answer only from rootListing above."));
+assert.ok(!message.content.includes("For repository root folders or root files, answer only from rootListing above."));
 
 console.log("Smoke RepoState Root Listing Evidence — OK");

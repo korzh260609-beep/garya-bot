@@ -104,7 +104,6 @@ function buildRootListingFacts(projectMap = null) {
     `root.path=${safeText(rootListing.path || "/")}`,
     `root.directories=${directories.length ? directories.join(", ") : "-"}`,
     `root.files=${files.length ? files.join(", ") : "-"}`,
-    "Instruction: For repository root folders or root files, answer only from rootListing above.",
   ];
 }
 
@@ -175,7 +174,7 @@ function buildRepoFactsFromPayload(envelope = null, verified = false) {
     ...modules,
     ...entrypoints,
     ...criticalFiles,
-    "Instruction: For repository structure, file count, root listing, layers, modules, entrypoints, and critical files, answer only from REPO FACTS FROM SOURCE PAYLOAD above.",
+    "Instruction: For repository structure, file count, layers, modules, entrypoints, and critical files, answer only from REPO FACTS FROM SOURCE PAYLOAD above.",
     "Instruction: Do not invent paths, folders, files, technologies, setup files, licenses, tests, docs, or config folders that are not listed in the payload facts.",
     "Instruction: If the payload facts are incomplete for the user's requested detail, say which exact verified facts are available and what source step is needed next.",
   ].filter(Boolean);

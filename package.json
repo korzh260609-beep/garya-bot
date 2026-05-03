@@ -35,6 +35,7 @@
     "smoke:living-sg-source-result-envelope-controlled-switch": "node ./scripts/smokeLivingSGSourceResultEnvelopeControlledSwitch.js",
     "smoke:living-sg-source-result-evidence-path": "node ./scripts/smokeLivingSGSourceResultEvidencePath.js",
     "smoke:living-repo-file-source-resolver": "node ./scripts/smokeLivingRepoFileSourceResolver.js",
+    "smoke:repo-state-root-listing-evidence": "node ./scripts/smokeRepoStateRootListingEvidence.js",
     "smoke:repo-state-agent-status-endpoint": "node ./scripts/smokeRepoStateAgentStatusEndpoint.js",
     "smoke:human-mode-source-question-contract": "node ./scripts/smokeHumanModeSourceQuestionContract.js",
     "smoke:human-repo-facts-source-proof": "node ./scripts/smokeHumanRepoFactsSourceProof.js",

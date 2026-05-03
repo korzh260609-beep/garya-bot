@@ -83,6 +83,31 @@ function getRepoProjectMap(payload = null) {
   return null;
 }
 
+function buildRootListingFacts(projectMap = null) {
+  const rootListing = projectMap?.rootListing;
+  if (!isPlainObject(rootListing)) return [];
+
+  const directories = takeList(rootListing.directories, 80)
+    .map((item) => safeText(item, ""))
+    .filter(Boolean);
+
+  const files = takeList(rootListing.files, 80)
+    .map((item) => {
+      if (typeof item === "string") return safeText(item, "");
+      if (isPlainObject(item)) return safeText(item.path, "");
+      return "";
+    })
+    .filter(Boolean);
+
+  return [
+    "rootListing:",
+    `root.path=${safeText(rootListing.path || "/")}`,
+    `root.directories=${directories.length ? directories.join(", ") : "-"}`,
+    `root.files=${files.length ? files.join(", ") : "-"}`,
+    "Instruction: For repository root folders or root files, answer only from rootListing above.",
+  ];
+}
+
 function buildLayerFacts(projectMap = null) {
   if (!isPlainObject(projectMap?.layers)) return [];
 
@@ -125,6 +150,7 @@ function buildRepoFactsFromPayload(envelope = null, verified = false) {
 
   const repo = projectMap.repo || {};
   const totals = projectMap.totals || {};
+  const rootListing = buildRootListingFacts(projectMap);
   const layers = buildLayerFacts(projectMap);
   const modules = buildModuleFacts(projectMap);
   const entrypoints = buildPathFacts("entrypoints", projectMap.entrypoints, 20);
@@ -142,13 +168,14 @@ function buildRepoFactsFromPayload(envelope = null, verified = false) {
     `totals.contentSkipped=${safeNumber(totals.contentSkipped)}`,
     `totals.hiddenFiles=${safeNumber(totals.hiddenFiles)}`,
     `totals.structureComplete=${String(totals.structureComplete === true)}`,
+    ...rootListing,
     layers.length ? "layers:" : null,
     ...layers,
     modules.length ? "modules:" : null,
     ...modules,
     ...entrypoints,
     ...criticalFiles,
-    "Instruction: For repository structure, file count, layers, modules, entrypoints, and critical files, answer only from REPO FACTS FROM SOURCE PAYLOAD above.",
+    "Instruction: For repository structure, file count, root listing, layers, modules, entrypoints, and critical files, answer only from REPO FACTS FROM SOURCE PAYLOAD above.",
     "Instruction: Do not invent paths, folders, files, technologies, setup files, licenses, tests, docs, or config folders that are not listed in the payload facts.",
     "Instruction: If the payload facts are incomplete for the user's requested detail, say which exact verified facts are available and what source step is needed next.",
   ].filter(Boolean);

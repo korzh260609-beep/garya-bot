@@ -8,6 +8,13 @@ import { RepoStateAgentService } from "../src/agents/repo-intelligence/repo-stat
 import { RepoMaintenanceAgentService } from "../src/agents/repo-maintenance/repo-maintenance-agent/index.js";
 import { RenderLogsCollectorService } from "../src/agents/runtime-collector/render-logs-collector/index.js";
 import { getLatestWorkspaceResult } from "../src/agents/shared/workspace/WorkspaceResultStore.js";
+import { WorkspaceReader } from "../src/agents/shared/workspace/WorkspaceReader.js";
+import { WorkspaceWriter } from "../src/agents/shared/workspace/WorkspaceWriter.js";
+import {
+  getWorkspaceReportTypeForAction,
+  WORKSPACE_COMMAND_ACTIONS,
+  WORKSPACE_REPORT_TYPES,
+} from "../src/agents/shared/workspace/WorkspaceReportTypes.js";
 
 function assertSafeAgentResult(result, agentName) {
   assert.equal(result.ok, true, `${agentName} should return ok=true`);
@@ -87,8 +94,52 @@ function runRenderLogsCollectorSmoke() {
   assert.equal(latest.workspacePath, "agent_workspace/RENDER_LOGS_REPORT.md", "latest workspace result should point to report");
 }
 
+function runWorkspaceIoSmoke() {
+  const reader = new WorkspaceReader();
+  const commandContent = `# COMMANDS\n\nCOMMAND_ID: smoke-001\nSTATUS: READY\nACTION: COLLECT_RENDER_LOGS\nLIMIT: 5\nTARGET: latest_count\n`;
+
+  const readResult = reader.readProvidedFile({
+    fileName: "COMMANDS.md",
+    content: commandContent,
+  });
+
+  assert.equal(readResult.ok, true, "workspace reader should read provided content");
+  assert.equal(readResult.canChangeState, false, "workspace reader must not change state");
+  assert.equal(readResult.tokensSpent, false, "workspace reader must not spend tokens");
+  assert.equal(readResult.metadata.readsFilesystem, false, "workspace reader must not read filesystem in skeleton");
+
+  const parsedResult = reader.parseProvidedCommand({ content: commandContent });
+
+  assert.equal(parsedResult.ok, true, "workspace command parser should accept allowed action");
+  assert.equal(parsedResult.canChangeState, false, "workspace command parser must not change state");
+  assert.equal(parsedResult.tokensSpent, false, "workspace command parser must not spend tokens");
+  assert.equal(parsedResult.command.action, WORKSPACE_COMMAND_ACTIONS.collectRenderLogs, "parser should read action");
+  assert.equal(parsedResult.command.reportType, WORKSPACE_REPORT_TYPES.renderLogs, "parser should map action to report type");
+  assert.equal(parsedResult.command.parameters.limit, 5, "parser should read safe limit");
+  assert.equal(parsedResult.command.metadata.executesCommand, false, "parser must not execute command");
+  assert.equal(
+    getWorkspaceReportTypeForAction(WORKSPACE_COMMAND_ACTIONS.collectRenderStatus),
+    WORKSPACE_REPORT_TYPES.renderStatus,
+    "report type registry should map status action",
+  );
+
+  const writer = new WorkspaceWriter();
+  const writePlan = writer.buildWritePlan({
+    fileName: "RENDER_LOGS_REPORT.md",
+    content: "# RENDER_LOGS_REPORT\n\nAnalysis: `none`\n",
+  });
+
+  assert.equal(writePlan.ok, true, "workspace writer should build write plan");
+  assert.equal(writePlan.canChangeState, false, "workspace writer skeleton must not change state");
+  assert.equal(writePlan.tokensSpent, false, "workspace writer skeleton must not spend tokens");
+  assert.equal(writePlan.workspacePath, "agent_workspace/RENDER_LOGS_REPORT.md", "writer should use allowlisted workspace path");
+  assert.equal(writePlan.metadata.writesFilesystem, false, "writer skeleton must not write filesystem");
+  assert.equal(writePlan.metadata.writesRepository, false, "writer skeleton must not write repository");
+}
+
 runRepoStateAgentSmoke();
 runRepoMaintenanceAgentSmoke();
 runRenderLogsCollectorSmoke();
+runWorkspaceIoSmoke();
 
 console.log("SG 2.0 agents skeleton smoke: OK");

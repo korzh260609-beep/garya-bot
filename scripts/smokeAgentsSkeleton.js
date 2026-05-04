@@ -6,9 +6,17 @@
 import assert from "node:assert/strict";
 import { RepoStateAgentService } from "../src/agents/repo-intelligence/repo-state-agent/index.js";
 import { RepoMaintenanceAgentService } from "../src/agents/repo-maintenance/repo-maintenance-agent/index.js";
-import { RenderLogsCollectorService } from "../src/agents/runtime-collector/render-logs-collector/index.js";
+import {
+  RenderLogsCollectorService,
+  RENDER_COLLECTOR_ACTIONS,
+  RENDER_COLLECTOR_SAFETY,
+  clampRenderDeploysLimit,
+  clampRenderLogsLimit,
+  isRenderCollectorActionAllowed,
+} from "../src/agents/runtime-collector/render-logs-collector/index.js";
 import { WorkspaceReaderAgentService } from "../src/agents/workspace/workspace-reader-agent/index.js";
 import { WorkspaceWriterAgentService } from "../src/agents/workspace/workspace-writer-agent/index.js";
+import { AgentInventoryAgentService } from "../src/agents/agent-intelligence/agent-inventory-agent/index.js";
 import { getLatestWorkspaceResult } from "../src/agents/shared/workspace/WorkspaceResultStore.js";
 import { WorkspaceReader } from "../src/agents/shared/workspace/WorkspaceReader.js";
 import { WorkspaceWriter } from "../src/agents/shared/workspace/WorkspaceWriter.js";
@@ -97,6 +105,19 @@ function runRenderLogsCollectorSmoke() {
   assert.equal(latest.workspacePath, "agent_workspace/RENDER_LOGS_REPORT.md", "latest workspace result should point to report");
 }
 
+function runRenderCollectorConfigSmoke() {
+  assert.equal(isRenderCollectorActionAllowed(RENDER_COLLECTOR_ACTIONS.listDeploys), true, "list deploys should be allowlisted");
+  assert.equal(isRenderCollectorActionAllowed("delete_service"), false, "mutating Render actions must not be allowlisted");
+  assert.equal(clampRenderLogsLimit(99999), 1000, "logs limit should clamp to max");
+  assert.equal(clampRenderLogsLimit("bad"), 100, "logs limit should fallback to default");
+  assert.equal(clampRenderDeploysLimit(99999), 100, "deploys limit should clamp to max");
+  assert.equal(RENDER_COLLECTOR_SAFETY.canChangeState, false, "render config must not allow state changes");
+  assert.equal(RENDER_COLLECTOR_SAFETY.tokensSpent, false, "render config must not spend tokens");
+  assert.equal(RENDER_COLLECTOR_SAFETY.connectedToRender, false, "render config skeleton must not connect to Render");
+  assert.equal(RENDER_COLLECTOR_SAFETY.mutatesRender, false, "render config must not mutate Render");
+  assert.equal(RENDER_COLLECTOR_SAFETY.analyzesLogs, false, "render config must not analyze logs");
+}
+
 function runWorkspaceIoSmoke() {
   const reader = new WorkspaceReader();
   const commandContent = `# COMMANDS\n\nCOMMAND_ID: smoke-001\nSTATUS: READY\nACTION: COLLECT_RENDER_LOGS\nLIMIT: 5\nTARGET: latest_count\n`;
@@ -177,7 +198,7 @@ function runAgentRegistrySmoke() {
   assert.equal(listResult.metadata.connectedToTelegram, false, "agent registry must not connect to Telegram");
   assert.equal(listResult.metadata.connectedToRender, false, "agent registry must not connect to Render");
   assert.equal(listResult.metadata.connectedToAI, false, "agent registry must not connect to AI");
-  assert.ok(listResult.data.agents.length >= 5, "agent registry should list known skeleton agents");
+  assert.ok(listResult.data.agents.length >= 6, "agent registry should list known skeleton agents");
 
   for (const agent of listResult.data.agents) {
     assert.equal(agent.canChangeState, false, `${agent.id} must not change state`);
@@ -197,13 +218,42 @@ function runAgentRegistrySmoke() {
   const writerAgentResult = registry.getAgent("workspace-writer-agent");
   assertSafeAgentResult(writerAgentResult, "agent-registry");
   assert.equal(writerAgentResult.data.agent.modulePath, "src/agents/workspace/workspace-writer-agent", "workspace writer should be registered as agent folder");
+
+  const inventoryAgentResult = registry.getAgent("agent-inventory-agent");
+  assertSafeAgentResult(inventoryAgentResult, "agent-registry");
+  assert.equal(inventoryAgentResult.data.agent.modulePath, "src/agents/agent-intelligence/agent-inventory-agent", "agent inventory should be registered as agent folder");
+}
+
+function runAgentInventorySmoke() {
+  const registry = new AgentRegistryService();
+  const listResult = registry.listAgents();
+  const inventoryAgent = new AgentInventoryAgentService();
+  const inventoryResult = inventoryAgent.buildInventory({
+    agents: listResult.data.agents,
+    metadata: {
+      source: "smoke_registry_output",
+    },
+  });
+
+  assertSafeAgentResult(inventoryResult, "agent-inventory-agent");
+  assert.equal(inventoryResult.metadata.readsRepository, false, "inventory agent must not read repository in skeleton");
+  assert.equal(inventoryResult.metadata.connectedToGitHub, false, "inventory agent must not connect to GitHub");
+  assert.equal(inventoryResult.metadata.connectedToAI, false, "inventory agent must not connect to AI");
+  assert.equal(inventoryResult.metadata.storesMemory, false, "inventory agent must not store memory yet");
+  assert.equal(inventoryResult.data.inventory.canChangeState, false, "inventory report must not change state");
+  assert.equal(inventoryResult.data.inventory.tokensSpent, false, "inventory report must not spend tokens");
+  assert.equal(inventoryResult.data.inventory.safetyWarnings.length, 0, "safe registry should produce no inventory safety warnings");
+  assert.ok(inventoryResult.data.inventory.groupedByLayer.workspace.length >= 2, "inventory should group workspace agents");
+  assert.ok(inventoryResult.data.inventory.groupedByLayer["agent-intelligence"].length >= 1, "inventory should include itself as agent-intelligence");
 }
 
 runRepoStateAgentSmoke();
 runRepoMaintenanceAgentSmoke();
 runRenderLogsCollectorSmoke();
+runRenderCollectorConfigSmoke();
 runWorkspaceIoSmoke();
 runWorkspaceAgentsSmoke();
 runAgentRegistrySmoke();
+runAgentInventorySmoke();
 
 console.log("SG 2.0 agents skeleton smoke: OK");

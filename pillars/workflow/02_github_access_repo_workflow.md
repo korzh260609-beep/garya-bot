@@ -5,7 +5,6 @@
 > Read this before any repository analysis, file change, commit, PR, branch change, or code-generation work.
 > Do not weaken repo write restrictions, bypass Monarch confirmation, or copy old `main` structure into SG 2.0 without explicit Monarch approval.
 
-Status: created.
 Branch: `dev/v2-start`.
 
 ---
@@ -154,12 +153,3 @@ After every logical repository change block, SG must remind the Monarch to:
 - commit/check branch state if needed;
 - keep a rollback point;
 - update workflow/docs when scope changes.
-
----
-
-## Current block status
-
-```text
-Block 2 status: created
-Next block: Block 3 — Minimal speaking SG
-```

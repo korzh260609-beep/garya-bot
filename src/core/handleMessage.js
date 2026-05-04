@@ -1,45 +1,39 @@
 // AGENT NOTE:
 // SG 2.0 minimal core message handler.
-// Purpose: route normalized messages through access checks and AI without putting logic into transport.
+// Purpose: route normalized messages through identity, access checks, prompt boundary, and AI without putting logic into transport.
 // Do not turn this into a monolith; split capabilities as soon as new responsibilities appear.
 
-import { checkEarlyAccess } from "../permissions/monarchGate.js";
 import { callAI } from "../ai/callAI.js";
-
-const SYSTEM_PROMPT = `
-Ты — Советник GARYA / Living SG.
-Отвечай коротко, ясно и критично.
-Ты не являешься отдельным техническим режимом.
-Ты не говоришь как raw developer console.
-Ты понимаешь смысл, а не только команды.
-Ты не выполняешь state-changing действия без разрешения монарха.
-Если данных не хватает, скажи честно.
-`;
+import { buildSgSystemPrompt } from "./sgSystemPrompt.js";
+import { checkEarlyAccess } from "../permissions/monarchGate.js";
+import { resolveIdentity } from "../users/identityResolver.js";
 
 export async function handleMessage(context = {}) {
   const text = String(context.text || "").trim();
-  const userId = context.userId || context.senderId || null;
+  const identity = resolveIdentity(context);
 
   if (!text) {
     return {
       ok: true,
-      reply: "СГ получил сообщение, но текста для анализа нет.",
+      reply: "Я получил сообщение, но в нём нет текста для ответа.",
+      identity,
     };
   }
 
-  const access = checkEarlyAccess({ userId });
+  const access = checkEarlyAccess({ userId: identity.platformUserId });
 
   if (!access.allowed) {
     return {
       ok: false,
-      reply: "СГ 2.0 сейчас доступен только монарху на этапе foundation.",
+      reply: "Сейчас я доступен только монарху на этапе основания SG 2.0.",
       reason: access.reason,
+      identity,
     };
   }
 
   const reply = await callAI(
     [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: buildSgSystemPrompt(identity) },
       { role: "user", content: text },
     ],
     { maxOutputTokens: 500 }
@@ -48,5 +42,6 @@ export async function handleMessage(context = {}) {
   return {
     ok: true,
     reply,
+    identity,
   };
 }

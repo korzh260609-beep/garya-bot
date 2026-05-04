@@ -39,6 +39,7 @@ import {
   isCollectorActionAllowed,
   validateCollectorAction,
 } from "../src/agents/shared/collector/CollectorInterface.js";
+import { AgentIntentDecisionService, buildAgentIntentDecision } from "../src/agents/shared/intent/index.js";
 
 function assertSafeAgentResult(result, agentName) {
   assert.equal(result.ok, true, `${agentName} should return ok=true`);
@@ -339,6 +340,58 @@ function runCollectorInterfaceSmoke() {
   assert.equal(plan.tokensSpent, false, "collector request plan must not spend tokens");
 }
 
+function runAgentIntentDecisionSmoke() {
+  const inventoryDecision = buildAgentIntentDecision({
+    message: "СГ, что у нас сейчас по агентам?",
+    metadata: {
+      source: "smoke",
+    },
+  });
+
+  assert.equal(inventoryDecision.intentType, "agent_inventory", "live message should map to agent inventory intent");
+  assert.equal(inventoryDecision.suggestedAgentId, "agent-inventory-agent", "inventory intent should suggest inventory agent");
+  assert.equal(inventoryDecision.suggestedAction, "build_inventory_from_provided_metadata", "inventory intent should suggest safe action");
+  assert.equal(inventoryDecision.executionAllowed, false, "intent decision must not execute actions");
+  assert.equal(inventoryDecision.requiresApproval, true, "intent decision should require approval");
+  assert.equal(inventoryDecision.safety.isKeywordRouter, false, "intent decision must not be marked as keyword-router");
+  assert.equal(inventoryDecision.safety.connectedToAI, false, "intent decision skeleton must not connect to AI");
+  assert.equal(inventoryDecision.safety.executesAgents, false, "intent decision must not execute agents");
+  assert.equal(inventoryDecision.actionAllowedByConfig, true, "suggested action should be allowed by agent config");
+
+  const renderDecision = buildAgentIntentDecision({
+    message: "СГ, проверь Render, бот не отвечает, нужны последние логи",
+  });
+
+  assert.equal(renderDecision.intentType, "render_logs", "live render logs message should map to render logs intent");
+  assert.equal(renderDecision.suggestedAgentId, "render-logs-collector", "render logs intent should suggest render collector");
+  assert.equal(renderDecision.suggestedAction, "get_latest_logs", "render logs intent should suggest latest logs action");
+  assert.equal(renderDecision.executionAllowed, false, "render intent decision must not execute action");
+  assert.equal(renderDecision.actionAllowedByConfig, true, "render latest logs should be allowed by config");
+
+  const nextStepDecision = buildAgentIntentDecision({
+    message: "Что дальше по проекту?",
+  });
+
+  assert.equal(nextStepDecision.intentType, "project_next_step", "next-step message should map to project next step intent");
+  assert.equal(nextStepDecision.suggestedAgentId, "repo-state-agent", "next-step intent should suggest repo-state agent");
+  assert.equal(nextStepDecision.executionAllowed, false, "next-step decision must not execute action");
+
+  const service = new AgentIntentDecisionService();
+  const serviceResult = service.decide({
+    message: "Покажи состояние repo",
+  });
+
+  assertSafeAgentResult(serviceResult, "agent-intent-decision");
+  assert.equal(serviceResult.metadata.decisionOnly, true, "intent decision service must be decision-only");
+  assert.equal(serviceResult.metadata.liveMessageSupported, true, "intent decision service should support live messages");
+  assert.equal(serviceResult.metadata.connectedToRuntime, false, "intent decision service must not connect to runtime");
+  assert.equal(serviceResult.metadata.connectedToTelegram, false, "intent decision service must not connect to Telegram");
+  assert.equal(serviceResult.metadata.connectedToAI, false, "intent decision service must not connect to AI");
+  assert.equal(serviceResult.metadata.executesAgents, false, "intent decision service must not execute agents");
+  assert.equal(serviceResult.metadata.isKeywordRouter, false, "intent decision service must not be marked as keyword-router");
+  assert.equal(serviceResult.data.decision.suggestedAgentId, "repo-state-agent", "repo state message should suggest repo-state agent");
+}
+
 function runAgentInventorySmoke() {
   const registry = new AgentRegistryService();
   const listResult = registry.listAgents();
@@ -371,6 +424,7 @@ runWorkspaceAgentsSmoke();
 runAgentRegistrySmoke();
 runAgentConfigRegistrySmoke();
 runCollectorInterfaceSmoke();
+runAgentIntentDecisionSmoke();
 runAgentInventorySmoke();
 
 console.log("SG 2.0 agents skeleton smoke: OK");

@@ -41,6 +41,24 @@ export function envInt(key, fallback) {
   return Math.floor(value);
 }
 
+export function envIntRange(key, fallback, { min = -Infinity, max = Infinity } = {}) {
+  const value = envInt(key, fallback);
+
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  if (value < min) {
+    return min;
+  }
+
+  if (value > max) {
+    return max;
+  }
+
+  return value;
+}
+
 export function envBool(key, fallback = false) {
   const raw = process.env[key];
 

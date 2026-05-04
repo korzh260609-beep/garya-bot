@@ -19,6 +19,18 @@ export function envStr(key, fallback = "") {
   return text;
 }
 
+export function envFirst(keys = [], fallback = "") {
+  for (const key of keys) {
+    const value = envStr(key, "").trim();
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return fallback;
+}
+
 export function envInt(key, fallback) {
   const value = Number(process.env[key]);
 
@@ -59,6 +71,10 @@ export function requireEnv(key) {
   return value;
 }
 
+export function getTelegramBotToken() {
+  return envFirst(["BOT_TOKEN", "TELEGRAM_BOT_TOKEN"], "").trim();
+}
+
 export function getPublicBaseUrl() {
   const explicitBaseUrl = envStr("BASE_URL", "").trim();
   if (explicitBaseUrl) return explicitBaseUrl.replace(/\/$/, "");
@@ -75,7 +91,7 @@ export function getPublicBaseUrl() {
 }
 
 export function getRuntimeConfig() {
-  const botToken = envStr("BOT_TOKEN", "").trim();
+  const botToken = getTelegramBotToken();
   const monarchUserId = envStr("MONARCH_USER_ID", "").trim();
   const openaiApiKey = envStr("OPENAI_API_KEY", "").trim();
 

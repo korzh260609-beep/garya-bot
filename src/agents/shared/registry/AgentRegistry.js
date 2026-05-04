@@ -47,6 +47,14 @@ export const AGENT_REGISTRY = Object.freeze([
     description: "Wraps shared WorkspaceWriter as a real agent boundary for allowlisted write-plans only.",
     ...buildSafeAgentCapability(AGENT_CAPABILITIES.workspaceWritePlanAgent),
   }),
+  Object.freeze({
+    id: "agent-inventory-agent",
+    name: "AgentInventoryAgent",
+    layer: "agent-intelligence",
+    modulePath: "src/agents/agent-intelligence/agent-inventory-agent",
+    description: "Builds deterministic inventory reports from provided agent metadata only.",
+    ...buildSafeAgentCapability(AGENT_CAPABILITIES.agentInventoryFromProvidedMetadata),
+  }),
 ]);
 
 export function listRegisteredAgents() {

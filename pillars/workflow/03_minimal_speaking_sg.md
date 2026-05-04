@@ -5,7 +5,6 @@
 > Read this before adding Telegram chat behavior, AI calls, prompt behavior, delivery, or early access checks.
 > Do not turn the minimal speaking SG into a monolith, technical mode, keyword-bot, or old `main` copy without explicit Monarch approval.
 
-Status: started.
 Branch: `dev/v2-start`.
 
 ---
@@ -26,7 +25,11 @@ Telegram update
 -> Telegram transport
 -> Telegram adapter
 -> Core message handler
+-> Identity resolver
+-> Early access gate
+-> SG system prompt boundary
 -> AI wrapper
+-> Delivery boundary
 -> Telegram reply
 ```
 
@@ -72,8 +75,9 @@ Forbidden:
 Required:
 
 - one AI entrypoint;
+- one model config boundary before full Model Router exists;
 - honest error if `OPENAI_API_KEY` is missing;
-- minimal system prompt for Living SG behavior;
+- minimal system prompt boundary for Living SG behavior;
 - state-changing actions remain blocked.
 
 ---
@@ -97,10 +101,13 @@ If not configured, SG must not open access by accident.
 Required for Telegram speaking runtime:
 
 ```text
+TELEGRAM_BOT_TOKEN
 BOT_TOKEN
 OPENAI_API_KEY
 MONARCH_USER_ID
 ```
+
+`BOT_TOKEN` exists as a compatibility fallback. `TELEGRAM_BOT_TOKEN` is the clearer Telegram-specific name.
 
 Recommended for webhook setup:
 
@@ -114,7 +121,7 @@ Render-provided public URL or hostname may be used if available.
 
 ## 3.6 Minimal implementation boundary
 
-Allowed files at this stage:
+Expected minimal runtime boundaries:
 
 ```text
 index.js
@@ -122,9 +129,13 @@ src/config/env.js
 src/transport/telegram.js
 src/transport/telegram/initTelegramTransport.js
 src/transport/telegram/telegramAdapter.js
+src/delivery/telegramDelivery.js
 src/core/handleMessage.js
-src/ai/callAI.js
+src/core/sgSystemPrompt.js
+src/users/identityResolver.js
 src/permissions/monarchGate.js
+src/ai/callAI.js
+src/ai/modelConfig.js
 ```
 
 Forbidden at this stage:
@@ -138,12 +149,3 @@ Forbidden at this stage:
 - RepoStateAgent;
 - AgentWorkspace;
 - large prompt framework.
-
----
-
-## Current block status
-
-```text
-Block 3 status: started
-Next related work: deploy/smoke-check minimal Telegram runtime, then decide whether to mark Block 3 as complete
-```

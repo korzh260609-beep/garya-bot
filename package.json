@@ -6,7 +6,7 @@
   "main": "./index.js",
   "scripts": {
     "start": "node ./index.js",
-    "smoke:agents-skeleton": "node ./scripts/smokeAgentsSkeleton.js && node ./scripts/smokeAgentActionPlanSkeleton.js"
+    "smoke:agents-skeleton": "node ./scripts/smokeAgentsSkeleton.js && node ./scripts/smokeAgentActionPlanSkeleton.js && node ./scripts/smokeAgentApprovalGateSkeleton.js"
   },
   "dependencies": {
     "express": "^4.18.2",

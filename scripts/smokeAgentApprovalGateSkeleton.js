@@ -57,10 +57,37 @@ function runApprovalGateBuilderSmoke() {
     approvalCommand: "",
   });
 
-  assert.equal(noCommandDecision.status, "blocked", "missing МОЖНО must block approval");
-  assert.equal(noCommandDecision.decision, "block_execution", "missing МОЖНО must block execution path");
+  assert.equal(noCommandDecision.status, "pending_approval", "missing МОЖНО from monarch should keep plan pending");
+  assert.equal(noCommandDecision.decision, "require_monarch_approval", "missing МОЖНО should require monarch approval");
+  assert.equal(noCommandDecision.approvalCommandProvided, false, "missing command should be recorded as not provided");
   assert.equal(noCommandDecision.approvalGiven, false, "missing МОЖНО must not count as approval");
+  assert.equal(noCommandDecision.blockingReasons.length, 0, "pending monarch approval should not be treated as blocked");
   assertApprovalSafe(noCommandDecision);
+
+  const invalidCommandDecision = buildAgentApprovalDecision({
+    actionPlan,
+    requester: {
+      role: "monarch",
+    },
+    approvalCommand: "можно, но не точно",
+  });
+
+  assert.equal(invalidCommandDecision.status, "blocked", "invalid approval command must block approval");
+  assert.equal(invalidCommandDecision.decision, "block_execution", "invalid approval command must block execution path");
+  assert.equal(invalidCommandDecision.approvalCommandProvided, true, "invalid command should still be recorded as provided");
+  assert.equal(invalidCommandDecision.approvalGiven, false, "invalid command must not count as approval");
+  assertApprovalSafe(invalidCommandDecision);
+
+  const nullRequesterDecision = buildAgentApprovalDecision({
+    actionPlan,
+    requester: null,
+    approvalCommand: "МОЖНО",
+  });
+
+  assert.equal(nullRequesterDecision.status, "blocked", "null requester must not approve plan");
+  assert.equal(nullRequesterDecision.requesterRole, "unknown", "null requester should normalize to unknown role");
+  assert.equal(nullRequesterDecision.decision, "block_execution", "null requester must block execution path");
+  assertApprovalSafe(nullRequesterDecision);
 
   const guestDecision = buildAgentApprovalDecision({
     actionPlan,

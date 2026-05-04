@@ -28,3 +28,9 @@ Current role:
 ```text
 exchange_channel_skeleton
 ```
+
+Smoke trigger note:
+
+```text
+agents_skeleton_smoke_trigger
+```

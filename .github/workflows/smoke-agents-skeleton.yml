@@ -1,0 +1,29 @@
+name: Smoke Agents Skeleton
+
+on:
+  push:
+    branches:
+      - dev/v2-start
+  pull_request:
+    branches:
+      - dev/v2-start
+  workflow_dispatch:
+
+jobs:
+  smoke-agents-skeleton:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run agents skeleton smoke
+        run: npm run smoke:agents-skeleton

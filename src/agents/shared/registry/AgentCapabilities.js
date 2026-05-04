@@ -9,6 +9,7 @@ export const AGENT_CAPABILITIES = Object.freeze({
   renderFactCollectionReportBuilder: "render_fact_collection_report_builder",
   workspaceReadProvidedContentAgent: "workspace_read_provided_content_agent",
   workspaceWritePlanAgent: "workspace_write_plan_agent",
+  agentInventoryFromProvidedMetadata: "agent_inventory_from_provided_metadata",
 });
 
 export const AGENT_SAFETY_FLAGS = Object.freeze({

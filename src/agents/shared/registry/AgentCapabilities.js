@@ -7,8 +7,8 @@ export const AGENT_CAPABILITIES = Object.freeze({
   repoIntelligenceReadOnly: "repo_intelligence_read_only",
   repoMaintenanceReportOnly: "repo_maintenance_report_only",
   renderFactCollectionReportBuilder: "render_fact_collection_report_builder",
-  workspaceReadProvidedContent: "workspace_read_provided_content",
-  workspaceWritePlanOnly: "workspace_write_plan_only",
+  workspaceReadProvidedContentAgent: "workspace_read_provided_content_agent",
+  workspaceWritePlanAgent: "workspace_write_plan_agent",
 });
 
 export const AGENT_SAFETY_FLAGS = Object.freeze({

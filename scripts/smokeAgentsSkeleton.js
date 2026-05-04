@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import { RepoStateAgentService } from "../src/agents/repo-intelligence/repo-state-agent/index.js";
 import { RepoMaintenanceAgentService } from "../src/agents/repo-maintenance/repo-maintenance-agent/index.js";
 import { RenderLogsCollectorService } from "../src/agents/runtime-collector/render-logs-collector/index.js";
+import { WorkspaceReaderAgentService } from "../src/agents/workspace/workspace-reader-agent/index.js";
+import { WorkspaceWriterAgentService } from "../src/agents/workspace/workspace-writer-agent/index.js";
 import { getLatestWorkspaceResult } from "../src/agents/shared/workspace/WorkspaceResultStore.js";
 import { WorkspaceReader } from "../src/agents/shared/workspace/WorkspaceReader.js";
 import { WorkspaceWriter } from "../src/agents/shared/workspace/WorkspaceWriter.js";
@@ -138,6 +140,32 @@ function runWorkspaceIoSmoke() {
   assert.equal(writePlan.metadata.writesRepository, false, "writer skeleton must not write repository");
 }
 
+function runWorkspaceAgentsSmoke() {
+  const commandContent = `# COMMANDS\n\nCOMMAND_ID: smoke-002\nSTATUS: READY\nACTION: COLLECT_RENDER_STATUS\n`;
+
+  const readerAgent = new WorkspaceReaderAgentService();
+  const readerResult = readerAgent.parseProvidedWorkspaceCommand({ content: commandContent });
+
+  assertSafeAgentResult(readerResult, "workspace-reader-agent");
+  assert.equal(readerResult.metadata.readsFilesystem, false, "workspace reader agent must not read filesystem");
+  assert.equal(readerResult.metadata.writesFilesystem, false, "workspace reader agent must not write filesystem");
+  assert.equal(readerResult.metadata.executesWorkspaceAction, false, "workspace reader agent must not execute workspace actions");
+  assert.equal(readerResult.data.parsedResult.command.reportType, WORKSPACE_REPORT_TYPES.renderStatus, "workspace reader agent should parse report type");
+
+  const writerAgent = new WorkspaceWriterAgentService();
+  const writerResult = writerAgent.buildWorkspaceWritePlan({
+    fileName: "RENDER_STATUS_REPORT.md",
+    content: "# RENDER_STATUS_REPORT\n\nAnalysis: `none`\n",
+  });
+
+  assertSafeAgentResult(writerResult, "workspace-writer-agent");
+  assert.equal(writerResult.metadata.readsFilesystem, false, "workspace writer agent must not read filesystem");
+  assert.equal(writerResult.metadata.writesFilesystem, false, "workspace writer agent must not write filesystem");
+  assert.equal(writerResult.metadata.writesRepository, false, "workspace writer agent must not write repository");
+  assert.equal(writerResult.metadata.executesWorkspaceAction, false, "workspace writer agent must not execute workspace actions");
+  assert.equal(writerResult.data.writePlan.workspacePath, "agent_workspace/RENDER_STATUS_REPORT.md", "workspace writer agent should build allowlisted plan");
+}
+
 function runAgentRegistrySmoke() {
   const registry = new AgentRegistryService();
   const listResult = registry.listAgents();
@@ -157,16 +185,25 @@ function runAgentRegistrySmoke() {
     assert.equal(agent.executesAgents, false, `${agent.id} metadata must not execute agents`);
   }
 
-  const oneResult = registry.getAgent("render-logs-collector");
-  assertSafeAgentResult(oneResult, "agent-registry");
-  assert.equal(oneResult.data.agent.id, "render-logs-collector", "agent registry should return requested agent metadata");
-  assert.equal(oneResult.metadata.executesAgents, false, "getAgent must not execute agents");
+  const renderResult = registry.getAgent("render-logs-collector");
+  assertSafeAgentResult(renderResult, "agent-registry");
+  assert.equal(renderResult.data.agent.id, "render-logs-collector", "agent registry should return requested agent metadata");
+  assert.equal(renderResult.metadata.executesAgents, false, "getAgent must not execute agents");
+
+  const readerAgentResult = registry.getAgent("workspace-reader-agent");
+  assertSafeAgentResult(readerAgentResult, "agent-registry");
+  assert.equal(readerAgentResult.data.agent.modulePath, "src/agents/workspace/workspace-reader-agent", "workspace reader should be registered as agent folder");
+
+  const writerAgentResult = registry.getAgent("workspace-writer-agent");
+  assertSafeAgentResult(writerAgentResult, "agent-registry");
+  assert.equal(writerAgentResult.data.agent.modulePath, "src/agents/workspace/workspace-writer-agent", "workspace writer should be registered as agent folder");
 }
 
 runRepoStateAgentSmoke();
 runRepoMaintenanceAgentSmoke();
 runRenderLogsCollectorSmoke();
 runWorkspaceIoSmoke();
+runWorkspaceAgentsSmoke();
 runAgentRegistrySmoke();
 
 console.log("SG 2.0 agents skeleton smoke: OK");

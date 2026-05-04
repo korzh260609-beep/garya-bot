@@ -15,6 +15,7 @@ import {
   WORKSPACE_COMMAND_ACTIONS,
   WORKSPACE_REPORT_TYPES,
 } from "../src/agents/shared/workspace/WorkspaceReportTypes.js";
+import { AgentRegistryService } from "../src/agents/shared/registry/AgentRegistryService.js";
 
 function assertSafeAgentResult(result, agentName) {
   assert.equal(result.ok, true, `${agentName} should return ok=true`);
@@ -137,9 +138,35 @@ function runWorkspaceIoSmoke() {
   assert.equal(writePlan.metadata.writesRepository, false, "writer skeleton must not write repository");
 }
 
+function runAgentRegistrySmoke() {
+  const registry = new AgentRegistryService();
+  const listResult = registry.listAgents();
+
+  assertSafeAgentResult(listResult, "agent-registry");
+  assert.equal(listResult.metadata.registryOnly, true, "agent registry should be metadata only");
+  assert.equal(listResult.metadata.executesAgents, false, "agent registry must not execute agents");
+  assert.equal(listResult.metadata.connectedToRuntime, false, "agent registry must not connect to runtime");
+  assert.equal(listResult.metadata.connectedToTelegram, false, "agent registry must not connect to Telegram");
+  assert.equal(listResult.metadata.connectedToRender, false, "agent registry must not connect to Render");
+  assert.equal(listResult.metadata.connectedToAI, false, "agent registry must not connect to AI");
+  assert.ok(listResult.data.agents.length >= 5, "agent registry should list known skeleton agents");
+
+  for (const agent of listResult.data.agents) {
+    assert.equal(agent.canChangeState, false, `${agent.id} must not change state`);
+    assert.equal(agent.tokensSpent, false, `${agent.id} must not spend tokens`);
+    assert.equal(agent.executesAgents, false, `${agent.id} metadata must not execute agents`);
+  }
+
+  const oneResult = registry.getAgent("render-logs-collector");
+  assertSafeAgentResult(oneResult, "agent-registry");
+  assert.equal(oneResult.data.agent.id, "render-logs-collector", "agent registry should return requested agent metadata");
+  assert.equal(oneResult.metadata.executesAgents, false, "getAgent must not execute agents");
+}
+
 runRepoStateAgentSmoke();
 runRepoMaintenanceAgentSmoke();
 runRenderLogsCollectorSmoke();
 runWorkspaceIoSmoke();
+runAgentRegistrySmoke();
 
 console.log("SG 2.0 agents skeleton smoke: OK");

@@ -1,9 +1,10 @@
 // AGENT NOTE:
 // SG 2.0 minimal Telegram adapter.
-// Purpose: convert Telegram messages into normalized core context and send replies.
+// Purpose: convert Telegram messages into normalized core context and delegate prepared replies to delivery.
 // Do not add AI, memory, source, task, billing, or permission policy logic here.
 
 import { handleMessage } from "../../core/handleMessage.js";
+import { sendTelegramReply } from "../../delivery/telegramDelivery.js";
 
 let attached = false;
 
@@ -25,15 +26,11 @@ export class TelegramAdapter {
   }
 
   async reply(context, text) {
-    if (!this.bot) {
-      throw new Error("TelegramAdapter.reply: bot is missing");
-    }
-
-    if (!context?.chatId) {
-      throw new Error("TelegramAdapter.reply: chatId is missing");
-    }
-
-    await this.bot.sendMessage(context.chatId, String(text || ""));
+    await sendTelegramReply({
+      bot: this.bot,
+      context,
+      text,
+    });
   }
 
   attach() {

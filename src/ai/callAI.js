@@ -4,7 +4,8 @@
 // Do not scatter direct OpenAI calls across transport/core modules.
 
 import OpenAI from "openai";
-import { envStr, requireEnv } from "../config/env.js";
+import { requireEnv } from "../config/env.js";
+import { getDefaultMaxOutputTokens, getDefaultModel } from "./modelConfig.js";
 
 let client = null;
 
@@ -40,7 +41,8 @@ function extractOutputText(response) {
 
 export async function callAI(messages, options = {}) {
   const activeClient = getClient();
-  const model = options.model || envStr("OPENAI_MODEL", "gpt-4.1-mini").trim();
+  const model = options.model || getDefaultModel();
+  const maxOutputTokens = options.maxOutputTokens || getDefaultMaxOutputTokens();
 
   const input = Array.isArray(messages)
     ? messages.map((message) => ({
@@ -52,7 +54,7 @@ export async function callAI(messages, options = {}) {
   const response = await activeClient.responses.create({
     model,
     input,
-    max_output_tokens: options.maxOutputTokens || 500,
+    max_output_tokens: maxOutputTokens,
   });
 
   const text = extractOutputText(response);

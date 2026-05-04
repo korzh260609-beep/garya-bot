@@ -13,6 +13,7 @@ Each block is a separate file.
 Current files:
 
 1. `01_living_sg_foundation.md` — first workflow block: living SG foundation.
+2. `02_github_access_repo_workflow.md` — second workflow block: GitHub access and repo workflow restrictions.
 
 Rules:
 

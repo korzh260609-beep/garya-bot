@@ -6,7 +6,6 @@
 > This file belongs under `pillars/workflow/` because workflow is part of the project laws and governance layer.
 > Do not weaken these principles, rename them into technical mode, or replace semantic behavior with fixed commands without explicit Monarch approval.
 
-Status: created.
 Branch: `dev/v2-start`.
 
 This is the first workflow file for building SG 2.0.
@@ -110,6 +109,7 @@ Must stay compatible with:
 - `PORT` logic;
 - env names:
   - `BOT_TOKEN`;
+  - `TELEGRAM_BOT_TOKEN`;
   - `DATABASE_URL`;
   - `MONARCH_USER_ID`;
   - `NODE_ENV`;
@@ -147,10 +147,3 @@ Forbidden:
 - mixing unrelated layers;
 - adding modules directly into core;
 - rebuilding core for every new feature.
-
-## Current block status
-
-```text
-Block 1 status: created
-Next block: Block 2 — GitHub access + basic restriction + repo workflow
-```

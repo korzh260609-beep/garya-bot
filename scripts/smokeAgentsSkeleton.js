@@ -26,6 +26,11 @@ import {
   WORKSPACE_REPORT_TYPES,
 } from "../src/agents/shared/workspace/WorkspaceReportTypes.js";
 import { AgentRegistryService } from "../src/agents/shared/registry/AgentRegistryService.js";
+import {
+  getAgentConfigById,
+  isAgentActionAllowed,
+  listAgentConfigs,
+} from "../src/agents/shared/registry/AgentConfigRegistry.js";
 
 function assertSafeAgentResult(result, agentName) {
   assert.equal(result.ok, true, `${agentName} should return ok=true`);
@@ -224,6 +229,45 @@ function runAgentRegistrySmoke() {
   assert.equal(inventoryAgentResult.data.agent.modulePath, "src/agents/agent-intelligence/agent-inventory-agent", "agent inventory should be registered as agent folder");
 }
 
+function runAgentConfigRegistrySmoke() {
+  const registry = new AgentRegistryService();
+  const listResult = registry.listAgents();
+  const configListResult = registry.listAgentConfigs();
+  const configs = listAgentConfigs();
+
+  assertSafeAgentResult(configListResult, "agent-registry");
+  assert.equal(configListResult.metadata.configRegistryOnly, true, "agent config registry should be metadata only");
+  assert.equal(configListResult.metadata.executesAgents, false, "agent config registry must not execute agents");
+  assert.equal(configListResult.metadata.connectedToRuntime, false, "agent config registry must not connect to runtime");
+  assert.equal(configListResult.metadata.connectedToRender, false, "agent config registry must not connect to Render");
+  assert.equal(configListResult.metadata.connectedToAI, false, "agent config registry must not connect to AI");
+  assert.ok(configs.length >= listResult.data.agents.length, "agent config registry should cover registered agents");
+
+  for (const agent of listResult.data.agents) {
+    const config = getAgentConfigById(agent.id);
+    assert.ok(config, `${agent.id} should have config metadata`);
+    assert.equal(config.readOnly, true, `${agent.id} config must be read-only`);
+    assert.equal(config.canChangeState, false, `${agent.id} config must not change state`);
+    assert.equal(config.tokensSpent, false, `${agent.id} config must not spend tokens`);
+    assert.equal(config.connectedToRuntime, false, `${agent.id} config must not connect to runtime`);
+    assert.equal(config.connectedToTelegram, false, `${agent.id} config must not connect to Telegram`);
+    assert.equal(config.connectedToRender, false, `${agent.id} config skeleton must not connect to Render`);
+    assert.equal(config.connectedToGitHub, false, `${agent.id} config skeleton must not connect to GitHub`);
+    assert.equal(config.connectedToDatabase, false, `${agent.id} config skeleton must not connect to DB`);
+    assert.equal(config.connectedToAI, false, `${agent.id} config skeleton must not connect to AI`);
+    assert.equal(config.executesAgents, false, `${agent.id} config must not execute agents`);
+    assert.equal(config.writesFilesystem, false, `${agent.id} config must not write filesystem`);
+    assert.equal(config.writesRepository, false, `${agent.id} config must not write repository`);
+  }
+
+  const renderConfigResult = registry.getAgentConfig("render-logs-collector");
+  assertSafeAgentResult(renderConfigResult, "agent-registry");
+  assert.equal(renderConfigResult.data.config.agentId, "render-logs-collector", "registry service should return requested config");
+  assert.equal(isAgentActionAllowed("render-logs-collector", "list_deploys"), true, "render collector config should allow read-only list_deploys intent");
+  assert.equal(isAgentActionAllowed("render-logs-collector", "delete_service"), false, "render collector config must not allow mutating actions");
+  assert.equal(isAgentActionAllowed("unknown-agent", "list_deploys"), false, "unknown agents must not allow actions");
+}
+
 function runAgentInventorySmoke() {
   const registry = new AgentRegistryService();
   const listResult = registry.listAgents();
@@ -254,6 +298,7 @@ runRenderCollectorConfigSmoke();
 runWorkspaceIoSmoke();
 runWorkspaceAgentsSmoke();
 runAgentRegistrySmoke();
+runAgentConfigRegistrySmoke();
 runAgentInventorySmoke();
 
 console.log("SG 2.0 agents skeleton smoke: OK");

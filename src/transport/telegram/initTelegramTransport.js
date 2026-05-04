@@ -4,12 +4,17 @@
 // Do not add AI, memory, permissions, source, task, or business logic here.
 
 import TelegramBot from "node-telegram-bot-api";
-import { requireEnv, getPublicBaseUrl } from "../../config/env.js";
+import { envStr, getPublicBaseUrl } from "../../config/env.js";
 
 export function initTelegramTransport(app) {
-  const token = requireEnv("BOT_TOKEN");
-  const baseUrl = getPublicBaseUrl();
+  const token = envStr("BOT_TOKEN", "").trim();
 
+  if (!token) {
+    console.warn("SG_TELEGRAM_DISABLED: BOT_TOKEN is not configured.");
+    return null;
+  }
+
+  const baseUrl = getPublicBaseUrl();
   const bot = new TelegramBot(token, { polling: false });
   const webhookPath = `/webhook/${token}`;
 

@@ -34,9 +34,3 @@ Smoke trigger note:
 ```text
 agents_skeleton_smoke_trigger
 ```
-
-PR smoke verification note:
-
-```text
-agents_skeleton_pr_smoke_check
-```

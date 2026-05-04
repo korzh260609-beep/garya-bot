@@ -31,6 +31,14 @@ import {
   isAgentActionAllowed,
   listAgentConfigs,
 } from "../src/agents/shared/registry/AgentConfigRegistry.js";
+import {
+  COLLECTOR_INTERFACE_SAFETY,
+  buildCollectorRequestPlan,
+  clampCollectorLimit,
+  createCollectorContract,
+  isCollectorActionAllowed,
+  validateCollectorAction,
+} from "../src/agents/shared/collector/CollectorInterface.js";
 
 function assertSafeAgentResult(result, agentName) {
   assert.equal(result.ok, true, `${agentName} should return ok=true`);
@@ -268,6 +276,69 @@ function runAgentConfigRegistrySmoke() {
   assert.equal(isAgentActionAllowed("unknown-agent", "list_deploys"), false, "unknown agents must not allow actions");
 }
 
+function runCollectorInterfaceSmoke() {
+  const contract = createCollectorContract({
+    collectorId: "render-logs-collector",
+    sourceType: "render",
+    allowedActions: ["list_deploys", "get_latest_logs", "get_status"],
+    limits: {
+      defaultLimit: 25,
+      maxLimit: 100,
+    },
+    futureInterface: {
+      mayConnectToRenderLater: true,
+      requiresSeparateApproval: true,
+    },
+  });
+
+  assert.equal(contract.safety.readOnly, true, "collector contract must be read-only");
+  assert.equal(contract.safety.canChangeState, false, "collector contract must not change state");
+  assert.equal(contract.safety.tokensSpent, false, "collector contract must not spend tokens");
+  assert.equal(contract.safety.connectedToNetwork, false, "collector contract must not connect to network");
+  assert.equal(contract.safety.executesRequests, false, "collector contract must not execute requests");
+  assert.equal(contract.safety.mutatesExternalState, false, "collector contract must not mutate external state");
+  assert.equal(COLLECTOR_INTERFACE_SAFETY.connectedToRuntime, false, "collector interface must not connect to runtime");
+  assert.equal(COLLECTOR_INTERFACE_SAFETY.connectedToAI, false, "collector interface must not connect to AI");
+  assert.equal(isCollectorActionAllowed(contract, "list_deploys"), true, "collector interface should allow configured read action");
+  assert.equal(isCollectorActionAllowed(contract, "delete_service"), false, "collector interface must reject mutating action");
+  assert.equal(clampCollectorLimit(9999, contract.limits), 100, "collector limit should clamp to max");
+  assert.equal(clampCollectorLimit("bad", contract.limits), 25, "collector limit should fallback to default");
+
+  const allowedValidation = validateCollectorAction(contract, "get_status");
+  assert.equal(allowedValidation.ok, true, "allowed collector action should validate");
+  assert.equal(allowedValidation.canChangeState, false, "validation must not change state");
+  assert.equal(allowedValidation.tokensSpent, false, "validation must not spend tokens");
+  assert.equal(allowedValidation.safety.executesRequests, false, "validation must not execute requests");
+
+  const deniedValidation = validateCollectorAction(contract, "delete_service");
+  assert.equal(deniedValidation.ok, false, "mutating collector action must be denied");
+  assert.match(deniedValidation.error, /collector_action_not_allowed/, "denied validation should explain why");
+
+  const plan = buildCollectorRequestPlan({
+    contract,
+    action: "get_latest_logs",
+    parameters: {
+      limit: 9999,
+      serviceId: "service-placeholder",
+    },
+    metadata: {
+      source: "smoke",
+    },
+  });
+
+  assert.equal(plan.ok, true, "collector request plan should be ok for allowed action");
+  assert.equal(plan.collectorId, "render-logs-collector", "collector request plan should preserve collector id");
+  assert.equal(plan.sourceType, "render", "collector request plan should preserve source type");
+  assert.equal(plan.parameters.limit, 100, "collector request plan should clamp limit");
+  assert.equal(plan.metadata.requestPlanOnly, true, "collector request plan must be plan-only");
+  assert.equal(plan.metadata.executesRequests, false, "collector request plan must not execute requests");
+  assert.equal(plan.metadata.connectedToNetwork, false, "collector request plan must not connect to network");
+  assert.equal(plan.metadata.connectedToRuntime, false, "collector request plan must not connect to runtime");
+  assert.equal(plan.metadata.connectedToAI, false, "collector request plan must not connect to AI");
+  assert.equal(plan.canChangeState, false, "collector request plan must not change state");
+  assert.equal(plan.tokensSpent, false, "collector request plan must not spend tokens");
+}
+
 function runAgentInventorySmoke() {
   const registry = new AgentRegistryService();
   const listResult = registry.listAgents();
@@ -299,6 +370,7 @@ runWorkspaceIoSmoke();
 runWorkspaceAgentsSmoke();
 runAgentRegistrySmoke();
 runAgentConfigRegistrySmoke();
+runCollectorInterfaceSmoke();
 runAgentInventorySmoke();
 
 console.log("SG 2.0 agents skeleton smoke: OK");

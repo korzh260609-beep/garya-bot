@@ -23,6 +23,10 @@ function normalizeRole(role) {
     : AGENT_APPROVAL_GATE_ROLES.unknown;
 }
 
+function hasApprovalCommand(value) {
+  return toSafeString(value).length > 0;
+}
+
 function hasFinalMozhno(value) {
   return toSafeString(value).toUpperCase() === "МОЖНО";
 }
@@ -47,7 +51,7 @@ function buildApprovalReasons({ actionPlan, requesterRole, approvalCommand }) {
     reasons.push("Only monarch role may provide final approval in the skeleton.");
   }
 
-  if (!hasFinalMozhno(approvalCommand)) {
+  if (hasApprovalCommand(approvalCommand) && !hasFinalMozhno(approvalCommand)) {
     reasons.push("Final approval command must be exactly МОЖНО.");
   }
 
@@ -55,16 +59,19 @@ function buildApprovalReasons({ actionPlan, requesterRole, approvalCommand }) {
 }
 
 export function buildAgentApprovalDecision({ actionPlan = null, requester = {}, approvalCommand = "", metadata = {} } = {}) {
-  const requesterRole = normalizeRole(requester.role);
+  const requesterRole = normalizeRole(requester?.role);
   const planStatus = toSafeString(actionPlan?.status, "unknown");
   const planType = toSafeString(actionPlan?.planType, "unknown");
   const suggestedAgentId = actionPlan?.suggestedAgentId || null;
   const suggestedAction = actionPlan?.suggestedAction || null;
+  const approvalCommandProvided = hasApprovalCommand(approvalCommand);
   const approvalGiven = hasFinalMozhno(approvalCommand);
   const validPlan = Boolean(actionPlan && typeof actionPlan === "object" && planStatus === "planned");
-  const monarchApproved = requesterRole === AGENT_APPROVAL_GATE_ROLES.monarch && approvalGiven;
+  const monarchRequester = requesterRole === AGENT_APPROVAL_GATE_ROLES.monarch;
+  const monarchApproved = monarchRequester && approvalGiven;
   const blockingReasons = buildApprovalReasons({ actionPlan, requesterRole, approvalCommand });
   const canApprovePlanOnly = Boolean(validPlan && monarchApproved && blockingReasons.length === 0);
+  const waitsForMonarchApproval = Boolean(validPlan && monarchRequester && !approvalCommandProvided && blockingReasons.length === 0);
 
   let status = AGENT_APPROVAL_GATE_STATUS.pendingApproval;
   let decision = AGENT_APPROVAL_GATE_DECISION.requireMonarchApproval;
@@ -75,6 +82,9 @@ export function buildAgentApprovalDecision({ actionPlan = null, requester = {}, 
   } else if (canApprovePlanOnly) {
     status = AGENT_APPROVAL_GATE_STATUS.approved;
     decision = AGENT_APPROVAL_GATE_DECISION.allowPlanOnly;
+  } else if (waitsForMonarchApproval) {
+    status = AGENT_APPROVAL_GATE_STATUS.pendingApproval;
+    decision = AGENT_APPROVAL_GATE_DECISION.requireMonarchApproval;
   } else if (blockingReasons.length > 0) {
     status = AGENT_APPROVAL_GATE_STATUS.blocked;
     decision = AGENT_APPROVAL_GATE_DECISION.blockExecution;
@@ -88,6 +98,7 @@ export function buildAgentApprovalDecision({ actionPlan = null, requester = {}, 
     suggestedAgentId,
     suggestedAction,
     requesterRole,
+    approvalCommandProvided,
     approvalGiven,
     approvedBy: canApprovePlanOnly ? requesterRole : null,
     executionAllowed: false,

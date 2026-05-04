@@ -6,11 +6,10 @@
 import { handleMessage } from "../../core/handleMessage.js";
 import { sendTelegramReply } from "../../delivery/telegramDelivery.js";
 
-let attached = false;
-
 export class TelegramAdapter {
   constructor({ bot } = {}) {
     this.bot = bot || null;
+    this.attached = false;
   }
 
   toContext(message) {
@@ -34,7 +33,7 @@ export class TelegramAdapter {
   }
 
   attach() {
-    if (attached) {
+    if (this.attached) {
       console.warn("TelegramAdapter already attached. Skipping duplicate attach.");
       return;
     }
@@ -48,14 +47,14 @@ export class TelegramAdapter {
 
       try {
         const result = await handleMessage(context);
-        await this.reply(context, result?.reply || "СГ не смог сформировать ответ.");
+        await this.reply(context, result?.reply || "Я не смог сформировать ответ.");
       } catch (error) {
         console.error("TelegramAdapter message handling failed:", error?.message || String(error));
-        await this.reply(context, "СГ столкнулся с ошибкой обработки. Нужно проверить конфигурацию и логи.");
+        await this.reply(context, "Я не смог обработать сообщение. Нужно проверить внутреннее состояние SG.");
       }
     });
 
-    attached = true;
+    this.attached = true;
     console.log("TelegramAdapter attached for SG 2.0.");
   }
 }

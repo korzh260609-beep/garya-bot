@@ -90,7 +90,7 @@ export function requireEnv(key) {
 }
 
 export function getTelegramBotToken() {
-  return envFirst(["BOT_TOKEN", "TELEGRAM_BOT_TOKEN"], "").trim();
+  return envFirst(["TELEGRAM_BOT_TOKEN", "BOT_TOKEN"], "").trim();
 }
 
 export function getPublicBaseUrl() {

@@ -17,6 +17,21 @@ function jsonStringify(value) {
   }
 }
 
+function parseJsonObject(value, fallback = {}) {
+  if (!value) return fallback;
+
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function normalizeMethod(method) {
   return String(method || "GET").trim().toUpperCase();
 }
@@ -72,9 +87,12 @@ async function readResponse(response) {
   }
 }
 
-export async function githubRequest({ method = "GET", path = "", query = {}, body = null, headers = {} } = {}) {
-  const normalizedMethod = normalizeMethod(method);
-  const normalizedPath = normalizePath(path);
+export async function githubRequest(input = {}) {
+  const normalizedMethod = normalizeMethod(input.method);
+  const normalizedPath = normalizePath(input.path);
+  const query = parseJsonObject(input.queryJson ?? input.query, {});
+  const body = parseJsonObject(input.bodyJson ?? input.body, null);
+  const headers = parseJsonObject(input.headersJson ?? input.headers, {});
 
   if (!normalizedPath) {
     return {

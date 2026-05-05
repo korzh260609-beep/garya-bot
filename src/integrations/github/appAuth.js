@@ -4,7 +4,7 @@
 // Secret env values must stay only in Render.
 
 import crypto from "crypto";
-import { requireEnv } from "../../config/env.js";
+import { envStr, requireEnv } from "../../config/env.js";
 
 let cached = null;
 let cachedUntil = 0;
@@ -18,12 +18,25 @@ function b64url(value) {
 }
 
 function normalizePem(value) {
-  return String(value || "").replace(/\\n/g, "\n").trim();
+  return String(value || "")
+    .replace(/^['\"]|['\"]$/g, "")
+    .replace(/\\n/g, "\n")
+    .trim();
+}
+
+function getPrivateKeyPem() {
+  const base64Key = envStr("GITHUB_APP_PRIVATE_KEY_BASE64", "").trim();
+
+  if (base64Key) {
+    return Buffer.from(base64Key, "base64").toString("utf8").trim();
+  }
+
+  return normalizePem(requireEnv("GITHUB_APP_PRIVATE_KEY"));
 }
 
 function appJwt() {
   const appId = requireEnv("GITHUB_APP_ID");
-  const pem = normalizePem(requireEnv("GITHUB_APP_PRIVATE_KEY"));
+  const pem = getPrivateKeyPem();
   const iat = Math.floor(Date.now() / 1000) - 60;
   const exp = iat + 540;
   const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));

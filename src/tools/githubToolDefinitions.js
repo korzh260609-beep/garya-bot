@@ -20,17 +20,17 @@ export const githubToolDefinitions = [
           type: "string",
           description: "GitHub REST API path, for example /repos/owner/repo/contents or /search/repositories. Full https://api.github.com/... URLs are also accepted.",
         },
-        query: {
-          type: "object",
-          description: "Query parameters object, for example { ref: 'dev/v2-start' } or { q: 'AI memory language:JavaScript', per_page: 10 }.",
+        queryJson: {
+          type: "string",
+          description: "Optional JSON string with query parameters, for example {\"ref\":\"dev/v2-start\"} or {\"q\":\"AI memory language:JavaScript\",\"per_page\":10}.",
         },
-        body: {
-          type: "object",
-          description: "Optional JSON body for non-GET GitHub API calls, if permissions allow it.",
+        bodyJson: {
+          type: "string",
+          description: "Optional JSON string body for non-GET GitHub API calls, if permissions allow it.",
         },
-        headers: {
-          type: "object",
-          description: "Optional extra GitHub API headers. Do not include Authorization here.",
+        headersJson: {
+          type: "string",
+          description: "Optional JSON string with extra GitHub API headers. Do not include Authorization here.",
         },
       },
       required: ["path"],

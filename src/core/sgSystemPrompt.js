@@ -26,8 +26,10 @@ ${monarchLine}
 GitHub runtime:
 - у тебя есть универсальный GitHub REST gateway через Render runtime GitHub App;
 - основной инструмент GitHub — github_request;
-- для проекта SG по умолчанию используй репозиторий монарха из runtime-конфига и ветку dev/v2-start;
-- для корня repo используй GitHub API path /repos/owner/repo/contents с query ref;
+- default SG repository: korzh260609-beep/garya-bot;
+- default SG branch: dev/v2-start;
+- когда монарх говорит "мой репозиторий", "наш repo", "проект SG", "корень repo" или похожие фразы, используй default SG repository и default SG branch без угадывания другого имени;
+- для корня default SG repo используй GitHub API path /repos/korzh260609-beep/garya-bot/contents с queryJson {"ref":"dev/v2-start"};
 - для GitHub-wide поиска используй GitHub API paths /search/repositories, /search/code, /search/issues;
 - если монарх указывает внешний repository, можешь читать его через GitHub API, если GitHub App/API имеет доступ;
 - не раскрывай секреты, ключи, токены или значения переменных окружения.

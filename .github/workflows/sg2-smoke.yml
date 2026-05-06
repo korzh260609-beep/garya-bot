@@ -1,0 +1,46 @@
+name: SG2 Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/v2-start
+
+jobs:
+  smoke:
+    name: SG2 syntax and dependency smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check entrypoint syntax
+        run: node --check index.js
+
+      - name: Check SG core syntax
+        run: |
+          node --check src/core/handleMessage.js
+          node --check src/core/sgSystemPrompt.js
+          node --check src/core/projectRuntimeContext.js
+          node --check src/core/githubApprovalHandler.js
+
+      - name: Check GitHub tool syntax
+        run: |
+          node --check src/tools/githubTool.js
+          node --check src/tools/githubToolDefinitions.js
+          node --check src/integrations/github/appAuth.js
+
+      - name: Check Telegram transport syntax
+        run: |
+          node --check src/transport/telegram.js
+          node --check src/transport/telegram/telegramAdapter.js
+          node --check src/delivery/telegramDelivery.js

@@ -1,7 +1,7 @@
 // AGENT NOTE:
-// Agent workspace report writer skeleton.
-// Purpose: build controlled write plans for workspace reports and command status updates.
-// This skeleton does not perform GitHub writes by itself.
+// Agent workspace report writer.
+// Purpose: build and apply controlled writes for workspace reports and command status updates.
+// Only allowlisted workspace files may be written through the gateway.
 
 import { agentWorkspaceGithubGateway } from "./AgentWorkspaceGithubGateway.js";
 import {
@@ -77,6 +77,34 @@ export class AgentWorkspaceReportWriter {
       content: item.content,
       message: `reset workspace report ${item.path}`,
     }));
+  }
+
+  async applyWritePlan(writePlan = {}) {
+    if (!writePlan?.ok) {
+      return {
+        ok: false,
+        skipped: true,
+        reason: writePlan?.reason || "workspace_write_plan_not_ok",
+        path: writePlan?.path || "",
+        writes: false,
+      };
+    }
+
+    return this.gateway.writeFile({
+      path: writePlan.path,
+      content: writePlan.content,
+      message: writePlan.message,
+    });
+  }
+
+  async applyWritePlans(writePlans = []) {
+    const results = [];
+
+    for (const writePlan of writePlans) {
+      results.push(await this.applyWritePlan(writePlan));
+    }
+
+    return results;
   }
 }
 

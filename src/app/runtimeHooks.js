@@ -3,19 +3,10 @@
 // Purpose: start optional runtime hooks without bloating index.js or app factory.
 // Do not add routes, Telegram handlers, AI calls, DB calls, or GitHub writes here.
 
-import { startAgentWorkspaceRuntime } from "../agents/shared/workspace/index.js";
-
-export function startRuntimeHooks({ logger = console } = {}) {
-  const agentWorkspaceRuntime = startAgentWorkspaceRuntime({ logger });
-
+export function startRuntimeHooks() {
   return {
     ok: true,
-    agentWorkspaceRuntime,
     stop() {
-      if (typeof agentWorkspaceRuntime?.stop === "function") {
-        return agentWorkspaceRuntime.stop();
-      }
-
       return {
         ok: true,
         stopped: false,

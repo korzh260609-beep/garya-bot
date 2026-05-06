@@ -1,16 +1,9 @@
 // AGENT NOTE:
 // SG 2.0 health HTTP route module.
-// Purpose: keep health response shape separate from server startup.
+// Purpose: keep /health route wiring separate from health status building.
 // Do not add Telegram, AI, memory, tasks, sources, permissions, or GitHub write logic here.
 
-export function buildHealthStatus({ telegramBot } = {}) {
-  return {
-    ok: true,
-    service: "sg2-foundation",
-    status: "healthy",
-    telegram: Boolean(telegramBot),
-  };
-}
+import { buildHealthStatus } from "./healthStatus.js";
 
 export function attachHealthRoutes(app, { telegramBot } = {}) {
   app.get("/health", (req, res) => {

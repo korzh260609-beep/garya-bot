@@ -192,6 +192,114 @@ async function readResponse(response) {
   }
 }
 
+function getShortAction(method) {
+  if (method === "PUT") return "создать/обновить файл";
+  if (method === "DELETE") return "удалить файл";
+  if (method === "POST") return "создать объект/запись";
+  if (method === "PATCH") return "изменить объект/запись";
+  return method;
+}
+
+function buildSpecificImpact(summary = {}) {
+  const target = String(summary.target || "").trim();
+  const lowerTarget = target.toLowerCase();
+  const method = String(summary.method || "").toUpperCase();
+  const actionWord = method === "DELETE" ? "удалит" : lowerTarget ? "изменит/создаст" : "изменит";
+
+  if (!target || target.startsWith("/")) {
+    return ["может изменить данные GitHub по указанному API-запросу."];
+  }
+
+  if (lowerTarget === "package.json" || lowerTarget === "package-lock.json") {
+    return [
+      `${actionWord} файл зависимостей/запуска проекта;`,
+      "может повлиять на установку пакетов, старт SG и Render deploy.",
+    ];
+  }
+
+  if (lowerTarget === "index.js") {
+    return [
+      `${actionWord} главный стартовый файл;`,
+      "может повлиять на запуск сервера SG и health/webhook routes.",
+    ];
+  }
+
+  if (lowerTarget.startsWith("src/core/")) {
+    return [
+      `${actionWord} core-логику SG;`,
+      "может повлиять на обработку сообщений и поведение Советника.",
+    ];
+  }
+
+  if (lowerTarget.startsWith("src/ai/")) {
+    return [
+      `${actionWord} AI-слой;`,
+      "может повлиять на ответы модели, tool-вызовы и расход токенов.",
+    ];
+  }
+
+  if (lowerTarget.startsWith("src/tools/")) {
+    return [
+      `${actionWord} tool-слой;`,
+      "может повлиять на работу подключённых инструментов, включая GitHub.",
+    ];
+  }
+
+  if (lowerTarget.startsWith("src/transport/") || lowerTarget.startsWith("src/delivery/")) {
+    return [
+      `${actionWord} Telegram/transport-слой;`,
+      "может повлиять на получение сообщений, кнопки и отправку ответов.",
+    ];
+  }
+
+  if (lowerTarget.startsWith("src/integrations/github/")) {
+    return [
+      `${actionWord} GitHub-интеграцию;`,
+      "может повлиять на авторизацию GitHub App и доступ к repo.",
+    ];
+  }
+
+  if (lowerTarget.startsWith("src/config/") || lowerTarget.endsWith(".env.example")) {
+    return [
+      `${actionWord} конфигурационный файл;`,
+      "может повлиять на runtime-настройки после deploy.",
+    ];
+  }
+
+  if (lowerTarget.startsWith(".github/workflows/")) {
+    return [
+      `${actionWord} GitHub Actions workflow;`,
+      "может повлиять на автоматические проверки и CI/CD.",
+    ];
+  }
+
+  if (lowerTarget.startsWith("docs/") || lowerTarget.endsWith(".md")) {
+    return [
+      `${actionWord} документацию;`,
+      "на runtime SG обычно не влияет.",
+    ];
+  }
+
+  if (lowerTarget.startsWith("pillars/")) {
+    return [
+      `${actionWord} файл Pillars/законов проекта;`,
+      "может повлиять на проектные правила и будущую память SG, но не на текущий runtime напрямую.",
+    ];
+  }
+
+  if (lowerTarget.startsWith("test-") || lowerTarget.endsWith(".txt")) {
+    return [
+      `${actionWord} обычный текстовый/тестовый файл;`,
+      "на работу SG и Render не влияет.",
+    ];
+  }
+
+  return [
+    `${actionWord} файл в репозитории;`,
+    "влияние зависит от того, используется ли этот файл в runtime или deploy.",
+  ];
+}
+
 function summarizeGitHubWriteRequest({ method, path, query, body }) {
   const currentBranch = getCurrentProjectBranch();
   const contentsMatch = path.match(/^\/repos\/([^/]+\/[^/]+)\/contents\/?(.*)$/);
@@ -204,11 +312,10 @@ function summarizeGitHubWriteRequest({ method, path, query, body }) {
   let action = `${method} ${path}`;
 
   if (contentsMatch) {
-    if (method === "PUT") action = "create/update file through GitHub contents API";
-    if (method === "DELETE") action = "delete file through GitHub contents API";
+    action = getShortAction(method);
   }
 
-  return {
+  const summary = {
     repo,
     branch,
     action,
@@ -217,33 +324,32 @@ function summarizeGitHubWriteRequest({ method, path, query, body }) {
     path,
     query,
     body_keys: bodyKeys,
-    possible_impact: [
-      "repository files or metadata may change",
-      "Render deployment may be affected if runtime files are changed",
-      "future SG behavior may change if core files are changed",
-    ],
+  };
+
+  return {
+    ...summary,
+    possible_impact: buildSpecificImpact(summary),
   };
 }
 
-function buildApprovalWarning({ approvalId, summary, requestHash }) {
+function buildApprovalWarning({ approvalId, summary }) {
+  const impactLines = Array.isArray(summary.possible_impact) && summary.possible_impact.length
+    ? summary.possible_impact.map((item) => `- ${item}`)
+    : ["- влияние не определено."];
+
   return [
-    "⚠️ Работа с GitHub-репозиторием подготовлена, но НЕ выполнена.",
+    "⚠️ Подтвердить GitHub-действие?",
     "",
-    `approval: ${approvalId}`,
-    `request_hash: ${requestHash}`,
     `repo: ${summary.repo}`,
     `branch: ${summary.branch}`,
-    `action: ${summary.action}`,
-    `target: ${summary.target}`,
+    `действие: ${summary.action}`,
+    `файл: ${summary.target}`,
     "",
-    "На что может повлиять:",
-    "- файлы или метаданные репозитория могут измениться;",
-    "- если меняются runtime-файлы, может измениться поведение SG;",
-    "- если меняются deploy-файлы, может измениться Render-запуск.",
+    "Влияние:",
+    ...impactLines,
     "",
-    "Выбери действие кнопкой ниже.",
-    "Резервный вариант для выполнения:",
-    `МОЖНО ${approvalId}`,
+    "Подтверди или отмени кнопкой ниже.",
+    `id: ${approvalId}`,
   ].join("\n");
 }
 

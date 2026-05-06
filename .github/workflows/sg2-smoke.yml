@@ -34,6 +34,18 @@ jobs:
           node --check src/core/projectRuntimeContext.js
           node --check src/core/githubApprovalHandler.js
 
+      - name: Check SG prompt syntax
+        run: |
+          node --check src/core/prompt/promptIdentity.js
+          node --check src/core/prompt/promptBehaviorRules.js
+          node --check src/core/prompt/promptLanguageRules.js
+          node --check src/core/prompt/promptRuntimeContext.js
+          node --check src/core/prompt/promptGithubRuntime.js
+          node --check src/core/prompt/promptGithubWritePolicy.js
+          node --check src/core/prompt/promptGithubOutputFormat.js
+          node --check src/core/prompt/promptRuntimeStatus.js
+          node --check src/core/prompt/index.js
+
       - name: Check GitHub tool syntax
         run: |
           node --check src/tools/githubTool.js

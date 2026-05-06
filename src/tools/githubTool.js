@@ -241,7 +241,8 @@ function buildApprovalWarning({ approvalId, summary, requestHash }) {
     "- если меняются runtime-файлы, может измениться поведение SG;",
     "- если меняются deploy-файлы, может измениться Render-запуск.",
     "",
-    "Для выполнения напиши строго:",
+    "Выбери действие кнопкой ниже.",
+    "Резервный вариант для выполнения:",
     `МОЖНО ${approvalId}`,
   ].join("\n");
 }
@@ -432,6 +433,66 @@ export async function executePendingGithubApproval(approvalId, context = {}) {
     request_hash: pending.requestHash,
     requires_approval: false,
     executed: true,
+    summary: pending.summary,
+  };
+}
+
+export function cancelPendingGithubApproval(approvalId, context = {}) {
+  cleanupExpiredApprovals();
+
+  const normalizedApprovalId = String(approvalId || "").trim().toUpperCase();
+
+  if (!normalizedApprovalId) {
+    return {
+      ok: false,
+      status: 400,
+      executed: false,
+      error: "GitHub approval id is required.",
+    };
+  }
+
+  if (!context?.isMonarch) {
+    return {
+      ok: false,
+      status: 403,
+      approval_id: normalizedApprovalId,
+      executed: false,
+      error: "Only the Monarch can cancel GitHub write approvals.",
+    };
+  }
+
+  const pending = pendingWriteApprovals.get(normalizedApprovalId);
+
+  if (!pending) {
+    return {
+      ok: false,
+      status: 404,
+      approval_id: normalizedApprovalId,
+      executed: false,
+      error: "GitHub write approval was not found or expired.",
+    };
+  }
+
+  const userId = context.userId ? String(context.userId) : "unknown";
+
+  if (pending.userId !== userId) {
+    return {
+      ok: false,
+      status: 403,
+      approval_id: normalizedApprovalId,
+      executed: false,
+      error: "GitHub write approval belongs to another user/session.",
+    };
+  }
+
+  pendingWriteApprovals.delete(normalizedApprovalId);
+
+  return {
+    ok: true,
+    status: 200,
+    approval_id: normalizedApprovalId,
+    executed: false,
+    cancelled: true,
     summary: pending.summary,
   };
 }

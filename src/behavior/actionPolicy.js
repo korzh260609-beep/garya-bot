@@ -37,7 +37,8 @@ export function evaluateActionPolicy({ actionType, identity = {}, hasApproval = 
     missing.push("explicit_approval");
   }
 
-  const allowed = policy.defaultAllowed && missing.length === 0;
+  const requirementsMet = missing.length === 0;
+  const allowed = requirementsMet && (policy.defaultAllowed || policy.requiresApproval);
 
   return {
     ok: allowed,

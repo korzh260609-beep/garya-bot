@@ -1,10 +1,11 @@
 // AGENT NOTE:
 // Agent workspace command runner skeleton.
-// Purpose: validate and route parsed workspace commands without performing I/O.
+// Purpose: validate and route parsed workspace commands and build write plans without performing I/O.
 // This skeleton does not read GitHub, write GitHub, call Render API, call AI, or connect runtime.
 
 import { parseAgentWorkspaceCommand } from "./AgentWorkspaceCommandParser.js";
 import { buildAgentWorkspaceCleanupPlan } from "./AgentWorkspaceCleaner.js";
+import { agentWorkspaceReportWriter } from "./AgentWorkspaceReportWriter.js";
 import { diagnosticsRenderAgentService } from "../../runtime-diagnostics/diagnostics-render-agent/DiagnosticsRenderAgentService.js";
 
 function buildSkippedResult({ command, reason }) {
@@ -20,7 +21,15 @@ function buildSkippedResult({ command, reason }) {
   };
 }
 
-function buildFailedResult({ command, reason }) {
+function buildFailedResult({ command, reason, reportWriter = agentWorkspaceReportWriter }) {
+  const commandFailedWritePlan = command?.commandId && command.commandId !== "NONE"
+    ? reportWriter.buildCommandStatusWritePlan({
+        command,
+        status: "FAILED",
+        resultText: `Command failed before execution: ${reason}`,
+      })
+    : null;
+
   return {
     ok: false,
     skipped: false,
@@ -30,6 +39,7 @@ function buildFailedResult({ command, reason }) {
     action: command?.action || "NONE",
     writes: false,
     renderReads: false,
+    commandFailedWritePlan,
   };
 }
 
@@ -44,9 +54,27 @@ function buildPendingCommandInput(command = {}) {
   };
 }
 
+function buildResultText({ action, command, agentResult }) {
+  return [
+    `Action routed by skeleton: ${action}`,
+    `Command ID: ${command.commandId || "NONE"}`,
+    `Task ID: ${command.taskId || "manual"}`,
+    `Workflow point: ${command.workflowPoint || "-"}`,
+    `Agent: ${agentResult?.agent || "-"}`,
+    `Agent mode: ${agentResult?.mode || "-"}`,
+    `Render reads: ${agentResult?.renderReads === true ? "yes" : "no"}`,
+    `GitHub writes: no`,
+    `Summary: ${agentResult?.summary || "-"}`,
+  ].join("\n");
+}
+
 export class AgentWorkspaceCommandRunner {
-  constructor({ renderAgent = diagnosticsRenderAgentService } = {}) {
+  constructor({
+    renderAgent = diagnosticsRenderAgentService,
+    reportWriter = agentWorkspaceReportWriter,
+  } = {}) {
     this.renderAgent = renderAgent;
+    this.reportWriter = reportWriter;
   }
 
   async executeParsedCommand(command = {}) {
@@ -54,6 +82,7 @@ export class AgentWorkspaceCommandRunner {
       return buildFailedResult({
         command,
         reason: "workspace_command_status_not_allowed",
+        reportWriter: this.reportWriter,
       });
     }
 
@@ -68,6 +97,7 @@ export class AgentWorkspaceCommandRunner {
       return buildFailedResult({
         command,
         reason: "workspace_command_id_missing",
+        reportWriter: this.reportWriter,
       });
     }
 
@@ -75,6 +105,7 @@ export class AgentWorkspaceCommandRunner {
       return buildFailedResult({
         command,
         reason: "workspace_command_action_not_allowed",
+        reportWriter: this.reportWriter,
       });
     }
 
@@ -82,6 +113,12 @@ export class AgentWorkspaceCommandRunner {
     const cleanupPlan = buildAgentWorkspaceCleanupPlan({
       taskId: command.taskId,
       reason: "reset_before_command_run",
+    });
+    const cleanupWritePlans = this.reportWriter.buildCleanupWritePlans(cleanupPlan);
+    const commandRunningWritePlan = this.reportWriter.buildCommandStatusWritePlan({
+      command,
+      status: "RUNNING",
+      resultText: "Command accepted by AgentWorkspaceCommandRunner skeleton. Runtime I/O is not connected yet.",
     });
 
     let agentResult;
@@ -98,8 +135,21 @@ export class AgentWorkspaceCommandRunner {
       return buildFailedResult({
         command,
         reason: "workspace_command_action_not_supported_by_skeleton",
+        reportWriter: this.reportWriter,
       });
     }
+
+    const finalStatus = agentResult?.ok === false ? "FAILED" : "DONE";
+    const resultText = buildResultText({
+      action: command.action,
+      command,
+      agentResult,
+    });
+    const commandFinalWritePlan = this.reportWriter.buildCommandStatusWritePlan({
+      command,
+      status: finalStatus,
+      resultText,
+    });
 
     return {
       ok: agentResult?.ok !== false,
@@ -112,8 +162,11 @@ export class AgentWorkspaceCommandRunner {
       writes: false,
       renderReads: false,
       cleanupPlan,
+      cleanupWritePlans,
+      commandRunningWritePlan,
+      commandFinalWritePlan,
       agentResult,
-      summary: "Workspace command runner skeleton validated and routed command without runtime I/O.",
+      summary: "Workspace command runner skeleton validated command, routed it, and built write plans without runtime I/O.",
     };
   }
 

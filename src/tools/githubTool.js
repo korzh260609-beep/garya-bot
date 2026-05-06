@@ -8,60 +8,18 @@ import crypto from "crypto";
 import { evaluateActionPolicy } from "../behavior/actionPolicy.js";
 import { SG_ACTION_TYPES } from "../behavior/actionTypes.js";
 import { envStr } from "../config/env.js";
-import { getGitHubAppAccess } from "../integrations/github/appAuth.js";
-import { formatGitHubActionsResult } from "./githubActionsFormatter.js";
+import {
+  executeGitHubApiRequest,
+  isWriteMethod,
+  jsonStringify,
+  normalizeMethod,
+  normalizePath,
+  parseJsonObject,
+} from "./github/index.js";
 
-const GITHUB_API_BASE = "https://api.github.com";
-const DEFAULT_TIMEOUT_MS = 15000;
 const APPROVAL_TTL_MS = 10 * 60 * 1000;
 
 const pendingWriteApprovals = new Map();
-
-function jsonStringify(value) {
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return JSON.stringify({ ok: false, error: "Failed to stringify GitHub tool result." });
-  }
-}
-
-function parseJsonObject(value, fallback = {}) {
-  if (!value) return fallback;
-
-  if (typeof value === "object" && !Array.isArray(value)) {
-    return value;
-  }
-
-  try {
-    const parsed = JSON.parse(String(value));
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeMethod(method) {
-  return String(method || "GET").trim().toUpperCase();
-}
-
-function normalizePath(path) {
-  const raw = String(path || "").trim();
-  if (!raw) return "";
-
-  if (raw.startsWith("https://api.github.com/")) {
-    return raw.slice("https://api.github.com".length);
-  }
-
-  if (raw.startsWith("api.github.com/")) {
-    return raw.slice("api.github.com".length);
-  }
-
-  return raw.startsWith("/") ? raw : `/${raw}`;
-}
-
-function isWriteMethod(method) {
-  return !["GET", "HEAD"].includes(normalizeMethod(method));
-}
 
 function cleanupExpiredApprovals() {
   const now = Date.now();
@@ -157,42 +115,6 @@ function applyCurrentProjectWriteDefaults({ method, path, body }) {
   }
 
   return body;
-}
-
-function appendQuery(url, query = {}) {
-  if (!query || typeof query !== "object" || Array.isArray(query)) return url;
-
-  const params = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(query)) {
-    if (value === undefined || value === null) continue;
-
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        if (item !== undefined && item !== null) params.append(key, String(item));
-      }
-      continue;
-    }
-
-    params.set(key, String(value));
-  }
-
-  const qs = params.toString();
-  if (!qs) return url;
-
-  return url.includes("?") ? `${url}&${qs}` : `${url}?${qs}`;
-}
-
-async function readResponse(response) {
-  const text = await response.text();
-
-  if (!text) return null;
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
 }
 
 function getShortAction(method) {
@@ -327,57 +249,6 @@ function evaluateGitHubWritePolicy({ context = {}, hasApproval = false }) {
     hasSource: true,
     hasPlan: true,
   });
-}
-
-async function executeGitHubApiRequest({ method, path, query, body, headers }) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-  const url = appendQuery(`${GITHUB_API_BASE}${path}`, query);
-
-  try {
-    const token = await getGitHubAppAccess();
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "sg2-free-github-gateway",
-        ...(headers && typeof headers === "object" && !Array.isArray(headers) ? headers : {}),
-      },
-      body: body === null || body === undefined ? undefined : JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    const data = await readResponse(response);
-    const formatted = formatGitHubActionsResult({ method, path, query, data });
-
-    return {
-      ok: response.ok,
-      status: response.status,
-      method,
-      path,
-      query,
-      data,
-      formatted,
-      error: response.ok
-        ? null
-        : typeof data === "object" && data?.message
-          ? data.message
-          : `GitHub API HTTP ${response.status}`,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      method,
-      path,
-      query,
-      error: error?.name === "AbortError" ? "GitHub request timed out." : String(error?.message || error),
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 function prepareGithubWriteApproval({ method, path, query, body, headers, approvalContext }, context = {}) {

@@ -35,6 +35,7 @@ jobs:
           node --check src/app/rootRoutes.js
           node --check src/app/rootStatus.js
           node --check src/app/runtimeStatusPresenter.js
+          node --check src/app/runtimeHooks.js
           node --check src/app/serverStartup.js
           node --check src/app/index.js
 
@@ -128,6 +129,7 @@ jobs:
           node --check src/agents/shared/workspace/AgentWorkspaceCommandRunner.js
           node --check src/agents/shared/workspace/AgentWorkspaceGithubGateway.js
           node --check src/agents/shared/workspace/AgentWorkspaceReportWriter.js
+          node --check src/agents/shared/workspace/AgentWorkspaceRuntime.js
           node --check src/agents/shared/workspace/index.js
 
       - name: Check Telegram transport syntax

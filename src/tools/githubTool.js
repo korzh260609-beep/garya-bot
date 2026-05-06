@@ -9,27 +9,20 @@ import { evaluateActionPolicy } from "../behavior/actionPolicy.js";
 import { SG_ACTION_TYPES } from "../behavior/actionTypes.js";
 import { envStr } from "../config/env.js";
 import {
+  cleanupExpiredGithubApprovals,
+  deletePendingGithubApproval,
   executeGitHubApiRequest,
+  getPendingGithubApproval,
   isWriteMethod,
   jsonStringify,
+  listPendingGithubApprovals,
   normalizeMethod,
   normalizePath,
   parseJsonObject,
+  setPendingGithubApproval,
 } from "./github/index.js";
 
 const APPROVAL_TTL_MS = 10 * 60 * 1000;
-
-const pendingWriteApprovals = new Map();
-
-function cleanupExpiredApprovals() {
-  const now = Date.now();
-
-  for (const [approvalId, pending] of pendingWriteApprovals.entries()) {
-    if (!pending?.expiresAt || pending.expiresAt <= now) {
-      pendingWriteApprovals.delete(approvalId);
-    }
-  }
-}
 
 function stableValue(value) {
   if (Array.isArray(value)) {
@@ -252,7 +245,7 @@ function evaluateGitHubWritePolicy({ context = {}, hasApproval = false }) {
 }
 
 function prepareGithubWriteApproval({ method, path, query, body, headers, approvalContext }, context = {}) {
-  cleanupExpiredApprovals();
+  cleanupExpiredGithubApprovals();
 
   const policyCheck = evaluateGitHubWritePolicy({ context, hasApproval: false });
 
@@ -288,7 +281,7 @@ function prepareGithubWriteApproval({ method, path, query, body, headers, approv
   const requestHash = hashGitHubRequest(request);
   const userId = context.userId ? String(context.userId) : "unknown";
 
-  for (const [existingId, pending] of pendingWriteApprovals.entries()) {
+  for (const [existingId, pending] of listPendingGithubApprovals()) {
     if (pending.requestHash === requestHash && pending.userId === userId) {
       const warning = buildApprovalWarning({
         approvalId: existingId,
@@ -319,7 +312,7 @@ function prepareGithubWriteApproval({ method, path, query, body, headers, approv
   const summary = summarizeGitHubWriteRequest({ method, path, query, body, approvalContext });
   const expiresAt = Date.now() + APPROVAL_TTL_MS;
 
-  pendingWriteApprovals.set(approvalId, {
+  setPendingGithubApproval(approvalId, {
     approvalId,
     userId,
     request,
@@ -350,7 +343,7 @@ function prepareGithubWriteApproval({ method, path, query, body, headers, approv
 }
 
 export async function executePendingGithubApproval(approvalId, context = {}) {
-  cleanupExpiredApprovals();
+  cleanupExpiredGithubApprovals();
 
   const normalizedApprovalId = String(approvalId || "").trim().toUpperCase();
 
@@ -363,7 +356,7 @@ export async function executePendingGithubApproval(approvalId, context = {}) {
     };
   }
 
-  const pending = pendingWriteApprovals.get(normalizedApprovalId);
+  const pending = getPendingGithubApproval(normalizedApprovalId);
 
   if (!pending) {
     return {
@@ -400,7 +393,7 @@ export async function executePendingGithubApproval(approvalId, context = {}) {
     };
   }
 
-  pendingWriteApprovals.delete(normalizedApprovalId);
+  deletePendingGithubApproval(normalizedApprovalId);
 
   const result = await executeGitHubApiRequest(pending.request);
 
@@ -416,7 +409,7 @@ export async function executePendingGithubApproval(approvalId, context = {}) {
 }
 
 export function cancelPendingGithubApproval(approvalId, context = {}) {
-  cleanupExpiredApprovals();
+  cleanupExpiredGithubApprovals();
 
   const normalizedApprovalId = String(approvalId || "").trim().toUpperCase();
 
@@ -439,7 +432,7 @@ export function cancelPendingGithubApproval(approvalId, context = {}) {
     };
   }
 
-  const pending = pendingWriteApprovals.get(normalizedApprovalId);
+  const pending = getPendingGithubApproval(normalizedApprovalId);
 
   if (!pending) {
     return {
@@ -463,7 +456,7 @@ export function cancelPendingGithubApproval(approvalId, context = {}) {
     };
   }
 
-  pendingWriteApprovals.delete(normalizedApprovalId);
+  deletePendingGithubApproval(normalizedApprovalId);
 
   return {
     ok: true,

@@ -4,12 +4,14 @@
 // This is intentionally a universal GitHub request gateway, not a set of narrow repo helpers.
 // Secret auth values must never be returned to the model, logs, Telegram, or tool payloads.
 
-import { envStr } from "../config/env.js";
 import {
+  applyCurrentProjectDefaults,
+  applyCurrentProjectWriteDefaults,
+  cancelPendingGithubApproval,
   executeGitHubApiRequest,
   executePendingGithubApproval,
-  cancelPendingGithubApproval,
   extractGithubApprovalId,
+  getCurrentProjectBranch,
   isWriteMethod,
   jsonStringify,
   normalizeMethod,
@@ -20,55 +22,6 @@ import {
 } from "./github/index.js";
 
 export { cancelPendingGithubApproval, executePendingGithubApproval, extractGithubApprovalId };
-
-function getCurrentProjectRepository() {
-  return envStr("GITHUB_REPO", "korzh260609-beep/garya-bot").trim();
-}
-
-function getCurrentProjectBranch() {
-  return envStr("GITHUB_BRANCH", "dev/v2-start").trim();
-}
-
-function applyCurrentProjectDefaults({ method, path, query }) {
-  const repository = getCurrentProjectRepository();
-  const branch = getCurrentProjectBranch();
-
-  if (!repository || !branch) return query;
-  if (method !== "GET") return query;
-  if (query?.ref) return query;
-
-  const contentsPath = `/repos/${repository}/contents`;
-
-  if (path === contentsPath || path.startsWith(`${contentsPath}/`)) {
-    return {
-      ...query,
-      ref: branch,
-    };
-  }
-
-  return query;
-}
-
-function applyCurrentProjectWriteDefaults({ method, path, body }) {
-  const repository = getCurrentProjectRepository();
-  const branch = getCurrentProjectBranch();
-
-  if (!repository || !branch) return body;
-  if (!isWriteMethod(method)) return body;
-  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
-  if (body.branch) return body;
-
-  const contentsPath = `/repos/${repository}/contents/`;
-
-  if (path.startsWith(contentsPath)) {
-    return {
-      ...body,
-      branch,
-    };
-  }
-
-  return body;
-}
 
 export async function githubRequest(input = {}, context = {}) {
   const normalizedMethod = normalizeMethod(input.method);

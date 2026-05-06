@@ -10,7 +10,7 @@ COMMAND_ID: `render-status-20260506-1105z`
 STATUS: `PENDING`
 ACTION: `COLLECT_RENDER_STATUS`
 TASK_ID: `manual-render-status-check`
-WORKFLOW_POINT: `Agent Workspace + DiagnosticsRenderAgent + Render integration skeleton`
+WORKFLOW_POINT: `Agent Workspace + RenderAgent + Render integration skeleton`
 DEPLOY_ID: `-`
 REQUIRES_COMMIT: `99dfde190ff79c174095ff44739e0e1590fec2b2`
 CREATED_BY: `MONARCH_GARY`
@@ -53,8 +53,9 @@ UPDATED_AT: `2026-05-06T11:05:00Z`
 - `FAILED`
 - `IGNORED`
 
-## Planned allowed actions
+## Allowed actions
 
+- `COLLECT_RENDER_ENV_STATUS`
 - `COLLECT_RENDER_LOGS`
 - `COLLECT_RENDER_DEPLOYS`
 - `COLLECT_RENDER_DEPLOY`
@@ -71,4 +72,5 @@ UPDATED_AT: `2026-05-06T11:05:00Z`
 
 Current SG 2.0 status:
 - command prepared;
-- runtime runner is not connected yet, so automatic execution may not occur until the runner is wired.
+- RenderAgent read-only command routing is connected through `AgentWorkspaceCommandRunner`;
+- runtime auto-execution may still be disabled until runtime hooks are explicitly wired/enabled.

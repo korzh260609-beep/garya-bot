@@ -5,13 +5,12 @@
 // Secret auth values must never be returned to the model, logs, Telegram, or tool payloads.
 
 import crypto from "crypto";
-import { evaluateActionPolicy } from "../behavior/actionPolicy.js";
-import { SG_ACTION_TYPES } from "../behavior/actionTypes.js";
 import { envStr } from "../config/env.js";
 import {
   buildApprovalWarning,
   cleanupExpiredGithubApprovals,
   deletePendingGithubApproval,
+  evaluateGitHubWritePolicy,
   executeGitHubApiRequest,
   getPendingGithubApproval,
   isWriteMethod,
@@ -111,25 +110,6 @@ function applyCurrentProjectWriteDefaults({ method, path, body }) {
   }
 
   return body;
-}
-
-function buildIdentityFromContext(context = {}) {
-  return {
-    isMonarch: Boolean(context.isMonarch),
-    role: context.role || "guest",
-    platformUserId: context.userId || null,
-    globalUserId: context.globalUserId || null,
-  };
-}
-
-function evaluateGitHubWritePolicy({ context = {}, hasApproval = false }) {
-  return evaluateActionPolicy({
-    actionType: SG_ACTION_TYPES.MODIFY_REPO,
-    identity: buildIdentityFromContext(context),
-    hasApproval,
-    hasSource: true,
-    hasPlan: true,
-  });
 }
 
 function prepareGithubWriteApproval({ method, path, query, body, headers, approvalContext }, context = {}) {

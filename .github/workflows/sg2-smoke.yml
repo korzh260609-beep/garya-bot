@@ -27,6 +27,14 @@ jobs:
       - name: Check entrypoint syntax
         run: node --check index.js
 
+      - name: Check app startup syntax
+        run: |
+          node --check src/app/appFactory.js
+          node --check src/app/healthRoutes.js
+          node --check src/app/rootRoutes.js
+          node --check src/app/serverStartup.js
+          node --check src/app/index.js
+
       - name: Check config syntax
         run: |
           node --check src/config/env.js

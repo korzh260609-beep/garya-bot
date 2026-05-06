@@ -109,6 +109,9 @@ jobs:
           node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
 
+      - name: Smoke GitHub Actions formatter
+        run: npm run smoke:github-actions-formatter
+
       - name: Check Render integration syntax
         run: |
           node --check src/integrations/render/RenderConfig.js

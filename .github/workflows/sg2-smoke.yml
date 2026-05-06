@@ -33,6 +33,7 @@ jobs:
       - name: Check app startup syntax
         run: |
           node --check src/app/appFactory.js
+          node --check src/app/agentWorkspaceRoutes.js
           node --check src/app/healthRoutes.js
           node --check src/app/healthStatus.js
           node --check src/app/rootRoutes.js

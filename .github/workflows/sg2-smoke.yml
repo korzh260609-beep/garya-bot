@@ -119,6 +119,8 @@ jobs:
           node --check src/agents/shared/workspace/AgentWorkspaceReportPaths.js
           node --check src/agents/shared/workspace/AgentWorkspaceCleaner.js
           node --check src/agents/shared/workspace/AgentWorkspaceCommandRunner.js
+          node --check src/agents/shared/workspace/AgentWorkspaceGithubGateway.js
+          node --check src/agents/shared/workspace/AgentWorkspaceReportWriter.js
           node --check src/agents/shared/workspace/index.js
 
       - name: Check Telegram transport syntax

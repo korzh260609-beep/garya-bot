@@ -8,6 +8,11 @@ import { buildSgSystemPrompt } from "./sgSystemPrompt.js";
 import { checkEarlyAccess } from "../permissions/monarchGate.js";
 import { resolveIdentity } from "../users/identityResolver.js";
 
+function extractGithubApprovalIdFromReply(reply = "") {
+  const match = String(reply || "").match(/\bSG-WRITE-[A-F0-9]{8,16}\b/i);
+  return match ? match[0].toUpperCase() : null;
+}
+
 export async function handleMessage(context = {}) {
   const text = String(context.text || "").trim();
   const identity = resolveIdentity(context);
@@ -43,9 +48,16 @@ export async function handleMessage(context = {}) {
     }
   );
 
+  const githubApprovalId = extractGithubApprovalIdFromReply(reply);
+
   return {
     ok: true,
     reply,
     identity,
+    githubApproval: githubApprovalId
+      ? {
+          approvalId: githubApprovalId,
+        }
+      : null,
   };
 }

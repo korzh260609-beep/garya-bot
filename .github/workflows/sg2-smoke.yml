@@ -27,6 +27,13 @@ jobs:
       - name: Check entrypoint syntax
         run: node --check index.js
 
+      - name: Check config syntax
+        run: |
+          node --check src/config/env.js
+          node --check src/config/envPrimitives.js
+          node --check src/config/telegramConfig.js
+          node --check src/config/runtimeConfig.js
+
       - name: Check SG core syntax
         run: |
           node --check src/core/handleMessage.js

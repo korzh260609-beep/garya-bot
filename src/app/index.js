@@ -5,5 +5,7 @@
 
 export * from "./appFactory.js";
 export * from "./healthRoutes.js";
+export * from "./healthStatus.js";
 export * from "./rootRoutes.js";
+export * from "./rootStatus.js";
 export * from "./serverStartup.js";

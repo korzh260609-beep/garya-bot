@@ -200,107 +200,48 @@ function getShortAction(method) {
   return method;
 }
 
-function buildSpecificImpact(summary = {}) {
-  const target = String(summary.target || "").trim();
-  const lowerTarget = target.toLowerCase();
-  const method = String(summary.method || "").toUpperCase();
-  const actionWord = method === "DELETE" ? "удалит" : lowerTarget ? "изменит/создаст" : "изменит";
-
-  if (!target || target.startsWith("/")) {
-    return ["может изменить данные GitHub по указанному API-запросу."];
+function normalizeStringArray(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .slice(0, 8);
   }
 
-  if (lowerTarget === "package.json" || lowerTarget === "package-lock.json") {
-    return [
-      `${actionWord} файл зависимостей/запуска проекта;`,
-      "может повлиять на установку пакетов, старт SG и Render deploy.",
-    ];
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
   }
 
-  if (lowerTarget === "index.js") {
-    return [
-      `${actionWord} главный стартовый файл;`,
-      "может повлиять на запуск сервера SG и health/webhook routes.",
-    ];
-  }
-
-  if (lowerTarget.startsWith("src/core/")) {
-    return [
-      `${actionWord} core-логику SG;`,
-      "может повлиять на обработку сообщений и поведение Советника.",
-    ];
-  }
-
-  if (lowerTarget.startsWith("src/ai/")) {
-    return [
-      `${actionWord} AI-слой;`,
-      "может повлиять на ответы модели, tool-вызовы и расход токенов.",
-    ];
-  }
-
-  if (lowerTarget.startsWith("src/tools/")) {
-    return [
-      `${actionWord} tool-слой;`,
-      "может повлиять на работу подключённых инструментов, включая GitHub.",
-    ];
-  }
-
-  if (lowerTarget.startsWith("src/transport/") || lowerTarget.startsWith("src/delivery/")) {
-    return [
-      `${actionWord} Telegram/transport-слой;`,
-      "может повлиять на получение сообщений, кнопки и отправку ответов.",
-    ];
-  }
-
-  if (lowerTarget.startsWith("src/integrations/github/")) {
-    return [
-      `${actionWord} GitHub-интеграцию;`,
-      "может повлиять на авторизацию GitHub App и доступ к repo.",
-    ];
-  }
-
-  if (lowerTarget.startsWith("src/config/") || lowerTarget.endsWith(".env.example")) {
-    return [
-      `${actionWord} конфигурационный файл;`,
-      "может повлиять на runtime-настройки после deploy.",
-    ];
-  }
-
-  if (lowerTarget.startsWith(".github/workflows/")) {
-    return [
-      `${actionWord} GitHub Actions workflow;`,
-      "может повлиять на автоматические проверки и CI/CD.",
-    ];
-  }
-
-  if (lowerTarget.startsWith("docs/") || lowerTarget.endsWith(".md")) {
-    return [
-      `${actionWord} документацию;`,
-      "на runtime SG обычно не влияет.",
-    ];
-  }
-
-  if (lowerTarget.startsWith("pillars/")) {
-    return [
-      `${actionWord} файл Pillars/законов проекта;`,
-      "может повлиять на проектные правила и будущую память SG, но не на текущий runtime напрямую.",
-    ];
-  }
-
-  if (lowerTarget.startsWith("test-") || lowerTarget.endsWith(".txt")) {
-    return [
-      `${actionWord} обычный текстовый/тестовый файл;`,
-      "на работу SG и Render не влияет.",
-    ];
-  }
-
-  return [
-    `${actionWord} файл в репозитории;`,
-    "влияние зависит от того, используется ли этот файл в runtime или deploy.",
-  ];
+  return [];
 }
 
-function summarizeGitHubWriteRequest({ method, path, query, body }) {
+function parseApprovalContext(value) {
+  const parsed = parseJsonObject(value, null);
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+
+  const changeSummary = String(parsed.change_summary || "").trim();
+  const reason = String(parsed.reason || "").trim();
+  const specificImpact = normalizeStringArray(parsed.specific_impact);
+
+  if (!changeSummary || !reason || !specificImpact.length) {
+    return null;
+  }
+
+  return {
+    change_type: String(parsed.change_type || "change").trim() || "change",
+    change_summary: changeSummary,
+    reason,
+    affected_files: normalizeStringArray(parsed.affected_files),
+    affected_layers: normalizeStringArray(parsed.affected_layers),
+    specific_impact: specificImpact,
+    not_touched: normalizeStringArray(parsed.not_touched),
+  };
+}
+
+function summarizeGitHubWriteRequest({ method, path, query, body, approvalContext }) {
   const currentBranch = getCurrentProjectBranch();
   const contentsMatch = path.match(/^\/repos\/([^/]+\/[^/]+)\/contents\/?(.*)$/);
   const repoMatch = path.match(/^\/repos\/([^/]+\/[^/]+)/);
@@ -315,7 +256,7 @@ function summarizeGitHubWriteRequest({ method, path, query, body }) {
     action = getShortAction(method);
   }
 
-  const summary = {
+  return {
     repo,
     branch,
     action,
@@ -324,29 +265,42 @@ function summarizeGitHubWriteRequest({ method, path, query, body }) {
     path,
     query,
     body_keys: bodyKeys,
-  };
-
-  return {
-    ...summary,
-    possible_impact: buildSpecificImpact(summary),
+    approval_context: approvalContext,
   };
 }
 
 function buildApprovalWarning({ approvalId, summary }) {
-  const impactLines = Array.isArray(summary.possible_impact) && summary.possible_impact.length
-    ? summary.possible_impact.map((item) => `- ${item}`)
-    : ["- влияние не определено."];
+  const context = summary.approval_context || {};
+  const affectedFiles = context.affected_files?.length ? context.affected_files : [summary.target];
+  const affectedLayers = context.affected_layers?.length ? context.affected_layers : ["не указано"];
+  const impactLines = context.specific_impact.map((item) => `- ${item}`);
+  const notTouchedLines = context.not_touched?.length
+    ? context.not_touched.map((item) => `- ${item}`)
+    : [];
 
   return [
     "⚠️ Подтвердить GitHub-действие?",
     "",
     `repo: ${summary.repo}`,
     `branch: ${summary.branch}`,
+    `тип: ${context.change_type}`,
     `действие: ${summary.action}`,
-    `файл: ${summary.target}`,
     "",
-    "Влияние:",
+    "Что меняется:",
+    context.change_summary,
+    "",
+    "Зачем:",
+    context.reason,
+    "",
+    "Файлы:",
+    ...affectedFiles.map((item) => `- ${item}`),
+    "",
+    "Затронутые слои:",
+    ...affectedLayers.map((item) => `- ${item}`),
+    "",
+    "Конкретное влияние:",
     ...impactLines,
+    ...(notTouchedLines.length ? ["", "Не трогаем:", ...notTouchedLines] : []),
     "",
     "Подтверди или отмени кнопкой ниже.",
     `id: ${approvalId}`,
@@ -402,7 +356,7 @@ async function executeGitHubApiRequest({ method, path, query, body, headers }) {
   }
 }
 
-function prepareGithubWriteApproval({ method, path, query, body, headers }, context = {}) {
+function prepareGithubWriteApproval({ method, path, query, body, headers, approvalContext }, context = {}) {
   cleanupExpiredApprovals();
 
   if (!context?.isMonarch) {
@@ -415,6 +369,19 @@ function prepareGithubWriteApproval({ method, path, query, body, headers }, cont
       requires_approval: true,
       executed: false,
       error: "Only the Monarch can prepare GitHub write operations.",
+    };
+  }
+
+  if (!approvalContext) {
+    return {
+      ok: false,
+      status: 400,
+      method,
+      path,
+      query,
+      requires_approval: true,
+      executed: false,
+      error: "GitHub write approval requires semantic approvalContextJson: change_summary, reason and specific_impact are required.",
     };
   }
 
@@ -449,7 +416,7 @@ function prepareGithubWriteApproval({ method, path, query, body, headers }, cont
   }
 
   const approvalId = createApprovalId();
-  const summary = summarizeGitHubWriteRequest({ method, path, query, body });
+  const summary = summarizeGitHubWriteRequest({ method, path, query, body, approvalContext });
   const expiresAt = Date.now() + APPROVAL_TTL_MS;
 
   pendingWriteApprovals.set(approvalId, {
@@ -619,6 +586,7 @@ export async function githubRequest(input = {}, context = {}) {
     body: parsedBody,
   });
   const headers = parseJsonObject(input.headersJson ?? input.headers, {});
+  const approvalContext = parseApprovalContext(input.approvalContextJson ?? input.approvalContext);
 
   if (!normalizedPath) {
     return {
@@ -641,6 +609,7 @@ export async function githubRequest(input = {}, context = {}) {
         query,
         body,
         headers,
+        approvalContext,
       },
       context
     );

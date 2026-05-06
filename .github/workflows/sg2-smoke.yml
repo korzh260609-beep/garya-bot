@@ -107,6 +107,13 @@ jobs:
           node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
 
+      - name: Check Render integration syntax
+        run: |
+          node --check src/integrations/render/RenderConfig.js
+          node --check src/integrations/render/RenderNormalizer.js
+          node --check src/integrations/render/RenderClient.js
+          node --check src/integrations/render/index.js
+
       - name: Check Agent Layer syntax
         run: |
           node --check src/agents/index.js

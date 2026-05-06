@@ -123,7 +123,9 @@ export class AgentWorkspaceCommandRunner {
 
     let agentResult;
 
-    if (command.action === "COLLECT_RENDER_LOGS") {
+    if (command.action === "COLLECT_RENDER_ENV_STATUS") {
+      agentResult = await this.renderAgent.collectEnvStatus(input);
+    } else if (command.action === "COLLECT_RENDER_LOGS") {
       agentResult = await this.renderAgent.collectLogs(input);
     } else if (command.action === "COLLECT_RENDER_DEPLOYS") {
       agentResult = await this.renderAgent.collectDeploys(input);

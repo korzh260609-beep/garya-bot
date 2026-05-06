@@ -44,6 +44,7 @@ jobs:
           node --check src/tools/github/githubWriteSummary.js
           node --check src/tools/github/githubApprovalWarning.js
           node --check src/tools/github/githubWritePolicy.js
+          node --check src/tools/github/githubApprovalService.js
           node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
 

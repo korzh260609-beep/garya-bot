@@ -79,6 +79,33 @@ function buildToolContext(options = {}) {
   };
 }
 
+function extractToolMetadata(toolName, result) {
+  if (toolName !== "github_request") return null;
+
+  if (result?.requires_approval && result?.approval_id && !result?.executed) {
+    return {
+      githubApproval: {
+        approvalId: result.approval_id,
+        requestHash: result.request_hash || null,
+        summary: result.summary || null,
+        warning: result.warning || null,
+        expiresAt: result.expires_at || null,
+      },
+    };
+  }
+
+  return null;
+}
+
+function mergeMetadata(base = {}, patch = null) {
+  if (!patch || typeof patch !== "object") return base;
+
+  return {
+    ...base,
+    ...patch,
+  };
+}
+
 async function runToolRound({ activeClient, model, input, maxOutputTokens, toolContext }) {
   let response = await activeClient.responses.create({
     model,
@@ -88,12 +115,13 @@ async function runToolRound({ activeClient, model, input, maxOutputTokens, toolC
   });
 
   const maxToolRounds = 5;
+  let metadata = {};
 
   for (let round = 0; round < maxToolRounds; round += 1) {
     const functionCalls = getFunctionCalls(response);
 
     if (!functionCalls.length) {
-      return response;
+      return { response, metadata };
     }
 
     const toolOutputs = [];
@@ -101,6 +129,7 @@ async function runToolRound({ activeClient, model, input, maxOutputTokens, toolC
     for (const call of functionCalls) {
       const args = parseToolArguments(call.arguments);
       const result = await runGithubTool(call.name, args, toolContext);
+      metadata = mergeMetadata(metadata, extractToolMetadata(call.name, result));
 
       toolOutputs.push({
         type: "function_call_output",
@@ -118,7 +147,7 @@ async function runToolRound({ activeClient, model, input, maxOutputTokens, toolC
     });
   }
 
-  return response;
+  return { response, metadata };
 }
 
 export async function callAI(messages, options = {}) {
@@ -128,7 +157,7 @@ export async function callAI(messages, options = {}) {
   const input = toResponseInput(messages);
   const toolContext = buildToolContext(options);
 
-  const response = await runToolRound({
+  const { response, metadata } = await runToolRound({
     activeClient,
     model,
     input,
@@ -140,6 +169,13 @@ export async function callAI(messages, options = {}) {
 
   if (!text) {
     throw new Error("AI returned empty output");
+  }
+
+  if (options.returnMetadata) {
+    return {
+      text,
+      metadata,
+    };
   }
 
   return text;

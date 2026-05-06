@@ -36,7 +36,11 @@ export async function handleMessage(context = {}) {
       { role: "system", content: buildSgSystemPrompt(identity) },
       { role: "user", content: text },
     ],
-    { maxOutputTokens: 500 }
+    {
+      maxOutputTokens: 500,
+      identity,
+      latestUserText: text,
+    }
   );
 
   return {

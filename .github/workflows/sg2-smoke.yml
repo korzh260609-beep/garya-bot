@@ -40,6 +40,7 @@ jobs:
           node --check src/tools/githubToolDefinitions.js
           node --check src/tools/github/githubRequestUtils.js
           node --check src/tools/github/githubApiClient.js
+          node --check src/tools/github/githubApprovalStore.memory.js
           node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
 

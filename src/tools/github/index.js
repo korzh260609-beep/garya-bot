@@ -5,3 +5,5 @@
 export * from "./githubRequestUtils.js";
 export * from "./githubApiClient.js";
 export * from "./githubApprovalStore.memory.js";
+export * from "./githubWriteSummary.js";
+export * from "./githubApprovalWarning.js";

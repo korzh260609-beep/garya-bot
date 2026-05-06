@@ -33,6 +33,7 @@ jobs:
           node --check src/app/healthRoutes.js
           node --check src/app/healthStatus.js
           node --check src/app/rootRoutes.js
+          node --check src/app/rootStatus.js
           node --check src/app/serverStartup.js
           node --check src/app/index.js
 

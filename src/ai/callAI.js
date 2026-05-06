@@ -67,7 +67,19 @@ function toResponseInput(messages) {
     : [];
 }
 
-async function runToolRound({ activeClient, model, input, maxOutputTokens }) {
+function buildToolContext(options = {}) {
+  const identity = options.identity || {};
+
+  return {
+    userId: identity.platformUserId || null,
+    globalUserId: identity.globalUserId || null,
+    role: identity.role || "guest",
+    isMonarch: Boolean(identity.isMonarch),
+    latestUserText: String(options.latestUserText || ""),
+  };
+}
+
+async function runToolRound({ activeClient, model, input, maxOutputTokens, toolContext }) {
   let response = await activeClient.responses.create({
     model,
     input,
@@ -88,7 +100,7 @@ async function runToolRound({ activeClient, model, input, maxOutputTokens }) {
 
     for (const call of functionCalls) {
       const args = parseToolArguments(call.arguments);
-      const result = await runGithubTool(call.name, args);
+      const result = await runGithubTool(call.name, args, toolContext);
 
       toolOutputs.push({
         type: "function_call_output",
@@ -114,12 +126,14 @@ export async function callAI(messages, options = {}) {
   const model = options.model || getDefaultModel();
   const maxOutputTokens = options.maxOutputTokens || getDefaultMaxOutputTokens();
   const input = toResponseInput(messages);
+  const toolContext = buildToolContext(options);
 
   const response = await runToolRound({
     activeClient,
     model,
     input,
     maxOutputTokens,
+    toolContext,
   });
 
   const text = extractOutputText(response);

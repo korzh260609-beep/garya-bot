@@ -1,7 +1,9 @@
 // AGENT NOTE:
 // Agent workspace runtime hook skeleton.
-// Purpose: provide a safe runtime boundary for future workspace command execution.
-// Do not read GitHub, write GitHub, call AI, call DB, modify Telegram flow, or execute commands here yet.
+// Purpose: provide a safe runtime boundary for workspace command reading and future execution.
+// Do not write GitHub, call AI, call DB, modify Telegram flow, or execute commands here yet.
+
+import { agentWorkspaceCommandReader } from "./AgentWorkspaceCommandReader.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -23,7 +25,7 @@ export function getAgentWorkspaceRuntimeConfig() {
   return {
     enabled: envBool("AGENT_WORKSPACE_RUNTIME_ENABLED", false),
     intervalMs: envInt("AGENT_WORKSPACE_RUNTIME_INTERVAL_MS", 60000, 10000, 3600000),
-    mode: normalizeString(process.env.AGENT_WORKSPACE_RUNTIME_MODE || "skeleton") || "skeleton",
+    mode: normalizeString(process.env.AGENT_WORKSPACE_RUNTIME_MODE || "read_only_command_reader") || "read_only_command_reader",
   };
 }
 
@@ -34,16 +36,20 @@ export function getAgentWorkspaceRuntimeStatus() {
     enabled: config.enabled,
     intervalMs: config.intervalMs,
     mode: config.mode,
-    connected: false,
-    githubReads: false,
+    connected: config.enabled,
+    githubReads: config.enabled,
     githubWrites: false,
     commandExecution: false,
   };
 }
 
-export function startAgentWorkspaceRuntime({ logger = console } = {}) {
+export function startAgentWorkspaceRuntime({
+  logger = console,
+  commandReader = agentWorkspaceCommandReader,
+} = {}) {
   const config = getAgentWorkspaceRuntimeConfig();
   const status = getAgentWorkspaceRuntimeStatus();
+  let timer = null;
 
   if (!config.enabled) {
     logger.log("Agent workspace runtime hook is disabled.");
@@ -63,18 +69,43 @@ export function startAgentWorkspaceRuntime({ logger = console } = {}) {
     };
   }
 
-  logger.log("Agent workspace runtime hook skeleton is enabled, but command I/O is not connected yet.");
+  const tick = async () => {
+    const result = await commandReader.readParsedCommand();
+
+    if (!result.ok) {
+      logger.log(`Agent workspace command read skipped/failed: ${result.reason}`);
+      return result;
+    }
+
+    logger.log(`Agent workspace command read: ${result.command?.commandId || "NONE"} / ${result.command?.status || "EMPTY"}`);
+    return result;
+  };
+
+  timer = setInterval(() => {
+    tick().catch((error) => {
+      logger.log(`Agent workspace command reader failed: ${error?.message || error}`);
+    });
+  }, config.intervalMs);
+
+  tick().catch((error) => {
+    logger.log(`Agent workspace command reader failed: ${error?.message || error}`);
+  });
 
   return {
     ok: true,
-    started: false,
-    reason: "agent_workspace_runtime_skeleton_not_connected",
+    started: true,
+    reason: "agent_workspace_runtime_read_only_reader_started",
     status,
     stop() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+
       return {
         ok: true,
-        stopped: false,
-        reason: "agent_workspace_runtime_skeleton_not_started",
+        stopped: true,
+        reason: "agent_workspace_runtime_stopped",
       };
     },
   };

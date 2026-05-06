@@ -38,6 +38,9 @@ jobs:
         run: |
           node --check src/tools/githubTool.js
           node --check src/tools/githubToolDefinitions.js
+          node --check src/tools/github/githubRequestUtils.js
+          node --check src/tools/github/githubApiClient.js
+          node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
 
       - name: Check Telegram transport syntax

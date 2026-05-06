@@ -5,9 +5,12 @@
 // Do not put Telegram, AI, memory, tasks, sources, permissions, routes, or GitHub logic here.
 
 import { getRuntimeConfig } from "./src/config/env.js";
-import { createApp, startServer } from "./src/app/index.js";
+import { createApp, startRuntimeHooks, startServer } from "./src/app/index.js";
 
 const runtimeConfig = getRuntimeConfig();
 const { app } = createApp();
+const runtimeHooks = startRuntimeHooks();
 
 startServer(app, { port: runtimeConfig.port });
+
+export { runtimeHooks };

@@ -125,6 +125,7 @@ jobs:
       - name: Check Agent Layer syntax
         run: |
           node --check src/agents/index.js
+          node --check src/agents/render-agent/RenderAgentEnvDiagnostics.js
           node --check src/agents/render-agent/RenderAgentService.js
           node --check src/agents/render-agent/RenderAgentReportBuilder.js
           node --check src/agents/render-agent/index.js

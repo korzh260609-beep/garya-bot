@@ -46,6 +46,17 @@ jobs:
           node --check src/core/prompt/promptRuntimeStatus.js
           node --check src/core/prompt/index.js
 
+      - name: Check AI layer syntax
+        run: |
+          node --check src/ai/callAI.js
+          node --check src/ai/modelConfig.js
+          node --check src/ai/openaiClient.js
+          node --check src/ai/aiInputMapper.js
+          node --check src/ai/aiOutputParser.js
+          node --check src/ai/aiToolContext.js
+          node --check src/ai/aiToolMetadata.js
+          node --check src/ai/aiToolRunner.js
+
       - name: Check GitHub tool syntax
         run: |
           node --check src/tools/githubTool.js

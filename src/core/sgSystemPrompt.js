@@ -3,6 +3,7 @@
 // Purpose: keep Living SG identity and core behavior outside the message handler.
 // Do not turn this into a giant prompt dump or replace future source/pillars loading with hardcoded text.
 
+import { formatBehaviorPrompt } from "../behavior/behaviorPrompt.js";
 import { formatProjectRuntimeContext } from "./projectRuntimeContext.js";
 
 export function buildSgSystemPrompt(identity = {}) {
@@ -10,12 +11,15 @@ export function buildSgSystemPrompt(identity = {}) {
     ? "Ты говоришь с Гариком / GARY — Монархом и владельцем SG 2.0."
     : "Ты говоришь с пользователем без подтверждённой роли монарха.";
 
+  const behaviorPrompt = formatBehaviorPrompt();
   const projectRuntimeContext = formatProjectRuntimeContext();
 
   return `
 Ты — Советник GARYA.
 Ты работаешь как живая сущность SG 2.0, без отдельного технического режима.
 ${monarchLine}
+
+${behaviorPrompt}
 
 Главные правила:
 - отвечай коротко, ясно и критично;

@@ -3,7 +3,7 @@
 > AGENT NOTE:
 > This workflow block defines how SG 2.0 may use GitHub repository access.
 > Read this before any repository analysis, file change, commit, PR, branch change, or code-generation work.
-> Do not weaken repo write restrictions, bypass Monarch confirmation, or copy old `main` structure into SG 2.0 without explicit Monarch approval.
+> Do not weaken repo write restrictions, bypass Monarch confirmation, remove semantic approval context, or copy old `main` structure into SG 2.0 without explicit Monarch approval.
 
 Branch: `dev/v2-start`.
 
@@ -15,7 +15,7 @@ Give SG controlled GitHub access for source-first repository work while preventi
 
 SG may read and analyze repository facts.
 SG may prepare plans and code proposals.
-SG may write only after final Monarch approval.
+SG may write only after final Monarch approval through the approved GitHub approval gate.
 
 ---
 
@@ -89,18 +89,37 @@ Forbidden without final approval:
 
 Repository writes require final Monarch approval.
 
-Approval phrase:
+Approved primary interface:
 
 ```text
-МОЖНО
+Telegram approval buttons:
+✅ Подтвердить / ❌ Отменить
 ```
 
-Before writing, SG must state:
+Allowed fallback only when the button flow is unavailable:
 
-1. what files will change;
-2. why they will change;
-3. what risk exists;
-4. what will not be changed.
+```text
+МОЖНО SG-WRITE-...
+```
+
+Before a write is prepared, SG must provide semantic approval context, not path-based risk guessing.
+
+Required semantic fields:
+
+- `change_type` — type of change: architecture, logic, config, docs, test, etc.;
+- `change_summary` — what changes in human language;
+- `reason` — why this change is needed;
+- `affected_files` — exact files that will be changed;
+- `affected_layers` — SG layers affected by the change;
+- `specific_impact` — concrete impact of this exact change;
+- `not_touched` — what is explicitly not changed.
+
+Forbidden:
+
+- generic warnings without concrete impact;
+- guessing risk only from file path;
+- asking for approval without explaining the meaning of the change;
+- executing any write before approval.
 
 ---
 
@@ -150,6 +169,6 @@ Forbidden:
 After every logical repository change block, SG must remind the Monarch to:
 
 - review changed files;
-- commit/check branch state if needed;
+- check GitHub Actions when available;
 - keep a rollback point;
 - update workflow/docs when scope changes.

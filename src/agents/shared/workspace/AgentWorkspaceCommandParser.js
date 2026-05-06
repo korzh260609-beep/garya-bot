@@ -4,6 +4,7 @@
 // This parser does not execute commands and does not perform reads/writes.
 
 export const AGENT_WORKSPACE_ALLOWED_ACTIONS = Object.freeze([
+  "COLLECT_RENDER_ENV_STATUS",
   "COLLECT_RENDER_LOGS",
   "COLLECT_RENDER_DEPLOYS",
   "COLLECT_RENDER_DEPLOY",

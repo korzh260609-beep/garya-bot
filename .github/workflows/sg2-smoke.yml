@@ -43,6 +43,14 @@ jobs:
           node --check src/core/message/messageGithubApproval.js
           node --check src/core/message/index.js
 
+      - name: Check SG GitHub approval syntax
+        run: |
+          node --check src/core/githubApproval/githubApprovalCallbackParser.js
+          node --check src/core/githubApproval/githubApprovalAccess.js
+          node --check src/core/githubApproval/githubApprovalResultFormatter.js
+          node --check src/core/githubApproval/githubApprovalExecutor.js
+          node --check src/core/githubApproval/index.js
+
       - name: Check SG prompt syntax
         run: |
           node --check src/core/prompt/promptIdentity.js

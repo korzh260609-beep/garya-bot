@@ -112,6 +112,13 @@ jobs:
           node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
 
+      - name: Check Render bridge syntax
+        run: |
+          node --check src/integrations/render/renderBridgeConfig.js
+          node --check src/integrations/render/renderBridgeNormalizer.js
+          node --check src/integrations/render/renderBridgeClient.js
+          node --check src/integrations/render/index.js
+
       - name: Smoke GitHub Actions formatter
         run: npm run smoke:github-actions-formatter
 

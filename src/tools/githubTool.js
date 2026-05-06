@@ -7,6 +7,7 @@
 import crypto from "crypto";
 import { envStr } from "../config/env.js";
 import { getGitHubAppAccess } from "../integrations/github/appAuth.js";
+import { formatGitHubActionsResult } from "./githubActionsFormatter.js";
 
 const GITHUB_API_BASE = "https://api.github.com";
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -328,6 +329,7 @@ async function executeGitHubApiRequest({ method, path, query, body, headers }) {
     });
 
     const data = await readResponse(response);
+    const formatted = formatGitHubActionsResult({ method, path, query, data });
 
     return {
       ok: response.ok,
@@ -336,6 +338,7 @@ async function executeGitHubApiRequest({ method, path, query, body, headers }) {
       path,
       query,
       data,
+      formatted,
       error: response.ok
         ? null
         : typeof data === "object" && data?.message

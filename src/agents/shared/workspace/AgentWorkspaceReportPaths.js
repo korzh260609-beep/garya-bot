@@ -11,6 +11,7 @@ export const AGENT_WORKSPACE_COMMAND_FILE = "agent_workspace/COMMANDS.md";
 export const AGENT_WORKSPACE_CLEANABLE_REPORT_PATHS = Object.freeze([
   "agent_workspace/STATUS.md",
   "agent_workspace/OUTBOX.md",
+  "agent_workspace/render/RENDER_ENV_STATUS_REPORT.md",
   "agent_workspace/render/RENDER_LOGS_REPORT.md",
   "agent_workspace/render/RENDER_DEPLOYS_REPORT.md",
   "agent_workspace/render/RENDER_DEPLOY_REPORT.md",

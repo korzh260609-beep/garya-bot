@@ -7,14 +7,14 @@ export const githubToolDefinitions = [
   {
     type: "function",
     name: "github_request",
-    description: "Call any GitHub REST API endpoint through SG runtime GitHub App authentication. Use this as the main GitHub access tool for repositories, files, branches, commits, issues, pull requests, and global GitHub search.",
+    description: "Call any GitHub REST API endpoint through SG runtime GitHub App authentication. Use this as the main GitHub access tool for repositories, files, branches, commits, issues, pull requests, and global GitHub search. Read requests execute immediately. Write requests are never executed immediately: the tool prepares an approval warning and executes only after the Monarch sends the exact confirmation phrase returned by the tool.",
     parameters: {
       type: "object",
       additionalProperties: false,
       properties: {
         method: {
           type: "string",
-          description: "HTTP method for GitHub REST API. Use GET for reading/searching. Other methods work only if the installed GitHub App has permission.",
+          description: "HTTP method for GitHub REST API. Use GET/HEAD for reading/searching. POST/PUT/PATCH/DELETE are possible but require Monarch approval before execution.",
         },
         path: {
           type: "string",
@@ -26,7 +26,7 @@ export const githubToolDefinitions = [
         },
         bodyJson: {
           type: "string",
-          description: "Optional JSON string body for non-GET GitHub API calls, if permissions allow it.",
+          description: "Optional JSON string body for non-GET GitHub API calls. For write requests, this body is included in the pending approval and cannot be executed until the Monarch confirms.",
         },
         headersJson: {
           type: "string",

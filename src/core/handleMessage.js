@@ -1,9 +1,10 @@
 // AGENT NOTE:
 // SG 2.0 minimal core message handler.
-// Purpose: route normalized messages through identity, access checks, prompt boundary, and AI without putting logic into transport.
+// Purpose: route normalized messages through identity, access checks, behavior guardrails, prompt boundary, and AI without putting logic into transport.
 // Do not turn this into a monolith; split capabilities as soon as new responsibilities appear.
 
 import { callAI } from "../ai/callAI.js";
+import { assertBehaviorRuntimeAllowed, buildBehaviorRuntimeContext } from "../behavior/behaviorRuntime.js";
 import { buildSgSystemPrompt } from "./sgSystemPrompt.js";
 import { checkEarlyAccess } from "../permissions/monarchGate.js";
 import { resolveIdentity } from "../users/identityResolver.js";
@@ -36,6 +37,20 @@ export async function handleMessage(context = {}) {
     };
   }
 
+  const behaviorRuntime = buildBehaviorRuntimeContext({ identity, text });
+  const behaviorAllowed = assertBehaviorRuntimeAllowed(behaviorRuntime);
+
+  if (!behaviorAllowed.ok) {
+    return {
+      ok: false,
+      reply: "Я не могу выполнить это действие без соблюдения правил поведения SG.",
+      reason: behaviorAllowed.reason,
+      missing: behaviorAllowed.missing,
+      identity,
+      behaviorRuntime,
+    };
+  }
+
   const aiResult = await callAI(
     [
       { role: "system", content: buildSgSystemPrompt(identity) },
@@ -45,6 +60,7 @@ export async function handleMessage(context = {}) {
       maxOutputTokens: 500,
       identity,
       latestUserText: text,
+      behaviorRuntime,
       returnMetadata: true,
     }
   );
@@ -57,6 +73,7 @@ export async function handleMessage(context = {}) {
     ok: true,
     reply: aiResult?.metadata?.githubApproval?.warning || reply,
     identity,
+    behaviorRuntime,
     githubApproval: githubApprovalId
       ? {
           approvalId: githubApprovalId,

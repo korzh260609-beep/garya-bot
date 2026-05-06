@@ -36,7 +36,7 @@ export async function handleMessage(context = {}) {
     };
   }
 
-  const reply = await callAI(
+  const aiResult = await callAI(
     [
       { role: "system", content: buildSgSystemPrompt(identity) },
       { role: "user", content: text },
@@ -45,18 +45,24 @@ export async function handleMessage(context = {}) {
       maxOutputTokens: 500,
       identity,
       latestUserText: text,
+      returnMetadata: true,
     }
   );
 
-  const githubApprovalId = extractGithubApprovalIdFromReply(reply);
+  const reply = aiResult.text;
+  const githubApprovalId =
+    aiResult?.metadata?.githubApproval?.approvalId || extractGithubApprovalIdFromReply(reply);
 
   return {
     ok: true,
-    reply,
+    reply: aiResult?.metadata?.githubApproval?.warning || reply,
     identity,
     githubApproval: githubApprovalId
       ? {
           approvalId: githubApprovalId,
+          requestHash: aiResult?.metadata?.githubApproval?.requestHash || null,
+          summary: aiResult?.metadata?.githubApproval?.summary || null,
+          expiresAt: aiResult?.metadata?.githubApproval?.expiresAt || null,
         }
       : null,
   };

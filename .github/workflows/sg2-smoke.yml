@@ -107,6 +107,19 @@ jobs:
           node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
 
+      - name: Check Agent Layer syntax
+        run: |
+          node --check src/agents/index.js
+          node --check src/agents/runtime-diagnostics/index.js
+          node --check src/agents/runtime-diagnostics/diagnostics-render-agent/DiagnosticsRenderAgentService.js
+          node --check src/agents/runtime-diagnostics/diagnostics-render-agent/DiagnosticsRenderAgentReportBuilder.js
+          node --check src/agents/runtime-diagnostics/diagnostics-render-agent/index.js
+          node --check src/agents/shared/index.js
+          node --check src/agents/shared/workspace/AgentWorkspaceCommandParser.js
+          node --check src/agents/shared/workspace/AgentWorkspaceReportPaths.js
+          node --check src/agents/shared/workspace/AgentWorkspaceCleaner.js
+          node --check src/agents/shared/workspace/index.js
+
       - name: Check Telegram transport syntax
         run: |
           node --check src/transport/telegram.js

@@ -8,4 +8,5 @@ export * from "./healthRoutes.js";
 export * from "./healthStatus.js";
 export * from "./rootRoutes.js";
 export * from "./rootStatus.js";
+export * from "./runtimeStatusPresenter.js";
 export * from "./serverStartup.js";

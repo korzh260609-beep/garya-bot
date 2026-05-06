@@ -6,7 +6,7 @@
 import { parseAgentWorkspaceCommand } from "./AgentWorkspaceCommandParser.js";
 import { buildAgentWorkspaceCleanupPlan } from "./AgentWorkspaceCleaner.js";
 import { agentWorkspaceReportWriter } from "./AgentWorkspaceReportWriter.js";
-import { diagnosticsRenderAgentService } from "../../runtime-diagnostics/diagnostics-render-agent/DiagnosticsRenderAgentService.js";
+import { renderAgentService } from "../../render-agent/index.js";
 
 function buildSkippedResult({ command, reason }) {
   return {
@@ -70,7 +70,7 @@ function buildResultText({ action, command, agentResult }) {
 
 export class AgentWorkspaceCommandRunner {
   constructor({
-    renderAgent = diagnosticsRenderAgentService,
+    renderAgent = renderAgentService,
     reportWriter = agentWorkspaceReportWriter,
   } = {}) {
     this.renderAgent = renderAgent;

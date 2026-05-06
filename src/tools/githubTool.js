@@ -4,6 +4,7 @@
 // This is intentionally a universal GitHub request gateway, not a set of narrow repo helpers.
 // Secret auth values must never be returned to the model, logs, Telegram, or tool payloads.
 
+import { envStr } from "../config/env.js";
 import { getGitHubAppAccess } from "../integrations/github/appAuth.js";
 
 const GITHUB_API_BASE = "https://api.github.com";
@@ -51,6 +52,34 @@ function normalizePath(path) {
   return raw.startsWith("/") ? raw : `/${raw}`;
 }
 
+function getCurrentProjectRepository() {
+  return envStr("GITHUB_REPO", "korzh260609-beep/garya-bot").trim();
+}
+
+function getCurrentProjectBranch() {
+  return envStr("GITHUB_BRANCH", "dev/v2-start").trim();
+}
+
+function applyCurrentProjectDefaults({ method, path, query }) {
+  const repository = getCurrentProjectRepository();
+  const branch = getCurrentProjectBranch();
+
+  if (!repository || !branch) return query;
+  if (method !== "GET") return query;
+  if (query?.ref) return query;
+
+  const contentsPath = `/repos/${repository}/contents`;
+
+  if (path === contentsPath || path.startsWith(`${contentsPath}/`)) {
+    return {
+      ...query,
+      ref: branch,
+    };
+  }
+
+  return query;
+}
+
 function appendQuery(url, query = {}) {
   if (!query || typeof query !== "object" || Array.isArray(query)) return url;
 
@@ -90,7 +119,12 @@ async function readResponse(response) {
 export async function githubRequest(input = {}) {
   const normalizedMethod = normalizeMethod(input.method);
   const normalizedPath = normalizePath(input.path);
-  const query = parseJsonObject(input.queryJson ?? input.query, {});
+  const parsedQuery = parseJsonObject(input.queryJson ?? input.query, {});
+  const query = applyCurrentProjectDefaults({
+    method: normalizedMethod,
+    path: normalizedPath,
+    query: parsedQuery,
+  });
   const body = parseJsonObject(input.bodyJson ?? input.body, null);
   const headers = parseJsonObject(input.headersJson ?? input.headers, {});
 

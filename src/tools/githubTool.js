@@ -5,6 +5,8 @@
 // Secret auth values must never be returned to the model, logs, Telegram, or tool payloads.
 
 import crypto from "crypto";
+import { evaluateActionPolicy } from "../behavior/actionPolicy.js";
+import { SG_ACTION_TYPES } from "../behavior/actionTypes.js";
 import { envStr } from "../config/env.js";
 import { getGitHubAppAccess } from "../integrations/github/appAuth.js";
 import { formatGitHubActionsResult } from "./githubActionsFormatter.js";
@@ -308,6 +310,25 @@ function buildApprovalWarning({ approvalId, summary }) {
   ].join("\n");
 }
 
+function buildIdentityFromContext(context = {}) {
+  return {
+    isMonarch: Boolean(context.isMonarch),
+    role: context.role || "guest",
+    platformUserId: context.userId || null,
+    globalUserId: context.globalUserId || null,
+  };
+}
+
+function evaluateGitHubWritePolicy({ context = {}, hasApproval = false }) {
+  return evaluateActionPolicy({
+    actionType: SG_ACTION_TYPES.MODIFY_REPO,
+    identity: buildIdentityFromContext(context),
+    hasApproval,
+    hasSource: true,
+    hasPlan: true,
+  });
+}
+
 async function executeGitHubApiRequest({ method, path, query, body, headers }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
@@ -362,7 +383,9 @@ async function executeGitHubApiRequest({ method, path, query, body, headers }) {
 function prepareGithubWriteApproval({ method, path, query, body, headers, approvalContext }, context = {}) {
   cleanupExpiredApprovals();
 
-  if (!context?.isMonarch) {
+  const policyCheck = evaluateGitHubWritePolicy({ context, hasApproval: false });
+
+  if (!context?.isMonarch || !policyCheck.missing.includes("explicit_approval")) {
     return {
       ok: false,
       status: 403,
@@ -371,7 +394,8 @@ function prepareGithubWriteApproval({ method, path, query, body, headers, approv
       query,
       requires_approval: true,
       executed: false,
-      error: "Only the Monarch can prepare GitHub write operations.",
+      policy_check: policyCheck,
+      error: "GitHub write preparation is blocked by SG behavior policy.",
     };
   }
 
@@ -384,6 +408,7 @@ function prepareGithubWriteApproval({ method, path, query, body, headers, approv
       query,
       requires_approval: true,
       executed: false,
+      policy_check: policyCheck,
       error: "GitHub write approval requires semantic approvalContextJson: change_summary, reason and specific_impact are required.",
     };
   }
@@ -413,6 +438,7 @@ function prepareGithubWriteApproval({ method, path, query, body, headers, approv
         confirmation_phrase: `МОЖНО ${existingId}`,
         expires_at: new Date(pending.expiresAt).toISOString(),
         summary: pending.summary,
+        policy_check: policyCheck,
         warning,
       };
     }
@@ -447,6 +473,7 @@ function prepareGithubWriteApproval({ method, path, query, body, headers, approv
     confirmation_phrase: `МОЖНО ${approvalId}`,
     expires_at: new Date(expiresAt).toISOString(),
     summary,
+    policy_check: policyCheck,
     warning,
   };
 }
@@ -462,16 +489,6 @@ export async function executePendingGithubApproval(approvalId, context = {}) {
       status: 400,
       executed: false,
       error: "GitHub approval id is required.",
-    };
-  }
-
-  if (!context?.isMonarch) {
-    return {
-      ok: false,
-      status: 403,
-      approval_id: normalizedApprovalId,
-      executed: false,
-      error: "Only the Monarch can execute GitHub write approvals.",
     };
   }
 
@@ -499,6 +516,19 @@ export async function executePendingGithubApproval(approvalId, context = {}) {
     };
   }
 
+  const policyCheck = evaluateGitHubWritePolicy({ context, hasApproval: true });
+
+  if (!policyCheck.ok) {
+    return {
+      ok: false,
+      status: 403,
+      approval_id: normalizedApprovalId,
+      executed: false,
+      policy_check: policyCheck,
+      error: "GitHub write execution is blocked by SG behavior policy.",
+    };
+  }
+
   pendingWriteApprovals.delete(normalizedApprovalId);
 
   const result = await executeGitHubApiRequest(pending.request);
@@ -509,6 +539,7 @@ export async function executePendingGithubApproval(approvalId, context = {}) {
     request_hash: pending.requestHash,
     requires_approval: false,
     executed: true,
+    policy_check: policyCheck,
     summary: pending.summary,
   };
 }

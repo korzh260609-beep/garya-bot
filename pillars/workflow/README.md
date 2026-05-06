@@ -3,7 +3,8 @@
 > AGENT NOTE:
 > This folder is the ordered workflow map for SG 2.0.
 > Read this folder before proposing new project steps.
-> Do not treat workflow as code. It is the Monarch-approved build order.
+> Do not treat workflow as code or execution status. It is the Monarch-approved build order and rule map.
+> Actual implementation status must be verified only from repository code, commits, Actions, Render, or runtime tests.
 > This folder belongs inside `pillars/` because workflow is part of the project laws and governance layer.
 
 This folder contains SG 2.0 workflow blocks.
@@ -23,4 +24,6 @@ Rules:
 - blocks must stay short, clear, and ordered;
 - new blocks are added only after Monarch approval;
 - every new file must include an `AGENT NOTE` near the top;
-- `AGENT NOTE` must explain the file purpose, boundaries, and what an agent must not change without approval.
+- `AGENT NOTE` must explain the file purpose, boundaries, and what an agent must not change without approval;
+- this folder does not track completion status;
+- status claims must come from code, commits, Actions, Render, or runtime tests.

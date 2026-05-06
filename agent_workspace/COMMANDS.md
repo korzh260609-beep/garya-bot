@@ -6,22 +6,35 @@ Only one active command is allowed at a time.
 
 ---
 
-COMMAND_ID: `NONE`
-STATUS: `EMPTY`
-ACTION: `NONE`
-TASK_ID: `manual`
-WORKFLOW_POINT: `-`
+COMMAND_ID: `render-status-20260506-1105z`
+STATUS: `PENDING`
+ACTION: `COLLECT_RENDER_STATUS`
+TASK_ID: `manual-render-status-check`
+WORKFLOW_POINT: `Agent Workspace + DiagnosticsRenderAgent + Render integration skeleton`
 DEPLOY_ID: `-`
-REQUIRES_COMMIT: `-`
-CREATED_BY: `-`
-CREATED_AT: `-`
-UPDATED_AT: `-`
+REQUIRES_COMMIT: `99dfde190ff79c174095ff44739e0e1590fec2b2`
+CREATED_BY: `MONARCH_GARY`
+CREATED_AT: `2026-05-06T11:05:00Z`
+UPDATED_AT: `2026-05-06T11:05:00Z`
 
 ---
 
 ## Payload
 
--
+```json
+{
+  "target": "render_status",
+  "mode": "read_only_diagnostics",
+  "expected_reports": [
+    "agent_workspace/render/RENDER_STATUS_REPORT.md"
+  ],
+  "notes": [
+    "Collect Render integration diagnostics/status only.",
+    "Do not perform Render writes or deploy actions.",
+    "Do not modify runtime, Telegram, DB, AI, or pillars."
+  ]
+}
+```
 
 ---
 
@@ -57,5 +70,5 @@ UPDATED_AT: `-`
 - If `REQUIRES_COMMIT` is set, SG must skip execution until runtime commit matches it.
 
 Current SG 2.0 status:
-- skeleton only;
-- no runtime runner is connected yet.
+- command prepared;
+- runtime runner is not connected yet, so automatic execution may not occur until the runner is wired.

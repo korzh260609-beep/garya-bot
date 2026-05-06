@@ -4,17 +4,17 @@
 // Do not add generic GitHub request parsing, OpenAI tool orchestration, or Telegram callback formatting here.
 
 import crypto from "crypto";
+import { executeGitHubApiRequest } from "./githubApiClient.js";
+import { buildApprovalWarning } from "./githubApprovalWarning.js";
 import {
-  buildApprovalWarning,
   cleanupExpiredGithubApprovals,
   deletePendingGithubApproval,
-  evaluateGitHubWritePolicy,
-  executeGitHubApiRequest,
   getPendingGithubApproval,
   listPendingGithubApprovals,
   setPendingGithubApproval,
-  summarizeGitHubWriteRequest,
-} from "./index.js";
+} from "./githubApprovalStore.memory.js";
+import { evaluateGitHubWritePolicy } from "./githubWritePolicy.js";
+import { summarizeGitHubWriteRequest } from "./githubWriteSummary.js";
 
 const APPROVAL_TTL_MS = 10 * 60 * 1000;
 

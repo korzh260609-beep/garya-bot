@@ -1,5 +1,6 @@
 name: SG2 Smoke
 
+# SG2 dev branch smoke workflow.
 on:
   workflow_dispatch:
   push:

@@ -8,3 +8,4 @@ export * from "./githubApprovalStore.memory.js";
 export * from "./githubWriteSummary.js";
 export * from "./githubApprovalWarning.js";
 export * from "./githubWritePolicy.js";
+export * from "./githubApprovalService.js";

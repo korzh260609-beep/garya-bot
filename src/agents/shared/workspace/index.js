@@ -6,3 +6,5 @@ export * from "./AgentWorkspaceCommandParser.js";
 export * from "./AgentWorkspaceReportPaths.js";
 export * from "./AgentWorkspaceCleaner.js";
 export * from "./AgentWorkspaceCommandRunner.js";
+export * from "./AgentWorkspaceGithubGateway.js";
+export * from "./AgentWorkspaceReportWriter.js";

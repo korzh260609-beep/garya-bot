@@ -93,4 +93,9 @@ jobs:
         run: |
           node --check src/transport/telegram.js
           node --check src/transport/telegram/telegramAdapter.js
+          node --check src/transport/telegram/telegramContext.js
+          node --check src/transport/telegram/telegramReplies.js
+          node --check src/transport/telegram/telegramMessageHandler.js
+          node --check src/transport/telegram/telegramCallbackHandler.js
+          node --check src/transport/telegram/index.js
           node --check src/delivery/telegramDelivery.js

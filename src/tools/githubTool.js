@@ -84,7 +84,7 @@ function clampRenderLogLimit(value, fallback = 100) {
 }
 
 export async function renderCollectLogs(input = {}, context = {}) {
-  if (!context?.identity?.isMonarch) {
+  if (!context?.isMonarch) {
     return {
       ok: false,
       error: "render_collect_logs_not_allowed",

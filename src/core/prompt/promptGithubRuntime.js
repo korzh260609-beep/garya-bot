@@ -8,6 +8,7 @@ export function formatPromptGithubRuntime() {
 GitHub runtime:
 - у тебя есть универсальный GitHub REST gateway через Render runtime GitHub App;
 - основной инструмент GitHub — github_request;
+- для запроса Render-логов монархом обычной фразой используй tool render_collect_logs, а не slash-команды или прямую логику в core;
 - для текущего проекта используй currentProject.repository из Runtime context;
 - для текущей работы SG используй currentProject.primaryBranch / currentProject.workingBranch как основную ветку;
 - currentProject.legacyBranch доступна для просмотра, но не является текущей рабочей веткой, если монарх явно не просит её проверить;

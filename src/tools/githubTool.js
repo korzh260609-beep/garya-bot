@@ -1,9 +1,8 @@
 // AGENT NOTE:
-// SG 2.0 free GitHub gateway tool.
-// Purpose: let the AI model call GitHub REST API through SG runtime GitHub App authentication.
-// This is intentionally a universal GitHub request gateway, not a set of narrow repo helpers.
-// Secret auth values must never be returned to the model, logs, Telegram, or tool payloads.
+// SG 2.0 runtime AI tools.
+// Purpose: let the AI model call approved runtime tools.
 
+import { runGetRenderLogsTask } from "../tasks/render/getRenderLogsTask.js";
 import {
   applyCurrentProjectDefaults,
   applyCurrentProjectWriteDefaults,
@@ -78,8 +77,30 @@ export async function githubRequest(input = {}, context = {}) {
   });
 }
 
+function clampRenderLogLimit(value, fallback = 100) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(1000, Math.trunc(n)));
+}
+
+export async function renderCollectLogs(input = {}, context = {}) {
+  if (!context?.identity?.isMonarch) {
+    return {
+      ok: false,
+      error: "render_collect_logs_not_allowed",
+    };
+  }
+
+  return runGetRenderLogsTask({
+    limit: clampRenderLogLimit(input.limit, 100),
+    target: typeof input.target === "string" && input.target.trim() ? input.target.trim() : "garya-bot",
+    level: typeof input.level === "string" && input.level.trim() ? input.level.trim() : "all",
+  });
+}
+
 export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "github_request") return githubRequest(args, context);
+  if (name === "render_collect_logs") return renderCollectLogs(args, context);
 
   return {
     ok: false,

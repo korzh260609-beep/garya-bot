@@ -56,6 +56,10 @@ jobs:
           node --check src/core/projectRuntimeContext.js
           node --check src/core/githubApprovalHandler.js
 
+      - name: Check SG commands syntax
+        run: |
+          node --check src/commands/commandRouter.js
+
       - name: Check SG core message syntax
         run: |
           node --check src/core/message/messageInput.js
@@ -111,6 +115,14 @@ jobs:
           node --check src/tools/github/githubProjectDefaults.js
           node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
+
+      - name: Check Workspace channel syntax
+        run: |
+          node --check src/runtime/workspace/workspaceChannel.js
+
+      - name: Check Render tasks syntax
+        run: |
+          node --check src/tasks/render/getRenderLogsTask.js
 
       - name: Check Render bridge syntax
         run: |

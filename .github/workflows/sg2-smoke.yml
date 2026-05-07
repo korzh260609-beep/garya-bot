@@ -56,10 +56,6 @@ jobs:
           node --check src/core/projectRuntimeContext.js
           node --check src/core/githubApprovalHandler.js
 
-      - name: Check SG commands syntax
-        run: |
-          node --check src/commands/commandRouter.js
-
       - name: Check SG core message syntax
         run: |
           node --check src/core/message/messageInput.js

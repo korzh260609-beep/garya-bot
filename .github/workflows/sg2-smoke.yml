@@ -117,11 +117,7 @@ jobs:
           node --check src/integrations/render/renderBridgeConfig.js
           node --check src/integrations/render/renderBridgeNormalizer.js
           node --check src/integrations/render/renderBridgeClient.js
-          node --check src/integrations/render/renderRequestTypes.js
           node --check src/integrations/render/renderSanitizer.js
-          node --check src/integrations/render/renderResponseBuilder.js
-          node --check src/integrations/render/renderRequestProcessor.js
-          node --check src/integrations/render/renderSimpleRunner.js
           node --check src/integrations/render/renderLatestLogs.js
           node --check src/integrations/render/index.js
 

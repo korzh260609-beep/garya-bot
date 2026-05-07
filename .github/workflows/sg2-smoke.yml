@@ -122,6 +122,7 @@ jobs:
           node --check src/integrations/render/renderResponseBuilder.js
           node --check src/integrations/render/renderRequestProcessor.js
           node --check src/integrations/render/renderSimpleRunner.js
+          node --check src/integrations/render/renderLatestLogs.js
           node --check src/integrations/render/index.js
 
       - name: Smoke GitHub Actions formatter

@@ -1,7 +1,7 @@
 // AGENT NOTE:
-// SG 2.0 universal GitHub gateway tool definition.
-// Purpose: expose one free GitHub REST API gateway to the AI wrapper.
-// Do not include secrets or hardcoded narrow helper tools here.
+// SG 2.0 AI tool definitions.
+// Purpose: expose approved runtime tools to the AI wrapper.
+// Do not include secrets or hardcoded unsafe mutation helpers here.
 
 export const githubToolDefinitions = [
   {
@@ -34,10 +34,34 @@ export const githubToolDefinitions = [
         },
         approvalContextJson: {
           type: "string",
-          description: "Required for POST/PUT/PATCH/DELETE. JSON object written by SG from the meaning of the planned change, not guessed by file path. Include: change_type, change_summary, reason, affected_files, affected_layers, specific_impact, not_touched. Example: {\"change_type\":\"logic\",\"change_summary\":\"Change GitHub approval warning text to be semantic\",\"reason\":\"Remove path-based impact heuristics\",\"affected_files\":[\"src/tools/githubTool.js\"],\"affected_layers\":[\"GitHub approval gate\"],\"specific_impact\":[\"Approval warning text will be based on SG's stated meaning\",\"Write execution gate remains unchanged\"],\"not_touched\":[\"main\",\"Render env\",\"GitHub App auth\"]}"
+          description: "Required for POST/PUT/PATCH/DELETE. JSON object written by SG from the meaning of the planned change, not guessed by file path. Include: change_type, change_summary, reason, affected_files, affected_layers, specific_impact, not_touched."
         },
       },
       required: ["path"],
+    },
+  },
+  {
+    type: "function",
+    name: "render_collect_logs",
+    description: "Collect the latest N Render logs for the SG Render service through the configured Render Bridge and write the sanitized result to runtime/render/latest/latest-render-logs.json in GitHub. Use this when the Monarch asks in natural language to get, show, fetch, or check Render logs. This tool never exposes Render env values and never mutates Render.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        limit: {
+          type: "number",
+          description: "Number of latest logs to collect. Clamp to 1..1000. Default 100.",
+        },
+        target: {
+          type: "string",
+          description: "Render service target. Default garya-bot.",
+        },
+        level: {
+          type: "string",
+          description: "Log level filter. Use all by default.",
+        },
+      },
+      required: [],
     },
   },
 ];

@@ -1,0 +1,39 @@
+name: Repo Commit Watcher
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/v2-start
+    paths-ignore:
+      - "runtime/repo/latest/latest-repo-registry.json"
+      - "runtime/repo/latest/latest-commit-state.json"
+
+jobs:
+  repo-commit-watcher:
+    name: Update repo registry after commits
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout dev branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev/v2-start
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run repo commit watcher agent
+        env:
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_INSTALLATION_ID: ${{ secrets.GITHUB_APP_INSTALLATION_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          GITHUB_APP_PRIVATE_KEY_BASE64: ${{ secrets.GITHUB_APP_PRIVATE_KEY_BASE64 }}
+          GITHUB_REPO: korzh260609-beep/garya-bot
+          GITHUB_BRANCH: dev/v2-start
+        run: node src/agents/repo-commit-watcher-agent/runRepoCommitWatcherAgent.js

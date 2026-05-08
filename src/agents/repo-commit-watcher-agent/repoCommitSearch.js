@@ -12,9 +12,15 @@ import {
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 const MAX_DETAILED_COMMITS = 12;
+const MAX_RETURNED_MATCHES = 3;
+const MAX_RETURNED_FILES = 5;
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function firstLine(value) {
+  return normalizeString(value).split("\n")[0] || "";
 }
 
 function clampLimit(value, fallback = DEFAULT_LIMIT) {
@@ -54,17 +60,17 @@ function scoreCommitDetail(detail, queryTokens) {
   for (const token of queryTokens) {
     if (textIncludesToken(message, token)) {
       score += 5;
-      reasons.push(`message contains "${token}"`);
+      reasons.push(`message:${token}`);
     }
 
     if (textIncludesToken(fileText, token)) {
       score += 4;
-      reasons.push(`changed file path contains "${token}"`);
+      reasons.push(`file:${token}`);
     }
 
     if (textIncludesToken(patchText, token)) {
       score += 2;
-      reasons.push(`patch contains "${token}"`);
+      reasons.push(`patch:${token}`);
     }
   }
 
@@ -78,8 +84,47 @@ function scoreCommitDetail(detail, queryTokens) {
 
   return {
     score,
-    reasons: uniqueTokens(reasons).slice(0, 12),
+    reasons: uniqueTokens(reasons).slice(0, 6),
     changed_files: changedFiles,
+  };
+}
+
+function compactMatch(match) {
+  const changedFiles = Array.isArray(match?.changed_files) ? match.changed_files : [];
+
+  return {
+    sha: match.sha,
+    short_sha: match.short_sha,
+    date: match.date ? match.date.slice(0, 10) : "",
+    message: firstLine(match.message),
+    score: match.score,
+    files: changedFiles.slice(0, MAX_RETURNED_FILES).map((file) => file.filename),
+    files_count: changedFiles.length,
+    url: match.html_url,
+    reasons: Array.isArray(match.reasons) ? match.reasons.slice(0, 6) : [],
+  };
+}
+
+function buildSummary({ query, matches }) {
+  const top = matches[0] ? compactMatch(matches[0]) : null;
+
+  if (!top) {
+    return {
+      found: false,
+      text: `Комит по запросу не найден: ${query}`,
+    };
+  }
+
+  return {
+    found: true,
+    text: [
+      `Найден комит: ${top.short_sha}`,
+      `Дата: ${top.date}`,
+      `Сообщение: ${top.message}`,
+      `Файлы: ${top.files.join(", ")}${top.files_count > top.files.length ? ` +${top.files_count - top.files.length}` : ""}`,
+      `Ссылка: ${top.url}`,
+    ].join("\n"),
+    top_match: top,
   };
 }
 
@@ -150,16 +195,20 @@ export async function findCommitsByIntent({ text, repo, branch, limit } = {}) {
   const matches = detailed
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score || String(b.date).localeCompare(String(a.date)));
+  const compactMatches = matches.slice(0, MAX_RETURNED_MATCHES).map(compactMatch);
+  const summary = buildSummary({ query: safeText, matches });
 
   return {
     ok: true,
     type: "repo_commit_search",
+    compact: true,
     repo: safeRepo,
     branch: safeBranch,
     query: safeText,
     searched_commits: detailed.length,
     matches_count: matches.length,
-    matches,
+    summary,
+    matches: compactMatches,
   };
 }
 

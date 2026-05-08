@@ -24,6 +24,14 @@ export const MESSAGE_CONTEXT_INJECTION_MODES = Object.freeze({
   INJECT_SYSTEM_CONTEXT: "inject_system_context",
 });
 
+export function buildMessageContextInjectionDisabledOptions() {
+  return {
+    enabled: false,
+    mode: MESSAGE_CONTEXT_INJECTION_MODES.DISABLED,
+    formatterOptions: {},
+  };
+}
+
 function normalizeOptions(options = {}) {
   return {
     enabled: Boolean(options.enabled),
@@ -122,5 +130,6 @@ export function prepareMessageContextInjection({ messages = [], contextPack = nu
 export default {
   MESSAGE_CONTEXT_INJECTION_VERSION,
   MESSAGE_CONTEXT_INJECTION_MODES,
+  buildMessageContextInjectionDisabledOptions,
   prepareMessageContextInjection,
 };

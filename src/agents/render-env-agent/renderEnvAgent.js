@@ -9,22 +9,29 @@ import { getRenderBridgeDiag } from "../../integrations/render/renderBridgeConfi
 
 const LATEST_RENDER_ENV_PATH = "runtime/render/latest/latest-render-env.json";
 
-const SECRET_NAME_PARTS = Object.freeze([
-  "KEY",
-  "TOKEN",
-  "SECRET",
-  "PASSWORD",
-  "PASS",
-  "AUTH",
-  "PRIVATE",
+const SECRET_NAME_EXACT = Object.freeze([
   "DATABASE_URL",
   "DB_URL",
+  "REDIS_URL",
+  "MONGO_URL",
+  "MONGODB_URI",
   "CONNECTION_STRING",
-  "OPENAI",
-  "TELEGRAM",
-  "GITHUB",
+  "OPENAI_API_KEY",
+  "TELEGRAM_BOT_TOKEN",
+  "GITHUB_TOKEN",
+  "GITHUB_PAT",
+  "GITHUB_APP_PRIVATE_KEY",
   "RENDER_API_KEY",
-  "WEBHOOK",
+]);
+
+const SECRET_NAME_SUFFIXES = Object.freeze([
+  "_SECRET",
+  "_TOKEN",
+  "_API_KEY",
+  "_PRIVATE_KEY",
+  "_PASSWORD",
+  "_WEBHOOK_SECRET",
+  "_SIGNING_SECRET",
 ]);
 
 const SECRET_VALUE_PATTERNS = Object.freeze([
@@ -46,7 +53,8 @@ function normalizeString(value) {
 function isSecretEnvName(name) {
   const upper = normalizeString(name).toUpperCase();
   if (!upper) return true;
-  return SECRET_NAME_PARTS.some((part) => upper.includes(part));
+  if (SECRET_NAME_EXACT.includes(upper)) return true;
+  return SECRET_NAME_SUFFIXES.some((suffix) => upper.endsWith(suffix));
 }
 
 function isSecretEnvValue(value) {
@@ -146,7 +154,7 @@ export async function collectRenderEnvInventory({ target = "garya-bot" } = {}) {
     },
     env_count: env.length,
     env,
-    secrets_policy: "secret_values_hidden_by_name_or_value",
+    secrets_policy: "secret_values_hidden_by_exact_name_suffix_or_value",
   };
 }
 

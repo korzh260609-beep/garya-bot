@@ -10,13 +10,24 @@ import { appendQuery, readResponse } from "./githubRequestUtils.js";
 const GITHUB_API_BASE = "https://api.github.com";
 const DEFAULT_TIMEOUT_MS = 15000;
 
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function getGitHubAccessToken() {
+  const actionsToken = normalizeString(process.env.GITHUB_TOKEN);
+  if (actionsToken) return actionsToken;
+
+  return getGitHubAppAccess();
+}
+
 export async function executeGitHubApiRequest({ method, path, query, body, headers }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   const url = appendQuery(`${GITHUB_API_BASE}${path}`, query);
 
   try {
-    const token = await getGitHubAppAccess();
+    const token = await getGitHubAccessToken();
     const response = await fetch(url, {
       method,
       headers: {

@@ -9,6 +9,10 @@ on:
       - "runtime/repo/latest/latest-repo-registry.json"
       - "runtime/repo/latest/latest-commit-state.json"
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   repo-commit-watcher:
     name: Update repo registry after commits
@@ -30,10 +34,7 @@ jobs:
 
       - name: Run repo commit watcher agent
         env:
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_INSTALLATION_ID: ${{ secrets.GITHUB_APP_INSTALLATION_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          GITHUB_APP_PRIVATE_KEY_BASE64: ${{ secrets.GITHUB_APP_PRIVATE_KEY_BASE64 }}
+          GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPO: korzh260609-beep/garya-bot
           GITHUB_BRANCH: dev/v2-start
         run: node src/agents/repo-commit-watcher-agent/runRepoCommitWatcherAgent.js

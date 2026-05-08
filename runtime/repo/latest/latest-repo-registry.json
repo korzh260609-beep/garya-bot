@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-08T13:14:54.383Z",
+  "generated_at": "2026-05-08T14:27:40.830Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "ac396798ef60184ec05cb1db5fa420a809545ea9",
+  "head_sha": "4ef141854c205959870d16dc7ca2c1955e184596",
   "truncated": false,
-  "items_count": 249,
+  "items_count": 252,
   "semantic_fields": [
     "module",
     "layer",
@@ -2039,6 +2039,67 @@
         "source_priority": "source_code",
         "notes": [
           "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/advisor-outbox-agent",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "advisor-outbox-agent",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/advisor-outbox-agent/advisorOutboxAgent.js",
+      "type": "file",
+      "parent": "src/agents/advisor-outbox-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "advisor-outbox-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/advisor-outbox-agent/index.js",
+      "type": "file",
+      "parent": "src/agents/advisor-outbox-agent",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "advisor-outbox-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
         ]
       }
     },

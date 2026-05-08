@@ -2,6 +2,7 @@
 // SG 2.0 runtime AI tools.
 // Purpose: let the AI model call approved runtime tools.
 
+import { runRenderEnvAgent } from "../agents/render-env-agent/renderEnvAgent.js";
 import { runGetRenderLogsTask } from "../tasks/render/getRenderLogsTask.js";
 import {
   applyCurrentProjectDefaults,
@@ -98,9 +99,23 @@ export async function renderCollectLogs(input = {}, context = {}) {
   });
 }
 
+export async function renderCollectEnv(input = {}, context = {}) {
+  if (!context?.isMonarch) {
+    return {
+      ok: false,
+      error: "render_collect_env_not_allowed",
+    };
+  }
+
+  return runRenderEnvAgent({
+    target: typeof input.target === "string" && input.target.trim() ? input.target.trim() : "garya-bot",
+  });
+}
+
 export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "github_request") return githubRequest(args, context);
   if (name === "render_collect_logs") return renderCollectLogs(args, context);
+  if (name === "render_collect_env") return renderCollectEnv(args, context);
 
   return {
     ok: false,

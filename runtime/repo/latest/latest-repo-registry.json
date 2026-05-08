@@ -1,12 +1,12 @@
 {
   "ok": true,
   "type": "repo_registry",
-  "generated_at": "2026-05-08T07:37:32.746Z",
+  "generated_at": "2026-05-08T08:25:32.669Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "0870d44073bb4ac36589ef7a39d904fd8dde1607",
+  "head_sha": "726b57d053ac1d6b4a80d37f7db088fc7e187849",
   "truncated": false,
-  "items_count": 216,
+  "items_count": 223,
   "items": [
     {
       "path": ".env.example",
@@ -31,6 +31,14 @@
       "extension": "",
       "description": "Repository folder.",
       "status": "folder"
+    },
+    {
+      "path": ".github/workflows/repo-commit-watcher.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config"
     },
     {
       "path": ".github/workflows/sg2-smoke.yml",
@@ -860,6 +868,54 @@
       "path": "src/agents/render-env-agent/renderEnvAgent.js",
       "type": "file",
       "parent": "src/agents/render-env-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/repo-commit-watcher-agent",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/agents/repo-commit-watcher-agent/index.js",
+      "type": "file",
+      "parent": "src/agents/repo-commit-watcher-agent",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/repo-commit-watcher-agent/README.md",
+      "type": "file",
+      "parent": "src/agents/repo-commit-watcher-agent",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "src/agents/repo-commit-watcher-agent/repoCommitSearch.js",
+      "type": "file",
+      "parent": "src/agents/repo-commit-watcher-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/repo-commit-watcher-agent/repoCommitWatcherAgent.js",
+      "type": "file",
+      "parent": "src/agents/repo-commit-watcher-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/repo-commit-watcher-agent/runRepoCommitWatcherAgent.js",
+      "type": "file",
+      "parent": "src/agents/repo-commit-watcher-agent",
       "extension": "js",
       "description": "JavaScript source file.",
       "status": "active_or_config"

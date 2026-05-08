@@ -5,5 +5,6 @@
 export * from "./messageInput.js";
 export * from "./messageAccess.js";
 export * from "./messageBehavior.js";
+export * from "./messageContextPack.js";
 export * from "./messageAiRequest.js";
 export * from "./messageGithubApproval.js";

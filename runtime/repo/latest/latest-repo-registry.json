@@ -1,12 +1,23 @@
 {
   "ok": true,
   "type": "repo_registry",
-  "generated_at": "2026-05-08T09:44:41.090Z",
+  "schema_version": 2,
+  "generated_at": "2026-05-08T09:50:38.375Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "b41805e05755310eff172124e112bc07415477d4",
+  "head_sha": "45dbcfc44c47093b1ab91f18b59138846120e320",
   "truncated": false,
   "items_count": 241,
+  "semantic_fields": [
+    "module",
+    "layer",
+    "responsibility",
+    "owner",
+    "safe_to_edit",
+    "runtime_impact",
+    "source_priority",
+    "notes"
+  ],
   "items": [
     {
       "path": ".env.example",
@@ -14,7 +25,17 @@
       "parent": "",
       "extension": "example",
       "description": "Repository file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "env_template",
+        "layer": "env_template",
+        "responsibility": "Repository file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": ".github",
@@ -22,7 +43,19 @@
       "parent": "",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": ".github/workflows",
@@ -30,7 +63,19 @@
       "parent": ".github",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "ci",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": ".github/workflows/repo-commit-watcher.yml",
@@ -38,7 +83,17 @@
       "parent": ".github/workflows",
       "extension": "yml",
       "description": "YAML configuration file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
     },
     {
       "path": ".github/workflows/sg2-smoke.yml",
@@ -46,7 +101,17 @@
       "parent": ".github/workflows",
       "extension": "yml",
       "description": "YAML configuration file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
     },
     {
       "path": ".github/workflows/smoke-agents-skeleton.yml",
@@ -54,7 +119,17 @@
       "parent": ".github/workflows",
       "extension": "yml",
       "description": "YAML configuration file.",
-      "status": "skeleton"
+      "status": "skeleton",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace",
@@ -62,7 +137,19 @@
       "parent": "",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "agent_workspace/OUTBOX.md",
@@ -70,7 +157,17 @@
       "parent": "agent_workspace",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace/render",
@@ -78,7 +175,19 @@
       "parent": "agent_workspace",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "agent_workspace/RENDER_DEPLOY_REPORT.md",
@@ -86,7 +195,17 @@
       "parent": "agent_workspace",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace/RENDER_DEPLOYS_REPORT.md",
@@ -94,7 +213,17 @@
       "parent": "agent_workspace",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace/RENDER_LOGS_REPORT.md",
@@ -102,7 +231,17 @@
       "parent": "agent_workspace",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace/RENDER_STATUS_REPORT.md",
@@ -110,7 +249,17 @@
       "parent": "agent_workspace",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace/render/RENDER_DEPLOY_REPORT.md",
@@ -118,7 +267,17 @@
       "parent": "agent_workspace/render",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace/render/RENDER_DEPLOYS_REPORT.md",
@@ -126,7 +285,17 @@
       "parent": "agent_workspace/render",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace/render/RENDER_LOGS_REPORT.md",
@@ -134,7 +303,17 @@
       "parent": "agent_workspace/render",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace/render/RENDER_STATUS_REPORT.md",
@@ -142,7 +321,17 @@
       "parent": "agent_workspace/render",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "agent_workspace/STATUS.md",
@@ -150,7 +339,17 @@
       "parent": "agent_workspace",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "docs",
@@ -158,7 +357,19 @@
       "parent": "",
       "extension": "",
       "description": "Project documentation.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Project documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "docs/render-strategy.md",
@@ -166,7 +377,17 @@
       "parent": "docs",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "docs",
+        "layer": "docs",
+        "responsibility": "Markdown documentation.",
+        "owner": "documentation",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "documentation",
+        "notes": []
+      }
     },
     {
       "path": "docs/sg-core.md",
@@ -174,7 +395,17 @@
       "parent": "docs",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "docs",
+        "layer": "docs",
+        "responsibility": "Markdown documentation.",
+        "owner": "documentation",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "documentation",
+        "notes": []
+      }
     },
     {
       "path": "index.js",
@@ -182,7 +413,19 @@
       "parent": "",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "app_entry",
+        "layer": "app_entry",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "core_entry",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "high_app_entry",
+        "source_priority": "repository_fact",
+        "notes": [
+          "application_entrypoint_handle_with_care"
+        ]
+      }
     },
     {
       "path": "package.json",
@@ -190,7 +433,19 @@
       "parent": "",
       "extension": "json",
       "description": "Node.js package manifest.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "dependencies",
+        "layer": "dependencies",
+        "responsibility": "Node.js package manifest.",
+        "owner": "dependencies",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "dependency_runtime_possible",
+        "source_priority": "dependency_source",
+        "notes": [
+          "dependency_surface_handle_with_care"
+        ]
+      }
     },
     {
       "path": "pillars",
@@ -198,15 +453,40 @@
       "parent": "",
       "extension": "",
       "description": "Project principles, architecture notes, and decisions.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Project principles, architecture notes, and decisions.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "pillars/architecture",
       "type": "folder",
       "parent": "pillars",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Architecture map documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "pillars",
+        "layer": "pillars",
+        "responsibility": "Architecture map documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md",
@@ -214,7 +494,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/CODE_OWNERSHIP_MAP.md",
@@ -222,7 +514,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/DATA_FLOW.md",
@@ -230,7 +534,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/MODULE_MAP.md",
@@ -238,7 +554,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/PERMISSIONS_MAP.md",
@@ -246,7 +574,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/README.md",
@@ -254,7 +594,20 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/REPO_MAINTENANCE_AGENT_SKELETON.md",
@@ -262,7 +615,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/REPO_MAP_SOURCE_POLICY.md",
@@ -270,7 +635,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/SEMANTIC_ROUTING.md",
@@ -278,7 +655,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/SG_CAPABILITY_ACCESS.md",
@@ -286,7 +675,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/architecture/SG_INTERFACE_LAYERS.md",
@@ -294,7 +695,19 @@
       "parent": "pillars/architecture",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "architecture",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/DECISIONS.md",
@@ -302,23 +715,61 @@
       "parent": "pillars",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "pillars",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules",
       "type": "folder",
       "parent": "pillars",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "pillars",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/ai",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "ai",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/ai/README.md",
@@ -326,15 +777,41 @@
       "parent": "pillars/modules/ai",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "ai",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/billing",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "billing",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/billing/README.md",
@@ -342,15 +819,41 @@
       "parent": "pillars/modules/billing",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "billing",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/config",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "config",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/config/README.md",
@@ -358,15 +861,41 @@
       "parent": "pillars/modules/config",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "config",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/core",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "core",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/core/README.md",
@@ -374,15 +903,41 @@
       "parent": "pillars/modules/core",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "core",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/delivery",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "delivery",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/delivery/README.md",
@@ -390,15 +945,41 @@
       "parent": "pillars/modules/delivery",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "delivery",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/documents",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "documents",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/documents/README.md",
@@ -406,15 +987,41 @@
       "parent": "pillars/modules/documents",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "documents",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/logging",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "logging",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/logging/README.md",
@@ -422,15 +1029,41 @@
       "parent": "pillars/modules/logging",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "logging",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/memory",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "memory",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/memory/README.md",
@@ -438,7 +1071,20 @@
       "parent": "pillars/modules/memory",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "memory",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/MODULE_INDEX.md",
@@ -446,15 +1092,40 @@
       "parent": "pillars/modules",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "MODULE_INDEX.md",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/permissions",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "permissions",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/permissions/README.md",
@@ -462,7 +1133,20 @@
       "parent": "pillars/modules/permissions",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "permissions",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/README.md",
@@ -470,15 +1154,41 @@
       "parent": "pillars/modules",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "README.md",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/repo",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "repo",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/repo/README.md",
@@ -486,15 +1196,41 @@
       "parent": "pillars/modules/repo",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "repo",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/sources",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "sources",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/sources/README.md",
@@ -502,15 +1238,41 @@
       "parent": "pillars/modules/sources",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "sources",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/tasks",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "tasks",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/tasks/README.md",
@@ -518,15 +1280,41 @@
       "parent": "pillars/modules/tasks",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "tasks",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/transport",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "transport",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/transport/README.md",
@@ -534,15 +1322,41 @@
       "parent": "pillars/modules/transport",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "transport",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/modules/users",
       "type": "folder",
       "parent": "pillars/modules",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "users",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/modules/users/README.md",
@@ -550,7 +1364,20 @@
       "parent": "pillars/modules/users",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "users",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/PROJECT.md",
@@ -558,7 +1385,19 @@
       "parent": "pillars",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "pillars",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/README.md",
@@ -566,7 +1405,20 @@
       "parent": "pillars",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "pillars",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "pillars/SG_BEHAVIOR.md",
@@ -574,7 +1426,19 @@
       "parent": "pillars",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "pillars",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/SG_ENTITY.md",
@@ -582,15 +1446,40 @@
       "parent": "pillars",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "pillars",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/workflow",
       "type": "folder",
       "parent": "pillars",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "documentation"
+      "description": "Project workflow and current stage documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "pillars",
+        "layer": "pillars",
+        "responsibility": "Project workflow and current stage documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/workflow/01_living_sg_foundation.md",
@@ -598,7 +1487,19 @@
       "parent": "pillars/workflow",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "workflow",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/workflow/02_github_access_repo_workflow.md",
@@ -606,7 +1507,19 @@
       "parent": "pillars/workflow",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "workflow",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/workflow/03_minimal_speaking_sg.md",
@@ -614,7 +1527,19 @@
       "parent": "pillars/workflow",
       "extension": "md",
       "description": "Markdown documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "workflow",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
     },
     {
       "path": "pillars/workflow/README.md",
@@ -622,7 +1547,20 @@
       "parent": "pillars/workflow",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "workflow",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "README.md",
@@ -630,7 +1568,19 @@
       "parent": "",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Folder documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "repository_fact",
+        "notes": [
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "runtime",
@@ -638,23 +1588,61 @@
       "parent": "",
       "extension": "",
       "description": "Generated runtime workspace reports.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Generated runtime workspace reports.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "runtime/render",
       "type": "folder",
       "parent": "runtime",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "generated"
+      "description": "Generated Render state reports.",
+      "status": "generated",
+      "semantic": {
+        "module": "runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Generated Render state reports.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_folder",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "folder_node",
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "runtime/render/latest",
       "type": "folder",
       "parent": "runtime/render",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "generated"
+      "description": "Generated Render state reports.",
+      "status": "generated",
+      "semantic": {
+        "module": "render_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Generated Render state reports.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_folder",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "folder_node",
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "runtime/render/latest/latest-render-env.json",
@@ -662,7 +1650,19 @@
       "parent": "runtime/render/latest",
       "extension": "json",
       "description": "JSON data/configuration file.",
-      "status": "generated"
+      "status": "generated",
+      "semantic": {
+        "module": "render_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "JSON data/configuration file.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "runtime/render/latest/latest-render-logs.json",
@@ -670,7 +1670,19 @@
       "parent": "runtime/render/latest",
       "extension": "json",
       "description": "JSON data/configuration file.",
-      "status": "generated"
+      "status": "generated",
+      "semantic": {
+        "module": "render_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "JSON data/configuration file.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "runtime/render/latest/README.md",
@@ -678,7 +1690,20 @@
       "parent": "runtime/render/latest",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "generated"
+      "status": "generated",
+      "semantic": {
+        "module": "render_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Folder documentation.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "runtime/render/README.md",
@@ -686,15 +1711,41 @@
       "parent": "runtime/render",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "generated"
+      "status": "generated",
+      "semantic": {
+        "module": "render_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Folder documentation.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "runtime/render/requests",
       "type": "folder",
       "parent": "runtime/render",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "generated"
+      "description": "Generated Render state reports.",
+      "status": "generated",
+      "semantic": {
+        "module": "render_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Generated Render state reports.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_folder",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "folder_node",
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "runtime/render/requests/README.md",
@@ -702,15 +1753,41 @@
       "parent": "runtime/render/requests",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "generated"
+      "status": "generated",
+      "semantic": {
+        "module": "render_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Folder documentation.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "runtime/render/responses",
       "type": "folder",
       "parent": "runtime/render",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "generated"
+      "description": "Generated Render state reports.",
+      "status": "generated",
+      "semantic": {
+        "module": "render_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Generated Render state reports.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_folder",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "folder_node",
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "runtime/render/responses/README.md",
@@ -718,23 +1795,62 @@
       "parent": "runtime/render/responses",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "generated"
+      "status": "generated",
+      "semantic": {
+        "module": "render_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Folder documentation.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "runtime/repo",
       "type": "folder",
       "parent": "runtime",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "generated"
+      "description": "Generated repository state and registry reports.",
+      "status": "generated",
+      "semantic": {
+        "module": "runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Generated repository state and registry reports.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_folder",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "folder_node",
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "runtime/repo/latest",
       "type": "folder",
       "parent": "runtime/repo",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "generated"
+      "description": "Generated repository state and registry reports.",
+      "status": "generated",
+      "semantic": {
+        "module": "repo_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Generated repository state and registry reports.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_folder",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "folder_node",
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "runtime/repo/latest/latest-commit-state.json",
@@ -742,7 +1858,19 @@
       "parent": "runtime/repo/latest",
       "extension": "json",
       "description": "JSON data/configuration file.",
-      "status": "generated"
+      "status": "generated",
+      "semantic": {
+        "module": "repo_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "JSON data/configuration file.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "runtime/repo/latest/latest-repo-registry.json",
@@ -750,7 +1878,19 @@
       "parent": "runtime/repo/latest",
       "extension": "json",
       "description": "JSON data/configuration file.",
-      "status": "generated"
+      "status": "generated",
+      "semantic": {
+        "module": "repo_runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "JSON data/configuration file.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime"
+        ]
+      }
     },
     {
       "path": "scripts",
@@ -758,7 +1898,19 @@
       "parent": "",
       "extension": "",
       "description": "Utility and smoke-test scripts.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Utility and smoke-test scripts.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "scripts/smokeGithubActionsFormatter.js",
@@ -766,7 +1918,17 @@
       "parent": "scripts",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
     },
     {
       "path": "src",
@@ -774,7 +1936,19 @@
       "parent": "",
       "extension": "",
       "description": "Application source code.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Application source code.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/agents",
@@ -782,7 +1956,19 @@
       "parent": "src",
       "extension": "",
       "description": "SG agent layer.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "SG agent layer.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/agents/github-actions-agent",
@@ -790,7 +1976,20 @@
       "parent": "src/agents",
       "extension": "",
       "description": "Agent-specific folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "github-actions-agent",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/github-actions-agent/GitHubActionsAgentReportBuilder.js",
@@ -798,7 +1997,19 @@
       "parent": "src/agents/github-actions-agent",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github-actions-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/github-actions-agent/GitHubActionsAgentService.js",
@@ -806,7 +2017,19 @@
       "parent": "src/agents/github-actions-agent",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github-actions-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/github-actions-agent/index.js",
@@ -814,7 +2037,19 @@
       "parent": "src/agents/github-actions-agent",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github-actions-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/github-actions-agent/README.md",
@@ -822,7 +2057,20 @@
       "parent": "src/agents/github-actions-agent",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "github-actions-agent",
+        "layer": "agents",
+        "responsibility": "Folder documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/agents/index.js",
@@ -830,7 +2078,19 @@
       "parent": "src/agents",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "index.js",
+        "layer": "agents",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/README.md",
@@ -838,7 +2098,20 @@
       "parent": "src/agents",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "README.md",
+        "layer": "agents",
+        "responsibility": "Folder documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/agents/render-agent",
@@ -846,7 +2119,20 @@
       "parent": "src/agents",
       "extension": "",
       "description": "Agent-specific folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "render-agent",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/render-agent/README.md",
@@ -854,7 +2140,20 @@
       "parent": "src/agents/render-agent",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "render-agent",
+        "layer": "agents",
+        "responsibility": "Folder documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/agents/render-env-agent",
@@ -862,7 +2161,20 @@
       "parent": "src/agents",
       "extension": "",
       "description": "Agent-specific folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "render-env-agent",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/render-env-agent/README.md",
@@ -870,15 +2182,40 @@
       "parent": "src/agents/render-env-agent",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "render-env-agent",
+        "layer": "agents",
+        "responsibility": "Folder documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/agents/render-env-agent/renderEnvAgent.js",
       "type": "file",
       "parent": "src/agents/render-env-agent",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Collects masked Render environment inventory.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "render-env-agent",
+        "layer": "agents",
+        "responsibility": "Collects masked Render environment inventory.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/repo-commit-watcher-agent",
@@ -886,7 +2223,20 @@
       "parent": "src/agents",
       "extension": "",
       "description": "Agent-specific folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repo-commit-watcher-agent",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/repo-commit-watcher-agent/index.js",
@@ -894,7 +2244,19 @@
       "parent": "src/agents/repo-commit-watcher-agent",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repo-commit-watcher-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/repo-commit-watcher-agent/README.md",
@@ -902,23 +2264,60 @@
       "parent": "src/agents/repo-commit-watcher-agent",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "repo-commit-watcher-agent",
+        "layer": "agents",
+        "responsibility": "Folder documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/agents/repo-commit-watcher-agent/repoCommitSearch.js",
       "type": "file",
       "parent": "src/agents/repo-commit-watcher-agent",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Searches recent commits for action-oriented history.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repo-commit-watcher-agent",
+        "layer": "agents",
+        "responsibility": "Searches recent commits for action-oriented history.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/repo-commit-watcher-agent/repoCommitWatcherAgent.js",
       "type": "file",
       "parent": "src/agents/repo-commit-watcher-agent",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Detects new commits and triggers repo registry updates.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repo-commit-watcher-agent",
+        "layer": "agents",
+        "responsibility": "Detects new commits and triggers repo registry updates.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/repo-commit-watcher-agent/runRepoCommitWatcherAgent.js",
@@ -926,7 +2325,19 @@
       "parent": "src/agents/repo-commit-watcher-agent",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repo-commit-watcher-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/repo-registry-agent",
@@ -934,7 +2345,20 @@
       "parent": "src/agents",
       "extension": "",
       "description": "Agent-specific folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repo-registry-agent",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/agents/repo-registry-agent/README.md",
@@ -942,15 +2366,40 @@
       "parent": "src/agents/repo-registry-agent",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "repo-registry-agent",
+        "layer": "agents",
+        "responsibility": "Folder documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/agents/repo-registry-agent/repoRegistryAgent.js",
       "type": "file",
       "parent": "src/agents/repo-registry-agent",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Builds deterministic repository registry reports.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repo-registry-agent",
+        "layer": "agents",
+        "responsibility": "Builds deterministic repository registry reports.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
     },
     {
       "path": "src/ai",
@@ -958,7 +2407,19 @@
       "parent": "src",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/ai/aiInputMapper.js",
@@ -966,7 +2427,17 @@
       "parent": "src/ai",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/ai/aiOutputParser.js",
@@ -974,7 +2445,17 @@
       "parent": "src/ai",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/ai/aiToolContext.js",
@@ -982,7 +2463,17 @@
       "parent": "src/ai",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/ai/aiToolMetadata.js",
@@ -990,7 +2481,17 @@
       "parent": "src/ai",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/ai/aiToolRunner.js",
@@ -998,7 +2499,17 @@
       "parent": "src/ai",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/ai/callAI.js",
@@ -1006,7 +2517,17 @@
       "parent": "src/ai",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/ai/modelConfig.js",
@@ -1014,7 +2535,17 @@
       "parent": "src/ai",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/ai/openaiClient.js",
@@ -1022,7 +2553,17 @@
       "parent": "src/ai",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/app",
@@ -1030,7 +2571,19 @@
       "parent": "src",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/app/appFactory.js",
@@ -1038,7 +2591,17 @@
       "parent": "src/app",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/app/healthRoutes.js",
@@ -1046,7 +2609,17 @@
       "parent": "src/app",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/app/healthStatus.js",
@@ -1054,7 +2627,17 @@
       "parent": "src/app",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/app/index.js",
@@ -1062,7 +2645,17 @@
       "parent": "src/app",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/app/rootRoutes.js",
@@ -1070,7 +2663,17 @@
       "parent": "src/app",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/app/rootStatus.js",
@@ -1078,7 +2681,17 @@
       "parent": "src/app",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/app/runtimeHooks.js",
@@ -1086,7 +2699,17 @@
       "parent": "src/app",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/app/runtimeStatusPresenter.js",
@@ -1094,7 +2717,17 @@
       "parent": "src/app",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/app/serverStartup.js",
@@ -1102,7 +2735,17 @@
       "parent": "src/app",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/behavior",
@@ -1110,15 +2753,39 @@
       "parent": "src",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/behavior/actionPolicy.js",
       "type": "file",
       "parent": "src/behavior",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
+      }
     },
     {
       "path": "src/behavior/actionTypes.js",
@@ -1126,7 +2793,17 @@
       "parent": "src/behavior",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/behavior/behaviorPrompt.js",
@@ -1134,7 +2811,17 @@
       "parent": "src/behavior",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/behavior/behaviorRules.js",
@@ -1142,7 +2829,17 @@
       "parent": "src/behavior",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/behavior/behaviorRuntime.js",
@@ -1150,15 +2847,37 @@
       "parent": "src/behavior",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/behavior/disclosurePolicy.js",
       "type": "file",
       "parent": "src/behavior",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
+      }
     },
     {
       "path": "src/config",
@@ -1166,7 +2885,19 @@
       "parent": "src",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/config/env.js",
@@ -1174,7 +2905,17 @@
       "parent": "src/config",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/config/envPrimitives.js",
@@ -1182,7 +2923,17 @@
       "parent": "src/config",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/config/runtimeConfig.js",
@@ -1190,7 +2941,17 @@
       "parent": "src/config",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/config/telegramConfig.js",
@@ -1198,7 +2959,17 @@
       "parent": "src/config",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core",
@@ -1206,7 +2977,19 @@
       "parent": "src",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/core/githubApproval",
@@ -1214,7 +2997,19 @@
       "parent": "src/core",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/core/githubApproval/githubApprovalAccess.js",
@@ -1222,7 +3017,17 @@
       "parent": "src/core/githubApproval",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/githubApproval/githubApprovalCallbackParser.js",
@@ -1230,7 +3035,17 @@
       "parent": "src/core/githubApproval",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/githubApproval/githubApprovalExecutor.js",
@@ -1238,7 +3053,17 @@
       "parent": "src/core/githubApproval",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/githubApproval/githubApprovalResultFormatter.js",
@@ -1246,7 +3071,17 @@
       "parent": "src/core/githubApproval",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/githubApproval/index.js",
@@ -1254,7 +3089,17 @@
       "parent": "src/core/githubApproval",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/githubApprovalHandler.js",
@@ -1262,7 +3107,17 @@
       "parent": "src/core",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/handleMessage.js",
@@ -1270,7 +3125,17 @@
       "parent": "src/core",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/message",
@@ -1278,7 +3143,19 @@
       "parent": "src/core",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/core/message/index.js",
@@ -1286,7 +3163,17 @@
       "parent": "src/core/message",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/message/messageAccess.js",
@@ -1294,7 +3181,17 @@
       "parent": "src/core/message",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/message/messageAiRequest.js",
@@ -1302,7 +3199,17 @@
       "parent": "src/core/message",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/message/messageBehavior.js",
@@ -1310,7 +3217,17 @@
       "parent": "src/core/message",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/message/messageGithubApproval.js",
@@ -1318,7 +3235,17 @@
       "parent": "src/core/message",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/message/messageInput.js",
@@ -1326,7 +3253,17 @@
       "parent": "src/core/message",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/projectRuntimeContext.js",
@@ -1334,7 +3271,17 @@
       "parent": "src/core",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/prompt",
@@ -1342,7 +3289,19 @@
       "parent": "src/core",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/core/prompt/index.js",
@@ -1350,7 +3309,17 @@
       "parent": "src/core/prompt",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/prompt/promptBehaviorRules.js",
@@ -1358,7 +3327,17 @@
       "parent": "src/core/prompt",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/prompt/promptGithubOutputFormat.js",
@@ -1366,7 +3345,17 @@
       "parent": "src/core/prompt",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/prompt/promptGithubRuntime.js",
@@ -1374,15 +3363,37 @@
       "parent": "src/core/prompt",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/prompt/promptGithubWritePolicy.js",
       "type": "file",
       "parent": "src/core/prompt",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
+      }
     },
     {
       "path": "src/core/prompt/promptIdentity.js",
@@ -1390,7 +3401,17 @@
       "parent": "src/core/prompt",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/prompt/promptLanguageRules.js",
@@ -1398,7 +3419,17 @@
       "parent": "src/core/prompt",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/prompt/promptRuntimeContext.js",
@@ -1406,7 +3437,17 @@
       "parent": "src/core/prompt",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/prompt/promptRuntimeStatus.js",
@@ -1414,7 +3455,17 @@
       "parent": "src/core/prompt",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/core/sgSystemPrompt.js",
@@ -1422,7 +3473,17 @@
       "parent": "src/core",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/delivery",
@@ -1430,7 +3491,19 @@
       "parent": "src",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/delivery/telegramDelivery.js",
@@ -1438,7 +3511,17 @@
       "parent": "src/delivery",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/integrations",
@@ -1446,7 +3529,19 @@
       "parent": "src",
       "extension": "",
       "description": "External integration layer.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "External integration layer.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/integrations/github",
@@ -1454,7 +3549,19 @@
       "parent": "src/integrations",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/integrations/github/appAuth.js",
@@ -1462,7 +3569,17 @@
       "parent": "src/integrations/github",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/integrations/render",
@@ -1470,7 +3587,19 @@
       "parent": "src/integrations",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/integrations/render/index.js",
@@ -1478,7 +3607,17 @@
       "parent": "src/integrations/render",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/integrations/render/README.md",
@@ -1486,7 +3625,19 @@
       "parent": "src/integrations/render",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "Folder documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/integrations/render/renderBridgeClient.js",
@@ -1494,7 +3645,17 @@
       "parent": "src/integrations/render",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/integrations/render/renderBridgeConfig.js",
@@ -1502,7 +3663,17 @@
       "parent": "src/integrations/render",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/integrations/render/renderBridgeNormalizer.js",
@@ -1510,7 +3681,17 @@
       "parent": "src/integrations/render",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/integrations/render/renderLatestLogs.js",
@@ -1518,7 +3699,17 @@
       "parent": "src/integrations/render",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/integrations/render/renderSanitizer.js",
@@ -1526,39 +3717,98 @@
       "parent": "src/integrations/render",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/memory",
       "type": "folder",
       "parent": "src",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "folder"
+      "description": "SG memory and AI context implementation layer.",
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "SG memory and AI context implementation layer.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/memory/context",
       "type": "folder",
       "parent": "src/memory",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "folder"
+      "description": "AI context pack builder area.",
+      "status": "folder",
+      "semantic": {
+        "module": "memory",
+        "layer": "memory",
+        "responsibility": "AI context pack builder area.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "part_of_memory_context_foundation"
+        ]
+      }
     },
     {
       "path": "src/memory/context/contextPackBuilder.js",
       "type": "file",
       "parent": "src/memory/context",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Builds controlled AI context packs from provided inputs.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "memory_context",
+        "layer": "memory",
+        "responsibility": "Builds controlled AI context packs from provided inputs.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
     },
     {
       "path": "src/memory/context/contextTypes.js",
       "type": "file",
       "parent": "src/memory/context",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Defines AI context pack item types and trust labels.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "memory_context",
+        "layer": "memory",
+        "responsibility": "Defines AI context pack item types and trust labels.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
     },
     {
       "path": "src/memory/context/README.md",
@@ -1566,55 +3816,146 @@
       "parent": "src/memory/context",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "memory_context",
+        "layer": "memory",
+        "responsibility": "Folder documentation.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/memory/contracts.js",
       "type": "file",
       "parent": "src/memory",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Shared memory/context contract definitions.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "memory_contracts",
+        "layer": "memory",
+        "responsibility": "Shared memory/context contract definitions.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_currently_skeleton_or_contract",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "shared_contract_surface"
+        ]
+      }
     },
     {
       "path": "src/memory/policies",
       "type": "folder",
       "parent": "src/memory",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "folder"
+      "description": "Memory policy area.",
+      "status": "folder",
+      "semantic": {
+        "module": "memory",
+        "layer": "memory",
+        "responsibility": "Memory policy area.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "part_of_memory_context_foundation"
+        ]
+      }
     },
     {
       "path": "src/memory/policies/confirmedMemoryPolicy.js",
       "type": "file",
       "parent": "src/memory/policies",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "memory_policies",
+        "layer": "memory",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_currently_skeleton_or_contract",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
+      }
     },
     {
       "path": "src/memory/policies/groupMemoryPolicy.js",
       "type": "file",
       "parent": "src/memory/policies",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "memory_policies",
+        "layer": "memory",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_currently_skeleton_or_contract",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
+      }
     },
     {
       "path": "src/memory/policies/projectMemoryPolicy.js",
       "type": "file",
       "parent": "src/memory/policies",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "memory_policies",
+        "layer": "memory",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_currently_skeleton_or_contract",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
+      }
     },
     {
       "path": "src/memory/policies/rawPromptPolicy.js",
       "type": "file",
       "parent": "src/memory/policies",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "memory_policies",
+        "layer": "memory",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_currently_skeleton_or_contract",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
+      }
     },
     {
       "path": "src/memory/policies/README.md",
@@ -1622,31 +3963,81 @@
       "parent": "src/memory/policies",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "memory_policies",
+        "layer": "memory",
+        "responsibility": "Folder documentation.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/memory/project",
       "type": "folder",
       "parent": "src/memory",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "folder"
+      "description": "Project memory area.",
+      "status": "folder",
+      "semantic": {
+        "module": "memory",
+        "layer": "memory",
+        "responsibility": "Project memory area.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "part_of_memory_context_foundation"
+        ]
+      }
     },
     {
       "path": "src/memory/project/projectMemoryService.js",
       "type": "file",
       "parent": "src/memory/project",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Project memory prepare/read-only service skeleton.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "Project memory prepare/read-only service skeleton.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
     },
     {
       "path": "src/memory/project/projectMemoryTypes.js",
       "type": "file",
       "parent": "src/memory/project",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Project memory item types and source labels.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "Project memory item types and source labels.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
     },
     {
       "path": "src/memory/project/README.md",
@@ -1654,7 +4045,20 @@
       "parent": "src/memory/project",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "Folder documentation.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/memory/README.md",
@@ -1662,7 +4066,20 @@
       "parent": "src/memory",
       "extension": "md",
       "description": "Folder documentation.",
-      "status": "documentation"
+      "status": "documentation",
+      "semantic": {
+        "module": "memory",
+        "layer": "memory",
+        "responsibility": "Folder documentation.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "human_readable_boundary_doc"
+        ]
+      }
     },
     {
       "path": "src/permissions",
@@ -1670,7 +4087,19 @@
       "parent": "src",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/permissions/monarchGate.js",
@@ -1678,7 +4107,17 @@
       "parent": "src/permissions",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/runtime",
@@ -1686,7 +4125,19 @@
       "parent": "src",
       "extension": "",
       "description": "Runtime workspace and runtime helpers.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Runtime workspace and runtime helpers.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/runtime/workspace",
@@ -1694,7 +4145,19 @@
       "parent": "src/runtime",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "runtime_helpers",
+        "layer": "runtime_helpers",
+        "responsibility": "Repository folder.",
+        "owner": "runtime",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/runtime/workspace/workspaceChannel.js",
@@ -1702,7 +4165,17 @@
       "parent": "src/runtime/workspace",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "workspace_runtime",
+        "layer": "runtime_helpers",
+        "responsibility": "JavaScript source file.",
+        "owner": "runtime",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tasks",
@@ -1710,7 +4183,19 @@
       "parent": "src",
       "extension": "",
       "description": "Task layer.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Task layer.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/tasks/render",
@@ -1718,7 +4203,19 @@
       "parent": "src/tasks",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "tasks",
+        "layer": "tasks",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/tasks/render/getRenderLogsTask.js",
@@ -1726,7 +4223,17 @@
       "parent": "src/tasks/render",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "tasks",
+        "layer": "tasks",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools",
@@ -1734,15 +4241,39 @@
       "parent": "src",
       "extension": "",
       "description": "Runtime tool layer.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Runtime tool layer.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/tools/github",
       "type": "folder",
       "parent": "src/tools",
       "extension": "",
-      "description": "Repository folder.",
-      "status": "folder"
+      "description": "Tool-specific runtime support folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "tools",
+        "layer": "tools",
+        "responsibility": "Tool-specific runtime support folder.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/tools/github/githubApiClient.js",
@@ -1750,7 +4281,17 @@
       "parent": "src/tools/github",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/github/githubApprovalService.js",
@@ -1758,7 +4299,17 @@
       "parent": "src/tools/github",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/github/githubApprovalStore.memory.js",
@@ -1766,7 +4317,17 @@
       "parent": "src/tools/github",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/github/githubApprovalWarning.js",
@@ -1774,7 +4335,17 @@
       "parent": "src/tools/github",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/github/githubProjectDefaults.js",
@@ -1782,7 +4353,17 @@
       "parent": "src/tools/github",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/github/githubRequestUtils.js",
@@ -1790,15 +4371,37 @@
       "parent": "src/tools/github",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/github/githubWritePolicy.js",
       "type": "file",
       "parent": "src/tools/github",
       "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_tools",
+        "layer": "tools",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
+      }
     },
     {
       "path": "src/tools/github/githubWriteSummary.js",
@@ -1806,7 +4409,17 @@
       "parent": "src/tools/github",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/github/index.js",
@@ -1814,7 +4427,17 @@
       "parent": "src/tools/github",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_tools",
+        "layer": "tools",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/githubActionsFormatter.js",
@@ -1822,7 +4445,17 @@
       "parent": "src/tools",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/githubTool.js",
@@ -1830,7 +4463,17 @@
       "parent": "src/tools",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/tools/githubToolDefinitions.js",
@@ -1838,7 +4481,17 @@
       "parent": "src/tools",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/transport",
@@ -1846,7 +4499,19 @@
       "parent": "src",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/transport/telegram",
@@ -1854,7 +4519,19 @@
       "parent": "src/transport",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/transport/telegram.js",
@@ -1862,7 +4539,17 @@
       "parent": "src/transport",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/transport/telegram/index.js",
@@ -1870,7 +4557,17 @@
       "parent": "src/transport/telegram",
       "extension": "js",
       "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/transport/telegram/initTelegramTransport.js",
@@ -1878,7 +4575,17 @@
       "parent": "src/transport/telegram",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/transport/telegram/telegramAdapter.js",
@@ -1886,7 +4593,17 @@
       "parent": "src/transport/telegram",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/transport/telegram/telegramCallbackHandler.js",
@@ -1894,7 +4611,17 @@
       "parent": "src/transport/telegram",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/transport/telegram/telegramContext.js",
@@ -1902,7 +4629,17 @@
       "parent": "src/transport/telegram",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/transport/telegram/telegramMessageHandler.js",
@@ -1910,7 +4647,17 @@
       "parent": "src/transport/telegram",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/transport/telegram/telegramReplies.js",
@@ -1918,7 +4665,17 @@
       "parent": "src/transport/telegram",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     },
     {
       "path": "src/users",
@@ -1926,7 +4683,19 @@
       "parent": "src",
       "extension": "",
       "description": "Repository folder.",
-      "status": "folder"
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
     },
     {
       "path": "src/users/identityResolver.js",
@@ -1934,7 +4703,17 @@
       "parent": "src/users",
       "extension": "js",
       "description": "JavaScript source file.",
-      "status": "active_or_config"
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
     }
   ]
 }

@@ -1,36 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T11:27:11.241Z",
+  "generated_at": "2026-05-08T11:38:24.791Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "7b3407dde45205d9ee9a45a4899c6f8dfe7cfa51",
-  "previous_head_sha": "e2592cfd2e3e2a66ad065bc827b5548c736c221f",
+  "current_head_sha": "40e337ebb31668415e988b4c453feca09f3914ad",
+  "previous_head_sha": "7b3407dde45205d9ee9a45a4899c6f8dfe7cfa51",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "13e9dcfcd4c8e59b688ac44fdd0965899735f4a2",
+  "registry_commit_sha": "1d961a896d6c7d010fb27e017e1906fdbbffed6b",
   "latest_commit": {
-    "sha": "7b3407dde45205d9ee9a45a4899c6f8dfe7cfa51",
-    "short_sha": "7b3407dde452",
-    "message": "memory: add context pack prompt formatter skeleton\n\nAdd a bounded formatter for Memory/Context packs.\n\nThis prepares prompt-safe formatting only. It does not inject context into prompts, connect DB/storage, or touch transport, Render, GitHub tools, permissions, or OpenAI client logic.",
+    "sha": "40e337ebb31668415e988b4c453feca09f3914ad",
+    "short_sha": "40e337ebb316",
+    "message": "memory: document SG and user project memory boundary\n\nDocument the boundary between SG Project Memory and future User Project Memory.\n\nAlso document that the Monarch has access to both SG Project Memory and Monarch User Project Memory, while those layers remain separate and require explicit promotion before personal project memory becomes SG Project Memory.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T11:26:49Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7b3407dde45205d9ee9a45a4899c6f8dfe7cfa51",
-    "changed_files_count": 2,
+    "date": "2026-05-08T11:38:03Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/40e337ebb31668415e988b4c453feca09f3914ad",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/memory/context/contextPackPromptFormatter.js",
-        "status": "added",
-        "additions": 169,
-        "deletions": 0,
-        "changes": 169
-      },
-      {
-        "filename": "src/memory/index.js",
+        "filename": "src/memory/project/README.md",
         "status": "modified",
-        "additions": 6,
-        "deletions": 0,
-        "changes": 6
+        "additions": 118,
+        "deletions": 14,
+        "changes": 132
       }
     ]
   }

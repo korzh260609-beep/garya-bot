@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-08T09:50:38.375Z",
+  "generated_at": "2026-05-08T11:05:09.324Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "45dbcfc44c47093b1ab91f18b59138846120e320",
+  "head_sha": "3d2fa8d6cf8ddfbbdfeb2fe453acfe3523c42f8c",
   "truncated": false,
-  "items_count": 241,
+  "items_count": 242,
   "semantic_fields": [
     "module",
     "layer",
@@ -3849,6 +3849,26 @@
         "notes": [
           "part_of_memory_context_foundation",
           "shared_contract_surface"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/index.js",
+      "type": "file",
+      "parent": "src/memory",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "memory",
+        "layer": "memory",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
         ]
       }
     },

@@ -14,6 +14,7 @@ import {
   executePendingGithubApproval,
   extractGithubApprovalId,
   getCurrentProjectBranch,
+  getCurrentProjectRepository,
   isWriteMethod,
   jsonStringify,
   normalizeMethod,
@@ -24,6 +25,10 @@ import {
 } from "./github/index.js";
 
 export { cancelPendingGithubApproval, executePendingGithubApproval, extractGithubApprovalId };
+
+function normalizeText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
 
 export async function githubRequest(input = {}, context = {}) {
   const normalizedMethod = normalizeMethod(input.method);
@@ -144,12 +149,52 @@ export async function repoSearchCommits(input = {}, context = {}) {
   });
 }
 
+export async function repoCheckLatestWorkflowRun(input = {}, context = {}) {
+  if (!context?.isMonarch) {
+    return {
+      ok: false,
+      error: "repo_check_latest_workflow_run_not_allowed",
+    };
+  }
+
+  const repo = normalizeText(input.repo) || getCurrentProjectRepository();
+  const branch = normalizeText(input.branch) || getCurrentProjectBranch();
+  const workflow = normalizeText(input.workflow) || "sg2-smoke.yml";
+
+  const result = await executeGitHubApiRequest({
+    method: "GET",
+    path: `/repos/${repo}/actions/workflows/${encodeURIComponent(workflow)}/runs`,
+    query: {
+      branch,
+      per_page: 1,
+    },
+  });
+
+  const latestRun = result?.formatted?.runs?.[0] || null;
+
+  return {
+    ok: Boolean(result.ok),
+    type: "repo_latest_workflow_run_check",
+    repo,
+    branch,
+    workflow,
+    latestRun,
+    latestStatus: latestRun?.status || null,
+    latestConclusion: latestRun?.conclusion || null,
+    latestHeadSha: latestRun?.commit_sha || null,
+    githubOk: Boolean(result.ok),
+    githubStatus: result.status,
+    error: result.error || null,
+  };
+}
+
 export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "github_request") return githubRequest(args, context);
   if (name === "render_collect_logs") return renderCollectLogs(args, context);
   if (name === "render_collect_env") return renderCollectEnv(args, context);
   if (name === "repo_collect_registry") return repoCollectRegistry(args, context);
   if (name === "repo_search_commits") return repoSearchCommits(args, context);
+  if (name === "repo_check_latest_workflow_run") return repoCheckLatestWorkflowRun(args, context);
 
   return {
     ok: false,

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-08T12:46:55.156Z",
+  "generated_at": "2026-05-08T12:57:45.910Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "e10171dc4a70d79030c37c9019ae0390f39de2da",
+  "head_sha": "3db98d8460c61c2fd744960ec44b08dbb7e91cbf",
   "truncated": false,
-  "items_count": 248,
+  "items_count": 249,
   "semantic_fields": [
     "module",
     "layer",
@@ -1950,6 +1950,24 @@
     },
     {
       "path": "scripts/smokeMessageContextInjectionFormatOnly.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMessageContextInjectionGuards.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

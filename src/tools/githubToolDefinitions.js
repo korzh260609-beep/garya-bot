@@ -100,4 +100,32 @@ export const githubToolDefinitions = [
       required: [],
     },
   },
+  {
+    type: "function",
+    name: "repo_search_commits",
+    description: "Search SG GitHub commit history by user intent. Use this when the Monarch asks what commit contained an action, where a file was changed, when something was added/removed, or which commit performed a specific repository change. Searches commit messages, changed file paths, and patch text. This tool reads GitHub only and does not store full commit history.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        text: {
+          type: "string",
+          description: "Natural-language description of the action to search for, for example: where did we remove shared workspace skeleton, where was repo registry added, where did Render env change.",
+        },
+        repo: {
+          type: "string",
+          description: "Repository in owner/name form. Default current SG project repository.",
+        },
+        branch: {
+          type: "string",
+          description: "Branch/ref to inspect. Default current SG project branch.",
+        },
+        limit: {
+          type: "number",
+          description: "Number of recent commits to inspect. Default 20, max 50. Detailed patch scoring is limited internally.",
+        },
+      },
+      required: ["text"],
+    },
+  },
 ];

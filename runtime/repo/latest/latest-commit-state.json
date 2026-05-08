@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T08:37:34.097Z",
+  "generated_at": "2026-05-08T09:08:33.839Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
-  "previous_head_sha": "726b57d053ac1d6b4a80d37f7db088fc7e187849",
+  "current_head_sha": "20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
+  "previous_head_sha": "01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "2a1a86ea30b8cc18ebe768845772cfe3aaeb2bae",
+  "registry_commit_sha": "a76ecb8d3a144702b886d93c6b7d8423a2ffd578",
   "latest_commit": {
-    "sha": "01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
-    "short_sha": "01aaee0d7dc8",
-    "message": "agents: shorten repo commit search output\n\nReturn compact commit search matches and a short Telegram-friendly summary.",
+    "sha": "20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
+    "short_sha": "20e5ce56d6e5",
+    "message": "memory: add context and memory implementation skeleton\n\nAdd src/memory README skeleton for SG 2.0 Memory + Context.\n\nDefines context-first implementation principles, memory layers, boundaries, hard rules, and the first priority: AI Context Pack + Project Memory.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T08:37:10Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
+    "date": "2026-05-08T09:08:11Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
     "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/agents/repo-commit-watcher-agent/repoCommitSearch.js",
-        "status": "modified",
-        "additions": 54,
-        "deletions": 5,
-        "changes": 59
+        "filename": "src/memory/README.md",
+        "status": "added",
+        "additions": 302,
+        "deletions": 0,
+        "changes": 302
       }
     ]
   }

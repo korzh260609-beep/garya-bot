@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-08T15:14:27.856Z",
+  "generated_at": "2026-05-08T15:23:30.564Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "b879848a45c9328a67e0d3dfdc0f4180e77dc838",
+  "head_sha": "998b77a8d1ec00e0e0ca7d327e845fea1e0daadd",
   "truncated": false,
-  "items_count": 253,
+  "items_count": 259,
   "semantic_fields": [
     "module",
     "layer",
@@ -349,6 +349,126 @@
         "runtime_impact": "unknown_or_low",
         "source_priority": "repository_fact",
         "notes": []
+      }
+    },
+    {
+      "path": "diagnostics",
+      "type": "folder",
+      "parent": "",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "diagnostics/README.md",
+      "type": "file",
+      "parent": "diagnostics",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Folder documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "repository_fact",
+        "notes": [
+          "human_readable_boundary_doc"
+        ]
+      }
+    },
+    {
+      "path": "diagnostics/reports",
+      "type": "folder",
+      "parent": "diagnostics",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "diagnostics/reports/README.md",
+      "type": "file",
+      "parent": "diagnostics/reports",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Folder documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "repository_fact",
+        "notes": [
+          "human_readable_boundary_doc"
+        ]
+      }
+    },
+    {
+      "path": "diagnostics/tests",
+      "type": "folder",
+      "parent": "diagnostics",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "repository_fact",
+        "notes": [
+          "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "diagnostics/tests/README.md",
+      "type": "file",
+      "parent": "diagnostics/tests",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Folder documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "repository_fact",
+        "notes": [
+          "human_readable_boundary_doc"
+        ]
       }
     },
     {

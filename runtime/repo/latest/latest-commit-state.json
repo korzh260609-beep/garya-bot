@@ -1,43 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T09:16:05.488Z",
+  "generated_at": "2026-05-08T09:20:33.960Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "e2919cdc1e1d6892823a10c442e6fd1ff62e1944",
-  "previous_head_sha": "20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
+  "current_head_sha": "44fa03755b06a78f64a61c564e3c8438b231f46d",
+  "previous_head_sha": "e2919cdc1e1d6892823a10c442e6fd1ff62e1944",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "ca3a453a6843c65d520a30ba0b5f5efd18b0d9b0",
+  "registry_commit_sha": "2d12d20fb35188d7d7d5fcd0e8078e34d9765efe",
   "latest_commit": {
-    "sha": "e2919cdc1e1d6892823a10c442e6fd1ff62e1944",
-    "short_sha": "e2919cdc1e1d",
-    "message": "memory: add AI context pack skeleton\n\nAdd Step 1 skeleton for SG 2.0 Memory + Context.\n\nAdds context README, context types, and deterministic context pack builder skeleton. No runtime path, DB, Telegram, Render, GitHub, or OpenAI calls are connected.",
+    "sha": "44fa03755b06a78f64a61c564e3c8438b231f46d",
+    "short_sha": "44fa03755b06",
+    "message": "memory: add Living SG memory rule\n\nAdd explicit Living SG memory rule to SG 2.0 Memory + Context principles.\n\nForbids turning memory/context into technical mode, command router, keyword machine, hidden developer console, or prompt-hack collection. Documentation only; no runtime changes.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T09:15:48Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e2919cdc1e1d6892823a10c442e6fd1ff62e1944",
-    "changed_files_count": 3,
+    "date": "2026-05-08T09:20:07Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/44fa03755b06a78f64a61c564e3c8438b231f46d",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/memory/context/README.md",
-        "status": "added",
-        "additions": 97,
+        "filename": "src/memory/README.md",
+        "status": "modified",
+        "additions": 38,
         "deletions": 0,
-        "changes": 97
-      },
-      {
-        "filename": "src/memory/context/contextPackBuilder.js",
-        "status": "added",
-        "additions": 271,
-        "deletions": 0,
-        "changes": 271
-      },
-      {
-        "filename": "src/memory/context/contextTypes.js",
-        "status": "added",
-        "additions": 97,
-        "deletions": 0,
-        "changes": 97
+        "changes": 38
       }
     ]
   }

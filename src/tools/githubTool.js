@@ -2,6 +2,7 @@
 // SG 2.0 runtime AI tools.
 // Purpose: let the AI model call approved runtime tools.
 
+import { findCommitsByIntent } from "../agents/repo-commit-watcher-agent/repoCommitSearch.js";
 import { runRenderEnvAgent } from "../agents/render-env-agent/renderEnvAgent.js";
 import { runRepoRegistryAgent } from "../agents/repo-registry-agent/repoRegistryAgent.js";
 import { runGetRenderLogsTask } from "../tasks/render/getRenderLogsTask.js";
@@ -127,11 +128,28 @@ export async function repoCollectRegistry(input = {}, context = {}) {
   });
 }
 
+export async function repoSearchCommits(input = {}, context = {}) {
+  if (!context?.isMonarch) {
+    return {
+      ok: false,
+      error: "repo_search_commits_not_allowed",
+    };
+  }
+
+  return findCommitsByIntent({
+    text: typeof input.text === "string" && input.text.trim() ? input.text.trim() : context.latestUserText,
+    repo: typeof input.repo === "string" && input.repo.trim() ? input.repo.trim() : undefined,
+    branch: typeof input.branch === "string" && input.branch.trim() ? input.branch.trim() : undefined,
+    limit: input.limit,
+  });
+}
+
 export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "github_request") return githubRequest(args, context);
   if (name === "render_collect_logs") return renderCollectLogs(args, context);
   if (name === "render_collect_env") return renderCollectEnv(args, context);
   if (name === "repo_collect_registry") return repoCollectRegistry(args, context);
+  if (name === "repo_search_commits") return repoSearchCommits(args, context);
 
   return {
     ok: false,

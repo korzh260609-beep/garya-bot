@@ -1,0 +1,161 @@
+{
+  "ok": true,
+  "type": "render_env_inventory",
+  "generated_at": "2026-05-08T06:55:06.734Z",
+  "target": "garya-bot",
+  "service": {
+    "id": "srv-d4fnv8je5dus7397mgcg",
+    "name": "garya-bot",
+    "slug": "garya-bot",
+    "ownerId": "tea-d4fn2heuk2gs73fflcag"
+  },
+  "bridge": {
+    "ready": true,
+    "enabled": true,
+    "has_api_key": true
+  },
+  "env_count": 20,
+  "env": [
+    {
+      "name": "AI_PRICE_GPT_4_1_MINI_INPUT_USD_PER_1M",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "AI_PRICE_GPT_4_1_MINI_OUTPUT_USD_PER_1M",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "AI_PRICE_GPT_5_4_INPUT_USD_PER_1M",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "AI_PRICE_GPT_5_4_OUTPUT_USD_PER_1M",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "GITHUB_APP_ID",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "GITHUB_APP_INSTALLATION_ID",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "GITHUB_APP_PRIVATE_KEY",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "GITHUB_LEGACY_BRANCH",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "HUMAN_MODE_PROJECT_REPO_ENABLED",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_AGENT_AI_COST_LEVEL",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_AGENT_AI_DRY_RUN",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_AGENT_AI_ENABLED",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_AGENT_AI_MAX_PROMPT_CHARS",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_AGENT_ENABLED",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_AGENT_GITHUB_WEBHOOK_SECRET",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_AGENT_REQUIRE_GITHUB_SIGNATURE",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_AGENT_WEBHOOK_ENABLED",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_BRANCH",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_MAX_CONTENT_FILES",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "REPO_STATE_MAX_FILE_SIZE",
+      "exists": true,
+      "is_secret": true,
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    }
+  ],
+  "secrets_policy": "secret_or_unknown_env_values_hidden"
+}

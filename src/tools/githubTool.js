@@ -3,6 +3,7 @@
 // Purpose: let the AI model call approved runtime tools.
 
 import { findCommitsByIntent } from "../agents/repo-commit-watcher-agent/repoCommitSearch.js";
+import { runDiagnosticsCheck } from "../diagnostics/index.js";
 import { runRenderEnvAgent } from "../agents/render-env-agent/renderEnvAgent.js";
 import { runRepoRegistryAgent } from "../agents/repo-registry-agent/repoRegistryAgent.js";
 import { runGetRenderLogsTask } from "../tasks/render/getRenderLogsTask.js";
@@ -188,6 +189,10 @@ export async function repoCheckLatestWorkflowRun(input = {}, context = {}) {
   };
 }
 
+export async function sgDiagnosticsCheck(input = {}, context = {}) {
+  return runDiagnosticsCheck(input, context);
+}
+
 export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "github_request") return githubRequest(args, context);
   if (name === "render_collect_logs") return renderCollectLogs(args, context);
@@ -195,6 +200,7 @@ export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "repo_collect_registry") return repoCollectRegistry(args, context);
   if (name === "repo_search_commits") return repoSearchCommits(args, context);
   if (name === "repo_check_latest_workflow_run") return repoCheckLatestWorkflowRun(args, context);
+  if (name === "sg_diagnostics_check") return sgDiagnosticsCheck(args, context);
 
   return {
     ok: false,

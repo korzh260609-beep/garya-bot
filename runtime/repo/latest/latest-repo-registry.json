@@ -1,12 +1,12 @@
 {
   "ok": true,
   "type": "repo_registry",
-  "generated_at": "2026-05-08T09:08:32.769Z",
+  "generated_at": "2026-05-08T09:16:04.193Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
+  "head_sha": "e2919cdc1e1d6892823a10c442e6fd1ff62e1944",
   "truncated": false,
-  "items_count": 226,
+  "items_count": 230,
   "items": [
     {
       "path": ".env.example",
@@ -1535,6 +1535,38 @@
       "extension": "",
       "description": "Repository folder.",
       "status": "folder"
+    },
+    {
+      "path": "src/memory/context",
+      "type": "folder",
+      "parent": "src/memory",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/memory/context/contextPackBuilder.js",
+      "type": "file",
+      "parent": "src/memory/context",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/memory/context/contextTypes.js",
+      "type": "file",
+      "parent": "src/memory/context",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/memory/context/README.md",
+      "type": "file",
+      "parent": "src/memory/context",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
     },
     {
       "path": "src/memory/README.md",

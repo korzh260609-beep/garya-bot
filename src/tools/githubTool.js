@@ -3,6 +3,7 @@
 // Purpose: let the AI model call approved runtime tools.
 
 import { runRenderEnvAgent } from "../agents/render-env-agent/renderEnvAgent.js";
+import { runRepoRegistryAgent } from "../agents/repo-registry-agent/repoRegistryAgent.js";
 import { runGetRenderLogsTask } from "../tasks/render/getRenderLogsTask.js";
 import {
   applyCurrentProjectDefaults,
@@ -112,10 +113,25 @@ export async function renderCollectEnv(input = {}, context = {}) {
   });
 }
 
+export async function repoCollectRegistry(input = {}, context = {}) {
+  if (!context?.isMonarch) {
+    return {
+      ok: false,
+      error: "repo_collect_registry_not_allowed",
+    };
+  }
+
+  return runRepoRegistryAgent({
+    repo: typeof input.repo === "string" && input.repo.trim() ? input.repo.trim() : undefined,
+    branch: typeof input.branch === "string" && input.branch.trim() ? input.branch.trim() : undefined,
+  });
+}
+
 export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "github_request") return githubRequest(args, context);
   if (name === "render_collect_logs") return renderCollectLogs(args, context);
   if (name === "render_collect_env") return renderCollectEnv(args, context);
+  if (name === "repo_collect_registry") return repoCollectRegistry(args, context);
 
   return {
     ok: false,

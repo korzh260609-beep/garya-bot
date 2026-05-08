@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T12:05:07.634Z",
+  "generated_at": "2026-05-08T12:34:25.610Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "bcda8f4f74e817363b68bc18c6d7b832a75058cb",
-  "previous_head_sha": "29f5d1c0f254fc39834cff6c3d53b03aeb304dfc",
+  "current_head_sha": "2e1456157d020776cabc54b91fd09181d4c12732",
+  "previous_head_sha": "bcda8f4f74e817363b68bc18c6d7b832a75058cb",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "50beeb7704df4c28c2af3e539b7a6ec60ef661c7",
+  "registry_commit_sha": "49ac61ddd9760b6e612ffb1145aabfd50fcaa2fa",
   "latest_commit": {
-    "sha": "bcda8f4f74e817363b68bc18c6d7b832a75058cb",
-    "short_sha": "bcda8f4f74e8",
-    "message": "memory: add smoke coverage for disabled context injection\n\nAdd deterministic smoke coverage proving that disabled message context injection leaves AI messages unchanged.\n\nThis adds a smoke script, package command, and CI step without changing runtime behavior, enabling context injection, changing prompts, or touching DB/storage, transport, Render, GitHub tools, permissions, or OpenAI client logic.",
+    "sha": "2e1456157d020776cabc54b91fd09181d4c12732",
+    "short_sha": "2e1456157d02",
+    "message": "memory: add format-only context injection smoke\n\nAdd deterministic smoke coverage for FORMAT_ONLY message context injection.\n\nThis verifies formatted context is produced while AI messages remain unchanged and prompt injection remains disabled.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T12:04:40Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/bcda8f4f74e817363b68bc18c6d7b832a75058cb",
+    "date": "2026-05-08T12:34:01Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/2e1456157d020776cabc54b91fd09181d4c12732",
     "changed_files_count": 3,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 4,
+        "additions": 3,
         "deletions": 0,
-        "changes": 4
+        "changes": 3
       },
       {
         "filename": "package.json",
@@ -33,11 +33,11 @@
         "changes": 3
       },
       {
-        "filename": "scripts/smokeMessageContextInjection.js",
+        "filename": "scripts/smokeMessageContextInjectionFormatOnly.js",
         "status": "added",
-        "additions": 51,
+        "additions": 68,
         "deletions": 0,
-        "changes": 51
+        "changes": 68
       }
     ]
   }

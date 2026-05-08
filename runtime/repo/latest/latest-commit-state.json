@@ -1,43 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T09:26:06.752Z",
+  "generated_at": "2026-05-08T09:33:12.384Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
-  "previous_head_sha": "44fa03755b06a78f64a61c564e3c8438b231f46d",
+  "current_head_sha": "c61403206e6d042123d4d96d459aadbc2a146dd1",
+  "previous_head_sha": "97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "3c6d99242f1543fd595bcb1c1a401a5f3e4b1155",
+  "registry_commit_sha": "7b1df1ec39408780791a068f4ad1010c7eda5fde",
   "latest_commit": {
-    "sha": "97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
-    "short_sha": "97d0ca50fc04",
-    "message": "memory: add project memory skeleton\n\nAdd Step 2 skeleton for SG 2.0 Memory + Context.\n\nAdds project memory README, project memory types, and read-only / prepare-only project memory service skeleton. No runtime path, DB, Telegram, Render, GitHub, repository write, or OpenAI calls are connected.",
+    "sha": "c61403206e6d042123d4d96d459aadbc2a146dd1",
+    "short_sha": "c61403206e6d",
+    "message": "memory: add memory contracts skeleton\n\nAdd Step 3 skeleton for SG 2.0 Memory + Context.\n\nAdds transport-independent memory/context contracts and explicitly states that Telegram is only one delivery channel, not a memory owner or architectural dependency. No runtime path, DB, Telegram, Render, GitHub, repository write, or OpenAI calls are connected.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T09:25:49Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
-    "changed_files_count": 3,
+    "date": "2026-05-08T09:32:46Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c61403206e6d042123d4d96d459aadbc2a146dd1",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/memory/project/README.md",
+        "filename": "src/memory/contracts.js",
         "status": "added",
-        "additions": 139,
+        "additions": 198,
         "deletions": 0,
-        "changes": 139
-      },
-      {
-        "filename": "src/memory/project/projectMemoryService.js",
-        "status": "added",
-        "additions": 162,
-        "deletions": 0,
-        "changes": 162
-      },
-      {
-        "filename": "src/memory/project/projectMemoryTypes.js",
-        "status": "added",
-        "additions": 82,
-        "deletions": 0,
-        "changes": 82
+        "changes": 198
       }
     ]
   }

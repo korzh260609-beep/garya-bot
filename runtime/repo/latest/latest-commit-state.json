@@ -1,113 +1,85 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T15:40:55.534Z",
+  "generated_at": "2026-05-08T15:57:02.450Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "5be194ece74ea7bcb5736865d072bb67fef4f7d8",
-  "previous_head_sha": "703a0b0f52d4054d361fb57d4e8bb07ec46d7665",
+  "current_head_sha": "1c95af9ece782530c66b44ca84f695c31c38c677",
+  "previous_head_sha": "5be194ece74ea7bcb5736865d072bb67fef4f7d8",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "866482e5a130ef7396f9c77cb09b37e9ff38e1f0",
+  "registry_commit_sha": "f51581a5d0041e00261f3de0ddb6b2d8e03379ec",
   "latest_commit": {
-    "sha": "5be194ece74ea7bcb5736865d072bb67fef4f7d8",
-    "short_sha": "5be194ece74e",
-    "message": "revert: remove advisor outbox mirror experiment\n\nRollback to the state before the Advisor Outbox mirror experiment.\n\nRemove the mirror-agent block and follow-up diagnostics added after the repo-folder based mirror mechanism experiment. This deletes the Advisor Outbox Agent files, removes the automatic mirror hook from handleMessage, removes mirror exports, restores the AI tool runner behavior before PR #138, removes diagnostics workspace/reports, and removes CI checks for deleted outbox files.\n\nNot touched: main, Render bridge implementation, Telegram transport, memory/context boundary before this experiment, and GitHub latest workflow run tool from PR #134.",
+    "sha": "1c95af9ece782530c66b44ca84f695c31c38c677",
+    "short_sha": "1c95af9ece78",
+    "message": "feat: add SG diagnostics skeleton\n\nMerge PR #142 into dev/v2-start.\n\nAdd rollback-safe SG Diagnostics Layer skeleton, expose read-only sg_diagnostics_check AI tool, teach the model normal-language diagnostics behavior, and add syntax checks for the diagnostics layer.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T15:40:37Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/5be194ece74ea7bcb5736865d072bb67fef4f7d8",
-    "changed_files_count": 13,
+    "date": "2026-05-08T15:56:40Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1c95af9ece782530c66b44ca84f695c31c38c677",
+    "changed_files_count": 9,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 0,
-        "deletions": 4,
+        "additions": 8,
+        "deletions": 0,
+        "changes": 8
+      },
+      {
+        "filename": "src/core/prompt/promptGithubRuntime.js",
+        "status": "modified",
+        "additions": 4,
+        "deletions": 0,
         "changes": 4
       },
       {
-        "filename": "diagnostics/README.md",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 65,
-        "changes": 65
+        "filename": "src/diagnostics/diagnosticsIntent.js",
+        "status": "added",
+        "additions": 59,
+        "deletions": 0,
+        "changes": 59
       },
       {
-        "filename": "diagnostics/reports/README.md",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 66,
-        "changes": 66
+        "filename": "src/diagnostics/diagnosticsPlan.js",
+        "status": "added",
+        "additions": 40,
+        "deletions": 0,
+        "changes": 40
       },
       {
-        "filename": "diagnostics/reports/render-logs-bridge-failure-2026-05-08.md",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 186,
-        "changes": 186
+        "filename": "src/diagnostics/diagnosticsReport.js",
+        "status": "added",
+        "additions": 44,
+        "deletions": 0,
+        "changes": 44
       },
       {
-        "filename": "diagnostics/tests/README.md",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 50,
-        "changes": 50
+        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "status": "added",
+        "additions": 48,
+        "deletions": 0,
+        "changes": 48
       },
       {
-        "filename": "diagnostics/tests/render-logs-bridge-test-2026-05-08.md",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 79,
-        "changes": 79
+        "filename": "src/diagnostics/index.js",
+        "status": "added",
+        "additions": 8,
+        "deletions": 0,
+        "changes": 8
       },
       {
-        "filename": "src/agents/advisor-outbox-agent/advisorOutboxAgent.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 132,
-        "changes": 132
-      },
-      {
-        "filename": "src/agents/advisor-outbox-agent/index.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 6,
+        "filename": "src/tools/githubTool.js",
+        "status": "modified",
+        "additions": 6,
+        "deletions": 0,
         "changes": 6
       },
       {
-        "filename": "src/agents/index.js",
+        "filename": "src/tools/githubToolDefinitions.js",
         "status": "modified",
-        "additions": 0,
-        "deletions": 1,
-        "changes": 1
-      },
-      {
-        "filename": "src/ai/aiToolRunner.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 19,
-        "changes": 20
-      },
-      {
-        "filename": "src/core/handleMessage.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 8,
-        "changes": 9
-      },
-      {
-        "filename": "src/core/message/index.js",
-        "status": "modified",
-        "additions": 0,
-        "deletions": 1,
-        "changes": 1
-      },
-      {
-        "filename": "src/core/message/messageAdvisorOutboxMirror.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 87,
-        "changes": 87
+        "additions": 23,
+        "deletions": 0,
+        "changes": 23
       }
     ]
   }

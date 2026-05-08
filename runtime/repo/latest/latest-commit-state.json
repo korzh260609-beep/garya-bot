@@ -1,57 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T09:44:42.267Z",
+  "generated_at": "2026-05-08T09:50:39.315Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b41805e05755310eff172124e112bc07415477d4",
-  "previous_head_sha": "c61403206e6d042123d4d96d459aadbc2a146dd1",
+  "current_head_sha": "45dbcfc44c47093b1ab91f18b59138846120e320",
+  "previous_head_sha": "b41805e05755310eff172124e112bc07415477d4",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "b669d8c1c04a12e3cc571653f03fd2639cd32792",
+  "registry_commit_sha": "b7a0b2acbe3368b47fecabd5f82834a9ec4072e8",
   "latest_commit": {
-    "sha": "b41805e05755310eff172124e112bc07415477d4",
-    "short_sha": "b41805e05755",
-    "message": "memory: add memory policies skeleton\n\nAdd Step 4 skeleton for SG 2.0 Memory + Context.\n\nAdds deterministic memory policies for raw prompt safety, project memory, confirmed user memory, and group memory. Fixes the principle that user memory is unified by global_user_id across all transports. No runtime path, DB, Telegram, Render, GitHub, repository write, or OpenAI calls are connected.",
+    "sha": "45dbcfc44c47093b1ab91f18b59138846120e320",
+    "short_sha": "45dbcfc44c47",
+    "message": "repo-registry: add semantic file metadata\n\nUpgrade Repo Registry to semantic schema v2.\n\nAdds deterministic semantic metadata for each registry item: module, layer, responsibility, owner, safe_to_edit, runtime_impact, source_priority, and notes. Keeps the agent source-first and cheap: no AI calls, no content reads, no Telegram logic, and no deploy logic.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T09:44:20Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b41805e05755310eff172124e112bc07415477d4",
-    "changed_files_count": 5,
+    "date": "2026-05-08T09:50:22Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/45dbcfc44c47093b1ab91f18b59138846120e320",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/memory/policies/README.md",
-        "status": "added",
-        "additions": 99,
-        "deletions": 0,
-        "changes": 99
-      },
-      {
-        "filename": "src/memory/policies/confirmedMemoryPolicy.js",
-        "status": "added",
-        "additions": 74,
-        "deletions": 0,
-        "changes": 74
-      },
-      {
-        "filename": "src/memory/policies/groupMemoryPolicy.js",
-        "status": "added",
-        "additions": 60,
-        "deletions": 0,
-        "changes": 60
-      },
-      {
-        "filename": "src/memory/policies/projectMemoryPolicy.js",
-        "status": "added",
-        "additions": 66,
-        "deletions": 0,
-        "changes": 66
-      },
-      {
-        "filename": "src/memory/policies/rawPromptPolicy.js",
-        "status": "added",
-        "additions": 57,
-        "deletions": 0,
-        "changes": 57
+        "filename": "src/agents/repo-registry-agent/repoRegistryAgent.js",
+        "status": "modified",
+        "additions": 177,
+        "deletions": 3,
+        "changes": 180
       }
     ]
   }

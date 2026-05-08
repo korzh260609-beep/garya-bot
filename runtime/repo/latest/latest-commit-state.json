@@ -1,36 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T11:45:48.588Z",
+  "generated_at": "2026-05-08T11:56:59.628Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "cb818ede29faa0a6a978f442db41aeb38a41d116",
-  "previous_head_sha": "40e337ebb31668415e988b4c453feca09f3914ad",
+  "current_head_sha": "29f5d1c0f254fc39834cff6c3d53b03aeb304dfc",
+  "previous_head_sha": "cb818ede29faa0a6a978f442db41aeb38a41d116",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "1c63598a6d14be6dc9400ba99e5dd93d9a9437d5",
+  "registry_commit_sha": "63dd8ca7138d9e452c2e2cf77430934d83a766b7",
   "latest_commit": {
-    "sha": "cb818ede29faa0a6a978f442db41aeb38a41d116",
-    "short_sha": "cb818ede29fa",
-    "message": "memory: add message context injection boundary\n\nAdd a disabled-by-default boundary for future Memory/Context prompt injection.\n\nThis centralizes optional message context injection without enabling it, changing current prompts, connecting DB/storage, or touching transport, Render, GitHub tools, permissions, or OpenAI client logic.",
+    "sha": "29f5d1c0f254fc39834cff6c3d53b03aeb304dfc",
+    "short_sha": "29f5d1c0f254",
+    "message": "memory: wire disabled context injection boundary into message AI request\n\nWire the disabled-by-default message context injection boundary into the normal message AI request path.\n\nThis keeps context injection disabled, preserves current prompts, and passes contextInjection metadata for future diagnostics without connecting DB/storage or touching transport, Render, GitHub tools, permissions, or OpenAI client logic.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T11:45:22Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/cb818ede29faa0a6a978f442db41aeb38a41d116",
+    "date": "2026-05-08T11:56:40Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/29f5d1c0f254fc39834cff6c3d53b03aeb304dfc",
     "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": "src/core/message/index.js",
+        "filename": "src/core/message/messageAiRequest.js",
         "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
+        "additions": 13,
+        "deletions": 5,
+        "changes": 18
       },
       {
         "filename": "src/core/message/messageContextInjection.js",
-        "status": "added",
-        "additions": 126,
+        "status": "modified",
+        "additions": 9,
         "deletions": 0,
-        "changes": 126
+        "changes": 9
       }
     ]
   }

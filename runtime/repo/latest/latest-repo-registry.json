@@ -1,12 +1,12 @@
 {
   "ok": true,
   "type": "repo_registry",
-  "generated_at": "2026-05-08T08:25:32.669Z",
+  "generated_at": "2026-05-08T08:37:33.149Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "726b57d053ac1d6b4a80d37f7db088fc7e187849",
+  "head_sha": "01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
   "truncated": false,
-  "items_count": 223,
+  "items_count": 224,
   "items": [
     {
       "path": ".env.example",
@@ -734,6 +734,14 @@
       "parent": "runtime/repo",
       "extension": "",
       "description": "Repository folder.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/repo/latest/latest-commit-state.json",
+      "type": "file",
+      "parent": "runtime/repo/latest",
+      "extension": "json",
+      "description": "JSON data/configuration file.",
       "status": "generated"
     },
     {

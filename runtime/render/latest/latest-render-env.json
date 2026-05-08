@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "render_env_inventory",
-  "generated_at": "2026-05-08T07:00:54.619Z",
+  "generated_at": "2026-05-08T07:12:32.860Z",
   "target": "garya-bot",
   "service": {
     "id": "srv-d4fnv8je5dus7397mgcg",
@@ -51,18 +51,18 @@
     {
       "name": "GITHUB_APP_ID",
       "exists": true,
-      "is_secret": true,
-      "secret_reason": "name",
-      "value_exposed": false,
-      "value": "[HIDDEN]"
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "3597004"
     },
     {
       "name": "GITHUB_APP_INSTALLATION_ID",
       "exists": true,
-      "is_secret": true,
-      "secret_reason": "name",
-      "value_exposed": false,
-      "value": "[HIDDEN]"
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "129697581"
     },
     {
       "name": "GITHUB_APP_PRIVATE_KEY",
@@ -75,10 +75,10 @@
     {
       "name": "GITHUB_LEGACY_BRANCH",
       "exists": true,
-      "is_secret": true,
-      "secret_reason": "name",
-      "value_exposed": false,
-      "value": "[HIDDEN]"
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "main"
     },
     {
       "name": "HUMAN_MODE_PROJECT_REPO_ENABLED",
@@ -139,18 +139,18 @@
     {
       "name": "REPO_STATE_AGENT_REQUIRE_GITHUB_SIGNATURE",
       "exists": true,
-      "is_secret": true,
-      "secret_reason": "name",
-      "value_exposed": false,
-      "value": "[HIDDEN]"
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
     },
     {
       "name": "REPO_STATE_AGENT_WEBHOOK_ENABLED",
       "exists": true,
-      "is_secret": true,
-      "secret_reason": "name",
-      "value_exposed": false,
-      "value": "[HIDDEN]"
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
     },
     {
       "name": "REPO_STATE_BRANCH",
@@ -177,5 +177,5 @@
       "value": "200000"
     }
   ],
-  "secrets_policy": "secret_values_hidden_by_name_or_value"
+  "secrets_policy": "secret_values_hidden_by_exact_name_suffix_or_value"
 }

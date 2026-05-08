@@ -1,12 +1,12 @@
 {
   "ok": true,
   "type": "repo_registry",
-  "generated_at": "2026-05-08T09:20:32.499Z",
+  "generated_at": "2026-05-08T09:26:05.738Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "44fa03755b06a78f64a61c564e3c8438b231f46d",
+  "head_sha": "97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
   "truncated": false,
-  "items_count": 230,
+  "items_count": 234,
   "items": [
     {
       "path": ".env.example",
@@ -1564,6 +1564,38 @@
       "path": "src/memory/context/README.md",
       "type": "file",
       "parent": "src/memory/context",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "src/memory/project",
+      "type": "folder",
+      "parent": "src/memory",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/memory/project/projectMemoryService.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/memory/project/projectMemoryTypes.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/memory/project/README.md",
+      "type": "file",
+      "parent": "src/memory/project",
       "extension": "md",
       "description": "Folder documentation.",
       "status": "documentation"

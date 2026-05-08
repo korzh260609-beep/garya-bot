@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-08T14:27:40.830Z",
+  "generated_at": "2026-05-08T14:43:10.876Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "4ef141854c205959870d16dc7ca2c1955e184596",
+  "head_sha": "73bed91be9801e22de55de9ed8b2a91a0bcb8c0d",
   "truncated": false,
-  "items_count": 252,
+  "items_count": 253,
   "semantic_fields": [
     "module",
     "layer",
@@ -3310,6 +3310,24 @@
     },
     {
       "path": "src/core/message/messageAccess.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/core/message/messageAdvisorOutboxMirror.js",
       "type": "file",
       "parent": "src/core/message",
       "extension": "js",

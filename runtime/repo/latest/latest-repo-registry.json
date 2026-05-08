@@ -1,0 +1,1740 @@
+{
+  "ok": true,
+  "type": "repo_registry",
+  "generated_at": "2026-05-08T07:31:46.702Z",
+  "repo": "korzh260609-beep/garya-bot",
+  "branch": "dev/v2-start",
+  "head_sha": "06b69a4f7ee60e66287f85ba041380eefd921c7f",
+  "truncated": false,
+  "items_count": 216,
+  "items": [
+    {
+      "path": ".env.example",
+      "type": "file",
+      "parent": "",
+      "extension": "example",
+      "description": "Repository file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": ".github",
+      "type": "folder",
+      "parent": "",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": ".github/workflows",
+      "type": "folder",
+      "parent": ".github",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": ".github/workflows/sg2-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": ".github/workflows/smoke-agents-skeleton.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "skeleton"
+    },
+    {
+      "path": "agent_workspace",
+      "type": "folder",
+      "parent": "",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "agent_workspace/OUTBOX.md",
+      "type": "file",
+      "parent": "agent_workspace",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "agent_workspace/render",
+      "type": "folder",
+      "parent": "agent_workspace",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "agent_workspace/RENDER_DEPLOY_REPORT.md",
+      "type": "file",
+      "parent": "agent_workspace",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "agent_workspace/RENDER_DEPLOYS_REPORT.md",
+      "type": "file",
+      "parent": "agent_workspace",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "agent_workspace/RENDER_LOGS_REPORT.md",
+      "type": "file",
+      "parent": "agent_workspace",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "agent_workspace/RENDER_STATUS_REPORT.md",
+      "type": "file",
+      "parent": "agent_workspace",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "agent_workspace/render/RENDER_DEPLOY_REPORT.md",
+      "type": "file",
+      "parent": "agent_workspace/render",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "agent_workspace/render/RENDER_DEPLOYS_REPORT.md",
+      "type": "file",
+      "parent": "agent_workspace/render",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "agent_workspace/render/RENDER_LOGS_REPORT.md",
+      "type": "file",
+      "parent": "agent_workspace/render",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "agent_workspace/render/RENDER_STATUS_REPORT.md",
+      "type": "file",
+      "parent": "agent_workspace/render",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "agent_workspace/STATUS.md",
+      "type": "file",
+      "parent": "agent_workspace",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "docs",
+      "type": "folder",
+      "parent": "",
+      "extension": "",
+      "description": "Project documentation.",
+      "status": "folder"
+    },
+    {
+      "path": "docs/render-strategy.md",
+      "type": "file",
+      "parent": "docs",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "docs/sg-core.md",
+      "type": "file",
+      "parent": "docs",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "index.js",
+      "type": "file",
+      "parent": "",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "package.json",
+      "type": "file",
+      "parent": "",
+      "extension": "json",
+      "description": "Node.js package manifest.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "pillars",
+      "type": "folder",
+      "parent": "",
+      "extension": "",
+      "description": "Project principles, architecture notes, and decisions.",
+      "status": "folder"
+    },
+    {
+      "path": "pillars/architecture",
+      "type": "folder",
+      "parent": "pillars",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/AGENT_DIRECTORY_STRUCTURE.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/CODE_OWNERSHIP_MAP.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/DATA_FLOW.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/MODULE_MAP.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/PERMISSIONS_MAP.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/README.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/REPO_MAINTENANCE_AGENT_SKELETON.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/REPO_MAP_SOURCE_POLICY.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/SEMANTIC_ROUTING.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/SG_CAPABILITY_ACCESS.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/architecture/SG_INTERFACE_LAYERS.md",
+      "type": "file",
+      "parent": "pillars/architecture",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/DECISIONS.md",
+      "type": "file",
+      "parent": "pillars",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules",
+      "type": "folder",
+      "parent": "pillars",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/ai",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/ai/README.md",
+      "type": "file",
+      "parent": "pillars/modules/ai",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/billing",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/billing/README.md",
+      "type": "file",
+      "parent": "pillars/modules/billing",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/config",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/config/README.md",
+      "type": "file",
+      "parent": "pillars/modules/config",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/core",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/core/README.md",
+      "type": "file",
+      "parent": "pillars/modules/core",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/delivery",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/delivery/README.md",
+      "type": "file",
+      "parent": "pillars/modules/delivery",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/documents",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/documents/README.md",
+      "type": "file",
+      "parent": "pillars/modules/documents",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/logging",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/logging/README.md",
+      "type": "file",
+      "parent": "pillars/modules/logging",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/memory",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/memory/README.md",
+      "type": "file",
+      "parent": "pillars/modules/memory",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/MODULE_INDEX.md",
+      "type": "file",
+      "parent": "pillars/modules",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/permissions",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/permissions/README.md",
+      "type": "file",
+      "parent": "pillars/modules/permissions",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/README.md",
+      "type": "file",
+      "parent": "pillars/modules",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/repo",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/repo/README.md",
+      "type": "file",
+      "parent": "pillars/modules/repo",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/sources",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/sources/README.md",
+      "type": "file",
+      "parent": "pillars/modules/sources",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/tasks",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/tasks/README.md",
+      "type": "file",
+      "parent": "pillars/modules/tasks",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/transport",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/transport/README.md",
+      "type": "file",
+      "parent": "pillars/modules/transport",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/users",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/modules/users/README.md",
+      "type": "file",
+      "parent": "pillars/modules/users",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/PROJECT.md",
+      "type": "file",
+      "parent": "pillars",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/README.md",
+      "type": "file",
+      "parent": "pillars",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/SG_BEHAVIOR.md",
+      "type": "file",
+      "parent": "pillars",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/SG_ENTITY.md",
+      "type": "file",
+      "parent": "pillars",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/workflow",
+      "type": "folder",
+      "parent": "pillars",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/workflow/01_living_sg_foundation.md",
+      "type": "file",
+      "parent": "pillars/workflow",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/workflow/02_github_access_repo_workflow.md",
+      "type": "file",
+      "parent": "pillars/workflow",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/workflow/03_minimal_speaking_sg.md",
+      "type": "file",
+      "parent": "pillars/workflow",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "pillars/workflow/README.md",
+      "type": "file",
+      "parent": "pillars/workflow",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "README.md",
+      "type": "file",
+      "parent": "",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "runtime",
+      "type": "folder",
+      "parent": "",
+      "extension": "",
+      "description": "Generated runtime workspace reports.",
+      "status": "folder"
+    },
+    {
+      "path": "runtime/render",
+      "type": "folder",
+      "parent": "runtime",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/render/latest",
+      "type": "folder",
+      "parent": "runtime/render",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/render/latest/latest-render-env.json",
+      "type": "file",
+      "parent": "runtime/render/latest",
+      "extension": "json",
+      "description": "JSON data/configuration file.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/render/latest/latest-render-logs.json",
+      "type": "file",
+      "parent": "runtime/render/latest",
+      "extension": "json",
+      "description": "JSON data/configuration file.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/render/latest/README.md",
+      "type": "file",
+      "parent": "runtime/render/latest",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/render/README.md",
+      "type": "file",
+      "parent": "runtime/render",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/render/requests",
+      "type": "folder",
+      "parent": "runtime/render",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/render/requests/README.md",
+      "type": "file",
+      "parent": "runtime/render/requests",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/render/responses",
+      "type": "folder",
+      "parent": "runtime/render",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/render/responses/README.md",
+      "type": "file",
+      "parent": "runtime/render/responses",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "generated"
+    },
+    {
+      "path": "scripts",
+      "type": "folder",
+      "parent": "",
+      "extension": "",
+      "description": "Utility and smoke-test scripts.",
+      "status": "folder"
+    },
+    {
+      "path": "scripts/smokeGithubActionsFormatter.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src",
+      "type": "folder",
+      "parent": "",
+      "extension": "",
+      "description": "Application source code.",
+      "status": "folder"
+    },
+    {
+      "path": "src/agents",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "SG agent layer.",
+      "status": "folder"
+    },
+    {
+      "path": "src/agents/github-actions-agent",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/agents/github-actions-agent/GitHubActionsAgentReportBuilder.js",
+      "type": "file",
+      "parent": "src/agents/github-actions-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/github-actions-agent/GitHubActionsAgentService.js",
+      "type": "file",
+      "parent": "src/agents/github-actions-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/github-actions-agent/index.js",
+      "type": "file",
+      "parent": "src/agents/github-actions-agent",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/github-actions-agent/README.md",
+      "type": "file",
+      "parent": "src/agents/github-actions-agent",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "src/agents/index.js",
+      "type": "file",
+      "parent": "src/agents",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/README.md",
+      "type": "file",
+      "parent": "src/agents",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "src/agents/render-agent",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/agents/render-agent/README.md",
+      "type": "file",
+      "parent": "src/agents/render-agent",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "src/agents/render-env-agent",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/agents/render-env-agent/README.md",
+      "type": "file",
+      "parent": "src/agents/render-env-agent",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "src/agents/render-env-agent/renderEnvAgent.js",
+      "type": "file",
+      "parent": "src/agents/render-env-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/repo-registry-agent",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/agents/repo-registry-agent/README.md",
+      "type": "file",
+      "parent": "src/agents/repo-registry-agent",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "src/agents/repo-registry-agent/repoRegistryAgent.js",
+      "type": "file",
+      "parent": "src/agents/repo-registry-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/agents/shared",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/agents/shared/workspace",
+      "type": "folder",
+      "parent": "src/agents/shared",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/agents/shared/workspace/README.md",
+      "type": "file",
+      "parent": "src/agents/shared/workspace",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "src/ai",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/ai/aiInputMapper.js",
+      "type": "file",
+      "parent": "src/ai",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/ai/aiOutputParser.js",
+      "type": "file",
+      "parent": "src/ai",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/ai/aiToolContext.js",
+      "type": "file",
+      "parent": "src/ai",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/ai/aiToolMetadata.js",
+      "type": "file",
+      "parent": "src/ai",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/ai/aiToolRunner.js",
+      "type": "file",
+      "parent": "src/ai",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/ai/callAI.js",
+      "type": "file",
+      "parent": "src/ai",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/ai/modelConfig.js",
+      "type": "file",
+      "parent": "src/ai",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/ai/openaiClient.js",
+      "type": "file",
+      "parent": "src/ai",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/app",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/app/appFactory.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/app/healthRoutes.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/app/healthStatus.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/app/index.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/app/rootRoutes.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/app/rootStatus.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/app/runtimeHooks.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/app/runtimeStatusPresenter.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/app/serverStartup.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/behavior",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/behavior/actionPolicy.js",
+      "type": "file",
+      "parent": "src/behavior",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/behavior/actionTypes.js",
+      "type": "file",
+      "parent": "src/behavior",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/behavior/behaviorPrompt.js",
+      "type": "file",
+      "parent": "src/behavior",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/behavior/behaviorRules.js",
+      "type": "file",
+      "parent": "src/behavior",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/behavior/behaviorRuntime.js",
+      "type": "file",
+      "parent": "src/behavior",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/behavior/disclosurePolicy.js",
+      "type": "file",
+      "parent": "src/behavior",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/config",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/config/env.js",
+      "type": "file",
+      "parent": "src/config",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/config/envPrimitives.js",
+      "type": "file",
+      "parent": "src/config",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/config/runtimeConfig.js",
+      "type": "file",
+      "parent": "src/config",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/config/telegramConfig.js",
+      "type": "file",
+      "parent": "src/config",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/core/githubApproval",
+      "type": "folder",
+      "parent": "src/core",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/core/githubApproval/githubApprovalAccess.js",
+      "type": "file",
+      "parent": "src/core/githubApproval",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/githubApproval/githubApprovalCallbackParser.js",
+      "type": "file",
+      "parent": "src/core/githubApproval",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/githubApproval/githubApprovalExecutor.js",
+      "type": "file",
+      "parent": "src/core/githubApproval",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/githubApproval/githubApprovalResultFormatter.js",
+      "type": "file",
+      "parent": "src/core/githubApproval",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/githubApproval/index.js",
+      "type": "file",
+      "parent": "src/core/githubApproval",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/githubApprovalHandler.js",
+      "type": "file",
+      "parent": "src/core",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/handleMessage.js",
+      "type": "file",
+      "parent": "src/core",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/message",
+      "type": "folder",
+      "parent": "src/core",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/core/message/index.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/message/messageAccess.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/message/messageAiRequest.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/message/messageBehavior.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/message/messageGithubApproval.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/message/messageInput.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/projectRuntimeContext.js",
+      "type": "file",
+      "parent": "src/core",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/prompt",
+      "type": "folder",
+      "parent": "src/core",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/core/prompt/index.js",
+      "type": "file",
+      "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/prompt/promptBehaviorRules.js",
+      "type": "file",
+      "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/prompt/promptGithubOutputFormat.js",
+      "type": "file",
+      "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/prompt/promptGithubRuntime.js",
+      "type": "file",
+      "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/prompt/promptGithubWritePolicy.js",
+      "type": "file",
+      "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/prompt/promptIdentity.js",
+      "type": "file",
+      "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/prompt/promptLanguageRules.js",
+      "type": "file",
+      "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/prompt/promptRuntimeContext.js",
+      "type": "file",
+      "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/prompt/promptRuntimeStatus.js",
+      "type": "file",
+      "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/core/sgSystemPrompt.js",
+      "type": "file",
+      "parent": "src/core",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/delivery",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/delivery/telegramDelivery.js",
+      "type": "file",
+      "parent": "src/delivery",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/integrations",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "External integration layer.",
+      "status": "folder"
+    },
+    {
+      "path": "src/integrations/github",
+      "type": "folder",
+      "parent": "src/integrations",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/integrations/github/appAuth.js",
+      "type": "file",
+      "parent": "src/integrations/github",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/integrations/render",
+      "type": "folder",
+      "parent": "src/integrations",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/integrations/render/index.js",
+      "type": "file",
+      "parent": "src/integrations/render",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/integrations/render/README.md",
+      "type": "file",
+      "parent": "src/integrations/render",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
+    },
+    {
+      "path": "src/integrations/render/renderBridgeClient.js",
+      "type": "file",
+      "parent": "src/integrations/render",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/integrations/render/renderBridgeConfig.js",
+      "type": "file",
+      "parent": "src/integrations/render",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/integrations/render/renderBridgeNormalizer.js",
+      "type": "file",
+      "parent": "src/integrations/render",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/integrations/render/renderLatestLogs.js",
+      "type": "file",
+      "parent": "src/integrations/render",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/integrations/render/renderSanitizer.js",
+      "type": "file",
+      "parent": "src/integrations/render",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/permissions",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/permissions/monarchGate.js",
+      "type": "file",
+      "parent": "src/permissions",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/runtime",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Runtime workspace and runtime helpers.",
+      "status": "folder"
+    },
+    {
+      "path": "src/runtime/workspace",
+      "type": "folder",
+      "parent": "src/runtime",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/runtime/workspace/workspaceChannel.js",
+      "type": "file",
+      "parent": "src/runtime/workspace",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tasks",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Task layer.",
+      "status": "folder"
+    },
+    {
+      "path": "src/tasks/render",
+      "type": "folder",
+      "parent": "src/tasks",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/tasks/render/getRenderLogsTask.js",
+      "type": "file",
+      "parent": "src/tasks/render",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Runtime tool layer.",
+      "status": "folder"
+    },
+    {
+      "path": "src/tools/github",
+      "type": "folder",
+      "parent": "src/tools",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/tools/github/githubApiClient.js",
+      "type": "file",
+      "parent": "src/tools/github",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/github/githubApprovalService.js",
+      "type": "file",
+      "parent": "src/tools/github",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/github/githubApprovalStore.memory.js",
+      "type": "file",
+      "parent": "src/tools/github",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/github/githubApprovalWarning.js",
+      "type": "file",
+      "parent": "src/tools/github",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/github/githubProjectDefaults.js",
+      "type": "file",
+      "parent": "src/tools/github",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/github/githubRequestUtils.js",
+      "type": "file",
+      "parent": "src/tools/github",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/github/githubWritePolicy.js",
+      "type": "file",
+      "parent": "src/tools/github",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/github/githubWriteSummary.js",
+      "type": "file",
+      "parent": "src/tools/github",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/github/index.js",
+      "type": "file",
+      "parent": "src/tools/github",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/githubActionsFormatter.js",
+      "type": "file",
+      "parent": "src/tools",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/githubTool.js",
+      "type": "file",
+      "parent": "src/tools",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/tools/githubToolDefinitions.js",
+      "type": "file",
+      "parent": "src/tools",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/transport",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/transport/telegram",
+      "type": "folder",
+      "parent": "src/transport",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/transport/telegram.js",
+      "type": "file",
+      "parent": "src/transport",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/transport/telegram/index.js",
+      "type": "file",
+      "parent": "src/transport/telegram",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/transport/telegram/initTelegramTransport.js",
+      "type": "file",
+      "parent": "src/transport/telegram",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/transport/telegram/telegramAdapter.js",
+      "type": "file",
+      "parent": "src/transport/telegram",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/transport/telegram/telegramCallbackHandler.js",
+      "type": "file",
+      "parent": "src/transport/telegram",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/transport/telegram/telegramContext.js",
+      "type": "file",
+      "parent": "src/transport/telegram",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/transport/telegram/telegramMessageHandler.js",
+      "type": "file",
+      "parent": "src/transport/telegram",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/transport/telegram/telegramReplies.js",
+      "type": "file",
+      "parent": "src/transport/telegram",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/users",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/users/identityResolver.js",
+      "type": "file",
+      "parent": "src/users",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    }
+  ]
+}

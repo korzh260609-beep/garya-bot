@@ -148,6 +148,8 @@ jobs:
       - name: Check Agent Layer syntax
         run: |
           node --check src/agents/index.js
+          node --check src/agents/advisor-outbox-agent/advisorOutboxAgent.js
+          node --check src/agents/advisor-outbox-agent/index.js
           node --check src/agents/github-actions-agent/GitHubActionsAgentService.js
           node --check src/agents/github-actions-agent/GitHubActionsAgentReportBuilder.js
           node --check src/agents/github-actions-agent/index.js

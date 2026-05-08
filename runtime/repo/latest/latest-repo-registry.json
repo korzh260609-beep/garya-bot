@@ -1,12 +1,12 @@
 {
   "ok": true,
   "type": "repo_registry",
-  "generated_at": "2026-05-08T09:26:05.738Z",
+  "generated_at": "2026-05-08T09:33:11.175Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
+  "head_sha": "c61403206e6d042123d4d96d459aadbc2a146dd1",
   "truncated": false,
-  "items_count": 234,
+  "items_count": 235,
   "items": [
     {
       "path": ".env.example",
@@ -1567,6 +1567,14 @@
       "extension": "md",
       "description": "Folder documentation.",
       "status": "documentation"
+    },
+    {
+      "path": "src/memory/contracts.js",
+      "type": "file",
+      "parent": "src/memory",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
     },
     {
       "path": "src/memory/project",

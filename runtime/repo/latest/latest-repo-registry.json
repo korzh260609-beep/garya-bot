@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-08T11:17:19.779Z",
+  "generated_at": "2026-05-08T11:27:10.074Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "e2592cfd2e3e2a66ad065bc827b5548c736c221f",
+  "head_sha": "7b3407dde45205d9ee9a45a4899c6f8dfe7cfa51",
   "truncated": false,
-  "items_count": 243,
+  "items_count": 244,
   "semantic_fields": [
     "module",
     "layer",
@@ -3799,6 +3799,26 @@
         "module": "memory_context",
         "layer": "memory",
         "responsibility": "Builds controlled AI context packs from provided inputs.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/context/contextPackPromptFormatter.js",
+      "type": "file",
+      "parent": "src/memory/context",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "memory_context",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
         "owner": "memory",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "unknown_or_low",

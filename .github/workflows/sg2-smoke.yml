@@ -142,6 +142,9 @@ jobs:
       - name: Smoke system-context message context injection
         run: npm run smoke:message-context-injection-system-context
 
+      - name: Smoke message context injection guards
+        run: npm run smoke:message-context-injection-guards
+
       - name: Check Agent Layer syntax
         run: |
           node --check src/agents/index.js

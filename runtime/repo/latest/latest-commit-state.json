@@ -1,64 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T14:43:11.924Z",
+  "generated_at": "2026-05-08T14:52:34.857Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "73bed91be9801e22de55de9ed8b2a91a0bcb8c0d",
-  "previous_head_sha": "4ef141854c205959870d16dc7ca2c1955e184596",
+  "current_head_sha": "300923c149f7a2aad65ee3dd0a2eb4ce5aa99ce7",
+  "previous_head_sha": "73bed91be9801e22de55de9ed8b2a91a0bcb8c0d",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "23d74d743c1342abf4186a5180b5918df475b57d",
+  "registry_commit_sha": "7bfcc1d67f086620dd52537806116bfa624d53e0",
   "latest_commit": {
-    "sha": "73bed91be9801e22de55de9ed8b2a91a0bcb8c0d",
-    "short_sha": "73bed91be980",
-    "message": "message: auto mirror diagnostic replies to advisor outbox\n\nRemove the manual advisor_outbox_write AI tool exposure and add automatic post-reply mirroring for diagnostic/test/runtime replies.\n\nAfter SG forms a successful diagnostic reply for the Monarch, the same final reply is mirrored into agent_workspace/OUTBOX.md through the simple Advisor Outbox Agent.\n\nThe mirror is Monarch-only, skips GitHub approval prompts, and catches write failures so Telegram replies are not broken.",
+    "sha": "300923c149f7a2aad65ee3dd0a2eb4ce5aa99ce7",
+    "short_sha": "300923c149f7",
+    "message": "message: make advisor outbox mirror safe\n\nMake Advisor Outbox mirroring non-blocking so it cannot break Telegram replies.\n\nChange handleMessage from awaited mirror to fire-and-forget with error logging, and lazy-load the Advisor Outbox Agent to reduce runtime import coupling.\n\nOutbox remains secondary: mirror errors are logged but do not replace the SG response.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T14:42:53Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/73bed91be9801e22de55de9ed8b2a91a0bcb8c0d",
-    "changed_files_count": 6,
+    "date": "2026-05-08T14:52:09Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/300923c149f7a2aad65ee3dd0a2eb4ce5aa99ce7",
+    "changed_files_count": 2,
     "changed_files": [
-      {
-        "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
       {
         "filename": "src/core/handleMessage.js",
         "status": "modified",
-        "additions": 5,
+        "additions": 3,
         "deletions": 1,
-        "changes": 6
-      },
-      {
-        "filename": "src/core/message/index.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
+        "changes": 4
       },
       {
         "filename": "src/core/message/messageAdvisorOutboxMirror.js",
-        "status": "added",
-        "additions": 88,
-        "deletions": 0,
-        "changes": 88
-      },
-      {
-        "filename": "src/tools/githubTool.js",
         "status": "modified",
-        "additions": 0,
-        "deletions": 6,
-        "changes": 6
-      },
-      {
-        "filename": "src/tools/githubToolDefinitions.js",
-        "status": "modified",
-        "additions": 0,
-        "deletions": 28,
-        "changes": 28
+        "additions": 1,
+        "deletions": 2,
+        "changes": 3
       }
     ]
   }

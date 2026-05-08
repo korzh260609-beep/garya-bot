@@ -2,7 +2,6 @@
 // SG 2.0 runtime AI tools.
 // Purpose: let the AI model call approved runtime tools.
 
-import { runAdvisorOutboxAgent } from "../agents/advisor-outbox-agent/advisorOutboxAgent.js";
 import { findCommitsByIntent } from "../agents/repo-commit-watcher-agent/repoCommitSearch.js";
 import { runRenderEnvAgent } from "../agents/render-env-agent/renderEnvAgent.js";
 import { runRepoRegistryAgent } from "../agents/repo-registry-agent/repoRegistryAgent.js";
@@ -189,10 +188,6 @@ export async function repoCheckLatestWorkflowRun(input = {}, context = {}) {
   };
 }
 
-export async function advisorOutboxWrite(input = {}, context = {}) {
-  return runAdvisorOutboxAgent(input, context);
-}
-
 export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "github_request") return githubRequest(args, context);
   if (name === "render_collect_logs") return renderCollectLogs(args, context);
@@ -200,7 +195,6 @@ export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "repo_collect_registry") return repoCollectRegistry(args, context);
   if (name === "repo_search_commits") return repoSearchCommits(args, context);
   if (name === "repo_check_latest_workflow_run") return repoCheckLatestWorkflowRun(args, context);
-  if (name === "advisor_outbox_write") return advisorOutboxWrite(args, context);
 
   return {
     ok: false,

@@ -14,6 +14,7 @@ import {
   checkMessageAccess,
   checkMessageBehavior,
   extractMessageText,
+  mirrorAdvisorOutboxIfNeeded,
 } from "./message/index.js";
 
 export async function handleMessage(context = {}) {
@@ -38,6 +39,9 @@ export async function handleMessage(context = {}) {
   }
 
   const aiResult = await callMessageAI({ identity, text, behaviorRuntime });
+  const result = buildSuccessfulMessageReply({ aiResult, identity, behaviorRuntime });
 
-  return buildSuccessfulMessageReply({ aiResult, identity, behaviorRuntime });
+  await mirrorAdvisorOutboxIfNeeded({ text, result, identity, context });
+
+  return result;
 }

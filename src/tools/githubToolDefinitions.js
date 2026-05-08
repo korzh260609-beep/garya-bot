@@ -152,32 +152,4 @@ export const githubToolDefinitions = [
       required: [],
     },
   },
-  {
-    type: "function",
-    name: "advisor_outbox_write",
-    description: "Mirror the final SG reply into agent_workspace/OUTBOX.md for Advisor-side reading. Use only when the Monarch explicitly asks to write, copy, save, or send the same SG answer to the Advisor/outbox/work folder. This overwrites the previous OUTBOX content and writes only the allowlisted OUTBOX file.",
-    parameters: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        replyText: {
-          type: "string",
-          description: "The final SG reply text that is also sent to Telegram. Required.",
-        },
-        commandText: {
-          type: "string",
-          description: "Optional original Monarch command or task text.",
-        },
-        source: {
-          type: "string",
-          description: "Optional source channel label. Default telegram.",
-        },
-        taskId: {
-          type: "string",
-          description: "Optional task identifier. Default manual.",
-        },
-      },
-      required: ["replyText"],
-    },
-  },
 ];

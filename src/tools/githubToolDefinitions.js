@@ -152,4 +152,27 @@ export const githubToolDefinitions = [
       required: [],
     },
   },
+  {
+    type: "function",
+    name: "sg_diagnostics_check",
+    description: "Build a safe SG diagnostics plan when the Monarch asks in normal language to check a problem, broken behavior, deploy/runtime issue, Render, GitHub Actions, repository state, registry, or recent project change. This tool is read-only and does not require slash commands or technical phrases. First skeleton returns a diagnostics plan/report shape; deep runtime orchestration is added later.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        text: {
+          type: "string",
+          description: "The Monarch's natural-language diagnostics request. If omitted, latest user text from runtime context is used.",
+        },
+        checks: {
+          type: "array",
+          description: "Optional explicit check ids when the model has already selected a narrower diagnostics plan. Omit for the default full safe plan.",
+          items: {
+            type: "string"
+          }
+        }
+      },
+      required: [],
+    },
+  },
 ];

@@ -112,6 +112,14 @@ jobs:
           node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
 
+      - name: Check Diagnostics Layer syntax
+        run: |
+          node --check src/diagnostics/diagnosticsIntent.js
+          node --check src/diagnostics/diagnosticsPlan.js
+          node --check src/diagnostics/diagnosticsReport.js
+          node --check src/diagnostics/diagnosticsRunner.js
+          node --check src/diagnostics/index.js
+
       - name: Check Workspace channel syntax
         run: |
           node --check src/runtime/workspace/workspaceChannel.js

@@ -1,29 +1,57 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T09:33:12.384Z",
+  "generated_at": "2026-05-08T09:44:42.267Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "c61403206e6d042123d4d96d459aadbc2a146dd1",
-  "previous_head_sha": "97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
+  "current_head_sha": "b41805e05755310eff172124e112bc07415477d4",
+  "previous_head_sha": "c61403206e6d042123d4d96d459aadbc2a146dd1",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "7b1df1ec39408780791a068f4ad1010c7eda5fde",
+  "registry_commit_sha": "b669d8c1c04a12e3cc571653f03fd2639cd32792",
   "latest_commit": {
-    "sha": "c61403206e6d042123d4d96d459aadbc2a146dd1",
-    "short_sha": "c61403206e6d",
-    "message": "memory: add memory contracts skeleton\n\nAdd Step 3 skeleton for SG 2.0 Memory + Context.\n\nAdds transport-independent memory/context contracts and explicitly states that Telegram is only one delivery channel, not a memory owner or architectural dependency. No runtime path, DB, Telegram, Render, GitHub, repository write, or OpenAI calls are connected.",
+    "sha": "b41805e05755310eff172124e112bc07415477d4",
+    "short_sha": "b41805e05755",
+    "message": "memory: add memory policies skeleton\n\nAdd Step 4 skeleton for SG 2.0 Memory + Context.\n\nAdds deterministic memory policies for raw prompt safety, project memory, confirmed user memory, and group memory. Fixes the principle that user memory is unified by global_user_id across all transports. No runtime path, DB, Telegram, Render, GitHub, repository write, or OpenAI calls are connected.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T09:32:46Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c61403206e6d042123d4d96d459aadbc2a146dd1",
-    "changed_files_count": 1,
+    "date": "2026-05-08T09:44:20Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b41805e05755310eff172124e112bc07415477d4",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": "src/memory/contracts.js",
+        "filename": "src/memory/policies/README.md",
         "status": "added",
-        "additions": 198,
+        "additions": 99,
         "deletions": 0,
-        "changes": 198
+        "changes": 99
+      },
+      {
+        "filename": "src/memory/policies/confirmedMemoryPolicy.js",
+        "status": "added",
+        "additions": 74,
+        "deletions": 0,
+        "changes": 74
+      },
+      {
+        "filename": "src/memory/policies/groupMemoryPolicy.js",
+        "status": "added",
+        "additions": 60,
+        "deletions": 0,
+        "changes": 60
+      },
+      {
+        "filename": "src/memory/policies/projectMemoryPolicy.js",
+        "status": "added",
+        "additions": 66,
+        "deletions": 0,
+        "changes": 66
+      },
+      {
+        "filename": "src/memory/policies/rawPromptPolicy.js",
+        "status": "added",
+        "additions": 57,
+        "deletions": 0,
+        "changes": 57
       }
     ]
   }

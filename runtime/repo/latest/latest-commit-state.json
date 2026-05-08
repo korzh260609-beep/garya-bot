@@ -1,29 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T09:20:33.960Z",
+  "generated_at": "2026-05-08T09:26:06.752Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "44fa03755b06a78f64a61c564e3c8438b231f46d",
-  "previous_head_sha": "e2919cdc1e1d6892823a10c442e6fd1ff62e1944",
+  "current_head_sha": "97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
+  "previous_head_sha": "44fa03755b06a78f64a61c564e3c8438b231f46d",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "2d12d20fb35188d7d7d5fcd0e8078e34d9765efe",
+  "registry_commit_sha": "3c6d99242f1543fd595bcb1c1a401a5f3e4b1155",
   "latest_commit": {
-    "sha": "44fa03755b06a78f64a61c564e3c8438b231f46d",
-    "short_sha": "44fa03755b06",
-    "message": "memory: add Living SG memory rule\n\nAdd explicit Living SG memory rule to SG 2.0 Memory + Context principles.\n\nForbids turning memory/context into technical mode, command router, keyword machine, hidden developer console, or prompt-hack collection. Documentation only; no runtime changes.",
+    "sha": "97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
+    "short_sha": "97d0ca50fc04",
+    "message": "memory: add project memory skeleton\n\nAdd Step 2 skeleton for SG 2.0 Memory + Context.\n\nAdds project memory README, project memory types, and read-only / prepare-only project memory service skeleton. No runtime path, DB, Telegram, Render, GitHub, repository write, or OpenAI calls are connected.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T09:20:07Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/44fa03755b06a78f64a61c564e3c8438b231f46d",
-    "changed_files_count": 1,
+    "date": "2026-05-08T09:25:49Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/97d0ca50fc042a00cadbbf83bf548c4b2c393c18",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/memory/README.md",
-        "status": "modified",
-        "additions": 38,
+        "filename": "src/memory/project/README.md",
+        "status": "added",
+        "additions": 139,
         "deletions": 0,
-        "changes": 38
+        "changes": 139
+      },
+      {
+        "filename": "src/memory/project/projectMemoryService.js",
+        "status": "added",
+        "additions": 162,
+        "deletions": 0,
+        "changes": 162
+      },
+      {
+        "filename": "src/memory/project/projectMemoryTypes.js",
+        "status": "added",
+        "additions": 82,
+        "deletions": 0,
+        "changes": 82
       }
     ]
   }

@@ -1,63 +1,63 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T14:27:42.049Z",
+  "generated_at": "2026-05-08T14:43:11.924Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "4ef141854c205959870d16dc7ca2c1955e184596",
-  "previous_head_sha": "ac396798ef60184ec05cb1db5fa420a809545ea9",
+  "current_head_sha": "73bed91be9801e22de55de9ed8b2a91a0bcb8c0d",
+  "previous_head_sha": "4ef141854c205959870d16dc7ca2c1955e184596",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "c486a857e04ce1ca93d81462a55df0da35a027eb",
+  "registry_commit_sha": "23d74d743c1342abf4186a5180b5918df475b57d",
   "latest_commit": {
-    "sha": "4ef141854c205959870d16dc7ca2c1955e184596",
-    "short_sha": "4ef141854c20",
-    "message": "agent: add advisor outbox agent\n\nAdd a simple Advisor Outbox Agent that mirrors the final SG reply into agent_workspace/OUTBOX.md for Advisor-side reading.\n\nThe agent is Monarch-only, overwrite-only, and writes only the allowlisted OUTBOX file.\n\nAlso expose advisor_outbox_write as a runtime tool and add syntax checks for the new agent files.",
+    "sha": "73bed91be9801e22de55de9ed8b2a91a0bcb8c0d",
+    "short_sha": "73bed91be980",
+    "message": "message: auto mirror diagnostic replies to advisor outbox\n\nRemove the manual advisor_outbox_write AI tool exposure and add automatic post-reply mirroring for diagnostic/test/runtime replies.\n\nAfter SG forms a successful diagnostic reply for the Monarch, the same final reply is mirrored into agent_workspace/OUTBOX.md through the simple Advisor Outbox Agent.\n\nThe mirror is Monarch-only, skips GitHub approval prompts, and catches write failures so Telegram replies are not broken.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T14:27:19Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4ef141854c205959870d16dc7ca2c1955e184596",
+    "date": "2026-05-08T14:42:53Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/73bed91be9801e22de55de9ed8b2a91a0bcb8c0d",
     "changed_files_count": 6,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 2,
-        "deletions": 0,
-        "changes": 2
-      },
-      {
-        "filename": "src/agents/advisor-outbox-agent/advisorOutboxAgent.js",
-        "status": "added",
-        "additions": 132,
-        "deletions": 0,
-        "changes": 132
-      },
-      {
-        "filename": "src/agents/advisor-outbox-agent/index.js",
-        "status": "added",
-        "additions": 6,
-        "deletions": 0,
-        "changes": 6
-      },
-      {
-        "filename": "src/agents/index.js",
         "status": "modified",
         "additions": 1,
         "deletions": 0,
         "changes": 1
       },
       {
+        "filename": "src/core/handleMessage.js",
+        "status": "modified",
+        "additions": 5,
+        "deletions": 1,
+        "changes": 6
+      },
+      {
+        "filename": "src/core/message/index.js",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/core/message/messageAdvisorOutboxMirror.js",
+        "status": "added",
+        "additions": 88,
+        "deletions": 0,
+        "changes": 88
+      },
+      {
         "filename": "src/tools/githubTool.js",
         "status": "modified",
-        "additions": 6,
-        "deletions": 0,
+        "additions": 0,
+        "deletions": 6,
         "changes": 6
       },
       {
         "filename": "src/tools/githubToolDefinitions.js",
         "status": "modified",
-        "additions": 28,
-        "deletions": 0,
+        "additions": 0,
+        "deletions": 28,
         "changes": 28
       }
     ]

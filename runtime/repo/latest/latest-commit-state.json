@@ -1,36 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T14:52:34.857Z",
+  "generated_at": "2026-05-08T15:14:29.155Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "300923c149f7a2aad65ee3dd0a2eb4ce5aa99ce7",
-  "previous_head_sha": "73bed91be9801e22de55de9ed8b2a91a0bcb8c0d",
+  "current_head_sha": "b879848a45c9328a67e0d3dfdc0f4180e77dc838",
+  "previous_head_sha": "300923c149f7a2aad65ee3dd0a2eb4ce5aa99ce7",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "7bfcc1d67f086620dd52537806116bfa624d53e0",
+  "registry_commit_sha": "6c4ab82cab725f4adc29037f56124204b4a4c950",
   "latest_commit": {
-    "sha": "300923c149f7a2aad65ee3dd0a2eb4ce5aa99ce7",
-    "short_sha": "300923c149f7",
-    "message": "message: make advisor outbox mirror safe\n\nMake Advisor Outbox mirroring non-blocking so it cannot break Telegram replies.\n\nChange handleMessage from awaited mirror to fire-and-forget with error logging, and lazy-load the Advisor Outbox Agent to reduce runtime import coupling.\n\nOutbox remains secondary: mirror errors are logged but do not replace the SG response.",
+    "sha": "b879848a45c9328a67e0d3dfdc0f4180e77dc838",
+    "short_sha": "b879848a45c9",
+    "message": "ai: make tool execution fail-safe\n\nWrap runtime tool execution inside aiToolRunner with a local try/catch.\n\nIf any runtime tool throws, SG now returns a structured tool output instead of crashing the whole AI response. The failed tool name and error message are logged for Render diagnostics.\n\nThis prevents errors from runGithubTool(...) from propagating through callAI() into the generic Telegram fallback.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T14:52:09Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/300923c149f7a2aad65ee3dd0a2eb4ce5aa99ce7",
-    "changed_files_count": 2,
+    "date": "2026-05-08T15:14:06Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b879848a45c9328a67e0d3dfdc0f4180e77dc838",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/core/handleMessage.js",
+        "filename": "src/ai/aiToolRunner.js",
         "status": "modified",
-        "additions": 3,
+        "additions": 19,
         "deletions": 1,
-        "changes": 4
-      },
-      {
-        "filename": "src/core/message/messageAdvisorOutboxMirror.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 2,
-        "changes": 3
+        "changes": 20
       }
     ]
   }

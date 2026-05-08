@@ -4,3 +4,4 @@
 // Do not add Telegram flow, Render API calls, AI calls, DB calls, or GitHub writes here.
 
 export * from "./github-actions-agent/index.js";
+export * from "./repo-commit-watcher-agent/index.js";

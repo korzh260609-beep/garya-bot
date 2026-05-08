@@ -3,8 +3,6 @@
 // Purpose: mirror diagnostic/test/runtime replies into agent_workspace/OUTBOX.md after SG forms a final reply.
 // Do not add Telegram handling, AI calls, DB calls, source fetching, or broad repository writes here.
 
-import { runAdvisorOutboxAgent } from "../../agents/advisor-outbox-agent/advisorOutboxAgent.js";
-
 const DIAGNOSTIC_PATTERNS = [
   /\bworkflow\b/i,
   /\bsg2-smoke\b/i,
@@ -57,6 +55,7 @@ export async function mirrorAdvisorOutboxIfNeeded({ text, result, identity, cont
   }
 
   try {
+    const { runAdvisorOutboxAgent } = await import("../../agents/advisor-outbox-agent/advisorOutboxAgent.js");
     const writeResult = await runAdvisorOutboxAgent(
       {
         replyText: result.reply,

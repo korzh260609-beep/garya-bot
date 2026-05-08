@@ -67,7 +67,7 @@ export const githubToolDefinitions = [
   {
     type: "function",
     name: "render_collect_env",
-    description: "Collect Render environment variable inventory for the SG Render service and write the sanitized result to runtime/render/latest/latest-render-env.json in GitHub. Use this when the Monarch asks to check, list, collect, or show Render env variables. This tool shows env names and only allowlisted safe values; secret or unknown values are hidden and never exposed.",
+    description: "Collect Render environment variable inventory for the SG Render service and write the sanitized result to runtime/render/latest/latest-render-env.json in GitHub. Use this when the Monarch asks to check, list, collect, or show Render env variables. This tool shows env names and non-secret values; secret values are hidden by exact name, suffix, or value pattern.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -75,6 +75,26 @@ export const githubToolDefinitions = [
         target: {
           type: "string",
           description: "Render service target. Default garya-bot.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "repo_collect_registry",
+    description: "Collect a deterministic repository registry for the SG project and write the result to runtime/repo/latest/latest-repo-registry.json in GitHub. Use this when the Monarch asks to build, refresh, or update a repo registry/map of folders and files. This tool is read-only for repository contents and writes only the latest registry workspace report.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        repo: {
+          type: "string",
+          description: "Repository in owner/name form. Default current SG project repository.",
+        },
+        branch: {
+          type: "string",
+          description: "Branch/ref to inspect. Default current SG project branch.",
         },
       },
       required: [],

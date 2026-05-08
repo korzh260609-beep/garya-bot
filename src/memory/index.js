@@ -26,6 +26,12 @@ export {
 export { buildContextPack } from "./context/contextPackBuilder.js";
 
 export {
+  CONTEXT_PROMPT_FORMAT_VERSION,
+  DEFAULT_CONTEXT_PROMPT_FORMAT_LIMITS,
+  formatContextPackForPrompt,
+} from "./context/contextPackPromptFormatter.js";
+
+export {
   PROJECT_MEMORY_VERSION,
   PROJECT_MEMORY_TYPES,
   PROJECT_MEMORY_SCOPES,

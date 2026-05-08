@@ -128,4 +128,28 @@ export const githubToolDefinitions = [
       required: ["text"],
     },
   },
+  {
+    type: "function",
+    name: "repo_check_latest_workflow_run",
+    description: "Check the latest GitHub Actions workflow run for the SG repository by branch and workflow file. Use this after PR merge or when the Monarch asks whether CI/checks passed on dev/v2-start. This tool is read-only and does not write to GitHub.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        repo: {
+          type: "string",
+          description: "Repository in owner/name form. Default current SG project repository.",
+        },
+        branch: {
+          type: "string",
+          description: "Branch to inspect. Default current SG project branch.",
+        },
+        workflow: {
+          type: "string",
+          description: "Workflow file name or workflow id. Default sg2-smoke.yml.",
+        },
+      },
+      required: [],
+    },
+  },
 ];

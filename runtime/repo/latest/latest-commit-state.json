@@ -1,29 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T11:05:10.362Z",
+  "generated_at": "2026-05-08T11:17:20.968Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "3d2fa8d6cf8ddfbbdfeb2fe453acfe3523c42f8c",
-  "previous_head_sha": "45dbcfc44c47093b1ab91f18b59138846120e320",
+  "current_head_sha": "e2592cfd2e3e2a66ad065bc827b5548c736c221f",
+  "previous_head_sha": "3d2fa8d6cf8ddfbbdfeb2fe453acfe3523c42f8c",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "099544276d859f5a9cbefc39470bf322c67eb491",
+  "registry_commit_sha": "cceea3647e3e4e48a9a8f9967c358130297320aa",
   "latest_commit": {
-    "sha": "3d2fa8d6cf8ddfbbdfeb2fe453acfe3523c42f8c",
-    "short_sha": "3d2fa8d6cf8d",
-    "message": "memory: add public boundary\n\nAdd src/memory/index.js as the public boundary for SG 2.0 Memory + Context.\n\nRe-exports context, project memory, contracts, and deterministic policies. Adds getMemoryModuleStatus(). No runtime path, DB, Telegram, Render, GitHub, repository write, source fetching, or OpenAI calls are connected.",
+    "sha": "e2592cfd2e3e2a66ad065bc827b5548c736c221f",
+    "short_sha": "e2592cfd2e3e",
+    "message": "memory: prepare message context pack runtime bridge\n\nPrepare a minimal runtime bridge for building message context packs before AI requests.\n\nThis does not inject memory/context into prompts, does not connect DB/storage, and does not touch transport, Render, GitHub tools, permissions, or OpenAI client logic.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T11:04:46Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/3d2fa8d6cf8ddfbbdfeb2fe453acfe3523c42f8c",
-    "changed_files_count": 1,
+    "date": "2026-05-08T11:16:53Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e2592cfd2e3e2a66ad065bc827b5548c736c221f",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/memory/index.js",
-        "status": "added",
-        "additions": 102,
+        "filename": "src/core/message/index.js",
+        "status": "modified",
+        "additions": 1,
         "deletions": 0,
-        "changes": 102
+        "changes": 1
+      },
+      {
+        "filename": "src/core/message/messageAiRequest.js",
+        "status": "modified",
+        "additions": 5,
+        "deletions": 0,
+        "changes": 5
+      },
+      {
+        "filename": "src/core/message/messageContextPack.js",
+        "status": "added",
+        "additions": 67,
+        "deletions": 0,
+        "changes": 67
       }
     ]
   }

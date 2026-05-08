@@ -1,29 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T11:38:24.791Z",
+  "generated_at": "2026-05-08T11:45:48.588Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "40e337ebb31668415e988b4c453feca09f3914ad",
-  "previous_head_sha": "7b3407dde45205d9ee9a45a4899c6f8dfe7cfa51",
+  "current_head_sha": "cb818ede29faa0a6a978f442db41aeb38a41d116",
+  "previous_head_sha": "40e337ebb31668415e988b4c453feca09f3914ad",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "1d961a896d6c7d010fb27e017e1906fdbbffed6b",
+  "registry_commit_sha": "1c63598a6d14be6dc9400ba99e5dd93d9a9437d5",
   "latest_commit": {
-    "sha": "40e337ebb31668415e988b4c453feca09f3914ad",
-    "short_sha": "40e337ebb316",
-    "message": "memory: document SG and user project memory boundary\n\nDocument the boundary between SG Project Memory and future User Project Memory.\n\nAlso document that the Monarch has access to both SG Project Memory and Monarch User Project Memory, while those layers remain separate and require explicit promotion before personal project memory becomes SG Project Memory.",
+    "sha": "cb818ede29faa0a6a978f442db41aeb38a41d116",
+    "short_sha": "cb818ede29fa",
+    "message": "memory: add message context injection boundary\n\nAdd a disabled-by-default boundary for future Memory/Context prompt injection.\n\nThis centralizes optional message context injection without enabling it, changing current prompts, connecting DB/storage, or touching transport, Render, GitHub tools, permissions, or OpenAI client logic.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T11:38:03Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/40e337ebb31668415e988b4c453feca09f3914ad",
-    "changed_files_count": 1,
+    "date": "2026-05-08T11:45:22Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/cb818ede29faa0a6a978f442db41aeb38a41d116",
+    "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": "src/memory/project/README.md",
+        "filename": "src/core/message/index.js",
         "status": "modified",
-        "additions": 118,
-        "deletions": 14,
-        "changes": 132
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/core/message/messageContextInjection.js",
+        "status": "added",
+        "additions": 126,
+        "deletions": 0,
+        "changes": 126
       }
     ]
   }

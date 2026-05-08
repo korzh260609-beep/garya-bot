@@ -1,10 +1,10 @@
 {
   "ok": true,
   "type": "repo_registry",
-  "generated_at": "2026-05-08T07:31:46.702Z",
+  "generated_at": "2026-05-08T07:37:32.746Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "06b69a4f7ee60e66287f85ba041380eefd921c7f",
+  "head_sha": "0870d44073bb4ac36589ef7a39d904fd8dde1607",
   "truncated": false,
   "items_count": 216,
   "items": [
@@ -713,6 +713,30 @@
       "status": "generated"
     },
     {
+      "path": "runtime/repo",
+      "type": "folder",
+      "parent": "runtime",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/repo/latest",
+      "type": "folder",
+      "parent": "runtime/repo",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "generated"
+    },
+    {
+      "path": "runtime/repo/latest/latest-repo-registry.json",
+      "type": "file",
+      "parent": "runtime/repo/latest",
+      "extension": "json",
+      "description": "JSON data/configuration file.",
+      "status": "generated"
+    },
+    {
       "path": "scripts",
       "type": "folder",
       "parent": "",
@@ -863,30 +887,6 @@
       "extension": "js",
       "description": "JavaScript source file.",
       "status": "active_or_config"
-    },
-    {
-      "path": "src/agents/shared",
-      "type": "folder",
-      "parent": "src/agents",
-      "extension": "",
-      "description": "Agent-specific folder.",
-      "status": "folder"
-    },
-    {
-      "path": "src/agents/shared/workspace",
-      "type": "folder",
-      "parent": "src/agents/shared",
-      "extension": "",
-      "description": "Agent-specific folder.",
-      "status": "folder"
-    },
-    {
-      "path": "src/agents/shared/workspace/README.md",
-      "type": "file",
-      "parent": "src/agents/shared/workspace",
-      "extension": "md",
-      "description": "Folder documentation.",
-      "status": "documentation"
     },
     {
       "path": "src/ai",

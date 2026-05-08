@@ -1,36 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T08:25:33.914Z",
+  "generated_at": "2026-05-08T08:37:34.097Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "726b57d053ac1d6b4a80d37f7db088fc7e187849",
-  "previous_head_sha": null,
+  "current_head_sha": "01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
+  "previous_head_sha": "726b57d053ac1d6b4a80d37f7db088fc7e187849",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "baa92b04fca6c798f3b6c4dfcd9c2e3f0c3236c3",
+  "registry_commit_sha": "2a1a86ea30b8cc18ebe768845772cfe3aaeb2bae",
   "latest_commit": {
-    "sha": "726b57d053ac1d6b4a80d37f7db088fc7e187849",
-    "short_sha": "726b57d053ac",
-    "message": "ci: update repo commit watcher workflow auth\n\nUse GitHub Actions runtime token for Repo Commit Watcher workflow while keeping GitHub App auth fallback for runtime usage.",
+    "sha": "01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
+    "short_sha": "01aaee0d7dc8",
+    "message": "agents: shorten repo commit search output\n\nReturn compact commit search matches and a short Telegram-friendly summary.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T08:25:09Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/726b57d053ac1d6b4a80d37f7db088fc7e187849",
-    "changed_files_count": 2,
+    "date": "2026-05-08T08:37:10Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": ".github/workflows/repo-commit-watcher.yml",
+        "filename": "src/agents/repo-commit-watcher-agent/repoCommitSearch.js",
         "status": "modified",
-        "additions": 5,
-        "deletions": 4,
-        "changes": 9
-      },
-      {
-        "filename": "src/tools/github/githubApiClient.js",
-        "status": "modified",
-        "additions": 12,
-        "deletions": 1,
-        "changes": 13
+        "additions": 54,
+        "deletions": 5,
+        "changes": 59
       }
     ]
   }

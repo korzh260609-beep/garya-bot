@@ -8,5 +8,4 @@ export * from "./messageBehavior.js";
 export * from "./messageContextPack.js";
 export * from "./messageContextInjection.js";
 export * from "./messageAiRequest.js";
-export * from "./messageAdvisorOutboxMirror.js";
 export * from "./messageGithubApproval.js";

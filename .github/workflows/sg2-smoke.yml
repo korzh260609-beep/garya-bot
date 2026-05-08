@@ -136,6 +136,9 @@ jobs:
       - name: Smoke disabled message context injection
         run: npm run smoke:message-context-injection
 
+      - name: Smoke format-only message context injection
+        run: npm run smoke:message-context-injection-format-only
+
       - name: Check Agent Layer syntax
         run: |
           node --check src/agents/index.js

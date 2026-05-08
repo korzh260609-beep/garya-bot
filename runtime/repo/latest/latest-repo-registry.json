@@ -1,12 +1,12 @@
 {
   "ok": true,
   "type": "repo_registry",
-  "generated_at": "2026-05-08T08:37:33.149Z",
+  "generated_at": "2026-05-08T09:08:32.769Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
+  "head_sha": "20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
   "truncated": false,
-  "items_count": 224,
+  "items_count": 226,
   "items": [
     {
       "path": ".env.example",
@@ -1527,6 +1527,22 @@
       "extension": "js",
       "description": "JavaScript source file.",
       "status": "active_or_config"
+    },
+    {
+      "path": "src/memory",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/memory/README.md",
+      "type": "file",
+      "parent": "src/memory",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
     },
     {
       "path": "src/permissions",

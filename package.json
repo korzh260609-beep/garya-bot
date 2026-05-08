@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node ./index.js",
     "smoke:github-actions-formatter": "node ./scripts/smokeGithubActionsFormatter.js",
-    "smoke:message-context-injection": "node ./scripts/smokeMessageContextInjection.js"
+    "smoke:message-context-injection": "node ./scripts/smokeMessageContextInjection.js",
+    "smoke:message-context-injection-format-only": "node ./scripts/smokeMessageContextInjectionFormatOnly.js"
   },
   "dependencies": {
     "express": "^4.18.2",

@@ -1,36 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T11:56:59.628Z",
+  "generated_at": "2026-05-08T12:05:07.634Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "29f5d1c0f254fc39834cff6c3d53b03aeb304dfc",
-  "previous_head_sha": "cb818ede29faa0a6a978f442db41aeb38a41d116",
+  "current_head_sha": "bcda8f4f74e817363b68bc18c6d7b832a75058cb",
+  "previous_head_sha": "29f5d1c0f254fc39834cff6c3d53b03aeb304dfc",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "63dd8ca7138d9e452c2e2cf77430934d83a766b7",
+  "registry_commit_sha": "50beeb7704df4c28c2af3e539b7a6ec60ef661c7",
   "latest_commit": {
-    "sha": "29f5d1c0f254fc39834cff6c3d53b03aeb304dfc",
-    "short_sha": "29f5d1c0f254",
-    "message": "memory: wire disabled context injection boundary into message AI request\n\nWire the disabled-by-default message context injection boundary into the normal message AI request path.\n\nThis keeps context injection disabled, preserves current prompts, and passes contextInjection metadata for future diagnostics without connecting DB/storage or touching transport, Render, GitHub tools, permissions, or OpenAI client logic.",
+    "sha": "bcda8f4f74e817363b68bc18c6d7b832a75058cb",
+    "short_sha": "bcda8f4f74e8",
+    "message": "memory: add smoke coverage for disabled context injection\n\nAdd deterministic smoke coverage proving that disabled message context injection leaves AI messages unchanged.\n\nThis adds a smoke script, package command, and CI step without changing runtime behavior, enabling context injection, changing prompts, or touching DB/storage, transport, Render, GitHub tools, permissions, or OpenAI client logic.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T11:56:40Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/29f5d1c0f254fc39834cff6c3d53b03aeb304dfc",
-    "changed_files_count": 2,
+    "date": "2026-05-08T12:04:40Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/bcda8f4f74e817363b68bc18c6d7b832a75058cb",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/core/message/messageAiRequest.js",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 13,
-        "deletions": 5,
-        "changes": 18
+        "additions": 4,
+        "deletions": 0,
+        "changes": 4
       },
       {
-        "filename": "src/core/message/messageContextInjection.js",
+        "filename": "package.json",
         "status": "modified",
-        "additions": 9,
+        "additions": 2,
+        "deletions": 1,
+        "changes": 3
+      },
+      {
+        "filename": "scripts/smokeMessageContextInjection.js",
+        "status": "added",
+        "additions": 51,
         "deletions": 0,
-        "changes": 9
+        "changes": 51
       }
     ]
   }

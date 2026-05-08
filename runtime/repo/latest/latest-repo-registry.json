@@ -1,12 +1,12 @@
 {
   "ok": true,
   "type": "repo_registry",
-  "generated_at": "2026-05-08T09:33:11.175Z",
+  "generated_at": "2026-05-08T09:44:41.090Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "c61403206e6d042123d4d96d459aadbc2a146dd1",
+  "head_sha": "b41805e05755310eff172124e112bc07415477d4",
   "truncated": false,
-  "items_count": 235,
+  "items_count": 241,
   "items": [
     {
       "path": ".env.example",
@@ -1575,6 +1575,54 @@
       "extension": "js",
       "description": "JavaScript source file.",
       "status": "active_or_config"
+    },
+    {
+      "path": "src/memory/policies",
+      "type": "folder",
+      "parent": "src/memory",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder"
+    },
+    {
+      "path": "src/memory/policies/confirmedMemoryPolicy.js",
+      "type": "file",
+      "parent": "src/memory/policies",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/memory/policies/groupMemoryPolicy.js",
+      "type": "file",
+      "parent": "src/memory/policies",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/memory/policies/projectMemoryPolicy.js",
+      "type": "file",
+      "parent": "src/memory/policies",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/memory/policies/rawPromptPolicy.js",
+      "type": "file",
+      "parent": "src/memory/policies",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config"
+    },
+    {
+      "path": "src/memory/policies/README.md",
+      "type": "file",
+      "parent": "src/memory/policies",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation"
     },
     {
       "path": "src/memory/project",

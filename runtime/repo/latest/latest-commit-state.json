@@ -1,21 +1,21 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T12:34:25.610Z",
+  "generated_at": "2026-05-08T12:46:56.975Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "2e1456157d020776cabc54b91fd09181d4c12732",
-  "previous_head_sha": "bcda8f4f74e817363b68bc18c6d7b832a75058cb",
+  "current_head_sha": "e10171dc4a70d79030c37c9019ae0390f39de2da",
+  "previous_head_sha": "2e1456157d020776cabc54b91fd09181d4c12732",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "49ac61ddd9760b6e612ffb1145aabfd50fcaa2fa",
+  "registry_commit_sha": "4affbcc5dd703d5aeeeaabd21e8ad0369f7ed9bb",
   "latest_commit": {
-    "sha": "2e1456157d020776cabc54b91fd09181d4c12732",
-    "short_sha": "2e1456157d02",
-    "message": "memory: add format-only context injection smoke\n\nAdd deterministic smoke coverage for FORMAT_ONLY message context injection.\n\nThis verifies formatted context is produced while AI messages remain unchanged and prompt injection remains disabled.",
+    "sha": "e10171dc4a70d79030c37c9019ae0390f39de2da",
+    "short_sha": "e10171dc4a70",
+    "message": "memory: add system-context injection smoke\n\nAdd deterministic smoke coverage for explicit INJECT_SYSTEM_CONTEXT message context injection mode.\n\nThis verifies that one bounded system context message can be appended when explicitly enabled, while normal runtime injection remains disabled by default.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T12:34:01Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/2e1456157d020776cabc54b91fd09181d4c12732",
+    "date": "2026-05-08T12:46:23Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e10171dc4a70d79030c37c9019ae0390f39de2da",
     "changed_files_count": 3,
     "changed_files": [
       {
@@ -33,11 +33,11 @@
         "changes": 3
       },
       {
-        "filename": "scripts/smokeMessageContextInjectionFormatOnly.js",
+        "filename": "scripts/smokeMessageContextInjectionSystemContext.js",
         "status": "added",
-        "additions": 68,
+        "additions": 66,
         "deletions": 0,
-        "changes": 68
+        "changes": 66
       }
     ]
   }

@@ -41,7 +41,9 @@ export async function handleMessage(context = {}) {
   const aiResult = await callMessageAI({ identity, text, behaviorRuntime });
   const result = buildSuccessfulMessageReply({ aiResult, identity, behaviorRuntime });
 
-  await mirrorAdvisorOutboxIfNeeded({ text, result, identity, context });
+  void mirrorAdvisorOutboxIfNeeded({ text, result, identity, context }).catch((error) => {
+    console.error("Advisor outbox mirror failed:", error?.message || String(error));
+  });
 
   return result;
 }

@@ -72,6 +72,50 @@ A single user may have many projects. Each user project must have isolated memor
 
 ---
 
+## Monarch memory access rule
+
+The Monarch is both:
+
+```text
+1. owner / ruler / architect of the SG project
+2. a real SG user with personal projects, ideas, documents, tasks, and work history
+```
+
+Therefore the Monarch must have access to both memory layers:
+
+```text
+global_user_id = monarch:garya
+
+access:
+  - SG Project Memory
+  - Monarch User Project Memory
+```
+
+These layers must remain separate.
+
+The Monarch's personal user project memory must not automatically become SG Project Memory.
+
+A personal idea, business, document, task, or external development belongs to Monarch User Project Memory unless the Monarch explicitly promotes it into SG Project Memory.
+
+Promotion rule:
+
+```text
+Monarch User Project Memory
+  -> explicit Monarch approval / command
+  -> SG Project Memory candidate
+  -> policy check
+  -> confirmed SG Project Memory
+```
+
+Forbidden:
+
+- treating every Monarch chat message as SG Project Memory;
+- treating every Monarch personal project as part of SG architecture;
+- mixing Monarch User Project Memory into SG Project Memory without explicit promotion;
+- letting another user's project memory enter SG Project Memory without approved attribution and policy checks.
+
+---
+
 ## Source priority
 
 For SG project work, project memory is below verified project sources.
@@ -121,6 +165,7 @@ Project memory does not override source-first facts.
 - personal user memories;
 - group memories;
 - user-owned project memories;
+- Monarch personal project memory unless explicitly promoted;
 - temporary debugging noise;
 - facts that should stay only in repository files;
 - generated answers pretending to be source truth.
@@ -180,6 +225,8 @@ It must be marked as confirmed memory and lower priority than pillars/repo/runti
 
 User Project Memory must use a separate future context item type or an explicit metadata boundary so it cannot be confused with SG Project Memory.
 
+When the actor is the Monarch, the future AI Context Pack may include both SG Project Memory and Monarch User Project Memory, but they must be labeled as separate context categories.
+
 ---
 
 ## Hard rules
@@ -190,6 +237,7 @@ SG project memory != repo source
 SG project memory != raw chat archive
 SG project memory != user memory
 SG project memory != user project memory
+SG project memory != Monarch personal project memory unless explicitly promoted
 SG project memory != technical mode
 SG project memory != command router
 ```

@@ -1,43 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T11:17:20.968Z",
+  "generated_at": "2026-05-08T11:27:11.241Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "e2592cfd2e3e2a66ad065bc827b5548c736c221f",
-  "previous_head_sha": "3d2fa8d6cf8ddfbbdfeb2fe453acfe3523c42f8c",
+  "current_head_sha": "7b3407dde45205d9ee9a45a4899c6f8dfe7cfa51",
+  "previous_head_sha": "e2592cfd2e3e2a66ad065bc827b5548c736c221f",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "cceea3647e3e4e48a9a8f9967c358130297320aa",
+  "registry_commit_sha": "13e9dcfcd4c8e59b688ac44fdd0965899735f4a2",
   "latest_commit": {
-    "sha": "e2592cfd2e3e2a66ad065bc827b5548c736c221f",
-    "short_sha": "e2592cfd2e3e",
-    "message": "memory: prepare message context pack runtime bridge\n\nPrepare a minimal runtime bridge for building message context packs before AI requests.\n\nThis does not inject memory/context into prompts, does not connect DB/storage, and does not touch transport, Render, GitHub tools, permissions, or OpenAI client logic.",
+    "sha": "7b3407dde45205d9ee9a45a4899c6f8dfe7cfa51",
+    "short_sha": "7b3407dde452",
+    "message": "memory: add context pack prompt formatter skeleton\n\nAdd a bounded formatter for Memory/Context packs.\n\nThis prepares prompt-safe formatting only. It does not inject context into prompts, connect DB/storage, or touch transport, Render, GitHub tools, permissions, or OpenAI client logic.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T11:16:53Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e2592cfd2e3e2a66ad065bc827b5548c736c221f",
-    "changed_files_count": 3,
+    "date": "2026-05-08T11:26:49Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7b3407dde45205d9ee9a45a4899c6f8dfe7cfa51",
+    "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": "src/core/message/index.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "src/core/message/messageAiRequest.js",
-        "status": "modified",
-        "additions": 5,
-        "deletions": 0,
-        "changes": 5
-      },
-      {
-        "filename": "src/core/message/messageContextPack.js",
+        "filename": "src/memory/context/contextPackPromptFormatter.js",
         "status": "added",
-        "additions": 67,
+        "additions": 169,
         "deletions": 0,
-        "changes": 67
+        "changes": 169
+      },
+      {
+        "filename": "src/memory/index.js",
+        "status": "modified",
+        "additions": 6,
+        "deletions": 0,
+        "changes": 6
       }
     ]
   }

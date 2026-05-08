@@ -1,29 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T15:14:29.155Z",
+  "generated_at": "2026-05-08T15:23:31.742Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b879848a45c9328a67e0d3dfdc0f4180e77dc838",
-  "previous_head_sha": "300923c149f7a2aad65ee3dd0a2eb4ce5aa99ce7",
+  "current_head_sha": "998b77a8d1ec00e0e0ca7d327e845fea1e0daadd",
+  "previous_head_sha": "b879848a45c9328a67e0d3dfdc0f4180e77dc838",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "6c4ab82cab725f4adc29037f56124204b4a4c950",
+  "registry_commit_sha": "e78b0e4831403bf04e5c4e347aa08c922942ca3b",
   "latest_commit": {
-    "sha": "b879848a45c9328a67e0d3dfdc0f4180e77dc838",
-    "short_sha": "b879848a45c9",
-    "message": "ai: make tool execution fail-safe\n\nWrap runtime tool execution inside aiToolRunner with a local try/catch.\n\nIf any runtime tool throws, SG now returns a structured tool output instead of crashing the whole AI response. The failed tool name and error message are logged for Render diagnostics.\n\nThis prevents errors from runGithubTool(...) from propagating through callAI() into the generic Telegram fallback.",
+    "sha": "998b77a8d1ec00e0e0ca7d327e845fea1e0daadd",
+    "short_sha": "998b77a8d1ec",
+    "message": "diagnostics: add diagnostics workspace\n\nAdd a canonical diagnostics workspace for SG diagnostic materials.\n\nThis adds diagnostics/tests for test plans and verification checklists, and diagnostics/reports for failure analyses and post-fix reports.\n\nThe workspace is documentation-only and must not contain secrets, raw env values, unmasked tokens, or private credentials.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T15:14:06Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b879848a45c9328a67e0d3dfdc0f4180e77dc838",
-    "changed_files_count": 1,
+    "date": "2026-05-08T15:23:12Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/998b77a8d1ec00e0e0ca7d327e845fea1e0daadd",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/ai/aiToolRunner.js",
-        "status": "modified",
-        "additions": 19,
-        "deletions": 1,
-        "changes": 20
+        "filename": "diagnostics/README.md",
+        "status": "added",
+        "additions": 65,
+        "deletions": 0,
+        "changes": 65
+      },
+      {
+        "filename": "diagnostics/reports/README.md",
+        "status": "added",
+        "additions": 66,
+        "deletions": 0,
+        "changes": 66
+      },
+      {
+        "filename": "diagnostics/tests/README.md",
+        "status": "added",
+        "additions": 50,
+        "deletions": 0,
+        "changes": 50
       }
     ]
   }

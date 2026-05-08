@@ -1,6 +1,6 @@
 // AGENT NOTE:
 // RenderEnvAgent simple collector.
-// Purpose: collect Render env inventory, hide secrets, and write one latest JSON report.
+// Purpose: collect Render env inventory, hide secret values, and write one latest JSON report.
 // Do not add env writes, deletes, deploys, restarts, AI calls, DB calls, or Telegram flow here.
 
 import workspaceChannel from "../../runtime/workspace/workspaceChannel.js";
@@ -8,19 +8,6 @@ import renderBridgeClient from "../../integrations/render/renderBridgeClient.js"
 import { getRenderBridgeDiag } from "../../integrations/render/renderBridgeConfig.js";
 
 const LATEST_RENDER_ENV_PATH = "runtime/render/latest/latest-render-env.json";
-
-const SAFE_VALUE_ALLOWLIST = Object.freeze([
-  "NODE_ENV",
-  "PORT",
-  "RENDER_BRIDGE_ENABLED",
-  "RENDER_API_BASE_URL",
-  "RENDER_BRIDGE_TIMEOUT_MS",
-  "RENDER_BRIDGE_DEFAULT_SOURCE_KEY",
-  "RENDER_BRIDGE_DEFAULT_LOG_LEVEL",
-  "RENDER_BRIDGE_DEFAULT_LOG_WINDOW_MINUTES",
-  "RENDER_BRIDGE_DEFAULT_LOG_LIMIT",
-  "RENDER_BRIDGE_DEFAULT_DEPLOY_LIMIT",
-]);
 
 const SECRET_NAME_PARTS = Object.freeze([
   "KEY",
@@ -40,6 +27,18 @@ const SECRET_NAME_PARTS = Object.freeze([
   "WEBHOOK",
 ]);
 
+const SECRET_VALUE_PATTERNS = Object.freeze([
+  /sk-[A-Za-z0-9_-]{12,}/,
+  /ghp_[A-Za-z0-9_]{12,}/,
+  /github_pat_[A-Za-z0-9_]{12,}/,
+  /Bearer\s+[A-Za-z0-9._~+/-]+=*/i,
+  /postgres(?:ql)?:\/\/[^\s]+/i,
+  /mongodb(?:\+srv)?:\/\/[^\s]+/i,
+  /redis:\/\/[^\s]+/i,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+  /^[A-Za-z0-9_-]{32,}$/,
+]);
+
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -50,9 +49,10 @@ function isSecretEnvName(name) {
   return SECRET_NAME_PARTS.some((part) => upper.includes(part));
 }
 
-function canExposeValue(name) {
-  const upper = normalizeString(name).toUpperCase();
-  return SAFE_VALUE_ALLOWLIST.includes(upper) && !isSecretEnvName(upper);
+function isSecretEnvValue(value) {
+  const text = normalizeString(value);
+  if (!text) return false;
+  return SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 function extractEnvName(item = {}) {
@@ -85,16 +85,18 @@ function normalizeRenderEnvItems(raw) {
       const name = extractEnvName(item);
       if (!name) return null;
 
-      const secret = isSecretEnvName(name);
-      const expose = canExposeValue(name);
-      const value = expose ? extractEnvValue(item) : "[HIDDEN]";
+      const rawValue = extractEnvValue(item);
+      const secretByName = isSecretEnvName(name);
+      const secretByValue = isSecretEnvValue(rawValue);
+      const secret = secretByName || secretByValue;
 
       return {
         name,
         exists: true,
-        is_secret: secret || !expose,
-        value_exposed: expose,
-        value,
+        is_secret: secret,
+        secret_reason: secretByName ? "name" : secretByValue ? "value" : "none",
+        value_exposed: !secret,
+        value: secret ? "[HIDDEN]" : rawValue,
       };
     })
     .filter(Boolean)
@@ -144,7 +146,7 @@ export async function collectRenderEnvInventory({ target = "garya-bot" } = {}) {
     },
     env_count: env.length,
     env,
-    secrets_policy: "secret_or_unknown_env_values_hidden",
+    secrets_policy: "secret_values_hidden_by_name_or_value",
   };
 }
 

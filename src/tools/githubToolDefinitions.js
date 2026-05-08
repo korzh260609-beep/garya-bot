@@ -64,4 +64,20 @@ export const githubToolDefinitions = [
       required: [],
     },
   },
+  {
+    type: "function",
+    name: "render_collect_env",
+    description: "Collect Render environment variable inventory for the SG Render service and write the sanitized result to runtime/render/latest/latest-render-env.json in GitHub. Use this when the Monarch asks to check, list, collect, or show Render env variables. This tool shows env names and only allowlisted safe values; secret or unknown values are hidden and never exposed.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        target: {
+          type: "string",
+          description: "Render service target. Default garya-bot.",
+        },
+      },
+      required: [],
+    },
+  },
 ];

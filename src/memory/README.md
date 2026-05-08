@@ -42,6 +42,42 @@ The first implementation direction is:
 
 ---
 
+## Living SG memory rule
+
+Memory and context must serve the Living SG identity.
+
+The AI model inside SG must not become a technical-mode bot, command-first router, keyword machine, hidden developer console, or collection of prompt hacks.
+
+Memory must help SG understand meaning, project state, user intent, and context naturally.
+
+Forbidden:
+
+- building memory around magic commands;
+- using memory as canned response storage;
+- replacing reasoning with keyword hacks;
+- exposing raw technical mode as SG personality;
+- making context builder the SG brain;
+- using memory to fake intelligence;
+- forcing the Monarch or users to speak in rigid technical phrases for normal work.
+
+Required:
+
+- meaning-first context;
+- source-first project facts;
+- controlled AI context pack;
+- clear uncertainty when context is incomplete;
+- Living SG response behavior through the normal AI layer;
+- natural-language control where SG understands intent before choosing tools or memory.
+
+Rule:
+
+```text
+Memory supports Living SG.
+Memory must not turn SG into a command bot or technical console.
+```
+
+---
+
 ## Memory layers
 
 ### 1. AI Context Pack
@@ -156,6 +192,8 @@ project memory != pillars replacement
 context pack != raw dump
 Telegram != memory owner
 MemoryService != monolith
+Memory != command router
+Memory != technical mode
 ```
 
 ---

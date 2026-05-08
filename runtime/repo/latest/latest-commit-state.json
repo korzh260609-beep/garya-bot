@@ -1,29 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T09:08:33.839Z",
+  "generated_at": "2026-05-08T09:16:05.488Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
-  "previous_head_sha": "01aaee0d7dc8bc74c3f918f789ad2e2e443ac236",
+  "current_head_sha": "e2919cdc1e1d6892823a10c442e6fd1ff62e1944",
+  "previous_head_sha": "20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "a76ecb8d3a144702b886d93c6b7d8423a2ffd578",
+  "registry_commit_sha": "ca3a453a6843c65d520a30ba0b5f5efd18b0d9b0",
   "latest_commit": {
-    "sha": "20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
-    "short_sha": "20e5ce56d6e5",
-    "message": "memory: add context and memory implementation skeleton\n\nAdd src/memory README skeleton for SG 2.0 Memory + Context.\n\nDefines context-first implementation principles, memory layers, boundaries, hard rules, and the first priority: AI Context Pack + Project Memory.",
+    "sha": "e2919cdc1e1d6892823a10c442e6fd1ff62e1944",
+    "short_sha": "e2919cdc1e1d",
+    "message": "memory: add AI context pack skeleton\n\nAdd Step 1 skeleton for SG 2.0 Memory + Context.\n\nAdds context README, context types, and deterministic context pack builder skeleton. No runtime path, DB, Telegram, Render, GitHub, or OpenAI calls are connected.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T09:08:11Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/20e5ce56d6e511ae2befbadfbe8f72f9dade54c0",
-    "changed_files_count": 1,
+    "date": "2026-05-08T09:15:48Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e2919cdc1e1d6892823a10c442e6fd1ff62e1944",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/memory/README.md",
+        "filename": "src/memory/context/README.md",
         "status": "added",
-        "additions": 302,
+        "additions": 97,
         "deletions": 0,
-        "changes": 302
+        "changes": 97
+      },
+      {
+        "filename": "src/memory/context/contextPackBuilder.js",
+        "status": "added",
+        "additions": 271,
+        "deletions": 0,
+        "changes": 271
+      },
+      {
+        "filename": "src/memory/context/contextTypes.js",
+        "status": "added",
+        "additions": 97,
+        "deletions": 0,
+        "changes": 97
       }
     ]
   }

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-08T11:05:09.324Z",
+  "generated_at": "2026-05-08T11:17:19.779Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "3d2fa8d6cf8ddfbbdfeb2fe453acfe3523c42f8c",
+  "head_sha": "e2592cfd2e3e2a66ad065bc827b5548c736c221f",
   "truncated": false,
-  "items_count": 242,
+  "items_count": 243,
   "semantic_fields": [
     "module",
     "layer",
@@ -3213,6 +3213,24 @@
     },
     {
       "path": "src/core/message/messageBehavior.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/core/message/messageContextPack.js",
       "type": "file",
       "parent": "src/core/message",
       "extension": "js",

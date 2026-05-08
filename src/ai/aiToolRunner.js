@@ -23,24 +23,6 @@ function getFunctionCalls(response) {
   return output.filter((item) => item?.type === "function_call" && item?.name && item?.call_id);
 }
 
-function buildToolExecutionFailure(call, error) {
-  return {
-    ok: false,
-    type: "tool_execution_failed",
-    tool: call?.name || "unknown_tool",
-    error: error?.message || String(error),
-  };
-}
-
-async function runGithubToolSafely(call, args, toolContext) {
-  try {
-    return await runGithubTool(call.name, args, toolContext);
-  } catch (error) {
-    console.error("AI tool execution failed:", call?.name || "unknown_tool", error?.message || String(error));
-    return buildToolExecutionFailure(call, error);
-  }
-}
-
 export async function runToolRound({ activeClient, model, input, maxOutputTokens, toolContext }) {
   let response = await activeClient.responses.create({
     model,
@@ -63,7 +45,7 @@ export async function runToolRound({ activeClient, model, input, maxOutputTokens
 
     for (const call of functionCalls) {
       const args = parseToolArguments(call.arguments);
-      const result = await runGithubToolSafely(call, args, toolContext);
+      const result = await runGithubTool(call.name, args, toolContext);
       metadata = mergeMetadata(metadata, extractToolMetadata(call.name, result));
 
       toolOutputs.push({

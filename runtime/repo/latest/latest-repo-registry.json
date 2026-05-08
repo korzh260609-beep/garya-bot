@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-08T15:23:30.564Z",
+  "generated_at": "2026-05-08T15:26:52.428Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "998b77a8d1ec00e0e0ca7d327e845fea1e0daadd",
+  "head_sha": "703a0b0f52d4054d361fb57d4e8bb07ec46d7665",
   "truncated": false,
-  "items_count": 259,
+  "items_count": 261,
   "semantic_fields": [
     "module",
     "layer",
@@ -432,6 +432,24 @@
       }
     },
     {
+      "path": "diagnostics/reports/render-logs-bridge-failure-2026-05-08.md",
+      "type": "file",
+      "parent": "diagnostics/reports",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "diagnostics/tests",
       "type": "folder",
       "parent": "diagnostics",
@@ -469,6 +487,24 @@
         "notes": [
           "human_readable_boundary_doc"
         ]
+      }
+    },
+    {
+      "path": "diagnostics/tests/render-logs-bridge-test-2026-05-08.md",
+      "type": "file",
+      "parent": "diagnostics/tests",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
       }
     },
     {

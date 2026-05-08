@@ -1,36 +1,64 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T13:14:55.824Z",
+  "generated_at": "2026-05-08T14:27:42.049Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "ac396798ef60184ec05cb1db5fa420a809545ea9",
-  "previous_head_sha": "3db98d8460c61c2fd744960ec44b08dbb7e91cbf",
+  "current_head_sha": "4ef141854c205959870d16dc7ca2c1955e184596",
+  "previous_head_sha": "ac396798ef60184ec05cb1db5fa420a809545ea9",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "ae9151b0406cc5e1a8eed1b49564ea6aefb965ec",
+  "registry_commit_sha": "c486a857e04ce1ca93d81462a55df0da35a027eb",
   "latest_commit": {
-    "sha": "ac396798ef60184ec05cb1db5fa420a809545ea9",
-    "short_sha": "ac396798ef60",
-    "message": "github: add latest workflow run check tool\n\nAdd a minimal read-only tool for checking the latest GitHub Actions workflow run by branch and workflow.\n\nThis uses the existing GitHub API client and Actions formatter without adding a new complex agent.",
+    "sha": "4ef141854c205959870d16dc7ca2c1955e184596",
+    "short_sha": "4ef141854c20",
+    "message": "agent: add advisor outbox agent\n\nAdd a simple Advisor Outbox Agent that mirrors the final SG reply into agent_workspace/OUTBOX.md for Advisor-side reading.\n\nThe agent is Monarch-only, overwrite-only, and writes only the allowlisted OUTBOX file.\n\nAlso expose advisor_outbox_write as a runtime tool and add syntax checks for the new agent files.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T13:14:29Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ac396798ef60184ec05cb1db5fa420a809545ea9",
-    "changed_files_count": 2,
+    "date": "2026-05-08T14:27:19Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4ef141854c205959870d16dc7ca2c1955e184596",
+    "changed_files_count": 6,
     "changed_files": [
+      {
+        "filename": ".github/workflows/sg2-smoke.yml",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 0,
+        "changes": 2
+      },
+      {
+        "filename": "src/agents/advisor-outbox-agent/advisorOutboxAgent.js",
+        "status": "added",
+        "additions": 132,
+        "deletions": 0,
+        "changes": 132
+      },
+      {
+        "filename": "src/agents/advisor-outbox-agent/index.js",
+        "status": "added",
+        "additions": 6,
+        "deletions": 0,
+        "changes": 6
+      },
+      {
+        "filename": "src/agents/index.js",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
       {
         "filename": "src/tools/githubTool.js",
         "status": "modified",
-        "additions": 45,
+        "additions": 6,
         "deletions": 0,
-        "changes": 45
+        "changes": 6
       },
       {
         "filename": "src/tools/githubToolDefinitions.js",
         "status": "modified",
-        "additions": 24,
+        "additions": 28,
         "deletions": 0,
-        "changes": 24
+        "changes": 28
       }
     ]
   }

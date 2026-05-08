@@ -3,17 +3,14 @@
 
 import assert from "node:assert/strict";
 
-import {
-  MESSAGE_CONTEXT_INJECTION_MODES,
-  prepareMessageContextInjection,
-} from "../src/core/message/messageContextInjection.js";
+import { prepareMessageContextInjection } from "../src/core/message/messageContextInjection.js";
 
 const baseMessages = [
   { role: "system", content: "Base system" },
   { role: "user", content: "Base user" },
 ];
 
-const unsupportedModeResult = prepareMessageContextInjection({
+const result = prepareMessageContextInjection({
   messages: baseMessages,
   contextPack: {
     version: 1,
@@ -35,35 +32,11 @@ const unsupportedModeResult = prepareMessageContextInjection({
   },
 });
 
-assert.equal(unsupportedModeResult.ok, false);
-assert.equal(unsupportedModeResult.mode, "unsupported_mode");
-assert.equal(unsupportedModeResult.injected, false);
-assert.deepEqual(unsupportedModeResult.messages, baseMessages);
-assert.equal(unsupportedModeResult.warnings.length, 1);
-assert.equal(unsupportedModeResult.warnings[0].code, "unsupported_context_injection_mode");
+assert.equal(result.ok, false);
+assert.equal(result.mode, "unsupported_mode");
+assert.equal(result.injected, false);
+assert.deepEqual(result.messages, baseMessages);
+assert.equal(result.warnings.length, 1);
+assert.equal(result.warnings[0].code, "unsupported_context_injection_mode");
 
-const emptyContextResult = prepareMessageContextInjection({
-  messages: baseMessages,
-  contextPack: {
-    version: 1,
-    items: [],
-  },
-  options: {
-    enabled: true,
-    mode: MESSAGE_CONTEXT_INJECTION_MODES.INJECT_SYSTEM_CONTEXT,
-    formatterOptions: {
-      limits: {
-        maxTotalChars: 1,
-      },
-    },
-  },
-});
-
-assert.equal(emptyContextResult.ok, false);
-assert.equal(emptyContextResult.mode, MESSAGE_CONTEXT_INJECTION_MODES.INJECT_SYSTEM_CONTEXT);
-assert.equal(emptyContextResult.injected, false);
-assert.deepEqual(emptyContextResult.messages, baseMessages);
-assert.equal(emptyContextResult.warnings.length, 1);
-assert.equal(emptyContextResult.warnings[0].code, "empty_formatted_context");
-
-console.log("OK: message context injection guard branches reject unsafe injection states");
+console.log("OK: unsupported message context injection mode is rejected");

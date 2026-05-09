@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "render_latest_logs",
-  "generated_at": "2026-05-09T12:29:24.050Z",
+  "generated_at": "2026-05-09T12:30:39.475Z",
   "target": "garya-bot",
   "limit": 100,
   "level": "all",
@@ -27,43 +27,43 @@
     {
       "timestamp": "2026-05-09T12:29:09.624502145Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnh7g",
+      "serviceId": "d7vihrrtqb8s73fd50dg",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-09T12:29:09.622179263Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnh80",
+      "serviceId": "d7vihrrtqb8s73fd50e0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-09T12:29:09.619887595Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnh8g",
+      "serviceId": "d7vihrrtqb8s73fd50eg",
       "message": "==> Available at your primary URL https://garya-bot.onrender.com"
     },
     {
       "timestamp": "2026-05-09T12:29:09.617634818Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnh90",
+      "serviceId": "d7vihrrtqb8s73fd50f0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-09T12:29:09.614913929Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnh9g",
+      "serviceId": "d7vihrrtqb8s73fd50fg",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-09T12:29:09.61175814Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnha0",
+      "serviceId": "d7vihrrtqb8s73fd50g0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-09T12:29:09.396052612Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhag",
+      "serviceId": "d7vihrrtqb8s73fd50gg",
       "message": "==> Your service is live 🎉"
     },
     {
@@ -99,7 +99,7 @@
     {
       "timestamp": "2026-05-09T12:28:56.65840402Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhb0",
+      "serviceId": "d7vihrrtqb8s73fd50h0",
       "message": "==> Deploying..."
     },
     {
@@ -207,13 +207,13 @@
     {
       "timestamp": "2026-05-09T12:23:46.083499138Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhbg",
+      "serviceId": "d7vihrrtqb8s73fd50hg",
       "message": "==> Docs on specifying a port: https://render.com/docs/web-services#port-binding"
     },
     {
       "timestamp": "2026-05-09T12:23:46.004796701Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhc0",
+      "serviceId": "d7vihrrtqb8s73fd50i0",
       "message": "==> Detected service running on port 10000"
     },
     {
@@ -231,43 +231,43 @@
     {
       "timestamp": "2026-05-09T12:18:40.006964451Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhcg",
+      "serviceId": "d7vihrrtqb8s73fd50ig",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-09T12:18:40.004757988Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhd0",
+      "serviceId": "d7vihrrtqb8s73fd50j0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-09T12:18:40.00262018Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhdg",
+      "serviceId": "d7vihrrtqb8s73fd50jg",
       "message": "==> Available at your primary URL https://garya-bot.onrender.com"
     },
     {
       "timestamp": "2026-05-09T12:18:39.999950795Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhe0",
+      "serviceId": "d7vihrrtqb8s73fd50k0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-09T12:18:39.997611792Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnheg",
+      "serviceId": "d7vihrrtqb8s73fd50kg",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-09T12:18:39.995102718Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhf0",
+      "serviceId": "d7vihrrtqb8s73fd50l0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-09T12:18:39.869370752Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhfg",
+      "serviceId": "d7vihrrtqb8s73fd50lg",
       "message": "==> Your service is live 🎉"
     },
     {
@@ -303,7 +303,7 @@
     {
       "timestamp": "2026-05-09T12:18:26.629080982Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhg0",
+      "serviceId": "d7vihrrtqb8s73fd50m0",
       "message": "==> Deploying..."
     },
     {
@@ -417,43 +417,43 @@
     {
       "timestamp": "2026-05-09T12:14:17.095432124Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhgg",
+      "serviceId": "d7vihrrtqb8s73fd50mg",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-09T12:14:17.090052552Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhh0",
+      "serviceId": "d7vihrrtqb8s73fd50n0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-09T12:14:17.08563784Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhhg",
+      "serviceId": "d7vihrrtqb8s73fd50ng",
       "message": "==> Available at your primary URL https://garya-bot.onrender.com"
     },
     {
       "timestamp": "2026-05-09T12:14:17.082654383Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhi0",
+      "serviceId": "d7vihrrtqb8s73fd50o0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-09T12:14:17.078895005Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhig",
+      "serviceId": "d7vihrrtqb8s73fd50og",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-09T12:14:17.075837444Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhj0",
+      "serviceId": "d7vihrrtqb8s73fd50p0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-09T12:14:16.6211811Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhjg",
+      "serviceId": "d7vihrrtqb8s73fd50pg",
       "message": "==> Your service is live 🎉"
     },
     {
@@ -489,7 +489,7 @@
     {
       "timestamp": "2026-05-09T12:14:03.192044479Z",
       "level": "",
-      "serviceId": "d7vih96gvqtc73cnnhk0",
+      "serviceId": "d7vihrrtqb8s73fd50q0",
       "message": "==> Deploying..."
     },
     {

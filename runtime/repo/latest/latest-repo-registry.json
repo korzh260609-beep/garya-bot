@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-09T13:09:58.586Z",
+  "generated_at": "2026-05-09T14:07:01.152Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "4a72c03e59d1f9a33884a8730396e824b86e227a",
+  "head_sha": "8fc0762f192ff3eac1142459b3289661aaca04d6",
   "truncated": false,
-  "items_count": 265,
+  "items_count": 267,
   "semantic_fields": [
     "module",
     "layer",
@@ -5153,6 +5153,42 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": "src/users/globalIdentity.js",
+      "type": "file",
+      "parent": "src/users",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/users/identity-contract.md",
+      "type": "file",
+      "parent": "src/users",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Markdown documentation.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
       }
     },
     {

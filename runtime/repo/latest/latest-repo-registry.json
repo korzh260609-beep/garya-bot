@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-09T12:58:44.413Z",
+  "generated_at": "2026-05-09T13:04:00.168Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "fe5d3813912478877f007ae8308a65265e7a3f60",
+  "head_sha": "86ccaa38a8557bda4ad447aabd2461aba3122730",
   "truncated": false,
-  "items_count": 258,
+  "items_count": 260,
   "semantic_fields": [
     "module",
     "layer",
@@ -2199,6 +2199,46 @@
         "source_priority": "source_code",
         "notes": [
           "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/event-schema.md",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/eventSchema.js",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
           "agent_specific_boundary"
         ]
       }

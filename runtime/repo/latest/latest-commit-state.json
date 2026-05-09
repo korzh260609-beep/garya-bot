@@ -1,29 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-09T12:58:45.393Z",
+  "generated_at": "2026-05-09T13:04:01.075Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "fe5d3813912478877f007ae8308a65265e7a3f60",
-  "previous_head_sha": "9286d58dd683854da1256f8e9ac972c77082dde1",
+  "current_head_sha": "86ccaa38a8557bda4ad447aabd2461aba3122730",
+  "previous_head_sha": "fe5d3813912478877f007ae8308a65265e7a3f60",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "80508f0e75220e70732c067ae441173259f15e50",
+  "registry_commit_sha": "59b67a0be9e2665f67ab7d061e9229a7414cbb0a",
   "latest_commit": {
-    "sha": "fe5d3813912478877f007ae8308a65265e7a3f60",
-    "short_sha": "fe5d38139124",
-    "message": "docs: record SG diagnostics V1 status\n\nMerge PR #146 into dev/v2-start.\n\nRecord SG Diagnostics V1 status and the rule that Render runtime writes must use GitHub App auth instead of GITHUB_TOKEN/PAT.",
+    "sha": "86ccaa38a8557bda4ad447aabd2461aba3122730",
+    "short_sha": "86ccaa38a855",
+    "message": "observation: add event schema contract\n\nMerge PR #147 into dev/v2-start.\n\nAdd Observation Event Schema V1 contract, documentation, and CI syntax check. This is schema/contract work only with no runtime behavior changes.",
     "author": "korzh260609-beep",
-    "date": "2026-05-09T12:58:26Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/fe5d3813912478877f007ae8308a65265e7a3f60",
-    "changed_files_count": 1,
+    "date": "2026-05-09T13:03:35Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/86ccaa38a8557bda4ad447aabd2461aba3122730",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "docs/sg-diagnostics-v1.md",
-        "status": "added",
-        "additions": 86,
+        "filename": ".github/workflows/sg2-smoke.yml",
+        "status": "modified",
+        "additions": 1,
         "deletions": 0,
-        "changes": 86
+        "changes": 1
+      },
+      {
+        "filename": "src/agents/observation/event-schema.md",
+        "status": "added",
+        "additions": 297,
+        "deletions": 0,
+        "changes": 297
+      },
+      {
+        "filename": "src/agents/observation/eventSchema.js",
+        "status": "added",
+        "additions": 107,
+        "deletions": 0,
+        "changes": 107
       }
     ]
   }

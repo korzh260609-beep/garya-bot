@@ -4,6 +4,7 @@
 // Do not add Telegram slash commands, AI calls, repo writes, memory writes, or raw provider ID output here.
 
 import { isDatabaseConfigured } from "../db/postgresClient.js";
+import { getMonarchUserId } from "../permissions/monarchGate.js";
 import { resolveIdentityAsync } from "../users/identityResolver.js";
 import { isDurableGlobalUserId, USER_ROLES } from "../users/globalIdentity.js";
 import { resolveOrCreateGlobalUserIdentity } from "../users/userRegistryStore.js";
@@ -16,6 +17,7 @@ function buildSafeResult(data = {}) {
     ok: Boolean(data.ok),
     type: "users_identity_registry",
     databaseConfigured: Boolean(data.databaseConfigured),
+    monarchGateConfigured: Boolean(data.monarchGateConfigured),
     fallbackSafe: Boolean(data.fallbackSafe),
     monarchStable: Boolean(data.monarchStable),
     durableModeChecked: Boolean(data.durableModeChecked),
@@ -33,14 +35,25 @@ async function checkFallbackAndMonarch() {
     transport: DIAGNOSTIC_PROVIDER,
     userId: null,
   });
+  const monarchUserId = getMonarchUserId();
+  const monarchGateConfigured = Boolean(monarchUserId);
+
+  if (!monarchGateConfigured) {
+    return {
+      fallbackSafe: fallbackIdentity?.identityRegistry?.ok === false,
+      monarchGateConfigured,
+      monarchStable: false,
+    };
+  }
 
   const monarchIdentity = await resolveIdentityAsync({
     transport: DIAGNOSTIC_PROVIDER,
-    userId: "677128443",
+    userId: monarchUserId,
   });
 
   return {
     fallbackSafe: fallbackIdentity?.identityRegistry?.ok === false,
+    monarchGateConfigured,
     monarchStable: monarchIdentity?.globalUserId === "usr_48cc07c069030fb3"
       && monarchIdentity?.role === USER_ROLES.MONARCH
       && isDurableGlobalUserId(monarchIdentity?.globalUserId),
@@ -85,23 +98,26 @@ export async function runUsersIdentityRegistryCheck() {
   try {
     const databaseConfigured = isDatabaseConfigured();
     const base = await checkFallbackAndMonarch();
+    const monarchOkOrSkipped = base.monarchGateConfigured ? base.monarchStable : true;
 
     if (!databaseConfigured) {
       return buildSafeResult({
-        ok: base.fallbackSafe && base.monarchStable,
+        ok: base.fallbackSafe && monarchOkOrSkipped,
         databaseConfigured,
         ...base,
         durableModeChecked: false,
         stableGlobalUserId: false,
         globalUserIdShapeOk: false,
         identityStatus: "fallback_no_database",
-        summary: "Users identity registry fallback and Monarch identity are safe; DATABASE_URL is not configured for durable DB check.",
+        summary: base.monarchGateConfigured
+          ? "Users identity registry fallback and Monarch identity are safe; DATABASE_URL is not configured for durable DB check."
+          : "Users identity registry fallback is safe; DATABASE_URL and MONARCH_USER_ID are not configured for full runtime check.",
       });
     }
 
     const durable = await checkDurableRegistry();
     const ok = base.fallbackSafe
-      && base.monarchStable
+      && monarchOkOrSkipped
       && durable.ok
       && durable.stableGlobalUserId
       && durable.globalUserIdShapeOk;

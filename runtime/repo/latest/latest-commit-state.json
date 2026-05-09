@@ -1,85 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-08T15:57:02.450Z",
+  "generated_at": "2026-05-09T12:13:34.186Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "1c95af9ece782530c66b44ca84f695c31c38c677",
-  "previous_head_sha": "5be194ece74ea7bcb5736865d072bb67fef4f7d8",
+  "current_head_sha": "20a23e22299fdcd1fd45969a448fd55a61910c01",
+  "previous_head_sha": "1c95af9ece782530c66b44ca84f695c31c38c677",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "f51581a5d0041e00261f3de0ddb6b2d8e03379ec",
+  "registry_commit_sha": "d4959a6475e8147172aef4dbf6facb8917bb8edb",
   "latest_commit": {
-    "sha": "1c95af9ece782530c66b44ca84f695c31c38c677",
-    "short_sha": "1c95af9ece78",
-    "message": "feat: add SG diagnostics skeleton\n\nMerge PR #142 into dev/v2-start.\n\nAdd rollback-safe SG Diagnostics Layer skeleton, expose read-only sg_diagnostics_check AI tool, teach the model normal-language diagnostics behavior, and add syntax checks for the diagnostics layer.",
+    "sha": "20a23e22299fdcd1fd45969a448fd55a61910c01",
+    "short_sha": "20a23e22299f",
+    "message": "feat: add SG diagnostics runtime logic\n\nMerge PR #143 into dev/v2-start.\n\nAdd read-only SG diagnostics orchestration for Render logs, Render env inventory, latest GitHub Actions run, repo registry, and recent commits. Preserve tool finalText metadata so diagnostics can return a report if model output is empty.",
     "author": "korzh260609-beep",
-    "date": "2026-05-08T15:56:40Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1c95af9ece782530c66b44ca84f695c31c38c677",
-    "changed_files_count": 9,
+    "date": "2026-05-09T12:13:09Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/20a23e22299fdcd1fd45969a448fd55a61910c01",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
+        "filename": "src/ai/aiToolMetadata.js",
         "status": "modified",
-        "additions": 8,
-        "deletions": 0,
-        "changes": 8
+        "additions": 14,
+        "deletions": 11,
+        "changes": 25
       },
       {
-        "filename": "src/core/prompt/promptGithubRuntime.js",
+        "filename": "src/ai/callAI.js",
         "status": "modified",
-        "additions": 4,
-        "deletions": 0,
-        "changes": 4
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsIntent.js",
-        "status": "added",
-        "additions": 59,
-        "deletions": 0,
-        "changes": 59
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsPlan.js",
-        "status": "added",
-        "additions": 40,
-        "deletions": 0,
-        "changes": 40
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsReport.js",
-        "status": "added",
-        "additions": 44,
-        "deletions": 0,
-        "changes": 44
+        "additions": 1,
+        "deletions": 1,
+        "changes": 2
       },
       {
         "filename": "src/diagnostics/diagnosticsRunner.js",
-        "status": "added",
-        "additions": 48,
-        "deletions": 0,
-        "changes": 48
-      },
-      {
-        "filename": "src/diagnostics/index.js",
-        "status": "added",
-        "additions": 8,
-        "deletions": 0,
-        "changes": 8
-      },
-      {
-        "filename": "src/tools/githubTool.js",
         "status": "modified",
-        "additions": 6,
-        "deletions": 0,
-        "changes": 6
-      },
-      {
-        "filename": "src/tools/githubToolDefinitions.js",
-        "status": "modified",
-        "additions": 23,
-        "deletions": 0,
-        "changes": 23
+        "additions": 175,
+        "deletions": 11,
+        "changes": 186
       }
     ]
   }

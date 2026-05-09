@@ -1,43 +1,64 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-09T13:04:01.075Z",
+  "generated_at": "2026-05-09T13:09:59.586Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "86ccaa38a8557bda4ad447aabd2461aba3122730",
-  "previous_head_sha": "fe5d3813912478877f007ae8308a65265e7a3f60",
+  "current_head_sha": "4a72c03e59d1f9a33884a8730396e824b86e227a",
+  "previous_head_sha": "86ccaa38a8557bda4ad447aabd2461aba3122730",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "59b67a0be9e2665f67ab7d061e9229a7414cbb0a",
+  "registry_commit_sha": "e08d10d639532b81b479ce460a20086379c18083",
   "latest_commit": {
-    "sha": "86ccaa38a8557bda4ad447aabd2461aba3122730",
-    "short_sha": "86ccaa38a855",
-    "message": "observation: add event schema contract\n\nMerge PR #147 into dev/v2-start.\n\nAdd Observation Event Schema V1 contract, documentation, and CI syntax check. This is schema/contract work only with no runtime behavior changes.",
+    "sha": "4a72c03e59d1f9a33884a8730396e824b86e227a",
+    "short_sha": "4a72c03e59d1",
+    "message": "observation: add IO boundary skeleton\n\nMerge PR #148 into dev/v2-start.\n\nAdd Observation IO boundary skeleton for runtime/observation reports, including path helpers, reader/writer boundaries, documentation, and CI syntax checks. No runtime producer integration.",
     "author": "korzh260609-beep",
-    "date": "2026-05-09T13:03:35Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/86ccaa38a8557bda4ad447aabd2461aba3122730",
-    "changed_files_count": 3,
+    "date": "2026-05-09T13:09:36Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4a72c03e59d1f9a33884a8730396e824b86e227a",
+    "changed_files_count": 6,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 1,
+        "additions": 4,
         "deletions": 0,
-        "changes": 1
+        "changes": 4
       },
       {
-        "filename": "src/agents/observation/event-schema.md",
+        "filename": "src/agents/observation/index.js",
         "status": "added",
-        "additions": 297,
+        "additions": 9,
         "deletions": 0,
-        "changes": 297
+        "changes": 9
       },
       {
-        "filename": "src/agents/observation/eventSchema.js",
+        "filename": "src/agents/observation/io-boundary.md",
         "status": "added",
-        "additions": 107,
+        "additions": 91,
         "deletions": 0,
-        "changes": 107
+        "changes": 91
+      },
+      {
+        "filename": "src/agents/observation/observationPaths.js",
+        "status": "added",
+        "additions": 29,
+        "deletions": 0,
+        "changes": 29
+      },
+      {
+        "filename": "src/agents/observation/observationReader.js",
+        "status": "added",
+        "additions": 66,
+        "deletions": 0,
+        "changes": 66
+      },
+      {
+        "filename": "src/agents/observation/observationWriter.js",
+        "status": "added",
+        "additions": 80,
+        "deletions": 0,
+        "changes": 80
       }
     ]
   }

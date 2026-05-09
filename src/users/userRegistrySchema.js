@@ -12,7 +12,9 @@ export const USERS_REGISTRY_TABLES = Object.freeze({
   USER_IDENTITIES: "sg_user_identities",
 });
 
-export async function ensureUsersRegistrySchema() {
+let schemaReadyPromise = null;
+
+async function createUsersRegistrySchema() {
   const usersResult = await queryPostgres(`
     CREATE TABLE IF NOT EXISTS sg_users (
       global_user_id TEXT PRIMARY KEY,
@@ -45,4 +47,18 @@ export async function ensureUsersRegistrySchema() {
     type: "users_registry_schema_ready",
     schemaVersion: USERS_REGISTRY_SCHEMA_VERSION,
   };
+}
+
+export async function ensureUsersRegistrySchema() {
+  if (!schemaReadyPromise) {
+    schemaReadyPromise = createUsersRegistrySchema();
+  }
+
+  const result = await schemaReadyPromise;
+
+  if (!result.ok) {
+    schemaReadyPromise = null;
+  }
+
+  return result;
 }

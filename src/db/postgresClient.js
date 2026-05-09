@@ -19,7 +19,16 @@ export function isDatabaseConfigured() {
 
 export function getPostgresSslConfig() {
   const sslEnabled = envBool("DATABASE_SSL", false);
-  return sslEnabled ? { rejectUnauthorized: false } : false;
+
+  if (!sslEnabled) {
+    return false;
+  }
+
+  const rejectUnauthorized = envBool("DATABASE_SSL_REJECT_UNAUTHORIZED", true);
+
+  return {
+    rejectUnauthorized,
+  };
 }
 
 export function getPostgresPool() {
@@ -58,4 +67,41 @@ export async function queryPostgres(text, params = []) {
     rows: result.rows || [],
     rowCount: result.rowCount || 0,
   };
+}
+
+export async function withPostgresTransaction(callback) {
+  const activePool = getPostgresPool();
+
+  if (!activePool) {
+    return {
+      ok: false,
+      reason: "database_not_configured",
+      rows: [],
+      rowCount: 0,
+    };
+  }
+
+  const client = await activePool.connect();
+
+  try {
+    await client.query("BEGIN");
+    const result = await callback(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Ignore rollback errors and return the original failure.
+    }
+
+    return {
+      ok: false,
+      reason: error?.message || "postgres_transaction_failed",
+      rows: [],
+      rowCount: 0,
+    };
+  } finally {
+    client.release();
+  }
 }

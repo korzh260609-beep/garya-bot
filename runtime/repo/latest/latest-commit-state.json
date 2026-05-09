@@ -1,43 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-09T12:13:34.186Z",
+  "generated_at": "2026-05-09T12:29:40.127Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "20a23e22299fdcd1fd45969a448fd55a61910c01",
-  "previous_head_sha": "1c95af9ece782530c66b44ca84f695c31c38c677",
+  "current_head_sha": "4fb00acc3f73fc01a43e43b2d7608ab85610e069",
+  "previous_head_sha": "20a23e22299fdcd1fd45969a448fd55a61910c01",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "d4959a6475e8147172aef4dbf6facb8917bb8edb",
+  "registry_commit_sha": "b635482d43198d43f322b380ccb69f4dd96293e9",
   "latest_commit": {
-    "sha": "20a23e22299fdcd1fd45969a448fd55a61910c01",
-    "short_sha": "20a23e22299f",
-    "message": "feat: add SG diagnostics runtime logic\n\nMerge PR #143 into dev/v2-start.\n\nAdd read-only SG diagnostics orchestration for Render logs, Render env inventory, latest GitHub Actions run, repo registry, and recent commits. Preserve tool finalText metadata so diagnostics can return a report if model output is empty.",
-    "author": "korzh260609-beep",
-    "date": "2026-05-09T12:13:09Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/20a23e22299fdcd1fd45969a448fd55a61910c01",
-    "changed_files_count": 3,
+    "sha": "4fb00acc3f73fc01a43e43b2d7608ab85610e069",
+    "short_sha": "4fb00acc3f73",
+    "message": "render logs: update latest 83",
+    "author": "sg-github-access[bot]",
+    "date": "2026-05-09T12:29:24Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4fb00acc3f73fc01a43e43b2d7608ab85610e069",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/ai/aiToolMetadata.js",
+        "filename": "runtime/render/latest/latest-render-logs.json",
         "status": "modified",
-        "additions": 14,
-        "deletions": 11,
-        "changes": 25
-      },
-      {
-        "filename": "src/ai/callAI.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 1,
-        "changes": 2
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
-        "status": "modified",
-        "additions": 175,
-        "deletions": 11,
-        "changes": 186
+        "additions": 407,
+        "deletions": 53,
+        "changes": 460
       }
     ]
   }

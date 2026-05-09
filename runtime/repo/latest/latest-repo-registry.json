@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-09T13:04:00.168Z",
+  "generated_at": "2026-05-09T13:09:58.586Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "86ccaa38a8557bda4ad447aabd2461aba3122730",
+  "head_sha": "4a72c03e59d1f9a33884a8730396e824b86e227a",
   "truncated": false,
-  "items_count": 260,
+  "items_count": 265,
   "semantic_fields": [
     "module",
     "layer",
@@ -2225,6 +2225,106 @@
     },
     {
       "path": "src/agents/observation/eventSchema.js",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/index.js",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/io-boundary.md",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/observationPaths.js",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/observationReader.js",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/observationWriter.js",
       "type": "file",
       "parent": "src/agents/observation",
       "extension": "js",

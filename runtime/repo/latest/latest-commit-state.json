@@ -1,29 +1,78 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-09T15:06:11.482Z",
+  "generated_at": "2026-05-09T15:08:52.013Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "1f4d89d407b12d60efcbeaad4037957f5cca1158",
-  "previous_head_sha": "0ee02e709e930b0fda5d00e7c35f30fa0734ece9",
+  "current_head_sha": "53aa1a59b41b127edd3e53c6c354238903c2280f",
+  "previous_head_sha": "1f4d89d407b12d60efcbeaad4037957f5cca1158",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "6efc22b966194f2f29d6f6d34c05f8a48882b8bc",
+  "registry_commit_sha": "def22f225d3ac2a0c5cceece11e53525f24e19cb",
   "latest_commit": {
-    "sha": "1f4d89d407b12d60efcbeaad4037957f5cca1158",
-    "short_sha": "1f4d89d407b1",
-    "message": "render env: update latest 20",
-    "author": "sg-github-access[bot]",
-    "date": "2026-05-09T15:05:53Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1f4d89d407b12d60efcbeaad4037957f5cca1158",
-    "changed_files_count": 1,
+    "sha": "53aa1a59b41b127edd3e53c6c354238903c2280f",
+    "short_sha": "53aa1a59b41b",
+    "message": "Merge pull request #150 from korzh260609-beep/feature/users-durable-identity-registry\n\nusers: add durable identity registry",
+    "author": "korzh260609-beep",
+    "date": "2026-05-09T15:08:32Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/53aa1a59b41b127edd3e53c6c354238903c2280f",
+    "changed_files_count": 8,
     "changed_files": [
       {
-        "filename": "runtime/render/latest/latest-render-env.json",
+        "filename": ".env.example",
         "status": "modified",
-        "additions": 17,
+        "additions": 3,
+        "deletions": 1,
+        "changes": 4
+      },
+      {
+        "filename": ".github/workflows/sg2-smoke.yml",
+        "status": "modified",
+        "additions": 6,
+        "deletions": 0,
+        "changes": 6
+      },
+      {
+        "filename": "src/core/handleMessage.js",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 2,
+        "changes": 4
+      },
+      {
+        "filename": "src/db/postgresClient.js",
+        "status": "added",
+        "additions": 107,
+        "deletions": 0,
+        "changes": 107
+      },
+      {
+        "filename": "src/users/identity-contract.md",
+        "status": "modified",
+        "additions": 39,
         "deletions": 17,
-        "changes": 34
+        "changes": 56
+      },
+      {
+        "filename": "src/users/identityResolver.js",
+        "status": "modified",
+        "additions": 66,
+        "deletions": 9,
+        "changes": 75
+      },
+      {
+        "filename": "src/users/userRegistrySchema.js",
+        "status": "added",
+        "additions": 64,
+        "deletions": 0,
+        "changes": 64
+      },
+      {
+        "filename": "src/users/userRegistryStore.js",
+        "status": "added",
+        "additions": 143,
+        "deletions": 0,
+        "changes": 143
       }
     ]
   }

@@ -9,7 +9,8 @@
     "smoke:message-context-injection": "node ./scripts/smokeMessageContextInjection.js",
     "smoke:message-context-injection-format-only": "node ./scripts/smokeMessageContextInjectionFormatOnly.js",
     "smoke:message-context-injection-system-context": "node ./scripts/smokeMessageContextInjectionSystemContext.js",
-    "smoke:message-context-injection-guards": "node ./scripts/smokeMessageContextInjectionGuards.js"
+    "smoke:message-context-injection-guards": "node ./scripts/smokeMessageContextInjectionGuards.js",
+    "smoke:users-identity-registry": "node ./scripts/smokeUsersIdentityRegistryCheck.js"
   },
   "dependencies": {
     "express": "^4.18.2",

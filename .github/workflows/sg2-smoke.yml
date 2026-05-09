@@ -129,6 +129,7 @@ jobs:
           node --check src/diagnostics/diagnosticsPlan.js
           node --check src/diagnostics/diagnosticsReport.js
           node --check src/diagnostics/diagnosticsRunner.js
+          node --check src/diagnostics/usersIdentityRegistryCheck.js
           node --check src/diagnostics/index.js
 
       - name: Check Workspace channel syntax
@@ -162,6 +163,9 @@ jobs:
 
       - name: Smoke message context injection guards
         run: npm run smoke:message-context-injection-guards
+
+      - name: Smoke users identity registry diagnostics
+        run: npm run smoke:users-identity-registry
 
       - name: Check Agent Layer syntax
         run: |

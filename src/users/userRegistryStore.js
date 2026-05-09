@@ -4,7 +4,7 @@
 // Do not add transport behavior, permissions expansion, memory writes, observation writes, billing, or AI calls here.
 
 import crypto from "node:crypto";
-import { queryPostgres } from "../db/postgresClient.js";
+import { queryPostgres, withPostgresTransaction } from "../db/postgresClient.js";
 import {
   GLOBAL_USER_ID_PREFIX,
   MONARCH_GLOBAL_USER_ID,
@@ -24,24 +24,38 @@ async function findProviderIdentity({ provider, providerUserId } = {}) {
   );
 }
 
-async function createUser({ globalUserId, role = USER_ROLES.GUEST, metadata = {} } = {}) {
-  return queryPostgres(
-    `INSERT INTO sg_users (global_user_id, role, metadata)
-     VALUES ($1, $2, $3::jsonb)
-     ON CONFLICT (global_user_id) DO NOTHING`,
-    [globalUserId, role, JSON.stringify(metadata || {})],
-  );
-}
+async function createUserAndProviderIdentity({
+  provider,
+  providerUserId,
+  globalUserId,
+  role = USER_ROLES.GUEST,
+  metadata = {},
+} = {}) {
+  return withPostgresTransaction(async (client) => {
+    const metadataJson = JSON.stringify(metadata || {});
 
-async function createProviderIdentity({ provider, providerUserId, globalUserId, metadata = {} } = {}) {
-  return queryPostgres(
-    `INSERT INTO sg_user_identities (provider, provider_user_id, global_user_id, metadata)
-     VALUES ($1, $2, $3, $4::jsonb)
-     ON CONFLICT (provider, provider_user_id) DO UPDATE
-     SET updated_at = NOW()
-     RETURNING global_user_id`,
-    [provider, providerUserId, globalUserId, JSON.stringify(metadata || {})],
-  );
+    await client.query(
+      `INSERT INTO sg_users (global_user_id, role, metadata)
+       VALUES ($1, $2, $3::jsonb)
+       ON CONFLICT (global_user_id) DO NOTHING`,
+      [globalUserId, role, metadataJson],
+    );
+
+    const link = await client.query(
+      `INSERT INTO sg_user_identities (provider, provider_user_id, global_user_id, metadata)
+       VALUES ($1, $2, $3, $4::jsonb)
+       ON CONFLICT (provider, provider_user_id) DO UPDATE
+       SET updated_at = NOW()
+       RETURNING global_user_id`,
+      [provider, providerUserId, globalUserId, metadataJson],
+    );
+
+    return {
+      ok: true,
+      rows: link.rows || [],
+      rowCount: link.rowCount || 0,
+    };
+  });
 }
 
 export async function resolveOrCreateGlobalUserIdentity({
@@ -100,38 +114,29 @@ export async function resolveOrCreateGlobalUserIdentity({
 
   const globalUserId = isMonarch ? MONARCH_GLOBAL_USER_ID : createDurableGlobalUserId();
   const role = isMonarch ? USER_ROLES.MONARCH : USER_ROLES.GUEST;
-  const user = await createUser({ globalUserId, role, metadata });
-
-  if (!user.ok) {
-    return {
-      ok: false,
-      reason: user.reason || "user_create_failed",
-      identityStatus: "pending_registry",
-      globalUserId: null,
-      providerIdentity,
-    };
-  }
-
-  const link = await createProviderIdentity({
+  const created = await createUserAndProviderIdentity({
     ...providerIdentity,
     globalUserId,
+    role,
     metadata,
   });
 
-  if (!link.ok) {
+  if (!created.ok) {
     return {
       ok: false,
-      reason: link.reason || "provider_identity_create_failed",
+      reason: created.reason || "user_identity_create_failed",
       identityStatus: "pending_registry",
       globalUserId: null,
       providerIdentity,
     };
   }
+
+  const linkedGlobalUserId = created.rows?.[0]?.global_user_id || globalUserId;
 
   return {
     ok: true,
     identityStatus: "durable",
-    globalUserId,
+    globalUserId: linkedGlobalUserId,
     providerIdentity,
     created: true,
   };

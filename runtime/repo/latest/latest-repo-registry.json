@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-09T15:06:09.938Z",
+  "generated_at": "2026-05-09T15:08:50.881Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "1f4d89d407b12d60efcbeaad4037957f5cca1158",
+  "head_sha": "53aa1a59b41b127edd3e53c6c354238903c2280f",
   "truncated": false,
-  "items_count": 267,
+  "items_count": 271,
   "semantic_fields": [
     "module",
     "layer",
@@ -3794,6 +3794,44 @@
       }
     },
     {
+      "path": "src/db",
+      "type": "folder",
+      "parent": "src",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "src/db/postgresClient.js",
+      "type": "file",
+      "parent": "src/db",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
       "path": "src/delivery",
       "type": "folder",
       "parent": "src",
@@ -5193,6 +5231,42 @@
     },
     {
       "path": "src/users/identityResolver.js",
+      "type": "file",
+      "parent": "src/users",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/users/userRegistrySchema.js",
+      "type": "file",
+      "parent": "src/users",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/users/userRegistryStore.js",
       "type": "file",
       "parent": "src/users",
       "extension": "js",

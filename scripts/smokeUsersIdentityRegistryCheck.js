@@ -21,6 +21,9 @@ if (result.databaseConfigured) {
   assert.equal(result.globalUserIdShapeOk, true);
 } else {
   assert.equal(result.fallbackSafe, true);
+}
+
+if (result.monarchGateConfigured) {
   assert.equal(result.monarchStable, true);
 }
 

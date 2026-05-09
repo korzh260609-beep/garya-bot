@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-09T12:32:30.739Z",
+  "generated_at": "2026-05-09T12:52:49.197Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "17c662def67be540a36d3277a741077deada2feb",
-  "previous_head_sha": "1c20020d1038ad9a23e54911415c78682adc3f31",
+  "current_head_sha": "9286d58dd683854da1256f8e9ac972c77082dde1",
+  "previous_head_sha": "17c662def67be540a36d3277a741077deada2feb",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "959fc2e95b998a556274a7fd0576eb2586606f80",
+  "registry_commit_sha": "f32840adf2eb652e5ae45a252c5b1b340fe65a6c",
   "latest_commit": {
-    "sha": "17c662def67be540a36d3277a741077deada2feb",
-    "short_sha": "17c662def67b",
-    "message": "repo commit watcher: update latest 1c20020d1038",
-    "author": "github-actions[bot]",
-    "date": "2026-05-09T12:32:26Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/17c662def67be540a36d3277a741077deada2feb",
+    "sha": "9286d58dd683854da1256f8e9ac972c77082dde1",
+    "short_sha": "9286d58dd683",
+    "message": "docs: add SG observation agents block\n\nMerge PR #145 into dev/v2-start.\n\nAdd SG Observation Agents block documentation under src/agents/observation. Define simple functional observer agents and hard boundaries for future SG self-observation.",
+    "author": "korzh260609-beep",
+    "date": "2026-05-09T12:52:32Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/9286d58dd683854da1256f8e9ac972c77082dde1",
     "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "runtime/repo/latest/latest-commit-state.json",
-        "status": "modified",
-        "additions": 13,
-        "deletions": 13,
-        "changes": 26
+        "filename": "src/agents/observation/README.md",
+        "status": "added",
+        "additions": 300,
+        "deletions": 0,
+        "changes": 300
       }
     ]
   }

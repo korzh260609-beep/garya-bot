@@ -165,6 +165,10 @@ jobs:
           node --check src/agents/render-env-agent/renderEnvAgent.js
           node --check src/agents/repo-registry-agent/repoRegistryAgent.js
           node --check src/agents/observation/eventSchema.js
+          node --check src/agents/observation/observationPaths.js
+          node --check src/agents/observation/observationReader.js
+          node --check src/agents/observation/observationWriter.js
+          node --check src/agents/observation/index.js
 
       - name: Check Telegram transport syntax
         run: |

@@ -48,6 +48,10 @@ jobs:
           node --check src/config/telegramConfig.js
           node --check src/config/runtimeConfig.js
 
+      - name: Check DB syntax
+        run: |
+          node --check src/db/postgresClient.js
+
       - name: Check SG core syntax
         run: |
           node --check src/core/handleMessage.js
@@ -115,6 +119,8 @@ jobs:
       - name: Check Users identity syntax
         run: |
           node --check src/users/globalIdentity.js
+          node --check src/users/userRegistrySchema.js
+          node --check src/users/userRegistryStore.js
           node --check src/users/identityResolver.js
 
       - name: Check Diagnostics Layer syntax

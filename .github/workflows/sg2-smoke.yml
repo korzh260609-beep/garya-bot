@@ -112,6 +112,11 @@ jobs:
           node --check src/tools/github/index.js
           node --check src/integrations/github/appAuth.js
 
+      - name: Check Users identity syntax
+        run: |
+          node --check src/users/globalIdentity.js
+          node --check src/users/identityResolver.js
+
       - name: Check Diagnostics Layer syntax
         run: |
           node --check src/diagnostics/diagnosticsIntent.js

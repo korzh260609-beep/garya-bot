@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-09T12:32:29.599Z",
+  "generated_at": "2026-05-09T12:52:47.870Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "17c662def67be540a36d3277a741077deada2feb",
+  "head_sha": "9286d58dd683854da1256f8e9ac972c77082dde1",
   "truncated": false,
-  "items_count": 255,
+  "items_count": 257,
   "semantic_fields": [
     "module",
     "layer",
@@ -2161,6 +2161,48 @@
         "source_priority": "source_code",
         "notes": [
           "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/README.md",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "Folder documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary",
+          "human_readable_boundary_doc"
         ]
       }
     },

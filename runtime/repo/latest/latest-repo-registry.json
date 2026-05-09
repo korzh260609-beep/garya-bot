@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-09T12:52:47.870Z",
+  "generated_at": "2026-05-09T12:58:44.413Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "9286d58dd683854da1256f8e9ac972c77082dde1",
+  "head_sha": "fe5d3813912478877f007ae8308a65265e7a3f60",
   "truncated": false,
-  "items_count": 257,
+  "items_count": 258,
   "semantic_fields": [
     "module",
     "layer",
@@ -391,6 +391,24 @@
     },
     {
       "path": "docs/sg-core.md",
+      "type": "file",
+      "parent": "docs",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "docs",
+        "layer": "docs",
+        "responsibility": "Markdown documentation.",
+        "owner": "documentation",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "documentation",
+        "notes": []
+      }
+    },
+    {
+      "path": "docs/sg-diagnostics-v1.md",
       "type": "file",
       "parent": "docs",
       "extension": "md",

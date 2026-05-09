@@ -4,7 +4,7 @@
 // Do not add database queries, Telegram transport logic, billing, memory writes, or permissions expansion here.
 
 export const GLOBAL_USER_ID_PREFIX = "usr_";
-export const MONARCH_GLOBAL_USER_ID = "monarch:garya";
+export const MONARCH_GLOBAL_USER_ID = "usr_48cc07c069030fb3";
 export const UNKNOWN_GLOBAL_USER_ID = "unknown:anonymous";
 
 export const USER_ROLES = Object.freeze({

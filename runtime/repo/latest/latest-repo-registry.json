@@ -2,10 +2,10 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-09T12:29:39.166Z",
+  "generated_at": "2026-05-09T12:31:00.365Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "4fb00acc3f73fc01a43e43b2d7608ab85610e069",
+  "head_sha": "f401aaa83c523812dc33b722cf130b61493accf5",
   "truncated": false,
   "items_count": 255,
   "semantic_fields": [

@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "render_env_inventory",
-  "generated_at": "2026-05-09T14:23:09.466Z",
+  "generated_at": "2026-05-09T15:05:52.578Z",
   "target": "garya-bot",
   "service": {
     "id": "srv-d4fnv8je5dus7397mgcg",
@@ -47,6 +47,22 @@
       "secret_reason": "none",
       "value_exposed": true,
       "value": "15.00"
+    },
+    {
+      "name": "DATABASE_SSL",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "DATABASE_SSL_REJECT_UNAUTHORIZED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
     },
     {
       "name": "GITHUB_APP_ID",
@@ -153,28 +169,12 @@
       "value": "true"
     },
     {
-      "name": "REPO_STATE_BRANCH",
-      "exists": true,
-      "is_secret": false,
-      "secret_reason": "none",
-      "value_exposed": true,
-      "value": "dev/v2-start"
-    },
-    {
       "name": "REPO_STATE_MAX_CONTENT_FILES",
       "exists": true,
       "is_secret": false,
       "secret_reason": "none",
       "value_exposed": true,
       "value": "500"
-    },
-    {
-      "name": "REPO_STATE_MAX_FILE_SIZE",
-      "exists": true,
-      "is_secret": false,
-      "secret_reason": "none",
-      "value_exposed": true,
-      "value": "200000"
     }
   ],
   "secrets_policy": "secret_values_hidden_by_exact_name_suffix_or_value"

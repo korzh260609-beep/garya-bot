@@ -3,7 +3,7 @@
 // Purpose: orchestrate normalized messages through identity, access checks, behavior guardrails, prompt boundary, and AI without putting logic into transport.
 // Do not turn this into a monolith; split capabilities as soon as new responsibilities appear.
 
-import { resolveIdentity } from "../users/identityResolver.js";
+import { resolveIdentityAsync } from "../users/identityResolver.js";
 import {
   buildAccessDeniedReply,
   buildBehaviorDeniedReply,
@@ -18,7 +18,7 @@ import {
 
 export async function handleMessage(context = {}) {
   const text = extractMessageText(context);
-  const identity = resolveIdentity(context);
+  const identity = await resolveIdentityAsync(context);
 
   if (!text) {
     return buildEmptyTextReply(identity);

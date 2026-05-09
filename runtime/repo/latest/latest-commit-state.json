@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-09T12:31:01.570Z",
+  "generated_at": "2026-05-09T12:32:25.993Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "f401aaa83c523812dc33b722cf130b61493accf5",
-  "previous_head_sha": "4fb00acc3f73fc01a43e43b2d7608ab85610e069",
+  "current_head_sha": "1c20020d1038ad9a23e54911415c78682adc3f31",
+  "previous_head_sha": "f401aaa83c523812dc33b722cf130b61493accf5",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "21f80f0967b2124101c0e6da0799ae794adfb28a",
+  "registry_commit_sha": "1911768bc2bdf1b9c252f3e7dfd5f93eaf45f469",
   "latest_commit": {
-    "sha": "f401aaa83c523812dc33b722cf130b61493accf5",
-    "short_sha": "f401aaa83c52",
-    "message": "render logs: update latest 83",
+    "sha": "1c20020d1038ad9a23e54911415c78682adc3f31",
+    "short_sha": "1c20020d1038",
+    "message": "repo registry: update latest 255",
     "author": "sg-github-access[bot]",
-    "date": "2026-05-09T12:30:39Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/f401aaa83c523812dc33b722cf130b61493accf5",
+    "date": "2026-05-09T12:32:12Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1c20020d1038ad9a23e54911415c78682adc3f31",
     "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "runtime/render/latest/latest-render-logs.json",
+        "filename": "runtime/repo/latest/latest-repo-registry.json",
         "status": "modified",
-        "additions": 27,
-        "deletions": 27,
-        "changes": 54
+        "additions": 2,
+        "deletions": 2,
+        "changes": 4
       }
     ]
   }

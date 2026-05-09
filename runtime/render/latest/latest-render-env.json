@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "render_env_inventory",
-  "generated_at": "2026-05-08T07:12:32.860Z",
+  "generated_at": "2026-05-09T12:32:10.317Z",
   "target": "garya-bot",
   "service": {
     "id": "srv-d4fnv8je5dus7397mgcg",
@@ -158,7 +158,7 @@
       "is_secret": false,
       "secret_reason": "none",
       "value_exposed": true,
-      "value": "main"
+      "value": "dev/v2-start"
     },
     {
       "name": "REPO_STATE_MAX_CONTENT_FILES",

@@ -26,7 +26,7 @@ export async function callAI(messages, options = {}) {
     toolContext,
   });
 
-  const text = extractOutputText(response);
+  const text = extractOutputText(response) || metadata?.finalText || "";
 
   if (!text) {
     throw new Error("AI returned empty output");

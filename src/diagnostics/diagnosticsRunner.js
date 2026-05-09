@@ -1,11 +1,124 @@
 // AGENT NOTE:
-// SG 2.0 Diagnostics Layer runner skeleton.
+// SG 2.0 Diagnostics Layer runner.
 // Purpose: provide a bounded public diagnostics entry point without coupling diagnostics to Telegram or core message handling.
-// This first skeleton prepares a plan and a report shape; deeper tool orchestration is added in a later logic PR.
+// Diagnostics may collect generated runtime reports, but must not mutate code, env, Render settings, GitHub settings, or transport logic.
 
+import { findCommitsByIntent } from "../agents/repo-commit-watcher-agent/repoCommitSearch.js";
+import { runRenderEnvAgent } from "../agents/render-env-agent/renderEnvAgent.js";
+import { runRepoRegistryAgent } from "../agents/repo-registry-agent/repoRegistryAgent.js";
+import { runGetRenderLogsTask } from "../tasks/render/getRenderLogsTask.js";
+import { executeGitHubApiRequest } from "../tools/github/githubApiClient.js";
+import {
+  getCurrentProjectBranch,
+  getCurrentProjectRepository,
+} from "../tools/github/githubProjectDefaults.js";
 import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
+
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeLimit(value, fallback = 100) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(1000, Math.trunc(n)));
+}
+
+function summarizeRenderLogs(result = {}) {
+  if (!result.ok) return result.error || "Render logs check failed.";
+  return `Render logs collected: ${result.logs_count ?? "unknown"} entries, path: ${result.path || "unknown"}.`;
+}
+
+function summarizeRenderEnv(result = {}) {
+  if (!result.ok) return result.error || "Render env check failed.";
+  return `Render env inventory collected: ${result.env_count ?? "unknown"} variables, path: ${result.path || "unknown"}.`;
+}
+
+function summarizeRepoRegistry(result = {}) {
+  if (!result.ok) return result.error || "Repo registry check failed.";
+  return `Repo registry collected: ${result.items_count ?? "unknown"} items, branch: ${result.branch || "unknown"}, path: ${result.path || "unknown"}.`;
+}
+
+function summarizeWorkflowRun(result = {}) {
+  if (!result.ok) return result.error || "GitHub Actions check failed.";
+  const run = result.latestRun;
+  if (!run) return "GitHub Actions check completed, but no workflow run was found.";
+  return `GitHub Actions latest run: ${run.name || result.workflow || "workflow"}, status=${run.status || "unknown"}, conclusion=${run.conclusion || "unknown"}.`;
+}
+
+function summarizeCommits(result = {}) {
+  if (!result.ok) return result.error || "Recent commits check failed.";
+  return result.summary?.text || `Recent commits checked: ${result.searched_commits ?? "unknown"}.`;
+}
+
+async function safeCheck(type, fn, summarize) {
+  try {
+    const data = await fn();
+    return {
+      ok: Boolean(data?.ok),
+      type,
+      summary: summarize(data),
+      data,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      type,
+      summary: error?.message || `${type}_failed`,
+      error: error?.message || `${type}_failed`,
+    };
+  }
+}
+
+async function checkLatestWorkflowRun({ repo, branch, workflow }) {
+  const result = await executeGitHubApiRequest({
+    method: "GET",
+    path: `/repos/${repo}/actions/workflows/${encodeURIComponent(workflow)}/runs`,
+    query: {
+      branch,
+      per_page: 1,
+    },
+  });
+
+  const latestRun = result?.formatted?.runs?.[0] || result?.data?.workflow_runs?.[0] || null;
+
+  return {
+    ok: Boolean(result.ok),
+    type: "repo_latest_workflow_run_check",
+    repo,
+    branch,
+    workflow,
+    latestRun,
+    latestStatus: latestRun?.status || null,
+    latestConclusion: latestRun?.conclusion || null,
+    latestHeadSha: latestRun?.commit_sha || latestRun?.head_sha || null,
+    githubOk: Boolean(result.ok),
+    githubStatus: result.status,
+    error: result.error || null,
+  };
+}
+
+function buildFinalDiagnosticsText({ report }) {
+  const results = Array.isArray(report?.results) ? report.results : [];
+  const failed = results.filter((item) => !item.ok);
+
+  const lines = [
+    "Диагностика SG выполнена.",
+    "",
+    "Проверено:",
+    ...results.map((item) => `- ${item.type}: ${item.ok ? "OK" : "FAIL"} — ${item.summary}`),
+    "",
+    failed.length > 0
+      ? `Проблемные проверки: ${failed.map((item) => item.type).join(", ")}.`
+      : "Явных сбоев по собранным проверкам не найдено.",
+    "",
+    `Следующий шаг: ${report?.nextStep || "проверить детали failed-проверок перед изменением кода."}`,
+  ];
+
+  return lines.join("\n").trim();
+}
 
 export async function runDiagnosticsCheck(input = {}, context = {}) {
   if (!context?.isMonarch) {
@@ -13,6 +126,7 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
       ok: false,
       type: "sg_diagnostics_check",
       error: "sg_diagnostics_not_allowed",
+      finalText: "Диагностика доступна только монарху.",
     };
   }
 
@@ -25,24 +139,74 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
     intent,
     checks: input.checks,
   });
+  const repo = normalizeString(input.repo) || getCurrentProjectRepository();
+  const branch = normalizeString(input.branch) || getCurrentProjectBranch();
+  const target = normalizeString(input.target) || "garya-bot";
+  const workflow = normalizeString(input.workflow) || "sg2-smoke.yml";
+  const logLimit = normalizeLimit(input.limit, 100);
+
+  const checks = Array.isArray(plan.checks) ? plan.checks : [];
+  const results = [];
+
+  if (checks.includes("render_logs")) {
+    results.push(await safeCheck(
+      "render_logs",
+      () => runGetRenderLogsTask({ limit: logLimit, target, level: "all" }),
+      summarizeRenderLogs
+    ));
+  }
+
+  if (checks.includes("render_env_inventory")) {
+    results.push(await safeCheck(
+      "render_env_inventory",
+      () => runRenderEnvAgent({ target }),
+      summarizeRenderEnv
+    ));
+  }
+
+  if (checks.includes("github_actions_latest_run")) {
+    results.push(await safeCheck(
+      "github_actions_latest_run",
+      () => checkLatestWorkflowRun({ repo, branch, workflow }),
+      summarizeWorkflowRun
+    ));
+  }
+
+  if (checks.includes("repo_registry")) {
+    results.push(await safeCheck(
+      "repo_registry",
+      () => runRepoRegistryAgent({ repo, branch }),
+      summarizeRepoRegistry
+    ));
+  }
+
+  if (checks.includes("recent_commits")) {
+    results.push(await safeCheck(
+      "recent_commits",
+      () => findCommitsByIntent({
+        text: text || "diagnostics render deploy github actions registry",
+        repo,
+        branch,
+        limit: 12,
+      }),
+      summarizeCommits
+    ));
+  }
+
   const report = buildDiagnosticsReport({
     plan,
-    results: [
-      {
-        ok: true,
-        type: "diagnostics_skeleton_ready",
-        summary: "Diagnostics skeleton created. Deep runtime tool orchestration must be added in the logic step.",
-      },
-    ],
+    results,
   });
+  const finalText = buildFinalDiagnosticsText({ report });
 
   return {
-    ok: true,
+    ok: report.ok,
     type: "sg_diagnostics_check",
-    mode: "skeleton_only",
+    mode: "runtime_orchestration",
     text,
     intent,
     plan,
     report,
+    finalText,
   };
 }

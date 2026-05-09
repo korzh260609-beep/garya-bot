@@ -22,15 +22,15 @@ Provider IDs are external facts.
 
 ## Current V1 state
 
-V1 is a skeleton contract only.
+V1 now has a minimal durable registry skeleton.
 
-It does not create a database table yet.
-
-It does not implement full user registry persistence yet.
+It can use PostgreSQL through `DATABASE_URL` to create and resolve durable internal user IDs.
 
 It does not add roles/plans expansion.
 
 It does not connect observation events to memory.
+
+It does not write user memory or project memory.
 
 ## Known IDs
 
@@ -41,7 +41,13 @@ globalUserId = monarch:garya
 role = monarch
 ```
 
-Other users currently receive temporary pending identities until the persistent registry is implemented:
+Other users should receive durable internal identities when the database is configured:
+
+```text
+usr_<stable_generated_id>
+```
+
+If the database is unavailable or not configured, users temporarily fall back to explicit pending identities:
 
 ```text
 pending:<provider>:<providerUserId>
@@ -49,15 +55,15 @@ pending:<provider>:<providerUserId>
 
 This pending identity is not the final durable identity model.
 
-## Future durable users
+## Durable users
 
-Future automatic user creation must create durable internal user IDs:
+Automatic user creation creates durable internal user IDs:
 
 ```text
 usr_<stable_generated_id>
 ```
 
-Then provider links must map provider accounts to this durable identity:
+Then provider links map provider accounts to this durable identity:
 
 ```text
 telegram:<telegram_user_id> -> usr_<stable_generated_id>
@@ -65,12 +71,12 @@ web:<web_user_id> -> usr_<stable_generated_id>
 api:<api_subject> -> usr_<stable_generated_id>
 ```
 
-## Future tables
+## Tables
 
-Planned skeleton:
+Current skeleton:
 
 ```text
-users
+sg_users
 - global_user_id
 - role
 - status
@@ -80,7 +86,7 @@ users
 ```
 
 ```text
-user_identities
+sg_user_identities
 - provider
 - provider_user_id
 - global_user_id
@@ -89,14 +95,29 @@ user_identities
 - metadata
 ```
 
+## Runtime flow
+
+```text
+normalized context
+-> provider identity
+-> users registry lookup
+-> existing globalUserId OR create new usr_<uuid>
+-> identity object
+-> access / behavior / AI
+```
+
+If `DATABASE_URL` is missing, the resolver must keep SG running and return a pending identity instead of crashing.
+
 ## Boundaries
 
 Allowed in this stage:
 
 - define global identity helpers;
-- keep Telegram IDs outside the permanent identity root;
+- keep provider IDs outside the permanent identity root;
 - keep Monarch identity stable;
-- expose pending IDs as explicit temporary placeholders.
+- create durable user IDs when database is configured;
+- link provider identities to global user IDs;
+- fallback safely when database is unavailable.
 
 Forbidden in this stage:
 
@@ -105,7 +126,8 @@ Forbidden in this stage:
 - writing project memory;
 - expanding roles/plans without the permissions skeleton;
 - changing transport behavior;
-- changing database schema without an approved DB/migration step.
+- connecting observation events to memory;
+- leaking raw provider IDs into observation reports.
 
 ## Observation relationship
 
@@ -119,9 +141,9 @@ actor.user_ref = globalUserId
 
 Provider IDs must not be stored raw in observation reports.
 
-Until durable user registry exists, observation for non-Monarch users must be skipped or marked pending according to a future policy.
-
 V1 observation starts with Monarch only.
+
+Guest/citizen observation still requires a separate policy.
 
 ## Project memory relationship
 

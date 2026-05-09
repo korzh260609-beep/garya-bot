@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-09T12:52:49.197Z",
+  "generated_at": "2026-05-09T12:58:45.393Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "9286d58dd683854da1256f8e9ac972c77082dde1",
-  "previous_head_sha": "17c662def67be540a36d3277a741077deada2feb",
+  "current_head_sha": "fe5d3813912478877f007ae8308a65265e7a3f60",
+  "previous_head_sha": "9286d58dd683854da1256f8e9ac972c77082dde1",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "f32840adf2eb652e5ae45a252c5b1b340fe65a6c",
+  "registry_commit_sha": "80508f0e75220e70732c067ae441173259f15e50",
   "latest_commit": {
-    "sha": "9286d58dd683854da1256f8e9ac972c77082dde1",
-    "short_sha": "9286d58dd683",
-    "message": "docs: add SG observation agents block\n\nMerge PR #145 into dev/v2-start.\n\nAdd SG Observation Agents block documentation under src/agents/observation. Define simple functional observer agents and hard boundaries for future SG self-observation.",
+    "sha": "fe5d3813912478877f007ae8308a65265e7a3f60",
+    "short_sha": "fe5d38139124",
+    "message": "docs: record SG diagnostics V1 status\n\nMerge PR #146 into dev/v2-start.\n\nRecord SG Diagnostics V1 status and the rule that Render runtime writes must use GitHub App auth instead of GITHUB_TOKEN/PAT.",
     "author": "korzh260609-beep",
-    "date": "2026-05-09T12:52:32Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/9286d58dd683854da1256f8e9ac972c77082dde1",
+    "date": "2026-05-09T12:58:26Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/fe5d3813912478877f007ae8308a65265e7a3f60",
     "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/agents/observation/README.md",
+        "filename": "docs/sg-diagnostics-v1.md",
         "status": "added",
-        "additions": 300,
+        "additions": 86,
         "deletions": 0,
-        "changes": 300
+        "changes": 86
       }
     ]
   }

@@ -1,64 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-09T13:09:59.586Z",
+  "generated_at": "2026-05-09T14:07:02.571Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "4a72c03e59d1f9a33884a8730396e824b86e227a",
-  "previous_head_sha": "86ccaa38a8557bda4ad447aabd2461aba3122730",
+  "current_head_sha": "8fc0762f192ff3eac1142459b3289661aaca04d6",
+  "previous_head_sha": "4a72c03e59d1f9a33884a8730396e824b86e227a",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "e08d10d639532b81b479ce460a20086379c18083",
+  "registry_commit_sha": "89eadf26cb65f8c42959ca2e4153480708ce5f55",
   "latest_commit": {
-    "sha": "4a72c03e59d1f9a33884a8730396e824b86e227a",
-    "short_sha": "4a72c03e59d1",
-    "message": "observation: add IO boundary skeleton\n\nMerge PR #148 into dev/v2-start.\n\nAdd Observation IO boundary skeleton for runtime/observation reports, including path helpers, reader/writer boundaries, documentation, and CI syntax checks. No runtime producer integration.",
+    "sha": "8fc0762f192ff3eac1142459b3289661aaca04d6",
+    "short_sha": "8fc0762f192f",
+    "message": "users: add identity skeleton\n\nMerge PR #149 into dev/v2-start.\n\nAdd SG Users Identity Contract V1 before Telegram Observation Stage 4.",
     "author": "korzh260609-beep",
-    "date": "2026-05-09T13:09:36Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4a72c03e59d1f9a33884a8730396e824b86e227a",
-    "changed_files_count": 6,
+    "date": "2026-05-09T14:06:43Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8fc0762f192ff3eac1142459b3289661aaca04d6",
+    "changed_files_count": 4,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 4,
+        "additions": 5,
         "deletions": 0,
-        "changes": 4
+        "changes": 5
       },
       {
-        "filename": "src/agents/observation/index.js",
+        "filename": "src/users/globalIdentity.js",
         "status": "added",
-        "additions": 9,
+        "additions": 69,
         "deletions": 0,
-        "changes": 9
+        "changes": 69
       },
       {
-        "filename": "src/agents/observation/io-boundary.md",
+        "filename": "src/users/identity-contract.md",
         "status": "added",
-        "additions": 91,
+        "additions": 136,
         "deletions": 0,
-        "changes": 91
+        "changes": 136
       },
       {
-        "filename": "src/agents/observation/observationPaths.js",
-        "status": "added",
-        "additions": 29,
-        "deletions": 0,
-        "changes": 29
-      },
-      {
-        "filename": "src/agents/observation/observationReader.js",
-        "status": "added",
-        "additions": 66,
-        "deletions": 0,
-        "changes": 66
-      },
-      {
-        "filename": "src/agents/observation/observationWriter.js",
-        "status": "added",
-        "additions": 80,
-        "deletions": 0,
-        "changes": 80
+        "filename": "src/users/identityResolver.js",
+        "status": "modified",
+        "additions": 22,
+        "deletions": 9,
+        "changes": 31
       }
     ]
   }

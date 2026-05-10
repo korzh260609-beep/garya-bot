@@ -1,22 +1,22 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T08:03:52.923Z",
+  "generated_at": "2026-05-10T09:36:46.888Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "afaa4461d098440e7fd44e819bbf67e4fabf8827",
-  "previous_head_sha": "9d20f9c76c7f8b3f53ac930d3000bcfcffa84386",
+  "current_head_sha": "09adc629b8719d7fa679e63a9aa92f3143c0ccca",
+  "previous_head_sha": "afaa4461d098440e7fd44e819bbf67e4fabf8827",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "9f76d8e8a2e6346e898ccf89659117d6ddbe8f47",
+  "registry_commit_sha": "2f9441acae508a2828623351e8d29f1f4f7a11ed",
   "latest_commit": {
-    "sha": "afaa4461d098440e7fd44e819bbf67e4fabf8827",
-    "short_sha": "afaa4461d098",
-    "message": "diagnostics: add observation latest report check\n\nMerge PR #164: add read-only diagnostics for observation latest report.",
+    "sha": "09adc629b8719d7fa679e63a9aa92f3143c0ccca",
+    "short_sha": "09adc629b871",
+    "message": "observation: add runtime status event\n\nMerge PR #165: add minimal runtime status observation event bridge.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T08:03:33Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/afaa4461d098440e7fd44e819bbf67e4fabf8827",
-    "changed_files_count": 7,
+    "date": "2026-05-10T09:36:27Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/09adc629b8719d7fa679e63a9aa92f3143c0ccca",
+    "changed_files_count": 5,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
@@ -33,39 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeObservationLatestReportCheck.js",
+        "filename": "scripts/smokeRuntimeStatusObservationBridge.js",
         "status": "added",
-        "additions": 21,
+        "additions": 59,
         "deletions": 0,
-        "changes": 21
+        "changes": 59
       },
       {
-        "filename": "src/diagnostics/diagnosticsPlan.js",
+        "filename": "src/agents/observation/index.js",
         "status": "modified",
         "additions": 1,
-        "deletions": 2,
-        "changes": 3
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
-        "status": "modified",
-        "additions": 14,
         "deletions": 0,
-        "changes": 14
+        "changes": 1
       },
       {
-        "filename": "src/diagnostics/index.js",
-        "status": "modified",
-        "additions": 2,
-        "deletions": 4,
-        "changes": 6
-      },
-      {
-        "filename": "src/diagnostics/observationLatestReportCheck.js",
+        "filename": "src/agents/observation/runtimeStatusObservationBridge.js",
         "status": "added",
-        "additions": 68,
+        "additions": 77,
         "deletions": 0,
-        "changes": 68
+        "changes": 77
       }
     ]
   }

@@ -1,29 +1,71 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-09T15:40:52.342Z",
+  "generated_at": "2026-05-10T02:43:13.317Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "8854c7c25ac82209372782d8ad8f1454e910654b",
-  "previous_head_sha": "53aa1a59b41b127edd3e53c6c354238903c2280f",
+  "current_head_sha": "e2439b9997d8a39570b35a806680968d908c676f",
+  "previous_head_sha": "8854c7c25ac82209372782d8ad8f1454e910654b",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "932c9afd32ae1d700ddc0aa5a632329070e83164",
+  "registry_commit_sha": "aeb30957db6bb37a3878fbf8e6d10b40dd68207a",
   "latest_commit": {
-    "sha": "8854c7c25ac82209372782d8ad8f1454e910654b",
-    "short_sha": "8854c7c25ac8",
-    "message": "Merge pull request #151 from korzh260609-beep/feature/monarch-global-user-id-constant\n\nusers: set monarch global user id",
+    "sha": "e2439b9997d8a39570b35a806680968d908c676f",
+    "short_sha": "e2439b9997d8",
+    "message": "Merge pull request #152 from korzh260609-beep/feature/users-identity-registry-diagnostic\n\ndiagnostics: add users identity registry check",
     "author": "korzh260609-beep",
-    "date": "2026-05-09T15:40:30Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8854c7c25ac82209372782d8ad8f1454e910654b",
-    "changed_files_count": 1,
+    "date": "2026-05-10T02:42:53Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e2439b9997d8a39570b35a806680968d908c676f",
+    "changed_files_count": 7,
     "changed_files": [
       {
-        "filename": "src/users/globalIdentity.js",
+        "filename": ".github/workflows/sg2-smoke.yml",
+        "status": "modified",
+        "additions": 4,
+        "deletions": 0,
+        "changes": 4
+      },
+      {
+        "filename": "package.json",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 1,
+        "changes": 3
+      },
+      {
+        "filename": "scripts/smokeUsersIdentityRegistryCheck.js",
+        "status": "added",
+        "additions": 30,
+        "deletions": 0,
+        "changes": 30
+      },
+      {
+        "filename": "src/diagnostics/diagnosticsPlan.js",
         "status": "modified",
         "additions": 1,
-        "deletions": 1,
-        "changes": 2
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "status": "modified",
+        "additions": 14,
+        "deletions": 0,
+        "changes": 14
+      },
+      {
+        "filename": "src/diagnostics/index.js",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/diagnostics/usersIdentityRegistryCheck.js",
+        "status": "added",
+        "additions": 146,
+        "deletions": 0,
+        "changes": 146
       }
     ]
   }

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T05:31:16.239Z",
+  "generated_at": "2026-05-10T05:40:32.114Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "c03ce5f82392e65e0b2bb54a3ec8b8da7d6821fe",
+  "head_sha": "d87d9b020b1f53529fae50c99336ee2946e2324a",
   "truncated": false,
-  "items_count": 277,
+  "items_count": 279,
   "semantic_fields": [
     "module",
     "layer",
@@ -2036,6 +2036,26 @@
         "runtime_impact": "unknown_or_low",
         "source_priority": "repository_fact",
         "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeUserIdentityLinkingPolicy.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": [
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
       }
     },
     {
@@ -5353,6 +5373,26 @@
         "runtime_impact": "unknown_or_low",
         "source_priority": "source_code",
         "notes": []
+      }
+    },
+    {
+      "path": "src/users/userIdentityLinkingPolicy.js",
+      "type": "file",
+      "parent": "src/users",
+      "extension": "js",
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
       }
     },
     {

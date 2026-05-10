@@ -11,6 +11,7 @@
     "smoke:message-context-injection-format-only": "node ./scripts/smokeMessageContextInjectionFormatOnly.js",
     "smoke:message-context-injection-system-context": "node ./scripts/smokeMessageContextInjectionSystemContext.js",
     "smoke:message-context-injection-guards": "node ./scripts/smokeMessageContextInjectionGuards.js",
+    "smoke:observation-journal-health-trigger": "node ./scripts/smokeObservationJournalHealthTrigger.js",
     "smoke:observation-latest-report-check": "node ./scripts/smokeObservationLatestReportCheck.js",
     "smoke:observation-producer": "node ./scripts/smokeObservationProducer.js",
     "smoke:observation-trigger-layer": "node ./scripts/smokeObservationTriggerLayer.js",

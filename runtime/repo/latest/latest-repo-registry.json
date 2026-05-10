@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T11:55:53.620Z",
+  "generated_at": "2026-05-10T12:02:30.704Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "bb0ed4a7d268303690fcd712d07550547e7a38ed",
+  "head_sha": "3e2fc17c6a767047849cb081d3bb6369b4ac21d2",
   "truncated": false,
-  "items_count": 301,
+  "items_count": 302,
   "semantic_fields": [
     "module",
     "layer",
@@ -4226,6 +4226,24 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": "src/diagnostics/diagnosticsChecksRunner.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
       }
     },
     {

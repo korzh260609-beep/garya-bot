@@ -1,50 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T05:40:33.491Z",
+  "generated_at": "2026-05-10T05:49:57.139Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "d87d9b020b1f53529fae50c99336ee2946e2324a",
-  "previous_head_sha": "c03ce5f82392e65e0b2bb54a3ec8b8da7d6821fe",
+  "current_head_sha": "8df43e9598ac24137dbc932e3e632e57a1f7d0a8",
+  "previous_head_sha": "d87d9b020b1f53529fae50c99336ee2946e2324a",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "18335cc1383bec090bddd0312f0b3f7644260e80",
+  "registry_commit_sha": "5e1cad781f0cd97cff155ba42133cb7437467d93",
   "latest_commit": {
-    "sha": "d87d9b020b1f53529fae50c99336ee2946e2324a",
-    "short_sha": "d87d9b020b1f",
-    "message": "Merge pull request #157 from korzh260609-beep/feature/users-link-policy\n\nusers: add identity linking policy",
+    "sha": "8df43e9598ac24137dbc932e3e632e57a1f7d0a8",
+    "short_sha": "8df43e9598ac",
+    "message": "users: enforce identity linking policy\n\nMerge PR #158: enforce identity linking policy in provider identity linking path.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T05:40:15Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d87d9b020b1f53529fae50c99336ee2946e2324a",
-    "changed_files_count": 4,
+    "date": "2026-05-10T05:49:39Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8df43e9598ac24137dbc932e3e632e57a1f7d0a8",
+    "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
+        "filename": "scripts/smokeUserIdentityLinking.js",
         "status": "modified",
-        "additions": 4,
-        "deletions": 0,
-        "changes": 4
+        "additions": 40,
+        "deletions": 6,
+        "changes": 46
       },
       {
-        "filename": "package.json",
+        "filename": "src/users/userIdentityLinking.js",
         "status": "modified",
-        "additions": 2,
-        "deletions": 1,
-        "changes": 3
-      },
-      {
-        "filename": "scripts/smokeUserIdentityLinkingPolicy.js",
-        "status": "added",
-        "additions": 57,
-        "deletions": 0,
-        "changes": 57
-      },
-      {
-        "filename": "src/users/userIdentityLinkingPolicy.js",
-        "status": "added",
-        "additions": 104,
-        "deletions": 0,
-        "changes": 104
+        "additions": 19,
+        "deletions": 2,
+        "changes": 21
       }
     ]
   }

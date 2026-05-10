@@ -121,6 +121,7 @@ jobs:
           node --check src/users/globalIdentity.js
           node --check src/users/userRegistrySchema.js
           node --check src/users/userRegistryStore.js
+          node --check src/users/userIdentityLinking.js
           node --check src/users/identityResolver.js
 
       - name: Check Diagnostics Layer syntax
@@ -166,6 +167,9 @@ jobs:
 
       - name: Smoke users identity registry diagnostics
         run: npm run smoke:users-identity-registry
+
+      - name: Smoke users identity linking skeleton
+        run: npm run smoke:users-identity-linking
 
       - name: Check Agent Layer syntax
         run: |

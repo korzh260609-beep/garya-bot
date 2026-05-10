@@ -1,50 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T15:42:56.611Z",
+  "generated_at": "2026-05-10T15:47:17.043Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "67598227a4e9892f78c920c57474cba6e8be8085",
-  "previous_head_sha": "65fe62323e932d89cd441c2dd5d7b23c615cf12c",
+  "current_head_sha": "54359323eaddb45a79e2eb3e5822f46603f8bf50",
+  "previous_head_sha": "67598227a4e9892f78c920c57474cba6e8be8085",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "19e2e70d273e54aca66b71f7a02652fe41764452",
+  "registry_commit_sha": "abcfda61939e0abf88d5677d2ec3ddaf9c140220",
   "latest_commit": {
-    "sha": "67598227a4e9892f78c920c57474cba6e8be8085",
-    "short_sha": "67598227a4e9",
-    "message": "agents: add GitHub observation dispatch events\n\nMerge PR #179: add bounded GitHub events to Observation Trigger Dispatch Agent.",
+    "sha": "54359323eaddb45a79e2eb3e5822f46603f8bf50",
+    "short_sha": "54359323eadd",
+    "message": "agents: restore observation dispatch safety header\n\nMerge PR #180: restore safety header in Observation Trigger Dispatch Agent registry.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T15:42:39Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/67598227a4e9892f78c920c57474cba6e8be8085",
-    "changed_files_count": 4,
+    "date": "2026-05-10T15:46:58Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/54359323eaddb45a79e2eb3e5822f46603f8bf50",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 4,
-        "deletions": 0,
-        "changes": 4
-      },
-      {
-        "filename": "package.json",
+        "filename": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js",
         "status": "modified",
         "additions": 1,
         "deletions": 0,
         "changes": 1
-      },
-      {
-        "filename": "scripts/smokeObservationDispatchGithubEvents.js",
-        "status": "added",
-        "additions": 32,
-        "deletions": 0,
-        "changes": 32
-      },
-      {
-        "filename": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js",
-        "status": "modified",
-        "additions": 13,
-        "deletions": 3,
-        "changes": 16
       }
     ]
   }

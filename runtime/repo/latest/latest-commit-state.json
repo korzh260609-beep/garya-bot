@@ -1,57 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T09:36:46.888Z",
+  "generated_at": "2026-05-10T09:43:42.714Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "09adc629b8719d7fa679e63a9aa92f3143c0ccca",
-  "previous_head_sha": "afaa4461d098440e7fd44e819bbf67e4fabf8827",
+  "current_head_sha": "9ade2c398665483171853571ee563fbfc95a72ad",
+  "previous_head_sha": "09adc629b8719d7fa679e63a9aa92f3143c0ccca",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "2f9441acae508a2828623351e8d29f1f4f7a11ed",
+  "registry_commit_sha": "b43af732287d9b8bfd28d5a4ff28f22db9600ecb",
   "latest_commit": {
-    "sha": "09adc629b8719d7fa679e63a9aa92f3143c0ccca",
-    "short_sha": "09adc629b871",
-    "message": "observation: add runtime status event\n\nMerge PR #165: add minimal runtime status observation event bridge.",
+    "sha": "9ade2c398665483171853571ee563fbfc95a72ad",
+    "short_sha": "9ade2c398665",
+    "message": "diagnostics: publish runtime status observation\n\nMerge PR #166: publish sanitized runtime status observation during diagnostics.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T09:36:27Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/09adc629b8719d7fa679e63a9aa92f3143c0ccca",
-    "changed_files_count": 5,
+    "date": "2026-05-10T09:43:24Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/9ade2c398665483171853571ee563fbfc95a72ad",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
+        "filename": "src/diagnostics/diagnosticsRunner.js",
         "status": "modified",
-        "additions": 4,
+        "additions": 21,
         "deletions": 0,
-        "changes": 4
-      },
-      {
-        "filename": "package.json",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "scripts/smokeRuntimeStatusObservationBridge.js",
-        "status": "added",
-        "additions": 59,
-        "deletions": 0,
-        "changes": 59
-      },
-      {
-        "filename": "src/agents/observation/index.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "src/agents/observation/runtimeStatusObservationBridge.js",
-        "status": "added",
-        "additions": 77,
-        "deletions": 0,
-        "changes": 77
+        "changes": 21
       }
     ]
   }

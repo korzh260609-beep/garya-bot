@@ -1,22 +1,22 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T06:34:21.691Z",
+  "generated_at": "2026-05-10T07:30:51.342Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b4a4de5354f05ff0a0c01ac6dadcfc99853f8909",
-  "previous_head_sha": "d34aa7ea2554c379601381e95ee635429fa7b11d",
+  "current_head_sha": "1a02b76b0e890b0a9b380c89ac4ee10aace59071",
+  "previous_head_sha": "b4a4de5354f05ff0a0c01ac6dadcfc99853f8909",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "da6a1996ab0aaa1572fb0826b506c8bf9dedfac3",
+  "registry_commit_sha": "5c2f314d017842751550ada75143a5ded4a44d1d",
   "latest_commit": {
-    "sha": "b4a4de5354f05ff0a0c01ac6dadcfc99853f8909",
-    "short_sha": "b4a4de5354f0",
-    "message": "diagnostics: add users identity link requests check\n\nMerge PR #161: add read-only diagnostics for users identity link requests.",
+    "sha": "1a02b76b0e890b0a9b380c89ac4ee10aace59071",
+    "short_sha": "1a02b76b0e89",
+    "message": "observation: add producer skeleton\n\nMerge PR #162: add Observation Producer skeleton for SG journal/nervous-system layer.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T06:33:56Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b4a4de5354f05ff0a0c01ac6dadcfc99853f8909",
-    "changed_files_count": 7,
+    "date": "2026-05-10T07:30:30Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1a02b76b0e890b0a9b380c89ac4ee10aace59071",
+    "changed_files_count": 5,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
@@ -28,44 +28,30 @@
       {
         "filename": "package.json",
         "status": "modified",
-        "additions": 2,
-        "deletions": 1,
-        "changes": 3
-      },
-      {
-        "filename": "scripts/smokeUsersIdentityLinkRequestsCheck.js",
-        "status": "added",
-        "additions": 22,
+        "additions": 1,
         "deletions": 0,
-        "changes": 22
+        "changes": 1
       },
       {
-        "filename": "src/diagnostics/diagnosticsPlan.js",
+        "filename": "scripts/smokeObservationProducer.js",
+        "status": "added",
+        "additions": 93,
+        "deletions": 0,
+        "changes": 93
+      },
+      {
+        "filename": "src/agents/observation/index.js",
         "status": "modified",
         "additions": 1,
         "deletions": 0,
         "changes": 1
       },
       {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
-        "status": "modified",
-        "additions": 14,
-        "deletions": 0,
-        "changes": 14
-      },
-      {
-        "filename": "src/diagnostics/index.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "src/diagnostics/usersIdentityLinkRequestsCheck.js",
+        "filename": "src/agents/observation/observationProducer.js",
         "status": "added",
-        "additions": 99,
+        "additions": 127,
         "deletions": 0,
-        "changes": 99
+        "changes": 127
       }
     ]
   }

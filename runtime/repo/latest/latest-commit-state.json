@@ -1,43 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T12:16:45.030Z",
+  "generated_at": "2026-05-10T12:54:24.314Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "7a195298b875822582f73b1e573d8c4f7ca66b64",
-  "previous_head_sha": "3e2fc17c6a767047849cb081d3bb6369b4ac21d2",
+  "current_head_sha": "ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
+  "previous_head_sha": "7a195298b875822582f73b1e573d8c4f7ca66b64",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "9728d966bf6e4342a4c40fd2fea1e92e7ac888e4",
+  "registry_commit_sha": "657e22e2926c17b2f0ebd060fcb3e6e019eaa80a",
   "latest_commit": {
-    "sha": "7a195298b875822582f73b1e573d8c4f7ca66b64",
-    "short_sha": "7a195298b875",
-    "message": "agents: add diagnostics check agent\n\nMerge PR #172: add read-only diagnostics check agent for observation nervous system.",
+    "sha": "ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
+    "short_sha": "ada4b11ff088",
+    "message": "observation: add journal health trigger\n\nMerge PR #173: add trigger-first latest-only observation journal health report.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T12:16:28Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7a195298b875822582f73b1e573d8c4f7ca66b64",
-    "changed_files_count": 3,
+    "date": "2026-05-10T12:54:01Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckAgent.js",
-        "status": "added",
-        "additions": 56,
-        "deletions": 0,
-        "changes": 56
-      },
-      {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
-        "status": "added",
-        "additions": 157,
-        "deletions": 0,
-        "changes": 157
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsChecksRunner.js",
+        "filename": "src/agents/observation/eventSchema.js",
         "status": "modified",
-        "additions": 9,
-        "deletions": 205,
-        "changes": 214
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/agents/observation/journalHealthObservationBridge.js",
+        "status": "added",
+        "additions": 99,
+        "deletions": 0,
+        "changes": 99
+      },
+      {
+        "filename": "src/agents/observation/triggers/observationTriggerRegistry.js",
+        "status": "modified",
+        "additions": 7,
+        "deletions": 0,
+        "changes": 7
+      },
+      {
+        "filename": "src/agents/observation/triggers/observationTriggerRunner.js",
+        "status": "modified",
+        "additions": 20,
+        "deletions": 16,
+        "changes": 36
       }
     ]
   }

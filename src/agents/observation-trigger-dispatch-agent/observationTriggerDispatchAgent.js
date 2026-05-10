@@ -27,10 +27,22 @@ export async function runObservationTriggerDispatchAgent(input = {}) {
   const eventType = normalizeText(input.eventType || input.type);
   const payload = input.payload && typeof input.payload === "object" ? input.payload : {};
   const context = input.context && typeof input.context === "object" ? input.context : {};
+  const dryRun = input.dryRun === true;
   const dispatchConfig = getObservationTriggerDispatchConfig(eventType);
 
   if (!dispatchConfig?.enabled || !isObservationTriggerDispatchAllowed(eventType)) {
     return rejected("observation_dispatch_event_not_allowed", { eventType });
+  }
+
+  if (dryRun) {
+    return {
+      ok: true,
+      type: "observation_trigger_dispatch_result",
+      mode: "dry_run",
+      eventType,
+      triggerName: dispatchConfig.triggerName,
+      wouldDispatch: true,
+    };
   }
 
   const triggerResult = await runObservationTrigger({
@@ -42,6 +54,7 @@ export async function runObservationTriggerDispatchAgent(input = {}) {
   return {
     ok: Boolean(triggerResult?.ok),
     type: "observation_trigger_dispatch_result",
+    mode: "dispatch",
     eventType,
     triggerName: dispatchConfig.triggerName,
     triggerResult,

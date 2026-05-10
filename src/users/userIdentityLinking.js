@@ -6,6 +6,7 @@
 import { queryPostgres, withPostgresTransaction } from "../db/postgresClient.js";
 import { buildProviderIdentityRef, isDurableGlobalUserId } from "./globalIdentity.js";
 import { ensureUsersRegistrySchema } from "./userRegistrySchema.js";
+import { evaluateIdentityLinkPolicy } from "./userIdentityLinkingPolicy.js";
 
 function normalizeGlobalUserId(globalUserId) {
   return typeof globalUserId === "string" ? globalUserId.trim() : "";
@@ -82,6 +83,8 @@ export async function linkProviderIdentityToGlobalUser({
   globalUserId,
   metadata = {},
   confirmed = false,
+  approvalMethod = "",
+  approverRole,
 } = {}) {
   const candidate = buildUserIdentityLinkCandidate({ provider, providerUserId, globalUserId, metadata });
 
@@ -89,8 +92,20 @@ export async function linkProviderIdentityToGlobalUser({
     return buildRejectedResult("invalid_identity_link_candidate", { candidate });
   }
 
-  if (!confirmed) {
-    return buildRejectedResult("identity_link_confirmation_required", { candidate });
+  const policyDecision = evaluateIdentityLinkPolicy({
+    globalUserId: candidate.globalUserId,
+    providerIdentity: candidate.providerIdentity,
+    confirmed,
+    approvalMethod,
+    approverRole,
+  });
+
+  if (!policyDecision.allowed) {
+    return buildRejectedResult(policyDecision.reason, {
+      candidate,
+      policy: policyDecision.policy,
+      approvalMethod: policyDecision.approvalMethod,
+    });
   }
 
   const schema = await ensureUsersRegistrySchema();
@@ -103,6 +118,7 @@ export async function linkProviderIdentityToGlobalUser({
     ...candidate.metadata,
     source: candidate.metadata.source || "userIdentityLinking",
     link_confirmed: true,
+    approval_method: policyDecision.approvalMethod,
   });
 
   const result = await withPostgresTransaction(async (client) => {
@@ -153,6 +169,7 @@ export async function linkProviderIdentityToGlobalUser({
     provider: candidate.providerIdentity.provider,
     policy: {
       confirmed: true,
+      approvalMethod: policyDecision.approvalMethod,
       rawProviderUserIdExposed: false,
     },
   };

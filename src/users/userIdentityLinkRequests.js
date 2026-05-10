@@ -33,6 +33,25 @@ function buildRejectedResult(reason, extra = {}) {
   };
 }
 
+function sanitizeIdentityLinkRequestRow(row = {}) {
+  return {
+    requestId: row.request_id,
+    provider: row.provider,
+    targetGlobalUserId: row.target_global_user_id,
+    requestedByGlobalUserId: row.requested_by_global_user_id || null,
+    status: row.status,
+    approvalMethod: row.approval_method || null,
+    approverGlobalUserId: row.approver_global_user_id || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    resolvedAt: row.resolved_at || null,
+    metadata: normalizeMetadata(row.metadata),
+    policy: {
+      rawProviderUserIdExposed: false,
+    },
+  };
+}
+
 export function buildIdentityLinkRequestId({ providerIdentity, targetGlobalUserId } = {}) {
   const provider = normalizeText(providerIdentity?.provider);
   const providerUserId = normalizeText(providerIdentity?.providerUserId);
@@ -76,6 +95,56 @@ export function buildIdentityLinkRequestCandidate({
       noTransportSpecificBehavior: true,
       noRawProviderIdInReports: true,
     },
+  };
+}
+
+async function getIdentityLinkRequestRow(requestId) {
+  const normalizedRequestId = normalizeText(requestId);
+
+  if (!normalizedRequestId) {
+    return buildRejectedResult("identity_link_request_id_missing");
+  }
+
+  const schema = await ensureUsersRegistrySchema();
+
+  if (!schema.ok) {
+    return buildRejectedResult(schema.reason || "users_registry_unavailable");
+  }
+
+  const result = await queryPostgres(
+    `SELECT request_id,
+            provider,
+            provider_user_id,
+            target_global_user_id,
+            requested_by_global_user_id,
+            status,
+            approval_method,
+            approver_global_user_id,
+            created_at,
+            updated_at,
+            resolved_at,
+            metadata
+     FROM sg_user_identity_link_requests
+     WHERE request_id = $1
+     LIMIT 1`,
+    [normalizedRequestId],
+  );
+
+  if (!result.ok) {
+    return buildRejectedResult(result.reason || "identity_link_request_lookup_failed");
+  }
+
+  const row = result.rows?.[0];
+
+  if (!row) {
+    return buildRejectedResult("identity_link_request_not_found");
+  }
+
+  return {
+    ok: true,
+    type: "user_identity_link_request_internal_lookup_result",
+    found: true,
+    row,
   };
 }
 
@@ -154,52 +223,17 @@ export async function createIdentityLinkRequest({
 }
 
 export async function getIdentityLinkRequest(requestId) {
-  const normalizedRequestId = normalizeText(requestId);
+  const lookup = await getIdentityLinkRequestRow(requestId);
 
-  if (!normalizedRequestId) {
-    return buildRejectedResult("identity_link_request_id_missing");
-  }
-
-  const schema = await ensureUsersRegistrySchema();
-
-  if (!schema.ok) {
-    return buildRejectedResult(schema.reason || "users_registry_unavailable");
-  }
-
-  const result = await queryPostgres(
-    `SELECT request_id,
-            provider,
-            provider_user_id,
-            target_global_user_id,
-            requested_by_global_user_id,
-            status,
-            approval_method,
-            approver_global_user_id,
-            created_at,
-            updated_at,
-            resolved_at,
-            metadata
-     FROM sg_user_identity_link_requests
-     WHERE request_id = $1
-     LIMIT 1`,
-    [normalizedRequestId],
-  );
-
-  if (!result.ok) {
-    return buildRejectedResult(result.reason || "identity_link_request_lookup_failed");
-  }
-
-  const row = result.rows?.[0];
-
-  if (!row) {
-    return buildRejectedResult("identity_link_request_not_found");
+  if (!lookup.ok) {
+    return lookup;
   }
 
   return {
     ok: true,
     type: "user_identity_link_request_lookup_result",
     found: true,
-    request: row,
+    request: sanitizeIdentityLinkRequestRow(lookup.row),
   };
 }
 
@@ -209,13 +243,13 @@ export async function approveIdentityLinkRequest({
   approverRole,
   approverGlobalUserId = "",
 } = {}) {
-  const lookup = await getIdentityLinkRequest(requestId);
+  const lookup = await getIdentityLinkRequestRow(requestId);
 
   if (!lookup.ok) {
     return lookup;
   }
 
-  const request = lookup.request;
+  const request = lookup.row;
 
   if (request.status !== IDENTITY_LINK_REQUEST_STATUSES.PENDING) {
     return buildRejectedResult("identity_link_request_not_pending", { requestId: request.request_id });
@@ -281,13 +315,13 @@ export async function approveIdentityLinkRequest({
 }
 
 export async function rejectIdentityLinkRequest({ requestId, rejectedByGlobalUserId = "", metadata = {} } = {}) {
-  const lookup = await getIdentityLinkRequest(requestId);
+  const lookup = await getIdentityLinkRequestRow(requestId);
 
   if (!lookup.ok) {
     return lookup;
   }
 
-  const request = lookup.request;
+  const request = lookup.row;
 
   if (request.status !== IDENTITY_LINK_REQUEST_STATUSES.PENDING) {
     return buildRejectedResult("identity_link_request_not_pending", { requestId: request.request_id });

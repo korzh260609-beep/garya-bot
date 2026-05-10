@@ -4,6 +4,7 @@
 // Do not execute tools here; this file only describes what should be checked.
 
 const DEFAULT_CHECKS = [
+  "users_identity_registry",
   "render_logs",
   "render_env_inventory",
   "github_actions_latest_run",

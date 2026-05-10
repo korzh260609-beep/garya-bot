@@ -15,6 +15,7 @@ import {
 import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
+import { runUsersIdentityRegistryCheck } from "./usersIdentityRegistryCheck.js";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -51,6 +52,11 @@ function summarizeWorkflowRun(result = {}) {
 function summarizeCommits(result = {}) {
   if (!result.ok) return result.error || "Recent commits check failed.";
   return result.summary?.text || `Recent commits checked: ${result.searched_commits ?? "unknown"}.`;
+}
+
+function summarizeUsersIdentityRegistry(result = {}) {
+  if (!result.ok) return result.error || result.summary || "Users identity registry check failed.";
+  return result.summary || "Users identity registry check passed.";
 }
 
 async function safeCheck(type, fn, summarize) {
@@ -147,6 +153,14 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
 
   const checks = Array.isArray(plan.checks) ? plan.checks : [];
   const results = [];
+
+  if (checks.includes("users_identity_registry")) {
+    results.push(await safeCheck(
+      "users_identity_registry",
+      () => runUsersIdentityRegistryCheck(),
+      summarizeUsersIdentityRegistry
+    ));
+  }
 
   if (checks.includes("render_logs")) {
     results.push(await safeCheck(

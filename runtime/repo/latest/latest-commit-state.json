@@ -1,50 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T12:54:24.314Z",
+  "generated_at": "2026-05-10T13:23:36.918Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
-  "previous_head_sha": "7a195298b875822582f73b1e573d8c4f7ca66b64",
+  "current_head_sha": "cfa9446c76e84e318b36092b1369df43971e2875",
+  "previous_head_sha": "ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "657e22e2926c17b2f0ebd060fcb3e6e019eaa80a",
+  "registry_commit_sha": "76da9412d87862d6da7d343d448987d5fe077fe0",
   "latest_commit": {
-    "sha": "ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
-    "short_sha": "ada4b11ff088",
-    "message": "observation: add journal health trigger\n\nMerge PR #173: add trigger-first latest-only observation journal health report.",
+    "sha": "cfa9446c76e84e318b36092b1369df43971e2875",
+    "short_sha": "cfa9446c76e8",
+    "message": "observation: add journal health trigger smoke\n\nMerge PR #174: add smoke coverage for observation journal health trigger.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T12:54:01Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
-    "changed_files_count": 4,
+    "date": "2026-05-10T13:23:16Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/cfa9446c76e84e318b36092b1369df43971e2875",
+    "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": "src/agents/observation/eventSchema.js",
+        "filename": "package.json",
         "status": "modified",
         "additions": 1,
         "deletions": 0,
         "changes": 1
       },
       {
-        "filename": "src/agents/observation/journalHealthObservationBridge.js",
+        "filename": "scripts/smokeObservationJournalHealthTrigger.js",
         "status": "added",
-        "additions": 99,
+        "additions": 54,
         "deletions": 0,
-        "changes": 99
-      },
-      {
-        "filename": "src/agents/observation/triggers/observationTriggerRegistry.js",
-        "status": "modified",
-        "additions": 7,
-        "deletions": 0,
-        "changes": 7
-      },
-      {
-        "filename": "src/agents/observation/triggers/observationTriggerRunner.js",
-        "status": "modified",
-        "additions": 20,
-        "deletions": 16,
-        "changes": 36
+        "changes": 54
       }
     ]
   }

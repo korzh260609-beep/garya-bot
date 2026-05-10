@@ -132,6 +132,7 @@ jobs:
       - name: Check Diagnostics Layer syntax
         run: |
           node --check src/diagnostics/diagnosticsIntent.js
+          node --check src/diagnostics/diagnosticsObservationBridge.js
           node --check src/diagnostics/diagnosticsPlan.js
           node --check src/diagnostics/diagnosticsReport.js
           node --check src/diagnostics/diagnosticsRunner.js
@@ -162,6 +163,9 @@ jobs:
 
       - name: Smoke disabled message context injection
         run: npm run smoke:message-context-injection
+
+      - name: Smoke diagnostics observation bridge
+        run: npm run smoke:diagnostics-observation-bridge
 
       - name: Smoke format-only message context injection
         run: npm run smoke:message-context-injection-format-only

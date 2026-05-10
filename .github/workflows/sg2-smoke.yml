@@ -161,6 +161,7 @@ jobs:
 
       - name: Check smoke scripts syntax
         run: |
+          node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
 
       - name: Smoke GitHub Actions formatter
@@ -180,6 +181,9 @@ jobs:
 
       - name: Smoke message context injection guards
         run: npm run smoke:message-context-injection-guards
+
+      - name: Smoke observation journal health latest check
+        run: npm run smoke:observation-journal-health-latest-check
 
       - name: Smoke observation journal health trigger
         run: npm run smoke:observation-journal-health-trigger

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T09:43:41.664Z",
+  "generated_at": "2026-05-10T10:05:02.478Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "9ade2c398665483171853571ee563fbfc95a72ad",
+  "head_sha": "b208b8a4ed87edad4f724d8c170639b4b3995d66",
   "truncated": false,
-  "items_count": 294,
+  "items_count": 299,
   "semantic_fields": [
     "module",
     "layer",
@@ -2075,6 +2075,24 @@
       }
     },
     {
+      "path": "scripts/smokeObservationTriggerLayer.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeRuntimeStatusObservationBridge.js",
       "type": "file",
       "parent": "scripts",
@@ -2570,6 +2588,87 @@
       "path": "src/agents/observation/runtimeStatusObservationBridge.js",
       "type": "file",
       "parent": "src/agents/observation",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/triggers",
+      "type": "folder",
+      "parent": "src/agents/observation",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/triggers/index.js",
+      "type": "file",
+      "parent": "src/agents/observation/triggers",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/triggers/observationTriggerRegistry.js",
+      "type": "file",
+      "parent": "src/agents/observation/triggers",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/triggers/observationTriggerRunner.js",
+      "type": "file",
+      "parent": "src/agents/observation/triggers",
       "extension": "js",
       "description": "JavaScript source file.",
       "status": "active_or_config",

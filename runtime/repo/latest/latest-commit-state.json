@@ -1,36 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T13:23:36.918Z",
+  "generated_at": "2026-05-10T13:28:20.781Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "cfa9446c76e84e318b36092b1369df43971e2875",
-  "previous_head_sha": "ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
+  "current_head_sha": "06bf3f28dd15af82856f3f92f0251866fdc027f9",
+  "previous_head_sha": "cfa9446c76e84e318b36092b1369df43971e2875",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "76da9412d87862d6da7d343d448987d5fe077fe0",
+  "registry_commit_sha": "dd0ec35c17fd0c352e37d2394eb2cf5eee44c3bb",
   "latest_commit": {
-    "sha": "cfa9446c76e84e318b36092b1369df43971e2875",
-    "short_sha": "cfa9446c76e8",
-    "message": "observation: add journal health trigger smoke\n\nMerge PR #174: add smoke coverage for observation journal health trigger.",
+    "sha": "06bf3f28dd15af82856f3f92f0251866fdc027f9",
+    "short_sha": "06bf3f28dd15",
+    "message": "ci: run observation journal health smoke\n\nMerge PR #175: run observation journal health smoke in SG2 Smoke CI.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T13:23:16Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/cfa9446c76e84e318b36092b1369df43971e2875",
+    "date": "2026-05-10T13:27:56Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/06bf3f28dd15af82856f3f92f0251866fdc027f9",
     "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": "package.json",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 1,
+        "additions": 8,
         "deletions": 0,
-        "changes": 1
+        "changes": 8
       },
       {
         "filename": "scripts/smokeObservationJournalHealthTrigger.js",
-        "status": "added",
-        "additions": 54,
-        "deletions": 0,
-        "changes": 54
+        "status": "modified",
+        "additions": 7,
+        "deletions": 35,
+        "changes": 42
       }
     ]
   }

@@ -8,6 +8,7 @@ import { OBSERVATION_EVENT_TYPES } from "../eventSchema.js";
 export const OBSERVATION_TRIGGER_NAMES = Object.freeze({
   DIAGNOSTICS_FINISHED: "diagnostics.finished",
   RUNTIME_STATUS_REQUESTED: "runtime.status_requested",
+  OBSERVATION_JOURNAL_HEALTH_REQUESTED: "observation.journal_health_requested",
 });
 
 export const OBSERVATION_TRIGGER_REGISTRY = Object.freeze({
@@ -21,6 +22,12 @@ export const OBSERVATION_TRIGGER_REGISTRY = Object.freeze({
     name: OBSERVATION_TRIGGER_NAMES.RUNTIME_STATUS_REQUESTED,
     eventType: OBSERVATION_EVENT_TYPES.RUNTIME_STATUS,
     latestReportName: "runtime-status-latest",
+    enabled: true,
+  }),
+  [OBSERVATION_TRIGGER_NAMES.OBSERVATION_JOURNAL_HEALTH_REQUESTED]: Object.freeze({
+    name: OBSERVATION_TRIGGER_NAMES.OBSERVATION_JOURNAL_HEALTH_REQUESTED,
+    eventType: OBSERVATION_EVENT_TYPES.OBSERVATION_JOURNAL_HEALTH,
+    latestReportName: "observation-journal-health-latest",
     enabled: true,
   }),
 });

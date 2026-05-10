@@ -183,6 +183,9 @@ jobs:
       - name: Smoke observation producer
         run: npm run smoke:observation-producer
 
+      - name: Smoke runtime status observation bridge
+        run: npm run smoke:runtime-status-observation-bridge
+
       - name: Smoke users identity registry diagnostics
         run: npm run smoke:users-identity-registry
 
@@ -218,6 +221,7 @@ jobs:
           node --check src/agents/observation/observationProducer.js
           node --check src/agents/observation/observationReader.js
           node --check src/agents/observation/observationWriter.js
+          node --check src/agents/observation/runtimeStatusObservationBridge.js
           node --check src/agents/observation/index.js
 
       - name: Check Telegram transport syntax

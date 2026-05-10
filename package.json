@@ -13,6 +13,7 @@
     "smoke:message-context-injection-guards": "node ./scripts/smokeMessageContextInjectionGuards.js",
     "smoke:observation-latest-report-check": "node ./scripts/smokeObservationLatestReportCheck.js",
     "smoke:observation-producer": "node ./scripts/smokeObservationProducer.js",
+    "smoke:runtime-status-observation-bridge": "node ./scripts/smokeRuntimeStatusObservationBridge.js",
     "smoke:users-identity-registry": "node ./scripts/smokeUsersIdentityRegistryCheck.js",
     "smoke:users-identity-linking": "node ./scripts/smokeUserIdentityLinking.js",
     "smoke:users-identity-linking-check": "node ./scripts/smokeUsersIdentityLinkingCheck.js",

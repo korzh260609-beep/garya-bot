@@ -94,7 +94,7 @@ export const githubToolDefinitions = [
         },
         branch: {
           type: "string",
-          description: "Branch/ref to inspect. Default current SG project branch.",
+          description: "Branch/ref to inspect. Default current project branch.",
         },
       },
       required: [],
@@ -155,7 +155,7 @@ export const githubToolDefinitions = [
   {
     type: "function",
     name: "sg_diagnostics_check",
-    description: "Build a safe SG diagnostics plan when the Monarch asks in normal language to check a problem, broken behavior, deploy/runtime issue, Render, GitHub Actions, repository state, registry, or recent project change. This tool is read-only and does not require slash commands or technical phrases. First skeleton returns a diagnostics plan/report shape; deep runtime orchestration is added later.",
+    description: "Build and run a safe SG diagnostics check when the Monarch asks in normal language to check a problem, broken behavior, deploy/runtime issue, Render, GitHub Actions, repository state, registry, identity registry, durable identity registry, users identity registry, globalUserId, global user id, global id, user registry, or recent project change. Use this instead of searching for a file when the request says to check globalUserId, durable identity registry, or users identity registry. This tool is read-only and does not require slash commands or technical phrases.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -166,7 +166,7 @@ export const githubToolDefinitions = [
         },
         checks: {
           type: "array",
-          description: "Optional explicit check ids when the model has already selected a narrower diagnostics plan. Omit for the default full safe plan.",
+          description: "Optional explicit check ids when the model has already selected a narrower diagnostics plan. For identity/globalUserId/durable identity registry requests, use [\"users_identity_registry\"]. Omit for the default full safe plan.",
           items: {
             type: "string"
           }

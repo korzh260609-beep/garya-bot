@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T06:22:10.438Z",
+  "generated_at": "2026-05-10T06:34:20.444Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "d34aa7ea2554c379601381e95ee635429fa7b11d",
+  "head_sha": "b4a4de5354f05ff0a0c01ac6dadcfc99853f8909",
   "truncated": false,
-  "items_count": 284,
+  "items_count": 286,
   "semantic_fields": [
     "module",
     "layer",
@@ -2095,6 +2095,24 @@
       }
     },
     {
+      "path": "scripts/smokeUsersIdentityLinkRequestsCheck.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeUsersIdentityRegistryCheck.js",
       "type": "file",
       "parent": "scripts",
@@ -4073,6 +4091,24 @@
     },
     {
       "path": "src/diagnostics/usersIdentityLinkingCheck.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/usersIdentityLinkRequestsCheck.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

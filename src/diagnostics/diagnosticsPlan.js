@@ -1,3 +1,6 @@
+// SG 2.0 Diagnostics Layer plan builder.
+// Purpose: build a safe diagnostics plan from intent and user text.
+
 const DEFAULT_CHECKS = [
   "users_identity_registry",
   "users_identity_linking",

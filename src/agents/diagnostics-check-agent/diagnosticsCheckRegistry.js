@@ -116,6 +116,11 @@ export const diagnosticsCheckRegistry = [
     summarize: summarizeObservationLatestReport,
   },
   {
+    name: "observation_journal_health_latest",
+    run: () => runObservationLatestReportCheck({ name: "observation-journal-health-latest" }),
+    summarize: summarizeObservationLatestReport,
+  },
+  {
     name: "observation_journal_status",
     run: () => runObservationJournalStatusCheck(),
     summarize: summarizeObservationJournalStatus,

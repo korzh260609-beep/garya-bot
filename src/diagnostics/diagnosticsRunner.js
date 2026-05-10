@@ -3,6 +3,7 @@
 // Purpose: provide a bounded public diagnostics entry point without coupling diagnostics to Telegram or core message handling.
 // Diagnostics may collect generated runtime reports, but must not mutate code, env, Render settings, GitHub settings, or transport logic.
 
+import { produceRuntimeStatusObservationLatest } from "../agents/observation/runtimeStatusObservationBridge.js";
 import { findCommitsByIntent } from "../agents/repo-commit-watcher-agent/repoCommitSearch.js";
 import { runRenderEnvAgent } from "../agents/render-env-agent/renderEnvAgent.js";
 import { runRepoRegistryAgent } from "../agents/repo-registry-agent/repoRegistryAgent.js";
@@ -111,6 +112,24 @@ async function safePublishDiagnosticsObservation(diagnosticsResult, context) {
       ok: false,
       type: "diagnostics_observation_publish_result",
       error: error?.message || "diagnostics_observation_publish_failed",
+    };
+  }
+}
+
+async function safePublishRuntimeStatusObservation() {
+  try {
+    const observation = await produceRuntimeStatusObservationLatest();
+
+    return {
+      ok: Boolean(observation?.ok),
+      type: "runtime_status_observation_publish_result",
+      observation,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      type: "runtime_status_observation_publish_result",
+      error: error?.message || "runtime_status_observation_publish_failed",
     };
   }
 }
@@ -284,9 +303,11 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
     finalText,
   };
   const observation = await safePublishDiagnosticsObservation(diagnosticsResult, context);
+  const runtimeObservation = await safePublishRuntimeStatusObservation();
 
   return {
     ...diagnosticsResult,
     observation,
+    runtimeObservation,
   };
 }

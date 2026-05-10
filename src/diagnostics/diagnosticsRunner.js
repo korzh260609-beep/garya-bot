@@ -19,6 +19,7 @@ import {
 import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
+import { runObservationJournalStatusCheck } from "./observationJournalStatusCheck.js";
 import { runObservationLatestReportCheck } from "./observationLatestReportCheck.js";
 import { runUsersIdentityLinkingCheck } from "./usersIdentityLinkingCheck.js";
 import { runUsersIdentityLinkRequestsCheck } from "./usersIdentityLinkRequestsCheck.js";
@@ -64,6 +65,11 @@ function summarizeCommits(result = {}) {
 function summarizeObservationLatestReport(result = {}) {
   if (!result.ok) return result.error || result.summary || "Observation latest report check failed.";
   return result.summary || "Observation latest report check passed.";
+}
+
+function summarizeObservationJournalStatus(result = {}) {
+  if (!result.ok) return result.error || result.summary || "Observation journal status check failed.";
+  return result.summary || "Observation journal status check passed.";
 }
 
 function summarizeUsersIdentityRegistry(result = {}) {
@@ -245,6 +251,14 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
       "observation_latest_report",
       () => runObservationLatestReportCheck({ name: "diagnostics-latest" }),
       summarizeObservationLatestReport
+    ));
+  }
+
+  if (checks.includes("observation_journal_status")) {
+    results.push(await safeCheck(
+      "observation_journal_status",
+      () => runObservationJournalStatusCheck(),
+      summarizeObservationJournalStatus
     ));
   }
 

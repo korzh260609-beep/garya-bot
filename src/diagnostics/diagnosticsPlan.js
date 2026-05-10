@@ -6,6 +6,7 @@
 const DEFAULT_CHECKS = [
   "users_identity_registry",
   "users_identity_linking",
+  "users_identity_link_requests",
   "render_logs",
   "render_env_inventory",
   "github_actions_latest_run",

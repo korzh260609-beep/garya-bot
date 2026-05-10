@@ -1,22 +1,22 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T05:24:24.929Z",
+  "generated_at": "2026-05-10T05:31:17.104Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "197487e8e32021fe8d1514d95ed3010b9ea6521c",
-  "previous_head_sha": "2d1fb9bd8f377a33c58992984d0aa6f5693d720a",
+  "current_head_sha": "c03ce5f82392e65e0b2bb54a3ec8b8da7d6821fe",
+  "previous_head_sha": "197487e8e32021fe8d1514d95ed3010b9ea6521c",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "c50f433cfd84a75d9aaa1d044ebcf4549a7bc827",
+  "registry_commit_sha": "f6b559291bc38089f86ab574f1e983326bbef978",
   "latest_commit": {
-    "sha": "197487e8e32021fe8d1514d95ed3010b9ea6521c",
-    "short_sha": "197487e8e320",
-    "message": "Merge pull request #155 from korzh260609-beep/feature/users-identity-linking-skeleton\n\nusers: add identity linking skeleton",
+    "sha": "c03ce5f82392e65e0b2bb54a3ec8b8da7d6821fe",
+    "short_sha": "c03ce5f82392",
+    "message": "Merge pull request #156 from korzh260609-beep/feature/users-identity-linking-diagnostic\n\ndiagnostics: add users identity linking check",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T05:24:06Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/197487e8e32021fe8d1514d95ed3010b9ea6521c",
-    "changed_files_count": 4,
+    "date": "2026-05-10T05:31:01Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c03ce5f82392e65e0b2bb54a3ec8b8da7d6821fe",
+    "changed_files_count": 7,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
@@ -33,18 +33,39 @@
         "changes": 3
       },
       {
-        "filename": "scripts/smokeUserIdentityLinking.js",
+        "filename": "scripts/smokeUsersIdentityLinkingCheck.js",
         "status": "added",
-        "additions": 43,
+        "additions": 20,
         "deletions": 0,
-        "changes": 43
+        "changes": 20
       },
       {
-        "filename": "src/users/userIdentityLinking.js",
-        "status": "added",
-        "additions": 165,
+        "filename": "src/diagnostics/diagnosticsPlan.js",
+        "status": "modified",
+        "additions": 1,
         "deletions": 0,
-        "changes": 165
+        "changes": 1
+      },
+      {
+        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "status": "modified",
+        "additions": 14,
+        "deletions": 0,
+        "changes": 14
+      },
+      {
+        "filename": "src/diagnostics/index.js",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/diagnostics/usersIdentityLinkingCheck.js",
+        "status": "added",
+        "additions": 80,
+        "deletions": 0,
+        "changes": 80
       }
     ]
   }

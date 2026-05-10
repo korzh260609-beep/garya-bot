@@ -1,21 +1,21 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T07:30:51.342Z",
+  "generated_at": "2026-05-10T07:42:08.835Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "1a02b76b0e890b0a9b380c89ac4ee10aace59071",
-  "previous_head_sha": "b4a4de5354f05ff0a0c01ac6dadcfc99853f8909",
+  "current_head_sha": "9d20f9c76c7f8b3f53ac930d3000bcfcffa84386",
+  "previous_head_sha": "1a02b76b0e890b0a9b380c89ac4ee10aace59071",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "5c2f314d017842751550ada75143a5ded4a44d1d",
+  "registry_commit_sha": "18d7413ba733452c302d65b944127b90ac572603",
   "latest_commit": {
-    "sha": "1a02b76b0e890b0a9b380c89ac4ee10aace59071",
-    "short_sha": "1a02b76b0e89",
-    "message": "observation: add producer skeleton\n\nMerge PR #162: add Observation Producer skeleton for SG journal/nervous-system layer.",
+    "sha": "9d20f9c76c7f8b3f53ac930d3000bcfcffa84386",
+    "short_sha": "9d20f9c76c7f",
+    "message": "diagnostics: publish sanitized observation events\n\nMerge PR #163: publish sanitized diagnostics observation events.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T07:30:30Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1a02b76b0e890b0a9b380c89ac4ee10aace59071",
+    "date": "2026-05-10T07:41:50Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/9d20f9c76c7f8b3f53ac930d3000bcfcffa84386",
     "changed_files_count": 5,
     "changed_files": [
       {
@@ -33,25 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeObservationProducer.js",
+        "filename": "scripts/smokeDiagnosticsObservationBridge.js",
         "status": "added",
-        "additions": 93,
+        "additions": 77,
         "deletions": 0,
-        "changes": 93
+        "changes": 77
       },
       {
-        "filename": "src/agents/observation/index.js",
+        "filename": "src/diagnostics/diagnosticsObservationBridge.js",
+        "status": "added",
+        "additions": 100,
+        "deletions": 0,
+        "changes": 100
+      },
+      {
+        "filename": "src/diagnostics/diagnosticsRunner.js",
         "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "src/agents/observation/observationProducer.js",
-        "status": "added",
-        "additions": 127,
-        "deletions": 0,
-        "changes": 127
+        "additions": 26,
+        "deletions": 2,
+        "changes": 28
       }
     ]
   }

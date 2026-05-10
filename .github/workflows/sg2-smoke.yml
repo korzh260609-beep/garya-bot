@@ -244,6 +244,7 @@ jobs:
           node --check src/agents/repo-registry-agent/repoRegistryAgent.js
           node --check src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchAgent.js
           node --check src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js
+          node --check src/agents/observation-trigger-dispatch-agent/runObservationTriggerDispatchAgent.js
           node --check src/agents/observation-trigger-dispatch-agent/index.js
           node --check src/agents/observation/eventSchema.js
           node --check src/agents/observation/journalHealthObservationBridge.js

@@ -15,6 +15,7 @@ import {
 import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
+import { runUsersIdentityLinkingCheck } from "./usersIdentityLinkingCheck.js";
 import { runUsersIdentityRegistryCheck } from "./usersIdentityRegistryCheck.js";
 
 function normalizeString(value) {
@@ -57,6 +58,11 @@ function summarizeCommits(result = {}) {
 function summarizeUsersIdentityRegistry(result = {}) {
   if (!result.ok) return result.error || result.summary || "Users identity registry check failed.";
   return result.summary || "Users identity registry check passed.";
+}
+
+function summarizeUsersIdentityLinking(result = {}) {
+  if (!result.ok) return result.error || result.summary || "Users identity linking check failed.";
+  return result.summary || "Users identity linking check passed.";
 }
 
 async function safeCheck(type, fn, summarize) {
@@ -159,6 +165,14 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
       "users_identity_registry",
       () => runUsersIdentityRegistryCheck(),
       summarizeUsersIdentityRegistry
+    ));
+  }
+
+  if (checks.includes("users_identity_linking")) {
+    results.push(await safeCheck(
+      "users_identity_linking",
+      () => runUsersIdentityLinkingCheck(),
+      summarizeUsersIdentityLinking
     ));
   }
 

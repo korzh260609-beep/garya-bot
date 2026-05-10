@@ -123,6 +123,9 @@ jobs:
           node --check src/users/userRegistryStore.js
           node --check src/users/userIdentityLinking.js
           node --check src/users/userIdentityLinkingPolicy.js
+          node --check src/users/userIdentityLinkRequestConstants.js
+          node --check src/users/userIdentityLinkRequestHelpers.js
+          node --check src/users/userIdentityLinkRequestStore.js
           node --check src/users/userIdentityLinkRequests.js
           node --check src/users/identityResolver.js
 

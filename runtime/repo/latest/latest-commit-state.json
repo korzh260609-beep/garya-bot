@@ -1,36 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T13:28:20.781Z",
+  "generated_at": "2026-05-10T15:09:08.559Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "06bf3f28dd15af82856f3f92f0251866fdc027f9",
-  "previous_head_sha": "cfa9446c76e84e318b36092b1369df43971e2875",
+  "current_head_sha": "b551635b07cad4f1b27174ed0621892d195912c8",
+  "previous_head_sha": "06bf3f28dd15af82856f3f92f0251866fdc027f9",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "dd0ec35c17fd0c352e37d2394eb2cf5eee44c3bb",
+  "registry_commit_sha": "9b9bd3f2c97cda20329cf158b23ff135cd4059df",
   "latest_commit": {
-    "sha": "06bf3f28dd15af82856f3f92f0251866fdc027f9",
-    "short_sha": "06bf3f28dd15",
-    "message": "ci: run observation journal health smoke\n\nMerge PR #175: run observation journal health smoke in SG2 Smoke CI.",
+    "sha": "b551635b07cad4f1b27174ed0621892d195912c8",
+    "short_sha": "b551635b07ca",
+    "message": "diagnostics: add observation journal health latest check\n\nMerge PR #176: add read-only diagnostics check for observation journal health latest report.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T13:27:56Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/06bf3f28dd15af82856f3f92f0251866fdc027f9",
-    "changed_files_count": 2,
+    "date": "2026-05-10T15:08:47Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b551635b07cad4f1b27174ed0621892d195912c8",
+    "changed_files_count": 4,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 8,
+        "additions": 4,
         "deletions": 0,
-        "changes": 8
+        "changes": 4
       },
       {
-        "filename": "scripts/smokeObservationJournalHealthTrigger.js",
+        "filename": "package.json",
         "status": "modified",
-        "additions": 7,
-        "deletions": 35,
-        "changes": 42
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "scripts/smokeObservationJournalHealthLatestCheck.js",
+        "status": "added",
+        "additions": 31,
+        "deletions": 0,
+        "changes": 31
+      },
+      {
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "status": "modified",
+        "additions": 5,
+        "deletions": 0,
+        "changes": 5
       }
     ]
   }

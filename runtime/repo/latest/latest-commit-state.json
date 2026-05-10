@@ -1,57 +1,57 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T06:12:43.074Z",
+  "generated_at": "2026-05-10T06:22:11.781Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "2f57fa8bd30fb7090275e019878764c4c8a73905",
-  "previous_head_sha": "8df43e9598ac24137dbc932e3e632e57a1f7d0a8",
+  "current_head_sha": "d34aa7ea2554c379601381e95ee635429fa7b11d",
+  "previous_head_sha": "2f57fa8bd30fb7090275e019878764c4c8a73905",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "3cfd5146b3d36205c544683034ec969de107709f",
+  "registry_commit_sha": "bab2403c70aa16917eb120a21efdca7781bdffe7",
   "latest_commit": {
-    "sha": "2f57fa8bd30fb7090275e019878764c4c8a73905",
-    "short_sha": "2f57fa8bd30f",
-    "message": "users: add identity link request boundary\n\nMerge PR #159: add pending identity link request boundary.",
+    "sha": "d34aa7ea2554c379601381e95ee635429fa7b11d",
+    "short_sha": "d34aa7ea2554",
+    "message": "users: split identity link request module\n\nMerge PR #160: split identity link request module into constants, helpers, store, and service facade.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T06:12:27Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/2f57fa8bd30fb7090275e019878764c4c8a73905",
+    "date": "2026-05-10T06:21:53Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d34aa7ea2554c379601381e95ee635429fa7b11d",
     "changed_files_count": 5,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 4,
+        "additions": 3,
         "deletions": 0,
-        "changes": 4
-      },
-      {
-        "filename": "package.json",
-        "status": "modified",
-        "additions": 2,
-        "deletions": 1,
         "changes": 3
       },
       {
-        "filename": "scripts/smokeUserIdentityLinkRequests.js",
+        "filename": "src/users/userIdentityLinkRequestConstants.js",
         "status": "added",
-        "additions": 64,
+        "additions": 14,
         "deletions": 0,
-        "changes": 64
+        "changes": 14
+      },
+      {
+        "filename": "src/users/userIdentityLinkRequestHelpers.js",
+        "status": "added",
+        "additions": 100,
+        "deletions": 0,
+        "changes": 100
+      },
+      {
+        "filename": "src/users/userIdentityLinkRequestStore.js",
+        "status": "added",
+        "additions": 179,
+        "deletions": 0,
+        "changes": 179
       },
       {
         "filename": "src/users/userIdentityLinkRequests.js",
-        "status": "added",
-        "additions": 375,
-        "deletions": 0,
-        "changes": 375
-      },
-      {
-        "filename": "src/users/userRegistrySchema.js",
         "status": "modified",
-        "additions": 29,
-        "deletions": 1,
-        "changes": 30
+        "additions": 50,
+        "deletions": 229,
+        "changes": 279
       }
     ]
   }

@@ -8,3 +8,4 @@ export * from "./observationPaths.js";
 export * from "./observationProducer.js";
 export * from "./observationReader.js";
 export * from "./observationWriter.js";
+export * from "./runtimeStatusObservationBridge.js";

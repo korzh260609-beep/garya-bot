@@ -14,7 +14,8 @@
     "smoke:users-identity-linking": "node ./scripts/smokeUserIdentityLinking.js",
     "smoke:users-identity-linking-check": "node ./scripts/smokeUsersIdentityLinkingCheck.js",
     "smoke:users-identity-linking-policy": "node ./scripts/smokeUserIdentityLinkingPolicy.js",
-    "smoke:users-identity-link-requests": "node ./scripts/smokeUserIdentityLinkRequests.js"
+    "smoke:users-identity-link-requests": "node ./scripts/smokeUserIdentityLinkRequests.js",
+    "smoke:users-identity-link-requests-check": "node ./scripts/smokeUsersIdentityLinkRequestsCheck.js"
   },
   "dependencies": {
     "express": "^4.18.2",

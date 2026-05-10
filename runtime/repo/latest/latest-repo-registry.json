@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T15:35:50.763Z",
+  "generated_at": "2026-05-10T15:42:55.503Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "65fe62323e932d89cd441c2dd5d7b23c615cf12c",
+  "head_sha": "67598227a4e9892f78c920c57474cba6e8be8085",
   "truncated": false,
-  "items_count": 314,
+  "items_count": 315,
   "semantic_fields": [
     "module",
     "layer",
@@ -2040,6 +2040,24 @@
     },
     {
       "path": "scripts/smokeMessageContextInjectionSystemContext.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeObservationDispatchGithubEvents.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T12:54:23.382Z",
+  "generated_at": "2026-05-10T13:23:35.553Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
+  "head_sha": "cfa9446c76e84e318b36092b1369df43971e2875",
   "truncated": false,
-  "items_count": 306,
+  "items_count": 307,
   "semantic_fields": [
     "module",
     "layer",
@@ -2022,6 +2022,24 @@
     },
     {
       "path": "scripts/smokeMessageContextInjectionSystemContext.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeObservationJournalHealthTrigger.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

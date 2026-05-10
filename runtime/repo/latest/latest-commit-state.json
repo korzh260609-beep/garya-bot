@@ -1,29 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T10:10:57.541Z",
+  "generated_at": "2026-05-10T11:02:47.046Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b38efe3afd5f5787e095231e9d4eb45b068026ab",
-  "previous_head_sha": "b208b8a4ed87edad4f724d8c170639b4b3995d66",
+  "current_head_sha": "1c192e781942b1a5a431e5ca64afd52edbc60d29",
+  "previous_head_sha": "b38efe3afd5f5787e095231e9d4eb45b068026ab",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "4a3790b5b904dfecbc4966628ab3a64c8828f4a3",
+  "registry_commit_sha": "ccb123862740b7dabf59d1efe287e8f6559e90f2",
   "latest_commit": {
-    "sha": "b38efe3afd5f5787e095231e9d4eb45b068026ab",
-    "short_sha": "b38efe3afd5f",
-    "message": "diagnostics: route observation publishing through triggers\n\nMerge PR #168: route diagnostics observation publishing through observation triggers.",
+    "sha": "1c192e781942b1a5a431e5ca64afd52edbc60d29",
+    "short_sha": "1c192e781942",
+    "message": "diagnostics: add observation journal status check\n\nMerge PR #169: add read-only observation journal status check.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T10:10:39Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b38efe3afd5f5787e095231e9d4eb45b068026ab",
-    "changed_files_count": 1,
+    "date": "2026-05-10T11:02:25Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1c192e781942b1a5a431e5ca64afd52edbc60d29",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "filename": "scripts/smokeObservationJournalStatusCheck.js",
+        "status": "added",
+        "additions": 21,
+        "deletions": 0,
+        "changes": 21
+      },
+      {
+        "filename": "src/diagnostics/diagnosticsPlan.js",
         "status": "modified",
-        "additions": 32,
-        "deletions": 26,
-        "changes": 58
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/diagnostics/observationJournalStatusCheck.js",
+        "status": "added",
+        "additions": 68,
+        "deletions": 0,
+        "changes": 68
       }
     ]
   }

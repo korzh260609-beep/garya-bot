@@ -3,7 +3,10 @@
 // Purpose: provide a bounded public diagnostics entry point without coupling diagnostics to Telegram or core message handling.
 // Diagnostics may collect generated runtime reports, but must not mutate code, env, Render settings, GitHub settings, or transport logic.
 
-import { produceRuntimeStatusObservationLatest } from "../agents/observation/runtimeStatusObservationBridge.js";
+import {
+  OBSERVATION_TRIGGER_NAMES,
+  runObservationTrigger,
+} from "../agents/observation/triggers/index.js";
 import { findCommitsByIntent } from "../agents/repo-commit-watcher-agent/repoCommitSearch.js";
 import { runRenderEnvAgent } from "../agents/render-env-agent/renderEnvAgent.js";
 import { runRepoRegistryAgent } from "../agents/repo-registry-agent/repoRegistryAgent.js";
@@ -14,7 +17,6 @@ import {
   getCurrentProjectRepository,
 } from "../tools/github/githubProjectDefaults.js";
 import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
-import { produceDiagnosticsObservationLatest } from "./diagnosticsObservationBridge.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
 import { runObservationLatestReportCheck } from "./observationLatestReportCheck.js";
@@ -98,40 +100,44 @@ async function safeCheck(type, fn, summarize) {
   }
 }
 
-async function safePublishDiagnosticsObservation(diagnosticsResult, context) {
+async function safeRunObservationTrigger(input = {}, fallbackType = "observation_trigger_result") {
   try {
-    const observation = await produceDiagnosticsObservationLatest(diagnosticsResult, context);
-
-    return {
-      ok: Boolean(observation?.ok),
-      type: "diagnostics_observation_publish_result",
-      observation,
-    };
+    return await runObservationTrigger(input);
   } catch (error) {
     return {
       ok: false,
-      type: "diagnostics_observation_publish_result",
-      error: error?.message || "diagnostics_observation_publish_failed",
+      type: fallbackType,
+      error: error?.message || "observation_trigger_failed",
     };
   }
 }
 
-async function safePublishRuntimeStatusObservation() {
-  try {
-    const observation = await produceRuntimeStatusObservationLatest();
+async function safePublishDiagnosticsObservation(diagnosticsResult, context) {
+  const result = await safeRunObservationTrigger({
+    name: OBSERVATION_TRIGGER_NAMES.DIAGNOSTICS_FINISHED,
+    payload: {
+      diagnosticsResult,
+    },
+    context,
+  }, "diagnostics_observation_publish_result");
 
-    return {
-      ok: Boolean(observation?.ok),
-      type: "runtime_status_observation_publish_result",
-      observation,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      type: "runtime_status_observation_publish_result",
-      error: error?.message || "runtime_status_observation_publish_failed",
-    };
-  }
+  return {
+    ok: Boolean(result?.ok),
+    type: "diagnostics_observation_publish_result",
+    observation: result?.observation || result,
+  };
+}
+
+async function safePublishRuntimeStatusObservation() {
+  const result = await safeRunObservationTrigger({
+    name: OBSERVATION_TRIGGER_NAMES.RUNTIME_STATUS_REQUESTED,
+  }, "runtime_status_observation_publish_result");
+
+  return {
+    ok: Boolean(result?.ok),
+    type: "runtime_status_observation_publish_result",
+    observation: result?.observation || result,
+  };
 }
 
 async function checkLatestWorkflowRun({ repo, branch, workflow }) {

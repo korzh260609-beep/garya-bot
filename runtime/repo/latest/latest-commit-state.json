@@ -1,29 +1,71 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T09:43:42.714Z",
+  "generated_at": "2026-05-10T10:05:04.032Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "9ade2c398665483171853571ee563fbfc95a72ad",
-  "previous_head_sha": "09adc629b8719d7fa679e63a9aa92f3143c0ccca",
+  "current_head_sha": "b208b8a4ed87edad4f724d8c170639b4b3995d66",
+  "previous_head_sha": "9ade2c398665483171853571ee563fbfc95a72ad",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "b43af732287d9b8bfd28d5a4ff28f22db9600ecb",
+  "registry_commit_sha": "49b5fefc2770063b8a48b5f39d1c96a108b3b078",
   "latest_commit": {
-    "sha": "9ade2c398665483171853571ee563fbfc95a72ad",
-    "short_sha": "9ade2c398665",
-    "message": "diagnostics: publish runtime status observation\n\nMerge PR #166: publish sanitized runtime status observation during diagnostics.",
+    "sha": "b208b8a4ed87edad4f724d8c170639b4b3995d66",
+    "short_sha": "b208b8a4ed87",
+    "message": "observation: add trigger layer skeleton\n\nMerge PR #167: add minimal observation trigger layer skeleton.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T09:43:24Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/9ade2c398665483171853571ee563fbfc95a72ad",
-    "changed_files_count": 1,
+    "date": "2026-05-10T10:04:42Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b208b8a4ed87edad4f724d8c170639b4b3995d66",
+    "changed_files_count": 7,
     "changed_files": [
       {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 21,
+        "additions": 6,
         "deletions": 0,
-        "changes": 21
+        "changes": 6
+      },
+      {
+        "filename": "package.json",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "scripts/smokeObservationTriggerLayer.js",
+        "status": "added",
+        "additions": 41,
+        "deletions": 0,
+        "changes": 41
+      },
+      {
+        "filename": "src/agents/observation/index.js",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/agents/observation/triggers/index.js",
+        "status": "added",
+        "additions": 7,
+        "deletions": 0,
+        "changes": 7
+      },
+      {
+        "filename": "src/agents/observation/triggers/observationTriggerRegistry.js",
+        "status": "added",
+        "additions": 43,
+        "deletions": 0,
+        "changes": 43
+      },
+      {
+        "filename": "src/agents/observation/triggers/observationTriggerRunner.js",
+        "status": "added",
+        "additions": 60,
+        "deletions": 0,
+        "changes": 60
       }
     ]
   }

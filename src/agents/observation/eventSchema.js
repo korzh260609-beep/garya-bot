@@ -13,6 +13,7 @@ export const OBSERVATION_EVENT_TYPES = Object.freeze({
   TOOL_RESULT: "tool.result",
   RUNTIME_STATUS: "runtime.status",
   DIAGNOSTICS_RESULT: "diagnostics.result",
+  OBSERVATION_JOURNAL_HEALTH: "observation.journal_health",
   CONVERSATION_AUDIT: "conversation.audit",
   SUPERVISOR_NOTE: "supervisor.note",
 });

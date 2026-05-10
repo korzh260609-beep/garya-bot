@@ -130,6 +130,7 @@ jobs:
           node --check src/diagnostics/diagnosticsPlan.js
           node --check src/diagnostics/diagnosticsReport.js
           node --check src/diagnostics/diagnosticsRunner.js
+          node --check src/diagnostics/usersIdentityLinkingCheck.js
           node --check src/diagnostics/usersIdentityRegistryCheck.js
           node --check src/diagnostics/index.js
 
@@ -170,6 +171,9 @@ jobs:
 
       - name: Smoke users identity linking skeleton
         run: npm run smoke:users-identity-linking
+
+      - name: Smoke users identity linking diagnostics
+        run: npm run smoke:users-identity-linking-check
 
       - name: Check Agent Layer syntax
         run: |

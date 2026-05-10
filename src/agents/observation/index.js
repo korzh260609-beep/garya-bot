@@ -5,5 +5,6 @@
 
 export * from "./eventSchema.js";
 export * from "./observationPaths.js";
+export * from "./observationProducer.js";
 export * from "./observationReader.js";
 export * from "./observationWriter.js";

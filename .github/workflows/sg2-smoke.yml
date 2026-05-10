@@ -172,6 +172,9 @@ jobs:
       - name: Smoke message context injection guards
         run: npm run smoke:message-context-injection-guards
 
+      - name: Smoke observation producer
+        run: npm run smoke:observation-producer
+
       - name: Smoke users identity registry diagnostics
         run: npm run smoke:users-identity-registry
 
@@ -204,6 +207,7 @@ jobs:
           node --check src/agents/repo-registry-agent/repoRegistryAgent.js
           node --check src/agents/observation/eventSchema.js
           node --check src/agents/observation/observationPaths.js
+          node --check src/agents/observation/observationProducer.js
           node --check src/agents/observation/observationReader.js
           node --check src/agents/observation/observationWriter.js
           node --check src/agents/observation/index.js

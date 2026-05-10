@@ -1,36 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T12:02:31.697Z",
+  "generated_at": "2026-05-10T12:16:45.030Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "3e2fc17c6a767047849cb081d3bb6369b4ac21d2",
-  "previous_head_sha": "bb0ed4a7d268303690fcd712d07550547e7a38ed",
+  "current_head_sha": "7a195298b875822582f73b1e573d8c4f7ca66b64",
+  "previous_head_sha": "3e2fc17c6a767047849cb081d3bb6369b4ac21d2",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "7dc72caa0e6d5145708e45c66a25027294d8c167",
+  "registry_commit_sha": "9728d966bf6e4342a4c40fd2fea1e92e7ac888e4",
   "latest_commit": {
-    "sha": "3e2fc17c6a767047849cb081d3bb6369b4ac21d2",
-    "short_sha": "3e2fc17c6a76",
-    "message": "diagnostics: extract checks runner\n\nMerge PR #171: move bounded diagnostics check execution into diagnosticsChecksRunner.",
+    "sha": "7a195298b875822582f73b1e573d8c4f7ca66b64",
+    "short_sha": "7a195298b875",
+    "message": "agents: add diagnostics check agent\n\nMerge PR #172: add read-only diagnostics check agent for observation nervous system.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T12:02:09Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/3e2fc17c6a767047849cb081d3bb6369b4ac21d2",
-    "changed_files_count": 2,
+    "date": "2026-05-10T12:16:28Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7a195298b875822582f73b1e573d8c4f7ca66b64",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/diagnostics/diagnosticsChecksRunner.js",
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckAgent.js",
         "status": "added",
-        "additions": 217,
+        "additions": 56,
         "deletions": 0,
-        "changes": 217
+        "changes": 56
       },
       {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "status": "added",
+        "additions": 157,
+        "deletions": 0,
+        "changes": 157
+      },
+      {
+        "filename": "src/diagnostics/diagnosticsChecksRunner.js",
         "status": "modified",
-        "additions": 10,
-        "deletions": 195,
-        "changes": 205
+        "additions": 9,
+        "deletions": 205,
+        "changes": 214
       }
     ]
   }

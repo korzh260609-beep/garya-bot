@@ -1,5 +1,6 @@
 // SG 2.0 Observation Trigger Dispatch Agent registry.
 // Purpose: map bounded internal events to allowlisted observation triggers.
+// Do not add timers, Telegram integration, AI calls, memory writes, raw logs, raw provider IDs, autonomous behavior, or mutations here.
 
 import { OBSERVATION_TRIGGER_NAMES } from "../observation/triggers/index.js";
 

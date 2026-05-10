@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T15:15:32.838Z",
+  "generated_at": "2026-05-10T15:35:50.763Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "10d5260c0c838dd0e74ac109311918fcd01de7e2",
+  "head_sha": "65fe62323e932d89cd441c2dd5d7b23c615cf12c",
   "truncated": false,
-  "items_count": 309,
+  "items_count": 314,
   "semantic_fields": [
     "module",
     "layer",
@@ -2147,6 +2147,24 @@
       }
     },
     {
+      "path": "scripts/smokeObservationTriggerDispatchAgent.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeObservationTriggerLayer.js",
       "type": "file",
       "parent": "scripts",
@@ -2532,6 +2550,87 @@
         "source_priority": "source_code",
         "notes": [
           "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation-trigger-dispatch-agent",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "observation-trigger-dispatch-agent",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation-trigger-dispatch-agent/index.js",
+      "type": "file",
+      "parent": "src/agents/observation-trigger-dispatch-agent",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation-trigger-dispatch-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchAgent.js",
+      "type": "file",
+      "parent": "src/agents/observation-trigger-dispatch-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation-trigger-dispatch-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js",
+      "type": "file",
+      "parent": "src/agents/observation-trigger-dispatch-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation-trigger-dispatch-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
           "agent_specific_boundary"
         ]
       }

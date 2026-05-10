@@ -1,22 +1,22 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T07:42:08.835Z",
+  "generated_at": "2026-05-10T08:03:52.923Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "9d20f9c76c7f8b3f53ac930d3000bcfcffa84386",
-  "previous_head_sha": "1a02b76b0e890b0a9b380c89ac4ee10aace59071",
+  "current_head_sha": "afaa4461d098440e7fd44e819bbf67e4fabf8827",
+  "previous_head_sha": "9d20f9c76c7f8b3f53ac930d3000bcfcffa84386",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "18d7413ba733452c302d65b944127b90ac572603",
+  "registry_commit_sha": "9f76d8e8a2e6346e898ccf89659117d6ddbe8f47",
   "latest_commit": {
-    "sha": "9d20f9c76c7f8b3f53ac930d3000bcfcffa84386",
-    "short_sha": "9d20f9c76c7f",
-    "message": "diagnostics: publish sanitized observation events\n\nMerge PR #163: publish sanitized diagnostics observation events.",
+    "sha": "afaa4461d098440e7fd44e819bbf67e4fabf8827",
+    "short_sha": "afaa4461d098",
+    "message": "diagnostics: add observation latest report check\n\nMerge PR #164: add read-only diagnostics for observation latest report.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T07:41:50Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/9d20f9c76c7f8b3f53ac930d3000bcfcffa84386",
-    "changed_files_count": 5,
+    "date": "2026-05-10T08:03:33Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/afaa4461d098440e7fd44e819bbf67e4fabf8827",
+    "changed_files_count": 7,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
@@ -33,25 +33,39 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeDiagnosticsObservationBridge.js",
+        "filename": "scripts/smokeObservationLatestReportCheck.js",
         "status": "added",
-        "additions": 77,
+        "additions": 21,
         "deletions": 0,
-        "changes": 77
+        "changes": 21
       },
       {
-        "filename": "src/diagnostics/diagnosticsObservationBridge.js",
-        "status": "added",
-        "additions": 100,
-        "deletions": 0,
-        "changes": 100
+        "filename": "src/diagnostics/diagnosticsPlan.js",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 2,
+        "changes": 3
       },
       {
         "filename": "src/diagnostics/diagnosticsRunner.js",
         "status": "modified",
-        "additions": 26,
-        "deletions": 2,
-        "changes": 28
+        "additions": 14,
+        "deletions": 0,
+        "changes": 14
+      },
+      {
+        "filename": "src/diagnostics/index.js",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 4,
+        "changes": 6
+      },
+      {
+        "filename": "src/diagnostics/observationLatestReportCheck.js",
+        "status": "added",
+        "additions": 68,
+        "deletions": 0,
+        "changes": 68
       }
     ]
   }

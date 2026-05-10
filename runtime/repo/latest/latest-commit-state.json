@@ -1,71 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T10:05:04.032Z",
+  "generated_at": "2026-05-10T10:10:57.541Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b208b8a4ed87edad4f724d8c170639b4b3995d66",
-  "previous_head_sha": "9ade2c398665483171853571ee563fbfc95a72ad",
+  "current_head_sha": "b38efe3afd5f5787e095231e9d4eb45b068026ab",
+  "previous_head_sha": "b208b8a4ed87edad4f724d8c170639b4b3995d66",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "49b5fefc2770063b8a48b5f39d1c96a108b3b078",
+  "registry_commit_sha": "4a3790b5b904dfecbc4966628ab3a64c8828f4a3",
   "latest_commit": {
-    "sha": "b208b8a4ed87edad4f724d8c170639b4b3995d66",
-    "short_sha": "b208b8a4ed87",
-    "message": "observation: add trigger layer skeleton\n\nMerge PR #167: add minimal observation trigger layer skeleton.",
+    "sha": "b38efe3afd5f5787e095231e9d4eb45b068026ab",
+    "short_sha": "b38efe3afd5f",
+    "message": "diagnostics: route observation publishing through triggers\n\nMerge PR #168: route diagnostics observation publishing through observation triggers.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T10:04:42Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b208b8a4ed87edad4f724d8c170639b4b3995d66",
-    "changed_files_count": 7,
+    "date": "2026-05-10T10:10:39Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b38efe3afd5f5787e095231e9d4eb45b068026ab",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
+        "filename": "src/diagnostics/diagnosticsRunner.js",
         "status": "modified",
-        "additions": 6,
-        "deletions": 0,
-        "changes": 6
-      },
-      {
-        "filename": "package.json",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "scripts/smokeObservationTriggerLayer.js",
-        "status": "added",
-        "additions": 41,
-        "deletions": 0,
-        "changes": 41
-      },
-      {
-        "filename": "src/agents/observation/index.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "src/agents/observation/triggers/index.js",
-        "status": "added",
-        "additions": 7,
-        "deletions": 0,
-        "changes": 7
-      },
-      {
-        "filename": "src/agents/observation/triggers/observationTriggerRegistry.js",
-        "status": "added",
-        "additions": 43,
-        "deletions": 0,
-        "changes": 43
-      },
-      {
-        "filename": "src/agents/observation/triggers/observationTriggerRunner.js",
-        "status": "added",
-        "additions": 60,
-        "deletions": 0,
-        "changes": 60
+        "additions": 32,
+        "deletions": 26,
+        "changes": 58
       }
     ]
   }

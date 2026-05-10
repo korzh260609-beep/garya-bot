@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T12:16:43.773Z",
+  "generated_at": "2026-05-10T12:54:23.382Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "7a195298b875822582f73b1e573d8c4f7ca66b64",
+  "head_sha": "ada4b11ff088c5ac37d73bfadbd18c5f33395cce",
   "truncated": false,
-  "items_count": 305,
+  "items_count": 306,
   "semantic_fields": [
     "module",
     "layer",
@@ -2553,6 +2553,26 @@
         "module": "observation",
         "layer": "agents",
         "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/journalHealthObservationBridge.js",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
         "owner": "agents",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "agent_runtime_possible",

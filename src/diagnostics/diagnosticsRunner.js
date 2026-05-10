@@ -16,6 +16,7 @@ import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
 import { runUsersIdentityLinkingCheck } from "./usersIdentityLinkingCheck.js";
+import { runUsersIdentityLinkRequestsCheck } from "./usersIdentityLinkRequestsCheck.js";
 import { runUsersIdentityRegistryCheck } from "./usersIdentityRegistryCheck.js";
 
 function normalizeString(value) {
@@ -63,6 +64,11 @@ function summarizeUsersIdentityRegistry(result = {}) {
 function summarizeUsersIdentityLinking(result = {}) {
   if (!result.ok) return result.error || result.summary || "Users identity linking check failed.";
   return result.summary || "Users identity linking check passed.";
+}
+
+function summarizeUsersIdentityLinkRequests(result = {}) {
+  if (!result.ok) return result.error || result.summary || "Users identity link requests check failed.";
+  return result.summary || "Users identity link requests check passed.";
 }
 
 async function safeCheck(type, fn, summarize) {
@@ -173,6 +179,14 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
       "users_identity_linking",
       () => runUsersIdentityLinkingCheck(),
       summarizeUsersIdentityLinking
+    ));
+  }
+
+  if (checks.includes("users_identity_link_requests")) {
+    results.push(await safeCheck(
+      "users_identity_link_requests",
+      () => runUsersIdentityLinkRequestsCheck(),
+      summarizeUsersIdentityLinkRequests
     ));
   }
 

@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T15:15:33.975Z",
+  "generated_at": "2026-05-10T15:35:51.739Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "10d5260c0c838dd0e74ac109311918fcd01de7e2",
-  "previous_head_sha": "b551635b07cad4f1b27174ed0621892d195912c8",
+  "current_head_sha": "65fe62323e932d89cd441c2dd5d7b23c615cf12c",
+  "previous_head_sha": "10d5260c0c838dd0e74ac109311918fcd01de7e2",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "ab83fb5a47ac7d90b8be81ea708600733a698354",
+  "registry_commit_sha": "843049c49cba430ce97801caaf65c6d4724d94ba",
   "latest_commit": {
-    "sha": "10d5260c0c838dd0e74ac109311918fcd01de7e2",
-    "short_sha": "10d5260c0c83",
-    "message": "diagnostics: include journal health in default plan\n\nMerge PR #177: include Observation Journal Health latest check in default diagnostics plan.",
+    "sha": "65fe62323e932d89cd441c2dd5d7b23c615cf12c",
+    "short_sha": "65fe62323e93",
+    "message": "agents: add observation trigger dispatch agent\n\nMerge PR #178: add bounded Observation Trigger Dispatch Agent.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T15:15:17Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/10d5260c0c838dd0e74ac109311918fcd01de7e2",
-    "changed_files_count": 4,
+    "date": "2026-05-10T15:35:31Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/65fe62323e932d89cd441c2dd5d7b23c615cf12c",
+    "changed_files_count": 6,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 4,
+        "additions": 7,
         "deletions": 0,
-        "changes": 4
+        "changes": 7
       },
       {
         "filename": "package.json",
@@ -33,18 +33,32 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeDiagnosticsDefaultPlanJournalHealth.js",
+        "filename": "scripts/smokeObservationTriggerDispatchAgent.js",
         "status": "added",
-        "additions": 24,
+        "additions": 48,
         "deletions": 0,
-        "changes": 24
+        "changes": 48
       },
       {
-        "filename": "src/diagnostics/diagnosticsPlan.js",
-        "status": "modified",
-        "additions": 1,
+        "filename": "src/agents/observation-trigger-dispatch-agent/index.js",
+        "status": "added",
+        "additions": 5,
         "deletions": 0,
-        "changes": 1
+        "changes": 5
+      },
+      {
+        "filename": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchAgent.js",
+        "status": "added",
+        "additions": 63,
+        "deletions": 0,
+        "changes": 63
+      },
+      {
+        "filename": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js",
+        "status": "added",
+        "additions": 47,
+        "deletions": 0,
+        "changes": 47
       }
     ]
   }

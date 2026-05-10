@@ -6,4 +6,5 @@ export * from "./diagnosticsIntent.js";
 export * from "./diagnosticsPlan.js";
 export * from "./diagnosticsReport.js";
 export * from "./diagnosticsRunner.js";
+export * from "./usersIdentityLinkingCheck.js";
 export * from "./usersIdentityRegistryCheck.js";

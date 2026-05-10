@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T05:49:55.805Z",
+  "generated_at": "2026-05-10T06:12:42.005Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "8df43e9598ac24137dbc932e3e632e57a1f7d0a8",
+  "head_sha": "2f57fa8bd30fb7090275e019878764c4c8a73905",
   "truncated": false,
-  "items_count": 279,
+  "items_count": 281,
   "semantic_fields": [
     "module",
     "layer",
@@ -2056,6 +2056,24 @@
         "notes": [
           "deterministic_policy_no_runtime_connection_expected"
         ]
+      }
+    },
+    {
+      "path": "scripts/smokeUserIdentityLinkRequests.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
       }
     },
     {
@@ -5393,6 +5411,24 @@
         "notes": [
           "deterministic_policy_no_runtime_connection_expected"
         ]
+      }
+    },
+    {
+      "path": "src/users/userIdentityLinkRequests.js",
+      "type": "file",
+      "parent": "src/users",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
       }
     },
     {

@@ -5,10 +5,7 @@
 // Do not add Telegram integration, AI calls, memory writes, raw logs, raw provider IDs, autonomous behavior, or mutations here.
 
 import { runObservationTrigger } from "../observation/triggers/index.js";
-import {
-  getObservationTriggerDispatchConfig,
-  isObservationTriggerDispatchAllowed,
-} from "./observationTriggerDispatchRegistry.js";
+import { getObservationTriggerDispatchConfig } from "./observationTriggerDispatchRegistry.js";
 
 function normalizeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -30,7 +27,7 @@ export async function runObservationTriggerDispatchAgent(input = {}) {
   const dryRun = input.dryRun === true;
   const dispatchConfig = getObservationTriggerDispatchConfig(eventType);
 
-  if (!dispatchConfig?.enabled || !isObservationTriggerDispatchAllowed(eventType)) {
+  if (!dispatchConfig?.enabled) {
     return rejected("observation_dispatch_event_not_allowed", { eventType });
   }
 

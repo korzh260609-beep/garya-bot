@@ -1,21 +1,21 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T15:09:08.559Z",
+  "generated_at": "2026-05-10T15:15:33.975Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b551635b07cad4f1b27174ed0621892d195912c8",
-  "previous_head_sha": "06bf3f28dd15af82856f3f92f0251866fdc027f9",
+  "current_head_sha": "10d5260c0c838dd0e74ac109311918fcd01de7e2",
+  "previous_head_sha": "b551635b07cad4f1b27174ed0621892d195912c8",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "9b9bd3f2c97cda20329cf158b23ff135cd4059df",
+  "registry_commit_sha": "ab83fb5a47ac7d90b8be81ea708600733a698354",
   "latest_commit": {
-    "sha": "b551635b07cad4f1b27174ed0621892d195912c8",
-    "short_sha": "b551635b07ca",
-    "message": "diagnostics: add observation journal health latest check\n\nMerge PR #176: add read-only diagnostics check for observation journal health latest report.",
+    "sha": "10d5260c0c838dd0e74ac109311918fcd01de7e2",
+    "short_sha": "10d5260c0c83",
+    "message": "diagnostics: include journal health in default plan\n\nMerge PR #177: include Observation Journal Health latest check in default diagnostics plan.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T15:08:47Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b551635b07cad4f1b27174ed0621892d195912c8",
+    "date": "2026-05-10T15:15:17Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/10d5260c0c838dd0e74ac109311918fcd01de7e2",
     "changed_files_count": 4,
     "changed_files": [
       {
@@ -33,18 +33,18 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeObservationJournalHealthLatestCheck.js",
+        "filename": "scripts/smokeDiagnosticsDefaultPlanJournalHealth.js",
         "status": "added",
-        "additions": 31,
+        "additions": 24,
         "deletions": 0,
-        "changes": 31
+        "changes": 24
       },
       {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "filename": "src/diagnostics/diagnosticsPlan.js",
         "status": "modified",
-        "additions": 5,
+        "additions": 1,
         "deletions": 0,
-        "changes": 5
+        "changes": 1
       }
     ]
   }

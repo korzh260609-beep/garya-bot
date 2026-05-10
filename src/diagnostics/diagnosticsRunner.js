@@ -13,6 +13,7 @@ import {
   getCurrentProjectRepository,
 } from "../tools/github/githubProjectDefaults.js";
 import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
+import { produceDiagnosticsObservationLatest } from "./diagnosticsObservationBridge.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
 import { runUsersIdentityLinkingCheck } from "./usersIdentityLinkingCheck.js";
@@ -86,6 +87,24 @@ async function safeCheck(type, fn, summarize) {
       type,
       summary: error?.message || `${type}_failed`,
       error: error?.message || `${type}_failed`,
+    };
+  }
+}
+
+async function safePublishDiagnosticsObservation(diagnosticsResult, context) {
+  try {
+    const observation = await produceDiagnosticsObservationLatest(diagnosticsResult, context);
+
+    return {
+      ok: Boolean(observation?.ok),
+      type: "diagnostics_observation_publish_result",
+      observation,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      type: "diagnostics_observation_publish_result",
+      error: error?.message || "diagnostics_observation_publish_failed",
     };
   }
 }
@@ -240,8 +259,7 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
     results,
   });
   const finalText = buildFinalDiagnosticsText({ report });
-
-  return {
+  const diagnosticsResult = {
     ok: report.ok,
     type: "sg_diagnostics_check",
     mode: "runtime_orchestration",
@@ -250,5 +268,11 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
     plan,
     report,
     finalText,
+  };
+  const observation = await safePublishDiagnosticsObservation(diagnosticsResult, context);
+
+  return {
+    ...diagnosticsResult,
+    observation,
   };
 }

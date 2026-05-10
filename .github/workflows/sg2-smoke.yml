@@ -159,6 +159,10 @@ jobs:
           node --check src/integrations/render/renderLatestLogs.js
           node --check src/integrations/render/index.js
 
+      - name: Check smoke scripts syntax
+        run: |
+          node --check scripts/smokeObservationJournalHealthTrigger.js
+
       - name: Smoke GitHub Actions formatter
         run: npm run smoke:github-actions-formatter
 
@@ -176,6 +180,9 @@ jobs:
 
       - name: Smoke message context injection guards
         run: npm run smoke:message-context-injection-guards
+
+      - name: Smoke observation journal health trigger
+        run: npm run smoke:observation-journal-health-trigger
 
       - name: Smoke observation latest report check
         run: npm run smoke:observation-latest-report-check
@@ -220,6 +227,7 @@ jobs:
           node --check src/agents/render-env-agent/renderEnvAgent.js
           node --check src/agents/repo-registry-agent/repoRegistryAgent.js
           node --check src/agents/observation/eventSchema.js
+          node --check src/agents/observation/journalHealthObservationBridge.js
           node --check src/agents/observation/observationPaths.js
           node --check src/agents/observation/observationProducer.js
           node --check src/agents/observation/observationReader.js

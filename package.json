@@ -10,6 +10,7 @@
     "smoke:message-context-injection-format-only": "node ./scripts/smokeMessageContextInjectionFormatOnly.js",
     "smoke:message-context-injection-system-context": "node ./scripts/smokeMessageContextInjectionSystemContext.js",
     "smoke:message-context-injection-guards": "node ./scripts/smokeMessageContextInjectionGuards.js",
+    "smoke:observation-producer": "node ./scripts/smokeObservationProducer.js",
     "smoke:users-identity-registry": "node ./scripts/smokeUsersIdentityRegistryCheck.js",
     "smoke:users-identity-linking": "node ./scripts/smokeUserIdentityLinking.js",
     "smoke:users-identity-linking-check": "node ./scripts/smokeUsersIdentityLinkingCheck.js",

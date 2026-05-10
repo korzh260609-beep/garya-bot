@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T06:34:20.444Z",
+  "generated_at": "2026-05-10T07:30:50.228Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "b4a4de5354f05ff0a0c01ac6dadcfc99853f8909",
+  "head_sha": "1a02b76b0e890b0a9b380c89ac4ee10aace59071",
   "truncated": false,
-  "items_count": 286,
+  "items_count": 288,
   "semantic_fields": [
     "module",
     "layer",
@@ -2021,6 +2021,24 @@
       }
     },
     {
+      "path": "scripts/smokeObservationProducer.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeUserIdentityLinking.js",
       "type": "file",
       "parent": "scripts",
@@ -2395,6 +2413,26 @@
     },
     {
       "path": "src/agents/observation/observationPaths.js",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/observationProducer.js",
       "type": "file",
       "parent": "src/agents/observation",
       "extension": "js",

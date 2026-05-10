@@ -6,6 +6,7 @@ const DEFAULT_CHECKS = [
   "users_identity_linking",
   "users_identity_link_requests",
   "observation_latest_report",
+  "observation_journal_health_latest",
   "observation_journal_status",
   "render_logs",
   "render_env_inventory",

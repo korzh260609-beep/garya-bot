@@ -161,6 +161,7 @@ jobs:
 
       - name: Check smoke scripts syntax
         run: |
+          node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
 
@@ -169,6 +170,9 @@ jobs:
 
       - name: Smoke disabled message context injection
         run: npm run smoke:message-context-injection
+
+      - name: Smoke diagnostics default plan journal health
+        run: npm run smoke:diagnostics-default-plan-journal-health
 
       - name: Smoke diagnostics observation bridge
         run: npm run smoke:diagnostics-observation-bridge

@@ -164,6 +164,7 @@ jobs:
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
+          node --check scripts/smokeObservationTriggerDispatchAgent.js
 
       - name: Smoke GitHub Actions formatter
         run: npm run smoke:github-actions-formatter
@@ -197,6 +198,9 @@ jobs:
 
       - name: Smoke observation producer
         run: npm run smoke:observation-producer
+
+      - name: Smoke observation trigger dispatch agent
+        run: npm run smoke:observation-trigger-dispatch-agent
 
       - name: Smoke observation trigger layer
         run: npm run smoke:observation-trigger-layer
@@ -234,6 +238,9 @@ jobs:
           node --check src/agents/repo-commit-watcher-agent/runRepoCommitWatcherAgent.js
           node --check src/agents/render-env-agent/renderEnvAgent.js
           node --check src/agents/repo-registry-agent/repoRegistryAgent.js
+          node --check src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchAgent.js
+          node --check src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js
+          node --check src/agents/observation-trigger-dispatch-agent/index.js
           node --check src/agents/observation/eventSchema.js
           node --check src/agents/observation/journalHealthObservationBridge.js
           node --check src/agents/observation/observationPaths.js

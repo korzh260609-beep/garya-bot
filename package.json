@@ -16,6 +16,7 @@
     "smoke:observation-journal-health-trigger": "node ./scripts/smokeObservationJournalHealthTrigger.js",
     "smoke:observation-latest-report-check": "node ./scripts/smokeObservationLatestReportCheck.js",
     "smoke:observation-producer": "node ./scripts/smokeObservationProducer.js",
+    "smoke:observation-trigger-dispatch-agent": "node ./scripts/smokeObservationTriggerDispatchAgent.js",
     "smoke:observation-trigger-layer": "node ./scripts/smokeObservationTriggerLayer.js",
     "smoke:runtime-status-observation-bridge": "node ./scripts/smokeRuntimeStatusObservationBridge.js",
     "smoke:users-identity-registry": "node ./scripts/smokeUsersIdentityRegistryCheck.js",

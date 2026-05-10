@@ -136,6 +136,7 @@ jobs:
           node --check src/diagnostics/diagnosticsPlan.js
           node --check src/diagnostics/diagnosticsReport.js
           node --check src/diagnostics/diagnosticsRunner.js
+          node --check src/diagnostics/observationLatestReportCheck.js
           node --check src/diagnostics/usersIdentityLinkingCheck.js
           node --check src/diagnostics/usersIdentityLinkRequestsCheck.js
           node --check src/diagnostics/usersIdentityRegistryCheck.js
@@ -175,6 +176,9 @@ jobs:
 
       - name: Smoke message context injection guards
         run: npm run smoke:message-context-injection-guards
+
+      - name: Smoke observation latest report check
+        run: npm run smoke:observation-latest-report-check
 
       - name: Smoke observation producer
         run: npm run smoke:observation-producer

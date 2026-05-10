@@ -1,12 +1,11 @@
-// AGENT NOTE:
 // SG 2.0 Diagnostics Layer plan builder.
 // Purpose: build a safe diagnostics plan from intent and user text.
-// Do not execute tools here; this file only describes what should be checked.
 
 const DEFAULT_CHECKS = [
   "users_identity_registry",
   "users_identity_linking",
   "users_identity_link_requests",
+  "observation_latest_report",
   "render_logs",
   "render_env_inventory",
   "github_actions_latest_run",

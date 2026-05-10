@@ -16,6 +16,7 @@ import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
 import { produceDiagnosticsObservationLatest } from "./diagnosticsObservationBridge.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
+import { runObservationLatestReportCheck } from "./observationLatestReportCheck.js";
 import { runUsersIdentityLinkingCheck } from "./usersIdentityLinkingCheck.js";
 import { runUsersIdentityLinkRequestsCheck } from "./usersIdentityLinkRequestsCheck.js";
 import { runUsersIdentityRegistryCheck } from "./usersIdentityRegistryCheck.js";
@@ -55,6 +56,11 @@ function summarizeWorkflowRun(result = {}) {
 function summarizeCommits(result = {}) {
   if (!result.ok) return result.error || "Recent commits check failed.";
   return result.summary?.text || `Recent commits checked: ${result.searched_commits ?? "unknown"}.`;
+}
+
+function summarizeObservationLatestReport(result = {}) {
+  if (!result.ok) return result.error || result.summary || "Observation latest report check failed.";
+  return result.summary || "Observation latest report check passed.";
 }
 
 function summarizeUsersIdentityRegistry(result = {}) {
@@ -206,6 +212,14 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
       "users_identity_link_requests",
       () => runUsersIdentityLinkRequestsCheck(),
       summarizeUsersIdentityLinkRequests
+    ));
+  }
+
+  if (checks.includes("observation_latest_report")) {
+    results.push(await safeCheck(
+      "observation_latest_report",
+      () => runObservationLatestReportCheck({ name: "diagnostics-latest" }),
+      summarizeObservationLatestReport
     ));
   }
 

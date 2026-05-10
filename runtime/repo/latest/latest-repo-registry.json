@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T12:02:30.704Z",
+  "generated_at": "2026-05-10T12:16:43.773Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "3e2fc17c6a767047849cb081d3bb6369b4ac21d2",
+  "head_sha": "7a195298b875822582f73b1e573d8c4f7ca66b64",
   "truncated": false,
-  "items_count": 302,
+  "items_count": 305,
   "semantic_fields": [
     "module",
     "layer",
@@ -2275,6 +2275,67 @@
         "source_priority": "source_code",
         "notes": [
           "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/diagnostics-check-agent",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "diagnostics-check-agent",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/diagnostics-check-agent/diagnosticsCheckAgent.js",
+      "type": "file",
+      "parent": "src/agents/diagnostics-check-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "diagnostics-check-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+      "type": "file",
+      "parent": "src/agents/diagnostics-check-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "diagnostics-check-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
         ]
       }
     },

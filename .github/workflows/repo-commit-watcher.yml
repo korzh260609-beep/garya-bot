@@ -8,6 +8,7 @@ on:
     paths-ignore:
       - "runtime/repo/latest/latest-repo-registry.json"
       - "runtime/repo/latest/latest-commit-state.json"
+      - "runtime/observation/**"
 
 permissions:
   contents: write
@@ -39,11 +40,11 @@ jobs:
           GITHUB_BRANCH: dev/v2-start
         run: node src/agents/repo-commit-watcher-agent/runRepoCommitWatcherAgent.js
 
-      - name: Dispatch GitHub PR merged observation event
-        if: ${{ github.event_name == 'push' && (contains(github.event.head_commit.message, 'Merge PR') || contains(github.event.head_commit.message, 'Merge pull request')) }}
+      - name: Dispatch GitHub repository observation event
+        if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPO: korzh260609-beep/garya-bot
           GITHUB_BRANCH: dev/v2-start
-          OBSERVATION_DISPATCH_EVENT_TYPE: github.pr_merged
+          OBSERVATION_DISPATCH_EVENT_TYPE: github.repository_updated
         run: node src/agents/observation-trigger-dispatch-agent/runObservationTriggerDispatchAgent.js

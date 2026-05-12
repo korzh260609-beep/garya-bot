@@ -1,29 +1,71 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T10:34:05.271Z",
+  "generated_at": "2026-05-12T11:08:59.756Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "63874dbd4e3bece276dcd3d9eae44aafc32f9e66",
-  "previous_head_sha": "d5ba40228ab9b6ed762a1abc862ed89c702ff368",
+  "current_head_sha": "f7bbe5d9df3851b3571a47dc19951c6da9dc1c4c",
+  "previous_head_sha": "63874dbd4e3bece276dcd3d9eae44aafc32f9e66",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "10b51b0b04da913e702e19ad70440c8075665434",
+  "registry_commit_sha": "503552e952c407280e2b29f0052c8c0242c60ab3",
   "latest_commit": {
-    "sha": "63874dbd4e3bece276dcd3d9eae44aafc32f9e66",
-    "short_sha": "63874dbd4e3b",
-    "message": "render env: update latest 91",
-    "author": "sg-github-access[bot]",
-    "date": "2026-05-12T10:33:45Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/63874dbd4e3bece276dcd3d9eae44aafc32f9e66",
-    "changed_files_count": 1,
+    "sha": "f7bbe5d9df3851b3571a47dc19951c6da9dc1c4c",
+    "short_sha": "f7bbe5d9df38",
+    "message": "Merge pull request #191 from korzh260609-beep/feature/project-memory-v1-runtime-skeleton\n\nmemory: add project memory V1 runtime skeleton",
+    "author": "korzh260609-beep",
+    "date": "2026-05-12T11:08:32Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/f7bbe5d9df3851b3571a47dc19951c6da9dc1c4c",
+    "changed_files_count": 7,
     "changed_files": [
       {
-        "filename": "runtime/render/latest/latest-render-env.json",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 583,
-        "deletions": 2,
-        "changes": 585
+        "additions": 4,
+        "deletions": 0,
+        "changes": 4
+      },
+      {
+        "filename": "package.json",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "pillars/modules/MODULE_INDEX.md",
+        "status": "modified",
+        "additions": 13,
+        "deletions": 10,
+        "changes": 23
+      },
+      {
+        "filename": "pillars/modules/project_memory/DATA_MODEL.md",
+        "status": "added",
+        "additions": 328,
+        "deletions": 0,
+        "changes": 328
+      },
+      {
+        "filename": "pillars/modules/project_memory/TESTING.md",
+        "status": "added",
+        "additions": 112,
+        "deletions": 0,
+        "changes": 112
+      },
+      {
+        "filename": "scripts/smokeProjectMemorySkeleton.js",
+        "status": "added",
+        "additions": 175,
+        "deletions": 0,
+        "changes": 175
+      },
+      {
+        "filename": "src/memory/project/projectMemoryService.js",
+        "status": "modified",
+        "additions": 334,
+        "deletions": 50,
+        "changes": 384
       }
     ]
   }

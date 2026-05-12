@@ -1,36 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T08:43:45.158Z",
+  "generated_at": "2026-05-12T10:01:53.488Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "28271277150ca774e03f06f291efa8e9557bde65",
-  "previous_head_sha": "1f77c32616988e151e29b2336be51e3864d4290d",
+  "current_head_sha": "e13f185d5170145906e34a4286a3363196381b70",
+  "previous_head_sha": "28271277150ca774e03f06f291efa8e9557bde65",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "20a0013bbda417f00d1a69e0d0c516849e2d0b23",
+  "registry_commit_sha": "b69855b5164e3a01979370131cfa5922e4b1f6af",
   "latest_commit": {
-    "sha": "28271277150ca774e03f06f291efa8e9557bde65",
-    "short_sha": "28271277150c",
-    "message": "Merge pull request #187 from korzh260609-beep/sg2/document-observation-nervous-system\n\ndocs: describe Observation Nervous System",
+    "sha": "e13f185d5170145906e34a4286a3363196381b70",
+    "short_sha": "e13f185d5170",
+    "message": "Merge pull request #188 from korzh260609-beep/docs/project-memory-module-skeleton\n\ndocs: define project memory module skeleton",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T08:43:25Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/28271277150ca774e03f06f291efa8e9557bde65",
-    "changed_files_count": 2,
+    "date": "2026-05-12T10:01:34Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e13f185d5170145906e34a4286a3363196381b70",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "pillars/modules/MODULE_INDEX.md",
-        "status": "modified",
-        "additions": 3,
+        "filename": "pillars/modules/project_memory/CONTRACTS.md",
+        "status": "added",
+        "additions": 386,
         "deletions": 0,
-        "changes": 3
+        "changes": 386
       },
       {
-        "filename": "pillars/modules/observation/README.md",
+        "filename": "pillars/modules/project_memory/README.md",
         "status": "added",
-        "additions": 528,
+        "additions": 297,
         "deletions": 0,
-        "changes": 528
+        "changes": 297
+      },
+      {
+        "filename": "pillars/modules/project_memory/RISKS.md",
+        "status": "added",
+        "additions": 345,
+        "deletions": 0,
+        "changes": 345
       }
     ]
   }

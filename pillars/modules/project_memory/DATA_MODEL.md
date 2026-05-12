@@ -4,7 +4,7 @@
 > This file defines the Project Memory V1 data model for SG 2.0.
 > Do not add automatic memory writes, Telegram commands, AI auto-write, raw logs, raw env dumps, or secret storage here without explicit Monarch approval.
 
-Статус: V1 RUNTIME INJECTION GATE / FEATURE-FLAGGED READ AND INJECTION
+Статус: V1 DB SCHEMA BOOTSTRAP / FEATURE-FLAGGED SCHEMA ENSURE
 
 ---
 
@@ -15,6 +15,7 @@ Current runtime code lives in:
 ```text
 src/memory/project/
 src/core/message/
+src/app/
 ```
 
 Current module docs live in:
@@ -23,7 +24,7 @@ Current module docs live in:
 pillars/modules/project_memory/
 ```
 
-Current V1 has five layers:
+Current V1 has six layers:
 
 ```text
 ProjectMemoryService              -> prepare-only / validate-only helper
@@ -31,6 +32,7 @@ ProjectMemoryStore                -> durable storage boundary
 ProjectMemoryConfirmation         -> explicit confirmation boundary
 ProjectMemoryRuntimeContext       -> confirmed read-only context bridge
 MessageProjectMemoryContextGate   -> message-time feature gate for read/injection
+ProjectMemorySchemaBootstrap      -> startup-time feature gate for storage schema ensure
 ```
 
 It can:
@@ -41,7 +43,7 @@ It can:
 - select bounded context items from provided items;
 - expose diagnostics;
 - block obvious secrets/raw dumps;
-- ensure Project Memory storage schema;
+- ensure Project Memory storage schema when explicitly enabled;
 - create durable candidate entries;
 - confirm pending candidates explicitly;
 - list confirmed entries through the storage boundary;
@@ -58,7 +60,7 @@ It cannot:
 - call AI from memory modules;
 - inject prompt context by default;
 - connect memory modules to Telegram;
-- mutate repository/runtime state;
+- mutate repository/runtime files;
 - store raw logs/env/provider dumps;
 - store secrets.
 
@@ -152,6 +154,7 @@ ProjectMemoryStore.createCandidate() stores only trust='candidate' + status='pen
 ProjectMemoryConfirmation.confirmCandidate() is the only V1 confirmation boundary.
 ProjectMemoryRuntimeContext reads only trust='confirmed' + status='active'.
 MessageProjectMemoryContextGate defaults to no read and no prompt injection.
+ProjectMemorySchemaBootstrap defaults to no schema ensure.
 ```
 
 Confirmed durable memory must pass:
@@ -264,7 +267,59 @@ Storage rules:
 
 ---
 
-## 8. Confirmation boundary
+## 8. Schema bootstrap boundary
+
+Current schema bootstrap boundary:
+
+```text
+src/app/projectMemoryBootstrap.js
+```
+
+Public actions:
+
+```text
+getProjectMemorySchemaBootstrapOptionsFromEnv()
+bootstrapProjectMemorySchema()
+```
+
+Environment flags:
+
+```text
+SG_PROJECT_MEMORY_SCHEMA_BOOTSTRAP_ENABLED=false
+SG_PROJECT_MEMORY_SCHEMA_BOOTSTRAP_FAIL_STARTUP=false
+```
+
+Modes:
+
+```text
+disabled      -> no DB call, no schema ensure
+ensure_schema -> ensureProjectMemorySchema() runs only when enabled and DATABASE_URL is configured
+```
+
+Hard boundary rules:
+
+```text
+disabled by default
+no memory entries written
+no candidate confirmation
+no Project Memory context read
+no AI calls
+no Telegram logic
+no source sync
+no runtime generated file edits
+startup does not fail by default on bootstrap failure
+```
+
+Meaning:
+
+```text
+Schema bootstrap only prepares Project Memory tables.
+It does not enable memory writes, memory reads, or prompt injection.
+```
+
+---
+
+## 9. Confirmation boundary
 
 Current confirmation boundary:
 
@@ -301,7 +356,7 @@ This does not connect Project Memory to chat, Telegram, AI, cron, or source inge
 
 ---
 
-## 9. Runtime read context bridge
+## 10. Runtime read context bridge
 
 Current runtime read bridge:
 
@@ -383,7 +438,7 @@ Prompt injection remains controlled by messageContextInjection.
 
 ---
 
-## 10. Message runtime injection gate
+## 11. Message runtime injection gate
 
 Current message gate:
 
@@ -443,7 +498,7 @@ Live use requires explicit env enablement.
 
 ---
 
-## 11. Context item output from service
+## 12. Context item output from service
 
 `ProjectMemoryService.buildContextItems()` returns items shaped for controlled AI context packs from provided inputs only:
 
@@ -468,7 +523,7 @@ It must be treated as support context under pillars/repo/runtime facts.
 
 ---
 
-## 12. Secret and raw-data guard
+## 13. Secret and raw-data guard
 
 V1 blocks obvious secret patterns in:
 
@@ -503,7 +558,7 @@ It is a safety guard for the skeleton.
 
 ---
 
-## 13. V1 diagnostics model
+## 14. V1 diagnostics model
 
 `ProjectMemoryService.getDiagnostics()` reports:
 
@@ -546,12 +601,13 @@ Diagnostics must remain non-secret and side-effect-free except explicitly report
 
 ---
 
-## 14. Final V1 rule
+## 15. Final V1 rule
 
 Correct:
 
 ```text
 provided item -> normalize -> validate -> candidate/context item
+explicit flag -> ProjectMemorySchemaBootstrap -> ensure storage schema only
 explicit caller -> prepareCandidateForConfirmation -> pending durable candidate
 explicit approval -> confirmCandidate -> confirmed durable memory
 confirmed durable memory -> ProjectMemoryRuntimeContext -> bounded facts/context items
@@ -561,6 +617,9 @@ feature flag -> MessageProjectMemoryContextGate -> optional message context pack
 Incorrect:
 
 ```text
+schema bootstrap -> automatic memory write
+schema bootstrap -> automatic memory read
+schema bootstrap -> prompt injection
 chat text -> automatic confirmed memory
 AI output -> automatic confirmed memory
 raw logs -> memory

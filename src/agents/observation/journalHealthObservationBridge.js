@@ -13,6 +13,7 @@ import {
 } from "./eventSchema.js";
 import { readObservationLatestReport } from "./observationReader.js";
 import { writeObservationLatestReport } from "./observationWriter.js";
+import { produceRuntimeStatusObservationLatest } from "./runtimeStatusObservationBridge.js";
 
 const DEFAULT_HEALTH_REPORT_NAMES = [
   "diagnostics-latest",
@@ -41,10 +42,20 @@ function summarizeJournalRead(name, result = {}) {
   };
 }
 
+async function refreshRuntimeStatusIfNeeded(reportNames) {
+  if (!reportNames.includes("runtime-status-latest")) {
+    return null;
+  }
+
+  return produceRuntimeStatusObservationLatest();
+}
+
 export async function produceObservationJournalHealthLatest(input = {}) {
   const reportNames = Array.isArray(input.reportNames) && input.reportNames.length > 0
     ? input.reportNames.filter((name) => typeof name === "string" && name.trim()).map((name) => name.trim())
     : DEFAULT_HEALTH_REPORT_NAMES;
+
+  await refreshRuntimeStatusIfNeeded(reportNames);
 
   const reports = [];
 

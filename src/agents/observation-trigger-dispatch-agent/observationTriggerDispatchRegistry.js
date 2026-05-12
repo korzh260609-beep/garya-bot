@@ -8,6 +8,7 @@ export const OBSERVATION_DISPATCH_EVENT_TYPES = Object.freeze({
   DIAGNOSTICS_REQUESTED: "diagnostics.requested",
   GITHUB_CI_FINISHED: "github.ci_finished",
   GITHUB_PR_MERGED: "github.pr_merged",
+  GITHUB_REPOSITORY_UPDATED: "github.repository_updated",
   RUNTIME_STATUS_REQUESTED: "runtime.status_requested",
   OBSERVATION_JOURNAL_HEALTH_REQUESTED: "observation.journal_health_requested",
 });
@@ -25,6 +26,11 @@ export const OBSERVATION_TRIGGER_DISPATCH_REGISTRY = Object.freeze({
   }),
   [OBSERVATION_DISPATCH_EVENT_TYPES.GITHUB_PR_MERGED]: Object.freeze({
     eventType: OBSERVATION_DISPATCH_EVENT_TYPES.GITHUB_PR_MERGED,
+    triggerName: OBSERVATION_TRIGGER_NAMES.OBSERVATION_JOURNAL_HEALTH_REQUESTED,
+    enabled: true,
+  }),
+  [OBSERVATION_DISPATCH_EVENT_TYPES.GITHUB_REPOSITORY_UPDATED]: Object.freeze({
+    eventType: OBSERVATION_DISPATCH_EVENT_TYPES.GITHUB_REPOSITORY_UPDATED,
     triggerName: OBSERVATION_TRIGGER_NAMES.OBSERVATION_JOURNAL_HEALTH_REQUESTED,
     enabled: true,
   }),

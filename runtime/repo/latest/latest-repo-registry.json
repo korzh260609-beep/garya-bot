@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T11:08:58.175Z",
+  "generated_at": "2026-05-12T11:53:28.663Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "f7bbe5d9df3851b3571a47dc19951c6da9dc1c4c",
+  "head_sha": "baefc618401db822c5bc2497caaf9fa91fe1f07b",
   "truncated": false,
-  "items_count": 330,
+  "items_count": 334,
   "semantic_fields": [
     "module",
     "layer",
@@ -2468,6 +2468,24 @@
     },
     {
       "path": "scripts/smokeProjectMemorySkeleton.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryStorageConfirmation.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5517,6 +5535,46 @@
       }
     },
     {
+      "path": "src/memory/project/projectMemoryConfirmation.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemorySchema.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
       "path": "src/memory/project/projectMemoryService.js",
       "type": "file",
       "parent": "src/memory/project",
@@ -5527,6 +5585,26 @@
         "module": "project_memory",
         "layer": "memory",
         "responsibility": "Project memory prepare/read-only service skeleton.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemoryStore.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
         "owner": "memory",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "unknown_or_low",

@@ -66,6 +66,7 @@ jobs:
           node --check src/core/message/messageBehavior.js
           node --check src/core/message/messageAiRequest.js
           node --check src/core/message/messageContextInjection.js
+          node --check src/core/message/messageProjectMemoryContextGate.js
           node --check src/core/message/messageGithubApproval.js
           node --check src/core/message/index.js
 
@@ -162,6 +163,7 @@ jobs:
       - name: Check smoke scripts syntax
         run: |
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
+          node --check scripts/smokeMessageProjectMemoryContextGate.js
           node --check scripts/smokeObservationDispatchGithubEvents.js
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
@@ -190,6 +192,9 @@ jobs:
 
       - name: Smoke message context injection guards
         run: npm run smoke:message-context-injection-guards
+
+      - name: Smoke message project memory context gate
+        run: npm run smoke:message-project-memory-context-gate
 
       - name: Smoke GitHub observation dispatch events
         run: npm run smoke:observation-dispatch-github-events

@@ -6,11 +6,20 @@
 
 import { callAI } from "../../ai/callAI.js";
 import { buildSgSystemPrompt } from "../sgSystemPrompt.js";
-import { buildMessageContextInjectionDisabledOptions, prepareMessageContextInjection } from "./messageContextInjection.js";
-import { buildMessageContextPack } from "./messageContextPack.js";
+import { prepareMessageContextInjection } from "./messageContextInjection.js";
+import {
+  getMessageProjectMemoryContextGateOptionsFromEnv,
+  prepareMessageProjectMemoryContextGate,
+} from "./messageProjectMemoryContextGate.js";
 
 export async function callMessageAI({ identity, text, behaviorRuntime }) {
-  const contextPack = buildMessageContextPack({ identity, text, behaviorRuntime });
+  const projectMemoryContextGate = await prepareMessageProjectMemoryContextGate({
+    identity,
+    text,
+    behaviorRuntime,
+    options: getMessageProjectMemoryContextGateOptionsFromEnv(),
+  });
+  const contextPack = projectMemoryContextGate.contextPack;
   const baseMessages = [
     { role: "system", content: buildSgSystemPrompt(identity) },
     { role: "user", content: text },
@@ -18,7 +27,7 @@ export async function callMessageAI({ identity, text, behaviorRuntime }) {
   const contextInjection = prepareMessageContextInjection({
     messages: baseMessages,
     contextPack,
-    options: buildMessageContextInjectionDisabledOptions(),
+    options: projectMemoryContextGate.contextInjectionOptions,
   });
 
   return callAI(
@@ -30,6 +39,7 @@ export async function callMessageAI({ identity, text, behaviorRuntime }) {
       behaviorRuntime,
       contextPack,
       contextInjection,
+      projectMemoryContextGate,
       returnMetadata: true,
     }
   );

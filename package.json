@@ -14,6 +14,7 @@
     "smoke:message-context-injection-guards": "node ./scripts/smokeMessageContextInjectionGuards.js",
     "smoke:message-project-memory-context-gate": "node ./scripts/smokeMessageProjectMemoryContextGate.js",
     "smoke:message-project-memory-projectkey-runtime-selection": "node ./scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js",
+    "smoke:message-runtime-options-explicit-project-context": "node ./scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
     "smoke:observation-dispatch-github-events": "node ./scripts/smokeObservationDispatchGithubEvents.js",
     "smoke:observation-journal-health-latest-check": "node ./scripts/smokeObservationJournalHealthLatestCheck.js",
     "smoke:observation-journal-health-trigger": "node ./scripts/smokeObservationJournalHealthTrigger.js",

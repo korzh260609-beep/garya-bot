@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T10:32:16.584Z",
+  "generated_at": "2026-05-12T10:34:05.271Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "d5ba40228ab9b6ed762a1abc862ed89c702ff368",
-  "previous_head_sha": "aea4610b684e1154a93a472035a396b426e7e339",
+  "current_head_sha": "63874dbd4e3bece276dcd3d9eae44aafc32f9e66",
+  "previous_head_sha": "d5ba40228ab9b6ed762a1abc862ed89c702ff368",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "269e68ae1596636ea4574924f3e269bcb48f68fb",
+  "registry_commit_sha": "10b51b0b04da913e702e19ad70440c8075665434",
   "latest_commit": {
-    "sha": "d5ba40228ab9b6ed762a1abc862ed89c702ff368",
-    "short_sha": "d5ba40228ab9",
-    "message": "Merge pull request #190 from korzh260609-beep/fix/render-env-pagination\n\nfix: paginate Render env inventory collection",
-    "author": "korzh260609-beep",
-    "date": "2026-05-12T10:31:58Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d5ba40228ab9b6ed762a1abc862ed89c702ff368",
+    "sha": "63874dbd4e3bece276dcd3d9eae44aafc32f9e66",
+    "short_sha": "63874dbd4e3b",
+    "message": "render env: update latest 91",
+    "author": "sg-github-access[bot]",
+    "date": "2026-05-12T10:33:45Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/63874dbd4e3bece276dcd3d9eae44aafc32f9e66",
     "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/agents/render-env-agent/renderEnvAgent.js",
+        "filename": "runtime/render/latest/latest-render-env.json",
         "status": "modified",
-        "additions": 101,
-        "deletions": 13,
-        "changes": 114
+        "additions": 583,
+        "deletions": 2,
+        "changes": 585
       }
     ]
   }

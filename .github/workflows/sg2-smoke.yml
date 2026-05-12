@@ -172,6 +172,7 @@ jobs:
       - name: Check Project Memory syntax
         run: |
           node --check src/memory/project/projectMemoryOwnership.js
+          node --check src/memory/project/projectMemoryUserProjectValidator.js
 
       - name: Check smoke scripts syntax
         run: |
@@ -187,6 +188,7 @@ jobs:
           node --check scripts/smokeProjectMemorySchemaBootstrap.js
           node --check scripts/smokeProjectMemorySkeleton.js
           node --check scripts/smokeProjectMemoryStorageConfirmation.js
+          node --check scripts/smokeProjectMemoryUserProjectValidator.js
           node --check scripts/smokeUserProjectsRegistry.js
 
       - name: Smoke GitHub Actions formatter
@@ -251,6 +253,9 @@ jobs:
 
       - name: Smoke project memory storage confirmation
         run: npm run smoke:project-memory-storage-confirmation
+
+      - name: Smoke project memory user project validator
+        run: npm run smoke:project-memory-user-project-validator
 
       - name: Smoke runtime status observation bridge
         run: npm run smoke:runtime-status-observation-bridge

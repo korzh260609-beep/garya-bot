@@ -54,6 +54,7 @@ DECISIONS.md
 12. `documents`
 13. `repo`
 14. `billing`
+15. `observation`
 
 ---
 
@@ -65,6 +66,8 @@ DECISIONS.md
 - `active` — implemented and operational.
 
 Current SG 2.0 module docs are skeleton-level.
+
+`observation` is currently ACTIVE V1 / PARTIAL RUNTIME because its basic event/report/health loop is implemented, but the final Observation Nervous System is not complete yet.
 
 ---
 

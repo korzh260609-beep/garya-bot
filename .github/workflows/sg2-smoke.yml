@@ -136,6 +136,7 @@ jobs:
           node --check src/projects/userProjectsTypes.js
           node --check src/projects/userProjectsSchema.js
           node --check src/projects/userProjectsStore.js
+          node --check src/projects/userProjectRuntimeContext.js
           node --check src/projects/index.js
 
       - name: Check Diagnostics Layer syntax
@@ -180,6 +181,7 @@ jobs:
         run: |
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
           node --check scripts/smokeMessageProjectMemoryContextGate.js
+          node --check scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js
           node --check scripts/smokeObservationDispatchGithubEvents.js
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
@@ -192,6 +194,7 @@ jobs:
           node --check scripts/smokeProjectMemoryStorageConfirmation.js
           node --check scripts/smokeProjectMemoryUserProjectGuard.js
           node --check scripts/smokeProjectMemoryUserProjectValidator.js
+          node --check scripts/smokeUserProjectRuntimeContext.js
           node --check scripts/smokeUserProjectsRegistry.js
 
       - name: Smoke GitHub Actions formatter
@@ -217,6 +220,9 @@ jobs:
 
       - name: Smoke message project memory context gate
         run: npm run smoke:message-project-memory-context-gate
+
+      - name: Smoke message project memory projectKey runtime selection
+        run: npm run smoke:message-project-memory-projectkey-runtime-selection
 
       - name: Smoke GitHub observation dispatch events
         run: npm run smoke:observation-dispatch-github-events
@@ -265,6 +271,9 @@ jobs:
 
       - name: Smoke runtime status observation bridge
         run: npm run smoke:runtime-status-observation-bridge
+
+      - name: Smoke user project runtime context
+        run: npm run smoke:user-project-runtime-context
 
       - name: Smoke user projects registry
         run: npm run smoke:user-projects-registry

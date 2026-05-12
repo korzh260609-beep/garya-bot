@@ -14,10 +14,22 @@ import {
 import { readObservationLatestReport } from "./observationReader.js";
 import { writeObservationLatestReport } from "./observationWriter.js";
 import { produceRuntimeStatusObservationLatest } from "./runtimeStatusObservationBridge.js";
+import { produceDiagnosticsObservationLatest } from "../../diagnostics/diagnosticsObservationBridge.js";
+import { runDiagnosticsChecks } from "../../diagnostics/diagnosticsChecksRunner.js";
+import { buildDiagnosticsPlan } from "../../diagnostics/diagnosticsPlan.js";
+import { buildDiagnosticsReport } from "../../diagnostics/diagnosticsReport.js";
+import {
+  getCurrentProjectBranch,
+  getCurrentProjectRepository,
+} from "../../tools/github/githubProjectDefaults.js";
 
 const DEFAULT_HEALTH_REPORT_NAMES = [
   "diagnostics-latest",
   "runtime-status-latest",
+];
+
+const JOURNAL_HEALTH_DIAGNOSTICS_CHECKS = [
+  "observation_journal_health_latest",
 ];
 
 function summarizeJournalRead(name, result = {}) {
@@ -42,6 +54,43 @@ function summarizeJournalRead(name, result = {}) {
   };
 }
 
+async function refreshDiagnosticsIfNeeded(reportNames) {
+  if (!reportNames.includes("diagnostics-latest")) {
+    return null;
+  }
+
+  const plan = buildDiagnosticsPlan({
+    text: "observation journal health latest refresh",
+    checks: JOURNAL_HEALTH_DIAGNOSTICS_CHECKS,
+  });
+  const results = await runDiagnosticsChecks({
+    checks: plan.checks,
+    text: plan.text,
+    repo: getCurrentProjectRepository(),
+    branch: getCurrentProjectBranch(),
+    target: "garya-bot",
+    workflow: "sg2-smoke.yml",
+    logLimit: 100,
+  });
+  const report = buildDiagnosticsReport({
+    plan,
+    results,
+  });
+
+  return produceDiagnosticsObservationLatest({
+    ok: report.ok,
+    type: "sg_diagnostics_check",
+    mode: "runtime_orchestration",
+    text: plan.text,
+    intent: {},
+    plan,
+    report,
+    finalText: "Diagnostics latest refreshed for observation journal health.",
+  }, {
+    isMonarch: false,
+  });
+}
+
 async function refreshRuntimeStatusIfNeeded(reportNames) {
   if (!reportNames.includes("runtime-status-latest")) {
     return null;
@@ -55,6 +104,7 @@ export async function produceObservationJournalHealthLatest(input = {}) {
     ? input.reportNames.filter((name) => typeof name === "string" && name.trim()).map((name) => name.trim())
     : DEFAULT_HEALTH_REPORT_NAMES;
 
+  await refreshDiagnosticsIfNeeded(reportNames);
   await refreshRuntimeStatusIfNeeded(reportNames);
 
   const reports = [];

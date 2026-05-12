@@ -42,5 +42,8 @@ jobs:
       - name: Dispatch GitHub PR merged observation event
         if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, 'Merge PR') }}
         env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPO: korzh260609-beep/garya-bot
+          GITHUB_BRANCH: dev/v2-start
           OBSERVATION_DISPATCH_EVENT_TYPE: github.pr_merged
         run: node src/agents/observation-trigger-dispatch-agent/runObservationTriggerDispatchAgent.js

@@ -166,6 +166,7 @@ jobs:
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
           node --check scripts/smokeObservationTriggerDispatchAgent.js
+          node --check scripts/smokeProjectMemoryRuntimeContext.js
           node --check scripts/smokeProjectMemorySkeleton.js
           node --check scripts/smokeProjectMemoryStorageConfirmation.js
 
@@ -210,6 +211,9 @@ jobs:
 
       - name: Smoke observation trigger layer
         run: npm run smoke:observation-trigger-layer
+
+      - name: Smoke project memory runtime context
+        run: npm run smoke:project-memory-runtime-context
 
       - name: Smoke project memory skeleton
         run: npm run smoke:project-memory-skeleton

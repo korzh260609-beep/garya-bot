@@ -4,7 +4,7 @@
 > This file defines Project Memory test coverage for SG 2.0.
 > Tests must prove safety boundaries before runtime sync, AI, Telegram, or automatic DB writes are added.
 
-Статус: V1 STORAGE CONFIRMATION TESTING
+Статус: V1 RUNTIME READ CONTEXT TESTING
 
 ---
 
@@ -15,6 +15,7 @@ Current smokes:
 ```text
 scripts/smokeProjectMemorySkeleton.js
 scripts/smokeProjectMemoryStorageConfirmation.js
+scripts/smokeProjectMemoryRuntimeContext.js
 ```
 
 Current npm commands:
@@ -22,6 +23,7 @@ Current npm commands:
 ```text
 npm run smoke:project-memory-skeleton
 npm run smoke:project-memory-storage-confirmation
+npm run smoke:project-memory-runtime-context
 ```
 
 Current CI workflow:
@@ -71,7 +73,30 @@ It must not require `DATABASE_URL`.
 
 ---
 
-## 4. Required safety assertions
+## 4. What V1 runtime context smoke must prove
+
+The runtime context smoke must prove:
+
+```text
+ProjectMemoryRuntimeContext.status()
+ProjectMemoryRuntimeContext.getDiagnostics()
+ProjectMemoryRuntimeContext.loadConfirmedProjectMemoryFacts()
+ProjectMemoryRuntimeContext.buildConfirmedProjectMemoryContextItems()
+buildContextPack() with loaded Project Memory facts
+formatContextPackForPrompt() with Project Memory context
+```
+
+The smoke uses an injected in-memory `queryFn`.
+
+It must not touch real PostgreSQL.
+
+It must not require `DATABASE_URL`.
+
+It must not inject prompt context by itself.
+
+---
+
+## 5. Required safety assertions
 
 The smokes must assert:
 
@@ -80,10 +105,13 @@ The smokes must assert:
 - runtime DB integration is not enabled from the public status;
 - storage boundary exists separately;
 - confirmation boundary exists separately;
+- runtime read bridge exists separately;
+- runtime read bridge reads only confirmed active entries;
 - source fetching is disabled;
 - AI calls are disabled;
 - transport touching is disabled;
 - repository mutation is disabled;
+- prompt injection is disabled in runtime read bridge;
 - buildCandidate creates `candidate`, not `confirmed`;
 - store creates `trust='candidate'` and `status='pending_confirmation'`;
 - confirmation changes candidate to `trust='confirmed'` and `status='active'`;
@@ -96,12 +124,14 @@ The smokes must assert:
 - raw env/log source types are blocked;
 - selectForContext applies item limit;
 - buildContextItems creates `project_memory` context items below verified sources;
+- runtime context bridge creates `project_memory` items below verified sources;
 - context items are owned by `sg_project`;
+- prompt formatter does not include blocked `user_message` content by default;
 - invalid input does not throw and returns warnings.
 
 ---
 
-## 5. What tests must not do
+## 6. What tests must not do
 
 Tests must not:
 
@@ -119,9 +149,9 @@ Tests must not:
 
 ---
 
-## 6. Future tests before connecting Project Memory to runtime context
+## 7. Future tests before connecting Project Memory to live AI context injection
 
-Before connecting durable Project Memory to Core Orchestrator or AI context injection, add tests for:
+Before connecting durable Project Memory to live AI context injection, add tests for:
 
 1. DB schema migration against a controlled test DB.
 2. Read path from storage.
@@ -135,11 +165,16 @@ Before connecting durable Project Memory to Core Orchestrator or AI context inje
 10. Source priority enforcement.
 11. Permission checks for who may confirm memory.
 12. Explicit approval reference checks.
+13. Explicit feature flag for runtime Project Memory reads.
+14. Explicit feature flag for prompt injection.
+15. Fallback behavior when storage read fails.
 
 ---
 
-## 7. Failure rule
+## 8. Failure rule
 
 If Project Memory smoke fails, SG must treat Project Memory runtime as unsafe and not connect it to Core Orchestrator, AI context injection, Telegram, DB storage, or source sync.
 
 If storage confirmation smoke fails, SG must not use durable Project Memory confirmation in runtime flows.
+
+If runtime context smoke fails, SG must not use confirmed Project Memory as live AI context.

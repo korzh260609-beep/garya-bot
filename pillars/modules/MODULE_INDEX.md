@@ -45,16 +45,17 @@ DECISIONS.md
 3. `permissions`
 4. `transport`
 5. `memory`
-6. `sources`
-7. `ai`
-8. `tasks`
-9. `users`
-10. `logging`
-11. `delivery`
-12. `documents`
-13. `repo`
-14. `billing`
-15. `observation`
+6. `project_memory`
+7. `sources`
+8. `ai`
+9. `tasks`
+10. `users`
+11. `logging`
+12. `delivery`
+13. `documents`
+14. `repo`
+15. `billing`
+16. `observation`
 
 ---
 
@@ -66,6 +67,8 @@ DECISIONS.md
 - `active` — implemented and operational.
 
 Current SG 2.0 module docs are skeleton-level.
+
+`project_memory` is currently V1 RUNTIME SKELETON because it has safe read-only / prepare-only runtime helpers, data model docs, and smoke coverage, but no DB storage, sync, AI auto-write, Telegram command, or durable memory writes yet.
 
 `observation` is currently ACTIVE V1 / PARTIAL RUNTIME because its basic event/report/health loop is implemented, but the final Observation Nervous System is not complete yet.
 

@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "render_env_inventory",
-  "generated_at": "2026-05-09T15:05:52.578Z",
+  "generated_at": "2026-05-12T10:33:44.343Z",
   "target": "garya-bot",
   "service": {
     "id": "srv-d4fnv8je5dus7397mgcg",
@@ -14,8 +14,64 @@
     "enabled": true,
     "has_api_key": true
   },
-  "env_count": 20,
+  "env_count": 91,
   "env": [
+    {
+      "name": "AGENT_WORKSPACE_BASE_PATH",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "agent_workspace"
+    },
+    {
+      "name": "AGENT_WORKSPACE_BRANCH",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "dev/v2-start"
+    },
+    {
+      "name": "AGENT_WORKSPACE_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "AGENT_WORKSPACE_GITHUB_TOKEN",
+      "exists": true,
+      "is_secret": true,
+      "secret_reason": "name",
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "AGENT_WORKSPACE_REPO_FULL_NAME",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "korzh260609-beep/garya-bot"
+    },
+    {
+      "name": "AGENT_WORKSPACE_WEBHOOK_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "AGENT_WORKSPACE_WEBHOOK_TOKEN",
+      "exists": true,
+      "is_secret": true,
+      "secret_reason": "name",
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
     {
       "name": "AI_PRICE_GPT_4_1_MINI_INPUT_USD_PER_1M",
       "exists": true,
@@ -49,6 +105,86 @@
       "value": "15.00"
     },
     {
+      "name": "ALREADY_SEEN_COOLDOWN_SEC",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "120"
+    },
+    {
+      "name": "ALREADY_SEEN_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "ALREADY_SEEN_MIN_SCORE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "3"
+    },
+    {
+      "name": "BASE_URL",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "https://garya-bot.onrender.com"
+    },
+    {
+      "name": "CHAT_DEFAULT_ACTIVE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "CHAT_GATE_MODE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "off"
+    },
+    {
+      "name": "CHAT_HISTORY_PURGE_BATCH_LIMIT",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "2000"
+    },
+    {
+      "name": "CHAT_HISTORY_PURGE_COOLDOWN_MIN",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "60"
+    },
+    {
+      "name": "CHAT_HISTORY_PURGE_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "CODE_OUTPUT_MODE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "ENABLED"
+    },
+    {
       "name": "DATABASE_SSL",
       "exists": true,
       "is_secret": false,
@@ -63,6 +199,78 @@
       "secret_reason": "none",
       "value_exposed": true,
       "value": "true"
+    },
+    {
+      "name": "DATABASE_URL",
+      "exists": true,
+      "is_secret": true,
+      "secret_reason": "name",
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "DB_SIZE_LIMIT_MB",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "512"
+    },
+    {
+      "name": "DEBUG_SOURCE_TESTS",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "DEBUG_SOURCE_TOKEN",
+      "exists": true,
+      "is_secret": true,
+      "secret_reason": "name",
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "DEFAULT_TIMEZONE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "UTC"
+    },
+    {
+      "name": "DIAG_ROLES_V2",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "1"
+    },
+    {
+      "name": "ERROR_EVENTS_IGNORE_TEST_FAIL",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "ERROR_EVENTS_PURGE_COOLDOWN_MIN",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "60"
+    },
+    {
+      "name": "ERROR_EVENTS_RETENTION_DAYS",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "30"
     },
     {
       "name": "GITHUB_APP_ID",
@@ -89,6 +297,14 @@
       "value": "[HIDDEN]"
     },
     {
+      "name": "GITHUB_BRANCH",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "dev/v2-start"
+    },
+    {
       "name": "GITHUB_LEGACY_BRANCH",
       "exists": true,
       "is_secret": false,
@@ -97,12 +313,244 @@
       "value": "main"
     },
     {
+      "name": "GITHUB_REPO",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "korzh260609-beep/garya-bot"
+    },
+    {
       "name": "HUMAN_MODE_PROJECT_REPO_ENABLED",
       "exists": true,
       "is_secret": false,
       "secret_reason": "none",
       "value_exposed": true,
       "value": "true"
+    },
+    {
+      "name": "LINKING_V2",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "1"
+    },
+    {
+      "name": "MEMORY_BUFFER_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "MEMORY_BUFFER_FLUSH_MS",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "100"
+    },
+    {
+      "name": "MEMORY_BUFFER_MAX_BATCH",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "200"
+    },
+    {
+      "name": "MEMORY_CLASSIFIER_V2_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "MEMORY_CLASSIFIER_V2_MODE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "hybrid_safe_keys"
+    },
+    {
+      "name": "MEMORY_CLASSIFIER_V2_SHADOW_LOG_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "MEMORY_CLASSIFIER_V2_SHADOW_LOG_MODE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "compact"
+    },
+    {
+      "name": "MEMORY_CLASSIFIER_V2_STRATEGY",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "rules_first"
+    },
+    {
+      "name": "MEMORY_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "1"
+    },
+    {
+      "name": "MEMORY_MODE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "PROJECT_MEMORY"
+    },
+    {
+      "name": "MONARCH_GLOBAL_USER_ID",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "usr_48cc07c069030fb3"
+    },
+    {
+      "name": "MONARCH_USER_ID",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "677128443"
+    },
+    {
+      "name": "OPENAI_API_KEY",
+      "exists": true,
+      "is_secret": true,
+      "secret_reason": "name",
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "OPENAI_VISION_DETAIL",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "auto"
+    },
+    {
+      "name": "OPENAI_VISION_MAX_OUTPUT_TOKENS",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "1200"
+    },
+    {
+      "name": "OPENAI_VISION_MODEL",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "gpt-4o-mini"
+    },
+    {
+      "name": "RECALL_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "RECALL_RL_BYPASS_MONARCH",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "false"
+    },
+    {
+      "name": "RENDER_API_KEY",
+      "exists": true,
+      "is_secret": true,
+      "secret_reason": "name",
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "RENDER_BRIDGE_DEFAULT_DEPLOY_LIMIT",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "5"
+    },
+    {
+      "name": "RENDER_BRIDGE_DEFAULT_LOG_LEVEL",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "error"
+    },
+    {
+      "name": "RENDER_BRIDGE_DEFAULT_LOG_LIMIT",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "100"
+    },
+    {
+      "name": "RENDER_BRIDGE_DEFAULT_LOG_WINDOW_MINUTES",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "60"
+    },
+    {
+      "name": "RENDER_BRIDGE_DEFAULT_SOURCE_KEY",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "render_primary"
+    },
+    {
+      "name": "RENDER_BRIDGE_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "RENDER_LOG_INGEST_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "RENDER_LOG_INGEST_TOKEN",
+      "exists": true,
+      "is_secret": true,
+      "secret_reason": "name",
+      "value_exposed": false,
+      "value": "[HIDDEN]"
     },
     {
       "name": "REPO_STATE_AGENT_AI_COST_LEVEL",
@@ -169,13 +617,146 @@
       "value": "true"
     },
     {
+      "name": "REPO_STATE_BRANCH",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "dev/v2-start"
+    },
+    {
+      "name": "REPO_STATE_COLLECTOR_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
       "name": "REPO_STATE_MAX_CONTENT_FILES",
       "exists": true,
       "is_secret": false,
       "secret_reason": "none",
       "value_exposed": true,
       "value": "500"
+    },
+    {
+      "name": "REPO_STATE_MAX_FILE_SIZE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "200000"
+    },
+    {
+      "name": "REPO_STATE_READ_CONTENT",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "REPO_STATE_REPO_FULL_NAME",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "korzh260609-beep/garya-bot"
+    },
+    {
+      "name": "ROBOT_ALLOW_FORCE_FAIL",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "false"
+    },
+    {
+      "name": "RUN_MIGRATIONS_ON_BOOT",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "0"
+    },
+    {
+      "name": "SG_REPO_REVIEW_B5",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "1"
+    },
+    {
+      "name": "TELEGRAM_BOT_TOKEN",
+      "exists": true,
+      "is_secret": true,
+      "secret_reason": "name",
+      "value_exposed": false,
+      "value": "[HIDDEN]"
+    },
+    {
+      "name": "TRANSPORT_ENFORCED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "TRANSPORT_TRACE",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "VISION_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "VISION_OCR_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "VISION_PROVIDER",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "openai"
+    },
+    {
+      "name": "VISION_PROVIDER_OPENAI_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
     }
   ],
+  "pagination": {
+    "page_limit": 100,
+    "max_pages": 20,
+    "pages_count": 1,
+    "pages": [
+      {
+        "index": 1,
+        "items_count": 91,
+        "has_next_cursor": false
+      }
+    ],
+    "truncated": false
+  },
   "secrets_policy": "secret_values_hidden_by_exact_name_suffix_or_value"
 }

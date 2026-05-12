@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-10T15:47:17.043Z",
+  "generated_at": "2026-05-12T07:45:37.680Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "54359323eaddb45a79e2eb3e5822f46603f8bf50",
-  "previous_head_sha": "67598227a4e9892f78c920c57474cba6e8be8085",
+  "current_head_sha": "2b9e4d143e8c6378737da88d927072ad31b337b1",
+  "previous_head_sha": "54359323eaddb45a79e2eb3e5822f46603f8bf50",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "abcfda61939e0abf88d5677d2ec3ddaf9c140220",
+  "registry_commit_sha": "860145218802466eb7d0db62bdd3ef0514368b0c",
   "latest_commit": {
-    "sha": "54359323eaddb45a79e2eb3e5822f46603f8bf50",
-    "short_sha": "54359323eadd",
-    "message": "agents: restore observation dispatch safety header\n\nMerge PR #180: restore safety header in Observation Trigger Dispatch Agent registry.",
+    "sha": "2b9e4d143e8c6378737da88d927072ad31b337b1",
+    "short_sha": "2b9e4d143e8c",
+    "message": "ci: fix PR merge dispatch workflow condition\n\nMerge PR #182: fix Repo Commit Watcher PR merge dispatch condition.",
     "author": "korzh260609-beep",
-    "date": "2026-05-10T15:46:58Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/54359323eaddb45a79e2eb3e5822f46603f8bf50",
+    "date": "2026-05-12T07:45:13Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/2b9e4d143e8c6378737da88d927072ad31b337b1",
     "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js",
+        "filename": ".github/workflows/repo-commit-watcher.yml",
         "status": "modified",
         "additions": 1,
-        "deletions": 0,
-        "changes": 1
+        "deletions": 1,
+        "changes": 2
       }
     ]
   }

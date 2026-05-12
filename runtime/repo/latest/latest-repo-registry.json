@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T13:50:08.926Z",
+  "generated_at": "2026-05-12T14:03:35.351Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "0a743fade7aa1f6ce120a03ce5fe5edcf40786d0",
+  "head_sha": "d42c5661c19d77727e91ba3449e365717b627eef",
   "truncated": false,
-  "items_count": 353,
+  "items_count": 354,
   "semantic_fields": [
     "module",
     "layer",
@@ -2596,6 +2596,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryStorageConfirmation.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryUserProjectGuard.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

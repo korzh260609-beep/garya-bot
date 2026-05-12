@@ -55,9 +55,10 @@ assert.equal(otherUserProject.ok, true);
 assert.notEqual(userProjectAlpha.projectKey, userProjectBeta.projectKey);
 assert.notEqual(userProjectAlpha.projectKey, otherUserProject.projectKey);
 assert.equal(userProjectAlpha.ownerType, PROJECT_MEMORY_OWNER_TYPES.USER_PROJECT);
-assert.equal(userProjectAlpha.ownerRef, "global:user-1");
+assert.equal(userProjectAlpha.ownerRef, "global-user-1");
 assert.equal(userProjectAlpha.userProjectId, "alpha-client");
 assert.equal(userProjectAlpha.visibility, PROJECT_MEMORY_VISIBILITY.PRIVATE_USER_PROJECT);
+assert.equal(userProjectAlpha.projectKey, "user_project:global-user-1:alpha-client");
 assert.equal(userProjectAlpha.projectKey.startsWith("user_project:"), true);
 
 const keyOnly = buildUserProjectMemoryKey({
@@ -74,7 +75,7 @@ assert.equal(missingKey.reason, "missing_global_user_id_or_user_project_id");
 const parsedUserProject = parseProjectMemoryKey(userProjectAlpha.projectKey);
 assert.equal(parsedUserProject.ok, true);
 assert.equal(parsedUserProject.ownerType, PROJECT_MEMORY_OWNER_TYPES.USER_PROJECT);
-assert.equal(parsedUserProject.ownerRef, "global:user-1");
+assert.equal(parsedUserProject.ownerRef, "global-user-1");
 assert.equal(parsedUserProject.userProjectId, "alpha-client");
 
 const parsedUnknown = parseProjectMemoryKey("some_random_project");

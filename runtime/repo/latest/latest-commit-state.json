@@ -1,57 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T16:32:15.235Z",
+  "generated_at": "2026-05-12T21:19:23.588Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "8b4d9acd2d37360d939948e3d4bb2d99fd79cbcf",
-  "previous_head_sha": "fb7785b60442dab516d79cafd9c6fc1339e85bbc",
+  "current_head_sha": "ae33eadbd274f1b1d357d3c06b9cb4f2f5f2d331",
+  "previous_head_sha": "8b4d9acd2d37360d939948e3d4bb2d99fd79cbcf",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "12a9e8940d24b7cdb73a66cce345e3cfeee5cba4",
+  "registry_commit_sha": "d415649365a9d8d5bf4c98611d12a2ed8d91a39d",
   "latest_commit": {
-    "sha": "8b4d9acd2d37360d939948e3d4bb2d99fd79cbcf",
-    "short_sha": "8b4d9acd2d37",
-    "message": "projects: add explicit user project runtime context skeleton\n\nAdd a skeleton boundary for explicit user project runtime context selection.\n\n- Resolve explicit actor + ownerGlobalUserId + userProjectId into user_project projectKey\n- Require actor ownership or monarch access\n- Require existing active user project\n- Export the boundary from projects public index\n- Add deterministic offline smoke coverage and dedicated CI\n\nNo Telegram logic, AI calls, Project Memory reads/writes, prompt injection, source sync, or natural-language project inference.",
+    "sha": "ae33eadbd274f1b1d357d3c06b9cb4f2f5f2d331",
+    "short_sha": "ae33eadbd274",
+    "message": "memory: bridge explicit user project context into message gate\n\nMerge PR #204 into dev/v2-start after successful checks.",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T16:31:56Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8b4d9acd2d37360d939948e3d4bb2d99fd79cbcf",
-    "changed_files_count": 5,
+    "date": "2026-05-12T21:19:06Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ae33eadbd274f1b1d357d3c06b9cb4f2f5f2d331",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-user-project-runtime-context.yml",
-        "status": "added",
-        "additions": 40,
-        "deletions": 0,
-        "changes": 40
-      },
-      {
-        "filename": "package.json",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "scripts/smokeUserProjectRuntimeContext.js",
-        "status": "added",
-        "additions": 151,
-        "deletions": 0,
-        "changes": 151
-      },
-      {
-        "filename": "src/projects/index.js",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
         "additions": 9,
         "deletions": 0,
         "changes": 9
       },
       {
-        "filename": "src/projects/userProjectRuntimeContext.js",
-        "status": "added",
-        "additions": 163,
-        "deletions": 0,
-        "changes": 163
+        "filename": "scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js",
+        "status": "modified",
+        "additions": 54,
+        "deletions": 3,
+        "changes": 57
+      },
+      {
+        "filename": "src/core/message/messageAiRequest.js",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 1,
+        "changes": 3
+      },
+      {
+        "filename": "src/core/message/messageProjectMemoryContextGate.js",
+        "status": "modified",
+        "additions": 120,
+        "deletions": 5,
+        "changes": 125
       }
     ]
   }

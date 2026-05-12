@@ -1,0 +1,64 @@
+{
+  "ok": true,
+  "type": "observation_report",
+  "generated_at": "2026-05-12T08:06:39.636Z",
+  "name": "observation-journal-health-latest",
+  "summary": "Observation journal health degraded: 0/2 reports available.",
+  "events_count": 1,
+  "invalid_events_count": 0,
+  "invalid_events": [],
+  "events": [
+    {
+      "schema_version": 1,
+      "event_id": "",
+      "event_type": "observation.journal_health",
+      "created_at": "2026-05-12T08:06:39.635Z",
+      "source": {
+        "system": "sg",
+        "transport": "internal",
+        "module": "observation-journal-health"
+      },
+      "actor": {
+        "role": "system",
+        "user_ref": "redacted",
+        "chat_ref": "redacted"
+      },
+      "direction": "internal",
+      "summary": "Observation journal health degraded: 0/2 reports available.",
+      "payload": {
+        "reports_checked": 2,
+        "reports_available": 0,
+        "reports_missing": 2,
+        "reports": [
+          {
+            "name": "diagnostics-latest",
+            "ok": false,
+            "summary": "workspace_read_failed:404:Not Found"
+          },
+          {
+            "name": "runtime-status-latest",
+            "ok": false,
+            "summary": "workspace_read_failed:404:Not Found"
+          }
+        ]
+      },
+      "tool": null,
+      "policy": {
+        "sensitivity": "internal",
+        "retention": "latest_only",
+        "sanitized": true,
+        "memory_candidate": false
+      },
+      "links": {
+        "runtime_report_path": "",
+        "related_commit_sha": "",
+        "related_run_id": ""
+      }
+    }
+  ],
+  "policy": {
+    "sanitized": true,
+    "runtime_path_only": true,
+    "no_memory_write": true
+  }
+}

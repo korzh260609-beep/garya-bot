@@ -1,0 +1,57 @@
+{
+  "ok": true,
+  "type": "observation_report",
+  "generated_at": "2026-05-12T08:14:25.764Z",
+  "name": "runtime-status-latest",
+  "summary": "Runtime status observed: AI not configured.",
+  "events_count": 1,
+  "invalid_events_count": 0,
+  "invalid_events": [],
+  "events": [
+    {
+      "schema_version": 1,
+      "event_id": "runtime_status_1778573665763",
+      "event_type": "runtime.status",
+      "created_at": "2026-05-12T08:14:25.763Z",
+      "source": {
+        "system": "sg",
+        "transport": "internal",
+        "module": "runtimeStatusObservationBridge"
+      },
+      "actor": {
+        "role": "system",
+        "user_ref": "redacted",
+        "chat_ref": "redacted"
+      },
+      "direction": "internal",
+      "summary": "Runtime status observed: AI not configured.",
+      "payload": {
+        "runtime": {
+          "nodeEnv": "development",
+          "telegramConfigured": false,
+          "monarchConfigured": false,
+          "aiConfigured": false,
+          "openaiModel": "gpt-4.1-mini",
+          "baseUrlConfigured": false
+        }
+      },
+      "tool": null,
+      "policy": {
+        "sensitivity": "internal",
+        "retention": "latest_only",
+        "sanitized": true,
+        "memory_candidate": false
+      },
+      "links": {
+        "runtime_report_path": "",
+        "related_commit_sha": "",
+        "related_run_id": ""
+      }
+    }
+  ],
+  "policy": {
+    "sanitized": true,
+    "runtime_path_only": true,
+    "no_memory_write": true
+  }
+}

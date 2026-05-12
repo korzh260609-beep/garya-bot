@@ -60,6 +60,14 @@ export {
 } from "./project/projectMemoryConfirmation.js";
 
 export {
+  PROJECT_MEMORY_RUNTIME_CONTEXT_VERSION,
+  PROJECT_MEMORY_RUNTIME_CONTEXT_MODES,
+  PROJECT_MEMORY_RUNTIME_CONTEXT_DEFAULT_LIMITS,
+  ProjectMemoryRuntimeContext,
+  createProjectMemoryRuntimeContext,
+} from "./project/projectMemoryRuntimeContext.js";
+
+export {
   MEMORY_CONTRACT_VERSION,
   MEMORY_ACTION_CLASSES,
   MEMORY_SCOPES,
@@ -107,6 +115,7 @@ export function getMemoryModuleStatus() {
     hasDb: false,
     hasStorageBoundary: true,
     hasDurableProjectMemoryConfirmationBoundary: true,
+    hasProjectMemoryRuntimeReadBridge: true,
     hasTransportLogic: false,
     hasAICalls: false,
     hasSourceFetching: false,
@@ -120,6 +129,7 @@ export function getMemoryModuleStatus() {
       memoryIsNotTechnicalMode: true,
       durableProjectMemoryRequiresConfirmation: true,
       projectMemoryAutoWriteDisabled: true,
+      projectMemoryRuntimeReadConfirmedOnly: true,
     },
   };
 }

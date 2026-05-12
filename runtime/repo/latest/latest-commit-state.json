@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T13:50:10.628Z",
+  "generated_at": "2026-05-12T14:03:37.458Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "0a743fade7aa1f6ce120a03ce5fe5edcf40786d0",
-  "previous_head_sha": "369dadeaf909ee72365ec29ed5015fbe705c3d23",
+  "current_head_sha": "d42c5661c19d77727e91ba3449e365717b627eef",
+  "previous_head_sha": "0a743fade7aa1f6ce120a03ce5fe5edcf40786d0",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "39ffbffe5d6420e3794deb2083bcce0bca6b688f",
+  "registry_commit_sha": "ef787c1654f87d50649dae359fb225933748d97b",
   "latest_commit": {
-    "sha": "0a743fade7aa1f6ce120a03ce5fe5edcf40786d0",
-    "short_sha": "0a743fade7aa",
-    "message": "Merge PR #199: memory: add user project registry validation bridge\n\nmemory: add user project registry validation bridge\n\nAdds a read-only validation bridge between Project Memory user_project refs and User Projects Registry.\n\nBoundaries preserved: no Project Memory writes, no confirmation, no user project creation, no Telegram, no AI calls, no prompt injection, no source sync, and no docs status updates.",
+    "sha": "d42c5661c19d77727e91ba3449e365717b627eef",
+    "short_sha": "d42c5661c19d",
+    "message": "Merge PR #200: memory: guard user project memory candidate and read paths\n\nmemory: guard user project memory candidate and read paths\n\nConnects the User Projects Registry validator as a guard in Project Memory candidate preparation and confirmed runtime reads.\n\nBoundaries preserved: no auto-write, no AI calls, no Telegram, no prompt injection, no source sync, no user project creation, and no docs status updates.",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T13:49:40Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0a743fade7aa1f6ce120a03ce5fe5edcf40786d0",
+    "date": "2026-05-12T14:02:49Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d42c5661c19d77727e91ba3449e365717b627eef",
     "changed_files_count": 5,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 5,
+        "additions": 6,
         "deletions": 0,
-        "changes": 5
+        "changes": 6
       },
       {
         "filename": "package.json",
@@ -33,25 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeProjectMemoryUserProjectValidator.js",
+        "filename": "scripts/smokeProjectMemoryUserProjectGuard.js",
         "status": "added",
-        "additions": 190,
+        "additions": 252,
         "deletions": 0,
-        "changes": 190
+        "changes": 252
       },
       {
-        "filename": "src/memory/index.js",
+        "filename": "src/memory/project/projectMemoryConfirmation.js",
         "status": "modified",
-        "additions": 8,
-        "deletions": 0,
-        "changes": 8
+        "additions": 74,
+        "deletions": 2,
+        "changes": 76
       },
       {
-        "filename": "src/memory/project/projectMemoryUserProjectValidator.js",
-        "status": "added",
-        "additions": 203,
-        "deletions": 0,
-        "changes": 203
+        "filename": "src/memory/project/projectMemoryRuntimeContext.js",
+        "status": "modified",
+        "additions": 69,
+        "deletions": 4,
+        "changes": 73
       }
     ]
   }

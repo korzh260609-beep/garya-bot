@@ -167,6 +167,7 @@ jobs:
           node --check scripts/smokeObservationJournalHealthTrigger.js
           node --check scripts/smokeObservationTriggerDispatchAgent.js
           node --check scripts/smokeProjectMemorySkeleton.js
+          node --check scripts/smokeProjectMemoryStorageConfirmation.js
 
       - name: Smoke GitHub Actions formatter
         run: npm run smoke:github-actions-formatter
@@ -212,6 +213,9 @@ jobs:
 
       - name: Smoke project memory skeleton
         run: npm run smoke:project-memory-skeleton
+
+      - name: Smoke project memory storage confirmation
+        run: npm run smoke:project-memory-storage-confirmation
 
       - name: Smoke runtime status observation bridge
         run: npm run smoke:runtime-status-observation-bridge

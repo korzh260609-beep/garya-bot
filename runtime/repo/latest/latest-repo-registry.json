@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T12:58:06.723Z",
+  "generated_at": "2026-05-12T13:18:32.942Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "b6f1ad1df8c2a7791acd4de613d4e7069586a375",
+  "head_sha": "45699cd77e07123a9b61783ff8434b1b9c10a585",
   "truncated": false,
-  "items_count": 342,
+  "items_count": 344,
   "semantic_fields": [
     "module",
     "layer",
@@ -2468,6 +2468,24 @@
     },
     {
       "path": "scripts/smokeObservationTriggerLayer.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryOwnershipScope.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5662,6 +5680,26 @@
     },
     {
       "path": "src/memory/project/projectMemoryConfirmation.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemoryOwnership.js",
       "type": "file",
       "parent": "src/memory/project",
       "extension": "js",

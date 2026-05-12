@@ -1,36 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T16:06:47.222Z",
+  "generated_at": "2026-05-12T16:32:15.235Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "fb7785b60442dab516d79cafd9c6fc1339e85bbc",
-  "previous_head_sha": "80b0ff2d481d70c9aa29fe15297f85e9e473f81d",
+  "current_head_sha": "8b4d9acd2d37360d939948e3d4bb2d99fd79cbcf",
+  "previous_head_sha": "fb7785b60442dab516d79cafd9c6fc1339e85bbc",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "759dc762620aa487052771722b9bcb6692142064",
+  "registry_commit_sha": "12a9e8940d24b7cdb73a66cce345e3cfeee5cba4",
   "latest_commit": {
-    "sha": "fb7785b60442dab516d79cafd9c6fc1339e85bbc",
-    "short_sha": "fb7785b60442",
-    "message": "ci: fix repo watcher observation dispatch policy\n\nFix Repo Commit Watcher so Observation dispatch does not depend on merge commit message text.\n\n- Dispatch bounded github.repository_updated observation events after dev pushes\n- Ignore runtime/observation/** to avoid observation commit loops\n- Allowlist github.repository_updated in the dispatch registry\n- Add smoke coverage and dedicated CI for the watcher observation policy",
+    "sha": "8b4d9acd2d37360d939948e3d4bb2d99fd79cbcf",
+    "short_sha": "8b4d9acd2d37",
+    "message": "projects: add explicit user project runtime context skeleton\n\nAdd a skeleton boundary for explicit user project runtime context selection.\n\n- Resolve explicit actor + ownerGlobalUserId + userProjectId into user_project projectKey\n- Require actor ownership or monarch access\n- Require existing active user project\n- Export the boundary from projects public index\n- Add deterministic offline smoke coverage and dedicated CI\n\nNo Telegram logic, AI calls, Project Memory reads/writes, prompt injection, source sync, or natural-language project inference.",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T16:06:27Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/fb7785b60442dab516d79cafd9c6fc1339e85bbc",
+    "date": "2026-05-12T16:31:56Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8b4d9acd2d37360d939948e3d4bb2d99fd79cbcf",
     "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/repo-commit-watcher.yml",
-        "status": "modified",
-        "additions": 4,
-        "deletions": 3,
-        "changes": 7
-      },
-      {
-        "filename": ".github/workflows/sg2-repo-commit-watcher-observation-policy.yml",
+        "filename": ".github/workflows/sg2-user-project-runtime-context.yml",
         "status": "added",
-        "additions": 37,
+        "additions": 40,
         "deletions": 0,
-        "changes": 37
+        "changes": 40
       },
       {
         "filename": "package.json",
@@ -40,18 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeRepoCommitWatcherObservationDispatchPolicy.js",
+        "filename": "scripts/smokeUserProjectRuntimeContext.js",
         "status": "added",
-        "additions": 35,
+        "additions": 151,
         "deletions": 0,
-        "changes": 35
+        "changes": 151
       },
       {
-        "filename": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js",
+        "filename": "src/projects/index.js",
         "status": "modified",
-        "additions": 6,
+        "additions": 9,
         "deletions": 0,
-        "changes": 6
+        "changes": 9
+      },
+      {
+        "filename": "src/projects/userProjectRuntimeContext.js",
+        "status": "added",
+        "additions": 163,
+        "deletions": 0,
+        "changes": 163
       }
     ]
   }

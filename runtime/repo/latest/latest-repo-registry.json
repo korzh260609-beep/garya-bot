@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T08:30:12.994Z",
+  "generated_at": "2026-05-12T08:43:43.841Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "1f77c32616988e151e29b2336be51e3864d4290d",
+  "head_sha": "28271277150ca774e03f06f291efa8e9557bde65",
   "truncated": false,
-  "items_count": 320,
+  "items_count": 323,
   "semantic_fields": [
     "module",
     "layer",
@@ -1125,6 +1125,48 @@
       }
     },
     {
+      "path": "pillars/modules/observation",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "observation",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
+    },
+    {
+      "path": "pillars/modules/observation/README.md",
+      "type": "file",
+      "parent": "pillars/modules/observation",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "observation",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
+    },
+    {
       "path": "pillars/modules/permissions",
       "type": "folder",
       "parent": "pillars/modules",
@@ -1658,6 +1700,26 @@
         "source_priority": "generated_runtime_fact",
         "notes": [
           "folder_node",
+          "generated_by_agent_or_runtime"
+        ]
+      }
+    },
+    {
+      "path": "runtime/observation/latest/diagnostics-latest.json",
+      "type": "file",
+      "parent": "runtime/observation/latest",
+      "extension": "json",
+      "description": "JSON data/configuration file.",
+      "status": "generated",
+      "semantic": {
+        "module": "runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "JSON data/configuration file.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
           "generated_by_agent_or_runtime"
         ]
       }

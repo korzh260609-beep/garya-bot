@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T21:19:22.374Z",
+  "generated_at": "2026-05-12T21:31:27.099Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "ae33eadbd274f1b1d357d3c06b9cb4f2f5f2d331",
+  "head_sha": "b128d5df05c35de5c62dfae19fde72e728dad312",
   "truncated": false,
-  "items_count": 361,
+  "items_count": 363,
   "semantic_fields": [
     "module",
     "layer",
@@ -79,6 +79,24 @@
     },
     {
       "path": ".github/workflows/repo-commit-watcher.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-message-runtime-options.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -2416,6 +2434,24 @@
     },
     {
       "path": "scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

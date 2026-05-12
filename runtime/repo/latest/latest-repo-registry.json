@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T10:34:04.141Z",
+  "generated_at": "2026-05-12T11:08:58.175Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "63874dbd4e3bece276dcd3d9eae44aafc32f9e66",
+  "head_sha": "f7bbe5d9df3851b3571a47dc19951c6da9dc1c4c",
   "truncated": false,
-  "items_count": 327,
+  "items_count": 330,
   "semantic_fields": [
     "module",
     "layer",
@@ -1250,6 +1250,26 @@
       }
     },
     {
+      "path": "pillars/modules/project_memory/DATA_MODEL.md",
+      "type": "file",
+      "parent": "pillars/modules/project_memory",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
+    },
+    {
       "path": "pillars/modules/project_memory/README.md",
       "type": "file",
       "parent": "pillars/modules/project_memory",
@@ -1272,6 +1292,26 @@
     },
     {
       "path": "pillars/modules/project_memory/RISKS.md",
+      "type": "file",
+      "parent": "pillars/modules/project_memory",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
+    },
+    {
+      "path": "pillars/modules/project_memory/TESTING.md",
       "type": "file",
       "parent": "pillars/modules/project_memory",
       "extension": "md",
@@ -2410,6 +2450,24 @@
     },
     {
       "path": "scripts/smokeObservationTriggerLayer.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemorySkeleton.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

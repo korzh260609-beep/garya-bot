@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-12T08:06:39.636Z",
+  "generated_at": "2026-05-12T08:14:27.422Z",
   "name": "observation-journal-health-latest",
-  "summary": "Observation journal health degraded: 0/2 reports available.",
+  "summary": "Observation journal health degraded: 1/2 reports available.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "observation.journal_health",
-      "created_at": "2026-05-12T08:06:39.635Z",
+      "created_at": "2026-05-12T08:14:27.421Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,11 +24,11 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Observation journal health degraded: 0/2 reports available.",
+      "summary": "Observation journal health degraded: 1/2 reports available.",
       "payload": {
         "reports_checked": 2,
-        "reports_available": 0,
-        "reports_missing": 2,
+        "reports_available": 1,
+        "reports_missing": 1,
         "reports": [
           {
             "name": "diagnostics-latest",
@@ -37,8 +37,11 @@
           },
           {
             "name": "runtime-status-latest",
-            "ok": false,
-            "summary": "workspace_read_failed:404:Not Found"
+            "ok": true,
+            "eventType": "runtime.status",
+            "summary": "Runtime status observed: AI not configured.",
+            "generatedAt": "2026-05-12T08:14:25.764Z",
+            "sanitized": true
           }
         ]
       },

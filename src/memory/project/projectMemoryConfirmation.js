@@ -6,6 +6,7 @@
 import { PROJECT_MEMORY_TRUST } from "./projectMemoryTypes.js";
 import { ProjectMemoryService } from "./projectMemoryService.js";
 import { ProjectMemoryStore } from "./projectMemoryStore.js";
+import { ProjectMemoryUserProjectValidator } from "./projectMemoryUserProjectValidator.js";
 
 export const PROJECT_MEMORY_CONFIRMATION_VERSION = 1;
 
@@ -42,10 +43,19 @@ function normalizeService(service) {
   return service || new ProjectMemoryService();
 }
 
+function normalizeUserProjectValidator(userProjectValidator) {
+  return userProjectValidator || new ProjectMemoryUserProjectValidator();
+}
+
+function isUserProjectKey(projectKey = "") {
+  return normalizeText(projectKey).startsWith("user_project:");
+}
+
 export class ProjectMemoryConfirmation {
-  constructor({ service = null, store = null, logger = null } = {}) {
+  constructor({ service = null, store = null, userProjectValidator = null, logger = null } = {}) {
     this.service = normalizeService(service);
     this.store = normalizeStore(store);
+    this.userProjectValidator = normalizeUserProjectValidator(userProjectValidator);
     this.logger = logger || console;
   }
 
@@ -57,6 +67,7 @@ export class ProjectMemoryConfirmation {
       version: PROJECT_MEMORY_CONFIRMATION_VERSION,
       mode: PROJECT_MEMORY_CONFIRMATION_MODES.EXPLICIT_ONLY,
       hasDbBoundary: true,
+      hasUserProjectValidationGuard: true,
       canCreateCandidateForConfirmation: true,
       canConfirmCandidate: true,
       canListConfirmedEntries: true,
@@ -80,6 +91,7 @@ export class ProjectMemoryConfirmation {
       boundaries: {
         usesProjectMemoryServiceValidation: true,
         usesProjectMemoryStore: true,
+        usesUserProjectValidationGuard: true,
         transportIndependent: true,
         aiIndependent: true,
         sourceSyncIndependent: true,
@@ -87,6 +99,7 @@ export class ProjectMemoryConfirmation {
       sideEffects: {
         canWriteCandidateOnlyWhenExplicitlyCalled: true,
         canConfirmOnlyWhenExplicitlyCalled: true,
+        validatesUserProjectBeforeUserProjectCandidateWrite: true,
         autoWritesFromChat: false,
         callsAI: false,
         touchesTelegram: false,
@@ -113,7 +126,40 @@ export class ProjectMemoryConfirmation {
     };
   }
 
-  async prepareCandidateForConfirmation({ input = {}, createdBy = "system", projectKey = "sg", traceId = null } = {}) {
+  async validateUserProjectCandidateGuard({ actor = {}, projectKey = "" } = {}) {
+    const safeProjectKey = normalizeText(projectKey) || "sg";
+
+    if (!isUserProjectKey(safeProjectKey)) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: "not_user_project_memory",
+      };
+    }
+
+    const validation = await this.userProjectValidator.validateUserProjectCandidateWrite({
+      actor,
+      projectKey: safeProjectKey,
+    });
+
+    if (!validation.ok || !validation.allowed) {
+      return {
+        ok: false,
+        skipped: false,
+        reason: validation.reason || "user_project_memory_candidate_guard_failed",
+        validation,
+      };
+    }
+
+    return {
+      ok: true,
+      skipped: false,
+      reason: null,
+      validation,
+    };
+  }
+
+  async prepareCandidateForConfirmation({ input = {}, createdBy = "system", projectKey = "sg", traceId = null, actor = {} } = {}) {
     const actorRef = normalizeText(createdBy) || "system";
     const safeProjectKey = normalizeText(projectKey) || "sg";
     const candidate = this.service.buildCandidate(input);
@@ -126,6 +172,31 @@ export class ProjectMemoryConfirmation {
         reason: "candidate_validation_failed",
         candidate,
         errors: candidate.errors || candidate.validation?.errors || [],
+        warnings: candidate.warnings || [],
+        stored: false,
+      };
+    }
+
+    const guard = await this.validateUserProjectCandidateGuard({
+      actor,
+      projectKey: safeProjectKey,
+    });
+
+    if (!guard.ok) {
+      return {
+        ok: false,
+        mode: PROJECT_MEMORY_CONFIRMATION_MODES.EXPLICIT_ONLY,
+        decision: PROJECT_MEMORY_CONFIRMATION_DECISIONS.CANDIDATE_REJECTED,
+        reason: guard.reason,
+        candidate,
+        guard,
+        errors: [
+          createError(
+            "user_project_memory_candidate_guard_failed",
+            "User project Project Memory candidate was rejected before storage by the user project validation guard.",
+            { reason: guard.reason },
+          ),
+        ],
         warnings: candidate.warnings || [],
         stored: false,
       };
@@ -159,6 +230,7 @@ export class ProjectMemoryConfirmation {
       traceId: result.traceId || traceId || null,
       stored: true,
       requiresConfirmation: true,
+      guard,
     };
   }
 

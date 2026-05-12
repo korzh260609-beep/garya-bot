@@ -5,6 +5,7 @@
 
 import { PROJECT_MEMORY_TRUST } from "./projectMemoryTypes.js";
 import { ProjectMemoryStore } from "./projectMemoryStore.js";
+import { ProjectMemoryUserProjectValidator } from "./projectMemoryUserProjectValidator.js";
 
 export const PROJECT_MEMORY_RUNTIME_CONTEXT_VERSION = 1;
 
@@ -46,6 +47,14 @@ function normalizeLimit(value, fallback, min, max) {
 
 function normalizeStore(store) {
   return store || new ProjectMemoryStore();
+}
+
+function normalizeUserProjectValidator(userProjectValidator) {
+  return userProjectValidator || new ProjectMemoryUserProjectValidator();
+}
+
+function isUserProjectKey(projectKey = "") {
+  return normalizeText(projectKey).startsWith("user_project:");
 }
 
 function normalizeLimits(limits = {}) {
@@ -116,8 +125,9 @@ function factToContextItem(fact = {}) {
 }
 
 export class ProjectMemoryRuntimeContext {
-  constructor({ store = null, logger = null } = {}) {
+  constructor({ store = null, userProjectValidator = null, logger = null } = {}) {
     this.store = normalizeStore(store);
+    this.userProjectValidator = normalizeUserProjectValidator(userProjectValidator);
     this.logger = logger || console;
   }
 
@@ -129,6 +139,7 @@ export class ProjectMemoryRuntimeContext {
       version: PROJECT_MEMORY_RUNTIME_CONTEXT_VERSION,
       mode: PROJECT_MEMORY_RUNTIME_CONTEXT_MODES.READ_CONFIRMED_ONLY,
       readsConfirmedOnly: true,
+      hasUserProjectValidationGuard: true,
       writesStorage: false,
       confirmsCandidates: false,
       autoWriteFromChat: false,
@@ -149,6 +160,7 @@ export class ProjectMemoryRuntimeContext {
       mode: PROJECT_MEMORY_RUNTIME_CONTEXT_MODES.READ_CONFIRMED_ONLY,
       boundaries: {
         usesProjectMemoryStore: true,
+        usesUserProjectValidationGuard: true,
         confirmedOnly: true,
         transportIndependent: true,
         aiIndependent: true,
@@ -157,6 +169,7 @@ export class ProjectMemoryRuntimeContext {
       },
       sideEffects: {
         readsStorage: true,
+        validatesUserProjectBeforeUserProjectRead: true,
         writesStorage: false,
         confirmsCandidates: false,
         autoWritesFromChat: false,
@@ -187,9 +200,59 @@ export class ProjectMemoryRuntimeContext {
     };
   }
 
-  async loadConfirmedProjectMemoryFacts({ projectKey = "sg", limits = {} } = {}) {
+  async validateUserProjectReadGuard({ actor = {}, projectKey = "" } = {}) {
+    const safeProjectKey = normalizeText(projectKey) || "sg";
+
+    if (!isUserProjectKey(safeProjectKey)) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: "not_user_project_memory",
+      };
+    }
+
+    const validation = await this.userProjectValidator.validateUserProjectRead({
+      actor,
+      projectKey: safeProjectKey,
+    });
+
+    if (!validation.ok || !validation.allowed) {
+      return {
+        ok: false,
+        skipped: false,
+        reason: validation.reason || "user_project_memory_read_guard_failed",
+        validation,
+      };
+    }
+
+    return {
+      ok: true,
+      skipped: false,
+      reason: null,
+      validation,
+    };
+  }
+
+  async loadConfirmedProjectMemoryFacts({ projectKey = "sg", limits = {}, actor = {} } = {}) {
     const safeProjectKey = normalizeText(projectKey) || "sg";
     const safeLimits = normalizeLimits(limits);
+
+    const guard = await this.validateUserProjectReadGuard({
+      actor,
+      projectKey: safeProjectKey,
+    });
+
+    if (!guard.ok) {
+      return {
+        ok: false,
+        mode: PROJECT_MEMORY_RUNTIME_CONTEXT_MODES.READ_CONFIRMED_ONLY,
+        reason: guard.reason,
+        guard,
+        facts: [],
+        warnings: [],
+        limits: safeLimits,
+      };
+    }
 
     const result = await this.store.listEntries({
       projectKey: safeProjectKey,
@@ -243,11 +306,12 @@ export class ProjectMemoryRuntimeContext {
       rowCount: result.rowCount || facts.length,
       warnings,
       limits: safeLimits,
+      guard,
     };
   }
 
-  async buildConfirmedProjectMemoryContextItems({ projectKey = "sg", limits = {} } = {}) {
-    const loaded = await this.loadConfirmedProjectMemoryFacts({ projectKey, limits });
+  async buildConfirmedProjectMemoryContextItems({ projectKey = "sg", limits = {}, actor = {} } = {}) {
+    const loaded = await this.loadConfirmedProjectMemoryFacts({ projectKey, limits, actor });
 
     if (!loaded.ok) {
       return {
@@ -263,6 +327,7 @@ export class ProjectMemoryRuntimeContext {
       facts: loaded.facts,
       warnings: loaded.warnings,
       limits: loaded.limits,
+      guard: loaded.guard,
     };
   }
 }

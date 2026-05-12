@@ -119,7 +119,9 @@ function createMemoryQueryFn() {
 
 const moduleStatus = getMemoryModuleStatus();
 assert.equal(moduleStatus.ok, true);
-assert.equal(moduleStatus.hasDb, true);
+assert.equal(moduleStatus.hasDb, false);
+assert.equal(moduleStatus.hasStorageBoundary, true);
+assert.equal(moduleStatus.hasDurableProjectMemoryConfirmationBoundary, true);
 assert.equal(moduleStatus.hasTransportLogic, false);
 assert.equal(moduleStatus.hasAICalls, false);
 assert.equal(moduleStatus.hasSourceFetching, false);

@@ -29,6 +29,7 @@
     "smoke:project-memory-storage-confirmation": "node ./scripts/smokeProjectMemoryStorageConfirmation.js",
     "smoke:project-memory-user-project-guard": "node ./scripts/smokeProjectMemoryUserProjectGuard.js",
     "smoke:project-memory-user-project-validator": "node ./scripts/smokeProjectMemoryUserProjectValidator.js",
+    "smoke:repo-commit-watcher-observation-policy": "node ./scripts/smokeRepoCommitWatcherObservationDispatchPolicy.js",
     "smoke:runtime-status-observation-bridge": "node ./scripts/smokeRuntimeStatusObservationBridge.js",
     "smoke:user-projects-registry": "node ./scripts/smokeUserProjectsRegistry.js",
     "smoke:users-identity-registry": "node ./scripts/smokeUsersIdentityRegistryCheck.js",

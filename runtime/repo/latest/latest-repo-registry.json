@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T15:47:11.662Z",
+  "generated_at": "2026-05-12T16:06:45.697Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "80b0ff2d481d70c9aa29fe15297f85e9e473f81d",
+  "head_sha": "fb7785b60442dab516d79cafd9c6fc1339e85bbc",
   "truncated": false,
-  "items_count": 356,
+  "items_count": 358,
   "semantic_fields": [
     "module",
     "layer",
@@ -97,6 +97,24 @@
     },
     {
       "path": ".github/workflows/sg2-project-memory-projectkey-runtime-selection.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-repo-commit-watcher-observation-policy.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -2682,6 +2700,26 @@
         "runtime_impact": "unknown_or_low",
         "source_priority": "repository_fact",
         "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeRepoCommitWatcherObservationDispatchPolicy.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": [
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
       }
     },
     {

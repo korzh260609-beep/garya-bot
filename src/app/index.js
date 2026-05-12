@@ -10,4 +10,5 @@ export * from "./rootRoutes.js";
 export * from "./rootStatus.js";
 export * from "./runtimeStatusPresenter.js";
 export * from "./runtimeHooks.js";
+export * from "./projectMemoryBootstrap.js";
 export * from "./serverStartup.js";

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T12:28:01.888Z",
+  "generated_at": "2026-05-12T12:47:33.062Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "24db27f915ec405dac3ba456ffb5092920f29c64",
+  "head_sha": "3f6c6257fdd00ba39dfd4f1fd208182a93b73d2a",
   "truncated": false,
-  "items_count": 338,
+  "items_count": 340,
   "semantic_fields": [
     "module",
     "layer",
@@ -2503,6 +2503,24 @@
       }
     },
     {
+      "path": "scripts/smokeProjectMemorySchemaBootstrap.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeProjectMemorySkeleton.js",
       "type": "file",
       "parent": "scripts",
@@ -3871,6 +3889,24 @@
         "module": "repository",
         "layer": "repository",
         "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/app/projectMemoryBootstrap.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
         "owner": "repository",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "unknown_or_low",

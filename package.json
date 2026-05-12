@@ -21,6 +21,7 @@
     "smoke:observation-trigger-dispatch-agent": "node ./scripts/smokeObservationTriggerDispatchAgent.js",
     "smoke:observation-trigger-layer": "node ./scripts/smokeObservationTriggerLayer.js",
     "smoke:project-memory-runtime-context": "node ./scripts/smokeProjectMemoryRuntimeContext.js",
+    "smoke:project-memory-runtime-diagnostics": "node ./scripts/smokeProjectMemoryRuntimeDiagnostics.js",
     "smoke:project-memory-schema-bootstrap": "node ./scripts/smokeProjectMemorySchemaBootstrap.js",
     "smoke:project-memory-skeleton": "node ./scripts/smokeProjectMemorySkeleton.js",
     "smoke:project-memory-storage-confirmation": "node ./scripts/smokeProjectMemoryStorageConfirmation.js",

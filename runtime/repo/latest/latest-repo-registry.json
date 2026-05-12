@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T12:12:28.768Z",
+  "generated_at": "2026-05-12T12:28:01.888Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "a5a60402ca6449be6efc10411b6493e0bf2b994d",
+  "head_sha": "24db27f915ec405dac3ba456ffb5092920f29c64",
   "truncated": false,
-  "items_count": 336,
+  "items_count": 338,
   "semantic_fields": [
     "module",
     "layer",
@@ -2323,6 +2323,24 @@
       }
     },
     {
+      "path": "scripts/smokeMessageProjectMemoryContextGate.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeObservationDispatchGithubEvents.js",
       "type": "file",
       "parent": "scripts",
@@ -4488,6 +4506,24 @@
     },
     {
       "path": "src/core/message/messageInput.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/core/message/messageProjectMemoryContextGate.js",
       "type": "file",
       "parent": "src/core/message",
       "extension": "js",

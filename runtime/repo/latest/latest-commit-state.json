@@ -1,29 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T15:47:13.251Z",
+  "generated_at": "2026-05-12T16:06:47.222Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "80b0ff2d481d70c9aa29fe15297f85e9e473f81d",
-  "previous_head_sha": "d42c5661c19d77727e91ba3449e365717b627eef",
+  "current_head_sha": "fb7785b60442dab516d79cafd9c6fc1339e85bbc",
+  "previous_head_sha": "80b0ff2d481d70c9aa29fe15297f85e9e473f81d",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "b85455777c38cc5f6dfd044532f612eed5a5b5eb",
+  "registry_commit_sha": "759dc762620aa487052771722b9bcb6692142064",
   "latest_commit": {
-    "sha": "80b0ff2d481d70c9aa29fe15297f85e9e473f81d",
-    "short_sha": "80b0ff2d481d",
-    "message": "memory: guard project memory projectKey runtime selection\n\nPass actor identity into Project Memory runtime reads and add smoke coverage for projectKey runtime selection safety.\n\n- Keep normal message memory selection on sg by default\n- Prevent user text from implicitly selecting user_project memory\n- Cover explicit user_project runtime reads with actor propagation\n- Add dedicated CI workflow for this smoke",
+    "sha": "fb7785b60442dab516d79cafd9c6fc1339e85bbc",
+    "short_sha": "fb7785b60442",
+    "message": "ci: fix repo watcher observation dispatch policy\n\nFix Repo Commit Watcher so Observation dispatch does not depend on merge commit message text.\n\n- Dispatch bounded github.repository_updated observation events after dev pushes\n- Ignore runtime/observation/** to avoid observation commit loops\n- Allowlist github.repository_updated in the dispatch registry\n- Add smoke coverage and dedicated CI for the watcher observation policy",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T15:46:54Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/80b0ff2d481d70c9aa29fe15297f85e9e473f81d",
-    "changed_files_count": 4,
+    "date": "2026-05-12T16:06:27Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/fb7785b60442dab516d79cafd9c6fc1339e85bbc",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-project-memory-projectkey-runtime-selection.yml",
+        "filename": ".github/workflows/repo-commit-watcher.yml",
+        "status": "modified",
+        "additions": 4,
+        "deletions": 3,
+        "changes": 7
+      },
+      {
+        "filename": ".github/workflows/sg2-repo-commit-watcher-observation-policy.yml",
         "status": "added",
-        "additions": 39,
+        "additions": 37,
         "deletions": 0,
-        "changes": 39
+        "changes": 37
       },
       {
         "filename": "package.json",
@@ -33,18 +40,18 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js",
+        "filename": "scripts/smokeRepoCommitWatcherObservationDispatchPolicy.js",
         "status": "added",
-        "additions": 186,
+        "additions": 35,
         "deletions": 0,
-        "changes": 186
+        "changes": 35
       },
       {
-        "filename": "src/core/message/messageProjectMemoryContextGate.js",
+        "filename": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js",
         "status": "modified",
-        "additions": 1,
+        "additions": 6,
         "deletions": 0,
-        "changes": 1
+        "changes": 6
       }
     ]
   }

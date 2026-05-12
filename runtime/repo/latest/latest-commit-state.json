@@ -1,43 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T10:01:53.488Z",
+  "generated_at": "2026-05-12T10:20:44.724Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "e13f185d5170145906e34a4286a3363196381b70",
-  "previous_head_sha": "28271277150ca774e03f06f291efa8e9557bde65",
+  "current_head_sha": "aea4610b684e1154a93a472035a396b426e7e339",
+  "previous_head_sha": "e13f185d5170145906e34a4286a3363196381b70",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "b69855b5164e3a01979370131cfa5922e4b1f6af",
+  "registry_commit_sha": "53cf3a79f59c132d3123039d154d12b28e20df40",
   "latest_commit": {
-    "sha": "e13f185d5170145906e34a4286a3363196381b70",
-    "short_sha": "e13f185d5170",
-    "message": "Merge pull request #188 from korzh260609-beep/docs/project-memory-module-skeleton\n\ndocs: define project memory module skeleton",
+    "sha": "aea4610b684e1154a93a472035a396b426e7e339",
+    "short_sha": "aea4610b684e",
+    "message": "Merge pull request #189 from korzh260609-beep/docs/runtime-state-head-contract\n\ndocs: clarify runtime state head contract",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T10:01:34Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e13f185d5170145906e34a4286a3363196381b70",
-    "changed_files_count": 3,
+    "date": "2026-05-12T10:20:20Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/aea4610b684e1154a93a472035a396b426e7e339",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "pillars/modules/project_memory/CONTRACTS.md",
-        "status": "added",
-        "additions": 386,
-        "deletions": 0,
-        "changes": 386
-      },
-      {
-        "filename": "pillars/modules/project_memory/README.md",
-        "status": "added",
-        "additions": 297,
-        "deletions": 0,
-        "changes": 297
-      },
-      {
-        "filename": "pillars/modules/project_memory/RISKS.md",
-        "status": "added",
-        "additions": 345,
-        "deletions": 0,
-        "changes": 345
+        "filename": "pillars/modules/repo/README.md",
+        "status": "modified",
+        "additions": 46,
+        "deletions": 2,
+        "changes": 48
       }
     ]
   }

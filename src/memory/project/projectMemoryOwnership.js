@@ -41,7 +41,7 @@ function normalizeText(value) {
 function normalizeKeyPart(value) {
   return normalizeText(value)
     .toLowerCase()
-    .replace(/[^a-z0-9:_-]/g, "-")
+    .replace(/[^a-z0-9_-]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 }
@@ -79,14 +79,17 @@ export function buildUserProjectMemoryRef({
   userProjectId = "",
   visibility = PROJECT_MEMORY_VISIBILITY.PRIVATE_USER_PROJECT,
 } = {}) {
+  const ownerRef = normalizeKeyPart(globalUserId);
+  const safeUserProjectId = normalizeKeyPart(userProjectId);
   const key = buildUserProjectMemoryKey({ globalUserId, userProjectId });
+
   if (!key.ok) {
     return {
       ok: false,
       reason: key.reason,
       ownerType: PROJECT_MEMORY_OWNER_TYPES.USER_PROJECT,
-      ownerRef: normalizeText(globalUserId),
-      userProjectId: normalizeText(userProjectId),
+      ownerRef,
+      userProjectId: safeUserProjectId,
       projectKey: "",
       visibility,
     };
@@ -95,8 +98,8 @@ export function buildUserProjectMemoryRef({
   return {
     ok: true,
     ownerType: PROJECT_MEMORY_OWNER_TYPES.USER_PROJECT,
-    ownerRef: normalizeText(globalUserId),
-    userProjectId: normalizeText(userProjectId),
+    ownerRef,
+    userProjectId: safeUserProjectId,
     projectKey: key.projectKey,
     visibility,
   };
@@ -150,8 +153,8 @@ export function canReadProjectMemory({ actor = {}, projectRef = {} } = {}) {
   }
 
   if (projectRef.ownerType === PROJECT_MEMORY_OWNER_TYPES.USER_PROJECT) {
-    const actorGlobalUserId = normalizeText(actor?.globalUserId);
-    const ownerRef = normalizeText(projectRef.ownerRef);
+    const actorGlobalUserId = normalizeKeyPart(actor?.globalUserId);
+    const ownerRef = normalizeKeyPart(projectRef.ownerRef);
     const allowed = Boolean(actor?.isMonarch || actorGlobalUserId === ownerRef);
 
     return {

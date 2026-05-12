@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T08:43:43.841Z",
+  "generated_at": "2026-05-12T10:01:52.039Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "28271277150ca774e03f06f291efa8e9557bde65",
+  "head_sha": "e13f185d5170145906e34a4286a3363196381b70",
   "truncated": false,
-  "items_count": 323,
+  "items_count": 327,
   "semantic_fields": [
     "module",
     "layer",
@@ -1205,6 +1205,88 @@
         "notes": [
           "source_first_project_rule_or_map",
           "human_readable_boundary_doc"
+        ]
+      }
+    },
+    {
+      "path": "pillars/modules/project_memory",
+      "type": "folder",
+      "parent": "pillars/modules",
+      "extension": "",
+      "description": "Module boundary documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "pillars",
+        "responsibility": "Module boundary documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
+    },
+    {
+      "path": "pillars/modules/project_memory/CONTRACTS.md",
+      "type": "file",
+      "parent": "pillars/modules/project_memory",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
+    },
+    {
+      "path": "pillars/modules/project_memory/README.md",
+      "type": "file",
+      "parent": "pillars/modules/project_memory",
+      "extension": "md",
+      "description": "Folder documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "pillars",
+        "responsibility": "Folder documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map",
+          "human_readable_boundary_doc"
+        ]
+      }
+    },
+    {
+      "path": "pillars/modules/project_memory/RISKS.md",
+      "type": "file",
+      "parent": "pillars/modules/project_memory",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
         ]
       }
     },

@@ -139,6 +139,7 @@ jobs:
           node --check src/diagnostics/diagnosticsReport.js
           node --check src/diagnostics/diagnosticsRunner.js
           node --check src/diagnostics/observationLatestReportCheck.js
+          node --check src/diagnostics/projectMemoryRuntimeCheck.js
           node --check src/diagnostics/usersIdentityLinkingCheck.js
           node --check src/diagnostics/usersIdentityLinkRequestsCheck.js
           node --check src/diagnostics/usersIdentityRegistryCheck.js
@@ -170,6 +171,7 @@ jobs:
           node --check scripts/smokeObservationJournalHealthTrigger.js
           node --check scripts/smokeObservationTriggerDispatchAgent.js
           node --check scripts/smokeProjectMemoryRuntimeContext.js
+          node --check scripts/smokeProjectMemoryRuntimeDiagnostics.js
           node --check scripts/smokeProjectMemorySchemaBootstrap.js
           node --check scripts/smokeProjectMemorySkeleton.js
           node --check scripts/smokeProjectMemoryStorageConfirmation.js
@@ -221,6 +223,9 @@ jobs:
 
       - name: Smoke project memory runtime context
         run: npm run smoke:project-memory-runtime-context
+
+      - name: Smoke project memory runtime diagnostics
+        run: npm run smoke:project-memory-runtime-diagnostics
 
       - name: Smoke project memory schema bootstrap
         run: npm run smoke:project-memory-schema-bootstrap

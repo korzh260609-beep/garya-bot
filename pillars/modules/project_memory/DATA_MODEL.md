@@ -4,7 +4,7 @@
 > This file defines the Project Memory V1 data model for SG 2.0.
 > Do not add automatic memory writes, Telegram commands, AI auto-write, raw logs, raw env dumps, or secret storage here without explicit Monarch approval.
 
-Статус: V1 STORAGE CONFIRMATION SKELETON / EXPLICIT CONFIRMATION ONLY
+Статус: V1 RUNTIME READ CONTEXT SKELETON / CONFIRMED READ ONLY
 
 ---
 
@@ -22,12 +22,13 @@ Current module docs live in:
 pillars/modules/project_memory/
 ```
 
-Current V1 has two layers:
+Current V1 has four layers:
 
 ```text
-ProjectMemoryService      -> prepare-only / validate-only helper
-ProjectMemoryStore        -> durable storage boundary
-ProjectMemoryConfirmation -> explicit confirmation boundary
+ProjectMemoryService        -> prepare-only / validate-only helper
+ProjectMemoryStore          -> durable storage boundary
+ProjectMemoryConfirmation   -> explicit confirmation boundary
+ProjectMemoryRuntimeContext -> confirmed read-only context bridge
 ```
 
 It can:
@@ -41,7 +42,9 @@ It can:
 - ensure Project Memory storage schema;
 - create durable candidate entries;
 - confirm pending candidates explicitly;
-- list confirmed entries through the storage boundary.
+- list confirmed entries through the storage boundary;
+- read confirmed active entries for runtime context;
+- convert confirmed entries to bounded project memory facts/context items.
 
 It cannot:
 
@@ -49,6 +52,7 @@ It cannot:
 - auto-write from AI;
 - sync from sources;
 - call AI;
+- inject prompt context by itself;
 - connect to Telegram;
 - mutate repository/runtime state;
 - store raw logs/env/provider dumps;
@@ -142,6 +146,7 @@ V1 rules:
 ProjectMemoryService.buildCandidate() always creates candidate memory.
 ProjectMemoryStore.createCandidate() stores only trust='candidate' + status='pending_confirmation'.
 ProjectMemoryConfirmation.confirmCandidate() is the only V1 confirmation boundary.
+ProjectMemoryRuntimeContext reads only trust='confirmed' + status='active'.
 ```
 
 Confirmed durable memory must pass:
@@ -291,9 +296,91 @@ This does not connect Project Memory to chat, Telegram, AI, cron, or source inge
 
 ---
 
-## 9. Context item output
+## 9. Runtime read context bridge
 
-`ProjectMemoryService.buildContextItems()` returns items shaped for controlled AI context packs:
+Current runtime read bridge:
+
+```text
+src/memory/project/projectMemoryRuntimeContext.js
+```
+
+Public actions:
+
+```text
+status()
+getDiagnostics()
+loadConfirmedProjectMemoryFacts()
+buildConfirmedProjectMemoryContextItems()
+```
+
+Read rule:
+
+```text
+project_key = requested project
+trust = confirmed
+status = active
+limit = bounded limit
+```
+
+Output fact shape:
+
+```text
+content
+source
+metadata.projectMemoryId
+metadata.projectKey
+metadata.projectMemoryType
+metadata.title
+metadata.scope
+metadata.trust
+metadata.sourceType
+metadata.sourceRef
+metadata.tags
+metadata.status
+metadata.confirmedBy
+metadata.confirmedAt
+metadata.traceId
+metadata.runtimeContextBridgeVersion
+```
+
+Context item shape:
+
+```text
+type: project_memory
+content
+source
+priority: below_verified_sources
+trust: confirmed
+scope
+owner: sg_project
+metadata
+```
+
+Hard boundary rules:
+
+```text
+writesStorage = false
+confirmsCandidates = false
+autoWriteFromChat = false
+autoWriteFromAI = false
+sourceSync = false
+callsAI = false
+injectsPrompt = false
+```
+
+Meaning:
+
+```text
+The bridge may read confirmed Project Memory and prepare bounded context.
+It does not inject that context into AI by itself.
+Prompt injection remains controlled by messageContextInjection.
+```
+
+---
+
+## 10. Context item output from service
+
+`ProjectMemoryService.buildContextItems()` returns items shaped for controlled AI context packs from provided inputs only:
 
 ```text
 type: project_memory
@@ -316,7 +403,7 @@ It must be treated as support context under pillars/repo/runtime facts.
 
 ---
 
-## 10. Secret and raw-data guard
+## 11. Secret and raw-data guard
 
 V1 blocks obvious secret patterns in:
 
@@ -351,7 +438,7 @@ It is a safety guard for the skeleton.
 
 ---
 
-## 11. V1 diagnostics model
+## 12. V1 diagnostics model
 
 `ProjectMemoryService.getDiagnostics()` reports:
 
@@ -377,11 +464,24 @@ source sync independence
 blocked auto-write actions
 ```
 
-Diagnostics must remain non-secret and side-effect-free.
+`ProjectMemoryRuntimeContext.getDiagnostics()` reports:
+
+```text
+runtime read mode
+confirmed-only read policy
+storage boundary usage
+transport independence
+AI independence
+source sync independence
+prompt injection independence
+blocked write/confirm/injection actions
+```
+
+Diagnostics must remain non-secret and side-effect-free except explicitly reported storage reads.
 
 ---
 
-## 12. Final V1 rule
+## 13. Final V1 rule
 
 Correct:
 
@@ -389,6 +489,7 @@ Correct:
 provided item -> normalize -> validate -> candidate/context item
 explicit caller -> prepareCandidateForConfirmation -> pending durable candidate
 explicit approval -> confirmCandidate -> confirmed durable memory
+confirmed durable memory -> ProjectMemoryRuntimeContext -> bounded facts/context items
 ```
 
 Incorrect:
@@ -398,5 +499,6 @@ chat text -> automatic confirmed memory
 AI output -> automatic confirmed memory
 raw logs -> memory
 secrets -> memory
+runtime context bridge -> prompt injection by itself
 memory -> source of truth above pillars/repo/runtime
 ```

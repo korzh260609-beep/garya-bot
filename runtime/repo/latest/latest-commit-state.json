@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T12:58:08.118Z",
+  "generated_at": "2026-05-12T13:18:34.260Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b6f1ad1df8c2a7791acd4de613d4e7069586a375",
-  "previous_head_sha": "3f6c6257fdd00ba39dfd4f1fd208182a93b73d2a",
+  "current_head_sha": "45699cd77e07123a9b61783ff8434b1b9c10a585",
+  "previous_head_sha": "b6f1ad1df8c2a7791acd4de613d4e7069586a375",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "852657b7829115629ca18bd549b337b28a577326",
+  "registry_commit_sha": "c87456eb2d0613ce9433de5239d72016c771be38",
   "latest_commit": {
-    "sha": "b6f1ad1df8c2a7791acd4de613d4e7069586a375",
-    "short_sha": "b6f1ad1df8c2",
-    "message": "memory: add project memory runtime diagnostics check\n\nMerge PR #196 into dev/v2-start",
+    "sha": "45699cd77e07123a9b61783ff8434b1b9c10a585",
+    "short_sha": "45699cd77e07",
+    "message": "memory: add project memory ownership scope boundary\n\nMerge PR #197 into dev/v2-start",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T12:57:41Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b6f1ad1df8c2a7791acd4de613d4e7069586a375",
-    "changed_files_count": 6,
+    "date": "2026-05-12T13:18:14Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/45699cd77e07123a9b61783ff8434b1b9c10a585",
+    "changed_files_count": 7,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 5,
+        "additions": 8,
         "deletions": 0,
-        "changes": 5
+        "changes": 8
       },
       {
         "filename": "package.json",
@@ -33,32 +33,39 @@
         "changes": 1
       },
       {
+        "filename": "pillars/modules/project_memory/DATA_MODEL.md",
+        "status": "modified",
+        "additions": 102,
+        "deletions": 20,
+        "changes": 122
+      },
+      {
         "filename": "pillars/modules/project_memory/TESTING.md",
         "status": "modified",
-        "additions": 46,
-        "deletions": 6,
-        "changes": 52
+        "additions": 61,
+        "deletions": 11,
+        "changes": 72
       },
       {
-        "filename": "scripts/smokeProjectMemoryRuntimeDiagnostics.js",
+        "filename": "scripts/smokeProjectMemoryOwnershipScope.js",
         "status": "added",
-        "additions": 85,
+        "additions": 129,
         "deletions": 0,
-        "changes": 85
+        "changes": 129
       },
       {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "filename": "src/memory/index.js",
         "status": "modified",
-        "additions": 11,
+        "additions": 16,
         "deletions": 0,
-        "changes": 11
+        "changes": 16
       },
       {
-        "filename": "src/diagnostics/projectMemoryRuntimeCheck.js",
+        "filename": "src/memory/project/projectMemoryOwnership.js",
         "status": "added",
-        "additions": 132,
+        "additions": 189,
         "deletions": 0,
-        "changes": 132
+        "changes": 189
       }
     ]
   }

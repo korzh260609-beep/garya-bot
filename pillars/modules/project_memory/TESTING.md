@@ -4,7 +4,7 @@
 > This file defines Project Memory test coverage for SG 2.0.
 > Tests must prove safety boundaries before runtime sync, AI, Telegram, or automatic DB writes are added.
 
-Статус: V1 DB SCHEMA BOOTSTRAP TESTING
+Статус: V1 RUNTIME DIAGNOSTICS TESTING
 
 ---
 
@@ -18,6 +18,7 @@ scripts/smokeProjectMemoryStorageConfirmation.js
 scripts/smokeProjectMemoryRuntimeContext.js
 scripts/smokeMessageProjectMemoryContextGate.js
 scripts/smokeProjectMemorySchemaBootstrap.js
+scripts/smokeProjectMemoryRuntimeDiagnostics.js
 ```
 
 Current npm commands:
@@ -28,6 +29,7 @@ npm run smoke:project-memory-storage-confirmation
 npm run smoke:project-memory-runtime-context
 npm run smoke:message-project-memory-context-gate
 npm run smoke:project-memory-schema-bootstrap
+npm run smoke:project-memory-runtime-diagnostics
 ```
 
 Current CI workflow:
@@ -160,7 +162,37 @@ It must not write memory entries.
 
 ---
 
-## 7. Required safety assertions
+## 7. What V1 runtime diagnostics smoke must prove
+
+The runtime diagnostics smoke must prove:
+
+```text
+runProjectMemoryRuntimeCheck()
+diagnosticsCheckRegistry includes project_memory_runtime
+```
+
+It must prove:
+
+```text
+default env -> Project Memory boundaries OK
+prompt injection enabled without read -> warning
+schema bootstrap enabled without DB -> warning
+registry execution returns project_memory_runtime_check
+```
+
+It must not touch real PostgreSQL.
+
+It must not call AI.
+
+It must not touch Telegram.
+
+It must not write memory entries.
+
+It must not mutate repository/runtime files.
+
+---
+
+## 8. Required safety assertions
 
 The smokes must assert:
 
@@ -181,8 +213,13 @@ The smokes must assert:
 - schema bootstrap does not write memory entries;
 - schema bootstrap does not read Project Memory context;
 - schema bootstrap does not enable prompt injection;
+- runtime diagnostics check exists separately;
+- runtime diagnostics check is read-only;
+- runtime diagnostics check does not call AI;
+- runtime diagnostics check does not touch Telegram;
+- runtime diagnostics warns on unsafe flag combinations;
 - source fetching is disabled;
-- AI calls are disabled in memory/gate/bootstrap layers;
+- AI calls are disabled in memory/gate/bootstrap/diagnostics layers;
 - transport touching is disabled;
 - repository mutation is disabled;
 - prompt injection is disabled in runtime read bridge;
@@ -205,7 +242,7 @@ The smokes must assert:
 
 ---
 
-## 8. What tests must not do
+## 9. What tests must not do
 
 Tests must not:
 
@@ -223,7 +260,7 @@ Tests must not:
 
 ---
 
-## 9. Future tests before enabling Project Memory prompt injection in production
+## 10. Future tests before enabling Project Memory prompt injection in production
 
 Before enabling durable Project Memory prompt injection in production, add tests for:
 
@@ -244,10 +281,11 @@ Before enabling durable Project Memory prompt injection in production, add tests
 15. Fallback behavior when storage read fails.
 16. Production config audit before enabling `SG_PROJECT_MEMORY_PROMPT_INJECTION_ENABLED=true`.
 17. Production config audit before enabling `SG_PROJECT_MEMORY_SCHEMA_BOOTSTRAP_ENABLED=true`.
+18. Production diagnostics alerting when Project Memory flags are unsafe.
 
 ---
 
-## 10. Failure rule
+## 11. Failure rule
 
 If Project Memory smoke fails, SG must treat Project Memory runtime as unsafe and not connect it to Core Orchestrator, AI context injection, Telegram, DB storage, or source sync.
 
@@ -258,3 +296,5 @@ If runtime context smoke fails, SG must not use confirmed Project Memory as live
 If message gate smoke fails, SG must not enable Project Memory runtime reads or prompt injection in message AI requests.
 
 If schema bootstrap smoke fails, SG must not enable Project Memory schema bootstrap in production.
+
+If runtime diagnostics smoke fails, SG must not rely on Project Memory runtime diagnostics in production.

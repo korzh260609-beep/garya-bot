@@ -10,6 +10,7 @@ import { runGetRenderLogsTask } from "../../tasks/render/getRenderLogsTask.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
 import { runObservationJournalStatusCheck } from "../../diagnostics/observationJournalStatusCheck.js";
 import { runObservationLatestReportCheck } from "../../diagnostics/observationLatestReportCheck.js";
+import { runProjectMemoryRuntimeCheck } from "../../diagnostics/projectMemoryRuntimeCheck.js";
 import { runUsersIdentityLinkingCheck } from "../../diagnostics/usersIdentityLinkingCheck.js";
 import { runUsersIdentityLinkRequestsCheck } from "../../diagnostics/usersIdentityLinkRequestsCheck.js";
 import { runUsersIdentityRegistryCheck } from "../../diagnostics/usersIdentityRegistryCheck.js";
@@ -49,6 +50,11 @@ function summarizeObservationLatestReport(result = {}) {
 function summarizeObservationJournalStatus(result = {}) {
   if (!result.ok) return result.error || result.summary || "Observation journal status check failed.";
   return result.summary || "Observation journal status check passed.";
+}
+
+function summarizeProjectMemoryRuntime(result = {}) {
+  if (!result.ok) return result.summary || "Project Memory runtime check failed.";
+  return result.summary || "Project Memory runtime check passed.";
 }
 
 function summarizeUsersIdentityRegistry(result = {}) {
@@ -109,6 +115,11 @@ export const diagnosticsCheckRegistry = [
     name: "users_identity_link_requests",
     run: () => runUsersIdentityLinkRequestsCheck(),
     summarize: summarizeUsersIdentityLinkRequests,
+  },
+  {
+    name: "project_memory_runtime",
+    run: () => runProjectMemoryRuntimeCheck(),
+    summarize: summarizeProjectMemoryRuntime,
   },
   {
     name: "observation_latest_report",

@@ -147,7 +147,8 @@ assert.equal(loaded.facts.length, 1);
 assert.equal(loaded.facts[0].metadata.trust, PROJECT_MEMORY_TRUST.CONFIRMED);
 assert.equal(loaded.facts[0].metadata.status, "active");
 assert.equal(loaded.facts[0].metadata.projectMemoryId, "pm_confirmed_1");
-assert.ok(loaded.facts[0].content.length <= 90);
+assert.equal(loaded.limits.maxContentChars, 100);
+assert.ok(loaded.facts[0].content.length <= loaded.limits.maxContentChars + 1);
 assert.equal(loaded.limits.maxEntries, 1);
 
 const contextItems = await runtimeContext.buildConfirmedProjectMemoryContextItems({

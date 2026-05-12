@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T08:14:22.512Z",
+  "generated_at": "2026-05-12T08:24:25.275Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "8d527364c526f24d71f52b3564eb61e339645a49",
+  "head_sha": "2a32e1043679d706c1700c9d49192fd26285f6dc",
   "truncated": false,
-  "items_count": 319,
+  "items_count": 320,
   "semantic_fields": [
     "module",
     "layer",
@@ -1664,6 +1664,26 @@
     },
     {
       "path": "runtime/observation/latest/observation-journal-health-latest.json",
+      "type": "file",
+      "parent": "runtime/observation/latest",
+      "extension": "json",
+      "description": "JSON data/configuration file.",
+      "status": "generated",
+      "semantic": {
+        "module": "runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "JSON data/configuration file.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime"
+        ]
+      }
+    },
+    {
+      "path": "runtime/observation/latest/runtime-status-latest.json",
       "type": "file",
       "parent": "runtime/observation/latest",
       "extension": "json",

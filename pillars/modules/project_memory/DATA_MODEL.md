@@ -4,7 +4,7 @@
 > This file defines the Project Memory V1 data model for SG 2.0.
 > Do not add automatic memory writes, Telegram commands, AI auto-write, raw logs, raw env dumps, or secret storage here without explicit Monarch approval.
 
-Статус: V1 RUNTIME READ CONTEXT SKELETON / CONFIRMED READ ONLY
+Статус: V1 RUNTIME INJECTION GATE / FEATURE-FLAGGED READ AND INJECTION
 
 ---
 
@@ -14,6 +14,7 @@ Current runtime code lives in:
 
 ```text
 src/memory/project/
+src/core/message/
 ```
 
 Current module docs live in:
@@ -22,13 +23,14 @@ Current module docs live in:
 pillars/modules/project_memory/
 ```
 
-Current V1 has four layers:
+Current V1 has five layers:
 
 ```text
-ProjectMemoryService        -> prepare-only / validate-only helper
-ProjectMemoryStore          -> durable storage boundary
-ProjectMemoryConfirmation   -> explicit confirmation boundary
-ProjectMemoryRuntimeContext -> confirmed read-only context bridge
+ProjectMemoryService              -> prepare-only / validate-only helper
+ProjectMemoryStore                -> durable storage boundary
+ProjectMemoryConfirmation         -> explicit confirmation boundary
+ProjectMemoryRuntimeContext       -> confirmed read-only context bridge
+MessageProjectMemoryContextGate   -> message-time feature gate for read/injection
 ```
 
 It can:
@@ -44,16 +46,18 @@ It can:
 - confirm pending candidates explicitly;
 - list confirmed entries through the storage boundary;
 - read confirmed active entries for runtime context;
-- convert confirmed entries to bounded project memory facts/context items.
+- convert confirmed entries to bounded project memory facts/context items;
+- optionally include confirmed Project Memory in message context pack behind a feature flag;
+- optionally inject formatted context into AI messages behind a separate feature flag.
 
 It cannot:
 
 - auto-write from chat;
 - auto-write from AI;
 - sync from sources;
-- call AI;
-- inject prompt context by itself;
-- connect to Telegram;
+- call AI from memory modules;
+- inject prompt context by default;
+- connect memory modules to Telegram;
 - mutate repository/runtime state;
 - store raw logs/env/provider dumps;
 - store secrets.
@@ -147,6 +151,7 @@ ProjectMemoryService.buildCandidate() always creates candidate memory.
 ProjectMemoryStore.createCandidate() stores only trust='candidate' + status='pending_confirmation'.
 ProjectMemoryConfirmation.confirmCandidate() is the only V1 confirmation boundary.
 ProjectMemoryRuntimeContext reads only trust='confirmed' + status='active'.
+MessageProjectMemoryContextGate defaults to no read and no prompt injection.
 ```
 
 Confirmed durable memory must pass:
@@ -378,7 +383,67 @@ Prompt injection remains controlled by messageContextInjection.
 
 ---
 
-## 10. Context item output from service
+## 10. Message runtime injection gate
+
+Current message gate:
+
+```text
+src/core/message/messageProjectMemoryContextGate.js
+```
+
+Public actions:
+
+```text
+buildMessageProjectMemoryContextGateDisabledOptions()
+getMessageProjectMemoryContextGateOptionsFromEnv()
+prepareMessageProjectMemoryContextGate()
+```
+
+Environment flags:
+
+```text
+SG_PROJECT_MEMORY_CONTEXT_ENABLED=false
+SG_PROJECT_MEMORY_PROMPT_INJECTION_ENABLED=false
+SG_PROJECT_MEMORY_CONTEXT_MAX_ENTRIES=5
+SG_PROJECT_MEMORY_CONTEXT_MAX_CONTENT_CHARS=1200
+SG_PROJECT_MEMORY_CONTEXT_MAX_TITLE_CHARS=160
+SG_PROJECT_MEMORY_CONTEXT_PACK_MAX_ITEMS=14
+SG_PROJECT_MEMORY_CONTEXT_PACK_MAX_CHARS=1200
+```
+
+Modes:
+
+```text
+disabled        -> no Project Memory read, no prompt injection
+read_only       -> reads confirmed Project Memory into contextPack, no prompt injection
+read_and_inject -> reads confirmed Project Memory and allows messageContextInjection to inject formatted context
+```
+
+Hard boundary rules:
+
+```text
+read disabled by default
+prompt injection disabled by default
+read and injection are separate flags
+read failure disables prompt injection
+no memory writes
+no candidate confirmation
+no source sync
+no Telegram logic
+no AI calls from gate
+```
+
+Meaning:
+
+```text
+callMessageAI now routes context through MessageProjectMemoryContextGate.
+Default env keeps previous behavior: context injection disabled and no Project Memory read.
+Live use requires explicit env enablement.
+```
+
+---
+
+## 11. Context item output from service
 
 `ProjectMemoryService.buildContextItems()` returns items shaped for controlled AI context packs from provided inputs only:
 
@@ -403,7 +468,7 @@ It must be treated as support context under pillars/repo/runtime facts.
 
 ---
 
-## 11. Secret and raw-data guard
+## 12. Secret and raw-data guard
 
 V1 blocks obvious secret patterns in:
 
@@ -438,7 +503,7 @@ It is a safety guard for the skeleton.
 
 ---
 
-## 12. V1 diagnostics model
+## 13. V1 diagnostics model
 
 `ProjectMemoryService.getDiagnostics()` reports:
 
@@ -481,7 +546,7 @@ Diagnostics must remain non-secret and side-effect-free except explicitly report
 
 ---
 
-## 13. Final V1 rule
+## 14. Final V1 rule
 
 Correct:
 
@@ -490,6 +555,7 @@ provided item -> normalize -> validate -> candidate/context item
 explicit caller -> prepareCandidateForConfirmation -> pending durable candidate
 explicit approval -> confirmCandidate -> confirmed durable memory
 confirmed durable memory -> ProjectMemoryRuntimeContext -> bounded facts/context items
+feature flag -> MessageProjectMemoryContextGate -> optional message context pack / optional prompt injection
 ```
 
 Incorrect:
@@ -500,5 +566,7 @@ AI output -> automatic confirmed memory
 raw logs -> memory
 secrets -> memory
 runtime context bridge -> prompt injection by itself
+message gate default -> automatic memory read
+message gate default -> automatic prompt injection
 memory -> source of truth above pillars/repo/runtime
 ```

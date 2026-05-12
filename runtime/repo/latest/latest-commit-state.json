@@ -1,50 +1,57 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T21:19:23.588Z",
+  "generated_at": "2026-05-12T21:31:28.364Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "ae33eadbd274f1b1d357d3c06b9cb4f2f5f2d331",
-  "previous_head_sha": "8b4d9acd2d37360d939948e3d4bb2d99fd79cbcf",
+  "current_head_sha": "b128d5df05c35de5c62dfae19fde72e728dad312",
+  "previous_head_sha": "ae33eadbd274f1b1d357d3c06b9cb4f2f5f2d331",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "d415649365a9d8d5bf4c98611d12a2ed8d91a39d",
+  "registry_commit_sha": "2bd18660c416c71efad31b17fc7e5a340b76ce69",
   "latest_commit": {
-    "sha": "ae33eadbd274f1b1d357d3c06b9cb4f2f5f2d331",
-    "short_sha": "ae33eadbd274",
-    "message": "memory: bridge explicit user project context into message gate\n\nMerge PR #204 into dev/v2-start after successful checks.",
+    "sha": "b128d5df05c35de5c62dfae19fde72e728dad312",
+    "short_sha": "b128d5df05c3",
+    "message": "message: pass explicit project context through runtime options\n\nMerge PR #205 into dev/v2-start after successful checks.",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T21:19:06Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ae33eadbd274f1b1d357d3c06b9cb4f2f5f2d331",
-    "changed_files_count": 4,
+    "date": "2026-05-12T21:31:11Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b128d5df05c35de5c62dfae19fde72e728dad312",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 9,
+        "filename": ".github/workflows/sg2-message-runtime-options.yml",
+        "status": "added",
+        "additions": 44,
         "deletions": 0,
+        "changes": 44
+      },
+      {
+        "filename": "package.json",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
+        "status": "added",
+        "additions": 67,
+        "deletions": 0,
+        "changes": 67
+      },
+      {
+        "filename": "src/core/handleMessage.js",
+        "status": "modified",
+        "additions": 8,
+        "deletions": 1,
         "changes": 9
       },
       {
-        "filename": "scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js",
+        "filename": "src/core/message/messageInput.js",
         "status": "modified",
-        "additions": 54,
-        "deletions": 3,
-        "changes": 57
-      },
-      {
-        "filename": "src/core/message/messageAiRequest.js",
-        "status": "modified",
-        "additions": 2,
+        "additions": 18,
         "deletions": 1,
-        "changes": 3
-      },
-      {
-        "filename": "src/core/message/messageProjectMemoryContextGate.js",
-        "status": "modified",
-        "additions": 120,
-        "deletions": 5,
-        "changes": 125
+        "changes": 19
       }
     ]
   }

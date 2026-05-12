@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T13:34:22.987Z",
+  "generated_at": "2026-05-12T13:50:10.628Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "369dadeaf909ee72365ec29ed5015fbe705c3d23",
-  "previous_head_sha": "45699cd77e07123a9b61783ff8434b1b9c10a585",
+  "current_head_sha": "0a743fade7aa1f6ce120a03ce5fe5edcf40786d0",
+  "previous_head_sha": "369dadeaf909ee72365ec29ed5015fbe705c3d23",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "7c85fe30cbe8375b48f5dc8de59dac1e517c2d75",
+  "registry_commit_sha": "39ffbffe5d6420e3794deb2083bcce0bca6b688f",
   "latest_commit": {
-    "sha": "369dadeaf909ee72365ec29ed5015fbe705c3d23",
-    "short_sha": "369dadeaf909",
-    "message": "Merge PR #198: projects: add User Projects Registry V1 skeleton\n\nprojects: add User Projects Registry V1 skeleton\n\nAdds the user projects registry skeleton, docs, smoke test, npm script, and CI wiring.\n\nBoundaries preserved: no Telegram, no AI calls, no Project Memory auto-write, no prompt injection, no source sync, and no runtime generated file edits.",
+    "sha": "0a743fade7aa1f6ce120a03ce5fe5edcf40786d0",
+    "short_sha": "0a743fade7aa",
+    "message": "Merge PR #199: memory: add user project registry validation bridge\n\nmemory: add user project registry validation bridge\n\nAdds a read-only validation bridge between Project Memory user_project refs and User Projects Registry.\n\nBoundaries preserved: no Project Memory writes, no confirmation, no user project creation, no Telegram, no AI calls, no prompt injection, no source sync, and no docs status updates.",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T13:33:54Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/369dadeaf909ee72365ec29ed5015fbe705c3d23",
-    "changed_files_count": 8,
+    "date": "2026-05-12T13:49:40Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0a743fade7aa1f6ce120a03ce5fe5edcf40786d0",
+    "changed_files_count": 5,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 11,
+        "additions": 5,
         "deletions": 0,
-        "changes": 11
+        "changes": 5
       },
       {
         "filename": "package.json",
@@ -33,46 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "pillars/modules/project_memory/USER_PROJECTS_REGISTRY.md",
+        "filename": "scripts/smokeProjectMemoryUserProjectValidator.js",
         "status": "added",
-        "additions": 197,
+        "additions": 190,
         "deletions": 0,
-        "changes": 197
+        "changes": 190
       },
       {
-        "filename": "scripts/smokeUserProjectsRegistry.js",
-        "status": "added",
-        "additions": 211,
+        "filename": "src/memory/index.js",
+        "status": "modified",
+        "additions": 8,
         "deletions": 0,
-        "changes": 211
+        "changes": 8
       },
       {
-        "filename": "src/projects/index.js",
+        "filename": "src/memory/project/projectMemoryUserProjectValidator.js",
         "status": "added",
-        "additions": 65,
+        "additions": 203,
         "deletions": 0,
-        "changes": 65
-      },
-      {
-        "filename": "src/projects/userProjectsSchema.js",
-        "status": "added",
-        "additions": 93,
-        "deletions": 0,
-        "changes": 93
-      },
-      {
-        "filename": "src/projects/userProjectsStore.js",
-        "status": "added",
-        "additions": 249,
-        "deletions": 0,
-        "changes": 249
-      },
-      {
-        "filename": "src/projects/userProjectsTypes.js",
-        "status": "added",
-        "additions": 120,
-        "deletions": 0,
-        "changes": 120
+        "changes": 203
       }
     ]
   }

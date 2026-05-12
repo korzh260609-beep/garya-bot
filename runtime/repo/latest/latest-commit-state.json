@@ -1,22 +1,22 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T11:53:29.702Z",
+  "generated_at": "2026-05-12T12:12:30.056Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "baefc618401db822c5bc2497caaf9fa91fe1f07b",
-  "previous_head_sha": "f7bbe5d9df3851b3571a47dc19951c6da9dc1c4c",
+  "current_head_sha": "a5a60402ca6449be6efc10411b6493e0bf2b994d",
+  "previous_head_sha": "baefc618401db822c5bc2497caaf9fa91fe1f07b",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "1b7d496f39a7613126019c2ff4f2b8904a834889",
+  "registry_commit_sha": "ddfd2a0150104d50253ce8e3054a9eeffcffcf61",
   "latest_commit": {
-    "sha": "baefc618401db822c5bc2497caaf9fa91fe1f07b",
-    "short_sha": "baefc618401d",
-    "message": "memory: add project memory storage confirmation skeleton\n\nMerge PR #192 into dev/v2-start",
+    "sha": "a5a60402ca6449be6efc10411b6493e0bf2b994d",
+    "short_sha": "a5a60402ca64",
+    "message": "memory: add project memory runtime read context bridge\n\nMerge PR #193 into dev/v2-start",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T11:53:05Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/baefc618401db822c5bc2497caaf9fa91fe1f07b",
-    "changed_files_count": 9,
+    "date": "2026-05-12T12:12:07Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/a5a60402ca6449be6efc10411b6493e0bf2b994d",
+    "changed_files_count": 7,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
@@ -35,51 +35,37 @@
       {
         "filename": "pillars/modules/project_memory/DATA_MODEL.md",
         "status": "modified",
-        "additions": 140,
-        "deletions": 66,
-        "changes": 206
+        "additions": 114,
+        "deletions": 12,
+        "changes": 126
       },
       {
         "filename": "pillars/modules/project_memory/TESTING.md",
         "status": "modified",
-        "additions": 56,
-        "deletions": 23,
-        "changes": 79
+        "additions": 41,
+        "deletions": 6,
+        "changes": 47
       },
       {
-        "filename": "scripts/smokeProjectMemoryStorageConfirmation.js",
+        "filename": "scripts/smokeProjectMemoryRuntimeContext.js",
         "status": "added",
-        "additions": 253,
+        "additions": 194,
         "deletions": 0,
-        "changes": 253
+        "changes": 194
       },
       {
         "filename": "src/memory/index.js",
         "status": "modified",
-        "additions": 21,
+        "additions": 10,
         "deletions": 0,
-        "changes": 21
+        "changes": 10
       },
       {
-        "filename": "src/memory/project/projectMemoryConfirmation.js",
+        "filename": "src/memory/project/projectMemoryRuntimeContext.js",
         "status": "added",
-        "additions": 217,
+        "additions": 274,
         "deletions": 0,
-        "changes": 217
-      },
-      {
-        "filename": "src/memory/project/projectMemorySchema.js",
-        "status": "added",
-        "additions": 109,
-        "deletions": 0,
-        "changes": 109
-      },
-      {
-        "filename": "src/memory/project/projectMemoryStore.js",
-        "status": "added",
-        "additions": 214,
-        "deletions": 0,
-        "changes": 214
+        "changes": 274
       }
     ]
   }

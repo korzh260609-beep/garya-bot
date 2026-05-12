@@ -107,6 +107,10 @@ function normalizeLimit(value, fallback, min, max) {
   return Math.max(min, Math.min(max, Math.trunc(n)));
 }
 
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
+
 function hasSourceReference(item = {}) {
   return Boolean(normalizeText(item.sourceRef) || normalizeText(item.sourceType));
 }
@@ -220,16 +224,19 @@ export class ProjectMemoryService {
     };
   }
 
-  buildCandidate({
-    type,
-    title,
-    content,
-    scope,
-    sourceType = PROJECT_MEMORY_SOURCE_TYPES.MONARCH_APPROVAL,
-    sourceRef = null,
-    tags = [],
-    metadata = {},
-  } = {}) {
+  buildCandidate(input = {}) {
+    const {
+      type,
+      title,
+      content,
+      scope,
+      sourceRef = null,
+      tags = [],
+      metadata = {},
+    } = input;
+    const sourceType = hasOwn(input, "sourceType")
+      ? input.sourceType
+      : PROJECT_MEMORY_SOURCE_TYPES.MONARCH_APPROVAL;
     const safeTitle = normalizeText(title);
     const safeContent = normalizeText(content);
     const warnings = [];
@@ -248,7 +255,7 @@ export class ProjectMemoryService {
       content: safeContent,
       scope: normalizeEnum(scope, Object.values(PROJECT_MEMORY_SCOPES), PROJECT_MEMORY_SCOPES.GLOBAL_PROJECT),
       trust: PROJECT_MEMORY_TRUST.CANDIDATE,
-      sourceType: sourceType ? normalizeText(sourceType) : PROJECT_MEMORY_SOURCE_TYPES.MONARCH_APPROVAL,
+      sourceType: sourceType ? normalizeText(sourceType) : null,
       sourceRef,
       tags: normalizeTags(tags),
       metadata: {

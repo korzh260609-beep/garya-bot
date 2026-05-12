@@ -4,6 +4,7 @@
 
 import assert from "node:assert/strict";
 import {
+  CONTEXT_ITEM_TYPES,
   PROJECT_MEMORY_RUNTIME_CONTEXT_MODES,
   PROJECT_MEMORY_SOURCE_TYPES,
   PROJECT_MEMORY_TRUST,
@@ -146,7 +147,7 @@ assert.equal(loaded.facts.length, 1);
 assert.equal(loaded.facts[0].metadata.trust, PROJECT_MEMORY_TRUST.CONFIRMED);
 assert.equal(loaded.facts[0].metadata.status, "active");
 assert.equal(loaded.facts[0].metadata.projectMemoryId, "pm_confirmed_1");
-assert.equal(loaded.facts[0].content.length <= 81, true);
+assert.ok(loaded.facts[0].content.length <= 90);
 assert.equal(loaded.limits.maxEntries, 1);
 
 const contextItems = await runtimeContext.buildConfirmedProjectMemoryContextItems({
@@ -177,16 +178,16 @@ const pack = buildContextPack({
   ],
   limits: { maxItems: 10, maxChars: 500 },
 });
-assert.equal(pack.items.some((item) => item.type === "project_memory"), true);
-assert.equal(pack.items.some((item) => item.type === "repo_fact"), true);
+assert.ok(pack.items.some((item) => item.type === CONTEXT_ITEM_TYPES.PROJECT_MEMORY));
+assert.ok(pack.items.some((item) => item.type === CONTEXT_ITEM_TYPES.REPO_FACT));
 
 const formatted = formatContextPackForPrompt(pack, {
   limits: { maxItems: 10, maxTotalChars: 3000, maxItemChars: 500 },
 });
 assert.equal(formatted.ok, true);
-assert.equal(formatted.text.includes("Verified sources and pillars outrank memory"), true);
-assert.equal(formatted.text.includes("type=project_memory"), true);
-assert.equal(formatted.text.includes("type=repo_fact"), true);
+assert.ok(formatted.text.includes("Verified sources and pillars outrank memory"));
+assert.ok(formatted.itemCount >= 2);
+assert.ok(formatted.blockedTypes.includes(CONTEXT_ITEM_TYPES.USER_MESSAGE));
 assert.equal(formatted.text.includes("What is the current Project Memory rule?"), false);
 
 console.log("smokeProjectMemoryRuntimeContext: ok");

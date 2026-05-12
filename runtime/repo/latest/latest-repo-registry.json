@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T08:06:36.795Z",
+  "generated_at": "2026-05-12T08:14:22.512Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "77bd9060dabf2455439fbbe6b52f5488a032f4d0",
+  "head_sha": "8d527364c526f24d71f52b3564eb61e339645a49",
   "truncated": false,
-  "items_count": 316,
+  "items_count": 319,
   "semantic_fields": [
     "module",
     "layer",
@@ -1617,6 +1617,68 @@
         "source_priority": "repository_fact",
         "notes": [
           "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "runtime/observation",
+      "type": "folder",
+      "parent": "runtime",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "generated",
+      "semantic": {
+        "module": "runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Repository folder.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_folder",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "folder_node",
+          "generated_by_agent_or_runtime"
+        ]
+      }
+    },
+    {
+      "path": "runtime/observation/latest",
+      "type": "folder",
+      "parent": "runtime/observation",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "generated",
+      "semantic": {
+        "module": "runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "Repository folder.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_folder",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "folder_node",
+          "generated_by_agent_or_runtime"
+        ]
+      }
+    },
+    {
+      "path": "runtime/observation/latest/observation-journal-health-latest.json",
+      "type": "file",
+      "parent": "runtime/observation/latest",
+      "extension": "json",
+      "description": "JSON data/configuration file.",
+      "status": "generated",
+      "semantic": {
+        "module": "runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "JSON data/configuration file.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime"
         ]
       }
     },

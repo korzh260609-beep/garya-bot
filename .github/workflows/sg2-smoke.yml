@@ -162,6 +162,10 @@ jobs:
           node --check src/integrations/render/renderLatestLogs.js
           node --check src/integrations/render/index.js
 
+      - name: Check Project Memory syntax
+        run: |
+          node --check src/memory/project/projectMemoryOwnership.js
+
       - name: Check smoke scripts syntax
         run: |
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
@@ -170,6 +174,7 @@ jobs:
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
           node --check scripts/smokeObservationTriggerDispatchAgent.js
+          node --check scripts/smokeProjectMemoryOwnershipScope.js
           node --check scripts/smokeProjectMemoryRuntimeContext.js
           node --check scripts/smokeProjectMemoryRuntimeDiagnostics.js
           node --check scripts/smokeProjectMemorySchemaBootstrap.js
@@ -220,6 +225,9 @@ jobs:
 
       - name: Smoke observation trigger layer
         run: npm run smoke:observation-trigger-layer
+
+      - name: Smoke project memory ownership scope
+        run: npm run smoke:project-memory-ownership-scope
 
       - name: Smoke project memory runtime context
         run: npm run smoke:project-memory-runtime-context

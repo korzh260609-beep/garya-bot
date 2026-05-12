@@ -4,7 +4,7 @@
 > This file defines Project Memory test coverage for SG 2.0.
 > Tests must prove safety boundaries before runtime sync, AI, Telegram, or automatic DB writes are added.
 
-Статус: V1 RUNTIME DIAGNOSTICS TESTING
+Статус: V1 OWNERSHIP / MULTI-PROJECT SCOPE TESTING
 
 ---
 
@@ -19,6 +19,7 @@ scripts/smokeProjectMemoryRuntimeContext.js
 scripts/smokeMessageProjectMemoryContextGate.js
 scripts/smokeProjectMemorySchemaBootstrap.js
 scripts/smokeProjectMemoryRuntimeDiagnostics.js
+scripts/smokeProjectMemoryOwnershipScope.js
 ```
 
 Current npm commands:
@@ -30,6 +31,7 @@ npm run smoke:project-memory-runtime-context
 npm run smoke:message-project-memory-context-gate
 npm run smoke:project-memory-schema-bootstrap
 npm run smoke:project-memory-runtime-diagnostics
+npm run smoke:project-memory-ownership-scope
 ```
 
 Current CI workflow:
@@ -40,7 +42,47 @@ Current CI workflow:
 
 ---
 
-## 2. What V1 skeleton smoke must prove
+## 2. What V1 ownership scope smoke must prove
+
+The ownership scope smoke must prove:
+
+```text
+buildSgProjectMemoryRef()
+buildUserProjectMemoryKey()
+buildUserProjectMemoryRef()
+parseProjectMemoryKey()
+canReadProjectMemory()
+canWriteProjectMemoryCandidate()
+```
+
+It must prove:
+
+```text
+SG project memory uses project_key='sg'
+user project memory uses project_key='user_project:<globalUserId>:<userProjectId>'
+one user can own multiple user projects
+same user projects are isolated from each other
+different users' projects are isolated even if project names match
+monarch/system can read SG project memory
+guests cannot read SG project memory
+user can read/write candidate memory for own project
+user cannot read/write another user's project memory
+ownership is not inferred from chat text or magic phrases
+```
+
+It must not touch real PostgreSQL.
+
+It must not require `DATABASE_URL`.
+
+It must not call AI.
+
+It must not touch Telegram.
+
+It must not write memory entries.
+
+---
+
+## 3. What V1 skeleton smoke must prove
 
 The skeleton smoke must prove:
 
@@ -56,7 +98,7 @@ ProjectMemoryService.buildContextItems()
 
 ---
 
-## 3. What V1 storage confirmation smoke must prove
+## 4. What V1 storage confirmation smoke must prove
 
 The storage confirmation smoke must prove:
 
@@ -79,7 +121,7 @@ It must not require `DATABASE_URL`.
 
 ---
 
-## 4. What V1 runtime context smoke must prove
+## 5. What V1 runtime context smoke must prove
 
 The runtime context smoke must prove:
 
@@ -102,7 +144,7 @@ It must not inject prompt context by itself.
 
 ---
 
-## 5. What V1 message injection gate smoke must prove
+## 6. What V1 message injection gate smoke must prove
 
 The message gate smoke must prove:
 
@@ -137,7 +179,7 @@ It must not require `DATABASE_URL`.
 
 ---
 
-## 6. What V1 schema bootstrap smoke must prove
+## 7. What V1 schema bootstrap smoke must prove
 
 The schema bootstrap smoke must prove:
 
@@ -162,7 +204,7 @@ It must not write memory entries.
 
 ---
 
-## 7. What V1 runtime diagnostics smoke must prove
+## 8. What V1 runtime diagnostics smoke must prove
 
 The runtime diagnostics smoke must prove:
 
@@ -192,10 +234,15 @@ It must not mutate repository/runtime files.
 
 ---
 
-## 8. Required safety assertions
+## 9. Required safety assertions
 
 The smokes must assert:
 
+- SG project memory and user project memory are separate;
+- one user may own many user projects;
+- same user projects do not share Project Memory by default;
+- different users' projects do not share Project Memory even if names match;
+- ownership is not inferred from natural language;
 - service is enabled;
 - prepare-only runtime skeleton remains safe;
 - runtime DB integration is not enabled from the public status;
@@ -242,7 +289,7 @@ The smokes must assert:
 
 ---
 
-## 9. What tests must not do
+## 10. What tests must not do
 
 Tests must not:
 
@@ -260,7 +307,7 @@ Tests must not:
 
 ---
 
-## 10. Future tests before enabling Project Memory prompt injection in production
+## 11. Future tests before enabling Project Memory prompt injection in production
 
 Before enabling durable Project Memory prompt injection in production, add tests for:
 
@@ -282,12 +329,15 @@ Before enabling durable Project Memory prompt injection in production, add tests
 16. Production config audit before enabling `SG_PROJECT_MEMORY_PROMPT_INJECTION_ENABLED=true`.
 17. Production config audit before enabling `SG_PROJECT_MEMORY_SCHEMA_BOOTSTRAP_ENABLED=true`.
 18. Production diagnostics alerting when Project Memory flags are unsafe.
+19. Real DB test proving user projects are isolated by project_key and owner checks.
 
 ---
 
-## 11. Failure rule
+## 12. Failure rule
 
 If Project Memory smoke fails, SG must treat Project Memory runtime as unsafe and not connect it to Core Orchestrator, AI context injection, Telegram, DB storage, or source sync.
+
+If ownership scope smoke fails, SG must not use Project Memory for user projects.
 
 If storage confirmation smoke fails, SG must not use durable Project Memory confirmation in runtime flows.
 

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T13:34:21.632Z",
+  "generated_at": "2026-05-12T13:50:08.926Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "369dadeaf909ee72365ec29ed5015fbe705c3d23",
+  "head_sha": "0a743fade7aa1f6ce120a03ce5fe5edcf40786d0",
   "truncated": false,
-  "items_count": 351,
+  "items_count": 353,
   "semantic_fields": [
     "module",
     "layer",
@@ -2596,6 +2596,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryStorageConfirmation.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryUserProjectValidator.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5847,6 +5865,26 @@
         "module": "project_memory",
         "layer": "memory",
         "responsibility": "Project memory item types and source labels.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemoryUserProjectValidator.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
         "owner": "memory",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "unknown_or_low",

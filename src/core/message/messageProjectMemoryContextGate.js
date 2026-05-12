@@ -246,6 +246,7 @@ export async function prepareMessageProjectMemoryContextGate({
   const loaded = await reader.loadConfirmedProjectMemoryFacts({
     projectKey: normalizedOptions.projectKey,
     limits: normalizedOptions.limits,
+    actor: buildUserIdentity(identity),
   });
 
   if (!loaded.ok) {

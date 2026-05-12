@@ -1,0 +1,39 @@
+name: SG2 Project Memory ProjectKey Runtime Selection
+
+# Dedicated smoke workflow for Project Memory runtime projectKey selection safety.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/core/message/messageProjectMemoryContextGate.js"
+      - "scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js"
+      - "package.json"
+      - ".github/workflows/sg2-project-memory-projectkey-runtime-selection.yml"
+
+jobs:
+  smoke-projectkey-runtime-selection:
+    name: Project Memory projectKey runtime selection smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check runtime gate syntax
+        run: node --check src/core/message/messageProjectMemoryContextGate.js
+
+      - name: Check projectKey runtime selection smoke syntax
+        run: node --check scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js
+
+      - name: Smoke projectKey runtime selection
+        run: npm run smoke:message-project-memory-projectkey-runtime-selection

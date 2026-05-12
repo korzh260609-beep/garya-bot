@@ -13,11 +13,15 @@
 // - Do not touch Telegram or transport logic here.
 // - Do not fetch external sources here.
 // - Do not enable reads or prompt injection by default.
+// - Do not infer user project context from natural-language text.
 
 import { envBool, envIntRange } from "../../config/envPrimitives.js";
 import {
+  PROJECT_MEMORY_OWNER_TYPES,
   ProjectMemoryRuntimeContext,
+  SG_PROJECT_MEMORY_KEY,
   buildContextPack,
+  parseProjectMemoryKey,
 } from "../../memory/index.js";
 import {
   MESSAGE_CONTEXT_INJECTION_MODES,
@@ -124,11 +128,111 @@ function buildSessionContext(behaviorRuntime = null) {
     : [];
 }
 
+function isUserProjectMemoryKey(projectKey = "") {
+  const projectRef = parseProjectMemoryKey(projectKey);
+  return Boolean(projectRef?.ok && projectRef.ownerType === PROJECT_MEMORY_OWNER_TYPES.USER_PROJECT);
+}
+
+function normalizeExplicitProjectContext(explicitProjectContext = null) {
+  if (!explicitProjectContext || typeof explicitProjectContext !== "object") {
+    return {
+      ok: false,
+      reason: "missing_explicit_project_context",
+      projectKey: "",
+      context: null,
+    };
+  }
+
+  if (explicitProjectContext.ok !== true) {
+    return {
+      ok: false,
+      reason: explicitProjectContext.reason || "explicit_project_context_not_ok",
+      projectKey: "",
+      context: explicitProjectContext,
+    };
+  }
+
+  const projectKey = normalizeText(explicitProjectContext.projectKey);
+  const projectRef = parseProjectMemoryKey(projectKey);
+
+  if (!projectRef?.ok || projectRef.ownerType !== PROJECT_MEMORY_OWNER_TYPES.USER_PROJECT) {
+    return {
+      ok: false,
+      reason: projectRef?.reason || "explicit_project_context_not_user_project",
+      projectKey: "",
+      context: explicitProjectContext,
+    };
+  }
+
+  return {
+    ok: true,
+    reason: null,
+    projectKey: projectRef.projectKey,
+    context: explicitProjectContext,
+  };
+}
+
+function resolveProjectMemoryProjectSelection({ requestedProjectKey = SG_PROJECT_MEMORY_KEY, explicitProjectContext = null } = {}) {
+  const requested = normalizeText(requestedProjectKey) || SG_PROJECT_MEMORY_KEY;
+  const explicit = normalizeExplicitProjectContext(explicitProjectContext);
+
+  if (explicit.ok) {
+    return {
+      ok: true,
+      projectKey: explicit.projectKey,
+      explicitProjectContextUsed: true,
+      requestedProjectKey: requested,
+      warnings: [],
+    };
+  }
+
+  if (isUserProjectMemoryKey(requested)) {
+    return {
+      ok: true,
+      projectKey: SG_PROJECT_MEMORY_KEY,
+      explicitProjectContextUsed: false,
+      requestedProjectKey: requested,
+      warnings: [
+        {
+          code: "user_project_project_key_requires_explicit_context",
+          message: "User project Project Memory reads require an explicit resolved project context.",
+          requestedProjectKey: requested,
+          explicitProjectContextReason: explicit.reason,
+        },
+      ],
+    };
+  }
+
+  if (requested !== SG_PROJECT_MEMORY_KEY) {
+    return {
+      ok: true,
+      projectKey: SG_PROJECT_MEMORY_KEY,
+      explicitProjectContextUsed: false,
+      requestedProjectKey: requested,
+      warnings: [
+        {
+          code: "unsupported_project_memory_key_fallback_to_sg",
+          message: "Only sg Project Memory is selected by default; user_project requires explicit context.",
+          requestedProjectKey: requested,
+        },
+      ],
+    };
+  }
+
+  return {
+    ok: true,
+    projectKey: SG_PROJECT_MEMORY_KEY,
+    explicitProjectContextUsed: false,
+    requestedProjectKey: requested,
+    warnings: [],
+  };
+}
+
 export function buildMessageProjectMemoryContextGateDisabledOptions() {
   return {
     enabled: false,
     injectIntoPrompt: false,
-    projectKey: "sg",
+    projectKey: SG_PROJECT_MEMORY_KEY,
     limits: { ...MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS },
   };
 }
@@ -137,7 +241,7 @@ export function getMessageProjectMemoryContextGateOptionsFromEnv() {
   return {
     enabled: envBool("SG_PROJECT_MEMORY_CONTEXT_ENABLED", false),
     injectIntoPrompt: envBool("SG_PROJECT_MEMORY_PROMPT_INJECTION_ENABLED", false),
-    projectKey: "sg",
+    projectKey: SG_PROJECT_MEMORY_KEY,
     limits: {
       maxEntries: envIntRange("SG_PROJECT_MEMORY_CONTEXT_MAX_ENTRIES", 5, { min: 1, max: 20 }),
       maxContentChars: envIntRange("SG_PROJECT_MEMORY_CONTEXT_MAX_CONTENT_CHARS", 1200, { min: 100, max: 4000 }),
@@ -219,8 +323,13 @@ export async function prepareMessageProjectMemoryContextGate({
   behaviorRuntime = null,
   options = {},
   runtimeContext = null,
+  explicitProjectContext = null,
 } = {}) {
   const normalizedOptions = normalizeOptions(options);
+  const projectSelection = resolveProjectMemoryProjectSelection({
+    requestedProjectKey: normalizedOptions.projectKey,
+    explicitProjectContext,
+  });
   const baseContextPack = buildBaseContextPack({
     identity,
     text,
@@ -235,6 +344,8 @@ export async function prepareMessageProjectMemoryContextGate({
       mode: MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_MODES.DISABLED,
       readAttempted: false,
       readOk: null,
+      projectKey: projectSelection.projectKey,
+      projectSelection,
       projectMemoryFactsCount: 0,
       contextPack: baseContextPack,
       contextInjectionOptions: buildMessageContextInjectionDisabledOptions(),
@@ -244,7 +355,7 @@ export async function prepareMessageProjectMemoryContextGate({
 
   const reader = runtimeContext || new ProjectMemoryRuntimeContext();
   const loaded = await reader.loadConfirmedProjectMemoryFacts({
-    projectKey: normalizedOptions.projectKey,
+    projectKey: projectSelection.projectKey,
     limits: normalizedOptions.limits,
     actor: buildUserIdentity(identity),
   });
@@ -256,11 +367,13 @@ export async function prepareMessageProjectMemoryContextGate({
       mode: MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_MODES.READ_ONLY,
       readAttempted: true,
       readOk: false,
+      projectKey: projectSelection.projectKey,
+      projectSelection,
       reason: loaded.reason || "project_memory_runtime_read_failed",
       projectMemoryFactsCount: 0,
       contextPack: baseContextPack,
       contextInjectionOptions: buildMessageContextInjectionDisabledOptions(),
-      warnings: loaded.warnings || [],
+      warnings: [...projectSelection.warnings, ...(loaded.warnings || [])],
       storage: loaded.storage || null,
     };
   }
@@ -283,10 +396,12 @@ export async function prepareMessageProjectMemoryContextGate({
     mode,
     readAttempted: true,
     readOk: true,
+    projectKey: projectSelection.projectKey,
+    projectSelection,
     projectMemoryFactsCount: Array.isArray(loaded.facts) ? loaded.facts.length : 0,
     contextPack,
     contextInjectionOptions: buildInjectionOptions({ injectIntoPrompt: normalizedOptions.injectIntoPrompt }),
-    warnings: loaded.warnings || [],
+    warnings: [...projectSelection.warnings, ...(loaded.warnings || [])],
     limits: normalizedOptions.limits,
   };
 }

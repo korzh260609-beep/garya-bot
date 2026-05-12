@@ -131,6 +131,13 @@ jobs:
           node --check src/users/userIdentityLinkRequests.js
           node --check src/users/identityResolver.js
 
+      - name: Check Projects syntax
+        run: |
+          node --check src/projects/userProjectsTypes.js
+          node --check src/projects/userProjectsSchema.js
+          node --check src/projects/userProjectsStore.js
+          node --check src/projects/index.js
+
       - name: Check Diagnostics Layer syntax
         run: |
           node --check src/diagnostics/diagnosticsIntent.js
@@ -180,6 +187,7 @@ jobs:
           node --check scripts/smokeProjectMemorySchemaBootstrap.js
           node --check scripts/smokeProjectMemorySkeleton.js
           node --check scripts/smokeProjectMemoryStorageConfirmation.js
+          node --check scripts/smokeUserProjectsRegistry.js
 
       - name: Smoke GitHub Actions formatter
         run: npm run smoke:github-actions-formatter
@@ -246,6 +254,9 @@ jobs:
 
       - name: Smoke runtime status observation bridge
         run: npm run smoke:runtime-status-observation-bridge
+
+      - name: Smoke user projects registry
+        run: npm run smoke:user-projects-registry
 
       - name: Smoke users identity registry diagnostics
         run: npm run smoke:users-identity-registry

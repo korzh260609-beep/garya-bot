@@ -28,7 +28,7 @@ assert.equal(workflow.includes("runObservationTriggerDispatchAgent.js"), true);
 const config = getObservationTriggerDispatchConfig("github.repository_updated");
 assert.equal(Boolean(config), true);
 assert.equal(config.eventType, "github.repository_updated");
-assert.equal(config.triggerName, "observation_journal_health_requested");
+assert.equal(config.triggerName, "observation.journal_health_requested");
 assert.equal(config.enabled, true);
 assert.equal(isObservationTriggerDispatchAllowed("github.repository_updated"), true);
 

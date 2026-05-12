@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T16:06:45.697Z",
+  "generated_at": "2026-05-12T16:32:13.824Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "fb7785b60442dab516d79cafd9c6fc1339e85bbc",
+  "head_sha": "8b4d9acd2d37360d939948e3d4bb2d99fd79cbcf",
   "truncated": false,
-  "items_count": 358,
+  "items_count": 361,
   "semantic_fields": [
     "module",
     "layer",
@@ -133,6 +133,24 @@
     },
     {
       "path": ".github/workflows/sg2-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-user-project-runtime-context.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -2780,6 +2798,24 @@
     },
     {
       "path": "scripts/smokeUserIdentityLinkRequests.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeUserProjectRuntimeContext.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -6097,6 +6133,24 @@
         "module": "repository",
         "layer": "repository",
         "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/projects/userProjectRuntimeContext.js",
+      "type": "file",
+      "parent": "src/projects",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
         "owner": "repository",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "unknown_or_low",

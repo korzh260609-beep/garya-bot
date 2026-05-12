@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T08:24:26.623Z",
+  "generated_at": "2026-05-12T08:30:14.129Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "2a32e1043679d706c1700c9d49192fd26285f6dc",
-  "previous_head_sha": "8d527364c526f24d71f52b3564eb61e339645a49",
+  "current_head_sha": "1f77c32616988e151e29b2336be51e3864d4290d",
+  "previous_head_sha": "2a32e1043679d706c1700c9d49192fd26285f6dc",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "bfff06a625e800dce68b7b424da409c340ddf50f",
+  "registry_commit_sha": "52293746c77394e5c83e4f3f17fb2f147f9ad6b9",
   "latest_commit": {
-    "sha": "2a32e1043679d706c1700c9d49192fd26285f6dc",
-    "short_sha": "2a32e1043679",
-    "message": "Merge pull request #185 from korzh260609-beep/sg2/refresh-diagnostics-before-journal-health\n\nobservation: refresh diagnostics before journal health",
+    "sha": "1f77c32616988e151e29b2336be51e3864d4290d",
+    "short_sha": "1f77c3261698",
+    "message": "Merge pull request #186 from korzh260609-beep/sg2/fix-pr-merge-dispatch-standard-message\n\nci: support standard GitHub merge commit message",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T08:24:06Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/2a32e1043679d706c1700c9d49192fd26285f6dc",
+    "date": "2026-05-12T08:29:50Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1f77c32616988e151e29b2336be51e3864d4290d",
     "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/agents/observation/journalHealthObservationBridge.js",
+        "filename": ".github/workflows/repo-commit-watcher.yml",
         "status": "modified",
-        "additions": 50,
-        "deletions": 0,
-        "changes": 50
+        "additions": 1,
+        "deletions": 1,
+        "changes": 2
       }
     ]
   }

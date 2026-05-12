@@ -1,0 +1,40 @@
+name: SG2 User Project Runtime Context
+
+# Dedicated smoke workflow for explicit user project runtime context skeleton.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/projects/userProjectRuntimeContext.js"
+      - "src/projects/index.js"
+      - "scripts/smokeUserProjectRuntimeContext.js"
+      - "package.json"
+      - ".github/workflows/sg2-user-project-runtime-context.yml"
+
+jobs:
+  smoke-user-project-runtime-context:
+    name: User Project runtime context smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check user project runtime context syntax
+        run: node --check src/projects/userProjectRuntimeContext.js
+
+      - name: Check user project runtime context smoke syntax
+        run: node --check scripts/smokeUserProjectRuntimeContext.js
+
+      - name: Smoke user project runtime context
+        run: npm run smoke:user-project-runtime-context

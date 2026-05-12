@@ -2,10 +2,9 @@
 
 > AGENT NOTE:
 > This file defines the Project Memory V1 data model for SG 2.0.
-> This is a model contract, not a database migration.
-> Do not add DB writes, automatic memory writes, Telegram commands, AI auto-write, raw logs, raw env dumps, or secret storage here without explicit Monarch approval.
+> Do not add automatic memory writes, Telegram commands, AI auto-write, raw logs, raw env dumps, or secret storage here without explicit Monarch approval.
 
-Статус: V1 RUNTIME SKELETON / NO DB WRITES
+Статус: V1 STORAGE CONFIRMATION SKELETON / EXPLICIT CONFIRMATION ONLY
 
 ---
 
@@ -23,7 +22,13 @@ Current module docs live in:
 pillars/modules/project_memory/
 ```
 
-Current V1 runtime skeleton is prepare-only and read-only.
+Current V1 has two layers:
+
+```text
+ProjectMemoryService      -> prepare-only / validate-only helper
+ProjectMemoryStore        -> durable storage boundary
+ProjectMemoryConfirmation -> explicit confirmation boundary
+```
 
 It can:
 
@@ -32,17 +37,22 @@ It can:
 - normalize provided memory items;
 - select bounded context items from provided items;
 - expose diagnostics;
-- block obvious secrets/raw dumps.
+- block obvious secrets/raw dumps;
+- ensure Project Memory storage schema;
+- create durable candidate entries;
+- confirm pending candidates explicitly;
+- list confirmed entries through the storage boundary.
 
 It cannot:
 
-- read database storage;
-- write database storage;
-- sync from sources;
 - auto-write from chat;
+- auto-write from AI;
+- sync from sources;
 - call AI;
 - connect to Telegram;
-- mutate repository/runtime state.
+- mutate repository/runtime state;
+- store raw logs/env/provider dumps;
+- store secrets.
 
 ---
 
@@ -126,21 +136,21 @@ deprecated
 needs_review
 ```
 
-V1 rule:
+V1 rules:
 
 ```text
 ProjectMemoryService.buildCandidate() always creates candidate memory.
+ProjectMemoryStore.createCandidate() stores only trust='candidate' + status='pending_confirmation'.
+ProjectMemoryConfirmation.confirmCandidate() is the only V1 confirmation boundary.
 ```
 
-Confirmed durable memory is not enabled yet.
-
-Future confirmed memory must pass:
+Confirmed durable memory must pass:
 
 1. source check;
 2. policy check;
-3. conflict check;
+3. conflict check when available;
 4. secret check;
-5. Monarch approval or approved confirmation path;
+5. explicit approval / confirmation path;
 6. trace/audit write.
 
 ---
@@ -181,7 +191,107 @@ Project Memory must not store raw operational dumps.
 
 ---
 
-## 7. Context item output
+## 7. Storage schema
+
+Current storage boundary:
+
+```text
+src/memory/project/projectMemorySchema.js
+src/memory/project/projectMemoryStore.js
+```
+
+Current tables:
+
+```text
+sg_project_memory_entries
+sg_project_memory_write_audit
+```
+
+`sg_project_memory_entries` fields:
+
+```text
+id
+project_key
+item_type
+title
+content
+scope
+trust
+status
+source_type
+source_ref
+tags jsonb
+metadata jsonb
+created_by
+created_at
+updated_at
+confirmed_by
+confirmed_at
+supersedes_id
+trace_id
+```
+
+`sg_project_memory_write_audit` fields:
+
+```text
+trace_id
+action
+entry_id
+decision
+reason
+actor_ref
+created_at
+metadata jsonb
+```
+
+Storage rules:
+
+- candidates are durable but not confirmed;
+- confirmation changes `trust` from `candidate` to `confirmed`;
+- confirmation changes `status` from `pending_confirmation` to `active`;
+- failed confirmation returns `candidate_not_found_or_not_pending`;
+- audit trace is appended for candidate creation and confirmation decisions.
+
+---
+
+## 8. Confirmation boundary
+
+Current confirmation boundary:
+
+```text
+src/memory/project/projectMemoryConfirmation.js
+```
+
+Public actions:
+
+```text
+status()
+getDiagnostics()
+prepareCandidateForConfirmation()
+confirmCandidate()
+listConfirmedEntries()
+```
+
+Hard boundary rules:
+
+```text
+auto_write_from_chat = false
+ai_auto_write = false
+source_sync = false
+telegram_command = false
+cron_confirmation = false
+```
+
+Meaning:
+
+```text
+Only an explicit caller may create a durable candidate or confirm a candidate.
+This does not connect Project Memory to chat, Telegram, AI, cron, or source ingestion.
+```
+
+---
+
+## 9. Context item output
 
 `ProjectMemoryService.buildContextItems()` returns items shaped for controlled AI context packs:
 
@@ -206,7 +316,7 @@ It must be treated as support context under pillars/repo/runtime facts.
 
 ---
 
-## 8. Secret and raw-data guard
+## 10. Secret and raw-data guard
 
 V1 blocks obvious secret patterns in:
 
@@ -241,7 +351,7 @@ It is a safety guard for the skeleton.
 
 ---
 
-## 9. V1 diagnostics model
+## 11. V1 diagnostics model
 
 `ProjectMemoryService.getDiagnostics()` reports:
 
@@ -256,72 +366,36 @@ supported actions
 blocked actions
 ```
 
-It must remain non-secret and side-effect-free.
+`ProjectMemoryConfirmation.getDiagnostics()` reports:
+
+```text
+confirmation mode
+storage boundary usage
+transport independence
+AI independence
+source sync independence
+blocked auto-write actions
+```
+
+Diagnostics must remain non-secret and side-effect-free.
 
 ---
 
-## 10. Future DB model placeholder
-
-Future durable storage may use a table like:
-
-```text
-project_memory_entries
-```
-
-Candidate fields:
-
-```text
-id
-project_key
-item_type
-title
-content
-scope
-trust
-source_type
-source_ref
-tags jsonb
-metadata jsonb
-created_by
-created_at
-updated_at
-confirmed_by
-confirmed_at
-status
-supersedes_id
-trace_id
-```
-
-This is not approved as a migration yet.
-
-Before DB implementation, create a separate PR for:
-
-```text
-storage schema
-migration
-read API
-write API
-confirmation API
-diagnostics
-smoke tests
-```
-
----
-
-## 11. Final V1 rule
-
-Current Project Memory V1 is runtime-ready only as a safe helper layer.
+## 12. Final V1 rule
 
 Correct:
 
 ```text
 provided item -> normalize -> validate -> candidate/context item
+explicit caller -> prepareCandidateForConfirmation -> pending durable candidate
+explicit approval -> confirmCandidate -> confirmed durable memory
 ```
 
 Incorrect:
 
 ```text
 chat text -> automatic confirmed memory
+AI output -> automatic confirmed memory
 raw logs -> memory
 secrets -> memory
 memory -> source of truth above pillars/repo/runtime

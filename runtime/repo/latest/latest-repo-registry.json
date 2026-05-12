@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-10T15:47:15.651Z",
+  "generated_at": "2026-05-12T07:45:36.479Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "54359323eaddb45a79e2eb3e5822f46603f8bf50",
+  "head_sha": "2b9e4d143e8c6378737da88d927072ad31b337b1",
   "truncated": false,
-  "items_count": 315,
+  "items_count": 316,
   "semantic_fields": [
     "module",
     "layer",
@@ -2635,6 +2635,26 @@
     },
     {
       "path": "src/agents/observation-trigger-dispatch-agent/observationTriggerDispatchRegistry.js",
+      "type": "file",
+      "parent": "src/agents/observation-trigger-dispatch-agent",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation-trigger-dispatch-agent",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation-trigger-dispatch-agent/runObservationTriggerDispatchAgent.js",
       "type": "file",
       "parent": "src/agents/observation-trigger-dispatch-agent",
       "extension": "js",

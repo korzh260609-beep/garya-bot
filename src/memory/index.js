@@ -40,6 +40,19 @@ export {
   createProjectMemoryItem,
 } from "./project/projectMemoryTypes.js";
 
+export {
+  PROJECT_MEMORY_OWNERSHIP_VERSION,
+  PROJECT_MEMORY_OWNER_TYPES,
+  PROJECT_MEMORY_VISIBILITY,
+  SG_PROJECT_MEMORY_KEY,
+  buildSgProjectMemoryRef,
+  buildUserProjectMemoryKey,
+  buildUserProjectMemoryRef,
+  parseProjectMemoryKey,
+  canReadProjectMemory,
+  canWriteProjectMemoryCandidate,
+} from "./project/projectMemoryOwnership.js";
+
 export { ProjectMemoryService } from "./project/projectMemoryService.js";
 
 export {
@@ -116,6 +129,7 @@ export function getMemoryModuleStatus() {
     hasStorageBoundary: true,
     hasDurableProjectMemoryConfirmationBoundary: true,
     hasProjectMemoryRuntimeReadBridge: true,
+    hasProjectMemoryOwnershipBoundary: true,
     hasTransportLogic: false,
     hasAICalls: false,
     hasSourceFetching: false,
@@ -124,6 +138,8 @@ export function getMemoryModuleStatus() {
       transportIndependent: true,
       telegramIsDeliveryOnly: true,
       globalUserIdOwnsUnifiedUserMemory: true,
+      oneUserMayOwnManyProjects: true,
+      projectMemorySeparatesSgAndUserProjects: true,
       memorySupportsLivingSg: true,
       memoryIsNotCommandRouter: true,
       memoryIsNotTechnicalMode: true,

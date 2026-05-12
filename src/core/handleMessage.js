@@ -9,6 +9,7 @@ import {
   buildBehaviorDeniedReply,
   buildEmptyTextReply,
   buildMessageBehaviorRuntime,
+  buildMessageRuntimeOptions,
   buildSuccessfulMessageReply,
   callMessageAI,
   checkMessageAccess,
@@ -18,6 +19,7 @@ import {
 
 export async function handleMessage(context = {}) {
   const text = extractMessageText(context);
+  const runtimeOptions = buildMessageRuntimeOptions(context);
   const identity = await resolveIdentityAsync(context);
 
   if (!text) {
@@ -37,6 +39,11 @@ export async function handleMessage(context = {}) {
     return buildBehaviorDeniedReply({ behaviorAllowed, identity, behaviorRuntime });
   }
 
-  const aiResult = await callMessageAI({ identity, text, behaviorRuntime });
+  const aiResult = await callMessageAI({
+    identity,
+    text,
+    behaviorRuntime,
+    explicitProjectContext: runtimeOptions.explicitProjectContext,
+  });
   return buildSuccessfulMessageReply({ aiResult, identity, behaviorRuntime });
 }

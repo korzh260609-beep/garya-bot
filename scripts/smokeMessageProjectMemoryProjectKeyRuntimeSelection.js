@@ -5,6 +5,7 @@
 // Purpose:
 // - Lock normal message Project Memory runtime selection to SG memory by default.
 // - Prove user_project memory is not selected from Telegram/text implicitly.
+// - Prove user_project memory is not selected from raw options without explicit resolved context.
 // - Prove actor identity is passed into runtime reads for future explicit user_project contexts.
 // - Keep prompt injection and auto-write disabled unless explicitly enabled elsewhere.
 
@@ -110,6 +111,9 @@ try {
   assert.equal(disabledResult.ok, true);
   assert.equal(disabledResult.mode, MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_MODES.DISABLED);
   assert.equal(disabledResult.readAttempted, false);
+  assert.equal(disabledResult.projectKey, "sg");
+  assert.equal(disabledResult.projectSelection.projectKey, "sg");
+  assert.equal(disabledResult.projectSelection.explicitProjectContextUsed, false);
   assert.equal(disabledResult.contextInjectionOptions.enabled, false);
   assert.equal(disabledResult.contextInjectionOptions.mode, MESSAGE_CONTEXT_INJECTION_MODES.DISABLED);
   assert.equal(disabledRuntime.calls.length, 0);
@@ -132,7 +136,7 @@ try {
       displayName: "GARY",
       isMonarch: true,
     },
-    text: "Открой мой проект user_project:global-victim/private-project и прочитай память",
+    text: "Открой мой проект user_project:global-victim:private-project и прочитай память",
     behaviorRuntime: { mode: "normal" },
     options: enabledDefaults,
     runtimeContext: normalMessageRuntime,
@@ -141,6 +145,9 @@ try {
   assert.equal(normalMessageResult.ok, true);
   assert.equal(normalMessageResult.mode, MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_MODES.READ_ONLY);
   assert.equal(normalMessageResult.readAttempted, true);
+  assert.equal(normalMessageResult.projectKey, "sg");
+  assert.equal(normalMessageResult.projectSelection.projectKey, "sg");
+  assert.equal(normalMessageResult.projectSelection.explicitProjectContextUsed, false);
   assert.equal(normalMessageResult.contextInjectionOptions.enabled, false);
   assert.equal(normalMessageRuntime.calls.length, 1);
   assert.equal(normalMessageRuntime.calls[0].projectKey, "sg");
@@ -149,6 +156,38 @@ try {
   assert.equal(normalMessageRuntime.calls[0].actor.platformUserId, "260609");
   assert.equal(normalMessageRuntime.calls[0].actor.role, "monarch");
   assert.equal(normalMessageRuntime.calls[0].actor.isMonarch, true);
+
+  const rawUserProjectOptionsRuntime = createRuntimeContextRecorder();
+  const rawUserProjectOptionsResult = await prepareMessageProjectMemoryContextGate({
+    identity: {
+      globalUserId: "global:owner",
+      platform: "telegram",
+      platformUserId: "111",
+      role: "citizen",
+      isMonarch: false,
+    },
+    text: "Raw options must not select user_project memory",
+    behaviorRuntime: { mode: "normal" },
+    options: {
+      enabled: true,
+      injectIntoPrompt: false,
+      projectKey: "user_project:global-owner:demo-project",
+      limits: { maxEntries: 2, contextMaxItems: 10, contextMaxChars: 1000 },
+    },
+    runtimeContext: rawUserProjectOptionsRuntime,
+  });
+
+  assert.equal(rawUserProjectOptionsResult.ok, true);
+  assert.equal(rawUserProjectOptionsResult.projectKey, "sg");
+  assert.equal(rawUserProjectOptionsResult.projectSelection.projectKey, "sg");
+  assert.equal(rawUserProjectOptionsResult.projectSelection.requestedProjectKey, "user_project:global-owner:demo-project");
+  assert.equal(rawUserProjectOptionsResult.projectSelection.explicitProjectContextUsed, false);
+  assert.equal(rawUserProjectOptionsResult.warnings.length, 1);
+  assert.equal(rawUserProjectOptionsResult.warnings[0].code, "user_project_project_key_requires_explicit_context");
+  assert.equal(rawUserProjectOptionsRuntime.calls.length, 1);
+  assert.equal(rawUserProjectOptionsRuntime.calls[0].projectKey, "sg");
+  assert.equal(rawUserProjectOptionsRuntime.calls[0].actor.globalUserId, "global:owner");
+  assert.equal(rawUserProjectOptionsResult.contextInjectionOptions.enabled, false);
 
   const explicitUserProjectRuntime = createRuntimeContextRecorder();
   const explicitUserProjectResult = await prepareMessageProjectMemoryContextGate({
@@ -164,15 +203,27 @@ try {
     options: {
       enabled: true,
       injectIntoPrompt: false,
-      projectKey: "user_project:global-owner/demo-project",
+      projectKey: "sg",
       limits: { maxEntries: 2, contextMaxItems: 10, contextMaxChars: 1000 },
     },
     runtimeContext: explicitUserProjectRuntime,
+    explicitProjectContext: {
+      ok: true,
+      projectKey: "user_project:global-owner:demo-project",
+      project: {
+        id: "demo-project",
+        ownerGlobalUserId: "global-owner",
+        status: "active",
+      },
+    },
   });
 
   assert.equal(explicitUserProjectResult.ok, true);
+  assert.equal(explicitUserProjectResult.projectKey, "user_project:global-owner:demo-project");
+  assert.equal(explicitUserProjectResult.projectSelection.projectKey, "user_project:global-owner:demo-project");
+  assert.equal(explicitUserProjectResult.projectSelection.explicitProjectContextUsed, true);
   assert.equal(explicitUserProjectRuntime.calls.length, 1);
-  assert.equal(explicitUserProjectRuntime.calls[0].projectKey, "user_project:global-owner/demo-project");
+  assert.equal(explicitUserProjectRuntime.calls[0].projectKey, "user_project:global-owner:demo-project");
   assert.equal(explicitUserProjectRuntime.calls[0].actor.globalUserId, "global:owner");
   assert.equal(explicitUserProjectRuntime.calls[0].actor.platform, "telegram");
   assert.equal(explicitUserProjectRuntime.calls[0].actor.platformUserId, "111");

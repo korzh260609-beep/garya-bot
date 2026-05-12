@@ -12,12 +12,13 @@ import {
   prepareMessageProjectMemoryContextGate,
 } from "./messageProjectMemoryContextGate.js";
 
-export async function callMessageAI({ identity, text, behaviorRuntime }) {
+export async function callMessageAI({ identity, text, behaviorRuntime, explicitProjectContext = null }) {
   const projectMemoryContextGate = await prepareMessageProjectMemoryContextGate({
     identity,
     text,
     behaviorRuntime,
     options: getMessageProjectMemoryContextGateOptionsFromEnv(),
+    explicitProjectContext,
   });
   const contextPack = projectMemoryContextGate.contextPack;
   const baseMessages = [

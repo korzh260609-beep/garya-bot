@@ -81,6 +81,13 @@ export {
 } from "./project/projectMemoryRuntimeContext.js";
 
 export {
+  PROJECT_MEMORY_USER_PROJECT_VALIDATOR_VERSION,
+  PROJECT_MEMORY_USER_PROJECT_VALIDATOR_MODES,
+  ProjectMemoryUserProjectValidator,
+  createProjectMemoryUserProjectValidator,
+} from "./project/projectMemoryUserProjectValidator.js";
+
+export {
   MEMORY_CONTRACT_VERSION,
   MEMORY_ACTION_CLASSES,
   MEMORY_SCOPES,
@@ -130,6 +137,7 @@ export function getMemoryModuleStatus() {
     hasDurableProjectMemoryConfirmationBoundary: true,
     hasProjectMemoryRuntimeReadBridge: true,
     hasProjectMemoryOwnershipBoundary: true,
+    hasProjectMemoryUserProjectValidator: true,
     hasTransportLogic: false,
     hasAICalls: false,
     hasSourceFetching: false,

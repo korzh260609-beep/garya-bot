@@ -4,7 +4,7 @@
 > This file defines the Project Memory V1 data model for SG 2.0.
 > Do not add automatic memory writes, Telegram commands, AI auto-write, raw logs, raw env dumps, or secret storage here without explicit Monarch approval.
 
-Статус: V1 DB SCHEMA BOOTSTRAP / FEATURE-FLAGGED SCHEMA ENSURE
+Статус: V1 OWNERSHIP / MULTI-PROJECT SCOPE BOUNDARY
 
 ---
 
@@ -24,9 +24,10 @@ Current module docs live in:
 pillars/modules/project_memory/
 ```
 
-Current V1 has six layers:
+Current V1 has seven layers:
 
 ```text
+ProjectMemoryOwnership            -> SG vs user-project ownership/scope boundary
 ProjectMemoryService              -> prepare-only / validate-only helper
 ProjectMemoryStore                -> durable storage boundary
 ProjectMemoryConfirmation         -> explicit confirmation boundary
@@ -37,6 +38,9 @@ ProjectMemorySchemaBootstrap      -> startup-time feature gate for storage schem
 
 It can:
 
+- define SG project memory separately from user project memory;
+- support many user projects per global user through deterministic project keys;
+- check if an actor may read/write candidate memory for a project reference;
 - build memory candidates;
 - validate candidates;
 - normalize provided memory items;
@@ -58,6 +62,7 @@ It cannot:
 - auto-write from AI;
 - sync from sources;
 - call AI from memory modules;
+- infer user project ownership from natural-language phrases;
 - inject prompt context by default;
 - connect memory modules to Telegram;
 - mutate repository/runtime files;
@@ -66,7 +71,74 @@ It cannot:
 
 ---
 
-## 2. Item model
+## 2. Ownership model
+
+Current ownership boundary:
+
+```text
+src/memory/project/projectMemoryOwnership.js
+```
+
+Owner types:
+
+```text
+sg_project
+user_project
+```
+
+Visibility values:
+
+```text
+system_internal
+private_user_project
+shared_user_project
+```
+
+Current deterministic project keys:
+
+```text
+sg
+user_project:<globalUserId>:<userProjectId>
+```
+
+Meaning:
+
+```text
+project_key = sg
+```
+
+is reserved for SG itself: architecture, workflow, decisions, rules, module boundaries, runtime design.
+
+```text
+project_key = user_project:<globalUserId>:<userProjectId>
+```
+
+is reserved for a concrete project owned by a concrete user.
+
+One user may own many user projects:
+
+```text
+user_project:global-user-1:alpha-client
+user_project:global-user-1:beta-shop
+user_project:global-user-1:school-research
+```
+
+These are different memory scopes and must not be mixed.
+
+Hard rules:
+
+```text
+SG project memory is not user project memory.
+User project memory is not global SG memory.
+Different user projects of the same user are separate.
+Different users' projects are separate even if project names match.
+No ownership is inferred from chat text or magic phrases.
+Ownership must come from explicit project ref / userProjectId / globalUserId.
+```
+
+---
+
+## 3. Item model
 
 Current project memory item shape:
 
@@ -91,7 +163,7 @@ src/memory/project/projectMemoryTypes.js
 
 ---
 
-## 3. Types
+## 4. Types
 
 Allowed `type` values:
 
@@ -115,7 +187,7 @@ Purpose:
 
 ---
 
-## 4. Scopes
+## 5. Scopes
 
 Allowed `scope` values:
 
@@ -129,13 +201,13 @@ repository
 
 Scope means where the memory item applies.
 
-It is not a permission boundary yet.
+It is not sufficient as an ownership boundary.
 
-Future storage must still include explicit ownership and access checks.
+Ownership and project isolation must use `project_key` + ownership boundary.
 
 ---
 
-## 5. Trust labels
+## 6. Trust labels
 
 Allowed `trust` values:
 
@@ -149,6 +221,7 @@ needs_review
 V1 rules:
 
 ```text
+ProjectMemoryOwnership separates SG memory from user project memory.
 ProjectMemoryService.buildCandidate() always creates candidate memory.
 ProjectMemoryStore.createCandidate() stores only trust='candidate' + status='pending_confirmation'.
 ProjectMemoryConfirmation.confirmCandidate() is the only V1 confirmation boundary.
@@ -163,12 +236,13 @@ Confirmed durable memory must pass:
 2. policy check;
 3. conflict check when available;
 4. secret check;
-5. explicit approval / confirmation path;
-6. trace/audit write.
+5. ownership/scope check;
+6. explicit approval / confirmation path;
+7. trace/audit write.
 
 ---
 
-## 6. Source types
+## 7. Source types
 
 Allowed source types:
 
@@ -204,7 +278,7 @@ Project Memory must not store raw operational dumps.
 
 ---
 
-## 7. Storage schema
+## 8. Storage schema
 
 Current storage boundary:
 
@@ -259,6 +333,8 @@ metadata jsonb
 
 Storage rules:
 
+- `project_key='sg'` is SG project memory;
+- `project_key='user_project:<globalUserId>:<userProjectId>'` is user project memory;
 - candidates are durable but not confirmed;
 - confirmation changes `trust` from `candidate` to `confirmed`;
 - confirmation changes `status` from `pending_confirmation` to `active`;
@@ -267,7 +343,7 @@ Storage rules:
 
 ---
 
-## 8. Schema bootstrap boundary
+## 9. Schema bootstrap boundary
 
 Current schema bootstrap boundary:
 
@@ -319,7 +395,7 @@ It does not enable memory writes, memory reads, or prompt injection.
 
 ---
 
-## 9. Confirmation boundary
+## 10. Confirmation boundary
 
 Current confirmation boundary:
 
@@ -356,7 +432,7 @@ This does not connect Project Memory to chat, Telegram, AI, cron, or source inge
 
 ---
 
-## 10. Runtime read context bridge
+## 11. Runtime read context bridge
 
 Current runtime read bridge:
 
@@ -438,7 +514,7 @@ Prompt injection remains controlled by messageContextInjection.
 
 ---
 
-## 11. Message runtime injection gate
+## 12. Message runtime injection gate
 
 Current message gate:
 
@@ -498,7 +574,7 @@ Live use requires explicit env enablement.
 
 ---
 
-## 12. Context item output from service
+## 13. Context item output from service
 
 `ProjectMemoryService.buildContextItems()` returns items shaped for controlled AI context packs from provided inputs only:
 
@@ -523,7 +599,7 @@ It must be treated as support context under pillars/repo/runtime facts.
 
 ---
 
-## 13. Secret and raw-data guard
+## 14. Secret and raw-data guard
 
 V1 blocks obvious secret patterns in:
 
@@ -558,7 +634,7 @@ It is a safety guard for the skeleton.
 
 ---
 
-## 14. V1 diagnostics model
+## 15. V1 diagnostics model
 
 `ProjectMemoryService.getDiagnostics()` reports:
 
@@ -601,11 +677,13 @@ Diagnostics must remain non-secret and side-effect-free except explicitly report
 
 ---
 
-## 15. Final V1 rule
+## 16. Final V1 rule
 
 Correct:
 
 ```text
+SG project fact -> project_key='sg'
+user project fact -> project_key='user_project:<globalUserId>:<userProjectId>'
 provided item -> normalize -> validate -> candidate/context item
 explicit flag -> ProjectMemorySchemaBootstrap -> ensure storage schema only
 explicit caller -> prepareCandidateForConfirmation -> pending durable candidate
@@ -617,6 +695,10 @@ feature flag -> MessageProjectMemoryContextGate -> optional message context pack
 Incorrect:
 
 ```text
+all project memory -> project_key='sg'
+one user -> one project only
+same user projects -> shared memory by default
+same project name across users -> shared memory
 schema bootstrap -> automatic memory write
 schema bootstrap -> automatic memory read
 schema bootstrap -> prompt injection

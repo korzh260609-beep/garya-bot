@@ -43,6 +43,23 @@ export {
 export { ProjectMemoryService } from "./project/projectMemoryService.js";
 
 export {
+  PROJECT_MEMORY_SCHEMA_VERSION,
+  PROJECT_MEMORY_TABLES,
+  getProjectMemorySchemaSql,
+  createProjectMemorySchema,
+  ensureProjectMemorySchema,
+} from "./project/projectMemorySchema.js";
+
+export { ProjectMemoryStore } from "./project/projectMemoryStore.js";
+
+export {
+  PROJECT_MEMORY_CONFIRMATION_VERSION,
+  PROJECT_MEMORY_CONFIRMATION_MODES,
+  PROJECT_MEMORY_CONFIRMATION_DECISIONS,
+  ProjectMemoryConfirmation,
+} from "./project/projectMemoryConfirmation.js";
+
+export {
   MEMORY_CONTRACT_VERSION,
   MEMORY_ACTION_CLASSES,
   MEMORY_SCOPES,
@@ -88,6 +105,8 @@ export function getMemoryModuleStatus() {
     status: "public_boundary_ready",
     runtimeConnected: false,
     hasDb: false,
+    hasStorageBoundary: true,
+    hasDurableProjectMemoryConfirmationBoundary: true,
     hasTransportLogic: false,
     hasAICalls: false,
     hasSourceFetching: false,
@@ -99,6 +118,8 @@ export function getMemoryModuleStatus() {
       memorySupportsLivingSg: true,
       memoryIsNotCommandRouter: true,
       memoryIsNotTechnicalMode: true,
+      durableProjectMemoryRequiresConfirmation: true,
+      projectMemoryAutoWriteDisabled: true,
     },
   };
 }

@@ -20,6 +20,7 @@
     "smoke:observation-trigger-dispatch-agent": "node ./scripts/smokeObservationTriggerDispatchAgent.js",
     "smoke:observation-trigger-layer": "node ./scripts/smokeObservationTriggerLayer.js",
     "smoke:project-memory-skeleton": "node ./scripts/smokeProjectMemorySkeleton.js",
+    "smoke:project-memory-storage-confirmation": "node ./scripts/smokeProjectMemoryStorageConfirmation.js",
     "smoke:runtime-status-observation-bridge": "node ./scripts/smokeRuntimeStatusObservationBridge.js",
     "smoke:users-identity-registry": "node ./scripts/smokeUsersIdentityRegistryCheck.js",
     "smoke:users-identity-linking": "node ./scripts/smokeUserIdentityLinking.js",

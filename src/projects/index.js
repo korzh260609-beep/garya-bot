@@ -36,6 +36,14 @@ export {
 
 export { UserProjectsStore } from "./userProjectsStore.js";
 
+export {
+  USER_PROJECT_RUNTIME_CONTEXT_VERSION,
+  UserProjectRuntimeContextResolver,
+  buildUserProjectRuntimeContextDenied,
+  buildUserProjectRuntimeContextStatus,
+  getUserProjectRuntimeContextBoundaries,
+} from "./userProjectRuntimeContext.js";
+
 export function getProjectsModuleStatus() {
   return {
     ok: true,
@@ -44,6 +52,7 @@ export function getProjectsModuleStatus() {
     runtimeConnected: false,
     hasDbSchemaBoundary: true,
     hasStoreBoundary: true,
+    hasUserProjectRuntimeContextBoundary: true,
     hasProjectMemoryWrites: false,
     hasProjectMemoryConfirmation: false,
     hasTransportLogic: false,

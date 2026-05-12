@@ -1,21 +1,21 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T12:28:03.288Z",
+  "generated_at": "2026-05-12T12:47:34.292Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "24db27f915ec405dac3ba456ffb5092920f29c64",
-  "previous_head_sha": "a5a60402ca6449be6efc10411b6493e0bf2b994d",
+  "current_head_sha": "3f6c6257fdd00ba39dfd4f1fd208182a93b73d2a",
+  "previous_head_sha": "24db27f915ec405dac3ba456ffb5092920f29c64",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "3280e480bea8e3b528af8c53a4aed8b84f252834",
+  "registry_commit_sha": "10fbf4313868bf95cfbd58479ded2b3e8977c855",
   "latest_commit": {
-    "sha": "24db27f915ec405dac3ba456ffb5092920f29c64",
-    "short_sha": "24db27f915ec",
-    "message": "memory: add project memory runtime injection gate\n\nMerge PR #194 into dev/v2-start",
+    "sha": "3f6c6257fdd00ba39dfd4f1fd208182a93b73d2a",
+    "short_sha": "3f6c6257fdd0",
+    "message": "memory: add project memory schema bootstrap\n\nMerge PR #195 into dev/v2-start",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T12:27:45Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/24db27f915ec405dac3ba456ffb5092920f29c64",
+    "date": "2026-05-12T12:47:10Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/3f6c6257fdd00ba39dfd4f1fd208182a93b73d2a",
     "changed_files_count": 8,
     "changed_files": [
       {
@@ -24,6 +24,13 @@
         "additions": 5,
         "deletions": 0,
         "changes": 5
+      },
+      {
+        "filename": "index.js",
+        "status": "modified",
+        "additions": 4,
+        "deletions": 3,
+        "changes": 7
       },
       {
         "filename": "package.json",
@@ -35,44 +42,37 @@
       {
         "filename": "pillars/modules/project_memory/DATA_MODEL.md",
         "status": "modified",
-        "additions": 82,
-        "deletions": 14,
-        "changes": 96
+        "additions": 70,
+        "deletions": 11,
+        "changes": 81
       },
       {
         "filename": "pillars/modules/project_memory/TESTING.md",
         "status": "modified",
-        "additions": 52,
-        "deletions": 7,
-        "changes": 59
+        "additions": 41,
+        "deletions": 6,
+        "changes": 47
       },
       {
-        "filename": "scripts/smokeMessageProjectMemoryContextGate.js",
+        "filename": "scripts/smokeProjectMemorySchemaBootstrap.js",
         "status": "added",
-        "additions": 202,
+        "additions": 78,
         "deletions": 0,
-        "changes": 202
+        "changes": 78
       },
       {
-        "filename": "src/core/message/index.js",
+        "filename": "src/app/index.js",
         "status": "modified",
         "additions": 1,
         "deletions": 0,
         "changes": 1
       },
       {
-        "filename": "src/core/message/messageAiRequest.js",
-        "status": "modified",
-        "additions": 14,
-        "deletions": 4,
-        "changes": 18
-      },
-      {
-        "filename": "src/core/message/messageProjectMemoryContextGate.js",
+        "filename": "src/app/projectMemoryBootstrap.js",
         "status": "added",
-        "additions": 300,
+        "additions": 117,
         "deletions": 0,
-        "changes": 300
+        "changes": 117
       }
     ]
   }

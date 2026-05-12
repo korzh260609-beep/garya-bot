@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T13:18:34.260Z",
+  "generated_at": "2026-05-12T13:34:22.987Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "45699cd77e07123a9b61783ff8434b1b9c10a585",
-  "previous_head_sha": "b6f1ad1df8c2a7791acd4de613d4e7069586a375",
+  "current_head_sha": "369dadeaf909ee72365ec29ed5015fbe705c3d23",
+  "previous_head_sha": "45699cd77e07123a9b61783ff8434b1b9c10a585",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "c87456eb2d0613ce9433de5239d72016c771be38",
+  "registry_commit_sha": "7c85fe30cbe8375b48f5dc8de59dac1e517c2d75",
   "latest_commit": {
-    "sha": "45699cd77e07123a9b61783ff8434b1b9c10a585",
-    "short_sha": "45699cd77e07",
-    "message": "memory: add project memory ownership scope boundary\n\nMerge PR #197 into dev/v2-start",
+    "sha": "369dadeaf909ee72365ec29ed5015fbe705c3d23",
+    "short_sha": "369dadeaf909",
+    "message": "Merge PR #198: projects: add User Projects Registry V1 skeleton\n\nprojects: add User Projects Registry V1 skeleton\n\nAdds the user projects registry skeleton, docs, smoke test, npm script, and CI wiring.\n\nBoundaries preserved: no Telegram, no AI calls, no Project Memory auto-write, no prompt injection, no source sync, and no runtime generated file edits.",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T13:18:14Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/45699cd77e07123a9b61783ff8434b1b9c10a585",
-    "changed_files_count": 7,
+    "date": "2026-05-12T13:33:54Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/369dadeaf909ee72365ec29ed5015fbe705c3d23",
+    "changed_files_count": 8,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 8,
+        "additions": 11,
         "deletions": 0,
-        "changes": 8
+        "changes": 11
       },
       {
         "filename": "package.json",
@@ -33,39 +33,46 @@
         "changes": 1
       },
       {
-        "filename": "pillars/modules/project_memory/DATA_MODEL.md",
-        "status": "modified",
-        "additions": 102,
-        "deletions": 20,
-        "changes": 122
-      },
-      {
-        "filename": "pillars/modules/project_memory/TESTING.md",
-        "status": "modified",
-        "additions": 61,
-        "deletions": 11,
-        "changes": 72
-      },
-      {
-        "filename": "scripts/smokeProjectMemoryOwnershipScope.js",
+        "filename": "pillars/modules/project_memory/USER_PROJECTS_REGISTRY.md",
         "status": "added",
-        "additions": 129,
+        "additions": 197,
         "deletions": 0,
-        "changes": 129
+        "changes": 197
       },
       {
-        "filename": "src/memory/index.js",
-        "status": "modified",
-        "additions": 16,
-        "deletions": 0,
-        "changes": 16
-      },
-      {
-        "filename": "src/memory/project/projectMemoryOwnership.js",
+        "filename": "scripts/smokeUserProjectsRegistry.js",
         "status": "added",
-        "additions": 189,
+        "additions": 211,
         "deletions": 0,
-        "changes": 189
+        "changes": 211
+      },
+      {
+        "filename": "src/projects/index.js",
+        "status": "added",
+        "additions": 65,
+        "deletions": 0,
+        "changes": 65
+      },
+      {
+        "filename": "src/projects/userProjectsSchema.js",
+        "status": "added",
+        "additions": 93,
+        "deletions": 0,
+        "changes": 93
+      },
+      {
+        "filename": "src/projects/userProjectsStore.js",
+        "status": "added",
+        "additions": 249,
+        "deletions": 0,
+        "changes": 249
+      },
+      {
+        "filename": "src/projects/userProjectsTypes.js",
+        "status": "added",
+        "additions": 120,
+        "deletions": 0,
+        "changes": 120
       }
     ]
   }

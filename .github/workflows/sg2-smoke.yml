@@ -172,6 +172,7 @@ jobs:
 
       - name: Check Project Memory syntax
         run: |
+          node --check src/memory/project/projectMemoryConfirmedReadFlow.js
           node --check src/memory/project/projectMemoryOwnership.js
           node --check src/memory/project/projectMemoryConfirmation.js
           node --check src/memory/project/projectMemoryExplicitConfirmationFlow.js
@@ -188,6 +189,7 @@ jobs:
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
           node --check scripts/smokeObservationTriggerDispatchAgent.js
+          node --check scripts/smokeProjectMemoryConfirmedReadFlow.js
           node --check scripts/smokeProjectMemoryExplicitConfirmationFlow.js
           node --check scripts/smokeProjectMemoryManualCandidateFlow.js
           node --check scripts/smokeProjectMemoryOwnershipScope.js
@@ -248,6 +250,9 @@ jobs:
 
       - name: Smoke observation trigger layer
         run: npm run smoke:observation-trigger-layer
+
+      - name: Smoke project memory confirmed read flow
+        run: npm run smoke:project-memory-confirmed-read-flow
 
       - name: Smoke project memory explicit confirmation flow
         run: npm run smoke:project-memory-explicit-confirmation-flow

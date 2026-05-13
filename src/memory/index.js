@@ -73,6 +73,15 @@ export {
 } from "./project/projectMemoryConfirmation.js";
 
 export {
+  PROJECT_MEMORY_CONFIRMED_READ_FLOW_VERSION,
+  PROJECT_MEMORY_CONFIRMED_READ_FLOW_MODES,
+  PROJECT_MEMORY_CONFIRMED_READ_FLOW_DECISIONS,
+  buildProjectMemoryConfirmedReadFlowStatus,
+  getProjectMemoryConfirmedReadFlowBoundaries,
+  readConfirmedProjectMemoryContext,
+} from "./project/projectMemoryConfirmedReadFlow.js";
+
+export {
   PROJECT_MEMORY_EXPLICIT_CONFIRMATION_FLOW_VERSION,
   PROJECT_MEMORY_EXPLICIT_CONFIRMATION_FLOW_MODES,
   PROJECT_MEMORY_EXPLICIT_CONFIRMATION_FLOW_DECISIONS,
@@ -153,6 +162,7 @@ export function getMemoryModuleStatus() {
     hasDb: false,
     hasStorageBoundary: true,
     hasDurableProjectMemoryConfirmationBoundary: true,
+    hasProjectMemoryConfirmedReadFlow: true,
     hasProjectMemoryExplicitConfirmationFlow: true,
     hasProjectMemoryManualCandidateFlow: true,
     hasProjectMemoryRuntimeReadBridge: true,
@@ -175,6 +185,7 @@ export function getMemoryModuleStatus() {
       projectMemoryAutoWriteDisabled: true,
       projectMemoryManualCandidateOnly: true,
       projectMemoryExplicitConfirmationOnly: true,
+      projectMemoryConfirmedReadOnly: true,
       projectMemoryRuntimeReadConfirmedOnly: true,
     },
   };

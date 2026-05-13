@@ -1,24 +1,8 @@
 // src/core/message/messageProjectMemoryContextGate.js
-// SG 2.0 — Message Project Memory Context Gate.
-//
-// Purpose:
-// - Gate optional Project Memory runtime reads for normal message AI requests.
-// - Gate optional prompt injection separately from Project Memory reads.
-// - Keep default behavior disabled and backward-compatible.
-//
-// Hard rules:
-// - Do not write memory here.
-// - Do not confirm candidates here.
-// - Do not call AI here.
-// - Do not touch Telegram or transport logic here.
-// - Do not fetch external sources here.
-// - Do not enable reads or prompt injection by default.
-// - Do not infer user project context from natural-language text.
 
 import { envBool, envIntRange } from "../../config/envPrimitives.js";
 import {
   PROJECT_MEMORY_OWNER_TYPES,
-  ProjectMemoryRuntimeContext,
   SG_PROJECT_MEMORY_KEY,
   buildContextPack,
   parseProjectMemoryKey,
@@ -27,6 +11,7 @@ import {
   MESSAGE_CONTEXT_INJECTION_MODES,
   buildMessageContextInjectionDisabledOptions,
 } from "./messageContextInjection.js";
+import { readMessageProjectMemoryContext } from "./messageProjectMemoryReadBridge.js";
 
 export const MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_VERSION = 1;
 
@@ -62,36 +47,11 @@ function normalizeLimit(value, fallback, min, max) {
 
 function normalizeLimits(limits = {}) {
   return {
-    maxEntries: normalizeLimit(
-      limits.maxEntries,
-      MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.maxEntries,
-      1,
-      20,
-    ),
-    maxContentChars: normalizeLimit(
-      limits.maxContentChars,
-      MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.maxContentChars,
-      100,
-      4000,
-    ),
-    maxTitleChars: normalizeLimit(
-      limits.maxTitleChars,
-      MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.maxTitleChars,
-      20,
-      400,
-    ),
-    contextMaxItems: normalizeLimit(
-      limits.contextMaxItems,
-      MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.contextMaxItems,
-      1,
-      30,
-    ),
-    contextMaxChars: normalizeLimit(
-      limits.contextMaxChars,
-      MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.contextMaxChars,
-      200,
-      4000,
-    ),
+    maxEntries: normalizeLimit(limits.maxEntries, MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.maxEntries, 1, 20),
+    maxContentChars: normalizeLimit(limits.maxContentChars, MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.maxContentChars, 100, 4000),
+    maxTitleChars: normalizeLimit(limits.maxTitleChars, MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.maxTitleChars, 20, 400),
+    contextMaxItems: normalizeLimit(limits.contextMaxItems, MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.contextMaxItems, 1, 30),
+    contextMaxChars: normalizeLimit(limits.contextMaxChars, MESSAGE_PROJECT_MEMORY_CONTEXT_GATE_DEFAULT_LIMITS.contextMaxChars, 200, 4000),
   };
 }
 
@@ -100,13 +60,10 @@ function buildTaskIntent(text = "") {
 }
 
 function buildUserIdentity(identity = {}) {
-  const globalUserId = identity?.globalUserId || null;
-  const platformUserId = identity?.platformUserId || null;
-
   return {
-    globalUserId,
+    globalUserId: identity?.globalUserId || null,
     platform: identity?.platform || "unknown",
-    platformUserId,
+    platformUserId: identity?.platformUserId || null,
     role: identity?.role || "guest",
     displayName: identity?.displayName || null,
     isMonarch: Boolean(identity?.isMonarch),
@@ -115,16 +72,11 @@ function buildUserIdentity(identity = {}) {
 
 function buildSessionContext(behaviorRuntime = null) {
   return behaviorRuntime
-    ? [
-        {
-          content: "Message behavior runtime was evaluated before AI call.",
-          source: "core_message_behavior_runtime",
-          metadata: {
-            hasBehaviorRuntime: true,
-            mode: behaviorRuntime?.mode || null,
-          },
-        },
-      ]
+    ? [{
+        content: "Message behavior runtime was evaluated before AI call.",
+        source: "core_message_behavior_runtime",
+        metadata: { hasBehaviorRuntime: true, mode: behaviorRuntime?.mode || null },
+      }]
     : [];
 }
 
@@ -135,41 +87,19 @@ function isUserProjectMemoryKey(projectKey = "") {
 
 function normalizeExplicitProjectContext(explicitProjectContext = null) {
   if (!explicitProjectContext || typeof explicitProjectContext !== "object") {
-    return {
-      ok: false,
-      reason: "missing_explicit_project_context",
-      projectKey: "",
-      context: null,
-    };
+    return { ok: false, reason: "missing_explicit_project_context", projectKey: "", context: null };
   }
-
   if (explicitProjectContext.ok !== true) {
-    return {
-      ok: false,
-      reason: explicitProjectContext.reason || "explicit_project_context_not_ok",
-      projectKey: "",
-      context: explicitProjectContext,
-    };
+    return { ok: false, reason: explicitProjectContext.reason || "explicit_project_context_not_ok", projectKey: "", context: explicitProjectContext };
   }
 
   const projectKey = normalizeText(explicitProjectContext.projectKey);
   const projectRef = parseProjectMemoryKey(projectKey);
-
   if (!projectRef?.ok || projectRef.ownerType !== PROJECT_MEMORY_OWNER_TYPES.USER_PROJECT) {
-    return {
-      ok: false,
-      reason: projectRef?.reason || "explicit_project_context_not_user_project",
-      projectKey: "",
-      context: explicitProjectContext,
-    };
+    return { ok: false, reason: projectRef?.reason || "explicit_project_context_not_user_project", projectKey: "", context: explicitProjectContext };
   }
 
-  return {
-    ok: true,
-    reason: null,
-    projectKey: projectRef.projectKey,
-    context: explicitProjectContext,
-  };
+  return { ok: true, reason: null, projectKey: projectRef.projectKey, context: explicitProjectContext };
 }
 
 function resolveProjectMemoryProjectSelection({ requestedProjectKey = SG_PROJECT_MEMORY_KEY, explicitProjectContext = null } = {}) {
@@ -177,13 +107,7 @@ function resolveProjectMemoryProjectSelection({ requestedProjectKey = SG_PROJECT
   const explicit = normalizeExplicitProjectContext(explicitProjectContext);
 
   if (explicit.ok) {
-    return {
-      ok: true,
-      projectKey: explicit.projectKey,
-      explicitProjectContextUsed: true,
-      requestedProjectKey: requested,
-      warnings: [],
-    };
+    return { ok: true, projectKey: explicit.projectKey, explicitProjectContextUsed: true, requestedProjectKey: requested, warnings: [] };
   }
 
   if (isUserProjectMemoryKey(requested)) {
@@ -192,14 +116,12 @@ function resolveProjectMemoryProjectSelection({ requestedProjectKey = SG_PROJECT
       projectKey: SG_PROJECT_MEMORY_KEY,
       explicitProjectContextUsed: false,
       requestedProjectKey: requested,
-      warnings: [
-        {
-          code: "user_project_project_key_requires_explicit_context",
-          message: "User project Project Memory reads require an explicit resolved project context.",
-          requestedProjectKey: requested,
-          explicitProjectContextReason: explicit.reason,
-        },
-      ],
+      warnings: [{
+        code: "user_project_project_key_requires_explicit_context",
+        message: "User project Project Memory reads require an explicit resolved project context.",
+        requestedProjectKey: requested,
+        explicitProjectContextReason: explicit.reason,
+      }],
     };
   }
 
@@ -209,23 +131,15 @@ function resolveProjectMemoryProjectSelection({ requestedProjectKey = SG_PROJECT
       projectKey: SG_PROJECT_MEMORY_KEY,
       explicitProjectContextUsed: false,
       requestedProjectKey: requested,
-      warnings: [
-        {
-          code: "unsupported_project_memory_key_fallback_to_sg",
-          message: "Only sg Project Memory is selected by default; user_project requires explicit context.",
-          requestedProjectKey: requested,
-        },
-      ],
+      warnings: [{
+        code: "unsupported_project_memory_key_fallback_to_sg",
+        message: "Only sg Project Memory is selected by default; user_project requires explicit context.",
+        requestedProjectKey: requested,
+      }],
     };
   }
 
-  return {
-    ok: true,
-    projectKey: SG_PROJECT_MEMORY_KEY,
-    explicitProjectContextUsed: false,
-    requestedProjectKey: requested,
-    warnings: [],
-  };
+  return { ok: true, projectKey: SG_PROJECT_MEMORY_KEY, explicitProjectContextUsed: false, requestedProjectKey: requested, warnings: [] };
 }
 
 export function buildMessageProjectMemoryContextGateDisabledOptions() {
@@ -254,19 +168,16 @@ export function getMessageProjectMemoryContextGateOptionsFromEnv() {
 
 function normalizeOptions(options = {}) {
   const disabled = buildMessageProjectMemoryContextGateDisabledOptions();
-  const limits = normalizeLimits(options.limits || disabled.limits);
-
   return {
     enabled: Boolean(options.enabled),
     injectIntoPrompt: Boolean(options.injectIntoPrompt),
     projectKey: normalizeText(options.projectKey) || disabled.projectKey,
-    limits,
+    limits: normalizeLimits(options.limits || disabled.limits),
   };
 }
 
 function buildBaseContextPack({ identity = {}, text = "", behaviorRuntime = null, limits = {} } = {}) {
   const userIdentity = buildUserIdentity(identity);
-
   return buildContextPack({
     userId: userIdentity.globalUserId,
     chatId: null,
@@ -274,16 +185,12 @@ function buildBaseContextPack({ identity = {}, text = "", behaviorRuntime = null
     userIdentity,
     taskIntent: buildTaskIntent(text),
     sessionContext: buildSessionContext(behaviorRuntime),
-    limits: {
-      maxItems: limits.contextMaxItems,
-      maxChars: limits.contextMaxChars,
-    },
+    limits: { maxItems: limits.contextMaxItems, maxChars: limits.contextMaxChars },
   });
 }
 
 function buildContextPackWithProjectMemory({ identity = {}, text = "", behaviorRuntime = null, projectMemoryFacts = [], limits = {} } = {}) {
   const userIdentity = buildUserIdentity(identity);
-
   return buildContextPack({
     userId: userIdentity.globalUserId,
     chatId: null,
@@ -292,28 +199,16 @@ function buildContextPackWithProjectMemory({ identity = {}, text = "", behaviorR
     taskIntent: buildTaskIntent(text),
     projectMemory: projectMemoryFacts,
     sessionContext: buildSessionContext(behaviorRuntime),
-    limits: {
-      maxItems: limits.contextMaxItems,
-      maxChars: limits.contextMaxChars,
-    },
+    limits: { maxItems: limits.contextMaxItems, maxChars: limits.contextMaxChars },
   });
 }
 
 function buildInjectionOptions({ injectIntoPrompt = false } = {}) {
-  if (!injectIntoPrompt) {
-    return buildMessageContextInjectionDisabledOptions();
-  }
-
+  if (!injectIntoPrompt) return buildMessageContextInjectionDisabledOptions();
   return {
     enabled: true,
     mode: MESSAGE_CONTEXT_INJECTION_MODES.INJECT_SYSTEM_CONTEXT,
-    formatterOptions: {
-      limits: {
-        maxItems: 12,
-        maxTotalChars: 4000,
-        maxItemChars: 800,
-      },
-    },
+    formatterOptions: { limits: { maxItems: 12, maxTotalChars: 4000, maxItemChars: 800 } },
   };
 }
 
@@ -326,16 +221,8 @@ export async function prepareMessageProjectMemoryContextGate({
   explicitProjectContext = null,
 } = {}) {
   const normalizedOptions = normalizeOptions(options);
-  const projectSelection = resolveProjectMemoryProjectSelection({
-    requestedProjectKey: normalizedOptions.projectKey,
-    explicitProjectContext,
-  });
-  const baseContextPack = buildBaseContextPack({
-    identity,
-    text,
-    behaviorRuntime,
-    limits: normalizedOptions.limits,
-  });
+  const projectSelection = resolveProjectMemoryProjectSelection({ requestedProjectKey: normalizedOptions.projectKey, explicitProjectContext });
+  const baseContextPack = buildBaseContextPack({ identity, text, behaviorRuntime, limits: normalizedOptions.limits });
 
   if (!normalizedOptions.enabled) {
     return {
@@ -353,11 +240,11 @@ export async function prepareMessageProjectMemoryContextGate({
     };
   }
 
-  const reader = runtimeContext || new ProjectMemoryRuntimeContext();
-  const loaded = await reader.loadConfirmedProjectMemoryFacts({
+  const loaded = await readMessageProjectMemoryContext({
+    identity,
     projectKey: projectSelection.projectKey,
     limits: normalizedOptions.limits,
-    actor: buildUserIdentity(identity),
+    runtimeContext,
   });
 
   if (!loaded.ok) {
@@ -375,6 +262,7 @@ export async function prepareMessageProjectMemoryContextGate({
       contextInjectionOptions: buildMessageContextInjectionDisabledOptions(),
       warnings: [...projectSelection.warnings, ...(loaded.warnings || [])],
       storage: loaded.storage || null,
+      readBridge: loaded,
     };
   }
 
@@ -403,6 +291,7 @@ export async function prepareMessageProjectMemoryContextGate({
     contextInjectionOptions: buildInjectionOptions({ injectIntoPrompt: normalizedOptions.injectIntoPrompt }),
     warnings: [...projectSelection.warnings, ...(loaded.warnings || [])],
     limits: normalizedOptions.limits,
+    readBridge: loaded,
   };
 }
 

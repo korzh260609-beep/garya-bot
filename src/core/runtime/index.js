@@ -13,6 +13,8 @@
 // - Do not fetch external sources here.
 // - Do not turn this file into a runtime monolith.
 
+export { getCoreRuntimeModuleStatus } from "./coreRuntimeStatus.js";
+
 export {
   MESSAGE_RUNTIME_CONTEXT_RESOLVER_VERSION,
   buildMessageRuntimeContextResolverStatus,
@@ -20,27 +22,9 @@ export {
   resolveMessageRuntimeOptions,
 } from "./messageRuntimeContextResolver.js";
 
-export function getCoreRuntimeModuleStatus() {
-  return {
-    ok: true,
-    module: "core/runtime",
-    status: "public_boundary_ready",
-    hasMessageRuntimeContextResolver: true,
-    transportIndependent: true,
-    hasTransportLogic: false,
-    hasAICalls: false,
-    hasProjectMemoryReads: false,
-    hasProjectMemoryWrites: false,
-    hasPromptInjection: false,
-    principles: {
-      telegramIsDeliveryOnly: true,
-      runtimeOptionsAreExplicit: true,
-      naturalLanguageInferenceDisabled: true,
-      accessAndBehaviorBeforeRuntimeResolution: true,
-    },
-  };
-}
+export {
+  CORE_RUNTIME_DIAGNOSTICS_VERSION,
+  buildCoreRuntimeDiagnostics,
+} from "./runtimeDiagnostics.js";
 
-export default {
-  getCoreRuntimeModuleStatus,
-};
+export default {};

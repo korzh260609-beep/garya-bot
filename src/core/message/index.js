@@ -7,6 +7,7 @@ export * from "./messageAccess.js";
 export * from "./messageBehavior.js";
 export * from "./messageContextPack.js";
 export * from "./messageContextInjection.js";
+export * from "./messageProjectMemoryReadBridge.js";
 export * from "./messageProjectMemoryContextGate.js";
 export * from "./messageAiRequest.js";
 export * from "./messageGithubApproval.js";

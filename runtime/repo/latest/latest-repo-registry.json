@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-13T01:26:46.131Z",
+  "generated_at": "2026-05-13T01:36:16.332Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "23fa37e7ded0f869dd8c42f23508c4865602260a",
+  "head_sha": "73a78ced181b2d113a1795647f38e6e13515edfd",
   "truncated": false,
-  "items_count": 366,
+  "items_count": 368,
   "semantic_fields": [
     "module",
     "layer",
@@ -2286,6 +2286,24 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": "scripts/smokeCoreRuntimePublicBoundary.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
       }
     },
     {
@@ -5070,6 +5088,24 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": "src/core/runtime/index.js",
+      "type": "file",
+      "parent": "src/core/runtime",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
       }
     },
     {

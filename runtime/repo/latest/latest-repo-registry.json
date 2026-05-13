@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-13T06:08:48.686Z",
+  "generated_at": "2026-05-13T08:08:09.152Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "3278dac24db73490d8ae7d558a8dd8c4fc0b2074",
+  "head_sha": "96e33b984ededcdb036189e08c107add8dace25a",
   "truncated": false,
-  "items_count": 375,
+  "items_count": 377,
   "semantic_fields": [
     "module",
     "layer",
@@ -2650,6 +2650,24 @@
     },
     {
       "path": "scripts/smokeObservationTriggerLayer.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryConfirmedReadFlow.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -6082,6 +6100,26 @@
     },
     {
       "path": "src/memory/project/projectMemoryConfirmation.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemoryConfirmedReadFlow.js",
       "type": "file",
       "parent": "src/memory/project",
       "extension": "js",

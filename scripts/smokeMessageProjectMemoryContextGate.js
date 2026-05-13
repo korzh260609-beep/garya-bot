@@ -11,18 +11,32 @@ import {
   prepareMessageProjectMemoryContextGate,
 } from "../src/core/message/index.js";
 
+function factToItem(fact = {}) {
+  return {
+    type: "project_memory",
+    content: fact.content || "",
+    source: fact.source || "mock:confirmed_project_memory",
+    priority: "below_verified_sources",
+    trust: fact.metadata?.trust || "confirmed",
+    scope: fact.metadata?.scope || "global_project",
+    owner: "sg_project",
+    metadata: fact.metadata || {},
+  };
+}
+
 function createRuntimeContextMock({ ok = true, facts = [] } = {}) {
   const calls = [];
 
   return {
     calls,
-    async loadConfirmedProjectMemoryFacts(input) {
+    async buildConfirmedProjectMemoryContextItems(input) {
       calls.push(input);
       if (!ok) {
         return {
           ok: false,
           reason: "mock_project_memory_read_failed",
           facts: [],
+          items: [],
           warnings: [{ code: "mock_read_failed", message: "Mock read failed." }],
         };
       }
@@ -30,8 +44,10 @@ function createRuntimeContextMock({ ok = true, facts = [] } = {}) {
       return {
         ok: true,
         facts,
+        items: facts.map(factToItem),
         warnings: [],
         limits: input?.limits || {},
+        guard: { ok: true, skipped: true, reason: "not_user_project_memory" },
       };
     },
   };
@@ -123,6 +139,8 @@ try {
   assert.equal(readOnly.contextInjectionOptions.mode, MESSAGE_CONTEXT_INJECTION_MODES.DISABLED);
   assert.equal(readOnlyRuntime.calls.length, 1);
   assert.equal(readOnlyRuntime.calls[0].projectKey, "sg");
+  assert.equal(readOnlyRuntime.calls[0].limits.maxEntries, 1);
+  assert.equal(readOnly.readBridge.promptInjectionEnabled, false);
   assert.equal(readOnly.contextPack.items.some((item) => item.type === "project_memory"), true);
 
   const readOnlyInjection = prepareMessageContextInjection({
@@ -164,6 +182,7 @@ try {
   assert.equal(readAndInject.projectMemoryFactsCount, 1);
   assert.equal(readAndInject.contextInjectionOptions.enabled, true);
   assert.equal(readAndInject.contextInjectionOptions.mode, MESSAGE_CONTEXT_INJECTION_MODES.INJECT_SYSTEM_CONTEXT);
+  assert.equal(readAndInject.readBridge.promptInjectionEnabled, false);
 
   const injected = prepareMessageContextInjection({
     messages: [{ role: "system", content: "base" }, { role: "user", content: "hello" }],
@@ -194,6 +213,7 @@ try {
   assert.equal(failed.readAttempted, true);
   assert.equal(failed.readOk, false);
   assert.equal(failed.contextInjectionOptions.enabled, false);
+  assert.equal(failed.readBridge.promptInjectionEnabled, false);
   assert.equal(failed.contextPack.items.some((item) => item.type === "project_memory"), false);
 
   console.log("smokeMessageProjectMemoryContextGate: ok");

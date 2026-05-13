@@ -1,64 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-13T10:13:17.895Z",
+  "generated_at": "2026-05-13T13:59:16.720Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
-  "previous_head_sha": "96e33b984ededcdb036189e08c107add8dace25a",
+  "current_head_sha": "c5f59431540327bbef9fe840d03a7544fc399bc0",
+  "previous_head_sha": "7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "dfc68ad0fea78f54e414a6715861196c50bddbc8",
+  "registry_commit_sha": "1c49caa7f743ef32452aaaa07386d4040cf5b899",
   "latest_commit": {
-    "sha": "7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
-    "short_sha": "7be282ed7c95",
-    "message": "message: bridge project memory confirmed reads into message gate\n\nMerge PR #212 into dev/v2-start after successful checks.",
+    "sha": "c5f59431540327bbef9fe840d03a7544fc399bc0",
+    "short_sha": "c5f594315403",
+    "message": "test: add Project Memory env context activation smoke\n\nMerge PR #213 into dev/v2-start after successful checks.",
     "author": "korzh260609-beep",
-    "date": "2026-05-13T10:13:01Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
-    "changed_files_count": 6,
+    "date": "2026-05-13T13:58:52Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c5f59431540327bbef9fe840d03a7544fc399bc0",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "scripts/smokeMessageProjectMemoryContextGate.js",
-        "status": "modified",
-        "additions": 21,
-        "deletions": 1,
-        "changes": 22
-      },
-      {
-        "filename": "scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js",
-        "status": "modified",
-        "additions": 8,
-        "deletions": 18,
-        "changes": 26
-      },
-      {
-        "filename": "src/core/message/index.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "src/core/message/messageProjectMemoryContextGate.js",
-        "status": "modified",
-        "additions": 42,
-        "deletions": 153,
-        "changes": 195
-      },
-      {
-        "filename": "src/core/message/messageProjectMemoryReadBridge.js",
+        "filename": ".github/workflows/sg2-project-memory-env-context-smoke.yml",
         "status": "added",
-        "additions": 101,
+        "additions": 30,
         "deletions": 0,
-        "changes": 101
+        "changes": 30
+      },
+      {
+        "filename": "package.json",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "scripts/smokeMessageProjectMemoryPromptInjectionEnvActivation.js",
+        "status": "added",
+        "additions": 124,
+        "deletions": 0,
+        "changes": 124
       }
     ]
   }

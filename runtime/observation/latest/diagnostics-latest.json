@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-13T08:08:12.374Z",
+  "generated_at": "2026-05-13T10:13:19.272Z",
   "name": "diagnostics-latest",
   "summary": "Diagnostics completed successfully: 1 checks.",
   "events_count": 1,
@@ -10,9 +10,9 @@
   "events": [
     {
       "schema_version": 1,
-      "event_id": "diagnostics_1778659692373",
+      "event_id": "diagnostics_1778667199271",
       "event_type": "diagnostics.result",
-      "created_at": "2026-05-13T08:08:12.373Z",
+      "created_at": "2026-05-13T10:13:19.272Z",
       "source": {
         "system": "sg",
         "transport": "internal",

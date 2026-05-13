@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-12T21:31:28.364Z",
+  "generated_at": "2026-05-13T01:26:47.747Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b128d5df05c35de5c62dfae19fde72e728dad312",
-  "previous_head_sha": "ae33eadbd274f1b1d357d3c06b9cb4f2f5f2d331",
+  "current_head_sha": "23fa37e7ded0f869dd8c42f23508c4865602260a",
+  "previous_head_sha": "b128d5df05c35de5c62dfae19fde72e728dad312",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "2bd18660c416c71efad31b17fc7e5a340b76ce69",
+  "registry_commit_sha": "23044b4400365eac0de00b444b93d8415ef26182",
   "latest_commit": {
-    "sha": "b128d5df05c35de5c62dfae19fde72e728dad312",
-    "short_sha": "b128d5df05c3",
-    "message": "message: pass explicit project context through runtime options\n\nMerge PR #205 into dev/v2-start after successful checks.",
+    "sha": "23fa37e7ded0f869dd8c42f23508c4865602260a",
+    "short_sha": "23fa37e7ded0",
+    "message": "runtime: add message runtime context resolver\n\nMerge PR #206 into dev/v2-start after successful checks.",
     "author": "korzh260609-beep",
-    "date": "2026-05-12T21:31:11Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b128d5df05c35de5c62dfae19fde72e728dad312",
+    "date": "2026-05-13T01:26:28Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/23fa37e7ded0f869dd8c42f23508c4865602260a",
     "changed_files_count": 5,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-message-runtime-options.yml",
-        "status": "added",
-        "additions": 44,
-        "deletions": 0,
-        "changes": 44
+        "status": "modified",
+        "additions": 9,
+        "deletions": 1,
+        "changes": 10
       },
       {
         "filename": "package.json",
@@ -33,25 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
+        "filename": "scripts/smokeMessageRuntimeContextResolver.js",
         "status": "added",
-        "additions": 67,
+        "additions": 185,
         "deletions": 0,
-        "changes": 67
+        "changes": 185
       },
       {
         "filename": "src/core/handleMessage.js",
         "status": "modified",
-        "additions": 8,
-        "deletions": 1,
-        "changes": 9
+        "additions": 4,
+        "deletions": 3,
+        "changes": 7
       },
       {
-        "filename": "src/core/message/messageInput.js",
-        "status": "modified",
-        "additions": 18,
-        "deletions": 1,
-        "changes": 19
+        "filename": "src/core/runtime/messageRuntimeContextResolver.js",
+        "status": "added",
+        "additions": 148,
+        "deletions": 0,
+        "changes": 148
       }
     ]
   }

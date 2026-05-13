@@ -14,11 +14,11 @@
 // - Do not inspect user text here.
 // - Do not enable runtime features here.
 
+import { getCoreRuntimeModuleStatus } from "./coreRuntimeStatus.js";
 import {
   buildMessageRuntimeContextResolverStatus,
-  getCoreRuntimeModuleStatus,
   getMessageRuntimeContextResolverBoundaries,
-} from "./index.js";
+} from "./messageRuntimeContextResolver.js";
 
 export const CORE_RUNTIME_DIAGNOSTICS_VERSION = 1;
 
@@ -34,6 +34,13 @@ export function buildCoreRuntimeDiagnostics() {
       details: {
         module: moduleStatus.module,
         status: moduleStatus.status,
+      },
+    },
+    {
+      name: "core_runtime_diagnostics_visibility_ready",
+      ok: moduleStatus.hasDiagnosticsVisibility === true,
+      details: {
+        hasDiagnosticsVisibility: moduleStatus.hasDiagnosticsVisibility === true,
       },
     },
     {

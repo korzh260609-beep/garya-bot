@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-12T21:31:27.099Z",
+  "generated_at": "2026-05-13T01:26:46.131Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "b128d5df05c35de5c62dfae19fde72e728dad312",
+  "head_sha": "23fa37e7ded0f869dd8c42f23508c4865602260a",
   "truncated": false,
-  "items_count": 363,
+  "items_count": 366,
   "semantic_fields": [
     "module",
     "layer",
@@ -2434,6 +2434,24 @@
     },
     {
       "path": "scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMessageRuntimeContextResolver.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5020,6 +5038,44 @@
       "path": "src/core/prompt/promptRuntimeStatus.js",
       "type": "file",
       "parent": "src/core/prompt",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/core/runtime",
+      "type": "folder",
+      "parent": "src/core",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "src/core/runtime/messageRuntimeContextResolver.js",
+      "type": "file",
+      "parent": "src/core/runtime",
       "extension": "js",
       "description": "JavaScript source file.",
       "status": "active_or_config",

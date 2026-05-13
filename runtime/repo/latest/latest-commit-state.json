@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-13T03:53:31.152Z",
+  "generated_at": "2026-05-13T04:10:35.942Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "7e6d2cea9d200049bd64e279ecdc68096ece8677",
-  "previous_head_sha": "73a78ced181b2d113a1795647f38e6e13515edfd",
+  "current_head_sha": "66787fc9b413a1a68bb1a10c096c66400c5ed009",
+  "previous_head_sha": "7e6d2cea9d200049bd64e279ecdc68096ece8677",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "5c8cdaf45352ca03801993fc12b56b5531aa28c5",
+  "registry_commit_sha": "9b465d646e7d4754393322b9c9d4823091d40740",
   "latest_commit": {
-    "sha": "7e6d2cea9d200049bd64e279ecdc68096ece8677",
-    "short_sha": "7e6d2cea9d20",
-    "message": "runtime: add core runtime diagnostics visibility\n\nMerge PR #208 into dev/v2-start after successful checks.",
+    "sha": "66787fc9b413a1a68bb1a10c096c66400c5ed009",
+    "short_sha": "66787fc9b413",
+    "message": "memory: add manual project memory candidate flow\n\nMerge PR #209 into dev/v2-start after successful checks.",
     "author": "korzh260609-beep",
-    "date": "2026-05-13T03:53:09Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7e6d2cea9d200049bd64e279ecdc68096ece8677",
-    "changed_files_count": 6,
+    "date": "2026-05-13T04:10:19Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/66787fc9b413a1a68bb1a10c096c66400c5ed009",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-message-runtime-options.yml",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 9,
+        "additions": 5,
         "deletions": 0,
-        "changes": 9
+        "changes": 5
       },
       {
         "filename": "package.json",
@@ -33,32 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeCoreRuntimeDiagnosticsVisibility.js",
+        "filename": "scripts/smokeProjectMemoryManualCandidateFlow.js",
         "status": "added",
-        "additions": 73,
+        "additions": 188,
         "deletions": 0,
-        "changes": 73
+        "changes": 188
       },
       {
-        "filename": "src/core/runtime/coreRuntimeStatus.js",
-        "status": "added",
-        "additions": 40,
-        "deletions": 0,
-        "changes": 40
-      },
-      {
-        "filename": "src/core/runtime/index.js",
+        "filename": "src/memory/index.js",
         "status": "modified",
-        "additions": 7,
-        "deletions": 23,
-        "changes": 30
+        "additions": 11,
+        "deletions": 0,
+        "changes": 11
       },
       {
-        "filename": "src/core/runtime/runtimeDiagnostics.js",
+        "filename": "src/memory/project/projectMemoryManualCandidateFlow.js",
         "status": "added",
-        "additions": 132,
+        "additions": 208,
         "deletions": 0,
-        "changes": 132
+        "changes": 208
       }
     ]
   }

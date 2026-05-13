@@ -8,10 +8,13 @@ on:
       - dev/v2-start
     paths:
       - "src/core/handleMessage.js"
+      - "src/core/runtime/coreRuntimeStatus.js"
       - "src/core/runtime/index.js"
       - "src/core/runtime/messageRuntimeContextResolver.js"
+      - "src/core/runtime/runtimeDiagnostics.js"
       - "src/core/message/messageInput.js"
       - "src/core/message/index.js"
+      - "scripts/smokeCoreRuntimeDiagnosticsVisibility.js"
       - "scripts/smokeCoreRuntimePublicBoundary.js"
       - "scripts/smokeMessageRuntimeContextResolver.js"
       - "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js"
@@ -38,16 +41,22 @@ jobs:
       - name: Check message runtime options syntax
         run: |
           node --check src/core/handleMessage.js
+          node --check src/core/runtime/coreRuntimeStatus.js
           node --check src/core/runtime/index.js
           node --check src/core/runtime/messageRuntimeContextResolver.js
+          node --check src/core/runtime/runtimeDiagnostics.js
           node --check src/core/message/messageInput.js
           node --check src/core/message/index.js
 
       - name: Check message runtime options smoke syntax
         run: |
+          node --check scripts/smokeCoreRuntimeDiagnosticsVisibility.js
           node --check scripts/smokeCoreRuntimePublicBoundary.js
           node --check scripts/smokeMessageRuntimeContextResolver.js
           node --check scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js
+
+      - name: Smoke core runtime diagnostics visibility
+        run: npm run smoke:core-runtime-diagnostics-visibility
 
       - name: Smoke core runtime public boundary
         run: npm run smoke:core-runtime-public-boundary

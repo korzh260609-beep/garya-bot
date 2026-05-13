@@ -5,6 +5,7 @@
   "main": "./index.js",
   "scripts": {
     "start": "node ./index.js",
+    "smoke:core-runtime-diagnostics-visibility": "node ./scripts/smokeCoreRuntimeDiagnosticsVisibility.js",
     "smoke:core-runtime-public-boundary": "node ./scripts/smokeCoreRuntimePublicBoundary.js",
     "smoke:diagnostics-default-plan-journal-health": "node ./scripts/smokeDiagnosticsDefaultPlanJournalHealth.js",
     "smoke:diagnostics-observation-bridge": "node ./scripts/smokeDiagnosticsObservationBridge.js",

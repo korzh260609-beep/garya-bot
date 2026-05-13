@@ -1,13 +1,6 @@
 // scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js
 // SG 2.0 — Project Memory projectKey runtime selection smoke.
 // This smoke must stay deterministic, offline, and must not touch the real DB/network.
-//
-// Purpose:
-// - Lock normal message Project Memory runtime selection to SG memory by default.
-// - Prove user_project memory is not selected from Telegram/text implicitly.
-// - Prove user_project memory is not selected from raw options without explicit resolved context.
-// - Prove actor identity is passed into runtime reads for future explicit user_project contexts.
-// - Keep prompt injection and auto-write disabled unless explicitly enabled elsewhere.
 
 import assert from "node:assert/strict";
 import {
@@ -23,7 +16,7 @@ function createRuntimeContextRecorder({ ok = true, facts = [] } = {}) {
 
   return {
     calls,
-    async loadConfirmedProjectMemoryFacts(input = {}) {
+    async buildConfirmedProjectMemoryContextItems(input = {}) {
       calls.push(input);
 
       if (!ok) {
@@ -31,6 +24,7 @@ function createRuntimeContextRecorder({ ok = true, facts = [] } = {}) {
           ok: false,
           reason: "mock_runtime_read_failed",
           facts: [],
+          items: [],
           warnings: [],
         };
       }
@@ -38,8 +32,10 @@ function createRuntimeContextRecorder({ ok = true, facts = [] } = {}) {
       return {
         ok: true,
         facts,
+        items: [],
         warnings: [],
         limits: input.limits || {},
+        guard: { ok: true, skipped: true, reason: "not_user_project_memory" },
       };
     },
   };
@@ -84,16 +80,7 @@ try {
   assert.equal(envDefaults.injectIntoPrompt, false);
   assert.equal(envDefaults.projectKey, "sg");
 
-  const disabledRuntime = createRuntimeContextRecorder({
-    facts: [
-      {
-        content: "Disabled gate must not read this fact.",
-        source: "mock",
-        metadata: { projectKey: "sg" },
-      },
-    ],
-  });
-
+  const disabledRuntime = createRuntimeContextRecorder();
   const disabledResult = await prepareMessageProjectMemoryContextGate({
     identity: {
       globalUserId: "global:monarch",
@@ -156,6 +143,7 @@ try {
   assert.equal(normalMessageRuntime.calls[0].actor.platformUserId, "260609");
   assert.equal(normalMessageRuntime.calls[0].actor.role, "monarch");
   assert.equal(normalMessageRuntime.calls[0].actor.isMonarch, true);
+  assert.equal(normalMessageResult.readBridge.promptInjectionEnabled, false);
 
   const rawUserProjectOptionsRuntime = createRuntimeContextRecorder();
   const rawUserProjectOptionsResult = await prepareMessageProjectMemoryContextGate({
@@ -188,6 +176,7 @@ try {
   assert.equal(rawUserProjectOptionsRuntime.calls[0].projectKey, "sg");
   assert.equal(rawUserProjectOptionsRuntime.calls[0].actor.globalUserId, "global:owner");
   assert.equal(rawUserProjectOptionsResult.contextInjectionOptions.enabled, false);
+  assert.equal(rawUserProjectOptionsResult.readBridge.promptInjectionEnabled, false);
 
   const explicitUserProjectRuntime = createRuntimeContextRecorder();
   const explicitUserProjectResult = await prepareMessageProjectMemoryContextGate({
@@ -230,6 +219,7 @@ try {
   assert.equal(explicitUserProjectRuntime.calls[0].actor.role, "citizen");
   assert.equal(explicitUserProjectRuntime.calls[0].actor.isMonarch, false);
   assert.equal(explicitUserProjectResult.contextInjectionOptions.enabled, false);
+  assert.equal(explicitUserProjectResult.readBridge.promptInjectionEnabled, false);
 
   console.log("smokeMessageProjectMemoryProjectKeyRuntimeSelection: ok");
 } finally {

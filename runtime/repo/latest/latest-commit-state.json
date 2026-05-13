@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-13T01:36:17.762Z",
+  "generated_at": "2026-05-13T03:53:31.152Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "73a78ced181b2d113a1795647f38e6e13515edfd",
-  "previous_head_sha": "23fa37e7ded0f869dd8c42f23508c4865602260a",
+  "current_head_sha": "7e6d2cea9d200049bd64e279ecdc68096ece8677",
+  "previous_head_sha": "73a78ced181b2d113a1795647f38e6e13515edfd",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "435098f30fa9b4db86e108f230d8525d3e2cbf60",
+  "registry_commit_sha": "5c8cdaf45352ca03801993fc12b56b5531aa28c5",
   "latest_commit": {
-    "sha": "73a78ced181b2d113a1795647f38e6e13515edfd",
-    "short_sha": "73a78ced181b",
-    "message": "runtime: add core runtime public boundary\n\nMerge PR #207 into dev/v2-start after successful checks.",
+    "sha": "7e6d2cea9d200049bd64e279ecdc68096ece8677",
+    "short_sha": "7e6d2cea9d20",
+    "message": "runtime: add core runtime diagnostics visibility\n\nMerge PR #208 into dev/v2-start after successful checks.",
     "author": "korzh260609-beep",
-    "date": "2026-05-13T01:35:53Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/73a78ced181b2d113a1795647f38e6e13515edfd",
-    "changed_files_count": 5,
+    "date": "2026-05-13T03:53:09Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7e6d2cea9d200049bd64e279ecdc68096ece8677",
+    "changed_files_count": 6,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-message-runtime-options.yml",
         "status": "modified",
-        "additions": 7,
+        "additions": 9,
         "deletions": 0,
-        "changes": 7
+        "changes": 9
       },
       {
         "filename": "package.json",
@@ -33,25 +33,32 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeCoreRuntimePublicBoundary.js",
+        "filename": "scripts/smokeCoreRuntimeDiagnosticsVisibility.js",
         "status": "added",
-        "additions": 75,
+        "additions": 73,
         "deletions": 0,
-        "changes": 75
+        "changes": 73
       },
       {
-        "filename": "src/core/handleMessage.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 1,
-        "changes": 2
+        "filename": "src/core/runtime/coreRuntimeStatus.js",
+        "status": "added",
+        "additions": 40,
+        "deletions": 0,
+        "changes": 40
       },
       {
         "filename": "src/core/runtime/index.js",
+        "status": "modified",
+        "additions": 7,
+        "deletions": 23,
+        "changes": 30
+      },
+      {
+        "filename": "src/core/runtime/runtimeDiagnostics.js",
         "status": "added",
-        "additions": 46,
+        "additions": 132,
         "deletions": 0,
-        "changes": 46
+        "changes": 132
       }
     ]
   }

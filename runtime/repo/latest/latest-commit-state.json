@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-13T01:26:47.747Z",
+  "generated_at": "2026-05-13T01:36:17.762Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "23fa37e7ded0f869dd8c42f23508c4865602260a",
-  "previous_head_sha": "b128d5df05c35de5c62dfae19fde72e728dad312",
+  "current_head_sha": "73a78ced181b2d113a1795647f38e6e13515edfd",
+  "previous_head_sha": "23fa37e7ded0f869dd8c42f23508c4865602260a",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "23044b4400365eac0de00b444b93d8415ef26182",
+  "registry_commit_sha": "435098f30fa9b4db86e108f230d8525d3e2cbf60",
   "latest_commit": {
-    "sha": "23fa37e7ded0f869dd8c42f23508c4865602260a",
-    "short_sha": "23fa37e7ded0",
-    "message": "runtime: add message runtime context resolver\n\nMerge PR #206 into dev/v2-start after successful checks.",
+    "sha": "73a78ced181b2d113a1795647f38e6e13515edfd",
+    "short_sha": "73a78ced181b",
+    "message": "runtime: add core runtime public boundary\n\nMerge PR #207 into dev/v2-start after successful checks.",
     "author": "korzh260609-beep",
-    "date": "2026-05-13T01:26:28Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/23fa37e7ded0f869dd8c42f23508c4865602260a",
+    "date": "2026-05-13T01:35:53Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/73a78ced181b2d113a1795647f38e6e13515edfd",
     "changed_files_count": 5,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-message-runtime-options.yml",
         "status": "modified",
-        "additions": 9,
-        "deletions": 1,
-        "changes": 10
+        "additions": 7,
+        "deletions": 0,
+        "changes": 7
       },
       {
         "filename": "package.json",
@@ -33,25 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMessageRuntimeContextResolver.js",
+        "filename": "scripts/smokeCoreRuntimePublicBoundary.js",
         "status": "added",
-        "additions": 185,
+        "additions": 75,
         "deletions": 0,
-        "changes": 185
+        "changes": 75
       },
       {
         "filename": "src/core/handleMessage.js",
         "status": "modified",
-        "additions": 4,
-        "deletions": 3,
-        "changes": 7
+        "additions": 1,
+        "deletions": 1,
+        "changes": 2
       },
       {
-        "filename": "src/core/runtime/messageRuntimeContextResolver.js",
+        "filename": "src/core/runtime/index.js",
         "status": "added",
-        "additions": 148,
+        "additions": 46,
         "deletions": 0,
-        "changes": 148
+        "changes": 46
       }
     ]
   }

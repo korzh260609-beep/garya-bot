@@ -8,8 +8,10 @@ on:
       - dev/v2-start
     paths:
       - "src/core/handleMessage.js"
+      - "src/core/runtime/messageRuntimeContextResolver.js"
       - "src/core/message/messageInput.js"
       - "src/core/message/index.js"
+      - "scripts/smokeMessageRuntimeContextResolver.js"
       - "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js"
       - "package.json"
       - ".github/workflows/sg2-message-runtime-options.yml"
@@ -34,11 +36,17 @@ jobs:
       - name: Check message runtime options syntax
         run: |
           node --check src/core/handleMessage.js
+          node --check src/core/runtime/messageRuntimeContextResolver.js
           node --check src/core/message/messageInput.js
           node --check src/core/message/index.js
 
       - name: Check message runtime options smoke syntax
-        run: node --check scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js
+        run: |
+          node --check scripts/smokeMessageRuntimeContextResolver.js
+          node --check scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js
+
+      - name: Smoke message runtime context resolver
+        run: npm run smoke:message-runtime-context-resolver
 
       - name: Smoke message runtime options explicit project context
         run: npm run smoke:message-runtime-options-explicit-project-context

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-13T10:13:16.522Z",
+  "generated_at": "2026-05-13T13:59:14.895Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
+  "head_sha": "c5f59431540327bbef9fe840d03a7544fc399bc0",
   "truncated": false,
-  "items_count": 378,
+  "items_count": 380,
   "semantic_fields": [
     "module",
     "layer",
@@ -97,6 +97,24 @@
     },
     {
       "path": ".github/workflows/sg2-message-runtime-options.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-project-memory-env-context-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -2470,6 +2488,24 @@
     },
     {
       "path": "scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMessageProjectMemoryPromptInjectionEnvActivation.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-13T08:08:09.152Z",
+  "generated_at": "2026-05-13T10:13:16.522Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "96e33b984ededcdb036189e08c107add8dace25a",
+  "head_sha": "7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
   "truncated": false,
-  "items_count": 377,
+  "items_count": 378,
   "semantic_fields": [
     "module",
     "layer",
@@ -4924,6 +4924,24 @@
     },
     {
       "path": "src/core/message/messageProjectMemoryContextGate.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/core/message/messageProjectMemoryReadBridge.js",
       "type": "file",
       "parent": "src/core/message",
       "extension": "js",

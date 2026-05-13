@@ -1,21 +1,21 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-13T06:08:50.252Z",
+  "generated_at": "2026-05-13T08:08:10.718Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "3278dac24db73490d8ae7d558a8dd8c4fc0b2074",
-  "previous_head_sha": "66787fc9b413a1a68bb1a10c096c66400c5ed009",
+  "current_head_sha": "96e33b984ededcdb036189e08c107add8dace25a",
+  "previous_head_sha": "3278dac24db73490d8ae7d558a8dd8c4fc0b2074",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "963656074b13883565583bb497489c0347db4d15",
+  "registry_commit_sha": "45f46f845279e318b90f7ac3f2547043ac821fef",
   "latest_commit": {
-    "sha": "3278dac24db73490d8ae7d558a8dd8c4fc0b2074",
-    "short_sha": "3278dac24db7",
-    "message": "memory: add explicit project memory confirmation flow\n\nMerge PR #210 into dev/v2-start after successful checks.",
+    "sha": "96e33b984ededcdb036189e08c107add8dace25a",
+    "short_sha": "96e33b984ede",
+    "message": "memory: add confirmed project memory read flow\n\nMerge PR #211 into dev/v2-start after successful checks.",
     "author": "korzh260609-beep",
-    "date": "2026-05-13T06:08:30Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/3278dac24db73490d8ae7d558a8dd8c4fc0b2074",
+    "date": "2026-05-13T08:07:47Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/96e33b984ededcdb036189e08c107add8dace25a",
     "changed_files_count": 5,
     "changed_files": [
       {
@@ -33,11 +33,11 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeProjectMemoryExplicitConfirmationFlow.js",
+        "filename": "scripts/smokeProjectMemoryConfirmedReadFlow.js",
         "status": "added",
-        "additions": 159,
+        "additions": 177,
         "deletions": 0,
-        "changes": 159
+        "changes": 177
       },
       {
         "filename": "src/memory/index.js",
@@ -47,11 +47,11 @@
         "changes": 11
       },
       {
-        "filename": "src/memory/project/projectMemoryExplicitConfirmationFlow.js",
+        "filename": "src/memory/project/projectMemoryConfirmedReadFlow.js",
         "status": "added",
-        "additions": 196,
+        "additions": 182,
         "deletions": 0,
-        "changes": 196
+        "changes": 182
       }
     ]
   }

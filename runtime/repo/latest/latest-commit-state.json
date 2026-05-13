@@ -1,57 +1,64 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-13T08:08:10.718Z",
+  "generated_at": "2026-05-13T10:13:17.895Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "96e33b984ededcdb036189e08c107add8dace25a",
-  "previous_head_sha": "3278dac24db73490d8ae7d558a8dd8c4fc0b2074",
+  "current_head_sha": "7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
+  "previous_head_sha": "96e33b984ededcdb036189e08c107add8dace25a",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "45f46f845279e318b90f7ac3f2547043ac821fef",
+  "registry_commit_sha": "dfc68ad0fea78f54e414a6715861196c50bddbc8",
   "latest_commit": {
-    "sha": "96e33b984ededcdb036189e08c107add8dace25a",
-    "short_sha": "96e33b984ede",
-    "message": "memory: add confirmed project memory read flow\n\nMerge PR #211 into dev/v2-start after successful checks.",
+    "sha": "7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
+    "short_sha": "7be282ed7c95",
+    "message": "message: bridge project memory confirmed reads into message gate\n\nMerge PR #212 into dev/v2-start after successful checks.",
     "author": "korzh260609-beep",
-    "date": "2026-05-13T08:07:47Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/96e33b984ededcdb036189e08c107add8dace25a",
-    "changed_files_count": 5,
+    "date": "2026-05-13T10:13:01Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
+    "changed_files_count": 6,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 5,
-        "deletions": 0,
-        "changes": 5
-      },
-      {
-        "filename": "package.json",
         "status": "modified",
         "additions": 1,
         "deletions": 0,
         "changes": 1
       },
       {
-        "filename": "scripts/smokeProjectMemoryConfirmedReadFlow.js",
-        "status": "added",
-        "additions": 177,
-        "deletions": 0,
-        "changes": 177
-      },
-      {
-        "filename": "src/memory/index.js",
+        "filename": "scripts/smokeMessageProjectMemoryContextGate.js",
         "status": "modified",
-        "additions": 11,
-        "deletions": 0,
-        "changes": 11
+        "additions": 21,
+        "deletions": 1,
+        "changes": 22
       },
       {
-        "filename": "src/memory/project/projectMemoryConfirmedReadFlow.js",
-        "status": "added",
-        "additions": 182,
+        "filename": "scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js",
+        "status": "modified",
+        "additions": 8,
+        "deletions": 18,
+        "changes": 26
+      },
+      {
+        "filename": "src/core/message/index.js",
+        "status": "modified",
+        "additions": 1,
         "deletions": 0,
-        "changes": 182
+        "changes": 1
+      },
+      {
+        "filename": "src/core/message/messageProjectMemoryContextGate.js",
+        "status": "modified",
+        "additions": 42,
+        "deletions": 153,
+        "changes": 195
+      },
+      {
+        "filename": "src/core/message/messageProjectMemoryReadBridge.js",
+        "status": "added",
+        "additions": 101,
+        "deletions": 0,
+        "changes": 101
       }
     ]
   }

@@ -4,7 +4,7 @@
 // Do not turn this into a monolith; split capabilities as soon as new responsibilities appear.
 
 import { resolveIdentityAsync } from "../users/identityResolver.js";
-import { resolveMessageRuntimeOptions } from "./runtime/messageRuntimeContextResolver.js";
+import { resolveMessageRuntimeOptions } from "./runtime/index.js";
 import {
   buildAccessDeniedReply,
   buildBehaviorDeniedReply,

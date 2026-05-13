@@ -20,7 +20,6 @@ import {
 export async function handleMessage(context = {}) {
   const text = extractMessageText(context);
   const identity = await resolveIdentityAsync(context);
-  const runtimeOptions = await resolveMessageRuntimeOptions({ context, identity });
 
   if (!text) {
     return buildEmptyTextReply(identity);
@@ -38,6 +37,8 @@ export async function handleMessage(context = {}) {
   if (!behaviorAllowed.ok) {
     return buildBehaviorDeniedReply({ behaviorAllowed, identity, behaviorRuntime });
   }
+
+  const runtimeOptions = await resolveMessageRuntimeOptions({ context, identity });
 
   const aiResult = await callMessageAI({
     identity,

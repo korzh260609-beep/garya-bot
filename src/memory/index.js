@@ -73,6 +73,15 @@ export {
 } from "./project/projectMemoryConfirmation.js";
 
 export {
+  PROJECT_MEMORY_MANUAL_CANDIDATE_FLOW_VERSION,
+  PROJECT_MEMORY_MANUAL_CANDIDATE_FLOW_MODES,
+  PROJECT_MEMORY_MANUAL_CANDIDATE_FLOW_DECISIONS,
+  buildProjectMemoryManualCandidateFlowStatus,
+  getProjectMemoryManualCandidateFlowBoundaries,
+  prepareManualProjectMemoryCandidate,
+} from "./project/projectMemoryManualCandidateFlow.js";
+
+export {
   PROJECT_MEMORY_RUNTIME_CONTEXT_VERSION,
   PROJECT_MEMORY_RUNTIME_CONTEXT_MODES,
   PROJECT_MEMORY_RUNTIME_CONTEXT_DEFAULT_LIMITS,
@@ -135,6 +144,7 @@ export function getMemoryModuleStatus() {
     hasDb: false,
     hasStorageBoundary: true,
     hasDurableProjectMemoryConfirmationBoundary: true,
+    hasProjectMemoryManualCandidateFlow: true,
     hasProjectMemoryRuntimeReadBridge: true,
     hasProjectMemoryOwnershipBoundary: true,
     hasProjectMemoryUserProjectValidator: true,
@@ -153,6 +163,7 @@ export function getMemoryModuleStatus() {
       memoryIsNotTechnicalMode: true,
       durableProjectMemoryRequiresConfirmation: true,
       projectMemoryAutoWriteDisabled: true,
+      projectMemoryManualCandidateOnly: true,
       projectMemoryRuntimeReadConfirmedOnly: true,
     },
   };

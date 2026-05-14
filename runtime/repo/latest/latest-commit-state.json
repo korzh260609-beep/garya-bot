@@ -1,36 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T07:39:09.175Z",
+  "generated_at": "2026-05-14T09:05:32.430Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "8ecf7f07e5f799273ddba7210b3fea083700f128",
-  "previous_head_sha": "d5ece62d1ae0b406eaf179d28ffa66e636c5402f",
+  "current_head_sha": "035295d5b8214bbc6dbaa3eb130ff02a61b563d4",
+  "previous_head_sha": "8ecf7f07e5f799273ddba7210b3fea083700f128",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "7ef0e3e58bf8c7d904af4745da9f9d119be20436",
+  "registry_commit_sha": "a7ff409b588eef74ec78cd04ff10cfd579660a0b",
   "latest_commit": {
-    "sha": "8ecf7f07e5f799273ddba7210b3fea083700f128",
-    "short_sha": "8ecf7f07e5f7",
-    "message": "diagnostics: remove intent word gate from explicit check route\n\nRemove diagnostics word matching from explicit check routing and rely on exactly one allowlisted diagnostics check name instead.",
+    "sha": "035295d5b8214bbc6dbaa3eb130ff02a61b563d4",
+    "short_sha": "035295d5b821",
+    "message": "Merge PR #228: observation runtime status refreshes journal health\n\nMerge observation nervous system sync fix into dev/v2-start.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T07:38:40Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8ecf7f07e5f799273ddba7210b3fea083700f128",
+    "date": "2026-05-14T09:05:14Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/035295d5b8214bbc6dbaa3eb130ff02a61b563d4",
     "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": "scripts/smokeMigrationGovernanceDiagnosticsRoute.js",
+        "filename": "scripts/smokeObservationTriggerLayer.js",
         "status": "modified",
-        "additions": 8,
-        "deletions": 2,
-        "changes": 10
+        "additions": 51,
+        "deletions": 3,
+        "changes": 54
       },
       {
-        "filename": "src/core/message/messageDiagnosticsRoute.js",
+        "filename": "src/agents/observation/triggers/observationTriggerRunner.js",
         "status": "modified",
-        "additions": 0,
-        "deletions": 9,
-        "changes": 9
+        "additions": 26,
+        "deletions": 6,
+        "changes": 32
       }
     ]
   }

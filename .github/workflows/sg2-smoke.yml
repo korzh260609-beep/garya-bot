@@ -53,6 +53,7 @@ jobs:
         run: |
           node --check src/db/postgresClient.js
           node --check src/db/migrations/definitions/001_project_memory_core.js
+          node --check src/db/migrations/migrationExecutionController.js
           node --check src/db/migrations/migrationExecutionGuard.js
           node --check src/db/migrations/migrationLedger.js
           node --check src/db/migrations/migrationRuntimeConfig.js
@@ -195,6 +196,7 @@ jobs:
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
           node --check scripts/smokeMessageProjectMemoryContextGate.js
           node --check scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js
+          node --check scripts/smokeMigrationExecutionControllerSkeleton.js
           node --check scripts/smokeMigrationExecutionGuardSkeleton.js
           node --check scripts/smokeMigrationGovernanceCheck.js
           node --check scripts/smokeMigrationGovernanceDiagnosticsRoute.js
@@ -255,6 +257,9 @@ jobs:
 
       - name: Smoke message project memory projectKey runtime selection
         run: npm run smoke:message-project-memory-projectkey-runtime-selection
+
+      - name: Smoke migration execution controller skeleton
+        run: npm run smoke:migration-execution-controller-skeleton
 
       - name: Smoke migration execution guard skeleton
         run: npm run smoke:migration-execution-guard-skeleton

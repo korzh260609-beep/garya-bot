@@ -28,16 +28,7 @@ export function detectExplicitDiagnosticsCheckRequest(input = {}) {
     };
   }
 
-  const hasDiagnosticsIntent = text.includes("диагност") || text.includes("diagnostic");
   const matchedChecks = allowedChecks.filter((checkName) => text.includes(checkName.toLowerCase()));
-
-  if (!hasDiagnosticsIntent) {
-    return {
-      ok: false,
-      reason: "no_explicit_diagnostics_intent",
-      checks: [],
-    };
-  }
 
   if (matchedChecks.length !== 1) {
     return {

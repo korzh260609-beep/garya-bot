@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T11:50:34.247Z",
+  "generated_at": "2026-05-14T12:04:52.206Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "8e444367c31d059dff1444ba167f318b2a05783e",
-  "previous_head_sha": "1ab94eefa716fa89cc96175f703a307b628f7466",
+  "current_head_sha": "11a091dd9c596ec40881c22b4f860db2baa2f98a",
+  "previous_head_sha": "8e444367c31d059dff1444ba167f318b2a05783e",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "e52ade9cc6739b0adf10ba72ea0d68f1f0ecacb6",
+  "registry_commit_sha": "0ad34870cfa0b82cfe51bbfb544a725b0594cf90",
   "latest_commit": {
-    "sha": "8e444367c31d059dff1444ba167f318b2a05783e",
-    "short_sha": "8e444367c31d",
-    "message": "Merge PR #233: migration ledger write boundary and transaction orchestration skeleton\n\nMerge migration ledger write boundary and transaction orchestration skeleton into dev/v2-start.\n\nSafety boundaries preserved:\n- no startup hook\n- no RUN_MIGRATIONS_ON_BOOT=1\n- no real DB mutation\n- no Project Memory writes\n- no Telegram/AI runtime changes",
+    "sha": "11a091dd9c596ec40881c22b4f860db2baa2f98a",
+    "short_sha": "11a091dd9c59",
+    "message": "Merge PR #234: migration manual execution path boundary skeleton\n\nMerge manual migration execution path boundary skeleton into dev/v2-start.\n\nSafety boundaries preserved:\n- no startup hook\n- no RUN_MIGRATIONS_ON_BOOT=1\n- no real DB mutation\n- no Project Memory writes\n- no Telegram/AI runtime changes",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T11:50:10Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8e444367c31d059dff1444ba167f318b2a05783e",
-    "changed_files_count": 5,
+    "date": "2026-05-14T12:04:36Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/11a091dd9c596ec40881c22b4f860db2baa2f98a",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-migration-transaction-smoke.yml",
+        "filename": ".github/workflows/sg2-migration-manual-execution-smoke.yml",
         "status": "added",
-        "additions": 40,
+        "additions": 38,
         "deletions": 0,
-        "changes": 40
+        "changes": 38
       },
       {
         "filename": "package.json",
@@ -33,25 +33,18 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationTransactionOrchestratorSkeleton.js",
+        "filename": "scripts/smokeMigrationManualExecutionBoundary.js",
         "status": "added",
-        "additions": 131,
+        "additions": 128,
         "deletions": 0,
-        "changes": 131
+        "changes": 128
       },
       {
-        "filename": "src/db/migrations/migrationLedgerWriter.js",
+        "filename": "src/db/migrations/migrationManualExecutionBoundary.js",
         "status": "added",
-        "additions": 204,
+        "additions": 177,
         "deletions": 0,
-        "changes": 204
-      },
-      {
-        "filename": "src/db/migrations/migrationTransactionOrchestrator.js",
-        "status": "added",
-        "additions": 159,
-        "deletions": 0,
-        "changes": 159
+        "changes": 177
       }
     ]
   }

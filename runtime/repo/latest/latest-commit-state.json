@@ -1,29 +1,71 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T02:10:24.070Z",
+  "generated_at": "2026-05-14T02:30:59.844Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "d4febf864e026d0f799957a23b3d6b3eaf7f88a7",
-  "previous_head_sha": "c5f59431540327bbef9fe840d03a7544fc399bc0",
+  "current_head_sha": "1061045e8526be2e3aebbd4874eef61c9c7a1f58",
+  "previous_head_sha": "d4febf864e026d0f799957a23b3d6b3eaf7f88a7",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "5c146996f7ac5bbea126a6ad20a66be2f4a77aba",
+  "registry_commit_sha": "80f61d500f0dbe392e66578fd7044b8b588757e9",
   "latest_commit": {
-    "sha": "d4febf864e026d0f799957a23b3d6b3eaf7f88a7",
-    "short_sha": "d4febf864e02",
-    "message": "docs(project_memory): fix current status and work plan\n\nAdd project memory STATUS.md with current audited state, missing work, safe next order, and forbidden assumptions.",
+    "sha": "1061045e8526be2e3aebbd4874eef61c9c7a1f58",
+    "short_sha": "1061045e8526",
+    "message": "docs(project_memory): replace mutable status with stable agent guide\n\nAdd a stable Project Memory agent guide and remove mutable status/checklist wording from module documentation. Keep docs verification-first so agents inspect active branch and runtime facts instead of stale progress notes.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T02:10:00Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d4febf864e026d0f799957a23b3d6b3eaf7f88a7",
-    "changed_files_count": 1,
+    "date": "2026-05-14T02:30:39Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1061045e8526be2e3aebbd4874eef61c9c7a1f58",
+    "changed_files_count": 7,
     "changed_files": [
       {
-        "filename": "pillars/modules/project_memory/STATUS.md",
+        "filename": "pillars/modules/MODULE_INDEX.md",
+        "status": "modified",
+        "additions": 28,
+        "deletions": 12,
+        "changes": 40
+      },
+      {
+        "filename": "pillars/modules/project_memory/AGENT_GUIDE.md",
         "status": "added",
-        "additions": 148,
+        "additions": 173,
         "deletions": 0,
-        "changes": 148
+        "changes": 173
+      },
+      {
+        "filename": "pillars/modules/project_memory/CONTRACTS.md",
+        "status": "modified",
+        "additions": 11,
+        "deletions": 15,
+        "changes": 26
+      },
+      {
+        "filename": "pillars/modules/project_memory/DATA_MODEL.md",
+        "status": "modified",
+        "additions": 51,
+        "deletions": 43,
+        "changes": 94
+      },
+      {
+        "filename": "pillars/modules/project_memory/README.md",
+        "status": "modified",
+        "additions": 18,
+        "deletions": 26,
+        "changes": 44
+      },
+      {
+        "filename": "pillars/modules/project_memory/RISKS.md",
+        "status": "modified",
+        "additions": 4,
+        "deletions": 5,
+        "changes": 9
+      },
+      {
+        "filename": "pillars/modules/project_memory/STATUS.md",
+        "status": "modified",
+        "additions": 28,
+        "deletions": 111,
+        "changes": 139
       }
     ]
   }

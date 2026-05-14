@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T16:26:52.164Z",
+  "generated_at": "2026-05-14T16:40:04.573Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
+  "head_sha": "165f305895baaf4f47300428f5e046dbe6966c87",
   "truncated": false,
-  "items_count": 425,
+  "items_count": 431,
   "semantic_fields": [
     "module",
     "layer",
@@ -97,6 +97,24 @@
     },
     {
       "path": ".github/workflows/sg2-message-runtime-options.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-migration-automatic-orchestration-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -2692,6 +2710,24 @@
     },
     {
       "path": "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMigrationAutomaticOrchestrationSkeleton.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5823,6 +5859,42 @@
       }
     },
     {
+      "path": "src/db/migrations/migrationAutomaticOrchestrator.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/db/migrations/migrationAutomaticReadinessPlan.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
       "path": "src/db/migrations/migrationExecutionController.js",
       "type": "file",
       "parent": "src/db/migrations",
@@ -5842,6 +5914,24 @@
     },
     {
       "path": "src/db/migrations/migrationExecutionGuard.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/db/migrations/migrationExecutionLock.js",
       "type": "file",
       "parent": "src/db/migrations",
       "extension": "js",
@@ -5914,6 +6004,24 @@
     },
     {
       "path": "src/db/migrations/migrationManualExecutionPreflight.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/db/migrations/migrationPendingDetector.js",
       "type": "file",
       "parent": "src/db/migrations",
       "extension": "js",

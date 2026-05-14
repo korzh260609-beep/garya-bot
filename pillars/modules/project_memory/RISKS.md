@@ -3,9 +3,8 @@
 > AGENT NOTE:
 > This file defines known risks for the SG 2.0 Project Memory module.
 > Read it before adding project memory storage, sync, confirmation, restore, context building, diagnostics, or project experience logic.
+> This file is risk policy, not a live implementation status report. Verify current branch/runtime state before acting.
 > Do not add runtime implementation, Telegram coupling, AI calls, automatic writes, raw logs, raw provider IDs, timers, cron, or secret handling here without explicit Monarch approval.
-
-Статус: SKELETON / DOCS-ONLY
 
 ---
 
@@ -302,9 +301,9 @@ Controls:
 
 ---
 
-## 14. Minimum safety gate before runtime
+## 14. Runtime implementation safety gate
 
-Before any runtime implementation, define and approve:
+Before adding or changing runtime behavior, verify and approve the relevant gate for the concrete work:
 
 1. Storage schema.
 2. Entry taxonomy.
@@ -317,7 +316,7 @@ Before any runtime implementation, define and approve:
 9. Write trace/audit path.
 10. Smoke tests.
 
-Until then, Project Memory remains docs-only skeleton.
+This list is a safety gate, not a live checklist of what exists today.
 
 ---
 

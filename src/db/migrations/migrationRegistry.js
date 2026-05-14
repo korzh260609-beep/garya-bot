@@ -3,9 +3,12 @@
 // Purpose: register reviewable migration definitions without running them automatically.
 // Do not add hidden startup execution, schema bootstrap coupling, Project Memory writes, AI calls, or transport logic here.
 
+import { projectMemoryCoreMigration } from "./definitions/001_project_memory_core.js";
 import { isValidMigrationDefinition } from "./migrationTypes.js";
 
-export const migrationRegistry = Object.freeze([]);
+export const migrationRegistry = Object.freeze([
+  projectMemoryCoreMigration,
+]);
 
 export function getRegisteredMigrations({ registry = migrationRegistry } = {}) {
   return Array.isArray(registry) ? [...registry] : [];

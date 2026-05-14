@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T12:25:02.089Z",
+  "generated_at": "2026-05-14T12:36:52.302Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "4f75dbc68da8cc358b87a9d653e21b2cf9a1ea8b",
+  "head_sha": "43388bb5ade706bad0523c97cc380af1eca1cf93",
   "truncated": false,
-  "items_count": 416,
+  "items_count": 419,
   "semantic_fields": [
     "module",
     "layer",
@@ -2800,6 +2800,24 @@
     },
     {
       "path": "scripts/smokeMigrationManualExecutionDryRunCheck.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMigrationManualExecutionPreflight.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5823,6 +5841,24 @@
       }
     },
     {
+      "path": "src/db/migrations/migrationManualExecutionPreflight.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
       "path": "src/db/migrations/migrationRegistry.js",
       "type": "file",
       "parent": "src/db/migrations",
@@ -6152,6 +6188,24 @@
     },
     {
       "path": "src/diagnostics/migrationManualExecutionDryRunCheck.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/migrationManualExecutionPreflightCheck.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

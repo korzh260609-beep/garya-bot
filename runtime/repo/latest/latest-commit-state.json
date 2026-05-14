@@ -1,43 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T07:27:56.569Z",
+  "generated_at": "2026-05-14T07:39:09.175Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "d5ece62d1ae0b406eaf179d28ffa66e636c5402f",
-  "previous_head_sha": "d742d98a08d05d364335cf1df1d62499ecc0ed5c",
+  "current_head_sha": "8ecf7f07e5f799273ddba7210b3fea083700f128",
+  "previous_head_sha": "d5ece62d1ae0b406eaf179d28ffa66e636c5402f",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "87981b4eaab04dc6471dc8caf2ee4022bd35f2bf",
+  "registry_commit_sha": "7ef0e3e58bf8c7d904af4745da9f9d119be20436",
   "latest_commit": {
-    "sha": "d5ece62d1ae0b406eaf179d28ffa66e636c5402f",
-    "short_sha": "d5ece62d1ae0",
-    "message": "diagnostics: route explicit migration governance check\n\nAdd deterministic route smoke coverage for explicit migration_governance diagnostics requests without changing route code.",
+    "sha": "8ecf7f07e5f799273ddba7210b3fea083700f128",
+    "short_sha": "8ecf7f07e5f7",
+    "message": "diagnostics: remove intent word gate from explicit check route\n\nRemove diagnostics word matching from explicit check routing and rely on exactly one allowlisted diagnostics check name instead.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T07:27:34Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d5ece62d1ae0b406eaf179d28ffa66e636c5402f",
-    "changed_files_count": 3,
+    "date": "2026-05-14T07:38:40Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8ecf7f07e5f799273ddba7210b3fea083700f128",
+    "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 4,
-        "deletions": 0,
-        "changes": 4
-      },
-      {
-        "filename": "package.json",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
         "filename": "scripts/smokeMigrationGovernanceDiagnosticsRoute.js",
-        "status": "added",
-        "additions": 67,
-        "deletions": 0,
-        "changes": 67
+        "status": "modified",
+        "additions": 8,
+        "deletions": 2,
+        "changes": 10
+      },
+      {
+        "filename": "src/core/message/messageDiagnosticsRoute.js",
+        "status": "modified",
+        "additions": 0,
+        "deletions": 9,
+        "changes": 9
       }
     ]
   }

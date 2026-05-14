@@ -8,7 +8,7 @@ import { buildMigrationExecutionGuard } from "./migrationExecutionGuard.js";
 import { buildMigrationExecutionLockPlan } from "./migrationExecutionLock.js";
 import { buildMigrationPendingDetectionPlan } from "./migrationPendingDetector.js";
 
-export const MIGRATION_AUTOMATIC_ORCHESTRATOR_VERSION = 1;
+export const MIGRATION_AUTOMATIC_ORCHESTRATOR_VERSION = 2;
 
 export function buildMigrationAutomaticOrchestrationPlan(options = {}) {
   const guard = options.guard || buildMigrationExecutionGuard(options);
@@ -22,22 +22,32 @@ export function buildMigrationAutomaticOrchestrationPlan(options = {}) {
 
   const autoExecutionEnabled = decision?.decision === "ready_for_future_execution";
   const executionBlocked = true;
+  const pendingKnown = pendingPlan?.pendingKnown === true;
+  const pendingCount = Number.isInteger(pendingPlan?.pendingCount) ? pendingPlan.pendingCount : null;
+  const lockBoundaryReady = lockPlan?.implemented === true && lockPlan?.safety?.advisoryLockAcquireNotExecuted === true;
 
   return {
     ok: true,
     type: "migration_automatic_orchestration_plan",
     version: MIGRATION_AUTOMATIC_ORCHESTRATOR_VERSION,
-    mode: "automatic_orchestration_skeleton",
-    implemented: false,
+    mode: "automatic_orchestration_db_backed_skeleton",
+    implemented: true,
     autoExecutionEnabled,
     executionBlocked,
-    reason: "automatic_migration_execution_not_implemented_yet",
+    reason: "automatic_migration_execution_still_blocked_db_backed_visibility_ready",
     willMutateDatabase: false,
     decision,
     guard,
     lockPlan,
     pendingPlan,
     dbReadinessPlan,
+    visibility: {
+      dbBackedLockBoundaryReady: lockBoundaryReady,
+      pendingDetectionImplemented: pendingPlan?.implemented === true,
+      pendingKnown,
+      pendingCount,
+      ledgerReadOnlyComparison: pendingPlan?.safety?.readOnlyLedgerComparison === true,
+    },
     startupHook: {
       planned: true,
       installed: false,
@@ -52,7 +62,7 @@ export function buildMigrationAutomaticOrchestrationPlan(options = {}) {
     safety: {
       noDbMutation: true,
       noTransactionOpened: true,
-      noSqlExecution: true,
+      noSqlWriteExecution: true,
       noMigrationExecution: true,
       noLedgerWrite: true,
       noSchemaCreation: true,

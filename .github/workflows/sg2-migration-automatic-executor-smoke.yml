@@ -1,0 +1,39 @@
+name: SG2 Migration Automatic Executor Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/db/migrations/migrationAutomaticExecutor.js"
+      - "src/db/migrations/migrationTransactionOrchestrator.js"
+      - "src/db/migrations/migrationSqlExecutor.js"
+      - "src/db/migrations/migrationLedgerWriter.js"
+      - "scripts/smokeMigrationAutomaticExecutorBoundary.js"
+      - ".github/workflows/sg2-migration-automatic-executor-smoke.yml"
+
+jobs:
+  migration-automatic-executor-smoke:
+    name: Migration automatic executor smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check migration automatic executor syntax
+        run: |
+          node --check src/db/migrations/migrationAutomaticExecutor.js
+          node --check scripts/smokeMigrationAutomaticExecutorBoundary.js
+
+      - name: Smoke migration automatic executor boundary
+        run: node ./scripts/smokeMigrationAutomaticExecutorBoundary.js

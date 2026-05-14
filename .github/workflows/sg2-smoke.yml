@@ -55,6 +55,7 @@ jobs:
           node --check src/db/migrations/definitions/001_project_memory_core.js
           node --check src/db/migrations/migrationExecutionGuard.js
           node --check src/db/migrations/migrationLedger.js
+          node --check src/db/migrations/migrationRuntimeConfig.js
           node --check src/db/migrations/migrationTypes.js
           node --check src/db/migrations/migrationRegistry.js
           node --check src/db/migrations/migrationRunner.js

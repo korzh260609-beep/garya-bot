@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T06:52:43.154Z",
+  "generated_at": "2026-05-14T07:03:57.873Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "e1298fca30171355a760fc74a15b07afdf871582",
+  "head_sha": "dda705e3bdb1f4c823cec5ad4e32915cb2b05e35",
   "truncated": false,
-  "items_count": 396,
+  "items_count": 398,
   "semantic_fields": [
     "module",
     "layer",
@@ -2638,6 +2638,24 @@
     },
     {
       "path": "scripts/smokeMigrationExecutionGuardSkeleton.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMigrationGovernanceCheck.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5799,6 +5817,24 @@
         "module": "repository",
         "layer": "repository",
         "responsibility": "JavaScript entry point or public boundary.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/migrationGovernanceCheck.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
         "owner": "repository",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "unknown_or_low",

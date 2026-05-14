@@ -1,21 +1,21 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T10:04:42.753Z",
+  "generated_at": "2026-05-14T10:18:49.625Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "7959b817814655c95efe3d7fe219fa7a3686f4f2",
-  "previous_head_sha": "ff474c6c84eca4b7741bbe140ebe1766d13d4652",
+  "current_head_sha": "1ab94eefa716fa89cc96175f703a307b628f7466",
+  "previous_head_sha": "7959b817814655c95efe3d7fe219fa7a3686f4f2",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "e6b98eeacb6db864a6ce9ae4a51a6c8982c4b7e2",
+  "registry_commit_sha": "f706f72d576f96eb4d94e9872886df1867918be4",
   "latest_commit": {
-    "sha": "7959b817814655c95efe3d7fe219fa7a3686f4f2",
-    "short_sha": "7959b8178146",
-    "message": "Merge PR #231: migration execution controller skeleton\n\nMerge decision-only migration execution controller skeleton into dev/v2-start.",
+    "sha": "1ab94eefa716fa89cc96175f703a307b628f7466",
+    "short_sha": "1ab94eefa716",
+    "message": "Merge PR #232: migration SQL executor boundary\n\nMerge guarded migration SQL executor boundary into dev/v2-start.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T10:04:25Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7959b817814655c95efe3d7fe219fa7a3686f4f2",
+    "date": "2026-05-14T10:18:32Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1ab94eefa716fa89cc96175f703a307b628f7466",
     "changed_files_count": 4,
     "changed_files": [
       {
@@ -33,18 +33,18 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationExecutionControllerSkeleton.js",
+        "filename": "scripts/smokeMigrationSqlExecutorBoundary.js",
         "status": "added",
-        "additions": 87,
+        "additions": 108,
         "deletions": 0,
-        "changes": 87
+        "changes": 108
       },
       {
-        "filename": "src/db/migrations/migrationExecutionController.js",
+        "filename": "src/db/migrations/migrationSqlExecutor.js",
         "status": "added",
-        "additions": 104,
+        "additions": 116,
         "deletions": 0,
-        "changes": 104
+        "changes": 116
       }
     ]
   }

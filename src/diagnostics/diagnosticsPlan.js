@@ -1,6 +1,11 @@
 // SG 2.0 Diagnostics Layer plan builder.
 // Purpose: build a safe diagnostics plan from intent and user text.
 
+import {
+  getMigrationReadinessDiagnosticsChecks,
+  isMigrationReadinessDiagnosticsRequest,
+} from "./migrationReadinessDiagnosticsSuite.js";
+
 const DEFAULT_CHECKS = [
   "users_identity_registry",
   "users_identity_linking",
@@ -16,11 +21,32 @@ const DEFAULT_CHECKS = [
   "recent_commits",
 ];
 
+function selectDiagnosticsChecks({ text, requestedChecks }) {
+  if (requestedChecks.length > 0) {
+    return {
+      checks: requestedChecks,
+      selectedSuite: "explicit",
+    };
+  }
+
+  if (isMigrationReadinessDiagnosticsRequest({ text })) {
+    return {
+      checks: getMigrationReadinessDiagnosticsChecks(),
+      selectedSuite: "migration_readiness",
+    };
+  }
+
+  return {
+    checks: DEFAULT_CHECKS,
+    selectedSuite: "default",
+  };
+}
+
 export function buildDiagnosticsPlan(input = {}) {
   const text = typeof input.text === "string" ? input.text.trim() : "";
   const intent = input.intent || {};
   const requestedChecks = Array.isArray(input.checks) ? input.checks.filter(Boolean) : [];
-  const checks = requestedChecks.length > 0 ? requestedChecks : DEFAULT_CHECKS;
+  const selection = selectDiagnosticsChecks({ text, requestedChecks });
 
   return {
     ok: true,
@@ -28,13 +54,15 @@ export function buildDiagnosticsPlan(input = {}) {
     mode: "read_only",
     text,
     intent,
-    checks,
+    checks: selection.checks,
+    selectedSuite: selection.selectedSuite,
     rules: {
       noWrites: true,
       noSecrets: true,
       noSlashCommands: true,
       noTransportDependency: true,
       noCoreMutation: true,
+      noMigrationExecution: true,
     },
   };
 }

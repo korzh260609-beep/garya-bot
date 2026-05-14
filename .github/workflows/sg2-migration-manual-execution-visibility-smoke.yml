@@ -1,0 +1,56 @@
+name: SG2 Migration Manual Execution Visibility Smoke
+
+# Focused SG2 workflow for manual migration execution dry-run and preflight visibility.
+# This workflow must never run real migrations or mutate the database.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/db/migrations/migrationManualExecutionBoundary.js"
+      - "src/db/migrations/migrationManualExecutionPreflight.js"
+      - "src/diagnostics/migrationManualExecutionDryRunCheck.js"
+      - "src/diagnostics/migrationManualExecutionPreflightCheck.js"
+      - "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js"
+      - "scripts/smokeMigrationManualExecutionBoundary.js"
+      - "scripts/smokeMigrationManualExecutionDryRunCheck.js"
+      - "scripts/smokeMigrationManualExecutionPreflight.js"
+      - "package.json"
+      - ".github/workflows/sg2-migration-manual-execution-visibility-smoke.yml"
+
+jobs:
+  migration-manual-execution-visibility-smoke:
+    name: Migration manual execution visibility smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check migration manual execution visibility syntax
+        run: |
+          node --check src/db/migrations/migrationManualExecutionBoundary.js
+          node --check src/db/migrations/migrationManualExecutionPreflight.js
+          node --check src/diagnostics/migrationManualExecutionDryRunCheck.js
+          node --check src/diagnostics/migrationManualExecutionPreflightCheck.js
+          node --check scripts/smokeMigrationManualExecutionBoundary.js
+          node --check scripts/smokeMigrationManualExecutionDryRunCheck.js
+          node --check scripts/smokeMigrationManualExecutionPreflight.js
+
+      - name: Smoke migration manual execution boundary
+        run: npm run smoke:migration-manual-execution-boundary
+
+      - name: Smoke migration manual execution dry-run diagnostics
+        run: npm run smoke:migration-manual-execution-dry-run
+
+      - name: Smoke migration manual execution preflight diagnostics
+        run: npm run smoke:migration-manual-execution-preflight

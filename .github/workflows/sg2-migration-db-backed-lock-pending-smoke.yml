@@ -1,0 +1,42 @@
+name: SG2 Migration DB-backed Lock Pending Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/db/migrations/migrationExecutionLock.js"
+      - "src/db/migrations/migrationLedgerReader.js"
+      - "src/db/migrations/migrationPendingDetector.js"
+      - "src/db/migrations/migrationAutomaticOrchestrator.js"
+      - "scripts/smokeMigrationDbBackedLockPendingSkeleton.js"
+      - ".github/workflows/sg2-migration-db-backed-lock-pending-smoke.yml"
+
+jobs:
+  migration-db-backed-lock-pending-smoke:
+    name: Migration DB-backed lock pending smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check migration DB-backed skeleton syntax
+        run: |
+          node --check src/db/migrations/migrationExecutionLock.js
+          node --check src/db/migrations/migrationLedgerReader.js
+          node --check src/db/migrations/migrationPendingDetector.js
+          node --check src/db/migrations/migrationAutomaticOrchestrator.js
+          node --check scripts/smokeMigrationDbBackedLockPendingSkeleton.js
+
+      - name: Smoke migration DB-backed lock pending skeleton
+        run: node ./scripts/smokeMigrationDbBackedLockPendingSkeleton.js

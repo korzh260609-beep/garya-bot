@@ -10,6 +10,7 @@ import { runGetRenderLogsTask } from "../../tasks/render/getRenderLogsTask.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
 import { runMigrationGovernanceCheck } from "../../diagnostics/migrationGovernanceCheck.js";
 import { runMigrationManualExecutionDryRunCheck } from "../../diagnostics/migrationManualExecutionDryRunCheck.js";
+import { runMigrationManualExecutionPreflightCheck } from "../../diagnostics/migrationManualExecutionPreflightCheck.js";
 import { runObservationJournalStatusCheck } from "../../diagnostics/observationJournalStatusCheck.js";
 import { runObservationLatestReportCheck } from "../../diagnostics/observationLatestReportCheck.js";
 import { runProjectMemoryLiveDbCheck } from "../../diagnostics/projectMemoryLiveDbCheck.js";
@@ -53,6 +54,11 @@ function summarizeMigrationGovernance(result = {}) {
 function summarizeMigrationManualExecutionDryRun(result = {}) {
   if (!result.ok) return result.summary || "Manual migration execution dry-run check failed.";
   return result.summary || "Manual migration execution dry-run check passed.";
+}
+
+function summarizeMigrationManualExecutionPreflight(result = {}) {
+  if (!result.ok) return result.summary || "Manual migration execution preflight check failed.";
+  return result.summary || "Manual migration execution preflight check passed.";
 }
 
 function summarizeObservationLatestReport(result = {}) {
@@ -153,6 +159,11 @@ export const diagnosticsCheckRegistry = [
     name: "migration_manual_execution_dry_run",
     run: () => runMigrationManualExecutionDryRunCheck(),
     summarize: summarizeMigrationManualExecutionDryRun,
+  },
+  {
+    name: "migration_manual_execution_preflight",
+    run: () => runMigrationManualExecutionPreflightCheck(),
+    summarize: summarizeMigrationManualExecutionPreflight,
   },
   {
     name: "observation_latest_report",

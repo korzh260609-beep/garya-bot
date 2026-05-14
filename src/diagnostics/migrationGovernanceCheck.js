@@ -45,6 +45,7 @@ export function runMigrationGovernanceCheck() {
       executionAllowed: executionGuard.executionAllowed,
       reason: executionGuard.reason,
       willMutateDatabase: executionGuard.willMutateDatabase,
+      env: executionGuard.env,
     },
     safety: {
       noDbMutation: willMutateDatabase === false,
@@ -53,6 +54,8 @@ export function runMigrationGovernanceCheck() {
       noTelegramExecution: true,
       noAiExecution: true,
       noProjectMemoryWrite: true,
+      existingMigrationBootEnvRecognized: executionGuard.env?.runMigrationsOnBootEnvKey === "RUN_MIGRATIONS_ON_BOOT",
+      envFlagAloneDoesNotBypassGuard: executionGuard.rules?.envFlagAloneDoesNotBypassGuard === true,
     },
   };
 }

@@ -10,7 +10,16 @@ import {
 
 assert.equal(MIGRATION_GOVERNANCE_CHECK_NAME, "migration_governance");
 
+const originalRunMigrationsOnBoot = process.env.RUN_MIGRATIONS_ON_BOOT;
+process.env.RUN_MIGRATIONS_ON_BOOT = "1";
+
 const report = runMigrationGovernanceCheck();
+
+if (originalRunMigrationsOnBoot === undefined) {
+  delete process.env.RUN_MIGRATIONS_ON_BOOT;
+} else {
+  process.env.RUN_MIGRATIONS_ON_BOOT = originalRunMigrationsOnBoot;
+}
 
 assert.equal(report.ok, true);
 assert.equal(report.type, "diagnostics_check");
@@ -36,6 +45,9 @@ assert.equal(report.executionGuard.type, "migration_execution_guard");
 assert.equal(report.executionGuard.executionAllowed, false);
 assert.equal(report.executionGuard.reason, "migration_execution_requires_explicit_future_approval");
 assert.equal(report.executionGuard.willMutateDatabase, false);
+assert.equal(report.executionGuard.env.runMigrationsOnBoot, true);
+assert.equal(report.executionGuard.env.runMigrationsOnBootEnvKey, "RUN_MIGRATIONS_ON_BOOT");
+assert.equal(report.executionGuard.env.existingEnvVariableUsed, true);
 
 assert.equal(report.safety.noDbMutation, true);
 assert.equal(report.safety.executionBlocked, true);
@@ -43,5 +55,7 @@ assert.equal(report.safety.noStartupExecution, true);
 assert.equal(report.safety.noTelegramExecution, true);
 assert.equal(report.safety.noAiExecution, true);
 assert.equal(report.safety.noProjectMemoryWrite, true);
+assert.equal(report.safety.existingMigrationBootEnvRecognized, true);
+assert.equal(report.safety.envFlagAloneDoesNotBypassGuard, true);
 
-console.log("OK: migration governance diagnostics check is read-only and blocked with one planned migration");
+console.log("OK: migration governance diagnostics reports RUN_MIGRATIONS_ON_BOOT and remains blocked");

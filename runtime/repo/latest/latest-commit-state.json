@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T07:03:59.278Z",
+  "generated_at": "2026-05-14T07:15:41.516Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "dda705e3bdb1f4c823cec5ad4e32915cb2b05e35",
-  "previous_head_sha": "e1298fca30171355a760fc74a15b07afdf871582",
+  "current_head_sha": "d742d98a08d05d364335cf1df1d62499ecc0ed5c",
+  "previous_head_sha": "dda705e3bdb1f4c823cec5ad4e32915cb2b05e35",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "c84676f060878c0bead98c3b6dfa76098adadecb",
+  "registry_commit_sha": "ced605c712d74f8bae3db6e2720fb783d2701f23",
   "latest_commit": {
-    "sha": "dda705e3bdb1f4c823cec5ad4e32915cb2b05e35",
-    "short_sha": "dda705e3bdb1",
-    "message": "diagnostics: add migration governance check skeleton\n\nAdd read-only migration governance diagnostics skeleton, smoke coverage, and SG2 Smoke CI wiring.",
+    "sha": "d742d98a08d05d364335cf1df1d62499ecc0ed5c",
+    "short_sha": "d742d98a08d0",
+    "message": "diagnostics: register migration governance check\n\nRegister migration_governance in the diagnostics check registry with read-only smoke coverage and SG2 Smoke CI wiring.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T07:03:40Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/dda705e3bdb1f4c823cec5ad4e32915cb2b05e35",
+    "date": "2026-05-14T07:15:15Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d742d98a08d05d364335cf1df1d62499ecc0ed5c",
     "changed_files_count": 4,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 5,
+        "additions": 4,
         "deletions": 0,
-        "changes": 5
+        "changes": 4
       },
       {
         "filename": "package.json",
@@ -33,18 +33,18 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationGovernanceCheck.js",
+        "filename": "scripts/smokeMigrationGovernanceRegistry.js",
         "status": "added",
-        "additions": 47,
+        "additions": 27,
         "deletions": 0,
-        "changes": 47
+        "changes": 27
       },
       {
-        "filename": "src/diagnostics/migrationGovernanceCheck.js",
-        "status": "added",
-        "additions": 63,
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "status": "modified",
+        "additions": 11,
         "deletions": 0,
-        "changes": 63
+        "changes": 11
       }
     ]
   }

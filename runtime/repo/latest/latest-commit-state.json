@@ -1,50 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T13:10:30.342Z",
+  "generated_at": "2026-05-14T16:15:37.870Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "e4eb0c14aeb6fc00ebc554b35387c128f433bae1",
-  "previous_head_sha": "a01dfc370cf95740b774db03c0cbfbea71c0c63c",
+  "current_head_sha": "7e80c0e17e3f5cce394426ebf01a8b8ea676e9fc",
+  "previous_head_sha": "e4eb0c14aeb6fc00ebc554b35387c128f433bae1",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "5e1400c1e4c6b673121044aa61b6ba3ac0009fef",
+  "registry_commit_sha": "75c080af2719128e22538d084ec91608488f69e2",
   "latest_commit": {
-    "sha": "e4eb0c14aeb6fc00ebc554b35387c128f433bae1",
-    "short_sha": "e4eb0c14aeb6",
-    "message": "Merge pull request #238 from korzh260609-beep/dev/migration-db-readiness-diagnostics\n\nmigration: add DB readiness diagnostics",
+    "sha": "7e80c0e17e3f5cce394426ebf01a8b8ea676e9fc",
+    "short_sha": "7e80c0e17e3f",
+    "message": "Merge pull request #239 from korzh260609-beep/dev/migration-db-readiness-ci-coverage\n\nmigration: add DB readiness CI coverage",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T13:10:11Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e4eb0c14aeb6fc00ebc554b35387c128f433bae1",
-    "changed_files_count": 4,
+    "date": "2026-05-14T16:15:16Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7e80c0e17e3f5cce394426ebf01a8b8ea676e9fc",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "package.json",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 1,
+        "additions": 5,
         "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "scripts/smokeMigrationDbReadinessCheck.js",
-        "status": "added",
-        "additions": 91,
-        "deletions": 0,
-        "changes": 91
-      },
-      {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
-        "status": "modified",
-        "additions": 13,
-        "deletions": 4,
-        "changes": 17
-      },
-      {
-        "filename": "src/diagnostics/migrationDbReadinessCheck.js",
-        "status": "added",
-        "additions": 121,
-        "deletions": 0,
-        "changes": 121
+        "changes": 5
       }
     ]
   }

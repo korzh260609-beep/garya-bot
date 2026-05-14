@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T07:15:40.394Z",
+  "generated_at": "2026-05-14T07:27:55.137Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "d742d98a08d05d364335cf1df1d62499ecc0ed5c",
+  "head_sha": "d5ece62d1ae0b406eaf179d28ffa66e636c5402f",
   "truncated": false,
-  "items_count": 399,
+  "items_count": 400,
   "semantic_fields": [
     "module",
     "layer",
@@ -2656,6 +2656,24 @@
     },
     {
       "path": "scripts/smokeMigrationGovernanceCheck.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMigrationGovernanceDiagnosticsRoute.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

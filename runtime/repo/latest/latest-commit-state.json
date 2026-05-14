@@ -1,71 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T09:40:17.287Z",
+  "generated_at": "2026-05-14T10:04:42.753Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "ff474c6c84eca4b7741bbe140ebe1766d13d4652",
-  "previous_head_sha": "1529a548f63129fc306e8d8a7958f81596ac78c2",
+  "current_head_sha": "7959b817814655c95efe3d7fe219fa7a3686f4f2",
+  "previous_head_sha": "ff474c6c84eca4b7741bbe140ebe1766d13d4652",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "098bc660a7eabfa32adadf1cfa115ad71debfb7c",
+  "registry_commit_sha": "e6b98eeacb6db864a6ce9ae4a51a6c8982c4b7e2",
   "latest_commit": {
-    "sha": "ff474c6c84eca4b7741bbe140ebe1766d13d4652",
-    "short_sha": "ff474c6c84ec",
-    "message": "Merge PR #230: use existing migration boot env in guard\n\nMerge existing RUN_MIGRATIONS_ON_BOOT migration guard wiring into dev/v2-start.",
+    "sha": "7959b817814655c95efe3d7fe219fa7a3686f4f2",
+    "short_sha": "7959b8178146",
+    "message": "Merge PR #231: migration execution controller skeleton\n\nMerge decision-only migration execution controller skeleton into dev/v2-start.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T09:39:58Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ff474c6c84eca4b7741bbe140ebe1766d13d4652",
-    "changed_files_count": 7,
+    "date": "2026-05-14T10:04:25Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7959b817814655c95efe3d7fe219fa7a3686f4f2",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".env.example",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
         "additions": 5,
         "deletions": 0,
         "changes": 5
       },
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
+        "filename": "package.json",
         "status": "modified",
         "additions": 1,
         "deletions": 0,
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationExecutionGuardSkeleton.js",
-        "status": "modified",
-        "additions": 24,
-        "deletions": 1,
-        "changes": 25
-      },
-      {
-        "filename": "scripts/smokeMigrationGovernanceCheck.js",
-        "status": "modified",
-        "additions": 15,
-        "deletions": 1,
-        "changes": 16
-      },
-      {
-        "filename": "src/db/migrations/migrationExecutionGuard.js",
-        "status": "modified",
-        "additions": 12,
-        "deletions": 0,
-        "changes": 12
-      },
-      {
-        "filename": "src/db/migrations/migrationRuntimeConfig.js",
+        "filename": "scripts/smokeMigrationExecutionControllerSkeleton.js",
         "status": "added",
-        "additions": 41,
+        "additions": 87,
         "deletions": 0,
-        "changes": 41
+        "changes": 87
       },
       {
-        "filename": "src/diagnostics/migrationGovernanceCheck.js",
-        "status": "modified",
-        "additions": 3,
+        "filename": "src/db/migrations/migrationExecutionController.js",
+        "status": "added",
+        "additions": 104,
         "deletions": 0,
-        "changes": 3
+        "changes": 104
       }
     ]
   }

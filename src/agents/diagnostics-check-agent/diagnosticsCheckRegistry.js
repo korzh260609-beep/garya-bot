@@ -10,6 +10,7 @@ import { runGetRenderLogsTask } from "../../tasks/render/getRenderLogsTask.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
 import { runObservationJournalStatusCheck } from "../../diagnostics/observationJournalStatusCheck.js";
 import { runObservationLatestReportCheck } from "../../diagnostics/observationLatestReportCheck.js";
+import { runProjectMemoryLiveDbCheck } from "../../diagnostics/projectMemoryLiveDbCheck.js";
 import { runProjectMemoryRuntimeCheck } from "../../diagnostics/projectMemoryRuntimeCheck.js";
 import { runUsersIdentityLinkingCheck } from "../../diagnostics/usersIdentityLinkingCheck.js";
 import { runUsersIdentityLinkRequestsCheck } from "../../diagnostics/usersIdentityLinkRequestsCheck.js";
@@ -50,6 +51,11 @@ function summarizeObservationLatestReport(result = {}) {
 function summarizeObservationJournalStatus(result = {}) {
   if (!result.ok) return result.error || result.summary || "Observation journal status check failed.";
   return result.summary || "Observation journal status check passed.";
+}
+
+function summarizeProjectMemoryLiveDb(result = {}) {
+  if (!result.ok) return result.summary || "Project Memory live DB check failed.";
+  return result.summary || "Project Memory live DB check passed.";
 }
 
 function summarizeProjectMemoryRuntime(result = {}) {
@@ -120,6 +126,11 @@ export const diagnosticsCheckRegistry = [
     name: "project_memory_runtime",
     run: () => runProjectMemoryRuntimeCheck(),
     summarize: summarizeProjectMemoryRuntime,
+  },
+  {
+    name: "project_memory_live_db",
+    run: () => runProjectMemoryLiveDbCheck(),
+    summarize: summarizeProjectMemoryLiveDb,
   },
   {
     name: "observation_latest_report",

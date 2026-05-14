@@ -1,0 +1,42 @@
+name: SG2 Migration Readiness Diagnostics Suite Smoke
+
+# Focused SG2 workflow for migration readiness diagnostics suite routing.
+# This workflow must never run migrations or mutate the database.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/diagnostics/diagnosticsIntent.js"
+      - "src/diagnostics/diagnosticsPlan.js"
+      - "src/diagnostics/migrationReadinessDiagnosticsSuite.js"
+      - "scripts/smokeMigrationReadinessDiagnosticsSuite.js"
+      - ".github/workflows/sg2-migration-readiness-diagnostics-suite-smoke.yml"
+
+jobs:
+  migration-readiness-diagnostics-suite-smoke:
+    name: Migration readiness diagnostics suite smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check migration readiness diagnostics suite syntax
+        run: |
+          node --check src/diagnostics/diagnosticsIntent.js
+          node --check src/diagnostics/diagnosticsPlan.js
+          node --check src/diagnostics/migrationReadinessDiagnosticsSuite.js
+          node --check scripts/smokeMigrationReadinessDiagnosticsSuite.js
+
+      - name: Smoke migration readiness diagnostics suite
+        run: node ./scripts/smokeMigrationReadinessDiagnosticsSuite.js

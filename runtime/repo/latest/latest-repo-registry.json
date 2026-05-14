@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T02:46:49.602Z",
+  "generated_at": "2026-05-14T04:36:37.529Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "7e8be4aebf1ee4066594010683ab7f032458e919",
+  "head_sha": "687151f1361e03757f70c8ccd1adc9aa3d84bb8e",
   "truncated": false,
-  "items_count": 385,
+  "items_count": 387,
   "semantic_fields": [
     "module",
     "layer",
@@ -2404,6 +2404,24 @@
     },
     {
       "path": "scripts/smokeDiagnosticsDefaultPlanJournalHealth.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeDiagnosticsExplicitCheckRoute.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -4984,6 +5002,24 @@
     },
     {
       "path": "src/core/message/messageContextPack.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/core/message/messageDiagnosticsRoute.js",
       "type": "file",
       "parent": "src/core/message",
       "extension": "js",

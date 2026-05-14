@@ -10,14 +10,14 @@ import { buildMigrationAutomaticOrchestrationPlan } from "../src/db/migrations/m
 
 const lockPlan = buildMigrationExecutionLockPlan({ databaseConfigured: true });
 assert.equal(lockPlan.ok, true);
-assert.equal(lockPlan.mode, "db_backed_lock_plan_only");
+assert.equal(lockPlan.mode, "db_backed_lock_boundary");
 assert.equal(lockPlan.implemented, true);
 assert.equal(lockPlan.lockAcquired, false);
 assert.equal(lockPlan.acquireAttempted, false);
 assert.equal(lockPlan.willMutateDatabase, false);
-assert.equal(lockPlan.safety.advisoryLockAcquireNotExecuted, true);
-assert.equal(lockPlan.safety.noSqlExecution, true);
-assert.equal(lockPlan.safety.noDbMutation, true);
+assert.equal(lockPlan.safety.advisoryLockAcquireRequiresExplicitApproval, true);
+assert.equal(lockPlan.safety.noDbDataMutation, true);
+assert.equal(lockPlan.safety.noMigrationExecution, true);
 
 const ledgerModel = buildMigrationLedgerReadModel({
   rows: [

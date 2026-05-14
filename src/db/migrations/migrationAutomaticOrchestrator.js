@@ -8,7 +8,17 @@ import { buildMigrationExecutionGuard } from "./migrationExecutionGuard.js";
 import { buildMigrationExecutionLockPlan } from "./migrationExecutionLock.js";
 import { buildMigrationPendingDetectionPlan } from "./migrationPendingDetector.js";
 
-export const MIGRATION_AUTOMATIC_ORCHESTRATOR_VERSION = 2;
+export const MIGRATION_AUTOMATIC_ORCHESTRATOR_VERSION = 3;
+
+function isLockBoundaryReady(lockPlan) {
+  return Boolean(
+    lockPlan?.implemented === true
+    && (
+      lockPlan?.safety?.advisoryLockAcquireNotExecuted === true
+      || lockPlan?.safety?.advisoryLockAcquireRequiresExplicitApproval === true
+    ),
+  );
+}
 
 export function buildMigrationAutomaticOrchestrationPlan(options = {}) {
   const guard = options.guard || buildMigrationExecutionGuard(options);
@@ -24,7 +34,7 @@ export function buildMigrationAutomaticOrchestrationPlan(options = {}) {
   const executionBlocked = true;
   const pendingKnown = pendingPlan?.pendingKnown === true;
   const pendingCount = Number.isInteger(pendingPlan?.pendingCount) ? pendingPlan.pendingCount : null;
-  const lockBoundaryReady = lockPlan?.implemented === true && lockPlan?.safety?.advisoryLockAcquireNotExecuted === true;
+  const lockBoundaryReady = isLockBoundaryReady(lockPlan);
 
   return {
     ok: true,

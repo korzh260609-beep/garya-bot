@@ -57,6 +57,7 @@ jobs:
           node --check src/db/migrations/migrationExecutionGuard.js
           node --check src/db/migrations/migrationLedger.js
           node --check src/db/migrations/migrationRuntimeConfig.js
+          node --check src/db/migrations/migrationSqlExecutor.js
           node --check src/db/migrations/migrationTypes.js
           node --check src/db/migrations/migrationRegistry.js
           node --check src/db/migrations/migrationRunner.js
@@ -203,6 +204,7 @@ jobs:
           node --check scripts/smokeMigrationGovernanceRegistry.js
           node --check scripts/smokeMigrationLedgerSkeleton.js
           node --check scripts/smokeMigrationRunnerSkeleton.js
+          node --check scripts/smokeMigrationSqlExecutorBoundary.js
           node --check scripts/smokeObservationDispatchGithubEvents.js
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
@@ -269,6 +271,9 @@ jobs:
 
       - name: Smoke migration runner skeleton
         run: npm run smoke:migration-runner-skeleton
+
+      - name: Smoke migration SQL executor boundary
+        run: npm run smoke:migration-sql-executor-boundary
 
       - name: Smoke GitHub observation dispatch events
         run: npm run smoke:observation-dispatch-github-events

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T09:05:31.210Z",
+  "generated_at": "2026-05-14T09:28:41.248Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "035295d5b8214bbc6dbaa3eb130ff02a61b563d4",
+  "head_sha": "1529a548f63129fc306e8d8a7958f81596ac78c2",
   "truncated": false,
-  "items_count": 400,
+  "items_count": 402,
   "semantic_fields": [
     "module",
     "layer",
@@ -5566,6 +5566,44 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": "src/db/migrations/definitions",
+      "type": "folder",
+      "parent": "src/db/migrations",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "src/db/migrations/definitions/001_project_memory_core.js",
+      "type": "file",
+      "parent": "src/db/migrations/definitions",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
       }
     },
     {

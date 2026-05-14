@@ -2,15 +2,17 @@
 
 > AGENT NOTE:
 > This file defines the Project Memory V1 data model for SG 2.0.
+> It describes intended data shapes and boundaries, not a live deployment proof.
+> Verify current branch files and runtime / DB diagnostics before claiming what is enabled or deployed.
 > Do not add automatic memory writes, Telegram commands, AI auto-write, raw logs, raw env dumps, or secret storage here without explicit Monarch approval.
-
-Статус: V1 OWNERSHIP / MULTI-PROJECT SCOPE BOUNDARY
 
 ---
 
-## 1. Current implementation layer
+## 1. Implementation surface to verify
 
-Current runtime code lives in:
+When working on Project Memory, verify the active branch directly.
+
+Expected implementation areas:
 
 ```text
 src/memory/project/
@@ -18,13 +20,13 @@ src/core/message/
 src/app/
 ```
 
-Current module docs live in:
+Module docs live in:
 
 ```text
 pillars/modules/project_memory/
 ```
 
-Current V1 has seven layers:
+The Project Memory V1 data model is organized around these boundaries:
 
 ```text
 ProjectMemoryOwnership            -> SG vs user-project ownership/scope boundary
@@ -36,7 +38,13 @@ MessageProjectMemoryContextGate   -> message-time feature gate for read/injectio
 ProjectMemorySchemaBootstrap      -> startup-time feature gate for storage schema ensure
 ```
 
-It can:
+Do not treat this list as proof that each boundary is currently enabled in runtime.
+
+---
+
+## 2. Capability boundaries
+
+The model allows these capability families when their matching code, flags, and runtime state are verified:
 
 - define SG project memory separately from user project memory;
 - support many user projects per global user through deterministic project keys;
@@ -56,7 +64,7 @@ It can:
 - optionally include confirmed Project Memory in message context pack behind a feature flag;
 - optionally inject formatted context into AI messages behind a separate feature flag.
 
-It cannot:
+The model forbids these behavior families unless separately designed and explicitly approved:
 
 - auto-write from chat;
 - auto-write from AI;
@@ -71,9 +79,9 @@ It cannot:
 
 ---
 
-## 2. Ownership model
+## 3. Ownership model
 
-Current ownership boundary:
+Ownership boundary source:
 
 ```text
 src/memory/project/projectMemoryOwnership.js
@@ -94,7 +102,7 @@ private_user_project
 shared_user_project
 ```
 
-Current deterministic project keys:
+Deterministic project keys:
 
 ```text
 sg
@@ -138,9 +146,9 @@ Ownership must come from explicit project ref / userProjectId / globalUserId.
 
 ---
 
-## 3. Item model
+## 4. Item model
 
-Current project memory item shape:
+Project memory item shape:
 
 ```text
 version
@@ -155,7 +163,7 @@ tags
 metadata
 ```
 
-Source file:
+Source file to verify:
 
 ```text
 src/memory/project/projectMemoryTypes.js
@@ -163,7 +171,7 @@ src/memory/project/projectMemoryTypes.js
 
 ---
 
-## 4. Types
+## 5. Types
 
 Allowed `type` values:
 
@@ -187,7 +195,7 @@ Purpose:
 
 ---
 
-## 5. Scopes
+## 6. Scopes
 
 Allowed `scope` values:
 
@@ -207,7 +215,7 @@ Ownership and project isolation must use `project_key` + ownership boundary.
 
 ---
 
-## 6. Trust labels
+## 7. Trust labels
 
 Allowed `trust` values:
 
@@ -222,12 +230,12 @@ V1 rules:
 
 ```text
 ProjectMemoryOwnership separates SG memory from user project memory.
-ProjectMemoryService.buildCandidate() always creates candidate memory.
-ProjectMemoryStore.createCandidate() stores only trust='candidate' + status='pending_confirmation'.
-ProjectMemoryConfirmation.confirmCandidate() is the only V1 confirmation boundary.
+ProjectMemoryService.buildCandidate() creates candidate memory.
+ProjectMemoryStore.createCandidate() stores trust='candidate' + status='pending_confirmation'.
+ProjectMemoryConfirmation.confirmCandidate() is the confirmation boundary.
 ProjectMemoryRuntimeContext reads only trust='confirmed' + status='active'.
-MessageProjectMemoryContextGate defaults to no read and no prompt injection.
-ProjectMemorySchemaBootstrap defaults to no schema ensure.
+MessageProjectMemoryContextGate must default to no read and no prompt injection unless flags say otherwise.
+ProjectMemorySchemaBootstrap must default to no schema ensure unless flags say otherwise.
 ```
 
 Confirmed durable memory must pass:
@@ -242,7 +250,7 @@ Confirmed durable memory must pass:
 
 ---
 
-## 7. Source types
+## 8. Source types
 
 Allowed source types:
 
@@ -278,16 +286,16 @@ Project Memory must not store raw operational dumps.
 
 ---
 
-## 8. Storage schema
+## 9. Storage schema
 
-Current storage boundary:
+Storage boundary files to verify:
 
 ```text
 src/memory/project/projectMemorySchema.js
 src/memory/project/projectMemoryStore.js
 ```
 
-Current tables:
+Storage tables:
 
 ```text
 sg_project_memory_entries
@@ -343,9 +351,9 @@ Storage rules:
 
 ---
 
-## 9. Schema bootstrap boundary
+## 10. Schema bootstrap boundary
 
-Current schema bootstrap boundary:
+Schema bootstrap boundary to verify:
 
 ```text
 src/app/projectMemoryBootstrap.js
@@ -395,9 +403,9 @@ It does not enable memory writes, memory reads, or prompt injection.
 
 ---
 
-## 10. Confirmation boundary
+## 11. Confirmation boundary
 
-Current confirmation boundary:
+Confirmation boundary to verify:
 
 ```text
 src/memory/project/projectMemoryConfirmation.js
@@ -432,9 +440,9 @@ This does not connect Project Memory to chat, Telegram, AI, cron, or source inge
 
 ---
 
-## 11. Runtime read context bridge
+## 12. Runtime read context bridge
 
-Current runtime read bridge:
+Runtime read bridge to verify:
 
 ```text
 src/memory/project/projectMemoryRuntimeContext.js
@@ -514,9 +522,9 @@ Prompt injection remains controlled by messageContextInjection.
 
 ---
 
-## 12. Message runtime injection gate
+## 13. Message runtime injection gate
 
-Current message gate:
+Message gate to verify:
 
 ```text
 src/core/message/messageProjectMemoryContextGate.js
@@ -567,14 +575,14 @@ no AI calls from gate
 Meaning:
 
 ```text
-callMessageAI now routes context through MessageProjectMemoryContextGate.
-Default env keeps previous behavior: context injection disabled and no Project Memory read.
+callMessageAI may route context through MessageProjectMemoryContextGate when enabled.
+Default env must preserve previous behavior: context injection disabled and no Project Memory read.
 Live use requires explicit env enablement.
 ```
 
 ---
 
-## 13. Context item output from service
+## 14. Context item output from service
 
 `ProjectMemoryService.buildContextItems()` returns items shaped for controlled AI context packs from provided inputs only:
 
@@ -599,7 +607,7 @@ It must be treated as support context under pillars/repo/runtime facts.
 
 ---
 
-## 14. Secret and raw-data guard
+## 15. Secret and raw-data guard
 
 V1 blocks obvious secret patterns in:
 
@@ -634,9 +642,9 @@ It is a safety guard for the skeleton.
 
 ---
 
-## 15. V1 diagnostics model
+## 16. Diagnostics model
 
-`ProjectMemoryService.getDiagnostics()` reports:
+`ProjectMemoryService.getDiagnostics()` should report:
 
 ```text
 module
@@ -649,7 +657,7 @@ supported actions
 blocked actions
 ```
 
-`ProjectMemoryConfirmation.getDiagnostics()` reports:
+`ProjectMemoryConfirmation.getDiagnostics()` should report:
 
 ```text
 confirmation mode
@@ -660,7 +668,7 @@ source sync independence
 blocked auto-write actions
 ```
 
-`ProjectMemoryRuntimeContext.getDiagnostics()` reports:
+`ProjectMemoryRuntimeContext.getDiagnostics()` should report:
 
 ```text
 runtime read mode
@@ -677,7 +685,7 @@ Diagnostics must remain non-secret and side-effect-free except explicitly report
 
 ---
 
-## 16. Final V1 rule
+## 17. Final V1 rule
 
 Correct:
 

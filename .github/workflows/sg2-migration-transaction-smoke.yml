@@ -1,0 +1,40 @@
+name: SG2 Migration Transaction Smoke
+
+# Focused SG2 workflow for migration ledger writer and transaction orchestration skeleton.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/db/migrations/migrationLedgerWriter.js"
+      - "src/db/migrations/migrationTransactionOrchestrator.js"
+      - "scripts/smokeMigrationTransactionOrchestratorSkeleton.js"
+      - "package.json"
+      - ".github/workflows/sg2-migration-transaction-smoke.yml"
+
+jobs:
+  migration-transaction-smoke:
+    name: Migration transaction boundary smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check migration transaction syntax
+        run: |
+          node --check src/db/migrations/migrationLedgerWriter.js
+          node --check src/db/migrations/migrationTransactionOrchestrator.js
+          node --check scripts/smokeMigrationTransactionOrchestratorSkeleton.js
+
+      - name: Smoke migration transaction orchestrator skeleton
+        run: npm run smoke:migration-transaction-orchestrator-skeleton

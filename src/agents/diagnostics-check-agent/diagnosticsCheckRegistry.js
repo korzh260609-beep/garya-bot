@@ -1,13 +1,12 @@
-// AGENT NOTE:
-// SG 2.0 Diagnostics Check Agent registry.
-// Purpose: register bounded read-only diagnostics checks for the observation nervous system.
-// Do not add Telegram integration, AI calls, memory writes, raw logs, raw provider IDs, autonomous behavior, or mutations here.
+// SG 2.0 diagnostics check registry.
+// Registers bounded diagnostics checks used by the observation nervous system.
 
 import { findCommitsByIntent } from "../repo-commit-watcher-agent/repoCommitSearch.js";
 import { runRenderEnvAgent } from "../render-env-agent/renderEnvAgent.js";
 import { runRepoRegistryAgent } from "../repo-registry-agent/repoRegistryAgent.js";
 import { runGetRenderLogsTask } from "../../tasks/render/getRenderLogsTask.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
+import { runMigrationDbReadinessCheck } from "../../diagnostics/migrationDbReadinessCheck.js";
 import { runMigrationGovernanceCheck } from "../../diagnostics/migrationGovernanceCheck.js";
 import { runMigrationManualExecutionDryRunCheck } from "../../diagnostics/migrationManualExecutionDryRunCheck.js";
 import { runMigrationManualExecutionPreflightCheck } from "../../diagnostics/migrationManualExecutionPreflightCheck.js";
@@ -44,6 +43,11 @@ function summarizeWorkflowRun(result = {}) {
 function summarizeCommits(result = {}) {
   if (!result.ok) return result.error || "Recent commits check failed.";
   return result.summary?.text || `Recent commits checked: ${result.searched_commits ?? "unknown"}.`;
+}
+
+function summarizeMigrationDbReadiness(result = {}) {
+  if (!result.ok) return result.summary || "Migration DB readiness check failed.";
+  return result.summary || "Migration DB readiness check passed.";
 }
 
 function summarizeMigrationGovernance(result = {}) {
@@ -149,6 +153,11 @@ export const diagnosticsCheckRegistry = [
     name: "project_memory_live_db",
     run: () => runProjectMemoryLiveDbCheck(),
     summarize: summarizeProjectMemoryLiveDb,
+  },
+  {
+    name: "migration_db_readiness",
+    run: () => runMigrationDbReadinessCheck(),
+    summarize: summarizeMigrationDbReadiness,
   },
   {
     name: "migration_governance",

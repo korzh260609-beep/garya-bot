@@ -1,30 +1,23 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T12:04:52.206Z",
+  "generated_at": "2026-05-14T12:25:03.357Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "11a091dd9c596ec40881c22b4f860db2baa2f98a",
-  "previous_head_sha": "8e444367c31d059dff1444ba167f318b2a05783e",
+  "current_head_sha": "4f75dbc68da8cc358b87a9d653e21b2cf9a1ea8b",
+  "previous_head_sha": "11a091dd9c596ec40881c22b4f860db2baa2f98a",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "0ad34870cfa0b82cfe51bbfb544a725b0594cf90",
+  "registry_commit_sha": "fc424bb3df56bacc6dbc775892323695ae0182f9",
   "latest_commit": {
-    "sha": "11a091dd9c596ec40881c22b4f860db2baa2f98a",
-    "short_sha": "11a091dd9c59",
-    "message": "Merge PR #234: migration manual execution path boundary skeleton\n\nMerge manual migration execution path boundary skeleton into dev/v2-start.\n\nSafety boundaries preserved:\n- no startup hook\n- no RUN_MIGRATIONS_ON_BOOT=1\n- no real DB mutation\n- no Project Memory writes\n- no Telegram/AI runtime changes",
+    "sha": "4f75dbc68da8cc358b87a9d653e21b2cf9a1ea8b",
+    "short_sha": "4f75dbc68da8",
+    "message": "Merge pull request #235 from korzh260609-beep/dev/migration-manual-execution-dry-run-diagnostics\n\nmigration: add manual execution dry-run diagnostics visibility",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T12:04:36Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/11a091dd9c596ec40881c22b4f860db2baa2f98a",
+    "date": "2026-05-14T12:24:46Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4f75dbc68da8cc358b87a9d653e21b2cf9a1ea8b",
     "changed_files_count": 4,
     "changed_files": [
-      {
-        "filename": ".github/workflows/sg2-migration-manual-execution-smoke.yml",
-        "status": "added",
-        "additions": 38,
-        "deletions": 0,
-        "changes": 38
-      },
       {
         "filename": "package.json",
         "status": "modified",
@@ -33,18 +26,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationManualExecutionBoundary.js",
+        "filename": "scripts/smokeMigrationManualExecutionDryRunCheck.js",
         "status": "added",
-        "additions": 128,
+        "additions": 76,
         "deletions": 0,
-        "changes": 128
+        "changes": 76
       },
       {
-        "filename": "src/db/migrations/migrationManualExecutionBoundary.js",
-        "status": "added",
-        "additions": 177,
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "status": "modified",
+        "additions": 11,
         "deletions": 0,
-        "changes": 177
+        "changes": 11
+      },
+      {
+        "filename": "src/diagnostics/migrationManualExecutionDryRunCheck.js",
+        "status": "added",
+        "additions": 113,
+        "deletions": 0,
+        "changes": 113
       }
     ]
   }

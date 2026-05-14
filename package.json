@@ -27,6 +27,7 @@
     "smoke:migration-ledger-skeleton": "node ./scripts/smokeMigrationLedgerSkeleton.js",
     "smoke:migration-manual-execution-boundary": "node ./scripts/smokeMigrationManualExecutionBoundary.js",
     "smoke:migration-manual-execution-dry-run": "node ./scripts/smokeMigrationManualExecutionDryRunCheck.js",
+    "smoke:migration-manual-execution-preflight": "node ./scripts/smokeMigrationManualExecutionPreflight.js",
     "smoke:migration-runner-skeleton": "node ./scripts/smokeMigrationRunnerSkeleton.js",
     "smoke:migration-sql-executor-boundary": "node ./scripts/smokeMigrationSqlExecutorBoundary.js",
     "smoke:migration-transaction-orchestrator-skeleton": "node ./scripts/smokeMigrationTransactionOrchestratorSkeleton.js",

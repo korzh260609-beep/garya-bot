@@ -1,50 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T04:36:39.122Z",
+  "generated_at": "2026-05-14T04:49:38.522Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "687151f1361e03757f70c8ccd1adc9aa3d84bb8e",
-  "previous_head_sha": "7e8be4aebf1ee4066594010683ab7f032458e919",
+  "current_head_sha": "eb018680e9d29e07e14e8dc45c35a7ff951b6dc8",
+  "previous_head_sha": "687151f1361e03757f70c8ccd1adc9aa3d84bb8e",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "e41f7363b1f1087fdf1828599156171942edc0ba",
+  "registry_commit_sha": "b6f486c35d656f3b78fc8905400a474d42fae516",
   "latest_commit": {
-    "sha": "687151f1361e03757f70c8ccd1adc9aa3d84bb8e",
-    "short_sha": "687151f1361e",
-    "message": "diagnostics: route explicit diagnostics check requests\n\nMerge PR #218 into dev/v2-start.\n\nAdds deterministic explicit diagnostics check routing for allowlisted checks such as project_memory_live_db.",
+    "sha": "eb018680e9d29e07e14e8dc45c35a7ff951b6dc8",
+    "short_sha": "eb018680e9d2",
+    "message": "diagnostics: move explicit route to handleMessage\n\nMerge PR #219 into dev/v2-start.\n\nMoves deterministic diagnostics route into core message orchestration before runtime options and AI.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T04:36:21Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/687151f1361e03757f70c8ccd1adc9aa3d84bb8e",
-    "changed_files_count": 4,
+    "date": "2026-05-14T04:49:19Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/eb018680e9d29e07e14e8dc45c35a7ff951b6dc8",
+    "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": "scripts/smokeDiagnosticsExplicitCheckRoute.js",
-        "status": "added",
-        "additions": 75,
-        "deletions": 0,
-        "changes": 75
-      },
-      {
-        "filename": "src/core/message/index.js",
+        "filename": "src/core/handleMessage.js",
         "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
+        "additions": 11,
+        "deletions": 1,
+        "changes": 12
       },
       {
         "filename": "src/core/message/messageAiRequest.js",
         "status": "modified",
-        "additions": 16,
-        "deletions": 2,
+        "additions": 2,
+        "deletions": 16,
         "changes": 18
-      },
-      {
-        "filename": "src/core/message/messageDiagnosticsRoute.js",
-        "status": "added",
-        "additions": 155,
-        "deletions": 0,
-        "changes": 155
       }
     ]
   }

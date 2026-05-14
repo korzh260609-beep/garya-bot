@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T09:28:41.248Z",
+  "generated_at": "2026-05-14T09:40:15.757Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "1529a548f63129fc306e8d8a7958f81596ac78c2",
+  "head_sha": "ff474c6c84eca4b7741bbe140ebe1766d13d4652",
   "truncated": false,
-  "items_count": 402,
+  "items_count": 403,
   "semantic_fields": [
     "module",
     "layer",
@@ -5662,6 +5662,24 @@
     },
     {
       "path": "src/db/migrations/migrationRunner.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/db/migrations/migrationRuntimeConfig.js",
       "type": "file",
       "parent": "src/db/migrations",
       "extension": "js",

@@ -1,43 +1,64 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T18:09:16.997Z",
+  "generated_at": "2026-05-14T19:52:30.657Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "f828a3a5c2348c76bf15c061cb328f786f2c83b1",
-  "previous_head_sha": "6e52f1896391d35173a3cec69ae558d72f807084",
+  "current_head_sha": "8e812a96ef90026e29a8578c7bd1048b1c1c11f2",
+  "previous_head_sha": "f828a3a5c2348c76bf15c061cb328f786f2c83b1",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "0c9f8ecf399a8b4d285a50d0450d8f5d216392c1",
+  "registry_commit_sha": "1e0840525a3b380d8241314319ad8e339765b978",
   "latest_commit": {
-    "sha": "f828a3a5c2348c76bf15c061cb328f786f2c83b1",
-    "short_sha": "f828a3a5c234",
-    "message": "Merge pull request #244 from korzh260609-beep/dev/migration-auto-executor\n\nmigration: add automatic executor boundary",
+    "sha": "8e812a96ef90026e29a8578c7bd1048b1c1c11f2",
+    "short_sha": "8e812a96ef90",
+    "message": "Merge pull request #245 from korzh260609-beep/dev/migration-db-lock-boundary\n\nmigration: add DB advisory lock boundary",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T18:08:57Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/f828a3a5c2348c76bf15c061cb328f786f2c83b1",
-    "changed_files_count": 3,
+    "date": "2026-05-14T19:52:12Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8e812a96ef90026e29a8578c7bd1048b1c1c11f2",
+    "changed_files_count": 6,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-migration-automatic-executor-smoke.yml",
+        "filename": ".github/workflows/sg2-migration-db-lock-boundary-smoke.yml",
         "status": "added",
-        "additions": 39,
+        "additions": 36,
         "deletions": 0,
-        "changes": 39
+        "changes": 36
       },
       {
-        "filename": "scripts/smokeMigrationAutomaticExecutorBoundary.js",
-        "status": "added",
-        "additions": 162,
-        "deletions": 0,
-        "changes": 162
+        "filename": "scripts/smokeMigrationAutomaticOrchestrationSkeleton.js",
+        "status": "modified",
+        "additions": 3,
+        "deletions": 3,
+        "changes": 6
       },
       {
-        "filename": "src/db/migrations/migrationAutomaticExecutor.js",
+        "filename": "scripts/smokeMigrationDbBackedLockPendingSkeleton.js",
+        "status": "modified",
+        "additions": 4,
+        "deletions": 4,
+        "changes": 8
+      },
+      {
+        "filename": "scripts/smokeMigrationDbLockBoundary.js",
         "status": "added",
-        "additions": 198,
+        "additions": 102,
         "deletions": 0,
-        "changes": 198
+        "changes": 102
+      },
+      {
+        "filename": "src/db/migrations/migrationAutomaticOrchestrator.js",
+        "status": "modified",
+        "additions": 12,
+        "deletions": 2,
+        "changes": 14
+      },
+      {
+        "filename": "src/db/migrations/migrationExecutionLock.js",
+        "status": "modified",
+        "additions": 137,
+        "deletions": 10,
+        "changes": 147
       }
     ]
   }

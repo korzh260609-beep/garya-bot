@@ -1,23 +1,30 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T09:28:42.539Z",
+  "generated_at": "2026-05-14T09:40:17.287Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "1529a548f63129fc306e8d8a7958f81596ac78c2",
-  "previous_head_sha": "035295d5b8214bbc6dbaa3eb130ff02a61b563d4",
+  "current_head_sha": "ff474c6c84eca4b7741bbe140ebe1766d13d4652",
+  "previous_head_sha": "1529a548f63129fc306e8d8a7958f81596ac78c2",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "42f529fa659ff1cad1229caa26f718bd3a907f16",
+  "registry_commit_sha": "098bc660a7eabfa32adadf1cfa115ad71debfb7c",
   "latest_commit": {
-    "sha": "1529a548f63129fc306e8d8a7958f81596ac78c2",
-    "short_sha": "1529a548f631",
-    "message": "Merge PR #229: project memory migration definition skeleton\n\nMerge first plan-only Project Memory migration definition into dev/v2-start.",
+    "sha": "ff474c6c84eca4b7741bbe140ebe1766d13d4652",
+    "short_sha": "ff474c6c84ec",
+    "message": "Merge PR #230: use existing migration boot env in guard\n\nMerge existing RUN_MIGRATIONS_ON_BOOT migration guard wiring into dev/v2-start.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T09:28:18Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1529a548f63129fc306e8d8a7958f81596ac78c2",
-    "changed_files_count": 5,
+    "date": "2026-05-14T09:39:58Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ff474c6c84eca4b7741bbe140ebe1766d13d4652",
+    "changed_files_count": 7,
     "changed_files": [
+      {
+        "filename": ".env.example",
+        "status": "modified",
+        "additions": 5,
+        "deletions": 0,
+        "changes": 5
+      },
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
@@ -26,32 +33,39 @@
         "changes": 1
       },
       {
+        "filename": "scripts/smokeMigrationExecutionGuardSkeleton.js",
+        "status": "modified",
+        "additions": 24,
+        "deletions": 1,
+        "changes": 25
+      },
+      {
         "filename": "scripts/smokeMigrationGovernanceCheck.js",
         "status": "modified",
-        "additions": 2,
-        "deletions": 2,
-        "changes": 4
-      },
-      {
-        "filename": "scripts/smokeMigrationRunnerSkeleton.js",
-        "status": "modified",
-        "additions": 8,
-        "deletions": 3,
-        "changes": 11
-      },
-      {
-        "filename": "src/db/migrations/definitions/001_project_memory_core.js",
-        "status": "added",
-        "additions": 57,
-        "deletions": 0,
-        "changes": 57
-      },
-      {
-        "filename": "src/db/migrations/migrationRegistry.js",
-        "status": "modified",
-        "additions": 4,
+        "additions": 15,
         "deletions": 1,
-        "changes": 5
+        "changes": 16
+      },
+      {
+        "filename": "src/db/migrations/migrationExecutionGuard.js",
+        "status": "modified",
+        "additions": 12,
+        "deletions": 0,
+        "changes": 12
+      },
+      {
+        "filename": "src/db/migrations/migrationRuntimeConfig.js",
+        "status": "added",
+        "additions": 41,
+        "deletions": 0,
+        "changes": 41
+      },
+      {
+        "filename": "src/diagnostics/migrationGovernanceCheck.js",
+        "status": "modified",
+        "additions": 3,
+        "deletions": 0,
+        "changes": 3
       }
     ]
   }

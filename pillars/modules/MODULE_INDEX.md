@@ -3,9 +3,8 @@
 > AGENT NOTE:
 > This file is the entrypoint for SG 2.0 module documentation.
 > Read it before creating, moving, renaming, or implementing any module.
+> This file is an index and boundary guide, not a live module status board.
 > Do not add random module docs, duplicate responsibility, or treat a module as SG itself without explicit Monarch approval.
-
-Статус: ACTIVE SKELETON
 
 ---
 
@@ -15,11 +14,13 @@
 
 It exists to reduce guessing before code is written.
 
+It must not replace direct verification of active branch files, runtime diagnostics, DB state, or current Monarch instructions.
+
 ---
 
 ## Standard module docs
 
-Each mature module may later contain:
+Each mature module may contain:
 
 ```text
 README.md
@@ -28,12 +29,13 @@ RISKS.md
 CHANGELOG.md
 ```
 
-Optional later:
+Optional when needed:
 
 ```text
 DATA_MODEL.md
 TESTING.md
 DECISIONS.md
+AGENT_GUIDE.md
 ```
 
 ---
@@ -59,18 +61,29 @@ DECISIONS.md
 
 ---
 
-## Maturity labels
+## Non-status rule
 
-- `future` — planned but not implemented.
-- `skeleton` — boundaries approved, no full logic yet.
-- `partial runtime` — some code exists, still transitional.
-- `active` — implemented and operational.
+Do not keep mutable progress labels in this index.
 
-Current SG 2.0 module docs are skeleton-level.
+Avoid treating this file as a board for:
 
-`project_memory` is currently V1 RUNTIME SKELETON because it has safe read-only / prepare-only runtime helpers, data model docs, and smoke coverage, but no DB storage, sync, AI auto-write, Telegram command, or durable memory writes yet.
+```text
+done
+not done
+active
+partial runtime
+implemented
+not implemented
+```
 
-`observation` is currently ACTIVE V1 / PARTIAL RUNTIME because its basic event/report/health loop is implemented, but the final Observation Nervous System is not complete yet.
+Reason:
+
+```text
+module implementation state changes faster than documentation
+agents must verify current branch files and runtime facts directly
+```
+
+If an agent needs to know what exists now, it must inspect the active branch and relevant diagnostics.
 
 ---
 
@@ -130,3 +143,6 @@ Before adding a new module, decide:
 ## Maintenance rule
 
 Whenever modules are added, removed or re-scoped, update this index in the same work block.
+
+When module implementation progresses, do not update this index merely to record progress.
+Use PR descriptions, issues, diagnostics, or direct code verification instead.

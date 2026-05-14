@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T05:24:54.517Z",
+  "generated_at": "2026-05-14T05:33:32.058Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "e978c26f98504e09056ccd0a12349aceda33d18b",
-  "previous_head_sha": "213503e03125921fcf77892d71c98328e0025e8d",
+  "current_head_sha": "3703d553d2e791d56d0b1e66eef33ab4f5e044e3",
+  "previous_head_sha": "e978c26f98504e09056ccd0a12349aceda33d18b",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "d9139077326ba8ddcdb7a0b0643e09c4836c7a1a",
+  "registry_commit_sha": "ff2c228a21abc41406f910fba6ee19c170e1e0de",
   "latest_commit": {
-    "sha": "e978c26f98504e09056ccd0a12349aceda33d18b",
-    "short_sha": "e978c26f9850",
-    "message": "db: wire migration runner skeleton smoke\n\nWire the existing migration runner skeleton smoke into package scripts and SG2 Smoke CI checks.",
+    "sha": "3703d553d2e791d56d0b1e66eef33ab4f5e044e3",
+    "short_sha": "3703d553d2e7",
+    "message": "db: add migration governance ledger skeleton\n\nAdd plan-only migration ledger skeleton, smoke coverage, and SG2 Smoke CI wiring.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T05:24:32Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e978c26f98504e09056ccd0a12349aceda33d18b",
-    "changed_files_count": 2,
+    "date": "2026-05-14T05:33:16Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/3703d553d2e791d56d0b1e66eef33ab4f5e044e3",
+    "changed_files_count": 4,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 7,
+        "additions": 5,
         "deletions": 0,
-        "changes": 7
+        "changes": 5
       },
       {
         "filename": "package.json",
@@ -31,6 +31,20 @@
         "additions": 1,
         "deletions": 0,
         "changes": 1
+      },
+      {
+        "filename": "scripts/smokeMigrationLedgerSkeleton.js",
+        "status": "added",
+        "additions": 47,
+        "deletions": 0,
+        "changes": 47
+      },
+      {
+        "filename": "src/db/migrations/migrationLedger.js",
+        "status": "added",
+        "additions": 64,
+        "deletions": 0,
+        "changes": 64
       }
     ]
   }

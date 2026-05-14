@@ -8,6 +8,7 @@ import { runRenderEnvAgent } from "../render-env-agent/renderEnvAgent.js";
 import { runRepoRegistryAgent } from "../repo-registry-agent/repoRegistryAgent.js";
 import { runGetRenderLogsTask } from "../../tasks/render/getRenderLogsTask.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
+import { runMigrationGovernanceCheck } from "../../diagnostics/migrationGovernanceCheck.js";
 import { runObservationJournalStatusCheck } from "../../diagnostics/observationJournalStatusCheck.js";
 import { runObservationLatestReportCheck } from "../../diagnostics/observationLatestReportCheck.js";
 import { runProjectMemoryLiveDbCheck } from "../../diagnostics/projectMemoryLiveDbCheck.js";
@@ -41,6 +42,11 @@ function summarizeWorkflowRun(result = {}) {
 function summarizeCommits(result = {}) {
   if (!result.ok) return result.error || "Recent commits check failed.";
   return result.summary?.text || `Recent commits checked: ${result.searched_commits ?? "unknown"}.`;
+}
+
+function summarizeMigrationGovernance(result = {}) {
+  if (!result.ok) return result.summary || "Migration governance check failed.";
+  return result.summary || "Migration governance check passed.";
 }
 
 function summarizeObservationLatestReport(result = {}) {
@@ -131,6 +137,11 @@ export const diagnosticsCheckRegistry = [
     name: "project_memory_live_db",
     run: () => runProjectMemoryLiveDbCheck(),
     summarize: summarizeProjectMemoryLiveDb,
+  },
+  {
+    name: "migration_governance",
+    run: () => runMigrationGovernanceCheck(),
+    summarize: summarizeMigrationGovernance,
   },
   {
     name: "observation_latest_report",

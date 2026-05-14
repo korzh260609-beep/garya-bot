@@ -3,9 +3,8 @@
 > AGENT NOTE:
 > This file defines Project Memory interface contracts for SG 2.0.
 > Keep these contracts transport-agnostic and source-first.
+> This file is not a live implementation inventory. Verify current branch files before planning work.
 > Do not add runtime implementation, Telegram commands, AI calls, automatic writes, raw logs, raw provider IDs, timers, cron, or secret handling here without explicit Monarch approval.
-
-Статус: SKELETON / DOCS-ONLY
 
 ---
 
@@ -352,7 +351,7 @@ Rules:
 
 ## 10. Forbidden contracts
 
-These contracts are forbidden in this module skeleton:
+These contracts are forbidden in this module boundary:
 
 ```text
 telegramWriteProjectMemory()
@@ -368,19 +367,16 @@ If such behavior is ever proposed, it requires a separate architecture review an
 
 ---
 
-## 11. Current implementation gate
+## 11. Implementation verification rule
 
-This file is documentation only.
+Contracts are stable design obligations, not evidence that a runtime implementation exists or is enabled.
 
-Before runtime implementation, SG must define:
+Before implementing or using a contract, verify:
 
-1. Storage schema.
-2. Permission gates.
-3. Write confirmation policy.
-4. Conflict policy.
-5. Secret/redaction policy.
-6. Context size limits.
-7. Diagnostics shape.
-8. Tests/smokes.
+1. Current active branch files.
+2. Current module exports.
+3. Current runtime flags.
+4. Current DB / Render diagnostics if persistence or production readiness is involved.
+5. Current Monarch instruction.
 
-No runtime Project Memory writes should be added before these gates are accepted.
+Never claim a contract is live merely because it is described here.

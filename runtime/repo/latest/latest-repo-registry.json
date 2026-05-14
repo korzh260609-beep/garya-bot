@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T02:36:03.622Z",
+  "generated_at": "2026-05-14T02:46:49.602Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "e65065685c3e6b936735e8dd363cc3cbe9e565a2",
+  "head_sha": "7e8be4aebf1ee4066594010683ab7f032458e919",
   "truncated": false,
-  "items_count": 383,
+  "items_count": 385,
   "semantic_fields": [
     "module",
     "layer",
@@ -2782,6 +2782,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryExplicitConfirmationFlow.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryLiveDbCheck.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5608,6 +5626,24 @@
     },
     {
       "path": "src/diagnostics/observationLatestReportCheck.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/projectMemoryLiveDbCheck.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

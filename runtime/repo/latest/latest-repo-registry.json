@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T09:40:15.757Z",
+  "generated_at": "2026-05-14T10:04:41.432Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "ff474c6c84eca4b7741bbe140ebe1766d13d4652",
+  "head_sha": "7959b817814655c95efe3d7fe219fa7a3686f4f2",
   "truncated": false,
-  "items_count": 403,
+  "items_count": 405,
   "semantic_fields": [
     "module",
     "layer",
@@ -2620,6 +2620,24 @@
     },
     {
       "path": "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMigrationExecutionControllerSkeleton.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5592,6 +5610,24 @@
       "path": "src/db/migrations/definitions/001_project_memory_core.js",
       "type": "file",
       "parent": "src/db/migrations/definitions",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/db/migrations/migrationExecutionController.js",
+      "type": "file",
+      "parent": "src/db/migrations",
       "extension": "js",
       "description": "JavaScript source file.",
       "status": "active_or_config",

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T02:30:58.602Z",
+  "generated_at": "2026-05-14T02:36:03.622Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "1061045e8526be2e3aebbd4874eef61c9c7a1f58",
+  "head_sha": "e65065685c3e6b936735e8dd363cc3cbe9e565a2",
   "truncated": false,
-  "items_count": 382,
+  "items_count": 383,
   "semantic_fields": [
     "module",
     "layer",
@@ -1422,6 +1422,26 @@
     },
     {
       "path": "pillars/modules/project_memory/STATUS.md",
+      "type": "file",
+      "parent": "pillars/modules/project_memory",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
+    },
+    {
+      "path": "pillars/modules/project_memory/STORAGE_STRATEGY.md",
       "type": "file",
       "parent": "pillars/modules/project_memory",
       "extension": "md",

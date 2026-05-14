@@ -32,6 +32,19 @@ function formatTriggerResult({ trigger, observation, journalHealthObservation = 
   };
 }
 
+function getTriggerProducers(context = {}) {
+  const overrides = context.testProducers || {};
+
+  return {
+    produceDiagnosticsObservationLatest:
+      overrides.produceDiagnosticsObservationLatest || produceDiagnosticsObservationLatest,
+    produceRuntimeStatusObservationLatest:
+      overrides.produceRuntimeStatusObservationLatest || produceRuntimeStatusObservationLatest,
+    produceObservationJournalHealthLatest:
+      overrides.produceObservationJournalHealthLatest || produceObservationJournalHealthLatest,
+  };
+}
+
 export async function runObservationTrigger({ name, payload = {}, context = {} } = {}) {
   const trigger = getObservationTriggerConfig(name);
 
@@ -39,21 +52,26 @@ export async function runObservationTrigger({ name, payload = {}, context = {} }
     return rejected("observation_trigger_not_allowed", { name: typeof name === "string" ? name : "" });
   }
 
+  const producers = getTriggerProducers(context);
+
   if (trigger.name === OBSERVATION_TRIGGER_NAMES.DIAGNOSTICS_FINISHED) {
-    const observation = await produceDiagnosticsObservationLatest(payload.diagnosticsResult || {}, context);
+    const observation = await producers.produceDiagnosticsObservationLatest(
+      payload.diagnosticsResult || {},
+      context,
+    );
 
     return formatTriggerResult({ trigger, observation });
   }
 
   if (trigger.name === OBSERVATION_TRIGGER_NAMES.RUNTIME_STATUS_REQUESTED) {
-    const observation = await produceRuntimeStatusObservationLatest(payload.runtimeStatus);
-    const journalHealthObservation = await produceObservationJournalHealthLatest();
+    const observation = await producers.produceRuntimeStatusObservationLatest(payload.runtimeStatus);
+    const journalHealthObservation = await producers.produceObservationJournalHealthLatest();
 
     return formatTriggerResult({ trigger, observation, journalHealthObservation });
   }
 
   if (trigger.name === OBSERVATION_TRIGGER_NAMES.OBSERVATION_JOURNAL_HEALTH_REQUESTED) {
-    const observation = await produceObservationJournalHealthLatest(payload);
+    const observation = await producers.produceObservationJournalHealthLatest(payload);
 
     return formatTriggerResult({ trigger, observation });
   }

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T05:24:53.044Z",
+  "generated_at": "2026-05-14T05:33:30.957Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "e978c26f98504e09056ccd0a12349aceda33d18b",
+  "head_sha": "3703d553d2e791d56d0b1e66eef33ab4f5e044e3",
   "truncated": false,
-  "items_count": 392,
+  "items_count": 394,
   "semantic_fields": [
     "module",
     "layer",
@@ -2620,6 +2620,24 @@
     },
     {
       "path": "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMigrationLedgerSkeleton.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5476,6 +5494,24 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": "src/db/migrations/migrationLedger.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
       }
     },
     {

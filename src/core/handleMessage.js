@@ -1,6 +1,6 @@
 // AGENT NOTE:
 // SG 2.0 minimal core message handler.
-// Purpose: orchestrate normalized messages through identity, access checks, behavior guardrails, prompt boundary, runtime context, and AI without putting logic into transport.
+// Purpose: orchestrate normalized messages through identity, access checks, behavior guardrails, deterministic routes, prompt boundary, runtime context, and AI without putting logic into transport.
 // Do not turn this into a monolith; split capabilities as soon as new responsibilities appear.
 
 import { resolveIdentityAsync } from "../users/identityResolver.js";
@@ -15,6 +15,7 @@ import {
   checkMessageAccess,
   checkMessageBehavior,
   extractMessageText,
+  handleMessageDiagnosticsRoute,
 } from "./message/index.js";
 
 export async function handleMessage(context = {}) {
@@ -36,6 +37,15 @@ export async function handleMessage(context = {}) {
 
   if (!behaviorAllowed.ok) {
     return buildBehaviorDeniedReply({ behaviorAllowed, identity, behaviorRuntime });
+  }
+
+  const diagnosticsRoute = await handleMessageDiagnosticsRoute({
+    text,
+    identity,
+  });
+
+  if (diagnosticsRoute.handled) {
+    return diagnosticsRoute;
   }
 
   const runtimeOptions = await resolveMessageRuntimeOptions({ context, identity });

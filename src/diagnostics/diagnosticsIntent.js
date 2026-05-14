@@ -29,6 +29,16 @@ const DIAGNOSTIC_HINTS = [
   "реестр",
   "логи",
   "logs",
+  "migration readiness",
+  "migrations readiness",
+  "migration preflight",
+  "manual migration",
+  "manual migrations",
+  "db readiness",
+  "готовность миграций",
+  "ручные миграции",
+  "ручной запуск миграций",
+  "перед запуском миграций",
 ];
 
 export function normalizeDiagnosticsText(value) {

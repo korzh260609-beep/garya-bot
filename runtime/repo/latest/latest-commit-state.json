@@ -1,29 +1,57 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T16:15:37.870Z",
+  "generated_at": "2026-05-14T16:26:53.945Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "7e80c0e17e3f5cce394426ebf01a8b8ea676e9fc",
-  "previous_head_sha": "e4eb0c14aeb6fc00ebc554b35387c128f433bae1",
+  "current_head_sha": "36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
+  "previous_head_sha": "7e80c0e17e3f5cce394426ebf01a8b8ea676e9fc",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "75c080af2719128e22538d084ec91608488f69e2",
+  "registry_commit_sha": "e4cef095972b1c84c4db6849e2a7e48a59158c03",
   "latest_commit": {
-    "sha": "7e80c0e17e3f5cce394426ebf01a8b8ea676e9fc",
-    "short_sha": "7e80c0e17e3f",
-    "message": "Merge pull request #239 from korzh260609-beep/dev/migration-db-readiness-ci-coverage\n\nmigration: add DB readiness CI coverage",
+    "sha": "36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
+    "short_sha": "36f34d5fa8fd",
+    "message": "Merge pull request #240 from korzh260609-beep/dev/migration-readiness-diagnostics-suite\n\nmigration: add readiness diagnostics suite",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T16:15:16Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7e80c0e17e3f5cce394426ebf01a8b8ea676e9fc",
-    "changed_files_count": 1,
+    "date": "2026-05-14T16:26:30Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 5,
+        "filename": ".github/workflows/sg2-migration-readiness-diagnostics-suite-smoke.yml",
+        "status": "added",
+        "additions": 42,
         "deletions": 0,
-        "changes": 5
+        "changes": 42
+      },
+      {
+        "filename": "scripts/smokeMigrationReadinessDiagnosticsSuite.js",
+        "status": "added",
+        "additions": 87,
+        "deletions": 0,
+        "changes": 87
+      },
+      {
+        "filename": "src/diagnostics/diagnosticsIntent.js",
+        "status": "modified",
+        "additions": 10,
+        "deletions": 0,
+        "changes": 10
+      },
+      {
+        "filename": "src/diagnostics/diagnosticsPlan.js",
+        "status": "modified",
+        "additions": 30,
+        "deletions": 2,
+        "changes": 32
+      },
+      {
+        "filename": "src/diagnostics/migrationReadinessDiagnosticsSuite.js",
+        "status": "added",
+        "additions": 66,
+        "deletions": 0,
+        "changes": 66
       }
     ]
   }

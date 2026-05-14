@@ -1,0 +1,36 @@
+name: SG2 Migration DB Lock Boundary Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/db/migrations/migrationExecutionLock.js"
+      - "scripts/smokeMigrationDbLockBoundary.js"
+      - ".github/workflows/sg2-migration-db-lock-boundary-smoke.yml"
+
+jobs:
+  migration-db-lock-boundary-smoke:
+    name: Migration DB lock boundary smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check migration DB lock boundary syntax
+        run: |
+          node --check src/db/migrations/migrationExecutionLock.js
+          node --check scripts/smokeMigrationDbLockBoundary.js
+
+      - name: Smoke migration DB lock boundary
+        run: node ./scripts/smokeMigrationDbLockBoundary.js

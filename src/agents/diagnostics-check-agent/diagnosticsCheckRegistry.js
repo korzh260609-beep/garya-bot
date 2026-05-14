@@ -9,6 +9,7 @@ import { runRepoRegistryAgent } from "../repo-registry-agent/repoRegistryAgent.j
 import { runGetRenderLogsTask } from "../../tasks/render/getRenderLogsTask.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
 import { runMigrationGovernanceCheck } from "../../diagnostics/migrationGovernanceCheck.js";
+import { runMigrationManualExecutionDryRunCheck } from "../../diagnostics/migrationManualExecutionDryRunCheck.js";
 import { runObservationJournalStatusCheck } from "../../diagnostics/observationJournalStatusCheck.js";
 import { runObservationLatestReportCheck } from "../../diagnostics/observationLatestReportCheck.js";
 import { runProjectMemoryLiveDbCheck } from "../../diagnostics/projectMemoryLiveDbCheck.js";
@@ -47,6 +48,11 @@ function summarizeCommits(result = {}) {
 function summarizeMigrationGovernance(result = {}) {
   if (!result.ok) return result.summary || "Migration governance check failed.";
   return result.summary || "Migration governance check passed.";
+}
+
+function summarizeMigrationManualExecutionDryRun(result = {}) {
+  if (!result.ok) return result.summary || "Manual migration execution dry-run check failed.";
+  return result.summary || "Manual migration execution dry-run check passed.";
 }
 
 function summarizeObservationLatestReport(result = {}) {
@@ -142,6 +148,11 @@ export const diagnosticsCheckRegistry = [
     name: "migration_governance",
     run: () => runMigrationGovernanceCheck(),
     summarize: summarizeMigrationGovernance,
+  },
+  {
+    name: "migration_manual_execution_dry_run",
+    run: () => runMigrationManualExecutionDryRunCheck(),
+    summarize: summarizeMigrationManualExecutionDryRun,
   },
   {
     name: "observation_latest_report",

@@ -1,21 +1,21 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T06:52:44.584Z",
+  "generated_at": "2026-05-14T07:03:59.278Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "e1298fca30171355a760fc74a15b07afdf871582",
-  "previous_head_sha": "3703d553d2e791d56d0b1e66eef33ab4f5e044e3",
+  "current_head_sha": "dda705e3bdb1f4c823cec5ad4e32915cb2b05e35",
+  "previous_head_sha": "e1298fca30171355a760fc74a15b07afdf871582",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "cf3e234888709055932b378c6e3073b4ae95a574",
+  "registry_commit_sha": "c84676f060878c0bead98c3b6dfa76098adadecb",
   "latest_commit": {
-    "sha": "e1298fca30171355a760fc74a15b07afdf871582",
-    "short_sha": "e1298fca3017",
-    "message": "db: add migration execution guard skeleton\n\nAdd a plan-only execution guard skeleton, smoke coverage, and SG2 Smoke CI wiring.",
+    "sha": "dda705e3bdb1f4c823cec5ad4e32915cb2b05e35",
+    "short_sha": "dda705e3bdb1",
+    "message": "diagnostics: add migration governance check skeleton\n\nAdd read-only migration governance diagnostics skeleton, smoke coverage, and SG2 Smoke CI wiring.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T06:52:21Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e1298fca30171355a760fc74a15b07afdf871582",
+    "date": "2026-05-14T07:03:40Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/dda705e3bdb1f4c823cec5ad4e32915cb2b05e35",
     "changed_files_count": 4,
     "changed_files": [
       {
@@ -33,18 +33,18 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationExecutionGuardSkeleton.js",
+        "filename": "scripts/smokeMigrationGovernanceCheck.js",
         "status": "added",
-        "additions": 50,
+        "additions": 47,
         "deletions": 0,
-        "changes": 50
+        "changes": 47
       },
       {
-        "filename": "src/db/migrations/migrationExecutionGuard.js",
+        "filename": "src/diagnostics/migrationGovernanceCheck.js",
         "status": "added",
-        "additions": 43,
+        "additions": 63,
         "deletions": 0,
-        "changes": 43
+        "changes": 63
       }
     ]
   }

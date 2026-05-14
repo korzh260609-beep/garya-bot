@@ -1,21 +1,21 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T05:33:32.058Z",
+  "generated_at": "2026-05-14T06:52:44.584Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "3703d553d2e791d56d0b1e66eef33ab4f5e044e3",
-  "previous_head_sha": "e978c26f98504e09056ccd0a12349aceda33d18b",
+  "current_head_sha": "e1298fca30171355a760fc74a15b07afdf871582",
+  "previous_head_sha": "3703d553d2e791d56d0b1e66eef33ab4f5e044e3",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "ff2c228a21abc41406f910fba6ee19c170e1e0de",
+  "registry_commit_sha": "cf3e234888709055932b378c6e3073b4ae95a574",
   "latest_commit": {
-    "sha": "3703d553d2e791d56d0b1e66eef33ab4f5e044e3",
-    "short_sha": "3703d553d2e7",
-    "message": "db: add migration governance ledger skeleton\n\nAdd plan-only migration ledger skeleton, smoke coverage, and SG2 Smoke CI wiring.",
+    "sha": "e1298fca30171355a760fc74a15b07afdf871582",
+    "short_sha": "e1298fca3017",
+    "message": "db: add migration execution guard skeleton\n\nAdd a plan-only execution guard skeleton, smoke coverage, and SG2 Smoke CI wiring.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T05:33:16Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/3703d553d2e791d56d0b1e66eef33ab4f5e044e3",
+    "date": "2026-05-14T06:52:21Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e1298fca30171355a760fc74a15b07afdf871582",
     "changed_files_count": 4,
     "changed_files": [
       {
@@ -33,18 +33,18 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationLedgerSkeleton.js",
+        "filename": "scripts/smokeMigrationExecutionGuardSkeleton.js",
         "status": "added",
-        "additions": 47,
+        "additions": 50,
         "deletions": 0,
-        "changes": 47
+        "changes": 50
       },
       {
-        "filename": "src/db/migrations/migrationLedger.js",
+        "filename": "src/db/migrations/migrationExecutionGuard.js",
         "status": "added",
-        "additions": 64,
+        "additions": 43,
         "deletions": 0,
-        "changes": 64
+        "changes": 43
       }
     ]
   }

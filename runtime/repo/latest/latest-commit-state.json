@@ -1,64 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T02:46:50.744Z",
+  "generated_at": "2026-05-14T04:36:39.122Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "7e8be4aebf1ee4066594010683ab7f032458e919",
-  "previous_head_sha": "e65065685c3e6b936735e8dd363cc3cbe9e565a2",
+  "current_head_sha": "687151f1361e03757f70c8ccd1adc9aa3d84bb8e",
+  "previous_head_sha": "7e8be4aebf1ee4066594010683ab7f032458e919",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "03048c16ace8256a54bf48f0bdc6097dd2438b53",
+  "registry_commit_sha": "e41f7363b1f1087fdf1828599156171942edc0ba",
   "latest_commit": {
-    "sha": "7e8be4aebf1ee4066594010683ab7f032458e919",
-    "short_sha": "7e8be4aebf1e",
-    "message": "diagnostics(project_memory): add live DB read-only check\n\nAdd sanitized read-only Project Memory live DB diagnostics check. Registers project_memory_live_db in diagnostics registry, adds smoke coverage, and runs it in SG2 smoke workflow.",
+    "sha": "687151f1361e03757f70c8ccd1adc9aa3d84bb8e",
+    "short_sha": "687151f1361e",
+    "message": "diagnostics: route explicit diagnostics check requests\n\nMerge PR #218 into dev/v2-start.\n\nAdds deterministic explicit diagnostics check routing for allowlisted checks such as project_memory_live_db.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T02:46:24Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/7e8be4aebf1ee4066594010683ab7f032458e919",
-    "changed_files_count": 6,
+    "date": "2026-05-14T04:36:21Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/687151f1361e03757f70c8ccd1adc9aa3d84bb8e",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 5,
+        "filename": "scripts/smokeDiagnosticsExplicitCheckRoute.js",
+        "status": "added",
+        "additions": 75,
         "deletions": 0,
-        "changes": 5
+        "changes": 75
       },
       {
-        "filename": "package.json",
+        "filename": "src/core/message/index.js",
         "status": "modified",
         "additions": 1,
         "deletions": 0,
         "changes": 1
       },
       {
-        "filename": "scripts/smokeProjectMemoryLiveDbCheck.js",
-        "status": "added",
-        "additions": 39,
-        "deletions": 0,
-        "changes": 39
-      },
-      {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "filename": "src/core/message/messageAiRequest.js",
         "status": "modified",
-        "additions": 11,
-        "deletions": 0,
-        "changes": 11
+        "additions": 16,
+        "deletions": 2,
+        "changes": 18
       },
       {
-        "filename": "src/diagnostics/index.js",
-        "status": "modified",
-        "additions": 2,
-        "deletions": 0,
-        "changes": 2
-      },
-      {
-        "filename": "src/diagnostics/projectMemoryLiveDbCheck.js",
+        "filename": "src/core/message/messageDiagnosticsRoute.js",
         "status": "added",
-        "additions": 243,
+        "additions": 155,
         "deletions": 0,
-        "changes": 243
+        "changes": 155
       }
     ]
   }

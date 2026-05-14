@@ -52,6 +52,7 @@ jobs:
       - name: Check DB syntax
         run: |
           node --check src/db/postgresClient.js
+          node --check src/db/migrations/migrationLedger.js
           node --check src/db/migrations/migrationTypes.js
           node --check src/db/migrations/migrationRegistry.js
           node --check src/db/migrations/migrationRunner.js
@@ -190,6 +191,7 @@ jobs:
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
           node --check scripts/smokeMessageProjectMemoryContextGate.js
           node --check scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js
+          node --check scripts/smokeMigrationLedgerSkeleton.js
           node --check scripts/smokeMigrationRunnerSkeleton.js
           node --check scripts/smokeObservationDispatchGithubEvents.js
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
@@ -236,6 +238,9 @@ jobs:
 
       - name: Smoke message project memory projectKey runtime selection
         run: npm run smoke:message-project-memory-projectkey-runtime-selection
+
+      - name: Smoke migration ledger skeleton
+        run: npm run smoke:migration-ledger-skeleton
 
       - name: Smoke migration runner skeleton
         run: npm run smoke:migration-runner-skeleton

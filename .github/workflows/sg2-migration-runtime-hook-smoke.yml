@@ -1,0 +1,39 @@
+name: SG2 Migration Runtime Hook Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/app/runtimeHooks.js"
+      - "src/app/migrationRuntimeHook.js"
+      - "src/db/migrations/migrationAutomaticOrchestrator.js"
+      - "scripts/smokeMigrationRuntimeHookSkeleton.js"
+      - ".github/workflows/sg2-migration-runtime-hook-smoke.yml"
+
+jobs:
+  migration-runtime-hook-smoke:
+    name: Migration runtime hook smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check migration runtime hook syntax
+        run: |
+          node --check src/app/runtimeHooks.js
+          node --check src/app/migrationRuntimeHook.js
+          node --check scripts/smokeMigrationRuntimeHookSkeleton.js
+
+      - name: Smoke migration runtime hook skeleton
+        run: node ./scripts/smokeMigrationRuntimeHookSkeleton.js

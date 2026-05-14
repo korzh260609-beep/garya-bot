@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T16:15:36.567Z",
+  "generated_at": "2026-05-14T16:26:52.164Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "7e80c0e17e3f5cce394426ebf01a8b8ea676e9fc",
+  "head_sha": "36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
   "truncated": false,
-  "items_count": 422,
+  "items_count": 425,
   "semantic_fields": [
     "module",
     "layer",
@@ -133,6 +133,24 @@
     },
     {
       "path": ".github/workflows/sg2-migration-manual-execution-visibility-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-migration-readiness-diagnostics-suite-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -2854,6 +2872,24 @@
     },
     {
       "path": "scripts/smokeMigrationManualExecutionPreflight.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMigrationReadinessDiagnosticsSuite.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -6260,6 +6296,24 @@
     },
     {
       "path": "src/diagnostics/migrationManualExecutionPreflightCheck.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/migrationReadinessDiagnosticsSuite.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

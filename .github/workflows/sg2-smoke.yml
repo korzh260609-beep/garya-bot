@@ -52,6 +52,9 @@ jobs:
       - name: Check DB syntax
         run: |
           node --check src/db/postgresClient.js
+          node --check src/db/migrations/migrationTypes.js
+          node --check src/db/migrations/migrationRegistry.js
+          node --check src/db/migrations/migrationRunner.js
 
       - name: Check SG core syntax
         run: |
@@ -187,6 +190,7 @@ jobs:
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
           node --check scripts/smokeMessageProjectMemoryContextGate.js
           node --check scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js
+          node --check scripts/smokeMigrationRunnerSkeleton.js
           node --check scripts/smokeObservationDispatchGithubEvents.js
           node --check scripts/smokeObservationJournalHealthLatestCheck.js
           node --check scripts/smokeObservationJournalHealthTrigger.js
@@ -232,6 +236,9 @@ jobs:
 
       - name: Smoke message project memory projectKey runtime selection
         run: npm run smoke:message-project-memory-projectkey-runtime-selection
+
+      - name: Smoke migration runner skeleton
+        run: npm run smoke:migration-runner-skeleton
 
       - name: Smoke GitHub observation dispatch events
         run: npm run smoke:observation-dispatch-github-events

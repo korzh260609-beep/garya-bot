@@ -1,57 +1,64 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T16:26:53.945Z",
+  "generated_at": "2026-05-14T16:40:05.926Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
-  "previous_head_sha": "7e80c0e17e3f5cce394426ebf01a8b8ea676e9fc",
+  "current_head_sha": "165f305895baaf4f47300428f5e046dbe6966c87",
+  "previous_head_sha": "36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "e4cef095972b1c84c4db6849e2a7e48a59158c03",
+  "registry_commit_sha": "011ffdf57af9fc5dd0a973cfe13e95f0afa90461",
   "latest_commit": {
-    "sha": "36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
-    "short_sha": "36f34d5fa8fd",
-    "message": "Merge pull request #240 from korzh260609-beep/dev/migration-readiness-diagnostics-suite\n\nmigration: add readiness diagnostics suite",
+    "sha": "165f305895baaf4f47300428f5e046dbe6966c87",
+    "short_sha": "165f305895ba",
+    "message": "Merge pull request #241 from korzh260609-beep/dev/migration-automatic-orchestration-skeleton\n\nmigration: add automatic orchestration skeleton",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T16:26:30Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
-    "changed_files_count": 5,
+    "date": "2026-05-14T16:39:46Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/165f305895baaf4f47300428f5e046dbe6966c87",
+    "changed_files_count": 6,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-migration-readiness-diagnostics-suite-smoke.yml",
+        "filename": ".github/workflows/sg2-migration-automatic-orchestration-smoke.yml",
         "status": "added",
-        "additions": 42,
+        "additions": 44,
         "deletions": 0,
-        "changes": 42
+        "changes": 44
       },
       {
-        "filename": "scripts/smokeMigrationReadinessDiagnosticsSuite.js",
+        "filename": "scripts/smokeMigrationAutomaticOrchestrationSkeleton.js",
         "status": "added",
-        "additions": 87,
+        "additions": 73,
         "deletions": 0,
-        "changes": 87
+        "changes": 73
       },
       {
-        "filename": "src/diagnostics/diagnosticsIntent.js",
-        "status": "modified",
-        "additions": 10,
-        "deletions": 0,
-        "changes": 10
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsPlan.js",
-        "status": "modified",
-        "additions": 30,
-        "deletions": 2,
-        "changes": 32
-      },
-      {
-        "filename": "src/diagnostics/migrationReadinessDiagnosticsSuite.js",
+        "filename": "src/db/migrations/migrationAutomaticOrchestrator.js",
         "status": "added",
-        "additions": 66,
+        "additions": 74,
         "deletions": 0,
-        "changes": 66
+        "changes": 74
+      },
+      {
+        "filename": "src/db/migrations/migrationAutomaticReadinessPlan.js",
+        "status": "added",
+        "additions": 40,
+        "deletions": 0,
+        "changes": 40
+      },
+      {
+        "filename": "src/db/migrations/migrationExecutionLock.js",
+        "status": "added",
+        "additions": 41,
+        "deletions": 0,
+        "changes": 41
+      },
+      {
+        "filename": "src/db/migrations/migrationPendingDetector.js",
+        "status": "added",
+        "additions": 53,
+        "deletions": 0,
+        "changes": 53
       }
     ]
   }

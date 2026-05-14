@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T04:49:37.483Z",
+  "generated_at": "2026-05-14T05:03:44.010Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "eb018680e9d29e07e14e8dc45c35a7ff951b6dc8",
+  "head_sha": "213503e03125921fcf77892d71c98328e0025e8d",
   "truncated": false,
-  "items_count": 387,
+  "items_count": 392,
   "semantic_fields": [
     "module",
     "layer",
@@ -2620,6 +2620,24 @@
     },
     {
       "path": "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMigrationRunnerSkeleton.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5438,6 +5456,80 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": "src/db/migrations",
+      "type": "folder",
+      "parent": "src/db",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "src/db/migrations/migrationRegistry.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/db/migrations/migrationRunner.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/db/migrations/migrationTypes.js",
+      "type": "file",
+      "parent": "src/db/migrations",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
       }
     },
     {

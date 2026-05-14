@@ -55,6 +55,7 @@ pillars/modules/project_memory/CONTRACTS.md
 pillars/modules/project_memory/RISKS.md
 pillars/modules/project_memory/DATA_MODEL.md
 pillars/modules/project_memory/AGENT_GUIDE.md
+pillars/modules/project_memory/STORAGE_STRATEGY.md
 src/memory/index.js
 src/memory/project/
 src/memory/policies/projectMemoryPolicy.js
@@ -114,7 +115,7 @@ Project Memory may only use confirmed, bounded, source-aware project facts as su
 
 ## 6. Migration/schema decision rule
 
-When working on Project Memory storage, always separate these concerns:
+When working on Project Memory storage, read `STORAGE_STRATEGY.md` first and separate these concerns:
 
 ```text
 schema definition

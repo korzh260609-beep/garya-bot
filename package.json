@@ -19,6 +19,7 @@
     "smoke:message-project-memory-env-context-activation": "node ./scripts/smokeMessageProjectMemoryPromptInjectionEnvActivation.js",
     "smoke:message-runtime-context-resolver": "node ./scripts/smokeMessageRuntimeContextResolver.js",
     "smoke:message-runtime-options-explicit-project-context": "node ./scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
+    "smoke:migration-runner-skeleton": "node ./scripts/smokeMigrationRunnerSkeleton.js",
     "smoke:observation-dispatch-github-events": "node ./scripts/smokeObservationDispatchGithubEvents.js",
     "smoke:observation-journal-health-latest-check": "node ./scripts/smokeObservationJournalHealthLatestCheck.js",
     "smoke:observation-journal-health-trigger": "node ./scripts/smokeObservationJournalHealthTrigger.js",

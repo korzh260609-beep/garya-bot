@@ -1,0 +1,44 @@
+name: SG2 Migration Automatic Orchestration Smoke
+
+# Focused SG2 workflow for automatic migration orchestration skeleton.
+# This workflow must never run migrations or mutate the database.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/db/migrations/migrationAutomaticOrchestrator.js"
+      - "src/db/migrations/migrationAutomaticReadinessPlan.js"
+      - "src/db/migrations/migrationExecutionLock.js"
+      - "src/db/migrations/migrationPendingDetector.js"
+      - "scripts/smokeMigrationAutomaticOrchestrationSkeleton.js"
+      - ".github/workflows/sg2-migration-automatic-orchestration-smoke.yml"
+
+jobs:
+  migration-automatic-orchestration-smoke:
+    name: Migration automatic orchestration smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check automatic orchestration syntax
+        run: |
+          node --check src/db/migrations/migrationAutomaticOrchestrator.js
+          node --check src/db/migrations/migrationAutomaticReadinessPlan.js
+          node --check src/db/migrations/migrationExecutionLock.js
+          node --check src/db/migrations/migrationPendingDetector.js
+          node --check scripts/smokeMigrationAutomaticOrchestrationSkeleton.js
+
+      - name: Smoke automatic orchestration skeleton
+        run: node ./scripts/smokeMigrationAutomaticOrchestrationSkeleton.js

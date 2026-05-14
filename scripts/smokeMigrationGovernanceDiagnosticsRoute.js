@@ -8,13 +8,19 @@ import {
   handleMessageDiagnosticsRoute,
 } from "../src/core/message/messageDiagnosticsRoute.js";
 
-const text = "СГ, выполни диагностику migration_governance";
+const text = "СГ migration_governance";
 
 const detection = detectExplicitDiagnosticsCheckRequest({ text });
 
 assert.equal(detection.ok, true);
 assert.equal(detection.reason, "explicit_diagnostics_check_matched");
 assert.deepEqual(detection.checks, ["migration_governance"]);
+
+const noMatch = detectExplicitDiagnosticsCheckRequest({ text: "СГ проверь миграции" });
+
+assert.equal(noMatch.ok, false);
+assert.equal(noMatch.reason, "no_allowlisted_check_matched");
+assert.deepEqual(noMatch.checks, []);
 
 let called = false;
 
@@ -64,4 +70,4 @@ assert.equal(denied.ok, false);
 assert.equal(denied.diagnosticsRoute.reason, "not_monarch");
 assert.equal(denied.reply, "Диагностика доступна только монарху.");
 
-console.log("OK: explicit migration_governance diagnostics route is deterministic and AI-free");
+console.log("OK: explicit migration_governance diagnostics route is allowlist-based and AI-free");

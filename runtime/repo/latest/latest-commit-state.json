@@ -1,64 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T16:40:05.926Z",
+  "generated_at": "2026-05-14T16:48:03.915Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "165f305895baaf4f47300428f5e046dbe6966c87",
-  "previous_head_sha": "36f34d5fa8fd9bfd9329cc3dfd337fd0f6455300",
+  "current_head_sha": "dc71413382b538163265c289587f832e135a3c59",
+  "previous_head_sha": "165f305895baaf4f47300428f5e046dbe6966c87",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "011ffdf57af9fc5dd0a973cfe13e95f0afa90461",
+  "registry_commit_sha": "aeee6ad837d524d009f776327c9b587a5de8b99c",
   "latest_commit": {
-    "sha": "165f305895baaf4f47300428f5e046dbe6966c87",
-    "short_sha": "165f305895ba",
-    "message": "Merge pull request #241 from korzh260609-beep/dev/migration-automatic-orchestration-skeleton\n\nmigration: add automatic orchestration skeleton",
+    "sha": "dc71413382b538163265c289587f832e135a3c59",
+    "short_sha": "dc71413382b5",
+    "message": "Merge pull request #242 from korzh260609-beep/dev/migration-automatic-runtime-hook-skeleton\n\nmigration: add automatic runtime hook skeleton",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T16:39:46Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/165f305895baaf4f47300428f5e046dbe6966c87",
-    "changed_files_count": 6,
+    "date": "2026-05-14T16:47:39Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/dc71413382b538163265c289587f832e135a3c59",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-migration-automatic-orchestration-smoke.yml",
+        "filename": ".github/workflows/sg2-migration-runtime-hook-smoke.yml",
         "status": "added",
-        "additions": 44,
+        "additions": 39,
         "deletions": 0,
-        "changes": 44
+        "changes": 39
       },
       {
-        "filename": "scripts/smokeMigrationAutomaticOrchestrationSkeleton.js",
-        "status": "added",
-        "additions": 73,
-        "deletions": 0,
-        "changes": 73
-      },
-      {
-        "filename": "src/db/migrations/migrationAutomaticOrchestrator.js",
-        "status": "added",
-        "additions": 74,
-        "deletions": 0,
-        "changes": 74
-      },
-      {
-        "filename": "src/db/migrations/migrationAutomaticReadinessPlan.js",
-        "status": "added",
-        "additions": 40,
-        "deletions": 0,
-        "changes": 40
-      },
-      {
-        "filename": "src/db/migrations/migrationExecutionLock.js",
-        "status": "added",
-        "additions": 41,
-        "deletions": 0,
-        "changes": 41
-      },
-      {
-        "filename": "src/db/migrations/migrationPendingDetector.js",
+        "filename": "scripts/smokeMigrationRuntimeHookSkeleton.js",
         "status": "added",
         "additions": 53,
         "deletions": 0,
         "changes": 53
+      },
+      {
+        "filename": "src/app/migrationRuntimeHook.js",
+        "status": "added",
+        "additions": 48,
+        "deletions": 0,
+        "changes": 48
+      },
+      {
+        "filename": "src/app/runtimeHooks.js",
+        "status": "modified",
+        "additions": 14,
+        "deletions": 0,
+        "changes": 14
       }
     ]
   }

@@ -1,6 +1,6 @@
 // scripts/smokeObservationTriggerLayer.js
 // SG 2.0 smoke test for Observation Trigger Layer skeleton.
-// Purpose: prove trigger registry uses an allowlist and does not execute unknown triggers.
+// Purpose: prove trigger registry uses an allowlist, rejects unknown triggers, and refreshes journal health after runtime status.
 
 import assert from "node:assert/strict";
 
@@ -38,4 +38,27 @@ assert.equal(rejected.type, "observation_trigger_result");
 assert.equal(rejected.reason, "observation_trigger_not_allowed");
 assert.equal(Object.prototype.hasOwnProperty.call(rejected, "observation"), false);
 
-console.log("OK: observation trigger layer uses allowlist and rejects unknown triggers");
+const runtimeResult = await runObservationTrigger({
+  name: OBSERVATION_TRIGGER_NAMES.RUNTIME_STATUS_REQUESTED,
+  payload: {
+    runtimeStatus: {
+      nodeEnv: "test",
+      telegramConfigured: true,
+      monarchConfigured: true,
+      aiConfigured: true,
+      openaiModel: "test-model",
+      baseUrlConfigured: true,
+    },
+  },
+});
+
+assert.equal(runtimeResult.ok, true);
+assert.equal(runtimeResult.type, "observation_trigger_result");
+assert.equal(runtimeResult.trigger, OBSERVATION_TRIGGER_NAMES.RUNTIME_STATUS_REQUESTED);
+assert.equal(runtimeResult.latestReportName, "runtime-status-latest");
+assert.equal(runtimeResult.observation.ok, true);
+assert.equal(runtimeResult.observation.produced, true);
+assert.equal(runtimeResult.journalHealthObservation.ok, true);
+assert.equal(runtimeResult.journalHealthObservation.produced, true);
+
+console.log("OK: observation trigger layer uses allowlist and refreshes journal health after runtime status");

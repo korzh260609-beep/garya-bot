@@ -156,6 +156,7 @@ jobs:
           node --check src/diagnostics/diagnosticsPlan.js
           node --check src/diagnostics/diagnosticsReport.js
           node --check src/diagnostics/diagnosticsRunner.js
+          node --check src/diagnostics/migrationDbReadinessCheck.js
           node --check src/diagnostics/migrationGovernanceCheck.js
           node --check src/diagnostics/observationLatestReportCheck.js
           node --check src/diagnostics/projectMemoryLiveDbCheck.js
@@ -197,6 +198,7 @@ jobs:
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
           node --check scripts/smokeMessageProjectMemoryContextGate.js
           node --check scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js
+          node --check scripts/smokeMigrationDbReadinessCheck.js
           node --check scripts/smokeMigrationExecutionControllerSkeleton.js
           node --check scripts/smokeMigrationExecutionGuardSkeleton.js
           node --check scripts/smokeMigrationGovernanceCheck.js
@@ -232,6 +234,9 @@ jobs:
 
       - name: Smoke diagnostics default plan journal health
         run: npm run smoke:diagnostics-default-plan-journal-health
+
+      - name: Smoke migration DB readiness diagnostics
+        run: npm run smoke:migration-db-readiness
 
       - name: Smoke migration governance diagnostics
         run: npm run smoke:diagnostics-migration-governance

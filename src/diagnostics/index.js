@@ -4,6 +4,8 @@ export * from "./diagnosticsPlan.js";
 export * from "./diagnosticsReport.js";
 export * from "./diagnosticsRunner.js";
 export * from "./observationLatestReportCheck.js";
+export * from "./projectMemoryLiveDbCheck.js";
+export * from "./projectMemoryRuntimeCheck.js";
 export * from "./usersIdentityLinkingCheck.js";
 export * from "./usersIdentityLinkRequestsCheck.js";
 export * from "./usersIdentityRegistryCheck.js";

@@ -3,9 +3,8 @@
 > AGENT NOTE:
 > This file defines the SG 2.0 Project Memory module boundary.
 > Read it before adding project memory reads, writes, confirmations, sync, context building, restore logic, or project experience storage.
+> Also read `AGENT_GUIDE.md` before work: current implementation state must be verified from the active branch and runtime diagnostics, not inferred from static documentation.
 > Do not add Telegram integration, AI calls, automatic memory writes, raw logs, raw provider IDs, timers, cron, autonomous actions, or secret exposure here without explicit Monarch approval.
-
-Статус: SKELETON / DOCS-ONLY
 
 ---
 
@@ -180,30 +179,23 @@ Transport must not decide what becomes durable Project Memory.
 
 ---
 
-## 8. Current skeleton scope
+## 8. Implementation verification rule
 
-This docs-only skeleton defines:
+This module documentation defines durable boundaries and operating rules.
 
-- purpose;
-- boundary;
-- allowed content;
-- forbidden content;
-- source-of-truth hierarchy;
-- interface families;
-- risks;
-- future runtime gates.
+It is not a live implementation inventory.
 
-It does not implement:
+Before adding or changing Project Memory behavior, agents must verify current files in the active branch and, when relevant, runtime / Render / DB diagnostics.
 
-- database tables;
-- runtime code;
-- AI calls;
-- Telegram commands;
-- sync jobs;
-- cron/timers;
-- automatic memory writes;
-- migrations;
-- observation consumers.
+Do not infer current implementation state from:
+
+```text
+old commits
+GitHub search index
+stale PR descriptions
+old chat summaries
+mutable progress notes
+```
 
 ---
 

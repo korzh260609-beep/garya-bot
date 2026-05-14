@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T10:18:49.625Z",
+  "generated_at": "2026-05-14T11:50:34.247Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "1ab94eefa716fa89cc96175f703a307b628f7466",
-  "previous_head_sha": "7959b817814655c95efe3d7fe219fa7a3686f4f2",
+  "current_head_sha": "8e444367c31d059dff1444ba167f318b2a05783e",
+  "previous_head_sha": "1ab94eefa716fa89cc96175f703a307b628f7466",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "f706f72d576f96eb4d94e9872886df1867918be4",
+  "registry_commit_sha": "e52ade9cc6739b0adf10ba72ea0d68f1f0ecacb6",
   "latest_commit": {
-    "sha": "1ab94eefa716fa89cc96175f703a307b628f7466",
-    "short_sha": "1ab94eefa716",
-    "message": "Merge PR #232: migration SQL executor boundary\n\nMerge guarded migration SQL executor boundary into dev/v2-start.",
+    "sha": "8e444367c31d059dff1444ba167f318b2a05783e",
+    "short_sha": "8e444367c31d",
+    "message": "Merge PR #233: migration ledger write boundary and transaction orchestration skeleton\n\nMerge migration ledger write boundary and transaction orchestration skeleton into dev/v2-start.\n\nSafety boundaries preserved:\n- no startup hook\n- no RUN_MIGRATIONS_ON_BOOT=1\n- no real DB mutation\n- no Project Memory writes\n- no Telegram/AI runtime changes",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T10:18:32Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1ab94eefa716fa89cc96175f703a307b628f7466",
-    "changed_files_count": 4,
+    "date": "2026-05-14T11:50:10Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8e444367c31d059dff1444ba167f318b2a05783e",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
-        "status": "modified",
-        "additions": 5,
+        "filename": ".github/workflows/sg2-migration-transaction-smoke.yml",
+        "status": "added",
+        "additions": 40,
         "deletions": 0,
-        "changes": 5
+        "changes": 40
       },
       {
         "filename": "package.json",
@@ -33,18 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationSqlExecutorBoundary.js",
+        "filename": "scripts/smokeMigrationTransactionOrchestratorSkeleton.js",
         "status": "added",
-        "additions": 108,
+        "additions": 131,
         "deletions": 0,
-        "changes": 108
+        "changes": 131
       },
       {
-        "filename": "src/db/migrations/migrationSqlExecutor.js",
+        "filename": "src/db/migrations/migrationLedgerWriter.js",
         "status": "added",
-        "additions": 116,
+        "additions": 204,
         "deletions": 0,
-        "changes": 116
+        "changes": 204
+      },
+      {
+        "filename": "src/db/migrations/migrationTransactionOrchestrator.js",
+        "status": "added",
+        "additions": 159,
+        "deletions": 0,
+        "changes": 159
       }
     ]
   }

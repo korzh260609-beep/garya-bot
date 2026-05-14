@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T12:36:52.302Z",
+  "generated_at": "2026-05-14T12:46:27.242Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "43388bb5ade706bad0523c97cc380af1eca1cf93",
+  "head_sha": "a01dfc370cf95740b774db03c0cbfbea71c0c63c",
   "truncated": false,
-  "items_count": 419,
+  "items_count": 420,
   "semantic_fields": [
     "module",
     "layer",
@@ -115,6 +115,24 @@
     },
     {
       "path": ".github/workflows/sg2-migration-manual-execution-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-migration-manual-execution-visibility-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",

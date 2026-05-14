@@ -1,22 +1,22 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T07:15:41.516Z",
+  "generated_at": "2026-05-14T07:27:56.569Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "d742d98a08d05d364335cf1df1d62499ecc0ed5c",
-  "previous_head_sha": "dda705e3bdb1f4c823cec5ad4e32915cb2b05e35",
+  "current_head_sha": "d5ece62d1ae0b406eaf179d28ffa66e636c5402f",
+  "previous_head_sha": "d742d98a08d05d364335cf1df1d62499ecc0ed5c",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "ced605c712d74f8bae3db6e2720fb783d2701f23",
+  "registry_commit_sha": "87981b4eaab04dc6471dc8caf2ee4022bd35f2bf",
   "latest_commit": {
-    "sha": "d742d98a08d05d364335cf1df1d62499ecc0ed5c",
-    "short_sha": "d742d98a08d0",
-    "message": "diagnostics: register migration governance check\n\nRegister migration_governance in the diagnostics check registry with read-only smoke coverage and SG2 Smoke CI wiring.",
+    "sha": "d5ece62d1ae0b406eaf179d28ffa66e636c5402f",
+    "short_sha": "d5ece62d1ae0",
+    "message": "diagnostics: route explicit migration governance check\n\nAdd deterministic route smoke coverage for explicit migration_governance diagnostics requests without changing route code.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T07:15:15Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d742d98a08d05d364335cf1df1d62499ecc0ed5c",
-    "changed_files_count": 4,
+    "date": "2026-05-14T07:27:34Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d5ece62d1ae0b406eaf179d28ffa66e636c5402f",
+    "changed_files_count": 3,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
@@ -33,18 +33,11 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationGovernanceRegistry.js",
+        "filename": "scripts/smokeMigrationGovernanceDiagnosticsRoute.js",
         "status": "added",
-        "additions": 27,
+        "additions": 67,
         "deletions": 0,
-        "changes": 27
-      },
-      {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
-        "status": "modified",
-        "additions": 11,
-        "deletions": 0,
-        "changes": 11
+        "changes": 67
       }
     ]
   }

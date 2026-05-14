@@ -11,3 +11,4 @@ export * from "./messageProjectMemoryReadBridge.js";
 export * from "./messageProjectMemoryContextGate.js";
 export * from "./messageAiRequest.js";
 export * from "./messageGithubApproval.js";
+export * from "./messageDiagnosticsRoute.js";

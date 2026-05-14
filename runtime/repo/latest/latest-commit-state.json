@@ -1,36 +1,57 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T09:05:32.430Z",
+  "generated_at": "2026-05-14T09:28:42.539Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "035295d5b8214bbc6dbaa3eb130ff02a61b563d4",
-  "previous_head_sha": "8ecf7f07e5f799273ddba7210b3fea083700f128",
+  "current_head_sha": "1529a548f63129fc306e8d8a7958f81596ac78c2",
+  "previous_head_sha": "035295d5b8214bbc6dbaa3eb130ff02a61b563d4",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "a7ff409b588eef74ec78cd04ff10cfd579660a0b",
+  "registry_commit_sha": "42f529fa659ff1cad1229caa26f718bd3a907f16",
   "latest_commit": {
-    "sha": "035295d5b8214bbc6dbaa3eb130ff02a61b563d4",
-    "short_sha": "035295d5b821",
-    "message": "Merge PR #228: observation runtime status refreshes journal health\n\nMerge observation nervous system sync fix into dev/v2-start.",
+    "sha": "1529a548f63129fc306e8d8a7958f81596ac78c2",
+    "short_sha": "1529a548f631",
+    "message": "Merge PR #229: project memory migration definition skeleton\n\nMerge first plan-only Project Memory migration definition into dev/v2-start.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T09:05:14Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/035295d5b8214bbc6dbaa3eb130ff02a61b563d4",
-    "changed_files_count": 2,
+    "date": "2026-05-14T09:28:18Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1529a548f63129fc306e8d8a7958f81596ac78c2",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": "scripts/smokeObservationTriggerLayer.js",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 51,
-        "deletions": 3,
-        "changes": 54
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
       },
       {
-        "filename": "src/agents/observation/triggers/observationTriggerRunner.js",
+        "filename": "scripts/smokeMigrationGovernanceCheck.js",
         "status": "modified",
-        "additions": 26,
-        "deletions": 6,
-        "changes": 32
+        "additions": 2,
+        "deletions": 2,
+        "changes": 4
+      },
+      {
+        "filename": "scripts/smokeMigrationRunnerSkeleton.js",
+        "status": "modified",
+        "additions": 8,
+        "deletions": 3,
+        "changes": 11
+      },
+      {
+        "filename": "src/db/migrations/definitions/001_project_memory_core.js",
+        "status": "added",
+        "additions": 57,
+        "deletions": 0,
+        "changes": 57
+      },
+      {
+        "filename": "src/db/migrations/migrationRegistry.js",
+        "status": "modified",
+        "additions": 4,
+        "deletions": 1,
+        "changes": 5
       }
     ]
   }

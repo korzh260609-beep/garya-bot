@@ -148,6 +148,7 @@ jobs:
           node --check src/diagnostics/diagnosticsReport.js
           node --check src/diagnostics/diagnosticsRunner.js
           node --check src/diagnostics/observationLatestReportCheck.js
+          node --check src/diagnostics/projectMemoryLiveDbCheck.js
           node --check src/diagnostics/projectMemoryRuntimeCheck.js
           node --check src/diagnostics/usersIdentityLinkingCheck.js
           node --check src/diagnostics/usersIdentityLinkRequestsCheck.js
@@ -192,6 +193,7 @@ jobs:
           node --check scripts/smokeObservationTriggerDispatchAgent.js
           node --check scripts/smokeProjectMemoryConfirmedReadFlow.js
           node --check scripts/smokeProjectMemoryExplicitConfirmationFlow.js
+          node --check scripts/smokeProjectMemoryLiveDbCheck.js
           node --check scripts/smokeProjectMemoryManualCandidateFlow.js
           node --check scripts/smokeProjectMemoryOwnershipScope.js
           node --check scripts/smokeProjectMemoryRuntimeContext.js
@@ -257,6 +259,9 @@ jobs:
 
       - name: Smoke project memory explicit confirmation flow
         run: npm run smoke:project-memory-explicit-confirmation-flow
+
+      - name: Smoke project memory live DB check
+        run: npm run smoke:project-memory-live-db-check
 
       - name: Smoke project memory manual candidate flow
         run: npm run smoke:project-memory-manual-candidate-flow

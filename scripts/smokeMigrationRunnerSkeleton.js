@@ -10,7 +10,7 @@ import { buildMigrationPlan, runMigrations } from "../src/db/migrations/migratio
 const validation = validateMigrationRegistry();
 
 assert.equal(validation.ok, true);
-assert.equal(validation.count, 0);
+assert.equal(validation.count, 1);
 assert.deepEqual(validation.errors, []);
 
 const plan = buildMigrationPlan();
@@ -24,7 +24,12 @@ assert.equal(plan.rules.noTelegramExecution, true);
 assert.equal(plan.rules.noAiExecution, true);
 assert.equal(plan.rules.noProjectMemoryWrite, true);
 assert.equal(plan.rules.explicitApprovalRequired, true);
-assert.deepEqual(plan.migrations, []);
+assert.equal(plan.migrations.length, 1);
+assert.equal(plan.migrations[0].id, "001_project_memory_core");
+assert.equal(plan.migrations[0].name, "project_memory_core");
+assert.equal(plan.migrations[0].module, "project_memory");
+assert.equal(plan.migrations[0].status, "pending");
+assert.equal(plan.migrations[0].sqlCount > 0, true);
 
 const execution = await runMigrations();
 
@@ -32,4 +37,4 @@ assert.equal(execution.ok, false);
 assert.equal(execution.reason, "migration_execution_not_implemented_in_skeleton");
 assert.equal(execution.willMutateDatabase, false);
 
-console.log("OK: migration runner skeleton is plan-only and non-mutating");
+console.log("OK: migration runner skeleton includes Project Memory definition and remains non-mutating");

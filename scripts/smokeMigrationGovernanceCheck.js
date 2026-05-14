@@ -22,7 +22,7 @@ assert.equal(report.runnerPlan.ok, true);
 assert.equal(report.runnerPlan.type, "migration_plan");
 assert.equal(report.runnerPlan.mode, "plan_only");
 assert.equal(report.runnerPlan.willMutateDatabase, false);
-assert.equal(report.runnerPlan.migrationCount, 0);
+assert.equal(report.runnerPlan.migrationCount, 1);
 
 assert.equal(report.ledgerPlan.ok, true);
 assert.equal(report.ledgerPlan.type, "migration_ledger_plan");
@@ -44,4 +44,4 @@ assert.equal(report.safety.noTelegramExecution, true);
 assert.equal(report.safety.noAiExecution, true);
 assert.equal(report.safety.noProjectMemoryWrite, true);
 
-console.log("OK: migration governance diagnostics check is read-only and blocked");
+console.log("OK: migration governance diagnostics check is read-only and blocked with one planned migration");

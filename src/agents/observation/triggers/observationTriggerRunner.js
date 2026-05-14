@@ -20,14 +20,15 @@ function rejected(reason, extra = {}) {
   };
 }
 
-function formatTriggerResult({ trigger, observation }) {
+function formatTriggerResult({ trigger, observation, journalHealthObservation = null }) {
   return {
-    ok: Boolean(observation?.ok),
+    ok: Boolean(observation?.ok) && (!journalHealthObservation || Boolean(journalHealthObservation.ok)),
     type: "observation_trigger_result",
     trigger: trigger.name,
     eventType: trigger.eventType,
     latestReportName: trigger.latestReportName,
     observation,
+    journalHealthObservation,
   };
 }
 
@@ -46,8 +47,9 @@ export async function runObservationTrigger({ name, payload = {}, context = {} }
 
   if (trigger.name === OBSERVATION_TRIGGER_NAMES.RUNTIME_STATUS_REQUESTED) {
     const observation = await produceRuntimeStatusObservationLatest(payload.runtimeStatus);
+    const journalHealthObservation = await produceObservationJournalHealthLatest();
 
-    return formatTriggerResult({ trigger, observation });
+    return formatTriggerResult({ trigger, observation, journalHealthObservation });
   }
 
   if (trigger.name === OBSERVATION_TRIGGER_NAMES.OBSERVATION_JOURNAL_HEALTH_REQUESTED) {

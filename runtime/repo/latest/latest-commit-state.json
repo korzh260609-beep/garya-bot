@@ -1,43 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-13T13:59:16.720Z",
+  "generated_at": "2026-05-14T02:10:24.070Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "c5f59431540327bbef9fe840d03a7544fc399bc0",
-  "previous_head_sha": "7be282ed7c957d3c9b0cfd3d40e2ce4835aba7c7",
+  "current_head_sha": "d4febf864e026d0f799957a23b3d6b3eaf7f88a7",
+  "previous_head_sha": "c5f59431540327bbef9fe840d03a7544fc399bc0",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "1c49caa7f743ef32452aaaa07386d4040cf5b899",
+  "registry_commit_sha": "5c146996f7ac5bbea126a6ad20a66be2f4a77aba",
   "latest_commit": {
-    "sha": "c5f59431540327bbef9fe840d03a7544fc399bc0",
-    "short_sha": "c5f594315403",
-    "message": "test: add Project Memory env context activation smoke\n\nMerge PR #213 into dev/v2-start after successful checks.",
+    "sha": "d4febf864e026d0f799957a23b3d6b3eaf7f88a7",
+    "short_sha": "d4febf864e02",
+    "message": "docs(project_memory): fix current status and work plan\n\nAdd project memory STATUS.md with current audited state, missing work, safe next order, and forbidden assumptions.",
     "author": "korzh260609-beep",
-    "date": "2026-05-13T13:58:52Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c5f59431540327bbef9fe840d03a7544fc399bc0",
-    "changed_files_count": 3,
+    "date": "2026-05-14T02:10:00Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/d4febf864e026d0f799957a23b3d6b3eaf7f88a7",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-project-memory-env-context-smoke.yml",
+        "filename": "pillars/modules/project_memory/STATUS.md",
         "status": "added",
-        "additions": 30,
+        "additions": 148,
         "deletions": 0,
-        "changes": 30
-      },
-      {
-        "filename": "package.json",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "scripts/smokeMessageProjectMemoryPromptInjectionEnvActivation.js",
-        "status": "added",
-        "additions": 124,
-        "deletions": 0,
-        "changes": 124
+        "changes": 148
       }
     ]
   }

@@ -1,29 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T12:46:28.521Z",
+  "generated_at": "2026-05-14T13:10:30.342Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "a01dfc370cf95740b774db03c0cbfbea71c0c63c",
-  "previous_head_sha": "43388bb5ade706bad0523c97cc380af1eca1cf93",
+  "current_head_sha": "e4eb0c14aeb6fc00ebc554b35387c128f433bae1",
+  "previous_head_sha": "a01dfc370cf95740b774db03c0cbfbea71c0c63c",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "f983106a569c68df17abe545ff1eff6b9343c06e",
+  "registry_commit_sha": "5e1400c1e4c6b673121044aa61b6ba3ac0009fef",
   "latest_commit": {
-    "sha": "a01dfc370cf95740b774db03c0cbfbea71c0c63c",
-    "short_sha": "a01dfc370cf9",
-    "message": "Merge pull request #237 from korzh260609-beep/dev/migration-preflight-ci-coverage\n\nmigration: add manual execution visibility CI coverage",
+    "sha": "e4eb0c14aeb6fc00ebc554b35387c128f433bae1",
+    "short_sha": "e4eb0c14aeb6",
+    "message": "Merge pull request #238 from korzh260609-beep/dev/migration-db-readiness-diagnostics\n\nmigration: add DB readiness diagnostics",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T12:46:09Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/a01dfc370cf95740b774db03c0cbfbea71c0c63c",
-    "changed_files_count": 1,
+    "date": "2026-05-14T13:10:11Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e4eb0c14aeb6fc00ebc554b35387c128f433bae1",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-migration-manual-execution-visibility-smoke.yml",
-        "status": "added",
-        "additions": 56,
+        "filename": "package.json",
+        "status": "modified",
+        "additions": 1,
         "deletions": 0,
-        "changes": 56
+        "changes": 1
+      },
+      {
+        "filename": "scripts/smokeMigrationDbReadinessCheck.js",
+        "status": "added",
+        "additions": 91,
+        "deletions": 0,
+        "changes": 91
+      },
+      {
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "status": "modified",
+        "additions": 13,
+        "deletions": 4,
+        "changes": 17
+      },
+      {
+        "filename": "src/diagnostics/migrationDbReadinessCheck.js",
+        "status": "added",
+        "additions": 121,
+        "deletions": 0,
+        "changes": 121
       }
     ]
   }

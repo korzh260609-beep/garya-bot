@@ -10,23 +10,26 @@ import { buildMigrationPendingDetectionPlan } from "../src/db/migrations/migrati
 
 const lockPlan = buildMigrationExecutionLockPlan();
 assert.equal(lockPlan.ok, true);
-assert.equal(lockPlan.mode, "plan_only");
-assert.equal(lockPlan.implemented, false);
+assert.equal(lockPlan.mode, "db_backed_lock_plan_only");
+assert.equal(lockPlan.implemented, true);
 assert.equal(lockPlan.lockRequired, true);
 assert.equal(lockPlan.lockAcquired, false);
+assert.equal(lockPlan.acquireAttempted, false);
 assert.equal(lockPlan.willMutateDatabase, false);
+assert.equal(lockPlan.safety.advisoryLockAcquireNotExecuted, true);
 assert.equal(lockPlan.safety.noMigrationExecution, true);
 assert.equal(lockPlan.safety.noDbMutation, true);
 
 const pendingPlan = buildMigrationPendingDetectionPlan();
 assert.equal(pendingPlan.ok, true);
-assert.equal(pendingPlan.mode, "registry_only_plan");
-assert.equal(pendingPlan.implemented, false);
-assert.equal(pendingPlan.pendingKnown, false);
-assert.equal(pendingPlan.pendingCount, null);
+assert.equal(pendingPlan.mode, "db_backed_read_only_comparison");
+assert.equal(pendingPlan.implemented, true);
+assert.equal(pendingPlan.pendingKnown, true);
+assert.equal(Number.isInteger(pendingPlan.pendingCount), true);
 assert.equal(Array.isArray(pendingPlan.registeredMigrations), true);
 assert.equal(pendingPlan.migrationCount >= 1, true);
 assert.equal(pendingPlan.willMutateDatabase, false);
+assert.equal(pendingPlan.safety.readOnlyLedgerComparison, true);
 assert.equal(pendingPlan.safety.noMigrationExecution, true);
 assert.equal(pendingPlan.safety.noDbMutation, true);
 
@@ -46,12 +49,15 @@ const orchestrationPlan = buildMigrationAutomaticOrchestrationPlan({
 
 assert.equal(orchestrationPlan.ok, true);
 assert.equal(orchestrationPlan.type, "migration_automatic_orchestration_plan");
-assert.equal(orchestrationPlan.mode, "automatic_orchestration_skeleton");
-assert.equal(orchestrationPlan.implemented, false);
+assert.equal(orchestrationPlan.mode, "automatic_orchestration_db_backed_skeleton");
+assert.equal(orchestrationPlan.implemented, true);
 assert.equal(orchestrationPlan.executionBlocked, true);
 assert.equal(orchestrationPlan.willMutateDatabase, false);
+assert.equal(orchestrationPlan.visibility.dbBackedLockBoundaryReady, true);
+assert.equal(orchestrationPlan.visibility.pendingDetectionImplemented, true);
+assert.equal(orchestrationPlan.visibility.pendingKnown, true);
 assert.equal(orchestrationPlan.lockPlan.lockRequired, true);
-assert.equal(orchestrationPlan.pendingPlan.pendingKnown, false);
+assert.equal(orchestrationPlan.pendingPlan.pendingKnown, true);
 assert.equal(orchestrationPlan.dbReadinessPlan.connectivityChecked, false);
 assert.equal(orchestrationPlan.startupHook.planned, true);
 assert.equal(orchestrationPlan.startupHook.installed, false);
@@ -60,7 +66,7 @@ assert.equal(orchestrationPlan.report.observationPlanned, true);
 assert.equal(orchestrationPlan.report.observationWritten, false);
 assert.equal(orchestrationPlan.safety.noDbMutation, true);
 assert.equal(orchestrationPlan.safety.noTransactionOpened, true);
-assert.equal(orchestrationPlan.safety.noSqlExecution, true);
+assert.equal(orchestrationPlan.safety.noSqlWriteExecution, true);
 assert.equal(orchestrationPlan.safety.noMigrationExecution, true);
 assert.equal(orchestrationPlan.safety.noLedgerWrite, true);
 assert.equal(orchestrationPlan.safety.noSchemaCreation, true);
@@ -70,4 +76,4 @@ assert.equal(orchestrationPlan.safety.lockRequiredBeforeFutureExecution, true);
 assert.equal(orchestrationPlan.safety.pendingDetectionRequiredBeforeFutureExecution, true);
 assert.equal(orchestrationPlan.safety.observationReportRequiredAfterFutureExecution, true);
 
-console.log("OK: automatic migration orchestration skeleton is non-mutating");
+console.log("OK: automatic migration orchestration DB-backed skeleton is non-mutating");

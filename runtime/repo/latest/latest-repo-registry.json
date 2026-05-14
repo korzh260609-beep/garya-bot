@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-14T02:10:23.012Z",
+  "generated_at": "2026-05-14T02:30:58.602Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "d4febf864e026d0f799957a23b3d6b3eaf7f88a7",
+  "head_sha": "1061045e8526be2e3aebbd4874eef61c9c7a1f58",
   "truncated": false,
-  "items_count": 381,
+  "items_count": 382,
   "semantic_fields": [
     "module",
     "layer",
@@ -1315,6 +1315,26 @@
         "source_priority": "highest_project_law",
         "notes": [
           "folder_node",
+          "source_first_project_rule_or_map"
+        ]
+      }
+    },
+    {
+      "path": "pillars/modules/project_memory/AGENT_GUIDE.md",
+      "type": "file",
+      "parent": "pillars/modules/project_memory",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
           "source_first_project_rule_or_map"
         ]
       }

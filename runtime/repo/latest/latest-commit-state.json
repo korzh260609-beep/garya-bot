@@ -1,22 +1,22 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T12:25:03.357Z",
+  "generated_at": "2026-05-14T12:36:53.869Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "4f75dbc68da8cc358b87a9d653e21b2cf9a1ea8b",
-  "previous_head_sha": "11a091dd9c596ec40881c22b4f860db2baa2f98a",
+  "current_head_sha": "43388bb5ade706bad0523c97cc380af1eca1cf93",
+  "previous_head_sha": "4f75dbc68da8cc358b87a9d653e21b2cf9a1ea8b",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "fc424bb3df56bacc6dbc775892323695ae0182f9",
+  "registry_commit_sha": "a9e59e5b9e838d03ff094eeefa38b6f93efa2039",
   "latest_commit": {
-    "sha": "4f75dbc68da8cc358b87a9d653e21b2cf9a1ea8b",
-    "short_sha": "4f75dbc68da8",
-    "message": "Merge pull request #235 from korzh260609-beep/dev/migration-manual-execution-dry-run-diagnostics\n\nmigration: add manual execution dry-run diagnostics visibility",
+    "sha": "43388bb5ade706bad0523c97cc380af1eca1cf93",
+    "short_sha": "43388bb5ade7",
+    "message": "Merge pull request #236 from korzh260609-beep/dev/migration-manual-execution-preflight-visibility\n\nmigration: add manual execution preflight diagnostics visibility",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T12:24:46Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4f75dbc68da8cc358b87a9d653e21b2cf9a1ea8b",
-    "changed_files_count": 4,
+    "date": "2026-05-14T12:36:34Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/43388bb5ade706bad0523c97cc380af1eca1cf93",
+    "changed_files_count": 5,
     "changed_files": [
       {
         "filename": "package.json",
@@ -26,11 +26,11 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationManualExecutionDryRunCheck.js",
+        "filename": "scripts/smokeMigrationManualExecutionPreflight.js",
         "status": "added",
-        "additions": 76,
+        "additions": 109,
         "deletions": 0,
-        "changes": 76
+        "changes": 109
       },
       {
         "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
@@ -40,11 +40,18 @@
         "changes": 11
       },
       {
-        "filename": "src/diagnostics/migrationManualExecutionDryRunCheck.js",
+        "filename": "src/db/migrations/migrationManualExecutionPreflight.js",
         "status": "added",
-        "additions": 113,
+        "additions": 123,
         "deletions": 0,
-        "changes": 113
+        "changes": 123
+      },
+      {
+        "filename": "src/diagnostics/migrationManualExecutionPreflightCheck.js",
+        "status": "added",
+        "additions": 44,
+        "deletions": 0,
+        "changes": 44
       }
     ]
   }

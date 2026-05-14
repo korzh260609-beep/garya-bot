@@ -1,36 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-14T04:49:38.522Z",
+  "generated_at": "2026-05-14T05:03:45.525Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "eb018680e9d29e07e14e8dc45c35a7ff951b6dc8",
-  "previous_head_sha": "687151f1361e03757f70c8ccd1adc9aa3d84bb8e",
+  "current_head_sha": "213503e03125921fcf77892d71c98328e0025e8d",
+  "previous_head_sha": "eb018680e9d29e07e14e8dc45c35a7ff951b6dc8",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "b6f486c35d656f3b78fc8905400a474d42fae516",
+  "registry_commit_sha": "a925bb4d64af9d00112513e034ec4593f9c248dc",
   "latest_commit": {
-    "sha": "eb018680e9d29e07e14e8dc45c35a7ff951b6dc8",
-    "short_sha": "eb018680e9d2",
-    "message": "diagnostics: move explicit route to handleMessage\n\nMerge PR #219 into dev/v2-start.\n\nMoves deterministic diagnostics route into core message orchestration before runtime options and AI.",
+    "sha": "213503e03125921fcf77892d71c98328e0025e8d",
+    "short_sha": "213503e03125",
+    "message": "project-memory: add migration runner skeleton\n\nMerge PR #220 into dev/v2-start.\n\nAdds inert plan-only migration governance skeleton for Project Memory storage work.",
     "author": "korzh260609-beep",
-    "date": "2026-05-14T04:49:19Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/eb018680e9d29e07e14e8dc45c35a7ff951b6dc8",
-    "changed_files_count": 2,
+    "date": "2026-05-14T05:03:22Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/213503e03125921fcf77892d71c98328e0025e8d",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": "src/core/handleMessage.js",
-        "status": "modified",
-        "additions": 11,
-        "deletions": 1,
-        "changes": 12
+        "filename": "scripts/smokeMigrationRunnerSkeleton.js",
+        "status": "added",
+        "additions": 35,
+        "deletions": 0,
+        "changes": 35
       },
       {
-        "filename": "src/core/message/messageAiRequest.js",
-        "status": "modified",
-        "additions": 2,
-        "deletions": 16,
-        "changes": 18
+        "filename": "src/db/migrations/migrationRegistry.js",
+        "status": "added",
+        "additions": 53,
+        "deletions": 0,
+        "changes": 53
+      },
+      {
+        "filename": "src/db/migrations/migrationRunner.js",
+        "status": "added",
+        "additions": 48,
+        "deletions": 0,
+        "changes": 48
+      },
+      {
+        "filename": "src/db/migrations/migrationTypes.js",
+        "status": "added",
+        "additions": 50,
+        "deletions": 0,
+        "changes": 50
       }
     ]
   }

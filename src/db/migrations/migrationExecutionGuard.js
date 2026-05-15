@@ -1,27 +1,36 @@
-// AGENT NOTE:
-// SG 2.0 migration execution guard skeleton.
-// Purpose: provide an explicit safety gate before any future migration execution path exists.
-// Do not import postgresClient, run queries, write Project Memory, call AI, touch Telegram, or add startup execution here.
+// SG 2.0 migration execution guard.
+// Purpose: decide if migration execution is allowed by runtime config.
+// This module only reads config and returns a decision.
 
 import { getMigrationRuntimeConfigFromEnv } from "./migrationRuntimeConfig.js";
 
-export const MIGRATION_EXECUTION_GUARD_REASON = "migration_execution_requires_explicit_future_approval";
+export const MIGRATION_EXECUTION_GUARD_REASON = "migration_execution_requires_runtime_gates";
 
 export function buildMigrationExecutionGuard(overrides = {}) {
   const runtimeConfig = overrides.runtimeConfig || getMigrationRuntimeConfigFromEnv();
   const runMigrationsOnBoot = Boolean(runtimeConfig?.env?.runMigrationsOnBoot?.enabled);
+  const approveMigrationsOnBoot = Boolean(runtimeConfig?.env?.approveMigrationsOnBoot?.enabled);
+  const executionAllowed = Boolean(
+    overrides.executionAllowed === true
+    || (runMigrationsOnBoot && approveMigrationsOnBoot),
+  );
 
   return {
     ok: true,
     type: "migration_execution_guard",
-    executionAllowed: false,
-    reason: overrides.reason || MIGRATION_EXECUTION_GUARD_REASON,
+    executionAllowed,
+    reason: overrides.reason || (
+      executionAllowed
+        ? "migration_execution_runtime_gates_passed"
+        : MIGRATION_EXECUTION_GUARD_REASON
+    ),
     willMutateDatabase: false,
     runtimeConfig,
     env: {
       runMigrationsOnBoot,
+      approveMigrationsOnBoot,
       runMigrationsOnBootEnvKey: runtimeConfig?.env?.runMigrationsOnBoot?.key || "RUN_MIGRATIONS_ON_BOOT",
-      existingEnvVariableUsed: true,
+      approveMigrationsOnBootEnvKey: runtimeConfig?.env?.approveMigrationsOnBoot?.key || "APPROVE_MIGRATIONS_ON_BOOT",
     },
     rules: {
       noDefaultExecution: true,
@@ -30,8 +39,9 @@ export function buildMigrationExecutionGuard(overrides = {}) {
       noTelegramExecution: true,
       noAiExecution: true,
       noProjectMemoryWrite: true,
-      explicitApprovalRequired: true,
-      envFlagAloneDoesNotBypassGuard: true,
+      runGateRequired: true,
+      approvalGateRequired: true,
+      bothGatesRequired: true,
       ...(overrides.rules || {}),
     },
   };

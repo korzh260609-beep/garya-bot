@@ -53,6 +53,7 @@ jobs:
         run: |
           node --check src/db/postgresClient.js
           node --check src/db/migrations/definitions/001_project_memory_core.js
+          node --check src/db/migrations/migrationAutomaticExecutionPreflight.js
           node --check src/db/migrations/migrationExecutionController.js
           node --check src/db/migrations/migrationExecutionGuard.js
           node --check src/db/migrations/migrationLedger.js
@@ -156,6 +157,7 @@ jobs:
           node --check src/diagnostics/diagnosticsPlan.js
           node --check src/diagnostics/diagnosticsReport.js
           node --check src/diagnostics/diagnosticsRunner.js
+          node --check src/diagnostics/migrationAutomaticExecutionPreflightCheck.js
           node --check src/diagnostics/migrationDbReadinessCheck.js
           node --check src/diagnostics/migrationGovernanceCheck.js
           node --check src/diagnostics/observationLatestReportCheck.js
@@ -198,6 +200,7 @@ jobs:
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
           node --check scripts/smokeMessageProjectMemoryContextGate.js
           node --check scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js
+          node --check scripts/smokeMigrationAutomaticExecutionPreflight.js
           node --check scripts/smokeMigrationDbReadinessCheck.js
           node --check scripts/smokeMigrationExecutionControllerSkeleton.js
           node --check scripts/smokeMigrationExecutionGuardSkeleton.js
@@ -234,6 +237,9 @@ jobs:
 
       - name: Smoke diagnostics default plan journal health
         run: npm run smoke:diagnostics-default-plan-journal-health
+
+      - name: Smoke migration automatic execution preflight
+        run: npm run smoke:migration-automatic-execution-preflight
 
       - name: Smoke migration DB readiness diagnostics
         run: npm run smoke:migration-db-readiness

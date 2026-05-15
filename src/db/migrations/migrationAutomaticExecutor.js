@@ -7,12 +7,16 @@
 import { withPostgresTransaction } from "../postgresClient.js";
 import { MIGRATION_EXECUTION_DECISIONS, buildMigrationExecutionDecision } from "./migrationExecutionController.js";
 import { buildMigrationExecutionGuard } from "./migrationExecutionGuard.js";
-import { buildMigrationExecutionLockPlan } from "./migrationExecutionLock.js";
+import {
+  acquireMigrationExecutionLock,
+  buildMigrationExecutionLockPlan,
+  releaseMigrationExecutionLock,
+} from "./migrationExecutionLock.js";
 import { buildMigrationPendingDetectionPlan } from "./migrationPendingDetector.js";
 import { getRegisteredMigrations } from "./migrationRegistry.js";
 import { runMigrationTransaction } from "./migrationTransactionOrchestrator.js";
 
-export const MIGRATION_AUTOMATIC_EXECUTOR_VERSION = 1;
+export const MIGRATION_AUTOMATIC_EXECUTOR_VERSION = 2;
 
 export const MIGRATION_AUTOMATIC_EXECUTOR_REASONS = Object.freeze({
   APPROVAL_REQUIRED: "migration_automatic_execution_explicit_approval_required",
@@ -22,6 +26,9 @@ export const MIGRATION_AUTOMATIC_EXECUTOR_REASONS = Object.freeze({
   LOCK_NOT_ACQUIRED: "migration_automatic_execution_lock_not_acquired",
   NO_PENDING_MIGRATIONS: "migration_automatic_execution_no_pending_migrations",
   READY: "migration_automatic_execution_ready",
+  TRANSACTION_BOUNDARY_REQUIRED: "migration_automatic_execution_transaction_boundary_required",
+  LOCKED_EXECUTION_COMPLETED: "migration_automatic_locked_execution_completed",
+  LOCKED_EXECUTION_FAILED: "migration_automatic_locked_execution_failed",
 });
 
 function isEnvGateEnabled(decision) {
@@ -32,6 +39,10 @@ function isExplicitlyApproved(options = {}) {
   return options.explicitApproval === true;
 }
 
+function hasTransactionBoundary(withTransaction) {
+  return typeof withTransaction === "function";
+}
+
 function summarizeMigration(migration = {}) {
   return {
     id: migration?.id || null,
@@ -39,6 +50,17 @@ function summarizeMigration(migration = {}) {
     module: migration?.module || "core",
     sqlCount: Array.isArray(migration?.upSql) ? migration.upSql.length : 0,
   };
+}
+
+function resolvePendingMigrations({ registry, pendingPlan } = {}) {
+  const migrations = getRegisteredMigrations({ registry });
+  const pendingIds = new Set(
+    Array.isArray(pendingPlan?.pendingMigrations)
+      ? pendingPlan.pendingMigrations.map((migration) => migration?.id).filter(Boolean)
+      : [],
+  );
+
+  return migrations.filter((migration) => pendingIds.has(migration.id));
 }
 
 export function buildMigrationAutomaticExecutionPlan({
@@ -58,13 +80,10 @@ export function buildMigrationAutomaticExecutionPlan({
   });
   const resolvedLockPlan = lockPlan || buildMigrationExecutionLockPlan({ databaseConfigured });
   const resolvedPendingPlan = pendingPlan || buildMigrationPendingDetectionPlan({ registry });
-  const migrations = getRegisteredMigrations({ registry });
-  const pendingIds = new Set(
-    Array.isArray(resolvedPendingPlan?.pendingMigrations)
-      ? resolvedPendingPlan.pendingMigrations.map((migration) => migration?.id).filter(Boolean)
-      : [],
-  );
-  const pendingMigrations = migrations.filter((migration) => pendingIds.has(migration.id));
+  const pendingMigrations = resolvePendingMigrations({
+    registry,
+    pendingPlan: resolvedPendingPlan,
+  });
 
   let ready = true;
   let reason = MIGRATION_AUTOMATIC_EXECUTOR_REASONS.READY;
@@ -133,6 +152,7 @@ export async function runMigrationAutomaticExecution({
   lockAcquired = false,
   registry,
   databaseConfigured = false,
+  pendingPlan = null,
   withTransaction = withPostgresTransaction,
 } = {}) {
   const plan = buildMigrationAutomaticExecutionPlan({
@@ -142,6 +162,7 @@ export async function runMigrationAutomaticExecution({
     lockAcquired,
     registry,
     databaseConfigured,
+    pendingPlan,
   });
 
   if (!plan.ready) {
@@ -159,9 +180,10 @@ export async function runMigrationAutomaticExecution({
   }
 
   const results = [];
+  const migrations = getRegisteredMigrations({ registry });
 
   for (const migrationSummary of plan.pendingMigrations) {
-    const migration = getRegisteredMigrations({ registry }).find((item) => item.id === migrationSummary.id);
+    const migration = migrations.find((item) => item.id === migrationSummary.id);
     const result = await runMigrationTransaction({
       decision: plan.decision,
       withTransaction,
@@ -190,9 +212,134 @@ export async function runMigrationAutomaticExecution({
   };
 }
 
+export async function runLockedMigrationAutomaticExecution({
+  explicitApproval = false,
+  decision = null,
+  guard = null,
+  registry,
+  databaseConfigured = false,
+  pendingPlan = null,
+  withTransaction = withPostgresTransaction,
+} = {}) {
+  if (!isExplicitlyApproved({ explicitApproval })) {
+    const plan = buildMigrationAutomaticExecutionPlan({
+      explicitApproval,
+      decision,
+      guard,
+      lockAcquired: false,
+      registry,
+      databaseConfigured,
+      pendingPlan,
+    });
+
+    return {
+      ok: false,
+      type: "migration_automatic_locked_execution_result",
+      status: "skipped",
+      reason: MIGRATION_AUTOMATIC_EXECUTOR_REASONS.APPROVAL_REQUIRED,
+      lockAcquire: null,
+      execution: null,
+      lockRelease: null,
+      plan,
+      willMutateDatabase: false,
+    };
+  }
+
+  if (!hasTransactionBoundary(withTransaction)) {
+    return {
+      ok: false,
+      type: "migration_automatic_locked_execution_result",
+      status: "skipped",
+      reason: MIGRATION_AUTOMATIC_EXECUTOR_REASONS.TRANSACTION_BOUNDARY_REQUIRED,
+      lockAcquire: null,
+      execution: null,
+      lockRelease: null,
+      plan: null,
+      willMutateDatabase: false,
+    };
+  }
+
+  return withTransaction(async (client) => {
+    const lockAcquire = await acquireMigrationExecutionLock({
+      client,
+      explicitApproval,
+    });
+
+    if (!lockAcquire.ok) {
+      const plan = buildMigrationAutomaticExecutionPlan({
+        explicitApproval,
+        decision,
+        guard,
+        lockAcquired: false,
+        registry,
+        databaseConfigured,
+        pendingPlan,
+      });
+
+      return {
+        ok: false,
+        type: "migration_automatic_locked_execution_result",
+        status: "skipped",
+        reason: MIGRATION_AUTOMATIC_EXECUTOR_REASONS.LOCK_NOT_ACQUIRED,
+        lockAcquire,
+        execution: null,
+        lockRelease: null,
+        plan,
+        willMutateDatabase: false,
+      };
+    }
+
+    let execution;
+    let lockRelease;
+
+    try {
+      execution = await runMigrationAutomaticExecution({
+        explicitApproval,
+        decision,
+        guard,
+        lockAcquired: true,
+        registry,
+        databaseConfigured,
+        pendingPlan,
+        withTransaction: async (callback) => callback(client),
+      });
+    } finally {
+      lockRelease = await releaseMigrationExecutionLock({
+        client,
+        explicitApproval,
+      });
+    }
+
+    return {
+      ok: execution?.ok === true && lockRelease?.ok === true,
+      type: "migration_automatic_locked_execution_result",
+      status: execution?.ok === true && lockRelease?.ok === true ? "completed" : "failed",
+      reason: execution?.ok === true && lockRelease?.ok === true
+        ? MIGRATION_AUTOMATIC_EXECUTOR_REASONS.LOCKED_EXECUTION_COMPLETED
+        : MIGRATION_AUTOMATIC_EXECUTOR_REASONS.LOCKED_EXECUTION_FAILED,
+      lockAcquire,
+      execution,
+      lockRelease,
+      plan: execution?.plan || null,
+      willMutateDatabase: execution?.willMutateDatabase === true,
+      safety: {
+        noStartupHookConnection: true,
+        explicitApprovalRequired: true,
+        envGateRequired: true,
+        sameClientForLockAndExecution: true,
+        lockReleaseAttempted: lockRelease?.releaseAttempted === true,
+        noTelegramExecution: true,
+        noAiExecution: true,
+        noProjectMemoryWrite: true,
+      },
+    };
+  });
+}
+
 export default {
   MIGRATION_AUTOMATIC_EXECUTOR_VERSION,
   MIGRATION_AUTOMATIC_EXECUTOR_REASONS,
   buildMigrationAutomaticExecutionPlan,
   runMigrationAutomaticExecution,
+  runLockedMigrationAutomaticExecution,
 };

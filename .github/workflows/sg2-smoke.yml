@@ -197,6 +197,7 @@ jobs:
 
       - name: Check smoke scripts syntax
         run: |
+          node --check scripts/smokeDiagnosticsCapabilityRouting.js
           node --check scripts/smokeDiagnosticsDefaultPlanJournalHealth.js
           node --check scripts/smokeMessageProjectMemoryContextGate.js
           node --check scripts/smokeMessageProjectMemoryProjectKeyRuntimeSelection.js
@@ -234,6 +235,9 @@ jobs:
 
       - name: Smoke disabled message context injection
         run: npm run smoke:message-context-injection
+
+      - name: Smoke diagnostics capability routing
+        run: npm run smoke:diagnostics-capability-routing
 
       - name: Smoke diagnostics default plan journal health
         run: npm run smoke:diagnostics-default-plan-journal-health

@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-15T04:02:23.951Z",
+  "generated_at": "2026-05-15T05:42:12.951Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "38dbbe29103139aae40720dd3439d77731249dc5",
-  "previous_head_sha": "769c9d27ffd054dfcc3e3c707205c915fcea69f2",
+  "current_head_sha": "9e8141ce95f09b60d5dddc234dca44e8d1a7307d",
+  "previous_head_sha": "38dbbe29103139aae40720dd3439d77731249dc5",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "d10ff96d176e110b6569a747df289cd3f7138b7a",
+  "registry_commit_sha": "92ecf8c9a658f2fba99ab2662e6e24b3ed433fee",
   "latest_commit": {
-    "sha": "38dbbe29103139aae40720dd3439d77731249dc5",
-    "short_sha": "38dbbe291031",
-    "message": "Merge pull request #250 from korzh260609-beep/dev/migration-automatic-preflight-readiness\n\nmigration: add automatic execution preflight readiness",
+    "sha": "9e8141ce95f09b60d5dddc234dca44e8d1a7307d",
+    "short_sha": "9e8141ce95f0",
+    "message": "Merge pull request #251 from korzh260609-beep/dev/diagnostics-intent-capability-router\n\ndiagnostics: route by structured capability intent",
     "author": "korzh260609-beep",
-    "date": "2026-05-15T04:01:50Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/38dbbe29103139aae40720dd3439d77731249dc5",
-    "changed_files_count": 6,
+    "date": "2026-05-15T05:41:57Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/9e8141ce95f09b60d5dddc234dca44e8d1a7307d",
+    "changed_files_count": 7,
     "changed_files": [
       {
         "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 6,
+        "additions": 4,
         "deletions": 0,
-        "changes": 6
+        "changes": 4
       },
       {
         "filename": "package.json",
@@ -33,32 +33,39 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMigrationAutomaticExecutionPreflight.js",
+        "filename": "scripts/smokeDiagnosticsCapabilityRouting.js",
         "status": "added",
-        "additions": 122,
+        "additions": 91,
         "deletions": 0,
-        "changes": 122
+        "changes": 91
       },
       {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "filename": "scripts/smokeMigrationReadinessDiagnosticsSuite.js",
         "status": "modified",
-        "additions": 11,
-        "deletions": 0,
-        "changes": 11
+        "additions": 33,
+        "deletions": 3,
+        "changes": 36
       },
       {
-        "filename": "src/db/migrations/migrationAutomaticExecutionPreflight.js",
-        "status": "added",
-        "additions": 219,
-        "deletions": 0,
-        "changes": 219
+        "filename": "src/diagnostics/diagnosticsIntent.js",
+        "status": "modified",
+        "additions": 61,
+        "deletions": 56,
+        "changes": 117
       },
       {
-        "filename": "src/diagnostics/migrationAutomaticExecutionPreflightCheck.js",
-        "status": "added",
-        "additions": 48,
-        "deletions": 0,
-        "changes": 48
+        "filename": "src/diagnostics/diagnosticsPlan.js",
+        "status": "modified",
+        "additions": 49,
+        "deletions": 5,
+        "changes": 54
+      },
+      {
+        "filename": "src/diagnostics/migrationReadinessDiagnosticsSuite.js",
+        "status": "modified",
+        "additions": 18,
+        "deletions": 17,
+        "changes": 35
       }
     ]
   }

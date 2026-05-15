@@ -1,71 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-15T05:42:12.951Z",
+  "generated_at": "2026-05-15T15:12:53.749Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "9e8141ce95f09b60d5dddc234dca44e8d1a7307d",
-  "previous_head_sha": "38dbbe29103139aae40720dd3439d77731249dc5",
+  "current_head_sha": "b6e1b15e88ffb12a84de0034af296458ca3becc4",
+  "previous_head_sha": "9e8141ce95f09b60d5dddc234dca44e8d1a7307d",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "92ecf8c9a658f2fba99ab2662e6e24b3ed433fee",
+  "registry_commit_sha": "4e8dfd97ea618868c4ee5f62702ea99c3002f324",
   "latest_commit": {
-    "sha": "9e8141ce95f09b60d5dddc234dca44e8d1a7307d",
-    "short_sha": "9e8141ce95f0",
-    "message": "Merge pull request #251 from korzh260609-beep/dev/diagnostics-intent-capability-router\n\ndiagnostics: route by structured capability intent",
+    "sha": "b6e1b15e88ffb12a84de0034af296458ca3becc4",
+    "short_sha": "b6e1b15e88ff",
+    "message": "Merge pull request #252 from korzh260609-beep/dev/message-diagnostics-structured-intent-route\n\ndiagnostics: require structured intent for message route",
     "author": "korzh260609-beep",
-    "date": "2026-05-15T05:41:57Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/9e8141ce95f09b60d5dddc234dca44e8d1a7307d",
-    "changed_files_count": 7,
+    "date": "2026-05-15T15:12:31Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b6e1b15e88ffb12a84de0034af296458ca3becc4",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-smoke.yml",
+        "filename": "scripts/smokeMigrationGovernanceDiagnosticsRoute.js",
         "status": "modified",
-        "additions": 4,
-        "deletions": 0,
-        "changes": 4
+        "additions": 41,
+        "deletions": 6,
+        "changes": 47
       },
       {
-        "filename": "package.json",
+        "filename": "src/core/message/messageDiagnosticsRoute.js",
         "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
+        "additions": 77,
+        "deletions": 18,
+        "changes": 95
       },
       {
-        "filename": "scripts/smokeDiagnosticsCapabilityRouting.js",
-        "status": "added",
-        "additions": 91,
-        "deletions": 0,
-        "changes": 91
-      },
-      {
-        "filename": "scripts/smokeMigrationReadinessDiagnosticsSuite.js",
+        "filename": "src/diagnostics/diagnosticsRunner.js",
         "status": "modified",
-        "additions": 33,
-        "deletions": 3,
-        "changes": 36
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsIntent.js",
-        "status": "modified",
-        "additions": 61,
-        "deletions": 56,
-        "changes": 117
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsPlan.js",
-        "status": "modified",
-        "additions": 49,
-        "deletions": 5,
-        "changes": 54
-      },
-      {
-        "filename": "src/diagnostics/migrationReadinessDiagnosticsSuite.js",
-        "status": "modified",
-        "additions": 18,
-        "deletions": 17,
-        "changes": 35
+        "additions": 14,
+        "deletions": 2,
+        "changes": 16
       }
     ]
   }

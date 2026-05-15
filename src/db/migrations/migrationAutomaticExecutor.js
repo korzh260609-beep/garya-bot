@@ -52,6 +52,13 @@ function summarizeMigration(migration = {}) {
   };
 }
 
+function normalizeExecutionError(error) {
+  return {
+    name: error?.name || "Error",
+    message: error?.message || String(error || "unknown_error"),
+  };
+}
+
 function resolvePendingMigrations({ registry, pendingPlan } = {}) {
   const migrations = getRegisteredMigrations({ registry });
   const pendingIds = new Set(
@@ -290,6 +297,7 @@ export async function runLockedMigrationAutomaticExecution({
     }
 
     let execution;
+    let executionError = null;
     let lockRelease;
 
     try {
@@ -303,6 +311,20 @@ export async function runLockedMigrationAutomaticExecution({
         pendingPlan,
         withTransaction: async (callback) => callback(client),
       });
+    } catch (error) {
+      executionError = normalizeExecutionError(error);
+      execution = {
+        ok: false,
+        type: "migration_automatic_execution_result",
+        status: "failed",
+        reason: executionError.message,
+        error: executionError,
+        plan: null,
+        results: [],
+        appliedCount: 0,
+        failedCount: 1,
+        willMutateDatabase: true,
+      };
     } finally {
       lockRelease = await releaseMigrationExecutionLock({
         client,
@@ -319,6 +341,7 @@ export async function runLockedMigrationAutomaticExecution({
         : MIGRATION_AUTOMATIC_EXECUTOR_REASONS.LOCKED_EXECUTION_FAILED,
       lockAcquire,
       execution,
+      executionError,
       lockRelease,
       plan: execution?.plan || null,
       willMutateDatabase: execution?.willMutateDatabase === true,

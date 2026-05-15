@@ -1,14 +1,12 @@
 // AGENT NOTE:
-// SG 2.0 explicit diagnostics message route.
-// Purpose: route explicit Monarch diagnostics check requests before AI, using only allowlisted diagnostics checks.
-// Do not add Telegram slash commands, AI calls, memory writes, migrations, schema creation, source sync, or transport coupling here.
+// SG 2.0 structured diagnostics message route.
+// Purpose: route Monarch diagnostics checks before AI only when structured intent selects diagnostics capabilities.
+// Do not add keyword lists, phrase matching, Telegram slash commands, AI calls, memory writes, migrations, schema creation, source sync, or transport coupling here.
 
 import { diagnosticsCheckRegistry } from "../../agents/diagnostics-check-agent/diagnosticsCheckRegistry.js";
 import { runDiagnosticsCheck } from "../../diagnostics/diagnosticsRunner.js";
-
-function normalizeText(value) {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
+import { detectDiagnosticsIntent } from "../../diagnostics/diagnosticsIntent.js";
+import { buildDiagnosticsPlan } from "../../diagnostics/diagnosticsPlan.js";
 
 function getAllowedDiagnosticsCheckNames(registry = diagnosticsCheckRegistry) {
   return Array.isArray(registry)
@@ -16,36 +14,85 @@ function getAllowedDiagnosticsCheckNames(registry = diagnosticsCheckRegistry) {
     : [];
 }
 
+function normalizeCheckList(value = []) {
+  return Array.isArray(value)
+    ? value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean)
+    : [];
+}
+
+function filterAllowedChecks(checks = [], allowedChecks = []) {
+  const allowed = new Set(allowedChecks);
+  return normalizeCheckList(checks).filter((check) => allowed.has(check));
+}
+
+function getStructuredIntent(input = {}) {
+  const intent = input.intent && typeof input.intent === "object" && !Array.isArray(input.intent)
+    ? input.intent
+    : input.context?.intent && typeof input.context.intent === "object" && !Array.isArray(input.context.intent)
+      ? input.context.intent
+      : null;
+
+  return intent;
+}
+
 export function detectExplicitDiagnosticsCheckRequest(input = {}) {
-  const text = normalizeText(input.text);
+  const text = typeof input.text === "string" ? input.text.trim() : "";
+  const structuredIntent = getStructuredIntent(input);
   const allowedChecks = getAllowedDiagnosticsCheckNames(input.registry);
 
-  if (!text) {
+  if (!structuredIntent) {
     return {
       ok: false,
-      reason: "empty_text",
+      reason: "no_structured_intent",
       checks: [],
+      routing: {
+        source: "structured_intent",
+        keywordMatchingUsed: false,
+        phraseMatchingUsed: false,
+      },
     };
   }
 
-  const matchedChecks = allowedChecks.filter((checkName) => text.includes(checkName.toLowerCase()));
+  const intentDetection = detectDiagnosticsIntent({ text, intent: structuredIntent });
 
-  if (matchedChecks.length !== 1) {
+  if (!intentDetection.ok) {
     return {
       ok: false,
-      reason: matchedChecks.length > 1 ? "multiple_checks_matched" : "no_allowlisted_check_matched",
-      checks: matchedChecks,
+      reason: intentDetection.reason,
+      checks: [],
+      intent: intentDetection.intent,
+      routing: intentDetection.routing,
+    };
+  }
+
+  const plan = buildDiagnosticsPlan({
+    text,
+    intent: intentDetection.intent,
+  });
+  const checks = filterAllowedChecks(plan.checks, allowedChecks);
+
+  if (!checks.length) {
+    return {
+      ok: false,
+      reason: "no_allowlisted_structured_check_selected",
+      checks: [],
+      intent: intentDetection.intent,
+      plan,
+      routing: plan.routing,
     };
   }
 
   return {
     ok: true,
-    reason: "explicit_diagnostics_check_matched",
-    checks: matchedChecks,
+    reason: "structured_diagnostics_intent_matched",
+    checks,
+    intent: intentDetection.intent,
+    plan,
+    routing: plan.routing,
   };
 }
 
-function buildDiagnosticsRouteReply({ diagnosticsResult, identity, text, checks }) {
+function buildDiagnosticsRouteReply({ diagnosticsResult, identity, text, checks, intent }) {
   return {
     ok: Boolean(diagnosticsResult?.ok),
     reply: diagnosticsResult?.finalText || "Диагностика выполнена, но итоговый текст не сформирован.",
@@ -54,12 +101,14 @@ function buildDiagnosticsRouteReply({ diagnosticsResult, identity, text, checks 
       handled: true,
       text,
       checks,
+      intent,
       resultType: diagnosticsResult?.type || "sg_diagnostics_check",
+      routing: diagnosticsResult?.plan?.routing || null,
     },
   };
 }
 
-function buildDiagnosticsRouteErrorReply({ error, identity, text, checks }) {
+function buildDiagnosticsRouteErrorReply({ error, identity, text, checks, intent }) {
   return {
     ok: false,
     reply: [
@@ -75,6 +124,7 @@ function buildDiagnosticsRouteErrorReply({ error, identity, text, checks }) {
       handled: true,
       text,
       checks,
+      intent,
       error: error?.message || "diagnostics_route_failed",
     },
   };
@@ -85,6 +135,8 @@ export async function handleMessageDiagnosticsRoute(input = {}) {
   const identity = input.identity || {};
   const detection = detectExplicitDiagnosticsCheckRequest({
     text,
+    intent: input.intent,
+    context: input.context,
     registry: input.registry,
   });
 
@@ -93,6 +145,8 @@ export async function handleMessageDiagnosticsRoute(input = {}) {
       handled: false,
       reason: detection.reason,
       checks: detection.checks,
+      intent: detection.intent || null,
+      routing: detection.routing || null,
     };
   }
 
@@ -106,6 +160,7 @@ export async function handleMessageDiagnosticsRoute(input = {}) {
         handled: true,
         text,
         checks: detection.checks,
+        intent: detection.intent,
         reason: "not_monarch",
       },
     };
@@ -116,11 +171,13 @@ export async function handleMessageDiagnosticsRoute(input = {}) {
   try {
     const diagnosticsResult = await runDiagnostics({
       text,
+      intent: detection.intent,
       checks: detection.checks,
     }, {
       ...identity,
       isMonarch: true,
       latestUserText: text,
+      intent: detection.intent,
     });
 
     return {
@@ -130,6 +187,7 @@ export async function handleMessageDiagnosticsRoute(input = {}) {
         identity,
         text,
         checks: detection.checks,
+        intent: detection.intent,
       }),
     };
   } catch (error) {
@@ -140,6 +198,7 @@ export async function handleMessageDiagnosticsRoute(input = {}) {
         identity,
         text,
         checks: detection.checks,
+        intent: detection.intent,
       }),
     };
   }

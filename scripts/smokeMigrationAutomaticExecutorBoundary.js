@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 import {
   buildMigrationAutomaticExecutionPlan,
+  runLockedMigrationAutomaticExecution,
   runMigrationAutomaticExecution,
 } from "../src/db/migrations/migrationAutomaticExecutor.js";
 import { MIGRATION_EXECUTION_DECISIONS } from "../src/db/migrations/migrationExecutionController.js";
@@ -58,6 +59,45 @@ const pendingPlan = {
     readOnlyLedgerComparison: true,
   },
 };
+
+function createTestClient({ failMigrationSql = false } = {}) {
+  const queries = [];
+
+  const client = {
+    queries,
+    async query(text, values = []) {
+      queries.push({ text, values });
+
+      if (text.includes("pg_try_advisory_lock")) {
+        return { rows: [{ acquired: true }], rowCount: 1 };
+      }
+
+      if (text.includes("pg_advisory_unlock")) {
+        return { rows: [{ released: true }], rowCount: 1 };
+      }
+
+      if (failMigrationSql && text === "SELECT 1;") {
+        throw new Error("forced_migration_sql_failure");
+      }
+
+      return {
+        rowCount: 1,
+        rows: [
+          {
+            id: "001_test_migration",
+            name: "Test Migration",
+            module: "test",
+            status: "applied",
+            direction: "up",
+            sql_count: 1,
+          },
+        ],
+      };
+    },
+  };
+
+  return client;
+}
 
 const defaultPlan = buildMigrationAutomaticExecutionPlan({
   decision: baseDecision,
@@ -129,26 +169,7 @@ const executedResult = await runMigrationAutomaticExecution({
   lockAcquired: true,
   withTransaction: async (callback) => {
     transactionCalls += 1;
-    const client = {
-      queries: [],
-      async query(text, values = []) {
-        this.queries.push({ text, values });
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "001_test_migration",
-              name: "Test Migration",
-              module: "test",
-              status: "applied",
-              direction: "up",
-              sql_count: 1,
-            },
-          ],
-        };
-      },
-    };
-    return callback(client);
+    return callback(createTestClient());
   },
 });
 assert.equal(transactionCalls, 1);
@@ -159,4 +180,70 @@ assert.equal(executedResult.failedCount, 0);
 assert.equal(executedResult.willMutateDatabase, true);
 assert.equal(executedResult.results[0].status, "applied");
 
-console.log("OK: automatic migration executor boundary stays blocked by default and only runs with explicit gates");
+const lockedSkippedResult = await runLockedMigrationAutomaticExecution({
+  decision: baseDecision,
+  guard: allowGuard,
+  pendingPlan,
+  registry,
+  databaseConfigured: true,
+  withTransaction: async () => {
+    throw new Error("locked_execution_must_not_start_without_explicit_approval");
+  },
+});
+assert.equal(lockedSkippedResult.ok, false);
+assert.equal(lockedSkippedResult.status, "skipped");
+assert.equal(lockedSkippedResult.reason, "migration_automatic_execution_explicit_approval_required");
+assert.equal(lockedSkippedResult.willMutateDatabase, false);
+assert.equal(lockedSkippedResult.lockAcquire, null);
+assert.equal(lockedSkippedResult.lockRelease, null);
+
+let lockedTransactionCalls = 0;
+const lockedClient = createTestClient();
+const lockedExecutedResult = await runLockedMigrationAutomaticExecution({
+  explicitApproval: true,
+  decision: baseDecision,
+  guard: allowGuard,
+  pendingPlan,
+  registry,
+  databaseConfigured: true,
+  withTransaction: async (callback) => {
+    lockedTransactionCalls += 1;
+    return callback(lockedClient);
+  },
+});
+assert.equal(lockedTransactionCalls, 1);
+assert.equal(lockedExecutedResult.ok, true);
+assert.equal(lockedExecutedResult.status, "completed");
+assert.equal(lockedExecutedResult.lockAcquire.lockAcquired, true);
+assert.equal(lockedExecutedResult.execution.status, "completed");
+assert.equal(lockedExecutedResult.execution.appliedCount, 1);
+assert.equal(lockedExecutedResult.lockRelease.lockReleased, true);
+assert.equal(lockedExecutedResult.safety.sameClientForLockAndExecution, true);
+assert.equal(lockedExecutedResult.safety.lockReleaseAttempted, true);
+assert.equal(lockedClient.queries[0].text, "SELECT pg_try_advisory_lock($1) AS acquired;");
+assert.equal(lockedClient.queries.at(-1).text, "SELECT pg_advisory_unlock($1) AS released;");
+
+let failingTransactionCalls = 0;
+const failingClient = createTestClient({ failMigrationSql: true });
+const failingLockedResult = await runLockedMigrationAutomaticExecution({
+  explicitApproval: true,
+  decision: baseDecision,
+  guard: allowGuard,
+  pendingPlan,
+  registry,
+  databaseConfigured: true,
+  withTransaction: async (callback) => {
+    failingTransactionCalls += 1;
+    return callback(failingClient);
+  },
+});
+assert.equal(failingTransactionCalls, 1);
+assert.equal(failingLockedResult.ok, false);
+assert.equal(failingLockedResult.status, "failed");
+assert.equal(failingLockedResult.lockAcquire.lockAcquired, true);
+assert.equal(failingLockedResult.lockRelease.lockReleased, true);
+assert.equal(failingLockedResult.safety.lockReleaseAttempted, true);
+assert.equal(failingClient.queries[0].text, "SELECT pg_try_advisory_lock($1) AS acquired;");
+assert.equal(failingClient.queries.at(-1).text, "SELECT pg_advisory_unlock($1) AS released;");
+
+console.log("OK: automatic migration executor boundary stays blocked by default and locked execution uses one client with release in failure path");

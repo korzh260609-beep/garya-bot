@@ -1,10 +1,12 @@
 // SG 2.0 migration readiness diagnostics suite.
-// Purpose: define the read-only checks needed before any future manual migration execution.
+// Purpose: define the read-only checks needed before any future migration execution.
+// Routing into this suite must come from structured intent/capability selection, not keyword or phrase matching.
 
 export const MIGRATION_READINESS_DIAGNOSTICS_SUITE_NAME = "migration_readiness";
 
 export const MIGRATION_READINESS_DIAGNOSTICS_CHECKS = Object.freeze([
   "migration_governance",
+  "migration_automatic_execution_preflight",
   "migration_manual_execution_dry_run",
   "migration_manual_execution_preflight",
   "migration_db_readiness",
@@ -15,23 +17,17 @@ export function getMigrationReadinessDiagnosticsChecks() {
 }
 
 export function isMigrationReadinessDiagnosticsRequest(input = {}) {
-  const text = typeof input.text === "string" ? input.text.trim().toLowerCase() : "";
+  const intent = input.intent && typeof input.intent === "object" && !Array.isArray(input.intent)
+    ? input.intent
+    : {};
 
-  if (!text) return false;
-
-  return [
-    "migration readiness",
-    "migrations readiness",
-    "migration preflight",
-    "manual migration",
-    "manual migrations",
-    "готовность миграций",
-    "готовность migration",
-    "ручные миграции",
-    "ручной запуск миграций",
-    "перед запуском миграций",
-    "db readiness",
-  ].some((hint) => text.includes(hint));
+  return Boolean(
+    intent.diagnosticsSuite === MIGRATION_READINESS_DIAGNOSTICS_SUITE_NAME
+    || intent.capability === "migration_readiness"
+    || intent.capability === "migration_automatic_execution_preflight"
+    || intent.target === "migration_readiness"
+    || intent.target === "migrations"
+  );
 }
 
 export function buildMigrationReadinessDiagnosticsSuite(input = {}) {
@@ -42,6 +38,11 @@ export function buildMigrationReadinessDiagnosticsSuite(input = {}) {
     mode: "read_only",
     requested: isMigrationReadinessDiagnosticsRequest(input),
     checks: getMigrationReadinessDiagnosticsChecks(),
+    routing: {
+      source: "structured_intent",
+      keywordMatchingUsed: false,
+      phraseMatchingUsed: false,
+    },
     safety: {
       noDbMutation: true,
       noTransactionOpened: true,

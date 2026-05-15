@@ -6,6 +6,7 @@ import { runRenderEnvAgent } from "../render-env-agent/renderEnvAgent.js";
 import { runRepoRegistryAgent } from "../repo-registry-agent/repoRegistryAgent.js";
 import { runGetRenderLogsTask } from "../../tasks/render/getRenderLogsTask.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
+import { runMigrationAutomaticExecutionPreflightCheck } from "../../diagnostics/migrationAutomaticExecutionPreflightCheck.js";
 import { runMigrationDbReadinessCheck } from "../../diagnostics/migrationDbReadinessCheck.js";
 import { runMigrationGovernanceCheck } from "../../diagnostics/migrationGovernanceCheck.js";
 import { runMigrationManualExecutionDryRunCheck } from "../../diagnostics/migrationManualExecutionDryRunCheck.js";
@@ -43,6 +44,11 @@ function summarizeWorkflowRun(result = {}) {
 function summarizeCommits(result = {}) {
   if (!result.ok) return result.error || "Recent commits check failed.";
   return result.summary?.text || `Recent commits checked: ${result.searched_commits ?? "unknown"}.`;
+}
+
+function summarizeMigrationAutomaticExecutionPreflight(result = {}) {
+  if (!result.ok) return result.summary || "Automatic migration execution preflight check failed.";
+  return result.summary || "Automatic migration execution preflight check passed.";
 }
 
 function summarizeMigrationDbReadiness(result = {}) {
@@ -163,6 +169,11 @@ export const diagnosticsCheckRegistry = [
     name: "migration_governance",
     run: () => runMigrationGovernanceCheck(),
     summarize: summarizeMigrationGovernance,
+  },
+  {
+    name: "migration_automatic_execution_preflight",
+    run: () => runMigrationAutomaticExecutionPreflightCheck(),
+    summarize: summarizeMigrationAutomaticExecutionPreflight,
   },
   {
     name: "migration_manual_execution_dry_run",

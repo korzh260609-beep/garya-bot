@@ -12,7 +12,7 @@ const hook = startMigrationRuntimeHook({
 
 assert.equal(hook.ok, true);
 assert.equal(hook.type, "migration_runtime_hook");
-assert.equal(hook.mode, "startup_safe_skeleton");
+assert.equal(hook.mode, "startup_safe_locked_execution_plan");
 assert.equal(hook.started, false);
 assert.equal(hook.installed, true);
 assert.equal(hook.executionAttempted, false);
@@ -23,6 +23,15 @@ assert.equal(hook.orchestrationPlan.executionBlocked, true);
 assert.equal(hook.orchestrationPlan.willMutateDatabase, false);
 assert.equal(hook.orchestrationPlan.visibility.dbBackedLockBoundaryReady, true);
 assert.equal(hook.orchestrationPlan.visibility.pendingDetectionImplemented, true);
+assert.equal(hook.lockedExecutionPlan.ok, true);
+assert.equal(hook.lockedExecutionPlan.mode, "startup_safe_locked_execution_plan_only");
+assert.equal(hook.lockedExecutionPlan.executionBoundaryAvailable, true);
+assert.equal(hook.lockedExecutionPlan.executionAttempted, false);
+assert.equal(hook.lockedExecutionPlan.executionSkipped, true);
+assert.equal(hook.lockedExecutionPlan.willMutateDatabase, false);
+assert.equal(hook.lockedExecutionPlan.safety.lockedExecutionFunctionNotCalled, true);
+assert.equal(hook.lockedExecutionPlan.safety.explicitApprovalNotGranted, true);
+assert.equal(hook.lockedExecutionPlan.safety.noMigrationExecution, true);
 assert.equal(hook.safety.noDbMutation, true);
 assert.equal(hook.safety.noTransactionOpened, true);
 assert.equal(hook.safety.noSqlExecution, true);
@@ -32,6 +41,7 @@ assert.equal(hook.safety.noSchemaCreation, true);
 assert.equal(hook.safety.noTelegramExecution, true);
 assert.equal(hook.safety.noAiExecution, true);
 assert.equal(hook.safety.noProjectMemoryWrite, true);
+assert.equal(hook.safety.lockedExecutionFunctionNotCalled, true);
 
 const hookStop = hook.stop();
 assert.equal(hookStop.ok, true);
@@ -45,6 +55,7 @@ assert.equal(runtimeHooks.hooks.migrationRuntimeHook.executionAttempted, false);
 assert.equal(runtimeHooks.hooks.migrationRuntimeHook.willMutateDatabase, false);
 assert.equal(runtimeHooks.hooks.migrationRuntimeHook.safety.noMigrationExecution, true);
 assert.equal(runtimeHooks.hooks.migrationRuntimeHook.safety.noDbMutation, true);
+assert.equal(runtimeHooks.hooks.migrationRuntimeHook.safety.lockedExecutionFunctionNotCalled, true);
 
 const runtimeStop = runtimeHooks.stop();
 assert.equal(runtimeStop.ok, true);
@@ -52,4 +63,4 @@ assert.equal(runtimeStop.stopped, false);
 assert.equal(runtimeStop.hooks.migrationRuntimeHook.ok, true);
 assert.equal(runtimeStop.hooks.migrationRuntimeHook.stopped, false);
 
-console.log("OK: migration runtime hook skeleton is installed but non-executing");
+console.log("OK: migration runtime hook has locked execution plan but remains non-executing");

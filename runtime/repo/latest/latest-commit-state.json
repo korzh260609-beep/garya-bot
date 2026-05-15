@@ -1,64 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-15T03:41:06.658Z",
+  "generated_at": "2026-05-15T03:51:18.133Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "82873eb85b9b5a9884b34b3f2450cddcefc2b182",
-  "previous_head_sha": "aeb3588a20405f62135833cf043a07962d2ad33b",
+  "current_head_sha": "769c9d27ffd054dfcc3e3c707205c915fcea69f2",
+  "previous_head_sha": "82873eb85b9b5a9884b34b3f2450cddcefc2b182",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "cb4e1ab664550e1ff3c3c1fd3af3760ccea95568",
+  "registry_commit_sha": "c28fd2197690b82dc7164e5cbbeafd66c51beb4c",
   "latest_commit": {
-    "sha": "82873eb85b9b5a9884b34b3f2450cddcefc2b182",
-    "short_sha": "82873eb85b9b",
-    "message": "Merge pull request #248 from korzh260609-beep/dev/migration-auto-runtime-gates\n\nmigration: connect automatic runtime execution behind gates",
+    "sha": "769c9d27ffd054dfcc3e3c707205c915fcea69f2",
+    "short_sha": "769c9d27ffd0",
+    "message": "Merge pull request #249 from korzh260609-beep/dev/migration-runtime-hook-safe-promise\n\nmigration: harden runtime hook sync runner errors",
     "author": "korzh260609-beep",
-    "date": "2026-05-15T03:40:48Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/82873eb85b9b5a9884b34b3f2450cddcefc2b182",
-    "changed_files_count": 6,
+    "date": "2026-05-15T03:51:00Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/769c9d27ffd054dfcc3e3c707205c915fcea69f2",
+    "changed_files_count": 2,
     "changed_files": [
-      {
-        "filename": "scripts/smokeMigrationExecutionGuardSkeleton.js",
-        "status": "modified",
-        "additions": 35,
-        "deletions": 13,
-        "changes": 48
-      },
-      {
-        "filename": "scripts/smokeMigrationGovernanceCheck.js",
-        "status": "modified",
-        "additions": 13,
-        "deletions": 5,
-        "changes": 18
-      },
       {
         "filename": "scripts/smokeMigrationRuntimeHookSkeleton.js",
         "status": "modified",
-        "additions": 52,
-        "deletions": 17,
-        "changes": 69
+        "additions": 38,
+        "deletions": 1,
+        "changes": 39
       },
       {
         "filename": "src/app/migrationRuntimeHook.js",
         "status": "modified",
-        "additions": 95,
-        "deletions": 37,
-        "changes": 132
-      },
-      {
-        "filename": "src/db/migrations/migrationExecutionGuard.js",
-        "status": "modified",
-        "additions": 20,
-        "deletions": 10,
-        "changes": 30
-      },
-      {
-        "filename": "src/db/migrations/migrationRuntimeConfig.js",
-        "status": "modified",
-        "additions": 23,
-        "deletions": 8,
-        "changes": 31
+        "additions": 1,
+        "deletions": 1,
+        "changes": 2
       }
     ]
   }

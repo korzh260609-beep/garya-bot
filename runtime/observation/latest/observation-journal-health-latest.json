@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-15T03:41:10.379Z",
+  "generated_at": "2026-05-15T03:51:21.916Z",
   "name": "observation-journal-health-latest",
   "summary": "Observation journal health OK: 2/2 reports available.",
   "events_count": 1,
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "observation.journal_health",
-      "created_at": "2026-05-15T03:41:10.379Z",
+      "created_at": "2026-05-15T03:51:21.916Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -35,7 +35,7 @@
             "ok": true,
             "eventType": "diagnostics.result",
             "summary": "Diagnostics completed successfully: 1 checks.",
-            "generatedAt": "2026-05-15T03:41:08.043Z",
+            "generatedAt": "2026-05-15T03:51:19.563Z",
             "sanitized": true
           },
           {
@@ -43,7 +43,7 @@
             "ok": true,
             "eventType": "runtime.status",
             "summary": "Runtime status observed: AI not configured.",
-            "generatedAt": "2026-05-15T03:41:09.020Z",
+            "generatedAt": "2026-05-15T03:51:20.582Z",
             "sanitized": true
           }
         ]

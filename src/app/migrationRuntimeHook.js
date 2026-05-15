@@ -83,7 +83,7 @@ export function startMigrationRuntimeHook(options = {}) {
 
   if (lockedExecutionPlan.executionAllowed) {
     executionAttempted = true;
-    executionPromise = Promise.resolve(runLockedExecution({
+    executionPromise = Promise.resolve().then(() => runLockedExecution({
       ...options,
       explicitApproval: true,
       decision,

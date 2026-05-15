@@ -26,6 +26,17 @@ function normalizeLimit(value, fallback = 100) {
   return Math.max(1, Math.min(1000, Math.trunc(n)));
 }
 
+function getStructuredIntent(input = {}, context = {}) {
+  const inputIntent = input.intent && typeof input.intent === "object" && !Array.isArray(input.intent)
+    ? input.intent
+    : null;
+  const contextIntent = context.intent && typeof context.intent === "object" && !Array.isArray(context.intent)
+    ? context.intent
+    : null;
+
+  return inputIntent || contextIntent || null;
+}
+
 async function safeRunObservationTrigger(input = {}, fallbackType = "observation_trigger_result") {
   try {
     return await runObservationTrigger(input);
@@ -99,10 +110,11 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
   const text = typeof input.text === "string" && input.text.trim()
     ? input.text.trim()
     : String(context.latestUserText || "").trim();
-  const intent = detectDiagnosticsIntent({ text });
+  const structuredIntent = getStructuredIntent(input, context);
+  const intent = detectDiagnosticsIntent({ text, intent: structuredIntent });
   const plan = buildDiagnosticsPlan({
     text,
-    intent,
+    intent: intent.intent,
     checks: input.checks,
   });
   const repo = normalizeString(input.repo) || getCurrentProjectRepository();

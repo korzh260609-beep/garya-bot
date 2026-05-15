@@ -85,6 +85,43 @@ assert.equal(fakeRunnerCalls, 1);
 assert.equal(gatedResult.ok, true);
 assert.equal(gatedResult.status, "completed");
 
+let throwingRunnerCalls = 0;
+const throwingHook = startMigrationRuntimeHook({
+  databaseConfigured: true,
+  runtimeConfig: {
+    ok: true,
+    type: "migration_runtime_config",
+    env: {
+      runMigrationsOnBoot: { key: "RUN_MIGRATIONS_ON_BOOT", configured: true, enabled: true },
+      approveMigrationsOnBoot: { key: "APPROVE_MIGRATIONS_ON_BOOT", configured: true, enabled: true },
+    },
+    gates: {
+      automaticExecutionRequested: true,
+      automaticExecutionApproved: true,
+      automaticExecutionAllowed: true,
+    },
+  },
+  runLockedExecution: () => {
+    throwingRunnerCalls += 1;
+    throw new Error("sync_runner_failure");
+  },
+});
+
+assert.equal(throwingHook.ok, true);
+assert.equal(throwingHook.started, true);
+assert.equal(throwingHook.executionAttempted, true);
+assert.equal(throwingHook.willMutateDatabase, true);
+assert.equal(typeof throwingHook.executionPromise?.then, "function");
+
+const throwingResult = await throwingHook.executionPromise;
+assert.equal(throwingRunnerCalls, 1);
+assert.equal(throwingResult.ok, false);
+assert.equal(throwingResult.type, "migration_runtime_locked_execution_error");
+assert.equal(throwingResult.reason, "sync_runner_failure");
+assert.equal(throwingResult.error.name, "Error");
+assert.equal(throwingResult.error.message, "sync_runner_failure");
+assert.equal(throwingResult.willMutateDatabase, false);
+
 const runtimeHooks = startRuntimeHooks();
 assert.equal(runtimeHooks.ok, true);
 assert.equal(runtimeHooks.hooks.migrationRuntimeHook.ok, true);
@@ -98,4 +135,4 @@ assert.equal(runtimeStop.stopped, false);
 assert.equal(runtimeStop.hooks.migrationRuntimeHook.ok, true);
 assert.equal(runtimeStop.hooks.migrationRuntimeHook.stopped, false);
 
-console.log("OK: migration runtime hook runs locked executor only when both gates are active");
+console.log("OK: migration runtime hook runs locked executor only when both gates are active and captures sync runner errors");

@@ -1,36 +1,64 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-15T03:51:18.133Z",
+  "generated_at": "2026-05-15T04:02:23.951Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "769c9d27ffd054dfcc3e3c707205c915fcea69f2",
-  "previous_head_sha": "82873eb85b9b5a9884b34b3f2450cddcefc2b182",
+  "current_head_sha": "38dbbe29103139aae40720dd3439d77731249dc5",
+  "previous_head_sha": "769c9d27ffd054dfcc3e3c707205c915fcea69f2",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "c28fd2197690b82dc7164e5cbbeafd66c51beb4c",
+  "registry_commit_sha": "d10ff96d176e110b6569a747df289cd3f7138b7a",
   "latest_commit": {
-    "sha": "769c9d27ffd054dfcc3e3c707205c915fcea69f2",
-    "short_sha": "769c9d27ffd0",
-    "message": "Merge pull request #249 from korzh260609-beep/dev/migration-runtime-hook-safe-promise\n\nmigration: harden runtime hook sync runner errors",
+    "sha": "38dbbe29103139aae40720dd3439d77731249dc5",
+    "short_sha": "38dbbe291031",
+    "message": "Merge pull request #250 from korzh260609-beep/dev/migration-automatic-preflight-readiness\n\nmigration: add automatic execution preflight readiness",
     "author": "korzh260609-beep",
-    "date": "2026-05-15T03:51:00Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/769c9d27ffd054dfcc3e3c707205c915fcea69f2",
-    "changed_files_count": 2,
+    "date": "2026-05-15T04:01:50Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/38dbbe29103139aae40720dd3439d77731249dc5",
+    "changed_files_count": 6,
     "changed_files": [
       {
-        "filename": "scripts/smokeMigrationRuntimeHookSkeleton.js",
+        "filename": ".github/workflows/sg2-smoke.yml",
         "status": "modified",
-        "additions": 38,
-        "deletions": 1,
-        "changes": 39
+        "additions": 6,
+        "deletions": 0,
+        "changes": 6
       },
       {
-        "filename": "src/app/migrationRuntimeHook.js",
+        "filename": "package.json",
         "status": "modified",
         "additions": 1,
-        "deletions": 1,
-        "changes": 2
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "scripts/smokeMigrationAutomaticExecutionPreflight.js",
+        "status": "added",
+        "additions": 122,
+        "deletions": 0,
+        "changes": 122
+      },
+      {
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "status": "modified",
+        "additions": 11,
+        "deletions": 0,
+        "changes": 11
+      },
+      {
+        "filename": "src/db/migrations/migrationAutomaticExecutionPreflight.js",
+        "status": "added",
+        "additions": 219,
+        "deletions": 0,
+        "changes": 219
+      },
+      {
+        "filename": "src/diagnostics/migrationAutomaticExecutionPreflightCheck.js",
+        "status": "added",
+        "additions": 48,
+        "deletions": 0,
+        "changes": 48
       }
     ]
   }

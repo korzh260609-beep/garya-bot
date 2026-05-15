@@ -1,36 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-15T03:12:52.962Z",
+  "generated_at": "2026-05-15T03:20:40.372Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "075ecf4e8e2a98f657f7d7f3308d38965f1808af",
-  "previous_head_sha": "8e812a96ef90026e29a8578c7bd1048b1c1c11f2",
+  "current_head_sha": "aeb3588a20405f62135833cf043a07962d2ad33b",
+  "previous_head_sha": "075ecf4e8e2a98f657f7d7f3308d38965f1808af",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "11ff7ce957382ce4a5ab2afc68f3e25318c2eec4",
+  "registry_commit_sha": "2212f725c0f24c3de4b3e30c04f105fe6e9649cc",
   "latest_commit": {
-    "sha": "075ecf4e8e2a98f657f7d7f3308d38965f1808af",
-    "short_sha": "075ecf4e8e2a",
-    "message": "Merge pull request #246 from korzh260609-beep/dev/migration-executor-lock-integration\n\nmigration: integrate advisory lock into automatic executor boundary",
+    "sha": "aeb3588a20405f62135833cf043a07962d2ad33b",
+    "short_sha": "aeb3588a2040",
+    "message": "Merge pull request #247 from korzh260609-beep/dev/migration-runtime-locked-plan\n\nmigration: add runtime locked execution plan",
     "author": "korzh260609-beep",
-    "date": "2026-05-15T03:12:33Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/075ecf4e8e2a98f657f7d7f3308d38965f1808af",
+    "date": "2026-05-15T03:20:24Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/aeb3588a20405f62135833cf043a07962d2ad33b",
     "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": "scripts/smokeMigrationAutomaticExecutorBoundary.js",
+        "filename": "scripts/smokeMigrationRuntimeHookSkeleton.js",
         "status": "modified",
-        "additions": 108,
-        "deletions": 21,
-        "changes": 129
+        "additions": 13,
+        "deletions": 2,
+        "changes": 15
       },
       {
-        "filename": "src/db/migrations/migrationAutomaticExecutor.js",
+        "filename": "src/app/migrationRuntimeHook.js",
         "status": "modified",
-        "additions": 180,
-        "deletions": 10,
-        "changes": 190
+        "additions": 45,
+        "deletions": 3,
+        "changes": 48
       }
     ]
   }

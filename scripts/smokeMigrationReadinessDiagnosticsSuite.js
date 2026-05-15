@@ -1,5 +1,6 @@
 // scripts/smokeMigrationReadinessDiagnosticsSuite.js
 // SG 2.0 smoke test for migration readiness diagnostics suite.
+// Purpose: prove migration readiness is routed by structured intent, not keywords or phrases.
 
 import assert from "node:assert/strict";
 
@@ -15,6 +16,7 @@ import {
 
 const expectedChecks = [
   "migration_governance",
+  "migration_automatic_execution_preflight",
   "migration_manual_execution_dry_run",
   "migration_manual_execution_preflight",
   "migration_db_readiness",
@@ -24,8 +26,15 @@ const checks = getMigrationReadinessDiagnosticsChecks();
 assert.deepEqual(checks, expectedChecks);
 assert.deepEqual(MIGRATION_READINESS_DIAGNOSTICS_CHECKS, expectedChecks);
 
+const structuredIntent = {
+  domain: "diagnostics",
+  action: "inspect",
+  diagnosticsSuite: "migration_readiness",
+};
+
 const suite = buildMigrationReadinessDiagnosticsSuite({
   text: "проверь готовность миграций перед запуском",
+  intent: structuredIntent,
 });
 
 assert.equal(suite.ok, true);
@@ -34,6 +43,9 @@ assert.equal(suite.name, MIGRATION_READINESS_DIAGNOSTICS_SUITE_NAME);
 assert.equal(suite.mode, "read_only");
 assert.equal(suite.requested, true);
 assert.deepEqual(suite.checks, expectedChecks);
+assert.equal(suite.routing.source, "structured_intent");
+assert.equal(suite.routing.keywordMatchingUsed, false);
+assert.equal(suite.routing.phraseMatchingUsed, false);
 assert.equal(suite.safety.noDbMutation, true);
 assert.equal(suite.safety.noTransactionOpened, true);
 assert.equal(suite.safety.noMigrationExecution, true);
@@ -43,25 +55,43 @@ assert.equal(suite.safety.noSchemaCreation, true);
 
 assert.equal(isMigrationReadinessDiagnosticsRequest({
   text: "manual migration readiness check",
+}), false);
+assert.equal(isMigrationReadinessDiagnosticsRequest({
+  intent: structuredIntent,
 }), true);
 assert.equal(isMigrationReadinessDiagnosticsRequest({
   text: "обычный статус сг",
 }), false);
 
-const intent = detectDiagnosticsIntent({
+const plainTextIntent = detectDiagnosticsIntent({
   text: "manual migration readiness check",
 });
+assert.equal(plainTextIntent.ok, false);
+assert.deepEqual(plainTextIntent.matchedHints, []);
+assert.equal(plainTextIntent.routing.keywordMatchingUsed, false);
+assert.equal(plainTextIntent.routing.phraseMatchingUsed, false);
+
+const intent = detectDiagnosticsIntent({
+  text: "manual migration readiness check",
+  intent: structuredIntent,
+});
 assert.equal(intent.ok, true);
-assert.equal(intent.matchedHints.includes("migration readiness"), true);
+assert.deepEqual(intent.matchedHints, []);
+assert.equal(intent.reason, "structured_diagnostics_intent");
+assert.equal(intent.routing.keywordMatchingUsed, false);
+assert.equal(intent.routing.phraseMatchingUsed, false);
 
 const readinessPlan = buildDiagnosticsPlan({
   text: "manual migration readiness check",
-  intent,
+  intent: intent.intent,
 });
 
 assert.equal(readinessPlan.ok, true);
 assert.equal(readinessPlan.selectedSuite, "migration_readiness");
 assert.deepEqual(readinessPlan.checks, expectedChecks);
+assert.equal(readinessPlan.routing.source, "structured_suite");
+assert.equal(readinessPlan.routing.keywordMatchingUsed, false);
+assert.equal(readinessPlan.routing.phraseMatchingUsed, false);
 assert.equal(readinessPlan.rules.noWrites, true);
 assert.equal(readinessPlan.rules.noSecrets, true);
 assert.equal(readinessPlan.rules.noTransportDependency, true);
@@ -84,4 +114,4 @@ assert.equal(defaultPlan.selectedSuite, "default");
 assert.equal(defaultPlan.checks.includes("observation_journal_health_latest"), true);
 assert.equal(defaultPlan.checks.includes("migration_db_readiness"), false);
 
-console.log("OK: migration readiness diagnostics suite routes safely");
+console.log("OK: migration readiness diagnostics suite routes safely through structured intent");

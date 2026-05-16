@@ -35,6 +35,13 @@ READ FIRST:
 8. src/agents/coding-agents/PR_REVIEW_CHECKLIST.md
 9. src/agents/coding-agents/EXAMPLE_V1_OUTPUT_TREE.md
 10. src/agents/coding-agents/RISKS_AND_STOP_CONDITIONS.md
+11. src/agents/coding-agents/ORCHESTRATOR_AGENT_SPEC.md
+12. src/agents/coding-agents/ORCHESTRATOR_INTEGRATION_MAP.md
+13. src/agents/coding-agents/STAGED_IMPLEMENTATION_PLAN.md
+14. src/agents/coding-agents/MINIMAL_IMPLEMENTATION_SLICE.md
+15. src/agents/coding-agents/AGENT_DEFINITION_TEMPLATE.md
+16. src/agents/coding-agents/REGISTRY_CONTRACT_SPEC.md
+17. src/agents/coding-agents/SMOKE_TEST_SPEC.md
 
 GOAL:
 Create only the safe runtime skeleton V1 under:
@@ -45,12 +52,14 @@ CREATE:
 - shared contracts
 - permission definitions
 - permission guard
+- CodingOrchestratorAgent definition
 - V1 agent definitions
 - prompt/spec placeholders
 - smoke checks
 - runtime README
 
 V1 AGENTS:
+- CodingOrchestratorAgent
 - RepoStateAgent
 - RequirementsAgent
 - TaskPlannerAgent
@@ -61,6 +70,13 @@ V1 AGENTS:
 - PRReportAgent
 - ReviewAgent
 - CodePatchAgent
+
+ORCHESTRATION RULE:
+All role-specific agents must be coordinated through CodingOrchestratorAgent.
+No role-specific agent may operate as an uncontrolled independent worker.
+CodingOrchestratorAgent must not bypass PermissionGuardAgent.
+CodingOrchestratorAgent must not approve its own work.
+CodingOrchestratorAgent must not move to the next stage without required evidence.
 
 DO NOT:
 - do not write to main
@@ -77,9 +93,10 @@ DO NOT:
 - do not create real production actions
 - do not create paid provider integration
 - do not create unlimited AI/tool loops
+- do not allow direct agent-to-agent execution that bypasses CodingOrchestratorAgent
 
 DANGEROUS PERMISSIONS:
-These must default to false for every V1 agent:
+These must default to false for every V1 agent, including CodingOrchestratorAgent:
 - canMerge
 - canDeploy
 - canChangeSecrets
@@ -87,9 +104,13 @@ These must default to false for every V1 agent:
 
 REQUIRED SMOKE CHECKS:
 - registry loads all V1 agents
+- CodingOrchestratorAgent is registered
 - agent ids are unique
 - required fields exist
 - dangerous permissions are false
+- CodingOrchestratorAgent cannot bypass PermissionGuardAgent
+- CodingOrchestratorAgent cannot approve its own work
+- CodingOrchestratorAgent cannot move to next stage without evidence
 - PermissionGuardAgent blocks main writes
 - PermissionGuardAgent blocks dev/v2-start-clean-copy writes
 - RepoStateAgent is read-only
@@ -101,11 +122,12 @@ IMPLEMENTATION ORDER:
 2. shared contracts
 3. permission model
 4. registry
-5. V1 agent definitions
-6. prompt/spec placeholders
-7. smoke checks
-8. README
-9. PR report
+5. CodingOrchestratorAgent definition
+6. V1 agent definitions
+7. prompt/spec placeholders
+8. smoke checks
+9. README
+10. PR report
 
 STOP IF:
 - task requires SG Core changes
@@ -116,6 +138,8 @@ STOP IF:
 - task requires merge/deploy
 - task requires protected branch write
 - task cannot follow skeleton -> config -> logic order
+- any agent bypasses CodingOrchestratorAgent
+- CodingOrchestratorAgent bypasses PermissionGuardAgent
 
 PR REQUIREMENTS:
 Open a PR into dev/v2-start.
@@ -137,4 +161,4 @@ The result is not expected to be a fully autonomous coding system.
 
 ## 4. Reviewer warning
 
-If the produced PR enables merge, deploy, protected branch writes, or real autonomous execution, the PR must be blocked.
+If the produced PR enables merge, deploy, protected branch writes, direct uncontrolled agent execution, or real autonomous execution, the PR must be blocked.

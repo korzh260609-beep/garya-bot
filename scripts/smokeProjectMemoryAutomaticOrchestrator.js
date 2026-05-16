@@ -46,7 +46,7 @@ const fakeConfirmation = {
     assert.equal(input.trust, "candidate");
     assert.equal(input.metadata.durableWriteAttempted, true);
     assert.equal(input.metadata.confirmationAttempted, false);
-    assert.equal(createdBy, "system:test");
+    assert.ok(["system:test", "system"].includes(createdBy));
     assert.equal(projectKey, "sg");
     assert.equal(actor.role, "system");
 

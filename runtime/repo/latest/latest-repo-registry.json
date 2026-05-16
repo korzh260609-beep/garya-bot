@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T10:28:39.975Z",
+  "generated_at": "2026-05-16T12:02:39.831Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "dcc7ffe375f6fea82c7da24d44f89a71e3170591",
+  "head_sha": "a8143c090e7112e5110ef632fca96592987336cf",
   "truncated": false,
-  "items_count": 505,
+  "items_count": 507,
   "semantic_fields": [
     "module",
     "layer",
@@ -4415,6 +4415,46 @@
     },
     {
       "path": "src/agents/coding-agents/MINIMAL_IMPLEMENTATION_SLICE.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/ORCHESTRATOR_AGENT_SPEC.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/ORCHESTRATOR_INTEGRATION_MAP.md",
       "type": "file",
       "parent": "src/agents/coding-agents",
       "extension": "md",

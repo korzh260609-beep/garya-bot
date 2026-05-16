@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T09:46:53.222Z",
+  "generated_at": "2026-05-16T10:05:40.446Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
+  "head_sha": "731e29cffb9d70600b6ab25e44aa100b7bada834",
   "truncated": false,
-  "items_count": 492,
+  "items_count": 494,
   "semantic_fields": [
     "module",
     "layer",
@@ -4294,7 +4294,47 @@
       }
     },
     {
+      "path": "src/agents/coding-agents/CODING_AGENT_WORKFLOWS.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
       "path": "src/agents/coding-agents/CODING_AGENTS_TEAM.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/IMPLEMENTATION_WORKFLOW.md",
       "type": "file",
       "parent": "src/agents/coding-agents",
       "extension": "md",

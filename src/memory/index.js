@@ -205,6 +205,17 @@ export {
 } from "./project/projectMemoryDiagnostics.js";
 
 export {
+  PROJECT_MEMORY_EXPERIENCE_LESSONS_VERSION,
+  PROJECT_MEMORY_EXPERIENCE_LESSONS_MODES,
+  PROJECT_MEMORY_EXPERIENCE_LESSONS_DECISIONS,
+  PROJECT_MEMORY_EXPERIENCE_LESSON_TYPES,
+  PROJECT_MEMORY_EXPERIENCE_LESSON_REVIEW_STATES,
+  buildProjectMemoryExperienceLessonsStatus,
+  getProjectMemoryExperienceLessonsBoundaries,
+  prepareProjectMemoryExperienceLessons,
+} from "./project/projectMemoryExperienceLessons.js";
+
+export {
   PROJECT_MEMORY_USER_PROJECT_VALIDATOR_VERSION,
   PROJECT_MEMORY_USER_PROJECT_VALIDATOR_MODES,
   ProjectMemoryUserProjectValidator,
@@ -270,6 +281,7 @@ export function getMemoryModuleStatus() {
     hasProjectMemoryConflictStaleDetector: true,
     hasProjectMemorySourceSyncInterface: true,
     hasProjectMemoryDiagnostics: true,
+    hasProjectMemoryExperienceLessons: true,
     hasProjectMemoryOwnershipBoundary: true,
     hasProjectMemoryUserProjectValidator: true,
     hasTransportLogic: false,
@@ -298,6 +310,8 @@ export function getMemoryModuleStatus() {
       projectMemorySourceSyncInterfaceCandidatesOnly: true,
       projectMemoryDiagnosticsProvidedSnapshotOnly: true,
       projectMemoryDiagnosticsSanitizedOnly: true,
+      projectMemoryExperienceLessonsProvidedLessonsOnly: true,
+      projectMemoryExperienceLessonsCandidatesOnly: true,
       projectMemoryManualCandidateOnly: true,
       projectMemoryExplicitConfirmationOnly: true,
       projectMemoryConfirmedReadOnly: true,

@@ -1,43 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T05:52:27.643Z",
+  "generated_at": "2026-05-16T05:55:57.923Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "0bc00d169f5117cc69c6b1edfc043f331390476d",
-  "previous_head_sha": "68a63ace53276bef88673ddbe777d8dcad68a16f",
+  "current_head_sha": "0f37435799b9427194d7b73ea241a863b07c09d9",
+  "previous_head_sha": "0bc00d169f5117cc69c6b1edfc043f331390476d",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "560a65e56ccb9b69d7b526b03cde6e56de03b359",
+  "registry_commit_sha": "101ac5f035bc991b62d21b22533117971597e423",
   "latest_commit": {
-    "sha": "0bc00d169f5117cc69c6b1edfc043f331390476d",
-    "short_sha": "0bc00d169f51",
-    "message": "observation: add PR merged automatic dispatch\n\nAdd automatic Observation dispatch for merged PR events.\n\n- Add PR merged dispatch workflow for dev/v2-start\n- Run repo commit watcher on merged PR closed events\n- Dispatch github.pr_merged into Observation\n- Add deterministic workflow smoke coverage\n- Keep runtime app code, AI, Telegram, Render env, Project Memory writes, and manual-only boundaries unchanged",
+    "sha": "0f37435799b9427194d7b73ea241a863b07c09d9",
+    "short_sha": "0f37435799b9",
+    "message": "observation: probe automatic PR merged dispatch\n\nAdd a small Observation auto-dispatch probe.\n\n- Add deterministic probe smoke for github.pr_merged dispatch allowlist\n- Add focused probe smoke workflow\n- Keep runtime app code, Render env, Telegram, AI, Project Memory writes, and production logic unchanged",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T05:52:09Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0bc00d169f5117cc69c6b1edfc043f331390476d",
-    "changed_files_count": 3,
+    "date": "2026-05-16T05:55:38Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0f37435799b9427194d7b73ea241a863b07c09d9",
+    "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": ".github/workflows/observation-pr-merged-dispatch-smoke.yml",
+        "filename": ".github/workflows/observation-auto-dispatch-probe-smoke.yml",
         "status": "added",
         "additions": 21,
         "deletions": 0,
         "changes": 21
       },
       {
-        "filename": ".github/workflows/observation-pr-merged-dispatch.yml",
+        "filename": "scripts/smokeObservationAutoDispatchProbe.js",
         "status": "added",
-        "additions": 47,
+        "additions": 21,
         "deletions": 0,
-        "changes": 47
-      },
-      {
-        "filename": "scripts/smokeObservationPrMergedDispatchWorkflow.js",
-        "status": "added",
-        "additions": 36,
-        "deletions": 0,
-        "changes": 36
+        "changes": 21
       }
     ]
   }

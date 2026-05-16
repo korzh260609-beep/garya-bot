@@ -137,6 +137,17 @@ export {
 } from "./project/projectMemoryAutomaticOrchestrator.js";
 
 export {
+  PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_VERSION,
+  PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_MODES,
+  PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS,
+  PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_DECISIONS,
+  buildProjectMemoryTrustedEventSourceStatus,
+  getProjectMemoryTrustedEventSourceBoundaries,
+  normalizeTrustedProjectEvent,
+  createTrustedProjectEventForPrMerged,
+} from "./project/projectMemoryTrustedEventSource.js";
+
+export {
   PROJECT_MEMORY_RUNTIME_CONTEXT_VERSION,
   PROJECT_MEMORY_RUNTIME_CONTEXT_MODES,
   PROJECT_MEMORY_RUNTIME_CONTEXT_DEFAULT_LIMITS,
@@ -203,6 +214,7 @@ export function getMemoryModuleStatus() {
     hasProjectMemoryExplicitConfirmationFlow: true,
     hasProjectMemoryManualCandidateFlow: true,
     hasProjectMemoryAutomaticCandidatePipeline: true,
+    hasProjectMemoryAutomaticTrustedEventSource: true,
     hasProjectMemoryRuntimeReadBridge: true,
     hasProjectMemoryOwnershipBoundary: true,
     hasProjectMemoryUserProjectValidator: true,
@@ -222,6 +234,7 @@ export function getMemoryModuleStatus() {
       durableProjectMemoryRequiresConfirmation: true,
       projectMemoryAutoWriteDisabled: true,
       projectMemoryAutomaticCandidatePrepareOnly: true,
+      projectMemoryAutomaticTrustedEventSourceSkeletonOnly: true,
       projectMemoryManualCandidateOnly: true,
       projectMemoryExplicitConfirmationOnly: true,
       projectMemoryConfirmedReadOnly: true,

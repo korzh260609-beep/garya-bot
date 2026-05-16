@@ -1,71 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T12:02:41.467Z",
+  "generated_at": "2026-05-16T12:47:15.495Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "a8143c090e7112e5110ef632fca96592987336cf",
-  "previous_head_sha": "dcc7ffe375f6fea82c7da24d44f89a71e3170591",
+  "current_head_sha": "10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
+  "previous_head_sha": "a8143c090e7112e5110ef632fca96592987336cf",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "9c5d86c6311cc400e13793e2910c11affc99fcbb",
+  "registry_commit_sha": "3c2212375ddbaad7b467fc42fb4f131c9a70a780",
   "latest_commit": {
-    "sha": "a8143c090e7112e5110ef632fca96592987336cf",
-    "short_sha": "a8143c090e71",
-    "message": "Merge PR #278\n\nDocs update.",
+    "sha": "10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
+    "short_sha": "10102900eae7",
+    "message": "Merge PR #280: project-memory: add conflict and stale detector skeleton\n\nMerge Project Memory conflict/stale detector skeleton into dev/v2-start.\n\n- Add ProjectMemoryConflictStaleDetector skeleton for Stage 17\n- Detect deterministic stale/conflicted/duplicate/superseded/archived labels from provided entries only\n- Detect contradictions from provided verified evidence only\n- Export detector through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no DB reads/writes, no candidate creation, no confirmation, no confirmed memory writes, no AI calls, no Telegram, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no prompt injection.",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T12:02:23Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/a8143c090e7112e5110ef632fca96592987336cf",
-    "changed_files_count": 7,
+    "date": "2026-05-16T12:46:58Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": "src/agents/coding-agents/ACCEPTANCE_CRITERIA.md",
-        "status": "modified",
-        "additions": 47,
-        "deletions": 8,
-        "changes": 55
-      },
-      {
-        "filename": "src/agents/coding-agents/MINIMAL_IMPLEMENTATION_SLICE.md",
-        "status": "modified",
+        "filename": ".github/workflows/sg2-project-memory-conflict-stale-detector-smoke.yml",
+        "status": "added",
         "additions": 21,
-        "deletions": 3,
-        "changes": 24
+        "deletions": 0,
+        "changes": 21
       },
       {
-        "filename": "src/agents/coding-agents/ORCHESTRATOR_AGENT_SPEC.md",
+        "filename": "scripts/smokeProjectMemoryConflictStaleDetector.js",
         "status": "added",
-        "additions": 235,
+        "additions": 198,
         "deletions": 0,
-        "changes": 235
+        "changes": 198
       },
       {
-        "filename": "src/agents/coding-agents/ORCHESTRATOR_INTEGRATION_MAP.md",
-        "status": "added",
-        "additions": 159,
-        "deletions": 0,
-        "changes": 159
-      },
-      {
-        "filename": "src/agents/coding-agents/RUNTIME_SKELETON_CHECKLIST.md",
+        "filename": "src/memory/index.js",
         "status": "modified",
-        "additions": 16,
-        "deletions": 0,
-        "changes": 16
-      },
-      {
-        "filename": "src/agents/coding-agents/STAGED_IMPLEMENTATION_PLAN.md",
-        "status": "modified",
-        "additions": 50,
+        "additions": 14,
         "deletions": 1,
-        "changes": 51
+        "changes": 15
       },
       {
-        "filename": "src/agents/coding-agents/TASK_PROMPT_FOR_CODEX.md",
-        "status": "modified",
-        "additions": 31,
-        "deletions": 7,
-        "changes": 38
+        "filename": "src/memory/project/projectMemoryConflictStaleDetector.js",
+        "status": "added",
+        "additions": 408,
+        "deletions": 0,
+        "changes": 408
       }
     ]
   }

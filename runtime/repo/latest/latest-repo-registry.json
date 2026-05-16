@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T05:15:40.782Z",
+  "generated_at": "2026-05-16T05:33:01.342Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "aec32dbf3830a526e07e348ea8d0d635bfc731b5",
+  "head_sha": "68a63ace53276bef88673ddbe777d8dcad68a16f",
   "truncated": false,
-  "items_count": 460,
+  "items_count": 463,
   "semantic_fields": [
     "module",
     "layer",
@@ -313,6 +313,24 @@
     },
     {
       "path": ".github/workflows/sg2-pm-trusted-confirm-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-pm-trusted-event-source-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -3646,6 +3664,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryTrustedConfirmationFlow.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryTrustedEventSource.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -7772,6 +7808,26 @@
     },
     {
       "path": "src/memory/project/projectMemoryTrustedConfirmationFlow.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemoryTrustedEventSource.js",
       "type": "file",
       "parent": "src/memory/project",
       "extension": "js",

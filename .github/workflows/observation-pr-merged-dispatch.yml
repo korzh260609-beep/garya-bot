@@ -1,0 +1,47 @@
+name: Observation PR Merged Dispatch
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - dev/v2-start
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  observation-pr-merged-dispatch:
+    name: Dispatch observation after merged PR
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout dev branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev/v2-start
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run repo commit watcher agent
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPO: korzh260609-beep/garya-bot
+          GITHUB_BRANCH: dev/v2-start
+        run: node src/agents/repo-commit-watcher-agent/runRepoCommitWatcherAgent.js
+
+      - name: Dispatch GitHub PR merged observation event
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPO: korzh260609-beep/garya-bot
+          GITHUB_BRANCH: dev/v2-start
+          OBSERVATION_DISPATCH_EVENT_TYPE: github.pr_merged
+        run: node src/agents/observation-trigger-dispatch-agent/runObservationTriggerDispatchAgent.js

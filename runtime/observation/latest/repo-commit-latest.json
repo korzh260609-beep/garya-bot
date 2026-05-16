@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T06:57:50.467Z",
+  "generated_at": "2026-05-16T07:09:30.843Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: eeee98afaddb — observation: add repo commit latest report\n\nAdd dedicated latest-only Observation report for RepoCommitWatcherAgent.\n\n- Add repoCommitObservationBridge\n- Emit repo-commit-latest from repo commit watcher\n- Add deterministic smoke coverage\n- Add focused workflow\n- Keep webhook, cron, Telegram, AI, DB, and Project Memory writes out of this change",
+  "summary": "Repo commit observed: 72dbd9932b9d — observation: remove unused webhook detour\n\nRemove unused GitHub webhook and PR-merged Actions detour.\n\n- Remove unused GitHub webhook route and integration skeleton\n- Remove webhook intake smoke and workflow\n- Remove failed PR-merged dispatch/probe workflows and smoke scripts\n- Remove unused GITHUB_WEBHOOK_* placeholders from .env.example\n- Keep WorkspaceChannel, RepoCommitWatcherAgent, repo-commit-latest, Project Memory orchestrator, and Render/env inventory path unchanged",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T06:57:50.467Z",
+      "created_at": "2026-05-16T07:09:30.843Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,50 +24,113 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: eeee98afaddb — observation: add repo commit latest report\n\nAdd dedicated latest-only Observation report for RepoCommitWatcherAgent.\n\n- Add repoCommitObservationBridge\n- Emit repo-commit-latest from repo commit watcher\n- Add deterministic smoke coverage\n- Add focused workflow\n- Keep webhook, cron, Telegram, AI, DB, and Project Memory writes out of this change",
+      "summary": "Repo commit observed: 72dbd9932b9d — observation: remove unused webhook detour\n\nRemove unused GitHub webhook and PR-merged Actions detour.\n\n- Remove unused GitHub webhook route and integration skeleton\n- Remove webhook intake smoke and workflow\n- Remove failed PR-merged dispatch/probe workflows and smoke scripts\n- Remove unused GITHUB_WEBHOOK_* placeholders from .env.example\n- Keep WorkspaceChannel, RepoCommitWatcherAgent, repo-commit-latest, Project Memory orchestrator, and Render/env inventory path unchanged",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
-        "previous_head_sha": "8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
+        "current_head_sha": "72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
+        "previous_head_sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "c307534fbbae5beefa7ca81dcac9f8eaee477eb9",
+        "registry_commit_sha": "667836f716ac36e318873320b8977899c858f6f5",
         "latest_commit": {
-          "sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
-          "short_sha": "eeee98afaddb",
-          "message": "observation: add repo commit latest report\n\nAdd dedicated latest-only Observation report for RepoCommitWatcherAgent.\n\n- Add repoCommitObservationBridge\n- Emit repo-commit-latest from repo commit watcher\n- Add deterministic smoke coverage\n- Add focused workflow\n- Keep webhook, cron, Telegram, AI, DB, and Project Memory writes out of this change",
+          "sha": "72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
+          "short_sha": "72dbd9932b9d",
+          "message": "observation: remove unused webhook detour\n\nRemove unused GitHub webhook and PR-merged Actions detour.\n\n- Remove unused GitHub webhook route and integration skeleton\n- Remove webhook intake smoke and workflow\n- Remove failed PR-merged dispatch/probe workflows and smoke scripts\n- Remove unused GITHUB_WEBHOOK_* placeholders from .env.example\n- Keep WorkspaceChannel, RepoCommitWatcherAgent, repo-commit-latest, Project Memory orchestrator, and Render/env inventory path unchanged",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T06:57:34Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/eeee98afaddb14e1b870ea0a79db1453e04919cd",
-          "changed_files_count": 4,
+          "date": "2026-05-16T07:09:10Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
+          "changed_files_count": 13,
           "changed_files": [
             {
-              "filename": ".github/workflows/sg2-repo-commit-observation-smoke.yml",
-              "status": "added",
-              "additions": 22,
-              "deletions": 0,
-              "changes": 22
-            },
-            {
-              "filename": "scripts/smokeRepoCommitObservationBridge.js",
-              "status": "added",
-              "additions": 67,
-              "deletions": 0,
-              "changes": 67
-            },
-            {
-              "filename": "src/agents/observation/repoCommitObservationBridge.js",
-              "status": "added",
-              "additions": 110,
-              "deletions": 0,
-              "changes": 110
-            },
-            {
-              "filename": "src/agents/repo-commit-watcher-agent/repoCommitWatcherAgent.js",
+              "filename": ".env.example",
               "status": "modified",
-              "additions": 6,
-              "deletions": 1,
+              "additions": 0,
+              "deletions": 5,
+              "changes": 5
+            },
+            {
+              "filename": ".github/workflows/github-webhook-observation-intake-smoke.yml",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 24,
+              "changes": 24
+            },
+            {
+              "filename": ".github/workflows/observation-auto-dispatch-probe-smoke.yml",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 21,
+              "changes": 21
+            },
+            {
+              "filename": ".github/workflows/observation-pr-merged-dispatch-smoke.yml",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 21,
+              "changes": 21
+            },
+            {
+              "filename": ".github/workflows/observation-pr-merged-dispatch.yml",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 47,
+              "changes": 47
+            },
+            {
+              "filename": "scripts/smokeGithubWebhookObservationIntakeSkeleton.js",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 129,
+              "changes": 129
+            },
+            {
+              "filename": "scripts/smokeObservationAutoDispatchProbe.js",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 21,
+              "changes": 21
+            },
+            {
+              "filename": "scripts/smokeObservationPrMergedDispatchWorkflow.js",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 36,
+              "changes": 36
+            },
+            {
+              "filename": "src/app/githubWebhookRoutes.js",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 122,
+              "changes": 122
+            },
+            {
+              "filename": "src/integrations/github/webhook/githubWebhookEventNormalizer.js",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 137,
+              "changes": 137
+            },
+            {
+              "filename": "src/integrations/github/webhook/githubWebhookObservationBridge.js",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 118,
+              "changes": 118
+            },
+            {
+              "filename": "src/integrations/github/webhook/githubWebhookSignatureVerifier.js",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 108,
+              "changes": 108
+            },
+            {
+              "filename": "src/integrations/github/webhook/index.js",
+              "status": "removed",
+              "additions": 0,
+              "deletions": 7,
               "changes": 7
             }
           ]
@@ -82,7 +145,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
+        "related_commit_sha": "72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
         "related_run_id": ""
       }
     }

@@ -1,36 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T06:30:09.082Z",
+  "generated_at": "2026-05-16T06:38:17.238Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "f40983491b0292eb3efe7a570fcf3a6e92a023c0",
-  "previous_head_sha": "c07ad332eceb9250ac11f869366f067be224b765",
+  "current_head_sha": "8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
+  "previous_head_sha": "f40983491b0292eb3efe7a570fcf3a6e92a023c0",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "efefd578ffb8d2881f4bf2c065c2eb652b23d442",
+  "registry_commit_sha": "605ca66dcc2af93d34c6dbc5f77d543986a45f11",
   "latest_commit": {
-    "sha": "f40983491b0292eb3efe7a570fcf3a6e92a023c0",
-    "short_sha": "f40983491b02",
-    "message": "runtime: restore app factory wiring\n\nRestore appFactory.js to the previous minimal runtime wiring.\n\n- Remove experimental GitHub webhook route attachment from live Express app\n- Keep Telegram/root/health runtime path unchanged\n- Add small runtime safety smoke script\n- Do not change env, DB, Telegram adapter, Project Memory, or AI logic",
-    "author": "korzh260609-beep",
-    "date": "2026-05-16T06:29:51Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/f40983491b0292eb3efe7a570fcf3a6e92a023c0",
-    "changed_files_count": 2,
+    "sha": "8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
+    "short_sha": "8d7bbafda63d",
+    "message": "render env: update latest 94",
+    "author": "sg-github-access[bot]",
+    "date": "2026-05-16T06:37:58Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "scripts/smokeRuntimeNoGithubWebhookAttachment.js",
-        "status": "added",
-        "additions": 17,
-        "deletions": 0,
-        "changes": 17
-      },
-      {
-        "filename": "src/app/appFactory.js",
+        "filename": "runtime/render/latest/latest-render-env.json",
         "status": "modified",
-        "additions": 0,
-        "deletions": 5,
-        "changes": 5
+        "additions": 28,
+        "deletions": 4,
+        "changes": 32
       }
     ]
   }

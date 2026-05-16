@@ -1,0 +1,24 @@
+name: SG2 PM Trusted Event Source Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/v2-start
+  pull_request:
+    branches:
+      - dev/v2-start
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: |
+          node --check src/memory/project/projectMemoryTrustedEventSource.js
+          node --check scripts/smokeProjectMemoryTrustedEventSource.js
+      - run: node ./scripts/smokeProjectMemoryTrustedEventSource.js

@@ -5,11 +5,16 @@
 
 import express from "express";
 import { initTelegramTransport } from "../transport/telegram.js";
+import { attachGithubWebhookRoutes } from "./githubWebhookRoutes.js";
 import { attachRootRoutes } from "./rootRoutes.js";
 import { attachHealthRoutes } from "./healthRoutes.js";
 
 export function createApp() {
   const app = express();
+
+  // GitHub webhook routes need the raw request body for HMAC signature verification.
+  // Keep this before the global JSON parser.
+  attachGithubWebhookRoutes(app);
 
   app.use(express.json({ limit: "256kb" }));
 

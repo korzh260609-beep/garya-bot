@@ -1,0 +1,23 @@
+name: SG2 AI Tool Registry PM Runtime Trusted Event Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: |
+          node --check src/ai/tools/aiToolRegistry.js
+          node --check src/ai/tools/index.js
+          node --check src/memory/project/projectMemoryRuntimeTrustedEventTool.js
+          node --check scripts/smokeAiToolRegistryProjectMemoryRuntimeTrustedEvent.js
+      - run: node ./scripts/smokeAiToolRegistryProjectMemoryRuntimeTrustedEvent.js

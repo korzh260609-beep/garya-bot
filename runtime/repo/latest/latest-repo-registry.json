@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T12:47:14.407Z",
+  "generated_at": "2026-05-16T13:02:55.741Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
+  "head_sha": "2a3d647076843759dd5f9526de9295714160e1f2",
   "truncated": false,
-  "items_count": 510,
+  "items_count": 513,
   "semantic_fields": [
     "module",
     "layer",
@@ -493,6 +493,24 @@
     },
     {
       "path": ".github/workflows/sg2-project-memory-projectkey-runtime-selection.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-project-memory-source-sync-interface-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -3884,6 +3902,24 @@
     },
     {
       "path": "scripts/smokeProjectMemorySkeleton.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemorySourceSyncInterface.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -8658,6 +8694,26 @@
         "module": "project_memory",
         "layer": "memory",
         "responsibility": "Project memory prepare/read-only service skeleton.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemorySourceSyncInterface.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
         "owner": "memory",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "unknown_or_low",

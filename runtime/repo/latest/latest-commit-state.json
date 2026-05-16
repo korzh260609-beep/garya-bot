@@ -1,57 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T05:15:42.177Z",
+  "generated_at": "2026-05-16T05:33:02.361Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "aec32dbf3830a526e07e348ea8d0d635bfc731b5",
-  "previous_head_sha": "b50a4a443dd46f5324ef57444777dd441bd25462",
+  "current_head_sha": "68a63ace53276bef88673ddbe777d8dcad68a16f",
+  "previous_head_sha": "aec32dbf3830a526e07e348ea8d0d635bfc731b5",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "53eb671a088930ff85e9c51a482b90a67328c762",
+  "registry_commit_sha": "e531453fcb978a78d2e0af9cf6421392fee4c541",
   "latest_commit": {
-    "sha": "aec32dbf3830a526e07e348ea8d0d635bfc731b5",
-    "short_sha": "aec32dbf3830",
-    "message": "project-memory: add automatic orchestrator\n\nAdd Project Memory automatic orchestrator.\n\n- Orchestrate trusted project event -> durable pending candidate -> optional trusted confirmation\n- Export orchestrator through memory public boundary\n- Add deterministic offline smoke coverage and focused workflow\n- Keep AI, transport, source sync, prompt injection, and direct repository/runtime writes out of this PR",
+    "sha": "68a63ace53276bef88673ddbe777d8dcad68a16f",
+    "short_sha": "68a63ace5327",
+    "message": "project-memory: add trusted event source skeleton\n\nAdd Project Memory Trusted Event Source skeleton.\n\n- Add PR merged trusted event source normalization\n- Export through memory public boundary\n- Add deterministic offline smoke coverage\n- Add focused GitHub Actions smoke workflow\n- Keep runtime, AI, transport, DB writes, source sync, and confirmed memory writes out of this PR",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T05:15:24Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/aec32dbf3830a526e07e348ea8d0d635bfc731b5",
-    "changed_files_count": 5,
+    "date": "2026-05-16T05:32:46Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/68a63ace53276bef88673ddbe777d8dcad68a16f",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-pm-auto-orchestrator-smoke.yml",
+        "filename": ".github/workflows/sg2-pm-trusted-event-source-smoke.yml",
         "status": "added",
         "additions": 24,
         "deletions": 0,
         "changes": 24
       },
       {
-        "filename": "package.json",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
-        "filename": "scripts/smokeProjectMemoryAutomaticOrchestrator.js",
+        "filename": "scripts/smokeProjectMemoryTrustedEventSource.js",
         "status": "added",
-        "additions": 231,
+        "additions": 136,
         "deletions": 0,
-        "changes": 231
+        "changes": 136
       },
       {
         "filename": "src/memory/index.js",
         "status": "modified",
-        "additions": 9,
+        "additions": 13,
         "deletions": 0,
-        "changes": 9
+        "changes": 13
       },
       {
-        "filename": "src/memory/project/projectMemoryAutomaticOrchestrator.js",
+        "filename": "src/memory/project/projectMemoryTrustedEventSource.js",
         "status": "added",
-        "additions": 250,
+        "additions": 242,
         "deletions": 0,
-        "changes": 250
+        "changes": 242
       }
     ]
   }

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T13:15:54.980Z",
+  "generated_at": "2026-05-16T13:25:59.738Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "0349960ee981d9c96ad27459c5e0c3f20a1a0635",
+  "head_sha": "49bdf1ec42eb1ea6c2c2e6f4ed6ccbb2b27c74de",
   "truncated": false,
-  "items_count": 516,
+  "items_count": 519,
   "semantic_fields": [
     "module",
     "layer",
@@ -493,6 +493,24 @@
     },
     {
       "path": ".github/workflows/sg2-project-memory-env-context-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-project-memory-experience-lessons-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -3776,6 +3794,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryDiagnostics.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryExperienceLessons.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -8601,6 +8637,26 @@
     },
     {
       "path": "src/memory/project/projectMemoryDiagnostics.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemoryExperienceLessons.js",
       "type": "file",
       "parent": "src/memory/project",
       "extension": "js",

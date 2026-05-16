@@ -110,6 +110,15 @@ export {
 } from "./project/projectMemoryAutomaticCandidatePipeline.js";
 
 export {
+  PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_FLOW_VERSION,
+  PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_FLOW_MODES,
+  PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_DECISIONS,
+  buildProjectMemoryAutomaticDurableCandidateFlowStatus,
+  getProjectMemoryAutomaticDurableCandidateFlowBoundaries,
+  createDurableProjectMemoryCandidateFromEvent,
+} from "./project/projectMemoryAutomaticDurableCandidateFlow.js";
+
+export {
   PROJECT_MEMORY_RUNTIME_CONTEXT_VERSION,
   PROJECT_MEMORY_RUNTIME_CONTEXT_MODES,
   PROJECT_MEMORY_RUNTIME_CONTEXT_DEFAULT_LIMITS,

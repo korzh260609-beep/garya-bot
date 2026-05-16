@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T06:38:15.683Z",
+  "generated_at": "2026-05-16T06:57:48.722Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
+  "head_sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
   "truncated": false,
-  "items_count": 477,
+  "items_count": 480,
   "semantic_fields": [
     "module",
     "layer",
@@ -457,6 +457,24 @@
     },
     {
       "path": ".github/workflows/sg2-project-memory-projectkey-runtime-selection.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-repo-commit-observation-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -3861,6 +3879,24 @@
       }
     },
     {
+      "path": "scripts/smokeRepoCommitObservationBridge.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeRepoCommitWatcherObservationDispatchPolicy.js",
       "type": "file",
       "parent": "scripts",
@@ -4605,6 +4641,26 @@
         "notes": [
           "agent_specific_boundary",
           "human_readable_boundary_doc"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/observation/repoCommitObservationBridge.js",
+      "type": "file",
+      "parent": "src/agents/observation",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "observation",
+        "layer": "agents",
+        "responsibility": "JavaScript source file.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
         ]
       }
     },

@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T09:23:29.216Z",
+  "generated_at": "2026-05-16T09:34:48.123Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "ab73d91fbd1eaf7dd8dd1d1e382422a05e9d3583",
-  "previous_head_sha": "83b557e3244a87c7028eadbcc00f31e61c300363",
+  "current_head_sha": "70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
+  "previous_head_sha": "ab73d91fbd1eaf7dd8dd1d1e382422a05e9d3583",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "7cb16c7d75b6b6bd16646ed898eb702a5d04805d",
+  "registry_commit_sha": "191841f1d5d67727aa1a3299a9b44d1e4d1cb446",
   "latest_commit": {
-    "sha": "ab73d91fbd1eaf7dd8dd1d1e382422a05e9d3583",
-    "short_sha": "ab73d91fbd1e",
-    "message": "Merge PR #271: Add coding agents team specification\n\nAdd coding agents team specification\n\nApproved by Monarch.",
+    "sha": "70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
+    "short_sha": "70ca0edd23a6",
+    "message": "Merge PR #272: Move coding agents spec under src agents\n\nMove coding agents spec under src/agents and remove misplaced root agents path.\n\nApproved by Monarch.",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T09:23:08Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ab73d91fbd1eaf7dd8dd1d1e382422a05e9d3583",
+    "date": "2026-05-16T09:34:30Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
     "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "agents/coding-agents/CODING_AGENTS_TEAM.md",
-        "status": "added",
-        "additions": 707,
-        "deletions": 0,
-        "changes": 707
+        "filename": "src/agents/coding-agents/CODING_AGENTS_TEAM.md",
+        "status": "renamed",
+        "additions": 2,
+        "deletions": 2,
+        "changes": 4
       }
     ]
   }

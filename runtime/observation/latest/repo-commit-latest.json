@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T08:58:17.650Z",
+  "generated_at": "2026-05-16T09:10:39.774Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: 4e9b6e91ec48 — Merge PR #269: project-memory: add development plan\n\nMerge Project Memory development plan into dev/v2-start.\n\n- Add pillars/modules/project_memory/DEVELOPMENT_PLAN.md\n- Define full Project Memory development path from module skeleton to production readiness\n- Keep the document as a plan, not a mutable progress tracker\n- Avoid completion markers, deployment claims, live runtime proof, or done/not-done labels\n\nBoundaries: documentation-only, no runtime code changes, no Telegram changes, no AI/provider changes, no Project Memory write behavior changes, no confirmed memory write enablement, no auto-confirm enablement.",
+  "summary": "Repo commit observed: 83b557e3244a — Merge PR #270: ai-runtime: add controlled runtime command adapter skeleton\n\nMerge Controlled AI Tool Runtime Command Adapter skeleton into dev/v2-start.\n\n- Add AiToolRuntimeCommandAdapter skeleton for Project Memory plan Stage 16\n- Adapt structured internal runtime commands into Runtime Invocation Bridge\n- Export adapter through src/ai/runtime/index.js\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n\nBoundaries: no raw chat parsing, no Telegram touch, no AI provider calls, no provider function-calling, no prompt mutation, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no auto-confirm, no confirmed memory writes.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T08:58:17.650Z",
+      "created_at": "2026-05-16T09:10:39.774Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,30 +24,51 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: 4e9b6e91ec48 — Merge PR #269: project-memory: add development plan\n\nMerge Project Memory development plan into dev/v2-start.\n\n- Add pillars/modules/project_memory/DEVELOPMENT_PLAN.md\n- Define full Project Memory development path from module skeleton to production readiness\n- Keep the document as a plan, not a mutable progress tracker\n- Avoid completion markers, deployment claims, live runtime proof, or done/not-done labels\n\nBoundaries: documentation-only, no runtime code changes, no Telegram changes, no AI/provider changes, no Project Memory write behavior changes, no confirmed memory write enablement, no auto-confirm enablement.",
+      "summary": "Repo commit observed: 83b557e3244a — Merge PR #270: ai-runtime: add controlled runtime command adapter skeleton\n\nMerge Controlled AI Tool Runtime Command Adapter skeleton into dev/v2-start.\n\n- Add AiToolRuntimeCommandAdapter skeleton for Project Memory plan Stage 16\n- Adapt structured internal runtime commands into Runtime Invocation Bridge\n- Export adapter through src/ai/runtime/index.js\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n\nBoundaries: no raw chat parsing, no Telegram touch, no AI provider calls, no provider function-calling, no prompt mutation, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no auto-confirm, no confirmed memory writes.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
-        "previous_head_sha": "dc20b378463b8166942785a1f20b39686bad6bea",
+        "current_head_sha": "83b557e3244a87c7028eadbcc00f31e61c300363",
+        "previous_head_sha": "4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "58ce29327c46c032feff5800efd7e13c2dd7f33f",
+        "registry_commit_sha": "078e017b9108cbe65da5e6a38be2a876c337f3d3",
         "latest_commit": {
-          "sha": "4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
-          "short_sha": "4e9b6e91ec48",
-          "message": "Merge PR #269: project-memory: add development plan\n\nMerge Project Memory development plan into dev/v2-start.\n\n- Add pillars/modules/project_memory/DEVELOPMENT_PLAN.md\n- Define full Project Memory development path from module skeleton to production readiness\n- Keep the document as a plan, not a mutable progress tracker\n- Avoid completion markers, deployment claims, live runtime proof, or done/not-done labels\n\nBoundaries: documentation-only, no runtime code changes, no Telegram changes, no AI/provider changes, no Project Memory write behavior changes, no confirmed memory write enablement, no auto-confirm enablement.",
+          "sha": "83b557e3244a87c7028eadbcc00f31e61c300363",
+          "short_sha": "83b557e3244a",
+          "message": "Merge PR #270: ai-runtime: add controlled runtime command adapter skeleton\n\nMerge Controlled AI Tool Runtime Command Adapter skeleton into dev/v2-start.\n\n- Add AiToolRuntimeCommandAdapter skeleton for Project Memory plan Stage 16\n- Adapt structured internal runtime commands into Runtime Invocation Bridge\n- Export adapter through src/ai/runtime/index.js\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n\nBoundaries: no raw chat parsing, no Telegram touch, no AI provider calls, no provider function-calling, no prompt mutation, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no auto-confirm, no confirmed memory writes.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T08:58:02Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
-          "changed_files_count": 1,
+          "date": "2026-05-16T09:10:22Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/83b557e3244a87c7028eadbcc00f31e61c300363",
+          "changed_files_count": 4,
           "changed_files": [
             {
-              "filename": "pillars/modules/project_memory/DEVELOPMENT_PLAN.md",
+              "filename": ".github/workflows/sg2-ai-tool-runtime-command-adapter-smoke.yml",
               "status": "added",
-              "additions": 696,
+              "additions": 23,
               "deletions": 0,
-              "changes": 696
+              "changes": 23
+            },
+            {
+              "filename": "scripts/smokeAiToolRuntimeCommandAdapter.js",
+              "status": "added",
+              "additions": 160,
+              "deletions": 0,
+              "changes": 160
+            },
+            {
+              "filename": "src/ai/runtime/aiToolRuntimeCommandAdapter.js",
+              "status": "added",
+              "additions": 198,
+              "deletions": 0,
+              "changes": 198
+            },
+            {
+              "filename": "src/ai/runtime/index.js",
+              "status": "modified",
+              "additions": 9,
+              "deletions": 0,
+              "changes": 9
             }
           ]
         }
@@ -61,7 +82,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
+        "related_commit_sha": "83b557e3244a87c7028eadbcc00f31e61c300363",
         "related_run_id": ""
       }
     }

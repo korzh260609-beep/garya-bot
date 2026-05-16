@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T08:25:04.600Z",
+  "generated_at": "2026-05-16T08:58:17.650Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: dc20b378463b — Merge PR #268: ai-runtime: add AI tool runtime invocation bridge skeleton\n\nMerge AI Tool Runtime Invocation Bridge skeleton into dev/v2-start.\n\n- Add isolated src/ai/runtime skeleton layer\n- Add explicit-only runtime-facing bridge for allowlisted AI tools\n- Dispatch only through existing AI Tool Registry\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n\nBoundaries: no AI provider calls, no provider function-calling, no prompt mutation, no raw chat reads, no Telegram, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no auto-confirm, no confirmed memory writes.",
+  "summary": "Repo commit observed: 4e9b6e91ec48 — Merge PR #269: project-memory: add development plan\n\nMerge Project Memory development plan into dev/v2-start.\n\n- Add pillars/modules/project_memory/DEVELOPMENT_PLAN.md\n- Define full Project Memory development path from module skeleton to production readiness\n- Keep the document as a plan, not a mutable progress tracker\n- Avoid completion markers, deployment claims, live runtime proof, or done/not-done labels\n\nBoundaries: documentation-only, no runtime code changes, no Telegram changes, no AI/provider changes, no Project Memory write behavior changes, no confirmed memory write enablement, no auto-confirm enablement.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T08:25:04.599Z",
+      "created_at": "2026-05-16T08:58:17.650Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,51 +24,30 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: dc20b378463b — Merge PR #268: ai-runtime: add AI tool runtime invocation bridge skeleton\n\nMerge AI Tool Runtime Invocation Bridge skeleton into dev/v2-start.\n\n- Add isolated src/ai/runtime skeleton layer\n- Add explicit-only runtime-facing bridge for allowlisted AI tools\n- Dispatch only through existing AI Tool Registry\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n\nBoundaries: no AI provider calls, no provider function-calling, no prompt mutation, no raw chat reads, no Telegram, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no auto-confirm, no confirmed memory writes.",
+      "summary": "Repo commit observed: 4e9b6e91ec48 — Merge PR #269: project-memory: add development plan\n\nMerge Project Memory development plan into dev/v2-start.\n\n- Add pillars/modules/project_memory/DEVELOPMENT_PLAN.md\n- Define full Project Memory development path from module skeleton to production readiness\n- Keep the document as a plan, not a mutable progress tracker\n- Avoid completion markers, deployment claims, live runtime proof, or done/not-done labels\n\nBoundaries: documentation-only, no runtime code changes, no Telegram changes, no AI/provider changes, no Project Memory write behavior changes, no confirmed memory write enablement, no auto-confirm enablement.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "dc20b378463b8166942785a1f20b39686bad6bea",
-        "previous_head_sha": "6514c99a2e18b2cce3cd8450e2c923a0308ac2c3",
+        "current_head_sha": "4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
+        "previous_head_sha": "dc20b378463b8166942785a1f20b39686bad6bea",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "4e2bbaf57dd448629143a00d91f9db1f81991ec8",
+        "registry_commit_sha": "58ce29327c46c032feff5800efd7e13c2dd7f33f",
         "latest_commit": {
-          "sha": "dc20b378463b8166942785a1f20b39686bad6bea",
-          "short_sha": "dc20b378463b",
-          "message": "Merge PR #268: ai-runtime: add AI tool runtime invocation bridge skeleton\n\nMerge AI Tool Runtime Invocation Bridge skeleton into dev/v2-start.\n\n- Add isolated src/ai/runtime skeleton layer\n- Add explicit-only runtime-facing bridge for allowlisted AI tools\n- Dispatch only through existing AI Tool Registry\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n\nBoundaries: no AI provider calls, no provider function-calling, no prompt mutation, no raw chat reads, no Telegram, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no auto-confirm, no confirmed memory writes.",
+          "sha": "4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
+          "short_sha": "4e9b6e91ec48",
+          "message": "Merge PR #269: project-memory: add development plan\n\nMerge Project Memory development plan into dev/v2-start.\n\n- Add pillars/modules/project_memory/DEVELOPMENT_PLAN.md\n- Define full Project Memory development path from module skeleton to production readiness\n- Keep the document as a plan, not a mutable progress tracker\n- Avoid completion markers, deployment claims, live runtime proof, or done/not-done labels\n\nBoundaries: documentation-only, no runtime code changes, no Telegram changes, no AI/provider changes, no Project Memory write behavior changes, no confirmed memory write enablement, no auto-confirm enablement.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T08:24:43Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/dc20b378463b8166942785a1f20b39686bad6bea",
-          "changed_files_count": 4,
+          "date": "2026-05-16T08:58:02Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
+          "changed_files_count": 1,
           "changed_files": [
             {
-              "filename": ".github/workflows/sg2-ai-tool-runtime-invocation-bridge-smoke.yml",
+              "filename": "pillars/modules/project_memory/DEVELOPMENT_PLAN.md",
               "status": "added",
-              "additions": 23,
+              "additions": 696,
               "deletions": 0,
-              "changes": 23
-            },
-            {
-              "filename": "scripts/smokeAiToolRuntimeInvocationBridge.js",
-              "status": "added",
-              "additions": 145,
-              "deletions": 0,
-              "changes": 145
-            },
-            {
-              "filename": "src/ai/runtime/aiToolRuntimeInvocationBridge.js",
-              "status": "added",
-              "additions": 198,
-              "deletions": 0,
-              "changes": 198
-            },
-            {
-              "filename": "src/ai/runtime/index.js",
-              "status": "added",
-              "additions": 13,
-              "deletions": 0,
-              "changes": 13
+              "changes": 696
             }
           ]
         }
@@ -82,7 +61,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "dc20b378463b8166942785a1f20b39686bad6bea",
+        "related_commit_sha": "4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
         "related_run_id": ""
       }
     }

@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T13:02:57.571Z",
+  "generated_at": "2026-05-16T13:15:57.337Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: 2a3d64707684 — Merge PR #281: project-memory: add source sync interface skeleton\n\nMerge Project Memory Source Sync Interface skeleton into dev/v2-start.\n\n- Add ProjectMemorySourceSyncInterface skeleton for Stage 18\n- Prepare candidate drafts from provided approved source payloads only\n- Reject non-allowlisted source types, secret-like payloads, and raw-log-like payloads\n- Export source sync interface through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no live source fetching, no real sync, no DB reads/writes, no durable candidate writes, no confirmed memory writes, no auto-confirm, no AI calls, no Telegram, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
+  "summary": "Repo commit observed: 0349960ee981 — Merge PR #282: project-memory: add diagnostics skeleton\n\nMerge Project Memory diagnostics skeleton into dev/v2-start.\n\n- Add ProjectMemoryDiagnostics skeleton for Stage 19\n- Build sanitized diagnostics from provided snapshots only\n- Distinguish available code, configured runtime, verified DB state, and production readiness\n- Export diagnostics through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no DB reads/writes, no live runtime verification, no GitHub/Render/web/source fetching, no AI calls, no Telegram, no raw logs output, no raw DATABASE_URL output, no provider IDs, no private transport IDs, no unredacted user identifiers, no confirmed memory writes, no auto-confirm, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T13:02:57.570Z",
+      "created_at": "2026-05-16T13:15:57.337Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,51 +24,51 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: 2a3d64707684 — Merge PR #281: project-memory: add source sync interface skeleton\n\nMerge Project Memory Source Sync Interface skeleton into dev/v2-start.\n\n- Add ProjectMemorySourceSyncInterface skeleton for Stage 18\n- Prepare candidate drafts from provided approved source payloads only\n- Reject non-allowlisted source types, secret-like payloads, and raw-log-like payloads\n- Export source sync interface through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no live source fetching, no real sync, no DB reads/writes, no durable candidate writes, no confirmed memory writes, no auto-confirm, no AI calls, no Telegram, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
+      "summary": "Repo commit observed: 0349960ee981 — Merge PR #282: project-memory: add diagnostics skeleton\n\nMerge Project Memory diagnostics skeleton into dev/v2-start.\n\n- Add ProjectMemoryDiagnostics skeleton for Stage 19\n- Build sanitized diagnostics from provided snapshots only\n- Distinguish available code, configured runtime, verified DB state, and production readiness\n- Export diagnostics through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no DB reads/writes, no live runtime verification, no GitHub/Render/web/source fetching, no AI calls, no Telegram, no raw logs output, no raw DATABASE_URL output, no provider IDs, no private transport IDs, no unredacted user identifiers, no confirmed memory writes, no auto-confirm, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "2a3d647076843759dd5f9526de9295714160e1f2",
-        "previous_head_sha": "10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
+        "current_head_sha": "0349960ee981d9c96ad27459c5e0c3f20a1a0635",
+        "previous_head_sha": "2a3d647076843759dd5f9526de9295714160e1f2",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "2001c69875ef215ebd1a55797ea99a547ffec351",
+        "registry_commit_sha": "3b1cfd60ae590fabbfab302a50f6b6c1f688622e",
         "latest_commit": {
-          "sha": "2a3d647076843759dd5f9526de9295714160e1f2",
-          "short_sha": "2a3d64707684",
-          "message": "Merge PR #281: project-memory: add source sync interface skeleton\n\nMerge Project Memory Source Sync Interface skeleton into dev/v2-start.\n\n- Add ProjectMemorySourceSyncInterface skeleton for Stage 18\n- Prepare candidate drafts from provided approved source payloads only\n- Reject non-allowlisted source types, secret-like payloads, and raw-log-like payloads\n- Export source sync interface through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no live source fetching, no real sync, no DB reads/writes, no durable candidate writes, no confirmed memory writes, no auto-confirm, no AI calls, no Telegram, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
+          "sha": "0349960ee981d9c96ad27459c5e0c3f20a1a0635",
+          "short_sha": "0349960ee981",
+          "message": "Merge PR #282: project-memory: add diagnostics skeleton\n\nMerge Project Memory diagnostics skeleton into dev/v2-start.\n\n- Add ProjectMemoryDiagnostics skeleton for Stage 19\n- Build sanitized diagnostics from provided snapshots only\n- Distinguish available code, configured runtime, verified DB state, and production readiness\n- Export diagnostics through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no DB reads/writes, no live runtime verification, no GitHub/Render/web/source fetching, no AI calls, no Telegram, no raw logs output, no raw DATABASE_URL output, no provider IDs, no private transport IDs, no unredacted user identifiers, no confirmed memory writes, no auto-confirm, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T13:02:38Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/2a3d647076843759dd5f9526de9295714160e1f2",
+          "date": "2026-05-16T13:15:35Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0349960ee981d9c96ad27459c5e0c3f20a1a0635",
           "changed_files_count": 4,
           "changed_files": [
             {
-              "filename": ".github/workflows/sg2-project-memory-source-sync-interface-smoke.yml",
+              "filename": ".github/workflows/sg2-project-memory-diagnostics-smoke.yml",
               "status": "added",
               "additions": 21,
               "deletions": 0,
               "changes": 21
             },
             {
-              "filename": "scripts/smokeProjectMemorySourceSyncInterface.js",
+              "filename": "scripts/smokeProjectMemoryDiagnostics.js",
               "status": "added",
-              "additions": 155,
+              "additions": 209,
               "deletions": 0,
-              "changes": 155
+              "changes": 209
             },
             {
               "filename": "src/memory/index.js",
               "status": "modified",
-              "additions": 13,
+              "additions": 14,
               "deletions": 0,
-              "changes": 13
+              "changes": 14
             },
             {
-              "filename": "src/memory/project/projectMemorySourceSyncInterface.js",
+              "filename": "src/memory/project/projectMemoryDiagnostics.js",
               "status": "added",
-              "additions": 331,
+              "additions": 377,
               "deletions": 0,
-              "changes": 331
+              "changes": 377
             }
           ]
         }
@@ -82,7 +82,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "2a3d647076843759dd5f9526de9295714160e1f2",
+        "related_commit_sha": "0349960ee981d9c96ad27459c5e0c3f20a1a0635",
         "related_run_id": ""
       }
     }

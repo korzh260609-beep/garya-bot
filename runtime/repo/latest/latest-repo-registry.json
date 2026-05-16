@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-15T15:12:52.334Z",
+  "generated_at": "2026-05-16T04:12:31.575Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "b6e1b15e88ffb12a84de0034af296458ca3becc4",
+  "head_sha": "4c11465b49ad4c05d2d8c263b6c0638516caebf1",
   "truncated": false,
-  "items_count": 446,
+  "items_count": 449,
   "semantic_fields": [
     "module",
     "layer",
@@ -97,6 +97,24 @@
     },
     {
       "path": ".github/workflows/sg2-message-runtime-options.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-message-understanding-intent-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -2800,6 +2818,24 @@
     },
     {
       "path": "scripts/smokeMessageRuntimeOptionsExplicitProjectContext.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMessageUnderstandingIntentSkeleton.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5650,6 +5686,24 @@
     },
     {
       "path": "src/core/message/messageProjectMemoryReadBridge.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/core/message/messageUnderstanding.js",
       "type": "file",
       "parent": "src/core/message",
       "extension": "js",

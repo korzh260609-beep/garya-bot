@@ -1,25 +1,25 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T05:02:52.044Z",
+  "generated_at": "2026-05-16T05:15:42.177Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b50a4a443dd46f5324ef57444777dd441bd25462",
-  "previous_head_sha": "ec078c7a8fdb9b92b3df8448f4b2856888974587",
+  "current_head_sha": "aec32dbf3830a526e07e348ea8d0d635bfc731b5",
+  "previous_head_sha": "b50a4a443dd46f5324ef57444777dd441bd25462",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "7cc55bcda38847dcd7f561a7f56111a4ec3c9d6d",
+  "registry_commit_sha": "53eb671a088930ff85e9c51a482b90a67328c762",
   "latest_commit": {
-    "sha": "b50a4a443dd46f5324ef57444777dd441bd25462",
-    "short_sha": "b50a4a443dd4",
-    "message": "project-memory: add trusted confirmation flow\n\nAdd Project Memory trusted confirmation flow.\n\n- Confirm pending Project Memory candidates only with explicit trusted allowlisted evidence\n- Export the flow from the memory public boundary\n- Add deterministic offline smoke coverage and focused workflow\n- Keep candidate creation, AI, transport, source sync, prompt injection, and direct repository/runtime writes out of this PR",
+    "sha": "aec32dbf3830a526e07e348ea8d0d635bfc731b5",
+    "short_sha": "aec32dbf3830",
+    "message": "project-memory: add automatic orchestrator\n\nAdd Project Memory automatic orchestrator.\n\n- Orchestrate trusted project event -> durable pending candidate -> optional trusted confirmation\n- Export orchestrator through memory public boundary\n- Add deterministic offline smoke coverage and focused workflow\n- Keep AI, transport, source sync, prompt injection, and direct repository/runtime writes out of this PR",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T05:02:33Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b50a4a443dd46f5324ef57444777dd441bd25462",
+    "date": "2026-05-16T05:15:24Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/aec32dbf3830a526e07e348ea8d0d635bfc731b5",
     "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-pm-trusted-confirm-smoke.yml",
+        "filename": ".github/workflows/sg2-pm-auto-orchestrator-smoke.yml",
         "status": "added",
         "additions": 24,
         "deletions": 0,
@@ -33,11 +33,11 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeProjectMemoryTrustedConfirmationFlow.js",
+        "filename": "scripts/smokeProjectMemoryAutomaticOrchestrator.js",
         "status": "added",
-        "additions": 192,
+        "additions": 231,
         "deletions": 0,
-        "changes": 192
+        "changes": 231
       },
       {
         "filename": "src/memory/index.js",
@@ -47,11 +47,11 @@
         "changes": 9
       },
       {
-        "filename": "src/memory/project/projectMemoryTrustedConfirmationFlow.js",
+        "filename": "src/memory/project/projectMemoryAutomaticOrchestrator.js",
         "status": "added",
-        "additions": 259,
+        "additions": 250,
         "deletions": 0,
-        "changes": 259
+        "changes": 250
       }
     ]
   }

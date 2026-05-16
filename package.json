@@ -54,6 +54,7 @@
     "smoke:project-memory-schema-bootstrap": "node ./scripts/smokeProjectMemorySchemaBootstrap.js",
     "smoke:project-memory-skeleton": "node ./scripts/smokeProjectMemorySkeleton.js",
     "smoke:project-memory-storage-confirmation": "node ./scripts/smokeProjectMemoryStorageConfirmation.js",
+    "smoke:project-memory-trusted-confirmation-flow": "node ./scripts/smokeProjectMemoryTrustedConfirmationFlow.js",
     "smoke:project-memory-user-project-guard": "node ./scripts/smokeProjectMemoryUserProjectGuard.js",
     "smoke:project-memory-user-project-validator": "node ./scripts/smokeProjectMemoryUserProjectValidator.js",
     "smoke:repo-commit-watcher-observation-policy": "node ./scripts/smokeRepoCommitWatcherObservationDispatchPolicy.js",

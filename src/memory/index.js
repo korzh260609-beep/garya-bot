@@ -91,6 +91,15 @@ export {
 } from "./project/projectMemoryExplicitConfirmationFlow.js";
 
 export {
+  PROJECT_MEMORY_TRUSTED_CONFIRMATION_FLOW_VERSION,
+  PROJECT_MEMORY_TRUSTED_CONFIRMATION_FLOW_MODES,
+  PROJECT_MEMORY_TRUSTED_CONFIRMATION_DECISIONS,
+  buildProjectMemoryTrustedConfirmationFlowStatus,
+  getProjectMemoryTrustedConfirmationFlowBoundaries,
+  confirmTrustedProjectMemoryCandidate,
+} from "./project/projectMemoryTrustedConfirmationFlow.js";
+
+export {
   PROJECT_MEMORY_MANUAL_CANDIDATE_FLOW_VERSION,
   PROJECT_MEMORY_MANUAL_CANDIDATE_FLOW_MODES,
   PROJECT_MEMORY_MANUAL_CANDIDATE_FLOW_DECISIONS,

@@ -44,6 +44,7 @@
     "smoke:observation-trigger-layer": "node ./scripts/smokeObservationTriggerLayer.js",
     "smoke:project-memory-automatic-candidate-pipeline": "node ./scripts/smokeProjectMemoryAutomaticCandidatePipeline.js",
     "smoke:project-memory-automatic-durable-candidate-flow": "node ./scripts/smokeProjectMemoryAutomaticDurableCandidateFlow.js",
+    "smoke:project-memory-automatic-orchestrator": "node ./scripts/smokeProjectMemoryAutomaticOrchestrator.js",
     "smoke:project-memory-confirmed-read-flow": "node ./scripts/smokeProjectMemoryConfirmedReadFlow.js",
     "smoke:project-memory-explicit-confirmation-flow": "node ./scripts/smokeProjectMemoryExplicitConfirmationFlow.js",
     "smoke:project-memory-live-db-check": "node ./scripts/smokeProjectMemoryLiveDbCheck.js",

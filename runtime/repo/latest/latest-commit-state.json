@@ -1,43 +1,64 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-15T15:12:53.749Z",
+  "generated_at": "2026-05-16T04:12:33.066Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b6e1b15e88ffb12a84de0034af296458ca3becc4",
-  "previous_head_sha": "9e8141ce95f09b60d5dddc234dca44e8d1a7307d",
+  "current_head_sha": "4c11465b49ad4c05d2d8c263b6c0638516caebf1",
+  "previous_head_sha": "b6e1b15e88ffb12a84de0034af296458ca3becc4",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "4e8dfd97ea618868c4ee5f62702ea99c3002f324",
+  "registry_commit_sha": "e954126f7608699058f6aa95fb9274b6ddb6d462",
   "latest_commit": {
-    "sha": "b6e1b15e88ffb12a84de0034af296458ca3becc4",
-    "short_sha": "b6e1b15e88ff",
-    "message": "Merge pull request #252 from korzh260609-beep/dev/message-diagnostics-structured-intent-route\n\ndiagnostics: require structured intent for message route",
+    "sha": "4c11465b49ad4c05d2d8c263b6c0638516caebf1",
+    "short_sha": "4c11465b49ad",
+    "message": "message: add structured understanding intent skeleton\n\nAdd structured message understanding intent passthrough skeleton.\n\n- Add messageUnderstanding helper for normalized structured intent passthrough\n- Pass normalized intent into diagnostics route from handleMessage\n- Add focused smoke coverage and workflow\n- Keep raw text inference, keyword matching, phrase matching, AI-understanding, tools, DB writes, and memory writes out of this PR",
     "author": "korzh260609-beep",
-    "date": "2026-05-15T15:12:31Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b6e1b15e88ffb12a84de0034af296458ca3becc4",
-    "changed_files_count": 3,
+    "date": "2026-05-16T04:12:16Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4c11465b49ad4c05d2d8c263b6c0638516caebf1",
+    "changed_files_count": 6,
     "changed_files": [
       {
-        "filename": "scripts/smokeMigrationGovernanceDiagnosticsRoute.js",
-        "status": "modified",
-        "additions": 41,
-        "deletions": 6,
-        "changes": 47
+        "filename": ".github/workflows/sg2-message-understanding-intent-smoke.yml",
+        "status": "added",
+        "additions": 36,
+        "deletions": 0,
+        "changes": 36
       },
       {
-        "filename": "src/core/message/messageDiagnosticsRoute.js",
+        "filename": "package.json",
         "status": "modified",
-        "additions": 77,
-        "deletions": 18,
-        "changes": 95
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
       },
       {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "filename": "scripts/smokeMessageUnderstandingIntentSkeleton.js",
+        "status": "added",
+        "additions": 142,
+        "deletions": 0,
+        "changes": 142
+      },
+      {
+        "filename": "src/core/handleMessage.js",
         "status": "modified",
-        "additions": 14,
-        "deletions": 2,
-        "changes": 16
+        "additions": 12,
+        "deletions": 1,
+        "changes": 13
+      },
+      {
+        "filename": "src/core/message/index.js",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/core/message/messageUnderstanding.js",
+        "status": "added",
+        "additions": 91,
+        "deletions": 0,
+        "changes": 91
       }
     ]
   }

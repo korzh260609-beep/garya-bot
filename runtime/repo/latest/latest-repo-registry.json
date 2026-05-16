@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T08:58:15.765Z",
+  "generated_at": "2026-05-16T09:10:37.941Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
+  "head_sha": "83b557e3244a87c7028eadbcc00f31e61c300363",
   "truncated": false,
-  "items_count": 485,
+  "items_count": 488,
   "semantic_fields": [
     "module",
     "layer",
@@ -97,6 +97,24 @@
     },
     {
       "path": ".github/workflows/sg2-ai-tool-registry-pm-runtime-trusted-event-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-ai-tool-runtime-command-adapter-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -2767,6 +2785,24 @@
       }
     },
     {
+      "path": "scripts/smokeAiToolRuntimeCommandAdapter.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeAiToolRuntimeInvocationBridge.js",
       "type": "file",
       "parent": "scripts",
@@ -5314,6 +5350,24 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": "src/ai/runtime/aiToolRuntimeCommandAdapter.js",
+      "type": "file",
+      "parent": "src/ai/runtime",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
       }
     },
     {

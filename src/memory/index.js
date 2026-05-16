@@ -157,6 +157,15 @@ export {
 } from "./project/projectMemoryTrustedEventSourceOrchestratorBridge.js";
 
 export {
+  PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_VERSION,
+  PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES,
+  PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_DECISIONS,
+  buildProjectMemoryRuntimeTrustedEventToolStatus,
+  getProjectMemoryRuntimeTrustedEventToolBoundaries,
+  runProjectMemoryRuntimeTrustedEventTool,
+} from "./project/projectMemoryRuntimeTrustedEventTool.js";
+
+export {
   PROJECT_MEMORY_RUNTIME_CONTEXT_VERSION,
   PROJECT_MEMORY_RUNTIME_CONTEXT_MODES,
   PROJECT_MEMORY_RUNTIME_CONTEXT_DEFAULT_LIMITS,
@@ -225,6 +234,7 @@ export function getMemoryModuleStatus() {
     hasProjectMemoryAutomaticCandidatePipeline: true,
     hasProjectMemoryAutomaticTrustedEventSource: true,
     hasProjectMemoryTrustedEventSourceOrchestratorBridge: true,
+    hasProjectMemoryRuntimeTrustedEventTool: true,
     hasProjectMemoryRuntimeReadBridge: true,
     hasProjectMemoryOwnershipBoundary: true,
     hasProjectMemoryUserProjectValidator: true,
@@ -246,6 +256,8 @@ export function getMemoryModuleStatus() {
       projectMemoryAutomaticCandidatePrepareOnly: true,
       projectMemoryAutomaticTrustedEventSourceSkeletonOnly: true,
       projectMemoryTrustedEventSourceOrchestratorBridgePendingOnly: true,
+      projectMemoryRuntimeTrustedEventToolSkeletonOnly: true,
+      projectMemoryRuntimeTrustedEventToolPendingOnly: true,
       projectMemoryManualCandidateOnly: true,
       projectMemoryExplicitConfirmationOnly: true,
       projectMemoryConfirmedReadOnly: true,

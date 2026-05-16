@@ -184,6 +184,16 @@ export {
 } from "./project/projectMemoryConflictStaleDetector.js";
 
 export {
+  PROJECT_MEMORY_SOURCE_SYNC_INTERFACE_VERSION,
+  PROJECT_MEMORY_SOURCE_SYNC_INTERFACE_MODES,
+  PROJECT_MEMORY_SOURCE_SYNC_INTERFACE_DECISIONS,
+  PROJECT_MEMORY_SOURCE_SYNC_SOURCE_TYPES,
+  buildProjectMemorySourceSyncInterfaceStatus,
+  getProjectMemorySourceSyncInterfaceBoundaries,
+  prepareProjectMemorySourceSync,
+} from "./project/projectMemorySourceSyncInterface.js";
+
+export {
   PROJECT_MEMORY_USER_PROJECT_VALIDATOR_VERSION,
   PROJECT_MEMORY_USER_PROJECT_VALIDATOR_MODES,
   ProjectMemoryUserProjectValidator,
@@ -247,6 +257,7 @@ export function getMemoryModuleStatus() {
     hasProjectMemoryRuntimeTrustedEventTool: true,
     hasProjectMemoryRuntimeReadBridge: true,
     hasProjectMemoryConflictStaleDetector: true,
+    hasProjectMemorySourceSyncInterface: true,
     hasProjectMemoryOwnershipBoundary: true,
     hasProjectMemoryUserProjectValidator: true,
     hasTransportLogic: false,
@@ -271,6 +282,8 @@ export function getMemoryModuleStatus() {
       projectMemoryRuntimeTrustedEventToolPendingOnly: true,
       projectMemoryConflictStaleDetectorProvidedInputOnly: true,
       projectMemoryConflictStaleDetectorNoWrites: true,
+      projectMemorySourceSyncInterfaceProvidedSourcesOnly: true,
+      projectMemorySourceSyncInterfaceCandidatesOnly: true,
       projectMemoryManualCandidateOnly: true,
       projectMemoryExplicitConfirmationOnly: true,
       projectMemoryConfirmedReadOnly: true,

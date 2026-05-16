@@ -128,6 +128,15 @@ export {
 } from "./project/projectMemoryAutomaticDurableCandidateFlow.js";
 
 export {
+  PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_VERSION,
+  PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_MODES,
+  PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_DECISIONS,
+  buildProjectMemoryAutomaticOrchestratorStatus,
+  getProjectMemoryAutomaticOrchestratorBoundaries,
+  processProjectMemoryAutomaticEvent,
+} from "./project/projectMemoryAutomaticOrchestrator.js";
+
+export {
   PROJECT_MEMORY_RUNTIME_CONTEXT_VERSION,
   PROJECT_MEMORY_RUNTIME_CONTEXT_MODES,
   PROJECT_MEMORY_RUNTIME_CONTEXT_DEFAULT_LIMITS,

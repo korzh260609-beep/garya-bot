@@ -1,0 +1,24 @@
+name: SG2 PM Auto Orchestrator Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/v2-start
+  pull_request:
+    branches:
+      - dev/v2-start
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: |
+          node --check src/memory/project/projectMemoryAutomaticOrchestrator.js
+          node --check scripts/smokeProjectMemoryAutomaticOrchestrator.js
+      - run: npm run smoke:project-memory-automatic-orchestrator

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T04:32:37.659Z",
+  "generated_at": "2026-05-16T04:47:21.209Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "e6c8bbcbce0fdff577672d864c67c8f31e6697cd",
+  "head_sha": "ec078c7a8fdb9b92b3df8448f4b2856888974587",
   "truncated": false,
-  "items_count": 452,
+  "items_count": 454,
   "semantic_fields": [
     "module",
     "layer",
@@ -3376,6 +3376,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryAutomaticCandidatePipeline.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryAutomaticDurableCandidateFlow.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -7442,6 +7460,26 @@
     },
     {
       "path": "src/memory/project/projectMemoryAutomaticCandidatePipeline.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "JavaScript source file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemoryAutomaticDurableCandidateFlow.js",
       "type": "file",
       "parent": "src/memory/project",
       "extension": "js",

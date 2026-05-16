@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T09:23:27.739Z",
+  "generated_at": "2026-05-16T09:34:47.046Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "ab73d91fbd1eaf7dd8dd1d1e382422a05e9d3583",
+  "head_sha": "70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
   "truncated": false,
-  "items_count": 491,
+  "items_count": 490,
   "semantic_fields": [
     "module",
     "layer",
@@ -787,64 +787,6 @@
       "path": "agent_workspace/STATUS.md",
       "type": "file",
       "parent": "agent_workspace",
-      "extension": "md",
-      "description": "Markdown documentation.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "repository",
-        "layer": "repository",
-        "responsibility": "Markdown documentation.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "unknown_or_low",
-        "source_priority": "repository_fact",
-        "notes": []
-      }
-    },
-    {
-      "path": "agents",
-      "type": "folder",
-      "parent": "",
-      "extension": "",
-      "description": "Repository folder.",
-      "status": "folder",
-      "semantic": {
-        "module": "repository",
-        "layer": "repository",
-        "responsibility": "Repository folder.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "none_folder",
-        "source_priority": "repository_fact",
-        "notes": [
-          "folder_node"
-        ]
-      }
-    },
-    {
-      "path": "agents/coding-agents",
-      "type": "folder",
-      "parent": "agents",
-      "extension": "",
-      "description": "Repository folder.",
-      "status": "folder",
-      "semantic": {
-        "module": "repository",
-        "layer": "repository",
-        "responsibility": "Repository folder.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "none_folder",
-        "source_priority": "repository_fact",
-        "notes": [
-          "folder_node"
-        ]
-      }
-    },
-    {
-      "path": "agents/coding-agents/CODING_AGENTS_TEAM.md",
-      "type": "file",
-      "parent": "agents/coding-agents",
       "extension": "md",
       "description": "Markdown documentation.",
       "status": "active_or_config",
@@ -4287,6 +4229,47 @@
         "source_priority": "source_code",
         "notes": [
           "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents",
+      "type": "folder",
+      "parent": "src/agents",
+      "extension": "",
+      "description": "Agent-specific folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Agent-specific folder.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/CODING_AGENTS_TEAM.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
         ]
       }
     },

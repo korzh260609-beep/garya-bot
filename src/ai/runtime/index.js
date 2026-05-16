@@ -11,3 +11,12 @@ export {
   getAiToolRuntimeInvocationBridgeBoundaries,
   invokeAiToolFromRuntime,
 } from "./aiToolRuntimeInvocationBridge.js";
+
+export {
+  AI_TOOL_RUNTIME_COMMAND_ADAPTER_VERSION,
+  AI_TOOL_RUNTIME_COMMAND_ADAPTER_MODES,
+  AI_TOOL_RUNTIME_COMMAND_ADAPTER_DECISIONS,
+  buildAiToolRuntimeCommandAdapterStatus,
+  getAiToolRuntimeCommandAdapterBoundaries,
+  handleAiToolRuntimeCommand,
+} from "./aiToolRuntimeCommandAdapter.js";

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T10:05:40.446Z",
+  "generated_at": "2026-05-16T10:14:46.923Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "731e29cffb9d70600b6ab25e44aa100b7bada834",
+  "head_sha": "66b98cccbfc83f423a687e950e569358ec8875b3",
   "truncated": false,
-  "items_count": 494,
+  "items_count": 500,
   "semantic_fields": [
     "module",
     "layer",
@@ -4254,6 +4254,26 @@
       }
     },
     {
+      "path": "src/agents/coding-agents/ACCEPTANCE_CRITERIA.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
       "path": "src/agents/coding-agents/CODING_AGENT_CREATION.md",
       "type": "file",
       "parent": "src/agents/coding-agents",
@@ -4334,7 +4354,107 @@
       }
     },
     {
+      "path": "src/agents/coding-agents/EXAMPLE_V1_OUTPUT_TREE.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
       "path": "src/agents/coding-agents/IMPLEMENTATION_WORKFLOW.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/PR_REVIEW_CHECKLIST.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/RISKS_AND_STOP_CONDITIONS.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/RUNTIME_SKELETON_CHECKLIST.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/TASK_PROMPT_FOR_CODEX.md",
       "type": "file",
       "parent": "src/agents/coding-agents",
       "extension": "md",

@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T09:34:48.917Z",
+  "generated_at": "2026-05-16T09:46:54.965Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: 70ca0edd23a6 — Merge PR #272: Move coding agents spec under src agents\n\nMove coding agents spec under src/agents and remove misplaced root agents path.\n\nApproved by Monarch.",
+  "summary": "Repo commit observed: 08ce9d62a49a — Merge PR #273\n\nDocs update.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T09:34:48.917Z",
+      "created_at": "2026-05-16T09:46:54.965Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,30 +24,37 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: 70ca0edd23a6 — Merge PR #272: Move coding agents spec under src agents\n\nMove coding agents spec under src/agents and remove misplaced root agents path.\n\nApproved by Monarch.",
+      "summary": "Repo commit observed: 08ce9d62a49a — Merge PR #273\n\nDocs update.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
-        "previous_head_sha": "ab73d91fbd1eaf7dd8dd1d1e382422a05e9d3583",
+        "current_head_sha": "08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
+        "previous_head_sha": "70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "191841f1d5d67727aa1a3299a9b44d1e4d1cb446",
+        "registry_commit_sha": "6af5aba46ce6cb1a24892814910cc4b4f6f829cf",
         "latest_commit": {
-          "sha": "70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
-          "short_sha": "70ca0edd23a6",
-          "message": "Merge PR #272: Move coding agents spec under src agents\n\nMove coding agents spec under src/agents and remove misplaced root agents path.\n\nApproved by Monarch.",
+          "sha": "08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
+          "short_sha": "08ce9d62a49a",
+          "message": "Merge PR #273\n\nDocs update.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T09:34:30Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
-          "changed_files_count": 1,
+          "date": "2026-05-16T09:46:36Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
+          "changed_files_count": 2,
           "changed_files": [
             {
-              "filename": "src/agents/coding-agents/CODING_AGENTS_TEAM.md",
-              "status": "renamed",
-              "additions": 2,
-              "deletions": 2,
-              "changes": 4
+              "filename": "src/agents/coding-agents/CODING_AGENT_CREATION.md",
+              "status": "added",
+              "additions": 1405,
+              "deletions": 0,
+              "changes": 1405
+            },
+            {
+              "filename": "src/agents/coding-agents/CODING_AGENT_ROLES.md",
+              "status": "added",
+              "additions": 1161,
+              "deletions": 0,
+              "changes": 1161
             }
           ]
         }
@@ -61,7 +68,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
+        "related_commit_sha": "08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
         "related_run_id": ""
       }
     }

@@ -1,50 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T05:33:02.361Z",
+  "generated_at": "2026-05-16T05:52:27.643Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "68a63ace53276bef88673ddbe777d8dcad68a16f",
-  "previous_head_sha": "aec32dbf3830a526e07e348ea8d0d635bfc731b5",
+  "current_head_sha": "0bc00d169f5117cc69c6b1edfc043f331390476d",
+  "previous_head_sha": "68a63ace53276bef88673ddbe777d8dcad68a16f",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "e531453fcb978a78d2e0af9cf6421392fee4c541",
+  "registry_commit_sha": "560a65e56ccb9b69d7b526b03cde6e56de03b359",
   "latest_commit": {
-    "sha": "68a63ace53276bef88673ddbe777d8dcad68a16f",
-    "short_sha": "68a63ace5327",
-    "message": "project-memory: add trusted event source skeleton\n\nAdd Project Memory Trusted Event Source skeleton.\n\n- Add PR merged trusted event source normalization\n- Export through memory public boundary\n- Add deterministic offline smoke coverage\n- Add focused GitHub Actions smoke workflow\n- Keep runtime, AI, transport, DB writes, source sync, and confirmed memory writes out of this PR",
+    "sha": "0bc00d169f5117cc69c6b1edfc043f331390476d",
+    "short_sha": "0bc00d169f51",
+    "message": "observation: add PR merged automatic dispatch\n\nAdd automatic Observation dispatch for merged PR events.\n\n- Add PR merged dispatch workflow for dev/v2-start\n- Run repo commit watcher on merged PR closed events\n- Dispatch github.pr_merged into Observation\n- Add deterministic workflow smoke coverage\n- Keep runtime app code, AI, Telegram, Render env, Project Memory writes, and manual-only boundaries unchanged",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T05:32:46Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/68a63ace53276bef88673ddbe777d8dcad68a16f",
-    "changed_files_count": 4,
+    "date": "2026-05-16T05:52:09Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0bc00d169f5117cc69c6b1edfc043f331390476d",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-pm-trusted-event-source-smoke.yml",
+        "filename": ".github/workflows/observation-pr-merged-dispatch-smoke.yml",
         "status": "added",
-        "additions": 24,
+        "additions": 21,
         "deletions": 0,
-        "changes": 24
+        "changes": 21
       },
       {
-        "filename": "scripts/smokeProjectMemoryTrustedEventSource.js",
+        "filename": ".github/workflows/observation-pr-merged-dispatch.yml",
         "status": "added",
-        "additions": 136,
+        "additions": 47,
         "deletions": 0,
-        "changes": 136
+        "changes": 47
       },
       {
-        "filename": "src/memory/index.js",
-        "status": "modified",
-        "additions": 13,
-        "deletions": 0,
-        "changes": 13
-      },
-      {
-        "filename": "src/memory/project/projectMemoryTrustedEventSource.js",
+        "filename": "scripts/smokeObservationPrMergedDispatchWorkflow.js",
         "status": "added",
-        "additions": 242,
+        "additions": 36,
         "deletions": 0,
-        "changes": 242
+        "changes": 36
       }
     ]
   }

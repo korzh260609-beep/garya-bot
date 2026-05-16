@@ -60,9 +60,27 @@ const fakeConfirmation = {
       traceId,
     };
   },
+  async confirmCandidate({ entryId, confirmedBy, traceId, approvalRef }) {
+    assert.equal(entryId, "pm_smoke_trusted_source_bridge");
+    assert.equal(confirmedBy, "system");
+    assert.equal(traceId, "pmtrace_smoke_trusted_source_bridge");
+    assert.equal(approvalRef, "https://github.com/korzh260609-beep/garya-bot/pull/264");
+
+    return {
+      ok: true,
+      entry: {
+        id: entryId,
+        trust: "confirmed",
+        status: "active",
+      },
+      trust: "confirmed",
+      traceId,
+      approvalRef,
+    };
+  },
 };
 
-const result = await processTrustedEventSourceOutputThroughOrchestrator({
+const pendingResult = await processTrustedEventSourceOutputThroughOrchestrator({
   trustedEventSourceResult,
   actor: {
     role: "system",
@@ -73,19 +91,99 @@ const result = await processTrustedEventSourceOutputThroughOrchestrator({
   traceId: "pmtrace_smoke_trusted_source_bridge",
 });
 
-assert.equal(result.ok, true);
-assert.equal(result.dispatched, true);
-assert.equal(result.candidatePrepared, true);
-assert.equal(result.stored, true);
-assert.equal(result.confirmed, false);
-assert.equal(result.requiresConfirmation, true);
-assert.equal(result.orchestrator.confirmed, false);
-assert.equal(result.orchestrator.requiresConfirmation, true);
-assert.equal(result.orchestrator.durable.stored, true);
-assert.equal(result.boundaries.forcedAutoConfirmFalse, true);
-assert.equal(result.boundaries.callsAI, false);
-assert.equal(result.boundaries.touchesTelegram, false);
-assert.equal(result.boundaries.sourceSync, false);
-assert.equal(result.boundaries.writesRuntimeFiles, false);
+assert.equal(pendingResult.ok, true);
+assert.equal(pendingResult.dispatched, true);
+assert.equal(pendingResult.candidatePrepared, true);
+assert.equal(pendingResult.stored, true);
+assert.equal(pendingResult.confirmed, false);
+assert.equal(pendingResult.requiresConfirmation, true);
+assert.equal(pendingResult.autoConfirm, false);
+assert.equal(pendingResult.autoConfirmReason, "auto_confirm_not_requested_by_trusted_source");
+assert.equal(pendingResult.orchestrator.confirmed, false);
+assert.equal(pendingResult.orchestrator.requiresConfirmation, true);
+assert.equal(pendingResult.orchestrator.durable.stored, true);
+assert.equal(pendingResult.boundaries.forcedAutoConfirmFalse, false);
+assert.equal(pendingResult.boundaries.policyGatedAutoConfirm, true);
+assert.equal(pendingResult.boundaries.autoConfirmRequiresVerifiedEvidence, true);
+assert.equal(pendingResult.boundaries.callsAI, false);
+assert.equal(pendingResult.boundaries.touchesTelegram, false);
+assert.equal(pendingResult.boundaries.sourceSync, false);
+assert.equal(pendingResult.boundaries.writesRuntimeFiles, false);
+
+const verifiedAutoConfirmSourceResult = {
+  ...trustedEventSourceResult,
+  suggestedOrchestratorRequest: {
+    ...trustedEventSourceResult.suggestedOrchestratorRequest,
+    autoConfirm: true,
+    evidence: {
+      eventType: trustedEventSourceResult.event.eventType,
+      sourceRef: trustedEventSourceResult.event.sourceRef,
+      approvalRef: trustedEventSourceResult.event.sourceRef,
+      policy: "trusted_project_event_allowlist",
+      verified: true,
+    },
+  },
+};
+
+const confirmedResult = await processTrustedEventSourceOutputThroughOrchestrator({
+  trustedEventSourceResult: verifiedAutoConfirmSourceResult,
+  actor: {
+    role: "system",
+    isMonarch: false,
+  },
+  confirmation: fakeConfirmation,
+  createdBy: "smoke-test",
+  traceId: "pmtrace_smoke_trusted_source_bridge",
+});
+
+assert.equal(confirmedResult.ok, true);
+assert.equal(confirmedResult.dispatched, true);
+assert.equal(confirmedResult.candidatePrepared, true);
+assert.equal(confirmedResult.stored, true);
+assert.equal(confirmedResult.confirmed, true);
+assert.equal(confirmedResult.requiresConfirmation, false);
+assert.equal(confirmedResult.autoConfirm, true);
+assert.equal(confirmedResult.autoConfirmReason, "trusted_auto_confirm_policy_passed");
+assert.equal(confirmedResult.trustedEvidence.verified, true);
+assert.equal(confirmedResult.trustedEvidence.policy, "trusted_project_event_allowlist");
+assert.equal(confirmedResult.orchestrator.confirmed, true);
+assert.equal(confirmedResult.orchestrator.trusted.confirmed, true);
+assert.equal(confirmedResult.entry.trust, "confirmed");
+assert.equal(confirmedResult.entry.status, "active");
+
+const unverifiedAutoConfirmSourceResult = {
+  ...trustedEventSourceResult,
+  suggestedOrchestratorRequest: {
+    ...trustedEventSourceResult.suggestedOrchestratorRequest,
+    autoConfirm: true,
+    evidence: {
+      eventType: trustedEventSourceResult.event.eventType,
+      sourceRef: trustedEventSourceResult.event.sourceRef,
+      policy: "trusted_project_event_allowlist",
+      verified: false,
+    },
+  },
+};
+
+const blockedResult = await processTrustedEventSourceOutputThroughOrchestrator({
+  trustedEventSourceResult: unverifiedAutoConfirmSourceResult,
+  actor: {
+    role: "system",
+    isMonarch: false,
+  },
+  confirmation: fakeConfirmation,
+  createdBy: "smoke-test",
+  traceId: "pmtrace_smoke_trusted_source_bridge",
+});
+
+assert.equal(blockedResult.ok, true);
+assert.equal(blockedResult.dispatched, true);
+assert.equal(blockedResult.candidatePrepared, true);
+assert.equal(blockedResult.stored, true);
+assert.equal(blockedResult.confirmed, false);
+assert.equal(blockedResult.requiresConfirmation, true);
+assert.equal(blockedResult.autoConfirm, false);
+assert.equal(blockedResult.autoConfirmReason, "trusted_evidence_not_verified");
+assert.equal(blockedResult.warnings.some((warning) => warning.code === "auto_confirm_blocked_unverified_evidence"), true);
 
 console.log("smokeProjectMemoryTrustedEventSourceOrchestratorBridge: ok");

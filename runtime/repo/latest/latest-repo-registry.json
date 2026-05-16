@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T05:52:26.529Z",
+  "generated_at": "2026-05-16T05:55:56.783Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "0bc00d169f5117cc69c6b1edfc043f331390476d",
+  "head_sha": "0f37435799b9427194d7b73ea241a863b07c09d9",
   "truncated": false,
-  "items_count": 466,
+  "items_count": 468,
   "semantic_fields": [
     "module",
     "layer",
@@ -75,6 +75,24 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": ".github/workflows/observation-auto-dispatch-probe-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
       }
     },
     {
@@ -3304,6 +3322,24 @@
     },
     {
       "path": "scripts/smokeMigrationTransactionOrchestratorSkeleton.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeObservationAutoDispatchProbe.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

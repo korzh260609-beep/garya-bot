@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T07:52:17.479Z",
+  "generated_at": "2026-05-16T08:15:17.394Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: ecbfabef86b7 — Merge PR #266: project-memory: add runtime trusted event tool skeleton\n\nMerge Project Memory Runtime Trusted Event Tool skeleton into dev/v2-start.\n\n- Add runtime trusted event internal tool skeleton\n- Add deterministic offline smoke coverage\n- Export through memory public boundary\n- Add focused smoke workflow\n\nBoundaries: pending candidate only, no auto-confirm, no confirmed memory writes, no AI, no Telegram, no raw chat, no source sync, no runtime writes, no repo mutation inside tool.",
+  "summary": "Repo commit observed: 6514c99a2e18 — Merge PR #267: ai-tools: expose project memory runtime trusted event skeleton\n\nMerge AI Tool Registry Project Memory Runtime Trusted Event skeleton into dev/v2-start.\n\n- Add isolated src/ai/tools skeleton layer\n- Add allowlisted project_memory.runtime_trusted_event tool manifest\n- Dispatch only to existing Project Memory Runtime Trusted Event Tool\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n\nBoundaries: no AI calls, no Telegram, no GitHub/Render fetch, no source sync, no runtime writes, no repo mutation, no env changes, no auto-confirm, no confirmed memory writes.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T07:52:17.479Z",
+      "created_at": "2026-05-16T08:15:17.394Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,51 +24,51 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: ecbfabef86b7 — Merge PR #266: project-memory: add runtime trusted event tool skeleton\n\nMerge Project Memory Runtime Trusted Event Tool skeleton into dev/v2-start.\n\n- Add runtime trusted event internal tool skeleton\n- Add deterministic offline smoke coverage\n- Export through memory public boundary\n- Add focused smoke workflow\n\nBoundaries: pending candidate only, no auto-confirm, no confirmed memory writes, no AI, no Telegram, no raw chat, no source sync, no runtime writes, no repo mutation inside tool.",
+      "summary": "Repo commit observed: 6514c99a2e18 — Merge PR #267: ai-tools: expose project memory runtime trusted event skeleton\n\nMerge AI Tool Registry Project Memory Runtime Trusted Event skeleton into dev/v2-start.\n\n- Add isolated src/ai/tools skeleton layer\n- Add allowlisted project_memory.runtime_trusted_event tool manifest\n- Dispatch only to existing Project Memory Runtime Trusted Event Tool\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n\nBoundaries: no AI calls, no Telegram, no GitHub/Render fetch, no source sync, no runtime writes, no repo mutation, no env changes, no auto-confirm, no confirmed memory writes.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "ecbfabef86b7350cb716d4030cc6d76026a1864c",
-        "previous_head_sha": "6403b8541b49634210524d3fddf27d534f798587",
+        "current_head_sha": "6514c99a2e18b2cce3cd8450e2c923a0308ac2c3",
+        "previous_head_sha": "ecbfabef86b7350cb716d4030cc6d76026a1864c",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "2a9a364a10cae317657321a8279b1dd8cb805312",
+        "registry_commit_sha": "6ae3029b15baa388c7416aaa4fa28a9caeb79267",
         "latest_commit": {
-          "sha": "ecbfabef86b7350cb716d4030cc6d76026a1864c",
-          "short_sha": "ecbfabef86b7",
-          "message": "Merge PR #266: project-memory: add runtime trusted event tool skeleton\n\nMerge Project Memory Runtime Trusted Event Tool skeleton into dev/v2-start.\n\n- Add runtime trusted event internal tool skeleton\n- Add deterministic offline smoke coverage\n- Export through memory public boundary\n- Add focused smoke workflow\n\nBoundaries: pending candidate only, no auto-confirm, no confirmed memory writes, no AI, no Telegram, no raw chat, no source sync, no runtime writes, no repo mutation inside tool.",
+          "sha": "6514c99a2e18b2cce3cd8450e2c923a0308ac2c3",
+          "short_sha": "6514c99a2e18",
+          "message": "Merge PR #267: ai-tools: expose project memory runtime trusted event skeleton\n\nMerge AI Tool Registry Project Memory Runtime Trusted Event skeleton into dev/v2-start.\n\n- Add isolated src/ai/tools skeleton layer\n- Add allowlisted project_memory.runtime_trusted_event tool manifest\n- Dispatch only to existing Project Memory Runtime Trusted Event Tool\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n\nBoundaries: no AI calls, no Telegram, no GitHub/Render fetch, no source sync, no runtime writes, no repo mutation, no env changes, no auto-confirm, no confirmed memory writes.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T07:51:56Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ecbfabef86b7350cb716d4030cc6d76026a1864c",
+          "date": "2026-05-16T08:14:54Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/6514c99a2e18b2cce3cd8450e2c923a0308ac2c3",
           "changed_files_count": 4,
           "changed_files": [
             {
-              "filename": ".github/workflows/sg2-pm-runtime-trusted-event-tool-smoke.yml",
+              "filename": ".github/workflows/sg2-ai-tool-registry-pm-runtime-trusted-event-smoke.yml",
               "status": "added",
-              "additions": 24,
+              "additions": 23,
               "deletions": 0,
-              "changes": 24
+              "changes": 23
             },
             {
-              "filename": "scripts/smokeProjectMemoryRuntimeTrustedEventTool.js",
+              "filename": "scripts/smokeAiToolRegistryProjectMemoryRuntimeTrustedEvent.js",
               "status": "added",
-              "additions": 122,
+              "additions": 152,
               "deletions": 0,
-              "changes": 122
+              "changes": 152
             },
             {
-              "filename": "src/memory/index.js",
-              "status": "modified",
-              "additions": 12,
+              "filename": "src/ai/tools/aiToolRegistry.js",
+              "status": "added",
+              "additions": 222,
               "deletions": 0,
-              "changes": 12
+              "changes": 222
             },
             {
-              "filename": "src/memory/project/projectMemoryRuntimeTrustedEventTool.js",
+              "filename": "src/ai/tools/index.js",
               "status": "added",
-              "additions": 230,
+              "additions": 16,
               "deletions": 0,
-              "changes": 230
+              "changes": 16
             }
           ]
         }
@@ -82,7 +82,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "ecbfabef86b7350cb716d4030cc6d76026a1864c",
+        "related_commit_sha": "6514c99a2e18b2cce3cd8450e2c923a0308ac2c3",
         "related_run_id": ""
       }
     }

@@ -1,36 +1,85 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T05:55:57.923Z",
+  "generated_at": "2026-05-16T06:05:47.437Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "0f37435799b9427194d7b73ea241a863b07c09d9",
-  "previous_head_sha": "0bc00d169f5117cc69c6b1edfc043f331390476d",
+  "current_head_sha": "c07ad332eceb9250ac11f869366f067be224b765",
+  "previous_head_sha": "0f37435799b9427194d7b73ea241a863b07c09d9",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "101ac5f035bc991b62d21b22533117971597e423",
+  "registry_commit_sha": "d241bb2134a51509f69fac4654492e0377ac4b63",
   "latest_commit": {
-    "sha": "0f37435799b9427194d7b73ea241a863b07c09d9",
-    "short_sha": "0f37435799b9",
-    "message": "observation: probe automatic PR merged dispatch\n\nAdd a small Observation auto-dispatch probe.\n\n- Add deterministic probe smoke for github.pr_merged dispatch allowlist\n- Add focused probe smoke workflow\n- Keep runtime app code, Render env, Telegram, AI, Project Memory writes, and production logic unchanged",
+    "sha": "c07ad332eceb9250ac11f869366f067be224b765",
+    "short_sha": "c07ad332eceb",
+    "message": "observation: add GitHub webhook event intake skeleton\n\nAdd event-driven GitHub webhook intake skeleton for Observation.\n\n- Add HMAC signature verifier\n- Add pull_request closed merged normalizer for dev/v2-start\n- Add webhook-to-Observation bridge\n- Add /webhooks/github route before global JSON parser for raw body verification\n- Add deterministic smoke coverage and focused workflow\n- Document GITHUB_WEBHOOK_SECRET and unsigned-dev env placeholders\n- Keep Render env, real webhook setup, AI, Telegram, Project Memory writes, cron, schedule, and polling unchanged",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T05:55:38Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0f37435799b9427194d7b73ea241a863b07c09d9",
-    "changed_files_count": 2,
+    "date": "2026-05-16T06:05:31Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c07ad332eceb9250ac11f869366f067be224b765",
+    "changed_files_count": 9,
     "changed_files": [
       {
-        "filename": ".github/workflows/observation-auto-dispatch-probe-smoke.yml",
-        "status": "added",
-        "additions": 21,
+        "filename": ".env.example",
+        "status": "modified",
+        "additions": 5,
         "deletions": 0,
-        "changes": 21
+        "changes": 5
       },
       {
-        "filename": "scripts/smokeObservationAutoDispatchProbe.js",
+        "filename": ".github/workflows/github-webhook-observation-intake-smoke.yml",
         "status": "added",
-        "additions": 21,
+        "additions": 24,
         "deletions": 0,
-        "changes": 21
+        "changes": 24
+      },
+      {
+        "filename": "scripts/smokeGithubWebhookObservationIntakeSkeleton.js",
+        "status": "added",
+        "additions": 129,
+        "deletions": 0,
+        "changes": 129
+      },
+      {
+        "filename": "src/app/appFactory.js",
+        "status": "modified",
+        "additions": 5,
+        "deletions": 0,
+        "changes": 5
+      },
+      {
+        "filename": "src/app/githubWebhookRoutes.js",
+        "status": "added",
+        "additions": 122,
+        "deletions": 0,
+        "changes": 122
+      },
+      {
+        "filename": "src/integrations/github/webhook/githubWebhookEventNormalizer.js",
+        "status": "added",
+        "additions": 137,
+        "deletions": 0,
+        "changes": 137
+      },
+      {
+        "filename": "src/integrations/github/webhook/githubWebhookObservationBridge.js",
+        "status": "added",
+        "additions": 118,
+        "deletions": 0,
+        "changes": 118
+      },
+      {
+        "filename": "src/integrations/github/webhook/githubWebhookSignatureVerifier.js",
+        "status": "added",
+        "additions": 108,
+        "deletions": 0,
+        "changes": 108
+      },
+      {
+        "filename": "src/integrations/github/webhook/index.js",
+        "status": "added",
+        "additions": 7,
+        "deletions": 0,
+        "changes": 7
       }
     ]
   }

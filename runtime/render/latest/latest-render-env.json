@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "render_env_inventory",
-  "generated_at": "2026-05-12T10:33:44.343Z",
+  "generated_at": "2026-05-16T06:37:58.297Z",
   "target": "garya-bot",
   "service": {
     "id": "srv-d4fnv8je5dus7397mgcg",
@@ -14,7 +14,7 @@
     "enabled": true,
     "has_api_key": true
   },
-  "env_count": 91,
+  "env_count": 94,
   "env": [
     {
       "name": "AGENT_WORKSPACE_BASE_PATH",
@@ -129,6 +129,14 @@
       "value": "3"
     },
     {
+      "name": "APPROVE_MIGRATIONS_ON_BOOT",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "0"
+    },
+    {
       "name": "BASE_URL",
       "exists": true,
       "is_secret": false,
@@ -198,7 +206,7 @@
       "is_secret": false,
       "secret_reason": "none",
       "value_exposed": true,
-      "value": "true"
+      "value": "false"
     },
     {
       "name": "DATABASE_URL",
@@ -681,6 +689,22 @@
       "value": "0"
     },
     {
+      "name": "SG_PROJECT_MEMORY_CONTEXT_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
+      "name": "SG_PROJECT_MEMORY_PROMPT_INJECTION_ENABLED",
+      "exists": true,
+      "is_secret": false,
+      "secret_reason": "none",
+      "value_exposed": true,
+      "value": "true"
+    },
+    {
       "name": "SG_REPO_REVIEW_B5",
       "exists": true,
       "is_secret": false,
@@ -752,7 +776,7 @@
     "pages": [
       {
         "index": 1,
-        "items_count": 91,
+        "items_count": 94,
         "has_next_cursor": false
       }
     ],

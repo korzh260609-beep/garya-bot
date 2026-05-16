@@ -1,23 +1,30 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T04:47:22.181Z",
+  "generated_at": "2026-05-16T05:02:52.044Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "ec078c7a8fdb9b92b3df8448f4b2856888974587",
-  "previous_head_sha": "e6c8bbcbce0fdff577672d864c67c8f31e6697cd",
+  "current_head_sha": "b50a4a443dd46f5324ef57444777dd441bd25462",
+  "previous_head_sha": "ec078c7a8fdb9b92b3df8448f4b2856888974587",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "7c7a02482b74d9bfebccee1bcf84cc73e82ddea2",
+  "registry_commit_sha": "7cc55bcda38847dcd7f561a7f56111a4ec3c9d6d",
   "latest_commit": {
-    "sha": "ec078c7a8fdb9b92b3df8448f4b2856888974587",
-    "short_sha": "ec078c7a8fdb",
-    "message": "project-memory: add automatic durable candidate flow\n\nAdd Project Memory automatic durable candidate flow.\n\n- Create durable pending candidates from trusted allowlisted project events through the existing confirmation boundary\n- Export the flow from the memory public boundary\n- Add deterministic offline smoke coverage with fake confirmation/storage boundary\n- Keep confirmed memory writes, candidate confirmation, AI, transport, source sync, and prompt injection out of this PR",
+    "sha": "b50a4a443dd46f5324ef57444777dd441bd25462",
+    "short_sha": "b50a4a443dd4",
+    "message": "project-memory: add trusted confirmation flow\n\nAdd Project Memory trusted confirmation flow.\n\n- Confirm pending Project Memory candidates only with explicit trusted allowlisted evidence\n- Export the flow from the memory public boundary\n- Add deterministic offline smoke coverage and focused workflow\n- Keep candidate creation, AI, transport, source sync, prompt injection, and direct repository/runtime writes out of this PR",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T04:47:06Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ec078c7a8fdb9b92b3df8448f4b2856888974587",
-    "changed_files_count": 4,
+    "date": "2026-05-16T05:02:33Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b50a4a443dd46f5324ef57444777dd441bd25462",
+    "changed_files_count": 5,
     "changed_files": [
+      {
+        "filename": ".github/workflows/sg2-pm-trusted-confirm-smoke.yml",
+        "status": "added",
+        "additions": 24,
+        "deletions": 0,
+        "changes": 24
+      },
       {
         "filename": "package.json",
         "status": "modified",
@@ -26,11 +33,11 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeProjectMemoryAutomaticDurableCandidateFlow.js",
+        "filename": "scripts/smokeProjectMemoryTrustedConfirmationFlow.js",
         "status": "added",
-        "additions": 181,
+        "additions": 192,
         "deletions": 0,
-        "changes": 181
+        "changes": 192
       },
       {
         "filename": "src/memory/index.js",
@@ -40,11 +47,11 @@
         "changes": 9
       },
       {
-        "filename": "src/memory/project/projectMemoryAutomaticDurableCandidateFlow.js",
+        "filename": "src/memory/project/projectMemoryTrustedConfirmationFlow.js",
         "status": "added",
-        "additions": 221,
+        "additions": 259,
         "deletions": 0,
-        "changes": 221
+        "changes": 259
       }
     ]
   }

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T14:32:40.723Z",
+  "generated_at": "2026-05-16T15:05:25.724Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "0f0a3dbf19609daa34060b76d9c28d49713e4d0f",
+  "head_sha": "a5fc80eab4159b0196a3fd891a97714d2a227731",
   "truncated": false,
-  "items_count": 523,
+  "items_count": 526,
   "semantic_fields": [
     "module",
     "layer",
@@ -565,6 +565,24 @@
     },
     {
       "path": ".github/workflows/sg2-render-evidence-bridge-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-render-evidence-runtime-invocation-bridge-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -4136,6 +4154,24 @@
     },
     {
       "path": "scripts/smokeRenderEvidenceBridge.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeRenderEvidenceRuntimeInvocationBridge.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -8225,6 +8261,24 @@
     },
     {
       "path": "src/integrations/render/RenderEvidenceConfig.js",
+      "type": "file",
+      "parent": "src/integrations/render",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/integrations/render/RenderEvidenceRuntimeInvocationBridge.js",
       "type": "file",
       "parent": "src/integrations/render",
       "extension": "js",

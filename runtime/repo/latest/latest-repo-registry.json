@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T08:25:02.314Z",
+  "generated_at": "2026-05-16T08:58:15.765Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "dc20b378463b8166942785a1f20b39686bad6bea",
+  "head_sha": "4e9b6e91ec4824ba49fdf16d483b414d938d7e80",
   "truncated": false,
-  "items_count": 484,
+  "items_count": 485,
   "semantic_fields": [
     "module",
     "layer",
@@ -1703,6 +1703,26 @@
     },
     {
       "path": "pillars/modules/project_memory/DATA_MODEL.md",
+      "type": "file",
+      "parent": "pillars/modules/project_memory",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "documentation",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "pillars",
+        "responsibility": "Markdown documentation.",
+        "owner": "architecture_pillars",
+        "safe_to_edit": "with_monarch_approval_pr_only",
+        "runtime_impact": "none_documentation",
+        "source_priority": "highest_project_law",
+        "notes": [
+          "source_first_project_rule_or_map"
+        ]
+      }
+    },
+    {
+      "path": "pillars/modules/project_memory/DEVELOPMENT_PLAN.md",
       "type": "file",
       "parent": "pillars/modules/project_memory",
       "extension": "md",

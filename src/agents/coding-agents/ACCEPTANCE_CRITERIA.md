@@ -20,6 +20,10 @@ CODING_AGENT_ROLES.md
 CODING_AGENT_CREATION.md
 IMPLEMENTATION_WORKFLOW.md
 CODING_AGENT_WORKFLOWS.md
+ORCHESTRATOR_AGENT_SPEC.md
+ORCHESTRATOR_INTEGRATION_MAP.md
+STAGED_IMPLEMENTATION_PLAN.md
+MINIMAL_IMPLEMENTATION_SLICE.md
 ```
 
 ## 3. Required V1 files
@@ -69,9 +73,11 @@ expose safe metadata
 
 The registry must not perform merge, deploy, protected branch write, or secret operations.
 
+The registry must register CodingOrchestratorAgent before role-specific agents.
+
 ## 6. Required permission model
 
-Every agent must define dangerous permissions as false by default:
+Every agent, including CodingOrchestratorAgent, must define dangerous permissions as false by default:
 
 ```text
 canMerge = false
@@ -87,6 +93,7 @@ Any exception requires explicit Monarch approval and must not be part of V1.
 V1 must define these agents:
 
 ```text
+CodingOrchestratorAgent
 RepoStateAgent
 RequirementsAgent
 TaskPlannerAgent
@@ -101,7 +108,21 @@ CodePatchAgent
 
 Extended agents must not be implemented as active runtime behavior in V1.
 
-## 8. Required prompts/spec placeholders
+## 8. Required orchestration behavior
+
+V1 must enforce this rule:
+
+```text
+SG / Advisor -> CodingOrchestratorAgent -> selected role-specific agent -> report -> CodingOrchestratorAgent -> Advisor/Monarch gate
+```
+
+No role-specific agent may operate as an uncontrolled independent worker.
+
+CodingOrchestratorAgent must not bypass PermissionGuardAgent.
+
+CodingOrchestratorAgent must not approve its own work.
+
+## 9. Required prompts/spec placeholders
 
 Each V1 agent must have a prompt/spec placeholder that includes:
 
@@ -115,15 +136,30 @@ required output
 failure behavior
 ```
 
-## 9. Required smoke checks
+CodingOrchestratorAgent prompt/spec must also include:
+
+```text
+stage selection
+agent selection
+stop conditions
+evidence requirements
+no self-approval rule
+PermissionGuardAgent enforcement rule
+```
+
+## 10. Required smoke checks
 
 V1 must include smoke checks proving:
 
 ```text
 registry loads all V1 agents
+CodingOrchestratorAgent is registered
 agent ids are unique
 required fields exist
 dangerous permissions are false
+CodingOrchestratorAgent cannot bypass PermissionGuardAgent
+CodingOrchestratorAgent cannot approve its own work
+CodingOrchestratorAgent cannot move to next stage without required evidence
 PermissionGuardAgent blocks main writes
 PermissionGuardAgent blocks dev/v2-start-clean-copy writes
 RepoStateAgent is read-only
@@ -131,20 +167,21 @@ CodePatchAgent cannot merge
 CodePatchAgent cannot deploy
 ```
 
-## 10. Required README
+## 11. Required README
 
 Runtime README must explain:
 
 ```text
 what the skeleton is
 what it is not
+how CodingOrchestratorAgent coordinates agents
 how to run smoke checks
 which agents are V1
 which permissions are blocked
 how future agents are added
 ```
 
-## 11. Non-goals for V1
+## 12. Non-goals for V1
 
 V1 must not include:
 
@@ -158,14 +195,16 @@ SG Core rewrite
 pillar/law changes
 paid provider setup
 unlimited AI/tool loops
+direct agent-to-agent execution that bypasses CodingOrchestratorAgent
 ```
 
-## 12. Definition of done
+## 13. Definition of done
 
 The V1 skeleton is done only if:
 
 ```text
 all required files exist
+CodingOrchestratorAgent exists and is registered
 all V1 agents are registered
 contracts are present
 permissions are explicit
@@ -176,7 +215,7 @@ no protected branch was touched
 PR clearly states limitations
 ```
 
-## 13. Required PR statement
+## 14. Required PR statement
 
 The PR must include:
 
@@ -184,6 +223,6 @@ The PR must include:
 Merge status: blocked until explicit Monarch approval.
 ```
 
-## 14. Failure rule
+## 15. Failure rule
 
 If any criterion cannot be satisfied, the coding operator must stop and report what is missing instead of inventing a shortcut.

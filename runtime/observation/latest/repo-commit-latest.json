@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T09:46:54.965Z",
+  "generated_at": "2026-05-16T10:05:42.334Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: 08ce9d62a49a — Merge PR #273\n\nDocs update.",
+  "summary": "Repo commit observed: 731e29cffb9d — Merge PR #274\n\nDocs update.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T09:46:54.965Z",
+      "created_at": "2026-05-16T10:05:42.334Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,37 +24,37 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: 08ce9d62a49a — Merge PR #273\n\nDocs update.",
+      "summary": "Repo commit observed: 731e29cffb9d — Merge PR #274\n\nDocs update.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
-        "previous_head_sha": "70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
+        "current_head_sha": "731e29cffb9d70600b6ab25e44aa100b7bada834",
+        "previous_head_sha": "08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "6af5aba46ce6cb1a24892814910cc4b4f6f829cf",
+        "registry_commit_sha": "a53e7885899d813728aa7644088945abc4c85ff8",
         "latest_commit": {
-          "sha": "08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
-          "short_sha": "08ce9d62a49a",
-          "message": "Merge PR #273\n\nDocs update.",
+          "sha": "731e29cffb9d70600b6ab25e44aa100b7bada834",
+          "short_sha": "731e29cffb9d",
+          "message": "Merge PR #274\n\nDocs update.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T09:46:36Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
+          "date": "2026-05-16T10:05:25Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/731e29cffb9d70600b6ab25e44aa100b7bada834",
           "changed_files_count": 2,
           "changed_files": [
             {
-              "filename": "src/agents/coding-agents/CODING_AGENT_CREATION.md",
+              "filename": "src/agents/coding-agents/CODING_AGENT_WORKFLOWS.md",
               "status": "added",
-              "additions": 1405,
+              "additions": 789,
               "deletions": 0,
-              "changes": 1405
+              "changes": 789
             },
             {
-              "filename": "src/agents/coding-agents/CODING_AGENT_ROLES.md",
+              "filename": "src/agents/coding-agents/IMPLEMENTATION_WORKFLOW.md",
               "status": "added",
-              "additions": 1161,
+              "additions": 310,
               "deletions": 0,
-              "changes": 1161
+              "changes": 310
             }
           ]
         }
@@ -68,7 +68,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
+        "related_commit_sha": "731e29cffb9d70600b6ab25e44aa100b7bada834",
         "related_run_id": ""
       }
     }

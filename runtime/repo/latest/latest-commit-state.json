@@ -1,50 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T10:22:10.461Z",
+  "generated_at": "2026-05-16T10:28:40.885Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "e43206f01e8bb2295f9ab97ef493d404d93b0ef4",
-  "previous_head_sha": "66b98cccbfc83f423a687e950e569358ec8875b3",
+  "current_head_sha": "dcc7ffe375f6fea82c7da24d44f89a71e3170591",
+  "previous_head_sha": "e43206f01e8bb2295f9ab97ef493d404d93b0ef4",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "d949ba23bb1fe30bd3862e36df7a56820690da9e",
+  "registry_commit_sha": "1b53b96d0979b6f3161ce527601665c190299698",
   "latest_commit": {
-    "sha": "e43206f01e8bb2295f9ab97ef493d404d93b0ef4",
-    "short_sha": "e43206f01e8b",
-    "message": "Merge PR #276\n\nDocs update.",
+    "sha": "dcc7ffe375f6fea82c7da24d44f89a71e3170591",
+    "short_sha": "dcc7ffe375f6",
+    "message": "Merge PR #277\n\nDocs update.",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T10:21:54Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e43206f01e8bb2295f9ab97ef493d404d93b0ef4",
-    "changed_files_count": 4,
+    "date": "2026-05-16T10:28:25Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/dcc7ffe375f6fea82c7da24d44f89a71e3170591",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": "src/agents/coding-agents/AGENT_DEFINITION_TEMPLATE.md",
+        "filename": "src/agents/coding-agents/STAGED_IMPLEMENTATION_PLAN.md",
         "status": "added",
-        "additions": 278,
+        "additions": 492,
         "deletions": 0,
-        "changes": 278
-      },
-      {
-        "filename": "src/agents/coding-agents/MINIMAL_IMPLEMENTATION_SLICE.md",
-        "status": "added",
-        "additions": 141,
-        "deletions": 0,
-        "changes": 141
-      },
-      {
-        "filename": "src/agents/coding-agents/REGISTRY_CONTRACT_SPEC.md",
-        "status": "added",
-        "additions": 275,
-        "deletions": 0,
-        "changes": 275
-      },
-      {
-        "filename": "src/agents/coding-agents/SMOKE_TEST_SPEC.md",
-        "status": "added",
-        "additions": 303,
-        "deletions": 0,
-        "changes": 303
+        "changes": 492
       }
     ]
   }

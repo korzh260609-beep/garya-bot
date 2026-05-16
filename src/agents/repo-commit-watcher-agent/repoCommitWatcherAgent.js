@@ -1,6 +1,7 @@
 // AGENT NOTE:
 // RepoCommitWatcherAgent simple watcher.
-// Purpose: detect a new branch HEAD commit, update minimal runtime state, and trigger RepoRegistryAgent.
+// Purpose: detect a new branch HEAD commit, update minimal runtime state, trigger RepoRegistryAgent,
+// and emit a sanitized latest-only Observation report for the observed commit.
 // Do not store full commit history here. GitHub remains the source of truth.
 
 import workspaceChannel from "../../runtime/workspace/workspaceChannel.js";
@@ -9,6 +10,7 @@ import {
   getCurrentProjectBranch,
   getCurrentProjectRepository,
 } from "../../tools/github/githubProjectDefaults.js";
+import { produceRepoCommitObservationLatest } from "../observation/repoCommitObservationBridge.js";
 import { runRepoRegistryAgent } from "../repo-registry-agent/repoRegistryAgent.js";
 
 const LATEST_COMMIT_STATE_PATH = "runtime/repo/latest/latest-commit-state.json";
@@ -116,6 +118,7 @@ export async function runRepoCommitWatcherAgent({ repo, branch, forceRegistryUpd
   };
 
   const write = await writeLatestCommitState(state);
+  const observation = await produceRepoCommitObservationLatest(state);
 
   return {
     ok: true,
@@ -127,7 +130,9 @@ export async function runRepoCommitWatcherAgent({ repo, branch, forceRegistryUpd
     has_new_commit: hasNewCommit,
     registry_updated: Boolean(registry?.ok),
     registry,
+    observation,
     state_path: LATEST_COMMIT_STATE_PATH,
+    observation_path: observation?.path || null,
     write,
   };
 }

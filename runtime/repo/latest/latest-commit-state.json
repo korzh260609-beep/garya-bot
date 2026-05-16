@@ -1,113 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T07:09:29.905Z",
+  "generated_at": "2026-05-16T07:23:57.390Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
-  "previous_head_sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
+  "current_head_sha": "6403b8541b49634210524d3fddf27d534f798587",
+  "previous_head_sha": "72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "667836f716ac36e318873320b8977899c858f6f5",
+  "registry_commit_sha": "c2a18ee38dcf218a7c61bc47d434aa9863039162",
   "latest_commit": {
-    "sha": "72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
-    "short_sha": "72dbd9932b9d",
-    "message": "observation: remove unused webhook detour\n\nRemove unused GitHub webhook and PR-merged Actions detour.\n\n- Remove unused GitHub webhook route and integration skeleton\n- Remove webhook intake smoke and workflow\n- Remove failed PR-merged dispatch/probe workflows and smoke scripts\n- Remove unused GITHUB_WEBHOOK_* placeholders from .env.example\n- Keep WorkspaceChannel, RepoCommitWatcherAgent, repo-commit-latest, Project Memory orchestrator, and Render/env inventory path unchanged",
+    "sha": "6403b8541b49634210524d3fddf27d534f798587",
+    "short_sha": "6403b8541b49",
+    "message": "project-memory: connect trusted event source to orchestrator\n\nConnect Project Memory trusted event source output to the automatic orchestrator in pending-candidate-only mode.\n\n- Add ProjectMemoryTrustedEventSourceOrchestratorBridge\n- Export bridge from memory public boundary\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n- Force autoConfirm=false and require later confirmation\n- Keep AI, Telegram, raw chat, source sync, runtime writes, repo mutation, and confirmed memory writes out of this bridge",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T07:09:10Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
-    "changed_files_count": 13,
+    "date": "2026-05-16T07:23:39Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/6403b8541b49634210524d3fddf27d534f798587",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".env.example",
+        "filename": ".github/workflows/sg2-pm-trusted-source-bridge-smoke.yml",
+        "status": "added",
+        "additions": 23,
+        "deletions": 0,
+        "changes": 23
+      },
+      {
+        "filename": "scripts/smokeProjectMemoryTrustedEventSourceOrchestratorBridge.js",
+        "status": "added",
+        "additions": 91,
+        "deletions": 0,
+        "changes": 91
+      },
+      {
+        "filename": "src/memory/index.js",
         "status": "modified",
-        "additions": 0,
-        "deletions": 5,
-        "changes": 5
+        "additions": 11,
+        "deletions": 0,
+        "changes": 11
       },
       {
-        "filename": ".github/workflows/github-webhook-observation-intake-smoke.yml",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 24,
-        "changes": 24
-      },
-      {
-        "filename": ".github/workflows/observation-auto-dispatch-probe-smoke.yml",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 21,
-        "changes": 21
-      },
-      {
-        "filename": ".github/workflows/observation-pr-merged-dispatch-smoke.yml",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 21,
-        "changes": 21
-      },
-      {
-        "filename": ".github/workflows/observation-pr-merged-dispatch.yml",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 47,
-        "changes": 47
-      },
-      {
-        "filename": "scripts/smokeGithubWebhookObservationIntakeSkeleton.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 129,
-        "changes": 129
-      },
-      {
-        "filename": "scripts/smokeObservationAutoDispatchProbe.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 21,
-        "changes": 21
-      },
-      {
-        "filename": "scripts/smokeObservationPrMergedDispatchWorkflow.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 36,
-        "changes": 36
-      },
-      {
-        "filename": "src/app/githubWebhookRoutes.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 122,
-        "changes": 122
-      },
-      {
-        "filename": "src/integrations/github/webhook/githubWebhookEventNormalizer.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 137,
-        "changes": 137
-      },
-      {
-        "filename": "src/integrations/github/webhook/githubWebhookObservationBridge.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 118,
-        "changes": 118
-      },
-      {
-        "filename": "src/integrations/github/webhook/githubWebhookSignatureVerifier.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 108,
-        "changes": 108
-      },
-      {
-        "filename": "src/integrations/github/webhook/index.js",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 7,
-        "changes": 7
+        "filename": "src/memory/project/projectMemoryTrustedEventSourceOrchestratorBridge.js",
+        "status": "added",
+        "additions": 174,
+        "deletions": 0,
+        "changes": 174
       }
     ]
   }

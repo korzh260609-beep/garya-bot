@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T10:28:41.690Z",
+  "generated_at": "2026-05-16T12:02:42.553Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: dcc7ffe375f6 — Merge PR #277\n\nDocs update.",
+  "summary": "Repo commit observed: a8143c090e71 — Merge PR #278\n\nDocs update.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T10:28:41.690Z",
+      "created_at": "2026-05-16T12:02:42.553Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,30 +24,72 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: dcc7ffe375f6 — Merge PR #277\n\nDocs update.",
+      "summary": "Repo commit observed: a8143c090e71 — Merge PR #278\n\nDocs update.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "dcc7ffe375f6fea82c7da24d44f89a71e3170591",
-        "previous_head_sha": "e43206f01e8bb2295f9ab97ef493d404d93b0ef4",
+        "current_head_sha": "a8143c090e7112e5110ef632fca96592987336cf",
+        "previous_head_sha": "dcc7ffe375f6fea82c7da24d44f89a71e3170591",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "1b53b96d0979b6f3161ce527601665c190299698",
+        "registry_commit_sha": "9c5d86c6311cc400e13793e2910c11affc99fcbb",
         "latest_commit": {
-          "sha": "dcc7ffe375f6fea82c7da24d44f89a71e3170591",
-          "short_sha": "dcc7ffe375f6",
-          "message": "Merge PR #277\n\nDocs update.",
+          "sha": "a8143c090e7112e5110ef632fca96592987336cf",
+          "short_sha": "a8143c090e71",
+          "message": "Merge PR #278\n\nDocs update.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T10:28:25Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/dcc7ffe375f6fea82c7da24d44f89a71e3170591",
-          "changed_files_count": 1,
+          "date": "2026-05-16T12:02:23Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/a8143c090e7112e5110ef632fca96592987336cf",
+          "changed_files_count": 7,
           "changed_files": [
             {
-              "filename": "src/agents/coding-agents/STAGED_IMPLEMENTATION_PLAN.md",
+              "filename": "src/agents/coding-agents/ACCEPTANCE_CRITERIA.md",
+              "status": "modified",
+              "additions": 47,
+              "deletions": 8,
+              "changes": 55
+            },
+            {
+              "filename": "src/agents/coding-agents/MINIMAL_IMPLEMENTATION_SLICE.md",
+              "status": "modified",
+              "additions": 21,
+              "deletions": 3,
+              "changes": 24
+            },
+            {
+              "filename": "src/agents/coding-agents/ORCHESTRATOR_AGENT_SPEC.md",
               "status": "added",
-              "additions": 492,
+              "additions": 235,
               "deletions": 0,
-              "changes": 492
+              "changes": 235
+            },
+            {
+              "filename": "src/agents/coding-agents/ORCHESTRATOR_INTEGRATION_MAP.md",
+              "status": "added",
+              "additions": 159,
+              "deletions": 0,
+              "changes": 159
+            },
+            {
+              "filename": "src/agents/coding-agents/RUNTIME_SKELETON_CHECKLIST.md",
+              "status": "modified",
+              "additions": 16,
+              "deletions": 0,
+              "changes": 16
+            },
+            {
+              "filename": "src/agents/coding-agents/STAGED_IMPLEMENTATION_PLAN.md",
+              "status": "modified",
+              "additions": 50,
+              "deletions": 1,
+              "changes": 51
+            },
+            {
+              "filename": "src/agents/coding-agents/TASK_PROMPT_FOR_CODEX.md",
+              "status": "modified",
+              "additions": 31,
+              "deletions": 7,
+              "changes": 38
             }
           ]
         }
@@ -61,7 +103,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "dcc7ffe375f6fea82c7da24d44f89a71e3170591",
+        "related_commit_sha": "a8143c090e7112e5110ef632fca96592987336cf",
         "related_run_id": ""
       }
     }

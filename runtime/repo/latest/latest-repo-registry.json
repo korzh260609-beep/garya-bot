@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T10:14:46.923Z",
+  "generated_at": "2026-05-16T10:22:08.941Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "66b98cccbfc83f423a687e950e569358ec8875b3",
+  "head_sha": "e43206f01e8bb2295f9ab97ef493d404d93b0ef4",
   "truncated": false,
-  "items_count": 500,
+  "items_count": 504,
   "semantic_fields": [
     "module",
     "layer",
@@ -4274,6 +4274,26 @@
       }
     },
     {
+      "path": "src/agents/coding-agents/AGENT_DEFINITION_TEMPLATE.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
       "path": "src/agents/coding-agents/CODING_AGENT_CREATION.md",
       "type": "file",
       "parent": "src/agents/coding-agents",
@@ -4394,7 +4414,47 @@
       }
     },
     {
+      "path": "src/agents/coding-agents/MINIMAL_IMPLEMENTATION_SLICE.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
       "path": "src/agents/coding-agents/PR_REVIEW_CHECKLIST.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/REGISTRY_CONTRACT_SPEC.md",
       "type": "file",
       "parent": "src/agents/coding-agents",
       "extension": "md",
@@ -4435,6 +4495,26 @@
     },
     {
       "path": "src/agents/coding-agents/RUNTIME_SKELETON_CHECKLIST.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/SMOKE_TEST_SPEC.md",
       "type": "file",
       "parent": "src/agents/coding-agents",
       "extension": "md",

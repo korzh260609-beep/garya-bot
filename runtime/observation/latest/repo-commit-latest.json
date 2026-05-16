@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T12:47:16.240Z",
+  "generated_at": "2026-05-16T13:02:57.571Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: 10102900eae7 — Merge PR #280: project-memory: add conflict and stale detector skeleton\n\nMerge Project Memory conflict/stale detector skeleton into dev/v2-start.\n\n- Add ProjectMemoryConflictStaleDetector skeleton for Stage 17\n- Detect deterministic stale/conflicted/duplicate/superseded/archived labels from provided entries only\n- Detect contradictions from provided verified evidence only\n- Export detector through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no DB reads/writes, no candidate creation, no confirmation, no confirmed memory writes, no AI calls, no Telegram, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no prompt injection.",
+  "summary": "Repo commit observed: 2a3d64707684 — Merge PR #281: project-memory: add source sync interface skeleton\n\nMerge Project Memory Source Sync Interface skeleton into dev/v2-start.\n\n- Add ProjectMemorySourceSyncInterface skeleton for Stage 18\n- Prepare candidate drafts from provided approved source payloads only\n- Reject non-allowlisted source types, secret-like payloads, and raw-log-like payloads\n- Export source sync interface through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no live source fetching, no real sync, no DB reads/writes, no durable candidate writes, no confirmed memory writes, no auto-confirm, no AI calls, no Telegram, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T12:47:16.239Z",
+      "created_at": "2026-05-16T13:02:57.570Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,51 +24,51 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: 10102900eae7 — Merge PR #280: project-memory: add conflict and stale detector skeleton\n\nMerge Project Memory conflict/stale detector skeleton into dev/v2-start.\n\n- Add ProjectMemoryConflictStaleDetector skeleton for Stage 17\n- Detect deterministic stale/conflicted/duplicate/superseded/archived labels from provided entries only\n- Detect contradictions from provided verified evidence only\n- Export detector through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no DB reads/writes, no candidate creation, no confirmation, no confirmed memory writes, no AI calls, no Telegram, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no prompt injection.",
+      "summary": "Repo commit observed: 2a3d64707684 — Merge PR #281: project-memory: add source sync interface skeleton\n\nMerge Project Memory Source Sync Interface skeleton into dev/v2-start.\n\n- Add ProjectMemorySourceSyncInterface skeleton for Stage 18\n- Prepare candidate drafts from provided approved source payloads only\n- Reject non-allowlisted source types, secret-like payloads, and raw-log-like payloads\n- Export source sync interface through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no live source fetching, no real sync, no DB reads/writes, no durable candidate writes, no confirmed memory writes, no auto-confirm, no AI calls, no Telegram, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
-        "previous_head_sha": "a8143c090e7112e5110ef632fca96592987336cf",
+        "current_head_sha": "2a3d647076843759dd5f9526de9295714160e1f2",
+        "previous_head_sha": "10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "3c2212375ddbaad7b467fc42fb4f131c9a70a780",
+        "registry_commit_sha": "2001c69875ef215ebd1a55797ea99a547ffec351",
         "latest_commit": {
-          "sha": "10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
-          "short_sha": "10102900eae7",
-          "message": "Merge PR #280: project-memory: add conflict and stale detector skeleton\n\nMerge Project Memory conflict/stale detector skeleton into dev/v2-start.\n\n- Add ProjectMemoryConflictStaleDetector skeleton for Stage 17\n- Detect deterministic stale/conflicted/duplicate/superseded/archived labels from provided entries only\n- Detect contradictions from provided verified evidence only\n- Export detector through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no DB reads/writes, no candidate creation, no confirmation, no confirmed memory writes, no AI calls, no Telegram, no GitHub/Render/source fetching, no source sync, no runtime writes, no repo mutation, no env changes, no prompt injection.",
+          "sha": "2a3d647076843759dd5f9526de9295714160e1f2",
+          "short_sha": "2a3d64707684",
+          "message": "Merge PR #281: project-memory: add source sync interface skeleton\n\nMerge Project Memory Source Sync Interface skeleton into dev/v2-start.\n\n- Add ProjectMemorySourceSyncInterface skeleton for Stage 18\n- Prepare candidate drafts from provided approved source payloads only\n- Reject non-allowlisted source types, secret-like payloads, and raw-log-like payloads\n- Export source sync interface through src/memory/index.js\n- Add deterministic offline smoke coverage and focused smoke workflow\n\nBoundaries: no live source fetching, no real sync, no DB reads/writes, no durable candidate writes, no confirmed memory writes, no auto-confirm, no AI calls, no Telegram, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T12:46:58Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
+          "date": "2026-05-16T13:02:38Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/2a3d647076843759dd5f9526de9295714160e1f2",
           "changed_files_count": 4,
           "changed_files": [
             {
-              "filename": ".github/workflows/sg2-project-memory-conflict-stale-detector-smoke.yml",
+              "filename": ".github/workflows/sg2-project-memory-source-sync-interface-smoke.yml",
               "status": "added",
               "additions": 21,
               "deletions": 0,
               "changes": 21
             },
             {
-              "filename": "scripts/smokeProjectMemoryConflictStaleDetector.js",
+              "filename": "scripts/smokeProjectMemorySourceSyncInterface.js",
               "status": "added",
-              "additions": 198,
+              "additions": 155,
               "deletions": 0,
-              "changes": 198
+              "changes": 155
             },
             {
               "filename": "src/memory/index.js",
               "status": "modified",
-              "additions": 14,
-              "deletions": 1,
-              "changes": 15
+              "additions": 13,
+              "deletions": 0,
+              "changes": 13
             },
             {
-              "filename": "src/memory/project/projectMemoryConflictStaleDetector.js",
+              "filename": "src/memory/project/projectMemorySourceSyncInterface.js",
               "status": "added",
-              "additions": 408,
+              "additions": 331,
               "deletions": 0,
-              "changes": 408
+              "changes": 331
             }
           ]
         }
@@ -82,7 +82,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "10102900eae7dc5b1d482d3c3df48f92a7ebafc0",
+        "related_commit_sha": "2a3d647076843759dd5f9526de9295714160e1f2",
         "related_run_id": ""
       }
     }

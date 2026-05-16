@@ -1,36 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T13:47:33.613Z",
+  "generated_at": "2026-05-16T14:08:13.388Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "c449023c7434d86ba0e6645b60f12da0eabd1d74",
-  "previous_head_sha": "49bdf1ec42eb1ea6c2c2e6f4ed6ccbb2b27c74de",
+  "current_head_sha": "45718465a93500fae0f53862c75d463c447c66b9",
+  "previous_head_sha": "c449023c7434d86ba0e6645b60f12da0eabd1d74",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "7950b70b2595a7f36cae92f9bfea43e943fbe230",
+  "registry_commit_sha": "376298eccf12afec02136e9179027ee7211dfd0d",
   "latest_commit": {
-    "sha": "c449023c7434d86ba0e6645b60f12da0eabd1d74",
-    "short_sha": "c449023c7434",
-    "message": "Merge PR #284: project-memory: enable policy-gated automatic trusted confirmation\n\nMerge policy-gated automatic trusted confirmation into dev/v2-start.\n\n- Remove forced autoConfirm=false bottleneck from trusted event source orchestrator bridge\n- Enable trusted auto-confirm only when requested by trusted source output\n- Require verified trusted evidence with event type and source ref\n- Require allowlisted auto-confirm policy\n- Preserve fail-closed candidate-only behavior when evidence is missing, unverified, or not allowlisted\n- Extend smoke coverage for candidate-only, confirmed, and blocked-unverified paths\n\nBoundaries preserved: no AI calls, no Telegram, no raw chat reads, no GitHub/Render/web/source fetching inside module, no source sync, no runtime writes, no repo mutation from module, no env changes, no prompt injection.",
+    "sha": "45718465a93500fae0f53862c75d463c447c66b9",
+    "short_sha": "45718465a935",
+    "message": "Merge PR #285: render-evidence: add sanitized Render evidence bridge\n\nMerge sanitized Render Evidence Bridge into dev/v2-start.\n\n- Add RenderEvidenceConfig with safe diagnostics and no secret output\n- Add RenderEvidenceBridge for sanitized deploy/log evidence\n- Return deploy_ok or deploy_check_failed evidence objects\n- Mark verified=true only when deployOk && logsClean\n- Preserve source/evidence-only boundaries\n- Add deterministic offline smoke with injected client\n- Add focused Render Evidence Bridge smoke workflow\n\nBoundaries preserved: no Project Memory writes, no confirmed memory writes, no runtime file writes, no repository mutation from module, no env changes, no Telegram, no AI calls, no raw logs emitted, no secrets emitted.",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T13:47:13Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c449023c7434d86ba0e6645b60f12da0eabd1d74",
-    "changed_files_count": 2,
+    "date": "2026-05-16T14:07:52Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/45718465a93500fae0f53862c75d463c447c66b9",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": "scripts/smokeProjectMemoryTrustedEventSourceOrchestratorBridge.js",
-        "status": "modified",
-        "additions": 113,
-        "deletions": 15,
-        "changes": 128
+        "filename": ".github/workflows/sg2-render-evidence-bridge-smoke.yml",
+        "status": "added",
+        "additions": 21,
+        "deletions": 0,
+        "changes": 21
       },
       {
-        "filename": "src/memory/project/projectMemoryTrustedEventSourceOrchestratorBridge.js",
-        "status": "modified",
-        "additions": 140,
-        "deletions": 14,
-        "changes": 154
+        "filename": "scripts/smokeRenderEvidenceBridge.js",
+        "status": "added",
+        "additions": 170,
+        "deletions": 0,
+        "changes": 170
+      },
+      {
+        "filename": "src/integrations/render/RenderEvidenceBridge.js",
+        "status": "added",
+        "additions": 378,
+        "deletions": 0,
+        "changes": 378
+      },
+      {
+        "filename": "src/integrations/render/RenderEvidenceConfig.js",
+        "status": "added",
+        "additions": 66,
+        "deletions": 0,
+        "changes": 66
       }
     ]
   }

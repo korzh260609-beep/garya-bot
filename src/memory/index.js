@@ -194,6 +194,17 @@ export {
 } from "./project/projectMemorySourceSyncInterface.js";
 
 export {
+  PROJECT_MEMORY_DIAGNOSTICS_VERSION,
+  PROJECT_MEMORY_DIAGNOSTICS_MODES,
+  PROJECT_MEMORY_DIAGNOSTICS_DECISIONS,
+  PROJECT_MEMORY_DIAGNOSTIC_FAMILIES,
+  PROJECT_MEMORY_DIAGNOSTIC_EVIDENCE_LEVELS,
+  buildProjectMemoryDiagnosticsStatus,
+  getProjectMemoryDiagnosticsBoundaries,
+  buildProjectMemoryDiagnostics,
+} from "./project/projectMemoryDiagnostics.js";
+
+export {
   PROJECT_MEMORY_USER_PROJECT_VALIDATOR_VERSION,
   PROJECT_MEMORY_USER_PROJECT_VALIDATOR_MODES,
   ProjectMemoryUserProjectValidator,
@@ -258,6 +269,7 @@ export function getMemoryModuleStatus() {
     hasProjectMemoryRuntimeReadBridge: true,
     hasProjectMemoryConflictStaleDetector: true,
     hasProjectMemorySourceSyncInterface: true,
+    hasProjectMemoryDiagnostics: true,
     hasProjectMemoryOwnershipBoundary: true,
     hasProjectMemoryUserProjectValidator: true,
     hasTransportLogic: false,
@@ -284,6 +296,8 @@ export function getMemoryModuleStatus() {
       projectMemoryConflictStaleDetectorNoWrites: true,
       projectMemorySourceSyncInterfaceProvidedSourcesOnly: true,
       projectMemorySourceSyncInterfaceCandidatesOnly: true,
+      projectMemoryDiagnosticsProvidedSnapshotOnly: true,
+      projectMemoryDiagnosticsSanitizedOnly: true,
       projectMemoryManualCandidateOnly: true,
       projectMemoryExplicitConfirmationOnly: true,
       projectMemoryConfirmedReadOnly: true,

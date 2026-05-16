@@ -104,8 +104,8 @@ Forbidden by default:
 - direct deployment;
 - direct production changes;
 - secret rotation;
-- database destructive migrations;
-- deleting user data;
+- destructive database operations;
+- destructive user-data operations;
 - adding paid external services without Monarch approval;
 - adding new AI providers without Monarch approval;
 - bypassing permission checks;

@@ -1,22 +1,23 @@
 // src/memory/project/projectMemoryRuntimeTrustedEventTool.js
-// SG 2.0 — Project Memory Runtime Trusted Event Tool Skeleton.
+// SG 2.0 — Project Memory Runtime Trusted Event Tool.
 // Purpose: provide an internal tool/handler entrypoint for already-trusted project events.
-// Flow: PR/trusted project event -> Trusted Event Source -> Orchestrator Bridge -> durable pending candidate.
-// This module does not auto-confirm, write confirmed memory, call AI, touch Telegram, read raw chat,
+// Flow: trusted project event -> Trusted Event Source -> Orchestrator Bridge -> durable candidate -> policy-gated confirmation.
+// This module does not call AI, touch Telegram, read raw chat,
 // source-sync, fetch GitHub/Render/providers, write runtime files, mutate repository state, or change env.
 
 import {
   PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS,
   createTrustedProjectEventForPrMerged,
+  createTrustedProjectEventForRenderDeployEvidence,
 } from "./projectMemoryTrustedEventSource.js";
 import {
   processTrustedEventSourceOutputThroughOrchestrator,
 } from "./projectMemoryTrustedEventSourceOrchestratorBridge.js";
 
-export const PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_VERSION = 1;
+export const PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_VERSION = 2;
 
 export const PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES = Object.freeze({
-  SKELETON_SMOKE_ONLY: "skeleton_smoke_only",
+  POLICY_GATED_AUTO_CONFIRM: "policy_gated_auto_confirm",
 });
 
 export const PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_DECISIONS = Object.freeze({
@@ -56,7 +57,7 @@ function createRejectedResult({ reason, errors = [], warnings = [], actor = {} }
   return {
     ok: false,
     version: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_VERSION,
-    mode: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES.SKELETON_SMOKE_ONLY,
+    mode: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES.POLICY_GATED_AUTO_CONFIRM,
     decision: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_DECISIONS.REQUEST_REJECTED,
     reason,
     dispatched: false,
@@ -79,12 +80,14 @@ export function getProjectMemoryRuntimeTrustedEventToolBoundaries() {
     requiresExplicitRuntimeTrustedEventToolRequest: true,
     acceptsTrustedProjectEventInputOnly: true,
     supportsPrMergedTrustedEvent: true,
+    supportsRenderDeployLogsTrustedEvent: true,
     callsTrustedEventSource: true,
     callsOrchestratorBridge: true,
     createsDurablePendingCandidate: true,
-    forcedAutoConfirmFalse: true,
-    confirmsCandidates: false,
-    writesConfirmedMemory: false,
+    forcedAutoConfirmFalse: false,
+    policyGatedAutoConfirm: true,
+    confirmsCandidatesWhenPolicyAllows: true,
+    writesConfirmedMemoryThroughTrustedConfirmationOnly: true,
     callsAI: false,
     readsRawChat: false,
     touchesTelegram: false,
@@ -104,15 +107,46 @@ export function buildProjectMemoryRuntimeTrustedEventToolStatus() {
     module: "project_memory",
     service: "ProjectMemoryRuntimeTrustedEventTool",
     version: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_VERSION,
-    mode: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES.SKELETON_SMOKE_ONLY,
+    mode: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES.POLICY_GATED_AUTO_CONFIRM,
     canHandlePrMergedTrustedEvent: true,
+    canHandleRenderDeployLogsTrustedEvent: true,
     canCreateDurablePendingCandidate: true,
-    canAutoConfirm: false,
+    canAutoConfirmWhenPolicyAllows: true,
     supportedSourceKinds: [
       PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.GITHUB_PR_MERGED,
+      PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.RENDER_DEPLOY_LOGS,
     ],
     boundaries: getProjectMemoryRuntimeTrustedEventToolBoundaries(),
   };
+}
+
+function buildTrustedEventSourceResult({ safeRequest, sourceKind }) {
+  const common = {
+    request: {
+      explicitTrustedEventSourceRequest: true,
+    },
+    projectKey: normalizeText(safeRequest.projectKey) || "sg",
+    moduleKey: normalizeText(safeRequest.moduleKey) || "project_memory",
+    stageKey: normalizeText(safeRequest.stageKey) || "stage_07_memory",
+    tags: Array.isArray(safeRequest.tags) ? safeRequest.tags : [],
+    metadata: normalizePlainObject(safeRequest.metadata),
+  };
+
+  if (sourceKind === PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.GITHUB_PR_MERGED) {
+    return createTrustedProjectEventForPrMerged({
+      ...common,
+      pr: normalizePlainObject(safeRequest.pr),
+    });
+  }
+
+  if (sourceKind === PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.RENDER_DEPLOY_LOGS) {
+    return createTrustedProjectEventForRenderDeployEvidence({
+      ...common,
+      evidence: normalizePlainObject(safeRequest.evidence || safeRequest.renderEvidence),
+    });
+  }
+
+  return null;
 }
 
 export async function runProjectMemoryRuntimeTrustedEventTool({
@@ -142,39 +176,32 @@ export async function runProjectMemoryRuntimeTrustedEventTool({
   const sourceKind = normalizeText(safeRequest.sourceKind)
     || PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.GITHUB_PR_MERGED;
 
-  if (sourceKind !== PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.GITHUB_PR_MERGED) {
+  if (![
+    PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.GITHUB_PR_MERGED,
+    PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.RENDER_DEPLOY_LOGS,
+  ].includes(sourceKind)) {
     return createRejectedResult({
       reason: "unsupported_runtime_trusted_event_source_kind",
       actor: safeActor,
       errors: [
         createError(
           "unsupported_runtime_trusted_event_source_kind",
-          "Project Memory runtime trusted event tool currently supports only github_pr_merged trusted events.",
+          "Project Memory runtime trusted event tool supports only github_pr_merged and render_deploy_logs trusted events.",
           { sourceKind },
         ),
       ],
     });
   }
 
-  const trustedEventSourceResult = createTrustedProjectEventForPrMerged({
-    request: {
-      explicitTrustedEventSourceRequest: true,
-    },
-    pr: normalizePlainObject(safeRequest.pr),
-    projectKey: normalizeText(safeRequest.projectKey) || "sg",
-    moduleKey: normalizeText(safeRequest.moduleKey) || "project_memory",
-    stageKey: normalizeText(safeRequest.stageKey) || "stage_07_memory",
-    tags: Array.isArray(safeRequest.tags) ? safeRequest.tags : [],
-    metadata: normalizePlainObject(safeRequest.metadata),
-  });
+  const trustedEventSourceResult = buildTrustedEventSourceResult({ safeRequest, sourceKind });
 
-  if (!trustedEventSourceResult.ok) {
+  if (!trustedEventSourceResult?.ok) {
     return {
       ok: false,
       version: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_VERSION,
-      mode: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES.SKELETON_SMOKE_ONLY,
+      mode: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES.POLICY_GATED_AUTO_CONFIRM,
       decision: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_DECISIONS.REQUEST_REJECTED,
-      reason: trustedEventSourceResult.reason || "trusted_event_source_failed",
+      reason: trustedEventSourceResult?.reason || "trusted_event_source_failed",
       dispatched: false,
       trustedEventCreated: false,
       candidatePrepared: false,
@@ -182,8 +209,8 @@ export async function runProjectMemoryRuntimeTrustedEventTool({
       confirmed: false,
       requiresConfirmation: true,
       trustedEventSourceResult,
-      errors: trustedEventSourceResult.errors || [],
-      warnings: trustedEventSourceResult.warnings || [],
+      errors: trustedEventSourceResult?.errors || [],
+      warnings: trustedEventSourceResult?.warnings || [],
       actor: safeActor,
       boundaries,
     };
@@ -200,7 +227,7 @@ export async function runProjectMemoryRuntimeTrustedEventTool({
   return {
     ok: Boolean(bridgeResult?.ok),
     version: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_VERSION,
-    mode: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES.SKELETON_SMOKE_ONLY,
+    mode: PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_MODES.POLICY_GATED_AUTO_CONFIRM,
     decision: bridgeResult?.ok
       ? PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_DECISIONS.DISPATCHED
       : PROJECT_MEMORY_RUNTIME_TRUSTED_EVENT_TOOL_DECISIONS.REQUEST_REJECTED,
@@ -209,8 +236,8 @@ export async function runProjectMemoryRuntimeTrustedEventTool({
     trustedEventCreated: true,
     candidatePrepared: Boolean(bridgeResult?.candidatePrepared),
     stored: Boolean(bridgeResult?.stored),
-    confirmed: false,
-    requiresConfirmation: true,
+    confirmed: Boolean(bridgeResult?.confirmed),
+    requiresConfirmation: !bridgeResult?.confirmed,
     trustedEventSourceResult,
     bridge: bridgeResult,
     entry: bridgeResult?.entry || null,

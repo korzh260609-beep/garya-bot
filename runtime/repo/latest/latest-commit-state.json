@@ -1,30 +1,23 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T04:32:38.575Z",
+  "generated_at": "2026-05-16T04:47:22.181Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "e6c8bbcbce0fdff577672d864c67c8f31e6697cd",
-  "previous_head_sha": "4c11465b49ad4c05d2d8c263b6c0638516caebf1",
+  "current_head_sha": "ec078c7a8fdb9b92b3df8448f4b2856888974587",
+  "previous_head_sha": "e6c8bbcbce0fdff577672d864c67c8f31e6697cd",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "d0d3d3676653e9322eedee67c7371cdf22ad5901",
+  "registry_commit_sha": "7c7a02482b74d9bfebccee1bcf84cc73e82ddea2",
   "latest_commit": {
-    "sha": "e6c8bbcbce0fdff577672d864c67c8f31e6697cd",
-    "short_sha": "e6c8bbcbce0f",
-    "message": "project-memory: add automatic candidate pipeline skeleton\n\nAdd Project Memory automatic candidate pipeline skeleton.\n\n- Convert allowlisted trusted project events into prepare-only Project Memory candidates\n- Export automatic candidate pipeline through memory public boundary\n- Add focused smoke coverage and workflow\n- Keep durable storage, confirmed memory writes, candidate confirmation, AI, transport, source sync, and prompt injection out of this PR",
+    "sha": "ec078c7a8fdb9b92b3df8448f4b2856888974587",
+    "short_sha": "ec078c7a8fdb",
+    "message": "project-memory: add automatic durable candidate flow\n\nAdd Project Memory automatic durable candidate flow.\n\n- Create durable pending candidates from trusted allowlisted project events through the existing confirmation boundary\n- Export the flow from the memory public boundary\n- Add deterministic offline smoke coverage with fake confirmation/storage boundary\n- Keep confirmed memory writes, candidate confirmation, AI, transport, source sync, and prompt injection out of this PR",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T04:32:21Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e6c8bbcbce0fdff577672d864c67c8f31e6697cd",
-    "changed_files_count": 5,
+    "date": "2026-05-16T04:47:06Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ec078c7a8fdb9b92b3df8448f4b2856888974587",
+    "changed_files_count": 4,
     "changed_files": [
-      {
-        "filename": ".github/workflows/sg2-project-memory-automatic-candidate-smoke.yml",
-        "status": "added",
-        "additions": 36,
-        "deletions": 0,
-        "changes": 36
-      },
       {
         "filename": "package.json",
         "status": "modified",
@@ -33,25 +26,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeProjectMemoryAutomaticCandidatePipeline.js",
+        "filename": "scripts/smokeProjectMemoryAutomaticDurableCandidateFlow.js",
         "status": "added",
-        "additions": 148,
+        "additions": 181,
         "deletions": 0,
-        "changes": 148
+        "changes": 181
       },
       {
         "filename": "src/memory/index.js",
         "status": "modified",
-        "additions": 12,
+        "additions": 9,
         "deletions": 0,
-        "changes": 12
+        "changes": 9
       },
       {
-        "filename": "src/memory/project/projectMemoryAutomaticCandidatePipeline.js",
+        "filename": "src/memory/project/projectMemoryAutomaticDurableCandidateFlow.js",
         "status": "added",
-        "additions": 287,
+        "additions": 221,
         "deletions": 0,
-        "changes": 287
+        "changes": 221
       }
     ]
   }

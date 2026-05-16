@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T05:55:56.783Z",
+  "generated_at": "2026-05-16T06:05:46.420Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "0f37435799b9427194d7b73ea241a863b07c09d9",
+  "head_sha": "c07ad332eceb9250ac11f869366f067be224b765",
   "truncated": false,
-  "items_count": 468,
+  "items_count": 476,
   "semantic_fields": [
     "module",
     "layer",
@@ -75,6 +75,24 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": ".github/workflows/github-webhook-observation-intake-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
       }
     },
     {
@@ -2799,6 +2817,24 @@
       }
     },
     {
+      "path": "scripts/smokeGithubWebhookObservationIntakeSkeleton.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeMessageContextInjection.js",
       "type": "file",
       "parent": "scripts",
@@ -5167,6 +5203,24 @@
       }
     },
     {
+      "path": "src/app/githubWebhookRoutes.js",
+      "type": "file",
+      "parent": "src/app",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
       "path": "src/app/healthRoutes.js",
       "type": "file",
       "parent": "src/app",
@@ -7191,6 +7245,98 @@
         "module": "integrations",
         "layer": "integrations",
         "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/integrations/github/webhook",
+      "type": "folder",
+      "parent": "src/integrations/github",
+      "extension": "",
+      "description": "Repository folder.",
+      "status": "folder",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "Repository folder.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_folder",
+        "source_priority": "source_code",
+        "notes": [
+          "folder_node"
+        ]
+      }
+    },
+    {
+      "path": "src/integrations/github/webhook/githubWebhookEventNormalizer.js",
+      "type": "file",
+      "parent": "src/integrations/github/webhook",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/integrations/github/webhook/githubWebhookObservationBridge.js",
+      "type": "file",
+      "parent": "src/integrations/github/webhook",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/integrations/github/webhook/githubWebhookSignatureVerifier.js",
+      "type": "file",
+      "parent": "src/integrations/github/webhook",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/integrations/github/webhook/index.js",
+      "type": "file",
+      "parent": "src/integrations/github/webhook",
+      "extension": "js",
+      "description": "JavaScript entry point or public boundary.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "integrations",
+        "layer": "integrations",
+        "responsibility": "JavaScript entry point or public boundary.",
         "owner": "repository",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "unknown_or_low",

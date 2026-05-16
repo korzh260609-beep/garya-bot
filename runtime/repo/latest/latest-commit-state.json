@@ -1,64 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T10:14:47.866Z",
+  "generated_at": "2026-05-16T10:22:10.461Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "66b98cccbfc83f423a687e950e569358ec8875b3",
-  "previous_head_sha": "731e29cffb9d70600b6ab25e44aa100b7bada834",
+  "current_head_sha": "e43206f01e8bb2295f9ab97ef493d404d93b0ef4",
+  "previous_head_sha": "66b98cccbfc83f423a687e950e569358ec8875b3",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "6e85401c6c793ae2651b602bffd60a104b9d8490",
+  "registry_commit_sha": "d949ba23bb1fe30bd3862e36df7a56820690da9e",
   "latest_commit": {
-    "sha": "66b98cccbfc83f423a687e950e569358ec8875b3",
-    "short_sha": "66b98cccbfc8",
-    "message": "Merge PR #275\n\nDocs update.",
+    "sha": "e43206f01e8bb2295f9ab97ef493d404d93b0ef4",
+    "short_sha": "e43206f01e8b",
+    "message": "Merge PR #276\n\nDocs update.",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T10:14:33Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/66b98cccbfc83f423a687e950e569358ec8875b3",
-    "changed_files_count": 6,
+    "date": "2026-05-16T10:21:54Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e43206f01e8bb2295f9ab97ef493d404d93b0ef4",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": "src/agents/coding-agents/ACCEPTANCE_CRITERIA.md",
+        "filename": "src/agents/coding-agents/AGENT_DEFINITION_TEMPLATE.md",
         "status": "added",
-        "additions": 189,
+        "additions": 278,
         "deletions": 0,
-        "changes": 189
+        "changes": 278
       },
       {
-        "filename": "src/agents/coding-agents/EXAMPLE_V1_OUTPUT_TREE.md",
+        "filename": "src/agents/coding-agents/MINIMAL_IMPLEMENTATION_SLICE.md",
         "status": "added",
-        "additions": 151,
+        "additions": 141,
         "deletions": 0,
-        "changes": 151
+        "changes": 141
       },
       {
-        "filename": "src/agents/coding-agents/PR_REVIEW_CHECKLIST.md",
+        "filename": "src/agents/coding-agents/REGISTRY_CONTRACT_SPEC.md",
         "status": "added",
-        "additions": 148,
+        "additions": 275,
         "deletions": 0,
-        "changes": 148
+        "changes": 275
       },
       {
-        "filename": "src/agents/coding-agents/RISKS_AND_STOP_CONDITIONS.md",
+        "filename": "src/agents/coding-agents/SMOKE_TEST_SPEC.md",
         "status": "added",
-        "additions": 226,
+        "additions": 303,
         "deletions": 0,
-        "changes": 226
-      },
-      {
-        "filename": "src/agents/coding-agents/RUNTIME_SKELETON_CHECKLIST.md",
-        "status": "added",
-        "additions": 161,
-        "deletions": 0,
-        "changes": 161
-      },
-      {
-        "filename": "src/agents/coding-agents/TASK_PROMPT_FOR_CODEX.md",
-        "status": "added",
-        "additions": 140,
-        "deletions": 0,
-        "changes": 140
+        "changes": 303
       }
     ]
   }

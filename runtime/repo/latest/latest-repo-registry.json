@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T06:05:46.420Z",
+  "generated_at": "2026-05-16T06:30:05.978Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "c07ad332eceb9250ac11f869366f067be224b765",
+  "head_sha": "f40983491b0292eb3efe7a570fcf3a6e92a023c0",
   "truncated": false,
-  "items_count": 476,
+  "items_count": 477,
   "semantic_fields": [
     "module",
     "layer",
@@ -3878,6 +3878,24 @@
         "notes": [
           "deterministic_policy_no_runtime_connection_expected"
         ]
+      }
+    },
+    {
+      "path": "scripts/smokeRuntimeNoGithubWebhookAttachment.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
       }
     },
     {

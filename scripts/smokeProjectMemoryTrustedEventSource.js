@@ -11,20 +11,26 @@ import {
   PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_MODES,
   buildProjectMemoryTrustedEventSourceStatus,
   createTrustedProjectEventForPrMerged,
+  createTrustedProjectEventForRenderDeployEvidence,
   getProjectMemoryTrustedEventSourceBoundaries,
   normalizeTrustedProjectEvent,
 } from "../src/memory/index.js";
 
 const status = buildProjectMemoryTrustedEventSourceStatus();
 assert.equal(status.ok, true);
-assert.equal(status.mode, PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_MODES.SKELETON_ONLY);
+assert.equal(status.mode, PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_MODES.NORMALIZE_TRUSTED_EVENTS_ONLY);
 assert.equal(status.canCreatePrMergedTrustedEvent, true);
+assert.equal(status.canCreateRenderDeployLogsTrustedEvent, true);
 assert.equal(status.canCallAutomaticOrchestrator, false);
-assert.deepEqual(status.supportedEventTypes, [PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.PR_MERGED]);
+assert.deepEqual(status.supportedEventTypes, [
+  PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.PR_MERGED,
+  PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.DEPLOY_OK,
+]);
+assert.equal(status.supportedSourceKinds.includes(PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.GITHUB_PR_MERGED), true);
+assert.equal(status.supportedSourceKinds.includes(PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.RENDER_DEPLOY_LOGS), true);
 
 const boundaries = getProjectMemoryTrustedEventSourceBoundaries();
 assert.equal(boundaries.transportIndependent, true);
-assert.equal(boundaries.skeletonOnly, true);
 assert.equal(boundaries.trustedSystemEventsOnly, true);
 assert.equal(boundaries.normalizesEventsOnly, true);
 assert.equal(boundaries.callsAutomaticOrchestrator, false);
@@ -94,6 +100,58 @@ assert.equal(prMerged.suggestedOrchestratorRequest.explicitAutomaticMemoryReques
 assert.equal(prMerged.suggestedOrchestratorRequest.autoConfirm, false);
 assert.deepEqual(prMerged.errors, []);
 assert.deepEqual(prMerged.warnings, []);
+
+const renderDeploy = createTrustedProjectEventForRenderDeployEvidence({
+  request: { explicitTrustedEventSourceRequest: true },
+  evidence: {
+    sourceKind: "render_deploy_logs",
+    eventType: "deploy_ok",
+    sourceRef: "render://deploy/dep_clean",
+    approvalRef: "render://deploy/dep_clean",
+    policy: "automatic_project_evidence_chain",
+    verified: true,
+    deployOk: true,
+    logsClean: true,
+    errorCount: 0,
+    logsChecked: 100,
+    deployId: "dep_clean",
+    commit: "45718465a93500fae0f53862c75d463c447c66b9",
+    deployStatus: "live",
+    sanitized: true,
+  },
+});
+
+assert.equal(renderDeploy.ok, true);
+assert.equal(renderDeploy.decision, PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_DECISIONS.TRUSTED_EVENT_CREATED);
+assert.equal(renderDeploy.sourceKind, PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.RENDER_DEPLOY_LOGS);
+assert.equal(renderDeploy.trustedEventCreated, true);
+assert.equal(renderDeploy.event.eventType, PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.DEPLOY_OK);
+assert.equal(renderDeploy.event.title, "Render deploy checked clean — 45718465a93500fae0f53862c75d463c447c66b9");
+assert.equal(renderDeploy.event.sourceRef, "render://deploy/dep_clean");
+assert.equal(renderDeploy.event.metadata.verified, true);
+assert.equal(renderDeploy.event.metadata.deployOk, true);
+assert.equal(renderDeploy.event.metadata.logsClean, true);
+assert.equal(renderDeploy.suggestedOrchestratorRequest.autoConfirm, true);
+assert.equal(renderDeploy.suggestedOrchestratorRequest.evidence.verified, true);
+assert.equal(renderDeploy.suggestedOrchestratorRequest.evidence.policy, "automatic_project_evidence_chain");
+
+const renderFailed = createTrustedProjectEventForRenderDeployEvidence({
+  request: { explicitTrustedEventSourceRequest: true },
+  evidence: {
+    sourceKind: "render_deploy_logs",
+    eventType: "deploy_check_failed",
+    sourceRef: "render://deploy/dep_error",
+    policy: "automatic_project_evidence_chain",
+    verified: false,
+    deployOk: true,
+    logsClean: false,
+    errorCount: 1,
+  },
+});
+assert.equal(renderFailed.ok, false);
+assert.equal(renderFailed.reason, "render_evidence_not_verified_deploy_ok");
+assert.equal(renderFailed.trustedEventCreated, false);
+assert.equal(renderFailed.event, null);
 
 const missingExplicit = createTrustedProjectEventForPrMerged({
   pr: {

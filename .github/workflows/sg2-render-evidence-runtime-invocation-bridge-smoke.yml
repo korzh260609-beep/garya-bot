@@ -1,0 +1,20 @@
+name: SG2 Render Evidence Runtime Invocation Bridge Smoke
+
+on:
+  pull_request:
+    branches:
+      - dev/v2-start
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: node --check src/integrations/render/RenderEvidenceRuntimeInvocationBridge.js
+      - run: node --check scripts/smokeRenderEvidenceRuntimeInvocationBridge.js
+      - run: npm run smoke:render-evidence-runtime-invocation-bridge

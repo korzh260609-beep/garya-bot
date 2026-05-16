@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T14:32:42.656Z",
+  "generated_at": "2026-05-16T15:05:27.844Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: 0f0a3dbf1960 — Merge PR #286: project-memory: link Render evidence to trusted automatic path\n\nMerge Render evidence -> Project Memory trusted automatic path into dev/v2-start.\n\n- Add render_deploy_logs trusted event source kind\n- Add createTrustedProjectEventForRenderDeployEvidence\n- Accept only verified clean deploy evidence for trusted event creation\n- Reject failed/unclean Render evidence fail-closed\n- Extend RuntimeTrustedEventTool to consume provided sanitized Render evidence\n- Enable policy-gated auto-confirm through existing trusted bridge\n- Update public memory boundary exports and status flags\n- Extend smoke coverage for PR candidate-only path, bad Render evidence rejection, and clean Render evidence auto-confirmation\n\nBoundaries preserved: no Render fetching inside Project Memory modules, no GitHub fetching, no source sync, no AI calls, no Telegram, no runtime file writes, no repo mutation from module, no env changes, no raw logs, no secrets.",
+  "summary": "Repo commit observed: a5fc80eab415 — Merge PR #287: project-memory: add Render evidence runtime invocation bridge\n\nMerge Render evidence runtime invocation bridge into dev/v2-start.\n\n- Add explicit Render Evidence Runtime Invocation Bridge\n- Connect RenderEvidenceBridge sanitized evidence to ProjectMemory RuntimeTrustedEventTool\n- Preserve boundary: Project Memory does not fetch Render\n- Preserve boundary: RenderEvidenceBridge does not write Project Memory\n- Add deterministic smoke coverage for clean evidence confirmation and failed evidence rejection\n- Add dedicated GitHub Actions smoke workflow\n\nApproved by Monarch.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T14:32:42.656Z",
+      "created_at": "2026-05-16T15:05:27.844Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,58 +24,51 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: 0f0a3dbf1960 — Merge PR #286: project-memory: link Render evidence to trusted automatic path\n\nMerge Render evidence -> Project Memory trusted automatic path into dev/v2-start.\n\n- Add render_deploy_logs trusted event source kind\n- Add createTrustedProjectEventForRenderDeployEvidence\n- Accept only verified clean deploy evidence for trusted event creation\n- Reject failed/unclean Render evidence fail-closed\n- Extend RuntimeTrustedEventTool to consume provided sanitized Render evidence\n- Enable policy-gated auto-confirm through existing trusted bridge\n- Update public memory boundary exports and status flags\n- Extend smoke coverage for PR candidate-only path, bad Render evidence rejection, and clean Render evidence auto-confirmation\n\nBoundaries preserved: no Render fetching inside Project Memory modules, no GitHub fetching, no source sync, no AI calls, no Telegram, no runtime file writes, no repo mutation from module, no env changes, no raw logs, no secrets.",
+      "summary": "Repo commit observed: a5fc80eab415 — Merge PR #287: project-memory: add Render evidence runtime invocation bridge\n\nMerge Render evidence runtime invocation bridge into dev/v2-start.\n\n- Add explicit Render Evidence Runtime Invocation Bridge\n- Connect RenderEvidenceBridge sanitized evidence to ProjectMemory RuntimeTrustedEventTool\n- Preserve boundary: Project Memory does not fetch Render\n- Preserve boundary: RenderEvidenceBridge does not write Project Memory\n- Add deterministic smoke coverage for clean evidence confirmation and failed evidence rejection\n- Add dedicated GitHub Actions smoke workflow\n\nApproved by Monarch.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "0f0a3dbf19609daa34060b76d9c28d49713e4d0f",
-        "previous_head_sha": "45718465a93500fae0f53862c75d463c447c66b9",
+        "current_head_sha": "a5fc80eab4159b0196a3fd891a97714d2a227731",
+        "previous_head_sha": "0f0a3dbf19609daa34060b76d9c28d49713e4d0f",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "a47b5b9db1669f2a1fe96ca5ae18fd46eb894b78",
+        "registry_commit_sha": "63cba6a90dc0daca2976d11c97e2926e9d2b7a84",
         "latest_commit": {
-          "sha": "0f0a3dbf19609daa34060b76d9c28d49713e4d0f",
-          "short_sha": "0f0a3dbf1960",
-          "message": "Merge PR #286: project-memory: link Render evidence to trusted automatic path\n\nMerge Render evidence -> Project Memory trusted automatic path into dev/v2-start.\n\n- Add render_deploy_logs trusted event source kind\n- Add createTrustedProjectEventForRenderDeployEvidence\n- Accept only verified clean deploy evidence for trusted event creation\n- Reject failed/unclean Render evidence fail-closed\n- Extend RuntimeTrustedEventTool to consume provided sanitized Render evidence\n- Enable policy-gated auto-confirm through existing trusted bridge\n- Update public memory boundary exports and status flags\n- Extend smoke coverage for PR candidate-only path, bad Render evidence rejection, and clean Render evidence auto-confirmation\n\nBoundaries preserved: no Render fetching inside Project Memory modules, no GitHub fetching, no source sync, no AI calls, no Telegram, no runtime file writes, no repo mutation from module, no env changes, no raw logs, no secrets.",
+          "sha": "a5fc80eab4159b0196a3fd891a97714d2a227731",
+          "short_sha": "a5fc80eab415",
+          "message": "Merge PR #287: project-memory: add Render evidence runtime invocation bridge\n\nMerge Render evidence runtime invocation bridge into dev/v2-start.\n\n- Add explicit Render Evidence Runtime Invocation Bridge\n- Connect RenderEvidenceBridge sanitized evidence to ProjectMemory RuntimeTrustedEventTool\n- Preserve boundary: Project Memory does not fetch Render\n- Preserve boundary: RenderEvidenceBridge does not write Project Memory\n- Add deterministic smoke coverage for clean evidence confirmation and failed evidence rejection\n- Add dedicated GitHub Actions smoke workflow\n\nApproved by Monarch.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T14:32:26Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0f0a3dbf19609daa34060b76d9c28d49713e4d0f",
-          "changed_files_count": 5,
+          "date": "2026-05-16T15:05:09Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/a5fc80eab4159b0196a3fd891a97714d2a227731",
+          "changed_files_count": 4,
           "changed_files": [
             {
-              "filename": "scripts/smokeProjectMemoryRuntimeTrustedEventTool.js",
-              "status": "modified",
-              "additions": 174,
-              "deletions": 43,
-              "changes": 217
+              "filename": ".github/workflows/sg2-render-evidence-runtime-invocation-bridge-smoke.yml",
+              "status": "added",
+              "additions": 20,
+              "deletions": 0,
+              "changes": 20
             },
             {
-              "filename": "scripts/smokeProjectMemoryTrustedEventSource.js",
+              "filename": "package.json",
               "status": "modified",
-              "additions": 61,
-              "deletions": 3,
-              "changes": 64
+              "additions": 2,
+              "deletions": 1,
+              "changes": 3
             },
             {
-              "filename": "src/memory/index.js",
-              "status": "modified",
-              "additions": 6,
-              "deletions": 4,
-              "changes": 10
+              "filename": "scripts/smokeRenderEvidenceRuntimeInvocationBridge.js",
+              "status": "added",
+              "additions": 238,
+              "deletions": 0,
+              "changes": 238
             },
             {
-              "filename": "src/memory/project/projectMemoryRuntimeTrustedEventTool.js",
-              "status": "modified",
-              "additions": 59,
-              "deletions": 32,
-              "changes": 91
-            },
-            {
-              "filename": "src/memory/project/projectMemoryTrustedEventSource.js",
-              "status": "modified",
-              "additions": 172,
-              "deletions": 8,
-              "changes": 180
+              "filename": "src/integrations/render/RenderEvidenceRuntimeInvocationBridge.js",
+              "status": "added",
+              "additions": 241,
+              "deletions": 0,
+              "changes": 241
             }
           ]
         }
@@ -89,7 +82,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "0f0a3dbf19609daa34060b76d9c28d49713e4d0f",
+        "related_commit_sha": "a5fc80eab4159b0196a3fd891a97714d2a227731",
         "related_run_id": ""
       }
     }

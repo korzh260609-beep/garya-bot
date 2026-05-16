@@ -1,25 +1,25 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T04:12:33.066Z",
+  "generated_at": "2026-05-16T04:32:38.575Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "4c11465b49ad4c05d2d8c263b6c0638516caebf1",
-  "previous_head_sha": "b6e1b15e88ffb12a84de0034af296458ca3becc4",
+  "current_head_sha": "e6c8bbcbce0fdff577672d864c67c8f31e6697cd",
+  "previous_head_sha": "4c11465b49ad4c05d2d8c263b6c0638516caebf1",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "e954126f7608699058f6aa95fb9274b6ddb6d462",
+  "registry_commit_sha": "d0d3d3676653e9322eedee67c7371cdf22ad5901",
   "latest_commit": {
-    "sha": "4c11465b49ad4c05d2d8c263b6c0638516caebf1",
-    "short_sha": "4c11465b49ad",
-    "message": "message: add structured understanding intent skeleton\n\nAdd structured message understanding intent passthrough skeleton.\n\n- Add messageUnderstanding helper for normalized structured intent passthrough\n- Pass normalized intent into diagnostics route from handleMessage\n- Add focused smoke coverage and workflow\n- Keep raw text inference, keyword matching, phrase matching, AI-understanding, tools, DB writes, and memory writes out of this PR",
+    "sha": "e6c8bbcbce0fdff577672d864c67c8f31e6697cd",
+    "short_sha": "e6c8bbcbce0f",
+    "message": "project-memory: add automatic candidate pipeline skeleton\n\nAdd Project Memory automatic candidate pipeline skeleton.\n\n- Convert allowlisted trusted project events into prepare-only Project Memory candidates\n- Export automatic candidate pipeline through memory public boundary\n- Add focused smoke coverage and workflow\n- Keep durable storage, confirmed memory writes, candidate confirmation, AI, transport, source sync, and prompt injection out of this PR",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T04:12:16Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4c11465b49ad4c05d2d8c263b6c0638516caebf1",
-    "changed_files_count": 6,
+    "date": "2026-05-16T04:32:21Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e6c8bbcbce0fdff577672d864c67c8f31e6697cd",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-message-understanding-intent-smoke.yml",
+        "filename": ".github/workflows/sg2-project-memory-automatic-candidate-smoke.yml",
         "status": "added",
         "additions": 36,
         "deletions": 0,
@@ -33,32 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeMessageUnderstandingIntentSkeleton.js",
+        "filename": "scripts/smokeProjectMemoryAutomaticCandidatePipeline.js",
         "status": "added",
-        "additions": 142,
+        "additions": 148,
         "deletions": 0,
-        "changes": 142
+        "changes": 148
       },
       {
-        "filename": "src/core/handleMessage.js",
+        "filename": "src/memory/index.js",
         "status": "modified",
         "additions": 12,
-        "deletions": 1,
-        "changes": 13
-      },
-      {
-        "filename": "src/core/message/index.js",
-        "status": "modified",
-        "additions": 1,
         "deletions": 0,
-        "changes": 1
+        "changes": 12
       },
       {
-        "filename": "src/core/message/messageUnderstanding.js",
+        "filename": "src/memory/project/projectMemoryAutomaticCandidatePipeline.js",
         "status": "added",
-        "additions": 91,
+        "additions": 287,
         "deletions": 0,
-        "changes": 91
+        "changes": 287
       }
     ]
   }

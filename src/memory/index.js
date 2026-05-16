@@ -145,6 +145,7 @@ export {
   getProjectMemoryTrustedEventSourceBoundaries,
   normalizeTrustedProjectEvent,
   createTrustedProjectEventForPrMerged,
+  createTrustedProjectEventForRenderDeployEvidence,
 } from "./project/projectMemoryTrustedEventSource.js";
 
 export {
@@ -284,6 +285,7 @@ export function getMemoryModuleStatus() {
     hasProjectMemoryExperienceLessons: true,
     hasProjectMemoryOwnershipBoundary: true,
     hasProjectMemoryUserProjectValidator: true,
+    hasRenderDeployEvidenceTrustedPath: true,
     hasTransportLogic: false,
     hasAICalls: false,
     hasSourceFetching: false,
@@ -300,10 +302,10 @@ export function getMemoryModuleStatus() {
       durableProjectMemoryRequiresConfirmation: true,
       projectMemoryAutoWriteDisabled: true,
       projectMemoryAutomaticCandidatePrepareOnly: true,
-      projectMemoryAutomaticTrustedEventSourceSkeletonOnly: true,
-      projectMemoryTrustedEventSourceOrchestratorBridgePendingOnly: true,
-      projectMemoryRuntimeTrustedEventToolSkeletonOnly: true,
-      projectMemoryRuntimeTrustedEventToolPendingOnly: true,
+      projectMemoryAutomaticTrustedEventSourceNormalizesOnly: true,
+      projectMemoryTrustedEventSourceOrchestratorBridgePolicyGatedAutoConfirm: true,
+      projectMemoryRuntimeTrustedEventToolPolicyGatedAutoConfirm: true,
+      projectMemoryRenderDeployEvidenceTrustedAutoConfirmPath: true,
       projectMemoryConflictStaleDetectorProvidedInputOnly: true,
       projectMemoryConflictStaleDetectorNoWrites: true,
       projectMemorySourceSyncInterfaceProvidedSourcesOnly: true,

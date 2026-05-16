@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-16T07:23:58.236Z",
+  "generated_at": "2026-05-16T07:52:17.479Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: 6403b8541b49 — project-memory: connect trusted event source to orchestrator\n\nConnect Project Memory trusted event source output to the automatic orchestrator in pending-candidate-only mode.\n\n- Add ProjectMemoryTrustedEventSourceOrchestratorBridge\n- Export bridge from memory public boundary\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n- Force autoConfirm=false and require later confirmation\n- Keep AI, Telegram, raw chat, source sync, runtime writes, repo mutation, and confirmed memory writes out of this bridge",
+  "summary": "Repo commit observed: ecbfabef86b7 — Merge PR #266: project-memory: add runtime trusted event tool skeleton\n\nMerge Project Memory Runtime Trusted Event Tool skeleton into dev/v2-start.\n\n- Add runtime trusted event internal tool skeleton\n- Add deterministic offline smoke coverage\n- Export through memory public boundary\n- Add focused smoke workflow\n\nBoundaries: pending candidate only, no auto-confirm, no confirmed memory writes, no AI, no Telegram, no raw chat, no source sync, no runtime writes, no repo mutation inside tool.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-16T07:23:58.236Z",
+      "created_at": "2026-05-16T07:52:17.479Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,51 +24,51 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: 6403b8541b49 — project-memory: connect trusted event source to orchestrator\n\nConnect Project Memory trusted event source output to the automatic orchestrator in pending-candidate-only mode.\n\n- Add ProjectMemoryTrustedEventSourceOrchestratorBridge\n- Export bridge from memory public boundary\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n- Force autoConfirm=false and require later confirmation\n- Keep AI, Telegram, raw chat, source sync, runtime writes, repo mutation, and confirmed memory writes out of this bridge",
+      "summary": "Repo commit observed: ecbfabef86b7 — Merge PR #266: project-memory: add runtime trusted event tool skeleton\n\nMerge Project Memory Runtime Trusted Event Tool skeleton into dev/v2-start.\n\n- Add runtime trusted event internal tool skeleton\n- Add deterministic offline smoke coverage\n- Export through memory public boundary\n- Add focused smoke workflow\n\nBoundaries: pending candidate only, no auto-confirm, no confirmed memory writes, no AI, no Telegram, no raw chat, no source sync, no runtime writes, no repo mutation inside tool.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "6403b8541b49634210524d3fddf27d534f798587",
-        "previous_head_sha": "72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
+        "current_head_sha": "ecbfabef86b7350cb716d4030cc6d76026a1864c",
+        "previous_head_sha": "6403b8541b49634210524d3fddf27d534f798587",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "c2a18ee38dcf218a7c61bc47d434aa9863039162",
+        "registry_commit_sha": "2a9a364a10cae317657321a8279b1dd8cb805312",
         "latest_commit": {
-          "sha": "6403b8541b49634210524d3fddf27d534f798587",
-          "short_sha": "6403b8541b49",
-          "message": "project-memory: connect trusted event source to orchestrator\n\nConnect Project Memory trusted event source output to the automatic orchestrator in pending-candidate-only mode.\n\n- Add ProjectMemoryTrustedEventSourceOrchestratorBridge\n- Export bridge from memory public boundary\n- Add deterministic offline smoke coverage\n- Add focused smoke workflow\n- Force autoConfirm=false and require later confirmation\n- Keep AI, Telegram, raw chat, source sync, runtime writes, repo mutation, and confirmed memory writes out of this bridge",
+          "sha": "ecbfabef86b7350cb716d4030cc6d76026a1864c",
+          "short_sha": "ecbfabef86b7",
+          "message": "Merge PR #266: project-memory: add runtime trusted event tool skeleton\n\nMerge Project Memory Runtime Trusted Event Tool skeleton into dev/v2-start.\n\n- Add runtime trusted event internal tool skeleton\n- Add deterministic offline smoke coverage\n- Export through memory public boundary\n- Add focused smoke workflow\n\nBoundaries: pending candidate only, no auto-confirm, no confirmed memory writes, no AI, no Telegram, no raw chat, no source sync, no runtime writes, no repo mutation inside tool.",
           "author": "korzh260609-beep",
-          "date": "2026-05-16T07:23:39Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/6403b8541b49634210524d3fddf27d534f798587",
+          "date": "2026-05-16T07:51:56Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ecbfabef86b7350cb716d4030cc6d76026a1864c",
           "changed_files_count": 4,
           "changed_files": [
             {
-              "filename": ".github/workflows/sg2-pm-trusted-source-bridge-smoke.yml",
+              "filename": ".github/workflows/sg2-pm-runtime-trusted-event-tool-smoke.yml",
               "status": "added",
-              "additions": 23,
+              "additions": 24,
               "deletions": 0,
-              "changes": 23
+              "changes": 24
             },
             {
-              "filename": "scripts/smokeProjectMemoryTrustedEventSourceOrchestratorBridge.js",
+              "filename": "scripts/smokeProjectMemoryRuntimeTrustedEventTool.js",
               "status": "added",
-              "additions": 91,
+              "additions": 122,
               "deletions": 0,
-              "changes": 91
+              "changes": 122
             },
             {
               "filename": "src/memory/index.js",
               "status": "modified",
-              "additions": 11,
+              "additions": 12,
               "deletions": 0,
-              "changes": 11
+              "changes": 12
             },
             {
-              "filename": "src/memory/project/projectMemoryTrustedEventSourceOrchestratorBridge.js",
+              "filename": "src/memory/project/projectMemoryRuntimeTrustedEventTool.js",
               "status": "added",
-              "additions": 174,
+              "additions": 230,
               "deletions": 0,
-              "changes": 174
+              "changes": 230
             }
           ]
         }
@@ -82,7 +82,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "6403b8541b49634210524d3fddf27d534f798587",
+        "related_commit_sha": "ecbfabef86b7350cb716d4030cc6d76026a1864c",
         "related_run_id": ""
       }
     }

@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T09:34:47.046Z",
+  "generated_at": "2026-05-16T09:46:53.222Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "70ca0edd23a654c5a7f8668162bac0f4f90ba06e",
+  "head_sha": "08ce9d62a49ad8e02dc57ccb4abef0579b366d20",
   "truncated": false,
-  "items_count": 490,
+  "items_count": 492,
   "semantic_fields": [
     "module",
     "layer",
@@ -4249,6 +4249,46 @@
         "source_priority": "source_code",
         "notes": [
           "folder_node",
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/CODING_AGENT_CREATION.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
+          "agent_specific_boundary"
+        ]
+      }
+    },
+    {
+      "path": "src/agents/coding-agents/CODING_AGENT_ROLES.md",
+      "type": "file",
+      "parent": "src/agents/coding-agents",
+      "extension": "md",
+      "description": "Markdown documentation.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "coding-agents",
+        "layer": "agents",
+        "responsibility": "Markdown documentation.",
+        "owner": "agents",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "agent_runtime_possible",
+        "source_priority": "source_code",
+        "notes": [
           "agent_specific_boundary"
         ]
       }

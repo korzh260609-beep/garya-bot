@@ -10,6 +10,7 @@ import {
   buildBehaviorDeniedReply,
   buildEmptyTextReply,
   buildMessageBehaviorRuntime,
+  buildMessageUnderstandingContext,
   buildSuccessfulMessageReply,
   callMessageAI,
   checkMessageAccess,
@@ -39,13 +40,23 @@ export async function handleMessage(context = {}) {
     return buildBehaviorDeniedReply({ behaviorAllowed, identity, behaviorRuntime });
   }
 
+  const understandingContext = buildMessageUnderstandingContext(context);
   const diagnosticsRoute = await handleMessageDiagnosticsRoute({
     text,
     identity,
+    intent: understandingContext.intent,
+    context: {
+      ...context,
+      understanding: understandingContext,
+      intent: understandingContext.intent,
+    },
   });
 
   if (diagnosticsRoute.handled) {
-    return diagnosticsRoute;
+    return {
+      ...diagnosticsRoute,
+      understanding: understandingContext,
+    };
   }
 
   const runtimeOptions = await resolveMessageRuntimeOptions({ context, identity });

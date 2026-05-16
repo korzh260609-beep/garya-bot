@@ -1,0 +1,36 @@
+name: SG2 Message Understanding Intent Smoke
+
+# Focused smoke for the message understanding structured-intent skeleton.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/v2-start
+  pull_request:
+    branches:
+      - dev/v2-start
+
+jobs:
+  smoke:
+    name: Message understanding intent skeleton smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check message understanding syntax
+        run: |
+          node --check src/core/message/messageUnderstanding.js
+          node --check scripts/smokeMessageUnderstandingIntentSkeleton.js
+
+      - name: Smoke message understanding intent skeleton
+        run: npm run smoke:message-understanding-intent-skeleton

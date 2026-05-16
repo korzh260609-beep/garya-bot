@@ -9,6 +9,7 @@ export * from "./messageContextPack.js";
 export * from "./messageContextInjection.js";
 export * from "./messageProjectMemoryReadBridge.js";
 export * from "./messageProjectMemoryContextGate.js";
+export * from "./messageUnderstanding.js";
 export * from "./messageAiRequest.js";
 export * from "./messageGithubApproval.js";
 export * from "./messageDiagnosticsRoute.js";

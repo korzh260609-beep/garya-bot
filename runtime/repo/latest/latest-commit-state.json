@@ -1,29 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T06:38:17.238Z",
+  "generated_at": "2026-05-16T06:57:49.691Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
-  "previous_head_sha": "f40983491b0292eb3efe7a570fcf3a6e92a023c0",
+  "current_head_sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
+  "previous_head_sha": "8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "605ca66dcc2af93d34c6dbc5f77d543986a45f11",
+  "registry_commit_sha": "c307534fbbae5beefa7ca81dcac9f8eaee477eb9",
   "latest_commit": {
-    "sha": "8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
-    "short_sha": "8d7bbafda63d",
-    "message": "render env: update latest 94",
-    "author": "sg-github-access[bot]",
-    "date": "2026-05-16T06:37:58Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
-    "changed_files_count": 1,
+    "sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
+    "short_sha": "eeee98afaddb",
+    "message": "observation: add repo commit latest report\n\nAdd dedicated latest-only Observation report for RepoCommitWatcherAgent.\n\n- Add repoCommitObservationBridge\n- Emit repo-commit-latest from repo commit watcher\n- Add deterministic smoke coverage\n- Add focused workflow\n- Keep webhook, cron, Telegram, AI, DB, and Project Memory writes out of this change",
+    "author": "korzh260609-beep",
+    "date": "2026-05-16T06:57:34Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/eeee98afaddb14e1b870ea0a79db1453e04919cd",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": "runtime/render/latest/latest-render-env.json",
+        "filename": ".github/workflows/sg2-repo-commit-observation-smoke.yml",
+        "status": "added",
+        "additions": 22,
+        "deletions": 0,
+        "changes": 22
+      },
+      {
+        "filename": "scripts/smokeRepoCommitObservationBridge.js",
+        "status": "added",
+        "additions": 67,
+        "deletions": 0,
+        "changes": 67
+      },
+      {
+        "filename": "src/agents/observation/repoCommitObservationBridge.js",
+        "status": "added",
+        "additions": 110,
+        "deletions": 0,
+        "changes": 110
+      },
+      {
+        "filename": "src/agents/repo-commit-watcher-agent/repoCommitWatcherAgent.js",
         "status": "modified",
-        "additions": 28,
-        "deletions": 4,
-        "changes": 32
+        "additions": 6,
+        "deletions": 1,
+        "changes": 7
       }
     ]
   }

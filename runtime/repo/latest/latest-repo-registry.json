@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T06:57:48.722Z",
+  "generated_at": "2026-05-16T07:09:28.775Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
+  "head_sha": "72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1",
   "truncated": false,
-  "items_count": 480,
+  "items_count": 468,
   "semantic_fields": [
     "module",
     "layer",
@@ -75,78 +75,6 @@
         "notes": [
           "folder_node"
         ]
-      }
-    },
-    {
-      "path": ".github/workflows/github-webhook-observation-intake-smoke.yml",
-      "type": "file",
-      "parent": ".github/workflows",
-      "extension": "yml",
-      "description": "YAML configuration file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "github_actions",
-        "layer": "ci",
-        "responsibility": "YAML configuration file.",
-        "owner": "ci",
-        "safe_to_edit": "with_caution_pr_only",
-        "runtime_impact": "ci_runtime_only",
-        "source_priority": "ci_config",
-        "notes": []
-      }
-    },
-    {
-      "path": ".github/workflows/observation-auto-dispatch-probe-smoke.yml",
-      "type": "file",
-      "parent": ".github/workflows",
-      "extension": "yml",
-      "description": "YAML configuration file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "github_actions",
-        "layer": "ci",
-        "responsibility": "YAML configuration file.",
-        "owner": "ci",
-        "safe_to_edit": "with_caution_pr_only",
-        "runtime_impact": "ci_runtime_only",
-        "source_priority": "ci_config",
-        "notes": []
-      }
-    },
-    {
-      "path": ".github/workflows/observation-pr-merged-dispatch-smoke.yml",
-      "type": "file",
-      "parent": ".github/workflows",
-      "extension": "yml",
-      "description": "YAML configuration file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "github_actions",
-        "layer": "ci",
-        "responsibility": "YAML configuration file.",
-        "owner": "ci",
-        "safe_to_edit": "with_caution_pr_only",
-        "runtime_impact": "ci_runtime_only",
-        "source_priority": "ci_config",
-        "notes": []
-      }
-    },
-    {
-      "path": ".github/workflows/observation-pr-merged-dispatch.yml",
-      "type": "file",
-      "parent": ".github/workflows",
-      "extension": "yml",
-      "description": "YAML configuration file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "github_actions",
-        "layer": "ci",
-        "responsibility": "YAML configuration file.",
-        "owner": "ci",
-        "safe_to_edit": "with_caution_pr_only",
-        "runtime_impact": "ci_runtime_only",
-        "source_priority": "ci_config",
-        "notes": []
       }
     },
     {
@@ -2379,6 +2307,26 @@
       }
     },
     {
+      "path": "runtime/observation/latest/repo-commit-latest.json",
+      "type": "file",
+      "parent": "runtime/observation/latest",
+      "extension": "json",
+      "description": "JSON data/configuration file.",
+      "status": "generated",
+      "semantic": {
+        "module": "runtime_reports",
+        "layer": "runtime_reports",
+        "responsibility": "JSON data/configuration file.",
+        "owner": "generated_runtime",
+        "safe_to_edit": "generated_do_not_edit_manually",
+        "runtime_impact": "none_generated_report",
+        "source_priority": "generated_runtime_fact",
+        "notes": [
+          "generated_by_agent_or_runtime"
+        ]
+      }
+    },
+    {
       "path": "runtime/observation/latest/runtime-status-latest.json",
       "type": "file",
       "parent": "runtime/observation/latest",
@@ -2818,24 +2766,6 @@
     },
     {
       "path": "scripts/smokeGithubActionsFormatter.js",
-      "type": "file",
-      "parent": "scripts",
-      "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "scripts",
-        "layer": "scripts",
-        "responsibility": "JavaScript source file.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "unknown_or_low",
-        "source_priority": "repository_fact",
-        "notes": []
-      }
-    },
-    {
-      "path": "scripts/smokeGithubWebhookObservationIntakeSkeleton.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -3393,24 +3323,6 @@
       }
     },
     {
-      "path": "scripts/smokeObservationAutoDispatchProbe.js",
-      "type": "file",
-      "parent": "scripts",
-      "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "scripts",
-        "layer": "scripts",
-        "responsibility": "JavaScript source file.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "unknown_or_low",
-        "source_priority": "repository_fact",
-        "notes": []
-      }
-    },
-    {
       "path": "scripts/smokeObservationDispatchGithubEvents.js",
       "type": "file",
       "parent": "scripts",
@@ -3484,24 +3396,6 @@
     },
     {
       "path": "scripts/smokeObservationLatestReportCheck.js",
-      "type": "file",
-      "parent": "scripts",
-      "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "scripts",
-        "layer": "scripts",
-        "responsibility": "JavaScript source file.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "unknown_or_low",
-        "source_priority": "repository_fact",
-        "notes": []
-      }
-    },
-    {
-      "path": "scripts/smokeObservationPrMergedDispatchWorkflow.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -5260,24 +5154,6 @@
     },
     {
       "path": "src/app/appFactory.js",
-      "type": "file",
-      "parent": "src/app",
-      "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "repository",
-        "layer": "repository",
-        "responsibility": "JavaScript source file.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "unknown_or_low",
-        "source_priority": "source_code",
-        "notes": []
-      }
-    },
-    {
-      "path": "src/app/githubWebhookRoutes.js",
       "type": "file",
       "parent": "src/app",
       "extension": "js",
@@ -7319,98 +7195,6 @@
         "module": "integrations",
         "layer": "integrations",
         "responsibility": "JavaScript source file.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "unknown_or_low",
-        "source_priority": "source_code",
-        "notes": []
-      }
-    },
-    {
-      "path": "src/integrations/github/webhook",
-      "type": "folder",
-      "parent": "src/integrations/github",
-      "extension": "",
-      "description": "Repository folder.",
-      "status": "folder",
-      "semantic": {
-        "module": "integrations",
-        "layer": "integrations",
-        "responsibility": "Repository folder.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "none_folder",
-        "source_priority": "source_code",
-        "notes": [
-          "folder_node"
-        ]
-      }
-    },
-    {
-      "path": "src/integrations/github/webhook/githubWebhookEventNormalizer.js",
-      "type": "file",
-      "parent": "src/integrations/github/webhook",
-      "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "integrations",
-        "layer": "integrations",
-        "responsibility": "JavaScript source file.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "unknown_or_low",
-        "source_priority": "source_code",
-        "notes": []
-      }
-    },
-    {
-      "path": "src/integrations/github/webhook/githubWebhookObservationBridge.js",
-      "type": "file",
-      "parent": "src/integrations/github/webhook",
-      "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "integrations",
-        "layer": "integrations",
-        "responsibility": "JavaScript source file.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "unknown_or_low",
-        "source_priority": "source_code",
-        "notes": []
-      }
-    },
-    {
-      "path": "src/integrations/github/webhook/githubWebhookSignatureVerifier.js",
-      "type": "file",
-      "parent": "src/integrations/github/webhook",
-      "extension": "js",
-      "description": "JavaScript source file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "integrations",
-        "layer": "integrations",
-        "responsibility": "JavaScript source file.",
-        "owner": "repository",
-        "safe_to_edit": "with_pr_only",
-        "runtime_impact": "unknown_or_low",
-        "source_priority": "source_code",
-        "notes": []
-      }
-    },
-    {
-      "path": "src/integrations/github/webhook/index.js",
-      "type": "file",
-      "parent": "src/integrations/github/webhook",
-      "extension": "js",
-      "description": "JavaScript entry point or public boundary.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "integrations",
-        "layer": "integrations",
-        "responsibility": "JavaScript entry point or public boundary.",
         "owner": "repository",
         "safe_to_edit": "with_pr_only",
         "runtime_impact": "unknown_or_low",

@@ -95,9 +95,19 @@ export function getRenderEvidenceRuntimeInvocationBridgeBoundaries() {
   };
 }
 
+function getRenderBridgeRuntimeDiag(bridge = {}) {
+  const config = normalizePlainObject(bridge.config);
+  const diag = typeof bridge.getDiag === "function" ? normalizePlainObject(bridge.getDiag()) : {};
+
+  return {
+    ready: config.ready === true || diag.ready === true,
+    enabled: config.enabled === true || diag.enabled === true,
+  };
+}
+
 export function buildRenderEvidenceRuntimeInvocationBridgeStatus({ renderBridge = null } = {}) {
   const bridge = renderBridge || new RenderEvidenceBridge();
-  const diag = typeof bridge.getDiag === "function" ? bridge.getDiag() : {};
+  const diag = getRenderBridgeRuntimeDiag(bridge);
 
   return {
     ok: true,

@@ -13,7 +13,8 @@ This file defines:
 - the exact order of stages;
 - what each stage may create;
 - what each stage must not create;
-- when the coding operator is allowed to move to the next stage.
+- when the coding operator is allowed to move to the next stage;
+- how CodingOrchestratorAgent coordinates the stages.
 ```
 
 The goal is to prevent one large uncontrolled implementation.
@@ -29,6 +30,8 @@ Stage 1 -> Stage 2 -> Stage 3 -> Stage 4 -> Stage 5 -> Stage 6 -> Stage 7
 A later stage must not start until the previous stage is completed, reviewed, and approved.
 
 If a stage fails checks, the coding operator must stop and fix that stage first.
+
+All role-specific agents must be coordinated through CodingOrchestratorAgent.
 
 ## 3. Stage overview
 
@@ -54,6 +57,7 @@ Create the smallest safe base.
 registry
 shared contracts
 permission model
+CodingOrchestratorAgent definition
 RepoStateAgent definition
 PermissionGuardAgent definition
 minimal prompt/spec placeholders
@@ -66,6 +70,8 @@ runtime README
 Follow:
 
 ```text
+ORCHESTRATOR_AGENT_SPEC.md
+ORCHESTRATOR_INTEGRATION_MAP.md
 MINIMAL_IMPLEMENTATION_SLICE.md
 REGISTRY_CONTRACT_SPEC.md
 AGENT_DEFINITION_TEMPLATE.md
@@ -84,14 +90,21 @@ secret access
 Render mutation
 paid provider integration
 full autonomous runner
+direct agent-to-agent execution bypassing CodingOrchestratorAgent
+CodingOrchestratorAgent bypassing PermissionGuardAgent
 ```
 
 ### Required checks
 
 ```text
 registry loads minimal agents
+CodingOrchestratorAgent is registered
 agent ids are unique
 required fields exist
+CodingOrchestratorAgent dangerous permissions are false
+CodingOrchestratorAgent cannot bypass PermissionGuardAgent
+CodingOrchestratorAgent cannot approve its own work
+CodingOrchestratorAgent cannot move to next stage without evidence
 RepoStateAgent is read-only
 PermissionGuardAgent blocks main writes
 PermissionGuardAgent blocks dev/v2-start-clean-copy writes
@@ -107,6 +120,7 @@ Advisor/ReviewAgent review is complete
 Monarch explicitly approves merge
 Stage 1 is merged into dev/v2-start
 post-merge state is confirmed
+CodingOrchestratorAgent has enough evidence to mark Stage 1 complete
 ```
 
 ## 5. Stage 2 — Planning Agents
@@ -124,6 +138,7 @@ ArchitectureGuardAgent definition
 prompt/spec placeholders for these agents
 smoke checks for these definitions
 registry registration for these agents
+CodingOrchestratorAgent routing metadata for these agents
 ```
 
 ### Must not create
@@ -134,11 +149,15 @@ real PR-writing behavior
 full autonomous planning loop
 SG Core changes
 pillar/law changes
+orchestrator self-approval
 ```
 
 ### Required checks
 
 ```text
+CodingOrchestratorAgent selects RequirementsAgent only for requirement extraction
+CodingOrchestratorAgent selects TaskPlannerAgent only after requirements exist
+CodingOrchestratorAgent selects ArchitectureGuardAgent before skeleton/code stages
 RequirementsAgent preserves original command
 TaskPlannerAgent splits work into stages
 ArchitectureGuardAgent can return allowed / blocked / needs approval
@@ -156,6 +175,7 @@ Advisor/ReviewAgent review is complete
 Monarch explicitly approves merge
 Stage 2 is merged into dev/v2-start
 post-merge state is confirmed
+CodingOrchestratorAgent has enough evidence to mark Stage 2 complete
 ```
 
 ## 6. Stage 3 — Documentation / Review / PR Agents
@@ -173,6 +193,7 @@ ReviewAgent definition
 prompt/spec placeholders for these agents
 smoke checks for these definitions
 registry registration for these agents
+CodingOrchestratorAgent routing metadata for docs/review/report agents
 ```
 
 ### Must not create
@@ -183,11 +204,15 @@ actual merge behavior
 actual deploy behavior
 auto-approval behavior
 self-review as final approval
+orchestrator self-approval
 ```
 
 ### Required checks
 
 ```text
+CodingOrchestratorAgent cannot treat DocsAgent output as approval
+CodingOrchestratorAgent cannot treat PRReportAgent output as approval
+CodingOrchestratorAgent requires ReviewAgent/Advisor review before next gate
 DocsAgent cannot mark skeleton as production-ready
 PRReportAgent includes merge status blocked until explicit Monarch approval
 ReviewAgent can return approve / request changes / block
@@ -205,6 +230,7 @@ Advisor/ReviewAgent review is complete
 Monarch explicitly approves merge
 Stage 3 is merged into dev/v2-start
 post-merge state is confirmed
+CodingOrchestratorAgent has enough evidence to mark Stage 3 complete
 ```
 
 ## 7. Stage 4 — CodePatchAgent Skeleton
@@ -221,6 +247,7 @@ CodePatchAgent prompt/spec placeholder
 CodePatchAgent permission definition
 smoke checks proving no merge/deploy/protected branch permissions
 registry registration
+CodingOrchestratorAgent routing metadata for CodePatchAgent definition-only use
 ```
 
 ### Must not create
@@ -231,6 +258,7 @@ real repository write execution
 branch creation execution
 PR creation execution
 merge/deploy behavior
+orchestrator-triggered write behavior
 ```
 
 ### Required checks
@@ -241,6 +269,7 @@ CodePatchAgent canMerge is false
 CodePatchAgent canDeploy is false
 CodePatchAgent canChangeProtectedBranches is false
 CodePatchAgent refuses files outside approvedFiles in definition/spec
+CodingOrchestratorAgent cannot select CodePatchAgent for real writes in Stage 4
 registry loads all V1 agent definitions
 ```
 
@@ -255,6 +284,7 @@ Advisor/ReviewAgent review is complete
 Monarch explicitly approves merge
 Stage 4 is merged into dev/v2-start
 post-merge state is confirmed
+CodingOrchestratorAgent has enough evidence to mark Stage 4 complete
 ```
 
 ## 8. Stage 5 — Extended Agents Skeleton
@@ -281,6 +311,7 @@ ReleaseObservationAgent definition
 prompt/spec placeholders
 registry registration
 smoke checks
+CodingOrchestratorAgent routing metadata for extended agents
 ```
 
 ### Must not create
@@ -293,6 +324,7 @@ real security mutation
 real memory mutation
 real paid provider setup
 real deploy/observation automation
+orchestrator-triggered production actions
 ```
 
 ### Required checks
@@ -300,6 +332,7 @@ real deploy/observation automation
 ```text
 all extended agents are definition-only
 all dangerous permissions remain false
+CodingOrchestratorAgent cannot route extended agents into real production actions
 MigrationAgent cannot run production DB operations
 SecurityGuardAgent cannot expose secrets
 CostControlAgent blocks unlimited recurring AI/tool calls in definition/spec
@@ -316,6 +349,7 @@ Advisor/ReviewAgent review is complete
 Monarch explicitly approves merge
 Stage 5 is merged into dev/v2-start
 post-merge state is confirmed
+CodingOrchestratorAgent has enough evidence to mark Stage 5 complete
 ```
 
 ## 9. Stage 6 — Controlled Runtime Execution Layer
@@ -329,6 +363,7 @@ Create a controlled execution layer that can run safe read/planning/reporting ag
 ```text
 base agent runner
 controlled task input/output
+CodingOrchestratorAgent runtime coordination for safe agents only
 permission guard before every run
 safe read-only execution for RepoStateAgent
 safe planning/reporting execution for planning/docs/review agents
@@ -346,17 +381,20 @@ real secret access
 unlimited loops
 full autonomous coding chain
 production changes
+orchestrator bypass of PermissionGuardAgent
 ```
 
 ### Required checks
 
 ```text
+CodingOrchestratorAgent checks permissions before selecting/running agents
 runner checks permissions before execution
 runner blocks dangerous actions by default
 runner can execute read-only/planning agents only
 runner returns structured result
 runner reports uncertainty instead of guessing
 runner does not bypass registry
+CodingOrchestratorAgent does not approve its own work
 ```
 
 ### May move to Stage 7 only if
@@ -370,6 +408,7 @@ Advisor/ReviewAgent review is complete
 Monarch explicitly approves merge
 Stage 6 is merged into dev/v2-start
 post-merge state is confirmed
+CodingOrchestratorAgent has enough evidence to mark Stage 6 complete
 ```
 
 ## 10. Stage 7 — SG Integration Layer
@@ -383,6 +422,7 @@ Allow SG and Advisor to use the coding agents through a controlled interface.
 ```text
 SG-facing controlled adapter
 Advisor/SG call path
+CodingOrchestratorAgent as required dispatcher
 read/planning/reporting agent access
 permission checks before every call
 structured result delivery
@@ -399,12 +439,14 @@ auto-deploy
 secret access
 protected branch writes
 runtime behavior that bypasses Monarch approval
+SG calling role-specific agents directly without CodingOrchestratorAgent
 ```
 
 ### Required checks
 
 ```text
 SG can call only approved safe operations
+SG calls CodingOrchestratorAgent as dispatcher
 Advisor can request agent reports through SG path
 PermissionGuardAgent is enforced
 results are structured
@@ -418,6 +460,7 @@ Stage 7 is complete only if:
 
 ```text
 SG integration is controlled
+CodingOrchestratorAgent is the required dispatcher
 Advisor review path exists
 Monarch approval remains required for merge/deploy/high-risk actions
 all checks are documented
@@ -443,6 +486,9 @@ merge/deploy permission
 paid provider setup
 unlimited AI/tool loops
 hidden autonomy
+role-specific agent bypassing CodingOrchestratorAgent
+CodingOrchestratorAgent bypassing PermissionGuardAgent
+CodingOrchestratorAgent approving its own work
 ```
 
 ## 12. Cross-stage PR rules
@@ -462,6 +508,7 @@ smoke checks
 risks
 rollback note
 merge status
+orchestrator impact
 ```
 
 Required text:
@@ -473,6 +520,8 @@ Merge status: blocked until explicit Monarch approval.
 ## 13. No stage skipping rule
 
 The coding operator must not jump from Stage 1 directly to Stage 5, 6, or 7.
+
+CodingOrchestratorAgent must not mark a later stage as allowed unless previous stage evidence exists.
 
 If the Monarch explicitly orders a stage skip, the PR must state:
 

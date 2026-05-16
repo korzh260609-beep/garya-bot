@@ -19,6 +19,8 @@ Every unchecked item must be explained in the PR.
 [ ] Read IMPLEMENTATION_WORKFLOW.md
 [ ] Read CODING_AGENT_WORKFLOWS.md
 [ ] Read ACCEPTANCE_CRITERIA.md
+[ ] Read ORCHESTRATOR_AGENT_SPEC.md
+[ ] Read ORCHESTRATOR_INTEGRATION_MAP.md
 [ ] Inspected current repository structure
 [ ] Confirmed base branch is dev/v2-start
 [ ] Confirmed no work targets main
@@ -53,6 +55,7 @@ Every unchecked item must be explained in the PR.
 
 ```text
 [ ] Registry can register agent definitions
+[ ] Registry registers CodingOrchestratorAgent first
 [ ] Registry can get agent by id
 [ ] Registry can list agents by layer
 [ ] Registry validates required fields
@@ -72,6 +75,8 @@ Every unchecked item must be explained in the PR.
 [ ] canDeploy defaults to false
 [ ] canChangeSecrets defaults to false
 [ ] canChangeProtectedBranches defaults to false
+[ ] CodingOrchestratorAgent dangerous permissions are false
+[ ] CodingOrchestratorAgent cannot bypass PermissionGuardAgent
 [ ] writes to main are blocked
 [ ] writes to dev/v2-start-clean-copy are blocked
 [ ] missing approval means blocked
@@ -80,6 +85,7 @@ Every unchecked item must be explained in the PR.
 ## 7. V1 agent checklist
 
 ```text
+[ ] CodingOrchestratorAgent definition exists
 [ ] RepoStateAgent definition exists
 [ ] RequirementsAgent definition exists
 [ ] TaskPlannerAgent definition exists
@@ -96,6 +102,7 @@ Every unchecked item must be explained in the PR.
 
 ```text
 [ ] Each V1 agent has prompt/spec placeholder
+[ ] CodingOrchestratorAgent has prompt/spec placeholder
 [ ] Each prompt/spec has role
 [ ] Each prompt/spec has purpose
 [ ] Each prompt/spec has allowed actions
@@ -103,6 +110,7 @@ Every unchecked item must be explained in the PR.
 [ ] Each prompt/spec has required input
 [ ] Each prompt/spec has required output
 [ ] Each prompt/spec has failure behavior
+[ ] Orchestrator prompt/spec includes stage selection and stop conditions
 [ ] No prompt grants hidden permission escalation
 ```
 
@@ -110,9 +118,13 @@ Every unchecked item must be explained in the PR.
 
 ```text
 [ ] Smoke check: registry loads V1 agents
+[ ] Smoke check: CodingOrchestratorAgent is registered
 [ ] Smoke check: agent ids are unique
 [ ] Smoke check: required fields exist
 [ ] Smoke check: dangerous permissions are false
+[ ] Smoke check: CodingOrchestratorAgent cannot bypass PermissionGuardAgent
+[ ] Smoke check: CodingOrchestratorAgent cannot approve its own work
+[ ] Smoke check: CodingOrchestratorAgent cannot move to next stage without evidence
 [ ] Smoke check: PermissionGuardAgent blocks main writes
 [ ] Smoke check: PermissionGuardAgent blocks dev/v2-start-clean-copy writes
 [ ] Smoke check: RepoStateAgent is read-only
@@ -125,6 +137,7 @@ Every unchecked item must be explained in the PR.
 ```text
 [ ] README explains what runtime skeleton is
 [ ] README explains what runtime skeleton is not
+[ ] README explains CodingOrchestratorAgent role
 [ ] README lists V1 agents
 [ ] README lists blocked permissions
 [ ] README explains smoke checks
@@ -137,6 +150,7 @@ Every unchecked item must be explained in the PR.
 [ ] PR lists created files
 [ ] PR lists changed files
 [ ] PR says skeleton only
+[ ] PR says all role-specific agents are coordinated through CodingOrchestratorAgent
 [ ] PR says what is not implemented
 [ ] PR lists tests/checks
 [ ] PR lists risks
@@ -156,6 +170,8 @@ Do not continue if any of these happen:
 [ ] task requires database destructive change
 [ ] task requires merge/deploy permission
 [ ] task creates autonomous execution without approval
+[ ] any role-specific agent bypasses CodingOrchestratorAgent
+[ ] CodingOrchestratorAgent bypasses PermissionGuardAgent
 ```
 
 If any blocker is checked, stop and report.

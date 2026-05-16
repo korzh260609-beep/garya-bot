@@ -8,7 +8,7 @@
 
 This file prevents the coding operator from trying to build the entire agent team at once.
 
-The first implementation must be small, testable, and reversible.
+The first implementation must be small, testable, orchestrated, and reversible.
 
 ## 2. First slice goal
 
@@ -18,6 +18,7 @@ The first slice must create only:
 registry
 shared contracts
 permission model
+CodingOrchestratorAgent definition
 RepoStateAgent definition
 PermissionGuardAgent definition
 minimal smoke checks
@@ -28,7 +29,13 @@ Do not create the full V1 team in the first slice unless this minimal slice alre
 
 ## 3. Why this slice comes first
 
-RepoStateAgent and PermissionGuardAgent are the safety foundation.
+CodingOrchestratorAgent, RepoStateAgent, and PermissionGuardAgent are the safety foundation.
+
+CodingOrchestratorAgent answers:
+
+```text
+Which agent should work now, and is the next step allowed?
+```
 
 RepoStateAgent answers:
 
@@ -42,7 +49,7 @@ PermissionGuardAgent answers:
 Is this action allowed?
 ```
 
-Without these two, other agents can act blindly or unsafely.
+Without these three, other agents can act blindly, unsafely, or out of order.
 
 ## 4. Required first-slice tree
 
@@ -64,10 +71,12 @@ src/agents/coding-agents/runtime/
     codingAgentPermissionGuard.js
 
   roles/
+    codingOrchestratorAgent.definition.js
     repoStateAgent.definition.js
     permissionGuardAgent.definition.js
 
   prompts/
+    codingOrchestratorAgent.prompt.md
     repoStateAgent.prompt.md
     permissionGuardAgent.prompt.md
 
@@ -75,6 +84,7 @@ src/agents/coding-agents/runtime/
     smokeCodingAgentRegistry.js
     smokeCodingAgentPermissions.js
     smokeMinimalAgentDefinitions.js
+    smokeCodingOrchestratorAgent.js
 ```
 
 ## 5. Required behavior
@@ -83,8 +93,13 @@ First slice must prove:
 
 ```text
 registry can load agent definitions
+CodingOrchestratorAgent is registered
 agent ids are unique
 required fields exist
+CodingOrchestratorAgent dangerous permissions are false
+CodingOrchestratorAgent cannot bypass PermissionGuardAgent
+CodingOrchestratorAgent cannot approve its own work
+CodingOrchestratorAgent cannot move to next stage without evidence
 RepoStateAgent is read-only
 PermissionGuardAgent blocks main writes
 PermissionGuardAgent blocks dev/v2-start-clean-copy writes
@@ -105,6 +120,8 @@ secret access
 Render mutation
 paid provider integration
 full autonomous runner
+direct agent-to-agent execution bypassing CodingOrchestratorAgent
+CodingOrchestratorAgent bypassing PermissionGuardAgent
 ```
 
 ## 7. Required PR statement
@@ -115,6 +132,7 @@ The PR must clearly state:
 This is the minimal implementation slice only.
 It does not enable autonomous coding.
 It does not enable merge/deploy/write actions.
+All role-specific agents are coordinated through CodingOrchestratorAgent.
 ```
 
 ## 8. Expand only after review

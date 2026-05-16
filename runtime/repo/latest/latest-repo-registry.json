@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-16T05:33:01.342Z",
+  "generated_at": "2026-05-16T05:52:26.529Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "68a63ace53276bef88673ddbe777d8dcad68a16f",
+  "head_sha": "0bc00d169f5117cc69c6b1edfc043f331390476d",
   "truncated": false,
-  "items_count": 463,
+  "items_count": 466,
   "semantic_fields": [
     "module",
     "layer",
@@ -75,6 +75,42 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": ".github/workflows/observation-pr-merged-dispatch-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/observation-pr-merged-dispatch.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
       }
     },
     {
@@ -3358,6 +3394,24 @@
     },
     {
       "path": "scripts/smokeObservationLatestReportCheck.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeObservationPrMergedDispatchWorkflow.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

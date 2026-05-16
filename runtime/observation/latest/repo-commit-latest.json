@@ -1,0 +1,95 @@
+{
+  "ok": true,
+  "type": "observation_report",
+  "generated_at": "2026-05-16T06:57:50.467Z",
+  "name": "repo-commit-latest",
+  "summary": "Repo commit observed: eeee98afaddb — observation: add repo commit latest report\n\nAdd dedicated latest-only Observation report for RepoCommitWatcherAgent.\n\n- Add repoCommitObservationBridge\n- Emit repo-commit-latest from repo commit watcher\n- Add deterministic smoke coverage\n- Add focused workflow\n- Keep webhook, cron, Telegram, AI, DB, and Project Memory writes out of this change",
+  "events_count": 1,
+  "invalid_events_count": 0,
+  "invalid_events": [],
+  "events": [
+    {
+      "schema_version": 1,
+      "event_id": "",
+      "event_type": "repo.commit_observed",
+      "created_at": "2026-05-16T06:57:50.467Z",
+      "source": {
+        "system": "sg",
+        "transport": "internal",
+        "module": "repo-commit-watcher"
+      },
+      "actor": {
+        "role": "system",
+        "user_ref": "redacted",
+        "chat_ref": "redacted"
+      },
+      "direction": "internal",
+      "summary": "Repo commit observed: eeee98afaddb — observation: add repo commit latest report\n\nAdd dedicated latest-only Observation report for RepoCommitWatcherAgent.\n\n- Add repoCommitObservationBridge\n- Emit repo-commit-latest from repo commit watcher\n- Add deterministic smoke coverage\n- Add focused workflow\n- Keep webhook, cron, Telegram, AI, DB, and Project Memory writes out of this change",
+      "payload": {
+        "repo": "korzh260609-beep/garya-bot",
+        "branch": "dev/v2-start",
+        "current_head_sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
+        "previous_head_sha": "8d7bbafda63d3157f1aca0b0f395cce2157cbaf8",
+        "has_new_commit": true,
+        "registry_updated": true,
+        "registry_commit_sha": "c307534fbbae5beefa7ca81dcac9f8eaee477eb9",
+        "latest_commit": {
+          "sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
+          "short_sha": "eeee98afaddb",
+          "message": "observation: add repo commit latest report\n\nAdd dedicated latest-only Observation report for RepoCommitWatcherAgent.\n\n- Add repoCommitObservationBridge\n- Emit repo-commit-latest from repo commit watcher\n- Add deterministic smoke coverage\n- Add focused workflow\n- Keep webhook, cron, Telegram, AI, DB, and Project Memory writes out of this change",
+          "author": "korzh260609-beep",
+          "date": "2026-05-16T06:57:34Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/eeee98afaddb14e1b870ea0a79db1453e04919cd",
+          "changed_files_count": 4,
+          "changed_files": [
+            {
+              "filename": ".github/workflows/sg2-repo-commit-observation-smoke.yml",
+              "status": "added",
+              "additions": 22,
+              "deletions": 0,
+              "changes": 22
+            },
+            {
+              "filename": "scripts/smokeRepoCommitObservationBridge.js",
+              "status": "added",
+              "additions": 67,
+              "deletions": 0,
+              "changes": 67
+            },
+            {
+              "filename": "src/agents/observation/repoCommitObservationBridge.js",
+              "status": "added",
+              "additions": 110,
+              "deletions": 0,
+              "changes": 110
+            },
+            {
+              "filename": "src/agents/repo-commit-watcher-agent/repoCommitWatcherAgent.js",
+              "status": "modified",
+              "additions": 6,
+              "deletions": 1,
+              "changes": 7
+            }
+          ]
+        }
+      },
+      "tool": null,
+      "policy": {
+        "sensitivity": "internal",
+        "retention": "latest_only",
+        "sanitized": true,
+        "memory_candidate": false
+      },
+      "links": {
+        "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
+        "related_commit_sha": "eeee98afaddb14e1b870ea0a79db1453e04919cd",
+        "related_run_id": ""
+      }
+    }
+  ],
+  "policy": {
+    "sanitized": true,
+    "runtime_path_only": true,
+    "no_memory_write": true
+  }
+}

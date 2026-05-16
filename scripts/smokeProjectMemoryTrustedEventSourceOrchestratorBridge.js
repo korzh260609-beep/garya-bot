@@ -30,7 +30,7 @@ assert.equal(trustedEventSourceResult.suggestedOrchestratorRequest.autoConfirm, 
 
 const fakeConfirmation = {
   async prepareCandidateForConfirmation({ input, createdBy, projectKey, traceId, actor }) {
-    assert.equal(input.type, "decision");
+    assert.equal(input.type, "implementation_status");
     assert.equal(input.title, "PR #264 merged — observation: remove unused webhook detour");
     assert.equal(input.sourceRef, "https://github.com/korzh260609-beep/garya-bot/pull/264");
     assert.equal(input.metadata.prNumber, 264);

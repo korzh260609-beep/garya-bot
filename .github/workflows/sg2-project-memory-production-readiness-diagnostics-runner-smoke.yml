@@ -1,0 +1,20 @@
+name: SG2 Project Memory Production Readiness Diagnostics Runner Smoke
+
+on:
+  pull_request:
+    branches:
+      - dev/v2-start
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: node --check src/diagnostics/projectMemoryProductionReadinessDiagnosticsRunner.js
+      - run: node --check scripts/smokeProjectMemoryProductionReadinessDiagnosticsRunner.js
+      - run: npm run smoke:project-memory-production-readiness-diagnostics-runner

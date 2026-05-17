@@ -50,6 +50,7 @@
     "smoke:project-memory-live-db-check": "node ./scripts/smokeProjectMemoryLiveDbCheck.js",
     "smoke:project-memory-manual-candidate-flow": "node ./scripts/smokeProjectMemoryManualCandidateFlow.js",
     "smoke:project-memory-ownership-scope": "node ./scripts/smokeProjectMemoryOwnershipScope.js",
+    "smoke:project-memory-production-readiness-check": "node ./scripts/smokeProjectMemoryProductionReadinessCheck.js",
     "smoke:project-memory-runtime-context": "node ./scripts/smokeProjectMemoryRuntimeContext.js",
     "smoke:project-memory-runtime-diagnostics": "node ./scripts/smokeProjectMemoryRuntimeDiagnostics.js",
     "smoke:project-memory-schema-bootstrap": "node ./scripts/smokeProjectMemorySchemaBootstrap.js",

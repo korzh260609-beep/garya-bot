@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-17T02:22:10.993Z",
+  "generated_at": "2026-05-17T02:37:35.331Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: 4026de81a2d8 — project-memory: add production readiness diagnostics runner\n\nAdd a read-only Project Memory production readiness diagnostics runner.\n\nThe runner executes the existing readiness path:\n- ProjectMemoryRuntimeCheck\n- ProjectMemoryLiveDbCheck\n- ProjectMemoryProductionReadinessCheck\n\nThe runner is evidence-gated and returns not-ready unless all required runtime/deploy/DB behavior evidence is present.\n\nNo production readiness claim is made by this change.",
+  "summary": "Repo commit observed: 173826a17182 — runtime: route workspace reports to dedicated runtime branch\n\nRoute GitHub-backed runtime workspace writes to a dedicated runtime branch by default.\n\nDefault runtime branch: runtime-observation-state.\n\nThis keeps dev/v2-start as the code branch while preserving Observation/nervous-system journal writes outside the code branch.\n\nNo change to Observation validation or sanitization.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-17T02:22:10.993Z",
+      "created_at": "2026-05-17T02:37:35.330Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,26 +24,26 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: 4026de81a2d8 — project-memory: add production readiness diagnostics runner\n\nAdd a read-only Project Memory production readiness diagnostics runner.\n\nThe runner executes the existing readiness path:\n- ProjectMemoryRuntimeCheck\n- ProjectMemoryLiveDbCheck\n- ProjectMemoryProductionReadinessCheck\n\nThe runner is evidence-gated and returns not-ready unless all required runtime/deploy/DB behavior evidence is present.\n\nNo production readiness claim is made by this change.",
+      "summary": "Repo commit observed: 173826a17182 — runtime: route workspace reports to dedicated runtime branch\n\nRoute GitHub-backed runtime workspace writes to a dedicated runtime branch by default.\n\nDefault runtime branch: runtime-observation-state.\n\nThis keeps dev/v2-start as the code branch while preserving Observation/nervous-system journal writes outside the code branch.\n\nNo change to Observation validation or sanitization.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "4026de81a2d8f730173188196fbd70df0df2b26b",
-        "previous_head_sha": "dd3e359fcc26cd5b477ed3b1468f9e4959a8cb4e",
+        "current_head_sha": "173826a17182057f635444cb6701ac556cdcdf00",
+        "previous_head_sha": "4026de81a2d8f730173188196fbd70df0df2b26b",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "f9cae5f4a00c81540eae2c2e8ac171d468b39880",
+        "registry_commit_sha": "3da7455f768fcf5625aaaa3dccfda139e56440de",
         "latest_commit": {
-          "sha": "4026de81a2d8f730173188196fbd70df0df2b26b",
-          "short_sha": "4026de81a2d8",
-          "message": "project-memory: add production readiness diagnostics runner\n\nAdd a read-only Project Memory production readiness diagnostics runner.\n\nThe runner executes the existing readiness path:\n- ProjectMemoryRuntimeCheck\n- ProjectMemoryLiveDbCheck\n- ProjectMemoryProductionReadinessCheck\n\nThe runner is evidence-gated and returns not-ready unless all required runtime/deploy/DB behavior evidence is present.\n\nNo production readiness claim is made by this change.",
+          "sha": "173826a17182057f635444cb6701ac556cdcdf00",
+          "short_sha": "173826a17182",
+          "message": "runtime: route workspace reports to dedicated runtime branch\n\nRoute GitHub-backed runtime workspace writes to a dedicated runtime branch by default.\n\nDefault runtime branch: runtime-observation-state.\n\nThis keeps dev/v2-start as the code branch while preserving Observation/nervous-system journal writes outside the code branch.\n\nNo change to Observation validation or sanitization.",
           "author": "korzh260609-beep",
-          "date": "2026-05-17T02:21:54Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4026de81a2d8f730173188196fbd70df0df2b26b",
+          "date": "2026-05-17T02:37:16Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/173826a17182057f635444cb6701ac556cdcdf00",
           "changed_files_count": 4,
           "changed_files": [
             {
-              "filename": ".github/workflows/sg2-project-memory-production-readiness-diagnostics-runner-smoke.yml",
+              "filename": ".github/workflows/sg2-runtime-workspace-branch-boundary-smoke.yml",
               "status": "added",
               "additions": 20,
               "deletions": 0,
@@ -57,18 +57,18 @@
               "changes": 1
             },
             {
-              "filename": "scripts/smokeProjectMemoryProductionReadinessDiagnosticsRunner.js",
+              "filename": "scripts/smokeWorkspaceRuntimeBranchBoundary.js",
               "status": "added",
-              "additions": 136,
+              "additions": 45,
               "deletions": 0,
-              "changes": 136
+              "changes": 45
             },
             {
-              "filename": "src/diagnostics/projectMemoryProductionReadinessDiagnosticsRunner.js",
-              "status": "added",
-              "additions": 168,
-              "deletions": 0,
-              "changes": 168
+              "filename": "src/runtime/workspace/workspaceChannel.js",
+              "status": "modified",
+              "additions": 14,
+              "deletions": 2,
+              "changes": 16
             }
           ]
         }
@@ -82,7 +82,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "4026de81a2d8f730173188196fbd70df0df2b26b",
+        "related_commit_sha": "173826a17182057f635444cb6701ac556cdcdf00",
         "related_run_id": ""
       }
     }

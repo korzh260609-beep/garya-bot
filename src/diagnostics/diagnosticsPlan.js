@@ -6,6 +6,10 @@ import {
   getMigrationReadinessDiagnosticsChecks,
   isMigrationReadinessDiagnosticsRequest,
 } from "./migrationReadinessDiagnosticsSuite.js";
+import {
+  getProjectMemoryProductionReadinessDiagnosticsChecks,
+  isProjectMemoryProductionReadinessDiagnosticsRequest,
+} from "./projectMemoryProductionReadinessDiagnosticsSuite.js";
 
 const DEFAULT_CHECKS = [
   "users_identity_registry",
@@ -70,6 +74,14 @@ function selectDiagnosticsChecks({ intent, requestedChecks }) {
     return {
       checks: getMigrationReadinessDiagnosticsChecks(),
       selectedSuite: "migration_readiness",
+      routing: "structured_suite",
+    };
+  }
+
+  if (isProjectMemoryProductionReadinessDiagnosticsRequest({ intent })) {
+    return {
+      checks: getProjectMemoryProductionReadinessDiagnosticsChecks(),
+      selectedSuite: "project_memory_production_readiness",
       routing: "structured_suite",
     };
   }

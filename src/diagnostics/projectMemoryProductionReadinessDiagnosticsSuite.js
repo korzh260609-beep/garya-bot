@@ -25,7 +25,7 @@ export function isProjectMemoryProductionReadinessDiagnosticsRequest(input = {})
     || intent.capability === PROJECT_MEMORY_PRODUCTION_READINESS_DIAGNOSTICS_SUITE_NAME
     || intent.capability === "project_memory_readiness"
     || intent.target === PROJECT_MEMORY_PRODUCTION_READINESS_DIAGNOSTICS_SUITE_NAME
-    || intent.target === "project_memory"
+    || intent.target === "project_memory_readiness"
   );
 }
 

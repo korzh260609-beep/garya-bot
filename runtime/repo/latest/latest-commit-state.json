@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-17T01:46:16.112Z",
+  "generated_at": "2026-05-17T02:09:27.759Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "c87dd4efd82f3e193992ffbc79261d8096708486",
-  "previous_head_sha": "a5fc80eab4159b0196a3fd891a97714d2a227731",
+  "current_head_sha": "dd3e359fcc26cd5b477ed3b1468f9e4959a8cb4e",
+  "previous_head_sha": "c87dd4efd82f3e193992ffbc79261d8096708486",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "b02d119fe6c3e02a22896389dd7cd246e5bd9d1a",
+  "registry_commit_sha": "022856a01f4eea2a2b198f455ac15dcf485a4417",
   "latest_commit": {
-    "sha": "c87dd4efd82f3e193992ffbc79261d8096708486",
-    "short_sha": "c87dd4efd82f",
-    "message": "Merge PR #288: project-memory: add production readiness verification check\n\nMerge Project Memory production readiness verification check into dev/v2-start.\n\n- Add read-only Project Memory production readiness aggregator\n- Aggregate live DB metadata check, safe runtime evidence, rollback/deploy evidence, and Project Memory diagnostics snapshot\n- Register diagnostics check: project_memory_production_readiness\n- Add deterministic smoke coverage and dedicated workflow\n- Preserve boundaries: no DB writes, no Project Memory writes, no Telegram, no AI, no runtime/repo mutation from runtime code\n\nApproved by Monarch.",
+    "sha": "dd3e359fcc26cd5b477ed3b1468f9e4959a8cb4e",
+    "short_sha": "dd3e359fcc26",
+    "message": "project-memory: add production readiness diagnostics suite\n\nAdd a dedicated read-only Project Memory production readiness diagnostics suite and route structured diagnostics intent to existing runtime/live DB/readiness checks.\n\nThis adds smoke coverage and a GitHub Actions workflow for the suite routing.\n\nNo production readiness claim is made by this change.",
     "author": "korzh260609-beep",
-    "date": "2026-05-17T01:45:57Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c87dd4efd82f3e193992ffbc79261d8096708486",
+    "date": "2026-05-17T02:09:09Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/dd3e359fcc26cd5b477ed3b1468f9e4959a8cb4e",
     "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-project-memory-production-readiness-smoke.yml",
+        "filename": ".github/workflows/sg2-project-memory-production-readiness-diagnostics-suite-smoke.yml",
         "status": "added",
-        "additions": 20,
+        "additions": 21,
         "deletions": 0,
-        "changes": 20
+        "changes": 21
       },
       {
         "filename": "package.json",
@@ -33,25 +33,25 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeProjectMemoryProductionReadinessCheck.js",
+        "filename": "scripts/smokeProjectMemoryProductionReadinessDiagnosticsSuite.js",
         "status": "added",
-        "additions": 219,
+        "additions": 79,
         "deletions": 0,
-        "changes": 219
+        "changes": 79
       },
       {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "filename": "src/diagnostics/diagnosticsPlan.js",
         "status": "modified",
         "additions": 12,
-        "deletions": 1,
-        "changes": 13
+        "deletions": 0,
+        "changes": 12
       },
       {
-        "filename": "src/diagnostics/projectMemoryProductionReadinessCheck.js",
+        "filename": "src/diagnostics/projectMemoryProductionReadinessDiagnosticsSuite.js",
         "status": "added",
-        "additions": 386,
+        "additions": 69,
         "deletions": 0,
-        "changes": 386
+        "changes": 69
       }
     ]
   }

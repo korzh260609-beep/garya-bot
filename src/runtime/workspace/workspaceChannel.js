@@ -1,13 +1,17 @@
 // AGENT NOTE:
 // SG 2.0 workspace channel.
 // Purpose: provide a narrow GitHub-backed file channel for runtime reports.
+// Runtime reports must not pollute the code branch; writes go to a dedicated runtime branch by default.
 // Do not add task logic, Telegram handling, AI calls, polling, or provider-specific logic here.
 
+import { envStr } from "../../config/env.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
 import {
   getCurrentProjectBranch,
   getCurrentProjectRepository,
 } from "../../tools/github/githubProjectDefaults.js";
+
+export const DEFAULT_RUNTIME_WORKSPACE_BRANCH = "runtime-observation-state";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -33,10 +37,15 @@ function buildContentPath(repo, path) {
   return `/repos/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+export function getRuntimeWorkspaceBranch() {
+  return envStr("RUNTIME_WORKSPACE_BRANCH", DEFAULT_RUNTIME_WORKSPACE_BRANCH).trim();
+}
+
 export class WorkspaceChannel {
-  constructor({ repo, branch } = {}) {
+  constructor({ repo, branch, codeBranch } = {}) {
     this.repo = normalizeString(repo || getCurrentProjectRepository());
-    this.branch = normalizeString(branch || getCurrentProjectBranch());
+    this.branch = normalizeString(branch || getRuntimeWorkspaceBranch());
+    this.codeBranch = normalizeString(codeBranch || getCurrentProjectBranch());
   }
 
   ensureReady() {
@@ -61,6 +70,7 @@ export class WorkspaceChannel {
       path: safePath,
       sha: result.data?.sha || null,
       text: decodeBase64Utf8(result.data?.content || ""),
+      branch: this.branch,
     };
   }
 
@@ -95,8 +105,10 @@ export class WorkspaceChannel {
       ok: true,
       repo: this.repo,
       branch: this.branch,
+      codeBranch: this.codeBranch,
       path: safePath,
       commit: result.data?.commit?.sha || null,
+      codeBranchPolluted: this.branch === this.codeBranch,
     };
   }
 

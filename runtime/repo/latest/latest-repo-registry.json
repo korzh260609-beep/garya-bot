@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-17T01:46:14.640Z",
+  "generated_at": "2026-05-17T02:09:26.244Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "c87dd4efd82f3e193992ffbc79261d8096708486",
+  "head_sha": "dd3e359fcc26cd5b477ed3b1468f9e4959a8cb4e",
   "truncated": false,
-  "items_count": 529,
+  "items_count": 532,
   "semantic_fields": [
     "module",
     "layer",
@@ -511,6 +511,24 @@
     },
     {
       "path": ".github/workflows/sg2-project-memory-experience-lessons-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-project-memory-production-readiness-diagnostics-suite-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -3956,6 +3974,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryProductionReadinessCheck.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryProductionReadinessDiagnosticsSuite.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -8037,6 +8073,24 @@
     },
     {
       "path": "src/diagnostics/projectMemoryProductionReadinessCheck.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/projectMemoryProductionReadinessDiagnosticsSuite.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

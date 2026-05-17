@@ -1,25 +1,25 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-16T15:05:26.949Z",
+  "generated_at": "2026-05-17T01:46:16.112Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "a5fc80eab4159b0196a3fd891a97714d2a227731",
-  "previous_head_sha": "0f0a3dbf19609daa34060b76d9c28d49713e4d0f",
+  "current_head_sha": "c87dd4efd82f3e193992ffbc79261d8096708486",
+  "previous_head_sha": "a5fc80eab4159b0196a3fd891a97714d2a227731",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "63cba6a90dc0daca2976d11c97e2926e9d2b7a84",
+  "registry_commit_sha": "b02d119fe6c3e02a22896389dd7cd246e5bd9d1a",
   "latest_commit": {
-    "sha": "a5fc80eab4159b0196a3fd891a97714d2a227731",
-    "short_sha": "a5fc80eab415",
-    "message": "Merge PR #287: project-memory: add Render evidence runtime invocation bridge\n\nMerge Render evidence runtime invocation bridge into dev/v2-start.\n\n- Add explicit Render Evidence Runtime Invocation Bridge\n- Connect RenderEvidenceBridge sanitized evidence to ProjectMemory RuntimeTrustedEventTool\n- Preserve boundary: Project Memory does not fetch Render\n- Preserve boundary: RenderEvidenceBridge does not write Project Memory\n- Add deterministic smoke coverage for clean evidence confirmation and failed evidence rejection\n- Add dedicated GitHub Actions smoke workflow\n\nApproved by Monarch.",
+    "sha": "c87dd4efd82f3e193992ffbc79261d8096708486",
+    "short_sha": "c87dd4efd82f",
+    "message": "Merge PR #288: project-memory: add production readiness verification check\n\nMerge Project Memory production readiness verification check into dev/v2-start.\n\n- Add read-only Project Memory production readiness aggregator\n- Aggregate live DB metadata check, safe runtime evidence, rollback/deploy evidence, and Project Memory diagnostics snapshot\n- Register diagnostics check: project_memory_production_readiness\n- Add deterministic smoke coverage and dedicated workflow\n- Preserve boundaries: no DB writes, no Project Memory writes, no Telegram, no AI, no runtime/repo mutation from runtime code\n\nApproved by Monarch.",
     "author": "korzh260609-beep",
-    "date": "2026-05-16T15:05:09Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/a5fc80eab4159b0196a3fd891a97714d2a227731",
-    "changed_files_count": 4,
+    "date": "2026-05-17T01:45:57Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c87dd4efd82f3e193992ffbc79261d8096708486",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-render-evidence-runtime-invocation-bridge-smoke.yml",
+        "filename": ".github/workflows/sg2-project-memory-production-readiness-smoke.yml",
         "status": "added",
         "additions": 20,
         "deletions": 0,
@@ -28,23 +28,30 @@
       {
         "filename": "package.json",
         "status": "modified",
-        "additions": 2,
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "scripts/smokeProjectMemoryProductionReadinessCheck.js",
+        "status": "added",
+        "additions": 219,
+        "deletions": 0,
+        "changes": 219
+      },
+      {
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "status": "modified",
+        "additions": 12,
         "deletions": 1,
-        "changes": 3
+        "changes": 13
       },
       {
-        "filename": "scripts/smokeRenderEvidenceRuntimeInvocationBridge.js",
+        "filename": "src/diagnostics/projectMemoryProductionReadinessCheck.js",
         "status": "added",
-        "additions": 238,
+        "additions": 386,
         "deletions": 0,
-        "changes": 238
-      },
-      {
-        "filename": "src/integrations/render/RenderEvidenceRuntimeInvocationBridge.js",
-        "status": "added",
-        "additions": 241,
-        "deletions": 0,
-        "changes": 241
+        "changes": 386
       }
     ]
   }

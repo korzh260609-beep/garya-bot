@@ -14,6 +14,7 @@ import { runMigrationManualExecutionPreflightCheck } from "../../diagnostics/mig
 import { runObservationJournalStatusCheck } from "../../diagnostics/observationJournalStatusCheck.js";
 import { runObservationLatestReportCheck } from "../../diagnostics/observationLatestReportCheck.js";
 import { runProjectMemoryLiveDbCheck } from "../../diagnostics/projectMemoryLiveDbCheck.js";
+import { runProjectMemoryProductionReadinessCheck } from "../../diagnostics/projectMemoryProductionReadinessCheck.js";
 import { runProjectMemoryRuntimeCheck } from "../../diagnostics/projectMemoryRuntimeCheck.js";
 import { runUsersIdentityLinkingCheck } from "../../diagnostics/usersIdentityLinkingCheck.js";
 import { runUsersIdentityLinkRequestsCheck } from "../../diagnostics/usersIdentityLinkRequestsCheck.js";
@@ -84,6 +85,11 @@ function summarizeObservationJournalStatus(result = {}) {
 function summarizeProjectMemoryLiveDb(result = {}) {
   if (!result.ok) return result.summary || "Project Memory live DB check failed.";
   return result.summary || "Project Memory live DB check passed.";
+}
+
+function summarizeProjectMemoryProductionReadiness(result = {}) {
+  if (!result.ok) return result.summary || "Project Memory production readiness is not established.";
+  return result.summary || "Project Memory production readiness check passed.";
 }
 
 function summarizeProjectMemoryRuntime(result = {}) {
@@ -159,6 +165,11 @@ export const diagnosticsCheckRegistry = [
     name: "project_memory_live_db",
     run: () => runProjectMemoryLiveDbCheck(),
     summarize: summarizeProjectMemoryLiveDb,
+  },
+  {
+    name: "project_memory_production_readiness",
+    run: ({ runtime, evidence, liveDbCheck } = {}) => runProjectMemoryProductionReadinessCheck({ runtime, evidence, liveDbCheck }),
+    summarize: summarizeProjectMemoryProductionReadiness,
   },
   {
     name: "migration_db_readiness",

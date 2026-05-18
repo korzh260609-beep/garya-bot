@@ -1,36 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-18T10:43:49.799Z",
+  "generated_at": "2026-05-18T11:11:09.396Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "45e6087c245eac72458fa2037067fe82607741ce",
-  "previous_head_sha": "ad2bf0220a32bb5bb54b137356bb37cea723743d",
+  "current_head_sha": "009e406a3544bbb23049649d7e13d2e70db13b6d",
+  "previous_head_sha": "45e6087c245eac72458fa2037067fe82607741ce",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "08b883bb63167b05a469d8d8ff05ecbf13f6e9a2",
+  "registry_commit_sha": "a3b27a1a7181426a5fd67b2d346eb334b4915e97",
   "latest_commit": {
-    "sha": "45e6087c245eac72458fa2037067fe82607741ce",
-    "short_sha": "45e6087c245e",
-    "message": "Integrate Project Memory runtime safety evidence mapper into live invocation\n\nIntegrate Project Memory runtime safety evidence mapper into the live evidence invocation bridge.\n\n- Derive runtime safety evidence from sanitized workflow/runtime/count facts\n- Keep direct runtime evidence path backward-compatible\n- Fail closed when mapped evidence is incomplete\n- Extend smoke coverage for mapped ready and missing-evidence paths",
+    "sha": "009e406a3544bbb23049649d7e13d2e70db13b6d",
+    "short_sha": "009e406a3544",
+    "message": "Add explicit post-merge Actions discovery smoke workflow\n\nAdd an explicit post-merge GitHub Actions discovery workflow for dev/v2-start.\n\n- Add push/pull_request/workflow_dispatch workflow for post-merge evidence discovery\n- Add local smoke test for workflow triggers and read-only permissions\n- Register post-merge actions discovery smoke script\n- Avoid npm cache/ci dependency on missing lockfile",
     "author": "korzh260609-beep",
-    "date": "2026-05-18T10:43:29Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/45e6087c245eac72458fa2037067fe82607741ce",
-    "changed_files_count": 2,
+    "date": "2026-05-18T11:10:47Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/009e406a3544bbb23049649d7e13d2e70db13b6d",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "scripts/smokeProjectMemoryProductionReadinessLiveEvidenceInvocation.js",
-        "status": "modified",
-        "additions": 77,
+        "filename": ".github/workflows/sg2-post-merge-actions-discovery-smoke.yml",
+        "status": "added",
+        "additions": 36,
         "deletions": 0,
-        "changes": 77
+        "changes": 36
       },
       {
-        "filename": "src/diagnostics/projectMemoryProductionReadinessLiveEvidenceInvocation.js",
+        "filename": "package.json",
         "status": "modified",
-        "additions": 78,
-        "deletions": 1,
-        "changes": 79
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "scripts/smokePostMergeActionsDiscoveryWorkflow.js",
+        "status": "added",
+        "additions": 25,
+        "deletions": 0,
+        "changes": 25
       }
     ]
   }

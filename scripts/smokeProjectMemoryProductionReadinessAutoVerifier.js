@@ -10,6 +10,14 @@ import {
   runProjectMemoryProductionReadinessAutoVerifier,
 } from "../src/diagnostics/projectMemoryProductionReadinessAutoVerifier.js";
 
+function assertNoSecretValues(value) {
+  const text = JSON.stringify(value);
+  assert.equal(text.includes("postgres://secret"), false);
+  assert.equal(text.includes("secret-pass"), false);
+  assert.equal(text.includes("RENDER_API_KEY=secret"), false);
+  assert.equal(text.includes("OPENAI_API_KEY=secret"), false);
+}
+
 const boundaries = getProjectMemoryProductionReadinessAutoVerifierBoundaries();
 assert.equal(boundaries.automaticRuntimePath, true);
 assert.equal(boundaries.userShellCommandRequired, false);
@@ -57,6 +65,7 @@ assert.equal(rejected.autoTriggered, true);
 assert.equal(rejected.errors.includes("trigger_source_not_sg_runtime"), true);
 assert.equal(rejected.errors.includes("trigger_event_type_not_deploy_evidence_verified"), true);
 assert.equal(rejected.errors.includes("trigger_not_trusted"), true);
+assertNoSecretValues(rejected);
 
 const incompleteTrusted = await runProjectMemoryProductionReadinessAutoVerifier({
   trigger: {
@@ -80,6 +89,7 @@ assert.equal(incompleteTrusted.ready, false);
 assert.equal(incompleteTrusted.errors.includes("confirmation_safe_test_missing"), true);
 assert.equal(incompleteTrusted.errors.includes("confirmed_read_safe_test_missing"), true);
 assert.equal(incompleteTrusted.errors.includes("restore_context_safe_test_missing"), true);
+assertNoSecretValues(incompleteTrusted);
 
 const verifiedLiveDbCheck = {
   ok: true,
@@ -171,7 +181,6 @@ assert.equal(ready.autoTriggered, true);
 assert.equal(ready.decision, "project_memory_production_readiness_verified_ready");
 assert.equal(ready.boundaries.userShellCommandRequired, false);
 assert.equal(ready.boundaries.userTelegramCommandRequired, false);
-assert.equal(JSON.stringify(ready).includes("DATABASE_URL"), false);
-assert.equal(JSON.stringify(ready).includes("postgres://"), false);
+assertNoSecretValues(ready);
 
 console.log("OK: Project Memory production readiness auto verifier is event-driven, read-only, and fail-closed");

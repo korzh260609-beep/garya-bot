@@ -6,6 +6,7 @@ import { runRenderEnvAgent } from "../render-env-agent/renderEnvAgent.js";
 import { runRepoRegistryAgent } from "../repo-registry-agent/repoRegistryAgent.js";
 import { runGetRenderLogsTask } from "../../tasks/render/getRenderLogsTask.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
+import { runGitHubActionsCommitRunsCheck } from "../../diagnostics/githubActionsCommitRunsCheck.js";
 import { runMigrationAutomaticExecutionPreflightCheck } from "../../diagnostics/migrationAutomaticExecutionPreflightCheck.js";
 import { runMigrationDbReadinessCheck } from "../../diagnostics/migrationDbReadinessCheck.js";
 import { runMigrationGovernanceCheck } from "../../diagnostics/migrationGovernanceCheck.js";
@@ -40,6 +41,11 @@ function summarizeWorkflowRun(result = {}) {
   const run = result.latestRun;
   if (!run) return "GitHub Actions check completed, but no workflow run was found.";
   return `GitHub Actions latest run: ${run.name || result.workflow || "workflow"}, status=${run.status || "unknown"}, conclusion=${run.conclusion || "unknown"}.`;
+}
+
+function summarizeWorkflowRunsForCommit(result = {}) {
+  if (!result.ok) return result.summary || result.error || "GitHub Actions commit runs check failed.";
+  return result.summary || "GitHub Actions commit runs check passed.";
 }
 
 function summarizeCommits(result = {}) {
@@ -225,6 +231,11 @@ export const diagnosticsCheckRegistry = [
     name: "github_actions_latest_run",
     run: ({ repo, branch, workflow }) => checkLatestWorkflowRun({ repo, branch, workflow }),
     summarize: summarizeWorkflowRun,
+  },
+  {
+    name: "github_actions_commit_runs",
+    run: ({ repo, branch, commitSha, perPage } = {}) => runGitHubActionsCommitRunsCheck({ repo, branch, commitSha, perPage }),
+    summarize: summarizeWorkflowRunsForCommit,
   },
   {
     name: "repo_registry",

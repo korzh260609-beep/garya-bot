@@ -12,6 +12,7 @@ import {
 for (const eventType of [
   OBSERVATION_DISPATCH_EVENT_TYPES.GITHUB_PR_MERGED,
   OBSERVATION_DISPATCH_EVENT_TYPES.GITHUB_CI_FINISHED,
+  OBSERVATION_DISPATCH_EVENT_TYPES.GITHUB_REPOSITORY_UPDATED,
 ]) {
   const config = getObservationTriggerDispatchConfig(eventType);
   const result = await runObservationTriggerDispatchAgent({
@@ -22,6 +23,7 @@ for (const eventType of [
       workflow_run: {
         id: 26021460823,
       },
+      runtimeReportPath: "runtime/observation/latest/observation-journal-health-latest.json",
     },
   });
 
@@ -44,10 +46,12 @@ for (const eventType of [
   ]);
   assert.equal(result.payload.links.related_commit_sha, "9b9eb30025139fe28ede46a547d1ce985ea6045c");
   assert.equal(result.payload.links.related_run_id, "26021460823");
+  assert.equal(result.payload.links.runtime_report_path, "runtime/observation/latest/observation-journal-health-latest.json");
   assert.equal(result.payload.evidence.exactCommitActionsCheckRequired, true);
   assert.equal(result.payload.evidence.observationJournalHealthRequired, true);
   assert.equal(result.context.relatedCommitSha, "9b9eb30025139fe28ede46a547d1ce985ea6045c");
   assert.equal(result.context.relatedRunId, "26021460823");
+  assert.equal(result.context.runtimeReportPath, "runtime/observation/latest/observation-journal-health-latest.json");
 }
 
 console.log("OK: GitHub events are allowlisted for observation dispatch with complete evidence links");

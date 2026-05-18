@@ -1,43 +1,57 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-18T07:59:43.384Z",
+  "generated_at": "2026-05-18T08:14:50.154Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "89f0b49f234f3bd6246c4338ce26202cd140ecd1",
-  "previous_head_sha": "6c2899cd67954e18a3f8501d5788c41af70e89a8",
+  "current_head_sha": "9b9eb30025139fe28ede46a547d1ce985ea6045c",
+  "previous_head_sha": "89f0b49f234f3bd6246c4338ce26202cd140ecd1",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "13e16e1edc6913d15b9e14165a495e02a719f8ff",
+  "registry_commit_sha": "734d1ea3a85f816633af69950bc1dd33851221bc",
   "latest_commit": {
-    "sha": "89f0b49f234f3bd6246c4338ce26202cd140ecd1",
-    "short_sha": "89f0b49f234f",
-    "message": "Fix Observation post-merge evidence links\n\nMerge PR #294: propagate related commit/run links through diagnostics and journal health observation events.",
+    "sha": "9b9eb30025139fe28ede46a547d1ce985ea6045c",
+    "short_sha": "9b9eb3002513",
+    "message": "Add exact GitHub Actions commit runs check\n\nMerge PR #295: add read-only diagnostics check for GitHub Actions workflow runs tied to an exact commit SHA.",
     "author": "korzh260609-beep",
-    "date": "2026-05-18T07:59:24Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/89f0b49f234f3bd6246c4338ce26202cd140ecd1",
-    "changed_files_count": 3,
+    "date": "2026-05-18T08:14:32Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/9b9eb30025139fe28ede46a547d1ce985ea6045c",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": "scripts/smokeDiagnosticsObservationBridge.js",
-        "status": "modified",
-        "additions": 12,
+        "filename": ".github/workflows/sg2-github-actions-commit-runs-check.yml",
+        "status": "added",
+        "additions": 35,
         "deletions": 0,
-        "changes": 12
+        "changes": 35
       },
       {
-        "filename": "src/agents/observation/journalHealthObservationBridge.js",
+        "filename": "package.json",
         "status": "modified",
-        "additions": 20,
-        "deletions": 2,
-        "changes": 22
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
       },
       {
-        "filename": "src/diagnostics/diagnosticsObservationBridge.js",
+        "filename": "scripts/smokeGithubActionsCommitRunsCheck.js",
+        "status": "added",
+        "additions": 45,
+        "deletions": 0,
+        "changes": 45
+      },
+      {
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
         "status": "modified",
         "additions": 11,
-        "deletions": 5,
-        "changes": 16
+        "deletions": 0,
+        "changes": 11
+      },
+      {
+        "filename": "src/diagnostics/githubActionsCommitRunsCheck.js",
+        "status": "added",
+        "additions": 175,
+        "deletions": 0,
+        "changes": 175
       }
     ]
   }

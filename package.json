@@ -13,6 +13,7 @@
     "smoke:diagnostics-migration-governance-registry": "node ./scripts/smokeMigrationGovernanceRegistry.js",
     "smoke:diagnostics-migration-governance-route": "node ./scripts/smokeMigrationGovernanceDiagnosticsRoute.js",
     "smoke:diagnostics-observation-bridge": "node ./scripts/smokeDiagnosticsObservationBridge.js",
+    "smoke:github-actions-commit-runs-check": "node ./scripts/smokeGithubActionsCommitRunsCheck.js",
     "smoke:github-actions-formatter": "node ./scripts/smokeGithubActionsFormatter.js",
     "smoke:message-context-injection": "node ./scripts/smokeMessageContextInjection.js",
     "smoke:message-context-injection-format-only": "node ./scripts/smokeMessageContextInjectionFormatOnly.js",

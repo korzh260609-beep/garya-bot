@@ -65,7 +65,6 @@
     "smoke:project-memory-user-project-guard": "node ./scripts/smokeProjectMemoryUserProjectGuard.js",
     "smoke:project-memory-user-project-validator": "node ./scripts/smokeProjectMemoryUserProjectValidator.js",
     "smoke:render-evidence-runtime-invocation-bridge": "node ./scripts/smokeRenderEvidenceRuntimeInvocationBridge.js",
-    "smoke:repo-commit-watcher-observation-policy": "node ./scripts/smokeRepoCommitWatcherObservationDispatchPolicy.js",
     "smoke:runtime-status-observation-bridge": "node ./scripts/smokeRuntimeStatusObservationBridge.js",
     "smoke:runtime-workspace-branch-boundary": "node ./scripts/smokeWorkspaceRuntimeBranchBoundary.js",
     "smoke:user-project-runtime-context": "node ./scripts/smokeUserProjectRuntimeContext.js",

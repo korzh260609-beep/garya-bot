@@ -90,7 +90,7 @@ export async function runGitHubActionsCommitRunsCheck({
   commitSha = "",
   perPage = 100,
   ignoredRunIds = [],
-  currentRunId = "",
+  currentRunId = process.env.OBSERVATION_CURRENT_RUN_ID || process.env.GITHUB_RUN_ID || "",
 } = {}) {
   const safeRepo = normalizeText(repo);
   const safeBranch = normalizeText(branch);

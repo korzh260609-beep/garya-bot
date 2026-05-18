@@ -1,25 +1,25 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-17T02:37:34.459Z",
+  "generated_at": "2026-05-18T04:36:53.752Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "173826a17182057f635444cb6701ac556cdcdf00",
-  "previous_head_sha": "4026de81a2d8f730173188196fbd70df0df2b26b",
+  "current_head_sha": "b43a3bdc4a3d650e4c255d14126bc224802accf3",
+  "previous_head_sha": "173826a17182057f635444cb6701ac556cdcdf00",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "3da7455f768fcf5625aaaa3dccfda139e56440de",
+  "registry_commit_sha": "6d8e35f71ae79d0083c99cd270f6704f830476aa",
   "latest_commit": {
-    "sha": "173826a17182057f635444cb6701ac556cdcdf00",
-    "short_sha": "173826a17182",
-    "message": "runtime: route workspace reports to dedicated runtime branch\n\nRoute GitHub-backed runtime workspace writes to a dedicated runtime branch by default.\n\nDefault runtime branch: runtime-observation-state.\n\nThis keeps dev/v2-start as the code branch while preserving Observation/nervous-system journal writes outside the code branch.\n\nNo change to Observation validation or sanitization.",
+    "sha": "b43a3bdc4a3d650e4c255d14126bc224802accf3",
+    "short_sha": "b43a3bdc4a3d",
+    "message": "project-memory: add production readiness auto verifier\n\nAdd an automatic Project Memory production readiness verifier.\n\nThe verifier is triggered by trusted sanitized SG runtime deploy evidence, runs the existing readiness diagnostics runner, and returns ready/not-ready.\n\nIt fails closed when deploy/runtime evidence is incomplete and does not require user shell or Telegram commands.\n\nNo production readiness claim is made by this change.",
     "author": "korzh260609-beep",
-    "date": "2026-05-17T02:37:16Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/173826a17182057f635444cb6701ac556cdcdf00",
+    "date": "2026-05-18T04:36:37Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b43a3bdc4a3d650e4c255d14126bc224802accf3",
     "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-runtime-workspace-branch-boundary-smoke.yml",
+        "filename": ".github/workflows/sg2-project-memory-production-readiness-runtime-entrypoint-smoke.yml",
         "status": "added",
         "additions": 20,
         "deletions": 0,
@@ -33,18 +33,18 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeWorkspaceRuntimeBranchBoundary.js",
+        "filename": "scripts/smokeProjectMemoryProductionReadinessAutoVerifier.js",
         "status": "added",
-        "additions": 45,
+        "additions": 186,
         "deletions": 0,
-        "changes": 45
+        "changes": 186
       },
       {
-        "filename": "src/runtime/workspace/workspaceChannel.js",
-        "status": "modified",
-        "additions": 14,
-        "deletions": 2,
-        "changes": 16
+        "filename": "src/diagnostics/projectMemoryProductionReadinessAutoVerifier.js",
+        "status": "added",
+        "additions": 187,
+        "deletions": 0,
+        "changes": 187
       }
     ]
   }

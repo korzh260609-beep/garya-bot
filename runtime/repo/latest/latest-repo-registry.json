@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-18T12:09:08.879Z",
+  "generated_at": "2026-05-18T13:53:20.729Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "2845bf312bcd82d723e4989bcae19437dc951481",
+  "head_sha": "0c59488fe8e5883f6e3d0a9c27ea856fa9305245",
   "truncated": false,
-  "items_count": 551,
+  "items_count": 550,
   "semantic_fields": [
     "module",
     "layer",
@@ -745,24 +745,6 @@
     },
     {
       "path": ".github/workflows/sg2-repo-commit-observation-smoke.yml",
-      "type": "file",
-      "parent": ".github/workflows",
-      "extension": "yml",
-      "description": "YAML configuration file.",
-      "status": "active_or_config",
-      "semantic": {
-        "module": "github_actions",
-        "layer": "ci",
-        "responsibility": "YAML configuration file.",
-        "owner": "ci",
-        "safe_to_edit": "with_caution_pr_only",
-        "runtime_impact": "ci_runtime_only",
-        "source_priority": "ci_config",
-        "notes": []
-      }
-    },
-    {
-      "path": ".github/workflows/sg2-repo-commit-watcher-observation-policy.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",

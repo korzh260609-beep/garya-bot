@@ -1,29 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-18T04:36:53.752Z",
+  "generated_at": "2026-05-18T07:32:39.322Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "b43a3bdc4a3d650e4c255d14126bc224802accf3",
-  "previous_head_sha": "173826a17182057f635444cb6701ac556cdcdf00",
+  "current_head_sha": "6c2899cd67954e18a3f8501d5788c41af70e89a8",
+  "previous_head_sha": "b43a3bdc4a3d650e4c255d14126bc224802accf3",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "6d8e35f71ae79d0083c99cd270f6704f830476aa",
+  "registry_commit_sha": "db7c91988ef1a29814eb94496fcd233d792ecb96",
   "latest_commit": {
-    "sha": "b43a3bdc4a3d650e4c255d14126bc224802accf3",
-    "short_sha": "b43a3bdc4a3d",
-    "message": "project-memory: add production readiness auto verifier\n\nAdd an automatic Project Memory production readiness verifier.\n\nThe verifier is triggered by trusted sanitized SG runtime deploy evidence, runs the existing readiness diagnostics runner, and returns ready/not-ready.\n\nIt fails closed when deploy/runtime evidence is incomplete and does not require user shell or Telegram commands.\n\nNo production readiness claim is made by this change.",
+    "sha": "6c2899cd67954e18a3f8501d5788c41af70e89a8",
+    "short_sha": "6c2899cd6795",
+    "message": "Project Memory readiness live evidence invocation\n\nMerge PR #293: add read-only live evidence invocation bridge for Project Memory production readiness verification.",
     "author": "korzh260609-beep",
-    "date": "2026-05-18T04:36:37Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/b43a3bdc4a3d650e4c255d14126bc224802accf3",
+    "date": "2026-05-18T07:32:22Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/6c2899cd67954e18a3f8501d5788c41af70e89a8",
     "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-project-memory-production-readiness-runtime-entrypoint-smoke.yml",
+        "filename": ".github/workflows/sg2-project-memory-readiness-live-evidence-invocation-smoke.yml",
         "status": "added",
-        "additions": 20,
+        "additions": 35,
         "deletions": 0,
-        "changes": 20
+        "changes": 35
       },
       {
         "filename": "package.json",
@@ -33,18 +33,18 @@
         "changes": 1
       },
       {
-        "filename": "scripts/smokeProjectMemoryProductionReadinessAutoVerifier.js",
+        "filename": "scripts/smokeProjectMemoryProductionReadinessLiveEvidenceInvocation.js",
         "status": "added",
-        "additions": 186,
+        "additions": 230,
         "deletions": 0,
-        "changes": 186
+        "changes": 230
       },
       {
-        "filename": "src/diagnostics/projectMemoryProductionReadinessAutoVerifier.js",
+        "filename": "src/diagnostics/projectMemoryProductionReadinessLiveEvidenceInvocation.js",
         "status": "added",
-        "additions": 187,
+        "additions": 219,
         "deletions": 0,
-        "changes": 187
+        "changes": 219
       }
     ]
   }

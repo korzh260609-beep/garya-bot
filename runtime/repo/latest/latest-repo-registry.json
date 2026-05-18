@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-18T09:05:52.422Z",
+  "generated_at": "2026-05-18T09:28:45.504Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "e842d4c9259b85f7ab8f581af33a019434e1477d",
+  "head_sha": "c871953f96dc0442678070ca1ce2bf459230cd16",
   "truncated": false,
-  "items_count": 546,
+  "items_count": 547,
   "semantic_fields": [
     "module",
     "layer",
@@ -75,6 +75,24 @@
         "notes": [
           "folder_node"
         ]
+      }
+    },
+    {
+      "path": ".github/workflows/observation-post-ci-completion.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
       }
     },
     {

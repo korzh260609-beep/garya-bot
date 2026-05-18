@@ -1,0 +1,35 @@
+name: SG2 Project Memory Readiness Live Evidence Invocation Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/v2-start
+  pull_request:
+    branches:
+      - dev/v2-start
+
+jobs:
+  smoke:
+    name: Project Memory readiness live evidence invocation smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check Project Memory readiness live evidence invocation syntax
+        run: |
+          node --check src/diagnostics/projectMemoryProductionReadinessLiveEvidenceInvocation.js
+          node --check scripts/smokeProjectMemoryProductionReadinessLiveEvidenceInvocation.js
+
+      - name: Smoke Project Memory readiness live evidence invocation
+        run: npm run smoke:project-memory-production-readiness-live-evidence-invocation

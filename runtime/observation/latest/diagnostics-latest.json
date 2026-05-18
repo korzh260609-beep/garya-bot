@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-18T08:33:56.926Z",
+  "generated_at": "2026-05-18T09:06:01.233Z",
   "name": "diagnostics-latest",
   "summary": "Diagnostics completed with failures: 1/2 checks failed.",
   "events_count": 1,
@@ -10,9 +10,9 @@
   "events": [
     {
       "schema_version": 1,
-      "event_id": "diagnostics_1779093236925",
+      "event_id": "diagnostics_1779095161232",
       "event_type": "diagnostics.result",
-      "created_at": "2026-05-18T08:33:56.925Z",
+      "created_at": "2026-05-18T09:06:01.232Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -42,7 +42,7 @@
           {
             "type": "github_actions_commit_runs",
             "ok": false,
-            "summary": "GitHub Actions commit runs check failed: commit SHA missing."
+            "summary": "GitHub Actions commit runs found for e842d4c9259b: 4 success, 5 active."
           }
         ],
         "report_type": "sg_diagnostics_report",
@@ -56,9 +56,9 @@
         "memory_candidate": false
       },
       "links": {
-        "runtime_report_path": "",
-        "related_commit_sha": "",
-        "related_run_id": ""
+        "runtime_report_path": "runtime/observation/latest/observation-journal-health-latest.json",
+        "related_commit_sha": "e842d4c9259b85f7ab8f581af33a019434e1477d",
+        "related_run_id": "26023985408"
       }
     }
   ],

@@ -37,6 +37,16 @@ function summarizeResults(results = []) {
   }));
 }
 
+function buildObservationLinks(context = {}) {
+  const links = context.links && typeof context.links === "object" ? context.links : {};
+
+  return {
+    runtime_report_path: normalizeText(context.runtimeReportPath || links.runtime_report_path),
+    related_commit_sha: normalizeText(context.relatedCommitSha || context.commitSha || links.related_commit_sha),
+    related_run_id: normalizeText(context.relatedRunId || context.runId || links.related_run_id),
+  };
+}
+
 export function buildDiagnosticsObservationEventInput(diagnosticsResult = {}, context = {}) {
   const report = diagnosticsResult.report || {};
   const results = Array.isArray(report.results) ? report.results : [];
@@ -76,11 +86,7 @@ export function buildDiagnosticsObservationEventInput(diagnosticsResult = {}, co
       sanitized: true,
       memory_candidate: false,
     },
-    links: {
-      runtime_report_path: "",
-      related_commit_sha: "",
-      related_run_id: "",
-    },
+    links: buildObservationLinks(context),
   };
 }
 

@@ -39,6 +39,9 @@ const eventInput = buildDiagnosticsObservationEventInput({
 }, {
   isMonarch: true,
   globalUserId: "usr_48cc07c069030fb3",
+  relatedCommitSha: "6c2899cd67954e18a3f8501d5788c41af70e89a8",
+  relatedRunId: "26019696805",
+  runtimeReportPath: "runtime/observation/latest/diagnostics-latest.json",
 });
 
 assert.equal(eventInput.event_type, OBSERVATION_EVENT_TYPES.DIAGNOSTICS_RESULT);
@@ -59,6 +62,9 @@ assert.equal(eventInput.policy.sensitivity, OBSERVATION_SENSITIVITY.INTERNAL);
 assert.equal(eventInput.policy.retention, OBSERVATION_RETENTION.LATEST_ONLY);
 assert.equal(eventInput.policy.sanitized, true);
 assert.equal(eventInput.policy.memory_candidate, false);
+assert.equal(eventInput.links.related_commit_sha, "6c2899cd67954e18a3f8501d5788c41af70e89a8");
+assert.equal(eventInput.links.related_run_id, "26019696805");
+assert.equal(eventInput.links.runtime_report_path, "runtime/observation/latest/diagnostics-latest.json");
 
 const redactedEventInput = buildDiagnosticsObservationEventInput({
   ok: false,
@@ -68,10 +74,16 @@ const redactedEventInput = buildDiagnosticsObservationEventInput({
 }, {
   isMonarch: false,
   globalUserId: "telegram:123456789",
+  links: {
+    related_commit_sha: "6c2899cd67954e18a3f8501d5788c41af70e89a8",
+    related_run_id: "26019696805",
+  },
 });
 
 assert.equal(redactedEventInput.actor.role, "system");
 assert.equal(redactedEventInput.actor.user_ref, "redacted");
 assert.equal(redactedEventInput.payload.diagnostics_ok, false);
+assert.equal(redactedEventInput.links.related_commit_sha, "6c2899cd67954e18a3f8501d5788c41af70e89a8");
+assert.equal(redactedEventInput.links.related_run_id, "26019696805");
 
 console.log("OK: diagnostics observation bridge builds sanitized observation event input");

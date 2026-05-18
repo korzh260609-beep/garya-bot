@@ -1,50 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-18T13:53:22.625Z",
+  "generated_at": "2026-05-18T16:28:01.644Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "0c59488fe8e5883f6e3d0a9c27ea856fa9305245",
-  "previous_head_sha": "2845bf312bcd82d723e4989bcae19437dc951481",
+  "current_head_sha": "6429adafacfdfd15c5707739333ffc042e368318",
+  "previous_head_sha": "0c59488fe8e5883f6e3d0a9c27ea856fa9305245",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "c48ab50ec4ae41e6df6b6841ee64ea4ccdfbb84b",
+  "registry_commit_sha": "aa77806a054c7ae03f5d5658a0ae2e5c51184435",
   "latest_commit": {
-    "sha": "0c59488fe8e5883f6e3d0a9c27ea856fa9305245",
-    "short_sha": "0c59488fe8e5",
-    "message": "Restore simple repo registry watcher\n\nRestore the simple clean-copy repo registry watcher flow.\n\n- Restore repo-commit-watcher workflow to the registry-first clean-copy behavior\n- Restore RepoCommitWatcherAgent as a simple registry updater\n- Remove obsolete repo watcher observation-policy workflow\n- Remove obsolete observation-policy smoke script from package.json\n\nThis keeps RepoRegistryAgent independent from the expanded observation/evidence coupling.",
+    "sha": "6429adafacfdfd15c5707739333ffc042e368318",
+    "short_sha": "6429adafacfd",
+    "message": "Add Project Memory runtime verification log\n\nAdd safe Project Memory runtime verification logging during normal message AI requests.\n\n- Log only sanitized Project Memory context gate metadata\n- Exclude user text, memory content, prompt messages, raw logs, and secrets\n- Add smoke coverage for the sanitized runtime verification log\n- Add dedicated GitHub Actions smoke workflow\n\nNo Project Memory writes, DB writes, Telegram logic, AI provider logic, or prompt injection behavior changes.",
     "author": "korzh260609-beep",
-    "date": "2026-05-18T13:52:54Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0c59488fe8e5883f6e3d0a9c27ea856fa9305245",
+    "date": "2026-05-18T16:27:37Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/6429adafacfdfd15c5707739333ffc042e368318",
     "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": ".github/workflows/repo-commit-watcher.yml",
-        "status": "modified",
-        "additions": 3,
-        "deletions": 11,
-        "changes": 14
-      },
-      {
-        "filename": ".github/workflows/sg2-repo-commit-watcher-observation-policy.yml",
-        "status": "removed",
-        "additions": 0,
-        "deletions": 37,
-        "changes": 37
+        "filename": ".github/workflows/sg2-message-project-memory-runtime-verification-log-smoke.yml",
+        "status": "added",
+        "additions": 35,
+        "deletions": 0,
+        "changes": 35
       },
       {
         "filename": "package.json",
         "status": "modified",
-        "additions": 0,
-        "deletions": 1,
+        "additions": 1,
+        "deletions": 0,
         "changes": 1
       },
       {
-        "filename": "src/agents/repo-commit-watcher-agent/repoCommitWatcherAgent.js",
+        "filename": "scripts/smokeMessageProjectMemoryRuntimeVerificationLog.js",
+        "status": "added",
+        "additions": 101,
+        "deletions": 0,
+        "changes": 101
+      },
+      {
+        "filename": "src/core/message/messageAiRequest.js",
         "status": "modified",
-        "additions": 1,
-        "deletions": 6,
-        "changes": 7
+        "additions": 84,
+        "deletions": 2,
+        "changes": 86
       }
     ]
   }

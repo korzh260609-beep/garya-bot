@@ -1,43 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-18T11:11:09.396Z",
+  "generated_at": "2026-05-18T11:35:23.425Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "009e406a3544bbb23049649d7e13d2e70db13b6d",
-  "previous_head_sha": "45e6087c245eac72458fa2037067fe82607741ce",
+  "current_head_sha": "567ff6ea4a98a1bf7aa415f4872ed940e86c35d1",
+  "previous_head_sha": "009e406a3544bbb23049649d7e13d2e70db13b6d",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "a3b27a1a7181426a5fd67b2d346eb334b4915e97",
+  "registry_commit_sha": "1f75ebaca109285051a665c559f54f3fe47adf22",
   "latest_commit": {
-    "sha": "009e406a3544bbb23049649d7e13d2e70db13b6d",
-    "short_sha": "009e406a3544",
-    "message": "Add explicit post-merge Actions discovery smoke workflow\n\nAdd an explicit post-merge GitHub Actions discovery workflow for dev/v2-start.\n\n- Add push/pull_request/workflow_dispatch workflow for post-merge evidence discovery\n- Add local smoke test for workflow triggers and read-only permissions\n- Register post-merge actions discovery smoke script\n- Avoid npm cache/ci dependency on missing lockfile",
+    "sha": "567ff6ea4a98a1bf7aa415f4872ed940e86c35d1",
+    "short_sha": "567ff6ea4a98",
+    "message": "Prove post-merge Actions discovery workflow\n\nStrengthen post-merge Actions discovery workflow smoke assertions.\n\n- Assert workflow uses npm install\n- Assert workflow avoids cache: npm without a lockfile\n- Assert workflow avoids npm ci without a lockfile\n\nThis PR creates a follow-up merge after the post-merge workflow already exists on dev/v2-start, allowing post-merge Actions discovery to be verified on the resulting merge commit.",
     "author": "korzh260609-beep",
-    "date": "2026-05-18T11:10:47Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/009e406a3544bbb23049649d7e13d2e70db13b6d",
-    "changed_files_count": 3,
+    "date": "2026-05-18T11:35:01Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/567ff6ea4a98a1bf7aa415f4872ed940e86c35d1",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-post-merge-actions-discovery-smoke.yml",
-        "status": "added",
-        "additions": 36,
-        "deletions": 0,
-        "changes": 36
-      },
-      {
-        "filename": "package.json",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
-      },
-      {
         "filename": "scripts/smokePostMergeActionsDiscoveryWorkflow.js",
-        "status": "added",
-        "additions": 25,
+        "status": "modified",
+        "additions": 3,
         "deletions": 0,
-        "changes": 25
+        "changes": 3
       }
     ]
   }

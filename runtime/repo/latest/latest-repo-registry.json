@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-18T04:36:52.677Z",
+  "generated_at": "2026-05-18T07:32:37.628Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "b43a3bdc4a3d650e4c255d14126bc224802accf3",
+  "head_sha": "6c2899cd67954e18a3f8501d5788c41af70e89a8",
   "truncated": false,
-  "items_count": 540,
+  "items_count": 543,
   "semantic_fields": [
     "module",
     "layer",
@@ -601,6 +601,24 @@
     },
     {
       "path": ".github/workflows/sg2-project-memory-projectkey-runtime-selection.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-project-memory-readiness-live-evidence-invocation-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -4082,6 +4100,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryProductionReadinessDiagnosticsSuite.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryProductionReadinessLiveEvidenceInvocation.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -8235,6 +8271,24 @@
     },
     {
       "path": "src/diagnostics/projectMemoryProductionReadinessDiagnosticsSuite.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/projectMemoryProductionReadinessLiveEvidenceInvocation.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

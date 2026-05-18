@@ -14,6 +14,7 @@ import { runMigrationManualExecutionDryRunCheck } from "../../diagnostics/migrat
 import { runMigrationManualExecutionPreflightCheck } from "../../diagnostics/migrationManualExecutionPreflightCheck.js";
 import { runObservationJournalStatusCheck } from "../../diagnostics/observationJournalStatusCheck.js";
 import { runObservationLatestReportCheck } from "../../diagnostics/observationLatestReportCheck.js";
+import { runProjectMemoryCountsCheck } from "../../diagnostics/projectMemoryCountsCheck.js";
 import { runProjectMemoryLiveDbCheck } from "../../diagnostics/projectMemoryLiveDbCheck.js";
 import { runProjectMemoryProductionReadinessCheck } from "../../diagnostics/projectMemoryProductionReadinessCheck.js";
 import { runProjectMemoryRuntimeCheck } from "../../diagnostics/projectMemoryRuntimeCheck.js";
@@ -86,6 +87,12 @@ function summarizeObservationLatestReport(result = {}) {
 function summarizeObservationJournalStatus(result = {}) {
   if (!result.ok) return result.error || result.summary || "Observation journal status check failed.";
   return result.summary || "Observation journal status check passed.";
+}
+
+function summarizeProjectMemoryCounts(result = {}) {
+  if (!result.ok) return result.summary || "Project Memory counts check failed.";
+  const details = result.details || {};
+  return result.summary || `Project Memory counts checked: total=${details.totalEntries ?? "unknown"}, sg_confirmed_active=${details.sgConfirmedActiveCount ?? "unknown"}.`;
 }
 
 function summarizeProjectMemoryLiveDb(result = {}) {
@@ -171,6 +178,11 @@ export const diagnosticsCheckRegistry = [
     name: "project_memory_live_db",
     run: () => runProjectMemoryLiveDbCheck(),
     summarize: summarizeProjectMemoryLiveDb,
+  },
+  {
+    name: "project_memory_counts",
+    run: () => runProjectMemoryCountsCheck(),
+    summarize: summarizeProjectMemoryCounts,
   },
   {
     name: "project_memory_production_readiness",

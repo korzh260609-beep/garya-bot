@@ -1,9 +1,9 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-18T07:32:40.404Z",
+  "generated_at": "2026-05-18T07:59:44.376Z",
   "name": "repo-commit-latest",
-  "summary": "Repo commit observed: 6c2899cd6795 — Project Memory readiness live evidence invocation\n\nMerge PR #293: add read-only live evidence invocation bridge for Project Memory production readiness verification.",
+  "summary": "Repo commit observed: 89f0b49f234f — Fix Observation post-merge evidence links\n\nMerge PR #294: propagate related commit/run links through diagnostics and journal health observation events.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
@@ -12,7 +12,7 @@
       "schema_version": 1,
       "event_id": "",
       "event_type": "repo.commit_observed",
-      "created_at": "2026-05-18T07:32:40.404Z",
+      "created_at": "2026-05-18T07:59:44.376Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,51 +24,44 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Repo commit observed: 6c2899cd6795 — Project Memory readiness live evidence invocation\n\nMerge PR #293: add read-only live evidence invocation bridge for Project Memory production readiness verification.",
+      "summary": "Repo commit observed: 89f0b49f234f — Fix Observation post-merge evidence links\n\nMerge PR #294: propagate related commit/run links through diagnostics and journal health observation events.",
       "payload": {
         "repo": "korzh260609-beep/garya-bot",
         "branch": "dev/v2-start",
-        "current_head_sha": "6c2899cd67954e18a3f8501d5788c41af70e89a8",
-        "previous_head_sha": "b43a3bdc4a3d650e4c255d14126bc224802accf3",
+        "current_head_sha": "89f0b49f234f3bd6246c4338ce26202cd140ecd1",
+        "previous_head_sha": "6c2899cd67954e18a3f8501d5788c41af70e89a8",
         "has_new_commit": true,
         "registry_updated": true,
-        "registry_commit_sha": "db7c91988ef1a29814eb94496fcd233d792ecb96",
+        "registry_commit_sha": "13e16e1edc6913d15b9e14165a495e02a719f8ff",
         "latest_commit": {
-          "sha": "6c2899cd67954e18a3f8501d5788c41af70e89a8",
-          "short_sha": "6c2899cd6795",
-          "message": "Project Memory readiness live evidence invocation\n\nMerge PR #293: add read-only live evidence invocation bridge for Project Memory production readiness verification.",
+          "sha": "89f0b49f234f3bd6246c4338ce26202cd140ecd1",
+          "short_sha": "89f0b49f234f",
+          "message": "Fix Observation post-merge evidence links\n\nMerge PR #294: propagate related commit/run links through diagnostics and journal health observation events.",
           "author": "korzh260609-beep",
-          "date": "2026-05-18T07:32:22Z",
-          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/6c2899cd67954e18a3f8501d5788c41af70e89a8",
-          "changed_files_count": 4,
+          "date": "2026-05-18T07:59:24Z",
+          "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/89f0b49f234f3bd6246c4338ce26202cd140ecd1",
+          "changed_files_count": 3,
           "changed_files": [
             {
-              "filename": ".github/workflows/sg2-project-memory-readiness-live-evidence-invocation-smoke.yml",
-              "status": "added",
-              "additions": 35,
-              "deletions": 0,
-              "changes": 35
-            },
-            {
-              "filename": "package.json",
+              "filename": "scripts/smokeDiagnosticsObservationBridge.js",
               "status": "modified",
-              "additions": 1,
+              "additions": 12,
               "deletions": 0,
-              "changes": 1
+              "changes": 12
             },
             {
-              "filename": "scripts/smokeProjectMemoryProductionReadinessLiveEvidenceInvocation.js",
-              "status": "added",
-              "additions": 230,
-              "deletions": 0,
-              "changes": 230
+              "filename": "src/agents/observation/journalHealthObservationBridge.js",
+              "status": "modified",
+              "additions": 20,
+              "deletions": 2,
+              "changes": 22
             },
             {
-              "filename": "src/diagnostics/projectMemoryProductionReadinessLiveEvidenceInvocation.js",
-              "status": "added",
-              "additions": 219,
-              "deletions": 0,
-              "changes": 219
+              "filename": "src/diagnostics/diagnosticsObservationBridge.js",
+              "status": "modified",
+              "additions": 11,
+              "deletions": 5,
+              "changes": 16
             }
           ]
         }
@@ -82,7 +75,7 @@
       },
       "links": {
         "runtime_report_path": "runtime/repo/latest/latest-commit-state.json",
-        "related_commit_sha": "6c2899cd67954e18a3f8501d5788c41af70e89a8",
+        "related_commit_sha": "89f0b49f234f3bd6246c4338ce26202cd140ecd1",
         "related_run_id": ""
       }
     }

@@ -53,6 +53,7 @@
     "smoke:project-memory-production-readiness-check": "node ./scripts/smokeProjectMemoryProductionReadinessCheck.js",
     "smoke:project-memory-production-readiness-diagnostics-runner": "node ./scripts/smokeProjectMemoryProductionReadinessDiagnosticsRunner.js",
     "smoke:project-memory-production-readiness-diagnostics-suite": "node ./scripts/smokeProjectMemoryProductionReadinessDiagnosticsSuite.js",
+    "smoke:project-memory-production-readiness-runtime-entrypoint": "node ./scripts/smokeProjectMemoryProductionReadinessRuntimeEntrypoint.js",
     "smoke:project-memory-runtime-context": "node ./scripts/smokeProjectMemoryRuntimeContext.js",
     "smoke:project-memory-runtime-diagnostics": "node ./scripts/smokeProjectMemoryRuntimeDiagnostics.js",
     "smoke:project-memory-schema-bootstrap": "node ./scripts/smokeProjectMemorySchemaBootstrap.js",

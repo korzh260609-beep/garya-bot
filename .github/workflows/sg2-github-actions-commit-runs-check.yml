@@ -1,0 +1,35 @@
+name: SG2 GitHub Actions Commit Runs Check Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/v2-start
+  pull_request:
+    branches:
+      - dev/v2-start
+
+jobs:
+  smoke:
+    name: GitHub Actions commit runs check smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check GitHub Actions commit runs check syntax
+        run: |
+          node --check src/diagnostics/githubActionsCommitRunsCheck.js
+          node --check scripts/smokeGithubActionsCommitRunsCheck.js
+
+      - name: Smoke GitHub Actions commit runs check
+        run: npm run smoke:github-actions-commit-runs-check

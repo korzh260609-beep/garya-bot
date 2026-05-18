@@ -1,4 +1,4 @@
-name: SG2 Project Memory Production Readiness Runtime Entrypoint Smoke
+name: SG2 Project Memory Production Readiness Auto Verifier Smoke
 
 on:
   pull_request:
@@ -15,6 +15,6 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: node --check scripts/runProjectMemoryProductionReadinessDiagnostics.js
-      - run: node --check scripts/smokeProjectMemoryProductionReadinessRuntimeEntrypoint.js
-      - run: npm run smoke:project-memory-production-readiness-runtime-entrypoint
+      - run: node --check src/diagnostics/projectMemoryProductionReadinessAutoVerifier.js
+      - run: node --check scripts/smokeProjectMemoryProductionReadinessAutoVerifier.js
+      - run: npm run smoke:project-memory-production-readiness-auto-verifier

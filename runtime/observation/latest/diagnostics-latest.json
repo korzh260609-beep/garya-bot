@@ -1,18 +1,18 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-18T09:28:52.684Z",
+  "generated_at": "2026-05-18T09:48:04.315Z",
   "name": "diagnostics-latest",
-  "summary": "Diagnostics completed with failures: 1/2 checks failed.",
+  "summary": "Diagnostics completed successfully: 2 checks.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
   "events": [
     {
       "schema_version": 1,
-      "event_id": "diagnostics_1779096532684",
+      "event_id": "diagnostics_1779097684315",
       "event_type": "diagnostics.result",
-      "created_at": "2026-05-18T09:28:52.684Z",
+      "created_at": "2026-05-18T09:48:04.315Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,11 +24,11 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Diagnostics completed with failures: 1/2 checks failed.",
+      "summary": "Diagnostics completed successfully: 2 checks.",
       "payload": {
-        "diagnostics_ok": false,
+        "diagnostics_ok": true,
         "checks_count": 2,
-        "failed_count": 1,
+        "failed_count": 0,
         "check_types": [
           "observation_journal_health_latest",
           "github_actions_commit_runs"
@@ -41,8 +41,8 @@
           },
           {
             "type": "github_actions_commit_runs",
-            "ok": false,
-            "summary": "GitHub Actions commit runs found for c871953f96dc: 5 success, 3 active. Ignored 1 current observation run(s)."
+            "ok": true,
+            "summary": "GitHub Actions commit runs found for a2665b465bc0: 8/8 completed successfully. Ignored 1 current observation run(s). Waited 2/24 attempt(s)."
           }
         ],
         "report_type": "sg_diagnostics_report",
@@ -57,8 +57,8 @@
       },
       "links": {
         "runtime_report_path": "runtime/observation/latest/observation-journal-health-latest.json",
-        "related_commit_sha": "c871953f96dc0442678070ca1ce2bf459230cd16",
-        "related_run_id": "26025080464"
+        "related_commit_sha": "a2665b465bc0e9786b7f44c078dfd0afd3c9042d",
+        "related_run_id": "26025996694"
       }
     }
   ],

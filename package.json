@@ -43,7 +43,6 @@
     "smoke:observation-producer": "node ./scripts/smokeObservationProducer.js",
     "smoke:observation-trigger-dispatch-agent": "node ./scripts/smokeObservationTriggerDispatchAgent.js",
     "smoke:observation-trigger-layer": "node ./scripts/smokeObservationTriggerLayer.js",
-    "smoke:post-merge-actions-discovery-workflow": "node ./scripts/smokePostMergeActionsDiscoveryWorkflow.js",
     "smoke:project-memory-automatic-candidate-pipeline": "node ./scripts/smokeProjectMemoryAutomaticCandidatePipeline.js",
     "smoke:project-memory-automatic-durable-candidate-flow": "node ./scripts/smokeProjectMemoryAutomaticDurableCandidateFlow.js",
     "smoke:project-memory-automatic-orchestrator": "node ./scripts/smokeProjectMemoryAutomaticOrchestrator.js",

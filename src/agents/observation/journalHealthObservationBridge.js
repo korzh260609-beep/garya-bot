@@ -32,6 +32,21 @@ const JOURNAL_HEALTH_DIAGNOSTICS_CHECKS = [
   "observation_journal_health_latest",
 ];
 
+function normalizeText(value, fallback = "") {
+  const text = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+  return text || fallback;
+}
+
+function buildObservationLinks(input = {}) {
+  const links = input.links && typeof input.links === "object" ? input.links : {};
+
+  return {
+    runtime_report_path: normalizeText(input.runtimeReportPath || links.runtime_report_path),
+    related_commit_sha: normalizeText(input.relatedCommitSha || input.commitSha || links.related_commit_sha),
+    related_run_id: normalizeText(input.relatedRunId || input.runId || links.related_run_id),
+  };
+}
+
 function summarizeJournalRead(name, result = {}) {
   if (!result.ok) {
     return {
@@ -54,7 +69,7 @@ function summarizeJournalRead(name, result = {}) {
   };
 }
 
-async function refreshDiagnosticsIfNeeded(reportNames) {
+async function refreshDiagnosticsIfNeeded(reportNames, input = {}) {
   if (!reportNames.includes("diagnostics-latest")) {
     return null;
   }
@@ -88,6 +103,7 @@ async function refreshDiagnosticsIfNeeded(reportNames) {
     finalText: "Diagnostics latest refreshed for observation journal health.",
   }, {
     isMonarch: false,
+    links: buildObservationLinks(input),
   });
 }
 
@@ -103,8 +119,9 @@ export async function produceObservationJournalHealthLatest(input = {}) {
   const reportNames = Array.isArray(input.reportNames) && input.reportNames.length > 0
     ? input.reportNames.filter((name) => typeof name === "string" && name.trim()).map((name) => name.trim())
     : DEFAULT_HEALTH_REPORT_NAMES;
+  const links = buildObservationLinks(input);
 
-  await refreshDiagnosticsIfNeeded(reportNames);
+  await refreshDiagnosticsIfNeeded(reportNames, input);
   await refreshRuntimeStatusIfNeeded(reportNames);
 
   const reports = [];
@@ -146,6 +163,7 @@ export async function produceObservationJournalHealthLatest(input = {}) {
       sanitized: true,
       memory_candidate: false,
     },
+    links,
   });
 
   return writeObservationLatestReport({

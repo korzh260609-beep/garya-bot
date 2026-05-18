@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-18T09:06:02.645Z",
+  "generated_at": "2026-05-18T09:28:53.673Z",
   "name": "runtime-status-latest",
   "summary": "Runtime status observed: AI not configured.",
   "events_count": 1,
@@ -10,9 +10,9 @@
   "events": [
     {
       "schema_version": 1,
-      "event_id": "runtime_status_1779095162645",
+      "event_id": "runtime_status_1779096533673",
       "event_type": "runtime.status",
-      "created_at": "2026-05-18T09:06:02.645Z",
+      "created_at": "2026-05-18T09:28:53.673Z",
       "source": {
         "system": "sg",
         "transport": "internal",

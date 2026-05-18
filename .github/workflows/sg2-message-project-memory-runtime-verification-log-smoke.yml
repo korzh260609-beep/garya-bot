@@ -1,0 +1,35 @@
+name: SG2 Message Project Memory Runtime Verification Log Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - dev/v2-start
+    paths:
+      - "src/core/message/messageAiRequest.js"
+      - "scripts/smokeMessageProjectMemoryRuntimeVerificationLog.js"
+      - "package.json"
+      - ".github/workflows/sg2-message-project-memory-runtime-verification-log-smoke.yml"
+
+jobs:
+  smoke-message-project-memory-runtime-verification-log:
+    name: Message Project Memory runtime verification log smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check runtime verification log smoke syntax
+        run: node --check scripts/smokeMessageProjectMemoryRuntimeVerificationLog.js
+
+      - name: Smoke runtime verification log
+        run: npm run smoke:message-project-memory-runtime-verification-log

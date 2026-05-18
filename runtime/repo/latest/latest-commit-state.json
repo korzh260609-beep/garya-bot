@@ -1,43 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-18T09:05:54.147Z",
+  "generated_at": "2026-05-18T09:28:46.857Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "e842d4c9259b85f7ab8f581af33a019434e1477d",
-  "previous_head_sha": "d1960a928f7331aa535e49c78e363f77a58339df",
+  "current_head_sha": "c871953f96dc0442678070ca1ce2bf459230cd16",
+  "previous_head_sha": "e842d4c9259b85f7ab8f581af33a019434e1477d",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "6d3bd946605aad18d55a846252297aae1abb708d",
+  "registry_commit_sha": "9be153588a797c0c70f6f9e49b9aa7e0bfe8c610",
   "latest_commit": {
-    "sha": "e842d4c9259b85f7ab8f581af33a019434e1477d",
-    "short_sha": "e842d4c9259b",
-    "message": "Fix Observation runtime evidence source propagation\n\nPropagate GitHub Actions commit/run evidence into Observation dispatch so runtime journal health can run exact commit checks with links populated.",
+    "sha": "c871953f96dc0442678070ca1ce2bf459230cd16",
+    "short_sha": "c871953f96dc",
+    "message": "Add Observation post-CI completion trigger\n\nRefresh Observation automatically after successful SG2 Smoke completion and ignore the current Observation workflow run during exact commit Actions diagnostics.",
     "author": "korzh260609-beep",
-    "date": "2026-05-18T09:05:30Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/e842d4c9259b85f7ab8f581af33a019434e1477d",
+    "date": "2026-05-18T09:28:27Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/c871953f96dc0442678070ca1ce2bf459230cd16",
     "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": ".github/workflows/repo-commit-watcher.yml",
+        "filename": ".github/workflows/observation-post-ci-completion.yml",
+        "status": "added",
+        "additions": 51,
+        "deletions": 0,
+        "changes": 51
+      },
+      {
+        "filename": "scripts/smokeGithubActionsCommitRunsCheck.js",
         "status": "modified",
         "additions": 4,
         "deletions": 1,
         "changes": 5
       },
       {
-        "filename": "scripts/smokeObservationDispatchGithubEvents.js",
+        "filename": "src/diagnostics/githubActionsCommitRunsCheck.js",
         "status": "modified",
-        "additions": 4,
-        "deletions": 0,
-        "changes": 4
-      },
-      {
-        "filename": "src/agents/observation-trigger-dispatch-agent/runObservationTriggerDispatchAgent.js",
-        "status": "modified",
-        "additions": 17,
-        "deletions": 2,
-        "changes": 19
+        "additions": 27,
+        "deletions": 8,
+        "changes": 35
       }
     ]
   }

@@ -21,6 +21,8 @@ const boundaries = getProjectMemoryProductionReadinessLiveEvidenceInvocationBoun
 assert.equal(boundaries.runtimeInvocationBridge, true);
 assert.equal(boundaries.explicitRuntimeInvocationRequestOnly, true);
 assert.equal(boundaries.acceptsTrustedSanitizedEvidenceOnly, true);
+assert.equal(boundaries.acceptsSanitizedWorkflowRuntimeFacts, true);
+assert.equal(boundaries.mapsRuntimeSafetyEvidence, true);
 assert.equal(boundaries.invokesAutoVerifier, true);
 assert.equal(boundaries.readOnly, true);
 assert.equal(boundaries.writesDatabase, false);
@@ -178,12 +180,87 @@ assert.equal(ready.ok, true);
 assert.equal(ready.invoked, true);
 assert.equal(ready.ready, true);
 assert.equal(ready.verified, true);
+assert.equal(ready.runtimeSafetyEvidenceMapped, false);
 assert.equal(ready.autoVerifierResult.ready, true);
 assert.equal(ready.autoVerifierResult.autoTriggered, true);
 assert.equal(ready.autoVerifierResult.boundaries.fetchesRender, false);
 assert.equal(ready.boundaries.fetchesGitHub, false);
 assert.equal(ready.boundaries.fetchesRender, false);
 assertNoUnsafeDebugValues(ready);
+
+const sanitizedWorkflowRuns = [
+  { name: "SG2 Project Memory Manual Candidate Smoke", status: "completed", conclusion: "success" },
+  { name: "SG2 Project Memory Explicit Confirmation Flow Smoke", status: "completed", conclusion: "success" },
+  { name: "SG2 Project Memory Confirmed Read Flow Smoke", status: "completed", conclusion: "success" },
+  { name: "SG2 Message Project Memory Context Gate Smoke", status: "completed", conclusion: "success" },
+  { name: "SG2 Project Memory Runtime Diagnostics Smoke", status: "completed", conclusion: "success" },
+];
+
+const mappedReady = await runProjectMemoryProductionReadinessLiveEvidenceInvocation({
+  request: {
+    explicitProjectMemoryProductionReadinessLiveEvidenceInvocationRequest: true,
+  },
+  actor: { role: "system", source: "sg_runtime" },
+  evidence: {
+    rollbackPoint: "b43a3bdc4a3d650e4c255d14126bc224802accf3",
+    deployDone: true,
+    renderLogsClean: true,
+    rawDebugLog: "UNSAFE_DEBUG_RENDER_LOG_SHOULD_NOT_APPEAR",
+    privateDebugValue: "UNSAFE_DEBUG_PRIVATE_VALUE_SHOULD_NOT_APPEAR",
+  },
+  workflowRuns: sanitizedWorkflowRuns,
+  counts: {
+    candidateCount: 2,
+    confirmedCount: 1,
+    staleCount: 0,
+    conflictCount: 0,
+    restoreEntryCount: 1,
+    restoreCharCount: 120,
+    staleOrConflictLabelsPresent: true,
+  },
+  liveDbCheck: verifiedLiveDbCheck,
+  runtimeCheck: verifiedRuntimeCheck,
+});
+
+assert.equal(mappedReady.ok, true);
+assert.equal(mappedReady.invoked, true);
+assert.equal(mappedReady.ready, true);
+assert.equal(mappedReady.verified, true);
+assert.equal(mappedReady.runtimeSafetyEvidenceMapped, true);
+assert.equal(mappedReady.runtimeSafetyEvidenceMapperResult.ok, true);
+assert.equal(mappedReady.runtimeSafetyEvidenceMapperResult.runtime.evidenceMapper.fetchesGitHub, false);
+assert.equal(mappedReady.runtimeSafetyEvidenceMapperResult.runtime.evidenceMapper.fetchesRender, false);
+assert.equal(mappedReady.autoVerifierResult.ready, true);
+assertNoUnsafeDebugValues(mappedReady);
+
+const mappedMissingEvidence = await runProjectMemoryProductionReadinessLiveEvidenceInvocation({
+  request: {
+    explicitProjectMemoryProductionReadinessLiveEvidenceInvocationRequest: true,
+  },
+  actor: { role: "system", source: "sg_runtime" },
+  evidence: {
+    rollbackPoint: "b43a3bdc4a3d650e4c255d14126bc224802accf3",
+    deployDone: true,
+    renderLogsClean: true,
+  },
+  workflowRuns: [
+    { name: "SG2 Project Memory Manual Candidate Smoke", status: "completed", conclusion: "success" },
+  ],
+  counts: {},
+  liveDbCheck: verifiedLiveDbCheck,
+  runtimeCheck: verifiedRuntimeCheck,
+});
+
+assert.equal(mappedMissingEvidence.ok, false);
+assert.equal(mappedMissingEvidence.invoked, false);
+assert.equal(mappedMissingEvidence.ready, false);
+assert.equal(mappedMissingEvidence.reason, "runtime_safety_evidence_mapping_failed");
+assert.equal(mappedMissingEvidence.runtimeSafetyEvidenceMapped, true);
+assert.equal(mappedMissingEvidence.runtimeSafetyEvidenceMapperResult.ok, false);
+assert.equal(mappedMissingEvidence.errors.some((error) => error.group === "confirmation"), true);
+assert.equal(mappedMissingEvidence.errors.some((error) => error.group === "confirmedRead"), true);
+assert.equal(mappedMissingEvidence.errors.some((error) => error.group === "restoreContext"), true);
+assertNoUnsafeDebugValues(mappedMissingEvidence);
 
 const notReadyLiveDb = await runProjectMemoryProductionReadinessLiveEvidenceInvocation({
   request: {

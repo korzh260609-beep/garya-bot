@@ -9,7 +9,7 @@ import {
   getCurrentProjectRepository,
 } from "../tools/github/githubProjectDefaults.js";
 
-export const GITHUB_ACTIONS_COMMIT_RUNS_CHECK_VERSION = 1;
+export const GITHUB_ACTIONS_COMMIT_RUNS_CHECK_VERSION = 2;
 
 function normalizeText(value) {
   if (typeof value === "string") return value.trim();
@@ -21,6 +21,11 @@ function normalizePositiveInt(value, fallback = 100, max = 100) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.max(1, Math.min(max, Math.trunc(number)));
+}
+
+function normalizeRunIdSet(value) {
+  const values = Array.isArray(value) ? value : [value];
+  return new Set(values.map((item) => normalizeText(item)).filter(Boolean));
 }
 
 function normalizeRun(run = {}) {
@@ -40,10 +45,11 @@ function normalizeRun(run = {}) {
   };
 }
 
-function summarizeRuns({ targetSha, runs, matchingRuns }) {
+function summarizeRuns({ targetSha, runs, matchingRuns, ignoredRuns = [] }) {
+  const ignoredSuffix = ignoredRuns.length ? ` Ignored ${ignoredRuns.length} current observation run(s).` : "";
   if (!targetSha) return "GitHub Actions commit runs check skipped: commit SHA missing.";
-  if (!runs.length) return `GitHub Actions commit runs check found no runs for branch query while looking for ${targetSha.slice(0, 12)}.`;
-  if (!matchingRuns.length) return `GitHub Actions commit runs check found ${runs.length} branch runs but none for commit ${targetSha.slice(0, 12)}.`;
+  if (!runs.length) return `GitHub Actions commit runs check found no runs for branch query while looking for ${targetSha.slice(0, 12)}.${ignoredSuffix}`;
+  if (!matchingRuns.length) return `GitHub Actions commit runs check found ${runs.length} branch runs but none for commit ${targetSha.slice(0, 12)}.${ignoredSuffix}`;
 
   const completed = matchingRuns.filter((run) => run.status === "completed");
   const successful = matchingRuns.filter((run) => run.status === "completed" && run.conclusion === "success");
@@ -51,14 +57,14 @@ function summarizeRuns({ targetSha, runs, matchingRuns }) {
   const active = matchingRuns.filter((run) => run.status !== "completed");
 
   if (failed.length) {
-    return `GitHub Actions commit runs found for ${targetSha.slice(0, 12)}: ${successful.length} success, ${failed.length} failed, ${active.length} active.`;
+    return `GitHub Actions commit runs found for ${targetSha.slice(0, 12)}: ${successful.length} success, ${failed.length} failed, ${active.length} active.${ignoredSuffix}`;
   }
 
   if (active.length) {
-    return `GitHub Actions commit runs found for ${targetSha.slice(0, 12)}: ${successful.length} success, ${active.length} active.`;
+    return `GitHub Actions commit runs found for ${targetSha.slice(0, 12)}: ${successful.length} success, ${active.length} active.${ignoredSuffix}`;
   }
 
-  return `GitHub Actions commit runs found for ${targetSha.slice(0, 12)}: ${successful.length}/${completed.length} completed successfully.`;
+  return `GitHub Actions commit runs found for ${targetSha.slice(0, 12)}: ${successful.length}/${completed.length} completed successfully.${ignoredSuffix}`;
 }
 
 export function getGitHubActionsCommitRunsCheckBoundaries() {
@@ -66,6 +72,7 @@ export function getGitHubActionsCommitRunsCheckBoundaries() {
     readOnly: true,
     verifiesExactCommitSha: true,
     usesGitHubActionsRunsApi: true,
+    canIgnoreCurrentObservationRun: true,
     writesGitHub: false,
     writesRepository: false,
     writesRuntimeFiles: false,
@@ -82,11 +89,17 @@ export async function runGitHubActionsCommitRunsCheck({
   branch = getCurrentProjectBranch(),
   commitSha = "",
   perPage = 100,
+  ignoredRunIds = [],
+  currentRunId = "",
 } = {}) {
   const safeRepo = normalizeText(repo);
   const safeBranch = normalizeText(branch);
   const safeCommitSha = normalizeText(commitSha);
   const safePerPage = normalizePositiveInt(perPage, 100, 100);
+  const ignoredRunIdSet = normalizeRunIdSet([
+    ...Array.from(normalizeRunIdSet(ignoredRunIds)),
+    currentRunId,
+  ]);
 
   if (!safeRepo) {
     return {
@@ -128,7 +141,9 @@ export async function runGitHubActionsCommitRunsCheck({
 
   const rawRuns = Array.isArray(result?.data?.workflow_runs) ? result.data.workflow_runs : [];
   const runs = rawRuns.map(normalizeRun);
-  const matchingRuns = runs.filter((run) => run.headSha === safeCommitSha);
+  const allMatchingRuns = runs.filter((run) => run.headSha === safeCommitSha);
+  const ignoredRuns = allMatchingRuns.filter((run) => ignoredRunIdSet.has(String(run.id)));
+  const matchingRuns = allMatchingRuns.filter((run) => !ignoredRunIdSet.has(String(run.id)));
   const activeRuns = matchingRuns.filter((run) => run.status !== "completed");
   const failedRuns = matchingRuns.filter((run) => run.status === "completed" && run.conclusion && run.conclusion !== "success");
   const successfulRuns = matchingRuns.filter((run) => run.status === "completed" && run.conclusion === "success");
@@ -145,14 +160,18 @@ export async function runGitHubActionsCommitRunsCheck({
     githubStatus: result.status || 0,
     runsChecked: runs.length,
     matchingRunsCount: matchingRuns.length,
+    allMatchingRunsCount: allMatchingRuns.length,
+    ignoredRunsCount: ignoredRuns.length,
     successfulRunsCount: successfulRuns.length,
     activeRunsCount: activeRuns.length,
     failedRunsCount: failedRuns.length,
     matchingRuns,
+    ignoredRuns,
     summary: summarizeRuns({
       targetSha: safeCommitSha,
       runs,
       matchingRuns,
+      ignoredRuns,
     }),
     reason: ok ? null : matchingRuns.length === 0
       ? "no_workflow_runs_for_commit_sha"

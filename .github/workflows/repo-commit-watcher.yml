@@ -49,5 +49,9 @@ jobs:
           OBSERVATION_DISPATCH_EVENT_TYPE: github.repository_updated
           OBSERVATION_RELATED_COMMIT_SHA: ${{ github.sha }}
           OBSERVATION_RELATED_RUN_ID: ${{ github.run_id }}
+          OBSERVATION_CURRENT_RUN_ID: ${{ github.run_id }}
+          OBSERVATION_WAIT_FOR_ACTIONS: "true"
+          OBSERVATION_ACTIONS_WAIT_ATTEMPTS: "24"
+          OBSERVATION_ACTIONS_WAIT_INTERVAL_MS: "10000"
           OBSERVATION_RUNTIME_REPORT_PATH: runtime/observation/latest/observation-journal-health-latest.json
         run: node src/agents/observation-trigger-dispatch-agent/runObservationTriggerDispatchAgent.js

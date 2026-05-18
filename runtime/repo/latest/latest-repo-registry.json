@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-18T09:47:31.869Z",
+  "generated_at": "2026-05-18T10:27:30.578Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "a2665b465bc0e9786b7f44c078dfd0afd3c9042d",
+  "head_sha": "ad2bf0220a32bb5bb54b137356bb37cea723743d",
   "truncated": false,
-  "items_count": 547,
+  "items_count": 549,
   "semantic_fields": [
     "module",
     "layer",
@@ -4225,6 +4225,24 @@
       }
     },
     {
+      "path": "scripts/smokeProjectMemoryRuntimeSafetyEvidenceMapper.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
       "path": "scripts/smokeProjectMemoryRuntimeTrustedEventTool.js",
       "type": "file",
       "parent": "scripts",
@@ -8379,6 +8397,24 @@
     },
     {
       "path": "src/diagnostics/projectMemoryRuntimeCheck.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/projectMemoryRuntimeSafetyEvidenceMapper.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

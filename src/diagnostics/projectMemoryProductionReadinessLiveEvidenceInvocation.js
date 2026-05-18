@@ -7,6 +7,9 @@
 import {
   runProjectMemoryProductionReadinessAutoVerifier,
 } from "./projectMemoryProductionReadinessAutoVerifier.js";
+import {
+  buildProjectMemoryRuntimeSafetyEvidence,
+} from "./projectMemoryRuntimeSafetyEvidenceMapper.js";
 
 export const PROJECT_MEMORY_PRODUCTION_READINESS_LIVE_EVIDENCE_INVOCATION_VERSION = 1;
 
@@ -72,6 +75,8 @@ export function getProjectMemoryProductionReadinessLiveEvidenceInvocationBoundar
     runtimeInvocationBridge: true,
     explicitRuntimeInvocationRequestOnly: true,
     acceptsTrustedSanitizedEvidenceOnly: true,
+    acceptsSanitizedWorkflowRuntimeFacts: true,
+    mapsRuntimeSafetyEvidence: true,
     invokesAutoVerifier: true,
     readOnly: true,
     writesDatabase: false,
@@ -130,6 +135,46 @@ function normalizeRuntimeEvidence(runtime = {}) {
   };
 }
 
+function shouldMapRuntimeSafetyEvidence({ workflowRuns, counts }) {
+  return Array.isArray(workflowRuns) || Object.keys(normalizePlainObject(counts)).length > 0;
+}
+
+function buildRuntimeEvidenceInput({ runtime, workflowRuns, counts, runtimeCheck }) {
+  if (!shouldMapRuntimeSafetyEvidence({ workflowRuns, counts })) {
+    return {
+      ok: true,
+      runtime: normalizeRuntimeEvidence(runtime),
+      mapped: false,
+      mapperResult: null,
+    };
+  }
+
+  const mapperResult = buildProjectMemoryRuntimeSafetyEvidence({
+    workflowRuns,
+    runtimeCheck: runtimeCheck || {},
+    counts,
+  });
+
+  if (mapperResult.ok !== true) {
+    return {
+      ok: false,
+      runtime: normalizeRuntimeEvidence(mapperResult.runtime),
+      mapped: true,
+      mapperResult,
+    };
+  }
+
+  return {
+    ok: true,
+    runtime: normalizeRuntimeEvidence({
+      ...normalizePlainObject(runtime),
+      ...normalizePlainObject(mapperResult.runtime),
+    }),
+    mapped: true,
+    mapperResult,
+  };
+}
+
 function validateInvocationRequest({ request, actor, evidence, runtime }) {
   const errors = [];
 
@@ -160,13 +205,42 @@ export async function runProjectMemoryProductionReadinessLiveEvidenceInvocation(
   actor = {},
   evidence = {},
   runtime = {},
+  workflowRuns = null,
+  counts = {},
   liveDbCheck = null,
   runtimeCheck = null,
 } = {}) {
   const safeRequest = normalizePlainObject(request);
   const safeActor = normalizeActor(actor);
   const safeEvidence = normalizeDeployEvidence(evidence);
-  const safeRuntime = normalizeRuntimeEvidence(runtime);
+  const runtimeEvidenceInput = buildRuntimeEvidenceInput({
+    runtime,
+    workflowRuns,
+    counts,
+    runtimeCheck,
+  });
+  const safeRuntime = runtimeEvidenceInput.runtime;
+
+  if (runtimeEvidenceInput.ok !== true) {
+    return buildRejected("runtime_safety_evidence_mapping_failed", {
+      errors: [
+        createError(
+          "runtime_safety_evidence_mapping_failed",
+          "Project Memory runtime safety evidence mapping failed."
+        ),
+        ...runtimeEvidenceInput.mapperResult.warnings.map((warning) => createError(
+          warning.code,
+          warning.message,
+          { group: warning.group }
+        )),
+      ],
+      warnings: runtimeEvidenceInput.mapperResult.warnings,
+      runtimeSafetyEvidenceMapped: true,
+      runtimeSafetyEvidenceMapperResult: runtimeEvidenceInput.mapperResult,
+      actor: safeActor,
+    });
+  }
+
   const validation = validateInvocationRequest({
     request: safeRequest,
     actor: safeActor,
@@ -177,6 +251,7 @@ export async function runProjectMemoryProductionReadinessLiveEvidenceInvocation(
   if (!validation.ok) {
     return buildRejected("trusted_live_evidence_invocation_rejected", {
       errors: validation.errors.map((code) => createError(code, "Project Memory production readiness live evidence invocation rejected.", { code })),
+      runtimeSafetyEvidenceMapped: runtimeEvidenceInput.mapped,
       actor: safeActor,
     });
   }
@@ -204,6 +279,8 @@ export async function runProjectMemoryProductionReadinessLiveEvidenceInvocation(
     verified: autoVerifierResult.verified === true,
     autoVerifierResult,
     actor: safeActor,
+    runtimeSafetyEvidenceMapped: runtimeEvidenceInput.mapped,
+    runtimeSafetyEvidenceMapperResult: runtimeEvidenceInput.mapperResult,
     sanitized: true,
     readOnly: true,
     boundaries: getProjectMemoryProductionReadinessLiveEvidenceInvocationBoundaries(),

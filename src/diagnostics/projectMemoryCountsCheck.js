@@ -34,6 +34,15 @@ function findCount(rows = [], { projectKey = "sg", trust = "confirmed", status =
     .reduce((sum, row) => sum + safeNumber(row.count), 0);
 }
 
+function normalizeQueryFn(queryFn) {
+  return typeof queryFn === "function" ? queryFn : queryPostgres;
+}
+
+function resolveDatabaseConfigured(value) {
+  if (typeof value === "boolean") return value;
+  return isDatabaseConfigured();
+}
+
 function buildWarnings({ databaseConfigured, queryOk, sgConfirmedActiveCount } = {}) {
   const warnings = [];
 
@@ -63,8 +72,10 @@ function buildWarnings({ databaseConfigured, queryOk, sgConfirmedActiveCount } =
   return warnings;
 }
 
-async function readCounts() {
-  return queryPostgres(
+async function readCounts({ queryFn = null } = {}) {
+  const runQuery = normalizeQueryFn(queryFn);
+
+  return runQuery(
     `SELECT project_key, trust, status, COUNT(*)::int AS count
      FROM ${PROJECT_MEMORY_TABLES.ENTRIES}
      GROUP BY project_key, trust, status
@@ -72,10 +83,10 @@ async function readCounts() {
   );
 }
 
-export async function runProjectMemoryCountsCheck() {
-  const databaseConfigured = isDatabaseConfigured();
+export async function runProjectMemoryCountsCheck({ queryFn = null, databaseConfigured = null } = {}) {
+  const dbConfigured = resolveDatabaseConfigured(databaseConfigured);
 
-  if (!databaseConfigured) {
+  if (!dbConfigured) {
     return {
       ok: false,
       type: "project_memory_counts_check",
@@ -86,6 +97,7 @@ export async function runProjectMemoryCountsCheck() {
         checked: false,
         totalEntries: 0,
         sgConfirmedActiveCount: 0,
+        sgPendingCandidateCount: 0,
         groupedCounts: [],
       },
       warnings: buildWarnings({ databaseConfigured: false }),
@@ -94,7 +106,7 @@ export async function runProjectMemoryCountsCheck() {
     };
   }
 
-  const result = await readCounts();
+  const result = await readCounts({ queryFn });
 
   if (!result.ok) {
     return {
@@ -107,6 +119,7 @@ export async function runProjectMemoryCountsCheck() {
         checked: false,
         totalEntries: 0,
         sgConfirmedActiveCount: 0,
+        sgPendingCandidateCount: 0,
         groupedCounts: [],
       },
       warnings: buildWarnings({ databaseConfigured: true, queryOk: false }),

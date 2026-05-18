@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-18T07:59:41.888Z",
+  "generated_at": "2026-05-18T08:14:48.089Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "89f0b49f234f3bd6246c4338ce26202cd140ecd1",
+  "head_sha": "9b9eb30025139fe28ede46a547d1ce985ea6045c",
   "truncated": false,
-  "items_count": 543,
+  "items_count": 546,
   "semantic_fields": [
     "module",
     "layer",
@@ -133,6 +133,24 @@
     },
     {
       "path": ".github/workflows/sg2-ai-tool-runtime-invocation-bridge-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-github-actions-commit-runs-check.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -3128,6 +3146,24 @@
     },
     {
       "path": "scripts/smokeDiagnosticsObservationBridge.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeGithubActionsCommitRunsCheck.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -8019,6 +8055,24 @@
     },
     {
       "path": "src/diagnostics/diagnosticsRunner.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/githubActionsCommitRunsCheck.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

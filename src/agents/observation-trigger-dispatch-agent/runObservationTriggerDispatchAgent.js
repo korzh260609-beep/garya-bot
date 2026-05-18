@@ -10,9 +10,24 @@ function normalizeText(value) {
 }
 
 const eventType = normalizeText(process.env.OBSERVATION_DISPATCH_EVENT_TYPE);
+const relatedCommitSha = normalizeText(process.env.OBSERVATION_RELATED_COMMIT_SHA);
+const relatedRunId = normalizeText(process.env.OBSERVATION_RELATED_RUN_ID);
+const runtimeReportPath = normalizeText(process.env.OBSERVATION_RUNTIME_REPORT_PATH);
 
 try {
-  const result = await runObservationTriggerDispatchAgent({ eventType });
+  const result = await runObservationTriggerDispatchAgent({
+    eventType,
+    payload: {
+      relatedCommitSha,
+      relatedRunId,
+      runtimeReportPath,
+    },
+    context: {
+      relatedCommitSha,
+      relatedRunId,
+      runtimeReportPath,
+    },
+  });
   console.log(JSON.stringify(result, null, 2));
   process.exit(result?.ok ? 0 : 1);
 } catch (error) {

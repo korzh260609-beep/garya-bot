@@ -37,6 +37,15 @@ function normalizeText(value, fallback = "") {
   return text || fallback;
 }
 
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim());
+}
+
+function uniqueStrings(values = []) {
+  return [...new Set(values.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim()))];
+}
+
 function buildObservationLinks(input = {}) {
   const links = input.links && typeof input.links === "object" ? input.links : {};
 
@@ -45,6 +54,13 @@ function buildObservationLinks(input = {}) {
     related_commit_sha: normalizeText(input.relatedCommitSha || input.commitSha || links.related_commit_sha),
     related_run_id: normalizeText(input.relatedRunId || input.runId || links.related_run_id),
   };
+}
+
+function buildDiagnosticsChecks(input = {}) {
+  return uniqueStrings([
+    ...JOURNAL_HEALTH_DIAGNOSTICS_CHECKS,
+    ...normalizeStringArray(input.diagnosticsChecks),
+  ]);
 }
 
 function summarizeJournalRead(name, result = {}) {
@@ -74,9 +90,13 @@ async function refreshDiagnosticsIfNeeded(reportNames, input = {}) {
     return null;
   }
 
+  const diagnosticsChecks = buildDiagnosticsChecks(input);
+  const links = buildObservationLinks(input);
   const plan = buildDiagnosticsPlan({
-    text: "observation journal health latest refresh",
-    checks: JOURNAL_HEALTH_DIAGNOSTICS_CHECKS,
+    text: links.related_commit_sha
+      ? `observation journal health latest refresh for commit ${links.related_commit_sha.slice(0, 12)}`
+      : "observation journal health latest refresh",
+    checks: diagnosticsChecks,
   });
   const results = await runDiagnosticsChecks({
     checks: plan.checks,
@@ -86,6 +106,7 @@ async function refreshDiagnosticsIfNeeded(reportNames, input = {}) {
     target: "garya-bot",
     workflow: "sg2-smoke.yml",
     logLimit: 100,
+    commitSha: links.related_commit_sha,
   });
   const report = buildDiagnosticsReport({
     plan,
@@ -103,7 +124,7 @@ async function refreshDiagnosticsIfNeeded(reportNames, input = {}) {
     finalText: "Diagnostics latest refreshed for observation journal health.",
   }, {
     isMonarch: false,
-    links: buildObservationLinks(input),
+    links,
   });
 }
 
@@ -116,8 +137,8 @@ async function refreshRuntimeStatusIfNeeded(reportNames) {
 }
 
 export async function produceObservationJournalHealthLatest(input = {}) {
-  const reportNames = Array.isArray(input.reportNames) && input.reportNames.length > 0
-    ? input.reportNames.filter((name) => typeof name === "string" && name.trim()).map((name) => name.trim())
+  const reportNames = normalizeStringArray(input.reportNames).length > 0
+    ? normalizeStringArray(input.reportNames)
     : DEFAULT_HEALTH_REPORT_NAMES;
   const links = buildObservationLinks(input);
 
@@ -156,6 +177,7 @@ export async function produceObservationJournalHealthLatest(input = {}) {
       reports_available: available.length,
       reports_missing: missing.length,
       reports,
+      diagnostics_checks: buildDiagnosticsChecks(input),
     },
     policy: {
       sensitivity: OBSERVATION_SENSITIVITY.INTERNAL,

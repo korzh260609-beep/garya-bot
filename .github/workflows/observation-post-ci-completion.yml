@@ -1,0 +1,51 @@
+name: Observation Post-CI Completion Trigger
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - SG2 Smoke
+    types:
+      - completed
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  observation-post-ci-completion:
+    name: Refresh Observation after CI completion
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'dev/v2-start' &&
+        github.event.workflow_run.conclusion == 'success'
+      )
+
+    steps:
+      - name: Checkout dev branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev/v2-start
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Dispatch GitHub CI finished observation event
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPO: korzh260609-beep/garya-bot
+          GITHUB_BRANCH: dev/v2-start
+          OBSERVATION_DISPATCH_EVENT_TYPE: github.ci_finished
+          OBSERVATION_RELATED_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
+          OBSERVATION_RELATED_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.workflow_run.id }}
+          OBSERVATION_CURRENT_RUN_ID: ${{ github.run_id }}
+          OBSERVATION_RUNTIME_REPORT_PATH: runtime/observation/latest/observation-journal-health-latest.json
+        run: node src/agents/observation-trigger-dispatch-agent/runObservationTriggerDispatchAgent.js

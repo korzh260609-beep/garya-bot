@@ -15,6 +15,7 @@ const AUTHORITATIVE_FINAL_TEXT_SOURCES = new Set([
   "sg_diagnostics_check",
   "render_collect_logs",
   "render_collect_env",
+  "project_memory_record_trusted_event",
 ]);
 
 function getAuthoritativeToolFinalText(metadata = {}) {

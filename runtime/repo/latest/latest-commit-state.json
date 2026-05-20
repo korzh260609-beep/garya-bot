@@ -1,43 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-20T09:20:34.473Z",
+  "generated_at": "2026-05-20T09:34:45.506Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "0daba9e591c0f21925ed474491d4c3242268461e",
-  "previous_head_sha": "514d02be6093414187e7fca2e8f25c47d69b1683",
+  "current_head_sha": "03e637e7553aee0145cb782aab0acbf91a6b0a48",
+  "previous_head_sha": "0daba9e591c0f21925ed474491d4c3242268461e",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "fe9b04de5d68481a42f5ac5c0b691aa4d6cd2f0b",
+  "registry_commit_sha": "8e8ccb06c0c0d2d59b8bcc9d9d4a0d740efbb86b",
   "latest_commit": {
-    "sha": "0daba9e591c0f21925ed474491d4c3242268461e",
-    "short_sha": "0daba9e591c0",
-    "message": "Show runtime workspace location for Render tools\n\nMerge PR #311 into dev/v2-start",
+    "sha": "03e637e7553aee0145cb782aab0acbf91a6b0a48",
+    "short_sha": "03e637e7553a",
+    "message": "Expose Project Memory trusted event runtime tool\n\nMerge PR #312 into dev/v2-start",
     "author": "korzh260609-beep",
-    "date": "2026-05-20T09:20:15Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0daba9e591c0f21925ed474491d4c3242268461e",
+    "date": "2026-05-20T09:34:24Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/03e637e7553aee0145cb782aab0acbf91a6b0a48",
     "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/agents/render-env-agent/renderEnvAgent.js",
-        "status": "modified",
-        "additions": 13,
-        "deletions": 0,
-        "changes": 13
-      },
-      {
         "filename": "src/ai/callAI.js",
         "status": "modified",
-        "additions": 7,
-        "deletions": 1,
-        "changes": 8
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
       },
       {
-        "filename": "src/tasks/render/getRenderLogsTask.js",
+        "filename": "src/tools/githubTool.js",
         "status": "modified",
-        "additions": 13,
+        "additions": 70,
         "deletions": 0,
-        "changes": 13
+        "changes": 70
+      },
+      {
+        "filename": "src/tools/githubToolDefinitions.js",
+        "status": "modified",
+        "additions": 52,
+        "deletions": 0,
+        "changes": 52
       }
     ]
   }

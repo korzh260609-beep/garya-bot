@@ -26,6 +26,31 @@ function normalizeLimit(value, fallback = 100) {
   return Math.max(1, Math.min(1000, Math.trunc(n)));
 }
 
+function formatProjectMemoryCountsDetails(item = {}) {
+  const details = item?.data?.details || {};
+  const groupedCounts = Array.isArray(details.groupedCounts) ? details.groupedCounts : [];
+
+  const lines = [
+    "",
+    "Project Memory counts:",
+    `- totalEntries: ${details.totalEntries ?? "unknown"}`,
+    `- sgConfirmedActiveCount: ${details.sgConfirmedActiveCount ?? "unknown"}`,
+    `- sgPendingCandidateCount: ${details.sgPendingCandidateCount ?? "unknown"}`,
+  ];
+
+  if (groupedCounts.length > 0) {
+    lines.push("- groupedCounts:");
+
+    for (const row of groupedCounts) {
+      lines.push(
+        `  - projectKey=${row.projectKey || "unknown"} / trust=${row.trust || "unknown"} / status=${row.status || "unknown"} / count=${row.count ?? "unknown"}`
+      );
+    }
+  }
+
+  return lines;
+}
+
 function getStructuredIntent(input = {}, context = {}) {
   const inputIntent = input.intent && typeof input.intent === "object" && !Array.isArray(input.intent)
     ? input.intent
@@ -80,12 +105,16 @@ async function safePublishRuntimeStatusObservation() {
 function buildFinalDiagnosticsText({ report }) {
   const results = Array.isArray(report?.results) ? report.results : [];
   const failed = results.filter((item) => !item.ok);
+  const projectMemoryCountsBlocks = results
+    .filter((item) => item.type === "project_memory_counts")
+    .flatMap((item) => formatProjectMemoryCountsDetails(item));
 
   const lines = [
     "Диагностика SG выполнена.",
     "",
     "Проверено:",
     ...results.map((item) => `- ${item.type}: ${item.ok ? "OK" : "FAIL"} — ${item.summary}`),
+    ...projectMemoryCountsBlocks,
     "",
     failed.length > 0
       ? `Проблемные проверки: ${failed.map((item) => item.type).join(", ")}.`

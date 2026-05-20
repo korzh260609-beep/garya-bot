@@ -1,50 +1,78 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-18T16:28:01.644Z",
+  "generated_at": "2026-05-20T07:10:40.274Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "6429adafacfdfd15c5707739333ffc042e368318",
-  "previous_head_sha": "0c59488fe8e5883f6e3d0a9c27ea856fa9305245",
+  "current_head_sha": "119ae991941ec7a2fb24a39026d39f95c627e798",
+  "previous_head_sha": "6429adafacfdfd15c5707739333ffc042e368318",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "aa77806a054c7ae03f5d5658a0ae2e5c51184435",
+  "registry_commit_sha": "c28728e594ab2d399aabdd96d738bd859fa295af",
   "latest_commit": {
-    "sha": "6429adafacfdfd15c5707739333ffc042e368318",
-    "short_sha": "6429adafacfd",
-    "message": "Add Project Memory runtime verification log\n\nAdd safe Project Memory runtime verification logging during normal message AI requests.\n\n- Log only sanitized Project Memory context gate metadata\n- Exclude user text, memory content, prompt messages, raw logs, and secrets\n- Add smoke coverage for the sanitized runtime verification log\n- Add dedicated GitHub Actions smoke workflow\n\nNo Project Memory writes, DB writes, Telegram logic, AI provider logic, or prompt injection behavior changes.",
+    "sha": "119ae991941ec7a2fb24a39026d39f95c627e798",
+    "short_sha": "119ae991941e",
+    "message": "Add Project Memory counts diagnostics check\n\nAdd read-only Project Memory counts diagnostics.\n\n- Add project_memory_counts check for grouped project_key/trust/status counts\n- Register the check in diagnostics registry\n- Include counts in Project Memory production readiness suite and runner\n- Add smoke coverage and dedicated workflow\n\nThis explains projectMemoryFactsCount=0 without writing memory, confirming candidates, calling AI, touching Telegram, or exposing raw memory content.",
     "author": "korzh260609-beep",
-    "date": "2026-05-18T16:27:37Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/6429adafacfdfd15c5707739333ffc042e368318",
-    "changed_files_count": 4,
+    "date": "2026-05-20T07:10:12Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/119ae991941ec7a2fb24a39026d39f95c627e798",
+    "changed_files_count": 8,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-message-project-memory-runtime-verification-log-smoke.yml",
+        "filename": ".github/workflows/sg2-project-memory-counts-check-smoke.yml",
         "status": "added",
-        "additions": 35,
+        "additions": 40,
         "deletions": 0,
-        "changes": 35
+        "changes": 40
       },
       {
-        "filename": "package.json",
+        "filename": "scripts/smokeProjectMemoryCountsCheck.js",
+        "status": "added",
+        "additions": 67,
+        "deletions": 0,
+        "changes": 67
+      },
+      {
+        "filename": "scripts/smokeProjectMemoryProductionReadinessDiagnosticsRunner.js",
+        "status": "modified",
+        "additions": 32,
+        "deletions": 5,
+        "changes": 37
+      },
+      {
+        "filename": "scripts/smokeProjectMemoryProductionReadinessDiagnosticsSuite.js",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 1,
+        "changes": 3
+      },
+      {
+        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "status": "modified",
+        "additions": 13,
+        "deletions": 1,
+        "changes": 14
+      },
+      {
+        "filename": "src/diagnostics/projectMemoryCountsCheck.js",
+        "status": "added",
+        "additions": 171,
+        "deletions": 0,
+        "changes": 171
+      },
+      {
+        "filename": "src/diagnostics/projectMemoryProductionReadinessDiagnosticsRunner.js",
+        "status": "modified",
+        "additions": 11,
+        "deletions": 1,
+        "changes": 12
+      },
+      {
+        "filename": "src/diagnostics/projectMemoryProductionReadinessDiagnosticsSuite.js",
         "status": "modified",
         "additions": 1,
         "deletions": 0,
         "changes": 1
-      },
-      {
-        "filename": "scripts/smokeMessageProjectMemoryRuntimeVerificationLog.js",
-        "status": "added",
-        "additions": 101,
-        "deletions": 0,
-        "changes": 101
-      },
-      {
-        "filename": "src/core/message/messageAiRequest.js",
-        "status": "modified",
-        "additions": 84,
-        "deletions": 2,
-        "changes": 86
       }
     ]
   }

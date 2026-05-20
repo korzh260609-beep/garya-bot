@@ -1,48 +1,102 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-20T10:01:49.393Z",
+  "generated_at": "2026-05-20T10:04:40.142Z",
   "name": "diagnostics-latest",
-  "summary": "Diagnostics completed with failures: 1/2 checks failed.",
+  "summary": "Diagnostics completed successfully: 11 checks.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
   "events": [
     {
       "schema_version": 1,
-      "event_id": "diagnostics_1779271309393",
+      "event_id": "diagnostics_1779271480142",
       "event_type": "diagnostics.result",
-      "created_at": "2026-05-20T10:01:49.393Z",
+      "created_at": "2026-05-20T10:04:40.142Z",
       "source": {
         "system": "sg",
         "transport": "internal",
         "module": "diagnosticsObservationBridge"
       },
       "actor": {
-        "role": "system",
-        "user_ref": "redacted",
+        "role": "monarch",
+        "user_ref": "usr_48cc07c069030fb3",
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Diagnostics completed with failures: 1/2 checks failed.",
+      "summary": "Diagnostics completed successfully: 11 checks.",
       "payload": {
-        "diagnostics_ok": false,
-        "checks_count": 2,
-        "failed_count": 1,
+        "diagnostics_ok": true,
+        "checks_count": 11,
+        "failed_count": 0,
         "check_types": [
+          "users_identity_registry",
+          "users_identity_linking",
+          "users_identity_link_requests",
+          "observation_latest_report",
           "observation_journal_health_latest",
-          "github_actions_commit_runs"
+          "observation_journal_status",
+          "render_logs",
+          "render_env_inventory",
+          "github_actions_latest_run",
+          "repo_registry",
+          "recent_commits"
         ],
         "results": [
+          {
+            "type": "users_identity_registry",
+            "ok": true,
+            "summary": "Users identity registry durable check passed."
+          },
+          {
+            "type": "users_identity_linking",
+            "ok": true,
+            "summary": "Users identity linking boundary is safe: candidate builds, unconfirmed linking is blocked, and no provider link is written."
+          },
+          {
+            "type": "users_identity_link_requests",
+            "ok": true,
+            "summary": "Users identity link requests boundary is safe: request IDs are deterministic, candidates are pending-gated, and no write is attempted."
+          },
+          {
+            "type": "observation_latest_report",
+            "ok": true,
+            "summary": "Observation latest report is readable: 1 events, 0 invalid."
+          },
           {
             "type": "observation_journal_health_latest",
             "ok": true,
             "summary": "Observation latest report is readable: 1 events, 0 invalid."
           },
           {
-            "type": "github_actions_commit_runs",
-            "ok": false,
-            "summary": "GitHub Actions commit runs check failed: commit SHA missing."
+            "type": "observation_journal_status",
+            "ok": true,
+            "summary": "Observation journal available: 2/2 reports."
+          },
+          {
+            "type": "render_logs",
+            "ok": true,
+            "summary": "Render logs collected: 84 entries, path: runtime/render/latest/latest-render-logs.json."
+          },
+          {
+            "type": "render_env_inventory",
+            "ok": true,
+            "summary": "Render env inventory collected: 94 variables, path: runtime/render/latest/latest-render-env.json."
+          },
+          {
+            "type": "github_actions_latest_run",
+            "ok": true,
+            "summary": "GitHub Actions latest run: SG2 Smoke, status=completed, conclusion=success."
+          },
+          {
+            "type": "repo_registry",
+            "ok": true,
+            "summary": "Repo registry collected: 555 items, branch: dev/v2-start, path: runtime/repo/latest/latest-repo-registry.json."
+          },
+          {
+            "type": "recent_commits",
+            "ok": true,
+            "summary": "Найден комит: 71487977509e\nДата: 2026-05-20\nСообщение: Merge pull request #313 from korzh260609-beep/feat/project-memory-auto-repo-commit-event\nФайлы: src/agents/repo-commit-watcher-agent/repoCommitWatcherAgent.js\nСсылка: https://github.com/korzh260609-beep/garya-bot/commit/71487977509ea3d6da0ce0cc89df627376554334"
           }
         ],
         "report_type": "sg_diagnostics_report",

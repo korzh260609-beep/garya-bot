@@ -1,78 +1,29 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-20T07:10:40.274Z",
+  "generated_at": "2026-05-20T07:21:16.506Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "119ae991941ec7a2fb24a39026d39f95c627e798",
-  "previous_head_sha": "6429adafacfdfd15c5707739333ffc042e368318",
+  "current_head_sha": "31ecd3afdc662c49d229b27fc443ba651d2580b7",
+  "previous_head_sha": "119ae991941ec7a2fb24a39026d39f95c627e798",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "c28728e594ab2d399aabdd96d738bd859fa295af",
+  "registry_commit_sha": "a955d526e329ca69dc85143ad59d09f971adb0e5",
   "latest_commit": {
-    "sha": "119ae991941ec7a2fb24a39026d39f95c627e798",
-    "short_sha": "119ae991941e",
-    "message": "Add Project Memory counts diagnostics check\n\nAdd read-only Project Memory counts diagnostics.\n\n- Add project_memory_counts check for grouped project_key/trust/status counts\n- Register the check in diagnostics registry\n- Include counts in Project Memory production readiness suite and runner\n- Add smoke coverage and dedicated workflow\n\nThis explains projectMemoryFactsCount=0 without writing memory, confirming candidates, calling AI, touching Telegram, or exposing raw memory content.",
+    "sha": "31ecd3afdc662c49d229b27fc443ba651d2580b7",
+    "short_sha": "31ecd3afdc66",
+    "message": "Show Project Memory counts in diagnostics formatter\n\nMerge PR #308 into dev/v2-start",
     "author": "korzh260609-beep",
-    "date": "2026-05-20T07:10:12Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/119ae991941ec7a2fb24a39026d39f95c627e798",
-    "changed_files_count": 8,
+    "date": "2026-05-20T07:20:51Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/31ecd3afdc662c49d229b27fc443ba651d2580b7",
+    "changed_files_count": 1,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-project-memory-counts-check-smoke.yml",
-        "status": "added",
-        "additions": 40,
+        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "status": "modified",
+        "additions": 29,
         "deletions": 0,
-        "changes": 40
-      },
-      {
-        "filename": "scripts/smokeProjectMemoryCountsCheck.js",
-        "status": "added",
-        "additions": 67,
-        "deletions": 0,
-        "changes": 67
-      },
-      {
-        "filename": "scripts/smokeProjectMemoryProductionReadinessDiagnosticsRunner.js",
-        "status": "modified",
-        "additions": 32,
-        "deletions": 5,
-        "changes": 37
-      },
-      {
-        "filename": "scripts/smokeProjectMemoryProductionReadinessDiagnosticsSuite.js",
-        "status": "modified",
-        "additions": 2,
-        "deletions": 1,
-        "changes": 3
-      },
-      {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
-        "status": "modified",
-        "additions": 13,
-        "deletions": 1,
-        "changes": 14
-      },
-      {
-        "filename": "src/diagnostics/projectMemoryCountsCheck.js",
-        "status": "added",
-        "additions": 171,
-        "deletions": 0,
-        "changes": 171
-      },
-      {
-        "filename": "src/diagnostics/projectMemoryProductionReadinessDiagnosticsRunner.js",
-        "status": "modified",
-        "additions": 11,
-        "deletions": 1,
-        "changes": 12
-      },
-      {
-        "filename": "src/diagnostics/projectMemoryProductionReadinessDiagnosticsSuite.js",
-        "status": "modified",
-        "additions": 1,
-        "deletions": 0,
-        "changes": 1
+        "changes": 29
       }
     ]
   }

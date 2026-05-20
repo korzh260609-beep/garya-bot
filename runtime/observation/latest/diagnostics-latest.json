@@ -1,60 +1,42 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-20T08:57:24.222Z",
+  "generated_at": "2026-05-20T08:57:27.171Z",
   "name": "diagnostics-latest",
-  "summary": "Diagnostics completed with failures: 1/4 checks failed.",
+  "summary": "Diagnostics completed successfully: 1 checks.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
   "events": [
     {
       "schema_version": 1,
-      "event_id": "diagnostics_1779267444221",
+      "event_id": "diagnostics_1779267447171",
       "event_type": "diagnostics.result",
-      "created_at": "2026-05-20T08:57:24.222Z",
+      "created_at": "2026-05-20T08:57:27.171Z",
       "source": {
         "system": "sg",
         "transport": "internal",
         "module": "diagnosticsObservationBridge"
       },
       "actor": {
-        "role": "monarch",
-        "user_ref": "usr_48cc07c069030fb3",
+        "role": "system",
+        "user_ref": "redacted",
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Diagnostics completed with failures: 1/4 checks failed.",
+      "summary": "Diagnostics completed successfully: 1 checks.",
       "payload": {
-        "diagnostics_ok": false,
-        "checks_count": 4,
-        "failed_count": 1,
+        "diagnostics_ok": true,
+        "checks_count": 1,
+        "failed_count": 0,
         "check_types": [
-          "project_memory_runtime",
-          "project_memory_live_db",
-          "project_memory_counts",
-          "project_memory_production_readiness"
+          "observation_journal_health_latest"
         ],
         "results": [
           {
-            "type": "project_memory_runtime",
+            "type": "observation_journal_health_latest",
             "ok": true,
-            "summary": "Project Memory runtime boundaries OK."
-          },
-          {
-            "type": "project_memory_live_db",
-            "ok": true,
-            "summary": "Project Memory live DB metadata OK."
-          },
-          {
-            "type": "project_memory_counts",
-            "ok": true,
-            "summary": "Project Memory counts checked: total=0, sg_confirmed_active=0, write_audit_total=0."
-          },
-          {
-            "type": "project_memory_production_readiness",
-            "ok": false,
-            "summary": "Project Memory production readiness is not established."
+            "summary": "Observation latest report is readable: 1 events, 0 invalid."
           }
         ],
         "report_type": "sg_diagnostics_report",

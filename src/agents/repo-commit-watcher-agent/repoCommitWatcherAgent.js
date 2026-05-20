@@ -1,7 +1,9 @@
 // AGENT NOTE:
 // RepoCommitWatcherAgent simple watcher.
-// Purpose: detect a new branch HEAD commit, update minimal runtime state, and trigger RepoRegistryAgent.
+// Purpose: detect a new branch HEAD commit, update minimal runtime state, trigger RepoRegistryAgent,
+// and record bounded Project Memory trusted events for new merge commits.
 // Do not store full commit history here. GitHub remains the source of truth.
+// Do not read raw chat, touch Telegram, call AI, or store raw logs here.
 
 import workspaceChannel from "../../runtime/workspace/workspaceChannel.js";
 import { executeGitHubApiRequest } from "../../tools/github/githubApiClient.js";
@@ -9,12 +11,92 @@ import {
   getCurrentProjectBranch,
   getCurrentProjectRepository,
 } from "../../tools/github/githubProjectDefaults.js";
+import {
+  PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS,
+  runProjectMemoryRuntimeTrustedEventTool,
+} from "../../memory/index.js";
 import { runRepoRegistryAgent } from "../repo-registry-agent/repoRegistryAgent.js";
 
 const LATEST_COMMIT_STATE_PATH = "runtime/repo/latest/latest-commit-state.json";
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function extractMergePrInfo(message = "") {
+  const text = normalizeString(message);
+  const firstLine = text.split("\n")[0] || "";
+  const match = firstLine.match(/^Merge PR #(\d+) into (.+)$/i);
+
+  if (!match) return null;
+
+  return {
+    prNumber: Number(match[1]),
+    title: firstLine,
+    baseBranch: normalizeString(match[2]),
+  };
+}
+
+async function recordProjectMemoryForNewMergeCommit({ repo, branch, commit } = {}) {
+  const prInfo = extractMergePrInfo(commit?.message);
+
+  if (!prInfo?.prNumber) {
+    return {
+      ok: true,
+      type: "project_memory_auto_repo_commit_event",
+      skipped: true,
+      reason: "not_a_merge_pr_commit",
+    };
+  }
+
+  const result = await runProjectMemoryRuntimeTrustedEventTool({
+    request: {
+      explicitRuntimeTrustedEventToolRequest: true,
+      sourceKind: PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.GITHUB_PR_MERGED,
+      projectKey: "sg",
+      moduleKey: "project_memory",
+      stageKey: "stage_07_memory",
+      pr: {
+        number: prInfo.prNumber,
+        title: prInfo.title,
+        sourceRef: `https://github.com/${repo}/pull/${prInfo.prNumber}`,
+        repositoryFullName: repo,
+        baseBranch: branch || prInfo.baseBranch,
+        headSha: commit?.sha || "",
+        mergedAt: commit?.date || new Date().toISOString(),
+      },
+      tags: ["repo_commit_watcher", "automatic_project_memory"],
+      metadata: {
+        source: "RepoCommitWatcherAgent",
+        commitSha: commit?.sha || null,
+        commitShortSha: commit?.short_sha || null,
+        changedFilesCount: commit?.changed_files_count || 0,
+      },
+      traceId: `pmtrace_repo_commit_${String(commit?.sha || "unknown").slice(0, 12)}`,
+    },
+    actor: {
+      role: "system",
+      isMonarch: false,
+      platform: "github",
+      platformUserId: null,
+      globalUserId: "system:repo-commit-watcher",
+    },
+    createdBy: "repo-commit-watcher-agent",
+    traceId: `pmtrace_repo_commit_${String(commit?.sha || "unknown").slice(0, 12)}`,
+  });
+
+  return {
+    ok: Boolean(result?.ok),
+    type: "project_memory_auto_repo_commit_event",
+    skipped: false,
+    sourceKind: PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.GITHUB_PR_MERGED,
+    prNumber: prInfo.prNumber,
+    stored: Boolean(result?.stored),
+    confirmed: Boolean(result?.confirmed),
+    requiresConfirmation: Boolean(result?.requiresConfirmation),
+    traceId: result?.traceId || null,
+    reason: result?.reason || null,
+  };
 }
 
 async function getBranchHead({ repo, branch }) {
@@ -101,6 +183,15 @@ export async function runRepoCommitWatcherAgent({ repo, branch, forceRegistryUpd
     registry = await runRepoRegistryAgent({ repo: safeRepo, branch: safeBranch });
   }
 
+  let projectMemory = null;
+  if (hasNewCommit) {
+    projectMemory = await recordProjectMemoryForNewMergeCommit({
+      repo: safeRepo,
+      branch: safeBranch,
+      commit,
+    });
+  }
+
   const state = {
     ok: true,
     type: "repo_commit_state",
@@ -112,6 +203,8 @@ export async function runRepoCommitWatcherAgent({ repo, branch, forceRegistryUpd
     has_new_commit: hasNewCommit,
     registry_updated: Boolean(registry?.ok),
     registry_commit_sha: registry?.write?.commit || null,
+    project_memory_event_recorded: Boolean(projectMemory?.ok && !projectMemory.skipped),
+    project_memory_event: projectMemory,
     latest_commit: commit,
   };
 
@@ -126,6 +219,8 @@ export async function runRepoCommitWatcherAgent({ repo, branch, forceRegistryUpd
     previous_head_sha: previousSha || null,
     has_new_commit: hasNewCommit,
     registry_updated: Boolean(registry?.ok),
+    project_memory_event_recorded: Boolean(projectMemory?.ok && !projectMemory.skipped),
+    project_memory_event: projectMemory,
     registry,
     state_path: LATEST_COMMIT_STATE_PATH,
     write,

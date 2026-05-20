@@ -46,6 +46,7 @@ assert.equal(suite.safety.noSecrets, true);
 assert.deepEqual(checks, [
   "project_memory_runtime",
   "project_memory_live_db",
+  "project_memory_counts",
   "project_memory_production_readiness",
 ]);
 

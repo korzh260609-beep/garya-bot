@@ -26,15 +26,27 @@ function normalizeString(value) {
 function extractMergePrInfo(message = "") {
   const text = normalizeString(message);
   const firstLine = text.split("\n")[0] || "";
-  const match = firstLine.match(/^Merge PR #(\d+) into (.+)$/i);
+  const simpleMatch = firstLine.match(/^Merge PR #(\d+) into (.+)$/i);
 
-  if (!match) return null;
+  if (simpleMatch) {
+    return {
+      prNumber: Number(simpleMatch[1]),
+      title: firstLine,
+      baseBranch: normalizeString(simpleMatch[2]),
+    };
+  }
 
-  return {
-    prNumber: Number(match[1]),
-    title: firstLine,
-    baseBranch: normalizeString(match[2]),
-  };
+  const githubMatch = firstLine.match(/^Merge pull request #(\d+) from (.+)$/i);
+
+  if (githubMatch) {
+    return {
+      prNumber: Number(githubMatch[1]),
+      title: firstLine,
+      baseBranch: "",
+    };
+  }
+
+  return null;
 }
 
 async function recordProjectMemoryForNewMergeCommit({ repo, branch, commit } = {}) {

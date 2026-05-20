@@ -1,29 +1,36 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-20T07:21:16.506Z",
+  "generated_at": "2026-05-20T07:30:51.715Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "31ecd3afdc662c49d229b27fc443ba651d2580b7",
-  "previous_head_sha": "119ae991941ec7a2fb24a39026d39f95c627e798",
+  "current_head_sha": "4fe47dd24a469c55f259ef651626c1193b6f9619",
+  "previous_head_sha": "31ecd3afdc662c49d229b27fc443ba651d2580b7",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "a955d526e329ca69dc85143ad59d09f971adb0e5",
+  "registry_commit_sha": "1d8999422fe7cab0909b9e4e16dcac8aefca1880",
   "latest_commit": {
-    "sha": "31ecd3afdc662c49d229b27fc443ba651d2580b7",
-    "short_sha": "31ecd3afdc66",
-    "message": "Show Project Memory counts in diagnostics formatter\n\nMerge PR #308 into dev/v2-start",
+    "sha": "4fe47dd24a469c55f259ef651626c1193b6f9619",
+    "short_sha": "4fe47dd24a46",
+    "message": "Make Project Memory diagnostics tool return authoritative counts text\n\nMerge PR #309 into dev/v2-start",
     "author": "korzh260609-beep",
-    "date": "2026-05-20T07:20:51Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/31ecd3afdc662c49d229b27fc443ba651d2580b7",
-    "changed_files_count": 1,
+    "date": "2026-05-20T07:30:32Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4fe47dd24a469c55f259ef651626c1193b6f9619",
+    "changed_files_count": 2,
     "changed_files": [
       {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "filename": "src/ai/callAI.js",
         "status": "modified",
-        "additions": 29,
-        "deletions": 0,
-        "changes": 29
+        "additions": 14,
+        "deletions": 1,
+        "changes": 15
+      },
+      {
+        "filename": "src/tools/githubTool.js",
+        "status": "modified",
+        "additions": 49,
+        "deletions": 1,
+        "changes": 50
       }
     ]
   }

@@ -3,16 +3,10 @@
 // No DB mutation, no Project Memory writes, no AI, no Telegram.
 
 import assert from "node:assert/strict";
-
-process.env.DATABASE_URL = "postgres://smoke:smoke@localhost:5432/smoke";
-
-const postgres = await import("../src/db/postgresClient.js");
-const diagnostics = await import("../src/diagnostics/projectMemoryCountsCheck.js");
-
-const originalQueryPostgres = postgres.queryPostgres;
+import { runProjectMemoryCountsCheck } from "../src/diagnostics/projectMemoryCountsCheck.js";
 
 let queryCalled = 0;
-postgres.queryPostgres = async (sql) => {
+const queryFn = async (sql) => {
   queryCalled += 1;
   assert.equal(sql.includes("SELECT project_key, trust, status, COUNT(*)::int AS count"), true);
   assert.equal(sql.includes("GROUP BY project_key, trust, status"), true);
@@ -31,7 +25,7 @@ postgres.queryPostgres = async (sql) => {
   };
 };
 
-const result = await diagnostics.runProjectMemoryCountsCheck();
+const result = await runProjectMemoryCountsCheck({ queryFn, databaseConfigured: true });
 
 assert.equal(queryCalled, 1);
 assert.equal(result.ok, true);
@@ -47,15 +41,17 @@ assert.deepEqual(result.warnings, []);
 assert.equal(result.summary.includes("total=11"), true);
 assert.equal(result.summary.includes("sg_confirmed_active=3"), true);
 
-postgres.queryPostgres = async () => ({
-  ok: true,
-  rowCount: 1,
-  rows: [
-    { project_key: "sg", trust: "candidate", status: "pending_confirmation", count: 7 },
-  ],
+const emptyConfirmed = await runProjectMemoryCountsCheck({
+  databaseConfigured: true,
+  queryFn: async () => ({
+    ok: true,
+    rowCount: 1,
+    rows: [
+      { project_key: "sg", trust: "candidate", status: "pending_confirmation", count: 7 },
+    ],
+  }),
 });
 
-const emptyConfirmed = await diagnostics.runProjectMemoryCountsCheck();
 assert.equal(emptyConfirmed.ok, true);
 assert.equal(emptyConfirmed.details.totalEntries, 7);
 assert.equal(emptyConfirmed.details.sgConfirmedActiveCount, 0);
@@ -63,6 +59,9 @@ assert.equal(emptyConfirmed.details.sgPendingCandidateCount, 7);
 assert.equal(emptyConfirmed.warnings.length, 1);
 assert.equal(emptyConfirmed.warnings[0].code, "project_memory_sg_confirmed_active_empty");
 
-postgres.queryPostgres = originalQueryPostgres;
+const noDatabase = await runProjectMemoryCountsCheck({ databaseConfigured: false });
+assert.equal(noDatabase.ok, false);
+assert.equal(noDatabase.details.databaseConfigured, false);
+assert.equal(noDatabase.warnings[0].code, "database_not_configured");
 
 console.log("smokeProjectMemoryCountsCheck: ok");

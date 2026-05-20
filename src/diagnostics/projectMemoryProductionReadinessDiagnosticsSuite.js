@@ -8,6 +8,7 @@ export const PROJECT_MEMORY_PRODUCTION_READINESS_DIAGNOSTICS_SUITE_NAME = "proje
 export const PROJECT_MEMORY_PRODUCTION_READINESS_DIAGNOSTICS_CHECKS = Object.freeze([
   "project_memory_runtime",
   "project_memory_live_db",
+  "project_memory_counts",
   "project_memory_production_readiness",
 ]);
 

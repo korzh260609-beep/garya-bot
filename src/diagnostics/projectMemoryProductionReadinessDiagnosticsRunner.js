@@ -3,6 +3,7 @@
 // This runner does not write DB, Project Memory, runtime files, repository state, env, Telegram, or AI outputs.
 // It must not claim production readiness unless the underlying check returns ready=true from verified evidence.
 
+import { runProjectMemoryCountsCheck } from "./projectMemoryCountsCheck.js";
 import { runProjectMemoryLiveDbCheck } from "./projectMemoryLiveDbCheck.js";
 import { runProjectMemoryRuntimeCheck } from "./projectMemoryRuntimeCheck.js";
 import { runProjectMemoryProductionReadinessCheck } from "./projectMemoryProductionReadinessCheck.js";
@@ -69,7 +70,7 @@ function runtimeCheckToReadinessRuntimeEvidence(runtimeCheck = {}, providedRunti
   };
 }
 
-function buildReport({ checks, runtimeCheck, liveDbCheck, readinessCheck }) {
+function buildReport({ checks, runtimeCheck, liveDbCheck, countsCheck, readinessCheck }) {
   const results = [
     {
       ok: Boolean(runtimeCheck.ok),
@@ -82,6 +83,12 @@ function buildReport({ checks, runtimeCheck, liveDbCheck, readinessCheck }) {
       type: "project_memory_live_db",
       summary: liveDbCheck.summary || "Project Memory live DB check did not provide summary.",
       data: liveDbCheck,
+    },
+    {
+      ok: Boolean(countsCheck.ok),
+      type: "project_memory_counts",
+      summary: countsCheck.summary || "Project Memory counts check did not provide summary.",
+      data: countsCheck,
     },
     {
       ok: Boolean(readinessCheck.ok),
@@ -126,12 +133,14 @@ export async function runProjectMemoryProductionReadinessDiagnostics({
   runtime = {},
   evidence = {},
   liveDbCheck = null,
+  countsCheck = null,
   runtimeCheck = null,
 } = {}) {
   const checks = getProjectMemoryProductionReadinessDiagnosticsChecks();
   const safeEvidence = normalizePlainObject(evidence);
   const runtimeResult = runtimeCheck || runProjectMemoryRuntimeCheck();
   const liveDbResult = liveDbCheck || await runProjectMemoryLiveDbCheck();
+  const countsResult = countsCheck || await runProjectMemoryCountsCheck();
   const readinessRuntimeEvidence = runtimeCheckToReadinessRuntimeEvidence(runtimeResult, runtime);
   const readinessResult = await runProjectMemoryProductionReadinessCheck({
     runtime: readinessRuntimeEvidence,
@@ -142,6 +151,7 @@ export async function runProjectMemoryProductionReadinessDiagnostics({
     checks,
     runtimeCheck: runtimeResult,
     liveDbCheck: liveDbResult,
+    countsCheck: countsResult,
     readinessCheck: readinessResult,
   });
 

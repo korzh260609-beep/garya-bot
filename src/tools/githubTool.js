@@ -8,6 +8,10 @@ import { runRenderEnvAgent } from "../agents/render-env-agent/renderEnvAgent.js"
 import { runRepoRegistryAgent } from "../agents/repo-registry-agent/repoRegistryAgent.js";
 import { runGetRenderLogsTask } from "../tasks/render/getRenderLogsTask.js";
 import {
+  PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS,
+  runProjectMemoryRuntimeTrustedEventTool,
+} from "../memory/index.js";
+import {
   applyCurrentProjectDefaults,
   applyCurrentProjectWriteDefaults,
   cancelPendingGithubApproval,
@@ -46,6 +50,33 @@ function normalizeCheckList(value = []) {
   return Array.isArray(value)
     ? value.map((item) => normalizeText(item)).filter(Boolean)
     : [];
+}
+
+function normalizePlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function buildRuntimeToolActor(context = {}) {
+  return {
+    globalUserId: normalizeText(context.globalUserId),
+    platform: context.transport || context.platform || "unknown",
+    platformUserId: context.userId || context.platformUserId || null,
+    role: context.isMonarch ? "monarch" : "system",
+    isMonarch: Boolean(context.isMonarch),
+  };
+}
+
+function buildProjectMemoryTrustedEventFinalText(result = {}) {
+  return [
+    "Project Memory trusted event processed.",
+    `- ok: ${Boolean(result.ok)}`,
+    `- dispatched: ${Boolean(result.dispatched)}`,
+    `- stored: ${Boolean(result.stored)}`,
+    `- confirmed: ${Boolean(result.confirmed)}`,
+    `- requiresConfirmation: ${Boolean(result.requiresConfirmation)}`,
+    `- traceId: ${result.traceId || "unknown"}`,
+    `- sourceKind: ${result.trustedEventSourceResult?.sourceKind || "unknown"}`,
+  ].join("\n");
 }
 
 function isProjectMemoryDiagnosticsToolRequest(input = {}, context = {}) {
@@ -237,6 +268,44 @@ export async function repoCheckLatestWorkflowRun(input = {}, context = {}) {
   };
 }
 
+export async function projectMemoryRecordTrustedEvent(input = {}, context = {}) {
+  if (!context?.isMonarch) {
+    return {
+      ok: false,
+      error: "project_memory_record_trusted_event_not_allowed",
+    };
+  }
+
+  const request = normalizePlainObject(input.request);
+  const sourceKind = normalizeText(input.sourceKind || request.sourceKind)
+    || PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS.GITHUB_PR_MERGED;
+  const result = await runProjectMemoryRuntimeTrustedEventTool({
+    request: {
+      ...request,
+      explicitRuntimeTrustedEventToolRequest: true,
+      sourceKind,
+      projectKey: normalizeText(input.projectKey || request.projectKey) || "sg",
+      moduleKey: normalizeText(input.moduleKey || request.moduleKey) || "project_memory",
+      stageKey: normalizeText(input.stageKey || request.stageKey) || "stage_07_memory",
+      pr: normalizePlainObject(input.pr || request.pr),
+      evidence: normalizePlainObject(input.evidence || input.renderEvidence || request.evidence || request.renderEvidence),
+      tags: Array.isArray(input.tags) ? input.tags : Array.isArray(request.tags) ? request.tags : [],
+      metadata: normalizePlainObject(input.metadata || request.metadata),
+      traceId: normalizeText(input.traceId || request.traceId) || null,
+    },
+    actor: buildRuntimeToolActor(context),
+    confirmation: input.confirmation || null,
+    createdBy: normalizeText(input.createdBy) || "ai-tool-project-memory-record-trusted-event",
+    traceId: normalizeText(input.traceId || request.traceId) || null,
+  });
+
+  return {
+    ...result,
+    type: "project_memory_record_trusted_event",
+    finalText: buildProjectMemoryTrustedEventFinalText(result),
+  };
+}
+
 export async function sgDiagnosticsCheck(input = {}, context = {}) {
   return runDiagnosticsCheck(buildDiagnosticsToolInput(input, context), context);
 }
@@ -248,6 +317,7 @@ export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "repo_collect_registry") return repoCollectRegistry(args, context);
   if (name === "repo_search_commits") return repoSearchCommits(args, context);
   if (name === "repo_check_latest_workflow_run") return repoCheckLatestWorkflowRun(args, context);
+  if (name === "project_memory_record_trusted_event") return projectMemoryRecordTrustedEvent(args, context);
   if (name === "sg_diagnostics_check") return sgDiagnosticsCheck(args, context);
 
   return {

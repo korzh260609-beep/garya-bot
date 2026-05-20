@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "render_latest_logs",
-  "generated_at": "2026-05-20T09:04:33.613Z",
+  "generated_at": "2026-05-20T09:22:52.455Z",
   "target": "garya-bot",
   "limit": 100,
   "level": "all",
@@ -19,6 +19,198 @@
   "logs_count": 84,
   "logs": [
     {
+      "timestamp": "2026-05-20T09:22:04.904640565Z",
+      "level": "",
+      "serviceId": "d86nqr0jo89c73ct2f0g",
+      "message": "==> ///////////////////////////////////////////////////////////"
+    },
+    {
+      "timestamp": "2026-05-20T09:22:04.901918342Z",
+      "level": "",
+      "serviceId": "d86nqr0jo89c73ct2f10",
+      "message": "==>"
+    },
+    {
+      "timestamp": "2026-05-20T09:22:04.89797812Z",
+      "level": "",
+      "serviceId": "d86nqr0jo89c73ct2f1g",
+      "message": "==> Available at your primary URL https://garya-bot.onrender.com"
+    },
+    {
+      "timestamp": "2026-05-20T09:22:04.894638673Z",
+      "level": "",
+      "serviceId": "d86nqr0jo89c73ct2f20",
+      "message": "==>"
+    },
+    {
+      "timestamp": "2026-05-20T09:22:04.891387937Z",
+      "level": "",
+      "serviceId": "d86nqr0jo89c73ct2f2g",
+      "message": "==> ///////////////////////////////////////////////////////////"
+    },
+    {
+      "timestamp": "2026-05-20T09:22:04.888339216Z",
+      "level": "",
+      "serviceId": "d86nqr0jo89c73ct2f30",
+      "message": "==>"
+    },
+    {
+      "timestamp": "2026-05-20T09:22:04.439040494Z",
+      "level": "",
+      "serviceId": "d86nqr0jo89c73ct2f3g",
+      "message": "==> Your service is live 🎉"
+    },
+    {
+      "timestamp": "2026-05-20T09:22:02.917268546Z",
+      "level": "",
+      "serviceId": "e3a861f5-6175-45cf-8fa6-0243a1ff77a5",
+      "message": "Telegram webhook already configured for SG 2.0."
+    },
+    {
+      "timestamp": "2026-05-20T09:21:55.359721247Z",
+      "level": "",
+      "serviceId": "1e9c6f77-6b5a-4a40-8e5d-ffdfab379e75",
+      "message": "SG 2.0 foundation server listening on port 10000"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:55.354283621Z",
+      "level": "",
+      "serviceId": "9e267bd7-9e2c-4899-965a-357a0fc6e0c7",
+      "message": "TelegramAdapter attached for SG 2.0."
+    },
+    {
+      "timestamp": "2026-05-20T09:21:53.283868683Z",
+      "level": "",
+      "serviceId": "ed5dda88-70ed-4ca9-99bf-69ecd1bfb27d",
+      "message": "> garya-bot-sg2@2.0.0-v0 start"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:53.283873983Z",
+      "level": "",
+      "serviceId": "3c9b4654-2e75-4c5a-bb8c-783e7b62dfe0",
+      "message": "> node ./index.js"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:52.447712173Z",
+      "level": "",
+      "serviceId": "380b7f4b-0b7d-4f50-9fb9-3f4ccc41839d",
+      "message": "==>(B Running 'npm start'(B"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:42.720361631Z",
+      "level": "",
+      "serviceId": "d86nqr0jo89c73ct2f40",
+      "message": "==> Deploying..."
+    },
+    {
+      "timestamp": "2026-05-20T09:21:39.090275362Z",
+      "level": "",
+      "serviceId": "52163c30-828f-481d-b787-c144fe765ec6",
+      "message": "==> Build successful 🎉"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:39.048625099Z",
+      "level": "",
+      "serviceId": "c28cd28b-cf18-4408-96f3-fbcc18f28725",
+      "message": "==> Uploaded in 2.0s. Compression took 2.3s"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:34.74424411Z",
+      "level": "",
+      "serviceId": "00f46e78-bd28-439f-b5ce-ee2cb6bc16a2",
+      "message": "==> Uploading build..."
+    },
+    {
+      "timestamp": "2026-05-20T09:21:32.668686508Z",
+      "level": "",
+      "serviceId": "ed1f32e9-a660-4889-9ef7-62dc73b6fe57",
+      "message": "7 vulnerabilities (5 moderate, 2 critical)"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:32.668693168Z",
+      "level": "",
+      "serviceId": "0a5334b8-317f-4edc-8e11-0050cbb5df11",
+      "message": "To address all issues (including breaking changes), run:"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:32.668696258Z",
+      "level": "",
+      "serviceId": "dd2606b1-19a4-494b-8524-981220abf084",
+      "message": "npm audit fix --force"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:32.668701698Z",
+      "level": "",
+      "serviceId": "7314c761-d1d4-42fb-a2cc-aff9e8fb7b64",
+      "message": "Run `npm audit` for details."
+    },
+    {
+      "timestamp": "2026-05-20T09:21:32.663555896Z",
+      "level": "",
+      "serviceId": "3d380512-8612-45a2-ab23-8e625e0b534d",
+      "message": "added 224 packages, and audited 225 packages in 8s"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:32.663577537Z",
+      "level": "",
+      "serviceId": "64a82f52-3bff-45cc-ad82-34b59ce206bc",
+      "message": "76 packages are looking for funding"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:32.663933515Z",
+      "level": "",
+      "serviceId": "f361d622-cbbc-48dc-8252-98ce35f14d18",
+      "message": "run `npm fund` for details"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:24.622537923Z",
+      "level": "",
+      "serviceId": "ba559b6c-bb04-4740-be62-4fca642a3a83",
+      "message": "==>(B Running build command 'npm install'...(B"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:24.569044726Z",
+      "level": "",
+      "serviceId": "4c07434e-5a75-4fa9-aa7c-027081ee0d80",
+      "message": "==> Using Node.js version 22.16.0 (default)"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:24.569060636Z",
+      "level": "",
+      "serviceId": "609a9761-3d29-41d2-b7b3-9d639a430201",
+      "message": "==> Docs on specifying a Node.js version: https://render.com/docs/node-version"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:20.597021681Z",
+      "level": "",
+      "serviceId": "aca9c852-37d9-4f7a-9273-e244800d2194",
+      "message": "==>(B Downloaded 30MB in 1s. Extraction took 1s.(B"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:19.195904151Z",
+      "level": "",
+      "serviceId": "641ea42e-7d64-4e5c-9680-39c2daff641e",
+      "message": "==>(B Checking out commit 0daba9e591c0f21925ed474491d4c3242268461e in branch dev/v2-start(B"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:18.42203752Z",
+      "level": "",
+      "serviceId": "23220cfb-8529-4cc6-a1e2-ac6cc3f022d4",
+      "message": "==>(B Cloning from https://github.com/korzh260609-beep/garya-bot(B"
+    },
+    {
+      "timestamp": "2026-05-20T09:21:18.033569286Z",
+      "level": "",
+      "serviceId": "98fe6a75-9b57-47da-9012-cc70e6e40169",
+      "message": "==>(B Downloading cache...(B"
+    },
+    {
+      "timestamp": "2026-05-20T09:04:32.015890597Z",
+      "level": "",
+      "serviceId": "e4d38a44-d89e-468c-96dc-86f85f940063",
+      "message": "project_memory_runtime_verification {\"ok\":true,\"type\":\"project_memory_runtime_verification\",\"version\":1,\"source\":\"core.message.callMessageAI\",\"mode\":\"read_and_inject\",\"enabled\":true,\"readAttempted\":true,\"readOk\":true,\"projectKey\":\"sg\",\"projectMemoryFactsCount\":0,\"contextPackItemsCount\":4,\"promptInjectionEnabled\":false,\"injectedMessageCount\":3,\"explicitProjectContextUsed\":false,\"explicitProjectContextProvided\":false,\"reason\":\"\",\"warningCodes\":[],\"sanitized\":true}"
+    },
+    {
       "timestamp": "2026-05-20T09:02:48.621722856Z",
       "level": "",
       "serviceId": "c7694c6c-1ced-4cae-984b-cef1710cd87f",
@@ -27,13 +219,13 @@
     {
       "timestamp": "2026-05-20T09:00:42.302659822Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0ig",
+      "serviceId": "d86nqr0jo89c73ct2f4g",
       "message": "==> Docs on specifying a port: https://render.com/docs/web-services#port-binding"
     },
     {
       "timestamp": "2026-05-20T09:00:42.207551259Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0j0",
+      "serviceId": "d86nqr0jo89c73ct2f50",
       "message": "==> Detected service running on port 10000"
     },
     {
@@ -51,43 +243,43 @@
     {
       "timestamp": "2026-05-20T08:55:38.809460795Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0jg",
+      "serviceId": "d86nqr0jo89c73ct2f5g",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-20T08:55:38.803266941Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0k0",
+      "serviceId": "d86nqr0jo89c73ct2f60",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-20T08:55:38.797428635Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0kg",
+      "serviceId": "d86nqr0jo89c73ct2f6g",
       "message": "==> Available at your primary URL https://garya-bot.onrender.com"
     },
     {
       "timestamp": "2026-05-20T08:55:38.790969335Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0l0",
+      "serviceId": "d86nqr0jo89c73ct2f70",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-20T08:55:38.783392069Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0lg",
+      "serviceId": "d86nqr0jo89c73ct2f7g",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-20T08:55:38.770863767Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0m0",
+      "serviceId": "d86nqr0jo89c73ct2f80",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-20T08:55:38.452712835Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0mg",
+      "serviceId": "d86nqr0jo89c73ct2f8g",
       "message": "==> Your service is live 🎉"
     },
     {
@@ -123,7 +315,7 @@
     {
       "timestamp": "2026-05-20T08:55:24.257033565Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0n0",
+      "serviceId": "d86nqr0jo89c73ct2f90",
       "message": "==> Deploying..."
     },
     {
@@ -223,21 +415,15 @@
       "message": "==>(B Cloning from https://github.com/korzh260609-beep/garya-bot(B"
     },
     {
-      "timestamp": "2026-05-20T08:54:34.491706259Z",
-      "level": "",
-      "serviceId": "cd70b3b3-9f42-497d-8f62-fc9067180223",
-      "message": "==>(B Downloading cache...(B"
-    },
-    {
       "timestamp": "2026-05-20T07:43:55.009894056Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0ng",
+      "serviceId": "d86nqr0jo89c73ct2f9g",
       "message": "==> Docs on specifying a port: https://render.com/docs/web-services#port-binding"
     },
     {
       "timestamp": "2026-05-20T07:43:54.937312051Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0o0",
+      "serviceId": "d86nqr0jo89c73ct2fa0",
       "message": "==> Detected service running on port 10000"
     },
     {
@@ -255,43 +441,43 @@
     {
       "timestamp": "2026-05-20T07:38:53.478774351Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0og",
+      "serviceId": "d86nqr0jo89c73ct2fag",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-20T07:38:53.475666289Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0p0",
+      "serviceId": "d86nqr0jo89c73ct2fb0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-20T07:38:53.473075468Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0pg",
+      "serviceId": "d86nqr0jo89c73ct2fbg",
       "message": "==> Available at your primary URL https://garya-bot.onrender.com"
     },
     {
       "timestamp": "2026-05-20T07:38:53.470614521Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0q0",
+      "serviceId": "d86nqr0jo89c73ct2fc0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-20T07:38:53.467817706Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0qg",
+      "serviceId": "d86nqr0jo89c73ct2fcg",
       "message": "==> ///////////////////////////////////////////////////////////"
     },
     {
       "timestamp": "2026-05-20T07:38:53.465367679Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0r0",
+      "serviceId": "d86nqr0jo89c73ct2fd0",
       "message": "==>"
     },
     {
       "timestamp": "2026-05-20T07:38:53.298085906Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0rg",
+      "serviceId": "d86nqr0jo89c73ct2fdg",
       "message": "==> Your service is live 🎉"
     },
     {
@@ -327,7 +513,7 @@
     {
       "timestamp": "2026-05-20T07:38:20.68248174Z",
       "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0s0",
+      "serviceId": "d86nqr0jo89c73ct2fe0",
       "message": "==> Deploying..."
     },
     {
@@ -335,192 +521,6 @@
       "level": "",
       "serviceId": "88da0a0d-d660-4869-983a-bf48ba3d00dc",
       "message": "==> Build successful 🎉"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:17.414781777Z",
-      "level": "",
-      "serviceId": "dc15fed4-ff5a-4350-8a74-ade76ffa3515",
-      "message": "==> Uploaded in 2.3s. Compression took 3.9s"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:11.235632912Z",
-      "level": "",
-      "serviceId": "bcdd6c4d-9f45-4979-bccc-cf805acfd236",
-      "message": "==> Uploading build..."
-    },
-    {
-      "timestamp": "2026-05-20T07:38:09.033662421Z",
-      "level": "",
-      "serviceId": "b8eaa20b-8331-48ad-8c07-7d69ac8952b1",
-      "message": "7 vulnerabilities (5 moderate, 2 critical)"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:09.033668301Z",
-      "level": "",
-      "serviceId": "6a230962-84da-42fd-b58a-3a13339f1202",
-      "message": "To address all issues (including breaking changes), run:"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:09.033671422Z",
-      "level": "",
-      "serviceId": "522d8630-99dc-4b1d-ad33-bb6d9425eaf5",
-      "message": "npm audit fix --force"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:09.033675692Z",
-      "level": "",
-      "serviceId": "21e40d7a-0498-41ce-a7a8-423b6c6986c2",
-      "message": "Run `npm audit` for details."
-    },
-    {
-      "timestamp": "2026-05-20T07:38:09.02621424Z",
-      "level": "",
-      "serviceId": "c53141a4-8f76-4df9-afe8-8b24050cac34",
-      "message": "added 224 packages, and audited 225 packages in 8s"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:09.02622321Z",
-      "level": "",
-      "serviceId": "75cd09d2-23a4-4d9c-8a01-b1c2a85b2b53",
-      "message": "76 packages are looking for funding"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:09.02622691Z",
-      "level": "",
-      "serviceId": "2076afac-94a8-4e31-b39e-ed019e831505",
-      "message": "run `npm fund` for details"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:00.628631129Z",
-      "level": "",
-      "serviceId": "b3b72f3f-155e-499a-9dd2-a63176f426c3",
-      "message": "==>(B Running build command 'npm install'...(B"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:00.55305635Z",
-      "level": "",
-      "serviceId": "f031eee2-1f99-4205-9290-7ff0567ce91a",
-      "message": "==> Using Node.js version 22.16.0 (default)"
-    },
-    {
-      "timestamp": "2026-05-20T07:38:00.553100451Z",
-      "level": "",
-      "serviceId": "0e9258eb-96a8-4d2b-83ba-b691d76d70ac",
-      "message": "==> Docs on specifying a Node.js version: https://render.com/docs/node-version"
-    },
-    {
-      "timestamp": "2026-05-20T07:37:57.643791923Z",
-      "level": "",
-      "serviceId": "2943568f-6ed7-4f27-9926-8487d968e537",
-      "message": "==>(B Downloaded 30MB in 1s. Extraction took 0s.(B"
-    },
-    {
-      "timestamp": "2026-05-20T07:37:56.28675468Z",
-      "level": "",
-      "serviceId": "d071b2e6-b3cc-43f6-b969-8e0651b614a1",
-      "message": "==>(B Checking out commit 4fe47dd24a469c55f259ef651626c1193b6f9619 in branch dev/v2-start(B"
-    },
-    {
-      "timestamp": "2026-05-20T07:37:55.610460212Z",
-      "level": "",
-      "serviceId": "44005287-ad6d-4083-9aec-4764f61f4850",
-      "message": "==>(B Cloning from https://github.com/korzh260609-beep/garya-bot(B"
-    },
-    {
-      "timestamp": "2026-05-20T07:27:45.838862425Z",
-      "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0sg",
-      "message": "==> Docs on specifying a port: https://render.com/docs/web-services#port-binding"
-    },
-    {
-      "timestamp": "2026-05-20T07:27:45.754750443Z",
-      "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0t0",
-      "message": "==> Detected service running on port 10000"
-    },
-    {
-      "timestamp": "2026-05-20T07:23:49.507849205Z",
-      "level": "",
-      "serviceId": "a275b30d-3bca-44b6-a3bc-125ad52ac619",
-      "message": "project_memory_runtime_verification {\"ok\":true,\"type\":\"project_memory_runtime_verification\",\"version\":1,\"source\":\"core.message.callMessageAI\",\"mode\":\"read_and_inject\",\"enabled\":true,\"readAttempted\":true,\"readOk\":true,\"projectKey\":\"sg\",\"projectMemoryFactsCount\":0,\"contextPackItemsCount\":4,\"promptInjectionEnabled\":false,\"injectedMessageCount\":3,\"explicitProjectContextUsed\":false,\"explicitProjectContextProvided\":false,\"reason\":\"\",\"warningCodes\":[],\"sanitized\":true}"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:49.26176688Z",
-      "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0tg",
-      "message": "==> ///////////////////////////////////////////////////////////"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:49.259425156Z",
-      "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0u0",
-      "message": "==>"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:49.25702692Z",
-      "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0ug",
-      "message": "==> Available at your primary URL https://garya-bot.onrender.com"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:49.254188454Z",
-      "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0v0",
-      "message": "==>"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:49.251379159Z",
-      "level": "",
-      "serviceId": "d86ni8egvqtc73dsr0vg",
-      "message": "==> ///////////////////////////////////////////////////////////"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:49.248027851Z",
-      "level": "",
-      "serviceId": "d86ni8egvqtc73dsr100",
-      "message": "==>"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:49.134730339Z",
-      "level": "",
-      "serviceId": "d86ni8egvqtc73dsr10g",
-      "message": "==> Your service is live 🎉"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:46.702299699Z",
-      "level": "",
-      "serviceId": "a53ff6de-531d-4216-9943-cf93bd381560",
-      "message": "Telegram webhook already configured for SG 2.0."
-    },
-    {
-      "timestamp": "2026-05-20T07:22:39.166891754Z",
-      "level": "",
-      "serviceId": "de2587ae-6bb3-4cef-a59f-c9cbd718a5e6",
-      "message": "SG 2.0 foundation server listening on port 10000"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:39.161786198Z",
-      "level": "",
-      "serviceId": "cb636c4b-0c81-44e0-9744-69d3e3090d64",
-      "message": "TelegramAdapter attached for SG 2.0."
-    },
-    {
-      "timestamp": "2026-05-20T07:22:37.763808637Z",
-      "level": "",
-      "serviceId": "6c50cf44-7626-4c1a-b46e-8dec224608cf",
-      "message": "> garya-bot-sg2@2.0.0-v0 start"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:37.763812927Z",
-      "level": "",
-      "serviceId": "243e684f-8c2e-4ec2-8679-e9a1affc0481",
-      "message": "> node ./index.js"
-    },
-    {
-      "timestamp": "2026-05-20T07:22:37.472865766Z",
-      "level": "",
-      "serviceId": "73e50884-fdee-4425-b15c-aef139884672",
-      "message": "==>(B Running 'npm start'(B"
     }
   ],
   "secrets_policy": "env_values_never_exposed"

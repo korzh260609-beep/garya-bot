@@ -29,6 +29,9 @@ function normalizeLimit(value, fallback = 100) {
 function formatProjectMemoryCountsDetails(item = {}) {
   const details = item?.data?.details || {};
   const groupedCounts = Array.isArray(details.groupedCounts) ? details.groupedCounts : [];
+  const groupedWriteAuditCounts = Array.isArray(details.groupedWriteAuditCounts)
+    ? details.groupedWriteAuditCounts
+    : [];
 
   const lines = [
     "",
@@ -36,6 +39,7 @@ function formatProjectMemoryCountsDetails(item = {}) {
     `- totalEntries: ${details.totalEntries ?? "unknown"}`,
     `- sgConfirmedActiveCount: ${details.sgConfirmedActiveCount ?? "unknown"}`,
     `- sgPendingCandidateCount: ${details.sgPendingCandidateCount ?? "unknown"}`,
+    `- writeAuditTotal: ${details.writeAuditTotal ?? "unknown"}`,
   ];
 
   if (groupedCounts.length > 0) {
@@ -44,6 +48,16 @@ function formatProjectMemoryCountsDetails(item = {}) {
     for (const row of groupedCounts) {
       lines.push(
         `  - projectKey=${row.projectKey || "unknown"} / trust=${row.trust || "unknown"} / status=${row.status || "unknown"} / count=${row.count ?? "unknown"}`
+      );
+    }
+  }
+
+  if (groupedWriteAuditCounts.length > 0) {
+    lines.push("- groupedWriteAuditCounts:");
+
+    for (const row of groupedWriteAuditCounts) {
+      lines.push(
+        `  - action=${row.action || "unknown"} / decision=${row.decision || "unknown"} / count=${row.count ?? "unknown"}`
       );
     }
   }

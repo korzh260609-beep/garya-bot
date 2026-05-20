@@ -251,14 +251,27 @@ export async function runRenderEnvAgent({ target = "garya-bot" } = {}) {
     message: `render env: update latest ${data.env_count || 0}`,
   });
 
+  const finalText = [
+    "Render env inventory collected.",
+    `- target: ${data.target}`,
+    `- env_count: ${data.env_count}`,
+    `- file: ${LATEST_RENDER_ENV_PATH}`,
+    `- branch: ${write.branch || "unknown"}`,
+    `- commit: ${write.commit || "unknown"}`,
+    "- secrets: hidden",
+  ].join("\n");
+
   return {
     ok: true,
     type: "render_env_agent",
     path: LATEST_RENDER_ENV_PATH,
+    branch: write.branch || null,
+    commit: write.commit || null,
     env_count: data.env_count,
     pagination: data.pagination,
     service: data.service,
     write,
+    finalText,
   };
 }
 

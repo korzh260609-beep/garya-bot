@@ -1,50 +1,36 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-18T12:09:40.794Z",
+  "generated_at": "2026-05-20T07:15:12.380Z",
   "name": "diagnostics-latest",
-  "summary": "Diagnostics completed with failures: 1/2 checks failed.",
+  "summary": "Diagnostics completed successfully: 0 checks.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
   "events": [
     {
       "schema_version": 1,
-      "event_id": "diagnostics_1779106180793",
+      "event_id": "diagnostics_1779261312379",
       "event_type": "diagnostics.result",
-      "created_at": "2026-05-18T12:09:40.793Z",
+      "created_at": "2026-05-20T07:15:12.380Z",
       "source": {
         "system": "sg",
         "transport": "internal",
         "module": "diagnosticsObservationBridge"
       },
       "actor": {
-        "role": "system",
-        "user_ref": "redacted",
+        "role": "monarch",
+        "user_ref": "usr_48cc07c069030fb3",
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Diagnostics completed with failures: 1/2 checks failed.",
+      "summary": "Diagnostics completed successfully: 0 checks.",
       "payload": {
-        "diagnostics_ok": false,
-        "checks_count": 2,
-        "failed_count": 1,
-        "check_types": [
-          "observation_journal_health_latest",
-          "github_actions_commit_runs"
-        ],
-        "results": [
-          {
-            "type": "observation_journal_health_latest",
-            "ok": true,
-            "summary": "Observation latest report is readable: 1 events, 0 invalid."
-          },
-          {
-            "type": "github_actions_commit_runs",
-            "ok": false,
-            "summary": "GitHub Actions commit runs found for 2845bf312bcd: 8 success, 1 failed, 0 active. Ignored 1 current observation run(s). Waited 2/24 attempt(s)."
-          }
-        ],
+        "diagnostics_ok": true,
+        "checks_count": 0,
+        "failed_count": 0,
+        "check_types": [],
+        "results": [],
         "report_type": "sg_diagnostics_report",
         "plan_mode": "read_only"
       },
@@ -56,9 +42,9 @@
         "memory_candidate": false
       },
       "links": {
-        "runtime_report_path": "runtime/observation/latest/observation-journal-health-latest.json",
-        "related_commit_sha": "2845bf312bcd82d723e4989bcae19437dc951481",
-        "related_run_id": "26032544854"
+        "runtime_report_path": "",
+        "related_commit_sha": "",
+        "related_run_id": ""
       }
     }
   ],

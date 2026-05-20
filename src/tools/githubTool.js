@@ -27,8 +27,56 @@ import {
 
 export { cancelPendingGithubApproval, executePendingGithubApproval, extractGithubApprovalId };
 
+const PROJECT_MEMORY_DIAGNOSTICS_CHECKS = Object.freeze([
+  "project_memory_runtime",
+  "project_memory_live_db",
+  "project_memory_counts",
+  "project_memory_production_readiness",
+]);
+
 function normalizeText(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeLowerText(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function normalizeCheckList(value = []) {
+  return Array.isArray(value)
+    ? value.map((item) => normalizeText(item)).filter(Boolean)
+    : [];
+}
+
+function isProjectMemoryDiagnosticsToolRequest(input = {}, context = {}) {
+  const text = normalizeLowerText(input.text || context.latestUserText);
+  const checks = normalizeCheckList(input.checks);
+
+  if (checks.some((check) => check.startsWith("project_memory_"))) return false;
+
+  return Boolean(
+    text.includes("project memory")
+    && (
+      text.includes("диагност")
+      || text.includes("diagnostic")
+      || text.includes("diagnose")
+      || text.includes("check")
+      || text.includes("проверь")
+      || text.includes("провер")
+    )
+  );
+}
+
+function buildDiagnosticsToolInput(input = {}, context = {}) {
+  if (!isProjectMemoryDiagnosticsToolRequest(input, context)) {
+    return input;
+  }
+
+  return {
+    ...input,
+    text: normalizeText(input.text) || normalizeText(context.latestUserText),
+    checks: PROJECT_MEMORY_DIAGNOSTICS_CHECKS,
+  };
 }
 
 export async function githubRequest(input = {}, context = {}) {
@@ -190,7 +238,7 @@ export async function repoCheckLatestWorkflowRun(input = {}, context = {}) {
 }
 
 export async function sgDiagnosticsCheck(input = {}, context = {}) {
-  return runDiagnosticsCheck(input, context);
+  return runDiagnosticsCheck(buildDiagnosticsToolInput(input, context), context);
 }
 
 export async function runGithubTool(name, args = {}, context = {}) {

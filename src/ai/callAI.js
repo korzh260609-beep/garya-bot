@@ -11,6 +11,18 @@ import { runToolRound } from "./aiToolRunner.js";
 import { getDefaultMaxOutputTokens, getDefaultModel } from "./modelConfig.js";
 import { getOpenAIClient } from "./openaiClient.js";
 
+function getAuthoritativeToolFinalText(metadata = {}) {
+  if (
+    metadata?.finalTextSource === "sg_diagnostics_check"
+    && typeof metadata.finalText === "string"
+    && metadata.finalText.trim()
+  ) {
+    return metadata.finalText.trim();
+  }
+
+  return "";
+}
+
 export async function callAI(messages, options = {}) {
   const activeClient = getOpenAIClient();
   const model = options.model || getDefaultModel();
@@ -26,7 +38,8 @@ export async function callAI(messages, options = {}) {
     toolContext,
   });
 
-  const text = extractOutputText(response) || metadata?.finalText || "";
+  const authoritativeToolFinalText = getAuthoritativeToolFinalText(metadata);
+  const text = authoritativeToolFinalText || extractOutputText(response) || metadata?.finalText || "";
 
   if (!text) {
     throw new Error("AI returned empty output");

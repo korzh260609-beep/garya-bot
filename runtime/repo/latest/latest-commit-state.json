@@ -1,43 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-20T08:53:55.873Z",
+  "generated_at": "2026-05-20T09:20:34.473Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "514d02be6093414187e7fca2e8f25c47d69b1683",
-  "previous_head_sha": "4fe47dd24a469c55f259ef651626c1193b6f9619",
+  "current_head_sha": "0daba9e591c0f21925ed474491d4c3242268461e",
+  "previous_head_sha": "514d02be6093414187e7fca2e8f25c47d69b1683",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "d6cd8aa2f01af03fe0cd1aaecbdaa4746d809fe2",
+  "registry_commit_sha": "fe9b04de5d68481a42f5ac5c0b691aa4d6cd2f0b",
   "latest_commit": {
-    "sha": "514d02be6093414187e7fca2e8f25c47d69b1683",
-    "short_sha": "514d02be6093",
-    "message": "Add Project Memory write activity counts diagnostics\n\nMerge PR #310 into dev/v2-start",
+    "sha": "0daba9e591c0f21925ed474491d4c3242268461e",
+    "short_sha": "0daba9e591c0",
+    "message": "Show runtime workspace location for Render tools\n\nMerge PR #311 into dev/v2-start",
     "author": "korzh260609-beep",
-    "date": "2026-05-20T08:53:31Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/514d02be6093414187e7fca2e8f25c47d69b1683",
+    "date": "2026-05-20T09:20:15Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0daba9e591c0f21925ed474491d4c3242268461e",
     "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "scripts/smokeProjectMemoryCountsCheck.js",
+        "filename": "src/agents/render-env-agent/renderEnvAgent.js",
         "status": "modified",
-        "additions": 83,
-        "deletions": 20,
-        "changes": 103
-      },
-      {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
-        "status": "modified",
-        "additions": 14,
+        "additions": 13,
         "deletions": 0,
-        "changes": 14
+        "changes": 13
       },
       {
-        "filename": "src/diagnostics/projectMemoryCountsCheck.js",
+        "filename": "src/ai/callAI.js",
         "status": "modified",
-        "additions": 77,
-        "deletions": 21,
-        "changes": 98
+        "additions": 7,
+        "deletions": 1,
+        "changes": 8
+      },
+      {
+        "filename": "src/tasks/render/getRenderLogsTask.js",
+        "status": "modified",
+        "additions": 13,
+        "deletions": 0,
+        "changes": 13
       }
     ]
   }

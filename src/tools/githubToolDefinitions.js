@@ -154,6 +154,58 @@ export const githubToolDefinitions = [
   },
   {
     type: "function",
+    name: "project_memory_record_trusted_event",
+    description: "Record an explicitly trusted Project Memory event through the Project Memory runtime trusted event tool. Use only for explicit Monarch-approved/system-trusted project events with bounded evidence, such as a merged PR or verified clean Render deploy evidence. Do not use for raw chat, secrets, raw logs, ambiguous memories, or general conversation summaries.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        sourceKind: {
+          type: "string",
+          description: "Trusted event source kind. Supported: github_pr_merged, render_deploy_logs.",
+        },
+        projectKey: {
+          type: "string",
+          description: "Project key. Default sg.",
+        },
+        moduleKey: {
+          type: "string",
+          description: "Module key. Default project_memory.",
+        },
+        stageKey: {
+          type: "string",
+          description: "Stage key. Default stage_07_memory.",
+        },
+        pr: {
+          type: "object",
+          description: "Required for github_pr_merged. Include number, title, sourceRef/htmlUrl/url, repositoryFullName, baseBranch, headSha, mergedAt.",
+          additionalProperties: true
+        },
+        evidence: {
+          type: "object",
+          description: "Required for render_deploy_logs. Include sourceKind=render_deploy_logs, eventType=deploy_ok, sourceRef, policy, verified=true, deployOk=true, logsClean=true, errorCount, logsChecked, deployId/commit/deployStatus.",
+          additionalProperties: true
+        },
+        tags: {
+          type: "array",
+          items: { "type": "string" },
+          description: "Optional bounded tags."
+        },
+        metadata: {
+          type: "object",
+          additionalProperties: true,
+          description: "Optional bounded metadata. Do not include secrets, raw logs, or raw chat."
+        },
+        traceId: {
+          type: "string",
+          description: "Optional trace id."
+        }
+      },
+      required: ["sourceKind"],
+    },
+  },
+  {
+    type: "function",
     name: "sg_diagnostics_check",
     description: "Build a safe SG diagnostics plan when the Monarch asks in normal language to check a problem, broken behavior, deploy/runtime issue, Render, GitHub Actions, repository state, registry, or recent project change. This tool is read-only and does not require slash commands or technical phrases. First skeleton returns a diagnostics plan/report shape; deep runtime orchestration is added later.",
     parameters: {

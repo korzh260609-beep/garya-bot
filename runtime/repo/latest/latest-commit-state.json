@@ -1,36 +1,42 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-20T10:01:48.135Z",
+  "generated_at": "2026-05-20T10:10:07.123Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "71487977509ea3d6da0ce0cc89df627376554334",
-  "previous_head_sha": "03e637e7553aee0145cb782aab0acbf91a6b0a48",
+  "current_head_sha": "0a3bc8c73efa33d59e0f5c529fb439b81bf12a16",
+  "previous_head_sha": "71487977509ea3d6da0ce0cc89df627376554334",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "42666a5b2b175c4fb846e151848b3f933939436f",
+  "registry_commit_sha": "13a93f30ffd19b220d6a11b64f5dde7a8d64a502",
   "project_memory_event_recorded": false,
   "project_memory_event": {
-    "ok": true,
+    "ok": false,
     "type": "project_memory_auto_repo_commit_event",
-    "skipped": true,
-    "reason": "not_a_merge_pr_commit"
+    "skipped": false,
+    "sourceKind": "github_pr_merged",
+    "prNumber": 314,
+    "stored": false,
+    "confirmed": false,
+    "requiresConfirmation": true,
+    "traceId": "pmtrace_repo_commit_0a3bc8c73efa",
+    "reason": "database_not_configured"
   },
   "latest_commit": {
-    "sha": "71487977509ea3d6da0ce0cc89df627376554334",
-    "short_sha": "71487977509e",
-    "message": "Merge pull request #313 from korzh260609-beep/feat/project-memory-auto-repo-commit-event\n\nRecord Project Memory event for new repo merge commits",
+    "sha": "0a3bc8c73efa33d59e0f5c529fb439b81bf12a16",
+    "short_sha": "0a3bc8c73efa",
+    "message": "Merge pull request #314 from korzh260609-beep/fix/repo-watcher-github-merge-format\n\nSupport GitHub merge pull request commit format",
     "author": "korzh260609-beep",
-    "date": "2026-05-20T10:01:26Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/71487977509ea3d6da0ce0cc89df627376554334",
+    "date": "2026-05-20T10:09:41Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0a3bc8c73efa33d59e0f5c529fb439b81bf12a16",
     "changed_files_count": 1,
     "changed_files": [
       {
         "filename": "src/agents/repo-commit-watcher-agent/repoCommitWatcherAgent.js",
         "status": "modified",
-        "additions": 96,
-        "deletions": 1,
-        "changes": 97
+        "additions": 19,
+        "deletions": 7,
+        "changes": 26
       }
     ]
   }

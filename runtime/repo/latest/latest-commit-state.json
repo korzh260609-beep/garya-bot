@@ -1,36 +1,43 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-20T07:30:51.715Z",
+  "generated_at": "2026-05-20T08:53:55.873Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "4fe47dd24a469c55f259ef651626c1193b6f9619",
-  "previous_head_sha": "31ecd3afdc662c49d229b27fc443ba651d2580b7",
+  "current_head_sha": "514d02be6093414187e7fca2e8f25c47d69b1683",
+  "previous_head_sha": "4fe47dd24a469c55f259ef651626c1193b6f9619",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "1d8999422fe7cab0909b9e4e16dcac8aefca1880",
+  "registry_commit_sha": "d6cd8aa2f01af03fe0cd1aaecbdaa4746d809fe2",
   "latest_commit": {
-    "sha": "4fe47dd24a469c55f259ef651626c1193b6f9619",
-    "short_sha": "4fe47dd24a46",
-    "message": "Make Project Memory diagnostics tool return authoritative counts text\n\nMerge PR #309 into dev/v2-start",
+    "sha": "514d02be6093414187e7fca2e8f25c47d69b1683",
+    "short_sha": "514d02be6093",
+    "message": "Add Project Memory write activity counts diagnostics\n\nMerge PR #310 into dev/v2-start",
     "author": "korzh260609-beep",
-    "date": "2026-05-20T07:30:32Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/4fe47dd24a469c55f259ef651626c1193b6f9619",
-    "changed_files_count": 2,
+    "date": "2026-05-20T08:53:31Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/514d02be6093414187e7fca2e8f25c47d69b1683",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/ai/callAI.js",
+        "filename": "scripts/smokeProjectMemoryCountsCheck.js",
         "status": "modified",
-        "additions": 14,
-        "deletions": 1,
-        "changes": 15
+        "additions": 83,
+        "deletions": 20,
+        "changes": 103
       },
       {
-        "filename": "src/tools/githubTool.js",
+        "filename": "src/diagnostics/diagnosticsRunner.js",
         "status": "modified",
-        "additions": 49,
-        "deletions": 1,
-        "changes": 50
+        "additions": 14,
+        "deletions": 0,
+        "changes": 14
+      },
+      {
+        "filename": "src/diagnostics/projectMemoryCountsCheck.js",
+        "status": "modified",
+        "additions": 77,
+        "deletions": 21,
+        "changes": 98
       }
     ]
   }

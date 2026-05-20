@@ -1,36 +1,44 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-20T07:23:52.337Z",
+  "generated_at": "2026-05-20T07:23:55.111Z",
   "name": "diagnostics-latest",
-  "summary": "Diagnostics completed successfully: 0 checks.",
+  "summary": "Diagnostics completed successfully: 1 checks.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
   "events": [
     {
       "schema_version": 1,
-      "event_id": "diagnostics_1779261832336",
+      "event_id": "diagnostics_1779261835111",
       "event_type": "diagnostics.result",
-      "created_at": "2026-05-20T07:23:52.336Z",
+      "created_at": "2026-05-20T07:23:55.111Z",
       "source": {
         "system": "sg",
         "transport": "internal",
         "module": "diagnosticsObservationBridge"
       },
       "actor": {
-        "role": "monarch",
-        "user_ref": "usr_48cc07c069030fb3",
+        "role": "system",
+        "user_ref": "redacted",
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Diagnostics completed successfully: 0 checks.",
+      "summary": "Diagnostics completed successfully: 1 checks.",
       "payload": {
         "diagnostics_ok": true,
-        "checks_count": 0,
+        "checks_count": 1,
         "failed_count": 0,
-        "check_types": [],
-        "results": [],
+        "check_types": [
+          "observation_journal_health_latest"
+        ],
+        "results": [
+          {
+            "type": "observation_journal_health_latest",
+            "ok": true,
+            "summary": "Observation latest report is readable: 1 events, 0 invalid."
+          }
+        ],
         "report_type": "sg_diagnostics_report",
         "plan_mode": "read_only"
       },

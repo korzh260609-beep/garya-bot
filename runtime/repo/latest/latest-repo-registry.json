@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-18T16:28:00.182Z",
+  "generated_at": "2026-05-20T07:10:37.731Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "6429adafacfdfd15c5707739333ffc042e368318",
+  "head_sha": "119ae991941ec7a2fb24a39026d39f95c627e798",
   "truncated": false,
-  "items_count": 552,
+  "items_count": 555,
   "semantic_fields": [
     "module",
     "layer",
@@ -529,6 +529,24 @@
     },
     {
       "path": ".github/workflows/sg2-project-memory-conflict-stale-detector-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-project-memory-counts-check-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -4028,6 +4046,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryConflictStaleDetector.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryCountsCheck.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -8325,6 +8361,24 @@
     },
     {
       "path": "src/diagnostics/observationLatestReportCheck.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/projectMemoryCountsCheck.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

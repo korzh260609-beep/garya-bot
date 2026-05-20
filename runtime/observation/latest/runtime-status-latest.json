@@ -1,18 +1,18 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-20T07:21:20.073Z",
+  "generated_at": "2026-05-20T07:23:53.820Z",
   "name": "runtime-status-latest",
-  "summary": "Runtime status observed: AI not configured.",
+  "summary": "Runtime status observed: AI configured.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
   "events": [
     {
       "schema_version": 1,
-      "event_id": "runtime_status_1779261680073",
+      "event_id": "runtime_status_1779261833820",
       "event_type": "runtime.status",
-      "created_at": "2026-05-20T07:21:20.073Z",
+      "created_at": "2026-05-20T07:23:53.820Z",
       "source": {
         "system": "sg",
         "transport": "internal",
@@ -24,15 +24,15 @@
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Runtime status observed: AI not configured.",
+      "summary": "Runtime status observed: AI configured.",
       "payload": {
         "runtime": {
-          "nodeEnv": "development",
-          "telegramConfigured": false,
-          "monarchConfigured": false,
-          "aiConfigured": false,
+          "nodeEnv": "production",
+          "telegramConfigured": true,
+          "monarchConfigured": true,
+          "aiConfigured": true,
           "openaiModel": "gpt-4.1-mini",
-          "baseUrlConfigured": false
+          "baseUrlConfigured": true
         }
       },
       "tool": null,

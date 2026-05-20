@@ -27,13 +27,26 @@ export async function runGetRenderLogsTask({ limit = 100, target = "garya-bot", 
     message: `render logs: update latest ${data.logs_count || 0}`,
   });
 
+  const finalText = [
+    "Render logs collected.",
+    `- target: ${data.target}`,
+    `- logs_count: ${data.logs_count}`,
+    `- file: ${LATEST_RENDER_LOGS_PATH}`,
+    `- branch: ${write.branch || "unknown"}`,
+    `- commit: ${write.commit || "unknown"}`,
+    "- secrets: hidden",
+  ].join("\n");
+
   return {
     ok: true,
     type: "get_render_logs",
     path: LATEST_RENDER_LOGS_PATH,
+    branch: write.branch || null,
+    commit: write.commit || null,
     logs_count: data.logs_count,
     service: data.service,
     write,
+    finalText,
   };
 }
 

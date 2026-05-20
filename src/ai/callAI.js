@@ -11,9 +11,15 @@ import { runToolRound } from "./aiToolRunner.js";
 import { getDefaultMaxOutputTokens, getDefaultModel } from "./modelConfig.js";
 import { getOpenAIClient } from "./openaiClient.js";
 
+const AUTHORITATIVE_FINAL_TEXT_SOURCES = new Set([
+  "sg_diagnostics_check",
+  "render_collect_logs",
+  "render_collect_env",
+]);
+
 function getAuthoritativeToolFinalText(metadata = {}) {
   if (
-    metadata?.finalTextSource === "sg_diagnostics_check"
+    AUTHORITATIVE_FINAL_TEXT_SOURCES.has(metadata?.finalTextSource)
     && typeof metadata.finalText === "string"
     && metadata.finalText.trim()
   ) {

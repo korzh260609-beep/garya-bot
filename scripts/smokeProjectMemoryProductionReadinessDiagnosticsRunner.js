@@ -25,6 +25,7 @@ assert.equal(status.canClaimReadinessWithoutVerifiedEvidence, false);
 assert.deepEqual(status.checks, [
   "project_memory_runtime",
   "project_memory_live_db",
+  "project_memory_counts",
   "project_memory_production_readiness",
 ]);
 
@@ -79,9 +80,30 @@ const verifiedLiveDbCheck = {
   warnings: [],
 };
 
+const verifiedCountsCheck = {
+  ok: true,
+  type: "project_memory_counts_check",
+  summary: "Project Memory counts checked: total=3, sg_confirmed_active=1.",
+  sanitized: true,
+  readOnly: true,
+  details: {
+    databaseConfigured: true,
+    checked: true,
+    totalEntries: 3,
+    sgConfirmedActiveCount: 1,
+    sgPendingCandidateCount: 2,
+    groupedCounts: [
+      { projectKey: "sg", trust: "confirmed", status: "active", count: 1 },
+      { projectKey: "sg", trust: "candidate", status: "pending_confirmation", count: 2 },
+    ],
+  },
+  warnings: [],
+};
+
 const incomplete = await runProjectMemoryProductionReadinessDiagnostics({
   runtimeCheck: verifiedRuntimeCheck,
   liveDbCheck: verifiedLiveDbCheck,
+  countsCheck: verifiedCountsCheck,
   evidence: {
     rollbackPoint: "dd3e359fcc26cd5b477ed3b1468f9e4959a8cb4e",
     deployDone: true,
@@ -91,17 +113,20 @@ const incomplete = await runProjectMemoryProductionReadinessDiagnostics({
 
 assert.equal(incomplete.ready, false);
 assert.equal(incomplete.ok, false);
-assert.equal(incomplete.report.results.length, 3);
+assert.equal(incomplete.report.results.length, 4);
 assert.equal(incomplete.report.results[0].type, "project_memory_runtime");
 assert.equal(incomplete.report.results[1].type, "project_memory_live_db");
-assert.equal(incomplete.report.results[2].type, "project_memory_production_readiness");
-assert.equal(incomplete.report.results[2].ok, false);
+assert.equal(incomplete.report.results[2].type, "project_memory_counts");
+assert.equal(incomplete.report.results[3].type, "project_memory_production_readiness");
+assert.equal(incomplete.report.results[2].ok, true);
+assert.equal(incomplete.report.results[3].ok, false);
 assert.equal(incomplete.sanitized, true);
 assert.equal(incomplete.readOnly, true);
 
 const ready = await runProjectMemoryProductionReadinessDiagnostics({
   runtimeCheck: verifiedRuntimeCheck,
   liveDbCheck: verifiedLiveDbCheck,
+  countsCheck: verifiedCountsCheck,
   runtime: {
     candidateCreationTestedSafely: true,
     confirmationTestedSafely: true,
@@ -129,7 +154,9 @@ assert.equal(ready.ready, true);
 assert.equal(ready.ok, true);
 assert.equal(ready.report.ok, true);
 assert.equal(ready.report.results.every((item) => item.ok), true);
-assert.equal(ready.report.results[2].data.ready, true);
+assert.equal(ready.report.results.length, 4);
+assert.equal(ready.report.results[2].type, "project_memory_counts");
+assert.equal(ready.report.results[3].data.ready, true);
 assert.equal(JSON.stringify(ready).includes("postgres://"), false);
 assert.equal(JSON.stringify(ready).includes("DATABASE_URL="), false);
 

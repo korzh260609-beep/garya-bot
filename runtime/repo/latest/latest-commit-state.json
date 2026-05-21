@@ -1,74 +1,64 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-21T14:41:32.873Z",
+  "generated_at": "2026-05-21T16:06:41.882Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "fb833110b780ed1ce99f6130f9dbf447d9a14580",
-  "previous_head_sha": "aed76b2202870b18fe54ca0c808288cb9e852a29",
+  "current_head_sha": "614176e94cb85c298f27bbabcd00c7f68d34dd8b",
+  "previous_head_sha": "fb833110b780ed1ce99f6130f9dbf447d9a14580",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "777fdbb7e75486f4fdd8ad3a53624e74852c0897",
-  "project_memory_event_recorded": true,
+  "registry_commit_sha": "c72d5f2f9ba312fb4f850bfb139ec0550764ccf4",
+  "project_memory_event_recorded": false,
   "project_memory_event": {
-    "ok": true,
-    "type": "project_memory_latest_repo_commit_processor_event",
+    "ok": false,
+    "type": "project_memory_auto_repo_commit_event",
     "skipped": false,
     "sourceKind": "github_pr_merged",
-    "prNumber": 316,
-    "stored": true,
-    "confirmed": true,
-    "requiresConfirmation": false,
-    "traceId": "pmtrace_repo_commit_fb833110b780",
-    "reason": null,
-    "entryId": "pm_b50f1aac-a1f1-4df0-a4b3-de1577018504"
+    "prNumber": 317,
+    "stored": false,
+    "confirmed": false,
+    "requiresConfirmation": true,
+    "traceId": "pmtrace_repo_commit_614176e94cb8",
+    "reason": "database_not_configured"
   },
   "latest_commit": {
-    "sha": "fb833110b780ed1ce99f6130f9dbf447d9a14580",
-    "short_sha": "fb833110b780",
-    "message": "Merge pull request #316 from korzh260609-beep/fix/project-memory-confirm-latest-repo-commit-candidate\n\nAdd Project Memory latest repo commit confirmation runtime tool",
+    "sha": "614176e94cb85c298f27bbabcd00c7f68d34dd8b",
+    "short_sha": "614176e94cb8",
+    "message": "Merge pull request #317 from korzh260609-beep/sg/project-memory-auto-confirm-policy-skeleton\n\nAdd Project Memory auto-confirmation policy skeleton",
     "author": "korzh260609-beep",
-    "date": "2026-05-21T14:27:43Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/fb833110b780ed1ce99f6130f9dbf447d9a14580",
-    "changed_files_count": 3,
+    "date": "2026-05-21T16:06:14Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/614176e94cb85c298f27bbabcd00c7f68d34dd8b",
+    "changed_files_count": 4,
     "changed_files": [
       {
-        "filename": "src/tools/githubTool.js",
+        "filename": "package.json",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "scripts/smokeProjectMemoryAutoConfirmationPolicy.js",
+        "status": "added",
+        "additions": 114,
+        "deletions": 0,
+        "changes": 114
+      },
+      {
+        "filename": "src/memory/index.js",
         "status": "modified",
         "additions": 13,
         "deletions": 0,
         "changes": 13
       },
       {
-        "filename": "src/tools/githubToolDefinitions.js",
-        "status": "modified",
-        "additions": 20,
-        "deletions": 0,
-        "changes": 20
-      },
-      {
-        "filename": "src/tools/projectMemoryConfirmLatestRepoCommitCandidateTool.js",
+        "filename": "src/memory/project/projectMemoryAutoConfirmationPolicy.js",
         "status": "added",
-        "additions": 192,
+        "additions": 272,
         "deletions": 0,
-        "changes": 192
+        "changes": 272
       }
     ]
-  },
-  "project_memory_latest_repo_commit_processor": {
-    "ok": true,
-    "processed_at": "2026-05-21T14:41:01.699Z",
-    "processor_version": 1,
-    "event_recorded": true,
-    "traceId": "pmtrace_repo_commit_fb833110b780"
-  },
-  "project_memory_latest_repo_commit_confirmation": {
-    "ok": true,
-    "confirmed": true,
-    "confirmed_at": "2026-05-21T14:41:32.873Z",
-    "confirmation_version": 1,
-    "entryId": "pm_b50f1aac-a1f1-4df0-a4b3-de1577018504",
-    "traceId": "pmtrace_repo_commit_fb833110b780",
-    "reason": null
   }
 }

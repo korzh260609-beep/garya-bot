@@ -1,7 +1,7 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-21T14:41:01.699Z",
+  "generated_at": "2026-05-21T14:41:32.873Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
   "current_head_sha": "fb833110b780ed1ce99f6130f9dbf447d9a14580",
@@ -17,10 +17,11 @@
     "sourceKind": "github_pr_merged",
     "prNumber": 316,
     "stored": true,
-    "confirmed": false,
-    "requiresConfirmation": true,
+    "confirmed": true,
+    "requiresConfirmation": false,
     "traceId": "pmtrace_repo_commit_fb833110b780",
-    "reason": null
+    "reason": null,
+    "entryId": "pm_b50f1aac-a1f1-4df0-a4b3-de1577018504"
   },
   "latest_commit": {
     "sha": "fb833110b780ed1ce99f6130f9dbf447d9a14580",
@@ -60,5 +61,14 @@
     "processor_version": 1,
     "event_recorded": true,
     "traceId": "pmtrace_repo_commit_fb833110b780"
+  },
+  "project_memory_latest_repo_commit_confirmation": {
+    "ok": true,
+    "confirmed": true,
+    "confirmed_at": "2026-05-21T14:41:32.873Z",
+    "confirmation_version": 1,
+    "entryId": "pm_b50f1aac-a1f1-4df0-a4b3-de1577018504",
+    "traceId": "pmtrace_repo_commit_fb833110b780",
+    "reason": null
   }
 }

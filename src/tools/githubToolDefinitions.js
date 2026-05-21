@@ -206,6 +206,22 @@ export const githubToolDefinitions = [
   },
   {
     type: "function",
+    name: "project_memory_process_latest_repo_commit",
+    description: "Process the latest repo commit watcher state on SG Render/runtime and record an unprocessed merge PR commit into Project Memory through the trusted runtime event path. Use this when the Monarch asks to process/check the repo commit watcher after GitHub Actions could not write Project Memory because DATABASE_URL is not configured there. This tool reads runtime/repo/latest/latest-commit-state.json, writes Project Memory only through the trusted event tool, then updates the same bounded runtime state to prevent duplicate writes. It never reads raw chat, touches Telegram, calls AI, exposes secrets, or grants GitHub Actions database access.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        force: {
+          type: "boolean",
+          description: "Optional. If true, allow re-processing even when the runtime state says the Project Memory event was already recorded. Default false. Use only for explicit Monarch-approved repair operations.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
     name: "sg_diagnostics_check",
     description: "Build a safe SG diagnostics plan when the Monarch asks in normal language to check a problem, broken behavior, deploy/runtime issue, Render, GitHub Actions, repository state, registry, or recent project change. This tool is read-only and does not require slash commands or technical phrases. First skeleton returns a diagnostics plan/report shape; deep runtime orchestration is added later.",
     parameters: {

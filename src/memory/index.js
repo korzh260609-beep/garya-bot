@@ -149,6 +149,17 @@ export {
 } from "./project/projectMemoryTrustedEventSource.js";
 
 export {
+  PROJECT_MEMORY_AUTO_CONFIRMATION_POLICY_VERSION,
+  PROJECT_MEMORY_AUTO_CONFIRMATION_POLICY_MODES,
+  PROJECT_MEMORY_AUTO_CONFIRMATION_SOURCE_KINDS,
+  PROJECT_MEMORY_AUTO_CONFIRMATION_DECISIONS,
+  PROJECT_MEMORY_AUTO_CONFIRMATION_DENY_REASONS,
+  buildProjectMemoryAutoConfirmationPolicyStatus,
+  getProjectMemoryAutoConfirmationPolicyBoundaries,
+  evaluateProjectMemoryAutoConfirmation,
+} from "./project/projectMemoryAutoConfirmationPolicy.js";
+
+export {
   PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_ORCHESTRATOR_BRIDGE_VERSION,
   PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_ORCHESTRATOR_BRIDGE_MODES,
   PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_ORCHESTRATOR_BRIDGE_DECISIONS,
@@ -276,6 +287,7 @@ export function getMemoryModuleStatus() {
     hasProjectMemoryManualCandidateFlow: true,
     hasProjectMemoryAutomaticCandidatePipeline: true,
     hasProjectMemoryAutomaticTrustedEventSource: true,
+    hasProjectMemoryAutoConfirmationPolicy: true,
     hasProjectMemoryTrustedEventSourceOrchestratorBridge: true,
     hasProjectMemoryRuntimeTrustedEventTool: true,
     hasProjectMemoryRuntimeReadBridge: true,
@@ -303,6 +315,7 @@ export function getMemoryModuleStatus() {
       projectMemoryAutoWriteDisabled: true,
       projectMemoryAutomaticCandidatePrepareOnly: true,
       projectMemoryAutomaticTrustedEventSourceNormalizesOnly: true,
+      projectMemoryAutoConfirmationPolicyPureEvaluationOnly: true,
       projectMemoryTrustedEventSourceOrchestratorBridgePolicyGatedAutoConfirm: true,
       projectMemoryRuntimeTrustedEventToolPolicyGatedAutoConfirm: true,
       projectMemoryRenderDeployEvidenceTrustedAutoConfirmPath: true,

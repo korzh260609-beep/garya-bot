@@ -1,42 +1,56 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-20T10:10:07.123Z",
+  "generated_at": "2026-05-21T13:33:38.213Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "0a3bc8c73efa33d59e0f5c529fb439b81bf12a16",
-  "previous_head_sha": "71487977509ea3d6da0ce0cc89df627376554334",
+  "current_head_sha": "aed76b2202870b18fe54ca0c808288cb9e852a29",
+  "previous_head_sha": "0a3bc8c73efa33d59e0f5c529fb439b81bf12a16",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "13a93f30ffd19b220d6a11b64f5dde7a8d64a502",
+  "registry_commit_sha": "d5a9d23e7abe3d7146000541b48c2ac580c9a9a0",
   "project_memory_event_recorded": false,
   "project_memory_event": {
     "ok": false,
     "type": "project_memory_auto_repo_commit_event",
     "skipped": false,
     "sourceKind": "github_pr_merged",
-    "prNumber": 314,
+    "prNumber": 315,
     "stored": false,
     "confirmed": false,
     "requiresConfirmation": true,
-    "traceId": "pmtrace_repo_commit_0a3bc8c73efa",
+    "traceId": "pmtrace_repo_commit_aed76b220287",
     "reason": "database_not_configured"
   },
   "latest_commit": {
-    "sha": "0a3bc8c73efa33d59e0f5c529fb439b81bf12a16",
-    "short_sha": "0a3bc8c73efa",
-    "message": "Merge pull request #314 from korzh260609-beep/fix/repo-watcher-github-merge-format\n\nSupport GitHub merge pull request commit format",
+    "sha": "aed76b2202870b18fe54ca0c808288cb9e852a29",
+    "short_sha": "aed76b220287",
+    "message": "Merge pull request #315 from korzh260609-beep/fix/project-memory-latest-repo-commit-processor\n\nAdd Project Memory latest repo commit processor runtime tool",
     "author": "korzh260609-beep",
-    "date": "2026-05-20T10:09:41Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/0a3bc8c73efa33d59e0f5c529fb439b81bf12a16",
-    "changed_files_count": 1,
+    "date": "2026-05-21T13:33:12Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/aed76b2202870b18fe54ca0c808288cb9e852a29",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "src/agents/repo-commit-watcher-agent/repoCommitWatcherAgent.js",
+        "filename": "src/tools/githubTool.js",
         "status": "modified",
-        "additions": 19,
-        "deletions": 7,
-        "changes": 26
+        "additions": 13,
+        "deletions": 0,
+        "changes": 13
+      },
+      {
+        "filename": "src/tools/githubToolDefinitions.js",
+        "status": "modified",
+        "additions": 16,
+        "deletions": 0,
+        "changes": 16
+      },
+      {
+        "filename": "src/tools/projectMemoryLatestRepoCommitProcessorTool.js",
+        "status": "added",
+        "additions": 228,
+        "deletions": 0,
+        "changes": 228
       }
     ]
   }

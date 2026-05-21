@@ -4,12 +4,15 @@
 // This module does not call AI, touch Telegram, read raw chat, source-sync,
 // fetch providers, write runtime files, or modify repository state.
 
+import {
+  evaluateProjectMemoryAutoConfirmation,
+} from "./projectMemoryAutoConfirmationPolicy.js";
 import { ProjectMemoryConfirmation } from "./projectMemoryConfirmation.js";
 import {
   processProjectMemoryAutomaticEvent,
 } from "./projectMemoryAutomaticOrchestrator.js";
 
-export const PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_ORCHESTRATOR_BRIDGE_VERSION = 2;
+export const PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_ORCHESTRATOR_BRIDGE_VERSION = 3;
 
 export const PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_ORCHESTRATOR_BRIDGE_MODES = Object.freeze({
   POLICY_GATED_AUTO_CONFIRM: "policy_gated_auto_confirm",
@@ -21,11 +24,8 @@ export const PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_ORCHESTRATOR_BRIDGE_DECISIONS =
 });
 
 const AUTO_CONFIRM_POLICIES = Object.freeze({
-  TRUSTED_PROJECT_EVENT_ALLOWLIST: "trusted_project_event_allowlist",
-  AUTOMATIC_PROJECT_EVIDENCE_CHAIN: "automatic_project_evidence_chain",
+  PROJECT_MEMORY_AUTO_CONFIRMATION_POLICY: "project_memory_auto_confirmation_policy",
 });
-
-const AUTO_CONFIRM_ALLOWED_POLICIES = new Set(Object.values(AUTO_CONFIRM_POLICIES));
 
 function safeString(value) {
   if (typeof value === "string") return value;
@@ -71,7 +71,7 @@ function normalizeTrustedEvidence(evidence = {}, event = {}) {
     eventType: normalizeText(safeEvidence.eventType || safeEvidence.type || safeEvent.eventType || safeEvent.type),
     sourceRef: normalizeText(safeEvidence.sourceRef || safeEvidence.ref || safeEvidence.url || safeEvent.sourceRef),
     approvalRef: normalizeText(safeEvidence.approvalRef || safeEvidence.approval || safeEvidence.sourceRef || safeEvent.sourceRef),
-    policy: normalizeText(safeEvidence.policy || AUTO_CONFIRM_POLICIES.TRUSTED_PROJECT_EVENT_ALLOWLIST),
+    policy: normalizeText(safeEvidence.policy || AUTO_CONFIRM_POLICIES.PROJECT_MEMORY_AUTO_CONFIRMATION_POLICY),
     verified: safeEvidence.verified === true,
   };
 }
@@ -88,7 +88,43 @@ function getTrustedEvidence({ sourceResult = {}, suggestedRequest = {}, event = 
   );
 }
 
-function buildAutoConfirmDecision({ sourceResult = {}, suggestedRequest = {}, event = {} } = {}) {
+function buildAutoConfirmPolicyContext({ sourceResult = {}, suggestedRequest = {}, event = {} } = {}) {
+  const safeSourceResult = normalizePlainObject(sourceResult);
+  const safeSuggestedRequest = normalizePlainObject(suggestedRequest);
+  const safeEvent = normalizePlainObject(event);
+  const metadata = normalizePlainObject(safeEvent.metadata);
+  const evidence = normalizePlainObject(safeSuggestedRequest.evidence || safeSourceResult.evidence);
+
+  return {
+    repositoryFullName: normalizeText(
+      evidence.repositoryFullName ||
+      evidence.repoFullName ||
+      evidence.repository ||
+      metadata.repositoryFullName ||
+      metadata.repoFullName ||
+      metadata.repository,
+    ),
+    baseBranch: normalizeText(
+      evidence.baseBranch ||
+      evidence.baseRef ||
+      evidence.base ||
+      metadata.baseBranch ||
+      metadata.baseRef ||
+      metadata.base,
+    ),
+    headSha: normalizeText(
+      evidence.headSha ||
+      evidence.mergeCommitSha ||
+      evidence.sha ||
+      metadata.headSha ||
+      metadata.mergeCommitSha ||
+      metadata.sha,
+    ),
+    sourceRef: normalizeText(evidence.sourceRef || safeEvent.sourceRef),
+  };
+}
+
+function buildAutoConfirmDecision({ sourceResult = {}, suggestedRequest = {}, event = {}, actor = {} } = {}) {
   const safeSourceResult = normalizePlainObject(sourceResult);
   const safeSuggestedRequest = normalizePlainObject(suggestedRequest);
   const safeEvent = normalizePlainObject(event);
@@ -108,44 +144,36 @@ function buildAutoConfirmDecision({ sourceResult = {}, suggestedRequest = {}, ev
       autoConfirm: false,
       evidence,
       reason: "auto_confirm_not_requested_by_trusted_source",
+      autoConfirmationPolicyResult: null,
       warnings,
     };
   }
 
-  if (!evidence.verified) {
-    warnings.push(
-      createWarning("auto_confirm_blocked_unverified_evidence", "Trusted auto-confirm requires evidence.verified === true."),
-    );
-    return {
-      autoConfirm: false,
-      evidence,
-      reason: "trusted_evidence_not_verified",
-      warnings,
-    };
-  }
+  const policyResult = evaluateProjectMemoryAutoConfirmation({
+    sourceKind: safeSourceResult.sourceKind,
+    event: safeEvent,
+    evidence,
+    actor,
+    context: buildAutoConfirmPolicyContext({
+      sourceResult: safeSourceResult,
+      suggestedRequest: safeSuggestedRequest,
+      event: safeEvent,
+    }),
+  });
 
-  if (!evidence.eventType || !evidence.sourceRef) {
+  if (!policyResult.allowed) {
     warnings.push(
-      createWarning("auto_confirm_blocked_incomplete_evidence", "Trusted auto-confirm requires evidence eventType and sourceRef."),
-    );
-    return {
-      autoConfirm: false,
-      evidence,
-      reason: "trusted_evidence_incomplete",
-      warnings,
-    };
-  }
-
-  if (!AUTO_CONFIRM_ALLOWED_POLICIES.has(evidence.policy)) {
-    warnings.push(
-      createWarning("auto_confirm_blocked_policy_not_allowlisted", "Trusted auto-confirm policy is not allowlisted.", {
-        policy: evidence.policy,
+      createWarning("auto_confirm_blocked_by_project_memory_policy", "Project Memory auto-confirmation policy denied this trusted source request.", {
+        reason: policyResult.reason,
+        sourceKind: policyResult.sourceKind,
       }),
     );
+
     return {
       autoConfirm: false,
       evidence,
-      reason: "trusted_policy_not_allowlisted",
+      reason: policyResult.reason || "auto_confirmation_policy_denied",
+      autoConfirmationPolicyResult: policyResult,
       warnings,
     };
   }
@@ -153,7 +181,8 @@ function buildAutoConfirmDecision({ sourceResult = {}, suggestedRequest = {}, ev
   return {
     autoConfirm: true,
     evidence,
-    reason: "trusted_auto_confirm_policy_passed",
+    reason: policyResult.reason || "auto_confirmation_policy_passed",
+    autoConfirmationPolicyResult: policyResult,
     warnings,
   };
 }
@@ -165,9 +194,9 @@ export function getProjectMemoryTrustedEventSourceOrchestratorBridgeBoundaries()
     callsAutomaticOrchestrator: true,
     forcedAutoConfirmFalse: false,
     policyGatedAutoConfirm: true,
+    usesProjectMemoryAutoConfirmationPolicy: true,
     autoConfirmRequiresTrustedSourceRequest: true,
-    autoConfirmRequiresVerifiedEvidence: true,
-    autoConfirmRequiresAllowlistedPolicy: true,
+    autoConfirmRequiresPolicyAllow: true,
     createsDurablePendingCandidate: true,
     confirmsCandidatesWhenPolicyAllows: true,
     writesConfirmedMemoryThroughTrustedConfirmationOnly: true,
@@ -242,6 +271,7 @@ export async function processTrustedEventSourceOutputThroughOrchestrator({
     sourceResult,
     suggestedRequest,
     event,
+    actor: safeActor,
   });
 
   const request = {
@@ -275,6 +305,7 @@ export async function processTrustedEventSourceOutputThroughOrchestrator({
     requiresConfirmation: !orchestrator?.confirmed,
     autoConfirm: autoConfirmDecision.autoConfirm,
     autoConfirmReason: autoConfirmDecision.reason,
+    autoConfirmationPolicyResult: autoConfirmDecision.autoConfirmationPolicyResult,
     trustedEvidence: autoConfirmDecision.evidence,
     trustedEventSourceResult: sourceResult,
     orchestrator,

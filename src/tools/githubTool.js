@@ -11,6 +11,7 @@ import {
   PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS,
   runProjectMemoryRuntimeTrustedEventTool,
 } from "../memory/index.js";
+import { runProjectMemoryConfirmLatestRepoCommitCandidateTool } from "./projectMemoryConfirmLatestRepoCommitCandidateTool.js";
 import { runProjectMemoryLatestRepoCommitProcessorTool } from "./projectMemoryLatestRepoCommitProcessorTool.js";
 import {
   applyCurrentProjectDefaults,
@@ -318,6 +319,17 @@ export async function projectMemoryProcessLatestRepoCommit(input = {}, context =
   return runProjectMemoryLatestRepoCommitProcessorTool({ input, context });
 }
 
+export async function projectMemoryConfirmLatestRepoCommitCandidate(input = {}, context = {}) {
+  if (!context?.isMonarch) {
+    return {
+      ok: false,
+      error: "project_memory_confirm_latest_repo_commit_candidate_not_allowed",
+    };
+  }
+
+  return runProjectMemoryConfirmLatestRepoCommitCandidateTool({ input, context });
+}
+
 export async function sgDiagnosticsCheck(input = {}, context = {}) {
   return runDiagnosticsCheck(buildDiagnosticsToolInput(input, context), context);
 }
@@ -331,6 +343,7 @@ export async function runGithubTool(name, args = {}, context = {}) {
   if (name === "repo_check_latest_workflow_run") return repoCheckLatestWorkflowRun(args, context);
   if (name === "project_memory_record_trusted_event") return projectMemoryRecordTrustedEvent(args, context);
   if (name === "project_memory_process_latest_repo_commit") return projectMemoryProcessLatestRepoCommit(args, context);
+  if (name === "project_memory_confirm_latest_repo_commit_candidate") return projectMemoryConfirmLatestRepoCommitCandidate(args, context);
   if (name === "sg_diagnostics_check") return sgDiagnosticsCheck(args, context);
 
   return {

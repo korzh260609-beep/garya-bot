@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-21T14:28:10.546Z",
+  "generated_at": "2026-05-21T16:06:39.849Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "fb833110b780ed1ce99f6130f9dbf447d9a14580",
+  "head_sha": "614176e94cb85c298f27bbabcd00c7f68d34dd8b",
   "truncated": false,
-  "items_count": 557,
+  "items_count": 559,
   "semantic_fields": [
     "module",
     "layer",
@@ -3970,6 +3970,26 @@
         "runtime_impact": "unknown_or_low",
         "source_priority": "repository_fact",
         "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryAutoConfirmationPolicy.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": [
+          "deterministic_policy_no_runtime_connection_expected"
+        ]
       }
     },
     {
@@ -9160,6 +9180,27 @@
         "notes": [
           "folder_node",
           "part_of_memory_context_foundation"
+        ]
+      }
+    },
+    {
+      "path": "src/memory/project/projectMemoryAutoConfirmationPolicy.js",
+      "type": "file",
+      "parent": "src/memory/project",
+      "extension": "js",
+      "description": "Deterministic memory policy file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "project_memory",
+        "layer": "memory",
+        "responsibility": "Deterministic memory policy file.",
+        "owner": "memory",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "none_currently_skeleton_or_contract",
+        "source_priority": "source_code",
+        "notes": [
+          "part_of_memory_context_foundation",
+          "deterministic_policy_no_runtime_connection_expected"
         ]
       }
     },

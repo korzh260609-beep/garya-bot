@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-20T10:10:04.843Z",
+  "generated_at": "2026-05-21T13:33:36.318Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "0a3bc8c73efa33d59e0f5c529fb439b81bf12a16",
+  "head_sha": "aed76b2202870b18fe54ca0c808288cb9e852a29",
   "truncated": false,
-  "items_count": 555,
+  "items_count": 556,
   "semantic_fields": [
     "module",
     "layer",
@@ -10151,6 +10151,24 @@
     },
     {
       "path": "src/tools/githubToolDefinitions.js",
+      "type": "file",
+      "parent": "src/tools",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "tools",
+        "layer": "tools",
+        "responsibility": "JavaScript source file.",
+        "owner": "tools",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "runtime_possible",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/tools/projectMemoryLatestRepoCommitProcessorTool.js",
       "type": "file",
       "parent": "src/tools",
       "extension": "js",

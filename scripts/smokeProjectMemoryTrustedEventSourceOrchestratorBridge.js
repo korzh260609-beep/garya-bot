@@ -34,7 +34,6 @@ const fakeConfirmation = {
     assert.equal(input.title, "PR #264 merged — observation: remove unused webhook detour");
     assert.equal(input.sourceRef, "https://github.com/korzh260609-beep/garya-bot/pull/264");
     assert.equal(input.metadata.prNumber, 264);
-    assert.equal(input.metadata.confirmationAttempted, false);
     assert.equal(createdBy, "smoke-test");
     assert.equal(projectKey, "sg");
     assert.equal(traceId, "pmtrace_smoke_trusted_source_bridge");
@@ -99,12 +98,14 @@ assert.equal(pendingResult.confirmed, false);
 assert.equal(pendingResult.requiresConfirmation, true);
 assert.equal(pendingResult.autoConfirm, false);
 assert.equal(pendingResult.autoConfirmReason, "auto_confirm_not_requested_by_trusted_source");
+assert.equal(pendingResult.autoConfirmationPolicyResult, null);
 assert.equal(pendingResult.orchestrator.confirmed, false);
 assert.equal(pendingResult.orchestrator.requiresConfirmation, true);
 assert.equal(pendingResult.orchestrator.durable.stored, true);
 assert.equal(pendingResult.boundaries.forcedAutoConfirmFalse, false);
 assert.equal(pendingResult.boundaries.policyGatedAutoConfirm, true);
-assert.equal(pendingResult.boundaries.autoConfirmRequiresVerifiedEvidence, true);
+assert.equal(pendingResult.boundaries.usesProjectMemoryAutoConfirmationPolicy, true);
+assert.equal(pendingResult.boundaries.autoConfirmRequiresPolicyAllow, true);
 assert.equal(pendingResult.boundaries.callsAI, false);
 assert.equal(pendingResult.boundaries.touchesTelegram, false);
 assert.equal(pendingResult.boundaries.sourceSync, false);
@@ -119,7 +120,6 @@ const verifiedAutoConfirmSourceResult = {
       eventType: trustedEventSourceResult.event.eventType,
       sourceRef: trustedEventSourceResult.event.sourceRef,
       approvalRef: trustedEventSourceResult.event.sourceRef,
-      policy: "trusted_project_event_allowlist",
       verified: true,
     },
   },
@@ -143,30 +143,39 @@ assert.equal(confirmedResult.stored, true);
 assert.equal(confirmedResult.confirmed, true);
 assert.equal(confirmedResult.requiresConfirmation, false);
 assert.equal(confirmedResult.autoConfirm, true);
-assert.equal(confirmedResult.autoConfirmReason, "trusted_auto_confirm_policy_passed");
-assert.equal(confirmedResult.trustedEvidence.verified, true);
-assert.equal(confirmedResult.trustedEvidence.policy, "trusted_project_event_allowlist");
+assert.equal(confirmedResult.autoConfirmReason, "github_pr_merged_trusted_allowlist_passed");
+assert.equal(confirmedResult.autoConfirmationPolicyResult.allowed, true);
+assert.equal(confirmedResult.autoConfirmationPolicyResult.evidence.repositoryFullName, "korzh260609-beep/garya-bot");
+assert.equal(confirmedResult.autoConfirmationPolicyResult.evidence.baseBranch, "dev/v2-start");
+assert.equal(confirmedResult.autoConfirmationPolicyResult.evidence.headSha, "72dbd9932b9d8d74bfc3744438b4aea5fa6c93b1");
 assert.equal(confirmedResult.orchestrator.confirmed, true);
 assert.equal(confirmedResult.orchestrator.trusted.confirmed, true);
 assert.equal(confirmedResult.entry.trust, "confirmed");
 assert.equal(confirmedResult.entry.status, "active");
 
-const unverifiedAutoConfirmSourceResult = {
+const wrongBranchAutoConfirmSourceResult = {
   ...trustedEventSourceResult,
   suggestedOrchestratorRequest: {
     ...trustedEventSourceResult.suggestedOrchestratorRequest,
     autoConfirm: true,
+    event: {
+      ...trustedEventSourceResult.event,
+      metadata: {
+        ...trustedEventSourceResult.event.metadata,
+        baseBranch: "main",
+      },
+    },
     evidence: {
       eventType: trustedEventSourceResult.event.eventType,
       sourceRef: trustedEventSourceResult.event.sourceRef,
-      policy: "trusted_project_event_allowlist",
-      verified: false,
+      approvalRef: trustedEventSourceResult.event.sourceRef,
+      verified: true,
     },
   },
 };
 
 const blockedResult = await processTrustedEventSourceOutputThroughOrchestrator({
-  trustedEventSourceResult: unverifiedAutoConfirmSourceResult,
+  trustedEventSourceResult: wrongBranchAutoConfirmSourceResult,
   actor: {
     role: "system",
     isMonarch: false,
@@ -183,7 +192,8 @@ assert.equal(blockedResult.stored, true);
 assert.equal(blockedResult.confirmed, false);
 assert.equal(blockedResult.requiresConfirmation, true);
 assert.equal(blockedResult.autoConfirm, false);
-assert.equal(blockedResult.autoConfirmReason, "trusted_evidence_not_verified");
-assert.equal(blockedResult.warnings.some((warning) => warning.code === "auto_confirm_blocked_unverified_evidence"), true);
+assert.equal(blockedResult.autoConfirmReason, "wrong_branch");
+assert.equal(blockedResult.autoConfirmationPolicyResult.allowed, false);
+assert.equal(blockedResult.warnings.some((warning) => warning.code === "auto_confirm_blocked_by_project_memory_policy"), true);
 
 console.log("smokeProjectMemoryTrustedEventSourceOrchestratorBridge: ok");

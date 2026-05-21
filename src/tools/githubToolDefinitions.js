@@ -222,6 +222,26 @@ export const githubToolDefinitions = [
   },
   {
     type: "function",
+    name: "project_memory_confirm_latest_repo_commit_candidate",
+    description: "Confirm the pending Project Memory candidate created from the latest repo commit processor. Use this after the Monarch explicitly confirms saving the latest repo commit Project Memory candidate. This tool reads runtime/repo/latest/latest-commit-state.json, finds the pending candidate by traceId in the Project Memory DB, confirms it through the existing explicit confirmation boundary, and updates the bounded runtime state. It never reads raw chat, touches Telegram, calls AI, exposes secrets, or grants GitHub Actions database access.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        traceId: {
+          type: "string",
+          description: "Optional explicit traceId. Defaults to project_memory_event.traceId from runtime/repo/latest/latest-commit-state.json.",
+        },
+        approvalRef: {
+          type: "string",
+          description: "Optional external approval reference. Default monarch_latest_repo_commit_confirmation.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
     name: "sg_diagnostics_check",
     description: "Build a safe SG diagnostics plan when the Monarch asks in normal language to check a problem, broken behavior, deploy/runtime issue, Render, GitHub Actions, repository state, registry, or recent project change. This tool is read-only and does not require slash commands or technical phrases. First skeleton returns a diagnostics plan/report shape; deep runtime orchestration is added later.",
     parameters: {

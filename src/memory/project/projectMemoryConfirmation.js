@@ -229,7 +229,8 @@ export class ProjectMemoryConfirmation {
       entry: result.entry,
       traceId: result.traceId || traceId || null,
       stored: true,
-      requiresConfirmation: true,
+      requiresConfirmation: result.entry?.trust !== PROJECT_MEMORY_TRUST.CONFIRMED,
+      duplicateGuard: result.duplicateGuard || null,
       guard,
     };
   }

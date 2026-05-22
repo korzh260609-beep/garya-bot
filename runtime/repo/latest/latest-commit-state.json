@@ -1,14 +1,14 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-22T06:02:08.359Z",
+  "generated_at": "2026-05-22T06:40:09.099Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "ada126db7ce960c985df5a1181c290b14fc58e2b",
-  "previous_head_sha": "2eaab742f8e856d994a2f64a1ddf60f0dcf33bc0",
+  "current_head_sha": "3106de86b294da9256f46ce46c06e58358313a51",
+  "previous_head_sha": "ada126db7ce960c985df5a1181c290b14fc58e2b",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "f191610df51825fe7b7034ae10d7141510cfca12",
+  "registry_commit_sha": "527d61ff48feba4b72b45eb698e67b3b7323ec96",
   "project_memory_event_recorded": false,
   "project_memory_event": {
     "ok": true,
@@ -17,34 +17,48 @@
     "reason": "not_a_merge_pr_commit"
   },
   "latest_commit": {
-    "sha": "ada126db7ce960c985df5a1181c290b14fc58e2b",
-    "short_sha": "ada126db7ce9",
-    "message": "Merge PR #322: Wire Project Memory entry lookup PR number routing\n\nWire Project Memory entry lookup PR number routing\n\n- Parse PR number arguments for project_memory_entry_lookup diagnostics routing.\n- Add automatic smoke workflow for entry lookup routing.\n- Keep Project Memory context, auto-confirm, duplicate guard, DB writes, and Telegram architecture untouched.",
+    "sha": "3106de86b294da9256f46ce46c06e58358313a51",
+    "short_sha": "3106de86b294",
+    "message": "Merge PR #323: Wire Project Memory entry lookup message routing\n\nWire Project Memory entry lookup message routing\n\n- Add deterministic diagnostics command bridge for explicit project_memory_entry_lookup token.\n- Route plain text lookup command into structured diagnostics checks before AI fallback.\n- Keep Telegram-specific dependencies, DB writes, Project Memory context, auto-confirm policy, and duplicate guard untouched.",
     "author": "korzh260609-beep",
-    "date": "2026-05-22T06:01:45Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ada126db7ce960c985df5a1181c290b14fc58e2b",
-    "changed_files_count": 3,
+    "date": "2026-05-22T06:39:49Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/3106de86b294da9256f46ce46c06e58358313a51",
+    "changed_files_count": 5,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-project-memory-entry-lookup-routing-smoke.yml",
+        "filename": ".github/workflows/sg2-message-diagnostics-command-bridge-smoke.yml",
         "status": "added",
-        "additions": 34,
+        "additions": 39,
         "deletions": 0,
-        "changes": 34
+        "changes": 39
       },
       {
-        "filename": "scripts/smokeProjectMemoryEntryLookupRouting.js",
+        "filename": "scripts/smokeMessageDiagnosticsCommandBridge.js",
         "status": "added",
-        "additions": 43,
+        "additions": 71,
         "deletions": 0,
-        "changes": 43
+        "changes": 71
       },
       {
-        "filename": "src/diagnostics/diagnosticsRunner.js",
+        "filename": "src/core/handleMessage.js",
         "status": "modified",
-        "additions": 94,
-        "deletions": 3,
-        "changes": 97
+        "additions": 10,
+        "deletions": 2,
+        "changes": 12
+      },
+      {
+        "filename": "src/core/message/index.js",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0,
+        "changes": 1
+      },
+      {
+        "filename": "src/core/message/messageDiagnosticsCommandBridge.js",
+        "status": "added",
+        "additions": 65,
+        "deletions": 0,
+        "changes": 65
       }
     ]
   }

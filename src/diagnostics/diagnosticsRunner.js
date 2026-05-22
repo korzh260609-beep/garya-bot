@@ -204,7 +204,10 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
 
   const checks = Array.isArray(plan.checks) ? plan.checks : [];
   const diagnosticsArguments = extractProjectMemoryEntryLookupArguments({ text, checks });
-  const results = await runDiagnosticsChecks({
+  const runChecks = typeof context.runDiagnosticsChecksFn === "function"
+    ? context.runDiagnosticsChecksFn
+    : runDiagnosticsChecks;
+  const results = await runChecks({
     checks,
     text,
     repo,

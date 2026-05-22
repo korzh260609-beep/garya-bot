@@ -1,64 +1,78 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-22T02:50:50.965Z",
+  "generated_at": "2026-05-22T03:02:00.455Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "5f085bcdac133d90d6a553cc1b8a1cea3fde4619",
-  "previous_head_sha": "8f2c66d7a9e74dfdfb6caa508c0861bfd8c3f504",
+  "current_head_sha": "2eaab742f8e856d994a2f64a1ddf60f0dcf33bc0",
+  "previous_head_sha": "5f085bcdac133d90d6a553cc1b8a1cea3fde4619",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "3cc7af51ecaef6b00fa5d94a3e17d00447f1eee8",
-  "project_memory_event_recorded": true,
+  "registry_commit_sha": "b5b6e3dfe9992ca35c7af99ff22782dd7cda1840",
+  "project_memory_event_recorded": false,
   "project_memory_event": {
-    "ok": true,
-    "type": "project_memory_latest_repo_commit_processor_event",
+    "ok": false,
+    "type": "project_memory_auto_repo_commit_event",
     "skipped": false,
     "sourceKind": "github_pr_merged",
-    "prNumber": 320,
-    "stored": true,
-    "confirmed": true,
-    "requiresConfirmation": false,
-    "traceId": "pmtrace_repo_commit_5f085bcdac13",
-    "reason": null
+    "prNumber": 321,
+    "stored": false,
+    "confirmed": false,
+    "requiresConfirmation": true,
+    "traceId": "pmtrace_repo_commit_2eaab742f8e8",
+    "reason": "database_not_configured"
   },
   "latest_commit": {
-    "sha": "5f085bcdac133d90d6a553cc1b8a1cea3fde4619",
-    "short_sha": "5f085bcdac13",
-    "message": "Merge pull request #320 from korzh260609-beep/sg/project-memory-pr-lookup-diagnostic\n\nAdd Project Memory PR lookup diagnostic",
+    "sha": "2eaab742f8e856d994a2f64a1ddf60f0dcf33bc0",
+    "short_sha": "2eaab742f8e8",
+    "message": "Merge pull request #321 from korzh260609-beep/sg/project-memory-duplicate-trace-guard\n\nAdd Project Memory duplicate trace guard",
     "author": "korzh260609-beep",
-    "date": "2026-05-22T02:48:47Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/5f085bcdac133d90d6a553cc1b8a1cea3fde4619",
-    "changed_files_count": 3,
+    "date": "2026-05-22T03:01:35Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/2eaab742f8e856d994a2f64a1ddf60f0dcf33bc0",
+    "changed_files_count": 6,
     "changed_files": [
       {
-        "filename": "scripts/smokeProjectMemoryEntryLookupCheck.js",
-        "status": "added",
-        "additions": 97,
-        "deletions": 0,
-        "changes": 97
-      },
-      {
-        "filename": "src/agents/diagnostics-check-agent/diagnosticsCheckRegistry.js",
+        "filename": "scripts/smokeProjectMemoryAutomaticOrchestrator.js",
         "status": "modified",
-        "additions": 11,
-        "deletions": 0,
-        "changes": 11
+        "additions": 96,
+        "deletions": 15,
+        "changes": 111
       },
       {
-        "filename": "src/diagnostics/projectMemoryEntryLookupCheck.js",
-        "status": "added",
-        "additions": 136,
+        "filename": "scripts/smokeProjectMemoryStorageConfirmation.js",
+        "status": "modified",
+        "additions": 62,
         "deletions": 0,
-        "changes": 136
+        "changes": 62
+      },
+      {
+        "filename": "src/memory/project/projectMemoryAutomaticDurableCandidateFlow.js",
+        "status": "modified",
+        "additions": 15,
+        "deletions": 3,
+        "changes": 18
+      },
+      {
+        "filename": "src/memory/project/projectMemoryAutomaticOrchestrator.js",
+        "status": "modified",
+        "additions": 26,
+        "deletions": 0,
+        "changes": 26
+      },
+      {
+        "filename": "src/memory/project/projectMemoryConfirmation.js",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 1,
+        "changes": 3
+      },
+      {
+        "filename": "src/memory/project/projectMemoryStore.js",
+        "status": "modified",
+        "additions": 73,
+        "deletions": 3,
+        "changes": 76
       }
     ]
-  },
-  "project_memory_latest_repo_commit_processor": {
-    "ok": true,
-    "processed_at": "2026-05-22T02:50:50.965Z",
-    "processor_version": 1,
-    "event_recorded": true,
-    "traceId": "pmtrace_repo_commit_5f085bcdac13"
   }
 }

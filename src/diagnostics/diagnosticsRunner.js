@@ -1,3 +1,8 @@
+// AGENT NOTE:
+// SG 2.0 Diagnostics Layer runner.
+// Purpose: provide a bounded public diagnostics entry point without coupling diagnostics to Telegram or core message handling.
+// Diagnostics may collect generated runtime reports, but must not mutate code, env, Render settings, GitHub settings, or transport logic.
+
 import {
   OBSERVATION_TRIGGER_NAMES,
   runObservationTrigger,
@@ -101,6 +106,24 @@ function formatProjectMemoryCountsDetails(item = {}) {
   return lines;
 }
 
+function formatProjectMemoryEntryLookupDetails(item = {}) {
+  const details = item?.data?.details || {};
+  const entries = Array.isArray(details.entries) ? details.entries : [];
+  const firstEntry = entries[0] || {};
+
+  return [
+    "",
+    "Project Memory entry lookup:",
+    `- found: ${details.found ?? false}`,
+    `- confirmedActiveFound: ${details.confirmedActiveFound ?? false}`,
+    `- trust: ${firstEntry.trust || "unknown"}`,
+    `- status: ${firstEntry.status || "unknown"}`,
+    `- sourceRef: ${firstEntry.sourceRef || "unknown"}`,
+    `- traceId: ${firstEntry.traceId || "unknown"}`,
+    `- confirmedAt: ${firstEntry.confirmedAt || "unknown"}`,
+  ];
+}
+
 function getStructuredIntent(input = {}, context = {}) {
   const inputIntent = input.intent && typeof input.intent === "object" && !Array.isArray(input.intent)
     ? input.intent
@@ -147,7 +170,7 @@ async function safePublishRuntimeStatusObservation() {
 
   return {
     ok: Boolean(result?.ok),
-    type: "runtime_status_observation_publish_result",
+    type: "runtime_status_observation_result",
     observation: result?.observation || result,
   };
 }
@@ -158,6 +181,9 @@ function buildFinalDiagnosticsText({ report }) {
   const projectMemoryCountsBlocks = results
     .filter((item) => item.type === "project_memory_counts")
     .flatMap((item) => formatProjectMemoryCountsDetails(item));
+  const projectMemoryEntryLookupBlocks = results
+    .filter((item) => item.type === PROJECT_MEMORY_ENTRY_LOOKUP_CHECK)
+    .flatMap((item) => formatProjectMemoryEntryLookupDetails(item));
 
   const lines = [
     "Диагностика SG выполнена.",
@@ -165,6 +191,7 @@ function buildFinalDiagnosticsText({ report }) {
     "Проверено:",
     ...results.map((item) => `- ${item.type}: ${item.ok ? "OK" : "FAIL"} — ${item.summary}`),
     ...projectMemoryCountsBlocks,
+    ...projectMemoryEntryLookupBlocks,
     "",
     failed.length > 0
       ? `Проблемные проверки: ${failed.map((item) => item.type).join(", ")}.`

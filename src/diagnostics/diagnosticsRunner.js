@@ -170,7 +170,7 @@ async function safePublishRuntimeStatusObservation() {
 
   return {
     ok: Boolean(result?.ok),
-    type: "runtime_status_observation_result",
+    type: "runtime_status_observation_publish_result",
     observation: result?.observation || result,
   };
 }

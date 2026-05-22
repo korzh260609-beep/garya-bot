@@ -115,22 +115,76 @@ function formatProjectMemoryCountsDetails(item = {}) {
   return lines;
 }
 
+function formatListPreview(value = [], max = 6) {
+  if (!Array.isArray(value) || value.length === 0) return "none";
+  const items = value.map((item) => normalizeString(item)).filter(Boolean);
+  if (items.length === 0) return "none";
+  const visible = items.slice(0, max).join(", ");
+  return items.length > max ? `${visible}, ...` : visible;
+}
+
+function formatPatternKeys(patterns = []) {
+  if (!Array.isArray(patterns) || patterns.length === 0) return "none";
+  return patterns
+    .map((pattern) => normalizeString(pattern?.key || pattern?.field))
+    .filter(Boolean)
+    .join(", ") || "none";
+}
+
+function formatJsonShape(value = null) {
+  if (!value || typeof value !== "object") return "none";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "unserializable";
+  }
+}
+
+function formatLookupMatchPreview(label, entry = null) {
+  if (!entry || typeof entry !== "object") {
+    return [`- ${label}: none`];
+  }
+
+  return [
+    `- ${label}:`,
+    `  - projectKey: ${entry.projectKey || "unknown"}`,
+    `  - trust: ${entry.trust || "unknown"}`,
+    `  - status: ${entry.status || "unknown"}`,
+    `  - sourceType: ${entry.sourceType || "unknown"}`,
+    `  - sourceRef: ${entry.sourceRef || "unknown"}`,
+    `  - traceId: ${entry.traceId || "unknown"}`,
+    `  - confirmedAt: ${entry.confirmedAt || "unknown"}`,
+    `  - metadataKeys: ${formatListPreview(entry.metadataKeys)}`,
+    `  - metadataShape: ${formatJsonShape(entry.metadataShape)}`,
+  ];
+}
+
 function formatProjectMemoryEntryLookupDetails(item = {}) {
   const details = item?.data?.details || {};
   const entries = Array.isArray(details.entries) ? details.entries : [];
-  const firstEntry = entries[0] || {};
+  const exactMatches = Array.isArray(details.exactMatches) ? details.exactMatches : entries;
+  const nearMatches = Array.isArray(details.nearMatches) ? details.nearMatches : [];
+  const firstEntry = exactMatches[0] || entries[0] || {};
+  const firstNearMatch = nearMatches[0] || null;
+  const queryPatterns = details.queryPatternsApplied || {};
 
-  return [
+  const lines = [
     "",
     "Project Memory entry lookup:",
+    `- requestedPrNumber: ${details.requestedPrNumber ?? details.prNumber ?? "unknown"}`,
+    `- databaseConfigured: ${details.databaseConfigured ?? "unknown"}`,
+    `- checked: ${details.checked ?? "unknown"}`,
     `- found: ${details.found ?? false}`,
     `- confirmedActiveFound: ${details.confirmedActiveFound ?? false}`,
-    `- trust: ${firstEntry.trust || "unknown"}`,
-    `- status: ${firstEntry.status || "unknown"}`,
-    `- sourceRef: ${firstEntry.sourceRef || "unknown"}`,
-    `- traceId: ${firstEntry.traceId || "unknown"}`,
-    `- confirmedAt: ${firstEntry.confirmedAt || "unknown"}`,
+    `- exactMatches: ${exactMatches.length}`,
+    `- nearMatches: ${nearMatches.length}`,
+    `- exactPatterns: ${formatPatternKeys(queryPatterns.exactPatternsApplied)}`,
+    `- nearPatterns: ${formatPatternKeys(queryPatterns.nearPatternsApplied)}`,
+    ...formatLookupMatchPreview("firstExactMatch", firstEntry?.id ? firstEntry : null),
+    ...formatLookupMatchPreview("firstNearMatch", firstNearMatch),
   ];
+
+  return lines;
 }
 
 function getStructuredIntent(input = {}, context = {}) {

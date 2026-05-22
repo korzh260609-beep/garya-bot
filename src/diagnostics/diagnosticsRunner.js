@@ -39,21 +39,30 @@ function readNumberAfterMarker(text, marker) {
   if (!safeText || !safeMarker) return null;
 
   const lower = safeText.toLowerCase();
-  const markerIndex = lower.indexOf(safeMarker);
-  if (markerIndex < 0) return null;
+  let searchFrom = 0;
 
-  let cursor = markerIndex + safeMarker.length;
-  while (cursor < safeText.length && " #:=/-".includes(safeText[cursor])) {
-    cursor += 1;
+  while (searchFrom < lower.length) {
+    const markerIndex = lower.indexOf(safeMarker, searchFrom);
+    if (markerIndex < 0) return null;
+
+    let cursor = markerIndex + safeMarker.length;
+    while (cursor < safeText.length && " #:=/-".includes(safeText[cursor])) {
+      cursor += 1;
+    }
+
+    let digits = "";
+    while (cursor < safeText.length && safeText[cursor] >= "0" && safeText[cursor] <= "9") {
+      digits += safeText[cursor];
+      cursor += 1;
+    }
+
+    const parsed = normalizePositiveInteger(digits);
+    if (parsed) return parsed;
+
+    searchFrom = markerIndex + safeMarker.length;
   }
 
-  let digits = "";
-  while (cursor < safeText.length && safeText[cursor] >= "0" && safeText[cursor] <= "9") {
-    digits += safeText[cursor];
-    cursor += 1;
-  }
-
-  return normalizePositiveInteger(digits);
+  return null;
 }
 
 function extractProjectMemoryEntryLookupArguments({ text, checks }) {

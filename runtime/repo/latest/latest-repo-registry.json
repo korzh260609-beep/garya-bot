@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-22T02:32:36.631Z",
+  "generated_at": "2026-05-22T02:49:02.734Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "8f2c66d7a9e74dfdfb6caa508c0861bfd8c3f504",
+  "head_sha": "5f085bcdac133d90d6a553cc1b8a1cea3fde4619",
   "truncated": false,
-  "items_count": 559,
+  "items_count": 561,
   "semantic_fields": [
     "module",
     "layer",
@@ -4102,6 +4102,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryDiagnostics.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryEntryLookupCheck.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -8399,6 +8417,24 @@
     },
     {
       "path": "src/diagnostics/projectMemoryCountsCheck.js",
+      "type": "file",
+      "parent": "src/diagnostics",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/diagnostics/projectMemoryEntryLookupCheck.js",
       "type": "file",
       "parent": "src/diagnostics",
       "extension": "js",

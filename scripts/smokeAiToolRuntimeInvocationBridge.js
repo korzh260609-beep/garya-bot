@@ -85,6 +85,25 @@ const fakeConfirmation = {
       traceId,
     };
   },
+
+  async confirmCandidate({ entryId, confirmedBy, traceId, approvalRef }) {
+    assert.equal(entryId, "pm_smoke_ai_tool_runtime_invocation_bridge");
+    assert.equal(confirmedBy, "system");
+    assert.equal(traceId, "pmtrace_smoke_ai_tool_runtime_invocation_bridge");
+    assert.equal(approvalRef, "https://github.com/korzh260609-beep/garya-bot/pull/267");
+
+    return {
+      ok: true,
+      entry: {
+        id: entryId,
+        trust: "confirmed",
+        status: "active",
+      },
+      trust: "confirmed",
+      traceId,
+      approvalRef,
+    };
+  },
 };
 
 const result = await invokeAiToolFromRuntime({
@@ -122,13 +141,16 @@ assert.equal(result.toolResult.result.ok, true);
 assert.equal(result.toolResult.result.trustedEventCreated, true);
 assert.equal(result.toolResult.result.candidatePrepared, true);
 assert.equal(result.toolResult.result.stored, true);
-assert.equal(result.toolResult.result.confirmed, false);
-assert.equal(result.toolResult.result.requiresConfirmation, true);
-assert.equal(result.toolResult.result.bridge.confirmed, false);
-assert.equal(result.toolResult.result.bridge.requiresConfirmation, true);
-assert.equal(result.toolResult.result.bridge.orchestrator.confirmed, false);
-assert.equal(result.toolResult.result.bridge.orchestrator.requiresConfirmation, true);
-assert.equal(result.toolResult.result.bridge.orchestrator.durable.stored, true);
+assert.equal(result.toolResult.result.confirmed, true);
+assert.equal(result.toolResult.result.requiresConfirmation, false);
+assert.equal(result.toolResult.result.bridge.autoConfirm, true);
+assert.equal(result.toolResult.result.bridge.autoConfirmReason, "github_pr_merged_trusted_allowlist_passed");
+assert.equal(result.toolResult.result.bridge.confirmed, true);
+assert.equal(result.toolResult.result.bridge.requiresConfirmation, false);
+assert.equal(result.toolResult.result.bridge.orchestrator.confirmed, true);
+assert.equal(result.toolResult.result.bridge.orchestrator.trusted.confirmed, true);
+assert.equal(result.toolResult.result.entry.trust, "confirmed");
+assert.equal(result.toolResult.result.entry.status, "active");
 assert.equal(result.boundaries.callsAI, false);
 assert.equal(result.boundaries.usesProviderFunctionCalling, false);
 assert.equal(result.boundaries.touchesTelegram, false);

@@ -7,7 +7,7 @@ import {
   PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES,
 } from "./projectMemoryAutomaticCandidatePipeline.js";
 
-export const PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_VERSION = 2;
+export const PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_VERSION = 3;
 
 export const PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_MODES = Object.freeze({
   NORMALIZE_TRUSTED_EVENTS_ONLY: "normalize_trusted_events_only",
@@ -102,6 +102,8 @@ export function buildProjectMemoryTrustedEventSourceStatus() {
     canCreatePrMergedTrustedEvent: true,
     canCreateRenderDeployLogsTrustedEvent: true,
     canCallAutomaticOrchestrator: false,
+    prMergedTrustedEventRequestsAutoConfirm: true,
+    renderDeployLogsTrustedEventRequestsAutoConfirm: true,
     supportedSourceKinds: Object.values(PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_KINDS),
     supportedEventTypes: [
       PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.PR_MERGED,
@@ -225,7 +227,13 @@ export function createTrustedProjectEventForPrMerged({
     requiresAutomaticOrchestrator: true,
     suggestedOrchestratorRequest: {
       explicitAutomaticMemoryRequest: true,
-      autoConfirm: false,
+      autoConfirm: true,
+      evidence: {
+        eventType: PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.PR_MERGED,
+        sourceRef,
+        approvalRef: sourceRef,
+        verified: true,
+      },
       event,
     },
     warnings,

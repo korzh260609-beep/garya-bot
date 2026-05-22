@@ -101,6 +101,25 @@ const fakeConfirmation = {
       traceId,
     };
   },
+
+  async confirmCandidate({ entryId, confirmedBy, traceId, approvalRef }) {
+    assert.equal(entryId, "pm_smoke_ai_tool_runtime_command_adapter");
+    assert.equal(confirmedBy, "system");
+    assert.equal(traceId, "pmtrace_smoke_ai_tool_runtime_command_adapter");
+    assert.equal(approvalRef, "https://github.com/korzh260609-beep/garya-bot/pull/269");
+
+    return {
+      ok: true,
+      entry: {
+        id: entryId,
+        trust: "confirmed",
+        status: "active",
+      },
+      trust: "confirmed",
+      traceId,
+      approvalRef,
+    };
+  },
 };
 
 const result = await handleAiToolRuntimeCommand({
@@ -141,8 +160,14 @@ assert.equal(result.runtimeInvocation.toolResult.result.ok, true);
 assert.equal(result.runtimeInvocation.toolResult.result.trustedEventCreated, true);
 assert.equal(result.runtimeInvocation.toolResult.result.candidatePrepared, true);
 assert.equal(result.runtimeInvocation.toolResult.result.stored, true);
-assert.equal(result.runtimeInvocation.toolResult.result.confirmed, false);
-assert.equal(result.runtimeInvocation.toolResult.result.requiresConfirmation, true);
+assert.equal(result.runtimeInvocation.toolResult.result.confirmed, true);
+assert.equal(result.runtimeInvocation.toolResult.result.requiresConfirmation, false);
+assert.equal(result.runtimeInvocation.toolResult.result.bridge.autoConfirm, true);
+assert.equal(result.runtimeInvocation.toolResult.result.bridge.autoConfirmReason, "github_pr_merged_trusted_allowlist_passed");
+assert.equal(result.runtimeInvocation.toolResult.result.bridge.confirmed, true);
+assert.equal(result.runtimeInvocation.toolResult.result.bridge.requiresConfirmation, false);
+assert.equal(result.runtimeInvocation.toolResult.result.entry.trust, "confirmed");
+assert.equal(result.runtimeInvocation.toolResult.result.entry.status, "active");
 assert.equal(result.boundaries.parsesRawChat, false);
 assert.equal(result.boundaries.touchesTelegram, false);
 assert.equal(result.boundaries.callsAI, false);

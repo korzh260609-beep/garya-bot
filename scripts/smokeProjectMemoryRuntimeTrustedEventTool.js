@@ -110,10 +110,15 @@ const fakeConfirmation = {
   },
 
   async confirmCandidate({ entryId, confirmedBy, traceId, approvalRef }) {
-    assert.equal(entryId, "pm_smoke_runtime_trusted_event_tool_render");
     assert.equal(confirmedBy, "system");
     assert.equal(traceId, "pmtrace_smoke_runtime_trusted_event_tool");
-    assert.equal(approvalRef, "render://deploy/dep_clean");
+
+    if (entryId === "pm_smoke_runtime_trusted_event_tool_pr") {
+      assert.equal(approvalRef, "https://github.com/korzh260609-beep/garya-bot/pull/265");
+    } else {
+      assert.equal(entryId, "pm_smoke_runtime_trusted_event_tool_render");
+      assert.equal(approvalRef, "render://deploy/dep_clean");
+    }
 
     return {
       ok: true,
@@ -157,15 +162,18 @@ assert.equal(prResult.dispatched, true);
 assert.equal(prResult.trustedEventCreated, true);
 assert.equal(prResult.candidatePrepared, true);
 assert.equal(prResult.stored, true);
-assert.equal(prResult.confirmed, false);
-assert.equal(prResult.requiresConfirmation, true);
+assert.equal(prResult.confirmed, true);
+assert.equal(prResult.requiresConfirmation, false);
 assert.equal(prResult.trustedEventSourceResult.ok, true);
-assert.equal(prResult.trustedEventSourceResult.suggestedOrchestratorRequest.autoConfirm, false);
-assert.equal(prResult.bridge.confirmed, false);
-assert.equal(prResult.bridge.requiresConfirmation, true);
-assert.equal(prResult.bridge.orchestrator.confirmed, false);
-assert.equal(prResult.bridge.orchestrator.requiresConfirmation, true);
-assert.equal(prResult.bridge.orchestrator.durable.stored, true);
+assert.equal(prResult.trustedEventSourceResult.suggestedOrchestratorRequest.autoConfirm, true);
+assert.equal(prResult.bridge.autoConfirm, true);
+assert.equal(prResult.bridge.autoConfirmReason, "github_pr_merged_trusted_allowlist_passed");
+assert.equal(prResult.bridge.confirmed, true);
+assert.equal(prResult.bridge.requiresConfirmation, false);
+assert.equal(prResult.bridge.orchestrator.confirmed, true);
+assert.equal(prResult.bridge.orchestrator.trusted.confirmed, true);
+assert.equal(prResult.entry.trust, "confirmed");
+assert.equal(prResult.entry.status, "active");
 
 const renderRejected = await runProjectMemoryRuntimeTrustedEventTool({
   request: {

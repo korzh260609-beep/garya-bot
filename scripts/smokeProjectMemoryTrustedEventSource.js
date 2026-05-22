@@ -22,6 +22,8 @@ assert.equal(status.mode, PROJECT_MEMORY_TRUSTED_EVENT_SOURCE_MODES.NORMALIZE_TR
 assert.equal(status.canCreatePrMergedTrustedEvent, true);
 assert.equal(status.canCreateRenderDeployLogsTrustedEvent, true);
 assert.equal(status.canCallAutomaticOrchestrator, false);
+assert.equal(status.prMergedTrustedEventRequestsAutoConfirm, true);
+assert.equal(status.renderDeployLogsTrustedEventRequestsAutoConfirm, true);
 assert.deepEqual(status.supportedEventTypes, [
   PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.PR_MERGED,
   PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.DEPLOY_OK,
@@ -97,7 +99,11 @@ assert.equal(prMerged.event.metadata.repositoryFullName, "korzh260609-beep/garya
 assert.equal(prMerged.event.metadata.prNumber, 257);
 assert.equal(prMerged.event.metadata.baseBranch, "dev/v2-start");
 assert.equal(prMerged.suggestedOrchestratorRequest.explicitAutomaticMemoryRequest, true);
-assert.equal(prMerged.suggestedOrchestratorRequest.autoConfirm, false);
+assert.equal(prMerged.suggestedOrchestratorRequest.autoConfirm, true);
+assert.equal(prMerged.suggestedOrchestratorRequest.evidence.eventType, PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.PR_MERGED);
+assert.equal(prMerged.suggestedOrchestratorRequest.evidence.sourceRef, "https://github.com/korzh260609-beep/garya-bot/pull/257");
+assert.equal(prMerged.suggestedOrchestratorRequest.evidence.approvalRef, "https://github.com/korzh260609-beep/garya-bot/pull/257");
+assert.equal(prMerged.suggestedOrchestratorRequest.evidence.verified, true);
 assert.deepEqual(prMerged.errors, []);
 assert.deepEqual(prMerged.warnings, []);
 
@@ -188,6 +194,7 @@ const wrongBase = createTrustedProjectEventForPrMerged({
   },
 });
 assert.equal(wrongBase.ok, true);
+assert.equal(wrongBase.suggestedOrchestratorRequest.autoConfirm, true);
 assert.equal(wrongBase.warnings.length, 1);
 assert.equal(wrongBase.warnings[0].code, "unexpected_base_branch");
 

@@ -20,6 +20,7 @@ async function runCase(text, expectedPrNumber) {
       action: "inspect",
       capability: "project_memory_entry_lookup",
     },
+    skipDiagnosticsObservation: true,
     runDiagnosticsChecksFn: async (input) => {
       capturedInput = input;
       return [];
@@ -27,6 +28,8 @@ async function runCase(text, expectedPrNumber) {
   });
 
   assert.equal(result.type, "sg_diagnostics_check");
+  assert.equal(result.observation.skipped, true);
+  assert.equal(result.runtimeObservation.skipped, true);
   assert.equal(capturedInput.prNumber, expectedPrNumber);
   assert.deepEqual(capturedInput.checks, ["project_memory_entry_lookup"]);
 }

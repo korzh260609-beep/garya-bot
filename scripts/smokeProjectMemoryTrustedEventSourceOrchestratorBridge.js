@@ -26,7 +26,8 @@ const trustedEventSourceResult = createTrustedProjectEventForPrMerged({
 
 assert.equal(trustedEventSourceResult.ok, true);
 assert.equal(trustedEventSourceResult.trustedEventCreated, true);
-assert.equal(trustedEventSourceResult.suggestedOrchestratorRequest.autoConfirm, false);
+assert.equal(trustedEventSourceResult.suggestedOrchestratorRequest.autoConfirm, true);
+assert.equal(trustedEventSourceResult.suggestedOrchestratorRequest.evidence.verified, true);
 
 const fakeConfirmation = {
   async prepareCandidateForConfirmation({ input, createdBy, projectKey, traceId, actor }) {
@@ -79,54 +80,8 @@ const fakeConfirmation = {
   },
 };
 
-const pendingResult = await processTrustedEventSourceOutputThroughOrchestrator({
-  trustedEventSourceResult,
-  actor: {
-    role: "system",
-    isMonarch: false,
-  },
-  confirmation: fakeConfirmation,
-  createdBy: "smoke-test",
-  traceId: "pmtrace_smoke_trusted_source_bridge",
-});
-
-assert.equal(pendingResult.ok, true);
-assert.equal(pendingResult.dispatched, true);
-assert.equal(pendingResult.candidatePrepared, true);
-assert.equal(pendingResult.stored, true);
-assert.equal(pendingResult.confirmed, false);
-assert.equal(pendingResult.requiresConfirmation, true);
-assert.equal(pendingResult.autoConfirm, false);
-assert.equal(pendingResult.autoConfirmReason, "auto_confirm_not_requested_by_trusted_source");
-assert.equal(pendingResult.autoConfirmationPolicyResult, null);
-assert.equal(pendingResult.orchestrator.confirmed, false);
-assert.equal(pendingResult.orchestrator.requiresConfirmation, true);
-assert.equal(pendingResult.orchestrator.durable.stored, true);
-assert.equal(pendingResult.boundaries.forcedAutoConfirmFalse, false);
-assert.equal(pendingResult.boundaries.policyGatedAutoConfirm, true);
-assert.equal(pendingResult.boundaries.usesProjectMemoryAutoConfirmationPolicy, true);
-assert.equal(pendingResult.boundaries.autoConfirmRequiresPolicyAllow, true);
-assert.equal(pendingResult.boundaries.callsAI, false);
-assert.equal(pendingResult.boundaries.touchesTelegram, false);
-assert.equal(pendingResult.boundaries.sourceSync, false);
-assert.equal(pendingResult.boundaries.writesRuntimeFiles, false);
-
-const verifiedAutoConfirmSourceResult = {
-  ...trustedEventSourceResult,
-  suggestedOrchestratorRequest: {
-    ...trustedEventSourceResult.suggestedOrchestratorRequest,
-    autoConfirm: true,
-    evidence: {
-      eventType: trustedEventSourceResult.event.eventType,
-      sourceRef: trustedEventSourceResult.event.sourceRef,
-      approvalRef: trustedEventSourceResult.event.sourceRef,
-      verified: true,
-    },
-  },
-};
-
 const confirmedResult = await processTrustedEventSourceOutputThroughOrchestrator({
-  trustedEventSourceResult: verifiedAutoConfirmSourceResult,
+  trustedEventSourceResult,
   actor: {
     role: "system",
     isMonarch: false,
@@ -152,24 +107,25 @@ assert.equal(confirmedResult.orchestrator.confirmed, true);
 assert.equal(confirmedResult.orchestrator.trusted.confirmed, true);
 assert.equal(confirmedResult.entry.trust, "confirmed");
 assert.equal(confirmedResult.entry.status, "active");
+assert.equal(confirmedResult.boundaries.forcedAutoConfirmFalse, false);
+assert.equal(confirmedResult.boundaries.policyGatedAutoConfirm, true);
+assert.equal(confirmedResult.boundaries.usesProjectMemoryAutoConfirmationPolicy, true);
+assert.equal(confirmedResult.boundaries.autoConfirmRequiresPolicyAllow, true);
+assert.equal(confirmedResult.boundaries.callsAI, false);
+assert.equal(confirmedResult.boundaries.touchesTelegram, false);
+assert.equal(confirmedResult.boundaries.sourceSync, false);
+assert.equal(confirmedResult.boundaries.writesRuntimeFiles, false);
 
 const wrongBranchAutoConfirmSourceResult = {
   ...trustedEventSourceResult,
   suggestedOrchestratorRequest: {
     ...trustedEventSourceResult.suggestedOrchestratorRequest,
-    autoConfirm: true,
     event: {
       ...trustedEventSourceResult.event,
       metadata: {
         ...trustedEventSourceResult.event.metadata,
         baseBranch: "main",
       },
-    },
-    evidence: {
-      eventType: trustedEventSourceResult.event.eventType,
-      sourceRef: trustedEventSourceResult.event.sourceRef,
-      approvalRef: trustedEventSourceResult.event.sourceRef,
-      verified: true,
     },
   },
 };

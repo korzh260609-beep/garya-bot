@@ -1,42 +1,42 @@
 {
   "ok": true,
   "type": "observation_report",
-  "generated_at": "2026-05-22T08:26:47.114Z",
+  "generated_at": "2026-05-22T08:26:49.897Z",
   "name": "diagnostics-latest",
-  "summary": "Diagnostics completed with failures: 1/1 checks failed.",
+  "summary": "Diagnostics completed successfully: 1 checks.",
   "events_count": 1,
   "invalid_events_count": 0,
   "invalid_events": [],
   "events": [
     {
       "schema_version": 1,
-      "event_id": "diagnostics_1779438407113",
+      "event_id": "diagnostics_1779438409897",
       "event_type": "diagnostics.result",
-      "created_at": "2026-05-22T08:26:47.113Z",
+      "created_at": "2026-05-22T08:26:49.897Z",
       "source": {
         "system": "sg",
         "transport": "internal",
         "module": "diagnosticsObservationBridge"
       },
       "actor": {
-        "role": "monarch",
-        "user_ref": "usr_48cc07c069030fb3",
+        "role": "system",
+        "user_ref": "redacted",
         "chat_ref": "redacted"
       },
       "direction": "internal",
-      "summary": "Diagnostics completed with failures: 1/1 checks failed.",
+      "summary": "Diagnostics completed successfully: 1 checks.",
       "payload": {
-        "diagnostics_ok": false,
+        "diagnostics_ok": true,
         "checks_count": 1,
-        "failed_count": 1,
+        "failed_count": 0,
         "check_types": [
-          "project_memory_entry_lookup"
+          "observation_journal_health_latest"
         ],
         "results": [
           {
-            "type": "project_memory_entry_lookup",
-            "ok": false,
-            "summary": "Project Memory entry lookup for PR #321: no exact entries found, near_matches=0."
+            "type": "observation_journal_health_latest",
+            "ok": true,
+            "summary": "Observation latest report is readable: 1 events, 0 invalid."
           }
         ],
         "report_type": "sg_diagnostics_report",

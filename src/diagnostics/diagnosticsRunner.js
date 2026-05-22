@@ -16,6 +16,8 @@ import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
 
+const PROJECT_MEMORY_ENTRY_LOOKUP_CHECK = "project_memory_entry_lookup";
+
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -24,6 +26,54 @@ function normalizeLimit(value, fallback = 100) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(1, Math.min(1000, Math.trunc(n)));
+}
+
+function normalizePositiveInteger(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function readNumberAfterMarker(text, marker) {
+  const safeText = normalizeString(text);
+  const safeMarker = normalizeString(marker).toLowerCase();
+  if (!safeText || !safeMarker) return null;
+
+  const lower = safeText.toLowerCase();
+  let searchFrom = 0;
+
+  while (searchFrom < lower.length) {
+    const markerIndex = lower.indexOf(safeMarker, searchFrom);
+    if (markerIndex < 0) return null;
+
+    let cursor = markerIndex + safeMarker.length;
+    while (cursor < safeText.length && " #:=/-".includes(safeText[cursor])) {
+      cursor += 1;
+    }
+
+    let digits = "";
+    while (cursor < safeText.length && safeText[cursor] >= "0" && safeText[cursor] <= "9") {
+      digits += safeText[cursor];
+      cursor += 1;
+    }
+
+    const parsed = normalizePositiveInteger(digits);
+    if (parsed) return parsed;
+
+    searchFrom = markerIndex + safeMarker.length;
+  }
+
+  return null;
+}
+
+function extractProjectMemoryEntryLookupArguments({ text, checks }) {
+  const safeChecks = Array.isArray(checks) ? checks : [];
+  if (!safeChecks.includes(PROJECT_MEMORY_ENTRY_LOOKUP_CHECK)) return {};
+
+  const prNumber = readNumberAfterMarker(text, "prNumber")
+    || readNumberAfterMarker(text, "PR")
+    || readNumberAfterMarker(text, "pull");
+
+  return prNumber ? { prNumber } : {};
 }
 
 function formatProjectMemoryCountsDetails(item = {}) {
@@ -63,6 +113,24 @@ function formatProjectMemoryCountsDetails(item = {}) {
   }
 
   return lines;
+}
+
+function formatProjectMemoryEntryLookupDetails(item = {}) {
+  const details = item?.data?.details || {};
+  const entries = Array.isArray(details.entries) ? details.entries : [];
+  const firstEntry = entries[0] || {};
+
+  return [
+    "",
+    "Project Memory entry lookup:",
+    `- found: ${details.found ?? false}`,
+    `- confirmedActiveFound: ${details.confirmedActiveFound ?? false}`,
+    `- trust: ${firstEntry.trust || "unknown"}`,
+    `- status: ${firstEntry.status || "unknown"}`,
+    `- sourceRef: ${firstEntry.sourceRef || "unknown"}`,
+    `- traceId: ${firstEntry.traceId || "unknown"}`,
+    `- confirmedAt: ${firstEntry.confirmedAt || "unknown"}`,
+  ];
 }
 
 function getStructuredIntent(input = {}, context = {}) {
@@ -116,12 +184,24 @@ async function safePublishRuntimeStatusObservation() {
   };
 }
 
+function buildSkippedObservation(type) {
+  return {
+    ok: true,
+    type,
+    skipped: true,
+    reason: "diagnostics_observation_skipped_by_context",
+  };
+}
+
 function buildFinalDiagnosticsText({ report }) {
   const results = Array.isArray(report?.results) ? report.results : [];
   const failed = results.filter((item) => !item.ok);
   const projectMemoryCountsBlocks = results
     .filter((item) => item.type === "project_memory_counts")
     .flatMap((item) => formatProjectMemoryCountsDetails(item));
+  const projectMemoryEntryLookupBlocks = results
+    .filter((item) => item.type === PROJECT_MEMORY_ENTRY_LOOKUP_CHECK)
+    .flatMap((item) => formatProjectMemoryEntryLookupDetails(item));
 
   const lines = [
     "Диагностика SG выполнена.",
@@ -129,6 +209,7 @@ function buildFinalDiagnosticsText({ report }) {
     "Проверено:",
     ...results.map((item) => `- ${item.type}: ${item.ok ? "OK" : "FAIL"} — ${item.summary}`),
     ...projectMemoryCountsBlocks,
+    ...projectMemoryEntryLookupBlocks,
     "",
     failed.length > 0
       ? `Проблемные проверки: ${failed.map((item) => item.type).join(", ")}.`
@@ -167,7 +248,11 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
   const logLimit = normalizeLimit(input.limit, 100);
 
   const checks = Array.isArray(plan.checks) ? plan.checks : [];
-  const results = await runDiagnosticsChecks({
+  const diagnosticsArguments = extractProjectMemoryEntryLookupArguments({ text, checks });
+  const runChecks = typeof context.runDiagnosticsChecksFn === "function"
+    ? context.runDiagnosticsChecksFn
+    : runDiagnosticsChecks;
+  const results = await runChecks({
     checks,
     text,
     repo,
@@ -175,6 +260,7 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
     target,
     workflow,
     logLimit,
+    ...diagnosticsArguments,
   });
 
   const report = buildDiagnosticsReport({
@@ -192,8 +278,13 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
     report,
     finalText,
   };
-  const observation = await safePublishDiagnosticsObservation(diagnosticsResult, context);
-  const runtimeObservation = await safePublishRuntimeStatusObservation();
+  const skipObservation = context.skipDiagnosticsObservation === true;
+  const observation = skipObservation
+    ? buildSkippedObservation("diagnostics_observation_publish_result")
+    : await safePublishDiagnosticsObservation(diagnosticsResult, context);
+  const runtimeObservation = skipObservation
+    ? buildSkippedObservation("runtime_status_observation_publish_result")
+    : await safePublishRuntimeStatusObservation();
 
   return {
     ...diagnosticsResult,

@@ -28,6 +28,12 @@ function createMemoryQueryFn() {
       return { ok: true, rowCount: 0, rows: [] };
     }
 
+    if (normalizedSql.startsWith("SELECT * FROM sg_project_memory_entries WHERE trace_id")) {
+      const [traceId] = params;
+      const row = [...entries.values()].find((item) => item.trace_id === traceId) || null;
+      return { ok: true, rowCount: row ? 1 : 0, rows: row ? [row] : [] };
+    }
+
     if (normalizedSql.startsWith("INSERT INTO sg_project_memory_entries")) {
       const [
         id,
@@ -193,10 +199,29 @@ assert.equal(prepared.mode, PROJECT_MEMORY_CONFIRMATION_MODES.EXPLICIT_ONLY);
 assert.equal(prepared.decision, PROJECT_MEMORY_CONFIRMATION_DECISIONS.CANDIDATE_CREATED);
 assert.equal(prepared.stored, true);
 assert.equal(prepared.requiresConfirmation, true);
+assert.equal(prepared.duplicateGuard.matched, false);
 assert.equal(prepared.entry.trust, PROJECT_MEMORY_TRUST.CANDIDATE);
 assert.equal(prepared.entry.status, "pending_confirmation");
 assert.equal(memoryDb.entries.size, 1);
 assert.equal(memoryDb.audit.has("smoke-trace-create"), true);
+
+const duplicatePrepared = await confirmation.prepareCandidateForConfirmation({
+  input: {
+    type: PROJECT_MEMORY_TYPES.ARCHITECTURE_DECISION,
+    title: "Duplicate candidate should reuse existing trace",
+    content: "The duplicate guard must return the first entry for the same traceId.",
+    sourceType: PROJECT_MEMORY_SOURCE_TYPES.MONARCH_APPROVAL,
+    sourceRef: "smoke:project-memory-storage-confirmation-duplicate",
+  },
+  createdBy: "monarch:test",
+  projectKey: "sg",
+  traceId: "smoke-trace-create",
+});
+assert.equal(duplicatePrepared.ok, true);
+assert.equal(duplicatePrepared.duplicateGuard.matched, true);
+assert.equal(duplicatePrepared.duplicateGuard.reason, "trace_id_already_recorded");
+assert.equal(duplicatePrepared.entry.id, prepared.entry.id);
+assert.equal(memoryDb.entries.size, 1);
 
 const missingEntryId = await confirmation.confirmCandidate({
   entryId: "",
@@ -228,6 +253,25 @@ assert.equal(doubleConfirm.ok, false);
 assert.equal(doubleConfirm.reason, "candidate_not_found_or_not_pending");
 assert.equal(doubleConfirm.decision, PROJECT_MEMORY_CONFIRMATION_DECISIONS.NOT_CONFIRMED);
 
+const duplicateConfirmed = await confirmation.prepareCandidateForConfirmation({
+  input: {
+    type: PROJECT_MEMORY_TYPES.ARCHITECTURE_DECISION,
+    title: "Duplicate confirmed should reuse existing trace",
+    content: "The duplicate guard should return the existing confirmed entry.",
+    sourceType: PROJECT_MEMORY_SOURCE_TYPES.MONARCH_APPROVAL,
+    sourceRef: "smoke:project-memory-storage-confirmation-confirmed-duplicate",
+  },
+  createdBy: "monarch:test",
+  projectKey: "sg",
+  traceId: "smoke-trace-confirm",
+});
+assert.equal(duplicateConfirmed.ok, true);
+assert.equal(duplicateConfirmed.duplicateGuard.matched, true);
+assert.equal(duplicateConfirmed.entry.id, prepared.entry.id);
+assert.equal(duplicateConfirmed.entry.trust, PROJECT_MEMORY_TRUST.CONFIRMED);
+assert.equal(duplicateConfirmed.requiresConfirmation, false);
+assert.equal(memoryDb.entries.size, 1);
+
 const listed = await confirmation.listConfirmedEntries({ projectKey: "sg", limit: 10 });
 assert.equal(listed.ok, true);
 assert.equal(listed.entries.length, 1);
@@ -249,5 +293,23 @@ const directStoreCandidate = await store.createCandidate({
 assert.equal(directStoreCandidate.ok, true);
 assert.equal(directStoreCandidate.entry.trust, PROJECT_MEMORY_TRUST.CANDIDATE);
 assert.equal(directStoreCandidate.entry.status, "pending_confirmation");
+assert.equal(directStoreCandidate.duplicateGuard.matched, false);
+
+const directStoreDuplicate = await store.createCandidate({
+  item: createProjectMemoryItem({
+    type: PROJECT_MEMORY_TYPES.WORKFLOW_RULE,
+    title: "Store duplicate should not create second entry",
+    content: "Same traceId must return the existing entry.",
+    sourceType: PROJECT_MEMORY_SOURCE_TYPES.MONARCH_APPROVAL,
+    sourceRef: "smoke:store-duplicate",
+  }),
+  createdBy: "smoke:test",
+  projectKey: "sg",
+  traceId: "smoke-trace-store-direct",
+});
+assert.equal(directStoreDuplicate.ok, true);
+assert.equal(directStoreDuplicate.entry.id, directStoreCandidate.entry.id);
+assert.equal(directStoreDuplicate.duplicateGuard.matched, true);
+assert.equal(memoryDb.entries.size, 2);
 
 console.log("smokeProjectMemoryStorageConfirmation: ok");

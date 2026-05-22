@@ -1,8 +1,3 @@
-// AGENT NOTE:
-// SG 2.0 Diagnostics Layer runner.
-// Purpose: provide a bounded public diagnostics entry point without coupling diagnostics to Telegram or core message handling.
-// Diagnostics may collect generated runtime reports, but must not mutate code, env, Render settings, GitHub settings, or transport logic.
-
 import {
   OBSERVATION_TRIGGER_NAMES,
   runObservationTrigger,
@@ -16,6 +11,8 @@ import { detectDiagnosticsIntent } from "./diagnosticsIntent.js";
 import { buildDiagnosticsPlan } from "./diagnosticsPlan.js";
 import { buildDiagnosticsReport } from "./diagnosticsReport.js";
 
+const PROJECT_MEMORY_ENTRY_LOOKUP_CHECK = "project_memory_entry_lookup";
+
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -24,6 +21,45 @@ function normalizeLimit(value, fallback = 100) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(1, Math.min(1000, Math.trunc(n)));
+}
+
+function normalizePositiveInteger(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function readNumberAfterMarker(text, marker) {
+  const safeText = normalizeString(text);
+  const safeMarker = normalizeString(marker).toLowerCase();
+  if (!safeText || !safeMarker) return null;
+
+  const lower = safeText.toLowerCase();
+  const markerIndex = lower.indexOf(safeMarker);
+  if (markerIndex < 0) return null;
+
+  let cursor = markerIndex + safeMarker.length;
+  while (cursor < safeText.length && " #:=/-".includes(safeText[cursor])) {
+    cursor += 1;
+  }
+
+  let digits = "";
+  while (cursor < safeText.length && safeText[cursor] >= "0" && safeText[cursor] <= "9") {
+    digits += safeText[cursor];
+    cursor += 1;
+  }
+
+  return normalizePositiveInteger(digits);
+}
+
+function extractProjectMemoryEntryLookupArguments({ text, checks }) {
+  const safeChecks = Array.isArray(checks) ? checks : [];
+  if (!safeChecks.includes(PROJECT_MEMORY_ENTRY_LOOKUP_CHECK)) return {};
+
+  const prNumber = readNumberAfterMarker(text, "prNumber")
+    || readNumberAfterMarker(text, "PR")
+    || readNumberAfterMarker(text, "pull");
+
+  return prNumber ? { prNumber } : {};
 }
 
 function formatProjectMemoryCountsDetails(item = {}) {
@@ -167,6 +203,7 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
   const logLimit = normalizeLimit(input.limit, 100);
 
   const checks = Array.isArray(plan.checks) ? plan.checks : [];
+  const diagnosticsArguments = extractProjectMemoryEntryLookupArguments({ text, checks });
   const results = await runDiagnosticsChecks({
     checks,
     text,
@@ -175,6 +212,7 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
     target,
     workflow,
     logLimit,
+    ...diagnosticsArguments,
   });
 
   const report = buildDiagnosticsReport({

@@ -1,14 +1,14 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-22T08:24:50.961Z",
+  "generated_at": "2026-05-22T09:34:54.110Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "1cbee7a98e6182eea7a4ca76080aaec64651de2e",
-  "previous_head_sha": "3106de86b294da9256f46ce46c06e58358313a51",
+  "current_head_sha": "99e5c67bfeb19db3e8f468627a194a5719f61d8e",
+  "previous_head_sha": "1cbee7a98e6182eea7a4ca76080aaec64651de2e",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "a16bc72b354fd09928f4d98192c5b5a0133e08df",
+  "registry_commit_sha": "86fa533b160c51c4508ee367648b5bfc0277dd1e",
   "project_memory_event_recorded": false,
   "project_memory_event": {
     "ok": true,
@@ -17,34 +17,34 @@
     "reason": "not_a_merge_pr_commit"
   },
   "latest_commit": {
-    "sha": "1cbee7a98e6182eea7a4ca76080aaec64651de2e",
-    "short_sha": "1cbee7a98e61",
-    "message": "Merge PR #324: Diagnose Project Memory entry lookup storage shape for PR numbers\n\nDiagnose Project Memory entry lookup storage shape for PR numbers\n\n- Add read-only exact/near match evidence for Project Memory entry lookup.\n- Include requested PR number, query patterns, metadata keys, and sanitized metadata shape.\n- Add smoke workflow for lookup shape diagnostics.\n\nNo DB writes, memory creation, confirmation flow, auto-confirm policy, duplicate guard, Telegram dependency, Project Memory context, or prompt injection changes.",
+    "sha": "99e5c67bfeb19db3e8f468627a194a5719f61d8e",
+    "short_sha": "99e5c67bfeb1",
+    "message": "Merge PR #325: Expose Project Memory entry lookup evidence in diagnostics final text\n\nExpose Project Memory entry lookup evidence in diagnostics final text\n\n- Print Project Memory lookup evidence in diagnostics final text.\n- Include requested PR number, exact/near match counts, query patterns, and sanitized metadata shape.\n- Add final-text smoke workflow.\n\nFormatting only. No lookup SQL changes, DB writes, memory creation, confirmation flow, auto-confirm policy, duplicate guard, Telegram coupling, Project Memory context, or prompt injection changes.",
     "author": "korzh260609-beep",
-    "date": "2026-05-22T08:24:30Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/1cbee7a98e6182eea7a4ca76080aaec64651de2e",
+    "date": "2026-05-22T09:34:33Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/99e5c67bfeb19db3e8f468627a194a5719f61d8e",
     "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": ".github/workflows/sg2-project-memory-entry-lookup-shape-smoke.yml",
+        "filename": ".github/workflows/sg2-project-memory-entry-lookup-final-text-smoke.yml",
         "status": "added",
         "additions": 37,
         "deletions": 0,
         "changes": 37
       },
       {
-        "filename": "scripts/smokeProjectMemoryEntryLookupShape.js",
+        "filename": "scripts/smokeProjectMemoryEntryLookupFinalText.js",
         "status": "added",
-        "additions": 112,
+        "additions": 87,
         "deletions": 0,
-        "changes": 112
+        "changes": 87
       },
       {
-        "filename": "src/diagnostics/projectMemoryEntryLookupCheck.js",
+        "filename": "src/diagnostics/diagnosticsRunner.js",
         "status": "modified",
-        "additions": 154,
-        "deletions": 14,
-        "changes": 168
+        "additions": 61,
+        "deletions": 7,
+        "changes": 68
       }
     ]
   }

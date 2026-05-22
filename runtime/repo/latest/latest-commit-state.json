@@ -1,77 +1,50 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-22T03:02:00.455Z",
+  "generated_at": "2026-05-22T06:02:08.359Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "2eaab742f8e856d994a2f64a1ddf60f0dcf33bc0",
-  "previous_head_sha": "5f085bcdac133d90d6a553cc1b8a1cea3fde4619",
+  "current_head_sha": "ada126db7ce960c985df5a1181c290b14fc58e2b",
+  "previous_head_sha": "2eaab742f8e856d994a2f64a1ddf60f0dcf33bc0",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "b5b6e3dfe9992ca35c7af99ff22782dd7cda1840",
+  "registry_commit_sha": "f191610df51825fe7b7034ae10d7141510cfca12",
   "project_memory_event_recorded": false,
   "project_memory_event": {
-    "ok": false,
+    "ok": true,
     "type": "project_memory_auto_repo_commit_event",
-    "skipped": false,
-    "sourceKind": "github_pr_merged",
-    "prNumber": 321,
-    "stored": false,
-    "confirmed": false,
-    "requiresConfirmation": true,
-    "traceId": "pmtrace_repo_commit_2eaab742f8e8",
-    "reason": "database_not_configured"
+    "skipped": true,
+    "reason": "not_a_merge_pr_commit"
   },
   "latest_commit": {
-    "sha": "2eaab742f8e856d994a2f64a1ddf60f0dcf33bc0",
-    "short_sha": "2eaab742f8e8",
-    "message": "Merge pull request #321 from korzh260609-beep/sg/project-memory-duplicate-trace-guard\n\nAdd Project Memory duplicate trace guard",
+    "sha": "ada126db7ce960c985df5a1181c290b14fc58e2b",
+    "short_sha": "ada126db7ce9",
+    "message": "Merge PR #322: Wire Project Memory entry lookup PR number routing\n\nWire Project Memory entry lookup PR number routing\n\n- Parse PR number arguments for project_memory_entry_lookup diagnostics routing.\n- Add automatic smoke workflow for entry lookup routing.\n- Keep Project Memory context, auto-confirm, duplicate guard, DB writes, and Telegram architecture untouched.",
     "author": "korzh260609-beep",
-    "date": "2026-05-22T03:01:35Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/2eaab742f8e856d994a2f64a1ddf60f0dcf33bc0",
-    "changed_files_count": 6,
+    "date": "2026-05-22T06:01:45Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ada126db7ce960c985df5a1181c290b14fc58e2b",
+    "changed_files_count": 3,
     "changed_files": [
       {
-        "filename": "scripts/smokeProjectMemoryAutomaticOrchestrator.js",
-        "status": "modified",
-        "additions": 96,
-        "deletions": 15,
-        "changes": 111
-      },
-      {
-        "filename": "scripts/smokeProjectMemoryStorageConfirmation.js",
-        "status": "modified",
-        "additions": 62,
+        "filename": ".github/workflows/sg2-project-memory-entry-lookup-routing-smoke.yml",
+        "status": "added",
+        "additions": 34,
         "deletions": 0,
-        "changes": 62
+        "changes": 34
       },
       {
-        "filename": "src/memory/project/projectMemoryAutomaticDurableCandidateFlow.js",
-        "status": "modified",
-        "additions": 15,
-        "deletions": 3,
-        "changes": 18
-      },
-      {
-        "filename": "src/memory/project/projectMemoryAutomaticOrchestrator.js",
-        "status": "modified",
-        "additions": 26,
+        "filename": "scripts/smokeProjectMemoryEntryLookupRouting.js",
+        "status": "added",
+        "additions": 43,
         "deletions": 0,
-        "changes": 26
+        "changes": 43
       },
       {
-        "filename": "src/memory/project/projectMemoryConfirmation.js",
+        "filename": "src/diagnostics/diagnosticsRunner.js",
         "status": "modified",
-        "additions": 2,
-        "deletions": 1,
-        "changes": 3
-      },
-      {
-        "filename": "src/memory/project/projectMemoryStore.js",
-        "status": "modified",
-        "additions": 73,
+        "additions": 94,
         "deletions": 3,
-        "changes": 76
+        "changes": 97
       }
     ]
   }

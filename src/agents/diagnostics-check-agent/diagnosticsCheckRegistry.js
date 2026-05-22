@@ -15,6 +15,7 @@ import { runMigrationManualExecutionPreflightCheck } from "../../diagnostics/mig
 import { runObservationJournalStatusCheck } from "../../diagnostics/observationJournalStatusCheck.js";
 import { runObservationLatestReportCheck } from "../../diagnostics/observationLatestReportCheck.js";
 import { runProjectMemoryCountsCheck } from "../../diagnostics/projectMemoryCountsCheck.js";
+import { runProjectMemoryEntryLookupCheck } from "../../diagnostics/projectMemoryEntryLookupCheck.js";
 import { runProjectMemoryLiveDbCheck } from "../../diagnostics/projectMemoryLiveDbCheck.js";
 import { runProjectMemoryProductionReadinessCheck } from "../../diagnostics/projectMemoryProductionReadinessCheck.js";
 import { runProjectMemoryRuntimeCheck } from "../../diagnostics/projectMemoryRuntimeCheck.js";
@@ -93,6 +94,11 @@ function summarizeProjectMemoryCounts(result = {}) {
   if (!result.ok) return result.summary || "Project Memory counts check failed.";
   const details = result.details || {};
   return result.summary || `Project Memory counts checked: total=${details.totalEntries ?? "unknown"}, sg_confirmed_active=${details.sgConfirmedActiveCount ?? "unknown"}.`;
+}
+
+function summarizeProjectMemoryEntryLookup(result = {}) {
+  if (!result.ok) return result.summary || "Project Memory entry lookup did not find a confirmed active entry.";
+  return result.summary || "Project Memory entry lookup found a confirmed active entry.";
 }
 
 function summarizeProjectMemoryLiveDb(result = {}) {
@@ -183,6 +189,11 @@ export const diagnosticsCheckRegistry = [
     name: "project_memory_counts",
     run: () => runProjectMemoryCountsCheck(),
     summarize: summarizeProjectMemoryCounts,
+  },
+  {
+    name: "project_memory_entry_lookup",
+    run: ({ prNumber, limit } = {}) => runProjectMemoryEntryLookupCheck({ prNumber, limit }),
+    summarize: summarizeProjectMemoryEntryLookup,
   },
   {
     name: "project_memory_production_readiness",

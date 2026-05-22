@@ -175,6 +175,15 @@ async function safePublishRuntimeStatusObservation() {
   };
 }
 
+function buildSkippedObservation(type) {
+  return {
+    ok: true,
+    type,
+    skipped: true,
+    reason: "diagnostics_observation_skipped_by_context",
+  };
+}
+
 function buildFinalDiagnosticsText({ report }) {
   const results = Array.isArray(report?.results) ? report.results : [];
   const failed = results.filter((item) => !item.ok);
@@ -260,8 +269,13 @@ export async function runDiagnosticsCheck(input = {}, context = {}) {
     report,
     finalText,
   };
-  const observation = await safePublishDiagnosticsObservation(diagnosticsResult, context);
-  const runtimeObservation = await safePublishRuntimeStatusObservation();
+  const skipObservation = context.skipDiagnosticsObservation === true;
+  const observation = skipObservation
+    ? buildSkippedObservation("diagnostics_observation_publish_result")
+    : await safePublishDiagnosticsObservation(diagnosticsResult, context);
+  const runtimeObservation = skipObservation
+    ? buildSkippedObservation("runtime_status_observation_publish_result")
+    : await safePublishRuntimeStatusObservation();
 
   return {
     ...diagnosticsResult,

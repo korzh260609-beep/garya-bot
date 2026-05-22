@@ -18,6 +18,7 @@ assert.equal(status.ok, true);
 assert.equal(status.mode, PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_MODES.EXPLICIT_TRUSTED_EVENT_ONLY);
 assert.equal(status.canCreateDurablePendingCandidate, true);
 assert.equal(status.canConfirmWithTrustedEvidence, true);
+assert.equal(status.canReuseDuplicateConfirmedEntryByTraceId, true);
 assert.equal(status.requiresExplicitAutomaticMemoryRequest, true);
 assert.equal(status.requiresVerifiedTrustedEvidenceForConfirmation, true);
 
@@ -29,6 +30,8 @@ assert.equal(boundaries.canConfirmWhenAutoConfirmTrueAndEvidenceVerified, true);
 assert.equal(boundaries.confirmationRequiresTrustedEvidence, true);
 assert.equal(boundaries.usesDurableCandidateFlow, true);
 assert.equal(boundaries.usesTrustedConfirmationFlow, true);
+assert.equal(boundaries.duplicateTraceGuard, true);
+assert.equal(boundaries.duplicateConfirmedEntryIsIdempotent, true);
 assert.equal(boundaries.callsAI, false);
 assert.equal(boundaries.fetchesSources, false);
 assert.equal(boundaries.sourceSync, false);
@@ -40,8 +43,32 @@ assert.equal(boundaries.writesRuntimeFiles, false);
 
 let prepareCalls = 0;
 let confirmCalls = 0;
+const entriesByTraceId = new Map();
+
 const fakeConfirmation = {
   async prepareCandidateForConfirmation({ input, createdBy, projectKey, traceId, actor }) {
+    const existing = entriesByTraceId.get(traceId);
+    if (existing) {
+      return {
+        ok: true,
+        decision: "candidate_created_for_confirmation",
+        candidate: { item: input },
+        entry: existing,
+        traceId,
+        stored: true,
+        requiresConfirmation: existing.trust !== "confirmed",
+        duplicateGuard: {
+          matched: true,
+          decision: "existing_entry_returned",
+          reason: "trace_id_already_recorded",
+          traceId,
+          entryId: existing.id,
+          trust: existing.trust,
+          status: existing.status,
+        },
+      };
+    }
+
     prepareCalls += 1;
     assert.equal(input.trust, "candidate");
     assert.equal(input.metadata.durableWriteAttempted, true);
@@ -50,23 +77,32 @@ const fakeConfirmation = {
     assert.equal(projectKey, "sg");
     assert.equal(actor.role, "system");
 
+    const entry = {
+      id: `pm_auto_${prepareCalls}`,
+      projectKey,
+      type: input.type,
+      title: input.title,
+      content: input.content,
+      trust: "candidate",
+      status: "pending_confirmation",
+      traceId,
+    };
+    entriesByTraceId.set(traceId, entry);
+
     return {
       ok: true,
       decision: "candidate_created_for_confirmation",
       candidate: { item: input },
-      entry: {
-        id: `pm_auto_${prepareCalls}`,
-        projectKey,
-        type: input.type,
-        title: input.title,
-        content: input.content,
-        trust: "candidate",
-        status: "pending_confirmation",
-        traceId,
-      },
+      entry,
       traceId,
       stored: true,
       requiresConfirmation: true,
+      duplicateGuard: {
+        matched: false,
+        decision: "new_entry_created",
+        traceId,
+        entryId: entry.id,
+      },
     };
   },
 
@@ -76,13 +112,19 @@ const fakeConfirmation = {
     assert.ok(entryId.startsWith("pm_auto_"));
     assert.equal(approvalRef, "https://github.com/korzh260609-beep/garya-bot/pull/256");
 
+    const existing = entriesByTraceId.get(traceId);
+    const confirmedEntry = {
+      ...(existing || {}),
+      id: entryId,
+      trust: "confirmed",
+      status: "active",
+      traceId,
+    };
+    entriesByTraceId.set(traceId, confirmedEntry);
+
     return {
       ok: true,
-      entry: {
-        id: entryId,
-        trust: "confirmed",
-        status: "active",
-      },
+      entry: confirmedEntry,
       trust: "confirmed",
       traceId,
       approvalRef,
@@ -117,6 +159,7 @@ assert.equal(candidateOnly.stored, true);
 assert.equal(candidateOnly.confirmed, false);
 assert.equal(candidateOnly.requiresConfirmation, true);
 assert.equal(candidateOnly.entry.status, "pending_confirmation");
+assert.equal(candidateOnly.duplicateGuard.matched, false);
 assert.equal(prepareCalls, 1);
 assert.equal(confirmCalls, 0);
 
@@ -152,6 +195,44 @@ assert.equal(confirmed.stored, true);
 assert.equal(confirmed.confirmed, true);
 assert.equal(confirmed.entry.trust, "confirmed");
 assert.equal(confirmed.approvalRef, "https://github.com/korzh260609-beep/garya-bot/pull/256");
+assert.equal(confirmed.duplicateGuard.matched, false);
+assert.equal(prepareCalls, 2);
+assert.equal(confirmCalls, 1);
+
+const duplicateConfirmed = await processProjectMemoryAutomaticEvent({
+  request: {
+    explicitAutomaticMemoryRequest: true,
+    autoConfirm: true,
+    traceId: "pmtrace_auto_2",
+    createdBy: "system:test",
+    confirmedBy: "system:test",
+    evidence: {
+      verified: true,
+      sourceRef: "https://github.com/korzh260609-beep/garya-bot/pull/256",
+    },
+    event: {
+      eventType: PROJECT_MEMORY_AUTOMATIC_CANDIDATE_EVENT_TYPES.PR_MERGED,
+      title: "PR #256 deployed duplicate",
+      summary: "Duplicate traceId should reuse confirmed entry.",
+      sourceRef: "https://github.com/korzh260609-beep/garya-bot/pull/256",
+      projectKey: "sg",
+    },
+  },
+  actor: {
+    role: "system",
+  },
+  confirmation: fakeConfirmation,
+});
+
+assert.equal(duplicateConfirmed.ok, true);
+assert.equal(duplicateConfirmed.decision, PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_DECISIONS.DUPLICATE_CONFIRMED_ENTRY_REUSED);
+assert.equal(duplicateConfirmed.candidatePrepared, true);
+assert.equal(duplicateConfirmed.stored, true);
+assert.equal(duplicateConfirmed.confirmed, true);
+assert.equal(duplicateConfirmed.requiresConfirmation, false);
+assert.equal(duplicateConfirmed.entry.id, confirmed.entry.id);
+assert.equal(duplicateConfirmed.duplicateGuard.matched, true);
+assert.equal(duplicateConfirmed.trusted, null);
 assert.equal(prepareCalls, 2);
 assert.equal(confirmCalls, 1);
 

@@ -236,7 +236,7 @@ assert.equal(renderConfirmed.requiresConfirmation, false);
 assert.equal(renderConfirmed.trustedEventSourceResult.ok, true);
 assert.equal(renderConfirmed.trustedEventSourceResult.suggestedOrchestratorRequest.autoConfirm, true);
 assert.equal(renderConfirmed.bridge.autoConfirm, true);
-assert.equal(renderConfirmed.bridge.autoConfirmReason, "trusted_auto_confirm_policy_passed");
+assert.equal(renderConfirmed.bridge.autoConfirmReason, "render_deploy_logs_verified_clean_deploy_passed");
 assert.equal(renderConfirmed.bridge.confirmed, true);
 assert.equal(renderConfirmed.bridge.requiresConfirmation, false);
 assert.equal(renderConfirmed.bridge.orchestrator.confirmed, true);

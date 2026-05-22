@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-22T03:01:58.604Z",
+  "generated_at": "2026-05-22T06:02:06.376Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "2eaab742f8e856d994a2f64a1ddf60f0dcf33bc0",
+  "head_sha": "ada126db7ce960c985df5a1181c290b14fc58e2b",
   "truncated": false,
-  "items_count": 561,
+  "items_count": 563,
   "semantic_fields": [
     "module",
     "layer",
@@ -565,6 +565,24 @@
     },
     {
       "path": ".github/workflows/sg2-project-memory-diagnostics-smoke.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-project-memory-entry-lookup-routing-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -4120,6 +4138,24 @@
     },
     {
       "path": "scripts/smokeProjectMemoryEntryLookupCheck.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeProjectMemoryEntryLookupRouting.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",

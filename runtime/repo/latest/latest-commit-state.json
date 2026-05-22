@@ -1,56 +1,84 @@
 {
   "ok": true,
   "type": "repo_commit_state",
-  "generated_at": "2026-05-22T02:20:22.525Z",
+  "generated_at": "2026-05-22T02:32:38.103Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "current_head_sha": "ce012f9c0c67a1748e3f86afeb554a51c5fca342",
-  "previous_head_sha": "614176e94cb85c298f27bbabcd00c7f68d34dd8b",
+  "current_head_sha": "8f2c66d7a9e74dfdfb6caa508c0861bfd8c3f504",
+  "previous_head_sha": "ce012f9c0c67a1748e3f86afeb554a51c5fca342",
   "has_new_commit": true,
   "registry_updated": true,
-  "registry_commit_sha": "ae58a4ac3cdb58644ebad2a4c67987525b351f53",
+  "registry_commit_sha": "0e95f337415f6a2db23e1cbe3be7b6967ac54872",
   "project_memory_event_recorded": false,
   "project_memory_event": {
     "ok": false,
     "type": "project_memory_auto_repo_commit_event",
     "skipped": false,
     "sourceKind": "github_pr_merged",
-    "prNumber": 318,
+    "prNumber": 319,
     "stored": false,
     "confirmed": false,
     "requiresConfirmation": true,
-    "traceId": "pmtrace_repo_commit_ce012f9c0c67",
+    "traceId": "pmtrace_repo_commit_8f2c66d7a9e7",
     "reason": "database_not_configured"
   },
   "latest_commit": {
-    "sha": "ce012f9c0c67a1748e3f86afeb554a51c5fca342",
-    "short_sha": "ce012f9c0c67",
-    "message": "Merge pull request #318 from korzh260609-beep/sg/project-memory-wire-auto-confirm-policy\n\nWire Project Memory auto-confirmation policy into trusted bridge",
+    "sha": "8f2c66d7a9e74dfdfb6caa508c0861bfd8c3f504",
+    "short_sha": "8f2c66d7a9e7",
+    "message": "Merge pull request #319 from korzh260609-beep/sg/project-memory-enable-pr-merged-auto-confirm\n\nEnable GitHub PR merged Project Memory auto-confirm",
     "author": "korzh260609-beep",
-    "date": "2026-05-22T02:20:03Z",
-    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/ce012f9c0c67a1748e3f86afeb554a51c5fca342",
-    "changed_files_count": 3,
+    "date": "2026-05-22T02:32:15Z",
+    "html_url": "https://github.com/korzh260609-beep/garya-bot/commit/8f2c66d7a9e74dfdfb6caa508c0861bfd8c3f504",
+    "changed_files_count": 7,
     "changed_files": [
+      {
+        "filename": "scripts/smokeAiToolRegistryProjectMemoryRuntimeTrustedEvent.js",
+        "status": "modified",
+        "additions": 29,
+        "deletions": 7,
+        "changes": 36
+      },
+      {
+        "filename": "scripts/smokeAiToolRuntimeCommandAdapter.js",
+        "status": "modified",
+        "additions": 27,
+        "deletions": 2,
+        "changes": 29
+      },
+      {
+        "filename": "scripts/smokeAiToolRuntimeInvocationBridge.js",
+        "status": "modified",
+        "additions": 29,
+        "deletions": 7,
+        "changes": 36
+      },
       {
         "filename": "scripts/smokeProjectMemoryRuntimeTrustedEventTool.js",
         "status": "modified",
-        "additions": 1,
+        "additions": 18,
+        "deletions": 10,
+        "changes": 28
+      },
+      {
+        "filename": "scripts/smokeProjectMemoryTrustedEventSource.js",
+        "status": "modified",
+        "additions": 8,
         "deletions": 1,
-        "changes": 2
+        "changes": 9
       },
       {
         "filename": "scripts/smokeProjectMemoryTrustedEventSourceOrchestratorBridge.js",
         "status": "modified",
-        "additions": 22,
-        "deletions": 12,
-        "changes": 34
+        "additions": 11,
+        "deletions": 55,
+        "changes": 66
       },
       {
-        "filename": "src/memory/project/projectMemoryTrustedEventSourceOrchestratorBridge.js",
+        "filename": "src/memory/project/projectMemoryTrustedEventSource.js",
         "status": "modified",
-        "additions": 68,
-        "deletions": 37,
-        "changes": 105
+        "additions": 10,
+        "deletions": 2,
+        "changes": 12
       }
     ]
   }

@@ -13,3 +13,4 @@ export * from "./messageUnderstanding.js";
 export * from "./messageAiRequest.js";
 export * from "./messageGithubApproval.js";
 export * from "./messageDiagnosticsRoute.js";
+export * from "./messageDiagnosticsCommandBridge.js";

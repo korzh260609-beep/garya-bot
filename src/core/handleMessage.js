@@ -8,6 +8,7 @@ import { resolveMessageRuntimeOptions } from "./runtime/index.js";
 import {
   buildAccessDeniedReply,
   buildBehaviorDeniedReply,
+  buildDiagnosticsCommandBridgeIntent,
   buildEmptyTextReply,
   buildMessageBehaviorRuntime,
   buildMessageUnderstandingContext,
@@ -41,14 +42,20 @@ export async function handleMessage(context = {}) {
   }
 
   const understandingContext = buildMessageUnderstandingContext(context);
+  const diagnosticsCommandBridge = buildDiagnosticsCommandBridgeIntent({
+    text,
+    intent: understandingContext.intent,
+  });
+  const diagnosticsIntent = diagnosticsCommandBridge.intent || understandingContext.intent;
   const diagnosticsRoute = await handleMessageDiagnosticsRoute({
     text,
     identity,
-    intent: understandingContext.intent,
+    intent: diagnosticsIntent,
     context: {
       ...context,
       understanding: understandingContext,
-      intent: understandingContext.intent,
+      diagnosticsCommandBridge,
+      intent: diagnosticsIntent,
     },
   });
 
@@ -56,6 +63,7 @@ export async function handleMessage(context = {}) {
     return {
       ...diagnosticsRoute,
       understanding: understandingContext,
+      diagnosticsCommandBridge,
     };
   }
 

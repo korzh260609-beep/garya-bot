@@ -17,6 +17,7 @@ export const PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_FLOW_MODES = Object.free
 
 export const PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_DECISIONS = Object.freeze({
   DURABLE_CANDIDATE_CREATED: "automatic_durable_candidate_created",
+  DUPLICATE_TRACE_ENTRY_REUSED: "automatic_durable_duplicate_trace_entry_reused",
   REQUEST_REJECTED: "automatic_durable_candidate_request_rejected",
 });
 
@@ -67,6 +68,8 @@ export function getProjectMemoryAutomaticDurableCandidateFlowBoundaries() {
     usesAutomaticCandidatePipeline: true,
     usesProjectMemoryConfirmationBoundary: true,
     createsDurablePendingCandidate: true,
+    duplicateTraceGuard: true,
+    duplicateTraceReusesExistingEntry: true,
     confirmsCandidates: false,
     writesConfirmedMemory: false,
     callsAI: false,
@@ -88,6 +91,7 @@ export function buildProjectMemoryAutomaticDurableCandidateFlowStatus() {
     version: PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_FLOW_VERSION,
     mode: PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_FLOW_MODES.EXPLICIT_TRUSTED_EVENT_ONLY,
     canCreateDurablePendingCandidate: true,
+    canReuseExistingEntryByTraceId: true,
     canConfirmCandidate: false,
     writesConfirmedMemory: false,
     requiresExplicitDurableCandidateRequest: true,
@@ -192,19 +196,27 @@ export async function createDurableProjectMemoryCandidateFromEvent({
     };
   }
 
+  const duplicateGuard = stored.duplicateGuard || null;
+  const duplicateConfirmed = duplicateGuard?.matched === true
+    && stored.entry?.trust === "confirmed"
+    && stored.entry?.status === "active";
+
   return {
     ok: true,
     version: PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_FLOW_VERSION,
     mode: PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_FLOW_MODES.EXPLICIT_TRUSTED_EVENT_ONLY,
-    decision: PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_DECISIONS.DURABLE_CANDIDATE_CREATED,
+    decision: duplicateGuard?.matched
+      ? PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_DECISIONS.DUPLICATE_TRACE_ENTRY_REUSED
+      : PROJECT_MEMORY_AUTOMATIC_DURABLE_CANDIDATE_DECISIONS.DURABLE_CANDIDATE_CREATED,
     candidatePrepared: true,
     stored: true,
-    confirmed: false,
-    requiresConfirmation: true,
+    confirmed: duplicateConfirmed,
+    requiresConfirmation: !duplicateConfirmed,
     preparation: prepared,
     candidate: stored.candidate,
     entry: stored.entry,
     traceId: stored.traceId || traceId,
+    duplicateGuard,
     actor: safeActor,
     projectKey,
     boundaries,

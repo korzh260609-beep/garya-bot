@@ -67,6 +67,18 @@ function mapRowToProjectMemoryItem(row = {}) {
   };
 }
 
+function buildDuplicateGuardResult({ traceId, entry }) {
+  return {
+    matched: true,
+    decision: "existing_entry_returned",
+    reason: "trace_id_already_recorded",
+    traceId,
+    entryId: entry?.id || null,
+    trust: entry?.trust || null,
+    status: entry?.status || null,
+  };
+}
+
 export class ProjectMemoryStore {
   constructor({ queryFn = null, ensureSchema = true } = {}) {
     this.queryFn = normalizeQueryFn(queryFn);
@@ -78,6 +90,39 @@ export class ProjectMemoryStore {
       return { ok: true, skipped: true, reason: "schema_ensure_disabled" };
     }
     return ensureProjectMemorySchema({ queryFn: this.queryFn });
+  }
+
+  async findEntryByTraceId({ traceId } = {}) {
+    const ready = await this.ensureReady();
+    if (!ready.ok) return ready;
+
+    const safeTraceId = normalizeText(traceId);
+    if (!safeTraceId) {
+      return {
+        ok: true,
+        found: false,
+        entry: null,
+        traceId: "",
+      };
+    }
+
+    const result = await this.queryFn(
+      `SELECT * FROM sg_project_memory_entries
+       WHERE trace_id = $1
+       ORDER BY updated_at DESC, created_at DESC
+       LIMIT 1`,
+      [safeTraceId],
+    );
+
+    if (!result.ok) return result;
+
+    const row = result.rows?.[0] || null;
+    return {
+      ok: true,
+      found: Boolean(row),
+      entry: row ? mapRowToProjectMemoryItem(row) : null,
+      traceId: safeTraceId,
+    };
   }
 
   async appendAudit({ traceId = createId("pmtrace"), action, entryId = null, decision, reason = "", actorRef = "system", metadata = {} } = {}) {
@@ -95,6 +140,23 @@ export class ProjectMemoryStore {
   async createCandidate({ item, createdBy = "system", projectKey = "sg", traceId = createId("pmtrace") } = {}) {
     const ready = await this.ensureReady();
     if (!ready.ok) return ready;
+
+    const safeTraceId = normalizeText(traceId) || createId("pmtrace");
+    const existing = await this.findEntryByTraceId({ traceId: safeTraceId });
+    if (!existing.ok) return existing;
+
+    if (existing.found) {
+      return {
+        ok: true,
+        entry: existing.entry,
+        traceId: safeTraceId,
+        stored: true,
+        duplicateGuard: buildDuplicateGuardResult({
+          traceId: safeTraceId,
+          entry: existing.entry,
+        }),
+      };
+    }
 
     const entryId = createId("pm");
     const tags = Array.isArray(item?.tags) ? item.tags : [];
@@ -118,14 +180,14 @@ export class ProjectMemoryStore {
         safeJson(tags, []),
         safeJson(metadata, {}),
         normalizeText(createdBy) || "system",
-        traceId,
+        safeTraceId,
       ],
     );
 
     if (!result.ok) return result;
 
     await this.appendAudit({
-      traceId,
+      traceId: safeTraceId,
       action: "create_candidate",
       entryId,
       decision: "candidate_created",
@@ -136,7 +198,15 @@ export class ProjectMemoryStore {
     return {
       ok: true,
       entry: mapRowToProjectMemoryItem(result.rows?.[0] || {}),
-      traceId,
+      traceId: safeTraceId,
+      stored: true,
+      duplicateGuard: {
+        matched: false,
+        decision: "new_entry_created",
+        reason: null,
+        traceId: safeTraceId,
+        entryId,
+      },
     };
   }
 

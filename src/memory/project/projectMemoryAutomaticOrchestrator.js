@@ -20,6 +20,7 @@ export const PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_MODES = Object.freeze({
 export const PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_DECISIONS = Object.freeze({
   CANDIDATE_CREATED: "automatic_memory_candidate_created",
   CONFIRMED: "automatic_memory_confirmed",
+  DUPLICATE_CONFIRMED_ENTRY_REUSED: "automatic_memory_duplicate_confirmed_entry_reused",
   REQUEST_REJECTED: "automatic_memory_request_rejected",
 });
 
@@ -78,6 +79,8 @@ export function getProjectMemoryAutomaticOrchestratorBoundaries() {
     confirmationRequiresTrustedEvidence: true,
     usesDurableCandidateFlow: true,
     usesTrustedConfirmationFlow: true,
+    duplicateTraceGuard: true,
+    duplicateConfirmedEntryIsIdempotent: true,
     callsAI: false,
     fetchesSources: false,
     sourceSync: false,
@@ -98,6 +101,7 @@ export function buildProjectMemoryAutomaticOrchestratorStatus() {
     mode: PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_MODES.EXPLICIT_TRUSTED_EVENT_ONLY,
     canCreateDurablePendingCandidate: true,
     canConfirmWithTrustedEvidence: true,
+    canReuseDuplicateConfirmedEntryByTraceId: true,
     requiresExplicitAutomaticMemoryRequest: true,
     requiresVerifiedTrustedEvidenceForConfirmation: true,
     boundaries: getProjectMemoryAutomaticOrchestratorBoundaries(),
@@ -169,6 +173,26 @@ export async function processProjectMemoryAutomaticEvent({
     };
   }
 
+  if (durable.duplicateGuard?.matched === true && durable.entry?.trust === "confirmed" && durable.entry?.status === "active") {
+    return {
+      ok: true,
+      version: PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_VERSION,
+      mode: PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_MODES.EXPLICIT_TRUSTED_EVENT_ONLY,
+      decision: PROJECT_MEMORY_AUTOMATIC_ORCHESTRATOR_DECISIONS.DUPLICATE_CONFIRMED_ENTRY_REUSED,
+      candidatePrepared: true,
+      stored: true,
+      confirmed: true,
+      requiresConfirmation: false,
+      durable,
+      trusted: null,
+      entry: durable.entry,
+      traceId: durable.traceId || traceId,
+      duplicateGuard: durable.duplicateGuard,
+      actor: safeActor,
+      boundaries,
+    };
+  }
+
   if (!autoConfirm) {
     return {
       ok: true,
@@ -182,6 +206,7 @@ export async function processProjectMemoryAutomaticEvent({
       durable,
       entry: durable.entry,
       traceId: durable.traceId || traceId,
+      duplicateGuard: durable.duplicateGuard || null,
       actor: safeActor,
       boundaries,
     };
@@ -234,6 +259,7 @@ export async function processProjectMemoryAutomaticEvent({
     trusted,
     entry: trusted.entry,
     traceId: trusted.traceId || durable.traceId || traceId,
+    duplicateGuard: durable.duplicateGuard || null,
     approvalRef: trusted.approvalRef || evidence.approvalRef || evidence.sourceRef,
     actor: safeActor,
     boundaries,

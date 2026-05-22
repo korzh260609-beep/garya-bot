@@ -2,12 +2,12 @@
   "ok": true,
   "type": "repo_registry",
   "schema_version": 2,
-  "generated_at": "2026-05-22T06:02:06.376Z",
+  "generated_at": "2026-05-22T06:40:07.847Z",
   "repo": "korzh260609-beep/garya-bot",
   "branch": "dev/v2-start",
-  "head_sha": "ada126db7ce960c985df5a1181c290b14fc58e2b",
+  "head_sha": "3106de86b294da9256f46ce46c06e58358313a51",
   "truncated": false,
-  "items_count": 563,
+  "items_count": 566,
   "semantic_fields": [
     "module",
     "layer",
@@ -169,6 +169,24 @@
     },
     {
       "path": ".github/workflows/sg2-github-actions-commit-runs-check.yml",
+      "type": "file",
+      "parent": ".github/workflows",
+      "extension": "yml",
+      "description": "YAML configuration file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "github_actions",
+        "layer": "ci",
+        "responsibility": "YAML configuration file.",
+        "owner": "ci",
+        "safe_to_edit": "with_caution_pr_only",
+        "runtime_impact": "ci_runtime_only",
+        "source_priority": "ci_config",
+        "notes": []
+      }
+    },
+    {
+      "path": ".github/workflows/sg2-message-diagnostics-command-bridge-smoke.yml",
       "type": "file",
       "parent": ".github/workflows",
       "extension": "yml",
@@ -3326,6 +3344,24 @@
     },
     {
       "path": "scripts/smokeMessageContextInjectionSystemContext.js",
+      "type": "file",
+      "parent": "scripts",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "scripts",
+        "layer": "scripts",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "repository_fact",
+        "notes": []
+      }
+    },
+    {
+      "path": "scripts/smokeMessageDiagnosticsCommandBridge.js",
       "type": "file",
       "parent": "scripts",
       "extension": "js",
@@ -7231,6 +7267,24 @@
     },
     {
       "path": "src/core/message/messageContextPack.js",
+      "type": "file",
+      "parent": "src/core/message",
+      "extension": "js",
+      "description": "JavaScript source file.",
+      "status": "active_or_config",
+      "semantic": {
+        "module": "repository",
+        "layer": "repository",
+        "responsibility": "JavaScript source file.",
+        "owner": "repository",
+        "safe_to_edit": "with_pr_only",
+        "runtime_impact": "unknown_or_low",
+        "source_priority": "source_code",
+        "notes": []
+      }
+    },
+    {
+      "path": "src/core/message/messageDiagnosticsCommandBridge.js",
       "type": "file",
       "parent": "src/core/message",
       "extension": "js",

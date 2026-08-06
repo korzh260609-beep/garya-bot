@@ -16,7 +16,7 @@ export function createOpenAIResponsesProvider({
   apiKey = process.env.OPENAI_API_KEY,
   baseUrl = 'https://api.openai.com/v1',
   reasoningEffort = 'medium',
-  fetchImpl = globalThis.fetch
+  fetchImpl = globalThis.fetch,
 } = {}) {
   if (!apiKey) throw new AIConfigurationError('OPENAI_API_KEY is required');
   if (typeof fetchImpl !== 'function') throw new AIConfigurationError('fetch implementation is required');
@@ -29,16 +29,17 @@ export function createOpenAIResponsesProvider({
         model: model.model,
         input: request.messages.map((message) => ({ role: message.role, content: message.content })),
         reasoning: { effort: reasoningEffort },
-        store: false
+        store: false,
       };
+      if (request.maxOutputTokens != null) body.max_output_tokens = request.maxOutputTokens;
       if (request.responseFormat?.jsonSchema) {
         body.text = {
           format: {
             type: 'json_schema',
             name: request.responseFormat.name ?? 'sg_output',
             strict: true,
-            schema: request.responseFormat.jsonSchema
-          }
+            schema: request.responseFormat.jsonSchema,
+          },
         };
       }
 
@@ -48,14 +49,14 @@ export function createOpenAIResponsesProvider({
           method: 'POST',
           signal,
           headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-          body: JSON.stringify(body)
+          body: JSON.stringify(body),
         });
       } catch (cause) {
         if (signal?.aborted) throw cause;
         throw new AIProviderError('OpenAI network request failed', {
           cause,
           retryable: true,
-          code: 'AI_PROVIDER_NETWORK'
+          code: 'AI_PROVIDER_NETWORK',
         });
       }
 
@@ -65,7 +66,7 @@ export function createOpenAIResponsesProvider({
         throw new AIProviderError(payload.error?.message ?? `OpenAI request failed with status ${response.status}`, {
           retryable,
           code: `AI_PROVIDER_HTTP_${response.status}`,
-          metadata: { status: response.status }
+          metadata: { status: response.status },
         });
       }
 
@@ -75,10 +76,10 @@ export function createOpenAIResponsesProvider({
         usage: {
           inputTokens: payload.usage?.input_tokens ?? null,
           outputTokens: payload.usage?.output_tokens ?? null,
-          totalTokens: payload.usage?.total_tokens ?? null
+          totalTokens: payload.usage?.total_tokens ?? null,
         },
-        rawMetadata: { responseId: payload.id ?? null }
+        rawMetadata: { responseId: payload.id ?? null },
       };
-    }
+    },
   });
 }

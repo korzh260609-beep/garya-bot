@@ -19,11 +19,13 @@ async function fixture(name) {
   return { persistence, queue };
 }
 
-integration('Block 13 durable queue supports schedule, approval, cancellation and atomic claiming', async () => {
+integration('Block 13 durable queue supports schedule, approval, cancellation, idempotency and atomic claiming', async () => {
   const suffix = randomUUID();
   const { persistence, queue } = await fixture('sg-block13-queue-test');
   try {
-    const scheduled = await queue.submit({ taskId: `scheduled:${suffix}`, kind: 'scheduled-work', scope: scope(suffix), payload: {}, runAt: new Date(Date.now() + 60000).toISOString() });
+    const scheduled = await queue.submit({ taskId: `scheduled:${suffix}`, kind: 'scheduled-work', scope: scope(suffix), payload: {}, runAt: new Date(Date.now() + 60000).toISOString(), idempotencyKey: `scheduled-idem:${suffix}` });
+    const duplicate = await queue.submit({ taskId: `scheduled-duplicate:${suffix}`, kind: 'scheduled-work', scope: scope(suffix), payload: { duplicate: true }, runAt: new Date(Date.now() + 60000).toISOString(), idempotencyKey: `scheduled-idem:${suffix}` });
+    assert.equal(duplicate.task_id, scheduled.task_id);
     assert.equal(scheduled.status, 'scheduled');
     assert.equal((await queue.releaseDue()).length, 0);
     await persistence.database.query("UPDATE tasks SET available_at=now()-interval '1 second' WHERE task_id=$1", [scheduled.task_id]);
@@ -44,6 +46,9 @@ integration('Block 13 durable queue supports schedule, approval, cancellation an
     assert.equal(claimed.length, 2);
     assert.ok(claimed.every((task) => task.task_id !== cancelled.task_id));
     assert.equal(new Set(claimed.map((task) => task.task_id)).size, 2);
+    for (const task of claimed) {
+      await queue.complete({ taskId: task.task_id, workerId: task.lease_owner, result: { testCleanup: true } });
+    }
   } finally {
     await persistence.close();
   }
@@ -103,7 +108,8 @@ integration('Block 13 recovers abandoned leases and moves exhausted work to DLQ'
   const { persistence, queue } = await fixture('sg-block13-recovery-test');
   try {
     const recoverable = await queue.submit({ taskId: `recover:${suffix}`, kind: 'recoverable', scope: scope(suffix), payload: {}, maxAttempts: 2 });
-    await queue.claim({ workerId: 'crashed-worker', leaseMs: 1 });
+    const initialClaim = await queue.claim({ workerId: 'crashed-worker', leaseMs: 1 });
+    assert.equal(initialClaim.task_id, recoverable.task_id);
     await new Promise((resolve) => setTimeout(resolve, 5));
     const recovered = await queue.recoverAbandoned();
     assert.equal(recovered.find((task) => task.task_id === recoverable.task_id)?.status, 'queued');

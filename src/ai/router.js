@@ -1,6 +1,7 @@
 import { createAIRequest, createAIResult, assertAIProvider } from './contracts.js';
 import { AIProviderError, AITimeoutError } from './errors.js';
 import {
+  ProductionAiPolicyError,
   assertActualAiCostAllowed,
   assertProductionAiAllowed,
   estimateAiRequestCostUsd,
@@ -147,7 +148,7 @@ export function createAIRouter({
       try {
         return await callModel(primary, request, false, role);
       } catch (primaryError) {
-        if (!primary.fallbackId) throw primaryError;
+        if (primaryError instanceof ProductionAiPolicyError || !primary.fallbackId) throw primaryError;
         telemetry?.record?.({
           type: 'ai.fallback.used',
           traceId: request.traceContext.traceId,

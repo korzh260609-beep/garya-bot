@@ -63,8 +63,11 @@ The canonical order is:
 Constitution
 → Semantic Kernel
 → Context and Memory
-→ Decision and Safety
+→ Decision Engine
+→ Action Gate
 → Capability System
+→ Identity and Scope
+→ Observability
 → Interfaces
 → Automation and Agents
 → Domain Modules
@@ -75,3 +78,9 @@ Every implementation block follows: scope → contracts → skeleton → config 
 
 ## D-018 — Historical SG 2.0 documentation is not active truth
 Old runtime notes, command architecture, Human/Technical Mode documents, RepoStateAgent-specific architecture, old module contracts and old stage numbering must not be restored into active pillars.
+
+## D-019 — Identity resolution is centralized and scoped
+Identity links, actor resolution and scope construction belong to the Identity layer. Transports provide platform facts but cannot grant roles, merge identities or broaden scope.
+
+## D-020 — Observability is mandatory and privacy-bounded
+Every important request, model call, capability execution, gate decision and failure carries trace context. Audit, telemetry and debug data are separated, secrets are redacted, and private content is minimized.

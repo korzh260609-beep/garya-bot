@@ -12,8 +12,7 @@
 ## Trust order
 
 ```text
-explicit monarch decision
-→ DECISIONS.md
+accepted monarch decision recorded in DECISIONS.md
 → verified repository/runtime facts
 → confirmed project memory
 → confirmed user memory
@@ -21,6 +20,8 @@ explicit monarch decision
 → digests and summaries
 → raw dialogue
 ```
+
+A new conversational instruction may initiate a proposed decision, but it does not become durable architectural truth until recorded in `DECISIONS.md`.
 
 ## Rules
 - Raw dialogue is never confirmed memory automatically.

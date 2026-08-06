@@ -33,6 +33,7 @@ Active files:
 - `OBSERVABILITY.md`
 - `TRANSPORTS_AND_AI_ROUTING.md`
 - `RUNTIME_COMPOSITION.md`
+- `POSTGRESQL_PERSISTENCE.md`
 
 ## Roadmap
 Entry: `roadmap/README.md`
@@ -52,6 +53,7 @@ Active files:
 - `09_AUTOMATION_AND_AGENTS.md`
 - `10_DOMAIN_MODULES.md`
 - `11_RUNTIME_COMPOSITION.md` — Block 11 implementation and acceptance evidence
+- `12_POSTGRESQL_PERSISTENCE.md` — Block 12 implementation and acceptance evidence
 - `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19 and Pilot Launch
 
 ## Workflow

@@ -24,9 +24,10 @@ Completed architecture and implementation:
 - Block 12 PostgreSQL persistence boundary and repositories;
 - Block 13 durable automation and workers;
 - Block 14 Telegram production integration;
+- Block 15 production AI integration;
 - deterministic tests and CI;
 - Semantic Kernel, Context and Memory contracts;
-- AI Router foundation;
+- AI Router foundation and production policy enforcement;
 - Decision Engine and Action Gate;
 - Capability System;
 - Identity and Scope;
@@ -48,11 +49,13 @@ Completed architecture and implementation:
 - private chat, group, supergroup and topic routing;
 - explicit group addressing through reply, mention or Telegram bot-command metadata, without interpreting command names;
 - arbitrary natural-language messages passed unchanged into the SG semantic runtime;
-- full Telegram transport-to-runtime-to-delivery path.
+- full Telegram transport-to-runtime-to-delivery path;
+- production model execution only through AI Router;
+- emergency AI disable, sensitive-context rejection and role cost limits;
+- structured output validation and deterministic fail-closed AI fallback.
 
 Current limitations:
 
-- production AI execution is not validated end-to-end;
 - real user-facing production capabilities are not connected;
 - Render deployment is not configured for the SG 2.1 runtime;
 - no complete production E2E test suite exists;
@@ -61,8 +64,8 @@ Current limitations:
 
 Current implementation boundary:
 
-- Blocks 11, 12, 13 and 14 are completed.
-- Block 15 is the next mandatory block and has not started.
+- Blocks 11, 12, 13, 14 and 15 are completed.
+- Block 16 is the next mandatory block.
 
 ---
 
@@ -222,7 +225,7 @@ Acceptance evidence is recorded in `14_TELEGRAM_PRODUCTION_INTEGRATION.md`.
 
 ## Status
 
-Not started. This is the next mandatory block.
+Completed.
 
 ## Goal
 
@@ -250,6 +253,8 @@ Enable controlled real-model execution through the existing AI Router.
 - AI failure does not authorize or execute an action.
 - Cost limits are enforceable by role and configuration.
 - Secrets are stored only in deployment secret storage.
+
+Acceptance evidence is recorded in `15_PRODUCTION_AI_INTEGRATION.md`.
 
 ---
 
@@ -449,8 +454,8 @@ Validate the production system with a deliberately limited real-user scope.
 2. Block 12 — PostgreSQL Persistence — completed
 3. Block 13 — Durable Automation and Workers — completed
 4. Block 14 — Telegram Production Integration — completed
-5. Block 15 — Production AI Integration — next, not started
-6. Block 16 — Production Capabilities
+5. Block 15 — Production AI Integration — completed
+6. Block 16 — Production Capabilities — next
 7. Block 17 — Render Deployment
 8. Block 18 — End-to-End Verification
 9. Block 19 — Security and Operations

@@ -15,10 +15,23 @@ function responseFromGate(gateDecision, responsePlan) {
   return null;
 }
 
+function capabilityOverrides(capability) {
+  if (!capability) return {};
+  return {
+    requiredPermission: capability.requiredPermissions[0] ?? `capability:${capability.name}`,
+    requiredSources: capability.requiredSources,
+    requiredTools: capability.requiredTools,
+    risk: capability.risk,
+    estimatedCostUsd: capability.estimatedCostUsd,
+    confirmationRequired: capability.confirmationRequired
+  };
+}
+
 export function createProductionRuntime({
   config,
   semanticPipeline,
   actionGate,
+  capabilityRegistry = null,
   capabilityExecutor,
   domainRuntime = null,
   observability,
@@ -29,6 +42,7 @@ export function createProductionRuntime({
   requireMethod(actionGate, 'evaluate', 'actionGate');
   requireMethod(capabilityExecutor, 'execute', 'capabilityExecutor');
   requireMethod(observability, 'record', 'observability');
+  if (capabilityRegistry) requireMethod(capabilityRegistry, 'get', 'capabilityRegistry');
   if (domainRuntime) requireMethod(domainRuntime, 'execute', 'domainRuntime');
   if (!Array.isArray(resources)) throw new TypeError('resources must be an array');
 
@@ -75,10 +89,13 @@ export function createProductionRuntime({
       const semantic = await semanticPipeline.process(canonicalInput);
       observability.record({ eventClass: 'semantic_decision_created', channel: 'telemetry', stage: 'decision-engine', traceContext, outcome: semantic.decisionEnvelope.decisionType, data: { intent: semantic.decisionEnvelope.intent } });
 
+      const selectedName = semantic.decisionEnvelope.selectedAction?.name ?? semantic.decisionEnvelope.selectedAction?.type;
+      const declaredCapability = capabilityRegistry?.get(selectedName) ?? null;
       const actionRequest = createActionRequestFromDecision({
         decisionEnvelope: semantic.decisionEnvelope,
         identityContext: canonicalInput.identityContext,
-        scopeContext: canonicalInput.scopeContext
+        scopeContext: canonicalInput.scopeContext,
+        overrides: capabilityOverrides(declaredCapability)
       });
       const gateDecision = actionGate.evaluate(actionRequest);
       observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: gateDecision.outcome, data: { capability: actionRequest.capability, authorized: gateDecision.authorized } });

@@ -1,6 +1,27 @@
 import { parseStructuredAIOutput } from './contracts.js';
 import { createSemanticInterpretation } from '../contracts/semantic.js';
 
+const NAMED_VALUE_SCHEMA = Object.freeze({
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'value'],
+  properties: {
+    name: { type: 'string', minLength: 1 },
+    value: { type: 'string' }
+  }
+});
+
+const CANDIDATE_ACTION_SCHEMA = Object.freeze({
+  type: 'object',
+  additionalProperties: false,
+  required: ['type', 'name', 'actionClass'],
+  properties: {
+    type: { type: 'string', minLength: 1 },
+    name: { type: 'string', minLength: 1 },
+    actionClass: { type: 'string', enum: ['analysis', 'external', 'state-change'] }
+  }
+});
+
 const SEMANTIC_SCHEMA = Object.freeze({
   type: 'object',
   additionalProperties: false,
@@ -13,14 +34,14 @@ const SEMANTIC_SCHEMA = Object.freeze({
     meaning: { type: 'string', minLength: 1 },
     goal: { type: 'string', minLength: 1 },
     intent: { type: 'string', minLength: 1 },
-    entities: { type: 'array', items: { type: 'object' } },
-    constraints: { type: 'array', items: { type: 'object' } },
+    entities: { type: 'array', items: NAMED_VALUE_SCHEMA },
+    constraints: { type: 'array', items: NAMED_VALUE_SCHEMA },
     uncertainty: { type: 'number', minimum: 0, maximum: 1 },
     missingInformation: { type: 'array', items: { type: 'string' } },
     clarificationQuestion: { type: ['string', 'null'] },
     contextNeeds: { type: 'array', items: { type: 'string' } },
     evidenceNeeds: { type: 'array', items: { type: 'string' } },
-    candidateActions: { type: 'array', items: { type: 'object' } },
+    candidateActions: { type: 'array', items: CANDIDATE_ACTION_SCHEMA },
     rationale: { type: ['string', 'null'] }
   }
 });

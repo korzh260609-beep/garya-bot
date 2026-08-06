@@ -12,7 +12,7 @@
     "start:worker": "node src/automation/workerEntrypoint.js",
     "start:legacy-fixture": "node src/index.js",
     "migrate": "node src/persistence/migrate.js",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "test:runtime": "node --test tests/runtimeComposition.test.js",
     "test:persistence": "node --test tests/postgresPersistence.test.js",
     "test:workers": "node --test tests/durableWorkers.test.js",

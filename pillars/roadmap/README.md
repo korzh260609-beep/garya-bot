@@ -17,6 +17,7 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 11. `09_AUTOMATION_AND_AGENTS.md`
 12. `10_DOMAIN_MODULES.md`
 13. `PRODUCTION_ROADMAP.md`
+14. `11_RUNTIME_COMPOSITION.md` — implementation and acceptance evidence for Block 11
 
 ## Production continuation
 

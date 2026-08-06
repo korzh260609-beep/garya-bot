@@ -1,13 +1,5 @@
-const COMMANDS = new Set(['/start', '/help', '/profile', '/tasks', '/health']);
-
 function messageFrom(update) {
   return update?.message ?? update?.edited_message ?? update?.channel_post ?? update?.edited_channel_post ?? null;
-}
-
-function commandFrom(text = '') {
-  const token = text.trim().split(/\s+/, 1)[0]?.toLowerCase() ?? '';
-  const command = token.includes('@') ? token.slice(0, token.indexOf('@')) : token;
-  return COMMANDS.has(command) ? command : null;
 }
 
 function hasMention(message, botUsername) {
@@ -20,41 +12,40 @@ function hasMention(message, botUsername) {
   });
 }
 
+function hasBotCommandEntity(message, botUsername) {
+  const text = message?.text ?? message?.caption ?? '';
+  const entities = message?.entities ?? message?.caption_entities ?? [];
+  const username = botUsername ? botUsername.replace(/^@/, '').toLowerCase() : null;
+  return entities.some((entity) => {
+    if (entity.type !== 'bot_command') return false;
+    const token = text.slice(entity.offset, entity.offset + entity.length);
+    const target = token.includes('@') ? token.slice(token.indexOf('@') + 1).toLowerCase() : null;
+    return target == null || username == null || target === username;
+  });
+}
+
 export function evaluateTelegramInvocation(update, { botUserId = null, botUsername = null } = {}) {
   const message = messageFrom(update);
-  if (!message || message.from?.is_bot) return Object.freeze({ accepted: false, reason: 'unsupported-update', command: null, message: null });
+  if (!message || message.from?.is_bot) return Object.freeze({ accepted: false, reason: 'unsupported-update', message: null });
   const text = message.text ?? message.caption ?? '';
-  if (!text.trim()) return Object.freeze({ accepted: false, reason: 'empty-message', command: null, message });
+  if (!text.trim()) return Object.freeze({ accepted: false, reason: 'empty-message', message });
 
-  const command = commandFrom(text);
   const chatType = message.chat?.type;
-  if (chatType === 'private') return Object.freeze({ accepted: true, reason: command ? 'private-command' : 'private-message', command, message });
+  if (chatType === 'private') return Object.freeze({ accepted: true, reason: 'private-message', message });
 
   if (!['group', 'supergroup'].includes(chatType)) {
-    return Object.freeze({ accepted: false, reason: 'unsupported-chat-type', command: null, message });
+    return Object.freeze({ accepted: false, reason: 'unsupported-chat-type', message });
   }
 
   const repliedToBot = botUserId != null && String(message.reply_to_message?.from?.id ?? '') === String(botUserId);
   const mentioned = hasMention(message, botUsername);
-  if (command || repliedToBot || mentioned) {
-    return Object.freeze({ accepted: true, reason: command ? 'group-command' : repliedToBot ? 'group-reply' : 'group-mention', command, message });
+  const platformCommand = hasBotCommandEntity(message, botUsername);
+  if (repliedToBot || mentioned || platformCommand) {
+    return Object.freeze({
+      accepted: true,
+      reason: repliedToBot ? 'group-reply' : mentioned ? 'group-mention' : 'group-platform-command',
+      message
+    });
   }
-  return Object.freeze({ accepted: false, reason: 'group-not-invoked', command: null, message });
-}
-
-export function renderTelegramCommand(command, { profile = null, tasks = null, health = null } = {}) {
-  switch (command) {
-    case '/start':
-      return 'СГ подключён. Напишите сообщение или используйте /help.';
-    case '/help':
-      return 'Команды: /start, /help, /profile, /tasks, /health.';
-    case '/profile':
-      return profile ? `Профиль: ${profile}` : 'Профиль доступен через Identity and Scope.';
-    case '/tasks':
-      return tasks ? `Задачи:\n${tasks}` : 'Активных задач нет.';
-    case '/health':
-      return health ? `Состояние СГ: ${health}` : 'Состояние СГ: доступен.';
-    default:
-      return null;
-  }
+  return Object.freeze({ accepted: false, reason: 'group-not-invoked', message });
 }

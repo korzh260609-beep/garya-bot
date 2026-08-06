@@ -65,7 +65,7 @@ postgresIntegration('PostgreSQL runtime observability is durable and flushed bef
   await verifier.start();
   try {
     const persisted = await verifier.database.query(
-      'SELECT channel, event_class FROM observability_events WHERE trace_id=$1 ORDER BY id',
+      'SELECT channel, event_class FROM observability_events WHERE trace_id=$1 ORDER BY event_id',
       [traceId]
     );
     assert.deepEqual(

@@ -16,7 +16,8 @@ function scopeValues(scope = {}) {
 
 function boundedEvidence(value) {
   const serialized = JSON.stringify(value ?? {});
-  return JSON.parse(serialized.length > 8192 ? serialized.slice(0, 8192) : serialized);
+  if (serialized.length <= 8192) return JSON.parse(serialized);
+  return { truncated: true, preview: serialized.slice(0, 8000) };
 }
 
 export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {}) {
@@ -31,9 +32,10 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
       await tx.query('INSERT INTO users(global_user_id) VALUES ($1) ON CONFLICT DO NOTHING', [globalUserId]);
       const result = await tx.query(`INSERT INTO tasks(task_id,global_user_id,project_scope,group_scope,thread_scope,status,kind,payload,approval_state,max_attempts,available_at,protected_action,idempotency_key)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,COALESCE($11::timestamptz,now()),$12,$13)
-        ON CONFLICT(task_id) DO NOTHING RETURNING *`, [taskId, globalUserId, projectScope, groupScope, threadScope, status, requiredString(kind, 'kind'), JSON.stringify(payload), JSON.stringify({ required: approvalRequired, approved: false }), maxAttempts, runAt, protectedAction, idempotencyKey]);
+        ON CONFLICT DO NOTHING RETURNING *`, [taskId, globalUserId, projectScope, groupScope, threadScope, status, requiredString(kind, 'kind'), JSON.stringify(payload), JSON.stringify({ required: approvalRequired, approved: false }), maxAttempts, runAt, protectedAction, idempotencyKey]);
       if (result.rows[0]) return result.rows[0];
-      const existing = await tx.query('SELECT * FROM tasks WHERE task_id=$1', [taskId]);
+      const existing = await tx.query('SELECT * FROM tasks WHERE task_id=$1 OR ($2::text IS NOT NULL AND idempotency_key=$2) ORDER BY created_at LIMIT 1', [taskId, idempotencyKey]);
+      if (!existing.rows[0]) throw new Error('task submission conflict without existing task');
       return existing.rows[0];
     });
   }
@@ -47,7 +49,7 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
   }
 
   async function approve(taskId, approvedBy) {
-    const result = await database.query(`UPDATE tasks SET status='queued',available_at=now(),approval_state=jsonb_build_object('required',true,'approved',true,'approvedBy',$2,'approvedAt',now()),updated_at=now()
+    const result = await database.query(`UPDATE tasks SET status='queued',available_at=now(),approval_state=jsonb_build_object('required',true,'approved',true,'approvedBy',$2::text,'approvedAt',now()),updated_at=now()
       WHERE task_id=$1 AND status='waiting_approval' RETURNING *`, [requiredString(taskId, 'taskId'), requiredString(approvedBy, 'approvedBy')]);
     if (!result.rows[0]) throw new Error('task is not waiting approval');
     return result.rows[0];
@@ -106,7 +108,7 @@ export function createPostgresTaskQueue({ database, idFactory = randomUUID } = {
       const dead = await tx.query(`UPDATE tasks SET status='dead_letter',last_error=$3::jsonb,lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now()
         WHERE task_id=$1 AND lease_owner=$2 RETURNING *`, [taskId, workerId, JSON.stringify(errorPayload)]);
       await tx.query(`INSERT INTO dead_letter_tasks(task_id,reason,evidence) VALUES ($1,$2,$3::jsonb)
-        ON CONFLICT(task_id) DO UPDATE SET reason=EXCLUDED.reason,evidence=EXCLUDED.evidence`, [taskId, errorPayload.message, JSON.stringify(boundedEvidence({ attempt: task.attempt, maxAttempts: task.max_attempts, kind: task.kind, error: errorPayload }))]);
+        ON CONFLICT(task_id) DO UPDATE SET reason=EXCLUDED.reason,evidence=EXCLUDED.evidence`, [taskId, errorPayload.message ?? 'bounded_error', JSON.stringify(boundedEvidence({ attempt: task.attempt, maxAttempts: task.max_attempts, kind: task.kind, error: errorPayload }))]);
       return { outcome: 'dead_letter', task: dead.rows[0] };
     });
   }

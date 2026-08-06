@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and the completed executable platform roadmap through Block 10.
+This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 13.
 
 ## Requirements
 - Node.js 22
@@ -12,9 +12,10 @@ npm ci
 npm test
 npm run check
 npm start
+npm run start:worker
 ```
 
-By default, `npm start` runs the deterministic Block 2 context-memory fixture and does not spend AI tokens.
+By default, `npm start` runs the deterministic production-like runtime fixture and does not spend AI tokens.
 
 To run the Block 2.5 production reasoning path, configure a deployment secret and enable it explicitly:
 
@@ -41,6 +42,12 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 8 — Interfaces
 - Block 9 — Automation and Agents
 - Block 10 — Domain Modules
+- Block 11 — Runtime Composition
+- Block 12 — PostgreSQL Persistence
+- Block 13 — Durable Automation and Workers
+
+### Next
+- Block 14 — Telegram Production Integration — not started
 
 ## Implemented
 ### Block 0 — Engineering Foundation
@@ -145,6 +152,27 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - domains cannot own or redefine Semantic Kernel, Identity, Action Gate or trust order
 - cross-domain namespace and scope-isolation tests
 
+### Block 11 — Runtime Composition
+- one executable runtime entrypoint with explicit dependency injection
+- validated environment configuration and lifecycle management
+- health, readiness and graceful shutdown
+- complete deterministic production-like request path
+
+### Block 12 — PostgreSQL Persistence
+- PostgreSQL pool and transaction boundary
+- versioned repeatable migrations
+- durable scoped repositories for identity, access, conversations, memory, automation, idempotency, observability and domain data
+- durable runtime observability with shutdown flushing
+
+### Block 13 — Durable Automation and Workers
+- persistent PostgreSQL task queue and scheduler
+- separate worker runtime with atomic claiming
+- leases, heartbeat and abandoned-work recovery
+- bounded retry, exponential backoff and dead-letter queue
+- persisted approval, cancellation and idempotency
+- Action Gate immediately before protected execution
+- worker health and durable observability
+
 ## Runtime path
 `Platform Input → Transport Adapter → Platform Facts → Identity and Scope Resolution → CanonicalInput → MeaningInterpreter → SemanticInterpretation → Context Resolution → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan → Transport Response Delivery`
 
@@ -169,7 +197,7 @@ Optional product domains enter only through stable capability, identity, scope, 
 - Production AI is disabled by default to avoid accidental cost.
 
 ## Current boundary
-Blocks 0–10 provide the complete executable SG 2.1 platform foundation defined by the active roadmap. In-memory memory, idempotency, automation and domain integrations remain reference implementations with injected provider boundaries. Durable databases, production network clients, real external billing, market, document and repository providers, and product-specific deployment configuration must be connected through those boundaries without changing the core contracts.
+Blocks 0–13 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence and durable automation worker layer defined by the active roadmap. Telegram Bot API integration, controlled production AI validation, real user-facing production capabilities, Render deployment, external end-to-end verification and security operations remain in Blocks 14–19 and Pilot Launch. These must be connected through the approved boundaries without changing the core contracts.
 
 ## Authority
 Read in this order:

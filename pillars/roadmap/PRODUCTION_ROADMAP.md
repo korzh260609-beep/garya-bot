@@ -46,7 +46,8 @@ Completed architecture and implementation:
 - durable Telegram update deduplication;
 - Telegram Bot API client with timeout, bounded retries and flood-control handling;
 - private chat, group, supergroup and topic routing;
-- explicit group invocation through commands, reply or mention;
+- explicit group addressing through reply, mention or Telegram bot-command metadata, without interpreting command names;
+- arbitrary natural-language messages passed unchanged into the SG semantic runtime;
 - full Telegram transport-to-runtime-to-delivery path.
 
 Current limitations:
@@ -181,7 +182,7 @@ Completed.
 
 ## Goal
 
-Connect the existing Telegram transport adapter to the real Telegram Bot API without moving identity or permissions into the transport.
+Connect the existing Telegram transport adapter to the real Telegram Bot API without moving identity, permissions or semantic interpretation into the transport.
 
 ## Deliverables
 
@@ -191,11 +192,13 @@ Connect the existing Telegram transport adapter to the real Telegram Bot API wit
 - Bot API client;
 - response delivery through `sendMessage` and required Telegram methods;
 - handling of private chats, groups, supergroups and topics;
-- reply and mention detection;
-- explicit invocation rules for groups;
-- commands `/start`, `/help`, `/profile`, `/tasks` and `/health`;
+- reply, mention and structured Telegram bot-command entity detection for group addressing only;
+- semantic-first interaction: every non-empty private message is passed unchanged to the SG runtime;
+- no command-name allowlist, keyword routing or transport-level business responses;
+- optional Telegram commands treated only as platform shortcuts and never as required user interaction;
 - Telegram error normalization;
 - rate limits and flood-control handling;
+- SG 2.0-compatible Render environment resolution;
 - test sandbox configuration.
 
 ## Acceptance criteria
@@ -205,6 +208,9 @@ Connect the existing Telegram transport adapter to the real Telegram Bot API wit
 - Duplicate Telegram updates do not create duplicate actions.
 - Group users retain separate personal contexts.
 - Group and thread context remains correctly isolated.
+- Users are not required to memorize commands, keywords or fixed phrases.
+- Arbitrary natural-language messages reach Meaning Interpretation unchanged.
+- Telegram transport does not choose intents, capabilities or business responses.
 - The bot responds through the full SG runtime path.
 - Telegram outages produce visible bounded failures without corrupting state.
 

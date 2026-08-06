@@ -32,6 +32,7 @@ Active files:
 - `IDENTITY_AND_SCOPE.md`
 - `OBSERVABILITY.md`
 - `TRANSPORTS_AND_AI_ROUTING.md`
+- `RUNTIME_COMPOSITION.md`
 
 ## Roadmap
 Entry: `roadmap/README.md`
@@ -50,6 +51,7 @@ Active files:
 - `08_INTERFACES.md`
 - `09_AUTOMATION_AND_AGENTS.md`
 - `10_DOMAIN_MODULES.md`
+- `11_RUNTIME_COMPOSITION.md` — Block 11 implementation and acceptance evidence
 - `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19 and Pilot Launch
 
 ## Workflow
@@ -61,6 +63,8 @@ Active files:
 - `TEST_AND_EVIDENCE_PROTOCOL.md`
 - `RELEASE_AND_ROLLBACK_PROTOCOL.md`
 - `ARCHITECTURE_DECISION_PROTOCOL.md`
+
+Workflow defines implementation procedure and does not store per-block runtime history. Therefore `workflow/changes/` and `workflow/changes/BLOCK_11_RUNTIME_COMPOSITION.md` are not canonical paths.
 
 ## Modules
 `modules/` starts empty except for its README. Module documentation is created only when the corresponding SG 2.1 module is introduced through the active roadmap.

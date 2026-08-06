@@ -12,12 +12,19 @@ function estimateCost(model, usage) {
 
 async function withTimeout(operation, timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new AITimeoutError(`AI provider timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
   try {
-    return await operation(controller.signal);
-  } catch (cause) {
-    if (controller.signal.aborted) throw new AITimeoutError(`AI provider timed out after ${timeoutMs}ms`, { cause });
-    throw cause;
+    return await Promise.race([
+      Promise.resolve().then(() => operation(controller.signal)),
+      timeout
+    ]);
   } finally {
     clearTimeout(timer);
   }

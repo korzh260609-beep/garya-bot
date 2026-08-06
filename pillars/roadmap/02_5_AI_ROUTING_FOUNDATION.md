@@ -1,22 +1,50 @@
 # SG 2.1 ROADMAP — BLOCK 2.5: AI ROUTING FOUNDATION
 
+## Status
+Implementation complete on `dev/sg2.1-semantic`. Exit gate is satisfied only when CI is green for the final Block 2.5 commit.
+
 ## Goal
 Connect the first production reasoning model through a replaceable, observable and cost-controlled AI routing layer before Decision Engine development begins.
 
 ## Deliverables
-- AI Provider contract
-- AI Router contract and implementation
-- model registry and configuration
-- reasoning-model selection policy
-- specialized-first routing policy
-- provider timeout, retry and fallback behavior
-- normalized AI result and error contracts
-- structured-output validation
-- production `MeaningInterpreter` adapter
-- token, latency, reason and cost metadata
-- trace propagation for every model call
-- secret-safe environment configuration
-- contract, failure and integration tests
+- [x] AI Provider contract
+- [x] AI Router contract and implementation
+- [x] model registry and environment configuration
+- [x] reasoning-model selection policy
+- [x] specialized-first routing policy
+- [x] provider timeout, retry and fallback behavior
+- [x] normalized AI result and error contracts
+- [x] structured-output validation
+- [x] production `MeaningInterpreter` adapter
+- [x] token, latency, reason and cost metadata
+- [x] trace propagation for every model call
+- [x] secret-safe environment configuration
+- [x] contract, provider, failure and integration tests
+
+## Implemented runtime path
+`CanonicalInput → ProductionMeaningInterpreter → AIRouter → ModelRegistry → AIProvider → validated SemanticInterpretation → SemanticKernel`
+
+Direct provider access is not exposed as a supported Semantic Kernel integration path.
+
+## Failure behavior
+- Missing credentials: explicit `AI_CONFIGURATION_ERROR`.
+- Timeout: hard router timeout with provider cancellation request.
+- Retry: bounded and only for retryable failures.
+- Fallback: optional, bounded and observable.
+- Invalid JSON or invalid semantic contract: fail closed.
+- Provider HTTP and network failures: normalized error codes without secrets.
+
+## Observability
+Every routed call carries:
+- trace ID and request ID
+- provider and model
+- routing reason
+- attempt count and fallback marker
+- latency
+- token usage when returned by the provider
+- estimated cost when model pricing is configured
+
+Prompt content, API keys and authorization headers are excluded from telemetry.
 
 ## Hard rules
 - SG modules cannot call an AI provider directly.
@@ -27,12 +55,12 @@ Connect the first production reasoning model through a replaceable, observable a
 - Invalid or incomplete model output fails closed.
 
 ## Acceptance criteria
-- Semantic Kernel works through the production MeaningInterpreter adapter.
-- Model responses are validated before entering SG contracts.
-- Missing credentials, timeout, invalid output and provider failure are handled explicitly.
-- Retry and fallback behavior are bounded and observable.
-- Every call records model, provider, reason, trace identifiers, latency, usage and cost metadata when available.
-- Tests prove that direct provider bypass is not part of the supported architecture.
+- [x] Semantic Kernel works through the production MeaningInterpreter adapter.
+- [x] Model responses are validated before entering SG contracts.
+- [x] Missing credentials, timeout, invalid output and provider failure are handled explicitly.
+- [x] Retry and fallback behavior are bounded and observable.
+- [x] Every call records model, provider, reason, trace identifiers, latency, usage and cost metadata when available.
+- [x] Tests prove that direct provider bypass is not part of the supported architecture.
 
 ## Boundaries
 - No Decision Engine logic.

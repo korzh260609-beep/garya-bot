@@ -14,6 +14,7 @@ export function createProductionAI({ env = process.env, fetchImpl = globalThis.f
   const openai = createOpenAIResponsesProvider({
     apiKey: env.OPENAI_API_KEY,
     baseUrl: env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+    reasoningEffort: env.OPENAI_REASONING_EFFORT ?? 'medium',
     fetchImpl
   });
   const aiRouter = createAIRouter({

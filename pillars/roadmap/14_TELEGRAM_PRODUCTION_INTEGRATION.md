@@ -10,95 +10,74 @@ Telegram remains a transport. It provides platform identity facts, chat facts, m
 
 ## Semantic-first interaction rule
 
-Users are never required to memorize technical commands, keywords or fixed phrases.
-
-Natural-language requests such as:
-
-- `Что ты обо мне помнишь?`
-- `Расскажи, кто я для тебя`
-- `Какие мои дела ещё не закончены?`
-- `Есть ли у системы проблемы?`
-
-are passed unchanged to the SG runtime. Their meaning is resolved only by the semantic layer and later mapped through Decision Engine, Action Gate and capabilities.
+Users are never required to memorize technical commands, keywords or fixed phrases. Natural-language requests are passed unchanged to the SG runtime. Their meaning is resolved only by the semantic layer and later mapped through Decision Engine, Action Gate and capabilities.
 
 Telegram bot commands may exist as optional platform shortcuts, but the transport does not maintain a command-name allowlist and does not attach business meaning to command text. A Telegram `bot_command` entity is only evidence that a group message was explicitly addressed to the bot.
 
 ## Implemented components
 
-- `src/telegram/telegramWebhookHttpHandler.js`
-  - POST endpoint at `/webhooks/telegram` by default;
-  - bounded JSON body size;
-  - method and payload validation.
-- `src/telegram/telegramProductionIntegration.js`
-  - constant-time webhook secret verification;
-  - update claiming before execution;
-  - full `TelegramTransportAdapter → runtime.handle → sendMessage` path;
-  - visible bounded failure status.
-- `src/telegram/postgresTelegramUpdateStore.js`
-  - durable update deduplication by Telegram `update_id`;
-  - processing, completed, ignored and failed states.
-- `src/persistence/migrations/004_block14_telegram_updates.sql`
-  - durable Telegram update table and diagnostic index.
-- `src/telegram/telegramBotApiClient.js`
-  - Bot API calls;
-  - `sendMessage`, `setWebhook`, `deleteWebhook`, `getWebhookInfo`;
-  - timeout, bounded retries and Telegram flood-control handling;
-  - normalized Telegram failures.
-- `src/telegram/telegramInvocation.js`
-  - private chat handling;
-  - group and supergroup explicit addressing;
-  - reply, mention and Telegram `bot_command` entity detection;
-  - no command allowlist;
-  - no keyword routing;
-  - no transport-level response renderer.
-- `src/telegram/telegramConfig.js`
-  - validated production and sandbox configuration.
+- `src/telegram/telegramWebhookHttpHandler.js` — bounded POST webhook endpoint.
+- `src/telegram/telegramProductionIntegration.js` — secret verification, durable dedupe, runtime path and delivery.
+- `src/telegram/postgresTelegramUpdateStore.js` — durable update states.
+- `src/persistence/migrations/004_block14_telegram_updates.sql` — Telegram update persistence.
+- `src/telegram/telegramBotApiClient.js` — Bot API, timeout, retries and flood control.
+- `src/telegram/telegramInvocation.js` — private messages and structured group addressing without keyword routing.
+- `src/telegram/telegramConfig.js` — SG 2.0-compatible Render configuration.
 
 ## Invocation rules
 
 - Private chats: every non-empty text or caption is accepted and passed unchanged to semantic runtime.
-- Groups and supergroups: SG responds only when the message is explicitly addressed through a reply to the bot, an explicit mention or Telegram's structured `bot_command` entity.
+- Groups and supergroups: SG responds only when explicitly addressed through a reply, mention or Telegram `bot_command` entity.
 - Group admission uses Telegram addressing metadata only. It does not inspect words to infer intent.
-- Silent group traffic is acknowledged and stored as ignored update evidence without entering the SG runtime.
-- Telegram topic `message_thread_id` becomes thread scope only after centralized Identity and Scope resolution.
+- Silent group traffic is stored as ignored update evidence without entering the SG runtime.
+- Telegram topic `message_thread_id` becomes thread scope after centralized Identity and Scope resolution.
+
+## Render configuration compatibility
+
+SG 2.1 reuses the environment already used by SG 2.0.
+
+Required existing value:
+
+- `TELEGRAM_BOT_TOKEN`, with legacy `BOT_TOKEN` accepted as fallback.
+
+Public URL resolution follows SG 2.0 compatibility:
+
+1. `BASE_URL` when explicitly configured;
+2. Render-provided `RENDER_EXTERNAL_URL`;
+3. Render-provided `RENDER_EXTERNAL_HOSTNAME`.
+
+The webhook URL is assembled automatically with the safe default path `/webhooks/telegram`. The bot token is never placed in the webhook path.
+
+No new Render ENV is required for the default deployment. The following are optional overrides only:
+
+- `TELEGRAM_WEBHOOK_SECRET` — otherwise derived deterministically from the existing token;
+- `TELEGRAM_WEBHOOK_PATH`;
+- `TELEGRAM_BOT_USER_ID`;
+- `TELEGRAM_BOT_USERNAME`;
+- `TELEGRAM_API_TIMEOUT_MS`;
+- `TELEGRAM_API_MAX_RETRIES`;
+- `TELEGRAM_SANDBOX_ENABLED`.
 
 ## Security and reliability
 
 - Webhook requests require `X-Telegram-Bot-Api-Secret-Token`.
-- Telegram tokens and webhook secrets are configuration secrets and are never committed.
+- The Telegram token is not exposed in the webhook URL.
 - Duplicate update IDs cannot execute the SG runtime twice.
-- Telegram delivery outages return bounded `503` failures and mark the durable update as failed.
+- Telegram delivery outages return bounded failures and mark the durable update as failed.
 - Bot API 429 responses respect `retry_after` with bounded retries.
-
-## Configuration
-
-Required deployment secrets:
-
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_WEBHOOK_SECRET`
-- `TELEGRAM_WEBHOOK_URL`
-
-Operational values:
-
-- `TELEGRAM_BOT_USER_ID`
-- `TELEGRAM_BOT_USERNAME`
-- `TELEGRAM_WEBHOOK_PATH`
-- `TELEGRAM_API_TIMEOUT_MS`
-- `TELEGRAM_API_MAX_RETRIES`
-- `TELEGRAM_SANDBOX_ENABLED`
 
 ## Acceptance evidence
 
 CI verifies:
 
-- repeatable migration count with Block 14 migration;
+- SG 2.0 `TELEGRAM_BOT_TOKEN` and legacy `BOT_TOKEN` compatibility;
+- Render URL/hostname auto-resolution;
+- automatic safe webhook URL assembly;
+- webhook secret derivation and optional overrides;
 - webhook secret rejection;
-- durable/in-memory update deduplication contract;
+- durable update deduplication;
 - full transport-to-runtime-to-delivery path;
-- arbitrary natural-language messages pass unchanged to runtime;
-- no fixed command-name or keyword routing in Telegram transport;
-- separate identities for different group users;
-- group and topic scope isolation;
-- reply, mention and structured platform-command addressing;
-- flood-control retry and normalized API errors;
-- visible failure when Telegram delivery is unavailable.
+- arbitrary natural-language messages pass unchanged;
+- no fixed command-name or keyword routing;
+- identity and scope isolation;
+- Telegram flood-control handling and bounded failures.

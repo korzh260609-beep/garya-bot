@@ -6,6 +6,7 @@ import { executeSafeNoop } from './semantic/noopCapability.js';
 import { createInMemoryMemoryProvider } from './memory/inMemoryMemoryProvider.js';
 import { createContextResolver } from './memory/contextResolver.js';
 import { createContextAwareSemanticPipeline } from './memory/contextAwareSemanticPipeline.js';
+import { createProductionAI } from './ai/createProductionAI.js';
 
 function createLocalContexts() {
   const identityContext = createIdentityContext({
@@ -55,7 +56,11 @@ export async function runContextMemoryFixture() {
     key: 'current-block',
     value: 'Context and Memory',
     scope: contexts.scopeContext,
-    provenance: { sourceType: 'local-fixture', sourceId: 'block-2-runner', actorId: contexts.identityContext.globalUserId },
+    provenance: {
+      sourceType: 'local-fixture',
+      sourceId: 'block-2-runner',
+      actorId: contexts.identityContext.globalUserId
+    },
     trust: 'confirmed',
     confirmed: true
   });
@@ -76,7 +81,22 @@ export async function runContextMemoryFixture() {
   return Object.freeze({ status: 'context-memory-ready', result });
 }
 
+export async function runProductionSemanticFixture({ text = 'Continue SG 2.1 development', env = process.env, fetchImpl = globalThis.fetch } = {}) {
+  const contexts = createLocalContexts();
+  const productionAI = createProductionAI({ env, fetchImpl });
+  const kernel = createSemanticKernel({ meaningInterpreter: productionAI.meaningInterpreter });
+  const semanticResult = await kernel.process({ text, locale: 'en', ...contexts });
+  return Object.freeze({
+    status: 'ai-routing-ready',
+    semanticResult,
+    aiTelemetry: productionAI.telemetry.list()
+  });
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const response = await runContextMemoryFixture();
+  const useProductionAI = String(process.env.SG_AI_ENABLED ?? 'false').toLowerCase() === 'true';
+  const response = useProductionAI
+    ? await runProductionSemanticFixture({ text: process.env.SG_AI_INPUT ?? 'Continue SG 2.1 development' })
+    : await runContextMemoryFixture();
   process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
 }

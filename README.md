@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and roadmap through Block 10. The executable platform core is currently completed through Block 8.
+This branch contains the active SG 2.1 architecture and the completed executable platform roadmap through Block 10.
 
 ## Requirements
 - Node.js 22
@@ -39,8 +39,6 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 6 — Identity and Scope
 - Block 7 — Observability
 - Block 8 — Interfaces
-
-### Planned
 - Block 9 — Automation and Agents
 - Block 10 — Domain Modules
 
@@ -128,11 +126,32 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - transports cannot assign roles, grants or final scopes
 - cross-transport, group, thread and response-delivery tests
 
+### Block 9 — Automation and Agents
+- scheduled and queued task contracts
+- workers, bounded retry and dead-letter queue behavior
+- approval and cancellation flows
+- protected automated actions pass Action Gate
+- delegated agents remain replaceable components, not SG identities
+- code and PR capabilities remain prepare-only
+- observable and recoverable task execution
+
+### Block 10 — Domain Modules
+- stable domain module, capability, request and result contracts
+- centralized replaceable domain registry and runtime
+- document, repository, market, billing, psychology and Kingdom GARYA modules
+- domain permissions, sources, memory, identity, scope and trace propagation
+- mandatory Action Gate boundary before domain handlers execute
+- fail-closed source and permission validation
+- domains cannot own or redefine Semantic Kernel, Identity, Action Gate or trust order
+- cross-domain namespace and scope-isolation tests
+
 ## Runtime path
 `Platform Input → Transport Adapter → Platform Facts → Identity and Scope Resolution → CanonicalInput → MeaningInterpreter → SemanticInterpretation → Context Resolution → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan → Transport Response Delivery`
 
 The production interpretation route remains:
 `ProductionMeaningInterpreter → AIRouter → ModelRegistry → AIProvider`
+
+Optional product domains enter only through stable capability, identity, scope, memory, source, gate and observability boundaries.
 
 ## Core rules
 - SG modules do not call AI providers directly.
@@ -146,10 +165,11 @@ The production interpretation route remains:
 - Platform IDs are identity links, not independent users.
 - Transports provide platform facts but cannot assign roles, grants or final scopes.
 - Observability records facts but does not change architecture or business logic.
+- Domain modules consume platform contracts and cannot redefine the SG core.
 - Production AI is disabled by default to avoid accidental cost.
 
 ## Current boundary
-The in-memory memory and idempotency providers are working reference implementations, not durable production storage. Database persistence and migrations are intentionally deferred. Block 8 provides transport contracts, adapters and deterministic interface tests, but real network clients remain external injected boundaries. Production domain capabilities, automation and agents, durable task execution and domain modules remain deferred to Blocks 9 and 10.
+Blocks 0–10 provide the complete executable SG 2.1 platform foundation defined by the active roadmap. In-memory memory, idempotency, automation and domain integrations remain reference implementations with injected provider boundaries. Durable databases, production network clients, real external billing, market, document and repository providers, and product-specific deployment configuration must be connected through those boundaries without changing the core contracts.
 
 ## Authority
 Read in this order:

@@ -1,8 +1,8 @@
 {
   "name": "sg-2-1-semantic",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "SG 2.1 transport-independent semantic core",
+  "description": "SG 2.1 transport-independent semantic core with bounded context and memory",
   "type": "module",
   "engines": {
     "node": ">=22 <23"

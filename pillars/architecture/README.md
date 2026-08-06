@@ -21,6 +21,7 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 7. `OBSERVABILITY.md`
 8. `TRANSPORTS_AND_AI_ROUTING.md`
 9. `RUNTIME_COMPOSITION.md`
+10. `POSTGRESQL_PERSISTENCE.md`
 
 ## Core flow
 
@@ -47,3 +48,4 @@ Input
 - Transports are thin adapters.
 - Domain modules cannot redefine platform contracts.
 - Runtime composition connects approved modules but cannot relocate their responsibilities.
+- PostgreSQL persists approved contracts but cannot become the decision, identity-policy or authorization layer.

@@ -20,6 +20,7 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 6. `IDENTITY_AND_SCOPE.md`
 7. `OBSERVABILITY.md`
 8. `TRANSPORTS_AND_AI_ROUTING.md`
+9. `RUNTIME_COMPOSITION.md`
 
 ## Core flow
 
@@ -45,3 +46,4 @@ Input
 - Commands are shortcuts; natural language is primary.
 - Transports are thin adapters.
 - Domain modules cannot redefine platform contracts.
+- Runtime composition connects approved modules but cannot relocate their responsibilities.

@@ -6,7 +6,7 @@ Turn the completed SG 2.1 platform core (Blocks 0–10) into a deployable, persi
 
 The production stage must preserve these rules:
 
-- AI is execution only; SG remains the decision maker.
+- Connected AI models provide controlled reasoning and specialized execution; SG remains the system that owns context, decisions, permissions, risk and action control.
 - No direct AI calls outside AI Router.
 - Protected actions always pass Action Gate.
 - Identity, permissions, scope and trust order remain centralized.
@@ -20,6 +20,7 @@ The production stage must preserve these rules:
 Completed architecture and reference implementation:
 
 - Blocks 0–10;
+- Block 11 production runtime composition;
 - deterministic tests and CI;
 - Semantic Kernel, Context and Memory contracts;
 - AI Router foundation;
@@ -29,11 +30,11 @@ Completed architecture and reference implementation:
 - Observability;
 - transport adapters;
 - Automation and Agents reference layer;
-- Domain Modules platform.
+- Domain Modules platform;
+- one executable runtime entrypoint with explicit dependency injection, lifecycle, health, readiness and graceful shutdown.
 
 Current limitations:
 
-- modules are not yet composed into one production runtime;
 - persistence and task storage are in-memory reference implementations;
 - Telegram Bot API is not connected to the transport adapter;
 - production AI execution is not validated end-to-end;

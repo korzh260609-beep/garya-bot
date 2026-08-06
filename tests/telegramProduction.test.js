@@ -74,6 +74,34 @@ test('Block 14 verifies webhook secret, deduplicates and delivers through the fu
   assert.equal(sent[0].replyToMessageId, 11);
 });
 
+test('Block 14 passes arbitrary natural language unchanged to semantic runtime', async () => {
+  const texts = [
+    'Что ты обо мне помнишь?',
+    'Покажи, чем я сейчас занят',
+    'Есть ли у системы проблемы?',
+    'Напомни, какие дела ещё не закончены',
+    'Расскажи, кто я для тебя'
+  ];
+  const handled = [];
+  const integration = createTelegramProductionIntegration({
+    secretToken: 'secret',
+    botClient: { sendMessage: async () => {} },
+    updateStore: createInMemoryTelegramUpdateStore(),
+    identityResolver,
+    runtime: { handle: async (input) => { handled.push(input); return { status: 'success', message: 'ok', data: {} }; } }
+  });
+
+  for (let index = 0; index < texts.length; index += 1) {
+    await integration.handleWebhook({
+      headers: { 'x-telegram-bot-api-secret-token': 'secret' },
+      body: update({ update_id: 150 + index, message: { ...update().message, message_id: 50 + index, text: texts[index] } })
+    });
+  }
+
+  assert.deepEqual(handled.map((input) => input.text), texts);
+  assert.ok(handled.every((input) => input.metadata.transport === 'telegram'));
+});
+
 test('Block 14 isolates group users and topic scopes while requiring explicit invocation', async () => {
   const inputs = [];
   const integration = createTelegramProductionIntegration({
@@ -101,25 +129,27 @@ test('Block 14 isolates group users and topic scopes while requiring explicit in
 
   await integration.handleWebhook({
     headers: { 'x-telegram-bot-api-secret-token': 'secret' },
-    body: { update_id: 202, message: { ...baseMessage, text: '@garya_bot ответь', entities: [{ type: 'mention', offset: 0, length: 10 }] } }
+    body: { update_id: 202, message: { ...baseMessage, text: '@garya_bot посмотри, всё ли у нас нормально', entities: [{ type: 'mention', offset: 0, length: 10 }] } }
   });
   await integration.handleWebhook({
     headers: { 'x-telegram-bot-api-secret-token': 'secret' },
-    body: { update_id: 203, message: { ...baseMessage, message_id: 21, from: { id: 8, is_bot: false }, text: '/health' } }
+    body: { update_id: 203, message: { ...baseMessage, message_id: 21, from: { id: 8, is_bot: false }, text: 'Какие мои дела ещё открыты?', reply_to_message: { from: { id: 999 } } } }
   });
 
   assert.equal(inputs.length, 2);
   assert.equal(inputs[0].scopeContext.groupScope, '-100');
   assert.equal(inputs[0].scopeContext.threadScope, '55');
   assert.notEqual(inputs[0].identityContext.globalUserId, inputs[1].identityContext.globalUserId);
+  assert.equal(inputs[1].text, 'Какие мои дела ещё открыты?');
 });
 
-test('Block 14 accepts replies and supported commands but rejects silent group traffic', () => {
+test('Block 14 group invocation uses Telegram addressing metadata, not command names or keywords', () => {
   assert.equal(evaluateTelegramInvocation(update(), { botUserId: 999 }).accepted, true);
   const group = update({ message: { message_id: 1, from: { id: 7 }, chat: { id: -1, type: 'group' }, text: 'hello' } });
   assert.equal(evaluateTelegramInvocation(group, { botUserId: 999 }).accepted, false);
-  assert.equal(evaluateTelegramInvocation({ ...group, message: { ...group.message, text: '/tasks' } }, { botUserId: 999 }).accepted, true);
-  assert.equal(evaluateTelegramInvocation({ ...group, message: { ...group.message, reply_to_message: { from: { id: 999 } } } }, { botUserId: 999 }).accepted, true);
+  assert.equal(evaluateTelegramInvocation({ ...group, message: { ...group.message, text: 'Какие у меня незавершённые дела?', reply_to_message: { from: { id: 999 } } } }, { botUserId: 999 }).accepted, true);
+  assert.equal(evaluateTelegramInvocation({ ...group, message: { ...group.message, text: '@garya_bot как ты меня понимаешь?', entities: [{ type: 'mention', offset: 0, length: 10 }] } }, { botUsername: 'garya_bot' }).accepted, true);
+  assert.equal(evaluateTelegramInvocation({ ...group, message: { ...group.message, text: '/anything@garya_bot', entities: [{ type: 'bot_command', offset: 0, length: 19 }] } }, { botUsername: 'garya_bot' }).accepted, true);
 });
 
 test('Block 14 Bot API client retries flood control and normalizes bounded failure', async () => {

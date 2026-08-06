@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and executable platform core through Block 8.
+This branch contains the active SG 2.1 architecture and roadmap through Block 10. The executable platform core is currently completed through Block 8.
 
 ## Requirements
 - Node.js 22
@@ -25,6 +25,24 @@ npm start
 ```
 
 All non-secret options are documented in `.env.example`. Real API keys must be stored only in the deployment secret store.
+
+## Roadmap status
+
+### Completed
+- Block 0 — Engineering Foundation
+- Block 1 — Semantic Kernel
+- Block 2 — Context and Memory
+- Block 2.5 — AI Routing Foundation
+- Block 3 — Decision Engine
+- Block 4 — Action Gate
+- Block 5 — Capability System
+- Block 6 — Identity and Scope
+- Block 7 — Observability
+- Block 8 — Interfaces
+
+### Planned
+- Block 9 — Automation and Agents
+- Block 10 — Domain Modules
 
 ## Implemented
 ### Block 0 — Engineering Foundation
@@ -131,7 +149,7 @@ The production interpretation route remains:
 - Production AI is disabled by default to avoid accidental cost.
 
 ## Current boundary
-The in-memory memory and idempotency providers are working reference implementations, not durable production storage. Database persistence and migrations are intentionally deferred. Block 8 provides transport contracts, adapters and deterministic interface tests, but real network clients remain external injected boundaries. Production domain capabilities, automation and agents, durable task execution and domain modules remain deferred to later roadmap blocks.
+The in-memory memory and idempotency providers are working reference implementations, not durable production storage. Database persistence and migrations are intentionally deferred. Block 8 provides transport contracts, adapters and deterministic interface tests, but real network clients remain external injected boundaries. Production domain capabilities, automation and agents, durable task execution and domain modules remain deferred to Blocks 9 and 10.
 
 ## Authority
 Read in this order:

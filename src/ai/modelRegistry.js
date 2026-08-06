@@ -1,5 +1,12 @@
 import { AIConfigurationError } from './errors.js';
 
+function nonNegativeNumber(value, fallback = 0) {
+  if (value == null || value === '') return fallback;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) throw new AIConfigurationError('AI model pricing must be a non-negative number');
+  return number;
+}
+
 export function createModelRegistry(entries = []) {
   const models = new Map();
   for (const entry of entries) {
@@ -11,8 +18,8 @@ export function createModelRegistry(entries = []) {
       model: entry.model,
       specialties: Object.freeze([...(entry.specialties ?? [])]),
       fallbackId: entry.fallbackId ?? null,
-      inputCostPerMillion: Number(entry.inputCostPerMillion ?? 0),
-      outputCostPerMillion: Number(entry.outputCostPerMillion ?? 0),
+      inputCostPerMillion: nonNegativeNumber(entry.inputCostPerMillion),
+      outputCostPerMillion: nonNegativeNumber(entry.outputCostPerMillion),
       enabled: entry.enabled !== false
     }));
   }
@@ -37,13 +44,21 @@ export function createRegistryFromEnvironment(env = process.env) {
   const primaryModel = env.OPENAI_REASONING_MODEL ?? 'gpt-5.1';
   const fallbackModel = env.OPENAI_FALLBACK_MODEL ?? null;
   const entries = [{
-    id: 'reasoning-primary', provider: 'openai', model: primaryModel,
+    id: 'reasoning-primary',
+    provider: 'openai',
+    model: primaryModel,
     specialties: ['reasoning', 'semantic-interpretation'],
-    fallbackId: fallbackModel ? 'reasoning-fallback' : null
+    fallbackId: fallbackModel ? 'reasoning-fallback' : null,
+    inputCostPerMillion: nonNegativeNumber(env.OPENAI_INPUT_COST_PER_MILLION),
+    outputCostPerMillion: nonNegativeNumber(env.OPENAI_OUTPUT_COST_PER_MILLION)
   }];
   if (fallbackModel) entries.push({
-    id: 'reasoning-fallback', provider: 'openai', model: fallbackModel,
-    specialties: ['reasoning-fallback']
+    id: 'reasoning-fallback',
+    provider: 'openai',
+    model: fallbackModel,
+    specialties: ['reasoning-fallback'],
+    inputCostPerMillion: nonNegativeNumber(env.OPENAI_FALLBACK_INPUT_COST_PER_MILLION),
+    outputCostPerMillion: nonNegativeNumber(env.OPENAI_FALLBACK_OUTPUT_COST_PER_MILLION)
   });
   return createModelRegistry(entries);
 }

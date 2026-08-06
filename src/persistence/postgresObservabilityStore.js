@@ -29,6 +29,11 @@ export function createPostgresObservabilityStore({ observabilityRepository, rete
     });
   }
 
+  async function flush() {
+    await pending;
+    if (failure) throw failure;
+  }
+
   return Object.freeze({
     async start() {},
     append(event) {
@@ -52,12 +57,7 @@ export function createPostgresObservabilityStore({ observabilityRepository, rete
       if (!channels.has(channel)) throw new TypeError(`Unsupported channel: ${channel}`);
       channels.get(channel).length = 0;
     },
-    async flush() {
-      await pending;
-      if (failure) throw failure;
-    },
-    async close() {
-      await this.flush();
-    }
+    flush,
+    close: flush
   });
 }

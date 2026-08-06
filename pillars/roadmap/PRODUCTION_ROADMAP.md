@@ -21,6 +21,7 @@ Completed architecture and reference implementation:
 
 - Blocks 0–10;
 - Block 11 production runtime composition;
+- Block 12 PostgreSQL persistence boundary and repositories;
 - deterministic tests and CI;
 - Semantic Kernel, Context and Memory contracts;
 - AI Router foundation;
@@ -31,11 +32,13 @@ Completed architecture and reference implementation:
 - transport adapters;
 - Automation and Agents reference layer;
 - Domain Modules platform;
-- one executable runtime entrypoint with explicit dependency injection, lifecycle, health, readiness and graceful shutdown.
+- one executable runtime entrypoint with explicit dependency injection, lifecycle, health, readiness and graceful shutdown;
+- PostgreSQL pool, versioned migrations, transaction boundary, durable memory adapter and scoped repositories for identity, access, conversations, automation, idempotency, observability and domain data.
 
 Current limitations:
 
-- persistence and task storage are in-memory reference implementations;
+- durable worker claiming, leases, retries and DLQ processing are not implemented;
+- synchronous runtime observability still uses its existing in-process store contract; PostgreSQL observability persistence is available through the durable repository boundary and must be connected without breaking that contract;
 - Telegram Bot API is not connected to the transport adapter;
 - production AI execution is not validated end-to-end;
 - Render deployment is not configured for the SG 2.1 runtime;

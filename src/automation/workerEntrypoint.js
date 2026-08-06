@@ -24,6 +24,8 @@ const worker = createDurableWorker({
   workerId,
   queue,
   observability,
+  environment: process.env.SG_ENVIRONMENT ?? 'worker',
+  revision: process.env.SG_REVISION ?? 'unknown',
   actionGate: async () => ({ outcome: 'allow', allowed: true }),
   executor: async ({ kind, payload }) => {
     if (!verifyMode) throw new Error(`No production executor registered for task kind: ${kind}`);
@@ -54,14 +56,14 @@ if (verifyMode) {
   const result = await worker.runOnce();
   await observabilityStore.flush();
   const persistedEvents = await persistence.database.query(
-    `SELECT event_class FROM observability_events WHERE trace_id=$1 AND stage='durable-worker' ORDER BY event_id`,
+    `SELECT payload->'data'->>'workerEvent' AS worker_event FROM observability_events WHERE trace_id=$1 AND stage='durable-worker' ORDER BY event_id`,
     [suffix]
   );
-  const eventClasses = persistedEvents.rows.map((row) => row.event_class);
-  if (!eventClasses.includes('worker_task_claimed') || !eventClasses.includes('worker_task_completed')) {
+  const workerEvents = persistedEvents.rows.map((row) => row.worker_event);
+  if (!workerEvents.includes('worker_task_claimed') || !workerEvents.includes('worker_task_completed')) {
     throw new Error('durable worker observability verification failed');
   }
-  console.log(JSON.stringify({ status: 'worker-ready', health: worker.health(), task: { id: result.task_id, status: result.status }, durableObservabilityEvents: eventClasses }));
+  console.log(JSON.stringify({ status: 'worker-ready', health: worker.health(), task: { id: result.task_id, status: result.status }, durableObservabilityEvents: workerEvents }));
   await shutdown('verification-complete');
 } else {
   await worker.start();

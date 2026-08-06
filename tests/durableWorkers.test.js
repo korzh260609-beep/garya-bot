@@ -97,7 +97,7 @@ integration('Block 13 worker retries with backoff, passes Action Gate and comple
     assert.equal(gateChecks, 3);
     assert.equal(await worker.runOnce(), null);
     assert.equal((await queue.get(task.task_id)).status, 'completed');
-    assert.ok(events.some((event) => event.eventClass === 'worker_task_completed'));
+    assert.ok(events.some((event) => event.eventClass === 'capability_completed' && event.data.workerEvent === 'worker_task_completed'));
   } finally {
     await persistence.close();
   }

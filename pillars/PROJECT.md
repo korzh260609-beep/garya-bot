@@ -1,301 +1,197 @@
-# PROJECT.md — SG (Советник GARYA)
-Project Overview / Canonical Description
+# PROJECT.md — SG 2.1 PROJECT PILLAR
 
-This document must be interpreted together with:
+## 1. Purpose
 
-- `pillars/DECISIONS.md`
-- `pillars/SG_ENTITY.md`
-- `pillars/SG_BEHAVIOR.md`
-- `pillars/architecture/SG_INTERFACE_LAYERS.md`
+SG (Советник GARYA) is a transport-independent project system for reasoning support, memory, project continuity, source-backed analysis and controlled execution.
 
-If this document conflicts with `pillars/DECISIONS.md`, `DECISIONS.md` has priority.
+The connected AI model provides reasoning and language intelligence. SG code organizes context, memory, sources, tools, capabilities, permissions, confirmations and delivery.
 
----
+SG is not a chatbot product tied to one platform. Telegram is one access channel among many.
 
-## 1. Назначение проекта
-
-SG (Советник GARYA) — это глобальная интеллектуальная система и долгоживущая СГ-сущность, предназначенная для помощи пользователям в мышлении, анализе, создании, памяти, ведении проектов, работе с источниками, управлении задачами и безопасном выполнении действий.
-
-SG не является просто чат-ботом, набором команд, одним агентом, одним интерфейсом, одним репозиторием или только Task Engine.
-
-Task Engine, Telegram bot, web-клиент, API, память, источники, агенты, режимы и внешние инструменты являются компонентами SG, а не его полной сущностью.
-
-SG проектируется как система поддержки мышления и управляемого действия, а не как генератор текста, узкий проектный помощник или автономный исполнитель без контроля пользователя.
-
-SG является глобальной сущностью проекта.
-
-Платформы взаимодействия (Telegram, web-клиент, API, IDE, корпоративные системы и другие каналы) не являются сущностью проекта. Они подключаются как транспортные слои и не влияют на логику ядра, память или поведение SG. Использование Telegram на текущем этапе является практическим выбором, а не архитектурным ограничением.
-
-Текущий runtime и текущий Telegram-бот являются ранней технической реализацией SG, но не финальной формой и не полным выражением задуманной системы.
-
-Модули, агенты, режимы, источники, память, интерфейсы и технические инструменты являются компонентами SG, а не отдельными независимыми SG.
-
----
-
-## 1.1. Сущность SG и компоненты
-
-SG не равен одному боту, одному интерфейсу, одному агенту, одному модулю, одному prompt, одной модели или одному файлу.
-
-SG — это целостная проектная сущность, которая действует через подключённые компоненты.
-
-Компоненты SG включают:
-- Telegram bot,
-- будущий web-клиент,
-- API,
-- Human Mode,
-- Technical Mode,
-- Task Engine,
-- Memory & Context Layer,
-- Sources Layer,
-- AI Layer,
-- RepoStateAgent,
-- диагностику,
-- внешнюю агентную систему,
-- будущие пользовательские интерфейсы.
-
-Эти компоненты могут быть заменены, расширены, отключены или улучшены без уничтожения сущности SG, если сохраняются:
-- `pillars/DECISIONS.md`,
-- согласованная философия SG,
-- архитектурные границы,
-- память,
-- кодовая преемственность,
-- проверенное состояние репозитория,
-- snapshots и история восстановления.
-
-Внешние ИИ-операторы и coding assistants могут помогать разрабатывать, анализировать и проверять SG, но они не являются SG и не владеют его идентичностью, памятью, решениями или проектным опытом.
-
----
-
-## 2. Базовая идея SG
-
-SG создаётся как система поддержки мышления, решений, памяти и управляемого выполнения задач.
-
-Принципиально:
-- SG не подменяет человека.
-- SG не принимает решений за пользователя.
-- SG не действует самовольно.
-- SG свободен в мышлении, но управляем в действиях.
-
-SG помогает пользователю:
-- структурировать сложность и хаос,
-- выявлять риски, противоречия и слабые места,
-- удерживать логику и последовательность решений,
-- опираться на реальные данные и зафиксированные решения,
-- снижать когнитивную и организационную нагрузку,
-- превращать свободные запросы в понятные действия, планы, проверки, отчёты или объяснения.
-
----
-
-## 3. Королевство GARYA
-
-Королевство GARYA — это концептуальная, организационная и смысловая надстройка над проектом SG, определяющая зачем существует система, по каким принципам она развивается и в чьих интересах работает.
-
-Королевство не является отдельным продуктом или интерфейсом. Оно задаёт:
-- философию и ценности проекта,
-- модель управления и ответственности,
-- роли, правила и ограничения,
-- долгосрочное видение развития.
-
-SG создаётся внутри Королевства GARYA и является его центральным цифровым механизмом.
-
-### 3.1 Роль SG в Королевстве
-
-SG выполняет роль исполнительного и аналитического института Королевства:
-- реализует правила и процессы, заданные монархом,
-- исполняет решения, а не принимает их самостоятельно,
-- хранит и использует институциональную память,
-- обеспечивает преемственность логики и решений во времени,
-- обслуживает монарха и других участников в рамках их ролей.
-
-Принцип:
-- Королевство определяет волю и правила.
-- SG обеспечивает их корректное и последовательное исполнение.
-
-SG не является субъектом власти и не подменяет собой управление Королевством.
-
-### 3.2 Королевство как рамка для архитектуры
-
-Королевство GARYA задаёт требования к архитектуре SG:
-- строгая ролевая модель (monarch, citizen, guest, system),
-- невозможность автономных решений SG в суверенных вопросах,
-- прозрачность действий и логирования,
-- управляемость памяти и поведения,
-- приоритет безопасности, корректности и воспроизводимости.
-
-Все архитектурные решения SG обязаны быть совместимы с логикой Королевства и с `pillars/DECISIONS.md`.
-
----
-
-## 4. Режимы использования SG
-
-SG поддерживает разные уровни и сценарии использования, не ломая ядро и не меняя сущность:
-
-1. **Простой режим**
-   - разговорный помощник,
-   - бытовые вопросы,
-   - объяснения и навигация.
-
-2. **Персональный режим**
-   - задачи и напоминания,
-   - документы и тексты,
-   - личные цели,
-   - базовый финансовый контроль.
-
-3. **Проектный режим**
-   - работа по ROADMAP,
-   - контроль этапов и решений,
-   - анализ структуры проектов,
-   - сопровождение разработки.
-
-4. **Бизнес-режим**
-   - регламенты и SOP,
-   - KPI и отчёты,
-   - контроль рисков,
-   - автоматизированные задачи и мониторинги.
-
-Все режимы используют одно и то же SG-ядро и различаются конфигурацией, источниками данных, capabilities и правилами доступа.
-
----
-
-## 5. Ключевая модель работы
-
-SG реализует более широкую модель:
-
-**Meaning → Intent → Context → Capability → Source/Tool → Processing → Result/Action → Delivery**
-
-- пользователь формулирует запрос в свободной форме;
-- SG понимает смысл запроса;
-- запрос преобразуется в intent и рабочий контекст;
-- SG выбирает нужную capability;
-- SG выбирает источник, инструмент или модуль;
-- SG проверяет права, риски и необходимость подтверждения;
-- данные берутся из реальных источников, если нужны факты;
-- результат доставляется в любой подключённый канал;
-- изменяющее действие выполняется только после разрешения.
-
-SG может вести обычный диалог, объяснять и помогать пользователю думать.
-Но диалог не должен подменять цель SG: помогать мышлению, решениям, памяти, проектам и управляемым действиям.
-
----
-
-## 6. Архитектурные принципы
-
-### 6.1 Платформонезависимость
-
-Архитектура SG разделена на слои:
-
-Transport Layer → Core / Task Engine → Memory & Context Layer → Sources Layer → AI Layer → Delivery
-
-Каналы взаимодействия подключаются без изменения ядра. Логика SG и Королевства не зависит от конкретной платформы.
-
-### 6.2 Source-first
-
-SG работает по принципу source-first:
-- ИИ не является источником истины,
-- выводы опираются на реальные данные (RSS, web, API, документы, файлы, базы данных),
-- ИИ используется как инструмент анализа и формулирования результатов.
-
-### 6.3 Meaning-first
-
-SG работает по принципу meaning-first:
+## 2. Canonical hierarchy
 
 ```text
-meaning -> intent -> context -> permission -> source/tool -> action/answer
+DECISIONS
+→ ARCHITECTURE
+→ ROADMAP
+→ WORKFLOW
+→ CODE
+→ TEST / RUNTIME EVIDENCE
 ```
 
-SG не должен деградировать в систему:
+- `DECISIONS.md` defines accepted global decisions.
+- `architecture/` defines system contracts and boundaries.
+- `roadmap/` defines dependency order.
+- `workflow/` defines implementation procedure.
+
+## 3. Canonical system flow
 
 ```text
-keyword -> reflex response
+Transport Input
+→ Canonical Request
+→ Semantic Kernel
+→ Context Resolution
+→ Decision Envelope
+→ Capability Selection
+→ Action Classification
+→ Action Gate
+→ Execution or Answer
+→ Response Composition
+→ Transport Delivery
+→ Observability
 ```
 
-Фразы, маркеры, команды и шаблоны могут быть вспомогательными сигналами, но не фундаментом интеллекта SG.
+This flow is platform-independent.
 
-### 6.4 Minimal routing
+## 4. Core layers
 
-Semantic routing в SG должен быть минимальным управляющим слоем.
+### 4.1 Semantic Kernel
+Interprets meaning, goal, intent, uncertainty, context needs, evidence needs and candidate actions.
 
-Он не должен заменять мышление reasoning model и не должен превращаться в отдельный тяжёлый искусственный мозг.
+It must not depend on Telegram commands, database tables or keyword routing.
 
-Правильная роль routing/control layer:
-- проверить scope,
-- проверить permissions,
-- выбрать capability,
-- выбрать source/tool,
-- определить read-only или state-changing действие,
-- запросить подтверждение, если нужно,
-- залогировать важное действие.
+### 4.2 Context and Memory
+Provides bounded session, user, project, archive, digest, evidence and runtime context.
 
----
+Memory supports continuity but does not replace reasoning or become an automatic source of truth.
 
-## 7. Память и контекст
+### 4.3 Decision and Safety
+Transforms semantic understanding into a proposed next step and classifies the action.
 
-Память SG — это структурированная долговременная система, хранящаяся в базе данных, а не просто история переписки.
+Protected actions pass identity, permission, scope, source, risk, cost, confirmation and idempotency checks.
 
-Она включает:
-- персональную память пользователей,
-- контексты проектов и тем,
-- историю задач, решений и результатов,
-- правила, ограничения и предпочтения,
-- институциональные принципы Королевства.
+### 4.4 Capability System
+Capabilities are replaceable abilities with explicit input/output contracts, action class, permissions, source/tool requirements, risk, cost and fallback policy.
 
-SG различает:
-- временный диалог,
-- рабочий контекст,
-- проектный контекст,
-- институциональный контекст Королевства.
+### 4.5 AI Routing
+AI Router selects models and modalities, applies specialized-first and fallback policy, records cost and reason, and remains a control wrapper rather than SG brain.
 
-Контексты пользователей изолированы, а групповые решения хранятся отдельно от персональных.
+### 4.6 Transports
+Telegram, Discord, Web/API, email, voice, IDE and future interfaces are thin adapters.
 
-SG также должен сохранять проектный опыт как часть собственной системной преемственности:
-- архитектурные решения,
-- ошибки и исправления,
-- удачные и неудачные паттерны,
-- границы модулей,
-- риски,
-- snapshots и безопасные точки отката,
-- намеренно gated или незавершённые части.
+They must not own semantic logic, durable memory, permissions policy, capability selection or domain business logic.
 
----
+### 4.7 Observability
+Every important decision, source call, model call and protected action must be traceable without exposing private content unnecessarily.
 
-## 8. Экономия ресурсов и контроль ИИ
+## 5. Transport independence
 
-SG разделяет выполнение на два слоя:
-- **Робот-слой** — правила, память, проверки, автоматизация.
-- **ИИ-слой** — анализ, смысл, объяснение и выводы, используется только при необходимости.
+All channels connect to the same SG core.
 
-Каждый ИИ-вызов логируется.
-Потенциально дорогие операции требуют подтверждения пользователя или монарха.
+```text
+Telegram ─┐
+Discord ──┤
+Web/API ──┤
+Email ────┤→ Canonical Request → Shared SG Core
+Voice ────┤
+Future ───┘
+```
 
-ИИ-слой и внешние ИИ-операторы являются инструментами SG, а не самостоятельной сущностью SG.
+The same person is resolved through `global_user_id`. Channel switching must not create a new identity, separate memory or separate SG logic.
 
----
+## 6. Multi-user model
 
-## 9. Пользователи, проекты и масштабирование
+SG Core is shared infrastructure. Each user receives isolated personal context:
 
-SG проектируется как **Personal SG Core / Multi-User Ready** система:
-- каждый пользователь должен работать через свою персональную SG-сущность;
-- персональная логика должна идти через `global_user_id`;
-- пользовательские проекты, память, источники и repositories должны быть изолированы;
-- мультипроектность развивается отдельными этапами без перелома ядра.
+```text
+User
+→ global_user_id
+→ personal memory
+→ projects
+→ sources
+→ permissions
+→ settings
+```
 
-В перспективе SG может использоваться:
-- одним человеком,
-- командами,
-- пользователями из разных сфер бизнеса.
+Private contexts must not mix. Monarch governance over system architecture does not imply unrestricted access to private user memory.
 
-Масштабирование не должно ломать сущность SG: новые проекты, интерфейсы, агенты и модули подключаются как компоненты, а не создают отдельные конкурирующие сущности SG.
+## 7. Source-first correctness
 
-Проект Гарика (`garya-bot`) является внутренним проектом разработки SG и не должен автоматически становиться default context для обычных пользователей.
+The AI model is not a factual source by default.
 
----
+When facts matter, SG uses verified sources, documents, APIs, files, repositories or runtime evidence and preserves source metadata, freshness, uncertainty and failure state.
 
-## 10. Назначение документа
+## 8. Controlled execution
 
-Этот документ является каноническим описанием проекта SG и его связи с Королевством GARYA и предназначен для:
-- индексирования агентом SG,
-- использования как опорный контекст при создании и анализе кода,
-- защиты архитектуры от концептуальных искажений,
-- обеспечения долгосрочной целостности проекта.
+SG distinguishes:
+- read-only;
+- analysis-only;
+- prepare-only;
+- state-changing;
+- external-action;
+- private-data;
+- expensive-costly actions.
 
-Если этот документ конфликтует с `pillars/DECISIONS.md`, приоритет имеет `pillars/DECISIONS.md`.
+Analysis and preparation may continue when execution is blocked. State-changing or external actions require permission and confirmation where applicable.
+
+## 9. Development order
+
+SG 2.1 is built in this dependency order:
+
+```text
+Constitution
+→ Semantic Kernel
+→ Context and Memory
+→ Decision and Safety
+→ Capability System
+→ Interfaces
+→ Automation and Agents
+→ Domain Modules
+```
+
+Telegram, Discord, databases, schedulers and domain modules must not define the early core architecture.
+
+## 10. Domain modules
+
+Crypto, psychology support, documents, repository analysis, business automation, billing and future modules are consumers of the platform core.
+
+They connect through capability contracts, sources and action gates and must not redefine SG identity, memory model or semantic kernel.
+
+## 11. Development discipline
+
+Every new capability follows:
+
+```text
+skeleton
+→ config
+→ minimal logic
+→ tests
+→ observability
+→ safety
+→ evidence
+```
+
+Architecture changes require an accepted decision. One change block should remain coherent, reversible and testable.
+
+## 12. GARYA relationship
+
+The Kingdom of GARYA provides the governance, ownership and long-term purpose of the project.
+
+SG is its central digital system, but not an autonomous sovereign decision-maker. The monarch defines system-level direction; users retain final authority over their own work and protected data.
+
+## 13. Definition of success
+
+SG 2.1 is correctly built when:
+- meaning is interpreted independently of exact phrasing;
+- the core works without a mandatory Telegram dependency;
+- transports are replaceable;
+- models are replaceable;
+- memory is bounded, typed and attributable;
+- capabilities are contract-driven;
+- protected actions cannot bypass the gate;
+- user contexts remain isolated;
+- facts are source-backed;
+- domain modules can be added without rewriting the core.
+
+## 14. Canonical formula
+
+```text
+SG 2.1
+= transport-independent project system
++ connected reasoning model
++ semantic kernel
++ context and memory
++ source-backed capabilities
++ controlled actions
++ replaceable interfaces
+```

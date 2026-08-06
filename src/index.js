@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { createIdentityContext, createScopeContext, createTraceContext } from './contracts/context.js';
+import { createFixtureMeaningInterpreter } from './semantic/meaningInterpreter.js';
+import { createSemanticKernel } from './semantic/semanticKernel.js';
+import { executeSafeNoop } from './semantic/noopCapability.js';
 
-export function createFoundationResponse({ input = 'foundation-check' } = {}) {
-  const traceId = randomUUID();
+function createLocalContexts() {
   const identityContext = createIdentityContext({
     globalUserId: 'local:developer',
     platform: 'local',
@@ -14,21 +16,40 @@ export function createFoundationResponse({ input = 'foundation-check' } = {}) {
     allowedCapabilities: []
   });
   const traceContext = createTraceContext({
-    traceId,
+    traceId: randomUUID(),
     requestId: randomUUID(),
     environment: process.env.SG_ENVIRONMENT ?? 'local',
     revision: process.env.SG_REVISION ?? 'dev'
   });
+  return { identityContext, scopeContext, traceContext };
+}
 
+export function createFoundationResponse({ input = 'foundation-check' } = {}) {
+  const contexts = createLocalContexts();
+  return Object.freeze({ status: 'foundation-ready', input, ...contexts });
+}
+
+export async function runSemanticFixture({
+  text = 'Analyze the SG 2.1 semantic kernel',
+  interpretation
+} = {}) {
+  if (!interpretation) {
+    throw new TypeError('A semantic interpretation fixture is required until an AI reasoning provider is connected');
+  }
+
+  const contexts = createLocalContexts();
+  const kernel = createSemanticKernel({
+    meaningInterpreter: createFixtureMeaningInterpreter(() => interpretation)
+  });
+  const semanticResult = await kernel.process({ text, locale: 'en', ...contexts });
   return Object.freeze({
-    status: 'foundation-ready',
-    input,
-    identityContext,
-    scopeContext,
-    traceContext
+    status: 'semantic-kernel-ready',
+    semanticResult,
+    capabilityResult: executeSafeNoop(semanticResult.decisionEnvelope)
   });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  process.stdout.write(`${JSON.stringify(createFoundationResponse(), null, 2)}\n`);
+  const response = createFoundationResponse({ input: process.argv.slice(2).join(' ') || 'foundation-check' });
+  process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
 }

@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and executable platform core through Block 5.
+This branch contains the active SG 2.1 architecture and executable platform core through Block 8.
 
 ## Requirements
 - Node.js 22
@@ -86,8 +86,32 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - source, tool, cost, duration, attempt and trace metadata propagation
 - visible failures and partial results without transport-specific behavior
 
+### Block 6 — Identity and Scope
+- centralized identity linking and actor resolution
+- `globalUserId` as the root identity
+- role, grant and final scope resolution outside transports
+- strict user, project, group and thread boundaries
+- fail-closed identity and scope behavior
+
+### Block 7 — Observability
+- trace propagation across core requests and execution
+- separate audit, telemetry and debug records
+- privacy-bounded and secret-safe observability
+- model, gate, capability and failure evidence
+- observability that records facts without changing decisions or behavior
+
+### Block 8 — Interfaces
+- common replaceable `TransportAdapter` contract
+- Local, Telegram, Web/API, Discord, Email and Voice adapters
+- centralized `InterfaceRegistry` and local test harness
+- platform facts passed to Identity and Scope resolution
+- canonical input creation and normalized response delivery
+- trace ID, request ID, environment and revision propagation
+- transports cannot assign roles, grants or final scopes
+- cross-transport, group, thread and response-delivery tests
+
 ## Runtime path
-`CanonicalInput → MeaningInterpreter → SemanticInterpretation → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan`
+`Platform Input → Transport Adapter → Platform Facts → Identity and Scope Resolution → CanonicalInput → MeaningInterpreter → SemanticInterpretation → Context Resolution → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan → Transport Response Delivery`
 
 The production interpretation route remains:
 `ProductionMeaningInterpreter → AIRouter → ModelRegistry → AIProvider`
@@ -101,10 +125,13 @@ The production interpretation route remains:
 - Capability execution requires an allowed GateDecision and cannot broaden permissions, scope, sources or tools.
 - Capabilities exist independently from commands and transports.
 - Protected actions cannot bypass Action Gate.
+- Platform IDs are identity links, not independent users.
+- Transports provide platform facts but cannot assign roles, grants or final scopes.
+- Observability records facts but does not change architecture or business logic.
 - Production AI is disabled by default to avoid accidental cost.
 
 ## Current boundary
-The in-memory memory and idempotency providers are working reference implementations, not durable production storage. Database persistence and migrations are intentionally deferred. Block 5 provides the capability platform contracts and deterministic executor but no production domain capabilities, Telegram transport, production identity linking or durable protected execution.
+The in-memory memory and idempotency providers are working reference implementations, not durable production storage. Database persistence and migrations are intentionally deferred. Block 8 provides transport contracts, adapters and deterministic interface tests, but real network clients remain external injected boundaries. Production domain capabilities, automation and agents, durable task execution and domain modules remain deferred to later roadmap blocks.
 
 ## Authority
 Read in this order:

@@ -19,6 +19,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: npm install --package-lock-only
+      - run: |
+          echo 'BLOCK12_LOCK_BEGIN'
+          cat package-lock.json
+          echo 'BLOCK12_LOCK_END'
       - run: npm ci
       - run: npm run check
       - run: npm start

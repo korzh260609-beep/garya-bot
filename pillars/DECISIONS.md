@@ -63,6 +63,7 @@ The canonical order is:
 Constitution
 → Semantic Kernel
 → Context and Memory
+→ AI Routing Foundation
 → Decision Engine
 → Action Gate
 → Capability System
@@ -84,3 +85,6 @@ Identity links, actor resolution and scope construction belong to the Identity l
 
 ## D-020 — Observability is mandatory and privacy-bounded
 Every important request, model call, capability execution, gate decision and failure carries trace context. Audit, telemetry and debug data are separated, secrets are redacted, and private content is minimized.
+
+## D-021 — Production AI access is introduced through Block 2.5
+After Semantic Kernel and Context and Memory are stable, the first production reasoning provider is connected only through AI Router. Direct provider calls from SG modules are forbidden. Decision Engine development begins only after the routed reasoning path is validated by tests and CI evidence.

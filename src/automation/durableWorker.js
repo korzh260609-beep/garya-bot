@@ -8,12 +8,23 @@ function positiveInteger(value, name) {
   return value;
 }
 
+const EVENT_CLASS_MAP = Object.freeze({
+  worker_task_claimed: 'capability_started',
+  worker_action_gate_decision: 'action_gate_decision',
+  worker_task_completed: 'capability_completed',
+  worker_task_retry_scheduled: 'capability_failed',
+  worker_task_dead_lettered: 'capability_failed',
+  worker_task_recovered: 'audit_event'
+});
+
 export function createDurableWorker({
   workerId,
   queue,
   actionGate,
   executor,
   observability = { record() {}, recordFailure() {} },
+  environment = 'worker',
+  revision = 'unknown',
   leaseMs = 30000,
   heartbeatMs = 10000,
   pollMs = 1000,
@@ -26,6 +37,8 @@ export function createDurableWorker({
   }
   requiredFunction(actionGate, 'actionGate');
   requiredFunction(executor, 'executor');
+  if (typeof environment !== 'string' || environment.trim() === '') throw new TypeError('environment is required');
+  if (typeof revision !== 'string' || revision.trim() === '') throw new TypeError('revision is required');
   positiveInteger(leaseMs, 'leaseMs');
   positiveInteger(heartbeatMs, 'heartbeatMs');
   positiveInteger(pollMs, 'pollMs');
@@ -42,16 +55,41 @@ export function createDurableWorker({
   let failed = 0;
   let lastError = null;
 
-  function event(eventClass, task, outcome, data = {}) {
+  function traceContextFor(task = null) {
+    const supplied = task?.payload?.traceContext ?? {};
+    const fallbackId = task?.task_id ?? `${workerId}:system`;
+    return {
+      traceId: supplied.traceId ?? fallbackId,
+      requestId: supplied.requestId ?? fallbackId,
+      parentSpanId: supplied.parentSpanId ?? null,
+      environment: supplied.environment ?? environment,
+      revision: supplied.revision ?? revision
+    };
+  }
+
+  function event(workerEvent, task, outcome, data = {}) {
+    const eventClass = EVENT_CLASS_MAP[workerEvent] ?? 'audit_event';
     observability.record({
-      channel: eventClass.includes('failed') || eventClass.includes('dead_letter') ? 'error' : 'telemetry',
+      channel: workerEvent === 'worker_action_gate_decision' ? 'audit' : 'telemetry',
       eventClass,
       stage: 'durable-worker',
       outcome,
-      traceContext: task?.payload?.traceContext ?? null,
+      traceContext: traceContextFor(task),
       actorRef: task?.global_user_id ?? null,
       scopeRef: { projectScope: task?.project_scope ?? null },
-      data: { workerId, taskId: task?.task_id ?? null, attempt: task?.attempt ?? null, ...data }
+      data: { workerEvent, workerId, taskId: task?.task_id ?? null, attempt: task?.attempt ?? null, ...data }
+    });
+  }
+
+  function recordFailure(task, stage, error, code) {
+    observability.recordFailure?.({
+      traceContext: traceContextFor(task),
+      stage,
+      reason: error.message,
+      code,
+      actorRef: task?.global_user_id ?? null,
+      scopeRef: { projectScope: task?.project_scope ?? null },
+      data: { workerId, taskId: task?.task_id ?? null }
     });
   }
 
@@ -63,7 +101,7 @@ export function createDurableWorker({
       heartbeatTimer = setInterval(() => {
         queue.heartbeat({ taskId: task.task_id, workerId, leaseMs }).catch((error) => {
           lastError = error;
-          observability.recordFailure?.({ stage: 'durable-worker-heartbeat', reason: error.message, code: error.code ?? 'heartbeat_failed' });
+          recordFailure(task, 'durable-worker-heartbeat', error, error.code ?? 'heartbeat_failed');
         });
       }, heartbeatMs);
 
@@ -74,7 +112,7 @@ export function createDurableWorker({
           payload: task.payload,
           identityContext: task.payload?.identityContext,
           scopeContext: task.payload?.scopeContext,
-          traceContext: task.payload?.traceContext,
+          traceContext: traceContextFor(task),
           automated: true,
           idempotencyKey: task.idempotency_key
         }));
@@ -93,6 +131,7 @@ export function createDurableWorker({
         payload: task.payload,
         attempt: task.attempt,
         idempotencyKey: task.idempotency_key,
+        traceContext: traceContextFor(task),
         scope: {
           globalUserId: task.global_user_id,
           projectScope: task.project_scope,
@@ -132,7 +171,7 @@ export function createDurableWorker({
       await runOnce();
     } catch (error) {
       lastError = error;
-      observability.recordFailure?.({ stage: 'durable-worker-loop', reason: error.message, code: error.code ?? 'worker_loop_failed' });
+      recordFailure(null, 'durable-worker-loop', error, error.code ?? 'worker_loop_failed');
     } finally {
       if (accepting) timer = setTimeout(loop, pollMs);
     }

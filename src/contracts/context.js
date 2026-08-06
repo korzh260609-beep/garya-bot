@@ -1,37 +1,47 @@
 function requireNonEmptyString(value, field) {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new TypeError(`${field} must be a non-empty string`);
-  }
+  if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${field} must be a non-empty string`);
   return value;
 }
 
+function stringList(value, field) {
+  const list = [...(value ?? [])];
+  if (!list.every((entry) => typeof entry === 'string' && entry.trim() !== '')) {
+    throw new TypeError(`${field} must contain non-empty strings`);
+  }
+  return Object.freeze([...new Set(list)]);
+}
+
+export const IDENTITY_LINK_STATUSES = Object.freeze(['linked', 'guest', 'unlinked', 'local-fixture']);
+
 export function createIdentityContext(input) {
-  if (!input || typeof input !== 'object') throw new TypeError('identity input is required');
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('identity input is required');
+  const linkStatus = input.linkStatus ?? 'local-fixture';
+  if (!IDENTITY_LINK_STATUSES.includes(linkStatus)) throw new TypeError(`Unsupported linkStatus: ${linkStatus}`);
   return Object.freeze({
     globalUserId: requireNonEmptyString(input.globalUserId, 'globalUserId'),
     platform: requireNonEmptyString(input.platform, 'platform'),
     platformUserId: requireNonEmptyString(input.platformUserId, 'platformUserId'),
-    linkStatus: input.linkStatus ?? 'local-fixture',
-    roles: Object.freeze([...(input.roles ?? [])]),
-    grants: Object.freeze([...(input.grants ?? [])]),
-    authenticationLevel: input.authenticationLevel ?? 'fixture'
+    linkStatus,
+    roles: stringList(input.roles, 'roles'),
+    grants: stringList(input.grants, 'grants'),
+    authenticationLevel: requireNonEmptyString(input.authenticationLevel ?? 'fixture', 'authenticationLevel')
   });
 }
 
 export function createScopeContext(input) {
-  if (!input || typeof input !== 'object') throw new TypeError('scope input is required');
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('scope input is required');
   return Object.freeze({
     userScope: requireNonEmptyString(input.userScope, 'userScope'),
     projectScope: requireNonEmptyString(input.projectScope, 'projectScope'),
-    groupScope: input.groupScope ?? null,
-    threadScope: input.threadScope ?? null,
-    dataClassification: input.dataClassification ?? 'internal',
-    allowedCapabilities: Object.freeze([...(input.allowedCapabilities ?? [])])
+    groupScope: input.groupScope == null ? null : requireNonEmptyString(input.groupScope, 'groupScope'),
+    threadScope: input.threadScope == null ? null : requireNonEmptyString(input.threadScope, 'threadScope'),
+    dataClassification: requireNonEmptyString(input.dataClassification ?? 'internal', 'dataClassification'),
+    allowedCapabilities: stringList(input.allowedCapabilities, 'allowedCapabilities')
   });
 }
 
 export function createTraceContext(input) {
-  if (!input || typeof input !== 'object') throw new TypeError('trace input is required');
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('trace input is required');
   return Object.freeze({
     traceId: requireNonEmptyString(input.traceId, 'traceId'),
     requestId: requireNonEmptyString(input.requestId, 'requestId'),

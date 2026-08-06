@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 13.
+This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 14.
 
 ## Requirements
 - Node.js 22
@@ -45,9 +45,10 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 11 — Runtime Composition
 - Block 12 — PostgreSQL Persistence
 - Block 13 — Durable Automation and Workers
+- Block 14 — Telegram Production Integration
 
 ### Next
-- Block 14 — Telegram Production Integration — not started
+- Block 15 — Production AI Integration — not started
 
 ## Implemented
 ### Block 0 — Engineering Foundation
@@ -173,6 +174,16 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Action Gate immediately before protected execution
 - worker health and durable observability
 
+### Block 14 — Telegram Production Integration
+- production webhook endpoint with constant-time secret verification
+- durable Telegram update deduplication in PostgreSQL
+- Bot API client with `sendMessage`, webhook management, timeout and bounded retry
+- flood-control handling using Telegram `retry_after`
+- private chats, groups, supergroups and topic isolation
+- explicit group invocation through supported commands, replies and mentions
+- full `TelegramTransportAdapter → SG runtime → Telegram delivery` path
+- normalized bounded Telegram failures and sandbox configuration
+
 ## Runtime path
 `Platform Input → Transport Adapter → Platform Facts → Identity and Scope Resolution → CanonicalInput → MeaningInterpreter → SemanticInterpretation → Context Resolution → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan → Transport Response Delivery`
 
@@ -197,7 +208,7 @@ Optional product domains enter only through stable capability, identity, scope, 
 - Production AI is disabled by default to avoid accidental cost.
 
 ## Current boundary
-Blocks 0–13 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence and durable automation worker layer defined by the active roadmap. Telegram Bot API integration, controlled production AI validation, real user-facing production capabilities, Render deployment, external end-to-end verification and security operations remain in Blocks 14–19 and Pilot Launch. These must be connected through the approved boundaries without changing the core contracts.
+Blocks 0–14 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence, durable automation workers and production Telegram integration defined by the active roadmap. Controlled production AI validation, real user-facing production capabilities, Render deployment, external end-to-end verification and security operations remain in Blocks 15–19 and Pilot Launch. These must be connected through the approved boundaries without changing the core contracts.
 
 ## Authority
 Read in this order:

@@ -14,7 +14,7 @@ Provide bounded continuity without confusing raw dialogue, summaries, verified f
 
 ## Deliverables
 - ContextRequest and ContextBundle contracts
-- Memory provider interface
+- memory provider interface
 - controlled read/write policy
 - provenance and trust labels
 - user/project/group scope isolation
@@ -24,12 +24,5 @@ Provide bounded continuity without confusing raw dialogue, summaries, verified f
 - bounded restore before project work
 - diagnostics and audit events
 
-## Gates
-- Raw dialogue never becomes confirmed memory automatically.
-- Durable writes are state-changing actions.
-- The Semantic Kernel requests memory through contracts and does not own storage.
-- Restore must expose source, trust level and age.
-- No cross-user or cross-group recall without explicit policy and permission.
-
 ## Acceptance criteria
-SG can continue a project across sessions while distinguishing confirmed decisions, contextual summaries and raw history.
+SG can continue work across sessions while preserving source, trust level, age and scope for restored context.

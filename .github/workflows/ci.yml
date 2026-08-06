@@ -32,8 +32,9 @@ jobs:
       DATABASE_SSL: "false"
       SG_PERSISTENCE_MODE: postgres
       SG_ENVIRONMENT: ci
-      SG_REVISION: block-12
+      SG_REVISION: block-13
       SG_PROJECT_SCOPE: sg2.1
+      SG_WORKER_VERIFY: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,3 +45,4 @@ jobs:
       - run: npm run migrate
       - run: npm run check
       - run: npm start
+      - run: npm run start:worker

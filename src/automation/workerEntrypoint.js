@@ -52,7 +52,16 @@ if (verifyMode) {
     idempotencyKey: `worker-verification:${suffix}`
   });
   const result = await worker.runOnce();
-  console.log(JSON.stringify({ status: 'worker-ready', health: worker.health(), task: { id: result.task_id, status: result.status } }));
+  await observabilityStore.flush();
+  const persistedEvents = await persistence.database.query(
+    `SELECT event_class FROM observability_events WHERE trace_id=$1 AND stage='durable-worker' ORDER BY event_id`,
+    [suffix]
+  );
+  const eventClasses = persistedEvents.rows.map((row) => row.event_class);
+  if (!eventClasses.includes('worker_task_claimed') || !eventClasses.includes('worker_task_completed')) {
+    throw new Error('durable worker observability verification failed');
+  }
+  console.log(JSON.stringify({ status: 'worker-ready', health: worker.health(), task: { id: result.task_id, status: result.status }, durableObservabilityEvents: eventClasses }));
   await shutdown('verification-complete');
 } else {
   await worker.start();

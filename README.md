@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 14.
+This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 15.
 
 ## Requirements
 - Node.js 22
@@ -17,7 +17,7 @@ npm run start:worker
 
 By default, `npm start` runs the deterministic production-like runtime fixture and does not spend AI tokens.
 
-To run the Block 2.5 production reasoning path, configure a deployment secret and enable it explicitly:
+To enable the Block 15 production AI path, configure the deployment secret and explicit controls:
 
 ```bash
 OPENAI_API_KEY=...
@@ -46,9 +46,10 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 12 — PostgreSQL Persistence
 - Block 13 — Durable Automation and Workers
 - Block 14 — Telegram Production Integration
+- Block 15 — Production AI Integration
 
 ### Next
-- Block 15 — Production AI Integration — not started
+- Block 16 — Production Capabilities
 
 ## Implemented
 ### Block 0 — Engineering Foundation
@@ -180,15 +181,28 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Bot API client with `sendMessage`, webhook management, timeout and bounded retry
 - flood-control handling using Telegram `retry_after`
 - private chats, groups, supergroups and topic isolation
-- explicit group invocation through supported commands, replies and mentions
+- group addressing through reply, mention and Telegram metadata only
+- arbitrary natural-language messages passed unchanged into SG runtime
 - full `TelegramTransportAdapter → SG runtime → Telegram delivery` path
 - normalized bounded Telegram failures and sandbox configuration
+
+### Block 15 — Production AI Integration
+- production OpenAI Responses API composition only through AI Router
+- specialized-first registry and configured fallback
+- emergency disable switch and explicit enablement
+- sensitive-context rejection and defensive prompt boundary
+- strict structured output validation
+- hard timeout, bounded retry and output-token limit
+- estimated and actual cost enforcement by role
+- provider, model, reason, latency, usage and cost telemetry
+- deterministic analysis-only failure fallback
+- default deterministic runtime remains token-free
 
 ## Runtime path
 `Platform Input → Transport Adapter → Platform Facts → Identity and Scope Resolution → CanonicalInput → MeaningInterpreter → SemanticInterpretation → Context Resolution → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan → Transport Response Delivery`
 
-The production interpretation route remains:
-`ProductionMeaningInterpreter → AIRouter → ModelRegistry → AIProvider`
+The production interpretation route is:
+`ProductionMeaningInterpreter → AIRouter → ProductionAiPolicy → ModelRegistry → AIProvider`
 
 Optional product domains enter only through stable capability, identity, scope, memory, source, gate and observability boundaries.
 
@@ -208,7 +222,7 @@ Optional product domains enter only through stable capability, identity, scope, 
 - Production AI is disabled by default to avoid accidental cost.
 
 ## Current boundary
-Blocks 0–14 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence, durable automation workers and production Telegram integration defined by the active roadmap. Controlled production AI validation, real user-facing production capabilities, Render deployment, external end-to-end verification and security operations remain in Blocks 15–19 and Pilot Launch. These must be connected through the approved boundaries without changing the core contracts.
+Blocks 0–15 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence, durable automation workers, production Telegram integration and controlled production AI integration. Real user-facing production capabilities, Render deployment, external end-to-end verification and security operations remain in Blocks 16–19 and Pilot Launch. These must be connected through the approved boundaries without changing the core contracts.
 
 ## Authority
 Read in this order:

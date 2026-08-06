@@ -45,6 +45,8 @@ async function shutdown(signal) {
 
 if (verifyMode) {
   const suffix = randomUUID();
+  await persistence.database.query(`UPDATE tasks SET status='cancelled',cancellation_reason='worker_verification_isolation',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now()
+    WHERE status IN ('scheduled','waiting_approval','queued','running')`);
   await queue.submit({
     taskId: `worker-verification:${suffix}`,
     kind: 'worker-verification',
@@ -54,6 +56,9 @@ if (verifyMode) {
     idempotencyKey: `worker-verification:${suffix}`
   });
   const result = await worker.runOnce();
+  if (result?.task_id !== `worker-verification:${suffix}` || result.status !== 'completed') {
+    throw new Error('durable worker task verification failed');
+  }
   await observabilityStore.flush();
   const persistedEvents = await persistence.database.query(
     `SELECT payload->'data'->>'workerEvent' AS worker_event FROM observability_events WHERE trace_id=$1 AND stage='durable-worker' ORDER BY event_id`,

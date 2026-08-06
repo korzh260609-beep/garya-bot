@@ -19,15 +19,16 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 13. `PRODUCTION_ROADMAP.md`
 14. `11_RUNTIME_COMPOSITION.md` — implementation and acceptance evidence for Block 11
 15. `12_POSTGRESQL_PERSISTENCE.md` — implementation and acceptance evidence for Block 12
+16. `13_DURABLE_AUTOMATION_AND_WORKERS.md` — implementation and acceptance evidence for Block 13
 
 ## Production continuation
 
 `PRODUCTION_ROADMAP.md` is the canonical continuation after Block 10 and fixes the implementation order as:
 
-1. Block 11 — Runtime Composition
-2. Block 12 — PostgreSQL Persistence
-3. Block 13 — Durable Automation and Workers
-4. Block 14 — Telegram Production Integration
+1. Block 11 — Runtime Composition — completed
+2. Block 12 — PostgreSQL Persistence — completed
+3. Block 13 — Durable Automation and Workers — completed
+4. Block 14 — Telegram Production Integration — next, not started
 5. Block 15 — Production AI Integration
 6. Block 16 — Production Capabilities
 7. Block 17 — Render Deployment

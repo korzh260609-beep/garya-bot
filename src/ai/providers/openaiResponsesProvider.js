@@ -15,6 +15,7 @@ function extractText(payload) {
 export function createOpenAIResponsesProvider({
   apiKey = process.env.OPENAI_API_KEY,
   baseUrl = 'https://api.openai.com/v1',
+  reasoningEffort = 'medium',
   fetchImpl = globalThis.fetch
 } = {}) {
   if (!apiKey) throw new AIConfigurationError('OPENAI_API_KEY is required');
@@ -27,6 +28,7 @@ export function createOpenAIResponsesProvider({
       const body = {
         model: model.model,
         input: request.messages.map((message) => ({ role: message.role, content: message.content })),
+        reasoning: { effort: reasoningEffort },
         store: false
       };
       if (request.responseFormat?.jsonSchema) {

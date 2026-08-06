@@ -4,7 +4,7 @@ import { createSemanticKernel } from '../semantic/semanticKernel.js';
 import { createContextAwareSemanticPipeline } from '../memory/contextAwareSemanticPipeline.js';
 import { createContextResolver } from '../memory/contextResolver.js';
 import { createInMemoryMemoryProvider } from '../memory/inMemoryMemoryProvider.js';
-import { createPostgresMemoryProvider, createPostgresPersistence } from '../persistence/index.js';
+import { createPostgresMemoryProvider, createPostgresObservabilityStore, createPostgresPersistence } from '../persistence/index.js';
 import { createActionGate } from '../action/actionGate.js';
 import { createCapability } from '../contracts/capability.js';
 import { createCapabilityRegistry } from '../capability/capabilityRegistry.js';
@@ -39,9 +39,12 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver 
   })] });
   const capabilityExecutor = createCapabilityExecutor({ registry: capabilityRegistry });
   const actionGate = createActionGate();
-  const store = createInMemoryObservabilityStore();
+  const store = persistence
+    ? createPostgresObservabilityStore({ observabilityRepository: persistence.repositories.observability })
+    : createInMemoryObservabilityStore();
   const observability = createObservabilityService({ store });
-  const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityExecutor, observability, resources: persistence ? [persistence] : [] });
+  const resources = persistence ? [persistence, store] : [];
+  const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityExecutor, observability, resources });
 
   const identityResolver = async ({ platformFacts, scopeFacts }) => {
     const globalUserId = `${platformFacts.platform}:${platformFacts.platformUserId}`;

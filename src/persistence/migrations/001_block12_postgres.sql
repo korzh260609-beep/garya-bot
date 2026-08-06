@@ -77,14 +77,16 @@ CREATE TABLE IF NOT EXISTS memory_records (
   memory_key text NOT NULL,
   value jsonb NOT NULL,
   provenance jsonb NOT NULL,
+  trust text NOT NULL DEFAULT 'unverified',
+  confirmed boolean NOT NULL DEFAULT false,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
   confidence numeric(5,4),
   expires_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CHECK (thread_scope IS NULL OR group_scope IS NOT NULL),
-  UNIQUE (global_user_id, project_scope, group_scope, thread_scope, memory_layer, memory_key)
+  CHECK (thread_scope IS NULL OR group_scope IS NOT NULL)
 );
-CREATE INDEX IF NOT EXISTS memory_scope_lookup_idx ON memory_records(global_user_id, project_scope, group_scope, thread_scope, memory_layer);
+CREATE INDEX IF NOT EXISTS memory_scope_lookup_idx ON memory_records(global_user_id, project_scope, group_scope, thread_scope, memory_layer, memory_key);
 CREATE INDEX IF NOT EXISTS memory_expiry_idx ON memory_records(expires_at) WHERE expires_at IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS tasks (

@@ -104,7 +104,8 @@ export function createProductionRuntime({
       if (gatedResponse) return gatedResponse;
 
       let result;
-      if (actionRequest.payload?.domainId) {
+      const directDomainExecution = actionRequest.payload?.domainId && actionRequest.capability !== 'domain-dispatch';
+      if (directDomainExecution) {
         if (!domainRuntime) throw new Error('domain runtime is required for domain execution');
         result = await domainRuntime.execute({
           domainId: actionRequest.payload.domainId,

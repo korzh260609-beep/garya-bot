@@ -13,17 +13,34 @@ jobs:
   foundation:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sg
+          POSTGRES_PASSWORD: sg
+          POSTGRES_DB: sg_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sg -d sg_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://sg:sg@localhost:5432/sg_test
+      DATABASE_SSL: "false"
+      SG_PERSISTENCE_MODE: postgres
+      SG_ENVIRONMENT: ci
+      SG_REVISION: block-12
+      SG_PROJECT_SCOPE: sg2.1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm install --package-lock-only
-      - run: |
-          echo 'BLOCK12_LOCK_BEGIN'
-          cat package-lock.json
-          echo 'BLOCK12_LOCK_END'
       - run: npm ci
+      - run: npm run migrate
       - run: npm run check
       - run: npm start

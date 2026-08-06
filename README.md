@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and executable platform core through Block 2.
+This branch contains the active SG 2.1 architecture and executable platform core through Block 2.5.
 
 ## Requirements
 - Node.js 22
@@ -14,7 +14,17 @@ npm run check
 npm start
 ```
 
-`npm start` runs the Block 2 local fixture and demonstrates confirmed project-memory restoration through the context-aware semantic pipeline.
+By default, `npm start` runs the deterministic Block 2 context-memory fixture and does not spend AI tokens.
+
+To run the Block 2.5 production reasoning path, configure a deployment secret and enable it explicitly:
+
+```bash
+OPENAI_API_KEY=...
+SG_AI_ENABLED=true
+npm start
+```
+
+All non-secret options are documented in `.env.example`. Real API keys must be stored only in the deployment secret store.
 
 ## Implemented
 ### Block 0 — Engineering Foundation
@@ -37,8 +47,25 @@ npm start
 - working in-memory provider
 - integration with Semantic Kernel
 
+### Block 2.5 — AI Routing Foundation
+- replaceable AI Provider and AI Router contracts
+- specialized-first model registry and configurable fallback
+- bounded retry, hard timeout and explicit normalized failures
+- OpenAI Responses API provider with structured JSON output
+- production MeaningInterpreter connected only through AI Router
+- trace, reason, provider, model, latency, usage and cost metadata
+- secret-safe telemetry and environment configuration
+- contract, provider, failure-mode and Semantic Kernel integration tests
+
+## AI routing rules
+- SG modules do not call AI providers directly.
+- Every production model call passes through AI Router.
+- Model output is validated before it enters Semantic Kernel contracts.
+- AI interpretation cannot execute protected actions.
+- Production AI is disabled by default to avoid accidental cost.
+
 ## Current boundary
-The in-memory provider is a working Block 2 reference implementation, not durable production storage. Database persistence and migrations are intentionally deferred. The branch still contains no Telegram transport, production identity linking, Action Gate, protected execution or external AI-provider integration.
+The in-memory memory provider remains a working Block 2 reference implementation, not durable production storage. Database persistence and migrations are intentionally deferred. The branch still contains no Decision Engine, Action Gate, Telegram transport, production identity linking or protected execution.
 
 ## Authority
 Read in this order:

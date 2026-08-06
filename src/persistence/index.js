@@ -2,6 +2,7 @@ export { createPostgresDatabase } from './database.js';
 export { runMigrations } from './migrator.js';
 export { createPostgresRepositories } from './repositories.js';
 export { createPostgresMemoryProvider } from './postgresMemoryProvider.js';
+export { createPostgresObservabilityStore } from './postgresObservabilityStore.js';
 
 import { createPostgresDatabase } from './database.js';
 import { runMigrations } from './migrator.js';

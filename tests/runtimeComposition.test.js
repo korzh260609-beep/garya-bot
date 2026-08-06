@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { loadRuntimeConfig } from '../src/runtime/config.js';
 import { createLocalProductionHarness } from '../src/runtime/localProductionHarness.js';
+import { createPostgresPersistence } from '../src/persistence/index.js';
+
+const connectionString = process.env.DATABASE_URL;
+const postgresIntegration = connectionString ? test : test.skip;
 
 function protectedInterpretation() {
   return {
@@ -39,6 +44,43 @@ test('full local transport path reaches capability and delivery with observabili
 
   await harness.runtime.stop();
   assert.equal(harness.runtime.readiness().ready, false);
+});
+
+postgresIntegration('PostgreSQL runtime observability is durable and flushed before database shutdown', async () => {
+  const userId = `runtime-observability-${randomUUID()}`;
+  const harness = createLocalProductionHarness({
+    env: {
+      SG_PERSISTENCE_MODE: 'postgres',
+      DATABASE_URL: connectionString,
+      DATABASE_SSL: 'false'
+    }
+  });
+
+  await harness.runtime.start();
+  const result = await harness.transport.send({ text: 'persist runtime observability', userId, projectId: 'sg2.1' });
+  const traceId = result.canonicalInput.traceContext.traceId;
+  await harness.runtime.stop();
+
+  const verifier = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-runtime-observability-verifier' });
+  await verifier.start();
+  try {
+    const persisted = await verifier.database.query(
+      'SELECT channel, event_class FROM observability_events WHERE trace_id=$1 ORDER BY id',
+      [traceId]
+    );
+    assert.deepEqual(
+      persisted.rows.map((row) => `${row.channel}:${row.event_class}`),
+      [
+        'telemetry:request_received',
+        'telemetry:semantic_decision_created',
+        'audit:action_gate_decision',
+        'telemetry:capability_started',
+        'telemetry:capability_completed'
+      ]
+    );
+  } finally {
+    await verifier.close();
+  }
 });
 
 test('protected intent cannot bypass Action Gate', async () => {

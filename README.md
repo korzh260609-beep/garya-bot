@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the clean SG 2.1 architecture and its engineering foundation.
+This branch contains the active SG 2.1 architecture and executable platform core through Block 2.
 
 ## Requirements
 - Node.js 22
@@ -14,15 +14,31 @@ npm run check
 npm start
 ```
 
-## Current boundary
-The repository currently provides only Block 0 infrastructure:
-- canonical identity, scope and trace fixtures
-- canonical error type
-- local runner
-- tests
-- CI
+`npm start` runs the Block 2 local fixture and demonstrates confirmed project-memory restoration through the context-aware semantic pipeline.
 
-It intentionally contains no Telegram transport, database, durable memory, model provider, protected action execution or domain logic.
+## Implemented
+### Block 0 — Engineering Foundation
+- project structure, contracts, local runner, tests and CI
+- minimal identity, scope, trace and error contracts
+
+### Block 1 — Semantic Kernel
+- canonical input and semantic contracts
+- injected MeaningInterpreter boundary
+- DecisionEnvelope and ResponsePlan
+- safe clarification, answer and prepare-only decisions
+
+### Block 2 — Context and Memory
+- seven memory layers
+- ContextRequest and ContextBundle
+- provenance, trust, confirmation and expiration
+- strict user/project/group/thread isolation
+- duplicate and conflict detection
+- bounded deterministic context selection
+- working in-memory provider
+- integration with Semantic Kernel
+
+## Current boundary
+The in-memory provider is a working Block 2 reference implementation, not durable production storage. Database persistence and migrations are intentionally deferred. The branch still contains no Telegram transport, production identity linking, Action Gate, protected execution or external AI-provider integration.
 
 ## Authority
 Read in this order:
@@ -31,5 +47,3 @@ Read in this order:
 3. `pillars/architecture/README.md`
 4. `pillars/roadmap/README.md`
 5. `pillars/workflow/README.md`
-
-Functional development starts with `pillars/roadmap/01_SEMANTIC_KERNEL.md` only after Block 0 checks pass.

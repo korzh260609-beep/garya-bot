@@ -72,7 +72,19 @@ Constitution
 → Interfaces
 → Automation and Agents
 → Domain Modules
+→ Runtime Composition
+→ PostgreSQL Persistence
+→ Durable Automation and Workers
+→ Telegram Production Integration
+→ Production AI Integration
+→ Production Capabilities
+→ Render Deployment
+→ End-to-End Verification
+→ Security and Operations
+→ Pilot Launch
 ```
+
+Blocks 0–10 form the platform-core program. Blocks 11–19 and Pilot Launch form the production continuation defined by `pillars/roadmap/PRODUCTION_ROADMAP.md`.
 
 ## D-017 — Development procedure is fixed by workflow
 Every implementation block follows: scope → contracts → skeleton → config → minimal logic → tests → observability → safety → architecture verification → reversible commit → evidence.
@@ -88,3 +100,8 @@ Every important request, model call, capability execution, gate decision and fai
 
 ## D-021 — Production AI access is introduced through Block 2.5
 After Semantic Kernel and Context and Memory are stable, the first production reasoning provider is connected only through AI Router. Direct provider calls from SG modules are forbidden. Decision Engine development begins only after the routed reasoning path is validated by tests and CI evidence.
+
+## D-022 — Productionization preserves the approved core architecture
+The production continuation may compose modules, replace reference providers with durable implementations, connect real transports and AI providers, deploy services and add operational controls. It must not bypass or relocate Semantic Kernel, Identity and Scope, Decision Engine, Action Gate, Capability contracts, AI Router, memory boundaries, trust order or observability responsibilities.
+
+Production readiness requires real runtime evidence. Unit tests or a successful process start alone cannot prove Telegram delivery, persistence, worker recovery, deployment safety or pilot readiness.

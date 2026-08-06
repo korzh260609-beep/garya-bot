@@ -1,6 +1,6 @@
 # PILLARS — SG 2.1 CANONICAL INDEX
 
-`pillars/` contains only active documentation required to build SG 2.1.
+`pillars/` contains only active documentation required to build and operationalize SG 2.1.
 
 ## Authority
 
@@ -50,6 +50,7 @@ Active files:
 - `08_INTERFACES.md`
 - `09_AUTOMATION_AND_AGENTS.md`
 - `10_DOMAIN_MODULES.md`
+- `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19 and Pilot Launch
 
 ## Workflow
 Entry: `workflow/README.md`

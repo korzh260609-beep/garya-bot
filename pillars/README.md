@@ -37,6 +37,7 @@ Active files:
 Entry: `roadmap/README.md`
 
 Active files:
+- `00_ENGINEERING_FOUNDATION.md`
 - `00_PRINCIPLES_AND_GATES.md`
 - `01_SEMANTIC_KERNEL.md`
 - `02_CONTEXT_AND_MEMORY.md`

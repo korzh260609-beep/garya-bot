@@ -18,6 +18,7 @@ function protectedInterpretation() {
 test('runtime config fails fast on invalid mandatory values', () => {
   assert.throws(() => loadRuntimeConfig({ SG_ENVIRONMENT: '', SG_REVISION: 'x', SG_PROJECT_SCOPE: 'sg' }), /SG_ENVIRONMENT is required/);
   assert.throws(() => loadRuntimeConfig({ SG_ENVIRONMENT: 'test', SG_REVISION: 'x', SG_PROJECT_SCOPE: 'sg', SG_SHUTDOWN_TIMEOUT_MS: '0' }), /positive integer/);
+  assert.throws(() => loadRuntimeConfig({ SG_ENVIRONMENT: 'test', SG_REVISION: 'x', SG_PROJECT_SCOPE: 'sg', SG_PERSISTENCE_MODE: 'postgres' }), /DATABASE_URL is required/);
 });
 
 test('full local transport path reaches capability and delivery with observability', async () => {

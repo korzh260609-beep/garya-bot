@@ -14,6 +14,12 @@ function nonNegative(value, field) {
   if (!Number.isFinite(number) || number < 0) throw new TypeError(`${field} must be a non-negative number`);
   return number;
 }
+function positiveInteger(value, field) {
+  if (value == null) return null;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number <= 0) throw new TypeError(`${field} must be a positive integer`);
+  return number;
+}
 export function assertAIProvider(provider) {
   if (!provider || typeof provider.generate !== 'function') throw new TypeError('AI provider generate must be a function');
   return provider;
@@ -25,11 +31,12 @@ export function createAIRequest(input) {
     reason: string(input.reason, 'reason'),
     messages: Object.freeze((input.messages ?? []).map((message, index) => Object.freeze({
       role: string(message.role, `messages[${index}].role`),
-      content: string(message.content, `messages[${index}].content`)
+      content: string(message.content, `messages[${index}].content`),
     }))),
     responseFormat: input.responseFormat ? Object.freeze({ ...object(input.responseFormat, 'responseFormat') }) : null,
+    maxOutputTokens: positiveInteger(input.maxOutputTokens, 'maxOutputTokens'),
     traceContext: Object.freeze({ ...object(input.traceContext, 'traceContext') }),
-    metadata: Object.freeze({ ...(input.metadata ?? {}) })
+    metadata: Object.freeze({ ...(input.metadata ?? {}) }),
   });
 }
 export function createAIResult(input) {
@@ -42,7 +49,7 @@ export function createAIResult(input) {
     usage: Object.freeze({
       inputTokens: nonNegative(input.usage?.inputTokens, 'usage.inputTokens'),
       outputTokens: nonNegative(input.usage?.outputTokens, 'usage.outputTokens'),
-      totalTokens: nonNegative(input.usage?.totalTokens, 'usage.totalTokens')
+      totalTokens: nonNegative(input.usage?.totalTokens, 'usage.totalTokens'),
     }),
     costUsd: nonNegative(input.costUsd, 'costUsd'),
     traceId: string(input.traceId, 'traceId'),
@@ -50,7 +57,7 @@ export function createAIResult(input) {
     reason: string(input.reason, 'reason'),
     attempts: nonNegative(input.attempts ?? 1, 'attempts'),
     fallbackUsed: Boolean(input.fallbackUsed),
-    rawMetadata: Object.freeze({ ...(input.rawMetadata ?? {}) })
+    rawMetadata: Object.freeze({ ...(input.rawMetadata ?? {}) }),
   });
 }
 export function parseStructuredAIOutput(result) {

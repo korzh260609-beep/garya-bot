@@ -23,6 +23,7 @@ Completed architecture and implementation:
 - Block 11 production runtime composition;
 - Block 12 PostgreSQL persistence boundary and repositories;
 - Block 13 durable automation and workers;
+- Block 14 Telegram production integration;
 - deterministic tests and CI;
 - Semantic Kernel, Context and Memory contracts;
 - AI Router foundation;
@@ -40,11 +41,16 @@ Completed architecture and implementation:
 - abandoned-work recovery, retry with bounded exponential backoff and dead-letter queue;
 - persisted approval, cancellation and idempotency;
 - Action Gate immediately before protected worker execution;
-- worker health and durable observability.
+- worker health and durable observability;
+- Telegram webhook endpoint with secret verification;
+- durable Telegram update deduplication;
+- Telegram Bot API client with timeout, bounded retries and flood-control handling;
+- private chat, group, supergroup and topic routing;
+- explicit group invocation through commands, reply or mention;
+- full Telegram transport-to-runtime-to-delivery path.
 
 Current limitations:
 
-- Telegram Bot API is not connected to the transport adapter;
 - production AI execution is not validated end-to-end;
 - real user-facing production capabilities are not connected;
 - Render deployment is not configured for the SG 2.1 runtime;
@@ -54,8 +60,8 @@ Current limitations:
 
 Current implementation boundary:
 
-- Blocks 11, 12 and 13 are completed.
-- Block 14 is the next mandatory block and has not started.
+- Blocks 11, 12, 13 and 14 are completed.
+- Block 15 is the next mandatory block and has not started.
 
 ---
 
@@ -171,7 +177,7 @@ Convert the Block 9 reference automation engine into durable scheduled and queue
 
 ## Status
 
-Not started. This is the next mandatory block.
+Completed.
 
 ## Goal
 
@@ -202,9 +208,15 @@ Connect the existing Telegram transport adapter to the real Telegram Bot API wit
 - The bot responds through the full SG runtime path.
 - Telegram outages produce visible bounded failures without corrupting state.
 
+Acceptance evidence is recorded in `14_TELEGRAM_PRODUCTION_INTEGRATION.md`.
+
 ---
 
 # Block 15 — Production AI Integration
+
+## Status
+
+Not started. This is the next mandatory block.
 
 ## Goal
 
@@ -430,8 +442,8 @@ Validate the production system with a deliberately limited real-user scope.
 1. Block 11 — Runtime Composition — completed
 2. Block 12 — PostgreSQL Persistence — completed
 3. Block 13 — Durable Automation and Workers — completed
-4. Block 14 — Telegram Production Integration — next, not started
-5. Block 15 — Production AI Integration
+4. Block 14 — Telegram Production Integration — completed
+5. Block 15 — Production AI Integration — next, not started
 6. Block 16 — Production Capabilities
 7. Block 17 — Render Deployment
 8. Block 18 — End-to-End Verification

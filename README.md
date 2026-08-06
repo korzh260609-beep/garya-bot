@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and executable platform core through Block 4.
+This branch contains the active SG 2.1 architecture and executable platform core through Block 5.
 
 ## Requirements
 - Node.js 22
@@ -76,8 +76,18 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - DecisionEnvelope-to-ActionRequest integration boundary
 - no meaning interpretation and no capability execution
 
+### Block 5 — Capability System
+- normalized Capability, CapabilityExecutionRequest and CapabilityResult contracts
+- replaceable capability registry with deterministic discovery and selection
+- execution allowed only after an authorized Action Gate decision
+- declared permission, source and tool requirements cannot exceed the gated request
+- explicit success, partial, failed, timeout and unavailable results
+- hard timeout, bounded retry and ordered fallback capabilities
+- source, tool, cost, duration, attempt and trace metadata propagation
+- visible failures and partial results without transport-specific behavior
+
 ## Runtime path
-`CanonicalInput → MeaningInterpreter → SemanticInterpretation → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → ResponsePlan`
+`CanonicalInput → MeaningInterpreter → SemanticInterpretation → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan`
 
 The production interpretation route remains:
 `ProductionMeaningInterpreter → AIRouter → ModelRegistry → AIProvider`
@@ -88,11 +98,13 @@ The production interpretation route remains:
 - Model output is validated before it enters semantic contracts.
 - Decision Engine decides but does not authorize or execute.
 - Action Gate authorizes, blocks, requests confirmation or downgrades; it never interprets meaning or executes capabilities.
+- Capability execution requires an allowed GateDecision and cannot broaden permissions, scope, sources or tools.
+- Capabilities exist independently from commands and transports.
 - Protected actions cannot bypass Action Gate.
 - Production AI is disabled by default to avoid accidental cost.
 
 ## Current boundary
-The in-memory memory and idempotency providers are working reference implementations, not durable production storage. Database persistence and migrations are intentionally deferred. The branch still contains no Capability System, Telegram transport, production identity linking or protected execution.
+The in-memory memory and idempotency providers are working reference implementations, not durable production storage. Database persistence and migrations are intentionally deferred. Block 5 provides the capability platform contracts and deterministic executor but no production domain capabilities, Telegram transport, production identity linking or durable protected execution.
 
 ## Authority
 Read in this order:

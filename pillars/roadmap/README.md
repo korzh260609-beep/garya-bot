@@ -18,6 +18,7 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 12. `10_DOMAIN_MODULES.md`
 13. `PRODUCTION_ROADMAP.md`
 14. `11_RUNTIME_COMPOSITION.md` — implementation and acceptance evidence for Block 11
+15. `12_POSTGRESQL_PERSISTENCE.md` — implementation and acceptance evidence for Block 12
 
 ## Production continuation
 

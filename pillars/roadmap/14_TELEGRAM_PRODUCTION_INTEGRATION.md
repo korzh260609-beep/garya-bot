@@ -6,7 +6,22 @@ Implemented on `dev/sg2.1-semantic` and accepted by green CI.
 
 ## Production boundary
 
-Telegram remains a transport. It provides platform identity facts, chat facts, message facts and delivery mechanics. It does not assign roles, grants or final scopes. Identity and Scope resolves the actor and scope before the request enters the semantic runtime.
+Telegram remains a transport. It provides platform identity facts, chat facts, message facts, addressing metadata and delivery mechanics. It does not interpret user meaning, assign roles, assign grants, choose capabilities or generate business responses. Identity and Scope resolves the actor and scope before the original user text enters the semantic runtime.
+
+## Semantic-first interaction rule
+
+Users are never required to memorize technical commands, keywords or fixed phrases.
+
+Natural-language requests such as:
+
+- `Что ты обо мне помнишь?`
+- `Расскажи, кто я для тебя`
+- `Какие мои дела ещё не закончены?`
+- `Есть ли у системы проблемы?`
+
+are passed unchanged to the SG runtime. Their meaning is resolved only by the semantic layer and later mapped through Decision Engine, Action Gate and capabilities.
+
+Telegram bot commands may exist as optional platform shortcuts, but the transport does not maintain a command-name allowlist and does not attach business meaning to command text. A Telegram `bot_command` entity is only evidence that a group message was explicitly addressed to the bot.
 
 ## Implemented components
 
@@ -31,17 +46,19 @@ Telegram remains a transport. It provides platform identity facts, chat facts, m
   - normalized Telegram failures.
 - `src/telegram/telegramInvocation.js`
   - private chat handling;
-  - group and supergroup explicit invocation;
-  - reply and mention detection;
-  - topic preservation;
-  - commands `/start`, `/help`, `/profile`, `/tasks`, `/health`.
+  - group and supergroup explicit addressing;
+  - reply, mention and Telegram `bot_command` entity detection;
+  - no command allowlist;
+  - no keyword routing;
+  - no transport-level response renderer.
 - `src/telegram/telegramConfig.js`
   - validated production and sandbox configuration.
 
 ## Invocation rules
 
-- Private chats: text commands and messages are accepted.
-- Groups and supergroups: SG responds only to a supported command, a reply to the bot, or an explicit bot mention.
+- Private chats: every non-empty text or caption is accepted and passed unchanged to semantic runtime.
+- Groups and supergroups: SG responds only when the message is explicitly addressed through a reply to the bot, an explicit mention or Telegram's structured `bot_command` entity.
+- Group admission uses Telegram addressing metadata only. It does not inspect words to infer intent.
 - Silent group traffic is acknowledged and stored as ignored update evidence without entering the SG runtime.
 - Telegram topic `message_thread_id` becomes thread scope only after centralized Identity and Scope resolution.
 
@@ -78,10 +95,10 @@ CI verifies:
 - webhook secret rejection;
 - durable/in-memory update deduplication contract;
 - full transport-to-runtime-to-delivery path;
+- arbitrary natural-language messages pass unchanged to runtime;
+- no fixed command-name or keyword routing in Telegram transport;
 - separate identities for different group users;
 - group and topic scope isolation;
-- reply, mention and command invocation;
+- reply, mention and structured platform-command addressing;
 - flood-control retry and normalized API errors;
 - visible failure when Telegram delivery is unavailable.
-
-The accepted suite contains 117 tests with zero failures and zero skips. CI also verifies `npm start` and `npm run start:worker` after the Telegram tests.

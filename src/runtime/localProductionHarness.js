@@ -5,10 +5,12 @@ import { createContextAwareSemanticPipeline } from '../memory/contextAwareSemant
 import { createContextResolver } from '../memory/contextResolver.js';
 import { createInMemoryMemoryProvider } from '../memory/inMemoryMemoryProvider.js';
 import { createPostgresMemoryProvider, createPostgresObservabilityStore, createPostgresPersistence } from '../persistence/index.js';
+import { createPostgresTaskQueue } from '../automation/postgresTaskQueue.js';
 import { createActionGate } from '../action/actionGate.js';
 import { createCapabilityRegistry } from '../capability/capabilityRegistry.js';
 import { createCapabilityExecutor } from '../capability/capabilityExecutor.js';
 import { createProductionCapabilities, PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
+import { createPostgresProductionTaskStore } from '../capability/postgresProductionTaskStore.js';
 import { createInMemoryObservabilityStore } from '../observability/inMemoryObservabilityStore.js';
 import { createObservabilityService } from '../observability/observabilityService.js';
 import { createLocalInterfaceHarness } from '../interfaces/localHarness.js';
@@ -24,6 +26,8 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16', SG_PROJECT_SCOPE: 'sg2.1', ...env });
   const persistence = config.persistenceMode === 'postgres' ? createPostgresPersistence({ connectionString: config.databaseUrl, ssl: config.databaseSsl, applicationName: 'sg-2-1-runtime' }) : null;
   const memoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory }) : createInMemoryMemoryProvider();
+  const durableTaskQueue = persistence ? createPostgresTaskQueue({ database: persistence.database }) : null;
+  const taskStore = persistence ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue }) : undefined;
   const contextResolver = createContextResolver({ memoryProvider });
   const productionAI = !interpretationResolver && aiRequested(env) ? createProductionAI({ env, fetchImpl }) : null;
   const meaningInterpreter = productionAI?.meaningInterpreter ?? createFixtureMeaningInterpreter(interpretationResolver ?? ((input) => ({
@@ -38,6 +42,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const semanticPipeline = createContextAwareSemanticPipeline({ semanticKernel: createSemanticKernel({ meaningInterpreter }), contextResolver });
   const capabilities = createProductionCapabilities({
     memoryProvider,
+    taskStore,
     sourceRetriever: async ({ sourceId, query }) => sourceId === 'local-fixture'
       ? { ok: true, message: 'Approved local source retrieved', query, data: { sourceId, query }, sources: [sourceId] }
       : { ok: false, code: 'source-not-approved', message: 'Source is not approved', retryable: false, sources: [] },
@@ -72,5 +77,5 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     };
   };
   const transport = createLocalInterfaceHarness({ identityResolver, requestHandler: runtime.handle });
-  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry });
+  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore });
 }

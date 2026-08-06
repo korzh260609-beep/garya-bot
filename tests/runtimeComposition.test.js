@@ -29,8 +29,13 @@ test('full local transport path reaches capability and delivery with observabili
   assert.equal(result.response.status, 'success');
   assert.match(result.response.message, /SG runtime ready/);
   assert.equal(harness.transport.deliveries.length, 1);
-  const classes = harness.observability.list({ traceId: result.canonicalInput.traceContext.traceId }).map((event) => event.eventClass);
-  assert.deepEqual(classes, ['request_received', 'semantic_decision_created', 'action_gate_decision', 'capability_started', 'capability_completed']);
+
+  const traceId = result.canonicalInput.traceContext.traceId;
+  const telemetryClasses = harness.observability.list({ channel: 'telemetry', traceId }).map((event) => event.eventClass);
+  const auditClasses = harness.observability.list({ channel: 'audit', traceId }).map((event) => event.eventClass);
+  assert.deepEqual(telemetryClasses, ['request_received', 'semantic_decision_created', 'capability_started', 'capability_completed']);
+  assert.deepEqual(auditClasses, ['action_gate_decision']);
+
   await harness.runtime.stop();
   assert.equal(harness.runtime.readiness().ready, false);
 });

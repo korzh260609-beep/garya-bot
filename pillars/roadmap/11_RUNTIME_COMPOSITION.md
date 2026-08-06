@@ -32,7 +32,7 @@ Completion is derived from repository evidence, not manual status labels:
 - protected intent does not execute before an allowed GateDecision;
 - invalid mandatory configuration fails before readiness;
 - shutdown rejects new requests and closes after in-flight work drains;
-- GitHub Actions records successful evidence on `dev/sg2.1-semantic`.
+- GitHub Actions records successful PR merge-ref evidence that includes the reviewed `dev/sg2.1-semantic` HEAD. This is valid integration evidence but is not described as a separate branch-push run.
 
 ## Exclusions
 

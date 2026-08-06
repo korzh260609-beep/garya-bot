@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and executable platform core through Block 3.
+This branch contains the active SG 2.1 architecture and executable platform core through Block 4.
 
 ## Requirements
 - Node.js 22
@@ -66,8 +66,18 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - no permission checks and no capability execution
 - compatibility, boundary and deterministic-decision tests
 
+### Block 4 — Action Gate
+- explicit ActionRequest and GateDecision contracts
+- action classification and deterministic authorization outcomes
+- identity, permission, scope and availability checks
+- risk, cost and confirmation policies
+- idempotency protection and privacy-bounded audit output
+- safe downgrade to analysis or prepare-only behavior
+- DecisionEnvelope-to-ActionRequest integration boundary
+- no meaning interpretation and no capability execution
+
 ## Runtime path
-`CanonicalInput → MeaningInterpreter → SemanticInterpretation → DecisionEngine → DecisionEnvelope + ResponsePlan`
+`CanonicalInput → MeaningInterpreter → SemanticInterpretation → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → ResponsePlan`
 
 The production interpretation route remains:
 `ProductionMeaningInterpreter → AIRouter → ModelRegistry → AIProvider`
@@ -77,11 +87,12 @@ The production interpretation route remains:
 - Every production model call passes through AI Router.
 - Model output is validated before it enters semantic contracts.
 - Decision Engine decides but does not authorize or execute.
-- External, state-changing and executable intent is prepare-only until Action Gate exists.
+- Action Gate authorizes, blocks, requests confirmation or downgrades; it never interprets meaning or executes capabilities.
+- Protected actions cannot bypass Action Gate.
 - Production AI is disabled by default to avoid accidental cost.
 
 ## Current boundary
-The in-memory memory provider remains a working Block 2 reference implementation, not durable production storage. Database persistence and migrations are intentionally deferred. The branch still contains no Action Gate, Telegram transport, production identity linking or protected execution.
+The in-memory memory and idempotency providers are working reference implementations, not durable production storage. Database persistence and migrations are intentionally deferred. The branch still contains no Capability System, Telegram transport, production identity linking or protected execution.
 
 ## Authority
 Read in this order:

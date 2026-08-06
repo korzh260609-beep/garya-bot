@@ -17,11 +17,12 @@ The production stage must preserve these rules:
 
 ## Current baseline
 
-Completed architecture and reference implementation:
+Completed architecture and implementation:
 
-- Blocks 0–10;
+- Blocks 0–10 platform core;
 - Block 11 production runtime composition;
 - Block 12 PostgreSQL persistence boundary and repositories;
+- Block 13 durable automation and workers;
 - deterministic tests and CI;
 - Semantic Kernel, Context and Memory contracts;
 - AI Router foundation;
@@ -33,21 +34,36 @@ Completed architecture and reference implementation:
 - Automation and Agents reference layer;
 - Domain Modules platform;
 - one executable runtime entrypoint with explicit dependency injection, lifecycle, health, readiness and graceful shutdown;
-- PostgreSQL pool, versioned migrations, transaction boundary, durable memory adapter and scoped repositories for identity, access, conversations, automation, idempotency, observability and domain data.
+- PostgreSQL pool, versioned migrations, transaction boundary, durable memory adapter and scoped repositories for identity, access, conversations, automation, idempotency, observability and domain data;
+- persistent PostgreSQL task queue and scheduler;
+- separate worker runtime with atomic claiming, lease and heartbeat;
+- abandoned-work recovery, retry with bounded exponential backoff and dead-letter queue;
+- persisted approval, cancellation and idempotency;
+- Action Gate immediately before protected worker execution;
+- worker health and durable observability.
 
 Current limitations:
 
-- durable worker claiming, leases, retries and DLQ processing are not implemented;
-- synchronous runtime observability still uses its existing in-process store contract; PostgreSQL observability persistence is available through the durable repository boundary and must be connected without breaking that contract;
 - Telegram Bot API is not connected to the transport adapter;
 - production AI execution is not validated end-to-end;
+- real user-facing production capabilities are not connected;
 - Render deployment is not configured for the SG 2.1 runtime;
 - no complete production E2E test suite exists;
+- security and operational controls for pilot launch are not complete;
 - pilot users have not been enabled.
+
+Current implementation boundary:
+
+- Blocks 11, 12 and 13 are completed.
+- Block 14 is the next mandatory block and has not started.
 
 ---
 
 # Block 11 — Runtime Composition
+
+## Status
+
+Completed.
 
 ## Goal
 
@@ -82,6 +98,10 @@ Compose Blocks 0–10 into one executable SG runtime with explicit dependency in
 
 # Block 12 — PostgreSQL Persistence
 
+## Status
+
+Completed.
+
 ## Goal
 
 Replace temporary in-memory state with durable PostgreSQL repositories while preserving existing contracts.
@@ -114,6 +134,10 @@ Replace temporary in-memory state with durable PostgreSQL repositories while pre
 
 # Block 13 — Durable Automation and Workers
 
+## Status
+
+Completed.
+
 ## Goal
 
 Convert the Block 9 reference automation engine into durable scheduled and queued execution.
@@ -144,6 +168,10 @@ Convert the Block 9 reference automation engine into durable scheduled and queue
 ---
 
 # Block 14 — Telegram Production Integration
+
+## Status
+
+Not started. This is the next mandatory block.
 
 ## Goal
 
@@ -399,10 +427,10 @@ Validate the production system with a deliberately limited real-user scope.
 
 # Mandatory implementation order
 
-1. Block 11 — Runtime Composition
-2. Block 12 — PostgreSQL Persistence
-3. Block 13 — Durable Automation and Workers
-4. Block 14 — Telegram Production Integration
+1. Block 11 — Runtime Composition — completed
+2. Block 12 — PostgreSQL Persistence — completed
+3. Block 13 — Durable Automation and Workers — completed
+4. Block 14 — Telegram Production Integration — next, not started
 5. Block 15 — Production AI Integration
 6. Block 16 — Production Capabilities
 7. Block 17 — Render Deployment
@@ -417,8 +445,10 @@ A block is complete only when all of the following exist:
 - implemented code and configuration;
 - automated tests;
 - successful `npm ci`;
+- successful `npm run migrate` when the block changes durable persistence;
 - successful `npm run check`;
 - successful `npm start` or the block-specific runtime check;
+- successful `npm run start:worker` when the block changes worker execution;
 - updated documentation;
 - GitHub Actions success;
 - evidence that acceptance criteria are met.

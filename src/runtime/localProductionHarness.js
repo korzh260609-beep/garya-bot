@@ -51,7 +51,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver 
       await persistence.repositories.access.grantPermission({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, grantName: 'capability:compose-answer' });
     }
     return {
-      identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'persistent-link' : 'local-fixture', roles: ['monarch'], grants: ['capability:compose-answer'], authenticationLevel: 'verified' }),
+      identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles: ['monarch'], grants: ['capability:compose-answer'], authenticationLevel: 'verified' }),
       scopeContext: createScopeContext({ userScope: globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, allowedCapabilities: ['compose-answer'] })
     };
   };

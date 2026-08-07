@@ -4,7 +4,10 @@ on:
   push:
     branches:
       - dev/sg2.1-semantic
-  pull_request:
+
+concurrency:
+  group: sg21-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

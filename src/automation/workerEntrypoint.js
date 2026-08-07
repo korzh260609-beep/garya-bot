@@ -3,6 +3,7 @@ import { createPostgresObservabilityStore, createPostgresPersistence } from '../
 import { createObservabilityService } from '../observability/observabilityService.js';
 import { createPostgresTaskQueue } from './postgresTaskQueue.js';
 import { createDurableWorker } from './durableWorker.js';
+import { createProductionWorkerActionGate, createProductionWorkerExecutor } from './productionWorkerExecution.js';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is required for durable worker');
@@ -26,11 +27,8 @@ const worker = createDurableWorker({
   observability,
   environment: process.env.SG_ENVIRONMENT ?? 'worker',
   revision: process.env.SG_REVISION ?? 'unknown',
-  actionGate: async () => ({ outcome: 'allow', allowed: true }),
-  executor: async ({ kind, payload }) => {
-    if (!verifyMode) throw new Error(`No production executor registered for task kind: ${kind}`);
-    return { verified: true, kind, payload };
-  },
+  actionGate: createProductionWorkerActionGate({ verifyMode }),
+  executor: createProductionWorkerExecutor({ verifyMode }),
   leaseMs: Number(process.env.SG_WORKER_LEASE_MS ?? 30000),
   heartbeatMs: Number(process.env.SG_WORKER_HEARTBEAT_MS ?? 10000),
   pollMs: Number(process.env.SG_WORKER_POLL_MS ?? 1000)

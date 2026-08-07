@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createProductionTelegramIdentityResolver, createRenderWebApplication } from '../src/runtime/renderWebApplication.js';
+import { createProductionWorkerActionGate, createProductionWorkerExecutor } from '../src/automation/productionWorkerExecution.js';
 
 function fakeResponse() {
   const headers = {};
@@ -107,4 +108,17 @@ test('Render web application distinguishes process health from dependency readin
   await app.requestHandler({ url: '/ready', method: 'GET', headers: {} }, readyResponse);
   assert.equal(readyResponse.statusCode, 503);
   assert.equal(JSON.parse(readyResponse.body).ok, false);
+});
+
+test('production worker completes safe user tasks and fails closed for protected execution', async () => {
+  const executor = createProductionWorkerExecutor();
+  const result = await executor({ taskId: 't-1', kind: 'user-task', payload: { text: 'bounded' }, attempt: 1 });
+  assert.deepEqual(result, { status: 'completed', taskId: 't-1', kind: 'user-task', attempt: 1, acknowledged: true });
+
+  const gate = createProductionWorkerActionGate();
+  const decision = await gate({ kind: 'external-write' });
+  assert.equal(decision.outcome, 'deny');
+  assert.equal(decision.allowed, false);
+
+  await assert.rejects(() => executor({ taskId: 't-2', kind: 'external-write', payload: {}, attempt: 1 }), /No production executor registered/);
 });

@@ -100,7 +100,7 @@ export function createProductionCapabilities({
       name: 'compose-answer', description: 'Produce a conversational response.',
       actionTypes: ['answer'], actionClasses: ['analysis-only'],
       execute: async (request) => {
-        const text = boundedText(request.payload?.text ?? request.payload?.message ?? 'Request completed.', 'payload.text', 50000);
+        const text = boundedText(request.input?.text ?? request.input?.message ?? 'Request completed.', 'input.text', 50000);
         const message = conversationResponder ? await conversationResponder({ text, request }) : `SG: ${text}`;
         return { status: 'success', data: { message: String(message) } };
       }
@@ -111,8 +111,8 @@ export function createProductionCapabilities({
       execute: async (request) => {
         const result = await memoryProvider.query({
           scope: scopeFrom(request),
-          layers: request.payload?.layers ?? ['session', 'user-memory', 'project-memory'],
-          keys: request.payload?.keys ?? [],
+          layers: request.input?.layers ?? ['session', 'user-memory', 'project-memory'],
+          keys: request.input?.keys ?? [],
           now: new Date().toISOString()
         });
         return { status: 'success', data: { records: result.records, diagnostics: result.diagnostics, message: `Memory records: ${result.records.length}` } };
@@ -122,10 +122,10 @@ export function createProductionCapabilities({
       name: 'memory-write', description: 'Write one scoped memory record with provenance.',
       actionTypes: ['memory-write'], actionClasses: ['state-changing', 'private-data'], confirmationRequired: true,
       execute: async (request) => {
-        const input = request.payload ?? {};
+        const input = request.input ?? {};
         const result = await memoryProvider.write({
           layer: input.layer ?? 'user-memory',
-          key: requiredText(input.key, 'payload.key'),
+          key: requiredText(input.key, 'input.key'),
           value: input.value,
           scope: scopeFrom(request),
           provenance: { sourceType: 'capability', sourceId: request.traceContext.requestId, actorId: request.actor.globalUserId },
@@ -139,7 +139,7 @@ export function createProductionCapabilities({
       name: 'task-create', description: 'Create a scoped durable-compatible task.',
       actionTypes: ['task-create'], actionClasses: ['state-changing'], confirmationRequired: true,
       execute: async (request) => {
-        const task = await taskStore.create({ scope: scopeFrom(request), input: request.payload ?? {} });
+        const task = await taskStore.create({ scope: scopeFrom(request), input: request.input ?? {} });
         return { status: 'success', data: { task, message: `Task ${task.taskId} created` } };
       }
     }),
@@ -155,7 +155,7 @@ export function createProductionCapabilities({
       name: 'task-status', description: 'Read one task status in the current scope.',
       actionTypes: ['task-status'], actionClasses: ['read-only'],
       execute: async (request) => {
-        const taskId = requiredText(request.payload?.taskId, 'payload.taskId');
+        const taskId = requiredText(request.input?.taskId, 'input.taskId');
         const task = await taskStore.get({ scope: scopeFrom(request), taskId });
         return task
           ? { status: 'success', data: { task, message: `Task ${taskId}: ${task.status}` } }
@@ -166,7 +166,7 @@ export function createProductionCapabilities({
       name: 'task-cancel', description: 'Cancel a task in the current scope.',
       actionTypes: ['task-cancel'], actionClasses: ['state-changing'], confirmationRequired: true,
       execute: async (request) => {
-        const taskId = requiredText(request.payload?.taskId, 'payload.taskId');
+        const taskId = requiredText(request.input?.taskId, 'input.taskId');
         const task = await taskStore.cancel({ scope: scopeFrom(request), taskId });
         return task
           ? { status: 'success', data: { task, message: `Task ${taskId}: ${task.status}` } }
@@ -179,9 +179,9 @@ export function createProductionCapabilities({
       requiredSources: ['approved-source-registry'], requiredTools: ['source-retriever'],
       execute: async (request) => {
         if (!sourceRetriever) return { status: 'unavailable', error: { code: 'source-retriever-unavailable', message: 'Approved source retriever is not configured', retryable: true } };
-        const result = await sourceRetriever({ sourceId: requiredText(request.payload?.sourceId, 'payload.sourceId'), query: request.payload?.query ?? null, request });
+        const result = await sourceRetriever({ sourceId: requiredText(request.input?.sourceId, 'input.sourceId'), query: request.input?.query ?? null, request });
         if (!result?.ok) return { status: 'failed', error: { code: result?.code ?? 'source-failed', message: result?.message ?? 'Source retrieval failed', retryable: Boolean(result?.retryable) }, sources: result?.sources ?? [] };
-        return { status: result.partial ? 'partial' : 'success', data: { ...result, message: result.message ?? 'Source retrieved' }, sources: result.sources ?? [request.payload.sourceId] };
+        return { status: result.partial ? 'partial' : 'success', data: { ...result, message: result.message ?? 'Source retrieved' }, sources: result.sources ?? [request.input.sourceId] };
       }
     }),
     capability({
@@ -189,8 +189,8 @@ export function createProductionCapabilities({
       actionTypes: ['document-analyze'], actionClasses: ['analysis-only', 'private-data'],
       requiredTools: ['document-analyzer'],
       execute: async (request) => {
-        const text = boundedText(request.payload?.text, 'payload.text');
-        if (documentAnalyzer) return documentAnalyzer({ text, metadata: request.payload?.metadata ?? {}, request });
+        const text = boundedText(request.input?.text, 'input.text');
+        if (documentAnalyzer) return documentAnalyzer({ text, metadata: request.input?.metadata ?? {}, request });
         const words = text.split(/\s+/u).filter(Boolean);
         return { status: 'success', data: { characters: text.length, words: words.length, preview: text.slice(0, 500), instructionsExecuted: false, message: `Document analyzed: ${words.length} words` }, tools: ['document-analyzer'] };
       }
@@ -201,7 +201,7 @@ export function createProductionCapabilities({
       requiredSources: ['repository-read-source'], requiredTools: ['repository-analyzer'],
       execute: async (request) => {
         if (!repositoryAnalyzer) return { status: 'unavailable', error: { code: 'repository-analyzer-unavailable', message: 'Repository analyzer is not configured', retryable: true } };
-        const result = await repositoryAnalyzer({ ...request.payload, mode: request.payload?.mode === 'prepare-only' ? 'prepare-only' : 'read-only', request });
+        const result = await repositoryAnalyzer({ ...request.input, mode: request.input?.mode === 'prepare-only' ? 'prepare-only' : 'read-only', request });
         if (result?.mutated === true || result?.pushed === true || result?.published === true) throw new Error('prepare-only repository capability attempted mutation');
         return { status: result?.partial ? 'partial' : 'success', data: { ...result, mutated: false, message: result?.message ?? 'Repository analysis prepared' }, sources: result?.sources ?? ['repository-read-source'], tools: ['repository-analyzer'] };
       }
@@ -219,7 +219,7 @@ export function createProductionCapabilities({
       actionTypes: ['domain-dispatch'], actionClasses: ['analysis-only', 'read-only', 'prepare-only', 'state-changing'],
       execute: async (request) => {
         if (!domainDispatcher) return { status: 'unavailable', error: { code: 'domain-dispatcher-unavailable', message: 'Domain dispatcher is not configured', retryable: false } };
-        const result = await domainDispatcher({ domainId: requiredText(request.payload?.domainId, 'payload.domainId'), capability: request.payload?.domainCapability ?? request.capability, input: request.payload, request });
+        const result = await domainDispatcher({ domainId: requiredText(request.input?.domainId, 'input.domainId'), capability: request.input?.domainCapability ?? request.capability, input: request.input, request });
         return { status: result?.status ?? 'success', data: result?.data ?? result, warnings: result?.warnings ?? [], sources: result?.sources ?? [], tools: result?.tools ?? [], costUsd: result?.costUsd ?? 0 };
       }
     })

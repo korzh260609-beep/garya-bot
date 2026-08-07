@@ -50,9 +50,16 @@ function fakePersistence() {
   };
 }
 
-test('Block 17 uses the existing Render service connection instead of a Blueprint', async () => {
+test('Block 17 reuses the existing SG 2.0 Render service settings', async () => {
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
-  assert.equal(pkg.scripts['start:render'], 'node src/runtime/renderWebEntrypoint.js');
+  const entrypoint = await readFile(new URL('../src/runtime/entrypoint.js', import.meta.url), 'utf8');
+  const renderEntrypoint = await readFile(new URL('../src/runtime/renderWebEntrypoint.js', import.meta.url), 'utf8');
+  assert.equal(pkg.scripts.start, 'node src/runtime/entrypoint.js');
+  assert.match(entrypoint, /RENDER_EXTERNAL_URL/);
+  assert.match(entrypoint, /BASE_URL/);
+  assert.match(entrypoint, /renderWebEntrypoint\.js/);
+  assert.match(renderEntrypoint, /RUN_MIGRATIONS_ON_BOOT/);
+  assert.match(renderEntrypoint, /runMigrations/);
   await assert.rejects(readFile(new URL('../render.yaml', import.meta.url), 'utf8'));
 });
 
@@ -71,7 +78,7 @@ test('production Telegram identity resolver bootstraps only configured monarch a
   assert.equal(guest.scopeContext.threadScope, 't');
 });
 
-test('Render web application reuses SG 2.0-style Render environment defaults', async () => {
+test('Render web application reuses SG 2.0-style environment and monarch alias', async () => {
   const persistence = fakePersistence();
   const runtime = {
     health: () => ({ ok: true, phase: 'created', accepting: false }),
@@ -91,8 +98,10 @@ test('Render web application reuses SG 2.0-style Render environment defaults', a
   const app = await createRenderWebApplication({
     env: {
       DATABASE_URL: 'postgres://example',
+      DATABASE_SSL: 'true',
       TELEGRAM_BOT_TOKEN: 'test-token',
-      BASE_URL: 'https://example.invalid',
+      BASE_URL: 'https://garya-bot.onrender.com',
+      MONARCH_USER_ID: '100',
       TELEGRAM_REGISTER_WEBHOOK: 'false'
     },
     fetchImpl: async () => { throw new Error('network should not be called'); },
@@ -102,6 +111,7 @@ test('Render web application reuses SG 2.0-style Render environment defaults', a
   assert.equal(receivedEnv.SG_ENVIRONMENT, 'production');
   assert.equal(receivedEnv.SG_PROJECT_SCOPE, 'sg2.1');
   assert.equal(receivedEnv.SG_PERSISTENCE_MODE, 'postgres');
+  assert.equal(receivedEnv.SG_MONARCH_TELEGRAM_USER_ID, '100');
 
   const healthResponse = fakeResponse();
   await app.requestHandler({ url: '/health', method: 'GET', headers: {} }, healthResponse);

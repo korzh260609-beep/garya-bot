@@ -2,122 +2,149 @@
 
 ## Status
 
-Implementation complete. External Render Blueprint sync and runtime evidence are required before marking the block operationally completed.
+Implementation complete. External Render runtime evidence is still required before marking the block operationally completed.
 
 ## Goal
 
-Deploy SG 2.1 as a controlled production environment on Render without changing SG authority, AI routing, Action Gate, identity, memory or capability boundaries.
+Deploy SG 2.1 through the same proven Render-to-GitHub connection model used by SG 2.0, while preserving SG 2.1 runtime, persistence, worker, identity, capability, Action Gate and AI Router boundaries.
 
 ## Approved branch
 
-Only `dev/sg2.1-semantic` is permitted for the Block 17 services. `render.yaml` pins both web and worker services to this branch.
+Only `dev/sg2.1-semantic` may be deployed for SG 2.1. `main` is not the SG 2.1 deployment source.
 
-## Services
+## Render connection model
 
-### Web — `sg-2-1-web`
+SG 2.1 does not require a Render Blueprint.
 
-- build: `npm ci`;
-- pre-deploy migration: `npm run migrate`;
-- start: `npm run start:render`;
-- health: `/health`;
-- readiness: `/ready`;
-- Telegram webhook: `/webhooks/telegram` by default;
-- graceful SIGTERM/SIGINT shutdown.
+Use the existing Render service connection pattern from SG 2.0:
 
-The web process uses a long-lived production entrypoint. The existing `npm start` remains the deterministic verification entrypoint used by CI.
+1. Render service is connected directly to GitHub repository `korzh260609-beep/garya-bot`.
+2. Render service branch is set to `dev/sg2.1-semantic`.
+3. Repository changes on that branch are deployed by Render according to the service auto-deploy setting.
+4. Secrets and deployment-specific values remain in Render Environment settings, not in GitHub.
+5. Telegram webhook is registered automatically by the SG web process after a successful start.
 
-### Worker — `sg-2-1-worker`
+The removed `render.yaml` Blueprint path is not part of the supported Block 17 deployment procedure.
 
-- build: `npm ci`;
-- pre-deploy migration: `npm run migrate`;
-- start: `npm run start:worker`;
-- durable PostgreSQL queue;
-- retries, leases, heartbeat and DLQ remain inside the Block 13 worker boundary;
-- SIGTERM/SIGINT graceful shutdown;
-- health state is emitted through structured worker startup/shutdown logs and durable observability.
+## Web service
 
-### PostgreSQL — `sg-2-1-postgres`
+The existing Render Web Service should be reused instead of creating a new Blueprint-managed web service.
 
-- PostgreSQL 16;
-- private connection string injected into web and worker through `fromDatabase`;
-- public database access disabled by Blueprint `ipAllowList: []`;
-- migrations remain versioned and checksum-verified.
+Required settings:
+
+- repository: `korzh260609-beep/garya-bot`;
+- branch: `dev/sg2.1-semantic`;
+- build command: `npm ci`;
+- pre-deploy command: `npm run migrate` when the Render plan/service supports a pre-deploy command; otherwise migrations must be run through an explicitly controlled deployment step before starting an incompatible runtime;
+- start command: `npm run start:render`;
+- health check path: `/health`.
+
+Runtime endpoints:
+
+- `/health` — process/runtime health;
+- `/ready` — runtime plus PostgreSQL readiness;
+- Telegram webhook path defaults to `/webhooks/telegram`.
+
+The Render web runtime supplies safe production defaults for `SG_ENVIRONMENT=production`, `SG_PROJECT_SCOPE=sg2.1`, and derives PostgreSQL persistence mode when `DATABASE_URL` is present. Explicit Render ENV values still override these defaults.
+
+## Worker service
+
+SG 2.1 still requires the durable Block 13 worker. This architectural requirement is independent from the Render Blueprint decision.
+
+The worker should be a Render Background Worker connected manually to the same GitHub repository and the same approved branch:
+
+- repository: `korzh260609-beep/garya-bot`;
+- branch: `dev/sg2.1-semantic`;
+- build command: `npm ci`;
+- start command: `npm run start:worker`;
+- PostgreSQL `DATABASE_URL` shared with the web runtime;
+- production worker policy remains fail-closed for unsupported/protected execution.
+
+Do not run a second Telegram web listener inside the worker.
+
+## PostgreSQL
+
+Reuse the production PostgreSQL database when it is compatible with SG 2.1 migration requirements. Do not create a duplicate database merely because Block 17 previously contained a Blueprint definition.
+
+Required properties:
+
+- durable PostgreSQL connection available as `DATABASE_URL`;
+- migrations versioned and checksum-verified;
+- backups enabled according to the Render database plan and production policy;
+- no credentials committed to GitHub.
 
 ## Environment and secrets
 
-Repository-safe values are declared in `render.yaml` and `.env.example`.
+Keep deployment secrets only in Render Environment settings.
 
-Secrets are never committed. The Blueprint requests these values through Render secret storage (`sync: false`):
+Required or expected production values include:
 
-- `TELEGRAM_BOT_TOKEN`;
-- `TELEGRAM_WEBHOOK_SECRET`;
+- `DATABASE_URL`;
+- `TELEGRAM_BOT_TOKEN` or legacy SG 2.0 alias `BOT_TOKEN`;
 - `SG_MONARCH_TELEGRAM_USER_ID`;
-- `OPENAI_API_KEY`.
+- `OPENAI_API_KEY` when production AI is intentionally enabled.
 
-Production AI remains disabled by default until `SG_AI_ENABLED=true` is explicitly configured. The emergency disable switch remains independent.
+Optional Telegram values:
 
-## Identity bootstrap
+- `BASE_URL` — may remain from SG 2.0; if absent, SG 2.1 can derive the public URL from Render-provided URL/hostname variables;
+- `TELEGRAM_WEBHOOK_SECRET` — optional; SG 2.1 derives a stable secret when absent;
+- `TELEGRAM_WEBHOOK_PATH` — default `/webhooks/telegram`.
 
-Telegram platform identity remains only an identity fact. The production resolver:
+Production AI remains disabled unless `SG_AI_ENABLED=true` is explicitly configured.
 
-- reuses an existing `(platform, platform_user_id)` link when present;
-- creates a bounded Telegram global identity when no link exists;
-- loads roles and grants from PostgreSQL;
-- gives a new unconfigured user only `guest` plus `capability:compose-answer`;
-- bootstraps `monarch` plus the Block 16 capability grants only when the Telegram user ID exactly matches the deployment secret `SG_MONARCH_TELEGRAM_USER_ID`.
+## Telegram webhook
 
-No transport message can assign its own role, grant or scope.
+The SG 2.1 web process follows the SG 2.0 operational model: it registers the Telegram webhook automatically after startup unless `TELEGRAM_REGISTER_WEBHOOK=false` is explicitly set.
 
-## Health and readiness
+Unlike SG 2.0, the bot token is not embedded in the webhook path. SG 2.1 uses Telegram's webhook secret-token verification and keeps the default path `/webhooks/telegram`.
 
-`GET /health` reports process/runtime health. It can be healthy while the application is not yet ready to accept requests.
+The public base URL is resolved in this order:
 
-`GET /ready` additionally requires runtime readiness and a started PostgreSQL dependency. This distinction prevents a process-only health signal from being treated as dependency readiness.
+1. `BASE_URL` / explicit webhook URL when configured;
+2. Render-provided external URL;
+3. Render-provided external hostname.
 
-Neither endpoint returns credentials, connection strings, tokens or user data.
-
-## Telegram webhook registration
-
-By default the web service registers its configured webhook during successful startup using the Block 14 Bot API client and secret token. Set `TELEGRAM_REGISTER_WEBHOOK=false` only when webhook registration is deliberately managed by a separate controlled procedure.
-
-Registration target is derived from Render's public service URL plus `TELEGRAM_WEBHOOK_PATH` (default `/webhooks/telegram`).
+This allows the existing SG 2.0 Render environment to be reused with minimal changes.
 
 ## Deployment procedure
 
-1. Sync the root `render.yaml` Blueprint in Render.
-2. Confirm the Blueprint targets `dev/sg2.1-semantic` for both services.
-3. Provide all `sync: false` secrets in Render secret storage.
-4. Keep `SG_AI_ENABLED=false` for the first deployment unless production AI activation is explicitly intended.
-5. Allow Render to run `npm ci` and `npm run migrate` before service start.
-6. Confirm web `/health` returns HTTP 200.
-7. Confirm web `/ready` returns HTTP 200 after PostgreSQL is ready.
-8. Confirm worker startup log reports `worker-ready` without exposing secrets.
-9. Confirm Telegram webhook information points to the SG 2.1 web service URL.
-10. Record the deployed commit SHA and Render deploy IDs as runtime evidence.
+1. Open the existing Render Web Service used for SG.
+2. Confirm repository `korzh260609-beep/garya-bot`.
+3. Change/confirm branch to `dev/sg2.1-semantic`.
+4. Set build command to `npm ci`.
+5. Set start command to `npm run start:render`.
+6. Configure migration execution before incompatible runtime startup.
+7. Preserve existing Telegram bot token and compatible database settings in Render ENV; add SG 2.1-specific values only when required.
+8. Deploy the approved branch.
+9. Confirm `/health` returns HTTP 200.
+10. Confirm `/ready` returns HTTP 200 after PostgreSQL is ready.
+11. Confirm Telegram webhook is registered to the current Render Web Service URL.
+12. Connect/start the separate Render Background Worker on the same repository and branch with `npm run start:worker`.
+13. Record deployed commit SHA and Render deploy IDs as evidence.
 
 ## Rollback procedure
 
-1. Stop promotion if `/ready` fails or worker cannot reconnect.
-2. Do not reverse database migrations by deleting rows or editing `schema_migrations` manually.
-3. Roll web and worker back to the last known-good deployment from the same approved branch.
-4. Keep the PostgreSQL database intact unless a separately reviewed restore is required.
-5. Verify `/health`, `/ready`, worker health and Telegram webhook after rollback.
-6. If a migration is forward-only and incompatible with the previous runtime, deploy a reviewed forward compatibility fix instead of forcing a destructive schema downgrade.
+1. Stop promotion if `/ready` fails, Telegram does not reconnect, or the worker cannot reconnect.
+2. Do not alter `main` to recover SG 2.1.
+3. Roll the Render Web Service and worker back to the last known-good deployment from `dev/sg2.1-semantic`.
+4. Keep PostgreSQL intact unless a separately reviewed restore is required.
+5. Do not manually delete migration rows or force destructive schema downgrades.
+6. Reverify `/health`, `/ready`, worker health and Telegram webhook after rollback.
 
 ## Acceptance evidence required for operational completion
 
 - GitHub CI green for the Block 17 HEAD;
-- Blueprint contains only the approved branch for SG 2.1 services;
-- secret values absent from repository and ordinary logs;
+- Render Web Service connected to `korzh260609-beep/garya-bot` and `dev/sg2.1-semantic`;
+- no Blueprint dependency;
+- secrets absent from repository and ordinary logs;
 - successful Render web deployment;
-- successful Render worker deployment;
-- successful migration before runtime start;
-- `/health` 200 and `/ready` 200 in Render;
-- worker reconnect after restart;
-- web reconnect after restart;
-- Telegram webhook registered to the deployed web service;
-- rollback procedure verified or at minimum rehearsed against a non-production revision.
+- successful migration before incompatible runtime startup;
+- `/health` 200 and `/ready` 200;
+- Telegram webhook registered to the deployed Render service;
+- worker connected to the same repo/branch and running successfully;
+- web and worker reconnect after restart;
+- rollback procedure verified or rehearsed against a non-production revision.
 
 ## Next
 
-After operational Block 17 evidence is complete: Block 18 — End-to-End Verification.
+Do not start Block 18 until the external Render runtime evidence above is complete.

@@ -19,6 +19,15 @@ function envPort(env) {
   return value;
 }
 
+function productionEnv(env) {
+  return Object.freeze({
+    ...env,
+    SG_ENVIRONMENT: envString(env, 'SG_ENVIRONMENT', 'production'),
+    SG_PROJECT_SCOPE: envString(env, 'SG_PROJECT_SCOPE', 'sg2.1'),
+    SG_PERSISTENCE_MODE: envString(env, 'SG_PERSISTENCE_MODE', envString(env, 'DATABASE_URL') ? 'postgres' : 'memory')
+  });
+}
+
 function json(response, statusCode, body) {
   response.statusCode = statusCode;
   response.setHeader('content-type', 'application/json; charset=utf-8');
@@ -80,11 +89,12 @@ export function createProductionTelegramIdentityResolver({ persistence, projectS
 }
 
 export async function createRenderWebApplication({ env = process.env, fetchImpl = globalThis.fetch, harnessFactory = createLocalProductionHarness } = {}) {
-  const harness = harnessFactory({ env, fetchImpl });
-  if (!harness.persistence) throw new Error('Render web service requires SG_PERSISTENCE_MODE=postgres');
-  const telegramConfig = loadTelegramConfig(env);
+  const effectiveEnv = productionEnv(env);
+  const harness = harnessFactory({ env: effectiveEnv, fetchImpl });
+  if (!harness.persistence) throw new Error('Render web service requires DATABASE_URL / PostgreSQL persistence');
+  const telegramConfig = loadTelegramConfig(effectiveEnv);
   const botClient = createTelegramBotApiClient({ token: telegramConfig.token, fetchImpl, timeoutMs: telegramConfig.apiTimeoutMs, maxRetries: telegramConfig.apiMaxRetries });
-  const identityResolver = createProductionTelegramIdentityResolver({ persistence: harness.persistence, projectScope: harness.config.projectScope, monarchTelegramUserId: env.SG_MONARCH_TELEGRAM_USER_ID });
+  const identityResolver = createProductionTelegramIdentityResolver({ persistence: harness.persistence, projectScope: harness.config.projectScope, monarchTelegramUserId: effectiveEnv.SG_MONARCH_TELEGRAM_USER_ID });
   const integration = createTelegramProductionIntegration({
     secretToken: telegramConfig.webhookSecret,
     botClient,
@@ -121,12 +131,12 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   async function start() {
     await harness.runtime.start();
     server = http.createServer((request, response) => requestHandler(request, response).catch(() => json(response, 500, { ok: false, code: 'internal-error' })));
-    const port = envPort(env);
+    const port = envPort(effectiveEnv);
     await new Promise((resolve, reject) => {
       server.once('error', reject);
       server.listen(port, '0.0.0.0', resolve);
     });
-    if (envString(env, 'TELEGRAM_REGISTER_WEBHOOK', 'true').toLowerCase() !== 'false') {
+    if (envString(effectiveEnv, 'TELEGRAM_REGISTER_WEBHOOK', 'true').toLowerCase() !== 'false') {
       await botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: telegramConfig.webhookSecret });
     }
     return { port, webhookPath: telegramConfig.webhookPath, revision: harness.config.revision };

@@ -101,7 +101,7 @@ export function createProductionCapabilities({
       actionTypes: ['answer'], actionClasses: ['analysis-only'],
       execute: async (request) => {
         const text = boundedText(request.input?.text ?? request.input?.message ?? 'Request completed.', 'input.text', 50000);
-        const message = conversationResponder ? await conversationResponder({ text, request }) : `SG: ${text}`;
+        const message = conversationResponder ? await conversationResponder({ text, request }) : `SG runtime ready: ${text}`;
         return { status: 'success', data: { message: String(message) } };
       }
     }),

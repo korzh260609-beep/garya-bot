@@ -20,11 +20,13 @@ function envPort(env) {
 }
 
 function productionEnv(env) {
+  const monarchTelegramUserId = envString(env, 'SG_MONARCH_TELEGRAM_USER_ID', envString(env, 'MONARCH_USER_ID'));
   return Object.freeze({
     ...env,
     SG_ENVIRONMENT: envString(env, 'SG_ENVIRONMENT', 'production'),
     SG_PROJECT_SCOPE: envString(env, 'SG_PROJECT_SCOPE', 'sg2.1'),
-    SG_PERSISTENCE_MODE: envString(env, 'SG_PERSISTENCE_MODE', envString(env, 'DATABASE_URL') ? 'postgres' : 'memory')
+    SG_PERSISTENCE_MODE: envString(env, 'SG_PERSISTENCE_MODE', envString(env, 'DATABASE_URL') ? 'postgres' : 'memory'),
+    SG_MONARCH_TELEGRAM_USER_ID: monarchTelegramUserId
   });
 }
 

@@ -50,16 +50,10 @@ function fakePersistence() {
   };
 }
 
-test('Block 17 Blueprint pins the approved branch and keeps secrets out of source', async () => {
-  const blueprint = await readFile(new URL('../render.yaml', import.meta.url), 'utf8');
-  assert.equal((blueprint.match(/branch: dev\/sg2\.1-semantic/g) ?? []).length, 2);
-  assert.match(blueprint, /preDeployCommand: npm run migrate/);
-  assert.match(blueprint, /startCommand: npm run start:render/);
-  assert.match(blueprint, /startCommand: npm run start:worker/);
-  assert.match(blueprint, /healthCheckPath: \/health/);
-  assert.match(blueprint, /TELEGRAM_BOT_TOKEN\n\s+sync: false/);
-  assert.match(blueprint, /OPENAI_API_KEY\n\s+sync: false/);
-  assert.doesNotMatch(blueprint, /sk-[A-Za-z0-9_-]{16,}/);
+test('Block 17 uses the existing Render service connection instead of a Blueprint', async () => {
+  const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(pkg.scripts['start:render'], 'node src/runtime/renderWebEntrypoint.js');
+  await assert.rejects(readFile(new URL('../render.yaml', import.meta.url), 'utf8'));
 });
 
 test('production Telegram identity resolver bootstraps only configured monarch and bounds guests', async () => {
@@ -77,27 +71,37 @@ test('production Telegram identity resolver bootstraps only configured monarch a
   assert.equal(guest.scopeContext.threadScope, 't');
 });
 
-test('Render web application distinguishes process health from dependency readiness', async () => {
+test('Render web application reuses SG 2.0-style Render environment defaults', async () => {
   const persistence = fakePersistence();
   const runtime = {
     health: () => ({ ok: true, phase: 'created', accepting: false }),
     readiness: () => ({ ready: false, phase: 'created', accepting: false }),
     async start() {}, async stop() {}, async handle() { return { status: 'success', message: 'ok' }; }
   };
-  const harnessFactory = () => ({
-    persistence,
-    config: { projectScope: 'sg2.1', environment: 'production', revision: 'block-17' },
-    runtime,
-    observability: { record() {}, recordFailure() {} }
-  });
+  let receivedEnv = null;
+  const harnessFactory = ({ env }) => {
+    receivedEnv = env;
+    return {
+      persistence,
+      config: { projectScope: env.SG_PROJECT_SCOPE, environment: env.SG_ENVIRONMENT, revision: 'block-17' },
+      runtime,
+      observability: { record() {}, recordFailure() {} }
+    };
+  };
   const app = await createRenderWebApplication({
     env: {
-      SG_PERSISTENCE_MODE: 'postgres', DATABASE_URL: 'postgres://example',
-      TELEGRAM_BOT_TOKEN: 'test-token', BASE_URL: 'https://example.invalid', TELEGRAM_REGISTER_WEBHOOK: 'false'
+      DATABASE_URL: 'postgres://example',
+      TELEGRAM_BOT_TOKEN: 'test-token',
+      BASE_URL: 'https://example.invalid',
+      TELEGRAM_REGISTER_WEBHOOK: 'false'
     },
     fetchImpl: async () => { throw new Error('network should not be called'); },
     harnessFactory
   });
+
+  assert.equal(receivedEnv.SG_ENVIRONMENT, 'production');
+  assert.equal(receivedEnv.SG_PROJECT_SCOPE, 'sg2.1');
+  assert.equal(receivedEnv.SG_PERSISTENCE_MODE, 'postgres');
 
   const healthResponse = fakeResponse();
   await app.requestHandler({ url: '/health', method: 'GET', headers: {} }, healthResponse);

@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 16.6.
+This branch contains the active SG 2.1 architecture and completed executable production implementation through Block 16.6, with foundational Blocks 16.7–16.16 now planned before Render deployment.
 
 ## Requirements
 - Node.js 22
@@ -51,7 +51,19 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 16.5 — Temporal Context
 - Block 16.6 — Language & Locale Context
 
-### Next
+### Planned foundational continuation
+- Block 16.7 — Configuration & Policy Layer — next
+- Block 16.8 — Secrets & Credentials Management
+- Block 16.9 — External Connections Registry
+- Block 16.10 — Resource Ownership & Authority Model
+- Block 16.11 — Session & Conversation Context
+- Block 16.12 — User Settings & Preferences
+- Block 16.13 — Notification & Delivery Router
+- Block 16.14 — Internal Event Bus
+- Block 16.15 — Schema & Contract Versioning
+- Block 16.16 — Feature Flags & Controlled Rollout
+
+### Then
 - Block 17 — Render Deployment
 - Block 18 — End-to-End Verification
 - Block 19 — Security and Operations
@@ -240,13 +252,18 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 
 Detailed specification and acceptance evidence: `pillars/roadmap/16_6_LANGUAGE_AND_LOCALE_CONTEXT.md`.
 
-## Runtime path
-`Platform Input → Transport Adapter → Platform Facts → Identity and Scope Resolution → Language/Locale Context → CanonicalInput → MeaningInterpreter → SemanticInterpretation → Context Resolution → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan → Transport Response Delivery`
+## Planned foundational layers
+Blocks 16.7–16.16 are specified in individual roadmap files and architecturally coordinated by `pillars/architecture/FOUNDATIONAL_CONTROL_LAYERS.md`.
 
-The production interpretation route is:
+Their dependency order is:
+`Configuration/Policy → Secrets → Connections → Resource Authority → Conversation Context → User Settings → Delivery Router → Event Bus → Contract Versioning → Feature Flags`.
+
+## Runtime direction
+Current executable path remains valid through Block 16.6. The planned target path adds approved foundational context/control layers without relocating SG authority:
+`Platform Input → Transport Adapter → Identity/Scope → Language/Locale → Conversation Context → Semantic Kernel → Context Resolution → Decision Engine → Capability Selection → Connection/Resource Authority where required → Action Gate → Execution → Delivery Router where required → Response → Observability/Internal Events`.
+
+The production interpretation route remains:
 `ProductionMeaningInterpreter → AIRouter → ProductionAiPolicy → ModelRegistry → AIProvider`
-
-Optional product domains enter only through stable capability, identity, scope, memory, source, gate and observability boundaries.
 
 ## Core rules
 - SG modules do not call AI providers directly.
@@ -259,13 +276,23 @@ Optional product domains enter only through stable capability, identity, scope, 
 - Protected actions cannot bypass Action Gate.
 - Platform IDs are identity links, not independent users.
 - Transports provide platform facts but cannot assign roles, grants, final scopes or final response-language policy.
+- Configuration/policy cannot silently become authorization.
+- Raw secrets cannot enter ordinary memory, prompts or telemetry.
+- Connections are not identities and do not prove resource ownership.
+- Resource authority is explicit and complements Identity, Scope and Access.
+- Conversation state is not confirmed memory.
+- User preferences cannot weaken mandatory safety/authorization.
+- Delivery cannot target unauthorized users/resources.
+- Internal events cannot bypass protected execution paths.
+- Contract adapters cannot broaden trust, scope or permissions.
+- Feature flags can restrict availability but cannot grant access or authority.
 - Observability records facts but does not change architecture or business logic.
 - Domain modules consume platform contracts and cannot redefine the SG core.
 - Production AI is disabled by default to avoid accidental cost.
 - Original natural-language text remains available to Semantic Kernel; multilingual support does not require mandatory pre-translation.
 
 ## Current boundary
-Blocks 0–16.6 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence, durable automation workers, production Telegram integration, controlled production AI integration, production capabilities, canonical Temporal Context and transport-independent Language & Locale Context. Block 17 Render Deployment is the next mandatory production stage, followed by End-to-End Verification, Security and Operations, and Pilot Launch.
+Blocks 0–16.6 provide the executable SG 2.1 foundation. Blocks 16.7–16.16 are now the mandatory planned foundational continuation, beginning with Block 16.7 Configuration & Policy Layer. Block 17 Render Deployment follows only after completion evidence for Blocks 16.7–16.16 exists, then Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
 
 ## Authority
 Read in this order:

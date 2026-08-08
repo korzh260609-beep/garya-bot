@@ -1,17 +1,9 @@
-import { createHash } from 'node:crypto';
-
 function firstNonEmpty(env, keys) {
   for (const key of keys) {
     const value = env[key];
     if (typeof value === 'string' && value.trim() !== '') return value.trim();
   }
   return '';
-}
-
-function requiredFirst(env, keys, label) {
-  const value = firstNonEmpty(env, keys);
-  if (!value) throw new Error(`${label} is required (${keys.join(' or ')})`);
-  return value;
 }
 
 function positiveInteger(value, fallback, key) {
@@ -36,20 +28,16 @@ function publicBaseUrl(env) {
   return hostname ? `https://${hostname}` : '';
 }
 
-function derivedWebhookSecret(token) {
-  return createHash('sha256').update(`sg2.1:telegram-webhook:${token}`).digest('hex');
-}
-
 export function loadTelegramConfig(env = process.env) {
-  const token = requiredFirst(env, ['TELEGRAM_BOT_TOKEN', 'BOT_TOKEN'], 'Telegram bot token');
+  if (!firstNonEmpty(env, ['TELEGRAM_BOT_TOKEN', 'BOT_TOKEN'])) throw new Error('Telegram bot token is required (TELEGRAM_BOT_TOKEN or BOT_TOKEN)');
   const webhookPath = firstNonEmpty(env, ['TELEGRAM_WEBHOOK_PATH']) || '/webhooks/telegram';
   const baseUrl = publicBaseUrl(env);
   if (!baseUrl) throw new Error('Public base URL is required (BASE_URL, RENDER_EXTERNAL_URL or RENDER_EXTERNAL_HOSTNAME)');
 
   const sandbox = String(env.TELEGRAM_SANDBOX_ENABLED ?? 'false').toLowerCase() === 'true';
   return Object.freeze({
-    token,
-    webhookSecret: firstNonEmpty(env, ['TELEGRAM_WEBHOOK_SECRET']) || derivedWebhookSecret(token),
+    botTokenCredentialId: 'sg.telegram.bot',
+    webhookSecretCredentialId: 'sg.telegram.webhook',
     webhookUrl: `${baseUrl}${webhookPath.startsWith('/') ? webhookPath : `/${webhookPath}`}`,
     webhookPath: webhookPath.startsWith('/') ? webhookPath : `/${webhookPath}`,
     botUserId: firstNonEmpty(env, ['TELEGRAM_BOT_USER_ID']) || null,

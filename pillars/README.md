@@ -32,6 +32,7 @@ Active files:
 - `IDENTITY_AND_SCOPE.md`
 - `OBSERVABILITY.md`
 - `TRANSPORTS_AND_AI_ROUTING.md`
+- `LANGUAGE_AND_LOCALE_CONTEXT.md`
 - `RUNTIME_COMPOSITION.md`
 - `POSTGRESQL_PERSISTENCE.md`
 
@@ -54,7 +55,13 @@ Active files:
 - `10_DOMAIN_MODULES.md`
 - `11_RUNTIME_COMPOSITION.md` — Block 11 implementation and acceptance evidence
 - `12_POSTGRESQL_PERSISTENCE.md` — Block 12 implementation and acceptance evidence
-- `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19 and Pilot Launch
+- `13_DURABLE_AUTOMATION_AND_WORKERS.md` — Block 13 implementation and acceptance evidence
+- `14_TELEGRAM_PRODUCTION_INTEGRATION.md` — Block 14 implementation and acceptance evidence
+- `15_PRODUCTION_AI_INTEGRATION.md` — Block 15 implementation and acceptance evidence
+- `16_PRODUCTION_CAPABILITIES.md` — Block 16 implementation and acceptance evidence
+- `16_5_TEMPORAL_CONTEXT.md` — Block 16.5 implementation and acceptance evidence
+- `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — Block 16.6 specification and future implementation/acceptance evidence
+- `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5/16.6 and Pilot Launch
 
 ## Workflow
 Entry: `workflow/README.md`

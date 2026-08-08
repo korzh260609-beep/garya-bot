@@ -35,7 +35,7 @@ jobs:
       DATABASE_SSL: "false"
       SG_PERSISTENCE_MODE: postgres
       SG_ENVIRONMENT: ci
-      SG_REVISION: block-16.10
+      SG_REVISION: block-16.11
       SG_PROJECT_SCOPE: sg2.1
       SG_WORKER_VERIFY: "1"
     steps:

@@ -58,6 +58,7 @@ Completed architecture and implementation:
 
 Current limitations:
 
+- no unified production Temporal Context exists for current UTC time, user-local time, timezone resolution and relative temporal expressions;
 - Render deployment is not configured for the SG 2.1 runtime;
 - no complete production E2E test suite exists;
 - security and operational controls for pilot launch are not complete;
@@ -66,7 +67,7 @@ Current limitations:
 Current implementation boundary:
 
 - Blocks 11, 12, 13, 14, 15 and 16 are completed.
-- Block 17 is the next mandatory block.
+- Block 16.5 is the next mandatory block.
 
 ---
 
@@ -331,6 +332,131 @@ Acceptance evidence is recorded in `16_PRODUCTION_CAPABILITIES.md`.
 
 ---
 
+# Block 16.5 — Temporal Context
+
+## Goal
+
+Give SG one canonical, deterministic and user-aware understanding of current time, timezones, calendar dates and relative temporal expressions before production deployment and end-to-end verification.
+
+Temporal Context is infrastructure shared by conversation, memory, recall, tasks, scheduling, automation and future transports. It must not be implemented separately inside Telegram handlers, individual capabilities or AI prompts.
+
+## 16.5.1 — Time Foundation
+
+- introduce one canonical clock boundary for SG runtime;
+- expose current UTC instant through the Temporal service;
+- derive calendar date, clock time and day-of-week from an explicit timezone;
+- use injectable/fake clock support for deterministic tests;
+- keep durable machine timestamps normalized to UTC unless a contract explicitly requires otherwise.
+
+## 16.5.2 — User Timezone
+
+- store user timezone through the existing global identity/user-settings boundary;
+- use IANA timezone identifiers such as `Europe/Kyiv`, not fixed `UTC+2` or `UTC+3` offsets as the primary identity setting;
+- resolve user-local time from `global_user_id` context, not Telegram-specific identity;
+- support DST and historical/future offset changes through the timezone database/runtime;
+- preserve explicit source/provenance for how a timezone was established or changed;
+- fail visibly or request clarification when user timezone is required but genuinely unknown.
+
+## 16.5.3 — Relative Time
+
+SG must deterministically resolve common relative expressions against the user's local calendar and current Temporal Context, including at minimum:
+
+- today / yesterday / day before yesterday;
+- tomorrow / day after tomorrow;
+- N minutes, hours, days, weeks or months from now;
+- N minutes, hours, days, weeks or months ago;
+- this week / next week / previous week;
+- this month / next month / previous month;
+- named weekdays such as next Monday;
+- beginning/end of day, week, month and year where the request has sufficient meaning.
+
+Equivalent supported-language expressions must map to the same normalized temporal contract without transport-specific keyword routing.
+
+## 16.5.4 — Natural Temporal Expressions
+
+Support user expressions that combine relative dates, local clock time and calendar meaning, for example:
+
+- `tomorrow at 10:00`;
+- `the day after tomorrow at 20:00`;
+- `in two hours`;
+- `next Monday at 14:00`;
+- `next week in the evening`;
+- `what did we discuss three days ago?`.
+
+The semantic layer may interpret meaning, but deterministic temporal arithmetic and timezone conversion must be performed by the Temporal service rather than guessed by the AI model.
+
+Ambiguous expressions must remain explicitly ambiguous. SG must not silently invent a precise timestamp when the user supplied only a broad period such as `morning`, `afternoon`, `evening` or `next week`, unless a separately approved policy defines how that broad period is represented.
+
+## 16.5.5 — Normalized Temporal Contract
+
+Temporal resolution must return a structured result sufficient for downstream modules. The contract must distinguish at minimum:
+
+- original user expression;
+- reference instant (`now`) used for resolution;
+- timezone identifier;
+- local date/time or local date range;
+- normalized UTC instant or UTC range when exact enough;
+- precision/granularity;
+- ambiguity state;
+- resolution source and confidence/evidence metadata where applicable.
+
+A user phrase is never stored as the only scheduling truth when a normalized instant or range can be established.
+
+## 16.5.6 — Runtime Integration
+
+Integrate Temporal Context through existing boundaries without creating a second decision system:
+
+- conversational answers can answer current date/time questions from Temporal Context;
+- tasks and scheduler resolve user-local requested time before durable scheduling;
+- memory and recall can interpret queries such as `yesterday`, `last week` and `three days ago` against the correct user-local calendar;
+- automation stores durable execution instants in UTC while preserving the originating timezone and user expression when useful for audit/reconstruction;
+- recurring schedules preserve intended local wall-clock semantics across DST changes where the schedule requires local-time recurrence;
+- future Telegram, Discord, Web/API and other transports consume the same Temporal service through global identity context.
+
+## 16.5.7 — Safety and Architecture Boundaries
+
+- Temporal Context does not assign identity, roles, grants or permissions.
+- Transport adapters do not own timezone or relative-time business logic.
+- AI Router may assist semantic interpretation only when needed; AI does not become the source of current time or deterministic calendar arithmetic.
+- No hard-coded user timezone is allowed as a universal fallback.
+- Server/Render local timezone must never be treated as the user's timezone implicitly.
+- System timestamps and audit records remain deterministic and auditable.
+- Temporal resolution must not bypass Action Gate for state-changing actions such as task creation or schedule mutation.
+
+## 16.5.8 — Required Tests
+
+Automated coverage must include at minimum:
+
+- current UTC time through an injected deterministic clock;
+- at least two different user timezones for the same UTC instant;
+- date boundary where users in different timezones are on different calendar days;
+- today / yesterday / tomorrow;
+- day before yesterday / day after tomorrow;
+- `in N hours/days/weeks` and `N days/weeks ago`;
+- month-end and year-end transitions;
+- leap-year date handling;
+- DST forward and backward transitions for a DST-observing timezone;
+- recurring local-time schedule behavior across DST;
+- unknown timezone behavior;
+- ambiguous broad-period behavior;
+- task scheduling from relative local time;
+- recall date-range generation from relative expressions;
+- restart persistence: scheduled UTC instant and originating timezone remain stable after process restart.
+
+## Acceptance criteria
+
+- SG can answer current UTC time and current user-local time without relying on AI model knowledge.
+- SG can resolve today, yesterday, day before yesterday, tomorrow, day after tomorrow and relative N-unit expressions against the correct user-local calendar.
+- User timezone is resolved through global identity/user settings and is transport-independent.
+- DST changes do not corrupt local recurring schedule intent.
+- Tasks created from relative user time execute against a deterministic normalized schedule.
+- Memory/recall temporal ranges use the same Temporal service as task scheduling.
+- No transport, capability or AI prompt contains a competing independent implementation of temporal arithmetic.
+- Unknown or ambiguous temporal context fails visibly or remains explicitly bounded rather than being silently guessed.
+- All Temporal Context tests pass in CI.
+
+---
+
 # Block 17 — Render Deployment
 
 ## Goal
@@ -490,10 +616,11 @@ Validate the production system with a deliberately limited real-user scope.
 4. Block 14 — Telegram Production Integration — completed
 5. Block 15 — Production AI Integration — completed
 6. Block 16 — Production Capabilities — completed
-7. Block 17 — Render Deployment — next
-8. Block 18 — End-to-End Verification
-9. Block 19 — Security and Operations
-10. Pilot Launch
+7. Block 16.5 — Temporal Context — next
+8. Block 17 — Render Deployment
+9. Block 18 — End-to-End Verification
+10. Block 19 — Security and Operations
+11. Pilot Launch
 
 ## Completion rule
 

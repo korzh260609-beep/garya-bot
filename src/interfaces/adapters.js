@@ -20,8 +20,13 @@ export function createLocalTransportAdapter(options = {}) {
     locale: input.locale ?? 'en',
     channel: 'local',
     platformMessageId: input.messageId ?? null,
-    platformFacts: { platform: 'local', platformUserId: identifier(input.userId ?? 'developer', 'userId') },
-    scopeFacts: { projectId: input.projectId ?? null, groupId: null, threadId: null },
+    replyToMessageId: input.replyToMessageId ?? null,
+    transportSessionId: input.sessionId ?? null,
+    continueConversationId: input.continueConversationId ?? null,
+    topicShift: input.topicShift === true,
+    topicKey: input.topicKey ?? null,
+    platformFacts: { platform: 'local', platformUserId: identifier(input.userId ?? 'developer', 'userId'), sessionId: input.sessionId ?? null },
+    scopeFacts: { projectId: input.projectId ?? null, groupId: input.groupId ?? null, threadId: input.threadId ?? null },
     attachments: input.attachments ?? []
   }));
 }
@@ -36,6 +41,9 @@ export function createTelegramTransportAdapter(options = {}) {
       channel: message.chat?.type ?? 'unknown',
       platformMessageId: identifier(message.message_id, 'telegram message id'),
       replyToMessageId: message.reply_to_message?.message_id == null ? null : String(message.reply_to_message.message_id),
+      continueConversationId: update.continueConversationId ?? null,
+      topicShift: update.topicShift === true,
+      topicKey: update.topicKey ?? null,
       platformFacts: {
         platform: 'telegram',
         platformUserId: identifier(message.from?.id, 'telegram user id'),
@@ -57,6 +65,11 @@ export function createWebApiTransportAdapter(options = {}) {
     locale: request.body?.locale ?? request.headers?.['accept-language']?.split(',')[0] ?? 'en',
     channel: 'web-api',
     platformMessageId: request.body?.requestId ?? null,
+    replyToMessageId: request.body?.replyToMessageId ?? null,
+    transportSessionId: request.auth?.sessionId ?? null,
+    continueConversationId: request.body?.continueConversationId ?? null,
+    topicShift: request.body?.topicShift === true,
+    topicKey: request.body?.topicKey ?? null,
     platformFacts: {
       platform: 'web-api',
       platformUserId: identifier(request.auth?.subject, 'request.auth.subject'),
@@ -78,11 +91,16 @@ export function createDiscordTransportAdapter(options = {}) {
     channel: event.guild_id ? 'guild' : 'direct',
     platformMessageId: identifier(event.id, 'discord message id'),
     replyToMessageId: event.message_reference?.message_id ?? null,
+    transportSessionId: event.sessionId ?? null,
+    continueConversationId: event.continueConversationId ?? null,
+    topicShift: event.topicShift === true,
+    topicKey: event.topicKey ?? null,
     platformFacts: {
       platform: 'discord',
       platformUserId: identifier(event.author?.id, 'discord author id'),
       platformChannelId: identifier(event.channel_id, 'discord channel id'),
-      platformGuildId: event.guild_id ?? null
+      platformGuildId: event.guild_id ?? null,
+      sessionId: event.sessionId ?? null
     },
     scopeFacts: {
       projectId: event.projectId ?? null,
@@ -100,8 +118,12 @@ export function createEmailTransportAdapter(options = {}) {
     channel: 'email',
     platformMessageId: identifier(message.messageId, 'email message id'),
     replyToMessageId: message.inReplyTo ?? null,
-    platformFacts: { platform: 'email', platformUserId: string(message.from, 'email sender') },
-    scopeFacts: { projectId: message.projectId ?? null, groupId: null, threadId: message.threadId ?? null },
+    transportSessionId: message.threadId ?? null,
+    continueConversationId: message.continueConversationId ?? null,
+    topicShift: message.topicShift === true,
+    topicKey: message.topicKey ?? null,
+    platformFacts: { platform: 'email', platformUserId: string(message.from, 'email sender'), sessionId: message.threadId ?? null },
+    scopeFacts: { projectId: message.projectId ?? null, groupId: null, threadId: null },
     attachments: message.attachments ?? []
   }));
 }
@@ -112,10 +134,15 @@ export function createVoiceTransportAdapter(options = {}) {
     locale: utterance.locale ?? utterance.language ?? 'en',
     channel: 'voice',
     platformMessageId: utterance.utteranceId ?? null,
+    transportSessionId: utterance.sessionId ?? null,
+    continueConversationId: utterance.continueConversationId ?? null,
+    topicShift: utterance.topicShift === true,
+    topicKey: utterance.topicKey ?? null,
     platformFacts: {
       platform: 'voice',
       platformUserId: identifier(utterance.speakerId, 'voice speaker id'),
-      deviceId: utterance.deviceId ?? null
+      deviceId: utterance.deviceId ?? null,
+      sessionId: utterance.sessionId ?? null
     },
     scopeFacts: { projectId: utterance.projectId ?? null, groupId: utterance.groupId ?? null, threadId: utterance.threadId ?? null },
     attachments: utterance.attachments ?? []

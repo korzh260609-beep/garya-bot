@@ -11,6 +11,20 @@ function temporalError(code, message) {
   return error;
 }
 
+function normalizeTask(task) {
+  if (!task) return null;
+  const wrapper = task.payload;
+  if (wrapper?.temporalExpression && wrapper?.payload?.temporal) {
+    return Object.freeze({
+      ...task,
+      payload: Object.freeze({ ...wrapper.payload }),
+      runAt: wrapper.runAt ?? task.runAt ?? task.availableAt ?? null,
+      temporalExpression: wrapper.temporalExpression
+    });
+  }
+  return task;
+}
+
 export function createTemporalTaskStore({ taskStore, temporalService } = {}) {
   if (!taskStore?.create || !taskStore?.list || !taskStore?.get || !taskStore?.cancel) throw new TypeError('taskStore is required');
   if (!temporalService?.resolveForUser) throw new TypeError('temporalService is required');
@@ -18,7 +32,7 @@ export function createTemporalTaskStore({ taskStore, temporalService } = {}) {
   return Object.freeze({
     async create({ scope, input = {} }) {
       const expression = input.temporalExpression ?? input.when ?? (typeof input.runAt === 'string' && !isExactIsoInstant(input.runAt) ? input.runAt : null);
-      if (!expression) return taskStore.create({ scope, input });
+      if (!expression) return normalizeTask(await taskStore.create({ scope, input }));
 
       const resolution = await temporalService.resolveForUser(scope.userScope, expression);
       if (resolution.status === 'timezone-required') {
@@ -42,13 +56,13 @@ export function createTemporalTaskStore({ taskStore, temporalService } = {}) {
         precision: resolution.precision
       });
 
-      return taskStore.create({
+      return normalizeTask(await taskStore.create({
         scope,
         input: { ...input, runAt: resolution.utcStart, temporalExpression: expression, payload }
-      });
+      }));
     },
-    list: (request) => taskStore.list(request),
-    get: (request) => taskStore.get(request),
-    cancel: (request) => taskStore.cancel(request)
+    async list(request) { return Object.freeze((await taskStore.list(request)).map(normalizeTask)); },
+    async get(request) { return normalizeTask(await taskStore.get(request)); },
+    async cancel(request) { return normalizeTask(await taskStore.cancel(request)); }
   });
 }

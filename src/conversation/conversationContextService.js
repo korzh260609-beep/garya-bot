@@ -27,10 +27,15 @@ export function createInMemoryConversationContextStore() {
   return Object.freeze({
     async putConversation(record) { conversations.set(record.conversationId, clone(record)); return this.getConversation(record.conversationId); },
     async getConversation(id) { const value = conversations.get(id); return value ? clone(value) : null; },
-    async findActiveConversation(scope) { return [...conversations.values()].filter((r) => r.state === 'active' && sameScope(r, scope)).sort((a,b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)))[0] ? clone([...conversations.values()].filter((r) => r.state === 'active' && sameScope(r, scope)).sort((a,b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)))[0]) : null; },
+    async findActiveConversation({ globalUserId, projectScope, groupScope = null, threadScope = null, transport, transportSessionId = null }) {
+      const scope = { globalUserId, projectScope, groupScope, threadScope };
+      const candidates = [...conversations.values()].filter((r) => r.state === 'active' && sameScope(r, scope) && [...sessions.values()].some((s) => s.conversationId === r.conversationId && s.state === 'active' && s.transport === transport && (!transportSessionId || s.transportSessionId === transportSessionId)));
+      const found = candidates.sort((a,b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)))[0];
+      return found ? clone(found) : null;
+    },
     async putSession(record) { sessions.set(record.sessionId, clone(record)); return clone(record); },
     async getSession(id) { const value = sessions.get(id); return value ? clone(value) : null; },
-    async findActiveSession({ conversationId, transport, transportSessionId = null }) { return [...sessions.values()].filter((s) => s.conversationId === conversationId && s.transport === transport && s.state === 'active' && (!transportSessionId || s.transportSessionId === transportSessionId)).sort((a,b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)))[0] ? clone([...sessions.values()].filter((s) => s.conversationId === conversationId && s.transport === transport && s.state === 'active' && (!transportSessionId || s.transportSessionId === transportSessionId)).sort((a,b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)))[0]) : null; },
+    async findActiveSession({ conversationId, transport, transportSessionId = null }) { const found = [...sessions.values()].filter((s) => s.conversationId === conversationId && s.transport === transport && s.state === 'active' && (!transportSessionId || s.transportSessionId === transportSessionId)).sort((a,b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)))[0]; return found ? clone(found) : null; },
     async putTopic(record) { topics.set(record.topicId, clone(record)); return clone(record); },
     async getTopic(id) { const value = topics.get(id); return value ? clone(value) : null; },
     async putMessage(record) { if (record.transport && record.externalMessageId) { const duplicate = [...messages.values()].find((m) => m.transport === record.transport && m.externalMessageId === record.externalMessageId && sameScope(m, record)); if (duplicate) return clone(duplicate); } messages.set(record.messageId, clone(record)); return clone(record); },
@@ -68,9 +73,7 @@ export function createConversationContextService({ store, clock = () => new Date
     if (!session) {
       session = await store.putSession({ sessionId: `session:${idFactory()}`, conversationId: conversation.conversationId, ...scope, transport, transportSessionId: optional(transportSessionId), state: 'active', startedAt: now, lastActivityAt: now, closedAt: null, metadata: {} });
       await emit({ event: 'session-started', scope, conversationId: conversation.conversationId, sessionId: session.sessionId, topicId: conversation.currentTopicId, transport });
-    } else {
-      session = await store.putSession({ ...session, lastActivityAt: now });
-    }
+    } else session = await store.putSession({ ...session, lastActivityAt: now });
     return session;
   }
   async function resolveConversation({ scope, transport, transportSessionId = null, replyToMessageId = null, continueConversationId = null }) {
@@ -90,7 +93,7 @@ export function createConversationContextService({ store, clock = () => new Date
       if (!exactScope && !approvedCrossTransport) throw new ConversationContextError('conversation continuation scope denied', { code: 'conversation-cross-scope-denied' });
       return { conversation, transition: exactScope ? 'explicit-continuation' : 'approved-cross-transport' };
     }
-    const conversation = await store.findActiveConversation(scope);
+    const conversation = await store.findActiveConversation({ ...scope, transport, transportSessionId: optional(transportSessionId) });
     return conversation ? { conversation, transition: 'continuation' } : null;
   }
 

@@ -12,7 +12,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   const { database, repositories } = persistence;
 
   await database.query(`
-    DROP TABLE IF EXISTS contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, telegram_updates, dead_letter_tasks, schedule_occurrences, domain_records, observability_events,
+    DROP TABLE IF EXISTS feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, telegram_updates, dead_letter_tasks, schedule_occurrences, domain_records, observability_events,
       idempotency_records, execution_states, schedules, memory_records, messages, conversations,
       grants, roles, identity_links, tasks, users, schema_migrations CASCADE
   `);
@@ -48,8 +48,8 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 13);
-  assert.equal(migrated.total, 13);
+  assert.equal(migrated.applied.length, 14);
+  assert.equal(migrated.total, 14);
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));
   assert.ok(migrated.applied.includes('166_recurring_schedules.sql'));
   assert.ok(migrated.applied.includes('169_external_connections.sql'));
@@ -59,6 +59,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   assert.ok(migrated.applied.includes('173_delivery_router.sql'));
   assert.ok(migrated.applied.includes('174_internal_event_bus.sql'));
   assert.ok(migrated.applied.includes('175_contract_versioning.sql'));
+  assert.ok(migrated.applied.includes('176_feature_flags.sql'));
 
   const legacyUser = await database.query("SELECT chat_id,global_user_id FROM users WHERE global_user_id='tg:42'");
   assert.equal(legacyUser.rows[0].chat_id, '42');
@@ -86,11 +87,11 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
   const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-block12-test' });
   await persistence.start();
   const { database, repositories } = persistence;
-  await database.query(`TRUNCATE contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
+  await database.query(`TRUNCATE feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 13);
+  assert.equal(migrationRepeat.total, 14);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };

@@ -30,10 +30,10 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 24. `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md` — implementation and acceptance evidence for Block 16.9
 25. `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md` — implementation and acceptance evidence for Block 16.10
 26. `16_11_SESSION_AND_CONVERSATION_CONTEXT.md` — implementation and acceptance evidence for Block 16.11
-27. `16_12_USER_SETTINGS_AND_PREFERENCES.md` — specification and future acceptance evidence for Block 16.12
-28. `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — specification and future acceptance evidence for Block 16.13
-29. `16_14_INTERNAL_EVENT_BUS.md` — specification and future acceptance evidence for Block 16.14
-30. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — specification and future acceptance evidence for Block 16.15
+27. `16_12_USER_SETTINGS_AND_PREFERENCES.md` — implementation and acceptance evidence for Block 16.12
+28. `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — implementation and acceptance evidence for Block 16.13
+29. `16_14_INTERNAL_EVENT_BUS.md` — implementation and acceptance evidence for Block 16.14
+30. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — implementation and acceptance evidence for Block 16.15
 31. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — specification and future acceptance evidence for Block 16.16
 
 ## Production continuation
@@ -53,11 +53,11 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 11. Block 16.9 — External Connections Registry — completed
 12. Block 16.10 — Resource Ownership & Authority Model — completed
 13. Block 16.11 — Session & Conversation Context — completed
-14. Block 16.12 — User Settings & Preferences — next
-15. Block 16.13 — Notification & Delivery Router
-16. Block 16.14 — Internal Event Bus
-17. Block 16.15 — Schema & Contract Versioning
-18. Block 16.16 — Feature Flags & Controlled Rollout
+14. Block 16.12 — User Settings & Preferences — completed
+15. Block 16.13 — Notification & Delivery Router — completed
+16. Block 16.14 — Internal Event Bus — completed
+17. Block 16.15 — Schema & Contract Versioning — completed
+18. Block 16.16 — Feature Flags & Controlled Rollout — next
 19. Block 17 — Render Deployment
 20. Block 18 — End-to-End Verification
 21. Block 19 — Security and Operations

@@ -4,6 +4,7 @@ import { createInMemoryAITelemetry } from './telemetry.js';
 import { createOpenAIResponsesProvider } from './providers/openaiResponsesProvider.js';
 import { createProductionMeaningInterpreter } from './productionMeaningInterpreter.js';
 import { createProductionAiPolicy } from './productionPolicy.js';
+import { createDeploymentCredentialManager } from '../secrets/credentialManager.js';
 
 function nonNegativeInteger(value, fallback) {
   const parsed = Number.parseInt(value ?? '', 10);
@@ -27,11 +28,14 @@ export function createProductionAI({
   const registry = createRegistryFromEnvironment(env);
   const aiConfig = configurationPolicy?.ai ?? null;
   if (aiConfig && (aiConfig.routerOnly !== true || aiConfig.directProviderCallsAllowed !== false)) throw new TypeError('unsafe AI configuration policy');
-  if (!credentialManager || typeof credentialManager.useCredential !== 'function') throw new TypeError('credentialManager is required for production AI');
-  if (!credentialAccessContext?.actor || !credentialAccessContext?.scope) throw new TypeError('credentialAccessContext is required for production AI');
+  const standaloneCredentials = credentialManager ? null : createDeploymentCredentialManager({ env });
+  const effectiveCredentialManager = credentialManager ?? standaloneCredentials.manager;
+  const effectiveCredentialAccessContext = credentialAccessContext ?? standaloneCredentials.accessContext;
+  if (!effectiveCredentialManager || typeof effectiveCredentialManager.useCredential !== 'function') throw new TypeError('credentialManager is required for production AI');
+  if (!effectiveCredentialAccessContext?.actor || !effectiveCredentialAccessContext?.scope) throw new TypeError('credentialAccessContext is required for production AI');
   const openai = createOpenAIResponsesProvider({
-    credentialManager,
-    credentialAccessContext,
+    credentialManager: effectiveCredentialManager,
+    credentialAccessContext: effectiveCredentialAccessContext,
     credentialId: openAiCredentialId,
     baseUrl: env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
     reasoningEffort: env.OPENAI_REASONING_EFFORT ?? 'medium',

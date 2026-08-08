@@ -14,7 +14,7 @@ Configuration & Policy [completed]
 → Session & Conversation Context [completed]
 → User Settings & Preferences [completed]
 → Notification & Delivery Router [completed]
-→ Internal Event Bus
+→ Internal Event Bus [completed]
 → Schema & Contract Versioning
 → Feature Flags & Controlled Rollout
 ```
@@ -134,6 +134,28 @@ Delivery failure is never converted into successful delivery. The router cannot 
 
 ## Block 16.14 — Internal Event Bus
 Owns typed internal event delivery between SG subsystems. Events report facts and lifecycle transitions; they are not commands and cannot bypass Decision Engine or Action Gate.
+
+Canonical event separation:
+
+```text
+Approved state/lifecycle change → producer emits typed fact
+InternalEventEnvelope           → contract + trace + bounded scope + minimized payload
+Event Bus                       → subscription matching + sync/durable delivery
+Consumer                        → projection/observer or normal gated workflow
+Protected effect                → still requires Action Gate/Capability path
+```
+
+The canonical envelope contains stable `event_id`, `event_type`, contract `version`, occurrence timestamp, trace context, actor, bounded user/project/resource scope, privacy classification, optional explicit `orderingKey`, provenance and minimized payload. Event names are registered lifecycle contracts for identity, connection, resource, conversation, memory, task, schedule, capability, delivery and failure domains; arbitrary command-like event names are rejected.
+
+Subscribers are isolated by event type, privacy class and optional project/user/resource scope. Scope matching is fail-closed. Receiving an event never creates identity, grants, ownership, resource authority or execution authorization.
+
+Two delivery modes exist. `sync` is for immediate in-process projections/observers and isolates subscriber failure from the producer. `durable` persists one consumer delivery per `(event_id, subscriber_id)` and uses bounded retry. Exhausted/non-retryable failures become visible dead letters and can be explicitly requeued. Stale `processing` claims are reclaimable after worker interruption so a restart does not permanently strand a durable event.
+
+PostgreSQL persistence is provided by `174_internal_event_bus.sql` through `internal_events`, `internal_event_subscriptions` and `internal_event_deliveries`. The deployment composition selects PostgreSQL in persistent runtimes and in-memory storage otherwise. The bus exposes deterministic `drain` plus worker `start/stop` lifecycle for durable consumers.
+
+Payload minimization is enforced before persistence. Secret/token/password/credential-style fields and unnecessary raw message/text/content/body fields are forbidden, and payload size is bounded. Event observability records event IDs/types/scope/privacy/subscriber/failure metadata with the originating trace context instead of raw message content or secrets.
+
+Ordering is not globally promised. An `orderingKey` is only explicit metadata for consumers that require a domain-specific ordering contract; global publication order must not be inferred from the bus.
 
 ## Block 16.15 — Schema & Contract Versioning
 Owns compatibility, migration and deprecation rules for durable/cross-module contracts. Database migration numbering alone is insufficient. Old payloads must never be silently reinterpreted.

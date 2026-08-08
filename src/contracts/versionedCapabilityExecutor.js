@@ -2,9 +2,14 @@ function requireMethod(value, method, name) {
   if (!value || typeof value[method] !== 'function') throw new TypeError(`${name}.${method} is required`);
 }
 
+function declaredVersion(payload) {
+  const value = payload?.contractVersion ?? payload?.version;
+  return typeof value === 'string' && /^\d+\.\d+$/.test(value.trim()) ? value.trim() : '1.0';
+}
+
 function versionedRecord(actionRequest, payload) {
   return Object.freeze({
-    version: '1.0',
+    version: declaredVersion(payload),
     globalUserId: actionRequest.actor.globalUserId,
     projectScope: actionRequest.scope.projectScope,
     scope: Object.freeze({

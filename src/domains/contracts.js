@@ -1,3 +1,5 @@
+import { ACTION_CLASSES } from '../contracts/action.js';
+
 function requiredString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${field} must be a non-empty string`);
   return value.trim();
@@ -13,7 +15,25 @@ function stringList(value, field) {
   return Object.freeze(value.map((item) => requiredString(item, `${field} item`)));
 }
 
-export const DOMAIN_ACTION_CLASSES = Object.freeze(['analysis', 'prepare-only', 'protected']);
+const LEGACY_DOMAIN_ACTION_CLASS_MAP = Object.freeze({
+  analysis: 'analysis-only',
+  protected: 'state-changing'
+});
+
+export const DOMAIN_ACTION_CLASSES = Object.freeze([
+  'analysis',
+  'prepare-only',
+  'protected',
+  ...ACTION_CLASSES.filter((value) => !['analysis-only', 'prepare-only', 'state-changing'].includes(value)),
+  'analysis-only',
+  'state-changing'
+]);
+
+function canonicalActionClass(value) {
+  const mapped = LEGACY_DOMAIN_ACTION_CLASS_MAP[value] ?? value;
+  if (!ACTION_CLASSES.includes(mapped)) throw new TypeError(`unsupported canonical domain action class: ${mapped}`);
+  return mapped;
+}
 
 export function createDomainCapability(input) {
   object(input, 'domain capability');
@@ -21,10 +41,12 @@ export function createDomainCapability(input) {
   const actionClass = input.actionClass ?? 'analysis';
   if (!DOMAIN_ACTION_CLASSES.includes(actionClass)) throw new TypeError(`unsupported domain action class: ${actionClass}`);
   if (typeof input.handler !== 'function') throw new TypeError('capability.handler must be a function');
+  const canonical = canonicalActionClass(actionClass);
   return Object.freeze({
     name,
     actionClass,
-    stateChanging: actionClass === 'protected',
+    canonicalActionClass: canonical,
+    stateChanging: canonical === 'state-changing' || canonical === 'external-action',
     requiredPermissions: stringList(input.requiredPermissions ?? [], 'capability.requiredPermissions'),
     sourceRequirements: stringList(input.sourceRequirements ?? [], 'capability.sourceRequirements'),
     memoryLayers: stringList(input.memoryLayers ?? [], 'capability.memoryLayers'),

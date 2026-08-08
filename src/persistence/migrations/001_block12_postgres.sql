@@ -18,6 +18,7 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS profile jsonb NOT NULL DEFAULT '{}'::jsonb,
   ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
   ADD COLUMN IF NOT EXISTS chat_id text;
+ALTER TABLE users ALTER COLUMN chat_id DROP NOT NULL;
 
 DO $$
 BEGIN
@@ -149,6 +150,9 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='tasks' AND column_name='user_global_id') THEN
     EXECUTE 'UPDATE tasks SET global_user_id = COALESCE(global_user_id, user_global_id) WHERE global_user_id IS NULL';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='tasks' AND column_name='user_chat_id') THEN
+    EXECUTE 'ALTER TABLE tasks ALTER COLUMN user_chat_id DROP NOT NULL';
   END IF;
 END $$;
 

@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { createPostgresObservabilityStore, createPostgresPersistence } from '../persistence/index.js';
 import { createObservabilityService } from '../observability/observabilityService.js';
+import { createTemporalContextService } from '../temporal/temporalContextService.js';
+import { createRecurrenceEngine } from '../temporal/recurrenceEngine.js';
 import { createPostgresTaskQueue } from './postgresTaskQueue.js';
+import { createPostgresRecurringScheduler } from './postgresRecurringScheduler.js';
 import { createDurableWorker } from './durableWorker.js';
 import { createProductionWorkerActionGate, createProductionWorkerExecutor } from './productionWorkerExecution.js';
 
@@ -15,7 +18,17 @@ const persistence = createPostgresPersistence({
 });
 await persistence.start();
 
-const queue = createPostgresTaskQueue({ database: persistence.database });
+const baseQueue = createPostgresTaskQueue({ database: persistence.database });
+const temporalService = createTemporalContextService();
+const recurrenceEngine = createRecurrenceEngine({ temporalService });
+const recurringScheduler = createPostgresRecurringScheduler({ database: persistence.database, recurrenceEngine });
+const queue = Object.freeze({
+  ...baseQueue,
+  async releaseDue(limit = 100) {
+    await recurringScheduler.materializeDue({ limit });
+    return baseQueue.releaseDue(limit);
+  }
+});
 const observabilityStore = createPostgresObservabilityStore({ observabilityRepository: persistence.repositories.observability });
 const observability = createObservabilityService({ store: observabilityStore });
 const verifyMode = process.env.SG_WORKER_VERIFY === '1' || process.env.SG_ENVIRONMENT === 'ci';
@@ -54,18 +67,14 @@ if (verifyMode) {
     idempotencyKey: `worker-verification:${suffix}`
   });
   const result = await worker.runOnce();
-  if (result?.task_id !== `worker-verification:${suffix}` || result.status !== 'completed') {
-    throw new Error('durable worker task verification failed');
-  }
+  if (result?.task_id !== `worker-verification:${suffix}` || result.status !== 'completed') throw new Error('durable worker task verification failed');
   await observabilityStore.flush();
   const persistedEvents = await persistence.database.query(
     `SELECT payload->'data'->>'workerEvent' AS worker_event FROM observability_events WHERE trace_id=$1 AND stage='durable-worker' ORDER BY event_id`,
     [suffix]
   );
   const workerEvents = persistedEvents.rows.map((row) => row.worker_event);
-  if (!workerEvents.includes('worker_task_claimed') || !workerEvents.includes('worker_task_completed')) {
-    throw new Error('durable worker observability verification failed');
-  }
+  if (!workerEvents.includes('worker_task_claimed') || !workerEvents.includes('worker_task_completed')) throw new Error('durable worker observability verification failed');
   console.log(JSON.stringify({ status: 'worker-ready', health: worker.health(), task: { id: result.task_id, status: result.status }, durableObservabilityEvents: workerEvents }));
   await shutdown('verification-complete');
 } else {

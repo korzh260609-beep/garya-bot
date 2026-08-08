@@ -73,10 +73,13 @@ test('production Telegram identity resolver bootstraps only configured monarch a
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('time-read'));
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('language-preference-set'));
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('user-settings-set'));
+  assert.ok(monarch.identityContext.grants.includes('psychology.use'));
+  assert.ok(monarch.identityContext.grants.includes('repository.read'));
 
   const guest = await resolver({ platformFacts: { platform: 'telegram', platformUserId: '200' }, scopeFacts: { projectId: 'sg2.1', groupId: 'g', threadId: 't' } });
   assert.deepEqual(guest.identityContext.roles, ['guest']);
   assert.deepEqual(guest.scopeContext.allowedCapabilities, ['compose-answer', 'time-read', 'timezone-set', 'memory-time-read', 'language-preference-set', 'language-preference-get', 'user-settings-get', 'user-settings-set']);
+  assert.equal(guest.identityContext.grants.includes('psychology.use'), false);
   assert.equal(guest.scopeContext.groupScope, 'g');
   assert.equal(guest.scopeContext.threadScope, 't');
 });
@@ -103,6 +106,8 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
       runtime,
       temporalService: null,
       languageContextService: null,
+      userSettingsService: null,
+      resourceAuthorityRegistry: null,
       observability: { record() {}, recordFailure() {} },
       credentialManager,
       credentialAccessContext,
@@ -141,6 +146,41 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
   await app.requestHandler({ url: '/ready', method: 'GET', headers: {} }, readyResponse);
   assert.equal(readyResponse.statusCode, 503);
   assert.equal(JSON.parse(readyResponse.body).ok, false);
+});
+
+test('Render startup rolls back runtime when validation fails after runtime start', async () => {
+  const persistence = fakePersistence();
+  let starts = 0;
+  let stops = 0;
+  const runtime = {
+    health: () => ({ ok: true, phase: starts > stops ? 'ready' : 'stopped', accepting: starts > stops }),
+    readiness: () => ({ ready: starts > stops, phase: starts > stops ? 'ready' : 'stopped', accepting: starts > stops }),
+    async start() { starts += 1; },
+    async stop() { stops += 1; },
+    async handle() { return { status: 'success', message: 'ok' }; }
+  };
+  const harnessFactory = () => ({
+    persistence,
+    config: { projectScope: 'sg2.1', environment: 'production', revision: 'rollback-test' },
+    runtime,
+    temporalService: null,
+    languageContextService: null,
+    userSettingsService: null,
+    resourceAuthorityRegistry: null,
+    observability: { record() {}, recordFailure() {} },
+    credentialManager: { async useCredential({ operation, connectionId }) { return operation(connectionId === 'telegram-webhook' ? 'secret' : 'token'); } },
+    credentialAccessContext: { actor: { globalUserId: 'system:runtime', grants: ['credential:use:system'] }, scope: { projectScope: 'sg2.1' } },
+    connectionRegistry: { async requireUsable() { return { status: 'connected', capabilities: ['telegram.bot-api'] }; } },
+    connectionAccessContext: { actor: { globalUserId: 'system:runtime', grants: ['connection:read'] }, projectScope: 'sg2.1' }
+  });
+  const app = await createRenderWebApplication({
+    env: { DATABASE_URL: 'postgres://example', TELEGRAM_BOT_TOKEN: 'test-token', BASE_URL: 'https://example.invalid', TELEGRAM_REGISTER_WEBHOOK: 'false', PORT: '0' },
+    fetchImpl: async () => { throw new Error('network should not be called'); },
+    harnessFactory
+  });
+  await assert.rejects(() => app.start(), /PORT must be a valid TCP port/);
+  assert.equal(starts, 1);
+  assert.equal(stops, 1);
 });
 
 test('production worker completes safe user tasks and fails closed for protected execution', async () => {

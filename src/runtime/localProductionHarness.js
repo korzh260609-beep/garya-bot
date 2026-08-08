@@ -32,6 +32,7 @@ import { createAILanguageDetector } from '../language/aiLanguageDetector.js';
 import { createDefaultConfigurationPolicyLayer, createEnvironmentPolicyOverrides } from '../config/configurationPolicyLayer.js';
 import { createDeploymentCredentialManager } from '../secrets/credentialManager.js';
 import { createDeploymentExternalConnections } from '../connections/deploymentConnections.js';
+import { createDeploymentResourceAuthority } from '../authority/deploymentResourceAuthority.js';
 import { createProductionRuntime } from './createProductionRuntime.js';
 import { loadRuntimeConfig } from './config.js';
 
@@ -43,24 +44,13 @@ function createCredentialAuditAdapter(observability, config) {
     record(event) {
       sequence += 1;
       const correlation = `credential-${sequence}`;
-      return observability.record({
-        ...event,
-        eventClass: 'audit_event',
-        traceContext: {
-          traceId: correlation,
-          requestId: correlation,
-          environment: config.environment,
-          revision: config.revision
-        },
-        reason: event.data?.reason ?? null,
-        data: { ...(event.data ?? {}), credentialEventClass: event.eventClass }
-      });
+      return observability.record({ ...event, eventClass: 'audit_event', traceContext: { traceId: correlation, requestId: correlation, environment: config.environment, revision: config.revision }, reason: event.data?.reason ?? null, data: { ...(event.data ?? {}), credentialEventClass: event.eventClass } });
     }
   });
 }
 
 export function createLocalProductionHarness({ env = {}, interpretationResolver, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
-  const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16.9', SG_PROJECT_SCOPE: 'sg2.1', ...env });
+  const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16.10', SG_PROJECT_SCOPE: 'sg2.1', ...env });
   const policyLayer = createDefaultConfigurationPolicyLayer({ environment: createEnvironmentPolicyOverrides(env) });
   const basePolicy = policyLayer.resolve().policy;
   const persistence = config.persistenceMode === 'postgres' ? createPostgresPersistence({ connectionString: config.databaseUrl, ssl: config.databaseSsl, applicationName: 'sg-2-1-runtime' }) : null;
@@ -72,6 +62,9 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const connectionDeployment = createDeploymentExternalConnections({ persistence, credentialManager, observability, config, env, clock });
   const connectionRegistry = connectionDeployment.registry;
   const connectionAccessContext = connectionDeployment.accessContext;
+  const authorityDeployment = createDeploymentResourceAuthority({ persistence, connectionRegistry, observability, config, clock });
+  const resourceAuthorityRegistry = authorityDeployment.registry;
+  const resourceAuthorityAccessContext = authorityDeployment.accessContext;
   const baseMemoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory, clock }) : createInMemoryMemoryProvider({ clock });
   const memoryProvider = createTemporalMemoryProvider({ memoryProvider: baseMemoryProvider });
   const durableTaskQueue = persistence ? createPostgresTaskQueue({ database: persistence.database }) : null;
@@ -98,7 +91,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
       memoryProvider, taskStore, conversationResponder,
       sourceRetriever: async ({ sourceId, query }) => sourceId === 'local-fixture' ? { ok: true, message: 'Approved local source retrieved', query, data: { sourceId, query }, sources: [sourceId] } : { ok: false, code: 'source-not-approved', message: 'Source is not approved', retryable: false, sources: [] },
       repositoryAnalyzer: async ({ mode, files = [] }) => ({ mode, files: [...files], findings: [], mutated: false, message: 'Repository analysis completed in read/prepare-only mode', sources: ['repository-read-source'] }),
-      diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length, languageContext: 'ready', policyLayer: 'ready', credentialBoundary: 'ready', credentialProviders: credentialDeployment.providers, connectionRegistry: 'ready', connectionIds: connectionDeployment.connectionIds })
+      diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length, languageContext: 'ready', policyLayer: 'ready', credentialBoundary: 'ready', credentialProviders: credentialDeployment.providers, connectionRegistry: 'ready', connectionIds: connectionDeployment.connectionIds, resourceAuthority: 'ready' })
     }),
     ...temporalCapabilities, ...languageCapabilities
   ]);
@@ -106,7 +99,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const capabilityExecutor = createCapabilityExecutor({ registry: capabilityRegistry });
   const actionGate = createActionGate({ availableSources: ['approved-source-registry', 'repository-read-source'], availableTools: ['source-retriever', 'document-analyzer', 'repository-analyzer'] });
   const resources = persistence ? [persistence, connectionDeployment.resource, store] : [connectionDeployment.resource];
-  const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, observability, languageContextService, policyLayer, resources });
+  const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, observability, languageContextService, policyLayer, resourceAuthorityRegistry, resources });
 
   const identityResolver = async ({ platformFacts, scopeFacts }) => {
     const globalUserId = `${platformFacts.platform}:${platformFacts.platformUserId}`;
@@ -119,5 +112,5 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     return { identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles, grants: capabilityNames.map((name) => `capability:${name}`), authenticationLevel: 'verified' }), scopeContext: createScopeContext({ userScope: globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, allowedCapabilities: capabilityNames }) };
   };
   const transport = createLocalInterfaceHarness({ identityResolver, requestHandler: runtime.handle });
-  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageDetector, languageContextService, languageCapabilities, capabilityNames, policyLayer, credentialManager, credentialAccessContext, credentialProviders: credentialDeployment.providers, connectionRegistry, connectionAccessContext, connectionStore: connectionDeployment.store, connectionIds: connectionDeployment.connectionIds });
+  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageDetector, languageContextService, languageCapabilities, capabilityNames, policyLayer, credentialManager, credentialAccessContext, credentialProviders: credentialDeployment.providers, connectionRegistry, connectionAccessContext, connectionStore: connectionDeployment.store, connectionIds: connectionDeployment.connectionIds, resourceAuthorityRegistry, resourceAuthorityAccessContext, resourceAuthorityStore: authorityDeployment.store });
 }

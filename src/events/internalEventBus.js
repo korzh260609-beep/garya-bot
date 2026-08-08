@@ -10,6 +10,25 @@ function clone(value) { return structuredClone(value); }
 function normalizeFailure(error) {
   return { code: String(error?.code ?? error?.name ?? 'subscriber-failed').slice(0, 120), retryable: error?.retryable !== false };
 }
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+  return value ?? null;
+}
+function sameStructuredValue(left, right) {
+  return JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right));
+}
+function sameEventIdentity(persisted, event) {
+  return persisted.eventType === event.eventType
+    && persisted.version === event.version
+    && persisted.actorGlobalUserId === event.actorGlobalUserId
+    && persisted.privacyClass === event.privacyClass
+    && persisted.orderingKey === event.orderingKey
+    && sameStructuredValue(persisted.traceContext, event.traceContext)
+    && sameStructuredValue(persisted.scope, event.scope)
+    && sameStructuredValue(persisted.provenance, event.provenance)
+    && sameStructuredValue(persisted.payload, event.payload);
+}
 function normalizeSubscription(input) {
   const subscriberId = required(input?.subscriberId, 'subscriberId');
   const eventTypes = [...new Set(input?.eventTypes ?? [])].map((value) => required(value, 'eventType'));
@@ -64,7 +83,7 @@ export function createInternalEventBus({
   async function publish(input) {
     const event = createInternalEventEnvelope(input, { idFactory, clock });
     const persisted = await store.appendEvent(event);
-    if (persisted.eventType !== event.eventType || persisted.version !== event.version || JSON.stringify(persisted.scope) !== JSON.stringify(event.scope)) throw new Error('event-id-conflict');
+    if (!sameEventIdentity(persisted, event)) throw new Error('event-id-conflict');
     await observe('internal_event_published', event);
     const registered = [...subscriptions.values()];
     const results = [];

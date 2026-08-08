@@ -40,9 +40,10 @@ test('full local transport path reaches capability and delivery with observabili
   const telemetry = harness.observability.list({ channel: 'telemetry', traceId });
   const telemetryClasses = telemetry.map((event) => event.eventClass);
   const auditClasses = harness.observability.list({ channel: 'audit', traceId }).map((event) => event.eventClass);
-  assert.deepEqual(telemetryClasses, ['audit_event', 'request_received', 'policy_context_resolved', 'language_context_resolved', 'semantic_decision_created', 'capability_started', 'capability_completed']);
+  assert.deepEqual(telemetryClasses, ['audit_event', 'request_received', 'policy_context_resolved', 'audit_event', 'language_context_resolved', 'semantic_decision_created', 'capability_started', 'capability_completed']);
   assert.equal(telemetry[0].data.contextEventClass, 'conversation_context_resolved');
   assert.ok(telemetry[0].data.conversationId);
+  assert.equal(telemetry[3].data.settingsEventClass, 'user_settings_resolved');
   assert.deepEqual(auditClasses, ['action_gate_decision']);
 
   await harness.runtime.stop();
@@ -77,6 +78,7 @@ postgresIntegration('PostgreSQL runtime observability is durable and flushed bef
         'telemetry:audit_event',
         'telemetry:request_received',
         'telemetry:policy_context_resolved',
+        'telemetry:audit_event',
         'telemetry:language_context_resolved',
         'telemetry:semantic_decision_created',
         'audit:action_gate_decision',

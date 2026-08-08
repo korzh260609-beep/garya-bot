@@ -5,28 +5,28 @@ function requireMethod(value, method, name) {
   if (!value || typeof value[method] !== 'function') throw new TypeError(`${name}.${method} is required`);
   return value;
 }
-
 function responseFromGate(gateDecision, responsePlan) {
   if (gateDecision.outcome === 'require-confirmation') return { status: 'confirmation-required', message: responsePlan.message, data: { gateOutcome: gateDecision.outcome } };
   if (gateDecision.outcome !== 'allow') return { status: 'prepared', message: responsePlan.message, data: { gateOutcome: gateDecision.outcome, reasons: gateDecision.reasons } };
   return null;
 }
-
 function capabilityOverrides(capability) {
   if (!capability) return {};
   return { requiredPermission: capability.requiredPermissions[0] ?? `capability:${capability.name}`, requiredSources: capability.requiredSources, requiredTools: capability.requiredTools, risk: capability.risk, estimatedCostUsd: capability.estimatedCostUsd, confirmationRequired: capability.confirmationRequired };
 }
-
 function languagePayload(canonicalInput, semantic) {
   return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, locale: canonicalInput.locale });
 }
-
 function conversationKey(input) {
   const scope = input.scopeContext;
   return [input.identityContext.globalUserId, scope.projectScope, scope.groupScope ?? 'private', scope.threadScope ?? 'root'].join('|');
 }
+function selectedResourceRequirement(semantic) {
+  const selected = semantic?.decisionEnvelope?.selectedAction;
+  return selected?.resourceRequirement ?? selected?.payload?.resourceRequirement ?? null;
+}
 
-export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, policyLayer = null, resources = [] } = {}) {
+export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, policyLayer = null, resourceAuthorityRegistry = null, resources = [] } = {}) {
   if (!config?.environment || !config?.revision || !config?.shutdownTimeoutMs) throw new TypeError('validated runtime config is required');
   requireMethod(semanticPipeline, 'process', 'semanticPipeline');
   requireMethod(actionGate, 'evaluate', 'actionGate');
@@ -36,6 +36,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
   if (domainRuntime) requireMethod(domainRuntime, 'execute', 'domainRuntime');
   if (languageContextService) requireMethod(languageContextService, 'resolve', 'languageContextService');
   if (policyLayer) requireMethod(policyLayer, 'resolve', 'policyLayer');
+  if (resourceAuthorityRegistry) requireMethod(resourceAuthorityRegistry, 'checkAuthority', 'resourceAuthorityRegistry');
   if (!Array.isArray(resources)) throw new TypeError('resources must be an array');
 
   let phase = 'created', accepting = false, inFlight = 0, failure = null;
@@ -49,17 +50,28 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     try { for (const resource of resources) if (resource?.start) await resource.start(); accepting = true; phase = 'ready'; return snapshot(); }
     catch (error) { failure = error; accepting = false; phase = 'failed'; throw error; }
   }
-
   function withPolicyContext(canonicalInput) {
     if (!policyLayer) return canonicalInput;
     const policyContext = policyLayer.resolve({ roles: canonicalInput.identityContext.roles });
     return Object.freeze({ ...canonicalInput, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), policyContext }) });
   }
-
   async function withLanguageContext(canonicalInput) {
     if (!languageContextService) return canonicalInput;
     const context = await languageContextService.resolve({ globalUserId: canonicalInput.identityContext.globalUserId, text: canonicalInput.text, platformLocale: canonicalInput.locale, conversationLanguage: canonicalInput.metadata?.conversationLanguage ?? null, conversationKey: conversationKey(canonicalInput), traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext });
     return Object.freeze({ ...canonicalInput, locale: context.locale ?? canonicalInput.locale, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), languageContext: context }) });
+  }
+  async function resolveResourceAuthority(requirement, requestInput, traceContext) {
+    if (!requirement) return null;
+    if (!resourceAuthorityRegistry) return Object.freeze({ allowed: false, reason: 'resource-authority-registry-unavailable', actorGlobalUserId: requestInput.identityContext.globalUserId, projectScope: requestInput.scopeContext.projectScope, resourceId: requirement.resourceId, requiredRelation: requirement.relation, evidence: null });
+    let decision;
+    try {
+      decision = await resourceAuthorityRegistry.checkAuthority({ actorGlobalUserId: requestInput.identityContext.globalUserId, projectScope: requestInput.scopeContext.projectScope, resourceId: requirement.resourceId, relation: requirement.relation });
+    } catch (error) {
+      decision = { allowed: false, reason: error?.code ?? 'resource-authority-resolution-failed', resourceId: requirement.resourceId, requiredRelation: requirement.relation, evidence: null };
+    }
+    const resolved = Object.freeze({ ...decision, actorGlobalUserId: requestInput.identityContext.globalUserId, projectScope: requestInput.scopeContext.projectScope, resourceId: requirement.resourceId, requiredRelation: requirement.relation });
+    observability.record({ eventClass: 'resource_authority_resolved', channel: 'audit', stage: 'resource-authority', traceContext, outcome: resolved.allowed ? 'allow' : 'deny', actorRef: requestInput.identityContext.globalUserId, data: { resourceId: resolved.resourceId, requiredRelation: resolved.requiredRelation, reason: resolved.reason, authorityId: resolved.evidence?.authorityId ?? null } });
+    return resolved;
   }
 
   async function handle(canonicalInput) {
@@ -78,9 +90,21 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       observability.record({ eventClass: 'semantic_decision_created', channel: 'telemetry', stage: 'decision-engine', traceContext, outcome: semantic.decisionEnvelope.decisionType, data: { intent: semantic.decisionEnvelope.intent } });
       const selectedName = semantic.decisionEnvelope.selectedAction?.name ?? semantic.decisionEnvelope.selectedAction?.type;
       const declaredCapability = capabilityRegistry?.get(selectedName) ?? null;
-      const actionRequest = createActionRequestFromDecision({ decisionEnvelope: semantic.decisionEnvelope, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, overrides: { ...capabilityOverrides(declaredCapability), payload: { ...(semantic.decisionEnvelope.selectedAction?.payload ?? {}), ...languagePayload(requestInput, semantic) } } });
+      const requirement = selectedResourceRequirement(semantic);
+      const authority = await resolveResourceAuthority(requirement, requestInput, traceContext);
+      const actionRequest = createActionRequestFromDecision({
+        decisionEnvelope: semantic.decisionEnvelope,
+        identityContext: requestInput.identityContext,
+        scopeContext: requestInput.scopeContext,
+        overrides: {
+          ...capabilityOverrides(declaredCapability),
+          resourceRequirement: requirement,
+          resourceAuthority: authority,
+          payload: { ...(semantic.decisionEnvelope.selectedAction?.payload ?? {}), ...languagePayload(requestInput, semantic) }
+        }
+      });
       const gateDecision = actionGate.evaluate(actionRequest, { policyContext });
-      observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: gateDecision.outcome, data: { capability: actionRequest.capability, authorized: gateDecision.authorized } });
+      observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: gateDecision.outcome, data: { capability: actionRequest.capability, authorized: gateDecision.authorized, resourceId: actionRequest.resourceRequirement?.resourceId ?? null, resourceAuthority: gateDecision.checks.resourceAuthority } });
       const gatedResponse = responseFromGate(gateDecision, semantic.responsePlan);
       if (gatedResponse) return { ...gatedResponse, data: { ...(gatedResponse.data ?? {}), languageContext, policyContext } };
 

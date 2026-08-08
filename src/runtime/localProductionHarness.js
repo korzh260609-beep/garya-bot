@@ -15,7 +15,8 @@ import { createInMemoryObservabilityStore } from '../observability/inMemoryObser
 import { createObservabilityService } from '../observability/observabilityService.js';
 import { createLocalInterfaceHarness } from '../interfaces/localHarness.js';
 import { createProductionAI } from '../ai/createProductionAI.js';
-import { createTemporalService, createInMemoryTimezoneStore } from '../temporal/temporalService.js';
+import { createInMemoryTimezoneStore } from '../temporal/temporalService.js';
+import { createTemporalContextService } from '../temporal/temporalContextService.js';
 import { createPostgresTimezoneStore } from '../temporal/postgresTimezoneStore.js';
 import { createTemporalAwareMeaningInterpreter } from '../temporal/temporalMeaningInterpreter.js';
 import { createTemporalCapabilities, TEMPORAL_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
@@ -38,7 +39,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue })
     : createInMemoryProductionTaskStore();
   const timezoneStore = persistence ? createPostgresTimezoneStore({ database: persistence.database }) : createInMemoryTimezoneStore();
-  const temporalService = createTemporalService({ clock, timezoneStore });
+  const temporalService = createTemporalContextService({ clock, timezoneStore });
   const taskStore = createTemporalTaskStore({ taskStore: baseTaskStore, temporalService });
   const contextResolver = createContextResolver({ memoryProvider });
   const productionAI = !interpretationResolver && aiRequested(env) ? createProductionAI({ env, fetchImpl }) : null;

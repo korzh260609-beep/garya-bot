@@ -11,7 +11,7 @@ Configuration & Policy [completed]
 → Secrets & Credentials [completed]
 → External Connections Registry [completed]
 → Resource Ownership & Authority [completed]
-→ Session & Conversation Context
+→ Session & Conversation Context [completed]
 → User Settings & Preferences
 → Notification & Delivery Router
 → Internal Event Bus
@@ -19,7 +19,7 @@ Configuration & Policy [completed]
 → Feature Flags & Controlled Rollout
 ```
 
-The order is architectural dependency guidance. Protected execution now composes the established controls as Identity → Scope → Access → Resource Authority (when a concrete resource is targeted) → Action Gate → Capability.
+The order is architectural dependency guidance. Protected execution composes the established controls as Identity → Scope → Access → Resource Authority (when a concrete resource is targeted) → Action Gate → Capability. Conversation context supplies dialogue continuity to semantic processing but never creates identity, access or authority.
 
 ## Block 16.7 — Configuration & Policy
 Owns typed configuration, defaults, limits, policy precedence and effective-policy resolution. Environment variables are inputs, not the architecture itself. Policy cannot grant identity or bypass Action Gate.
@@ -79,6 +79,26 @@ Resource Authority does not replace Identity, generic grants, Scope, External Co
 ## Block 16.11 — Session & Conversation Context
 Owns active dialogue continuity, sessions, conversation/topic identity, reply relationships and bounded recent context. It is separate from confirmed long-term memory.
 
+Canonical conversation separation:
+
+```text
+Long-term Memory      → confirmed durable facts/preferences/history
+Conversation Context  → bounded recent dialogue continuity
+Transport Facts       → message/reply/session/thread identifiers only
+```
+
+Block 16.11 extends the canonical Block 12 `conversations` and `messages` persistence with migration `171_session_conversation_context.sql`. It adds durable sessions, topics, lifecycle state, reply linkage, transport/external message identity and continuation policy without creating a second competing message archive.
+
+Automatic continuation is conservative. A conversation continues automatically only inside the same identity/project/group/thread boundary and the same transport/session boundary. A new transport session therefore does not silently merge with another conversation for the same user.
+
+Reply chains may explicitly identify the correct scoped conversation. Topic shifts preserve the conversation identity while creating a new topic node whose recent-turn context is isolated from the previous topic. Closing a conversation removes it from automatic continuation.
+
+Cross-transport continuation is explicit and fail-closed. The conversation must first be approved for cross-transport continuation; the same `global_user_id` and project remain mandatory. Private conversations may then create a new transport session attached to the approved conversation. Group/thread conversations cannot be silently converted into cross-transport private continuations.
+
+The production runtime resolves Conversation Context before semantic interpretation and Language Context uses canonical `conversation_id` as its continuity key when available. The Semantic Kernel receives bounded recent turns; ordinary capability payloads receive only conversation identifiers/transition metadata, not duplicated recent-turn message content.
+
+Conversation state never promotes dialogue into confirmed memory automatically and cannot broaden Identity, Scope, Access, Resource Authority or Action Gate permissions. Transition observability records IDs/state/counts rather than full message bodies.
+
 ## Block 16.12 — User Settings & Preferences
 Owns typed user preferences keyed by `global_user_id`, including language, locale, timezone, response presentation and notification preferences. Preferences cannot weaken mandatory safety/authorization policy.
 
@@ -101,6 +121,10 @@ Owns controlled enablement, cohorts, rollout and kill switches. A feature flag c
 - Resource authority never replaces role/grant checks or Action Gate.
 - Resource-targeted execution fails closed without matching verified authority evidence.
 - Parent-resource authority does not inherit unless explicitly configured.
+- Conversation context never creates or confirms identity, ownership, permissions or long-term memory.
+- Separate transport sessions/conversations do not automatically merge.
+- Group/thread scope remains authoritative for dialogue continuity.
+- Cross-transport conversation continuation requires explicit approval.
 - Connections never expose raw credentials to ordinary context.
 - Connection possession does not establish user identity or resource ownership.
 - Unavailable/revoked connections fail closed before provider credential/network use on integrated paths.

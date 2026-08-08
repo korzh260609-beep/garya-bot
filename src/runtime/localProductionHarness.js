@@ -90,19 +90,18 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const store = persistence ? createPostgresObservabilityStore({ observabilityRepository: persistence.repositories.observability }) : createInMemoryObservabilityStore();
   const observability = createObservabilityService({ store });
   const resources = persistence ? [persistence, store] : [];
-  const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, observability, languageContextService, resources });
+  const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, observability, languageContextService, policyLayer, resources });
 
   const identityResolver = async ({ platformFacts, scopeFacts }) => {
     const globalUserId = `${platformFacts.platform}:${platformFacts.platformUserId}`;
     const roles = ['monarch'];
-    const policy = policyLayer.resolve({ roles });
     if (persistence) {
       await persistence.repositories.identities.link({ platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, globalUserId, metadata: { fixture: true } });
       await persistence.repositories.access.grantRole({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, role: 'monarch' });
       for (const name of capabilityNames) await persistence.repositories.access.grantPermission({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, grantName: `capability:${name}` });
     }
     return {
-      identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles, grants: capabilityNames.map((name) => `capability:${name}`), authenticationLevel: 'verified', metadata: { policy } }),
+      identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles, grants: capabilityNames.map((name) => `capability:${name}`), authenticationLevel: 'verified' }),
       scopeContext: createScopeContext({ userScope: globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, allowedCapabilities: capabilityNames })
     };
   };

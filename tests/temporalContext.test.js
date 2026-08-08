@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTemporalService, createInMemoryTimezoneStore } from '../src/temporal/temporalService.js';
+import { createInMemoryTimezoneStore } from '../src/temporal/temporalService.js';
+import { createTemporalContextService } from '../src/temporal/temporalContextService.js';
 import { createTemporalTaskStore } from '../src/temporal/temporalTaskStore.js';
 import { createTemporalMemoryProvider } from '../src/temporal/temporalMemoryProvider.js';
 import { createTemporalAwareMeaningInterpreter } from '../src/temporal/temporalMeaningInterpreter.js';
@@ -12,7 +13,7 @@ import { createLocalProductionHarness } from '../src/runtime/localProductionHarn
 const REFERENCE = new Date('2026-08-08T13:05:00.000Z');
 
 function serviceAt(instant = REFERENCE) {
-  return createTemporalService({ clock: () => new Date(instant), timezoneStore: createInMemoryTimezoneStore() });
+  return createTemporalContextService({ clock: () => new Date(instant), timezoneStore: createInMemoryTimezoneStore() });
 }
 
 function canonical(text, globalUserId = 'user-1') {
@@ -64,6 +65,22 @@ test('relative quantities preserve exact elapsed time for hours and local wall c
   assert.equal(hours.utcStart, '2026-08-08T15:05:00.000Z');
   assert.equal(days.localStart, '2026-08-11T16:05:00');
   assert.equal(ago.localStart, '2026-08-05T16:05:00');
+});
+
+test('implicit one-unit expressions such as через неделю are deterministic', () => {
+  const temporal = serviceAt();
+  const week = temporal.resolveExpression('через неделю', { timeZone: 'Europe/Kyiv' });
+  const hour = temporal.resolveExpression('через час', { timeZone: 'Europe/Kyiv' });
+  assert.equal(week.localStart, '2026-08-15T16:05:00');
+  assert.equal(hour.utcStart, '2026-08-08T14:05:00.000Z');
+  assert.equal(week.originalExpression, 'через неделю');
+});
+
+test('one-month relative arithmetic clamps to the last valid calendar day', () => {
+  const temporal = serviceAt('2026-01-31T08:00:00.000Z');
+  const result = temporal.resolveExpression('через месяц', { timeZone: 'Europe/Kyiv' });
+  assert.equal(result.localStart, '2026-02-28T10:00:00');
+  assert.equal(result.utcStart, '2026-02-28T08:00:00.000Z');
 });
 
 test('explicit tomorrow clock time normalizes to UTC', () => {
@@ -139,7 +156,7 @@ test('TemporalTaskStore converts relative local schedule into durable UTC instan
     scope: { userScope: 'user-1', projectScope: 'sg2.1', groupScope: null, threadScope: null },
     input: { taskId: 'task-temporal', temporalExpression: 'завтра в 10:00', title: 'test' }
   });
-  assert.equal(task.payload.runAt ?? task.payload.temporal?.utcInstant, '2026-08-09T07:00:00.000Z');
+  assert.equal(task.runAt ?? task.payload.temporal?.utcInstant, '2026-08-09T07:00:00.000Z');
   assert.equal(task.payload.temporal.timeZone, 'Europe/Kyiv');
   assert.equal(task.payload.temporal.originalExpression, 'завтра в 10:00');
 });

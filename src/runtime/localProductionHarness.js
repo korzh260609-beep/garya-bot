@@ -15,6 +15,11 @@ import { createInMemoryObservabilityStore } from '../observability/inMemoryObser
 import { createObservabilityService } from '../observability/observabilityService.js';
 import { createLocalInterfaceHarness } from '../interfaces/localHarness.js';
 import { createProductionAI } from '../ai/createProductionAI.js';
+import { createTemporalService, createInMemoryTimezoneStore } from '../temporal/temporalService.js';
+import { createPostgresTimezoneStore } from '../temporal/postgresTimezoneStore.js';
+import { createTemporalAwareMeaningInterpreter } from '../temporal/temporalMeaningInterpreter.js';
+import { createTemporalCapabilities, TEMPORAL_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
+import { createTemporalTaskStore } from '../temporal/temporalTaskStore.js';
 import { createProductionRuntime } from './createProductionRuntime.js';
 import { loadRuntimeConfig } from './config.js';
 
@@ -22,15 +27,18 @@ function aiRequested(env) {
   return ['1', 'true', 'yes', 'on'].includes(String(env.SG_AI_ENABLED ?? '').trim().toLowerCase());
 }
 
-export function createLocalProductionHarness({ env = {}, interpretationResolver, fetchImpl = globalThis.fetch } = {}) {
-  const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16', SG_PROJECT_SCOPE: 'sg2.1', ...env });
+export function createLocalProductionHarness({ env = {}, interpretationResolver, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
+  const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16.5', SG_PROJECT_SCOPE: 'sg2.1', ...env });
   const persistence = config.persistenceMode === 'postgres' ? createPostgresPersistence({ connectionString: config.databaseUrl, ssl: config.databaseSsl, applicationName: 'sg-2-1-runtime' }) : null;
-  const memoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory }) : createInMemoryMemoryProvider();
+  const memoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory, clock }) : createInMemoryMemoryProvider({ clock });
   const durableTaskQueue = persistence ? createPostgresTaskQueue({ database: persistence.database }) : null;
-  const taskStore = persistence ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue }) : undefined;
+  const baseTaskStore = persistence ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue }) : undefined;
+  const timezoneStore = persistence ? createPostgresTimezoneStore({ database: persistence.database }) : createInMemoryTimezoneStore();
+  const temporalService = createTemporalService({ clock, timezoneStore });
+  const taskStore = baseTaskStore ? createTemporalTaskStore({ taskStore: baseTaskStore, temporalService }) : undefined;
   const contextResolver = createContextResolver({ memoryProvider });
   const productionAI = !interpretationResolver && aiRequested(env) ? createProductionAI({ env, fetchImpl }) : null;
-  const meaningInterpreter = productionAI?.meaningInterpreter ?? createFixtureMeaningInterpreter(interpretationResolver ?? ((input) => ({
+  const baseMeaningInterpreter = productionAI?.meaningInterpreter ?? createFixtureMeaningInterpreter(interpretationResolver ?? ((input) => ({
     meaning: `Runtime processed: ${input.text}`,
     goal: 'respond',
     intent: 'answer',
@@ -39,16 +47,22 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     candidateActions: [{ type: 'answer', name: 'compose-answer', actionClass: 'analysis' }],
     rationale: 'Deterministic production-like interpretation with AI disabled.',
   })));
+  const meaningInterpreter = createTemporalAwareMeaningInterpreter({ baseInterpreter: baseMeaningInterpreter, temporalService });
   const semanticPipeline = createContextAwareSemanticPipeline({ semanticKernel: createSemanticKernel({ meaningInterpreter }), contextResolver });
-  const capabilities = createProductionCapabilities({
-    memoryProvider,
-    taskStore,
-    sourceRetriever: async ({ sourceId, query }) => sourceId === 'local-fixture'
-      ? { ok: true, message: 'Approved local source retrieved', query, data: { sourceId, query }, sources: [sourceId] }
-      : { ok: false, code: 'source-not-approved', message: 'Source is not approved', retryable: false, sources: [] },
-    repositoryAnalyzer: async ({ mode, files = [] }) => ({ mode, files: [...files], findings: [], mutated: false, message: 'Repository analysis completed in read/prepare-only mode', sources: ['repository-read-source'] }),
-    diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: PRODUCTION_CAPABILITY_NAMES.length })
-  });
+  const temporalCapabilities = createTemporalCapabilities({ temporalService });
+  const capabilityNames = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...TEMPORAL_CAPABILITY_NAMES]);
+  const capabilities = Object.freeze([
+    ...createProductionCapabilities({
+      memoryProvider,
+      taskStore,
+      sourceRetriever: async ({ sourceId, query }) => sourceId === 'local-fixture'
+        ? { ok: true, message: 'Approved local source retrieved', query, data: { sourceId, query }, sources: [sourceId] }
+        : { ok: false, code: 'source-not-approved', message: 'Source is not approved', retryable: false, sources: [] },
+      repositoryAnalyzer: async ({ mode, files = [] }) => ({ mode, files: [...files], findings: [], mutated: false, message: 'Repository analysis completed in read/prepare-only mode', sources: ['repository-read-source'] }),
+      diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length })
+    }),
+    ...temporalCapabilities
+  ]);
   const capabilityRegistry = createCapabilityRegistry({ capabilities });
   const capabilityExecutor = createCapabilityExecutor({ registry: capabilityRegistry });
   const actionGate = createActionGate({
@@ -67,15 +81,15 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     if (persistence) {
       await persistence.repositories.identities.link({ platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, globalUserId, metadata: { fixture: true } });
       await persistence.repositories.access.grantRole({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, role: 'monarch' });
-      for (const name of PRODUCTION_CAPABILITY_NAMES) {
+      for (const name of capabilityNames) {
         await persistence.repositories.access.grantPermission({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, grantName: `capability:${name}` });
       }
     }
     return {
-      identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles: ['monarch'], grants: PRODUCTION_CAPABILITY_NAMES.map((name) => `capability:${name}`), authenticationLevel: 'verified' }),
-      scopeContext: createScopeContext({ userScope: globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, allowedCapabilities: PRODUCTION_CAPABILITY_NAMES })
+      identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles: ['monarch'], grants: capabilityNames.map((name) => `capability:${name}`), authenticationLevel: 'verified' }),
+      scopeContext: createScopeContext({ userScope: globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, allowedCapabilities: capabilityNames })
     };
   };
   const transport = createLocalInterfaceHarness({ identityResolver, requestHandler: runtime.handle });
-  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore });
+  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, capabilityNames });
 }

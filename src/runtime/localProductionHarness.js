@@ -1,4 +1,5 @@
 import { createIdentityContext, createScopeContext } from '../contracts/context.js';
+import { createVersionedCapabilityExecutor } from '../contracts/versionedCapabilityExecutor.js';
 import { createFixtureMeaningInterpreter } from '../semantic/meaningInterpreter.js';
 import { createSemanticKernel } from '../semantic/semanticKernel.js';
 import { createContextAwareSemanticPipeline } from '../memory/contextAwareSemanticPipeline.js';
@@ -100,8 +101,8 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   ]);
   const capabilityRegistry = createCapabilityRegistry({ capabilities });
   const baseCapabilityExecutor = createCapabilityExecutor({ registry: capabilityRegistry });
-  const featureCapabilityExecutor = createFeatureFlaggedCapabilityExecutor({ executor: baseCapabilityExecutor, featureFlags });
-  const capabilityExecutor = Object.freeze({ async execute(input) { const result = await featureCapabilityExecutor.execute(input); await controlPlane.contractVersioning.resolve('capability-result', { version: '1.0', ...result }, { traceContext: enrichTrace(input.traceContext ?? input.actionRequest?.traceContext, config), source: 'production-runtime' }); return result; } });
+  const versionedCapabilityExecutor = createVersionedCapabilityExecutor({ executor: baseCapabilityExecutor, contractVersioning: controlPlane.contractVersioning });
+  const capabilityExecutor = createFeatureFlaggedCapabilityExecutor({ executor: versionedCapabilityExecutor, featureFlags });
   const actionGate = createActionGate({ availableSources: ['approved-source-registry', 'repository-read-source'], availableTools: ['source-retriever', 'document-analyzer', 'repository-analyzer'] });
   const resources = persistence ? [persistence, connectionDeployment.resource, controlPlane.eventBus, store] : [connectionDeployment.resource, controlPlane.eventBus];
   const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, domainRuntime: controlPlane.domainRuntime, observability, languageContextService, conversationContextService, userSettingsService, policyLayer, resourceAuthorityRegistry, resources });

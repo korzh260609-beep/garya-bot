@@ -45,7 +45,7 @@ Factual claims requiring verification must use available sources or clearly disc
 Every capability declares input, output, action class, permissions, source/tool needs, risk, cost, confirmation, timeout, retry, observability and fallback behavior.
 
 ## D-012 — Transports are thin adapters
-Transports receive input, resolve channel metadata and identity links, create CanonicalRequest and deliver responses. They do not own semantics, durable memory, permissions, capability selection or domain logic.
+Transports receive input, resolve channel metadata and identity links, create CanonicalRequest and deliver responses. They do not own semantics, durable memory, permissions, capability selection, domain logic or final response-language policy.
 
 ## D-013 — Domain modules cannot redefine the core
 Crypto, psychology support, repository analysis, documents, billing and other domains consume platform contracts. They cannot change SG identity or core execution flow.
@@ -78,13 +78,15 @@ Constitution
 → Telegram Production Integration
 → Production AI Integration
 → Production Capabilities
+→ Temporal Context
+→ Language & Locale Context
 → Render Deployment
 → End-to-End Verification
 → Security and Operations
 → Pilot Launch
 ```
 
-Blocks 0–10 form the platform-core program. Blocks 11–19 and Pilot Launch form the production continuation defined by `pillars/roadmap/PRODUCTION_ROADMAP.md`.
+Blocks 0–10 form the platform-core program. Blocks 11–19, intermediate Blocks 16.5/16.6 and Pilot Launch form the production continuation defined by `pillars/roadmap/PRODUCTION_ROADMAP.md`.
 
 ## D-017 — Development procedure is fixed by workflow
 Every implementation block follows: scope → contracts → skeleton → config → minimal logic → tests → observability → safety → architecture verification → reversible commit → evidence.
@@ -105,3 +107,10 @@ After Semantic Kernel and Context and Memory are stable, the first production re
 The production continuation may compose modules, replace reference providers with durable implementations, connect real transports and AI providers, deploy services and add operational controls. It must not bypass or relocate Semantic Kernel, Identity and Scope, Decision Engine, Action Gate, Capability contracts, AI Router, memory boundaries, trust order or observability responsibilities.
 
 Production readiness requires real runtime evidence. Unit tests or a successful process start alone cannot prove Telegram delivery, persistence, worker recovery, deployment safety or pilot readiness.
+
+## D-023 — SG is multilingual by one shared core
+SG must not have separate language-specific versions. Users may communicate in any natural language that the connected reasoning model can understand. SG resolves message language, preferred language, conversation language, locale and response language through one transport-independent Language & Locale Context.
+
+The original user text remains available to Semantic Kernel; ordinary multilingual communication must not require mandatory pre-translation. Language commands, keywords or phrase bindings are not required interaction mechanisms. Preferred language belongs to `global_user_id`, not to a single platform account. Transports may provide locale/language hints but cannot own final response-language policy. AI providers may execute within SG-selected language context but do not become the owner of that policy.
+
+Language handling must preserve existing identity, scope, memory, Decision Engine, Action Gate, Capability System, AI Router, Temporal Context and observability boundaries.

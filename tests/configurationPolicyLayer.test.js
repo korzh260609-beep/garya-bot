@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createConfigurationPolicyLayer, DEFAULT_POLICY } from '../src/config/configurationPolicyLayer.js';
+import { createLocalProductionHarness } from '../src/runtime/localProductionHarness.js';
 
 test('resolves default policy deterministically', () => {
   const layer = createConfigurationPolicyLayer();
@@ -37,4 +38,29 @@ test('resolved policy and provenance are immutable snapshots', () => {
   assert.equal(Object.isFrozen(result.policy), true);
   assert.equal(Object.isFrozen(result.policy.repository), true);
   assert.equal(Object.isFrozen(result.provenance), true);
+});
+
+test('production runtime resolves policy context before semantic processing', async () => {
+  let seenPolicy = null;
+  const harness = createLocalProductionHarness({
+    interpretationResolver: (input) => {
+      seenPolicy = input.metadata.policyContext;
+      return {
+        meaning: `Echo: ${input.text}`,
+        goal: 'respond', intent: 'answer', entities: [], constraints: [], uncertainty: 0,
+        missingInformation: [], clarificationQuestion: null, contextNeeds: [], evidenceNeeds: [],
+        candidateActions: [{ type: 'answer', name: 'compose-answer', actionClass: 'analysis' }], rationale: 'fixture'
+      };
+    }
+  });
+  await harness.runtime.start();
+  try {
+    const result = await harness.transport.send({ text: 'policy check', userId: 'gary', projectId: 'sg2.1' });
+    assert.equal(seenPolicy.policy.ai.routerOnly, true);
+    assert.equal(seenPolicy.policy.ai.directProviderCallsAllowed, false);
+    assert.equal(seenPolicy.policy.repository.mutationMode, 'prepare-only');
+    assert.equal(result.response.data.policyContext.policy.memory.strictScopeIsolation, true);
+  } finally {
+    await harness.runtime.stop();
+  }
 });

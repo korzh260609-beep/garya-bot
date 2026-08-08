@@ -6,6 +6,18 @@ function handler(handlers, name, fallback) {
 
 const passthrough = (domain, operation) => async ({ input, sources, memory }) => Object.freeze({ domain, operation, input, sources, memory });
 
+export const BUILT_IN_DOMAIN_PERMISSIONS = Object.freeze([
+  'documents.read',
+  'documents.write.prepare',
+  'repository.read',
+  'repository.write.prepare',
+  'market.read',
+  'billing.prepare',
+  'billing.execute',
+  'psychology.use',
+  'kingdom.use'
+]);
+
 export function createBuiltInDomainModules(handlers = {}) {
   return Object.freeze([
     {

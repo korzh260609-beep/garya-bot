@@ -26,7 +26,7 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 20. `16_5_TEMPORAL_CONTEXT.md` — implementation and acceptance evidence for Block 16.5
 21. `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — implementation and acceptance evidence for Block 16.6
 22. `16_7_CONFIGURATION_AND_POLICY_LAYER.md` — implementation and acceptance evidence for Block 16.7
-23. `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md` — specification and future acceptance evidence for Block 16.8
+23. `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md` — implementation and acceptance evidence for Block 16.8
 24. `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md` — specification and future acceptance evidence for Block 16.9
 25. `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md` — specification and future acceptance evidence for Block 16.10
 26. `16_11_SESSION_AND_CONVERSATION_CONTEXT.md` — specification and future acceptance evidence for Block 16.11
@@ -49,8 +49,8 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 7. Block 16.5 — Temporal Context — completed
 8. Block 16.6 — Language & Locale Context — completed
 9. Block 16.7 — Configuration & Policy Layer — completed
-10. Block 16.8 — Secrets & Credentials Management — next
-11. Block 16.9 — External Connections Registry
+10. Block 16.8 — Secrets & Credentials Management — completed
+11. Block 16.9 — External Connections Registry — next
 12. Block 16.10 — Resource Ownership & Authority Model
 13. Block 16.11 — Session & Conversation Context
 14. Block 16.12 — User Settings & Preferences

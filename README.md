@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and completed executable production implementation through Block 16.7, with foundational Blocks 16.8–16.16 planned before Render deployment.
+This branch contains the active SG 2.1 architecture and completed executable production foundation through Block 16.16. Repository-wide audit hardening has also wired the Internal Event Bus, Contract Versioning and Domain Runtime into production composition and closed cross-module observability, feature-result and Render-startup compatibility defects. Block 17 — Render Deployment is next.
 
 ## Requirements
 - Node.js 22
@@ -51,9 +51,7 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 16.5 — Temporal Context
 - Block 16.6 — Language & Locale Context
 - Block 16.7 — Configuration & Policy Layer
-
-### Planned foundational continuation
-- Block 16.8 — Secrets & Credentials Management — next
+- Block 16.8 — Secrets & Credentials Management
 - Block 16.9 — External Connections Registry
 - Block 16.10 — Resource Ownership & Authority Model
 - Block 16.11 — Session & Conversation Context
@@ -63,7 +61,7 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 16.15 — Schema & Contract Versioning
 - Block 16.16 — Feature Flags & Controlled Rollout
 
-### Then
+### Next
 - Block 17 — Render Deployment
 - Block 18 — End-to-End Verification
 - Block 19 — Security and Operations
@@ -167,9 +165,10 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - centralized replaceable domain registry and runtime
 - document, repository, market, billing, psychology and Kingdom GARYA modules
 - domain permissions, sources, memory, identity, scope and trace propagation
-- mandatory Action Gate boundary before domain handlers execute
+- canonical outer Action Gate evidence is bound to the same actor/project/group/thread before domain execution
 - fail-closed source and permission validation
 - domains cannot own or redefine Semantic Kernel, Identity, Action Gate or trust order
+- production composition includes the Domain Runtime; source-backed domains remain fail-closed until their approved source resolvers are configured
 - cross-domain namespace and scope-isolation tests
 
 ### Block 11 — Runtime Composition
@@ -268,15 +267,23 @@ Detailed specification and acceptance evidence: `pillars/roadmap/16_6_LANGUAGE_A
 
 Detailed specification and acceptance evidence: `pillars/roadmap/16_7_CONFIGURATION_AND_POLICY_LAYER.md`.
 
-## Planned foundational layers
-Blocks 16.8–16.16 are specified in individual roadmap files and architecturally coordinated by `pillars/architecture/FOUNDATIONAL_CONTROL_LAYERS.md`.
-
-Their dependency order is:
+### Blocks 16.8–16.16 — Foundational control layers
+The completed dependency chain is:
 `Secrets → Connections → Resource Authority → Conversation Context → User Settings → Delivery Router → Event Bus → Contract Versioning → Feature Flags`.
 
+The repository-wide audit after Block 16.16 additionally verified and hardened the cross-module composition:
+- legacy operational observability event names are normalized into the canonical observability contract instead of crashing producers;
+- Internal Event Bus is a live production resource with PostgreSQL-backed delivery where persistence is enabled;
+- Contract Versioning validates canonical input and capability input/result boundaries and retains PostgreSQL quarantine support;
+- Feature Flag disabled execution returns the canonical `CapabilityResult` contract;
+- Domain Runtime consumes the canonical GateDecision for the same actor/scope and cannot create an independent authority path;
+- Render startup rolls back the HTTP server and runtime if webhook registration fails after partial startup.
+
+Individual implementation and acceptance evidence remains in `pillars/roadmap/16_8_*.md` through `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
+
 ## Runtime direction
-Current executable path remains valid through Block 16.7. The planned target path adds the remaining approved foundational context/control layers without relocating SG authority:
-`Platform Input → Transport Adapter → Identity/Scope → Language/Locale → Conversation Context → Semantic Kernel → Context Resolution → Decision Engine → Capability Selection → Connection/Resource Authority where required → Action Gate → Execution → Delivery Router where required → Response → Observability/Internal Events`.
+Current production-composed path is:
+`Platform Input → Transport Adapter → Identity/Scope → User Settings/Conversation/Language Context → Contract Version Check → Semantic Kernel → Context Resolution → Decision Engine → Capability Selection → Connection/Resource Authority where required → Action Gate → Feature/Contract-gated Capability or Domain Runtime → Delivery Router where required → Response → Observability/Internal Events`.
 
 The production interpretation route remains:
 `ProductionMeaningInterpreter → AIRouter → ProductionAiPolicy → ModelRegistry → AIProvider`
@@ -308,7 +315,7 @@ The production interpretation route remains:
 - Original natural-language text remains available to Semantic Kernel; multilingual support does not require mandatory pre-translation.
 
 ## Current boundary
-Blocks 0–16.7 provide the executable SG 2.1 foundation. Blocks 16.8–16.16 are the mandatory planned foundational continuation, beginning with Block 16.8 Secrets & Credentials Management. Block 17 Render Deployment follows only after completion evidence for Blocks 16.8–16.16 exists, then Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
+Blocks 0–16.16 provide the completed executable SG 2.1 foundation. Block 17 Render Deployment is the next roadmap stage, followed by Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
 
 ## Authority
 Read in this order:

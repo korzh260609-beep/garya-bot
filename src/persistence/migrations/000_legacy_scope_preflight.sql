@@ -65,6 +65,9 @@ BEGIN
     ELSE
       UPDATE conversations SET conversation_id = COALESCE(conversation_id, 'legacy:' || md5(ctid::text)) WHERE conversation_id IS NULL;
     END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='conversations' AND column_name='chat_id') THEN
+      EXECUTE 'ALTER TABLE conversations ALTER COLUMN chat_id DROP NOT NULL';
+    END IF;
     UPDATE conversations SET project_scope = 'sg2.1' WHERE project_scope IS NULL;
     EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS sg21_conversations_id_unique_idx ON conversations(conversation_id)';
   END IF;
@@ -85,6 +88,9 @@ BEGIN
       EXECUTE 'UPDATE messages SET message_id = COALESCE(message_id, ''legacy:'' || id::text) WHERE message_id IS NULL';
     ELSE
       UPDATE messages SET message_id = COALESCE(message_id, 'legacy:' || md5(ctid::text)) WHERE message_id IS NULL;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='messages' AND column_name='chat_id') THEN
+      EXECUTE 'ALTER TABLE messages ALTER COLUMN chat_id DROP NOT NULL';
     END IF;
     UPDATE messages SET project_scope = 'sg2.1' WHERE project_scope IS NULL;
     EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS sg21_messages_id_unique_idx ON messages(message_id)';

@@ -23,8 +23,7 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 17. `14_TELEGRAM_PRODUCTION_INTEGRATION.md` — implementation and acceptance evidence for Block 14
 18. `15_PRODUCTION_AI_INTEGRATION.md` — implementation and acceptance evidence for Block 15
 19. `16_PRODUCTION_CAPABILITIES.md` — implementation and acceptance evidence for Block 16
-
-Block 16.5 is currently defined canonically inside `PRODUCTION_ROADMAP.md`. A separate implementation/acceptance evidence file should be added when Block 16.5 is implemented, following the same completion rule as other production blocks.
+20. `16_5_TEMPORAL_CONTEXT.md` — implementation and acceptance evidence for Block 16.5
 
 ## Production continuation
 
@@ -36,8 +35,8 @@ Block 16.5 is currently defined canonically inside `PRODUCTION_ROADMAP.md`. A se
 4. Block 14 — Telegram Production Integration — completed
 5. Block 15 — Production AI Integration — completed
 6. Block 16 — Production Capabilities — completed
-7. Block 16.5 — Temporal Context — next
-8. Block 17 — Render Deployment
+7. Block 16.5 — Temporal Context — completed
+8. Block 17 — Render Deployment — next
 9. Block 18 — End-to-End Verification
 10. Block 19 — Security and Operations
 11. Pilot Launch

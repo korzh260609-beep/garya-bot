@@ -36,6 +36,7 @@ export function createTelegramProductionIntegration({
   credentialAccessContext = null,
   webhookCredentialId = 'sg.telegram.webhook',
   botClient,
+  deliveryRouter = null,
   updateStore,
   identityResolver,
   runtime,
@@ -50,6 +51,7 @@ export function createTelegramProductionIntegration({
   const legacySecret = hasCredentialManager ? null : requiredString(secretToken, 'telegram webhook secret');
   if (hasCredentialManager && (!credentialAccessContext?.actor || !credentialAccessContext?.scope)) throw new TypeError('telegram webhook credential access context is required');
   if (!botClient || typeof botClient.sendMessage !== 'function') throw new TypeError('botClient.sendMessage is required');
+  if (deliveryRouter && typeof deliveryRouter.route !== 'function') throw new TypeError('deliveryRouter.route is required');
   if (!updateStore || typeof updateStore.claim !== 'function' || typeof updateStore.complete !== 'function' || typeof updateStore.fail !== 'function') throw new TypeError('Telegram update store is required');
   if (!identityResolver || typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
   if (!runtime || typeof runtime.handle !== 'function') throw new TypeError('runtime.handle is required');
@@ -69,14 +71,29 @@ export function createTelegramProductionIntegration({
   const adapter = createTelegramTransportAdapter({
     identityResolver,
     requestHandler: (canonicalInput) => runtime.handle(canonicalInput),
-    responseDeliverer: async ({ response, platformInput }) => {
+    responseDeliverer: async ({ response, canonicalInput, platformInput }) => {
       const message = platformInput.message ?? platformInput.edited_message ?? platformInput.channel_post;
-      await botClient.sendMessage({
-        chatId: message.chat.id,
-        text: response.message,
-        messageThreadId: message.message_thread_id ?? null,
-        replyToMessageId: message.message_id
+      if (!deliveryRouter) {
+        await botClient.sendMessage({ chatId: message.chat.id, text: response.message, messageThreadId: message.message_thread_id ?? null, replyToMessageId: message.message_id });
+        return;
+      }
+      const result = await deliveryRouter.route({
+        kind: 'current-response',
+        actorGlobalUserId: canonicalInput.identityContext.globalUserId,
+        recipientGlobalUserId: canonicalInput.identityContext.globalUserId,
+        projectScope: canonicalInput.scopeContext.projectScope,
+        message: response.message,
+        originTarget: { transport: 'telegram', address: String(message.chat.id), threadId: message.message_thread_id == null ? null : String(message.message_thread_id), replyToMessageId: String(message.message_id) },
+        idempotencyKey: `telegram-response:${platformInput.update_id}`,
+        locale: canonicalInput.locale,
+        traceContext: canonicalInput.traceContext,
+        metadata: { responseStatus: response.status }
       });
+      if (result.status !== 'delivered') {
+        const error = new Error(`Telegram delivery failed: ${result.failureCode ?? result.status}`);
+        error.code = result.failureCode ?? 'telegram-delivery-failed';
+        throw error;
+      }
     },
     environment,
     revision,
@@ -94,9 +111,8 @@ export function createTelegramProductionIntegration({
     if (!body || typeof body !== 'object' || Array.isArray(body)) return Object.freeze({ statusCode: 400, body: { ok: false, code: 'invalid-update' } });
 
     let claim;
-    try {
-      claim = await updateStore.claim(body);
-    } catch (error) {
+    try { claim = await updateStore.claim(body); }
+    catch (error) {
       observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: 'telegram-dedupe-failed' });
       return Object.freeze({ statusCode: 503, body: { ok: false, code: 'telegram-dedupe-failed' } });
     }

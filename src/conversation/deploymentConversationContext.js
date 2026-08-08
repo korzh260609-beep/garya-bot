@@ -8,7 +8,9 @@ function auditAdapter(observability, config) {
     const correlation = `conversation-${sequence}`;
     return observability.record({
       ...event,
+      eventClass: 'audit_event',
       traceContext: { traceId: correlation, requestId: correlation, environment: config.environment, revision: config.revision },
+      reason: event.data?.reason ?? null,
       data: { ...(event.data ?? {}), conversationEventClass: event.eventClass }
     });
   };

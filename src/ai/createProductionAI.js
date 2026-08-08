@@ -23,6 +23,9 @@ export function createProductionAI({
   credentialManager = null,
   credentialAccessContext = null,
   openAiCredentialId = 'sg.openai.primary',
+  connectionRegistry = null,
+  connectionAccessContext = null,
+  openAiConnectionId = 'openai',
 } = {}) {
   const policy = createProductionAiPolicy(env);
   const registry = createRegistryFromEnvironment(env);
@@ -37,6 +40,9 @@ export function createProductionAI({
     credentialManager: effectiveCredentialManager,
     credentialAccessContext: effectiveCredentialAccessContext,
     credentialId: openAiCredentialId,
+    connectionRegistry,
+    connectionAccessContext,
+    connectionId: openAiConnectionId,
     baseUrl: env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
     reasoningEffort: env.OPENAI_REASONING_EFFORT ?? 'medium',
     fetchImpl,
@@ -51,5 +57,5 @@ export function createProductionAI({
     retryDelayMs: aiConfig?.retryDelayMs ?? nonNegativeInteger(env.AI_RETRY_DELAY_MS, 100),
   });
   const meaningInterpreter = createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure: true });
-  return Object.freeze({ policy, registry, telemetry, aiRouter, meaningInterpreter, credentialId: openAiCredentialId });
+  return Object.freeze({ policy, registry, telemetry, aiRouter, meaningInterpreter, credentialId: openAiCredentialId, connectionId: openAiConnectionId });
 }

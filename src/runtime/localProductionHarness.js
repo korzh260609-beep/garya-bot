@@ -27,6 +27,7 @@ import { createTemporalMemoryProvider } from '../temporal/temporalMemoryProvider
 import { createLanguageContextService, createInMemoryLanguageStore } from '../language/languageContextService.js';
 import { createPostgresLanguageStore } from '../language/postgresLanguageStore.js';
 import { createLanguageAwareConversationResponder } from '../language/languageAwareConversationResponder.js';
+import { createLanguageCapabilities } from '../language/languageCapabilities.js';
 import { createProductionRuntime } from './createProductionRuntime.js';
 import { loadRuntimeConfig } from './config.js';
 
@@ -63,7 +64,8 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const meaningInterpreter = createTemporalAwareMeaningInterpreter({ baseInterpreter: baseMeaningInterpreter, temporalService });
   const semanticPipeline = createContextAwareSemanticPipeline({ semanticKernel: createSemanticKernel({ meaningInterpreter }), contextResolver });
   const temporalCapabilities = createTemporalCapabilities({ temporalService, memoryProvider, recurringScheduler });
-  const capabilityNames = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...temporalCapabilities.map((item) => item.name)]);
+  const languageCapabilities = createLanguageCapabilities({ languageContextService });
+  const capabilityNames = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...temporalCapabilities.map((item) => item.name), ...languageCapabilities.map((item) => item.name)]);
   const capabilities = Object.freeze([
     ...createProductionCapabilities({
       memoryProvider,
@@ -75,7 +77,8 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
       repositoryAnalyzer: async ({ mode, files = [] }) => ({ mode, files: [...files], findings: [], mutated: false, message: 'Repository analysis completed in read/prepare-only mode', sources: ['repository-read-source'] }),
       diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length, languageContext: 'ready' })
     }),
-    ...temporalCapabilities
+    ...temporalCapabilities,
+    ...languageCapabilities
   ]);
   const capabilityRegistry = createCapabilityRegistry({ capabilities });
   const capabilityExecutor = createCapabilityExecutor({ registry: capabilityRegistry });
@@ -98,5 +101,5 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     };
   };
   const transport = createLocalInterfaceHarness({ identityResolver, requestHandler: runtime.handle });
-  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageContextService, capabilityNames });
+  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageContextService, languageCapabilities, capabilityNames });
 }

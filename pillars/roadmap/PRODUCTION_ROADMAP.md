@@ -29,16 +29,17 @@ Completed and acceptance-verified:
 - Block 16.5 — Temporal Context;
 - Block 16.6 — Language & Locale Context;
 - Block 16.7 — Configuration & Policy Layer;
-- Block 16.8 — Secrets & Credentials Management.
+- Block 16.8 — Secrets & Credentials Management;
+- Block 16.9 — External Connections Registry.
 
-Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, and a bounded Secrets & Credentials layer.
+Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, and a durable External Connections Registry that gates integrated provider execution.
 
 ## Current implementation boundary
 
-- Blocks 11–16.8 listed above are completed.
-- Blocks 16.9–16.16 are planned mandatory foundational work.
-- Block 16.9 is next.
-- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.9–16.16.
+- Blocks 11–16.9 listed above are completed.
+- Blocks 16.10–16.16 are planned mandatory foundational work.
+- Block 16.10 is next.
+- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.10–16.16.
 - Blocks 18–19 and Pilot Launch remain subsequent stages.
 
 ---
@@ -115,6 +116,13 @@ Stable credential handles, deployment secret-store adapters, permission/scope-bo
 
 Acceptance evidence: `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md`.
 
+## Block 16.9 — External Connections Registry
+**Status:** Completed.
+
+Stable external connection records, provider/account metadata, owner/project scope, Block 16.8 credential handles, explicit scopes/permissions/capabilities, health/lifecycle state, PostgreSQL persistence, audit/discovery APIs, deployment bootstrap, and fail-closed OpenAI/Telegram provider gating.
+
+Acceptance evidence: `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md`.
+
 ---
 
 # Foundational continuation before Render
@@ -126,7 +134,7 @@ Canonical dependency direction:
 ```text
 16.7 Configuration & Policy [completed]
 → 16.8 Secrets & Credentials [completed]
-→ 16.9 External Connections Registry
+→ 16.9 External Connections Registry [completed]
 → 16.10 Resource Ownership & Authority
 → 16.11 Session & Conversation Context
 → 16.12 User Settings & Preferences
@@ -212,7 +220,7 @@ Detailed specification and evidence: `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md
 # Block 16.9 — External Connections Registry
 
 ## Status
-Planned — next mandatory block.
+Completed and acceptance-verified.
 
 ## Goal
 Create one authoritative inventory and lifecycle model for external service/account connections available to SG.
@@ -230,17 +238,17 @@ Create one authoritative inventory and lifecycle model for external service/acco
 
 ## Boundaries
 - a connection is not identity;
-- a connection does not prove ownership of every provider resource;
+- a connection does not prove ownership of every external resource;
 - raw credentials are not stored in registry records;
-- state changes remain gated and audited.
+- state changes remain permission-bound and audited.
 
 ## Acceptance criteria
-- SG can determine which services/accounts are connected and under whose authority;
-- multiple accounts for one provider remain distinguishable;
-- unavailable/revoked connections cannot silently execute;
-- connection state survives restart and remains scope-isolated.
+- [x] SG can determine which services/accounts are connected and under whose authority;
+- [x] multiple accounts for one provider remain distinguishable;
+- [x] unavailable/revoked connections cannot silently execute;
+- [x] connection state survives restart and remains scope-isolated.
 
-Detailed specification: `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md`.
+Detailed specification and evidence: `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md`.
 
 ---
 
@@ -500,7 +508,7 @@ Detailed specification: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
 # Block 17 — Render Deployment
 
 ## Status
-Planned after Blocks 16.9–16.16.
+Planned after Blocks 16.10–16.16.
 
 ## Goal
 Deploy SG 2.1 as a controlled production environment on Render after foundational control layers are implementation-verified.

@@ -24,6 +24,9 @@ import { createTemporalAwareMeaningInterpreter } from '../temporal/temporalMeani
 import { createTemporalCapabilities } from '../temporal/temporalCapabilities.js';
 import { createTemporalTaskStore } from '../temporal/temporalTaskStore.js';
 import { createTemporalMemoryProvider } from '../temporal/temporalMemoryProvider.js';
+import { createLanguageContextService, createInMemoryLanguageStore } from '../language/languageContextService.js';
+import { createPostgresLanguageStore } from '../language/postgresLanguageStore.js';
+import { createLanguageAwareConversationResponder } from '../language/languageAwareConversationResponder.js';
 import { createProductionRuntime } from './createProductionRuntime.js';
 import { loadRuntimeConfig } from './config.js';
 
@@ -32,7 +35,7 @@ function aiRequested(env) {
 }
 
 export function createLocalProductionHarness({ env = {}, interpretationResolver, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
-  const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16.5', SG_PROJECT_SCOPE: 'sg2.1', ...env });
+  const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16.6', SG_PROJECT_SCOPE: 'sg2.1', ...env });
   const persistence = config.persistenceMode === 'postgres' ? createPostgresPersistence({ connectionString: config.databaseUrl, ssl: config.databaseSsl, applicationName: 'sg-2-1-runtime' }) : null;
   const baseMemoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory, clock }) : createInMemoryMemoryProvider({ clock });
   const memoryProvider = createTemporalMemoryProvider({ memoryProvider: baseMemoryProvider });
@@ -40,11 +43,14 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const baseTaskStore = persistence ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue }) : createInMemoryProductionTaskStore();
   const timezoneStore = persistence ? createPostgresTimezoneStore({ database: persistence.database }) : createInMemoryTimezoneStore();
   const temporalService = createTemporalContextService({ clock, timezoneStore });
+  const languageStore = persistence ? createPostgresLanguageStore({ database: persistence.database }) : createInMemoryLanguageStore();
+  const languageContextService = createLanguageContextService({ store: languageStore, fallbackLanguage: env.SG_FALLBACK_LANGUAGE ?? 'en' });
   const recurrenceEngine = createRecurrenceEngine({ temporalService });
   const recurringScheduler = persistence ? createPostgresRecurringScheduler({ database: persistence.database, recurrenceEngine, clock }) : null;
   const taskStore = createTemporalTaskStore({ taskStore: baseTaskStore, temporalService, recurringScheduler });
   const contextResolver = createContextResolver({ memoryProvider });
   const productionAI = !interpretationResolver && aiRequested(env) ? createProductionAI({ env, fetchImpl }) : null;
+  const conversationResponder = createLanguageAwareConversationResponder({ aiRouter: productionAI?.aiRouter ?? null });
   const baseMeaningInterpreter = productionAI?.meaningInterpreter ?? createFixtureMeaningInterpreter(interpretationResolver ?? ((input) => ({
     meaning: `Runtime processed: ${input.text}`,
     goal: 'respond',
@@ -62,11 +68,12 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     ...createProductionCapabilities({
       memoryProvider,
       taskStore,
+      conversationResponder,
       sourceRetriever: async ({ sourceId, query }) => sourceId === 'local-fixture'
         ? { ok: true, message: 'Approved local source retrieved', query, data: { sourceId, query }, sources: [sourceId] }
         : { ok: false, code: 'source-not-approved', message: 'Source is not approved', retryable: false, sources: [] },
       repositoryAnalyzer: async ({ mode, files = [] }) => ({ mode, files: [...files], findings: [], mutated: false, message: 'Repository analysis completed in read/prepare-only mode', sources: ['repository-read-source'] }),
-      diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length })
+      diagnosticsProvider: async () => ({ status: 'ready', revision: config.revision, environment: config.environment, capabilityCount: capabilityNames.length, languageContext: 'ready' })
     }),
     ...temporalCapabilities
   ]);
@@ -76,7 +83,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const store = persistence ? createPostgresObservabilityStore({ observabilityRepository: persistence.repositories.observability }) : createInMemoryObservabilityStore();
   const observability = createObservabilityService({ store });
   const resources = persistence ? [persistence, store] : [];
-  const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, observability, resources });
+  const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, observability, languageContextService, resources });
 
   const identityResolver = async ({ platformFacts, scopeFacts }) => {
     const globalUserId = `${platformFacts.platform}:${platformFacts.platformUserId}`;
@@ -91,5 +98,5 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     };
   };
   const transport = createLocalInterfaceHarness({ identityResolver, requestHandler: runtime.handle });
-  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, capabilityNames });
+  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageContextService, capabilityNames });
 }

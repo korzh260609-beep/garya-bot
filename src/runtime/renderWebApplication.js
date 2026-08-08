@@ -114,8 +114,16 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   const effectiveEnv = productionEnv(env);
   const harness = harnessFactory({ env: effectiveEnv, fetchImpl });
   if (!harness.persistence) throw new Error('Render web service requires DATABASE_URL / PostgreSQL persistence');
+  if (!harness.credentialManager || !harness.credentialAccessContext) throw new Error('Render web service requires credential management');
   const telegramConfig = loadTelegramConfig(effectiveEnv);
-  const botClient = createTelegramBotApiClient({ token: telegramConfig.token, fetchImpl, timeoutMs: telegramConfig.apiTimeoutMs, maxRetries: telegramConfig.apiMaxRetries });
+  const botClient = createTelegramBotApiClient({
+    credentialManager: harness.credentialManager,
+    credentialAccessContext: harness.credentialAccessContext,
+    credentialId: telegramConfig.botTokenCredentialId,
+    fetchImpl,
+    timeoutMs: telegramConfig.apiTimeoutMs,
+    maxRetries: telegramConfig.apiMaxRetries
+  });
   const identityResolver = createProductionTelegramIdentityResolver({
     persistence: harness.persistence,
     projectScope: harness.config.projectScope,
@@ -126,7 +134,9 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     monarchLanguage: effectiveEnv.SG_MONARCH_LANGUAGE
   });
   const integration = createTelegramProductionIntegration({
-    secretToken: telegramConfig.webhookSecret,
+    credentialManager: harness.credentialManager,
+    credentialAccessContext: harness.credentialAccessContext,
+    webhookCredentialId: telegramConfig.webhookSecretCredentialId,
     botClient,
     updateStore: createPostgresTelegramUpdateStore(harness.persistence.database),
     identityResolver,
@@ -166,7 +176,16 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       server.once('error', reject);
       server.listen(port, '0.0.0.0', resolve);
     });
-    if (envString(effectiveEnv, 'TELEGRAM_REGISTER_WEBHOOK', 'true').toLowerCase() !== 'false') await botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: telegramConfig.webhookSecret });
+    if (envString(effectiveEnv, 'TELEGRAM_REGISTER_WEBHOOK', 'true').toLowerCase() !== 'false') {
+      await harness.credentialManager.useCredential({
+        credentialId: telegramConfig.webhookSecretCredentialId,
+        actor: harness.credentialAccessContext.actor,
+        scope: harness.credentialAccessContext.scope,
+        purpose: 'telegram.webhook.register',
+        connectionId: 'telegram-webhook',
+        operation: (webhookSecret) => botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: webhookSecret })
+      });
+    }
     return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), revision: harness.config.revision });
   }
 

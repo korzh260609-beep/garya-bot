@@ -12,7 +12,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   const { database, repositories } = persistence;
 
   await database.query(`
-    DROP TABLE IF EXISTS telegram_updates, dead_letter_tasks, schedule_occurrences, domain_records, observability_events,
+    DROP TABLE IF EXISTS external_connections, telegram_updates, dead_letter_tasks, schedule_occurrences, domain_records, observability_events,
       idempotency_records, execution_states, schedules, memory_records, messages, conversations,
       grants, roles, identity_links, tasks, users, schema_migrations CASCADE
   `);
@@ -48,10 +48,11 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 6);
-  assert.equal(migrated.total, 6);
+  assert.equal(migrated.applied.length, 7);
+  assert.equal(migrated.total, 7);
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));
   assert.ok(migrated.applied.includes('166_recurring_schedules.sql'));
+  assert.ok(migrated.applied.includes('169_external_connections.sql'));
 
   const legacyUser = await database.query("SELECT chat_id,global_user_id FROM users WHERE global_user_id='tg:42'");
   assert.equal(legacyUser.rows[0].chat_id, '42');
@@ -64,25 +65,14 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   assert.equal(newUser.rows[0].global_user_id, 'telegram:100');
   assert.equal(newUser.rows[0].chat_id, null);
 
-  await repositories.automation.putTask({
-    taskId: 'sg21:test-task',
-    scope: { globalUserId: 'telegram:100', projectScope: 'sg2.1' },
-    status: 'queued',
-    payload: { source: 'compat-test' }
-  });
+  await repositories.automation.putTask({ taskId: 'sg21:test-task', scope: { globalUserId: 'telegram:100', projectScope: 'sg2.1' }, status: 'queued', payload: { source: 'compat-test' } });
   const newTask = await database.query("SELECT task_id,title,type,user_chat_id FROM tasks WHERE task_id='sg21:test-task'");
   assert.equal(newTask.rows[0].title, 'SG 2.1 task');
   assert.equal(newTask.rows[0].type, 'sg2.1');
   assert.equal(newTask.rows[0].user_chat_id, null);
 
-  const constraint = await database.query(`
-    SELECT 1 FROM pg_constraint c
-    JOIN pg_class t ON t.oid=c.confrelid
-    WHERE t.relname='users' AND c.contype='f'
-    LIMIT 1
-  `);
+  const constraint = await database.query(`SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.confrelid WHERE t.relname='users' AND c.contype='f' LIMIT 1`);
   assert.ok(constraint.rowCount > 0);
-
   await persistence.close();
 });
 
@@ -90,11 +80,11 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
   const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-block12-test' });
   await persistence.start();
   const { database, repositories } = persistence;
-  await database.query(`TRUNCATE schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
+  await database.query(`TRUNCATE external_connections, schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 6);
+  assert.equal(migrationRepeat.total, 7);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };

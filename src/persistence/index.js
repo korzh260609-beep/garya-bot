@@ -4,6 +4,7 @@ export { createPostgresRepositories } from './repositories.js';
 export { createPostgresMemoryProvider } from './postgresMemoryProvider.js';
 export { createPostgresObservabilityStore } from './postgresObservabilityStore.js';
 export { createPostgresExternalConnectionStore } from '../connections/postgresExternalConnectionStore.js';
+export { createPostgresConversationContextStore } from '../conversation/postgresConversationContextStore.js';
 
 import { createPostgresDatabase } from './database.js';
 import { runMigrations } from './migrator.js';

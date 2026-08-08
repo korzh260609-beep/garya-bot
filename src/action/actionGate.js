@@ -14,6 +14,16 @@ function scopeMatches(request) {
 function availabilityCheck(required, available) { return required.every((name) => includesWildcard(available, name)); }
 function hasValidConfirmation(request) { return request.confirmation?.confirmed === true && request.confirmation?.requestId === request.traceContext.requestId; }
 function downgradedClass(outcome) { if (outcome === 'downgrade-to-analysis') return 'analysis-only'; if (outcome === 'downgrade-to-prepare') return 'prepare-only'; return null; }
+function resourceAuthorityMatches(request) {
+  const requirement = request.resourceRequirement;
+  if (!requirement) return true;
+  const authority = request.resourceAuthority;
+  return authority?.allowed === true
+    && authority.actorGlobalUserId === request.actor.globalUserId
+    && authority.projectScope === request.scope.projectScope
+    && authority.resourceId === requirement.resourceId
+    && authority.requiredRelation === requirement.relation;
+}
 function resolvedActionPolicy(basePolicy, policyContext) {
   const configured = policyContext?.policy?.action;
   if (!configured) return basePolicy;
@@ -42,6 +52,7 @@ export function createActionGate({ policy = createActionPolicy(), availableSourc
         identity: !effectivePolicy.requireAuthenticatedActor || actionRequest.actor.authenticationLevel !== 'unknown',
         permission: !isProtected || hasPermission(actionRequest, effectivePolicy),
         scope: scopeMatches(actionRequest),
+        resourceAuthority: resourceAuthorityMatches(actionRequest),
         capability: includesWildcard(actionRequest.scope.allowedCapabilities, actionRequest.capability),
         sources: availabilityCheck(actionRequest.requiredSources, availableSources),
         sourceLimit: !sourcePolicy?.maxSourcesPerRequest || actionRequest.requiredSources.length <= sourcePolicy.maxSourcesPerRequest,
@@ -55,11 +66,12 @@ export function createActionGate({ policy = createActionPolicy(), availableSourc
 
       const reasons = [];
       let outcome = 'allow';
-      if (!checks.identity || !checks.scope || !checks.audit) {
+      if (!checks.identity || !checks.scope || !checks.audit || !checks.resourceAuthority) {
         outcome = 'deny';
         if (!checks.identity) reasons.push('identity-not-authenticated');
         if (!checks.scope) reasons.push('scope-mismatch');
         if (!checks.audit) reasons.push('audit-context-missing');
+        if (!checks.resourceAuthority) reasons.push(actionRequest.resourceAuthority?.reason ?? 'resource-authority-denied');
       } else if (!checks.idempotency) {
         outcome = 'deny'; reasons.push('duplicate-idempotency-key');
       } else if (!checks.capability || !checks.sources || !checks.sourceLimit || !checks.tools) {

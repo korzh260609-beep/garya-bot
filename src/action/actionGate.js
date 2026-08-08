@@ -62,8 +62,6 @@ export function createActionGate({
     evaluate(actionRequest, { policyContext = null } = {}) {
       if (!actionRequest?.traceContext) throw new TypeError('A validated actionRequest is required');
       const effectivePolicy = resolvedActionPolicy(policy, policyContext);
-      const failClosed = policyContext?.policy?.action?.failClosed ?? true;
-
       const isProtected = effectivePolicy.protectedClasses.includes(actionRequest.actionClass);
       const checks = {
         identity: !effectivePolicy.requireAuthenticatedActor || actionRequest.actor.authenticationLevel !== 'unknown',
@@ -91,12 +89,12 @@ export function createActionGate({
         outcome = 'deny';
         reasons.push('duplicate-idempotency-key');
       } else if (!checks.capability || !checks.sources || !checks.tools) {
-        outcome = failClosed ? 'downgrade-to-prepare' : 'allow';
+        outcome = 'downgrade-to-prepare';
         if (!checks.capability) reasons.push('capability-unavailable');
         if (!checks.sources) reasons.push('source-unavailable');
         if (!checks.tools) reasons.push('tool-unavailable');
       } else if (!checks.permission) {
-        outcome = failClosed ? 'downgrade-to-prepare' : 'allow';
+        outcome = 'downgrade-to-prepare';
         reasons.push('permission-denied');
       } else if (!checks.risk && actionRequest.risk === 'critical') {
         outcome = 'deny';

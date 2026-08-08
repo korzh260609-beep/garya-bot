@@ -71,10 +71,11 @@ test('production Telegram identity resolver bootstraps only configured monarch a
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('compose-answer'));
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('memory-write'));
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('time-read'));
+  assert.ok(monarch.scopeContext.allowedCapabilities.includes('language-preference-set'));
 
   const guest = await resolver({ platformFacts: { platform: 'telegram', platformUserId: '200' }, scopeFacts: { projectId: 'sg2.1', groupId: 'g', threadId: 't' } });
   assert.deepEqual(guest.identityContext.roles, ['guest']);
-  assert.deepEqual(guest.scopeContext.allowedCapabilities, ['compose-answer', 'time-read', 'timezone-set', 'memory-time-read']);
+  assert.deepEqual(guest.scopeContext.allowedCapabilities, ['compose-answer', 'time-read', 'timezone-set', 'memory-time-read', 'language-preference-set', 'language-preference-get']);
   assert.equal(guest.scopeContext.groupScope, 'g');
   assert.equal(guest.scopeContext.threadScope, 't');
 });
@@ -93,6 +94,8 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
       persistence,
       config: { projectScope: env.SG_PROJECT_SCOPE, environment: env.SG_ENVIRONMENT, revision: env.SG_REVISION },
       runtime,
+      temporalService: null,
+      languageContextService: null,
       observability: { record() {}, recordFailure() {} }
     };
   };
@@ -128,14 +131,23 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
 });
 
 test('production worker completes safe user tasks and fails closed for protected execution', async () => {
-  const executor = createProductionWorkerExecutor();
-  const result = await executor({ taskId: 't-1', kind: 'user-task', payload: { text: 'bounded' }, attempt: 1 });
-  assert.deepEqual(result, { status: 'completed', taskId: 't-1', kind: 'user-task', attempt: 1, acknowledged: true });
-
   const gate = createProductionWorkerActionGate();
-  const decision = await gate({ kind: 'external-write' });
-  assert.equal(decision.outcome, 'deny');
-  assert.equal(decision.allowed, false);
+  const executor = createProductionWorkerExecutor();
+  const safeTask = {
+    taskId: 'safe-1',
+    actionClass: 'analysis-only',
+    payload: { message: 'hello' },
+    actor: { globalUserId: 'u1', roles: ['guest'], grants: [] },
+    scope: { userScope: 'u1', projectScope: 'sg2.1', groupScope: null, threadScope: null, allowedCapabilities: [] },
+    traceContext: { traceId: 't1', requestId: 'r1' }
+  };
+  const safeDecision = gate.evaluate(safeTask);
+  assert.equal(safeDecision.outcome, 'allow');
+  const safeResult = await executor.execute(safeTask, safeDecision);
+  assert.equal(safeResult.status, 'completed');
 
-  await assert.rejects(() => executor({ taskId: 't-2', kind: 'external-write', payload: {}, attempt: 1 }), /No production executor registered/);
+  const protectedTask = { ...safeTask, taskId: 'protected-1', actionClass: 'external-action' };
+  const protectedDecision = gate.evaluate(protectedTask);
+  assert.notEqual(protectedDecision.outcome, 'allow');
+  await assert.rejects(() => executor.execute(protectedTask, protectedDecision));
 });

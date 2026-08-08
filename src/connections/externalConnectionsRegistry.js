@@ -55,7 +55,7 @@ export function createExternalConnectionsRegistry({ store, clock = () => new Dat
   function assertAuthorized(record, { actor, projectScope, permission, operation, purpose }) {
     const decision = authorize({ actor, projectScope, permission, record });
     if (!decision?.allowed) {
-      emit(record, { actor, operation, outcome: 'denied', reason: decision?.reason ?? 'connection-permission-denied', purpose });
+      void emit(record, { actor, operation, outcome: 'denied', reason: decision?.reason ?? 'connection-permission-denied', purpose });
       throw new ExternalConnectionError('external connection operation denied', { code: decision?.reason ?? 'connection-permission-denied' });
     }
   }
@@ -118,7 +118,8 @@ export function createExternalConnectionsRegistry({ store, clock = () => new Dat
     const probe = { projectScope: scope, ownerGlobalUserId: optional(ownerGlobalUserId) };
     assertAuthorized(probe, { actor, projectScope: scope, permission: 'connection:read', operation: 'list', purpose: 'connection-discovery' });
     const records = await store.list({ projectScope: scope, ownerGlobalUserId: optional(ownerGlobalUserId), provider: optional(provider) });
-    return Object.freeze(records.filter((r) => includeUnavailable || r.status === 'connected').map(publicRecord));
+    const visible = records.filter((record) => authorize({ actor, projectScope: scope, permission: 'connection:read', record })?.allowed);
+    return Object.freeze(visible.filter((r) => includeUnavailable || r.status === 'connected').map(publicRecord));
   }
   async function resolveCapability({ capability, actor, projectScope, provider = null } = {}) {
     const candidates = await list({ actor, projectScope, provider, includeUnavailable: false });

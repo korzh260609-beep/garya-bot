@@ -1,3 +1,5 @@
+import { createCapabilityResult } from '../contracts/capability.js';
+
 function requireMethod(value, method, name) {
   if (!value || typeof value[method] !== 'function') throw new TypeError(`${name}.${method} is required`);
   return value;
@@ -39,13 +41,19 @@ export function createFeatureFlaggedCapabilityExecutor({ executor, featureFlags 
       });
 
       if (!decision.enabled) {
-        return Object.freeze({
+        return createCapabilityResult({
           capability,
           status: 'unavailable',
           data: Object.freeze({ message: 'Feature is not available for this rollout context.', featureId, featureDecision: decision }),
-          warnings: Object.freeze(['feature-disabled']),
-          sources: Object.freeze([]), tools: Object.freeze([]), costUsd: 0, durationMs: 0, attempts: 0,
-          error: Object.freeze({ code: 'feature-disabled', retryable: false })
+          warnings: ['feature-disabled'],
+          sources: [],
+          tools: [],
+          costUsd: 0,
+          durationMs: 0,
+          attempts: [],
+          fallbackUsed: null,
+          error: Object.freeze({ code: 'feature-disabled', message: 'Feature is disabled for this rollout context.', retryable: false }),
+          traceContext: actionRequest.traceContext
         });
       }
       return executor.execute(input);

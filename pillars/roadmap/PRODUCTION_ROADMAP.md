@@ -25,6 +25,7 @@ Completed architecture and implementation:
 - Block 13 durable automation and workers;
 - Block 14 Telegram production integration;
 - Block 15 production AI integration;
+- Block 16 production capabilities;
 - deterministic tests and CI;
 - Semantic Kernel, Context and Memory contracts;
 - AI Router foundation and production policy enforcement;
@@ -52,11 +53,11 @@ Completed architecture and implementation:
 - full Telegram transport-to-runtime-to-delivery path;
 - production model execution only through AI Router;
 - emergency AI disable, sensitive-context rejection and role cost limits;
-- structured output validation and deterministic fail-closed AI fallback.
+- structured output validation and deterministic fail-closed AI fallback;
+- first real user-facing capabilities connected through the existing Capability Registry, Capability Executor, Decision Engine and Action Gate boundaries.
 
 Current limitations:
 
-- real user-facing production capabilities are not connected;
 - Render deployment is not configured for the SG 2.1 runtime;
 - no complete production E2E test suite exists;
 - security and operational controls for pilot launch are not complete;
@@ -64,8 +65,8 @@ Current limitations:
 
 Current implementation boundary:
 
-- Blocks 11, 12, 13, 14 and 15 are completed.
-- Block 16 is the next mandatory block.
+- Blocks 11, 12, 13, 14, 15 and 16 are completed.
+- Block 17 is the next mandatory block.
 
 ---
 
@@ -260,31 +261,62 @@ Acceptance evidence is recorded in `15_PRODUCTION_AI_INTEGRATION.md`.
 
 # Block 16 — Production Capabilities
 
+## Status
+
+Completed.
+
 ## Goal
 
-Implement the first real user-facing capabilities on top of the stable Capability and Domain contracts.
+Provide the first real user-facing capabilities through the existing Capability Registry, Capability Executor, Decision Engine and Action Gate boundaries without changing SG authority, identity, scope, transport or AI-routing rules.
 
-## Initial capability set
+## Implemented capability set
 
-- conversational response;
-- memory read and write;
-- task creation;
-- task listing and status;
-- task cancellation;
-- approved source retrieval;
-- document intake and analysis;
-- repository analysis in read or prepare-only mode;
-- SG health and diagnostics report;
-- controlled domain dispatch.
+- `compose-answer` — conversational response;
+- `memory-read` — scoped memory retrieval;
+- `memory-write` — confirmed scoped memory write with provenance;
+- `task-create` — task creation;
+- `task-list` — scoped task listing;
+- `task-status` — scoped task status;
+- `task-cancel` — scoped task cancellation;
+- `source-retrieve` — approved-source retrieval with visible upstream failure;
+- `document-analyze` — bounded text analysis without executing embedded instructions;
+- `repository-analyze` — read-only or prepare-only repository analysis;
+- `sg-diagnostics` — bounded runtime diagnostics;
+- `domain-dispatch` — controlled dispatch through the Domain boundary.
 
-## Deferred high-risk capabilities
+## Architecture
 
-- automatic repository writes;
-- automatic pull-request publication;
-- real billing transfers;
-- autonomous trading;
-- irreversible account operations;
-- any capability that broadens its own permissions.
+The runtime path remains:
+
+`DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult`
+
+No second capability mechanism was introduced.
+
+Capability metadata is resolved from the registered capability before Action Gate evaluation. The resulting ActionRequest carries:
+
+- required permission;
+- required sources;
+- required tools;
+- action class;
+- risk;
+- estimated cost;
+- confirmation requirement.
+
+Action Gate remains the only authorization boundary. Capability Executor still rejects execution without an allowed GateDecision and rejects requirements not covered by the gated ActionRequest.
+
+## Safety boundaries
+
+- capabilities cannot broaden identity, grants or scope;
+- memory is isolated by user/project/group/thread scope;
+- task operations are scope-bound;
+- protected writes and cancellation declare confirmation requirements;
+- source failures return failed or unavailable results and cannot become fabricated success;
+- document content is treated as data and embedded instructions are not executed;
+- repository analysis rejects any adapter result indicating mutation, push or publication;
+- repository writes, commits, pushes and automatic PR publication remain deferred;
+- domain dispatch fails visibly when no controlled dispatcher is configured;
+- AI execution remains only through AI Router;
+- transports remain delivery and platform-fact boundaries only.
 
 ## Acceptance criteria
 
@@ -294,6 +326,8 @@ Implement the first real user-facing capabilities on top of the stable Capabilit
 - Partial and failed results remain visible.
 - Real source failures do not produce fabricated success.
 - Prepare-only capabilities cannot mutate external systems.
+
+Acceptance evidence is recorded in `16_PRODUCTION_CAPABILITIES.md`.
 
 ---
 
@@ -455,8 +489,8 @@ Validate the production system with a deliberately limited real-user scope.
 3. Block 13 — Durable Automation and Workers — completed
 4. Block 14 — Telegram Production Integration — completed
 5. Block 15 — Production AI Integration — completed
-6. Block 16 — Production Capabilities — next
-7. Block 17 — Render Deployment
+6. Block 16 — Production Capabilities — completed
+7. Block 17 — Render Deployment — next
 8. Block 18 — End-to-End Verification
 9. Block 19 — Security and Operations
 10. Pilot Launch

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { createTelegramTransportAdapter } from '../interfaces/adapters.js';
 import { evaluateTelegramInvocation } from './telegramInvocation.js';
+import { redactSensitiveText } from '../secrets/redaction.js';
 
 function requiredString(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
@@ -30,7 +31,10 @@ export function createInMemoryTelegramUpdateStore() {
 }
 
 export function createTelegramProductionIntegration({
-  secretToken,
+  secretToken = null,
+  credentialManager = null,
+  credentialAccessContext = null,
+  webhookCredentialId = 'sg.telegram.webhook',
   botClient,
   updateStore,
   identityResolver,
@@ -42,11 +46,25 @@ export function createTelegramProductionIntegration({
   revision = 'unknown',
   idFactory
 } = {}) {
-  const secret = requiredString(secretToken, 'telegram webhook secret');
+  const hasCredentialManager = credentialManager && typeof credentialManager.useCredential === 'function';
+  const legacySecret = hasCredentialManager ? null : requiredString(secretToken, 'telegram webhook secret');
+  if (hasCredentialManager && (!credentialAccessContext?.actor || !credentialAccessContext?.scope)) throw new TypeError('telegram webhook credential access context is required');
   if (!botClient || typeof botClient.sendMessage !== 'function') throw new TypeError('botClient.sendMessage is required');
   if (!updateStore || typeof updateStore.claim !== 'function' || typeof updateStore.complete !== 'function' || typeof updateStore.fail !== 'function') throw new TypeError('Telegram update store is required');
   if (!identityResolver || typeof identityResolver !== 'function') throw new TypeError('identityResolver is required');
   if (!runtime || typeof runtime.handle !== 'function') throw new TypeError('runtime.handle is required');
+
+  async function verifyWebhookSecret(suppliedSecret) {
+    if (!hasCredentialManager) return secureEqual(suppliedSecret, legacySecret);
+    return credentialManager.useCredential({
+      credentialId: webhookCredentialId,
+      actor: credentialAccessContext.actor,
+      scope: credentialAccessContext.scope,
+      purpose: 'telegram.webhook.verify',
+      connectionId: 'telegram-webhook',
+      operation: (secret) => secureEqual(suppliedSecret, secret)
+    });
+  }
 
   const adapter = createTelegramTransportAdapter({
     identityResolver,
@@ -67,14 +85,19 @@ export function createTelegramProductionIntegration({
 
   async function handleWebhook({ headers = {}, body } = {}) {
     const suppliedSecret = headers['x-telegram-bot-api-secret-token'] ?? headers['X-Telegram-Bot-Api-Secret-Token'];
-    if (!secureEqual(suppliedSecret, secret)) return Object.freeze({ statusCode: 401, body: { ok: false, code: 'invalid-webhook-secret' } });
+    try {
+      if (!(await verifyWebhookSecret(suppliedSecret))) return Object.freeze({ statusCode: 401, body: { ok: false, code: 'invalid-webhook-secret' } });
+    } catch (error) {
+      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error?.message ?? 'webhook credential unavailable'), code: error?.code ?? 'telegram-webhook-credential-failed' });
+      return Object.freeze({ statusCode: 503, body: { ok: false, code: 'telegram-webhook-credential-failed' } });
+    }
     if (!body || typeof body !== 'object' || Array.isArray(body)) return Object.freeze({ statusCode: 400, body: { ok: false, code: 'invalid-update' } });
 
     let claim;
     try {
       claim = await updateStore.claim(body);
     } catch (error) {
-      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: error.message, code: 'telegram-dedupe-failed' });
+      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: 'telegram-dedupe-failed' });
       return Object.freeze({ statusCode: 503, body: { ok: false, code: 'telegram-dedupe-failed' } });
     }
     if (!claim.claimed) return Object.freeze({ statusCode: 200, body: { ok: true, duplicate: true } });
@@ -92,7 +115,7 @@ export function createTelegramProductionIntegration({
       return Object.freeze({ statusCode: 200, body: { ok: true } });
     } catch (error) {
       await updateStore.fail(claim.updateId, error.code ?? 'telegram-update-failed');
-      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: error.message, code: error.code ?? 'telegram-update-failed' });
+      observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-update-failed' });
       return Object.freeze({ statusCode: 503, body: { ok: false, code: error.code ?? 'telegram-update-failed' } });
     }
   }

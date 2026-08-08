@@ -24,7 +24,7 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 18. `15_PRODUCTION_AI_INTEGRATION.md` — implementation and acceptance evidence for Block 15
 19. `16_PRODUCTION_CAPABILITIES.md` — implementation and acceptance evidence for Block 16
 20. `16_5_TEMPORAL_CONTEXT.md` — implementation and acceptance evidence for Block 16.5
-21. `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — specification and future implementation/acceptance evidence for Block 16.6
+21. `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — implementation and acceptance evidence for Block 16.6
 
 ## Production continuation
 
@@ -37,8 +37,8 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 5. Block 15 — Production AI Integration — completed
 6. Block 16 — Production Capabilities — completed
 7. Block 16.5 — Temporal Context — completed
-8. Block 16.6 — Language & Locale Context — next
-9. Block 17 — Render Deployment
+8. Block 16.6 — Language & Locale Context — completed
+9. Block 17 — Render Deployment — next
 10. Block 18 — End-to-End Verification
 11. Block 19 — Security and Operations
 12. Pilot Launch

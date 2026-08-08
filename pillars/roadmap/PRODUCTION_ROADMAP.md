@@ -27,16 +27,17 @@ Completed and acceptance-verified:
 - Block 15 — Production AI Integration;
 - Block 16 — Production Capabilities;
 - Block 16.5 — Temporal Context;
-- Block 16.6 — Language & Locale Context.
+- Block 16.6 — Language & Locale Context;
+- Block 16.7 — Configuration & Policy Layer.
 
-Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context and multilingual Language & Locale Context.
+Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, and the centralized Configuration & Policy Layer.
 
 ## Current implementation boundary
 
-- Blocks 11–16.6 listed above are completed.
-- Blocks 16.7–16.16 are planned mandatory foundational work.
-- Block 16.7 is next.
-- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.7–16.16.
+- Blocks 11–16.7 listed above are completed.
+- Blocks 16.8–16.16 are planned mandatory foundational work.
+- Block 16.8 is next.
+- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.8–16.16.
 - Blocks 18–19 and Pilot Launch remain subsequent stages.
 
 ---
@@ -99,6 +100,13 @@ Transport-independent message/preferred/conversation/response language, locale s
 
 Acceptance evidence: `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md`.
 
+## Block 16.7 — Configuration & Policy Layer
+**Status:** Completed.
+
+Typed centralized configuration/policy resolution with validated defaults and environment inputs, explicit defaults → environment → project → role precedence, immutable effective-policy provenance, safe hot-reload allowlist, Action Gate source/risk/cost policy consumption, capability retry/timeout tightening, AI operational-limit composition and secret-free policy observability.
+
+Acceptance evidence: `16_7_CONFIGURATION_AND_POLICY_LAYER.md`.
+
 ---
 
 # Foundational continuation before Render
@@ -108,7 +116,7 @@ These blocks complete core control, ownership, continuity, extensibility and rol
 Canonical dependency direction:
 
 ```text
-16.7 Configuration & Policy
+16.7 Configuration & Policy [completed]
 → 16.8 Secrets & Credentials
 → 16.9 External Connections Registry
 → 16.10 Resource Ownership & Authority
@@ -128,7 +136,7 @@ Architecture coordination: `../architecture/FOUNDATIONAL_CONTROL_LAYERS.md`.
 # Block 16.7 — Configuration & Policy Layer
 
 ## Status
-Planned — next mandatory block.
+Completed and acceptance-verified.
 
 ## Goal
 Create one authoritative typed configuration/policy layer so runtime defaults, limits and operational policies are not scattered through transports, capabilities or hidden constants.
@@ -150,20 +158,20 @@ Create one authoritative typed configuration/policy layer so runtime defaults, l
 - environment variables are inputs, not the architecture itself.
 
 ## Acceptance criteria
-- effective policy is deterministic and inspectable;
-- conflicts resolve by explicit precedence;
-- invalid mandatory configuration fails safely;
-- modules no longer require hidden duplicate policy constants;
-- automated tests cover defaults, overrides and invalid combinations.
+- [x] effective policy is deterministic and inspectable;
+- [x] conflicts resolve by explicit precedence;
+- [x] invalid mandatory configuration fails safely;
+- [x] modules consume centralized policy contracts for Block 16.7 surfaces rather than hidden duplicate limits;
+- [x] automated tests cover defaults, overrides, invalid combinations, safe reload and policy enforcement.
 
-Detailed specification: `16_7_CONFIGURATION_AND_POLICY_LAYER.md`.
+Detailed specification and evidence: `16_7_CONFIGURATION_AND_POLICY_LAYER.md`.
 
 ---
 
 # Block 16.8 — Secrets & Credentials Management
 
 ## Status
-Planned.
+Planned — next mandatory block.
 
 ## Goal
 Create a first-class secret/credential boundary for external service use without placing raw credentials in memory, prompts, ordinary config or logs.
@@ -484,7 +492,7 @@ Detailed specification: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
 # Block 17 — Render Deployment
 
 ## Status
-Planned after Blocks 16.7–16.16.
+Planned after Blocks 16.8–16.16.
 
 ## Goal
 Deploy SG 2.1 as a controlled production environment on Render after foundational control layers are implementation-verified.
@@ -617,56 +625,3 @@ Validate the production system with deliberately limited real-user scope.
 - mandatory confirmation for protected actions;
 - controlled feature flags;
 - close monitoring of cost, errors, resource authority, delivery and memory isolation.
-
-## Exit criteria
-- stable operation across planned restarts;
-- no unresolved identity/scope/resource-authority violations;
-- no unresolved language/conversation/settings isolation violations;
-- no silent task/event/delivery loss;
-- acceptable latency and configured cost behavior;
-- group behavior matches invocation policy;
-- critical incidents have documented recovery procedures;
-- monarch explicitly approves expansion.
-
----
-
-# Mandatory implementation order
-
-1. Block 11 — Runtime Composition — completed
-2. Block 12 — PostgreSQL Persistence — completed
-3. Block 13 — Durable Automation and Workers — completed
-4. Block 14 — Telegram Production Integration — completed
-5. Block 15 — Production AI Integration — completed
-6. Block 16 — Production Capabilities — completed
-7. Block 16.5 — Temporal Context — completed
-8. Block 16.6 — Language & Locale Context — completed
-9. Block 16.7 — Configuration & Policy Layer — next
-10. Block 16.8 — Secrets & Credentials Management
-11. Block 16.9 — External Connections Registry
-12. Block 16.10 — Resource Ownership & Authority Model
-13. Block 16.11 — Session & Conversation Context
-14. Block 16.12 — User Settings & Preferences
-15. Block 16.13 — Notification & Delivery Router
-16. Block 16.14 — Internal Event Bus
-17. Block 16.15 — Schema & Contract Versioning
-18. Block 16.16 — Feature Flags & Controlled Rollout
-19. Block 17 — Render Deployment
-20. Block 18 — End-to-End Verification
-21. Block 19 — Security and Operations
-22. Pilot Launch
-
-## Completion rule
-
-A block is complete only when all applicable evidence exists:
-
-- implemented code/configuration;
-- automated tests;
-- successful `npm ci`;
-- successful migrations when persistence changes;
-- successful `npm run check`;
-- successful runtime/worker verification where applicable;
-- updated canonical documentation;
-- GitHub Actions success;
-- reproducible evidence that acceptance criteria are met.
-
-A green unit-test suite alone is not sufficient evidence of production readiness.

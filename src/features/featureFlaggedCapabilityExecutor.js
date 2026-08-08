@@ -20,8 +20,8 @@ export function createFeatureFlaggedCapabilityExecutor({ executor, featureFlags 
       const configured = await featureFlags.store.get(featureId);
       if (!configured) return executor.execute(input);
 
-      const scope = actionRequest.scopeContext ?? {};
-      const identity = actionRequest.identityContext ?? {};
+      const scope = actionRequest.scopeContext ?? actionRequest.scope ?? {};
+      const identity = actionRequest.identityContext ?? actionRequest.actor ?? {};
       const authorityRequired = Boolean(actionRequest.resourceRequirement);
       const authoritySatisfied = !authorityRequired || gateDecision?.checks?.resourceAuthority === true;
       const decision = await featureFlags.resolve(featureId, {
@@ -32,7 +32,7 @@ export function createFeatureFlaggedCapabilityExecutor({ executor, featureFlags 
         resourceId: actionRequest.resourceRequirement?.resourceId ?? null,
         cohorts: actionRequest.payload?.featureCohorts ?? [],
         subjectKey: identity.globalUserId ?? actionRequest.resourceRequirement?.resourceId ?? scope.projectScope ?? 'anonymous',
-        permissionSatisfied: gateDecision?.authorized === true,
+        permissionSatisfied: gateDecision?.checks?.permission === true,
         authoritySatisfied,
         actionGateSatisfied: gateDecision?.outcome === 'allow',
         traceContext

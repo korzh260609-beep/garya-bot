@@ -20,14 +20,16 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 6. `IDENTITY_AND_SCOPE.md`
 7. `OBSERVABILITY.md`
 8. `TRANSPORTS_AND_AI_ROUTING.md`
-9. `RUNTIME_COMPOSITION.md`
-10. `POSTGRESQL_PERSISTENCE.md`
+9. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+10. `RUNTIME_COMPOSITION.md`
+11. `POSTGRESQL_PERSISTENCE.md`
 
 ## Core flow
 
 ```text
 Input
 → Identity and Scope Resolution
+→ Language & Locale Context
 → Semantic Kernel
 → Context Resolution
 → Decision Envelope
@@ -46,6 +48,9 @@ Input
 - Memory supplies bounded context and does not own SG identity.
 - Commands are shortcuts; natural language is primary.
 - Transports are thin adapters.
+- Language and locale are shared SG context, not transport-owned business logic.
+- Ordinary multilingual input reaches Semantic Kernel without mandatory pre-translation.
+- Response-language policy belongs to SG, not to transports or AI providers.
 - Domain modules cannot redefine platform contracts.
 - Runtime composition connects approved modules but cannot relocate their responsibilities.
 - PostgreSQL persists approved contracts but cannot become the decision, identity-policy or authorization layer.

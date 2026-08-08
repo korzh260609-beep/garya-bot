@@ -45,11 +45,24 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
     );
     INSERT INTO tasks(user_chat_id,user_global_id,title,type,payload)
       VALUES ('42','tg:42','legacy task','legacy','{}'::jsonb);
+
+    -- Render production exposed this real compatibility class: SG 2.0 can
+    -- already have a table name reused by SG 2.1 without scoped columns.
+    -- The preflight migration must evolve it before 001 creates scope indexes.
+    CREATE TABLE conversations (
+      id serial PRIMARY KEY,
+      chat_id text NOT NULL,
+      content jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    INSERT INTO conversations(chat_id, content)
+      VALUES ('42', '{"legacy":true}'::jsonb);
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 14);
-  assert.equal(migrated.total, 14);
+  assert.equal(migrated.applied.length, 15);
+  assert.equal(migrated.total, 15);
+  assert.ok(migrated.applied.includes('000_legacy_scope_preflight.sql'));
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));
   assert.ok(migrated.applied.includes('166_recurring_schedules.sql'));
   assert.ok(migrated.applied.includes('169_external_connections.sql'));
@@ -66,6 +79,9 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   const legacyTask = await database.query("SELECT title,task_id,global_user_id FROM tasks WHERE title='legacy task'");
   assert.equal(legacyTask.rows[0].task_id, 'legacy:1');
   assert.equal(legacyTask.rows[0].global_user_id, 'tg:42');
+  const legacyConversation = await database.query("SELECT chat_id,project_scope FROM conversations WHERE id=1");
+  assert.equal(legacyConversation.rows[0].chat_id, '42');
+  assert.equal(legacyConversation.rows[0].project_scope, 'sg2.1');
 
   await repositories.users.upsert({ globalUserId: 'telegram:100', profile: { displayName: 'SG 2.1 user' } });
   const newUser = await database.query("SELECT global_user_id,chat_id FROM users WHERE global_user_id='telegram:100'");
@@ -91,7 +107,7 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 14);
+  assert.equal(migrationRepeat.total, 15);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };

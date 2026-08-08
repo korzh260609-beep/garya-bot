@@ -63,9 +63,7 @@ export function createProductionTelegramIdentityResolver({
   const monarchId = monarchTelegramUserId == null ? null : String(monarchTelegramUserId).trim();
   const configuredMonarchTimeZone = monarchTimeZone == null ? null : String(monarchTimeZone).trim();
   const configuredMonarchLanguage = monarchLanguage == null ? null : String(monarchLanguage).trim().toLowerCase();
-  if (configuredMonarchTimeZone && (!temporalService || !temporalService.isValidTimeZone(configuredMonarchTimeZone))) {
-    throw new TypeError('SG_MONARCH_TIMEZONE must be a valid IANA timezone');
-  }
+  if (configuredMonarchTimeZone && (!temporalService || !temporalService.isValidTimeZone(configuredMonarchTimeZone))) throw new TypeError('SG_MONARCH_TIMEZONE must be a valid IANA timezone');
 
   async function ensureGrant(globalUserId, project, currentGrants, name) {
     const grantName = `capability:${name}`;
@@ -90,12 +88,8 @@ export function createProductionTelegramIdentityResolver({
     if (platformUserId === monarchId) {
       if (!access.roles.includes('monarch')) await persistence.repositories.access.grantRole({ globalUserId, projectScope: effectiveProjectScope, role: 'monarch' });
       for (const name of ALL_CAPABILITY_NAMES) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
-      if (configuredMonarchTimeZone && temporalService && !(await temporalService.getUserTimezone(globalUserId))) {
-        await temporalService.setUserTimezone(globalUserId, configuredMonarchTimeZone, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_TIMEZONE' } });
-      }
-      if (configuredMonarchLanguage && languageContextService && !(await languageContextService.getPreferred(globalUserId))) {
-        await languageContextService.setPreferred(globalUserId, configuredMonarchLanguage, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_LANGUAGE' } });
-      }
+      if (configuredMonarchTimeZone && temporalService && !(await temporalService.getUserTimezone(globalUserId))) await temporalService.setUserTimezone(globalUserId, configuredMonarchTimeZone, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_TIMEZONE' } });
+      if (configuredMonarchLanguage && languageContextService && !(await languageContextService.getPreferred(globalUserId))) await languageContextService.setPreferred(globalUserId, configuredMonarchLanguage, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_LANGUAGE' } });
       access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
     } else {
       if (access.roles.length === 0 && access.grants.length === 0) {
@@ -120,11 +114,15 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   const harness = harnessFactory({ env: effectiveEnv, fetchImpl });
   if (!harness.persistence) throw new Error('Render web service requires DATABASE_URL / PostgreSQL persistence');
   if (!harness.credentialManager || !harness.credentialAccessContext) throw new Error('Render web service requires credential management');
+  if (!harness.connectionRegistry || !harness.connectionAccessContext) throw new Error('Render web service requires external connections registry');
   const telegramConfig = loadTelegramConfig(effectiveEnv);
   const botClient = createTelegramBotApiClient({
     credentialManager: harness.credentialManager,
     credentialAccessContext: harness.credentialAccessContext,
     credentialId: telegramConfig.botTokenCredentialId,
+    connectionRegistry: harness.connectionRegistry,
+    connectionAccessContext: harness.connectionAccessContext,
+    connectionId: 'telegram',
     fetchImpl,
     timeoutMs: telegramConfig.apiTimeoutMs,
     maxRetries: telegramConfig.apiMaxRetries
@@ -177,10 +175,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     await harness.runtime.start();
     server = http.createServer((request, response) => requestHandler(request, response).catch(() => json(response, 500, { ok: false, code: 'internal-error' })));
     const port = envPort(effectiveEnv);
-    await new Promise((resolve, reject) => {
-      server.once('error', reject);
-      server.listen(port, '0.0.0.0', resolve);
-    });
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '0.0.0.0', resolve); });
     if (envString(effectiveEnv, 'TELEGRAM_REGISTER_WEBHOOK', 'true').toLowerCase() !== 'false') {
       await harness.credentialManager.useCredential({
         credentialId: telegramConfig.webhookSecretCredentialId,
@@ -195,10 +190,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   }
 
   async function stop() {
-    if (server) {
-      await new Promise((resolve) => server.close(resolve));
-      server = null;
-    }
+    if (server) { await new Promise((resolve) => server.close(resolve)); server = null; }
     await harness.runtime.stop();
   }
 

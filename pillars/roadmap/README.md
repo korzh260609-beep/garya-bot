@@ -1,6 +1,6 @@
 # SG 2.1 ROADMAP
 
-Roadmap defines what is built, dependency order, gates and acceptance boundaries. Blocks 0–10 are documented as individual roadmap files. The production continuation is documented canonically in `PRODUCTION_ROADMAP.md`, which contains Blocks 11–19, including intermediate Block 16.5, and Pilot Launch as one coordinated production program.
+Roadmap defines what is built, dependency order, gates and acceptance boundaries. Blocks 0–10 are documented as individual roadmap files. The production continuation is documented canonically in `PRODUCTION_ROADMAP.md`, which contains Blocks 11–19, including intermediate Blocks 16.5 and 16.6, and Pilot Launch as one coordinated production program.
 
 ## Order
 0. `00_ENGINEERING_FOUNDATION.md`
@@ -24,6 +24,7 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 18. `15_PRODUCTION_AI_INTEGRATION.md` — implementation and acceptance evidence for Block 15
 19. `16_PRODUCTION_CAPABILITIES.md` — implementation and acceptance evidence for Block 16
 20. `16_5_TEMPORAL_CONTEXT.md` — implementation and acceptance evidence for Block 16.5
+21. `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — specification and future implementation/acceptance evidence for Block 16.6
 
 ## Production continuation
 
@@ -36,10 +37,11 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 5. Block 15 — Production AI Integration — completed
 6. Block 16 — Production Capabilities — completed
 7. Block 16.5 — Temporal Context — completed
-8. Block 17 — Render Deployment — next
-9. Block 18 — End-to-End Verification
-10. Block 19 — Security and Operations
-11. Pilot Launch
+8. Block 16.6 — Language & Locale Context — next
+9. Block 17 — Render Deployment
+10. Block 18 — End-to-End Verification
+11. Block 19 — Security and Operations
+12. Pilot Launch
 
 Each production block must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

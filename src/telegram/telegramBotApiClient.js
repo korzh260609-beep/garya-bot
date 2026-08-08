@@ -19,6 +19,9 @@ export function createTelegramBotApiClient({
   credentialManager = null,
   credentialAccessContext = null,
   credentialId = 'sg.telegram.bot',
+  connectionRegistry = null,
+  connectionAccessContext = null,
+  connectionId = 'telegram',
   fetchImpl = globalThis.fetch,
   baseUrl = 'https://api.telegram.org',
   timeoutMs = 10000,
@@ -28,18 +31,14 @@ export function createTelegramBotApiClient({
   const hasCredentialManager = credentialManager && typeof credentialManager.useCredential === 'function';
   const legacyToken = hasCredentialManager ? null : requiredString(token, 'telegram bot token');
   if (hasCredentialManager && (!credentialAccessContext?.actor || !credentialAccessContext?.scope)) throw new TypeError('telegram credential access context is required');
+  if (connectionRegistry && typeof connectionRegistry.requireUsable !== 'function') throw new TypeError('telegram connection registry is invalid');
+  if (connectionRegistry && (!connectionAccessContext?.actor || !connectionAccessContext?.projectScope)) throw new TypeError('telegram connection access context is required');
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
 
   async function withToken(purpose, operation) {
+    if (connectionRegistry) await connectionRegistry.requireUsable({ connectionId, capability: 'telegram.bot-api', actor: connectionAccessContext.actor, projectScope: connectionAccessContext.projectScope });
     if (!hasCredentialManager) return operation(legacyToken);
-    return credentialManager.useCredential({
-      credentialId,
-      actor: credentialAccessContext.actor,
-      scope: credentialAccessContext.scope,
-      purpose,
-      connectionId: 'telegram',
-      operation
-    });
+    return credentialManager.useCredential({ credentialId, actor: credentialAccessContext.actor, scope: credentialAccessContext.scope, purpose, connectionId, operation });
   }
 
   async function call(method, payload = {}) {
@@ -74,7 +73,9 @@ export function createTelegramBotApiClient({
           ? new TelegramApiError(`Telegram API ${methodName} timed out`, { code: 'telegram-timeout', retryable: true })
           : error instanceof TelegramApiError
             ? error
-            : new TelegramApiError('Telegram network failure', { code: error?.code ?? 'telegram-network-failure', retryable: error?.retryable ?? true });
+            : error?.name === 'ExternalConnectionError'
+              ? error
+              : new TelegramApiError('Telegram network failure', { code: error?.code ?? 'telegram-network-failure', retryable: error?.retryable ?? true });
         if (!normalized.retryable || attempt > maxRetries + 1) throw normalized;
         await sleep(Math.min(2 ** (attempt - 1), 8) * 1000);
       } finally {

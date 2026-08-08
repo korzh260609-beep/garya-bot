@@ -152,7 +152,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       let result;
       if (actionRequest.payload?.domainId && actionRequest.capability !== 'domain-dispatch') {
         if (!domainRuntime) throw new Error('domain runtime is required for domain execution');
-        result = await domainRuntime.execute({ domainId: actionRequest.payload.domainId, capability: actionRequest.capability, input: actionRequest.payload, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, traceContext });
+        result = await domainRuntime.execute({ domainId: actionRequest.payload.domainId, capability: actionRequest.capability, input: actionRequest.payload, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, traceContext, gateDecision });
       } else {
         observability.record({ eventClass: 'capability_started', channel: 'telemetry', stage: 'capability', traceContext, data: { capability: actionRequest.capability } });
         result = await capabilityExecutor.execute({ actionRequest, gateDecision, policyContext, traceContext });

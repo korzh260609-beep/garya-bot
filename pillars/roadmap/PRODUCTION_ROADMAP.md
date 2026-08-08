@@ -28,16 +28,17 @@ Completed and acceptance-verified:
 - Block 16 — Production Capabilities;
 - Block 16.5 — Temporal Context;
 - Block 16.6 — Language & Locale Context;
-- Block 16.7 — Configuration & Policy Layer.
+- Block 16.7 — Configuration & Policy Layer;
+- Block 16.8 — Secrets & Credentials Management.
 
-Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, and the centralized Configuration & Policy Layer.
+Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, and a bounded Secrets & Credentials layer.
 
 ## Current implementation boundary
 
-- Blocks 11–16.7 listed above are completed.
-- Blocks 16.8–16.16 are planned mandatory foundational work.
-- Block 16.8 is next.
-- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.8–16.16.
+- Blocks 11–16.8 listed above are completed.
+- Blocks 16.9–16.16 are planned mandatory foundational work.
+- Block 16.9 is next.
+- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.9–16.16.
 - Blocks 18–19 and Pilot Launch remain subsequent stages.
 
 ---
@@ -107,6 +108,13 @@ Typed centralized configuration/policy resolution with validated defaults and en
 
 Acceptance evidence: `16_7_CONFIGURATION_AND_POLICY_LAYER.md`.
 
+## Block 16.8 — Secrets & Credentials Management
+**Status:** Completed.
+
+Stable credential handles, deployment secret-store adapters, permission/scope-bound use, lifecycle controls, secret-free audit evidence and bounded OpenAI/Telegram provider access without propagating raw credentials through ordinary config, memory, prompts or telemetry.
+
+Acceptance evidence: `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md`.
+
 ---
 
 # Foundational continuation before Render
@@ -117,7 +125,7 @@ Canonical dependency direction:
 
 ```text
 16.7 Configuration & Policy [completed]
-→ 16.8 Secrets & Credentials
+→ 16.8 Secrets & Credentials [completed]
 → 16.9 External Connections Registry
 → 16.10 Resource Ownership & Authority
 → 16.11 Session & Conversation Context
@@ -171,7 +179,7 @@ Detailed specification and evidence: `16_7_CONFIGURATION_AND_POLICY_LAYER.md`.
 # Block 16.8 — Secrets & Credentials Management
 
 ## Status
-Planned — next mandatory block.
+Completed and acceptance-verified.
 
 ## Goal
 Create a first-class secret/credential boundary for external service use without placing raw credentials in memory, prompts, ordinary config or logs.
@@ -192,19 +200,19 @@ Create a first-class secret/credential boundary for external service use without
 - protected use still depends on Action Gate and resource authority where applicable.
 
 ## Acceptance criteria
-- production secrets are absent from repository and unrestricted telemetry;
-- revoked/expired credentials fail visibly;
-- credential use is auditable by purpose without exposing values;
-- cross-user/project leakage tests pass.
+- [x] production secrets are absent from repository and unrestricted telemetry by design;
+- [x] revoked/expired credentials fail visibly;
+- [x] credential use is auditable by purpose without exposing values;
+- [x] cross-user/project/connection/resource leakage tests pass.
 
-Detailed specification: `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md`.
+Detailed specification and evidence: `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md`.
 
 ---
 
 # Block 16.9 — External Connections Registry
 
 ## Status
-Planned.
+Planned — next mandatory block.
 
 ## Goal
 Create one authoritative inventory and lifecycle model for external service/account connections available to SG.
@@ -492,7 +500,7 @@ Detailed specification: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
 # Block 17 — Render Deployment
 
 ## Status
-Planned after Blocks 16.8–16.16.
+Planned after Blocks 16.9–16.16.
 
 ## Goal
 Deploy SG 2.1 as a controlled production environment on Render after foundational control layers are implementation-verified.

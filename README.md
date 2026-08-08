@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 16.
+This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 16.5.
 
 ## Requirements
 - Node.js 22
@@ -48,9 +48,16 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 14 — Telegram Production Integration
 - Block 15 — Production AI Integration
 - Block 16 — Production Capabilities
+- Block 16.5 — Temporal Context
 
 ### Next
+- Block 16.6 — Language & Locale Context
+
+### Then
 - Block 17 — Render Deployment
+- Block 18 — End-to-End Verification
+- Block 19 — Security and Operations
+- Pilot Launch
 
 ## Implemented
 ### Block 0 — Engineering Foundation
@@ -211,8 +218,29 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - capability requirements resolved before Action Gate evaluation
 - protected capabilities remain permission-, scope-, risk-, cost- and confirmation-bound
 
+### Block 16.5 — Temporal Context
+- canonical UTC and user-local temporal context
+- IANA timezone persistence through global identity/user settings
+- deterministic relative-date/time resolution
+- normalized task and schedule times
+- temporal memory recall and DST-aware recurrence support
+
+## Planned
+### Block 16.6 — Language & Locale Context
+- automatic per-message language detection
+- transport-independent preferred language through `global_user_id`
+- deterministic response-language policy
+- natural language switching and mixed-language input
+- cross-language memory recall
+- separate language and locale context
+- Telegram/Discord/Web/API/Email/Voice integration through SG Core
+- AI Router metadata propagation without transferring language-policy ownership to AI
+- language observability and multilingual CI/E2E coverage
+
+Detailed specification: `pillars/roadmap/16_6_LANGUAGE_AND_LOCALE_CONTEXT.md`.
+
 ## Runtime path
-`Platform Input → Transport Adapter → Platform Facts → Identity and Scope Resolution → CanonicalInput → MeaningInterpreter → SemanticInterpretation → Context Resolution → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan → Transport Response Delivery`
+`Platform Input → Transport Adapter → Platform Facts → Identity and Scope Resolution → Language/Locale Context → CanonicalInput → MeaningInterpreter → SemanticInterpretation → Context Resolution → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan → Transport Response Delivery`
 
 The production interpretation route is:
 `ProductionMeaningInterpreter → AIRouter → ProductionAiPolicy → ModelRegistry → AIProvider`
@@ -229,13 +257,14 @@ Optional product domains enter only through stable capability, identity, scope, 
 - Capabilities exist independently from commands and transports.
 - Protected actions cannot bypass Action Gate.
 - Platform IDs are identity links, not independent users.
-- Transports provide platform facts but cannot assign roles, grants or final scopes.
+- Transports provide platform facts but cannot assign roles, grants, final scopes or final response-language policy.
 - Observability records facts but does not change architecture or business logic.
 - Domain modules consume platform contracts and cannot redefine the SG core.
 - Production AI is disabled by default to avoid accidental cost.
+- Original natural-language text remains available to Semantic Kernel; multilingual support must not require mandatory pre-translation.
 
 ## Current boundary
-Blocks 0–16 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence, durable automation workers, production Telegram integration, controlled production AI integration and the first real user-facing production capabilities. Render deployment, external end-to-end verification and security operations remain in Blocks 17–19 and Pilot Launch. These must be connected through the approved boundaries without changing the core contracts.
+Blocks 0–16.5 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence, durable automation workers, production Telegram integration, controlled production AI integration, production capabilities and canonical Temporal Context. Block 16.6 Language & Locale Context is planned next and must be completed before Block 17 Render Deployment so production/E2E validation includes the intended multilingual behavior. Blocks 17–19 and Pilot Launch remain subsequent production stages.
 
 ## Authority
 Read in this order:

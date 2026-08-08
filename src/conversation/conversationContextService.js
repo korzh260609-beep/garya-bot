@@ -45,7 +45,7 @@ export function createInMemoryConversationContextStore() {
 }
 
 export function createConversationContextService({ store, clock = () => new Date(), idFactory = randomUUID, maxRecentTurns = 12, audit = () => {} } = {}) {
-  if (!store?.putConversation || !store?.getConversation || !store?.findActiveConversation || !store?.putSession || !store?.findActiveSession || !store?.putTopic || !store?.putMessage || !store?.getMessageByExternal || !store?.listRecentMessages) throw new TypeError('conversation context store is required');
+  if (!store?.putConversation || !store?.getConversation || !store?.findActiveConversation || !store?.putSession || !store?.findActiveSession || !store?.putTopic || !store?.getTopic || !store?.putMessage || !store?.getMessageByExternal || !store?.listRecentMessages) throw new TypeError('conversation context store is required');
   if (typeof clock !== 'function' || typeof idFactory !== 'function' || typeof audit !== 'function') throw new TypeError('invalid conversation context dependency');
   if (!Number.isInteger(maxRecentTurns) || maxRecentTurns < 1 || maxRecentTurns > 100) throw new TypeError('maxRecentTurns must be 1..100');
 
@@ -89,9 +89,11 @@ export function createConversationContextService({ store, clock = () => new Date
       if (!conversation || conversation.state !== 'active') throw new ConversationContextError('requested conversation is unavailable', { code: 'conversation-unavailable' });
       if (conversation.globalUserId !== scope.globalUserId || conversation.projectScope !== scope.projectScope) throw new ConversationContextError('cross-identity/project continuation denied', { code: 'conversation-cross-scope-denied' });
       const exactScope = conversation.groupScope === scope.groupScope && conversation.threadScope === scope.threadScope;
+      const existingTransportSession = await store.findActiveSession({ conversationId: conversation.conversationId, transport, transportSessionId: optional(transportSessionId) });
+      if (exactScope && existingTransportSession) return { conversation, transition: 'explicit-continuation' };
       const approvedCrossTransport = conversation.continuationPolicy === 'approved-cross-transport' && !conversation.groupScope && !scope.groupScope && !conversation.threadScope && !scope.threadScope;
-      if (!exactScope && !approvedCrossTransport) throw new ConversationContextError('conversation continuation scope denied', { code: 'conversation-cross-scope-denied' });
-      return { conversation, transition: exactScope ? 'explicit-continuation' : 'approved-cross-transport' };
+      if (!approvedCrossTransport) throw new ConversationContextError('conversation continuation scope denied', { code: 'conversation-cross-scope-denied' });
+      return { conversation, transition: 'approved-cross-transport' };
     }
     const conversation = await store.findActiveConversation({ ...scope, transport, transportSessionId: optional(transportSessionId) });
     return conversation ? { conversation, transition: 'continuation' } : null;

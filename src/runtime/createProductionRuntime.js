@@ -15,9 +15,11 @@ function capabilityOverrides(capability) {
   return { requiredPermission: capability.requiredPermissions[0] ?? `capability:${capability.name}`, requiredSources: capability.requiredSources, requiredTools: capability.requiredTools, risk: capability.risk, estimatedCostUsd: capability.estimatedCostUsd, confirmationRequired: capability.confirmationRequired };
 }
 function languagePayload(canonicalInput, semantic) {
-  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, locale: canonicalInput.locale });
+  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, conversationContext: canonicalInput.metadata?.conversationContext ?? null, locale: canonicalInput.locale });
 }
 function conversationKey(input) {
+  const contextId = input.metadata?.conversationContext?.conversationId;
+  if (contextId) return contextId;
   const scope = input.scopeContext;
   return [input.identityContext.globalUserId, scope.projectScope, scope.groupScope ?? 'private', scope.threadScope ?? 'root'].join('|');
 }
@@ -26,7 +28,7 @@ function selectedResourceRequirement(semantic) {
   return selected?.resourceRequirement ?? selected?.payload?.resourceRequirement ?? null;
 }
 
-export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, policyLayer = null, resourceAuthorityRegistry = null, resources = [] } = {}) {
+export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, conversationContextService = null, policyLayer = null, resourceAuthorityRegistry = null, resources = [] } = {}) {
   if (!config?.environment || !config?.revision || !config?.shutdownTimeoutMs) throw new TypeError('validated runtime config is required');
   requireMethod(semanticPipeline, 'process', 'semanticPipeline');
   requireMethod(actionGate, 'evaluate', 'actionGate');
@@ -35,6 +37,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
   if (capabilityRegistry) requireMethod(capabilityRegistry, 'get', 'capabilityRegistry');
   if (domainRuntime) requireMethod(domainRuntime, 'execute', 'domainRuntime');
   if (languageContextService) requireMethod(languageContextService, 'resolve', 'languageContextService');
+  if (conversationContextService) { requireMethod(conversationContextService, 'resolveTurn', 'conversationContextService'); requireMethod(conversationContextService, 'recordOutbound', 'conversationContextService'); }
   if (policyLayer) requireMethod(policyLayer, 'resolve', 'policyLayer');
   if (resourceAuthorityRegistry) requireMethod(resourceAuthorityRegistry, 'checkAuthority', 'resourceAuthorityRegistry');
   if (!Array.isArray(resources)) throw new TypeError('resources must be an array');
@@ -55,20 +58,45 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     const policyContext = policyLayer.resolve({ roles: canonicalInput.identityContext.roles });
     return Object.freeze({ ...canonicalInput, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), policyContext }) });
   }
+  async function withConversationContext(canonicalInput) {
+    if (!conversationContextService) return canonicalInput;
+    const scope = canonicalInput.scopeContext;
+    const context = await conversationContextService.resolveTurn({
+      globalUserId: canonicalInput.identityContext.globalUserId,
+      projectScope: scope.projectScope,
+      groupScope: scope.groupScope,
+      threadScope: scope.threadScope,
+      transport: canonicalInput.metadata?.transport ?? 'unknown',
+      transportSessionId: canonicalInput.metadata?.transportSessionId ?? null,
+      platformMessageId: canonicalInput.metadata?.platformMessageId ?? null,
+      replyToMessageId: canonicalInput.metadata?.replyToMessageId ?? null,
+      continueConversationId: canonicalInput.metadata?.continueConversationId ?? null,
+      topicShift: canonicalInput.metadata?.topicShift === true,
+      topicKey: canonicalInput.metadata?.topicKey ?? null,
+      text: canonicalInput.text,
+      metadata: { traceId: canonicalInput.traceContext.traceId, requestId: canonicalInput.traceContext.requestId, platformMessageId: canonicalInput.metadata?.platformMessageId ?? null }
+    });
+    observability.record({ eventClass: 'conversation_context_resolved', channel: 'telemetry', stage: 'conversation-context', traceContext: canonicalInput.traceContext, outcome: context.transition, actorRef: canonicalInput.identityContext.globalUserId, data: { conversationId: context.conversationId, sessionId: context.sessionId, topicId: context.topicId, recentTurnCount: context.recentTurns.length } });
+    return Object.freeze({ ...canonicalInput, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), conversationContext: context }) });
+  }
   async function withLanguageContext(canonicalInput) {
     if (!languageContextService) return canonicalInput;
     const context = await languageContextService.resolve({ globalUserId: canonicalInput.identityContext.globalUserId, text: canonicalInput.text, platformLocale: canonicalInput.locale, conversationLanguage: canonicalInput.metadata?.conversationLanguage ?? null, conversationKey: conversationKey(canonicalInput), traceContext: canonicalInput.traceContext, identityContext: canonicalInput.identityContext });
     return Object.freeze({ ...canonicalInput, locale: context.locale ?? canonicalInput.locale, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), languageContext: context }) });
   }
+  async function persistResponse(requestInput, response) {
+    const conversationContext = requestInput.metadata?.conversationContext;
+    if (!conversationContextService || !conversationContext || !response?.message) return response;
+    const scope = requestInput.scopeContext;
+    await conversationContextService.recordOutbound({ conversationContext, globalUserId: requestInput.identityContext.globalUserId, projectScope: scope.projectScope, groupScope: scope.groupScope, threadScope: scope.threadScope, transport: requestInput.metadata?.transport ?? 'unknown', text: response.message, metadata: { traceId: requestInput.traceContext.traceId, requestId: requestInput.traceContext.requestId } });
+    return { ...response, data: { ...(response.data ?? {}), conversationContext } };
+  }
   async function resolveResourceAuthority(requirement, requestInput, traceContext) {
     if (!requirement) return null;
     if (!resourceAuthorityRegistry) return Object.freeze({ allowed: false, reason: 'resource-authority-registry-unavailable', actorGlobalUserId: requestInput.identityContext.globalUserId, projectScope: requestInput.scopeContext.projectScope, resourceId: requirement.resourceId, requiredRelation: requirement.relation, evidence: null });
     let decision;
-    try {
-      decision = await resourceAuthorityRegistry.checkAuthority({ actorGlobalUserId: requestInput.identityContext.globalUserId, projectScope: requestInput.scopeContext.projectScope, resourceId: requirement.resourceId, relation: requirement.relation });
-    } catch (error) {
-      decision = { allowed: false, reason: error?.code ?? 'resource-authority-resolution-failed', resourceId: requirement.resourceId, requiredRelation: requirement.relation, evidence: null };
-    }
+    try { decision = await resourceAuthorityRegistry.checkAuthority({ actorGlobalUserId: requestInput.identityContext.globalUserId, projectScope: requestInput.scopeContext.projectScope, resourceId: requirement.resourceId, relation: requirement.relation }); }
+    catch (error) { decision = { allowed: false, reason: error?.code ?? 'resource-authority-resolution-failed', resourceId: requirement.resourceId, requiredRelation: requirement.relation, evidence: null }; }
     const resolved = Object.freeze({ ...decision, actorGlobalUserId: requestInput.identityContext.globalUserId, projectScope: requestInput.scopeContext.projectScope, resourceId: requirement.resourceId, requiredRelation: requirement.relation });
     observability.record({ eventClass: 'resource_authority_resolved', channel: 'audit', stage: 'resource-authority', traceContext, outcome: resolved.allowed ? 'allow' : 'deny', actorRef: requestInput.identityContext.globalUserId, data: { resourceId: resolved.resourceId, requiredRelation: resolved.requiredRelation, reason: resolved.reason, authorityId: resolved.evidence?.authorityId ?? null } });
     return resolved;
@@ -79,7 +107,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     inFlight += 1;
     const traceContext = canonicalInput?.traceContext;
     try {
-      const requestInput = await withLanguageContext(withPolicyContext(canonicalInput));
+      const requestInput = await withLanguageContext(await withConversationContext(withPolicyContext(canonicalInput)));
       observability.record({ eventClass: 'request_received', channel: 'telemetry', stage: 'runtime', traceContext, actorRef: requestInput.identityContext.globalUserId, transport: requestInput.metadata?.transport ?? null });
       const policyContext = requestInput.metadata?.policyContext ?? null;
       if (policyContext) observability.record({ eventClass: 'policy_context_resolved', channel: 'telemetry', stage: 'configuration-policy', traceContext, outcome: 'resolved', data: { roles: policyContext.roles, provenance: policyContext.provenance } });
@@ -92,21 +120,11 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       const declaredCapability = capabilityRegistry?.get(selectedName) ?? null;
       const requirement = selectedResourceRequirement(semantic);
       const authority = await resolveResourceAuthority(requirement, requestInput, traceContext);
-      const actionRequest = createActionRequestFromDecision({
-        decisionEnvelope: semantic.decisionEnvelope,
-        identityContext: requestInput.identityContext,
-        scopeContext: requestInput.scopeContext,
-        overrides: {
-          ...capabilityOverrides(declaredCapability),
-          resourceRequirement: requirement,
-          resourceAuthority: authority,
-          payload: { ...(semantic.decisionEnvelope.selectedAction?.payload ?? {}), ...languagePayload(requestInput, semantic) }
-        }
-      });
+      const actionRequest = createActionRequestFromDecision({ decisionEnvelope: semantic.decisionEnvelope, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, overrides: { ...capabilityOverrides(declaredCapability), resourceRequirement: requirement, resourceAuthority: authority, payload: { ...(semantic.decisionEnvelope.selectedAction?.payload ?? {}), ...languagePayload(requestInput, semantic) } } });
       const gateDecision = actionGate.evaluate(actionRequest, { policyContext });
       observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: gateDecision.outcome, data: { capability: actionRequest.capability, authorized: gateDecision.authorized, resourceId: actionRequest.resourceRequirement?.resourceId ?? null, resourceAuthority: gateDecision.checks.resourceAuthority } });
       const gatedResponse = responseFromGate(gateDecision, semantic.responsePlan);
-      if (gatedResponse) return { ...gatedResponse, data: { ...(gatedResponse.data ?? {}), languageContext, policyContext } };
+      if (gatedResponse) return persistResponse(requestInput, { ...gatedResponse, data: { ...(gatedResponse.data ?? {}), languageContext, policyContext } });
 
       let result;
       if (actionRequest.payload?.domainId && actionRequest.capability !== 'domain-dispatch') {
@@ -118,7 +136,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
         observability.record({ eventClass: 'capability_completed', channel: 'telemetry', stage: 'capability', traceContext, outcome: result.status, durationMs: result.durationMs, costUsd: result.costUsd, data: { capability: result.capability } });
       }
       const message = result?.data?.message ?? result?.data?.text ?? semantic.responsePlan.message;
-      return { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, languageContext, policyContext } };
+      return persistResponse(requestInput, { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, languageContext, policyContext } });
     } catch (error) {
       failure = phase === 'ready' ? null : error;
       observability.recordFailure({ traceContext, stage: 'runtime', reason: redactSensitiveText(error.message), code: error.code ?? 'runtime-request-failed' });

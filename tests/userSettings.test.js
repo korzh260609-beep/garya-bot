@@ -1,11 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { createInMemoryUserSettingsStore, createUserSettingsService } from '../src/settings/userSettingsService.js';
+import { createPostgresUserSettingsStore } from '../src/settings/postgresUserSettingsStore.js';
 import { createLanguageSettingsAdapter, createTimezoneSettingsAdapter } from '../src/settings/userSettingsAdapters.js';
 import { createUserSettingsCapabilities } from '../src/settings/userSettingsCapabilities.js';
 import { createLanguageContextService } from '../src/language/languageContextService.js';
 import { createTemporalContextService } from '../src/temporal/temporalContextService.js';
 import { createLocalProductionHarness } from '../src/runtime/localProductionHarness.js';
+import { createPostgresPersistence } from '../src/persistence/index.js';
+
+const connectionString = process.env.DATABASE_URL;
+const postgresIntegration = connectionString ? test : test.skip;
 
 test('canonical settings expose deterministic defaults', async () => {
   const service = createUserSettingsService();
@@ -87,9 +93,39 @@ test('user settings capabilities provide scoped read and write contracts', async
   assert.equal(getResult.data.settings.settings.response.mode, 'short');
 });
 
+postgresIntegration('Block 16.12 PostgreSQL settings survive service recreation and remain user/project isolated', async () => {
+  const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-block16-12-settings-test' });
+  await persistence.start();
+  const suffix = randomUUID();
+  const userA = `settings-a:${suffix}`;
+  const userB = `settings-b:${suffix}`;
+  try {
+    const first = createUserSettingsService({ store: createPostgresUserSettingsStore({ database: persistence.database }) });
+    await first.update(userA, { language: 'uk', locale: 'uk-UA', timeZone: 'Europe/Kyiv', response: { mode: 'short' } }, { source: 'acceptance-test' });
+    await first.update(userA, { response: { mode: 'long' } }, { projectScope: 'project-a', source: 'acceptance-test' });
+    await first.update(userB, { language: 'pl', timeZone: 'Europe/Warsaw' }, { source: 'acceptance-test' });
+
+    const second = createUserSettingsService({ store: createPostgresUserSettingsStore({ database: persistence.database }) });
+    const globalA = await second.resolve(userA);
+    const projectA = await second.resolve(userA, { projectScope: 'project-a' });
+    const projectB = await second.resolve(userA, { projectScope: 'project-b' });
+    const globalB = await second.resolve(userB);
+
+    assert.equal(globalA.settings.language, 'uk');
+    assert.equal(globalA.settings.timeZone, 'Europe/Kyiv');
+    assert.equal(globalA.settings.response.mode, 'short');
+    assert.equal(projectA.settings.response.mode, 'long');
+    assert.equal(projectB.settings.response.mode, 'short');
+    assert.equal(globalB.settings.language, 'pl');
+    assert.equal(globalB.settings.timeZone, 'Europe/Warsaw');
+    assert.notEqual(globalA.settings.language, globalB.settings.language);
+  } finally {
+    await persistence.close();
+  }
+});
+
 test('runtime resolves settings before semantic processing and exposes only presentation preferences to execution payload', async () => {
   let seenInput = null;
-  let selectedPayload = null;
   const harness = createLocalProductionHarness({
     interpretationResolver: (input) => {
       seenInput = input;
@@ -97,17 +133,13 @@ test('runtime resolves settings before semantic processing and exposes only pres
     }
   });
   await harness.userSettingsService.update('local:gary', { response: { mode: 'short' }, units: { system: 'metric' }, delivery: { preferredTransport: 'telegram' } });
-  const originalExecute = harness.capabilities.find((item) => item.name === 'compose-answer').execute;
-  void originalExecute;
   await harness.runtime.start();
   try {
     const result = await harness.transport.send({ text: 'Hello there', locale: 'en-US', userId: 'gary', projectId: 'sg2.1' });
     assert.equal(seenInput.metadata.userSettingsContext.settings.response.mode, 'short');
-    selectedPayload = result.response.data.execution?.data ?? null;
     assert.equal(result.response.status, 'success');
     assert.equal(seenInput.metadata.userSettingsContext.settings.delivery.preferredTransport, 'telegram');
   } finally {
     await harness.runtime.stop();
   }
-  void selectedPayload;
 });

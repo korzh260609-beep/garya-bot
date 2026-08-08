@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { createDeliveryRouter, createDeliveryTransportRegistry, createInMemoryDeliveryStore } from '../src/delivery/deliveryRouter.js';
+import { createDeliveryRouter, createDeliveryTransportRegistry } from '../src/delivery/deliveryRouter.js';
 import { createPostgresDeliveryStore } from '../src/delivery/postgresDeliveryStore.js';
 import { createUserSettingsService } from '../src/settings/userSettingsService.js';
 import { createPostgresPersistence } from '../src/persistence/index.js';
@@ -50,7 +50,7 @@ test('retry is bounded and visible', async () => {
 test('notification preferences can suppress and quiet hours can defer without transport execution', async () => {
   let calls = 0;
   const settings = createUserSettingsService();
-  const router = createDeliveryRouter({ userSettingsService: settings, clock: () => new Date('2026-08-08T21:30:00Z'), transportRegistry: registry(async () => { calls += 1; }) });
+  const router = createDeliveryRouter({ userSettingsService: settings, clock: () => new Date('2026-08-08T22:30:00Z'), transportRegistry: registry(async () => { calls += 1; }) });
   await settings.update('user-a', { notifications: { enabled: false } }, { projectScope: 'sg2.1' });
   let result = await router.route(base({ kind: 'notification', originTarget: null, target: { transport: 'telegram', resourceId: 'r1', address: 'chat-a' }, explicitTarget: true, idempotencyKey: 'disabled' }));
   assert.equal(result.status, 'suppressed');
@@ -71,17 +71,30 @@ test('preferred transport is honored only when target is authorized', async () =
   assert.equal(result.target.resourceId, 'r1');
 });
 
-test('cross-user and cross-resource delivery fail closed', async () => {
+test('cross-user and cross-resource delivery fail closed and mismatched evidence is rejected', async () => {
   let calls = 0;
   const authority = { async checkAuthority({ resourceId }) { return { allowed: resourceId === 'owned', reason: resourceId === 'owned' ? 'ok' : 'resource-authority-missing' }; } };
   const router = createDeliveryRouter({ resourceAuthorityRegistry: authority, transportRegistry: registry(async () => { calls += 1; }) });
   const crossUser = await router.route(base({ kind: 'notification', recipientGlobalUserId: 'user-b', originTarget: null, target: { transport: 'telegram', resourceId: 'owned', address: 'chat-b' }, explicitTarget: true, idempotencyKey: 'cross-user' }));
   assert.equal(crossUser.status, 'failed');
   assert.equal(crossUser.failureCode, 'cross-user-delivery-not-authorized');
+  const forged = await router.route(base({ kind: 'notification', recipientGlobalUserId: 'user-b', originTarget: null, target: { transport: 'telegram', resourceId: 'owned', address: 'chat-b' }, explicitTarget: true, idempotencyKey: 'cross-user-forged', crossUserAuthorization: { authorized: true, authorizationId: 'auth-1', actorGlobalUserId: 'user-x', recipientGlobalUserId: 'user-b', projectScope: 'sg2.1' } }));
+  assert.equal(forged.failureCode, 'cross-user-delivery-not-authorized');
   const crossResource = await router.route(base({ kind: 'notification', originTarget: null, target: { transport: 'telegram', resourceId: 'foreign', address: 'chat-x' }, explicitTarget: true, idempotencyKey: 'cross-resource' }));
   assert.equal(crossResource.status, 'failed');
   assert.equal(crossResource.failureCode, 'resource-authority-missing');
   assert.equal(calls, 0);
+});
+
+test('connection-backed target uses bounded registry access context instead of synthetic user grants', async () => {
+  let actorSeen = null;
+  const authority = { async checkAuthority() { return { allowed: true, reason: 'ok' }; } };
+  const connections = { async requireUsable(input) { actorSeen = input.actor; assert.equal(input.capability, 'notification.delivery'); return { status: 'connected' }; } };
+  const systemActor = { globalUserId: 'system:runtime', grants: ['connection:read', 'connection:manage:any'] };
+  const router = createDeliveryRouter({ resourceAuthorityRegistry: authority, connectionRegistry: connections, connectionAccessContext: { actor: systemActor, projectScope: 'sg2.1' }, transportRegistry: registry(async () => ({ ok: true })) });
+  const result = await router.route(base({ kind: 'notification', originTarget: null, explicitTarget: true, target: { transport: 'telegram', resourceId: 'r1', connectionId: 'telegram', address: 'chat-a' }, idempotencyKey: 'connection-target' }));
+  assert.equal(result.status, 'delivered');
+  assert.equal(actorSeen.globalUserId, 'system:runtime');
 });
 
 postgresIntegration('Block 16.13 delivery status and idempotency survive PostgreSQL service recreation', async () => {

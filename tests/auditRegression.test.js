@@ -3,8 +3,13 @@ import assert from 'node:assert/strict';
 import { createInMemoryObservabilityStore } from '../src/observability/inMemoryObservabilityStore.js';
 import { createObservabilityService } from '../src/observability/observabilityService.js';
 import { createInternalEventBus } from '../src/events/internalEventBus.js';
+import { createDeliveryRouter, createDeliveryTransportRegistry } from '../src/delivery/deliveryRouter.js';
 import { createDefaultContractVersioning } from '../src/contracts/contractVersioning.js';
 import { createVersionedCapabilityExecutor } from '../src/contracts/versionedCapabilityExecutor.js';
+import { createFeatureFlagService, createInMemoryFeatureFlagStore } from '../src/features/featureFlags.js';
+import { createFeatureFlaggedCapabilityExecutor } from '../src/features/featureFlaggedCapabilityExecutor.js';
+import { createDomainRegistry } from '../src/domains/domainRegistry.js';
+import { createDomainRuntime } from '../src/domains/domainRuntime.js';
 import { createLocalProductionHarness } from '../src/runtime/localProductionHarness.js';
 
 function strictObservability() {
@@ -41,6 +46,18 @@ test('audit regression: Internal Event Bus works with the real strict Observabil
   assert.equal(recorded.eventClass, 'audit_event');
 });
 
+test('audit regression: Delivery Router works with the real strict ObservabilityService', async () => {
+  const { store, observability } = strictObservability();
+  const transportRegistry = createDeliveryTransportRegistry({ transports: [{ name: 'telegram', deliver: async () => ({ messageId: 'delivered' }) }] });
+  const router = createDeliveryRouter({ observability, transportRegistry });
+  const result = await router.route({
+    kind: 'current-response', actorGlobalUserId: 'user:1', recipientGlobalUserId: 'user:1', projectScope: 'sg2.1', message: 'hello',
+    originTarget: { transport: 'telegram', address: 'chat:1' }, idempotencyKey: 'audit-delivery', traceContext: { traceId: 'delivery-trace', requestId: 'delivery-request' }
+  });
+  assert.equal(result.status, 'delivered');
+  assert.ok(store.list({}).some((event) => event.eventClass === 'audit_event' && event.data.operationalEventClass === 'delivery_attempt'));
+});
+
 test('audit regression: Contract Versioning observability accepts bounded trace and still rejects unknown future versions', async () => {
   const { store, observability } = strictObservability();
   const versions = createDefaultContractVersioning({ observability, idFactory: () => 'q-regression' });
@@ -64,6 +81,33 @@ test('audit regression: capability contract version is enforced before execution
   assert.equal(called, 0);
 });
 
+test('audit regression: disabled feature execution returns canonical CapabilityResult', async () => {
+  const flagStore = createInMemoryFeatureFlagStore();
+  const featureFlags = createFeatureFlagService({ store: flagStore });
+  await featureFlags.setFlag({ featureId: 'capability:compose-answer', enabled: false });
+  let delegated = 0;
+  const executor = createFeatureFlaggedCapabilityExecutor({ executor: { async execute() { delegated += 1; return null; } }, featureFlags });
+  const actionRequest = { capability: 'compose-answer', actor: { globalUserId: 'user:1', roles: ['monarch'] }, scope: { userScope: 'user:1', projectScope: 'sg2.1' }, payload: {}, traceContext: { traceId: 'feature-trace', requestId: 'feature-request' } };
+  const result = await executor.execute({ actionRequest, gateDecision: { outcome: 'allow', authorized: true, checks: { permission: true, resourceAuthority: true } }, traceContext: { traceId: 'feature-trace', requestId: 'feature-request', environment: 'test', revision: 'audit' } });
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.error.code, 'feature-disabled');
+  assert.equal(typeof result.error.message, 'string');
+  assert.deepEqual(result.attempts, []);
+  assert.equal(result.traceContext.traceId, 'feature-trace');
+  assert.equal(delegated, 0);
+});
+
+test('audit regression: protected domain cannot reuse an analysis-only GateDecision', async () => {
+  const registry = createDomainRegistry([{ id: 'audit', version: '1.0.0', description: 'Protected domain fixture.', capabilities: [{ name: 'audit.execute', actionClass: 'protected', requiredPermissions: ['audit.execute'], sourceRequirements: [], memoryLayers: [], handler: async () => ({ ok: true }) }] }]);
+  const runtime = createDomainRuntime({ registry, sourceResolver: async () => ({ available: [], data: null }), memoryResolver: async () => ({ data: null }) });
+  const scope = { userScope: 'user:1', projectScope: 'sg2.1', groupScope: null, threadScope: null };
+  const base = { domainId: 'audit', capability: 'audit.execute', input: {}, identityContext: { globalUserId: 'user:1', grants: ['audit.execute'] }, scopeContext: scope, traceContext: { traceId: 'protected-trace', requestId: 'protected-request', environment: 'test', revision: 'audit' } };
+  await assert.rejects(() => runtime.execute({ ...base, gateDecision: { outcome: 'allow', authorized: true, actionRequest: { actor: { globalUserId: 'user:1' }, scope, actionClass: 'analysis-only' } } }), /domain action gate denied/);
+  const result = await runtime.execute({ ...base, gateDecision: { outcome: 'allow', authorized: true, actionRequest: { actor: { globalUserId: 'user:1' }, scope, actionClass: 'state-changing' } } });
+  assert.equal(result.status, 'success');
+  assert.equal(result.actionClass, 'state-changing');
+});
+
 test('audit regression: production harness wires Event Bus, Contract Versioning and Domain Runtime as live components', async () => {
   const harness = createLocalProductionHarness({ env: { SG_PERSISTENCE_MODE: 'memory' } });
   assert.equal(typeof harness.eventBus.publish, 'function');
@@ -73,16 +117,10 @@ test('audit regression: production harness wires Event Bus, Contract Versioning 
 
   const scope = { userScope: 'local:developer', projectScope: 'sg2.1', groupScope: null, threadScope: null };
   const domainResult = await harness.domainRuntime.execute({
-    domainId: 'psychology',
-    capability: 'psychology.support',
-    input: { topic: 'test' },
-    identityContext: { globalUserId: 'local:developer', roles: ['monarch'], grants: ['psychology.use'] },
-    scopeContext: scope,
+    domainId: 'psychology', capability: 'psychology.support', input: { topic: 'test' },
+    identityContext: { globalUserId: 'local:developer', roles: ['monarch'], grants: ['psychology.use'] }, scopeContext: scope,
     traceContext: { traceId: 'domain-trace', requestId: 'domain-request', environment: 'test', revision: 'audit' },
-    gateDecision: {
-      outcome: 'allow', authorized: true,
-      actionRequest: { actor: { globalUserId: 'local:developer' }, scope, actionClass: 'analysis-only' }
-    }
+    gateDecision: { outcome: 'allow', authorized: true, actionRequest: { actor: { globalUserId: 'local:developer' }, scope, actionClass: 'analysis-only' } }
   });
   assert.equal(domainResult.status, 'success');
   assert.equal(domainResult.actionClass, 'analysis-only');

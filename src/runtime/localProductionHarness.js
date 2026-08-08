@@ -20,6 +20,7 @@ import { createPostgresTimezoneStore } from '../temporal/postgresTimezoneStore.j
 import { createTemporalAwareMeaningInterpreter } from '../temporal/temporalMeaningInterpreter.js';
 import { createTemporalCapabilities, TEMPORAL_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
 import { createTemporalTaskStore } from '../temporal/temporalTaskStore.js';
+import { createTemporalMemoryProvider } from '../temporal/temporalMemoryProvider.js';
 import { createProductionRuntime } from './createProductionRuntime.js';
 import { loadRuntimeConfig } from './config.js';
 
@@ -30,7 +31,8 @@ function aiRequested(env) {
 export function createLocalProductionHarness({ env = {}, interpretationResolver, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
   const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16.5', SG_PROJECT_SCOPE: 'sg2.1', ...env });
   const persistence = config.persistenceMode === 'postgres' ? createPostgresPersistence({ connectionString: config.databaseUrl, ssl: config.databaseSsl, applicationName: 'sg-2-1-runtime' }) : null;
-  const memoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory, clock }) : createInMemoryMemoryProvider({ clock });
+  const baseMemoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory, clock }) : createInMemoryMemoryProvider({ clock });
+  const memoryProvider = createTemporalMemoryProvider({ memoryProvider: baseMemoryProvider });
   const durableTaskQueue = persistence ? createPostgresTaskQueue({ database: persistence.database }) : null;
   const baseTaskStore = persistence
     ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue })
@@ -51,7 +53,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   })));
   const meaningInterpreter = createTemporalAwareMeaningInterpreter({ baseInterpreter: baseMeaningInterpreter, temporalService });
   const semanticPipeline = createContextAwareSemanticPipeline({ semanticKernel: createSemanticKernel({ meaningInterpreter }), contextResolver });
-  const temporalCapabilities = createTemporalCapabilities({ temporalService });
+  const temporalCapabilities = createTemporalCapabilities({ temporalService, memoryProvider });
   const capabilityNames = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...TEMPORAL_CAPABILITY_NAMES]);
   const capabilities = Object.freeze([
     ...createProductionCapabilities({

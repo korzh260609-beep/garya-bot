@@ -4,6 +4,7 @@ import { PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilitie
 import { TEMPORAL_CAPABILITY_NAMES, TEMPORAL_SAFE_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
 import { LANGUAGE_CAPABILITY_NAMES, LANGUAGE_SAFE_CAPABILITY_NAMES } from '../language/languageCapabilities.js';
 import { USER_SETTINGS_CAPABILITY_NAMES, USER_SETTINGS_SAFE_CAPABILITY_NAMES } from '../settings/userSettingsCapabilities.js';
+import { BUILT_IN_DOMAIN_PERMISSIONS } from '../domains/builtInDomains.js';
 import { createLocalProductionHarness } from './localProductionHarness.js';
 import { loadTelegramConfig } from '../telegram/telegramConfig.js';
 import { createTelegramBotApiClient } from '../telegram/telegramBotApiClient.js';
@@ -54,10 +55,10 @@ export function createProductionTelegramIdentityResolver({ persistence, projectS
   const configuredMonarchLanguage = monarchLanguage == null ? null : String(monarchLanguage).trim().toLowerCase();
   if (configuredMonarchTimeZone && (!temporalService || !temporalService.isValidTimeZone(configuredMonarchTimeZone))) throw new TypeError('SG_MONARCH_TIMEZONE must be a valid IANA timezone');
 
-  async function ensureGrant(globalUserId, project, currentGrants, name) {
-    const grantName = `capability:${name}`;
+  async function ensureRawGrant(globalUserId, project, currentGrants, grantName) {
     if (!currentGrants.has(grantName)) { await persistence.repositories.access.grantPermission({ globalUserId, projectScope: project, grantName }); currentGrants.add(grantName); }
   }
+  async function ensureGrant(globalUserId, project, currentGrants, name) { return ensureRawGrant(globalUserId, project, currentGrants, `capability:${name}`); }
 
   return async ({ platformFacts, scopeFacts }) => {
     const platform = String(platformFacts?.platform ?? '').trim();
@@ -73,6 +74,7 @@ export function createProductionTelegramIdentityResolver({ persistence, projectS
     if (platformUserId === monarchId) {
       if (!access.roles.includes('monarch')) await persistence.repositories.access.grantRole({ globalUserId, projectScope: effectiveProjectScope, role: 'monarch' });
       for (const name of ALL_CAPABILITY_NAMES) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
+      for (const grantName of BUILT_IN_DOMAIN_PERMISSIONS) await ensureRawGrant(globalUserId, effectiveProjectScope, existing, grantName);
       if (configuredMonarchTimeZone && temporalService && !(await temporalService.getUserTimezone(globalUserId))) await temporalService.setUserTimezone(globalUserId, configuredMonarchTimeZone, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_TIMEZONE' } });
       if (configuredMonarchLanguage && languageContextService && !(await languageContextService.getPreferred(globalUserId))) await languageContextService.setPreferred(globalUserId, configuredMonarchLanguage, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_LANGUAGE' } });
       access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
@@ -110,16 +112,30 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   };
 
   let server = null;
-  async function start() {
-    await harness.runtime.start();
-    server = http.createServer((request, response) => requestHandler(request, response).catch(() => json(response, 500, { ok: false, code: 'internal-error' })));
-    const port = envPort(effectiveEnv);
-    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '0.0.0.0', resolve); });
-    if (envString(effectiveEnv, 'TELEGRAM_REGISTER_WEBHOOK', 'true').toLowerCase() !== 'false') {
-      await harness.credentialManager.useCredential({ credentialId: telegramConfig.webhookSecretCredentialId, actor: harness.credentialAccessContext.actor, scope: harness.credentialAccessContext.scope, purpose: 'telegram.webhook.register', connectionId: 'telegram-webhook', operation: (webhookSecret) => botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: webhookSecret }) });
-    }
-    return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), revision: harness.config.revision });
+  async function closeServer() {
+    const current = server;
+    server = null;
+    if (!current?.listening) return;
+    await new Promise((resolve, reject) => current.close((error) => error ? reject(error) : resolve()));
   }
-  async function stop() { if (server) { await new Promise((resolve) => server.close(resolve)); server = null; } await harness.runtime.stop(); }
+  async function start() {
+    let runtimeStarted = false;
+    try {
+      await harness.runtime.start();
+      runtimeStarted = true;
+      server = http.createServer((request, response) => requestHandler(request, response).catch(() => json(response, 500, { ok: false, code: 'internal-error' })));
+      const port = envPort(effectiveEnv);
+      await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '0.0.0.0', resolve); });
+      if (envString(effectiveEnv, 'TELEGRAM_REGISTER_WEBHOOK', 'true').toLowerCase() !== 'false') {
+        await harness.credentialManager.useCredential({ credentialId: telegramConfig.webhookSecretCredentialId, actor: harness.credentialAccessContext.actor, scope: harness.credentialAccessContext.scope, purpose: 'telegram.webhook.register', connectionId: 'telegram-webhook', operation: (webhookSecret) => botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: webhookSecret }) });
+      }
+      return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), revision: harness.config.revision });
+    } catch (error) {
+      try { await closeServer(); } catch {}
+      if (runtimeStarted) { try { await harness.runtime.stop(); } catch {} }
+      throw error;
+    }
+  }
+  async function stop() { await closeServer(); await harness.runtime.stop(); }
   return Object.freeze({ effectiveEnv: publicEnvironmentView(effectiveEnv), harness, deliveryRouter: deliveryDeployment.router, deliveryStore: deliveryDeployment.store, deliveryTransportRegistry: deliveryDeployment.transportRegistry, requestHandler, start, stop });
 }

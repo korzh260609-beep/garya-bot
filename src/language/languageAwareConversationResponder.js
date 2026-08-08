@@ -3,7 +3,7 @@ export function createLanguageAwareConversationResponder({ aiRouter = null } = {
     const languageContext = request.input?.languageContext ?? {};
     const responseLanguage = languageContext.responseLanguage ?? 'en';
     const sourceMessage = request.input?.semanticMessage ?? text;
-    if (!aiRouter?.route) return String(sourceMessage);
+    if (!aiRouter?.route) return `SG runtime ready: ${text}`;
     try {
       const result = await aiRouter.route({
         task: 'response-composition',
@@ -20,7 +20,7 @@ export function createLanguageAwareConversationResponder({ aiRouter = null } = {
       });
       return result.text;
     } catch {
-      return String(sourceMessage);
+      return `SG runtime ready: ${text}`;
     }
   };
 }

@@ -9,7 +9,7 @@ The production stage must preserve these rules:
 - Connected AI models provide controlled reasoning and specialized execution; SG owns context, decisions, permissions, risk and action control.
 - No direct AI calls outside AI Router.
 - Protected actions always pass Action Gate.
-- Identity, permissions, scope and trust order remain centralized.
+- Identity, permissions, scope, resource authority and trust order remain centralized.
 - Transports provide platform facts but cannot assign roles, grants, resource ownership or final response-language policy.
 - Domain modules cannot redefine Semantic Kernel, Identity, Action Gate or trust order.
 - Secrets never become ordinary memory, prompt context or unrestricted telemetry.
@@ -30,16 +30,17 @@ Completed and acceptance-verified:
 - Block 16.6 — Language & Locale Context;
 - Block 16.7 — Configuration & Policy Layer;
 - Block 16.8 — Secrets & Credentials Management;
-- Block 16.9 — External Connections Registry.
+- Block 16.9 — External Connections Registry;
+- Block 16.10 — Resource Ownership & Authority Model.
 
-Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, and a durable External Connections Registry that gates integrated provider execution.
+Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, and verified Resource Authority enforcement for concrete resources.
 
 ## Current implementation boundary
 
-- Blocks 11–16.9 listed above are completed.
-- Blocks 16.10–16.16 are planned mandatory foundational work.
-- Block 16.10 is next.
-- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.10–16.16.
+- Blocks 11–16.10 listed above are completed.
+- Blocks 16.11–16.16 are planned mandatory foundational work.
+- Block 16.11 is next.
+- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.11–16.16.
 - Blocks 18–19 and Pilot Launch remain subsequent stages.
 
 ---
@@ -123,6 +124,13 @@ Stable external connection records, provider/account metadata, owner/project sco
 
 Acceptance evidence: `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md`.
 
+## Block 16.10 — Resource Ownership & Authority Model
+**Status:** Completed.
+
+Stable verified resource records and authority relations, explicit owner/admin/manager/read/publish/modify semantics, delegation/revocation/expiry, resource hierarchy with opt-in descendant inheritance, PostgreSQL persistence, connection linkage without ownership inference, runtime authority resolution and fail-closed Action Gate enforcement for resource-targeted actions.
+
+Acceptance evidence: `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md`.
+
 ---
 
 # Foundational continuation before Render
@@ -135,7 +143,7 @@ Canonical dependency direction:
 16.7 Configuration & Policy [completed]
 → 16.8 Secrets & Credentials [completed]
 → 16.9 External Connections Registry [completed]
-→ 16.10 Resource Ownership & Authority
+→ 16.10 Resource Ownership & Authority [completed]
 → 16.11 Session & Conversation Context
 → 16.12 User Settings & Preferences
 → 16.13 Notification & Delivery Router
@@ -255,7 +263,7 @@ Detailed specification and evidence: `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md`.
 # Block 16.10 — Resource Ownership & Authority Model
 
 ## Status
-Planned.
+Completed and acceptance-verified.
 
 ## Goal
 Give SG an explicit verified model of which resources an actor/project owns, manages, administers or may act upon.
@@ -263,10 +271,10 @@ Give SG an explicit verified model of which resources an actor/project owns, man
 ## Canonical separation
 
 ```text
-Identity  = WHO is acting
-Scope     = WHERE the request is bounded
-Access    = WHAT action/capability is permitted
-Authority = OVER WHICH RESOURCE the actor may act
+Identity           = WHO is acting
+Scope              = WHERE the request is bounded
+Access              = WHAT action/capability is permitted
+Resource Authority = OVER WHICH RESOURCE the actor may act
 ```
 
 ## Required scope
@@ -276,31 +284,37 @@ Authority = OVER WHICH RESOURCE the actor may act
 - actor/project/resource relationships;
 - resource hierarchy where needed;
 - authority provenance and verification;
-- delegation and revocation;
+- delegation, expiry and revocation;
 - integration with Identity, Scope, Connections, Capabilities and Action Gate;
 - audited authority changes.
 
 ## Boundaries
 - membership does not prove ownership;
 - adding SG to a group/channel does not grant unrestricted authority;
+- connection possession does not prove ownership of provider resources;
 - authority cannot merge identities or broaden scope;
+- parent authority only applies to descendants when explicitly configured;
+- generic permissions do not replace resource authority;
 - no identity/authority secret words, commands, phrases or keyword hacks.
 
 ## Acceptance criteria
-- owner/admin/manager/participant are distinguishable;
-- multiple resources of one user remain independently addressable;
-- different users' channels/groups/repositories cannot be confused;
-- delegation is explicit, revocable and auditable;
-- cross-user/resource isolation tests pass.
+- [x] owner/admin/manager/participant are distinguishable;
+- [x] multiple resources of one user remain independently addressable;
+- [x] different users' channels/groups/repositories cannot be confused;
+- [x] delegation is explicit, bounded, revocable and auditable;
+- [x] hierarchy inheritance is explicit and tested;
+- [x] revoked/expired/unverified authority fails closed;
+- [x] resource state and authority survive restart and remain project-isolated;
+- [x] Action Gate denies missing or mismatched resource authority evidence.
 
-Detailed specification: `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md`.
+Detailed specification and evidence: `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md`.
 
 ---
 
 # Block 16.11 — Session & Conversation Context
 
 ## Status
-Planned.
+Planned — next mandatory block.
 
 ## Goal
 Create a canonical model of conversations, sessions, topics and reply continuity independently from confirmed long-term memory.
@@ -508,7 +522,7 @@ Detailed specification: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
 # Block 17 — Render Deployment
 
 ## Status
-Planned after Blocks 16.10–16.16.
+Planned after Blocks 16.11–16.16.
 
 ## Goal
 Deploy SG 2.1 as a controlled production environment on Render after foundational control layers are implementation-verified.
@@ -540,7 +554,8 @@ Deploy SG 2.1 as a controlled production environment on Render after foundationa
 - log redaction;
 - rollback procedure;
 - Telegram webhook registration;
-- connection/credential readiness evidence.
+- connection/credential readiness evidence;
+- resource-authority readiness evidence.
 
 ## Acceptance criteria
 - only approved branch is deployed;

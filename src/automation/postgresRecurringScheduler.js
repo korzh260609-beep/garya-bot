@@ -6,6 +6,15 @@ function required(value, field) {
   return value.trim();
 }
 
+function scopeValues(scope = {}) {
+  return [
+    required(scope.userScope, 'scope.userScope'),
+    required(scope.projectScope, 'scope.projectScope'),
+    scope.groupScope ?? null,
+    scope.threadScope ?? null
+  ];
+}
+
 function validPolicy(value) {
   const policy = value ?? 'fire_once';
   if (!['skip', 'fire_once', 'catch_up'].includes(policy)) throw new TypeError('misfirePolicy must be skip, fire_once or catch_up');
@@ -36,6 +45,10 @@ function normalizedSchedule(row) {
     nextOccurrenceAt: row.next_occurrence_at ? new Date(row.next_occurrence_at).toISOString() : null,
     state: row.state ?? {}
   });
+}
+
+function scopedWhere(alias = 't') {
+  return `${alias}.global_user_id=$2 AND ${alias}.project_scope=$3 AND ${alias}.group_scope IS NOT DISTINCT FROM $4 AND ${alias}.thread_scope IS NOT DISTINCT FROM $5`;
 }
 
 export function createPostgresRecurringScheduler({ database, recurrenceEngine, clock = () => new Date(), idFactory = randomUUID } = {}) {
@@ -71,22 +84,32 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     });
   }
 
-  async function pause(scheduleId) {
-    const result = await database.query("UPDATE schedules SET status='paused',paused_at=now(),updated_at=now() WHERE schedule_id=$1 AND status='active' RETURNING *", [required(scheduleId, 'scheduleId')]);
+  async function get({ scope, scheduleId }) {
+    const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
+    const result = await database.query(`SELECT s.* FROM schedules s JOIN tasks t ON t.task_id=s.task_id
+      WHERE s.schedule_id=$1 AND ${scopedWhere('t')}`, [required(scheduleId, 'scheduleId'), userScope, projectScope, groupScope, threadScope]);
     return normalizedSchedule(result.rows[0]);
   }
-  async function resume(scheduleId) {
-    const result = await database.query("UPDATE schedules SET status='active',paused_at=NULL,updated_at=now() WHERE schedule_id=$1 AND status='paused' RETURNING *", [required(scheduleId, 'scheduleId')]);
+
+  async function list({ scope, limit = 100 }) {
+    const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
+    const bounded = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 100;
+    const result = await database.query(`SELECT s.* FROM schedules s JOIN tasks t ON t.task_id=s.task_id
+      WHERE ${scopedWhere('t')} ORDER BY s.created_at DESC,s.schedule_id DESC LIMIT $1`, [bounded, userScope, projectScope, groupScope, threadScope]);
+    return Object.freeze(result.rows.map(normalizedSchedule));
+  }
+
+  async function transition({ scope, scheduleId, fromStatuses, sqlStatus }) {
+    const [userScope, projectScope, groupScope, threadScope] = scopeValues(scope);
+    const result = await database.query(`UPDATE schedules s SET status=$6,paused_at=CASE WHEN $6='paused' THEN now() ELSE NULL END,updated_at=now()
+      FROM tasks t WHERE s.task_id=t.task_id AND s.schedule_id=$1 AND ${scopedWhere('t')} AND s.status=ANY($7::text[]) RETURNING s.*`,
+    [required(scheduleId, 'scheduleId'), userScope, projectScope, groupScope, threadScope, sqlStatus, fromStatuses]);
     return normalizedSchedule(result.rows[0]);
   }
-  async function cancel(scheduleId) {
-    const result = await database.query("UPDATE schedules SET status='cancelled',updated_at=now() WHERE schedule_id=$1 AND status NOT IN ('completed','cancelled') RETURNING *", [required(scheduleId, 'scheduleId')]);
-    return normalizedSchedule(result.rows[0]);
-  }
-  async function get(scheduleId) {
-    const result = await database.query('SELECT * FROM schedules WHERE schedule_id=$1', [required(scheduleId, 'scheduleId')]);
-    return normalizedSchedule(result.rows[0]);
-  }
+
+  const pause = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active'], sqlStatus: 'paused' });
+  const resume = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['paused'], sqlStatus: 'active' });
+  const cancel = ({ scope, scheduleId }) => transition({ scope, scheduleId, fromStatuses: ['active', 'paused', 'error'], sqlStatus: 'cancelled' });
 
   async function materializeOccurrence(tx, schedule, occurrence, now) {
     const templateResult = await tx.query('SELECT * FROM tasks WHERE task_id=$1', [schedule.task_id]);
@@ -157,5 +180,5 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     });
   }
 
-  return Object.freeze({ register, pause, resume, cancel, get, materializeDue });
+  return Object.freeze({ register, get, list, pause, resume, cancel, materializeDue });
 }

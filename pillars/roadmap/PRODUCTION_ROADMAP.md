@@ -13,6 +13,7 @@ The production stage must preserve these rules:
 - Transports provide platform facts but cannot assign roles, grants, resource ownership or final response-language policy.
 - Domain modules cannot redefine Semantic Kernel, Identity, Action Gate or trust order.
 - Secrets never become ordinary memory, prompt context or unrestricted telemetry.
+- Conversation state is bounded dialogue continuity and never becomes confirmed memory automatically.
 - Every production action must be observable and recoverable.
 
 ## Current baseline
@@ -31,16 +32,17 @@ Completed and acceptance-verified:
 - Block 16.7 — Configuration & Policy Layer;
 - Block 16.8 — Secrets & Credentials Management;
 - Block 16.9 — External Connections Registry;
-- Block 16.10 — Resource Ownership & Authority Model.
+- Block 16.10 — Resource Ownership & Authority Model;
+- Block 16.11 — Session & Conversation Context.
 
-Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, and verified Resource Authority enforcement for concrete resources.
+Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, verified Resource Authority enforcement for concrete resources, and durable scoped conversation/session/topic continuity with bounded recent dialogue context.
 
 ## Current implementation boundary
 
-- Blocks 11–16.10 listed above are completed.
-- Blocks 16.11–16.16 are planned mandatory foundational work.
-- Block 16.11 is next.
-- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.11–16.16.
+- Blocks 11–16.11 listed above are completed.
+- Blocks 16.12–16.16 are planned mandatory foundational work.
+- Block 16.12 is next.
+- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.12–16.16.
 - Blocks 18–19 and Pilot Launch remain subsequent stages.
 
 ---
@@ -131,6 +133,13 @@ Stable verified resource records and authority relations, explicit owner/admin/m
 
 Acceptance evidence: `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md`.
 
+## Block 16.11 — Session & Conversation Context
+**Status:** Completed.
+
+Canonical durable conversations, transport-bound sessions, topic/reply relationships, explicit start/continue/topic-shift/closure lifecycle, scoped external message linkage, bounded recent dialogue context, explicit approved cross-transport continuation, PostgreSQL restart continuity, Language/Semantic runtime integration and privacy-bounded transition observability without automatic promotion into confirmed memory.
+
+Acceptance evidence: `16_11_SESSION_AND_CONVERSATION_CONTEXT.md`.
+
 ---
 
 # Foundational continuation before Render
@@ -144,7 +153,7 @@ Canonical dependency direction:
 → 16.8 Secrets & Credentials [completed]
 → 16.9 External Connections Registry [completed]
 → 16.10 Resource Ownership & Authority [completed]
-→ 16.11 Session & Conversation Context
+→ 16.11 Session & Conversation Context [completed]
 → 16.12 User Settings & Preferences
 → 16.13 Notification & Delivery Router
 → 16.14 Internal Event Bus
@@ -314,42 +323,48 @@ Detailed specification and evidence: `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MOD
 # Block 16.11 — Session & Conversation Context
 
 ## Status
-Planned — next mandatory block.
+Completed and acceptance-verified.
 
 ## Goal
 Create a canonical model of conversations, sessions, topics and reply continuity independently from confirmed long-term memory.
 
 ## Required scope
-- `conversation_id` and optional `session_id`;
-- user/project/group/thread binding;
-- topic and reply-chain relationships;
-- start/continue/topic-shift/closure state;
-- approved cross-device/cross-transport continuation;
-- durable restart continuity where appropriate;
-- bounded recent dialogue context;
-- Language/Temporal/Context Resolver integration;
-- privacy-bounded transition observability.
+- [x] `conversation_id` and optional `session_id`;
+- [x] user/project/group/thread binding;
+- [x] topic and reply-chain relationships;
+- [x] start/continue/topic-shift/closure state;
+- [x] approved cross-device/cross-transport continuation;
+- [x] durable restart continuity;
+- [x] bounded recent dialogue context;
+- [x] Language/Semantic/Context integration;
+- [x] privacy-bounded transition observability.
 
 ## Boundaries
 - conversation state is not confirmed memory;
-- separate conversations do not automatically merge;
+- separate conversations and transport sessions do not automatically merge;
 - group/thread scope remains authoritative;
-- transports provide reply/thread facts but do not own semantic conversation state.
+- cross-transport continuation requires explicit prior approval;
+- transports provide reply/thread/session facts but do not own semantic conversation state;
+- recent-turn text is not duplicated into ordinary capability payloads or transition telemetry.
 
 ## Acceptance criteria
-- SG distinguishes new conversation from continuation;
-- topic shifts do not corrupt unrelated context;
-- two conversations for one user can coexist without contamination;
-- restart and approved cross-transport continuation are deterministic.
+- [x] SG distinguishes new conversation from continuation;
+- [x] topic shifts do not corrupt unrelated context;
+- [x] two conversations for one user can coexist without contamination;
+- [x] reply/thread chains remain correctly scoped;
+- [x] restart continuation is deterministic;
+- [x] approved cross-transport continuation is deterministic and fail-closed before approval;
+- [x] cross-user/group/thread recent-context leakage tests pass;
+- [x] conversation state remains separate from confirmed long-term memory.
 
-Detailed specification: `16_11_SESSION_AND_CONVERSATION_CONTEXT.md`.
+Detailed specification and evidence: `16_11_SESSION_AND_CONVERSATION_CONTEXT.md`.
 
 ---
 
 # Block 16.12 — User Settings & Preferences
 
 ## Status
-Planned.
+Planned — next mandatory block.
 
 ## Goal
 Create one typed settings layer keyed by `global_user_id` rather than separate preference mechanisms for every subsystem.
@@ -522,7 +537,7 @@ Detailed specification: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
 # Block 17 — Render Deployment
 
 ## Status
-Planned after Blocks 16.11–16.16.
+Planned after Blocks 16.12–16.16.
 
 ## Goal
 Deploy SG 2.1 as a controlled production environment on Render after foundational control layers are implementation-verified.
@@ -555,7 +570,8 @@ Deploy SG 2.1 as a controlled production environment on Render after foundationa
 - rollback procedure;
 - Telegram webhook registration;
 - connection/credential readiness evidence;
-- resource-authority readiness evidence.
+- resource-authority readiness evidence;
+- conversation/session persistence readiness evidence.
 
 ## Acceptance criteria
 - only approved branch is deployed;
@@ -580,12 +596,15 @@ Prove the product through real external flows rather than only unit/contract tes
 - group mention/reply invocation;
 - two users in one group with isolated identity/language/conversation context;
 - topic/thread isolation;
+- multiple simultaneous conversations for one user without contamination;
+- approved cross-transport conversation continuation;
 - multilingual conversation and natural language switching;
 - mixed-language technical input;
 - linked global identity retaining approved settings across transports when available;
 - resource ownership/authority checks across multiple resources/users;
 - external connection available/revoked/unavailable flows;
 - memory survival/retrieval after restart;
+- conversation/session survival after restart;
 - task creation/scheduled execution;
 - protected confirmation and Action Gate denial;
 - retry/DLQ/idempotency;
@@ -655,4 +674,4 @@ Validate the production system with deliberately limited real-user scope.
 - approved low-risk capabilities;
 - mandatory confirmation for protected actions;
 - controlled feature flags;
-- close monitoring of cost, errors, resource authority, delivery and memory isolation.
+- close monitoring of cost, errors, resource authority, delivery, conversation isolation and memory isolation.

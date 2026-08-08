@@ -11,6 +11,28 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- SG 2.0 compatibility: its users table already exists and global_user_id was
+-- indexed but not UNIQUE. Preserve legacy columns while adding the SG 2.1 shape.
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS global_user_id text,
+  ADD COLUMN IF NOT EXISTS profile jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS chat_id text;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM users
+    WHERE global_user_id IS NOT NULL AND global_user_id <> ''
+    GROUP BY global_user_id HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'SG 2.0 compatibility: duplicate users.global_user_id values must be resolved before SG 2.1 migration';
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS sg21_users_global_user_id_unique_idx
+  ON users(global_user_id);
+
 CREATE TABLE IF NOT EXISTS identity_links (
   platform text NOT NULL,
   platform_user_id text NOT NULL,
@@ -102,6 +124,39 @@ CREATE TABLE IF NOT EXISTS tasks (
   updated_at timestamptz NOT NULL DEFAULT now(),
   CHECK (thread_scope IS NULL OR group_scope IS NOT NULL)
 );
+
+-- SG 2.0 compatibility: retain the legacy task row shape and add the SG 2.1
+-- identity/scope columns. Legacy NOT NULL title/type columns receive defaults so
+-- new SG 2.1 task inserts remain valid without rewriting historical rows.
+ALTER TABLE tasks
+  ADD COLUMN IF NOT EXISTS task_id text,
+  ADD COLUMN IF NOT EXISTS global_user_id text,
+  ADD COLUMN IF NOT EXISTS project_scope text,
+  ADD COLUMN IF NOT EXISTS group_scope text,
+  ADD COLUMN IF NOT EXISTS thread_scope text,
+  ADD COLUMN IF NOT EXISTS approval_state jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS title text,
+  ADD COLUMN IF NOT EXISTS type text;
+
+ALTER TABLE tasks ALTER COLUMN title SET DEFAULT 'SG 2.1 task';
+ALTER TABLE tasks ALTER COLUMN type SET DEFAULT 'sg2.1';
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='tasks' AND column_name='id') THEN
+    EXECUTE 'UPDATE tasks SET task_id = COALESCE(task_id, ''legacy:'' || id::text) WHERE task_id IS NULL';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='tasks' AND column_name='user_global_id') THEN
+    EXECUTE 'UPDATE tasks SET global_user_id = COALESCE(global_user_id, user_global_id) WHERE global_user_id IS NULL';
+  END IF;
+END $$;
+
+UPDATE tasks SET project_scope = COALESCE(project_scope, 'sg2.1') WHERE project_scope IS NULL;
+UPDATE tasks SET approval_state = '{}'::jsonb WHERE approval_state IS NULL;
+UPDATE tasks SET updated_at = COALESCE(updated_at, created_at, now()) WHERE updated_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS sg21_tasks_task_id_unique_idx ON tasks(task_id);
 CREATE INDEX IF NOT EXISTS tasks_scope_status_idx ON tasks(global_user_id, project_scope, status);
 
 CREATE TABLE IF NOT EXISTS schedules (

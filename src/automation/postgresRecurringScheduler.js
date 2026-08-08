@@ -18,9 +18,7 @@ function boundedCatchup(value) {
   return number;
 }
 
-function taskOccurrenceId(scheduleId, sequence) {
-  return `schedule:${scheduleId}:${sequence}`;
-}
+function taskOccurrenceId(scheduleId, sequence) { return `schedule:${scheduleId}:${sequence}`; }
 
 function normalizedSchedule(row) {
   if (!row) return null;
@@ -51,17 +49,25 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     const catchup = boundedCatchup(maxCatchup);
     required(timeZone, 'timeZone');
     required(dtstartLocal, 'dtstartLocal');
-
-    const first = await recurrenceEngine.next({ rule, dtstartLocal, timeZone, generatedCount: 0 });
+    const first = await recurrenceEngine.next({ rule, dtstartLocal, timeZone });
     if (!first || first.status !== 'resolved') throw new Error(`Unable to resolve first recurring occurrence: ${first?.reason ?? 'none'}`);
 
     return database.transaction(async (tx) => {
-      const template = await tx.query('SELECT * FROM tasks WHERE task_id=$1 FOR UPDATE', [required(taskId, 'taskId')]);
-      if (!template.rows[0]) throw new Error('recurring schedule template task not found');
-      const result = await tx.query(`INSERT INTO schedules(schedule_id,task_id,due_at,recurrence,state,timezone,dtstart_local,status,misfire_policy,max_catchup,generated_count,last_occurrence_at,next_occurrence_at)
-        VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,'active',$8,$9,0,NULL,$3)
-        ON CONFLICT(schedule_id) DO UPDATE SET recurrence=EXCLUDED.recurrence,state=EXCLUDED.state,timezone=EXCLUDED.timezone,dtstart_local=EXCLUDED.dtstart_local,status='active',misfire_policy=EXCLUDED.misfire_policy,max_catchup=EXCLUDED.max_catchup,next_occurrence_at=EXCLUDED.next_occurrence_at,updated_at=now()
-        RETURNING *`, [scheduleId, taskId, first.utcInstant, rule.canonical, JSON.stringify(state), timeZone, dtstartLocal, policy, catchup]);
+      const templateResult = await tx.query('SELECT * FROM tasks WHERE task_id=$1 FOR UPDATE', [required(taskId, 'taskId')]);
+      const template = templateResult.rows[0];
+      if (!template) throw new Error('recurring schedule template task not found');
+      const templateAt = template.available_at ? new Date(template.available_at).toISOString() : null;
+      if (templateAt !== first.utcInstant) throw new Error('template task runAt must equal the first recurrence occurrence');
+
+      const next = await recurrenceEngine.next({ rule, dtstartLocal, timeZone, afterUtc: first.utcInstant });
+      const completed = !next;
+      const result = await tx.query(`INSERT INTO schedules(schedule_id,task_id,due_at,recurrence,state,timezone,dtstart_local,status,misfire_policy,max_catchup,generated_count,last_occurrence_at,next_occurrence_at,completed_at)
+        VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,1,$11,$3,$12)
+        ON CONFLICT(schedule_id) DO UPDATE SET recurrence=EXCLUDED.recurrence,state=EXCLUDED.state,timezone=EXCLUDED.timezone,dtstart_local=EXCLUDED.dtstart_local,status=EXCLUDED.status,misfire_policy=EXCLUDED.misfire_policy,max_catchup=EXCLUDED.max_catchup,generated_count=1,last_occurrence_at=EXCLUDED.last_occurrence_at,next_occurrence_at=EXCLUDED.next_occurrence_at,due_at=EXCLUDED.due_at,completed_at=EXCLUDED.completed_at,updated_at=now()
+        RETURNING *`, [scheduleId, taskId, next?.utcInstant ?? null, rule.canonical, JSON.stringify(state), timeZone, dtstartLocal, completed ? 'completed' : 'active', policy, catchup, first.utcInstant, completed ? new Date().toISOString() : null]);
+
+      await tx.query(`INSERT INTO schedule_occurrences(schedule_id,sequence,scheduled_for,local_datetime,timezone,task_id)
+        VALUES ($1,1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, [scheduleId, first.utcInstant, first.localDateTime, timeZone, taskId]);
       return normalizedSchedule(result.rows[0]);
     });
   }
@@ -70,17 +76,14 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     const result = await database.query("UPDATE schedules SET status='paused',paused_at=now(),updated_at=now() WHERE schedule_id=$1 AND status='active' RETURNING *", [required(scheduleId, 'scheduleId')]);
     return normalizedSchedule(result.rows[0]);
   }
-
   async function resume(scheduleId) {
     const result = await database.query("UPDATE schedules SET status='active',paused_at=NULL,updated_at=now() WHERE schedule_id=$1 AND status='paused' RETURNING *", [required(scheduleId, 'scheduleId')]);
     return normalizedSchedule(result.rows[0]);
   }
-
   async function cancel(scheduleId) {
     const result = await database.query("UPDATE schedules SET status='cancelled',updated_at=now() WHERE schedule_id=$1 AND status NOT IN ('completed','cancelled') RETURNING *", [required(scheduleId, 'scheduleId')]);
     return normalizedSchedule(result.rows[0]);
   }
-
   async function get(scheduleId) {
     const result = await database.query('SELECT * FROM schedules WHERE schedule_id=$1', [required(scheduleId, 'scheduleId')]);
     return normalizedSchedule(result.rows[0]);
@@ -92,28 +95,10 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     if (!template) throw new Error('recurring template task disappeared');
     const taskId = taskOccurrenceId(schedule.schedule_id, occurrence.sequence);
     const status = new Date(occurrence.utcInstant) > now ? 'scheduled' : 'queued';
-    const payload = {
-      ...(template.payload ?? {}),
-      recurrence: {
-        scheduleId: schedule.schedule_id,
-        sequence: occurrence.sequence,
-        scheduledFor: occurrence.utcInstant,
-        localDateTime: occurrence.localDateTime,
-        timeZone: schedule.timezone,
-        rule: schedule.recurrence
-      }
-    };
+    const payload = { ...(template.payload ?? {}), recurrence: { scheduleId: schedule.schedule_id, sequence: occurrence.sequence, scheduledFor: occurrence.utcInstant, localDateTime: occurrence.localDateTime, timeZone: schedule.timezone, rule: schedule.recurrence } };
     const inserted = await tx.query(`INSERT INTO tasks(task_id,global_user_id,project_scope,group_scope,thread_scope,status,kind,payload,approval_state,max_attempts,available_at,protected_action,idempotency_key)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13)
-      ON CONFLICT DO NOTHING RETURNING *`, [
-      taskId, template.global_user_id, template.project_scope, template.group_scope, template.thread_scope,
-      status, template.kind, JSON.stringify(payload), JSON.stringify(template.approval_state ?? {}), template.max_attempts ?? 3,
-      occurrence.utcInstant, Boolean(template.protected_action), `recurrence:${schedule.schedule_id}:${occurrence.sequence}`
-    ]);
-    if (inserted.rows[0]) {
-      await tx.query(`INSERT INTO schedule_occurrences(schedule_id,sequence,scheduled_for,local_datetime,timezone,task_id)
-        VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, [schedule.schedule_id, occurrence.sequence, occurrence.utcInstant, occurrence.localDateTime, schedule.timezone, taskId]);
-    }
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13) ON CONFLICT DO NOTHING RETURNING *`, [taskId, template.global_user_id, template.project_scope, template.group_scope, template.thread_scope, status, template.kind, JSON.stringify(payload), JSON.stringify(template.approval_state ?? {}), template.max_attempts ?? 3, occurrence.utcInstant, Boolean(template.protected_action), `recurrence:${schedule.schedule_id}:${occurrence.sequence}`]);
+    if (inserted.rows[0]) await tx.query(`INSERT INTO schedule_occurrences(schedule_id,sequence,scheduled_for,local_datetime,timezone,task_id) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, [schedule.schedule_id, occurrence.sequence, occurrence.utcInstant, occurrence.localDateTime, schedule.timezone, taskId]);
     return inserted.rows[0] ?? null;
   }
 
@@ -122,15 +107,7 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     const generatedCount = Number(schedule.generated_count ?? 0);
     const afterUtc = schedule.last_occurrence_at ? new Date(schedule.last_occurrence_at).toISOString() : null;
     const catchupLimit = Math.min(Number(schedule.max_catchup ?? 10), 100);
-    const candidates = await recurrenceEngine.occurrences({
-      rule,
-      dtstartLocal: schedule.dtstart_local,
-      timeZone: schedule.timezone,
-      afterUtc,
-      generatedCount,
-      limit: catchupLimit + 1
-    });
-
+    const candidates = await recurrenceEngine.occurrences({ rule, dtstartLocal: schedule.dtstart_local, timeZone: schedule.timezone, afterUtc, generatedCount: 0, limit: Math.max(catchupLimit + 1, 2) });
     const resolved = candidates.filter((item) => item.status === 'resolved');
     const ambiguous = candidates.find((item) => item.status !== 'resolved');
     if (ambiguous && resolved.length === 0) {
@@ -145,20 +122,12 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     if (schedule.misfire_policy === 'catch_up') selected = due.slice(0, catchupLimit);
 
     let materialized = 0;
-    for (const occurrence of selected) {
-      if (await materializeOccurrence(tx, schedule, occurrence, now)) materialized += 1;
-    }
+    for (const occurrence of selected) if (await materializeOccurrence(tx, schedule, occurrence, now)) materialized += 1;
 
     const consumed = due.length ? due[due.length - 1] : null;
-    const progressionCount = consumed ? consumed.sequence : generatedCount;
+    const progressionCount = consumed?.sequence ?? generatedCount;
     const progressionUtc = consumed?.utcInstant ?? afterUtc;
-    const next = await recurrenceEngine.next({
-      rule,
-      dtstartLocal: schedule.dtstart_local,
-      timeZone: schedule.timezone,
-      afterUtc: progressionUtc,
-      generatedCount: progressionCount
-    });
+    const next = await recurrenceEngine.next({ rule, dtstartLocal: schedule.dtstart_local, timeZone: schedule.timezone, afterUtc: progressionUtc, generatedCount: 0 });
 
     if (!next) {
       await tx.query("UPDATE schedules SET status='completed',generated_count=$2,last_occurrence_at=$3,next_occurrence_at=NULL,due_at=NULL,completed_at=now(),updated_at=now() WHERE schedule_id=$1", [schedule.schedule_id, progressionCount, progressionUtc]);
@@ -168,7 +137,7 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
       await tx.query("UPDATE schedules SET status='error',generated_count=$2,last_occurrence_at=$3,next_occurrence_at=NULL,state=state || $4::jsonb,updated_at=now() WHERE schedule_id=$1", [schedule.schedule_id, progressionCount, progressionUtc, JSON.stringify({ temporalError: next.reason, localDateTime: next.localDateTime })]);
       return { materialized, status: 'error' };
     }
-    await tx.query(`UPDATE schedules SET generated_count=$2,last_occurrence_at=$3,next_occurrence_at=$4,due_at=$4,updated_at=now() WHERE schedule_id=$1`, [schedule.schedule_id, progressionCount, progressionUtc, next.utcInstant]);
+    await tx.query('UPDATE schedules SET generated_count=$2,last_occurrence_at=$3,next_occurrence_at=$4,due_at=$4,updated_at=now() WHERE schedule_id=$1', [schedule.schedule_id, progressionCount, progressionUtc, next.utcInstant]);
     return { materialized, status: 'active', nextOccurrenceAt: next.utcInstant };
   }
 
@@ -177,9 +146,7 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     if (!Number.isFinite(current.getTime())) throw new TypeError('now must be a valid instant');
     const bounded = Math.max(1, Math.min(Number(limit) || 100, 100));
     return database.transaction(async (tx) => {
-      const due = await tx.query(`SELECT * FROM schedules
-        WHERE status='active' AND recurrence IS NOT NULL AND next_occurrence_at IS NOT NULL AND next_occurrence_at <= $1
-        ORDER BY next_occurrence_at,schedule_id FOR UPDATE SKIP LOCKED LIMIT $2`, [current.toISOString(), bounded]);
+      const due = await tx.query(`SELECT * FROM schedules WHERE status='active' AND recurrence IS NOT NULL AND next_occurrence_at IS NOT NULL AND next_occurrence_at <= $1 ORDER BY next_occurrence_at,schedule_id FOR UPDATE SKIP LOCKED LIMIT $2`, [current.toISOString(), bounded]);
       const results = [];
       for (const schedule of due.rows) results.push({ scheduleId: schedule.schedule_id, ...(await processLockedSchedule(tx, schedule, current)) });
       return Object.freeze(results);

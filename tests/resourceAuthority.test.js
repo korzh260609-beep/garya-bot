@@ -86,7 +86,7 @@ test('Action Gate requires matching resource authority evidence in addition to g
   const base = {
     capability: 'publish', actionType: 'publish', actionClass: 'external-action',
     actor: { globalUserId: 'user:1', roles: [], grants: ['capability:publish'], authenticationLevel: 'verified' },
-    scope: { userScope: 'user:1', projectScope: 'sg2.1', allowedCapabilities: ['publish'] },
+    scope: { userScope: 'user:1', projectScope: 'sg2.1', groupScope: null, threadScope: null, allowedCapabilities: ['publish'] },
     requiredPermission: 'capability:publish', risk: 'low', traceContext: { traceId: 'trace-1', requestId: 'request-1' },
     resourceRequirement: { resourceId: 'channel:1', relation: 'can_publish' }
   };

@@ -21,7 +21,7 @@ import { createTemporalContextService } from '../temporal/temporalContextService
 import { createRecurrenceEngine } from '../temporal/recurrenceEngine.js';
 import { createPostgresTimezoneStore } from '../temporal/postgresTimezoneStore.js';
 import { createTemporalAwareMeaningInterpreter } from '../temporal/temporalMeaningInterpreter.js';
-import { createTemporalCapabilities, TEMPORAL_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
+import { createTemporalCapabilities } from '../temporal/temporalCapabilities.js';
 import { createTemporalTaskStore } from '../temporal/temporalTaskStore.js';
 import { createTemporalMemoryProvider } from '../temporal/temporalMemoryProvider.js';
 import { createProductionRuntime } from './createProductionRuntime.js';
@@ -56,8 +56,8 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   })));
   const meaningInterpreter = createTemporalAwareMeaningInterpreter({ baseInterpreter: baseMeaningInterpreter, temporalService });
   const semanticPipeline = createContextAwareSemanticPipeline({ semanticKernel: createSemanticKernel({ meaningInterpreter }), contextResolver });
-  const temporalCapabilities = createTemporalCapabilities({ temporalService, memoryProvider });
-  const capabilityNames = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...TEMPORAL_CAPABILITY_NAMES]);
+  const temporalCapabilities = createTemporalCapabilities({ temporalService, memoryProvider, recurringScheduler });
+  const capabilityNames = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...temporalCapabilities.map((item) => item.name)]);
   const capabilities = Object.freeze([
     ...createProductionCapabilities({
       memoryProvider,

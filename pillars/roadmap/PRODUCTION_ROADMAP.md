@@ -33,16 +33,21 @@ Completed and acceptance-verified:
 - Block 16.8 — Secrets & Credentials Management;
 - Block 16.9 — External Connections Registry;
 - Block 16.10 — Resource Ownership & Authority Model;
-- Block 16.11 — Session & Conversation Context.
+- Block 16.11 — Session & Conversation Context;
+- Block 16.12 — User Settings & Preferences;
+- Block 16.13 — Notification & Delivery Router;
+- Block 16.14 — Internal Event Bus;
+- Block 16.15 — Schema & Contract Versioning;
+- Block 16.16 — Feature Flags & Controlled Rollout.
 
-Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, verified Resource Authority enforcement for concrete resources, and durable scoped conversation/session/topic continuity with bounded recent dialogue context.
+Current executable SG therefore already has the approved Semantic Kernel, memory/context boundary, AI Router, Decision Engine, Action Gate, Capability System, global identity/scope, observability, transport abstractions, durable PostgreSQL/worker foundations, Telegram production path, production AI path, Temporal Context, multilingual Language & Locale Context, centralized Configuration & Policy, bounded Secrets & Credentials, a durable External Connections Registry, verified Resource Authority enforcement for concrete resources, durable scoped conversation/session/topic continuity, global user settings, authorized delivery routing, a production-wired Internal Event Bus, production contract-version enforcement/quarantine, and controlled feature flags.
+
+Repository-wide audit hardening after Block 16.16 additionally closed cross-module observability contract mismatches, normalized feature-disabled capability results, bound Domain Runtime execution to the same canonical GateDecision actor/scope, and made Render startup rollback-safe. These are corrections within completed blocks, not a new roadmap block.
 
 ## Current implementation boundary
 
-- Blocks 11–16.11 listed above are completed.
-- Blocks 16.12–16.16 are planned mandatory foundational work.
-- Block 16.12 is next.
-- Block 17 Render Deployment follows only after completion evidence exists for Blocks 16.12–16.16.
+- Blocks 11–16.16 listed above are completed and implementation-verified.
+- Block 17 — Render Deployment is next.
 - Blocks 18–19 and Pilot Launch remain subsequent stages.
 
 ---
@@ -142,7 +147,7 @@ Acceptance evidence: `16_11_SESSION_AND_CONVERSATION_CONTEXT.md`.
 
 ---
 
-# Foundational continuation before Render
+# Completed foundational continuation before Render
 
 These blocks complete core control, ownership, continuity, extensibility and rollout foundations before deployment is treated as the next mandatory stage.
 
@@ -154,12 +159,12 @@ Canonical dependency direction:
 → 16.9 External Connections Registry [completed]
 → 16.10 Resource Ownership & Authority [completed]
 → 16.11 Session & Conversation Context [completed]
-→ 16.12 User Settings & Preferences
-→ 16.13 Notification & Delivery Router
-→ 16.14 Internal Event Bus
-→ 16.15 Schema & Contract Versioning
-→ 16.16 Feature Flags & Controlled Rollout
-→ 17 Render Deployment
+→ 16.12 User Settings & Preferences [completed]
+→ 16.13 Notification & Delivery Router [completed]
+→ 16.14 Internal Event Bus [completed]
+→ 16.15 Schema & Contract Versioning [completed]
+→ 16.16 Feature Flags & Controlled Rollout [completed]
+→ 17 Render Deployment [next]
 ```
 
 Architecture coordination: `../architecture/FOUNDATIONAL_CONTROL_LAYERS.md`.
@@ -364,7 +369,7 @@ Detailed specification and evidence: `16_11_SESSION_AND_CONVERSATION_CONTEXT.md`
 # Block 16.12 — User Settings & Preferences
 
 ## Status
-Planned — next mandatory block.
+Completed and acceptance-verified.
 
 ## Goal
 Create one typed settings layer keyed by `global_user_id` rather than separate preference mechanisms for every subsystem.
@@ -386,19 +391,19 @@ Create one typed settings layer keyed by `global_user_id` rather than separate p
 - platform settings/locale remain hints, not authoritative duplicates.
 
 ## Acceptance criteria
-- one linked global user retains approved settings across transports;
-- explicit settings deterministically override defaults/hints;
-- settings survive restart and future migration;
-- language/timezone converge on the shared settings boundary without regression.
+- [x] one linked global user retains approved settings across transports;
+- [x] explicit settings deterministically override defaults/hints;
+- [x] settings survive restart and future migration;
+- [x] language/timezone converge on the shared settings boundary without regression.
 
-Detailed specification: `16_12_USER_SETTINGS_AND_PREFERENCES.md`.
+Detailed specification and evidence: `16_12_USER_SETTINGS_AND_PREFERENCES.md`.
 
 ---
 
 # Block 16.13 — Notification & Delivery Router
 
 ## Status
-Planned.
+Completed and acceptance-verified.
 
 ## Goal
 Create one policy-aware router for delivery of already-authorized SG results across Telegram, Discord, Email, Web and future transports.
@@ -422,19 +427,19 @@ Create one policy-aware router for delivery of already-authorized SG results acr
 - execution success and delivery success remain distinct states.
 
 ## Acceptance criteria
-- results can route through multiple approved transports without core rewrites;
-- retries are bounded/idempotent;
-- failures are visible;
-- cross-user/resource delivery leakage tests pass.
+- [x] results can route through multiple approved transports without core rewrites;
+- [x] retries are bounded/idempotent;
+- [x] failures are visible;
+- [x] cross-user/resource delivery leakage tests pass.
 
-Detailed specification: `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md`.
+Detailed specification and evidence: `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md`.
 
 ---
 
 # Block 16.14 — Internal Event Bus
 
 ## Status
-Planned.
+Completed and acceptance-verified.
 
 ## Goal
 Create typed internal lifecycle events so SG modules can react without hard-wired direct coupling.
@@ -456,19 +461,20 @@ Create typed internal lifecycle events so SG modules can react without hard-wire
 - secrets/unnecessary message content are forbidden in payloads.
 
 ## Acceptance criteria
-- consumers can be added without rewriting producers;
-- duplicate events do not duplicate protected effects;
-- failed durable consumers are recoverable;
-- trace and privacy isolation are preserved.
+- [x] consumers can be added without rewriting producers;
+- [x] duplicate events do not duplicate protected effects;
+- [x] failed durable consumers are recoverable;
+- [x] trace and privacy isolation are preserved;
+- [x] deployment composition runs the Event Bus as a live resource and strict Observability integration is regression-tested.
 
-Detailed specification: `16_14_INTERNAL_EVENT_BUS.md`.
+Detailed specification and evidence: `16_14_INTERNAL_EVENT_BUS.md`.
 
 ---
 
 # Block 16.15 — Schema & Contract Versioning
 
 ## Status
-Planned.
+Completed and acceptance-verified.
 
 ## Goal
 Create explicit compatibility/migration rules for durable and cross-module SG contracts.
@@ -490,19 +496,20 @@ Create explicit compatibility/migration rules for durable and cross-module SG co
 - old work replay remains subject to current safety rules.
 
 ## Acceptance criteria
-- critical durable contracts have explicit compatibility policy;
-- unsupported versions fail visibly;
-- migration fixtures prove supported prior versions;
-- queued work/events survive approved upgrades without semantic corruption.
+- [x] critical durable contracts have explicit compatibility policy;
+- [x] unsupported versions fail visibly;
+- [x] migration fixtures prove supported prior versions;
+- [x] queued work/events survive approved upgrades without semantic corruption;
+- [x] canonical production input and capability input/result boundaries are version-checked before/after execution, with durable quarantine support where configured.
 
-Detailed specification: `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md`.
+Detailed specification and evidence: `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md`.
 
 ---
 
 # Block 16.16 — Feature Flags & Controlled Rollout
 
 ## Status
-Planned.
+Completed and acceptance-verified.
 
 ## Goal
 Create centralized feature enablement, rollout cohorts and kill switches for safe incremental release.
@@ -525,19 +532,20 @@ Create centralized feature enablement, rollout cohorts and kill switches for saf
 - flags must not rely on secret words or user phrases.
 
 ## Acceptance criteria
-- new features can be limited to monarch/test cohorts/projects before broad rollout;
-- kill switch prevents new use without corrupting durable state;
-- bucketing is stable across restart;
-- every flag decision is diagnostically explainable.
+- [x] new features can be limited to monarch/test cohorts/projects before broad rollout;
+- [x] kill switch prevents new use without corrupting durable state;
+- [x] bucketing is stable across restart;
+- [x] every flag decision is diagnostically explainable;
+- [x] disabled execution returns the canonical CapabilityResult contract.
 
-Detailed specification: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
+Detailed specification and evidence: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
 
 ---
 
 # Block 17 — Render Deployment
 
 ## Status
-Planned after Blocks 16.12–16.16.
+Planned — next mandatory block.
 
 ## Goal
 Deploy SG 2.1 as a controlled production environment on Render after foundational control layers are implementation-verified.

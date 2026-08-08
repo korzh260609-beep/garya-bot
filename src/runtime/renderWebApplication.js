@@ -2,6 +2,7 @@ import http from 'node:http';
 import { createIdentityContext, createScopeContext } from '../contracts/context.js';
 import { PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
 import { TEMPORAL_CAPABILITY_NAMES, TEMPORAL_SAFE_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
+import { LANGUAGE_CAPABILITY_NAMES, LANGUAGE_SAFE_CAPABILITY_NAMES } from '../language/languageCapabilities.js';
 import { createLocalProductionHarness } from './localProductionHarness.js';
 import { loadTelegramConfig } from '../telegram/telegramConfig.js';
 import { createTelegramBotApiClient } from '../telegram/telegramBotApiClient.js';
@@ -9,7 +10,7 @@ import { createPostgresTelegramUpdateStore } from '../telegram/postgresTelegramU
 import { createTelegramProductionIntegration } from '../telegram/telegramProductionIntegration.js';
 import { createTelegramWebhookHttpHandler } from '../telegram/telegramWebhookHttpHandler.js';
 
-const ALL_CAPABILITY_NAMES = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...TEMPORAL_CAPABILITY_NAMES]);
+const ALL_CAPABILITY_NAMES = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...TEMPORAL_CAPABILITY_NAMES, ...LANGUAGE_CAPABILITY_NAMES]);
 
 function envString(env, key, fallback = '') {
   const value = env[key];
@@ -32,7 +33,8 @@ function productionEnv(env) {
     SG_PROJECT_SCOPE: envString(env, 'SG_PROJECT_SCOPE', 'sg2.1'),
     SG_PERSISTENCE_MODE: envString(env, 'SG_PERSISTENCE_MODE', envString(env, 'DATABASE_URL') ? 'postgres' : 'memory'),
     SG_MONARCH_TELEGRAM_USER_ID: monarchTelegramUserId,
-    SG_MONARCH_TIMEZONE: envString(env, 'SG_MONARCH_TIMEZONE')
+    SG_MONARCH_TIMEZONE: envString(env, 'SG_MONARCH_TIMEZONE'),
+    SG_MONARCH_LANGUAGE: envString(env, 'SG_MONARCH_LANGUAGE')
   });
 }
 
@@ -48,11 +50,14 @@ export function createProductionTelegramIdentityResolver({
   projectScope,
   monarchTelegramUserId = null,
   temporalService = null,
-  monarchTimeZone = null
+  monarchTimeZone = null,
+  languageContextService = null,
+  monarchLanguage = null
 } = {}) {
   if (!persistence?.repositories?.identities || !persistence?.repositories?.access) throw new TypeError('PostgreSQL persistence repositories are required');
   const monarchId = monarchTelegramUserId == null ? null : String(monarchTelegramUserId).trim();
   const configuredMonarchTimeZone = monarchTimeZone == null ? null : String(monarchTimeZone).trim();
+  const configuredMonarchLanguage = monarchLanguage == null ? null : String(monarchLanguage).trim().toLowerCase();
   if (configuredMonarchTimeZone && (!temporalService || !temporalService.isValidTimeZone(configuredMonarchTimeZone))) {
     throw new TypeError('SG_MONARCH_TIMEZONE must be a valid IANA timezone');
   }
@@ -83,13 +88,16 @@ export function createProductionTelegramIdentityResolver({
       if (configuredMonarchTimeZone && temporalService && !(await temporalService.getUserTimezone(globalUserId))) {
         await temporalService.setUserTimezone(globalUserId, configuredMonarchTimeZone, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_TIMEZONE' } });
       }
+      if (configuredMonarchLanguage && languageContextService && !(await languageContextService.getPreferred(globalUserId))) {
+        await languageContextService.setPreferred(globalUserId, configuredMonarchLanguage, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_LANGUAGE' } });
+      }
       access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
     } else {
       if (access.roles.length === 0 && access.grants.length === 0) {
         await persistence.repositories.access.grantRole({ globalUserId, projectScope: effectiveProjectScope, role: 'guest' });
         await ensureGrant(globalUserId, effectiveProjectScope, existing, 'compose-answer');
       }
-      for (const name of TEMPORAL_SAFE_CAPABILITY_NAMES) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
+      for (const name of [...TEMPORAL_SAFE_CAPABILITY_NAMES, ...LANGUAGE_SAFE_CAPABILITY_NAMES]) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
       access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
     }
 
@@ -113,7 +121,9 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     projectScope: harness.config.projectScope,
     monarchTelegramUserId: effectiveEnv.SG_MONARCH_TELEGRAM_USER_ID,
     temporalService: harness.temporalService,
-    monarchTimeZone: effectiveEnv.SG_MONARCH_TIMEZONE
+    monarchTimeZone: effectiveEnv.SG_MONARCH_TIMEZONE,
+    languageContextService: harness.languageContextService,
+    monarchLanguage: effectiveEnv.SG_MONARCH_LANGUAGE
   });
   const integration = createTelegramProductionIntegration({
     secretToken: telegramConfig.webhookSecret,

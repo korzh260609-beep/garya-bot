@@ -67,6 +67,8 @@ export function createCapabilityExecutionRequest({ capability, actionRequest, ga
     actor: actionRequest.actor,
     scope: actionRequest.scope,
     traceContext: actionRequest.traceContext,
+    actionRequest,
+    gateDecision,
     attempt,
     fallbackFrom
   });

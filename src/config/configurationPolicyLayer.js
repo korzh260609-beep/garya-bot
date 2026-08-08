@@ -1,5 +1,12 @@
 const DEFAULT_POLICY = Object.freeze({
-  action: Object.freeze({ failClosed: true, requireConfirmationForProtected: true }),
+  action: Object.freeze({
+    failClosed: true,
+    requireConfirmationForProtected: true,
+    requireAuthenticatedActor: true,
+    allowMonarchWildcard: true,
+    maxAutoRisk: 'medium',
+    maxAutoCostUsd: 0.05
+  }),
   automation: Object.freeze({ protectedActionsRequireGate: true, maxRetryAttempts: 3 }),
   memory: Object.freeze({ strictScopeIsolation: true }),
   ai: Object.freeze({ routerOnly: true, specializedFirst: true, directProviderCallsAllowed: false }),
@@ -9,6 +16,10 @@ const DEFAULT_POLICY = Object.freeze({
 const POLICY_SCHEMA = Object.freeze({
   'action.failClosed': 'boolean',
   'action.requireConfirmationForProtected': 'boolean',
+  'action.requireAuthenticatedActor': 'boolean',
+  'action.allowMonarchWildcard': 'boolean',
+  'action.maxAutoRisk': ['low', 'medium', 'high', 'critical'],
+  'action.maxAutoCostUsd': 'non-negative-number',
   'automation.protectedActionsRequireGate': 'boolean',
   'automation.maxRetryAttempts': 'positive-integer',
   'memory.strictScopeIsolation': 'boolean',
@@ -54,6 +65,7 @@ function validateValue(path, value) {
   }
   if (rule === 'boolean' && typeof value !== 'boolean') throw new TypeError(`${path} must be boolean`);
   if (rule === 'positive-integer' && (!Number.isInteger(value) || value <= 0)) throw new TypeError(`${path} must be a positive integer`);
+  if (rule === 'non-negative-number' && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) throw new TypeError(`${path} must be a finite non-negative number`);
 }
 
 function normalizeLayer(layer = {}) {
@@ -84,17 +96,18 @@ export function createConfigurationPolicyLayer({ defaults = DEFAULT_POLICY, envi
   for (const [role, policy] of Object.entries(rolePolicies)) normalizedRoles.set(String(role), normalizeLayer(policy));
 
   function resolve({ roles = [] } = {}) {
+    const normalizedRoleList = [...new Set((roles ?? []).map((role) => String(role)))].sort();
     const layers = [
       { name: 'defaults', value: normalizedDefaults },
       { name: 'environment', value: normalizedEnvironment },
       { name: 'project', value: normalizedProject }
     ];
-    for (const role of roles) {
-      const policy = normalizedRoles.get(String(role));
+    for (const role of normalizedRoleList) {
+      const policy = normalizedRoles.get(role);
       if (policy) layers.push({ name: `role:${role}`, value: policy });
     }
     const resolved = mergeLayers(layers);
-    return deepFreeze({ ...resolved, roles: Object.freeze([...roles]) });
+    return deepFreeze({ ...resolved, roles: Object.freeze(normalizedRoleList) });
   }
 
   function getSchema() {

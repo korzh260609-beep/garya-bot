@@ -1,4 +1,5 @@
 import { createActionRequestFromDecision } from '../contracts/action.js';
+import { redactSensitiveText } from '../secrets/redaction.js';
 
 function requireMethod(value, method, name) {
   if (!value || typeof value[method] !== 'function') throw new TypeError(`${name}.${method} is required`);
@@ -39,7 +40,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
 
   let phase = 'created', accepting = false, inFlight = 0, failure = null;
   const waiters = new Set();
-  const snapshot = () => Object.freeze({ phase, accepting, inFlight, failed: Boolean(failure), failure: failure?.message ?? null });
+  const snapshot = () => Object.freeze({ phase, accepting, inFlight, failed: Boolean(failure), failure: failure?.message ? redactSensitiveText(failure.message) : null });
   function notifyDrained() { if (inFlight === 0) { for (const resolve of waiters) resolve(); waiters.clear(); } }
 
   async function start() {
@@ -96,7 +97,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       return { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, languageContext, policyContext } };
     } catch (error) {
       failure = phase === 'ready' ? null : error;
-      observability.recordFailure({ traceContext, stage: 'runtime', reason: error.message, code: error.code ?? 'runtime-request-failed' });
+      observability.recordFailure({ traceContext, stage: 'runtime', reason: redactSensitiveText(error.message), code: error.code ?? 'runtime-request-failed' });
       throw error;
     } finally { inFlight -= 1; notifyDrained(); }
   }

@@ -10,7 +10,7 @@ This document defines the architecture boundaries for roadmap Blocks 16.7–16.1
 Configuration & Policy [completed]
 → Secrets & Credentials [completed]
 → External Connections Registry [completed]
-→ Resource Ownership & Authority
+→ Resource Ownership & Authority [completed]
 → Session & Conversation Context
 → User Settings & Preferences
 → Notification & Delivery Router
@@ -19,7 +19,7 @@ Configuration & Policy [completed]
 → Feature Flags & Controlled Rollout
 ```
 
-The order is architectural dependency guidance. Every protected action still follows the existing Identity → Scope → Decision → Action Gate → Capability boundaries.
+The order is architectural dependency guidance. Protected execution now composes the established controls as Identity → Scope → Access → Resource Authority (when a concrete resource is targeted) → Action Gate → Capability.
 
 ## Block 16.7 — Configuration & Policy
 Owns typed configuration, defaults, limits, policy precedence and effective-policy resolution. Environment variables are inputs, not the architecture itself. Policy cannot grant identity or bypass Action Gate.
@@ -52,18 +52,29 @@ The durable production store is PostgreSQL-backed through migration `169_externa
 A connection is not an identity. A connection does not prove ownership of every external resource. Multiple accounts of the same provider remain separate records. Block 16.10 consumes connection/account facts but remains authoritative for resource-level ownership and delegated authority.
 
 ## Block 16.10 — Resource Ownership & Authority
-Owns verified relationships between actors/projects and addressable resources.
+Owns verified relationships between actors/projects and independently addressable real or digital resources.
 
 Canonical separation:
 
 ```text
-Identity  → WHO is acting
-Scope     → WHERE the request is bounded
-Access    → WHAT action class/capability is permitted
-Authority → OVER WHICH RESOURCE the actor may act
+Identity           → WHO is acting
+Scope              → WHERE the request is bounded
+Access / Grants    → WHAT KIND OF ACTION is permitted
+Resource Authority → OVER WHICH RESOURCE the actor may act
+Action Gate        → MAY THIS CONCRETE ACTION PROCEED NOW
 ```
 
-Resource authority may represent ownership, administration, management, read, publish or modify authority with provenance and revocation. Platform membership alone is insufficient proof.
+Canonical resource records contain stable `resource_id`, resource type, provider, project scope, optional `connection_id`, external resource identifier, optional parent resource, verification state, provenance and safe metadata. PostgreSQL persistence is provided by `170_resource_authority.sql`.
+
+Authority records are separate from resources and contain actor `global_user_id`, relation, project scope, verification source/state, delegation provenance, optional descendant inheritance, expiry and revocation state. Supported relations are `owns`, `administers`, `manages`, `can_read`, `can_publish` and `can_modify`.
+
+Relation implication is explicit: ownership can satisfy subordinate relations; administration and management can satisfy bounded operational relations; read/publish/modify do not imply ownership. Delegation cannot exceed the delegator's effective relation. Revoked, expired, rejected or unverified authority does not authorize execution.
+
+Hierarchy is fail-closed. Parent authority is never inherited merely because a resource is nested beneath another resource; inheritance requires `applies_to_descendants=true`. This prevents platform membership or server/workspace administration from silently becoming unrestricted authority over all descendants.
+
+Runtime decisions may declare a `resourceRequirement { resourceId, relation }`. The runtime resolves authority against the current `global_user_id` and `project_scope`, records bounded evidence, and passes it into the Action Request. Action Gate verifies that the evidence matches actor, project, resource and required relation. Missing, mismatched or forged evidence causes denial before capability execution.
+
+Resource Authority does not replace Identity, generic grants, Scope, External Connections or Action Gate. A connected account is useful evidence about availability, but is never by itself ownership proof. Adding SG to a Telegram group, Discord server, repository or channel does not establish owner/admin authority.
 
 ## Block 16.11 — Session & Conversation Context
 Owns active dialogue continuity, sessions, conversation/topic identity, reply relationships and bounded recent context. It is separate from confirmed long-term memory.
@@ -88,6 +99,8 @@ Owns controlled enablement, cohorts, rollout and kill switches. A feature flag c
 - `global_user_id` remains the root personal identity.
 - No secret words, commands or phrase bindings establish identity, ownership or authority.
 - Resource authority never replaces role/grant checks or Action Gate.
+- Resource-targeted execution fails closed without matching verified authority evidence.
+- Parent-resource authority does not inherit unless explicitly configured.
 - Connections never expose raw credentials to ordinary context.
 - Connection possession does not establish user identity or resource ownership.
 - Unavailable/revoked connections fail closed before provider credential/network use on integrated paths.

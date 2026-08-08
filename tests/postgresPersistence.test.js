@@ -57,17 +57,29 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
     );
     INSERT INTO conversations(chat_id, content)
       VALUES ('42', '{"legacy":true}'::jsonb);
+
+    -- SG 2.0 migration 024 created this table without project_scope. Block
+    -- 16.12 later reuses the same table name with project-scoped JSON settings.
+    CREATE TABLE user_settings (
+      global_user_id text PRIMARY KEY,
+      timezone text NOT NULL DEFAULT 'UTC',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    INSERT INTO user_settings(global_user_id, timezone)
+      VALUES ('tg:42', 'Europe/Kyiv');
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 15);
-  assert.equal(migrated.total, 15);
+  assert.equal(migrated.applied.length, 16);
+  assert.equal(migrated.total, 16);
   assert.ok(migrated.applied.includes('000_legacy_scope_preflight.sql'));
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));
   assert.ok(migrated.applied.includes('166_recurring_schedules.sql'));
   assert.ok(migrated.applied.includes('169_external_connections.sql'));
   assert.ok(migrated.applied.includes('170_resource_authority.sql'));
   assert.ok(migrated.applied.includes('171_session_conversation_context.sql'));
+  assert.ok(migrated.applied.includes('1715_legacy_user_settings_compat.sql'));
   assert.ok(migrated.applied.includes('172_user_settings_preferences.sql'));
   assert.ok(migrated.applied.includes('173_delivery_router.sql'));
   assert.ok(migrated.applied.includes('174_internal_event_bus.sql'));
@@ -82,6 +94,10 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   const legacyConversation = await database.query("SELECT chat_id,project_scope FROM conversations WHERE id=1");
   assert.equal(legacyConversation.rows[0].chat_id, '42');
   assert.equal(legacyConversation.rows[0].project_scope, 'sg2.1');
+  const legacySettings = await database.query("SELECT project_scope,project_scope_key,settings FROM user_settings WHERE global_user_id='tg:42'");
+  assert.equal(legacySettings.rows[0].project_scope, null);
+  assert.equal(legacySettings.rows[0].project_scope_key, '');
+  assert.equal(legacySettings.rows[0].settings.timeZone, 'Europe/Kyiv');
 
   await repositories.users.upsert({ globalUserId: 'telegram:100', profile: { displayName: 'SG 2.1 user' } });
   const newUser = await database.query("SELECT global_user_id,chat_id FROM users WHERE global_user_id='telegram:100'");
@@ -107,7 +123,7 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 15);
+  assert.equal(migrationRepeat.total, 16);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLanguageContextService, createInMemoryLanguageStore, detectLanguageDeterministically, detectExplicitResponseLanguage } from '../src/language/languageContextService.js';
 import { createLanguageCapabilities } from '../src/language/languageCapabilities.js';
+import { createAILanguageDetector } from '../src/language/aiLanguageDetector.js';
 import { createLocalProductionHarness } from '../src/runtime/localProductionHarness.js';
 
 const cases = [
@@ -60,12 +61,75 @@ test('preferred language is scoped by global user id and survives service recrea
   assert.equal(await second.getPreferred('global-2'), null);
 });
 
-test('language capabilities expose safe global preference read/write contracts', () => {
+test('conversation language keeps ambiguous follow-up in the same user/project/group/thread scope', async () => {
+  const service = createLanguageContextService();
+  const key = 'user-a|sg2.1|private|root';
+  const first = await service.resolve({ globalUserId: 'user-a', text: 'Привіт, як справи?', conversationKey: key });
+  assert.equal(first.responseLanguage, 'uk');
+  const followUp = await service.resolve({ globalUserId: 'user-a', text: 'OK', conversationKey: key });
+  assert.equal(followUp.responseLanguage, 'uk');
+  assert.equal(followUp.responseLanguageSource, 'conversation');
+  const other = await service.resolve({ globalUserId: 'user-b', text: 'OK', conversationKey: 'user-b|sg2.1|private|root' });
+  assert.equal(other.responseLanguage, 'en');
+});
+
+test('low-confidence unknown language can be resolved by injected routed detector', async () => {
+  let calls = 0;
+  const detector = { async detect() { calls += 1; return { language: 'sv', confidence: 0.97, source: 'ai-router-fallback' }; } };
+  const service = createLanguageContextService({ detector });
+  const result = await service.resolve({ globalUserId: 'u1', text: 'Förklara detta noggrant tack' });
+  assert.equal(calls, 1);
+  assert.equal(result.messageLanguage, 'sv');
+  assert.equal(result.responseLanguage, 'sv');
+  assert.equal(result.detectionSource, 'ai-router-fallback');
+});
+
+test('high-confidence deterministic detection does not spend AI detector calls', async () => {
+  let calls = 0;
+  const detector = { async detect() { calls += 1; return { language: 'xx', confidence: 1 }; } };
+  const service = createLanguageContextService({ detector });
+  const result = await service.resolve({ globalUserId: 'u1', text: 'Привіт, як справи?' });
+  assert.equal(result.responseLanguage, 'uk');
+  assert.equal(calls, 0);
+});
+
+test('AI language detector routes only through AI Router with structured result', async () => {
+  let request = null;
+  const detector = createAILanguageDetector({
+    aiRouter: {
+      async route(input) {
+        request = input;
+        return { text: JSON.stringify({ language: 'sv-SE', confidence: 0.93 }) };
+      }
+    }
+  });
+  const result = await detector.detect('Förklara detta', {
+    traceContext: { traceId: 't', requestId: 'r' },
+    identityContext: { globalUserId: 'u', roles: ['guest'] },
+    role: 'guest'
+  });
+  assert.equal(result.language, 'sv');
+  assert.equal(result.confidence, 0.93);
+  assert.equal(request.task, 'language-detection');
+  assert.equal(request.reason, 'Resolve low-confidence natural-language code for SG Language Context');
+  assert.equal(request.responseFormat.name, 'language_detection');
+});
+
+test('language capabilities expose safe global preference read/write contracts', async () => {
   const service = createLanguageContextService();
   const capabilities = createLanguageCapabilities({ languageContextService: service });
   assert.deepEqual(capabilities.map((item) => item.name), ['language-preference-set', 'language-preference-get']);
   assert.equal(capabilities[0].actionClasses.includes('state-changing'), true);
   assert.equal(capabilities[1].actionClasses.includes('read-only'), true);
+  const request = {
+    input: { language: 'pl', locale: 'pl-PL' },
+    actor: { globalUserId: 'global-1' },
+    traceContext: { traceId: 't', requestId: 'r' }
+  };
+  const setResult = await capabilities[0].execute(request);
+  assert.equal(setResult.data.setting.language, 'pl');
+  const getResult = await capabilities[1].execute({ ...request, input: {} });
+  assert.equal(getResult.data.setting.language, 'pl');
 });
 
 test('runtime resolves language context before semantic processing and returns it as diagnostic evidence', async () => {

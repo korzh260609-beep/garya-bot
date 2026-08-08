@@ -36,6 +36,28 @@ import { loadRuntimeConfig } from './config.js';
 
 function aiRequested(env) { return ['1', 'true', 'yes', 'on'].includes(String(env.SG_AI_ENABLED ?? '').trim().toLowerCase()); }
 
+function createCredentialAuditAdapter(observability, config) {
+  let sequence = 0;
+  return Object.freeze({
+    record(event) {
+      sequence += 1;
+      const correlation = `credential-${sequence}`;
+      return observability.record({
+        ...event,
+        eventClass: 'audit_event',
+        traceContext: {
+          traceId: correlation,
+          requestId: correlation,
+          environment: config.environment,
+          revision: config.revision
+        },
+        reason: event.data?.reason ?? null,
+        data: { ...(event.data ?? {}), credentialEventClass: event.eventClass }
+      });
+    }
+  });
+}
+
 export function createLocalProductionHarness({ env = {}, interpretationResolver, fetchImpl = globalThis.fetch, clock = () => new Date() } = {}) {
   const config = loadRuntimeConfig({ SG_ENVIRONMENT: 'local-production-like', SG_REVISION: 'block-16.8', SG_PROJECT_SCOPE: 'sg2.1', ...env });
   const policyLayer = createDefaultConfigurationPolicyLayer({ environment: createEnvironmentPolicyOverrides(env) });
@@ -43,7 +65,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const persistence = config.persistenceMode === 'postgres' ? createPostgresPersistence({ connectionString: config.databaseUrl, ssl: config.databaseSsl, applicationName: 'sg-2-1-runtime' }) : null;
   const store = persistence ? createPostgresObservabilityStore({ observabilityRepository: persistence.repositories.observability }) : createInMemoryObservabilityStore();
   const observability = createObservabilityService({ store });
-  const credentialDeployment = createDeploymentCredentialManager({ env, observability, clock, projectScope: config.projectScope });
+  const credentialDeployment = createDeploymentCredentialManager({ env, observability: createCredentialAuditAdapter(observability, config), clock, projectScope: config.projectScope });
   const credentialManager = credentialDeployment.manager;
   const credentialAccessContext = credentialDeployment.accessContext;
   const baseMemoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory, clock }) : createInMemoryMemoryProvider({ clock });

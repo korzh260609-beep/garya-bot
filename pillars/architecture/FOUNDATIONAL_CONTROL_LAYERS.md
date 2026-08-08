@@ -12,7 +12,7 @@ Configuration & Policy [completed]
 → External Connections Registry [completed]
 → Resource Ownership & Authority [completed]
 → Session & Conversation Context [completed]
-→ User Settings & Preferences
+→ User Settings & Preferences [completed]
 → Notification & Delivery Router
 → Internal Event Bus
 → Schema & Contract Versioning
@@ -100,7 +100,13 @@ The production runtime resolves Conversation Context before semantic interpretat
 Conversation state never promotes dialogue into confirmed memory automatically and cannot broaden Identity, Scope, Access, Resource Authority or Action Gate permissions. Transition observability records IDs/state/counts rather than full message bodies.
 
 ## Block 16.12 — User Settings & Preferences
-Owns typed user preferences keyed by `global_user_id`, including language, locale, timezone, response presentation and notification preferences. Preferences cannot weaken mandatory safety/authorization policy.
+Owns one canonical typed preference boundary keyed by `global_user_id`. Effective settings combine safe defaults, global user preferences, project overrides and non-authoritative transport hints with field-level provenance and explicit/inferred state.
+
+Language/locale and timezone now converge through adapters on this boundary instead of creating new competing stores. Durable state lives in PostgreSQL `user_settings` through migration `172_user_settings_preferences.sql`, which imports existing Block 16.5/16.6 values without deleting the legacy source state.
+
+The runtime resolves settings before semantic interpretation. Response presentation, units, formatting and accessibility may be supplied as bounded execution context; delivery/autonomy/provenance remain outside ordinary capability payloads. Settings read/write use the normal capability/grant path.
+
+User preferences cannot weaken mandatory safety, identity, scope, resource authority, permission or Action Gate policy. Inferred values cannot overwrite explicit values, and transport locale remains a hint rather than an identity-linked preference authority.
 
 ## Block 16.13 — Notification & Delivery Router
 Owns target selection and delivery lifecycle for already-authorized results. It consumes identity, resource authority, connections and user preferences; it does not decide semantics or authorization.

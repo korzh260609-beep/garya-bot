@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { loadRuntimeConfig } from '../src/runtime/config.js';
 import { createLocalProductionHarness } from '../src/runtime/localProductionHarness.js';
+import { createProductionRuntime } from '../src/runtime/createProductionRuntime.js';
 import { createPostgresPersistence } from '../src/persistence/index.js';
 
 const connectionString = process.env.DATABASE_URL;
@@ -30,6 +31,27 @@ test('runtime config fails fast on invalid mandatory values', () => {
   assert.throws(() => loadRuntimeConfig({ SG_ENVIRONMENT: '', SG_REVISION: 'x', SG_PROJECT_SCOPE: 'sg' }), /SG_ENVIRONMENT is required/);
   assert.throws(() => loadRuntimeConfig({ SG_ENVIRONMENT: 'test', SG_REVISION: 'x', SG_PROJECT_SCOPE: 'sg', SG_SHUTDOWN_TIMEOUT_MS: '0' }), /positive integer/);
   assert.throws(() => loadRuntimeConfig({ SG_ENVIRONMENT: 'test', SG_REVISION: 'x', SG_PROJECT_SCOPE: 'sg', SG_PERSISTENCE_MODE: 'postgres' }), /DATABASE_URL is required/);
+});
+
+test('runtime rolls back already-started resources when a later resource fails to start', async () => {
+  const lifecycle = [];
+  const runtime = createProductionRuntime({
+    config: { environment: 'test', revision: 'rollback-test', shutdownTimeoutMs: 1000 },
+    semanticPipeline: { async process() { throw new Error('unused'); } },
+    actionGate: { evaluate() { throw new Error('unused'); } },
+    capabilityExecutor: { async execute() { throw new Error('unused'); } },
+    observability: { record() {}, recordFailure() {} },
+    resources: [
+      { async start() { lifecycle.push('first:start'); }, async stop() { lifecycle.push('first:stop'); } },
+      { async start() { lifecycle.push('second:start'); throw new Error('second failed'); }, async stop() { lifecycle.push('second:stop'); } }
+    ]
+  });
+  await assert.rejects(() => runtime.start(), /second failed/);
+  assert.deepEqual(lifecycle, ['first:start', 'second:start', 'first:stop']);
+  assert.equal(runtime.health().phase, 'failed');
+  await runtime.stop();
+  assert.deepEqual(lifecycle, ['first:start', 'second:start', 'first:stop']);
+  assert.equal(runtime.health().phase, 'stopped');
 });
 
 test('full local transport path reaches capability and delivery with observability', async () => {
@@ -61,14 +83,7 @@ test('full local transport path reaches capability and delivery with observabili
 
 postgresIntegration('PostgreSQL runtime observability is durable and flushed before database shutdown', async () => {
   const userId = `runtime-observability-${randomUUID()}`;
-  const harness = createLocalProductionHarness({
-    env: {
-      SG_PERSISTENCE_MODE: 'postgres',
-      DATABASE_URL: connectionString,
-      DATABASE_SSL: 'false'
-    }
-  });
-
+  const harness = createLocalProductionHarness({ env: { SG_PERSISTENCE_MODE: 'postgres', DATABASE_URL: connectionString, DATABASE_SSL: 'false' } });
   await harness.runtime.start();
   const result = await harness.transport.send({ text: 'persist runtime observability', userId, projectId: 'sg2.1' });
   const traceId = result.canonicalInput.traceContext.traceId;
@@ -77,27 +92,12 @@ postgresIntegration('PostgreSQL runtime observability is durable and flushed bef
   const verifier = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-runtime-observability-verifier' });
   await verifier.start();
   try {
-    const persisted = await verifier.database.query(
-      'SELECT channel, event_class, payload FROM observability_events WHERE trace_id=$1 ORDER BY event_id',
-      [traceId]
-    );
+    const persisted = await verifier.database.query('SELECT channel, event_class, payload FROM observability_events WHERE trace_id=$1 ORDER BY event_id', [traceId]);
     const classes = persisted.rows.map((row) => `${row.channel}:${row.event_class}`);
-    assertOrderedSubsequence(classes, [
-      'telemetry:audit_event',
-      'telemetry:request_received',
-      'telemetry:policy_context_resolved',
-      'telemetry:audit_event',
-      'telemetry:language_context_resolved',
-      'telemetry:semantic_decision_created',
-      'audit:action_gate_decision',
-      'telemetry:capability_started',
-      'telemetry:capability_completed'
-    ]);
+    assertOrderedSubsequence(classes, ['telemetry:audit_event','telemetry:request_received','telemetry:policy_context_resolved','telemetry:audit_event','telemetry:language_context_resolved','telemetry:semantic_decision_created','audit:action_gate_decision','telemetry:capability_started','telemetry:capability_completed']);
     const versionEvents = persisted.rows.filter((row) => String(row.payload?.data?.operationalEventType ?? '').startsWith('contract_version_'));
     assert.ok(versionEvents.length >= 3);
-  } finally {
-    await verifier.close();
-  }
+  } finally { await verifier.close(); }
 });
 
 test('protected intent cannot bypass Action Gate', async () => {

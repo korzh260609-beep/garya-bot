@@ -32,7 +32,7 @@ export function createTelegramTransportAdapter(options = {}) {
     if (!message) throw new TypeError('telegram update must contain a message');
     return {
       text: string(message.text ?? message.caption, 'telegram message text'),
-      locale: update.locale ?? 'ru',
+      locale: message.from?.language_code ?? update.locale ?? 'ru',
       channel: message.chat?.type ?? 'unknown',
       platformMessageId: identifier(message.message_id, 'telegram message id'),
       replyToMessageId: message.reply_to_message?.message_id == null ? null : String(message.reply_to_message.message_id),
@@ -54,7 +54,7 @@ export function createTelegramTransportAdapter(options = {}) {
 export function createWebApiTransportAdapter(options = {}) {
   return base(options, 'web-api', async (request) => ({
     text: string(request.body?.text, 'request.body.text'),
-    locale: request.body?.locale ?? 'en',
+    locale: request.body?.locale ?? request.headers?.['accept-language']?.split(',')[0] ?? 'en',
     channel: 'web-api',
     platformMessageId: request.body?.requestId ?? null,
     platformFacts: {
@@ -74,7 +74,7 @@ export function createWebApiTransportAdapter(options = {}) {
 export function createDiscordTransportAdapter(options = {}) {
   return base(options, 'discord', async (event) => ({
     text: string(event.content, 'discord content'),
-    locale: event.locale ?? 'en',
+    locale: event.locale ?? event.guild_locale ?? 'en',
     channel: event.guild_id ? 'guild' : 'direct',
     platformMessageId: identifier(event.id, 'discord message id'),
     replyToMessageId: event.message_reference?.message_id ?? null,
@@ -96,7 +96,7 @@ export function createDiscordTransportAdapter(options = {}) {
 export function createEmailTransportAdapter(options = {}) {
   return base(options, 'email', async (message) => ({
     text: string(message.text ?? message.subject, 'email text'),
-    locale: message.locale ?? 'en',
+    locale: message.locale ?? message.language ?? 'en',
     channel: 'email',
     platformMessageId: identifier(message.messageId, 'email message id'),
     replyToMessageId: message.inReplyTo ?? null,
@@ -109,7 +109,7 @@ export function createEmailTransportAdapter(options = {}) {
 export function createVoiceTransportAdapter(options = {}) {
   return base(options, 'voice', async (utterance) => ({
     text: string(utterance.transcript, 'voice transcript'),
-    locale: utterance.locale ?? 'en',
+    locale: utterance.locale ?? utterance.language ?? 'en',
     channel: 'voice',
     platformMessageId: utterance.utteranceId ?? null,
     platformFacts: {

@@ -27,8 +27,11 @@ export function createPostgresConversationContextStore({ database } = {}) {
       return rowConversation(r.rows[0]);
     },
     async getConversation(id) { return rowConversation((await database.query('SELECT * FROM conversations WHERE conversation_id=$1',[id])).rows[0]); },
-    async findActiveConversation(scope) {
-      const r = await database.query(`SELECT * FROM conversations WHERE global_user_id=$1 AND project_scope=$2 AND group_scope IS NOT DISTINCT FROM $3 AND thread_scope IS NOT DISTINCT FROM $4 AND state='active' ORDER BY last_activity_at DESC, conversation_id DESC LIMIT 1`, [scope.globalUserId,scope.projectScope,scope.groupScope,scope.threadScope]);
+    async findActiveConversation({ globalUserId, projectScope, groupScope = null, threadScope = null, transport, transportSessionId = null }) {
+      const r = await database.query(`SELECT c.* FROM conversations c JOIN conversation_sessions s ON s.conversation_id=c.conversation_id
+        WHERE c.global_user_id=$1 AND c.project_scope=$2 AND c.group_scope IS NOT DISTINCT FROM $3 AND c.thread_scope IS NOT DISTINCT FROM $4
+          AND c.state='active' AND s.state='active' AND s.transport=$5 AND ($6::text IS NULL OR s.transport_session_id=$6)
+        ORDER BY s.last_activity_at DESC,c.last_activity_at DESC,c.conversation_id DESC LIMIT 1`, [globalUserId,projectScope,groupScope,threadScope,transport,transportSessionId]);
       return rowConversation(r.rows[0]);
     },
     async putSession(record) {

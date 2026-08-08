@@ -9,7 +9,7 @@ import { createPostgresTaskQueue } from '../automation/postgresTaskQueue.js';
 import { createActionGate } from '../action/actionGate.js';
 import { createCapabilityRegistry } from '../capability/capabilityRegistry.js';
 import { createCapabilityExecutor } from '../capability/capabilityExecutor.js';
-import { createProductionCapabilities, PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
+import { createProductionCapabilities, createInMemoryProductionTaskStore, PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
 import { createPostgresProductionTaskStore } from '../capability/postgresProductionTaskStore.js';
 import { createInMemoryObservabilityStore } from '../observability/inMemoryObservabilityStore.js';
 import { createObservabilityService } from '../observability/observabilityService.js';
@@ -32,10 +32,12 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const persistence = config.persistenceMode === 'postgres' ? createPostgresPersistence({ connectionString: config.databaseUrl, ssl: config.databaseSsl, applicationName: 'sg-2-1-runtime' }) : null;
   const memoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory, clock }) : createInMemoryMemoryProvider({ clock });
   const durableTaskQueue = persistence ? createPostgresTaskQueue({ database: persistence.database }) : null;
-  const baseTaskStore = persistence ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue }) : undefined;
+  const baseTaskStore = persistence
+    ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue })
+    : createInMemoryProductionTaskStore();
   const timezoneStore = persistence ? createPostgresTimezoneStore({ database: persistence.database }) : createInMemoryTimezoneStore();
   const temporalService = createTemporalService({ clock, timezoneStore });
-  const taskStore = baseTaskStore ? createTemporalTaskStore({ taskStore: baseTaskStore, temporalService }) : undefined;
+  const taskStore = createTemporalTaskStore({ taskStore: baseTaskStore, temporalService });
   const contextResolver = createContextResolver({ memoryProvider });
   const productionAI = !interpretationResolver && aiRequested(env) ? createProductionAI({ env, fetchImpl }) : null;
   const baseMeaningInterpreter = productionAI?.meaningInterpreter ?? createFixtureMeaningInterpreter(interpretationResolver ?? ((input) => ({

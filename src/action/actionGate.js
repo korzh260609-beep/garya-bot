@@ -34,6 +34,19 @@ function downgradedClass(outcome) {
   return null;
 }
 
+function resolvedActionPolicy(basePolicy, policyContext) {
+  const configured = policyContext?.policy?.action;
+  if (!configured) return basePolicy;
+  return createActionPolicy({
+    maxAutoRisk: configured.maxAutoRisk,
+    maxAutoCostUsd: configured.maxAutoCostUsd,
+    requireAuthenticatedActor: configured.requireAuthenticatedActor,
+    allowMonarchWildcard: configured.allowMonarchWildcard,
+    protectedClasses: basePolicy.protectedClasses,
+    confirmationClasses: configured.requireConfirmationForProtected ? basePolicy.confirmationClasses : []
+  });
+}
+
 export function createActionGate({
   policy = createActionPolicy(),
   availableSources = [],
@@ -46,19 +59,21 @@ export function createActionGate({
 
   return Object.freeze({
     name: 'sg-action-gate-v1',
-    evaluate(actionRequest) {
+    evaluate(actionRequest, { policyContext = null } = {}) {
       if (!actionRequest?.traceContext) throw new TypeError('A validated actionRequest is required');
+      const effectivePolicy = resolvedActionPolicy(policy, policyContext);
+      const failClosed = policyContext?.policy?.action?.failClosed ?? true;
 
-      const isProtected = policy.protectedClasses.includes(actionRequest.actionClass);
+      const isProtected = effectivePolicy.protectedClasses.includes(actionRequest.actionClass);
       const checks = {
-        identity: !policy.requireAuthenticatedActor || actionRequest.actor.authenticationLevel !== 'unknown',
-        permission: !isProtected || hasPermission(actionRequest, policy),
+        identity: !effectivePolicy.requireAuthenticatedActor || actionRequest.actor.authenticationLevel !== 'unknown',
+        permission: !isProtected || hasPermission(actionRequest, effectivePolicy),
         scope: scopeMatches(actionRequest),
         capability: includesWildcard(actionRequest.scope.allowedCapabilities, actionRequest.capability),
         sources: availabilityCheck(actionRequest.requiredSources, availableSources),
         tools: availabilityCheck(actionRequest.requiredTools, availableTools),
-        risk: compareRisk(actionRequest.risk, policy.maxAutoRisk) <= 0,
-        cost: actionRequest.estimatedCostUsd <= policy.maxAutoCostUsd,
+        risk: compareRisk(actionRequest.risk, effectivePolicy.maxAutoRisk) <= 0,
+        cost: actionRequest.estimatedCostUsd <= effectivePolicy.maxAutoCostUsd,
         confirmation: hasValidConfirmation(actionRequest),
         idempotency: !actionRequest.idempotencyKey || !idempotencyStore.has(actionRequest.idempotencyKey),
         audit: Boolean(actionRequest.traceContext.traceId && actionRequest.traceContext.requestId)
@@ -76,22 +91,22 @@ export function createActionGate({
         outcome = 'deny';
         reasons.push('duplicate-idempotency-key');
       } else if (!checks.capability || !checks.sources || !checks.tools) {
-        outcome = 'downgrade-to-prepare';
+        outcome = failClosed ? 'downgrade-to-prepare' : 'allow';
         if (!checks.capability) reasons.push('capability-unavailable');
         if (!checks.sources) reasons.push('source-unavailable');
         if (!checks.tools) reasons.push('tool-unavailable');
       } else if (!checks.permission) {
-        outcome = 'downgrade-to-prepare';
+        outcome = failClosed ? 'downgrade-to-prepare' : 'allow';
         reasons.push('permission-denied');
       } else if (!checks.risk && actionRequest.risk === 'critical') {
         outcome = 'deny';
         reasons.push('critical-risk');
-      } else if (!checks.risk || !checks.cost || actionRequest.confirmationRequired || policy.confirmationClasses.includes(actionRequest.actionClass)) {
+      } else if (!checks.risk || !checks.cost || actionRequest.confirmationRequired || effectivePolicy.confirmationClasses.includes(actionRequest.actionClass)) {
         if (!checks.confirmation) {
           outcome = 'require-confirmation';
           if (!checks.risk) reasons.push('risk-confirmation-required');
           if (!checks.cost) reasons.push('cost-confirmation-required');
-          if (actionRequest.confirmationRequired || policy.confirmationClasses.includes(actionRequest.actionClass)) reasons.push('action-confirmation-required');
+          if (actionRequest.confirmationRequired || effectivePolicy.confirmationClasses.includes(actionRequest.actionClass)) reasons.push('action-confirmation-required');
         }
       }
 

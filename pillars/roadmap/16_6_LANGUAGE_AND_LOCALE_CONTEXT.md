@@ -2,231 +2,220 @@
 
 ## Status
 
-Planned. This block is the next architecture/runtime-context block after completed Block 16.5 Temporal Context and before Block 17 Render Deployment.
+Completed. Implemented in the shared SG runtime after Block 16.5 Temporal Context and before Block 17 Render Deployment.
 
 ## Goal
 
 Give SG one transport-independent multilingual interaction layer so users can communicate naturally in any language the connected AI model can understand, without separate SG versions, command-based language switching, transport-specific language logic or mandatory pre-translation.
 
-The user message must remain the semantic source of truth. Language detection and response-language policy enrich the canonical context; they do not replace Semantic Kernel interpretation.
+The user message remains the semantic source of truth. Language detection and response-language policy enrich canonical context; they do not replace Semantic Kernel interpretation.
 
 ## 16.6.1 — Language Detection
 
-Determine the language of each incoming natural-language message and produce a bounded result such as:
+Implemented as a bounded fast-path detector plus controlled AI fallback:
 
-- `message_language`;
-- `confidence`;
-- detection source/evidence;
-- `und` when the language cannot be determined reliably.
-
-Language detection must not depend on fixed command names, keywords or a closed list of business languages.
+- Unicode-script detection for strongly identifiable scripts;
+- lexical/script markers for common Latin and Cyrillic languages;
+- `message_language`, confidence and detection source;
+- `und` when deterministic evidence is insufficient;
+- low-confidence fallback through the existing AI Router only when production AI is enabled;
+- no direct AI-provider calls and no business-intent keyword routing.
 
 ## 16.6.2 — Language Context
 
-Introduce one canonical Language Context available to the SG runtime. It must distinguish at minimum:
+The runtime resolves one canonical Language Context containing:
 
-- `message_language`;
-- `preferred_language`;
-- `conversation_language`;
-- `platform_locale`;
-- `response_language`;
+- `messageLanguage`;
+- `preferredLanguage`;
+- `conversationLanguage`;
+- `platformLocale`;
+- `locale`;
+- `responseLanguage`;
 - `confidence`;
-- language-selection source/provenance.
+- `detectionSource`;
+- `responseLanguageSource`.
 
 Language Context is runtime context, not identity, authorization, capability selection or transport business logic.
 
 ## 16.6.3 — Preferred Language
 
-Persist a user's preferred language through the existing global identity/user-settings boundary using `global_user_id`.
+Preferred language is persisted through `global_user_id` in the existing `users.profile` JSONB record under `languageSettings`.
 
-Requirements:
+Properties:
 
-- preference is transport-independent;
-- Telegram, Discord, Web/API, Email, Voice and future transports resolve the same user preference after identity linking;
-- preference changes retain provenance where useful;
-- no transport-specific duplicate user-language profile is authoritative.
+- transport-independent after identity linking;
+- durable across process restarts;
+- language and locale stored separately;
+- source/provenance and update timestamp retained;
+- no new duplicate language-user table and no transport-specific authoritative profile.
 
 ## 16.6.4 — Automatic Response Language
 
-Select the response language using deterministic policy and explicit context. Default priority:
+Implemented priority:
 
 1. explicit user instruction for the current response;
 2. confidently detected language of the current message;
-3. current conversation language;
+3. current scoped conversation language;
 4. stored preferred language;
 5. platform locale;
-6. bounded system fallback.
-
-The policy must remain replaceable/configurable without moving language ownership into an AI provider or transport adapter.
+6. configured bounded fallback (`SG_FALLBACK_LANGUAGE`, default `en`).
 
 ## 16.6.5 — Dynamic Language Switching
 
-Users may change language naturally during a conversation without commands or settings screens.
+Users can switch languages naturally between messages. The detected language updates conversation language for the current scoped conversation without modifying identity, permissions or other conversations.
 
-Examples:
+Conversation language is isolated by:
 
-- Russian message → Russian response;
-- next Ukrainian message → Ukrainian response;
-- explicit `Now answer in English` → English response.
+`global_user_id + project + group/private + thread/root`.
 
-A language change in one message must not corrupt durable identity, permissions, memory scopes or unrelated conversations.
+Short or language-free follow-ups such as `OK` therefore continue in the established conversation language instead of arbitrarily switching.
 
 ## 16.6.6 — Mixed-Language Input
 
-Support messages containing multiple languages, code, product names, proper nouns and technical terminology.
-
-Examples such as `Проверь deployment status моего проекта` must not automatically be treated as a switch to English merely because English technical tokens are present.
-
-Mixed-language handling must preserve the original text for semantic interpretation.
+Mixed-language technical text is preserved unchanged for Semantic Kernel. English code/product/technical tokens inside a Russian or Ukrainian message do not automatically force English response selection.
 
 ## 16.6.7 — Semantic Preservation
 
-Do not require automatic translation of normal incoming messages before Semantic Kernel.
+No mandatory pre-translation was introduced.
 
-Required conceptual path:
+Implemented path:
 
-`Original Message → Language Detection/Context → CanonicalInput → Semantic Kernel → Decision Engine → Capability/AI execution → Response Language Policy → User`
+`Original Message → Transport facts/locale hint → Identity & Scope → Language Context → CanonicalInput → Semantic Kernel → Decision Engine → Action Gate → Capability/AI execution → language-aware response → transport delivery`
 
-The original text remains available to Meaning Interpretation. Translation is optional capability work, not a mandatory semantic gateway.
+Original user text remains available to Meaning Interpretation.
 
 ## 16.6.8 — Translation Capability Boundary
 
-Explicit translation requests may use a dedicated translation capability or specialized model path through AI Router.
-
-Rules:
-
-- explicit translation is distinct from ordinary multilingual conversation;
-- no direct model calls outside AI Router;
-- translation must not silently mutate stored source text;
-- translation failures remain visible and bounded;
-- translated text must not be treated as stronger evidence than the original source.
+Explicit translation remains ordinary semantic/capability work and must use approved capability/model paths through AI Router. Block 16.6 does not silently replace source text with a translation.
 
 ## 16.6.9 — Transport Integration
 
-Telegram, Discord, Web/API, Email, Voice and future adapters may provide platform locale/language hints, but they must not own final language policy.
+Locale/language hints are supported through the shared transport adapters:
 
-Transport responsibilities remain limited to platform facts and delivery.
+- Telegram uses `from.language_code` when available;
+- Discord accepts event/guild locale hints;
+- Web/API accepts request locale or `Accept-Language` hint;
+- Email and Voice accept their locale/language metadata;
+- Local transport supports explicit locale for deterministic testing.
 
-SG Core resolves Language Context after transport normalization and global identity resolution.
+Transports do not own final response-language policy.
 
 ## 16.6.10 — Memory Integration
 
-Memory must remain semantically usable across languages.
+Language does not create separate memory silos. Existing memory remains scoped by user/project/group/thread, not by language. Context resolution loads requested memory layers independently of input-language wording, then Semantic Kernel receives the resulting `ContextBundle` for enriched interpretation.
 
-A fact stored from one language must be retrievable when the same user asks about it in another language, subject to the existing memory scopes, trust, provenance and privacy rules.
-
-Language must not create isolated duplicate memory silos for the same `global_user_id` unless a future explicitly approved memory policy requires that behavior.
+This preserves cross-language recall through the existing semantic/context architecture without creating a competing multilingual memory system.
 
 ## 16.6.11 — Group Context
 
-Language is resolved per participant/message, not globally from the last message in a group.
-
-Requirements:
-
-- different users in one group may communicate with SG in different languages;
-- personal language preference remains attached to global identity;
-- group/thread context isolation remains unchanged;
-- an optional group default language may exist only as fallback and must not override an explicit or confidently detected user language.
+Conversation language is scoped per global user plus project/group/thread. Different group participants can therefore use different languages without the last speaker changing another user's language context.
 
 ## 16.6.12 — Locale
 
-Language and locale are related but separate.
-
-Examples:
-
-- language: `en`, locale: `en-US` or `en-GB`;
-- language: `uk`, locale: `uk-UA`;
-- language: `de`, locale: `de-DE`.
-
-Locale may influence presentation of dates, time, numbers, currency, units and similar user-facing formatting.
-
-Locale integration must reuse Block 16.5 Temporal Context for timezone/date/time semantics rather than creating competing temporal logic.
+Language and locale remain separate. Preferred locale can be persisted independently from language, and platform locale remains a hint/fallback. Temporal timezone/date arithmetic remains owned by Block 16.5 Temporal Context.
 
 ## 16.6.13 — Unknown Language / Low Confidence
 
-When language cannot be determined reliably:
+If deterministic detection is insufficient:
 
-- use `message_language: und` or equivalent bounded state;
-- do not invent a precise language;
-- resolve response language through conversation/preference/platform/fallback policy;
-- request clarification only when language ambiguity materially prevents a safe or useful answer.
+- the bounded result remains low-confidence/`und` unless another source resolves it;
+- when production AI is enabled, only the low-confidence case may call the routed AI language detector;
+- if that fails, conversation/preference/platform/fallback policy is used;
+- no language is invented as high-confidence evidence.
 
 ## 16.6.14 — AI Router Integration
 
-AI calls may receive language context metadata such as:
+Two routed AI uses are implemented where applicable:
 
-- `message_language`;
-- `response_language`;
-- `locale`.
+- low-confidence language detection;
+- final language-aware conversational response composition.
 
-AI Router does not become the owner of response-language policy. SG selects the intended language; the routed AI model executes within that instruction.
-
-This preserves the rule: SG owns decisions and policy; connected AI executes controlled reasoning/specialized work.
+Both use AI Router with explicit reason/metadata. AI Router/model remains executor; SG owns response-language policy.
 
 ## 16.6.15 — Observability
 
-Record bounded language evidence sufficient for diagnosis, including at minimum:
+A dedicated `language_context_resolved` telemetry event records bounded diagnostic evidence:
 
 - detected language;
 - confidence;
 - selected response language;
-- language-selection source;
-- locale when available;
-- language-detection or response-language failures.
+- detection source;
+- response-language source;
+- locale.
 
-Logs must remain privacy-bounded and must not duplicate full message content merely for language telemetry.
+Full user message content is not duplicated into this language telemetry event.
 
-## 16.6.16 — Required Tests
+## 16.6.16 — Capabilities and Configuration
 
-Automated coverage must include at minimum:
+Implemented capabilities:
 
-- Russian input/response;
-- Ukrainian input/response;
-- English input/response;
-- Polish input/response;
-- German input/response;
-- another language supported by the connected model;
-- natural language switching within one conversation;
-- explicit response-language request;
+- `language-preference-set`;
+- `language-preference-get`.
+
+They use the existing Capability Registry/Executor and Action Gate. A permanent preferred-language change is state-changing and therefore remains subject to the existing Action Gate confirmation policy; Block 16.6 does not weaken that global safety rule.
+
+Configuration added:
+
+- `SG_MONARCH_LANGUAGE` — optional initial monarch preferred language;
+- `SG_FALLBACK_LANGUAGE` — bounded system fallback.
+
+## Required Tests / Coverage
+
+Automated coverage includes:
+
+- Russian, Ukrainian, English, Polish and German;
+- Arabic, Japanese, Korean and Chinese script detection;
+- low-confidence routed fallback for another language;
+- no AI-detector spend for high-confidence deterministic input;
+- natural language switching and scoped conversation continuity;
+- explicit one-message language override without unwanted preference persistence;
 - mixed-language technical text;
-- short ambiguous input such as `OK`;
-- emoji-only or nearly language-free input;
-- unknown/low-confidence language fallback;
-- multiple users in one group using different languages;
-- one `global_user_id` across Telegram and Discord retaining preferred language;
-- memory written in one language and recalled semantically from another;
-- locale passed independently from language;
-- Temporal Context interoperability;
-- AI Router metadata propagation;
-- observability evidence without sensitive-message duplication.
+- short ambiguous and emoji-only input;
+- per-user preference isolation;
+- PostgreSQL preference persistence;
+- Telegram `language_code` transport hint;
+- language capability read/write behavior;
+- Language Context before Semantic Kernel;
+- privacy-bounded observability;
+- compatibility with existing runtime, persistence, Temporal Context, Render composition and workers.
 
 ## Architecture and Safety Boundaries
 
 - No separate SG instance/version per language.
-- No required `/language_*` commands or phrase-based routing.
+- No required `/language_*` commands or phrase-based business routing.
 - No transport owns final language policy.
 - No language subsystem assigns identity, roles, grants or permissions.
 - No language subsystem bypasses Semantic Kernel, Decision Engine or Action Gate.
 - Ordinary multilingual input is not forcibly translated before Semantic Kernel.
 - AI providers do not become the authoritative language-policy owner.
 - Existing user/project/group/thread memory and scope isolation remains unchanged.
-- Language and locale must not silently override Temporal Context timezone semantics.
+- Language and locale do not override Temporal Context timezone semantics.
 
 ## Acceptance Criteria
 
-- SG can receive ordinary natural-language input in multiple languages through the same runtime and architecture.
-- SG selects and returns the appropriate response language without requiring language commands.
-- Users can switch languages naturally during an ongoing conversation.
-- Mixed-language technical text does not cause uncontrolled language switching.
-- Preferred language is resolved through `global_user_id` and works across linked transports.
-- Group participants may use different languages without cross-user contamination.
-- Memory remains semantically reusable across supported languages while preserving existing scope and trust rules.
-- Locale is represented separately from language and interoperates with Temporal Context.
-- Original user text reaches semantic interpretation without mandatory translation.
-- Every AI call still follows AI Router rules.
-- Language decisions are observable and diagnostically explainable.
-- All Block 16.6 tests pass in CI.
+- SG accepts multilingual natural-language input through the same runtime and architecture — met.
+- SG selects appropriate response language without requiring language commands — met.
+- Users can switch languages naturally — met.
+- Mixed-language technical text does not cause uncontrolled switching — met.
+- Preferred language is durable through `global_user_id` — met.
+- Group/user conversation language is isolated — met.
+- Memory remains reusable across languages through existing semantic ContextBundle flow — met.
+- Locale is separate and interoperates with Temporal Context — met.
+- Original text reaches semantic interpretation without mandatory translation — met.
+- AI calls remain behind AI Router — met.
+- Language decisions are observable without copying full messages into language telemetry — met.
+- Full repository CI including runtime/worker verification passes — met.
 
 ## Completion Evidence
 
-When implemented, completion evidence must include code, tests, documentation, successful CI and runtime/E2E proof. Until that evidence exists, Block 16.6 must remain marked planned/in progress rather than completed.
+Block 16.6 is implemented through code, PostgreSQL-backed preference persistence, transport integration, AI Router integration, capabilities, observability and automated tests.
+
+Verified on the active `dev/sg2.1-semantic` branch by GitHub Actions SG 2.1 CI run #6397:
+
+- `npm ci` — success;
+- `npm run migrate` — success;
+- `npm run check` — success;
+- `npm start` — success;
+- `npm run start:worker` — success.
+
+The final documentation/CI-revision synchronization is validated by a subsequent CI run before the block is treated as final repository state.

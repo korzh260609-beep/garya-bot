@@ -37,6 +37,16 @@ function languagePayload(canonicalInput, semantic) {
   });
 }
 
+function conversationKey(input) {
+  const scope = input.scopeContext;
+  return [
+    input.identityContext.globalUserId,
+    scope.projectScope,
+    scope.groupScope ?? 'private',
+    scope.threadScope ?? 'root'
+  ].join('|');
+}
+
 export function createProductionRuntime({
   config,
   semanticPipeline,
@@ -98,7 +108,10 @@ export function createProductionRuntime({
       globalUserId: canonicalInput.identityContext.globalUserId,
       text: canonicalInput.text,
       platformLocale: canonicalInput.locale,
-      conversationLanguage: canonicalInput.metadata?.conversationLanguage ?? null
+      conversationLanguage: canonicalInput.metadata?.conversationLanguage ?? null,
+      conversationKey: conversationKey(canonicalInput),
+      traceContext: canonicalInput.traceContext,
+      identityContext: canonicalInput.identityContext
     });
     return Object.freeze({
       ...canonicalInput,

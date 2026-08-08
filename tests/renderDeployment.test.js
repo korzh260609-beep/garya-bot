@@ -72,10 +72,11 @@ test('production Telegram identity resolver bootstraps only configured monarch a
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('memory-write'));
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('time-read'));
   assert.ok(monarch.scopeContext.allowedCapabilities.includes('language-preference-set'));
+  assert.ok(monarch.scopeContext.allowedCapabilities.includes('user-settings-set'));
 
   const guest = await resolver({ platformFacts: { platform: 'telegram', platformUserId: '200' }, scopeFacts: { projectId: 'sg2.1', groupId: 'g', threadId: 't' } });
   assert.deepEqual(guest.identityContext.roles, ['guest']);
-  assert.deepEqual(guest.scopeContext.allowedCapabilities, ['compose-answer', 'time-read', 'timezone-set', 'memory-time-read', 'language-preference-set', 'language-preference-get']);
+  assert.deepEqual(guest.scopeContext.allowedCapabilities, ['compose-answer', 'time-read', 'timezone-set', 'memory-time-read', 'language-preference-set', 'language-preference-get', 'user-settings-get', 'user-settings-set']);
   assert.equal(guest.scopeContext.groupScope, 'g');
   assert.equal(guest.scopeContext.threadScope, 't');
 });

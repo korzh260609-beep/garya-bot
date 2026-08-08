@@ -28,6 +28,7 @@ import { createLanguageContextService, createInMemoryLanguageStore } from '../la
 import { createPostgresLanguageStore } from '../language/postgresLanguageStore.js';
 import { createLanguageAwareConversationResponder } from '../language/languageAwareConversationResponder.js';
 import { createLanguageCapabilities } from '../language/languageCapabilities.js';
+import { createAILanguageDetector } from '../language/aiLanguageDetector.js';
 import { createProductionRuntime } from './createProductionRuntime.js';
 import { loadRuntimeConfig } from './config.js';
 
@@ -44,13 +45,14 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const baseTaskStore = persistence ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue }) : createInMemoryProductionTaskStore();
   const timezoneStore = persistence ? createPostgresTimezoneStore({ database: persistence.database }) : createInMemoryTimezoneStore();
   const temporalService = createTemporalContextService({ clock, timezoneStore });
+  const productionAI = !interpretationResolver && aiRequested(env) ? createProductionAI({ env, fetchImpl }) : null;
   const languageStore = persistence ? createPostgresLanguageStore({ database: persistence.database }) : createInMemoryLanguageStore();
-  const languageContextService = createLanguageContextService({ store: languageStore, fallbackLanguage: env.SG_FALLBACK_LANGUAGE ?? 'en' });
+  const languageDetector = productionAI?.aiRouter ? createAILanguageDetector({ aiRouter: productionAI.aiRouter }) : null;
+  const languageContextService = createLanguageContextService({ store: languageStore, detector: languageDetector, fallbackLanguage: env.SG_FALLBACK_LANGUAGE ?? 'en' });
   const recurrenceEngine = createRecurrenceEngine({ temporalService });
   const recurringScheduler = persistence ? createPostgresRecurringScheduler({ database: persistence.database, recurrenceEngine, clock }) : null;
   const taskStore = createTemporalTaskStore({ taskStore: baseTaskStore, temporalService, recurringScheduler });
   const contextResolver = createContextResolver({ memoryProvider });
-  const productionAI = !interpretationResolver && aiRequested(env) ? createProductionAI({ env, fetchImpl }) : null;
   const conversationResponder = createLanguageAwareConversationResponder({ aiRouter: productionAI?.aiRouter ?? null });
   const baseMeaningInterpreter = productionAI?.meaningInterpreter ?? createFixtureMeaningInterpreter(interpretationResolver ?? ((input) => ({
     meaning: `Runtime processed: ${input.text}`,
@@ -101,5 +103,5 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     };
   };
   const transport = createLocalInterfaceHarness({ identityResolver, requestHandler: runtime.handle });
-  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageContextService, languageCapabilities, capabilityNames });
+  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, languageStore, languageDetector, languageContextService, languageCapabilities, capabilityNames });
 }

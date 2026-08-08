@@ -65,7 +65,6 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,1,$11,$3,$12)
         ON CONFLICT(schedule_id) DO UPDATE SET recurrence=EXCLUDED.recurrence,state=EXCLUDED.state,timezone=EXCLUDED.timezone,dtstart_local=EXCLUDED.dtstart_local,status=EXCLUDED.status,misfire_policy=EXCLUDED.misfire_policy,max_catchup=EXCLUDED.max_catchup,generated_count=1,last_occurrence_at=EXCLUDED.last_occurrence_at,next_occurrence_at=EXCLUDED.next_occurrence_at,due_at=EXCLUDED.due_at,completed_at=EXCLUDED.completed_at,updated_at=now()
         RETURNING *`, [scheduleId, taskId, next?.utcInstant ?? null, rule.canonical, JSON.stringify(state), timeZone, dtstartLocal, completed ? 'completed' : 'active', policy, catchup, first.utcInstant, completed ? new Date().toISOString() : null]);
-
       await tx.query(`INSERT INTO schedule_occurrences(schedule_id,sequence,scheduled_for,local_datetime,timezone,task_id)
         VALUES ($1,1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, [scheduleId, first.utcInstant, first.localDateTime, timeZone, taskId]);
       return normalizedSchedule(result.rows[0]);
@@ -94,10 +93,13 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     const template = templateResult.rows[0];
     if (!template) throw new Error('recurring template task disappeared');
     const taskId = taskOccurrenceId(schedule.schedule_id, occurrence.sequence);
-    const status = new Date(occurrence.utcInstant) > now ? 'scheduled' : 'queued';
+    const approval = template.approval_state ?? {};
+    const status = approval.required === true && approval.approved !== true
+      ? 'waiting_approval'
+      : new Date(occurrence.utcInstant) > now ? 'scheduled' : 'queued';
     const payload = { ...(template.payload ?? {}), recurrence: { scheduleId: schedule.schedule_id, sequence: occurrence.sequence, scheduledFor: occurrence.utcInstant, localDateTime: occurrence.localDateTime, timeZone: schedule.timezone, rule: schedule.recurrence } };
     const inserted = await tx.query(`INSERT INTO tasks(task_id,global_user_id,project_scope,group_scope,thread_scope,status,kind,payload,approval_state,max_attempts,available_at,protected_action,idempotency_key)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13) ON CONFLICT DO NOTHING RETURNING *`, [taskId, template.global_user_id, template.project_scope, template.group_scope, template.thread_scope, status, template.kind, JSON.stringify(payload), JSON.stringify(template.approval_state ?? {}), template.max_attempts ?? 3, occurrence.utcInstant, Boolean(template.protected_action), `recurrence:${schedule.schedule_id}:${occurrence.sequence}`]);
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13) ON CONFLICT DO NOTHING RETURNING *`, [taskId, template.global_user_id, template.project_scope, template.group_scope, template.thread_scope, status, template.kind, JSON.stringify(payload), JSON.stringify(approval), template.max_attempts ?? 3, occurrence.utcInstant, Boolean(template.protected_action), `recurrence:${schedule.schedule_id}:${occurrence.sequence}`]);
     if (inserted.rows[0]) await tx.query(`INSERT INTO schedule_occurrences(schedule_id,sequence,scheduled_for,local_datetime,timezone,task_id) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, [schedule.schedule_id, occurrence.sequence, occurrence.utcInstant, occurrence.localDateTime, schedule.timezone, taskId]);
     return inserted.rows[0] ?? null;
   }
@@ -124,7 +126,9 @@ export function createPostgresRecurringScheduler({ database, recurrenceEngine, c
     let materialized = 0;
     for (const occurrence of selected) if (await materializeOccurrence(tx, schedule, occurrence, now)) materialized += 1;
 
-    const consumed = due.length ? due[due.length - 1] : null;
+    const consumed = schedule.misfire_policy === 'catch_up'
+      ? (selected.length ? selected[selected.length - 1] : null)
+      : (due.length ? due[due.length - 1] : null);
     const progressionCount = consumed?.sequence ?? generatedCount;
     const progressionUtc = consumed?.utcInstant ?? afterUtc;
     const next = await recurrenceEngine.next({ rule, dtstartLocal: schedule.dtstart_local, timeZone: schedule.timezone, afterUtc: progressionUtc, generatedCount: 0 });

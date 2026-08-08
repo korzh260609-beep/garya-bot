@@ -89,7 +89,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
         result = await domainRuntime.execute({ domainId: actionRequest.payload.domainId, capability: actionRequest.capability, input: actionRequest.payload, identityContext: requestInput.identityContext, scopeContext: requestInput.scopeContext, traceContext });
       } else {
         observability.record({ eventClass: 'capability_started', channel: 'telemetry', stage: 'capability', traceContext, data: { capability: actionRequest.capability } });
-        result = await capabilityExecutor.execute({ actionRequest, gateDecision });
+        result = await capabilityExecutor.execute({ actionRequest, gateDecision, policyContext });
         observability.record({ eventClass: 'capability_completed', channel: 'telemetry', stage: 'capability', traceContext, outcome: result.status, durationMs: result.durationMs, costUsd: result.costUsd, data: { capability: result.capability } });
       }
       const message = result?.data?.message ?? result?.data?.text ?? semantic.responsePlan.message;

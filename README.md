@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and completed executable production implementation through Block 16.6, with foundational Blocks 16.7–16.16 now planned before Render deployment.
+This branch contains the active SG 2.1 architecture and completed executable production implementation through Block 16.7, with foundational Blocks 16.8–16.16 planned before Render deployment.
 
 ## Requirements
 - Node.js 22
@@ -50,10 +50,10 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 16 — Production Capabilities
 - Block 16.5 — Temporal Context
 - Block 16.6 — Language & Locale Context
+- Block 16.7 — Configuration & Policy Layer
 
 ### Planned foundational continuation
-- Block 16.7 — Configuration & Policy Layer — next
-- Block 16.8 — Secrets & Credentials Management
+- Block 16.8 — Secrets & Credentials Management — next
 - Block 16.9 — External Connections Registry
 - Block 16.10 — Resource Ownership & Authority Model
 - Block 16.11 — Session & Conversation Context
@@ -252,14 +252,30 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 
 Detailed specification and acceptance evidence: `pillars/roadmap/16_6_LANGUAGE_AND_LOCALE_CONTEXT.md`.
 
+### Block 16.7 — Configuration & Policy Layer
+- one typed, transport-independent configuration and policy resolver
+- centralized defaults for action, AI, capability, source, autonomy, automation, delivery, memory and repository policy inputs
+- explicit precedence `defaults → environment → project → role` with stable role ordering
+- immutable effective-policy snapshots with per-value provenance
+- validated environment-specific overrides without new mandatory Render variables
+- safe hot reload limited to an explicit operational allowlist; authorization-sensitive policy cannot hot-reload
+- Action Gate consumes resolved risk, cost, confirmation and source-limit policy while core permission/scope/capability boundaries remain fail-closed
+- Capability Executor consumes policy only as a tightening bound on retries/timeouts
+- Production AI operational timeout/retry inputs are composed through the policy layer while AI Router remains mandatory
+- `policy_context_resolved` observability is secret-free and durable
+- invalid/unknown policy values fail validation instead of being guessed
+- unit, integration, PostgreSQL runtime, startup and worker CI coverage
+
+Detailed specification and acceptance evidence: `pillars/roadmap/16_7_CONFIGURATION_AND_POLICY_LAYER.md`.
+
 ## Planned foundational layers
-Blocks 16.7–16.16 are specified in individual roadmap files and architecturally coordinated by `pillars/architecture/FOUNDATIONAL_CONTROL_LAYERS.md`.
+Blocks 16.8–16.16 are specified in individual roadmap files and architecturally coordinated by `pillars/architecture/FOUNDATIONAL_CONTROL_LAYERS.md`.
 
 Their dependency order is:
-`Configuration/Policy → Secrets → Connections → Resource Authority → Conversation Context → User Settings → Delivery Router → Event Bus → Contract Versioning → Feature Flags`.
+`Secrets → Connections → Resource Authority → Conversation Context → User Settings → Delivery Router → Event Bus → Contract Versioning → Feature Flags`.
 
 ## Runtime direction
-Current executable path remains valid through Block 16.6. The planned target path adds approved foundational context/control layers without relocating SG authority:
+Current executable path remains valid through Block 16.7. The planned target path adds the remaining approved foundational context/control layers without relocating SG authority:
 `Platform Input → Transport Adapter → Identity/Scope → Language/Locale → Conversation Context → Semantic Kernel → Context Resolution → Decision Engine → Capability Selection → Connection/Resource Authority where required → Action Gate → Execution → Delivery Router where required → Response → Observability/Internal Events`.
 
 The production interpretation route remains:
@@ -292,7 +308,7 @@ The production interpretation route remains:
 - Original natural-language text remains available to Semantic Kernel; multilingual support does not require mandatory pre-translation.
 
 ## Current boundary
-Blocks 0–16.6 provide the executable SG 2.1 foundation. Blocks 16.7–16.16 are now the mandatory planned foundational continuation, beginning with Block 16.7 Configuration & Policy Layer. Block 17 Render Deployment follows only after completion evidence for Blocks 16.7–16.16 exists, then Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
+Blocks 0–16.7 provide the executable SG 2.1 foundation. Blocks 16.8–16.16 are the mandatory planned foundational continuation, beginning with Block 16.8 Secrets & Credentials Management. Block 17 Render Deployment follows only after completion evidence for Blocks 16.8–16.16 exists, then Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
 
 ## Authority
 Read in this order:

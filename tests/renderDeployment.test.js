@@ -133,21 +133,16 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
 test('production worker completes safe user tasks and fails closed for protected execution', async () => {
   const gate = createProductionWorkerActionGate();
   const executor = createProductionWorkerExecutor();
-  const safeTask = {
-    taskId: 'safe-1',
-    actionClass: 'analysis-only',
-    payload: { message: 'hello' },
-    actor: { globalUserId: 'u1', roles: ['guest'], grants: [] },
-    scope: { userScope: 'u1', projectScope: 'sg2.1', groupScope: null, threadScope: null, allowedCapabilities: [] },
-    traceContext: { traceId: 't1', requestId: 'r1' }
-  };
-  const safeDecision = gate.evaluate(safeTask);
-  assert.equal(safeDecision.outcome, 'allow');
-  const safeResult = await executor.execute(safeTask, safeDecision);
-  assert.equal(safeResult.status, 'completed');
 
-  const protectedTask = { ...safeTask, taskId: 'protected-1', actionClass: 'external-action' };
-  const protectedDecision = gate.evaluate(protectedTask);
-  assert.notEqual(protectedDecision.outcome, 'allow');
-  await assert.rejects(() => executor.execute(protectedTask, protectedDecision));
+  const safeResult = await executor({ taskId: 'safe-1', kind: 'user-task', payload: { message: 'hello' }, attempt: 1 });
+  assert.equal(safeResult.status, 'completed');
+  assert.equal(safeResult.kind, 'user-task');
+
+  const protectedDecision = await gate({ kind: 'protected-external-action' });
+  assert.equal(protectedDecision.outcome, 'deny');
+  assert.equal(protectedDecision.allowed, false);
+  await assert.rejects(
+    () => executor({ taskId: 'protected-1', kind: 'protected-external-action', payload: {}, attempt: 1 }),
+    /No production executor registered/
+  );
 });

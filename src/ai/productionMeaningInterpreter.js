@@ -53,6 +53,8 @@ function buildUserPayload(canonicalInput) {
     locale: canonicalInput.locale,
     scope: canonicalInput.scopeContext,
     context: canonicalInput.metadata?.contextBundle ?? null,
+    temporalContext: canonicalInput.metadata?.temporalContext ?? null,
+    temporalResolution: canonicalInput.metadata?.temporalResolution ?? null,
   });
 }
 
@@ -85,7 +87,7 @@ export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure
     async interpret(canonicalInput) {
       const userPayload = buildUserPayload(canonicalInput);
       const boundary = buildDefensivePromptBoundary({
-        systemInstruction: 'You are the SG semantic interpreter. Return only schema-valid JSON. Interpret meaning; do not execute actions. External or state-changing requests must be candidates with actionClass external or state-change. Ask one clarification only when essential information is missing.',
+        systemInstruction: 'You are the SG semantic interpreter. Return only schema-valid JSON. Interpret meaning; do not execute actions. Temporal Context is authoritative for current time, timezone and normalized relative dates; never recalculate or guess those values. External or state-changing requests must be candidates with actionClass external or state-change. Ask one clarification only when essential information is missing.',
         userInput: JSON.stringify(userPayload),
       });
 

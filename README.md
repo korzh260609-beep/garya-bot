@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 15.
+This branch contains the active SG 2.1 architecture and the completed executable production roadmap through Block 16.
 
 ## Requirements
 - Node.js 22
@@ -47,9 +47,10 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 13 — Durable Automation and Workers
 - Block 14 — Telegram Production Integration
 - Block 15 — Production AI Integration
+- Block 16 — Production Capabilities
 
 ### Next
-- Block 16 — Production Capabilities
+- Block 17 — Render Deployment
 
 ## Implemented
 ### Block 0 — Engineering Foundation
@@ -198,6 +199,18 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - deterministic analysis-only failure fallback
 - default deterministic runtime remains token-free
 
+### Block 16 — Production Capabilities
+- conversational response through `compose-answer`
+- scoped memory read and confirmed memory write
+- task create, list, status and cancellation
+- approved source retrieval with visible failures
+- bounded document analysis with embedded instructions treated as data
+- repository analysis restricted to read-only or prepare-only behavior
+- bounded SG diagnostics
+- controlled domain dispatch
+- capability requirements resolved before Action Gate evaluation
+- protected capabilities remain permission-, scope-, risk-, cost- and confirmation-bound
+
 ## Runtime path
 `Platform Input → Transport Adapter → Platform Facts → Identity and Scope Resolution → CanonicalInput → MeaningInterpreter → SemanticInterpretation → Context Resolution → DecisionEngine → DecisionEnvelope → ActionRequest → ActionGate → GateDecision → CapabilityRegistry → CapabilityExecutor → CapabilityResult → ResponsePlan → Transport Response Delivery`
 
@@ -222,7 +235,7 @@ Optional product domains enter only through stable capability, identity, scope, 
 - Production AI is disabled by default to avoid accidental cost.
 
 ## Current boundary
-Blocks 0–15 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence, durable automation workers, production Telegram integration and controlled production AI integration. Real user-facing production capabilities, Render deployment, external end-to-end verification and security operations remain in Blocks 16–19 and Pilot Launch. These must be connected through the approved boundaries without changing the core contracts.
+Blocks 0–16 provide the executable SG 2.1 platform foundation, production runtime composition, durable PostgreSQL persistence, durable automation workers, production Telegram integration, controlled production AI integration and the first real user-facing production capabilities. Render deployment, external end-to-end verification and security operations remain in Blocks 17–19 and Pilot Launch. These must be connected through the approved boundaries without changing the core contracts.
 
 ## Authority
 Read in this order:

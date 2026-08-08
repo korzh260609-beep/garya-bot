@@ -71,6 +71,10 @@ export function createTransportAdapter({
         channel: metadata.channel ?? null,
         platformMessageId: metadata.platformMessageId ?? null,
         replyToMessageId: metadata.replyToMessageId ?? null,
+        transportSessionId: metadata.transportSessionId ?? metadata.platformFacts?.sessionId ?? null,
+        continueConversationId: metadata.continueConversationId ?? null,
+        topicShift: metadata.topicShift === true,
+        topicKey: metadata.topicKey ?? null,
         attachments: Object.freeze([...(metadata.attachments ?? [])])
       }
     });

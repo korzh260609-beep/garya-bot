@@ -26,6 +26,7 @@ Completed architecture and implementation:
 - Block 14 Telegram production integration;
 - Block 15 production AI integration;
 - Block 16 production capabilities;
+- Block 16.5 Temporal Context;
 - deterministic tests and CI;
 - Semantic Kernel, Context and Memory contracts;
 - AI Router foundation and production policy enforcement;
@@ -54,11 +55,11 @@ Completed architecture and implementation:
 - production model execution only through AI Router;
 - emergency AI disable, sensitive-context rejection and role cost limits;
 - structured output validation and deterministic fail-closed AI fallback;
-- first real user-facing capabilities connected through the existing Capability Registry, Capability Executor, Decision Engine and Action Gate boundaries.
+- first real user-facing capabilities connected through the existing Capability Registry, Capability Executor, Decision Engine and Action Gate boundaries;
+- canonical UTC/user-local Temporal Context with IANA timezone persistence, deterministic relative-time resolution, task normalization and temporal memory recall.
 
 Current limitations:
 
-- no unified production Temporal Context exists for current UTC time, user-local time, timezone resolution and relative temporal expressions;
 - Render deployment is not configured for the SG 2.1 runtime;
 - no complete production E2E test suite exists;
 - security and operational controls for pilot launch are not complete;
@@ -66,8 +67,8 @@ Current limitations:
 
 Current implementation boundary:
 
-- Blocks 11, 12, 13, 14, 15 and 16 are completed.
-- Block 16.5 is the next mandatory block.
+- Blocks 11, 12, 13, 14, 15, 16 and 16.5 are completed.
+- Block 17 is the next mandatory block.
 
 ---
 
@@ -334,6 +335,10 @@ Acceptance evidence is recorded in `16_PRODUCTION_CAPABILITIES.md`.
 
 # Block 16.5 — Temporal Context
 
+## Status
+
+Completed.
+
 ## Goal
 
 Give SG one canonical, deterministic and user-aware understanding of current time, timezones, calendar dates and relative temporal expressions before production deployment and end-to-end verification.
@@ -454,6 +459,8 @@ Automated coverage must include at minimum:
 - No transport, capability or AI prompt contains a competing independent implementation of temporal arithmetic.
 - Unknown or ambiguous temporal context fails visibly or remains explicitly bounded rather than being silently guessed.
 - All Temporal Context tests pass in CI.
+
+Acceptance evidence is recorded in `16_5_TEMPORAL_CONTEXT.md`.
 
 ---
 
@@ -616,8 +623,8 @@ Validate the production system with a deliberately limited real-user scope.
 4. Block 14 — Telegram Production Integration — completed
 5. Block 15 — Production AI Integration — completed
 6. Block 16 — Production Capabilities — completed
-7. Block 16.5 — Temporal Context — next
-8. Block 17 — Render Deployment
+7. Block 16.5 — Temporal Context — completed
+8. Block 17 — Render Deployment — next
 9. Block 18 — End-to-End Verification
 10. Block 19 — Security and Operations
 11. Pilot Launch

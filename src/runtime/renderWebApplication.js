@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { createIdentityContext, createScopeContext } from '../contracts/context.js';
 import { PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
-import { TEMPORAL_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
+import { TEMPORAL_CAPABILITY_NAMES, TEMPORAL_SAFE_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
 import { createLocalProductionHarness } from './localProductionHarness.js';
 import { loadTelegramConfig } from '../telegram/telegramConfig.js';
 import { createTelegramBotApiClient } from '../telegram/telegramBotApiClient.js';
@@ -72,9 +72,7 @@ export function createProductionTelegramIdentityResolver({
     const effectiveProjectScope = String(scopeFacts?.projectId ?? projectScope).trim();
     const existingLink = await persistence.repositories.identities.resolve(platform, platformUserId);
     const globalUserId = existingLink?.global_user_id ?? `telegram:${platformUserId}`;
-    if (!existingLink) {
-      await persistence.repositories.identities.link({ platform, platformUserId, globalUserId, metadata: { source: 'telegram-production' } });
-    }
+    if (!existingLink) await persistence.repositories.identities.link({ platform, platformUserId, globalUserId, metadata: { source: 'telegram-production' } });
 
     let access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
     const existing = new Set(access.grants.map((grant) => grant.grant_name));
@@ -83,10 +81,7 @@ export function createProductionTelegramIdentityResolver({
       if (!access.roles.includes('monarch')) await persistence.repositories.access.grantRole({ globalUserId, projectScope: effectiveProjectScope, role: 'monarch' });
       for (const name of ALL_CAPABILITY_NAMES) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
       if (configuredMonarchTimeZone && temporalService && !(await temporalService.getUserTimezone(globalUserId))) {
-        await temporalService.setUserTimezone(globalUserId, configuredMonarchTimeZone, {
-          source: 'deployment-config',
-          provenance: { env: 'SG_MONARCH_TIMEZONE' }
-        });
+        await temporalService.setUserTimezone(globalUserId, configuredMonarchTimeZone, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_TIMEZONE' } });
       }
       access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
     } else {
@@ -94,29 +89,15 @@ export function createProductionTelegramIdentityResolver({
         await persistence.repositories.access.grantRole({ globalUserId, projectScope: effectiveProjectScope, role: 'guest' });
         await ensureGrant(globalUserId, effectiveProjectScope, existing, 'compose-answer');
       }
-      for (const name of TEMPORAL_CAPABILITY_NAMES) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
+      for (const name of TEMPORAL_SAFE_CAPABILITY_NAMES) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
       access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
     }
 
     const grants = access.grants.map((grant) => grant.grant_name);
     const allowedCapabilities = grants.filter((grant) => grant.startsWith('capability:')).map((grant) => grant.slice('capability:'.length));
     return {
-      identityContext: createIdentityContext({
-        globalUserId,
-        platform,
-        platformUserId,
-        linkStatus: 'linked',
-        roles: access.roles,
-        grants,
-        authenticationLevel: 'telegram-webhook'
-      }),
-      scopeContext: createScopeContext({
-        userScope: globalUserId,
-        projectScope: effectiveProjectScope,
-        groupScope: scopeFacts?.groupId ?? null,
-        threadScope: scopeFacts?.threadId ?? null,
-        allowedCapabilities
-      })
+      identityContext: createIdentityContext({ globalUserId, platform, platformUserId, linkStatus: 'linked', roles: access.roles, grants, authenticationLevel: 'telegram-webhook' }),
+      scopeContext: createScopeContext({ userScope: globalUserId, projectScope: effectiveProjectScope, groupScope: scopeFacts?.groupId ?? null, threadScope: scopeFacts?.threadId ?? null, allowedCapabilities })
     };
   };
 }
@@ -175,16 +156,17 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       server.once('error', reject);
       server.listen(port, '0.0.0.0', resolve);
     });
-    if (envString(effectiveEnv, 'TELEGRAM_REGISTER_WEBHOOK', 'true').toLowerCase() !== 'false') {
-      await botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: telegramConfig.webhookSecret });
-    }
-    return { port, webhookPath: telegramConfig.webhookPath, revision: harness.config.revision };
+    if (envString(effectiveEnv, 'TELEGRAM_REGISTER_WEBHOOK', 'true').toLowerCase() !== 'false') await botClient.setWebhook({ url: telegramConfig.webhookUrl, secretToken: telegramConfig.webhookSecret });
+    return Object.freeze({ port, health: harness.runtime.health(), readiness: harness.runtime.readiness(), revision: harness.config.revision });
   }
 
   async function stop() {
-    if (server) await new Promise((resolve) => server.close(resolve));
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
+      server = null;
+    }
     await harness.runtime.stop();
   }
 
-  return Object.freeze({ harness, telegramConfig, requestHandler, start, stop });
+  return Object.freeze({ effectiveEnv, harness, requestHandler, start, stop });
 }

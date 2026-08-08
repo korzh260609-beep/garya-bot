@@ -7,8 +7,8 @@ This document defines the architecture boundaries for roadmap Blocks 16.7–16.1
 ## Dependency order
 
 ```text
-Configuration & Policy
-→ Secrets & Credentials
+Configuration & Policy [completed]
+→ Secrets & Credentials [completed]
 → External Connections Registry
 → Resource Ownership & Authority
 → Session & Conversation Context
@@ -25,7 +25,7 @@ The order is architectural dependency guidance. Every protected action still fol
 Owns typed configuration, defaults, limits, policy precedence and effective-policy resolution. Environment variables are inputs, not the architecture itself. Policy cannot grant identity or bypass Action Gate.
 
 ## Block 16.8 — Secrets & Credentials
-Owns secret references, credential lifecycle, isolation, redaction and bounded provider access. Raw secrets never become ordinary memory, prompts or telemetry.
+Owns stable credential handles, private secret references, credential lifecycle, user/project/connection/resource isolation, permission-bound access, redaction, audit and bounded provider access. Deployment environment variables are secret-store inputs only; raw values never become ordinary configuration, memory, prompts, diagnostics or telemetry. OpenAI and Telegram production paths consume credentials through this boundary.
 
 ## Block 16.9 — External Connections Registry
 Owns the inventory and lifecycle state of external service connections. A connection records which service/account is connected and with what approved scopes. A connection is not an identity and does not prove ownership of every external resource.

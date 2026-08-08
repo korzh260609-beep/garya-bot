@@ -71,15 +71,26 @@ test('audit regression: production harness wires Event Bus, Contract Versioning 
   assert.equal(typeof harness.domainRuntime.execute, 'function');
   assert.ok(harness.domainPermissions.includes('psychology.use'));
 
+  const scope = { userScope: 'local:developer', projectScope: 'sg2.1', groupScope: null, threadScope: null };
   const domainResult = await harness.domainRuntime.execute({
     domainId: 'psychology',
     capability: 'psychology.support',
     input: { topic: 'test' },
     identityContext: { globalUserId: 'local:developer', roles: ['monarch'], grants: ['psychology.use'] },
-    scopeContext: { userScope: 'local:developer', projectScope: 'sg2.1', groupScope: null, threadScope: null },
+    scopeContext: scope,
     traceContext: { traceId: 'domain-trace', requestId: 'domain-request', environment: 'test', revision: 'audit' },
-    gateDecision: { outcome: 'allow', authorized: true, actionRequest: { actionClass: 'analysis-only' } }
+    gateDecision: {
+      outcome: 'allow', authorized: true,
+      actionRequest: { actor: { globalUserId: 'local:developer' }, scope, actionClass: 'analysis-only' }
+    }
   });
   assert.equal(domainResult.status, 'success');
   assert.equal(domainResult.actionClass, 'analysis-only');
+
+  await assert.rejects(() => harness.domainRuntime.execute({
+    domainId: 'psychology', capability: 'psychology.support', input: { topic: 'test' },
+    identityContext: { globalUserId: 'local:developer', grants: ['psychology.use'] }, scopeContext: scope,
+    traceContext: { traceId: 'domain-trace-2', requestId: 'domain-request-2', environment: 'test', revision: 'audit' },
+    gateDecision: { outcome: 'allow', authorized: true, actionRequest: { actor: { globalUserId: 'other-user' }, scope, actionClass: 'analysis-only' } }
+  }), /domain action gate denied/);
 });

@@ -37,7 +37,6 @@ function normalizeRequest(input, idFactory) {
   if (!KINDS.has(kind)) throw new TypeError(`unsupported delivery kind: ${kind}`);
   const actorGlobalUserId = required(input.actorGlobalUserId, 'actorGlobalUserId');
   const recipientGlobalUserId = required(input.recipientGlobalUserId ?? actorGlobalUserId, 'recipientGlobalUserId');
-  const message = required(input.message, 'message');
   return Object.freeze({
     deliveryId: optional(input.deliveryId) ?? `delivery:${idFactory()}`,
     idempotencyKey: required(input.idempotencyKey ?? `${kind}:${input.traceContext?.requestId ?? idFactory()}`, 'idempotencyKey'),
@@ -45,49 +44,44 @@ function normalizeRequest(input, idFactory) {
     actorGlobalUserId,
     recipientGlobalUserId,
     projectScope: required(input.projectScope, 'projectScope'),
-    message,
+    message: required(input.message, 'message'),
     target: input.target ? normalizeTarget(input.target) : null,
     originTarget: input.originTarget ? normalizeTarget(input.originTarget, 'originTarget') : null,
     explicitTarget: input.explicitTarget === true,
+    crossUserAuthorization: input.crossUserAuthorization == null ? null : Object.freeze(clone(input.crossUserAuthorization)),
     locale: optional(input.locale),
     traceContext: Object.freeze(clone(input.traceContext ?? {})),
     metadata: Object.freeze(clone(input.metadata ?? {}))
   });
 }
 function publicResult(record) {
-  return Object.freeze({
-    deliveryId: record.deliveryId,
-    idempotencyKey: record.idempotencyKey,
-    kind: record.kind,
-    status: record.status,
-    transport: record.transport ?? null,
-    target: record.target ? Object.freeze(clone(record.target)) : null,
-    attempts: record.attempts ?? 0,
-    duplicate: record.duplicate === true,
-    failureCode: record.failureCode ?? null,
-    retryable: record.retryable === true,
-    deliveredAt: record.deliveredAt ?? null
-  });
+  return Object.freeze({ deliveryId: record.deliveryId, idempotencyKey: record.idempotencyKey, kind: record.kind, status: record.status, transport: record.transport ?? null, target: record.target ? Object.freeze(clone(record.target)) : null, attempts: record.attempts ?? 0, duplicate: record.duplicate === true, failureCode: record.failureCode ?? null, retryable: record.retryable === true, deliveredAt: record.deliveredAt ?? null });
 }
 function isRetryable(error) { return error?.retryable === true || ['ETIMEDOUT','ECONNRESET','EAI_AGAIN','delivery-timeout','rate-limited'].includes(error?.code); }
 function withTimeout(promiseFactory, timeoutMs) {
   let timer;
-  return Promise.race([
-    Promise.resolve().then(promiseFactory),
-    new Promise((_, reject) => { timer = setTimeout(() => { const e = new Error('delivery timeout'); e.code = 'delivery-timeout'; e.retryable = true; reject(e); }, timeoutMs); })
-  ]).finally(() => clearTimeout(timer));
+  return Promise.race([Promise.resolve().then(promiseFactory), new Promise((_, reject) => { timer = setTimeout(() => { const e = new Error('delivery timeout'); e.code = 'delivery-timeout'; e.retryable = true; reject(e); }, timeoutMs); })]).finally(() => clearTimeout(timer));
 }
 function isQuietHour(settings, now) {
   const quiet = settings?.notifications?.quietHours;
   if (!quiet?.enabled) return false;
   const zone = quiet.timeZone ?? settings?.timeZone ?? 'UTC';
   const parts = new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
-  const h = Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
-  const m = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
-  const current = h * 60 + m;
+  const current = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) * 60 + Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
   const parse = (text) => { const [hh, mm] = String(text).split(':').map(Number); return hh * 60 + mm; };
   const start = parse(quiet.start); const end = parse(quiet.end);
   return start === end ? true : start < end ? current >= start && current < end : current >= start || current < end;
+}
+function validCrossUserEvidence(request) {
+  if (request.recipientGlobalUserId === request.actorGlobalUserId) return true;
+  const evidence = request.crossUserAuthorization;
+  return Boolean(
+    evidence && evidence.authorized === true &&
+    typeof evidence.authorizationId === 'string' && evidence.authorizationId.trim() !== '' &&
+    evidence.actorGlobalUserId === request.actorGlobalUserId &&
+    evidence.recipientGlobalUserId === request.recipientGlobalUserId &&
+    evidence.projectScope === request.projectScope
+  );
 }
 
 export function createInMemoryDeliveryStore() {
@@ -115,17 +109,9 @@ export function createDeliveryTransportRegistry({ transports = [] } = {}) {
 }
 
 export function createDeliveryRouter({
-  store = createInMemoryDeliveryStore(),
-  transportRegistry = createDeliveryTransportRegistry(),
-  userSettingsService = null,
-  resourceAuthorityRegistry = null,
-  connectionRegistry = null,
-  observability = null,
-  clock = () => new Date(),
-  idFactory = randomUUID,
-  timeoutMs = 10_000,
-  maxAttempts = 3,
-  fallbackTransports = []
+  store = createInMemoryDeliveryStore(), transportRegistry = createDeliveryTransportRegistry(), userSettingsService = null,
+  resourceAuthorityRegistry = null, connectionRegistry = null, connectionAccessContext = null, observability = null,
+  clock = () => new Date(), idFactory = randomUUID, timeoutMs = 10_000, maxAttempts = 3, fallbackTransports = []
 } = {}) {
   if (!store?.getByIdempotencyKey || !store?.put) throw new TypeError('delivery store is required');
   if (!transportRegistry?.get) throw new TypeError('transportRegistry is required');
@@ -137,21 +123,21 @@ export function createDeliveryRouter({
     return userSettingsService.resolve(request.recipientGlobalUserId, { projectScope: request.projectScope });
   }
   async function authorizeTarget(request, target) {
-    if (request.recipientGlobalUserId !== request.actorGlobalUserId && request.metadata?.crossUserAuthorized !== true) {
-      return { allowed: false, reason: 'cross-user-delivery-not-authorized' };
-    }
+    if (!validCrossUserEvidence(request)) return { allowed: false, reason: 'cross-user-delivery-not-authorized' };
     if (request.kind === 'current-response' && request.originTarget && !request.explicitTarget) {
       const origin = request.originTarget;
-      const same = origin.transport === target.transport && origin.address === target.address && origin.resourceId === target.resourceId;
+      const same = origin.transport === target.transport && origin.address === target.address && origin.resourceId === target.resourceId && origin.threadId === target.threadId;
       return same ? { allowed: true, reason: 'origin-bound-current-response' } : { allowed: false, reason: 'current-response-target-mismatch' };
     }
     if (!target.resourceId) return { allowed: false, reason: 'explicit-delivery-requires-resource' };
     if (!resourceAuthorityRegistry?.checkAuthority) return { allowed: false, reason: 'resource-authority-unavailable' };
     const authority = await resourceAuthorityRegistry.checkAuthority({ actorGlobalUserId: request.actorGlobalUserId, projectScope: request.projectScope, resourceId: target.resourceId, relation: 'can_publish' });
     if (!authority.allowed) return { allowed: false, reason: authority.reason };
-    if (target.connectionId && connectionRegistry?.requireUsable) {
-      try { await connectionRegistry.requireUsable({ connectionId: target.connectionId, actor: { globalUserId: request.actorGlobalUserId, grants: ['connection:use'] }, projectScope: request.projectScope }); }
-      catch (error) { return { allowed: false, reason: error?.code ?? 'connection-unusable' }; }
+    if (target.connectionId) {
+      if (!connectionRegistry?.requireUsable || !connectionAccessContext?.actor) return { allowed: false, reason: 'connection-state-unavailable' };
+      try {
+        await connectionRegistry.requireUsable({ connectionId: target.connectionId, capability: 'notification.delivery', actor: connectionAccessContext.actor, projectScope: request.projectScope });
+      } catch (error) { return { allowed: false, reason: error?.code ?? 'connection-unusable' }; }
     }
     return { allowed: true, reason: 'resource-authority-verified', authority };
   }
@@ -167,7 +153,6 @@ export function createDeliveryRouter({
   async function recordEvent(request, outcome, data = {}) {
     observability?.record?.({ eventClass: 'delivery_attempt', channel: outcome === 'delivered' ? 'telemetry' : 'audit', stage: 'delivery-router', traceContext: request.traceContext, outcome, actorRef: request.actorGlobalUserId, data: { deliveryId: request.deliveryId, kind: request.kind, recipientGlobalUserId: request.recipientGlobalUserId, ...data } });
   }
-
   async function route(input) {
     const request = normalizeRequest(input, idFactory);
     const duplicate = await store.getByIdempotencyKey(request.idempotencyKey);
@@ -210,6 +195,5 @@ export function createDeliveryRouter({
     const record = { ...request, target: targets.at(-1), transport: targets.at(-1)?.transport ?? null, status: 'failed', attempts: totalAttempts, failureCode: lastError?.code ?? 'delivery-failed', retryable: isRetryable(lastError) };
     await store.put(record); await recordEvent(request, 'failed', { transport: record.transport, attempts: totalAttempts, reason: record.failureCode }); return publicResult(record);
   }
-
   return Object.freeze({ route, normalizeRequest: (input) => normalizeRequest(input, idFactory) });
 }

@@ -56,6 +56,7 @@ export function createProductionRuntime({
   domainRuntime = null,
   observability,
   languageContextService = null,
+  policyLayer = null,
   resources = []
 } = {}) {
   if (!config?.environment || !config?.revision || !config?.shutdownTimeoutMs) throw new TypeError('validated runtime config is required');
@@ -66,6 +67,7 @@ export function createProductionRuntime({
   if (capabilityRegistry) requireMethod(capabilityRegistry, 'get', 'capabilityRegistry');
   if (domainRuntime) requireMethod(domainRuntime, 'execute', 'domainRuntime');
   if (languageContextService) requireMethod(languageContextService, 'resolve', 'languageContextService');
+  if (policyLayer) requireMethod(policyLayer, 'resolve', 'policyLayer');
   if (!Array.isArray(resources)) throw new TypeError('resources must be an array');
 
   let phase = 'created';
@@ -102,6 +104,15 @@ export function createProductionRuntime({
     }
   }
 
+  function withPolicyContext(canonicalInput) {
+    if (!policyLayer) return canonicalInput;
+    const policyContext = policyLayer.resolve({ roles: canonicalInput.identityContext.roles });
+    return Object.freeze({
+      ...canonicalInput,
+      metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), policyContext })
+    });
+  }
+
   async function withLanguageContext(canonicalInput) {
     if (!languageContextService) return canonicalInput;
     const context = await languageContextService.resolve({
@@ -125,8 +136,17 @@ export function createProductionRuntime({
     inFlight += 1;
     const traceContext = canonicalInput?.traceContext;
     try {
-      const requestInput = await withLanguageContext(canonicalInput);
+      const policyInput = withPolicyContext(canonicalInput);
+      const requestInput = await withLanguageContext(policyInput);
       observability.record({ eventClass: 'request_received', channel: 'telemetry', stage: 'runtime', traceContext, actorRef: requestInput.identityContext.globalUserId, transport: requestInput.metadata?.transport ?? null });
+      const policyContext = requestInput.metadata?.policyContext ?? null;
+      if (policyContext) {
+        observability.record({
+          eventClass: 'policy_context_resolved', channel: 'telemetry', stage: 'configuration-policy', traceContext,
+          outcome: 'resolved',
+          data: { roles: policyContext.roles, provenance: policyContext.provenance }
+        });
+      }
       const languageContext = requestInput.metadata?.languageContext ?? null;
       if (languageContext) {
         observability.record({
@@ -165,7 +185,7 @@ export function createProductionRuntime({
       observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: gateDecision.outcome, data: { capability: actionRequest.capability, authorized: gateDecision.authorized } });
 
       const gatedResponse = responseFromGate(gateDecision, semantic.responsePlan);
-      if (gatedResponse) return { ...gatedResponse, data: { ...(gatedResponse.data ?? {}), languageContext } };
+      if (gatedResponse) return { ...gatedResponse, data: { ...(gatedResponse.data ?? {}), languageContext, policyContext } };
 
       let result;
       const directDomainExecution = actionRequest.payload?.domainId && actionRequest.capability !== 'domain-dispatch';
@@ -186,7 +206,7 @@ export function createProductionRuntime({
       }
 
       const message = result?.data?.message ?? result?.data?.text ?? semantic.responsePlan.message;
-      return { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, languageContext } };
+      return { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, languageContext, policyContext } };
     } catch (error) {
       failure = phase === 'ready' ? null : error;
       observability.recordFailure({ traceContext, stage: 'runtime', reason: error.message, code: error.code ?? 'runtime-request-failed' });

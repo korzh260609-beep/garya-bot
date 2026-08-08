@@ -14,8 +14,13 @@ function capabilityOverrides(capability) {
   if (!capability) return {};
   return { requiredPermission: capability.requiredPermissions[0] ?? `capability:${capability.name}`, requiredSources: capability.requiredSources, requiredTools: capability.requiredTools, risk: capability.risk, estimatedCostUsd: capability.estimatedCostUsd, confirmationRequired: capability.confirmationRequired };
 }
+function publicConversationReference(canonicalInput) {
+  const context = canonicalInput.metadata?.conversationContext;
+  if (!context) return null;
+  return Object.freeze({ conversationId: context.conversationId, sessionId: context.sessionId, topicId: context.topicId, transition: context.transition });
+}
 function languagePayload(canonicalInput, semantic) {
-  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, conversationContext: canonicalInput.metadata?.conversationContext ?? null, locale: canonicalInput.locale });
+  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, conversationContext: publicConversationReference(canonicalInput), locale: canonicalInput.locale });
 }
 function conversationKey(input) {
   const contextId = input.metadata?.conversationContext?.conversationId;
@@ -76,7 +81,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       text: canonicalInput.text,
       metadata: { traceId: canonicalInput.traceContext.traceId, requestId: canonicalInput.traceContext.requestId, platformMessageId: canonicalInput.metadata?.platformMessageId ?? null }
     });
-    observability.record({ eventClass: 'conversation_context_resolved', channel: 'telemetry', stage: 'conversation-context', traceContext: canonicalInput.traceContext, outcome: context.transition, actorRef: canonicalInput.identityContext.globalUserId, data: { conversationId: context.conversationId, sessionId: context.sessionId, topicId: context.topicId, recentTurnCount: context.recentTurns.length } });
+    observability.record({ eventClass: 'audit_event', channel: 'telemetry', stage: 'conversation-context', traceContext: canonicalInput.traceContext, outcome: context.transition, actorRef: canonicalInput.identityContext.globalUserId, data: { contextEventClass: 'conversation_context_resolved', conversationId: context.conversationId, sessionId: context.sessionId, topicId: context.topicId, recentTurnCount: context.recentTurns.length } });
     return Object.freeze({ ...canonicalInput, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), conversationContext: context }) });
   }
   async function withLanguageContext(canonicalInput) {
@@ -98,7 +103,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     try { decision = await resourceAuthorityRegistry.checkAuthority({ actorGlobalUserId: requestInput.identityContext.globalUserId, projectScope: requestInput.scopeContext.projectScope, resourceId: requirement.resourceId, relation: requirement.relation }); }
     catch (error) { decision = { allowed: false, reason: error?.code ?? 'resource-authority-resolution-failed', resourceId: requirement.resourceId, requiredRelation: requirement.relation, evidence: null }; }
     const resolved = Object.freeze({ ...decision, actorGlobalUserId: requestInput.identityContext.globalUserId, projectScope: requestInput.scopeContext.projectScope, resourceId: requirement.resourceId, requiredRelation: requirement.relation });
-    observability.record({ eventClass: 'resource_authority_resolved', channel: 'audit', stage: 'resource-authority', traceContext, outcome: resolved.allowed ? 'allow' : 'deny', actorRef: requestInput.identityContext.globalUserId, data: { resourceId: resolved.resourceId, requiredRelation: resolved.requiredRelation, reason: resolved.reason, authorityId: resolved.evidence?.authorityId ?? null } });
+    observability.record({ eventClass: 'audit_event', channel: 'audit', stage: 'resource-authority', traceContext, outcome: resolved.allowed ? 'allow' : 'deny', actorRef: requestInput.identityContext.globalUserId, data: { authorityEventClass: 'resource_authority_resolved', resourceId: resolved.resourceId, requiredRelation: resolved.requiredRelation, reason: resolved.reason, authorityId: resolved.evidence?.authorityId ?? null } });
     return resolved;
   }
 

@@ -88,6 +88,12 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
     async start() {}, async stop() {}, async handle() { return { status: 'success', message: 'ok' }; }
   };
   let receivedEnv = null;
+  const credentialAccessContext = { actor: { globalUserId: 'system:runtime', grants: ['credential:use:system'] }, scope: { projectScope: 'sg2.1' } };
+  const credentialManager = {
+    async useCredential({ operation, connectionId }) {
+      return operation(connectionId === 'telegram-webhook' ? 'test-webhook-secret' : 'test-token');
+    }
+  };
   const harnessFactory = ({ env }) => {
     receivedEnv = env;
     return {
@@ -96,7 +102,9 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
       runtime,
       temporalService: null,
       languageContextService: null,
-      observability: { record() {}, recordFailure() {} }
+      observability: { record() {}, recordFailure() {} },
+      credentialManager,
+      credentialAccessContext
     };
   };
   const app = await createRenderWebApplication({

@@ -25,29 +25,24 @@ function normalizeTask(task) {
   return task;
 }
 
-export function createTemporalTaskStore({ taskStore, temporalService } = {}) {
+export function createTemporalTaskStore({ taskStore, temporalService, recurringScheduler = null } = {}) {
   if (!taskStore?.create || !taskStore?.list || !taskStore?.get || !taskStore?.cancel) throw new TypeError('taskStore is required');
   if (!temporalService?.resolveForUser) throw new TypeError('temporalService is required');
 
   return Object.freeze({
     async create({ scope, input = {} }) {
       const expression = input.temporalExpression ?? input.when ?? (typeof input.runAt === 'string' && !isExactIsoInstant(input.runAt) ? input.runAt : null);
-      if (!expression) return normalizeTask(await taskStore.create({ scope, input }));
+      if (!expression) {
+        if (input.recurrence) throw temporalError('recurrence-start-required', 'A recurring task requires an explicit first local time');
+        return normalizeTask(await taskStore.create({ scope, input }));
+      }
 
       const resolution = await temporalService.resolveForUser(scope.userScope, expression);
-      if (resolution.status === 'timezone-required') {
-        throw temporalError('task-timezone-required', 'User timezone is required to schedule relative local time');
-      }
-      if (resolution.status !== 'resolved') {
-        throw temporalError('task-time-unresolved', 'Temporal expression could not be resolved deterministically');
-      }
-      if (resolution.ambiguous || !resolution.utcStart || resolution.utcEndExclusive) {
-        throw temporalError('task-time-ambiguous', 'Task time is a range or ambiguous; a precise time is required');
-      }
+      if (resolution.status === 'timezone-required') throw temporalError('task-timezone-required', 'User timezone is required to schedule relative local time');
+      if (resolution.status !== 'resolved') throw temporalError('task-time-unresolved', 'Temporal expression could not be resolved deterministically');
+      if (resolution.ambiguous || !resolution.utcStart || resolution.utcEndExclusive) throw temporalError('task-time-ambiguous', 'Task time is a range or ambiguous; a precise time is required');
 
-      const payload = input.payload && typeof input.payload === 'object' && !Array.isArray(input.payload)
-        ? { ...input.payload }
-        : { ...input };
+      const payload = input.payload && typeof input.payload === 'object' && !Array.isArray(input.payload) ? { ...input.payload } : { ...input };
       payload.temporal = Object.freeze({
         originalExpression: resolution.originalExpression,
         timeZone: resolution.timeZone,
@@ -56,10 +51,24 @@ export function createTemporalTaskStore({ taskStore, temporalService } = {}) {
         precision: resolution.precision
       });
 
-      return normalizeTask(await taskStore.create({
+      const created = normalizeTask(await taskStore.create({
         scope,
         input: { ...input, runAt: resolution.utcStart, temporalExpression: expression, payload }
       }));
+
+      if (!input.recurrence) return created;
+      if (!recurringScheduler?.register) throw temporalError('recurrence-unavailable', 'Recurring scheduler is not available in this runtime');
+      const schedule = await recurringScheduler.register({
+        scheduleId: input.scheduleId,
+        taskId: created.taskId,
+        recurrence: input.recurrence,
+        timeZone: resolution.timeZone,
+        dtstartLocal: resolution.localStart,
+        misfirePolicy: input.misfirePolicy ?? 'fire_once',
+        maxCatchup: input.maxCatchup ?? 10,
+        state: { originalExpression: resolution.originalExpression, createdBy: scope.userScope }
+      });
+      return Object.freeze({ ...created, recurringSchedule: schedule });
     },
     async list(request) { return Object.freeze((await taskStore.list(request)).map(normalizeTask)); },
     async get(request) { return normalizeTask(await taskStore.get(request)); },

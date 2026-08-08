@@ -37,6 +37,10 @@ function selectedResourceRequirement(semantic) {
   const selected = semantic?.decisionEnvelope?.selectedAction;
   return selected?.resourceRequirement ?? selected?.payload?.resourceRequirement ?? null;
 }
+async function closeResource(resource) {
+  if (resource?.close) await resource.close();
+  else if (resource?.stop) await resource.stop();
+}
 
 export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, conversationContextService = null, userSettingsService = null, policyLayer = null, resourceAuthorityRegistry = null, resources = [] } = {}) {
   if (!config?.environment || !config?.revision || !config?.shutdownTimeoutMs) throw new TypeError('validated runtime config is required');
@@ -54,6 +58,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
   if (!Array.isArray(resources)) throw new TypeError('resources must be an array');
 
   let phase = 'created', accepting = false, inFlight = 0, failure = null;
+  let activeResources = [];
   const waiters = new Set();
   const snapshot = () => Object.freeze({ phase, accepting, inFlight, failed: Boolean(failure), failure: failure?.message ? redactSensitiveText(failure.message) : null });
   function notifyDrained() { if (inFlight === 0) { for (const resolve of waiters) resolve(); waiters.clear(); } }
@@ -61,8 +66,19 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
   async function start() {
     if (phase !== 'created') throw new Error(`runtime cannot start from phase ${phase}`);
     phase = 'starting';
-    try { for (const resource of resources) if (resource?.start) await resource.start(); accepting = true; phase = 'ready'; return snapshot(); }
-    catch (error) { failure = error; accepting = false; phase = 'failed'; throw error; }
+    activeResources = [];
+    try {
+      for (const resource of resources) {
+        if (resource?.start) await resource.start();
+        activeResources.push(resource);
+      }
+      accepting = true; phase = 'ready'; return snapshot();
+    } catch (error) {
+      accepting = false;
+      for (const resource of [...activeResources].reverse()) { try { await closeResource(resource); } catch {} }
+      activeResources = [];
+      failure = error; phase = 'failed'; throw error;
+    }
   }
   function withPolicyContext(canonicalInput) {
     if (!policyLayer) return canonicalInput;
@@ -171,7 +187,8 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     if (phase === 'stopped') return snapshot();
     accepting = false; phase = 'stopping';
     if (inFlight > 0) await Promise.race([new Promise((resolve) => waiters.add(resolve)), new Promise((_, reject) => setTimeout(() => reject(new Error('runtime shutdown drain timeout')), config.shutdownTimeoutMs))]);
-    for (const resource of [...resources].reverse()) { if (resource?.close) await resource.close(); else if (resource?.stop) await resource.stop(); }
+    for (const resource of [...activeResources].reverse()) await closeResource(resource);
+    activeResources = [];
     phase = 'stopped'; return snapshot();
   }
 

@@ -6,7 +6,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   units: Object.freeze({ system: 'metric' }),
   formatting: Object.freeze({ date: 'locale', number: 'locale' }),
   accessibility: Object.freeze({ reducedMotion: false, conciseUi: false }),
-  notifications: Object.freeze({ enabled: true }),
+  notifications: Object.freeze({ enabled: true, quietHours: Object.freeze({ enabled: false, start: '22:00', end: '08:00', timeZone: null }) }),
   delivery: Object.freeze({ preferredTransport: null }),
   autonomy: Object.freeze({ level: 'standard', confirmation: 'policy' })
 });
@@ -46,6 +46,11 @@ function validTimeZone(value) {
   const zone = required(value, 'timeZone');
   try { new Intl.DateTimeFormat('en-US', { timeZone: zone }).format(new Date(0)); return zone; }
   catch { throw new TypeError('timeZone must be a valid IANA timezone'); }
+}
+function clockTime(value, field) {
+  const text = required(value, field);
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(text)) throw new TypeError(`${field} must be HH:MM`);
+  return text;
 }
 function enumValue(value, allowed, field) {
   if (!allowed.has(value)) throw new TypeError(`${field} has unsupported value`);
@@ -94,9 +99,19 @@ function validatePatch(patch) {
     out.accessibility = next;
   }
   if ('notifications' in source) {
-    const value = plainObject(source.notifications, 'notifications');
-    for (const key of Object.keys(value)) if (key !== 'enabled') throw new TypeError(`unknown notification setting: ${key}`);
-    out.notifications = 'enabled' in value ? { enabled: booleanValue(value.enabled, 'notifications.enabled') } : {};
+    const value = plainObject(source.notifications, 'notifications'); const next = {};
+    for (const key of Object.keys(value)) if (!['enabled','quietHours'].includes(key)) throw new TypeError(`unknown notification setting: ${key}`);
+    if ('enabled' in value) next.enabled = booleanValue(value.enabled, 'notifications.enabled');
+    if ('quietHours' in value) {
+      const quiet = plainObject(value.quietHours, 'notifications.quietHours'); const q = {};
+      for (const key of Object.keys(quiet)) if (!['enabled','start','end','timeZone'].includes(key)) throw new TypeError(`unknown quietHours setting: ${key}`);
+      if ('enabled' in quiet) q.enabled = booleanValue(quiet.enabled, 'notifications.quietHours.enabled');
+      if ('start' in quiet) q.start = clockTime(quiet.start, 'notifications.quietHours.start');
+      if ('end' in quiet) q.end = clockTime(quiet.end, 'notifications.quietHours.end');
+      if ('timeZone' in quiet) q.timeZone = validTimeZone(quiet.timeZone);
+      next.quietHours = q;
+    }
+    out.notifications = next;
   }
   if ('delivery' in source) {
     const value = plainObject(source.delivery, 'delivery');

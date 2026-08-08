@@ -27,6 +27,16 @@ function capabilityOverrides(capability) {
   };
 }
 
+function languagePayload(canonicalInput, semantic) {
+  return Object.freeze({
+    text: canonicalInput.text,
+    message: semantic.responsePlan.message,
+    semanticMessage: semantic.responsePlan.message,
+    languageContext: canonicalInput.metadata?.languageContext ?? null,
+    locale: canonicalInput.locale
+  });
+}
+
 export function createProductionRuntime({
   config,
   semanticPipeline,
@@ -35,6 +45,7 @@ export function createProductionRuntime({
   capabilityExecutor,
   domainRuntime = null,
   observability,
+  languageContextService = null,
   resources = []
 } = {}) {
   if (!config?.environment || !config?.revision || !config?.shutdownTimeoutMs) throw new TypeError('validated runtime config is required');
@@ -44,6 +55,7 @@ export function createProductionRuntime({
   requireMethod(observability, 'record', 'observability');
   if (capabilityRegistry) requireMethod(capabilityRegistry, 'get', 'capabilityRegistry');
   if (domainRuntime) requireMethod(domainRuntime, 'execute', 'domainRuntime');
+  if (languageContextService) requireMethod(languageContextService, 'resolve', 'languageContextService');
   if (!Array.isArray(resources)) throw new TypeError('resources must be an array');
 
   let phase = 'created';
@@ -80,28 +92,67 @@ export function createProductionRuntime({
     }
   }
 
+  async function withLanguageContext(canonicalInput) {
+    if (!languageContextService) return canonicalInput;
+    const context = await languageContextService.resolve({
+      globalUserId: canonicalInput.identityContext.globalUserId,
+      text: canonicalInput.text,
+      platformLocale: canonicalInput.locale,
+      conversationLanguage: canonicalInput.metadata?.conversationLanguage ?? null
+    });
+    return Object.freeze({
+      ...canonicalInput,
+      locale: context.locale ?? canonicalInput.locale,
+      metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), languageContext: context })
+    });
+  }
+
   async function handle(canonicalInput) {
     if (!accepting || phase !== 'ready') throw new Error('runtime is not ready');
     inFlight += 1;
     const traceContext = canonicalInput?.traceContext;
     try {
-      observability.record({ eventClass: 'request_received', channel: 'telemetry', stage: 'runtime', traceContext, actorRef: canonicalInput.identityContext.globalUserId, transport: canonicalInput.metadata?.transport ?? null });
-      const semantic = await semanticPipeline.process(canonicalInput);
+      const requestInput = await withLanguageContext(canonicalInput);
+      observability.record({ eventClass: 'request_received', channel: 'telemetry', stage: 'runtime', traceContext, actorRef: requestInput.identityContext.globalUserId, transport: requestInput.metadata?.transport ?? null });
+      const languageContext = requestInput.metadata?.languageContext ?? null;
+      if (languageContext) {
+        observability.record({
+          eventClass: 'language_context_resolved', channel: 'telemetry', stage: 'language-context', traceContext,
+          outcome: languageContext.responseLanguage,
+          data: {
+            detectedLanguage: languageContext.messageLanguage,
+            confidence: languageContext.confidence,
+            responseLanguage: languageContext.responseLanguage,
+            detectionSource: languageContext.detectionSource,
+            responseLanguageSource: languageContext.responseLanguageSource,
+            locale: languageContext.locale
+          }
+        });
+      }
+
+      const semantic = await semanticPipeline.process(requestInput);
       observability.record({ eventClass: 'semantic_decision_created', channel: 'telemetry', stage: 'decision-engine', traceContext, outcome: semantic.decisionEnvelope.decisionType, data: { intent: semantic.decisionEnvelope.intent } });
 
       const selectedName = semantic.decisionEnvelope.selectedAction?.name ?? semantic.decisionEnvelope.selectedAction?.type;
       const declaredCapability = capabilityRegistry?.get(selectedName) ?? null;
+      const overrides = capabilityOverrides(declaredCapability);
       const actionRequest = createActionRequestFromDecision({
         decisionEnvelope: semantic.decisionEnvelope,
-        identityContext: canonicalInput.identityContext,
-        scopeContext: canonicalInput.scopeContext,
-        overrides: capabilityOverrides(declaredCapability)
+        identityContext: requestInput.identityContext,
+        scopeContext: requestInput.scopeContext,
+        overrides: {
+          ...overrides,
+          payload: {
+            ...(semantic.decisionEnvelope.selectedAction?.payload ?? {}),
+            ...languagePayload(requestInput, semantic)
+          }
+        }
       });
       const gateDecision = actionGate.evaluate(actionRequest);
       observability.record({ eventClass: 'action_gate_decision', channel: 'audit', stage: 'action-gate', traceContext, outcome: gateDecision.outcome, data: { capability: actionRequest.capability, authorized: gateDecision.authorized } });
 
       const gatedResponse = responseFromGate(gateDecision, semantic.responsePlan);
-      if (gatedResponse) return gatedResponse;
+      if (gatedResponse) return { ...gatedResponse, data: { ...(gatedResponse.data ?? {}), languageContext } };
 
       let result;
       const directDomainExecution = actionRequest.payload?.domainId && actionRequest.capability !== 'domain-dispatch';
@@ -111,8 +162,8 @@ export function createProductionRuntime({
           domainId: actionRequest.payload.domainId,
           capability: actionRequest.capability,
           input: actionRequest.payload,
-          identityContext: canonicalInput.identityContext,
-          scopeContext: canonicalInput.scopeContext,
+          identityContext: requestInput.identityContext,
+          scopeContext: requestInput.scopeContext,
           traceContext
         });
       } else {
@@ -122,7 +173,7 @@ export function createProductionRuntime({
       }
 
       const message = result?.data?.message ?? result?.data?.text ?? semantic.responsePlan.message;
-      return { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result } };
+      return { status: result.status ?? 'success', message, data: { decisionEnvelope: semantic.decisionEnvelope, gateDecision, execution: result, languageContext } };
     } catch (error) {
       failure = phase === 'ready' ? null : error;
       observability.recordFailure({ traceContext, stage: 'runtime', reason: error.message, code: error.code ?? 'runtime-request-failed' });

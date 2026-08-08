@@ -33,6 +33,7 @@ Active files:
 - `OBSERVABILITY.md`
 - `TRANSPORTS_AND_AI_ROUTING.md`
 - `LANGUAGE_AND_LOCALE_CONTEXT.md`
+- `FOUNDATIONAL_CONTROL_LAYERS.md`
 - `RUNTIME_COMPOSITION.md`
 - `POSTGRESQL_PERSISTENCE.md`
 
@@ -60,8 +61,18 @@ Active files:
 - `15_PRODUCTION_AI_INTEGRATION.md` — Block 15 implementation and acceptance evidence
 - `16_PRODUCTION_CAPABILITIES.md` — Block 16 implementation and acceptance evidence
 - `16_5_TEMPORAL_CONTEXT.md` — Block 16.5 implementation and acceptance evidence
-- `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — Block 16.6 specification and future implementation/acceptance evidence
-- `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5/16.6 and Pilot Launch
+- `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md` — Block 16.6 implementation and acceptance evidence
+- `16_7_CONFIGURATION_AND_POLICY_LAYER.md` — Block 16.7 specification/future evidence
+- `16_8_SECRETS_AND_CREDENTIALS_MANAGEMENT.md` — Block 16.8 specification/future evidence
+- `16_9_EXTERNAL_CONNECTIONS_REGISTRY.md` — Block 16.9 specification/future evidence
+- `16_10_RESOURCE_OWNERSHIP_AND_AUTHORITY_MODEL.md` — Block 16.10 specification/future evidence
+- `16_11_SESSION_AND_CONVERSATION_CONTEXT.md` — Block 16.11 specification/future evidence
+- `16_12_USER_SETTINGS_AND_PREFERENCES.md` — Block 16.12 specification/future evidence
+- `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — Block 16.13 specification/future evidence
+- `16_14_INTERNAL_EVENT_BUS.md` — Block 16.14 specification/future evidence
+- `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — Block 16.15 specification/future evidence
+- `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — Block 16.16 specification/future evidence
+- `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5–16.16 and Pilot Launch
 
 ## Workflow
 Entry: `workflow/README.md`

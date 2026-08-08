@@ -1,28 +1,38 @@
 import { createSemanticInterpretation } from '../contracts/semantic.js';
 
 function normalized(text) {
-  return String(text ?? '').trim().toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ');
+  return String(text ?? '').trim().toLowerCase().replace(/ё/g, 'е').replace(/[!?;,()\[\]{}]/g, ' ').replace(/\s+/g, ' ');
+}
+
+function hasPhrase(text, phrase) {
+  return ` ${normalized(text)} `.includes(` ${normalized(phrase)} `);
+}
+
+function hasAny(text, phrases) {
+  return phrases.some((phrase) => hasPhrase(text, phrase));
 }
 
 function timezoneFromText(text) {
-  const match = String(text ?? '').match(/\b([A-Za-z_]+(?:\/[A-Za-z0-9_+\-]+)+)\b/);
+  const match = String(text ?? '').match(/(?:^|\s)([A-Za-z_]+(?:\/[A-Za-z0-9_+\-]+)+)(?=$|\s|[.,!?;])/);
   return match?.[1] ?? null;
 }
 
 function asksCurrentTime(text) {
-  const value = normalized(text);
-  return /\b(what time|current time|time now|what is the time|который час|сколько времени|текущее время|который сейчас час|котра година|який час|поточний час)\b/u.test(value)
-    || /\b(utc|всемирн(?:ое|ый) время|світов(?:ий|ого) час)\b/u.test(value);
+  return hasAny(text, [
+    'what time', 'current time', 'time now', 'what is the time',
+    'который час', 'сколько времени', 'текущее время', 'который сейчас час',
+    'котра година', 'який час', 'поточний час',
+    'utc', 'всемирное время', 'всемирный час', 'світовий час', 'світового часу'
+  ]);
 }
 
 function asksTimezoneChange(text) {
-  const value = normalized(text);
-  return /\b(timezone|time zone|часов(?:ой|ый) пояс|часовий пояс)\b/u.test(value) && timezoneFromText(text);
+  return hasAny(text, ['timezone', 'time zone', 'часовой пояс', 'часовый пояс', 'часовий пояс']) ? timezoneFromText(text) : null;
 }
 
 function currentTimeInterpretation(canonicalInput) {
   const temporal = canonicalInput.metadata?.temporalContext ?? {};
-  const asksUtcOnly = /\b(utc|всемирн(?:ое|ый) время|світов(?:ий|ого) час)\b/u.test(normalized(canonicalInput.text));
+  const asksUtcOnly = hasAny(canonicalInput.text, ['utc', 'всемирное время', 'всемирный час', 'світовий час', 'світового часу']);
   const local = temporal.timezoneKnown
     ? `Local time: ${temporal.localDateTime} (${temporal.timeZone}).`
     : 'Local time is unavailable until your timezone is known.';
@@ -39,7 +49,7 @@ function currentTimeInterpretation(canonicalInput) {
   });
 }
 
-function timezoneChangeInterpretation(canonicalInput, timeZone) {
+function timezoneChangeInterpretation(timeZone) {
   return createSemanticInterpretation({
     meaning: `Set user timezone to ${timeZone}.`,
     goal: 'set-user-timezone',
@@ -61,7 +71,7 @@ export function createTemporalAwareMeaningInterpreter({ baseInterpreter, tempora
     async interpret(canonicalInput) {
       const enriched = await temporalService.enrichInput(canonicalInput);
       const zone = asksTimezoneChange(enriched.text);
-      if (zone && temporalService.isValidTimeZone(zone)) return timezoneChangeInterpretation(enriched, zone);
+      if (zone && temporalService.isValidTimeZone(zone)) return timezoneChangeInterpretation(zone);
       if (asksCurrentTime(enriched.text)) return currentTimeInterpretation(enriched);
 
       const resolution = await temporalService.resolveForUser(enriched.identityContext.globalUserId, enriched.text, {

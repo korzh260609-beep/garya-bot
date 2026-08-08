@@ -69,7 +69,7 @@ export function createFeatureFlagService({
 } = {}) {
   async function observe(eventType, decision) {
     if (!observability?.record) return;
-    await observability.record({ eventClass: 'system_event', eventType, channel: 'telemetry', stage: 'feature-flags', traceContext: decision.traceContext ?? null, outcome: decision.enabled ? 'enabled' : 'disabled', reason: null, data: {
+    await observability.record({ eventClass: 'feature_flag_resolved', eventType, channel: 'telemetry', stage: 'feature-flags', traceContext: decision.traceContext ?? null, outcome: decision.enabled ? 'enabled' : 'disabled', reason: null, data: {
       featureId: decision.featureId, enabled: decision.enabled, source: decision.source, reasonCode: decision.reasonCode,
       bucket: decision.bucket ?? null, percentage: decision.percentage ?? null,
       projectScope: decision.context?.projectScope ?? null, globalUserId: decision.context?.globalUserId ?? null,

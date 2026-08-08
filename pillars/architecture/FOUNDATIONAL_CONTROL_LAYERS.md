@@ -13,7 +13,7 @@ Configuration & Policy [completed]
 → Resource Ownership & Authority [completed]
 → Session & Conversation Context [completed]
 → User Settings & Preferences [completed]
-→ Notification & Delivery Router
+→ Notification & Delivery Router [completed]
 → Internal Event Bus
 → Schema & Contract Versioning
 → Feature Flags & Controlled Rollout
@@ -106,10 +106,31 @@ Language/locale and timezone now converge through adapters on this boundary inst
 
 The runtime resolves settings before semantic interpretation. Response presentation, units, formatting and accessibility may be supplied as bounded execution context; delivery/autonomy/provenance remain outside ordinary capability payloads. Settings read/write use the normal capability/grant path.
 
-User preferences cannot weaken mandatory safety, identity, scope, resource authority, permission or Action Gate policy. Inferred values cannot overwrite explicit values, and transport locale remains a hint rather than an identity-linked preference authority.
+User preferences cannot weaken mandatory safety, identity, scope, resource authority, permission or Action Gate policy. Inferred values cannot overwrite explicit values, and transport locale remains a hint rather than an identity-linked preference authority. Block 16.13 extends notification preferences with typed quiet-hours settings while preserving the same explicit/inferred and project-scoped rules.
 
 ## Block 16.13 — Notification & Delivery Router
-Owns target selection and delivery lifecycle for already-authorized results. It consumes identity, resource authority, connections and user preferences; it does not decide semantics or authorization.
+Owns target selection and delivery lifecycle for already-authorized results. Delivery is a separate phase after semantic decision/action authorization; it never authorizes the action that produced a result.
+
+Canonical delivery separation:
+
+```text
+Execution authorization → Action Gate / Resource Authority
+Result                   → already-authorized SG output
+Delivery routing         → recipient + approved target + transport selection
+Transport adapter        → protocol-specific send only
+```
+
+`DeliveryRequest` carries a stable delivery/idempotency identity, delivery kind (`current-response` or `notification`), actor and recipient `global_user_id`, project scope, message/result payload, locale, trace context, and optional target resource/connection references. `DeliveryResult` reports delivered/suppressed/deferred/failed state, selected transport/target, attempt count and bounded failure code.
+
+Current responses are origin-bound by default: Telegram replies return to the same inbound chat/thread/message without inventing new authority. Moving a result to another explicit resource is a different operation and requires verified `can_publish` Resource Authority. Cross-user delivery fails closed unless explicit prior authorization evidence is supplied. Connection-backed targets must remain usable through Block 16.9.
+
+Notification preferences from Block 16.12 are consumed but cannot grant authority. `notifications.enabled=false` suppresses asynchronous notifications; typed quiet hours defer them using the configured/user timezone. Preferred transport is considered only if an approved target for that transport exists. Fallback targets are used only when explicitly configured.
+
+Retries and timeouts are bounded. Delivery idempotency and status are durable in PostgreSQL `delivery_records` through migration `173_delivery_router.sql`, preventing repeated delivery after service recreation for the same idempotency key. Attempt/status observability records delivery IDs, transport and bounded failure codes rather than message bodies.
+
+Telegram production delivery now uses the common router and a Telegram protocol adapter instead of calling `sendMessage` as independent delivery policy. Discord, Email, Web and Voice can register equivalent adapters without changing core routing logic.
+
+Delivery failure is never converted into successful delivery. The router cannot broaden Identity, Scope, Access, Resource Authority, Connections or Action Gate policy.
 
 ## Block 16.14 — Internal Event Bus
 Owns typed internal event delivery between SG subsystems. Events report facts and lifecycle transitions; they are not commands and cannot bypass Decision Engine or Action Gate.
@@ -136,6 +157,7 @@ Owns controlled enablement, cohorts, rollout and kill switches. A feature flag c
 - Unavailable/revoked connections fail closed before provider credential/network use on integrated paths.
 - User preferences cannot weaken non-negotiable policy.
 - Delivery cannot target an unauthorized user/resource.
+- Delivery failure cannot be reported as successful delivery.
 - Events cannot execute protected effects outside normal capability/gate paths.
 - Contract adapters cannot broaden trust, permissions or scope.
 - Feature flags cannot grant access.

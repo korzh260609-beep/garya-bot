@@ -78,6 +78,10 @@ function cyrillicLanguage(text) {
   return { language: 'und', confidence: 0.35 };
 }
 
+function usable(result) {
+  return result?.language && result.language !== 'und' && Number(result.confidence ?? 0) >= 0.6;
+}
+
 export function detectLanguageDeterministically(text, { platformLocale = null } = {}) {
   const source = String(text ?? '').trim();
   if (!source || !/\p{L}/u.test(source)) return Object.freeze({ language: 'und', confidence: 0, source: 'no-language-signal' });
@@ -113,35 +117,55 @@ export function createInMemoryLanguageStore() {
 
 export function createLanguageContextService({ store = createInMemoryLanguageStore(), detector = null, fallbackLanguage = 'en' } = {}) {
   if (!store?.get || !store?.set) throw new TypeError('language store with get/set is required');
+  const conversations = new Map();
+
   async function detect(text, options = {}) {
-    if (detector?.detect) {
-      try {
-        const result = await detector.detect(text, options);
-        if (result?.language) return Object.freeze({ language: String(result.language).toLowerCase(), confidence: Number(result.confidence ?? 0), source: result.source ?? 'ai-router' });
-      } catch {}
-    }
-    return detectLanguageDeterministically(text, options);
+    const deterministic = detectLanguageDeterministically(text, options);
+    if (usable(deterministic) || !detector?.detect || !/\p{L}/u.test(String(text ?? ''))) return deterministic;
+    try {
+      const result = await detector.detect(text, options);
+      if (result?.language) {
+        const normalized = Object.freeze({ language: String(result.language).toLowerCase(), confidence: Number(result.confidence ?? 0), source: result.source ?? 'ai-router-fallback' });
+        if (usable(normalized)) return normalized;
+      }
+    } catch {}
+    return deterministic;
   }
-  async function resolve({ globalUserId, text, platformLocale = null, conversationLanguage = null } = {}) {
+
+  async function resolve({ globalUserId, text, platformLocale = null, conversationLanguage = null, conversationKey = null, traceContext = null, identityContext = null } = {}) {
     const preferred = globalUserId ? await store.get(globalUserId) : null;
-    const detected = await detect(text, { platformLocale });
+    const storedConversationLanguage = conversationKey ? conversations.get(String(conversationKey)) ?? null : null;
+    const activeConversationLanguage = conversationLanguage ?? storedConversationLanguage;
+    const detected = await detect(text, { platformLocale, traceContext, identityContext, role: identityContext?.roles?.[0] ?? 'guest' });
     const explicit = detectExplicitResponseLanguage(text);
     const platformLanguage = localeLanguage(platformLocale);
-    const responseLanguage = explicit || (detected.language !== 'und' && detected.confidence >= 0.6 ? detected.language : null) || conversationLanguage || preferred?.language || platformLanguage || fallbackLanguage;
+    const detectedLanguage = usable(detected) ? detected.language : null;
+    const responseLanguage = explicit || detectedLanguage || activeConversationLanguage || preferred?.language || platformLanguage || fallbackLanguage;
+    const resolvedConversationLanguage = detectedLanguage ?? activeConversationLanguage ?? preferred?.language ?? platformLanguage ?? null;
+    if (conversationKey && detectedLanguage) conversations.set(String(conversationKey), detectedLanguage);
     return Object.freeze({
       messageLanguage: detected.language,
       preferredLanguage: preferred?.language ?? null,
-      conversationLanguage: conversationLanguage ?? (detected.language !== 'und' && detected.confidence >= 0.6 ? detected.language : null),
+      conversationLanguage: resolvedConversationLanguage,
       platformLocale: cleanLocale(platformLocale),
       locale: preferred?.locale ?? cleanLocale(platformLocale),
       responseLanguage,
       confidence: detected.confidence,
       detectionSource: detected.source,
-      responseLanguageSource: explicit ? 'explicit-user-instruction' : detected.language !== 'und' && detected.confidence >= 0.6 ? 'message-detection' : conversationLanguage ? 'conversation' : preferred?.language ? 'preferred-language' : platformLanguage ? 'platform-locale' : 'system-fallback'
+      responseLanguageSource: explicit ? 'explicit-user-instruction' : detectedLanguage ? 'message-detection' : activeConversationLanguage ? 'conversation' : preferred?.language ? 'preferred-language' : platformLanguage ? 'platform-locale' : 'system-fallback'
     });
   }
+
   async function setPreferred(globalUserId, language, { locale = null, source = 'explicit-user-setting', provenance = null } = {}) {
     return store.set(globalUserId, { language: String(language).toLowerCase(), locale, source, provenance });
   }
-  return Object.freeze({ resolve, detect, setPreferred, getPreferred: (id) => store.get(id), languageName: (code) => LANGUAGE_NAMES[code] ?? code });
+
+  return Object.freeze({
+    resolve,
+    detect,
+    setPreferred,
+    getPreferred: (id) => store.get(id),
+    getConversationLanguage: (key) => conversations.get(String(key)) ?? null,
+    languageName: (code) => LANGUAGE_NAMES[code] ?? code
+  });
 }

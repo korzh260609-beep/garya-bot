@@ -13,73 +13,90 @@ function extractText(payload) {
 }
 
 export function createOpenAIResponsesProvider({
-  apiKey = process.env.OPENAI_API_KEY,
+  apiKey = null,
+  credentialManager = null,
+  credentialAccessContext = null,
+  credentialId = 'sg.openai.primary',
   baseUrl = 'https://api.openai.com/v1',
   reasoningEffort = 'medium',
   fetchImpl = globalThis.fetch,
 } = {}) {
-  if (!apiKey) throw new AIConfigurationError('OPENAI_API_KEY is required');
+  const hasCredentialManager = credentialManager && typeof credentialManager.useCredential === 'function';
+  if (!hasCredentialManager && (typeof apiKey !== 'string' || apiKey.trim() === '')) throw new AIConfigurationError('OpenAI credential is required');
+  if (hasCredentialManager && (!credentialAccessContext?.actor || !credentialAccessContext?.scope)) throw new AIConfigurationError('OpenAI credential access context is required');
   if (typeof fetchImpl !== 'function') throw new AIConfigurationError('fetch implementation is required');
+
+  async function generateWithKey(secret, { request, model, signal }) {
+    const startedAt = Date.now();
+    const body = {
+      model: model.model,
+      input: request.messages.map((message) => ({ role: message.role, content: message.content })),
+      reasoning: { effort: reasoningEffort },
+      store: false,
+    };
+    if (request.maxOutputTokens != null) body.max_output_tokens = request.maxOutputTokens;
+    if (request.responseFormat?.jsonSchema) {
+      body.text = {
+        format: {
+          type: 'json_schema',
+          name: request.responseFormat.name ?? 'sg_output',
+          strict: true,
+          schema: request.responseFormat.jsonSchema,
+        },
+      };
+    }
+
+    let response;
+    try {
+      response = await fetchImpl(`${baseUrl}/responses`, {
+        method: 'POST',
+        signal,
+        headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (cause) {
+      if (signal?.aborted) throw cause;
+      throw new AIProviderError('OpenAI network request failed', {
+        cause,
+        retryable: true,
+        code: 'AI_PROVIDER_NETWORK',
+      });
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const retryable = response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500;
+      throw new AIProviderError(`OpenAI request failed with status ${response.status}`, {
+        retryable,
+        code: `AI_PROVIDER_HTTP_${response.status}`,
+        metadata: { status: response.status, providerCode: payload.error?.code ?? null },
+      });
+    }
+
+    return {
+      text: extractText(payload),
+      latencyMs: Date.now() - startedAt,
+      usage: {
+        inputTokens: payload.usage?.input_tokens ?? null,
+        outputTokens: payload.usage?.output_tokens ?? null,
+        totalTokens: payload.usage?.total_tokens ?? null,
+      },
+      rawMetadata: { responseId: payload.id ?? null },
+    };
+  }
 
   return Object.freeze({
     name: 'openai',
-    async generate({ request, model, signal }) {
-      const startedAt = Date.now();
-      const body = {
-        model: model.model,
-        input: request.messages.map((message) => ({ role: message.role, content: message.content })),
-        reasoning: { effort: reasoningEffort },
-        store: false,
-      };
-      if (request.maxOutputTokens != null) body.max_output_tokens = request.maxOutputTokens;
-      if (request.responseFormat?.jsonSchema) {
-        body.text = {
-          format: {
-            type: 'json_schema',
-            name: request.responseFormat.name ?? 'sg_output',
-            strict: true,
-            schema: request.responseFormat.jsonSchema,
-          },
-        };
-      }
-
-      let response;
-      try {
-        response = await fetchImpl(`${baseUrl}/responses`, {
-          method: 'POST',
-          signal,
-          headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-      } catch (cause) {
-        if (signal?.aborted) throw cause;
-        throw new AIProviderError('OpenAI network request failed', {
-          cause,
-          retryable: true,
-          code: 'AI_PROVIDER_NETWORK',
-        });
-      }
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const retryable = response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500;
-        throw new AIProviderError(payload.error?.message ?? `OpenAI request failed with status ${response.status}`, {
-          retryable,
-          code: `AI_PROVIDER_HTTP_${response.status}`,
-          metadata: { status: response.status },
-        });
-      }
-
-      return {
-        text: extractText(payload),
-        latencyMs: Date.now() - startedAt,
-        usage: {
-          inputTokens: payload.usage?.input_tokens ?? null,
-          outputTokens: payload.usage?.output_tokens ?? null,
-          totalTokens: payload.usage?.total_tokens ?? null,
-        },
-        rawMetadata: { responseId: payload.id ?? null },
-      };
+    async generate(input) {
+      if (!hasCredentialManager) return generateWithKey(apiKey.trim(), input);
+      return credentialManager.useCredential({
+        credentialId,
+        actor: credentialAccessContext.actor,
+        scope: credentialAccessContext.scope,
+        purpose: 'openai.responses.generate',
+        connectionId: 'openai',
+        operation: (secret) => generateWithKey(secret, input),
+      });
     },
   });
 }

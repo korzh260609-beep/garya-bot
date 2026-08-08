@@ -9,7 +9,7 @@ This document defines the architecture boundaries for roadmap Blocks 16.7–16.1
 ```text
 Configuration & Policy [completed]
 → Secrets & Credentials [completed]
-→ External Connections Registry
+→ External Connections Registry [completed]
 → Resource Ownership & Authority
 → Session & Conversation Context
 → User Settings & Preferences
@@ -28,7 +28,28 @@ Owns typed configuration, defaults, limits, policy precedence and effective-poli
 Owns stable credential handles, private secret references, credential lifecycle, user/project/connection/resource isolation, permission-bound access, redaction, audit and bounded provider access. Deployment environment variables are secret-store inputs only; raw values never become ordinary configuration, memory, prompts, diagnostics or telemetry. OpenAI and Telegram production paths consume credentials through this boundary.
 
 ## Block 16.9 — External Connections Registry
-Owns the inventory and lifecycle state of external service connections. A connection records which service/account is connected and with what approved scopes. A connection is not an identity and does not prove ownership of every external resource.
+Owns the authoritative inventory and lifecycle state of external service/account connections available to SG.
+
+Canonical connection record includes:
+
+```text
+connection_id
+provider / service_type
+owner_global_user_id + project_scope
+external_account_id + safe account metadata
+credential_id                  # handle from Block 16.8 only
+approved scopes / permissions
+provided capabilities
+status / health
+last verification timestamps
+provenance / safe metadata
+```
+
+The registry exposes discovery by provider/capability plus a fail-closed `requireUsable` boundary. `connected` is the only state accepted for execution; `degraded`, `unavailable` and `revoked` are visible states and cannot silently execute through registry-aware provider paths.
+
+The durable production store is PostgreSQL-backed through migration `169_external_connections.sql`. Deployment composition bootstraps known OpenAI/Telegram account connections from Block 16.8 credential handles, never from raw credential values. OpenAI Responses and Telegram Bot API paths verify connection usability before credential resolution/network execution.
+
+A connection is not an identity. A connection does not prove ownership of every external resource. Multiple accounts of the same provider remain separate records. Block 16.10 consumes connection/account facts but remains authoritative for resource-level ownership and delegated authority.
 
 ## Block 16.10 — Resource Ownership & Authority
 Owns verified relationships between actors/projects and addressable resources.
@@ -68,6 +89,8 @@ Owns controlled enablement, cohorts, rollout and kill switches. A feature flag c
 - No secret words, commands or phrase bindings establish identity, ownership or authority.
 - Resource authority never replaces role/grant checks or Action Gate.
 - Connections never expose raw credentials to ordinary context.
+- Connection possession does not establish user identity or resource ownership.
+- Unavailable/revoked connections fail closed before provider credential/network use on integrated paths.
 - User preferences cannot weaken non-negotiable policy.
 - Delivery cannot target an unauthorized user/resource.
 - Events cannot execute protected effects outside normal capability/gate paths.

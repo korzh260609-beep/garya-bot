@@ -14,9 +14,33 @@ export class TelegramApiError extends Error {
   }
 }
 
-export function createTelegramBotApiClient({ token, fetchImpl = globalThis.fetch, baseUrl = 'https://api.telegram.org', timeoutMs = 10000, maxRetries = 2, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) } = {}) {
-  const botToken = requiredString(token, 'telegram bot token');
+export function createTelegramBotApiClient({
+  token = null,
+  credentialManager = null,
+  credentialAccessContext = null,
+  credentialId = 'sg.telegram.bot',
+  fetchImpl = globalThis.fetch,
+  baseUrl = 'https://api.telegram.org',
+  timeoutMs = 10000,
+  maxRetries = 2,
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+} = {}) {
+  const hasCredentialManager = credentialManager && typeof credentialManager.useCredential === 'function';
+  const legacyToken = hasCredentialManager ? null : requiredString(token, 'telegram bot token');
+  if (hasCredentialManager && (!credentialAccessContext?.actor || !credentialAccessContext?.scope)) throw new TypeError('telegram credential access context is required');
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
+
+  async function withToken(purpose, operation) {
+    if (!hasCredentialManager) return operation(legacyToken);
+    return credentialManager.useCredential({
+      credentialId,
+      actor: credentialAccessContext.actor,
+      scope: credentialAccessContext.scope,
+      purpose,
+      connectionId: 'telegram',
+      operation
+    });
+  }
 
   async function call(method, payload = {}) {
     const methodName = requiredString(method, 'telegram method');
@@ -26,12 +50,12 @@ export function createTelegramBotApiClient({ token, fetchImpl = globalThis.fetch
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const response = await fetchImpl(`${baseUrl}/bot${botToken}/${methodName}`, {
+        const response = await withToken(`telegram.api.${methodName}`, (botToken) => fetchImpl(`${baseUrl}/bot${botToken}/${methodName}`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(payload),
           signal: controller.signal
-        });
+        }));
         let body;
         try { body = await response.json(); } catch { body = null; }
         if (response.ok && body?.ok) return body.result;
@@ -50,7 +74,7 @@ export function createTelegramBotApiClient({ token, fetchImpl = globalThis.fetch
           ? new TelegramApiError(`Telegram API ${methodName} timed out`, { code: 'telegram-timeout', retryable: true })
           : error instanceof TelegramApiError
             ? error
-            : new TelegramApiError(error?.message ?? 'Telegram network failure', { code: 'telegram-network-failure', retryable: true });
+            : new TelegramApiError('Telegram network failure', { code: error?.code ?? 'telegram-network-failure', retryable: error?.retryable ?? true });
         if (!normalized.retryable || attempt > maxRetries + 1) throw normalized;
         await sleep(Math.min(2 ** (attempt - 1), 8) * 1000);
       } finally {

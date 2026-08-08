@@ -90,10 +90,10 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
   let receivedEnv = null;
   const credentialAccessContext = { actor: { globalUserId: 'system:runtime', grants: ['credential:use:system'] }, scope: { projectScope: 'sg2.1' } };
   const credentialManager = {
-    async useCredential({ operation, connectionId }) {
-      return operation(connectionId === 'telegram-webhook' ? 'test-webhook-secret' : 'test-token');
-    }
+    async useCredential({ operation, connectionId }) { return operation(connectionId === 'telegram-webhook' ? 'test-webhook-secret' : 'test-token'); }
   };
+  const connectionAccessContext = { actor: { globalUserId: 'system:runtime', grants: ['connection:read'] }, projectScope: 'sg2.1' };
+  const connectionRegistry = { async requireUsable() { return { connectionId: 'telegram', status: 'connected', capabilities: ['telegram.bot-api'] }; } };
   const harnessFactory = ({ env }) => {
     receivedEnv = env;
     return {
@@ -104,7 +104,9 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
       languageContextService: null,
       observability: { record() {}, recordFailure() {} },
       credentialManager,
-      credentialAccessContext
+      credentialAccessContext,
+      connectionRegistry,
+      connectionAccessContext
     };
   };
   const app = await createRenderWebApplication({
@@ -126,6 +128,8 @@ test('Render web application reuses SG 2.0-style environment and reports deploye
   assert.equal(receivedEnv.SG_PERSISTENCE_MODE, 'postgres');
   assert.equal(receivedEnv.SG_MONARCH_TELEGRAM_USER_ID, '100');
   assert.equal(receivedEnv.SG_REVISION, 'abc123def456');
+  assert.equal(app.effectiveEnv.DATABASE_URL, undefined);
+  assert.equal(app.effectiveEnv.TELEGRAM_BOT_TOKEN, undefined);
 
   const healthResponse = fakeResponse();
   await app.requestHandler({ url: '/health', method: 'GET', headers: {} }, healthResponse);
@@ -149,8 +153,5 @@ test('production worker completes safe user tasks and fails closed for protected
   const protectedDecision = await gate({ kind: 'protected-external-action' });
   assert.equal(protectedDecision.outcome, 'deny');
   assert.equal(protectedDecision.allowed, false);
-  await assert.rejects(
-    () => executor({ taskId: 'protected-1', kind: 'protected-external-action', payload: {}, attempt: 1 }),
-    /No production executor registered/
-  );
+  await assert.rejects(() => executor({ taskId: 'protected-1', kind: 'protected-external-action', payload: {}, attempt: 1 }), /No production executor registered/);
 });

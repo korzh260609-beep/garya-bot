@@ -3,6 +3,7 @@ export const OBSERVABILITY_EVENT_CLASSES = Object.freeze([
   'identity_resolved',
   'policy_context_resolved',
   'language_context_resolved',
+  'feature_flag_resolved',
   'semantic_decision_created',
   'context_loaded',
   'capability_selected',

@@ -78,7 +78,7 @@ test('production Telegram identity resolver bootstraps only configured monarch a
   assert.equal(guest.scopeContext.threadScope, 't');
 });
 
-test('Render web application reuses SG 2.0-style environment and monarch alias', async () => {
+test('Render web application reuses SG 2.0-style environment and reports deployed commit revision', async () => {
   const persistence = fakePersistence();
   const runtime = {
     health: () => ({ ok: true, phase: 'created', accepting: false }),
@@ -90,7 +90,7 @@ test('Render web application reuses SG 2.0-style environment and monarch alias',
     receivedEnv = env;
     return {
       persistence,
-      config: { projectScope: env.SG_PROJECT_SCOPE, environment: env.SG_ENVIRONMENT, revision: 'block-17' },
+      config: { projectScope: env.SG_PROJECT_SCOPE, environment: env.SG_ENVIRONMENT, revision: env.SG_REVISION },
       runtime,
       observability: { record() {}, recordFailure() {} }
     };
@@ -102,6 +102,7 @@ test('Render web application reuses SG 2.0-style environment and monarch alias',
       TELEGRAM_BOT_TOKEN: 'test-token',
       BASE_URL: 'https://garya-bot.onrender.com',
       MONARCH_USER_ID: '100',
+      RENDER_GIT_COMMIT: 'abc123def456',
       TELEGRAM_REGISTER_WEBHOOK: 'false'
     },
     fetchImpl: async () => { throw new Error('network should not be called'); },
@@ -112,11 +113,12 @@ test('Render web application reuses SG 2.0-style environment and monarch alias',
   assert.equal(receivedEnv.SG_PROJECT_SCOPE, 'sg2.1');
   assert.equal(receivedEnv.SG_PERSISTENCE_MODE, 'postgres');
   assert.equal(receivedEnv.SG_MONARCH_TELEGRAM_USER_ID, '100');
+  assert.equal(receivedEnv.SG_REVISION, 'abc123def456');
 
   const healthResponse = fakeResponse();
   await app.requestHandler({ url: '/health', method: 'GET', headers: {} }, healthResponse);
   assert.equal(healthResponse.statusCode, 200);
-  assert.equal(JSON.parse(healthResponse.body).ok, true);
+  assert.equal(JSON.parse(healthResponse.body).revision, 'abc123def456');
 
   const readyResponse = fakeResponse();
   await app.requestHandler({ url: '/ready', method: 'GET', headers: {} }, readyResponse);

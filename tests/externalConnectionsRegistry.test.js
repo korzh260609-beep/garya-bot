@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createExternalConnectionsRegistry, createInMemoryExternalConnectionStore, ExternalConnectionError } from '../src/connections/externalConnectionsRegistry.js';
+import { createDeploymentExternalConnections } from '../src/connections/deploymentConnections.js';
 import { createOpenAIResponsesProvider } from '../src/ai/providers/openaiResponsesProvider.js';
 import { createTelegramBotApiClient } from '../src/telegram/telegramBotApiClient.js';
 
@@ -36,6 +37,14 @@ test('Block 16.9 isolates owner/project scope and requires explicit connection p
   await assert.rejects(() => registry.describe({ connectionId: 'c1', actor: actor('user:1', []), projectScope: 'project:a' }), (e) => e.code === 'connection-permission-denied');
 });
 
+test('Block 16.9 list discovery never exposes another owner in the same project', async () => {
+  const { registry } = fixture();
+  await registry.connect({ connectionId: 'owner-one', provider: 'example', serviceType: 'api', ownerGlobalUserId: 'user:1', projectScope: 'project:a', externalAccountId: '1', credentialId: 'cred:one', actor: actor('user:1') });
+  await registry.connect({ connectionId: 'owner-two', provider: 'example', serviceType: 'api', ownerGlobalUserId: 'user:2', projectScope: 'project:a', externalAccountId: '2', credentialId: 'cred:two', actor: actor('user:2') });
+  const visible = await registry.list({ actor: actor('user:1'), projectScope: 'project:a' });
+  assert.deepEqual(visible.map((r) => r.connectionId), ['owner-one']);
+});
+
 test('Block 16.9 lifecycle reconnects, verifies, revokes and fails closed for unavailable connections', async () => {
   const { registry, events } = fixture();
   const a = actor();
@@ -56,6 +65,23 @@ test('Block 16.9 lifecycle reconnects, verifies, revokes and fails closed for un
   assert.ok(events.some((e) => e.data.operation === 'connect'));
   assert.ok(events.some((e) => e.data.operation === 'revoke'));
   assert.equal(JSON.stringify(events).includes('cred:one'), false);
+});
+
+test('Block 16.9 deployment bootstrap preserves revoked state instead of silently reconnecting', async () => {
+  const credentialManager = {
+    listCredentials() { return [{ credentialId: 'sg.openai.primary' }]; },
+    describeCredential(id) { return { credentialId: id }; }
+  };
+  const deployment = createDeploymentExternalConnections({
+    credentialManager,
+    observability: { record() {} },
+    config: { environment: 'test', revision: 'block-16.9', projectScope: 'sg2.1' }
+  });
+  await deployment.resource.start();
+  await deployment.registry.revoke({ connectionId: 'openai', actor: deployment.accessContext.actor, projectScope: 'sg2.1' });
+  await deployment.resource.start();
+  const restored = await deployment.registry.describe({ connectionId: 'openai', actor: deployment.accessContext.actor, projectScope: 'sg2.1' });
+  assert.equal(restored.status, 'revoked');
 });
 
 test('Block 16.9 discovery resolves only connected capability providers', async () => {

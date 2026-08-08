@@ -80,13 +80,23 @@ Constitution
 → Production Capabilities
 → Temporal Context
 → Language & Locale Context
+→ Configuration & Policy Layer
+→ Secrets & Credentials Management
+→ External Connections Registry
+→ Resource Ownership & Authority Model
+→ Session & Conversation Context
+→ User Settings & Preferences
+→ Notification & Delivery Router
+→ Internal Event Bus
+→ Schema & Contract Versioning
+→ Feature Flags & Controlled Rollout
 → Render Deployment
 → End-to-End Verification
 → Security and Operations
 → Pilot Launch
 ```
 
-Blocks 0–10 form the platform-core program. Blocks 11–19, intermediate Blocks 16.5/16.6 and Pilot Launch form the production continuation defined by `pillars/roadmap/PRODUCTION_ROADMAP.md`.
+Blocks 0–10 form the platform-core program. Blocks 11–19, intermediate Blocks 16.5–16.16 and Pilot Launch form the production continuation defined by `pillars/roadmap/PRODUCTION_ROADMAP.md`.
 
 ## D-017 — Development procedure is fixed by workflow
 Every implementation block follows: scope → contracts → skeleton → config → minimal logic → tests → observability → safety → architecture verification → reversible commit → evidence.
@@ -114,3 +124,24 @@ SG must not have separate language-specific versions. Users may communicate in a
 The original user text remains available to Semantic Kernel; ordinary multilingual communication must not require mandatory pre-translation. Language commands, keywords or phrase bindings are not required interaction mechanisms. Preferred language belongs to `global_user_id`, not to a single platform account. Transports may provide locale/language hints but cannot own final response-language policy. AI providers may execute within SG-selected language context but do not become the owner of that policy.
 
 Language handling must preserve existing identity, scope, memory, Decision Engine, Action Gate, Capability System, AI Router, Temporal Context and observability boundaries.
+
+## D-024 — Foundational control layers precede Render deployment
+Before Block 17 deployment is treated as the next mandatory production stage, SG must explicitly implement and verify Blocks 16.7–16.16: Configuration & Policy, Secrets & Credentials, External Connections Registry, Resource Ownership & Authority, Session & Conversation Context, User Settings & Preferences, Notification & Delivery Router, Internal Event Bus, Schema & Contract Versioning, and Feature Flags & Controlled Rollout.
+
+These layers are transport-independent and must preserve all existing core authority boundaries. In particular:
+
+- Identity answers who the actor is.
+- Scope answers where the request is bounded.
+- Access/capability policy answers what kind of action is permitted.
+- Resource Ownership & Authority answers over which specific resource the actor may act.
+- A connection is not identity and does not itself prove resource ownership.
+- Raw secrets are never ordinary memory, prompt context or telemetry.
+- Conversation state is not confirmed long-term memory.
+- User preferences cannot weaken mandatory safety or authorization policy.
+- Delivery cannot target unauthorized users or resources.
+- Internal events cannot bypass Decision Engine, Action Gate or Capability execution boundaries.
+- Contract-version adapters cannot broaden trust, scope or permissions.
+- Feature flags may restrict or disable availability but cannot grant permissions, ownership or authority.
+- Identity, ownership or authority must never depend on secret words, commands, phrases or keyword hacks.
+
+Canonical architecture for these layers is defined in `pillars/architecture/FOUNDATIONAL_CONTROL_LAYERS.md`.

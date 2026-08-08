@@ -132,7 +132,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
       const userSettingsContext = requestInput.metadata?.userSettingsContext ?? null;
       if (userSettingsContext) {
         const explicitFields = Object.entries(userSettingsContext.provenance ?? {}).filter(([, value]) => value?.explicit === true).map(([path]) => path).sort();
-        observability.record({ eventClass: 'user_settings_resolved', channel: 'telemetry', stage: 'user-settings', traceContext, outcome: 'resolved', actorRef: requestInput.identityContext.globalUserId, data: { projectScope: userSettingsContext.projectScope, explicitFields } });
+        observability.record({ eventClass: 'audit_event', channel: 'telemetry', stage: 'user-settings', traceContext, outcome: 'resolved', actorRef: requestInput.identityContext.globalUserId, data: { settingsEventClass: 'user_settings_resolved', projectScope: userSettingsContext.projectScope, explicitFields } });
       }
       const languageContext = requestInput.metadata?.languageContext ?? null;
       if (languageContext) observability.record({ eventClass: 'language_context_resolved', channel: 'telemetry', stage: 'language-context', traceContext, outcome: languageContext.responseLanguage, data: { detectedLanguage: languageContext.messageLanguage, confidence: languageContext.confidence, responseLanguage: languageContext.responseLanguage, detectionSource: languageContext.detectionSource, responseLanguageSource: languageContext.responseLanguageSource, locale: languageContext.locale } });

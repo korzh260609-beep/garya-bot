@@ -8,10 +8,7 @@ function required(value, name) {
 function optional(value) { return value == null || String(value).trim() === '' ? null : String(value).trim(); }
 function clone(value) { return structuredClone(value); }
 function normalizeFailure(error) {
-  return {
-    code: String(error?.code ?? error?.name ?? 'subscriber-failed').slice(0, 120),
-    retryable: error?.retryable !== false
-  };
+  return { code: String(error?.code ?? error?.name ?? 'subscriber-failed').slice(0, 120), retryable: error?.retryable !== false };
 }
 function normalizeSubscription(input) {
   const subscriberId = required(input?.subscriberId, 'subscriberId');
@@ -24,20 +21,14 @@ function normalizeSubscription(input) {
   const maxAttempts = Number(input.maxAttempts ?? 3);
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) throw new TypeError('maxAttempts must be an integer from 1 to 20');
   return Object.freeze({
-    subscriberId,
-    eventTypes: Object.freeze(eventTypes),
-    mode,
-    projectScope: optional(scope.projectScope),
-    globalUserId: optional(scope.globalUserId),
-    resourceId: optional(scope.resourceId),
+    subscriberId, eventTypes: Object.freeze(eventTypes), mode,
+    projectScope: optional(scope.projectScope), globalUserId: optional(scope.globalUserId), resourceId: optional(scope.resourceId),
     privacyClasses: Object.freeze([...(input.privacyClasses ?? ['internal','sensitive'])]),
-    maxAttempts,
-    metadata: Object.freeze(clone(input.metadata ?? {}))
+    maxAttempts, metadata: Object.freeze(clone(input.metadata ?? {}))
   });
 }
 function matches(subscription, event) {
-  if (!subscription.eventTypes.includes(event.eventType)) return false;
-  if (!subscription.privacyClasses.includes(event.privacyClass)) return false;
+  if (!subscription.eventTypes.includes(event.eventType) || !subscription.privacyClasses.includes(event.privacyClass)) return false;
   if (subscription.projectScope && subscription.projectScope !== event.scope.projectScope) return false;
   if (subscription.globalUserId && subscription.globalUserId !== event.scope.globalUserId) return false;
   if (subscription.resourceId && subscription.resourceId !== event.scope.resourceId) return false;
@@ -45,32 +36,20 @@ function matches(subscription, event) {
 }
 
 export function createInternalEventBus({
-  store = createInMemoryEventStore(),
-  observability = null,
-  clock = () => new Date(),
-  idFactory = () => globalThis.crypto.randomUUID(),
-  retryDelayMs = 1000
+  store = createInMemoryEventStore(), observability = null, clock = () => new Date(),
+  idFactory = () => globalThis.crypto.randomUUID(), retryDelayMs = 1000, processingTimeoutMs = 30000, workerIntervalMs = 1000
 } = {}) {
   const handlers = new Map();
   const subscriptions = new Map();
+  let worker = null;
+  let draining = false;
 
   async function observe(eventType, event, data = {}) {
     if (!observability?.record) return;
-    await observability.record({
-      eventClass: 'system_event',
-      eventType,
-      traceContext: event.traceContext,
-      reason: null,
-      data: {
-        internalEventId: event.eventId,
-        internalEventType: event.eventType,
-        projectScope: event.scope.projectScope,
-        globalUserId: event.scope.globalUserId,
-        resourceId: event.scope.resourceId,
-        privacyClass: event.privacyClass,
-        ...data
-      }
-    });
+    await observability.record({ eventClass: 'system_event', eventType, traceContext: event.traceContext, reason: null, data: {
+      internalEventId: event.eventId, internalEventType: event.eventType, projectScope: event.scope.projectScope,
+      globalUserId: event.scope.globalUserId, resourceId: event.scope.resourceId, privacyClass: event.privacyClass, ...data
+    } });
   }
 
   async function subscribe(input, handler) {
@@ -84,24 +63,16 @@ export function createInternalEventBus({
 
   async function publish(input) {
     const event = createInternalEventEnvelope(input, { idFactory, clock });
-    await store.appendEvent(event);
+    const persisted = await store.appendEvent(event);
+    if (persisted.eventType !== event.eventType || persisted.version !== event.version || JSON.stringify(persisted.scope) !== JSON.stringify(event.scope)) throw new Error('event-id-conflict');
     await observe('internal_event_published', event);
-    const registered = subscriptions.size ? [...subscriptions.values()] : await store.listSubscriptions();
+    const registered = [...subscriptions.values()];
     const results = [];
     for (const subscription of registered.filter((item) => matches(item, event))) {
       if (subscription.mode === 'durable') {
         const now = clock().toISOString();
-        const delivery = await store.enqueueDelivery({
-          deliveryId: `event-delivery:${event.eventId}:${subscription.subscriberId}`,
-          eventId: event.eventId,
-          subscriberId: subscription.subscriberId,
-          status: 'pending',
-          attempts: 0,
-          failureCode: null,
-          nextAttemptAt: now,
-          createdAt: now,
-          updatedAt: now
-        });
+        const delivery = await store.enqueueDelivery({ deliveryId: `event-delivery:${event.eventId}:${subscription.subscriberId}`, eventId: event.eventId,
+          subscriberId: subscription.subscriberId, status: 'pending', attempts: 0, failureCode: null, nextAttemptAt: now, createdAt: now, updatedAt: now });
         results.push({ subscriberId: subscription.subscriberId, mode: 'durable', status: delivery.status });
         continue;
       }
@@ -119,49 +90,58 @@ export function createInternalEventBus({
   }
 
   async function drain({ limit = 20 } = {}) {
-    const claimed = await store.claimPending({ limit, now: clock().toISOString() });
-    const results = [];
-    for (const delivery of claimed) {
-      const event = await store.getEvent(delivery.eventId);
-      const subscription = subscriptions.get(delivery.subscriberId);
-      const handler = handlers.get(delivery.subscriberId);
-      if (!event || !subscription || subscription.mode !== 'durable' || !handler) {
+    if (draining) return Object.freeze([]);
+    draining = true;
+    try {
+      const now = clock();
+      const claimed = await store.claimPending({ limit, now: now.toISOString(), staleBefore: new Date(now.getTime() - processingTimeoutMs).toISOString() });
+      const results = [];
+      for (const delivery of claimed) {
+        const event = await store.getEvent(delivery.eventId);
+        const subscription = subscriptions.get(delivery.subscriberId);
+        const handler = handlers.get(delivery.subscriberId);
+        if (!event || !subscription || subscription.mode !== 'durable' || !handler) {
+          const attempts = Number(delivery.attempts ?? 0) + 1;
+          await store.markDeadLetter({ eventId: delivery.eventId, subscriberId: delivery.subscriberId, attempts, failureCode: 'subscriber-unavailable', updatedAt: clock().toISOString() });
+          results.push({ ...delivery, status: 'dead-letter', attempts, failureCode: 'subscriber-unavailable' });
+          if (event) await observe('internal_event_dead_lettered', event, { subscriberId: delivery.subscriberId, failureCode: 'subscriber-unavailable' });
+          continue;
+        }
         const attempts = Number(delivery.attempts ?? 0) + 1;
-        await store.markDeadLetter({ eventId: delivery.eventId, subscriberId: delivery.subscriberId, attempts, failureCode: 'subscriber-unavailable', updatedAt: clock().toISOString() });
-        results.push({ ...delivery, status: 'dead-letter', attempts, failureCode: 'subscriber-unavailable' });
-        if (event) await observe('internal_event_dead_lettered', event, { subscriberId: delivery.subscriberId, failureCode: 'subscriber-unavailable' });
-        continue;
-      }
-      const attempts = Number(delivery.attempts ?? 0) + 1;
-      try {
-        await handler(event);
-        const deliveredAt = clock().toISOString();
-        await store.markDelivered({ eventId: event.eventId, subscriberId: subscription.subscriberId, attempts, deliveredAt });
-        results.push({ ...delivery, status: 'delivered', attempts });
-        await observe('internal_event_consumed', event, { subscriberId: subscription.subscriberId, mode: 'durable', attempts });
-      } catch (error) {
-        const failure = normalizeFailure(error);
-        if (failure.retryable && attempts < subscription.maxAttempts) {
-          const now = clock();
-          const nextAttemptAt = new Date(now.getTime() + retryDelayMs * attempts).toISOString();
-          await store.markRetry({ eventId: event.eventId, subscriberId: subscription.subscriberId, attempts, failureCode: failure.code, nextAttemptAt, updatedAt: now.toISOString() });
-          results.push({ ...delivery, status: 'pending', attempts, failureCode: failure.code, nextAttemptAt });
-          await observe('internal_event_consumer_failed', event, { subscriberId: subscription.subscriberId, mode: 'durable', attempts, failureCode: failure.code, retryable: true });
-        } else {
-          const updatedAt = clock().toISOString();
-          await store.markDeadLetter({ eventId: event.eventId, subscriberId: subscription.subscriberId, attempts, failureCode: failure.code, updatedAt });
-          results.push({ ...delivery, status: 'dead-letter', attempts, failureCode: failure.code });
-          await observe('internal_event_dead_lettered', event, { subscriberId: subscription.subscriberId, attempts, failureCode: failure.code });
+        try {
+          await handler(event);
+          const deliveredAt = clock().toISOString();
+          await store.markDelivered({ eventId: event.eventId, subscriberId: subscription.subscriberId, attempts, deliveredAt });
+          results.push({ ...delivery, status: 'delivered', attempts });
+          await observe('internal_event_consumed', event, { subscriberId: subscription.subscriberId, mode: 'durable', attempts });
+        } catch (error) {
+          const failure = normalizeFailure(error);
+          if (failure.retryable && attempts < subscription.maxAttempts) {
+            const current = clock();
+            const nextAttemptAt = new Date(current.getTime() + retryDelayMs * attempts).toISOString();
+            await store.markRetry({ eventId: event.eventId, subscriberId: subscription.subscriberId, attempts, failureCode: failure.code, nextAttemptAt, updatedAt: current.toISOString() });
+            results.push({ ...delivery, status: 'pending', attempts, failureCode: failure.code, nextAttemptAt });
+            await observe('internal_event_consumer_failed', event, { subscriberId: subscription.subscriberId, mode: 'durable', attempts, failureCode: failure.code, retryable: true });
+          } else {
+            const updatedAt = clock().toISOString();
+            await store.markDeadLetter({ eventId: event.eventId, subscriberId: subscription.subscriberId, attempts, failureCode: failure.code, updatedAt });
+            results.push({ ...delivery, status: 'dead-letter', attempts, failureCode: failure.code });
+            await observe('internal_event_dead_lettered', event, { subscriberId: subscription.subscriberId, attempts, failureCode: failure.code });
+          }
         }
       }
-    }
-    return Object.freeze(results);
+      return Object.freeze(results);
+    } finally { draining = false; }
   }
 
+  function start() {
+    if (worker) return;
+    worker = setInterval(() => { drain().catch(() => {}); }, workerIntervalMs);
+    worker.unref?.();
+  }
+  function stop() { if (worker) clearInterval(worker); worker = null; }
   async function requeueDeadLetter({ eventId, subscriberId }) {
-    const updatedAt = clock().toISOString();
-    return store.requeueDeadLetter({ eventId: required(eventId, 'eventId'), subscriberId: required(subscriberId, 'subscriberId'), updatedAt });
+    return store.requeueDeadLetter({ eventId: required(eventId, 'eventId'), subscriberId: required(subscriberId, 'subscriberId'), updatedAt: clock().toISOString() });
   }
-
-  return Object.freeze({ publish, subscribe, drain, requeueDeadLetter, store });
+  return Object.freeze({ publish, subscribe, drain, start, stop, requeueDeadLetter, store });
 }

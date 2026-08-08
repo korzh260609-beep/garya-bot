@@ -1,6 +1,8 @@
 import { createCapability } from '../contracts/capability.js';
 
-export const TEMPORAL_CAPABILITY_NAMES = Object.freeze(['time-read', 'timezone-set', 'memory-time-read']);
+export const TEMPORAL_SAFE_CAPABILITY_NAMES = Object.freeze(['time-read', 'timezone-set', 'memory-time-read']);
+export const RECURRING_CAPABILITY_NAMES = Object.freeze(['schedule-list', 'schedule-status', 'schedule-pause', 'schedule-resume', 'schedule-cancel']);
+export const TEMPORAL_CAPABILITY_NAMES = Object.freeze([...TEMPORAL_SAFE_CAPABILITY_NAMES, ...RECURRING_CAPABILITY_NAMES]);
 
 function capability(input) {
   return createCapability({
@@ -19,7 +21,13 @@ function scopeFrom(request) {
   });
 }
 
-export function createTemporalCapabilities({ temporalService, memoryProvider = null } = {}) {
+function scheduleIdFrom(request) {
+  const value = request.input?.scheduleId;
+  if (typeof value !== 'string' || value.trim() === '') throw new TypeError('input.scheduleId is required');
+  return value.trim();
+}
+
+export function createTemporalCapabilities({ temporalService, memoryProvider = null, recurringScheduler = null } = {}) {
   if (!temporalService?.contextForUser || !temporalService?.setUserTimezone) throw new TypeError('temporalService is required');
 
   const result = [
@@ -42,12 +50,9 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
       actionTypes: ['timezone-set'], actionClasses: ['state-changing'], confirmationRequired: false,
       execute: async (request) => {
         const timeZone = String(request.input?.timeZone ?? '').trim();
-        if (!temporalService.isValidTimeZone(timeZone)) {
-          return { status: 'failed', error: { code: 'invalid-timezone', message: 'A valid IANA timezone is required', retryable: false } };
-        }
+        if (!temporalService.isValidTimeZone(timeZone)) return { status: 'failed', error: { code: 'invalid-timezone', message: 'A valid IANA timezone is required', retryable: false } };
         const record = await temporalService.setUserTimezone(request.actor.globalUserId, timeZone, {
-          source: 'user-explicit',
-          provenance: { requestId: request.traceContext.requestId, capability: 'timezone-set' }
+          source: 'user-explicit', provenance: { requestId: request.traceContext.requestId, capability: 'timezone-set' }
         });
         const context = await temporalService.contextForUser(request.actor.globalUserId);
         return { status: 'success', data: { setting: record, context, message: `Timezone set to ${timeZone}. Local time: ${context.localDateTime}.` } };
@@ -61,19 +66,60 @@ export function createTemporalCapabilities({ temporalService, memoryProvider = n
       actionTypes: ['memory-time-read'], actionClasses: ['read-only', 'private-data'],
       execute: async (request) => {
         const temporalRange = request.input?.temporalRange ?? null;
-        if (!temporalRange?.utcStart) {
-          return { status: 'failed', error: { code: 'temporal-range-required', message: 'A normalized temporal range is required', retryable: false } };
-        }
-        const query = await memoryProvider.query({
-          scope: scopeFrom(request),
-          layers: request.input?.layers ?? ['session', 'user-memory', 'project-memory'],
-          keys: request.input?.keys ?? [],
-          now: temporalService.now().toISOString(),
-          temporalRange
-        });
+        if (!temporalRange?.utcStart) return { status: 'failed', error: { code: 'temporal-range-required', message: 'A normalized temporal range is required', retryable: false } };
+        const query = await memoryProvider.query({ scope: scopeFrom(request), layers: request.input?.layers ?? ['session', 'user-memory', 'project-memory'], keys: request.input?.keys ?? [], now: temporalService.now().toISOString(), temporalRange });
         return { status: 'success', data: { records: query.records, diagnostics: query.diagnostics, temporalRange, message: `Memory records in period: ${query.records.length}` } };
       }
     }));
+  }
+
+  if (recurringScheduler?.list && recurringScheduler?.get && recurringScheduler?.pause && recurringScheduler?.resume && recurringScheduler?.cancel) {
+    result.push(
+      capability({
+        name: 'schedule-list', description: 'List recurring schedules in the current identity/project/group/thread scope.',
+        actionTypes: ['schedule-list'], actionClasses: ['read-only'],
+        execute: async (request) => {
+          const schedules = await recurringScheduler.list({ scope: scopeFrom(request), limit: request.input?.limit ?? 100 });
+          return { status: 'success', data: { schedules, message: `Recurring schedules: ${schedules.length}` } };
+        }
+      }),
+      capability({
+        name: 'schedule-status', description: 'Read one recurring schedule in the current scope.',
+        actionTypes: ['schedule-status'], actionClasses: ['read-only'],
+        execute: async (request) => {
+          const scheduleId = scheduleIdFrom(request);
+          const schedule = await recurringScheduler.get({ scope: scopeFrom(request), scheduleId });
+          return schedule ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: ${schedule.status}` } } : { status: 'failed', error: { code: 'schedule-not-found', message: 'Schedule not found in scope', retryable: false } };
+        }
+      }),
+      capability({
+        name: 'schedule-pause', description: 'Pause a recurring schedule in the current scope.',
+        actionTypes: ['schedule-pause'], actionClasses: ['state-changing'], confirmationRequired: true,
+        execute: async (request) => {
+          const scheduleId = scheduleIdFrom(request);
+          const schedule = await recurringScheduler.pause({ scope: scopeFrom(request), scheduleId });
+          return schedule ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: paused` } } : { status: 'failed', error: { code: 'schedule-not-active', message: 'Active schedule not found in scope', retryable: false } };
+        }
+      }),
+      capability({
+        name: 'schedule-resume', description: 'Resume a paused recurring schedule in the current scope.',
+        actionTypes: ['schedule-resume'], actionClasses: ['state-changing'], confirmationRequired: true,
+        execute: async (request) => {
+          const scheduleId = scheduleIdFrom(request);
+          const schedule = await recurringScheduler.resume({ scope: scopeFrom(request), scheduleId });
+          return schedule ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: active` } } : { status: 'failed', error: { code: 'schedule-not-paused', message: 'Paused schedule not found in scope', retryable: false } };
+        }
+      }),
+      capability({
+        name: 'schedule-cancel', description: 'Cancel a recurring schedule in the current scope.',
+        actionTypes: ['schedule-cancel'], actionClasses: ['state-changing'], confirmationRequired: true,
+        execute: async (request) => {
+          const scheduleId = scheduleIdFrom(request);
+          const schedule = await recurringScheduler.cancel({ scope: scopeFrom(request), scheduleId });
+          return schedule ? { status: 'success', data: { schedule, message: `Schedule ${scheduleId}: cancelled` } } : { status: 'failed', error: { code: 'schedule-not-cancellable', message: 'Cancellable schedule not found in scope', retryable: false } };
+        }
+      })
+    );
   }
 
   return Object.freeze(result);

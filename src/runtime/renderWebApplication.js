@@ -3,6 +3,7 @@ import { createIdentityContext, createScopeContext } from '../contracts/context.
 import { PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
 import { TEMPORAL_CAPABILITY_NAMES, TEMPORAL_SAFE_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
 import { LANGUAGE_CAPABILITY_NAMES, LANGUAGE_SAFE_CAPABILITY_NAMES } from '../language/languageCapabilities.js';
+import { USER_SETTINGS_CAPABILITY_NAMES, USER_SETTINGS_SAFE_CAPABILITY_NAMES } from '../settings/userSettingsCapabilities.js';
 import { createLocalProductionHarness } from './localProductionHarness.js';
 import { loadTelegramConfig } from '../telegram/telegramConfig.js';
 import { createTelegramBotApiClient } from '../telegram/telegramBotApiClient.js';
@@ -10,7 +11,7 @@ import { createPostgresTelegramUpdateStore } from '../telegram/postgresTelegramU
 import { createTelegramProductionIntegration } from '../telegram/telegramProductionIntegration.js';
 import { createTelegramWebhookHttpHandler } from '../telegram/telegramWebhookHttpHandler.js';
 
-const ALL_CAPABILITY_NAMES = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...TEMPORAL_CAPABILITY_NAMES, ...LANGUAGE_CAPABILITY_NAMES]);
+const ALL_CAPABILITY_NAMES = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...TEMPORAL_CAPABILITY_NAMES, ...LANGUAGE_CAPABILITY_NAMES, ...USER_SETTINGS_CAPABILITY_NAMES]);
 const SENSITIVE_ENV_KEY = /(?:TOKEN|SECRET|PASSWORD|API[_-]?KEY|DATABASE_URL|PRIVATE[_-]?KEY|CREDENTIAL)/i;
 
 function envString(env, key, fallback = '') {
@@ -96,7 +97,7 @@ export function createProductionTelegramIdentityResolver({
         await persistence.repositories.access.grantRole({ globalUserId, projectScope: effectiveProjectScope, role: 'guest' });
         await ensureGrant(globalUserId, effectiveProjectScope, existing, 'compose-answer');
       }
-      for (const name of [...TEMPORAL_SAFE_CAPABILITY_NAMES, ...LANGUAGE_SAFE_CAPABILITY_NAMES]) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
+      for (const name of [...TEMPORAL_SAFE_CAPABILITY_NAMES, ...LANGUAGE_SAFE_CAPABILITY_NAMES, ...USER_SETTINGS_SAFE_CAPABILITY_NAMES]) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
       access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
     }
 

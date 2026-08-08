@@ -34,7 +34,7 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 28. `16_13_NOTIFICATION_AND_DELIVERY_ROUTER.md` — implementation and acceptance evidence for Block 16.13
 29. `16_14_INTERNAL_EVENT_BUS.md` — implementation and acceptance evidence for Block 16.14
 30. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — implementation and acceptance evidence for Block 16.15
-31. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — specification and future acceptance evidence for Block 16.16
+31. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — implementation and acceptance evidence for Block 16.16
 
 ## Production continuation
 
@@ -55,13 +55,15 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 13. Block 16.11 — Session & Conversation Context — completed
 14. Block 16.12 — User Settings & Preferences — completed
 15. Block 16.13 — Notification & Delivery Router — completed
-16. Block 16.14 — Internal Event Bus — completed
-17. Block 16.15 — Schema & Contract Versioning — completed
-18. Block 16.16 — Feature Flags & Controlled Rollout — next
-19. Block 17 — Render Deployment
+16. Block 16.14 — Internal Event Bus — completed and production-wired
+17. Block 16.15 — Schema & Contract Versioning — completed and production-wired
+18. Block 16.16 — Feature Flags & Controlled Rollout — completed
+19. Block 17 — Render Deployment — next
 20. Block 18 — End-to-End Verification
 21. Block 19 — Security and Operations
 22. Pilot Launch
+
+Repository-wide audit hardening after Block 16.16 additionally verifies canonical observability compatibility, version enforcement at production capability boundaries, production Event Bus/Domain Runtime composition, canonical feature-disabled results and rollback-safe Render startup. This hardening is corrective work within completed blocks and does not create a new roadmap block.
 
 Each production block must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

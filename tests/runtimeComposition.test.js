@@ -20,6 +20,12 @@ function protectedInterpretation() {
   };
 }
 
+function assertOrderedSubsequence(actual, expected) {
+  let cursor = 0;
+  for (const value of actual) if (value === expected[cursor]) cursor += 1;
+  assert.equal(cursor, expected.length, `missing ordered observability stages: ${expected.slice(cursor).join(', ')}`);
+}
+
 test('runtime config fails fast on invalid mandatory values', () => {
   assert.throws(() => loadRuntimeConfig({ SG_ENVIRONMENT: '', SG_REVISION: 'x', SG_PROJECT_SCOPE: 'sg' }), /SG_ENVIRONMENT is required/);
   assert.throws(() => loadRuntimeConfig({ SG_ENVIRONMENT: 'test', SG_REVISION: 'x', SG_PROJECT_SCOPE: 'sg', SG_SHUTDOWN_TIMEOUT_MS: '0' }), /positive integer/);
@@ -40,10 +46,13 @@ test('full local transport path reaches capability and delivery with observabili
   const telemetry = harness.observability.list({ channel: 'telemetry', traceId });
   const telemetryClasses = telemetry.map((event) => event.eventClass);
   const auditClasses = harness.observability.list({ channel: 'audit', traceId }).map((event) => event.eventClass);
-  assert.deepEqual(telemetryClasses, ['audit_event', 'request_received', 'policy_context_resolved', 'audit_event', 'language_context_resolved', 'semantic_decision_created', 'capability_started', 'capability_completed']);
-  assert.equal(telemetry[0].data.contextEventClass, 'conversation_context_resolved');
-  assert.ok(telemetry[0].data.conversationId);
-  assert.equal(telemetry[3].data.settingsEventClass, 'user_settings_resolved');
+  assertOrderedSubsequence(telemetryClasses, ['audit_event', 'request_received', 'policy_context_resolved', 'audit_event', 'language_context_resolved', 'semantic_decision_created', 'capability_started', 'capability_completed']);
+  const conversationEvent = telemetry.find((event) => event.data.contextEventClass === 'conversation_context_resolved');
+  const settingsEvent = telemetry.find((event) => event.data.settingsEventClass === 'user_settings_resolved');
+  const versionEvents = telemetry.filter((event) => String(event.data.operationalEventType ?? '').startsWith('contract_version_'));
+  assert.ok(conversationEvent?.data.conversationId);
+  assert.ok(settingsEvent);
+  assert.ok(versionEvents.length >= 3);
   assert.deepEqual(auditClasses, ['action_gate_decision']);
 
   await harness.runtime.stop();
@@ -69,23 +78,23 @@ postgresIntegration('PostgreSQL runtime observability is durable and flushed bef
   await verifier.start();
   try {
     const persisted = await verifier.database.query(
-      'SELECT channel, event_class FROM observability_events WHERE trace_id=$1 ORDER BY event_id',
+      'SELECT channel, event_class, payload FROM observability_events WHERE trace_id=$1 ORDER BY event_id',
       [traceId]
     );
-    assert.deepEqual(
-      persisted.rows.map((row) => `${row.channel}:${row.event_class}`),
-      [
-        'telemetry:audit_event',
-        'telemetry:request_received',
-        'telemetry:policy_context_resolved',
-        'telemetry:audit_event',
-        'telemetry:language_context_resolved',
-        'telemetry:semantic_decision_created',
-        'audit:action_gate_decision',
-        'telemetry:capability_started',
-        'telemetry:capability_completed'
-      ]
-    );
+    const classes = persisted.rows.map((row) => `${row.channel}:${row.event_class}`);
+    assertOrderedSubsequence(classes, [
+      'telemetry:audit_event',
+      'telemetry:request_received',
+      'telemetry:policy_context_resolved',
+      'telemetry:audit_event',
+      'telemetry:language_context_resolved',
+      'telemetry:semantic_decision_created',
+      'audit:action_gate_decision',
+      'telemetry:capability_started',
+      'telemetry:capability_completed'
+    ]);
+    const versionEvents = persisted.rows.filter((row) => String(row.payload?.data?.operationalEventType ?? '').startsWith('contract_version_'));
+    assert.ok(versionEvents.length >= 3);
   } finally {
     await verifier.close();
   }

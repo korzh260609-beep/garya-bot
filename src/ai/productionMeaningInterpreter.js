@@ -20,6 +20,7 @@ const CANDIDATE_ACTION_SCHEMA = Object.freeze({
     type: { type: 'string', minLength: 1 },
     name: { type: 'string', minLength: 1 },
     actionClass: { type: 'string', enum: ['analysis', 'external', 'state-change'] },
+    payload: { type: 'object', additionalProperties: true },
   },
 });
 
@@ -51,6 +52,7 @@ function buildUserPayload(canonicalInput) {
   return Object.freeze({
     text: canonicalInput.text,
     locale: canonicalInput.locale,
+    languageContext: canonicalInput.metadata?.languageContext ?? null,
     scope: canonicalInput.scopeContext,
     context: canonicalInput.metadata?.contextBundle ?? null,
     temporalContext: canonicalInput.metadata?.temporalContext ?? null,
@@ -87,7 +89,7 @@ export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure
     async interpret(canonicalInput) {
       const userPayload = buildUserPayload(canonicalInput);
       const boundary = buildDefensivePromptBoundary({
-        systemInstruction: 'You are the SG semantic interpreter. Return only schema-valid JSON. Interpret meaning; do not execute actions. Temporal Context is authoritative for current time, timezone and normalized relative dates; never recalculate or guess those values. External or state-changing requests must be candidates with actionClass external or state-change. Ask one clarification only when essential information is missing.',
+        systemInstruction: 'You are the SG semantic interpreter. Return only schema-valid JSON. Interpret meaning; do not execute actions. Language Context is authoritative for SG-selected message/response language metadata but original text remains authoritative for meaning. If the user explicitly asks to make a language their ongoing preferred response language, return candidate action type/name language-preference-set with actionClass state-change and payload.language as the BCP-47 base language code; include payload.locale only if the user explicitly supplies a locale. If the user asks what their preferred language is, use language-preference-get with actionClass analysis. Ordinary one-message requests such as answer this in English remain compose-answer and must not persist a preference. Temporal Context is authoritative for current time, timezone and normalized relative dates; never recalculate or guess those values. External or state-changing requests must be candidates with actionClass external or state-change. Ask one clarification only when essential information is missing.',
         userInput: JSON.stringify(userPayload),
       });
 
@@ -106,6 +108,7 @@ export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure
           responseFormat: { name: 'semantic_interpretation', jsonSchema: SEMANTIC_SCHEMA },
           metadata: {
             locale: canonicalInput.locale,
+            languageContext: canonicalInput.metadata?.languageContext ?? null,
             roles: canonicalInput.identityContext?.roles ?? [],
             context: userPayload,
           },

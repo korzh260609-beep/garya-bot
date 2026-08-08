@@ -11,6 +11,7 @@ import { createTelegramProductionIntegration } from '../telegram/telegramProduct
 import { createTelegramWebhookHttpHandler } from '../telegram/telegramWebhookHttpHandler.js';
 
 const ALL_CAPABILITY_NAMES = Object.freeze([...PRODUCTION_CAPABILITY_NAMES, ...TEMPORAL_CAPABILITY_NAMES, ...LANGUAGE_CAPABILITY_NAMES]);
+const SENSITIVE_ENV_KEY = /(?:TOKEN|SECRET|PASSWORD|API[_-]?KEY|DATABASE_URL|PRIVATE[_-]?KEY|CREDENTIAL)/i;
 
 function envString(env, key, fallback = '') {
   const value = env[key];
@@ -36,6 +37,10 @@ function productionEnv(env) {
     SG_MONARCH_TIMEZONE: envString(env, 'SG_MONARCH_TIMEZONE'),
     SG_MONARCH_LANGUAGE: envString(env, 'SG_MONARCH_LANGUAGE')
   });
+}
+
+function publicEnvironmentView(env) {
+  return Object.freeze(Object.fromEntries(Object.entries(env).filter(([key]) => !SENSITIVE_ENV_KEY.test(key))));
 }
 
 function json(response, statusCode, body) {
@@ -197,5 +202,5 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     await harness.runtime.stop();
   }
 
-  return Object.freeze({ effectiveEnv, harness, requestHandler, start, stop });
+  return Object.freeze({ effectiveEnv: publicEnvironmentView(effectiveEnv), harness, requestHandler, start, stop });
 }

@@ -14,12 +14,29 @@ function positiveInteger(value, fallback) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function createProductionAI({ env = process.env, fetchImpl = globalThis.fetch, telemetry = createInMemoryAITelemetry(), configurationPolicy = null } = {}) {
+export function createProductionAI({
+  env = process.env,
+  fetchImpl = globalThis.fetch,
+  telemetry = createInMemoryAITelemetry(),
+  configurationPolicy = null,
+  credentialManager = null,
+  credentialAccessContext = null,
+  openAiCredentialId = 'sg.openai.primary',
+} = {}) {
   const policy = createProductionAiPolicy(env);
   const registry = createRegistryFromEnvironment(env);
   const aiConfig = configurationPolicy?.ai ?? null;
   if (aiConfig && (aiConfig.routerOnly !== true || aiConfig.directProviderCallsAllowed !== false)) throw new TypeError('unsafe AI configuration policy');
-  const openai = createOpenAIResponsesProvider({ apiKey: env.OPENAI_API_KEY, baseUrl: env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1', reasoningEffort: env.OPENAI_REASONING_EFFORT ?? 'medium', fetchImpl });
+  if (!credentialManager || typeof credentialManager.useCredential !== 'function') throw new TypeError('credentialManager is required for production AI');
+  if (!credentialAccessContext?.actor || !credentialAccessContext?.scope) throw new TypeError('credentialAccessContext is required for production AI');
+  const openai = createOpenAIResponsesProvider({
+    credentialManager,
+    credentialAccessContext,
+    credentialId: openAiCredentialId,
+    baseUrl: env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+    reasoningEffort: env.OPENAI_REASONING_EFFORT ?? 'medium',
+    fetchImpl,
+  });
   const aiRouter = createAIRouter({
     registry,
     providers: { openai },
@@ -30,5 +47,5 @@ export function createProductionAI({ env = process.env, fetchImpl = globalThis.f
     retryDelayMs: aiConfig?.retryDelayMs ?? nonNegativeInteger(env.AI_RETRY_DELAY_MS, 100),
   });
   const meaningInterpreter = createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure: true });
-  return Object.freeze({ policy, registry, telemetry, aiRouter, meaningInterpreter });
+  return Object.freeze({ policy, registry, telemetry, aiRouter, meaningInterpreter, credentialId: openAiCredentialId });
 }

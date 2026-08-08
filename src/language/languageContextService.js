@@ -26,6 +26,12 @@ const LATIN_HINTS = Object.freeze({
   tr: ['ve','bir','bu','değil','nasıl','için','ile','ben','sen','lütfen']
 });
 
+const CYRILLIC_HINTS = Object.freeze({
+  ru: ['привет','как','дела','что','это','пожалуйста','для','мой','моя','моего','проекта','проверь','ответь','мне','сейчас'],
+  uk: ['привіт','як','справи','що','це','будь','ласка','для','мій','моя','мого','проєкту','перевір','відповідай','мені','зараз'],
+  be: ['прывітанне','як','што','гэта','калі','для','мой','мая','мне']
+});
+
 function cleanLocale(locale) {
   const value = String(locale ?? '').trim().replace('_', '-');
   if (!value) return null;
@@ -41,10 +47,10 @@ function words(text) {
   return String(text ?? '').toLowerCase().match(/[\p{L}\p{M}']+/gu) ?? [];
 }
 
-function scoreHints(tokens) {
+function scoreHints(tokens, groups) {
   const set = new Set(tokens);
   let best = null;
-  for (const [language, hints] of Object.entries(LATIN_HINTS)) {
+  for (const [language, hints] of Object.entries(groups)) {
     const score = hints.reduce((sum, hint) => sum + (set.has(hint) ? 1 : 0), 0);
     if (!best || score > best.score) best = { language, score };
   }
@@ -67,6 +73,8 @@ function cyrillicLanguage(text) {
   if (/[іїєґ]/iu.test(text)) return { language: 'uk', confidence: 0.98 };
   if (/[ыэъё]/iu.test(text)) return { language: 'ru', confidence: 0.96 };
   if (/[ў]/iu.test(text)) return { language: 'be', confidence: 0.96 };
+  const hint = scoreHints(words(text), CYRILLIC_HINTS);
+  if (hint?.score >= 2) return { language: hint.language, confidence: Math.min(0.95, 0.66 + hint.score * 0.07) };
   return { language: 'und', confidence: 0.35 };
 }
 
@@ -76,9 +84,9 @@ export function detectLanguageDeterministically(text, { platformLocale = null } 
   const script = scriptLanguage(source);
   if (script) return Object.freeze({ language: script, confidence: 0.98, source: 'unicode-script' });
   const cyrillic = cyrillicLanguage(source);
-  if (cyrillic && cyrillic.language !== 'und') return Object.freeze({ ...cyrillic, source: 'cyrillic-markers' });
+  if (cyrillic && cyrillic.language !== 'und') return Object.freeze({ ...cyrillic, source: 'cyrillic-detection' });
   const tokenList = words(source);
-  const hint = scoreHints(tokenList);
+  const hint = scoreHints(tokenList, LATIN_HINTS);
   if (hint?.score >= 2) return Object.freeze({ language: hint.language, confidence: Math.min(0.98, 0.65 + hint.score * 0.07), source: 'lexical-hints' });
   const platformLanguage = localeLanguage(platformLocale);
   if (platformLanguage) return Object.freeze({ language: platformLanguage, confidence: 0.45, source: 'platform-locale-fallback' });

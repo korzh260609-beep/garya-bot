@@ -6,6 +6,7 @@ import { createContextResolver } from '../memory/contextResolver.js';
 import { createInMemoryMemoryProvider } from '../memory/inMemoryMemoryProvider.js';
 import { createPostgresMemoryProvider, createPostgresObservabilityStore, createPostgresPersistence } from '../persistence/index.js';
 import { createPostgresTaskQueue } from '../automation/postgresTaskQueue.js';
+import { createPostgresRecurringScheduler } from '../automation/postgresRecurringScheduler.js';
 import { createActionGate } from '../action/actionGate.js';
 import { createCapabilityRegistry } from '../capability/capabilityRegistry.js';
 import { createCapabilityExecutor } from '../capability/capabilityExecutor.js';
@@ -17,6 +18,7 @@ import { createLocalInterfaceHarness } from '../interfaces/localHarness.js';
 import { createProductionAI } from '../ai/createProductionAI.js';
 import { createInMemoryTimezoneStore } from '../temporal/temporalService.js';
 import { createTemporalContextService } from '../temporal/temporalContextService.js';
+import { createRecurrenceEngine } from '../temporal/recurrenceEngine.js';
 import { createPostgresTimezoneStore } from '../temporal/postgresTimezoneStore.js';
 import { createTemporalAwareMeaningInterpreter } from '../temporal/temporalMeaningInterpreter.js';
 import { createTemporalCapabilities, TEMPORAL_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
@@ -35,12 +37,12 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   const baseMemoryProvider = persistence ? createPostgresMemoryProvider({ memoryRepository: persistence.repositories.memory, clock }) : createInMemoryMemoryProvider({ clock });
   const memoryProvider = createTemporalMemoryProvider({ memoryProvider: baseMemoryProvider });
   const durableTaskQueue = persistence ? createPostgresTaskQueue({ database: persistence.database }) : null;
-  const baseTaskStore = persistence
-    ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue })
-    : createInMemoryProductionTaskStore();
+  const baseTaskStore = persistence ? createPostgresProductionTaskStore({ database: persistence.database, taskQueue: durableTaskQueue }) : createInMemoryProductionTaskStore();
   const timezoneStore = persistence ? createPostgresTimezoneStore({ database: persistence.database }) : createInMemoryTimezoneStore();
   const temporalService = createTemporalContextService({ clock, timezoneStore });
-  const taskStore = createTemporalTaskStore({ taskStore: baseTaskStore, temporalService });
+  const recurrenceEngine = createRecurrenceEngine({ temporalService });
+  const recurringScheduler = persistence ? createPostgresRecurringScheduler({ database: persistence.database, recurrenceEngine, clock }) : null;
+  const taskStore = createTemporalTaskStore({ taskStore: baseTaskStore, temporalService, recurringScheduler });
   const contextResolver = createContextResolver({ memoryProvider });
   const productionAI = !interpretationResolver && aiRequested(env) ? createProductionAI({ env, fetchImpl }) : null;
   const baseMeaningInterpreter = productionAI?.meaningInterpreter ?? createFixtureMeaningInterpreter(interpretationResolver ?? ((input) => ({
@@ -70,13 +72,8 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
   ]);
   const capabilityRegistry = createCapabilityRegistry({ capabilities });
   const capabilityExecutor = createCapabilityExecutor({ registry: capabilityRegistry });
-  const actionGate = createActionGate({
-    availableSources: ['approved-source-registry', 'repository-read-source'],
-    availableTools: ['source-retriever', 'document-analyzer', 'repository-analyzer']
-  });
-  const store = persistence
-    ? createPostgresObservabilityStore({ observabilityRepository: persistence.repositories.observability })
-    : createInMemoryObservabilityStore();
+  const actionGate = createActionGate({ availableSources: ['approved-source-registry', 'repository-read-source'], availableTools: ['source-retriever', 'document-analyzer', 'repository-analyzer'] });
+  const store = persistence ? createPostgresObservabilityStore({ observabilityRepository: persistence.repositories.observability }) : createInMemoryObservabilityStore();
   const observability = createObservabilityService({ store });
   const resources = persistence ? [persistence, store] : [];
   const runtime = createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry, capabilityExecutor, observability, resources });
@@ -86,9 +83,7 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     if (persistence) {
       await persistence.repositories.identities.link({ platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, globalUserId, metadata: { fixture: true } });
       await persistence.repositories.access.grantRole({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, role: 'monarch' });
-      for (const name of capabilityNames) {
-        await persistence.repositories.access.grantPermission({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, grantName: `capability:${name}` });
-      }
+      for (const name of capabilityNames) await persistence.repositories.access.grantPermission({ globalUserId, projectScope: scopeFacts.projectId ?? config.projectScope, grantName: `capability:${name}` });
     }
     return {
       identityContext: createIdentityContext({ globalUserId, platform: platformFacts.platform, platformUserId: platformFacts.platformUserId, linkStatus: persistence ? 'linked' : 'local-fixture', roles: ['monarch'], grants: capabilityNames.map((name) => `capability:${name}`), authenticationLevel: 'verified' }),
@@ -96,5 +91,5 @@ export function createLocalProductionHarness({ env = {}, interpretationResolver,
     };
   };
   const transport = createLocalInterfaceHarness({ identityResolver, requestHandler: runtime.handle });
-  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, capabilityNames });
+  return Object.freeze({ config, runtime, transport, observability, store, memoryProvider, persistence, productionAI, capabilities, capabilityRegistry, durableTaskQueue, taskStore, temporalService, recurrenceEngine, recurringScheduler, capabilityNames });
 }

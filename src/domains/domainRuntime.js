@@ -10,17 +10,20 @@ function includesAll(actual, required) {
   return required.every((value) => set.has(value));
 }
 
-function canonicalDomainActionClass(actionClass) {
-  if (actionClass === 'analysis') return 'analysis-only';
-  if (actionClass === 'protected') return 'state-changing';
-  return actionClass;
+function canonicalDomainActionClass(capability) {
+  return capability.canonicalActionClass ?? (capability.actionClass === 'analysis' ? 'analysis-only' : capability.actionClass === 'protected' ? 'state-changing' : capability.actionClass);
 }
 
-function authorizedByCanonicalGate(gateDecision, capability) {
+function authorizedByCanonicalGate(gateDecision, capability, request) {
   if (gateDecision?.outcome !== 'allow' || gateDecision.authorized !== true) return false;
-  if (capability.actionClass !== 'protected') return true;
-  const outerClass = gateDecision.actionRequest?.actionClass;
-  return ['state-changing', 'external-action', 'private-data', 'expensive-costly'].includes(outerClass);
+  const gatedRequest = gateDecision.actionRequest;
+  if (!gatedRequest?.actor || !gatedRequest?.scope) return false;
+  if (gatedRequest.actor.globalUserId !== request.identityContext.globalUserId) return false;
+  if (gatedRequest.scope.projectScope !== request.scopeContext.projectScope) return false;
+  if ((gatedRequest.scope.groupScope ?? null) !== (request.scopeContext.groupScope ?? null)) return false;
+  if ((gatedRequest.scope.threadScope ?? null) !== (request.scopeContext.threadScope ?? null)) return false;
+  if (!capability.stateChanging) return true;
+  return ['state-changing', 'external-action', 'private-data', 'expensive-costly'].includes(gatedRequest.actionClass);
 }
 
 export function createDomainRuntime({ registry, actionGate = null, sourceResolver, memoryResolver, onEvent = () => {} } = {}) {
@@ -58,13 +61,13 @@ export function createDomainRuntime({ registry, actionGate = null, sourceResolve
 
     let gate = externalGateDecision;
     if (gate) {
-      if (!authorizedByCanonicalGate(gate, capability)) throw new Error('domain action gate denied');
+      if (!authorizedByCanonicalGate(gate, capability, request)) throw new Error('domain action gate denied');
     } else {
       if (!actionGate) throw new Error('domain action gate is required');
       gate = await actionGate(Object.freeze({
         domainId: module.id,
         capability: capability.name,
-        actionClass: canonicalDomainActionClass(capability.actionClass),
+        actionClass: canonicalDomainActionClass(capability),
         stateChanging: capability.stateChanging,
         requiredPermissions: capability.requiredPermissions,
         identityContext: request.identityContext,
@@ -84,7 +87,7 @@ export function createDomainRuntime({ registry, actionGate = null, sourceResolve
       sources: sources.data ?? null,
       memory: memory?.data ?? null
     }));
-    const result = createDomainResult({ status: 'success', domainId: module.id, capability: capability.name, actionClass: canonicalDomainActionClass(capability.actionClass), data, traceContext: request.traceContext });
+    const result = createDomainResult({ status: 'success', domainId: module.id, capability: capability.name, actionClass: canonicalDomainActionClass(capability), data, traceContext: request.traceContext });
     onEvent(Object.freeze({ type: 'domain.execution.completed', domainId: module.id, capability: capability.name, traceContext: request.traceContext }));
     return result;
   }

@@ -60,6 +60,7 @@ Completed architecture and implementation:
 
 Current limitations:
 
+- Block 16.6 Language & Locale Context is specified but not yet implemented or acceptance-verified;
 - Render deployment is not configured for the SG 2.1 runtime;
 - no complete production E2E test suite exists;
 - security and operational controls for pilot launch are not complete;
@@ -68,7 +69,8 @@ Current limitations:
 Current implementation boundary:
 
 - Blocks 11, 12, 13, 14, 15, 16 and 16.5 are completed.
-- Block 17 is the next mandatory block.
+- Block 16.6 is the next mandatory block.
+- Block 17 follows only after Block 16.6 completion evidence exists.
 
 ---
 
@@ -464,6 +466,67 @@ Acceptance evidence is recorded in `16_5_TEMPORAL_CONTEXT.md`.
 
 ---
 
+# Block 16.6 — Language & Locale Context
+
+## Status
+
+Planned — next mandatory block.
+
+## Goal
+
+Give SG one transport-independent multilingual interaction layer so users can communicate naturally in any language the connected AI model can understand, while preserving original user text, global identity, semantic-first processing and all existing authorization boundaries.
+
+Detailed implementation specification and acceptance requirements are canonical in `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md`.
+
+## Required scope
+
+- per-message language detection with confidence and explicit unknown state;
+- canonical Language Context containing message language, preferred language, conversation language, platform locale, response language and provenance;
+- preferred language persistence through `global_user_id`;
+- automatic response-language selection;
+- natural dynamic language switching without commands;
+- mixed-language and technical-text handling;
+- original text preserved for Semantic Kernel without mandatory pre-translation;
+- explicit translation kept as capability/specialized AI work through AI Router;
+- transport-independent integration for Telegram, Discord, Web/API, Email, Voice and future transports;
+- cross-language semantic memory recall without weakening scope isolation;
+- per-user language handling in groups;
+- language and locale separation with Temporal Context interoperability;
+- low-confidence/unknown-language fallback;
+- language metadata propagation through AI Router without transferring policy ownership to AI;
+- bounded observability for detection and response-language decisions.
+
+## Architecture boundaries
+
+- one SG Core for all languages;
+- no required `/language_*` commands, keyword routing or phrase bindings;
+- transports provide hints/facts only and do not own final response-language policy;
+- AI providers execute within SG-selected language context but do not own user preference or response-language decisions;
+- normal input is not forcibly translated before Semantic Kernel;
+- language context cannot assign identity, roles, grants or permissions;
+- language context cannot bypass Decision Engine, Action Gate or Capability System;
+- language does not create separate memory identities or relax project/group/thread isolation;
+- locale must reuse rather than duplicate Temporal Context timezone/date/time semantics.
+
+## Acceptance criteria
+
+- SG communicates through the same runtime in multiple languages supported by the connected model.
+- SG answers on the appropriate language without requiring commands.
+- Users can switch languages naturally during a conversation.
+- Mixed-language technical text does not cause uncontrolled switching.
+- Preferred language follows `global_user_id` across linked transports.
+- Different users in one group may use different languages without contamination.
+- Memory facts remain semantically retrievable across languages under existing scopes.
+- Locale is represented independently from language and interoperates with Temporal Context.
+- Original input reaches semantic interpretation without mandatory translation.
+- Language/locale metadata may reach AI Router, but all AI calls remain router-controlled.
+- Language decisions are observable and bounded.
+- Required multilingual tests and CI pass.
+
+Completion evidence must be recorded in `16_6_LANGUAGE_AND_LOCALE_CONTEXT.md`; until code, tests, CI and runtime evidence exist, this block must not be marked completed.
+
+---
+
 # Block 17 — Render Deployment
 
 ## Goal
@@ -529,6 +592,15 @@ Prove the product through real external flows rather than only unit and contract
 - group invocation by reply;
 - two users in one group with isolated personal context;
 - group topic/thread isolation;
+- Russian, Ukrainian and English natural-language conversations through the same SG runtime;
+- at least one additional model-supported language through the same runtime;
+- natural language switch within one conversation;
+- mixed-language technical message;
+- two group users communicating with SG in different languages without cross-user language contamination;
+- one linked `global_user_id` retaining preferred language across two transports when those transports are available for E2E;
+- memory fact written in one language and recalled in another;
+- unknown/low-confidence language fallback;
+- locale and Temporal Context interoperability;
 - memory survival after restart;
 - task creation and scheduled execution;
 - confirmation before protected action;
@@ -545,7 +617,8 @@ Prove the product through real external flows rather than only unit and contract
 ## Acceptance criteria
 
 - Each scenario has reproducible evidence.
-- No identity or memory cross-contamination occurs.
+- No identity, language-context or memory cross-contamination occurs.
+- Multilingual input follows the same Semantic Kernel/Decision/Action boundaries as other natural-language input.
 - Protected actions remain blocked when evidence or authorization is missing.
 - Restart recovery works without silent task loss.
 - User-visible errors are clear and do not expose secrets.
@@ -606,6 +679,7 @@ Validate the production system with a deliberately limited real-user scope.
 
 - stable operation across planned restarts;
 - no unresolved identity or scope violations;
+- no unresolved multilingual language-context isolation violations;
 - no silent task loss;
 - acceptable response latency;
 - AI costs remain within configured limits;
@@ -624,10 +698,11 @@ Validate the production system with a deliberately limited real-user scope.
 5. Block 15 — Production AI Integration — completed
 6. Block 16 — Production Capabilities — completed
 7. Block 16.5 — Temporal Context — completed
-8. Block 17 — Render Deployment — next
-9. Block 18 — End-to-End Verification
-10. Block 19 — Security and Operations
-11. Pilot Launch
+8. Block 16.6 — Language & Locale Context — next
+9. Block 17 — Render Deployment
+10. Block 18 — End-to-End Verification
+11. Block 19 — Security and Operations
+12. Pilot Launch
 
 ## Completion rule
 

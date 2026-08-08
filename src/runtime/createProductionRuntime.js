@@ -19,8 +19,13 @@ function publicConversationReference(canonicalInput) {
   if (!context) return null;
   return Object.freeze({ conversationId: context.conversationId, sessionId: context.sessionId, topicId: context.topicId, transition: context.transition });
 }
+function presentationPreferences(canonicalInput) {
+  const settings = canonicalInput.metadata?.userSettingsContext?.settings;
+  if (!settings) return null;
+  return Object.freeze({ response: settings.response ?? null, units: settings.units ?? null, formatting: settings.formatting ?? null, accessibility: settings.accessibility ?? null });
+}
 function languagePayload(canonicalInput, semantic) {
-  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, conversationContext: publicConversationReference(canonicalInput), locale: canonicalInput.locale });
+  return Object.freeze({ text: canonicalInput.text, message: semantic.responsePlan.message, semanticMessage: semantic.responsePlan.message, languageContext: canonicalInput.metadata?.languageContext ?? null, conversationContext: publicConversationReference(canonicalInput), userPreferences: presentationPreferences(canonicalInput), locale: canonicalInput.locale });
 }
 function conversationKey(input) {
   const contextId = input.metadata?.conversationContext?.conversationId;
@@ -33,7 +38,7 @@ function selectedResourceRequirement(semantic) {
   return selected?.resourceRequirement ?? selected?.payload?.resourceRequirement ?? null;
 }
 
-export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, conversationContextService = null, policyLayer = null, resourceAuthorityRegistry = null, resources = [] } = {}) {
+export function createProductionRuntime({ config, semanticPipeline, actionGate, capabilityRegistry = null, capabilityExecutor, domainRuntime = null, observability, languageContextService = null, conversationContextService = null, userSettingsService = null, policyLayer = null, resourceAuthorityRegistry = null, resources = [] } = {}) {
   if (!config?.environment || !config?.revision || !config?.shutdownTimeoutMs) throw new TypeError('validated runtime config is required');
   requireMethod(semanticPipeline, 'process', 'semanticPipeline');
   requireMethod(actionGate, 'evaluate', 'actionGate');
@@ -43,6 +48,7 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
   if (domainRuntime) requireMethod(domainRuntime, 'execute', 'domainRuntime');
   if (languageContextService) requireMethod(languageContextService, 'resolve', 'languageContextService');
   if (conversationContextService) { requireMethod(conversationContextService, 'resolveTurn', 'conversationContextService'); requireMethod(conversationContextService, 'recordOutbound', 'conversationContextService'); }
+  if (userSettingsService) requireMethod(userSettingsService, 'resolve', 'userSettingsService');
   if (policyLayer) requireMethod(policyLayer, 'resolve', 'policyLayer');
   if (resourceAuthorityRegistry) requireMethod(resourceAuthorityRegistry, 'checkAuthority', 'resourceAuthorityRegistry');
   if (!Array.isArray(resources)) throw new TypeError('resources must be an array');
@@ -62,6 +68,12 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     if (!policyLayer) return canonicalInput;
     const policyContext = policyLayer.resolve({ roles: canonicalInput.identityContext.roles });
     return Object.freeze({ ...canonicalInput, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), policyContext }) });
+  }
+  async function withUserSettingsContext(canonicalInput) {
+    if (!userSettingsService) return canonicalInput;
+    const hints = canonicalInput.locale ? { locale: canonicalInput.locale } : null;
+    const context = await userSettingsService.resolve(canonicalInput.identityContext.globalUserId, { projectScope: canonicalInput.scopeContext.projectScope, hints });
+    return Object.freeze({ ...canonicalInput, metadata: Object.freeze({ ...(canonicalInput.metadata ?? {}), userSettingsContext: context }) });
   }
   async function withConversationContext(canonicalInput) {
     if (!conversationContextService) return canonicalInput;
@@ -112,10 +124,16 @@ export function createProductionRuntime({ config, semanticPipeline, actionGate, 
     inFlight += 1;
     const traceContext = canonicalInput?.traceContext;
     try {
-      const requestInput = await withLanguageContext(await withConversationContext(withPolicyContext(canonicalInput)));
+      const settingsInput = await withUserSettingsContext(withPolicyContext(canonicalInput));
+      const requestInput = await withLanguageContext(await withConversationContext(settingsInput));
       observability.record({ eventClass: 'request_received', channel: 'telemetry', stage: 'runtime', traceContext, actorRef: requestInput.identityContext.globalUserId, transport: requestInput.metadata?.transport ?? null });
       const policyContext = requestInput.metadata?.policyContext ?? null;
       if (policyContext) observability.record({ eventClass: 'policy_context_resolved', channel: 'telemetry', stage: 'configuration-policy', traceContext, outcome: 'resolved', data: { roles: policyContext.roles, provenance: policyContext.provenance } });
+      const userSettingsContext = requestInput.metadata?.userSettingsContext ?? null;
+      if (userSettingsContext) {
+        const explicitFields = Object.entries(userSettingsContext.provenance ?? {}).filter(([, value]) => value?.explicit === true).map(([path]) => path).sort();
+        observability.record({ eventClass: 'user_settings_resolved', channel: 'telemetry', stage: 'user-settings', traceContext, outcome: 'resolved', actorRef: requestInput.identityContext.globalUserId, data: { projectScope: userSettingsContext.projectScope, explicitFields } });
+      }
       const languageContext = requestInput.metadata?.languageContext ?? null;
       if (languageContext) observability.record({ eventClass: 'language_context_resolved', channel: 'telemetry', stage: 'language-context', traceContext, outcome: languageContext.responseLanguage, data: { detectedLanguage: languageContext.messageLanguage, confidence: languageContext.confidence, responseLanguage: languageContext.responseLanguage, detectionSource: languageContext.detectionSource, responseLanguageSource: languageContext.responseLanguageSource, locale: languageContext.locale } });
 

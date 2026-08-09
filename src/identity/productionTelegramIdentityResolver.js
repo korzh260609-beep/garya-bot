@@ -1,5 +1,6 @@
 import { createIdentityContext, createScopeContext } from '../contracts/context.js';
 import { PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
+import { MEMORY2_CAPABILITY_NAMES } from '../memory2/memory2Capabilities.js';
 import { TEMPORAL_CAPABILITY_NAMES, TEMPORAL_SAFE_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
 import { LANGUAGE_CAPABILITY_NAMES, LANGUAGE_SAFE_CAPABILITY_NAMES } from '../language/languageCapabilities.js';
 import { USER_SETTINGS_CAPABILITY_NAMES, USER_SETTINGS_SAFE_CAPABILITY_NAMES } from '../settings/userSettingsCapabilities.js';
@@ -8,6 +9,7 @@ import { generateGlobalUserId, isCanonicalGlobalUserId, isLegacyPlatformGlobalUs
 
 const ALL_CAPABILITY_NAMES = Object.freeze([
   ...PRODUCTION_CAPABILITY_NAMES,
+  ...MEMORY2_CAPABILITY_NAMES,
   ...TEMPORAL_CAPABILITY_NAMES,
   ...LANGUAGE_CAPABILITY_NAMES,
   ...USER_SETTINGS_CAPABILITY_NAMES
@@ -79,7 +81,7 @@ async function migrateGlobalUserId({ persistence, fromGlobalUserId, toGlobalUser
       await tx.query('DELETE FROM user_settings WHERE global_user_id=$1', [fromGlobalUserId]);
     }
 
-    // Move every remaining identity reference, including owner_/actor_/delegated_by_global_user_id.
+    // Move every remaining identity reference, including Memory 2.0 owner/actor references.
     const references = await tx.query(`SELECT table_name, column_name FROM information_schema.columns
       WHERE table_schema=current_schema()
         AND column_name LIKE '%global_user_id'
@@ -199,7 +201,7 @@ export function createProductionTelegramIdentityResolver({
         await persistence.repositories.access.grantRole({ globalUserId, projectScope: effectiveProjectScope, role: 'monarch' });
       }
       for (const name of ALL_CAPABILITY_NAMES) await ensureGrant(globalUserId, effectiveProjectScope, existing, name);
-      for (const grantName of BUILT_IN_DOMAIN_PERMISSIONS) await ensureRawGrant(globalUserId, effectiveProjectScope, existing, grantName);
+      for (const grantName of ['memory:group:write','memory:project:write','memory:confirm','memory:promote', ...BUILT_IN_DOMAIN_PERMISSIONS]) await ensureRawGrant(globalUserId, effectiveProjectScope, existing, grantName);
 
       if (configuredMonarchTimeZone && temporalService && !(await temporalService.getUserTimezone(globalUserId))) {
         await temporalService.setUserTimezone(globalUserId, configuredMonarchTimeZone, {

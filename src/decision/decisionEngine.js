@@ -29,6 +29,13 @@ function selectCandidate(evaluations) {
   })[0];
 }
 
+function canonicalizeSelectedAction(action) {
+  if (action?.type === 'answer' && action?.actionClass === 'analysis') {
+    return Object.freeze({ ...action, name: 'compose-answer' });
+  }
+  return Object.freeze({ ...action });
+}
+
 function classifyDecision({ interpretation, selected, uncertaintyThreshold }) {
   if (interpretation.missingInformation.length > 0) return 'clarification';
   if (interpretation.uncertainty >= uncertaintyThreshold && interpretation.clarificationQuestion) return 'clarification';
@@ -68,7 +75,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
 
       const evaluations = evaluateCandidates(interpretation.candidateActions);
       const selected = selectCandidate(evaluations);
-      const selectedAction = Object.freeze({ ...selected.action });
+      const selectedAction = canonicalizeSelectedAction(selected.action);
       const requiresEvidence = interpretation.evidenceNeeds.length > 0;
       const decisionType = classifyDecision({ interpretation, selected, uncertaintyThreshold });
       const rationale = buildRationale({ decisionType, interpretation, selected, requiresEvidence });
@@ -95,6 +102,7 @@ export function createDecisionEngine({ uncertaintyThreshold = 0.65 } = {}) {
           requiresEvidence,
           executableIntent: selected.executableIntent,
           protectedIntent: selected.protectedIntent,
+          conversationalAnswerCanonicalized: selected.action.type === 'answer' && selected.action.actionClass === 'analysis' && selected.action.name !== 'compose-answer',
           permissionChecked: false,
           capabilityExecuted: false
         }

@@ -134,13 +134,18 @@ test("allowed request returns immutable policy evidence", () => {
   assert.equal(Object.isFrozen(evidence), true);
 });
 
-test("deterministic fallback never authorizes an action", () => {
+test("deterministic fallback never authorizes an action and exposes only a safe failure code", () => {
   assert.deepEqual(deterministicAiFallback({ code: "TIMEOUT", traceId: "trace-1" }), {
     status: "fallback",
     code: "TIMEOUT",
     traceId: "trace-1",
     retryable: false,
     actionAuthorized: false,
-    message: "AI execution is unavailable. No protected action was authorized or executed.",
+    message: "AI execution is unavailable (TIMEOUT). No protected action was authorized or executed.",
   });
+
+  const unsafe = deterministicAiFallback({ code: "bad code with secret-like text", traceId: "trace-2" });
+  assert.equal(unsafe.code, "AI_UNAVAILABLE");
+  assert.match(unsafe.message, /\(AI_UNAVAILABLE\)/);
+  assert.equal(unsafe.actionAuthorized, false);
 });

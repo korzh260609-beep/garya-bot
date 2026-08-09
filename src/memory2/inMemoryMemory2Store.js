@@ -9,6 +9,8 @@ export function createInMemoryMemory2Store({ maxRecords = 5000 } = {}) {
     async insert(raw) {
       const record = createMemory2Record(raw);
       if (records.has(record.id)) throw new Error('memory id already exists');
+      const duplicate = [...records.values()].find((item) => item.semanticFingerprint === record.semanticFingerprint && ['active','temporary'].includes(item.lifecycleState));
+      if (duplicate) return clone(duplicate);
       records.set(record.id, record);
       while (records.size > maxRecords) records.delete(records.keys().next().value);
       return clone(record);

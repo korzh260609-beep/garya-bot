@@ -46,7 +46,7 @@ const httpServer = createDiagnosticsHttpServer({
   host: env.DIAGNOSTICS_HOST ?? '0.0.0.0',
   port: Number(env.PORT ?? env.DIAGNOSTICS_PORT ?? 8790),
   adminToken: required(env.DIAGNOSTICS_ADMIN_TOKEN, 'DIAGNOSTICS_ADMIN_TOKEN'),
-  monarchGlobalUserId: required(env.SG_MONARCH_GLOBAL_USER_ID, 'SG_MONARCH_GLOBAL_USER_ID'),
+  monarchGlobalUserId: required(env.SG_MONARCH_GLOBAL_USER_ID ?? env.MONARCH_GLOBAL_USER_ID, 'SG_MONARCH_GLOBAL_USER_ID/MONARCH_GLOBAL_USER_ID'),
   environment, revision
 });
 

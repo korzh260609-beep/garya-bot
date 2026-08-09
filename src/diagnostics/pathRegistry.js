@@ -9,7 +9,7 @@ const PATHS = Object.freeze({
       ['action-gate', ['action_gate_decision']],
       ['capability', ['capability_started', 'capability_completed', 'capability_failed']],
       ['ai', ['model_call']],
-      ['response', ['final_response_guard', 'response_composed', 'capability_completed']],
+      ['response', ['final_response_observed', 'final_response_guard', 'response_composed', 'capability_completed']],
       ['delivery', ['delivery_attempt', 'delivery_completed', 'telegram_update_completed']]
     ])
   }),

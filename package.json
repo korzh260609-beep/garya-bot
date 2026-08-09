@@ -11,6 +11,7 @@
     "start": "node src/runtime/entrypoint.js",
     "start:render": "node src/runtime/renderWebEntrypoint.js",
     "start:worker": "node src/automation/workerEntrypoint.js",
+    "start:diagnostics": "node src/diagnostics/entrypoint.js",
     "start:legacy-fixture": "node src/index.js",
     "migrate": "node src/persistence/migrate.js",
     "test": "node --test --test-concurrency=1",
@@ -18,6 +19,7 @@
     "test:persistence": "node --test tests/postgresPersistence.test.js",
     "test:workers": "node --test tests/durableWorkers.test.js",
     "test:render": "node --test tests/renderDeployment.test.js",
+    "test:diagnostics": "node --test tests/universalDiagnostics.test.js",
     "check:syntax": "find src tests -name '*.js' -print0 | xargs -0 -n1 node --check",
     "check": "npm run check:syntax && npm test"
   },

@@ -179,9 +179,13 @@ export function createProductionCapabilities({
       requiredSources: ['approved-source-registry'], requiredTools: ['source-retriever'],
       execute: async (request) => {
         if (!sourceRetriever) return { status: 'unavailable', error: { code: 'source-retriever-unavailable', message: 'Approved source retriever is not configured', retryable: true } };
-        const result = await sourceRetriever({ sourceId: requiredText(request.input?.sourceId, 'input.sourceId'), query: request.input?.query ?? null, request });
-        if (!result?.ok) return { status: 'failed', error: { code: result?.code ?? 'source-failed', message: result?.message ?? 'Source retrieval failed', retryable: Boolean(result?.retryable) }, sources: result?.sources ?? [] };
-        return { status: result.partial ? 'partial' : 'success', data: { ...result, message: result.message ?? 'Source retrieved' }, sources: result.sources ?? [request.input.sourceId] };
+        const result = await memoryProvider.query({
+          scope: scopeFrom(request),
+          layers: request.input?.layers ?? ['session', 'user-memory', 'project-memory'],
+          keys: request.input?.keys ?? [],
+          now: new Date().toISOString()
+        });
+        return { status: 'success', data: { records: result.records, diagnostics: result.diagnostics, message: `Memory records: ${result.records.length}` } };
       }
     }),
     capability({
@@ -203,7 +207,7 @@ export function createProductionCapabilities({
         if (!repositoryAnalyzer) return { status: 'unavailable', error: { code: 'repository-analyzer-unavailable', message: 'Repository analyzer is not configured', retryable: true } };
         const result = await repositoryAnalyzer({ ...request.input, mode: request.input?.mode === 'prepare-only' ? 'prepare-only' : 'read-only', request });
         if (result?.mutated === true || result?.pushed === true || result?.published === true) throw new Error('prepare-only repository capability attempted mutation');
-        return { status: result?.partial ? 'partial' : 'success', data: { ...result, mutated: false, message: result?.message ?? 'Repository analysis prepared in read/prepare-only mode' }, sources: result?.sources ?? ['repository-read-source'], tools: ['repository-analyzer'] };
+        return { status: result?.partial ? 'partial' : 'success', data: { ...result, mutated: false, message: result?.message ?? 'Repository analysis completed in read/prepare-only mode' }, sources: result?.sources ?? ['repository-read-source'], tools: ['repository-analyzer'] };
       }
     }),
     capability({

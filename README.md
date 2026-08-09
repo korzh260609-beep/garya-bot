@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and completed executable production foundation through Block 16.16. Repository-wide audit hardening has also wired the Internal Event Bus, Contract Versioning and Domain Runtime into production composition and closed cross-module observability, feature-result and Render-startup compatibility defects. Block 16.18 — Monarch Control / Owner Security is the next roadmap block before Block 17 Render Deployment.
+This branch contains the active SG 2.1 architecture and completed executable production foundation through Block 16.16. Repository-wide audit hardening has also wired the Internal Event Bus, Contract Versioning and Domain Runtime into production composition and closed cross-module observability, feature-result and Render-startup compatibility defects. Block 16.17 — Self Knowledge / System Self-Awareness is the next roadmap block, followed by Block 16.18 — Monarch Control / Owner Security, before Block 17 Render Deployment.
 
 ## Requirements
 - Node.js 22
@@ -62,6 +62,7 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 16.16 — Feature Flags & Controlled Rollout
 
 ### Next
+- Block 16.17 — Self Knowledge / System Self-Awareness
 - Block 16.18 — Monarch Control / Owner Security
 - Block 17 — Render Deployment
 - Block 18 — End-to-End Verification
@@ -282,8 +283,25 @@ The repository-wide audit after Block 16.16 additionally verified and hardened t
 
 Individual implementation and acceptance evidence remains in `pillars/roadmap/16_8_*.md` through `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
 
-### Block 16.18 — Monarch Control / Owner Security
+### Block 16.17 — Self Knowledge / System Self-Awareness
 **Status:** Planned — next.
+
+- dedicated system-owned Self Knowledge separate from user/project memory;
+- structured identity, purpose, architecture, capability, module, integration, development-status and limitation facts;
+- canonical statuses `implemented / partial / planned / disabled / broken / unknown`;
+- versioned snapshots with provenance, source revision, commit SHA, environment and validation state;
+- `SelfKnowledgeBuilder` and `SelfKnowledgeConsistencyChecker`;
+- documentation-vs-code/runtime conflict detection;
+- bounded retrieval for questions about SG itself without full-repository prompt injection;
+- live-state questions still require runtime/diagnostics verification;
+- user/model text cannot redefine canonical SG identity, owner or architecture truth;
+- raw secrets never enter Self Knowledge.
+
+Detailed planned specification: `pillars/roadmap/16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md`.
+Architecture boundary: `pillars/architecture/SELF_KNOWLEDGE.md`.
+
+### Block 16.18 — Monarch Control / Owner Security
+**Status:** Planned — after 16.17.
 
 - verified owner/Monarch authority rooted in canonical `global_user_id`;
 - owner status cannot be inferred from names, usernames, commands, phrases or AI output;
@@ -302,7 +320,9 @@ Architecture boundary: `pillars/architecture/MONARCH_OWNER_SECURITY.md`.
 Current production-composed path is:
 `Platform Input → Transport Adapter → Identity/Scope → User Settings/Conversation/Language Context → Contract Version Check → Semantic Kernel → Context Resolution → Decision Engine → Capability Selection → Connection/Resource Authority where required → Action Gate → Feature/Contract-gated Capability or Domain Runtime → Delivery Router where required → Response → Observability/Internal Events`.
 
-Block 16.18 will tighten privileged execution by composing verified Owner Security before protected SG-wide system changes; it will not replace Action Gate or the existing Identity/Scope/Resource Authority boundaries.
+Block 16.17 will add a bounded Self Knowledge context path for system-self-description and system-capability questions; it will not become a mandatory hop in every request or replace live diagnostics.
+
+Block 16.18 will then tighten privileged execution by composing verified Owner Security before protected SG-wide system changes; it will not replace Action Gate or the existing Identity/Scope/Resource Authority boundaries.
 
 The production interpretation route remains:
 `ProductionMeaningInterpreter → AIRouter → ProductionAiPolicy → ModelRegistry → AIProvider`
@@ -319,9 +339,11 @@ The production interpretation route remains:
 - Platform IDs are identity links, not independent users.
 - Transports provide platform facts but cannot assign roles, grants, final scopes or final response-language policy.
 - Configuration/policy cannot silently become authorization.
-- Raw secrets cannot enter ordinary memory, prompts or telemetry.
+- Raw secrets cannot enter ordinary memory, Self Knowledge, prompts or telemetry.
 - Connections are not identities and do not prove resource ownership.
 - Resource authority is explicit and complements Identity, Scope and Access.
+- System Self Knowledge is separate from user/project memory and cannot grant authority.
+- User/model text cannot redefine canonical SG identity, ownership or architecture truth.
 - Verified owner/Monarch authority is rooted in `global_user_id` and cannot be created by natural-language commands, phrases, AI, agents, tasks or tools.
 - Only the verified owner may change SG-wide security/authority state; delegation stays explicitly bounded.
 - Conversation state is not confirmed memory.
@@ -336,7 +358,7 @@ The production interpretation route remains:
 - Original natural-language text remains available to Semantic Kernel; multilingual support does not require mandatory pre-translation.
 
 ## Current boundary
-Blocks 0–16.16 provide the completed executable SG 2.1 foundation. Block 16.18 Monarch Control / Owner Security is the next roadmap stage; after its implementation and acceptance verification, Block 17 Render Deployment follows, then Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
+Blocks 0–16.16 provide the completed executable SG 2.1 foundation. Block 16.17 Self Knowledge / System Self-Awareness is the next roadmap stage; Block 16.18 Monarch Control / Owner Security follows after its implementation and acceptance verification, then Block 17 Render Deployment, Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
 
 ## Authority
 Read in this order:

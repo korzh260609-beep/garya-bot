@@ -103,8 +103,14 @@ export function createPostgresMemory2Store({ database } = {}) {
       const clauses = []; const values = [];
       const add = (sql, value) => { values.push(value); clauses.push(sql.replace('?', `$${values.length}`)); };
       if (projectScope != null) add('project_scope=?', required(projectScope,'projectScope'));
-      if (groupScope !== undefined) add('group_scope IS NOT DISTINCT FROM ?', optional(groupScope));
-      if (threadScope !== undefined) add('thread_scope IS NOT DISTINCT FROM ?', optional(threadScope));
+      if (groupScope !== undefined) {
+        values.push(optional(groupScope));
+        clauses.push(`(group_scope IS NULL OR group_scope IS NOT DISTINCT FROM $${values.length})`);
+      }
+      if (threadScope !== undefined) {
+        values.push(optional(threadScope));
+        clauses.push(`(thread_scope IS NULL OR thread_scope IS NOT DISTINCT FROM $${values.length})`);
+      }
       if (ownerGlobalUserId !== undefined) {
         values.push(optional(ownerGlobalUserId));
         clauses.push(`(owner_global_user_id IS NOT DISTINCT FROM $${values.length} OR owner_global_user_id IS NULL)`);

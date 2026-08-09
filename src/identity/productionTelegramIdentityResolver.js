@@ -1,4 +1,4 @@
-import { createIdentityContext, createScopeContext } from '../contracts/context.js';
+import { createDescriptiveIdentityProfile, createIdentityContext, createScopeContext } from '../contracts/context.js';
 import { PRODUCTION_CAPABILITY_NAMES } from '../capability/productionCapabilities.js';
 import { MEMORY2_CAPABILITY_NAMES } from '../memory2/memory2Capabilities.js';
 import { TEMPORAL_CAPABILITY_NAMES, TEMPORAL_SAFE_CAPABILITY_NAMES } from '../temporal/temporalCapabilities.js';
@@ -81,7 +81,6 @@ async function migrateGlobalUserId({ persistence, fromGlobalUserId, toGlobalUser
       await tx.query('DELETE FROM user_settings WHERE global_user_id=$1', [fromGlobalUserId]);
     }
 
-    // Move every remaining identity reference, including Memory 2.0 owner/actor references.
     const references = await tx.query(`SELECT table_name, column_name FROM information_schema.columns
       WHERE table_schema=current_schema()
         AND column_name LIKE '%global_user_id'
@@ -148,6 +147,7 @@ export function createProductionTelegramIdentityResolver({
     if (platform !== 'telegram' || !platformUserId) throw new TypeError('Telegram platform identity is required');
 
     const effectiveProjectScope = clean(scopeFacts?.projectId ?? projectScope);
+    const descriptiveProfile = createDescriptiveIdentityProfile(platformFacts?.profile);
     const isConfiguredMonarchTelegramAccount = Boolean(configuredMonarchTelegramUserId) && platformUserId === configuredMonarchTelegramUserId;
     const existingLink = await persistence.repositories.identities.resolve(platform, platformUserId);
 
@@ -182,6 +182,12 @@ export function createProductionTelegramIdentityResolver({
 
     if (!isCanonicalGlobalUserId(globalUserId)) throw new Error('resolved global identity is not canonical');
 
+    if (descriptiveProfile && persistence.repositories.users?.upsert) {
+      await persistence.repositories.users.upsert({ globalUserId, profile: descriptiveProfile });
+    }
+
+    const persistedUser = persistence.repositories.users?.get ? await persistence.repositories.users.get(globalUserId) : null;
+    const persistedProfile = createDescriptiveIdentityProfile(persistedUser?.profile ?? descriptiveProfile);
     const isMonarch = Boolean(configuredMonarchGlobalUserId) && globalUserId === configuredMonarchGlobalUserId;
 
     let access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
@@ -239,7 +245,8 @@ export function createProductionTelegramIdentityResolver({
         linkStatus: 'linked',
         roles,
         grants,
-        authenticationLevel: 'telegram-webhook'
+        authenticationLevel: 'telegram-webhook',
+        profile: persistedProfile
       }),
       scopeContext: createScopeContext({
         userScope: globalUserId,

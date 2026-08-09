@@ -71,21 +71,28 @@ function fromRow(row) {
 
 export function createPostgresMemory2Store({ database } = {}) {
   if (!database?.query) throw new TypeError('database.query is required');
+  async function get(memoryId, db = database) {
+    const result = await db.query('SELECT * FROM memory_records WHERE memory_id=$1', [required(memoryId,'memoryId')]);
+    return result.rows[0] ? fromRow(result.rows[0]) : null;
+  }
   return Object.freeze({
     async insert(raw, db = database) {
       const r = toDb(raw);
-      const result = await db.query(`INSERT INTO memory_records(
-        memory_id,global_user_id,owner_global_user_id,project_scope,group_scope,thread_scope,scope_kind,memory_layer,memory_key,value,privacy_class,provenance,trust,confirmed,confirmation_state,lifecycle_state,last_accessed_at,expires_at,superseded_at,superseded_by,archived_at,deleted_at,tags,confidence,retention_class,record_version,semantic_fingerprint,metadata,created_at,updated_at)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23::jsonb,$24,$25,$26,$27,$28::jsonb,$29,$30)
-        RETURNING *`, [r.id, r.ownerGlobalUserId, r.ownerGlobalUserId, r.projectScope, r.groupScope, r.threadScope, r.scopeKind, r.layer, r.key, JSON.stringify(r.value), r.privacyClass, JSON.stringify(r.provenance), r.trust, r.confirmed, r.confirmationState, r.lifecycleState, r.lastAccessedAt, r.expiresAt, r.supersededAt, r.supersededBy, r.archivedAt, r.deletedAt, JSON.stringify(r.tags), r.confidence, r.retentionClass, r.recordVersion, r.semanticFingerprint, JSON.stringify(r.metadata), r.createdAt, r.updatedAt]);
-      return fromRow(result.rows[0]);
+      const execute = async (tx) => {
+        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [r.semanticFingerprint]);
+        const duplicate = await tx.query(`SELECT * FROM memory_records WHERE semantic_fingerprint=$1 AND lifecycle_state IN ('active','temporary') ORDER BY created_at,memory_id LIMIT 1`, [r.semanticFingerprint]);
+        if (duplicate.rows[0]) return fromRow(duplicate.rows[0]);
+        const result = await tx.query(`INSERT INTO memory_records(
+          memory_id,global_user_id,owner_global_user_id,project_scope,group_scope,thread_scope,scope_kind,memory_layer,memory_key,value,privacy_class,provenance,trust,confirmed,confirmation_state,lifecycle_state,last_accessed_at,expires_at,superseded_at,superseded_by,archived_at,deleted_at,tags,confidence,retention_class,record_version,semantic_fingerprint,metadata,created_at,updated_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23::jsonb,$24,$25,$26,$27,$28::jsonb,$29,$30)
+          RETURNING *`, [r.id, r.ownerGlobalUserId, r.ownerGlobalUserId, r.projectScope, r.groupScope, r.threadScope, r.scopeKind, r.layer, r.key, JSON.stringify(r.value), r.privacyClass, JSON.stringify(r.provenance), r.trust, r.confirmed, r.confirmationState, r.lifecycleState, r.lastAccessedAt, r.expiresAt, r.supersededAt, r.supersededBy, r.archivedAt, r.deletedAt, JSON.stringify(r.tags), r.confidence, r.retentionClass, r.recordVersion, r.semanticFingerprint, JSON.stringify(r.metadata), r.createdAt, r.updatedAt]);
+        return fromRow(result.rows[0]);
+      };
+      return db === database && typeof database.transaction === 'function' ? database.transaction(execute) : execute(db);
     },
-    async get(memoryId, db = database) {
-      const result = await db.query('SELECT * FROM memory_records WHERE memory_id=$1', [required(memoryId,'memoryId')]);
-      return result.rows[0] ? fromRow(result.rows[0]) : null;
-    },
+    get,
     async update(memoryId, patch = {}, db = database) {
-      const existing = await this.get(memoryId, db);
+      const existing = await get(memoryId, db);
       if (!existing) return null;
       const merged = createMemory2Record({ ...existing, ...patch, memoryScope: existing.memoryScope, provenance: patch.provenance ?? existing.provenance, metadata: patch.metadata ?? existing.metadata });
       const r = toDb(merged);

@@ -8,3 +8,4 @@ Workflow defines how one selected roadmap item is implemented safely. It does no
 3. `TEST_AND_EVIDENCE_PROTOCOL.md`
 4. `RELEASE_AND_ROLLBACK_PROTOCOL.md`
 5. `ARCHITECTURE_DECISION_PROTOCOL.md`
+6. `MEMORY_2_0_WORKFLOW.md` — canonical implementation and verification workflow for Memory 2.0 M1–M9

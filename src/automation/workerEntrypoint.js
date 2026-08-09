@@ -3,6 +3,7 @@ import { createPostgresObservabilityStore, createPostgresPersistence } from '../
 import { createObservabilityService } from '../observability/observabilityService.js';
 import { createTemporalContextService } from '../temporal/temporalContextService.js';
 import { createRecurrenceEngine } from '../temporal/recurrenceEngine.js';
+import { createOwnerSecurityConfig, createOwnerSecurityGateway, createSecurityPolicyRegistry } from '../security/ownerSecurity.js';
 import { createPostgresTaskQueue } from './postgresTaskQueue.js';
 import { createPostgresRecurringScheduler } from './postgresRecurringScheduler.js';
 import { createDurableWorker } from './durableWorker.js';
@@ -31,6 +32,15 @@ const queue = Object.freeze({
 });
 const observabilityStore = createPostgresObservabilityStore({ observabilityRepository: persistence.repositories.observability });
 const observability = createObservabilityService({ store: observabilityStore });
+const environment = process.env.SG_ENVIRONMENT ?? 'worker';
+const revision = process.env.SG_REVISION ?? 'unknown';
+const ownerSecurityGateway = createOwnerSecurityGateway({
+  config: createOwnerSecurityConfig(process.env),
+  policyRegistry: createSecurityPolicyRegistry(),
+  observability,
+  environment,
+  revision
+});
 const verifyMode = process.env.SG_WORKER_VERIFY === '1' || process.env.SG_ENVIRONMENT === 'ci';
 const workerId = process.env.SG_WORKER_ID ?? `worker:${randomUUID()}`;
 
@@ -38,9 +48,9 @@ const worker = createDurableWorker({
   workerId,
   queue,
   observability,
-  environment: process.env.SG_ENVIRONMENT ?? 'worker',
-  revision: process.env.SG_REVISION ?? 'unknown',
-  actionGate: createProductionWorkerActionGate({ verifyMode }),
+  environment,
+  revision,
+  actionGate: createProductionWorkerActionGate({ verifyMode, ownerSecurityGateway }),
   executor: createProductionWorkerExecutor({ verifyMode }),
   leaseMs: Number(process.env.SG_WORKER_LEASE_MS ?? 30000),
   heartbeatMs: Number(process.env.SG_WORKER_HEARTBEAT_MS ?? 10000),
@@ -79,7 +89,7 @@ if (verifyMode) {
   await shutdown('verification-complete');
 } else {
   await worker.start();
-  console.log(JSON.stringify({ status: 'worker-ready', health: worker.health() }));
+  console.log(JSON.stringify({ status: 'worker-ready', health: worker.health(), ownerSecurity: ownerSecurityGateway.status() }));
   process.once('SIGTERM', () => shutdown('SIGTERM').then(() => process.exit(0)));
   process.once('SIGINT', () => shutdown('SIGINT').then(() => process.exit(0)));
 }

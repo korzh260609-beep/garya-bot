@@ -7,6 +7,7 @@ const canonicalInput = Object.freeze({
   text: 'привет',
   traceContext: Object.freeze({ traceId: 'trace-decision', requestId: 'request-decision' })
 });
+const SAFE_RESPONSE_PLACEHOLDER = 'SG could not produce a final conversational response.';
 
 function interpretation(overrides = {}) {
   return createSemanticInterpretation({
@@ -41,10 +42,11 @@ test('chooses the highest-priority conversational candidate but canonicalizes ex
   assert.equal(result.decisionEnvelope.decisionType, 'answer');
   assert.equal(result.decisionEnvelope.diagnostics.selectedCandidateIndex, 1);
   assert.equal(result.decisionEnvelope.diagnostics.conversationalAnswerCanonicalized, true);
-  assert.equal(result.responsePlan.message, 'привет');
+  assert.equal(result.responsePlan.message, SAFE_RESPONSE_PLACEHOLDER);
+  assert.notEqual(result.responsePlan.message, canonicalInput.text);
 });
 
-test('semantic meaning never becomes the conversational response plan message', () => {
+test('semantic meaning and canonical user text never become the conversational response plan message', () => {
   const semanticMeaning = "The user is greeting the assistant with a casual Russian 'привет' (hi/hello), initiating a conversation.";
   const result = createDecisionEngine().decide({
     canonicalInput,
@@ -55,7 +57,8 @@ test('semantic meaning never becomes the conversational response plan message', 
   });
   assert.equal(result.decisionEnvelope.selectedAction.name, 'compose-answer');
   assert.equal(result.decisionEnvelope.selectedAction.type, 'answer');
-  assert.equal(result.responsePlan.message, canonicalInput.text);
+  assert.equal(result.responsePlan.message, SAFE_RESPONSE_PLACEHOLDER);
+  assert.notEqual(result.responsePlan.message, canonicalInput.text);
   assert.notEqual(result.responsePlan.message, semanticMeaning);
   assert.equal(result.decisionEnvelope.diagnostics.semanticMeaningExposedAsResponse, false);
 });

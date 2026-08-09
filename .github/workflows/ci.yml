@@ -46,6 +46,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run migrate
+      - name: Block 16.18 focused security test
+        run: node --test tests/ownerSecurity.test.js
       - run: npm run check
       - run: npm start
       - run: npm run start:worker

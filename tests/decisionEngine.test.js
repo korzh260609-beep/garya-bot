@@ -4,6 +4,7 @@ import { createDecisionEngine } from '../src/decision/decisionEngine.js';
 import { createSemanticInterpretation } from '../src/contracts/semantic.js';
 
 const canonicalInput = Object.freeze({
+  text: 'привет',
   traceContext: Object.freeze({ traceId: 'trace-decision', requestId: 'request-decision' })
 });
 
@@ -26,8 +27,7 @@ function interpretation(overrides = {}) {
 }
 
 test('chooses the highest-priority conversational candidate but canonicalizes execution through compose-answer', () => {
-  const engine = createDecisionEngine();
-  const result = engine.decide({
+  const result = createDecisionEngine().decide({
     canonicalInput,
     interpretation: interpretation({
       candidateActions: [
@@ -36,32 +36,34 @@ test('chooses the highest-priority conversational candidate but canonicalizes ex
       ]
     })
   });
-
   assert.equal(result.decisionEnvelope.selectedAction.name, 'compose-answer');
   assert.equal(result.decisionEnvelope.selectedAction.priority, 10);
   assert.equal(result.decisionEnvelope.decisionType, 'answer');
   assert.equal(result.decisionEnvelope.diagnostics.selectedCandidateIndex, 1);
   assert.equal(result.decisionEnvelope.diagnostics.conversationalAnswerCanonicalized, true);
+  assert.equal(result.responsePlan.message, 'привет');
 });
 
-test('unknown analysis answer names cannot bypass the canonical response composer', () => {
+test('semantic meaning never becomes the conversational response plan message', () => {
+  const semanticMeaning = "The user is greeting the assistant with a casual Russian 'привет' (hi/hello), initiating a conversation.";
   const result = createDecisionEngine().decide({
     canonicalInput,
     interpretation: interpretation({
-      meaning: "The user is greeting the assistant by saying 'hi' in Russian.",
+      meaning: semanticMeaning,
       candidateActions: [{ type: 'answer', name: 'describe-greeting', actionClass: 'analysis' }]
     })
   });
   assert.equal(result.decisionEnvelope.selectedAction.name, 'compose-answer');
   assert.equal(result.decisionEnvelope.selectedAction.type, 'answer');
+  assert.equal(result.responsePlan.message, canonicalInput.text);
+  assert.notEqual(result.responsePlan.message, semanticMeaning);
+  assert.equal(result.decisionEnvelope.diagnostics.semanticMeaningExposedAsResponse, false);
 });
 
 test('protected actions retain their explicit capability identity', () => {
   const result = createDecisionEngine().decide({
     canonicalInput,
-    interpretation: interpretation({
-      candidateActions: [{ type: 'execute', name: 'send-report', actionClass: 'external' }]
-    })
+    interpretation: interpretation({ candidateActions: [{ type: 'execute', name: 'send-report', actionClass: 'external' }] })
   });
   assert.equal(result.decisionEnvelope.selectedAction.name, 'send-report');
   assert.equal(result.decisionEnvelope.decisionType, 'prepare');
@@ -69,39 +71,24 @@ test('protected actions retain their explicit capability identity', () => {
 });
 
 test('requests clarification when essential information is missing', () => {
-  const engine = createDecisionEngine();
-  const result = engine.decide({
+  const result = createDecisionEngine().decide({
     canonicalInput,
-    interpretation: interpretation({
-      missingInformation: ['recipient'],
-      clarificationQuestion: 'Which recipient should be used?'
-    })
+    interpretation: interpretation({ missingInformation: ['recipient'], clarificationQuestion: 'Which recipient should be used?' })
   });
-
   assert.equal(result.decisionEnvelope.decisionType, 'clarification');
   assert.equal(result.responsePlan.message, 'Which recipient should be used?');
 });
 
 test('uses uncertainty threshold only when a clarification question exists', () => {
-  const engine = createDecisionEngine({ uncertaintyThreshold: 0.6 });
-  const result = engine.decide({
+  const result = createDecisionEngine({ uncertaintyThreshold: 0.6 }).decide({
     canonicalInput,
-    interpretation: interpretation({
-      uncertainty: 0.8,
-      clarificationQuestion: 'Should I use the latest version?'
-    })
+    interpretation: interpretation({ uncertainty: 0.8, clarificationQuestion: 'Should I use the latest version?' })
   });
-
   assert.equal(result.decisionEnvelope.decisionType, 'clarification');
 });
 
 test('keeps evidence needs explicit without checking permissions', () => {
-  const engine = createDecisionEngine();
-  const result = engine.decide({
-    canonicalInput,
-    interpretation: interpretation({ evidenceNeeds: ['repository-state'] })
-  });
-
+  const result = createDecisionEngine().decide({ canonicalInput, interpretation: interpretation({ evidenceNeeds: ['repository-state'] }) });
   assert.deepEqual(result.decisionEnvelope.evidenceNeeds, ['repository-state']);
   assert.equal(result.decisionEnvelope.diagnostics.requiresEvidence, true);
   assert.equal(result.decisionEnvelope.diagnostics.permissionChecked, false);
@@ -109,14 +96,10 @@ test('keeps evidence needs explicit without checking permissions', () => {
 });
 
 test('converts executable and protected intent into prepare-only decision', () => {
-  const engine = createDecisionEngine();
-  const external = engine.decide({
+  const external = createDecisionEngine().decide({
     canonicalInput,
-    interpretation: interpretation({
-      candidateActions: [{ type: 'execute', name: 'send-report', actionClass: 'external' }]
-    })
+    interpretation: interpretation({ candidateActions: [{ type: 'execute', name: 'send-report', actionClass: 'external' }] })
   });
-
   assert.equal(external.decisionEnvelope.decisionType, 'prepare');
   assert.equal(external.responsePlan.preparedAction.name, 'send-report');
   assert.equal(external.responsePlan.requiresConfirmation, false);
@@ -126,18 +109,13 @@ test('equivalent semantic inputs produce compatible decisions', () => {
   const engine = createDecisionEngine();
   const first = engine.decide({ canonicalInput, interpretation: interpretation() });
   const second = engine.decide({ canonicalInput, interpretation: interpretation() });
-
   assert.deepEqual(first.decisionEnvelope, second.decisionEnvelope);
   assert.deepEqual(first.responsePlan, second.responsePlan);
 });
 
 test('fails closed when missing information has no clarification question', () => {
-  const engine = createDecisionEngine();
   assert.throws(
-    () => engine.decide({
-      canonicalInput,
-      interpretation: interpretation({ missingInformation: ['document'] })
-    }),
+    () => createDecisionEngine().decide({ canonicalInput, interpretation: interpretation({ missingInformation: ['document'] }) }),
     /clarificationQuestion is required/
   );
 });

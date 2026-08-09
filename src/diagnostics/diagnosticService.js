@@ -33,6 +33,11 @@ export function createDiagnosticService({
   if (!store?.createRun || !store?.addEvidence || !store?.completeRun) throw new TypeError('diagnostic store is required');
   if (!observabilitySource?.collect) throw new TypeError('observability evidence source is required');
 
+  async function recentTraces({ globalUserId = null, projectScope = null, limit = 20 } = {}) {
+    if (!observabilitySource?.recentTraces) throw Object.assign(new Error('Recent trace discovery is not configured'), { code: 'recent-trace-discovery-unavailable' });
+    return observabilitySource.recentTraces({ globalUserId, projectScope, limit });
+  }
+
   async function analyzeRequest({ traceId = null, requestId = null, pathId = null, includeDeployment = true } = {}) {
     if (!traceId && !requestId) throw new TypeError('traceId or requestId is required');
     const runId = idFactory();
@@ -148,5 +153,5 @@ export function createDiagnosticService({
     return Object.freeze({ total: results.length, passed: results.filter((item) => item.passed).length, failed: results.filter((item) => !item.passed).length, results: Object.freeze(results) });
   }
 
-  return Object.freeze({ analyzeRequest, systemHealth, runLive, runRegressions, replayRegression });
+  return Object.freeze({ analyzeRequest, recentTraces, systemHealth, runLive, runRegressions, replayRegression });
 }

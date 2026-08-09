@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { createTelegramTransportAdapter } from '../interfaces/adapters.js';
 import { evaluateTelegramInvocation } from './telegramInvocation.js';
 import { redactSensitiveText } from '../secrets/redaction.js';
+import { assessFinalResponse, fingerprintFinalResponse } from '../response/finalResponseGuard.js';
 
 function requiredString(value, name) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${name} is required`);
@@ -88,6 +89,25 @@ export function createTelegramProductionIntegration({
     responseDeliverer: async ({ response, canonicalInput, platformInput }) => {
       const message = messageFromUpdate(platformInput);
       const traceContext = canonicalInput.traceContext;
+      const responseAssessment = assessFinalResponse({ userText: canonicalInput.text, candidateText: response.message });
+      const fingerprintSalt = traceContext?.traceId ?? traceContext?.requestId ?? '';
+      observability?.record?.({
+        eventClass: 'final_response_observed',
+        channel: 'telemetry',
+        stage: 'response',
+        traceContext,
+        outcome: responseAssessment.ok ? 'accepted' : 'rejected',
+        actorRef: canonicalInput.identityContext.globalUserId,
+        data: {
+          responseEventClass: 'final_response_observed',
+          reason: responseAssessment.reason,
+          exactEcho: responseAssessment.reason === 'exact-user-echo',
+          inputHash: fingerprintFinalResponse(canonicalInput.text, { salt: fingerprintSalt }),
+          outputHash: fingerprintFinalResponse(response.message, { salt: fingerprintSalt }),
+          responseStatus: response.status ?? null,
+          transport: 'telegram'
+        }
+      });
       observability?.record?.({ eventClass: 'delivery_attempt', channel: 'telemetry', stage: 'telegram-delivery', traceContext, outcome: 'started', actorRef: canonicalInput.identityContext.globalUserId, data: { transport: 'telegram', routed: Boolean(deliveryRouter) } });
       try {
         if (!deliveryRouter) {

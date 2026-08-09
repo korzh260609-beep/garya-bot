@@ -56,6 +56,7 @@ Active files:
 - `06_IDENTITY_AND_SCOPE.md`
 - `07_OBSERVABILITY.md`
 - `08_INTERFACES.md`
+- `08_1_DISCORD_TRANSPORT_INTEGRATION.md` — Block 8.1 production Discord extension of Interfaces
 - `09_AUTOMATION_AND_AGENTS.md`
 - `10_DOMAIN_MODULES.md`
 - `11_RUNTIME_COMPOSITION.md` — Block 11 implementation and acceptance evidence
@@ -96,9 +97,11 @@ Active files:
 
 Workflow defines implementation procedure and does not store per-block runtime history. Therefore `workflow/changes/` and `workflow/changes/BLOCK_11_RUNTIME_COMPOSITION.md` are not canonical paths.
 
-## Cross-cutting programs
+## Cross-cutting programs and extensions
 
 Memory 2.0 and Universal Diagnostics are cross-cutting programs and do not renumber the canonical Blocks 0–19.
+
+Block 8.1 is not a new independent core layer. It is the production Discord transport extension of Block 8 Interfaces and does not renumber Blocks 9–19. Its implementation must reuse the existing Identity/Scope, canonical `global_user_id`, Memory 2.0, Resource Authority, Delivery Router, Observability and security boundaries.
 
 Universal Diagnostics is explicitly an independent observer application. SG provides bounded observable facts; the external Diagnostics program reconstructs execution, verifies expected paths/invariants, finds first divergence/root cause and reports evidence. Diagnostics must not become a required SG runtime dependency or a bypass around identity, permissions, Action Gate, resource authority or owner security.
 

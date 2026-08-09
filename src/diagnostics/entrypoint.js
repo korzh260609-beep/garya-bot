@@ -30,7 +30,7 @@ const deploymentSource = createDeploymentEvidenceSource({
   githubToken: env.DIAGNOSTICS_GITHUB_TOKEN ?? null,
   runtimeHealthUrl: env.DIAGNOSTICS_SG_HEALTH_URL ?? null,
   workerHealthUrl: env.DIAGNOSTICS_WORKER_HEALTH_URL ?? null,
-  expectedRevision: env.DIAGNOSTICS_EXPECTED_REVISION ?? null
+  expectedRevision: env.DIAGNOSTICS_EXPECTED_REVISION ?? env.RENDER_GIT_COMMIT ?? null
 });
 
 const probes = [];

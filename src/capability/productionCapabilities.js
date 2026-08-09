@@ -98,7 +98,7 @@ export function createProductionCapabilities({
   const capabilities = [
     capability({
       name: 'compose-answer', description: 'Produce a conversational response.',
-      actionTypes: ['answer'], actionClasses: ['analysis-only'],
+      actionTypes: ['answer'], actionClasses: ['analysis-only'], timeoutMs: 60000,
       execute: async (request) => {
         const text = boundedText(request.input?.text ?? request.input?.message ?? 'Request completed.', 'input.text', 50000);
         const message = conversationResponder ? await conversationResponder({ text, request }) : `SG runtime ready: ${text}`;

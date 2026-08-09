@@ -60,7 +60,7 @@ export function createDeploymentSelfKnowledgeSources({
         fact({ category: 'development-status', key: 'block-18', value: 'End-to-End Verification', status: 'planned', kind: 'declaration', sourceId: 'pillars/roadmap/PRODUCTION_ROADMAP.md', sourceRevision: revision }),
         fact({ category: 'development-status', key: 'block-19', value: 'Security and Operations', status: 'planned', kind: 'declaration', sourceId: 'pillars/roadmap/PRODUCTION_ROADMAP.md', sourceRevision: revision }),
         fact({ category: 'memory', key: 'base-memory', value: 'Scoped confirmed user/project memory foundation', status: 'implemented', sourceId: 'runtime:memory-provider', sourceRevision: revision }),
-        fact({ category: 'memory', key: 'memory-2.0-program', value: 'Memory 2.0 M1-M9 program', status: 'planned', kind: 'declaration', sourceId: 'pillars/roadmap/MEMORY_2_0_ROADMAP.md', sourceRevision: revision }),
+        fact({ category: 'memory', key: 'memory-2.0-program', value: 'Memory 2.0 M1-M9 program', status: 'implemented', kind: 'evidence', sourceId: 'pillars/roadmap/MEMORY_2_0_ROADMAP.md', sourceRevision: revision }),
         fact({ category: 'capabilities', key: 'registered-capabilities', value: [...capabilityNames].sort(), status: 'implemented', sourceId: 'runtime:capability-registry', sourceRevision: revision }),
         fact({ category: 'deployment', key: 'environment', value: config.environment, status: 'implemented', sourceId: 'runtime:config', sourceRevision: revision }),
         fact({ category: 'deployment', key: 'revision', value: revision, status: 'implemented', sourceId: 'runtime:config', sourceRevision: revision }),

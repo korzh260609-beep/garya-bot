@@ -28,9 +28,19 @@ function quoteIdentifier(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
 
-async function migrateLegacyGlobalUserId({ persistence, fromGlobalUserId, toGlobalUserId }) {
+async function allocateCanonicalGlobalUserId(persistence) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const candidate = generateGlobalUserId();
+    if (!persistence?.repositories?.users?.get) return candidate;
+    if (!(await persistence.repositories.users.get(candidate))) return candidate;
+  }
+  throw new Error('GLOBAL_USER_ID_GENERATION_FAILED');
+}
+
+async function migrateGlobalUserId({ persistence, fromGlobalUserId, toGlobalUserId }) {
   if (fromGlobalUserId === toGlobalUserId) return toGlobalUserId;
-  if (!persistence?.database?.transaction) throw new Error('legacy global identity migration requires transactional PostgreSQL persistence');
+  if (!isCanonicalGlobalUserId(toGlobalUserId)) throw new TypeError('target global user id must be canonical');
+  if (!persistence?.database?.transaction) throw new Error('global identity migration requires transactional PostgreSQL persistence');
 
   await persistence.database.transaction(async (tx) => {
     const oldUser = await tx.query('SELECT profile FROM users WHERE global_user_id=$1', [fromGlobalUserId]);
@@ -40,28 +50,35 @@ async function migrateLegacyGlobalUserId({ persistence, fromGlobalUserId, toGlob
       ON CONFLICT(global_user_id) DO UPDATE SET profile = users.profile || EXCLUDED.profile, updated_at = now()`,
       [toGlobalUserId, JSON.stringify(oldProfile)]);
 
-    // Merge access rows explicitly because their unique keys include global_user_id.
     await tx.query(`INSERT INTO roles(global_user_id, project_scope, role)
-      SELECT $1, project_scope, role FROM roles WHERE global_user_id=$2 ON CONFLICT DO NOTHING`, [toGlobalUserId, fromGlobalUserId]);
+      SELECT $1, project_scope, role FROM roles WHERE global_user_id=$2 ON CONFLICT DO NOTHING`,
+      [toGlobalUserId, fromGlobalUserId]);
     await tx.query('DELETE FROM roles WHERE global_user_id=$1', [fromGlobalUserId]);
 
     await tx.query(`INSERT INTO grants(global_user_id, project_scope, grant_name, constraints)
       SELECT $1, project_scope, grant_name, constraints FROM grants WHERE global_user_id=$2
-      ON CONFLICT(global_user_id, project_scope, grant_name) DO UPDATE SET constraints=EXCLUDED.constraints`, [toGlobalUserId, fromGlobalUserId]);
+      ON CONFLICT(global_user_id, project_scope, grant_name) DO UPDATE SET constraints=EXCLUDED.constraints`,
+      [toGlobalUserId, fromGlobalUserId]);
     await tx.query('DELETE FROM grants WHERE global_user_id=$1', [fromGlobalUserId]);
 
-    // User settings use a stable project_scope_key uniqueness boundary in SG 2.1.
     const settingsTable = await tx.query("SELECT to_regclass(current_schema() || '.user_settings') AS name");
     if (settingsTable.rows?.[0]?.name) {
-      await tx.query(`INSERT INTO user_settings(global_user_id, project_scope, project_scope_key, settings, version, created_at, updated_at)
-        SELECT $1, project_scope, project_scope_key, settings, version, created_at, updated_at
+      await tx.query(`INSERT INTO user_settings(
+          global_user_id, project_scope, settings, explicit_fields, inferred_fields, source, provenance, updated_at
+        )
+        SELECT $1, project_scope, settings, explicit_fields, inferred_fields, source, provenance, updated_at
         FROM user_settings WHERE global_user_id=$2
-        ON CONFLICT(global_user_id, project_scope_key) DO UPDATE
-        SET settings=EXCLUDED.settings, version=GREATEST(user_settings.version, EXCLUDED.version), updated_at=now()`, [toGlobalUserId, fromGlobalUserId]);
+        ON CONFLICT(global_user_id, project_scope_key) DO UPDATE SET
+          settings = user_settings.settings || EXCLUDED.settings,
+          explicit_fields = user_settings.explicit_fields || EXCLUDED.explicit_fields,
+          inferred_fields = user_settings.inferred_fields || EXCLUDED.inferred_fields,
+          source = COALESCE(EXCLUDED.source, user_settings.source),
+          provenance = user_settings.provenance || EXCLUDED.provenance,
+          updated_at = GREATEST(user_settings.updated_at, EXCLUDED.updated_at)`,
+        [toGlobalUserId, fromGlobalUserId]);
       await tx.query('DELETE FROM user_settings WHERE global_user_id=$1', [fromGlobalUserId]);
     }
 
-    // Move all remaining SG 2.1 records that use the canonical global_user_id column.
     const tables = await tx.query(`SELECT table_name FROM information_schema.columns
       WHERE table_schema=current_schema() AND column_name='global_user_id'
       AND table_name <> ALL($1::text[]) ORDER BY table_name`,
@@ -112,6 +129,7 @@ export function createProductionTelegramIdentityResolver({
       currentGrants.add(grantName);
     }
   }
+
   async function ensureGrant(globalUserId, project, currentGrants, name) {
     return ensureRawGrant(globalUserId, project, currentGrants, `capability:${name}`);
   }
@@ -129,7 +147,7 @@ export function createProductionTelegramIdentityResolver({
     if (!existingLink) {
       globalUserId = isConfiguredMonarchTelegramAccount
         ? configuredMonarchGlobalUserId
-        : generateGlobalUserId();
+        : await allocateCanonicalGlobalUserId(persistence);
       await persistence.repositories.identities.link({
         platform,
         platformUserId,
@@ -138,22 +156,36 @@ export function createProductionTelegramIdentityResolver({
       });
     } else {
       globalUserId = clean(existingLink.global_user_id);
-      if (isLegacyPlatformGlobalUserId(globalUserId, { platform, platformUserId })) {
-        const canonicalTarget = isConfiguredMonarchTelegramAccount
+
+      const mustMoveConfiguredMonarch = isConfiguredMonarchTelegramAccount && globalUserId !== configuredMonarchGlobalUserId;
+      const mustUpgradeLegacyUser = !isConfiguredMonarchTelegramAccount && isLegacyPlatformGlobalUserId(globalUserId, { platform, platformUserId });
+
+      if (mustMoveConfiguredMonarch || mustUpgradeLegacyUser) {
+        const canonicalTarget = mustMoveConfiguredMonarch
           ? configuredMonarchGlobalUserId
-          : generateGlobalUserId();
-        globalUserId = await migrateLegacyGlobalUserId({ persistence, fromGlobalUserId: globalUserId, toGlobalUserId: canonicalTarget });
+          : await allocateCanonicalGlobalUserId(persistence);
+        globalUserId = await migrateGlobalUserId({
+          persistence,
+          fromGlobalUserId: globalUserId,
+          toGlobalUserId: canonicalTarget
+        });
       }
     }
 
-    if (!isCanonicalGlobalUserId(globalUserId)) {
-      throw new Error('resolved global identity is not canonical');
-    }
+    if (!isCanonicalGlobalUserId(globalUserId)) throw new Error('resolved global identity is not canonical');
 
-    // Monarch authority is rooted only in the canonical SG global identity.
     const isMonarch = Boolean(configuredMonarchGlobalUserId) && globalUserId === configuredMonarchGlobalUserId;
 
     let access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
+
+    if (!isMonarch && access.roles.includes('monarch') && persistence?.database?.query) {
+      await persistence.database.query(
+        "DELETE FROM roles WHERE global_user_id=$1 AND project_scope=$2 AND role='monarch'",
+        [globalUserId, effectiveProjectScope]
+      );
+      access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
+    }
+
     const existing = new Set(access.grants.map((grant) => grant.grant_name));
 
     if (isMonarch) {
@@ -164,16 +196,20 @@ export function createProductionTelegramIdentityResolver({
       for (const grantName of BUILT_IN_DOMAIN_PERMISSIONS) await ensureRawGrant(globalUserId, effectiveProjectScope, existing, grantName);
 
       if (configuredMonarchTimeZone && temporalService && !(await temporalService.getUserTimezone(globalUserId))) {
-        await temporalService.setUserTimezone(globalUserId, configuredMonarchTimeZone, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_TIMEZONE' } });
+        await temporalService.setUserTimezone(globalUserId, configuredMonarchTimeZone, {
+          source: 'deployment-config',
+          provenance: { env: 'SG_MONARCH_TIMEZONE' }
+        });
       }
       if (configuredMonarchLanguage && languageContextService && !(await languageContextService.getPreferred(globalUserId))) {
-        await languageContextService.setPreferred(globalUserId, configuredMonarchLanguage, { source: 'deployment-config', provenance: { env: 'SG_MONARCH_LANGUAGE' } });
+        await languageContextService.setPreferred(globalUserId, configuredMonarchLanguage, {
+          source: 'deployment-config',
+          provenance: { env: 'SG_MONARCH_LANGUAGE' }
+        });
       }
       access = await persistence.repositories.access.list({ globalUserId, projectScope: effectiveProjectScope });
     } else {
-      // Never infer monarch from a platform ID or previously returned model text.
-      const safeRoles = access.roles.filter((role) => role !== 'monarch');
-      if (safeRoles.length === 0 && access.grants.length === 0) {
+      if (access.roles.length === 0 && access.grants.length === 0) {
         await persistence.repositories.access.grantRole({ globalUserId, projectScope: effectiveProjectScope, role: 'guest' });
         await ensureGrant(globalUserId, effectiveProjectScope, existing, 'compose-answer');
       }

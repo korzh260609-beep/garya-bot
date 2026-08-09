@@ -105,7 +105,15 @@ export function createProductionMeaningInterpreter({ aiRouter, fallbackOnFailure
             { role: 'system', content: boundary.system },
             { role: 'user', content: boundary.user },
           ],
-          responseFormat: { name: 'semantic_interpretation', jsonSchema: SEMANTIC_SCHEMA },
+          responseFormat: {
+            name: 'semantic_interpretation',
+            jsonSchema: SEMANTIC_SCHEMA,
+            // candidateActions[].payload is intentionally extensible. OpenAI strict
+            // Structured Outputs cannot safely express that open payload boundary,
+            // so provider-side strictness is disabled while SG still performs its
+            // own JSON parsing + semantic contract validation before Decision Engine.
+            strict: false,
+          },
           metadata: {
             locale: canonicalInput.locale,
             languageContext: canonicalInput.metadata?.languageContext ?? null,

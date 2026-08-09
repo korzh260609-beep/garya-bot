@@ -2,11 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { createDiagnosticReport } from './contracts.js';
 import { createExpectedPathRegistry } from './pathRegistry.js';
 import { analyzeRootCause, buildFindings, downstreamEffects, findFirstDivergence, reconstructTrace } from './analyzer.js';
+import { liveResultEvidence } from './liveRunner.js';
 
 export function createDiagnosticService({
   store,
   observabilitySource,
   deploymentSource = null,
+  infrastructureSource = null,
+  liveRunner = null,
   pathRegistry = createExpectedPathRegistry(),
   environment = 'unknown',
   revision = 'unknown',
@@ -24,7 +27,6 @@ export function createDiagnosticService({
       const raw = await observabilitySource.collect({ traceId, requestId });
       const evidence = [];
       for (const item of raw) evidence.push(await store.addEvidence(runId, item));
-
       let deploymentFindings = [];
       if (includeDeployment && deploymentSource) {
         const deployment = await deploymentSource.collect();
@@ -33,7 +35,6 @@ export function createDiagnosticService({
         evidence.push(...persistedDeployment);
         deploymentFindings = [...deploymentSource.evaluate(persistedDeployment, deployment.expectedRevision)];
       }
-
       const selectedPathId = pathId ?? pathRegistry.infer(evidence.filter((item) => item.source === 'sg-observability'));
       const expectedPath = pathRegistry.get(selectedPathId);
       const traceEvidence = evidence.filter((item) => item.source === 'sg-observability');
@@ -42,17 +43,11 @@ export function createDiagnosticService({
       const rootCause = analyzeRootCause({ trace, firstDivergence, deploymentFindings });
       const findings = buildFindings({ trace, firstDivergence, rootCause, deploymentFindings });
       await store.saveFindings(runId, findings);
-
       const unknowns = [];
       if (traceEvidence.length === 0) unknowns.push('No matching SG observability evidence was found.');
       if (includeDeployment && !deploymentSource) unknowns.push('Deployment evidence source is not configured.');
       const status = rootCause && rootCause.data?.expectedControlOutcome ? 'controlled' : rootCause ? 'failed' : firstDivergence ? 'degraded' : 'healthy';
-      const report = createDiagnosticReport({
-        runId, mode: 'request', status, traceId, requestId, environment, revision,
-        expectedPathId: expectedPath.id, firstDivergence, rootCause,
-        downstreamEffects: downstreamEffects(trace, firstDivergence), findings,
-        evidenceCount: evidence.length, unknowns, generatedAt: clock()
-      });
+      const report = createDiagnosticReport({ runId, mode: 'request', status, traceId, requestId, environment, revision, expectedPathId: expectedPath.id, firstDivergence, rootCause, downstreamEffects: downstreamEffects(trace, firstDivergence), findings, evidenceCount: evidence.length, unknowns, generatedAt: clock() });
       await store.completeRun({ runId, status, report });
       return Object.freeze({ report, trace, evidence: Object.freeze(evidence) });
     } catch (error) {
@@ -68,10 +63,13 @@ export function createDiagnosticService({
     const evidence = [];
     const findings = [];
     try {
+      if (infrastructureSource) for (const item of await infrastructureSource.collect()) evidence.push(await store.addEvidence(runId, item));
       if (deploymentSource) {
         const deployment = await deploymentSource.collect();
-        for (const item of deployment.evidence) evidence.push(await store.addEvidence(runId, item));
-        findings.push(...deploymentSource.evaluate(evidence, deployment.expectedRevision));
+        const deploymentEvidence = [];
+        for (const item of deployment.evidence) deploymentEvidence.push(await store.addEvidence(runId, item));
+        evidence.push(...deploymentEvidence);
+        findings.push(...deploymentSource.evaluate(deploymentEvidence, deployment.expectedRevision));
       }
       const failed = evidence.filter((item) => ['failed', 'timeout'].includes(item.status));
       const status = findings.some((item) => item.confidence === 'CONFIRMED') || failed.length ? 'degraded' : 'healthy';
@@ -86,6 +84,19 @@ export function createDiagnosticService({
     }
   }
 
+  async function runLive({ probeIds = undefined } = {}) {
+    if (!liveRunner) throw Object.assign(new Error('Live diagnostic runner is not configured'), { code: 'live-runner-not-configured' });
+    const runId = idFactory();
+    await store.createRun({ runId, mode: 'live', environment, revision, input: { probeIds: probeIds ?? null } });
+    const result = await liveRunner.run({ ...(probeIds ? { probeIds } : {}) });
+    const evidence = [];
+    for (const item of liveResultEvidence(result)) evidence.push(await store.addEvidence(runId, item));
+    const status = result.failed ? 'degraded' : 'healthy';
+    const report = createDiagnosticReport({ runId, mode: 'live', status, environment, revision, evidenceCount: evidence.length, unknowns: [], generatedAt: clock() });
+    await store.completeRun({ runId, status, report });
+    return Object.freeze({ report, result, evidence: Object.freeze(evidence) });
+  }
+
   async function replayRegression(regression) {
     const fixtureEvidence = regression.fixture?.evidence ?? [];
     const expectedPath = pathRegistry.get(regression.fixture?.pathId ?? 'conversation');
@@ -93,8 +104,7 @@ export function createDiagnosticService({
     const firstDivergence = findFirstDivergence(trace);
     const rootCause = analyzeRootCause({ trace, firstDivergence });
     const expected = regression.expected ?? {};
-    const passed = (expected.firstDivergenceStage == null || firstDivergence?.stage === expected.firstDivergenceStage)
-      && (expected.errorClass == null || rootCause?.errorClass === expected.errorClass);
+    const passed = (expected.firstDivergenceStage == null || firstDivergence?.stage === expected.firstDivergenceStage) && (expected.errorClass == null || rootCause?.errorClass === expected.errorClass);
     return Object.freeze({ regressionId: regression.regression_id ?? regression.regressionId, passed, firstDivergence, rootCause });
   }
 
@@ -105,5 +115,5 @@ export function createDiagnosticService({
     return Object.freeze({ total: results.length, passed: results.filter((item) => item.passed).length, failed: results.filter((item) => !item.passed).length, results: Object.freeze(results) });
   }
 
-  return Object.freeze({ analyzeRequest, systemHealth, runRegressions, replayRegression });
+  return Object.freeze({ analyzeRequest, systemHealth, runLive, runRegressions, replayRegression });
 }

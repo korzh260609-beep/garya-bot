@@ -27,6 +27,7 @@ Active files:
 - `SG21_SYSTEM.md`
 - `SEMANTIC_KERNEL.md`
 - `CONTEXT_AND_MEMORY.md`
+- `MEMORY_2_0.md`
 - `DECISION_AND_ACTION_GATE.md`
 - `CAPABILITY_SYSTEM.md`
 - `IDENTITY_AND_SCOPE.md`
@@ -74,8 +75,9 @@ Active files:
 - `16_14_INTERNAL_EVENT_BUS.md` — Block 16.14 implementation and acceptance evidence
 - `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — Block 16.15 implementation and acceptance evidence
 - `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — Block 16.16 implementation and acceptance evidence
-- `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 planned specification/future acceptance evidence
-- `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 planned specification/future acceptance evidence
+- `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 specification/evidence
+- `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 specification/evidence
+- `MEMORY_2_0_ROADMAP.md` — completed canonical Memory 2.0 M1–M9 program and acceptance evidence
 - `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch
 
 ## Workflow
@@ -87,6 +89,7 @@ Active files:
 - `TEST_AND_EVIDENCE_PROTOCOL.md`
 - `RELEASE_AND_ROLLBACK_PROTOCOL.md`
 - `ARCHITECTURE_DECISION_PROTOCOL.md`
+- `MEMORY_2_0_WORKFLOW.md` — Memory 2.0 implementation/verification sequence
 
 Workflow defines implementation procedure and does not store per-block runtime history. Therefore `workflow/changes/` and `workflow/changes/BLOCK_11_RUNTIME_COMPOSITION.md` are not canonical paths.
 

@@ -110,6 +110,10 @@ export function createDurableWorker({
           taskId: task.task_id,
           kind: task.kind,
           payload: task.payload,
+          actorGlobalUserId: task.global_user_id,
+          projectScope: task.project_scope,
+          groupScope: task.group_scope ?? null,
+          threadScope: task.thread_scope ?? null,
           identityContext: task.payload?.identityContext,
           scopeContext: task.payload?.scopeContext,
           traceContext: traceContextFor(task),
@@ -117,7 +121,7 @@ export function createDurableWorker({
           idempotencyKey: task.idempotency_key
         }));
         const allowed = gateDecision?.allowed === true || gateDecision?.outcome === 'allow';
-        event('worker_action_gate_decision', task, allowed ? 'allow' : 'deny', { gateOutcome: gateDecision?.outcome ?? null });
+        event('worker_action_gate_decision', task, allowed ? 'allow' : 'deny', { gateOutcome: gateDecision?.outcome ?? null, gateReason: gateDecision?.reason ?? null });
         if (!allowed) {
           const error = new Error(gateDecision?.reason ?? 'action_gate_denied');
           error.code = 'action_gate_denied';

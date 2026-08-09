@@ -87,25 +87,33 @@ export function createTelegramProductionIntegration({
     requestHandler: (canonicalInput) => runtime.handle(canonicalInput),
     responseDeliverer: async ({ response, canonicalInput, platformInput }) => {
       const message = messageFromUpdate(platformInput);
-      if (!deliveryRouter) {
-        await botClient.sendMessage({ chatId: message.chat.id, text: response.message, messageThreadId: message.message_thread_id ?? null, replyToMessageId: message.message_id });
-        return;
-      }
-      const result = await deliveryRouter.route({
-        kind: 'current-response',
-        actorGlobalUserId: canonicalInput.identityContext.globalUserId,
-        recipientGlobalUserId: canonicalInput.identityContext.globalUserId,
-        projectScope: canonicalInput.scopeContext.projectScope,
-        message: response.message,
-        originTarget: { transport: 'telegram', address: String(message.chat.id), threadId: message.message_thread_id == null ? null : String(message.message_thread_id), replyToMessageId: String(message.message_id) },
-        idempotencyKey: `telegram-response:${platformInput.update_id}`,
-        locale: canonicalInput.locale,
-        traceContext: canonicalInput.traceContext,
-        metadata: { responseStatus: response.status }
-      });
-      if (result.status !== 'delivered') {
-        const error = new Error(`Telegram delivery failed: ${result.failureCode ?? result.status}`);
-        error.code = result.failureCode ?? 'telegram-delivery-failed';
+      const traceContext = canonicalInput.traceContext;
+      observability?.record?.({ eventClass: 'delivery_attempt', channel: 'telemetry', stage: 'telegram-delivery', traceContext, outcome: 'started', actorRef: canonicalInput.identityContext.globalUserId, data: { transport: 'telegram', routed: Boolean(deliveryRouter) } });
+      try {
+        if (!deliveryRouter) {
+          await botClient.sendMessage({ chatId: message.chat.id, text: response.message, messageThreadId: message.message_thread_id ?? null, replyToMessageId: message.message_id });
+        } else {
+          const result = await deliveryRouter.route({
+            kind: 'current-response',
+            actorGlobalUserId: canonicalInput.identityContext.globalUserId,
+            recipientGlobalUserId: canonicalInput.identityContext.globalUserId,
+            projectScope: canonicalInput.scopeContext.projectScope,
+            message: response.message,
+            originTarget: { transport: 'telegram', address: String(message.chat.id), threadId: message.message_thread_id == null ? null : String(message.message_thread_id), replyToMessageId: String(message.message_id) },
+            idempotencyKey: `telegram-response:${platformInput.update_id}`,
+            locale: canonicalInput.locale,
+            traceContext,
+            metadata: { responseStatus: response.status }
+          });
+          if (result.status !== 'delivered') {
+            const error = new Error(`Telegram delivery failed: ${result.failureCode ?? result.status}`);
+            error.code = result.failureCode ?? 'telegram-delivery-failed';
+            throw error;
+          }
+        }
+        observability?.record?.({ eventClass: 'delivery_completed', channel: 'telemetry', stage: 'telegram-delivery', traceContext, outcome: 'delivered', actorRef: canonicalInput.identityContext.globalUserId, data: { transport: 'telegram', routed: Boolean(deliveryRouter) } });
+      } catch (error) {
+        observability?.recordFailure?.({ traceContext, stage: 'telegram-delivery', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-delivery-failed', data: { transport: 'telegram' } });
         throw error;
       }
     },

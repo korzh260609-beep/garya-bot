@@ -1,6 +1,6 @@
 # SG 2.1 Semantic
 
-This branch contains the active SG 2.1 architecture and completed executable production foundation through Block 16.16. Repository-wide audit hardening has also wired the Internal Event Bus, Contract Versioning and Domain Runtime into production composition and closed cross-module observability, feature-result and Render-startup compatibility defects. Block 17 — Render Deployment is next.
+This branch contains the active SG 2.1 architecture and completed executable production foundation through Block 16.16. Repository-wide audit hardening has also wired the Internal Event Bus, Contract Versioning and Domain Runtime into production composition and closed cross-module observability, feature-result and Render-startup compatibility defects. Block 16.18 — Monarch Control / Owner Security is the next roadmap block before Block 17 Render Deployment.
 
 ## Requirements
 - Node.js 22
@@ -62,6 +62,7 @@ All non-secret options are documented in `.env.example`. Real API keys must be s
 - Block 16.16 — Feature Flags & Controlled Rollout
 
 ### Next
+- Block 16.18 — Monarch Control / Owner Security
 - Block 17 — Render Deployment
 - Block 18 — End-to-End Verification
 - Block 19 — Security and Operations
@@ -281,9 +282,27 @@ The repository-wide audit after Block 16.16 additionally verified and hardened t
 
 Individual implementation and acceptance evidence remains in `pillars/roadmap/16_8_*.md` through `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md`.
 
+### Block 16.18 — Monarch Control / Owner Security
+**Status:** Planned — next.
+
+- verified owner/Monarch authority rooted in canonical `global_user_id`;
+- owner status cannot be inferred from names, usernames, commands, phrases or AI output;
+- centralized deny-by-default owner-security policy composed with existing Action Gate;
+- SG-wide security/configuration/roles/grants/privileged integrations are owner-only;
+- tasks, agents, workers, tools, events and AI preserve the original actor and cannot self-escalate;
+- raw secrets remain non-disclosable through ordinary SG surfaces;
+- privileged allow/deny decisions are auditable;
+- emergency lockdown and trusted owner recovery are required;
+- privilege-escalation, impersonation and bypass tests are mandatory before deployment.
+
+Detailed planned specification: `pillars/roadmap/16_18_MONARCH_CONTROL_OWNER_SECURITY.md`.
+Architecture boundary: `pillars/architecture/MONARCH_OWNER_SECURITY.md`.
+
 ## Runtime direction
 Current production-composed path is:
 `Platform Input → Transport Adapter → Identity/Scope → User Settings/Conversation/Language Context → Contract Version Check → Semantic Kernel → Context Resolution → Decision Engine → Capability Selection → Connection/Resource Authority where required → Action Gate → Feature/Contract-gated Capability or Domain Runtime → Delivery Router where required → Response → Observability/Internal Events`.
+
+Block 16.18 will tighten privileged execution by composing verified Owner Security before protected SG-wide system changes; it will not replace Action Gate or the existing Identity/Scope/Resource Authority boundaries.
 
 The production interpretation route remains:
 `ProductionMeaningInterpreter → AIRouter → ProductionAiPolicy → ModelRegistry → AIProvider`
@@ -303,6 +322,8 @@ The production interpretation route remains:
 - Raw secrets cannot enter ordinary memory, prompts or telemetry.
 - Connections are not identities and do not prove resource ownership.
 - Resource authority is explicit and complements Identity, Scope and Access.
+- Verified owner/Monarch authority is rooted in `global_user_id` and cannot be created by natural-language commands, phrases, AI, agents, tasks or tools.
+- Only the verified owner may change SG-wide security/authority state; delegation stays explicitly bounded.
 - Conversation state is not confirmed memory.
 - User preferences cannot weaken mandatory safety/authorization.
 - Delivery cannot target unauthorized users/resources.
@@ -315,7 +336,7 @@ The production interpretation route remains:
 - Original natural-language text remains available to Semantic Kernel; multilingual support does not require mandatory pre-translation.
 
 ## Current boundary
-Blocks 0–16.16 provide the completed executable SG 2.1 foundation. Block 17 Render Deployment is the next roadmap stage, followed by Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
+Blocks 0–16.16 provide the completed executable SG 2.1 foundation. Block 16.18 Monarch Control / Owner Security is the next roadmap stage; after its implementation and acceptance verification, Block 17 Render Deployment follows, then Block 18 End-to-End Verification, Block 19 Security and Operations, and Pilot Launch.
 
 ## Authority
 Read in this order:

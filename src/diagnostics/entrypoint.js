@@ -40,7 +40,10 @@ const liveRunner = createLiveDiagnosticRunner({ probes });
 
 const revision = env.SG_REVISION ?? env.RENDER_GIT_COMMIT ?? 'unknown';
 const environment = env.SG_ENVIRONMENT ?? env.NODE_ENV ?? 'production';
-const service = createDiagnosticService({ store, observabilitySource, deploymentSource, infrastructureSource, liveRunner, environment, revision });
+const service = createDiagnosticService({
+  store, observabilitySource, deploymentSource, infrastructureSource, liveRunner, environment, revision,
+  inFlightGraceMs: Number(env.DIAGNOSTICS_IN_FLIGHT_GRACE_MS ?? 300000)
+});
 const httpServer = createDiagnosticsHttpServer({
   service, store,
   host: env.DIAGNOSTICS_HOST ?? '0.0.0.0',

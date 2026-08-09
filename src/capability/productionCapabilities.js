@@ -179,13 +179,9 @@ export function createProductionCapabilities({
       requiredSources: ['approved-source-registry'], requiredTools: ['source-retriever'],
       execute: async (request) => {
         if (!sourceRetriever) return { status: 'unavailable', error: { code: 'source-retriever-unavailable', message: 'Approved source retriever is not configured', retryable: true } };
-        const result = await memoryProvider.query({
-          scope: scopeFrom(request),
-          layers: request.input?.layers ?? ['session', 'user-memory', 'project-memory'],
-          keys: request.input?.keys ?? [],
-          now: new Date().toISOString()
-        });
-        return { status: 'success', data: { records: result.records, diagnostics: result.diagnostics, message: `Memory records: ${result.records.length}` } };
+        const result = await sourceRetriever({ sourceId: requiredText(request.input?.sourceId, 'input.sourceId'), query: request.input?.query ?? null, request });
+        if (!result?.ok) return { status: 'failed', error: { code: result?.code ?? 'source-failed', message: result?.message ?? 'Source retrieval failed', retryable: Boolean(result?.retryable) }, sources: result?.sources ?? [] };
+        return { status: result.partial ? 'partial' : 'success', data: { ...result, message: result.message ?? 'Source retrieved' }, sources: result.sources ?? [request.input.sourceId] };
       }
     }),
     capability({

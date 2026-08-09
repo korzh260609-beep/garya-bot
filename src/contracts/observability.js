@@ -12,6 +12,9 @@ export const OBSERVABILITY_EVENT_CLASSES = Object.freeze([
   'capability_started',
   'capability_completed',
   'capability_failed',
+  'final_response_observed',
+  'delivery_completed',
+  'telegram_update_completed',
   'response_delivered',
   'audit_event'
 ]);

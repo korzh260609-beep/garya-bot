@@ -182,13 +182,19 @@ export function buildDefensivePromptBoundary({ systemInstruction, userInput }) {
   });
 }
 
+function safeFailureCode(code) {
+  const value = String(code ?? 'AI_UNAVAILABLE').trim();
+  return /^[A-Za-z0-9_.:-]{1,80}$/.test(value) ? value : 'AI_UNAVAILABLE';
+}
+
 export function deterministicAiFallback({ code = 'AI_UNAVAILABLE', traceId = null } = {}) {
+  const safeCode = safeFailureCode(code);
   return Object.freeze({
     status: 'fallback',
-    code,
+    code: safeCode,
     traceId,
     retryable: false,
     actionAuthorized: false,
-    message: 'AI execution is unavailable. No protected action was authorized or executed.',
+    message: `AI execution is unavailable (${safeCode}). No protected action was authorized or executed.`,
   });
 }

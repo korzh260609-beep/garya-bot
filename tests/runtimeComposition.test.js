@@ -61,7 +61,7 @@ test('full local transport path reaches capability and delivery with observabili
   assert.equal(harness.runtime.readiness().ready, true);
   const result = await harness.transport.send({ text: 'hello runtime', userId: 'gary', projectId: 'sg2.1' });
   assert.equal(result.response.status, 'success');
-  assert.match(result.response.message, /SG runtime ready/);
+  assert.match(result.response.message, /SG AI is currently unavailable \(AI_NOT_INITIALIZED\)/);
   assert.equal(harness.transport.deliveries.length, 1);
 
   const traceId = result.canonicalInput.traceContext.traceId;

@@ -36,7 +36,7 @@ Analysis, explanation, criticism, planning, simulation and prepare-only output a
 Platform IDs are links only. Personal memory, projects, settings, permissions and sources are isolated by global identity and scope.
 
 ## D-009 — Memory and Self Knowledge layers are distinct
-Session context, confirmed user memory, confirmed project memory, System Self Knowledge, dialogue archive, topic digest, external evidence and runtime state must not be mixed. Raw dialogue never becomes confirmed memory automatically. System Self Knowledge is SG-owned structured knowledge about SG itself and is not user/project memory.
+Session context, confirmed user memory, user×group memory, shared group memory, thread/topic memory, confirmed project memory, System Self Knowledge, dialogue archive, topic digest, external evidence and runtime state must not be mixed. Raw dialogue never becomes confirmed memory automatically. System Self Knowledge is SG-owned structured knowledge about SG itself and is not user/group/project memory.
 
 ## D-010 — Sources and AI are not automatically truth
 Factual claims requiring verification must use available sources or clearly disclose uncertainty. AI output, chat history and summaries are not verified evidence by themselves.
@@ -92,13 +92,14 @@ Constitution
 → Feature Flags & Controlled Rollout
 → Self Knowledge / System Self-Awareness
 → Monarch Control / Owner Security
+→ Memory 2.0 (M1–M9)
 → Render Deployment
 → End-to-End Verification
 → Security and Operations
 → Pilot Launch
 ```
 
-Blocks 0–10 form the platform-core program. Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch form the production continuation defined by `pillars/roadmap/PRODUCTION_ROADMAP.md`.
+Blocks 0–10 form the platform-core program. Blocks 11–19, intermediate Blocks 16.5–16.18, the Memory 2.0 M1–M9 program and Pilot Launch form the production continuation. Production roadmap details remain in `pillars/roadmap/PRODUCTION_ROADMAP.md`; Memory 2.0 details are canonical in `pillars/roadmap/MEMORY_2_0_ROADMAP.md`.
 
 ## D-017 — Development procedure is fixed by workflow
 Every implementation block follows: scope → contracts → skeleton → config → minimal logic → tests → observability → safety → architecture verification → reversible commit → evidence.
@@ -157,3 +158,14 @@ System Self Knowledge may describe SG identity, purpose, architecture, capabilit
 Roadmap text alone does not prove implementation. User text and AI output cannot redefine canonical SG identity, owner or architecture truth. Raw secrets never enter Self Knowledge. Live operational claims still require diagnostics/runtime evidence when current state matters.
 
 The canonical architecture is `pillars/architecture/SELF_KNOWLEDGE.md`; implementation is Block 16.17.
+
+## D-026 — Memory 2.0 is the canonical completion program for SG memory
+SG must complete memory through the M1–M9 program defined in `pillars/architecture/MEMORY_2_0.md`, `pillars/roadmap/MEMORY_2_0_ROADMAP.md` and `pillars/workflow/MEMORY_2_0_WORKFLOW.md`.
+
+Memory 2.0 extends the existing memory/context foundation; it does not replace `global_user_id`, Conversation Context, trust/provenance, PostgreSQL durability, Action Gate or Resource Authority.
+
+Shared group memory is a first-class group/resource scope and must not be represented as a fake personal owner. Personal memory follows a verified `global_user_id` across transports, while group/resource memory remains local to its authorized resource scope.
+
+Private memory cannot become shared memory implicitly. Scope/privacy authorization must occur before recall content reaches semantic processing. Automatic capture cannot turn raw dialogue into confirmed truth. Consolidation preserves provenance/history and cannot silently increase trust. Expired/superseded memory is excluded from ordinary recall.
+
+Memory cannot grant identity, roles, permissions, ownership or resource authority, and raw secrets never become ordinary memory.

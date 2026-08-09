@@ -46,6 +46,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run migrate
+      - name: Memory 2.0 unit tests
+        run: node --test tests/memory2.test.js
+      - name: Memory 2.0 PostgreSQL tests
+        run: node --test tests/memory2Postgres.test.js
+      - name: Memory 2.0 response context regression
+        run: node --test tests/boundedResponseContext.test.js tests/runtimeComposition.test.js
       - name: Block 16.18 focused security test
         run: node --test tests/ownerSecurity.test.js
       - run: npm run check

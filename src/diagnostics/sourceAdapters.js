@@ -42,6 +42,24 @@ async function fetchJson(url, { headers = {}, timeoutMs = 5000 } = {}) {
   } finally { clearTimeout(timer); }
 }
 
+export function createInfrastructureEvidenceSource({ database } = {}) {
+  if (!database?.query || !database?.health) throw new TypeError('database with query/health is required');
+  return Object.freeze({
+    async collect() {
+      const evidence = [];
+      const pool = database.health();
+      evidence.push(createDiagnosticEvidence({ source: 'postgres', stage: 'infrastructure.postgres', status: pool.started ? 'completed' : 'failed', component: 'postgres', errorCode: pool.started ? null : 'postgres-not-started', payload: { pool } }));
+      try {
+        const migrations = await database.query('SELECT version, checksum, applied_at FROM schema_migrations ORDER BY version');
+        evidence.push(createDiagnosticEvidence({ source: 'postgres', stage: 'infrastructure.migrations', status: 'completed', component: 'migrations', payload: { count: migrations.rowCount, latest: migrations.rows.at(-1)?.version ?? null } }));
+      } catch (error) {
+        evidence.push(createDiagnosticEvidence({ source: 'postgres', stage: 'infrastructure.migrations', status: 'failed', component: 'migrations', errorCode: 'migration-state-unavailable', payload: { error: error.message } }));
+      }
+      return Object.freeze(evidence);
+    }
+  });
+}
+
 export function createDeploymentEvidenceSource({
   repository = 'korzh260609-beep/garya-bot',
   branch = 'dev/sg2.1-semantic',
@@ -65,6 +83,18 @@ export function createDeploymentEvidenceSource({
         evidence.push(createDiagnosticEvidence({ source: 'github', sourceRef: `${repository}:${branch}`, stage: 'deployment.github-head', status: 'failed', component: 'github', errorCode: error.name === 'AbortError' ? 'timeout' : 'github-unavailable', payload: { repository, branch, error: error.message } }));
       }
 
+      if (branchRevision) {
+        try {
+          const checks = await fetchJson(`https://api.github.com/repos/${repository}/commits/${branchRevision}/check-runs`, { headers: { ...githubHeaders, accept: 'application/vnd.github+json' } });
+          const runs = Array.isArray(checks.body?.check_runs) ? checks.body.check_runs : [];
+          const completed = runs.filter((item) => item.status === 'completed');
+          const successful = completed.length > 0 && completed.every((item) => ['success', 'neutral', 'skipped'].includes(item.conclusion));
+          evidence.push(createDiagnosticEvidence({ source: 'github-actions', sourceRef: `${repository}:${branchRevision}`, stage: 'deployment.ci', status: checks.ok && successful ? 'completed' : checks.ok ? 'degraded' : 'failed', component: 'github-actions', errorCode: checks.ok ? null : `http-${checks.status}`, payload: { revision: branchRevision, total: runs.length, completed: completed.length, conclusions: completed.map((item) => item.conclusion) } }));
+        } catch (error) {
+          evidence.push(createDiagnosticEvidence({ source: 'github-actions', sourceRef: `${repository}:${branchRevision}`, stage: 'deployment.ci', status: 'failed', component: 'github-actions', errorCode: error.name === 'AbortError' ? 'timeout' : 'ci-unavailable', payload: { revision: branchRevision, error: error.message } }));
+        }
+      }
+
       for (const [name, url] of [['web', runtimeHealthUrl], ['worker', workerHealthUrl]]) {
         if (!url) continue;
         try {
@@ -84,6 +114,8 @@ export function createDeploymentEvidenceSource({
         const actual = item.payload?.revision;
         if (actual && actual !== expected) findings.push(createDiagnosticFinding({ kind: 'deployment-mismatch', errorClass: 'DEPLOYMENT', component: item.component, confidence: 'CONFIRMED', summary: `${item.component} revision does not match approved branch HEAD.`, evidenceIds: [item.evidenceId], data: { expectedRevision: expected, actualRevision: actual } }));
       }
+      const ci = evidence.find((entry) => entry.stage === 'deployment.ci');
+      if (ci && ci.status !== 'completed') findings.push(createDiagnosticFinding({ kind: 'deployment-ci-not-green', errorClass: 'DEPLOYMENT', component: 'github-actions', confidence: ci.status === 'failed' ? 'HIGH' : 'MEDIUM', summary: 'Approved branch revision does not have fully successful CI evidence.', evidenceIds: [ci.evidenceId], data: { expectedRevision: expected } }));
       return Object.freeze(findings);
     }
   });

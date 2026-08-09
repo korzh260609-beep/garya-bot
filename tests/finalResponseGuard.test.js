@@ -21,8 +21,8 @@ test('final response guard accepts a real conversational answer', () => {
   assert.equal(result.ok, true);
 });
 
-test('compose-answer execution budget is aligned with the AI router instead of the old 10 second timeout', () => {
+test('compose-answer execution budget covers AI retry and model fallback path', () => {
   const compose = createProductionCapabilities({ memoryProvider }).find((item) => item.name === 'compose-answer');
   assert.ok(compose);
-  assert.equal(compose.timeoutMs, 60000);
+  assert.equal(compose.timeoutMs, 300000);
 });

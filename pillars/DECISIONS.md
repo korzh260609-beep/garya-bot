@@ -35,8 +35,8 @@ Analysis, explanation, criticism, planning, simulation and prepare-only output a
 ## D-008 — global_user_id is the root of personal identity
 Platform IDs are links only. Personal memory, projects, settings, permissions and sources are isolated by global identity and scope.
 
-## D-009 — Memory layers are distinct
-Session context, confirmed user memory, confirmed project memory, dialogue archive, topic digest, external evidence and runtime state must not be mixed. Raw dialogue never becomes confirmed memory automatically.
+## D-009 — Memory and Self Knowledge layers are distinct
+Session context, confirmed user memory, confirmed project memory, System Self Knowledge, dialogue archive, topic digest, external evidence and runtime state must not be mixed. Raw dialogue never becomes confirmed memory automatically. System Self Knowledge is SG-owned structured knowledge about SG itself and is not user/project memory.
 
 ## D-010 — Sources and AI are not automatically truth
 Factual claims requiring verification must use available sources or clearly disclose uncertainty. AI output, chat history and summaries are not verified evidence by themselves.
@@ -90,13 +90,15 @@ Constitution
 → Internal Event Bus
 → Schema & Contract Versioning
 → Feature Flags & Controlled Rollout
+→ Self Knowledge / System Self-Awareness
+→ Monarch Control / Owner Security
 → Render Deployment
 → End-to-End Verification
 → Security and Operations
 → Pilot Launch
 ```
 
-Blocks 0–10 form the platform-core program. Blocks 11–19, intermediate Blocks 16.5–16.16 and Pilot Launch form the production continuation defined by `pillars/roadmap/PRODUCTION_ROADMAP.md`.
+Blocks 0–10 form the platform-core program. Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch form the production continuation defined by `pillars/roadmap/PRODUCTION_ROADMAP.md`.
 
 ## D-017 — Development procedure is fixed by workflow
 Every implementation block follows: scope → contracts → skeleton → config → minimal logic → tests → observability → safety → architecture verification → reversible commit → evidence.
@@ -126,7 +128,7 @@ The original user text remains available to Semantic Kernel; ordinary multilingu
 Language handling must preserve existing identity, scope, memory, Decision Engine, Action Gate, Capability System, AI Router, Temporal Context and observability boundaries.
 
 ## D-024 — Foundational control layers precede Render deployment
-Before Block 17 deployment is treated as the next mandatory production stage, SG must explicitly implement and verify Blocks 16.7–16.16: Configuration & Policy, Secrets & Credentials, External Connections Registry, Resource Ownership & Authority, Session & Conversation Context, User Settings & Preferences, Notification & Delivery Router, Internal Event Bus, Schema & Contract Versioning, and Feature Flags & Controlled Rollout.
+Before Block 17 deployment is treated as the next mandatory production stage, SG must explicitly implement and verify Blocks 16.7–16.18: Configuration & Policy, Secrets & Credentials, External Connections Registry, Resource Ownership & Authority, Session & Conversation Context, User Settings & Preferences, Notification & Delivery Router, Internal Event Bus, Schema & Contract Versioning, Feature Flags & Controlled Rollout, Self Knowledge / System Self-Awareness, and Monarch Control / Owner Security.
 
 These layers are transport-independent and must preserve all existing core authority boundaries. In particular:
 
@@ -135,13 +137,23 @@ These layers are transport-independent and must preserve all existing core autho
 - Access/capability policy answers what kind of action is permitted.
 - Resource Ownership & Authority answers over which specific resource the actor may act.
 - A connection is not identity and does not itself prove resource ownership.
-- Raw secrets are never ordinary memory, prompt context or telemetry.
+- Raw secrets are never ordinary memory, Self Knowledge, prompt context or telemetry.
 - Conversation state is not confirmed long-term memory.
 - User preferences cannot weaken mandatory safety or authorization policy.
 - Delivery cannot target unauthorized users or resources.
 - Internal events cannot bypass Decision Engine, Action Gate or Capability execution boundaries.
 - Contract-version adapters cannot broaden trust, scope or permissions.
 - Feature flags may restrict or disable availability but cannot grant permissions, ownership or authority.
+- System Self Knowledge cannot grant authority and cannot be rewritten by ordinary user/model text.
 - Identity, ownership or authority must never depend on secret words, commands, phrases or keyword hacks.
 
-Canonical architecture for these layers is defined in `pillars/architecture/FOUNDATIONAL_CONTROL_LAYERS.md`.
+Canonical architecture for these layers is defined in `pillars/architecture/FOUNDATIONAL_CONTROL_LAYERS.md`, `pillars/architecture/SELF_KNOWLEDGE.md` and `pillars/architecture/MONARCH_OWNER_SECURITY.md`.
+
+## D-025 — SG maintains a dedicated System Self Knowledge layer
+SG must maintain a structured, versioned and provenance-aware model of itself that is separate from user memory and project memory.
+
+System Self Knowledge may describe SG identity, purpose, architecture, capabilities, modules, integrations, development status and limitations, but it must distinguish `implemented`, `partial`, `planned`, `disabled`, `broken` and `unknown` states.
+
+Roadmap text alone does not prove implementation. User text and AI output cannot redefine canonical SG identity, owner or architecture truth. Raw secrets never enter Self Knowledge. Live operational claims still require diagnostics/runtime evidence when current state matters.
+
+The canonical architecture is `pillars/architecture/SELF_KNOWLEDGE.md`; implementation is Block 16.17.

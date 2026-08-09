@@ -49,3 +49,21 @@ jobs:
       - run: npm run check
       - run: npm start
       - run: npm run start:worker
+      - name: Verify independent diagnostics service
+        env:
+          DIAGNOSTICS_ADMIN_TOKEN: ci-diagnostics-token
+          SG_MONARCH_GLOBAL_USER_ID: usr_ci_monarch
+          PORT: "18790"
+        run: |
+          npm run start:diagnostics > /tmp/sg-diagnostics.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18790/health > /tmp/sg-diagnostics-health.json; then
+              cat /tmp/sg-diagnostics-health.json
+              exit 0
+            fi
+            sleep 0.5
+          done
+          cat /tmp/sg-diagnostics.log
+          exit 1

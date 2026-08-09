@@ -2,6 +2,8 @@
 
 Roadmap defines what is built, dependency order, gates and acceptance boundaries. Blocks 0–10 are documented as individual roadmap files. The production continuation is documented canonically in `PRODUCTION_ROADMAP.md`, which contains Blocks 11–19, including intermediate Blocks 16.5–16.18, and Pilot Launch as one coordinated production program.
 
+Memory 2.0 is a completed cross-cutting memory program documented separately in `MEMORY_2_0_ROADMAP.md`. It extends the existing Context/Memory foundation without changing the numbered production order.
+
 ## Order
 0. `00_ENGINEERING_FOUNDATION.md`
 1. `00_PRINCIPLES_AND_GATES.md`
@@ -35,43 +37,27 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 29. `16_14_INTERNAL_EVENT_BUS.md` — implementation and acceptance evidence for Block 16.14
 30. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — implementation and acceptance evidence for Block 16.15
 31. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — implementation and acceptance evidence for Block 16.16
-32. `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — planned Block 16.17 specification and future acceptance evidence
-33. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — planned Block 16.18 specification and future acceptance evidence
+32. `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 specification/evidence
+33. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 specification/evidence
+34. `MEMORY_2_0_ROADMAP.md` — completed cross-cutting Memory 2.0 M1–M9 program
+
+## Memory 2.0
+
+**Status: Completed and CI/runtime verified.**
+
+Canonical implementation order:
+
+`M1 Scope Model → M2 Shared Group Memory → M7 Permissions & Privacy → M3 Automatic Capture → M4 Consolidation → M5 Intelligent Recall → M6 Cross-Platform Global Memory → M8 Lifecycle → M9 Control/Diagnostics/Tests`.
+
+Memory 2.0 preserves `global_user_id`, project/group/thread isolation, Conversation Context separation, System Self Knowledge separation, Action Gate, Resource Authority, provenance/trust, PostgreSQL durability and secret-safe observability.
+
+Detailed completion evidence: `MEMORY_2_0_ROADMAP.md`.
+Architecture: `../architecture/MEMORY_2_0.md`.
+Workflow: `../workflow/MEMORY_2_0_WORKFLOW.md`.
 
 ## Production continuation
 
-`PRODUCTION_ROADMAP.md` is the canonical continuation after Block 10 and fixes the implementation order as:
-
-1. Block 11 — Runtime Composition — completed
-2. Block 12 — PostgreSQL Persistence — completed
-3. Block 13 — Durable Automation and Workers — completed
-4. Block 14 — Telegram Production Integration — completed
-5. Block 15 — Production AI Integration — completed
-6. Block 16 — Production Capabilities — completed
-7. Block 16.5 — Temporal Context — completed
-8. Block 16.6 — Language & Locale Context — completed
-9. Block 16.7 — Configuration & Policy Layer — completed
-10. Block 16.8 — Secrets & Credentials Management — completed
-11. Block 16.9 — External Connections Registry — completed
-12. Block 16.10 — Resource Ownership & Authority Model — completed
-13. Block 16.11 — Session & Conversation Context — completed
-14. Block 16.12 — User Settings & Preferences — completed
-15. Block 16.13 — Notification & Delivery Router — completed
-16. Block 16.14 — Internal Event Bus — completed and production-wired
-17. Block 16.15 — Schema & Contract Versioning — completed and production-wired
-18. Block 16.16 — Feature Flags & Controlled Rollout — completed
-19. Block 16.17 — Self Knowledge / System Self-Awareness — planned, next
-20. Block 16.18 — Monarch Control / Owner Security — planned after 16.17
-21. Block 17 — Render Deployment
-22. Block 18 — End-to-End Verification
-23. Block 19 — Security and Operations
-24. Pilot Launch
-
-Repository-wide audit hardening after Block 16.16 additionally verifies canonical observability compatibility, version enforcement at production capability boundaries, production Event Bus/Domain Runtime composition, canonical feature-disabled results and rollback-safe Render startup. This hardening is corrective work within completed blocks and does not create a new roadmap block.
-
-Block 16.17 is intentionally placed before Owner Security so SG first has a canonical, revision-bound and evidence-aware model of its own identity, architecture, capabilities, limitations and implementation state. Block 16.18 then protects owner-only changes against that stable system model rather than becoming a duplicate self-knowledge layer.
-
-Block 16.18 remains intentionally before deployment so the verified owner/Monarch boundary, deny-by-default owner-only operations and anti-bypass controls are explicit before production rollout.
+`PRODUCTION_ROADMAP.md` remains the canonical numbered continuation after Block 10. Memory 2.0 is a separate completed cross-cutting program and does not renumber Blocks 11–19.
 
 Each production block must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

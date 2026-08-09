@@ -28,12 +28,16 @@ function productionEnv(env) {
   const monarchTelegramUserId = envString(env, 'SG_MONARCH_TELEGRAM_USER_ID', envString(env, 'MONARCH_USER_ID'));
   const monarchGlobalUserId = envString(env, 'SG_MONARCH_GLOBAL_USER_ID', envString(env, 'MONARCH_GLOBAL_USER_ID'));
   const revision = envString(env, 'SG_REVISION', envString(env, 'RENDER_GIT_COMMIT', 'sg2.1'));
+  const explicitAiEnabled = envString(env, 'SG_AI_ENABLED');
+  const openAiCredentialPresent = envString(env, 'OPENAI_API_KEY') !== '';
+  const aiEnabled = explicitAiEnabled || (openAiCredentialPresent ? 'true' : 'false');
   return Object.freeze({
     ...env,
     SG_ENVIRONMENT: envString(env, 'SG_ENVIRONMENT', 'production'),
     SG_REVISION: revision,
     SG_PROJECT_SCOPE: envString(env, 'SG_PROJECT_SCOPE', 'sg2.1'),
     SG_PERSISTENCE_MODE: envString(env, 'SG_PERSISTENCE_MODE', envString(env, 'DATABASE_URL') ? 'postgres' : 'memory'),
+    SG_AI_ENABLED: aiEnabled,
     SG_MONARCH_TELEGRAM_USER_ID: monarchTelegramUserId,
     SG_MONARCH_GLOBAL_USER_ID: monarchGlobalUserId,
     SG_MONARCH_TIMEZONE: envString(env, 'SG_MONARCH_TIMEZONE'),
@@ -58,6 +62,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   if (!harness.persistence) throw new Error('Render web service requires DATABASE_URL / PostgreSQL persistence');
   if (!harness.credentialManager || !harness.credentialAccessContext) throw new Error('Render web service requires credential management');
   if (!harness.connectionRegistry || !harness.connectionAccessContext) throw new Error('Render web service requires external connections registry');
+  if (effectiveEnv.SG_AI_ENABLED === 'true' && !harness.productionAI) throw new Error('Production AI was enabled but did not initialize');
 
   const telegramConfig = loadTelegramConfig(effectiveEnv);
   const botClient = createTelegramBotApiClient({
@@ -121,7 +126,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
       const runtimeReadiness = harness.runtime.readiness();
       const databaseHealth = harness.persistence.health();
       const ready = runtimeReadiness.ready && databaseHealth.started;
-      json(response, ready ? 200 : 503, { ok: ready, service: 'sg-2-1-web', runtime: runtimeReadiness, database: { started: databaseHealth.started }, revision: harness.config.revision });
+      json(response, ready ? 200 : 503, { ok: ready, service: 'sg-2-1-web', runtime: runtimeReadiness, database: { started: databaseHealth.started }, ai: { enabled: effectiveEnv.SG_AI_ENABLED === 'true', initialized: Boolean(harness.productionAI) }, revision: harness.config.revision });
       return;
     }
     if (await telegramHandler(request, response)) return;

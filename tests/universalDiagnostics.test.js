@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDiagnosticEvidence } from '../src/diagnostics/contracts.js';
 import { createExpectedPathRegistry } from '../src/diagnostics/pathRegistry.js';
-import { analyzeRootCause, downstreamEffects, findFirstDivergence, reconstructTrace } from '../src/diagnostics/analyzer.js';
+import { analyzeRootCause, downstreamEffects, findFirstDivergence, isTraceInFlight, reconstructTrace } from '../src/diagnostics/analyzer.js';
 import { createDiagnosticsHttpServer } from '../src/diagnostics/httpServer.js';
 import { createLiveDiagnosticRunner } from '../src/diagnostics/liveRunner.js';
+import { createDeploymentEvidenceSource } from '../src/diagnostics/sourceAdapters.js';
 
-function ev({ stage, eventClass = stage, status = 'completed', outcome = 'completed', errorCode = null, at = '2026-08-09T10:00:00.000Z' }) {
-  return createDiagnosticEvidence({ source: 'sg-observability', occurredAt: at, stage, status, errorCode, payload: { eventClass, outcome, data: errorCode ? { code: errorCode } : {} } });
+function ev({ stage, eventClass = stage, status = 'completed', outcome = 'completed', errorCode = null, at = '2026-08-09T10:00:00.000Z', component = null }) {
+  return createDiagnosticEvidence({ source: 'sg-observability', occurredAt: at, stage, status, errorCode, component: component ?? stage, payload: { eventClass, outcome, data: errorCode ? { code: errorCode } : {} } });
 }
 
 const registry = createExpectedPathRegistry();
@@ -66,6 +67,43 @@ test('explicit action gate denial is controlled rather than downstream system fa
   assert.equal(cause.data.expectedControlOutcome, true);
 });
 
+test('recent incomplete trace is treated as in-flight, not failed', () => {
+  const now = Date.parse('2026-08-09T10:05:00.000Z');
+  const evidence = [
+    ev({ stage: 'request_received', at: '2026-08-09T10:04:58.000Z' }),
+    ev({ stage: 'conversation_context_resolved', at: '2026-08-09T10:04:58.100Z' }),
+    ev({ stage: 'semantic_decision_created', at: '2026-08-09T10:04:58.200Z' }),
+    ev({ stage: 'action_gate_decision', outcome: 'allow', at: '2026-08-09T10:04:58.300Z' }),
+    ev({ stage: 'capability_started', status: 'unknown', outcome: 'started', at: '2026-08-09T10:04:59.000Z' })
+  ];
+  const trace = reconstructTrace({ expectedPath: registry.get('conversation'), evidence });
+  const first = findFirstDivergence(trace);
+  assert.equal(first.stage, 'capability');
+  assert.equal(isTraceInFlight(trace, first, { nowMs: now, graceMs: 300000 }), true);
+  assert.equal(isTraceInFlight(trace, first, { nowMs: now + 301000, graceMs: 300000 }), false);
+});
+
+test('delivery failure after successful execution is isolated to delivery', () => {
+  const evidence = healthyConversation().filter((item) => item.stage !== 'telegram_update_completed');
+  evidence.push(ev({ stage: 'delivery_attempt', status: 'failed', outcome: 'failed', errorCode: 'telegram-delivery-failed', component: 'telegram' }));
+  const trace = reconstructTrace({ expectedPath: registry.get('conversation'), evidence });
+  const first = findFirstDivergence(trace);
+  assert.equal(first.stage, 'delivery');
+  const cause = analyzeRootCause({ trace, firstDivergence: first });
+  assert.equal(cause.errorClass, 'DELIVERY');
+  assert.equal(cause.confidence, 'CONFIRMED');
+});
+
+test('deployment mismatch outranks request symptoms when revision evidence is confirmed', () => {
+  const source = createDeploymentEvidenceSource({ expectedRevision: 'expected-sha' });
+  const evidence = [createDiagnosticEvidence({ source: 'runtime-health', stage: 'deployment.web', status: 'completed', component: 'web', payload: { revision: 'old-sha' } })];
+  const findings = source.evaluate(evidence, 'expected-sha');
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, 'deployment-mismatch');
+  assert.equal(findings[0].confidence, 'CONFIRMED');
+  assert.deepEqual(findings[0].data, { expectedRevision: 'expected-sha', actualRevision: 'old-sha' });
+});
+
 test('diagnostic evidence redacts secrets', () => {
   const evidence = createDiagnosticEvidence({ source: 'test', payload: { token: 'abc', nested: { apiKey: 'def', safe: 'ok' } } });
   assert.equal(evidence.payload.token, '[REDACTED]');
@@ -86,9 +124,7 @@ test('diagnostics HTTP API is owner authenticated and exposes regression library
     async runRegressions() { return { total: regressions.length, passed: regressions.length, failed: 0, results: [] }; }
   };
   const store = {
-    async getRun() { return null; },
-    async listRuns() { return []; },
-    async listEvidence() { return []; },
+    async getRun() { return null; }, async listRuns() { return []; }, async listEvidence() { return []; },
     async listRegressions() { return regressions; },
     async putRegression(input) { const row = { regression_id: input.regressionId ?? 'reg-1', name: input.name, fixture: input.fixture, expected: input.expected }; regressions.push(row); return row; }
   };

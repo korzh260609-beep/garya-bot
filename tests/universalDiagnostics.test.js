@@ -4,6 +4,7 @@ import { createDiagnosticEvidence } from '../src/diagnostics/contracts.js';
 import { createExpectedPathRegistry } from '../src/diagnostics/pathRegistry.js';
 import { analyzeRootCause, downstreamEffects, findFirstDivergence, reconstructTrace } from '../src/diagnostics/analyzer.js';
 import { createDiagnosticsHttpServer } from '../src/diagnostics/httpServer.js';
+import { createLiveDiagnosticRunner } from '../src/diagnostics/liveRunner.js';
 
 function ev({ stage, eventClass = stage, status = 'completed', outcome = 'completed', errorCode = null, at = '2026-08-09T10:00:00.000Z' }) {
   return createDiagnosticEvidence({ source: 'sg-observability', occurredAt: at, stage, status, errorCode, payload: { eventClass, outcome, data: errorCode ? { code: errorCode } : {} } });
@@ -29,7 +30,7 @@ test('healthy request has no divergence', () => {
   assert.equal(findFirstDivergence(trace), null);
 });
 
-test('capability timeout is first divergence and response/delivery are downstream', () => {
+test('capability timeout is first divergence and later stages are downstream', () => {
   const evidence = healthyConversation().filter((item) => !['capability_completed', 'model_call', 'telegram_update_completed'].includes(item.stage));
   evidence.push(ev({ stage: 'capability_failed', status: 'timeout', outcome: 'failed', errorCode: 'capability-timeout' }));
   const trace = reconstructTrace({ expectedPath: registry.get('conversation'), evidence });
@@ -39,7 +40,7 @@ test('capability timeout is first divergence and response/delivery are downstrea
   const cause = analyzeRootCause({ trace, firstDivergence: first });
   assert.equal(cause.errorClass, 'CAPABILITY');
   assert.equal(cause.confidence, 'CONFIRMED');
-  assert.deepEqual(downstreamEffects(trace, first).map((item) => item.stage), ['response', 'delivery']);
+  assert.deepEqual(downstreamEffects(trace, first).map((item) => item.stage), ['ai', 'response', 'delivery']);
 });
 
 test('provider-like failure is classified as AI provider', () => {
@@ -72,10 +73,15 @@ test('diagnostic evidence redacts secrets', () => {
   assert.equal(evidence.payload.nested.safe, 'ok');
 });
 
+test('live runner refuses mutating probes', () => {
+  assert.throws(() => createLiveDiagnosticRunner({ probes: [{ id: 'bad', safe: true, mutatesUserState: true, run: async () => ({ ok: true }) }] }), /forbidden/);
+});
+
 test('diagnostics HTTP API is owner authenticated and health remains bounded', async () => {
   const service = {
     async analyzeRequest() { return { report: { status: 'healthy' }, evidence: [] }; },
     async systemHealth() { return { report: { status: 'healthy' }, evidence: [] }; },
+    async runLive() { return { report: { status: 'healthy' }, result: { failed: 0 }, evidence: [] }; },
     async runRegressions() { return { total: 0, passed: 0, failed: 0, results: [] }; }
   };
   const store = { async getRun() { return null; }, async listRuns() { return []; }, async listEvidence() { return []; } };
@@ -91,8 +97,6 @@ test('diagnostics HTTP API is owner authenticated and health remains bounded', a
   } finally { await server.stop(); }
 });
 
-test('diagnostics server failure does not couple to SG runtime', async () => {
+test('diagnostics server failure does not couple to SG runtime', () => {
   assert.throws(() => createDiagnosticsHttpServer({ service: {}, store: {}, adminToken: 'x', monarchGlobalUserId: 'y' }), /diagnostic service/);
-  // The diagnostic service is a separate constructor/process: failure above has no SG runtime reference to mutate or stop.
-  assert.ok(true);
 });

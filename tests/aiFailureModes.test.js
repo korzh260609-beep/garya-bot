@@ -66,9 +66,80 @@ test('OpenAI provider sends secret-safe Responses API request and normalizes usa
   assert.equal(captured.body.store, false);
   assert.equal(captured.body.reasoning.effort, 'medium');
   assert.equal(captured.body.text.format.type, 'json_schema');
+  assert.equal(captured.body.text.format.strict, true);
   assert.equal(captured.options.headers.authorization, 'Bearer test-key');
   assert.equal(result.usage.totalTokens, 14);
   assert.equal(result.rawMetadata.responseId, 'resp-test');
+});
+
+test('OpenAI provider honors explicit non-strict structured output contract', async () => {
+  let capturedBody;
+  const provider = createOpenAIResponsesProvider({
+    apiKey: 'test-key',
+    fetchImpl: async (_url, options) => {
+      capturedBody = JSON.parse(options.body);
+      return { ok: true, async json() { return { output_text: '{"ok":true}', usage: {} }; } };
+    }
+  });
+
+  await provider.generate({
+    request: {
+      messages: [{ role: 'user', content: 'hello' }],
+      responseFormat: {
+        name: 'extensible_schema',
+        strict: false,
+        jsonSchema: {
+          type: 'object',
+          additionalProperties: true,
+          properties: { ok: { type: 'boolean' } }
+        }
+      }
+    },
+    model: { model: 'gpt-test' },
+    signal: new AbortController().signal
+  });
+
+  assert.equal(capturedBody.text.format.type, 'json_schema');
+  assert.equal(capturedBody.text.format.strict, false);
+});
+
+test('production semantic interpreter requests non-strict provider schema but keeps SG-side contract validation', async () => {
+  let routed;
+  const validSemantic = {
+    meaning: 'Identify the current user from SG context',
+    goal: 'answer',
+    intent: 'answer',
+    entities: [],
+    constraints: [],
+    uncertainty: 0,
+    missingInformation: [],
+    clarificationQuestion: null,
+    contextNeeds: ['identity'],
+    evidenceNeeds: [],
+    candidateActions: [{ type: 'answer', name: 'compose-answer', actionClass: 'analysis', payload: { subject: 'current-user' } }],
+    rationale: 'Use verified SG identity context.'
+  };
+  const interpreter = createProductionMeaningInterpreter({
+    aiRouter: {
+      async route(input) {
+        routed = input;
+        return { text: JSON.stringify(validSemantic) };
+      }
+    }
+  });
+
+  const result = await interpreter.interpret({
+    text: 'кто я?',
+    locale: 'ru',
+    identityContext: { globalUserId: 'usr_0123456789abcdef', roles: ['monarch'] },
+    scopeContext: { userScope: 'usr_0123456789abcdef', projectScope: 'sg2.1' },
+    traceContext,
+    metadata: {}
+  });
+
+  assert.equal(routed.responseFormat.strict, false);
+  assert.equal(routed.responseFormat.jsonSchema.properties.candidateActions.items.properties.payload.additionalProperties, true);
+  assert.equal(result.candidateActions[0].payload.subject, 'current-user');
 });
 
 test('OpenAI provider marks rate-limit failures retryable', async () => {

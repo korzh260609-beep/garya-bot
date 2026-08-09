@@ -18,7 +18,7 @@ CREATE INDEX IF NOT EXISTS diagnostic_runs_request_idx ON diagnostic_runs(reques
 
 CREATE TABLE IF NOT EXISTS diagnostic_evidence (
   evidence_id text PRIMARY KEY,
-  run_id text REFERENCES diagnostic_runs(run_id) ON DELETE CASCADE,
+  run_id text NOT NULL REFERENCES diagnostic_runs(run_id) ON DELETE CASCADE,
   source text NOT NULL,
   source_ref text,
   occurred_at timestamptz,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS diagnostic_evidence (
   fingerprint text NOT NULL,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(source, fingerprint)
+  UNIQUE(run_id, source, fingerprint)
 );
 
 CREATE INDEX IF NOT EXISTS diagnostic_evidence_run_idx ON diagnostic_evidence(run_id, occurred_at, evidence_id);

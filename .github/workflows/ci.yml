@@ -54,6 +54,20 @@ jobs:
         run: node --test tests/boundedResponseContext.test.js tests/runtimeComposition.test.js
       - name: Block 16.18 focused security test
         run: node --test tests/ownerSecurity.test.js
-      - run: npm run check
+      - name: Syntax check
+        run: npm run check:syntax
+      - name: Full regression failure locator
+        shell: bash
+        run: |
+          set +e
+          node --test --test-concurrency=1 --test-reporter=spec > /tmp/sg-tests.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "=== FAILURE LOCATOR ==="
+            grep -n -E -A18 -B6 '✖|not ok|AssertionError|ERR_ASSERTION|testCodeFailure' /tmp/sg-tests.log | tail -n 220 || tail -n 220 /tmp/sg-tests.log
+          else
+            tail -n 40 /tmp/sg-tests.log
+          fi
+          exit "$status"
       - run: npm start
       - run: npm run start:worker

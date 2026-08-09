@@ -22,6 +22,7 @@ Canonical formula:
 SG = project system
    + connected reasoning model
    + context and memory
+   + system self knowledge
    + sources and tools
    + capabilities
    + permissions and action gates
@@ -110,6 +111,7 @@ SG distinguishes:
 - session context;
 - confirmed user memory;
 - confirmed project memory;
+- system self knowledge;
 - dialogue archive;
 - topic digest;
 - external evidence;
@@ -117,9 +119,13 @@ SG distinguishes:
 
 Raw dialogue is not confirmed memory automatically. Durable memory writes are controlled state-changing actions with scope, provenance and conflict handling.
 
+System Self Knowledge is a separate SG-owned knowledge layer. It contains structured, versioned and provenance-aware facts about SG itself: identity, purpose, architecture, capabilities, modules, integrations, development status and limitations. It must not contain raw secrets, cannot grant authority, and cannot be rewritten by ordinary user text or AI output.
+
+Self Knowledge does not replace runtime verification. Claims about current health/availability still require diagnostics or live evidence when the question depends on current runtime state.
+
 ## 7. Components and ownership
 
-Models, agents, tools, transports, sources, memory providers and controllers are components of SG.
+Models, agents, tools, transports, sources, memory providers, Self Knowledge providers and controllers are components of SG.
 
 They do not own:
 - SG identity;
@@ -152,6 +158,6 @@ Domain modules connect through capability contracts, sources and action gates.
 ```text
 SG is one transport-independent project system.
 The connected AI model provides reasoning.
-SG code provides context, memory, sources, capabilities and controlled actions.
+SG code provides context, memory, Self Knowledge, sources, capabilities and controlled actions.
 Components support SG; they do not become separate SG entities.
 ```

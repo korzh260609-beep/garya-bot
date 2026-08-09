@@ -24,6 +24,14 @@ function resourceAuthorityMatches(request) {
     && authority.resourceId === requirement.resourceId
     && authority.requiredRelation === requirement.relation;
 }
+function ownerSecurityMatches(request, decision) {
+  if (!decision) return true;
+  if (decision.ownerOnly !== true) return decision.allowed !== false;
+  return decision.allowed === true
+    && decision.ownerVerified === true
+    && decision.actorGlobalUserId === request.actor.globalUserId
+    && decision.projectScope === request.scope.projectScope;
+}
 function resolvedActionPolicy(basePolicy, policyContext) {
   const configured = policyContext?.policy?.action;
   if (!configured) return basePolicy;
@@ -43,7 +51,7 @@ export function createActionGate({ policy = createActionPolicy(), availableSourc
 
   return Object.freeze({
     name: 'sg-action-gate-v1',
-    evaluate(actionRequest, { policyContext = null } = {}) {
+    evaluate(actionRequest, { policyContext = null, ownerSecurityDecision = null } = {}) {
       if (!actionRequest?.traceContext) throw new TypeError('A validated actionRequest is required');
       const effectivePolicy = resolvedActionPolicy(policy, policyContext);
       const sourcePolicy = policyContext?.policy?.source ?? null;
@@ -53,6 +61,7 @@ export function createActionGate({ policy = createActionPolicy(), availableSourc
         permission: !isProtected || hasPermission(actionRequest, effectivePolicy),
         scope: scopeMatches(actionRequest),
         resourceAuthority: resourceAuthorityMatches(actionRequest),
+        ownerSecurity: ownerSecurityMatches(actionRequest, ownerSecurityDecision),
         capability: includesWildcard(actionRequest.scope.allowedCapabilities, actionRequest.capability),
         sources: availabilityCheck(actionRequest.requiredSources, availableSources),
         sourceLimit: !sourcePolicy?.maxSourcesPerRequest || actionRequest.requiredSources.length <= sourcePolicy.maxSourcesPerRequest,
@@ -66,12 +75,13 @@ export function createActionGate({ policy = createActionPolicy(), availableSourc
 
       const reasons = [];
       let outcome = 'allow';
-      if (!checks.identity || !checks.scope || !checks.audit || !checks.resourceAuthority) {
+      if (!checks.identity || !checks.scope || !checks.audit || !checks.resourceAuthority || !checks.ownerSecurity) {
         outcome = 'deny';
         if (!checks.identity) reasons.push('identity-not-authenticated');
         if (!checks.scope) reasons.push('scope-mismatch');
         if (!checks.audit) reasons.push('audit-context-missing');
         if (!checks.resourceAuthority) reasons.push(actionRequest.resourceAuthority?.reason ?? 'resource-authority-denied');
+        if (!checks.ownerSecurity) reasons.push(ownerSecurityDecision?.reason ?? 'owner-security-denied');
       } else if (!checks.idempotency) {
         outcome = 'deny'; reasons.push('duplicate-idempotency-key');
       } else if (!checks.capability || !checks.sources || !checks.sourceLimit || !checks.tools) {

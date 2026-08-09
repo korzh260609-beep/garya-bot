@@ -15,7 +15,7 @@ const DEFAULT_POLICY = Object.freeze({
     maxRetries: 1,
     retryDelayMs: 100
   }),
-  capability: Object.freeze({ maxRetries: 5, maxTimeoutMs: 60000 }),
+  capability: Object.freeze({ maxRetries: 5, maxTimeoutMs: 300000 }),
   source: Object.freeze({ requireApprovedSources: true, maxSourcesPerRequest: 20 }),
   autonomy: Object.freeze({ protectedActionsRequireGate: true, maxActionsPerRun: 10, maxDelegationDepth: 3 }),
   automation: Object.freeze({ protectedActionsRequireGate: true, maxRetryAttempts: 3 }),

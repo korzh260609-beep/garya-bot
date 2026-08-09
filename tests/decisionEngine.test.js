@@ -25,7 +25,7 @@ function interpretation(overrides = {}) {
   });
 }
 
-test('chooses the highest-priority candidate deterministically', () => {
+test('chooses the highest-priority conversational candidate but canonicalizes execution through compose-answer', () => {
   const engine = createDecisionEngine();
   const result = engine.decide({
     canonicalInput,
@@ -37,9 +37,35 @@ test('chooses the highest-priority candidate deterministically', () => {
     })
   });
 
-  assert.equal(result.decisionEnvelope.selectedAction.name, 'higher');
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'compose-answer');
+  assert.equal(result.decisionEnvelope.selectedAction.priority, 10);
   assert.equal(result.decisionEnvelope.decisionType, 'answer');
   assert.equal(result.decisionEnvelope.diagnostics.selectedCandidateIndex, 1);
+  assert.equal(result.decisionEnvelope.diagnostics.conversationalAnswerCanonicalized, true);
+});
+
+test('unknown analysis answer names cannot bypass the canonical response composer', () => {
+  const result = createDecisionEngine().decide({
+    canonicalInput,
+    interpretation: interpretation({
+      meaning: "The user is greeting the assistant by saying 'hi' in Russian.",
+      candidateActions: [{ type: 'answer', name: 'describe-greeting', actionClass: 'analysis' }]
+    })
+  });
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'compose-answer');
+  assert.equal(result.decisionEnvelope.selectedAction.type, 'answer');
+});
+
+test('protected actions retain their explicit capability identity', () => {
+  const result = createDecisionEngine().decide({
+    canonicalInput,
+    interpretation: interpretation({
+      candidateActions: [{ type: 'execute', name: 'send-report', actionClass: 'external' }]
+    })
+  });
+  assert.equal(result.decisionEnvelope.selectedAction.name, 'send-report');
+  assert.equal(result.decisionEnvelope.decisionType, 'prepare');
+  assert.equal(result.decisionEnvelope.diagnostics.conversationalAnswerCanonicalized, false);
 });
 
 test('requests clarification when essential information is missing', () => {

@@ -12,6 +12,18 @@ function extractText(payload) {
   return parts.join('').trim();
 }
 
+function resolveStructuredOutputStrict(value) {
+  if (value == null) return true;
+  if (typeof value !== 'boolean') throw new AIConfigurationError('responseFormat.strict must be a boolean');
+  return value;
+}
+
+function boundedProviderField(value, maxLength = 160) {
+  if (value == null) return null;
+  const text = String(value);
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
+}
+
 export function createOpenAIResponsesProvider({
   apiKey = null,
   credentialManager = null,
@@ -41,7 +53,14 @@ export function createOpenAIResponsesProvider({
     };
     if (request.maxOutputTokens != null) body.max_output_tokens = request.maxOutputTokens;
     if (request.responseFormat?.jsonSchema) {
-      body.text = { format: { type: 'json_schema', name: request.responseFormat.name ?? 'sg_output', strict: true, schema: request.responseFormat.jsonSchema } };
+      body.text = {
+        format: {
+          type: 'json_schema',
+          name: request.responseFormat.name ?? 'sg_output',
+          strict: resolveStructuredOutputStrict(request.responseFormat.strict),
+          schema: request.responseFormat.jsonSchema,
+        },
+      };
     }
 
     let response;
@@ -59,7 +78,17 @@ export function createOpenAIResponsesProvider({
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       const retryable = response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500;
-      throw new AIProviderError(`OpenAI request failed with status ${response.status}`, { retryable, code: `AI_PROVIDER_HTTP_${response.status}`, metadata: { status: response.status, providerCode: payload.error?.code ?? null } });
+      throw new AIProviderError(`OpenAI request failed with status ${response.status}`, {
+        retryable,
+        code: `AI_PROVIDER_HTTP_${response.status}`,
+        metadata: {
+          status: response.status,
+          providerCode: boundedProviderField(payload.error?.code),
+          providerType: boundedProviderField(payload.error?.type),
+          providerParam: boundedProviderField(payload.error?.param),
+          requestId: boundedProviderField(response.headers?.get?.('x-request-id') ?? payload.request_id),
+        },
+      });
     }
 
     return {

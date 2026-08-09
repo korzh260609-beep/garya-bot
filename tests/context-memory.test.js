@@ -115,16 +115,18 @@ test('only requested layers are loaded', async () => {
   assert.deepEqual(bundle.records.map((record) => record.layer), ['session']);
 });
 
-test('semantic pipeline receives resolved context in canonical metadata', async () => {
+test('semantic pipeline receives resolved context while response plan keeps canonical user text', async () => {
   const provider = createInMemoryMemoryProvider({ clock });
   await provider.write(writeRequest());
   const resolver = createContextResolver({ memoryProvider: provider });
   let calls = 0;
+  let finalMeaning = null;
   const interpreter = createFixtureMeaningInterpreter((input) => {
     calls += 1;
     const hasContext = Boolean(input.metadata.contextBundle);
+    finalMeaning = hasContext ? 'Answer with memory' : 'Need memory';
     return {
-      meaning: hasContext ? 'Answer with memory' : 'Need memory',
+      meaning: finalMeaning,
       goal: 'answer-user',
       intent: 'answer',
       contextNeeds: ['user-memory'],
@@ -142,5 +144,7 @@ test('semantic pipeline receives resolved context in canonical metadata', async 
   const result = await pipeline.process({ text: 'Continue', locale: 'en', identityContext, scopeContext, traceContext });
   assert.equal(calls, 2);
   assert.equal(result.contextBundle.records.length, 1);
-  assert.equal(result.responsePlan.message, 'Answer with memory');
+  assert.equal(finalMeaning, 'Answer with memory');
+  assert.equal(result.responsePlan.message, 'Continue');
+  assert.notEqual(result.responsePlan.message, finalMeaning);
 });

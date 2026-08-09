@@ -1,4 +1,6 @@
-function comparable(value) {
+import { createHash } from 'node:crypto';
+
+export function normalizeFinalResponseText(value) {
   return String(value ?? '')
     .normalize('NFKC')
     .toLocaleLowerCase()
@@ -7,9 +9,14 @@ function comparable(value) {
     .trim();
 }
 
+export function fingerprintFinalResponse(value, { salt = '' } = {}) {
+  const normalized = normalizeFinalResponseText(value);
+  return createHash('sha256').update(String(salt)).update('\0').update(normalized).digest('hex');
+}
+
 export function assessFinalResponse({ userText, candidateText } = {}) {
-  const user = comparable(userText);
-  const candidate = comparable(candidateText);
+  const user = normalizeFinalResponseText(userText);
+  const candidate = normalizeFinalResponseText(candidateText);
   if (!candidate) return Object.freeze({ ok: false, reason: 'empty-response' });
   if (user && candidate === user) return Object.freeze({ ok: false, reason: 'exact-user-echo' });
   return Object.freeze({ ok: true, reason: null });

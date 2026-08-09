@@ -21,11 +21,12 @@ export function createPostgresDiagnosticStore({ database } = {}) {
       return result.rows[0] ?? null;
     },
     async addEvidence(runId, input) {
+      const scopedRunId = required(runId, 'runId');
       const evidence = createDiagnosticEvidence(input);
       const result = await database.query(`INSERT INTO diagnostic_evidence(evidence_id,run_id,source,source_ref,occurred_at,trace_id,request_id,stage,status,component,error_code,fingerprint,payload)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
-        ON CONFLICT(source,fingerprint) DO UPDATE SET run_id=COALESCE(diagnostic_evidence.run_id,EXCLUDED.run_id) RETURNING *`, [
-        evidence.evidenceId, runId ?? null, evidence.source, evidence.sourceRef, evidence.occurredAt, evidence.traceId, evidence.requestId,
+        ON CONFLICT(run_id,source,fingerprint) DO UPDATE SET source_ref=EXCLUDED.source_ref RETURNING *`, [
+        evidence.evidenceId, scopedRunId, evidence.source, evidence.sourceRef, evidence.occurredAt, evidence.traceId, evidence.requestId,
         evidence.stage, evidence.status, evidence.component, evidence.errorCode, evidence.fingerprint, JSON.stringify(evidence.payload)
       ]);
       return evidenceFromRow(result.rows[0]);
@@ -40,7 +41,7 @@ export function createPostgresDiagnosticStore({ database } = {}) {
       for (const finding of findings) {
         await database.query(`INSERT INTO diagnostic_findings(finding_id,run_id,kind,error_class,component,confidence,summary,evidence_ids,data)
           VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb)
-          ON CONFLICT(finding_id) DO NOTHING`, [finding.findingId, runId, finding.kind, finding.errorClass, finding.component, finding.confidence, finding.summary, JSON.stringify(finding.evidenceIds), JSON.stringify(finding.data)]);
+          ON CONFLICT(finding_id) DO NOTHING`, [finding.findingId, required(runId, 'runId'), finding.kind, finding.errorClass, finding.component, finding.confidence, finding.summary, JSON.stringify(finding.evidenceIds), JSON.stringify(finding.data)]);
       }
     },
     async getRun(runId) {

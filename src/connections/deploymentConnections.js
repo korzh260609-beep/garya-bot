@@ -32,8 +32,24 @@ export function createDeploymentExternalConnections({ persistence = null, creden
           await registry.connect({ ...descriptor, actor, purpose: 'deployment-connection-bootstrap' });
         } catch (error) {
           if (!(error instanceof ExternalConnectionError) || error.code !== 'connection-already-exists') throw error;
-          // Existing durable state is authoritative. In particular, restart must not
-          // silently reactivate a revoked/unavailable connection.
+
+          const existing = await registry.describe({ connectionId: descriptor.connectionId, actor, projectScope: config.projectScope });
+          const deploymentManaged = existing.provenance?.source === 'deployment-config';
+          if (existing.status === 'revoked') continue;
+          if (!deploymentManaged) continue;
+          if (!['unavailable', 'degraded'].includes(existing.status)) continue;
+
+          await registry.reconnect({
+            connectionId: descriptor.connectionId,
+            actor,
+            projectScope: config.projectScope,
+            credentialId: descriptor.credentialId,
+            externalAccount: descriptor.externalAccount,
+            grantedScopes: descriptor.grantedScopes,
+            permissions: descriptor.permissions,
+            capabilities: descriptor.capabilities,
+            purpose: 'deployment-connection-recovery'
+          });
         }
       }
     }

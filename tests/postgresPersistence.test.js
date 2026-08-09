@@ -12,7 +12,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   const { database, repositories } = persistence;
 
   await database.query(`
-    DROP TABLE IF EXISTS diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions,
+    DROP TABLE IF EXISTS diagnostic_access_audit, diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions,
       system_self_knowledge_facts, system_self_knowledge_snapshots, feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, telegram_updates, dead_letter_tasks, schedule_occurrences, domain_records, observability_events,
       idempotency_records, execution_states, schedules, memory_records, messages, conversations,
       grants, roles, identity_links, tasks, users, schema_migrations CASCADE
@@ -67,8 +67,8 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   `);
 
   const migrated = await runMigrations(database);
-  assert.equal(migrated.applied.length, 20);
-  assert.equal(migrated.total, 20);
+  assert.equal(migrated.applied.length, 21);
+  assert.equal(migrated.total, 21);
   assert.ok(migrated.applied.includes('000_legacy_scope_preflight.sql'));
   assert.ok(migrated.applied.includes('020_universal_diagnostics.sql'));
   assert.ok(migrated.applied.includes('165_temporal_context.sql'));
@@ -85,6 +85,7 @@ integration('Block 12 upgrades an SG 2.0 database in place without deleting lega
   assert.ok(migrated.applied.includes('177_self_knowledge.sql'));
   assert.ok(migrated.applied.includes('178_memory_2_0.sql'));
   assert.ok(migrated.applied.includes('179_memory_2_0_guest_autocapture_guard.sql'));
+  assert.ok(migrated.applied.includes('180_universal_diagnostics_access_audit.sql'));
 
   const legacyUser = await database.query("SELECT chat_id,global_user_id FROM users WHERE global_user_id='tg:42'");
   assert.equal(legacyUser.rows[0].chat_id, '42');
@@ -119,11 +120,11 @@ integration('Block 12 PostgreSQL persistence is durable, isolated and atomic', a
   const persistence = createPostgresPersistence({ connectionString, ssl: false, applicationName: 'sg-block12-test' });
   await persistence.start();
   const { database, repositories } = persistence;
-  await database.query(`TRUNCATE diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions, system_self_knowledge_facts, system_self_knowledge_snapshots, feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
+  await database.query(`TRUNCATE diagnostic_access_audit, diagnostic_findings, diagnostic_evidence, diagnostic_runs, diagnostic_regressions, system_self_knowledge_facts, system_self_knowledge_snapshots, feature_flags, contract_quarantine, internal_event_deliveries, internal_event_subscriptions, internal_events, delivery_records, user_settings, conversation_sessions, conversation_topics, resource_authorities, managed_resources, external_connections, schedule_occurrences, domain_records, observability_events, idempotency_records, execution_states, schedules, tasks, memory_records, messages, conversations, grants, roles, identity_links, users RESTART IDENTITY CASCADE`);
 
   const migrationRepeat = await runMigrations(database);
   assert.deepEqual(migrationRepeat.applied, []);
-  assert.equal(migrationRepeat.total, 20);
+  assert.equal(migrationRepeat.total, 21);
 
   const suffix = randomUUID();
   const scope = { globalUserId: `user:${suffix}`, projectScope: 'sg2.1', groupScope: 'group:1', threadScope: 'thread:1' };

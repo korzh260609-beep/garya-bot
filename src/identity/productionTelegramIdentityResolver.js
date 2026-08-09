@@ -79,13 +79,19 @@ async function migrateGlobalUserId({ persistence, fromGlobalUserId, toGlobalUser
       await tx.query('DELETE FROM user_settings WHERE global_user_id=$1', [fromGlobalUserId]);
     }
 
-    const tables = await tx.query(`SELECT table_name FROM information_schema.columns
-      WHERE table_schema=current_schema() AND column_name='global_user_id'
-      AND table_name <> ALL($1::text[]) ORDER BY table_name`,
+    // Move every remaining identity reference, including owner_/actor_/delegated_by_global_user_id.
+    const references = await tx.query(`SELECT table_name, column_name FROM information_schema.columns
+      WHERE table_schema=current_schema()
+        AND column_name LIKE '%global_user_id'
+        AND NOT (column_name='global_user_id' AND table_name = ANY($1::text[]))
+      ORDER BY table_name, ordinal_position`,
       [['users', 'roles', 'grants', 'user_settings']]);
 
-    for (const { table_name: tableName } of tables.rows) {
-      await tx.query(`UPDATE ${quoteIdentifier(tableName)} SET global_user_id=$1 WHERE global_user_id=$2`, [toGlobalUserId, fromGlobalUserId]);
+    for (const { table_name: tableName, column_name: columnName } of references.rows) {
+      await tx.query(
+        `UPDATE ${quoteIdentifier(tableName)} SET ${quoteIdentifier(columnName)}=$1 WHERE ${quoteIdentifier(columnName)}=$2`,
+        [toGlobalUserId, fromGlobalUserId]
+      );
     }
 
     await tx.query('DELETE FROM users WHERE global_user_id=$1', [fromGlobalUserId]);

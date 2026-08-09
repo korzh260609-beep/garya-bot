@@ -203,7 +203,7 @@ export function createProductionCapabilities({
         if (!repositoryAnalyzer) return { status: 'unavailable', error: { code: 'repository-analyzer-unavailable', message: 'Repository analyzer is not configured', retryable: true } };
         const result = await repositoryAnalyzer({ ...request.input, mode: request.input?.mode === 'prepare-only' ? 'prepare-only' : 'read-only', request });
         if (result?.mutated === true || result?.pushed === true || result?.published === true) throw new Error('prepare-only repository capability attempted mutation');
-        return { status: result?.partial ? 'partial' : 'success', data: { ...result, mutated: false, message: result?.message ?? 'Repository analysis completed in read/prepare-only mode' }, sources: result?.sources ?? ['repository-read-source'], tools: ['repository-analyzer'] };
+        return { status: result?.partial ? 'partial' : 'success', data: { ...result, mutated: false, message: result?.message ?? 'Repository analysis prepared' }, sources: result?.sources ?? ['repository-read-source'], tools: ['repository-analyzer'] };
       }
     }),
     capability({

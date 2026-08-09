@@ -35,7 +35,8 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 29. `16_14_INTERNAL_EVENT_BUS.md` — implementation and acceptance evidence for Block 16.14
 30. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — implementation and acceptance evidence for Block 16.15
 31. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — implementation and acceptance evidence for Block 16.16
-32. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — planned Block 16.18 specification and future acceptance evidence
+32. `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — planned Block 16.17 specification and future acceptance evidence
+33. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — planned Block 16.18 specification and future acceptance evidence
 
 ## Production continuation
 
@@ -59,15 +60,18 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 16. Block 16.14 — Internal Event Bus — completed and production-wired
 17. Block 16.15 — Schema & Contract Versioning — completed and production-wired
 18. Block 16.16 — Feature Flags & Controlled Rollout — completed
-19. Block 16.18 — Monarch Control / Owner Security — planned, next
-20. Block 17 — Render Deployment
-21. Block 18 — End-to-End Verification
-22. Block 19 — Security and Operations
-23. Pilot Launch
+19. Block 16.17 — Self Knowledge / System Self-Awareness — planned, next
+20. Block 16.18 — Monarch Control / Owner Security — planned after 16.17
+21. Block 17 — Render Deployment
+22. Block 18 — End-to-End Verification
+23. Block 19 — Security and Operations
+24. Pilot Launch
 
 Repository-wide audit hardening after Block 16.16 additionally verifies canonical observability compatibility, version enforcement at production capability boundaries, production Event Bus/Domain Runtime composition, canonical feature-disabled results and rollback-safe Render startup. This hardening is corrective work within completed blocks and does not create a new roadmap block.
 
-Block 16.18 is intentionally placed before deployment so the verified owner/Monarch boundary, deny-by-default owner-only operations and anti-bypass controls are explicit before production rollout.
+Block 16.17 is intentionally placed before Owner Security so SG first has a canonical, revision-bound and evidence-aware model of its own identity, architecture, capabilities, limitations and implementation state. Block 16.18 then protects owner-only changes against that stable system model rather than becoming a duplicate self-knowledge layer.
+
+Block 16.18 remains intentionally before deployment so the verified owner/Monarch boundary, deny-by-default owner-only operations and anti-bypass controls are explicit before production rollout.
 
 Each production block must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

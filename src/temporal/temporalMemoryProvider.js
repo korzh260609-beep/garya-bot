@@ -11,8 +11,9 @@ function inRange(record, range) {
 export function createTemporalMemoryProvider({ memoryProvider } = {}) {
   if (!memoryProvider?.query || !memoryProvider?.write) throw new TypeError('memoryProvider is required');
 
-  return Object.freeze({
+  const provider = {
     name: `temporal:${memoryProvider.name ?? 'memory-provider'}`,
+    memory2: memoryProvider.memory2 ?? null,
     write: (request) => memoryProvider.write(request),
     listAll: typeof memoryProvider.listAll === 'function' ? () => memoryProvider.listAll() : undefined,
     async query(request) {
@@ -29,5 +30,9 @@ export function createTemporalMemoryProvider({ memoryProvider } = {}) {
         })
       });
     }
-  });
+  };
+  for (const method of ['recall','capture','diagnostics','consolidate','reconcileLifecycle']) {
+    if (typeof memoryProvider[method] === 'function') provider[method] = (...args) => memoryProvider[method](...args);
+  }
+  return Object.freeze(provider);
 }

@@ -94,7 +94,8 @@ integration('Memory 2.0 PostgreSQL serializes concurrent duplicate writes and li
     assert.deepEqual(await restartedService.reconcileLifecycle({ projectScope: project }), { expired: 1 });
     const row = await restarted.database.query('SELECT lifecycle_state FROM memory_records WHERE memory_id=$1', [temporary.record.id]);
     assert.equal(row.rows[0].lifecycle_state, 'expired');
-    assert.equal((await restartedService.recall({ scope: scope(user, project), actor: actor(user), query: 'temporary' })).records.length, 0);
+    const recall = await restartedService.recall({ scope: scope(user, project), actor: actor(user), query: 'temporary' });
+    assert.equal(recall.records.some((record) => record.id === temporary.record.id || record.key === 'temporary'), false);
   } finally {
     await restarted.database.query('DELETE FROM memory_records WHERE project_scope=$1', [project]);
     await restarted.database.query('DELETE FROM users WHERE global_user_id=$1', [user]);

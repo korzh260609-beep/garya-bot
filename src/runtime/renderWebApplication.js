@@ -111,7 +111,8 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
     botUserId: telegramConfig.botUserId,
     botUsername: telegramConfig.botUsername,
     environment: harness.config.environment,
-    revision: harness.config.revision
+    revision: harness.config.revision,
+    acknowledgeBeforeProcessing: true
   });
   const telegramHandler = createTelegramWebhookHttpHandler({ integration, path: telegramConfig.webhookPath });
 
@@ -173,6 +174,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   }
 
   async function stop() {
+    await integration.drainPending();
     await closeServer();
     await harness.runtime.stop();
   }
@@ -180,6 +182,7 @@ export async function createRenderWebApplication({ env = process.env, fetchImpl 
   return Object.freeze({
     effectiveEnv: publicEnvironmentView(effectiveEnv),
     harness,
+    telegramIntegration: integration,
     deliveryRouter: deliveryDeployment.router,
     deliveryStore: deliveryDeployment.store,
     deliveryTransportRegistry: deliveryDeployment.transportRegistry,

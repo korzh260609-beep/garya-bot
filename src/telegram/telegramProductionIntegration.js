@@ -83,6 +83,24 @@ export function createTelegramProductionIntegration({
     });
   }
 
+  function recordDiagnosticSensor(event) {
+    try {
+      observability?.record?.(event);
+      return true;
+    } catch (error) {
+      try {
+        observability?.recordFailure?.({
+          traceContext: event.traceContext,
+          stage: 'diagnostic-sensor',
+          reason: redactSensitiveText(error?.message ?? 'diagnostic sensor failed'),
+          code: error?.code ?? 'diagnostic-sensor-failed',
+          data: { sensorEventClass: event.eventClass }
+        });
+      } catch {}
+      return false;
+    }
+  }
+
   const adapter = createTelegramTransportAdapter({
     identityResolver,
     requestHandler: (canonicalInput) => runtime.handle(canonicalInput),
@@ -91,7 +109,7 @@ export function createTelegramProductionIntegration({
       const traceContext = canonicalInput.traceContext;
       const responseAssessment = assessFinalResponse({ userText: canonicalInput.text, candidateText: response.message });
       const fingerprintSalt = traceContext?.traceId ?? traceContext?.requestId ?? '';
-      observability?.record?.({
+      recordDiagnosticSensor({
         eventClass: 'final_response_observed',
         channel: 'telemetry',
         stage: 'response',

@@ -39,6 +39,7 @@ Active files:
 - `MONARCH_OWNER_SECURITY.md`
 - `RUNTIME_COMPOSITION.md`
 - `POSTGRESQL_PERSISTENCE.md`
+- `UNIVERSAL_DIAGNOSTICS.md` — architecture for the independent SG Diagnostics application and SG-side observation boundary
 
 ## Roadmap
 Entry: `roadmap/README.md`
@@ -78,6 +79,7 @@ Active files:
 - `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md` — Block 16.17 specification/evidence
 - `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — Block 16.18 specification/evidence
 - `MEMORY_2_0_ROADMAP.md` — completed canonical Memory 2.0 M1–M9 program and acceptance evidence
+- `UNIVERSAL_DIAGNOSTICS_PROGRAM.md` — planned canonical Universal Diagnostics D1–D12 cross-cutting program
 - `PRODUCTION_ROADMAP.md` — canonical continuation covering Blocks 11–19, intermediate Blocks 16.5–16.18 and Pilot Launch
 
 ## Workflow
@@ -90,8 +92,15 @@ Active files:
 - `RELEASE_AND_ROLLBACK_PROTOCOL.md`
 - `ARCHITECTURE_DECISION_PROTOCOL.md`
 - `MEMORY_2_0_WORKFLOW.md` — Memory 2.0 implementation/verification sequence
+- `UNIVERSAL_DIAGNOSTICS_WORKFLOW.md` — Universal Diagnostics D1–D12 implementation/verification sequence
 
 Workflow defines implementation procedure and does not store per-block runtime history. Therefore `workflow/changes/` and `workflow/changes/BLOCK_11_RUNTIME_COMPOSITION.md` are not canonical paths.
+
+## Cross-cutting programs
+
+Memory 2.0 and Universal Diagnostics are cross-cutting programs and do not renumber the canonical Blocks 0–19.
+
+Universal Diagnostics is explicitly an independent observer application. SG provides bounded observable facts; the external Diagnostics program reconstructs execution, verifies expected paths/invariants, finds first divergence/root cause and reports evidence. Diagnostics must not become a required SG runtime dependency or a bypass around identity, permissions, Action Gate, resource authority or owner security.
 
 ## Modules
 `modules/` starts empty except for its README. Module documentation is created only when the corresponding SG 2.1 module is introduced through the active roadmap.

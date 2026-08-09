@@ -60,14 +60,15 @@ jobs:
         shell: bash
         run: |
           set +e
-          npm test > /tmp/sg-tests.log 2>&1
+          timeout 75s npm test > /tmp/sg-tests.log 2>&1
           status=$?
-          if [ "$status" -ne 0 ]; then
-            echo "=== FAILURE LOCATOR ==="
-            grep -n -E -A18 -B6 'not ok|AssertionError|ERR_ASSERTION|testCodeFailure|Error:' /tmp/sg-tests.log | tail -n 260 || tail -n 260 /tmp/sg-tests.log
-          else
-            tail -n 40 /tmp/sg-tests.log
+          echo "=== FAILURE LOCATOR ==="
+          if [ "$status" -eq 124 ]; then
+            echo "TEST RUN TIMED OUT"
           fi
+          grep -n -E -A18 -B6 'not ok|AssertionError|ERR_ASSERTION|testCodeFailure|Error:' /tmp/sg-tests.log | tail -n 320 || true
+          echo "=== LAST TEST OUTPUT ==="
+          tail -n 180 /tmp/sg-tests.log
           exit "$status"
       - run: npm start
       - run: npm run start:worker

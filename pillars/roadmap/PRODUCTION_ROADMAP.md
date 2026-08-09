@@ -12,7 +12,7 @@ The production stage must preserve these rules:
 - Identity, permissions, scope, resource authority and trust order remain centralized.
 - Transports provide platform facts but cannot assign roles, grants, resource ownership or final response-language policy.
 - Domain modules cannot redefine Semantic Kernel, Identity, Action Gate or trust order.
-- Secrets never become ordinary memory, prompt context or unrestricted telemetry.
+- Secrets never become ordinary memory, Self Knowledge, prompt context or unrestricted telemetry.
 - Conversation state is bounded dialogue continuity and never becomes confirmed memory automatically.
 - Every production action must be observable and recoverable.
 
@@ -47,8 +47,9 @@ Repository-wide audit hardening after Block 16.16 additionally closed cross-modu
 ## Current implementation boundary
 
 - Blocks 11–16.16 listed above are completed and implementation-verified.
-- Block 16.18 — Monarch Control / Owner Security is planned next.
-- Block 17 — Render Deployment follows only after Block 16.18 is implementation- and acceptance-verified.
+- Block 16.17 — Self Knowledge / System Self-Awareness is planned next.
+- Block 16.18 — Monarch Control / Owner Security follows after Block 16.17.
+- Block 17 — Render Deployment follows only after Blocks 16.17 and 16.18 are implementation- and acceptance-verified.
 - Blocks 18–19 and Pilot Launch remain subsequent stages.
 
 ---
@@ -150,7 +151,7 @@ Acceptance evidence: `16_11_SESSION_AND_CONVERSATION_CONTEXT.md`.
 
 # Completed foundational continuation before Render
 
-These blocks complete core control, ownership, continuity, extensibility and rollout foundations. Block 16.18 adds the explicit owner-security boundary before deployment becomes the next mandatory stage.
+These blocks complete core control, ownership, continuity, extensibility and rollout foundations. Block 16.17 adds canonical Self Knowledge, and Block 16.18 adds the explicit owner-security boundary before deployment becomes the next mandatory stage.
 
 Canonical dependency direction:
 
@@ -165,11 +166,12 @@ Canonical dependency direction:
 → 16.14 Internal Event Bus [completed]
 → 16.15 Schema & Contract Versioning [completed]
 → 16.16 Feature Flags & Controlled Rollout [completed]
-→ 16.18 Monarch Control / Owner Security [planned, next]
+→ 16.17 Self Knowledge / System Self-Awareness [planned, next]
+→ 16.18 Monarch Control / Owner Security [planned]
 → 17 Render Deployment
 ```
 
-Architecture coordination: `../architecture/FOUNDATIONAL_CONTROL_LAYERS.md` and `../architecture/MONARCH_OWNER_SECURITY.md`.
+Architecture coordination: `../architecture/FOUNDATIONAL_CONTROL_LAYERS.md`, `../architecture/SELF_KNOWLEDGE.md` and `../architecture/MONARCH_OWNER_SECURITY.md`.
 
 ---
 
@@ -544,10 +546,57 @@ Detailed specification and evidence: `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT
 
 ---
 
-# Block 16.18 — Monarch Control / Owner Security
+# Block 16.17 — Self Knowledge / System Self-Awareness
 
 ## Status
 Planned — next mandatory block.
+
+## Goal
+Give SG a durable, structured and verifiable model of itself so it can answer what SG is, what it can do, what is implemented, what is planned and what its current limitations are without guessing from model context or re-reading the whole repository on every request.
+
+## Required scope
+- dedicated Self Knowledge storage separate from user/project memory;
+- structured identity, purpose, owner, architecture, capability, module, integration, development-status and limitation facts;
+- canonical statuses `implemented`, `partial`, `planned`, `disabled`, `broken`, `unknown`;
+- revision-bound snapshots with provenance, source revision, Git commit SHA, environment and validation status;
+- `SelfKnowledgeBuilder`;
+- `SelfKnowledgeConsistencyChecker`;
+- documentation/implementation/runtime mismatch detection;
+- bounded retrieval for system-self-description questions;
+- runtime/diagnostics verification handoff for live-state questions;
+- secret-safe observability;
+- prompt/user/model resistance for canonical identity, owner and architecture truth.
+
+## Boundaries
+- Self Knowledge is not ordinary memory, personality or a second reasoning engine;
+- user messages and AI output cannot redefine canonical SG identity, owner or architecture truth;
+- raw secrets never enter Self Knowledge;
+- Self Knowledge cannot grant permissions, ownership or authority;
+- roadmap text alone cannot prove implementation;
+- live operational state still requires runtime evidence where applicable.
+
+## Acceptance criteria
+- [ ] dedicated Self Knowledge storage is isolated from user/project memory;
+- [ ] canonical identity/purpose/owner/architecture facts are queryable;
+- [ ] capabilities/modules/integrations expose one canonical status;
+- [ ] snapshots are deterministic, versioned and revision-bound;
+- [ ] no-op rebuild does not create duplicate state;
+- [ ] roadmap-vs-code/runtime conflicts are detected and surfaced;
+- [ ] planned/disabled/broken/unknown features are never claimed as working;
+- [ ] self-description does not require full-repository prompt injection;
+- [ ] live-state questions can invoke runtime/diagnostics verification;
+- [ ] user/model injection cannot alter canonical owner/identity facts;
+- [ ] restart persistence, secret-leakage and isolation tests pass.
+
+Detailed specification: `16_17_SELF_KNOWLEDGE_SYSTEM_SELF_AWARENESS.md`.
+Architecture: `../architecture/SELF_KNOWLEDGE.md`.
+
+---
+
+# Block 16.18 — Monarch Control / Owner Security
+
+## Status
+Planned — follows Block 16.17.
 
 ## Goal
 Guarantee that only the verified SG owner/Monarch can alter SG-wide security, privileged configuration, roles/grants, owner/global identity administration and other owner-only system state.
@@ -591,7 +640,7 @@ Architecture: `../architecture/MONARCH_OWNER_SECURITY.md`.
 Planned — follows Block 16.18.
 
 ## Goal
-Deploy SG 2.1 as a controlled production environment on Render after foundational control layers and Monarch/Owner Security are implementation-verified.
+Deploy SG 2.1 as a controlled production environment on Render after foundational control layers, Self Knowledge and Monarch/Owner Security are implementation-verified.
 
 ## Target services
 
@@ -623,6 +672,7 @@ Deploy SG 2.1 as a controlled production environment on Render after foundationa
 - connection/credential readiness evidence;
 - resource-authority readiness evidence;
 - conversation/session persistence readiness evidence;
+- Block 16.17 Self Knowledge readiness evidence;
 - Block 16.18 owner-security readiness evidence.
 
 ## Acceptance criteria
@@ -660,6 +710,8 @@ Prove the product through real external flows rather than only unit/contract tes
 - conversation/session survival after restart;
 - task creation/scheduled execution;
 - protected confirmation and Action Gate denial;
+- system self-description consistency and planned-vs-implemented distinction;
+- live-state self-questions verified through diagnostics/runtime evidence;
 - owner-only system-change denial for non-owner actors;
 - original actor preservation through queued/worker/tool execution;
 - owner impersonation/identity-link rejection;
@@ -673,7 +725,7 @@ Prove the product through real external flows rather than only unit/contract tes
 
 ## Acceptance criteria
 - each scenario has reproducible evidence;
-- no identity, resource, connection, settings, conversation, language or memory cross-contamination;
+- no identity, resource, connection, settings, conversation, language, memory or Self Knowledge cross-contamination;
 - protected actions remain blocked when evidence/authorization/authority is missing;
 - non-owner actors cannot execute owner-only SG changes directly or indirectly;
 - restart recovery works without silent work loss;
@@ -688,12 +740,13 @@ Prove the product through real external flows rather than only unit/contract tes
 Planned.
 
 ## Goal
-Prepare SG for controlled real-user use with operational safeguards after foundational mechanisms, owner-security controls and E2E behavior are verified.
+Prepare SG for controlled real-user use with operational safeguards after foundational mechanisms, Self Knowledge, owner-security controls and E2E behavior are verified.
 
 ## Deliverables
 - rate limiting by identity/transport;
 - webhook/endpoint hardening;
 - role/grant/resource-authority/owner-security audit;
+- Self Knowledge provenance/staleness/conflict operational checks;
 - credential/secret scanning and redaction verification;
 - data retention/export/deletion procedures;
 - backup/recovery testing;
@@ -733,5 +786,6 @@ Validate the production system with deliberately limited real-user scope.
 - approved low-risk capabilities;
 - mandatory confirmation for protected actions;
 - controlled feature flags;
+- Self Knowledge enabled and revision-validated;
 - owner-only SG changes enforced by Block 16.18;
 - close monitoring of cost, errors, resource authority, owner-security denials, delivery, conversation isolation and memory isolation.

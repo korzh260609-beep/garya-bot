@@ -15,17 +15,18 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 1. `SG21_SYSTEM.md`
 2. `SEMANTIC_KERNEL.md`
 3. `CONTEXT_AND_MEMORY.md`
-4. `DECISION_AND_ACTION_GATE.md`
-5. `CAPABILITY_SYSTEM.md`
-6. `IDENTITY_AND_SCOPE.md`
-7. `OBSERVABILITY.md`
-8. `TRANSPORTS_AND_AI_ROUTING.md`
-9. `LANGUAGE_AND_LOCALE_CONTEXT.md`
-10. `FOUNDATIONAL_CONTROL_LAYERS.md`
-11. `SELF_KNOWLEDGE.md`
-12. `MONARCH_OWNER_SECURITY.md`
-13. `RUNTIME_COMPOSITION.md`
-14. `POSTGRESQL_PERSISTENCE.md`
+4. `MEMORY_2_0.md`
+5. `DECISION_AND_ACTION_GATE.md`
+6. `CAPABILITY_SYSTEM.md`
+7. `IDENTITY_AND_SCOPE.md`
+8. `OBSERVABILITY.md`
+9. `TRANSPORTS_AND_AI_ROUTING.md`
+10. `LANGUAGE_AND_LOCALE_CONTEXT.md`
+11. `FOUNDATIONAL_CONTROL_LAYERS.md`
+12. `SELF_KNOWLEDGE.md`
+13. `MONARCH_OWNER_SECURITY.md`
+14. `RUNTIME_COMPOSITION.md`
+15. `POSTGRESQL_PERSISTENCE.md`
 
 ## Core flow
 
@@ -48,6 +49,8 @@ Input
 → Observability / Internal Events
 ```
 
+Memory 2.0 is the canonical durable memory subsystem layered behind Context Resolution and response-context assembly. It preserves user/group/thread/project isolation, privacy-first recall, lifecycle, provenance and verified `global_user_id` continuity without replacing Conversation Context or System Self Knowledge.
+
 Self Knowledge is a shared system-context layer used for evidence-aware descriptions of SG itself. It does not sit as a mandatory reasoning hop in every request and does not replace live diagnostics.
 
 ## Non-negotiable boundaries
@@ -55,6 +58,7 @@ Self Knowledge is a shared system-context layer used for evidence-aware descript
 - SG code does not imitate reasoning with keyword routing.
 - Gates protect actions and do not become a second brain.
 - Memory supplies bounded context and does not own SG identity.
+- Memory 2.0 cannot broaden scope, privacy, authority or trust during capture/recall/consolidation.
 - System Self Knowledge is separate from user/project memory and cannot grant authority.
 - Commands are shortcuts; natural language is primary.
 - Transports are thin adapters.

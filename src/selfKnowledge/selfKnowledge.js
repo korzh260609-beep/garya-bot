@@ -29,6 +29,12 @@ function kind(value) {
 }
 function factKey(fact) { return `${fact.category}:${fact.key}`; }
 function priority(category) { const index = CATEGORY_PRIORITY.indexOf(category); return index === -1 ? CATEGORY_PRIORITY.length : index; }
+function compareFacts(a, b) {
+  return priority(a.category) - priority(b.category)
+    || a.category.localeCompare(b.category)
+    || a.key.localeCompare(b.key)
+    || a.factId.localeCompare(b.factId);
+}
 
 export function createSelfKnowledgeFact(input = {}) {
   const category = required(input.category, 'category');
@@ -135,7 +141,7 @@ export function createSelfKnowledgeConsistencyChecker() {
         }
         resolved.push(chosen);
       }
-      resolved.sort((a,b) => priority(a.category) - priority(b.category) || a.category.localeCompare(b.category) || a.key.localeCompare(b.key));
+      resolved.sort(compareFacts);
       return Object.freeze({ facts: Object.freeze(resolved), conflicts: Object.freeze(conflicts), validationStatus: conflicts.length ? 'conflicted' : 'valid' });
     }
   });
@@ -185,7 +191,9 @@ export function createSelfKnowledgeService({ store } = {}) {
       const categorySet = new Set(categories);
       const keySet = new Set(keys);
       const statusSet = new Set(includeStatuses);
-      const candidates = snapshot.facts.filter((fact) => statusSet.has(fact.status) && (categorySet.size === 0 || categorySet.has(fact.category)) && (keySet.size === 0 || keySet.has(fact.key)));
+      const candidates = snapshot.facts
+        .filter((fact) => statusSet.has(fact.status) && (categorySet.size === 0 || categorySet.has(fact.category)) && (keySet.size === 0 || keySet.has(fact.key)))
+        .sort(compareFacts);
       const selected = candidates.slice(0, maxFacts);
       return Object.freeze({ facts: Object.freeze(selected), snapshot, diagnostics: Object.freeze({ returnedCount: selected.length, truncated: candidates.length > selected.length, validationStatus: snapshot.validationStatus, conflictCount: snapshot.conflicts.length }) });
     }

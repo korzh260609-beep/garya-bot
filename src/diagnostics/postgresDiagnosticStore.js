@@ -61,6 +61,15 @@ export function createPostgresDiagnosticStore({ database } = {}) {
     async listRegressions({ enabledOnly = true } = {}) {
       const result = await database.query('SELECT * FROM diagnostic_regressions WHERE ($1::boolean=false OR enabled=true) ORDER BY created_at, regression_id', [enabledOnly]);
       return result.rows;
+    },
+    async recordAccess({ accessId = randomUUID(), actorGlobalUserId = null, method, path, outcome, reason = null } = {}) {
+      const result = await database.query(`INSERT INTO diagnostic_access_audit(access_id,actor_global_user_id,method,path,outcome,reason)
+        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`, [accessId, actorGlobalUserId, required(method, 'method'), required(path, 'path'), required(outcome, 'outcome'), reason]);
+      return result.rows[0];
+    },
+    async listAccessAudit({ limit = 100 } = {}) {
+      const result = await database.query('SELECT * FROM diagnostic_access_audit ORDER BY created_at DESC, access_id DESC LIMIT $1', [limit]);
+      return result.rows;
     }
   });
 }

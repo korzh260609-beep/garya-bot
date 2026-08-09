@@ -46,3 +46,58 @@ Do not roll back Memory 2.0, Identity, or Self Knowledge merely because this bas
 - Exact-echo regression at this revision: `NOT OBSERVED` in the recorded live test
 - Correct SG self-identity: `FAILED`
 - Correct verified user identity/profile enrichment: `FAILED`
+
+## Baseline LB-002 — verified SG and Monarch identity responses
+
+- Branch: `dev/sg2.1-semantic`
+- Revision: `9727982ae067b8dbf96ffca21465a1e63588f337`
+- CI: `SG 2.1 CI #6876` — `SUCCESS`
+- Environment evidence: live Telegram tests after deployment of this revision
+- Date: 2026-08-09
+
+### Confirmed working
+
+This revision is a **known-good live identity baseline**.
+
+Observed live Telegram behavior:
+
+- `кто я?` resolved the current Telegram account to verified Global ID `usr_48cc07c069030fb3`;
+- the same response exposed the verified role `monarch`;
+- Telegram descriptive profile data was available without being used to create authority;
+- `кто ты?` resolved SG canonically as `Советник GARYA (SG)`;
+- the self-identity response used verified Self Knowledge facts for system name, entity type and purpose;
+- the self-identity answer was dynamically composed rather than bound to the literal phrase `кто ты?`;
+- semantic identity routing remains based on `self_identity` / `user_identity`, independent of exact wording, language, transport command syntax or secret phrases.
+
+### Identity architecture confirmed by this baseline
+
+`Telegram platform identity → canonical Global ID → roles/profile → BoundedResponseContext → semantic identity intent → Identity Response Contract → AI formatting → contract validation → Telegram response`
+
+For SG self identity:
+
+`Self Knowledge authority facts → BoundedResponseContext → self_identity contract → required canonical anchor Советник GARYA → AI formatting → validation`
+
+AI may formulate the natural-language response, but it does not determine SG identity, Global ID, role or owner/Monarch authority.
+
+### Diagnostic value
+
+If a later revision regresses identity behavior, compare against this revision before changing Identity Resolver, Self Knowledge, Memory 2.0 or Telegram transport.
+
+Specific regressions to detect:
+
+- `кто я?` loses canonical Global ID or `monarch` role;
+- Telegram display name is incorrectly treated as authority;
+- `кто ты?` stops using `Советник GARYA`;
+- identity answers become literal phrase handlers or static command responses;
+- Self Knowledge canonical identity facts are truncated before Identity Response Contract;
+- AI is allowed to invent or override verified identity facts.
+
+### Evidence classification
+
+- Live Telegram user identity resolution: `CONFIRMED`
+- Monarch Global ID resolution: `CONFIRMED`
+- Monarch role resolution: `CONFIRMED`
+- Correct SG canonical self-identity: `CONFIRMED`
+- Semantic identity routing without literal phrase binding: `CONFIRMED BY CODE + CI`, with live Russian wording verified
+- Identity Response Contract enforcement: `CONFIRMED BY CODE + CI`
+- Exact-echo regression in tested identity responses: `NOT OBSERVED`

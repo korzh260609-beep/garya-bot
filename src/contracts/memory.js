@@ -1,6 +1,9 @@
 const LAYERS = Object.freeze([
   'session',
   'user-memory',
+  'user-group-memory',
+  'group-memory',
+  'thread-memory',
   'project-memory',
   'dialogue-archive',
   'topic-digest',
@@ -32,12 +35,14 @@ function requireLayer(value) {
 
 function freezeScope(scope) {
   requireObject(scope, 'scope');
-  return Object.freeze({
+  const frozen = Object.freeze({
     userScope: requireString(scope.userScope, 'scope.userScope'),
     projectScope: requireString(scope.projectScope, 'scope.projectScope'),
     groupScope: optionalString(scope.groupScope, 'scope.groupScope'),
     threadScope: optionalString(scope.threadScope, 'scope.threadScope')
   });
+  if (frozen.threadScope && !frozen.groupScope) throw new TypeError('thread scope requires group scope');
+  return frozen;
 }
 
 export function memoryLayers() {

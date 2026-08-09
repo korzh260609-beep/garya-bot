@@ -1,6 +1,6 @@
 # SG 2.1 ROADMAP
 
-Roadmap defines what is built, dependency order, gates and acceptance boundaries. Blocks 0–10 are documented as individual roadmap files. The production continuation is documented canonically in `PRODUCTION_ROADMAP.md`, which contains Blocks 11–19, including intermediate Blocks 16.5–16.16, and Pilot Launch as one coordinated production program.
+Roadmap defines what is built, dependency order, gates and acceptance boundaries. Blocks 0–10 are documented as individual roadmap files. The production continuation is documented canonically in `PRODUCTION_ROADMAP.md`, which contains Blocks 11–19, including intermediate Blocks 16.5–16.18, and Pilot Launch as one coordinated production program.
 
 ## Order
 0. `00_ENGINEERING_FOUNDATION.md`
@@ -35,6 +35,7 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 29. `16_14_INTERNAL_EVENT_BUS.md` — implementation and acceptance evidence for Block 16.14
 30. `16_15_SCHEMA_AND_CONTRACT_VERSIONING.md` — implementation and acceptance evidence for Block 16.15
 31. `16_16_FEATURE_FLAGS_AND_CONTROLLED_ROLLOUT.md` — implementation and acceptance evidence for Block 16.16
+32. `16_18_MONARCH_CONTROL_OWNER_SECURITY.md` — planned Block 16.18 specification and future acceptance evidence
 
 ## Production continuation
 
@@ -58,12 +59,15 @@ Roadmap defines what is built, dependency order, gates and acceptance boundaries
 16. Block 16.14 — Internal Event Bus — completed and production-wired
 17. Block 16.15 — Schema & Contract Versioning — completed and production-wired
 18. Block 16.16 — Feature Flags & Controlled Rollout — completed
-19. Block 17 — Render Deployment — next
-20. Block 18 — End-to-End Verification
-21. Block 19 — Security and Operations
-22. Pilot Launch
+19. Block 16.18 — Monarch Control / Owner Security — planned, next
+20. Block 17 — Render Deployment
+21. Block 18 — End-to-End Verification
+22. Block 19 — Security and Operations
+23. Pilot Launch
 
 Repository-wide audit hardening after Block 16.16 additionally verifies canonical observability compatibility, version enforcement at production capability boundaries, production Event Bus/Domain Runtime composition, canonical feature-disabled results and rollback-safe Render startup. This hardening is corrective work within completed blocks and does not create a new roadmap block.
+
+Block 16.18 is intentionally placed before deployment so the verified owner/Monarch boundary, deny-by-default owner-only operations and anti-bypass controls are explicit before production rollout.
 
 Each production block must still be independently verifiable, reversible and completed through code, tests, documentation, CI and runtime evidence.
 

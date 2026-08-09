@@ -190,3 +190,54 @@ test('Block 14 returns visible bounded failure when Telegram delivery is unavail
   assert.equal(result.body.code, 'telegram-network-failure');
   assert.equal(store.snapshot().get(301).status, 'failed');
 });
+
+test('production early ACK returns before slow runtime finishes and later delivers the response', async () => {
+  const store = createInMemoryTelegramUpdateStore();
+  const sent = [];
+  let releaseRuntime;
+  const runtimeWait = new Promise((resolve) => { releaseRuntime = resolve; });
+  const integration = createTelegramProductionIntegration({
+    secretToken: 'secret',
+    acknowledgeBeforeProcessing: true,
+    botClient: { sendMessage: async (payload) => sent.push(payload) },
+    updateStore: store,
+    identityResolver,
+    runtime: { handle: async () => { await runtimeWait; return { status: 'success', message: 'Привет 🙂', data: {} }; } }
+  });
+
+  const result = await integration.handleWebhook({ headers: { 'x-telegram-bot-api-secret-token': 'secret' }, body: update({ update_id: 401 }) });
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(result.body, { ok: true, accepted: true });
+  assert.equal(store.snapshot().get(401).status, 'processing');
+  assert.equal(sent.length, 0);
+
+  releaseRuntime();
+  await integration.drainPending();
+  assert.equal(store.snapshot().get(401).status, 'completed');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].text, 'Привет 🙂');
+});
+
+test('production early ACK sends a visible localized fallback if runtime fails after acknowledgement', async () => {
+  const store = createInMemoryTelegramUpdateStore();
+  const sent = [];
+  const integration = createTelegramProductionIntegration({
+    secretToken: 'secret',
+    acknowledgeBeforeProcessing: true,
+    botClient: { sendMessage: async (payload) => sent.push(payload) },
+    updateStore: store,
+    identityResolver,
+    runtime: { handle: async () => { const error = new Error('internal semantic failure'); error.code = 'semantic-failed'; throw error; } }
+  });
+
+  const result = await integration.handleWebhook({ headers: { 'x-telegram-bot-api-secret-token': 'secret' }, body: update({ update_id: 402 }) });
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(result.body, { ok: true, accepted: true });
+
+  await integration.drainPending();
+  assert.equal(store.snapshot().get(402).status, 'failed');
+  assert.equal(store.snapshot().get(402).failureCode, 'semantic-failed');
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].text, /Не удалось обработать сообщение/);
+  assert.equal(sent[0].replyToMessageId, 11);
+});

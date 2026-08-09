@@ -30,7 +30,7 @@ test('M1: shared group scope is first-class and has no fake global user owner', 
   assert.throws(() => createMemory2Scope({ kind: 'group', ownerGlobalUserId: 'usr_a', projectScope: 'sg2.1', groupScope: 'group:1' }), /no owner/i);
 });
 
-test('M1: personal, user-group, group, thread and project scopes do not contaminate each other', async () => {
+test('M1: hierarchical recall includes broader scopes but never sibling group/thread scopes', async () => {
   const { service } = serviceFixture();
   await service.write({ key: 'personal', value: 'A', scope: scope(), actor: actor(), confirmed: true });
   await service.write({ key: 'local', value: 'A@G1', scope: scope('usr_a','g1'), actor: actor(), scopeKind: 'user-group', confirmed: true });
@@ -38,9 +38,10 @@ test('M1: personal, user-group, group, thread and project scopes do not contamin
   await service.write({ key: 'thread', value: 'T1', scope: scope('usr_a','g1','t1'), actor: actor('usr_a',['manager']), scopeKind: 'thread', shared: true, confirmed: true });
   await service.write({ key: 'project', value: 'P', scope: scope(), actor: actor('usr_a',['monarch']), scopeKind: 'project', shared: true, confirmed: true });
 
-  assert.deepEqual((await service.recall({ scope: scope(), actor: actor(), query: '' })).records.map((r) => r.key), ['personal']);
-  assert.deepEqual(new Set((await service.recall({ scope: scope('usr_a','g1'), actor: actor(), query: '' })).records.map((r) => r.key)), new Set(['local','shared']));
-  assert.deepEqual(new Set((await service.recall({ scope: scope('usr_a','g1','t1'), actor: actor(), query: '' })).records.map((r) => r.key)), new Set(['thread']));
+  assert.deepEqual(new Set((await service.recall({ scope: scope(), actor: actor(), query: '' })).records.map((r) => r.key)), new Set(['personal','project']));
+  assert.deepEqual(new Set((await service.recall({ scope: scope('usr_a','g1'), actor: actor(), query: '' })).records.map((r) => r.key)), new Set(['personal','local','shared','project']));
+  assert.deepEqual(new Set((await service.recall({ scope: scope('usr_a','g1','t1'), actor: actor(), query: '' })).records.map((r) => r.key)), new Set(['personal','local','shared','thread','project']));
+  assert.equal((await service.recall({ scope: scope('usr_a','g2'), actor: actor(), query: 'shared thread local' })).records.some((r) => ['local','shared','thread'].includes(r.key)), false);
 });
 
 // M2 — Shared Group Memory
@@ -222,6 +223,14 @@ test('M9: diagnostics are scope-authorized and expose counters without memory pa
   assert.equal(report.byPrivacy.private, 2);
   assert.equal(JSON.stringify(report).includes('one'), false);
   assert.equal(JSON.stringify(report).includes('two'), false);
+});
+
+test('M9: concurrent equivalent writes converge to one stored record', async () => {
+  const { service, store } = serviceFixture();
+  const request = { key: 'concurrent', value: 'one-copy', scope: scope(), actor: actor(), confirmed: true };
+  const results = await Promise.all([service.write(request), service.write(request), service.write(request)]);
+  assert.equal(new Set(results.map((item) => item.record.id)).size, 1);
+  assert.equal((await store.listAll()).length, 1);
 });
 
 test('M9: integrity checker validates scope/supersession chains and audit never receives raw memory value', async () => {

@@ -22,8 +22,9 @@ SG 2.1 is one global transport-independent project system whose reasoning layer 
 8. `TRANSPORTS_AND_AI_ROUTING.md`
 9. `LANGUAGE_AND_LOCALE_CONTEXT.md`
 10. `FOUNDATIONAL_CONTROL_LAYERS.md`
-11. `RUNTIME_COMPOSITION.md`
-12. `POSTGRESQL_PERSISTENCE.md`
+11. `MONARCH_OWNER_SECURITY.md`
+12. `RUNTIME_COMPOSITION.md`
+13. `POSTGRESQL_PERSISTENCE.md`
 
 ## Core flow
 
@@ -37,6 +38,7 @@ Input
 → Decision Envelope
 → Capability Selection
 → Resource/Connection Authority Context where required
+→ Owner Security Policy where SG-wide privileged state is targeted
 → Action Classification
 → Action Gate
 → Execution or Answer
@@ -59,6 +61,9 @@ Input
 - Raw secrets remain outside ordinary memory, prompts and telemetry.
 - External connections are registered components, not identities or proof of resource ownership.
 - Resource Ownership & Authority complements Identity, Scope and Access rather than replacing them.
+- Verified owner/Monarch authority is rooted in `global_user_id`, not usernames, phrases, commands or AI interpretation.
+- Only the verified owner may change SG-wide security/authority state; delegated permissions never imply SG ownership.
+- AI, agents, tasks, workers, tools, events and domain modules cannot self-escalate or bypass owner/security authorization.
 - Conversation context is separate from confirmed long-term memory.
 - User preferences cannot weaken mandatory security or Action Gate requirements.
 - Delivery cannot target unauthorized users or resources.

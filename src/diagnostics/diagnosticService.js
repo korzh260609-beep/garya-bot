@@ -2,7 +2,20 @@ import { randomUUID } from 'node:crypto';
 import { createDiagnosticReport } from './contracts.js';
 import { createExpectedPathRegistry } from './pathRegistry.js';
 import { analyzeRootCause, buildFindings, downstreamEffects, findFirstDivergence, isTraceInFlight, reconstructTrace } from './analyzer.js';
+import { evaluateTraceInvariants } from './invariants.js';
 import { liveResultEvidence } from './liveRunner.js';
+
+function rootCauseFromFinding(finding) {
+  if (!finding) return null;
+  return Object.freeze({
+    errorClass: finding.errorClass,
+    component: finding.component,
+    confidence: finding.confidence,
+    summary: finding.summary,
+    evidenceIds: finding.evidenceIds,
+    data: finding.data
+  });
+}
 
 export function createDiagnosticService({
   store,
@@ -36,22 +49,36 @@ export function createDiagnosticService({
         evidence.push(...persistedDeployment);
         deploymentFindings = [...deploymentSource.evaluate(persistedDeployment, deployment.expectedRevision)];
       }
+
       const selectedPathId = pathId ?? pathRegistry.infer(evidence.filter((item) => item.source === 'sg-observability'));
       const expectedPath = pathRegistry.get(selectedPathId);
       const traceEvidence = evidence.filter((item) => item.source === 'sg-observability');
       const trace = reconstructTrace({ expectedPath, evidence: traceEvidence });
       const firstDivergence = findFirstDivergence(trace);
+      const invariantFindings = [...evaluateTraceInvariants(trace)];
       const nowMs = Date.parse(clock());
-      const inFlight = isTraceInFlight(trace, firstDivergence, { nowMs: Number.isFinite(nowMs) ? nowMs : Date.now(), graceMs: inFlightGraceMs });
-      const rootCause = inFlight ? null : analyzeRootCause({ trace, firstDivergence, deploymentFindings });
-      const findings = inFlight ? Object.freeze([...deploymentFindings]) : buildFindings({ trace, firstDivergence, rootCause, deploymentFindings });
+      const inFlight = invariantFindings.length === 0 && isTraceInFlight(trace, firstDivergence, { nowMs: Number.isFinite(nowMs) ? nowMs : Date.now(), graceMs: inFlightGraceMs });
+      const confirmedInvariant = invariantFindings.find((item) => item.confidence === 'CONFIRMED');
+      const rootCause = inFlight
+        ? null
+        : rootCauseFromFinding(deploymentFindings.find((item) => item.kind === 'deployment-mismatch' && item.confidence === 'CONFIRMED'))
+          ?? rootCauseFromFinding(confirmedInvariant)
+          ?? analyzeRootCause({ trace, firstDivergence, deploymentFindings });
+      const baseFindings = inFlight ? [...deploymentFindings] : [...buildFindings({ trace, firstDivergence, rootCause, deploymentFindings })];
+      const findings = Object.freeze([...baseFindings, ...invariantFindings.filter((item) => !baseFindings.some((existing) => existing.findingId === item.findingId))]);
       await store.saveFindings(runId, findings);
+
       const unknowns = [];
       if (traceEvidence.length === 0) unknowns.push('No matching SG observability evidence was found.');
       if (includeDeployment && !deploymentSource) unknowns.push('Deployment evidence source is not configured.');
       if (inFlight) unknowns.push(`Trace is still within the ${inFlightGraceMs}ms in-flight grace window; missing later stages are not classified as failures yet.`);
       const status = inFlight ? 'in-flight' : rootCause && rootCause.data?.expectedControlOutcome ? 'controlled' : rootCause ? 'failed' : firstDivergence ? 'degraded' : 'healthy';
-      const report = createDiagnosticReport({ runId, mode: 'request', status, traceId, requestId, environment, revision, expectedPathId: expectedPath.id, firstDivergence, rootCause, downstreamEffects: inFlight ? [] : downstreamEffects(trace, firstDivergence), findings, evidenceCount: evidence.length, unknowns, generatedAt: clock() });
+      const report = createDiagnosticReport({
+        runId, mode: 'request', status, traceId, requestId, environment, revision,
+        expectedPathId: expectedPath.id, firstDivergence, rootCause,
+        downstreamEffects: inFlight ? [] : downstreamEffects(trace, firstDivergence),
+        findings, evidenceCount: evidence.length, unknowns, generatedAt: clock()
+      });
       await store.completeRun({ runId, status, report });
       return Object.freeze({ report, trace, evidence: Object.freeze(evidence) });
     } catch (error) {
@@ -78,7 +105,7 @@ export function createDiagnosticService({
       const failed = evidence.filter((item) => ['failed', 'timeout'].includes(item.status));
       const status = findings.some((item) => item.confidence === 'CONFIRMED') || failed.length ? 'degraded' : 'healthy';
       await store.saveFindings(runId, findings);
-      const report = createDiagnosticReport({ runId, mode: 'system', status, environment, revision, rootCause: findings.find((item) => item.kind === 'deployment-mismatch') ?? null, findings, evidenceCount: evidence.length, unknowns: deploymentSource ? [] : ['Deployment evidence source is not configured.'], generatedAt: clock() });
+      const report = createDiagnosticReport({ runId, mode: 'system', status, environment, revision, rootCause: rootCauseFromFinding(findings.find((item) => item.kind === 'deployment-mismatch')) ?? null, findings, evidenceCount: evidence.length, unknowns: deploymentSource ? [] : ['Deployment evidence source is not configured.'], generatedAt: clock() });
       await store.completeRun({ runId, status, report });
       return Object.freeze({ report, evidence: Object.freeze(evidence) });
     } catch (error) {
@@ -106,10 +133,12 @@ export function createDiagnosticService({
     const expectedPath = pathRegistry.get(regression.fixture?.pathId ?? 'conversation');
     const trace = reconstructTrace({ expectedPath, evidence: fixtureEvidence });
     const firstDivergence = findFirstDivergence(trace);
-    const rootCause = analyzeRootCause({ trace, firstDivergence });
+    const invariantFindings = evaluateTraceInvariants(trace);
+    const rootCause = rootCauseFromFinding(invariantFindings.find((item) => item.confidence === 'CONFIRMED')) ?? analyzeRootCause({ trace, firstDivergence });
     const expected = regression.expected ?? {};
-    const passed = (expected.firstDivergenceStage == null || firstDivergence?.stage === expected.firstDivergenceStage) && (expected.errorClass == null || rootCause?.errorClass === expected.errorClass);
-    return Object.freeze({ regressionId: regression.regression_id ?? regression.regressionId, passed, firstDivergence, rootCause });
+    const passed = (expected.firstDivergenceStage == null || firstDivergence?.stage === expected.firstDivergenceStage)
+      && (expected.errorClass == null || rootCause?.errorClass === expected.errorClass);
+    return Object.freeze({ regressionId: regression.regression_id ?? regression.regressionId, passed, firstDivergence, rootCause, invariantFindings });
   }
 
   async function runRegressions() {

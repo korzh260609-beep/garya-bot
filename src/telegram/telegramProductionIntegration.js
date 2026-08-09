@@ -124,19 +124,13 @@ export function createTelegramProductionIntegration({
         messageThreadId: message.message_thread_id ?? null,
         replyToMessageId: message.message_id
       });
-      observability?.record?.({
-        eventClass: 'telegram_failure_response_delivered',
-        channel: 'telemetry',
-        stage: 'telegram-webhook',
-        outcome: 'delivered',
-        data: { failureCode: originalError?.code ?? 'telegram-update-failed' }
-      });
       return true;
     } catch (fallbackError) {
       observability?.recordFailure?.({
         stage: 'telegram-webhook-fallback',
         reason: redactSensitiveText(fallbackError?.message ?? 'fallback delivery failed'),
-        code: fallbackError?.code ?? 'telegram-fallback-delivery-failed'
+        code: fallbackError?.code ?? 'telegram-fallback-delivery-failed',
+        data: { originalFailureCode: originalError?.code ?? 'telegram-update-failed' }
       });
       return false;
     }
@@ -149,7 +143,10 @@ export function createTelegramProductionIntegration({
       observability?.record?.({ eventClass: 'telegram_update_completed', channel: 'telemetry', stage: 'telegram-webhook', traceContext: result.canonicalInput.traceContext, outcome: result.response.status, data: { invocation: invocation.reason } });
       return Object.freeze({ ok: true, result });
     } catch (error) {
-      await updateStore.fail(claim.updateId, error.code ?? 'telegram-update-failed');
+      try { await updateStore.fail(claim.updateId, error.code ?? 'telegram-update-failed'); }
+      catch (storeError) {
+        observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(storeError?.message ?? 'update failure persistence failed'), code: 'telegram-update-failure-persist-failed' });
+      }
       observability?.recordFailure?.({ stage: 'telegram-webhook', reason: redactSensitiveText(error.message), code: error.code ?? 'telegram-update-failed' });
       await deliverVisibleFailure(body, error);
       return Object.freeze({ ok: false, error });
@@ -158,7 +155,10 @@ export function createTelegramProductionIntegration({
 
   function trackBackground(promise) {
     pending.add(promise);
-    promise.finally(() => pending.delete(promise));
+    promise.then(
+      () => pending.delete(promise),
+      () => pending.delete(promise)
+    );
   }
 
   async function handleWebhook({ headers = {}, body } = {}) {
